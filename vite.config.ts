@@ -45,6 +45,12 @@ const roomRuntimeAssets = Object.freeze([
   { url: "/assets3d/room_slice.glb", file: "room_slice.glb", type: "model/gltf-binary", output: "glb" },
   { url: "/assets3d/room_slice.json", file: "room_slice.json", type: "application/json; charset=utf-8", output: "sidecar" },
 ] as const);
+const roomTextureRuntimeAssets = Object.freeze([
+  { url: "/assets3d/room_vfx_decal_atlas.png", file: "room_vfx_decal_atlas.png",
+    type: "image/png", manifest: "vfxDecals" },
+  { url: "/assets3d/room_vfx_flame.png", file: "room_vfx_flame.png",
+    type: "image/png", manifest: "vfxFlame" },
+] as const);
 const combatantRuntimeAssets = Object.freeze([
   { url: "/assets3d/combatants.glb", file: "combatants.glb", type: "model/gltf-binary", output: "glb" },
   { url: "/assets3d/combatants.json", file: "combatants.json", type: "application/json; charset=utf-8", output: "sidecar" },
@@ -58,6 +64,7 @@ function roomManifest() {
   const file = resolve(repositoryRoot, "tools/art/manifest.json");
   const value = JSON.parse(readFileSync(file, "utf8")) as {
     outputs?: Record<string, { path?: string; sha256?: string }>;
+    runtimeTextures?: Record<string, { runtimePath?: string; sha256?: string }>;
   };
   for (const asset of roomRuntimeAssets) {
     const output = value.outputs?.[asset.output];
@@ -69,7 +76,17 @@ function roomManifest() {
   if (validator?.path !== "web/assets3d/room_slice.validator.json" || !/^[0-9a-f]{64}$/.test(validator.sha256 ?? "")) {
     throw new Error("room manifest does not pin room_slice.validator.json");
   }
-  return value as { outputs: Record<string, { path: string; sha256: string }> };
+  for (const asset of roomTextureRuntimeAssets) {
+    const texture = value.runtimeTextures?.[asset.manifest];
+    if (texture?.runtimePath !== `web/assets3d/${asset.file}` ||
+        !/^[0-9a-f]{64}$/.test(texture.sha256 ?? "")) {
+      throw new Error(`room manifest does not pin ${asset.file}`);
+    }
+  }
+  return value as {
+    outputs: Record<string, { path: string; sha256: string }>;
+    runtimeTextures: Record<string, { runtimePath: string; sha256: string }>;
+  };
 }
 
 function combatantManifest() {
@@ -194,7 +211,8 @@ function wasmArtifactPlugin(): Plugin {
         response.setHeader("Content-Length", String(statSync(wasmArtifact).size));
         createReadStream(wasmArtifact).pipe(response);
       });
-      for (const asset of [...roomRuntimeAssets, ...combatantRuntimeAssets]) {
+      for (const asset of [...roomRuntimeAssets, ...roomTextureRuntimeAssets,
+        ...combatantRuntimeAssets]) {
         server.middlewares.use(asset.url, (request, response, next) => {
           if (request.url !== undefined && request.url !== "/" && request.url !== "") {
             next();
@@ -258,6 +276,13 @@ function wasmArtifactPlugin(): Plugin {
         }
         copyFileSync(source, resolve(roomOutputRoot, asset.file));
       }
+      for (const asset of roomTextureRuntimeAssets) {
+        const source = resolve(roomAssetRoot, asset.file);
+        if (sha256(source) !== manifest.runtimeTextures[asset.manifest]?.sha256) {
+          throw new Error(`representative room ${asset.file} differs from its manifest SHA-256`);
+        }
+        copyFileSync(source, resolve(roomOutputRoot, asset.file));
+      }
       for (const asset of combatantRuntimeAssets) {
         const source = resolve(roomAssetRoot, asset.file);
         verifyCombatantAsset(source, asset.output);
@@ -281,7 +306,9 @@ function wasmArtifactPlugin(): Plugin {
         throw new Error("representative combatant sidecar differs from its generated identity pins");
       }
       const copiedRoomAssets = readdirSync(roomOutputRoot).sort();
-      if (copiedRoomAssets.join(",") !== "combatants.glb,combatants.json,room_slice.glb,room_slice.json") {
+      if (copiedRoomAssets.join(",") !==
+          "combatants.glb,combatants.json,room_slice.glb,room_slice.json," +
+          "room_vfx_decal_atlas.png,room_vfx_flame.png") {
         throw new Error(`production room asset allowlist drifted: ${copiedRoomAssets.join(", ")}`);
       }
       const checkpoint = resolve(checkpointRoot, shippedCheckpoint.file);

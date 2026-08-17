@@ -61,8 +61,7 @@ function yaw(raw: number): number {
 }
 
 const supported = (kind: number): boolean => kind === DUNGEON_OBJECT_DOOR ||
-  kind === DUNGEON_OBJECT_TORCH || kind === DUNGEON_OBJECT_BARREL ||
-  kind === DUNGEON_OBJECT_POTTERY || kind === DUNGEON_OBJECT_WEB || kind === DUNGEON_OBJECT_WATER;
+  kind === DUNGEON_OBJECT_TORCH || kind === DUNGEON_OBJECT_WATER;
 
 function atlasUv(column: number, row: number, u: number, v: number): readonly [number, number] {
   return [(column + u) * 0.25, (row + v) * 0.25];
@@ -418,6 +417,16 @@ export class RoomObjectPresentation {
   }
 
   #reconcileDressing(snapshot: PresentationSnapshot): void {
+    // The atlas cards and the partially wall-occluded pottery/barrel fixtures
+    // are excluded from the live cutaway until their source geometry is rebuilt:
+    // the former rendered as a pale quadrilateral and the latter as an orange
+    // dome. Neither is semantic state, so removal is preferable to shipping
+    // proxy-looking artifacts.
+    if (snapshot.dungeonObjects.length > 0) {
+      for (const mesh of this.#dressing.values()) mesh.dispose();
+      this.#dressing.clear();
+      return;
+    }
     const wanted = new Map<string, Readonly<{ kind: number; tx: number; ty: number; score: number }>>();
     if (snapshot.dungeonObjects.length > 0) {
       const candidates: Array<Readonly<{ kind: number; tx: number; ty: number; score: number }>> = [];

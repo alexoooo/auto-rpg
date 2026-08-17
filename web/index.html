@@ -166,7 +166,7 @@
     .game-instruments { border: 1px solid var(--studio-panel-line); border-radius: .35rem;
       background: rgba(21, 18, 14, .96); box-shadow: var(--studio-bevel), 0 .6rem 2rem rgba(0, 0, 0, .45);
       pointer-events: auto; }
-    .game-instruments:not([open]) { width: max-content; }
+    .game-instruments:not([open]) { width: max-content; align-self: flex-start; }
     .game-instruments[open] { width: 100%; max-height: min(60svh, calc(100svh - 10rem)); overflow: auto; }
     .game-instruments > summary { padding: .55rem .75rem; color: var(--studio-dim); cursor: pointer;
       font: 600 .62rem/1 ui-monospace, Consolas, monospace; letter-spacing: .12em; text-transform: uppercase; }

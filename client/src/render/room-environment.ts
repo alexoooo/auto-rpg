@@ -97,7 +97,11 @@ export function chooseRoomAmbientDressing(
         snapshot.units.some((unit) => unit.visible &&
           Math.hypot(unit.x - (tx + 0.5), unit.y - (ty + 0.5)) < 1.5)) continue;
     const score = roomTileHash(seed, tx, ty, 0x44524553);
-    const piece = (score >>> 8) & 1 ? "decal_root" : "decal_rubble";
+    // The root card and barrel source have useful isolated-review silhouettes,
+    // but in the live isometric cutaway they read as a pale floor quadrilateral
+    // and an orange dome. Automatic runtime dressing therefore stays on the
+    // low-profile rubble source until those two authored meshes are rebuilt.
+    const piece = "decal_rubble";
     const wallAdjacent = [[-1, 0], [1, 0], [0, -1], [0, 1]].some(([dx, dy]) =>
       dx !== undefined && dy !== undefined && currentSolid(tx + dx, ty + dy));
     candidates.push({ piece, tx, ty, quarterTurns: ((score >>> 28) & 3) as 0 | 1 | 2 | 3,
@@ -113,11 +117,6 @@ export function chooseRoomAmbientDressing(
     if (selected.every((item) => Math.abs(item.tx - candidate.tx) +
         Math.abs(item.ty - candidate.ty) >= 3)) selected.push(candidate);
     if (selected.length === count) break;
-  }
-  if (selected.length >= 3) {
-    const root = selected[1], rubble = selected[2];
-    if (root !== undefined) selected[1] = { ...root, piece: "decal_root" };
-    if (rubble !== undefined) selected[2] = { ...rubble, piece: "decal_rubble" };
   }
   return Object.freeze(selected.map(({ score: _score, wallAdjacent: _wall, ...item }) =>
     Object.freeze(item)));
@@ -791,13 +790,12 @@ export class RoomEnvironmentPresentation {
     const candidate = snapshot as PresentationSnapshot & { roomDecorations?: readonly unknown[] };
     if (!Array.isArray(candidate.roomDecorations) || candidate.roomDecorations.length === 0) {
       for (const item of chooseRoomAmbientDressing(snapshot, this.#seed)) {
+        if (item.piece !== "decal_rubble") continue;
         const key = `ambient:${item.piece}:${item.tx}:${item.ty}`;
         const mesh = this.#add(this.#furniture, key, key, item.piece, item.tx, item.ty,
           item.quarterTurns, true, false, false);
-        const scale = item.piece === "prop_barrel" ? 0.72 :
-          item.piece === "decal_root" ? 2.1 : 1.9;
-        mesh.scaling.scaleInPlace(scale);
-        if (item.piece !== "prop_barrel") mesh.position.y += 0.025;
+        mesh.scaling.scaleInPlace(1.9);
+        mesh.position.y += 0.025;
       }
       return;
     }
@@ -805,7 +803,7 @@ export class RoomEnvironmentPresentation {
       if (unknown === null || typeof unknown !== "object") continue;
       const item = unknown as Record<string, unknown>;
       const piece = item.piece;
-      if (piece !== "decal_rubble" && piece !== "decal_root" && piece !== "prop_barrel") continue;
+      if (piece !== "decal_rubble") continue;
       if (typeof item.key !== "string" || !new RegExp(`^${piece}:[0-9]+$`).test(item.key)) continue;
       const tx = item.tx, ty = item.ty, turns = item.quarterTurns;
       if (!Number.isSafeInteger(tx) || !Number.isSafeInteger(ty) ||
@@ -818,9 +816,8 @@ export class RoomEnvironmentPresentation {
       this.#furnitureKeys.add(semanticKey);
       const mesh = this.#add(this.#furniture, semanticKey, semanticKey,
         piece, x, y, turns, true, true, true);
-      const scale = piece === "prop_barrel" ? 0.58 : piece === "decal_root" ? 2.1 : 1.9;
-      mesh.scaling.scaleInPlace(scale);
-      if (piece !== "prop_barrel") mesh.position.y += 0.025;
+      mesh.scaling.scaleInPlace(1.9);
+      mesh.position.y += 0.025;
     }
   }
 

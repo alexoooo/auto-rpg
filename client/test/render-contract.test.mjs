@@ -1731,8 +1731,8 @@ test("ambient_room_dressing_is_bounded_deterministic_disclosed_and_non_pickable"
   assert.deepEqual(first, second);
   assert.ok(first.length >= 3 && first.length <= 12);
   assert.deepEqual(new Set(first.map(({ piece }) => piece)),
-    new Set(["decal_root", "decal_rubble"]),
-    "automatic dressing stays low-profile; authored fixtures may place wall-adjacent barrels explicitly");
+    new Set(["decal_rubble"]),
+    "live automatic dressing excludes the root card and barrel sources that read as flat proxy artifacts");
   assert.ok(first.every(({ piece, tx, ty, quarterTurns }) =>
     (piece === "decal_rubble" || piece === "decal_root" || piece === "prop_barrel") &&
     map[ty * mapCols + tx] === ABI.MAP_OPEN && vis[ty * mapCols + tx] === 2 &&
@@ -3162,7 +3162,8 @@ test("vite_build_rewrites_no_hand_written_page_under_web_including_its_own_input
   assert.ok(fs.existsSync(path.join(ROOT, "dist", "index.html")));
   assert.ok(fs.existsSync(path.join(ROOT, "dist", "web.wasm")));
   assert.deepEqual(fs.readdirSync(path.join(ROOT, "dist", "assets3d")).sort(),
-    ["combatants.glb", "combatants.json", "room_slice.glb", "room_slice.json"]);
+    ["combatants.glb", "combatants.json", "room_slice.glb", "room_slice.json",
+      "room_vfx_decal_atlas.png", "room_vfx_flame.png"]);
   assert.deepEqual(fs.readFileSync(path.join(ROOT, "dist", "assets3d", "combatants.glb")),
     fs.readFileSync(path.join(ROOT, "web", "assets3d", "combatants.glb")));
   assert.deepEqual(fs.readFileSync(path.join(ROOT, "dist", "assets3d", "combatants.json")),
@@ -3171,6 +3172,10 @@ test("vite_build_rewrites_no_hand_written_page_under_web_including_its_own_input
     fs.readFileSync(path.join(ROOT, "web", "assets3d", "room_slice.glb")));
   assert.deepEqual(fs.readFileSync(path.join(ROOT, "dist", "assets3d", "room_slice.json")),
     fs.readFileSync(path.join(ROOT, "web", "assets3d", "room_slice.json")));
+  for (const texture of ["room_vfx_decal_atlas.png", "room_vfx_flame.png"]) {
+    assert.deepEqual(fs.readFileSync(path.join(ROOT, "dist", "assets3d", texture)),
+      fs.readFileSync(path.join(ROOT, "web", "assets3d", texture)));
+  }
   assert.equal(fs.existsSync(path.join(ROOT, "dist", "assets3d", "combatants.validator.json")), false);
   assert.equal(fs.existsSync(path.join(ROOT, "dist", "assets3d", "room_slice.validator.json")), false);
   const chunks = chunkGraph.readChunks(path.join(ROOT, "dist", "assets"));
@@ -3259,6 +3264,13 @@ test("vite_dev_serves_only_the_pinned_runtime_room_assets_with_exact_mime_and_ma
     assert.equal(sidecar.status, 200);
     assert.equal(sidecar.headers.get("content-type"), "application/json; charset=utf-8");
     assert.equal((await sidecar.json()).fixtureId, "v2-room-slice-1");
+    for (const texture of ["room_vfx_decal_atlas.png", "room_vfx_flame.png"]) {
+      const response = await fetch(`${origin}/assets3d/${texture}`);
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get("content-type"), "image/png");
+      assert.deepEqual(Buffer.from(await response.arrayBuffer()),
+        fs.readFileSync(path.join(ROOT, "web", "assets3d", texture)));
+    }
     const combatantGlb = await fetch(`${origin}/assets3d/combatants.glb`);
     assert.equal(combatantGlb.status, 200);
     assert.equal(combatantGlb.headers.get("content-type"), "model/gltf-binary");
