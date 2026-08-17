@@ -23,11 +23,12 @@ use fx::{
 };
 #[cfg(any(test, feature = "cartesian-recoil"))]
 use core::cmp::Ordering;
-#[cfg(feature = "cartesian-recoil")]
+#[cfg(all(test, feature = "cartesian-recoil"))]
 use core::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
+#[cfg(feature = "cartesian-recoil")]
+use crate::combat::wide::{checked_cmp_positive_into, PositiveRationalCmpWork};
 #[cfg(any(test, feature = "cartesian-recoil"))]
-use crate::combat::wide::{checked_cmp_positive_into, PositiveRationalCmpWork,
-                          WideRational4096, WideRationalCopy};
+use crate::combat::wide::{WideRational4096, WideRationalCopy};
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
 const EXACT_NUMERATOR_LIMIT: u128 = 1u128 << 94;
@@ -556,86 +557,6 @@ const EXACT_PAIR_AABB_AXIS_CAP: usize = 3;
 const EXACT_POINT_X_EVENT_CAP: usize = 42;
 #[cfg(all(test, feature = "cartesian-recoil"))]
 static EXACT_DIAGNOSTIC_MUTATION_RECEIPT: AtomicU64 = AtomicU64::new(1);
-
-#[cfg(feature = "cartesian-recoil")]
-static EXACT_SEGMENT_SHIELD_DEBUG: [AtomicU64; 20] =
-    [const { AtomicU64::new(0) }; 20];
-#[cfg(feature = "cartesian-recoil")]
-static EXACT_SEGMENT_SHIELD_AABB_DEBUG: [AtomicU64; 20] =
-    [const { AtomicU64::new(0) }; 20];
-#[cfg(feature = "cartesian-recoil")]
-static EXACT_SEGMENT_CONSTRUCTOR_DEBUG: [AtomicU64; 20] =
-    [const { AtomicU64::new(0) }; 20];
-
-#[cfg(feature = "cartesian-recoil")]
-pub fn exact_segment_shield_debug_word(at: usize) -> u64 {
-    EXACT_SEGMENT_SHIELD_DEBUG.get(at)
-        .map_or(0, |word| word.load(AtomicOrdering::Relaxed))
-}
-
-#[cfg(feature = "cartesian-recoil")]
-pub fn exact_segment_shield_aabb_debug_word(at: usize) -> u64 {
-    EXACT_SEGMENT_SHIELD_AABB_DEBUG.get(at)
-        .map_or(0, |word| word.load(AtomicOrdering::Relaxed))
-}
-
-#[cfg(feature = "cartesian-recoil")]
-pub fn exact_segment_constructor_debug_word(at: usize) -> u64 {
-    EXACT_SEGMENT_CONSTRUCTOR_DEBUG.get(at)
-        .map_or(0, |word| word.load(AtomicOrdering::Relaxed))
-}
-
-#[cfg(feature = "cartesian-recoil")]
-pub(crate) fn exact_segment_constructor_debug_store(words: [u64; 19]) {
-    if EXACT_SEGMENT_CONSTRUCTOR_DEBUG[0].fetch_add(1, AtomicOrdering::Relaxed) != 0 {
-        return;
-    }
-    for (at, word) in words.into_iter().enumerate() {
-        EXACT_SEGMENT_CONSTRUCTOR_DEBUG[at + 1].store(word, AtomicOrdering::Relaxed);
-    }
-}
-
-#[cfg(feature = "cartesian-recoil")]
-pub fn exact_segment_shield_debug_reset() {
-    for word in &EXACT_SEGMENT_SHIELD_DEBUG {
-        word.store(0, AtomicOrdering::Relaxed);
-    }
-    for word in &EXACT_SEGMENT_SHIELD_AABB_DEBUG {
-        word.store(0, AtomicOrdering::Relaxed);
-    }
-    for word in &EXACT_SEGMENT_CONSTRUCTOR_DEBUG {
-        word.store(0, AtomicOrdering::Relaxed);
-    }
-}
-
-#[cfg(feature = "cartesian-recoil")]
-fn exact_debug_rational(storage: &[AtomicU64; 20], at: usize, value: WideRational4096) {
-    let value = value.copy_words();
-    let digest = |word: &crate::combat::wide::WideWordCopy| {
-        let mut hash = 0xcbf29ce484222325u64;
-        hash ^= word.negative as u64; hash = hash.wrapping_mul(0x100000001b3);
-        hash ^= word.used as u64; hash = hash.wrapping_mul(0x100000001b3);
-        for &limb in &word.limbs[..word.used as usize] {
-            hash ^= limb as u64; hash = hash.wrapping_mul(0x100000001b3);
-        }
-        hash
-    };
-    let edges = |word: &crate::combat::wide::WideWordCopy| {
-        let top = if word.used == 0 { 0 } else { word.limbs[word.used as usize - 1] };
-        ((top as u64) << 32) | word.limbs[0] as u64
-    };
-    let meta = (value.numerator.negative as u64) << 63
-        | (value.numerator.used as u64) << 8 | value.denominator.used as u64;
-    for (offset, word) in [edges(&value.numerator), edges(&value.denominator), meta,
-        digest(&value.numerator) ^ digest(&value.denominator)].into_iter().enumerate() {
-        storage[at + offset].store(word, AtomicOrdering::Relaxed);
-    }
-}
-
-#[cfg(feature = "cartesian-recoil")]
-fn exact_segment_shield_debug_rational(at: usize, value: WideRational4096) {
-    exact_debug_rational(&EXACT_SEGMENT_SHIELD_DEBUG, at, value)
-}
 
 // This opt-in recorder lives only in reusable contact scratch. It cannot enter
 // authoritative state, replay, selection, or resolution; every registered pin
@@ -2514,7 +2435,6 @@ impl SegmentWorkState {
 #[derive(Clone, Default)]
 struct ExactWideScratch {
     segment: SegmentWorkState,
-    nonnegative_cmp: PositiveRationalCmpWork,
     #[cfg(feature = "cartesian-recoil")]
     segment_body_separation: SegmentBodySeparationWork,
     rectangle_candidates: Vec<WideSegmentClosest>,
@@ -2643,28 +2563,6 @@ fn wide_div(a: WideRational4096, b: WideRational4096)
 fn wide_cmp(a: WideRational4096, b: WideRational4096)
     -> Result<Ordering, ExactScanReject>
 { a.checked_cmp(b).ok_or(ExactScanReject::ArithmeticEnvelope) }
-
-#[cfg(any(test, feature = "cartesian-recoil"))]
-#[inline(never)]
-fn wide_cmp_nonnegative(a: &WideRational4096, b: &WideRational4096,
-    work: &mut PositiveRationalCmpWork) -> Result<Ordering, ExactScanReject>
-{
-    if a.numerator.is_negative() || b.numerator.is_negative() {
-        return wide_cmp(*a, *b);
-    }
-    match (a.numerator.is_zero(), b.numerator.is_zero()) {
-        (true, true) => Ok(Ordering::Equal),
-        (true, false) => Ok(Ordering::Less),
-        (false, true) => Ok(Ordering::Greater),
-        (false, false) => {
-            let mut order = Ordering::Equal;
-            if !checked_cmp_positive_into(a, b, work, &mut order) {
-                return Err(ExactScanReject::ArithmeticEnvelope);
-            }
-            Ok(order)
-        }
-    }
-}
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
 fn wide_vector_sub(a: WidePoint, b: WidePoint)
@@ -3849,15 +3747,6 @@ fn wide_swept_aabbs_are_disjoint_during(
     mut recorder: Option<&mut ExactPairAabbRecorder<'_>>,
 ) -> Result<bool, ExactScanReject> {
     #[cfg(feature = "cartesian-recoil")]
-    let debug_target = ((a.entity.index == 1 && a.slot == 1
-            && b.entity.index == 0 && b.slot == 0)
-        || (b.entity.index == 1 && b.slot == 1
-            && a.entity.index == 0 && a.slot == 0)) && start == 0;
-    #[cfg(feature = "cartesian-recoil")]
-    let debug_capture = debug_target
-        && EXACT_SEGMENT_SHIELD_AABB_DEBUG[0]
-            .fetch_add(1, AtomicOrdering::Relaxed) == 0;
-    #[cfg(feature = "cartesian-recoil")]
     if let Some(rows) = recorder.as_deref_mut() { rows.begin(start, end); }
     let ExactWideScratch { aabb_left: left, aabb_right: right, .. } = scratch;
     let result = (|| {
@@ -3875,29 +3764,10 @@ fn wide_swept_aabbs_are_disjoint_during(
     if let Some(rows) = recorder.as_deref_mut() {
         rows.radius(ExactPairAabbSideDiagnostic::B, right_radius);
     }
-    #[cfg(feature = "cartesian-recoil")]
-    if debug_capture {
-        let segment_left = matches!(a.motor, MotorShape::Segment { .. });
-        let (segment, shield) = if segment_left { (&left[..], &right[..]) }
-            else { (&right[..], &left[..]) };
-        EXACT_SEGMENT_SHIELD_AABB_DEBUG[1].store(start as u64 | (end as u64) << 32,
-            AtomicOrdering::Relaxed);
-        EXACT_SEGMENT_SHIELD_AABB_DEBUG[2].store(segment_left as u64
-            | (left_radius as u32 as u64) << 8 | (right_radius as u32 as u64) << 40,
-            AtomicOrdering::Relaxed);
-        exact_debug_rational(&EXACT_SEGMENT_SHIELD_AABB_DEBUG, 4, segment[0].0[0]);
-        exact_debug_rational(&EXACT_SEGMENT_SHIELD_AABB_DEBUG, 8, segment[0].0[1]);
-        exact_debug_rational(&EXACT_SEGMENT_SHIELD_AABB_DEBUG, 12, shield[0].0[0]);
-        exact_debug_rational(&EXACT_SEGMENT_SHIELD_AABB_DEBUG, 16, shield[0].0[1]);
-    }
-    let disjoint = wide_aabb_points_are_disjoint(
+    wide_aabb_points_are_disjoint(
         WideSweptAabbView { points: left.as_slice(), radius_raw: left_radius },
         WideSweptAabbView { points: right.as_slice(), radius_raw: right_radius },
-        #[cfg(feature = "cartesian-recoil")] recorder.as_deref_mut())?;
-    #[cfg(feature = "cartesian-recoil")]
-    if debug_capture { EXACT_SEGMENT_SHIELD_AABB_DEBUG[3].store(disjoint as u64,
-        AtomicOrdering::Relaxed); }
-    Ok(disjoint)
+        #[cfg(feature = "cartesian-recoil")] recorder.as_deref_mut())
     })();
     #[cfg(feature = "cartesian-recoil")]
     if let Some(rows) = recorder.as_deref_mut() {
@@ -4093,54 +3963,20 @@ fn wide_sweep_segments(a: &ExactContactTrajectory, ao: &ExactOwnerTrajectory,
 }
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
-#[inline(never)]
 fn wide_sweep_segment_shield(segment: &ExactContactTrajectory, so: &ExactOwnerTrajectory,
     shield: &ExactContactTrajectory, ho: &ExactOwnerTrajectory,
     cs: &ContactCollider, ch: &ContactCollider, scratch: &mut ExactWideScratch)
     -> Result<Option<Candidate>, ExactScanReject>
 {
-    #[cfg(feature = "cartesian-recoil")]
-    let debug_target = cs.entity.index == 1 && cs.slot == 1
-        && ch.entity.index == 0 && ch.slot == 0;
-    #[cfg(feature = "cartesian-recoil")]
-    let debug_capture = if debug_target {
-        let first = EXACT_SEGMENT_SHIELD_DEBUG[0].fetch_add(1, AtomicOrdering::Relaxed) == 0;
-        EXACT_SEGMENT_SHIELD_DEBUG[1].store(cs.entity.index as u64
-            | (cs.slot as u64) << 16 | (ch.entity.index as u64) << 24
-            | (ch.slot as u64) << 40, AtomicOrdering::Relaxed);
-        first
-    } else { false };
     let speed = wide_segment_shield_speed(segment, so, shield, ho)?;
-    #[cfg(feature = "cartesian-recoil")]
-    if debug_capture { EXACT_SEGMENT_SHIELD_DEBUG[2].store(1, AtomicOrdering::Relaxed);
-        exact_segment_shield_debug_rational(12, speed); }
     let mut time = so.common_response.group_time_raw;
     for _ in 0..96 {
-        #[cfg(feature = "cartesian-recoil")]
-        if debug_capture { EXACT_SEGMENT_SHIELD_DEBUG[2].store(2, AtomicOrdering::Relaxed);
-            EXACT_SEGMENT_SHIELD_DEBUG[3].store(time as u64, AtomicOrdering::Relaxed); }
         let (hilt, tip, radius_raw) = wide_segment_at_time(segment, so, time)?;
-        #[cfg(feature = "cartesian-recoil")]
-        if debug_capture { EXACT_SEGMENT_SHIELD_DEBUG[2].store(3, AtomicOrdering::Relaxed); }
         let rectangle = wide_shield_at_time(shield, ho, time)?;
-        #[cfg(feature = "cartesian-recoil")]
-        if debug_capture { EXACT_SEGMENT_SHIELD_DEBUG[2].store(4, AtomicOrdering::Relaxed); }
         let closest = wide_segment_rectangle_points(hilt, tip, rectangle, scratch)?;
-        #[cfg(feature = "cartesian-recoil")]
-        if debug_capture { EXACT_SEGMENT_SHIELD_DEBUG[2].store(5, AtomicOrdering::Relaxed);
-            exact_segment_shield_debug_rational(4, closest.distance_sq); }
         let radius = wide_radius(radius_raw)?;
         let radius_sq = wide_mul(radius, radius)?;
-        #[cfg(feature = "cartesian-recoil")]
-        if debug_capture { EXACT_SEGMENT_SHIELD_DEBUG[2].store(6, AtomicOrdering::Relaxed);
-            exact_segment_shield_debug_rational(8, radius_sq); }
         let current_order = wide_cmp(closest.distance_sq, radius_sq)?;
-        #[cfg(feature = "cartesian-recoil")]
-        if debug_capture { EXACT_SEGMENT_SHIELD_DEBUG[2].store(7, AtomicOrdering::Relaxed);
-            EXACT_SEGMENT_SHIELD_DEBUG[3].store(time as u64 | (closest.feature as u64) << 32
-                | (match current_order { Ordering::Less => 0, Ordering::Equal => 1,
-                                         Ordering::Greater => 2 }) << 40,
-                AtomicOrdering::Relaxed); }
         if current_order != Ordering::Greater {
             let mut ps = *cs; let mut ph = *ch;
             ps.velocity += wide_response_velocity(segment, so)?;
@@ -4163,19 +3999,7 @@ fn wide_sweep_segment_shield(segment: &ExactContactTrajectory, so: &ExactOwnerTr
             return Ok(Some(candidate));
         }
         if time == 65_536 || speed.numerator.is_zero() { return Ok(None); }
-        let step = match wide_safe_step(closest, radius, speed) {
-            Ok(step) => step,
-            Err(reject) => {
-                #[cfg(feature = "cartesian-recoil")]
-                if debug_capture { EXACT_SEGMENT_SHIELD_DEBUG[2].store(8,
-                    AtomicOrdering::Relaxed); }
-                return Err(reject);
-            }
-        };
-        #[cfg(feature = "cartesian-recoil")]
-        if debug_capture { EXACT_SEGMENT_SHIELD_DEBUG[2].store(9, AtomicOrdering::Relaxed);
-            EXACT_SEGMENT_SHIELD_DEBUG[3].store(time as u64 | (step as u64) << 32,
-                AtomicOrdering::Relaxed); }
+        let step = wide_safe_step(closest, radius, speed)?;
         if step == 0 {
             let next = time + 1;
             let (hilt, tip, radius_raw) = wide_segment_at_time(segment, so, next)?;
@@ -4183,20 +4007,7 @@ fn wide_sweep_segment_shield(segment: &ExactContactTrajectory, so: &ExactOwnerTr
                 hilt, tip, wide_shield_at_time(shield, ho, next)?, scratch)?;
             let radius = wide_radius(radius_raw)?;
             let radius_sq = wide_mul(radius, radius)?;
-            let adjacent_order = wide_cmp_nonnegative(&adjacent.distance_sq, &radius_sq,
-                &mut scratch.nonnegative_cmp)?;
-            #[cfg(feature = "cartesian-recoil")]
-            if debug_capture {
-                EXACT_SEGMENT_SHIELD_DEBUG[2].store(10, AtomicOrdering::Relaxed);
-                EXACT_SEGMENT_SHIELD_DEBUG[3].store(time as u64
-                    | (adjacent.feature as u64) << 32
-                    | (match adjacent_order { Ordering::Less => 0, Ordering::Equal => 1,
-                                               Ordering::Greater => 2 }) << 40,
-                    AtomicOrdering::Relaxed);
-                exact_segment_shield_debug_rational(4, adjacent.distance_sq);
-                exact_segment_shield_debug_rational(8, radius_sq);
-            }
-            if adjacent_order == Ordering::Greater {
+            if wide_cmp(adjacent.distance_sq, radius_sq)? == Ordering::Greater {
                 return Err(ExactScanReject::UnsupportedExactSweep);
             }
             time = next;

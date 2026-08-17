@@ -101,11 +101,11 @@ The current generated identities are:
 
 | Identity | SHA-256 |
 |---|---|
-| canonical build inputs | `3773434dded396df2365990ac6599b08ae6714357ee5dd607fe6df47e6978839` |
-| semantic sidecar | `01279c6fe13b62b7cc3e33207416384800590196abfcfdd40726e2f00202a52a` |
-| room GLB | `91479310571aa0b0291532e63f9549fdf79914d19dfe6c1f8b8a09fd550a6420` |
-| canonical validator report | `ab128ca3f29fa8cd230e2cb477d9f63e2b7520b200ffd7ac39dcc61ca45a33c8` |
-| 1,536-byte runtime stress map | `1262c7dc5eb359a06db10a06c85e2782237b226e423a903f72441f1dfde18e6c` |
+| canonical build inputs | `31cbfe0e8244257084e5d043d0863959b3207c6f28252c8b8faeb36da4d34b9c` |
+| semantic sidecar | `add5604ca244f6825e8fbd968927f6c77e674e110b546e79d3d8f7b1ba82e751` |
+| room GLB | `39dbe61be1dc69f085126002824ce3a92987c1dd166f09b91cd4715722250f42` |
+| canonical validator report | `42f3ec9dfafa0a2185d32f4a8ab28709a46370ae9bd13a35b9fb7b926944e6e4` |
+| 1,536-byte runtime stress map | `a20ba5f64ef55bd7716c2a7cf17f3065619876d1ded2e81b05199b5282222907` |
 
 `.gitignore` owns `__pycache__/` and `*.py[cod]`. Both generation modes must leave no
 Python cache under `tools/art/`; a clean import/run test checks temporary and live
@@ -137,8 +137,8 @@ unique bufferView bytes used by vertex or index attributes
 + 1024 * 1024 * 4 shadow-map bytes
 ```
 
-The fixed instance capacities are floor_a 768, floor_b 768, wall_straight 160,
-wall_inside 4, wall_outside 8, wall_end 4, door_frame 2, door_leaf 2,
+The fixed instance capacities are floor_a 768, floor_b 768, wall_straight 94,
+wall_inside 0, wall_outside 0, wall_end 0, door_frame 2, door_leaf 2,
 torch_bracket 8, decal_rubble 4, decal_root 4, and prop_barrel 4. The estimate uses
 capacity rather than live count and must be no larger than 268,435,456 bytes. The
 texture term counts both embedded 512 x 512 RGBA images with the documented mip
@@ -146,11 +146,11 @@ factor. Engine overhead and source JavaScript are
 reported separately; browser performance JSON continues to record unavailable GPU
 residency rather than relabeling this offline estimate.
 
-The checked artifacts contain 13 nodes, 12 meshes, four materials, 2,904 vertices,
-and 1,472 triangles. The GLB is 1,108,424 bytes and the sidecar is 5,423 bytes, for a
-validated 1,113,847-byte payload. Its offline estimate is 122,880 source-buffer bytes,
-222,208 double-buffered instance bytes, 2,097,152 decoded-texture bytes, and
-4,194,304 shadow-map bytes, totaling 6,636,544 bytes. Validator 2.0.0-dev.3.10 reports zero
+The checked artifacts contain 13 nodes, 12 meshes, four materials, 2,760 vertices,
+and 1,400 triangles. The GLB is 1,104,092 bytes and the sidecar is 5,423 bytes, for a
+validated 1,109,515-byte payload. Its offline estimate is 118,416 source-buffer bytes,
+211,712 double-buffered instance bytes, 2,097,152 decoded-texture bytes, and
+4,194,304 shadow-map bytes, totaling 6,621,584 bytes. Validator 2.0.0-dev.3.10 reports zero
 errors, zero warnings, zero hints, and four informational messages; the
 allowed warning list remains exactly empty.
 
@@ -167,23 +167,32 @@ audio proxies, labels, debug records, and retained instances.
 
 - VIS 0 permits no authored presence.
 - VIS 1 permits remembered floor and wall topology in the remembered material only.
+  Remembered floors use alpha 0.42, while remembered masonry remains opaque so its
+  coursed silhouette cannot dissolve into false lintels and posts.
   It permits no current furniture, door state, prop, torch, light, shadow, or pick.
 - VIS 2 permits current topology and disclosed furniture and props. Only current
   disclosed records may contribute lights, shadows, picks, effects, or debug presence.
 
-Wall roles use disclosed solid cardinal neighbours plus one bounded fog concession.
-When exactly one disclosed neighbour defines an axis and its opposite cell is
-undisclosed, that opposite continues the run; undisclosed perpendicular cells never
-add arms, and two or more disclosed neighbours determine their shape without fog.
-The undisclosed cell never becomes a drawn tile. This avoids frontier stubs without
-the narrow false T teeth found in visible-browser review. Canonical local
-openings are straight E+W, inside E+S, outside E+S+W, and end E; quarter-turn rotation
-maps those openings exactly onto masks 1 through 14. Mask 15 is the synthetic-only
-two-straight cross. Mask 0 does not occur in the shipped stress or compact fixtures;
-its straight diagnostic sentinel is not a closed isolated-wall claim, and any shipped
-isolated solid requires a new authored fully capped core. The committed stress census
-is exactly 160 straight, 4 inside/L, 8 outside/T, and 4 end instances over 176 solid
-tiles.
+The game interprets MAP_SOLID cells as masonry volume, not as wall axes. The
+isometric cutaway exposes only disclosed solid-to-open +X and +Y faces, matching the
+camera and the legacy `wallBlock` authority; drawing the hidden -X/-Y faces makes
+an irregular dungeon read as a picket fence. Collinear faces merge into maximal
+runs, then repeat the seamless one-tile `wall_straight` at tile frequency so brick
+scale never stretches. One-edge stair-step fragments remain floor cutaway rather
+than becoming isolated posts. Fog neither creates a face nor counts as an opening.
+
+The ABI publishes one door record per doorway tile. Presentation groups contiguous
+collinear records of the same state into one architectural span. A one-cell span
+keeps one complete `door_frame`; a wider span repeats a compressed seamless
+masonry lintel, adds jambs only at its endpoints, and uses continuous leaves when
+shut or a true gap when open. Horizontal and vertical spans have exact tests.
+Imported glTF identity quaternions are cleared before semantic Euler quarter turns;
+otherwise Babylon ignores rotated +Y facades and door spans. The stress fixture's
+175 solid tiles still have a complete 188-face boundary graph for structural
+validation, while the camera-facing projection is eight maximal runs and exactly
+94 facade instances plus two singleton door frames. The authored L/T/end meshes
+remain valid kit roles for the arena's separate synthetic centreline ring, but their
+game stress capacities are zero.
 
 The room's upper-right directional key retains direction
 `[-0.45, -1, -0.35]` and mount `[12, 24, 16]`, with generator-v4 diffuse
@@ -194,8 +203,8 @@ emissive color `[1, 0.12, 0.015]`, and is removed with its material on reset,
 disclosure loss, or disposal. Its capped point light uses diffuse
 `[1, 0.25, 0.045]`, specular `[0.42, 0.18, 0.055]`, intensity `1.15`, and
 range `8.5`. Each flame contributes one effect and one procedural draw group,
-making stress disclosure 20 draws (12 room source groups plus 8 flames) without
-changing the nine-light contract.
+making stress disclosure 17 draws (nine live room source groups plus eight flames)
+without changing the nine-light contract.
 
 Loader roots and hidden source meshes never count as presentation presence.
 Epoch/reset and generational reuse retire old authored instances before a new frame
@@ -284,7 +293,8 @@ roots, and eight unit markers. The camera derives bounds from that 16 x 10 snaps
 The playable authored route and compact review use clear `[0.012, 0.016, 0.032, 1]`, image-processing exposure
 `1.34`/contrast `1.16`, and one non-shadow hemispheric fill with diffuse
 `[0.68, 0.60, 0.50]`, ground `[0.08, 0.065, 0.055]`, and intensity `0.58`;
-the fixed 48 x 32 stress fixture and its nine-light contract are unchanged. This route is
+the fixed 48 x 32 stress fixture retains its dimensions, population, and nine-light contract; its
+map/topology identity is the revised boundary-enclosure fixture. This route is
 mechanically current. The 2026-08-09 review accepted generator v3's material response, fixture-origin light, join coherence, depth readability, and silhouette contrast at minimum legacy parity. Generator v4 does not inherit that visible approval; its static Blender QA is complete and its visible-browser review remains owed.
 
 Compact review alone injects initial/reset fixed zoom `1.6`; ordinary and 48 x 32

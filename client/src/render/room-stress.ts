@@ -13,13 +13,14 @@ export const ROOM_STRESS_WARMUP_MS = 30_000;
 export const ROOM_STRESS_SAMPLE_MS = 120_000;
 export const ROOM_STRESS_MAP_SHA256 = "a20ba5f64ef55bd7716c2a7cf17f3065619876d1ded2e81b05199b5282222907" as const;
 
-// Exposed-interface census of the committed 48 x 32 map: 152 faces bound the
-// outer enclosure and 36 bound the closed interior ring after two true doorway
-// cells replace their faces. Each doorway has a frame on both exposed faces.
+// The isometric cutaway merges the visible +X/+Y boundary segments into
+// eight maximal runs and repeats a seamless facade at tile frequency (94 instances).
+// Each published doorway replaces its one visible face with
+// one frame; the complete 188-face boundary remains a structural test invariant.
 export const ROOM_STRESS_PIECE_COUNTS = Object.freeze({
   floor_a: 768, floor_b: 768,
-  wall_straight: 188, wall_inside: 0, wall_outside: 0, wall_end: 0,
-  door_frame: 4, door_leaf: 2, torch_bracket: 8,
+  wall_straight: 94, wall_inside: 0, wall_outside: 0, wall_end: 0,
+  door_frame: 2, door_leaf: 2, torch_bracket: 8,
   decal_rubble: 4, decal_root: 4, prop_barrel: 4,
 });
 

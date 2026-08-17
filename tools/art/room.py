@@ -198,6 +198,22 @@ def _coursed_run(boxes, minimum, maximum, run_axis, seed, courses=4, counts=(4, 
             boxes.append((size, centre))
 
 
+def _seamless_straight_wall(name, node, material, seed):
+    """One repeatable tile of masonry with flush, uncapped run boundaries.
+
+    Runtime contour runs repeat this source at tile frequency. Every course
+    reaches both X extrema with uniform depth, so adjacent copies meet without
+    exposing a narrow end profile and never stretch their blocks or UVs.
+    """
+    minimum = _numbers(node["bounds"]["min"])
+    maximum = _numbers(node["bounds"]["max"])
+    boxes = []
+    _coursed_run(
+        boxes, minimum, maximum, 0, seed, counts=(4, 5), side_inset=0,
+    )
+    return _join_boxes(name, node, material, boxes)
+
+
 def _junction_wall(name, node, material, seed, directions):
     """Build one joined centreline topology from a core and cardinal arms.
 
@@ -259,8 +275,9 @@ def build_room(manifest, materials):
         elif name == "ROOM_floor_b":
             obj = _irregular_flagstone(name, node, material, manifest["generatorSeed"] ^ 0xB2)
         elif name == "ROOM_wall_straight":
-            obj = _junction_wall(name, node, material, manifest["generatorSeed"] ^ 0x571A,
-                                 ("E", "W"))
+            obj = _seamless_straight_wall(
+                name, node, material, manifest["generatorSeed"] ^ 0x571A,
+            )
         elif name == "ROOM_wall_inside":
             obj = _junction_wall(name, node, material, manifest["generatorSeed"] ^ 0x1A51,
                                  ("E", "S"))

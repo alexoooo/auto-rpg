@@ -119,9 +119,9 @@ test("payload_and_conservative_gpu_estimates_use_the_documented_formula", () => 
   assert.deepEqual(estimate, {
     sourceBufferBytes: 12,
     decodedTextureBytes: 0,
-    instanceBufferBytes: 224000,
+    instanceBufferBytes: 211712,
     shadowMapBytes: 4194304,
-    totalBytes: 4418316,
+    totalBytes: 4406028,
   });
 });
 
@@ -167,6 +167,8 @@ test("authored_wall_sources_are_coursed_masonry_with_bounded_detail", () => {
     assert.ok(wall.get(name).triangleCount >= minimum,
       name + " must expose coursing and individual stone silhouettes");
   }
+  assert.equal(wall.get("wall_straight").triangleCount, 216,
+    "the repeatable straight facade keeps four tile-scale courses without arm/core duplication");
   assert.ok(sidecar.counts.triangles >= 1_200, "the kit needs enough geometry to read as masonry");
   assert.ok(sidecar.counts.triangles <= manifest.budgets.maxTriangles);
   assert.ok(sidecar.counts.vertices <= manifest.budgets.maxVertices);
@@ -186,6 +188,7 @@ test("wall_piece_bounds_encode_centreline_arms_for_ends_corners_and_tees", () =>
     { min: ["-0.09", "0.0", "-0.09"], max: ["0.5", "0.9", "0.09"] });
   const source = fs.readFileSync(path.join(ROOT, "tools", "art", "room.py"), "utf8");
   assert.match(source, /_junction_wall/);
+  assert.match(source, /_seamless_straight_wall/);
   assert.doesNotMatch(source, /\[-0\.5, 0, 0\.32\]|\[0\.32, 0, -0\.5\]/,
     "corner arms may not hug tile edges away from neighbouring centreline runs");
 });

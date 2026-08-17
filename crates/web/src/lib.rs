@@ -6787,55 +6787,6 @@ pub extern "C" fn exact_trajectory_state_digest_hi() -> u32 {
 }
 
 #[cfg(feature = "cartesian-recoil")]
-#[allow(unsafe_code)]
-#[no_mangle]
-pub extern "C" fn exact_segment_shield_debug_reset() {
-    sim::exact_segment_shield_debug_reset();
-}
-
-#[cfg(feature = "cartesian-recoil")]
-#[allow(unsafe_code)]
-#[no_mangle]
-pub extern "C" fn exact_segment_constructor_debug_word_lo(at: u32) -> u32 {
-    sim::exact_segment_constructor_debug_word(at as usize) as u32
-}
-
-#[cfg(feature = "cartesian-recoil")]
-#[allow(unsafe_code)]
-#[no_mangle]
-pub extern "C" fn exact_segment_constructor_debug_word_hi(at: u32) -> u32 {
-    (sim::exact_segment_constructor_debug_word(at as usize) >> 32) as u32
-}
-
-#[cfg(feature = "cartesian-recoil")]
-#[allow(unsafe_code)]
-#[no_mangle]
-pub extern "C" fn exact_segment_shield_aabb_debug_word_lo(at: u32) -> u32 {
-    sim::exact_segment_shield_aabb_debug_word(at as usize) as u32
-}
-
-#[cfg(feature = "cartesian-recoil")]
-#[allow(unsafe_code)]
-#[no_mangle]
-pub extern "C" fn exact_segment_shield_aabb_debug_word_hi(at: u32) -> u32 {
-    (sim::exact_segment_shield_aabb_debug_word(at as usize) >> 32) as u32
-}
-
-#[cfg(feature = "cartesian-recoil")]
-#[allow(unsafe_code)]
-#[no_mangle]
-pub extern "C" fn exact_segment_shield_debug_word_lo(at: u32) -> u32 {
-    sim::exact_segment_shield_debug_word(at as usize) as u32
-}
-
-#[cfg(feature = "cartesian-recoil")]
-#[allow(unsafe_code)]
-#[no_mangle]
-pub extern "C" fn exact_segment_shield_debug_word_hi(at: u32) -> u32 {
-    (sim::exact_segment_shield_debug_word(at as usize) >> 32) as u32
-}
-
-#[cfg(feature = "cartesian-recoil")]
 fn lifted_coulomb_solver_digest() -> u64 {
     LIFTED_COULOMB_SOLVER_DIGEST_VALUE.with(|slot| match slot.get() {
         Some(value) => value,
@@ -9363,44 +9314,67 @@ mod tests {
 
     #[cfg(feature = "cartesian-recoil")]
     #[test]
-    #[ignore]
-    fn print_exact_segment_constructor_debug_words() {
+    fn exact_wasm_check_fights_match_the_same_native_configuration() {
+        // `tools/wasm_check.js` stages deliberately round, legal equipment
+        // dimensions rather than `DuelConfigV1::shipped()`'s table. Comparing
+        // its fight with the shipped native fixture once made 278 look like a
+        // wasm move from 164; those were different configurations. Pin the
+        // words first, then the stopping ticks, so that mistake cannot recur.
         let mut config = sim::DuelConfigV1::shipped();
         config.max_ticks = 300;
-        let shield = config.fighters[0].hands[0].as_mut().unwrap();
-        shield.mass = Fx::from_raw(32_768);
-        shield.balance = Fx::from_raw(32_768);
-        shield.geometry = sim::EquipmentGeometry::Shield {
-            half_width: Fx::from_raw(16_384),
-            half_height: Fx::from_raw(32_768),
-            thickness: Fx::from_raw(3_277),
-        };
-        let sword = config.fighters[0].hands[1].as_mut().unwrap();
-        sword.mass = Fx::from_raw(81_920);
-        sword.balance = Fx::from_raw(32_768);
-        sword.geometry = sim::EquipmentGeometry::Segment {
-            length: Fx::from_raw(65_536), radius: Fx::from_raw(2_621),
-        };
-        let club = config.fighters[1].hands[1].as_mut().unwrap();
-        club.mass = Fx::from_raw(131_072);
-        club.balance = Fx::from_raw(32_768);
-        club.geometry = sim::EquipmentGeometry::Segment {
-            length: Fx::from_raw(81_920), radius: Fx::from_raw(3_277),
-        };
-        write_arena_config(&config,
-            [ArticulatedPolicyKind::Composed, ArticulatedPolicyKind::Windmill]);
-        assert_eq!(arena_start(3) & 0xff, 1);
-        step(139);
-        sim::exact_segment_shield_debug_reset();
-        step(1);
-        let words: Vec<u64> = (0..20).map(sim::exact_segment_constructor_debug_word).collect();
-        println!("native exact Segment constructor debug: {words:#018x?}");
-        let words: Vec<u64> = (0..20).map(sim::exact_segment_shield_aabb_debug_word).collect();
-        println!("native exact Segment AABB debug: {words:#018x?}");
-        let words: Vec<u64> = (0..20).map(sim::exact_segment_shield_debug_word).collect();
-        println!("native exact Segment sweep debug: {words:#018x?}");
+        {
+            let shield = config.fighters[0].hands[0].as_mut().expect("the hero shield");
+            shield.mass = Fx::from_raw(32_768);
+            shield.balance = Fx::from_raw(32_768);
+            shield.geometry = sim::EquipmentGeometry::Shield {
+                half_width: Fx::from_raw(16_384),
+                half_height: Fx::from_raw(32_768),
+                thickness: Fx::from_raw(3_277),
+            };
+            let sword = config.fighters[0].hands[1].as_mut().expect("the hero sword");
+            sword.mass = Fx::from_raw(81_920);
+            sword.balance = Fx::from_raw(32_768);
+            sword.geometry = sim::EquipmentGeometry::Segment {
+                length: Fx::from_raw(65_536), radius: Fx::from_raw(2_621),
+            };
+            let club = config.fighters[1].hands[1].as_mut().expect("the brute club");
+            club.mass = Fx::from_raw(131_072);
+            club.balance = Fx::from_raw(32_768);
+            club.geometry = sim::EquipmentGeometry::Segment {
+                length: Fx::from_raw(81_920), radius: Fx::from_raw(3_277),
+            };
+        }
+
+        let scripted = [ArticulatedPolicyKind::Composed, ArticulatedPolicyKind::Windmill];
+        write_arena_config(&config, scripted);
+        let hand_words = ARENA_CONFIG.with(|buffer| {
+            let bytes = buffer.borrow();
+            core::array::from_fn(|row| {
+                let at = arena_hand_at(row / 2, row % 2);
+                let word = |offset| i32::from_le_bytes(
+                    bytes[at + offset..at + offset + 4].try_into().expect("one arena word"));
+                [bytes[at + ARENA_HAND_ITEM] as i32,
+                 word(ARENA_HAND_MASS), word(ARENA_HAND_BALANCE),
+                 word(ARENA_HAND_DIMENSION_0), word(ARENA_HAND_DIMENSION_0 + 4),
+                 word(ARENA_HAND_DIMENSION_0 + 8)]
+            })
+        });
+        assert_eq!(hand_words, [
+            [4, 32_768, 32_768, 16_384, 32_768, 3_277],
+            [2, 81_920, 32_768, 65_536, 2_621, 0],
+            [255, 0, 0, 0, 0, 0],
+            [3, 131_072, 32_768, 81_920, 3_277, 0],
+        ], "the native twin no longer stages wasm_check's equipment words");
+        assert_eq!(arena_start(3) & 0xff, 1, "the scripted fixture was refused");
         step(3_600);
-        println!("native exact same-config stop tick: {}", tick());
+        assert_eq!(tick(), 278, "the exact scripted fixture's stopping tick moved");
+
+        assert_eq!(load_checkpoint(stage_shipped_checkpoint()) & 0xff, 1);
+        write_arena_config(&config,
+            [ArticulatedPolicyKind::Learned, ArticulatedPolicyKind::Windmill]);
+        assert_eq!(arena_start(3) & 0xff, 1, "the learned fixture was refused");
+        step(3_600);
+        assert_eq!(tick(), 300, "the exact learned fixture's stopping tick moved");
     }
 
     #[test]

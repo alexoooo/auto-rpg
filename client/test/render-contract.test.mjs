@@ -928,15 +928,13 @@ test("room_instances_need_known_topology_and_current_furniture_disclosure", asyn
   assert.deepEqual(room.keys().filter((key) => key.startsWith("tile:")),
     ["tile:1:0:floor", "tile:2:0:floor"]);
   assert.deepEqual(room.keys().filter((key) => key.startsWith("furniture:")),
-    [`furniture:${ABI.FURNITURE_DOOR}:2:0:frame:0`,
-      `furniture:${ABI.FURNITURE_DOOR}:2:0:frame:1`,
+    [`furniture:${ABI.FURNITURE_DOOR}:2:0:frame`,
       `furniture:${ABI.FURNITURE_DOOR}:2:0:leaf`]);
   assert.equal(room.counts().lights, 1);
   assert.equal(debug.snapshot().visibility.furniture, 1);
   const picks = scene.meshes.filter((mesh) => mesh.name.startsWith("room:") && mesh.isPickable);
   assert.deepEqual(picks.map((mesh) => mesh.metadata), [
     { presentationKind: "tile", tx: 2, ty: 0 },
-    { presentationKind: "furniture", furnitureKey: `${ABI.FURNITURE_DOOR}:2:0` },
     { presentationKind: "furniture", furnitureKey: `${ABI.FURNITURE_DOOR}:2:0` },
   ]);
   assert.equal(debug.snapshot().visibility.picking, 2);
@@ -962,6 +960,27 @@ test("remembered_room_tiles_have_no_furniture_light_shadow_pick_or_debug_presenc
   assert.ok(scene.meshes.filter((mesh) => mesh.name.startsWith("room:tile:"))
     .every((mesh) => mesh.sourceMesh?.material?.name.endsWith(":remembered") &&
       mesh.sourceMesh.material.alpha === 0.42));
+  room.dispose(); scene.dispose(); engine.dispose();
+});
+
+test('remembered_room_walls_preserve_an_opaque_masonry_silhouette', async () => {
+  const { NullEngine } = await import('@babylonjs/core/Engines/nullEngine.js');
+  const { Scene } = await import('@babylonjs/core/scene.js');
+  const engine = new NullEngine(); const scene = new Scene(engine);
+  const room = new roomEnvironment.RoomEnvironmentPresentation(
+    scene, new rendererDebug.RendererDebugRegistry(), await fakeRoomAsset(scene));
+  room.acceptSnapshot(snapshot({ mapCols: 2, mapRows: 2,
+    map: Object.freeze([
+      ABI.MAP_SOLID, ABI.MAP_SOLID,
+      ABI.MAP_OPEN, ABI.MAP_OPEN,
+    ]),
+    vis: Object.freeze([1, 1, 1, 1]),
+  }));
+  const walls = scene.meshes.filter((mesh) => mesh.name.includes(':wall-run:'));
+  const floors = scene.meshes.filter((mesh) => /^room:tile:\d+:\d+:floor$/.test(mesh.name));
+  assert.equal(walls.length, 2);
+  assert.ok(walls.every((mesh) => mesh.sourceMesh?.material?.alpha === 1));
+  assert.ok(floors.every((mesh) => mesh.sourceMesh?.material?.alpha === 0.42));
   room.dispose(); scene.dispose(); engine.dispose();
 });
 
@@ -1137,6 +1156,67 @@ test("the_representative_room_is_a_closed_boundary_graph_with_only_published_doo
     "every visible boundary vertex has degree two: no orphan cap or unexplained gap");
 });
 
+test("isometric_room_contours_merge_visible_runs_without_hidden_faces_or_unit_posts", async () => {
+  const rows = [
+    "SSSSSSSS",
+    "SOOOOSSS",
+    "SOOOOSSS",
+    "SSSOOOOS",
+    "SSSOOOOS",
+    "SSSOOOOS",
+    "SSSSSSSS",
+  ];
+  const map = Object.freeze(rows.flatMap((row) => [...row].map((cell) =>
+    cell === "S" ? ABI.MAP_SOLID : ABI.MAP_OPEN)));
+  const world = snapshot({ mapCols: 8, mapRows: 7, map,
+    vis: Object.freeze(new Array(map.length).fill(2)) });
+  const runs = roomEnvironment.chooseRoomCutawayWallRuns(world);
+  assert.deepEqual(runs, [
+    { piece: "wall_straight", quarterTurns: 0, tx: 1, ty: 0, length: 4, current: true },
+    { piece: "wall_straight", quarterTurns: 0, tx: 5, ty: 2, length: 2, current: true },
+    { piece: "wall_straight", quarterTurns: 1, tx: 0, ty: 1, length: 2, current: true },
+    { piece: "wall_straight", quarterTurns: 1, tx: 2, ty: 3, length: 3, current: true },
+  ]);
+  assert.equal(runs.every(({ length }) => length >= 2), true,
+    "the live-like irregular contour contains no one-tile post source");
+
+  const longMap = Object.freeze([
+    ...new Array(8).fill(ABI.MAP_SOLID), ...new Array(8).fill(ABI.MAP_OPEN),
+  ]);
+  const longWorld = snapshot({ mapCols: 8, mapRows: 2, map: longMap,
+    vis: Object.freeze(new Array(16).fill(2)) });
+  assert.deepEqual(roomEnvironment.chooseRoomCutawayWallRuns(longWorld), [
+    { piece: "wall_straight", quarterTurns: 0, tx: 0, ty: 0, length: 8, current: true },
+  ]);
+  const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
+  const { Scene } = await import("@babylonjs/core/scene.js");
+  const engine = new NullEngine(); const scene = new Scene(engine);
+  const room = new roomEnvironment.RoomEnvironmentPresentation(
+    scene, new rendererDebug.RendererDebugRegistry(), await fakeRoomAsset(scene));
+  room.acceptSnapshot(longWorld);
+  const facades = scene.meshes.filter((mesh) => mesh.name.includes(":wall-run:"));
+  assert.equal(facades.length, 8);
+  assert.deepEqual(facades.map((mesh) =>
+    [mesh.scaling.x, mesh.scaling.y, mesh.scaling.z]), new Array(8).fill([1, 1, 1]),
+    "a length-eight run repeats tile-scale masonry rather than stretching one source");
+
+  const singletonMap = Object.freeze([
+    ABI.MAP_SOLID, ABI.MAP_SOLID, ABI.MAP_SOLID,
+    ABI.MAP_SOLID, ABI.MAP_OPEN, ABI.MAP_SOLID,
+    ABI.MAP_SOLID, ABI.MAP_SOLID, ABI.MAP_SOLID,
+  ]);
+  const singletonWorld = snapshot({ mapCols: 3, mapRows: 3, map: singletonMap,
+    mapRevision: 2, visRevision: 2, vis: Object.freeze(new Array(9).fill(2)) });
+  assert.deepEqual(roomEnvironment.chooseRoomCutawayWallRuns(singletonWorld), [
+    { piece: "wall_straight", quarterTurns: 0, tx: 1, ty: 0, length: 1, current: true },
+    { piece: "wall_straight", quarterTurns: 1, tx: 0, ty: 1, length: 1, current: true },
+  ]);
+  room.acceptSnapshot(singletonWorld);
+  assert.equal(scene.meshes.filter((mesh) => mesh.name.includes(":wall-run:")).length, 0,
+    "singleton stair-step faces leave a floor cutaway instead of isolated posts");
+  room.dispose(); scene.dispose(); engine.dispose();
+});
+
 test("boundary_faces_require_a_disclosed_solid_open_interface_and_fog_never_draws", () => {
   const disclosed = snapshot({ mapCols: 3, mapRows: 1,
     map: Object.freeze([ABI.MAP_SOLID, ABI.MAP_OPEN, ABI.MAP_UNKNOWN]),
@@ -1153,9 +1233,56 @@ test("boundary_faces_require_a_disclosed_solid_open_interface_and_fog_never_draw
     "fog neither becomes a wall face nor invents an opening behind it");
 });
 
+test("published_door_cells_form_one_architectural_span_without_repeated_frames", async () => {
+  const door = (tx, ty, state) => Object.freeze({
+    key: ABI.FURNITURE_DOOR + ":" + tx + ":" + ty,
+    kind: ABI.FURNITURE_DOOR, tx, ty, state,
+  });
+  const furniture = Object.freeze([
+    door(1, 1, ABI.FURNITURE_DOOR_SHUT),
+    door(2, 1, ABI.FURNITURE_DOOR_SHUT),
+    door(3, 1, ABI.FURNITURE_DOOR_SHUT),
+    door(5, 2, ABI.FURNITURE_DOOR_OPEN),
+    door(5, 3, ABI.FURNITURE_DOOR_OPEN),
+    door(1, 5, ABI.FURNITURE_DOOR_SHUT),
+  ]);
+  const world = snapshot({ mapCols: 8, mapRows: 7,
+    map: Object.freeze(new Array(56).fill(ABI.MAP_OPEN)),
+    vis: Object.freeze(new Array(56).fill(2)), furniture,
+  });
+  assert.deepEqual(roomEnvironment.chooseRoomDoorRuns(world), [
+    { quarterTurns: 0, tx: 1, ty: 1, length: 3, state: ABI.FURNITURE_DOOR_SHUT,
+      keys: furniture.slice(0, 3).map(({ key }) => key) },
+    { quarterTurns: 1, tx: 5, ty: 2, length: 2, state: ABI.FURNITURE_DOOR_OPEN,
+      keys: furniture.slice(3, 5).map(({ key }) => key) },
+    { quarterTurns: 0, tx: 1, ty: 5, length: 1, state: ABI.FURNITURE_DOOR_SHUT,
+      keys: [furniture[5].key] },
+  ]);
+
+  const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
+  const { Scene } = await import("@babylonjs/core/scene.js");
+  const engine = new NullEngine(); const scene = new Scene(engine);
+  const room = new roomEnvironment.RoomEnvironmentPresentation(
+    scene, new rendererDebug.RendererDebugRegistry(), await fakeRoomAsset(scene));
+  room.acceptSnapshot(world);
+  const keys = room.keys();
+  assert.equal(keys.filter((key) => key.endsWith(":frame")).length, 1,
+    "only the singleton doorway uses a complete frame");
+  assert.equal(keys.filter((key) => key.includes(":span:lintel:")).length, 5);
+  assert.equal(keys.filter((key) => key.includes(":span:jamb:")).length, 4);
+  assert.equal(keys.filter((key) => key.includes(":span:leaf:")).length, 3,
+    "the shut span is continuously closed and the open span remains a gap");
+  const lintels = scene.meshes.filter((mesh) => mesh.name.includes(":span:lintel:"));
+  const jambs = scene.meshes.filter((mesh) => mesh.name.includes(":span:jamb:"));
+  assert.ok(lintels.every((mesh) => mesh.scaling.y === 0.14 / 0.9 && mesh.position.y === 0.78));
+  assert.ok(jambs.every((mesh) => mesh.scaling.x === 0.14));
+  room.dispose(); scene.dispose(); engine.dispose();
+});
+
 test("door_frames_follow_horizontal_and_vertical_runs_and_replace_boundary_faces", async () => {
   const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
   const { Scene } = await import("@babylonjs/core/scene.js");
+  const { Quaternion } = await import("@babylonjs/core/Maths/math.vector.js");
   const engine = new NullEngine(); const scene = new Scene(engine);
   const debug = new rendererDebug.RendererDebugRegistry();
   const map = new Array(25).fill(ABI.MAP_OPEN);
@@ -1172,19 +1299,29 @@ test("door_frames_follow_horizontal_and_vertical_runs_and_replace_boundary_faces
   assert.deepEqual(roomEnvironment.chooseRoomBoundaryWalls(world, 3, 1)
     .filter(({ offsetZ }) => offsetZ === 0.5), [],
     "the vertical published door suppresses the neighbouring solid face");
-  const room = new roomEnvironment.RoomEnvironmentPresentation(
-    scene, debug, await fakeRoomAsset(scene));
+  const asset = await fakeRoomAsset(scene);
+  for (const source of asset.pieces.values()) source.rotationQuaternion = Quaternion.Identity();
+  const room = new roomEnvironment.RoomEnvironmentPresentation(scene, debug, asset);
   room.acceptSnapshot(world);
   const mesh = (door, suffix) => scene.getMeshByName(`room:furniture:${door.key}:${suffix}`);
-  assert.deepEqual(["frame:0", "frame:1"].map((suffix) => {
-    const item = mesh(horizontal, suffix);
-    return [item.position.x, item.position.z, item.rotation.y];
-  }), [[1.5, 1, 0], [1.5, 2, 0]]);
-  assert.equal(mesh(horizontal, "leaf").rotation.y, 0);
-  assert.deepEqual(["frame:0", "frame:1"].map((suffix) => {
-    const item = mesh(vertical, suffix);
-    return [item.position.x, item.position.z, item.rotation.y];
-  }), [[3, 2.5, Math.PI / 2], [4, 2.5, Math.PI / 2]]);
+  assert.deepEqual([
+    mesh(horizontal, "frame").position.x, mesh(horizontal, "frame").position.z,
+    mesh(horizontal, "frame").rotation.y,
+  ], [1.5, 2, 0]);
+  assert.deepEqual([
+    mesh(horizontal, "leaf").position.x, mesh(horizontal, "leaf").position.z,
+    mesh(horizontal, "leaf").rotation.y,
+  ], [1.5, 2, 0]);
+  assert.deepEqual([
+    mesh(vertical, "frame").position.x, mesh(vertical, "frame").position.z,
+    mesh(vertical, "frame").rotation.y,
+  ], [4, 2.5, Math.PI / 2]);
+  assert.equal(mesh(vertical, "frame").rotationQuaternion, null,
+    "the imported identity quaternion must not override the vertical frame quarter turn");
+  assert.deepEqual([
+    mesh(vertical, "leaf").position.x, mesh(vertical, "leaf").position.z,
+    mesh(vertical, "leaf").rotation.y,
+  ], [4, 2.5, Math.PI]);
   assert.equal(mesh(vertical, "leaf").rotation.y, Math.PI,
     "an open vertical leaf turns one more quarter around its vertical frame");
   room.dispose(); scene.dispose(); engine.dispose();
@@ -1207,8 +1344,15 @@ test("the_fixed_room_stress_fixture_has_the_named_asset_hash_population_and_piec
   assert.deepEqual(Object.fromEntries(["decal_rubble", "decal_root", "prop_barrel"].map((piece) =>
     [piece, fixture.roomDecorations.filter((item) => item.piece === piece).length])),
     { decal_rubble: 4, decal_root: 4, prop_barrel: 4 });
-  assert.deepEqual(fixture.pieceCounts, { floor_a: 768, floor_b: 768, wall_straight: 188,
-    wall_inside: 0, wall_outside: 0, wall_end: 0, door_frame: 4, door_leaf: 2,
+  const cutawayRuns = roomEnvironment.chooseRoomCutawayWallRuns(fixture);
+  assert.deepEqual(cutawayRuns.map(({ quarterTurns, tx, ty, length }) =>
+    [quarterTurns, tx, ty, length]), [
+    [0, 1, 0, 46], [0, 16, 11, 2], [0, 19, 11, 2],
+    [0, 15, 15, 3], [0, 19, 15, 3],
+    [1, 0, 1, 30], [1, 15, 12, 3], [1, 21, 11, 5],
+  ]);
+  assert.deepEqual(fixture.pieceCounts, { floor_a: 768, floor_b: 768, wall_straight: 94,
+    wall_inside: 0, wall_outside: 0, wall_end: 0, door_frame: 2, door_leaf: 2,
     torch_bracket: 8, decal_rubble: 4, decal_root: 4, prop_barrel: 4 });
   assert.equal(createHash("sha256").update(Buffer.from(fixture.map)).digest("hex"),
     roomStress.ROOM_STRESS_MAP_SHA256);
@@ -1219,10 +1363,10 @@ test("the_fixed_room_stress_fixture_has_the_named_asset_hash_population_and_piec
   const debug = new rendererDebug.RendererDebugRegistry();
   const room = new roomEnvironment.RoomEnvironmentPresentation(scene, debug, await fakeRoomAsset(scene));
   room.acceptSnapshot(fixture);
-  // 1536 floors + 188 exposed boundary faces. Furniture has 22 semantic
-  // records but 26 instances because each doorway owns two face-aligned frames.
-  assert.deepEqual(room.counts(), { geometry: 1724, furniture: 22, instances: 1750,
-    lights: 9, shadowCasters: 1750, triangles: room.counts().triangles });
+  // 1536 floors + 94 tile-frequency facade instances across eight maximal
+  // visible runs. Furniture has 22 semantic records and 24 instances.
+  assert.deepEqual(room.counts(), { geometry: 1630, furniture: 22, instances: 1654,
+    lights: 9, shadowCasters: 1654, triangles: room.counts().triangles });
   assert.equal(debug.snapshot().draws, 17);
   assert.equal(debug.snapshot().visibility.effects, 8);
   assert.equal(debug.snapshot().visibility.picking, 1558);
@@ -1263,10 +1407,10 @@ test("the_compact_room_review_fixture_is_not_the_performance_stress_fixture", as
   const debug = new rendererDebug.RendererDebugRegistry();
   const room = new roomEnvironment.RoomEnvironmentPresentation(scene, debug, await fakeRoomAsset(scene));
   room.acceptSnapshot(fixture);
-  // 160 floors + 42 exposed boundary faces. The two doorway records
-  // suppress ordinary faces and each contribute two face-aligned frames.
-  assert.deepEqual(room.counts(), { geometry: 202, furniture: 18, instances: 224,
-    lights: 5, shadowCasters: 224, triangles: room.counts().triangles });
+  // 160 floors + 21 tile-frequency facade instances across three maximal
+  // visible runs. Each doorway contributes one face-aligned frame.
+  assert.deepEqual(room.counts(), { geometry: 181, furniture: 18, instances: 201,
+    lights: 5, shadowCasters: 201, triangles: room.counts().triangles });
   assert.equal(scene.lights.length, 6, "review fill is separate from the room key and four torches");
   assert.deepEqual([scene.clearColor.r, scene.clearColor.g, scene.clearColor.b, scene.clearColor.a],
     [0.012, 0.016, 0.032, 1]);
@@ -4787,6 +4931,12 @@ test("a_missing_room_asset_degrades_the_textured_mode_to_a_procedural_floor", as
     assert.ok(mesh.position.x >= -1 && mesh.position.x <= 25, `x ${mesh.position.x}`);
     assert.ok(mesh.position.z <= 1 && mesh.position.z >= -17, `z ${mesh.position.z}`);
   }
+  const rotatedWalls = placed.filter((mesh) =>
+    mesh.name.startsWith("arena-room:wall_") && mesh.name.endsWith(":1"));
+  assert.ok(rotatedWalls.length > 0);
+  assert.ok(rotatedWalls.every((mesh) =>
+    mesh.rotationQuaternion === null && mesh.rotation.y === Math.PI / 2),
+  "the imported GLB quaternion must not override arena wall quarter turns");
   environment.setEnabled(false);
   assert.equal(placed.every((mesh) => !mesh.isEnabled()), true,
     "[Geometry] must leave no room instance enabled");

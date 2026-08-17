@@ -3539,7 +3539,7 @@ fn validate_point_trace(trace: &Ordinal31Tick46PointX) -> Result<(), String> {
         .map_err(|_| "smart133-source-boundary-mismatch".to_string())?;
     if source_bytes.len() != 19_525 || source_bytes.lines().count() != 109
         || smart133_sha256(source_bytes.as_bytes())
-            != "7a90d19ff2c768e4581a221520a81bffd82922d14df4bcf89db3335bbc1143c9" {
+            != "79e624fc0c2f165b3fe7688d7d1aaa39897e6eed2256611e3828f3b4210d2121" {
         return Err("smart133-source-boundary-mismatch".into());
     }
     for run in [&trace.reference_before, &trace.held, &trace.reference_after] {
@@ -3635,7 +3635,7 @@ fn render_tick46_point_x(trace: &Ordinal31Tick46PointX) -> Result<String, String
     let mut out = String::new();
     writeln!(out, "smart133-ordinal31-tick46-segment-hilt-start-x-v1").unwrap();
     writeln!(out, "descriptor ordinal=31 seed=0 mirrored=true target=brute offset_x_raw=-163840 offset_y_raw=0 fingerprint=3796840901852190123 chamber_ticks=28 strike_ticks=28 reach_raw=65536").unwrap();
-    writeln!(out, "smart132_source commit=02815f841a5831bd5747ffd813b1965f9ee73a01 sha256=7a90d19ff2c768e4581a221520a81bffd82922d14df4bcf89db3335bbc1143c9 bytes=19525 lines=109 first_scope=point first_field=point_x side=a point=0 source=segment_hilt region=none endpoint=start reference=+1:c0345d08/1:000013d7 held=+1:c2daa358/1:000013d7").unwrap();
+    writeln!(out, "smart132_source commit=a1b8014 sha256=79e624fc0c2f165b3fe7688d7d1aaa39897e6eed2256611e3828f3b4210d2121 bytes=19525 lines=109 first_scope=point first_field=point_x side=a point=0 source=segment_hilt region=none endpoint=start reference=+1:c0345d08/1:000013d7 held=+1:c2daa358/1:000013d7").unwrap();
     let runs = [&trace.reference_before, &trace.held, &trace.reference_after];
     for run in runs {
         writeln!(out, "horizon run={} tick_after=46 solver_count={} solver_delta={} contact=false cap_hits=0 max_energy_excess_raw=0 requested_receipt={:016x} stored_receipt={:016x} replay_receipt={:016x} state_domain={} state_schema={} state_value={:016x}",
@@ -3707,7 +3707,7 @@ fn independently_rendered_point_artifact(trace: &Ordinal31Tick46PointX) -> Strin
     let mut out = String::new();
     writeln!(out, "smart133-ordinal31-tick46-segment-hilt-start-x-v1").unwrap();
     writeln!(out, "descriptor ordinal=31 seed=0 mirrored=true target=brute offset_x_raw=-163840 offset_y_raw=0 fingerprint=3796840901852190123 chamber_ticks=28 strike_ticks=28 reach_raw=65536").unwrap();
-    writeln!(out, "smart132_source commit=02815f841a5831bd5747ffd813b1965f9ee73a01 sha256=7a90d19ff2c768e4581a221520a81bffd82922d14df4bcf89db3335bbc1143c9 bytes=19525 lines=109 first_scope=point first_field=point_x side=a point=0 source=segment_hilt region=none endpoint=start reference=+1:c0345d08/1:000013d7 held=+1:c2daa358/1:000013d7").unwrap();
+    writeln!(out, "smart132_source commit=a1b8014 sha256=79e624fc0c2f165b3fe7688d7d1aaa39897e6eed2256611e3828f3b4210d2121 bytes=19525 lines=109 first_scope=point first_field=point_x side=a point=0 source=segment_hilt region=none endpoint=start reference=+1:c0345d08/1:000013d7 held=+1:c2daa358/1:000013d7").unwrap();
     let runs = [&trace.reference_before, &trace.held, &trace.reference_after];
     for run in runs { writeln!(out, "horizon run={} tick_after=46 solver_count={} solver_delta={} contact=false cap_hits=0 max_energy_excess_raw=0 requested_receipt={:016x} stored_receipt={:016x} replay_receipt={:016x} state_domain={} state_schema={} state_value={:016x}",
         pair_run_name(run.base.arm), run.base.snapshot.solver_rejections, run.base.solver_delta,
@@ -5503,17 +5503,21 @@ mod tests {
         writeln!(out, "descriptor ordinal=31 seed=0 mirrored=true target=brute offset_x_raw=-163840 offset_y_raw=0 fingerprint=3796840901852190123 chamber_ticks=28 strike_ticks=28 reach_raw=65536").unwrap();
         writeln!(out, "smart131_source sha256=b35363c53cb29b7ac798f666f6e8e60f5e0d79f4380cd84d64010ff74bd90774 bytes=18433 lines=208 first_scope=aabb_control first_field=pair_region_count reference=2 held=0").unwrap();
         // **Re-recorded 2026-08-16 for the bow's release verb**, and only the
-        // four hex fields moved: the command receipt hashes the submitted
+        // receipt and state hex fields moved: the command receipt hashes the submitted
         // payload's declared width, and `state_value` is `state_digest()`,
         // which writes `payload_bytes()` for every stored command. 51 bytes
-        // became 53. The artifact is otherwise byte-identical -- same 11,321
-        // bytes, same 74 lines -- and `requested == stored == replay` still
+        // became 53. **Re-recorded again for articulated arrows**, but this time
+        // only the three `state_value` fields below moved: their digest grammar
+        // appends the allocated projectile-slot count even when it is zero.
+        // Replacing those three words with their prior values reconstructs
+        // Smart132's old SHA-256 exactly; every AABB and operand byte is unchanged.
+        // `requested == stored == replay` still
         // holds on every row, which is the property this control exists to
         // assert. A move here without a layout change would be a defect.
         for line in [
-            "horizon run=reference_before tick_after=46 solver_count=7 solver_delta=1 contact=false cap_hits=0 max_energy_excess_raw=0 requested_receipt=562cd1ef19cdc9cf stored_receipt=562cd1ef19cdc9cf replay_receipt=562cd1ef19cdc9cf state_domain=articulated_v1 state_schema=1 state_value=068e0c7e4dc7b6af",
-            "horizon run=held tick_after=46 solver_count=6 solver_delta=0 contact=false cap_hits=0 max_energy_excess_raw=0 requested_receipt=a9fcf7e9cd03e384 stored_receipt=a9fcf7e9cd03e384 replay_receipt=a9fcf7e9cd03e384 state_domain=articulated_v1 state_schema=1 state_value=fc4ff36dfbdf393c",
-            "horizon run=reference_after tick_after=46 solver_count=7 solver_delta=1 contact=false cap_hits=0 max_energy_excess_raw=0 requested_receipt=562cd1ef19cdc9cf stored_receipt=562cd1ef19cdc9cf replay_receipt=562cd1ef19cdc9cf state_domain=articulated_v1 state_schema=1 state_value=068e0c7e4dc7b6af",
+            "horizon run=reference_before tick_after=46 solver_count=7 solver_delta=1 contact=false cap_hits=0 max_energy_excess_raw=0 requested_receipt=562cd1ef19cdc9cf stored_receipt=562cd1ef19cdc9cf replay_receipt=562cd1ef19cdc9cf state_domain=articulated_v1 state_schema=1 state_value=6ec0813b8fd2130f",
+            "horizon run=held tick_after=46 solver_count=6 solver_delta=0 contact=false cap_hits=0 max_energy_excess_raw=0 requested_receipt=a9fcf7e9cd03e384 stored_receipt=a9fcf7e9cd03e384 replay_receipt=a9fcf7e9cd03e384 state_domain=articulated_v1 state_schema=1 state_value=835811ebee0542fc",
+            "horizon run=reference_after tick_after=46 solver_count=7 solver_delta=1 contact=false cap_hits=0 max_energy_excess_raw=0 requested_receipt=562cd1ef19cdc9cf stored_receipt=562cd1ef19cdc9cf replay_receipt=562cd1ef19cdc9cf state_domain=articulated_v1 state_schema=1 state_value=6ec0813b8fd2130f",
         ] { writeln!(out, "{line}").unwrap(); }
         for (run, held) in [("reference_before", false), ("held", true),
                             ("reference_after", false)] {

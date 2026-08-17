@@ -108,9 +108,15 @@ art decision is `replace` in the [room matrix](../performance/v2-room-matrix.md#
 The generator-v2 vertex-color kit and generator-v3 textured box-wall kit are
 superseded reproducible intermediates. The current generator-v4 kit crops the pinned
 concept material atlas into embedded floor and wall textures, retains deterministic
-`COLOR_0` modulation, and builds joined coursed masonry with topology-specific centreline footprints for
-straight, L, T, and capped-end roles while preserving semantic names and pivots. It has closed output pins and budgets; its automated acceptance still
-does not substitute for the visible-browser art review.
+`COLOR_0` modulation, and builds coursed masonry while preserving semantic names
+and pivots. The game treats solid cells as volume: it merges only disclosed +X/+Y
+solid-to-open faces into maximal isometric cutaway runs and repeats the flush
+straight facade at tile frequency. Remembered walls stay opaque, imported glTF
+quaternions are cleared before semantic quarter turns, and per-tile door publications
+group into one lintel/end-jamb span. The arena independently uses the L, T, straight,
+and capped-end roles for its synthetic centreline ring. The kit has closed output
+pins and budgets; visible topology acceptance does not substitute for the owed
+foreground performance review or completion of the painted concept direction.
 
 The current compact 16 x 10 composition route defined by the
 [visual review contract](../reference/room-asset-contract.md#visual-review-contract)

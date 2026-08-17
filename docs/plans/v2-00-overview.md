@@ -10,23 +10,23 @@ Fighter and Brute presentation. The Canvas game remains the compatibility contro
 
 The articulated-bow and representative-rig implementation slices are complete. Their
 old handoff and session plans have been retired. Start from the authorities below,
-not a progress ledger. The one implementation closeout still blocking an
-`ARTICULATED_HASH` is the exact-law native/wasm parity result recorded under
-[Current blocker](#current-blocker).
+not a progress ledger. The last exact-law native/wasm closeout is recorded under
+[Resolved parity audit](#resolved-parity-audit). It moved no registered hash and did
+not create an `ARTICULATED_HASH` or authorize exact-law promotion.
 
 ## Live work
 
 | work | state | dependency | hash expectation |
 |---|---|---|---|
-| Exact-law target parity | **blocked on diagnosis.** A fresh exact wasm build stops the configured Composed/Windmill arena at tick 278 while current native release stops at 164. An archived pre-Bow baseline built with the current toolchain reproduces wasm 278, so this is not Bow or projectile causality and must not be re-pinned away | isolate the toolchain/target boundary before any promotion or articulated fight golden | registered command, stream, exact-trajectory, lifted-solver and legacy pins already agree across targets; the fight-stop disagreement remains a failure |
+| Exact-law target parity | **complete.** The apparent native 164 / wasm 278 split compared different equipment words; the same configured fixture stops at 278 on both targets, and its learned counterpart reaches 300 on both | permanent native and JavaScript raw-word mirrors plus same-input stopping-tick assertions | no registered hash moved; no articulated fight golden or promotion was authorized |
 | [Smart articulated combat](smart-ai-134-arm-slew-and-region-attribution.md) | Smart134 landed; [Smart133](smart-ai-133-ordinal-31-tick-46-segment-hilt-start-x.md) remains paused research, not a release prerequisite | any successor needs a separately approved causal question | no production pin moves without a fixture-owned prediction |
 | [Hierarchical combat learning](hierarchical-ai-00-overview.md) | proposed research successor | first prove fixed `(loadout, strategy)` options have context-dependent headroom on a mechanically productive corpus | native research moves no pins; promotion is separately gated |
 | Visible browser evidence | blocked on a person using a foreground tab | follow the [arena matrix](../performance/v2-arena-matrix.md) and [room matrix](../performance/v2-room-matrix.md) | no hashes move |
 
-The learned exact duel now reaches its 300-tick limit in both current native and wasm.
-The archived pre-Bow wasm baseline does the same, so its old wasm-only assertion at
-259 is also not projectile causality. That stale expectation needs its own explained
-test correction; it is not evidence that the 164/278 disagreement is safe.
+The JavaScript fixture's learned exact duel reaches its 300-tick limit in both native
+and wasm; the same fixture under the default law still decides at 259. The permanent
+native twin asserts the configured hand words and both exact stopping ticks, so a
+future test cannot silently substitute the shipped equipment table again.
 
 ## Completed implementation slices
 
@@ -79,26 +79,31 @@ stores submitted commands rather than policies; presentation owns no authority;
 persistent browser consumers use slot plus generation identity; layouts are
 append-only and versioned; and legacy hashing emits its original byte stream exactly.
 
-## Current blocker
+## Resolved parity audit
 
-The exact artifact is not stale. The publication closeout rebuilt
-`target/wasm32-unknown-unknown/release/web.wasm` from the current tree with
-`--features cartesian-recoil`, recorded its timestamp and SHA-256, and reproduced the
-configured fight's tick 278 in both a focused run and the complete wasm gate. Current
-native release reproduces tick 164. Building archived commit `a03cdf3` with the same
-current toolchain reproduces the wasm-side 278 and the learned 300 before any Bow
-change existed.
+The exact artifact was fresh, but the compared inputs were not equal.
+`tools/wasm_check.js` deliberately stages round legal equipment values while
+`DuelConfigV1::shipped()` uses the shipped table. The four JavaScript hand rows are:
 
-That isolation closes one tempting explanation: neither projectile storage nor
-projectile contact caused these two counter moves. It does not close the portability
-failure. Do not change the exact configured-fight expectation from 164 to 278, create
-`ARTICULATED_HASH`, or promote the feature build until the target/toolchain boundary
-is explained and native and wasm run the same fight to the same stopping tick.
+- Shield: `[4, 32768, 32768, 16384, 32768, 3277]`;
+- Sword: `[2, 81920, 32768, 65536, 2621, 0]`;
+- empty: `[255, 0, 0, 0, 0, 0]`;
+- Club: `[3, 131072, 32768, 81920, 3277, 0]`.
 
-All registered equality witnesses do agree: the default and exact command hashes,
-default and exact publication streams, exact-trajectory digest, lifted-solver digest,
-combat geometry, contact corpus, learned inference digest, and every legacy browser
-golden. That narrows the failure; it does not excuse it.
+Each row is `[item, mass, balance, dimension 0, dimension 1, dimension 2]` in
+authoritative raw fixed-point words. Once native staged those same rows, constructor,
+swept-AABB and segment/shield diagnostic words matched wasm byte for byte. The full
+configured Composed/Windmill fight stopped at 278 on both targets, and the configured
+Learned/Windmill fight reached 300 on both.
+
+`exact_wasm_check_fights_match_the_same_native_configuration` permanently asserts the
+four raw rows and both native stopping ticks; `tools/wasm_check.js` independently
+asserts the same rows and target results. All registered equality witnesses remain
+unchanged: the default and exact command hashes, default and exact publication
+streams, exact-trajectory digest, lifted-solver digest, combat geometry, contact
+corpus, learned inference digest, and every legacy browser golden. This audit closes
+the false portability blocker. It does not create `ARTICULATED_HASH` or authorize
+promotion of the feature law.
 
 ## Verification
 

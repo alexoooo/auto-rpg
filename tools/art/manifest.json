@@ -88,8 +88,8 @@
   },
   "outputs": {
     "embeddedTextures": { "floorSha256": "a5effbaebebcf0ca1737b4953f53516f6d7274a232f20ccfc8676d854426f9a8", "wallSha256": "d01683a26efff554e88162bf00379a2420a95c814d700c0ecc696065a51c130b" },
-    "glb": { "path": "web/assets3d/room_slice.glb", "sha256": "91479310571aa0b0291532e63f9549fdf79914d19dfe6c1f8b8a09fd550a6420" },
-    "sidecar": { "path": "web/assets3d/room_slice.json", "sha256": "1a6d972a6d27272e5126e3cc89e1891b6f97cbd1b6d9a21363cf4a58d67cf407" },
-    "validator": { "path": "web/assets3d/room_slice.validator.json", "sha256": "2b694efd3b4c44d33228da1a2417d186d04455752c5b09882df07c6a31ed72ff" }
+    "glb": { "path": "web/assets3d/room_slice.glb", "sha256": "39dbe61be1dc69f085126002824ce3a92987c1dd166f09b91cd4715722250f42" },
+    "sidecar": { "path": "web/assets3d/room_slice.json", "sha256": "add5604ca244f6825e8fbd968927f6c77e674e110b546e79d3d8f7b1ba82e751" },
+    "validator": { "path": "web/assets3d/room_slice.validator.json", "sha256": "42f3ec9dfafa0a2185d32f4a8ab28709a46370ae9bd13a35b9fb7b926944e6e4" }
   }
 }

@@ -169,7 +169,7 @@ hash stream owned by their `hash_into` methods and `World::state_hash`.
 ## Source anchors
 
 - Structured observation and current feature layout: [`Observation`](../../crates/sim/src/obs.rs#L582), [`FEATURE_LAYOUT_VERSION`](../../crates/sim/src/obs.rs#L966), [`Observation::write_features`](../../crates/sim/src/obs.rs#L1160)
-- Subject-scoped articulated observation: [`ArticulatedObservation`](../../crates/sim/src/obs.rs#L431), [`World::observe_articulated`](../../crates/sim/src/world.rs#L1992)
+- Subject-scoped articulated observation: [`ArticulatedObservation`](../../crates/sim/src/obs.rs#L431), [`World::observe_articulated`](../../crates/sim/src/world.rs#L2052)
 - Strike variants and discriminants: [`Strike`](../../crates/sim/src/command.rs#L290)
 - Current limb shape: [`LimbCommand`](../../crates/sim/src/command.rs#L359)
 - Current policy output: [`Command`](../../crates/sim/src/command.rs#L407)

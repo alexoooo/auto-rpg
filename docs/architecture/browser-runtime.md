@@ -302,11 +302,11 @@ evidence.
 
 ## Source anchors
 
-- Fixed publication pools: [`thread_local!`](../../crates/web/src/lib.rs#L1534)
-- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L4157)
-- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L5006)
+- Fixed publication pools: [`thread_local!`](../../crates/web/src/lib.rs#L1573)
+- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L4208)
+- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L5105)
 - Worker adapter and atomic scalar phase: [`readPublication`](../../client/src/runtime/sim.worker.ts#L81)
 - Pure protocol host: [`SimWorkerHost`](../../client/src/runtime/sim-worker-host.ts#L55)
 - Main-thread lease owner: [`SimClient`](../../client/src/runtime/sim-client.ts#L122)
-- Greybox unit mapping: [`ActorPresentation.#pose`](../../client/src/render/actors.ts#L134)
+- Greybox unit mapping: [`ActorPresentation.#pose`](../../client/src/render/actors.ts#L154)
 - Arena capsule mapping: [`scenePoint`](../../client/src/arena/geometry.ts#L53)

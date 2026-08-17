@@ -18,8 +18,8 @@ const FORMATS = {
 };
 const TOLERANCE = 0.00001;
 const INSTANCE_CAPACITIES = Object.freeze({
-  floor_a: 768, floor_b: 768, wall_straight: 188, wall_inside: 0,
-  wall_outside: 0, wall_end: 0, door_frame: 4, door_leaf: 2,
+  floor_a: 768, floor_b: 768, wall_straight: 94, wall_inside: 0,
+  wall_outside: 0, wall_end: 0, door_frame: 2, door_leaf: 2,
   torch_bracket: 8, decal_rubble: 4, decal_root: 4, prop_barrel: 4,
 });
 

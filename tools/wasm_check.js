@@ -2128,32 +2128,27 @@ const arenaResult = (packed) => ({
 const arenaFingerprint = () =>
   hash64(wasm.arena_fingerprint_lo(), wasm.arena_fingerprint_hi());
 
-test("print temporary exact Segment constructor diagnostics", () => {
-  if (!CARTESIAN_RECOIL) return;
-  const config = shippedArena();
-  stageArena(arenaBytes(config));
-  assert.equal(arenaResult(wasm.arena_start(3)).outcome, 1);
-  wasm.step(139);
-  wasm.exact_segment_shield_debug_reset();
-  wasm.step(1);
-  const words = Array.from({ length: 20 }, (_, at) => hash64(
-    wasm.exact_segment_constructor_debug_word_lo(at),
-    wasm.exact_segment_constructor_debug_word_hi(at),
-  ));
-  console.log("wasm exact Segment constructor debug:", words.map((word) =>
-    "0x" + word.toString(16).padStart(16, "0")));
-  const aabbWords = Array.from({ length: 20 }, (_, at) => hash64(
-    wasm.exact_segment_shield_aabb_debug_word_lo(at),
-    wasm.exact_segment_shield_aabb_debug_word_hi(at),
-  ));
-  console.log("wasm exact Segment AABB debug:", aabbWords.map((word) =>
-    "0x" + word.toString(16).padStart(16, "0")));
-  const sweepWords = Array.from({ length: 20 }, (_, at) => hash64(
-    wasm.exact_segment_shield_debug_word_lo(at),
-    wasm.exact_segment_shield_debug_word_hi(at),
-  ));
-  console.log("wasm exact Segment sweep debug:", sweepWords.map((word) =>
-    "0x" + word.toString(16).padStart(16, "0")));
+test("the configured arena words match their native exact twin", () => {
+  // This is the configuration the tests below actually stage, not
+  // `DuelConfigV1::shipped()`. The exact native twin in `crates/web` asserts
+  // the same four rows before it pins either fight's stopping tick.
+  const bytes = arenaBytes(shippedArena());
+  const words = new DataView(bytes.buffer);
+  const handWords = Array.from({ length: 4 }, (_, row) => {
+    const at = ARENA_HEADER_BYTES + Math.floor(row / 2) * ARENA_FIGHTER_BYTES
+      + 12 + (row % 2) * ARENA_HAND_BYTES;
+    return [
+      bytes[at], words.getInt32(at + 2, true), words.getInt32(at + 6, true),
+      words.getInt32(at + 10, true), words.getInt32(at + 14, true),
+      words.getInt32(at + 18, true),
+    ];
+  });
+  assert.deepEqual(handWords, [
+    [SHIELD, 32768, 32768, 16384, 32768, 3277],
+    [SWORD, 81920, 32768, 65536, 2621, 0],
+    [ARENA_HAND_EMPTY, 0, 0, 0, 0, 0],
+    [CLUB, 131072, 32768, 81920, 3277, 0],
+  ]);
 });
 
 test("a configured duel runs inside the module and refuses by name", () => {
@@ -2197,16 +2192,14 @@ test("a configured duel runs inside the module and refuses by name", () => {
   // itself -- on the configuration's tick limit, or earlier on a decision -- so
   // the overshoot has to be inert either way.
   //
-  // **The two builds stop for different reasons and that is the point.** This
-  // read `config.maxTicks` for both until Smart134 doubled the arm bearing
-  // rates, after which the exact build's fighters reach a body decision at 164
-  // and stop there. The old assertion could not tell "ran its limit" from
-  // "stopped", so it failed on a fight that ended *better*. Pinning the real
-  // stopping tick per build keeps both halves: the default still proves the
-  // limit clamps a 3,600-tick overshoot, and the exact build now proves a
-  // decision ends the arena before its limit. A `<= maxTicks` bound would have
-  // been satisfied by either and by an arena that stopped on tick one.
-  const STOPS_AT = CARTESIAN_RECOIL ? 164 : config.maxTicks;
+  // **The two builds stop for different reasons and that is the point.** The
+  // default reaches the configured limit; exact decides at 278. The former
+  // exact expectation of 164 came from running `DuelConfigV1::shipped()`
+  // natively, whose weapon dimensions are not the round legal values above.
+  // `exact_wasm_check_fights_match_the_same_native_configuration` now asserts
+  // these raw words and 278 together. A `<= maxTicks` bound would defend none
+  // of the configuration identity, the early decision, or the limit clamp.
+  const STOPS_AT = CARTESIAN_RECOIL ? 278 : config.maxTicks;
   wasm.step(3_600);
   assert.equal(u32(wasm.tick()), STOPS_AT, "the arena did not stop where it should");
   assert.ok(u32(wasm.combat_event_len()) > 0, "the whole fight resolved no contact");
@@ -2643,15 +2636,12 @@ test("a learned fighter runs a configured duel inside the module", () => {
   assert.equal(u32(wasm.arena_policy(1)), WINDMILL);
 
   wasm.step(3_600);
-  // Default still decides at 259. The exact build reaches its 300-tick limit
-  // under both current native and wasm, and archived pre-Bow commit `a03cdf3`
-  // built with the current toolchain does the same in wasm. That isolates the
-  // exact move from Bow/projectile mechanics rather than merely observing it
-  // after them. The configured scripted duel above does *not* have this
-  // agreement -- its native 164 / wasm 278 split remains red rather than being
-  // re-pinned. Exact equality here is what permits this narrower correction.
-  // The paired native spelling is
-  // `a_learned_fight_in_wasm_matches_the_same_fight_in_lab` in crates/web.
+  // Default still decides at 259. Exact reaches the configured 300-tick limit.
+  // The second fight in
+  // `exact_wasm_check_fights_match_the_same_native_configuration` stages these
+  // same equipment words and policies through the native ABI and asserts 300;
+  // this is cross-target equality over one input, not a re-pin across two
+  // differently specified fights.
   const stopped = u32(wasm.tick());
   const LEARNED_STOPS_AT = CARTESIAN_RECOIL ? config.maxTicks : 259;
   assert.equal(stopped, LEARNED_STOPS_AT, "the learned duel no longer ends where it did");

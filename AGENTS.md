@@ -365,15 +365,15 @@ The live roadmap is [`docs/plans/v2-00-overview.md`](docs/plans/v2-00-overview.m
 Completed sessions are retired rather than kept as a progress ledger. The
 articulated-bow and representative Fighter/Brute rig slices are complete; their
 durable contracts now live in the command, projectile, ABI, contact, asset and
-browser references. The current implementation blocker is exact-law target parity:
-with the current toolchain a fresh wasm artifact stops the configured
-Composed/Windmill duel at tick 278 while native release stops at 164. An archived
-pre-Bow baseline reproduces wasm 278, so this is not projectile causality and is not
-a value to re-pin. The learned exact duel reaches tick 300 on both current targets
-and on that archived wasm baseline; its old wasm-only 259 assertion is separately
-stale. `ARTICULATED_HASH` and exact-law promotion remain unauthorized until the
-164/278 target boundary is explained. Durable results from closed sessions belong in
-architecture, design, reference, or performance docs.
+browser references. The exact-law target-parity closeout is complete too. The apparent
+native 164 / wasm 278 split was a fixture mismatch: JavaScript staged round legal
+weapon words while the first native comparison used `DuelConfigV1::shipped()`'s
+different dimensions. A permanent exact native test now asserts all four staged hand
+rows before driving the fights; identical configurations stop at 278 for
+Composed/Windmill and 300 for Learned/Windmill on both targets. No registered hash
+moved for that correction, and it creates neither `ARTICULATED_HASH` nor authority to
+promote the exact law. Durable results from closed sessions belong in architecture,
+design, reference, or performance docs.
 
 ## Gotchas that have already cost time
 

@@ -59,9 +59,13 @@ const inMap = (snapshot: PresentationSnapshot, tx: number, ty: number): boolean 
   tx >= 0 && ty >= 0 && tx < snapshot.mapCols && ty < snapshot.mapRows;
 
 function publishedDoorCells(snapshot: PresentationSnapshot): ReadonlySet<string> {
-  return new Set(snapshot.furniture.filter((item) => item.kind === FURNITURE_DOOR &&
-    item.key === `${item.kind}:${item.tx}:${item.ty}` && inMap(snapshot, item.tx, item.ty))
-    .map((item) => `${item.tx}:${item.ty}`));
+  return new Set(snapshot.furniture.filter((item) => {
+    if (item.kind !== FURNITURE_DOOR ||
+        (item.state !== FURNITURE_DOOR_SHUT && item.state !== FURNITURE_DOOR_OPEN) ||
+        item.key !== `${item.kind}:${item.tx}:${item.ty}` ||
+        !inMap(snapshot, item.tx, item.ty)) return false;
+    return snapshot.vis[tileIndex(snapshot.mapCols, item.tx, item.ty)] === 2;
+  }).map((item) => `${item.tx}:${item.ty}`));
 }
 
 /**
@@ -99,6 +103,74 @@ export function chooseRoomBoundaryWalls(
   return Object.freeze(walls);
 }
 
+export type RoomCutawayWallRun = Readonly<{
+  piece: "wall_straight";
+  quarterTurns: 0 | 1;
+  tx: number;
+  ty: number;
+  length: number;
+  current: boolean;
+}>;
+
+/**
+ * Collapse the only two faces this isometric camera can see into maximal runs.
+ *
+ * The camera looks down the map's +X/+Y diagonal, matching the Canvas
+ * `wallBlock` authority and the dungeon torch publication: a solid cell may
+ * expose its east (+X) and south (+Y) faces only. Emitting north/west faces made
+ * the irregular live dungeon read as a picket fence. Merging collinear segments
+ * also prevents authored end profiles from repeating once per map tile.
+ */
+export function chooseRoomCutawayWallRuns(
+  snapshot: PresentationSnapshot,
+): readonly RoomCutawayWallRun[] {
+  const doors = publishedDoorCells(snapshot);
+  const disclosed = (x: number, y: number): boolean => {
+    if (!inMap(snapshot, x, y)) return false;
+    const visibility = snapshot.vis[tileIndex(snapshot.mapCols, x, y)];
+    return visibility === 1 || visibility === 2;
+  };
+  const solid = (x: number, y: number): boolean => disclosed(x, y) &&
+    snapshot.map[tileIndex(snapshot.mapCols, x, y)] === MAP_SOLID &&
+    !doors.has(`${x}:${y}`);
+  const open = (x: number, y: number): boolean => disclosed(x, y) &&
+    snapshot.map[tileIndex(snapshot.mapCols, x, y)] === MAP_OPEN &&
+    !doors.has(`${x}:${y}`);
+  const current = (x: number, y: number): boolean =>
+    snapshot.vis[tileIndex(snapshot.mapCols, x, y)] === 2;
+  const runs: RoomCutawayWallRun[] = [];
+
+  for (let ty = 0; ty < snapshot.mapRows; ty++) {
+    let tx = 0;
+    while (tx < snapshot.mapCols) {
+      if (!solid(tx, ty) || !open(tx, ty + 1)) { tx++; continue; }
+      const start = tx;
+      const isCurrent = current(tx, ty);
+      while (tx < snapshot.mapCols && solid(tx, ty) && open(tx, ty + 1) &&
+             current(tx, ty) === isCurrent) tx++;
+      runs.push(Object.freeze({
+        piece: "wall_straight", quarterTurns: 0, tx: start, ty,
+        length: tx - start, current: isCurrent,
+      }));
+    }
+  }
+  for (let tx = 0; tx < snapshot.mapCols; tx++) {
+    let ty = 0;
+    while (ty < snapshot.mapRows) {
+      if (!solid(tx, ty) || !open(tx + 1, ty)) { ty++; continue; }
+      const start = ty;
+      const isCurrent = current(tx, ty);
+      while (ty < snapshot.mapRows && solid(tx, ty) && open(tx + 1, ty) &&
+             current(tx, ty) === isCurrent) ty++;
+      runs.push(Object.freeze({
+        piece: "wall_straight", quarterTurns: 1, tx, ty: start,
+        length: ty - start, current: isCurrent,
+      }));
+    }
+  }
+  return Object.freeze(runs);
+}
+
 function doorQuarterTurns(snapshot: PresentationSnapshot, item: PresentationFurniture): 0 | 1 {
   const doors = publishedDoorCells(snapshot);
   const door = (x: number, y: number): boolean => doors.has(`${x}:${y}`);
@@ -110,6 +182,66 @@ function doorQuarterTurns(snapshot: PresentationSnapshot, item: PresentationFurn
   const vertical = Number(solid(item.tx, item.ty - 1)) + Number(solid(item.tx, item.ty + 1));
   if (vertical > horizontal) return 1;
   return 0;
+}
+
+export type RoomDoorRun = Readonly<{
+  quarterTurns: 0 | 1;
+  tx: number;
+  ty: number;
+  length: number;
+  state: typeof FURNITURE_DOOR_SHUT | typeof FURNITURE_DOOR_OPEN;
+  keys: readonly string[];
+}>;
+
+/**
+ * The ABI publishes one door record per tile, while the dungeon owns one
+ * doorway spanning up to a corridor width. Reconstruct that architectural span
+ * before instancing: repeating a complete frame per record makes a continuous
+ * doorway look like an arcade.
+ */
+export function chooseRoomDoorRuns(snapshot: PresentationSnapshot): readonly RoomDoorRun[] {
+  const published = publishedDoorCells(snapshot);
+  const doors = snapshot.furniture.filter((item): item is PresentationFurniture & {
+    state: typeof FURNITURE_DOOR_SHUT | typeof FURNITURE_DOOR_OPEN;
+  } => item.kind === FURNITURE_DOOR && published.has(item.tx + ":" + item.ty) &&
+    (item.state === FURNITURE_DOOR_SHUT || item.state === FURNITURE_DOOR_OPEN))
+    .sort((a, b) => a.ty - b.ty || a.tx - b.tx || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+  const byCell = new Map(doors.map((item) => [item.tx + ":" + item.ty, item]));
+  const claimed = new Set<string>();
+  const same = (x: number, y: number, state: number): boolean => {
+    const item = byCell.get(x + ":" + y);
+    return item !== undefined && item.state === state && !claimed.has(item.key);
+  };
+  const runs: RoomDoorRun[] = [];
+  for (const item of doors) {
+    if (claimed.has(item.key)) continue;
+    let quarterTurns: 0 | 1;
+    if (same(item.tx - 1, item.ty, item.state) || same(item.tx + 1, item.ty, item.state)) {
+      quarterTurns = 0;
+    } else if (same(item.tx, item.ty - 1, item.state) || same(item.tx, item.ty + 1, item.state)) {
+      quarterTurns = 1;
+    } else {
+      quarterTurns = doorQuarterTurns(snapshot, item);
+    }
+    let tx = item.tx, ty = item.ty;
+    const dx = quarterTurns === 0 ? 1 : 0;
+    const dy = quarterTurns === 1 ? 1 : 0;
+    while (same(tx - dx, ty - dy, item.state)) { tx -= dx; ty -= dy; }
+    const keys: string[] = [];
+    let x = tx, y = ty;
+    while (same(x, y, item.state)) {
+      const member = byCell.get(x + ":" + y);
+      if (member === undefined) break;
+      claimed.add(member.key);
+      keys.push(member.key);
+      x += dx; y += dy;
+    }
+    runs.push(Object.freeze({
+      quarterTurns, tx, ty, length: keys.length, state: item.state,
+      keys: Object.freeze(keys),
+    }));
+  }
+  return Object.freeze(runs);
 }
 
 export class RoomEnvironmentPresentation {
@@ -151,7 +283,10 @@ export class RoomEnvironmentPresentation {
         const sourceMaterial = source?.material;
         const remembered = sourceMaterial?.clone(`room:${piece}:remembered`);
         if (remembered === undefined || remembered === null) throw new Error(`room material cannot clone remembered ${piece}`);
-        remembered.alpha = 0.42;
+        // Remembered floors recede into fog, but masonry must keep an opaque
+        // silhouette. Alpha-blended coursing turned every dark mortar gap into
+        // a hole and made contiguous live contours read as lintels and posts.
+        remembered.alpha = piece.startsWith("wall_") ? 1 : 0.42;
         this.#remembered.add(remembered);
         const clone = source?.clone(`room:source:${piece}:remembered`, null, false);
         if (clone === undefined || clone === null) throw new Error(`room asset cannot clone remembered ${piece}`);
@@ -211,7 +346,7 @@ export class RoomEnvironmentPresentation {
 
   acceptSnapshot(snapshot: PresentationSnapshot): void {
     this.#assertLive();
-    const geometryRevision = `${snapshot.epoch}:${snapshot.mapCols}:${snapshot.mapRows}:${snapshot.tileSize}:${snapshot.mapRevision}:${snapshot.visRevision}`;
+    const geometryRevision = `${snapshot.epoch}:${snapshot.mapCols}:${snapshot.mapRows}:${snapshot.tileSize}:${snapshot.mapRevision}:${snapshot.visRevision}:${snapshot.furnitureRevision}`;
     const decorations = (snapshot as PresentationSnapshot & { roomDecorations?: readonly unknown[] }).roomDecorations;
     const decorationRevision = Array.isArray(decorations) ? decorations.map((value) => {
       if (value === null || typeof value !== "object") return "invalid";
@@ -233,13 +368,23 @@ export class RoomEnvironmentPresentation {
         const semanticKey = `tile:${tx}:${ty}`;
         this.#add(this.#geometry, `${semanticKey}:floor`, semanticKey,
           chooseRoomFloor(this.#seed, tx, ty), tx, ty, 0, current, false, current);
-        if (map === MAP_SOLID) {
-          for (const wall of chooseRoomBoundaryWalls(snapshot, tx, ty)) {
-            const suffix = `${wall.offsetX}:${wall.offsetZ}`;
-            this.#add(this.#geometry, `${semanticKey}:wall:${suffix}`, semanticKey,
-              wall.piece, tx, ty, wall.quarterTurns, current, false, false,
-              wall.offsetX, wall.offsetZ);
-          }
+      }
+      const cutawayRuns = chooseRoomCutawayWallRuns(snapshot);
+      for (const run of cutawayRuns) {
+        // A one-edge contour is a stair-step artifact of the dungeon mask. At
+        // this camera it reads as an isolated post, not enclosure; the floor
+        // edge remains the cutaway boundary and explicit doors remain framed.
+        if (run.length === 1) continue;
+        for (let segment = 0; segment < run.length; segment++) {
+          const tx = run.tx + (run.quarterTurns === 0 ? segment : 0);
+          const ty = run.ty + (run.quarterTurns === 1 ? segment : 0);
+          const semanticKey = `tile:${tx}:${ty}`;
+          const offsetX = run.quarterTurns === 1 ? 0.5 : 0;
+          const offsetZ = run.quarterTurns === 0 ? 0.5 : 0;
+          this.#add(this.#geometry,
+            `${semanticKey}:wall-run:${run.quarterTurns}:${run.tx}:${run.ty}:${segment}`,
+            semanticKey, run.piece, tx, ty, run.quarterTurns, run.current, false, false,
+            offsetX, offsetZ);
         }
       }
       this.#geometryRevision = geometryRevision;
@@ -247,7 +392,12 @@ export class RoomEnvironmentPresentation {
     if (furnitureChanged) {
       this.#clearFurniture();
       const furniture = [...snapshot.furniture].sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
-      for (const item of furniture) this.#addFurniture(snapshot, item);
+      const doorKeys = new Set<string>();
+      for (const run of chooseRoomDoorRuns(snapshot)) {
+        for (const key of run.keys) doorKeys.add(key);
+        this.#addDoorRun(run);
+      }
+      for (const item of furniture) if (!doorKeys.has(item.key)) this.#addFurniture(snapshot, item);
       this.#addDecorations(snapshot);
       this.#furnitureRevision = furnitureRevision;
     }
@@ -293,26 +443,60 @@ export class RoomEnvironmentPresentation {
     this.#disposed = true;
   }
 
+  #addDoorRun(run: RoomDoorRun): void {
+    for (const key of run.keys) this.#furnitureKeys.add("furniture:" + key);
+    const owner = "furniture:" + run.keys[0];
+    const faceOffsetX = run.quarterTurns === 1 ? 0.5 : 0;
+    const faceOffsetZ = run.quarterTurns === 0 ? 0.5 : 0;
+    if (run.length === 1) {
+      this.#add(this.#furniture, owner + ":frame", owner, "door_frame",
+        run.tx, run.ty, run.quarterTurns, true, true, true, faceOffsetX, faceOffsetZ);
+      this.#add(this.#furniture, owner + ":leaf", owner, "door_leaf",
+        run.tx, run.ty, run.quarterTurns + (run.state === FURNITURE_DOOR_OPEN ? 1 : 0),
+        true, true, false, faceOffsetX, faceOffsetZ);
+      return;
+    }
+
+    // A wide doorway is one aperture. Repeat only the seamless lintel at tile
+    // frequency, place full-height masonry at its two endpoints, and never put
+    // a complete arch around each ABI record.
+    for (let segment = 0; segment < run.length; segment++) {
+      const tx = run.tx + (run.quarterTurns === 0 ? segment : 0);
+      const ty = run.ty + (run.quarterTurns === 1 ? segment : 0);
+      const semanticKey = "furniture:" + run.keys[segment];
+      const lintel = this.#add(this.#furniture, semanticKey + ":span:lintel:" + segment,
+        semanticKey, "wall_straight", tx, ty, run.quarterTurns,
+        true, true, true, faceOffsetX, faceOffsetZ);
+      lintel.scaling.y = 0.14 / 0.9;
+      lintel.position.y = 0.78;
+      if (run.state === FURNITURE_DOOR_SHUT) {
+        const leafOffsetX = run.quarterTurns === 0 ? -0.5 : 0.5;
+        const leafOffsetZ = 0.5;
+        const leaf = this.#add(this.#furniture, semanticKey + ":span:leaf:" + segment,
+          semanticKey, "door_leaf", tx, ty, run.quarterTurns,
+          true, true, false, leafOffsetX, leafOffsetZ);
+        leaf.scaling.x = 1 / 0.72;
+      }
+    }
+    for (const end of [0, 1] as const) {
+      const tx = run.tx + (run.quarterTurns === 0 && end === 1 ? run.length - 1 : 0);
+      const ty = run.ty + (run.quarterTurns === 1 && end === 1 ? run.length - 1 : 0);
+      const offsetX = run.quarterTurns === 0 ? (end === 0 ? -0.5 : 0.5) : 0.5;
+      const offsetZ = run.quarterTurns === 1 ? (end === 0 ? -0.5 : 0.5) : 0.5;
+      const semanticKey = "furniture:" + run.keys[end === 0 ? 0 : run.keys.length - 1];
+      const jamb = this.#add(this.#furniture, semanticKey + ":span:jamb:" + end,
+        semanticKey, "wall_straight", tx, ty, run.quarterTurns,
+        true, true, true, offsetX, offsetZ);
+      jamb.scaling.x = 0.14;
+    }
+  }
+
   #addFurniture(snapshot: PresentationSnapshot, item: PresentationFurniture): void {
     if (item.tx < 0 || item.ty < 0 || item.tx >= snapshot.mapCols || item.ty >= snapshot.mapRows) return;
     const at = tileIndex(snapshot.mapCols, item.tx, item.ty);
     if (snapshot.vis[at] !== 2 || (snapshot.map[at] !== MAP_OPEN && snapshot.map[at] !== MAP_SOLID) ||
         item.key !== `${item.kind}:${item.tx}:${item.ty}`) return;
-    if (item.kind === FURNITURE_DOOR && (item.state === FURNITURE_DOOR_SHUT || item.state === FURNITURE_DOOR_OPEN)) {
-      const semanticKey = `furniture:${item.key}`;
-      this.#furnitureKeys.add(semanticKey);
-      const turns = doorQuarterTurns(snapshot, item);
-      const frameOffsets = turns === 0
-        ? [[0, -0.5], [0, 0.5]] as const
-        : [[-0.5, 0], [0.5, 0]] as const;
-      for (const [index, [offsetX, offsetZ]] of frameOffsets.entries()) {
-        this.#add(this.#furniture, `${semanticKey}:frame:${index}`, semanticKey,
-          "door_frame", item.tx, item.ty, turns, true, true, true, offsetX, offsetZ);
-      }
-      this.#add(this.#furniture, `${semanticKey}:leaf`, semanticKey, "door_leaf", item.tx, item.ty,
-        turns + (item.state === FURNITURE_DOOR_OPEN ? 1 : 0), true, true, false);
-      return;
-    }
+    if (item.kind === FURNITURE_DOOR) return;
     if (item.kind !== FURNITURE_TORCH || (item.state !== TORCH_FACE_POS_X && item.state !== TORCH_FACE_POS_Y)) return;
     const turns = item.state === TORCH_FACE_POS_Y ? 1 : 0;
     const semanticKey = `furniture:${item.key}`;
@@ -378,6 +562,9 @@ export class RoomEnvironmentPresentation {
     const mesh = source.createInstance(`room:${key}`);
     mesh.position.set((tx + 0.5 + offsetX) * this.#asset.sidecar.coordinates.tileSize, 0,
       (ty + 0.5 + offsetZ) * this.#asset.sidecar.coordinates.tileSize);
+    // glTF sources carry an identity quaternion; Babylon gives it precedence
+    // over Euler fields on instances. Clear it before applying semantic turns.
+    mesh.rotationQuaternion = null;
     mesh.rotation.y = quarterTurns * QUARTER_TURN;
     mesh.isVisible = true;
     mesh.isPickable = pickable;

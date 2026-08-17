@@ -423,6 +423,9 @@ export class ArenaEnvironment {
     // distinct; only the synthetic four-way cross repeats a role on one tile.
     const mesh = source.createInstance(`arena-room:${piece}:${x}:${z}:${quarterTurns}`);
     mesh.position.set(x, 0, z);
+    // The imported glTF identity quaternion otherwise wins over this Euler
+    // quarter turn and leaves every rotated wall source in its authored axis.
+    mesh.rotationQuaternion = null;
     mesh.rotation.y = quarterTurns * QUARTER_TURN;
     mesh.isPickable = false;
     mesh.setEnabled(this.#enabled);
