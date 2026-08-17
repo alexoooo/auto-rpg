@@ -35,7 +35,7 @@ use std::fmt::Write as _;
 /// Bumped when a field changes meaning, never when one is added: the page
 /// refuses a file whose schema it does not know, which is the difference between
 /// "the viewer is out of date" and "the viewer is drawing the wrong thing".
-pub const TRACE_SCHEMA: &str = "arpg-fight-trace-4";
+pub const TRACE_SCHEMA: &str = "arpg-fight-trace-5";
 
 /// Raw units in one world unit, carried in the file rather than assumed by the
 /// reader. `Fx::ONE.raw()` is not public API to a page.
@@ -303,16 +303,33 @@ impl FightTrace {
             //
             // The per-fact quantity is `share`, the row's slice of
             // `dissipated`, and it is recoverable exactly:
-            // `channels()` returns `(cut, thrust, share - cut - thrust)`, so
             // `cut + thrust + pressure == share` for every weapon-body row. For
             // the other two kinds no channel exists and no floor is charged.
+            //
+            // **That invariant is why `crush_raw` is added in rather than
+            // dropped, and this line published `pressure_raw` alone until it was
+            // caught.** `channels()` splits a share four ways --
+            // `(cut, thrust, crush, pressure)` -- while this row, like the
+            // combat-event ABI beside it, carries three channel words. The
+            // comment here described a three-way `channels()` that had already
+            // become four, so the missing term read as an absent one. Publishing
+            // only `pressure_raw` is invisible while `crush_raw` is zero, which
+            // is every default-law fixture, and wrong the moment one is not: on
+            // seed 3 of the shipped duel, frame 460's first contact splits 194
+            // into crush 36 and pressure 157, and a reader checking the
+            // invariant against the recorded columns finds 158. `crates/web/
+            // src/lib.rs`'s `COMBAT_EVENT_PRESSURE` word already summed the two
+            // for exactly this reason; the two sides of the trace contract now
+            // agree, which is what `a_live_fight_matches_the_traced_fight`
+            // compares field for field.
             let _ = write!(out,
                 ",\"toi\":{},\"group\":{},\"alpha\":{},\
                  \"groupBefore\":{},\"groupAfter\":{},\"groupDissipated\":{},\
                  \"cut\":{},\"thrust\":{},\"pressure\":{},\"deflected\":{},\"severed\":{}}}",
                 row.fact.toi.get().raw(), row.group_ordinal, row.group_alpha_raw,
                 row.energy.before_raw, row.energy.after_raw, row.energy.dissipated_raw,
-                row.cut_raw, row.thrust_raw, row.pressure_raw, row.deflected_raw, row.severed);
+                row.cut_raw, row.thrust_raw, row.crush_raw + row.pressure_raw,
+                row.deflected_raw, row.severed);
         }
 
         let _ = write!(out, "],\"health\":[{},{}]}}",

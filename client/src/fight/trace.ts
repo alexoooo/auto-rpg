@@ -12,7 +12,7 @@
 // energy above the floor", "did this tip move at all" -- on the integers the
 // simulation actually decided them on.
 
-export const TRACE_SCHEMA = "arpg-fight-trace-4";
+export const TRACE_SCHEMA = "arpg-fight-trace-5";
 
 export type V3 = readonly [number, number, number];
 /** `[index, generation]`, as `EntityId` is spelled on the Rust side. */

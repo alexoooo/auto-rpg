@@ -49,3 +49,31 @@ web/assets3d/room_slice.json text eol=lf
 web/assets3d/room_slice.validator.json text eol=lf
 web/assets3d/combatants.json text eol=lf
 web/assets3d/combatants.validator.json text eol=lf
+
+# **The list was short by four a second time, and it cost the same afternoon over.**
+# The stanza above states the rule -- if anything hashes a file's contents, it belongs
+# here the day that comparison is written -- and then the generator sources that
+# `tools/validate_assets.js` hashes into `buildInputsSha256` were left out of it. That
+# hash covers `{manifest, generatorSources}`, where the four Python files below are
+# read from the working tree; the sidecar's recorded stamp was made from their LF
+# bytes. Under `core.autocrlf=true` the checkout hands the validator CRLF instead, so
+# every line ending shifts the hash and the gate reports `sidecar build-input hash
+# drifted` -- naming the sidecar, which is the one file in the comparison that is
+# correct. It reads as a regenerate-the-room problem, and regenerating needs Blender,
+# so the false alarm points at the most expensive possible repair.
+#
+# The tell is the one from the stanza above, inverted: there the *text* member of a
+# set failed while its binary neighbours verified. Here the failing inputs are not
+# artifacts at all -- they are ordinary source files that a hash happens to read, which
+# is why nobody thought of them as reviewed bytes. Any file named in a `sha256(...)`
+# call is a reviewed byte whether or not it looks like an asset.
+tools/art/build_slice.py text eol=lf
+tools/art/export.py      text eol=lf
+tools/art/materials.py   text eol=lf
+tools/art/room.py        text eol=lf
+
+# Compared with `Buffer.equals` and SHA-256 against their authored sources in
+# `validate_assets.js`, and copied byte for byte into `dist/` by `vite.config.ts`.
+# Git's own detection already treats them as binary; this states the intent.
+web/assets3d/room_vfx_decal_atlas.png binary
+web/assets3d/room_vfx_flame.png       binary

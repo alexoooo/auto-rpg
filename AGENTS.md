@@ -157,10 +157,24 @@ v2-ui-07 landed the channel.
 The trace is a two-file contract — `crates/lab/src/trace.rs` writes it and
 `client/src/fight/trace.ts` refuses a schema it does not know, on purpose. Change
 one and you change both, and bump `TRACE_SCHEMA` in both. It is at
-`arpg-fight-trace-4`; v2-19 moved it from 2 by replacing the single `script` field
+`arpg-fight-trace-5`; v2-19 moved it from 2 by replacing the single `script` field
 with `heroes`, `monsters` and `checkpoint`, because a learned fight is the first
 one whose two bodies are driven by different things. The articulated-arrow session
 moved it from 3 by adding each frame's live projectile rows.
+
+It moved from 4 because a column changed meaning rather than because one was added,
+which is the case its own doc comment reserves the bump for. `channels()` splits a
+share four ways and both the trace row and the combat-event ABI carry three channel
+words; `crates/web/src/lib.rs` summed `crush_raw + pressure_raw` into its pressure
+word and said why, while `trace.rs` wrote `pressure_raw` alone under a comment
+describing a three-way `channels()` that had already become four. The two agree now.
+**The bug was invisible for the reason worth remembering: `crush_raw` is zero in
+every default-law fixture**, so `cut + thrust + pressure == share` held everywhere
+anybody looked. It fails on seed 3 of the shipped duel, where frame 460's first
+contact splits 194 into crush 36 and pressure 157 and the recorded columns sum to
+158 -- and `a_live_fight_matches_the_traced_fight` could not report it, because
+`web/fight.json` is gitignored and every stale copy stopped at the schema guard
+first. A gate that refuses the file before comparing it is not a passing gate.
 
 `trace` also takes fourteen keys that *describe* a duel instead of running the pinned
 one — the two anatomies, the four hands, and the shield and weapon dimensions.
