@@ -38,6 +38,7 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import type { FightHeader } from "../fight/source.js";
 import type { RoomPieceName } from "../render/room-asset-contract.js";
 import type { RoomAsset, RoomAssetFetcher } from "../render/room-assets.js";
+import { chooseRoomFloorVariant } from "../render/room-material-variants.js";
 
 const ONE = 65536;
 const QUARTER_TURN = Math.PI / 2;
@@ -114,8 +115,7 @@ const onRing = (tx: number, ty: number, tiles: ArenaTiles): boolean =>
  * architecture drawn by #/game.
  */
 export function arenaFloor(tx: number, ty: number): Extract<RoomPieceName, "floor_a" | "floor_b"> {
-  const value = (ROOM_FIXTURE_SEED + Math.imul(tx, 0x9e3779b1) + Math.imul(ty, 0x85ebca6b)) >>> 0;
-  return (Math.imul(value, 0xc2b2ae35) >>> 0) & 1 ? "floor_b" : "floor_a";
+  return chooseRoomFloorVariant(ROOM_FIXTURE_SEED, tx, ty).piece;
 }
 export function arenaWall(
   tx: number, ty: number, tiles: ArenaTiles,

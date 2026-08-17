@@ -180,14 +180,16 @@ artifacts in `docs/performance/` that implies. That is a session of its own.
 
 Three, and none of them is an agent's call.
 
-- **The silhouette judgement.** Whether the proxy reads at 100–250 vertical pixels
-  without outlines. The *arithmetic* is asserted, at 100 vertical pixels; the picture is
-  not.
-- **Whether the dress is any good at all.** Nothing recorded so far says the fighter
-  looks right, only that it stands where the simulation put it. `[Geometry]` is one
-  keystroke away and settles any suspicion that it does not. The specific question an
-  owner has to answer: a faithfully drawn published anatomy reads as a blob, and whether
-  that is acceptable until authored rigs land is not an agent's call.
+- **The authored silhouette judgement.** The combatant asset now has a deterministic
+  Blender game-camera preview and four-angle turntable, and fail-closed metrics defend
+  shoulder/head proportions, projected equipment area, connected posed parts and the
+  40-pixel Fighter/Brute distinction. Those are stronger evidence than the old
+  procedural proxy arithmetic, but the picture in motion at 100–250 vertical pixels is
+  still an owner judgement.
+- **Whether the authored dress is good in motion.** The Fighter and Brute rigs now load,
+  clone and follow the publication with recognizable static silhouettes. What remains is
+  the foreground `[Texture]` view: idle, walking, weapons, shield and fog transitions.
+  A hidden-tab loader result cannot settle that judgement.
 - **The authored room in the arena, seen.** The load, the hashes, the instance counts and
   the placement are asserted over a `NullEngine`. That the room reads as a room around
   two fighters at this scale is not.

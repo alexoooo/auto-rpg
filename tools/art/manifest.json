@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatorVersion": 4,
+  "generatorVersion": 5,
   "license": "MIT",
   "fixtureId": "v2-room-slice-1",
   "generatorSeed": 1592594996,
@@ -33,27 +33,27 @@
     "allVertexColors": false
   },
   "styling": {
-    "id": "concept-umber-stone-v2",
+    "id": "painted-cathedral-v3",
     "mode": "deterministic-vertex-color",
     "attribute": "room_style",
     "textures": true,
     "variation": "0.12",
     "palette": {
-      "floorA": ["0.72", "0.62", "0.50", "1.0"],
-      "floorB": ["0.62", "0.54", "0.44", "1.0"],
-      "floorEdge": ["0.28", "0.22", "0.17", "1.0"],
-      "wallTop": ["0.72", "0.59", "0.43", "1.0"],
-      "wallSide": ["0.45", "0.35", "0.27", "1.0"],
-      "stoneDetail": ["0.50", "0.39", "0.28", "1.0"],
-      "woodTop": ["0.70", "0.64", "0.56", "1.0"],
-      "woodEnd": ["0.18", "0.50", "0.85", "1.0"],
-      "woodSide": ["0.58", "0.52", "0.46", "1.0"],
+      "floorA": ["0.58", "0.53", "0.46", "1.0"],
+      "floorB": ["0.49", "0.45", "0.40", "1.0"],
+      "floorEdge": ["0.34", "0.29", "0.24", "1.0"],
+      "wallTop": ["0.57", "0.50", "0.41", "1.0"],
+      "wallSide": ["0.37", "0.31", "0.26", "1.0"],
+      "stoneDetail": ["0.43", "0.37", "0.31", "1.0"],
+      "woodTop": ["0.34", "0.22", "0.13", "1.0"],
+      "woodEnd": ["0.18", "0.34", "0.60", "1.0"],
+      "woodSide": ["0.29", "0.18", "0.10", "1.0"],
       "neutral": ["1.0", "1.0", "1.0", "1.0"]
     }
   },
   "textures": {
-    "floor": { "path": "tools/art/textures/concept-material-atlas.png", "sha256": "037c8588e18d585fd6c50ff4ba8e071459bf88c04aac4c22058a2743673149b6", "mimeType": "image/png", "width": 1254, "height": 1254, "sourceQuadrant": [0, 1] },
-    "wall": { "path": "tools/art/textures/concept-material-atlas.png", "sha256": "037c8588e18d585fd6c50ff4ba8e071459bf88c04aac4c22058a2743673149b6", "mimeType": "image/png", "width": 1254, "height": 1254, "sourceQuadrant": [1, 1] }
+    "floor": { "path": "tools/art/textures/concept-material-atlas-v2.png", "sha256": "5f09f791ce9d97d0ed72f708baede576d6960db50d33af7d3008d16783e61e36", "mimeType": "image/png", "width": 1254, "height": 1254, "sourceQuadrant": [0, 1] },
+    "wall": { "path": "tools/art/textures/concept-material-atlas-v2.png", "sha256": "5f09f791ce9d97d0ed72f708baede576d6960db50d33af7d3008d16783e61e36", "mimeType": "image/png", "width": 1254, "height": 1254, "sourceQuadrant": [1, 1] }
   },
   "textureProcessing": { "width": 512, "height": 512, "periodicEdgePixels": 32, "colourSpace": "sRGB", "wrap": "repeat", "magFilter": 9729, "minFilter": 9987 },
   "budgets": {
@@ -66,8 +66,8 @@
     "maxTriangles": 4096
   },
   "pieces": [
-    { "name": "floor_a", "node": "ROOM_floor_a", "materialRole": "floor_current", "bounds": { "min": ["-0.48", "0.0", "-0.48"], "max": ["0.48", "0.08", "0.48"] }, "pivot": "ground-centre", "allowedQuarterTurns": [0, 1, 2, 3], "socket": null },
-    { "name": "floor_b", "node": "ROOM_floor_b", "materialRole": "floor_current", "bounds": { "min": ["-0.46", "0.0", "-0.47"], "max": ["0.46", "0.065", "0.47"] }, "pivot": "ground-centre", "allowedQuarterTurns": [0, 1, 2, 3], "socket": null },
+    { "name": "floor_a", "node": "ROOM_floor_a", "materialRole": "floor_current", "bounds": { "min": ["-0.5", "0.0", "-0.5"], "max": ["0.5", "0.08", "0.5"] }, "pivot": "ground-centre", "allowedQuarterTurns": [0, 1, 2, 3], "socket": null },
+    { "name": "floor_b", "node": "ROOM_floor_b", "materialRole": "floor_current", "bounds": { "min": ["-0.5", "0.0", "-0.5"], "max": ["0.5", "0.065", "0.5"] }, "pivot": "ground-centre", "allowedQuarterTurns": [0, 1, 2, 3], "socket": null },
     { "name": "wall_straight", "node": "ROOM_wall_straight", "materialRole": "stone_current", "bounds": { "min": ["-0.5", "0.0", "-0.09"], "max": ["0.5", "0.9", "0.09"] }, "pivot": "ground-centre", "allowedQuarterTurns": [0, 1, 2, 3], "socket": null },
     { "name": "wall_inside", "node": "ROOM_wall_inside", "materialRole": "stone_current", "bounds": { "min": ["-0.09", "0.0", "-0.09"], "max": ["0.5", "0.9", "0.5"] }, "pivot": "ground-centre", "allowedQuarterTurns": [0, 1, 2, 3], "socket": null },
     { "name": "wall_outside", "node": "ROOM_wall_outside", "materialRole": "stone_current", "bounds": { "min": ["-0.5", "0.0", "-0.09"], "max": ["0.5", "0.9", "0.5"] }, "pivot": "ground-centre", "allowedQuarterTurns": [0, 1, 2, 3], "socket": null },
@@ -87,9 +87,9 @@
     "emissive_flame": { "baseColorR": "1.0", "baseColorG": "0.24", "baseColorB": "0.025", "emissiveStrength": "2.5" }
   },
   "outputs": {
-    "embeddedTextures": { "floorSha256": "a5effbaebebcf0ca1737b4953f53516f6d7274a232f20ccfc8676d854426f9a8", "wallSha256": "d01683a26efff554e88162bf00379a2420a95c814d700c0ecc696065a51c130b" },
-    "glb": { "path": "web/assets3d/room_slice.glb", "sha256": "39dbe61be1dc69f085126002824ce3a92987c1dd166f09b91cd4715722250f42" },
-    "sidecar": { "path": "web/assets3d/room_slice.json", "sha256": "80fa427558c7e5e0ee13eb127c95d2198dc998ce721af1ed131878a65529b36a" },
-    "validator": { "path": "web/assets3d/room_slice.validator.json", "sha256": "199b1895559ca697d01c1239c3292b84bfa432aa3d8cd01b6d4e81066cf689e0" }
+    "embeddedTextures": { "floorSha256": "0c49b0bc9241e70fc53207e28d62be30ca3787529cf5f93befbe821b98f3654a", "wallSha256": "bbf4ae43f1564aaa5754eb23ee7869eaf581fb979a970c802a1a43f4a9b9e075" },
+    "glb": { "path": "web/assets3d/room_slice.glb", "sha256": "b8819b6e4c46fe4483448f6f936d17cc9f62b43814fed9beb77ff216af67cf06" },
+    "sidecar": { "path": "web/assets3d/room_slice.json", "sha256": "4a6ec372cef32fb5b13311d0b9f0ddd8f59d99da602e550ccf885da2a0fcf064" },
+    "validator": { "path": "web/assets3d/room_slice.validator.json", "sha256": "05a00c444bea02557561816c4c5d0c05a0dee8b17a8b19c88618cfaeeb807721" }
   }
 }

@@ -1,7 +1,8 @@
 # Visual recovery 05 -- painterly material composition
 
-**Status:** planned. Depends on sessions 02 and 04. No simulation hash moves. Room
-asset pins are expected to move.
+**Status:** implemented on 2026-08-17. No simulation hash moved. Generator v5 owns
+the seamless full-tile floor geometry, four deterministic floor presentations,
+concept-directed atlas, and final room pin/residency record.
 
 The present room chooses `floor_a` or `floor_b` from one bit at
 `client/src/render/room-environment.ts#L58`, repeats one wall source, and embeds two

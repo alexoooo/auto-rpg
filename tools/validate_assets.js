@@ -18,7 +18,7 @@ const FORMATS = {
 };
 const TOLERANCE = 0.00001;
 const INSTANCE_CAPACITIES = Object.freeze({
-  floor_a: 768, floor_b: 768, wall_straight: 269, wall_inside: 0,
+  floor_a: 804, floor_b: 732, wall_straight: 363, wall_inside: 0,
   wall_outside: 0, wall_end: 0, door_frame: 2, door_leaf: 6,
   torch_bracket: 10, decal_rubble: 4, decal_root: 4, prop_barrel: 4,
 });
@@ -90,7 +90,7 @@ function parseRoomSidecar(bytes) {
 
 function validateBuildManifest(manifest) {
   const decimal = /^-?(?:0|[1-9][0-9]*)\.[0-9]+$/;
-  if (manifest.schemaVersion !== 1 || manifest.generatorVersion !== 4 || manifest.license !== "MIT" ||
+  if (manifest.schemaVersion !== 1 || manifest.generatorVersion !== 5 || manifest.license !== "MIT" ||
       manifest.fixtureId !== "v2-room-slice-1" || manifest.generatorSeed !== 1592594996 ||
       !decimal.test(manifest.tolerance)) throw new Error("room manifest identity is invalid");
   if (manifest.toolchain?.blender !== "4.5.12" || !/^[0-9a-f]{64}$/.test(manifest.toolchain.blenderBinarySha256)) {
@@ -110,7 +110,7 @@ function validateBuildManifest(manifest) {
       manifest.export?.allVertexColors !== false) throw new Error("room manifest export contract is invalid");
   const style = manifest.styling;
   const paletteNames = ["floorA", "floorB", "floorEdge", "neutral", "stoneDetail", "wallSide", "wallTop", "woodEnd", "woodSide", "woodTop"];
-  if (style?.id !== "concept-umber-stone-v2" || style?.mode !== "deterministic-vertex-color" ||
+  if (style?.id !== "painted-cathedral-v3" || style?.mode !== "deterministic-vertex-color" ||
       style?.attribute !== "room_style" || style?.textures !== true || !decimal.test(style?.variation ?? "") ||
       JSON.stringify(Object.keys(style?.palette ?? {}).sort()) !== JSON.stringify(paletteNames)) {
     throw new Error("room manifest styling contract is invalid");
@@ -128,7 +128,7 @@ function validateBuildManifest(manifest) {
   for (const name of textureNames) {
     const texture = manifest.textures[name];
     const expectedQuadrant = name === "floor" ? [0, 1] : [1, 1];
-    if (texture?.path !== "tools/art/textures/concept-material-atlas.png" ||
+    if (texture?.path !== "tools/art/textures/concept-material-atlas-v2.png" ||
         !/^[0-9a-f]{64}$/.test(texture?.sha256 ?? "") || texture?.mimeType !== "image/png" ||
         texture?.width !== 1254 || texture?.height !== 1254 ||
         JSON.stringify(texture?.sourceQuadrant) !== JSON.stringify(expectedQuadrant)) {
@@ -364,7 +364,7 @@ function estimateGpuResidency(gltf, decodedTextureBytes = 0) {
   };
 }
 
-function validateEmbeddedTextures(parsed, manifest) {
+function validateEmbeddedTextures(parsed, manifest, skipExpectedHashes = false) {
   const images = parsed.gltf.images ?? [];
   const textures = parsed.gltf.textures ?? [];
   const samplers = parsed.gltf.samplers ?? [];
@@ -387,7 +387,7 @@ function validateEmbeddedTextures(parsed, manifest) {
         bytes.subarray(12, 16).toString("ascii") !== "IHDR") throw new Error("room embedded texture is not a complete PNG");
     const role = Object.keys(manifest.textures).find((candidate) => image.name === `room_${candidate}_albedo`);
     const expectedHash = role === undefined ? "" : manifest.outputs.embeddedTextures[`${role}Sha256`];
-    if (role === undefined || (expectedHash !== "0".repeat(64) && sha256(bytes) !== expectedHash)) {
+    if (role === undefined || (!skipExpectedHashes && expectedHash !== "0".repeat(64) && sha256(bytes) !== expectedHash)) {
       throw new Error("room embedded texture bytes differ from the pinned processed output");
     }
     if (bytes.readUInt32BE(16) !== processing.width || bytes.readUInt32BE(20) !== processing.height) {
@@ -519,7 +519,7 @@ async function validateAsset(options) {
   if ((parsed.gltf.extensionsRequired ?? []).length || (parsed.gltf.extensionsUsed ?? []).length) throw new Error("room GLB uses an unsupported extension");
   for (const field of ["animations", "skins", "cameras"]) if ((parsed.gltf[field] ?? []).length) throw new Error(`room GLB contains forbidden ${field}`);
   if (parsed.gltf.extensions?.KHR_lights_punctual) throw new Error("room GLB contains exported lights");
-  const decodedTextureBytes = validateEmbeddedTextures(parsed, manifest);
+  const decodedTextureBytes = validateEmbeddedTextures(parsed, manifest, options.skipExpectedHashes);
   validateSemanticSets(parsed, sidecar, manifest);
   const referencedAccessors = new Set();
   for (const mesh of parsed.gltf.meshes ?? []) for (const primitive of mesh.primitives ?? []) {

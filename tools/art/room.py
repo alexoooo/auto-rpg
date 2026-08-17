@@ -128,19 +128,20 @@ def _irregular_flagstone(name, node, material, seed):
     width = maximum[0] - minimum[0]
     depth = maximum[2] - minimum[2]
     height = maximum[1] - minimum[1]
-    randomizer = random.Random(seed)
-    inset = [0.055 + randomizer.random() * 0.035 for _ in range(8)]
+    # Variation belongs in the periodic albedo and its declared rotations. The
+    # old octagonal silhouette stopped short of every tile corner; a grid of
+    # those gaps became the black trenches visible in the owner screenshot.
+    # A full square closes every shared edge and keeps mortar inside the paint.
+    _ = seed
     outline = [
-        (minimum[0] + inset[0], minimum[2]), (maximum[0] - inset[1], minimum[2]),
-        (maximum[0], minimum[2] + inset[2]), (maximum[0], maximum[2] - inset[3]),
-        (maximum[0] - inset[4], maximum[2]), (minimum[0] + inset[5], maximum[2]),
-        (minimum[0], maximum[2] - inset[6]), (minimum[0], minimum[2] + inset[7]),
+        (minimum[0], minimum[2]), (maximum[0], minimum[2]),
+        (maximum[0], maximum[2]), (minimum[0], maximum[2]),
     ]
     vertices = [(x, -z, 0) for x, z in outline] + [(x, -z, height) for x, z in outline]
-    faces = [tuple(range(8)), tuple(reversed(range(8, 16)))]
-    for index in range(8):
-        following = (index + 1) % 8
-        faces.append((index, following, following + 8, index + 8))
+    faces = [tuple(range(4)), tuple(reversed(range(4, 8)))]
+    for index in range(4):
+        following = (index + 1) % 4
+        faces.append((index, following, following + 4, index + 4))
     mesh = bpy.data.meshes.new(f"mesh_{name}")
     mesh.from_pydata(vertices, [], faces)
     mesh.validate(verbose=False)
@@ -264,6 +265,23 @@ def _door_leaf(name, node, material):
     return _finish(obj, name, material, [width, height, depth])
 
 
+def _torch_sconce(name, node, material):
+    """A wall fixture whose silhouette still reads at the game camera.
+
+    The old single cuboid satisfied the socket contract but looked like a post
+    planted in the floor. These joined masses keep the same declared hull and
+    pivot while making the backplate, projecting arm, bowl and wrapped haft
+    legible without inventing another runtime placement rule.
+    """
+    boxes = [
+        ((0.16, 0.34, 0.045), (0.0, 0.22, 0.0125)),
+        ((0.07, 0.07, 0.17), (0.0, 0.31, -0.075)),
+        ((0.13, 0.055, 0.11), (0.0, 0.385, -0.12)),
+        ((0.065, 0.10, 0.065), (0.0, 0.44, -0.14)),
+    ]
+    return _join_boxes(name, node, material, boxes)
+
+
 def build_room(manifest, materials):
     nodes = {piece["node"]: piece for piece in manifest["pieces"]}
     meshes = {}
@@ -294,7 +312,7 @@ def build_room(manifest, materials):
         elif name == "ROOM_prop_barrel":
             obj = _barrel(name, node, material)
         elif name == "ROOM_torch_bracket":
-            obj = _box(name, node, material, centre_z=-0.07)
+            obj = _torch_sconce(name, node, material)
         else:
             obj = _box(name, node, material)
         _apply_styling(obj, name, node["materialRole"], manifest["styling"])

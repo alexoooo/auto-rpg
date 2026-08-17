@@ -5,9 +5,7 @@ import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 import "@babylonjs/core/Meshes/instancedMesh.js";
 import type { InstancedMesh } from "@babylonjs/core/Meshes/instancedMesh.js";
 import type { Material } from "@babylonjs/core/Materials/material.js";
-import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
-import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Scene } from "@babylonjs/core/scene.js";
@@ -17,6 +15,10 @@ import {
 } from "../protocol/abi.generated.js";
 import type { RendererDebugRegistry } from "./debug.js";
 import type { PresentationFurniture, PresentationSnapshot } from "./presentation.js";
+import type { PresentationMode } from "./presentation-mode.js";
+import { createTorchFlame, type TorchFlamePresentation } from "./room-flame.js";
+import { chooseRoomFloorVariant } from "./room-material-variants.js";
+import { chooseLocalWallCutaways, type RoomProjector } from "./room-occlusion.js";
 import type { RoomPieceName } from "./room-asset-contract.js";
 import type { RoomAsset } from "./room-assets.js";
 
@@ -44,20 +46,19 @@ export type RoomEnvironmentCounts = Readonly<{
   triangles: number;
 }>;
 
-type SpatialInstance = Readonly<{
+type SpatialInstance = {
   key: string;
   semanticKey: string;
   piece: RoomPieceName;
   mesh: InstancedMesh;
   current: boolean;
   furniture: boolean;
-}>;
+};
 
 const tileIndex = (cols: number, tx: number, ty: number): number => ty * cols + tx;
 
 export function chooseRoomFloor(seed: number, tx: number, ty: number): "floor_a" | "floor_b" {
-  const value = (seed + Math.imul(tx, 0x9e3779b1) + Math.imul(ty, 0x85ebca6b)) >>> 0;
-  return (Math.imul(value, 0xc2b2ae35) >>> 0) & 1 ? "floor_b" : "floor_a";
+  return chooseRoomFloorVariant(seed, tx, ty).piece;
 }
 
 export type RoomAmbientDressing = Readonly<{
@@ -177,72 +178,33 @@ export function chooseRoomBoundaryWalls(
   return Object.freeze(walls);
 }
 
-export type RoomCutawayWallRun = Readonly<{
-  piece: "wall_straight";
-  quarterTurns: 0 | 1;
+export type RoomWallFace = Readonly<{
+  key: string;
   tx: number;
   ty: number;
-  length: number;
-  current: boolean;
+  side: 0 | 1 | 2 | 3;
+  visibility: 1 | 2;
 }>;
 
 /**
- * Collapse the only two faces this isometric camera can see into maximal runs.
- *
- * The fixed camera sits at negative X/negative Z and looks toward the map
- * centre. A solid cell may therefore expose only its west (-X) and north (-Z)
- * faces. The positive-axis version hid the far enclosure behind cap-only
- * ribbons while retaining the near wall that an isometric cutaway must omit.
- * Merging collinear segments prevents authored end profiles from repeating.
+ * Give every disclosed solid/open interface a camera-independent identity.
+ * Presentation may soften a face that locally covers the hero, but camera
+ * quadrant and visibility band never decide whether architecture exists.
  */
-export function chooseRoomCutawayWallRuns(
+export function chooseRoomWallFaces(
   snapshot: PresentationSnapshot,
-): readonly RoomCutawayWallRun[] {
-  const doors = publishedDoorCells(snapshot);
-  const disclosed = (x: number, y: number): boolean => {
-    if (!inMap(snapshot, x, y)) return false;
-    const visibility = snapshot.vis[tileIndex(snapshot.mapCols, x, y)];
-    return visibility === 1 || visibility === 2;
-  };
-  const solid = (x: number, y: number): boolean => disclosed(x, y) &&
-    snapshot.map[tileIndex(snapshot.mapCols, x, y)] === MAP_SOLID &&
-    !doors.has(`${x}:${y}`);
-  const open = (x: number, y: number): boolean => disclosed(x, y) &&
-    snapshot.map[tileIndex(snapshot.mapCols, x, y)] === MAP_OPEN &&
-    !doors.has(`${x}:${y}`);
-  const current = (x: number, y: number): boolean =>
-    snapshot.vis[tileIndex(snapshot.mapCols, x, y)] === 2;
-  const runs: RoomCutawayWallRun[] = [];
-
-  for (let ty = 0; ty < snapshot.mapRows; ty++) {
-    let tx = 0;
-    while (tx < snapshot.mapCols) {
-      if (!solid(tx, ty) || !open(tx, ty - 1)) { tx++; continue; }
-      const start = tx;
-      const isCurrent = current(tx, ty);
-      while (tx < snapshot.mapCols && solid(tx, ty) && open(tx, ty - 1) &&
-             current(tx, ty) === isCurrent) tx++;
-      runs.push(Object.freeze({
-        piece: "wall_straight", quarterTurns: 0, tx: start, ty,
-        length: tx - start, current: isCurrent,
-      }));
+): readonly RoomWallFace[] {
+  const faces: RoomWallFace[] = [];
+  for (let ty = 0; ty < snapshot.mapRows; ty++) for (let tx = 0; tx < snapshot.mapCols; tx++) {
+    const visibility = snapshot.vis[tileIndex(snapshot.mapCols, tx, ty)];
+    if (visibility !== 1 && visibility !== 2) continue;
+    for (const wall of chooseRoomBoundaryWalls(snapshot, tx, ty)) {
+      const side: 0 | 1 | 2 | 3 = wall.offsetZ === -0.5 ? 0 :
+        wall.offsetX === 0.5 ? 1 : wall.offsetZ === 0.5 ? 2 : 3;
+      faces.push(Object.freeze({ key: `wall:${tx}:${ty}:${side}`, tx, ty, side, visibility }));
     }
   }
-  for (let tx = 0; tx < snapshot.mapCols; tx++) {
-    let ty = 0;
-    while (ty < snapshot.mapRows) {
-      if (!solid(tx, ty) || !open(tx - 1, ty)) { ty++; continue; }
-      const start = ty;
-      const isCurrent = current(tx, ty);
-      while (ty < snapshot.mapRows && solid(tx, ty) && open(tx - 1, ty) &&
-             current(tx, ty) === isCurrent) ty++;
-      runs.push(Object.freeze({
-        piece: "wall_straight", quarterTurns: 1, tx, ty: start,
-        length: ty - start, current: isCurrent,
-      }));
-    }
-  }
-  return Object.freeze(runs);
+  return Object.freeze(faces);
 }
 
 function doorQuarterTurns(snapshot: PresentationSnapshot, item: PresentationFurniture): 0 | 1 {
@@ -329,15 +291,16 @@ export class RoomEnvironmentPresentation {
   readonly #rememberedSources = new Map<RoomPieceName, Mesh>();
   readonly #wallCapSources = new Map<string, Mesh>();
   readonly #geometry: SpatialInstance[] = [];
+  readonly #wallFaces = new Map<string, SpatialInstance>();
   readonly #furniture: SpatialInstance[] = [];
   readonly #torchLights: PointLight[] = [];
-  readonly #torchFlames: Mesh[] = [];
-  readonly #flameMaterial: StandardMaterial;
+  readonly #torchFlames: TorchFlamePresentation[] = [];
   readonly #shadowCasters = new Set<AbstractMesh>();
   readonly #pickKeys = new Set<string>();
   readonly #furnitureKeys = new Set<string>();
   #geometryRevision = "";
   #furnitureRevision = "";
+  #mode: PresentationMode = "world";
   #disposed = false;
 
   constructor(scene: Scene, debug: RendererDebugRegistry, asset: RoomAsset, fixtureSeed = 1592594996) {
@@ -345,11 +308,6 @@ export class RoomEnvironmentPresentation {
     this.#debug = debug;
     this.#asset = asset;
     this.#seed = fixtureSeed >>> 0;
-    this.#flameMaterial = new StandardMaterial("room:torch-flame-material", scene);
-    this.#flameMaterial.diffuseColor = Color3.Black();
-    this.#flameMaterial.emissiveColor = new Color3(1, 0.32, 0.025);
-    this.#flameMaterial.specularColor = Color3.Black();
-    this.#flameMaterial.disableLighting = true;
     let key: DirectionalLight | null = null;
     let shadows: ShadowGenerator | null = null;
     try {
@@ -415,7 +373,6 @@ export class RoomEnvironmentPresentation {
       this.#wallCapSources.clear();
       for (const material of this.#remembered) material.dispose();
       this.#remembered.clear();
-      this.#flameMaterial.dispose();
       throw error;
     }
     this.#key = key;
@@ -424,6 +381,14 @@ export class RoomEnvironmentPresentation {
   }
 
   get shadowGenerator(): ShadowGenerator { return this.#shadows; }
+
+  setPresentationMode(mode: PresentationMode): void {
+    this.#assertLive();
+    if (mode === this.#mode) return;
+    this.#mode = mode;
+    this.#applyPresentationMode();
+    this.#publishDebug();
+  }
 
   async prepare(signal: AbortSignal): Promise<void> {
     this.#assertLive();
@@ -440,7 +405,7 @@ export class RoomEnvironmentPresentation {
   }
 
   authoredFrameReady(): boolean {
-    const entries = [...this.#geometry, ...this.#furniture];
+    const entries = [...this.#geometry, ...this.#wallFaces.values(), ...this.#furniture];
     return entries.length > 0 && entries.every((entry) => entry.mesh.isReady(true));
   }
 
@@ -466,14 +431,15 @@ export class RoomEnvironmentPresentation {
         if ((visibility !== 1 && visibility !== 2) || (map !== MAP_OPEN && map !== MAP_SOLID)) continue;
         const current = visibility === 2;
         const semanticKey = `tile:${tx}:${ty}`;
+        const floorVariant = chooseRoomFloorVariant(this.#seed, tx, ty);
         this.#add(this.#geometry, `${semanticKey}:floor`, semanticKey,
-          chooseRoomFloor(this.#seed, tx, ty), tx, ty, 0, current, false, current);
+          floorVariant.piece, tx, ty, floorVariant.quarterTurns, current, false, current);
         if (map === MAP_SOLID) {
           // A solid dungeon cell is masonry volume, not only its camera-facing
           // boundary. The flagstone geometry gives each top four readable
           // blocks instead of turning the fine wall coursing into a giant slab;
           // its derived source still wears the current/remembered stone role.
-          const capVariant = chooseRoomFloor(this.#seed ^ 0x57414c4c, tx, ty);
+          const capVariant = chooseRoomFloorVariant(this.#seed ^ 0x57414c4c, tx, ty).piece;
           const capSource = this.#wallCapSources.get(
             `${capVariant}:${current ? "current" : "remembered"}`);
           if (capSource === undefined) throw new Error("room wall cap source is missing");
@@ -484,25 +450,7 @@ export class RoomEnvironmentPresentation {
           cap.scaling.z = 0.92;
         }
       }
-      const cutawayRuns = chooseRoomCutawayWallRuns(snapshot);
-      for (const run of cutawayRuns) {
-        // A one-edge contour is a stair-step artifact of the dungeon mask. At
-        // this camera it reads as an isolated post, not enclosure; the floor
-        // edge remains the cutaway boundary and explicit doors remain framed.
-        if (run.length === 1) continue;
-        for (let segment = 0; segment < run.length; segment++) {
-          const tx = run.tx + (run.quarterTurns === 0 ? segment : 0);
-          const ty = run.ty + (run.quarterTurns === 1 ? segment : 0);
-          const semanticKey = `tile:${tx}:${ty}`;
-          const offsetX = run.quarterTurns === 1 ? -0.5 : 0;
-          const offsetZ = run.quarterTurns === 0 ? -0.5 : 0;
-          const wall = this.#add(this.#geometry,
-            `${semanticKey}:wall-run:${run.quarterTurns}:${run.tx}:${run.ty}:${segment}`,
-            semanticKey, run.piece, tx, ty, run.quarterTurns, run.current, false, false,
-            offsetX, offsetZ);
-          wall.scaling.y = ROOM_WALL_HEIGHT / 0.9;
-        }
-      }
+      this.#reconcileWallFaces(snapshot);
       this.#geometryRevision = geometryRevision;
     }
     if (furnitureChanged) {
@@ -517,27 +465,45 @@ export class RoomEnvironmentPresentation {
       this.#addDecorations(snapshot);
       this.#furnitureRevision = furnitureRevision;
     }
+    this.#applyPresentationMode();
     this.#publishDebug();
+  }
+
+  updateOcclusion(project: RoomProjector, hero: Readonly<{ x: number; z: number }> | null): void {
+    this.#assertLive();
+    const entries = [...this.#wallFaces.values()];
+    const cutaways = hero === null ? new Set<string>() : chooseLocalWallCutaways(entries.map((entry) => {
+      entry.mesh.computeWorldMatrix(true);
+      return Object.freeze({ key: entry.key, corners: entry.mesh.getBoundingInfo().boundingBox.vectorsWorld });
+    }), hero, project);
+    for (const entry of entries) {
+      entry.mesh.scaling.y = ROOM_WALL_HEIGHT / 0.9 * (cutaways.has(entry.key) ? 0.42 : 1);
+    }
   }
 
   counts(): RoomEnvironmentCounts {
     const geometry = this.#geometry.length;
-    const furniture = this.#furnitureKeys.size;
+    const furniture = this.#mode === "world" ? this.#furnitureKeys.size : 0;
     let triangles = 0;
-    for (const entry of [...this.#geometry, ...this.#furniture]) {
+    const topology = [...this.#geometry, ...this.#wallFaces.values()];
+    const visibleEntries = this.#mode === "world" ? [...topology, ...this.#furniture] : topology;
+    for (const entry of visibleEntries) {
       triangles += this.#asset.sidecar.pieces.find((piece) => piece.name === entry.piece)?.triangleCount ?? 0;
     }
     return Object.freeze({
-      geometry, furniture, instances: this.#geometry.length + this.#furniture.length,
-      lights: 1 + this.#torchLights.length, shadowCasters: this.#shadowCasters.size, triangles,
+      geometry: geometry + this.#wallFaces.size, furniture, instances: visibleEntries.length,
+      lights: 1 + (this.#mode === "world" ? this.#torchLights.length : 0),
+      shadowCasters: this.#shadowCasters.size, triangles,
     });
   }
 
-  keys(): readonly string[] { return Object.freeze([...this.#geometry, ...this.#furniture].map((entry) => entry.key)); }
+  keys(): readonly string[] { return Object.freeze(
+    [...this.#geometry, ...this.#wallFaces.values(), ...this.#furniture].map((entry) => entry.key)); }
 
   reset(): void {
     this.#assertLive();
     this.#clearGeometry();
+    this.#clearWallFaces();
     this.#clearFurniture();
     this.#geometryRevision = "";
     this.#furnitureRevision = "";
@@ -547,6 +513,7 @@ export class RoomEnvironmentPresentation {
   dispose(): void {
     if (this.#disposed) return;
     this.#clearGeometry();
+    this.#clearWallFaces();
     this.#clearFurniture();
     this.#shadows.dispose();
     this.#key.dispose();
@@ -556,7 +523,6 @@ export class RoomEnvironmentPresentation {
     this.#wallCapSources.clear();
     for (const material of this.#remembered) material.dispose();
     this.#remembered.clear();
-    this.#flameMaterial.dispose();
     this.#debug.removeOwner("room-environment");
     this.#disposed = true;
   }
@@ -666,14 +632,7 @@ export class RoomEnvironmentPresentation {
       bracket.position.y + local.y,
       bracket.position.z - local.x * s + local.z * c,
     );
-    const flame = MeshBuilder.CreateSphere(`room:torch:${item.key}:flame`, {
-      diameter: 0.20, segments: 8,
-    }, this.#scene);
-    flame.position.copyFrom(position);
-    flame.material = this.#flameMaterial;
-    flame.isPickable = false;
-    flame.receiveShadows = false;
-    this.#torchFlames.push(flame);
+    this.#torchFlames.push(createTorchFlame(this.#scene, item.key, position));
     if (this.#torchLights.length >= MAX_TORCH_LIGHTS) return;
     const light = new PointLight(`room:torch:${item.key}`, position, this.#scene);
     // The pool is broader than the bulb: the concept uses local orange light
@@ -718,6 +677,45 @@ export class RoomEnvironmentPresentation {
     }
   }
 
+  #reconcileWallFaces(snapshot: PresentationSnapshot): void {
+    const wanted = new Map(chooseRoomWallFaces(snapshot).map((face) => [face.key, face]));
+    for (const [key, entry] of this.#wallFaces) if (!wanted.has(key)) {
+      this.#disposeEntry(entry);
+      this.#wallFaces.delete(key);
+    }
+    for (const face of wanted.values()) {
+      let entry = this.#wallFaces.get(face.key);
+      if (entry === undefined) {
+        const quarterTurns = face.side === 0 || face.side === 2 ? 0 : 1;
+        const offsetX = face.side === 1 ? 0.5 : face.side === 3 ? -0.5 : 0;
+        const offsetZ = face.side === 0 ? -0.5 : face.side === 2 ? 0.5 : 0;
+        const created: SpatialInstance[] = [];
+        const semanticKey = `tile:${face.tx}:${face.ty}`;
+        const mesh = this.#add(created, `${semanticKey}:wall-face:${face.side}`, semanticKey,
+          "wall_straight", face.tx, face.ty, quarterTurns, true, false, false,
+          offsetX, offsetZ);
+        mesh.scaling.y = ROOM_WALL_HEIGHT / 0.9;
+        entry = created[0];
+        if (entry === undefined) throw new Error("room wall face instance was not created");
+        this.#wallFaces.set(face.key, entry);
+      }
+      this.#setWallVisibility(entry, face.visibility);
+    }
+  }
+
+  #setWallVisibility(entry: SpatialInstance, visibility: 1 | 2): void {
+    const current = visibility === 2;
+    entry.current = current;
+    entry.mesh.metadata = Object.freeze({ roomWallVisibility: visibility });
+    if (current) {
+      if (!this.#shadowCasters.has(entry.mesh)) this.#shadows.addShadowCaster(entry.mesh, false);
+      this.#shadowCasters.add(entry.mesh);
+    } else {
+      this.#shadows.removeShadowCaster(entry.mesh, false);
+      this.#shadowCasters.delete(entry.mesh);
+    }
+  }
+
   #add(target: SpatialInstance[], key: string, semanticKey: string, piece: RoomPieceName,
     tx: number, ty: number, turns: number, current: boolean, furniture: boolean, pickable: boolean,
     offsetX = 0, offsetZ = 0, sourceOverride?: Mesh): InstancedMesh {
@@ -742,7 +740,7 @@ export class RoomEnvironmentPresentation {
         : Object.freeze({ presentationKind: "tile", tx, ty });
       this.#pickKeys.add(semanticKey);
     }
-    target.push(Object.freeze({ key, semanticKey, piece, mesh, current, furniture }));
+    target.push({ key, semanticKey, piece, mesh, current, furniture });
     if (current) {
       this.#shadowCasters.add(mesh);
       this.#shadows.addShadowCaster(mesh, false);
@@ -751,15 +749,23 @@ export class RoomEnvironmentPresentation {
   }
 
   #disposeEntries(entries: SpatialInstance[]): void {
-    for (const entry of entries.splice(0)) {
-      this.#shadows.removeShadowCaster(entry.mesh, false);
-      entry.mesh.dispose();
-      this.#pickKeys.delete(entry.semanticKey);
-    }
+    for (const entry of entries.splice(0)) this.#disposeEntry(entry);
+  }
+
+  #disposeEntry(entry: SpatialInstance): void {
+    this.#shadows.removeShadowCaster(entry.mesh, false);
+    this.#shadowCasters.delete(entry.mesh);
+    entry.mesh.dispose();
+    this.#pickKeys.delete(entry.semanticKey);
   }
 
   #clearGeometry(): void {
     this.#disposeEntries(this.#geometry);
+  }
+
+  #clearWallFaces(): void {
+    for (const entry of this.#wallFaces.values()) this.#disposeEntry(entry);
+    this.#wallFaces.clear();
   }
 
   #clearFurniture(): void {
@@ -767,20 +773,41 @@ export class RoomEnvironmentPresentation {
     for (const light of this.#torchLights.splice(0)) light.dispose();
     this.#disposeEntries(this.#furniture);
     this.#furnitureKeys.clear();
+  }
+
+  #applyPresentationMode(): void {
+    const world = this.#mode === "world";
+    for (const entry of this.#furniture) entry.mesh.setEnabled(world);
+    for (const flame of this.#torchFlames) for (const mesh of flame.meshes) mesh.setEnabled(world);
+    for (const light of this.#torchLights) light.setEnabled(world);
     this.#shadowCasters.clear();
-    for (const entry of this.#geometry) if (entry.current) this.#shadowCasters.add(entry.mesh);
+    for (const entry of [...this.#geometry, ...this.#wallFaces.values()]) {
+      if (entry.current) this.#shadowCasters.add(entry.mesh);
+    }
+    for (const entry of this.#furniture) {
+      this.#shadows.removeShadowCaster(entry.mesh, false);
+      if (world && entry.current) {
+        this.#shadowCasters.add(entry.mesh);
+        this.#shadows.addShadowCaster(entry.mesh, false);
+      }
+    }
   }
 
   #publishDebug(): void {
     const counts = this.counts();
-    const sourceGroups = new Set([...this.#geometry, ...this.#furniture].map((entry) => entry.mesh.sourceMesh.name));
-    const flameTriangles = this.#torchFlames.reduce((sum, flame) => sum + flame.getTotalIndices() / 3, 0);
+    const entries = this.#mode === "world"
+      ? [...this.#geometry, ...this.#wallFaces.values(), ...this.#furniture]
+      : [...this.#geometry, ...this.#wallFaces.values()];
+    const sourceGroups = new Set(entries
+      .map((entry) => entry.mesh.sourceMesh.name));
+    const flames = this.#mode === "world" ? this.#torchFlames.flatMap((flame) => flame.meshes) : [];
+    const flameTriangles = flames.reduce((sum, flame) => sum + flame.getTotalIndices() / 3, 0);
     this.#debug.replaceOwnerCounts("room-environment", {
-      scene: { meshes: this.#torchFlames.length, instances: counts.instances,
-        draws: sourceGroups.size + this.#torchFlames.length,
+      scene: { meshes: flames.length, instances: counts.instances,
+        draws: sourceGroups.size + flames.length,
         triangles: counts.triangles + flameTriangles, lights: counts.lights, shadowCasters: counts.shadowCasters },
       visibility: { geometry: counts.geometry, furniture: counts.furniture,
-        effects: this.#torchFlames.length, picking: this.#pickKeys.size, debug: this.#pickKeys.size },
+        effects: flames.length, picking: this.#pickKeys.size, debug: this.#pickKeys.size },
     });
   }
 

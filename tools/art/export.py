@@ -33,7 +33,7 @@ def mesh_bounds(obj):
 # six plank modules, and the shut row adds two iron straps. Keep this mirrored
 # with room-stress.ts and the runtime validator; it is the residency authority.
 INSTANCE_CAPACITIES = {
-    "floor_a": 768, "floor_b": 768, "wall_straight": 269,
+    "floor_a": 804, "floor_b": 732, "wall_straight": 363,
     "wall_inside": 0, "wall_outside": 0, "wall_end": 0,
     "door_frame": 2, "door_leaf": 6, "torch_bracket": 10,
     "decal_rubble": 4, "decal_root": 4, "prop_barrel": 4,

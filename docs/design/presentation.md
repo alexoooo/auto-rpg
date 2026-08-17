@@ -1,6 +1,6 @@
 # Presentation
 
-**Purpose:** Preserve the shipped visual language, the boundary between gameplay readouts and rendering style, and where the shipped figures do not yet meet that language.
+**Purpose:** Preserve the shipped visual language, the boundary between gameplay readouts and rendering style, and the evidence required of shipped figures.
 **Status:** current
 **Canonical source:** [`web/main.js`](../../web/main.js#L6512), [`web/style.css`](../../web/style.css), [`web/assets/ASSET_SPEC.md`](../../web/assets/ASSET_SPEC.md), and the [renderer contract](../reference/renderer-contract.md#renderer-owned-snapshot-boundary)
 **Update when:** Art direction, view-mode controls, HUD language, the published body proportions, or the reference renderer changes.
@@ -53,12 +53,14 @@ the middle of something wider than they are. Lit and shadowed it reads as a body
 room; it does not read as a fighter.
 
 **That is the published anatomy and not a proxy defect** — `[Geometry]` draws the same
-silhouette out of the same rows, which is what settles it. The fix, when it is wanted, is
-an authored rig whose art narrows a shape the simulation still sweeps at its published
+silhouette out of the same rows, which is what settles it. The implemented presentation
+fix is an authored rig whose art narrows a shape the simulation still sweeps at its published
 radius. A presentation layer that quietly narrowed a published capsule would be drawing a
 body nothing swept, which is the one thing neither dress may do. **Whether it is
-acceptable until then is an owner's judgement and has not been made** — it needs a person
-looking at the page, and it is recorded as owed in the
+acceptable is still an owner's judgement**: the current Fighter and Brute have
+separate authored limb chains and class equipment, with automated 40-pixel silhouette
+bounds, but foreground reset/walk/fog/Arena review remains the acceptance authority.
+That review is recorded in the
 [arena matrix](../performance/v2-arena-matrix.md#owed-visual-judgements).
 
 ## Renderer roles

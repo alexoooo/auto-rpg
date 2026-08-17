@@ -109,6 +109,21 @@ test("the_torch_socket_has_one_parent_and_a_finite_normalized_transform", () => 
   assert.ok(Math.abs(Math.hypot(...transform) - 1) <= 0.00001);
 });
 
+test("the_authored_torch_has_wall_mount_arm_bowl_and_flame_socket_closure", () => {
+  const parsed = parseGlb(fs.readFileSync(GLB));
+  const nodes = new Map(parsed.gltf.nodes.map((node) => [node.name, node]));
+  const bracket = nodes.get("ROOM_torch_bracket");
+  const primitive = parsed.gltf.meshes[bracket.mesh].primitives[0];
+  const positions = accessorValues(parsed, primitive.attributes.POSITION);
+  const distinctX = new Set(positions.map(([x]) => x.toFixed(4)));
+  const distinctY = new Set(positions.map(([, y]) => y.toFixed(4)));
+  const distinctZ = new Set(positions.map(([, , z]) => z.toFixed(4)));
+  assert.ok(positions.length >= 32, "the sconce needs four readable joined masses, not one box");
+  assert.ok(distinctX.size >= 4 && distinctY.size >= 6 && distinctZ.size >= 6,
+    "backplate, projecting arm, bowl and wrapped haft need separate silhouettes");
+  assert.ok(nodes.has("SOCKET_torch_flame"));
+});
+
 test("payload_and_conservative_gpu_estimates_use_the_documented_formula", () => {
   const gltf = {
     bufferViews: [{ byteLength: 5 }, { byteLength: 7 }],
@@ -119,9 +134,9 @@ test("payload_and_conservative_gpu_estimates_use_the_documented_formula", () => 
   assert.deepEqual(estimate, {
     sourceBufferBytes: 12,
     decodedTextureBytes: 0,
-    instanceBufferBytes: 234880,
+    instanceBufferBytes: 246912,
     shadowMapBytes: 4194304,
-    totalBytes: 4429196,
+    totalBytes: 4441228,
   });
 });
 
@@ -151,6 +166,21 @@ test("pinned_embedded_albedos_and_vertex_colours_make_floor_and_wall_sources_dis
     return bytes.readUInt32BE(16) === 512 && bytes.readUInt32BE(20) === 512;
   }));
   assert.equal(estimateGpuResidency(parsed.gltf, 2_097_152).decodedTextureBytes, 2_097_152);
+});
+
+test("every_floor_variant_is_edge_seamless_under_declared_rotations", () => {
+  const parsed = parseGlb(fs.readFileSync(GLB));
+  const sidecar = parseRoomSidecar(fs.readFileSync(SIDECAR));
+  for (const name of ["floor_a", "floor_b"]) {
+    const piece = sidecar.pieces.find((candidate) => candidate.name === name);
+    assert.deepEqual(piece.bounds.min, [-0.5, 0, -0.5]);
+    assert.deepEqual(piece.bounds.max.slice(0, 3).filter((_, axis) => axis !== 1), [0.5, 0.5]);
+    const node = parsed.gltf.nodes.find((candidate) => candidate.name === `ROOM_${name}`);
+    const positions = accessorValues(parsed, parsed.gltf.meshes[node.mesh].primitives[0].attributes.POSITION);
+    const xs = positions.map(([x]) => x); const zs = positions.map(([, , z]) => z);
+    assert.deepEqual([Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)],
+      [-0.5, 0.5, -0.5, 0.5], `${name} must close the full tile under every quarter turn`);
+  }
 });
 
 test("authored_wall_sources_are_coursed_masonry_with_bounded_detail", () => {

@@ -139,6 +139,16 @@ copies. The exact [copy boundary](../reference/renderer-contract.md#renderer-own
 and [interpolation timeline](../reference/renderer-contract.md#interpolation-timeline)
 are durable reference authority.
 
+The route also owns two observational controls that never cross the Worker boundary.
+An always-visible 500 ms rAF meter reports rounded FPS and the worst raw interval in
+the same window; mount and return-to-visible reset it so hidden time is not presented
+as a long frame. `G` and the visible World/Tactical button mutate one renderer owner.
+Tactical retains the same scene, snapshots, fog, picks, commands, pan and zoom bounds,
+uses an orthographic top-down pose, shows the procedural combatant rig and transient
+cues, and hides authored combatant and decorative room dress without disposing them.
+Returning to World restores those same identities, lights, shadow registrations, and
+the fixed/follow camera rather than constructing another renderer or Worker.
+
 The procedural scene uses a right-handed `(x, elevation, y)` mapping, a fixed
 isometric camera, instanced known tiles, generational unit meshes, and snapshot-local
 shots and events.
@@ -248,9 +258,8 @@ describe the same hero position.
 
 This fog is presentation state derived from the authoritative world. It is absent
 from `World::state_hash`, and headless lab runs do not compute it. World view consumes
-it to hide unknown space and dim remembered space. The legacy Tactical view keeps fog
-and Dev disables it deliberately; the current GPU game route has not yet restored
-either presentation control. The renderer is not entitled to replace the
+it to hide unknown space and dim remembered space. The GPU and legacy Tactical views
+keep that same fog; legacy Dev alone disables it deliberately. The renderer is not entitled to replace the
 published answer with a camera frustum or its own ray cast. The v2 renderer applies
 the same [subsystem presence gate](../reference/renderer-contract.md#visibility-and-subsystem-presence)
 to meshes, shadows, labels, effects, audio, picking, and debug records.
@@ -297,11 +306,13 @@ rows, including severance visibility and first-person self-occlusion. A load or 
 failure keeps the procedural textured proxy. Neither browser path writes animation or
 asset state back into a command, simulation, replay, or hash domain.
 
-The current authored assets pass loader and lifecycle contracts, but the 2026-08-17
-owner screenshot remains failing visible evidence: near enclosure walls are absent or
-pop with disclosure, the Fighter is not readable as a person at gameplay scale, the
-ground cue intersects the floor, and torch/material treatment remains schematic and
-repetitive. Automated delivery is not contrary visual evidence.
+The current authored assets pass loader and lifecycle contracts. Stable four-sided
+wall identity now closes the automated topology defect: disclosure retains existing
+face objects and only a projected near face overlapping the hero receives a reversible
+local cutaway. Foreground corner-walk evidence remains owed, so the 2026-08-17 owner
+screenshot remains the last visible wall verdict rather than being silently erased.
+The Fighter is still not readable as a person at gameplay scale, the ground cue
+intersects the floor, and torch/material treatment remains schematic and repetitive.
 
 ## Source anchors
 
@@ -311,5 +322,5 @@ repetitive. Automated delivery is not contrary visual evidence.
 - Worker adapter and atomic scalar phase: [`readPublication`](../../client/src/runtime/sim.worker.ts#L81)
 - Pure protocol host: [`SimWorkerHost`](../../client/src/runtime/sim-worker-host.ts#L55)
 - Main-thread lease owner: [`SimClient`](../../client/src/runtime/sim-client.ts#L122)
-- Greybox unit mapping: [`ActorPresentation.#pose`](../../client/src/render/actors.ts#L217)
+- Greybox unit mapping: [`ActorPresentation.#pose`](../../client/src/render/actors.ts#L256)
 - Arena capsule mapping: [`scenePoint`](../../client/src/arena/geometry.ts#L53)

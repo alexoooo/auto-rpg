@@ -446,6 +446,25 @@ test("the_game_route_gives_the_dungeon_the_stage_and_keeps_instruments_in_reach"
   }
 });
 
+test("the_game_route_keeps_fps_visible_outside_the_systems_drawer", () => {
+  const template = /<template id="route-game">([\s\S]*?)<\/template>/.exec(SHELL_HTML)?.[1] ?? "";
+  const fps = template.indexOf('id="game-fps"');
+  const view = template.indexOf('id="game-view-mode"');
+  const drawer = template.indexOf('class="game-instruments"');
+  assert.ok(fps >= 0 && view >= 0 && drawer >= 0 && fps < drawer && view < drawer,
+    "player instruments must remain visible when Systems and capture is closed");
+  assert.match(template, /<output id="game-fps"[^>]*>-- FPS \/ -- ms worst<\/output>/);
+});
+
+test("g_cycles_the_game_view_and_the_button_names_the_active_mode", () => {
+  const source = fs.readFileSync(path.join(ROOT, "client", "src", "v2.ts"), "utf8");
+  assert.match(source, /event\.key\.toLowerCase\(\) !== "g"/);
+  assert.match(source, /setPresentationMode\(nextPresentationMode\(presentationMode\)\)/);
+  assert.match(source, /viewModeButton\.textContent = presentationModeLabel\(presentationMode\)/);
+  const template = /<template id="route-game">([\s\S]*?)<\/template>/.exec(SHELL_HTML)?.[1] ?? "";
+  assert.match(template, /<button id="game-view-mode"[^>]*>World<\/button>/);
+});
+
 // ------------------------------------------------------------------- the picker's rules
 
 test("all_four_arena_hand_selects_offer_the_exact_browser_hand_vocabulary", () => {

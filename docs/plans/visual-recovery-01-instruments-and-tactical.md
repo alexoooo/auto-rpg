@@ -1,6 +1,6 @@
 # Visual recovery 01 -- restore instruments and Tactical view
 
-**Status:** planned. Presentation-only; no registered hash moves.
+**Status:** implemented. Presentation-only; no registered hash moves.
 
 This session restores two useful v1 capabilities before further art work: the
 always-visible FPS/worst-frame chip and the top-down Tactical comparison. It does not

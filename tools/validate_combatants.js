@@ -92,6 +92,58 @@ function parseCombatantSidecar(bytes) {
   return value;
 }
 
+function validateCombatantPresentation(sidecar) {
+  const byKind = (kind) => {
+    const value = sidecar.archetypes.find((archetype) => archetype.kind === kind);
+    if (!value) throw new Error(`combatant presentation has no ${kind}`);
+    return value;
+  };
+  const node = (value, semantic) => {
+    const result = value.nodes.find((item) => item.semantic === semantic);
+    if (!result) throw new Error(`combatant presentation has no ${value.kind} ${semantic} node`);
+    return result;
+  };
+  const mesh = (value, semantic) => {
+    const result = value.meshes.find((item) => item.semantic === semantic);
+    if (!result) throw new Error(`combatant presentation has no ${value.kind} ${semantic} mesh`);
+    return result;
+  };
+  const extent = (item, axis) => item.bounds.max[axis] - item.bounds.min[axis];
+  const shoulderWidth = (value) =>
+    node(value, "arm_right").translation[0] - node(value, "arm_left").translation[0];
+  const fighter = byKind("fighter");
+  const brute = byKind("brute");
+  const fighterShoulders = shoulderWidth(fighter);
+  const bruteShoulders = shoulderWidth(brute);
+  if (fighterShoulders < 0.72 || fighterShoulders > 0.86 ||
+      bruteShoulders < 1.02 || bruteShoulders > 1.20 ||
+      bruteShoulders / brute.height - fighterShoulders / fighter.height < 0.04) {
+    throw new Error("combatant presentation shoulder proportions drifted");
+  }
+  if (extent(mesh(fighter, "head_helmet"), 1) < 0.38 ||
+      extent(mesh(brute, "head"), 1) < 0.50) {
+    throw new Error("combatant presentation head height drifted");
+  }
+  const sword = mesh(fighter, "sword");
+  const shield = mesh(fighter, "shield");
+  const club = mesh(brute, "club");
+  if (extent(sword, 0) * extent(sword, 1) < 0.075) {
+    throw new Error("combatant presentation sword projected area drifted");
+  }
+  if (extent(shield, 0) * extent(shield, 1) < 0.48) {
+    throw new Error("combatant presentation shield projected area drifted");
+  }
+  if (extent(club, 0) * extent(club, 1) < 0.26) {
+    throw new Error("combatant presentation club projected area drifted");
+  }
+  const pixels = (value, item, axis) => extent(item, axis) / value.height * 40;
+  if (pixels(fighter, sword, 0) < 2 || pixels(fighter, shield, 0) < 14 ||
+      pixels(brute, club, 0) < 5 ||
+      bruteShoulders / brute.height * 40 - fighterShoulders / fighter.height * 40 < 2.5) {
+    throw new Error("combatant presentation 40-pixel silhouette drifted");
+  }
+}
+
 function validateManifest(manifest) {
   if (manifest.schemaVersion !== 1 || manifest.generatorVersion !== 1 || manifest.license !== "MIT" ||
       manifest.fixtureId !== "v2-combatants-1" || manifest.generatorSeed !== 3235823838 ||
@@ -152,6 +204,7 @@ function nodeParents(gltf) {
 
 function validateSemanticClosure(parsed, sidecar, manifest) {
   const gltf = parsed.gltf;
+  validateCombatantPresentation(sidecar);
   validateUriPolicy(gltf);
   if ((gltf.skins ?? []).length !== 2 || (gltf.cameras ?? []).length !== 0 ||
       (gltf.extensions?.KHR_lights_punctual?.lights ?? []).length !== 0) {
@@ -350,5 +403,5 @@ if (require.main === module) void main();
 
 module.exports = {
   parseArguments, parseCombatantSidecar, validateCombatantAsset, validateManifest,
-  validateSemanticClosure,
+  validateCombatantPresentation, validateSemanticClosure,
 };

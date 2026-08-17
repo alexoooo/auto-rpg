@@ -1,7 +1,8 @@
 # Visual recovery 02 -- stable complete walls
 
-**Status:** planned. Depends on session 01. Presentation-only; no registered hash
-moves.
+**Status:** implemented on 2026-08-17. Presentation-only; no registered hash moved.
+The stable four-sided face census is 188 and the capacity-only room presentation
+pool moved from 269 to 363 straight-wall instances.
 
 The missing bottom/left walls are not a culling accident. The current contract in
 `client/src/render/room-environment.ts#L189` selects only -X/-Z interfaces, and the

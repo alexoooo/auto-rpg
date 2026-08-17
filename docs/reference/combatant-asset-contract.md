@@ -28,8 +28,8 @@ names. `idle`, `walk`, `stagger`, and `fall` are cosmetic clips. There is no
 attack clip: authoritative contacts and combat events remain the only sources of
 hits, reactions, and detachment.
 
-The fixture closes over 83 nodes, 41 meshes, seven materials, 2,767 vertices,
-1,888 triangles, eight animations, and two skins. It embeds one deterministic
+The fixture closes over 87 nodes, 45 meshes, seven materials, 3,010 vertices,
+2,024 triangles, eight animations, and two skins. It embeds one deterministic
 512 � 512 atlas derived from the pinned
 `tools/art/textures/concept-material-atlas.png` source. The source texture's
 SHA-256, dimensions, and provenance are manifest inputs.
@@ -56,13 +56,29 @@ The committed identities are:
 
 | Identity | SHA-256 |
 |---|---|
-| canonical build inputs | `6f0f5901e5f6264f1e8d71b8247d26099a5543ae3221d2581268377c37dd36cd` |
-| semantic sidecar | `891ffaee0e2c0c9a688e468a428125b27756c6eb8310a839459b47958f4a54e3` |
-| combatant GLB | `fc97d65b9a94e5b6e4d4fa71feee4a6e3cfedc4586d9f870e0d45484e460c494` |
-| canonical validator report | `30efbc643157d3a10ae71d39d0a389e6ae2996e88f09b95f771b497fe23b0eda` |
+| canonical build inputs | `00f9214b11b44858e52e3daedfb74bfa9e03777d446f62a4760583307c24c0c9` |
+| semantic sidecar | `589785e10468d1f1cde0a20caf5acce8ceeafb1620a59837e2378db019a370ca` |
+| combatant GLB | `878e0b096907ffa9a144065107398117ec0fe95f8454aee157e59a2279585ca5` |
+| canonical validator report | `66d542b0696226947b84b924f373f00fd42a4e6598be9ffc54445a598037665b` |
 
-The GLB is 740,956 bytes; GLB plus sidecar is 762,769 bytes. Conservative estimated
-GPU residency is 1,689,312 bytes, within the manifest's 64 MiB limit.
+The GLB is 759,024 bytes; GLB plus sidecar is 782,085 bytes. Conservative estimated
+GPU residency is 1,702,692 bytes (654,116 source plus 1,048,576 decoded texture),
+within the manifest's 64 MiB limit.
+
+The authored shape contract is camera-scale evidence, not an aesthetic adjective.
+The Fighter has a tapered cuirass, helmet/face/plume hierarchy, separate pauldrons,
+upper arms, forearms, hands, legs and boots, a broad kite shield, and an extruded
+guarded sword. The Brute is broader after equal-height scaling, carries its head
+forward, separates the same limb chain, and ends its long club in a heavy tapered
+striking head. Mid-value rough steel, worn burgundy/umber cloth and restrained warm
+skin carry the body; faction cyan/red stays on the separate gameplay cue.
+
+Validation bounds shoulder width, head height, projected sword/shield/club area and
+the equal-height 40-pixel silhouette. The asset tests additionally reconstruct the
+rest-pose bone translations and require the torso, head, pelvis and every limb chain
+to remain connected. `tools/art/preview_combatants.py` renders four pinned Blender
+turntable views and one isometric game-camera still without making those review PNGs
+runtime assets.
 
 ## Loader boundary
 
@@ -97,3 +113,8 @@ codes decide whether the carried blade and shield are present; action role decid
 their active pose, not their between-action visibility. All cloned materials,
 equipment meshes, faction cues, and the player-local readability light retire with
 the actor under fog, reset, generation reuse, or disposal.
+
+The faction torus is also authored-floor aware. Its centre is the tallest pinned
+walkable source (`0.080`) plus half of the `0.11 * body radius` tube thickness
+plus a `0.004` clearance epsilon. This is a constant-time presentation calculation;
+the renderer does not sample room meshes each frame.

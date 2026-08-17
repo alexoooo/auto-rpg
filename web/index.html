@@ -127,6 +127,13 @@
     .route-game #party-health { color: #ddd1b8; font: 600 .68rem/1 ui-monospace, Consolas, monospace; }
     .route-game #party-health-bar { width: 100%; height: .28rem; border: 0; accent-color: var(--studio-amber); }
     .route-game .game-state #status { color: var(--studio-cyan); font-size: .68rem; line-height: 1.25; }
+    .game-live-instruments { display: flex; align-items: center; justify-content: space-between;
+      gap: .4rem; padding-top: .28rem; border-top: 1px solid var(--studio-panel-line); }
+    .route-game #game-fps { color: var(--studio-faint); font: .6rem/1 ui-monospace, Consolas, monospace;
+      font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .route-game #game-view-mode { padding: .22rem .42rem; border-color: var(--studio-panel-line);
+      background: #100d0a; color: var(--studio-cyan); font-size: .66rem; }
+    .route-game #game-view-mode::after { content: "  [G]"; color: var(--studio-faint); }
     .game-command-deck { left: 50%; bottom: clamp(.65rem, 1.2vw, 1rem);
       display: flex; flex-wrap: wrap; justify-content: center; gap: .45rem;
       max-width: calc(100% - 31rem); transform: translateX(-50%); }
@@ -318,6 +325,10 @@
           </div>
           <progress id="party-health-bar" max="1" value="0" aria-label="Party health"></progress>
           <output id="status" aria-live="polite">Starting worker&hellip;</output>
+          <div class="game-live-instruments">
+            <output id="game-fps" aria-label="Frame rate">-- FPS / -- ms worst</output>
+            <button id="game-view-mode" type="button" aria-pressed="false" disabled>World</button>
+          </div>
         </div>
 
         <aside class="game-command-deck" aria-label="Expedition controls">

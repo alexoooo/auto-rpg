@@ -1,13 +1,12 @@
 # Visual recovery 03 -- a recognizable authored Fighter and Brute
 
-**Status:** planned. Depends on session 02. No simulation hash moves. Combatant asset
-pins are expected to move.
+**Status:** implemented on 2026-08-17; foreground motion acceptance remains part of
+session 06. No simulation hash moved. The combatant asset pins moved as planned.
 
-The current GLB satisfies skeleton closure but its recipe at
-`tools/art/combatants.py#L222` is visibly primitive: boxes, low-sided cylinders,
-spheres and a thin box weapon. At gameplay scale the result does not read as a person.
-This session preserves the rig/loader contract and replaces the mesh, proportions and
-materials.
+The previous GLB satisfied skeleton closure but did not read as a person at gameplay
+scale. The replacement preserves the exact two 16-bone rigs, semantic nodes, sockets,
+regions and clips while adding separate forearms, tapered body mass, broad readable
+equipment and rough restrained materials.
 
 ## Ground cue first
 
@@ -84,6 +83,13 @@ node tools/check_docs.js
 git diff --check
 ```
 
-Foreground acceptance requires reset/idle, walk in four screen directions, weapon and
-shield visible, ring fully above floor, fog disappearance/reappearance, and a Brute in
-the Arena. Do not close on a NullEngine or loader-only pass.
+The deterministic Blender game-camera and four-angle turntable previews live outside
+the repository under `%TEMP%/auto-rpg-combatant-preview/`. The static previews and
+live `#/game` screenshot establish the authored Fighter silhouette and cue clearance;
+the validator independently fail-closes shoulder/head proportions, projected equipment
+area, connected posed parts and the 40-pixel Fighter/Brute distinction.
+
+Foreground motion acceptance still requires reset/idle, walk in four screen directions,
+weapon and shield visible, fog disappearance/reappearance, and a Brute in the Arena.
+That judgement belongs to session 06; this asset session does not substitute a
+NullEngine, loader-only result or hidden-tab rAF claim for it.

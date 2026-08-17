@@ -48,6 +48,15 @@ hints rather than attachment authority. Furniture identity is `kind:tx:ty` withi
 epoch; an absent disclosed record is absent now rather than remembered by the
 renderer.
 
+World and Tactical are two dresses of this one identity registry. Switching modes
+does not clear a timeline, accept a second snapshot, create a renderer, or dispose a
+mesh. World enables validated authored Fighter/Brute dress and room furniture;
+Tactical enables the already-owned procedural figure and keeps disclosed floor/wall
+topology while disabling authored actor dress, furniture, flames, and their local
+lights. Pick ownership remains attached to the same entity and tile identities.
+Shadow casters move between the enabled actor groups and return to their original
+groups in World.
+
 <!-- DOC_CONTRACT: renderer-visibility-presence -->
 ## Visibility and subsystem presence
 
@@ -114,8 +123,9 @@ non-pickable, and absent from shadow, debug, pick, and presence registries. The
 validated room container keeps those nonspatial sources and materials Scene-owned
 until asset disposal so WebGPU instance pipelines compile and render reliably. Current
 room tiles and furniture expose one semantic pick registration per disclosed tile or
-record, and unchanged revisions retain their existing instances. Combatant rigs and
-articulated presentation remain proposed outside the current renderer.
+record, and unchanged revisions retain their existing instances. Tactical changes
+only presentation enablement; visibility 0/1/2 remains the sole spatial disclosure
+authority in both modes.
 
 Current room torches add one non-pickable, non-shadow emissive sphere at the authored
 socket and one capped point light. Flame meshes are effect presence and separate

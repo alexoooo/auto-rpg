@@ -1,7 +1,7 @@
 # Visual production recovery -- overview
 
-**Status:** planned from the failing owner screenshot of 2026-08-17. Nothing in this
-topic is visually accepted yet.
+**Status:** sessions 01 through 05 implemented on 2026-08-17. Session 06 remains
+open for owner acceptance and visible-foreground performance evidence.
 
 The target is the permanent style reference `web/assets/CONCEPT.png`: a composed
 isometric dungeon with complete architectural mass, deep exploration falloff, warm

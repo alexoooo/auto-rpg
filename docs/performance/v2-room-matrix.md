@@ -7,7 +7,7 @@
 
 The room pipeline and its automated asset gates are current. The first visible art
 review recorded `replace`; generator v3 then earned minimum legacy parity on
-2026-08-09. Generator v4 supersedes that artifact with coursed masonry and
+2026-08-09. Generator v5 supersedes that artifact with coursed masonry and
 concept-atlas materials. It does not inherit v3's visible approval: a new visible
 review and foreground performance capture remain pending.
 
@@ -15,12 +15,12 @@ review and foreground performance capture remain pending.
 
 | Field | Required record |
 |---|---|
-| Manifest file, GLB, sidecar, and Blender binary hashes | GLB `39dbe61be1dc69f085126002824ce3a92987c1dd166f09b91cd4715722250f42`; sidecar `80fa427558c7e5e0ee13eb127c95d2198dc998ce721af1ed131878a65529b36a`; validator `199b1895559ca697d01c1239c3292b84bfa432aa3d8cd01b6d4e81066cf689e0`; Blender binary `25bdb2e3f8ed0bac9d51b7a25fbea0f712a8d80346f2efc9dbe24d85e910c310` |
-| `buildInputsSha256` over canonical manifest JSON with `outputs` omitted | `31cbfe0e8244257084e5d043d0863959b3207c6f28252c8b8faeb36da4d34b9c`; excludes the complete `outputs` object |
-| Current texture style | generator version 4; `concept-umber-stone-v2`; floor and wall quadrants from checked 1,254 x 1,254 atlas `037c8588e18d585fd6c50ff4ba8e071459bf88c04aac4c22058a2743673149b6`; deterministic 512 x 512 periodic embeds `a5effbaebebcf0ca1737b4953f53516f6d7274a232f20ccfc8676d854426f9a8` and `d01683a26efff554e88162bf00379a2420a95c814d700c0ecc696065a51c130b`; CORNER `room_style` remains normalized `UNSIGNED_SHORT` `VEC4` `COLOR_0`; automated closure is current and a new visible review remains owed |
+| Manifest file, GLB, sidecar, and Blender binary hashes | GLB `b8819b6e4c46fe4483448f6f936d17cc9f62b43814fed9beb77ff216af67cf06`; sidecar `4a6ec372cef32fb5b13311d0b9f0ddd8f59d99da602e550ccf885da2a0fcf064`; validator `05a00c444bea02557561816c4c5d0c05a0dee8b17a8b19c88618cfaeeb807721`; Blender binary `25bdb2e3f8ed0bac9d51b7a25fbea0f712a8d80346f2efc9dbe24d85e910c310` |
+| `buildInputsSha256` over canonical manifest JSON with `outputs` omitted | `593d4c43e4ce399d426c8bbd0641122e9c4901a3f2dfe6c5b85fedd8759cd4cf`; excludes the complete `outputs` object |
+| Current texture style | generator version 5; `painted-cathedral-v3`; floor and wall quadrants from checked 1,254 x 1,254 atlas `5f09f791ce9d97d0ed72f708baede576d6960db50d33af7d3008d16783e61e36`; deterministic 512 x 512 periodic embeds `0c49b0bc9241e70fc53207e28d62be30ca3787529cf5f93befbe821b98f3654a` and `bbf4ae43f1564aaa5754eb23ee7869eaf581fb979a970c802a1a43f4a9b9e075`; CORNER `room_style` remains normalized `UNSIGNED_SHORT` `VEC4` `COLOR_0` |
 | Generated TypeScript trust pins | `ROOM_FIXTURE_ID = v2-room-slice-1`; all four artifact/build hashes above are compiled into `ROOM_BUILD_INPUTS_SHA256`, `ROOM_SIDECAR_SHA256`, `ROOM_GLB_SHA256`, and `ROOM_VALIDATOR_SHA256` |
-| Validator report | committed third artifact; validator 2.0.0-dev.3.10; 13 nodes, 12 meshes, four materials, 2,760 vertices, 1,400 triangles |
-| Payload and deterministic offline residency components | GLB 1,104,092 + sidecar 5,423 = 1,109,515 payload bytes; source 118,416 + instances 234,880 + decoded textures 2,097,152 + shadow map 4,194,304 = 6,644,752 estimated bytes |
+| Validator report | committed third artifact; validator 2.0.0-dev.3.10; 13 nodes, 12 meshes, four materials, 2,784 vertices, 1,404 triangles |
+| Payload and deterministic offline residency components | GLB 1,060,408 + sidecar 5,321 = 1,065,729 payload bytes; source 119,568 + instances 246,912 + decoded textures 2,097,152 + shadow map 4,194,304 = 6,657,936 estimated bytes |
 | Validator error/warning counts and allowlist | zero errors, zero warnings, zero hints, four informational unused-UV messages; `allowedValidatorWarnings: []` |
 | OS, CPU, GPU, driver, browser, power | pending foreground capture |
 | Requested/selected backend and full diagnostics | pending foreground capture |
@@ -28,35 +28,42 @@ review and foreground performance capture remain pending.
 | CSS/backing size and render scale | 1920 x 1080; scale 1 |
 | Fixture | `v2-room-slice-1`; seed `1592594996`; 48 x 32; 64 bodies; eight torches plus one directional light; no training workers; all-visible performance disclosure |
 | `ROOM_STRESS_MAP_SHA256` | `a20ba5f64ef55bd7716c2a7cf17f3065619876d1ded2e81b05199b5282222907` for the exact 1,536 committed map bytes mirrored by fixture source, manifest, sidecar, matrix, and tests |
-| Exact fixed piece counts and capacities | 1,536 floors (floor_a 768, floor_b 768); wall_straight 269 (94 facades + 175 coping); wall_inside 0; wall_outside 0; wall_end 0; door_frame 2; door_leaf 6; torch_bracket 10 (eight torches + two shut-door straps); decal_rubble 4; decal_root 4; prop_barrel 4. The complete structural boundary remains 188 faces, while eight merged -X/-Z cutaway runs repeat 94 tile-frequency facades. The sidecar budgets the exact 1,835-instance closure at 234,880 bytes |
+| Exact fixed piece counts and capacities | 1,536 floors (floor_a 768, floor_b 768); wall_straight 363 (188 stable faces + 175 coping); wall_inside 0; wall_outside 0; wall_end 0; door_frame 2; door_leaf 6; torch_bracket 10 (eight torches + two shut-door straps); decal_rubble 4; decal_root 4; prop_barrel 4. The exact 1,929-instance closure requires 246,912 double-buffered instance bytes; this capacity-only sidecar movement is subsumed by the visual-recovery authored asset regeneration. |
 
 ## Automated contract record
 
 The exact validator, toolchain, build-delivery, loader, visibility, topology,
 fixture, camera, fallback, reset, loss, and disposal tests named by v2-09 are green.
-The render contract suite passes 101 of 101 tests, including real Babylon NullEngine
+The render contract suite passes 114 of 114 tests, including real Babylon NullEngine
 source/instance evaluation, exact live role counts, semantic picks, no-op revision
 reconciliation, socket transforms, camera input cleanup, and partial-construction
 rollback. Source-text assertions do not replace these semantic tests.
 
-The game room now treats MAP_SOLID as masonry volume. It merges the camera-facing
--X/-Z disclosed solid-to-open interfaces into maximal runs and repeats a seamless
-one-tile facade without stretching brick scale; hidden -X/-Y faces and one-edge
-stair steps never become pickets. Remembered masonry stays opaque while remembered
-floors recede. Published door cells suppress ordinary faces and contiguous collinear
+The playable route again exposes the observational comparison instruments used for
+visual recovery: a 500 ms FPS/worst-rAF chip outside the Systems drawer and one
+World/Tactical renderer mode selected by button or `G`. Automated contracts prove
+that Tactical retains VIS 1 and VIS 2 topology, swaps authored bodies for readable
+procedural geometry, hides room furniture/flames, and restores the same mesh and
+shadow identities in World. These are correctness gates only; automated hidden-tab
+timing remains inadmissible for the foreground performance slots below.
+
+The game room now treats MAP_SOLID as masonry volume. Every disclosed solid-to-open
+interface has one stable cell-plus-side face, including singleton and positive-axis
+sides. Visibility changes reconcile those instances in place; local hero occlusion
+lowers one overlapping near face without changing topology. Remembered masonry stays
+opaque while remembered floors recede. Published door cells suppress ordinary faces and contiguous collinear
 records become one span: singleton doors keep one frame, while wider doors have a
 continuous lintel, endpoint jambs, and shut leaves or an open gap. Imported glTF
 quaternions are cleared before game and arena quarter turns. Named mutation-proven
 tests cover horizontal/vertical grouping and both quaternion seams. The revised
 48 x 32 fixture is a closed 7 x 5 enclosure at x15..21/y11..15 with true door
-records at (18,11) and (18,15). Its exact census is 175 solid cells, 188 complete
-boundary faces, eight camera-facing runs, 94 facade instances, and two frame
-instances. The arena retains its own one-source-per-tile synthetic centreline ring
+records at (18,11) and (18,15). Its exact census is 175 solid cells, 188 stable
+boundary faces, and two frame instances. The arena retains its own one-source-per-tile synthetic centreline ring
 because a fight rectangle does not publish MAP_SOLID/MAP_OPEN architecture. Every current torch has a
-non-pickable, non-shadow emissive socket sphere and capped warm point light; stress
-diagnostics record eight effects and 19 draws (eleven live source groups plus eight
-flames), with the same nine lights. Reset/disposal removes the flame meshes and
-shared material.
+non-pickable, non-shadow layered tapered flame and capped warm point light; stress
+diagnostics record sixteen effects and 27 draws (eleven live source groups plus
+sixteen flame layers), with the same nine lights. Reset/disposal removes both flame
+layers and their materials.
 
 The unit markers on the playable route are procedural figures rather than cylinders
 (2026-08-16): each body is a fixed per-kind set of primitive meshes hanging off the
@@ -98,6 +105,18 @@ explicit room-phase exception.
 
 ## Visible review record
 
+The 2026-08-17 integrated recovery candidate is preserved as
+[World](evidence/2026-08-17-visual-recovery-world.png), SHA-256
+`7ae64678cba5a80496931480f8c7ba66c4c1fcafe55954159821ead990ebe413`,
+and [Tactical](evidence/2026-08-17-visual-recovery-tactical.png), SHA-256
+`eac6da6d37ecfbf63bf8528a83453518b16c9af7b8da77f8e21c5ecd4163d06f`.
+The in-app browser comparison placed the World frame directly beside
+`CONCEPT.png`: complete masonry mass, warm local fire, rough umber stone, a
+readable equipped human silhouette, and compact peripheral HUD now share its broad
+visual family. The concept remains substantially denser in micro-detail and scene
+population, so these captures are a review candidate rather than an owner decision
+or visible-rAF performance result.
+
 The minimum replacement threshold is the restrained readability and hierarchy of the
 preserved [legacy renderer reference](evidence/2026-08-08-legacy-renderer-reference.png),
 SHA-256 `ef249c666d7c4eabb775dc32fbe943076454e2d26db88967b690df0a3ab05260`: a clearly bounded dark
@@ -128,9 +147,9 @@ but every performance capture requires fixed mode and rejects free mode.
 | Stone modeling | fail | fail | Repetition at 48 x 32 reads as a dense mass rather than a composed room. |
 | Material response | fail | fail | Stone and wood are too dark to separate reliably from the playfield. |
 | Fixture-origin light | fail | fail | Torch accents do not establish readable local hierarchy. |
-| Join coherence | **fail -- owner screenshot 2026-08-17** | fail/pending rework | The -X/-Z-only cutaway deliberately omits the bottom/left enclosure, singleton faces are dropped, and rebuilding visibility-split runs makes walls pop while walking. Earlier acceptance is superseded. The replacement must retain stable four-sided architectural identity and apply local occlusion instead of deleting whole sides. |
+| Join coherence | automated repair complete; foreground corner walk pending | pending foreground | The -X/-Z run defect is superseded by 188 stable cell-plus-side faces. Singleton and positive-axis sides exist, visibility/disclosure retains mesh and caster identity, and only a projected near face overlapping the hero lowers locally. The 2026-08-17 screenshot remains the visible fail until the required four-corner walk replaces it. |
 | Depth readability | fail | fail | The authored room collapses into broad dark/purple regions. |
-| Silhouette contrast | **fail -- owner screenshot 2026-08-17** | fail | The authored Fighter is not recognizable as a person at gameplay scale and its torus intersects the raised floor. |
+| Silhouette contrast | automated recovery complete; foreground review pending | pending foreground | The reauthored Fighter/Brute asset now bounds shoulder/head proportions, equipment area, connected limb chains and the 40-pixel class silhouette. The cue centre uses `0.080 + 0.11 * radius / 2 + 0.004`, and removing the epsilon makes the named clearance test red. Pinned Blender turntables pass static review; default-game walk/fog and Arena Brute remain the foreground acceptance authority. |
 | Fixture form | **fail -- owner screenshot 2026-08-17** | fail | Torch brackets and emissive spheres read as posts with orange dots rather than wall-mounted flame fixtures. |
 | Material composition | **fail -- owner screenshot 2026-08-17** | fail | Two floor variants and one wall treatment tile conspicuously and do not reproduce the concept's painterly value hierarchy. |
 
@@ -146,7 +165,7 @@ proceed. The 2026-08-17 screenshots supersede that minimum-parity decision: curr
 status is `replace`, and no performance or art waiver exists.
 
 The generator-v2 vertex-color artifact is a superseded intermediate produced before
-the preserved textured legacy reference was available. Generator v3 is the texture-inclusive minimum-parity predecessor. Generator v4 is
+the preserved textured legacy reference was available. Generator v3 is the texture-inclusive minimum-parity predecessor. Generator v5 is
 the current deterministic candidate and does not inherit that visible approval.
 
 The current compact review query family is
@@ -161,7 +180,7 @@ uses clear `[0.012, 0.016, 0.032, 1]`, exposure `1.64`, contrast `1.06`, a
 non-shadow hemispheric fill with diffuse `[0.50, 0.52, 0.56]`, ground
 `[0.035, 0.04, 0.05]`, intensity `0.48`, and initial/reset fixed zoom
 `1.6`; stress zoom starts at `1` and the ordinary game route at
-`GAME_INITIAL_FIXED_ZOOM = 10` (11.3 vertical tiles of the 68 x 45 dungeon), with
+`GAME_INITIAL_FIXED_ZOOM = 11.5` (about 9.8 vertical tiles of the 68 x 45 dungeon), with
 bounded fixed-camera wheel zoom through `12`. At 16:9, orthographic top/bottom are
 `+/-8.125`, all four ground corners keep at least 20 CSS pixels of margin, and the
 room spans at least 60% of both axes. The 48 x 32 `?stress=room` fixture retains its dimensions, population, nine lights,

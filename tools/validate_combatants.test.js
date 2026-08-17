@@ -8,7 +8,8 @@ const test = require("node:test");
 
 const { canonicalBytes, parseGlb } = require("./validate_assets.js");
 const {
-  parseCombatantSidecar, validateCombatantAsset, validateManifest, validateSemanticClosure,
+  parseCombatantSidecar, validateCombatantAsset, validateCombatantPresentation,
+  validateManifest, validateSemanticClosure,
 } = require("./validate_combatants.js");
 
 const ROOT = path.resolve(__dirname, "..");
@@ -17,6 +18,41 @@ const SIDECAR = path.join(ROOT, "web", "assets3d", "combatants.json");
 const MANIFEST = path.join(ROOT, "tools", "art", "combatants-manifest.json");
 const REPORT = path.join(ROOT, "web", "assets3d", "combatants.validator.json");
 const options = () => ({ glb: GLB, sidecar: SIDECAR, manifest: MANIFEST });
+
+function archetype(kind) {
+  return parseCombatantSidecar(fs.readFileSync(SIDECAR)).archetypes.find((value) => value.kind === kind);
+}
+
+function extent(mesh, axis) {
+  return mesh.bounds.max[axis] - mesh.bounds.min[axis];
+}
+
+function nodeWorld(archetypeValue, semantic, cache = new Map()) {
+  if (cache.has(semantic)) return cache.get(semantic);
+  const node = archetypeValue.nodes.find((value) => value.semantic === semantic);
+  assert.ok(node, `missing node ${semantic}`);
+  const parentSemantic = node.parent?.slice(archetypeValue.nodePrefix.length);
+  const parent = parentSemantic === "armature" || parentSemantic === undefined
+    ? [0, 0, 0] : nodeWorld(archetypeValue, parentSemantic, cache);
+  const world = node.translation.map((value, axis) => value + parent[axis]);
+  cache.set(semantic, world);
+  return world;
+}
+
+function posedBounds(archetypeValue, meshSemantic, boneSemantic) {
+  const mesh = archetypeValue.meshes.find((value) => value.semantic === meshSemantic);
+  assert.ok(mesh, `missing mesh ${meshSemantic}`);
+  const origin = nodeWorld(archetypeValue, boneSemantic);
+  return {
+    min: mesh.bounds.min.map((value, axis) => value + origin[axis]),
+    max: mesh.bounds.max.map((value, axis) => value + origin[axis]),
+  };
+}
+
+function boxGap(left, right) {
+  return Math.hypot(...[0, 1, 2].map((axis) =>
+    Math.max(0, left.min[axis] - right.max[axis], right.min[axis] - left.max[axis])));
+}
 
 test("the_combatant_glb_sidecar_and_validator_report_match_the_pinned_manifest", async () => {
   const result = await validateCombatantAsset(options());
@@ -82,4 +118,101 @@ test("two_clean_pinned_combatant_exports_are_byte_identical", () => {
   assert.ifError(run.error);
   assert.equal(run.status, 0, `${run.stdout}\n${run.stderr}`);
   assert.match(run.stdout, /combatant asset verified: [0-9a-f]{64}/);
+});
+
+test("fighter_and_brute_bounds_have_human_proportions_and_distinct_silhouettes", () => {
+  const fighter = archetype("fighter");
+  const brute = archetype("brute");
+  const shoulderWidth = (value) => {
+    const left = value.nodes.find((node) => node.semantic === "arm_left").translation[0];
+    const right = value.nodes.find((node) => node.semantic === "arm_right").translation[0];
+    return right - left;
+  };
+  const fighterHelmet = fighter.meshes.find((mesh) => mesh.semantic === "head_helmet");
+  const bruteHead = brute.meshes.find((mesh) => mesh.semantic === "head");
+  assert.ok(shoulderWidth(fighter) >= 0.72 && shoulderWidth(fighter) <= 0.86);
+  assert.ok(shoulderWidth(brute) >= 1.02 && shoulderWidth(brute) <= 1.20);
+  assert.ok(extent(fighterHelmet, 1) >= 0.38 && extent(bruteHead, 1) >= 0.50);
+  assert.ok(shoulderWidth(brute) / brute.height - shoulderWidth(fighter) / fighter.height >= 0.04,
+    "the Brute must stay detectably broader after equal-height scaling");
+  const shoulderMutation = parseCombatantSidecar(fs.readFileSync(SIDECAR));
+  shoulderMutation.archetypes[0].nodes.find((node) => node.semantic === "arm_left").translation[0] = -0.20;
+  assert.throws(() => validateCombatantPresentation(shoulderMutation), /shoulder proportions/);
+  const headMutation = parseCombatantSidecar(fs.readFileSync(SIDECAR));
+  const helmet = headMutation.archetypes[0].meshes.find((mesh) => mesh.semantic === "head_helmet");
+  helmet.bounds.max[1] = helmet.bounds.min[1] + 0.20;
+  assert.throws(() => validateCombatantPresentation(headMutation), /head height/);
+});
+
+test("weapon_and_shield_have_minimum_projected_area_at_gameplay_scale", () => {
+  const fighter = archetype("fighter");
+  const brute = archetype("brute");
+  const sword = fighter.meshes.find((mesh) => mesh.semantic === "sword");
+  const shield = fighter.meshes.find((mesh) => mesh.semantic === "shield");
+  const club = brute.meshes.find((mesh) => mesh.semantic === "club");
+  assert.ok(extent(sword, 0) * extent(sword, 1) >= 0.075, "the sword is line-thin");
+  assert.ok(extent(shield, 0) * extent(shield, 1) >= 0.48, "the shield loses its broad read");
+  assert.ok(extent(club, 0) * extent(club, 1) >= 0.26, "the club has no heavy striking head");
+  const shieldMutation = parseCombatantSidecar(fs.readFileSync(SIDECAR));
+  const changedShield = shieldMutation.archetypes[0].meshes.find((mesh) => mesh.semantic === "shield");
+  changedShield.bounds.max[0] = changedShield.bounds.min[0] + 0.20;
+  assert.throws(() => validateCombatantPresentation(shieldMutation), /shield projected area/);
+});
+
+test("authored_combatant_parts_form_one_connected_body_after_pose_copy", () => {
+  const chains = {
+    fighter: [
+      ["pelvis_skirt", "pelvis", "torso_cuirass", "torso"],
+      ["torso_cuirass", "torso", "head_helmet", "head"],
+      ["torso_cuirass", "torso", "arm_left", "arm_left"],
+      ["torso_cuirass", "torso", "arm_right", "arm_right"],
+      ["arm_left", "arm_left", "forearm_left", "hand_left"],
+      ["arm_right", "arm_right", "forearm_right", "hand_right"],
+      ["forearm_left", "hand_left", "hand_left", "hand_left"],
+      ["forearm_right", "hand_right", "hand_right", "hand_right"],
+      ["pelvis_skirt", "pelvis", "leg_left", "pelvis"],
+      ["pelvis_skirt", "pelvis", "leg_right", "pelvis"],
+      ["leg_left", "pelvis", "boot_left", "pelvis"],
+      ["leg_right", "pelvis", "boot_right", "pelvis"],
+    ],
+    brute: [
+      ["pelvis_kilt", "pelvis", "torso_hide", "torso"],
+      ["torso_hide", "torso", "head", "head"],
+      ["torso_hide", "torso", "arm_left", "arm_left"],
+      ["torso_hide", "torso", "arm_right", "arm_right"],
+      ["arm_left", "arm_left", "forearm_left", "hand_left"],
+      ["arm_right", "arm_right", "forearm_right", "hand_right"],
+      ["forearm_left", "hand_left", "hand_left", "hand_left"],
+      ["forearm_right", "hand_right", "hand_right", "hand_right"],
+      ["pelvis_kilt", "pelvis", "leg_left", "pelvis"],
+      ["pelvis_kilt", "pelvis", "leg_right", "pelvis"],
+      ["leg_left", "pelvis", "boot_left", "pelvis"],
+      ["leg_right", "pelvis", "boot_right", "pelvis"],
+    ],
+  };
+  for (const kind of ["fighter", "brute"]) {
+    const value = archetype(kind);
+    for (const [leftMesh, leftBone, rightMesh, rightBone] of chains[kind]) {
+      const gap = boxGap(posedBounds(value, leftMesh, leftBone), posedBounds(value, rightMesh, rightBone));
+      assert.ok(gap <= 0.055, `${kind} ${leftMesh} -> ${rightMesh} gap ${gap}`);
+    }
+  }
+});
+
+test("the_40_pixel_shrink_test_distinguishes_fighter_from_brute", () => {
+  const fighter = archetype("fighter");
+  const brute = archetype("brute");
+  const pixels = (value, mesh, axis) =>
+    extent(value.meshes.find((part) => part.semantic === mesh), axis) / value.height * 40;
+  assert.ok(pixels(fighter, "sword", 0) >= 2.0, "the Fighter sword vanishes at 40 px");
+  assert.ok(pixels(fighter, "shield", 0) >= 14.0, "the Fighter shield loses its class silhouette");
+  assert.ok(pixels(brute, "club", 0) >= 5.0, "the Brute club loses its class silhouette");
+  const fighterShoulders = Math.abs(
+    fighter.nodes.find((node) => node.semantic === "arm_right").translation[0] -
+    fighter.nodes.find((node) => node.semantic === "arm_left").translation[0]) / fighter.height * 40;
+  const bruteShoulders = Math.abs(
+    brute.nodes.find((node) => node.semantic === "arm_right").translation[0] -
+    brute.nodes.find((node) => node.semantic === "arm_left").translation[0]) / brute.height * 40;
+  assert.ok(bruteShoulders - fighterShoulders >= 2.5,
+    "equal-height archetypes need visibly different shoulder silhouettes");
 });

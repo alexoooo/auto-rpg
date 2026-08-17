@@ -1,6 +1,7 @@
 import type { AbstractEngine } from "@babylonjs/core/Engines/abstractEngine.js";
 import type { Camera } from "@babylonjs/core/Cameras/camera.js";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Matrix, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Viewport } from "@babylonjs/core/Maths/math.viewport.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator.js";
 import type { CombatantAsset } from "./combatant-assets.js";
@@ -15,6 +16,7 @@ import {
 import { EnvironmentPresentation } from "./environment.js";
 import { PresentationTimeline } from "./interpolation.js";
 import type { PresentationSnapshot } from "./presentation.js";
+import type { PresentationMode } from "./presentation-mode.js";
 import { createBabylonRightHandedScene } from "./scene.js";
 import { TransientPresentation } from "./transients.js";
 import type { RendererFrameMetrics } from "./performance.js";
@@ -40,7 +42,13 @@ export type GreyboxRendererLifecycle = Readonly<{
 export type EnvironmentOwner = Readonly<{
   shadowGenerator: ShadowGenerator;
   acceptSnapshot(snapshot: PresentationSnapshot): void;
+  updateOcclusion?(
+    project: (point: Readonly<{ x: number; y: number; z: number }>) =>
+      Readonly<{ x: number; y: number; depth: number }>,
+    hero: Readonly<{ x: number; z: number }> | null,
+  ): void;
   authoredFrameReady?(): boolean;
+  setPresentationMode?(mode: PresentationMode): void;
   reset(): void;
   dispose(): void;
 }>;
@@ -119,6 +127,7 @@ export class GreyboxRenderer {
   #zoom = 1;
   #epoch: number | null = null;
   #tick: number | null = null;
+  #presentationMode: PresentationMode = "world";
   #running = false;
   #disposed = false;
   #frameMetrics: RendererFrameMetrics = { draws: 0, triangles: 0, lights: 0, shadowCasters: 0 };
@@ -155,9 +164,29 @@ export class GreyboxRenderer {
   get scene(): Scene { return this.#scene; }
   get camera(): Camera { return this.#camera; }
   get reviewCameraFree(): boolean { return this.#reviewCamera?.free ?? this.#initialReviewFree; }
+  get presentationMode(): PresentationMode { return this.#presentationMode; }
+
+  setPresentationMode(mode: PresentationMode): void {
+    this.#assertLive();
+    if (mode === this.#presentationMode) return;
+    this.#presentationMode = mode;
+    if (mode === "tactical" && this.#reviewCamera?.free) this.#reviewCamera.setFree(false);
+    this.#actors.setPresentationMode(mode);
+    this.#environment.setPresentationMode?.(mode);
+    if (mode === "world") {
+      if (this.#reviewCamera !== null) {
+        this.#reviewCamera.resize?.();
+        this.#camera = this.#reviewCamera.camera;
+        this.#scene.activeCamera = this.#camera;
+      } else if (this.#arenaKey !== "") this.#replaceCamera(this.#arenaWidth, this.#arenaHeight);
+    } else this.#applyPresentationCamera();
+  }
 
   setReviewCameraFree(free: boolean): void {
     this.#assertLive();
+    if (free && this.#presentationMode === "tactical") {
+      throw new Error("free review camera is unavailable in Tactical view");
+    }
     if (this.#reviewCamera === null) throw new Error("representative room review camera is unavailable");
     this.#reviewCamera.setFree(free);
     this.#camera = this.#reviewCamera.camera;
@@ -206,6 +235,7 @@ export class GreyboxRenderer {
       this.#camera = this.#reviewCamera.camera;
       this.#scene.activeCamera = this.#camera;
     } else if (this.#arenaKey !== "") this.#replaceCamera(this.#arenaWidth, this.#arenaHeight);
+    this.#applyPresentationCamera();
   }
 
   pan(dxPixels: number, dyPixels: number): void {
@@ -213,6 +243,7 @@ export class GreyboxRenderer {
       this.#reviewCamera.pan?.(dxPixels, dyPixels);
       this.#camera = this.#reviewCamera.camera;
       this.#scene.activeCamera = this.#camera;
+      this.#applyPresentationCamera();
       return;
     }
     if (!Number.isFinite(dxPixels) || !Number.isFinite(dyPixels)) return;
@@ -239,6 +270,7 @@ export class GreyboxRenderer {
       this.#reviewCamera.zoom?.(delta);
       this.#camera = this.#reviewCamera.camera;
       this.#scene.activeCamera = this.#camera;
+      this.#applyPresentationCamera();
       return;
     }
     if (!Number.isFinite(delta)) return;
@@ -313,6 +345,16 @@ export class GreyboxRenderer {
         const hero = sample.snapshot.units.find((unit) => unit.faction === 0);
         if (hero !== undefined) this.#reviewCamera.follow(hero.x, hero.y);
       }
+      this.#applyPresentationCamera();
+      const hero = sample.snapshot.units.find((unit) => unit.faction === 0 && unit.visible);
+      this.#camera.getViewMatrix(true);
+      const viewport = new Viewport(0, 0,
+        this.#handle.engine.getRenderWidth(), this.#handle.engine.getRenderHeight());
+      this.#environment.updateOcclusion?.((point) => {
+        const screen = Vector3.Project(new Vector3(point.x, point.y, point.z),
+          Matrix.IdentityReadOnly, this.#scene.getTransformMatrix(), viewport);
+        return Object.freeze({ x: screen.x, y: screen.y, depth: screen.z });
+      }, hero === undefined ? null : { x: hero.x, z: hero.y });
     }
     this.#scene.render();
     const debug = this.#debug.snapshot();
@@ -343,6 +385,7 @@ export class GreyboxRenderer {
       this.#camera = owner.camera;
       owner.setFree(this.#initialReviewFree);
       this.#scene.activeCamera = owner.camera;
+      this.#applyPresentationCamera();
     }
   }
 
@@ -356,6 +399,21 @@ export class GreyboxRenderer {
     this.#camera.dispose();
     this.#camera = replacement;
     this.#scene.activeCamera = replacement;
+    this.#applyPresentationCamera();
+  }
+
+  #applyPresentationCamera(): void {
+    if (this.#presentationMode !== "tactical" || this.#arenaKey === "") return;
+    const camera = this.#camera as Camera & {
+      getTarget?(): Vector3;
+      setTarget?(target: Vector3): void;
+      position: Vector3;
+    };
+    const target = camera.getTarget?.().clone() ?? new Vector3(this.#panX, 0, this.#panY);
+    target.y = 0;
+    const distance = Math.max(this.#arenaWidth, this.#arenaHeight);
+    camera.position.set(target.x, distance, target.z);
+    camera.setTarget?.(target);
   }
 
   #assertLive(): void {

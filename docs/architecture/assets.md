@@ -109,12 +109,13 @@ The generator-v2 vertex-color kit and generator-v3 textured box-wall kit are
 superseded reproducible intermediates. The current generator-v4 kit crops the pinned
 concept material atlas into embedded floor and wall textures, retains deterministic
 `COLOR_0` modulation, and builds coursed masonry while preserving semantic names
-and pivots. The game treats solid cells as volume: from its negative-X/negative-Z
-camera it currently merges only disclosed -X/-Z solid-to-open faces into maximal
-isometric cutaway runs, repeats the flush straight facade at tile frequency, and caps
-each solid with inset stone coping. The 2026-08-17 owner screenshot refuted that
-whole-side omission: bottom/left enclosure vanished and disclosure changes made runs
-pop. It is a recorded defect, not an accepted cutaway contract. Remembered walls stay opaque, imported glTF
+and pivots. The game treats solid cells as volume and gives every disclosed
+solid-to-open side a stable cell-plus-cardinal-side instance, then caps each solid
+with inset stone coping. Camera and visibility bands do not enter the wall key;
+neighbour disclosure reconciles new sides around retained instances. A local
+screen-space policy may lower only the near face actually covering the hero. This
+supersedes the -X/-Z run omission refuted by the 2026-08-17 owner screenshots.
+Remembered walls stay opaque, imported glTF
 quaternions are cleared before semantic quarter turns, and per-tile door publications
 group into one lintel/end-jamb span with modular aged-wood leaves. The arena independently uses the L, T, straight,
 and capped-end roles for its synthetic centreline ring. The kit has closed output
@@ -143,6 +144,11 @@ performance stress fixture. Current mechanics do not imply an art pass.
 > abort remains terminal. Fog, generation retirement, picking, shadow, effect, audio,
 > and debug presence apply to whichever dress is active, and disposal owns every clone
 > plus the shared container.
+> The current authored closure uses separate upper-arm/forearm/hand meshes on both
+> archetypes, a tapered Fighter torso with kite shield and shaped sword, and a broader
+> forward-headed Brute with a heavy-ended club. Validator metrics bound shoulder/head
+> proportions, projected equipment area and the 40-pixel class silhouette; those
+> presentation bounds do not alter the shared 16-bone semantic rig.
 >
 > `#/arena` memoizes the same load on the first `[Texture]` request, never for
 > `[Geometry]`. Its per-body clone is driven from published pose, region, weapon,

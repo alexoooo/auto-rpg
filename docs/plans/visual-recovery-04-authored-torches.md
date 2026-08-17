@@ -1,7 +1,8 @@
 # Visual recovery 04 -- authored sconces and flame
 
-**Status:** planned. Depends on session 02. No simulation hash moves. Room asset pins
-are expected to move.
+**Status:** implemented on 2026-08-17. No simulation hash moved. The authored
+four-mass sconce and two-layer deterministic flame replaced the post-and-sphere
+presentation; final room asset identities are recorded in the room contract.
 
 The current torch is a small box bracket from `tools/art/room.py#L296` plus an
 eight-segment emissive sphere created around

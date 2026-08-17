@@ -18,6 +18,7 @@ import {
   buildFigure, buildFigureSources, figureBodyHeightRadii, poseFigure, type Figure, type FigureSources,
 } from "./figure.js";
 import type { PresentationSnapshot, PresentationUnit } from "./presentation.js";
+import type { PresentationMode } from "./presentation-mode.js";
 import { decideUnitPresence, type PresenceDecision } from "./visibility.js";
 
 export type ActorRegistryCounts = Readonly<{
@@ -31,6 +32,7 @@ type ActorNode = {
   readonly dress: CombatantDress | null;
   readonly ring: InstancedMesh;
   readonly readabilityLight: PointLight | null;
+  unit: PresentationUnit;
   shadow: boolean;
 };
 
@@ -43,6 +45,18 @@ const ACTION_KNIFE = 1;
 const ACTION_SWORD = 2;
 const ACTION_SHIELD = 4;
 const ACTION_SHORTSWORD = 7;
+// floor_a is the tallest authored walkable source in the pinned room contract.
+// Keeping this as one shared presentation constant avoids sampling meshes in the
+// per-frame pose path and keeps the cue independent of texture/visibility state.
+export const AUTHORED_FLOOR_MAX_Y = 0.08;
+export const FACTION_CUE_THICKNESS_RADII = 0.11;
+export const FACTION_CUE_CLEARANCE_EPSILON = 0.004;
+
+export function factionCueCentreY(bodyRadius: number): number {
+  return AUTHORED_FLOOR_MAX_Y +
+    FACTION_CUE_THICKNESS_RADII * bodyRadius / 2 +
+    FACTION_CUE_CLEARANCE_EPSILON;
+}
 
 export class ActorPresentation {
   readonly #scene: Scene;
@@ -57,6 +71,7 @@ export class ActorPresentation {
   readonly #audio = new Set<string>();
   readonly #picking = new Set<string>();
   readonly #debugRecords = new Set<string>();
+  #mode: PresentationMode = "world";
 
   constructor(
     scene: Scene, debug: RendererDebugRegistry, shadows: ShadowGenerator | null = null,
@@ -105,6 +120,26 @@ export class ActorPresentation {
     return Object.freeze([...this.#nodes.keys()]);
   }
 
+  setPresentationMode(mode: PresentationMode): void {
+    if (mode === this.#mode) return;
+    for (const node of this.#nodes.values()) if (node.shadow) {
+      for (const part of this.#bodyParts(node)) this.#shadows?.removeShadowCaster(part);
+    }
+    this.#mode = mode;
+    for (const node of this.#nodes.values()) {
+      node.figure.root.setEnabled(node.dress === null || mode === "tactical");
+      if (mode === "tactical") {
+        for (const part of node.figure.parts) part.setEnabled(true);
+        poseFigure(node.figure, node.unit);
+      }
+      node.dress?.setEnabled(mode === "world");
+      for (const part of this.#allBodyParts(node)) part.isPickable = false;
+      if (this.#picking.has(node.key)) for (const part of this.#bodyParts(node)) part.isPickable = true;
+      if (node.shadow) for (const part of this.#bodyParts(node)) this.#shadows?.addShadowCaster(part);
+    }
+    this.#publishCounts();
+  }
+
   reset(): void {
     for (const node of [...this.#nodes.values()]) this.#retire(node);
     this.#labels.clear();
@@ -145,7 +180,7 @@ export class ActorPresentation {
     material.alpha = 0.82;
     const mesh = MeshBuilder.CreateTorus(
       "actor-marker-source:" + faction + ":ring",
-      { diameter: 2.7, thickness: 0.11, tessellation: 32 },
+      { diameter: 2.7, thickness: FACTION_CUE_THICKNESS_RADII, tessellation: 32 },
       this.#scene,
     );
     mesh.material = material;
@@ -195,10 +230,10 @@ export class ActorPresentation {
       // the enemy population.
       readabilityLight.diffuse = new Color3(0.62, 0.72, 0.80);
       readabilityLight.specular = new Color3(0.28, 0.34, 0.40);
-      readabilityLight.intensity = 1.05;
+      readabilityLight.intensity = 1.35;
       readabilityLight.range = 3.2;
     }
-    const node = { key: unit.key, figure, dress, ring, readabilityLight, shadow: false };
+    const node = { key: unit.key, figure, dress, ring, readabilityLight, unit, shadow: false };
     this.#nodes.set(unit.key, node);
     return node;
   }
@@ -219,8 +254,9 @@ export class ActorPresentation {
    * `docs/architecture/browser-runtime.md`.
    */
   #pose(node: ActorNode, unit: PresentationUnit, snapshot: PresentationSnapshot): void {
+    node.unit = unit;
     poseFigure(node.figure, unit);
-    node.ring.position.set(unit.x, 0.055, unit.y);
+    node.ring.position.set(unit.x, factionCueCentreY(unit.radius), unit.y);
     node.ring.scaling.setAll(unit.radius);
     if (node.readabilityLight !== null) {
       const height = unit.radius * figureBodyHeightRadii(unit.kind);
@@ -258,8 +294,8 @@ export class ActorPresentation {
   }
 
   #applyPresence(node: ActorNode, decision: PresenceDecision): void {
-    node.figure.root.setEnabled(node.dress === null && decision.render);
-    node.dress?.setEnabled(decision.render);
+    node.figure.root.setEnabled(decision.render && (node.dress === null || this.#mode === "tactical"));
+    node.dress?.setEnabled(decision.render && this.#mode === "world");
     node.ring.setEnabled(decision.render);
     node.readabilityLight?.setEnabled(decision.render);
     for (const part of this.#bodyParts(node)) part.isPickable = decision.pick;
@@ -305,7 +341,12 @@ export class ActorPresentation {
   }
 
   #bodyParts(node: ActorNode): readonly import("@babylonjs/core/Meshes/abstractMesh.js").AbstractMesh[] {
-    return node.dress === null ? node.figure.parts : [...node.dress.meshes.values()];
+    return node.dress === null || this.#mode === "tactical"
+      ? node.figure.parts : [...node.dress.meshes.values()];
+  }
+
+  #allBodyParts(node: ActorNode): readonly import("@babylonjs/core/Meshes/abstractMesh.js").AbstractMesh[] {
+    return node.dress === null ? node.figure.parts : [...node.figure.parts, ...node.dress.meshes.values()];
   }
 
   #toggle(registry: Set<string>, key: string, enabled: boolean): void {

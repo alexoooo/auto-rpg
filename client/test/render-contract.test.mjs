@@ -26,9 +26,13 @@ const tsc = spawnSync(process.execPath, [
   "client/src/render/environment.ts", "client/src/render/actors.ts", "client/src/render/transients.ts",
   "client/src/render/rig-names.ts", "client/src/render/rig-nodes.ts", "client/src/render/figure.ts",
   "client/src/render/renderer.ts", "client/src/render/performance.ts",
+  "client/src/render/frame-meter.ts", "client/src/render/presentation-mode.ts",
   "client/src/render/canvas-control.ts", "client/src/render/capture-controls.ts",
   "client/src/render/room-asset.generated.ts", "client/src/render/room-asset-contract.ts",
   "client/src/render/room-assets.ts", "client/src/render/room-environment.ts",
+  "client/src/render/room-flame.ts",
+  "client/src/render/room-material-variants.ts",
+  "client/src/render/room-occlusion.ts",
   "client/src/render/room-stress.ts", "client/src/render/room-review.ts", "client/src/render/room-review-camera.ts",
   "client/src/render/combatant-asset.generated.ts", "client/src/render/combatant-asset-contract.ts",
   "client/src/render/combatant-assets.ts", "client/src/render/combatant-dress.ts",
@@ -53,6 +57,8 @@ const rendererEngine = await load("client/src/render/engine.js");
 const rendererScene = await load("client/src/render/scene.js");
 const rendererCamera = await load("client/src/render/camera.js");
 const greyboxRenderer = await load("client/src/render/renderer.js");
+const frameMeter = await load("client/src/render/frame-meter.js");
+const presentationMode = await load("client/src/render/presentation-mode.js");
 const rendererDebug = await load("client/src/render/debug.js");
 const rendererEnvironment = await load("client/src/render/environment.js");
 const rendererActors = await load("client/src/render/actors.js");
@@ -67,6 +73,9 @@ const captureControl = await load("client/src/render/capture-controls.js");
 const roomAssetContract = await load("client/src/render/room-asset-contract.js");
 const roomAssets = await load("client/src/render/room-assets.js");
 const roomEnvironment = await load("client/src/render/room-environment.js");
+const roomFlame = await load("client/src/render/room-flame.js");
+const roomMaterialVariants = await load("client/src/render/room-material-variants.js");
+const roomOcclusion = await load("client/src/render/room-occlusion.js");
 const roomStress = await load("client/src/render/room-stress.js");
 const roomReview = await load("client/src/render/room-review.js");
 const roomReviewCamera = await load("client/src/render/room-review-camera.js");
@@ -80,6 +89,30 @@ const { LoadAssetContainerAsync } = await import("@babylonjs/core/Loading/sceneL
 const arenaGeometry = await load("client/src/arena/geometry.js");
 const arenaScene = await load("client/src/arena/scene.js");
 const arenaEnvironment = await load("client/src/arena/environment.js");
+
+test("the_room_variant_selector_is_repeatable_uses_every_variant_and_avoids_checkerboards", () => {
+  const first = [];
+  const counts = [0, 0, 0, 0];
+  for (let ty = 0; ty < 32; ty++) for (let tx = 0; tx < 48; tx++) {
+    const variant = roomMaterialVariants.chooseRoomFloorVariant(1592594996, tx, ty);
+    assert.deepEqual(variant, roomMaterialVariants.chooseRoomFloorVariant(1592594996, tx, ty));
+    counts[variant.id]++;
+    first.push(variant.id);
+  }
+  assert.ok(counts.every((count) => count > 300), `all four variants need useful coverage: ${counts}`);
+  let alternating = 0;
+  for (let ty = 0; ty < 31; ty++) for (let tx = 0; tx < 47; tx++) {
+    const at = ty * 48 + tx;
+    if (first[at] === first[at + 49] && first[at + 1] === first[at + 48] &&
+        first[at] !== first[at + 1]) alternating++;
+  }
+  assert.ok(alternating < 80, `the variant field must not collapse into a checkerboard: ${alternating}`);
+  const walls = new Set();
+  for (let side = 0; side < 4; side++) for (let tx = 0; tx < 20; tx++) {
+    walls.add(roomMaterialVariants.chooseRoomWallSurfaceVariant(1592594996, tx, 7, side));
+  }
+  assert.deepEqual([...walls].sort(), [0, 1]);
+});
 
 const packedPublication = ({ epoch = 2, tick = 7, generation = 3, unitCount = 1 } = {}) => {
   const frame = new Float32Array(ABI.HEADER_LEN + ABI.UNIT_STRIDE + ABI.SHOT_STRIDE + ABI.EVENT_STRIDE);
@@ -701,7 +734,7 @@ test("faction_cues_and_a_bounded_hero_light_keep_combatants_readable_without_cha
   assert.ok(heroRing && enemyRing, "each faction needs an explicit floor cue");
   assert.deepEqual(heroRing.material.emissiveColor.asArray(), [0.08, 0.78, 1]);
   assert.deepEqual(enemyRing.material.emissiveColor.asArray(), [1, 0.22, 0.14]);
-  assert.equal(heroRing.position.y, 0.055,
+  assert.equal(heroRing.position.y, rendererActors.factionCueCentreY(hero.radius),
     "the whole torus must clear the room floor rather than reading as two clipped arcs");
   assert.ok([heroRing, enemyRing].every((part) =>
     part.isPickable === false && part.receiveShadows === false),
@@ -711,7 +744,7 @@ test("faction_cues_and_a_bounded_hero_light_keep_combatants_readable_without_cha
   assert.ok(light, "the local hero read needs one explicit light anchor");
   assert.deepEqual(light.diffuse.asArray(), [0.62, 0.72, 0.8]);
   assert.equal(light.range, 3.2);
-  assert.equal(light.intensity, 1.05);
+  assert.equal(light.intensity, 1.35);
   assert.equal(scene.getLightByName(`actor:${enemy.key}:readability-light`), null,
     "one bounded hero light must not multiply with the enemy population");
   assert.equal(debug.snapshot().lights, 1);
@@ -728,6 +761,33 @@ test("faction_cues_and_a_bounded_hero_light_keep_combatants_readable_without_cha
   actors.dispose();
   scene.dispose();
   engine.dispose();
+});
+
+test("the_full_faction_cue_clears_every_supported_authored_floor_and_body_radius", async () => {
+  const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
+  const { Scene } = await import("@babylonjs/core/scene.js");
+  const engine = new NullEngine({ renderWidth: 64, renderHeight: 64 });
+  const scene = new Scene(engine);
+  const actors = new rendererActors.ActorPresentation(scene, new rendererDebug.RendererDebugRegistry());
+  const radii = [0.35, 0.4];
+  const units = Object.freeze(radii.map((radius, index) => unit({
+    key: `${index + 1}:1`, index: index + 1, faction: index, kind: index === 0 ? 0 : 2,
+    x: index + 0.5, radius,
+  })));
+  actors.acceptSnapshot(snapshot({
+    map: Object.freeze([ABI.MAP_OPEN, ABI.MAP_OPEN, ABI.MAP_OPEN]),
+    vis: Object.freeze([2, 2, 2]), units,
+  }));
+  for (const body of units) {
+    const ring = scene.getMeshByName(`actor:${body.key}:marker:ring`);
+    assert.ok(ring);
+    const halfThickness = rendererActors.FACTION_CUE_THICKNESS_RADII * body.radius / 2;
+    assert.equal(ring.position.y, rendererActors.factionCueCentreY(body.radius));
+    assert.ok(ring.position.y - halfThickness >=
+      rendererActors.AUTHORED_FLOOR_MAX_Y + rendererActors.FACTION_CUE_CLEARANCE_EPSILON,
+    `radius ${body.radius} cue intersects the authored floor`);
+  }
+  actors.dispose(); scene.dispose(); engine.dispose();
 });
 
 test("the_procedural_figure_carries_the_v2_18_joint_names_and_published_fields_drive_it", async () => {
@@ -1002,6 +1062,28 @@ test("room_instances_need_known_topology_and_current_furniture_disclosure", asyn
   scene.dispose(); engine.dispose();
 });
 
+test("tactical_keeps_published_fog_but_replaces_authored_dress_with_readable_geometry", async () => {
+  const engine = new NullEngine();
+  const scene = new Scene(engine);
+  const debug = new rendererDebug.RendererDebugRegistry();
+  const room = new roomEnvironment.RoomEnvironmentPresentation(scene, debug, await fakeRoomAsset(scene));
+  room.acceptSnapshot(snapshot({ mapCols: 2, mapRows: 1,
+    map: Object.freeze([ABI.MAP_OPEN, ABI.MAP_OPEN]), vis: Object.freeze([1, 2]),
+    furniture: Object.freeze([Object.freeze({ key: `${ABI.FURNITURE_TORCH}:1:0`,
+      kind: ABI.FURNITURE_TORCH, tx: 1, ty: 0, state: ABI.TORCH_FACE_POS_X })]),
+  }));
+  const topology = scene.meshes.filter((mesh) => mesh.name.startsWith("room:tile:"));
+  const dress = scene.meshes.filter((mesh) => mesh.name.startsWith("room:furniture:"));
+  assert.equal(topology.length, 2, "VIS 1 and VIS 2 floor topology both exist");
+  assert.ok(dress.length > 0);
+  room.setPresentationMode("tactical");
+  assert.ok(topology.every((mesh) => mesh.isEnabled()), "Tactical keeps published fog topology");
+  assert.ok(dress.every((mesh) => !mesh.isEnabled()), "Tactical hides authored room dress");
+  room.setPresentationMode("world");
+  assert.ok(dress.every((mesh) => mesh.isEnabled()), "World restores the same authored instances");
+  room.dispose(); scene.dispose(); engine.dispose();
+});
+
 test("remembered_room_tiles_have_no_furniture_light_shadow_pick_or_debug_presence", async () => {
   const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
   const { Scene } = await import("@babylonjs/core/scene.js");
@@ -1039,13 +1121,13 @@ test('remembered_room_walls_preserve_an_opaque_masonry_silhouette', async () => 
     ]),
     vis: Object.freeze([1, 1, 1, 1]),
   }));
-  const walls = scene.meshes.filter((mesh) => mesh.name.includes(':wall-run:'));
+  const walls = scene.meshes.filter((mesh) => mesh.name.includes(':wall-face:'));
   const floors = scene.meshes.filter((mesh) => /^room:tile:\d+:\d+:floor$/.test(mesh.name));
-  // The fixed camera sees the north face of this two-cell remembered run. Its
-  // two seamless tile-frequency facade segments stay opaque; the independently
-  // opaque caps are not wall runs.
+  // Both exposed sides exist independently of camera quadrant. Remembered
+  // visibility softens their instances without changing their identity.
   assert.equal(walls.length, 2);
-  assert.ok(walls.every((mesh) => mesh.sourceMesh?.material?.alpha === 1));
+  assert.ok(walls.every((mesh) => mesh.sourceMesh?.material?.alpha === 1 &&
+    mesh.metadata?.roomWallVisibility === 1));
   assert.ok(floors.every((mesh) => mesh.sourceMesh?.material?.alpha === 0.42));
   room.dispose(); scene.dispose(); engine.dispose();
 });
@@ -1113,6 +1195,32 @@ test("unknown_room_tiles_leave_no_enabled_spatial_instance_or_registry_residue",
   room.dispose(); scene.dispose(); engine.dispose();
 });
 
+test("the_flame_has_a_tapered_core_and_outer_silhouette_at_gameplay_scale", async () => {
+  const { Vector3 } = await import("@babylonjs/core/Maths/math.vector.js");
+  const firstEngine = new NullEngine(); const firstScene = new Scene(firstEngine);
+  const secondEngine = new NullEngine(); const secondScene = new Scene(secondEngine);
+  const first = roomFlame.createTorchFlame(firstScene, "torch:7:2", new Vector3(2, 0.5, 3));
+  const same = roomFlame.createTorchFlame(secondScene, "torch:7:2", new Vector3(0, 0, 0));
+  const different = roomFlame.createTorchFlame(secondScene, "torch:8:2", new Vector3(0, 0, 0));
+  assert.equal(first.phase, same.phase);
+  assert.notEqual(first.phase, different.phase);
+  assert.equal(first.meshes.length, 2);
+  assert.ok(first.meshes.every((mesh) => !mesh.isPickable && !mesh.receiveShadows));
+  const [outer, core] = first.meshes;
+  assert.match(outer.name, /flame-outer$/); assert.match(core.name, /flame-core$/);
+  assert.ok(outer.getBoundingInfo().boundingBox.extendSize.y >
+    outer.getBoundingInfo().boundingBox.extendSize.x,
+  "the outer flame must taper vertically instead of reading as an orange ball");
+  assert.ok(core.getBoundingInfo().boundingBox.extendSize.y >
+    core.getBoundingInfo().boundingBox.extendSize.x,
+  "the opaque core must remain a separate upright flame silhouette");
+  const names = first.meshes.map((mesh) => mesh.name);
+  first.dispose();
+  assert.ok(names.every((name) => firstScene.getMeshByName(name) === null));
+  same.dispose(); different.dispose(); firstScene.dispose(); secondScene.dispose();
+  firstEngine.dispose(); secondEngine.dispose();
+});
+
 test("concept_light_rigs_are_warm_from_upper_right_restrained_in_fill_and_broad_at_torches", async () => {
   const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
   const { Scene } = await import("@babylonjs/core/scene.js");
@@ -1129,7 +1237,8 @@ test("concept_light_rigs_are_warm_from_upper_right_restrained_in_fill_and_broad_
     furniture: Object.freeze([torch]) }));
   const roomKey = roomScene.getLightByName("room:directional-key");
   const torchLight = roomScene.getLightByName(`room:torch:${torch.key}`);
-  const flame = roomScene.getMeshByName(`room:torch:${torch.key}:flame`);
+  const outerFlame = roomScene.getMeshByName(`room:torch:${torch.key}:flame-outer`);
+  const coreFlame = roomScene.getMeshByName(`room:torch:${torch.key}:flame-core`);
   assert.deepEqual([roomKey.direction.x, roomKey.direction.y, roomKey.direction.z], [-0.45, -1, -0.35]);
   assert.deepEqual([roomKey.diffuse.r, roomKey.diffuse.g, roomKey.diffuse.b], [1, 0.68, 0.42]);
   assert.deepEqual([roomKey.specular.r, roomKey.specular.g, roomKey.specular.b], [0.36, 0.23, 0.15]);
@@ -1147,17 +1256,21 @@ test("concept_light_rigs_are_warm_from_upper_right_restrained_in_fill_and_broad_
     [0.30, 0.17, 0.09], "door planks stay aged umber rather than flat beige");
   assert.deepEqual(roomScene.getMaterialByName("wood_current").emissiveColor.asArray(),
     [0, 0, 0]);
-  assert.deepEqual([flame.material.emissiveColor.r, flame.material.emissiveColor.g,
-    flame.material.emissiveColor.b], [1, 0.32, 0.025]);
-  assert.ok(Math.abs(flame.getBoundingInfo().boundingBox.extendSizeWorld.x - 0.1) < 1e-6,
-    "the orange flame core must remain legible at the gameplay camera scale");
+  assert.deepEqual([outerFlame.material.emissiveColor.r, outerFlame.material.emissiveColor.g,
+    outerFlame.material.emissiveColor.b], [1, 0.19, 0.025]);
+  assert.deepEqual([coreFlame.material.emissiveColor.r, coreFlame.material.emissiveColor.g,
+    coreFlame.material.emissiveColor.b], [1, 0.66, 0.12]);
+  assert.ok(outerFlame.getBoundingInfo().boundingBox.extendSizeWorld.y >
+    outerFlame.getBoundingInfo().boundingBox.extendSizeWorld.x,
+  "the flame must remain a tapered silhouette at the gameplay camera scale");
 
   room.acceptSnapshot(snapshot({ mapCols: 1, mapRows: 1,
     map: Object.freeze([ABI.MAP_OPEN]), vis: Object.freeze([1]),
     mapRevision: 80, visRevision: 81, furnitureRevision: 80,
     furniture: Object.freeze([torch]) }));
   assert.equal(roomScene.getLightByName(`room:torch:${torch.key}`), null);
-  assert.equal(roomScene.getMeshByName(`room:torch:${torch.key}:flame`), null);
+  assert.equal(roomScene.getMeshByName(`room:torch:${torch.key}:flame-outer`), null);
+  assert.equal(roomScene.getMeshByName(`room:torch:${torch.key}:flame-core`), null);
   assert.deepEqual([room.counts().lights, debug.snapshot().visibility.effects], [1, 0]);
   room.dispose(); roomScene.dispose(); roomEngine.dispose();
 
@@ -1234,51 +1347,109 @@ test("the_representative_room_is_a_closed_boundary_graph_with_only_published_doo
     "every visible boundary vertex has degree two: no orphan cap or unexplained gap");
 });
 
-test("isometric_room_contours_merge_visible_runs_without_hidden_faces_or_unit_posts", async () => {
-  const rows = [
-    "SSSSSSSS",
-    "SOOOOSSS",
-    "SOOOOSSS",
-    "SSSOOOOS",
-    "SSSOOOOS",
-    "SSSOOOOS",
-    "SSSSSSSS",
-  ];
-  const map = Object.freeze(rows.flatMap((row) => [...row].map((cell) =>
-    cell === "S" ? ABI.MAP_SOLID : ABI.MAP_OPEN)));
-  const world = snapshot({ mapCols: 8, mapRows: 7, map,
-    vis: Object.freeze(new Array(map.length).fill(2)) });
-  const runs = roomEnvironment.chooseRoomCutawayWallRuns(world);
-  assert.deepEqual(runs, [
-    { piece: "wall_straight", quarterTurns: 0, tx: 1, ty: 3, length: 2, current: true },
-    { piece: "wall_straight", quarterTurns: 0, tx: 3, ty: 6, length: 4, current: true },
-    { piece: "wall_straight", quarterTurns: 1, tx: 5, ty: 1, length: 2, current: true },
-    { piece: "wall_straight", quarterTurns: 1, tx: 7, ty: 3, length: 3, current: true },
-  ]);
-  assert.equal(runs.every(({ length }) => length >= 2), true,
-    "the live-like irregular contour contains no one-tile post source");
+test("all_four_disclosed_solid_open_orientations_create_stable_wall_faces", () => {
+  const world = snapshot({ mapCols: 3, mapRows: 3,
+    map: Object.freeze([
+      ABI.MAP_SOLID, ABI.MAP_SOLID, ABI.MAP_SOLID,
+      ABI.MAP_SOLID, ABI.MAP_OPEN, ABI.MAP_SOLID,
+      ABI.MAP_SOLID, ABI.MAP_SOLID, ABI.MAP_SOLID,
+    ]),
+    vis: Object.freeze(new Array(9).fill(2)),
+  });
+  assert.deepEqual(roomEnvironment.chooseRoomWallFaces(world).map(({ tx, ty, side }) =>
+    [tx, ty, side]), [[1, 0, 2], [0, 1, 1], [2, 1, 3], [1, 2, 0]]);
+  assert.deepEqual(roomEnvironment.chooseRoomWallFaces(world).map(({ key }) => key),
+    ["wall:1:0:2", "wall:0:1:1", "wall:2:1:3", "wall:1:2:0"]);
+});
 
-  const longMap = Object.freeze([
-    ...new Array(8).fill(ABI.MAP_OPEN), ...new Array(8).fill(ABI.MAP_SOLID),
+test("wall_face_identity_survives_current_to_remembered_and_neighbour_disclosure", async () => {
+  const map = Object.freeze([
+    ABI.MAP_SOLID, ABI.MAP_SOLID, ABI.MAP_SOLID,
+    ABI.MAP_SOLID, ABI.MAP_OPEN, ABI.MAP_SOLID,
+    ABI.MAP_SOLID, ABI.MAP_SOLID, ABI.MAP_SOLID,
   ]);
-  const longWorld = snapshot({ mapCols: 8, mapRows: 2, map: longMap,
-    vis: Object.freeze(new Array(16).fill(2)) });
-  assert.deepEqual(roomEnvironment.chooseRoomCutawayWallRuns(longWorld), [
-    { piece: "wall_straight", quarterTurns: 0, tx: 0, ty: 1, length: 8, current: true },
+  const first = snapshot({ mapCols: 3, mapRows: 3, map,
+    vis: Object.freeze([0, 2, 0, 0, 2, 0, 0, 0, 0]) });
+  const second = snapshot({ mapCols: 3, mapRows: 3, map, visRevision: 2,
+    vis: Object.freeze([2, 1, 2, 2, 1, 2, 2, 2, 2]) });
+  const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
+  const { Scene } = await import("@babylonjs/core/scene.js");
+  const engine = new NullEngine(); const scene = new Scene(engine);
+  const room = new roomEnvironment.RoomEnvironmentPresentation(
+    scene, new rendererDebug.RendererDebugRegistry(), await fakeRoomAsset(scene));
+  room.acceptSnapshot(first);
+  const retained = scene.getMeshByName("room:tile:1:0:wall-face:2");
+  assert.ok(retained);
+  room.acceptSnapshot(second);
+  assert.equal(scene.getMeshByName("room:tile:1:0:wall-face:2"), retained);
+  assert.equal(retained.metadata.roomWallVisibility, 1);
+  assert.equal(scene.meshes.filter((mesh) => mesh.name.includes(":wall-face:")).length, 4);
+  room.dispose(); scene.dispose(); engine.dispose();
+});
+
+test("unknown_cells_create_no_wall_face_or_subsystem_presence", async () => {
+  const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
+  const { Scene } = await import("@babylonjs/core/scene.js");
+  const engine = new NullEngine(); const scene = new Scene(engine);
+  const debug = new rendererDebug.RendererDebugRegistry();
+  const room = new roomEnvironment.RoomEnvironmentPresentation(scene, debug, await fakeRoomAsset(scene));
+  room.acceptSnapshot(snapshot({ mapCols: 2, mapRows: 1,
+    map: Object.freeze([ABI.MAP_SOLID, ABI.MAP_OPEN]), vis: Object.freeze([0, 0]) }));
+  assert.deepEqual(room.counts(), { geometry: 0, furniture: 0, instances: 0,
+    lights: 1, shadowCasters: 0, triangles: 0 });
+  assert.equal(scene.meshes.some((mesh) => mesh.name.includes(":wall-face:")), false);
+  assert.deepEqual([
+    debug.snapshot().visibility.geometry, debug.snapshot().visibility.furniture,
+    debug.snapshot().visibility.effects, debug.snapshot().visibility.picking,
+    debug.snapshot().visibility.debug,
+  ], [0, 0, 0, 0, 0]);
+  room.dispose(); scene.dispose(); engine.dispose();
+});
+
+test("only_a_near_face_overlapping_the_hero_receives_local_cutaway", () => {
+  const face = (key, x, depth) => ({ key, corners: [
+    { x: x - 0.5, y: 0, z: depth }, { x: x + 0.5, y: 0, z: depth },
+    { x: x - 0.5, y: 2, z: depth }, { x: x + 0.5, y: 2, z: depth },
+  ] });
+  const project = ({ x, y, z }) => ({ x: x * 40, y: -y * 40, depth: z });
+  const faces = [face("near-overlap", 5, 4), face("near-elsewhere", 20, 4), face("back-overlap", 5, 6)];
+  assert.deepEqual([...roomOcclusion.chooseLocalWallCutaways(faces, { x: 5, z: 5 }, project)],
+    ["near-overlap"]);
+  assert.deepEqual([...roomOcclusion.chooseLocalWallCutaways(faces, { x: 20, z: 5 }, project)],
+    ["near-elsewhere"], "moving away restores the same first face and cuts only the new overlap");
+});
+
+test("walking_a_disclosure_path_does_not_rebuild_existing_wall_meshes_or_shadow_casters", async () => {
+  const map = Object.freeze([
+    ABI.MAP_SOLID, ABI.MAP_SOLID, ABI.MAP_SOLID,
+    ABI.MAP_SOLID, ABI.MAP_OPEN, ABI.MAP_SOLID,
+    ABI.MAP_SOLID, ABI.MAP_SOLID, ABI.MAP_SOLID,
   ]);
   const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
   const { Scene } = await import("@babylonjs/core/scene.js");
   const engine = new NullEngine(); const scene = new Scene(engine);
   const room = new roomEnvironment.RoomEnvironmentPresentation(
     scene, new rendererDebug.RendererDebugRegistry(), await fakeRoomAsset(scene));
-  room.acceptSnapshot(longWorld);
-  const facades = scene.meshes.filter((mesh) => mesh.name.includes(":wall-run:"));
-  assert.equal(facades.length, 8);
-  assert.deepEqual(facades.map((mesh) =>
-    [mesh.scaling.x, mesh.scaling.y, mesh.scaling.z]),
-    new Array(8).fill([1, roomEnvironment.ROOM_WALL_HEIGHT / 0.9, 1]),
-    "a length-eight run repeats tile-width masonry and raises only the accepted wall height");
+  room.acceptSnapshot(snapshot({ mapCols: 3, mapRows: 3, map,
+    vis: Object.freeze([0, 2, 0, 0, 2, 0, 0, 0, 0]) }));
+  const retained = scene.getMeshByName("room:tile:1:0:wall-face:2");
+  assert.ok(retained);
+  assert.ok(room.shadowGenerator.getShadowMap()?.renderList?.includes(retained));
+  room.acceptSnapshot(snapshot({ mapCols: 3, mapRows: 3, map, visRevision: 2,
+    vis: Object.freeze(new Array(9).fill(2)) }));
+  assert.equal(scene.getMeshByName("room:tile:1:0:wall-face:2"), retained);
+  assert.ok(room.shadowGenerator.getShadowMap()?.renderList?.includes(retained));
+  assert.equal(room.counts().shadowCasters,
+    new Set(room.shadowGenerator.getShadowMap()?.renderList ?? []).size);
+  room.dispose(); scene.dispose(); engine.dispose();
+});
 
+test("singleton_boundary_faces_are_not_discarded", async () => {
+  const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
+  const { Scene } = await import("@babylonjs/core/scene.js");
+  const engine = new NullEngine(); const scene = new Scene(engine);
+  const room = new roomEnvironment.RoomEnvironmentPresentation(
+    scene, new rendererDebug.RendererDebugRegistry(), await fakeRoomAsset(scene));
   const singletonMap = Object.freeze([
     ABI.MAP_SOLID, ABI.MAP_SOLID, ABI.MAP_SOLID,
     ABI.MAP_SOLID, ABI.MAP_OPEN, ABI.MAP_SOLID,
@@ -1286,13 +1457,11 @@ test("isometric_room_contours_merge_visible_runs_without_hidden_faces_or_unit_po
   ]);
   const singletonWorld = snapshot({ mapCols: 3, mapRows: 3, map: singletonMap,
     mapRevision: 2, visRevision: 2, vis: Object.freeze(new Array(9).fill(2)) });
-  assert.deepEqual(roomEnvironment.chooseRoomCutawayWallRuns(singletonWorld), [
-    { piece: "wall_straight", quarterTurns: 0, tx: 1, ty: 2, length: 1, current: true },
-    { piece: "wall_straight", quarterTurns: 1, tx: 2, ty: 1, length: 1, current: true },
-  ]);
   room.acceptSnapshot(singletonWorld);
-  assert.equal(scene.meshes.filter((mesh) => mesh.name.includes(":wall-run:")).length, 0,
-    "singleton stair-step faces leave a floor cutaway instead of isolated posts");
+  const faces = scene.meshes.filter((mesh) => mesh.name.includes(":wall-face:"));
+  assert.equal(faces.length, 4);
+  assert.ok(faces.every((mesh) => mesh.scaling.y === roomEnvironment.ROOM_WALL_HEIGHT / 0.9),
+    "one-tile boundaries are full-height masonry, never suppressed as posts");
   room.dispose(); scene.dispose(); engine.dispose();
 });
 
@@ -1315,7 +1484,7 @@ test("disclosed_solid_cells_keep_raised_masonry_caps_above_cutaway_faces", async
   assert.ok(caps.every((mesh) => Math.abs(mesh.position.y - 1.55) < 1e-12 &&
     mesh.rotationQuaternion === null && mesh.rotation.x === 0 &&
     mesh.scaling.x === 0.92 && mesh.scaling.z === 0.92));
-  const faces = scene.meshes.filter((mesh) => mesh.name.includes(":wall-run:"));
+  const faces = scene.meshes.filter((mesh) => mesh.name.includes(":wall-face:"));
   assert.ok(faces.length > 0);
   assert.ok(faces.every((mesh) => mesh.scaling.y === 1.65 / 0.9));
   assert.equal(caps.filter((mesh) =>
@@ -1487,19 +1656,15 @@ test("the_fixed_room_stress_fixture_has_the_named_asset_hash_population_and_piec
     floors[roomEnvironment.chooseRoomFloor(fixture.generatorSeed, tx, ty)]++;
     for (const wall of roomEnvironment.chooseRoomBoundaryWalls(fixture, tx, ty)) walls[wall.piece]++;
   }
-  assert.deepEqual(floors, { floor_a: 768, floor_b: 768 });
+  assert.deepEqual(floors, { floor_a: 804, floor_b: 732 });
   assert.deepEqual(walls, { wall_straight: 188, wall_inside: 0, wall_outside: 0, wall_end: 0 });
   assert.deepEqual(Object.fromEntries(["decal_rubble", "decal_root", "prop_barrel"].map((piece) =>
     [piece, fixture.roomDecorations.filter((item) => item.piece === piece).length])),
     { decal_rubble: 4, decal_root: 4, prop_barrel: 4 });
-  const cutawayRuns = roomEnvironment.chooseRoomCutawayWallRuns(fixture);
-  assert.deepEqual(cutawayRuns.map(({ quarterTurns, tx, ty, length }) =>
-    [quarterTurns, tx, ty, length]), [
-    [0, 15, 11, 3], [0, 19, 11, 3], [0, 16, 15, 2],
-    [0, 19, 15, 2], [0, 1, 31, 46],
-    [1, 15, 11, 5], [1, 21, 12, 3], [1, 47, 1, 30],
-  ]);
-  assert.deepEqual(fixture.pieceCounts, { floor_a: 768, floor_b: 768, wall_straight: 269,
+  const stableFaces = roomEnvironment.chooseRoomWallFaces(fixture);
+  assert.equal(stableFaces.length, 188);
+  assert.equal(new Set(stableFaces.map(({ key }) => key)).size, 188);
+  assert.deepEqual(fixture.pieceCounts, { floor_a: 804, floor_b: 732, wall_straight: 363,
     wall_inside: 0, wall_outside: 0, wall_end: 0, door_frame: 2, door_leaf: 6,
     torch_bracket: 10, decal_rubble: 4, decal_root: 4, prop_barrel: 4 });
   assert.equal(createHash("sha256").update(Buffer.from(fixture.map)).digest("hex"),
@@ -1511,14 +1676,14 @@ test("the_fixed_room_stress_fixture_has_the_named_asset_hash_population_and_piec
   const debug = new rendererDebug.RendererDebugRegistry();
   const room = new roomEnvironment.RoomEnvironmentPresentation(scene, debug, await fakeRoomAsset(scene));
   room.acceptSnapshot(fixture);
-  // 1536 floors + 175 solid-cell caps + 94 tile-frequency facade instances.
+  // 1536 floors + 175 solid-cell caps + all 188 stable boundary faces.
   // Furniture has 22 semantic records but 30 instances because each of the two
   // leaves is three planks and the shut leaf also carries two iron straps.
-  assert.deepEqual(room.counts(), { geometry: 1805, furniture: 22, instances: 1835,
-    lights: 9, shadowCasters: 1835, triangles: room.counts().triangles });
-  assert.equal(debug.snapshot().draws, 19,
-    "the two deterministic current-stone cap variants are separate instancing draw groups");
-  assert.equal(debug.snapshot().visibility.effects, 8);
+  assert.deepEqual(room.counts(), { geometry: 1899, furniture: 22, instances: 1929,
+    lights: 9, shadowCasters: 1929, triangles: room.counts().triangles });
+  assert.equal(debug.snapshot().draws, 27,
+    "the two deterministic cap groups and two-layer flames remain exact draw owners");
+  assert.equal(debug.snapshot().visibility.effects, 16);
   assert.equal(debug.snapshot().visibility.picking, 1558);
   const before = scene.meshes.filter((mesh) => mesh.name.startsWith("room:") && mesh.sourceMesh);
   room.acceptSnapshot(Object.freeze({ ...fixture, tick: 1 }));
@@ -1557,11 +1722,11 @@ test("the_compact_room_review_fixture_is_not_the_performance_stress_fixture", as
   const debug = new rendererDebug.RendererDebugRegistry();
   const room = new roomEnvironment.RoomEnvironmentPresentation(scene, debug, await fakeRoomAsset(scene));
   room.acceptSnapshot(fixture);
-  // 160 floors + 48 solid-cell caps + 21 tile-frequency facade instances.
+  // 160 floors + 48 solid-cell caps + all 42 stable boundary faces.
   // The two framed doors use six plank modules and two shut-leaf straps, so 18
   // semantic furniture rows intentionally occupy 26 presentation instances.
-  assert.deepEqual(room.counts(), { geometry: 229, furniture: 18, instances: 255,
-    lights: 5, shadowCasters: 255, triangles: room.counts().triangles });
+  assert.deepEqual(room.counts(), { geometry: 250, furniture: 18, instances: 276,
+    lights: 5, shadowCasters: 276, triangles: room.counts().triangles });
   assert.equal(scene.lights.length, 6, "review fill is separate from the room key and four torches");
   assert.deepEqual([scene.clearColor.r, scene.clearColor.g, scene.clearColor.b, scene.clearColor.a],
     [0.012, 0.016, 0.032, 1]);
@@ -1658,7 +1823,7 @@ test("the_game_follow_camera_starts_close_and_pans_only_when_the_hero_leaves_the
   scene.useRightHandedSystem = true;
   // Both new constants are pinned from both sides: the exact value, and the
   // behaviour at the zone edge below.
-  assert.equal(roomReviewCamera.GAME_INITIAL_FIXED_ZOOM, 10);
+  assert.equal(roomReviewCamera.GAME_INITIAL_FIXED_ZOOM, 11.5);
   assert.ok(roomReviewCamera.GAME_INITIAL_FIXED_ZOOM > rendererCamera.MIN_CAMERA_ZOOM
     && roomReviewCamera.GAME_INITIAL_FIXED_ZOOM < rendererCamera.MAX_CAMERA_ZOOM,
   "the starting zoom must leave wheel room in both directions");
@@ -1668,13 +1833,13 @@ test("the_game_follow_camera_starts_close_and_pans_only_when_the_hero_leaves_the
   const owner = roomReviewCamera.createRoomReviewCamera(scene, canvas, { width: 68, height: 45 },
     { initialFixedZoom: roomReviewCamera.GAME_INITIAL_FIXED_ZOOM, followHero: true });
   // The playable dungeon is 68 x 45 tiles: at the starting zoom the vertical
-  // view is (68 + 45) / 10 = 11.3 tiles rather than the 113 of zoom one.
-  assert.ok(Math.abs(owner.camera.orthoTop - (68 + 45) / (2 * 10)) < 1e-12);
+  // view is (68 + 45) / 11.5 = 9.8 tiles rather than the 113 of zoom one.
+  assert.ok(Math.abs(owner.camera.orthoTop - (68 + 45) / (2 * 11.5)) < 1e-12);
   const target = () => { owner.camera.getViewMatrix(true); return owner.camera.getTarget().clone(); };
   const centred = target();
   assert.ok(Math.abs(centred.x - 34) < 1e-5 && Math.abs(centred.z - 22.5) < 1e-5);
   // The dead zone, from both sides. The vertical allowance is
-  // orthoTop * fraction = 5.65 * 0.35 = 1.9775 world units along the screen-up
+  // orthoTop * fraction = 4.913 * 0.35 = 1.720 world units along the screen-up
   // ground diagonal (1, 1)/sqrt(2): an offset of (1.2, 1.2) projects to 1.70
   // and stays free; (2, 2) projects to 2.83 and must pan.
   owner.follow(34, 22.5);
@@ -2814,7 +2979,7 @@ test("room_sidecar_runtime_decoding_rejects_every_malformed_or_unbounded_field",
   const valid = roomAssetContract.parseRoomAssetSidecar(bytes);
   assert.equal(valid.fixtureId, "v2-room-slice-1");
   assert.equal(valid.pieces.length, 12);
-  assert.deepEqual(valid.styling, { id: "concept-umber-stone-v2", mode: "deterministic-vertex-color",
+  assert.deepEqual(valid.styling, { id: "painted-cathedral-v3", mode: "deterministic-vertex-color",
     attribute: "room_style", textures: true });
   assert.ok(Object.isFrozen(valid));
   assert.ok(Object.isFrozen(valid.pieces));
@@ -3000,12 +3165,12 @@ test("enabled_combatant_dresses_are_visible_independent_skinned_clones", async (
     const materialOf = (dress, semantic) => dress.meshes.get(semantic).material;
     assert.notEqual(materialOf(first, "head_helmet"), materialOf(second, "head_helmet"),
       "each Fighter owns its presentation palette rather than recolouring the shared asset");
-    assert.deepEqual(materialOf(first, "head_face").albedoColor.asArray(), [0.48, 0.34, 0.23]);
-    assert.deepEqual(materialOf(first, "head_helmet").albedoColor.asArray(), [0.34, 0.37, 0.4]);
-    assert.deepEqual(materialOf(first, "head_visor").albedoColor.asArray(), [0.10, 0.12, 0.15]);
-    assert.deepEqual(materialOf(first, "torso_breastplate").albedoColor.asArray(), [0.3, 0.33, 0.36]);
-    assert.deepEqual(materialOf(first, "arm_left").albedoColor.asArray(), [0.22, 0.10, 0.07]);
-    assert.deepEqual(materialOf(first, "boot_left").albedoColor.asArray(), [0.18, 0.105, 0.055]);
+    assert.deepEqual(materialOf(first, "head_face").albedoColor.asArray(), [0.62, 0.43, 0.28]);
+    assert.deepEqual(materialOf(first, "head_helmet").albedoColor.asArray(), [0.48, 0.51, 0.55]);
+    assert.deepEqual(materialOf(first, "head_visor").albedoColor.asArray(), [0.18, 0.21, 0.26]);
+    assert.deepEqual(materialOf(first, "torso_breastplate").albedoColor.asArray(), [0.43, 0.46, 0.5]);
+    assert.deepEqual(materialOf(first, "arm_left").albedoColor.asArray(), [0.34, 0.12, 0.07]);
+    assert.deepEqual(materialOf(first, "boot_left").albedoColor.asArray(), [0.27, 0.15, 0.075]);
     const pixels = (mesh, bodyPixels, axis) => {
       const box = mesh.getBoundingInfo().boundingBox;
       const span = box.maximum[axis] - box.minimum[axis];
@@ -3125,6 +3290,40 @@ test("authored_game_dress_falls_back_and_reacts_only_to_published_events_then_fo
     scene.dispose();
     engine.dispose();
   }
+});
+
+test("switching_view_modes_reuses_mesh_identity_and_restores_world_lights_and_shadows", async () => {
+  const engine = new NullEngine();
+  const scene = new Scene(engine);
+  const debug = new rendererDebug.RendererDebugRegistry();
+  const casters = new Set();
+  const shadows = { addShadowCaster(mesh) { casters.add(mesh); }, removeShadowCaster(mesh) { casters.delete(mesh); } };
+  try {
+    const asset = await combatantAssets.loadCombatantAsset(scene, new AbortController().signal,
+      (url) => Promise.resolve(combatantResponse(url)));
+    const actors = new rendererActors.ActorPresentation(scene, debug, shadows, asset);
+    const fighter = unit({ kind: 0, x: 2.5, visible: true, slot0Action: 2, slot1Action: 4 });
+    actors.acceptSnapshot(snapshot({ units: Object.freeze([fighter]) }));
+    const authored = scene.meshes.filter((mesh) => mesh.name.startsWith("actor:1:1:authored:FIGHTER_mesh_"));
+    const procedural = scene.meshes.filter((mesh) => mesh.name.startsWith("actor:1:1:") &&
+      !mesh.name.startsWith("actor:1:1:authored:") && mesh.name !== "actor:1:1:marker:ring");
+    const ring = scene.meshes.find((mesh) => mesh.name === "actor:1:1:marker:ring");
+    const identities = new Set(scene.meshes);
+    assert.ok(authored.every((mesh) => mesh.isEnabled()));
+    actors.setPresentationMode("tactical");
+    assert.ok(authored.every((mesh) => !mesh.isEnabled()));
+    const tacticalEnabled = procedural.filter((mesh) => mesh.isEnabled());
+    assert.ok(tacticalEnabled.length >= 8,
+      `Tactical enables the readable body; got ${tacticalEnabled.map((mesh) => mesh.name)}`);
+    assert.equal(ring.isEnabled(), true);
+    assert.equal(casters.size, procedural.length);
+    actors.setPresentationMode("world");
+    assert.ok(authored.every((mesh) => mesh.isEnabled()));
+    assert.ok(procedural.every((mesh) => !mesh.isEnabled()));
+    assert.ok([...identities].every((mesh) => scene.meshes.includes(mesh)), "mode switching reuses mesh identity");
+    assert.equal(casters.size, authored.length);
+    actors.dispose(); asset.dispose();
+  } finally { scene.dispose(); engine.dispose(); }
 });
 
 test("combatant_closure_bounds_and_late_abort_failures_dispose_the_unpublished_container", async () => {
@@ -5534,5 +5733,73 @@ test("authored_arena_dress_matches_rig_endpoints_and_only_published_rows_open_re
     "clear must dispose every authored mesh and its cloned skeleton closure");
   content.dispose();
   scene.dispose();
+  engine.dispose();
+});
+
+test("the_game_frame_meter_rolls_every_half_second_and_reports_the_worst_interval", () => {
+  const meter = new frameMeter.GameFrameMeter();
+  assert.equal(meter.advance(0), null);
+  for (const now of [16, 32, 80, 160, 240, 320, 400, 500]) meter.advance(now);
+  assert.deepEqual(meter.reading, Object.freeze({ fps: 16, worstMs: 100 }));
+  assert.equal(meter.label, "16 FPS / 100 ms worst");
+  assert.equal(meter.advance(516), null, "publishing starts a fresh half-second window");
+});
+
+test("the_frame_meter_discards_hidden_time_and_resets_between_route_mounts", () => {
+  const meter = new frameMeter.GameFrameMeter();
+  meter.advance(0);
+  meter.advance(16);
+  meter.reset(10_000);
+  assert.equal(meter.advance(10_016), null);
+  assert.equal(meter.reading, null);
+  meter.advance(10_500);
+  assert.deepEqual(meter.reading, Object.freeze({ fps: 4, worstMs: 484 }));
+  const remounted = new frameMeter.GameFrameMeter();
+  assert.equal(remounted.reading, null);
+  assert.equal(remounted.label, "-- FPS / -- ms worst");
+});
+
+test("world_and_tactical_share_one_scene_worker_snapshot_and_pick_contract", async () => {
+  assert.deepEqual(presentationMode.PRESENTATION_MODES, ["world", "tactical"]);
+  assert.equal(presentationMode.nextPresentationMode("world"), "tactical");
+  assert.equal(presentationMode.nextPresentationMode("tactical"), "world");
+  assert.equal(presentationMode.presentationModeLabel("world"), "World");
+  assert.equal(presentationMode.presentationModeLabel("tactical"), "Tactical");
+  const engine = new NullEngine();
+  const scene = new Scene(engine);
+  const debug = new rendererDebug.RendererDebugRegistry();
+  const calls = [];
+  const owner = (name) => ({
+    acceptSnapshot(value) { calls.push([name, "snapshot", value]); },
+    setPresentationMode(value) { calls.push([name, "mode", value]); },
+    reset() {}, dispose() {},
+  });
+  const environment = { ...owner("environment"), shadowGenerator: {} };
+  const actors = owner("actors");
+  const transients = owner("transients");
+  const canvas = { clientWidth: 640, clientHeight: 360 };
+  const camera = rendererCamera.createFixedIsometricCamera(scene, { width: 2, height: 1 }, 16 / 9);
+  scene.activeCamera = camera;
+  const renderer = new greyboxRenderer.GreyboxRenderer({
+    engine, canvas, terminal: false, diagnostics: { requested: "webgl2", selected: "webgl2" },
+    dispose() {},
+  }, scene, debug, environment, actors, transients, camera, () => 0);
+  renderer.stop();
+  const world = snapshot();
+  renderer.acceptSnapshot(world, 0);
+  const sceneIdentity = renderer.scene;
+  const cameraIdentity = renderer.camera;
+  renderer.setPresentationMode("tactical");
+  assert.equal(renderer.scene, sceneIdentity);
+  assert.equal(renderer.camera, cameraIdentity);
+  assert.equal(renderer.presentationMode, "tactical");
+  renderer.setPresentationMode("world");
+  assert.equal(calls.filter(([, kind]) => kind === "snapshot").length, 2,
+    "the one accepted publication goes once to environment and transients only");
+  assert.deepEqual(calls.filter(([, kind]) => kind === "mode").map(([name, , mode]) => [name, mode]), [
+    ["actors", "tactical"], ["environment", "tactical"],
+    ["actors", "world"], ["environment", "world"],
+  ]);
+  renderer.dispose();
   engine.dispose();
 });

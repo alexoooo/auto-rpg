@@ -19,13 +19,14 @@ const MESHES = Object.freeze({
   fighter: Object.freeze([
     "pelvis_skirt", "pelvis_belt", "torso_cuirass", "torso_breastplate", "torso_cape",
     "head_face", "head_helmet", "head_visor", "head_plume",
-    "arm_left", "arm_right", "pauldron_left", "pauldron_right", "hand_left", "hand_right",
+    "arm_left", "arm_right", "forearm_left", "forearm_right",
+    "pauldron_left", "pauldron_right", "hand_left", "hand_right",
     "leg_left", "leg_right", "boot_left", "boot_right", "shield", "sword",
   ] as const),
   brute: Object.freeze([
     "pelvis_kilt", "pelvis_belt", "torso_hide", "torso_mantle", "torso_buckle",
     "head", "head_brow", "horn_left", "horn_right", "tusk_left", "tusk_right",
-    "arm_left", "arm_right", "hand_left", "hand_right",
+    "arm_left", "arm_right", "forearm_left", "forearm_right", "hand_left", "hand_right",
     "leg_left", "leg_right", "boot_left", "boot_right", "club",
   ] as const),
 });

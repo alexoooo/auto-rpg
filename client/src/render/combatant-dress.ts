@@ -56,22 +56,22 @@ const fighterSurface = (
 ): FighterSurface => Object.freeze({ albedo, emissive, metallic, roughness });
 
 const FIGHTER_SURFACES: Readonly<Record<string, FighterSurface>> = Object.freeze({
-  combatant_burgundy: fighterSurface([0.22, 0.10, 0.07], [0.010, 0.003, 0.002], 0.0, 0.80),
-  combatant_dark_steel: fighterSurface([0.11, 0.13, 0.16], [0.006, 0.008, 0.011], 0.76, 0.40),
-  combatant_leather: fighterSurface([0.18, 0.105, 0.055], [0.006, 0.003, 0.001], 0.0, 0.76),
-  combatant_skin: fighterSurface([0.48, 0.34, 0.23], [0.014, 0.008, 0.004], 0.0, 0.72),
-  combatant_steel: fighterSurface([0.34, 0.37, 0.40], [0.010, 0.012, 0.015], 0.80, 0.32),
+  combatant_burgundy: fighterSurface([0.34, 0.12, 0.07], [0.030, 0.008, 0.003], 0.0, 0.80),
+  combatant_dark_steel: fighterSurface([0.20, 0.23, 0.28], [0.035, 0.040, 0.050], 0.72, 0.43),
+  combatant_leather: fighterSurface([0.27, 0.15, 0.075], [0.010, 0.004, 0.001], 0.0, 0.76),
+  combatant_skin: fighterSurface([0.62, 0.43, 0.28], [0.040, 0.024, 0.012], 0.0, 0.72),
+  combatant_steel: fighterSurface([0.48, 0.51, 0.55], [0.045, 0.050, 0.060], 0.76, 0.36),
 });
 
 const FIGHTER_SEMANTIC_SURFACES: Readonly<Record<string, FighterSurface>> = Object.freeze({
-  torso_breastplate: fighterSurface([0.30, 0.33, 0.36], [0.008, 0.010, 0.013], 0.80, 0.34),
-  head_visor: fighterSurface([0.10, 0.12, 0.15], [0.004, 0.005, 0.008], 0.72, 0.43),
-  pauldron_left: fighterSurface([0.27, 0.30, 0.33], [0.007, 0.009, 0.012], 0.79, 0.36),
-  pauldron_right: fighterSurface([0.27, 0.30, 0.33], [0.007, 0.009, 0.012], 0.79, 0.36),
+  torso_breastplate: fighterSurface([0.43, 0.46, 0.50], [0.040, 0.046, 0.055], 0.76, 0.38),
+  head_visor: fighterSurface([0.18, 0.21, 0.26], [0.009, 0.011, 0.016], 0.68, 0.46),
+  pauldron_left: fighterSurface([0.40, 0.43, 0.47], [0.036, 0.041, 0.050], 0.75, 0.40),
+  pauldron_right: fighterSurface([0.40, 0.43, 0.47], [0.036, 0.041, 0.050], 0.75, 0.40),
   hand_left: fighterSurface([0.23, 0.25, 0.28], [0.006, 0.007, 0.009], 0.75, 0.40),
   hand_right: fighterSurface([0.23, 0.25, 0.28], [0.006, 0.007, 0.009], 0.75, 0.40),
-  shield: fighterSurface([0.18, 0.21, 0.24], [0.006, 0.008, 0.010], 0.72, 0.45),
-  sword: fighterSurface([0.50, 0.53, 0.57], [0.018, 0.020, 0.024], 0.86, 0.25),
+  shield: fighterSurface([0.31, 0.35, 0.39], [0.032, 0.040, 0.050], 0.68, 0.48),
+  sword: fighterSurface([0.64, 0.67, 0.71], [0.060, 0.066, 0.078], 0.82, 0.29),
 });
 
 function applyFighterSurface(material: PBRMaterial, surface: FighterSurface): void {

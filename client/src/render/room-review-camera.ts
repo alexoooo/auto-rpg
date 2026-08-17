@@ -13,12 +13,12 @@ const FREE_BETA = Math.PI / 3;
 
 // The playable `#/game` starting zoom. The worker's dungeon is 68 x 45 tiles,
 // so `fixedIsometricBounds` reads (68 + 45) / zoom tiles of vertical view:
-// ten shows 11.3 of them -- close enough to read the hero's swing with a
+// 11.5 shows about 9.8 of them -- close enough to read the hero's swing with a
 // room's worth of floor around it -- where the default of one showed 113 for a
 // 45-tile map, roughly 2.5x over-framed. Only the ordinary game route passes
 // this; the stress and compact-review fixtures keep their own committed zooms
 // so recorded captures stay comparable.
-export const GAME_INITIAL_FIXED_ZOOM = 10;
+export const GAME_INITIAL_FIXED_ZOOM = 11.5;
 
 // The hero may roam this fraction of each orthographic half-extent, measured
 // along the camera's screen axes on the ground plane, before the fixed camera

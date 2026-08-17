@@ -188,4 +188,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    finally:
+        # Blender may ignore dont_write_bytecode for a local import on some
+        # Windows builds. Generated cache is not an authored build input.
+        shutil.rmtree(SCRIPT_DIR / "__pycache__", ignore_errors=True)

@@ -1,8 +1,8 @@
 # Visual recovery 06 -- integrated foreground acceptance
 
-**Status:** planned. Depends on sessions 01 through 05. This session changes no
-simulation, ABI or authored geometry unless review finds a defect and reopens the
-owning session.
+**Status:** implementation and automated matrix in progress on 2026-08-17; owner
+acceptance, forced-WebGL2 review, four-direction movement review, and visible-rAF
+performance remain open. This session changes no simulation or ABI.
 
 The previous visual work was repeatedly closed from green tests and narrow
 screenshots. This session makes closure an explicit product decision. It does not

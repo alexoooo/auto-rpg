@@ -180,6 +180,64 @@ def _cone(name, parent, material, radius, depth, position=(0, 0, 0), vertices=8,
     return _finish_mesh(bpy.context.object, name, parent, material, position, rotation)
 
 
+def _mesh_from_faces(name, parent, material, vertices, faces, position=(0, 0, 0)):
+    mesh = bpy.data.meshes.new("mesh_" + name)
+    mesh.from_pydata([_location(vertex) for vertex in vertices], [], faces)
+    mesh.update()
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.scene.collection.objects.link(obj)
+    result = _finish_mesh(obj, name, parent, material, position)
+    for polygon in result.data.polygons:
+        polygon.use_smooth = False
+    return result
+
+
+def _frustum(name, parent, material, bottom, top, height, position=(0, 0, 0)):
+    bottom_x, bottom_z = bottom
+    top_x, top_z = top
+    low = -height / 2
+    high = height / 2
+    vertices = [
+        (-bottom_x / 2, low, -bottom_z / 2), (bottom_x / 2, low, -bottom_z / 2),
+        (bottom_x / 2, low, bottom_z / 2), (-bottom_x / 2, low, bottom_z / 2),
+        (-top_x / 2, high, -top_z / 2), (top_x / 2, high, -top_z / 2),
+        (top_x / 2, high, top_z / 2), (-top_x / 2, high, top_z / 2),
+    ]
+    faces = [(0, 3, 2, 1), (4, 5, 6, 7),
+             (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)]
+    return _mesh_from_faces(name, parent, material, vertices, faces, position)
+
+
+def _extruded_profile(name, parent, material, points, thickness, position=(0, 0, 0)):
+    half = thickness / 2
+    count = len(points)
+    vertices = [(x, y, -half) for x, y in points] + [(x, y, half) for x, y in points]
+    faces = [tuple(reversed(range(count))), tuple(range(count, count * 2))]
+    for index in range(count):
+        following = (index + 1) % count
+        faces.append((index, following, count + following, count + index))
+    return _mesh_from_faces(name, parent, material, vertices, faces, position)
+
+
+def _tapered_cylinder(name, parent, material, rings, vertices=10, position=(0, 0, 0)):
+    import math
+    points = []
+    for y, radius in rings:
+        points.extend((radius * math.cos(index * 2 * math.pi / vertices), y,
+                       radius * math.sin(index * 2 * math.pi / vertices))
+                      for index in range(vertices))
+    faces = [tuple(reversed(range(vertices))),
+             tuple(range((len(rings) - 1) * vertices, len(rings) * vertices))]
+    for ring in range(len(rings) - 1):
+        start = ring * vertices
+        following = start + vertices
+        for index in range(vertices):
+            next_index = (index + 1) % vertices
+            faces.append((start + index, start + next_index,
+                          following + next_index, following + index))
+    return _mesh_from_faces(name, parent, material, points, faces, position)
+
+
 def _rig(prefix, semantic_names, positions):
     bones = [semantic for semantic in semantic_names if semantic not in ("idle", "walk", "stagger", "fall")]
     armature_data = bpy.data.armatures.new(prefix + "skeleton")
@@ -223,8 +281,8 @@ def _fighter(manifest, materials):
     prefix = "FIGHTER_"
     nodes = _rig(prefix, manifest["semanticNames"], {
         "pelvis": (0, 0.93, 0), "torso": (0, 0.32, 0), "head": (0, 0.48, 0),
-        "arm_left": (-0.33, 0.34, 0), "hand_left": (0, -0.43, 0),
-        "arm_right": (0.33, 0.34, 0), "hand_right": (0, -0.43, 0),
+        "arm_left": (-0.38, 0.34, 0), "hand_left": (0, -0.43, 0),
+        "arm_right": (0.38, 0.34, 0), "hand_right": (0, -0.43, 0),
         "socket_weapon_left": (0, -0.13, 0), "socket_weapon_right": (0, -0.13, 0),
         "socket_shield": (-0.48, 1.12, 0.04),
         "region_head": (0, 1.69, 0), "region_torso": (0, 1.31, 0),
@@ -237,8 +295,8 @@ def _fighter(manifest, materials):
              (0.48, 0.32, 0.28), (0, -0.04, 0)))
     add(_cylinder(prefix + "mesh_pelvis_belt", nodes["pelvis"], materials["combatant_leather"],
                   0.255, 0.10, (0, 0.12, 0), vertices=12))
-    add(_box(prefix + "mesh_torso_cuirass", nodes["torso"], materials["combatant_dark_steel"],
-             (0.54, 0.50, 0.30), (0, 0.17, 0), bevel=0.055))
+    add(_frustum(prefix + "mesh_torso_cuirass", nodes["torso"], materials["combatant_dark_steel"],
+                 (0.44, 0.26), (0.62, 0.34), 0.60, (0, 0.14, 0)))
     add(_box(prefix + "mesh_torso_breastplate", nodes["torso"], materials["combatant_steel"],
              (0.38, 0.31, 0.055), (0, 0.20, -0.17), bevel=0.025))
     add(_box(prefix + "mesh_torso_cape", nodes["torso"], materials["combatant_burgundy"],
@@ -246,7 +304,7 @@ def _fighter(manifest, materials):
     add(_sphere(prefix + "mesh_head_face", nodes["head"], materials["combatant_skin"],
                 0.15, (0, 0.12, 0), scale=(0.82, 1.0, 0.82)))
     add(_sphere(prefix + "mesh_head_helmet", nodes["head"], materials["combatant_steel"],
-                0.20, (0, 0.18, 0), scale=(1.0, 0.82, 0.92)))
+                0.21, (0, 0.16, 0), scale=(1.0, 0.96, 0.92)))
     add(_box(prefix + "mesh_head_visor", nodes["head"], materials["combatant_dark_steel"],
              (0.31, 0.085, 0.055), (0, 0.17, -0.18), bevel=0.012))
     add(_box(prefix + "mesh_head_plume", nodes["head"], materials["combatant_burgundy"],
@@ -254,9 +312,11 @@ def _fighter(manifest, materials):
     for side in ("left", "right"):
         node = nodes[f"arm_{side}"]
         add(_cylinder(prefix + f"mesh_arm_{side}", node, materials["combatant_burgundy"],
-                      0.105, 0.43, (0, -0.20, 0), vertices=10))
+                      0.11, 0.27, (0, -0.12, 0), vertices=10))
+        add(_cylinder(prefix + f"mesh_forearm_{side}", nodes[f"hand_{side}"],
+                      materials["combatant_dark_steel"], 0.095, 0.27, (0, 0.12, 0), vertices=10))
         add(_sphere(prefix + f"mesh_pauldron_{side}", node, materials["combatant_steel"],
-                    0.17, (0, 0.0, 0), scale=(1.15, 0.72, 1.0)))
+                    0.19, (0, 0.0, 0), scale=(1.18, 0.70, 1.0)))
         add(_box(prefix + f"mesh_hand_{side}", nodes[f"hand_{side}"], materials["combatant_steel"],
                  (0.17, 0.20, 0.16), (0, -0.08, 0), bevel=0.035))
     for side, x in (("left", -0.14), ("right", 0.14)):
@@ -264,10 +324,17 @@ def _fighter(manifest, materials):
                       0.11, 0.62, (x, -0.44, 0), vertices=10))
         add(_box(prefix + f"mesh_boot_{side}", nodes["pelvis"], materials["combatant_leather"],
                  (0.20, 0.20, 0.32), (x, -0.77, -0.07), bevel=0.035))
-    add(_cylinder(prefix + "mesh_shield", nodes["socket_shield"], materials["combatant_dark_steel"],
-                  0.36, 0.07, (0, 0, 0), vertices=12, rotation=(1.57079632679, 0, 0)))
-    add(_box(prefix + "mesh_sword", nodes["socket_weapon_right"], materials["combatant_steel"],
-             (0.065, 0.72, 0.035), (0, -0.34, 0), bevel=0.012))
+    add(_extruded_profile(prefix + "mesh_shield", nodes["socket_shield"],
+                          materials["combatant_dark_steel"],
+                          [(0, 0.40), (0.38, 0.22), (0.34, -0.18), (0, -0.52),
+                           (-0.34, -0.18), (-0.38, 0.22)], 0.08))
+    add(_extruded_profile(prefix + "mesh_sword", nodes["socket_weapon_right"],
+                          materials["combatant_steel"],
+                          [(-0.055, 0.02), (-0.055, -0.10), (-0.18, -0.10),
+                           (-0.18, -0.16), (-0.055, -0.16), (-0.055, -0.62),
+                           (0, -0.76), (0.055, -0.62), (0.055, -0.16),
+                           (0.18, -0.16), (0.18, -0.10), (0.055, -0.10),
+                           (0.055, 0.02)], 0.045))
     return nodes, mesh
 
 
@@ -275,11 +342,11 @@ def _brute(manifest, materials):
     prefix = "BRUTE_"
     nodes = _rig(prefix, manifest["semanticNames"], {
         "pelvis": (0, 1.02, 0), "torso": (0, 0.39, 0), "head": (0, 0.56, 0),
-        "arm_left": (-0.48, 0.39, 0), "hand_left": (0, -0.57, 0),
-        "arm_right": (0.48, 0.39, 0), "hand_right": (0, -0.57, 0),
+        "arm_left": (-0.53, 0.39, 0), "hand_left": (0, -0.57, 0),
+        "arm_right": (0.53, 0.39, 0), "hand_right": (0, -0.57, 0),
         "socket_weapon_left": (0, -0.18, 0), "socket_weapon_right": (0, -0.18, 0),
         "socket_shield": (-0.61, 1.34, 0.03),
-        "region_head": (0, 1.99, 0), "region_torso": (0, 1.48, 0),
+        "region_head": (0, 1.99, -0.10), "region_torso": (0, 1.48, 0),
         "region_left_arm": (-0.55, 1.42, 0), "region_right_arm": (0.55, 1.42, 0),
         "region_legs": (0, 0.66, 0),
     })
@@ -296,7 +363,7 @@ def _brute(manifest, materials):
     add(_cylinder(prefix + "mesh_torso_buckle", nodes["torso"], materials["combatant_bone"],
                   0.09, 0.04, (0, -0.05, -0.28), vertices=10, rotation=(1.57079632679, 0, 0)))
     add(_sphere(prefix + "mesh_head", nodes["head"], materials["combatant_skin"],
-                0.24, (0, 0.12, 0), scale=(1.0, 1.08, 0.88)))
+                0.24, (0, 0.12, -0.10), scale=(1.0, 1.08, 0.88)))
     add(_box(prefix + "mesh_head_brow", nodes["head"], materials["combatant_hide"],
              (0.39, 0.09, 0.08), (0, 0.20, -0.20), bevel=0.025))
     for side, x, roll in (("left", -0.20, -0.42), ("right", 0.20, 0.42)):
@@ -306,7 +373,9 @@ def _brute(manifest, materials):
                   0.035, 0.16, (x * 0.45, 0.00, -0.22), vertices=8, rotation=(0, 0, 3.14159265359)))
     for side in ("left", "right"):
         add(_cylinder(prefix + f"mesh_arm_{side}", nodes[f"arm_{side}"], materials["combatant_skin"],
-                      0.16, 0.57, (0, -0.27, 0), vertices=10))
+                      0.17, 0.34, (0, -0.16, 0), vertices=10))
+        add(_cylinder(prefix + f"mesh_forearm_{side}", nodes[f"hand_{side}"],
+                      materials["combatant_hide"], 0.15, 0.34, (0, 0.15, 0), vertices=10))
         add(_sphere(prefix + f"mesh_hand_{side}", nodes[f"hand_{side}"], materials["combatant_skin"],
                     0.17, (0, -0.10, 0), scale=(1.0, 1.15, 0.92)))
     for side, x in (("left", -0.18), ("right", 0.18)):
@@ -314,8 +383,10 @@ def _brute(manifest, materials):
                       0.145, 0.70, (x, -0.53, 0), vertices=10))
         add(_box(prefix + f"mesh_boot_{side}", nodes["pelvis"], materials["combatant_hide"],
                  (0.26, 0.24, 0.38), (x, -0.90, -0.09), bevel=0.045))
-    add(_cylinder(prefix + "mesh_club", nodes["socket_weapon_right"], materials["combatant_hide"],
-                  0.10, 0.92, (0, -0.43, 0), vertices=9))
+    add(_tapered_cylinder(prefix + "mesh_club", nodes["socket_weapon_right"],
+                          materials["combatant_hide"],
+                          [(0.03, 0.075), (-0.55, 0.085), (-0.78, 0.16), (-1.0, 0.24)],
+                          vertices=10))
     return nodes, mesh
 
 

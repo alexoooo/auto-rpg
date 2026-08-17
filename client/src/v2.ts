@@ -3,6 +3,10 @@ import type { GreyboxInput } from "./input/greybox-input.js";
 import type { LegacyClientCommand } from "./protocol/messages.js";
 import type { GreyboxRenderer } from "./render/renderer.js";
 import type { CanvasControlRenderer } from "./render/canvas-control.js";
+import { GameFrameMeter } from "./render/frame-meter.js";
+import {
+  nextPresentationMode, presentationModeLabel, type PresentationMode,
+} from "./render/presentation-mode.js";
 import { browserCaptureLabel, CaptureControls } from "./render/capture-controls.js";
 import {
   createBrowserPerformanceRuntime, GreyboxPerformanceCapture,
@@ -69,6 +73,8 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   find<HTMLInputElement>("perf-browser").value = browserCaptureLabel(navigator.userAgent, navigatorBrands);
   const interactionHint = find<HTMLParagraphElement>("interaction-hint");
   const roomCameraButton = find<HTMLButtonElement>("room-camera-toggle");
+  const frameMeterOutput = find<HTMLOutputElement>("game-fps");
+  const viewModeButton = find<HTMLButtonElement>("game-view-mode");
   // The route's own query, handed down by the shell. `location.search` is empty under
   // hash routing, so reading it here would silently see none of these options.
   const stressParameter = params.get("stress");
@@ -125,6 +131,8 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   let performanceCapture: GreyboxPerformanceCapture | null = null;
   let roomEvidence: Readonly<{ payloadBytes: number; estimatedGpuBytes: number }> | null = null;
   let disposed = false;
+  const frameMeter = new GameFrameMeter();
+  let presentationMode: PresentationMode = "world";
   const captureControls = new CaptureControls({
     now: () => performance.now(),
     schedule: (callback, intervalMs) => window.setInterval(callback, intervalMs),
@@ -157,6 +165,24 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   };
 
   const rejectActivePerformance = (reason: string): void => captureControls.terminate(reason);
+
+  const renderViewMode = (): void => {
+    viewModeButton.textContent = presentationModeLabel(presentationMode);
+    viewModeButton.setAttribute("aria-pressed", String(presentationMode === "tactical"));
+    roomCameraButton.disabled = presentationMode === "tactical";
+  };
+
+  const setPresentationMode = (mode: PresentationMode): void => {
+    const renderer = requireApp().renderer;
+    if (!("setPresentationMode" in renderer)) throw new Error("Tactical view requires the GPU renderer");
+    (renderer as GreyboxRenderer).setPresentationMode(mode);
+    presentationMode = mode;
+    renderViewMode();
+    if (representativeRoom) {
+      roomCameraButton.textContent = (renderer as GreyboxRenderer).reviewCameraFree
+        ? "Use fixed camera" : "Use free camera";
+    }
+  };
 
   const renderDiagnostics = (): void => {
     diagnosticsOutput.textContent = JSON.stringify({
@@ -251,6 +277,10 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
         : "Fixed review camera active";
       refreshPerformanceStart();
     } catch (error) { showError(error); }
+  });
+  viewModeButton.addEventListener("click", () => {
+    try { setPresentationMode(nextPresentationMode(presentationMode)); }
+    catch (error) { showError(error); }
   });
   holdBuffersButton.addEventListener("click", () => {
     run(async () => client?.beginDiagnosticBufferExhaustion(), "Holding the next three snapshot leases");
@@ -354,6 +384,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
       frameRequest = 0;
       return;
     }
+    if (frameMeter.advance(now) !== null) frameMeterOutput.value = frameMeter.label;
     const elapsedMicros = Math.max(0, Math.round((now - previousTime) * 1000));
     previousTime = now;
     if (latest?.resetting) pendingElapsedMicros = 0;
@@ -497,6 +528,8 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     for (const control of container.querySelectorAll<HTMLButtonElement>("button[data-sim-control]")) {
       control.disabled = syntheticMode;
     }
+    viewModeButton.hidden = canvasControl;
+    viewModeButton.disabled = canvasControl;
     refreshPerformanceStart();
     interactionHint.textContent = roomReviewMode
       ? "Compact room review is noninteractive and has no simulation Worker. Use the camera toggle to inspect the authored slice."
@@ -521,7 +554,28 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   };
 
   const onResize = (): void => { app?.renderer.resize(); };
+  const onKeydown = (event: KeyboardEvent): void => {
+    if (event.key.toLowerCase() !== "g" || event.ctrlKey || event.metaKey || event.altKey) return;
+    const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
+    if (tag === "input" || tag === "select" || tag === "textarea") return;
+    if (canvasControl || app === null || app.disposed) return;
+    event.preventDefault();
+    try { setPresentationMode(nextPresentationMode(presentationMode)); }
+    catch (error) { showError(error); }
+  };
+  const onVisibilityChange = (): void => {
+    if (document.visibilityState !== "visible") return;
+    const now = performance.now();
+    frameMeter.reset(now);
+    frameMeterOutput.value = frameMeter.label;
+    previousTime = now;
+    pendingElapsedMicros = 0;
+  };
   window.addEventListener("resize", onResize);
+  window.addEventListener("keydown", onKeydown);
+  document.addEventListener("visibilitychange", onVisibilityChange);
+  renderViewMode();
+  frameMeterOutput.value = frameMeter.label;
   // Startup stays detached, as it was on the standalone page: a bootstrap failure
   // belongs in `#error` beside the controls that produced it, and a `mount` that
   // rejected there would never hand the shell the handle that releases the Worker.
@@ -549,6 +603,8 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
       if (disposed) return;
       disposed = true;
       window.removeEventListener("resize", onResize);
+      window.removeEventListener("keydown", onKeydown);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       // Also stops `CaptureControls`' one-second progress interval.
       rejectActivePerformance("the game route was unmounted during performance capture");
       release();

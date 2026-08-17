@@ -368,6 +368,14 @@ the owner's minimum legacy-parity visual review; foreground performance and the
 longer-term `CONCEPT.png` direction remain open in the
 [room matrix](docs/performance/v2-room-matrix.md#visible-review-record).
 
+The party HUD keeps a half-second FPS / worst-frame meter visible without opening
+Systems and capture. Press `G`, or the adjacent **World**/**Tactical** button, to
+switch the same live scene between the authored isometric view and the orthographic
+top-down readout. Tactical keeps published fog and command input, replaces authored
+combatant dress with the flat rig geometry, and hides decorative room dress; pressing
+`G` again restores the existing World meshes, lights, shadows, camera follow, and
+snapshot without restarting the Worker.
+
 The room is the page. The camera is centred on your character and clamped to the
 walls, so walking into a corner stops the view rather than showing you the void
 past it — and everything that is worth reading but not worth watching lives
