@@ -263,6 +263,13 @@ row names the fallback, and the fallback changes behaviour and owes a re-score.
 
 ### The trap that keeps catching plans
 
+Predict a hash move from the concrete fixture, script, command/state serializer, and
+digest grammar that feed that hash -- not merely from the subsystem being edited.
+Several combat sessions changed a mechanism that a named fixture did not reach, while
+an append-only state tail moved research artifacts that appeared unrelated. Trace the
+bytes first, state the prediction, and treat every unpredicted move as isolation
+failure until the exact input path proves otherwise.
+
 Two structural facts keep most changes inert, and they are about **the lab only**:
 
 - `Objective` defaults to `Objective::None`, so no lab scenario builds a nav field.

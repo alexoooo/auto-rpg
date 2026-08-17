@@ -174,14 +174,16 @@ audio proxies, labels, debug records, and retained instances.
 - VIS 2 permits current topology and disclosed furniture and props. Only current
   disclosed records may contribute lights, shadows, picks, effects, or debug presence.
 
-The game interprets MAP_SOLID cells as masonry volume, not as wall axes. The fixed
-camera sits at negative X/negative Z, so the isometric cutaway exposes only
-disclosed solid-to-open -X and -Z faces. The rejected positive-axis selector hid
-the far enclosure behind cap-only ribbons and retained the near wall that should be
-cut away. Collinear faces merge into maximal
-runs, then repeat the seamless one-tile `wall_straight` at tile frequency so brick
-Every disclosed solid also carries one inset opaque coping instance at height 1.55;
-remembered coping keeps the same solid silhouette.
+The game interprets MAP_SOLID cells as masonry volume, not as wall axes. The current
+implementation projects only disclosed solid-to-open -X and -Z faces and merges them
+into maximal runs before repeating `wall_straight` at tile frequency. The
+2026-08-17 owner screenshot refuted that as a cutaway contract: it removes the
+bottom/left enclosure, drops singleton faces, and rebuilds visibility-split runs in a
+way that reads as wall pop. Until the visual-recovery sessions replace it with stable
+four-sided face identity plus local occlusion, this paragraph describes a known
+defect rather than an accepted composition rule. Every disclosed solid also carries
+one inset opaque coping instance at height 1.55; remembered coping keeps the same
+solid silhouette.
 
 The ABI publishes one door record per doorway tile. Presentation groups contiguous
 collinear records of the same state into one architectural span. A one-cell span
@@ -201,7 +203,8 @@ The room's upper-right directional key retains direction
 `[-0.45, -1, -0.35]` and mount `[12, 24, 16]`, with generator-v4 diffuse
 `[1, 0.68, 0.42]`, specular `[0.36, 0.23, 0.15]`, and intensity `1.6`.
 Every disclosed current torch adds a 0.20-unit deterministic emissive sphere at its exact
-authored socket. The sphere is non-pickable and non-shadow-casting, uses orange
+authored socket. The sphere passes lifecycle closure but failed the visible form
+review: it reads as an orange dot on a post rather than a flame. It is non-pickable and non-shadow-casting, uses orange
 emissive color `[1, 0.32, 0.025]`, and is removed with its material on reset,
 disclosure loss, or disposal. Its capped point light uses diffuse
 `[1, 0.25, 0.045]`, specular `[0.42, 0.18, 0.055]`, intensity `4`, and

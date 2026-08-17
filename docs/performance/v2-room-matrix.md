@@ -128,9 +128,11 @@ but every performance capture requires fixed mode and rejects free mode.
 | Stone modeling | fail | fail | Repetition at 48 x 32 reads as a dense mass rather than a composed room. |
 | Material response | fail | fail | Stone and wood are too dark to separate reliably from the playfield. |
 | Fixture-origin light | fail | fail | Torch accents do not establish readable local hierarchy. |
-| Join coherence | pass -- default live route | pending forced-WebGL2 re-review | Successive screenshots refuted centreline selection, four-face composition, translucent remembered masonry, ignored glTF quarter turns, repeated full frames, and finally the positive-axis cutaway that left the far enclosure cap-only. The 2026-08-17 accepted route uses camera-correct -X/-Z runs, opaque remembered masonry, explicit quaternion clearing, grouped doorway spans, and inset coping. This is visible topology acceptance, not rAF or numerical performance evidence. |
+| Join coherence | **fail -- owner screenshot 2026-08-17** | fail/pending rework | The -X/-Z-only cutaway deliberately omits the bottom/left enclosure, singleton faces are dropped, and rebuilding visibility-split runs makes walls pop while walking. Earlier acceptance is superseded. The replacement must retain stable four-sided architectural identity and apply local occlusion instead of deleting whole sides. |
 | Depth readability | fail | fail | The authored room collapses into broad dark/purple regions. |
-| Silhouette contrast | fail | fail | Bright unit markers dominate while room silhouettes recede. |
+| Silhouette contrast | **fail -- owner screenshot 2026-08-17** | fail | The authored Fighter is not recognizable as a person at gameplay scale and its torus intersects the raised floor. |
+| Fixture form | **fail -- owner screenshot 2026-08-17** | fail | Torch brackets and emissive spheres read as posts with orange dots rather than wall-mounted flame fixtures. |
+| Material composition | **fail -- owner screenshot 2026-08-17** | fail | Two floor variants and one wall treatment tile conspicuously and do not reproduce the concept's painterly value hierarchy. |
 
 Also record disclosure bands, both door states, torch emissive/light/shadow origin,
 picks, backs/sides/tops, terminal loader diagnostics and the ordinary removal route,
@@ -139,9 +141,9 @@ The initial owner decision was `replace`. The observed 48 x 32 performance fixtu
 useful for load but is not a useful visual-composition review scene. A performance
 pass does not imply an art pass. After the compact review, textured playable route,
 authored lighting, corrected wall orientation and torch treatment, and closer bounded
-zoom were available, the owner accepted the current result on 2026-08-09 as good
-enough to proceed. This is a minimum-parity `pass/proceed`, not completion of the
-`CONCEPT.png` direction and not a performance waiver.
+zoom were available, the owner accepted that result on 2026-08-09 as good enough to
+proceed. The 2026-08-17 screenshots supersede that minimum-parity decision: current
+status is `replace`, and no performance or art waiver exists.
 
 The generator-v2 vertex-color artifact is a superseded intermediate produced before
 the preserved textured legacy reference was available. Generator v3 is the texture-inclusive minimum-parity predecessor. Generator v4 is

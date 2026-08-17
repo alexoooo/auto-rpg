@@ -539,8 +539,8 @@ hole it was written to find. The Fighter's end health stays inside
 the extra aggression is paid out of the Brute's own health.
 
 **So the shield was not the binding constraint, and neither is the policy.** The
-ranking in `docs/plans/combat-arms-00-overview.md` put arm authority first and the
-shield second; session 02 cancelled the first and this corpus cancels the second
+preregistered 2026-08-16 ranking put arm authority first and the shield second;
+the two-handed coupling cancelled the first and this corpus cancels the second
 without the outcome following either time. What is left is closure energy per blow:
 `attack-moves` is the most *lethal* script on either body (17 kills against 13 and 7)
 while producing the fewest severances, so fewer harder commits beat more

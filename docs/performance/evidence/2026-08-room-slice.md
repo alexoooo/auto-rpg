@@ -7,10 +7,11 @@
 
 The generator-v4 room pipeline and automated artifact are current. Its concept-directed masonry and atlas revision has automated validation but still owes a visible owner review. The initial visible
 art review ended in an owner `replace` decision. After the replacement work, the
-owner accepted minimum legacy parity on 2026-08-09 and chose `pass/proceed`.
-No foreground performance result exists. A 2026-08-16 live-route recheck passes the
-repaired wall-join criterion only; it must not be cited as a numerical pass, a
-forced-backend result, or completion of the ultimate painted-art direction.
+owner accepted minimum legacy parity on 2026-08-09 and chose `pass/proceed`; the
+2026-08-17 owner screenshots supersede that decision with `replace` for the current
+visual track. No foreground performance result exists. Earlier live-route rechecks
+must not be cited as a numerical pass, a forced-backend result, or completion of the
+ultimate painted-art direction.
 
 ## Method and provenance
 
@@ -100,11 +101,12 @@ cap-only ribbons. The current candidate instead uses merged -X/-Z runs, opaque
 remembered wall silhouettes, explicit quaternion clearing in game and arena, and
 grouped doorway spans with one lintel and endpoint jambs. An implementation-tab
 reload reached Worker + representative-room ready and no longer showed the reported
-pickets or arcades. The owner then independently reloaded the default Worker route,
-continued exploring, accepted its continuous current/remembered walls and doorway
-span, and reported a clean console. Join coherence therefore passes for the default
-live route; forced-WebGL2 re-review remains pending. None of these observations is an
-rAF sample or frame-time measurement.
+pickets or arcades. The owner then independently reloaded the default Worker route and
+initially reported a clean console. Later movement and wider screenshots on
+2026-08-17 refuted the visual closure: the deliberate -X/-Z-only rule removed the
+bottom/left enclosure and visibility-split run reconstruction made walls pop. Join
+coherence is therefore reopened as failed. None of these observations is an rAF
+sample or frame-time measurement.
 
 Pending the five ordered captures in the [room matrix](../v2-room-matrix.md#foreground-performance-record),
 including both Canvas drift calculations and the final procedural WebGPU comparison.
@@ -127,5 +129,7 @@ authored lighting and torch treatment, corrected wall orientation, the same styl
 the playable route — `/v2.html` when this was reviewed, `/#/game` since v2-ui-01 folded
 it into the studio shell — and bounded zoom to `12`. After reviewing the current
 playable result, the owner said it looked good enough to proceed on 2026-08-09. The
-recorded visual-track decision is therefore `pass/proceed` at the minimum legacy
-parity threshold. All foreground measurements remain pending.
+earlier minimum-parity `pass/proceed` is superseded by the 2026-08-17 owner
+screenshots. The current visual-track decision is `replace`: walls, character
+silhouette, ground-cue clearance, torch form, and material variation all require
+another authored pass. All foreground measurements remain pending.

@@ -77,13 +77,13 @@ snapshot rather than at an asset-specific correction.
 
 ## v2 GPU asset paths
 
-The v2 renderer still creates known floor and wall tiles, disclosed doors and
-torches, unit bodies, and snapshot-local transients from primitives. Those sources
-are the geometry control and the bounded fallback when an authored asset is absent or
-refused. Unknown geometry has no instance; remembered known topology uses a separate
-material; and current furniture exists only while its disclosed record is present.
-This remains a visibility and renderer-boundary proof even when authored meshes hang
-from the same presentation identities.
+The v2 renderer creates snapshot-local transients and retains primitive room and unit
+sources as its explicit geometry control and bounded fallback. The default `#/game`
+route attempts the authored room and authored Fighter/Brute first. Unknown geometry
+has no instance; remembered known topology uses a separate material; and current
+furniture exists only while its disclosed record is present. This remains a visibility
+and renderer-boundary proof even when authored meshes hang from the same presentation
+identities.
 
 The representative route dynamically imports the pinned room loader only after the
 engine and Scene exist. It validates the root-hosted room `GLB` and semantic sidecar before
@@ -110,14 +110,16 @@ superseded reproducible intermediates. The current generator-v4 kit crops the pi
 concept material atlas into embedded floor and wall textures, retains deterministic
 `COLOR_0` modulation, and builds coursed masonry while preserving semantic names
 and pivots. The game treats solid cells as volume: from its negative-X/negative-Z
-camera it merges only disclosed -X/-Z solid-to-open faces into maximal isometric
-cutaway runs, repeats the flush straight facade at tile frequency, and caps each
-solid with inset stone coping. Remembered walls stay opaque, imported glTF
+camera it currently merges only disclosed -X/-Z solid-to-open faces into maximal
+isometric cutaway runs, repeats the flush straight facade at tile frequency, and caps
+each solid with inset stone coping. The 2026-08-17 owner screenshot refuted that
+whole-side omission: bottom/left enclosure vanished and disclosure changes made runs
+pop. It is a recorded defect, not an accepted cutaway contract. Remembered walls stay opaque, imported glTF
 quaternions are cleared before semantic quarter turns, and per-tile door publications
 group into one lintel/end-jamb span with modular aged-wood leaves. The arena independently uses the L, T, straight,
 and capped-end roles for its synthetic centreline ring. The kit has closed output
-pins and budgets; visible topology acceptance does not substitute for the owed
-foreground performance review or completion of the painted concept direction.
+pins and budgets; automated closure does not constitute visible topology acceptance,
+foreground performance evidence, or completion of the painted concept direction.
 
 The current compact 16 x 10 composition route defined by the
 [visual review contract](../reference/room-asset-contract.md#visual-review-contract)

@@ -45,8 +45,9 @@ gate and evidence command below is therefore unrunnable until Build Tools with t
 C++ workload are installed. And the owner redirected the topic on 2026-08-15: the
 goal is an articulated fight that lands visible blows in the browser, which this plan
 by its own charter cannot produce -- it renders `decision=diagnostic-only`, and each
-of its stop branches preregisters a further provenance session. The active work is
-[Smart134](smart-ai-134-arm-slew-and-region-attribution.md). This plan keeps its
+of its stop branches preregisters a further provenance session. Smart134 later landed;
+its outcome is durable in [actuator calibration](../performance/smart-ai-actuator-calibration.md)
+and the [tactical policy record](../performance/smart-ai-tactical-policy.md). This plan keeps its
 frozen authority, its commands and its stop branches exactly as written for whoever
 returns to it.
 

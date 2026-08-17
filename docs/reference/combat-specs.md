@@ -253,8 +253,8 @@ A hand item carries `action`, `mass`, `balance` and `geometry` and no `SurfaceSp
 surface is a measured material rather than a dimension, so it is copied from the
 shipped row for the same `ActionKind`.
 
-**`GripBinding::Both` is expressible through `DuelFighterV1::two_handed`** (since
-combat-arms-01), a flag beside the hand array rather than a third value of the hand
+**`GripBinding::Both` is expressible through `DuelFighterV1::two_handed`**, a flag
+beside the hand array rather than a third value of the hand
 index, because a two-handed grip is one item occupying two hands. It turns the right
 hand's `Right` into `Both`; the rule for the second arm is the actuator's standing
 one — the left arm is the mirror and is not independently commandable. Every refusal

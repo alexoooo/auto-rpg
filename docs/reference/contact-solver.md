@@ -1038,7 +1038,7 @@ would be a run of zeros, and adding it would move a digest that `tools/wasm_chec
 rebuilds byte by byte in JavaScript for no information at all. **Add it the moment a
 case varies either factor**, because from that moment the corpus stops covering a
 live channel. That the digest is genuinely sensitive to this is not assumed: billing
-crush on the share rather than on the remainder was tried during combat-arms-05 and
+crush on the share rather than on the remainder was tried during the 2026-08-16 blunt-damage work and
 case 6's `pressure` moved from 144 to 18, failing this pin. The literal is exactly 3,548 bytes with digest
 `0x587b0259e877105a`. This corpus, unlike the independent 591-byte format-only pin,
 covers every production resolution field active in the solver and a nonzero widened
