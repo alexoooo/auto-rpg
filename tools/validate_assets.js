@@ -18,7 +18,7 @@ const FORMATS = {
 };
 const TOLERANCE = 0.00001;
 const INSTANCE_CAPACITIES = Object.freeze({
-  floor_a: 768, floor_b: 768, wall_straight: 184, wall_inside: 4,
+  floor_a: 768, floor_b: 768, wall_straight: 160, wall_inside: 4,
   wall_outside: 8, wall_end: 4, door_frame: 2, door_leaf: 2,
   torch_bracket: 8, decal_rubble: 4, decal_root: 4, prop_barrel: 4,
 });
@@ -109,7 +109,7 @@ function validateBuildManifest(manifest) {
       manifest.export?.vertexColor !== "NAME" || manifest.export?.vertexColorName !== "room_style" ||
       manifest.export?.allVertexColors !== false) throw new Error("room manifest export contract is invalid");
   const style = manifest.styling;
-  const paletteNames = ["floorA", "floorB", "floorEdge", "neutral", "stoneDetail", "wallSide", "wallTop"];
+  const paletteNames = ["floorA", "floorB", "floorEdge", "neutral", "stoneDetail", "wallSide", "wallTop", "woodEnd", "woodSide", "woodTop"];
   if (style?.id !== "concept-umber-stone-v2" || style?.mode !== "deterministic-vertex-color" ||
       style?.attribute !== "room_style" || style?.textures !== true || !decimal.test(style?.variation ?? "") ||
       JSON.stringify(Object.keys(style?.palette ?? {}).sort()) !== JSON.stringify(paletteNames)) {

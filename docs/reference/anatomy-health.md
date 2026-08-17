@@ -5,8 +5,9 @@
 **Canonical source:** [`crates/sim/src/anatomy.rs`](../../crates/sim/src/anatomy.rs) and [`combat/spec.rs`](../../crates/sim/src/combat/spec.rs)
 **Update when:** A region, immutable field, transfer equation, decay constant, impairment, or health rule changes.
 
-This document owns regional coordinates, armor transfer, wound evolution,
-impairment, death, and the sole articulated health query. Legacy HP is unchanged.
+This document owns regional coordinates, weapon/body and projectile/body
+assignment, armor transfer, wound evolution, impairment, death, and the sole
+articulated health query. Legacy HP is unchanged.
 
 ## State and immutable specification
 
@@ -58,16 +59,22 @@ radius. A severed arm has no shoulder-to-hand volume or grip collider after the 
 that severs it. The severance event still carries its contact point.
 
 For one weapon/body candidate, sweep all five volumes, then choose the least tuple
-`(toi.raw, medial_distance_squared.raw, BodyPart as u8)`. The medial distance is from
-the chosen contact point to the sphere center or capsule medial segment. Do not
-compare surface distance and do not use float normalization. Publish only that one
-fact and its chosen region; equal or overlapping regions never create duplicate
-ContactKeys. All five use the general swept segment/segment primitive rather than the
-vertical-capsule one: two of them are arms, which point wherever the actuator left
-them, and with equal endpoint displacement and a zero half-height the two primitives
-run the identical conservative advance.
+`(toi.raw, medial_distance_squared.raw, BodyPart as u8)`. A projectile/body
+compatibility candidate uses the same tuple with the projectile represented as a
+zero-length segment plus its stored radius. The medial distance is from the chosen
+contact point to the sphere center or capsule medial segment. Do not compare surface
+distance and do not use float normalization. Publish only that one fact and its chosen
+region; equal or overlapping regions never create duplicate ContactKeys. All five use
+the general swept segment/segment primitive rather than the vertical-capsule one: two
+of them are arms, which point wherever the actuator left them, and with equal endpoint
+displacement and a zero half-height the two primitives run the identical conservative
+advance.
 
-Group re-derivation at a frozen pose (`contact_at_pose`) swaps the tuple's first term
+The exact projectile scan certifies the first body envelope and global contact time;
+the anatomy projection then chooses the nearest present regional medial capsule at
+that frozen pose. A provisional envelope region is not identity and cannot reject the
+otherwise identical `ProjectileBody` key. For weapon/body and projectile/body alike,
+group re-derivation at a frozen pose (`contact_at_pose`) swaps the tuple's first term
 for the closest-pair distance at that pose, and does **not** re-sweep. Membership is
 already settled by mapped time, so a re-sweep could answer `None` for a pair the
 conservative advance left a raw unit short, and dropping a settled member is worse
@@ -119,10 +126,11 @@ downstream reads the non-cutting columns separately. A pure thrust opens no woun
 therefore starts no bleed clock; **a pure crush opens none either, for the same
 reason**; a pure cut opens one worth the whole loss.
 
-Every fact in one time group reads one immutable pre-group anatomy snapshot.
-Accumulate integrity loss, wound gain, blood/shock effects, and severance flags by
-entity and part in ContactKey order, then apply once. Death/outcome runs only after
-the whole group.
+Every weapon/body and projectile/body fact enters this same armor, channel,
+integrity, wound, severance, and regional assignment path. Every fact in one time
+group reads one immutable pre-group anatomy snapshot. Accumulate integrity loss,
+wound gain, blood/shock effects, and severance flags by entity and part in ContactKey
+order, then apply once. Death/outcome runs only after the whole group.
 
 ## Bleeding, shock, impairment, and severance
 
@@ -157,7 +165,12 @@ Impairment changes acceleration, not requested direction, target yaw, maximum
 velocity, or mass.
 
 `AnatomyState::last_attacker` records the source of the final ContactKey that wounded the target in
-a group. Credit is always the decrease of the health query, never an integrity loss:
+a group. For weapon/body that source is the weapon-owning entity; for
+projectile/body it is the projectile's stored owner rather than the projectile's
+reserved solver identity, so equipment changes cannot redirect the attribution. If
+that stored owner generation no longer resolves, the fact still wounds but pays no
+metric credit. Credit is always the decrease of the health query, never an integrity
+loss:
 the torso is worth two sixths of the weighted fraction, so the same integrity taken
 there moves health twice as far as it does on a limb, and crediting the loss directly
 would pay two attackers differently for the same damage. A group's decrease is split

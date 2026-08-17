@@ -94,6 +94,12 @@ import {
 import { createBabylonRightHandedScene } from "../render/scene.js";
 import { RendererDebugRegistry } from "../render/debug.js";
 import type { RoomAssetFetcher } from "../render/room-assets.js";
+import {
+  loadCombatantAsset, type CombatantAsset, type CombatantAssetFetcher,
+} from "../render/combatant-assets.js";
+import {
+  combatantMeshRole, copyCombatantRigPose, instantiateCombatantDress, type CombatantDress,
+} from "../render/combatant-dress.js";
 import { ArenaEnvironment } from "./environment.js";
 import {
   ARENA_VIEWPORTS, ARM_REGIONS, FAR_PLANE, FIRST_PERSON_FOV_DEGREES, FIRST_PERSON_PITCH_DEGREES,
@@ -297,10 +303,10 @@ function proxyPaint(body: number): Readonly<{
  */
 type StageNode = Readonly<{ key: string; mesh: AbstractMesh; caster: boolean }>;
 
-// --------------------------------------------------------------- the v2-18 rig
+// ------------------------------------------------------- the combatant rig seam
 
 /**
- * One body's named nodes, and it is the seam v2-18 lands on.
+ * One body's named nodes, shared by the geometry proxy and authored dress.
  *
  * Every node here is placed from a **published** row -- the shoulder, the hand,
  * the hilt, the shield's centre -- with two exceptions that are named where they
@@ -348,7 +354,7 @@ const SCRATCH_ROTATION = new Quaternion();
  * `Quaternion.multiply` in that order. The order was settled by building a
  * two-node tree over a `NullEngine` and reading `absoluteRotationQuaternion`
  * back, rather than by reasoning about conventions, and
- * `the_proxy_rig_carries_the_v2_18_node_names_and_hangs_them_off_published_points`
+ * `the_proxy_rig_carries_the_durable_combatant_node_closure_and_hangs_them_off_published_points`
  * keeps it settled: it reads absolute positions and absolute axes off a rig three
  * levels deep, so an inverted composition fails rather than merely looking odd.
  *
@@ -390,9 +396,9 @@ function alignWorld(node: TransformNode, at: ScenePoint, axis: ScenePoint): void
  * under it until the next `show` puts everything back where the published rows
  * say. That is the right shape for a proxy driven entirely from published points
  * -- there is no forward-kinematic chain to be the truth -- and it is the one
- * thing v2-18 will change: an authored rig's meshes are skinned to their bones,
- * so the seam this session builds is the *node set and its parenting*, not a
- * transform hierarchy that already drives anything.
+ * distinction from the authored dress: its meshes are skinned to their bones,
+ * while the proxy seam is the *node set and its parenting*, not a transform
+ * hierarchy that drives its geometry.
  */
 function applyWorld(node: TransformNode, at: ScenePoint, world: Quaternion | null): void {
   node.rotationQuaternion ??= Quaternion.Identity();
@@ -497,6 +503,9 @@ export class ArenaContent {
   readonly #materials = new Map<string, Material>();
   readonly #nodes = new Map<string, StageNode>();
   readonly #rigs = new Map<number, BodyRig>();
+  readonly #dresses = new Map<number, CombatantDress>();
+  readonly #dressCasters = new Set<AbstractMesh>();
+  readonly #combatantAbort = new AbortController();
   readonly firstPerson: readonly [FreeCamera, FreeCamera];
   readonly threeQuarter: FreeCamera;
   #floor: LinesMesh | null = null;
@@ -506,6 +515,8 @@ export class ArenaContent {
   #environment: ArenaEnvironment | null = null;
   /** The last instant drawn, so a mode change or a late room can redraw it. */
   #view: ArenaStageView | null = null;
+  #combatants: CombatantAsset | null = null;
+  #combatantLoad: Promise<void> | null = null;
 
   constructor(scene: Scene, debug: RendererDebugRegistry) {
     this.#scene = scene;
@@ -562,8 +573,9 @@ export class ArenaContent {
       // The rig is posed in both modes; only `[Texture]` hangs anything off it.
       // See `BodyRig` for why the control does not go through it.
       const posed = this.#poseRig(view, pose);
-      if (this.#mode === "texture") this.#drawProxy(view.header, pose, posed, live);
-      else this.#drawBody(view.header, pose, live);
+      if (this.#mode === "texture") {
+        if (!this.#drawAuthored(view.header, pose, posed)) this.#drawProxy(view.header, pose, posed, live);
+      } else this.#drawBody(view.header, pose, live);
     }
     this.#drawProjectiles(view.frame, view.next, view.alpha, live);
     // Contacts are facts about the decided tick and are never blended: a
@@ -576,6 +588,9 @@ export class ArenaContent {
     }
     for (const [body, rig] of this.#rigs) {
       if (!bodies.has(body)) this.#retireRig(rig);
+    }
+    for (const [body, dress] of this.#dresses) {
+      if (!bodies.has(body)) this.#retireDress(body, dress);
     }
     this.#placeCameras(poses, view);
     this.#publishCounts();
@@ -606,6 +621,10 @@ export class ArenaContent {
     this.#mode = mode;
     if (mode === "texture") this.#environment ??= new ArenaEnvironment(this.#scene);
     this.#environment?.setEnabled(mode === "texture");
+    for (const dress of this.#dresses.values()) {
+      dress.setEnabled(mode === "texture");
+      if (mode === "geometry") this.#removeDressShadows(dress);
+    }
     this.#floor?.setEnabled(mode === "geometry");
     const lit = mode === "texture";
     this.#scene.clearColor = lit ? ROOM_CLEAR_COLOUR : CLEAR_COLOUR;
@@ -626,23 +645,38 @@ export class ArenaContent {
    * draws a line grid. `ArenaEnvironment.load` is memoised on top of that, so the
    * second press of `[Texture]` costs nothing either.
    */
-  async loadEnvironment(fetcher?: RoomAssetFetcher): Promise<void> {
+  async loadEnvironment(fetcher?: RoomAssetFetcher, combatantFetcher?: CombatantAssetFetcher): Promise<void> {
     if (this.#mode !== "texture") return;
-    await this.#environment?.load(fetcher);
+    this.#combatantLoad ??= (async () => {
+      try {
+        this.#combatants = await loadCombatantAsset(
+          this.#scene, this.#combatantAbort.signal, combatantFetcher,
+        );
+      } catch {
+        // The arena's texture dress has the same deliberate procedural
+        // fallback as its room.  Geometry remains the unchanged control.
+        this.#combatants = null;
+      }
+    })();
+    await Promise.all([this.#environment?.load(fetcher), this.#combatantLoad]);
   }
 
   /** No fight: the floor and the cameras stay, every body and every rig goes. */
   clear(): void {
     for (const node of [...this.#nodes.values()]) this.#retire(node);
     for (const rig of [...this.#rigs.values()]) this.#retireRig(rig);
+    for (const [body, dress] of [...this.#dresses]) this.#retireDress(body, dress);
     this.#publishCounts();
   }
 
   counts(): ArenaStageCounts {
     const environment = this.#environment?.counts();
+    let dressMeshes = 0;
+    for (const dress of this.#dresses.values()) dressMeshes += dress.meshes.size;
     return Object.freeze({
-      sources: this.#sources.size + (environment?.sources ?? 0),
-      instances: this.#nodes.size + (environment?.instances ?? 0),
+      sources: this.#sources.size + (environment?.sources ?? 0) +
+        (this.#combatants?.sidecar.counts.meshes ?? 0),
+      instances: this.#nodes.size + dressMeshes + (environment?.instances ?? 0),
       // The shadow generator's own render list, so a caster the proxy registered
       // and never removed shows up here rather than as a frame time.
       //
@@ -691,6 +725,9 @@ export class ArenaContent {
     this.#floor = null;
     this.#environment?.dispose();
     this.#environment = null;
+    this.#combatantAbort.abort();
+    this.#combatants?.dispose();
+    this.#combatants = null;
     for (const source of this.#sources.values()) source.dispose();
     this.#sources.clear();
     for (const material of this.#materials.values()) material.dispose();
@@ -826,20 +863,19 @@ export class ArenaContent {
     }
   }
 
-  // ------------------------------------------------------- the v2-18 rig
+  // --------------------------------------------------- the combatant rig seam
 
   #rigFor(body: number): BodyRig {
     const existing = this.#rigs.get(body);
     if (existing !== undefined) return existing;
-    // The parent chain v2-18's rigs will carry, built by the shared
+    // The parent chain the combatant contract carries, built by the shared
     // `render/rig-nodes.ts` builder so this proxy and the `#/game` procedural
-    // figure cannot drift apart on the one seam an authored rig will plug
-    // into. The region and clip slots ride along as the arena's extras.
+    // figure cannot drift apart on the seam the authored dress also implements.
+    // The region and clip slots ride along as the arena's extras.
     //
     // `socket_shield` comes out parented to `root` and is re-parented to its
-    // holder every tick: an authored rig would nail the socket to one hand,
-    // and on all 10542 published poses of the three fixtures the holder is
-    // limb 0 -- but which hand holds it is a published fact here (`shieldLimb`
+    // holder every tick. On all 10542 published poses of the three fixtures the
+    // holder is limb 0 -- but which hand holds it is a published fact here (`shieldLimb`
     // matches the plate's centre to a hand to the raw unit) rather than an
     // authoring decision, so it is read rather than assumed. `root` is where
     // it waits when no hand is at the centre.
@@ -902,7 +938,7 @@ export class ArenaContent {
     // **`pose.body[2]` is dropped for a literal zero and that is a choice.** The
     // third component is the body origin's height, and a rig root belongs on the
     // ground the body is standing on rather than at whatever height the origin
-    // happens to carry -- v2-18's authored rigs are authored with their origin at
+    // happens to carry -- the authored rigs have their origin at
     // the floor-contact plane, exactly as the room kit's pieces are. It costs
     // nothing on any recorded fight, where the published height is zero on all
     // 21083 poses, and it is the right answer the day it is not.
@@ -979,11 +1015,9 @@ export class ArenaContent {
    * not driving the mesh. Nothing here is forward kinematics -- every shape has a
    * published point of its own to stand on, and inventing a chain to derive those
    * points from would be inventing degrees of freedom the pose already fixes.
-   * What the parenting buys is the *contract*: the node set, its names and its
-   * parent chain are v2-18's, so the session that lands authored rigs skins its
-   * meshes to bones that already exist, are already checked against the published
-   * rows, and already have the right thing hanging under them. See
-   * {@link applyWorld}.
+   * What the parenting buys is the *contract*: the node set, names and parent
+   * chain are shared with the authored rigs, whose corresponding bones are
+   * checked against the same published rows. See {@link applyWorld}.
    */
   #drawProxy(header: FightHeader, pose: Pose, posed: PosedBody, live: Set<string>): void {
     const body = pose.id[0];
@@ -1009,13 +1043,10 @@ export class ArenaContent {
       this.#capsule(key("torso"), dress.skin, capsuleParts(torso.lower, torso.upper, torso.radius),
         ALL_CAMERAS & ~ownCamera, live, node("torso"));
     }
-    // **The legs hang off `region_legs` and not off a bone, because v2-18 names
-    // no leg bone.** Its list has `pelvis` and then the arms; the lower body is a
-    // clip in that plan rather than a rig the pose drives, which is consistent
-    // with a simulation that publishes one leg capsule. So the two invented legs
-    // hang off the node for the capsule they were split out of -- the only node
-    // that stands for them -- and the day v2-18 adds `leg_left`/`leg_right` this
-    // is the one line that moves.
+    // **The legs hang off `region_legs` and not off a bone, because the durable
+    // contract names no semantic leg bone.** The simulation publishes one leg
+    // capsule, so the two invented proxy legs hang off the node for the capsule
+    // they were split out of -- the only semantic node that stands for them.
     if (regionDrawn(pose, 4)) {
       const region = at(pose.regions, 4);
       legsOf(region.lower, region.upper, region.radius, pose.yaw, posed.gait)
@@ -1057,6 +1088,59 @@ export class ArenaContent {
     if (shield !== null && (holder === null || armDrawn(pose, holder))) {
       this.#shieldPlate(key("shield"), dress.plate, shield, live, node("socket_shield"));
     }
+  }
+
+  /** Hang a checked skinned archetype on the already-published arena rig. */
+  #drawAuthored(header: FightHeader, pose: Pose, posed: PosedBody): boolean {
+    const body = pose.id[0];
+    const info = header.bodies[body];
+    const lower = info?.kind.toLowerCase();
+    const kind = lower?.includes("fighter") ? "fighter" : lower?.includes("brute") ? "brute" : null;
+    if (kind === null || this.#combatants === null) return false;
+    let dress = this.#dresses.get(body);
+    if (dress === undefined) {
+      try {
+        dress = instantiateCombatantDress(this.#combatants, kind, "arena:" + body + ":authored");
+        this.#dresses.set(body, dress);
+      } catch {
+        return false;
+      }
+    }
+    dress.setEnabled(true);
+    const ownCamera = body === 0 || body === 1 ? CAMERA_BITS[body] : 0;
+    for (const [semantic, mesh] of dress.meshes) {
+      const role = combatantMeshRole(semantic);
+      const visible = role === "head" ? regionDrawn(pose, 0)
+        : role === "torso" ? regionDrawn(pose, 1)
+        : role === "legs" ? regionDrawn(pose, 4)
+        : role === "arm_left" ? armDrawn(pose, 0)
+        : role === "arm_right" ? armDrawn(pose, 1)
+        : role === "weapon" ? pose.weapons.some((weapon) => weapon !== null)
+        : pose.shield !== null && (shieldLimb(pose, pose.shield) === null ||
+            armDrawn(pose, shieldLimb(pose, pose.shield) ?? 0));
+      mesh.setEnabled(visible);
+      mesh.isVisible = visible;
+      mesh.isPickable = false;
+      mesh.layerMask = (role === "head" || role === "torso") ? ALL_CAMERAS & ~ownCamera : ALL_CAMERAS;
+      if (visible && !this.#dressCasters.has(mesh)) {
+        this.#environment?.addShadowCaster(mesh);
+        this.#dressCasters.add(mesh);
+      } else if (!visible && this.#dressCasters.delete(mesh)) {
+        this.#environment?.removeShadowCaster(mesh);
+      }
+    }
+    // Reactions are never inferred from health or elapsed presentation time.
+    // A severed mesh disappears through the published region/arm presence
+    // above; the event row is the only thing allowed to open a reaction slot.
+    const contacts = this.#view?.frame.contacts ?? [];
+    const eventForBody = contacts.some((contact) => contact.a[0] === body || contact.b[0] === body);
+    const fallen = eventForBody && (this.#view?.frame.health[body] ?? 1) <= 0;
+    const clip = fallen ? "fall" : eventForBody ? "stagger" : posed.gait.clip;
+    dress.sampleClip(clip, eventForBody ? 0 : posed.gait.phase);
+    copyCombatantRigPose(dress, posed.rig.nodes,
+      (info?.anatomy.standingHeight ?? Math.round(dress.contract.height * ONE)) / ONE);
+    for (const name of RIG_CLIPS) dress.nodes.get(name)?.setEnabled(name === clip);
+    return true;
   }
 
   /**
@@ -1428,6 +1512,19 @@ export class ArenaContent {
     // reads as though it were doing the work when it is not.
     rig.root.dispose();
     this.#rigs.delete(rig.body);
+  }
+
+  #removeDressShadows(dress: CombatantDress): void {
+    for (const mesh of dress.meshes.values()) {
+      if (!this.#dressCasters.delete(mesh)) continue;
+      this.#environment?.removeShadowCaster(mesh);
+    }
+  }
+
+  #retireDress(body: number, dress: CombatantDress): void {
+    this.#removeDressShadows(dress);
+    dress.dispose();
+    this.#dresses.delete(body);
   }
 
   #publishCounts(): void {

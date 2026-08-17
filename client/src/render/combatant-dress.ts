@@ -12,6 +12,7 @@ export type CombatantDress = Readonly<{
   nodes: ReadonlyMap<string, TransformNode>;
   meshes: ReadonlyMap<string, Mesh>;
   clips: ReadonlyMap<string, AnimationGroup>;
+  sampleClip(semantic: "idle" | "walk" | "stagger" | "fall", phase: number): void;
   setStandingHeight(height: number): void;
   setEnabled(enabled: boolean): void;
   dispose(): void;
@@ -48,11 +49,15 @@ export function copyCombatantRigPose(
   for (const row of dress.contract.nodes) {
     const from = source.get(row.semantic);
     const to = dress.nodes.get(row.semantic);
-    if (from === undefined || to === undefined) throw new Error("combatant rig lacks " + row.semantic);
+    if (to === undefined) throw new Error("combatant dress lacks " + row.semantic);
+    // The legacy game publication has bones and sockets but no region/clip
+    // rows. Those authored markers are driven by visibility/events below, not
+    // fabricated into the legacy frame.
+    if (from === undefined) continue;
     from.computeWorldMatrix(true);
     const wanted = from.absoluteRotationQuaternion;
     if (to.rotationQuaternion === null) to.rotationQuaternion = Quaternion.Identity();
-    const parent = to.parent;
+    const parent = to.parent as TransformNode | null;
     if (parent !== null) {
       parent.computeWorldMatrix(true);
       Quaternion.InverseToRef(parent.absoluteRotationQuaternion, COPY_INVERSE);
@@ -93,11 +98,15 @@ export function instantiateCombatantDress(
     entries.dispose();
     throw new Error("combatant " + kind + " clone closure drifted");
   }
+  const skeleton = entries.skeletons[0];
+  if (skeleton === undefined) throw new Error("combatant " + kind + " clone lacks its skeleton");
+  skeleton.useTextureToStoreBoneMatrices = true;
   const descendants = [outer, ...outer.getDescendants(false)] as TransformNode[];
   const byName = new Map(descendants.map((node) => [node.name, node]));
   const nodes = new Map<string, TransformNode>();
   const meshes = new Map<string, Mesh>();
   const clips = new Map<string, AnimationGroup>();
+  let semanticRoot: TransformNode | null = null;
   try {
     for (const row of source.contract.nodes) {
       const node = byName.get(clonePrefix + row.node);
@@ -120,9 +129,9 @@ export function instantiateCombatantDress(
       group.stop();
       clips.set(row.semantic, group);
     }
-    const root = nodes.get("root");
-    if (root === undefined) throw new Error("combatant " + kind + " clone lacks its root");
-    root.setEnabled(true);
+    semanticRoot = nodes.get("root") ?? null;
+    if (semanticRoot === null) throw new Error("combatant " + kind + " clone lacks its root");
+    semanticRoot.setEnabled(true);
     outer.setEnabled(false);
   } catch (error) {
     entries.dispose();
@@ -130,8 +139,25 @@ export function instantiateCombatantDress(
   }
   let disposed = false;
   return Object.freeze({
-    kind, contract: source.contract, root,
+    kind, contract: source.contract, root: semanticRoot,
     nodes, meshes, clips,
+    sampleClip(semantic: "idle" | "walk" | "stagger" | "fall", phase: number): void {
+      if (disposed) return;
+      const group = clips.get(semantic);
+      const contract = source.contract.clips.find((clip) => clip.semantic === semantic);
+      if (group === undefined || contract === undefined) {
+        throw new Error("combatant " + kind + " lacks clip " + semantic);
+      }
+      for (const other of clips.values()) if (other !== group) other.stop();
+      // Starting then pausing creates Babylon's animatables, but no wall clock
+      // advances them. The caller selects the exact normalised sample from a
+      // published stride/event and immediately restores authoritative named
+      // endpoints after this cosmetic sample.
+      if (!group.isStarted) group.start(contract.looping, 1, group.from, group.to, false);
+      const bounded = Math.min(1, Math.max(0, Number.isFinite(phase) ? phase : 0));
+      group.goToFrame(group.from + (group.to - group.from) * bounded);
+      group.pause();
+    },
     setStandingHeight(height: number): void {
       if (disposed) return;
       outer.scaling.setAll(Math.max(0.0001, height) / source.contract.height);
@@ -143,6 +169,7 @@ export function instantiateCombatantDress(
     dispose(): void {
       if (disposed) return;
       disposed = true;
+      for (const group of clips.values()) group.stop();
       entries.dispose();
     },
     get disposed(): boolean { return disposed; },

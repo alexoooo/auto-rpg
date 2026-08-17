@@ -7473,7 +7473,11 @@ fn build_exact_contact_trajectories(
             if world.equipment_in_grip(i, limb)
                 .is_some_and(|item| item.action == ActionKind::Bow)
             {
-                staged.held_response[limb] = None;
+                if let Some(held) = staged.held_response[limb].take() {
+                    staged.common_response.mass_raw = staged.common_response.mass_raw
+                        .checked_sub(held.affine.mass_raw)
+                        .ok_or(ResolutionError::ExactLifecyclePending)?;
+                }
             }
         }
         contact.exact_owners.push(staged);
@@ -19902,16 +19906,9 @@ mod articulated_projectile_tests {
             world.retain_contact_entry();
             world.resolve_contact();
             world.resolve_articulated_projectiles();
-            #[cfg(not(feature = "cartesian-recoil"))]
             let row = world.contact_resolutions().iter()
                 .find(|row| row.fact.key.kind == ContactKind::ProjectileBody)
-                .unwrap_or_else(|| panic!("shared solver omitted projectile/body fact: {:?}",
-                    world.contact.as_ref().unwrap().first_rejection));
-            #[cfg(feature = "cartesian-recoil")]
-            let row = world.contact_resolutions().iter()
-                .find(|row| row.fact.key.kind == ContactKind::ProjectileBody)
-                .unwrap_or_else(|| panic!("shared exact solver omitted projectile/body fact: {:?}",
-                    world.contact.as_ref().unwrap().first_exact_rejection));
+                .expect("shared solver omitted projectile/body fact");
             assert_eq!(row.fact.region as usize, part);
             assert!(world.wounds[target].parts[part].integrity < before);
             assert_eq!(world.articulated_projectiles().count(), 0);

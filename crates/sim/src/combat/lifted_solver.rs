@@ -10,6 +10,8 @@
 use core::cmp::Ordering;
 
 use crate::combat::contact::{ContactFact, ContactResolution};
+#[cfg(test)]
+use crate::combat::contact::MAX_ARTICULATED_ENTITIES;
 use crate::combat::trajectory::{apply_exact_group_into, ExactAffine3, ExactContactTrajectory,
     ExactOwnerTrajectory, ExactTrajectoryWork, MAX_EXACT_OWNERS};
 use crate::combat::resolution::{exact_physical_energy_delta, ExactPhysicalEnergyDelta};
@@ -1183,7 +1185,9 @@ mod tests {
         assert!(scratch.capacities()[0] >= 16 && scratch.capacities()[1] >= 42
             && scratch.capacities()[2] >= 16 && scratch.capacities()[3] >= 96
             && scratch.capacities()[4] >= 96 && scratch.capacities()[5] >= MAX_EXACT_OWNERS
-            && scratch.capacities()[6] >= MAX_EXACT_OWNERS
+            // Projectiles own exact momentum but never a floor reaction; that
+            // stage remains bounded by the articulated body high water.
+            && scratch.capacities()[6] >= MAX_ARTICULATED_ENTITIES
             && scratch.capacities()[7] >= MAX_EXACT_OWNERS * 3
             && scratch.capacities()[8] >= MAX_EXACT_OWNERS);
         scratch.impulses.push(LiftedImpulse { raw: [4, 5, 6] });

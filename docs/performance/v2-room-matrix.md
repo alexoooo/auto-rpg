@@ -15,12 +15,12 @@ review and foreground performance capture remain pending.
 
 | Field | Required record |
 |---|---|
-| Manifest file, GLB, sidecar, and Blender binary hashes | GLB `cb50818c10a954bdea0d7d82aee9d5662bb549b8811f31d7c750f50bc9acd152`; sidecar `8db5ea87224b0bdb1d557fb4511357c2f3fa149f9554e2ac8519f2f6ef10fe85`; validator `c66216640e497fe8c3e6909dc64ce59d59b10c3f4d70d78792a72ceadde1d0b7`; Blender binary `25bdb2e3f8ed0bac9d51b7a25fbea0f712a8d80346f2efc9dbe24d85e910c310` |
-| `buildInputsSha256` over canonical manifest JSON with `outputs` omitted | `ce82c6fdf4072bb6e9f6c26cc5065451bf52e503d9dd2a6ae03883a7d57640b4`; excludes the complete `outputs` object |
+| Manifest file, GLB, sidecar, and Blender binary hashes | GLB `91479310571aa0b0291532e63f9549fdf79914d19dfe6c1f8b8a09fd550a6420`; sidecar `01279c6fe13b62b7cc3e33207416384800590196abfcfdd40726e2f00202a52a`; validator `ab128ca3f29fa8cd230e2cb477d9f63e2b7520b200ffd7ac39dcc61ca45a33c8`; Blender binary `25bdb2e3f8ed0bac9d51b7a25fbea0f712a8d80346f2efc9dbe24d85e910c310` |
+| `buildInputsSha256` over canonical manifest JSON with `outputs` omitted | `3773434dded396df2365990ac6599b08ae6714357ee5dd607fe6df47e6978839`; excludes the complete `outputs` object |
 | Current texture style | generator version 4; `concept-umber-stone-v2`; floor and wall quadrants from checked 1,254 x 1,254 atlas `037c8588e18d585fd6c50ff4ba8e071459bf88c04aac4c22058a2743673149b6`; deterministic 512 x 512 periodic embeds `a5effbaebebcf0ca1737b4953f53516f6d7274a232f20ccfc8676d854426f9a8` and `d01683a26efff554e88162bf00379a2420a95c814d700c0ecc696065a51c130b`; CORNER `room_style` remains normalized `UNSIGNED_SHORT` `VEC4` `COLOR_0`; automated closure is current and a new visible review remains owed |
 | Generated TypeScript trust pins | `ROOM_FIXTURE_ID = v2-room-slice-1`; all four artifact/build hashes above are compiled into `ROOM_BUILD_INPUTS_SHA256`, `ROOM_SIDECAR_SHA256`, `ROOM_GLB_SHA256`, and `ROOM_VALIDATOR_SHA256` |
-| Validator report | committed third artifact; validator 2.0.0-dev.3.10; 13 nodes, 12 meshes, four materials, 3,000 vertices, 1,520 triangles |
-| Payload and deterministic offline residency components | GLB 1,112,964 + sidecar 5,403 = 1,118,367 payload bytes; source 127,440 + instances 225,280 + decoded textures 2,097,152 + shadow map 4,194,304 = 6,644,176 estimated bytes |
+| Validator report | committed third artifact; validator 2.0.0-dev.3.10; 13 nodes, 12 meshes, four materials, 2,904 vertices, 1,472 triangles |
+| Payload and deterministic offline residency components | GLB 1,108,424 + sidecar 5,423 = 1,113,847 payload bytes; source 122,880 + instances 222,208 + decoded textures 2,097,152 + shadow map 4,194,304 = 6,636,544 estimated bytes |
 | Validator error/warning counts and allowlist | zero errors, zero warnings, zero hints, four informational unused-UV messages; `allowedValidatorWarnings: []` |
 | OS, CPU, GPU, driver, browser, power | pending foreground capture |
 | Requested/selected backend and full diagnostics | pending foreground capture |
@@ -28,31 +28,31 @@ review and foreground performance capture remain pending.
 | CSS/backing size and render scale | 1920 x 1080; scale 1 |
 | Fixture | `v2-room-slice-1`; seed `1592594996`; 48 x 32; 64 bodies; eight torches plus one directional light; no training workers; all-visible performance disclosure |
 | `ROOM_STRESS_MAP_SHA256` | `1262c7dc5eb359a06db10a06c85e2782237b226e423a903f72441f1dfde18e6c` for the exact 1,536 committed map bytes mirrored by fixture source, manifest, sidecar, matrix, and tests |
-| Exact fixed piece counts and capacities | 1,536 floors (floor_a 768, floor_b 768); wall_straight 184; wall_inside 0; wall_outside 0; wall_end 4; door_frame 2; door_leaf 2; torch_bracket 8; decal_rubble 4; decal_root 4; prop_barrel 4. Wall counts are instances: the 4 corner and 8 tee/cross tiles each lay two crossing straight runs, and the authored corner pieces stay in the kit unused. The refreshed sidecar budgets the full 184 straight-wall capacity at 225,280 instance bytes |
+| Exact fixed piece counts and capacities | 1,536 floors (floor_a 768, floor_b 768); wall_straight 160; wall_inside 4; wall_outside 8; wall_end 4; door_frame 2; door_leaf 2; torch_bracket 8; decal_rubble 4; decal_root 4; prop_barrel 4. Each representative solid tile lays exactly one joined authored wall source, so 176 solids produce 176 wall instances and all four wall roles are live. The sidecar budgets those exact capacities at 222,208 instance bytes |
 
 ## Automated contract record
 
 The exact validator, toolchain, build-delivery, loader, visibility, topology,
 fixture, camera, fallback, reset, loss, and disposal tests named by v2-09 are green.
-The render contract suite passes 83 of 83 tests, including real Babylon NullEngine
+The render contract suite passes 94 of 94 tests, including real Babylon NullEngine
 source/instance evaluation, exact live role counts, semantic picks, no-op revision
 reconciliation, socket transforms, camera input cleanup, and partial-construction
 rollback. Source-text assertions do not replace these semantic tests.
 
-General wall topology reads the four-neighbourhood with one fog concession: an
-undisclosed neighbour counts as solid for a drawn wall's piece choice, and never
-becomes a drawn tile itself, so runs at the exploration frontier no longer break
-into `wall_end` stubs. East/west straight runs use quarter turn 0 and north/south
-runs quarter turn 1. Every multi-neighbour wall tile is synthesized from
-`wall_straight` alone -- one centreline run per solid axis, so corners, tees and
-crosses lay two crossing runs -- because the authored corner pieces put their arms
-on the tile edges where a neighbouring run sits on the centreline, which was the
-recorded join failure; the decision and its reversal path are commented at
-`chooseRoomWall`, and the arena restatement mirrors it over all 84 ring tiles.
-Stub rotations remain axis-derived. Wall instance counts are 184/0/0/4 over the
-same 176 solid tiles and the map hash is unchanged. Every current torch has a
+General wall topology reads disclosed cardinal neighbours with one fog concession:
+when one disclosed solid defines an axis, an undisclosed cell directly opposite may
+continue that run. Undisclosed perpendicular cells never add arms, and two or more
+disclosed solids determine their exact role without fog; undisclosed cells never draw.
+This tri-state rule replaces the browser-visible false T teeth produced when every
+undisclosed direction counted as solid. Canonical centreline openings are E+W for straight, E+S for inside/L,
+E+S+W for outside/T, and E for a capped end; quarter-turns map each opening set
+exactly onto masks 1 through 14. A synthetic mask-15 cross alone uses two straights.
+Mask zero occurs in neither shipped fixture and remains an explicit diagnostic
+straight sentinel; shipping isolated solids requires an authored fully capped core.
+The stress census is 160/4/8/4 over the same 176 solid tiles, the rectangular arena
+ring is one joined source per tile, and the map hash is unchanged. Every current torch has a
 non-pickable, non-shadow emissive socket sphere and capped warm point light; stress
-diagnostics now record eight effects and 18 draws (10 source groups plus eight
+diagnostics now record eight effects and 20 draws (12 source groups plus eight
 flames), with the same nine lights. Reset/disposal removes the flame meshes and
 shared material.
 
@@ -126,7 +126,7 @@ but every performance capture requires fixed mode and rejects free mode.
 | Stone modeling | fail | fail | Repetition at 48 x 32 reads as a dense mass rather than a composed room. |
 | Material response | fail | fail | Stone and wood are too dark to separate reliably from the playfield. |
 | Fixture-origin light | fail | fail | Torch accents do not establish readable local hierarchy. |
-| Join coherence | pending re-review | pending re-review | The recorded failure's mechanical cause -- edge-aligned corner arms that cannot meet centreline runs -- is closed by synthesizing corners/tees from crossing straight runs (2026-08-16); the visible confirmation is owed to a person at a foreground tab and is not claimed here. |
+| Join coherence | pass on the auto-selected live route | pending forced-WebGL2 re-review | The screenshot reopened this criterion after crossing straights left broken vertical runs, missing L/T junctions, floating end posts, and fog-created perpendicular teeth. On 2026-08-16 a fresh `#/game` reload reached Worker + representative-room ready with no console warning/error; long runs were continuous, L/T centres filled, directional ends full/capped, and the fog teeth absent. This is a topology/readability pass only, not an rAF, frame-time, or forced-backend claim. |
 | Depth readability | fail | fail | The authored room collapses into broad dark/purple regions. |
 | Silhouette contrast | fail | fail | Bright unit markers dominate while room silhouettes recede. |
 
@@ -142,8 +142,8 @@ enough to proceed. This is a minimum-parity `pass/proceed`, not completion of th
 `CONCEPT.png` direction and not a performance waiver.
 
 The generator-v2 vertex-color artifact is a superseded intermediate produced before
-the preserved textured legacy reference was available. Generator v3 is the current
-deterministic, texture-inclusive candidate accepted for minimum visual parity.
+the preserved textured legacy reference was available. Generator v3 is the texture-inclusive minimum-parity predecessor. Generator v4 is
+the current deterministic candidate and does not inherit that visible approval.
 
 The current compact review query family is
 `/#/game?review=room&room=representative&backend=auto|webgl2&roomCamera=fixed|free`.

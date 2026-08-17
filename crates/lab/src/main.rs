@@ -1796,10 +1796,11 @@ const ANATOMIES: [(&str, AnatomyChoice); 2] = [
 /// What may be in a hand. `empty` is a named choice rather than the absence of
 /// the flag, because the absence of the flag means "whatever the shipped
 /// arrangement had there" and a picker needs to be able to say "nothing".
-const HAND_ITEMS: [(&str, Option<sim::ActionKind>); 4] = [
+const HAND_ITEMS: [(&str, Option<sim::ActionKind>); 5] = [
     ("sword", Some(sim::ActionKind::Sword)),
     ("shield", Some(sim::ActionKind::Shield)),
     ("club", Some(sim::ActionKind::Club)),
+    ("bow", Some(sim::ActionKind::Bow)),
     ("empty", None),
 ];
 
@@ -1879,6 +1880,17 @@ fn duel_config_from(args: &Args) -> Result<Option<DuelConfigV1>, String> {
         // the one the flag described.
         let grip_key = format!("{side}-two-handed");
         let two_handed = args.choice(&grip_key, fighter.two_handed, &TWO_HANDED);
+        let left_action = fighter.hands[0].map(|item| item.action);
+        let right_action = fighter.hands[1].map(|item| item.action);
+        let carries_bow = left_action == Some(sim::ActionKind::Bow)
+            || right_action == Some(sim::ActionKind::Bow);
+        if carries_bow && !(left_action.is_none()
+                && right_action == Some(sim::ActionKind::Bow) && two_handed) {
+            return Err(format!(
+                "fighter {side}'s bow must be the only carried item, in the right hand, with \
+                 --{grip_key} on for its two-handed grip"
+            ));
+        }
         if two_handed && fighter.hands[1].is_none() {
             return Err(format!(
                 "--{grip_key} grips the right-hand item with both hands, and fighter {side}'s \
@@ -2420,6 +2432,29 @@ mod tests {
             duel_config_from(&traced_args("trace --a-two-handed off")),
             Ok(Some(_))
         ));
+    }
+
+    #[test]
+    fn bow_is_public_only_as_the_canonical_right_hand_two_handed_item() {
+        let config = duel_config_from(&traced_args(
+            "trace --a-left empty --a-right bow --a-two-handed on",
+        )).expect("a legal line").expect("a described duel");
+        assert_eq!(config.fighters[0].hands[0], None);
+        assert_eq!(config.fighters[0].hands[1].map(|item| item.action),
+                   Some(sim::ActionKind::Bow));
+        assert!(config.fighters[0].two_handed);
+        Scenario::duel_from(&config).expect("the public Bow configuration must install");
+
+        for line in [
+            "trace --a-left bow --a-right empty --a-two-handed on",
+            "trace --a-left empty --a-right bow --a-two-handed off",
+            "trace --a-right bow --a-two-handed on",
+        ] {
+            let refusal = duel_config_from(&traced_args(line)).expect_err(line);
+            assert!(refusal.contains("bow"), "the refusal must name Bow: {refusal}");
+            assert!(refusal.contains("right hand"), "{refusal}");
+            assert!(refusal.contains("two-handed"), "{refusal}");
+        }
     }
 
     #[test]

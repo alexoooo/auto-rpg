@@ -67,6 +67,18 @@ export type RendererCameraOwner = Readonly<{
   dispose(): void;
 }>;
 
+export async function loadOptionalCombatants(
+  create: GreyboxRendererOptions["createCombatants"], scene: Scene, signal: AbortSignal,
+): Promise<CombatantAsset | null> {
+  if (create === undefined) return null;
+  try {
+    return await create(scene, signal);
+  } catch (error) {
+    if (signal.aborted) throw error;
+    return null;
+  }
+}
+
 export type RoomReviewInteractionState = Readonly<{ readonly reviewCameraFree: boolean }>;
 
 export function roomReviewInteractionBlocked(
@@ -118,11 +130,11 @@ export class GreyboxRenderer {
     environment: EnvironmentOwner,
     actors: ActorPresentation,
     transients: TransientPresentation,
-    combatants: CombatantAsset | null,
     camera: Camera,
     now: () => number = () => performance.now(),
     createReviewCamera?: GreyboxRendererOptions["createReviewCamera"],
     initialReviewFree = false,
+    combatants: CombatantAsset | null = null,
   ) {
     this.#handle = handle;
     this.#scene = scene;
@@ -396,16 +408,12 @@ export async function createGreyboxRenderer(
     if (handle.terminal || environmentAbort.signal.aborted) {
       throw new Error("renderer became terminal during environment initialization");
     }
-    let combatants: CombatantAsset | null = null;
-    if (options.createCombatants !== undefined) {
-      try {
-        combatants = await options.createCombatants(built.scene, environmentAbort.signal);
-      } catch (error) {
-        if (environmentAbort.signal.aborted || handle.terminal) throw error;
-        // Authored bodies are optional presentation. The procedural figures
-        // are deliberately kept live as the bounded load-failure fallback.
-      }
-    }
+    // Authored bodies are optional presentation. The procedural figures are
+    // deliberately kept live as the bounded load-failure fallback.
+    const combatants = await loadOptionalCombatants(
+      options.createCombatants, built.scene, environmentAbort.signal,
+    );
+    if (handle.terminal) throw new Error("renderer became terminal during combatant initialization");
     pendingCombatants = combatants;
     const actors = new ActorPresentation(
       built.scene, built.content.debug, environment.shadowGenerator, combatants,
@@ -417,8 +425,8 @@ export async function createGreyboxRenderer(
     pendingTransients = transients;
     renderer = new GreyboxRenderer(
       handle, built.scene, built.content.debug, environment,
-      actors, transients, combatants, built.content.camera, lifecycle.now,
-      options.createReviewCamera, options.reviewCameraFree ?? false,
+      actors, transients, built.content.camera, lifecycle.now,
+      options.createReviewCamera, options.reviewCameraFree ?? false, combatants,
     );
     pendingScene = null;
     pendingEnvironment = null;

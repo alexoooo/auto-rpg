@@ -513,19 +513,17 @@ export function threeQuarterPlacement(
   });
 }
 
-// ------------------------------------------------------- the v2-18 node contract
+// ---------------------------------------------------- the combatant node contract
 
 /**
- * The semantic node names [`v2-18`](../../../docs/plans/v2-18-combatant-integration.md)
- * says the authored Fighter and Brute rigs will carry.
+ * The semantic node names the authored Fighter and Brute rigs carry, specified
+ * by `docs/reference/combatant-asset-contract.md` and the pinned sidecar.
  *
- * **Built a session early, and on purpose.** The proxy hangs its shapes off nodes
- * with exactly these names, so landing `v2-18` is swapping what hangs under each
- * node rather than rewriting the presentation layer -- and so the socket contract
- * is exercised, and its mistakes found, before there is an asset pipeline to
- * blame them on. `the_proxy_rig_carries_the_v2_18_node_names_and_hangs_them_off_
- * published_points` reads this list against the plan's own code block, so a name
- * that drifts on one side fails on the other.
+ * The geometry proxy hangs its shapes off nodes with exactly these names, so it
+ * exercises the same socket and endpoint contract as the authored dress.
+ * `the_proxy_rig_carries_the_durable_combatant_node_closure_and_hangs_them_off_
+ * published_points` reads this list against the pinned sidecar's raw semantic
+ * closure, so a name that drifts on one side fails on the other.
  *
  * **The lists live in `render/rig-names.ts` and are re-exported, not copied.**
  * The `#/game` procedural figure hangs its meshes off the same names, and the
@@ -878,13 +876,10 @@ export function directionFrame(along: ScenePoint, hint: ScenePoint): Frame3 {
  * any form; this is what "wrist orientation, derived from the weapon segment"
  * amounts to once it is written down.
  *
- * **It is invisible in this session and it is still worth getting right.** The
- * proxy's weapon is the published capsule, which is round, so no reader can see
- * the roll. The moment v2-18 hangs an authored blade on this socket the roll is
- * the difference between a sword held edge-on and one held flat, and finding that
- * out with an asset pipeline in the picture is the expensive way.
+ * It is invisible on the round geometry proxy but visible on the authored
+ * blade: this roll is the difference between a sword held edge-on and flat.
  * `the_weapon_socket_points_along_the_published_blade_and_rolls_with_the_forearm`
- * is what keeps it honest until then.
+ * keeps it honest in both dresses.
  */
 export function weaponSocketFrame(hilt: V3, tip: V3, elbow: ScenePoint): Frame3 {
   const from = scenePoint(hilt);

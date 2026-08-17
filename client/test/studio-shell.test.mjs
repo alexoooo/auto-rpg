@@ -442,6 +442,41 @@ test("the_game_route_gives_the_dungeon_the_stage_and_keeps_instruments_in_reach"
 
 // ------------------------------------------------------------------- the picker's rules
 
+test("all_four_arena_hand_selects_offer_the_exact_browser_hand_vocabulary", () => {
+  const optionValues = (id) => {
+    const body = new RegExp(`<select id="${id}">([\\s\\S]*?)<\\/select>`).exec(SHELL_HTML)?.[1] ?? "";
+    return [...body.matchAll(/<option value="([^"]+)"/g)].map((match) => match[1]);
+  };
+  for (const id of ["a-left", "a-right", "b-left", "b-right"]) {
+    assert.deepEqual(optionValues(id), ["empty", "sword", "shield", "club", "bow"],
+      `#${id} drifted from HAND_NAMES`);
+  }
+  assert.deepEqual(CONFIG.HAND_NAMES, ["empty", "sword", "shield", "club", "bow"]);
+});
+
+test("the_picker_refuses_every_noncanonical_bow_before_wasm_and_accepts_the_one_canonical_grip", () => {
+  const left = picker.review(matchup({ left: "bow", right: "empty", twoHanded: true }), "live");
+  assert.match(left.refusal, /^Fighter A carries Bow in its left hand/);
+  assert.match(left.refusal, /sole right-hand item with two-handed selected/);
+
+  const oneHanded = picker.review(matchup({ left: "empty", right: "bow", twoHanded: false }), "live");
+  assert.match(oneHanded.refusal, /^Fighter A carries Bow one-handed/);
+  assert.match(oneHanded.refusal, /canonical two-handed right-hand grip/);
+
+  const occupied = picker.review(matchup({ left: "shield", right: "bow", twoHanded: true }), "live");
+  assert.match(occupied.refusal, /^Fighter A carries Bow while its left hand carries shield/);
+  assert.match(occupied.refusal, /sole right-hand item/);
+
+  const canonical = matchup({ left: "empty", right: "bow", twoHanded: true });
+  assert.deepEqual(picker.review(canonical, "live"), { refusal: null, notes: [] });
+  const config = picker.arenaConfigOf(canonical);
+  assert.deepEqual(config.fighters[0].hands,
+    [CONFIG.HAND_ITEMS.empty, CONFIG.HAND_ITEMS.bow]);
+  assert.equal(config.fighters[0].twoHanded, true);
+  assert.deepEqual(CONFIG.carriedOf(config.fighters[0]),
+    [{ hand: CONFIG.HAND_ITEMS.bow, binding: "Both" }, null]);
+});
+
 test("the_picker_refuses_an_empty_handed_fighter_by_naming_the_rust_that_forbids_it", () => {
   for (const mode of ["live", "recording"]) {
     for (const [label, chosen] of [["Fighter A", matchup({ left: "empty", right: "empty" })],

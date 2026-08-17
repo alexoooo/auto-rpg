@@ -1196,12 +1196,12 @@ versions, all four strides, all four capacities and all 66 + 32 + 8 + 12 column
 offsets, because those are the ABI and
 the copy is written against them — but `SNAPSHOT_BUFFER_BYTES` still ends at the
 furniture block at 27,452 bytes and four snapshot regions. Reserving the four
-articulated blocks takes it to 316,732 — 289,280 bytes on each of the three pooled
-buffers, and an 11.5x wider zero-fill on a buffer `client/src/state/snapshot.ts` clears
+articulated blocks takes it to 318,268 — 290,816 bytes on each of the three pooled
+buffers, and an 11.6x wider zero-fill on a buffer `client/src/state/snapshot.ts` clears
 whole once per *filtered publication* — while nothing on the far side writes or reads a
 word of them: the filtered copy is v2-ui-07's — **superseded two sentences below: it is
 not v2-ui-07's, and no session owns it.** A per-publication memset does not get
-11.5x wider ahead of the consumer that justifies it and the measurement that sizes it.
+11.6x wider ahead of the consumer that justifies it and the measurement that sizes it.
 The formula and the numbers the blocks will generate are held in
 [`articulated-mechanical-gate.md`](articulated-mechanical-gate.md#worker-integration)
 until then. **v2-ui-07 was named as this reservation's owner and is not.** It built

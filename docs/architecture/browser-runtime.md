@@ -9,8 +9,10 @@ A browser can open two things, and only one of them ships. The studio at
 [`web/index.html`](../../web/index.html) is built by Vite, is the build's single
 Rollup input, and is one hash-routed application: `#/game` owns the legacy simulation
 behind a module Worker and renders disclosed snapshots as the procedural Babylon
-greybox or the pinned representative room while retaining lifecycle, command, buffer,
-and backend diagnostics; `#/arena` takes two loadouts and a seed, records the fight
+greybox or the pinned representative room, with pinned authored Fighter and Brute
+dresses when their independent validation succeeds, while retaining lifecycle,
+command, buffer, and backend diagnostics; `#/arena` takes two loadouts and a seed,
+records the fight
 they describe in a Worker of its own, and scrubs the transferred pose, region and
 combat-event buffers -- and still replays a recorded `lab trace` file through the same
 `FightSource` seam when one is named by `?trace=`. The playable game at
@@ -186,8 +188,7 @@ the shadow casting, and moves no camera and rebuilds no engine.
 `[Geometry]` is the control and draws only shapes the simulation published -- five
 region capsules at their published radii, hand spheres, weapon capsules and the shield
 face rebuilt through `shieldCorners` -- flat, unlit, on a bare grid.
-`[Texture]` dresses the same published rows in PBR under a directional key, a
-hemispheric fill and a `ShadowGenerator`, and fills between them with the named
+`[Texture]` dresses the same published rows in PBR under a warm upper-right directional key (diffuse `[1, 0.68, 0.42]`, specular `[0.36, 0.23, 0.15]`, intensity `1.65`), a restrained umber hemispheric fill (diffuse `[0.30, 0.25, 0.20]`, ground `[0.025, 0.020, 0.018]`, intensity `0.28`) and a `ShadowGenerator`, and fills between them with the named
 inventions the table below lists, each one argued in
 [`client/src/arena/geometry.ts`](../../client/src/arena/geometry.ts) beside the code that
 makes the choice. Nothing invented
@@ -196,9 +197,12 @@ a hash domain, and no animation creates a hit. The gait is a pure function of th
 and the published speed rather than an integral, because the arena scrubs and a picture
 whose content depends on playback history cannot be used to check a geometry claim.
 **No visual on the legs may be read as evidence about footwork**, and `[Geometry]` is
-one keystroke away for exactly that reason. The proxy's transform nodes carry
-[`v2-18`](../plans/v2-18-combatant-integration.md)'s semantic names a session early, so
-landing those rigs is a swap of what hangs under each node.
+one keystroke away for exactly that reason. In `[Texture]`, a successfully validated
+Fighter or Brute asset replaces the primitive proxy with an independent skinned clone
+hung from those same named nodes. Cosmetic clips are sampled from published stride or
+contact/event state, then the named endpoints are restored from the published rig so
+animation cannot move authoritative hands, sockets, or regions. If loading or cloning
+fails, the primitive textured proxy remains the dress.
 
 The line between the two dresses is not "how much detail" but **where authority stops:
 published quantities place things, and invented quantities only fill between them.** A
@@ -250,19 +254,19 @@ published answer with a camera frustum or its own ray cast. The v2 renderer appl
 the same [subsystem presence gate](../reference/renderer-contract.md#visibility-and-subsystem-presence)
 to meshes, shadows, labels, effects, audio, picking, and debug records.
 
-Plain `#/game` and the explicit `room=representative` route load the pinned semantic GLB kit under the
+Plain `#/game` and the explicit `room=representative` route load the pinned semantic `GLB` kit under the
 exact [disclosure mapping](../reference/room-asset-contract.md#authored-room-disclosure-mapping)
 and [scene-bound loader lifecycle](../reference/room-asset-contract.md#loader-lifecycle-and-failure).
 The entry dynamically imports the glTF loader chunk only after it has selected that
 authored room; the chunk remains absent from modulepreloads and the initial static
 import closure. Explicit `room=procedural`, fixed-stress greybox, and Canvas startup
 do not request it. The root-host runtime allowlist serves only the
-room GLB and semantic sidecar; the validator report is checked build/evidence
+room `GLB` and semantic sidecar; the validator report is checked build/evidence
 provenance and is deliberately not deployed. Asset load completes before input,
 Worker initialization, or capture readiness, and failure is terminal for the route.
 
 **`#/arena` is a second consumer of that kit and the one place a missing asset is not
-terminal.** Its `[Texture]` mode loads the same authored room GLB and sidecar through
+terminal.** Its `[Texture]` mode loads the same authored room `GLB` and sidecar through
 `render/room-assets.ts`, behind the same pins, the same bounded fetch and the same
 validation, and imports the loader chunk only on the first press -- so `[Geometry]`
 requests it no more than `room=procedural` does. What differs is the failure: the arena
@@ -276,10 +280,25 @@ arena rectangle so masonry never stands where a body may, and adds only walls as
 casters. It creates no door, torch, light, pick or debug record from the kit, so the
 disclosure mapping has nothing to disclose there.
 
-Future combatant rigs and articulated pose/event data remain proposed later work and are
-not loaded by either current browser entry. The current room's visible art and
-foreground performance decision also remains pending; automated delivery is not
-that evidence.
+The GPU `#/game` route imports and attempts the pinned combatant loader during renderer
+initialization. It verifies bounded bytes, hashes, exact sidecar/container closure, skeletons,
+bones, clips, materials, transforms, and bounds before publishing hidden shared source
+archetypes. Fighter and Brute instances receive independent cloned skeletons; unsupported
+kinds and non-abort load/clone failures retain the procedural figure. The same fog,
+generation, shadow, pick, effect, audio, debug, reset, and disposal ownership applies
+to either dress. An abort remains terminal because it belongs to renderer teardown,
+not graceful asset degradation.
+
+The arena loads the same combatant container lazily and once, together with its room,
+on the first `[Texture]` request; `[Geometry]` never requests either asset. Authored
+arena meshes follow published region, arm, weapon, shield, contact, health, and gait
+rows, including severance visibility and first-person self-occlusion. A load or clone
+failure keeps the procedural textured proxy. Neither browser path writes animation or
+asset state back into a command, simulation, replay, or hash domain.
+
+The current room and combatant visible-art decisions and foreground performance
+measurements still require visible-browser evidence; automated delivery is not that
+evidence.
 
 ## Source anchors
 

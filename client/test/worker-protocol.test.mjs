@@ -1159,6 +1159,8 @@ test("the_shipped_arrangement_carries_the_dimensions_the_spec_document_states", 
     { code: 4, mass: 58_982, balance: 22_937, a: 16_384, b: 16_384, c: 3_276 });
   assert.deepEqual(CONFIG.HAND_ITEMS.club,
     { code: 3, mass: 146_145, balance: 39_976, a: 95_027, b: 3_932, c: 0 });
+  assert.deepEqual(CONFIG.HAND_ITEMS.bow,
+    { code: 6, mass: 52_428, balance: 32_768, a: 52_428, b: 2_184, c: 0 });
   assert.deepEqual(CONFIG.ANATOMIES.map((row) => row.armLength), [49_152, 55_705]);
   assert.deepEqual(CONFIG.SHIPPED_SPAWNS, [{ x: 458_752, y: 393_216 }, { x: 1_114_112, y: 655_360 }]);
   assert.equal(CONFIG.ARENA_MAX_TICKS, 3_600);
@@ -1167,6 +1169,26 @@ test("the_shipped_arrangement_carries_the_dimensions_the_spec_document_states", 
   // `lab trace` writes.
   const carried = CONFIG.carriedOf(arenaConfig().fighters[0]);
   assert.deepEqual(carried.map((slot) => [slot.hand.code, slot.binding]), [[2, "Right"], [4, "Left"]]);
+});
+
+test("the_canonical_bow_is_exactly_one_right_hand_block_with_the_both_marker", () => {
+  const config = arenaConfig({
+    hands: [["empty", "bow"], ["shield", "sword"]],
+    twoHanded: [true, false],
+  });
+  const bytes = CONFIG.encodeArenaConfig(config);
+  const right = 8 + 12 + 22;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  assert.equal(view.getUint8(right), 6);
+  assert.equal(view.getUint8(right + 1), 1);
+  assert.equal(view.getInt32(right + 2, true), 52_428);
+  assert.equal(view.getInt32(right + 6, true), 32_768);
+  assert.equal(view.getInt32(right + 10, true), 52_428);
+  assert.equal(view.getInt32(right + 14, true), 2_184);
+  assert.equal(view.getInt32(right + 18, true), 0);
+  assert.equal(view.getUint8(8 + 12), CONFIG.EMPTY_HAND_CODE,
+    "Bow must not be mirrored into the occupied left-hand block");
+  assert.deepEqual(CONFIG.decodeArenaConfig(bytes, config.seed), config);
 });
 
 test("an_arena_refusal_reads_its_policy_code_and_not_a_hand_index", () => {

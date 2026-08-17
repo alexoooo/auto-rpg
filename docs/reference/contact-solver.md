@@ -1,6 +1,6 @@
 # Contact solver contract
 
-**Purpose:** Freeze contact layouts, ordering, equations, cap behavior, and corpus bytes for v2-14.
+**Purpose:** Freeze contact layouts, ordering, equations, cap behavior, projectile/body participation, and corpus bytes.
 **Status:** current
 **Canonical source:** [`contact.rs`](../../crates/sim/src/combat/contact.rs), [`resolution.rs`](../../crates/sim/src/combat/resolution.rs), and the contact phase in [`world.rs`](../../crates/sim/src/world.rs)
 **Update when:** A collider, contact field, coefficient, equation, ordering rule, cap rule, or digest byte changes.
@@ -32,7 +32,9 @@ pub const BODY_SLOT: u8 = 0xff;
 pub const CONTACT_COMPONENT_SPEED_LIMIT: Fx = Fx::from_raw(151_348);
 
 #[repr(u8)]
-pub enum ContactKind { WeaponWeapon = 0, WeaponShield = 1, WeaponBody = 2 }
+pub enum ContactKind {
+    WeaponWeapon = 0, WeaponShield = 1, WeaponBody = 2, ProjectileBody = 3,
+}
 
 pub struct ContactKey {
     pub a: EntityId,
@@ -100,8 +102,14 @@ by summing diagnostic rows.
 `EntityId` order is `(index,generation)`. `ContactKey` order is
 `(a.index,a.generation,a_slot,b.index,b.generation,b_slot,kind)`. Weapon/weapon puts
 the lower `(EntityId,LimbSlot)` first. Weapon/shield and weapon/body put the weapon
-first. Left is slot 0, right is slot 1, and a body is `BODY_SLOT`. A `Both` segment
-has exactly one collider, owned by its authoritative right arm and therefore slot 1.
+first; projectile/body puts the projectile first. Left is slot 0, right is slot 1, a
+projectile is slot `0x80`, and a body is `BODY_SLOT`. A `Both` segment has exactly
+one collider, owned by its authoritative right arm and therefore slot 1.
+
+Projectile solver identities occupy the 32 `EntityId` indices immediately below
+`EntityId::NONE`. Body allocation is bounded to 64 indices, so the namespaces cannot
+alias. The projectile slot generation is part of the identity and increments on reuse;
+the stored owner is separate and is consulted only for event and damage credit.
 
 The normal points from A toward B. A zero closest-point delta at tick-start initial
 overlap (`toi.raw==0`) uses world +X unconditionally because no geometric side
@@ -110,10 +118,10 @@ back to +X only when relative velocity is also zero. Thus a positive-time exact
 crossing closes, while an initially separating overlap receives no attracting impulse. The
 point is the componentwise midpoint made by adding signed raw coordinates in `i64`,
 dividing by two with truncation toward zero, then narrowing; never saturate before
-the divide. A weapon/body fact carries the `BodyPart` its tuple chose; every other
-kind carries `NO_REGION`, `0xff`, which is outside every discriminant rather than
-aliasing one. Velocities are generalized point velocities over one tick, not
-per-second values.
+the divide. A weapon/body or projectile/body fact carries the `BodyPart` its regional
+projection chose; weapon/weapon and weapon/shield carry `NO_REGION`, `0xff`, which
+is outside every discriminant rather than aliasing one. Velocities are generalized
+point velocities over one tick, not per-second values.
 
 ## Tick-entry poses and collider construction
 
@@ -210,6 +218,23 @@ generalized mass, and velocity remain the anatomy surface, cached body mass, and
 velocity, and the origin is carried explicitly because the commit needs the body's own
 settled point.
 
+Each live articulated projectile contributes one explicit projectile collider. Its
+shape is a stored-radius point collider swept from stored position to requested
+position; at either evaluated pose its medial segment is that zero-length point; its mass and velocity are frozen flight
+state, its surface is zero-restitution steel with point factor one, and it has no held
+limb or fabricated body row. Masonry and shield-plane clipping shorten the requested
+end before collection. The stored `shielded_body` suppresses the matching
+projectile/body pair, so a shield clip cannot also wound the body behind it.
+
+A projectile/body scan considers each live hostile body once. The compatibility scan
+sweeps the projectile point-plus-radius against all five present regional capsules and
+chooses the least `(toi.raw, medial_distance_squared.raw, BodyPart as u8)`. The exact
+path instead certifies the first body envelope and its global time, then refines the
+damage region at that frozen group pose by the least
+`(closest_distance_squared.raw, medial_distance_squared.raw, BodyPart as u8)`.
+That refinement does not re-sweep and does not require the broad envelope's provisional
+region to match: region is damage metadata, not projectile/body contact identity.
+
 `ContactCollider::present` is false for a row whose owning limb was severed earlier in
 the same tick. The row stays in the slice -- removing it would re-index every candidate
 the driver holds -- and takes no further part in any sweep.
@@ -227,13 +252,15 @@ normal, and generalized velocities; geometry feature rank never enters a key.
 
 ## Candidate matrix, identity, and scratch
 
-Only distinct live hostile entities in an Articulated world participate.
+Only distinct live hostile combatants participate in entity-pair rows. Each live
+projectile is independently filtered against hostile bodies.
 
 | A | B | generated |
 |---|---|---|
 | segment equipment | segment equipment | once, canonical A/B |
 | segment equipment | shield front | once, weapon first |
 | segment equipment | opponent temporary body capsule | once, weapon first |
+| projectile point | opponent temporary body capsule | once, projectile first; own faction and shield-clipped body excluded |
 | body | body | never; planar `World::separate` owns it |
 | shield | body or shield | never |
 | allies or the same entity | anything | never |
@@ -242,8 +269,9 @@ Scan ascending full entity identities, then left and right owner slots, then
 `ContactKind` order. Sort and deduplicate facts by `ContactKey`; if several primitive
 features make the same key, retain the least
 `(toi.raw, distance_raw_squared, feature_rank)` returned by the public geometry
-function. That tie-break lives in the candidate scan and only there: a v2-14 pair
-yields at most one candidate per kind, so it is currently unreachable, and the group's
+function. That tie-break lives in the candidate scan and only there: each supported
+collider pair yields at most one candidate per kind, so it is currently unreachable,
+and the group's
 own recomputation at the frozen pose does not repeat it — the scan has already reduced
 each key to one row by the time a group forms. No row position or bare index is
 identity.
@@ -255,14 +283,17 @@ zero; otherwise compute with checked `usize` arithmetic:
 
 ```text
 pairs = n*(n-1)/2
-candidate_bound = pairs*16
-collider_bound = n*3
+candidate_bound = pairs*16 + n*MAX_SHOTS
+collider_bound = n*3 + MAX_SHOTS
 ```
 
-Sixteen deliberately over-reserves the valid-construction maximum: four
+Sixteen deliberately over-reserves the entity-pair construction maximum: four
 weapon/weapon, up to eight directed weapon/shield slots, and four directed
-weapon/body. At the ceiling, `candidate_bound=32_256`. Candidate storage and
-suppression reserve that bound. Facts, one-group indices, and accumulators reserve
+weapon/body. Projectile/body is not an entity/entity pair and adds one separately
+reserved candidate for every body/projectile slot combination, including hostile
+filtering headroom. At the ceilings of 64 body slots and 32 projectile slots, the
+bounds are 2,016 entity pairs, 34,304 candidates, and 224 colliders. Candidate storage
+and suppression reserve that bound. Facts, one-group indices, and accumulators reserve
 `MAX_CONTACT_FACTS_PER_GROUP=512`; closure, collider, and cap-closure
 rows reserve `collider_bound`; completed resolutions reserve
 `MAX_CONTACT_RESOLUTIONS_PER_TICK=4_096`. No start-snapshot row is reserved, because
@@ -712,8 +743,8 @@ off-axis, and the truncating-impulse family at closing 1, 3, 7, 9, and 65,535 ra
 ## Feature-gated exact trajectory and response authority
 
 With `cartesian-recoil`, every supported hostile segment/segment,
-segment/shield and segment/body pair is scanned from the retained exact owner and
-collider trajectories. Swept AABBs are exact conservative exclusions; the wide
+segment/shield, segment/body and projectile/body pair is scanned from the retained
+exact owner and collider trajectories. Swept AABBs are exact conservative exclusions; the wide
 segment primitives then own contact membership, time, key, region and ordering. The
 rounded compatibility scan still runs so an accepted row may carry its old primitive
 inputs as optional provenance. It is diagnostic only: an exact contact need not have
@@ -908,14 +939,15 @@ with geometry in its inner loop.
 After group eight, perform the ordinary scan including zero-time suppression. If a
 fact remains, seed from the participants of the **earliest remaining group only** — a
 contact scheduled for later in the tick has not happened yet and has no reason to be
-frozen by this one — then take transitive closure by whole owning entity: each seed
-participant adds its entity body and all held colliders, and facts touching any added
-collider add their other entity until stable. Seeding from every surviving fact would
+frozen by this one — then take transitive closure by solver identity: a combatant participant adds its
+entity body and all held colliders, a projectile participant adds only its projectile
+row, and facts touching any added collider add their other entity until stable. Seeding from every surviving fact would
 freeze bystanders and make the transitive step vacuous, since every fact would already
 have contributed both of its entities. Every collider in the closure keeps its last-safe
 current pose, makes requested end equal current, and zeros body velocity or owning-arm
-linear/scalar velocity. `Both` mirrors the zeroed right owner. Outsiders advance to
-their current requested ends. Set previous/current geometry consistently to the
+linear/scalar velocity. A projectile's stored credit owner does not join the closure
+merely for having loosed it. `Both` mirrors the zeroed right owner. Outsiders advance
+to their current requested ends. Set previous/current geometry consistently to the
 committed pose and increment `cap_hits` once with `saturating_add(1)`. The tick still
 finishes. Only `cap_hits` persists.
 The post-eight scan uses the same streaming candidate-to-closure pass when more than

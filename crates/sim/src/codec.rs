@@ -1,8 +1,10 @@
 use crate::command::{
     ArticulatedCommandV1, ArticulatedPayloadError, Command, GripRequest, Intent, LimbCommand,
-    Objective, Order, ReleaseRequest, Strike, SubmittedCommand, ARTICULATED_PAYLOAD_BYTES,
+    Objective, Order, Strike, SubmittedCommand, ARTICULATED_PAYLOAD_BYTES,
     SUBMITTED_COMMAND_LAYOUT_VERSION,
 };
+#[cfg(test)]
+use crate::command::ReleaseRequest;
 use crate::combat::spec::{
     combat_specs_into, validate_construction, AnatomyRegion, AnatomyRegionSpec, ArmorSpec,
     ArticulatedUnitSpecV1, BodyAnatomySpec, CombatSpecError, CombatSpecTableV1,

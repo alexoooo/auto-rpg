@@ -1,15 +1,16 @@
 # Asset pipeline
 
-**Purpose:** Describe the current Canvas PNG pipeline, procedural v2 greybox, and pinned representative-room GLB pipeline.
+**Purpose:** Describe the current Canvas PNG pipeline, procedural GPU fallbacks, and pinned room-asset and combatant glTF-binary pipelines.
 **Status:** current
-**Canonical source:** [`web/assets/ASSET_SPEC.md`](../../web/assets/ASSET_SPEC.md), [`web/assets/manifest.json`](../../web/assets/manifest.json), [`web/assets.js`](../../web/assets.js), and the [renderer visibility contract](../reference/renderer-contract.md#visibility-and-subsystem-presence)
+**Canonical source:** [`web/assets/ASSET_SPEC.md`](../../web/assets/ASSET_SPEC.md), [`web/assets/manifest.json`](../../web/assets/manifest.json), [`web/assets.js`](../../web/assets.js), the [room asset contract](../reference/room-asset-contract.md), the [combatant asset contract](../reference/combatant-asset-contract.md), and the [renderer visibility contract](../reference/renderer-contract.md#visibility-and-subsystem-presence)
 **Update when:** Asset formats, validation, manifest semantics, loading, fallback behavior, where the rig node list lives, or render integration changes.
 
-The playable Canvas path consumes a checked-in PNG set. The v2 GPU client defaults
-to procedural geometry and optionally loads the current pinned representative-room
-GLB under `room=representative`. It loads no combatant or articulated rig files.
-All generation and validation are offline; presentation inputs never enter
-`Scenario`, `World`, replay, or a hash domain.
+The playable Canvas path consumes a checked-in PNG set. The v2 GPU client retains
+procedural room and figure geometry as controls and fallbacks, loads the pinned
+representative-room `GLB` when that room is selected. It separately loads the pinned
+Fighter and Brute combatant glTF binary for authored GPU dresses. All generation and validation are
+offline; presentation inputs never enter `Scenario`, `World`, replay, or a hash
+domain.
 
 ## Authoring and review
 
@@ -76,15 +77,16 @@ snapshot rather than at an asset-specific correction.
 
 ## v2 GPU asset paths
 
-The v2 renderer creates known floor and wall tiles, disclosed doors and torches,
-unit bodies, and snapshot-local transients from primitives. It loads no room art,
-rig, texture, or model file and has no asset-loader dependency. Unknown geometry has
-no instance; remembered known topology uses a separate material; and current
-furniture exists only while its disclosed record is present. This is a visibility
-and renderer-boundary proof.
+The v2 renderer still creates known floor and wall tiles, disclosed doors and
+torches, unit bodies, and snapshot-local transients from primitives. Those sources
+are the geometry control and the bounded fallback when an authored asset is absent or
+refused. Unknown geometry has no instance; remembered known topology uses a separate
+material; and current furniture exists only while its disclosed record is present.
+This remains a visibility and renderer-boundary proof even when authored meshes hang
+from the same presentation identities.
 
 The representative route dynamically imports the pinned room loader only after the
-engine and Scene exist. It validates the root-hosted room GLB and semantic sidecar before
+engine and Scene exist. It validates the root-hosted room `GLB` and semantic sidecar before
 publishing an immutable semantic kit; the canonical validator report remains
 build/evidence provenance and is not deployed. The arena's `[Texture]` dress is a second
 consumer of the same kit, behind the same loader, pins and validation, imported on the
@@ -103,31 +105,40 @@ is the minimum replacement threshold for readability;
 reaching that parity does not complete the ultimate art direction. The initial room
 art decision is `replace` in the [room matrix](../performance/v2-room-matrix.md#visible-review-record).
 
-The generator-v2 vertex-color kit is a superseded reproducible intermediate. The
-current generator-v3 candidate embeds the checked floor and wall PNGs from
-`tools/art/textures/` while retaining deterministic `COLOR_0` modulation; it has
-closed output pins and budgets. The owner accepted it on 2026-08-09 as sufficient to
-proceed at the legacy-parity threshold. That decision does not complete the
-`CONCEPT.png` art direction.
+The generator-v2 vertex-color kit and generator-v3 textured box-wall kit are
+superseded reproducible intermediates. The current generator-v4 kit crops the pinned
+concept material atlas into embedded floor and wall textures, retains deterministic
+`COLOR_0` modulation, and builds joined coursed masonry with topology-specific centreline footprints for
+straight, L, T, and capped-end roles while preserving semantic names and pivots. It has closed output pins and budgets; its automated acceptance still
+does not substitute for the visible-browser art review.
 
 The current compact 16 x 10 composition route defined by the
 [visual review contract](../reference/room-asset-contract.md#visual-review-contract)
 supports fixed and free review on both current GPU backends independently of the unchanged 48 x 32
 performance stress fixture. Current mechanics do not imply an art pass.
 
-> **Asset contract shipped; scene adoption remains separate:** The
+> **Authored combatants are a current optional presentation path.** The
 > [combatant asset contract](../reference/combatant-asset-contract.md#semantic-and-skin-closure)
-> now pins the representative Fighter and Brute rigs, their two real skins, eight
-> cosmetic clips, sidecar, validator, and sibling bounded loader. No current browser
-> scene calls that loader yet, but the node contract it satisfies is already live and checked:
-> the arena's `[Texture]` proxy names its transform nodes and sockets after that phase's
-> list, hangs each one off a published row, and is asserted against the list itself.
-> Landing an authored rig is therefore a change of what hangs under each node rather than
-> a rewrite of the presentation layer, and the socket contract's mistakes surface before
-> there is an asset pipeline to blame them on. **That assertion reads the list out of the
-> plan at test time**: `client/test/render-contract.test.mjs` calls `fs.readFileSync` on
-> `docs/plans/v2-18-combatant-integration.md` and compares its first fenced `text` block
-> against `RIG_NODES`, so a temporary plan file is a load-bearing input to a shipped
-> test -- and under this repository's convention the commit that finishes v2-18 deletes
-> that file, after which the test throws `ENOENT`. The node list needs a durable home
-> before then.
+> pins the representative Fighter and Brute rigs, their two real skins, eight cosmetic
+> clips, sidecar, validator, and bounded sibling loader. The loader fetches the binary container and
+> canonical sidecar once per Scene, enforces MIME and byte caps before allocation,
+> verifies generated identity and SHA-256 pins, and rejects any node, mesh, material,
+> skeleton, bone, animation, collection, transform, or bound outside the exact semantic
+> closure before adding the hidden sources to the Scene.
+>
+> `#/game` attempts that load during GPU renderer initialization. Each supported live
+> unit gets an independently cloned skeleton and skinned mesh set; the already-published
+> procedural rig supplies the exact named endpoints, while idle/walk/stagger/fall clips
+> are sampled cosmetically and those endpoints are restored afterward. Unsupported
+> kinds, validation/load failure, or per-clone failure keep the procedural figure;
+> abort remains terminal. Fog, generation retirement, picking, shadow, effect, audio,
+> and debug presence apply to whichever dress is active, and disposal owns every clone
+> plus the shared container.
+>
+> `#/arena` memoizes the same load on the first `[Texture]` request, never for
+> `[Geometry]`. Its per-body clone is driven from published pose, region, weapon,
+> shield, contact, health, and stride rows; severed or absent regions remove matching
+> authored meshes, first-person layer masks hide the viewer's own head/torso, and only
+> published contacts open stagger/fall slots. A failed load leaves the procedural
+> textured proxy in place. Neither route lets a clip, skin, bone, or socket write back
+> into simulation state.

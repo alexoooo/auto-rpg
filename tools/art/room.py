@@ -61,7 +61,11 @@ def _apply_styling(obj, semantic_name, material_role, styling):
     mesh.color_attributes.active_color = colour
     mesh.color_attributes.active = colour
     for polygon in mesh.polygons:
-        if material_role not in ("floor_current", "stone_current"):
+        if semantic_name == "ROOM_prop_barrel" and polygon.normal.z > 0.5:
+            palette_name = "woodEnd"
+        elif material_role == "wood_current":
+            palette_name = "woodTop" if polygon.normal.z > 0.5 else "woodSide"
+        elif material_role not in ("floor_current", "stone_current"):
             palette_name = "neutral"
         elif semantic_name == "ROOM_floor_a":
             palette_name = "floorA" if polygon.normal.z > 0.5 else "floorEdge"
@@ -71,7 +75,9 @@ def _apply_styling(obj, semantic_name, material_role, styling):
             palette_name = "wallTop" if polygon.normal.z > 0.5 else "wallSide"
         else:
             palette_name = "stoneDetail"
-        value = _styled_colour(styling, palette_name, semantic_name, polygon.index)
+        style_index = polygon.index // 6 if (semantic_name.startswith("ROOM_wall_") or
+                                               semantic_name == "ROOM_door_frame") else polygon.index
+        value = _styled_colour(styling, palette_name, semantic_name, style_index)
         for loop_index in polygon.loop_indices:
             colour.data[loop_index].color = value
 
@@ -149,7 +155,8 @@ def _irregular_flagstone(name, node, material, seed):
     return _finish(obj, name, material, [width, height, depth])
 
 
-def _coursed_run(boxes, minimum, maximum, run_axis, seed, courses=4, counts=(4, 5)):
+def _coursed_run(boxes, minimum, maximum, run_axis, seed, courses=4, counts=(4, 5),
+                 side_inset=0.015):
     """Append fitted masonry blocks without moving the semantic collision hull.
 
     The small empty seams are visible mortar lines. Every run still reaches its
@@ -180,8 +187,8 @@ def _coursed_run(boxes, minimum, maximum, run_axis, seed, courses=4, counts=(4, 
         for index in range(count):
             low_run = boundaries[index] + (horizontal_gap / 2 if index else 0)
             high_run = boundaries[index + 1] - (horizontal_gap / 2 if index + 1 < count else 0)
-            inset_low = 0 if course == 0 and index == 0 else randomizer.random() * 0.008
-            inset_high = 0 if course == 0 and index == 0 else randomizer.random() * 0.008
+            inset_low = 0 if course == 0 and index == 0 else randomizer.random() * side_inset
+            inset_high = 0 if course == 0 and index == 0 else randomizer.random() * side_inset
             lows = [minimum[0], low_y, minimum[2]]
             highs = [maximum[0], high_y, maximum[2]]
             lows[run_axis], highs[run_axis] = low_run, high_run
@@ -191,26 +198,34 @@ def _coursed_run(boxes, minimum, maximum, run_axis, seed, courses=4, counts=(4, 
             boxes.append((size, centre))
 
 
-def _coursed_wall(name, node, material, seed):
+def _junction_wall(name, node, material, seed, directions):
+    """Build one joined centreline topology from a core and cardinal arms.
+
+    Each arm starts at the core face and reaches the exact tile edge. The arm
+    calls have no transverse inset, so coursing may articulate the silhouette
+    without opening a light leak at a corner or tee. Local direction names use
+    the exported ground plane: +X east and +Z south.
+    """
     minimum = _numbers(node["bounds"]["min"])
     maximum = _numbers(node["bounds"]["max"])
+    low_y, high_y = minimum[1], maximum[1]
+    half = 0.09
     boxes = []
-    _coursed_run(boxes, minimum, maximum, 0, seed)
-    return _join_boxes(name, node, material, boxes)
-
-
-def _wall_inside(name, node, material, seed):
-    boxes = []
-    _coursed_run(boxes, [-0.5, 0, -0.09], [0.5, 0.9, 0.09], 0, seed)
-    _coursed_run(boxes, [-0.5, 0, 0.09], [-0.32, 0.9, 0.5], 2, seed ^ 0x1A51,
-                 counts=(2, 3))
-    return _join_boxes(name, node, material, boxes)
-
-
-def _wall_outside(name, node, material, seed):
-    boxes = []
-    _coursed_run(boxes, [-0.5, 0, 0.32], [0.32, 0.9, 0.5], 0, seed)
-    _coursed_run(boxes, [0.32, 0, -0.5], [0.5, 0.9, 0.5], 2, seed ^ 0x0A75)
+    _coursed_run(
+        boxes, [-half, low_y, -half], [half, high_y, half], 0,
+        seed ^ 0xC0DE, counts=(1,), side_inset=0,
+    )
+    arms = {
+        "E": ([half, low_y, -half], [maximum[0], high_y, half], 0, 0xE001),
+        "W": ([minimum[0], low_y, -half], [-half, high_y, half], 0, 0xE002),
+        "S": ([-half, low_y, half], [half, high_y, maximum[2]], 2, 0xE003),
+        "N": ([-half, low_y, minimum[2]], [half, high_y, -half], 2, 0xE004),
+    }
+    for direction in directions:
+        low, high, axis, salt = arms[direction]
+        _coursed_run(
+            boxes, low, high, axis, seed ^ salt, counts=(2, 3), side_inset=0,
+        )
     return _join_boxes(name, node, material, boxes)
 
 
@@ -244,13 +259,17 @@ def build_room(manifest, materials):
         elif name == "ROOM_floor_b":
             obj = _irregular_flagstone(name, node, material, manifest["generatorSeed"] ^ 0xB2)
         elif name == "ROOM_wall_straight":
-            obj = _coursed_wall(name, node, material, manifest["generatorSeed"] ^ 0x571A)
+            obj = _junction_wall(name, node, material, manifest["generatorSeed"] ^ 0x571A,
+                                 ("E", "W"))
         elif name == "ROOM_wall_inside":
-            obj = _wall_inside(name, node, material, manifest["generatorSeed"] ^ 0x1A51)
+            obj = _junction_wall(name, node, material, manifest["generatorSeed"] ^ 0x1A51,
+                                 ("E", "S"))
         elif name == "ROOM_wall_outside":
-            obj = _wall_outside(name, node, material, manifest["generatorSeed"] ^ 0x0A75)
+            obj = _junction_wall(name, node, material, manifest["generatorSeed"] ^ 0x0A75,
+                                 ("E", "S", "W"))
         elif name == "ROOM_wall_end":
-            obj = _coursed_wall(name, node, material, manifest["generatorSeed"] ^ 0xE0D0)
+            obj = _junction_wall(name, node, material, manifest["generatorSeed"] ^ 0xE0D0,
+                                 ("E",))
         elif name == "ROOM_door_frame":
             obj = _door_frame(name, node, material, manifest["generatorSeed"] ^ 0xD00F)
         elif name == "ROOM_door_leaf":

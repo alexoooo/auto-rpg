@@ -362,17 +362,18 @@ Plans are updated in place as sessions complete, and the whole set is deleted in
 commit that finishes the topic (see `iso-*` in the history of `docs/plans`).
 
 The live roadmap is [`docs/plans/v2-00-overview.md`](docs/plans/v2-00-overview.md).
-Completed sessions are retired rather than kept as a progress ledger. The remaining
-numbered work is `v2-18`, still blocked on the mechanical gate. The Smart AI exact
-mechanics digest/authority sequence is complete; matched ordinary Tactical/control
-evidence has localized its first controlled-arm solver-count boundary to ordinal 31,
-tick 46. The bounded transcript then found the reference entering two anatomy regions
-while held exited at the pair swept-AABB control with none. The next transcript
-localized the first pair-control difference to the A-side ordinal-0 segment-hilt
-start-point X operand. Its next work is only that frozen point-construction
-provenance, not a causal claim, budget widening, mechanics change, training or
-promotion. Durable results from closed sessions belong in architecture, design,
-reference, or performance docs.
+Completed sessions are retired rather than kept as a progress ledger. The
+articulated-bow and representative Fighter/Brute rig slices are complete; their
+durable contracts now live in the command, projectile, ABI, contact, asset and
+browser references. The current implementation blocker is exact-law target parity:
+with the current toolchain a fresh wasm artifact stops the configured
+Composed/Windmill duel at tick 278 while native release stops at 164. An archived
+pre-Bow baseline reproduces wasm 278, so this is not projectile causality and is not
+a value to re-pin. The learned exact duel reaches tick 300 on both current targets
+and on that archived wasm baseline; its old wasm-only 259 assertion is separately
+stale. `ARTICULATED_HASH` and exact-law promotion remain unauthorized until the
+164/278 target boundary is explained. Durable results from closed sessions belong in
+architecture, design, reference, or performance docs.
 
 ## Gotchas that have already cost time
 

@@ -23,7 +23,7 @@ use fx::{
 };
 #[cfg(any(test, feature = "cartesian-recoil"))]
 use core::cmp::Ordering;
-#[cfg(all(test, feature = "cartesian-recoil"))]
+#[cfg(feature = "cartesian-recoil")]
 use core::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
 #[cfg(any(test, feature = "cartesian-recoil"))]
 use crate::combat::wide::{checked_cmp_positive_into, PositiveRationalCmpWork,
@@ -556,6 +556,38 @@ const EXACT_PAIR_AABB_AXIS_CAP: usize = 3;
 const EXACT_POINT_X_EVENT_CAP: usize = 42;
 #[cfg(all(test, feature = "cartesian-recoil"))]
 static EXACT_DIAGNOSTIC_MUTATION_RECEIPT: AtomicU64 = AtomicU64::new(1);
+
+#[cfg(feature = "cartesian-recoil")]
+static EXACT_SEGMENT_SHIELD_DEBUG: [AtomicU64; 20] =
+    [const { AtomicU64::new(0) }; 20];
+
+#[cfg(feature = "cartesian-recoil")]
+pub fn exact_segment_shield_debug_word(at: usize) -> u64 {
+    EXACT_SEGMENT_SHIELD_DEBUG.get(at)
+        .map_or(0, |word| word.load(AtomicOrdering::Relaxed))
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn exact_segment_shield_debug_rational(at: usize, value: WideRational4096) {
+    let value = value.copy_words();
+    let digest = |word: &crate::combat::wide::WideWordCopy| {
+        let mut hash = 0xcbf29ce484222325u64;
+        hash ^= word.negative as u64; hash = hash.wrapping_mul(0x100000001b3);
+        hash ^= word.used as u64; hash = hash.wrapping_mul(0x100000001b3);
+        for limb in word.limbs { hash ^= limb as u64; hash = hash.wrapping_mul(0x100000001b3); }
+        hash
+    };
+    let edges = |word: &crate::combat::wide::WideWordCopy| {
+        let top = if word.used == 0 { 0 } else { word.limbs[word.used as usize - 1] };
+        ((top as u64) << 32) | word.limbs[0] as u64
+    };
+    let meta = (value.numerator.negative as u64) << 63
+        | (value.numerator.used as u64) << 8 | value.denominator.used as u64;
+    for (offset, word) in [digest(&value.numerator), digest(&value.denominator),
+        meta, edges(&value.numerator) ^ edges(&value.denominator)].into_iter().enumerate() {
+        EXACT_SEGMENT_SHIELD_DEBUG[at + offset].store(word, AtomicOrdering::Relaxed);
+    }
+}
 
 // This opt-in recorder lives only in reusable contact scratch. It cannot enter
 // authoritative state, replay, selection, or resolution; every registered pin
@@ -1756,7 +1788,15 @@ fn scan_detector_into(
                     let fact = exact_contact_at_pose(trajectories, owners, colliders,
                         a, b, selection.time_raw, scratch)?
                         .ok_or(ExactScanReject::CompatibilityIdentity)?;
-                    if fact.key != selection.key || fact.region != selection.region {
+                    // A projectile's exact swept volume chooses the first body
+                    // envelope it reaches, while the anatomy projector names
+                    // the nearest medial part at that certified instant.  The
+                    // part is damage metadata, not contact identity: requiring
+                    // the envelope's region here would reject the same valid
+                    // projectile/body key before the shared solver can project
+                    // it onto anatomy.
+                    if fact.key != selection.key || (fact.region != selection.region
+                            && selection.key.kind != ContactKind::ProjectileBody) {
                         return Err(ExactScanReject::CompatibilityIdentity);
                     }
                     scratch.candidates.push(Candidate { fact,
@@ -2426,6 +2466,7 @@ impl SegmentWorkState {
 #[derive(Clone, Default)]
 struct ExactWideScratch {
     segment: SegmentWorkState,
+    nonnegative_cmp: PositiveRationalCmpWork,
     #[cfg(feature = "cartesian-recoil")]
     segment_body_separation: SegmentBodySeparationWork,
     rectangle_candidates: Vec<WideSegmentClosest>,
@@ -2554,6 +2595,28 @@ fn wide_div(a: WideRational4096, b: WideRational4096)
 fn wide_cmp(a: WideRational4096, b: WideRational4096)
     -> Result<Ordering, ExactScanReject>
 { a.checked_cmp(b).ok_or(ExactScanReject::ArithmeticEnvelope) }
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+#[inline(never)]
+fn wide_cmp_nonnegative(a: &WideRational4096, b: &WideRational4096,
+    work: &mut PositiveRationalCmpWork) -> Result<Ordering, ExactScanReject>
+{
+    if a.numerator.is_negative() || b.numerator.is_negative() {
+        return wide_cmp(*a, *b);
+    }
+    match (a.numerator.is_zero(), b.numerator.is_zero()) {
+        (true, true) => Ok(Ordering::Equal),
+        (true, false) => Ok(Ordering::Less),
+        (false, true) => Ok(Ordering::Greater),
+        (false, false) => {
+            let mut order = Ordering::Equal;
+            if !checked_cmp_positive_into(a, b, work, &mut order) {
+                return Err(ExactScanReject::ArithmeticEnvelope);
+            }
+            Ok(order)
+        }
+    }
+}
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
 fn wide_vector_sub(a: WidePoint, b: WidePoint)
@@ -3954,6 +4017,7 @@ fn wide_sweep_segments(a: &ExactContactTrajectory, ao: &ExactOwnerTrajectory,
 }
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
+#[inline(never)]
 fn wide_sweep_segment_shield(segment: &ExactContactTrajectory, so: &ExactOwnerTrajectory,
     shield: &ExactContactTrajectory, ho: &ExactOwnerTrajectory,
     cs: &ContactCollider, ch: &ContactCollider, scratch: &mut ExactWideScratch)
@@ -3995,7 +4059,24 @@ fn wide_sweep_segment_shield(segment: &ExactContactTrajectory, so: &ExactOwnerTr
             let adjacent = wide_segment_rectangle_points(
                 hilt, tip, wide_shield_at_time(shield, ho, next)?, scratch)?;
             let radius = wide_radius(radius_raw)?;
-            if wide_cmp(adjacent.distance_sq, wide_mul(radius, radius)?)? == Ordering::Greater {
+            let radius_sq = wide_mul(radius, radius)?;
+            let adjacent_order = wide_cmp_nonnegative(&adjacent.distance_sq, &radius_sq,
+                &mut scratch.nonnegative_cmp)?;
+            #[cfg(feature = "cartesian-recoil")]
+            if cs.entity.index == 1 && cs.slot == 1 && ch.entity.index == 0 && ch.slot == 0 {
+                EXACT_SEGMENT_SHIELD_DEBUG[0].fetch_add(1, AtomicOrdering::Relaxed);
+                EXACT_SEGMENT_SHIELD_DEBUG[1].store(time as u64, AtomicOrdering::Relaxed);
+                EXACT_SEGMENT_SHIELD_DEBUG[2].store(step as u64, AtomicOrdering::Relaxed);
+                EXACT_SEGMENT_SHIELD_DEBUG[3].store(adjacent.feature as u64
+                    | ((match adjacent_order { Ordering::Less => 0, Ordering::Equal => 1,
+                                               Ordering::Greater => 2 }) << 8),
+                    AtomicOrdering::Relaxed);
+                exact_segment_shield_debug_rational(4, closest.distance_sq);
+                exact_segment_shield_debug_rational(8, wide_mul(radius, radius)?);
+                exact_segment_shield_debug_rational(12, adjacent.distance_sq);
+                exact_segment_shield_debug_rational(16, radius_sq);
+            }
+            if adjacent_order == Ordering::Greater {
                 return Err(ExactScanReject::UnsupportedExactSweep);
             }
             time = next;
@@ -4710,13 +4791,20 @@ pub(crate) fn exact_contact_at_pose(
     let candidate = match (&left.motor, &right.motor) {
         (MotorShape::Segment { .. } | MotorShape::Projectile { .. },
          MotorShape::Body { .. }) => {
+            let projectile = matches!(left.motor, MotorShape::Projectile { .. });
             let mut chosen = None;
             for region in 0..AnatomyRegion::COUNT {
                 let Some((closest, radius_raw, medial)) = wide_segment_body_at_time(
                     left, owner_left, right, owner_right, region, time,
                     &mut scratch.exact_wide)? else { continue };
                 let radius = wide_radius(radius_raw)?;
-                if wide_cmp(closest.distance_sq, wide_mul(radius, radius)?)?
+                // Membership was already settled by the sweep. The ordinary
+                // driver chooses a projectile's anatomy region by nearest
+                // medial axis at the frozen group pose, even when a fatter
+                // overlapping region is the one whose radius admitted the
+                // pair first. Exact recomputation must answer that same
+                // question; the region is not part of ContactKey identity.
+                if !projectile && wide_cmp(closest.distance_sq, wide_mul(radius, radius)?)?
                     == Ordering::Greater { continue; }
                 let replace = match chosen.as_ref() {
                     None => true,
@@ -4732,7 +4820,7 @@ pub(crate) fn exact_contact_at_pose(
                 None => None,
                 Some((region, closest, _)) => Some(make_wide_candidate(
                     &published_left, &published_right,
-                    if matches!(left.motor, MotorShape::Projectile { .. }) {
+                    if projectile {
                         ContactKind::ProjectileBody
                     } else { ContactKind::WeaponBody }, toi,
                     &closest.a, &closest.b, wide_owner_motor_frame(trajectories, left)?,
@@ -5560,6 +5648,7 @@ fn segment_segment_candidate(
         Vec3::lerp(ah0, ah1, t), Vec3::lerp(at0, at1, t),
         Vec3::lerp(bh0, bh1, t), Vec3::lerp(bt0, bt1, t),
     );
+    #[allow(unused_mut)]
     let mut candidate = make_candidate(a, b, ContactKind::WeaponWeapon, toi, closest.a, closest.b,
                                        closest.distance_sq, 0, NO_REGION);
     #[cfg(feature = "cartesian-recoil")]
@@ -5585,6 +5674,7 @@ fn segment_shield_candidate(
         Vec3::lerp(previous_hilt, requested_hilt, t),
         Vec3::lerp(previous_tip, requested_tip, t), face,
     );
+    #[allow(unused_mut)]
     let mut candidate = make_candidate(weapon, shield, ContactKind::WeaponShield, toi,
                         closest.a, closest.b, closest.distance_sq, closest.feature, NO_REGION);
     #[cfg(feature = "cartesian-recoil")]
@@ -5647,6 +5737,7 @@ fn segment_body_candidate(
                    medial_distance_sq(midpoint(closest.a, closest.b), lower, upper).raw(),
                    at as u8);
         if best.as_ref().is_some_and(|(chosen, _)| *chosen <= key) { continue; }
+        #[allow(unused_mut)]
         let mut candidate = make_candidate(weapon, body, ContactKind::WeaponBody, toi,
                                            closest.a, closest.b, closest.distance_sq, 0, at as u8);
         #[cfg(feature = "cartesian-recoil")]

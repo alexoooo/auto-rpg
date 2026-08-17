@@ -48,19 +48,23 @@ type SpatialInstance = Readonly<{
 
 const tileIndex = (cols: number, tx: number, ty: number): number => ty * cols + tx;
 
+type TopologyNeighbour = "solid" | "open" | "unknown";
+
 /**
- * Fog never becomes a drawn tile; it may complete a drawn tile's topology.
- * An undisclosed neighbour counts as solid for the piece choice only, so a
- * wall at the exploration boundary reads as a run rather than a 0.62-long
- * `wall_end` stub whose gaps track the frontier instead of the map. The
- * undisclosed tile itself still draws nothing: `acceptSnapshot` skips every
- * tile whose visibility is not 1 or 2. Off-map stays open -- counting it solid
- * would turn the outer ring's straights into tees.
+ * Fog never becomes a drawn tile and never invents a perpendicular arm. An
+ * unknown cell may only continue the opposite side of one known neighbour,
+ * turning a frontier end into the straight run the known axis already implies.
+ * Two or more known neighbours determine their own exact L/T/straight shape;
+ * promoting those from fog was the narrow-tooth defect caught in browser QA.
+ * Off-map and disclosed non-solid cells stay open.
  */
-function topologySolid(snapshot: PresentationSnapshot, tx: number, ty: number): boolean {
-  if (tx < 0 || ty < 0 || tx >= snapshot.mapCols || ty >= snapshot.mapRows) return false;
+function topologyNeighbour(
+  snapshot: PresentationSnapshot, tx: number, ty: number,
+): TopologyNeighbour {
+  if (tx < 0 || ty < 0 || tx >= snapshot.mapCols || ty >= snapshot.mapRows) return "open";
   const at = tileIndex(snapshot.mapCols, tx, ty);
-  return snapshot.vis[at] === 0 || snapshot.map[at] === MAP_SOLID;
+  if (snapshot.vis[at] === 0) return "unknown";
+  return snapshot.map[at] === MAP_SOLID ? "solid" : "open";
 }
 
 export function chooseRoomFloor(seed: number, tx: number, ty: number): "floor_a" | "floor_b" {
@@ -69,37 +73,55 @@ export function chooseRoomFloor(seed: number, tx: number, ty: number): "floor_a"
 }
 
 export function chooseRoomWall(snapshot: PresentationSnapshot, tx: number, ty: number): readonly RoomWallSelection[] {
-  const solid = [
-    topologySolid(snapshot, tx, ty - 1), topologySolid(snapshot, tx + 1, ty),
-    topologySolid(snapshot, tx, ty + 1), topologySolid(snapshot, tx - 1, ty),
+  const neighbours = [
+    topologyNeighbour(snapshot, tx, ty - 1), topologyNeighbour(snapshot, tx + 1, ty),
+    topologyNeighbour(snapshot, tx, ty + 1), topologyNeighbour(snapshot, tx - 1, ty),
   ] as const;
-  const neighbours = solid.reduce((sum, value) => sum + (value ? 1 : 0), 0);
-  if (neighbours <= 1) {
-    // A stub (`wall_end`) is a centred 0.62 x 0.18 bar along local X touching
-    // no tile edge, so only its axis is expressive: keep zero beside an
-    // east/west neighbour or in isolation, and take one quarter beside
-    // north/south. A full straight here would overshoot half a tile into open
-    // floor on the side with no wall at all.
-    return Object.freeze([Object.freeze({ piece: "wall_end", quarterTurns: solid[0] || solid[2] ? 1 : 0 } as const)]);
+  let mask = neighbours.reduce(
+    (sum, value, bit) => sum | (value === "solid" ? 1 << bit : 0), 0,
+  );
+  // Only a known single-axis end may borrow its opposite unknown cell. Unknown
+  // perpendiculars never promote a straight to a T or an L to a T/cross.
+  if (mask !== 0 && (mask & (mask - 1)) === 0) {
+    const knownSide = [0, 1, 2, 3].find((bit) => (mask & (1 << bit)) !== 0);
+    if (knownSide !== undefined) {
+      const opposite = (knownSide + 2) % 4;
+      if (neighbours[opposite] === "unknown") mask |= 1 << opposite;
+    }
   }
-  // Every multi-neighbour tile is synthesized from `wall_straight` alone: one
-  // centreline run per solid axis. The authored `wall_inside`/`wall_outside`
-  // corner and tee pieces put their arms on the **tile edges** (`tools/art/
-  // room.py`: x/z in [0.32, 0.50]) where a neighbouring straight runs on the
-  // **centreline** (z in [-0.09, 0.09]), so an authored corner arm can never
-  // meet the run it turns into -- the "Join coherence | fail" the room matrix
-  // records. Two crossing centreline runs close every join by construction,
-  // at the cost of a half-tile overshoot past an L's outer side -- the same
-  // overshoot the authored corner's own full-length run already had. The
-  // authored corner pieces stay in the kit unused, so the decision reverses
-  // by deleting this comment and the branch under it.
-  //
-  // The straight source runs along local X: east/west neighbours take zero
-  // turns, north/south one quarter.
-  const runs: RoomWallSelection[] = [];
-  if (solid[1] || solid[3]) runs.push(Object.freeze({ piece: "wall_straight", quarterTurns: 0 } as const));
-  if (solid[0] || solid[2]) runs.push(Object.freeze({ piece: "wall_straight", quarterTurns: 1 } as const));
-  return Object.freeze(runs);
+  const one = (
+    piece: RoomWallSelection["piece"], quarterTurns: RoomWallSelection["quarterTurns"],
+  ): readonly RoomWallSelection[] =>
+    Object.freeze([Object.freeze({ piece, quarterTurns })]);
+  // Canonical authored openings before rotation are straight E+W, inside E+S,
+  // outside E+S+W, and end E. Babylon quarter turns rotate those openings
+  // counter-clockwise through the map's N/E/S/W mask. Every representative
+  // supported mask therefore places one joined source; only the synthetic
+  // four-way cross needs two perpendicular full runs. Mask zero does not occur
+  // in either shipped fixture. Its straight is an explicit diagnostic sentinel,
+  // not a claim that an isolated tile is closed; if gameplay gains isolated
+  // solids, the authored kit must gain a fully capped core.
+  switch (mask) {
+    case 0: return one("wall_straight", 0);
+    case 1: return one("wall_end", 1);
+    case 2: return one("wall_end", 0);
+    case 3: return one("wall_inside", 1);
+    case 4: return one("wall_end", 3);
+    case 5: return one("wall_straight", 1);
+    case 6: return one("wall_inside", 0);
+    case 7: return one("wall_outside", 1);
+    case 8: return one("wall_end", 2);
+    case 9: return one("wall_inside", 2);
+    case 10: return one("wall_straight", 0);
+    case 11: return one("wall_outside", 2);
+    case 12: return one("wall_inside", 3);
+    case 13: return one("wall_outside", 3);
+    case 14: return one("wall_outside", 0);
+    default: return Object.freeze([
+      Object.freeze({ piece: "wall_straight", quarterTurns: 0 } as const),
+      Object.freeze({ piece: "wall_straight", quarterTurns: 1 } as const),
+    ]);
+  }
 }
 
 export class RoomEnvironmentPresentation {
@@ -130,7 +152,7 @@ export class RoomEnvironmentPresentation {
     this.#seed = fixtureSeed >>> 0;
     this.#flameMaterial = new StandardMaterial("room:torch-flame-material", scene);
     this.#flameMaterial.diffuseColor = Color3.Black();
-    this.#flameMaterial.emissiveColor = new Color3(1, 0.3, 0.055);
+    this.#flameMaterial.emissiveColor = new Color3(1, 0.12, 0.015);
     this.#flameMaterial.specularColor = Color3.Black();
     this.#flameMaterial.disableLighting = true;
     let key: DirectionalLight | null = null;
@@ -152,9 +174,15 @@ export class RoomEnvironmentPresentation {
         clone.setEnabled(true);
         this.#rememberedSources.set(piece, clone);
       }
+      // The direction and mount remain the authored upper-right shadow axis.
+      // Generator-v4's concept review changed only its response: a warm diffuse
+      // key, restrained specular and a small intensity lift let the new umber
+      // masonry separate without turning the room into a uniformly bright box.
       key = new DirectionalLight("room:directional-key", new Vector3(-0.45, -1, -0.35), scene);
       key.position = new Vector3(12, 24, 16);
-      key.intensity = 1.15;
+      key.diffuse = new Color3(1, 0.68, 0.42);
+      key.specular = new Color3(0.36, 0.23, 0.15);
+      key.intensity = 1.28;
       shadows = new ShadowGenerator(1024, key);
       shadows.useBlurExponentialShadowMap = true;
     } catch (error) {
@@ -220,9 +248,9 @@ export class RoomEnvironmentPresentation {
         if (map === MAP_SOLID) {
           const walls = chooseRoomWall(snapshot, tx, ty);
           for (const wall of walls) {
-            // A synthesized corner/tee is two runs on one tile; the axis suffix
-            // keeps the instance keys distinct while a one-piece tile keeps the
-            // bare `:wall` key its tests and pick paths always had.
+            // Only a synthetic four-way cross has two runs on one tile. The
+            // axis suffix keeps those keys distinct while every representative
+            // joined piece keeps the bare `:wall` key used by picks and tests.
             const suffix = walls.length === 1 ? "" : wall.quarterTurns === 0 ? ":x" : ":z";
             this.#add(this.#geometry, `${semanticKey}:wall${suffix}`, semanticKey,
               wall.piece, tx, ty, wall.quarterTurns, current, false, false);
@@ -317,10 +345,12 @@ export class RoomEnvironmentPresentation {
     this.#torchFlames.push(flame);
     if (this.#torchLights.length >= MAX_TORCH_LIGHTS) return;
     const light = new PointLight(`room:torch:${item.key}`, position, this.#scene);
-    light.diffuse = new Color3(1, 0.42, 0.12);
-    light.specular = new Color3(1, 0.56, 0.24);
-    light.intensity = 0.85;
-    light.range = 6;
+    // The pool is broader than the bulb: the concept uses local orange light
+    // to reveal nearby masonry, while the warm key carries the room beyond it.
+    light.diffuse = new Color3(1, 0.25, 0.045);
+    light.specular = new Color3(0.42, 0.18, 0.055);
+    light.intensity = 1.15;
+    light.range = 8.5;
     this.#torchLights.push(light);
   }
 

@@ -155,25 +155,24 @@ export interface ConfiguredHand {
   readonly c: number;
 }
 
-export const HAND_NAMES = ["empty", "sword", "shield", "club"] as const;
+export const HAND_NAMES = ["empty", "sword", "shield", "club", "bow"] as const;
 export type HandName = (typeof HAND_NAMES)[number];
 
 /** `ActionKind::code` for an empty hand. Not a code: the absence of one. */
 export const EMPTY_HAND_CODE = 255;
 export const SHIELD_ACTION_CODE = 4;
 
-/** The three actions `duel_from` has a row to copy, by `ActionKind::code`. */
+/** The four actions `duel_from` has a row to copy, by `ActionKind::code`. */
 export const ACTION_NAMES: Readonly<Record<number, string>> = {
-  2: "Sword", 3: "Club", 4: "Shield",
+  2: "Sword", 3: "Club", 4: "Shield", 6: "Bow",
 };
 
 /**
  * Whether an action is a `Role::Guard`, which decides carrying-slot order.
  *
  * True of `Shield` and of nothing else `duel_from` accepts. Written as a code
- * comparison rather than a role table because three actions have equipment rows
- * and the other five are refused with `UnknownAction`: a role table here would
- * be five rows of vocabulary nothing can reach.
+ * comparison rather than a role table because the accepted actions have
+ * equipment rows and every other code is refused with `UnknownAction`.
  */
 export function isGuardAction(code: number): boolean {
   return code === SHIELD_ACTION_CODE;
@@ -184,6 +183,7 @@ export const HAND_ITEMS: Readonly<Record<HandName, ConfiguredHand>> = {
   sword: { code: 2, mass: fx(31, 25), balance: fx(11, 20), a: fx(19, 20), b: fx(1, 25), c: 0 },
   shield: { code: 4, mass: fx(9, 10), balance: fx(7, 20), a: fx(1, 4), b: fx(1, 4), c: fx(1, 20) },
   club: { code: 3, mass: fx(223, 100), balance: fx(61, 100), a: fx(29, 20), b: fx(3, 50), c: 0 },
+  bow: { code: 6, mass: fx(4, 5), balance: fx(1, 2), a: fx(4, 5), b: fx(1, 30), c: 0 },
 };
 
 /**

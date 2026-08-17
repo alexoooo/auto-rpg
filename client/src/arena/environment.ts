@@ -138,18 +138,34 @@ export function arenaWall(
     onRing(tx, ty - 1, tiles), onRing(tx + 1, ty, tiles),
     onRing(tx, ty + 1, tiles), onRing(tx - 1, ty, tiles),
   ] as const;
-  const neighbours = solid.reduce((sum, value) => sum + (value ? 1 : 0), 0);
-  if (neighbours <= 1) {
-    return Object.freeze([Object.freeze({ piece: "wall_end", quarterTurns: solid[0] || solid[2] ? 1 : 0 } as const)]);
+  const mask = solid.reduce((sum, value, bit) => sum | (value ? 1 << bit : 0), 0);
+  const one = (
+    piece: RoomPieceName, quarterTurns: 0 | 1 | 2 | 3,
+  ): readonly Readonly<{ piece: RoomPieceName; quarterTurns: 0 | 1 | 2 | 3 }>[] =>
+    Object.freeze([Object.freeze({ piece, quarterTurns })]);
+  // Mask zero is a diagnostic sentinel only. Neither rectangular arena ring
+  // can produce it; a future isolated solid needs an authored capped core.
+  switch (mask) {
+    case 0: return one("wall_straight", 0);
+    case 1: return one("wall_end", 1);
+    case 2: return one("wall_end", 0);
+    case 3: return one("wall_inside", 1);
+    case 4: return one("wall_end", 3);
+    case 5: return one("wall_straight", 1);
+    case 6: return one("wall_inside", 0);
+    case 7: return one("wall_outside", 1);
+    case 8: return one("wall_end", 2);
+    case 9: return one("wall_inside", 2);
+    case 10: return one("wall_straight", 0);
+    case 11: return one("wall_outside", 2);
+    case 12: return one("wall_inside", 3);
+    case 13: return one("wall_outside", 3);
+    case 14: return one("wall_outside", 0);
+    default: return Object.freeze([
+      Object.freeze({ piece: "wall_straight", quarterTurns: 0 } as const),
+      Object.freeze({ piece: "wall_straight", quarterTurns: 1 } as const),
+    ]);
   }
-  // The synthesized-run rule, restated from `chooseRoomWall`: every
-  // multi-neighbour tile is one centreline `wall_straight` per solid axis,
-  // because the authored corner arms sit on tile edges and cannot meet a
-  // neighbouring centreline run.
-  const runs: Readonly<{ piece: RoomPieceName; quarterTurns: 0 | 1 | 2 | 3 }>[] = [];
-  if (solid[1] || solid[3]) runs.push(Object.freeze({ piece: "wall_straight", quarterTurns: 0 } as const));
-  if (solid[0] || solid[2]) runs.push(Object.freeze({ piece: "wall_straight", quarterTurns: 1 } as const));
-  return Object.freeze(runs);
 }
 
 export class ArenaEnvironment {
@@ -184,26 +200,26 @@ export class ArenaEnvironment {
     // capsule tells a reader nothing about its height, which is half of what a
     // shadow is for in the 3/4 panel.
     //
-    // **The position and the intensity are this file's and are not measured.**
-    // A directional light's position is only the shadow frustum's origin, so it
-    // is set to a corner above the far end of a 24 by 16 arena rather than the
-    // greybox's `(12, 24, 16)`, which is over a 48 by 32 room on the other sign
-    // of `z`. The intensity is higher than the greybox's 1.15 because that scene
-    // has eight torches adding to it and this one has none; it was set by looking
-    // at the picture, which is the only way anything about a light is ever set,
-    // and the picture is on the owed list in
-    // `docs/performance/v2-arena-matrix.md#owed-visual-judgements`.
+    // **The position and response are presentation choices, not measurements.**
+    // A directional light's position is only the shadow frustum's origin. The
+    // positive-X/positive-Z mount is the upper-right concept key over this 24 by
+    // 16 arena; its direction stays identical to the authored game room so the
+    // same masonry is never lit from two contradictory angles. The v4 diffuse,
+    // specular and fill constants are pinned by the render contract below, while
+    // their visible-browser judgement remains on the arena matrix's owed list.
     this.#key = new DirectionalLight("arena-key", new Vector3(-0.45, -1, -0.35), scene);
-    this.#key.position = new Vector3(18, 26, -4);
-    this.#key.intensity = 2.2;
-    // The greybox room's reviewed fill, by the numbers, because it is the fill
-    // the owner accepted against the legacy reference on 2026-08-09 and a second
-    // set of hand-picked constants beside it would be two answers to one
-    // question. See `applyAuthoredRoomLighting` in `render/room-review.ts`.
+    this.#key.position = new Vector3(18, 26, 12);
+    this.#key.diffuse = new Color3(1, 0.68, 0.42);
+    this.#key.specular = new Color3(0.36, 0.23, 0.15);
+    this.#key.intensity = 1.65;
+    // Generator v4 replaces the legacy-parity beige wash with a deliberately
+    // restrained neutral-umber fill. It preserves readable shadow-side anatomy
+    // but leaves enough range for the upper-right key and local room torches to
+    // establish the concept's light hierarchy.
     this.#fill = new HemisphericLight("arena-fill", new Vector3(0, 1, 0), scene);
-    this.#fill.diffuse = new Color3(0.68, 0.60, 0.50);
-    this.#fill.groundColor = new Color3(0.08, 0.065, 0.055);
-    this.#fill.intensity = 0.58;
+    this.#fill.diffuse = new Color3(0.30, 0.25, 0.20);
+    this.#fill.groundColor = new Color3(0.025, 0.020, 0.018);
+    this.#fill.intensity = 0.28;
     this.#shadows = new ShadowGenerator(SHADOW_MAP_SIZE, this.#key);
     this.#shadows.useBlurExponentialShadowMap = true;
     this.#floorMaterial = new PBRMaterial("arena-floor-material", scene);
@@ -417,8 +433,8 @@ export class ArenaEnvironment {
     x: number, z: number, quarterTurns: number, caster: boolean): void {
     const source = room.pieces.get(piece);
     if (source === undefined) return;
-    // The quarter turns are in the name because a synthesized corner is two
-    // instances of the same piece on the same tile.
+    // Quarter turns are part of the name so rotated authored roles remain
+    // distinct; only the synthetic four-way cross repeats a role on one tile.
     const mesh = source.createInstance(`arena-room:${piece}:${x}:${z}:${quarterTurns}`);
     mesh.position.set(x, 0, z);
     mesh.rotation.y = quarterTurns * QUARTER_TURN;

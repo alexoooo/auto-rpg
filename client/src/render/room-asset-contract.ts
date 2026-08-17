@@ -64,7 +64,7 @@ export type RoomAssetSidecar = Readonly<{
     solidTiles: 176;
   }>;
   styling: Readonly<{
-    id: "readable-stone-v1";
+    id: "concept-umber-stone-v2";
     mode: "deterministic-vertex-color";
     attribute: "room_style";
     textures: true;
@@ -250,7 +250,7 @@ export function parseRoomAssetSidecar(bytes: Uint8Array): RoomAssetSidecar {
   const stylingSource = record(source.styling, "room sidecar styling");
   exactKeys(stylingSource, ["id", "mode", "attribute", "textures"], "room sidecar styling");
   const styling = Object.freeze({
-    id: literal(stylingSource.id, "readable-stone-v1", "room sidecar styling id"),
+    id: literal(stylingSource.id, "concept-umber-stone-v2", "room sidecar styling id"),
     mode: literal(stylingSource.mode, "deterministic-vertex-color", "room sidecar styling mode"),
     attribute: literal(stylingSource.attribute, "room_style", "room sidecar styling attribute"),
     textures: literal(stylingSource.textures, true, "room sidecar styling textures"),

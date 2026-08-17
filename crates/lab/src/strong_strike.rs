@@ -1139,7 +1139,8 @@ fn provenance_boundary_kind(boundary: ProvenanceBoundary) -> &'static str {
 #[cfg(feature = "cartesian-recoil")]
 fn contact_kind_name(kind: ContactKind) -> &'static str {
     match kind { ContactKind::WeaponWeapon => "weapon_weapon",
-        ContactKind::WeaponShield => "weapon_shield", ContactKind::WeaponBody => "weapon_body" }
+        ContactKind::WeaponShield => "weapon_shield", ContactKind::WeaponBody => "weapon_body",
+        ContactKind::ProjectileBody => "projectile_body" }
 }
 
 #[cfg(feature = "cartesian-recoil")]
@@ -1260,7 +1261,8 @@ fn write_pose(out: &mut String, label: &str, row: sim::ArticulatedPose) {
 fn scan_shape_name(value: sim::ExactScanShapeDiagnostic) -> &'static str {
     match value { sim::ExactScanShapeDiagnostic::Body => "body",
         sim::ExactScanShapeDiagnostic::Segment => "segment",
-        sim::ExactScanShapeDiagnostic::Shield => "shield" }
+        sim::ExactScanShapeDiagnostic::Shield => "shield",
+        sim::ExactScanShapeDiagnostic::Projectile => "projectile" }
 }
 
 #[cfg(feature = "cartesian-recoil")]
@@ -1268,7 +1270,8 @@ fn scan_branch_name(value: sim::ExactScanBranchDiagnostic) -> &'static str {
     match value { sim::ExactScanBranchDiagnostic::SweptAabb => "swept_aabb",
         sim::ExactScanBranchDiagnostic::SegmentSegment => "segment_segment",
         sim::ExactScanBranchDiagnostic::SegmentShield => "segment_shield",
-        sim::ExactScanBranchDiagnostic::SegmentBody => "segment_body" }
+        sim::ExactScanBranchDiagnostic::SegmentBody => "segment_body",
+        sim::ExactScanBranchDiagnostic::ProjectileBody => "projectile_body" }
 }
 
 #[cfg(feature = "cartesian-recoil")]

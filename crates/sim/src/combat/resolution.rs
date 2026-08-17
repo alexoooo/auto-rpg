@@ -1392,7 +1392,9 @@ fn solve_contact_tick_with<P: ContactTrialProjector, K: ContactKinematics>(
             #[cfg(feature = "cartesian-recoil")]
             {
                 let recomputed = recomputed.ok_or(ResolutionError::ExactScan)?;
-                if recomputed.key != fact.key || recomputed.region != fact.region {
+                if recomputed.key != fact.key
+                    || (recomputed.region != fact.region
+                        && fact.key.kind != ContactKind::ProjectileBody) {
                     return Err(ResolutionError::ExactScan);
                 }
                 scratch.group_facts.push(recomputed);

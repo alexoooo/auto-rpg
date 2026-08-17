@@ -45,7 +45,7 @@ const ANATOMIES = ["fighter", "brute"] as const;
 export type AnatomyCode = (typeof ANATOMIES)[number];
 
 /** What a hand can hold, as `Carried.action` lowercased, plus nothing. */
-const HANDS = ["empty", "sword", "shield", "club"] as const;
+const HANDS = ["empty", "sword", "shield", "club", "bow"] as const;
 export type HandCode = (typeof HANDS)[number];
 
 export interface PolicyOption {
@@ -143,8 +143,38 @@ export function review(matchup: Matchup, mode: FightMode): Review {
         refusal: `${label} has both hands empty, and that is not a fighter this simulation can `
           + `build: Loadout.primary is an ActionKind rather than an Option, so slot 0 always `
           + `carries something, and validate_rows refuses an articulated row whose first `
-          + `equipment slot is empty against it. Give ${label} a sword, a shield or a club in `
+          + `equipment slot is empty against it. Give ${label} a sword, a shield, a club or Bow in `
           + `one hand.`,
+        notes: [],
+      };
+    }
+  }
+
+  // Bow has one canonical browser representation: the sole right-hand item,
+  // with the Both marker set. Refuse every other spelling here, before the
+  // configuration buffer reaches wasm, and name Bow rather than letting the
+  // generic grip prose make it sound interchangeable with a sword or club.
+  for (const [label, side] of sides(matchup)) {
+    if (side.left === "bow") {
+      return {
+        refusal: `${label} carries Bow in its left hand, but Bow is canonical only as the sole `
+          + `right-hand item with two-handed selected. Move Bow to ${label}'s right hand, empty `
+          + `the left hand, and tick two-handed.`,
+        notes: [],
+      };
+    }
+    if (side.right !== "bow") continue;
+    if (side.left !== "empty") {
+      return {
+        refusal: `${label} carries Bow while its left hand carries ${side.left}, but Bow must be `
+          + `the sole right-hand item. Empty ${label}'s left hand and keep two-handed selected.`,
+        notes: [],
+      };
+    }
+    if (!side.twoHanded) {
+      return {
+        refusal: `${label} carries Bow one-handed, but Bow requires the canonical two-handed `
+          + `right-hand grip. Tick two-handed for ${label}.`,
         notes: [],
       };
     }
@@ -161,7 +191,7 @@ export function review(matchup: Matchup, mode: FightMode): Review {
     if (side.right === "empty") {
       return {
         refusal: `${label} is set two-handed with an empty right hand, and a grip needs an item `
-          + `to sit on: give ${label} a sword or a club in the right hand, or untick two-handed.`,
+          + `to sit on: give ${label} a sword, a club or Bow in the right hand, or untick two-handed.`,
         notes: [],
       };
     }
@@ -169,7 +199,7 @@ export function review(matchup: Matchup, mode: FightMode): Review {
       return {
         refusal: `${label} is set two-handed on a shield, and a plate cannot be gripped in both `
           + `hands: validate_equipment refuses a Both-bound shield as a grip conflict. Put a `
-          + `sword or a club in the right hand, or untick two-handed.`,
+          + `sword, a club or Bow in the right hand, or untick two-handed.`,
         notes: [],
       };
     }

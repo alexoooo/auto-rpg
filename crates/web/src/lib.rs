@@ -9470,12 +9470,20 @@ mod tests {
         // are zero and the number moves anyway, because their presence is the
         // change. Predicted off this fixture in writing before the gate ran.
         // Previously `0xd1da_6a40_df04_80b2`.
+        //
+        // **Moved once more when the authoritative articulated-projectile
+        // store was appended to `World::state_digest`.** Even this unstepped
+        // fixture now writes the store's allocated-slot count after the
+        // release-state rows. It is zero, but the four bytes are present, so
+        // this is another grammar move rather than a projectile-values move.
+        // Previously `0x28dc_a7e7_57a1_ba3f` (default) and
+        // `0x8d92_c50f_3a16_ebce` (exact).
         #[cfg(not(feature = "cartesian-recoil"))]
-        assert_eq!(fixture_digest, 0x28dc_a7e7_57a1_ba3f);
+        assert_eq!(fixture_digest, 0x7194_bc63_6096_a0ff);
         #[cfg(feature = "cartesian-recoil")]
-        // Moved with its default-law twin above, and by the same two bytes.
-        // Previously `0x5fca_ba34_556b_2737`.
-        assert_eq!(fixture_digest, 0x8d92_c50f_3a16_ebce,
+        // Moved with its default-law twin above, and by the same appended
+        // allocated-slot count.
+        assert_eq!(fixture_digest, 0x3128_2286_fc15_7e8e,
             "the unregistered exact-law command witness moved");
     }
 
@@ -11644,7 +11652,17 @@ mod tests {
     /// ten region rows on every tick. Nothing in `crates/sim` changed and no
     /// fight golden moved with it, which is the signature of a layout move and
     /// the opposite of the three before it.
-    const ARTICULATED_STREAM_DIGEST: u64 = 0x2fac_2969_32b9_7439;
+    ///
+    /// **Moved again by the articulated-arrow session, from
+    /// `0x2fac296932b97439` to `0x3b0d5c93d5560dd9`.** The fourth
+    /// publication appends projectile length, drop count and live row words
+    /// after the region section. This fixture carries no Bow, so those are two
+    /// zero words per tick and the move still proves their presence. The
+    /// mechanics landed beside the publication also changed the event prefix:
+    /// ticks 3 and 5 now carry one row each rather than two. The move is
+    /// therefore both append-only publication and reached simulation values,
+    /// not a claim that the old pose/event/region prefix stayed byte-identical.
+    const ARTICULATED_STREAM_DIGEST: u64 = 0x3b0d_5c93_d556_0dd9;
 
     /// The north-wall stored-command lifecycle, paired with the feature-only
     /// wasm exports and registered in `docs/reference/hashes.md`.
@@ -11655,18 +11673,24 @@ mod tests {
     /// the payload bytes themselves, and it folds in `state_digest()` values
     /// that moved for the same reason. Three routes, one cause. Predicted in
     /// writing before the gate; the plan that owned the session predicted only
-    /// `ARTICULATED_COMMAND_HASH` and was wrong about these two.
+    /// `ARTICULATED_COMMAND_HASH` and was wrong about these two. **Moved again
+    /// by the authoritative articulated-projectile store**, which appends an
+    /// allocated-slot count and every retained slot's lifecycle and physical
+    /// fields to each folded `state_digest()`. Previously
+    /// `0x88e6ea929b8d4305`.
     #[cfg(feature = "cartesian-recoil")]
-    const EXACT_TRAJECTORY_STATE_DIGEST: u64 = 0x88e6_ea92_9b8d_4305;
+    const EXACT_TRAJECTORY_STATE_DIGEST: u64 = 0x4b07_e93c_cdc1_37ea;
 
     /// The terminal source-41 lifted Coulomb solver corpus, paired with the
     /// feature-only wasm exports and registered in `docs/reference/hashes.md`.
     ///
     /// Moved 2026-08-16 with its sibling above and for the same reason, from
     /// `0x83cd7bb2b73aeb9e`; its `command_receipt` writes the same width word
-    /// and the same payload.
+    /// and the same payload. **Moved again by the appended authoritative
+    /// articulated-projectile store** in every folded state digest, from
+    /// `0x8dc443385973a5c8`.
     #[cfg(feature = "cartesian-recoil")]
-    const LIFTED_COULOMB_SOLVER_DIGEST: u64 = 0x8dc4_4338_5973_a5c8;
+    const LIFTED_COULOMB_SOLVER_DIGEST: u64 = 0x4cba_fe3e_0f71_e14f;
 
     /// FNV-1a-64 over the logits `checkpoints/v2-probe.ckpt` produces on
     /// `learn_core`'s fixed observation corpus, prefix `ARPG-LEARNED-V1`.

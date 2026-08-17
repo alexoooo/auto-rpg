@@ -1,4 +1,4 @@
-// The v2-18 semantic rig, as one buildable hierarchy.
+// The representative combatant semantic rig, as one buildable hierarchy.
 //
 // **Extracted, not imported across.** `#/arena`'s proxy and `#/game`'s
 // procedural figure both build this chain, and neither may import the other:
@@ -18,7 +18,7 @@ export type RigNodes = Readonly<{
 }>;
 
 /**
- * Build the v2-18 parent chain: `pelvis` under `root` rather than beside it
+ * Build the durable parent chain: `pelvis` under `root` rather than beside it
  * because a rig's root is the placement and the pelvis is the first bone; the
  * arms hang off `torso` because a shoulder rides the chest; `socket_shield`
  * hangs off `root` so a consumer that reads the holder off published rows can

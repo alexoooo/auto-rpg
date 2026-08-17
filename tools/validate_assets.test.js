@@ -119,9 +119,9 @@ test("payload_and_conservative_gpu_estimates_use_the_documented_formula", () => 
   assert.deepEqual(estimate, {
     sourceBufferBytes: 12,
     decodedTextureBytes: 0,
-    instanceBufferBytes: 225280,
+    instanceBufferBytes: 222208,
     shadowMapBytes: 4194304,
-    totalBytes: 4419596,
+    totalBytes: 4416524,
   });
 });
 
@@ -170,6 +170,44 @@ test("authored_wall_sources_are_coursed_masonry_with_bounded_detail", () => {
   assert.ok(sidecar.counts.triangles >= 1_200, "the kit needs enough geometry to read as masonry");
   assert.ok(sidecar.counts.triangles <= manifest.budgets.maxTriangles);
   assert.ok(sidecar.counts.vertices <= manifest.budgets.maxVertices);
+});
+
+test("wall_piece_bounds_encode_centreline_arms_for_ends_corners_and_tees", () => {
+  const manifest = JSON.parse(fs.readFileSync(MANIFEST, "utf8"));
+  const walls = new Map(manifest.pieces.filter(({ name }) => name.startsWith("wall_"))
+    .map(({ name, bounds }) => [name, bounds]));
+  assert.deepEqual(walls.get("wall_straight"),
+    { min: ["-0.5", "0.0", "-0.09"], max: ["0.5", "0.9", "0.09"] });
+  assert.deepEqual(walls.get("wall_inside"),
+    { min: ["-0.09", "0.0", "-0.09"], max: ["0.5", "0.9", "0.5"] });
+  assert.deepEqual(walls.get("wall_outside"),
+    { min: ["-0.5", "0.0", "-0.09"], max: ["0.5", "0.9", "0.5"] });
+  assert.deepEqual(walls.get("wall_end"),
+    { min: ["-0.09", "0.0", "-0.09"], max: ["0.5", "0.9", "0.09"] });
+  const source = fs.readFileSync(path.join(ROOT, "tools", "art", "room.py"), "utf8");
+  assert.match(source, /_junction_wall/);
+  assert.doesNotMatch(source, /\[-0\.5, 0, 0\.32\]|\[0\.32, 0, -0\.5\]/,
+    "corner arms may not hug tile edges away from neighbouring centreline runs");
+});
+
+test("the_concept_palette_keeps_wood_aged_and_masonry_blocks_value_separated", () => {
+  const manifest = JSON.parse(fs.readFileSync(MANIFEST, "utf8"));
+  const variation = Number(manifest.styling.variation);
+  assert.ok(variation >= 0.10 && variation <= 0.14);
+  assert.deepEqual(["woodEnd", "woodSide", "woodTop"].every((name) => name in manifest.styling.palette), true);
+  const wood = manifest.materials.wood_current;
+  const [red, green, blue, roughness] =
+    ["baseColorR", "baseColorG", "baseColorB", "roughness"].map((name) => Number(wood[name]));
+  assert.ok(red <= 0.18 && red - green <= 0.08 && green - blue <= 0.05,
+    "door and props must remain aged brown rather than saturated orange");
+  assert.ok(roughness >= 0.86);
+  const end = manifest.styling.palette.woodEnd.slice(0, 3).map(Number);
+  const warmKey = [1, 0.68, 0.42];
+  const endResponse = [red * end[0] * warmKey[0],
+    green * end[1] * warmKey[1], blue * end[2] * warmKey[2]];
+  assert.ok(Math.max(...endResponse) - Math.min(...endResponse) <= 0.015,
+    "the barrel end grain must remain aged umber under the runtime warm key");
+
 });
 
 test("malformed_glb_chunks_sidecars_hashes_and_duplicate_names_fail_closed", async () => {

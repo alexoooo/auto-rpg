@@ -1,7 +1,11 @@
-# 0005: Articulated projectiles use the contact solver
+# ADR 0005: articulated projectiles use the contact solver
 
-**Status:** accepted  
-**Date:** 2026-08-16
+**Purpose:** Record why articulated arrows enter the shared contact solver as explicit projectile colliders instead of maintaining a second damage law.
+**Status:** current
+**Canonical source:** The current normative contracts are [Contact solver](../reference/contact-solver.md) and [Anatomy and health](../reference/anatomy-health.md); implementation lives in [`contact.rs`](../../crates/sim/src/combat/contact.rs), [`resolution.rs`](../../crates/sim/src/combat/resolution.rs), and [`world.rs`](../../crates/sim/src/world.rs).
+**Update when:** Projectile contact identity, solver participation, regional assignment, damage credit, capacity, or the legacy-hash isolation boundary changes.
+
+**ADR status:** accepted
 
 ## Context
 

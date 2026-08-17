@@ -1,75 +1,59 @@
 # Version 2 -- remaining work
 
-**Status:** live roadmap. Completed sessions have been removed; durable contracts,
-rationale, and evidence live under `docs/` rather than in retired plans.
+**Status:** live roadmap. Completed sessions are retired; durable contracts,
+rationale, and evidence live under `docs/` rather than in finished plans.
 
-Version 2 has shipped the worker-backed GPU client, articulated command and combat
-model, pose/region/event publications, configurable browser arena, frozen learned
-inference, and the native learning probe. The Canvas game remains the compatibility
-control. None of the six legacy hashes moved while those tracks landed.
+Version 2 has shipped the worker-backed GPU client, articulated commands and combat,
+the native learning probe, configurable live arena recording, pose/region/event/
+projectile publications, canonical Bow release mechanics, and representative authored
+Fighter and Brute presentation. The Canvas game remains the compatibility control.
 
-The visual slice was accepted with the measured exceptions recorded in the
-[performance index](../performance/README.md). The articulated mechanical gate did
-not pass, no `ARTICULATED_HASH` was created, and the learning probe closed `revise`
-rather than `expand`. Those outcomes, not the old session sequence, define the work
-that remains.
-
-**Picking this up cold?** Start with
-[`HANDOFF-2026-08-16.md`](HANDOFF-2026-08-16.md): what landed, what is next in order,
-the traps that have already cost time, and the pin-prediction method the last five
-sessions arrived at the hard way.
+The articulated-bow and representative-rig implementation slices are complete. Their
+old handoff and session plans have been retired. Start from the authorities below,
+not a progress ledger. The one implementation closeout still blocking an
+`ARTICULATED_HASH` is the exact-law native/wasm parity result recorded under
+[Current blocker](#current-blocker).
 
 ## Live work
 
 | work | state | dependency | hash expectation |
 |---|---|---|---|
-| [Room view](room-view-00-overview.md) | **complete, 2026-08-16.** Both sessions landed; corner/tee/stub rotations are pair-derived, the fog frontier is topology-only, `#/game` follows the hero at zoom 8, wall joins are synthesized from crossing straights, and the cylinder is a procedural figure on the `v2-18` joint names | none | **none moved**, as promised -- no `crates/` file was touched |
-| [Combat arms](combat-arms-00-overview.md) | **complete, 2026-08-16.** Five sessions, not four: 01 grip, 02 coupling, 03 Brute policy, 04 free guard arm, and an unplanned 05 that found why 02 and 03 both failed | 05 was written after 03's result and is the one that moved the outcome | **none moved, in any of the five.** This row originally predicted two and both predictions were wrong; see the overview's note on reading a prediction off the fixture |
-| [Articulated bow](articulated-bow-00-overview.md) | **step 1 of five landed 2026-08-16**; steps 2-5 not started | after combat arms; consumes its two-handed grip | step 1 moved `ARTICULATED_COMMAND_HASH` (a different value under each law) and both feature-only exact digests, all predicted beforehand. `BOW_HASH` and `LAB_HASH` did **not** move and must not; either moving is a failure of the isolation |
-| [Representative Fighter and Brute rigs](v2-18-combatant-integration.md) | partially discharged; asset half outstanding | the gate's clock criterion is now cleared; [room view 02](room-view-02-corner-joins-and-figure.md) delivers the visible result procedurally | presentation-only: every legacy and articulated pin unchanged |
-| [Smart articulated combat](smart-ai-134-arm-slew-and-region-attribution.md) | **Smart134 landed.** The arm bearing pair doubled to `2_184`/`364`; the windmill control now decides 96.5% of duels against 3.0%, clearing the gate's clock criterion for the first time. [Smart133](smart-ai-133-ordinal-31-tick-46-segment-hilt-start-x.md) is paused, not withdrawn | the composed script is still the bottleneck and both its candidate repairs are coupled to the learned action layout; plan that separately rather than tuning it in passing | `ARTICULATED_STREAM_DIGEST` moved once, paired and predicted; no other pin moved and none was re-recorded. The remaining three gate criteria, generalized competence and `v2-18` are still open |
-| Controlled Robust Strike | retained and visibly verified as a feature-only demonstration; standard production stays default | durable evidence is in the [tactical policy record](../performance/smart-ai-tactical-policy.md#controlled-strong-strike-reference) | no existing pin moves |
-| [Articulated contact research record](../performance/v2-articulated-contact-research.md) | durable evidence | exact retained-contact findings and rejected response/state hypotheses formerly spread across Smart AI sessions 01--34 | evidence only; no authority |
-| [Hierarchical combat learning](hierarchical-ai-00-overview.md) | proposed research successor | first prove that fixed `(loadout, strategy)` options have context-dependent headroom on a mechanically productive corpus | native research moves no pins; promotion is separately gated |
-| Visible browser evidence | blocked on a person using a foreground tab | follow the [arena matrix](../performance/v2-arena-matrix.md) and remaining [room matrix](../performance/v2-room-matrix.md) slots | no hashes move |
+| Exact-law target parity | **blocked on diagnosis.** A fresh exact wasm build stops the configured Composed/Windmill arena at tick 278 while current native release stops at 164. An archived pre-Bow baseline built with the current toolchain reproduces wasm 278, so this is not Bow or projectile causality and must not be re-pinned away | isolate the toolchain/target boundary before any promotion or articulated fight golden | registered command, stream, exact-trajectory, lifted-solver and legacy pins already agree across targets; the fight-stop disagreement remains a failure |
+| [Smart articulated combat](smart-ai-134-arm-slew-and-region-attribution.md) | Smart134 landed; [Smart133](smart-ai-133-ordinal-31-tick-46-segment-hilt-start-x.md) remains paused research, not a release prerequisite | any successor needs a separately approved causal question | no production pin moves without a fixture-owned prediction |
+| [Hierarchical combat learning](hierarchical-ai-00-overview.md) | proposed research successor | first prove fixed `(loadout, strategy)` options have context-dependent headroom on a mechanically productive corpus | native research moves no pins; promotion is separately gated |
+| Visible browser evidence | blocked on a person using a foreground tab | follow the [arena matrix](../performance/v2-arena-matrix.md) and [room matrix](../performance/v2-room-matrix.md) | no hashes move |
 
-`v2-18` stays blocked. Its rigs are presentation-only, but producing them around a
-mechanical model whose representative gate still times out in nearly every fight
-would turn an unresolved foundation into asset sunk cost.
+The learned exact duel now reaches its 300-tick limit in both current native and wasm.
+The archived pre-Bow wasm baseline does the same, so its old wasm-only assertion at
+259 is also not projectile causality. That stale expectation needs its own explained
+test correction; it is not evidence that the 164/278 disagreement is safe.
 
-The smart-combat successor has advanced beyond the old Smart36 handoff. The committed
-feature chain now carries exact lifted trajectories, segment geometry, certified
-group membership, response provenance, quotient normalization, and retained solver
-scratch through Smart120. Its recorded native and feature-wasm receipts agree, and
-the feature artifact runs twice without second-call memory growth. Smart117 also
-retains a controlled Robust Strike Arena preset and two visible-browser receipts.
-These are verified results in Git history, still behind the opt-in, non-default
-feature.
+## Completed implementation slices
 
-They do not promote the feature build. The earlier Smart117 memory receipt ran
-before the feature artifact was built and therefore exercised the default wasm left
-on disk. A fresh feature run exposed a compatibility-only clinch fixture, an exact
-lattice refusal for a picker-valid configuration, and no death in the old learned
-index fixture. The paired digest exports now have honest feature owners at the browser
-boundary. They do not discharge the clinch, picker-valid refusal or learned-index
-fixture results above. Standard `npm run dev` and `npm run build` still remain
-default: authority closure was not a feature-promotion decision.
+The articulated-bow slice now owns the whole path rather than only a release verb:
+the command layout carries per-arm release requests; the canonical Bow grip is
+validated; live arrows are separate generational entities resolved through the
+contact solver; the authoritative store is hashed; and the browser publishes,
+records, parses, traces, interpolates and disposes projectile rows. The durable
+contracts are [articulated command V1](../reference/articulated-command-v1.md),
+[articulated publications](../reference/articulated-abi.md),
+[contact solver](../reference/contact-solver.md), the
+[projectile decision](../decisions/0005-articulated-projectiles-use-the-contact-solver.md),
+and the [golden registry](../reference/hashes.md#golden-registry).
 
-They do not establish generalized policy competence. Smart115 measured `21/100`
-strict zero-refusal body decisions and `55/100` outcome-only. Smart125's attempted
-recertification fell to `49/100` outcome-only and was fully reverted. The controlled
-preset is deliberately a fixed demonstration, not evidence that ordinary Tactical
-selects the same attack from observations. Training, browser promotion, the final v2
-gate, `ARTICULATED_HASH`, and `v2-18` therefore remain unauthorized.
+The representative Fighter and Brute slice is also complete. Authored skinned
+archetypes cross a pinned sibling asset contract, clone into independent dresses,
+follow published joints and equipment sockets, and react or detach only from
+published events. Procedural figures remain the fallback rather than the shipped
+look. The durable authority is [asset architecture](../architecture/assets.md),
+with runtime ownership in [browser architecture](../architecture/browser-runtime.md)
+and visual measurements in the [arena matrix](../performance/v2-arena-matrix.md).
 
-The learning result authorizes revision only. It does not authorize scale, search,
-browser training, GPU evaluation, or a Lab workbench. Hierarchy now has a separate
-[research plan](hierarchical-ai-00-overview.md) with its own fixed-option baseline,
-thresholds, and stop paths; the plan does not itself authorize training or promotion.
+Neither completion authorizes exact-law promotion, browser training, a larger roster,
+or a new authoritative animation channel. Presentation still consumes snapshots and
+never feeds authority back into simulation.
 
 ## Current decisions and authorities
-
-The old overview duplicated contracts that now have canonical homes:
 
 - crate direction and host ownership: [architecture overview](../architecture/overview.md);
 - deterministic authority: [determinism contract](../reference/determinism.md#contract);
@@ -85,73 +69,40 @@ The old overview duplicated contracts that now have canonical homes:
 - browser transport and ownership: [worker protocol](../reference/worker-protocol.md),
   [frame ABI](../reference/frame-abi.md), [articulated publications](../reference/articulated-abi.md),
   and [browser runtime](../architecture/browser-runtime.md);
-- the still-unpassed mechanical contract and its measurements:
-  [gate reference](../reference/articulated-mechanical-gate.md) and
-  [gate evidence](../performance/v2-articulated-gate.md);
+- articulated gate and measurements: [gate reference](../reference/articulated-mechanical-gate.md)
+  and [gate evidence](../performance/v2-articulated-gate.md);
 - learning boundary and result: [learning architecture](../architecture/learning.md)
   and [held-out corpus](../performance/v2-learning-probe.md).
 
 These boundaries remain load-bearing: no float enters authoritative state; replay
 stores submitted commands rather than policies; presentation owns no authority;
-persistent browser consumers use full entity identity; layouts are append-only and
-versioned; and legacy hashing emits its original byte stream exactly.
+persistent browser consumers use slot plus generation identity; layouts are
+append-only and versioned; and legacy hashing emits its original byte stream exactly.
 
-## Gate state
+## Current blocker
 
-The proposed articulated gate remains the prerequisite for `v2-18`, but its old
-thresholds cannot simply be rerun:
+The exact artifact is not stale. The publication closeout rebuilt
+`target/wasm32-unknown-unknown/release/web.wasm` from the current tree with
+`--features cartesian-recoil`, recorded its timestamp and SHA-256, and reproduced the
+configured fight's tick 278 in both a focused run and the complete wasm gate. Current
+native release reproduces tick 164. Building archived commit `a03cdf3` with the same
+current toolchain reproduces the wasm-side 278 and the learned 300 before any Bow
+change existed.
 
-- the current composed corpus reaches the tick limit in 99.0% of trials;
-- the arm/contact energy scale is roughly 35x short of the legacy impact scale;
-- `contact_cap_hits == 0` is unreachable under the current workload;
-- the side-advantage threshold has insufficient statistical margin;
-- energy excess is meaningful only beside the solver-rejection count.
+That isolation closes one tempting explanation: neither projectile storage nor
+projectile contact caused these two counter moves. It does not close the portability
+failure. Do not change the exact configured-fight expectation from 164 to 278, create
+`ARTICULATED_HASH`, or promote the feature build until the target/toolchain boundary
+is explained and native and wasm run the same fight to the same stopping tick.
 
-A successor must amend those criteria before recording fixtures or evidence. It must
-not create `ARTICULATED_HASH` until native direct run, native replay, wasm replay, and
-the visible review all pass the revised contract.
-
-**Two of those five bullets are now stale, 2026-08-16.** The clock criterion was cleared
-by Smart134's arm-slew doubling, and the energy-scale bullet is wrong twice over: "35x"
-is a *speed* ratio while the damage law consumes `v^2`, so the billed gap is nearer
-1,200x, and the number was recorded on 2026-08-10 and never re-measured after the
-doubling. More importantly the shortfall was never the whole story --
-`club().surface.edge_factor` is zero and `pressure` reached no anatomy, so a swung club
-could not injure anybody **at any speed, by construction**. Blunt force now has a
-representation and the representative fight has changed character: the Fighter's end
-health falls to `0.8575` from a band it had never left, and the Brute wins nine trials
-in two hundred having previously won none. The full derivation, the corrected
-arithmetic and the ranked levers are in
-[gate evidence](../performance/v2-articulated-gate.md). None of this passes the gate or
-creates `ARTICULATED_HASH`; it removes the reason the gate could not be approached.
-
-The exact mechanics implementation is now retained through trajectory, solver, and
-wasm-stack closure. The completed
-[contact research record](../performance/v2-articulated-contact-research.md) traces
-why local impulse tuning, scalar/projector searches, and an integer affine Cartesian
-model were rejected. The retained feature path carries exact trajectory and response
-state through scan, recomputation, commit, replay, and native/wasm comparison without
-making it default authority.
-
-The frozen east-wall experiment then tested the remaining lifecycle boundary with a
-56-tick ordinary-command replay. Live/live/replay matched; the
-accepted strike, both exact remainder classes, and the later ordinary release all
-appeared. The defender-body `RecoilExternalEnergy::WALL` row did not. That missing
-ordinary boundary witness is now closed: measurement showed that the stopped
-fixture's response moved away from the east wall, and the unchanged stream produced
-the body row at the response-aligned north wall. Smart122 registers that later
-wall/remainder/release lifecycle at `0x83051e8c6b4ef20f`. Smart123 separately
-registers the eighteen terminal-at-first-contact source-41 solver cases at
-`0x83cd7bb2b73aeb9e`. Their mechanics, ownership and re-record paths now live in the
-canonical solver and hash references. Exact-contact authority closure is
-complete; ordinary Tactical competence, feature promotion and the representative
-mechanical gate are not.
-None of this reopens `v2-18` or creates
-`ARTICULATED_HASH` by existence.
+All registered equality witnesses do agree: the default and exact command hashes,
+default and exact publication streams, exact-trajectory digest, lifted-solver digest,
+combat geometry, contact corpus, learned inference digest, and every legacy browser
+golden. That narrows the failure; it does not excuse it.
 
 ## Verification
 
-Documentation-only roadmap changes expect no hash movement and run:
+Documentation-only roadmap changes run:
 
 ```powershell
 node tools/check_docs.js

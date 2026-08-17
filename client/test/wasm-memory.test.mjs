@@ -21,7 +21,7 @@ function generatedConstants() {
     "UNIT_STRIDE", "SHOT_STRIDE", "EVENT_STRIDE", "MAX_UNITS", "MAX_SHOTS", "MAX_EVENTS",
     "HEADER_UNIT_COUNT", "HEADER_SHOT_COUNT", "HEADER_EVENT_COUNT", "HEADER_DEPTH",
     "HEADER_EVENTS_DROPPED",
-    // The three articulated publications. Required rather than optional because
+    // The four articulated publications. Required rather than optional because
     // the fixtures below size their retained views off them: a missing constant
     // would read as `undefined`, a view of `undefined` length is zero-length,
     // and a zero-length view cannot witness a detach.
@@ -35,6 +35,8 @@ function generatedConstants() {
     "POSE_LAYOUT_VERSION", "POSE_STRIDE", "MAX_POSES",
     "COMBAT_EVENT_LAYOUT_VERSION", "COMBAT_EVENT_STRIDE", "MAX_COMBAT_EVENTS",
     "REGION_LAYOUT_VERSION", "REGION_STRIDE", "REGIONS_PER_BODY", "MAX_REGIONS",
+    "ARTICULATED_PROJECTILE_LAYOUT_VERSION", "ARTICULATED_PROJECTILE_STRIDE",
+    "MAX_ARTICULATED_PROJECTILES",
   ];
   for (const name of required) assert.ok(result.has(name), `${name} is missing from generated ABI`);
   return Object.fromEntries(result);
@@ -554,11 +556,12 @@ test("published_legacy_views_survive_every_warm_path_without_memory_growth", () 
 // ------------------------------------- the articulated publication stress
 //
 // v2-16 put two more fixed arrays in linear memory -- 16,896 pose bytes and
-// 262,144 event bytes -- and four more ways to fill them. The subject is the
+// 262,144 event bytes -- and four more ways to fill them. The later region and
+// projectile publications extend the same fixed warm set. The subject is the
 // one the two fixtures above have and it has not changed: after warm-up,
 // nothing the boundary can be asked to do grows `memory.buffer.byteLength`, so
-// a typed array the worker holds over FRAME, POSES or COMBAT_EVENTS stays
-// attached for the life of the module.
+// a typed array the worker holds over FRAME, POSES, COMBAT_EVENTS, REGIONS or
+// ARTICULATED_PROJECTILES stays attached for the life of the module.
 //
 // What is new is where the growth could come from. The pose and event arrays
 // are `thread_local!` statics and cannot themselves move; the risk is entirely
@@ -566,7 +569,7 @@ test("published_legacy_views_survive_every_warm_path_without_memory_growth", () 
 // `MAX_COMBAT_EVENTS`, the contact vectors an articulated world reserves, and
 // the second `Sim` every reset and every descent briefly holds.
 
-// The two published articulated buffers, validated the way `publicationShape`
+// The published articulated buffers, validated the way `publicationShape`
 // validates the legacy four. Everything here is read through an export and
 // compared against the *generated* ABI rather than against a literal, so a
 // capacity that moved in Rust without the emitter following it fails here.
@@ -575,6 +578,8 @@ function articulatedShape(wasm, abi) {
   const poseRows = wasm.pose_len() >>> 0;
   const eventPtr = wasm.combat_event_ptr() >>> 0;
   const eventRows = wasm.combat_event_len() >>> 0;
+  const projectilePtr = wasm.articulated_projectile_ptr() >>> 0;
+  const projectileRows = wasm.articulated_projectile_len() >>> 0;
   assert.equal(wasm.pose_layout_version() >>> 0, abi.POSE_LAYOUT_VERSION, "pose layout version");
   assert.equal(wasm.pose_stride() >>> 0, abi.POSE_STRIDE, "pose stride disagrees with emitted ABI");
   assert.equal(wasm.pose_capacity() >>> 0, abi.MAX_POSES, "pose capacity disagrees with emitted ABI");
@@ -593,15 +598,41 @@ function articulatedShape(wasm, abi) {
     abi.MAX_COMBAT_EVENTS,
     "combat event capacity disagrees with emitted ABI",
   );
+  assert.equal(
+    wasm.articulated_projectile_layout_version() >>> 0,
+    abi.ARTICULATED_PROJECTILE_LAYOUT_VERSION,
+    "articulated projectile layout version",
+  );
+  assert.equal(
+    wasm.articulated_projectile_stride() >>> 0,
+    abi.ARTICULATED_PROJECTILE_STRIDE,
+    "articulated projectile stride disagrees with emitted ABI",
+  );
+  assert.equal(
+    wasm.articulated_projectile_capacity() >>> 0,
+    abi.MAX_ARTICULATED_PROJECTILES,
+    "articulated projectile capacity disagrees with emitted ABI",
+  );
   assert.ok(poseRows <= abi.MAX_POSES, `pose count ${poseRows} exceeds its capacity`);
   assert.ok(eventRows <= abi.MAX_COMBAT_EVENTS, `event count ${eventRows} exceeds its capacity`);
+  assert.ok(
+    projectileRows <= abi.MAX_ARTICULATED_PROJECTILES,
+    `projectile count ${projectileRows} exceeds its capacity`,
+  );
   // The pose cap is the sim's own `MAX_ARTICULATED_ENTITIES`, so a drop here is
   // not a busy fight -- it is the cap or the identity ordering being wrong.
   assert.equal(wasm.poses_dropped() >>> 0, 0, "a pose row was dropped by a world sized to the sim's cap");
+  assert.equal(
+    wasm.articulated_projectiles_dropped() >>> 0,
+    0,
+    "a projectile row was dropped by a world sized to the sim's cap",
+  );
   const memoryBytes = wasm.memory.buffer.byteLength;
   for (const [name, pointer, bytes] of [
     ["POSES", posePtr, abi.MAX_POSES * abi.POSE_STRIDE * 4],
     ["COMBAT_EVENTS", eventPtr, abi.MAX_COMBAT_EVENTS * abi.COMBAT_EVENT_STRIDE * 4],
+    ["ARTICULATED_PROJECTILES", projectilePtr,
+      abi.MAX_ARTICULATED_PROJECTILES * abi.ARTICULATED_PROJECTILE_STRIDE * 4],
   ]) {
     assert.ok(pointer > 0, `${name} is published at address zero`);
     assert.equal(pointer % 4, 0, `${name} is not u32-aligned`);
@@ -609,7 +640,9 @@ function articulatedShape(wasm, abi) {
   }
   return { posePtr, poseBytes: abi.MAX_POSES * abi.POSE_STRIDE * 4,
     eventPtr, eventBytes: abi.MAX_COMBAT_EVENTS * abi.COMBAT_EVENT_STRIDE * 4,
-    poseRows, eventRows };
+    projectilePtr,
+    projectileBytes: abi.MAX_ARTICULATED_PROJECTILES * abi.ARTICULATED_PROJECTILE_STRIDE * 4,
+    poseRows, eventRows, projectileRows };
 }
 
 // How deep the stress drives an articulated run, and the number is measured
@@ -861,11 +894,12 @@ test("published_views_survive_articulated_stress_without_memory_growth", () => {
   // wrong one survives, and why it is worth correcting rather than deleting.
   //
   // The publication budget was 279,040 across v2-16's two publications until
-  // v2-ui-06 appended the five swept region capsules per body (`8 * 320 * 4`),
-  // and **the page count did not move with it**: 4.26 pages and 4.41 pages round
-  // up to the same 5, and the arrays are static, so a third publication was free
-  // at this resolution. It would stop being free at the next page boundary,
-  // 327,680 bytes, which is 38,400 further on.
+  // v2-ui-06 appended the five swept region capsules per body (`8 * 320 * 4`)
+  // for 289,280. The projectile publication adds `32 * 12 * 4`, reaching
+  // 290,816, and **the page count did not move with either append**: 4.26, 4.41
+  // and 4.44 pages all round up to the same 5. The arrays are static, so both
+  // publications were free at this resolution. The next page boundary is
+  // 327,680 bytes, 36,864 further on.
   let last = null;
   for (let round = 1; round <= ARTICULATED_WARM_ROUNDS; round++) {
     for (const seed of seeds) last = articulatedStress(wasm, abi, seed);
@@ -887,6 +921,7 @@ test("published_views_survive_articulated_stress_without_memory_growth", () => {
     new Float32Array(baselineBuffer, shape.framePtr, shape.frameLength),
     new Uint32Array(baselineBuffer, articulated.posePtr, articulated.poseBytes / 4),
     new Uint32Array(baselineBuffer, articulated.eventPtr, articulated.eventBytes / 4),
+    new Uint32Array(baselineBuffer, articulated.projectilePtr, articulated.projectileBytes / 4),
     new Uint8Array(baselineBuffer, shape.mapPtr, shape.mapLength),
     new Uint8Array(baselineBuffer, shape.visPtr, shape.visLength),
     new Uint8Array(baselineBuffer, shape.furniturePtr, shape.furnitureBytes),
@@ -895,6 +930,8 @@ test("published_views_survive_articulated_stress_without_memory_growth", () => {
   assert.ok(retainedLengths.every((length) => length > 0), "warm fixture left an empty retained view");
   assert.equal(retainedLengths[1], 16_896, "the pose buffer is not the reference's 16,896 bytes");
   assert.equal(retainedLengths[2], 262_144, "the event buffer is not the reference's 262,144 bytes");
+  assert.equal(retainedLengths[3], 1_536,
+    "the projectile buffer is not the reference's 1,536 bytes");
 
   function assertWarmInvariant(label) {
     const after = publicationShape(wasm, abi);
@@ -915,6 +952,8 @@ test("published_views_survive_articulated_stress_without_memory_growth", () => {
     assert.equal(after.furniturePtr, shape.furniturePtr, `${label}: FURNITURE moved`);
     assert.equal(afterArticulated.posePtr, articulated.posePtr, `${label}: POSES moved`);
     assert.equal(afterArticulated.eventPtr, articulated.eventPtr, `${label}: COMBAT_EVENTS moved`);
+    assert.equal(afterArticulated.projectilePtr, articulated.projectilePtr,
+      `${label}: ARTICULATED_PROJECTILES moved`);
   }
 
   let peak = 0;
@@ -1088,20 +1127,23 @@ test("arena_start_allocates_within_the_warm_set", async () => {
   const regionPointer = wasm.region_ptr() >>> 0;
   const regionBytes = abi.MAX_REGIONS * abi.REGION_STRIDE * 4;
 
-  // **The region array joins the retained set here**, which v2-ui-06 left for
-  // the session with a consumer -- and this is it: the recorder holds a view over
-  // every published region row on every tick of a 3,600-tick drive.
+  // **The region and projectile arrays join the retained set here.** The
+  // recorder holds a view over every published row on every tick of a
+  // 3,600-tick drive, including ticks on which the live prefix is empty.
   const retained = [
     new Float32Array(baselineBuffer, shape.framePtr, shape.frameLength),
     new Uint32Array(baselineBuffer, articulated.posePtr, articulated.poseBytes / 4),
     new Uint32Array(baselineBuffer, articulated.eventPtr, articulated.eventBytes / 4),
     new Uint32Array(baselineBuffer, regionPointer, regionBytes / 4),
+    new Uint32Array(baselineBuffer, articulated.projectilePtr, articulated.projectileBytes / 4),
     new Uint8Array(baselineBuffer, shape.mapPtr, shape.mapLength),
     new Uint8Array(baselineBuffer, shape.visPtr, shape.visLength),
   ];
   const retainedLengths = retained.map((view) => view.byteLength);
   assert.ok(retainedLengths.every((length) => length > 0), "warm fixture left an empty retained view");
   assert.equal(retainedLengths[3], 10_240, "the region buffer is not the reference's 10,240 bytes");
+  assert.equal(retainedLengths[4], 1_536,
+    "the projectile buffer is not the reference's 1,536 bytes");
   // **FURNITURE is deliberately not retained**, on the same argument the two
   // fixtures above make for calling `init` first: a configured duel has no
   // furniture at all, so a view over an arena publication's furniture block is
@@ -1127,6 +1169,8 @@ test("arena_start_allocates_within_the_warm_set", async () => {
       assert.equal(afterArticulated.posePtr, articulated.posePtr, `${label}: POSES moved`);
       assert.equal(afterArticulated.eventPtr, articulated.eventPtr, `${label}: COMBAT_EVENTS moved`);
       assert.equal(wasm.region_ptr() >>> 0, regionPointer, `${label}: REGIONS moved`);
+      assert.equal(afterArticulated.projectilePtr, articulated.projectilePtr,
+        `${label}: ARTICULATED_PROJECTILES moved`);
       assert.equal(after.mapPtr, shape.mapPtr, `${label}: MAP moved`);
       assert.equal(after.visPtr, shape.visPtr, `${label}: VIS moved`);
       assert.equal(after.furniturePtr, shape.furniturePtr, `${label}: FURNITURE moved`);

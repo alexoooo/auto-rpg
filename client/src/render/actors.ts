@@ -8,7 +8,7 @@ import {
 } from "./combatant-dress.js";
 import type { CombatantAsset } from "./combatant-assets.js";
 import {
-  buildFigure, buildFigureSources, poseFigure, type Figure, type FigureSources,
+  buildFigure, buildFigureSources, figureBodyHeightRadii, poseFigure, type Figure, type FigureSources,
 } from "./figure.js";
 import type { PresentationSnapshot, PresentationUnit } from "./presentation.js";
 import { decideUnitPresence, type PresenceDecision } from "./visibility.js";
@@ -154,8 +154,7 @@ export class ActorPresentation {
   #pose(node: ActorNode, unit: PresentationUnit, snapshot: PresentationSnapshot): void {
     poseFigure(node.figure, unit);
     if (node.dress === null) return;
-    const heightInRadii = unit.kind === 2 ? 2.7 : 3.0;
-    copyCombatantRigPose(node.dress, node.figure.nodes, unit.radius * heightInRadii);
+    const heightInRadii = figureBodyHeightRadii(unit.kind);
     node.dress.setEnabled(true);
     const armed = unit.actionRole !== 2 && unit.limbReach > 0.05;
     const shielded = unit.actionRole === 1;
@@ -168,8 +167,14 @@ export class ActorPresentation {
       : snapshot.events.some((event) => event.actorIndex === unit.index &&
           (event.kind === EVENT_DAMAGE || event.kind === EVENT_SHOVE)) ? "stagger" : null;
     const locomotion = Math.hypot(unit.vx, unit.vy) > unit.radius * 0.001 ? "walk" : "idle";
+    const selected = reaction ?? locomotion;
+    node.dress.sampleClip(selected, reaction === null ? unit.stridePhase : 0);
+    // Every authored group is force-sampled over the full skeleton. Restoring
+    // the publication after sampling is what prevents cosmetic motion from
+    // moving a hand, socket or region the simulation placed.
+    copyCombatantRigPose(node.dress, node.figure.nodes, unit.radius * heightInRadii);
     for (const clip of ["idle", "walk", "stagger", "fall"] as const) {
-      node.dress.nodes.get(clip)?.setEnabled(clip === (reaction ?? locomotion));
+      node.dress.nodes.get(clip)?.setEnabled(clip === selected);
     }
   }
 

@@ -1,14 +1,11 @@
-// The procedural figure `#/game` draws instead of a cylinder, behind the seam
-// an authored rig would plug into.
+// The procedural figure `#/game` draws when an authored combatant is unsupported
+// or unavailable, behind the same semantic seam as the authored dress.
 //
 // **The binding is the durable part, not the meshes.** `poseFigure` maps the
-// published legacy frame row onto the v2-18 node names (`rig-names.ts`), and
-// the primitive meshes hang off those nodes; a future authored rig implements
-// the same mapping against the same names and nothing else in the renderer
-// moves. A character GLB additionally needs its own loader --
-// `room-assets.ts` requires zero skeletons and zero animations and so rejects
-// a rigged body by construction -- and that loader is deliberately not built
-// here.
+// published legacy frame row onto the durable combatant node names
+// (`rig-names.ts`). The authored Fighter and Brute and the primitive fallback
+// implement the same mapping, so a load failure changes the dress rather than
+// the presentation contract.
 //
 // **Every pose the sim has an opinion about comes out of the snapshot**, on
 // the Canvas rig's own driving rules (`web/main.js` `drawRig`, `web/rig.js`):
@@ -61,6 +58,10 @@ const SLOT_EMPTY = 255;
 const BODY_HEIGHT_RADII: Readonly<Record<number, number>> = Object.freeze({
   0: 3.0, 1: 3.2, 2: 2.7, 3: 1.1,
 });
+
+export function figureBodyHeightRadii(kind: number): number {
+  return BODY_HEIGHT_RADII[kind] ?? BODY_HEIGHT_RADII[0] ?? 3.0;
+}
 
 /** The Skitterer is the one shipped kind that is not an upright humanoid. */
 const KIND_SKITTERER = 3;
@@ -183,7 +184,7 @@ const instanceOf = (
 };
 
 /**
- * Build one figure: the v2-18 node chain plus this session's primitive
+ * Build one figure: the durable combatant node chain plus the primitive
  * proxies hanging under it. The parts that a pose can hide (blade, shield)
  * are built anyway and toggled with `setEnabled`, so a figure's mesh count is
  * a constant of its kind -- see {@link figurePartCount}.
@@ -284,7 +285,7 @@ export function poseFigure(figure: Figure, unit: PresentationUnit): void {
     return found;
   };
 
-  const height = BODY_HEIGHT_RADII[unit.kind] ?? BODY_HEIGHT_RADII[0] ?? 3.0;
+  const height = figureBodyHeightRadii(unit.kind);
   // Speed decides how much of a walk to draw and the published stride clock
   // decides where in it we are -- a walled or shoved body freezes for free
   // because the sim's own numbers stopped moving.
@@ -503,9 +504,10 @@ function poseCrawler(figure: Figure, unit: PresentationUnit, pose: CrawlerPose):
 }
 
 /**
- * Legs are meshes with no v2-18 bone -- the plan names none, consistent with a
- * simulation that publishes one leg capsule -- so the instance doubles as its
- * own joint: centred on the segment, aligned along it, scaled to its length.
+ * Legs are meshes with no semantic leg bone -- the combatant contract names
+ * none, consistent with a simulation that publishes one leg capsule -- so the
+ * instance doubles as its own joint: centred on the segment, aligned along it,
+ * scaled to its length.
  * Written as derived presentation, per the room-view plan: nobody may read a
  * leg angle back as simulation state.
  */

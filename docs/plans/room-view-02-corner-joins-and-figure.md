@@ -161,6 +161,8 @@ change. Then the visible check, from a foreground tab, by a person: `npm run dev
 `/#/game` -- corners closed, no stubs along the frontier, and a figure whose arms move
 with its swings.
 
-`docs/plans/v2-18-combatant-integration.md` is amended by this session, not replaced:
-the procedural figure delivers the visible result while the authored representative
-rigs remain outstanding.
+The procedural figure established the semantic seam; the authored representative
+Fighter and Brute rigs later landed through it. Their enduring asset and ownership
+contracts now live in [asset architecture](../architecture/assets.md) and
+[browser architecture](../architecture/browser-runtime.md), not in a completed
+integration plan.

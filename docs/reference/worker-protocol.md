@@ -313,6 +313,6 @@ one.
 - Snapshot validator and disclosure filter: [`SnapshotFilterState`](../../client/src/state/snapshot.ts#L59)
 - Real wasm adapter: [`readPublication`](../../client/src/runtime/sim.worker.ts#L81)
 - Generated offsets and capacities: [`abi.generated.ts`](../../client/src/protocol/abi.generated.ts#L1)
-- The recording drive and its caps: [`recordArenaFight`](../../client/src/runtime/arena-recorder.ts#L496)
+- The recording drive and its caps: [`recordArenaFight`](../../client/src/runtime/arena-recorder.ts#L521)
 - The arena's main-thread client and its decoder: [`decodeArenaMessage`](../../client/src/runtime/arena-client.ts#L59)
-- The recording's reader: [`LiveFightSource`](../../client/src/fight/live.ts#L135)
+- The recording's reader: [`LiveFightSource`](../../client/src/fight/live.ts#L143)

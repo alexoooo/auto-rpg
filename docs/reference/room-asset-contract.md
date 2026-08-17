@@ -32,7 +32,7 @@ magnification, and mipmapped linear minification. Their embedded SHA-256 values 
 `a5effbaebebcf0ca1737b4953f53516f6d7274a232f20ccfc8676d854426f9a8` and
 `d01683a26efff554e88162bf00379a2420a95c814d700c0ecc696065a51c130b`.
 No external image URI or runtime texture request is permitted. Warm umber value
-separation, high roughness, and restrained metal response keep the room subordinate
+separation, high roughness, a dedicated cooler `woodEnd` response for barrel caps, and restrained metal response keep the room subordinate
 to combatants; `COLOR_0` remains deterministic modulation rather than a hidden
 per-instance correction. Four fitted courses of individually separated stones replace
 the wall sources' former single-box silhouettes without changing semantic names,
@@ -101,10 +101,10 @@ The current generated identities are:
 
 | Identity | SHA-256 |
 |---|---|
-| canonical build inputs | `ce82c6fdf4072bb6e9f6c26cc5065451bf52e503d9dd2a6ae03883a7d57640b4` |
-| semantic sidecar | `8db5ea87224b0bdb1d557fb4511357c2f3fa149f9554e2ac8519f2f6ef10fe85` |
-| room GLB | `cb50818c10a954bdea0d7d82aee9d5662bb549b8811f31d7c750f50bc9acd152` |
-| canonical validator report | `c66216640e497fe8c3e6909dc64ce59d59b10c3f4d70d78792a72ceadde1d0b7` |
+| canonical build inputs | `3773434dded396df2365990ac6599b08ae6714357ee5dd607fe6df47e6978839` |
+| semantic sidecar | `01279c6fe13b62b7cc3e33207416384800590196abfcfdd40726e2f00202a52a` |
+| room GLB | `91479310571aa0b0291532e63f9549fdf79914d19dfe6c1f8b8a09fd550a6420` |
+| canonical validator report | `ab128ca3f29fa8cd230e2cb477d9f63e2b7520b200ffd7ac39dcc61ca45a33c8` |
 | 1,536-byte runtime stress map | `1262c7dc5eb359a06db10a06c85e2782237b226e423a903f72441f1dfde18e6c` |
 
 `.gitignore` owns `__pycache__/` and `*.py[cod]`. Both generation modes must leave no
@@ -137,7 +137,7 @@ unique bufferView bytes used by vertex or index attributes
 + 1024 * 1024 * 4 shadow-map bytes
 ```
 
-The fixed instance capacities are floor_a 768, floor_b 768, wall_straight 184,
+The fixed instance capacities are floor_a 768, floor_b 768, wall_straight 160,
 wall_inside 4, wall_outside 8, wall_end 4, door_frame 2, door_leaf 2,
 torch_bracket 8, decal_rubble 4, decal_root 4, and prop_barrel 4. The estimate uses
 capacity rather than live count and must be no larger than 268,435,456 bytes. The
@@ -146,11 +146,11 @@ factor. Engine overhead and source JavaScript are
 reported separately; browser performance JSON continues to record unavailable GPU
 residency rather than relabeling this offline estimate.
 
-The checked artifacts contain 13 nodes, 12 meshes, four materials, 3,000 vertices,
-and 1,520 triangles. The GLB is 1,112,964 bytes and the sidecar is 5,403 bytes, for a
-validated 1,118,367-byte payload. Its offline estimate is 127,440 source-buffer bytes,
-225,280 double-buffered instance bytes, 2,097,152 decoded-texture bytes, and
-4,194,304 shadow-map bytes, totaling 6,644,176 bytes. Validator 2.0.0-dev.3.10 reports zero
+The checked artifacts contain 13 nodes, 12 meshes, four materials, 2,904 vertices,
+and 1,472 triangles. The GLB is 1,108,424 bytes and the sidecar is 5,423 bytes, for a
+validated 1,113,847-byte payload. Its offline estimate is 122,880 source-buffer bytes,
+222,208 double-buffered instance bytes, 2,097,152 decoded-texture bytes, and
+4,194,304 shadow-map bytes, totaling 6,636,544 bytes. Validator 2.0.0-dev.3.10 reports zero
 errors, zero warnings, zero hints, and four informational messages; the
 allowed warning list remains exactly empty.
 
@@ -171,18 +171,31 @@ audio proxies, labels, debug records, and retained instances.
 - VIS 2 permits current topology and disclosed furniture and props. Only current
   disclosed records may contribute lights, shadows, picks, effects, or debug presence.
 
-Wall roles use only disclosed solid cardinal neighbours; fog never supplies a
-neighbour. Straight walls with east/west neighbours use quarter turn 0, while
-north/south neighbours use quarter turn 1. The committed stress topology and map pin
-remain 160 straight, 4 inside, 8 outside, and 4 end walls.
+Wall roles use disclosed solid cardinal neighbours plus one bounded fog concession.
+When exactly one disclosed neighbour defines an axis and its opposite cell is
+undisclosed, that opposite continues the run; undisclosed perpendicular cells never
+add arms, and two or more disclosed neighbours determine their shape without fog.
+The undisclosed cell never becomes a drawn tile. This avoids frontier stubs without
+the narrow false T teeth found in visible-browser review. Canonical local
+openings are straight E+W, inside E+S, outside E+S+W, and end E; quarter-turn rotation
+maps those openings exactly onto masks 1 through 14. Mask 15 is the synthetic-only
+two-straight cross. Mask 0 does not occur in the shipped stress or compact fixtures;
+its straight diagnostic sentinel is not a closed isolated-wall claim, and any shipped
+isolated solid requires a new authored fully capped core. The committed stress census
+is exactly 160 straight, 4 inside/L, 8 outside/T, and 4 end instances over 176 solid
+tiles.
 
+The room's upper-right directional key retains direction
+`[-0.45, -1, -0.35]` and mount `[12, 24, 16]`, with generator-v4 diffuse
+`[1, 0.68, 0.42]`, specular `[0.36, 0.23, 0.15]`, and intensity `1.28`.
 Every disclosed current torch adds a tiny deterministic emissive sphere at its exact
-authored socket. The sphere is non-pickable and non-shadow-casting, uses emissive
-color `[1, 0.3, 0.055]`, and is removed with its material on reset/disposal. Its point
-light keeps the existing intensity, range, and stable cap of eight, with diffuse
-`[1, 0.42, 0.12]` and specular `[1, 0.56, 0.24]`. Each flame contributes one effect
-and one procedural draw group, making stress disclosure 20 draws (12 room source
-groups plus 8 flames) without changing the nine-light contract.
+authored socket. The sphere is non-pickable and non-shadow-casting, uses orange
+emissive color `[1, 0.12, 0.015]`, and is removed with its material on reset,
+disclosure loss, or disposal. Its capped point light uses diffuse
+`[1, 0.25, 0.045]`, specular `[0.42, 0.18, 0.055]`, intensity `1.15`, and
+range `8.5`. Each flame contributes one effect and one procedural draw group,
+making stress disclosure 20 draws (12 room source groups plus 8 flames) without
+changing the nine-light contract.
 
 Loader roots and hidden source meshes never count as presentation presence.
 Epoch/reset and generational reuse retire old authored instances before a new frame
@@ -272,9 +285,7 @@ The playable authored route and compact review use clear `[0.012, 0.016, 0.032, 
 `1.34`/contrast `1.16`, and one non-shadow hemispheric fill with diffuse
 `[0.68, 0.60, 0.50]`, ground `[0.08, 0.065, 0.055]`, and intensity `0.58`;
 the fixed 48 x 32 stress fixture and its nine-light contract are unchanged. This route is
-mechanically current. The 2026-08-09 owner review accepted its material response,
-fixture-origin light, join coherence, depth readability, and silhouette contrast as
-sufficient for minimum legacy parity. This does not close the `CONCEPT.png` direction.
+mechanically current. The 2026-08-09 review accepted generator v3's material response, fixture-origin light, join coherence, depth readability, and silhouette contrast at minimum legacy parity. Generator v4 does not inherit that visible approval; its static Blender QA is complete and its visible-browser review remains owed.
 
 Compact review alone injects initial/reset fixed zoom `1.6`; ordinary and 48 x 32
 stress cameras retain zoom `1`. At 16:9, the tested compact orthographic top/bottom
