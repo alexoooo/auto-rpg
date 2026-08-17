@@ -1,12 +1,16 @@
 const PIECE_NAMES = Object.freeze([
-  "floor_a", "floor_b", "wall_straight", "wall_inside", "wall_outside", "wall_end",
+  "floor_a", "floor_b", "floor_c", "floor_d",
+  "wall_straight", "wall_run_2", "wall_run_3", "wall_run_5", "wall_run_8",
+  "wall_inside", "wall_outside", "wall_end",
   "door_frame", "door_leaf", "torch_bracket", "decal_rubble", "decal_root", "prop_barrel",
 ] as const);
 
-const MATERIAL_ROLES = Object.freeze(["floor_current", "stone_current", "wood_current", "metal_current"] as const);
+const MATERIAL_ROLES = Object.freeze([
+  "floor_current", "stone_current", "wood_current", "metal_current", "overburden_current",
+] as const);
 const SHA256 = /^[0-9a-f]{64}$/;
 const MAX_ASSET_JSON_BYTES = 4 * 1024 * 1024;
-export const ROOM_MAX_PAYLOAD_BYTES = 25_165_824;
+export const ROOM_MAX_PAYLOAD_BYTES = 67_108_864;
 export const ROOM_MAX_GPU_BYTES = 268_435_456;
 // Exact exported instance capacity: 1,929 matrices mirrored for the main and
 // shadow instance buffers. The global ceiling below remains the independent
@@ -67,7 +71,7 @@ export type RoomAssetSidecar = Readonly<{
     solidTiles: 175;
   }>;
   styling: Readonly<{
-    id: "painted-cathedral-v3";
+    id: "painted-cathedral-v4";
     mode: "deterministic-vertex-color";
     attribute: "room_style";
     textures: true;
@@ -253,7 +257,7 @@ export function parseRoomAssetSidecar(bytes: Uint8Array): RoomAssetSidecar {
   const stylingSource = record(source.styling, "room sidecar styling");
   exactKeys(stylingSource, ["id", "mode", "attribute", "textures"], "room sidecar styling");
   const styling = Object.freeze({
-    id: literal(stylingSource.id, "painted-cathedral-v3", "room sidecar styling id"),
+    id: literal(stylingSource.id, "painted-cathedral-v4", "room sidecar styling id"),
     mode: literal(stylingSource.mode, "deterministic-vertex-color", "room sidecar styling mode"),
     attribute: literal(stylingSource.attribute, "room_style", "room sidecar styling attribute"),
     textures: literal(stylingSource.textures, true, "room sidecar styling textures"),

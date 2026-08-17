@@ -109,7 +109,7 @@ export class GreyboxInput {
         return;
       }
       if (this.#options.blocked()) return;
-      if (event.button === 0 && this.#options.aimEnabled?.()) {
+      if (event.button === 0 && this.#options.aimEnabled?.() && this.#options.actionEnabled?.()) {
         event.preventDefault();
         this.#updateAim(event);
         this.#sendLive(this.#options.actionEnabled?.() ? 1 : 0);
@@ -159,7 +159,7 @@ export class GreyboxInput {
   };
 
   readonly #pointerUp = (event: PointerEvent): void => {
-    if (event.button === 0 && this.#options.aimEnabled?.()) {
+    if (event.button === 0 && this.#options.aimEnabled?.() && this.#options.actionEnabled?.()) {
       this.#updateAim(event);
       this.#sendLive(0);
       return;

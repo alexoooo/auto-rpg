@@ -371,12 +371,20 @@ longer-term `CONCEPT.png` direction remain open in the
 [room matrix](docs/performance/v2-room-matrix.md#visible-review-record).
 
 The party HUD keeps a half-second FPS / worst-frame meter visible without opening
-Systems and capture. Press `G`, or the adjacent **World**/**Tactical** button, to
-switch the same live scene between the authored isometric view and the orthographic
-top-down readout. Tactical keeps published fog and command input, replaces authored
-combatant dress with the flat rig geometry, and hides decorative room dress; pressing
-`G` again restores the existing World meshes, lights, shadows, camera follow, and
-snapshot without restarting the Worker.
+Systems and capture. The top selector chooses World, Geometry, Top Down, First
+Person, Free, or Dev directly; G advances and Shift+G reverses the same
+six-row registry. Geometry keeps published fog while exposing named body regions,
+hitboxes, facing and authoritative reach. Free is camera-only and refuses simulation
+commands until another view is selected. Every switch reuses the existing scene,
+Worker, snapshot and identities.
+
+Mouse orders are the default. Aim may track the pointer without stealing primary
+click-to-move; a primary press becomes an attack only when direct Action and Aim
+are both enabled. Direct Movement opts into W/S forward/back, A/D strafe and held
+Q/E turning. The equipment HUD maps key 1 to Sword and key 2 to Shield. The enemy
+panel uses the simulation's Fighter/Brute and Sword/Shield codes, refuses an empty
+primary, and allows Empty only off-hand. Respawn appears only after death and swaps
+in a Fighter without resetting the dungeon or the monsters that survived.
 
 The room is the page. The camera is centred on your character and clamped to the
 walls, so walking into a corner stops the view rather than showing you the void

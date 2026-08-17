@@ -663,9 +663,9 @@ def _fighter(manifest, materials, nodes=None, lod="high"):
                           0.04, (0, -0.03, 0.20), 0.012, detail["bevel"]))
     face_parts = [_anatomical_loft(
         name("head_face") + "__volume", nodes["head"], materials["fighter_skin"],
-        [(-0.10, 0.055, 0.045), (-0.055, 0.075, 0.060),
-         (0.015, 0.086, 0.066), (0.075, 0.076, 0.058),
-         (0.11, 0.058, 0.046)], max(10, detail["radial"] // 2),
+        [(-0.10, 0.060, 0.045), (-0.055, 0.082, 0.060),
+         (0.015, 0.094, 0.066), (0.075, 0.083, 0.058),
+         (0.11, 0.063, 0.046)], max(10, detail["radial"] // 2),
         (0, 0.10, -0.195), 0.005, detail["bevel"]),
         _extruded_profile(name("head_face") + "__nose", nodes["head"],
                           materials["fighter_skin"],

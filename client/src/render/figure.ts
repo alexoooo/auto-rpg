@@ -111,8 +111,8 @@ export type Figure = Readonly<{
  * shield exist from birth and are enabled per pose, so the count never varies
  * with the sample and retirement stays one disposal.
  */
-export const FIGURE_UPRIGHT_PARTS = 12;
-export const FIGURE_CRAWLER_PARTS = 7;
+export const FIGURE_UPRIGHT_PARTS = 15;
+export const FIGURE_CRAWLER_PARTS = 10;
 
 export function figurePartCount(kind: number): number {
   return kind === KIND_SKITTERER ? FIGURE_CRAWLER_PARTS : FIGURE_UPRIGHT_PARTS;
@@ -209,6 +209,9 @@ export function buildFigure(scene: Scene, sources: FigureSources, name: string, 
       instanceOf(sources, "cylinder", "skin", `${name}:leg:${leg}`, root, parts);
     }
     instanceOf(sources, "cylinder", "steel", `${name}:blade`, node("socket_weapon_right"), parts);
+    instanceOf(sources, "cylinder", "steel", `${name}:diagnostic:hitbox`, root, parts);
+    instanceOf(sources, "cylinder", "steel", `${name}:diagnostic:facing`, root, parts);
+    instanceOf(sources, "cylinder", "steel", `${name}:diagnostic:reach`, root, parts);
     return Object.freeze({ root, nodes, parts: Object.freeze(parts) });
   }
   instanceOf(sources, "box", "skin", `${name}:pelvis`, node("pelvis"), parts);
@@ -224,7 +227,45 @@ export function buildFigure(scene: Scene, sources: FigureSources, name: string, 
   }
   instanceOf(sources, "cylinder", "steel", `${name}:blade`, node("socket_weapon_right"), parts);
   instanceOf(sources, "cylinder", "steel", `${name}:shield`, node("socket_shield"), parts);
+  instanceOf(sources, "cylinder", "steel", `${name}:diagnostic:hitbox`, root, parts);
+  instanceOf(sources, "cylinder", "steel", `${name}:diagnostic:facing`, root, parts);
+  instanceOf(sources, "cylinder", "steel", `${name}:diagnostic:reach`, root, parts);
   return Object.freeze({ root, nodes, parts: Object.freeze(parts) });
+}
+
+export function setFigureDiagnostics(figure: Figure, enabled: boolean): void {
+  for (const mesh of figure.parts) if (mesh.name.includes(":diagnostic:")) mesh.setEnabled(enabled);
+}
+
+function poseFigureDiagnostics(
+  figure: Figure, unit: PresentationUnit, radius: number, rel: number,
+): void {
+  const diagnostic = (suffix: string): InstancedMesh | undefined =>
+    figure.parts.find((mesh) => mesh.name.endsWith(`:diagnostic:${suffix}`));
+  const hitbox = diagnostic("hitbox");
+  if (hitbox !== undefined) {
+    hitbox.position.set(0, 0.025, 0);
+    hitbox.scaling.set(2.04, 0.05, 2.04);
+  }
+  const facing = diagnostic("facing");
+  if (facing !== undefined) {
+    facing.position.set(1.18, 0.06, 0);
+    facing.rotation.set(0, 0, -Math.PI / 2);
+    facing.scaling.set(0.07, 1.18, 0.07);
+  }
+  const reach = diagnostic("reach");
+  if (reach !== undefined) {
+    const length = Math.max(0.05, unit.actionLength * Math.max(0, unit.limbReach) / radius);
+    const along = Math.cos(rel);
+    const left = Math.sin(rel);
+    reach.position.set(along * length / 2, 0.1, left * length / 2);
+    const orientation = new Quaternion();
+    Quaternion.FromUnitVectorsToRef(
+      Vector3.UpReadOnly, new Vector3(along, 0, left), orientation,
+    );
+    reach.rotationQuaternion = orientation;
+    reach.scaling.set(0.045, length, 0.045);
+  }
 }
 
 const SCRATCH_DIRECTION = new Vector3();
@@ -298,6 +339,7 @@ export function poseFigure(figure: Figure, unit: PresentationUnit): void {
   const swapping = unit.limbSwing === SWING_SWAP;
   const armed = unit.actionRole !== ROLE_MOVE && !swapping;
   const activeAction = unit.slot === 0 ? unit.slot0Action : unit.slot1Action;
+  poseFigureDiagnostics(figure, unit, radius, rel);
 
   if (unit.kind === KIND_SKITTERER) {
     poseCrawler(figure, unit, { node, part, height, walk, phase, along, left, armed, activeAction, radius });

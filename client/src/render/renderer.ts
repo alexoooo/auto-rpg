@@ -88,12 +88,15 @@ export async function loadOptionalCombatants(
   }
 }
 
-export type RoomReviewInteractionState = Readonly<{ readonly reviewCameraFree: boolean }>;
+export type RoomReviewInteractionState = Readonly<{
+  readonly reviewCameraFree: boolean;
+  readonly presentationMode?: PresentationMode;
+}>;
 
 export function roomReviewInteractionBlocked(
   representativeRoom: boolean, renderer: RoomReviewInteractionState,
 ): boolean {
-  return representativeRoom && renderer.reviewCameraFree;
+  return renderer.presentationMode === "free" || (representativeRoom && renderer.reviewCameraFree);
 }
 
 export async function submitWithRoomReviewGuard<T>(
@@ -181,6 +184,12 @@ export class GreyboxRenderer {
       }
       this.#camera = this.#reviewCamera.camera;
       this.#scene.activeCamera = this.#camera;
+    } else if (mode === "free") {
+      this.#camera.mode = Camera.PERSPECTIVE_CAMERA;
+      this.#camera.attachControl(this.canvas, true);
+    } else if (previous === "free") {
+      this.#camera.detachControl();
+      this.#replaceCamera(this.#arenaWidth, this.#arenaHeight);
     }
     this.#actors.setPresentationMode(mode);
     this.#environment.setPresentationMode?.(mode);

@@ -2,7 +2,7 @@
 
 **Purpose:** Preserve the shipped visual language, the boundary between gameplay readouts and rendering style, and the evidence required of shipped figures.
 **Status:** current
-**Canonical source:** [`web/main.js`](../../web/main.js#L6512), [`web/style.css`](../../web/style.css), [`web/assets/ASSET_SPEC.md`](../../web/assets/ASSET_SPEC.md), and the [renderer contract](../reference/renderer-contract.md#renderer-owned-snapshot-boundary)
+**Canonical source:** [`web/main.js`](../../web/main.js#L6513), [`web/style.css`](../../web/style.css), [`web/assets/ASSET_SPEC.md`](../../web/assets/ASSET_SPEC.md), and the [renderer contract](../reference/renderer-contract.md#renderer-owned-snapshot-boundary)
 **Update when:** Art direction, view-mode controls, HUD language, the published body proportions, or the reference renderer changes.
 
 ## A warm, legible room
@@ -10,7 +10,7 @@
 The room is brown-black rather than blue-black. Materials separate primarily by
 lightness, not hue; doors and flame spend the limited chroma budget where recognition
 needs it. Palette constants are relationships, not independent swatches, and should
-be tuned as a ladder. The current source of truth is [`PAL`](../../web/main.js#L6512)
+be tuned as a ladder. The current source of truth is [`PAL`](../../web/main.js#L6513)
 and the asset authoring contract, not a copied color table here.
 
 World-mode environment marks obey the room palette. Gameplay instruments — health,

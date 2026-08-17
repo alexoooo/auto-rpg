@@ -5,10 +5,9 @@ import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 import "@babylonjs/core/Meshes/instancedMesh.js";
 import type { InstancedMesh } from "@babylonjs/core/Meshes/instancedMesh.js";
 import type { Material } from "@babylonjs/core/Materials/material.js";
-import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
-import { Color3, Color4 } from "@babylonjs/core/Maths/math.color.js";
+import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import {
@@ -19,7 +18,7 @@ import type { RendererDebugRegistry } from "./debug.js";
 import type { PresentationFurniture, PresentationSnapshot } from "./presentation.js";
 import type { PresentationMode } from "./presentation-mode.js";
 import { createTorchFlame, type TorchFlamePresentation } from "./room-flame.js";
-import { chooseRoomFloorVariant } from "./room-material-variants.js";
+import { chooseRoomFloorVariant, chooseRoomWallSurfaceVariant } from "./room-material-variants.js";
 import { chooseLocalWallCutaways, type RoomProjector } from "./room-occlusion.js";
 import { RoomObjectPresentation } from "./room-objects.js";
 import type { RoomPieceName } from "./room-asset-contract.js";
@@ -60,7 +59,8 @@ type SpatialInstance = {
 
 const tileIndex = (cols: number, tx: number, ty: number): number => ty * cols + tx;
 
-export function chooseRoomFloor(seed: number, tx: number, ty: number): "floor_a" | "floor_b" {
+export function chooseRoomFloor(seed: number, tx: number, ty: number):
+  "floor_a" | "floor_b" | "floor_c" | "floor_d" {
   return chooseRoomFloorVariant(seed, tx, ty).piece;
 }
 
@@ -104,15 +104,12 @@ export function chooseRoomAmbientDressing(
       score, wallAdjacent });
   }
   candidates.sort((a, b) => a.score - b.score || a.ty - b.ty || a.tx - b.tx);
-  // Tiny disclosed pockets stay uncluttered; each complete eighteen-tile
+  // Tiny disclosed pockets stay uncluttered; each complete ten-tile
   // tranche earns one prop, up to the explicit presentation-only ceiling.
-  const count = Math.min(MAX_AMBIENT_DRESSING, Math.floor(candidates.length / 18));
+  const count = Math.min(MAX_AMBIENT_DRESSING, Math.floor(candidates.length / 10));
   if (count === 0) return Object.freeze([]);
   const selected: typeof candidates = [];
-  const barrel = candidates.find(({ wallAdjacent }) => wallAdjacent);
-  if (barrel !== undefined && count > 0) selected.push({ ...barrel, piece: "prop_barrel" });
   for (const candidate of candidates) {
-    if (candidate === barrel) continue;
     if (selected.every((item) => Math.abs(item.tx - candidate.tx) +
         Math.abs(item.ty - candidate.ty) >= 3)) selected.push(candidate);
     if (selected.length === count) break;
@@ -210,6 +207,48 @@ export function chooseRoomWallFaces(
   return Object.freeze(faces);
 }
 
+export type RoomWallModule = RoomWallFace & Readonly<{
+  length: 1 | 2 | 3 | 5 | 8;
+  piece: "wall_straight" | "wall_run_2" | "wall_run_3" | "wall_run_5" | "wall_run_8";
+  surfaceVariant: 0 | 1 | 2 | 3 | 4 | 5;
+}>;
+
+/** Greedily pack a contour into authored Fibonacci-length modules without crossing a gap. */
+export function chooseRoomWallModules(snapshot: PresentationSnapshot): readonly RoomWallModule[] {
+  const remaining = new Map(chooseRoomWallFaces(snapshot).map((face) => [face.key, face]));
+  const modules: RoomWallModule[] = [];
+  const lengths = [8, 5, 3, 2, 1] as const;
+  for (const face of [...remaining.values()].sort((a, b) =>
+    a.side - b.side || a.visibility - b.visibility || a.ty - b.ty || a.tx - b.tx)) {
+    if (!remaining.has(face.key)) continue;
+    const horizontal = face.side === 0 || face.side === 2;
+    let selected: 1 | 2 | 3 | 5 | 8 = 1;
+    for (const length of lengths) {
+      let complete = true;
+      for (let offset = 0; offset < length; offset++) {
+        const tx = face.tx + (horizontal ? offset : 0);
+        const ty = face.ty + (horizontal ? 0 : offset);
+        const candidate = remaining.get(`wall:${tx}:${ty}:${face.side}`);
+        if (candidate === undefined || candidate.visibility !== face.visibility) complete = false;
+      }
+      if (complete) { selected = length; break; }
+    }
+    for (let offset = 0; offset < selected; offset++) {
+      const tx = face.tx + (horizontal ? offset : 0);
+      const ty = face.ty + (horizontal ? 0 : offset);
+      remaining.delete(`wall:${tx}:${ty}:${face.side}`);
+    }
+    const piece = selected === 1 ? "wall_straight" : `wall_run_${selected}` as const;
+    modules.push(Object.freeze({ ...face,
+      key: `wall-module:${face.tx}:${face.ty}:${face.side}:${selected}`,
+      length: selected, piece,
+      surfaceVariant: chooseRoomWallSurfaceVariant(
+        (snapshot as PresentationSnapshot & { generatorSeed?: number }).generatorSeed ?? 1592594996,
+        face.tx, face.ty, face.side) }));
+  }
+  return Object.freeze(modules);
+}
+
 function doorQuarterTurns(snapshot: PresentationSnapshot, item: PresentationFurniture): 0 | 1 {
   const doors = publishedDoorCells(snapshot);
   const door = (x: number, y: number): boolean => doors.has(`${x}:${y}`);
@@ -299,7 +338,7 @@ export class RoomEnvironmentPresentation {
   readonly #furniture: SpatialInstance[] = [];
   readonly #torchLights: PointLight[] = [];
   readonly #torchFlames: TorchFlamePresentation[] = [];
-  readonly #overburdenMaterial: StandardMaterial;
+  readonly #overburdenMaterial: Material;
   readonly #overburden: Mesh[] = [];
   readonly #unknownRoof = new Map<string, Mesh>();
   readonly #occlusionAlpha = new Map<string, number>();
@@ -318,9 +357,12 @@ export class RoomEnvironmentPresentation {
     this.#debug = debug;
     this.#asset = asset;
     this.#seed = fixtureSeed >>> 0;
-    this.#overburdenMaterial = new StandardMaterial("room:overburden-material", scene);
-    this.#overburdenMaterial.diffuseColor = new Color3(0.055, 0.045, 0.038);
-    this.#overburdenMaterial.specularColor = Color3.Black();
+    const authoredOverburden = asset.materials.get("overburden_current")?.clone(
+      "room:overburden-material");
+    if (authoredOverburden === undefined || authoredOverburden === null) {
+      throw new Error("room overburden material cannot clone authored surface");
+    }
+    this.#overburdenMaterial = authoredOverburden;
     let key: DirectionalLight | null = null;
     let shadows: ShadowGenerator | null = null;
     try {
@@ -328,12 +370,15 @@ export class RoomEnvironmentPresentation {
       // warmer masonry, aged brown wood, and cool iron. Textures and vertex
       // modulation remain intact; these multipliers keep them from collapsing
       // into one brown-black band under the concept-directed rig.
-      tuneSurface(asset.materials.get("floor_current"), new Color3(0.86, 0.88, 0.92));
-      tuneSurface(asset.materials.get("stone_current"), new Color3(1, 0.82, 0.64));
-      tuneSurface(asset.materials.get("wood_current"), new Color3(0.30, 0.17, 0.09));
+      tuneSurface(asset.materials.get("floor_current"), new Color3(0.74, 0.76, 0.80),
+        new Color3(0.003, 0.004, 0.006));
+      tuneSurface(asset.materials.get("stone_current"), new Color3(0.95, 0.82, 0.66),
+        new Color3(0.006, 0.004, 0.003));
+      tuneSurface(asset.materials.get("wood_current"), new Color3(0.42, 0.26, 0.14),
+        new Color3(0.018, 0.010, 0.005));
       tuneSurface(asset.materials.get("metal_current"), new Color3(0.24, 0.26, 0.30));
+      tuneSurface(this.#overburdenMaterial, new Color3(0.10, 0.09, 0.085));
       const wallSource = asset.pieces.get("wall_straight");
-      wallSource?.registerInstancedBuffer("color", 4);
       const wallMaterial = wallSource?.material as Material & {
         useVertexColors?: boolean; useVertexAlpha?: boolean; transparencyMode?: number;
       } | null | undefined;
@@ -342,7 +387,9 @@ export class RoomEnvironmentPresentation {
         wallMaterial.useVertexAlpha = true;
         wallMaterial.transparencyMode = 2;
       }
-      for (const piece of ["floor_a", "floor_b", "wall_straight", "wall_inside", "wall_outside", "wall_end"] as const) {
+      for (const piece of ["floor_a", "floor_b", "floor_c", "floor_d", "wall_straight",
+        "wall_run_2", "wall_run_3", "wall_run_5", "wall_run_8",
+        "wall_inside", "wall_outside", "wall_end"] as const) {
         const source = asset.pieces.get(piece);
         const sourceMaterial = source?.material;
         const remembered = sourceMaterial?.clone(`room:${piece}:remembered`);
@@ -366,7 +413,7 @@ export class RoomEnvironmentPresentation {
       if (currentStone === undefined || rememberedStone === undefined || rememberedStone === null) {
         throw new Error("room wall cap lacks stone material");
       }
-      for (const floor of ["floor_a", "floor_b"] as const) for (const state of ["current", "remembered"] as const) {
+      for (const floor of ["floor_a", "floor_b", "floor_c", "floor_d"] as const) for (const state of ["current", "remembered"] as const) {
         const cap = asset.pieces.get(floor)?.clone(`room:source:wall-cap:${floor}:${state}`, null, false);
         if (cap === undefined || cap === null) throw new Error(`room asset cannot clone wall cap ${floor}:${state}`);
         cap.material = state === "current" ? currentStone : rememberedStone;
@@ -401,7 +448,8 @@ export class RoomEnvironmentPresentation {
     }
     this.#key = key;
     this.#shadows = shadows;
-    this.#objects = new RoomObjectPresentation(scene, shadows);
+    this.#objects = new RoomObjectPresentation(scene, shadows,
+      asset.materials.get("stone_current"));
     this.#publishDebug();
   }
 
@@ -454,6 +502,7 @@ export class RoomEnvironmentPresentation {
     if (geometryChanged) {
       this.#clearGeometry();
       this.#reconcileOverburden(snapshot);
+      const doorCells = publishedDoorCells(snapshot);
       for (let ty = 0; ty < snapshot.mapRows; ty++) for (let tx = 0; tx < snapshot.mapCols; tx++) {
         const at = tileIndex(snapshot.mapCols, tx, ty);
         const visibility = snapshot.vis[at];
@@ -464,7 +513,7 @@ export class RoomEnvironmentPresentation {
         const floorVariant = chooseRoomFloorVariant(this.#seed, tx, ty);
         this.#add(this.#geometry, `${semanticKey}:floor`, semanticKey,
           floorVariant.piece, tx, ty, floorVariant.quarterTurns, current, false, current);
-        if (map === MAP_SOLID) {
+        if (map === MAP_SOLID && !doorCells.has(`${tx}:${ty}`)) {
           // A solid dungeon cell is masonry volume, not only its camera-facing
           // boundary. The flagstone geometry gives each top four readable
           // blocks instead of turning the fine wall coursing into a giant slab;
@@ -476,8 +525,9 @@ export class RoomEnvironmentPresentation {
           const cap = this.#add(this.#geometry, `${semanticKey}:wall-cap`, semanticKey,
             "wall_straight", tx, ty, 0, current, false, false, 0, 0, capSource);
           cap.position.y = ROOM_WALL_HEIGHT - 0.10;
-          cap.scaling.x = 0.92;
-          cap.scaling.z = 0.92;
+          cap.scaling.x = 0.96;
+          cap.scaling.y = 1.45;
+          cap.scaling.z = 0.96;
         }
       }
       this.#reconcileWallFaces(snapshot);
@@ -515,13 +565,46 @@ export class RoomEnvironmentPresentation {
       return Object.freeze({ key: entry.key, corners: entry.mesh.getBoundingInfo().boundingBox.vectorsWorld });
     }), hero, project);
     for (const entry of entries) {
-      const target = cutaways.has(entry.key) ? 0.22 : 1;
-      const previous = this.#occlusionAlpha.get(entry.key) ?? 1;
-      const eased = target + (previous - target) * 0.72;
-      const alpha = Math.abs(eased - target) < 0.005 ? target : eased;
-      this.#occlusionAlpha.set(entry.key, alpha);
-      entry.mesh.instancedBuffers.color = new Color4(1, 1, 1, alpha);
+      const cutaway = cutaways.has(entry.key);
+      this.#occlusionAlpha.set(entry.key, cutaway ? 0 : 1);
+      entry.mesh.isVisible = !cutaway;
       entry.mesh.scaling.y = ROOM_WALL_HEIGHT / 0.9;
+      // A translucent wall top still reads as a peach floor quadrilateral,
+      // while its opaque shadow points at the hero. A local cutaway is an
+      // aperture in presentation, so its caster must follow the aperture and
+      // return with the same mesh identity when the hero moves away.
+      if (cutaway) {
+        this.#shadows.removeShadowCaster(entry.mesh, false);
+        this.#shadowCasters.delete(entry.mesh);
+      } else if (entry.current && !this.#shadowCasters.has(entry.mesh)) {
+        this.#shadows.addShadowCaster(entry.mesh, false);
+        this.#shadowCasters.add(entry.mesh);
+      }
+    }
+    const cutawayTiles = new Set<string>();
+    for (const entry of entries.filter((candidate) => cutaways.has(candidate.key))) {
+      const tile = /^tile:(\d+):(\d+)$/.exec(entry.semanticKey);
+      const side = /:wall-face:([0-3])$/.exec(entry.key);
+      if (tile === null || side === null) continue;
+      const tx = Number(tile[1]), ty = Number(tile[2]), direction = Number(side[1]);
+      const length = entry.piece === "wall_run_8" ? 8 : entry.piece === "wall_run_5" ? 5 :
+        entry.piece === "wall_run_3" ? 3 : entry.piece === "wall_run_2" ? 2 : 1;
+      for (let offset = 0; offset < length; offset++) {
+        const x = tx + (direction === 0 || direction === 2 ? offset : 0);
+        const y = ty + (direction === 1 || direction === 3 ? offset : 0);
+        cutawayTiles.add(`tile:${x}:${y}`);
+      }
+    }
+    for (const cap of this.#geometry.filter((entry) => entry.key.endsWith(":wall-cap"))) {
+      const cutaway = cutawayTiles.has(cap.semanticKey);
+      cap.mesh.isVisible = !cutaway;
+      if (cutaway) {
+        this.#shadows.removeShadowCaster(cap.mesh, false);
+        this.#shadowCasters.delete(cap.mesh);
+      } else if (cap.current && !this.#shadowCasters.has(cap.mesh)) {
+        this.#shadows.addShadowCaster(cap.mesh, false);
+        this.#shadowCasters.add(cap.mesh);
+      }
     }
   }
 
@@ -590,10 +673,9 @@ export class RoomEnvironmentPresentation {
       const frame = this.#add(this.#furniture, owner + ":frame", owner, "door_frame",
         run.tx, run.ty, run.quarterTurns, true, true, true, faceOffsetX, faceOffsetZ);
       frame.scaling.y = ROOM_WALL_HEIGHT / 0.92;
-      this.#addDoorLeafModules(owner + ":leaf", owner, run.tx, run.ty,
-        run.quarterTurns + (run.state === FURNITURE_DOOR_OPEN ? 1 : 0),
-        faceOffsetX, faceOffsetZ, 0.18, 0.22);
       if (run.state === FURNITURE_DOOR_SHUT) {
+        this.#addDoorLeafModules(owner + ":leaf", owner, run.tx, run.ty,
+          run.quarterTurns, faceOffsetX, faceOffsetZ, 0.18, 0.22);
         this.#addDoorIron(owner, run.tx, run.ty, run.quarterTurns,
           faceOffsetX, faceOffsetZ, "single");
       }
@@ -607,19 +689,12 @@ export class RoomEnvironmentPresentation {
       const tx = run.tx + (run.quarterTurns === 0 ? segment : 0);
       const ty = run.ty + (run.quarterTurns === 1 ? segment : 0);
       const semanticKey = "furniture:" + run.keys[segment];
-      const lintel = this.#add(this.#furniture, semanticKey + ":span:lintel:" + segment,
-        semanticKey, "wall_straight", tx, ty, run.quarterTurns,
-        true, true, true, faceOffsetX, faceOffsetZ);
-      lintel.scaling.y = 0.14 / 0.9;
-      lintel.position.y = ROOM_WALL_HEIGHT - 0.14;
       if (run.state === FURNITURE_DOOR_SHUT) {
         const leafOffsetX = -0.5;
         const leafOffsetZ = run.quarterTurns === 0 ? -0.5 : 0.5;
         this.#addDoorLeafModules(semanticKey + ":span:leaf:" + segment,
           semanticKey, tx, ty, run.quarterTurns,
           leafOffsetX, leafOffsetZ, 0.25, 0.32);
-        this.#addDoorIron(semanticKey, tx, ty, run.quarterTurns,
-          faceOffsetX, faceOffsetZ, "span:" + segment);
       }
     }
     for (const end of [0, 1] as const) {
@@ -648,6 +723,12 @@ export class RoomEnvironmentPresentation {
         offsetZ + (turns % 2 === 1 ? along : 0));
       leaf.scaling.x = width / 0.72;
       leaf.scaling.y = (ROOM_WALL_HEIGHT - 0.14) / 0.78;
+      // A run publishes several adjacent leaf modules. Their paper-thin top
+      // edges coalesced into one oversized near-black shadow that looked like
+      // a steel lintel. The masonry frame owns the architectural shadow; keep
+      // the readable wood panels out of the caster list.
+      this.#shadows.removeShadowCaster(leaf, false);
+      this.#shadowCasters.delete(leaf);
     }
   }
 
@@ -660,8 +741,8 @@ export class RoomEnvironmentPresentation {
         true, true, false, offsetX, offsetZ);
       iron.position.y = height;
       iron.rotation.z = Math.PI / 2;
-      iron.scaling.x = 0.45;
-      iron.scaling.y = 1.55;
+      iron.scaling.x = 0.22;
+      iron.scaling.y = 0.62;
       iron.scaling.z = 0.18;
     }
   }
@@ -686,15 +767,23 @@ export class RoomEnvironmentPresentation {
       bracket.position.y + local.y,
       bracket.position.z - local.x * s + local.z * c,
     );
-    this.#torchFlames.push(createTorchFlame(this.#scene, item.key, position));
+    // The socket is on the bracket, close enough to the wall that a point
+    // light loses most of its pool inside masonry. Move presentation light
+    // slightly along the published face normal. Both the authored flame planes
+    // and the light must clear the masonry depth test; leaving only the planes
+    // on the buried socket made the bracket read as an unlit beige oval.
+    const lightPosition = position.clone();
+    if (item.state === TORCH_FACE_POS_X) lightPosition.x += 0.45;
+    else lightPosition.z += 0.45;
+    this.#torchFlames.push(createTorchFlame(this.#scene, item.key, lightPosition));
     if (this.#torchLights.length >= MAX_TORCH_LIGHTS) return;
-    const light = new PointLight(`room:torch:${item.key}`, position, this.#scene);
+    const light = new PointLight(`room:torch:${item.key}`, lightPosition, this.#scene);
     // The pool is broader than the bulb: the concept uses local orange light
     // to reveal nearby masonry, while the warm key carries the room beyond it.
     light.diffuse = new Color3(1, 0.25, 0.045);
     light.specular = new Color3(0.42, 0.18, 0.055);
-    light.intensity = 4;
-    light.range = 11.5;
+    light.intensity = 8.5;
+    light.range = 10.5;
     this.#torchLights.push(light);
   }
 
@@ -705,8 +794,8 @@ export class RoomEnvironmentPresentation {
         const key = `ambient:${item.piece}:${item.tx}:${item.ty}`;
         const mesh = this.#add(this.#furniture, key, key, item.piece, item.tx, item.ty,
           item.quarterTurns, true, false, false);
-        const scale = item.piece === "prop_barrel" ? 0.8 :
-          item.piece === "decal_root" ? 1.6 : 1.5;
+        const scale = item.piece === "prop_barrel" ? 0.72 :
+          item.piece === "decal_root" ? 2.1 : 1.9;
         mesh.scaling.scaleInPlace(scale);
         if (item.piece !== "prop_barrel") mesh.position.y += 0.025;
       }
@@ -727,7 +816,11 @@ export class RoomEnvironmentPresentation {
       if (snapshot.vis[at] !== 2 || snapshot.map[at] !== MAP_OPEN) continue;
       const semanticKey = `furniture:${item.key}`;
       this.#furnitureKeys.add(semanticKey);
-      this.#add(this.#furniture, semanticKey, semanticKey, piece, x, y, turns, true, true, true);
+      const mesh = this.#add(this.#furniture, semanticKey, semanticKey,
+        piece, x, y, turns, true, true, true);
+      const scale = piece === "prop_barrel" ? 0.58 : piece === "decal_root" ? 2.1 : 1.9;
+      mesh.scaling.scaleInPlace(scale);
+      if (piece !== "prop_barrel") mesh.position.y += 0.025;
     }
   }
 
@@ -746,6 +839,14 @@ export class RoomEnvironmentPresentation {
       }, this.#scene);
       ground.position.set(centreX, -0.16, centreZ);
       ground.material = this.#overburdenMaterial;
+      const groundUvs = ground.getVerticesData("uv");
+      if (groundUvs !== null) {
+        for (let index = 0; index < groundUvs.length; index += 2) {
+          groundUvs[index] = (groundUvs[index] ?? 0) * (width + margin * 2) / 4;
+          groundUvs[index + 1] = (groundUvs[index + 1] ?? 0) * (depth + margin * 2) / 4;
+        }
+        ground.setVerticesData("uv", groundUvs);
+      }
       ground.isPickable = false;
       ground.receiveShadows = true;
       this.#overburden.push(ground);
@@ -790,7 +891,7 @@ export class RoomEnvironmentPresentation {
   }
 
   #reconcileWallFaces(snapshot: PresentationSnapshot): void {
-    const wanted = new Map(chooseRoomWallFaces(snapshot).map((face) => [face.key, face]));
+    const wanted = new Map(chooseRoomWallModules(snapshot).map((face) => [face.key, face]));
     for (const [key, entry] of this.#wallFaces) if (!wanted.has(key)) {
       this.#disposeEntry(entry);
       this.#wallFaces.delete(key);
@@ -798,17 +899,24 @@ export class RoomEnvironmentPresentation {
     for (const face of wanted.values()) {
       let entry = this.#wallFaces.get(face.key);
       if (entry === undefined) {
-        const quarterTurns = face.side === 0 || face.side === 2 ? 0 : 1;
-        const offsetX = face.side === 1 ? 0.5 : face.side === 3 ? -0.5 : 0;
-        const offsetZ = face.side === 0 ? -0.5 : face.side === 2 ? 0.5 : 0;
+        const quarterTurns = (face.side === 0 || face.side === 2 ? 0 : 1) +
+          (face.surfaceVariant % 2) * 2;
+        const horizontal = face.side === 0 || face.side === 2;
+        const offsetX = (face.side === 1 ? 0.5 : face.side === 3 ? -0.5 : 0) +
+          (horizontal ? (face.length - 1) / 2 : 0);
+        const offsetZ = (face.side === 0 ? -0.5 : face.side === 2 ? 0.5 : 0) +
+          (horizontal ? 0 : (face.length - 1) / 2);
         const created: SpatialInstance[] = [];
         const semanticKey = `tile:${face.tx}:${face.ty}`;
         const mesh = this.#add(created, `${semanticKey}:wall-face:${face.side}`, semanticKey,
-          "wall_straight", face.tx, face.ty, quarterTurns, true, false, false,
+          face.piece, face.tx, face.ty, quarterTurns, true, false, false,
           offsetX, offsetZ);
         mesh.scaling.y = ROOM_WALL_HEIGHT / 0.9;
-        mesh.scaling.z = 3.2;
-        mesh.instancedBuffers.color = new Color4(1, 1, 1, 1);
+        // The authored face already owns its coping depth. Scaling that axis
+        // made a local cutaway expose a peach floor-like quadrilateral and
+        // stretched every module into one continuous rail toward the hero.
+        mesh.scaling.z = 1;
+        mesh.isVisible = true;
         entry = created[0];
         if (entry === undefined) throw new Error("room wall face instance was not created");
         this.#wallFaces.set(face.key, entry);

@@ -89,8 +89,9 @@ identities.
 
 Physical dungeon objects are a separate renderer-owned path over
 `DUNGEON_OBJECT_V1`. Doors, torch assemblies, barrels, pottery, webs, water, and break
-debris are layered Babylon geometry with stable publication identity rather than new
-members of the pinned room GLB. Sparse blood, vines, loose bricks, and spiderwebs are
+debris are layered renderer-owned `Babylon.js` geometry and are not authoritative
+state; stable publication identity keeps them out of the pinned room GLB.
+Sparse blood, vines, loose bricks, and spiderwebs are
 bounded deterministic dressing: they have no pick, collision, Worker, replay, or hash
 representation.
 

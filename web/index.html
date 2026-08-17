@@ -123,7 +123,6 @@
       font-variant-numeric: tabular-nums; white-space: nowrap; }
     .route-game #game-view-mode { padding: .22rem .42rem; border-color: var(--studio-panel-line);
       background: #100d0a; color: var(--studio-cyan); font-size: .66rem; }
-    .route-game #game-view-mode::after { content: "  [G]"; color: var(--studio-faint); }
     .game-command-deck { right: clamp(.65rem, 1.2vw, 1rem); bottom: clamp(.65rem, 1.2vw, 1rem);
       display: flex; flex-wrap: wrap; justify-content: center; gap: .45rem;
       max-width: calc(100% - 31rem); }
@@ -160,7 +159,7 @@
     .route-game .game-stage #error { top: 3.4rem; right: clamp(.65rem, 1.2vw, 1rem);
       max-width: min(32rem, 60%); min-height: 0; color: var(--studio-red); font-size: .75rem; text-align: right; }
     .game-support { position: absolute; z-index: 3; right: clamp(.65rem, 1.2vw, 1rem);
-      top: 3.4rem; width: min(48rem, calc(100% - 1.3rem));
+      top: 3.4rem; bottom: 5.5rem; width: min(48rem, calc(100% - 1.3rem));
       display: flex; justify-content: flex-end; pointer-events: none; }
     .route-game .game-route-note { margin: 0; padding: .65rem .75rem 0; color: var(--studio-faint);
       font-size: .72rem; text-align: left; }
@@ -168,7 +167,7 @@
       background: rgba(21, 18, 14, .96); box-shadow: var(--studio-bevel), 0 .6rem 2rem rgba(0, 0, 0, .45);
       pointer-events: auto; }
     .game-instruments:not([open]) { width: max-content; }
-    .game-instruments[open] { width: 100%; max-height: calc(100svh - 5rem); overflow: auto; }
+    .game-instruments[open] { width: 100%; max-height: min(60svh, calc(100svh - 10rem)); overflow: auto; }
     .game-instruments > summary { padding: .55rem .75rem; color: var(--studio-dim); cursor: pointer;
       font: 600 .62rem/1 ui-monospace, Consolas, monospace; letter-spacing: .12em; text-transform: uppercase; }
     .game-instruments[open] > summary { border-bottom: 1px solid var(--studio-panel-line); color: var(--studio-cyan); }
@@ -209,7 +208,7 @@
         max-width: none; transform: none; flex-direction: column; }
       .game-command-deck fieldset { width: 100%; }
       .game-stage-footer { top: .55rem; right: .55rem; }
-      .game-support { top: 3.2rem; right: .55rem; bottom: auto; }
+      .game-support { top: 3.2rem; right: .55rem; bottom: 15rem; }
       .game-metadata { grid-template-columns: 1fr; }
     }
 
@@ -329,23 +328,23 @@
             <div class="controls">
               <button id="slot-1" class="equipment-slot" data-sim-control type="button" aria-pressed="true">
                 <svg class="slot-art" viewBox="0 0 32 32" aria-hidden="true">
-                  <path class="iron-dark" d="M16 2 27 6v9c0 7-4.3 11.7-11 15C9.3 26.7 5 22 5 15V6Z"/>
-                  <path class="iron" d="M16 5.2 23.8 8v7c0 5.2-3 8.8-7.8 11.5C11.2 23.8 8.2 20.2 8.2 15V8Z"/>
-                  <path class="leather" d="M15 5.7h2v20h-2z"/>
-                  <circle class="edge" cx="16" cy="15" r="3.1"/>
-                  <path class="iron-dark" d="M9 10.4 16 7l7 3.4v2L16 9l-7 3.4z"/>
-                </svg>
-                <span>Shield [1]</span>
-              </button>
-              <button id="slot-2" class="equipment-slot" data-sim-control type="button" aria-pressed="false">
-                <svg class="slot-art" viewBox="0 0 32 32" aria-hidden="true">
                   <path class="iron" d="m21.8 2.5 5.7 2.2-14.8 18.1-3.6-3.6z"/>
                   <path class="edge" d="m22.4 4.5 2.5 1-13.5 15.8-.9-.9z"/>
                   <path class="iron-dark" d="m7.1 17.2 7.7 7.7-2.3 2.3-7.7-7.7z"/>
                   <path class="leather" d="m8.7 24.2 2.4 2.4-4.5 4.5-2.4-2.4z"/>
                   <circle class="edge" cx="5.1" cy="30" r="1.3"/>
                 </svg>
-                <span>Sword [2]</span>
+                <span>Sword [1]</span>
+              </button>
+              <button id="slot-2" class="equipment-slot" data-sim-control type="button" aria-pressed="false">
+                <svg class="slot-art" viewBox="0 0 32 32" aria-hidden="true">
+                  <path class="iron-dark" d="M16 2 27 6v9c0 7-4.3 11.7-11 15C9.3 26.7 5 22 5 15V6Z"/>
+                  <path class="iron" d="M16 5.2 23.8 8v7c0 5.2-3 8.8-7.8 11.5C11.2 23.8 8.2 20.2 8.2 15V8Z"/>
+                  <path class="leather" d="M15 5.7h2v20h-2z"/>
+                  <circle class="edge" cx="16" cy="15" r="3.1"/>
+                  <path class="iron-dark" d="M9 10.4 16 7l7 3.4v2L16 9l-7 3.4z"/>
+                </svg>
+                <span>Shield [2]</span>
               </button>
             </div>
           </fieldset>
@@ -362,8 +361,16 @@
 
         <div class="game-stage-footer">
           <p id="interaction-hint">Interactive controls become available after startup.</p>
-          <button id="game-view-mode" type="button" aria-pressed="false" disabled>World</button>
-          <button id="room-camera-toggle" type="button" hidden>Use free camera</button>
+          <label class="view-mode-label">View [G / Shift+G]
+            <select id="game-view-mode" disabled>
+              <option value="world">World</option>
+              <option value="geometry">Geometry</option>
+              <option value="top_down">Top Down</option>
+              <option value="first_person">First Person</option>
+              <option value="free">Free</option>
+              <option value="dev">Dev</option>
+            </select>
+          </label>
         </div>
         <output id="error" aria-live="assertive"></output>
       </section>
@@ -381,9 +388,9 @@
                 <label>Seed <input id="seed" type="number" min="0" max="4294967295" value="1"></label>
                 <button id="reset" data-sim-control type="button">Reset</button>
                 <button id="withdraw" data-sim-control type="button">Withdraw</button>
-                <label>Body/stats <select id="spawn-kind"><option value="2">Brute</option><option value="1">Fighter</option></select></label>
-                <label>Primary <select id="spawn-primary"><option value="0">Sword</option><option value="1">Shield</option><option value="255">Empty</option></select></label>
-                <label>Secondary <select id="spawn-secondary"><option value="255">Empty</option><option value="0">Sword</option><option value="1">Shield</option></select></label>
+                <label>Body/stats <select id="spawn-kind"><option value="2">Brute</option><option value="0">Fighter</option></select></label>
+                <label>Primary <select id="spawn-primary"><option value="2">Sword</option><option value="4">Shield</option></select></label>
+                <label>Secondary <select id="spawn-secondary"><option value="255">Empty</option><option value="2">Sword</option><option value="4">Shield</option></select></label>
                 <button id="spawn" data-sim-control type="button">Spawn enemy</button>
               </div>
             </fieldset>

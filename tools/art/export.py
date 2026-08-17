@@ -70,7 +70,7 @@ def _exported_contract(glb_path, manifest):
     shadow_bytes = 1024 * 1024 * 4
     decoded_texture_bytes = (manifest["textureProcessing"]["width"] *
                              manifest["textureProcessing"]["height"] * 4 *
-                             len(manifest["textures"]))
+                             len(manifest["textures"]) * 3)
     residency = {
         "sourceBufferBytes": source_bytes,
         "decodedTextureBytes": decoded_texture_bytes,
@@ -143,6 +143,7 @@ def export_glb(path, flags):
         "check_existing": False, "export_yup": flags["exportYup"],
         "export_apply": flags["applyModifiers"], "use_selection": flags["useSelection"],
         "export_texcoords": True, "export_normals": True,
+        "export_tangents": flags.get("exportTangents", False),
         "export_materials": flags["exportMaterials"], "export_cameras": False,
         "export_lights": False, "export_animations": flags["animations"],
         "export_skins": flags.get("skins", False),

@@ -143,8 +143,9 @@ are durable reference authority.
 The `#/game` route sends init, reset, pause, advance, goto, withdraw, spawn,
 control-ownership, and live-input requests and
 displays epoch, tick, sequence, queue, coalescing, buffer ownership, and backend
-counters. Movement ownership defaults on with zero input. Mouse aim defaults on;
-W/S move forward/back, A/D strafe, and Q/E turn relative to hero facing while
+counters. Direct Movement ownership defaults off with zero input, leaving mouse
+orders authoritative. Mouse aim defaults on; W/S move forward/back, A/D strafe,
+and Q/E turn relative to hero facing while
 Movement is owned. Primary press/release supplies the attack edge and 1/2 request
 loadout slots. During each snapshot callback it synchronously copies the live leased
 views into renderer-owned immutable presentation records. Babylon sees only those
@@ -344,10 +345,10 @@ intersects the floor, and torch/material treatment remains schematic and repetit
 
 ## Source anchors
 
-- Fixed publication pools: [`thread_local!`](../../crates/web/src/lib.rs#L1573)
-- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L4208)
-- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L5105)
-- Worker adapter and atomic scalar phase: [`readPublication`](../../client/src/runtime/sim.worker.ts#L88)
+- Fixed publication pools: [`thread_local!`](../../crates/web/src/lib.rs#L1603)
+- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L4280)
+- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L5238)
+- Worker adapter and atomic scalar phase: [`readPublication`](../../client/src/runtime/sim.worker.ts#L94)
 - Pure protocol host: [`SimWorkerHost`](../../client/src/runtime/sim-worker-host.ts#L55)
 - Main-thread lease owner: [`SimClient`](../../client/src/runtime/sim-client.ts#L122)
 - Greybox unit mapping: [`ActorPresentation.#pose`](../../client/src/render/actors.ts#L304)

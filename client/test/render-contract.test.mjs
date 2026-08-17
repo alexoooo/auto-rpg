@@ -94,14 +94,14 @@ const arenaEnvironment = await load("client/src/arena/environment.js");
 
 test("the_room_variant_selector_is_repeatable_uses_every_variant_and_avoids_checkerboards", () => {
   const first = [];
-  const counts = [0, 0, 0, 0];
+  const counts = Array(8).fill(0);
   for (let ty = 0; ty < 32; ty++) for (let tx = 0; tx < 48; tx++) {
     const variant = roomMaterialVariants.chooseRoomFloorVariant(1592594996, tx, ty);
     assert.deepEqual(variant, roomMaterialVariants.chooseRoomFloorVariant(1592594996, tx, ty));
     counts[variant.id]++;
     first.push(variant.id);
   }
-  assert.ok(counts.every((count) => count > 300), `all four variants need useful coverage: ${counts}`);
+  assert.ok(counts.every((count) => count > 150), `all eight variants need useful coverage: ${counts}`);
   let alternating = 0;
   for (let ty = 0; ty < 31; ty++) for (let tx = 0; tx < 47; tx++) {
     const at = ty * 48 + tx;
@@ -113,7 +113,7 @@ test("the_room_variant_selector_is_repeatable_uses_every_variant_and_avoids_chec
   for (let side = 0; side < 4; side++) for (let tx = 0; tx < 20; tx++) {
     walls.add(roomMaterialVariants.chooseRoomWallSurfaceVariant(1592594996, tx, 7, side));
   }
-  assert.deepEqual([...walls].sort(), [0, 1]);
+  assert.deepEqual([...walls].sort(), [0, 1, 2, 3, 4, 5]);
 });
 
 const packedPublication = ({ epoch = 2, tick = 7, generation = 3, unitCount = 1 } = {}) => {
@@ -250,7 +250,23 @@ test("inside_facing_torches_close_socket_light_and_all_four_cardinal_faces", asy
     const light = harness.scene.getLightByName(prefix + ":torch:light");
     assert.ok(root && bowl && light);
     assert.ok(Math.abs(root.rotation.y + raw / 65536 * Math.PI * 2) < 1e-12);
-    assert.equal(harness.scene.meshes.filter((mesh) => mesh.name.startsWith(prefix + ":torch:flame:")).length, 3);
+    assert.equal(harness.scene.meshes.filter((mesh) => mesh.name.startsWith(prefix + ":torch:flame:")).length, 4,
+      "two crossed outer planes and two smaller core planes preserve the flame from every camera quarter-turn");
+    const outerUvs = harness.scene.getMeshByName(prefix + ":torch:flame:0").getVerticesData("uv");
+    const coreUvs = harness.scene.getMeshByName(prefix + ":torch:flame:core:0").getVerticesData("uv");
+    assert.deepEqual([
+      Math.min(...outerUvs.filter((_, at) => at % 2 === 0)), Math.max(...outerUvs.filter((_, at) => at % 2 === 0)),
+      Math.min(...outerUvs.filter((_, at) => at % 2 === 1)), Math.max(...outerUvs.filter((_, at) => at % 2 === 1)),
+      Math.min(...coreUvs.filter((_, at) => at % 2 === 0)), Math.max(...coreUvs.filter((_, at) => at % 2 === 0)),
+      Math.min(...coreUvs.filter((_, at) => at % 2 === 1)), Math.max(...coreUvs.filter((_, at) => at % 2 === 1)),
+    ], [0, 1, 0, 1, 0, 1, 0, 1],
+    "physical flames use the pinned top-row crop at full UV range; atlas quadrants cannot drift into pottery");
+    assert.ok(light.intensity >= 7 && light.intensity <= 8.6,
+      "physical torch flicker must preserve the broad warm pool instead of replacing it with a dim icon");
+    assert.equal(harness.scene.getMeshByName(prefix + ":torch:flame:0").material.alphaMode, 1,
+      "the authored RGB plume must use additive blending instead of disappearing in WebGPU alpha cutoff");
+    assert.ok(harness.scene.getMeshByName(prefix + ":torch:flame:0").position.z > bowl.position.z + 0.12,
+      "the flame sprite must sit beyond the wall face instead of depth-testing behind it");
     assert.ok(Vector3.Distance(bowl.position, light.position) < 0.45,
       "the bowl, cross-plane flame, and bounded light share one socket closure");
   }
@@ -1133,20 +1149,24 @@ async function fakeRoomAsset(scene) {
   const { MeshBuilder } = await import("@babylonjs/core/Meshes/meshBuilder.js");
   const { StandardMaterial } = await import("@babylonjs/core/Materials/standardMaterial.js");
   const { TransformNode } = await import("@babylonjs/core/Meshes/transformNode.js");
-  const names = ["floor_a", "floor_b", "wall_straight", "wall_inside", "wall_outside", "wall_end",
+  const names = ["floor_a", "floor_b", "floor_c", "floor_d", "wall_straight", "wall_run_2",
+    "wall_run_3", "wall_run_5", "wall_run_8", "wall_inside", "wall_outside", "wall_end",
     "door_frame", "door_leaf", "torch_bracket", "decal_rubble", "decal_root", "prop_barrel"];
   const pieces = new Map();
   const floor = new StandardMaterial("floor_current", scene);
   const stone = new StandardMaterial("stone_current", scene);
   const wood = new StandardMaterial("wood_current", scene);
   const metal = new StandardMaterial("metal_current", scene);
+  const overburden = new StandardMaterial("overburden_current", scene);
   for (const name of names) {
     const source = MeshBuilder.CreateBox(`ROOM_${name}`, { size: 1 }, scene);
     source.isVisible = false;
     source.isPickable = false;
     source.setEnabled(true);
     source.material = name.startsWith("floor_") ? floor :
-      ["wall_straight", "wall_inside", "wall_outside", "wall_end", "door_frame", "decal_rubble"].includes(name) ? stone :
+      ["wall_straight", "wall_run_2", "wall_run_3", "wall_run_5", "wall_run_8",
+        "wall_inside", "wall_outside", "wall_end", "door_frame"].includes(name) ? stone :
+      name === "decal_rubble" ? overburden :
       ["door_leaf", "decal_root", "prop_barrel"].includes(name) ? wood : metal;
     pieces.set(name, source);
   }
@@ -1157,7 +1177,8 @@ async function fakeRoomAsset(scene) {
       coordinates: { tileSize: 1 },
       pieces: names.map((name) => ({ name, triangleCount: 12, allowedQuarterTurns: [0, 1, 2, 3] })),
     },
-    pieces, materials: new Map([["floor_current", floor], ["stone_current", stone], ["wood_current", wood], ["metal_current", metal]]),
+    pieces, materials: new Map([["floor_current", floor], ["stone_current", stone],
+      ["wood_current", wood], ["metal_current", metal], ["overburden_current", overburden]]),
     socket, disposed: false, dispose() {},
   };
 }
@@ -1181,12 +1202,11 @@ test("room_instances_need_known_topology_and_current_furniture_disclosure", asyn
     ]),
   }));
   assert.deepEqual(room.keys().filter((key) => key.startsWith("tile:")),
-    ["tile:1:0:floor", "tile:2:0:floor", "tile:2:0:wall-cap"]);
+    ["tile:1:0:floor", "tile:2:0:floor"],
+    "a published doorway owns the opening and suppresses the ordinary solid-cell coping");
   assert.deepEqual(room.keys().filter((key) => key.startsWith("furniture:")),
-    [`furniture:${ABI.FURNITURE_DOOR}:2:0:frame`,
-      `furniture:${ABI.FURNITURE_DOOR}:2:0:leaf:plank:0`,
-      `furniture:${ABI.FURNITURE_DOOR}:2:0:leaf`,
-      `furniture:${ABI.FURNITURE_DOOR}:2:0:leaf:plank:2`]);
+    [`furniture:${ABI.FURNITURE_DOOR}:2:0:frame`],
+    "an open singleton keeps its architectural frame and publishes no closed leaf");
   assert.equal(room.counts().lights, 1);
   assert.equal(debug.snapshot().visibility.furniture, 1);
   const picks = scene.meshes.filter((mesh) => mesh.name.startsWith("room:") && mesh.isPickable);
@@ -1260,9 +1280,9 @@ test('remembered_room_walls_preserve_an_opaque_masonry_silhouette', async () => 
   }));
   const walls = scene.meshes.filter((mesh) => mesh.name.includes(':wall-face:'));
   const floors = scene.meshes.filter((mesh) => /^room:tile:\d+:\d+:floor$/.test(mesh.name));
-  // Both exposed sides exist independently of camera quadrant. Remembered
-  // visibility softens their instances without changing their identity.
-  assert.equal(walls.length, 2);
+  // The contiguous two-cell facade is one authored run. Remembered visibility
+  // keeps that merged masonry silhouette opaque without splitting its identity.
+  assert.equal(walls.length, 1);
   assert.ok(walls.every((mesh) => mesh.sourceMesh?.material?.alpha === 1 &&
     mesh.metadata?.roomWallVisibility === 1));
   assert.ok(floors.every((mesh) => mesh.sourceMesh?.material?.alpha === 0.42));
@@ -1304,7 +1324,8 @@ test("room_source_meshes_stay_hidden_and_do_not_count_as_visible_presence", asyn
   scene.render();
   assert.ok([...asset.pieces.values()].every((source) => source.isEnabled() && !source.isVisible && !source.isPickable));
   const rememberedSources = scene.meshes.filter((mesh) => mesh.name.startsWith("room:source:"));
-  assert.equal(rememberedSources.length, 10);
+  assert.equal(rememberedSources.length, 20,
+    "current and remembered sources both close the ten floor/wall module recipes");
   assert.ok(rememberedSources.every((source) => source.isEnabled() && !source.isVisible && !source.isPickable));
   assert.equal(debug.snapshot().meshes, 0);
   const active = scene.getActiveMeshes();
@@ -1341,10 +1362,11 @@ test("the_flame_has_a_tapered_core_and_outer_silhouette_at_gameplay_scale", asyn
   const different = roomFlame.createTorchFlame(secondScene, "torch:8:2", new Vector3(0, 0, 0));
   assert.equal(first.phase, same.phase);
   assert.notEqual(first.phase, different.phase);
-  assert.equal(first.meshes.length, 2);
+  assert.equal(first.meshes.length, 3);
   assert.ok(first.meshes.every((mesh) => !mesh.isPickable && !mesh.receiveShadows));
-  const [outer, core] = first.meshes;
+  const [outer, core, halo] = first.meshes;
   assert.match(outer.name, /flame-outer$/); assert.match(core.name, /flame-core$/);
+  assert.match(halo.name, /flame-halo$/);
   assert.ok(outer.getBoundingInfo().boundingBox.extendSize.y >
     outer.getBoundingInfo().boundingBox.extendSize.x,
   "the outer flame must taper vertically instead of reading as an orange ball");
@@ -1384,19 +1406,25 @@ test("concept_light_rigs_are_warm_from_upper_right_restrained_in_fill_and_broad_
   assert.deepEqual([torchLight.diffuse.r, torchLight.diffuse.g, torchLight.diffuse.b,
     torchLight.specular.r, torchLight.specular.g, torchLight.specular.b],
   [1, 0.25, 0.045, 0.42, 0.18, 0.055]);
-  assert.deepEqual([torchLight.intensity, torchLight.range], [4, 11.5]);
+  assert.deepEqual([torchLight.intensity, torchLight.range], [8.5, 10.5]);
   assert.deepEqual(roomScene.getMaterialByName("floor_current").diffuseColor.asArray(),
-    [0.86, 0.88, 0.92], "current flagstones keep a neutral charcoal value family");
+    [0.74, 0.76, 0.80], "current flagstones keep a neutral charcoal value family");
   assert.deepEqual(roomScene.getMaterialByName("stone_current").diffuseColor.asArray(),
-    [1, 0.82, 0.64], "masonry stays warmer than the disclosed floor");
+    [0.95, 0.82, 0.66], "masonry stays warmer than the disclosed floor");
   assert.deepEqual(roomScene.getMaterialByName("wood_current").diffuseColor.asArray(),
-    [0.30, 0.17, 0.09], "door planks stay aged umber rather than flat beige");
+    [0.42, 0.26, 0.14], "door planks stay aged umber rather than flat beige");
   assert.deepEqual(roomScene.getMaterialByName("wood_current").emissiveColor.asArray(),
-    [0, 0, 0]);
+    [0.018, 0.010, 0.005]);
   assert.deepEqual([outerFlame.material.emissiveColor.r, outerFlame.material.emissiveColor.g,
-    outerFlame.material.emissiveColor.b], [1, 0.19, 0.025]);
+    outerFlame.material.emissiveColor.b], [0, 0, 0]);
   assert.deepEqual([coreFlame.material.emissiveColor.r, coreFlame.material.emissiveColor.g,
-    coreFlame.material.emissiveColor.b], [1, 0.66, 0.12]);
+    coreFlame.material.emissiveColor.b], [0, 0, 0],
+  "the authored PNG alone owns the white-hot-to-orange colour ramp; StandardMaterial adds its colour");
+  assert.match(outerFlame.material.emissiveTexture?.name ?? "", /room_vfx_flame[.]png$/);
+  assert.equal(outerFlame.material.alphaMode, 1,
+  "the authored RGB plume uses additive blending rather than losing smoke to alpha cutoff");
+  assert.equal(outerFlame.material.depthFunction, 519,
+  "the focal plume must not be depth-erased by its authored masonry socket");
   assert.ok(outerFlame.getBoundingInfo().boundingBox.extendSizeWorld.y >
     outerFlame.getBoundingInfo().boundingBox.extendSizeWorld.x,
   "the flame must remain a tapered silhouette at the gameplay camera scale");
@@ -1514,14 +1542,17 @@ test("wall_face_identity_survives_current_to_remembered_and_neighbour_disclosure
   const engine = new NullEngine(); const scene = new Scene(engine);
   const room = new roomEnvironment.RoomEnvironmentPresentation(
     scene, new rendererDebug.RendererDebugRegistry(), await fakeRoomAsset(scene));
-  room.acceptSnapshot(first);
-  const retained = scene.getMeshByName("room:tile:1:0:wall-face:2");
-  assert.ok(retained);
-  room.acceptSnapshot(second);
-  assert.equal(scene.getMeshByName("room:tile:1:0:wall-face:2"), retained);
-  assert.equal(retained.metadata.roomWallVisibility, 1);
-  assert.equal(scene.meshes.filter((mesh) => mesh.name.includes(":wall-face:")).length, 4);
-  room.dispose(); scene.dispose(); engine.dispose();
+  try {
+    room.acceptSnapshot(first);
+    const retained = scene.getMeshByName("room:tile:1:0:wall-face:2");
+    assert.ok(retained);
+    room.acceptSnapshot(second);
+    assert.equal(scene.getMeshByName("room:tile:1:0:wall-face:2"), retained);
+    assert.equal(retained.metadata.roomWallVisibility, 1);
+    assert.equal(scene.meshes.filter((mesh) => mesh.name.includes(":wall-face:")).length, 4);
+  } finally {
+    room.dispose(); scene.dispose(); engine.dispose();
+  }
 });
 
 test("unknown_cells_create_no_wall_face_or_subsystem_presence", async () => {
@@ -1571,8 +1602,8 @@ test("outer_boundaries_are_thick_masonry_joined_to_overburden", async () => {
       ABI.MAP_SOLID, ABI.MAP_SOLID, ABI.MAP_SOLID,
     ]), vis: Object.freeze(new Array(9).fill(2)) }));
   const faces = scene.meshes.filter((mesh) => mesh.name.includes(":wall-face:"));
-  assert.ok(faces.length === 4 && faces.every((mesh) => mesh.scaling.z >= 3),
-    "thin facade sources become half-tile masonry depth");
+  assert.ok(faces.length === 4 && faces.every((mesh) => mesh.scaling.z === 1),
+    "authored relief owns wall depth without stretching coping toward the hero");
   assert.ok(scene.getMeshByName("room:overburden:ground"));
   room.dispose(); scene.dispose(); engine.dispose();
 });
@@ -1587,12 +1618,12 @@ test("only_objects_covering_the_hero_fade_and_restore_the_same_identity", async 
   assert.ok(face);
   const project = ({ x, y, z }) => ({ x: x * 100, y: -y * 100, depth: z });
   for (let frame = 0; frame < 20; frame++) room.updateOcclusion(project, { x: 1, z: 1 });
-  assert.ok(face.instancedBuffers.color.a < 0.3);
-  assert.equal(room.shadowGenerator.getShadowMap()?.renderList?.includes(face), true,
-    "a faded occluder keeps its authored shadow membership");
+  assert.equal(face.isVisible, false);
+  assert.equal(room.shadowGenerator.getShadowMap()?.renderList?.includes(face), false,
+    "a local aperture removes the matching caster instead of leaving a triangular shadow");
   for (let frame = 0; frame < 40; frame++) room.updateOcclusion(project, null);
   assert.equal(scene.getMeshByName("room:tile:0:0:wall-face:1"), face);
-  assert.ok(face.instancedBuffers.color.a > 0.98);
+  assert.equal(face.isVisible, true);
   assert.ok(room.shadowGenerator.getShadowMap()?.renderList?.includes(face));
   room.dispose(); scene.dispose(); engine.dispose();
 });
@@ -1674,7 +1705,7 @@ test("disclosed_solid_cells_keep_raised_masonry_caps_above_cutaway_faces", async
   assert.equal(caps.length, 3);
   assert.ok(caps.every((mesh) => Math.abs(mesh.position.y - 1.55) < 1e-12 &&
     mesh.rotationQuaternion === null && mesh.rotation.x === 0 &&
-    mesh.scaling.x === 0.92 && mesh.scaling.z === 0.92));
+    mesh.scaling.x === 0.96 && mesh.scaling.z === 0.96));
   const faces = scene.meshes.filter((mesh) => mesh.name.includes(":wall-face:"));
   assert.ok(faces.length > 0);
   assert.ok(faces.every((mesh) => mesh.scaling.y === 1.65 / 0.9));
@@ -1700,8 +1731,8 @@ test("ambient_room_dressing_is_bounded_deterministic_disclosed_and_non_pickable"
   assert.deepEqual(first, second);
   assert.ok(first.length >= 3 && first.length <= 12);
   assert.deepEqual(new Set(first.map(({ piece }) => piece)),
-    new Set(["prop_barrel", "decal_root", "decal_rubble"]),
-    "a disclosed room gets one furniture-scale silhouette and both ground-detail families");
+    new Set(["decal_root", "decal_rubble"]),
+    "automatic dressing stays low-profile; authored fixtures may place wall-adjacent barrels explicitly");
   assert.ok(first.every(({ piece, tx, ty, quarterTurns }) =>
     (piece === "decal_rubble" || piece === "decal_root" || piece === "prop_barrel") &&
     map[ty * mapCols + tx] === ABI.MAP_OPEN && vis[ty * mapCols + tx] === 2 &&
@@ -1772,16 +1803,14 @@ test("published_door_cells_form_one_architectural_span_without_repeated_frames",
   const keys = room.keys();
   assert.equal(keys.filter((key) => key.endsWith(":frame")).length, 1,
     "only the singleton doorway uses a complete frame");
-  assert.equal(keys.filter((key) => key.includes(":span:lintel:")).length, 5);
+  assert.equal(keys.filter((key) => key.includes(":span:lintel:")).length, 0,
+    "the wall contour owns the continuous masonry above a multi-cell opening");
   assert.equal(keys.filter((key) => key.includes(":span:jamb:")).length, 4);
   assert.equal(keys.filter((key) => key.includes(":span:leaf:")).length, 9,
     "three narrow plank modules close each shut span tile while open spans remain gaps");
-  assert.equal(keys.filter((key) => key.includes(":door-iron:")).length, 8,
-    "shut leaves carry two readable iron straps per panel");
-  const lintels = scene.meshes.filter((mesh) => mesh.name.includes(":span:lintel:"));
+  assert.equal(keys.filter((key) => key.includes(":door-iron:")).length, 2,
+    "only the shut singleton leaf owns the two readable strap instances");
   const jambs = scene.meshes.filter((mesh) => mesh.name.includes(":span:jamb:"));
-  assert.ok(lintels.every((mesh) =>
-    mesh.scaling.y === 0.14 / 0.9 && Math.abs(mesh.position.y - 1.51) < 1e-12));
   assert.ok(jambs.every((mesh) =>
     mesh.scaling.x === 0.14 && mesh.scaling.y === 1.65 / 0.9));
   room.dispose(); scene.dispose(); engine.dispose();
@@ -1827,11 +1856,8 @@ test("door_frames_follow_horizontal_and_vertical_runs_and_replace_boundary_faces
   assert.equal(mesh(vertical, "frame").rotationQuaternion, null,
     "the imported identity quaternion must not override the vertical frame quarter turn");
   assert.deepEqual([
-    mesh(vertical, "leaf").position.x, mesh(vertical, "leaf").position.z,
-    mesh(vertical, "leaf").rotation.y,
-  ], [3, 2.5, Math.PI]);
-  assert.equal(mesh(vertical, "leaf").rotation.y, Math.PI,
-    "an open vertical leaf turns one more quarter around its vertical frame");
+    mesh(vertical, "leaf"), mesh(vertical, "leaf:plank:0"), mesh(vertical, "leaf:plank:2"),
+  ], [null, null, null], "an open vertical frame presents an unobstructed aperture");
   room.dispose(); scene.dispose(); engine.dispose();
 });
 
@@ -1841,13 +1867,13 @@ test("the_fixed_room_stress_fixture_has_the_named_asset_hash_population_and_piec
   assert.deepEqual([fixture.mapCols, fixture.mapRows, fixture.map.length, fixture.units.length],
     [48, 32, 1536, 64]);
   assert.equal(fixture.map.filter((value) => value === ABI.MAP_SOLID).length, 175);
-  const floors = { floor_a: 0, floor_b: 0 };
+  const floors = { floor_a: 0, floor_b: 0, floor_c: 0, floor_d: 0 };
   const walls = { wall_straight: 0, wall_inside: 0, wall_outside: 0, wall_end: 0 };
   for (let ty = 0; ty < fixture.mapRows; ty++) for (let tx = 0; tx < fixture.mapCols; tx++) {
     floors[roomEnvironment.chooseRoomFloor(fixture.generatorSeed, tx, ty)]++;
     for (const wall of roomEnvironment.chooseRoomBoundaryWalls(fixture, tx, ty)) walls[wall.piece]++;
   }
-  assert.deepEqual(floors, { floor_a: 804, floor_b: 732 });
+  assert.deepEqual(floors, { floor_a: 388, floor_b: 368, floor_c: 416, floor_d: 364 });
   assert.deepEqual(walls, { wall_straight: 188, wall_inside: 0, wall_outside: 0, wall_end: 0 });
   assert.deepEqual(Object.fromEntries(["decal_rubble", "decal_root", "prop_barrel"].map((piece) =>
     [piece, fixture.roomDecorations.filter((item) => item.piece === piece).length])),
@@ -1855,7 +1881,7 @@ test("the_fixed_room_stress_fixture_has_the_named_asset_hash_population_and_piec
   const stableFaces = roomEnvironment.chooseRoomWallFaces(fixture);
   assert.equal(stableFaces.length, 188);
   assert.equal(new Set(stableFaces.map(({ key }) => key)).size, 188);
-  assert.deepEqual(fixture.pieceCounts, { floor_a: 804, floor_b: 732, wall_straight: 363,
+  assert.deepEqual(fixture.pieceCounts, { floor_a: 388, floor_b: 368, floor_c: 416, floor_d: 364, wall_straight: 363,
     wall_inside: 0, wall_outside: 0, wall_end: 0, door_frame: 2, door_leaf: 6,
     torch_bracket: 10, decal_rubble: 4, decal_root: 4, prop_barrel: 4 });
   assert.equal(createHash("sha256").update(Buffer.from(fixture.map)).digest("hex"),
@@ -1867,14 +1893,14 @@ test("the_fixed_room_stress_fixture_has_the_named_asset_hash_population_and_piec
   const debug = new rendererDebug.RendererDebugRegistry();
   const room = new roomEnvironment.RoomEnvironmentPresentation(scene, debug, await fakeRoomAsset(scene));
   room.acceptSnapshot(fixture);
-  // 1536 floors + 175 solid-cell caps + all 188 stable boundary faces.
-  // Furniture has 22 semantic records but 30 instances because each of the two
-  // leaves is three planks and the shut leaf also carries two iron straps.
-  assert.deepEqual(room.counts(), { geometry: 1899, furniture: 22, instances: 1929,
-    lights: 9, shadowCasters: 1929, triangles: room.counts().triangles });
-  assert.equal(debug.snapshot().draws, 27,
-    "the two deterministic cap groups and two-layer flames remain exact draw owners");
-  assert.equal(debug.snapshot().visibility.effects, 16);
+  // 1536 floors + 175 solid-cell caps + 35 packed modules spanning all 188
+  // stable boundary faces. Furniture contributes 27 presentation instances.
+  assert.deepEqual(room.counts(), { geometry: 1746, furniture: 22, instances: 1773,
+    lights: 9, shadowCasters: 1773, triangles: room.counts().triangles });
+  assert.equal(debug.snapshot().draws, 43,
+    "four floor treatments, packed facade sources, fixtures, and layered flames remain exact draw owners");
+  assert.equal(debug.snapshot().visibility.effects, 24,
+    "eight torches each own an outer flame, bright core, and soft halo");
   assert.equal(debug.snapshot().visibility.picking, 1558);
   const before = scene.meshes.filter((mesh) => mesh.name.startsWith("room:") && mesh.sourceMesh);
   room.acceptSnapshot(Object.freeze({ ...fixture, tick: 1 }));
@@ -1913,11 +1939,11 @@ test("the_compact_room_review_fixture_is_not_the_performance_stress_fixture", as
   const debug = new rendererDebug.RendererDebugRegistry();
   const room = new roomEnvironment.RoomEnvironmentPresentation(scene, debug, await fakeRoomAsset(scene));
   room.acceptSnapshot(fixture);
-  // 160 floors + 48 solid-cell caps + all 42 stable boundary faces.
+  // 160 floors + 48 solid-cell caps + six packed modules spanning all 42 stable boundary faces.
   // The two framed doors use six plank modules and two shut-leaf straps, so 18
   // semantic furniture rows intentionally occupy 26 presentation instances.
-  assert.deepEqual(room.counts(), { geometry: 250, furniture: 18, instances: 276,
-    lights: 5, shadowCasters: 276, triangles: room.counts().triangles });
+  assert.deepEqual(room.counts(), { geometry: 214, furniture: 18, instances: 237,
+    lights: 5, shadowCasters: 237, triangles: room.counts().triangles });
   assert.equal(scene.lights.length, 6, "review fill is separate from the room key and four torches");
   assert.deepEqual([scene.clearColor.r, scene.clearColor.g, scene.clearColor.b, scene.clearColor.a],
     [0.012, 0.016, 0.032, 1]);
@@ -2444,6 +2470,39 @@ test("primary_pointer_click_issues_goto_while_primary_drag_moves_the_live_camera
   globalThis.window = oldWindow;
 });
 
+test("default_aim_tracking_does_not_steal_mouse_goto_but_direct_action_does", async () => {
+  const oldWindow = globalThis.window;
+  globalThis.window = new EventTarget();
+  class FakeCanvas extends EventTarget {
+    setPointerCapture() {}
+    hasPointerCapture() { return false; }
+    releasePointerCapture() {}
+  }
+  const world = snapshot();
+  const pointer = (type, id) => {
+    const event = new Event(type, { cancelable: true });
+    Object.assign(event, { button: 0, clientX: 10, clientY: 10, pointerId: id });
+    return event;
+  };
+  for (const [action, expected] of [[false, "goto"], [true, "setInput"]]) {
+    const canvas = new FakeCanvas();
+    const commands = [];
+    const input = new greyboxInput.GreyboxInput({
+      canvas, snapshot: () => world, blocked: () => false,
+      aimEnabled: () => true, actionEnabled: () => action,
+      projectGround: () => ({ x: 1.25, z: 0.5 }),
+      submit: async (command) => { commands.push(command); },
+    });
+    canvas.dispatchEvent(pointer("pointerdown", action ? 2 : 1));
+    canvas.dispatchEvent(pointer("pointerup", action ? 2 : 1));
+    await Promise.resolve();
+    assert.equal(commands[0]?.kind, expected);
+    if (action) assert.equal(commands.some((command) => command.strike === 1), true);
+    input.dispose();
+  }
+  globalThis.window = oldWindow;
+});
+
 test("the_render_loop_feeds_the_review_camera_the_hero_and_only_the_hero", async () => {
   const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
   const { Scene } = await import("@babylonjs/core/scene.js");
@@ -2517,7 +2576,8 @@ test("representative_room_readiness_waits_for_a_completed_authored_frame_and_tim
 
 test("free_mode_refuses_simulation_commands_and_restores_follow_on_exit", async () => {
   const entrySource = fs.readFileSync(path.join(ROOT, "client", "src", "v2.ts"), "utf8");
-  assert.match(entrySource, /const submit = async[\s\S]*roomReviewInteractionBlocked\(renderer\)[\s\S]*application\.command\(command\)/);
+  assert.match(entrySource, /const requireSimulationInteraction = \(\)[\s\S]*roomReviewInteractionBlocked[\s\S]*const submit = async[\s\S]*requireSimulationInteraction\(\)\.command\(command\)/);
+  assert.match(entrySource, /setControlMask[\s\S]*submit\(\{ kind: "setControl"/);
   assert.match(entrySource, /blocked: \(\) => syntheticMode \|\| roomReviewInteractionBlocked\(gpu\)/);
   const oldWindow = globalThis.window;
   globalThis.window = new EventTarget();
@@ -2596,6 +2656,19 @@ test("free_mode_refuses_simulation_commands_and_restores_follow_on_exit", async 
   await assert.rejects(toolbar("withdraw"), /free review camera/);
   assert.equal(commands.length, 2); assert.equal(pans, 0);
   input.dispose(); renderer.dispose(); globalThis.window = oldWindow;
+});
+
+test("free_mode_blocks_simulation_on_the_procedural_route_too", async () => {
+  const state = { reviewCameraFree: false, presentationMode: "free" };
+  assert.equal(greyboxRenderer.roomReviewInteractionBlocked(false, state), true);
+  await assert.rejects(
+    greyboxRenderer.submitWithRoomReviewGuard(false, state, async () => "sent"),
+    /free review camera/,
+  );
+  state.presentationMode = "world";
+  assert.equal(await greyboxRenderer.submitWithRoomReviewGuard(
+    false, state, async () => "sent",
+  ), "sent");
 });
 
 test("greybox_input_keeps_one_pointer_owner_and_recovers_after_throwing_host_callbacks", async () => {
@@ -3131,7 +3204,11 @@ test("vite_build_rewrites_no_hand_written_page_under_web_including_its_own_input
   assert.match(html, /id="interaction-hint"/);
   assert.match(html, /id="performance-progress" max="150" value="0"/);
   assert.match(html, /id="performance-status" aria-live="polite"/);
-  assert.match(html, /id="room-camera-toggle" type="button" hidden/);
+  assert.doesNotMatch(html, /id="room-camera-toggle"/,
+    "Free is a first-class mode; the obsolete duplicate camera toggle must not return");
+  const selector = /<select id="game-view-mode"[^>]*>([\s\S]*?)<\/select>/.exec(html)?.[1] ?? "";
+  assert.deepEqual([...selector.matchAll(/<option value="([^"]+)"/g)].map((match) => match[1]),
+    ["world", "geometry", "top_down", "first_person", "free", "dev"]);
   assert.equal((html.match(/data-performance-metadata/g) ?? []).length, 6);
   for (const value of [
     "Windows 11 Home 25H2 build 26200.8973", "13th Gen Intel Core i7-13700H",
@@ -3212,8 +3289,8 @@ test("room_sidecar_runtime_decoding_rejects_every_malformed_or_unbounded_field",
   const bytes = fs.readFileSync(sidecarPath);
   const valid = roomAssetContract.parseRoomAssetSidecar(bytes);
   assert.equal(valid.fixtureId, "v2-room-slice-1");
-  assert.equal(valid.pieces.length, 12);
-  assert.deepEqual(valid.styling, { id: "painted-cathedral-v3", mode: "deterministic-vertex-color",
+  assert.equal(valid.pieces.length, 18);
+  assert.deepEqual(valid.styling, { id: "painted-cathedral-v4", mode: "deterministic-vertex-color",
     attribute: "room_style", textures: true });
   assert.ok(Object.isFrozen(valid));
   assert.ok(Object.isFrozen(valid.pieces));
@@ -3229,8 +3306,8 @@ test("room_sidecar_runtime_decoding_rejects_every_malformed_or_unbounded_field",
     { ...source, counts: { ...source.counts, triangles: source.counts.triangles + 1 } },
     { ...source, estimatedGpuResidency: { ...source.estimatedGpuResidency,
       totalBytes: source.estimatedGpuResidency.totalBytes + 1 } },
-    { ...source, payloadBytes: 25_165_825 },
-    { ...source, counts: { ...source.counts, materials: 5 } },
+    { ...source, payloadBytes: 67_108_865 },
+    { ...source, counts: { ...source.counts, materials: 6 } },
     { ...source, estimatedGpuResidency: { ...source.estimatedGpuResidency,
       sourceBufferBytes: 268_435_456, totalBytes: 272_851_968 } },
     { ...source, estimatedGpuResidency: { ...source.estimatedGpuResidency,
@@ -3239,9 +3316,9 @@ test("room_sidecar_runtime_decoding_rejects_every_malformed_or_unbounded_field",
       { ...piece, vertexCount: 25_165_825 } : piece),
       counts: { ...source.counts, vertices: 25_166_305 } },
   ];
-  for (const value of malformed) {
+  for (const [index, value] of malformed.entries()) {
     assert.throws(() => roomAssetContract.parseRoomAssetSidecar(Buffer.from(JSON.stringify(value))),
-      /room sidecar/);
+      /room sidecar/, "malformed room sidecar case " + index + " must fail closed");
   }
   assert.throws(() => roomAssetContract.parseRoomAssetSidecar(new Uint8Array(4 * 1024 * 1024 + 1)),
     /byte length/);
@@ -3367,7 +3444,7 @@ test("the_pinned_combatant_glb_loads_once_as_two_hidden_exact_skinned_archetypes
   }
 });
 
-test("enabled_combatant_dresses_are_visible_independent_skinned_clones", async () => {
+test("enabled_combatant_dresses_are_visible_independent_joint_local_clones", async () => {
   const engine = new NullEngine();
   const scene = new Scene(engine);
   try {
@@ -3385,18 +3462,18 @@ test("enabled_combatant_dresses_are_visible_independent_skinned_clones", async (
     assert.equal(first.root.name, "dress:first:FIGHTER_root",
       "the public root is the semantic root, not Babylon's loader closure root");
     assert.ok([...first.meshes.values()].every((mesh) => mesh.isVisible && mesh.isEnabled()));
-    assert.ok([...first.meshes.values()].every((mesh) => mesh.alwaysSelectAsActiveMesh),
-      "a skinned dress must not be culled by its stale loader-origin bounds after the bones follow the hero");
-    const firstSkeletons = new Set([...first.meshes.values()].map((mesh) => mesh.skeleton));
-    const secondSkeletons = new Set([...second.meshes.values()].map((mesh) => mesh.skeleton));
-    assert.equal(firstSkeletons.size, 1);
-    assert.equal(secondSkeletons.size, 1);
-    assert.equal([...firstSkeletons][0].useTextureToStoreBoneMatrices, true);
-    assert.ok([...firstSkeletons][0].bones.every((bone) =>
-      bone.getAbsoluteInverseBindMatrix().isIdentity()),
-    "joint-local rigid pieces need identity inverse binds when the published rig supplies the joints");
-    assert.notEqual([...firstSkeletons][0], [...secondSkeletons][0],
-      "each body must own a cloned skeleton rather than driving the source or its neighbour");
+    assert.ok([...first.meshes.values()].every((mesh) => mesh.alwaysSelectAsActiveMesh));
+    for (const [semantic, mesh] of first.meshes) {
+      const joint = combatantDress.combatantMeshJoint(semantic);
+      assert.equal(mesh.skeleton, null,
+        "runtime must not feed joint-local vertices through glTF skin conversion a second time");
+      assert.equal(mesh.parent, first.nodes.get(joint), semantic + " did not follow " + joint);
+    }
+    for (const [semantic, mesh] of second.meshes) {
+      assert.equal(mesh.parent, second.nodes.get(combatantDress.combatantMeshJoint(semantic)));
+      assert.notEqual(mesh.parent, first.meshes.get(semantic).parent,
+        "each body must own an independent semantic joint closure");
+    }
     const materialOf = (dress, semantic) => dress.meshes.get(semantic).material;
     assert.equal(materialOf(first, "head_helmet"), materialOf(second, "head_helmet"),
       "clones share the immutable baked PBR material instead of recolouring it at runtime");
@@ -3432,7 +3509,7 @@ test("enabled_combatant_dresses_are_visible_independent_skinned_clones", async (
     brute.dispose();
     first.dispose();
     assert.ok([...second.meshes.values()].every((mesh) => !mesh.isDisposed()),
-      "disposing one dress must not dispose another body's skeleton closure");
+      "disposing one dress must not dispose another body's authored closure");
     second.dispose();
     asset.dispose();
   } finally {
@@ -3485,6 +3562,23 @@ test("authored_game_dress_falls_back_and_reacts_only_to_published_events_then_fo
     assert.equal(authored.length, asset.archetypes.get("fighter").contract.lods
       .reduce((sum, lod) => sum + lod.meshes.length, 0));
     const active = authored.filter((mesh) => mesh.name.includes("_lod_low_mesh_"));
+    const horizontalFromActor = (mesh) => {
+      mesh.computeWorldMatrix(true);
+      mesh.refreshBoundingInfo(true);
+      const centre = mesh.getBoundingInfo().boundingBox.centerWorld;
+      return Math.hypot(centre.x - fighter.x, centre.z - fighter.y);
+    };
+    for (const semantic of ["head_face", "head_plume"]) {
+      const mesh = active.find((candidate) => candidate.name.endsWith("_mesh_" + semantic));
+      assert.ok(mesh, `the low Fighter LOD lacks ${semantic}`);
+      assert.ok(horizontalFromActor(mesh) <= fighter.radius * 1.25,
+        `${mesh.name} detached from the authored head at the actor root`);
+    }
+    for (const mesh of active) {
+      const horizontal = horizontalFromActor(mesh);
+      assert.ok(horizontal <= fighter.radius * 3,
+        `${mesh.name} escaped its actor envelope by ${horizontal.toFixed(3)}`);
+    }
     assert.ok(active.every((mesh) => mesh.isPickable),
       "a currently visible body keeps the same picking contract as its procedural fallback");
     assert.ok(active.filter((mesh) => !mesh.name.endsWith("_sword") && !mesh.name.endsWith("_shield"))
@@ -3566,12 +3660,28 @@ test("first_person_hides_only_self_occluding_dress", async () => {
     const geometryEnabled = procedural.filter((mesh) => mesh.isEnabled());
     assert.ok(geometryEnabled.length >= 8,
       `Geometry enables the readable body; got ${geometryEnabled.map((mesh) => mesh.name)}`);
+    for (const suffix of ["hitbox", "facing", "reach"]) {
+      assert.ok(geometryEnabled.some((mesh) => mesh.name.endsWith(":diagnostic:" + suffix)),
+        `Geometry must expose the authoritative ${suffix} overlay`);
+    }
+    assert.ok(geometryEnabled.some((mesh) => mesh.name.endsWith(":head"))
+      && geometryEnabled.some((mesh) => mesh.name.endsWith(":torso"))
+      && geometryEnabled.some((mesh) => mesh.name.includes(":arm:")),
+    "Geometry must expose named body regions instead of one undifferentiated proxy");
     assert.equal(ring.isEnabled(), true);
     assert.equal(casters.size, procedural.length);
     actors.setPresentationMode("first_person");
     actors.acceptSnapshot(snapshot({ tick: 2, units: Object.freeze([fighter]) }));
     const high = authored.filter((mesh) => mesh.name.includes("_lod_high_mesh_"));
     const highEnabled = new Set(high.filter((mesh) => mesh.isEnabled()));
+    for (const mesh of highEnabled) {
+      mesh.computeWorldMatrix(true);
+      mesh.refreshBoundingInfo(true);
+      const centre = mesh.getBoundingInfo().boundingBox.centerWorld;
+      const horizontal = Math.hypot(centre.x - fighter.x, centre.z - fighter.y);
+      assert.ok(horizontal <= fighter.radius * 3,
+        `${mesh.name} escaped its actor envelope at high LOD by ${horizontal.toFixed(3)}`);
+    }
     const hidden = high.filter((mesh) => !mesh.isEnabled()).filter((mesh) => {
       const semantic = mesh.name.match(/_mesh_(.+)$/)?.[1] ?? "";
       return combatantDress.combatantMeshRole(semantic) === "head" ||
@@ -3649,9 +3759,20 @@ function fakeRoomContainer(sidecar) {
   const materialCompiles = [];
   const floorTexture = { name: "floor_current (Base Color)" };
   const wallTexture = { name: "stone_current (Base Color)" };
-  const materials = new Map(["floor_current", "stone_current", "wood_current", "metal_current"].map((name) => [name, {
+  const woodTexture = { name: "wood_current (Base Color)" };
+  const overburdenTexture = { name: "overburden_current (Base Color)" };
+  const normalTextures = new Map(["floor_current", "stone_current", "wood_current", "overburden_current"]
+    .map((name) => [name, { name: `${name} (Normal)` }]));
+  const metallicTextures = new Map(["floor_current", "stone_current", "wood_current", "overburden_current"]
+    .map((name) => [name, { name: `${name} (Metallic Roughness)` }]));
+  const materials = new Map([
+    "floor_current", "stone_current", "wood_current", "metal_current", "overburden_current",
+  ].map((name) => [name, {
     name,
-    albedoTexture: name === "floor_current" ? floorTexture : name === "stone_current" ? wallTexture : null,
+    albedoTexture: name === "floor_current" ? floorTexture : name === "stone_current" ? wallTexture :
+      name === "wood_current" ? woodTexture : name === "overburden_current" ? overburdenTexture : null,
+    bumpTexture: normalTextures.get(name) ?? null,
+    metallicTexture: metallicTextures.get(name) ?? null,
     forceCompilationAsync(mesh, options) {
       materialCompiles.push([name, mesh.name, options]);
       return Promise.resolve();
@@ -3679,7 +3800,9 @@ function fakeRoomContainer(sidecar) {
   const container = {
     meshes: [root, ...meshes], transformNodes: [socket], rootNodes: [root],
     materials: [...materials.values()], geometries: sidecar.pieces.map(({ node: id }) => ({ id })),
-    cameras: [], lights: [], textures: [floorTexture, wallTexture], skeletons: [], animations: [], animationGroups: [],
+    cameras: [], lights: [], textures: [floorTexture, wallTexture, woodTexture, overburdenTexture,
+      ...normalTextures.values(), ...metallicTextures.values()],
+    skeletons: [], animations: [], animationGroups: [],
     particleSystems: [], multiMaterials: [], morphTargetManagers: [], actionManagers: [], postProcesses: [],
     sounds: [], effectLayers: [], layers: [], reflectionProbes: [], lensFlareSystems: [],
     proceduralTextures: [], spriteManagers: [], environmentTexture: null,
@@ -3752,6 +3875,7 @@ test("room_asset_loading_verifies_mime_magic_hash_and_semantics_before_attachmen
     ["stone_current", { useInstances: true }],
     ["wood_current", { useInstances: true }],
     ["metal_current", { useInstances: true }],
+    ["overburden_current", { useInstances: true }],
   ].sort());
   assert.ok([...asset.pieces.values()].every((mesh) => !mesh.isVisible && !mesh.isPickable && !mesh.receiveShadows));
   asset.dispose();
@@ -3775,8 +3899,8 @@ test("the_pinned_room_glb_loads_into_one_hidden_semantic_babylon_container", asy
       "content-length": String(bytes.byteLength),
     } });
   });
-  assert.equal(asset.pieces.size, 12);
-  assert.equal(asset.materials.size, 4);
+  assert.equal(asset.pieces.size, 18);
+  assert.equal(asset.materials.size, 5);
   assert.equal(asset.socket.name, "SOCKET_torch_flame");
   assert.ok([...asset.pieces.values()].every((mesh) => !mesh.isVisible && !mesh.isPickable));
   for (const mesh of asset.pieces.values()) {
@@ -5523,7 +5647,7 @@ test("the_arena_room_lays_one_closed_joined_source_per_synthetic_ring_tile", () 
   assert.equal(ring, 2 * (26 + 18) - 4);
   const variants = new Set(Array.from({ length: tiles.cols * tiles.rows },
     (_, index) => arenaEnvironment.arenaFloor(index % tiles.cols, Math.floor(index / tiles.cols))));
-  assert.deepEqual([...variants].sort(), ["floor_a", "floor_b"]);
+  assert.deepEqual([...variants].sort(), ["floor_a", "floor_b", "floor_c", "floor_d"]);
   assert.deepEqual([...pieces.entries()].sort(),
     [["wall_inside", 4], ["wall_straight", ring - 4]]);
 });
@@ -5959,8 +6083,11 @@ test("authored_arena_dress_matches_rig_endpoints_and_only_published_rows_open_re
     const authored = transform("arena:0:authored:FIGHTER_" + semantic);
     assert.ok(driver && authored, "missing endpoint " + semantic);
     const gap = BabylonVector3.Distance(driver.getAbsolutePosition(), authored.getAbsolutePosition());
-    assert.ok(gap < 1e-4, semantic + " authored endpoint drifted by " + gap);
+    assert.ok(gap < 1e-4, semantic + " rendered endpoint drifted by " + gap);
   }
+  const face = scene.getMeshByName("arena:0:authored:FIGHTER_lod_high_mesh_head_face");
+  assert.ok(face && face.skeleton === null && face.parent === transform("arena:0:authored:FIGHTER_head"),
+    "the rendered face must consume the authored head's joint-local space directly");
   const marker = (name) => transform("arena:0:authored:FIGHTER_" + name);
   assert.equal(marker("stagger").isEnabled(), false);
   assert.equal(marker("fall").isEnabled(), false);

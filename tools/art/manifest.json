@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatorVersion": 5,
+  "generatorVersion": 6,
   "license": "MIT",
   "fixtureId": "v2-room-slice-1",
   "generatorSeed": 1592594996,
@@ -30,66 +30,85 @@
     "animations": false,
     "vertexColor": "NAME",
     "vertexColorName": "room_style",
-    "allVertexColors": false
+    "allVertexColors": false,
+    "exportTangents": true
   },
   "styling": {
-    "id": "painted-cathedral-v3",
+    "id": "painted-cathedral-v4",
     "mode": "deterministic-vertex-color",
     "attribute": "room_style",
     "textures": true,
-    "variation": "0.12",
+    "variation": "0.18",
     "palette": {
-      "floorA": ["0.58", "0.53", "0.46", "1.0"],
-      "floorB": ["0.49", "0.45", "0.40", "1.0"],
-      "floorEdge": ["0.34", "0.29", "0.24", "1.0"],
-      "wallTop": ["0.57", "0.50", "0.41", "1.0"],
-      "wallSide": ["0.37", "0.31", "0.26", "1.0"],
+      "floorA": ["0.50", "0.52", "0.55", "1.0"],
+      "floorB": ["0.41", "0.43", "0.46", "1.0"],
+      "floorEdge": ["0.29", "0.30", "0.32", "1.0"],
+      "wallTop": ["0.60", "0.52", "0.42", "1.0"],
+      "wallSide": ["0.43", "0.36", "0.29", "1.0"],
       "stoneDetail": ["0.43", "0.37", "0.31", "1.0"],
       "woodTop": ["0.34", "0.22", "0.13", "1.0"],
-      "woodEnd": ["0.18", "0.34", "0.60", "1.0"],
+      "woodEnd": ["0.24", "0.17", "0.11", "1.0"],
       "woodSide": ["0.29", "0.18", "0.10", "1.0"],
       "neutral": ["1.0", "1.0", "1.0", "1.0"]
     }
   },
   "textures": {
-    "floor": { "path": "tools/art/textures/concept-material-atlas-v2.png", "sha256": "5f09f791ce9d97d0ed72f708baede576d6960db50d33af7d3008d16783e61e36", "mimeType": "image/png", "width": 1254, "height": 1254, "sourceQuadrant": [0, 1] },
-    "wall": { "path": "tools/art/textures/concept-material-atlas-v2.png", "sha256": "5f09f791ce9d97d0ed72f708baede576d6960db50d33af7d3008d16783e61e36", "mimeType": "image/png", "width": 1254, "height": 1254, "sourceQuadrant": [1, 1] }
+    "floor": { "path": "tools/art/textures/concept-material-atlas-v3.png", "sha256": "e03c9acaee58bb007a4ecadd9a0e9e74405f13bbb136f028587aaf38db223c4c", "mimeType": "image/png", "width": 1254, "height": 1254, "sourceQuadrant": [0, 1] },
+    "overburden": { "path": "tools/art/textures/concept-material-atlas-v3.png", "sha256": "e03c9acaee58bb007a4ecadd9a0e9e74405f13bbb136f028587aaf38db223c4c", "mimeType": "image/png", "width": 1254, "height": 1254, "sourceQuadrant": [1, 0] },
+    "wall": { "path": "tools/art/textures/concept-material-atlas-v3.png", "sha256": "e03c9acaee58bb007a4ecadd9a0e9e74405f13bbb136f028587aaf38db223c4c", "mimeType": "image/png", "width": 1254, "height": 1254, "sourceQuadrant": [1, 1] },
+    "wood": { "path": "tools/art/textures/concept-material-atlas-v3.png", "sha256": "e03c9acaee58bb007a4ecadd9a0e9e74405f13bbb136f028587aaf38db223c4c", "mimeType": "image/png", "width": 1254, "height": 1254, "sourceQuadrant": [0, 0] }
   },
-  "textureProcessing": { "width": 512, "height": 512, "periodicEdgePixels": 32, "colourSpace": "sRGB", "wrap": "repeat", "magFilter": 9729, "minFilter": 9987 },
+  "runtimeTextures": {
+    "vfxDecals": { "sourcePath": "tools/art/textures/concept-vfx-decal-atlas-v1.png", "runtimePath": "web/assets3d/room_vfx_decal_atlas.png", "sha256": "5b4678491211029b9ac5117fc2cda645d4790ac1df4c6922013a5cd37e665e46", "mimeType": "image/png", "width": 1254, "height": 1254, "grid": [4, 4], "alpha": true },
+    "vfxFlame": { "sourcePath": "tools/art/textures/concept-vfx-flame-v1.png", "runtimePath": "web/assets3d/room_vfx_flame.png", "sha256": "6820c6c8111cd3d4640d68122f553d86c08ae53fe6f29ee7c109bf76a8019d4d", "mimeType": "image/png", "width": 314, "height": 314, "grid": [1, 1], "alpha": true }
+  },
+  "textureProcessing": { "width": 896, "height": 896, "periodicEdgePixels": 48, "colourSpace": "sRGB", "wrap": "repeat", "magFilter": 9729, "minFilter": 9987 },
   "budgets": {
-    "payloadBytes": 25165824,
+    "payloadBytes": 67108864,
     "estimatedGpuBytes": 268435456,
-    "maxNodes": 13,
-    "maxMeshes": 12,
-    "maxMaterials": 4,
-    "maxVertices": 4096,
-    "maxTriangles": 4096
+    "maxNodes": 20,
+    "maxMeshes": 18,
+    "maxMaterials": 5,
+    "maxVertices": 24000,
+    "maxTriangles": 24000
   },
   "pieces": [
     { "name": "floor_a", "node": "ROOM_floor_a", "materialRole": "floor_current", "bounds": { "min": ["-0.5", "0.0", "-0.5"], "max": ["0.5", "0.08", "0.5"] }, "pivot": "ground-centre", "allowedQuarterTurns": [0, 1, 2, 3], "socket": null },
     { "name": "floor_b", "node": "ROOM_floor_b", "materialRole": "floor_current", "bounds": { "min": ["-0.5", "0.0", "-0.5"], "max": ["0.5", "0.065", "0.5"] }, "pivot": "ground-centre", "allowedQuarterTurns": [0, 1, 2, 3], "socket": null },
+    { "name": "floor_c", "node": "ROOM_floor_c", "materialRole": "floor_current", "bounds": { "min": ["-0.5", "0.0", "-0.5"], "max": ["0.5", "0.072", "0.5"] }, "pivot": "ground-centre", "allowedQuarterTurns": [0, 1, 2, 3], "socket": null },
+    { "name": "floor_d", "node": "ROOM_floor_d", "materialRole": "floor_current", "bounds": { "min": ["-0.5", "0.0", "-0.5"], "max": ["0.5", "0.075", "0.5"] }, "pivot": "ground-centre", "allowedQuarterTurns": [0, 1, 2, 3], "socket": null },
     { "name": "wall_straight", "node": "ROOM_wall_straight", "materialRole": "stone_current", "bounds": { "min": ["-0.5", "0.0", "-0.09"], "max": ["0.5", "0.9", "0.09"] }, "pivot": "ground-centre", "allowedQuarterTurns": [0, 1, 2, 3], "socket": null },
+    { "name": "wall_run_2", "node": "ROOM_wall_run_2", "materialRole": "stone_current", "bounds": { "min": ["-1.0", "0.0", "-0.09"], "max": ["1.0", "0.9", "0.09"] }, "pivot": "ground-centre", "allowedQuarterTurns": [0, 1, 2, 3], "socket": null },
+    { "name": "wall_run_3", "node": "ROOM_wall_run_3", "materialRole": "stone_current", "bounds": { "min": ["-1.5", "0.0", "-0.09"], "max": ["1.5", "0.9", "0.09"] }, "pivot": "ground-centre", "allowedQuarterTurns": [0, 1, 2, 3], "socket": null },
+    { "name": "wall_run_5", "node": "ROOM_wall_run_5", "materialRole": "stone_current", "bounds": { "min": ["-2.5", "0.0", "-0.09"], "max": ["2.5", "0.9", "0.09"] }, "pivot": "ground-centre", "allowedQuarterTurns": [0, 1, 2, 3], "socket": null },
+    { "name": "wall_run_8", "node": "ROOM_wall_run_8", "materialRole": "stone_current", "bounds": { "min": ["-4.0", "0.0", "-0.09"], "max": ["4.0", "0.9", "0.09"] }, "pivot": "ground-centre", "allowedQuarterTurns": [0, 1, 2, 3], "socket": null },
     { "name": "wall_inside", "node": "ROOM_wall_inside", "materialRole": "stone_current", "bounds": { "min": ["-0.09", "0.0", "-0.09"], "max": ["0.5", "0.9", "0.5"] }, "pivot": "ground-centre", "allowedQuarterTurns": [0, 1, 2, 3], "socket": null },
     { "name": "wall_outside", "node": "ROOM_wall_outside", "materialRole": "stone_current", "bounds": { "min": ["-0.5", "0.0", "-0.09"], "max": ["0.5", "0.9", "0.5"] }, "pivot": "ground-centre", "allowedQuarterTurns": [0, 1, 2, 3], "socket": null },
     { "name": "wall_end", "node": "ROOM_wall_end", "materialRole": "stone_current", "bounds": { "min": ["-0.09", "0.0", "-0.09"], "max": ["0.5", "0.9", "0.09"] }, "pivot": "ground-centre", "allowedQuarterTurns": [0, 1, 2, 3], "socket": null },
     { "name": "door_frame", "node": "ROOM_door_frame", "materialRole": "stone_current", "bounds": { "min": ["-0.5", "0.0", "-0.09"], "max": ["0.5", "0.92", "0.09"] }, "pivot": "ground-centre", "allowedQuarterTurns": [0, 1, 2, 3], "socket": null },
     { "name": "door_leaf", "node": "ROOM_door_leaf", "materialRole": "wood_current", "bounds": { "min": ["0.0", "0.0", "-0.045"], "max": ["0.72", "0.78", "0.045"] }, "pivot": "lower-hinge", "allowedQuarterTurns": [0, 1, 2, 3], "socket": null },
     { "name": "torch_bracket", "node": "ROOM_torch_bracket", "materialRole": "metal_current", "bounds": { "min": ["-0.08", "0.0", "-0.18"], "max": ["0.08", "0.5", "0.04"] }, "pivot": "ground-centre", "allowedQuarterTurns": [0, 1, 2, 3], "socket": { "name": "SOCKET_torch_flame", "translation": ["0.0", "0.48", "-0.14"], "rotation": ["0.0", "0.0", "0.0", "1.0"] } },
-    { "name": "decal_rubble", "node": "ROOM_decal_rubble", "materialRole": "stone_current", "bounds": { "min": ["-0.33", "0.0", "-0.26"], "max": ["0.33", "0.012", "0.26"] }, "pivot": "ground-centre", "allowedQuarterTurns": [0, 1, 2, 3], "socket": null },
+    { "name": "decal_rubble", "node": "ROOM_decal_rubble", "materialRole": "overburden_current", "bounds": { "min": ["-0.33", "0.0", "-0.26"], "max": ["0.33", "0.012", "0.26"] }, "pivot": "ground-centre", "allowedQuarterTurns": [0, 1, 2, 3], "socket": null },
     { "name": "decal_root", "node": "ROOM_decal_root", "materialRole": "wood_current", "bounds": { "min": ["-0.39", "0.0", "-0.09"], "max": ["0.39", "0.018", "0.09"] }, "pivot": "ground-centre", "allowedQuarterTurns": [0, 1, 2, 3], "socket": null },
     { "name": "prop_barrel", "node": "ROOM_prop_barrel", "materialRole": "wood_current", "bounds": { "min": ["-0.25", "0.0", "-0.25"], "max": ["0.25", "0.62", "0.25"] }, "pivot": "ground-centre", "allowedQuarterTurns": [0, 1, 2, 3], "socket": null }
   ],
   "materials": {
     "floor_current": { "baseColorR": "0.82", "baseColorG": "0.73", "baseColorB": "0.62", "metallic": "0.0", "roughness": "0.94", "baseColorTexture": "floor" },
     "stone_current": { "baseColorR": "0.68", "baseColorG": "0.56", "baseColorB": "0.43", "metallic": "0.0", "roughness": "0.96", "baseColorTexture": "wall" },
-    "wood_current": { "baseColorR": "0.14", "baseColorG": "0.11", "baseColorB": "0.085", "metallic": "0.0", "roughness": "0.90" },
+    "wood_current": { "baseColorR": "0.18", "baseColorG": "0.13", "baseColorB": "0.09", "metallic": "0.0", "roughness": "0.90", "baseColorTexture": "wood" },
+    "overburden_current": { "baseColorR": "0.24", "baseColorG": "0.21", "baseColorB": "0.17", "metallic": "0.0", "roughness": "0.98", "baseColorTexture": "overburden" },
     "metal_current": { "baseColorR": "0.08", "baseColorG": "0.07", "baseColorB": "0.065", "metallic": "0.55", "roughness": "0.67" },
     "emissive_flame": { "baseColorR": "1.0", "baseColorG": "0.24", "baseColorB": "0.025", "emissiveStrength": "2.5" }
   },
   "outputs": {
-    "embeddedTextures": { "floorSha256": "0c49b0bc9241e70fc53207e28d62be30ca3787529cf5f93befbe821b98f3654a", "wallSha256": "bbf4ae43f1564aaa5754eb23ee7869eaf581fb979a970c802a1a43f4a9b9e075" },
-    "glb": { "path": "web/assets3d/room_slice.glb", "sha256": "b8819b6e4c46fe4483448f6f936d17cc9f62b43814fed9beb77ff216af67cf06" },
-    "sidecar": { "path": "web/assets3d/room_slice.json", "sha256": "4a6ec372cef32fb5b13311d0b9f0ddd8f59d99da602e550ccf885da2a0fcf064" },
-    "validator": { "path": "web/assets3d/room_slice.validator.json", "sha256": "05a00c444bea02557561816c4c5d0c05a0dee8b17a8b19c88618cfaeeb807721" }
+    "embeddedTextures": {
+      "floorSha256": "671ce4e68d8012f7a45e44ef4c1b49ddc81b30c1eec03053f855c94d428ddfb6",
+      "overburdenSha256": "cce3bb5f76772daa1bbdd27f7a839369a7aa8a44c7c3f56de1b0f4cbeeed5812",
+      "wallSha256": "058c90a6ed45f84892c99e5de0bc19513dc5c154929435332164aa18069d4854",
+      "woodSha256": "558adcd41a09526207dd20ae6c371d494e538098b6f9a779df556656578787da"
+    },
+    "glb": { "path": "web/assets3d/room_slice.glb", "sha256": "7d1a2c4b9ea3483f4c4461b72430144c6dca21f5e6bd024bafa1fdcb4bccc139" },
+    "sidecar": { "path": "web/assets3d/room_slice.json", "sha256": "021363e6f4857fcdca39718a4779ee432dbc309bb156ef311f2004192052e62d" },
+    "validator": { "path": "web/assets3d/room_slice.validator.json", "sha256": "0157a21f928f21159d612179684f8b1ffe5813e684b2f6df294816e0e5516189" }
   }
 }

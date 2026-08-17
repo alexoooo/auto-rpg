@@ -39,6 +39,45 @@ def _finish(obj, name, material, dimensions):
     return obj
 
 
+def _planar_uv(obj, repeat_u=1):
+    """Give joined architectural boxes one tangent frame per physical plane.
+
+    Blender's per-cube default islands mirror alternate triangles after boxes
+    are joined. That was invisible under diffuse-only paint, but a normal map
+    turned each quad into a light/dark chevron. World-scale planar projection
+    keeps brush and masonry frequency continuous through every triangulation.
+    """
+    mesh = obj.data
+    while len(mesh.uv_layers):
+        mesh.uv_layers.remove(mesh.uv_layers[0])
+    uv = mesh.uv_layers.new(name="UVMap")
+    low_x = min(vertex.co.x for vertex in mesh.vertices)
+    high_x = max(vertex.co.x for vertex in mesh.vertices)
+    low_y = min(vertex.co.y for vertex in mesh.vertices)
+    high_y = max(vertex.co.y for vertex in mesh.vertices)
+    low_z = min(vertex.co.z for vertex in mesh.vertices)
+    high_z = max(vertex.co.z for vertex in mesh.vertices)
+    span_x = max(0.000001, high_x - low_x)
+    span_y = max(0.000001, high_y - low_y)
+    span_z = max(0.000001, high_z - low_z)
+    for polygon in mesh.polygons:
+        normal = polygon.normal
+        for loop_index in polygon.loop_indices:
+            vertex = mesh.vertices[mesh.loops[loop_index].vertex_index].co
+            if abs(normal.z) >= abs(normal.x) and abs(normal.z) >= abs(normal.y):
+                value = ((vertex.x - low_x) / span_x * repeat_u,
+                         (vertex.y - low_y) / span_y)
+            elif abs(normal.y) >= abs(normal.x):
+                u = (vertex.x - low_x) / span_x
+                value = ((u if normal.y >= 0 else 1 - u) * repeat_u,
+                         (vertex.z - low_z) / span_z)
+            else:
+                u = (vertex.y - low_y) / span_y
+                value = (u if normal.x >= 0 else 1 - u,
+                         (vertex.z - low_z) / span_z)
+            uv.data[loop_index].uv = value
+
+
 def _palette(styling, name):
     return [float(value) for value in styling["palette"][name]]
 
@@ -67,9 +106,9 @@ def _apply_styling(obj, semantic_name, material_role, styling):
             palette_name = "woodTop" if polygon.normal.z > 0.5 else "woodSide"
         elif material_role not in ("floor_current", "stone_current"):
             palette_name = "neutral"
-        elif semantic_name == "ROOM_floor_a":
+        elif semantic_name in ("ROOM_floor_a", "ROOM_floor_c"):
             palette_name = "floorA" if polygon.normal.z > 0.5 else "floorEdge"
-        elif semantic_name == "ROOM_floor_b":
+        elif semantic_name in ("ROOM_floor_b", "ROOM_floor_d"):
             palette_name = "floorB" if polygon.normal.z > 0.5 else "floorEdge"
         elif semantic_name.startswith("ROOM_wall_") or semantic_name == "ROOM_door_frame":
             palette_name = "wallTop" if polygon.normal.z > 0.5 else "wallSide"
@@ -92,10 +131,13 @@ def _box(name, node, material, centre_x=None, centre_z=None):
     bpy.ops.mesh.primitive_cube_add(location=(centre_x, -centre_z, centre_y))
     obj = bpy.context.object
     obj.scale = (width / 2, depth / 2, height / 2)
+    _select_only(obj)
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    _planar_uv(obj)
     return _finish(obj, name, material, [width, height, depth])
 
 
-def _join_boxes(name, node, material, boxes):
+def _join_boxes(name, node, material, boxes, repeat_u=1):
     parts = []
     for index, (size, centre) in enumerate(boxes):
         width, height, depth = size
@@ -112,6 +154,7 @@ def _join_boxes(name, node, material, boxes):
         part.select_set(True)
     bpy.context.view_layer.objects.active = parts[0]
     bpy.ops.object.join()
+    _planar_uv(parts[0], repeat_u)
     return _finish(parts[0], name, material, _dimensions(node))
 
 
@@ -119,7 +162,12 @@ def _barrel(name, node, material):
     width, height, _depth = _dimensions(node)
     bpy.ops.mesh.primitive_cylinder_add(vertices=16, radius=width / 2, depth=height,
                                        location=(0, 0, height / 2))
-    return _finish(bpy.context.object, name, material, [width, height, _depth])
+    obj = bpy.context.object
+    modifier = obj.modifiers.new(name="deterministic_tangent_triangles", type="TRIANGULATE")
+    modifier.quad_method = "FIXED"
+    _select_only(obj)
+    bpy.ops.object.modifier_apply(modifier=modifier.name)
+    return _finish(obj, name, material, [width, height, _depth])
 
 
 def _irregular_flagstone(name, node, material, seed):
@@ -208,11 +256,46 @@ def _seamless_straight_wall(name, node, material, seed):
     """
     minimum = _numbers(node["bounds"]["min"])
     maximum = _numbers(node["bounds"]["max"])
-    boxes = []
-    _coursed_run(
-        boxes, minimum, maximum, 0, seed, counts=(4, 5), side_inset=0,
-    )
-    return _join_boxes(name, node, material, boxes)
+    width = maximum[0] - minimum[0]
+    height = maximum[1] - minimum[1]
+    centre_x = (minimum[0] + maximum[0]) / 2
+    # Mortar is shallow relief, never a hole through the architecture. The
+    # earlier independent block boxes exposed the void at every joint and read
+    # as railings/pickets in the live isometric view. This recessed continuous
+    # core preserves a solid silhouette while the fitted stones articulate it.
+    cells = max(1, round(maximum[0] - minimum[0]))
+    boxes = [((width, height, 0.13),
+              (centre_x, (minimum[1] + maximum[1]) / 2, 0.0))]
+    randomizer = random.Random(seed)
+    course_height = height / 3
+    horizontal_gap = 0.050
+    vertical_gap = 0.034
+    # A continuous core owns silhouette and closure. These shallow ashlar
+    # plates overlap the recessed core and vary 12 mm in projection. That is
+    # enough for the upper-right key to separate individual blocks without
+    # changing the exact semantic hull or opening a mortar hole. Alternating
+    # two-block-per-cell courses keep stones chunky and break module boundaries
+    # without a repeated railing or picket rhythm.
+    for face in (-1, 1):
+        for course in range(3):
+            count = cells * 2 + course % 2
+            weights = [0.82 + randomizer.random() * 0.36 for _ in range(count)]
+            total = sum(weights)
+            cursor = minimum[0]
+            low_y = minimum[1] + course * course_height + vertical_gap / 2
+            high_y = minimum[1] + (course + 1) * course_height - vertical_gap / 2
+            for index, weight in enumerate(weights):
+                following = maximum[0] if index + 1 == count else cursor + width * weight / total
+                low_x = cursor + (horizontal_gap / 2 if index else 0)
+                high_x = following - (horizontal_gap / 2 if index + 1 < count else 0)
+                outer = 0.09 if course == 0 and index == 0 else 0.078 + randomizer.random() * 0.012
+                inner = 0.062
+                relief = outer - inner
+                relief_z = face * (inner + relief / 2)
+                boxes.append(((high_x - low_x, high_y - low_y, relief),
+                              ((low_x + high_x) / 2, (low_y + high_y) / 2, relief_z)))
+                cursor = following
+    return _join_boxes(name, node, material, boxes, repeat_u=cells)
 
 
 def _junction_wall(name, node, material, seed, directions):
@@ -262,6 +345,9 @@ def _door_leaf(name, node, material):
     bpy.ops.mesh.primitive_cube_add(location=(width / 2, 0, height / 2))
     obj = bpy.context.object
     obj.scale = (width / 2, depth / 2, height / 2)
+    _select_only(obj)
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    _planar_uv(obj)
     return _finish(obj, name, material, [width, height, depth])
 
 
@@ -288,13 +374,18 @@ def build_room(manifest, materials):
     for name in sorted(nodes):
         node = nodes[name]
         material = materials[node["materialRole"]]
-        if name == "ROOM_floor_a":
-            obj = _irregular_flagstone(name, node, material, manifest["generatorSeed"] ^ 0xA1)
-        elif name == "ROOM_floor_b":
-            obj = _irregular_flagstone(name, node, material, manifest["generatorSeed"] ^ 0xB2)
-        elif name == "ROOM_wall_straight":
+        if name in ("ROOM_floor_a", "ROOM_floor_b", "ROOM_floor_c", "ROOM_floor_d"):
+            floor_salts = {
+                "ROOM_floor_a": 0xA1, "ROOM_floor_b": 0xB2,
+                "ROOM_floor_c": 0xC3, "ROOM_floor_d": 0xD4,
+            }
+            obj = _irregular_flagstone(
+                name, node, material, manifest["generatorSeed"] ^ floor_salts[name],
+            )
+        elif name == "ROOM_wall_straight" or name.startswith("ROOM_wall_run_"):
+            run_salt = int(name.rsplit("_", 1)[-1]) if name.startswith("ROOM_wall_run_") else 1
             obj = _seamless_straight_wall(
-                name, node, material, manifest["generatorSeed"] ^ 0x571A,
+                name, node, material, manifest["generatorSeed"] ^ 0x571A ^ run_salt,
             )
         elif name == "ROOM_wall_inside":
             obj = _junction_wall(name, node, material, manifest["generatorSeed"] ^ 0x1A51,

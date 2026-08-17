@@ -37,7 +37,7 @@ before any message has been accepted answers in the version the caller wrote dow
 a malformed message opens no session, so there is no session version to answer in.
 
 Request IDs, epochs, ticks, command
-sequences, targets, seeds, spawn fields, direct-control masks and live-input fields,
+sequences, targets, seeds, spawn/respawn fields, direct-control masks and live-input fields,
 buffer IDs, and lease tokens are checked in
 their declared unsigned domains before use. Epoch, sequence, and lease token reserve
 zero. Goto coordinates are signed `i32`, and elapsed microseconds are nonnegative
@@ -46,10 +46,16 @@ out-of-range fields fail closed.
 
 Client requests are `init`, `reset`, `setPaused`, `advance`, `command`,
 `returnSnapshot`, and — at V2 only — `arenaStart` and `arenaCancel`. Commands are
-`goto`, `withdraw`, `spawn`, `setControl`, or `setInput`. The control
+`goto`, `withdraw`, `spawn`, `respawn`, `setControl`, or `setInput`.
+Configured game spawns accept Fighter 0 or Brute 2 with a Sword 2 or Shield 4
+primary; the secondary accepts those codes or Empty 255. Empty primary is refused
+rather than defaulted. Respawn accepts the shipped Fighter/Sword/Shield tuple
+(0, 2, 4) and forwards to swap_in_hero: its applied result is 1 only after
+the old hero has died, and it preserves the epoch, dungeon and monsters. The control
 request returns the accepted wasm mask in its applied acknowledgement, so the HUD
-does not echo an unaccepted request. Init/reset install Movement ownership plus an
-all-zero input before the first snapshot. Worker responses are
+does not echo an unaccepted request. Init/reset release direct Movement ownership
+and stage an all-zero input before the first snapshot; mouse orders are the default.
+Worker responses are
 `ready`, `pauseChanged`, `advanceAck`, `commandAck`, `snapshot`, `bufferReturned`,
 `error`, `terminated`, and — at V2 only — `arenaProgress`, `arenaRejected`, and
 `fightRecording`. The complete field declarations live in
@@ -311,12 +317,12 @@ weakest of the three rules. Four links in the tree have that shape. An
 anchor is a hint and not a contract; check the symbol is on the line before quoting
 one.
 
-- Protocol declarations and input decoder: [`messages.ts`](../../client/src/protocol/messages.ts#L1), [`decodeClientMessage`](../../client/src/protocol/messages.ts#L293)
+- Protocol declarations and input decoder: [`messages.ts`](../../client/src/protocol/messages.ts#L1), [`decodeClientMessage`](../../client/src/protocol/messages.ts#L307)
 - Fixed buffer pool: [`FixedBufferPool`](../../client/src/runtime/buffer-pool.ts#L22)
 - Pure worker state machine: [`SimWorkerHost`](../../client/src/runtime/sim-worker-host.ts#L55)
 - Main-thread request and lease owner: [`SimClient`](../../client/src/runtime/sim-client.ts#L122)
 - Snapshot validator and disclosure filter: [`SnapshotFilterState`](../../client/src/state/snapshot.ts#L59)
-- Real wasm adapter: [`readPublication`](../../client/src/runtime/sim.worker.ts#L88)
+- Real wasm adapter: [`readPublication`](../../client/src/runtime/sim.worker.ts#L94)
 - Generated offsets and capacities: [`abi.generated.ts`](../../client/src/protocol/abi.generated.ts#L1)
 - The recording drive and its caps: [`recordArenaFight`](../../client/src/runtime/arena-recorder.ts#L521)
 - The arena's main-thread client and its decoder: [`decodeArenaMessage`](../../client/src/runtime/arena-client.ts#L59)

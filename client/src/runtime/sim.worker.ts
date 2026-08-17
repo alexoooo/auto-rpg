@@ -18,6 +18,7 @@ type RawExports = WebAssembly.Exports & ArenaExports & {
   set_goto(xMilli: number, yMilli: number): void;
   clear_order(): void;
   spawn_monster(kindCode: number, primary: number, secondary: number): number;
+  swap_in_hero(kindCode: number, primary: number, secondary: number): number;
   step(ticks: number): void;
   tick: U32Export;
   frame_ptr: U32Export; frame_len: U32Export; frame_layout_version: U32Export;
@@ -44,7 +45,7 @@ type RawExports = WebAssembly.Exports & ArenaExports & {
 // in this list that nothing calls is a promise the list does not otherwise make.
 // This is the session with a caller.
 const requiredFunctions = [
-  "init", "set_control", "control", "set_input", "set_goto", "clear_order", "spawn_monster", "step", "tick",
+  "init", "set_control", "control", "set_input", "set_goto", "clear_order", "spawn_monster", "swap_in_hero", "step", "tick",
   "frame_ptr", "frame_len", "frame_layout_version", "header_len", "unit_stride",
   "shot_stride", "event_stride", "map_ptr", "map_len", "map_cols", "map_rows",
   "map_tile_size_milli", "map_revision", "vis_ptr", "vis_len", "vis_revision",
@@ -89,6 +90,7 @@ async function createAdapter(): Promise<WasmAdapter> {
     setGoto: (xMilli, yMilli) => wasm.set_goto(xMilli, yMilli),
     clearOrder: () => wasm.clear_order(),
     spawnMonster: (kindCode, primary, secondary) => wasm.spawn_monster(kindCode, primary, secondary),
+    swapInHero: (kindCode, primary, secondary) => wasm.swap_in_hero(kindCode, primary, secondary),
     step: (ticks) => wasm.step(ticks),
     tick: () => wasm.tick() >>> 0,
     readPublication: () => {

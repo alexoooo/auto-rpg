@@ -1,4 +1,4 @@
-import type { LegacyClientCommand } from "./protocol/messages.js";
+import type { CommandAckMessage, LegacyClientCommand } from "./protocol/messages.js";
 import type { ClientDiagnostics, ClientSnapshot } from "./runtime/sim-client.js";
 import type { PresentationSnapshot } from "./render/presentation.js";
 import { copyPresentationSnapshot } from "./render/presentation.js";
@@ -16,7 +16,7 @@ export type BootstrapClient = {
   init(seed: number): Promise<unknown>;
   reset(seed: number, paused?: boolean): Promise<unknown>;
   setPaused(paused: boolean): Promise<unknown>;
-  command(command: LegacyClientCommand): Promise<unknown>;
+  command(command: LegacyClientCommand): Promise<CommandAckMessage>;
   diagnostics(): ClientDiagnostics;
   dispose(): void;
 };
@@ -71,8 +71,8 @@ export class V2Application<TRenderer extends BootstrapRenderer> {
     await this.#requireClient().setPaused(paused);
   }
 
-  async command(command: LegacyClientCommand): Promise<void> {
-    await this.#requireClient().command(command);
+  async command(command: LegacyClientCommand): Promise<CommandAckMessage> {
+    return this.#requireClient().command(command);
   }
 
   terminal(error: Error): void {

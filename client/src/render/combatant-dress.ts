@@ -1,7 +1,7 @@
 import type { AnimationGroup } from "@babylonjs/core/Animations/animationGroup.js";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import type { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
-import { Matrix, Quaternion } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import type {
   CombatantArchetypeContract, CombatantKind, CombatantLod,
 } from "./combatant-asset-contract.js";
@@ -56,9 +56,24 @@ export function combatantMeshRole(semantic: string): CombatantMeshRole {
     ? "legs" : "torso";
 }
 
+/** Resolve a rigid authored piece to the semantic joint whose local space it uses. */
+export function combatantMeshJoint(semantic: string): string {
+  if (semantic === "sword" || semantic === "club") return "socket_weapon_right";
+  if (semantic === "shield") return "socket_shield";
+  if (semantic.includes("left") && (semantic.includes("forearm") || semantic.includes("hand"))) return "hand_left";
+  if (semantic.includes("right") && (semantic.includes("forearm") || semantic.includes("hand"))) return "hand_right";
+  if (semantic.includes("left") && (semantic.includes("arm") || semantic.includes("pauldron"))) return "arm_left";
+  if (semantic.includes("right") && (semantic.includes("arm") || semantic.includes("pauldron"))) return "arm_right";
+  if (semantic.includes("head") || semantic.includes("helmet") || semantic.includes("visor") ||
+      semantic.includes("plume") || semantic.includes("horn") || semantic.includes("tusk")) return "head";
+  if (semantic.includes("pelvis") || semantic.includes("kilt") || semantic.includes("belt") ||
+      semantic.includes("leg") || semantic.includes("boot")) return "pelvis";
+  return "torso";
+}
+
 const COPY_INVERSE = new Quaternion();
 
-/** Copy the already-authoritative named rig into a skinned authored dress. */
+/** Copy the already-authoritative named rig into an authored joint-local dress. */
 export function copyCombatantRigPose(
   dress: CombatantDress, source: ReadonlyMap<string, TransformNode>, standingHeight: number,
 ): void {
@@ -88,10 +103,11 @@ export function copyCombatantRigPose(
 /**
  * Clone one exact archetype out of the shared checked container.
  *
- * Babylon's container clone is the important operation here: it clones the
- * skeleton and relinks every cloned bone to the cloned semantic TransformNode.
- * A mesh-only clone would look right at rest and quietly keep the source
- * skeleton, making the second body move the first one's bones.
+ * Babylon's container clone is the important operation here: it gives every
+ * body an independent authored node closure and clip set. The asset meshes are
+ * deliberately rigid joint-local pieces. Parenting those pieces to their
+ * semantic nodes consumes that contract directly and avoids making Babylon's
+ * glTF conversion root, mesh pose and linked-bone path agree by accident.
  */
 export function instantiateCombatantDress(
   asset: CombatantAsset, kind: CombatantKind, owner: string,
@@ -115,17 +131,17 @@ export function instantiateCombatantDress(
     entries.dispose();
     throw new Error("combatant " + kind + " clone closure drifted");
   }
-  const skeleton = entries.skeletons[0];
-  if (skeleton === undefined) throw new Error("combatant " + kind + " clone lacks its skeleton");
-  skeleton.useTextureToStoreBoneMatrices = true;
-  // Each authored mesh is a rigid, joint-local piece weighted wholly to one
-  // semantic bone. Blender exports conventional armature-space inverse binds,
-  // but applying those to joint-local vertices subtracts the bind pose a
-  // second time: boots, torso and head scatter around the floor even though
-  // the linked nodes themselves are exact. The publication supplies the
-  // complete joint transforms, so identity is the correct inverse bind for
-  // this deliberately rigid skin.
-  for (const bone of skeleton.bones) bone.setBindMatrix(Matrix.Identity());
+  if (entries.skeletons[0] === undefined) throw new Error("combatant " + kind + " clone lacks its skeleton");
+  // The glTF loader's hidden root and per-mesh pose jointly convert glTF into
+  // Babylon space. Linked bones deliberately bypass that root, so retaining
+  // either half makes the GPU skin path disagree with the semantic rig. This
+  // dress already lives in a right-handed scene and copies scene-space joints;
+  // normalise the loader closure and let semantic joints be the sole transform.
+  outer.position.setAll(0);
+  outer.scaling.setAll(1);
+  if (outer.rotationQuaternion === null) outer.rotation.setAll(0);
+  else outer.rotationQuaternion.copyFromFloats(0, 0, 0, 1);
+  outer.computeWorldMatrix(true);
   const descendants = [outer, ...outer.getDescendants(false)] as TransformNode[];
   const byName = new Map(descendants.map((node) => [node.name, node]));
   const nodes = new Map<string, TransformNode>();
@@ -146,15 +162,22 @@ export function instantiateCombatantDress(
         if (mesh === undefined || typeof mesh.getTotalVertices !== "function") {
           throw new Error("combatant " + kind + " clone lacks " + lod.level + " mesh " + row.semantic);
         }
+        const jointSemantic = combatantMeshJoint(row.semantic);
+        const joint = nodes.get(jointSemantic);
+        if (joint === undefined) {
+          throw new Error("combatant " + kind + " lacks joint " + jointSemantic + " for " + row.semantic);
+        }
+        mesh.skeleton = null;
+        mesh.parent = joint;
+        mesh.position.setAll(0);
+        mesh.scaling.setAll(1);
+        if (mesh.rotationQuaternion === null) mesh.rotation.setAll(0);
+        else mesh.rotationQuaternion.copyFromFloats(0, 0, 0, 1);
         mesh.isVisible = true;
         mesh.isPickable = false;
         mesh.receiveShadows = true;
-      // The mesh stays at the loader closure's origin while its cloned
-      // skeleton follows the published rig. Babylon otherwise frustum-culls
-      // against that stale bind-pose box: the camera can be centred on the
-      // hero while every dressed mesh is rejected somewhere else in the
-      // room. Keeping this small, bounded dress closure active is the honest
-      // alternative to pretending the loader-origin bounds followed bones.
+      // These are small bounded rigid pieces, so their ordinary transformed
+      // bounds now follow the hero without a stale bind-pose culling box.
         mesh.alwaysSelectAsActiveMesh = true;
         mesh.setEnabled(false);
         meshes.set(row.semantic, mesh);
@@ -173,6 +196,7 @@ export function instantiateCombatantDress(
     semanticRoot.setEnabled(true);
     outer.setEnabled(false);
   } catch (error) {
+    for (const mesh of allMeshes) mesh.dispose(false, false);
     entries.dispose();
     throw error;
   }
@@ -227,7 +251,11 @@ export function instantiateCombatantDress(
     },
     setStandingHeight(height: number): void {
       if (disposed) return;
-      outer.scaling.setAll(Math.max(0.0001, height) / source.contract.height);
+      const scale = Math.max(0.0001, height) / source.contract.height;
+      // Rigid pieces inherit their semantic joint hierarchy. Put uniform body
+      // scale on that hierarchy once and leave Babylon's loader closure neutral.
+      outer.scaling.setAll(1);
+      semanticRoot.scaling.setAll(scale);
       outer.computeWorldMatrix(true);
     },
     setEnabled(visible: boolean): void {
@@ -240,6 +268,7 @@ export function instantiateCombatantDress(
       if (disposed) return;
       disposed = true;
       for (const group of clips.values()) group.stop();
+      for (const mesh of allMeshes) mesh.dispose(false, false);
       entries.dispose();
     },
     get disposed(): boolean { return disposed; },

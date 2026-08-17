@@ -18,7 +18,7 @@ export const ROOM_STRESS_MAP_SHA256 = "a20ba5f64ef55bd7716c2a7cf17f3065619876d1d
 // coping; two doors use six plank modules, and the shut door adds two straps.
 // The complete 188-face boundary remains a structural test invariant.
 export const ROOM_STRESS_PIECE_COUNTS = Object.freeze({
-  floor_a: 804, floor_b: 732,
+  floor_a: 388, floor_b: 368, floor_c: 416, floor_d: 364,
   wall_straight: 363, wall_inside: 0, wall_outside: 0, wall_end: 0,
   door_frame: 2, door_leaf: 6, torch_bracket: 10,
   decal_rubble: 4, decal_root: 4, prop_barrel: 4,

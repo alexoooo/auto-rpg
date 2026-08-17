@@ -115,8 +115,11 @@ def _normalize_skinned_mesh_roots(glb):
     # Blender requires the armature to parent each authored skinned mesh, while
     # glTF recommends skinned mesh nodes live at scene roots.  The exporter
     # cannot express both: its flatten-object option deliberately exempts these
-    # meshes.  Normalize only the JSON graph after export; binary payloads,
-    # skin joints, inverse binds, and mesh transforms stay byte-for-byte.
+    # meshes. Joined curved shells expose a second Blender exporter edge: a UV
+    # seam can receive the zero tangent instead of a unit fallback. Normalize
+    # those generated tangent vectors here rather than ship invalid glTF or
+    # weaken the validator; positions, skin joints, inverse binds, and mesh
+    # transforms stay byte-for-byte.
     path = Path(glb)
     data = path.read_bytes()
     json_length, json_type = struct.unpack_from("<II", data, 12)
@@ -140,7 +143,35 @@ def _normalize_skinned_mesh_roots(glb):
     bin_length, bin_type = struct.unpack_from("<II", data, old_bin_header)
     if bin_type != 0x004E4942 or old_bin_header + 8 + bin_length != len(data):
         raise RuntimeError("combatant normalization needs one trailing BIN chunk")
-    binary = data[old_bin_header + 8:]
+    binary = bytearray(data[old_bin_header + 8:])
+    normalized_tangents = 0
+    tangent_accessors = sorted({
+        primitive["attributes"]["TANGENT"]
+        for mesh in gltf.get("meshes", [])
+        for primitive in mesh.get("primitives", [])
+        if "TANGENT" in primitive.get("attributes", {})
+    })
+    for accessor_index in tangent_accessors:
+        accessor = gltf["accessors"][accessor_index]
+        if accessor.get("componentType") != 5126 or accessor.get("type") != "VEC4":
+            raise RuntimeError("combatant tangent accessor is not float VEC4")
+        view = gltf["bufferViews"][accessor["bufferView"]]
+        stride = view.get("byteStride", 16)
+        offset = view.get("byteOffset", 0) + accessor.get("byteOffset", 0)
+        for index in range(accessor["count"]):
+            at = offset + index * stride
+            x, y, z, handedness = struct.unpack_from("<ffff", binary, at)
+            length = (x * x + y * y + z * z) ** 0.5
+            if length < 1e-12:
+                struct.pack_into("<ffff", binary, at, 1.0, 0.0, 0.0,
+                                 handedness if abs(handedness) == 1.0 else 1.0)
+                normalized_tangents += 1
+            elif abs(length - 1.0) > 1e-6:
+                struct.pack_into("<ffff", binary, at, x / length, y / length, z / length,
+                                 handedness)
+                normalized_tangents += 1
+    if normalized_tangents == 0:
+        raise RuntimeError("combatant normalization found no generated tangent corrections")
     total = 12 + 8 + len(encoded) + 8 + len(binary)
     rebuilt = bytearray(total)
     struct.pack_into("<III", rebuilt, 0, 0x46546C67, 2, total)

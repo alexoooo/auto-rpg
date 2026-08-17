@@ -114,7 +114,8 @@ const onRing = (tx: number, ty: number, tiles: ArenaTiles): boolean =>
  * those models distinct prevents an arena layout fixture from redefining the
  * architecture drawn by #/game.
  */
-export function arenaFloor(tx: number, ty: number): Extract<RoomPieceName, "floor_a" | "floor_b"> {
+export function arenaFloor(tx: number, ty: number): Extract<RoomPieceName,
+  "floor_a" | "floor_b" | "floor_c" | "floor_d"> {
   return chooseRoomFloorVariant(ROOM_FIXTURE_SEED, tx, ty).piece;
 }
 export function arenaWall(
@@ -394,7 +395,7 @@ export class ArenaEnvironment {
   #authored(tiles: ArenaTiles, depth: number): void {
     const room = this.#room;
     if (room === null) return;
-    for (const piece of ["floor_a", "floor_b"] as const) {
+    for (const piece of ["floor_a", "floor_b", "floor_c", "floor_d"] as const) {
       // A general renderer rule and not a per-mesh correction: a floor receives
       // and does not cast. `room-assets.ts` validates the kit with shadows off
       // because the greybox decides that per instance; the arena decides it per

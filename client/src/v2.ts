@@ -1,11 +1,11 @@
 import { bootstrapV2, type V2Application } from "./bootstrap.js";
 import type { GreyboxInput } from "./input/greybox-input.js";
-import type { LegacyClientCommand } from "./protocol/messages.js";
+import type { CommandAckMessage, LegacyClientCommand } from "./protocol/messages.js";
 import type { GreyboxRenderer } from "./render/renderer.js";
 import type { CanvasControlRenderer } from "./render/canvas-control.js";
 import { GameFrameMeter } from "./render/frame-meter.js";
 import {
-  nextPresentationMode, presentationModeLabel, type PresentationMode,
+  nextPresentationMode, type PresentationMode,
 } from "./render/presentation-mode.js";
 import { browserCaptureLabel, CaptureControls } from "./render/capture-controls.js";
 import {
@@ -73,9 +73,8 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   const navigatorBrands = (navigator as NavigatorWithBrands).userAgentData?.brands ?? [];
   find<HTMLInputElement>("perf-browser").value = browserCaptureLabel(navigator.userAgent, navigatorBrands);
   const interactionHint = find<HTMLParagraphElement>("interaction-hint");
-  const roomCameraButton = find<HTMLButtonElement>("room-camera-toggle");
   const frameMeterOutput = find<HTMLOutputElement>("game-fps");
-  const viewModeButton = find<HTMLButtonElement>("game-view-mode");
+  const viewModeButton = find<HTMLSelectElement>("game-view-mode");
   const movementButton = find<HTMLButtonElement>("control-movement");
   const actionButton = find<HTMLButtonElement>("control-action");
   const aimButton = find<HTMLButtonElement>("control-aim");
@@ -175,9 +174,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   const rejectActivePerformance = (reason: string): void => captureControls.terminate(reason);
 
   const renderViewMode = (): void => {
-    viewModeButton.textContent = presentationModeLabel(presentationMode);
-    viewModeButton.setAttribute("aria-pressed", String(presentationMode !== "world"));
-    roomCameraButton.disabled = presentationMode !== "world" && presentationMode !== "free";
+    viewModeButton.value = presentationMode;
   };
 
   const setPresentationMode = (mode: PresentationMode): void => {
@@ -186,10 +183,6 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     (renderer as GreyboxRenderer).setPresentationMode(mode);
     presentationMode = mode;
     renderViewMode();
-    if (representativeRoom) {
-      roomCameraButton.textContent = (renderer as GreyboxRenderer).reviewCameraFree
-        ? "Use fixed camera" : "Use free camera";
-    }
   };
 
   const renderDiagnostics = (): void => {
@@ -245,14 +238,16 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     return app;
   };
   const roomReviewInteractionBlocked = (renderer: GreyboxRenderer): boolean =>
-    representativeRoom && renderer.reviewCameraFree;
-  const submit = async (command: LegacyClientCommand): Promise<void> => {
+    renderer.presentationMode === "free";
+  const requireSimulationInteraction = (): V2Application<DisplayRenderer> => {
     const application = requireApp();
-    const renderer = application.renderer as GreyboxRenderer;
-    if (roomReviewInteractionBlocked(renderer)) {
+    if (roomReviewInteractionBlocked(application.renderer as GreyboxRenderer)) {
       throw new Error("simulation commands are disabled while the free review camera is active");
     }
-    return application.command(command);
+    return application;
+  };
+  const submit = async (command: LegacyClientCommand): Promise<CommandAckMessage> => {
+    return requireSimulationInteraction().command(command);
   };
   const renderLiveControls = (): void => {
     movementButton.setAttribute("aria-pressed", String((acceptedControlMask & 1) !== 0));
@@ -262,8 +257,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
       button.setAttribute("aria-pressed", String(slot === selectedSlot)));
   };
   const setControlMask = async (requested: number): Promise<void> => {
-    if (client === null) throw new Error("simulation controls are unavailable");
-    const ack = await client.command({ kind: "setControl", mask: requested });
+    const ack = await submit({ kind: "setControl", mask: requested });
     if (ack.status !== "applied" || ack.result === undefined) throw new Error("control mask was not applied");
     acceptedControlMask = ack.result;
     if ((acceptedControlMask & 1) === 0) input?.releaseMovement();
@@ -279,14 +273,19 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
 
   // Route handlers exist before bootstrap can send init to the worker.
   find<HTMLButtonElement>("reset").addEventListener("click", () => {
-    run(() => requireApp().reset(integerFrom("seed", 0, 0xffff_ffff), latest?.paused), "Reset complete");
+    run(() => requireSimulationInteraction().reset(
+      integerFrom("seed", 0, 0xffff_ffff), latest?.paused,
+    ), "Reset complete");
   });
   respawnButton.addEventListener("click", () => {
-    run(() => requireApp().reset(integerFrom("seed", 0, 0xffff_ffff), false), "Respawned");
+    run(async () => {
+      const ack = await submit({ kind: "respawn", kindCode: 0, primary: 2, secondary: 4 });
+      if (ack.result !== 1) throw new Error("Respawn refused: the hero is still alive or the room is full");
+    }, "Respawned");
   });
   pauseButton.addEventListener("click", () => {
     const paused = latest?.paused ?? false;
-    run(() => requireApp().setPaused(!paused), paused ? "Running" : "Paused");
+    run(() => requireSimulationInteraction().setPaused(!paused), paused ? "Running" : "Paused");
   });
   movementButton.addEventListener("click", () => {
     run(() => setControlMask(acceptedControlMask ^ 1), "Movement control changed");
@@ -308,25 +307,13 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   });
   find<HTMLButtonElement>("spawn").addEventListener("click", () => {
     run(() => submit({ kind: "spawn",
-      kindCode: integerFrom("spawn-kind", 1, 2),
+      kindCode: integerFrom("spawn-kind", 0, 2),
       primary: integerFrom("spawn-primary", 0, 255),
       secondary: integerFrom("spawn-secondary", 0, 255),
     }), "Enemy spawned");
   });
-  roomCameraButton.addEventListener("click", () => {
-    try {
-      if (!representativeRoom) throw new Error("representative room camera is unavailable");
-      const renderer = requireApp().renderer as GreyboxRenderer;
-      renderer.setReviewCameraFree(!renderer.reviewCameraFree);
-      roomCameraButton.textContent = renderer.reviewCameraFree ? "Use fixed camera" : "Use free camera";
-      performanceStatus.value = renderer.reviewCameraFree
-        ? "Free review camera active -- performance capture disabled"
-        : "Fixed review camera active";
-      refreshPerformanceStart();
-    } catch (error) { showError(error); }
-  });
-  viewModeButton.addEventListener("click", () => {
-    try { setPresentationMode(nextPresentationMode(presentationMode)); }
+  viewModeButton.addEventListener("change", () => {
+    try { setPresentationMode(viewModeButton.value as PresentationMode); }
     catch (error) { showError(error); }
   });
   holdBuffersButton.addEventListener("click", () => {
@@ -593,11 +580,6 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
         ? "The representative room stress fixture is noninteractive. Use the camera toggle for visual review; return to fixed mode before capture."
         : "The fixed stress fixture is intentionally noninteractive; input and simulation controls are disabled during comparable capture."
       : "Click known floor to move. Drag with the primary, middle, or secondary button to pan; use the wheel to zoom and Escape to withdraw.";
-    roomCameraButton.hidden = !representativeRoom;
-    if (representativeRoom) {
-      const gpu = app.renderer as GreyboxRenderer;
-      roomCameraButton.textContent = gpu.reviewCameraFree ? "Use fixed camera" : "Use free camera";
-    }
     status.value = canvasControl ? "Synthetic Canvas2D control ready"
       : roomReviewMode ? "Compact representative room review ready"
         : stressKind === "room" ? "Representative room stress fixture ready"
@@ -615,7 +597,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     if (tag === "input" || tag === "select" || tag === "textarea") return;
     if (canvasControl || app === null || app.disposed) return;
     event.preventDefault();
-    try { setPresentationMode(nextPresentationMode(presentationMode)); }
+    try { setPresentationMode(nextPresentationMode(presentationMode, event.shiftKey ? -1 : 1)); }
     catch (error) { showError(error); }
   };
   const onVisibilityChange = (): void => {

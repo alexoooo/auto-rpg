@@ -1,6 +1,7 @@
 # Concept production 04 -- production Fighter and Brute
 
-**Status:** planned. Combatant asset pins move; room pins and Rust hashes do not.
+**Status:** implemented and verified 2026-08-17. Combatant asset pins moved;
+room pins and Rust hashes did not.
 
 Reauthor `tools/art/combatants.py` while preserving the exact rig nodes, sockets,
 regions and `idle`, `walk`, `stagger`, `fall` clips. Fighter/Brute budgets are
@@ -25,3 +26,19 @@ the_ground_marker_clears_every_authored_floor_without_depth_clipping
 
 Run pinned Blender double export, combatant validator/tests, render/studio tests,
 TypeScript, build, toolchain, docs and diff gates.
+
+The landed v6 asset has 177 nodes, 135 semantic LOD meshes, 206,060 vertices,
+76,220 triangles, 12 materials, eight clips and two skins. A final readability
+correction widened the Fighter face from `0.172` m to `0.188` m so it occupies
+at least 10 pixels on a 100-pixel body. The deterministic identities are build
+inputs `5a330f273d69c88c180a5d3f4294284ace3cb507b6ddaf641ce559abc706c657`,
+GLB `6b4e3225feb49799b0c73a057acf498342eed63461ca63509973d2cd016a84c5`,
+sidecar `315fca274cad90f423c547c63a0758696be1cb697cd026ea24737a600d06dc92`,
+and validator `41c905bb1e90a798d8e8679203f1e2b23bf4e12f747d93d256951d2f22ea096a`.
+Payload is 46,209,989 bytes and conservative GPU residency is 159,154,536
+bytes. Runtime rendering consumes each rigid joint-local piece directly: it
+normalises Babylon's loader closure, clears the clone mesh skin, and parents the
+piece to its semantic joint under one standing-height scale. NullEngine regressions
+compose current world matrices and bound every dressed piece, specifically the
+visible face/plume pair, around the published actor root; removing the semantic
+parent makes the face regression fail.

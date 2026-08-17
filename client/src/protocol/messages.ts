@@ -38,7 +38,8 @@ export type LegacyClientCommand =
   | { kind: "withdraw" }
   | { kind: "setControl"; mask: number }
   | { kind: "setInput"; moveXMilli: number; moveYMilli: number; aimRaw: number; reachMilli: number; slot: number; strike: number; turnMilli: number }
-  | { kind: "spawn"; kindCode: number; primary: number; secondary: number };
+  | { kind: "spawn"; kindCode: number; primary: number; secondary: number }
+  | { kind: "respawn"; kindCode: number; primary: number; secondary: number };
 export type CommandMessage = {
   kind: "command"; version: ProtocolVersion; requestId: number; epoch: number;
   sequence: number; targetTick: number; command: LegacyClientCommand;
@@ -281,8 +282,17 @@ function decodeCommand(value: unknown): LegacyClientCommand | null {
   if (value.kind === "goto" && isI32(value.xMilli) && isI32(value.yMilli)) {
     return { kind: "goto", xMilli: value.xMilli, yMilli: value.yMilli };
   }
-  if (value.kind === "spawn" && isU32(value.kindCode) && isU32(value.primary) && isU32(value.secondary)) {
-    return { kind: "spawn", kindCode: value.kindCode, primary: value.primary, secondary: value.secondary };
+  if ((value.kind === "spawn" || value.kind === "respawn")
+      && isU32(value.kindCode) && isU32(value.primary) && isU32(value.secondary)) {
+    const body = value.kind === "spawn"
+      ? value.kindCode === 0 || value.kindCode === 2
+      : value.kindCode === 0;
+    const primary = value.primary === 2 || value.primary === 4;
+    const secondary = value.secondary === 2 || value.secondary === 4 || value.secondary === 255;
+    if (body && primary && secondary) {
+      return { kind: value.kind, kindCode: value.kindCode,
+        primary: value.primary, secondary: value.secondary };
+    }
   }
   return null;
 }

@@ -18,7 +18,8 @@ import {
 } from "./combatant-dress.js";
 import type { CombatantAsset } from "./combatant-assets.js";
 import {
-  buildFigure, buildFigureSources, figureBodyHeightRadii, poseFigure, type Figure, type FigureSources,
+  buildFigure, buildFigureSources, figureBodyHeightRadii, poseFigure, setFigureDiagnostics,
+  type Figure, type FigureSources,
 } from "./figure.js";
 import type { PresentationSnapshot, PresentationUnit } from "./presentation.js";
 import type { PresentationMode } from "./presentation-mode.js";
@@ -182,6 +183,7 @@ export class ActorPresentation {
         for (const part of node.figure.parts) part.setEnabled(true);
         poseFigure(node.figure, node.unit);
       }
+      setFigureDiagnostics(node.figure, diagnostic);
       this.#applyDressMode(node, true);
       for (const part of this.#allBodyParts(node)) part.isPickable = false;
       if (this.#picking.has(node.key)) for (const part of this.#bodyParts(node)) part.isPickable = true;
@@ -304,6 +306,7 @@ export class ActorPresentation {
   #pose(node: ActorNode, unit: PresentationUnit, snapshot: PresentationSnapshot): void {
     node.unit = unit;
     poseFigure(node.figure, unit);
+    setFigureDiagnostics(node.figure, this.#mode === "geometry" || this.#mode === "dev");
     node.ring.position.set(unit.x, factionCueCentreY(), unit.y);
     node.ring.scaling.setAll(unit.radius);
     if (node.readabilityLight !== null) {

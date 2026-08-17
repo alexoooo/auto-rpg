@@ -22,7 +22,7 @@ import {
 const SIDECAR_URL = "/assets3d/room_slice.json";
 const GLB_URL = "/assets3d/room_slice.glb";
 const MAX_SIDECAR_BYTES = 4 * 1024 * 1024;
-const MAX_GLB_BYTES = 25_165_824;
+const MAX_GLB_BYTES = 67_108_864;
 const MATERIAL_COMPILE_TIMEOUT_MS = 30_000;
 const SHA256 = /^[0-9a-f]{64}$/;
 const TOLERANCE = 0.00001;
@@ -150,7 +150,9 @@ function validateContainer(container: AssetContainer, sidecar: RoomAssetSidecar)
   const expectedMeshes = new Set<string>(["__root__", ...expectedPieceNodes]);
   exactNameSet(container.meshes, expectedMeshes, "mesh");
   exactNameSet(container.transformNodes, new Set(["SOCKET_torch_flame"]), "transform node");
-  exactNameSet(container.materials, new Set(["floor_current", "stone_current", "wood_current", "metal_current"]), "material");
+  exactNameSet(container.materials, new Set([
+    "floor_current", "stone_current", "wood_current", "metal_current", "overburden_current",
+  ]), "material");
   if (container.geometries.length !== expectedPieceNodes.size ||
       container.geometries.some((geometry) => !expectedPieceNodes.has(geometry.id as never)) ||
       new Set(container.geometries.map((geometry) => geometry.id)).size !== container.geometries.length) {
@@ -170,7 +172,11 @@ function validateContainer(container: AssetContainer, sidecar: RoomAssetSidecar)
     if ((items?.length ?? 0) !== 0) throw new RoomAssetLoadError(`unexpected ${label}`);
   }
   if (container.environmentTexture !== null) throw new RoomAssetLoadError("unexpected environment texture");
-  exactNameSet(container.textures, new Set(["floor_current (Base Color)", "stone_current (Base Color)"]), "texture");
+  exactNameSet(container.textures, new Set([
+    ...["floor_current", "stone_current", "wood_current", "overburden_current"].flatMap((role) => [
+      `${role} (Base Color)`, `${role} (Normal)`, `${role} (Metallic Roughness)`,
+    ]),
+  ]), "texture");
 
   const root = uniqueByName(container.meshes, "__root__", "loader root") as Mesh;
   if (container.rootNodes.length !== 1 || container.rootNodes[0] !== root || root.parent !== null ||
@@ -207,18 +213,26 @@ function validateContainer(container: AssetContainer, sidecar: RoomAssetSidecar)
     pieces.set(contract.name, mesh as Mesh);
   }
   const materials = new Map<RoomMaterialRole, Material>();
-  for (const role of ["floor_current", "stone_current", "wood_current", "metal_current"] as const) {
+  for (const role of [
+    "floor_current", "stone_current", "wood_current", "metal_current", "overburden_current",
+  ] as const) {
     materials.set(role, uniqueByName(container.materials, role, `material ${role}`));
   }
-  const floorTexture = (materials.get("floor_current") as Material & { albedoTexture?: unknown }).albedoTexture;
-  const wallTexture = (materials.get("stone_current") as Material & { albedoTexture?: unknown }).albedoTexture;
-  if (floorTexture === null || floorTexture === undefined || wallTexture === null || wallTexture === undefined ||
-      floorTexture === wallTexture || !container.textures.includes(floorTexture as never) ||
-      !container.textures.includes(wallTexture as never)) throw new RoomAssetLoadError("material texture closure");
-  for (const role of ["wood_current", "metal_current"] as const) {
-    if ((materials.get(role) as Material & { albedoTexture?: unknown }).albedoTexture != null) {
-      throw new RoomAssetLoadError(`material ${role} texture closure`);
-    }
+  type AuthoredPbrMaterial = Material & {
+    albedoTexture?: unknown; bumpTexture?: unknown; metallicTexture?: unknown;
+  };
+  const authoredTextures = ["floor_current", "stone_current", "wood_current", "overburden_current"]
+    .flatMap((role) => {
+      const material = materials.get(role as RoomMaterialRole) as AuthoredPbrMaterial;
+      return [material.albedoTexture, material.bumpTexture, material.metallicTexture];
+    });
+  if (authoredTextures.some((texture) => texture === null || texture === undefined ||
+      !container.textures.includes(texture as never)) || new Set(authoredTextures).size !== authoredTextures.length) {
+    throw new RoomAssetLoadError("material texture closure");
+  }
+  const metal = materials.get("metal_current") as AuthoredPbrMaterial;
+  if (metal.albedoTexture != null || metal.bumpTexture != null || metal.metallicTexture != null) {
+    throw new RoomAssetLoadError("material metal_current texture closure");
   }
   const socket = uniqueByName(container.transformNodes, "SOCKET_torch_flame", "torch socket");
   const socketContract = sidecar.sockets[0];

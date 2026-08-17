@@ -131,8 +131,8 @@
     }
   ],
   "outputs": {
-    "glb": { "path": "web/assets3d/combatants.glb", "sha256": "9e4ed670604c25dacbad013a9d387115ea5a1e5ac678f8a5b45b077cbf48e0a6" },
-    "sidecar": { "path": "web/assets3d/combatants.json", "sha256": "4dc884c004d84225d06f6369d0ca2d02ebf61f64f9c61cae03bd97ba9e5c5c3d" },
-    "validator": { "path": "web/assets3d/combatants.validator.json", "sha256": "943fb943a1c2d41a71feb7a9db5f40e8dd840cab91c1c6457b0d962fec92c832" }
+    "glb": { "path": "web/assets3d/combatants.glb", "sha256": "6b4e3225feb49799b0c73a057acf498342eed63461ca63509973d2cd016a84c5" },
+    "sidecar": { "path": "web/assets3d/combatants.json", "sha256": "315fca274cad90f423c547c63a0758696be1cb697cd026ea24737a600d06dc92" },
+    "validator": { "path": "web/assets3d/combatants.validator.json", "sha256": "41c905bb1e90a798d8e8679203f1e2b23bf4e12f747d93d256951d2f22ea096a" }
   }
 }

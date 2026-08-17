@@ -18,7 +18,9 @@ const FORMATS = {
 };
 const TOLERANCE = 0.00001;
 const INSTANCE_CAPACITIES = Object.freeze({
-  floor_a: 804, floor_b: 732, wall_straight: 363, wall_inside: 0,
+  floor_a: 384, floor_b: 384, floor_c: 384, floor_d: 384,
+  wall_straight: 73, wall_run_2: 73, wall_run_3: 73, wall_run_5: 72, wall_run_8: 72,
+  wall_inside: 0,
   wall_outside: 0, wall_end: 0, door_frame: 2, door_leaf: 6,
   torch_bracket: 10, decal_rubble: 4, decal_root: 4, prop_barrel: 4,
 });
@@ -71,7 +73,7 @@ function parseRoomSidecar(bytes) {
   };
   exactKeys(value, ["schemaVersion", "fixtureId", "buildInputsSha256", "coordinates", "runtimeFixture", "styling", "pieces", "sockets",
     "counts", "estimatedGpuResidency", "payloadBytes", "glbSha256"], "room sidecar");
-  if (value.pieces.length !== 12 || value.sockets.length !== 1) throw new Error("room sidecar has unbounded or incomplete semantic arrays");
+  if (value.pieces.length !== 18 || value.sockets.length !== 1) throw new Error("room sidecar has unbounded or incomplete semantic arrays");
   const names = value.pieces.map((piece) => piece.node);
   if (names.some((name) => typeof name !== "string" || name.length > 64) || new Set(names).size !== names.length) {
     throw new Error("room sidecar has invalid or duplicate piece names");
@@ -90,7 +92,7 @@ function parseRoomSidecar(bytes) {
 
 function validateBuildManifest(manifest) {
   const decimal = /^-?(?:0|[1-9][0-9]*)\.[0-9]+$/;
-  if (manifest.schemaVersion !== 1 || manifest.generatorVersion !== 5 || manifest.license !== "MIT" ||
+  if (manifest.schemaVersion !== 1 || manifest.generatorVersion !== 6 || manifest.license !== "MIT" ||
       manifest.fixtureId !== "v2-room-slice-1" || manifest.generatorSeed !== 1592594996 ||
       !decimal.test(manifest.tolerance)) throw new Error("room manifest identity is invalid");
   if (manifest.toolchain?.blender !== "4.5.12" || !/^[0-9a-f]{64}$/.test(manifest.toolchain.blenderBinarySha256)) {
@@ -107,10 +109,12 @@ function validateBuildManifest(manifest) {
       manifest.export?.exportMaterials !== "EXPORT" || manifest.export?.exportYup !== true ||
       manifest.export?.useSelection !== true || manifest.export?.animations !== false ||
       manifest.export?.vertexColor !== "NAME" || manifest.export?.vertexColorName !== "room_style" ||
-      manifest.export?.allVertexColors !== false) throw new Error("room manifest export contract is invalid");
+      manifest.export?.allVertexColors !== false || manifest.export?.exportTangents !== true) {
+    throw new Error("room manifest export contract is invalid");
+  }
   const style = manifest.styling;
   const paletteNames = ["floorA", "floorB", "floorEdge", "neutral", "stoneDetail", "wallSide", "wallTop", "woodEnd", "woodSide", "woodTop"];
-  if (style?.id !== "painted-cathedral-v3" || style?.mode !== "deterministic-vertex-color" ||
+  if (style?.id !== "painted-cathedral-v4" || style?.mode !== "deterministic-vertex-color" ||
       style?.attribute !== "room_style" || style?.textures !== true || !decimal.test(style?.variation ?? "") ||
       JSON.stringify(Object.keys(style?.palette ?? {}).sort()) !== JSON.stringify(paletteNames)) {
     throw new Error("room manifest styling contract is invalid");
@@ -121,36 +125,52 @@ function validateBuildManifest(manifest) {
       throw new Error(`room manifest styling palette ${name} is invalid`);
     }
   }
-  const textureNames = ["floor", "wall"];
+  const textureNames = ["floor", "overburden", "wall", "wood"];
   if (JSON.stringify(Object.keys(manifest.textures ?? {}).sort()) !== JSON.stringify(textureNames)) {
     throw new Error("room manifest texture set is invalid");
   }
   for (const name of textureNames) {
     const texture = manifest.textures[name];
-    const expectedQuadrant = name === "floor" ? [0, 1] : [1, 1];
-    if (texture?.path !== "tools/art/textures/concept-material-atlas-v2.png" ||
+    const quadrants = { floor: [0, 1], overburden: [1, 0], wall: [1, 1], wood: [0, 0] };
+    const expectedQuadrant = quadrants[name];
+    if (texture?.path !== "tools/art/textures/concept-material-atlas-v3.png" ||
         !/^[0-9a-f]{64}$/.test(texture?.sha256 ?? "") || texture?.mimeType !== "image/png" ||
         texture?.width !== 1254 || texture?.height !== 1254 ||
         JSON.stringify(texture?.sourceQuadrant) !== JSON.stringify(expectedQuadrant)) {
       throw new Error(`room manifest texture ${name} is invalid`);
     }
   }
+  const vfx = manifest.runtimeTextures.vfxDecals;
+  const flame = manifest.runtimeTextures.vfxFlame;
+  if (JSON.stringify(Object.keys(manifest.runtimeTextures ?? {}).sort()) !==
+      JSON.stringify(['vfxDecals', 'vfxFlame']) ||
+      vfx.sourcePath !== 'tools/art/textures/concept-vfx-decal-atlas-v1.png' ||
+      vfx.runtimePath !== 'web/assets3d/room_vfx_decal_atlas.png' ||
+      !/^[0-9a-f]{64}$/.test(vfx.sha256) || vfx.mimeType !== 'image/png' ||
+      vfx.width !== 1254 || vfx.height !== 1254 || JSON.stringify(vfx.grid) !== '[4,4]' ||
+      vfx.alpha !== true ||
+      flame.sourcePath !== 'tools/art/textures/concept-vfx-flame-v1.png' ||
+      flame.runtimePath !== 'web/assets3d/room_vfx_flame.png' ||
+      !/^[0-9a-f]{64}$/.test(flame.sha256) || flame.mimeType !== 'image/png' ||
+      flame.width !== 314 || flame.height !== 314 || JSON.stringify(flame.grid) !== '[1,1]' ||
+      flame.alpha !== true) throw new Error('room manifest runtime VFX texture is invalid');
   const processing = manifest.textureProcessing;
-  if (processing?.width !== 512 || processing?.height !== 512 || processing?.periodicEdgePixels !== 32 ||
+  if (processing?.width !== 896 || processing?.height !== 896 || processing?.periodicEdgePixels !== 48 ||
       processing?.colourSpace !== "sRGB" || processing?.wrap !== "repeat" || processing?.magFilter !== 9729 ||
       processing?.minFilter !== 9987) throw new Error("room manifest texture processing is invalid");
   for (const name of textureNames) if (!/^[0-9a-f]{64}$/.test(manifest.outputs?.embeddedTextures?.[`${name}Sha256`] ?? "")) {
     throw new Error(`room manifest embedded texture ${name} output is invalid`);
   }
-  if (manifest.budgets?.payloadBytes !== 25165824 || manifest.budgets?.estimatedGpuBytes !== 268435456) {
+  if (manifest.budgets?.payloadBytes !== 67108864 || manifest.budgets?.estimatedGpuBytes !== 268435456) {
     throw new Error("room manifest budgets are invalid");
   }
-  const pieceNames = ["floor_a", "floor_b", "wall_straight", "wall_inside", "wall_outside", "wall_end",
+  const pieceNames = ["floor_a", "floor_b", "floor_c", "floor_d", "wall_straight",
+    "wall_run_2", "wall_run_3", "wall_run_5", "wall_run_8", "wall_inside", "wall_outside", "wall_end",
     "door_frame", "door_leaf", "torch_bracket", "decal_rubble", "decal_root", "prop_barrel"];
   if (!Array.isArray(manifest.pieces) || manifest.pieces.length !== pieceNames.length ||
       JSON.stringify(manifest.pieces.map((piece) => piece.name)) !== JSON.stringify(pieceNames)) throw new Error("room manifest piece set or order is invalid");
   for (const piece of manifest.pieces) {
-    if (piece.node !== `ROOM_${piece.name}` || !["floor_current", "stone_current", "wood_current", "metal_current"].includes(piece.materialRole) ||
+    if (piece.node !== `ROOM_${piece.name}` || !["floor_current", "stone_current", "wood_current", "metal_current", "overburden_current"].includes(piece.materialRole) ||
         !["ground-centre", "lower-hinge"].includes(piece.pivot) || JSON.stringify(piece.allowedQuarterTurns) !== "[0,1,2,3]") {
       throw new Error(`room manifest piece ${piece.name} is invalid`);
     }
@@ -160,7 +180,7 @@ function validateBuildManifest(manifest) {
           [...piece.socket.translation, ...piece.socket.rotation].some((value) => !decimal.test(value))) throw new Error("torch socket manifest is invalid");
     } else if (piece.socket !== null) throw new Error(`${piece.name} has an unexpected socket`);
   }
-  const materialNames = ["floor_current", "stone_current", "wood_current", "metal_current", "emissive_flame"];
+  const materialNames = ["floor_current", "stone_current", "wood_current", "metal_current", "overburden_current", "emissive_flame"];
   if (JSON.stringify(Object.keys(manifest.materials ?? {}).sort()) !== JSON.stringify(materialNames.sort())) throw new Error("room manifest material set is invalid");
   for (const values of Object.values(manifest.materials)) for (const [key, value] of Object.entries(values)) {
     if (key === "baseColorTexture" && textureNames.includes(value)) continue;
@@ -288,16 +308,29 @@ function validateSemanticSets(parsed, sidecar, manifest) {
   for (const material of parsed.gltf.materials ?? []) {
     const spec = manifest.materials[material.name];
     const pbr = material.pbrMetallicRoughness;
-    const expectedColor = [Number(spec.baseColorR), Number(spec.baseColorG), Number(spec.baseColorB), 1];
-    if (!pbr || pbr.baseColorFactor?.some((value, index) => !close(value, expectedColor[index], TOLERANCE)) ||
-        !close(pbr.metallicFactor ?? 1, Number(spec.metallic), TOLERANCE) ||
-        !close(pbr.roughnessFactor ?? 1, Number(spec.roughness), TOLERANCE)) {
+    const textured = spec.baseColorTexture !== undefined;
+    const expectedColor = textured ? [1, 1, 1, 1] :
+      [Number(spec.baseColorR), Number(spec.baseColorG), Number(spec.baseColorB), 1];
+    const expectedMetallic = textured ? 1 : Number(spec.metallic);
+    const expectedRoughness = textured ? 1 : Number(spec.roughness);
+    const actualColor = pbr?.baseColorFactor ?? [1, 1, 1, 1];
+    if (!pbr || actualColor.some((value, index) => !close(value, expectedColor[index], TOLERANCE)) ||
+        !close(pbr.metallicFactor ?? 1, expectedMetallic, TOLERANCE) ||
+        !close(pbr.roughnessFactor ?? 1, expectedRoughness, TOLERANCE)) {
       throw new Error(`GLB material ${material.name} differs from its PBR manifest inputs: ${JSON.stringify(pbr)}`);
     }
     const textureRole = spec.baseColorTexture;
     if (textureRole === undefined ? pbr.baseColorTexture !== undefined :
-        parsed.textureRoles?.get(pbr.baseColorTexture?.index) !== textureRole) {
+        parsed.textureRoles?.get(pbr.baseColorTexture?.index) !== `${textureRole}:albedo`) {
       throw new Error(`GLB material ${material.name} texture differs from its manifest input`);
+    }
+    if (textureRole === undefined) {
+      if (material.normalTexture !== undefined || pbr.metallicRoughnessTexture !== undefined) {
+        throw new Error(`GLB material ${material.name} has unexpected surface maps`);
+      }
+    } else if (parsed.textureRoles?.get(material.normalTexture?.index) !== `${textureRole}:normal` ||
+        parsed.textureRoles?.get(pbr.metallicRoughnessTexture?.index) !== `${textureRole}:orm`) {
+      throw new Error(`GLB material ${material.name} PBR maps differ from its manifest input`);
     }
   }
   const sidecarNames = sidecar.pieces.map((piece) => piece.node).sort();
@@ -369,9 +402,9 @@ function validateEmbeddedTextures(parsed, manifest, skipExpectedHashes = false) 
   const textures = parsed.gltf.textures ?? [];
   const samplers = parsed.gltf.samplers ?? [];
   const processing = manifest.textureProcessing;
-  if (images.length !== 2 || textures.length !== 2 || samplers.length !== 1 ||
+  if (images.length !== 12 || textures.length !== 12 || samplers.length !== 1 ||
       JSON.stringify(samplers[0]) !== JSON.stringify({ magFilter: processing.magFilter, minFilter: processing.minFilter })) {
-    throw new Error("room GLB must contain exactly two embedded textures and its pinned linear mipmapped sampler");
+    throw new Error("room GLB must contain exactly twelve embedded albedo/normal/ORM textures and its pinned linear mipmapped sampler");
   }
   const imageRoles = new Map();
   for (let index = 0; index < images.length; index++) {
@@ -385,17 +418,21 @@ function validateEmbeddedTextures(parsed, manifest, skipExpectedHashes = false) 
     const bytes = parsed.bin.subarray(start, start + view.byteLength);
     if (bytes.length !== view.byteLength || bytes.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a" ||
         bytes.subarray(12, 16).toString("ascii") !== "IHDR") throw new Error("room embedded texture is not a complete PNG");
-    const role = Object.keys(manifest.textures).find((candidate) => image.name === `room_${candidate}_albedo`);
-    const expectedHash = role === undefined ? "" : manifest.outputs.embeddedTextures[`${role}Sha256`];
-    if (role === undefined || (!skipExpectedHashes && expectedHash !== "0".repeat(64) && sha256(bytes) !== expectedHash)) {
+    const match = /^room_(floor|overburden|wall|wood)_(albedo|normal|orm)$/.exec(image.name ?? "");
+    const role = match?.[1];
+    const kind = match?.[2];
+    const expectedHash = role === undefined || kind !== "albedo" ? "" :
+      manifest.outputs.embeddedTextures[`${role}Sha256`];
+    if (role === undefined || kind === undefined || (!skipExpectedHashes && kind === "albedo" &&
+        expectedHash !== "0".repeat(64) && sha256(bytes) !== expectedHash)) {
       throw new Error("room embedded texture bytes differ from the pinned processed output");
     }
     if (bytes.readUInt32BE(16) !== processing.width || bytes.readUInt32BE(20) !== processing.height) {
       throw new Error(`room embedded texture ${role} dimensions differ from the manifest`);
     }
-    imageRoles.set(index, role);
+    imageRoles.set(index, `${role}:${kind}`);
   }
-  if (new Set(imageRoles.values()).size !== 2) throw new Error("room embedded texture roles are incomplete or duplicated");
+  if (new Set(imageRoles.values()).size !== 12) throw new Error("room embedded texture roles are incomplete or duplicated");
   const textureRoles = new Map();
   for (let index = 0; index < textures.length; index++) {
     const source = textures[index].source;
@@ -405,7 +442,7 @@ function validateEmbeddedTextures(parsed, manifest, skipExpectedHashes = false) 
     textureRoles.set(index, imageRoles.get(source));
   }
   parsed.textureRoles = textureRoles;
-  return processing.width * processing.height * 4 * Object.keys(manifest.textures).length;
+  return processing.width * processing.height * 4 * Object.keys(manifest.textures).length * 3;
 }
 
 function validateGeometry(parsed, sidecar, manifest) {
@@ -455,7 +492,11 @@ function validateGeometry(parsed, sidecar, manifest) {
       const length = Math.hypot(...normal);
       if (!close(length, 1, tolerance * 10)) throw new Error(`${node.name} has a non-unit normal`);
     }
-    for (const uv of uvs) if (uv.some((value) => value < -tolerance || value > 1 + tolerance)) throw new Error(`${node.name} has UV outside [0,1]`);
+    const uvRepeat = node.name.startsWith("ROOM_wall_run_") ? Number(node.name.slice("ROOM_wall_run_".length)) : 1;
+    for (const uv of uvs) if (uv[0] < -tolerance || uv[0] > uvRepeat + tolerance ||
+        uv[1] < -tolerance || uv[1] > 1 + tolerance) {
+      throw new Error(`${node.name} has UV outside its tile-frequency envelope`);
+    }
     if (colours.some((colour) => colour.length !== 4 || colour.some((value) => value < 0 || value > 65535))) {
       throw new Error(`${node.name} has vertex colour outside normalized unsigned-short range`);
     }
@@ -506,6 +547,16 @@ async function validateAsset(options) {
   const manifestBytes = fs.readFileSync(options.manifest);
   const manifest = JSON.parse(manifestBytes);
   validateBuildManifest(manifest);
+  for (const vfx of Object.values(manifest.runtimeTextures)) {
+    const sourceVfxBytes = fs.readFileSync(path.join(ROOT, vfx.sourcePath));
+    const runtimeVfxBytes = fs.readFileSync(path.join(ROOT, vfx.runtimePath));
+    if (!sourceVfxBytes.equals(runtimeVfxBytes) || sha256(sourceVfxBytes) !== vfx.sha256) {
+      throw new Error("room runtime VFX texture differs from its pinned authored source");
+    }
+    if (runtimeVfxBytes.length < 33 || runtimeVfxBytes.toString("ascii", 1, 4) !== "PNG" ||
+        runtimeVfxBytes.readUInt32BE(16) !== vfx.width || runtimeVfxBytes.readUInt32BE(20) !== vfx.height ||
+        runtimeVfxBytes[25] !== 6) throw new Error("room runtime VFX texture dimensions or alpha format drifted");
+  }
   const glbSize = fs.statSync(options.glb).size;
   const sidecarSize = fs.statSync(options.sidecar).size;
   if (glbSize + sidecarSize > manifest.budgets.payloadBytes) throw new Error("room GLB and sidecar exceed their payload budget");
@@ -541,7 +592,13 @@ async function validateAsset(options) {
   if (warnings.length) throw new Error(`gltf-validator reported warning(s): ${warnings.map((issue) => issue.code).join(", ")}`);
   const buildManifest = { ...manifest };
   delete buildManifest.outputs;
-  const buildInputsSha256 = sha256(canonicalBytes(buildManifest));
+  const generatorSources = {};
+  for (const name of ["build_slice.py", "export.py", "materials.py", "room.py"]) {
+    generatorSources[name] = sha256(fs.readFileSync(path.join(ROOT, "tools", "art", name)));
+  }
+  const buildInputsSha256 = sha256(canonicalBytes({
+    manifest: buildManifest, generatorSources,
+  }));
   const report = stable({
     schemaVersion: 1,
     fixtureId: manifest.fixtureId,

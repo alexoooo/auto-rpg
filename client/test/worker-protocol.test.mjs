@@ -161,6 +161,7 @@ class FakeWasm {
   setGoto(x, y) { this.calls.push(["goto", x, y, this.now]); }
   clearOrder() { this.calls.push(["withdraw", this.now]); }
   spawnMonster(kind, primary, secondary) { this.calls.push(["spawn", kind, primary, secondary, this.now]); return 7; }
+  swapInHero(kind, primary, secondary) { this.calls.push(["respawn", kind, primary, secondary, this.now]); return 1; }
   step(ticks) { if (this.trap) throw new Error("trap"); this.calls.push(["step", ticks, this.now]); this.now += ticks; this.revision++; }
   tick() { return this.now; }
   readPublication() {
@@ -310,6 +311,29 @@ test("wasm_bound_numeric_domains_reject_values_javascript_would_coerce", () => {
   assert.equal(MSG.decodeClientMessage(advance(1, Number.MAX_SAFE_INTEGER + 1)).ok, false);
 });
 
+test("configured_enemy_codes_are_authoritative_and_empty_primary_is_refused", () => {
+  for (const spawn of [
+    { kind: "spawn", kindCode: 0, primary: 2, secondary: 4 },
+    { kind: "spawn", kindCode: 2, primary: 4, secondary: 255 },
+  ]) assert.equal(MSG.decodeClientMessage(command(1, 1, 0, spawn)).ok, true);
+  for (const spawn of [
+    { kind: "spawn", kindCode: 1, primary: 2, secondary: 4 },
+    { kind: "spawn", kindCode: 2, primary: 255, secondary: 4 },
+    { kind: "spawn", kindCode: 2, primary: 0, secondary: 1 },
+  ]) assert.equal(MSG.decodeClientMessage(command(1, 1, 0, spawn)).ok, false);
+});
+
+test("respawn_is_a_world_preserving_command_not_a_reset", async () => {
+  const { host, sent, wasm } = await harness();
+  await host.handle(command(2, 1, 0,
+    { kind: "respawn", kindCode: 0, primary: 2, secondary: 4 }));
+  await host.handle(advance(3, 20_000));
+  assert.deepEqual(wasm.calls.filter((call) => call[0] === "respawn"),
+    [["respawn", 0, 2, 4, 0]]);
+  assert.deepEqual(wasm.calls.filter((call) => call[0] === "init"), [["init", 4]]);
+  assert.equal(messages(sent, "commandAck").at(-1).result, 1);
+});
+
 test("init_and_reset_emit_the_exact_lifecycle_messages", async () => {
   const { host, sent, wasm } = await harness();
   assert.deepEqual(sent.slice(0, 2).map((x) => x.message.kind), ["ready", "snapshot"]);
@@ -398,9 +422,9 @@ test("fatal_state_ignores_everything_except_a_valid_outstanding_buffer_return", 
 test("commands_apply_before_stepping_their_target_tick_in_sequence_order", async () => {
   const { host, sent, wasm } = await harness();
   await host.handle(command(2, 1, 0, { kind: "goto", xMilli: -7, yMilli: 8 }));
-  await host.handle(command(3, 2, 0, { kind: "spawn", kindCode: 3, primary: 255, secondary: 255 }));
+  await host.handle(command(3, 2, 0, { kind: "spawn", kindCode: 2, primary: 2, secondary: 4 }));
   await host.handle(advance(4, 20_000));
-  assert.deepEqual(wasm.calls.slice(3), [["goto", -7, 8, 0], ["spawn", 3, 255, 255, 0], ["step", 1, 0]]);
+  assert.deepEqual(wasm.calls.slice(3), [["goto", -7, 8, 0], ["spawn", 2, 2, 4, 0], ["step", 1, 0]]);
   const acks = messages(sent, "commandAck");
   assert.deepEqual(acks.map((ack) => [ack.sequence, ack.status, ack.tick]), [[1, "accepted", 0], [2, "accepted", 0], [1, "applied", 0], [2, "applied", 0]]);
   assert.equal(acks.at(-1).result, 7);

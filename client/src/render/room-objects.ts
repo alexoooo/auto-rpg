@@ -1,10 +1,13 @@
 import { PointLight } from "@babylonjs/core/Lights/pointLight.js";
 import type { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
+import { Material } from "@babylonjs/core/Materials/material.js";
+import { Constants } from "@babylonjs/core/Engines/constants.js";
+import { Texture } from "@babylonjs/core/Materials/Textures/texture.js";
+import { RawTexture } from "@babylonjs/core/Materials/Textures/rawTexture.js";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
-import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
@@ -61,14 +64,19 @@ const supported = (kind: number): boolean => kind === DUNGEON_OBJECT_DOOR ||
   kind === DUNGEON_OBJECT_TORCH || kind === DUNGEON_OBJECT_BARREL ||
   kind === DUNGEON_OBJECT_POTTERY || kind === DUNGEON_OBJECT_WEB || kind === DUNGEON_OBJECT_WATER;
 
+function atlasUv(column: number, row: number, u: number, v: number): readonly [number, number] {
+  return [(column + u) * 0.25, (row + v) * 0.25];
+}
+
 function createTaperedFlamePlane(name: string, scene: Scene): Mesh {
-  const mesh = new Mesh(name, scene);
-  const data = new VertexData();
-  data.positions = [-0.13, 0, 0, 0.13, 0, 0, 0.075, 0.30, 0, 0, 0.58, 0, -0.075, 0.30, 0];
-  data.normals = [0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1];
-  data.uvs = [0, 0, 1, 0, 0.78, 0.52, 0.5, 1, 0.22, 0.52];
-  data.indices = [0, 1, 2, 0, 2, 4, 4, 2, 3];
-  data.applyToMesh(mesh, true);
+  // Use Babylon's canonical plane winding/UV path. The first authored flame used a
+  // hand-built pentagon whose texture contract was correct in NullEngine yet vanished
+  // in the production WebGPU alpha pass. Scaling a stock double-sided plane keeps the
+  // sprite's transparent silhouette while exercising the same path as other live art.
+  const mesh = MeshBuilder.CreatePlane(name, {
+    size: 1, sideOrientation: Mesh.DOUBLESIDE,
+  }, scene);
+  mesh.scaling.set(0.46, 0.82, 0.46);
   return mesh;
 }
 
@@ -86,14 +94,15 @@ export class RoomObjectPresentation {
   readonly #ember: StandardMaterial;
   readonly #blood: StandardMaterial;
   readonly #vine: StandardMaterial;
-  readonly #stone: StandardMaterial;
+  readonly #stone: Material;
+  readonly #atlasDressing: readonly StandardMaterial[];
   #mode: PresentationMode = "world";
   #disposed = false;
 
-  constructor(scene: Scene, shadows: ShadowGenerator) {
+  constructor(scene: Scene, shadows: ShadowGenerator, authoredStone?: Material) {
     this.#scene = scene;
     this.#shadows = shadows;
-    this.#wood = this.#material("wood", new Color3(0.25, 0.105, 0.038));
+    this.#wood = this.#material("wood", new Color3(0.32, 0.18, 0.085));
     this.#iron = this.#material("iron", new Color3(0.09, 0.105, 0.12));
     this.#iron.specularColor = new Color3(0.28, 0.30, 0.32);
     this.#clay = this.#material("clay", new Color3(0.34, 0.13, 0.065));
@@ -105,18 +114,37 @@ export class RoomObjectPresentation {
     this.#water.emissiveColor = new Color3(0.01, 0.035, 0.045);
     this.#water.alpha = 0.64;
     this.#water.backFaceCulling = false;
-    this.#flame = this.#material("flame", new Color3(1, 0.18, 0.018));
-    this.#flame.emissiveColor = new Color3(1, 0.105, 0.006);
-    this.#flame.alpha = 0.78;
-    this.#flame.disableLighting = true;
-    this.#flame.backFaceCulling = false;
-    this.#ember = this.#material("ember", new Color3(1, 0.58, 0.08));
-    this.#ember.emissiveColor = new Color3(1, 0.34, 0.035);
-    this.#ember.disableLighting = true;
+    this.#flame = this.#atlasMaterial("flame-outer", 0, 0, true,
+      "/assets3d/room_vfx_flame.png");
+    this.#flame.diffuseTexture = null;
+    this.#flame.useAlphaFromDiffuseTexture = false;
+    this.#flame.emissiveColor = Color3.Black();
+    this.#flame.alpha = 0.999;
+    this.#flame.alphaMode = Constants.ALPHA_ADD;
+    this.#flame.transparencyMode = Material.MATERIAL_ALPHABLEND;
+    this.#flame.depthFunction = Constants.ALWAYS;
+    this.#flame.disableDepthWrite = true;
+    this.#ember = this.#atlasMaterial("flame-core", 0, 0, true,
+      "/assets3d/room_vfx_flame.png");
+    this.#ember.diffuseTexture = null;
+    this.#ember.useAlphaFromDiffuseTexture = false;
+    this.#ember.emissiveColor = Color3.Black();
+    this.#ember.alpha = 0.999;
+    this.#ember.alphaMode = Constants.ALPHA_ADD;
+    this.#ember.transparencyMode = Material.MATERIAL_ALPHABLEND;
+    this.#ember.depthFunction = Constants.ALWAYS;
+    this.#ember.disableDepthWrite = true;
     this.#blood = this.#material("blood", new Color3(0.16, 0.012, 0.008));
     this.#blood.specularColor = new Color3(0.12, 0.025, 0.018);
     this.#vine = this.#material("vine", new Color3(0.055, 0.095, 0.025));
-    this.#stone = this.#material("loose-stone", new Color3(0.18, 0.15, 0.125));
+    this.#stone = authoredStone?.clone("room-object-material:authored-stone") ??
+      this.#material("loose-stone", new Color3(0.28, 0.23, 0.18));
+    this.#atlasDressing = Object.freeze([
+      this.#atlasMaterial("decal-blood", 2, 1, false),
+      this.#atlasMaterial("decal-root", 0, 2, false),
+      this.#atlasMaterial("decal-rubble", 3, 2, false),
+      this.#atlasMaterial("decal-web", 1, 1, false),
+    ]);
   }
 
   acceptSnapshot(snapshot: PresentationSnapshot, nowMs = performance.now()): void {
@@ -152,7 +180,7 @@ export class RoomObjectPresentation {
         motion.hinge.rotation.y = motion.angle;
       }
       for (const light of node.lights) {
-        light.intensity = 2.8 + 0.34 * Math.sin(nowMs * 0.011 + node.identity * 1.618);
+        light.intensity = 7.8 + 0.7 * Math.sin(nowMs * 0.011 + node.identity * 1.618);
       }
       const flameMeshes = node.meshes.filter((mesh) => mesh.name.includes(":torch:flame"));
       for (const [index, flame] of flameMeshes.entries()) {
@@ -196,7 +224,9 @@ export class RoomObjectPresentation {
     if (this.#disposed) return;
     for (const node of [...this.#nodes.values()]) this.#retire(node);
     for (const material of [this.#wood, this.#iron, this.#clay, this.#web,
-      this.#water, this.#flame, this.#ember, this.#blood, this.#vine, this.#stone]) material.dispose();
+      this.#water, this.#blood, this.#vine, this.#stone]) material.dispose();
+    for (const material of [this.#flame, this.#ember]) material.dispose(true, true);
+    for (const material of this.#atlasDressing) material.dispose(true, true);
     this.#disposed = true;
   }
 
@@ -240,9 +270,15 @@ export class RoomObjectPresentation {
         this.#iron, false);
       jamb.position.set(side * (halfWidth + jambWidth / 2), (height + 0.2) / 2, 0);
     }
-    const lintel = this.#box(node, "door:lintel", halfWidth * 2 + jambWidth * 2,
-      0.16, depth * 1.8, this.#iron, false);
-    lintel.position.y = height + 0.12;
+    const lintelWidth = halfWidth * 2 + jambWidth * 2;
+    const lintelBlocks = Math.max(2, Math.ceil(lintelWidth / 0.48));
+    for (let block = 0; block < lintelBlocks; block++) {
+      const width = lintelWidth / lintelBlocks * 0.88;
+      const lintel = this.#box(node, `door:lintel:${block}`, width,
+        0.18, depth * 1.55, this.#stone, false);
+      lintel.position.set(-lintelWidth / 2 + (block + 0.5) * lintelWidth / lintelBlocks,
+        height + 0.13, 0);
+    }
     const initial = (object.stateFlags & BROKEN) !== 0 ? DOOR_OPEN_ANGLE : object.progress * 0.14;
     const angle = (object.stateFlags & BROKEN) !== 0 ? DOOR_OPEN_ANGLE : initial;
     hinge.rotation.y = angle;
@@ -272,22 +308,28 @@ export class RoomObjectPresentation {
         `room-object:${node.key}:torch:flame:${turn}`, this.#scene);
       flame.parent = node.root;
       flame.material = this.#flame;
-      flame.position.set(0, 1.00, 0.48);
+      flame.position.set(0, 1.39, 0.68);
       flame.rotation.y = turn * Math.PI / 2;
+      flame.renderingGroupId = 2;
       this.#publishMesh(node, flame, false, false);
     }
-    const core = MeshBuilder.CreateCylinder(`room-object:${node.key}:torch:flame:core`, {
-      diameterTop: 0.01, diameterBottom: 0.13, height: 0.28, tessellation: 7,
-    }, this.#scene);
-    core.parent = node.root;
-    core.position.set(0, 1.13, 0.48);
-    core.material = this.#ember;
-    this.#publishMesh(node, core, false, false);
-    const light = new PointLight(`room-object:${node.key}:torch:light`, new Vector3(0, 1.18, 0.62), this.#scene);
+    for (const turn of [0, 1]) {
+      const core = createTaperedFlamePlane(
+        `room-object:${node.key}:torch:flame:core:${turn}`, this.#scene);
+      core.parent = node.root;
+      core.position.set(0, 1.31, 0.675);
+      core.rotation.y = turn * Math.PI / 2;
+      core.scaling.set(0.52, 0.60, 0.52);
+      core.renderingGroupId = 2;
+      core.material = this.#ember;
+      this.#publishMesh(node, core, false, false);
+    }
+    const light = new PointLight(`room-object:${node.key}:torch:light`, new Vector3(0, 1.22, 0.78), this.#scene);
     light.parent = node.root;
-    light.diffuse = new Color3(1, 0.23, 0.035);
-    light.specular = new Color3(0.42, 0.16, 0.04);
-    light.range = 9;
+    light.diffuse = new Color3(1, 0.42, 0.12);
+    light.specular = new Color3(0.42, 0.20, 0.07);
+    light.intensity = 8.0;
+    light.range = 10.5;
     node.lights.push(light);
   }
 
@@ -396,31 +438,21 @@ export class RoomObjectPresentation {
     }
     for (const [key, item] of wanted) {
       if (this.#dressing.has(key)) continue;
-      let mesh: AbstractMesh;
-      if (item.kind === 0) {
-        mesh = MeshBuilder.CreateDisc(`room-dressing:blood:${item.tx}:${item.ty}`, {
-          radius: 0.22 + (item.score & 7) * 0.012, tessellation: 18,
-        }, this.#scene);
-        mesh.rotation.x = Math.PI / 2;
-        mesh.material = this.#blood;
-      } else if (item.kind === 1) {
-        const path = [0, 1, 2, 3].map((step) => new Vector3(
-          -0.32 + step * 0.21, 0.035, Math.sin(item.score + step * 1.7) * 0.12));
-        mesh = MeshBuilder.CreateTube(`room-dressing:vine:${item.tx}:${item.ty}`, {
-          path, radius: 0.018, tessellation: 6,
-        }, this.#scene);
-        mesh.material = this.#vine;
-      } else if (item.kind === 2) {
-        mesh = MeshBuilder.CreateBox(`room-dressing:loose-brick:${item.tx}:${item.ty}`, {
-          width: 0.30, height: 0.075, depth: 0.16,
-        }, this.#scene);
-        mesh.material = this.#stone;
-      } else {
-        mesh = MeshBuilder.CreateDisc(`room-dressing:spiderweb:${item.tx}:${item.ty}`, {
-          radius: 0.26, tessellation: 12,
-        }, this.#scene);
-        mesh.rotation.x = Math.PI / 2;
-        mesh.material = this.#web;
+      const names = ["blood", "root", "rubble", "web"] as const;
+      const mesh = MeshBuilder.CreateGround(
+        `room-dressing:${names[item.kind] ?? "rubble"}:${item.tx}:${item.ty}`,
+        { width: 0.62 + (item.score & 3) * 0.07,
+          height: 0.62 + ((item.score >>> 2) & 3) * 0.07 }, this.#scene);
+      mesh.material = this.#atlasDressing[item.kind] ?? this.#atlasDressing[2] ?? null;
+      const uv = mesh.getVerticesData("uv");
+      if (uv !== null) {
+        const cells = [[2, 1], [0, 2], [3, 2], [1, 1]] as const;
+        const cell = cells[item.kind] ?? cells[2];
+        if (cell !== undefined) for (let index = 0; index < uv.length; index += 2) {
+          const mapped = atlasUv(cell[0], cell[1], uv[index] ?? 0, uv[index + 1] ?? 0);
+          uv[index] = mapped[0]; uv[index + 1] = mapped[1];
+        }
+        mesh.setVerticesData("uv", uv);
       }
       mesh.position.x += (item.tx + 0.5) * snapshot.tileSize;
       mesh.position.y += 0.065;
@@ -434,7 +466,7 @@ export class RoomObjectPresentation {
   }
 
   #box(node: ObjectNode, suffix: string, width: number, height: number, depth: number,
-    material: StandardMaterial, pickable: boolean): AbstractMesh {
+    material: Material, pickable: boolean): AbstractMesh {
     const mesh = MeshBuilder.CreateBox(`room-object:${node.key}:${suffix}`, { width, height, depth }, this.#scene);
     mesh.parent = node.root; mesh.material = material;
     this.#publishMesh(node, mesh, true, pickable);
@@ -483,6 +515,28 @@ export class RoomObjectPresentation {
     const material = new StandardMaterial(`room-object-material:${name}`, this.#scene);
     material.diffuseColor = colour;
     material.specularColor = Color3.Black();
+    return material;
+  }
+
+  #atlasMaterial(name: string, column: number, row: number, emissive: boolean,
+    texturePath = "/assets3d/room_vfx_decal_atlas.png"): StandardMaterial {
+    const texture = this.#scene.getEngine().getClassName() === "NullEngine"
+      ? RawTexture.CreateRGBATexture(new Uint8Array([255, 160, 48, 255]), 1, 1,
+        this.#scene, false, false, Texture.NEAREST_SAMPLINGMODE)
+      : new Texture(texturePath, this.#scene,
+        false, false, Texture.TRILINEAR_SAMPLINGMODE);
+    texture.hasAlpha = true;
+    void column; void row;
+    const material = this.#material(name, Color3.White());
+    material.diffuseTexture = texture;
+    material.useAlphaFromDiffuseTexture = true;
+    material.transparencyMode = Material.MATERIAL_ALPHABLEND;
+    material.backFaceCulling = false;
+    if (emissive) {
+      material.emissiveTexture = texture;
+      material.emissiveColor = Color3.White();
+      material.disableLighting = true;
+    }
     return material;
   }
 

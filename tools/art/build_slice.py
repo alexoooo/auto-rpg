@@ -40,7 +40,13 @@ def read_manifest():
 def generator_input_hash(manifest):
     value = dict(manifest)
     value.pop("outputs", None)
-    return hashlib.sha256(canonical_bytes(value)).hexdigest()
+    sources = {}
+    for name in ("build_slice.py", "export.py", "materials.py", "room.py"):
+        sources[name] = hashlib.sha256((SCRIPT_DIR / name).read_bytes()).hexdigest()
+    return hashlib.sha256(canonical_bytes({
+        "manifest": value,
+        "generatorSources": sources,
+    })).hexdigest()
 
 
 def verify_blender(manifest):

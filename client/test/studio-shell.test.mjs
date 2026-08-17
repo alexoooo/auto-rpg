@@ -436,7 +436,7 @@ test("the_game_route_gives_the_dungeon_the_stage_and_keeps_instruments_in_reach"
   assert.ok(canvas >= 0 && canvas < commands && commands < instruments,
     "the authored view must remain the primary content, ahead of controls and developer instruments");
 
-  for (const id of ["greybox", "interaction-hint", "room-camera-toggle", "party-health",
+  for (const id of ["greybox", "interaction-hint", "game-view-mode", "party-health",
     "party-health-bar", "seed", "reset", "pause",
     "slot-1", "slot-2", "control-movement", "control-action", "control-aim", "respawn",
     "spawn-kind", "spawn-primary", "spawn-secondary", "withdraw", "spawn", "diagnostic-hold-buffers",
@@ -455,6 +455,22 @@ test("the_game_route_keeps_fps_visible_outside_the_systems_drawer", () => {
   assert.ok(fps >= 0 && view >= 0 && drawer >= 0 && fps < drawer && view < drawer,
     "player instruments must remain visible when Systems and capture is closed");
   assert.match(template, /<output id="game-fps"[^>]*>-- FPS \/ -- ms worst<\/output>/);
+});
+
+test("game_modes_are_directly_selectable_and_the_obsolete_camera_toggle_is_gone", () => {
+  const shell = fs.readFileSync(path.join(ROOT, "web", "index.html"), "utf8");
+  const source = fs.readFileSync(path.join(ROOT, "client", "src", "v2.ts"), "utf8");
+  for (const mode of ["world", "geometry", "top_down", "first_person", "free", "dev"]) {
+    assert.match(shell, new RegExp(`<option value="${mode}"`));
+  }
+  assert.doesNotMatch(shell, /id="room-camera-toggle"/);
+  assert.match(source, /event\.shiftKey\s*\?\s*-1\s*:\s*1/);
+});
+
+test("systems_drawer_reserves_the_bottom_hud_and_control_safe_area", () => {
+  const shell = fs.readFileSync(path.join(ROOT, "web", "index.html"), "utf8");
+  assert.match(shell, /\.game-support\s*\{[^}]*bottom:/s);
+  assert.match(shell, /\.game-instruments\[open\]\s*\{[^}]*max-height:/s);
 });
 
 test("the_game_hud_keeps_performance_and_modes_above_the_world", () => {
@@ -489,13 +505,13 @@ test("weapon_slots_use_authored_art_instead_of_platform_emoji", () => {
     "weapon art must not regress to platform emoji");
 });
 
-test("g_cycles_the_game_view_and_the_button_names_the_active_mode", () => {
+test("g_cycles_the_game_view_and_the_selector_names_the_active_mode", () => {
   const source = fs.readFileSync(path.join(ROOT, "client", "src", "v2.ts"), "utf8");
   assert.match(source, /event\.key\.toLowerCase\(\) !== "g"/);
-  assert.match(source, /setPresentationMode\(nextPresentationMode\(presentationMode\)\)/);
-  assert.match(source, /viewModeButton\.textContent = presentationModeLabel\(presentationMode\)/);
+  assert.match(source, /setPresentationMode\(nextPresentationMode\(presentationMode, event\.shiftKey \? -1 : 1\)\)/);
+  assert.match(source, /viewModeButton\.value = presentationMode/);
   const template = /<template id="route-game">([\s\S]*?)<\/template>/.exec(SHELL_HTML)?.[1] ?? "";
-  assert.match(template, /<button id="game-view-mode"[^>]*>World<\/button>/);
+  assert.match(template, /<select id="game-view-mode"[^>]*>[\s\S]*?<option value="world">World<\/option>/);
 });
 
 // ------------------------------------------------------------------- the picker's rules

@@ -28,11 +28,12 @@ names. `idle`, `walk`, `stagger`, and `fall` are cosmetic clips. There is no
 attack clip: authoritative contacts and combat events remain the only sources of
 hits, reactions, and detachment.
 
-The fixture closes over 87 nodes, 45 meshes, seven materials, 3,010 vertices,
-2,024 triangles, eight animations, and two skins. It embeds one deterministic
-512 � 512 atlas derived from the pinned
-`tools/art/textures/concept-material-atlas.png` source. The source texture's
-SHA-256, dimensions, and provenance are manifest inputs.
+The fixture closes over 177 nodes, 135 meshes, 12 materials, 206,060 vertices,
+76,220 triangles, eight animations, and two skins. It embeds three deterministic
+painterly material sets: Fighter and Brute atlases decoded at 2048 x 2048, and a
+shared equipment atlas decoded at 1024 x 1024. Their source SHA-256 values,
+dimensions, metallic quadrants, and image-generation provenance are manifest
+inputs.
 
 ## Reproducibility and validation
 
@@ -56,14 +57,14 @@ The committed identities are:
 
 | Identity | SHA-256 |
 |---|---|
-| canonical build inputs | `00f9214b11b44858e52e3daedfb74bfa9e03777d446f62a4760583307c24c0c9` |
-| semantic sidecar | `589785e10468d1f1cde0a20caf5acce8ceeafb1620a59837e2378db019a370ca` |
-| combatant GLB | `878e0b096907ffa9a144065107398117ec0fe95f8454aee157e59a2279585ca5` |
-| canonical validator report | `66d542b0696226947b84b924f373f00fd42a4e6598be9ffc54445a598037665b` |
+| canonical build inputs | `5a330f273d69c88c180a5d3f4294284ace3cb507b6ddaf641ce559abc706c657` |
+| semantic sidecar | `315fca274cad90f423c547c63a0758696be1cb697cd026ea24737a600d06dc92` |
+| combatant GLB | `6b4e3225feb49799b0c73a057acf498342eed63461ca63509973d2cd016a84c5` |
+| canonical validator report | `41c905bb1e90a798d8e8679203f1e2b23bf4e12f747d93d256951d2f22ea096a` |
 
-The GLB is 759,024 bytes; GLB plus sidecar is 782,085 bytes. Conservative estimated
-GPU residency is 1,702,692 bytes (654,116 source plus 1,048,576 decoded texture),
-within the manifest's 64 MiB limit.
+GLB plus sidecar is 46,209,989 bytes. Conservative estimated GPU residency is
+159,154,536 bytes (45,908,328 source plus 113,246,208 decoded textures), within
+the 192 MiB residency budget and 64 MiB payload budget.
 
 The authored shape contract is camera-scale evidence, not an aesthetic adjective.
 The Fighter has a tapered cuirass, helmet/face/plume hierarchy, separate pauldrons,
@@ -98,12 +99,24 @@ provenance and is refused by development serving and omitted from production.
 
 ## Game dress
 
-`combatant-dress.ts` clones one skeleton closure per visible body. The GLB's
-meshes are deliberately rigid joint-local pieces, so the game clone uses identity
-inverse binds: applying the exported armature-space inverse bind to those already
-local vertices subtracts the bind pose twice and scatters the body. Skinned meshes
-also remain active independent of their loader-origin bounding boxes, because the
-published bones move while those stale boxes do not.
+`combatant-dress.ts` clones one authored node and clip closure per visible body.
+The GLB meshes are deliberately rigid joint-local pieces, although glTF also
+records the source skins for interchange validation. Runtime rendering consumes
+the stronger joint-local guarantee directly: it clears each clone mesh's skin,
+parents the mesh to its named semantic joint, and leaves local position, rotation,
+and scale at identity. This avoids applying Babylon's hidden glTF root, mesh pose,
+inverse bind, and linked-bone conversion to vertices already expressed in joint
+space.
+
+Uniform standing-height scale belongs on the semantic root hierarchy, not
+Babylon's loader closure. The loader closure is normalised once; authoritative
+scene-space joints are copied into the semantic hierarchy, and each rigid piece
+inherits that hierarchy exactly once. The actor regression composes current world
+matrices before refreshing bounds and requires every active LOD piece -- explicitly
+including `head_face` and `head_plume`, the bright pieces that exposed the defect --
+to remain inside the published actor envelope. Removing the semantic parent makes
+that regression fail on `head_face`, so it detects the live displacement rather
+than merely inspecting a reporter.
 
 The Fighter clone owns one PBR material per semantic mesh. That bounded clone keeps
 the atlas wear while separating warm face and umber cloth from cool helmet,
@@ -114,7 +127,8 @@ their active pose, not their between-action visibility. All cloned materials,
 equipment meshes, faction cues, and the player-local readability light retire with
 the actor under fog, reset, generation reuse, or disposal.
 
-The faction torus is also authored-floor aware. Its centre is the tallest pinned
-walkable source (`0.080`) plus half of the `0.11 * body radius` tube thickness
-plus a `0.004` clearance epsilon. This is a constant-time presentation calculation;
-the renderer does not sample room meshes each frame.
+The faction cue is a thin 48-segment annulus, not a tube. Its centre is the
+tallest pinned walkable source (`0.080`) plus a `0.004` clearance epsilon; a
+negative depth bias keeps it readable without sinking beneath the floor. This is
+a constant-time presentation calculation, and the renderer does not sample room
+meshes each frame.

@@ -24,6 +24,7 @@ export interface LegacyWasmAdapter {
   setGoto(xMilli: number, yMilli: number): void;
   clearOrder(): void;
   spawnMonster(kindCode: number, primary: number, secondary: number): number;
+  swapInHero(kindCode: number, primary: number, secondary: number): number;
   step(ticks: number): void;
   tick(): number;
   readPublication(): LegacyPublication;
@@ -390,7 +391,10 @@ export class SimWorkerHost {
     }
     if (command.kind === "setInput") return void wasm.setInput(command.moveXMilli, command.moveYMilli,
       command.aimRaw, command.reachMilli, command.slot, command.strike, command.turnMilli);
-    return wasm.spawnMonster(command.kindCode, command.primary, command.secondary) >>> 0;
+    if (command.kind === "spawn") {
+      return wasm.spawnMonster(command.kindCode, command.primary, command.secondary) >>> 0;
+    }
+    return wasm.swapInHero(command.kindCode, command.primary, command.secondary) >>> 0;
   }
 
   private publish(): void {

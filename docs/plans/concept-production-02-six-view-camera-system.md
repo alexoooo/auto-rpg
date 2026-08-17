@@ -16,9 +16,13 @@ renderer-owned registry:
 
 World follow uses an 8% screen dead-zone and damped tracking; reset, teleport and
 descent snap. First Person hides only self-obscuring head/torso meshes and retains
-arms/equipment. Free replaces the separate camera toggle and continues refusing
-simulation commands. `G` cycles, Shift+G reverses, and the top-right selector chooses
+arms/equipment. Free replaces the separate camera toggle and refuses simulation
+commands on both the representative and procedural routes. The procedural renderer
+attaches real free-camera controls rather than leaving the fixed isometric camera
+under a Free label. G cycles, Shift+G reverses, and the top-right selector chooses
 any row directly. Every row reuses one scene, Worker, snapshot and identity registry.
+Geometry exposes named head/torso/limb regions plus Geometry-only body-hitbox,
+facing and current authoritative-reach overlays.
 
 Red-first tests:
 
@@ -27,6 +31,7 @@ the_six_view_modes_share_one_worker_snapshot_and_identity_registry
 world_camera_follows_inside_the_dead_zone_and_snaps_after_reset
 first_person_hides_only_self_occluding_dress
 free_mode_refuses_simulation_commands_and_restores_follow_on_exit
+free_mode_blocks_simulation_on_the_procedural_route_too
 ```
 
 Run renderer/studio/input tests, TypeScript, build, docs and diff gates.
