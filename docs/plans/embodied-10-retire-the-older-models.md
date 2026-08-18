@@ -55,8 +55,8 @@ observations and that the choice was retrain or retire. **That was wrong, and th
 survey that found it is worth keeping**: `learn_core::write_features` and
 `write_features_v2` take an `&ArticulatedObservation` and build their own 41 and 59
 columns from named fields. They never touch `sim::FEATURE_COUNT`, the 450-column
-legacy prefix, or `sim::Observation` at all -- `model.rs`'s own header says so, *"The
-922-element vector is not the input, and that is the main decision."*
+legacy prefix, or `sim::Observation` at all -- `model.rs`'s own header says so:
+*"The 954-element vector is not the input, and that is the main decision."*
 
 An embodied body produces an `ArticulatedObservation` like an articulated one does:
 `CombatModel::has_articulated_columns` answers true for both. So the checkpoint keeps
@@ -65,7 +65,7 @@ and there is no retrain bill.
 
 What *does* die is `sim::Observation`, the legacy 450-column vector and every feature
 index below 450 -- none of which the probe reads. The one thing to fix is an assertion:
-`assert_eq!(sim::FEATURE_COUNT, 922)` in `learn-core/src/model.rs`, a documentation
+`assert_eq!(sim::FEATURE_COUNT, 954)` in `learn-core/src/model.rs`, a documentation
 cross-check beside the weight-count arithmetic.
 
 **The correction matters more than the saving.** A session that had believed this plan
