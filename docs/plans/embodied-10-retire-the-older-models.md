@@ -35,16 +35,42 @@ this is session 10 and not session 03.
   articulated ones, `articulated_script.rs` and `articulated_tactics.rs`, once
   `embodied_script.rs` covers what they were driving.
 - Every Legacy- and Articulated-only golden pin, and the fixtures behind them.
+- `sim::Observation`, `LEGACY_FEATURE_COUNT` and every feature index below 450. The
+  vector stops being a legacy prefix with two blocks appended and becomes one block.
+- **Five of `lab`'s ten subcommands.** `bench`, `verify`, `hash`, `duel` and `evolve`
+  are all Legacy-only, and `verify` is the one that hurts: it is the run/re-run/replay
+  agreement, which is a property of the *codec* rather than of the legacy model and
+  has to survive the model it was written against. Session 09 owes its embodied
+  replacement, and this session deletes the old one only once that is pinned and
+  holding.
+- The legacy `Policy` trait and `TeamPolicy` with the four policies that implement
+  them. `TeamPolicy`'s per-side routing goes with them; the articulated seam already
+  routes by side in the driver, which is the shape that survives.
 
 ## Two things that are not free, and the session should say so before it starts
 
-**The trained checkpoint dies with the legacy feature slice.** `LEARN_V2_FEATURE_COUNT`
-reads a layout built on legacy observations, and `checkpoints/v2-probe.ckpt` is frozen
-against it. Session 09 deliberately deferred widening that input; this session cannot
-defer anything, because the columns underneath it are being deleted. The choice is
-explicit and belongs at the top of the session: **retrain on an embodied slice, or
-retire the learning probe with the model it was trained on.** Neither is wrong;
-picking silently is.
+**The trained checkpoint was going to die with the legacy feature slice, and it does
+not.** This plan said `LEARN_V2_FEATURE_COUNT` reads a layout built on legacy
+observations and that the choice was retrain or retire. **That was wrong, and the
+survey that found it is worth keeping**: `learn_core::write_features` and
+`write_features_v2` take an `&ArticulatedObservation` and build their own 41 and 59
+columns from named fields. They never touch `sim::FEATURE_COUNT`, the 450-column
+legacy prefix, or `sim::Observation` at all -- `model.rs`'s own header says so, *"The
+922-element vector is not the input, and that is the main decision."*
+
+An embodied body produces an `ArticulatedObservation` like an articulated one does:
+`CombatModel::has_articulated_columns` answers true for both. So the checkpoint keeps
+its input across this deletion, `LEARNED_INFERENCE_DIGEST` keeps its synthetic corpus,
+and there is no retrain bill.
+
+What *does* die is `sim::Observation`, the legacy 450-column vector and every feature
+index below 450 -- none of which the probe reads. The one thing to fix is an assertion:
+`assert_eq!(sim::FEATURE_COUNT, 922)` in `learn-core/src/model.rs`, a documentation
+cross-check beside the weight-count arithmetic.
+
+**The correction matters more than the saving.** A session that had believed this plan
+would have opened by deleting a checkpoint it did not need to delete, and would have
+had the plan's own authority for doing it.
 
 **`Scenario::fingerprint` currently writes a combat-model identity word.** With one
 model it can keep writing a constant or stop writing one. Stopping is simpler and
@@ -53,6 +79,27 @@ under [the compatibility
 waiver](embodied-00-overview.md#backwards-compatibility-is-not-a-constraint-here), and
 worth doing in the same session rather than leaving a word that exists to distinguish
 one thing from nothing.
+
+## The names outlive the models, and that is the trap
+
+With `Articulated` deleted, `ArticulatedObservation`, `ArticulatedPolicy`,
+`articulated_command`, `submit_articulated_v1`, `articulated_state_digest`,
+`ArticulatedPose` and the `articulated-abi.md` reference all name a model that no
+longer exists while describing the only one that does. Every one of them is the
+*general* thing -- a three-dimensional body's observation, pose, command column and
+publication -- wearing the name of the first model to have one.
+
+Renaming them is the cheap half of this session and the half most likely to be
+skipped, because nothing breaks if it is. What breaks later is a reader who finds
+`ArticulatedObservation` in a repository with no articulated model and reasonably
+concludes it is dead code. Rename in the same session as the deletion or the two facts
+stop being connected.
+
+The ABI reference is the exception worth arguing about rather than assuming: its
+sections are wire contracts whose names appear in `abi.generated.ts`, in
+`tools/wasm_check.js` and in the client. Renaming those is a layout-version move for
+no behavioural gain, and the honest answer may be to keep the wire names and rename
+only the Rust.
 
 ## Acceptance
 

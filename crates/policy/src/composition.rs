@@ -172,6 +172,22 @@ impl ComposedController {
     }
 }
 
+/// **The inherent pair above are the implementation and these two forward to
+/// them**, rather than the other way round, because a caller that holds a
+/// `ComposedController` by value should not have to import a trait to drive it.
+/// The trait exists so a *driver* can hold this or a scripted embodied policy
+/// behind one `Box<dyn EmbodiedPolicy>`, which is a different need and arrived
+/// a session later.
+impl crate::EmbodiedPolicy for ComposedController {
+    fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
+        ComposedController::decide(self, obs)
+    }
+
+    fn reset(&mut self) {
+        ComposedController::reset(self);
+    }
+}
+
 /// Wraps a whole-command [`ArticulatedPolicy`] as a source that writes only the
 /// fields its authority names.
 ///
@@ -465,5 +481,26 @@ mod tests {
         controller.reset();
         controller.reset();
         assert_eq!(seen.get(), 2);
+    }
+
+    /// **Behind a `Box<dyn>`, which is the only thing the trait buys.** A driver
+    /// that could name `ComposedController` never needed a trait; one that has
+    /// to hold either this or a scripted embodied policy in the same slot does,
+    /// and object safety is what makes that possible rather than a second
+    /// generic parameter on every harness. Both methods go through the box, so a
+    /// forwarder that dropped `reset` would be caught here rather than by a
+    /// rollout that leaked its predecessor's opinions.
+    #[test]
+    fn a_composed_controller_drives_through_a_boxed_embodied_policy() {
+        use crate::EmbodiedPolicy;
+
+        let whole = distinctive();
+        let sources: Vec<Box<dyn PartialEmbodiedSource>> =
+            vec![Box::new(PolicySource::new(Fixed(whole), CommandAuthority::ALL))];
+        let mut boxed: Box<dyn EmbodiedPolicy> =
+            Box::new(ComposedController::new(sources).expect("total authority"));
+        assert_eq!(boxed.decide(&ArticulatedObservation::BLANK).payload_bytes(),
+                   EmbodiedCommandV1::new(whole).payload_bytes());
+        boxed.reset();
     }
 }

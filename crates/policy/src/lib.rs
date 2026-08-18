@@ -100,7 +100,9 @@ pub use swing::{
 pub use utility::{UtilityPolicy, UtilityWeights, GENOME_LEN};
 
 use fx::Fx;
-use sim::{ArticulatedCommandV1, ArticulatedObservation, Command, Faction, Observation};
+use sim::{
+    ArticulatedCommandV1, ArticulatedObservation, Command, EmbodiedCommandV1, Faction, Observation,
+};
 
 /// Turns an observation into a decision.
 pub trait Policy {
@@ -272,6 +274,53 @@ impl<P: ArticulatedPolicy + ?Sized> ArticulatedPolicy for &mut P {
 
 impl<P: ArticulatedPolicy + ?Sized> ArticulatedPolicy for Box<P> {
     fn decide(&mut self, obs: &ArticulatedObservation) -> ArticulatedCommandV1 {
+        (**self).decide(obs)
+    }
+
+    fn reset(&mut self) {
+        (**self).reset();
+    }
+}
+
+/// Anything that can drive an embodied body: one observation in, one
+/// [`EmbodiedCommandV1`] out.
+///
+/// **A third trait rather than a mode of [`ArticulatedPolicy`], because the
+/// return type is the whole of the difference and it is not negotiable.** An
+/// embodied command carries a swing plane an articulated one has no offsets for,
+/// so a policy that produced an `ArticulatedCommandV1` for an embodied body
+/// would be a policy that could not command an elbow -- and the adapter that
+/// wrapped it would have to invent a plane, which is inventing state.
+///
+/// It takes an `ArticulatedObservation` because that is what an embodied body
+/// produces: `CombatModel::has_articulated_columns` answers true for both
+/// models, so the perception is shared even though the command is not. The name
+/// is a wart that outlives its model, and retiring `Articulated` is the session
+/// that gets to fix it.
+///
+/// Session 08 built [`ComposedController`] with an inherent `decide` because it
+/// was the only thing of its kind; this is that shape promoted to a seam now
+/// that a scripted embodied policy stands beside it.
+pub trait EmbodiedPolicy {
+    fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1;
+
+    /// Clears any per-run memory, on [`Policy::reset`]'s contract exactly.
+    fn reset(&mut self) {}
+}
+
+// The same two forwarders the other two traits have, for the same reason.
+impl<P: EmbodiedPolicy + ?Sized> EmbodiedPolicy for &mut P {
+    fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
+        (**self).decide(obs)
+    }
+
+    fn reset(&mut self) {
+        (**self).reset();
+    }
+}
+
+impl<P: EmbodiedPolicy + ?Sized> EmbodiedPolicy for Box<P> {
+    fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
         (**self).decide(obs)
     }
 
