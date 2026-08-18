@@ -13,23 +13,51 @@ whether the learning probe follows.
 never interleaved. Per self:
 
 ```text
-ground_z relative to the opponent's, hip yaw relative to torso yaw, twist as a
-fraction of the budget, pelvis height, step_left as a fraction of its duration,
-and per arm: elbow position relative to the shoulder, and reach headroom -- how
-much of the annulus is left before the clamp bites
+present, hip yaw relative to torso yaw as cosine and sine, twist as a signed
+fraction of the budget, pelvis as a fraction of standing pelvis height,
+step_left as a fraction of its duration, and per arm: elbow position relative
+to the shoulder over arm_length, and reach headroom -- how much of the annulus
+is left before the clamp bites
 ```
 
-and the same, narrower, per perceived opponent: their relative ground height, their
-twist fraction, and whether they are mid-step. Fixed width, zeros for absent
-opponents, on the rule the articulated block already follows: a vector whose width
-depends on how much the observer perceives makes "how much do I perceive" something
-the network has to infer from the shape of its own input.
+and the same, narrower, per perceived opponent: present, their twist fraction, and
+whether they are mid-step. Fixed width, zeros for absent opponents, on the rule the
+articulated block already follows: a vector whose width depends on how much the
+observer perceives makes "how much do I perceive" something the network has to infer
+from the shape of its own input.
+
+**Each half carries its own `present`, and an all-zero row is not enough on its own.**
+The articulated block's rule is that a blank row is zeros and nothing else, which
+works there because no live body writes an all-zero row. Here one can: a body squared,
+level and standing still has zero twist, zero hip offset and no step running, so
+"nothing to report" and "nothing is happening" would be the same bytes. Angles going
+in as cosine and sine has the same shape of reason -- a zero raw angle and an absent
+body would otherwise agree in the one column that mattered.
 
 **Reach headroom rather than raw reach is the one non-obvious column and it is the
 point of the block.** After [session 07](embodied-07-elbow-and-forearm.md) an arm can
 be commanded to a pose it cannot hold. A fighter that can see how much extension it
 has left can choose between stepping in and reaching further; one that sees only the
-current reach cannot tell a comfortable guard from a locked-out one.
+current reach cannot tell a comfortable guard from a locked-out one. It needs a
+`reach_headroom` beside `reachable_extent` in `limb.rs`, answering how much of the
+annulus is left at the height the arm is actually holding -- measured from the
+realised height and not the asked-for one, for the reason `reachable_extent` is
+written in the order it is.
+
+**Elevation is not two of these columns after all, and correcting that is worth more
+than the columns would have been.** `World::observe_articulated` builds the body
+origin as `Vec3::new(me.x, me.y, Fx::ZERO)` while `World::articulated_pose` uses
+`self.ground_z[i]` -- the observation and the pose disagree about where a body is.
+Adding "ground_z relative to the opponent's" as a column would have papered over that:
+every *other* spatial column in the articulated block -- opponent capsules, weapon
+endpoints, hand positions -- would still have been flattened onto z = 0, so a fighter
+on a hill would have read the height difference in one column and seen a level
+opponent in twenty. Fixing the origin gives all of them their height and makes the
+relative ground fall out of the positions that were always supposed to carry it.
+
+It is free today and will not be free later: every shipped scenario is flat, so
+`ground_z` is zero and not one existing column moves. The moment the sculpted corpus
+below exists, this correction has to already have happened.
 
 Opponent twist is the perception that makes [session 06](embodied-06-stance.md) a
 tactic rather than a constraint: a body wound to its limit must step before it can
