@@ -250,6 +250,7 @@ Exports are:
 
 ```text
 init_articulated(seed:u32) -> void
+init_embodied(seed:u32) -> void
 submitted_command_ptr() -> u32
 submitted_command_len() -> u32              // 57 bytes
 submitted_command_layout_version() -> u32   // 2
@@ -257,7 +258,21 @@ submit_articulated(index:u32, generation:u32) -> u32
 ```
 
 `init_articulated` uses the same room/hero fixture as `init` with
-`CombatModel::Articulated`; it does not alter `init`. Submit returns the exact packed
+`CombatModel::Articulated`; it does not alter `init`. `init_embodied` opens that
+same room under `CombatModel::Embodied` and is a third export rather than a
+parameter for the reason `init` and `init_articulated` are two: the export's name
+is the whole of what a page selects a model with, and a page passing an integer
+could pass a wrong one. It publishes one stance row per body where the other two
+publish none, which is what makes the zero-length stance section on an articulated
+world a distinction rather than a section nothing ever fills.
+
+**The model word was not reaching the scenario, and `init_embodied` is what
+found it.** `dungeon_scenario` took a `CombatModel` from the start and used it
+only to decide whether to return the plain Legacy scenario; the two lines after
+that wrote `Articulated` whatever it had been given. One caller passing one value
+made that invisible. Since `Scenario::fingerprint` writes the combat model's
+identity word, the fixture would have carried the articulated identity under an
+embodied name and nothing would have said so. Submit returns the exact packed
 outcome/reason/detail word already specified by v2-11; v2-16 neither remaps it nor
 calls a second decoder. Rejection and fallback semantics therefore remain identical
 across the direct wasm and worker paths.
@@ -277,8 +292,8 @@ measured; when the fixtures table grows those rows, this mapping should shrink t
 nothing. `the_articulated_room_is_inits_room_and_inits_hero` pins the half that is
 identical.
 
-`init_articulated` fails closed on a refused construction and on a refused contact
-reservation alike: it installs no world at all rather than one whose next spawn could
+`init_articulated` and `init_embodied` fail closed on a refused construction and on
+a refused contact reservation alike: it installs no world at all rather than one whose next spawn could
 grow linear memory under a live typed array, and never traps. Because the shipped
 fixture is valid by construction, the closed path is exercised through a
 deliberately broken scenario in `init_articulated_fails_closed_and_installs_nothing`.

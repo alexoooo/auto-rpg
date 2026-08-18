@@ -471,6 +471,11 @@ test("the boundary exports everything the client calls", () => {
     // heap has never held -- so a rename here would leave that test warming
     // nothing and failing on growth it caused itself.
     "init_articulated",
+    // The same room under the model that is going to be the only one. It is a
+    // separate export rather than a parameter for the reason `init` and
+    // `init_articulated` are two: the export name is the whole of what a page
+    // selects a model with.
+    "init_embodied",
     // The configured duel. Seven names the studio has written since v2-ui-07 and
     // nothing else ever has -- the Canvas page that never called them is
     // retired -- so this list is
@@ -1195,6 +1200,7 @@ test("wasm_exports_match_layout_stride_capacity_and_drop_fields", () => {
     "embodied_stance_capacity", "embodied_stances_dropped",
     "embodied_stance_layout_version",
     "init_articulated",
+    "init_embodied",
   ]) {
     assert.equal(typeof wasm[name], "function", `web.wasm does not export ${name}()`);
   }
@@ -1287,6 +1293,25 @@ test("wasm_exports_match_layout_stride_capacity_and_drop_fields", () => {
     "an articulated world published a stance row");
   assert.equal(u32(wasm.embodied_stances_dropped()), 0,
     "an articulated world dropped a stance row");
+
+  // And the same room under the model that has legs, which is what makes the
+  // two zeroes above a *distinction* rather than a section nothing ever fills.
+  // Every other count is the articulated room's, because the two scenarios
+  // differ by the model word and nothing else.
+  wasm.init_embodied(1);
+  assert.equal(u32(wasm.pose_len()), rows, "the embodied room is a different roster");
+  assert.equal(u32(wasm.region_len()), rows * REGIONS_PER_BODY,
+    "the embodied region section does not cover every published pose");
+  assert.equal(u32(wasm.embodied_stance_len()), rows,
+    "an embodied world published a body without legs");
+  assert.equal(u32(wasm.embodied_stances_dropped()), 0,
+    "an embodied world dropped a stance row");
+  assert.equal(u32(wasm.embodied_stance_layout_version()), EMBODIED_STANCE_LAYOUT_VERSION);
+  // Back to the articulated room, so everything after this reads the world the
+  // rest of this test was written against.
+  wasm.init_articulated(1);
+  assert.equal(u32(wasm.embodied_stance_len()), 0,
+    "the articulated room kept the embodied world's legs");
 
   // Fixed arrays whose addresses never move, which is the one property the
   // worker's typed arrays depend on for the life of the module. Checked against

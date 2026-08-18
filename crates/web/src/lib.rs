@@ -2449,9 +2449,24 @@ fn dungeon_scenario(
         return scenario;
     }
     // A different name, because a scenario that fights under a different model
-    // is a different scenario and `Scenario::fingerprint` should say so.
-    scenario.name = format!("articulated-dungeon-{depth}");
-    scenario.combat_model = sim::CombatModel::Articulated;
+    // is a different scenario and `Scenario::fingerprint` should say so -- and
+    // the name is taken **from the model asked for**, which it was not until
+    // `init_embodied` existed. `model` reached this function from the start and
+    // decided only the early return above; the two lines below wrote
+    // `Articulated` whatever it said, which was invisible while one caller
+    // passed one value and would have opened an articulated room under an
+    // embodied name the moment a second one did.
+    let named = match model {
+        // Unreachable, because Legacy returned above. Named rather than
+        // `unreachable!` on this file's standing rule: a trap behind
+        // `pub extern "C"` poisons the instance for the life of the page, and a
+        // wrong string is a bug a fingerprint will report.
+        sim::CombatModel::Legacy => "legacy",
+        sim::CombatModel::Articulated => "articulated",
+        sim::CombatModel::Embodied => "embodied",
+    };
+    scenario.name = format!("{named}-dungeon-{depth}");
+    scenario.combat_model = model;
     scenario.combat_specs = Some(sim::CombatSpecTableV1::fixtures());
     for unit in &mut scenario.units {
         // Two anatomies in the table against four bodies in the roster: the
@@ -5652,6 +5667,35 @@ pub extern "C" fn init_articulated(seed: u32) {
     );
 }
 
+/// Opens the same room again, under the model that is going to be the only one.
+///
+/// **The third entry point on one floor plan**, and the reason it is a third
+/// rather than a parameter on [`init_articulated`] is the reason `init` and
+/// `init_articulated` are two: an export's name is the whole of what a page
+/// selects a model with, and a page that had to pass an integer to choose one
+/// could pass a wrong integer. There is nothing here that
+/// [`init_articulated`] does not do except the model word, which is exactly
+/// what makes it the right amount of duplication.
+///
+/// Everything [`init_articulated`]'s own note says applies unchanged: it fails
+/// closed on a scenario the sim will not build or a contact reservation it will
+/// not make, and it is a warm-up path whose first call after a Legacy run grows
+/// linear memory once.
+///
+/// An embodied world allocates two columns an articulated one does not -- the
+/// stance and the elbow plane -- and both are per-entity `Vec`s inside the world
+/// this installs, so they are covered by the same reservation argument and not
+/// by a second one.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn init_embodied(seed: u32) {
+    let seed = u64::from(seed);
+    install_articulated(
+        &dungeon_scenario(seed, 0, articulated_hero(), sim::CombatModel::Embodied),
+        seed,
+    );
+}
+
 /// The hero [`init_articulated`] walks in with: [`Sim::new`]'s Fighter exactly.
 ///
 /// A second literal rather than a call into `Sim::new`, because that function
@@ -5670,6 +5714,13 @@ fn articulated_hero() -> UnitSpec {
 }
 
 /// Builds, reserves and installs, or installs nothing.
+///
+/// **It installs any model with articulated columns, and the name is a wart
+/// rather than a restriction.** [`init_embodied`] goes through it unchanged --
+/// the reservation, the map and the furniture are all questions about a
+/// three-dimensional world rather than about which of them it is. `Articulated`
+/// is simply the first model that had one, and the session that retires it is
+/// the one that gets to rename the vocabulary it left behind.
 ///
 /// Split out of [`init_articulated`] so the fail-closed arm is reachable from a
 /// test: the shipped fixture is valid at 64 slots by construction -- the entity
@@ -10423,12 +10474,14 @@ mod tests {
     /// The embodied control fixture, installed the way a floor is: built,
     /// reserved, published, or nothing at all.
     ///
-    /// No export opens an embodied world -- both `init_articulated*` exports name
-    /// `CombatModel::Articulated` -- so this is how a test reaches the one model
-    /// that has legs. It goes through `install_articulated` rather than assigning
-    /// `SIM` the way `embodied_test_world` further down does, and the difference
-    /// is the whole point here: that one is about the *submission* path and never
-    /// publishes, so the rows it leaves behind would be the previous world's.
+    /// [`init_embodied`] opens an embodied *room* and this opens the embodied
+    /// *duel*, which is the same split `init_articulated` and
+    /// `init_articulated_test` already have: a fixture with two bodies and no
+    /// floor is what a publication assertion wants, and a generated room is not.
+    /// It goes through `install_articulated` rather than assigning `SIM` the way
+    /// `embodied_test_world` further down does, and the difference is the whole
+    /// point here: that one is about the *submission* path and never publishes,
+    /// so the rows it leaves behind would be the previous world's.
     fn published_embodied_world() {
         install_articulated(&Scenario::embodied_duel(), 1);
         assert!(
@@ -12173,6 +12226,48 @@ mod tests {
         // And the whole thing builds, which is the claim `init_articulated`
         // rests on.
         assert!(World::try_new(&room, 3).is_ok(), "the articulated room does not construct");
+    }
+
+    /// The embodied room is the articulated room under a different model word,
+    /// and `init_embodied` opens it with legs.
+    ///
+    /// **Two claims, and the second is the one that would have been missed.**
+    /// The first is that nothing about the floor plan, the roster or the kit
+    /// depends on the model -- the same argument
+    /// `the_articulated_room_is_inits_room_and_inits_hero` makes one model back.
+    /// The second is that the scenario's *name* follows the model: `model`
+    /// reached `dungeon_scenario` from the start and decided only the Legacy
+    /// early return, so both lines below it wrote `Articulated` whatever it
+    /// said. That was invisible while one caller passed one value. It would have
+    /// opened an articulated room under `init_embodied` -- and `Scenario::
+    /// fingerprint` writes the model identity word, so the fixture would have
+    /// carried the wrong identity and said nothing about it.
+    #[test]
+    fn the_embodied_room_is_the_articulated_room_under_a_different_model() {
+        let articulated = dungeon_scenario(3, 0, articulated_hero(), sim::CombatModel::Articulated);
+        let embodied = dungeon_scenario(3, 0, articulated_hero(), sim::CombatModel::Embodied);
+        assert_eq!(embodied.combat_model, sim::CombatModel::Embodied);
+        assert_eq!(embodied.name, "embodied-dungeon-0");
+        assert_ne!(embodied.name, articulated.name, "one name for two models");
+        // Everything else, by construction: rebuild the articulated one with the
+        // embodied one's two identity fields and require them equal, so a field
+        // added to `Scenario` later is covered without being listed here.
+        let mut renamed = articulated.clone();
+        renamed.name = embodied.name.clone();
+        renamed.combat_model = embodied.combat_model;
+        assert_eq!(renamed, embodied, "the model word changed something besides itself");
+        assert_ne!(embodied.fingerprint(), articulated.fingerprint(),
+                   "two models answered one identity");
+
+        // And it opens, with the column an articulated body does not have.
+        init_embodied(3);
+        assert_ne!(pose_len(), 0, "the embodied room installed no bodies");
+        assert_eq!(embodied_stance_len(), pose_len(),
+                   "an embodied room published poses without legs");
+        assert_eq!(contact_high_water(), MAX_UNITS as u32);
+        init_articulated(3);
+        assert_eq!(embodied_stance_len(), 0,
+                   "the articulated room published a stance, so the two are not distinct");
     }
 
     #[test]
