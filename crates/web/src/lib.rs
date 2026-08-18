@@ -6110,13 +6110,13 @@ pub extern "C" fn submit_articulated(entity_index: u32, entity_generation: u32) 
 ///
 /// **Derived from [`sim::EMBODIED_PAYLOAD_BYTES`] where
 /// [`SUBMITTED_COMMAND_BYTES`] is derived from `ARTICULATED_PAYLOAD_BYTES`, and
-/// the two widths being equal today is not a reason to read one constant
-/// twice.** `ARTICULATED_COMMAND_HASH`, `EXACT_TRAJECTORY_STATE_DIGEST` and
+/// the two widths being equal was never a reason to read one constant twice.**
+/// `ARTICULATED_COMMAND_HASH`, `EXACT_TRAJECTORY_STATE_DIGEST` and
 /// `LIFTED_COULOMB_SOLVER_DIGEST` are all taken over the articulated width, and
 /// all three have already moved together, twice, because a session appended a
-/// field to that payload. The embodied model has a stance and a swing plane
-/// still to come; sharing the constant here would drag those three pins and
-/// their wasm mirrors into the session that lands them.
+/// field to that payload. **They are now 61 and 57**: the swing plane appended
+/// four bytes here and none of those three moved, which is what the two
+/// constants were separated for.
 pub const EMBODIED_COMMAND_BYTES: usize = 4 + sim::EMBODIED_PAYLOAD_BYTES;
 
 thread_local! {
@@ -6143,12 +6143,15 @@ pub extern "C" fn embodied_command_ptr() -> u32 {
 #[no_mangle]
 pub const extern "C" fn embodied_command_len() -> u32 { EMBODIED_COMMAND_BYTES as u32 }
 
-/// `1`, where [`submitted_command_layout_version`] answers `2`.
+/// `2`, and so does [`submitted_command_layout_version`] -- **for unrelated
+/// reasons, and a host must not read the agreement as one number.**
 ///
-/// Two envelopes, two histories: the articulated one is on its second layout
-/// because a release verb widened its payload, and an embodied writer has never
-/// had a version to be compatible with. Inheriting the number would claim a
-/// compatibility story this contract does not have.
+/// Two envelopes, two histories: the articulated one reached layout 2 when a
+/// release verb widened its payload to 53, and this one reached layout 2 when a
+/// swing plane widened its own to 57. They are on the same number by
+/// coincidence, over payloads four bytes apart, and each will move when its own
+/// contract does. This line used to record the opposite coincidence -- `1`
+/// against `2` -- which is the same warning from the other side.
 #[allow(unsafe_code)]
 #[no_mangle]
 pub const extern "C" fn embodied_command_layout_version() -> u32 {
@@ -16662,14 +16665,20 @@ mod tests {
             reach: Fx::HALF,
             effort: Fx::ONE,
         };
-        sim::EmbodiedCommandV1::new(sim::ArticulatedCommandV1 {
+        let mut command = sim::EmbodiedCommandV1::new(sim::ArticulatedCommandV1 {
             move_dir: Vec2::ZERO,
             body_yaw: Angle::QUARTER,
             intent: Intent::Hold,
             arms: [arm; 2],
             grips: [sim::GripRequest::Keep; 2],
             releases: [sim::ReleaseRequest::Keep; 2],
-        })
+        });
+        // The two arms get different, non-neutral planes. `new` answers the
+        // neutral pair, so a fixture that took it would stage four zero bytes
+        // and every assertion driven from it would pass on a boundary that
+        // truncated the payload back to the articulated width.
+        command.swing_plane = [Angle::from_raw(0x4567), Angle::from_raw(0x89ab)];
+        command
     }
 
     fn digest() -> u64 {
@@ -16739,12 +16748,16 @@ mod tests {
         assert_ne!(embodied_command_ptr(), 0);
         assert_ne!(embodied_command_ptr(), submitted_command_ptr(),
                    "the embodied scratch is the articulated one under another name");
-        // 57 and 1 as literals rather than as the constants the exports read,
+        // 61 and 2 as literals rather than as the constants the exports read,
         // for `submitted_command_len`'s reason: these are the boundary numbers a
         // JavaScript caller reads, and a test that computes them the way the
-        // export does asserts nothing.
-        assert_eq!(embodied_command_len(), 57);
-        assert_eq!(embodied_command_layout_version(), 1);
+        // export does asserts nothing. Both moved with the swing plane -- the
+        // four bytes it appended, and the layout version that announces them --
+        // while `submitted_command_len` stayed at 57, which is the whole of what
+        // the forked payload bought.
+        assert_eq!(embodied_command_len(), 61);
+        assert_eq!(embodied_command_layout_version(), 2);
+        assert_eq!(submitted_command_len(), 57, "the articulated buffer followed the embodied one");
 
         let command = embodied_fixture();
         embodied_test_world();

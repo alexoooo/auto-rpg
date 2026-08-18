@@ -57,12 +57,42 @@ to stay still while later blocks grow. Appending after the articulated block lea
 it untouched. A move there means a frozen column was renumbered, which is the one
 thing that pin exists to refuse, and the session stops.
 
-**`LEARNED_INFERENCE_DIGEST` moves only if `LEARN_V2_FEATURE_COUNT` widens, and this
-session should probably not widen it.** The shipped checkpoint reads the v2 slice; an
-embodied fight can be driven by the scripted policy while the learned one keeps its
-existing input. Deferring is the cheaper and more honest order, because widening the
-network's input costs a retrain and a re-score before anyone knows whether the new
-columns carry signal.
+Its first half is *structurally* immune -- the probe sizes its buffer at
+`FEATURE_COUNT` but folds only `..LEGACY_FEATURE_COUNT` -- so what an append can
+actually reach is the second half, the state hash. That probe drives a Legacy
+`Scenario::skirmish` through a stand-in policy which is a pure function of the
+observation, so a changed observation *field* lands there even when no feature index
+moves. The pin is therefore a live guard on this session and not a formality.
+
+**Two layout tests fail by construction and are owed an edit rather than a
+re-record.** `articulated_features_have_one_documented_width` pins the triple
+`(450, 472, 922)` and the version `12`; and
+`every_articulated_feature_lands_on_its_documented_index` collects moved columns over
+`LEGACY_FEATURE_COUNT..FEATURE_COUNT`, so every articulated row in its table starts
+failing the moment the vector grows past the articulated block. Narrowing that range
+to the articulated block is the fix, and the narrowing is the assertion: an
+articulated perturbation that reached an embodied column would then be caught rather
+than absorbed.
+
+**`LEARNED_INFERENCE_DIGEST` cannot move here, and the reason is stronger than the
+plan first claimed.** It is not merely that this session declines to widen
+`LEARN_V2_FEATURE_COUNT`: the learning crate never reads the 922-element vector at
+all. `learn_core::write_features` takes an `ArticulatedObservation` and writes its
+own 41 columns from named fields, `write_features_v2` appends 18 more to that, and
+the digest is taken over the v1 slice on a synthetic corpus that starts from
+`ArticulatedObservation::BLANK` and never touches a simulation. A field appended to
+the observation is invisible to all three unless somebody deliberately reads it.
+`model.rs`'s own header says so: *"The 922-element vector is not the input, and that
+is the main decision."*
+
+The shipped checkpoint therefore keeps its input while an embodied fight is driven by
+the scripted policy, and deferring is the cheaper and more honest order, because
+widening the network's input costs a retrain and a re-score before anyone knows
+whether the new columns carry signal.
+
+One assertion does break and it is a documentation cross-check rather than a pin:
+`assert_eq!(sim::FEATURE_COUNT, 922)` in `learn-core/src/model.rs`, beside the
+weight-count arithmetic that explains where 60,242 comes from.
 
 If a later session does widen it, the move is *owned* -- the registry names the
 feature layout as one of the five things that owns that pin -- and it is not a
@@ -73,6 +103,48 @@ with:
 ```powershell
 cargo run --release -p lab -- learn-probe evaluate --checkpoint checkpoints/v2-probe.ckpt
 ```
+
+## Three things the survey found that this plan did not know
+
+**The observation has no elevation at all.** `World::observe_articulated` builds the
+body origin as `Vec3::new(me.x, me.y, Fx::ZERO)` while `World::articulated_pose` uses
+`self.ground_z[i]`. Correcting the origin would move every articulated position column
+on a sculpted world; appending a dedicated ground-height column leaves the frozen block
+still. Append.
+
+**No policy seam returns an embodied command.** `ArticulatedPolicy` returns
+`ArticulatedCommandV1`, and session 08's `ComposedController::decide` is an *inherent*
+method rather than a trait impl, so there is nothing to implement. This session adds
+`EmbodiedPolicy` beside `ArticulatedPolicy`, with `ComposedController` and the scripted
+policy both implementing it. Session 10 deletes the articulated one and the wart in the
+observation's name with it.
+
+**There is no sculpted `Scenario` anywhere.** `Dungeon::from_tiles_and_heights` is
+called only from its own tests, and `sculpted` is derived from the heights rather than
+passed -- an all-zero height vector *is* flat, digests as flat and routes as flat. The
+high-ground measurement needs a fixture built from scratch, and building it is what
+makes `ROOM_HASH`, `BATTLE_HASH`, `SWAP_HASH`, `BOW_HASH`, `LAB_HASH` and
+`GOLDEN_STATE_HASH` unreachable from it: the digest's `if sculpted` short circuit means
+a flat dungeon never hashes a height.
+
+## This session owes session 10 more than its own text asks for
+
+[Session 10](embodied-10-retire-the-older-models.md) will not delete a measurement
+until its replacement is pinned and holding, and the survey makes the size of that debt
+concrete: **`bench`, `verify`, `hash`, `duel` and `evolve` are all Legacy-only**, and
+`lab articulated` is the only subcommand that drives a three-dimensional body. Nothing
+in `crates/lab` mentions `Scenario::embodied_duel` at all, and no wasm export opens an
+embodied world -- `crates/web` reaches one only from `#[cfg(test)]`.
+
+So this session also delivers, as the replacement rather than as extras:
+
+- a `lab embodied` subcommand mirroring `lab articulated`'s corpus and report;
+- an embodied `verify` -- run, re-run, replay, all three agreeing -- because that is
+  the property `lab verify` holds for Legacy and nothing holds for Embodied;
+- one embodied golden pin, recorded here so that session 10 has something to be wrong
+  against; and
+- an `init_embodied` export, so the browser can open the model it is going to be the
+  only one of.
 
 ## The scripted policy
 

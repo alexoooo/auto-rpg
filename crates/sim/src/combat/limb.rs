@@ -234,19 +234,37 @@ impl ArmPolyline {
 /// projection falls -- `(d^2 + upper^2 - fore^2) / 2d` -- and `out` is how far it
 /// stands off that axis.
 ///
-/// **The plane is not commanded yet, and the default is a choice worth naming.**
-/// A human elbow at rest hangs below the line from shoulder to hand, so the
-/// off-axis direction is the downward one made perpendicular to the axis. When
-/// the axis is itself vertical there is no "below" to project, and the fallback
-/// is forward -- the only direction that invents nothing the bearing did not
-/// already say. A commanded swing plane replaces this with a rotation about the
-/// axis and is the one field the embodied payload still owes.
+/// **The plane is commanded, and `Angle::ZERO` is the pose that used to be the
+/// only one.** A human elbow at rest hangs below the line from shoulder to hand,
+/// so the zero direction is the downward one made perpendicular to the axis;
+/// when the axis is itself vertical there is no "below" to project and the zero
+/// direction is forward, the only one that invents nothing the bearing did not
+/// already say. `plane` rotates that direction about the shoulder-to-hand axis,
+/// and it is the field the embodied payload used to owe.
+///
+/// **The rotation is the two-term form and deliberately not a full Rodrigues.**
+/// `s` is already perpendicular to the axis by construction -- it is `-Z` with
+/// its own projection removed -- so the `(1 - cos)` term of the general formula
+/// multiplies a dot product that is zero. With `b = axis x s` the answer is
+/// `s*out*cos(plane) + b*out*sin(plane)`, and writing the general form instead
+/// would spend two more products to add a term that cannot contribute and would
+/// not reproduce the old answer bit for bit at `plane == ZERO`.
+///
+/// That bit-for-bit claim is the whole reason the terms are ordered this way:
+/// `cos(ZERO)` is exactly `Fx::ONE` and `out * Fx::ONE` is exactly `out`, so the
+/// first term is character for character the expression that stood here;
+/// `sin(ZERO)` is exactly zero and `mul_div(v, 0, d)` is exactly zero, so the
+/// second vanishes rather than rounding away.
+/// `a_zero_plane_reproduces_the_default_elbow` measures it instead of trusting
+/// it.
 ///
 /// Answers `None` when the hand is outside the annulus, because there is no
 /// elbow that reaches it. Callers hold a hand [`reachable_extent`] has already
 /// clamped, so `None` is a bug rather than a case -- but returning it beats
 /// inventing a joint that does not close.
-pub(crate) fn elbow_point(shoulder: Vec3, hand: Vec3, elbow: Elbow) -> Option<Vec3> {
+pub(crate) fn elbow_point(shoulder: Vec3, hand: Vec3, elbow: Elbow, plane: Angle)
+    -> Option<Vec3>
+{
     let offset = hand - shoulder;
     let distance = offset.length();
     if !distance.is_positive() { return None; }
@@ -264,14 +282,32 @@ pub(crate) fn elbow_point(shoulder: Vec3, hand: Vec3, elbow: Elbow) -> Option<Ve
     let vertical = Vec3::new(Fx::ZERO, Fx::ZERO, -Fx::ONE);
     let dot = axis.z * -Fx::ONE;
     let mut side = vertical - Vec3::new(axis.x * dot, axis.y * dot, axis.z * dot);
-    let side_length = side.length();
+    let mut side_length = side.length();
     if !side_length.is_positive() {
         // The arm is straight up or straight down; "below the line" names
         // nothing. Forward, for the reason the header gives.
+        //
+        // **It falls through to the rotation rather than returning here.** The
+        // axis is then `+/-Z` and the plane is a rotation in the horizontal
+        // plane, which is as meaningful a choice as any other pose has -- an
+        // arm held straight overhead can still point its elbow east or north.
+        // Returning early would have made the one pose with no natural default
+        // also the one pose a policy could not steer.
         side = Vec3::new(Fx::ONE, Fx::ZERO, Fx::ZERO);
-        return Some(shoulder + scaled(offset, along, distance) + scaled(side, out, Fx::ONE));
+        side_length = Fx::ONE;
     }
-    Some(shoulder + scaled(offset, along, distance) + scaled(side, out, side_length))
+    // `b` has the same length as `s` up to fixed-point rounding, and is
+    // re-measured rather than assumed equal: `axis` is a truncated unit vector,
+    // so the cross product's length is `side_length` only approximately, and
+    // dividing by the wrong one would put the rotated elbow off the link circle
+    // by more than the two square roots already cost.
+    let binormal = axis.cross(side);
+    let binormal_length = binormal.length();
+    let mut off = scaled(side, out * plane.cos(), side_length);
+    if binormal_length.is_positive() {
+        off = off + scaled(binormal, out * plane.sin(), binormal_length);
+    }
+    Some(shoulder + scaled(offset, along, distance) + off)
 }
 
 /// `v * (numerator / denominator)`, one truncation per axis.
@@ -307,10 +343,10 @@ pub(crate) fn arm_polyline(
 /// "where does a *jointed* arm run" -- and a caller that has no elbow to give
 /// should not have to say so.
 pub(crate) fn jointed_arm_polyline(
-    anatomy: &BodyAnatomySpec, yaw: Angle, limb: usize, hand: Vec3, elbow: Elbow,
+    anatomy: &BodyAnatomySpec, yaw: Angle, limb: usize, hand: Vec3, elbow: Elbow, plane: Angle,
 ) -> ArmPolyline {
     let at = shoulder(anatomy, yaw, limb);
-    match elbow_point(at, hand, elbow) {
+    match elbow_point(at, hand, elbow, plane) {
         Some(joint) => ArmPolyline { points: [at, joint, hand], len: 3 },
         // A hand the annulus cannot reach has no elbow. Falling back to the
         // single segment keeps the arm a connected thing rather than dropping
@@ -474,7 +510,18 @@ mod tests {
 
     /// The elbow lies on **both** link circles, which is the whole of what a
     /// two-link solution has to mean. Swept over the reachable annulus rather
-    /// than sampled, because the interesting failures are at its two ends.
+    /// than sampled, because the interesting failures are at its two ends -- and
+    /// now across a sweep of commanded planes as well, because a rotation is
+    /// exactly the operation that can take a correct answer off its circle.
+    ///
+    /// **The slack was re-measured and did not move**, which was not the
+    /// expectation: the rotation adds an `Fx` product and a second per-axis
+    /// `mul_div` between the circles and this measurement, and the obvious guess
+    /// was that it would cost a raw unit or two. It costs none. Four is still the
+    /// maximum across all six planes, and it is still exact from both sides --
+    /// three fails and five would pass on an error that had grown. Widening it
+    /// "because the rotation must cost something" would have been a range chosen
+    /// to absorb the next regression rather than a measurement.
     #[test]
     fn the_elbow_lies_on_both_link_circles() {
         for anatomy in anatomies() {
@@ -490,25 +537,138 @@ mod tests {
                             let bearing = Angle::from_raw(bearing_raw);
                             let hand = at + Vec3::new(
                                 bearing.cos() * d, bearing.sin() * d, Fx::ZERO);
-                            let Some(joint) = elbow_point(at, hand, elbow) else {
-                                panic!("no elbow at {d:?}, inside [{inner:?}, {outer:?}]")
-                            };
-                            // Four raw units, which is the same order of slack the
-                            // annulus clamp measured and for the same reason: two
-                            // square roots and a per-axis `mul_div` sit between
-                            // the circles and this measurement.
-                            let slack = Fx::from_raw(4);
-                            let to_shoulder = (joint - at).length();
-                            let to_hand = (joint - hand).length();
-                            assert!((to_shoulder - elbow.upper).abs() <= slack,
-                                    "elbow {to_shoulder:?} off the upper circle {:?}", elbow.upper);
-                            assert!((to_hand - elbow.fore).abs() <= slack,
-                                    "elbow {to_hand:?} off the forearm circle {:?}", elbow.fore);
+                            for plane_raw in [0u16, 5_000, 16_384, 32_768, 49_152, 60_000] {
+                                let plane = Angle::from_raw(plane_raw);
+                                let Some(joint) = elbow_point(at, hand, elbow, plane) else {
+                                    panic!("no elbow at {d:?}, inside [{inner:?}, {outer:?}]")
+                                };
+                                // Four raw units, measured across this sweep --
+                                // the same four the unrotated sweep measured. Two
+                                // square roots, a plane product and a per-axis
+                                // `mul_div` per term sit between the circles and
+                                // this measurement, and the rotation adds nothing
+                                // to what the square roots already cost.
+                                let slack = Fx::from_raw(4);
+                                let to_shoulder = (joint - at).length();
+                                let to_hand = (joint - hand).length();
+                                assert!((to_shoulder - elbow.upper).abs() <= slack,
+                                        "elbow {to_shoulder:?} off the upper circle {:?} at plane {plane_raw}",
+                                        elbow.upper);
+                                assert!((to_hand - elbow.fore).abs() <= slack,
+                                        "elbow {to_hand:?} off the forearm circle {:?} at plane {plane_raw}",
+                                        elbow.fore);
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    /// **`Angle::ZERO` reproduces the pre-plane answer bit for bit**, asserted
+    /// against the expression that used to stand in `elbow_point` rather than
+    /// against `elbow_point` itself -- a comparison of the function with itself
+    /// would pass whatever the rotation did.
+    ///
+    /// This is the guard that keeps the plane a widening rather than a change:
+    /// every pin taken over the shared primitives was recorded with the
+    /// unrotated elbow, and `plane` arrives at zero everywhere nothing commands
+    /// one.
+    #[test]
+    fn a_zero_plane_reproduces_the_default_elbow() {
+        // The body of `elbow_point` as it stood before the plane, copied here so
+        // this test does not depend on the code it checks.
+        fn unrotated(shoulder: Vec3, hand: Vec3, elbow: Elbow) -> Option<Vec3> {
+            let offset = hand - shoulder;
+            let distance = offset.length();
+            if !distance.is_positive() { return None; }
+            let (upper, fore) = (elbow.upper, elbow.fore);
+            if distance > upper + fore { return None; }
+            let numerator = distance * distance + upper * upper - fore * fore;
+            let along = numerator / (distance * Fx::TWO);
+            let out_squared = upper * upper - along * along;
+            if !out_squared.is_positive() {
+                return Some(shoulder + scaled(offset, along, distance));
+            }
+            let out = out_squared.sqrt();
+            let axis = scaled(offset, Fx::ONE, distance);
+            let vertical = Vec3::new(Fx::ZERO, Fx::ZERO, -Fx::ONE);
+            let dot = axis.z * -Fx::ONE;
+            let mut side = vertical - Vec3::new(axis.x * dot, axis.y * dot, axis.z * dot);
+            let side_length = side.length();
+            if !side_length.is_positive() {
+                side = Vec3::new(Fx::ONE, Fx::ZERO, Fx::ZERO);
+                return Some(shoulder + scaled(offset, along, distance)
+                            + scaled(side, out, Fx::ONE));
+            }
+            Some(shoulder + scaled(offset, along, distance) + scaled(side, out, side_length))
+        }
+
+        let mut vertical_arms = 0;
+        for anatomy in anatomies() {
+            let elbow = Elbow::of(&anatomy);
+            let (inner, outer) = elbow.reach_bounds();
+            let yaw = Angle::from_raw(11_000);
+            for limb in 0..2 {
+                let at = shoulder(&anatomy, yaw, limb);
+                for step in 0..=16 {
+                    let d = inner + (outer - inner) * Fx::from_ratio(step, 16);
+                    // The vertical sweep is what reaches the degenerate branch,
+                    // where the pre-plane code returned early: at `pitch` a
+                    // quarter turn the axis is `+/-Z` and there is no "below".
+                    for pitch_raw in [0u16, 8_192, 16_384, 32_768, 49_152] {
+                        for bearing_raw in [0u16, 8_192, 32_768, 55_000] {
+                            let (pitch, bearing) =
+                                (Angle::from_raw(pitch_raw), Angle::from_raw(bearing_raw));
+                            let flat = pitch.cos() * d;
+                            let hand = at + Vec3::new(
+                                bearing.cos() * flat, bearing.sin() * flat, pitch.sin() * d);
+                            if (hand - at).length() > outer { continue; }
+                            let expected = unrotated(at, hand, elbow);
+                            assert_eq!(elbow_point(at, hand, elbow, Angle::ZERO), expected,
+                                       "a zero plane moved the elbow at pitch {pitch_raw}, \
+                                        bearing {bearing_raw}, distance {d:?}");
+                            if pitch_raw == 16_384 || pitch_raw == 49_152 {
+                                vertical_arms += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // The degenerate branch is *reached*, so the claim above covers it. A
+        // sweep that never produced a vertical arm would assert nothing about
+        // the one case the pre-plane code spelled out separately.
+        assert!(vertical_arms > 0, "the sweep never produced a vertical arm");
+    }
+
+    /// A commanded plane actually moves the elbow, and different planes move it
+    /// to different places.
+    ///
+    /// The other half of `a_zero_plane_reproduces_the_default_elbow`: that test
+    /// alone is satisfied completely by a `plane` parameter the body ignores.
+    #[test]
+    fn a_commanded_plane_swings_the_elbow_about_the_arm() {
+        let anatomy = fighter_anatomy();
+        let elbow = Elbow::of(&anatomy);
+        let (inner, outer) = elbow.reach_bounds();
+        let yaw = Angle::ZERO;
+        let at = shoulder(&anatomy, yaw, 1);
+        let hand = at + Vec3::new((inner + outer) * Fx::HALF, Fx::ZERO, Fx::ZERO);
+
+        let down = elbow_point(at, hand, elbow, Angle::ZERO).expect("a reachable hand");
+        let up = elbow_point(at, hand, elbow, Angle::HALF).expect("a reachable hand");
+        let side = elbow_point(at, hand, elbow, Angle::QUARTER).expect("a reachable hand");
+        assert!(down.z < hand.z, "the zero plane stopped hanging below the line");
+        assert!(up.z > hand.z, "half a turn did not put the elbow above the line");
+        assert_ne!(side, down);
+        assert_ne!(side, up);
+        // A quarter turn takes the elbow out of the vertical plane entirely,
+        // which is the thing a sign error inside the rotation would not do.
+        assert!((side.z - hand.z).abs() < (down.z - hand.z).abs(),
+                "a quarter turn left the elbow as far below the line as the default");
+        assert!((side.y - hand.y).abs() > (down.y - hand.y).abs(),
+                "a quarter turn moved nothing sideways");
     }
 
     /// An elbow never folds past its stop, which is what makes the inner bound a
@@ -545,7 +705,7 @@ mod tests {
             for limb in 0..2 {
                 let at = shoulder(&anatomy, yaw, limb);
                 let hand = at + Vec3::new((inner + outer) * Fx::HALF, Fx::ZERO, Fx::ZERO);
-                let arm = jointed_arm_polyline(&anatomy, yaw, limb, hand, elbow);
+                let arm = jointed_arm_polyline(&anatomy, yaw, limb, hand, elbow, Angle::ZERO);
                 assert_eq!(arm.shoulder(), at);
                 assert_eq!(arm.hand(), hand);
                 let joint = arm.elbow().expect("a reachable hand has an elbow");
@@ -567,8 +727,8 @@ mod tests {
         let yaw = Angle::ZERO;
         let at = shoulder(&anatomy, yaw, 1);
         let far = at + Vec3::new(anatomy.arm_length * Fx::from_int(3), Fx::ZERO, Fx::ZERO);
-        assert_eq!(elbow_point(at, far, elbow), None);
-        let arm = jointed_arm_polyline(&anatomy, yaw, 1, far, elbow);
+        assert_eq!(elbow_point(at, far, elbow, Angle::ZERO), None);
+        let arm = jointed_arm_polyline(&anatomy, yaw, 1, far, elbow, Angle::ZERO);
         assert_eq!(arm.elbow(), None);
         assert_eq!(arm.segments().count(), 1);
         assert_eq!((arm.shoulder(), arm.hand()), (at, far));

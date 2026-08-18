@@ -122,7 +122,7 @@ This is now the durable destination for the former
 
 ## Source anchors
 
-- Scenario portal ownership and exclusions: [`Scenario`](../../crates/sim/src/scenario.rs#L256)
+- Scenario portal ownership and exclusions: [`Scenario`](../../crates/sim/src/scenario.rs#L272)
 - Pure dungeon construction: [`Scenario::dungeon`](../../crates/sim/src/scenario.rs#L510)
 - Browser progression fields: [`Sim`](../../crates/web/src/lib.rs#L1938)
 - Portal opening and arming: [`Sim::open_the_way_out`](../../crates/web/src/lib.rs#L2711)

@@ -53,7 +53,7 @@ So [`EmbodiedCommandV1`](../../crates/sim/src/command.rs#L136) owns
 duplication; the implementation extracted instead. `write_payload`, `read_payload`
 and `validate_payload_structure` are now free functions that both contracts call,
 because the fork is about **width and ownership rather than arithmetic**: session
-07 appends a swing plane after byte 52 and every offset below stays exactly where it
+07 appended a swing plane after byte 52 and every offset below stayed exactly where it
 is. Two copies would have been two places for a field offset to drift, and the drift
 would be invisible until a pinned digest moved on one side only.
 

@@ -209,6 +209,18 @@ impl<P: crate::ArticulatedPolicy> PartialEmbodiedSource for PolicySource<P> {
                 into.articulated.arms[slot] = whole.arms[slot];
                 into.articulated.grips[slot] = whole.grips[slot];
                 into.articulated.releases[slot] = whole.releases[slot];
+                // **The swing plane is per arm, so the arm's owner claims it**,
+                // and writes the neutral plane because an `ArticulatedPolicy`
+                // has none to give -- its command type has no such field. This
+                // is a claim rather than a no-op: without it the plane would be
+                // the one field of the command `CommandAuthority` did not
+                // divide, so an embodied source claiming the left arm could
+                // reach into the right arm's plane and nothing would refuse it.
+                // Writing zero also makes the wrap byte-identical to a direct
+                // submission of the same policy, which is what
+                // `a_source_claiming_everything_reproduces_its_policy_byte_for_byte`
+                // measures.
+                into.swing_plane[slot] = fx::Angle::ZERO;
             }
         }
     }
@@ -258,6 +270,11 @@ mod tests {
                     };
                     into.articulated.grips[slot] = GripRequest::EquipSlot((self.mark & 1) as u8);
                     into.articulated.releases[slot] = ReleaseRequest::Loose;
+                    // Rotated so the plane cannot be confused with the bearing
+                    // the same mark writes two lines up: a `contribute` that
+                    // filled the plane from the bearing would agree with an
+                    // unrotated mark and this test would say nothing.
+                    into.swing_plane[slot] = Angle::from_raw(self.mark.rotate_left(5));
                 }
             }
         }
@@ -284,6 +301,25 @@ mod tests {
         assert_eq!(command.articulated.move_dir.x, Fx::from_raw(11));
         assert_eq!(command.articulated.arms[0].bearing, Angle::from_raw(22));
         assert_eq!(command.articulated.arms[1].bearing, Angle::from_raw(33));
+        // The embodied-only field divides the same way, which is the whole
+        // reason it is claimed per arm: a plane owned by nobody would be a hole
+        // in `CommandAuthority` that no refusal could name.
+        assert_eq!(command.swing_plane[0], Angle::from_raw(22u16.rotate_left(5)));
+        assert_eq!(command.swing_plane[1], Angle::from_raw(33u16.rotate_left(5)));
+    }
+
+    /// The plane is an *arm's* field and not navigation's, asserted where it can
+    /// fail: the navigation source claims neither arm, so neither plane may
+    /// carry its mark.
+    #[test]
+    fn the_swing_plane_belongs_to_the_arm_and_not_to_navigation() {
+        let mut controller = ComposedController::new(
+            navigation_and_left_and_right(11, 22, 33)).expect("disjoint authority");
+        let command = controller.decide(&ArticulatedObservation::BLANK);
+        for plane in command.swing_plane {
+            assert_ne!(plane, Angle::from_raw(11u16.rotate_left(5)),
+                       "navigation wrote an arm's swing plane");
+        }
     }
 
     /// The unclaimed half. A field nobody writes must hold the value the world

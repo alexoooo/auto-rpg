@@ -245,14 +245,22 @@ impl World {
     /// The articulated body's state stream, tagged by the model that owns it.
     ///
     /// One implementation for two models rather than a second copy of a
-    /// hundred-line byte grammar, because an embodied body **is** an articulated
-    /// one in this session and a copy is a second place for a column to be
-    /// forgotten. Exactly two bytes differ, and both are tags rather than state:
+    /// hundred-line byte grammar, because an embodied body is an articulated one
+    /// plus a tail, and a copy is a second place for a column to be forgotten.
+    /// Two bytes differ before that tail, and both are tags rather than state:
     /// the model byte in the prefix, and `payload_tag`, which says which payload
-    /// contract each stored command arrived under. Everything after them is the
-    /// same columns in the same order, so the day an embodied body grows a
-    /// column of its own is the day this function stops being shared -- and the
-    /// new column will have nowhere to go until it does.
+    /// contract each stored command arrived under.
+    ///
+    /// **It stayed shared when the embodied body grew columns of its own, and
+    /// the shape of the tail is why.** This comment used to say the first such
+    /// column would end the sharing; what actually happened is that the floor,
+    /// the legs and now the elbow plane all went *behind the model guard at the
+    /// end*, after every byte the articulated grammar writes. That keeps the
+    /// property the warning was protecting -- an articulated digest answers
+    /// exactly what it answered before any of them existed -- without a second
+    /// copy of the hundred lines above, and it is checked rather than asserted:
+    /// `an_embodied_only_column_cannot_move_an_articulated_digest` mutates each
+    /// one and watches only `EmbodiedV1` move.
     ///
     /// A `Legacy` world never reaches here; its digest is
     /// [`World::legacy_core_hash`] and it allocates none of the columns below.
@@ -400,6 +408,20 @@ impl World {
                 h.write_i32(stance.hip_authority_residue.raw());
                 h.write_i32(stance.pelvis.raw());
                 h.write_u8(stance.step_left);
+            }
+            // The elbow planes, after the legs and in declaration order.
+            // **Both halves**, unlike `twist` above, because neither is derived
+            // from the other: `commanded` is what the last accepted command
+            // asked for and survives until the next decision, `held` is where
+            // the chase has got to, and a replay that reproduced only one of
+            // them would either forget the request between ticks or resume the
+            // chase from the wrong place. They are only equal once the arm has
+            // arrived.
+            for planes in &self.elbow_plane {
+                for plane in planes {
+                    h.write_u16(plane.commanded.raw());
+                    h.write_u16(plane.held.raw());
+                }
             }
         }
         h.finish()
@@ -940,6 +962,50 @@ mod tests {
         right_slot_zero.grips[1] = GripRequest::EquipSlot(0);
         let (_, right_zero_digest) = digest(right_slot_zero);
         assert_ne!(right_zero_digest, base_digest, "right grip tag was omitted");
+    }
+
+    /// The embodied tail is embodied-only, measured rather than argued.
+    ///
+    /// Every column behind the model guard is perturbed by one raw unit on an
+    /// embodied world; `EmbodiedV1` must move and `LegacyV1` must not. Two of the
+    /// three are not even *allocated* on an articulated world, which is a
+    /// stronger statement than a digest that happened not to move, so for those
+    /// the measurement is the empty column; `ground_z` is allocated for every
+    /// model and is therefore the one that has to be perturbed over there and
+    /// watched not to land.
+    ///
+    /// **Both halves of the elbow plane are driven separately.** A digest that
+    /// wrote `commanded` twice, or `held` twice, would pass a check that only
+    /// moved the pair together.
+    #[test]
+    fn an_embodied_only_column_cannot_move_an_articulated_digest() {
+        let embodied = World::new(&Scenario::embodied_duel(), 7);
+        let mut articulated = World::new(&Scenario::articulated_duel(), 7);
+        assert!(articulated.stance.is_empty() && articulated.elbow_plane.is_empty(),
+                "an articulated world allocated an embodied-only column");
+        assert!(!embodied.elbow_plane.is_empty(), "the embodied world has no elbow-plane column");
+
+        let before = articulated.state_digest().value;
+        articulated.ground_z[0] = Fx::from_raw(1);
+        assert_eq!(articulated.state_digest().value, before, "the floor reached ArticulatedV1");
+
+        let mutations: [fn(&mut World); 6] = [
+            |w| w.ground_z[0] = Fx::from_raw(1),
+            |w| w.stance[0].pelvis = Fx::from_raw(1),
+            |w| w.elbow_plane[0][0].commanded = Angle::from_raw(1),
+            |w| w.elbow_plane[0][1].commanded = Angle::from_raw(1),
+            |w| w.elbow_plane[0][0].held = Angle::from_raw(1),
+            |w| w.elbow_plane[0][1].held = Angle::from_raw(1),
+        ];
+        for (at, mutate) in mutations.into_iter().enumerate() {
+            let mut changed = embodied.clone();
+            let (legacy, digest) = (changed.state_hash(), changed.state_digest().value);
+            mutate(&mut changed);
+            assert_ne!(changed.state_digest().value, digest,
+                       "embodied column {at} was omitted from EmbodiedV1");
+            assert_eq!(changed.state_hash(), legacy,
+                       "embodied column {at} leaked into LegacyV1");
+        }
     }
 
     #[test]

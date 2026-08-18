@@ -114,6 +114,24 @@ pub const PELVIS_TWIST_DROP_RAW: i32 = 3_277;
 /// though it raised tip speed.
 pub const ARM_BEARING_MAX_SPEED_RAW: i32 = 2_184;
 pub const ARM_BEARING_ACCEL_RAW: i32 = 364;
+
+/// How fast an embodied elbow may swing its plane about the arm's own axis.
+///
+/// **Derived from a number that was measured rather than invented as a third
+/// one.** The elbow rotating about the shoulder-to-hand axis is the shoulder
+/// swinging the *whole arm* about that axis; nothing in this model lets an arm
+/// rotate faster than [`ARM_BEARING_MAX_SPEED_RAW`], so a plane that could
+/// outrun it would be an elbow overtaking the shoulder that carries it. Equality
+/// is the honest reading of "no faster", and a separate constant here would be a
+/// number with no sweep behind it pretending to be a measurement.
+///
+/// **It is a rate bound and deliberately not a bill.** The work an arm does
+/// about its own axis is not modelled -- `bill_fatigue` charges the hand's
+/// travel and the bearing's sweep, both of which move the hand -- so charging
+/// the plane to the fatigue or effort budget would be inventing a cost with
+/// nothing behind it. A plane change is free and slow, which is the pair of
+/// properties the swept forearm actually needs.
+pub const ELBOW_PLANE_MAX_SPEED_RAW: i32 = ARM_BEARING_MAX_SPEED_RAW;
 pub const ARM_LINEAR_MAX_SPEED_RAW: i32 = 1_638;
 pub const ARM_LINEAR_ACCEL_RAW: i32 = 273;
 pub const ARM_MIN_REACH_RAW: i32 = 16_384;
@@ -177,6 +195,51 @@ impl StanceState {
     /// Signed hip-to-torso twist in raw angle units, always within the budget.
     pub fn twist(&self, body_yaw: Angle) -> i32 {
         body_yaw.delta(self.hip_yaw)
+    }
+}
+
+/// The plane an embodied arm folds its elbow into, commanded and held.
+///
+/// Two angles rather than one for the reason every other actuator row here keeps
+/// a target beside a state: a command is a *request*, and the thing that makes
+/// the request survivable is that the arm chases it at a bounded rate instead of
+/// snapping. One field would have to be either the request -- with the elbow
+/// teleporting -- or the pose, with the request forgotten between decisions.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ElbowPlaneState {
+    /// The plane as submitted, retained because a stored command is re-read
+    /// every tick until a new decision replaces it.
+    pub commanded: Angle,
+    /// The plane the elbow is actually in.
+    pub held: Angle,
+}
+
+impl ElbowPlaneState {
+    /// Both zero: the plane `elbow_point` defaulted to before the field existed,
+    /// which is the elbow hanging below the shoulder-to-hand line. It is also
+    /// what a *refused* command stores, so a refusal leaves the arm where it was
+    /// rather than swinging it to a plane nobody asked for.
+    pub const NEUTRAL: ElbowPlaneState =
+        ElbowPlaneState { commanded: Angle::ZERO, held: Angle::ZERO };
+
+    /// One tick of the chase: `held` toward `commanded`, shortest way round, by
+    /// at most [`ELBOW_PLANE_MAX_SPEED_RAW`].
+    ///
+    /// **The bound is not polish.** The forearm is about to become a swept
+    /// collider, and a plane that jumped half a turn in one tick would sweep the
+    /// forearm bodily across the body inside that tick and hand the contact
+    /// solver a closing speed no arm can produce -- an absurd energy from a
+    /// command that only changed a number. Clamping the *step* rather than the
+    /// command is what keeps the arriving pose exact: once the remaining delta
+    /// is inside the budget the step is the whole delta, so it lands on
+    /// `commanded` and stops, with no overshoot and no limit cycle.
+    pub fn chase(self) -> ElbowPlaneState {
+        let delta = self.commanded.delta(self.held);
+        let step = delta.clamp(-ELBOW_PLANE_MAX_SPEED_RAW, ELBOW_PLANE_MAX_SPEED_RAW);
+        ElbowPlaneState {
+            commanded: self.commanded,
+            held: Angle::from_raw(self.held.raw().wrapping_add(step as u16)),
+        }
     }
 }
 

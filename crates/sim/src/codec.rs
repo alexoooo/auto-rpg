@@ -1385,13 +1385,41 @@ fn read_submitted_command(
             value: value as u32,
         }),
     }
-    let payload: &[u8; ARTICULATED_PAYLOAD_BYTES] = reader
-        .take(ARTICULATED_PAYLOAD_BYTES)?
-        .try_into()
-        .unwrap();
-    let command = ArticulatedCommandV1::from_payload_bytes(payload)
-        .map_err(payload_decode_error)?;
-    for grip in command.grips {
+    // **The width is the declared schema's, not the shared grammar's.** This
+    // read `ARTICULATED_PAYLOAD_BYTES` for both schemas while the two widths
+    // were equal, and the equality was the only thing holding it up: the moment
+    // the embodied payload grew to 57 the writer emitted four bytes this reader
+    // did not consume, and everything after the command stream was read from
+    // four bytes too early. It does not surface as a wrong command -- it
+    // surfaces as the order-stream count being read out of the middle of a
+    // payload, which is why `an_embodied_envelope_round_trips_through_its_own_schema`
+    // failed as `LimitExceeded(OrderRecords)` rather than as a mismatched field.
+    let embodied = command_schema == EMBODIED_COMMAND_SCHEMA;
+    let width = if embodied { crate::command::EMBODIED_PAYLOAD_BYTES }
+                else { ARTICULATED_PAYLOAD_BYTES };
+    let payload = reader.take(width)?;
+    // Each contract through its own reader. The embodied one is not
+    // `ArticulatedCommandV1::from_payload_bytes` plus a wrapper: the wrapper
+    // could only supply a neutral plane, which is a silent way of dropping a
+    // field a replay is required to reproduce verbatim.
+    let command = if embodied {
+        let payload: &[u8; crate::command::EMBODIED_PAYLOAD_BYTES] =
+            payload.try_into().unwrap();
+        SubmittedCommand::Embodied(
+            crate::command::EmbodiedCommandV1::from_payload_bytes(payload)
+                .map_err(payload_decode_error)?)
+    } else {
+        let payload: &[u8; ARTICULATED_PAYLOAD_BYTES] = payload.try_into().unwrap();
+        SubmittedCommand::Articulated(
+            ArticulatedCommandV1::from_payload_bytes(payload).map_err(payload_decode_error)?)
+    };
+    // The grip check below is over the shared half, which both contracts have.
+    let articulated = match command {
+        SubmittedCommand::Embodied(embodied) => embodied.articulated,
+        SubmittedCommand::Articulated(articulated) => articulated,
+        SubmittedCommand::Legacy(_) => unreachable!("the tag was checked above"),
+    };
+    for grip in articulated.grips {
         if let GripRequest::EquipSlot(slot) = grip {
             if slot > 1 {
                 return Err(ReplayDecodeError::InvalidField(ReplayField::CommandGrip));
@@ -1399,7 +1427,8 @@ fn read_submitted_command(
             if let Some(scenario) = scenario {
                 let unit = &scenario.units[entity.index as usize];
                 let valid = match (scenario.combat_specs.as_ref(), unit.articulated) {
-                    (Some(table), Some(row)) => crate::combat::spec::grips_valid(table, row, command.grips),
+                    (Some(table), Some(row)) =>
+                        crate::combat::spec::grips_valid(table, row, articulated.grips),
                     _ => unit.loadout.holds(slot as usize),
                 };
                 if !valid {
@@ -1408,13 +1437,6 @@ fn read_submitted_command(
             }
         }
     }
-    // The payload grammar is shared, so the tag decides only which contract the
-    // record claims to be -- which is what a replay has to reproduce verbatim.
-    let command = if command_schema == EMBODIED_COMMAND_SCHEMA {
-        SubmittedCommand::Embodied(crate::command::EmbodiedCommandV1::new(command))
-    } else {
-        SubmittedCommand::Articulated(command)
-    };
     Ok(SubmittedCommandRecord { tick, entity, command })
 }
 
@@ -1675,14 +1697,21 @@ mod tests {
         }
     }
 
+    /// The two arms get **different** planes and neither is zero, so a reader
+    /// that dropped the field, read one offset twice, or read the pair at the
+    /// articulated width cannot round-trip by accident.
+    const EMBODIED_FIXTURE_PLANE: [Angle; 2] =
+        [Angle::from_raw(0x4567), Angle::from_raw(0x89ab)];
+
     fn embodied_envelope() -> ReplayEnvelope {
         let mut envelope = articulated_envelope_for(Scenario::embodied_duel());
         envelope.command_schema = EMBODIED_COMMAND_SCHEMA;
         envelope.hash_domain = HashDomain::EmbodiedV1;
         for record in &mut envelope.replay.submitted_entries {
             if let SubmittedCommand::Articulated(command) = record.command {
-                record.command =
-                    SubmittedCommand::Embodied(crate::command::EmbodiedCommandV1::new(command));
+                let mut embodied = crate::command::EmbodiedCommandV1::new(command);
+                embodied.swing_plane = EMBODIED_FIXTURE_PLANE;
+                record.command = SubmittedCommand::Embodied(embodied);
             }
         }
         envelope
@@ -1700,6 +1729,32 @@ mod tests {
             decoded.replay.submitted_entries[0].command,
             SubmittedCommand::Embodied(_)
         ));
+    }
+
+    /// The record is read at the **embodied** width, and the plane survives it.
+    ///
+    /// Two failures live here and the equality above would report either of them
+    /// as one mismatch, so they are separated: a reader that reconstructs the
+    /// record through `EmbodiedCommandV1::new` loses the plane while consuming
+    /// the right number of bytes, and a reader that consumes
+    /// `ARTICULATED_PAYLOAD_BYTES` desynchronises the stream so that everything
+    /// after this record is read from four bytes too early. The stream is one
+    /// record long here, so the second failure surfaces as a trailing-byte
+    /// refusal rather than as garbage -- which is exactly why the plane is
+    /// asserted on its own as well.
+    #[test]
+    fn an_embodied_command_record_carries_its_swing_plane() {
+        let envelope = embodied_envelope();
+        let bytes = envelope.encode().expect("encodes");
+        let decoded = ReplayEnvelope::decode(&bytes).expect("embodied envelope");
+        let SubmittedCommand::Embodied(command) = decoded.replay.submitted_entries[0].command
+            else { panic!("the embodied record decoded as another grammar") };
+        assert_eq!(command.swing_plane, EMBODIED_FIXTURE_PLANE);
+        // And the width is the embodied one, counted from the tag byte rather
+        // than from a constant this file also uses to write it.
+        let tag = tag_offset(&bytes);
+        assert_eq!(&bytes[tag + 1..tag + 1 + crate::command::EMBODIED_PAYLOAD_BYTES],
+                   command.payload_bytes().as_slice());
     }
 
     /// The record tag is read against the envelope's declared schema and not

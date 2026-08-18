@@ -118,6 +118,22 @@ impl CombatModel {
         }
     }
 
+    /// Whether this model's arms carry a commanded elbow plane.
+    ///
+    /// A third predicate that agrees with the two above on every member today,
+    /// and a third one for their reason rather than in spite of it: this one is
+    /// a question about the **command surface** -- the plane arrives in
+    /// `EmbodiedCommandV1` and nowhere else -- while `has_stance` is about the
+    /// legs. Answering the plane's question with the legs' predicate is how a
+    /// future model with a commanded plane and no hips would start indexing a
+    /// stance column it never allocated, or the reverse.
+    pub(crate) const fn has_swing_plane(self) -> bool {
+        match self {
+            CombatModel::Legacy | CombatModel::Articulated => false,
+            CombatModel::Embodied => true,
+        }
+    }
+
     /// Which frame a submitted arm bearing and movement vector are measured in.
     ///
     /// This is the whole of what separates an embodied body from an articulated

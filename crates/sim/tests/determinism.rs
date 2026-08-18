@@ -452,7 +452,15 @@ mod embodied {
         let mut digests = Vec::with_capacity(TICKS as usize);
         for tick in 0..TICKS {
             for (slot, id) in ids.iter().enumerate() {
-                let command = EmbodiedCommandV1::new(scripted(tick, slot));
+                let mut command = EmbodiedCommandV1::new(scripted(tick, slot));
+                // The embodied-only field, driven like everything else here: a
+                // script that left it neutral would replay a column the live
+                // run never moved, which is a replay claim about nothing.
+                let phase = tick.wrapping_mul(1_013).wrapping_add(slot as u32 * 17);
+                command.swing_plane = [
+                    Angle::from_raw(phase.wrapping_mul(13) as u16),
+                    Angle::from_raw(phase.wrapping_mul(29).wrapping_add(7_919) as u16),
+                ];
                 if let Some(replay) = replay.as_deref_mut() {
                     replay.record_submitted(tick, *id, SubmittedCommand::Embodied(command));
                 }

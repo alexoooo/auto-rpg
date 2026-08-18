@@ -80,10 +80,11 @@ pub use command::{
     EMBODIED_PAYLOAD_BYTES, SUBMITTED_COMMAND_LAYOUT_VERSION,
 };
 pub use combat::spec::{
-    club, fighter_anatomy, shield, sword, AnatomyRegion, AnatomyRegionSpec, AnatomySpecId,
+    club, fighter_anatomy, forearm_volume, shield, sword, volume_region, AnatomyRegion,
+    AnatomyRegionSpec, AnatomySpecId,
     ArmorSpec, ArticulatedUnitSpecV1, BodyAnatomySpec, CombatSpecError, CombatSpecTableV1,
     EquipmentGeometry, EquipmentSpec, EquipmentSpecId, GripBinding, Material, SurfaceSpec,
-    BODY_ANATOMY_SPEC_V1_BYTES, COMBAT_SPEC_SCHEMA_V1, MAX_ANATOMY_SPECS,
+    BODY_ANATOMY_SPEC_V1_BYTES, BODY_VOLUME_COUNT, COMBAT_SPEC_SCHEMA_V1, MAX_ANATOMY_SPECS,
     MAX_EQUIPMENT_SPECS, SEGMENT_EQUIPMENT_SPEC_V1_BYTES, SHIELD_EQUIPMENT_SPEC_V1_BYTES,
 };
 /// The runtime duel description, and nothing else out of `arena`. The builder

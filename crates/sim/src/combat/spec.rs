@@ -18,9 +18,15 @@ pub enum AnatomyRegion { Head = 0, Torso = 1, LeftArm = 2, RightArm = 3, Legs = 
 
 impl AnatomyRegion {
     /// The region count, named once. Every regional array in the crate -- the
-    /// immutable maxima, the armor rows, the mutable wound rows, and the swept
-    /// volumes -- is this wide, and a literal `5` in any of them is a place the
-    /// five could disagree.
+    /// immutable maxima, the armor rows and the mutable wound rows -- is this
+    /// wide, and a literal `5` in any of them is a place the five could
+    /// disagree.
+    ///
+    /// **The swept volumes are no longer among them.** They were, and the
+    /// sentence above used to say so; an arm with an elbow is two capsules
+    /// answering for one region, so the collider's volume list is
+    /// [`BODY_VOLUME_COUNT`] and this number is what anatomy is *about* --
+    /// where a wound lands, what armor covers, what can be severed.
     pub const COUNT: usize = 5;
 
     pub const ALL: [AnatomyRegion; AnatomyRegion::COUNT] = [
@@ -34,6 +40,53 @@ impl AnatomyRegion {
     /// to the enum cannot be silently missing here.
     pub const fn from_index(index: usize) -> Option<AnatomyRegion> {
         if index < AnatomyRegion::COUNT { Some(AnatomyRegion::ALL[index]) } else { None }
+    }
+}
+
+/// How many swept volumes a body presents to the contact solver.
+///
+/// **Seven volumes over five regions, and the gap between those two numbers is
+/// the whole of this vocabulary.** Volumes `0..5` are the five regions in
+/// [`AnatomyRegion::ALL`] order and keep those indices exactly, so every corpus
+/// recorded before the elbow existed still names the same capsule. Volumes 5
+/// and 6 are the two forearms, and they exist only on a body whose arms have an
+/// elbow to split them at.
+///
+/// A forearm is deliberately **not** a sixth and seventh region. Anatomy is the
+/// list of things that can be wounded, armored and severed, and a forearm is
+/// none of those on its own -- it is part of an arm, it is covered by the arm's
+/// armor row, and losing it is losing the arm. Growing `AnatomyRegion` would
+/// have widened the wound rows, the integrity maxima, the armor table, the
+/// published pose block and the anatomy hash row, all to say something anatomy
+/// does not need to know.
+pub const BODY_VOLUME_COUNT: usize = AnatomyRegion::COUNT + 2;
+
+/// The volume a limb's forearm occupies.
+///
+/// Appended after the five regions rather than interleaved beside each arm,
+/// because the five leading indices are what a recorded corpus, a published
+/// region row and a mirrored-fight region swap all read positionally.
+pub const fn forearm_volume(limb: usize) -> usize {
+    AnatomyRegion::COUNT + limb
+}
+
+/// The region a swept volume belongs to, or `None` for an index no body has.
+///
+/// **The one bridge between the two numberings, and it exists so that there is
+/// exactly one.** A contact fact names the volume the solver chose; a wound,
+/// a severance and a published body part all want the region. Both forearms
+/// answer their own arm, which is what lets the selection tuple
+/// `(toi, medial_distance_squared, BodyPart)` tolerate two volumes competing
+/// for one part without ever producing a part no anatomy has.
+pub const fn volume_region(volume: usize) -> Option<AnatomyRegion> {
+    if volume < AnatomyRegion::COUNT {
+        AnatomyRegion::from_index(volume)
+    } else if volume == forearm_volume(LimbSlot::LeftArm as usize) {
+        Some(AnatomyRegion::LeftArm)
+    } else if volume == forearm_volume(LimbSlot::RightArm as usize) {
+        Some(AnatomyRegion::RightArm)
+    } else {
+        None
     }
 }
 
@@ -921,6 +974,29 @@ mod tests {
             };
             assert_eq!(bytes.0.len(), expected);
         }
+    }
+
+    /// The two numberings agree where they overlap and nowhere else.
+    ///
+    /// The first assertion is the load-bearing one: a volume index below
+    /// `AnatomyRegion::COUNT` names the region with the same number, which is
+    /// what lets every corpus recorded before the elbow existed keep meaning
+    /// what it meant. The rest bound the bridge on both sides, so a seventh
+    /// volume added without a region to answer for cannot pass as a sixth.
+    #[test]
+    fn a_volume_index_below_five_is_its_own_region_and_a_forearm_is_its_arm() {
+        for (index, region) in AnatomyRegion::ALL.into_iter().enumerate() {
+            assert_eq!(volume_region(index), Some(region));
+        }
+        assert_eq!(volume_region(forearm_volume(LimbSlot::LeftArm as usize)),
+                   Some(AnatomyRegion::LeftArm));
+        assert_eq!(volume_region(forearm_volume(LimbSlot::RightArm as usize)),
+                   Some(AnatomyRegion::RightArm));
+        assert_eq!(volume_region(BODY_VOLUME_COUNT), None);
+        assert_eq!(BODY_VOLUME_COUNT, 7);
+        // Every volume answers for some region, which is what the wounding
+        // path relies on when it turns a contact fact into a body part.
+        assert!((0..BODY_VOLUME_COUNT).all(|volume| volume_region(volume).is_some()));
     }
 
     #[test]

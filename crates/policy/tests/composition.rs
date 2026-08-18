@@ -39,6 +39,13 @@ impl PartialEmbodiedSource for HandOnTheControls {
             reach: Fx::from_raw((self.tick as i32 * 97) % 65_537),
             effort: Fx::ONE,
         };
+        // The embodied-only field, claimed by the arm that owns it. A human at a
+        // mouse can steer the elbow; the policy on the other arm has no plane to
+        // give and writes the neutral one, so the two hands differ here as well
+        // as in bearing -- which is what makes the replay claim below a claim
+        // about this column too.
+        into.swing_plane[LimbSlot::RightArm as usize] =
+            Angle::from_raw(self.tick.wrapping_mul(1_009) as u16);
         self.tick += 1;
     }
 
@@ -121,10 +128,12 @@ fn the_two_hands_of_a_composed_fight_are_visibly_driven_by_different_things() {
 
     let mut left_bearings = Vec::new();
     let mut right_bearings = Vec::new();
+    let mut planes = Vec::new();
     for _ in 0..TICKS {
         let command = composed.decide(&world.observe_articulated(subject));
         left_bearings.push(command.articulated.arms[0].bearing);
         right_bearings.push(command.articulated.arms[1].bearing);
+        planes.push(command.swing_plane);
         world.submit_embodied_v1(subject, command);
         world.step();
     }
@@ -135,6 +144,13 @@ fn the_two_hands_of_a_composed_fight_are_visibly_driven_by_different_things() {
     assert!(right_bearings.windows(2).any(|pair| pair[0] != pair[1]),
             "the human's hand did not move");
     assert_ne!(left_bearings[0], right_bearings[0]);
+
+    // And the same split in the embodied-only field: the policy-driven arm holds
+    // the neutral plane it has no way to move, the human-driven one swings.
+    assert!(planes.iter().all(|pair| pair[0] == Angle::ZERO),
+            "a policy with no plane to give wrote one anyway");
+    assert!(planes.windows(2).any(|pair| pair[0][1] != pair[1][1]),
+            "the human's swing plane did not move");
 }
 
 /// The composed path must be able to replace a direct one without changing a

@@ -3,10 +3,11 @@
 **Status:** active. Sessions [01](embodied-01-world-module-split.md),
 [02](embodied-02-phase-schedule-and-seams.md), [03](embodied-03-embodied-model-scaffold.md)
 [04](embodied-04-terrain-and-elevation.md),
-[05](embodied-05-torso-relative-command.md) and
-[08](embodied-08-command-composition.md) are complete, and
-[06](embodied-06-stance.md) is complete on the simulation side with only its
-publication outstanding. The two refactor
+[05](embodied-05-torso-relative-command.md),
+[06](embodied-06-stance.md) and [08](embodied-08-command-composition.md) are
+complete; [07](embodied-07-elbow-and-forearm.md) has landed its arm-length
+constraint, its derived elbow and its commanded swing plane, and owes the forearm
+collider. The two refactor
 sessions moved no pin, so the gate on the mechanics sessions is discharged, and the
 third model is in the tree with no behaviour of its own.
 
@@ -83,8 +84,8 @@ the rest of the crate and the diff is a move.
 | [03](embodied-03-embodied-model-scaffold.md) | **done.** `CombatModel::Embodied`, `EmbodiedCommandV1`, own hash domain, no new behaviour | 02 |
 | [04](embodied-04-terrain-and-elevation.md) | **done.** sculpted terrain column, body z as a terrain sample, walls from slope | 03 |
 | [05](embodied-05-torso-relative-command.md) | **done.** arm bearing and movement become torso-relative | 03 |
-| [06](embodied-06-stance.md) | **sim side done.** pelvis height, hip yaw distinct from torso yaw, twist budget that forces a step; publication outstanding | 04 and 05 |
-| [07](embodied-07-elbow-and-forearm.md) | **arm-length constraint and derived elbow done**; forearm collider and commanded swing plane outstanding | 06 |
+| [06](embodied-06-stance.md) | **done.** pelvis height, hip yaw distinct from torso yaw, twist budget that forces a step, `EMBODIED_STANCE_V1` published | 04 and 05 |
+| [07](embodied-07-elbow-and-forearm.md) | **arm-length constraint, derived elbow and commanded swing plane done**; forearm collider outstanding | 06 |
 | [08](embodied-08-command-composition.md) | **done.** one hand human, the other hand AI, merged before submission | 05 |
 | [09](embodied-09-observation-and-policy.md) | embodied observation block, scripted policy, learning boundary | 07 and 08 |
 | [10](embodied-10-retire-the-older-models.md) | `Legacy` and `Articulated` deleted; `Embodied` is the only model | 09 |
@@ -108,7 +109,9 @@ constant carries its provenance applies to all of them.
 
 ```text
 MAX_EMBODIED_ENTITIES          64      matching MAX_ARTICULATED_ENTITIES
-EMBODIED_COMMAND_LAYOUT_VERSION 1
+EMBODIED_COMMAND_LAYOUT_VERSION 2      1 was the fifty-three shared bytes
+ELBOW_PLANE_MAX_SPEED_RAW              equal to ARM_BEARING_MAX_SPEED_RAW
+BODY_VOLUME_COUNT              7       swept volumes over five anatomy regions
 TERRAIN_HEIGHT_RAW_UNIT                one raw 16.16 world unit per height step
 TERRAIN_STEP_UP_RAW                    the rise a walking body may enter
 TERRAIN_MAX_SLOPE_RAW                  rise per unit run above which a tile is wall
@@ -178,8 +181,11 @@ is a reader that does not exist is a rule costing this plan sessions.
 For the remainder of these sessions, then:
 
 - **Widen a payload in place rather than appending to it.** `EMBODIED_PAYLOAD_BYTES`
-  going 53 to 57 for [session 07](embodied-07-elbow-and-forearm.md)'s swing plane is a
-  straight edit of the embodied layout, not a reserved-tail exercise.
+  went 53 to 57 for [session 07](embodied-07-elbow-and-forearm.md)'s swing plane as a
+  straight edit of the embodied layout, not a reserved-tail exercise. It also found
+  the limit of what a forked width buys on its own: the replay codec read *both*
+  schemas at `ARTICULATED_PAYLOAD_BYTES`, so widening one of them desynchronised the
+  stream until that reader was taught to take its width from the declared schema.
 - **Bump a layout version rather than designing around one.** The versions exist to be
   bumped, and every mirror of every one of them ships from this commit.
 - **Renumber, reorder, and delete.** A discriminant, a column order, or a
@@ -232,7 +238,7 @@ fight. No waiver makes that acceptable, because it was never a compatibility bug
   plan, not a footnote in this one.
 - **A commanded elbow.** The elbow is derived from hand and shoulder in session 07.
   Making it an independent input doubles the command surface for very little depth;
-  what is worth choosing is the swing plane, and that is the field session 07 adds.
+  what is worth choosing is the swing plane, and that is the field session 07 added.
 - **Splitting arms into upper and fore in the anatomy.** That would double the armor
   table and move `BodyPart::COUNT` and `ANATOMY_HASH_ROW_BYTES`. Session 07 keeps
   five regions and makes the arm *volume* a two-segment polyline, which the region

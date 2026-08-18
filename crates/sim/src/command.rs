@@ -106,48 +106,69 @@ pub struct ArticulatedCommandV1 {
 /// How wide an embodied payload is, and the reason it is a second constant
 /// rather than a second reader of the first.
 ///
-/// Identical to [`ARTICULATED_PAYLOAD_BYTES`] today and **deliberately not the
-/// same constant**. `ARTICULATED_PAYLOAD_BYTES` is read by
-/// `ARTICULATED_COMMAND_HASH`, `EXACT_TRAJECTORY_STATE_DIGEST` and
-/// `LIFTED_COULOMB_SOLVER_DIGEST`; those three have already moved together twice
-/// because a session appended one field to that payload. The embodied model has
-/// two more fields coming -- a stance and a swing plane -- and this is what lets
-/// them land without re-recording three pins and their wasm mirrors in a session
-/// about knees.
-pub const EMBODIED_PAYLOAD_BYTES: usize = 53;
+/// **Was 53 through layout 1, and the fork is what it was for.**
+/// `ARTICULATED_PAYLOAD_BYTES` is read by `ARTICULATED_COMMAND_HASH`,
+/// `EXACT_TRAJECTORY_STATE_DIGEST` and `LIFTED_COULOMB_SOLVER_DIGEST`; those
+/// three have already moved together twice because a session appended one field
+/// to that payload. Session 07 appended a swing plane per arm here and moved
+/// none of them, because the two widths were never one constant.
+pub const EMBODIED_PAYLOAD_BYTES: usize = 57;
 
-pub const EMBODIED_COMMAND_LAYOUT_VERSION: u16 = 1;
+/// Layout 2: the swing plane. Layout 1 was the fifty-three bytes the articulated
+/// payload still is.
+pub const EMBODIED_COMMAND_LAYOUT_VERSION: u16 = 2;
 
 /// The embodied submission contract.
 ///
-/// Today it is an articulated command under a different name, a different width
-/// constant and a different tag, and that is the whole of what it does: a wire
-/// contract nobody else is pinned to. The `articulated` field is named rather
-/// than flattened so the fields sessions 06 and 07 add sit *beside* the frozen
-/// grammar instead of inside a copy of it, and so the byte-for-byte claim below
-/// stays true by construction rather than by two structs happening to agree.
+/// The `articulated` field is named rather than flattened so the fields sessions
+/// 06 and 07 add sit *beside* the frozen grammar instead of inside a copy of it.
+/// Session 07 is the one that cashed that in: [`EmbodiedCommandV1::swing_plane`]
+/// sits next to `articulated` and the fifty-three bytes below it are still
+/// written by the shared [`write_payload`], so "the first fifty-three bytes are
+/// the articulated payload" stays true by construction rather than by two
+/// structs happening to agree. Session 06's stance stayed derived, so it never
+/// arrived here at all.
 ///
 /// **The coordinate frame already differs, and no byte moved to do it.**
 /// `arms[..].bearing` and `move_dir` are read *relative to the torso* here and
 /// absolutely in `ArticulatedCommandV1`: `+x` is forward, `+y` is body-left, and
 /// a zero bearing holds the arm directly ahead at every yaw. Two contracts with
-/// identical widths, identical offsets and identical layout versions can still
-/// mean different things, which is the trap for a reader who diffs the byte
-/// tables and concludes they are the same. `CombatModel::command_frame` is where
-/// the difference lives.
+/// identical offsets can still mean different things, which is the trap for a
+/// reader who diffs the byte tables and concludes they are the same.
+/// `CombatModel::command_frame` is where the difference lives.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct EmbodiedCommandV1 {
     pub articulated: ArticulatedCommandV1,
+    /// Which plane each arm folds its elbow into, about the shoulder-to-hand
+    /// axis. Zero is the plane the elbow hung in before this field existed --
+    /// below the line from shoulder to hand -- so a command that says nothing
+    /// about the plane asks for exactly what the old default gave.
+    pub swing_plane: [Angle; 2],
 }
 
 impl EmbodiedCommandV1 {
+    /// An articulated command with the **neutral** plane on both arms.
+    ///
+    /// Kept as a one-argument constructor rather than widened to take the plane,
+    /// because most of its callers are adapters wrapping an
+    /// `ArticulatedCommandV1` that has no plane to give -- and an adapter forced
+    /// to invent one would be inventing state. A caller that means a plane
+    /// writes the field.
     pub const fn new(articulated: ArticulatedCommandV1) -> EmbodiedCommandV1 {
-        EmbodiedCommandV1 { articulated }
+        EmbodiedCommandV1 { articulated, swing_plane: [Angle::ZERO; 2] }
     }
 
+    /// The fifty-three shared bytes, then the two planes.
+    ///
+    /// Written through the shared grammar rather than beside a copy of it: the
+    /// fork is about **width and ownership**, and an embodied writer that spelled
+    /// out the first fifty-three offsets again would be a second place for one of
+    /// them to drift.
     pub fn payload_bytes(self) -> [u8; EMBODIED_PAYLOAD_BYTES] {
         let mut out = [0u8; EMBODIED_PAYLOAD_BYTES];
         write_payload(&mut out, self.articulated);
+        put_u16(&mut out, 53, self.swing_plane[0].raw());
+        put_u16(&mut out, 55, self.swing_plane[1].raw());
         out
     }
 
@@ -155,9 +176,22 @@ impl EmbodiedCommandV1 {
         -> Result<EmbodiedCommandV1, ArticulatedPayloadError>
     {
         Self::validate_payload_structure(bytes)?;
-        Ok(EmbodiedCommandV1 { articulated: read_payload(bytes)? })
+        Ok(EmbodiedCommandV1 {
+            articulated: read_payload(bytes)?,
+            swing_plane: [
+                Angle::from_raw(get_u16(bytes, 53)),
+                Angle::from_raw(get_u16(bytes, 55)),
+            ],
+        })
     }
 
+    /// The shared structural check, over the shared prefix, and **nothing for
+    /// the plane** -- which is a decision rather than an omission.
+    ///
+    /// A structural check exists for a byte that has illegal values: an intent
+    /// tag, a grip tag, a release verb. A raw `Angle` has none -- every one of
+    /// the 65,536 bit patterns is a legal bearing -- so there is nothing here to
+    /// refuse, and inventing a range would refuse a plane the actuator can hold.
     pub fn validate_payload_structure(bytes: &[u8; EMBODIED_PAYLOAD_BYTES])
         -> Result<(), ArticulatedPayloadError>
     {
@@ -245,10 +279,15 @@ impl ArticulatedCommandV1 {
 ///
 /// One implementation rather than two copies. The fork between the articulated
 /// and embodied payloads is about **width and ownership**, not about arithmetic:
-/// session 07 appends a swing plane after byte 52 and every offset below stays
-/// where it is. Two copies of this grammar would be two places for a field
-/// offset to drift, and the drift would be invisible until a pinned digest moved
-/// on one side only.
+/// session 07 appended a swing plane after byte 52 and every offset below stayed
+/// exactly where it is. Two copies of this grammar would be two places for a
+/// field offset to drift, and the drift would be invisible until a pinned digest
+/// moved on one side only.
+///
+/// It takes `&[u8]` rather than `&[u8; ARTICULATED_PAYLOAD_BYTES]` for that
+/// reason and no other: the embodied writer hands it the first fifty-three bytes
+/// of a fifty-seven-byte buffer, and a fixed-width signature here would have
+/// forced a copy or a second grammar.
 fn write_payload(out: &mut [u8], command: ArticulatedCommandV1) {
     let ArticulatedCommandV1 { move_dir, body_yaw, intent, arms, grips, releases } = command;
     put_i32(out, 0, move_dir.x.raw());
@@ -781,35 +820,79 @@ mod tests {
         }
     }
 
-    /// The fork's founding claim, and the one that stops being true on purpose
-    /// in session 07: today the two payloads are the same fifty-three bytes.
+    /// A plane per arm and the two distinct, so a writer that filled both from
+    /// one arm -- or a reader that read offset 53 twice -- cannot agree with
+    /// itself by accident. Neither is a multiple of the other either, which is
+    /// what stops a swapped pair passing.
+    fn embodied_fixture() -> EmbodiedCommandV1 {
+        EmbodiedCommandV1 {
+            articulated: articulated_fixture(),
+            swing_plane: [Angle::from_raw(0x4567), Angle::from_raw(0x89ab)],
+        }
+    }
+
+    /// **The claim that replaced the fork's founding one.** Session 03 asserted
+    /// that the two payloads were the same fifty-three bytes and said in its own
+    /// doc comment that session 07 would stop that being true on purpose. It has:
+    /// the embodied payload *begins* with the articulated one and the two
+    /// contracts diverge after byte 52, where four bytes of swing plane the
+    /// articulated grammar has no offsets for continue.
     ///
     /// Asserted over a fixture whose every field is distinct and asymmetric, so
     /// a writer that filled one contract from the other's offsets could not
     /// agree by accident.
     #[test]
-    fn an_embodied_payload_is_the_articulated_payload_byte_for_byte() {
+    fn the_two_payload_contracts_share_a_prefix_and_diverge_after_byte_52() {
         let articulated = articulated_fixture();
-        let embodied = EmbodiedCommandV1::new(articulated);
-        assert_eq!(EMBODIED_PAYLOAD_BYTES, ARTICULATED_PAYLOAD_BYTES);
-        assert_eq!(embodied.payload_bytes().as_slice(), articulated.payload_bytes().as_slice());
+        let embodied = embodied_fixture();
+        assert_eq!(EMBODIED_PAYLOAD_BYTES, ARTICULATED_PAYLOAD_BYTES + 4);
+        let bytes = embodied.payload_bytes();
+        assert_eq!(&bytes[..ARTICULATED_PAYLOAD_BYTES], articulated.payload_bytes().as_slice());
+        assert_eq!(&bytes[ARTICULATED_PAYLOAD_BYTES..], &[0x67, 0x45, 0xab, 0x89]);
     }
 
     #[test]
     fn an_embodied_payload_round_trips_through_its_own_reader() {
-        let embodied = EmbodiedCommandV1::new(articulated_fixture());
+        let embodied = embodied_fixture();
         let bytes = embodied.payload_bytes();
         assert_eq!(EmbodiedCommandV1::from_payload_bytes(&bytes).unwrap(), embodied);
+        // And the plane is not merely carried past the reader: a payload whose
+        // planes were dropped would round-trip to `new`'s neutral pair, which
+        // this fixture is chosen not to be.
+        assert_ne!(embodied, EmbodiedCommandV1::new(articulated_fixture()));
+    }
+
+    /// A raw `Angle` has no illegal value, so **every** plane is accepted -- and
+    /// that is asserted rather than left to be inferred from the absence of a
+    /// check, because "no structural rule" and "a rule nobody wrote" look the
+    /// same from the call site.
+    #[test]
+    fn no_swing_plane_is_structurally_illegal() {
+        let mut bytes = embodied_fixture().payload_bytes();
+        for raw in [0u16, 1, 0x7fff, 0x8000, 0xffff] {
+            bytes[53..55].copy_from_slice(&raw.to_le_bytes());
+            bytes[55..57].copy_from_slice(&raw.rotate_left(3).to_le_bytes());
+            assert_eq!(EmbodiedCommandV1::validate_payload_structure(&bytes), Ok(()));
+            let read = EmbodiedCommandV1::from_payload_bytes(&bytes).expect("a legal plane");
+            assert_eq!(read.swing_plane[0], Angle::from_raw(raw));
+            assert_eq!(read.swing_plane[1], Angle::from_raw(raw.rotate_left(3)));
+        }
     }
 
     /// Both contracts refuse the same malformed byte for the same reason, which
     /// is what "same grammar, different width" has to mean if it means anything.
+    ///
+    /// The two arrays are now different lengths, so the malformed byte is written
+    /// into each at the offset the shared grammar puts it -- 52 in both, because
+    /// the divergence is entirely after it.
     #[test]
     fn both_payload_contracts_refuse_the_same_malformed_release_byte() {
-        let mut bytes = articulated_fixture().payload_bytes();
-        bytes[52] = 7;
-        let articulated = ArticulatedCommandV1::validate_payload_structure(&bytes);
-        let embodied = EmbodiedCommandV1::validate_payload_structure(&bytes);
+        let mut narrow = articulated_fixture().payload_bytes();
+        let mut wide = embodied_fixture().payload_bytes();
+        narrow[52] = 7;
+        wide[52] = 7;
+        let articulated = ArticulatedCommandV1::validate_payload_structure(&narrow);
+        let embodied = EmbodiedCommandV1::validate_payload_structure(&wide);
         assert_eq!(articulated, embodied);
         assert_eq!(
             articulated,

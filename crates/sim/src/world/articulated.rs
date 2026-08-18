@@ -158,6 +158,12 @@ impl World {
         if self.combat_model.has_stance() {
             self.stance[i] = StanceState::squared(yaw);
         }
+        // Both halves, because a reused slot must not inherit the last
+        // occupant's elbow: a fresh body is one nobody has commanded, and the
+        // neutral plane is the one the elbow hung in before the field existed.
+        if self.combat_model.has_swing_plane() {
+            self.elbow_plane[i] = [ElbowPlaneState::NEUTRAL; 2];
+        }
         let mut arms = [actuator::tucked_arm(Vec3::ZERO); 2];
         let mut grips = [GripState { equipment_slot: None }; 2];
         for limb in 0..2 {
@@ -460,6 +466,20 @@ impl World {
         for i in 0..self.alive.len() {
             if !self.alive[i] { continue; }
             let command = self.articulated_command[i].unwrap_or_else(|| self.neutral_articulated(i));
+            // **The elbow plane is chased, never snapped**, and the rate bound
+            // is required rather than polish. Once the forearm is a swept
+            // collider, a commanded plane that jumped half a turn in one tick
+            // would sweep the forearm bodily across the body inside that tick
+            // and hand the contact solver a closing energy no arm can produce --
+            // an absurd blow out of a command that only changed a number. It
+            // runs here, at the head of the arms phase, because the plane is
+            // part of where the arm *is* and everything downstream of this phase
+            // reads the pose.
+            if self.combat_model.has_swing_plane() {
+                for slot in 0..2 {
+                    self.elbow_plane[i][slot] = self.elbow_plane[i][slot].chase();
+                }
+            }
             // The one frame conversion in the arm driver. Everything below reads
             // `targets` and never `command.arms`, so an embodied bearing cannot
             // reach the actuator still measured from the torso.
@@ -1368,6 +1388,77 @@ mod tests {
         }
         assert!(independent.arms[0][0].bearing_speed_turns
             > independent_impaired.arms[0][0].bearing_speed_turns);
+    }
+
+    /// A commanded elbow plane is **chased, not snapped**, and it arrives
+    /// exactly.
+    ///
+    /// Half a turn is the worst case the command space has, and it is the case
+    /// the bound exists for: once the forearm is a swept collider, a plane that
+    /// jumped half a turn in one tick would sweep the forearm bodily across the
+    /// body inside that tick and hand the contact solver a closing energy no arm
+    /// can produce.
+    ///
+    /// Bounded from **both** sides, because either half alone is satisfied by a
+    /// defect. "No further than the budget" alone is satisfied by an elbow that
+    /// never moves; "arrives" alone is satisfied by a snap. So every tick of the
+    /// approach is asserted to move by exactly the budget, the arrival tick is
+    /// asserted to land exactly on the command, and the ticks after it are
+    /// asserted to move by nothing -- which is what rules out an overshoot that
+    /// oscillates back, the failure a clamp on the *command* rather than on the
+    /// step would produce.
+    #[test]
+    fn an_elbow_plane_cannot_cross_the_arm_in_one_tick() {
+        use crate::combat::actuator::ELBOW_PLANE_MAX_SPEED_RAW;
+
+        let mut world = World::new(&Scenario::embodied_duel(), 1);
+        let id = world.alive_ids(Faction::Heroes)[0];
+        let i = world.resolve(id).expect("a live hero");
+        let mut command = crate::EmbodiedCommandV1::new(world.neutral_articulated(i));
+        // Half a turn, on both arms, and the two arms are commanded together on
+        // purpose: an integrator that drove slot 0 twice would leave slot 1 at
+        // zero and every assertion below would name it.
+        command.swing_plane = [Angle::HALF; 2];
+        assert!(matches!(world.submit_embodied_v1(id, command),
+                         crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }));
+        for slot in 0..2 {
+            assert_eq!(world.elbow_plane[i][slot],
+                       ElbowPlaneState { commanded: Angle::HALF, held: Angle::ZERO },
+                       "submission moved the held plane instead of the commanded one");
+        }
+
+        // 32,768 raw units to cover at 2,184 a tick: fifteen full steps and a
+        // remainder of eight. Written as arithmetic rather than as a literal
+        // sixteen, so this still measures the right thing if the budget moves.
+        let budget = ELBOW_PLANE_MAX_SPEED_RAW;
+        let full_steps = 32_768 / budget;
+        let mut arrived = None;
+        for tick in 1..=(full_steps + 8) {
+            let before = [world.elbow_plane[i][0].held, world.elbow_plane[i][1].held];
+            world.step();
+            for slot in 0..2 {
+                let plane = world.elbow_plane[i][slot];
+                assert_eq!(plane.commanded, Angle::HALF, "the request was forgotten");
+                let step = plane.held.delta(before[slot]).abs();
+                if tick <= full_steps {
+                    assert_eq!(step, budget,
+                               "arm {slot} moved {step} raw units on tick {tick}, not the budget");
+                    assert_ne!(plane.held, Angle::HALF,
+                               "arm {slot} arrived early on tick {tick}");
+                } else if arrived.is_none() {
+                    assert_eq!(step, 32_768 - full_steps * budget,
+                               "arm {slot} did not spend exactly the remainder");
+                } else {
+                    assert_eq!(step, 0, "arm {slot} kept moving after it arrived");
+                }
+                assert_eq!(plane.held == Angle::HALF, tick > full_steps,
+                           "arm {slot} settled off the commanded plane on tick {tick}");
+            }
+            if world.elbow_plane[i][0].held == Angle::HALF && arrived.is_none() {
+                arrived = Some(tick);
+            }
+        }
+        assert_eq!(arrived, Some(full_steps + 1), "the arrival tick moved");
     }
 
     /// Replaces `a_shield_normal_follows_body_yaw_and_cannot_orbit`, which

@@ -30,8 +30,8 @@ use crate::scenario::{CommandFrame, CommandGrammar, Scenario, UnitSpec};
 use crate::anatomy::{self, AnatomyState, BodyPart};
 use crate::combat::spec::{ArticulatedUnitSpecV1, BodyAnatomySpec, CombatSpecError,
                           CombatSpecTableV1, resolved_equipment};
-use crate::combat::actuator::{self, ArmState, BodyYawState, GripState, ShieldPose,
-                              StanceState};
+use crate::combat::actuator::{self, ArmState, BodyYawState, ElbowPlaneState, GripState,
+                              ShieldPose, StanceState};
 use crate::combat::contact::{contact_bounds, medial_point, try_reserve_exact,
                              ContactCapacityError, ContactCollider, ContactKind,
                              ContactResolution, ContactShape,
@@ -211,6 +211,10 @@ pub struct World {
     /// Last accepted submitted command for the articulated domain. Separate
     /// from the legacy column so an inert articulated world cannot change a
     /// legacy tick or hash by merely existing.
+    ///
+    /// It carries the articulated *half* of an embodied command too; the
+    /// embodied-only half lives in [`World::elbow_plane`]. See
+    /// [`World::submit_embodied_v1`] for why the split happened where it did.
     articulated_command: Vec<Option<ArticulatedCommandV1>>,
     articulated_anatomy: Vec<Option<u16>>,
     articulated_carried: Vec<[Option<u16>; 2]>,
@@ -221,6 +225,16 @@ pub struct World {
     /// [`crate::CombatModel::has_stance`] allocates none of it, so a `Legacy` or
     /// `Articulated` world cannot pay for a mechanic it does not have.
     stance: Vec<StanceState>,
+    /// The commanded and held elbow plane, per arm, for the one model whose
+    /// command grammar carries one. Empty otherwise, on
+    /// [`World::stance`]'s terms: a model answering `false` to
+    /// [`crate::CombatModel::has_swing_plane`] allocates none of it.
+    ///
+    /// **This is the column the embodied command was always going to need**, and
+    /// it is one column rather than two because commanded and held are the same
+    /// fact at two times -- splitting them would put a request and a pose in
+    /// different rows and let one be updated without the other.
+    elbow_plane: Vec<[ElbowPlaneState; 2]>,
     arms: Vec<[ArmState; 2]>,
     grips: Vec<[GripState; 2]>,
     /// Release edge remembered independently of the submitted command, which persists.
@@ -1420,6 +1434,7 @@ impl World {
             articulated_equipment: Vec::with_capacity(n),
             body_yaw: Vec::with_capacity(n),
             stance: Vec::with_capacity(n),
+            elbow_plane: Vec::with_capacity(n),
             arms: Vec::with_capacity(n),
             grips: Vec::with_capacity(n),
             articulated_release_was: Vec::with_capacity(n),
@@ -1639,6 +1654,9 @@ impl World {
                     self.body_yaw.push(BodyYawState { angle: Angle::ZERO, speed_turns: Fx::ZERO, authority_residue: Fx::ZERO });
                     if self.combat_model.has_stance() {
                         self.stance.push(StanceState::squared(Angle::ZERO));
+                    }
+                    if self.combat_model.has_swing_plane() {
+                        self.elbow_plane.push([ElbowPlaneState::NEUTRAL; 2]);
                     }
                     self.arms.push([arm; 2]);
                     self.grips.push([GripState { equipment_slot: None }; 2]);
@@ -2050,15 +2068,20 @@ impl World {
 
     /// Stores one version-1 embodied command, on the same terms.
     ///
-    /// **The stored value goes into the column an articulated command uses, and
-    /// that is a deliberate economy rather than an oversight.** What sessions 06
-    /// and 07 need forked is the *wire contract* -- the payload width, the record
-    /// tag and the envelope schema -- because that is the half three pinned
-    /// digests are taken over. The in-memory command is the same six fields and
-    /// the phases that read it are the same phases, so a second column today
-    /// would be a second copy of one value. The session that adds the first
-    /// embodied-only field is the session that splits it, and it cannot forget
-    /// to: the field will have nowhere to live.
+    /// **The column is split, and this is the session that split it.** The doc
+    /// comment that stood here predicted the shape of the day exactly: the six
+    /// articulated fields still go into [`World::articulated_command`], because
+    /// they are the same six fields the same phases read and a second copy of
+    /// them would be a second thing to keep in step; the swing plane -- the first
+    /// field an embodied command carries that an articulated one has no offsets
+    /// for -- goes into [`World::elbow_plane`], because there was nowhere else it
+    /// could have gone. What the fork bought is unchanged and is still the point:
+    /// `ARTICULATED_PAYLOAD_BYTES` did not move, so the three digests taken over
+    /// it did not either.
+    ///
+    /// Only `commanded` is written here. `held` is the actuator's, chased toward
+    /// this at a bounded rate in the arms phase, so a submission is a request and
+    /// never a teleport.
     pub fn submit_embodied_v1(
         &mut self,
         id: EntityId,
@@ -2077,10 +2100,17 @@ impl World {
             .map(CommandReject::OutOfRange)
             .or_else(|| self.resulting_grips(i, command.articulated.grips).err());
         let stored = match rejection {
+            // `new` gives the neutral plane, which is `Angle::ZERO` -- the plane
+            // `elbow_point` already defaults to. So a refusal parks the elbow
+            // where it was instead of swinging the arm to a plane nobody asked
+            // for, which is the same atomicity the rest of the command gets: no
+            // field of a rejected request survives, and none of the substitute
+            // moves the body either.
             None => command,
             Some(_) => EmbodiedCommandV1::new(self.neutral_articulated(i)),
         };
         self.articulated_command[i] = Some(stored.articulated);
+        self.write_commanded_plane(i, stored.swing_plane);
         self.next_decision[i] = self.tick + self.stats[i].decision_period() as u32;
         SubmitEmbodiedOutcome::Stored { command: stored, rejection }
     }
@@ -2101,13 +2131,15 @@ impl World {
             None => return SubmitEmbodiedOutcome::NotStored(CommandReject::StaleEntity),
         };
         let rejection = CommandReject::OutOfRange(field);
-        let stored = self.neutral_articulated(i);
-        self.articulated_command[i] = Some(stored);
+        let stored = EmbodiedCommandV1::new(self.neutral_articulated(i));
+        self.articulated_command[i] = Some(stored.articulated);
+        // The neutral plane too, and through the same writer: a fallback that
+        // wrote the articulated half and left the plane alone would let a
+        // refused command's *previous* plane keep steering the elbow, which is
+        // exactly the partial acceptance this path exists to prevent.
+        self.write_commanded_plane(i, stored.swing_plane);
         self.next_decision[i] = self.tick + self.stats[i].decision_period() as u32;
-        SubmitEmbodiedOutcome::Stored {
-            command: EmbodiedCommandV1::new(stored),
-            rejection: Some(rejection),
-        }
+        SubmitEmbodiedOutcome::Stored { command: stored, rejection: Some(rejection) }
     }
 
     /// Byte-boundary companion for a payload whose raw range validation failed
@@ -2132,6 +2164,19 @@ impl World {
     }
 
     // ---------------------------------------------------------------- internals
+
+    /// Records what each arm asked its elbow plane to be, leaving `held` alone.
+    ///
+    /// Guarded on the column rather than on the model, because the guard's job
+    /// is to keep an unallocated column unindexed and `elbow_plane` is empty for
+    /// exactly the models that do not have one. Both submission paths go through
+    /// here so there is one place the request lands.
+    fn write_commanded_plane(&mut self, i: usize, plane: [Angle; 2]) {
+        if !self.combat_model.has_swing_plane() { return; }
+        for slot in 0..2 {
+            self.elbow_plane[i][slot].commanded = plane[slot];
+        }
+    }
 
     fn neutral_articulated(&self, i: usize) -> ArticulatedCommandV1 {
         let bearing = self.body_yaw[i].angle;
@@ -3068,6 +3113,30 @@ mod tests {
         let during = Fx::from_raw(actuator::STANCE_STEP_MOVE_AUTHORITY_RAW);
         assert!(during > Fx::ZERO, "a forced step is a stun rather than a cost");
         assert!(during < Fx::ONE, "a forced step is free");
+    }
+
+    /// The elbow-plane rate, bounded from both sides by the claim it encodes.
+    ///
+    /// The upper bound is the whole derivation: an elbow rotating about the
+    /// shoulder-to-hand axis is the shoulder swinging the entire arm about that
+    /// axis, and nothing in this model lets an arm turn faster than
+    /// `ARM_BEARING_MAX_SPEED_RAW`, so a plane that outran it would be an elbow
+    /// overtaking the shoulder carrying it. The lower bound is the other failure:
+    /// a rate of zero is an elbow that cannot be steered, which is the state the
+    /// command was added to end.
+    ///
+    /// Written as an inequality rather than as `assert_eq!` against the constant
+    /// it is defined from, which would restate the definition and pass whatever
+    /// either number became.
+    #[test]
+    fn the_elbow_plane_rate_is_bounded_from_both_sides() {
+        let plane = actuator::ELBOW_PLANE_MAX_SPEED_RAW;
+        assert!(plane > 0, "a commanded elbow plane that can never be reached");
+        assert!(plane <= actuator::ARM_BEARING_MAX_SPEED_RAW,
+                "the elbow outruns the shoulder that carries it");
+        // And it is slow enough to matter: crossing the worst case must take
+        // more than one tick, which is the property the swept forearm needs.
+        assert!(32_768 / plane > 1, "half a turn of plane change costs one tick");
     }
 
     /// The step has to be long enough for the hips to actually arrive, or it

@@ -449,6 +449,22 @@ test("the_browser_contact_warmup_does_not_grow_wasm_memory", () => {
   // shift. That scale is set by two worlds at 64 reserved rows over three
   // seeds, and none of it is what this fixture measures: the subject is still
   // that nothing grows *after* the guard closes.
+  //
+  // **The commanded swing plane moved the plateau again, and this time it moved
+  // it *down*: 307 -> 266, with the settling round 22 -> 10.** Traced per round
+  // on the same script: 210 from round one, 240 from round seven, 266 from
+  // round ten, then 266 unchanged through round sixty. That direction is the
+  // best evidence the paragraph above has ever had. The session added an eight
+  // byte `elbow_plane` row a body and four bytes to a static command buffer; a
+  // change that only adds bytes cannot take 2.7 MB off a footprint, so the
+  // plateau is plainly a function of dlmalloc's size classes and allocation
+  // order rather than of what the world weighs. A page figure here is a record
+  // of one build's arena and never a budget.
+  //
+  // Thirty-seven is now three and a half times the settling round rather than
+  // two thirds again, and it stays thirty-seven. Cutting it would buy a second
+  // of test time by spending the margin that caught this fixture out twice, and
+  // the settling round has now moved in both directions.
   for (let round = 1; round <= 37; round++) {
     for (const seed of seeds) contactWarmup(wasm, abi, seed);
   }
@@ -523,10 +539,20 @@ test("published_legacy_views_survive_every_warm_path_without_memory_growth", () 
   // v2-17 checkpoint B took the capacity to 2048 and the second reservation to
   // 256 KiB, and one round over the three seeds stopped being enough: the
   // guarded phase then grew on `seed 1, cycle 2`. **Two rounds per seed, nested
-  // the way the guarded phase nests them**, settles it at 38 pages. Two rounds
-  // over the seed *list* -- the same six `exercise` calls in the other order --
-  // does not, which says the peak follows the floor-to-floor transition rather
-  // than the count of rounds, and is why this loop is nested and not flat.
+  // the way the guarded phase nests them**, settles it at 39 pages -- 29 after
+  // seed 0's first round, 34 after its second, 39 from seed 1's first and flat
+  // from there. Two rounds over the seed *list* -- the same six `exercise`
+  // calls in the other order -- does not, which says the peak follows the
+  // floor-to-floor transition rather than the count of rounds, and is why this
+  // loop is nested and not flat.
+  //
+  // **That sensitivity to the call *sequence* is not a figure of speech, and it
+  // is why more warm-up is not automatically safer here.** Traced at six rounds
+  // per seed on 2026-08-17 the warm-up settles at the same 39 and the guarded
+  // phase then grows at `seed 0, cycle 4`. Six rounds is not two rounds with
+  // margin; it is a different sequence of floor-to-floor transitions reaching a
+  // different peak, exactly as the paragraph above says. The count that is
+  // measured to hold is the count that ships.
   let initialRevisions = null;
   for (const seed of [0, 1, 0xffff_ffff]) {
     for (let round = 1; round <= 2; round++) initialRevisions = exercise(wasm, abi, seed);
@@ -707,7 +733,7 @@ const CLINCH_BATCH_ROUNDS = 16;
 // per seed, and the warm-up drives exactly what the cycles then drive -- see
 // the reading recorded at the warm loop for why one round is already enough and
 // three is margin.
-const ARTICULATED_WARM_ROUNDS = 3;
+const ARTICULATED_WARM_ROUNDS = 12;
 const ARTICULATED_GUARDED_CYCLES = 3;
 
 // The articulated stress fixture: every path v2-16 added, at the maxima this
@@ -895,21 +921,36 @@ test("published_views_survive_articulated_stress_without_memory_growth", () => {
   // detached every retained view, and warming the same seed twice did not fix it
   // because the peak is per *floor*.
   //
-  // **Measured, and it settles at 258 pages from the end of round one** --
-  // unchanged through a measured round six, and unchanged through a measured
-  // sixth guarded cycle. One round would therefore do; three is margin that
-  // costs about a second, on the sibling fixture's argument that a warm-up
-  // whose cost is invisible is the wrong place to be frugal. It read 242 until
-  // the embodied sessions of 2026-08-17 widened the world; the sibling contact
-  // fixture traces what that widening did to the allocator, and why a page
-  // figure here is a record rather than a claim. Two readings for the shape of
-  // the number: the legacy fixture beside this one settles at 38 pages and the
-  // articulated contact fixture at 307, so most of the 258 is the articulated
-  // *room* -- a generated floor with a roster on it -- rather than the 292,352
-  // bytes of pose, event, region, projectile and stance array, which is 5
-  // pages. It read 237 while `MAX_COMBAT_EVENTS` was 1024; four of the pages
-  // between are that capacity doubling, static array and live reservations
-  // together.
+  // **Measured, and it settles at 302 pages from the end of round six** --
+  // 258 from round one, flat through round five, one step to 302 at round six,
+  // then 302 unchanged through a measured round forty. Twelve rounds is the
+  // settling round doubled, on the sibling fixture's argument that a warm-up
+  // whose cost is invisible is the wrong place to be frugal.
+  //
+  // **Twelve was then run, and that is the claim rather than the flat trace.**
+  // The legacy fixture below records a case where six rounds settle at the same
+  // page count as two and the guarded phase grows anyway, because a longer
+  // warm-up is a *different* sequence of floor-to-floor transitions and not the
+  // same one with margin. A flat tail says the allocator converges; only
+  // running the count that ships says the guard holds at it.
+  //
+  // **It was three rounds and 258 flat until session 07's commanded swing
+  // plane, and three left it one step short in exactly the way the sibling
+  // fixture has now been caught twice.** The growth surfaced on `seed 1, cycle
+  // 3` -- inside the guard, which reads as a leak -- and thirty-four
+  // consecutive rounds at 302 is what says it is not one. The column that did
+  // it is eight bytes a body, so the 44 pages are the allocator's arena and not
+  // the world's weight; the sibling fixture's trace makes the same point from
+  // the other direction, having moved *down* 41 pages in the same commit.
+  //
+  // It read 242 until the embodied sessions of 2026-08-17 widened the world.
+  // Two readings for the shape of the number: the legacy fixture beside this
+  // one settles at 39 pages and the articulated contact fixture at 266, so most
+  // of the 302 is the articulated *room* -- a generated floor with a roster on
+  // it -- rather than the 292,352 bytes of pose, event, region, projectile and
+  // stance array, which is 5 pages. It read 237 while `MAX_COMBAT_EVENTS` was
+  // 1024; four of the pages between are that capacity doubling, static array
+  // and live reservations together.
   //
   // **The 241 this comment carried until v2-ui-07 was stale, and v2-ui-08 said
   // so where it landed rather than fixing it here.** The 32,768-byte checkpoint
@@ -1143,6 +1184,14 @@ test("arena_start_allocates_within_the_warm_set", async () => {
   // one allocator step of about 24 pages arriving later than it used to, not two
   // independent leaks: nine and twenty-nine flat rounds respectively are what
   // say so. Eight is the settling round doubled.
+  //
+  // **Re-traced on 2026-08-17 after the commanded swing plane, and the step is
+  // gone: 236 pages from round one, flat through a measured round twenty.** The
+  // count stays at eight. It is now eight times the settling round rather than
+  // twice it, and the three fixtures in this file have between them moved a
+  // settling round from 12 to 22 to 10, and from 4 to 1, on changes that added
+  // a few bytes a body -- which is the argument for leaving margin alone rather
+  // than trimming it to the latest reading.
   for (let r = 1; r <= 8; r += 1) round();
 
   const shape = publicationShape(wasm, abi);

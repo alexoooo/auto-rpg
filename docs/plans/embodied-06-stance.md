@@ -1,8 +1,8 @@
 # Embodied 06 -- stance: hips, pelvis, and a twist budget that forces a step
 
-**Status:** sim side complete, landed 2026-08-17. The `EMBODIED_STANCE_V1`
-publication is the one outstanding piece and is the only predicted pin move in the
-plan.
+**Status:** complete. Landed 2026-08-17, publication included.
+`ARTICULATED_STREAM_DIGEST` moved as predicted and by extension alone, to
+`0x686ecf8a2f5dd479`, and it is the only pin that moved.
 
 Legs and torso are automatically controlled, as they are in the source material.
 There is no leg command and there will not be one. What this session adds is the
@@ -160,14 +160,21 @@ time from the other two constants, so it cannot go stale when either moves.
 tests red -- the two-sided bound, the forced-step arming, and the step-duration
 coherence -- and leaves the other 634 green.
 
-## What is outstanding
+## The publication, as it landed
 
-The `EMBODIED_STANCE_V1` publication: one record per live embodied body carrying
+`EMBODIED_STANCE_V1`: one record per live embodied body carrying
 `entity_index generation hip_yaw_raw pelvis_raw twist_raw step_left`, on the
-`DUNGEON_OBJECT_V1` pattern. `World::stances()` and `sim::StanceView` are in place
-for it to read -- a view rather than the column, for the reason `ArticulatedPose` is
-a view, and with `twist_raw` derived at the boundary so a consumer cannot be handed
-one that disagrees with the two angles it sits between.
+`DUNGEON_OBJECT_V1` pattern. `World::stances()` and `sim::StanceView` are what it
+reads -- a view rather than the column, for the reason `ArticulatedPose` is a view,
+and with `twist_raw` derived at the boundary so a consumer cannot be handed one that
+disagrees with the two angles it sits between.
+
+It is the fifth append-only publication and it publishes into silence: nothing in the
+client reads a stance row yet. That is deliberate and it is written up beside the
+section in [`articulated-abi.md`](../reference/articulated-abi.md) -- a section whose
+length is always zero is indistinguishable from one that was never written, so it
+goes on the wire with the model that produces it rather than with the first reader
+that wants it.
 
 ## Hash expectation
 

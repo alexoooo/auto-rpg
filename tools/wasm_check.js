@@ -118,12 +118,17 @@ const LIFTED_COULOMB_SOLVER_DIGEST = 0x4cbafe3e0f71e14fn;
 // is asserted against this number, so computing it the way the export computes
 // it would assert nothing. It was 55 through payload layout 1.
 const SUBMITTED_COMMAND_BYTES = 57;
-// The same envelope over the embodied payload, which is the same width today
-// and is not the same constant: three pinned digests are taken over the
-// articulated width and have moved together twice, and the embodied model has
-// fields still to come. Written out here for the reason above.
-const EMBODIED_COMMAND_BYTES = 57;
-const EMBODIED_COMMAND_LAYOUT_VERSION = 1;
+// The same envelope over the embodied payload, and **no longer the same
+// width**: the swing plane appended a `u16` per arm, taking the payload from 53
+// to 57 and this buffer from 57 to 61 while `SUBMITTED_COMMAND_BYTES` above
+// stayed exactly where it was. That is what the second constant was for -- three
+// pinned digests are taken over the articulated width and have moved together
+// twice, and none of them moved for this. Written out here for the reason above.
+const EMBODIED_COMMAND_BYTES = 61;
+// Layout 2 is the swing plane. It coincides with the articulated layout version
+// over payloads four bytes apart, which is a coincidence and not a shared
+// number: each moves when its own contract does.
+const EMBODIED_COMMAND_LAYOUT_VERSION = 2;
 
 // The frame header, as the client reads it.
 const HEADER_LEN = 15;
@@ -727,16 +732,18 @@ test("an articulated module refuses submit_embodied by name", () => {
   assert.equal(wasm.embodied_command_layout_version(), EMBODIED_COMMAND_LAYOUT_VERSION);
   assert.notEqual(u32(wasm.embodied_command_ptr()), u32(wasm.submitted_command_ptr()),
     "the embodied scratch is the articulated one under another name");
-  // Layout 1 and kind 2 over the same 53 payload bytes the fixture above uses:
-  // the two grammars are byte-identical today and the envelope is the whole of
-  // what separates them, which is exactly the pair worth staging.
+  // Layout 2 and kind 2 over the 53 payload bytes the fixture above uses **plus
+  // four more**: the two grammars share a prefix and diverge after byte 52,
+  // where the embodied one continues with a swing-plane `u16` per arm. The two
+  // planes differ and neither is zero, so a boundary that truncated the buffer
+  // back to the articulated width could not stage this by accident.
   const fixture = Uint8Array.from([
-    0x01,0x00,0x02,0x00, 0x01,0x00,0x00,0x00, 0xfe,0xff,0xff,0xff,
+    0x02,0x00,0x02,0x00, 0x01,0x00,0x00,0x00, 0xfe,0xff,0xff,0xff,
     0x34,0x12,0x01, 0x44,0x33,0x22,0x11, 0x88,0x77,0x66,0x55,
     0x45,0x23, 0x00,0x40,0x00,0x00, 0x03,0x00,0x00,0x00,
     0x04,0x00,0x00,0x00, 0x56,0x34, 0x00,0xc0,0x00,0x00,
     0x05,0x00,0x00,0x00, 0x06,0x00,0x00,0x00, 0x02,0x01,0x01,0x00,
-    0x00,0x01,
+    0x00,0x01, 0x67,0x45, 0xab,0x89,
   ]);
   assert.equal(fixture.length, EMBODIED_COMMAND_BYTES, "the fixture is not a whole command");
   const scratch = () => new Uint8Array(wasm.memory.buffer, u32(wasm.embodied_command_ptr()),

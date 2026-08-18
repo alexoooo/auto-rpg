@@ -1,6 +1,6 @@
-# Embodied submitted command version 1
+# Embodied submitted command version 2
 
-**Purpose:** Define the version-1 embodied submission contract — payload bytes, coordinate frame, validation order, refusals by name, and wire identities — for the embodied combat model.
+**Purpose:** Define the embodied submission contract — payload bytes, coordinate frame, validation order, refusals by name, and wire identities — for the embodied combat model.
 **Status:** current
 **Canonical source:** This contract plus `crates/sim/src/command.rs`, `crates/sim/src/world/mod.rs`, `crates/sim/src/codec.rs`, `crates/sim/src/scenario.rs`, and `crates/web/src/lib.rs`.
 **Update when:** An embodied input field, range, discriminant, refusal, byte offset, wire identity, or coordinate frame changes.
@@ -9,21 +9,23 @@
 ## The embodied submission contract
 
 `EmbodiedCommandV1` is the only command grammar a `CombatModel::Embodied` world
-accepts. Its layout version is `EMBODIED_COMMAND_LAYOUT_VERSION = 1`, and its payload
-is `EMBODIED_PAYLOAD_BYTES = 53` bytes.
+accepts. Its layout version is `EMBODIED_COMMAND_LAYOUT_VERSION = 2`, and its payload
+is `EMBODIED_PAYLOAD_BYTES = 57` bytes.
 
-Those fifty-three bytes are, today, **byte for byte the articulated payload**. The
+The **first fifty-three of those bytes are the articulated payload** and the two
+contracts diverge after byte 52, where a `swing_plane` angle per arm continues. The
 type holds one named `articulated` field rather than a flattened copy of the six
-articulated fields, and both contracts write their bytes through the same private
-`write_payload`, so the claim is true by construction rather than by two structs
-happening to agree. `an_embodied_payload_is_the_articulated_payload_byte_for_byte`
-asserts it over a fixture whose every field is distinct and asymmetric, so a writer
-that filled one contract from the other's offsets could not pass by accident.
+articulated fields, and both contracts write that prefix through the same private
+`write_payload`, so the shared-prefix claim is true by construction rather than by two
+structs happening to agree.
+`the_two_payload_contracts_share_a_prefix_and_diverge_after_byte_52` asserts it over a
+fixture whose every field is distinct and asymmetric, so a writer that filled one
+contract from the other's offsets could not pass by accident. It replaced
+`an_embodied_payload_is_the_articulated_payload_byte_for_byte`, whose own doc comment
+said it was the claim session 07 would end on purpose.
 
-The identical width is a fact about today, not a promise, and identical bytes are
-already not identical meanings — see [the coordinate
-frame](#the-coordinate-frame-is-torso-relative). What follows explains why a contract
-that is currently a byte-for-byte copy is nevertheless a separate contract.
+Identical bytes were already not identical meanings before the widths parted — see
+[the coordinate frame](#the-coordinate-frame-is-torso-relative).
 
 ## Why the payload is forked
 
@@ -41,18 +43,27 @@ taking it from 51 bytes to 53. All three pins and their wasm mirrors had to be
 predicted in writing, re-recorded, and re-measured on both targets, in a session
 whose subject was a bow.
 
-Embodied sessions 06 and 07 are the sessions that widen the embodied command.
-`crates/sim/src/command.rs` names the two fields coming as a stance and a swing
-plane; session 07 is the concrete one — a `swing_plane` angle per arm appended after
-byte 52, taking `EMBODIED_PAYLOAD_BYTES` from 53 to 57. Forking the payload is what
-lets that land as a change to one width constant in a session about elbows, instead
-of dragging three unrelated pinned digests and their wasm mirrors along with it.
+**Session 07 is what the fork was for, and it has landed.** A `swing_plane` angle per
+arm was appended after byte 52, `EMBODIED_PAYLOAD_BYTES` went 53 → 57, and the
+embodied layout version went 1 → 2. Not one of those three pins moved, and neither did
+their wasm mirrors: the widening was a change to one width constant in a session about
+elbows. Session 06's stance never reached the payload at all — the legs are derived
+state, so they cost a hash column and no wire byte.
 
 That is the whole of what the fork buys, and it is worth stating plainly, because it
-is the only thing that justifies a second contract whose bytes are currently
-identical to the first.
+is the only thing that justified a second contract during the sessions when its bytes
+were identical to the first's.
 
-## Canonical 53-byte embodied payload
+**One thing the fork did not do by itself, and it is worth knowing which.** The
+replay decoder read *both* schemas at `ARTICULATED_PAYLOAD_BYTES`, which was correct
+only while the widths agreed. When the embodied payload grew, the writer emitted 57
+bytes per record and that reader consumed 53, desynchronising everything after the
+command stream — it surfaced as `LimitExceeded(OrderRecords)`, the order count being
+read out of the middle of a payload, rather than as a wrong field. A forked width is
+not self-enforcing at a reader that hard-codes the other one; the reader now derives
+its width from the declared `command_schema`.
+
+## Canonical 57-byte embodied payload
 
 The replay and wasm layouts share this payload. Every offset is where `write_payload`
 puts it. Scalars are little-endian.
@@ -79,19 +90,30 @@ puts it. Scalars are little-endian.
 | 50 | 1 | right grip slot payload |
 | 51 | 1 | left release verb |
 | 52 | 1 | right release verb |
+| 53 | 2 | left swing plane raw `u16` |
+| 55 | 2 | right swing plane raw `u16` |
 
 Scalar ranges, the typed shape behind these bytes, and the shortest-turn rule are the
-articulated ones and are not restated here: see [coordinate and scalar
-rules](articulated-command-v1.md#coordinate-and-scalar-rules). Hold and Flee require a
-zero target index and generation; Attack retains the exact submitted generational
-identity. Keep and Release require a zero slot payload, EquipSlot requires its
-requested slot byte, and a release verb is `0` or `1`. Noncanonical ignored payloads
-are rejected.
+articulated ones for offsets 0–52 and are not restated here: see [coordinate and
+scalar rules](articulated-command-v1.md#coordinate-and-scalar-rules). Hold and Flee
+require a zero target index and generation; Attack retains the exact submitted
+generational identity. Keep and Release require a zero slot payload, EquipSlot
+requires its requested slot byte, and a release verb is `0` or `1`. Noncanonical
+ignored payloads are rejected.
 
-**Do not read this table beside the [articulated
-one](articulated-command-v1.md#canonical-53-byte-articulated-payload), find them
-identical, and conclude the two are the same contract.** They agree on every offset
-and disagree on which constant owns them — and on what two of the fields mean.
+**The swing plane has no structural check, and that is a decision rather than an
+omission.** A structural check exists for a byte with illegal values — an intent tag,
+a grip tag, a release verb. A raw `Angle` has none: all 65,536 bit patterns are legal
+bearings, so there is nothing to refuse and a range invented here would refuse a plane
+the actuator can hold. `no_swing_plane_is_structurally_illegal` asserts the acceptance
+rather than leaving "no rule" and "a rule nobody wrote" looking the same from the call
+site.
+
+**Do not read offsets 0–52 beside the [articulated
+table](articulated-command-v1.md#canonical-53-byte-articulated-payload), find them
+identical, and conclude the two are the same contract.** They agree on every shared
+offset and disagree on which constant owns them, on how many follow, and on what two
+of the fields mean.
 
 ## The coordinate frame is torso-relative
 
@@ -115,11 +137,14 @@ both models, because that is what the geometry, the contact phase and the pose
 publication all read; storing a relative angle would make the published hand depend
 on a yaw that every reader had to re-apply.
 
-**Not one byte moved for any of this.** Same offsets, same 53-byte width, same layout
-version `1`, same record tag, same envelope schema. Two of these fields changed
-meaning completely and nothing on the wire says so — which is why the byte table
-above is not, by itself, the contract, and why a reader who diffs the two tables and
-stops there gets the wrong answer.
+**Not one byte moved for any of this.** The frame change kept every offset, the
+53-byte width it then had, layout version `1`, the record tag and the envelope
+schema. Two of these fields changed meaning completely and nothing on the wire said
+so — which is why the byte table above is not, by itself, the contract, and why a
+reader who diffs the two tables and stops there gets the wrong answer. The swing
+plane, by contrast, moved the width and the layout version together; that is the
+difference between a frame change and a wire change, and it is the point the [closing
+section](#a-wire-change-announces-itself-and-a-frame-change-does-not) returns to.
 
 The articulated contract's absoluteness was a deliberate choice with a cost this one
 declines to pay: **turning the body does not carry the sword**, so footwork and swing
@@ -133,7 +158,7 @@ absolute bearing is stable under yaw, a relative one is stable under the body.
 
 At the byte boundary, the wasm `submit_embodied` export checks in this order:
 
-1. envelope — layout version `1`, kind byte `2`, reserved byte zero;
+1. envelope — layout version `2`, kind byte `2`, reserved byte zero;
 2. subject world model;
 3. live subject index plus generation;
 4. payload structure, through `EmbodiedCommandV1::validate_payload_structure`: the
@@ -173,10 +198,14 @@ grammar and cannot store an arbitrary caller-supplied value.
 The neutral command is `World::neutral_articulated` wrapped in an `EmbodiedCommandV1`:
 zero movement, body yaw and both arm bearings at the current authoritative yaw, Hold
 with a zero target payload, MID height, zero reach and effort, Keep grips, Keep
-releases. A neutral command holds rather than looses, for the reason [the articulated
-contract gives](articulated-command-v1.md#atomic-validation-fallback-and-recording):
-it is what a slot falls back to when nobody has submitted anything, so a `Loose`
-there would fire on behalf of every silent policy.
+releases, and **both swing planes at `Angle::ZERO`**. A neutral command holds rather
+than looses, for the reason [the articulated contract
+gives](articulated-command-v1.md#atomic-validation-fallback-and-recording): it is what
+a slot falls back to when nobody has submitted anything, so a `Loose` there would fire
+on behalf of every silent policy. The neutral plane is chosen on the same argument
+from the other direction: zero is the plane `limb::elbow_point` defaults to, so a
+refusal parks the elbow where it already was instead of swinging the arm to a plane
+nobody asked for.
 
 The `Stored` arm of `SubmitEmbodiedOutcome` returns the exact command stored, original
 or fallback. A replay recorder records only that returned command; the rejection
@@ -192,17 +221,22 @@ reason is optional diagnostics and is neither replay input nor authoritative sta
 | Replay envelope hash schema | `1` |
 | Scenario record combat-model byte | `2` |
 | Scenario fingerprint identity word | `3` |
-| Embodied command layout version | `1` |
+| Embodied command layout version | `2` |
 | wasm envelope kind byte | `2` |
 
 `SubmittedCommand::Embodied` is record tag `2`, appended after Legacy `0` and
 Articulated `1` and never renumbered. A record is tick `u32`, subject index `u32`,
-subject generation `u32`, tag `2`, then the 53-byte payload — 66 bytes.
+subject generation `u32`, tag `2`, then the 57-byte payload — 70 bytes, against the
+articulated record's 66.
 
 `EMBODIED_COMMAND_SCHEMA = 3` is the envelope's declared command schema. It is a third
 value rather than a reuse of the articulated `2` because an envelope has to say how
-wide its command records are before anything reads one, and these two widths are
-going to diverge. Schemas `0`, `1`, and `2` keep their meanings exactly.
+wide its command records are before anything reads one — and **the two widths have now
+diverged, so the schema is the only thing that can answer it.** Schemas `0`, `1`, and
+`2` keep their meanings exactly. `read_submitted_command` derives the record width
+from the declared schema rather than from `ARTICULATED_PAYLOAD_BYTES`, which is what
+it did while the widths agreed and which desynchronised the stream the moment they did
+not.
 
 The codec checks `(command_schema, hash_domain, hash_schema, combat_model)` as one
 tuple, on both the encode and the decode side. Exactly three combinations exist:
@@ -285,75 +319,83 @@ articulated ones — see [the articulated action
 buffer](articulated-command-v1.md#fifty-seven-byte-wasm-action-buffer) — so a host
 that has learned one of the two exports has learned both.
 
-## Fifty-seven-byte wasm action buffer
+## Sixty-one-byte wasm action buffer
 
 `EMBODIED_COMMAND_BYTES` is `4 + EMBODIED_PAYLOAD_BYTES`, derived from the embodied
-width where the articulated buffer is derived from `ARTICULATED_PAYLOAD_BYTES`. Both
-buffers are 57 bytes today for the same reason both payloads are 53, and reading one
-constant twice would give that coincidence the force of a rule.
+width where the articulated buffer is derived from `ARTICULATED_PAYLOAD_BYTES`. They
+are **61 and 57**; they were both 57 while both payloads were 53, and reading one
+constant twice would have given that coincidence the force of a rule.
 
 | Buffer offset | Width | Field |
 |---:|---:|---|
-| 0 | 2 | embodied command layout version `1` |
+| 0 | 2 | embodied command layout version `2` |
 | 2 | 1 | `SubmittedCommand` tag `2` |
 | 3 | 1 | reserved, must be zero |
-| 4 | 53 | embodied payload |
+| 4 | 57 | embodied payload |
 
 ```text
 embodied_command_ptr() -> u32
-embodied_command_len() -> u32                 // 57
-embodied_command_layout_version() -> u32      // 1
+embodied_command_len() -> u32                 // 61
+embodied_command_layout_version() -> u32      // 2
 submit_embodied(entity_index: u32, entity_generation: u32) -> u32
 ```
 
 The buffer is a second fixed thread-local array rather than a second reader of the
 articulated one, because one shared buffer would have to be as wide as whichever
 payload grew last — and the whole point of the second width is that the two grow
-apart. The array never moves and never grows linear memory, so a host view kept over
-it is never detached. Submit copies all 57 bytes into a local value before it
-validates anything, and mutates `World` only after the copy has passed.
+apart, which they now have. The array never moves and never grows linear memory, so a
+host view kept over it is never detached. Submit copies all 61 bytes into a local
+value before it validates anything, and mutates `World` only after the copy has
+passed.
 
-`embodied_command_layout_version()` answers `1` where `submitted_command_layout_version()`
-answers `2`. Two envelopes, two histories: the articulated one is on its second layout
-because a release verb widened its payload, and an embodied writer has never had a
-version to be compatible with. Inheriting the number would claim a compatibility
-story this contract does not have.
+`embodied_command_layout_version()` answers `2` and so does
+`submitted_command_layout_version()` — **for unrelated reasons, and a host must not
+read the agreement as one number.** The articulated envelope reached layout 2 when a
+release verb widened its payload to 53; this one reached layout 2 when the swing plane
+widened its own to 57. Two envelopes, two histories, four bytes apart, each moving
+when its own contract does.
 
-## What is coming, and what it changes
+## A wire change announces itself and a frame change does not
 
-Sessions 06 and 07 widen the payload. Session 06's stance model — pelvis height, hip
-yaw distinct from torso yaw, a bounded hip-to-torso twist — is currently written as
-*derived* state rather than as a commanded field, so whether it costs a payload byte
-is still open. Session 07's swing plane is not open: a `u16` per arm, appended after
-byte 52, taking `EMBODIED_PAYLOAD_BYTES` from 53 to 57 and the embodied command
-digest with it.
-
-Both are wire changes and both are loud: a width constant moves, and the layout
-version moves with it. Neither touches `ARTICULATED_PAYLOAD_BYTES`, so neither moves
-`ARTICULATED_COMMAND_HASH`, `EXACT_TRAJECTORY_STATE_DIGEST`, or
-`LIFTED_COULOMB_SOLVER_DIGEST`. That immunity is precisely what forking the payload
-bought, and it is the whole reason this contract exists as a separate one.
+The swing plane moved `EMBODIED_PAYLOAD_BYTES` from 53 to 57 and
+`EMBODIED_COMMAND_LAYOUT_VERSION` from 1 to 2, and every mirror of both — the wasm
+buffer, `tools/wasm_check.js`, the record width in the replay codec — moved with them.
+It touched `ARTICULATED_PAYLOAD_BYTES` not at all, so `ARTICULATED_COMMAND_HASH`,
+`EXACT_TRAJECTORY_STATE_DIGEST` and `LIFTED_COULOMB_SOLVER_DIGEST` did not move.
 
 Set that against what the torso frame did: it changed the meaning of eight payload
 bytes and moved none of them. **A wire change announces itself and a frame change does
 not** — which is why the frame is written down here, at the top of the contract,
 rather than left to be inferred from a byte table that cannot express it.
 
-## One command column, two wire contracts
+## Two columns, and where the split fell
 
-An embodied command is stored in the same `World` column an articulated one is.
-`submit_embodied_v1` unwraps the `articulated` field and writes it to
-`articulated_command[i]`; the state digest reads that column and distinguishes the two
-models by the payload tag it writes beside each entry, `2` for embodied and `1` for
-articulated.
+An embodied command's six articulated fields are stored in the same `World` column an
+articulated command uses: `submit_embodied_v1` writes `command.articulated` to
+`articulated_command[i]`, and the state digest distinguishes the two models by the
+payload tag it writes beside each entry, `2` for embodied and `1` for articulated.
 
-This is a deliberate economy, not an oversight, and it is stated here rather than left
-to be discovered. What sessions 06 and 07 need forked is the **wire contract** — the
-payload width, the record tag, the envelope schema — because that is the half three
-pinned digests are taken over. The in-memory command is the same six fields today and
-the phases that read it are the same phases, so a second column now would be a second
-copy of one value, kept in step by hand. Even the frame difference does not need one:
-the conversion is applied on read, at two call sites, and never stored.
+The swing plane could not go there, so it did not: it lands in
+`World::elbow_plane`, an embodied-only column of `[ElbowPlaneState; 2]` allocated
+under `CombatModel::has_swing_plane` exactly as `World::stance` is allocated under
+`has_stance`. This is the split the earlier text here predicted — *the session that
+adds the first embodied-only field is the session that splits the column, and it
+cannot forget to: the field will have nowhere else to live.* It had nowhere else to
+live.
 
-The session that adds the first embodied-only field is the session that splits the
-column, and it cannot forget to: the field will have nowhere else to live.
+`ElbowPlaneState` keeps `commanded` beside `held`. `submit_embodied_v1` writes only
+`commanded`, because a stored command is re-read every tick until a new decision
+replaces it; the arms phase chases `held` toward it by at most
+`ELBOW_PLANE_MAX_SPEED_RAW` raw units a tick, shortest way round. That rate is
+`ARM_BEARING_MAX_SPEED_RAW` — an elbow may not swing about the arm's own axis faster
+than the shoulder swings the whole arm — and it is a bound rather than a bill: the
+work an arm does about its own axis is not modelled, so charging it to fatigue or
+effort would be inventing a cost. The bound is **required and not polish**: a
+commanded plane that jumped half a turn in one tick would sweep the forearm across the
+body inside that tick and hand the contact solver a closing energy no arm can produce.
+
+Both halves reach the `EmbodiedV1` digest and neither reaches `ArticulatedV1`, because
+the column is written in the block behind the model guard at the end of
+`articulated_state_digest`, where `ground_z` and the stance already are.
+`an_embodied_only_column_cannot_move_an_articulated_digest` perturbs each of them by
+one raw unit and watches only the embodied digest move.
