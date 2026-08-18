@@ -375,13 +375,13 @@ fn generated() -> String {
     emit!(EMBODIED_STANCE_PELVIS_RAW);
     emit!(EMBODIED_STANCE_TWIST_RAW);
     emit!(EMBODIED_STANCE_STEP_LEFT);
-    output.push_str(
-        "\nexport const FOCUS_NONE = 4294967295;\n\
-         export const FOCUS_IDENTITY_EXPORTS = [\n\
-         \x20 \"focus_entity_index\",\n\
-         \x20 \"focus_entity_generation\",\n\
-         ] as const;\n",
-    );
+    // **The focus block was emitted here and is gone with the exports it named.**
+    // `FOCUS_IDENTITY_EXPORTS` was a two-name list the worker spread into its
+    // boot check, and `FOCUS_NONE` was the sentinel the snapshot filter compared
+    // those two exports' answers against. `focus_entity_index` and
+    // `focus_entity_generation` no longer exist -- an embodied body perceives no
+    // standing order, so there is no quarry to name -- and a generated constant
+    // whose only reader was fed by a deleted export is a mirror of nothing.
     output
 }
 

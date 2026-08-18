@@ -322,7 +322,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
    * The worker that records live fights, built on the first [Run selected fight] and reused.
    *
    * One per mounted route rather than one per fight: instantiating `web.wasm`
-   * and warming `init_articulated` costs more than the fight does. Null until
+   * and warming `init` costs more than the fight does. Null until
    * something asks for a fight, so a reader who only ever opens a trace never
    * pays for a wasm instantiation at all.
    */

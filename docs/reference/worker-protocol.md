@@ -317,7 +317,7 @@ weakest of the three rules. Four links in the tree have that shape. An
 anchor is a hint and not a contract; check the symbol is on the line before quoting
 one.
 
-- Protocol declarations and input decoder: [`messages.ts`](../../client/src/protocol/messages.ts#L1), [`decodeClientMessage`](../../client/src/protocol/messages.ts#L307)
+- Protocol declarations and input decoder: [`messages.ts`](../../client/src/protocol/messages.ts#L1), [`decodeClientMessage`](../../client/src/protocol/messages.ts#L314)
 - Fixed buffer pool: [`FixedBufferPool`](../../client/src/runtime/buffer-pool.ts#L22)
 - Pure worker state machine: [`SimWorkerHost`](../../client/src/runtime/sim-worker-host.ts#L55)
 - Main-thread request and lease owner: [`SimClient`](../../client/src/runtime/sim-client.ts#L122)

@@ -275,9 +275,3 @@ export const EMBODIED_STANCE_HIP_YAW_RAW = 2;
 export const EMBODIED_STANCE_PELVIS_RAW = 3;
 export const EMBODIED_STANCE_TWIST_RAW = 4;
 export const EMBODIED_STANCE_STEP_LEFT = 5;
-
-export const FOCUS_NONE = 4294967295;
-export const FOCUS_IDENTITY_EXPORTS = [
-  "focus_entity_index",
-  "focus_entity_generation",
-] as const;

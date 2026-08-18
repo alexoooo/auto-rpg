@@ -45,41 +45,21 @@ if (CARTESIAN_RECOIL) BUILD.push("--features", "cartesian-recoil");
 // so a change in the sim's behaviour fails there as well as here. That pairing
 // is what tells the two failure modes apart -- see `divergence` below.
 
-// `lab hash`: skirmish(1234, 4, 6), seed 99, baseline policy, run to a finish.
-const LAB_HASH = 0xfe31370e141ef531n;
-
-// `init(1); set_goto(20_000, 12_000); step(600)`: the path a player drives.
-// Re-recorded in `world-05` along with the three below: `init` is
-// `Scenario::dungeon`, so the level going from 48x32 to 68x45 is a different
-// floor plan and a different run from tick zero. `LAB_HASH` stayed put, which is
-// how you tell a level change from a rules change.
-const ROOM_HASH = 0xb8990e0dd2f543bfn;
-
-// `init(1); spawn_monster(3); step(600)`: a whole fight, start to finish. Worth
-// its own number because it reaches arithmetic the walk never does -- the spawn
-// point comes out of `Rng::from_stream` and the committed sine table, and every
-// approach measures a distance through `isqrt64`.
-const BATTLE_HASH = 0xa68f4a40570b208an;
-
-// `init(1); spawn_monster(2) x3; step(1800); swap_in_hero(1); step(400)`: a
-// fight, a death, a replacement, and the fight the replacement walks into. The
-// longest arc the page can drive, and the only one of these four that runs the
-// sim across the death of an entity and the *reuse* of its slot -- the
-// generational free list is exactly the kind of index bookkeeping that a 32-bit
-// usize could quietly do differently.
-// Re-recorded in `world-04`, and the only one of the five that moved there: a
-// replacement now arrives at the spot the last one fell rather than in the
-// clearest room on the floor, and this is the one script with a death in it.
-const SWAP_HASH = 0xd2d38c5ad27c3f13n;
-
-// `init(1); set_hero_loadout(0, BOW); spawn_monster(BRUTE); step(1200)`: the
-// only one of these five that ever puts an arrow in the air, and the only
-// reason it exists. The other four never touch the projectile path, which is a
-// good deal of arithmetic none of them exercise -- `Vec2::length` on every tick
-// of every flight, `segment_circle`'s i64-staged dot products, and the
-// saturating multiply in `tangential_speed` at the release. Portable
-// fixed-point is a claim about code that runs.
-const BOW_HASH = 0xce5fa25b974e0701n;
+// **Five state-hash pins stood here and they were deleted with their fixtures,
+// not re-recorded.** `LAB_HASH` was `lab hash`'s canned skirmish through
+// `selftest_hash`; `ROOM_HASH` was `init(1); set_goto(...); step(600)`;
+// `BATTLE_HASH` and `SWAP_HASH` were the spawn and the death-and-replacement on
+// the same floor; `BOW_HASH` was the only one that ever put an arrow in the air,
+// staged through `set_hero_loadout`. Every one of them named a **Legacy**
+// scenario, and `init` no longer opens one: the exports their scripts were
+// written around -- `selftest_hash_*`, `set_goto`, `set_hero_loadout` -- are
+// gone, so there is no script left to recompute the number from. A pin whose
+// fixture cannot be built is not a golden that moved; it is a golden with
+// nothing behind it, and re-recording one against a *different* fight would be
+// the worst of the three options. What survives is what still has a fixture: the
+// articulated command digest, the contact corpus, the combat geometry, the
+// publication stream digest and the two feature-only exact digests, none of
+// which moved.
 // Moved by v2-14C: ArticulatedV1 hashing gained a global `cap_hits:u32` after
 // the actuator loop, and this probe is unstepped, so the move is four zero
 // bytes and nothing else. Moved again by v2-15, which appended one 61-byte
@@ -130,6 +110,37 @@ const EMBODIED_COMMAND_BYTES = 61;
 // number: each moves when its own contract does.
 const EMBODIED_COMMAND_LAYOUT_VERSION = 2;
 
+// The two commands, written out here rather than inside one test, because three
+// tests now stage them: the articulated fixture, the embodied fixture, and each
+// of them offered to the *other* model's boundary. Still written out and not
+// derived from one another -- the shared prefix is a fact about the two grammars
+// that this file states twice on purpose, so that a session which moves one
+// payload has to look at the other.
+const ARTICULATED_COMMAND_FIXTURE = Object.freeze([
+  0x02,0x00,0x01,0x00, 0x01,0x00,0x00,0x00, 0xfe,0xff,0xff,0xff,
+  0x34,0x12,0x01, 0x44,0x33,0x22,0x11, 0x88,0x77,0x66,0x55,
+  0x45,0x23, 0x00,0x40,0x00,0x00, 0x03,0x00,0x00,0x00,
+  0x04,0x00,0x00,0x00, 0x56,0x34, 0x00,0xc0,0x00,0x00,
+  0x05,0x00,0x00,0x00, 0x06,0x00,0x00,0x00, 0x02,0x01,0x01,0x00,
+  0x00,0x01,
+]);
+// Layout 2 and kind 2 over the 53 payload bytes above **plus four more**: the
+// two grammars share a prefix and diverge after byte 52, where the embodied one
+// continues with a swing-plane `u16` per arm. The two planes differ and neither
+// is zero, so a boundary that truncated the buffer back to the articulated width
+// could not stage this by accident.
+const EMBODIED_COMMAND_FIXTURE = Object.freeze([
+  0x02,0x00,0x02,0x00, 0x01,0x00,0x00,0x00, 0xfe,0xff,0xff,0xff,
+  0x34,0x12,0x01, 0x44,0x33,0x22,0x11, 0x88,0x77,0x66,0x55,
+  0x45,0x23, 0x00,0x40,0x00,0x00, 0x03,0x00,0x00,0x00,
+  0x04,0x00,0x00,0x00, 0x56,0x34, 0x00,0xc0,0x00,0x00,
+  0x05,0x00,0x00,0x00, 0x06,0x00,0x00,0x00, 0x02,0x01,0x01,0x00,
+  0x00,0x01, 0x67,0x45, 0xab,0x89,
+]);
+// `web::SUBMIT_WRONG_MODEL`, in the packed word's reason byte: the boundary was
+// handed a command for a model this world is not running.
+const WRONG_MODEL = 2 << 8;
+
 // The frame header, as the client reads it.
 const HEADER_LEN = 15;
 const UNIT_STRIDE = 33;
@@ -175,9 +186,6 @@ const MAX_UNITS = 64;
 const frameSpan = (live) =>
   HEADER_LEN + UNIT_STRIDE * live[6] + SHOT_STRIDE * live[7] + EVENT_STRIDE * live[8];
 
-// `ActionKind::code`, from crates/sim/src/action.rs. Append-only, so this is
-// safe to write down.
-const BOW_CODE = 6;
 // `DUNGEON_COLS` x `DUNGEON_ROWS`, from crates/sim/src/scenario.rs. Written down
 // rather than read off `wasm.map_cols()`, so that a level that quietly changed
 // extent fails here instead of agreeing with itself.
@@ -266,7 +274,6 @@ const u32 = (n) => n >>> 0;
 const hash64 = (lo, hi) => (BigInt(u32(hi)) << 32n) | BigInt(u32(lo));
 const hex = (v) => `0x${v.toString(16).padStart(16, "0")}`;
 
-const selftestHash = () => hash64(wasm.selftest_hash_lo(), wasm.selftest_hash_hi());
 const stateHash = () => hash64(wasm.state_hash_lo(), wasm.state_hash_hi());
 
 // The live frame, copied out.
@@ -319,13 +326,13 @@ function divergence(what, native, measured) {
     "               deliberately, in the commit that changed it.",
     "  passes    -> the two targets genuinely disagree. Read on.",
     "",
-    "Then, which system? The four hashes here exercise different code:",
-    "selftest_hash runs a canned 4v6 fight (combat, perception noise, fitness),",
-    "the room script runs click-to-move (the order channel, the decision loop,",
-    "Order::Goto and the arrival rule), the battle script runs a spawn (the",
-    "placement roll and the sine table), and the swap script runs a death and a",
-    "reused entity slot. One failing alone names the system; all of them failing",
-    "points at crates/fx, underneath everything.",
+    "Then, which system? The pins left here exercise different code:",
+    "ARTICULATED_COMMAND_HASH is an unstepped command-store fixture (the payload",
+    "grammar and the state serializer's tail), CONTACT_BEHAVIOR_DIGEST is the",
+    "solver's own corpus, COMBAT_GEOMETRY_HASH is crates/fx's frozen table, and",
+    "ARTICULATED_STREAM_DIGEST drives twenty ticks of a scripted articulated fight",
+    "through the pose and combat-event encoders. One failing alone names the",
+    "system; all of them failing points at crates/fx, underneath everything.",
     "",
     "Where the targets can actually diverge, in the order worth checking:",
     "",
@@ -353,23 +360,18 @@ test("the boundary exports everything the client calls", () => {
   // A rename is a LinkError in the browser and a silent `undefined is not a
   // function` here, so it is worth one cheap assertion up front.
   const exports = [
+    // **The one entry point, and it opens an embodied floor.** There were three
+    // -- `init` under Legacy, `init_articulated` and `init_embodied` -- because
+    // an export's name was the whole of what a page selected a model with. With
+    // one model left there is nothing to select, so the two extra names are gone
+    // and every fixture below drives this one.
     "init",
     "init_articulated_test",
-    "set_goto",
-    // Beside `set_goto` because it is the other half of the click: a tap on
-    // open ground is a destination, a tap on an enemy names a quarry. It earns
-    // its line here for the reason the comment above gives twice over -- the
-    // page keeps its own `EXPORTS` whitelist and binds only the names on it, so
-    // a boundary function this list never checked can be present in the wasm,
-    // absent from the page, and fail as `undefined is not a function` on the
-    // first click rather than as anything either side calls an error.
-    "set_focus",
-    "focus_entity_index",
-    "focus_entity_generation",
-    "clear_order",
-    "route_clear",
-    "route_push",
-    "route_len",
+    // **`set_goto`, `set_focus`, `clear_order`, the three route names and the
+    // two focus readers stood here and are gone.** Not a rename to chase: an
+    // `ArticulatedObservation` has no order column and no nav column, so the
+    // click was moving the state hash and the frame header while moving nobody.
+    // Their absence is checked below rather than only assumed.
     "spawn_monster",
     "swap_in_hero",
     "step",
@@ -408,7 +410,7 @@ test("the boundary exports everything the client calls", () => {
     // The v2-16 pose and combat-event publications, v2-ui-06's region capsules,
     // the arrow session's projectiles and `EMBODIED_STANCE_V1`'s stances:
     // **thirty-two** names, counting down to `articulated_stream_digest_hi` and
-    // *not* counting `init_articulated`, the configured duel's seven or the
+    // *not* counting the configured duel's seven or the
     // checkpoint's eight, each of which was inserted in the middle and given its
     // own note. **It read "twenty-one" until the stance section counted it**, and
     // it had been wrong since at least the projectile block landed -- which is
@@ -450,32 +452,20 @@ test("the boundary exports everything the client calls", () => {
     "articulated_projectile_capacity",
     "articulated_projectiles_dropped",
     "articulated_projectile_layout_version",
-    // The stance section. Six names with no caller anywhere yet -- no export
-    // installs an embodied world, so every world the browser can open publishes
-    // a zero-length section here -- which makes this list the whole of what
-    // stands between a rename and a session that finds the export missing when
-    // it finally writes the reader. `embodied_stance_len()` is the one whose
-    // silence would be loudest, and worse than `region_len()`'s: a zero is the
-    // *correct* answer for every world this module can currently build, so
-    // `undefined >>> 0` reads as the right number for the wrong reason and every
-    // assertion below it passes vacuously forever.
+    // The stance section, and it is no longer the one with no caller: `init`
+    // opens an embodied floor, so a body with legs is what every world the
+    // browser can build now publishes here. That makes `embodied_stance_len()`
+    // ordinary rather than uniquely dangerous -- a zero has stopped being the
+    // correct answer for the world the page opens, so `undefined >>> 0` now
+    // fails the assertions below instead of passing them vacuously. It still
+    // earns its line for `region_len()`'s reason: the section carries no
+    // identity of its own and is read against `pose_len()`.
     "embodied_stance_ptr",
     "embodied_stance_len",
     "embodied_stance_stride",
     "embodied_stance_capacity",
     "embodied_stances_dropped",
     "embodied_stance_layout_version",
-    // `init`'s room under the articulated model. Its only callers today are the
-    // two tests below and client/test/wasm-memory.test.mjs, which warms it
-    // because it is the call that reserves 64 rows of contact vectors a Legacy
-    // heap has never held -- so a rename here would leave that test warming
-    // nothing and failing on growth it caused itself.
-    "init_articulated",
-    // The same room under the model that is going to be the only one. It is a
-    // separate export rather than a parameter for the reason `init` and
-    // `init_articulated` are two: the export name is the whole of what a page
-    // selects a model with.
-    "init_embodied",
     // The configured duel. Seven names the studio has written since v2-ui-07 and
     // nothing else ever has -- the Canvas page that never called them is
     // retired -- so this list is
@@ -512,24 +502,24 @@ test("the boundary exports everything the client calls", () => {
     "submitted_command_len",
     "submitted_command_layout_version",
     "submit_articulated",
-    // The embodied twin of the four names above. Nothing calls these anywhere
-    // yet -- no export installs an embodied world, so the only answer the
-    // browser can get out of `submit_embodied` today is the refusal -- which
-    // makes this list the whole of what stands between a rename and a session
-    // that finds the export missing when it finally writes the caller.
+    // The embodied twin of the four names above, and the pair has swapped which
+    // one is live: `init` opens an embodied floor, so `submit_embodied` is the
+    // one that stores and `submit_articulated` is the one that answers the model
+    // refusal there. Both directions are driven below rather than assumed.
     "embodied_command_ptr",
     "embodied_command_len",
     "embodied_command_layout_version",
     "submit_embodied",
-    "selftest_hash_lo",
-    "selftest_hash_hi",
+    // **`selftest_hash_lo`/`_hi` stood here and are gone with `LAB_HASH`.** They
+    // built a canned Legacy skirmish, ran it to a finish and threw it away; the
+    // scenario they built is one the sim no longer has a model for.
     "set_policy",
     "policy_kind",
-    "policy_weight_count",
-    "policy_gene",
-    "policy_weight",
-    "set_policy_gene",
-    "reset_policy_genes",
+    // **The five gene exports stood here and are gone.** A legacy policy was a
+    // kind plus a genome; an `EmbodiedPolicyKind` is a kind and nothing else, so
+    // `policy_weight_count`, `policy_gene`, `policy_weight`, `set_policy_gene`
+    // and `reset_policy_genes` were deleted rather than made to answer zero. The
+    // two label exports survive re-based: index 0 is the policy's own name.
     "policy_label_ptr",
     "policy_label_len",
     "set_control",
@@ -550,13 +540,16 @@ test("the boundary exports everything the client calls", () => {
     "body_name_ptr",
     "body_name_len",
     "body_stat",
+    // The stat sheet, read-only where the anatomy owns the answer.
+    // **`set_hero_loadout` and `set_hero_body` were deleted and their getters
+    // were not**, which is the shape a control takes when the thing behind it
+    // stopped being settable: an embodied hero's hands and anatomy are the
+    // scenario's, fixed when the floor is built.
     "hero_loadout",
     "hero_slot",
-    "set_hero_loadout",
     "hero_stat",
     "set_hero_stat",
     "hero_body",
-    "set_hero_body",
     "spawn_template_body",
     "set_spawn_template_body",
     "spawn_template_stat",
@@ -593,6 +586,26 @@ test("the boundary exports everything the client calls", () => {
     assert.equal(typeof wasm[name], "function", `web.wasm does not export ${name}()`);
   }
   assert.ok(wasm.memory instanceof WebAssembly.Memory, "LLD did not export memory");
+
+  // **The nineteen that were removed, asserted absent.** A list of names that
+  // must be *present* cannot say anything about a name that came back: an export
+  // resurrected under its old name would rebuild the exact control this session
+  // removed for accepting input it could not act on, and every list in this file
+  // would still be satisfied. Nothing here is a rename, so the honest form of
+  // "this channel is gone" is that the boundary does not answer to it.
+  const removed = [
+    "set_goto", "set_focus", "clear_order", "route_clear", "route_push", "route_len",
+    "focus_entity_index", "focus_entity_generation",
+    "init_articulated", "init_embodied",
+    "policy_weight_count", "policy_gene", "policy_weight", "set_policy_gene",
+    "reset_policy_genes",
+    "set_hero_loadout", "set_hero_body",
+    "selftest_hash_lo", "selftest_hash_hi",
+  ];
+  for (const name of removed) {
+    assert.equal(wasm[name], undefined, `web.wasm still exports ${name}()`);
+  }
+  assert.equal(removed.length, 19, "the removed-export list is not the nineteen this session deleted");
 
   // The five numbers the page's boot handshake compares. Wrong here and the
   // page stops with an overlay instead of painting a health bar out of a guard
@@ -678,19 +691,6 @@ test("the lifted Coulomb solver digest is feature-only, paired and cached", () =
   console.log(`lifted solver digest 0x${first.toString(16).padStart(16, "0")} memory pages ${pagesBefore}/${pagesAfterFirst}/${pagesAfterSecond}`);
 });
 
-test("the selftest hash is the number the lab prints natively", () => {
-  // Independent of init() and of anything else in this file: selftest_hash
-  // builds its own world, runs it to a conclusion and throws it away. It runs
-  // exactly what `cargo run --release -p lab -- hash` runs, which is what makes
-  // comparing against a number copied out of that command's output honest.
-  const measured = selftestHash();
-  // `ok`, not `equal`: assert.equal would append its own diff of the two values
-  // in decimal, which is nineteen digits of noise under a message that already
-  // prints both of them in hex.
-  assert.ok(measured === LAB_HASH, divergence("The selftest hash", LAB_HASH, measured));
-  console.log(`selftest hash  ${hex(measured)}  == native`);
-});
-
 test("the articulated command scratch matches Rust and stores atomically", () => {
   wasm.init_articulated_test(1);
   // 57 and layout 2 since the release verb landed: two bytes appended to a
@@ -700,14 +700,7 @@ test("the articulated command scratch matches Rust and stores atomically", () =>
   // it mirrors checks nothing.
   assert.equal(wasm.submitted_command_len(), SUBMITTED_COMMAND_BYTES);
   assert.equal(wasm.submitted_command_layout_version(), 2);
-  const fixture = Uint8Array.from([
-    0x02,0x00,0x01,0x00, 0x01,0x00,0x00,0x00, 0xfe,0xff,0xff,0xff,
-    0x34,0x12,0x01, 0x44,0x33,0x22,0x11, 0x88,0x77,0x66,0x55,
-    0x45,0x23, 0x00,0x40,0x00,0x00, 0x03,0x00,0x00,0x00,
-    0x04,0x00,0x00,0x00, 0x56,0x34, 0x00,0xc0,0x00,0x00,
-    0x05,0x00,0x00,0x00, 0x06,0x00,0x00,0x00, 0x02,0x01,0x01,0x00,
-    0x00,0x01,
-  ]);
+  const fixture = Uint8Array.from(ARTICULATED_COMMAND_FIXTURE);
   assert.equal(fixture.length, SUBMITTED_COMMAND_BYTES, "the fixture is not a whole command");
   new Uint8Array(wasm.memory.buffer, u32(wasm.submitted_command_ptr()),
                  SUBMITTED_COMMAND_BYTES).set(fixture);
@@ -728,34 +721,22 @@ test("the articulated command scratch matches Rust and stores atomically", () =>
 });
 
 test("an articulated module refuses submit_embodied by name", () => {
-  // There is no embodied world to reach from here -- no export installs one --
-  // so the refusal is the whole of what this boundary can answer today, and it
-  // is the half worth checking anyway: a control that accepted a request it
-  // cannot act on would say nothing about it.
+  // `init_articulated_test` is now the only articulated world this boundary can
+  // build, which is what keeps this refusal reachable at all: `init` opens an
+  // embodied floor, so without this fixture the wrong-model answer would have no
+  // caller and the test below it would be the only direction ever driven.
   wasm.init_articulated_test(1);
   assert.equal(wasm.embodied_command_len(), EMBODIED_COMMAND_BYTES);
   assert.equal(wasm.embodied_command_layout_version(), EMBODIED_COMMAND_LAYOUT_VERSION);
   assert.notEqual(u32(wasm.embodied_command_ptr()), u32(wasm.submitted_command_ptr()),
     "the embodied scratch is the articulated one under another name");
-  // Layout 2 and kind 2 over the 53 payload bytes the fixture above uses **plus
-  // four more**: the two grammars share a prefix and diverge after byte 52,
-  // where the embodied one continues with a swing-plane `u16` per arm. The two
-  // planes differ and neither is zero, so a boundary that truncated the buffer
-  // back to the articulated width could not stage this by accident.
-  const fixture = Uint8Array.from([
-    0x02,0x00,0x02,0x00, 0x01,0x00,0x00,0x00, 0xfe,0xff,0xff,0xff,
-    0x34,0x12,0x01, 0x44,0x33,0x22,0x11, 0x88,0x77,0x66,0x55,
-    0x45,0x23, 0x00,0x40,0x00,0x00, 0x03,0x00,0x00,0x00,
-    0x04,0x00,0x00,0x00, 0x56,0x34, 0x00,0xc0,0x00,0x00,
-    0x05,0x00,0x00,0x00, 0x06,0x00,0x00,0x00, 0x02,0x01,0x01,0x00,
-    0x00,0x01, 0x67,0x45, 0xab,0x89,
-  ]);
+  const fixture = Uint8Array.from(EMBODIED_COMMAND_FIXTURE);
   assert.equal(fixture.length, EMBODIED_COMMAND_BYTES, "the fixture is not a whole command");
   const scratch = () => new Uint8Array(wasm.memory.buffer, u32(wasm.embodied_command_ptr()),
                                        EMBODIED_COMMAND_BYTES);
   scratch().set(fixture);
   const before = hash64(wasm.state_digest_lo(), wasm.state_digest_hi());
-  assert.equal(u32(wasm.submit_embodied(0, 0)), 2 << 8,
+  assert.equal(u32(wasm.submit_embodied(0, 0)), WRONG_MODEL,
     "an articulated module accepted an embodied command");
   // And the model outranks the bytes: an intent tag no grammar has, at payload
   // offset 10. Without a model check ahead of the structural one this answers
@@ -764,9 +745,43 @@ test("an articulated module refuses submit_embodied by name", () => {
   const malformed = fixture.slice();
   malformed[4 + 10] = 9;
   scratch().set(malformed);
-  assert.equal(u32(wasm.submit_embodied(0, 0)), 2 << 8, "wrong model lost precedence");
+  assert.equal(u32(wasm.submit_embodied(0, 0)), WRONG_MODEL, "wrong model lost precedence");
   assert.equal(hash64(wasm.state_digest_lo(), wasm.state_digest_hi()), before,
     "a refused embodied command mutated the world");
+});
+
+test("the embodied floor takes an embodied command and refuses an articulated one", () => {
+  // The other direction, and it is the one that had no caller until `init`
+  // started opening an embodied world. It matters more than the refusal above:
+  // the whole `EMBODIED_COMMAND_V1` grammar reached this boundary and went
+  // nowhere, so `submit_embodied` answering the refusal was compatible with the
+  // store path never having run on either target.
+  wasm.init(1);
+  const staged = Uint8Array.from(EMBODIED_COMMAND_FIXTURE);
+  new Uint8Array(wasm.memory.buffer, u32(wasm.embodied_command_ptr()),
+                 EMBODIED_COMMAND_BYTES).set(staged);
+  const before = hash64(wasm.state_digest_lo(), wasm.state_digest_hi());
+  assert.equal(u32(wasm.submit_embodied(0, 0)), 1, "an embodied floor refused an embodied command");
+  // Domain 2 is `EmbodiedV1`, against the articulated fixture's 1 above. The two
+  // serializers are separate grammars and the digest says which one ran, so a
+  // world that stored the bytes under the articulated tail would be caught here
+  // rather than by the value.
+  assert.equal(wasm.state_digest_domain(), 2, "an embodied store used the articulated domain");
+  assert.equal(wasm.state_digest_schema(), 1);
+  const stored = hash64(wasm.state_digest_lo(), wasm.state_digest_hi());
+  assert.notEqual(stored, before, "a stored command left the state digest where it was");
+
+  // **No pinned number here, deliberately.** Every state hash this file used to
+  // pin named a Legacy scenario and was deleted with it; this digest is over a
+  // *generated* floor's roster, so pinning it would create a new browser golden
+  // over a fixture no native test shares. `ARTICULATED_COMMAND_HASH` above is the
+  // paired one, and it is taken over the two-body duel for exactly that reason.
+  new Uint8Array(wasm.memory.buffer, u32(wasm.submitted_command_ptr()),
+                 SUBMITTED_COMMAND_BYTES).set(Uint8Array.from(ARTICULATED_COMMAND_FIXTURE));
+  assert.equal(u32(wasm.submit_articulated(0, 0)), WRONG_MODEL,
+    "an embodied floor accepted an articulated command");
+  assert.equal(hash64(wasm.state_digest_lo(), wasm.state_digest_hi()), stored,
+    "a refused articulated command mutated an embodied world");
 });
 
 test("combat geometry matches the frozen native digest", () => {
@@ -1018,6 +1033,14 @@ const MAX_DUNGEON_OBJECTS = 512;
 // The pose columns this file reads, from the reference's row table.
 const POSE_ENTITY_INDEX = 0;
 const POSE_ENTITY_GENERATION = 1;
+const POSE_BODY_X = 2;
+// The commanded hand, one block a limb. **This is where the player's pointer
+// lands now**, which is why these two joined the list: the frame's
+// `limb_bearing` column is written by the legacy movement phase and is a jointed
+// body's spawn heading forever, so a test reading the arm out of the frame would
+// be reading a constant.
+const POSE_LEFT_TARGET_X = 16;
+const POSE_RIGHT_TARGET_X = 26;
 const POSE_LEFT_WEAPON_HILT_X = 29;
 const POSE_RIGHT_WEAPON_HILT_X = 35;
 const POSE_SHIELD_CENTER_X = 41;
@@ -1154,6 +1177,22 @@ function poseRows() {
     Array.from(words.slice(row * POSE_STRIDE, (row + 1) * POSE_STRIDE)));
 }
 
+// Where the hero's commanded hand is, relative to its own body origin, in world
+// units. **Read out of the pose section and not out of the frame**, because the
+// frame's limb block belongs to a phase machine an embodied arm does not have:
+// `limb_bearing` is the spawn heading forever and `limb_swing` never leaves
+// guard. Relative to the body rather than absolute so a walking hero does not
+// make every number a fact about where it walked to.
+function heroArmTarget(limb) {
+  const hero = heroRow(frame());
+  assert.ok(hero, "the hero is gone");
+  const row = poseRows().find((pose) => pose[POSE_ENTITY_INDEX] === hero[9]);
+  assert.ok(row, "the hero published no pose row");
+  const raw = (word) => (word | 0) / 65_536;
+  const base = limb === 0 ? POSE_LEFT_TARGET_X : POSE_RIGHT_TARGET_X;
+  return [raw(row[base]) - raw(row[POSE_BODY_X]), raw(row[base + 1]) - raw(row[POSE_BODY_X + 1])];
+}
+
 // The live region rows, likewise. Five to a body and in the pose rows' order,
 // so `regionRows()[body * REGIONS_PER_BODY + part]` is the capsule the contact
 // phase swept for that region of that body.
@@ -1199,8 +1238,7 @@ test("wasm_exports_match_layout_stride_capacity_and_drop_fields", () => {
     "embodied_stance_ptr", "embodied_stance_len", "embodied_stance_stride",
     "embodied_stance_capacity", "embodied_stances_dropped",
     "embodied_stance_layout_version",
-    "init_articulated",
-    "init_embodied",
+    "init", "init_articulated_test",
   ]) {
     assert.equal(typeof wasm[name], "function", `web.wasm does not export ${name}()`);
   }
@@ -1241,29 +1279,35 @@ test("wasm_exports_match_layout_stride_capacity_and_drop_fields", () => {
   assert.equal(u32(wasm.embodied_stance_stride()), EMBODIED_STANCE_STRIDE, "EMBODIED_STANCE_STRIDE");
   assert.equal(u32(wasm.embodied_stance_capacity()), MAX_EMBODIED_STANCE, "MAX_EMBODIED_STANCE");
 
-  // A Legacy world publishes none of the four streams, and that is the half of the
-  // drop-field assertion that is not vacuous: zero rows *and* zero dropped is a
-  // claim that all four buffers were cleared rather than left holding the last
-  // articulated run's rows. A pose row is ground truth about an identity, and
-  // `publish` zeroes the buffers as well as the lengths for exactly that reason.
-  wasm.init(1);
+  // **The zero-stance witness is `init_articulated_test`'s duel now, not a
+  // Legacy world.** This block used to open with `init(1)` and assert that all
+  // five sections were empty, because `init` built a Legacy floor and a Legacy
+  // floor publishes none of them. There is no Legacy world left to install, so
+  // the distinction the block exists to draw -- a section that is empty because
+  // this model has no legs, against one that is full because it does -- is drawn
+  // between the two models that remain. The duel is articulated, so its stance
+  // section is zero-length rather than absent: nothing was published *and*
+  // nothing was turned away, which tells a reader this world has no legs rather
+  // than that it ran out of room for them.
+  wasm.init_articulated_test(1);
   wasm.step(60);
-  assert.equal(u32(wasm.pose_len()), 0, "a Legacy world published a pose row");
-  assert.equal(u32(wasm.poses_dropped()), 0, "a Legacy world dropped a pose row");
-  assert.equal(u32(wasm.combat_event_len()), 0, "a Legacy world published a contact row");
-  assert.equal(u32(wasm.combat_events_dropped()), 0, "a Legacy world dropped a contact row");
-  assert.equal(u32(wasm.region_len()), 0, "a Legacy world published a region row");
-  assert.equal(u32(wasm.regions_dropped()), 0, "a Legacy world dropped a region row");
+  const duelRows = u32(wasm.pose_len());
+  assert.ok(duelRows > 0, "the articulated duel published no pose rows");
+  assert.equal(u32(wasm.region_len()), duelRows * REGIONS_PER_BODY,
+    "the duel's region section does not cover every published pose");
+  assert.equal(u32(wasm.embodied_stance_len()), 0, "an articulated world published a stance row");
+  assert.equal(u32(wasm.embodied_stances_dropped()), 0, "an articulated world dropped a stance row");
+  assert.equal(u32(wasm.poses_dropped()), 0, "the duel overflowed a buffer sized to the sim's own cap");
+  assert.equal(u32(wasm.regions_dropped()), 0, "a published body carried no capsules");
   assert.equal(u32(wasm.articulated_projectile_len()), 0,
-    "a Legacy world published an articulated projectile row");
+    "a swordfight published an articulated projectile row");
   assert.equal(u32(wasm.articulated_projectiles_dropped()), 0,
-    "a Legacy world dropped an articulated projectile row");
-  assert.equal(u32(wasm.embodied_stance_len()), 0, "a Legacy world published a stance row");
-  assert.equal(u32(wasm.embodied_stances_dropped()), 0, "a Legacy world dropped a stance row");
+    "the duel dropped an articulated projectile row");
 
-  // And a fresh articulated world, where the pose buffer is not empty and both
-  // drop fields still read zero.
-  wasm.init_articulated(1);
+  // And the floor the page opens, which is the same generated room under the
+  // model that has legs. Every count here is a live one and every drop field is
+  // still zero.
+  wasm.init(1);
   const rows = u32(wasm.pose_len());
   assert.ok(
     rows > 0 && rows <= MAX_POSES,
@@ -1283,35 +1327,14 @@ test("wasm_exports_match_layout_stride_capacity_and_drop_fields", () => {
   );
   assert.equal(u32(wasm.regions_dropped()), 0, "a published body carried no capsules");
   assert.equal(u32(wasm.articulated_projectiles_dropped()), 0,
-    "a fresh articulated world dropped a projectile row");
-  // A zero-length stance section rather than an absent one, which is the whole
-  // of what this publication says on an articulated world. The length is zero
-  // and the drop count is zero: nothing was published *and* nothing was turned
-  // away, so a reader is being told that this world has no legs rather than that
-  // it ran out of room for them.
-  assert.equal(u32(wasm.embodied_stance_len()), 0,
-    "an articulated world published a stance row");
-  assert.equal(u32(wasm.embodied_stances_dropped()), 0,
-    "an articulated world dropped a stance row");
-
-  // And the same room under the model that has legs, which is what makes the
-  // two zeroes above a *distinction* rather than a section nothing ever fills.
-  // Every other count is the articulated room's, because the two scenarios
-  // differ by the model word and nothing else.
-  wasm.init_embodied(1);
-  assert.equal(u32(wasm.pose_len()), rows, "the embodied room is a different roster");
-  assert.equal(u32(wasm.region_len()), rows * REGIONS_PER_BODY,
-    "the embodied region section does not cover every published pose");
+    "a fresh embodied world dropped a projectile row");
+  // One stance row a body, which is what makes the duel's zero above a
+  // *distinction* rather than a section nothing ever fills.
   assert.equal(u32(wasm.embodied_stance_len()), rows,
     "an embodied world published a body without legs");
   assert.equal(u32(wasm.embodied_stances_dropped()), 0,
     "an embodied world dropped a stance row");
   assert.equal(u32(wasm.embodied_stance_layout_version()), EMBODIED_STANCE_LAYOUT_VERSION);
-  // Back to the articulated room, so everything after this reads the world the
-  // rest of this test was written against.
-  wasm.init_articulated(1);
-  assert.equal(u32(wasm.embodied_stance_len()), 0,
-    "the articulated room kept the embodied world's legs");
 
   // Fixed arrays whose addresses never move, which is the one property the
   // worker's typed arrays depend on for the life of the module. Checked against
@@ -1384,7 +1407,7 @@ test("native_and_wasm_pose_event_stream_digests_match", () => {
     "the stream digest was rebuilt on a second call",
   );
 
-  // Self-contained, exactly as `selftest_hash` is: it builds its own world,
+  // Self-contained: it builds its own world,
   // digests it and throws it away. A worker may ask for this mid-fight, and a
   // diagnostic that stepped the installed world would break the thing it was
   // diagnosing.
@@ -1408,9 +1431,9 @@ test("native_and_wasm_pose_event_stream_digests_match", () => {
   // canonical order, the two masks and the two enumerations. Everything here is
   // a fact the reference states in prose, and none of it is derivable from the
   // digest.
-  wasm.init_articulated(1);
+  wasm.init(1);
   const rows = poseRows();
-  assert.ok(rows.length > 1, "the articulated room published fewer than two bodies");
+  assert.ok(rows.length > 1, "the room published fewer than two bodies");
   let previous = null;
   for (const row of rows) {
     // Ascending *full* identity, index then generation. An index alone reads as
@@ -1479,9 +1502,9 @@ test("native_and_wasm_pose_event_stream_digests_match", () => {
   //
   // **The severed mask covers the first five rows and no more.** It is one bit
   // per `BodyPart` and the section is one row per swept volume; rows 5 and 6 are
-  // the two forearms, which this fixture -- an articulated duel, whose arms are
-  // one link -- publishes absent on every body. Comparing them against bits 5
-  // and 6 of a five-bit mask would demand that they be present.
+  // the two forearms, and comparing them against bits 5 and 6 of a five-bit mask
+  // would be reading a mask past its end. Their presence is a fact about the
+  // *anatomy* instead, which is what the two fixtures below separate.
   const regions = regionRows();
   assert.equal(regions.length, rows.length * REGIONS_PER_BODY, "the region section is not per pose");
   let degenerate = 0;
@@ -1496,12 +1519,18 @@ test("native_and_wasm_pose_event_stream_digests_match", () => {
       );
       assert.ok(region[REGION_PRESENT] <= 1, "presence is not zero or one");
     }
+    // **The embodied floor's bodies have jointed arms, so both forearms are
+    // present here** -- this block used to assert the opposite, because it was
+    // driven from a fixture whose arms are one link. A present row is a real
+    // capsule and not a zeroed one, which is the half a presence bit alone would
+    // not say: a swept volume with no radius draws nothing and collides with
+    // nothing, and would read as "published" to every count in this file.
     for (let part = BODY_PART_COUNT; part < REGIONS_PER_BODY; part++) {
-      assert.equal(
-        regions[body * REGIONS_PER_BODY + part][REGION_PRESENT],
-        0,
-        `body ${body} volume ${part}: a single-link arm published a forearm`,
-      );
+      const forearm = regions[body * REGIONS_PER_BODY + part];
+      assert.equal(forearm[REGION_PRESENT], 1,
+        `body ${body} volume ${part}: a jointed arm published no forearm`);
+      assert.notEqual(forearm[REGION_RADIUS], 0,
+        `body ${body} volume ${part}: the forearm capsule has no extent at all`);
     }
     const head = regions[body * REGIONS_PER_BODY + REGION_HEAD];
     assert.deepEqual(
@@ -1514,26 +1543,27 @@ test("native_and_wasm_pose_event_stream_digests_match", () => {
     degenerate++;
   }
   assert.ok(degenerate > 1, "fewer than two bodies published a head");
+
+  // And the other half of that distinction, kept where it still holds: the
+  // two-body duel's arms are one link, so rows 5 and 6 are published *absent*
+  // rather than omitted. Without this the paragraph above would be the only
+  // reading either way, and "always present" is exactly what a region encoder
+  // that had stopped consulting the anatomy would also produce.
+  wasm.init_articulated_test(1);
+  const single = regionRows();
+  assert.equal(single.length, u32(wasm.pose_len()) * REGIONS_PER_BODY,
+    "the duel's region section is not per pose");
+  for (let body = 0; body * REGIONS_PER_BODY < single.length; body++) {
+    for (let part = BODY_PART_COUNT; part < REGIONS_PER_BODY; part++) {
+      assert.equal(single[body * REGIONS_PER_BODY + part][REGION_PRESENT], 0,
+        `duel body ${body} volume ${part}: a single-link arm published a forearm`);
+    }
+  }
   console.log(
     `pose grammar   ${rows.length} rows, hero mask ${rows[0][POSE_EQUIPMENT_MASK]}, ` +
-      `${regions.length} region rows, ${degenerate} degenerate heads present`,
+      `${regions.length} region rows, ${degenerate} degenerate heads present, ` +
+      `${single.length} single-link duel rows`,
   );
-});
-
-test("a scripted walk leaves the world in the state native recorded", () => {
-  // The more interesting half. The selftest is one canned fight; this is the
-  // code path a player drives -- a click crossing as integer thousandths, the
-  // per-faction order channel, the decision loop that has to answer as well as
-  // step, and the arrival rule that has to stop the hero on the spot native
-  // stopped it on.
-  wasm.init(1);
-  wasm.set_goto(20_000, 12_000);
-  wasm.step(600);
-
-  const measured = stateHash();
-  assert.equal(wasm.tick(), 600, "step(600) did not simulate 600 ticks");
-  assert.ok(measured === ROOM_HASH, divergence("The room-run state hash", ROOM_HASH, measured));
-  console.log(`room-run hash  ${hex(measured)}  == native`);
 });
 
 test("the frame buffer still has the layout the client reads", () => {
@@ -1541,7 +1571,6 @@ test("the frame buffer still has the layout the client reads", () => {
   // header field added or a unit column reordered leaves the simulation
   // bit-identical and repaints the game wrong.
   wasm.init(1);
-  wasm.set_goto(20_000, 12_000);
   wasm.step(60);
 
   const live = frame();
@@ -1554,8 +1583,14 @@ test("the frame buffer still has the layout the client reads", () => {
       ` + ${SHOT_STRIDE} * ${live[7]} + ${EVENT_STRIDE} * ${live[8]}`,
   );
   assert.deepEqual([live[0], live[1]], ARENA, "arena_x, arena_y");
-  assert.equal(live[2], 4, "order_kind: Goto is discriminant 4");
-  assert.deepEqual([live[3], live[4]], [20, 12], "order_x, order_y: 20_000 thousandths is 20.0");
+  // **Slots 2, 3 and 4 are `Hold` at the origin and always will be**, and they
+  // are asserted as the constants they have become rather than skipped: a column
+  // that has stopped meaning anything is exactly the thing a layout test should
+  // be the one to say so about. They were left in place rather than removed
+  // because removing them is a `FRAME_LAYOUT_VERSION` move, which belongs with
+  // the mirrors and not with the session that emptied them.
+  assert.equal(live[2], 0, "order_kind: Hold is discriminant 0, and now the only one");
+  assert.deepEqual([live[3], live[4]], [0, 0], "order_x, order_y: Hold has no point");
   assert.ok(live[5] > 0 && live[5] <= wasm.tick(), `last_decision_tick ${live[5]}`);
 
   // The run block: how much is left, where the way out is, and which floor.
@@ -1589,7 +1624,12 @@ test("the frame buffer still has the layout the client reads", () => {
   );
   assert.ok(unit[2] >= 0 && unit[2] <= 65535, `facing_raw ${unit[2]} is not a binary angle`);
   assert.ok(Math.abs(unit[3] - 0.45) < 0.001, `radius ${unit[3]}`);
-  assert.equal(unit[5], 12, "max_hp: 4 + vitality 8");
+  // **The anatomy's number, not `4 + vitality`.** It happens to be the same 12
+  // for this Fighter, which is why the change is worth a line here rather than a
+  // new assertion: the health bar stopped following the stat sheet, and the
+  // witness that says so is `set_hero_stat` moving vitality without moving this
+  // -- driven below rather than restated.
+  assert.equal(unit[5], 12, "max_hp: the fighter anatomy's");
   assert.equal(unit[6], 0, "faction: Heroes");
   // The identity columns the client keys its per-body animations on. The room's
   // hero is the first entity ever spawned, so it holds slot 0 at generation 0.
@@ -1652,8 +1692,14 @@ test("the walk cycle's columns describe the walk", () => {
   // mean anything. The claim is deliberately about *properties* rather than
   // numbers: `STRIDE_PER_RADIUS` is a look and may be retuned, and a test that
   // pinned its value here would fail for a reason that is not a bug.
+  //
+  // **Nobody is told where to go any more and the walk still happens**, which is
+  // the whole point of the channel that survived: the hero's own policy closes
+  // on the opposition `init` spawns. The `set_goto` this fixture opened with was
+  // never what made it walk -- it was the destination an `ArticulatedObservation`
+  // cannot see -- so removing the line changes which route is taken and nothing
+  // about what is being claimed.
   wasm.init(1);
-  wasm.set_goto(20_000, 12_000);
   wasm.step(60);
 
   let steps = 0;
@@ -1689,8 +1735,8 @@ test("the walk cycle's columns describe the walk", () => {
 
   // And the half that says the accumulator is driven by speed and not by time.
   // The feet are taken and told to do nothing, which is the only way to park a
-  // body deterministically -- a `Goto` at its own position still creeps, and a
-  // hero left on its own policy walks off to find the monsters `init` spawned.
+  // body deterministically -- a hero left on its own policy walks off to find the
+  // monsters `init` spawns.
   wasm.set_control(1);
   wasm.set_input(0, 0, 0, 0, 0, 0, 0);
   wasm.step(120);
@@ -1709,15 +1755,33 @@ test("the walk cycle's columns describe the walk", () => {
 });
 
 test("a fight reports the kinds a fight is made of", () => {
-  // The four derived kinds `art-03` added and nothing consumes yet. They are
-  // the ones with no other guard at all: no hash walks the event list, and the
-  // page skips a kind it has never heard of by design -- so a kind that stopped
-  // being emitted would be silent everywhere.
+  // The derived kinds. They are the ones with no other guard at all: no hash
+  // walks the event list, and the page skips a kind it has never heard of by
+  // design -- so a kind that stopped being emitted would be silent everywhere.
+  //
+  // **Three kinds now, and the five that went are a fact about the model rather
+  // than about this fixture.** `EVENT_DAMAGE`, `EVENT_BLOCK`, `EVENT_PARRY`,
+  // `EVENT_SHOVE` and `EVENT_LOOSE` are pushed from `crates/sim`'s legacy tick,
+  // which nothing runs; `EVENT_DECLARE` and `EVENT_PHASE` come off the legacy
+  // limb's swing phases, and a body with joints never leaves `Swing::Guard`. So
+  // the second loop below is the sharper half: it asserts the seven are
+  // *absent*, which is the assertion that fails the day one of them comes back
+  // without this file being told. `EVENT_PORTAL` is in neither list because it
+  // is neither reachable nor claimed unreachable -- the edge exists only on a
+  // level cleared by a kill, and an embodied hero does not reliably finish a
+  // monster, so no fixture here can produce one and none can prove it will not.
+  //
+  // Three brutes and not twelve: on a populated floor the hero falls at tick
+  // 1,759 against three, against 7,249 against twelve, and a cap that has to
+  // walk eighteen thousand single ticks through JavaScript costs fifteen
+  // seconds for a row it already has. 6,000 is the cap because it is over three
+  // times the measured death and the drive stops at the death itself.
   wasm.init(1);
   for (let i = 0; i < 3; i++) wasm.spawn_monster(2, 255, 255);
 
   const seen = new Map();
-  for (let i = 0; i < 1_800; i++) {
+  let died = false;
+  for (let i = 0; i < 6_000 && !died; i++) {
     wasm.step(1);
     const live = frame();
     const base = HEADER_LEN + UNIT_STRIDE * live[6] + SHOT_STRIDE * live[7];
@@ -1732,55 +1796,140 @@ test("a fight reports the kinds a fight is made of", () => {
         );
       }
     }
-    assert.equal(live[14], 0, "events_dropped: a four-body brawl overran the feed");
+    assert.equal(live[14], 0, "events_dropped: a brawl at one tick a call overran the feed");
+    died = heroRow(live) === null;
   }
-  // 4 death, 6 phase, 7 step, 8 shove. Named by number rather than by a mirror
-  // of the constants, so that a code silently changing meaning fails here.
-  for (const [kind, name] of [[4, "death"], [6, "phase"], [7, "step"], [8, "shove"]]) {
-    assert.ok(seen.get(kind) > 0, `a whole brawl produced no ${name} row`);
+  assert.ok(died, "three brutes no longer finish the fighter inside 6,000 ticks");
+
+  // And the descent, taken through the export rather than by walking into a way
+  // out: the level is not clear, so there is nothing to walk into, and the row
+  // is pushed by `Sim::descend` itself either way. Read straight out of the
+  // frame that call published, because the feed is cleared per *call* -- a row
+  // an export pushes is only ever in that export's own frame.
+  assert.equal(u32(wasm.descend()), 1, "the run would not move down a floor");
+  const descent = frame();
+  const base = HEADER_LEN + UNIT_STRIDE * descent[6] + SHOT_STRIDE * descent[7];
+  for (let e = 0; e < descent[8]; e++) {
+    seen.set(descent[base + e * EVENT_STRIDE], (seen.get(descent[base + e * EVENT_STRIDE]) ?? 0) + 1);
+  }
+
+  // 4 death, 7 step, 10 descend. Named by number rather than by a mirror of the
+  // constants, so that a code silently changing meaning fails here.
+  for (const [kind, name] of [[4, "death"], [7, "step"], [10, "descend"]]) {
+    assert.ok(seen.get(kind) > 0, `a whole brawl and a descent produced no ${name} row`);
+  }
+  for (const [kind, name] of [[0, "damage"], [1, "block"], [2, "parry"], [3, "declare"],
+    [5, "loose"], [6, "phase"], [8, "shove"]]) {
+    assert.equal(seen.get(kind), undefined,
+      `a ${name} row reached the feed, so this model does emit one after all`);
   }
   const tally = [...seen.entries()].sort((a, b) => a[0] - b[0]).map(([k, n]) => `${k}:${n}`);
   console.log(`event kinds   ${tally.join(" ")}`);
 });
 
-test("a policy can be chosen and tuned across the boundary", () => {
-  // The behaviour panel's whole surface, checked in wasm rather than only
-  // natively: these are the twelve newest exports and the ones most likely to
-  // be renamed on one side of the wall and not the other.
+test("a policy can be chosen across the boundary", () => {
+  // The behaviour panel's whole remaining surface, checked in wasm rather than
+  // only natively.
+  //
+  // **"and tuned" was in this test's name and the genome is gone.** A legacy
+  // policy was a kind plus a weight vector, and five exports read and wrote the
+  // genes as thousandths so that no float crossed the wall inward; an
+  // `EmbodiedPolicyKind` is a kind and nothing else. What is left is the
+  // dropdown, which is the half that was doing the convincing.
+  //
+  // **The codes are a different registry from the one this used to check**, and
+  // deliberately so: `2` now means `scripted-level` where it once meant `idle`,
+  // and there is no compatibility shim because there is no legacy world left for
+  // one to mean anything on. So the numbers below are written out rather than
+  // carried over -- a saved code from the old space would select the wrong mind
+  // silently, and this file is where that has to be noticed.
   wasm.init(1);
-  // The two sides open on different minds: the hero on the duelist, which is
-  // the one that dispatches to a mind per action, and the monsters on the naive
-  // baseline it is measured against.
-  assert.equal(wasm.policy_kind(0), 1, "heroes should open on the duelist");
-  assert.equal(wasm.policy_kind(1), 0, "monsters should open on the baseline");
+  // **Both sides open on the same mind now**, which is the opposite of what this
+  // used to assert. The registry has one policy and one control in it, and
+  // opening either side on the control is an empty room with an explanation
+  // attached.
+  assert.equal(wasm.policy_kind(0), 1, "heroes should open on the scripted embodied policy");
+  assert.equal(wasm.policy_kind(1), 1, "monsters should open on it too");
 
-  assert.equal(wasm.set_policy(0, 0), 1, "could not select the baseline");
+  assert.equal(wasm.set_policy(0, 0), 1, "could not select the neutral control");
   assert.equal(wasm.policy_kind(0), 0);
-  assert.equal(wasm.policy_kind(1), 0, "selecting one side moved the other");
+  assert.equal(wasm.policy_kind(1), 1, "selecting one side moved the other");
+  assert.equal(wasm.set_policy(0, 2), 1, "could not select scripted-level");
+  assert.equal(wasm.policy_kind(0), 2);
+  // 3 is one past the registry. It is checked beside 999 because an off-by-one
+  // is the refusal a `from_code` written as a range check gets wrong, and a
+  // wildly out-of-range code is the one it gets right.
+  assert.equal(wasm.set_policy(0, 3), 0, "a code one past the registry was accepted");
   assert.equal(wasm.set_policy(0, 999), 0, "an unknown policy code was accepted");
-  assert.equal(wasm.set_policy(0, 1), 1, "could not select the duelist");
+  assert.equal(wasm.policy_kind(0), 2, "a refused code moved the policy anyway");
+  assert.equal(wasm.set_policy(0, 1), 1, "could not select the scripted policy back");
 
-  const knobs = wasm.policy_weight_count(0);
-  assert.ok(knobs > 0, "the duelist reports no knobs at all");
+  // The label list, **re-based rather than deleted**: index 0 is the faction's
+  // policy name and every index past it is empty, which is exactly how a caller
+  // used to discover it had run off the gene list. Names come out of linear
+  // memory rather than being mirrored into the page, so the page cannot end up
+  // labelling a policy that has been renamed.
+  const label = (faction, index) => new TextDecoder().decode(new Uint8Array(
+    wasm.memory.buffer, u32(wasm.policy_label_ptr(faction, index)),
+    u32(wasm.policy_label_len(faction, index)),
+  ));
+  const first = label(0, 0);
+  assert.ok(first.length > 0, "the policy has no name");
+  assert.equal(u32(wasm.policy_label_len(0, 1)), 0, "index 1 named something");
+  assert.equal(u32(wasm.policy_label_len(0, 999)), 0, "an index far past the end named something");
+  // Keyed by *faction* and not by policy code, which is the limitation the
+  // export carries in its own doc comment: the two sides are running different
+  // minds here, so a reader that had confused the two arguments would see one
+  // name twice.
+  wasm.set_policy(0, 0);
+  assert.notEqual(label(0, 0), label(1, 0), "both factions answered one policy's name");
+  wasm.set_policy(0, 1);
+  console.log(`behaviour      policy 0 is "${first}", one label and no genome`);
+});
 
-  // Names come out of linear memory rather than being mirrored into the page,
-  // so the page cannot end up labelling a gene that has been renamed.
-  const bytes = new Uint8Array(wasm.memory.buffer, wasm.policy_label_ptr(0, 0), wasm.policy_label_len(0, 0));
-  const first = new TextDecoder().decode(bytes);
-  assert.ok(first.length > 0, "the first knob has no name");
-  assert.equal(wasm.policy_label_len(0, knobs), 0, "an index past the end named something");
+test("the health bar is the anatomy's and the stat sheet no longer moves it", () => {
+  // **`max_hp` stopped being `4 + vitality`.** The sheet is still writable and
+  // still readable, so the failure this guards against is entirely silent: a
+  // slider that moves a number the bar is not drawn from looks exactly like a
+  // slider that works, and the two agree at the Fighter's opening vitality of 8
+  // because the anatomy's own figure is also 12. Moving vitality to 16 is what
+  // separates them -- the sheet answers 16 and the bar does not move.
+  wasm.init(1);
+  assert.equal(wasm.hero_stat(4), 8, "the Fighter did not open on vitality 8");
+  const before = heroRow(frame());
+  assert.equal(before[5], 12, "max_hp: the fighter anatomy's");
+  assert.equal(u32(wasm.set_hero_stat(4, 16)), 1, "vitality would not move");
+  assert.equal(wasm.hero_stat(4), 16, "the sheet did not keep the new vitality");
+  const after = heroRow(frame());
+  assert.equal(after[5], 12, "max_hp followed the sheet rather than the anatomy");
+  assert.equal(after[4], before[4], "hp moved with a stat the bar is not drawn from");
+});
 
-  const before = wasm.policy_weight(0, 0);
-  assert.equal(wasm.set_policy_gene(0, 0, 1000), 1);
-  assert.notEqual(wasm.policy_weight(0, 0), before, "the knob did not move");
-  assert.equal(wasm.reset_policy_genes(0), 1);
-  assert.equal(wasm.policy_weight(0, 0), before, "reset did not restore the baseline");
-
-  // And a policy with nothing to tune stays total rather than trapping.
-  wasm.set_policy(1, 2);
-  assert.equal(wasm.policy_weight_count(1), 0);
-  assert.equal(wasm.set_policy_gene(1, 0, 500), 0);
-  console.log(`behaviour      ${knobs} knobs, first is "${first}"`);
+test("facing_raw is the body's live yaw and not its spawn heading", () => {
+  // **The latent bug this session would have triggered, checked from the page's
+  // side.** `facing_raw` used to be written only by the legacy movement phase,
+  // so on a jointed body it was frozen at the spawn heading -- and every body
+  // spawns facing east, so `client/src/render/figure.ts` would have turned every
+  // figure the same way and drawn a room of bodies all facing `+x` while their
+  // poses said otherwise. It is written from the pose publication now.
+  //
+  // Driven under manual control rather than by the policy, because what is
+  // needed here is a body that certainly turns: a policy-driven heading is a
+  // fact about where the opposition happens to be.
+  wasm.init(1);
+  const spawned = heroRow(frame())[2];
+  assert.equal(spawned, 0, "a fresh body does not spawn facing east");
+  wasm.set_control(1);
+  wasm.set_input(0, 0, 0, 0, 0, 0, 1_000);
+  wasm.step(60);
+  const turned = heroRow(frame())[2];
+  assert.notEqual(turned, spawned, "a held turn left facing_raw at the spawn heading");
+  assert.ok(turned >= 0 && turned <= 65535, `facing_raw ${turned} is not a binary angle`);
+  // And it is the *body's* yaw rather than the aim: the limb bearing is its own
+  // column and the two are free to disagree, which is the property a single
+  // column copied into both would destroy.
+  wasm.set_control(0);
+  console.log(`facing        ${spawned} -> ${turned} over a held turn`);
 });
 
 test("the player can take the feet, the limb and the choice", () => {
@@ -1811,31 +1960,68 @@ test("the player can take the feet, the limb and the choice", () => {
 
   wasm.set_control(2);
   assert.equal(wasm.control(), 2, "taking the limb dragged another bit in with it");
-  // Guard due north, attacking nothing.
-  wasm.set_input(0, 0, 16_384, 0, 0, 0, 0);
+  // Guard due north -- a quarter turn -- braced halfway out, attacking nothing.
+  // Every body spawns facing east, so this is a quarter off the centre line and
+  // the hand should end up on the `+y` side of the body.
+  wasm.set_input(0, 0, 16_384, 500, 0, 0, 0);
   wasm.step(120);
-  const unit = frame().slice(HEADER_LEN);
-  assert.ok(Math.abs(unit[11] - 16_384) < 2_000, `sword ended at ${unit[11]}, not north`);
-  assert.equal(unit[19], 0, "a chambered blade was not in guard");
+  const [, north] = heroArmTarget(0);
+  assert.ok(north > 0, `the hand is ${north} off the body in y, not north of it`);
+  // The two frame columns this used to be read out of, asserted as the constants
+  // they have become: `limb_swing` is the phase machine's, and an embodied arm
+  // has none, so a page drawing a windup wedge off this column draws nothing
+  // forever. That is worth failing over the day it starts moving again.
+  assert.equal(frame()[HEADER_LEN + 19], 0, "an embodied arm reported a swing phase");
 
-  // The attack button, and the property the whole swing model exists for: the
-  // cut announces itself before it goes live, and the frame says so.
-  wasm.set_input(0, 0, 16_384, 0, 0, 1, 0);
-  let sawWindup = false;
-  let sawStrike = false;
-  for (let i = 0; i < 90; i += 1) {
-    wasm.step(1);
-    const swing = frame()[HEADER_LEN + 19];
-    if (swing === 1) sawWindup = true;
-    if (swing === 2) {
-      assert.ok(sawWindup, "the cut went live without announcing itself");
-      sawStrike = true;
-    }
-  }
-  assert.ok(sawWindup && sawStrike, "the attack button threw nothing");
+  // **The button is *when*, and what it moves is the reach and the effort.** A
+  // cut drives the hand out to full extension where a guard extends only as far
+  // as the player is bracing it; the pointer still says where. There is no
+  // windup phase to watch for, which is the whole difference between this
+  // grammar and the one that needed `limb_swing`.
+  const reach = () => {
+    const [x, y] = heroArmTarget(0);
+    return Math.hypot(x, y);
+  };
+  wasm.set_input(0, 0, 16_384, 500, 0, 1, 0);
+  wasm.step(120);
+  const striking = reach();
+  wasm.set_input(0, 0, 16_384, 500, 0, 0, 0);
+  wasm.step(120);
+  const guarding = reach();
+  assert.ok(
+    striking > guarding + 0.05,
+    `the button did not extend the arm: guarding ${guarding}, striking ${striking}`,
+  );
+
+  // The pointer moves and the hand follows it round. **Against the north reading
+  // rather than against zero**, because the target is built from the shoulder
+  // and published against the body origin: half a body width of that offset is
+  // in every number this reads, and a threshold that ignored it would be a
+  // threshold picked to pass.
+  wasm.set_input(0, 0, 49_152, 500, 0, 0, 0);
+  wasm.step(120);
+  const [, south] = heroArmTarget(0);
+  assert.ok(
+    south < north - 0.4,
+    `the pointer went from north to south and the hand went ${north} -> ${south}`,
+  );
+
+  // And the half `CONTROL_SLOT` still buys. It used to name which item the
+  // fighter put *in hand*; an embodied body holds both at once, so what it names
+  // now is which of the two hands the pointer is steering.
+  const [, offBefore] = heroArmTarget(1);
+  wasm.set_control(2 | 4);
+  wasm.set_input(0, 0, 16_384, 1_000, 1, 0, 0);
+  wasm.step(120);
+  const [, offAfter] = heroArmTarget(1);
+  assert.ok(
+    offAfter > offBefore + 0.3,
+    `the off hand ignored the pointer: ${offBefore} -> ${offAfter}`,
+  );
 
   wasm.set_control(0);
   assert.equal(wasm.control(), 0);
+  console.log(`limb          guard ${guarding.toFixed(3)} -> strike ${striking.toFixed(3)} reach`);
 });
 
 test("a monster walks in and takes the next row of the frame", () => {
@@ -1878,8 +2064,11 @@ test("the floor plan crosses once a level and not once a frame", () => {
   const before = tiles();
   assert.equal(before.length, wasm.map_cols() * wasm.map_rows(), "map_len");
 
+  // Three exports that each republish the frame and none of which is a new
+  // floor. `set_goto` was the third of these until this session; `set_control`
+  // is the direct-control channel that replaced it and republishes the same way.
   wasm.step(120);
-  wasm.set_goto(4_000, 4_000);
+  wasm.set_control(1);
   wasm.spawn_monster(3, 255, 255);
   assert.equal(wasm.map_revision(), revision, "the floor plan moved under a frame");
   assert.deepEqual(tiles(), before, "the tiles moved under a frame");
@@ -1939,11 +2128,17 @@ test("dungeon_object_v1_publishes_stable_ordered_physical_rows", () => {
   assert.equal(u32(wasm.dungeon_objects_dropped()), 0);
   const kinds = rows.map((row) => row[0]);
   const firstTorch = kinds.indexOf(2);
-  const firstProp = kinds.findIndex((kind) => kind >= 3);
-  assert.ok(firstTorch > 0 && firstProp > firstTorch, "doors, torches and props are not ordered");
+  // **The prop group is empty and this test says so rather than looking for
+  // it.** Barrels, pottery, webs and water are placed by the Legacy arm of the
+  // sim, which nothing runs, so a generated floor now publishes doors and
+  // torches and nothing after them. The ordering claim survives over the two
+  // groups that remain -- doors, then torches -- and the third is asserted
+  // *absent*, which is the form that fails the day props come back and this file
+  // is not told.
+  assert.ok(firstTorch > 0, "doors and torches are not ordered");
+  assert.ok(kinds.every((kind) => kind < 3), "a dungeon prop reached a floor with no Legacy tick");
   assert.ok(rows.slice(0, firstTorch).every((row) => row[1] >>> 28 === 1));
-  assert.ok(rows.slice(firstTorch, firstProp).every((row) => row[1] >>> 28 === 2));
-  assert.ok(rows.slice(firstProp).every((row) => row[1] >>> 28 === 3));
+  assert.ok(rows.slice(firstTorch).every((row) => row[1] >>> 28 === 2));
   assert.ok(rows.every((row) => row.length === 12));
 });
 
@@ -1970,6 +2165,14 @@ test("the doorways and the torches cross on a buffer the tile bytes cannot carry
 
   const tiles = new Uint8Array(wasm.memory.buffer, wasm.map_ptr(), wasm.map_len()).slice();
   const cols = wasm.map_cols();
+  // **The state byte is 0 at the open and it stays 0 for the life of the floor**,
+  // and that is a sim gap rather than a fixture that never presses one:
+  // `World::press_doors` reads the *legacy* command column, and nothing writes
+  // that column on this world. The assertion below is what it always was -- a
+  // level does not open with a door already open -- and it is worth knowing that
+  // it is currently the only value the byte can hold. No test here asserts a
+  // door opens, because none can, and one that stepped the world and expected a
+  // 1 would be a test of a channel nobody has connected yet.
   for (const [, tx, ty, state] of doors) {
     assert.ok(tx < ARENA[0] && ty < ARENA[1], `a doorway at (${tx}, ${ty}) is off the level`);
     assert.equal(state, 0, "a level opened with a door already open");
@@ -2076,173 +2279,88 @@ test("the fog is rebuilt when the hero changes tile and at no other time", () =>
   console.log(`fog            ${crossings} tile crossings over 600 ticks`);
 });
 
-// Waypoints a body can stand on, taken off the tile buffer rather than written
-// down: the level is generated, so a hardcoded triple is a coin flip on whether
-// any of the three is standable. Nearest first, and no two within 1.5 units of
-// each other or of the hero -- wider than ROUTE_ARRIVE plus a Fighter's radius,
-// so the queue cannot satisfy two legs at once and read as having advanced when
-// it merely arrived.
-function legsNearHero(live, count) {
-  const cols = wasm.map_cols();
-  const tiles = new Uint8Array(wasm.memory.buffer, wasm.map_ptr(), wasm.map_len()).slice();
-  const hero = heroRow(live);
-  const open = [];
-  for (let cell = 0; cell < tiles.length; cell++) {
-    if (tiles[cell] !== 0) continue;
-    // A tile centre, which is clear for anything up to a 0.5 radius whatever
-    // its neighbours are -- so an open tile is a standable waypoint for a
-    // Fighter without asking the module a second question.
-    const x = (cell % cols) + 0.5;
-    const y = Math.floor(cell / cols) + 0.5;
-    open.push([x, y, Math.hypot(x - hero[0], y - hero[1])]);
-  }
-  open.sort((a, b) => a[2] - b[2]);
+// **Three scripted cross-target fixtures stood here and are gone with their
+// pins**: the battle (`BATTLE_HASH`), the archery duel (`BOW_HASH`) and the
+// dragged waypoint path, which had no pin and no exports left to drive it. The
+// death-and-replacement fixture below is what is left of the fourth: its state
+// hash went with `SWAP_HASH`, and the *behaviour* it was the only place to reach
+// -- an entity dying, its slot going back on the free list, and a new one coming
+// out of that same slot at the next generation -- is checked without one. Index
+// bookkeeping is still where a 64-bit native usize and a 32-bit wasm one would
+// part company without anything else looking wrong.
 
-  const legs = [];
-  for (const [x, y, fromHero] of open) {
-    if (fromHero < 1.5) continue;
-    if (legs.every(([lx, ly]) => Math.hypot(x - lx, y - ly) >= 1.5)) {
-      legs.push([x, y]);
-    }
-    if (legs.length === count) break;
-  }
-  return legs;
-}
-
-test("a dragged path advances a leg at a time across the boundary", () => {
-  // The route is the one export whose value moves *inside* `step`, so it is the
-  // one the page reads once a frame beside `map_revision()`. What is checked
-  // here is the shape of that reading: three pushes answer 1, 2, 3, the first
-  // becomes the standing order without a commit call, and the count falls as the
-  // legs are consumed rather than all at once at the end.
+test("a death frees the slot and a replacement comes out of it", () => {
   wasm.init(1);
-  assert.equal(wasm.route_len(), 0, "a fresh level opened already holding a path");
-
-  const legs = legsNearHero(frame(), 3);
-  assert.equal(legs.length, 3, "the tile buffer offered nowhere to walk");
-  legs.forEach(([x, y], i) => {
-    const held = wasm.route_push(Math.round(x * 1000), Math.round(y * 1000));
-    assert.equal(held, i + 1, `push ${i} answered a count it was not holding`);
-  });
-  assert.equal(wasm.route_len(), 3, "three waypoints did not make three legs");
-
-  const queued = frame();
-  assert.equal(queued[2], 4, "order_kind: the first waypoint did not become the Goto");
-  assert.ok(Math.abs(queued[3] - legs[0][0]) < 0.01, "order_x is not the first waypoint");
-  assert.ok(Math.abs(queued[4] - legs[0][1]) < 0.01, "order_y is not the first waypoint");
-
-  // The nearest waypoint is under two units off, so a leg falls well inside this.
-  wasm.step(240);
-  const left = wasm.route_len();
-  assert.ok(left < 3, "the queue never advanced: still holding 3 legs after 240 ticks");
-  assert.ok(left >= 1, "the last leg was popped rather than left standing");
-
-  // And dropping the queue is not a stop: the leg already ordered stays ordered.
-  wasm.route_clear();
-  assert.equal(wasm.route_len(), 0, "route_clear left a path behind");
-  assert.equal(frame()[2], 4, "route_clear withdrew the standing order too");
-  console.log(`route          3 legs -> ${left} after 240 ticks`);
-});
-
-test("a battle replays the way native recorded it", () => {
-  // The cross-target claim, extended from a walk to a fight. If this number
-  // differs from the one `cargo test -p web` pins, then two builds of the same
-  // fixed-point code disagree about a fight -- which is the whole thing this
-  // project claims cannot happen.
-  wasm.init(1);
-  wasm.spawn_monster(3, 255, 255);
-  wasm.step(600);
-
-  const measured = stateHash();
-  assert.equal(wasm.tick(), 600, "step(600) did not simulate 600 ticks");
-  assert.ok(measured === BATTLE_HASH, divergence("The battle state hash", BATTLE_HASH, measured));
-  console.log(`battle hash    ${hex(measured)}  == native`);
-});
-
-test("an arrow flies the way native recorded it", () => {
-  // The projectile path, across targets. Nothing above ever loosed a shot, so
-  // until this test every square root and staged multiply in `resolve_shots`
-  // was unclaimed territory -- and a fixed-point sim that is portable for
-  // swordplay and not for archery is not a portable sim.
-  wasm.init(1);
-  assert.equal(wasm.set_hero_loadout(0, BOW_CODE), 1, "the hero would not take a bow");
-  wasm.spawn_monster(2, 255, 255);
-  wasm.step(1_200);
-
-  const measured = stateHash();
-  assert.ok(measured === BOW_HASH, divergence("The bow state hash", BOW_HASH, measured));
-  console.log(`bow hash       ${hex(measured)}  == native`);
-
-  // And the frame can carry what the sim produced, which is the other half of a
-  // bow being usable at all: an arrow nobody can draw is an arrow nobody sees.
-  wasm.init(1);
-  wasm.set_hero_loadout(0, BOW_CODE);
-  wasm.spawn_monster(2, 255, 255);
-  let seen = 0;
-  let events = 0;
-  for (let i = 0; i < 1_200; i++) {
-    wasm.step(1);
-    const live = frame();
-    const units = live[6];
-    assert.equal(
-      live.length,
-      frameSpan(live),
-      `frame_len() disagrees with its own counts: ${units} units,` +
-        ` ${live[7]} shots, ${live[8]} events`,
-    );
-    // And the third section, read from the base the two counts before it put it
-    // at -- which is the one thing about this layout that a wasm-only indexing
-    // bug could get wrong while every hash still matched.
-    const base = HEADER_LEN + UNIT_STRIDE * units + SHOT_STRIDE * live[7];
-    for (let e = 0; e < live[8]; e++) {
-      const row = live.slice(base + e * EVENT_STRIDE, base + (e + 1) * EVENT_STRIDE);
-      assert.ok(row[0] >= 0 && row[0] < EVENT_KINDS, `event kind ${row[0]}`);
-      assert.ok(
-        row[1] >= -2 && row[1] <= ARENA[0] + 2 && row[2] >= -2 && row[2] <= ARENA[1] + 2,
-        `an event happened outside the arena at (${row[1]}, ${row[2]})`,
-      );
-      // A slot, or `nobody`. The second half is not slack: a portal opening and
-      // a descent are facts about the level and name no body at all, so this
-      // used to read `< 64` and would now fail on the first way out to open.
-      for (const [i, name] of [[4, "actor"], [5, "other"]]) {
-        assert.ok(
-          (row[i] >= 0 && row[i] < MAX_UNITS) || row[i] === NOBODY,
-          `${name}_index ${row[i]} is neither a slot nor nobody`,
-        );
-      }
-      events += 1;
-    }
-    seen = Math.max(seen, live[7]);
-  }
-  assert.ok(seen > 0, "twenty seconds of archery reached the frame as nothing");
-  assert.ok(events > 0, "a whole archery duel produced no events at all");
-  console.log(`event feed    ${events} rows over 1200 ticks`);
-});
-
-test("a death and a replacement replay the way native recorded them", () => {
-  // Everything the other three miss: an entity dying, its slot going back on
-  // the free list, and a new one coming out of that same slot at the next
-  // generation. Index bookkeeping is where a 64-bit native usize and a 32-bit
-  // wasm one would part company without anything else looking wrong.
-  wasm.init(1);
+  const opened = heroRow(frame());
+  assert.deepEqual([opened[9], opened[10]], [0, 0],
+    "the room's first hero does not hold slot 0 at generation 0");
   for (let i = 0; i < 3; i++) wasm.spawn_monster(2, 255, 255);
-  wasm.step(1_800);
 
-  assert.equal(heroRow(frame()), null, "three brutes no longer finish the warrior in 1800 ticks");
-  assert.equal(wasm.swap_in_hero(1, 255, 255), 1, "nobody arrived");
+  // Driven to the death rather than for a fixed number of ticks. The tick it
+  // happens on is a fact about the embodied policy and would be a pin nothing
+  // native shares; that it happens at all inside a bound several times the
+  // measured 1,759 is the claim.
+  let died = false;
+  for (let i = 0; i < 6_000 && !died; i++) {
+    wasm.step(1);
+    died = heroRow(frame()) === null;
+  }
+  assert.ok(died, "three brutes no longer finish the fighter inside 6,000 ticks");
+  assert.equal(u32(wasm.swap_in_hero(1, 255, 255)), 1, "nobody arrived");
 
   const live = frame();
   const hero = heroRow(live);
   assert.ok(hero, "the frame has no hero in it");
   assert.equal(hero[7], 1, "kind: Scout");
-  assert.equal(hero[5], 8, "max_hp: 4 + vitality 4");
-  assert.equal(live[2], 0, "order_kind: the replacement inherited an order");
+  // **The slot came back and the generation did not.** This is the whole of what
+  // the deleted hash was uniquely covering: the same index at the next
+  // generation, which is what a page keying per-body animation state off the
+  // pair has to be able to tell apart from the same creature returning.
+  assert.deepEqual([hero[9], hero[10]], [0, 1],
+    "the replacement did not reuse slot 0 at the next generation");
+  assert.equal(hero[4], hero[5], "the replacement arrived already wounded");
+  assert.equal(live[2], 0, "order_kind: Hold, which is now the only one");
 
+  // And the run carries on rather than stopping on the swap.
+  const before = u32(wasm.tick());
   wasm.step(400);
-  const measured = stateHash();
-  assert.equal(wasm.tick(), 2_200, "the swap moved the clock");
-  assert.ok(measured === SWAP_HASH, divergence("The swap state hash", SWAP_HASH, measured));
-  console.log(`swap hash      ${hex(measured)}  == native`);
+  assert.equal(u32(wasm.tick()), before + 400, "the swap moved the clock");
+  console.log(`swap           slot 0 generation 0 -> 1 after ${before} ticks`);
+});
+
+test("the shot section is empty and says so", () => {
+  // **`SHOT_*` is a block the frame still reserves and nothing can fill.** Every
+  // arrow in the repository is loosed by `crates/sim`'s legacy tick, which
+  // nothing runs, and `set_hero_loadout` -- the only way a caller could put a bow
+  // in the hero's hands -- is gone. The archery fixture that used to be here
+  // could not be re-based; what replaces it is the honest statement, because a
+  // section left silently untested is how a stride that stopped being read stays
+  // wrong. `frameSpan` is what makes it more than a zero: the third block's base
+  // is computed from this count, so a shot row that appeared would move every
+  // event row and be caught by the length rather than by the count.
+  wasm.init(1);
+  for (let i = 0; i < 3; i++) wasm.spawn_monster(2, 255, 255);
+  for (let i = 0; i < 600; i++) {
+    wasm.step(1);
+    const live = frame();
+    assert.equal(live[7], 0, `a shot row reached the frame at tick ${wasm.tick()}`);
+    assert.equal(
+      live.length,
+      frameSpan(live),
+      `frame_len() disagrees with its own counts: ${live[6]} units,` +
+        ` ${live[7]} shots, ${live[8]} events`,
+    );
+    const base = HEADER_LEN + UNIT_STRIDE * live[6] + SHOT_STRIDE * live[7];
+    for (let e = 0; e < live[8]; e++) {
+      const row = live.slice(base + e * EVENT_STRIDE, base + (e + 1) * EVENT_STRIDE);
+      assert.ok(
+        row[1] >= -2 && row[1] <= ARENA[0] + 2 && row[2] >= -2 && row[2] <= ARENA[1] + 2,
+        `an event happened outside the arena at (${row[1]}, ${row[2]})`,
+      );
+    }
+  }
+  assert.equal(u32(wasm.articulated_projectile_len()), 0,
+    "the articulated projectile section filled without anybody drawing a bow");
 });
 
 // ------------------------------------------------------------------ the arena
@@ -2542,7 +2660,7 @@ test("a configured duel runs inside the module and refuses by name", () => {
 // that had stopped with no error on the page, and the second was a fight that
 // had quietly become a different fight under an unmoved fingerprint.
 
-test("descending out of an arena returns a legacy world", () => {
+test("descending out of an arena returns an ordinary floor", () => {
   stageArena(arenaBytes(shippedArena()));
   assert.equal(arenaResult(wasm.arena_start(3)).outcome, 1);
   wasm.step(50);
@@ -2553,8 +2671,23 @@ test("descending out of an arena returns a legacy world", () => {
   assert.equal(u32(wasm.arena_policy(0)), NO_POLICY, "the floor below is still an arena");
   assert.equal(u32(wasm.arena_policy(1)), NO_POLICY);
   assert.equal(arenaFingerprint(), 0n, "a generated floor is named by a duel's configuration");
-  assert.notEqual(u32(wasm.policy_kind(0)), NO_POLICY, "a legacy world cannot name its policy");
-  assert.equal(u32(wasm.set_policy(0, 2)), 1, "a legacy world refused a legacy policy");
+  assert.notEqual(u32(wasm.policy_kind(0)), NO_POLICY, "an ordinary floor cannot name its policy");
+  // 2 is `EmbodiedPolicyKind::ScriptedLevel`, from the registry this export
+  // takes now. It was `PolicyKind`'s `idle` when this line was written, and the
+  // two code spaces were never the same one -- which is exactly why the number
+  // is spelled out with its meaning rather than carried over.
+  assert.equal(u32(wasm.set_policy(0, 2)), 1, "an ordinary floor refused scripted-level");
+
+  // **The floor below an arena is an *articulated* floor, not the embodied one
+  // `init` opens**, and that follows from `Sim::descend` building the next
+  // scenario under `self.world.combat_model()`: the world it is descending out
+  // of is the duel's, and a duel is articulated. So the stance section is
+  // zero-length here while `init`'s floor fills it. Asserted rather than left
+  // implicit, because "descend answers the depth" is true either way and the
+  // difference is invisible from every other export.
+  assert.ok(u32(wasm.pose_len()) > 0, "the floor below published no bodies");
+  assert.equal(u32(wasm.embodied_stance_len()), 0,
+    "the floor below an arena grew legs, so descend no longer carries the model");
 
   // 300 is `shippedArena().maxTicks`, which is where the tick used to stick:
   // the arena loop's gate was still reading the previous configuration's limit.
@@ -2563,12 +2696,23 @@ test("descending out of an arena returns a legacy world", () => {
   wasm.init(1);
 });
 
-test("an installed arena refuses every order export", () => {
-  // `arena_start` sets the runner's `Order::Advance` on each side *because*
-  // orders reach `World::state_hash`, which is the same sentence that says a
-  // later order is a different fight. The fingerprint names the configuration
-  // and nothing else -- deliberately, since that is what makes a recording
-  // reproducible -- so it cannot be the thing that notices.
+test("an installed arena refuses the exports that would rewrite its fight", () => {
+  // **This test was `an installed arena refuses every order export` and the four
+  // order exports it named are gone.** Its subject is not: `arena_start` fixes
+  // the fight the fingerprint names, the fingerprint is a function of the
+  // configuration and nothing else -- deliberately, since that is what makes a
+  // recording reproducible -- so it can never be the thing that notices a
+  // disturbance. Something has to be, and it is this.
+  //
+  // **Two exports are missing from the list below and their absence is a
+  // finding rather than an oversight.** `spawn_monster` takes on an installed
+  // arena and moves its state hash: `Sim::walk_in` now dresses a spec for the
+  // world it is entering, which is the line that made the spawn button work on
+  // the embodied floor, and it made the same call succeed inside a duel. So does
+  // `set_hero_stat`. Neither is asserted here in either direction -- writing down
+  // the refusal would be a red gate, and writing down the acceptance would make a
+  // contract out of a hole -- and both are owed a refusal by the session that
+  // owns `crates/web`.
   const config = shippedArena();
   const fight = (disturb) => {
     stageArena(arenaBytes(config));
@@ -2580,29 +2724,39 @@ test("an installed arena refuses every order export", () => {
   };
   const clean = fight(null);
   for (const [what, disturb] of [
-    ["set_goto", () => wasm.set_goto(20_000, 12_000)],
-    // Index 1 generation 0 is the Monster, which the arena builds second. A
-    // handle that named nobody would make this line vacuous, so the legacy
-    // half below locks the same handle on a world where it is meant to take.
-    ["set_focus", () => assert.equal(u32(wasm.set_focus(1, 0)), 0, "set_focus took on an arena")],
-    ["clear_order", () => wasm.clear_order()],
-    ["route_push", () => assert.equal(u32(wasm.route_push(20_000, 12_000)), 0, "route_push took")],
+    // `1` is `Body::Scout`. A replacement is refused while anybody is standing
+    // even on an ordinary floor, so the arena half of this is checked by the
+    // ordinary-floor half below rather than by the answer alone.
+    ["swap_in_hero", () => assert.equal(u32(wasm.swap_in_hero(1, 255, 255)), 0,
+      "swap_in_hero took on an arena")],
+    // The dropdown, which answers `0` because `0` is true: an arena's fighters
+    // run `ArticulatedPolicyKind` and `Sim::advance_arena` never consults
+    // `sim.policies`, so a call that reported success would leave a page showing
+    // a control that had done nothing.
+    ["set_policy", () => assert.equal(u32(wasm.set_policy(0, 0)), 0, "set_policy took on an arena")],
+    // And the direct-control channel, which is the one that replaced the order
+    // exports -- so it is the one whose leak would be the same leak in a new
+    // place. `Sim::advance_arena` drives both fighters from their policies and
+    // never reads `sim.control`.
+    ["set_control", () => {
+      wasm.set_control(1);
+      wasm.set_input(1_000, 0, 0, 0, 0, 0, 1_000);
+    }],
   ]) {
     assert.deepEqual(fight(disturb), clean, `${what} changed an installed arena's fight`);
+    wasm.set_control(0);
   }
 
-  // The guard is the arena and not a switch left off: all four still take on a
-  // legacy world, which is the half that would otherwise rot silently.
+  // The guard is the arena and not a switch left off, which is the half that
+  // would otherwise rot silently: both answering exports take on an ordinary
+  // floor, and the control channel moves the body there.
   wasm.init(1);
-  // 3 is `Body::Skitterer`, the same code `BATTLE_HASH`'s script spawns.
-  wasm.spawn_monster(3, 255, 255);
-  wasm.set_goto(20_000, 12_000);
-  const ordered = stateHash();
-  assert.notEqual(ordered, 0n);
-  assert.equal(u32(wasm.route_push(18_000, 11_000)), 1, "a legacy world refused a waypoint");
-  wasm.clear_order();
-  assert.notEqual(stateHash(), ordered, "clear_order left the standing order alone");
-  assert.equal(u32(wasm.set_focus(1, 0)), 1, "a legacy world refused a lock on its monster");
+  assert.equal(u32(wasm.set_policy(0, 0)), 1, "an ordinary floor refused a policy");
+  wasm.set_control(1);
+  const before = frame()[HEADER_LEN];
+  wasm.set_input(1_000, 0, 0, 0, 0, 0, 0);
+  wasm.step(60);
+  assert.notEqual(frame()[HEADER_LEN], before, "an ordinary floor ignored the feet as well");
   wasm.init(1);
 });
 

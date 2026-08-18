@@ -2240,6 +2240,26 @@ impl World {
         self.combat_specs.as_ref()?.anatomy((*self.articulated_anatomy.get(i)?)?)
     }
 
+    /// The same row, by handle, for a host that keeps its own copy.
+    ///
+    /// `crates/web` caches one anatomy per published slot because the region
+    /// writer reads it sixty times a second and `combat_specs` is behind two
+    /// `Option`s and a table lookup. That cache is a second copy of this, and a
+    /// second copy is only safe if there is one call that fills it -- **which
+    /// there was not**: the host built its table from the scenario's units, so a
+    /// body that arrived through `try_spawn` afterwards had no row, and its
+    /// capsules were dropped from the region section every frame while its pose
+    /// and stance rows published normally. Measured on the browser's own floor:
+    /// three spawns took the pose count from 7 to 10 and left `region_len` at 49
+    /// with `regions_dropped` climbing 0, 7, 14, 21.
+    ///
+    /// Keyed by [`EntityId`] rather than by index because a host holding a stale
+    /// handle would otherwise read the row of whoever took the slot; `resolve`
+    /// checks the generation.
+    pub fn body_anatomy(&self, id: EntityId) -> Option<&BodyAnatomySpec> {
+        self.anatomy_spec(self.resolve(id)?)
+    }
+
     /// Current health, in whichever domain this world's model owns.
     ///
     /// Every consumer goes through here -- observation, the published view, the

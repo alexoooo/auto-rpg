@@ -148,18 +148,17 @@ class FakeWasm {
     this.furnitureLength = 0;
     this.dungeonObjects = new Uint32Array(ABI.MAX_DUNGEON_OBJECTS * ABI.DUNGEON_OBJECT_STRIDE);
     this.dungeonObjectLength = 0;
-    this.focusEntityIndex = ABI.FOCUS_NONE;
-    this.focusEntityGeneration = ABI.FOCUS_NONE;
     this.revision = 1;
     this.trap = false;
     this.controlMask = 0;
   }
   init(seed) { this.calls.push(["init", seed]); this.now = 0; }
-  setControl(mask) { this.controlMask = mask & 7; this.calls.push(["control", mask]); }
+  // The tick is recorded because `setControl` is now the queue tests' carrier
+  // command -- `withdraw` was, and it is gone with the order channel -- and what
+  // those tests are about is *when* a queued command lands relative to the step.
+  setControl(mask) { this.controlMask = mask & 7; this.calls.push(["control", mask, this.now]); }
   control() { return this.controlMask; }
   setInput(...values) { this.calls.push(["input", ...values]); }
-  setGoto(x, y) { this.calls.push(["goto", x, y, this.now]); }
-  clearOrder() { this.calls.push(["withdraw", this.now]); }
   spawnMonster(kind, primary, secondary) { this.calls.push(["spawn", kind, primary, secondary, this.now]); return 7; }
   swapInHero(kind, primary, secondary) { this.calls.push(["respawn", kind, primary, secondary, this.now]); return 1; }
   step(ticks) { if (this.trap) throw new Error("trap"); this.calls.push(["step", ticks, this.now]); this.now += ticks; this.revision++; }
@@ -179,7 +178,6 @@ class FakeWasm {
       dungeonObjectLength: this.dungeonObjectLength, dungeonObjectsDropped: 0,
       mapTileSizeMilli: 1000, mapRevision: this.revision,
       visRevision: this.revision, furnitureRevision: this.revision,
-      focusEntityIndex: this.focusEntityIndex, focusEntityGeneration: this.focusEntityGeneration,
     };
   }
   setRows({ units = [], shots = [], events = [] }) {
@@ -346,10 +344,15 @@ test("init_and_reset_emit_the_exact_lifecycle_messages", async () => {
   assert.equal(messages(sent, "error").at(-1).code, "invalidMessage");
 });
 
-test("mouse_orders_are_default_and_direct_tank_input_starts_released", async () => {
+test("direct_tank_input_starts_released", async () => {
+  // **This was `mouse_orders_are_default_and_...` and the mouse order is gone**,
+  // so what is left is the half that still has a subject: a fresh session hands
+  // the character back to its policy and holds no key down. It is the *only*
+  // input channel now, which makes the released opening more load-bearing than
+  // it was, not less -- there is no click to fall back to.
   const { wasm } = await harness();
   assert.deepEqual(wasm.calls.slice(0, 3), [
-    ["init", 4], ["control", 0], ["input", 0, 0, 0, 0, 0, 0, 0],
+    ["init", 4], ["control", 0, 0], ["input", 0, 0, 0, 0, 0, 0, 0],
   ]);
 });
 
@@ -421,10 +424,10 @@ test("fatal_state_ignores_everything_except_a_valid_outstanding_buffer_return", 
 
 test("commands_apply_before_stepping_their_target_tick_in_sequence_order", async () => {
   const { host, sent, wasm } = await harness();
-  await host.handle(command(2, 1, 0, { kind: "goto", xMilli: -7, yMilli: 8 }));
+  await host.handle(command(2, 1, 0, { kind: "setControl", mask: 1 }));
   await host.handle(command(3, 2, 0, { kind: "spawn", kindCode: 2, primary: 2, secondary: 4 }));
   await host.handle(advance(4, 20_000));
-  assert.deepEqual(wasm.calls.slice(3), [["goto", -7, 8, 0], ["spawn", 2, 2, 4, 0], ["step", 1, 0]]);
+  assert.deepEqual(wasm.calls.slice(3), [["control", 1, 0], ["spawn", 2, 2, 4, 0], ["step", 1, 0]]);
   const acks = messages(sent, "commandAck");
   assert.deepEqual(acks.map((ack) => [ack.sequence, ack.status, ack.tick]), [[1, "accepted", 0], [2, "accepted", 0], [1, "applied", 0], [2, "applied", 0]]);
   assert.equal(acks.at(-1).result, 7);
@@ -432,22 +435,22 @@ test("commands_apply_before_stepping_their_target_tick_in_sequence_order", async
 
 test("sequence_gaps_regressions_and_late_targets_are_rejected", async () => {
   const { host, sent } = await harness();
-  await host.handle(command(2, 2, 0, { kind: "withdraw" }));
-  await host.handle(command(3, 1, 2, { kind: "withdraw" }));
-  await host.handle(command(4, 1, 2, { kind: "withdraw" }));
-  await host.handle(command(5, 2, 1, { kind: "withdraw" }));
+  await host.handle(command(2, 2, 0, { kind: "setControl", mask: 1 }));
+  await host.handle(command(3, 1, 2, { kind: "setControl", mask: 1 }));
+  await host.handle(command(4, 1, 2, { kind: "setControl", mask: 1 }));
+  await host.handle(command(5, 2, 1, { kind: "setControl", mask: 1 }));
   await host.handle(advance(6, 50_000));
-  await host.handle(command(7, 2, 1, { kind: "withdraw" }));
+  await host.handle(command(7, 2, 1, { kind: "setControl", mask: 1 }));
   assert.deepEqual(messages(sent, "commandAck").filter((x) => x.status === "rejected").map((x) => x.reason),
     ["sequenceGap", "duplicateSequence", "regressedTargetTick", "lateTargetTick"]);
 });
 
 test("queue_and_future_horizon_limits_reject_without_consuming_sequence", async () => {
   const { host, sent } = await harness();
-  await host.handle(command(2, 1, 601, { kind: "withdraw" }));
-  await host.handle(command(3, 1, 600, { kind: "withdraw" }));
-  for (let sequence = 2; sequence <= 256; sequence++) await host.handle(command(100 + sequence, sequence, 600, { kind: "withdraw" }));
-  await host.handle(command(999, 257, 600, { kind: "withdraw" }));
+  await host.handle(command(2, 1, 601, { kind: "setControl", mask: 1 }));
+  await host.handle(command(3, 1, 600, { kind: "setControl", mask: 1 }));
+  for (let sequence = 2; sequence <= 256; sequence++) await host.handle(command(100 + sequence, sequence, 600, { kind: "setControl", mask: 1 }));
+  await host.handle(command(999, 257, 600, { kind: "setControl", mask: 1 }));
   assert.equal(messages(sent, "commandAck").find((x) => x.requestId === 2).reason, "targetTooFar");
   assert.equal(messages(sent, "commandAck").find((x) => x.requestId === 999).reason, "queueFull");
   assert.equal(host.diagnostics().lastAcceptedSequence, 256);
@@ -457,19 +460,23 @@ test("queue_and_future_horizon_limits_reject_without_consuming_sequence", async 
 test("paused_advances_apply_current_tick_commands_without_stepping_or_accruing_time", async () => {
   const { host, wasm, sent } = await harness();
   await host.handle(base("setPaused", 2, { epoch: 1, paused: true }));
-  await host.handle(command(3, 1, 0, { kind: "withdraw" }));
+  await host.handle(command(3, 1, 0, { kind: "setControl", mask: 1 }));
   await host.handle(advance(4, Number.MAX_SAFE_INTEGER));
   await host.handle(base("setPaused", 5, { epoch: 1, paused: false }));
   await host.handle(advance(6, 1));
   assert.equal(wasm.now, 0);
-  assert.deepEqual(wasm.calls.filter((x) => x[0] === "withdraw"), [["withdraw", 0]]);
+  // The session's own opening `setControl(0)` is the first of these, and the
+  // queued one is the second: what the assertion is about is that the queued
+  // command landed at tick 0 without a step under it.
+  assert.deepEqual(wasm.calls.filter((x) => x[0] === "control"),
+    [["control", 0, 0], ["control", 1, 0]]);
   assert.equal(messages(sent, "advanceAck").find((x) => x.requestId === 4).steppedTicks, 0);
 });
 
 test("reset_rejects_queued_commands_and_advances_the_epoch", async () => {
   const { host, sent } = await harness();
-  await host.handle(command(2, 1, 10, { kind: "withdraw" }));
-  await host.handle(command(3, 2, 11, { kind: "withdraw" }));
+  await host.handle(command(2, 1, 10, { kind: "setControl", mask: 1 }));
+  await host.handle(command(3, 2, 11, { kind: "setControl", mask: 1 }));
   await host.handle(base("reset", 4, { epoch: 1, seed: 2, paused: false }));
   assert.deepEqual(messages(sent, "commandAck").slice(-2).map((x) => [x.sequence, x.status, x.reason]), [[1, "rejected", "oldEpoch"], [2, "rejected", "oldEpoch"]]);
   assert.equal(host.diagnostics().epoch, 2);
@@ -589,8 +596,14 @@ test("hidden_units_shots_events_furniture_and_objects_do_not_cross_the_worker_bo
   const eventShown = Float32Array.from([1, 0.5, 0.5, 0, 1, 9, 0, 0]);
   const eventHidden = Float32Array.from([1, 2.5, 2.5, 0, 9, 1, 0, 0]);
   wasm.setRows({ units: [shown, hidden], shots: [shotShown, shotHidden], events: [eventShown, eventHidden] });
+  // Header slots 2, 3 and 4 carried an order kind and an order point, and the
+  // filter used to blank the point when it named a body the player could not
+  // see. **The two focus exports that fed that check are gone and the module now
+  // reports `Hold` at the origin forever**, so what is asserted below is the
+  // opposite claim and the one that is still true: the header is *relayed*, not
+  // rewritten, except for the three section counts. Written non-zero here so the
+  // assertion cannot pass by agreeing with a zeroed buffer.
   wasm.frame[2] = 3; wasm.frame[3] = 2.5; wasm.frame[4] = 2.5;
-  wasm.focusEntityIndex = 9; wasm.focusEntityGeneration = 8;
   wasm.vis.fill(2); wasm.vis[10] = 0;
   wasm.furniture.set([1, 0, 0, 1, 1, 2, 2, 9]); wasm.furnitureLength = 2;
   wasm.dungeonObjects.set([
@@ -602,7 +615,8 @@ test("hidden_units_shots_events_furniture_and_objects_do_not_cross_the_worker_bo
   const snapshot = messages(sent, "snapshot")[0];
   const view = parseSnapshot(snapshot);
   assert.deepEqual([view.frame[6], view.frame[7], view.frame[8]], [1, 1, 1]);
-  assert.deepEqual([view.frame[3], view.frame[4]], [0, 0]);
+  assert.deepEqual([view.frame[2], view.frame[3], view.frame[4]], [3, 2.5, 2.5],
+    "the filter rewrote a header slot that is not a section count");
   const eventAt = ABI.HEADER_LEN + ABI.UNIT_STRIDE + ABI.SHOT_STRIDE;
   assert.deepEqual([view.frame[eventAt + 4], view.frame[eventAt + 5]], [1, -1]);
   assert.equal(view.map[10], MAP_UNKNOWN);
@@ -619,18 +633,22 @@ test("hidden_units_shots_events_furniture_and_objects_do_not_cross_the_worker_bo
   assert.equal(remembered.mapRevision, originalRevision);
 });
 
-test("focus_headers_and_remembered_tiles_do_not_leak_hidden_motion_or_door_changes", async () => {
+test("remembered_tiles_do_not_leak_door_changes_behind_the_fog", async () => {
+  // **This was `focus_headers_and_remembered_tiles_...` and the focus half has
+  // no subject left.** The header's order point is `Hold` at the origin on every
+  // frame the module can build, and the two exports that named the quarry are
+  // gone -- so the leak that half existed for cannot occur, and asserting it
+  // would be asserting against a constant. What is left is the half that is
+  // still a live disclosure: a tile the hero has *seen* is remembered at the
+  // value it was seen at, and a change to it behind the fog does not cross.
   const { host, sent, wasm } = await harness(false);
   wasm.setRows({ units: [
     unit({ x: 2.5, y: 2.5, index: 9, generation: 7 }),
     unit({ x: 2.5, y: 2.5, visible: 0, index: 9, generation: 8 }),
   ] });
-  wasm.frame[2] = 3; wasm.frame[3] = 2.5; wasm.frame[4] = 2.5;
-  wasm.focusEntityIndex = 9; wasm.focusEntityGeneration = 8;
   wasm.map[1] = 41; wasm.vis.fill(2);
   await host.handle(initMessage());
   const first = messages(sent, "snapshot")[0];
-  assert.deepEqual([...parseSnapshot(first).frame.subarray(3, 5)], [0, 0]);
   assert.equal(parseSnapshot(first).map[1], 41);
   await returnSnapshot(host, first);
   wasm.map[1] = 99; wasm.vis[1] = 1;
@@ -764,7 +782,7 @@ test("sim_client_posts_a_default_tick_command_only_after_the_outstanding_advance
   const { client, worker } = await clientHarness();
   const advancing = client.advance(20_000);
   const advanceMessage = worker.sent.map((entry) => entry.message).findLast((message) => message.kind === "advance");
-  const applying = client.command({ kind: "withdraw" });
+  const applying = client.command({ kind: "setControl", mask: 1 });
   assert.equal(worker.sent.some((entry) => entry.message.kind === "command"), false);
 
   worker.emitMessage({ kind: "advanceAck", version: MSG.WORKER_PROTOCOL_VERSION, requestId: advanceMessage.requestId,
@@ -853,7 +871,7 @@ test("sim_client_requires_exact_command_epoch_target_and_status_transitions", as
     { status: "applied" },
   ]) {
     const { client, worker } = await clientHarness();
-    const applying = client.command({ kind: "withdraw" }, 0);
+    const applying = client.command({ kind: "setControl", mask: 1 }, 0);
     const rejected = assert.rejects(applying, /matching request|before it was accepted/);
     const request = worker.sent.at(-1).message;
     worker.emitMessage({ kind: "commandAck", version: MSG.WORKER_PROTOCOL_VERSION, requestId: request.requestId,
@@ -895,7 +913,7 @@ test("sim_client_rejects_tick_inconsistent_matching_acknowledgements", async () 
   }
   {
     const { client, worker } = await clientHarness();
-    const applying = client.command({ kind: "withdraw" }, 0);
+    const applying = client.command({ kind: "setControl", mask: 1 }, 0);
     const request = worker.sent.at(-1).message;
     worker.emitMessage({ kind: "commandAck", version: MSG.WORKER_PROTOCOL_VERSION, requestId: request.requestId,
       epoch: 1, sequence: 1, targetTick: 0, status: "accepted", tick: 0 });
@@ -910,7 +928,7 @@ test("command_sequence_exhaustion_never_emits_a_value_above_u32", async () => {
   {
     const { client, worker } = await clientHarness();
     client.setNextSequenceForTest(0x1_0000_0000);
-    const rejected = assert.rejects(client.command({ kind: "withdraw" }), /command sequence exhausted/);
+    const rejected = assert.rejects(client.command({ kind: "setControl", mask: 1 }), /command sequence exhausted/);
     await rejected;
     assert.equal(worker.sent.some((entry) => entry.message.kind === "command"), false);
     assert.equal(client.diagnostics().terminal, true);
@@ -919,7 +937,7 @@ test("command_sequence_exhaustion_never_emits_a_value_above_u32", async () => {
   {
     const { client, worker } = await clientHarness();
     client.setNextSequenceForTest(0xffff_ffff);
-    const applying = client.command({ kind: "withdraw" }, 0);
+    const applying = client.command({ kind: "setControl", mask: 1 }, 0);
     const rejected = assert.rejects(applying, /command sequence exhausted/);
     const request = worker.sent.at(-1).message;
     assert.equal(request.sequence, 0xffff_ffff);
@@ -929,7 +947,7 @@ test("command_sequence_exhaustion_never_emits_a_value_above_u32", async () => {
     assert.ok(worker.sent.filter((entry) => entry.message.kind === "command")
       .every((entry) => entry.message.sequence <= 0xffff_ffff));
     assert.equal(worker.terminateCalls, 1);
-    assert.throws(() => client.command({ kind: "withdraw" }), /command sequence exhausted/);
+    assert.throws(() => client.command({ kind: "setControl", mask: 1 }), /command sequence exhausted/);
   }
 });
 
@@ -972,7 +990,7 @@ test("sim_client_fatal_error_and_termination_reject_all_promises_and_prevent_adv
     const [snapshot] = await snapshotPair();
     worker.emitMessage(snapshot);
     const pause = client.setPaused(true);
-    const commandPromise = client.command({ kind: "withdraw" }, 0);
+    const commandPromise = client.command({ kind: "setControl", mask: 1 }, 0);
     const pauseRejected = assert.rejects(pause);
     const commandRejected = assert.rejects(commandPromise);
     worker.emitMessage(terminalMessage);

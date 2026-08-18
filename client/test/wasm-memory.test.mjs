@@ -153,18 +153,13 @@ function exercise(wasm, abi, seed, guard = null, expectedInitialRevisions = null
   };
   const checked = (label, call) => callAndCheck(wasm, abi, guard, observeRevisions, label, call);
 
+  // **The waypoint queue was driven to its own cap here and the queue is gone.**
+  // Twenty-five `route_push` calls reached `ROUTE_MAX` and a twenty-sixth was
+  // capped, which was the one path in this fixture that grew a `Vec` the page
+  // owned; the three route exports were deleted with the order channel they fed,
+  // so what is left is the roster fill below -- still the only unbounded-looking
+  // path a caller can drive -- and the eight floor builds after it.
   checked(`init(${seed})`, () => wasm.init(seed));
-  checked("route_clear", () => wasm.route_clear());
-  for (let i = 0; i < 24; i++) {
-    const length = checked(`route_push(${i + 1})`, () => (
-      wasm.route_push(1_000 * i, 1_000) >>> 0
-    ));
-    assert.equal(length, i + 1, `route push ${i + 1}`);
-  }
-  const cappedLength = checked("route_push(cap)", () => (
-    wasm.route_push(24_000, 1_000) >>> 0
-  ));
-  assert.equal(cappedLength, 24, "the twenty-fifth route point exceeded the route capacity");
 
   let rejected = false;
   for (let i = 0; i <= abi.MAX_UNITS; i++) {
@@ -188,11 +183,30 @@ function exercise(wasm, abi, seed, guard = null, expectedInitialRevisions = null
     "published frame did not reach the generated unit capacity",
   );
 
-  checked("set_goto", () => wasm.set_goto(1_000, 1_000));
-  checked("step(4096)", () => wasm.step(4_096));
+  // A publish without a step, which `set_goto` used to be the carrier for: the
+  // frame is rebuilt and every buffer republished on an export that advances no
+  // tick, and that is a shape the guard has to see. `set_control` is the channel
+  // that survived and it republishes the same way.
+  checked("set_control", () => wasm.set_control(1));
+  checked("set_control(0)", () => wasm.set_control(0));
+  // **Sixty-four ticks, and it was 4,096 until this floor grew joints.** The
+  // batch is here for the event feed's wrap and drop path, and the number that
+  // reaches it is measured rather than budgeted: with the roster at 64, a
+  // `step(64)` fills the 128-row frame and drops 98, while `step(32)` publishes
+  // 100 rows and drops none. So 64 is the first power of two past the drop
+  // threshold, and the 4,096 above it was buying nothing this fixture asserts.
+  // It was also costing seven to thirteen seconds a call against 350 ms -- 64
+  // embodied bodies are not 64 legacy ones -- and this fixture runs eighteen
+  // times, which took the file from four seconds to ten minutes.
+  //
+  // The drop count is asserted **non-zero**, which is what makes the reduction a
+  // measurement instead of a budget: `>= 0` was true of every tick count
+  // including the ones that never reach the path.
+  checked("step(64)", () => wasm.step(64));
   const eventFrame = new Float32Array(wasm.memory.buffer, wasm.frame_ptr() >>> 0, wasm.frame_len() >>> 0);
   assert.ok(eventFrame[abi.HEADER_EVENT_COUNT] <= abi.MAX_EVENTS, "event count exceeds its capacity");
-  assert.ok(eventFrame[abi.HEADER_EVENTS_DROPPED] >= 0, "event drop count is invalid");
+  assert.ok(eventFrame[abi.HEADER_EVENTS_DROPPED] > 0,
+    "a 64-tick batch over a full roster no longer reaches the event feed's drop path");
 
   for (let depth = 1; depth <= 8; depth++) {
     const reached = checked(`descend(${depth})`, () => wasm.descend() >>> 0);
@@ -333,21 +347,32 @@ function contactWarmup(wasm, abi, seed, guard = null) {
   // "nothing has grown it yet". This export is the difference between them.
   reserved(`init_articulated_test(${seed})`);
 
-  // Toward the row ceiling. Every one of these is refused today and the
-  // assertion says so, which is the honest state of the boundary rather than a
-  // weak test: the host builds every spec with no articulated row, so an
-  // articulated world turns the whole legacy spawn path away and not merely its
-  // sixty-fifth caller. What is under test here is that the refusal is a `0`
-  // and not a trap -- this loop failed as `RuntimeError: unreachable` before
-  // v2-14C -- and that a refused spawn moves neither the reservation nor a
-  // published pointer. It becomes a fill the day an articulated spawn lands on
-  // the boundary: the loop bound is already the ceiling, and only the expected
-  // return changes.
-  for (let row = 0; row <= abi.MAX_UNITS; row++) {
+  // **To the row ceiling, and this loop is a fill now rather than a refusal.**
+  // It asserted `0` on every call for as long as the host built every spec with
+  // no articulated row: an articulated world turned the whole legacy spawn path
+  // away, not merely its sixty-fifth caller. `Sim::walk_in` dresses the spec for
+  // the world it is entering now, so the bodies arrive -- which is the case the
+  // old comment reserved the loop bound for, and only the expected return
+  // changed. What is under test is unchanged and is the interesting half either
+  // way: the ceiling is reached, the sixty-fifth row is refused rather than
+  // trapping, and neither the reservation nor a published pointer moves across
+  // any of it.
+  let refused = false;
+  for (let row = 0; row <= abi.MAX_UNITS && !refused; row++) {
     const standing = checked(`spawn_monster(${row})`, () => wasm.spawn_monster(3, 255, 255) >>> 0);
-    assert.equal(standing, 0, `row ${row} walked into an articulated world through the legacy path`);
+    refused = standing === 0;
     reserved(`spawn_monster(${row})`);
   }
+  assert.ok(refused, "the spawn path did not reject within MAX_UNITS + 1 calls");
+
+  // **Back to the duel before the clinch, and this reset is load-bearing.** The
+  // loop above used to be refused on every call, so it left the two-body world
+  // exactly as it found it; it fills the roster now, and `CLINCH_CAP_TICK` is a
+  // measurement of *two* rows walking into each other. Driving the clinch on a
+  // floor holding sixty-four bodies is a different fixture that happens to use
+  // the same bytes, and it caps somewhere else.
+  checked(`duel before the clinch(${seed})`, () => wasm.init_articulated_test(seed));
+  reserved(`duel before the clinch(${seed})`);
 
   // ---- the cap.
   //
@@ -470,11 +495,26 @@ test("the_browser_contact_warmup_does_not_grow_wasm_memory", () => {
   // plateau tracks dlmalloc's size classes and allocation order, not what the
   // world weighs.
   //
-  // Thirty-seven is now a little over twice the settling round rather than three
-  // and a half times it, and it stays thirty-seven. Cutting it would buy a
-  // second of test time by spending the margin that caught this fixture out
-  // twice, and the settling round has now moved in both directions.
-  for (let round = 1; round <= 37; round++) {
+  // **Forty-eight rounds since 2026-08-18, and thirty-seven left the fixture two
+  // steps short rather than one.** The embodied session's `Sim::walk_in` dresses
+  // a spec for the world it is entering, so the sixty-five spawn calls in this
+  // fixture stopped being sixty-five refusals and became a roster fill to the
+  // ceiling, and the duel is now rebuilt a second time before the clinch so that
+  // `CLINCH_CAP_TICK` is still measured on two bodies. Traced per round on the
+  // shipped script: **279 from round one, flat through round thirty-seven, a
+  // step to 305 at round thirty-eight, 349 at round thirty-nine, then 349
+  // unchanged through round one hundred.** Thirty-seven therefore ended one
+  // round before the first of two steps, and both landed inside a *guarded*
+  // cycle -- `seed 0, cycle 1, reset init_articulated_test(0)` -- which reads as
+  // a leak and is not one: sixty-one consecutive flat rounds is the strongest
+  // tail this fixture has ever recorded.
+  //
+  // Forty-eight is the settling round plus a quarter again, and it was run
+  // rather than reasoned: at forty-eight the guarded phase holds at 349. The
+  // paragraph above about a longer warm-up being a *different* sequence is why
+  // that last sentence is the one that matters -- a flat tail says the allocator
+  // converges, and only running the count that ships says the guard holds at it.
+  for (let round = 1; round <= 48; round++) {
     for (const seed of seeds) contactWarmup(wasm, abi, seed);
   }
 
@@ -562,6 +602,17 @@ test("published_legacy_views_survive_every_warm_path_without_memory_growth", () 
   // margin; it is a different sequence of floor-to-floor transitions reaching a
   // different peak, exactly as the paragraph above says. The count that is
   // measured to hold is the count that ships.
+  //
+  // **Two rounds per seed still holds and the plateau moved a long way: 39 ->
+  // 265.** The floor `init` opens is embodied now, so this fixture's roster fill
+  // builds sixty-four jointed bodies where it used to build sixty-four legacy
+  // ones, and eight descents rebuild that. Re-traced on the shipped nesting on
+  // 2026-08-18: 239 after seed 0's first round, 265 after its second, and flat
+  // from there through seed 1 and seed 0xffffffff; the guarded phase then holds
+  // at 265 across all twelve cycles. Traced *unshipped* at eight rounds per seed
+  // the same script steps again to 309 at `seed 0xffffffff, round 3`, which is
+  // the paragraph above making its point a third time: two is not a smaller
+  // eight, it is a different sequence, and it is the one that was run.
   let initialRevisions = null;
   for (const seed of [0, 1, 0xffff_ffff]) {
     for (let round = 1; round <= 2; round++) initialRevisions = exercise(wasm, abi, seed);
@@ -701,26 +752,29 @@ function articulatedShape(wasm, abi) {
     poseRows, eventRows, projectileRows };
 }
 
-// How deep the stress drives an articulated run, and the number is measured
-// rather than budgeted: `init_articulated`'s room publishes 7 pose rows, and
-// each descent adds a body until the roster plateaus at 11 from depth 4 -- the
-// same 7/8/9/10/11 on all three seeds. Four is therefore the deepest floor that
-// buys another pose row, which is what this fixture wants out of a descent.
+// How deep the stress drives a run, and the number is measured rather than
+// budgeted: the room publishes 7 pose rows, and each descent adds a body until
+// the roster plateaus at 11 from depth 4 -- the same 7/8/9/10/11 on all three
+// seeds. Four is therefore the deepest floor that buys another pose row, which
+// is what this fixture wants out of a descent.
 //
-// **11 is also the ceiling this test can reach at all, and that is worth
-// recording rather than working around.** The reference's `abi-high-water`
-// corpus fills all 64 rows, but it is a hand-built Rust scenario: no export
-// spawns an articulated body -- `spawn_monster` is refused on an articulated
-// world, by design -- so 64 rows and the 446-row event batch are reachable from
-// `crates/web` only. What JavaScript can prove is that the buffers do not move
-// and linear memory does not grow, and neither of those is a function of how
-// full the arrays are: both are reserved whole at construction.
+// **This comment used to record 11 as the ceiling JavaScript could reach at all,
+// and that is no longer true.** The claim rested on `spawn_monster` being
+// refused on an articulated world: the host built every spec with no articulated
+// row, so the reference's 64-row `abi-high-water` corpus was a hand-built Rust
+// scenario and nothing else. `Sim::walk_in` dresses the spec for the world it is
+// entering now, so the roster fill above this loop reaches all 64 rows from
+// JavaScript and the descents are back to being about the *floor* rather than
+// about the roster. What JavaScript proves is still the same thing -- the
+// buffers do not move and linear memory does not grow -- and that was never a
+// function of how full the arrays are, since both are reserved whole at
+// construction.
 //
 // It is load-bearing that the warm-up drives exactly these depths. Every
 // descent generates a *different* room, and a room's nav fields and fog are
 // most of a `Sim`; raising this without re-warming fails on the warm-up's own
-// growth. Each cycle starts from `init_articulated`, which resets the depth, so
-// the four floors are the same four every time.
+// growth. Each cycle starts from `init`, which resets the depth, so the four
+// floors are the same four every time.
 const ARTICULATED_DEPTHS = 4;
 
 // Rounds of "submit the clinch payload, then `step(8)`" driven after the cap
@@ -764,64 +818,69 @@ function articulatedStress(wasm, abi, seed, guard = null) {
     `${label}: the articulated world is not reserved to the frame's row ceiling`,
   );
 
-  // ---- the room, under the articulated model.
+  // ---- the room the page opens.
   //
-  // Not the two-body duel `init_articulated_test` opens: this is `init`'s own
-  // generated floor plan, its furniture and its roster, so it reserves 64 rows
-  // of contact vectors *and* republishes the map, the fog and the furniture. It
-  // is also the only call here that publishes more than two pose rows.
-  checked(`init_articulated(${seed})`, () => wasm.init_articulated(seed));
-  reserved(`init_articulated(${seed})`);
+  // Not the two-body duel `init_articulated_test` opens: this is the generated
+  // floor plan, its furniture and its roster, so it reserves 64 rows of contact
+  // vectors *and* republishes the map, the fog and the furniture.
+  checked(`init(${seed})`, () => wasm.init(seed));
+  reserved(`init(${seed})`);
   let poses = wasm.pose_len() >>> 0;
-  assert.ok(poses > 0, "the articulated room published no pose rows");
+  assert.ok(poses > 0, "the room published no pose rows");
 
-  // The maximum spawn path, which on an articulated world is the maximum
-  // *refusal* path: the host builds every legacy spec with no articulated row,
-  // so all 65 of these are turned away. What is under test is that a refusal is
-  // a `0` rather than a trap, and that it moves neither the reservation nor a
-  // published pointer.
-  for (let row = 0; row <= abi.MAX_UNITS; row++) {
-    const standing = checked(`init_articulated spawn_monster(${row})`, () => (
+  // **The maximum spawn path, and it fills the pose buffer now rather than
+  // refusing at the door.** It was 65 refusals for as long as the host built
+  // every legacy spec with no articulated row; `Sim::walk_in` dresses the spec
+  // for the world it is entering, so the roster runs to `MAX_UNITS` and only the
+  // call past it is turned away. That is a strictly harder fixture -- the pose,
+  // region and stance sections all fill to their live ceiling here, which is a
+  // reach the note below `ARTICULATED_DEPTHS` used to say JavaScript could not
+  // drive at all.
+  let refused = false;
+  for (let row = 0; row <= abi.MAX_UNITS && !refused; row++) {
+    const standing = checked(`spawn_monster(${row})`, () => (
       wasm.spawn_monster(3, 255, 255) >>> 0
     ));
-    assert.equal(standing, 0, `row ${row} walked into an articulated room through the legacy path`);
+    refused = standing === 0;
   }
-  reserved("init_articulated spawn cap");
+  assert.ok(refused, "the spawn path did not reject within MAX_UNITS + 1 calls");
+  reserved("spawn cap");
+  poses = Math.max(poses, wasm.pose_len() >>> 0);
 
   // A batched step, which is the shape the accumulator is sized for: one
   // animation frame is up to eight ticks of catch-up and all eight ticks'
   // contacts land in one publication.
-  checked("init_articulated step(8)", () => wasm.step(8));
-  checked("init_articulated step(64)", () => wasm.step(64));
+  checked("step(8)", () => wasm.step(8));
+  checked("step(64)", () => wasm.step(64));
 
   // ---- the descent, which is where a floor's worth of `Sim` is built while
   // the previous one is still owned, and where the event feed must be cleared:
   // a contact row names two full identities and the new floor hands those slots
   // to new bodies.
   for (let depth = 1; depth <= ARTICULATED_DEPTHS; depth++) {
-    const reached = checked(`articulated descend(${depth})`, () => wasm.descend() >>> 0);
-    assert.equal(reached, depth, `an articulated descent did not reach depth ${depth}`);
-    reserved(`articulated descend(${depth})`);
+    const reached = checked(`descend(${depth})`, () => wasm.descend() >>> 0);
+    assert.equal(reached, depth, `a descent did not reach depth ${depth}`);
+    reserved(`descend(${depth})`);
     assert.equal(
       wasm.combat_event_len() >>> 0,
       0,
       `depth ${depth}: the descent published the previous floor's contacts`,
     );
-    checked(`articulated descend(${depth}) step(8)`, () => wasm.step(8));
+    checked(`descend(${depth}) step(8)`, () => wasm.step(8));
     poses = Math.max(poses, wasm.pose_len() >>> 0);
   }
   // More than the duel's two bodies, which is the claim the descent is here to
   // make. Not pinned at 11: the roster is the level generator's, and a
   // generator change moving it would be a failure for a reason that is not a
   // bug in this ABI.
-  assert.ok(poses > 2, `the deepest articulated floor published only ${poses} pose rows`);
+  assert.ok(poses > 2, `the deepest floor published only ${poses} pose rows`);
 
   // ---- the contact and event maxima.
   //
   // The duel, because the clinch is measured against it: two rows walked into
   // each other with their arms sweeping spend every contact group ordinal on
   // tick 89, and that tick is the one shape whose scratch use is maximal.
-  // `init_articulated`'s room cannot be driven there -- its second body is
+  // The generated room cannot be driven there -- its second body is
   // wherever the generator put it -- so the fixture switches worlds rather than
   // steering blind.
   checked(`init_articulated_test(${seed})`, () => wasm.init_articulated_test(seed));
@@ -865,12 +924,14 @@ function articulatedStress(wasm, abi, seed, guard = null) {
 
     // **Cleared per `step`, not per publication**, checked on a batch that has
     // rows in it rather than after the drive, where the last one is empty and
-    // the assertion would read `0 === 0`. A click between two steps rebuilds the
-    // frame and republishes these same rows unchanged -- the legacy event feed's
-    // rule exactly, and the one a consumer keeping a damage ledger has to read
-    // carefully, because it double counts every contact the player clicks
-    // through. No digest and no capacity can speak for this.
-    checked(`clinch batch ${round}, set_goto`, () => wasm.set_goto(1_000, 1_000));
+    // the assertion would read `0 === 0`. Any export between two steps rebuilds
+    // the frame and republishes these same rows unchanged -- the legacy event
+    // feed's rule exactly, and the one a consumer keeping a damage ledger has to
+    // read carefully, because it double counts every contact the player presses
+    // a control through. No digest and no capacity can speak for this.
+    // `set_goto` carried this line until the order channel went; `set_control`
+    // is a publish-without-step in exactly the same way.
+    checked(`clinch batch ${round}, set_control`, () => wasm.set_control(0));
     assert.equal(
       wasm.combat_event_len() >>> 0,
       live,
@@ -899,11 +960,11 @@ function articulatedStress(wasm, abi, seed, guard = null) {
   assert.notEqual(digest, 0n, "the stream digest is zero, so its script fed nothing");
 
   // ---- the reset, on the call the page would use to start over. Inside the
-  // fixture and not around it, for `contactWarmup`'s reason: `init_articulated`
+  // fixture and not around it, for `contactWarmup`'s reason: `init`
   // builds the replacement world while the outgoing one is still owned, so the
   // peak footprint is two worlds and it is the reset that reaches it.
-  checked(`reset init_articulated(${seed})`, () => wasm.init_articulated(seed));
-  reserved(`reset init_articulated(${seed})`);
+  checked(`reset init(${seed})`, () => wasm.init(seed));
+  reserved(`reset init(${seed})`);
   return { batched, digest };
 }
 
@@ -912,17 +973,17 @@ test("published_views_survive_articulated_stress_without_memory_growth", () => {
   const wasm = instantiate();
   const seeds = [0, 1, 0xffff_ffff];
 
-  // A legacy level first, and it is load-bearing for the same reason it is in
-  // the contact fixture above: the retained MAP, VIS and FURNITURE views must
-  // have a non-zero length before the guard closes, because a detached view
-  // reads a `byteLength` of zero and so does a view that was never over
-  // anything. `init_articulated` does republish all three -- unlike
-  // `init_articulated_test` -- but an `init` first costs nothing and keeps the
-  // three fixtures reading the same way.
+  // A level first, and it is load-bearing for the same reason it is in the
+  // contact fixture above: the retained MAP, VIS and FURNITURE views must have a
+  // non-zero length before the guard closes, because a detached view reads a
+  // `byteLength` of zero and so does a view that was never over anything. `init`
+  // does republish all three -- unlike `init_articulated_test` -- so the fixture
+  // below would warm them anyway, and this line keeps the three fixtures reading
+  // the same way.
   wasm.init(1);
 
   // **Every seed the guarded cycles drive, warmed in the order they drive
-  // them.** Not a style choice: `init_articulated` and `descend` each build a
+  // them.** Not a style choice: `init` and `descend` each build a
   // whole generated floor -- nav fields and fog -- before replacing the world,
   // and every seed and every depth generates a different room. The sibling test
   // above records what happens when this is skimped: warmed on one seed and then
@@ -988,6 +1049,17 @@ test("published_views_survive_articulated_stress_without_memory_growth", () => {
   // one page's worth of *arithmetic* and none of a page, so the three pages here
   // are the allocator's arena again; the sibling fixture moved *down* one page
   // in the same commit, which is the same evidence from the other side.
+  //
+  // **Re-traced on 2026-08-18 after the roster fill replaced the spawn refusal:
+  // 305 -> 291, settling round 4 -> 4.** Per round on the shipped script: 265
+  // from round one, flat through round three, a single step to 291 at round
+  // four, then 291 unchanged through a measured round forty, and the guarded
+  // phase holds at 291. This fixture now drives sixty-four jointed bodies where
+  // it drove seven, and the arena came back *fourteen pages smaller* -- the
+  // fourth reading in a row saying that the plateau tracks dlmalloc's size
+  // classes and allocation order rather than what the world weighs. Twelve is
+  // three times the settling round and it stays twelve, which is the count that
+  // was run.
   let last = null;
   for (let round = 1; round <= ARTICULATED_WARM_ROUNDS; round++) {
     for (const seed of seeds) last = articulatedStress(wasm, abi, seed);
@@ -1194,7 +1266,7 @@ test("arena_start_allocates_within_the_warm_set", async () => {
   // the sibling fixtures' rule and is the one this test was mutation-checked
   // against: warmed on the shipped arrangement alone and then guarded across all
   // three, `cycle 2, warmUp(7)` grows linear memory and detaches every retained
-  // view. `init_articulated` builds a whole generated floor -- nav fields and fog
+  // view. `init` builds a whole generated floor -- nav fields and fog
   // -- before it replaces the world, and a different seed is a different floor.
   // **Eight rounds since 2026-08-16, and the count now matters as much as the
   // arrangements do.** Traced page counts per round: 225 from round one, flat

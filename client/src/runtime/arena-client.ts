@@ -1,7 +1,7 @@
 // The main thread's half of the recording channel.
 //
 // One `Worker` per mounted arena route, reused for every [Fight]. Not one per
-// fight: instantiating `web.wasm` and warming `init_articulated` costs more than
+// fight: instantiating `web.wasm` and warming `init` costs more than
 // the fight does, and a worker that is thrown away after each recording pays
 // both again every time.
 //

@@ -33,9 +33,20 @@ export type InitMessage = { kind: "init"; version: ProtocolVersion; requestId: n
 export type ResetMessage = { kind: "reset"; version: ProtocolVersion; requestId: number; epoch: number; seed: number; paused: boolean };
 export type SetPausedMessage = { kind: "setPaused"; version: ProtocolVersion; requestId: number; epoch: number; paused: boolean };
 export type AdvanceMessage = { kind: "advance"; version: ProtocolVersion; requestId: number; epoch: number; elapsedMicros: number };
+/**
+ * What a client may ask the game session to do.
+ *
+ * **`goto` and `withdraw` were members here and they are gone, because the
+ * channel under them is.** They dispatched to `set_goto` and `clear_order`, and
+ * a standing order is a column of the legacy `Observation` that an
+ * `ArticulatedObservation` does not have -- so on the embodied floor a click
+ * moved the state hash, painted a destination pip in the frame header and
+ * changed nothing about where anybody walked. A command a worker accepts and
+ * cannot act on is the exact refusal this repository has paid for repeatedly;
+ * removing it is the honest form. Direct control is the channel that survives:
+ * `setControl` and `setInput` are answered every tick.
+ */
 export type LegacyClientCommand =
-  | { kind: "goto"; xMilli: number; yMilli: number }
-  | { kind: "withdraw" }
   | { kind: "setControl"; mask: number }
   | { kind: "setInput"; moveXMilli: number; moveYMilli: number; aimRaw: number; reachMilli: number; slot: number; strike: number; turnMilli: number }
   | { kind: "spawn"; kindCode: number; primary: number; secondary: number }
@@ -62,7 +73,7 @@ export type ReturnSnapshotMessage = {
  * `checkpoint` carries the trained network's bytes when a side asks for policy
  * code 4, and is null otherwise. It travels *with* the start rather than as its
  * own message because `load_checkpoint` is the only allocating call in that set:
- * it belongs in the same warm-up as `init_articulated`, before any typed array
+ * it belongs in the same warm-up as `init`, before any typed array
  * over the pose buffer exists, and a separate message would let a client
  * interleave it with a recording in flight.
  */
@@ -270,7 +281,6 @@ function requestIdOf(value: Record<string, unknown>): number | null {
 
 function decodeCommand(value: unknown): LegacyClientCommand | null {
   if (!isRecord(value) || typeof value.kind !== "string") return null;
-  if (value.kind === "withdraw") return { kind: "withdraw" };
   if (value.kind === "setControl" && isU32(value.mask)) return { kind: "setControl", mask: value.mask };
   if (value.kind === "setInput" && isI32(value.moveXMilli) && isI32(value.moveYMilli)
       && isU32(value.aimRaw) && isI32(value.reachMilli) && isU32(value.slot) && isU32(value.strike)
@@ -278,9 +288,6 @@ function decodeCommand(value: unknown): LegacyClientCommand | null {
     return { kind: "setInput", moveXMilli: value.moveXMilli, moveYMilli: value.moveYMilli,
       aimRaw: value.aimRaw, reachMilli: value.reachMilli, slot: value.slot, strike: value.strike,
       turnMilli: value.turnMilli };
-  }
-  if (value.kind === "goto" && isI32(value.xMilli) && isI32(value.yMilli)) {
-    return { kind: "goto", xMilli: value.xMilli, yMilli: value.yMilli };
   }
   if ((value.kind === "spawn" || value.kind === "respawn")
       && isU32(value.kindCode) && isU32(value.primary) && isU32(value.secondary)) {

@@ -302,9 +302,6 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   slotButtons.forEach((button, slot) => button.addEventListener("click", () => {
     run(() => selectWeapon(slot), "Slot " + (slot + 1) + " selected");
   }));
-  find<HTMLButtonElement>("withdraw").addEventListener("click", () => {
-    run(() => submit({ kind: "withdraw" }), "Order cleared");
-  });
   find<HTMLButtonElement>("spawn").addEventListener("click", () => {
     run(() => submit({ kind: "spawn",
       kindCode: integerFrom("spawn-kind", 0, 2),
@@ -579,7 +576,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
       ? representativeRoom
         ? "The representative room stress fixture is noninteractive. Use the camera toggle for visual review; return to fixed mode before capture."
         : "The fixed stress fixture is intentionally noninteractive; input and simulation controls are disabled during comparable capture."
-      : "Click known floor to move. Drag with the primary, middle, or secondary button to pan; use the wheel to zoom and Escape to withdraw.";
+      : "Take the feet and steer with WASD; Q and E turn. Drag with the primary, middle, or secondary button to pan, and use the wheel to zoom.";
     status.value = canvasControl ? "Synthetic Canvas2D control ready"
       : roomReviewMode ? "Compact representative room review ready"
         : stressKind === "room" ? "Representative room stress fixture ready"

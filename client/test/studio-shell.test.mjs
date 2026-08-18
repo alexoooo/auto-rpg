@@ -439,12 +439,18 @@ test("the_game_route_gives_the_dungeon_the_stage_and_keeps_instruments_in_reach"
   for (const id of ["greybox", "interaction-hint", "game-view-mode", "party-health",
     "party-health-bar", "seed", "reset", "pause",
     "slot-1", "slot-2", "control-movement", "control-action", "control-aim", "respawn",
-    "spawn-kind", "spawn-primary", "spawn-secondary", "withdraw", "spawn", "diagnostic-hold-buffers",
+    "spawn-kind", "spawn-primary", "spawn-secondary", "spawn", "diagnostic-hold-buffers",
     "diagnostic-release-buffers", "performance-start", "performance-download", "performance-progress",
     "performance-status", "status", "error", "diagnostics"]) {
     assert.equal(template.match(new RegExp(`id="${id}"`, "g"))?.length, 1,
       `#${id} must survive the composition exactly once`);
   }
+  // **`withdraw` was on that list and the button is gone with the order it
+  // withdrew.** Asserted absent rather than dropped quietly, for the reason the
+  // sibling test gives about `goto-x` and `goto-y`: a control that reappears
+  // over a channel nothing is connected to is a button that does nothing, and
+  // the shell is where a reader would look for it first.
+  assert.doesNotMatch(template, /id="withdraw"/);
 });
 
 test("the_game_route_keeps_fps_visible_outside_the_systems_drawer", () => {

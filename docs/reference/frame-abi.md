@@ -2,7 +2,7 @@
 
 **Purpose:** Define the exact packed frame consumed by both current browser entries.
 **Status:** current
-**Canonical source:** [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L430) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L83)
+**Canonical source:** [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L432) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L144)
 **Update when:** A frame column, section, code meaning, capacity, or layout version changes.
 
 <!-- DOC_CONTRACT: frame-abi-layout -->
@@ -19,11 +19,11 @@ array with a **15-float header**, followed by `unit_count` rows of **33 floats**
 | shot | `x`, `y`, `heading_raw`, `faction` |
 | event | `kind`, `x`, `y`, `amount`, `actor_index`, `other_index`, `aux0`, `aux1` |
 
-The authoritative definitions are [`HEADER_LEN`](../../crates/web/src/lib.rs#L140),
-[`UNIT_STRIDE`](../../crates/web/src/lib.rs#L221),
-[`SHOT_STRIDE`](../../crates/web/src/lib.rs#L269),
-[`EVENT_STRIDE`](../../crates/web/src/lib.rs#L315), and
-[`FRAME_LAYOUT_VERSION`](../../crates/web/src/lib.rs#L427).
+The authoritative definitions are [`HEADER_LEN`](../../crates/web/src/lib.rs#L145),
+[`UNIT_STRIDE`](../../crates/web/src/lib.rs#L226),
+[`SHOT_STRIDE`](../../crates/web/src/lib.rs#L274),
+[`EVENT_STRIDE`](../../crates/web/src/lib.rs#L320), and
+[`FRAME_LAYOUT_VERSION`](../../crates/web/src/lib.rs#L432).
 
 **This document owns the frame and nothing else.** Three further `u32` publications sit
 beside `FRAME` in the same linear memory — the pose rows, the region capsules and the

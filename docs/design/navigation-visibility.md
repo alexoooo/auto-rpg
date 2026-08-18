@@ -137,42 +137,45 @@ reason to bump `FRAME_LAYOUT_VERSION`; appending or moving a slot would be.
 ### The browser-golden correction
 
 The focus/order change was correctly inert in lab fixtures and incorrectly
-predicted to be inert in every browser fixture. Lab uses `Advance`, and navigation
-is additionally silent when `Objective` is `None`. `ROOM_HASH`, however, runs
-`init(1); set_goto(20_000, 12_000); step(600)` and is the one browser golden that
-reaches ordered feet. The historical room hash moved to
-`0xadae95f2b6b46499` when the click became a leash; the current pin is in
+predicted to be inert in every browser fixture. Lab used `Advance`, and navigation
+is additionally silent when `Objective` is `None`. `ROOM_HASH`, however, ran
+`init(1); set_goto(20_000, 12_000); step(600)` and was the one browser golden that
+reached ordered feet; it moved to `0xadae95f2b6b46499` when the click became a leash.
+Both that pin and `LAB_HASH` were deleted by embodied session 10 with the model they
+measured, and their last values are recorded in
 [Hashes](../reference/hashes.md#golden-registry).
 
-The durable lesson is broader than that old literal: a claim that no golden reaches
-an order path must inspect the browser scripts as well as lab scenarios. `LAB_HASH`
-remaining fixed proves only the lab side. This supersedes the correction formerly
-recorded under `DESIGN.md#naming-the-quarry` and the order-sensitive part of
-`DESIGN.md#the-route`.
+**The durable lesson outlives both numbers and is the reason this paragraph is kept
+rather than deleted with them:** a claim that no golden reaches a given code path must
+inspect the browser scripts as well as the lab scenarios, because the two drive
+different fixtures through different entry points. `LAB_HASH` remaining fixed proved
+only the lab side. This supersedes the correction formerly recorded under
+`DESIGN.md#naming-the-quarry` and the order-sensitive part of `DESIGN.md#the-route`.
 
-## Browser waypoint queue
+## The browser waypoint queue, and why it is gone
 
-`Order` remains one standing order per faction. A dragged route is therefore a
-browser-host convenience queue over that channel, not simulation state and not a
-per-unit order system. The wasm host advances waypoints, drops unreachable or stalled
-legs, clears the queue on a plain click, focus change, death, swap, or descent, and
-uses fixed capacity so route editing cannot grow wasm memory while JavaScript holds
-typed-array views. The queue implementation begins at [`Sim::route`](../../crates/web/src/lib.rs#L2236)
-and its exports at [`route_clear`](../../crates/web/src/lib.rs#L5875).
+`Order` remains one standing order per faction in the sim. The browser used to lay a
+**queue** over that channel: a dragged route whose legs the wasm host advanced once per
+simulation tick, dropping unreachable or stalled ones, clearing on a plain click, focus
+change, death, swap or descent, at fixed capacity so route editing could not grow wasm
+memory while JavaScript held typed-array views. The leg test ran in Rust rather than on
+the page because one animation frame may hand the host up to eight catch-up ticks, and a
+page-side arrival test would overshoot each waypoint by that many ticks on a stutter.
 
-The leg test runs in Rust once per simulation tick. One animation frame may hand
-`Sim::advance` up to eight catch-up ticks, so a page-side arrival test would overshoot
-each waypoint by that many ticks on a stutter. Drawing the line remains presentation;
-deciding when its next standing order begins is host game-loop state.
+**Embodied session 10 deleted all of it, and the reason is worth keeping.** A standing
+order reaches a body only through `Observation::nav_dir` and `nav_distance`, which are
+columns of the *legacy* observation. `ArticulatedObservation` — what an articulated or
+embodied body perceives — has no order column and no navigation column at all. So once
+the browser opened an embodied floor, `set_goto` mutated the orders array (which is
+hashed, so it moved the state hash), rebuilt a flow field nobody read, and published a
+destination marker the renderer drew and the body ignored. The queue's own stall timer
+then advanced each leg on a ninety-tick clock while the hero stood still.
 
-Intermediate arrival is measured against `World::nearest_walkable`, not the raw
-drag point, because a sample laid across a corner may be inside masonry. A leg advances
-inside `ROUTE_ARRIVE` 0.70 plus the hero radius. A sealed leg advances after
-`ROUTE_STALL` 90 ticks without `ROUTE_PROGRESS` 0.05 of movement; ninety is three
-times the slowest thirty-tick decision period, so a slow thinker is not mistaken for
-a stuck one. The final leg deliberately remains as the standing `Goto`. The leash
-slows toward it continuously, and popping it would leave the hero holding an order
-the queue had no reason to replace.
+A control that moves the state hash and paints a marker while changing no behaviour is
+worse than a deleted one, so the exports went and direct control became the whole input
+channel. Re-introducing waypointing means giving the surviving observation a navigation
+column first — a mechanic, not a host convenience — and this section exists to say that
+the host half was solved and thrown away rather than never built.
 
 The continuous approach replaced a one-tick arrival band, not merely a wider
 threshold. A direction component below raw fixed-point 19 multiplies to zero

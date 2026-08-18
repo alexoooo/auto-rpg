@@ -3,12 +3,9 @@ import { Plane } from "@babylonjs/core/Maths/math.plane.js";
 import "@babylonjs/core/Culling/ray.js";
 import type { Camera } from "@babylonjs/core/Cameras/camera.js";
 import type { Scene } from "@babylonjs/core/scene.js";
-import { MAP_OPEN } from "../protocol/abi.generated.js";
 import type { LegacyClientCommand } from "../protocol/messages.js";
 import type { PresentationSnapshot } from "../render/presentation.js";
 
-const I32_MIN = -0x8000_0000;
-const I32_MAX = 0x7fff_ffff;
 const PRIMARY_DRAG_THRESHOLD_PX = 4;
 const RAW_TURN = 65_536;
 
@@ -23,23 +20,14 @@ export function tankMovement(keys: ReadonlySet<string>): Readonly<{ x: number; y
 
 export type GroundPoint = Readonly<{ x: number; z: number }>;
 
-export function pointToGotoCommand(
-  snapshot: PresentationSnapshot,
-  point: GroundPoint,
-): LegacyClientCommand | null {
-  if (!Number.isFinite(point.x) || !Number.isFinite(point.z)
-      || !Number.isFinite(snapshot.tileSize) || snapshot.tileSize <= 0) return null;
-  const tx = Math.floor(point.x / snapshot.tileSize);
-  const ty = Math.floor(point.z / snapshot.tileSize);
-  if (tx < 0 || ty < 0 || tx >= snapshot.mapCols || ty >= snapshot.mapRows) return null;
-  const at = ty * snapshot.mapCols + tx;
-  if (snapshot.map[at] !== MAP_OPEN || (snapshot.vis[at] !== 1 && snapshot.vis[at] !== 2)) return null;
-  const xMilli = Math.round(point.x * 1000);
-  const yMilli = Math.round(point.z * 1000);
-  if (!Number.isSafeInteger(xMilli) || !Number.isSafeInteger(yMilli)
-      || xMilli < I32_MIN || xMilli > I32_MAX || yMilli < I32_MIN || yMilli > I32_MAX) return null;
-  return Object.freeze({ kind: "goto" as const, xMilli, yMilli });
-}
+// **Click-to-move was here and it is not a feature that was cut -- it is one
+// that stopped working.** `pointToGotoCommand` turned a ground pick into a
+// `goto`, which dispatched to `set_goto`, which set a per-faction `Order` that
+// only the legacy `Observation` carries. An `ArticulatedObservation` has no
+// order column and no nav column, so on this floor a click moved the state hash,
+// painted a destination pip in the frame header, rebuilt a flow field nobody
+// read and moved nobody. The projector below survives because aiming still uses
+// it; only the destination did not.
 
 export type GreyboxInputOptions = Readonly<{
   canvas: HTMLCanvasElement;
@@ -61,7 +49,6 @@ export class GreyboxInput {
   readonly #options: GreyboxInputOptions;
   #disposed = false;
   #pointerId: number | null = null;
-  #button = -1;
   #dragging = false;
   #startX = 0;
   #startY = 0;
@@ -118,7 +105,6 @@ export class GreyboxInput {
       if (event.button !== 0 && event.button !== 1 && event.button !== 2) return;
       event.preventDefault();
       this.#pointerId = event.pointerId;
-      this.#button = event.button;
       this.#dragging = event.button !== 0;
       this.#startX = event.clientX;
       this.#startY = event.clientY;
@@ -166,19 +152,12 @@ export class GreyboxInput {
     }
     if (this.#pointerId !== event.pointerId) return;
     try {
-      const click = event.type === "pointerup" && this.#button === 0 && !this.#dragging
-        && !this.#disposed && !this.#options.blocked();
+      // A primary click that was not a drag used to issue the destination. With
+      // no order channel left there is nothing for it to say, so releasing the
+      // pointer now only ends the gesture -- and the release is still where the
+      // capture is given back, which is the half that was never about walking.
       const captureError = this.#clearGesture();
-      if (captureError !== null) {
-        this.#report(captureError);
-        return;
-      }
-      if (!click) return;
-      const snapshot = this.#options.snapshot();
-      const point = this.#options.projectGround(event);
-      if (snapshot === null || point === null) return;
-      const command = pointToGotoCommand(snapshot, point);
-      if (command !== null) this.#submit(command);
+      if (captureError !== null) this.#report(captureError);
     } catch (error) {
       this.#failGesture(error);
     }
@@ -212,10 +191,12 @@ export class GreyboxInput {
         this.#sendLive(0);
         return;
       }
+      // Escape used to clear the live input *and* withdraw the standing order.
+      // The order is gone; releasing every held key is the half that was always
+      // about the keyboard rather than about the order channel.
       if (event.key !== "Escape") return;
       event.preventDefault();
       this.#clearLiveInput();
-      this.#submit(Object.freeze({ kind: "withdraw" as const }));
     } catch (error) {
       this.#failGesture(error);
     }
@@ -270,7 +251,6 @@ export class GreyboxInput {
   #clearGesture(): unknown | null {
     const pointerId = this.#pointerId;
     this.#pointerId = null;
-    this.#button = -1;
     this.#dragging = false;
     if (pointerId === null) return null;
     try {
