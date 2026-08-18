@@ -6,15 +6,13 @@
 //! machine allows, across as many cores as it has.
 //!
 //! ```text
-//! cargo run --release -p lab -- bench   --seeds 500
-//! cargo run --release -p lab -- verify  --seeds 100
-//! cargo run --release -p lab -- hash
-//! cargo run --release -p lab -- evolve  --gens 30 --pop 24 --seeds 8
+//! cargo run --release -p lab -- verify   --seeds 200
+//! cargo run --release -p lab -- embodied --seeds 400 --mirrored
+//! cargo run --release -p lab -- embodied --corpus-digest
+//! cargo run --release -p lab -- trace    --seed 3
 //! ```
 
 mod args;
-mod evolve;
-mod fitness;
 mod learn_probe;
 mod strong_strike;
 mod strike_corpus;
@@ -22,32 +20,25 @@ mod tactical_mechanics;
 mod trace;
 
 use args::Args;
-use evolve::{describe, evolve, Arena, EvolveConfig};
-use fitness::{fitness, Summary, Tally};
 use trace::{FightTrace, TraceRun};
 use fx::{Fx, Hash64, Vec2};
 use policy::{
-    run, script_digest, ArmRoles, ArticulatedPolicy, ClosingAttackControlPolicy,
-    EmbodiedPolicy, EmbodiedPolicyKind, OpeningsArticulatedPolicy, PolicyKind,
-    RunConfig, RunResult, ScriptedArticulatedPolicy, TacticalArticulatedPolicy,
+    script_digest, ArmRoles, ArticulatedPolicy, ClosingAttackControlPolicy,
+    EmbodiedPolicy, EmbodiedPolicyKind, OpeningsArticulatedPolicy,
+    RunConfig, ScriptedArticulatedPolicy, TacticalArticulatedPolicy,
     WindmillArticulatedPolicy,
 };
 use sim::{
-    AnatomyChoice, Body, CombatHeight, ContactKind, DuelConfigV1, EntityId, Faction, Intent,
+    AnatomyChoice, CombatHeight, ContactKind, DuelConfigV1, EntityId, Faction, Intent,
     Outcome, Replay, Scenario, StateDigest, SubmitArticulatedOutcome, SubmitEmbodiedOutcome,
-    SubmittedCommand, SubmittedCommandRecord, UnitSpec, World,
+    SubmittedCommand, SubmittedCommandRecord, World,
 };
 use std::time::Instant;
 
 fn main() {
     let args = Args::from_env();
     match args.command() {
-        "bench" => bench(&args),
         "verify" => verify(&args),
-        "hash" => hash(&args),
-        "evolve" => evolution(&args),
-        "duel" => duel(&args),
-        "articulated" => articulated(&args),
         "embodied" => embodied(&args),
         "strike-corpus" => strike_corpus::strike_corpus(&args),
         "strong-strike" => strong_strike::strong_strike(),
@@ -89,61 +80,29 @@ fn usage() {
     println!(
         "auto-rpg experiment lab
 
-  bench   --seeds N --threads N --heroes N --monsters N
-          --carved --depth N --ticks N
-          Batch rollouts with the hand-tuned policy. Reports the fitness
-          distribution and throughput.
-          --carved swaps the open rectangle every other scenario stands on for
-          a generated dungeon, and then reports throughput and nothing else.
-          Sight is a short-circuit on an open plan, so the headline number has
-          never paid for a raycast and the browser's floor plan makes it pay
-          for one per pair per decision. It runs on one thread unless told
-          otherwise, because a browser frame has one core to spend.
-
-  verify  --seeds N --verbose
-          --embodied --slope --policy neutral|scripted|scripted-level
-          Replays every run and checks it reproduces bit-exactly. This is the
-          guarantee the whole architecture rests on. --verbose prints every
-          seed's hash, which is what you diff against another platform.
-          Without --embodied it drives the Legacy skirmish, which is the only
-          model this command has ever spoken. **Run, re-run and replay agreement
-          is a property of the codec and not of a body model**, so --embodied
-          makes the identical claim over `embodied-duel-v1` -- and --slope over
-          the sculpted fixture, whose floor is the one thing no other replay
-          corpus in this repository has ever carried into a state hash.
-
-  hash    --seed N --scenario N
-          Prints the state fingerprint of a canonical run. The same number must
-          come back from a wasm build and from every other architecture.
-
-  duel    --seeds N --hero KIND --villain KIND --policy P --opponent P
-          One-on-one, repeated across seeds, reporting a win rate and how the
-          fight was actually won. This is where a claim like \"a clever policy
-          can beat a brute\" stops being an opinion.
-
-  articulated --seeds N --threads N --mirrored --seed-zero-only
-              --policy composed|windmill|tactical --attack-moves
-          Runs the pinned articulated duel fixture under the twelve-phase
-          scripted policy, stopping at the first outcome or at tick 3600, and
-          reports what the mechanics did with it. --mirrored adds the exact
-          spatial mirror of every seed, reflected across y=8, which measures
-          north/south geometry rather than Fighter/Brute balance. It asserts no
-          threshold: the number it exists to produce is how many fights ended.
-          --policy windmill runs the control that never stops walking or
-          swinging. --attack-moves is the second control: the composed script
-          with the feet of phases 3, 4, 7 and 8 closing instead of planted,
-          which is the cell the reference table leaves unstated. Neither
-          control is the reference script and neither may be pinned.
+  verify  --seeds N --threads N --verbose
+          --slope --policy neutral|scripted|scripted-level
+          --hero-policy|--monster-policy neutral|scripted|scripted-level
+          Runs every seed twice and replays the recording, and checks all three
+          agree bit-exactly. This is the guarantee the whole architecture rests
+          on. --verbose prints every seed's digest, which is what you diff
+          against another platform. **Run, re-run and replay agreement is a
+          property of the codec and not of a body model**, which is why this
+          command outlived the Legacy skirmish it was written against: it now
+          makes the identical claim over `embodied-duel-v1`, and --slope makes
+          it over the sculpted fixture, whose floor is the one thing no other
+          replay corpus in this repository carries into a state hash.
 
   embodied --seeds N --threads N --mirrored --seed-zero-only --slope
            --policy neutral|scripted|scripted-level
-           --hero-policy P --monster-policy P
+           --hero-policy|--monster-policy neutral|scripted|scripted-level
            --corpus-digest --high-ground
-          `articulated`'s sibling under the embodied model, reporting the same
-          fixed labels so the two corpora read side by side. It runs
+          The corpus measurement under the embodied model. It runs
           `embodied-duel-v1` unless --slope names the sculpted fixture, and
-          --mirrored adds the reflection across y=8 for the same reason it does
-          there: one orientation measures the spawn as well as the policy.
+          --mirrored adds the reflection across y=8, because one orientation
+          measures the spawn as well as the policy. Its labels are the fixed
+          ones the retired `articulated` corpus printed, so a report from this
+          command and a recorded one from that still read side by side.
           --corpus-digest is the frozen pin corpus and refuses every override
           that would change what it measures; the number it prints is the one
           `docs/reference/hashes.md` registers.
@@ -189,7 +148,8 @@ fn usage() {
 
   trace   --seed N --policy composed|windmill|tactical|learned --attack-moves --mirrored
           --ticks N --out PATH
-          --checkpoint PATH --opponent P --phase-random   (--policy learned only)
+          --checkpoint PATH --phase-random             (--policy learned only)
+          --opponent composed|windmill|attack-moves    (--policy learned only)
           --fighter-a fighter|brute            --fighter-b fighter|brute
           --a-left  sword|shield|club|empty    --a-right ...  (and the b twins)
           --a-two-handed on|off                (and the b twin; needs a full
@@ -244,39 +204,9 @@ fn usage() {
           checkpoint -- over held-out seeds the optimizer never saw, against
           both the frozen opponent and a phase-randomised control, and prints
           the comparison the decision is made on. A held-out run is recorded as
-          the ordinary replay envelope and replayed with no model in the room.
-
-  evolve  --gens N --pop N --elite N --seeds N --sigma-pct N --threads N
-          --master-seed N --policy P --opponent P
-          --arena skirmish|duel|roster --hero KIND --villain KIND
-          --cross --cross-with P
-          Evolves a policy's weights against a hand-tuned opponent. The arena
-          decides what \"better\" means: a genome tuned on crowds keeps a spacing
-          no duellist should accept, and vice versa. \"roster\" scores all sixteen
-          archetype pairings, which is what a policy shipped to the whole roster
-          is actually being asked to do. --cross scores every candidate against a
-          second opponent too and keeps the worse of the two, because a duel
-          arena will happily evolve a counter to one opponent and call it a
-          fighter.
-
-  KIND is one of fighter, rogue, brute, skitterer.
-  P    is one of utility, duelist, idle, random."
+          the ordinary replay envelope and replayed with no model in the room."
     );
 }
-
-const POLICIES: [(&str, PolicyKind); 4] = [
-    ("utility", PolicyKind::Utility),
-    ("duelist", PolicyKind::Duelist),
-    ("idle", PolicyKind::Idle),
-    ("random", PolicyKind::Random),
-];
-
-const KINDS: [(&str, Body); 4] = [
-    ("fighter", Body::Fighter),
-    ("rogue", Body::Rogue),
-    ("brute", Body::Brute),
-    ("skitterer", Body::Skitterer),
-];
 
 fn default_threads() -> usize {
     std::thread::available_parallelism()
@@ -284,345 +214,30 @@ fn default_threads() -> usize {
         .unwrap_or(4)
 }
 
-/// Runs one scenario per seed, spread over threads.
+/// Run, re-run and replay agreement over seeds.
 ///
-/// Each thread owns its own policy instance, so nothing is shared and nothing
-/// needs locking. Results are written by index, so the output is identical
-/// whatever order the threads finish in.
-fn parallel_runs(
-    seeds: &[u64],
-    heroes: u32,
-    monsters: u32,
-    threads: usize,
-    kind: PolicyKind,
-) -> Vec<RunResult> {
-    let mut slots: Vec<Option<RunResult>> = vec![None; seeds.len()];
-    if seeds.is_empty() {
-        return Vec::new();
-    }
-    let threads = threads.max(1);
-    let chunk = seeds.len().div_ceil(threads);
-
-    std::thread::scope(|scope| {
-        for (chunk_seeds, out) in seeds.chunks(chunk).zip(slots.chunks_mut(chunk)) {
-            scope.spawn(move || {
-                let config = RunConfig::default();
-                let mut policy = kind.baseline();
-                for (i, &seed) in chunk_seeds.iter().enumerate() {
-                    let scenario = Scenario::skirmish(seed, heroes, monsters);
-                    out[i] = Some(run(&scenario, seed, &mut policy, &config));
-                }
-            });
-        }
-    });
-
-    slots
-        .into_iter()
-        .map(|slot| slot.expect("every seed should have produced a run"))
-        .collect()
-}
-
-/// The same fan-out as [`parallel_runs`], on a generated dungeon.
-///
-/// A sibling rather than a scenario-kind parameter threaded through the one
-/// above: the two differ in a single line, and that one is the line every
-/// throughput and fitness number ever recorded in this repository came off.
-/// A dozen duplicated lines are cheaper than making the measured path
-/// conditional on anything.
-///
-/// `max_ticks` is a parameter and not an `Option` because a cap is not
-/// optional here. [`Scenario::dungeon`] carries `u32::MAX` deliberately -- it
-/// describes somewhere a player stands around in, not a fight on a clock -- so
-/// a batch pointed at it uncapped ends only when a side is wiped out, and any
-/// seed where the hero and the monsters never meet does not end at all.
-fn carved_runs(
-    seeds: &[u64],
-    depth: u32,
-    max_ticks: u32,
-    threads: usize,
-    kind: PolicyKind,
-) -> Vec<RunResult> {
-    let mut slots: Vec<Option<RunResult>> = vec![None; seeds.len()];
-    if seeds.is_empty() {
-        return Vec::new();
-    }
-    let threads = threads.max(1);
-    let chunk = seeds.len().div_ceil(threads);
-
-    // What the browser opens its first floor with (`Sim::new`): a plain
-    // Fighter carrying its own stat sheet and its own weapons. Matching it
-    // matters -- a body implies neither any more, and benching a Fighter
-    // holding a Skitterer's knife would be measuring a character nobody plays.
-    // The faction and the spawn are placeholders; `Scenario::dungeon`
-    // overwrites both, because where you stand is the level's business.
-    let hero = UnitSpec {
-        kind: Body::Fighter,
-        faction: Faction::Heroes,
-        stats: Body::Fighter.base_stats(),
-        loadout: Body::Fighter.default_loadout(),
-        articulated: None,
-        spawn: Vec2::ZERO,
-    };
-
-    std::thread::scope(|scope| {
-        for (chunk_seeds, out) in seeds.chunks(chunk).zip(slots.chunks_mut(chunk)) {
-            scope.spawn(move || {
-                // The runner's own override of the scenario's limit, which is
-                // the knob built for exactly this. Editing the returned
-                // scenario would work too and would quietly change its
-                // fingerprint, so the thing being benched would no longer be
-                // the level the browser generates from the same seed.
-                let config = RunConfig {
-                    max_ticks: Some(max_ticks),
-                    ..RunConfig::default()
-                };
-                let mut policy = kind.baseline();
-                for (i, &seed) in chunk_seeds.iter().enumerate() {
-                    let scenario = Scenario::dungeon(seed, depth, hero);
-                    out[i] = Some(run(&scenario, seed, &mut policy, &config));
-                }
-            });
-        }
-    });
-
-    slots
-        .into_iter()
-        .map(|slot| slot.expect("every seed should have produced a run"))
-        .collect()
-}
-
-/// The bench with the walls put back in.
-///
-/// **Why this exists at all.** `Dungeon::sees` is `!self.carved ||
-/// raycast(..).is_none()`, and every scenario the lab iterates stands on
-/// `Dungeon::open`. So on the measured path line of sight is a boolean read
-/// and the raycast is never reached: the throughput in the README is a figure
-/// for a sim that has never walked a single DDA. The build people actually
-/// play carves rooms and corridors, where that short-circuit is false and the
-/// cost is one raycast per entity pair per decision, plus a fan of them per
-/// visibility rebuild. Whether "the sim is orders of magnitude faster than it
-/// needs to be" survives contact with a wall was an inference until this flag;
-/// now it is a number.
-///
-/// **Throughput and nothing else, on purpose.** The fitness distribution, the
-/// outcome tally and the draw breakdown all read a balanced two-sided fight,
-/// and this is one hero against whatever the floor rolled -- a win rate off it
-/// would describe the difficulty curve rather than the policy. `Scenario::room`
-/// and `Scenario::dungeon` both say outright that nothing the lab iterates
-/// should be pointed at them, and this deliberately points at one; printing
-/// only the number that is meaningful is how it stays honest about that.
-fn carved_bench(args: &Args) {
-    let count = args.usize("seeds", 200);
-    // One thread, where the skirmish bench takes the whole machine. The
-    // question being asked is whether a tick that pays for line of sight still
-    // fits in a browser frame, and a browser frame gets one core -- so a
-    // per-core figure is the only one that compares against the 60 ticks/s a
-    // 60 Hz budget needs. An explicit `--threads N` still wins, for whoever
-    // wants the batch to finish faster than it wants the comparison.
-    let threads = args.usize("threads", 1);
-    // Floor zero: the one `init` opens, all Skitterers, the level the judder
-    // is actually being complained about on.
-    let depth = args.u32("depth", 0);
-    // A minute of play per seed. Long enough that the floor gets walked rather
-    // than merely entered -- the raycasts this exists to measure are paid for
-    // by the walking -- and short enough that a seed where nobody finds anybody
-    // costs a minute of game time rather than the rest of the afternoon.
-    let tick_limit = args.u32("ticks", 60 * 60);
-    let kind = args.choice("policy", PolicyKind::Utility, &POLICIES);
-    let seeds: Vec<u64> = (0..count as u64).collect();
-
-    println!(
-        "running {count} rollouts of a carved depth-{depth} dungeon, \
-         {tick_limit} ticks each, across {threads} threads ({})",
-        kind.name()
-    );
-    let started = Instant::now();
-    let results = carved_runs(&seeds, depth, tick_limit, threads, kind);
-    let elapsed = started.elapsed();
-
-    let mut ticks = 0u64;
-    let mut decisions = 0u64;
-    for result in &results {
-        ticks += result.ticks as u64;
-        decisions += result.decisions;
-    }
-
-    let seconds = elapsed.as_secs_f64().max(1e-9);
-    println!(
-        "throughput {:.0} rollouts/s, {:.0} ticks/s, {:.0} decisions/s ({:.2}s wall)",
-        results.len() as f64 / seconds,
-        ticks as f64 / seconds,
-        decisions as f64 / seconds,
-        seconds
-    );
-}
-
-fn bench(args: &Args) {
-    // Forked here rather than branched through, for the reason `carved_runs`
-    // gives: everything below this line is the measurement every recorded
-    // number came from, and it should read exactly as it did before the flag
-    // existed.
-    if args.flag("carved") {
-        carved_bench(args);
-        return;
-    }
-
-    let count = args.usize("seeds", 200);
-    let threads = args.usize("threads", default_threads());
-    let heroes = args.u32("heroes", 4);
-    let monsters = args.u32("monsters", 6);
-    let kind = args.choice("policy", PolicyKind::Utility, &POLICIES);
-    let seeds: Vec<u64> = (0..count as u64).collect();
-
-    println!(
-        "running {count} rollouts of {heroes}v{monsters} across {threads} threads ({})",
-        kind.name()
-    );
-    let started = Instant::now();
-    let results = parallel_runs(&seeds, heroes, monsters, threads, kind);
-    let elapsed = started.elapsed();
-
-    let mut tally = Tally::default();
-    let mut scores = Vec::with_capacity(results.len());
-    let mut ticks = 0u64;
-    let mut decisions = 0u64;
-    let (mut blows, mut blocks, mut parries) = (0u64, 0u64, 0u64);
-    for result in &results {
-        tally.add(result);
-        scores.push(fitness(result));
-        ticks += result.ticks as u64;
-        decisions += result.decisions;
-        blows += result.blows as u64;
-        blocks += result.blocks as u64;
-        parries += result.parries as u64;
-    }
-
-    let seconds = elapsed.as_secs_f64().max(1e-9);
-    let runs = results.len().max(1) as f64;
-    println!("fitness  {}", Summary::of(&scores));
-    println!("outcomes {tally}");
-    println!(
-        "swordplay {:.1} blows, {:.1} blocks, {:.1} parries per fight",
-        blows as f64 / runs,
-        blocks as f64 / runs,
-        parries as f64 / runs
-    );
-
-    // Draws are the failure mode worth understanding: two healthy sides that
-    // timed out never found each other, whereas a badly wounded one was in a
-    // flee-and-return loop. The distinction points at completely different
-    // fixes, so it is worth printing rather than guessing at.
-    let drawn: Vec<&RunResult> = results
-        .iter()
-        .filter(|r| r.outcome == sim::Outcome::Draw)
-        .collect();
-    if !drawn.is_empty() {
-        let health: Vec<Fx> = drawn
-            .iter()
-            .map(|r| (r.hero_health + r.monster_health) / Fx::from_int(2))
-            .collect();
-        println!(
-            "draws    {} runs, mean surviving health {}",
-            drawn.len(),
-            Summary::of(&health).mean
-        );
-    }
-    println!(
-        "throughput {:.0} rollouts/s, {:.0} ticks/s, {:.0} decisions/s ({:.2}s wall)",
-        results.len() as f64 / seconds,
-        ticks as f64 / seconds,
-        decisions as f64 / seconds,
-        seconds
-    );
-}
-
-fn verify(args: &Args) {
-    // **The claim is about the codec, so it outlives the model it was written
-    // against.** This command has only ever driven `Scenario::skirmish` through
-    // a Legacy policy, and the session that retires the Legacy model retires the
-    // measurement with it -- taking with it the only thing in the repository
-    // that says run, re-run and replay agree *over seeds* rather than at one.
-    // `crates/sim/tests/determinism.rs` holds the embodied property at a single
-    // seed on each fixture; this arm is the broader claim, and it exists so that
-    // the broader claim is not the one that gets deleted.
-    if args.flag("embodied") {
-        return verify_embodied(args);
-    }
-    let count = args.u32("seeds", 50) as u64;
-    let heroes = args.u32("heroes", 4);
-    let monsters = args.u32("monsters", 6);
-    let kind = args.choice("policy", PolicyKind::Utility, &POLICIES);
-    let config = RunConfig {
-        record: true,
-        ..RunConfig::default()
-    };
-
-    let verbose = args.flag("verbose");
-    let mut failures = 0;
-    for seed in 0..count {
-        let scenario = Scenario::skirmish(seed, heroes, monsters);
-        let first = run(&scenario, seed, &mut kind.baseline(), &config);
-        let again = run(&scenario, seed, &mut kind.baseline(), &config);
-
-        if verbose {
-            println!(
-                "seed {seed:<5} 0x{:016x}  {:>5} ticks  {:?}",
-                first.state_hash, first.ticks, first.outcome
-            );
-        }
-
-        if first.state_hash != again.state_hash {
-            println!("seed {seed}: re-running the same inputs gave a different result");
-            failures += 1;
-            continue;
-        }
-
-        let replay = match first.replay.as_ref() {
-            Some(replay) => replay,
-            None => {
-                println!("seed {seed}: no replay was recorded");
-                failures += 1;
-                continue;
-            }
-        };
-        let played = replay.play();
-        if played.state_hash() != first.state_hash {
-            println!(
-                "seed {seed}: replay diverged (live 0x{:016x}, replay 0x{:016x})",
-                first.state_hash,
-                played.state_hash()
-            );
-            failures += 1;
-        }
-    }
-
-    if failures == 0 {
-        println!("{count} runs verified: identical on re-run and exact on replay");
-    } else {
-        eprintln!("{failures}/{count} runs failed verification");
-        std::process::exit(1);
-    }
-}
-
-/// Run, re-run and replay agreement over seeds, under the embodied model.
-///
-/// **The reason this exists is that the property is the codec's and the command
-/// that holds it is Legacy's.** `crates/sim/tests/determinism.rs` already drives
-/// both embodied fixtures through run, re-run and replay, including at every
+/// **The command outlived the model it was written against, and that is the
+/// whole reason it is still here.** It drove `Scenario::skirmish` through a
+/// Legacy policy until the session that deleted Legacy, and the property it
+/// holds is the *codec's*: a recording replays to the state the live run
+/// reached. Deleting the command with the model would have taken with it the
+/// only thing in the repository that says run, re-run and replay agree *over
+/// seeds* rather than at one. `crates/sim/tests/determinism.rs` already drives
+/// both embodied fixtures through the same three passes, including at every
 /// intermediate tick -- at *one* seed each, with a hand-written script. The
-/// claim `lab verify` makes is the broader one: over a range of seeds, driven by
-/// the policy a corpus is actually measured with, whose commands are a function
-/// of the observation and therefore reach parts of the command space no
-/// hand-written script visits on purpose. That is the claim session 10 would
-/// otherwise delete along with the model it happens to be written against.
+/// claim here is the broader one: over a range of seeds, driven by the policy a
+/// corpus is actually measured with, whose commands are a function of the
+/// observation and therefore reach parts of the command space no hand-written
+/// script visits on purpose.
 ///
-/// Fanned out across threads where the Legacy arm is serial, and the reason is
+/// Fanned out across threads where the Legacy arm was serial, and the reason is
 /// arithmetic rather than taste: an embodied fixture runs to 3,600 ticks with
 /// two articulated bodies in contact, so 200 seeds is 600 fights and a serial
-/// pass takes minutes. The fan-out is `articulated_trials`' own -- index-ordered
+/// pass takes minutes. The fan-out is [`embodied_trials`]' own -- index-ordered
 /// slots, so no chunk boundary can reorder what is reported, which is the
-/// property `results_do_not_depend_on_the_thread_that_computed_them` holds.
-fn verify_embodied(args: &Args) {
+/// property `embodied_results_do_not_depend_on_the_thread_that_computed_them`
+/// holds.
+fn verify(args: &Args) {
     let count = args.u32("seeds", 50) as u64;
     let threads = args.usize("threads", default_threads());
     let scenario = embodied_fixture(args);
@@ -684,9 +299,10 @@ fn verify_embodied(args: &Args) {
 
 /// One seed's three passes, as a verdict a thread can hand back.
 ///
-/// The failing sentences are the Legacy arm's, said about an embodied digest:
-/// a re-run that disagrees, a replay that diverges. The third one has no Legacy
-/// counterpart -- `Replay::is_intact` recomputes the scenario fingerprint, and a
+/// The failing sentences were the Legacy arm's and are kept word for word, said
+/// about an embodied digest: a re-run that disagrees, a replay that diverges.
+/// The third one never had a Legacy counterpart -- `Replay::is_intact`
+/// recomputes the scenario fingerprint, and a
 /// recording that could not name the fixture it came from is not a replay of it.
 /// `limit` is [`measure_embodied_matchup`]'s own tick bound and the command line
 /// always passes `None`. It is a parameter so that
@@ -751,117 +367,7 @@ fn verify_one_embodied(
     }
 }
 
-fn hash(args: &Args) {
-    let seed = args.number("seed", 99);
-    let scenario_seed = args.number("scenario", 1234);
-    let heroes = args.u32("heroes", 4);
-    let monsters = args.u32("monsters", 6);
-
-    let scenario = Scenario::skirmish(scenario_seed, heroes, monsters);
-    let result = run(
-        &scenario,
-        seed,
-        &mut PolicyKind::Utility.baseline(),
-        &RunConfig::default(),
-    );
-
-    println!("scenario     skirmish({scenario_seed}, {heroes}, {monsters})");
-    println!("fingerprint  0x{:016x}", scenario.fingerprint());
-    println!("seed         {seed}");
-    println!("ticks        {}", result.ticks);
-    println!("outcome      {:?}", result.outcome);
-    println!("state hash   0x{:016x}", result.state_hash);
-    println!();
-    println!("This number must match on every platform the sim is built for.");
-    println!("If a wasm build disagrees, something in the stack is not portable.");
-}
-
-/// One-on-one across many seeds.
-///
-/// The point of this command is that "a clever policy can beat a brute" is a
-/// *measurement*, not a design intention. It also reports how the fight was
-/// won, because two policies can post the same win rate for completely
-/// different reasons -- one out-trading and one refusing every trade -- and
-/// only the second is swordsmanship.
-fn duel(args: &Args) {
-    let count = args.u32("seeds", 200) as u64;
-    let threads = args.usize("threads", default_threads());
-    let hero_kind = args.choice("hero", Body::Rogue, &KINDS);
-    let villain_kind = args.choice("villain", Body::Brute, &KINDS);
-    let hero_policy = args.choice("policy", PolicyKind::Duelist, &POLICIES);
-    let villain_policy = args.choice("opponent", PolicyKind::Utility, &POLICIES);
-
-    println!(
-        "{count} duels: {} {} vs {} {}",
-        hero_policy.name(),
-        hero_kind.name(),
-        villain_policy.name(),
-        villain_kind.name()
-    );
-
-    let seeds: Vec<u64> = (0..count).collect();
-    let mut slots: Vec<Option<RunResult>> = vec![None; seeds.len()];
-    let chunk = seeds.len().div_ceil(threads.max(1)).max(1);
-    let started = Instant::now();
-
-    std::thread::scope(|scope| {
-        for (chunk_seeds, out) in seeds.chunks(chunk).zip(slots.chunks_mut(chunk)) {
-            scope.spawn(move || {
-                let config = RunConfig::default();
-                let mut hero = hero_policy.baseline();
-                let mut villain = villain_policy.baseline();
-                for (i, &seed) in chunk_seeds.iter().enumerate() {
-                    let scenario = Scenario::duel_of(hero_kind, villain_kind, seed);
-                    let team = policy::TeamPolicy::new(&mut hero, &mut villain);
-                    out[i] = Some(run(&scenario, seed, team, &config));
-                }
-            });
-        }
-    });
-
-    let results: Vec<RunResult> = slots.into_iter().flatten().collect();
-    let runs = results.len().max(1);
-    let mut tally = Tally::default();
-    let (mut wins, mut draws, mut ticks) = (0usize, 0usize, 0u64);
-    let (mut blows, mut blocks, mut parries) = (0u64, 0u64, 0u64);
-    let mut surviving = Vec::with_capacity(runs);
-    for result in &results {
-        tally.add(result);
-        if result.heroes_won() {
-            wins += 1;
-        }
-        if result.outcome == sim::Outcome::Draw {
-            draws += 1;
-        }
-        ticks += result.ticks as u64;
-        blows += result.blows as u64;
-        blocks += result.blocks as u64;
-        parries += result.parries as u64;
-        surviving.push(result.hero_health);
-    }
-
-    let pct = |n: usize| 100.0 * n as f64 / runs as f64;
-    println!("outcomes  {tally}");
-    println!(
-        "win rate  {:.1}%  (draws {:.1}%)",
-        pct(wins),
-        pct(draws)
-    );
-    println!(
-        "fights    {:.0} ticks mean, hero ends on {} health",
-        ticks as f64 / runs as f64,
-        Summary::of(&surviving).mean
-    );
-    println!(
-        "swordplay {:.1} blows, {:.1} blocks, {:.1} parries per fight",
-        blows as f64 / runs as f64,
-        blocks as f64 / runs as f64,
-        parries as f64 / runs as f64
-    );
-    println!("          {:.2}s wall", started.elapsed().as_secs_f64());
-}
-
-// ------------------------------------------------------------- articulated gate
+// ------------------------------------------------------- the articulated fixture
 
 /// Which script drives both sides of the fixture.
 ///
@@ -1128,15 +634,15 @@ fn height_index(height: CombatHeight) -> Option<usize> {
 
 /// One measured run of the fixture.
 ///
-/// A sibling of [`RunResult`] rather than an extension of it, and the reason is
-/// the same one that keeps this command from simply calling
-/// `policy::run_articulated`: three of the numbers the mechanical gate turns on
-/// -- how many contacts resolved, `contact_cap_hits`, and the worst per-tick
-/// energy-ledger excess -- are read off the **world** immediately after each
-/// step, and `RunResult` deliberately carries none of them. Widening
-/// `RunResult` would hang four articulated-only columns off the struct every
-/// legacy rollout in this lab allocates, on the hot path of the numbers that
-/// must not move. Two copies of a loop is a thing that drifts, so
+/// A sibling of `policy::RunResult` rather than an extension of it, and the
+/// reason is the same one that keeps the loop below from simply calling
+/// `policy::run_articulated`: three of the numbers a mechanical measurement
+/// turns on -- how many contacts resolved, `contact_cap_hits`, and the worst
+/// per-tick energy-ledger excess -- are read off the **world** immediately
+/// after each step, and `RunResult` deliberately carries none of them. Widening
+/// `RunResult` would hang four body-model columns off the struct every rollout
+/// in the workspace allocates, on the hot path of the numbers that must not
+/// move. Two copies of a loop is a thing that drifts, so
 /// `the_measured_run_is_the_run_the_harness_would_have_driven` pins this one
 /// against the runner's.
 #[derive(Clone, Debug)]
@@ -1211,43 +717,20 @@ struct ArticulatedTrial {
     state: StateDigest,
 }
 
-/// Drives one seed to its stop and records what the mechanics did.
-fn measure_articulated(
-    scenario: &Scenario,
-    seed: u64,
-    matchup: impl Into<Matchup>,
-) -> ArticulatedTrial {
-    measure_articulated_traced(scenario, seed, matchup, None)
-}
-
-/// The same run with a frame recorder optionally hung off it.
+/// One seed of an articulated fixture driven to its stop, with the two sides
+/// chosen by the caller.
 ///
-/// **A parameter rather than a second loop**, for the reason the struct above
-/// already gives: this loop is a copy of `run_articulated`'s and a third copy is
-/// a third thing to drift. A recorder observes and returns nothing to the world,
-/// so the traced and untraced runs are the same fight by construction --
-/// `a_traced_run_is_the_run_the_gate_measured` is the assertion that keeps it
-/// true if that ever stops being obvious.
-fn measure_articulated_traced(
-    scenario: &Scenario,
-    seed: u64,
-    matchup: impl Into<Matchup>,
-    recorder: Option<&mut FightTrace>,
-) -> ArticulatedTrial {
-    let matchup = matchup.into();
-    let mut heroes = matchup.heroes.policy();
-    let mut monsters = matchup.monsters.policy();
-    measure_articulated_matchup(scenario, seed, heroes.as_mut(), monsters.as_mut(), recorder)
-}
-
-/// The same loop with the two sides chosen by the caller.
+/// A copy of `run_articulated`'s decision loop rather than a call to it, for the
+/// reason [`ArticulatedTrial`] gives: three of the columns below are read off
+/// the **world** immediately after each step and `RunResult` carries none of
+/// them. Two copies of a loop drift, so
+/// `the_measured_run_is_the_run_the_harness_would_have_driven` pins this one
+/// against the runner's.
 ///
-/// **Split out so that `lab trace` can watch a learned fight**, which is a fight
-/// with a different policy on each side -- and split rather than duplicated
-/// because the paragraph above is about this loop being a copy of
-/// `run_articulated`'s, and a fourth copy would be a fourth thing to drift. The
-/// gate's own entry points still take a [`Script`] and still put the same script
-/// on both sides, so nothing the corpus measures can reach this by accident.
+/// **The two sides are separate parameters so that `lab trace` can watch a
+/// learned fight**, which is a fight with a different policy on each side. The
+/// corpus that used to drive this always put one script on both, and it went
+/// with the articulated model; `trace` is what is left, and it needs the split.
 fn measure_articulated_matchup(
     scenario: &Scenario,
     seed: u64,
@@ -1414,372 +897,70 @@ fn measure_articulated_matchup(
     }
 }
 
-/// The same index-ordered fan-out [`parallel_runs`] uses, on the fixture.
-fn articulated_trials(
-    scenario: &Scenario,
-    seeds: &[u64],
-    threads: usize,
-    matchup: impl Into<Matchup>,
-) -> Vec<ArticulatedTrial> {
-    let matchup = matchup.into();
-    let mut slots: Vec<Option<ArticulatedTrial>> = vec![None; seeds.len()];
-    if seeds.is_empty() {
-        return Vec::new();
-    }
-    let chunk = seeds.len().div_ceil(threads.max(1)).max(1);
+/// Distribution of a batch of values.
+///
+/// Accumulated in `i64` raw units: a thousand runs at a fitness of 150 would
+/// overflow a 16.16 sum long before the mean was computed. It arrived with
+/// `lab bench`'s fitness distribution and outlived it -- the corpus report
+/// below summarises fight lengths and both sides' surviving health at three
+/// call sites, and the overflow argument is the reason those means are
+/// trustworthy over a four-hundred-seed corpus.
+#[derive(Clone, Debug, Default)]
+struct Summary {
+    count: usize,
+    mean: Fx,
+    min: Fx,
+    p25: Fx,
+    median: Fx,
+    p75: Fx,
+    max: Fx,
+}
 
-    std::thread::scope(|scope| {
-        for (chunk_seeds, out) in seeds.chunks(chunk).zip(slots.chunks_mut(chunk)) {
-            scope.spawn(move || {
-                for (i, &seed) in chunk_seeds.iter().enumerate() {
-                    out[i] = Some(measure_articulated(scenario, seed, matchup));
-                }
-            });
+impl Summary {
+    fn of(values: &[Fx]) -> Summary {
+        if values.is_empty() {
+            return Summary::default();
         }
-    });
-
-    slots
-        .into_iter()
-        .map(|slot| slot.expect("every seed should have produced a trial"))
-        .collect()
-}
-
-const TACTICAL_COMPETENCE_SEEDS: u64 = 50;
-const TACTICAL_COMPETENCE_TICKS: u32 = 1_800;
-const TACTICAL_COMPETENCE_THRESHOLD: usize = 95;
-
-/// The competence receipt is a frozen experiment, not another configurable
-/// articulated run. A rejected spelling is named before any world is built so
-/// a command that looks like the gate can never silently measure another one.
-fn competence_override(args: &Args) -> Option<&'static str> {
-    // The asymmetric keys join this list for exactly the reason the rest are on
-    // it: the receipt is a frozen experiment over one script on both sides, and
-    // a matchup is a measurement-changing override however legal it is elsewhere.
-    [
-        "seed", "seeds", "ticks", "policy", "opponent", "attack-moves",
-        "threshold", "mirrored", "threads", "seed-zero-only",
-        "hero-policy", "monster-policy",
-    ]
-    .into_iter()
-    .find(|key| args.flag(key) || args.text(key).is_some())
-}
-
-fn competence_seeds() -> Vec<u64> {
-    (0..TACTICAL_COMPETENCE_SEEDS).collect()
-}
-
-fn counts_as_body_decision(timed_out: bool) -> bool {
-    !timed_out
-}
-
-fn competence_passes(body_decisions: usize, refused: u64, solver_rejections: u64) -> bool {
-    body_decisions >= TACTICAL_COMPETENCE_THRESHOLD
-        && refused == 0
-        && solver_rejections == 0
-}
-
-fn competence_digest(rows: &[ArticulatedTrial]) -> u64 {
-    let mut hash = Hash64::new();
-    hash.write_bytes(b"ARPG-TACTICAL-COMPETENCE-V1");
-    for row in rows {
-        hash.write_u64(row.seed);
-        hash.write_u64(row.digest);
-    }
-    hash.finish()
-}
-
-#[cfg(feature = "cartesian-recoil")]
-#[derive(Clone, Debug)]
-struct FirstCompetenceRejection {
-    mirrored: bool,
-    tick_before: u32, tick_after: u32,
-    rejection_before: u32, rejection_after: u32,
-    exact: Option<sim::ExactContactRejectionDiagnostic>,
-    pair: Option<sim::ExactScanPairRejectionDiagnostic>,
-    policy: [Option<policy::StrikeDiagnostics>; 2],
-    offered: [Option<sim::ArticulatedCommandV1>; 2],
-    stored: [Option<sim::ArticulatedCommandV1>; 2],
-    decision_calls: [u32; 2], steps: u32,
-    command_digest: u64,
-    state: StateDigest,
-}
-
-#[cfg(feature = "cartesian-recoil")]
-fn first_competence_rejection(mut scenario: Scenario, mirrored: bool)
-    -> Option<FirstCompetenceRejection>
-{
-    scenario.max_ticks = TACTICAL_COMPETENCE_TICKS;
-    let mut world = World::new(&scenario, 0);
-    let heroes = world.alive_ids(Faction::Heroes);
-    let mut policies = [TacticalArticulatedPolicy::default(),
-                        TacticalArticulatedPolicy::default()];
-    policies[0].reset(); policies[1].reset();
-    let mut stream = Vec::new();
-    let mut latest_policy = [None; 2];
-    let mut latest_offered = [None; 2];
-    let mut latest_stored = [None; 2];
-    let mut decision_calls = [0u32; 2];
-    let mut steps = 0u32;
-    while world.outcome().is_none() && world.tick() < TACTICAL_COMPETENCE_TICKS {
-        for id in world.pending_decisions().to_vec() {
-            let side = usize::from(!heroes.contains(&id));
-            let observation = world.observe_articulated(id);
-            let command = policies[side].decide(&observation);
-            decision_calls[side] += 1;
-            latest_policy[side] = Some(policies[side].diagnostics());
-            latest_offered[side] = Some(command);
-            match world.submit_articulated_v1(id, command) {
-                SubmitArticulatedOutcome::Stored { command, rejection } => {
-                    assert!(rejection.is_none(), "Smart103 recorded zero command refusals");
-                    stream.push(SubmittedCommandRecord { tick: world.tick(), entity: id,
-                        command: SubmittedCommand::Articulated(command) });
-                    latest_stored[side] = Some(command);
-                }
-                SubmitArticulatedOutcome::NotStored(rejection) =>
-                    panic!("Smart103 command unexpectedly refused: {rejection:?}"),
-            }
-        }
-        let tick_before = world.tick();
-        let rejection_before = world.contact_solver_rejections();
-        let _ = world.step();
-        steps += 1;
-        let rejection_after = world.contact_solver_rejections();
-        if rejection_after > rejection_before {
-            return Some(FirstCompetenceRejection {
-                mirrored, tick_before, tick_after: world.tick(),
-                rejection_before, rejection_after,
-                exact: world.first_exact_contact_rejection(),
-                pair: world.exact_scan_pair_rejection(),
-                policy: latest_policy, offered: latest_offered, stored: latest_stored,
-                decision_calls, steps,
-                command_digest: script_digest(&stream)
-                    .expect("an articulated run stores articulated commands"),
-                state: world.state_digest(),
-            });
-        }
-    }
-    None
-}
-
-#[cfg(feature = "cartesian-recoil")]
-fn run_competence_rejection_provenance() {
-    let canonical = first_competence_rejection(Scenario::articulated_duel(), false);
-    let mirrored = first_competence_rejection(mirrored_articulated_duel(), true);
-    for row in [canonical, mirrored] {
-        match row {
-            Some(row) => {
-                println!("orientation={} tick={}->{} rejections={}->{}",
-                    if row.mirrored { "mirrored" } else { "canonical" },
-                    row.tick_before, row.tick_after, row.rejection_before, row.rejection_after);
-                println!("exact={:?}", row.exact);
-                println!("pair={:?}", row.pair);
-                println!("policy={:?}", row.policy);
-                println!("offered={:?}", row.offered);
-                println!("stored={:?}", row.stored);
-                println!("calls decisions={:?} steps={}", row.decision_calls, row.steps);
-                println!("receipts command=0x{:016x} state={:?}/{}/0x{:016x}",
-                    row.command_digest, row.state.domain, row.state.schema, row.state.value);
-            }
-            None => println!("orientation=no-rejection"),
-        }
-    }
-}
-
-#[cfg(feature = "cartesian-recoil")]
-fn run_tactical_competence_gate() {
-    let seeds = competence_seeds();
-    let mut canonical_scenario = Scenario::articulated_duel();
-    canonical_scenario.max_ticks = TACTICAL_COMPETENCE_TICKS;
-    let mut mirrored_scenario = mirrored_articulated_duel();
-    mirrored_scenario.max_ticks = TACTICAL_COMPETENCE_TICKS;
-
-    let started = Instant::now();
-    let canonical = articulated_trials(
-        &canonical_scenario, &seeds, default_threads(), Script::Tactical);
-    let mirrored = articulated_trials(
-        &mirrored_scenario, &seeds, default_threads(), Script::Tactical);
-    let elapsed = started.elapsed();
-    let all: Vec<&ArticulatedTrial> = canonical.iter().chain(mirrored.iter()).collect();
-
-    let canonical_body = canonical.iter().filter(|row| counts_as_body_decision(row.timed_out)).count();
-    let mirrored_body = mirrored.iter().filter(|row| counts_as_body_decision(row.timed_out)).count();
-    let body_decisions = canonical_body + mirrored_body;
-    let mut outcomes = [0usize; 5];
-    let mut contacts = 0u64;
-    let mut kinds = [0u64; 4];
-    let mut refused = 0u64;
-    let mut solver_rejections = 0u64;
-    let mut worst_decision_tick = 0u32;
-    for row in all {
-        let outcome = match row.outcome {
-            Outcome::HeroesWin => 0,
-            Outcome::MonstersWin => 1,
-            Outcome::MutualDestruction => 2,
-            Outcome::Decision(_) => 3,
-            Outcome::Draw => 4,
+        let mut sorted: Vec<Fx> = values.to_vec();
+        sorted.sort();
+        let sum: i64 = sorted.iter().map(|v| v.raw() as i64).sum();
+        let at = |fraction: usize| -> Fx {
+            let index = (sorted.len() - 1) * fraction / 100;
+            sorted[index]
         };
-        outcomes[outcome] += 1;
-        contacts += row.contacts;
-        for kind in 0..kinds.len() {
-            kinds[kind] += row.kinds[kind];
-        }
-        refused += row.rejected as u64;
-        solver_rejections += row.solver_rejections as u64;
-        if counts_as_body_decision(row.timed_out) {
-            worst_decision_tick = worst_decision_tick.max(row.ticks);
+        Summary {
+            count: sorted.len(),
+            mean: Fx::from_raw((sum / sorted.len() as i64) as i32),
+            min: sorted[0],
+            p25: at(25),
+            median: at(50),
+            p75: at(75),
+            max: sorted[sorted.len() - 1],
         }
     }
-
-    println!(
-        "tactical competence: seeds 0..{} x 2 orientations = {} trials, tick cap {}, threshold {}/100",
-        TACTICAL_COMPETENCE_SEEDS, canonical.len() + mirrored.len(),
-        TACTICAL_COMPETENCE_TICKS, TACTICAL_COMPETENCE_THRESHOLD,
-    );
-    println!(
-        "body decisions: {canonical_body}/50 canonical, {mirrored_body}/50 mirrored, {body_decisions}/100 total"
-    );
-    println!(
-        "outcomes: {} fighter, {} brute, {} mutual, {} points, {} draw",
-        outcomes[0], outcomes[1], outcomes[2], outcomes[3], outcomes[4],
-    );
-    println!(
-        "contacts: {contacts} total, {} weapon/weapon, {} weapon/shield, {} weapon/body",
-        kinds[ContactKind::WeaponWeapon as usize],
-        kinds[ContactKind::WeaponShield as usize],
-        kinds[ContactKind::WeaponBody as usize],
-    );
-    println!(
-        "authority: worst body-decision tick {worst_decision_tick}, {refused} refused submissions, {solver_rejections} solver-rejected ticks"
-    );
-    println!(
-        "command receipts: canonical 0x{:016x}, mirrored 0x{:016x}",
-        competence_digest(&canonical), competence_digest(&mirrored),
-    );
-    println!("wall: {} ms", elapsed.as_millis());
-    println!(
-        "{}",
-        if competence_passes(body_decisions, refused, solver_rejections) {
-            "pass"
-        } else {
-            "revise"
-        }
-    );
 }
 
-/// The scripted mechanical measurement, and **only** the measurement.
-///
-/// It prints no verdict and asserts no threshold, which is the whole design of
-/// v2-17 checkpoint A: the gate's thresholds are chosen against a physics that
-/// checkpoint B may still change, and a command that failed here today would be
-/// reporting a decision nobody has made yet. What it produces is the one number
-/// that decides B -- how many of these fights end.
-///
-/// **Which is why it takes a script rather than owning one.** The first corpus
-/// it produced said 800 of 800 fights reached the clock, and that turned out to
-/// be a fact about `Vec2::ZERO` in four phases rather than about the contact
-/// model. A measurement that can only be taken one way cannot tell those two
-/// apart, so both controls run through this same loop and print the same
-/// columns.
-fn articulated(args: &Args) {
-    if args.flag("competence-rejection-provenance") {
-        if let Some(key) = competence_override(args) {
-            eprintln!("articulated --competence-rejection-provenance accepts no --{key} override");
-            std::process::exit(2);
-        }
-        #[cfg(feature = "cartesian-recoil")]
-        run_competence_rejection_provenance();
-        #[cfg(not(feature = "cartesian-recoil"))]
-        eprintln!("articulated --competence-rejection-provenance requires --features cartesian-recoil");
-        return;
+impl std::fmt::Display for Summary {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "n={:<6} mean={:<10} min={:<10} p25={:<10} med={:<10} p75={:<10} max={}",
+            self.count, self.mean, self.min, self.p25, self.median, self.p75, self.max
+        )
     }
-    if args.flag("competence-gate") {
-        if let Some(key) = competence_override(args) {
-            eprintln!("articulated --competence-gate accepts no --{key} override");
-            std::process::exit(2);
-        }
-        #[cfg(feature = "cartesian-recoil")]
-        run_tactical_competence_gate();
-        #[cfg(not(feature = "cartesian-recoil"))]
-        eprintln!("articulated --competence-gate requires --features cartesian-recoil");
-        return;
-    }
-    let count = args.u32("seeds", 400) as u64;
-    let threads = args.usize("threads", default_threads());
-    let seeds: Vec<u64> = if args.flag("seed-zero-only") {
-        vec![0]
-    } else {
-        (0..count).collect()
-    };
-
-    // The fixture unless a picker flag was given, on exactly `trace`'s terms and
-    // through exactly its refusals -- combat arms 02 predeclared a corpus
-    // measurement of a two-handed Brute and `articulated` had no way to describe
-    // one, so the corpus could not answer the question the session was asked.
-    // `duel_config_from` returning `None` keeps an unflagged run byte-identical
-    // to what it produced before, which is what lets the pinned baselines in
-    // `docs/reference/articulated-mechanical-gate.md` still be compared against.
-    let described = duel_config_from(args).unwrap_or_else(|sentence| {
-        eprintln!("{sentence}");
-        std::process::exit(2);
-    });
-    let (original, mirror) = match &described {
-        None => (Scenario::articulated_duel(), mirrored_articulated_duel()),
-        Some(config) => {
-            let built = Scenario::duel_from(config).unwrap_or_else(|error| {
-                eprintln!("the described duel is not a legal one: {error:?}");
-                std::process::exit(2);
-            });
-            let mut reflected = built.clone();
-            mirror_spawns(&mut reflected);
-            (built, reflected)
-        }
-    };
-    let mirrored = args.flag("mirrored");
-
-    // The matchup, on `duel_config_from`'s terms: returned rather than
-    // printed-and-exited, and refused by name. An unflagged run resolves to one
-    // script on both sides, which is what every pinned baseline in
-    // `docs/reference/articulated-mechanical-gate.md` was measured under.
-    let matchup = matchup_from(args).unwrap_or_else(|sentence| {
-        eprintln!("{sentence}");
-        std::process::exit(2);
-    });
-
-    println!(
-        "{} seeds x {} orientation{} = {} trials of {} under {}",
-        seeds.len(),
-        if mirrored { 2 } else { 1 },
-        if mirrored { "s" } else { "" },
-        seeds.len() * if mirrored { 2 } else { 1 },
-        original.name,
-        matchup.name()
-    );
-    println!(
-        "fixture   0x{:016x} canonical, 0x{:016x} mirrored across y={}",
-        original.fingerprint(),
-        mirror.fingerprint(),
-        original.arena().y / Fx::from_int(2)
-    );
-
-    let started = Instant::now();
-    let canonical = articulated_trials(&original, &seeds, threads, matchup);
-    let reflected = if mirrored {
-        articulated_trials(&mirror, &seeds, threads, matchup)
-    } else {
-        Vec::new()
-    };
-    let elapsed = started.elapsed();
-    report_trials(&canonical, &reflected, mirrored, &original, elapsed);
 }
 
-/// The fixed-label report both corpora print.
+/// The fixed-label corpus report.
 ///
-/// **One summariser and two callers rather than two summarisers**, because the
-/// point of the embodied corpus wearing this report is that the two can be read
-/// side by side -- and a column that drifted apart would be worse than a column
-/// that was never there. Nothing in it is articulated-only: every field it
-/// touches is one [`ArticulatedTrial`] carries, and that struct is the embodied
-/// corpus's row too, under the alias that says so.
+/// **It was written as one summariser with two callers, and that is why the
+/// embodied corpus still exists to print it.** `lab articulated` was the other
+/// caller: the two corpora were meant to be read side by side, so a column that
+/// drifted apart would have been worse than a column that was never there, and
+/// nothing in this function was ever articulated-only. That shared shape is what
+/// made deleting the articulated corpus a deletion rather than a rewrite -- and
+/// it is why the labels below stay exactly as they are, so a report from this
+/// command still lines up against the recorded articulated ones in
+/// `docs/performance/`.
 ///
 /// `canonical` is the unreflected orientation and its length is the seed count,
 /// which is what the `sides` percentage is a fraction of; `reflected` is empty
@@ -1957,8 +1138,10 @@ fn report_trials(
 ///
 /// A second struct with the same twenty fields would be a second thing to keep
 /// in step with the summariser below, and the summariser is the whole reason
-/// either of them exists: the two reports are meant to be read side by side, so
-/// a column that drifted apart would be worse than no column.
+/// either of them exists: the two reports were meant to be read side by side, so
+/// a column that drifted apart would have been worse than no column. The
+/// articulated corpus is gone and the alias is not, because the row is still
+/// what `lab trace` measures a fight into.
 type EmbodiedTrial = ArticulatedTrial;
 
 /// The ASCII domain prefix of [`embodied_script_digest`], on
@@ -2169,10 +1352,10 @@ fn embodied_fixture(args: &Args) -> Scenario {
 /// from one that took it and gained nothing by it, and those are two different
 /// findings with two different owners.
 ///
-/// An optional observer on the ordinary loop rather than a second loop, on
-/// [`measure_articulated_traced`]'s precedent exactly: a third copy of the
-/// decision loop is a third thing to drift, and an observer that returns nothing
-/// to the world cannot change the fight it is watching.
+/// An optional observer on the ordinary loop rather than a second loop, on the
+/// trace recorder's precedent exactly: a second copy of the decision loop is a
+/// second thing to drift, and an observer that returns nothing to the world
+/// cannot change the fight it is watching.
 ///
 /// It reads `articulated_pose(..).body.z`, which is the floor the body is
 /// standing on -- `a_body_on_the_hill_stands_on_the_hill` in the determinism
@@ -2416,7 +1599,12 @@ fn measure_embodied(
     measure_embodied_matchup(scenario, seed, heroes.as_mut(), monsters.as_mut(), limit, None, None)
 }
 
-/// The same index-ordered fan-out [`articulated_trials`] uses, embodied.
+/// The index-ordered fan-out the corpus is measured through.
+///
+/// Index-ordered slots and not a channel, so a chunk that finished first cannot
+/// reorder what the report is computed from --
+/// `embodied_results_do_not_depend_on_the_thread_that_computed_them` is what
+/// holds it.
 ///
 /// `limit` is [`measure_embodied_matchup`]'s tick bound, `None` meaning the
 /// fixture's own -- carried through rather than fixed here so that a bounded
@@ -2454,10 +1642,12 @@ fn embodied_trials(
 /// The registered embodied pin: one number over a fixed corpus of embodied
 /// state digests.
 ///
-/// **This is what session 10 checks itself against.** `bench`, `verify`, `hash`,
-/// `duel` and `evolve` are Legacy-only and `articulated` drives a model that
-/// session is deleting, so on the day those pins go there is nothing left in the
-/// repository that would notice an embodied fight changing. The registry row in
+/// **This is what the session retiring the older models checks itself against,
+/// and that day has arrived here.** `bench`, `hash`, `duel` and `evolve` drove
+/// the Legacy model and `articulated` drove the model being deleted; all five
+/// are gone from this crate, and `verify` survived only by being converted to
+/// the embodied fixtures. So this number is now the whole of what would notice
+/// an embodied fight changing. The registry row in
 /// [`docs/reference/hashes.md`] says so in those words.
 ///
 /// The corpus is deliberately small and deliberately truncated. It is
@@ -2497,7 +1687,33 @@ const EMBODIED_CORPUS_TICKS: u32 = 600;
 
 /// The pinned value. Re-record with
 /// `cargo run --release -p lab -- embodied --corpus-digest`.
+///
+/// **Two values, selected by feature, because there are two corpora.**
+/// `cartesian-recoil` moves this number twice over. It writes extra bytes into
+/// the state hash itself -- `hash_exact_owners`, the external-energy rows and
+/// `post_contact_hash_bytes` all join the stream under it -- *and* it changes
+/// the fights being hashed, because it is a different contact solver. The first
+/// draft of this comment claimed only the first half and called the two corpora
+/// "the same fights"; they are not. Measured on `embodied-slope-v1` at seed 31
+/// by `crates/sim/tests/determinism.rs`, the same script resolves at tick 322
+/// with 242 contact rows and a hero win by default, and at tick 183 with 8 rows
+/// and a monster win under the feature. Two pins here are not two spellings of
+/// one measurement; they are two measurements.
+///
+/// Session 09 shipped one constant and only ever measured the default build, so
+/// `cargo test -p lab --features cartesian-recoil` failed this assertion from
+/// the day it was written. That is worse than having no pin under the feature:
+/// a gate that is red for a reason nobody intended teaches the next reader to
+/// skip it. **The fix is a second pin rather than a `cfg` that skips the test**,
+/// because skipping would leave the feature build with no corpus check at all,
+/// which is the state that let this through.
+#[cfg(not(feature = "cartesian-recoil"))]
 const EMBODIED_CORPUS_DIGEST: u64 = 0x1488_2fb0_e0f8_51e5;
+
+/// The same fold over the same *fixtures* under the other solver; see above for
+/// why "the same corpus" would be the wrong phrase for it.
+#[cfg(feature = "cartesian-recoil")]
+const EMBODIED_CORPUS_DIGEST: u64 = 0x09ca_917b_5b52_83cf;
 
 /// The four arenas of the pin corpus, in the order the fold writes them.
 ///
@@ -2573,8 +1789,9 @@ fn embodied_corpus_digest() -> u64 {
 /// Every key that would change what a frozen embodied mode measures, refused by
 /// name before any world is built.
 ///
-/// [`competence_override`]'s rule and its reason: a command that looks like the
-/// pin corpus must never quietly measure a different one. `--threads` is on the
+/// The rule the retired competence receipt was frozen by, and its reason: a
+/// command that looks like the pin corpus must never quietly measure a
+/// different one. `--threads` is on the
 /// list even though the fan-out is index-ordered, because a frozen mode that
 /// accepted it would be inviting a reader to believe the number depends on it.
 fn embodied_override(args: &Args) -> Option<&'static str> {
@@ -2584,8 +1801,8 @@ fn embodied_override(args: &Args) -> Option<&'static str> {
         .find(|key| args.flag(key) || args.text(key).is_some())
 }
 
-/// `articulated`'s sibling: the same corpus shape, the same report labels, under
-/// the embodied model.
+/// The embodied corpus: the shape and the fixed report labels the retired
+/// `articulated` corpus established, under the embodied model.
 fn embodied(args: &Args) {
     // Named together rather than tested one after the other, so that asking for
     // both is a refusal instead of a silent precedence rule. Two frozen
@@ -2761,9 +1978,9 @@ impl HighGroundArm {
 ///   that all four spawn tiles are the same 29 squared units from the top, which
 ///   is what makes the reflected half a control rather than a second sample.
 /// * **The side swap**, on the bodies. The Fighter carries a sword and a plate
-///   and the Brute a club, and they are not equal fighters -- `lab articulated`
-///   reports 285/299 over 800 trials of the same pair. A single assignment would
-///   therefore measure the anatomy as well as the term. Running both, and
+///   and the Brute a club, and they are not equal fighters -- the retired
+///   `lab articulated` reported 285/299 over 800 trials of the same pair. A
+///   single assignment would therefore measure the anatomy as well as the term. Running both, and
 ///   pooling the seeking side's wins across them, cancels it *exactly*: if the
 ///   term did nothing, both assignments would reproduce the both-seeking control
 ///   below and the pooled counts would be equal by construction.
@@ -3199,78 +2416,6 @@ fn high_ground_elevation(scenario: &Scenario, mirror: &Scenario) -> ElevationPro
     pooled
 }
 
-fn evolution(args: &Args) {
-    let config = EvolveConfig {
-        generations: args.u32("gens", 20),
-        population: args.usize("pop", 24).max(2),
-        elite: args.usize("elite", 6),
-        seeds: args.usize("seeds", 8).max(1),
-        // Percent, because the argument parser only speaks integers and
-        // `--sigma 0.15` would be a lie.
-        sigma: Fx::from_ratio(args.u32("sigma-pct", 12) as i32, 100),
-        threads: args.usize("threads", default_threads()),
-        master_seed: args.number("master-seed", 1),
-        // Skirmish by default, because that is what every genome in the
-        // repository was measured on; `--arena duel` scores the fight the swing
-        // model was actually built for.
-        arena: match args.choice("arena", 0u32, &[("skirmish", 0), ("duel", 1), ("roster", 2)]) {
-            1 => Arena::Duel {
-                hero: args.choice("hero", Body::Fighter, &KINDS),
-                villain: args.choice("villain", Body::Brute, &KINDS),
-            },
-            2 => Arena::Roster,
-            _ => Arena::Skirmish {
-                heroes: args.u32("heroes", 4),
-                monsters: args.u32("monsters", 6),
-            },
-        },
-        kind: args.choice("policy", PolicyKind::Utility, &POLICIES),
-        opponent: args.choice("opponent", PolicyKind::Utility, &POLICIES),
-        // Off unless asked for: it doubles the rollouts, and a run that is
-        // deliberately measuring one opponent should not silently pay for two.
-        cross: if args.flag("cross") {
-            Some(args.choice("cross-with", PolicyKind::Duelist, &POLICIES))
-        } else {
-            None
-        },
-    };
-
-    println!(
-        "evolving {} {} genomes for {} generations, {} {} each, sigma {}",
-        config.population,
-        config.kind.name(),
-        config.generations,
-        config.seeds,
-        config.arena.describe(),
-        config.sigma
-    );
-    println!("opponent: the hand-tuned {}\n", config.opponent.name());
-
-    let started = Instant::now();
-    let best = evolve(&config);
-    println!(
-        "\nbest genome after {:.1}s",
-        started.elapsed().as_secs_f64()
-    );
-    println!("  {}", describe(config.kind, &best));
-
-    // Score the winner and the incumbent on a fresh seed set neither has seen,
-    // because a genome that only wins on its training seeds has learned the
-    // seeds, not the game.
-    let holdout: Vec<u64> = (900_000..900_016).collect();
-    let baseline = config.kind.spec().baseline_genome();
-    let best_score = crate::evolve::evaluate(&best, &holdout, &config);
-    let baseline_score = crate::evolve::evaluate(&baseline, &holdout, &config);
-    println!("\nheld-out fitness over {} fresh scenarios:", holdout.len());
-    println!("  evolved   {best_score}");
-    println!("  baseline  {baseline_score}");
-    if best_score > baseline_score {
-        println!("  evolution beat the hand-tuned weights");
-    } else {
-        println!("  the hand-tuned weights still win; try more generations or seeds");
-    }
-}
-
 // ------------------------------------------------------------------ the trace
 
 // ------------------------------------------------------- the described duel
@@ -3608,6 +2753,68 @@ fn trace_fight(args: &Args) {
 mod tests {
     use super::*;
 
+    /// One seed of an articulated fixture under one matchup, with a frame
+    /// recorder optionally hung off it.
+    ///
+    /// **A test helper rather than a command's, and it was the other way round
+    /// until the articulated corpus was deleted.** `articulated_trials` was its
+    /// caller; what is left in the binary is `trace`, which builds its two
+    /// policies itself because one of them may be a checkpoint. The wrapper
+    /// survives here because the claims below are about the *loop* and not about
+    /// how a caller chose its policies, and a test that assembled two boxes per
+    /// assertion would be reading the thing it is supposed to be checking.
+    ///
+    /// A recorder observes and returns nothing to the world, so the traced and
+    /// untraced runs are the same fight by construction --
+    /// `a_traced_run_is_the_run_the_gate_measured` is the assertion that keeps
+    /// it true if that ever stops being obvious.
+    fn measure_articulated_traced(
+        scenario: &Scenario,
+        seed: u64,
+        matchup: impl Into<Matchup>,
+        recorder: Option<&mut FightTrace>,
+    ) -> ArticulatedTrial {
+        let matchup = matchup.into();
+        let mut heroes = matchup.heroes.policy();
+        let mut monsters = matchup.monsters.policy();
+        measure_articulated_matchup(scenario, seed, heroes.as_mut(), monsters.as_mut(), recorder)
+    }
+
+    /// The same run with nothing watching it.
+    fn measure_articulated(
+        scenario: &Scenario,
+        seed: u64,
+        matchup: impl Into<Matchup>,
+    ) -> ArticulatedTrial {
+        measure_articulated_traced(scenario, seed, matchup, None)
+    }
+
+    #[test]
+    fn summary_of_a_known_set() {
+        let values: Vec<Fx> = (1..=101).map(Fx::from_int).collect();
+        let s = Summary::of(&values);
+        assert_eq!(s.count, 101);
+        assert_eq!(s.min, Fx::from_int(1));
+        assert_eq!(s.max, Fx::from_int(101));
+        assert_eq!(s.median, Fx::from_int(51));
+        assert_eq!(s.mean, Fx::from_int(51));
+        assert_eq!(s.p25, Fx::from_int(26));
+        assert_eq!(s.p75, Fx::from_int(76));
+    }
+
+    #[test]
+    fn summary_of_nothing_does_not_panic() {
+        let s = Summary::of(&[]);
+        assert_eq!(s.count, 0);
+    }
+
+    #[test]
+    fn the_mean_survives_more_runs_than_a_fixed_point_sum_could() {
+        // 5000 runs at 150 would overflow a 16.16 accumulator.
+        let values = vec![Fx::from_int(150); 5000];
+        assert_eq!(Summary::of(&values).mean, Fx::from_int(150));
+    }
+
     #[cfg(feature = "cartesian-recoil")]
     #[derive(Clone, PartialEq, Eq, Debug)]
     struct Smart116ControlReceipt {
@@ -3713,57 +2920,6 @@ mod tests {
                    *smart116_serial_controls());
     }
 
-    #[test]
-    fn tactical_competence_is_exactly_fifty_mirrored_seed_pairs() {
-        let seeds = competence_seeds();
-        assert_eq!(seeds.len(), 50);
-        assert_eq!((seeds.first(), seeds.last()), (Some(&0), Some(&49)));
-        assert_eq!(seeds.len() * 2, 100);
-        assert_eq!(TACTICAL_COMPETENCE_TICKS, 1_800);
-    }
-
-    #[test]
-    fn a_points_decision_at_tick_1800_does_not_count_as_a_body_decision() {
-        // `measure_articulated_matchup` records this bit before `World::timeout`
-        // turns the score into `Outcome::Decision`; the outcome name therefore
-        // cannot accidentally make a clock decision count as a body decision.
-        assert!(!counts_as_body_decision(true));
-        assert!(counts_as_body_decision(false));
-        assert_eq!(TACTICAL_COMPETENCE_TICKS, 1_800);
-    }
-
-    #[test]
-    fn competence_gate_refuses_every_measurement_changing_override() {
-        for (key, value) in [
-            ("seed", Some("3")), ("seeds", Some("50")),
-            ("ticks", Some("1800")), ("policy", Some("tactical")),
-            ("opponent", Some("brute")), ("attack-moves", None),
-            ("threshold", Some("95")), ("mirrored", None),
-            ("threads", Some("1")), ("seed-zero-only", None),
-        ] {
-            let mut tokens = vec!["articulated".to_string(), "--competence-gate".to_string(),
-                                  format!("--{key}")];
-            if let Some(value) = value {
-                tokens.push(value.to_string());
-            }
-            let args = Args::parse(tokens);
-            assert_eq!(competence_override(&args), Some(key), "--{key}");
-        }
-        let gate = Args::parse(vec!["articulated".into(), "--competence-gate".into()]);
-        assert_eq!(competence_override(&gate), None);
-    }
-
-    #[test]
-    fn competence_gate_threshold_is_95_of_100_and_cannot_round_down() {
-        assert!(!competence_passes(94, 0, 0));
-        assert!(competence_passes(95, 0, 0));
-        assert!(competence_passes(100, 0, 0));
-        assert!(!competence_passes(100, 1, 0));
-        assert!(!competence_passes(100, 0, 1));
-        assert_eq!(TACTICAL_COMPETENCE_THRESHOLD, 95);
-    }
-
-    #[test]
     fn a_traced_run_is_the_run_the_gate_measured() {
         // The recorder is an observer and the fight must not be able to tell it
         // is there. That is obvious from the code today and it is exactly the
@@ -3956,7 +3112,7 @@ mod tests {
         // command streams are compared instead: if a different policy really is
         // driving each side, they cannot agree.
         let matchup = matchup_from(&traced_args(
-            "articulated --hero-policy attack-moves --monster-policy openings",
+            "trace --hero-policy attack-moves --monster-policy openings",
         )).expect("a legal matchup");
         assert_eq!(matchup.heroes, Script::ClosingAttacks);
         assert_eq!(matchup.monsters, Script::Openings);
@@ -3975,7 +3131,7 @@ mod tests {
         // vocabulary cannot spell `attack-moves` -- it is reached by the flag
         // that edits the composed script -- so this is the pairing that says an
         // unflagged line still resolves to one script on both sides.
-        let unflagged = matchup_from(&traced_args("articulated --policy windmill"))
+        let unflagged = matchup_from(&traced_args("trace --policy windmill"))
             .expect("a legal line");
         assert!(unflagged.is_symmetric());
         assert_eq!(
@@ -3992,8 +3148,8 @@ mod tests {
         // header of an asymmetric one, so the run answers a different question
         // than the operator asked and nothing in the output says so.
         for line in [
-            "articulated --hero-policy --seeds 4",
-            "articulated --monster-policy",
+            "trace --hero-policy --seeds 4",
+            "trace --monster-policy",
         ] {
             let refusal = matchup_from(&traced_args(line)).expect_err(line);
             assert!(refusal.contains("-policy"), "the refusal must name the key: {refusal}");
@@ -4002,26 +3158,18 @@ mod tests {
 
         // A well-formed value that names no script, refused with the vocabulary
         // rather than with a number.
-        let unknown = matchup_from(&traced_args("articulated --hero-policy neutral"))
+        let unknown = matchup_from(&traced_args("trace --hero-policy neutral"))
             .expect_err("neutral is not a lab script");
         assert!(unknown.contains("--hero-policy"), "{unknown}");
         assert!(unknown.contains("neutral"), "{unknown}");
         assert!(unknown.contains("openings"), "the refusal must list what it takes: {unknown}");
-
-        // The frozen competence receipt refuses both keys by name, on the same
-        // ground it refuses `--policy`: a matchup is a measurement-changing
-        // override however legal it is elsewhere.
-        for key in MATCHUP_KEYS {
-            let args = traced_args(&format!("articulated --competence-gate --{key} openings"));
-            assert_eq!(competence_override(&args), Some(key));
-        }
 
         // `--matchup a:b` is a spelling this build never had. `Args` drops an
         // unknown key silently, so without a refusal it runs symmetrically and
         // says nothing -- the same failure as the demotion above, reached by a
         // different route. Both the valued and the bare form are refused, and
         // the refusal names the keys that do exist rather than only complaining.
-        for line in ["articulated --matchup openings:attack-moves", "articulated --matchup"] {
+        for line in ["trace --matchup openings:attack-moves", "trace --matchup"] {
             let refusal = matchup_from(&traced_args(line)).expect_err(line);
             assert!(refusal.contains("--matchup"), "the refusal must name the key: {refusal}");
             assert!(refusal.contains("--hero-policy") && refusal.contains("--monster-policy"),
@@ -4030,7 +3178,7 @@ mod tests {
 
         // And the control: a run with no matchup key at all is still the
         // symmetric one, so the refusal above cannot be firing on everything.
-        assert!(matchup_from(&traced_args("articulated --seeds 4")).is_ok());
+        assert!(matchup_from(&traced_args("trace --seeds 4")).is_ok());
     }
 
     #[test]
@@ -4201,25 +3349,6 @@ mod tests {
     }
 
     #[test]
-    fn results_do_not_depend_on_the_thread_that_computed_them() {
-        // The same claim the focus and goto batteries make, and it has the same
-        // shape here: results are written into index-ordered slots, so a chunk
-        // that finished first cannot reorder the corpus the summary is computed
-        // from.
-        let scenario = Scenario::articulated_duel();
-        let seeds: Vec<u64> = (0..4).collect();
-        let one: Vec<u64> = articulated_trials(&scenario, &seeds, 1, Script::Composed)
-            .iter()
-            .map(|t| t.digest)
-            .collect();
-        let many: Vec<u64> = articulated_trials(&scenario, &seeds, 4, Script::Composed)
-            .iter()
-            .map(|t| t.digest)
-            .collect();
-        assert_eq!(one, many);
-    }
-
-    #[test]
     fn each_script_is_a_different_fight_and_only_one_of_them_is_the_reference() {
         // The controls have to be reachable *and* distinguishable, or the
         // comparison they exist for is a comparison of one thing with itself.
@@ -4344,11 +3473,10 @@ mod tests {
 
     #[test]
     fn the_embodied_corpus_digest_is_the_pinned_one() {
-        // **The pin session 10 checks itself against.** `bench`, `verify`,
-        // `hash`, `duel` and `evolve` are Legacy-only and `articulated` drives a
-        // model that session deletes, so without this number the day the older
-        // pins go is a day nothing in the repository would notice an embodied
-        // fight changing.
+        // **The pin the session retiring the older models checks itself
+        // against.** `bench`, `hash`, `duel`, `evolve` and `articulated` have
+        // been deleted from this crate, so without this number nothing in the
+        // repository would notice an embodied fight changing.
         assert_eq!(
             embodied_corpus_digest(),
             EMBODIED_CORPUS_DIGEST,
@@ -4376,7 +3504,7 @@ mod tests {
 
     #[test]
     fn an_embodied_run_is_identical_on_re_run_and_exact_on_replay() {
-        // The claim `lab verify --embodied` makes, on the function that makes
+        // The claim `lab verify` makes, on the function that makes
         // it. `crates/sim/tests/determinism.rs` holds the same property under a
         // hand-written script; what this adds is the policy a corpus is measured
         // with, whose commands are a function of the observation -- and the
@@ -4510,8 +3638,9 @@ mod tests {
 
     #[test]
     fn the_frozen_embodied_modes_refuse_every_measurement_changing_override() {
-        // `competence_override`'s rule, and its reason: a command line that
-        // looks like the pin corpus must never quietly measure a different one.
+        // The rule the retired competence receipt was frozen by: a command line
+        // that looks like the pin corpus must never quietly measure a different
+        // one.
         for (key, value) in [
             ("seeds", Some("8")), ("threads", Some("1")), ("seed-zero-only", None),
             ("mirrored", None), ("slope", None), ("policy", Some("neutral")),
@@ -4536,8 +3665,9 @@ mod tests {
 
     #[test]
     fn embodied_results_do_not_depend_on_the_thread_that_computed_them() {
-        // The same claim `articulated_trials` makes, and it is worth making
-        // again rather than inherited: `ScriptedEmbodiedPolicy` carries a row of
+        // The claim the retired articulated corpus made about its own fan-out,
+        // and it is worth making here rather than inherited:
+        // `ScriptedEmbodiedPolicy` carries a row of
         // per-run ground memory, so a chunking that reused an instance across
         // seeds would carry one seed's hill into the next -- and the symptom
         // would be a corpus that depended on the thread count.

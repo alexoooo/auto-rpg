@@ -82,23 +82,13 @@ cargo test                                        # whole workspace, a couple of
 cargo test -p sim                                 # or -p fx / -p policy / -p web / -p lab
                                                   # or -p learn-core / -p learn
 
-cargo run --release -p lab -- hash                # the canonical fingerprint
-cargo run --release -p lab -- verify  --seeds 200 # run, re-run, replay -- all three must agree
-cargo run --release -p lab -- bench   --seeds 2000
-cargo run --release -p lab -- bench   --carved    # the floor plan the game actually ships
-cargo run --release -p lab -- duel    --seeds 400
-cargo run --release -p lab -- evolve  --gens 30 --pop 24 --seeds 8 --policy duelist
+cargo run --release -p lab -- verify --seeds 200          # run, re-run, replay -- all three must agree
+cargo run --release -p lab -- verify --slope --seeds 50  # and over a floor that is not flat
 
-cargo run --release -p lab -- articulated --seeds 400 --mirrored  # the v2-17 gate corpus
-cargo run --release -p lab -- articulated --seeds 400 --mirrored --policy windmill
-cargo run --release -p lab -- articulated --seeds 400 --mirrored --attack-moves
-
-cargo run --release -p lab -- embodied --seeds 400 --mirrored          # its embodied sibling
+cargo run --release -p lab -- embodied --seeds 400 --mirrored          # the gate corpus
 cargo run --release -p lab -- embodied --seeds 400 --mirrored --slope  # on the sculpted fixture
 cargo run --release -p lab -- embodied --corpus-digest   # EMBODIED_CORPUS_DIGEST, exits 1 on a move
 cargo run --release -p lab -- embodied --high-ground     # the elevation measurement
-cargo run --release -p lab -- verify --embodied --seeds 200          # run/re-run/replay, embodied
-cargo run --release -p lab -- verify --embodied --slope --seeds 50   # and over a floor that is not flat
 
 # Feature-only exact mechanics use the same lab commands and harness:
 cargo run --release -p lab --features cartesian-recoil -- tactical-mechanics --quick
@@ -322,9 +312,11 @@ behaviour-neutral: `cargo run --release -p lab -- duel --seeds 400` win rates.
 **The embodied model has exactly one pin and it is cheap on purpose.**
 `EMBODIED_CORPUS_DIGEST` folds the state digests of eight seeds of both embodied
 fixtures, both orientations, 600 ticks each, and `cargo test -p lab` runs it. It exists
-because `bench`, `verify`, `hash`, `duel` and `evolve` are Legacy-only and
-`articulated` drives a model that is scheduled for deletion — so it is what a session
-retiring those measurements checks itself against. Its
+because `bench`, `hash`, `duel` and `evolve` were Legacy-only and `articulated` drove
+a model that has since been deleted — so it is what the session retiring those
+measurements checked itself against. `verify` was on that list and was **converted
+rather than cut**: run/re-run/replay agreement is a property of the codec, not of the
+model it happened to be written against. Its
 [registry row](docs/reference/hashes.md#golden-registry) says which moves it may
 re-record and which it may not, and the argument that no *other* pin can see an
 embodied fight is the same `Dungeon::digest` short circuit that made adding elevation

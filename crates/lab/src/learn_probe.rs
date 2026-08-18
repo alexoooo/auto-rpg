@@ -56,7 +56,7 @@ use sim::{BodyPart, ContactKind, Faction, Outcome, Replay, Scenario};
 use std::path::PathBuf;
 use std::time::Instant;
 
-/// The three scripts, spelled exactly as `lab articulated --policy` spells them.
+/// The three scripts, spelled exactly as `lab trace --hero-policy` spells them.
 const BASELINES: [(&str, Baseline); 3] = [
     ("composed", Baseline::Composed),
     ("windmill", Baseline::Windmill),
@@ -234,13 +234,13 @@ fn train(args: &Args) {
         elite: args.usize("elite", SPEC_ELITE),
         seeds: training_seeds(args.usize("seeds", SPEC_SEEDS).max(1)),
         // Mirrored unless told otherwise, which is the opposite default from
-        // `articulated`. There the mirror is a second measurement; here it is
+        // `embodied`. There the mirror is a second measurement; here it is
         // the only evidence a candidate is not overfitting to one orientation,
         // and a training run that skipped it would produce a checkpoint whose
         // held-out number nobody could interpret.
         mirrored: !args.flag("plain"),
         // Percent, because the parser speaks integers and `--sigma 0.08` would
-        // be a lie. `evolve`'s convention, unchanged.
+        // be a lie. The retired `evolve`'s convention, kept.
         sigma: args.u32("sigma-pct", SPEC_SIGMA_PCT) as f32 / 100.0,
         threads: args.usize("threads", default_threads()),
         master_seed: args.number("master-seed", SPEC_MASTER_SEED),

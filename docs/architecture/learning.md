@@ -2,7 +2,7 @@
 
 **Purpose:** State exactly what policy optimization ships today, what the trained network is allowed to touch, and which components still do not exist.
 **Status:** current
-**Canonical source:** [`crates/learn-core/src/model.rs`](../../crates/learn-core/src/model.rs), [`crates/learn/src/probe.rs`](../../crates/learn/src/probe.rs), [`crates/policy/src/lib.rs`](../../crates/policy/src/lib.rs), and [`crates/lab/src/evolve.rs`](../../crates/lab/src/evolve.rs)
+**Canonical source:** [`crates/learn-core/src/model.rs`](../../crates/learn-core/src/model.rs), [`crates/learn/src/probe.rs`](../../crates/learn/src/probe.rs), [`crates/policy/src/lib.rs`](../../crates/policy/src/lib.rs), and [`crates/lab/src/main.rs`](../../crates/lab/src/main.rs)
 **Update when:** A learned policy, model artifact, inference runtime, training backend, genome surface, or evolution method changes.
 
 **This document opened with "No learned policy currently ships" until 2026-08-11, and
@@ -85,21 +85,29 @@ the trained network is on the *articulated* seam and no legacy code names it.
 network does not read it -- `learn_core::write_features` writes a separate 41-column
 slice off `ArticulatedObservation`, and the layouts are versioned separately.
 
-## What `lab evolve` does, and why it is not this
+## What `lab evolve` did, and why it is not this
 
-The Lab CLI's `evolve` runs a deterministic `(mu + lambda)` search over the *named
-weights of an existing hand-authored policy*. A population begins with the hand-tuned
-baseline, evaluates candidates through the ordinary native run harness, retains elites,
-and mutates only genes the selected policy reads. Every candidate in a generation sees
-the same seed set, seeds change between generations, and the winner is re-scored on a
-fixed held-out range. Parallel evaluation writes scores back in population-index order;
-tests require the same genome across thread counts.
+**Deleted by embodied session 10, with the policy it evolved.** It is described in the
+past tense rather than removed from this page, because the distinction it drew is the
+point of the page and outlives the command.
 
-**It is a different thing from `learn-probe` and the distinction is the point of this
-page.** `evolve` changes constants consumed by code somebody wrote; it does not change
-the observation-to-command function. `learn-probe` optimizes the function itself. They
-share the rollout, fitness, selection and holdout shape, which is exactly the reuse the
-older version of this document predicted.
+`evolve` ran a deterministic `(mu + lambda)` search over the *named weights of an
+existing hand-authored policy*. A population began with the hand-tuned baseline,
+evaluated candidates through the ordinary native run harness, retained elites, and
+mutated only the genes the selected policy read. Every candidate in a generation saw the
+same seed set, seeds changed between generations, and the winner was re-scored on a
+fixed held-out range.
+
+**It was a different thing from `learn-probe`, and that is what this page exists to
+say.** `evolve` changed constants consumed by code somebody wrote; it did not change the
+observation-to-command function. `learn-probe` optimizes the function itself.
+
+It was deleted rather than ported because **the embodied script is not a genome.** Its
+subject was `UtilityWeights` through `PolicySpec`, and `ScriptedEmbodiedPolicy` has no
+named weights at all; porting the search would have meant inventing a subject for it.
+That leaves this repository with no weight search at all, which is a real loss and is
+recorded here rather than in a commit message: anyone who wants one back is writing it
+against a policy that has parameters, not restoring this one.
 
 ## Still absent
 

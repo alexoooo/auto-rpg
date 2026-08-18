@@ -236,10 +236,10 @@ mod tests {
 
     #[test]
     fn parses_command_pairs_and_flags() {
-        let a = args("evolve --gens 40 --pop 24 --verbose");
-        assert_eq!(a.command(), "evolve");
-        assert_eq!(a.number("gens", 1), 40);
-        assert_eq!(a.usize("pop", 1), 24);
+        let a = args("embodied --seeds 40 --threads 24 --verbose");
+        assert_eq!(a.command(), "embodied");
+        assert_eq!(a.number("seeds", 1), 40);
+        assert_eq!(a.usize("threads", 1), 24);
         assert!(a.flag("verbose"));
         assert!(!a.flag("quiet"));
         assert_eq!(a.number("missing", 7), 7);
@@ -255,9 +255,9 @@ mod tests {
 
     #[test]
     fn a_valueless_option_at_the_end_is_a_flag() {
-        let a = args("hash --write");
-        assert!(a.flag("write"));
-        assert_eq!(a.command(), "hash");
+        let a = args("embodied --mirrored");
+        assert!(a.flag("mirrored"));
+        assert_eq!(a.command(), "embodied");
     }
 
     #[test]
@@ -321,8 +321,8 @@ mod tests {
         assert_eq!(a.usize("seeds", 1), 200);
         assert!(a.flag("mirrored"));
 
-        let bare = args("hash");
-        assert_eq!(bare.command(), "hash");
+        let bare = args("embodied");
+        assert_eq!(bare.command(), "embodied");
         assert_eq!(bare.subcommand(), "", "a missing arm is empty, not the command again");
         assert_eq!(args("").command(), "");
     }

@@ -28,6 +28,7 @@ longer sample — and do not compare moving scenes as independent runs.
 - [smart AI matched tactical mechanics](smart-ai-matched-tactical.md)
 - [articulated contact research and lifted-state handoff](v2-articulated-contact-research.md)
 - [embodied corpus, its pin, and the high-ground measurement, 2026-08-17](embodied-corpus-and-high-ground.md)
+- [embodied stance and elbow constants: what was measured, derived, or judged](embodied-stance-and-elbow-constants.md)
 
 The [v2 renderer reference matrix](v2-reference-matrix.md#measurement-record)
 predeclares the visible-foreground environment, automated and manual correctness
