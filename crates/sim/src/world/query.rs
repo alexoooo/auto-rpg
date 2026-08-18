@@ -979,7 +979,15 @@ impl World {
         let yaw = self.body_yaw[i].angle;
         let mut targets = [Vec3::ZERO; 2];
         for limb in 0..2 {
-            let arm = command.arms[limb];
+            // **Through the same door the arm driver goes through, and it was
+            // not.** `world_arm_target` is where a torso-relative bearing
+            // becomes a world one and where the annulus clamp bites; this read
+            // `command.arms[limb]` raw. Under `CommandFrame::World` the two are
+            // the same value and nothing moved, which is why it stood -- but
+            // under `Torso` the published target was a whole body yaw off the
+            // pose the integrator was actually chasing, and the field's own doc
+            // says the two "agree by construction". They did not.
+            let arm = self.world_arm_target(i, limb, command.arms[limb]);
             let reach = arm.reach.clamp(Fx::from_raw(actuator::ARM_MIN_REACH_RAW), Fx::ONE);
             targets[limb] = actuator::hand_position(spec, yaw, limb, arm.bearing, arm.height, reach);
         }
@@ -1751,6 +1759,97 @@ mod tests {
             assert_ne!(pose.arms[limb].hand, pose.arms[limb].target_hand,
                        "the arm arrived, so this fixture no longer separates the two");
         }
+    }
+
+    /// The published target is the pose the arm is chasing under **both** frames,
+    /// which it was not under one of them.
+    ///
+    /// `articulated_targets` read `command.arms[limb]` raw while the arm driver
+    /// reads it through `World::world_arm_target`. Those are the same value
+    /// under `CommandFrame::World`, which is why the sibling test above passed
+    /// throughout and why nothing caught this: the two frames agree everywhere
+    /// the articulated fixtures look. Under `Torso` a bearing is measured from
+    /// the torso and the yaw is added on the way in, so a published target was a
+    /// whole body yaw off the pose the integrator converged to.
+    ///
+    /// Driven at a **non-zero** yaw on purpose. At yaw zero the two frames are
+    /// the same map and this fixture would have proved nothing -- which is the
+    /// shape of the accident that let the bug stand.
+    #[test]
+    fn an_embodied_target_hand_is_read_in_the_torso_frame() {
+        let mut world = World::new(&Scenario::embodied_duel(), 1);
+        let fighter = EntityId::new(0, 0);
+        let spec = world.anatomy_spec(0).cloned().expect("embodied anatomy");
+
+        // Turn the body first, so the frame conversion has something to do.
+        let mut turn = crate::EmbodiedCommandV1::new(world.neutral_articulated(0));
+        turn.articulated.body_yaw = Angle::from_raw(16_384);
+        world.submit_embodied_v1(fighter, turn);
+        for _ in 0..200 { world.step(); }
+        let yaw = world.body_yaw[0].angle;
+        assert_ne!(yaw, Angle::ZERO, "the body never turned, so the frames still agree");
+
+        // A relative bearing of zero is directly ahead of the torso at every
+        // yaw, which is the whole of what `CommandFrame::Torso` means.
+        let mut ahead = crate::EmbodiedCommandV1::new(world.neutral_articulated(0));
+        for limb in 0..2 {
+            ahead.articulated.arms[limb] = crate::ArmTarget {
+                bearing: Angle::ZERO,
+                height: crate::CombatHeight::MID,
+                reach: Fx::HALF,
+                effort: Fx::ONE,
+            };
+        }
+        world.submit_embodied_v1(fighter, ahead);
+        world.step();
+        let yaw = world.body_yaw[0].angle;
+        let body = Vec3::new(world.pos[0].x, world.pos[0].y, world.ground_z[0]);
+        let pose = world.articulated_pose(fighter).expect("a live fighter");
+        for limb in 0..2 {
+            let expected = actuator::hand_position(
+                &spec, yaw, limb, yaw, crate::CombatHeight::MID, Fx::HALF);
+            assert_eq!(pose.arms[limb].target_hand, body + expected,
+                       "arm {limb}'s published target is not the torso-relative one");
+            // And it is not the answer the raw read gave, which is the bearing
+            // taken as a world one -- zero, due east, whatever the body faces.
+            let raw = actuator::hand_position(
+                &spec, yaw, limb, Angle::ZERO, crate::CombatHeight::MID, Fx::HALF);
+            assert_ne!(pose.arms[limb].target_hand, body + raw,
+                       "arm {limb}'s target was read as a world bearing");
+        }
+    }
+
+    /// A neutral embodied arm is asked for "ahead", and "ahead" is zero in the
+    /// frame it will be read in.
+    ///
+    /// `neutral_articulated` wrote `body_yaw` into the arm bearing, which is
+    /// right under `CommandFrame::World` and asks for twice the yaw under
+    /// `Torso`. It was inert -- a neutral command carries zero effort and the
+    /// actuator moves nothing without authority -- and it still reached the
+    /// published target of every slot nobody had commanded.
+    #[test]
+    fn a_neutral_embodied_command_points_the_arm_ahead_and_not_twice_the_yaw() {
+        let mut world = World::new(&Scenario::embodied_duel(), 1);
+        let fighter = EntityId::new(0, 0);
+        let mut turn = crate::EmbodiedCommandV1::new(world.neutral_articulated(0));
+        turn.articulated.body_yaw = Angle::from_raw(16_384);
+        world.submit_embodied_v1(fighter, turn);
+        for _ in 0..200 { world.step(); }
+        let yaw = world.body_yaw[0].angle;
+        assert_ne!(yaw, Angle::ZERO);
+
+        let neutral = world.neutral_articulated(0);
+        assert_eq!(neutral.arms[0].bearing, Angle::ZERO,
+                   "a neutral embodied arm is not asked for straight ahead");
+        assert_eq!(neutral.body_yaw, yaw, "a torso is measured relative to itself");
+        // The articulated fixture keeps the absolute answer, which is the guard:
+        // closing the hole for one frame must not close it for the other.
+        let mut articulated = World::new(&Scenario::articulated_duel(), 1);
+        articulated.submit_articulated_v1(EntityId::new(0, 0), articulated_command());
+        for _ in 0..200 { articulated.step(); }
+        let world_yaw = articulated.body_yaw[0].angle;
+        assert_eq!(articulated.neutral_articulated(0).arms[0].bearing, world_yaw,
+                   "an articulated neutral arm stopped facing the way the body does");
     }
 
     #[test]

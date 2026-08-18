@@ -156,6 +156,83 @@ value should not have to import a trait to drive it; the trait exists so a
 `Box<dyn EmbodiedPolicy>`, which is a different need and arrived a session
 later.
 
+### The scripted embodied policy, and the one term that exists to be measured
+
+`crates/policy/src/embodied_script.rs` is the first policy typed to the embodied
+seam. It is a **sibling of `articulated_script.rs` and not a mode of it**, and the
+reason is the frame: `ArmTarget::bearing` and `move_dir` are world quantities in
+that file and torso-relative ones here. A single file with a frame flag would make
+"which frame is this bearing" a runtime question in the one place where the wrong
+answer produces a fighter swinging at the map's north, and nothing at the boundary
+would refuse the command. The frame is also a simplification, and both show up in
+the file: a guard arc centred on the body is a clamp with no yaw in it, a step that
+brings the feet under the shoulders is `(1, 0)`, and the same tactical situation at
+two different yaws is the *same command* in every relative column.
+
+It expresses four things, because those four are the session's acceptance
+criteria: close and strike; hold a guard while circling; step to unwind a
+saturated twist; and use elevation. Each has a named test that goes red when its
+term is deleted.
+
+Two columns of the observation block are load-bearing in it. **Reach headroom
+decides between stepping in and reaching further**: an arm at its outer bound has
+no extension left, so asking for more buys a clamp and the distance has to come out
+of the feet instead. **The opponent's stance is read twice** -- their twist chooses
+which way to circle, because a body wound to its limit cannot follow you around to
+the side it is wound away from, and their mid-step flag chooses when, because a
+body whose feet are committed cannot answer. Every read of the block is gated on
+its `present` flag, which is the whole of the degradation onto a model with no
+legs: a blank block's zeros mean "locked out" and "settled" read straight, and an
+ungated policy would step in on every tick of every articulated fight.
+
+**The swing plane is used rather than left neutral, per arm.** The weapon arm keeps
+the neutral plane, which puts the elbow below the shoulder-to-hand line and the
+forearm under the blade rather than leading it into the target; the guard arm folds
+its elbow a quarter turn toward the body's centre line, so the forearm lies across
+the line the guard covers instead of hanging under it. Since session 07 the forearm
+is a swept collider, so where the elbow hangs is what it can intercept. Both are
+chosen on the model rather than on a corpus, because there is no embodied corpus
+yet.
+
+**The elevation term reads the body's own floor and never an opponent's, and that
+is a correction rather than a simplification.** The obvious design is
+`foe.body_position.z - obs.body_position.z`, and the perception model rules it out:
+`observed_opponent` displaces a perceived body rigidly, that displacement has a z
+term, and the duel fixture's fighters carry 0.9 and 1.2 world units of noise against
+a sculpted fixture whose entire relief from the flat to the summit is 0.75. A
+per-tick reading of the difference of two floors is a reading of the noise, and
+filtering it would need a deadband wider than the hill. The subject's own
+`body_position.z` is exact, so the term is built from it: a body that has climbed a
+terrace strikes one notch lower and closes at half speed, and a body that has lost a
+height step turns its circle the other way. It is a hill climb with one bit of
+state and no terrain query, which is all an observation can support -- there is no
+height field in one and there should not be.
+
+That is the policy's only memory, and it is the reason `reset` has work to do.
+Everything else is a pure function of one observation, which is what
+`scripted_embodied_command` exposes: a test that wants to know what the script says
+at tick 137 does not have to build a policy and drive a world.
+
+**The term is switchable, and switching it off is the point.** The next session
+measures the policy against itself with the elevation term disabled on a sculpted
+corpus, so the switch is a constructor parameter rather than a build flag or a
+global: two builds of one library that differ by a `static` cannot be bracketed
+`control -> subject -> control` inside one round, and this repository accepts no
+other comparison for a number that moves 2-3x run to run. The term exists **to be
+measured, not asserted** -- nothing in the code claims the high ground wins, and a
+measurement that comes back flat is a result.
+
+The property that makes that measurement mean anything is that the term is
+*provably inert on level ground*: no drift is set until the floor has fallen a
+height step and no climb is counted until it has risen a terrace, neither of which
+happens on a dungeon whose every tile is level.
+`the_two_configurations_agree_on_flat_ground` drives both configurations over
+`Scenario::embodied_duel` and compares state digests, and
+`the_two_configurations_diverge_on_a_hill` does the same over
+`Scenario::embodied_slope` and requires that they differ. Without the first, a
+difference measured on the hill would be partly a difference the flat corpus would
+show too; without the second, there would be nothing to measure.
+
 ## The non-legacy registry, and the one code it cannot build
 
 `ArticulatedPolicyKind` is the non-legacy seam's registry and a sibling of
@@ -190,6 +267,28 @@ and `crates/lab`'s `--checkpoint` flag natively. An `Option` and not a fallback
 to `Neutral`, because a caller that asked for the evolved network and silently
 got a body standing still would be watching a fight it would reasonably describe
 wrongly.
+
+## The embodied registry, and why its `build` cannot fail
+
+`EmbodiedPolicyKind` is the third registry and a sibling of the other two rather
+than an extension of either, on `ArticulatedPolicyKind`'s own argument: the three
+seams share no code space, so `2` names `idle`, `windmill` and `scripted-level`
+depending on which registry is being read, and a collision between them is a page
+showing a different fight when a dropdown moves. Codes are append-only for the same
+reason. The three are `neutral`, `scripted` and `scripted-level`, the last being
+the scripted policy with its elevation term switched off -- a registry entry rather
+than a test-only constructor because it is what the next session measures against,
+and that comparison has to be runnable from a command line.
+
+**`EmbodiedPolicyKind::build` returns a policy and not an `Option`, which is where
+it deliberately differs from its sibling.** `ArticulatedPolicyKind` answers `None`
+for its learned code because a trained fighter is a kind *plus fifteen kilobytes of
+weights* and nothing keyed by an integer has anywhere to put a checkpoint. Nothing
+here is a checkpoint: session 09 measured the learning boundary and deferred
+widening the network's input, so an embodied learned code would be a promise made
+before the session that owes it exists. `ComposedController` is not a kind either,
+for the same argument's shape rather than its subject -- it is a set of sources, one
+of which is a human hand, and an integer has nowhere to put a person.
 
 ## Frozen networks are current, and where the float stops
 
@@ -271,10 +370,12 @@ proposal, not an omitted part of the current seam.
 
 ## Source anchors
 
-- Trait, team dispatch, and policy registry: [`Policy`](../../crates/policy/src/lib.rs#L108)
-- Non-legacy seam: [`ArticulatedPolicy`](../../crates/policy/src/lib.rs#L204)
-- The embodied seam: [`EmbodiedPolicy`](../../crates/policy/src/lib.rs#L304)
-- The non-legacy seam's registry: [`ArticulatedPolicyKind`](../../crates/policy/src/lib.rs#L437)
+- Trait, team dispatch, and policy registry: [`Policy`](../../crates/policy/src/lib.rs#L121)
+- Non-legacy seam: [`ArticulatedPolicy`](../../crates/policy/src/lib.rs#L217)
+- The embodied seam: [`EmbodiedPolicy`](../../crates/policy/src/lib.rs#L317)
+- The non-legacy seam's registry: [`ArticulatedPolicyKind`](../../crates/policy/src/lib.rs#L450)
+- The embodied seam's registry: [`EmbodiedPolicyKind`](../../crates/policy/src/lib.rs#L601)
+- The scripted embodied policy: [`crates/policy/src/embodied_script.rs`](../../crates/policy/src/embodied_script.rs)
 - Headless decision loops: [`crates/policy/src/runner.rs`](../../crates/policy/src/runner.rs)
 - Subject-scoped inputs: [`crates/sim/src/obs.rs`](../../crates/sim/src/obs.rs)
 - `Command`, the single `LimbCommand`, `Order`, and `Objective`: [`crates/sim/src/command.rs`](../../crates/sim/src/command.rs)

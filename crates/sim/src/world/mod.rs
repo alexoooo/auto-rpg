@@ -2197,7 +2197,21 @@ impl World {
     }
 
     fn neutral_articulated(&self, i: usize) -> ArticulatedCommandV1 {
-        let bearing = self.body_yaw[i].angle;
+        let yaw = self.body_yaw[i].angle;
+        // **"Ahead" is not one number, and this wrote the wrong one under one of
+        // the two frames.** An arm bearing is absolute under
+        // `CommandFrame::World`, so `body_yaw` is the way the body is already
+        // facing; it is measured *from* the torso under `Torso`, where
+        // `World::world_arm_target` adds the yaw back on the way in -- so
+        // storing the yaw here asked a neutral embodied arm for twice it. It
+        // was inert, because a neutral command carries zero effort and the
+        // actuator moves nothing without authority, and it was not invisible:
+        // `articulated_targets` publishes the pose this command names, and a
+        // slot nobody had commanded published a target hand a whole turn off.
+        let bearing = match self.combat_model.command_frame() {
+            CommandFrame::World => yaw,
+            CommandFrame::Torso => Angle::ZERO,
+        };
         let arm = ArmTarget {
             bearing,
             height: crate::CombatHeight::MID,
@@ -2206,7 +2220,10 @@ impl World {
         };
         ArticulatedCommandV1 {
             move_dir: Vec2::ZERO,
-            body_yaw: bearing,
+            // The torso's own world yaw under both frames -- a torso measured
+            // relative to itself would say nothing -- so this one keeps the yaw
+            // where the arm bearing above stopped taking it.
+            body_yaw: yaw,
             intent: Intent::Hold,
             arms: [arm; 2],
             grips: [GripRequest::Keep; 2],

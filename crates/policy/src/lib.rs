@@ -59,6 +59,13 @@
 //! paragraph above still holds for `PolicyKind` and is the reason this is a
 //! sibling of it and not an extension: the two seams do not compose, so their
 //! registries must not either.
+//! **A third registry, on the same terms and for a third code space.**
+//! [`EmbodiedPolicyKind`] is a sibling of both rather than an extension of
+//! either, and the row that argues it is [`ArticulatedPolicyKind`]'s own: the
+//! three seams share no code space, so `2` names `Idle`, `windmill` and
+//! `scripted-level` depending on which registry is being read, and a page whose
+//! subject is watching the same fight go differently when a dropdown moves
+//! cannot afford a collision between them.
 
 #![forbid(unsafe_code)]
 
@@ -66,6 +73,7 @@ mod articulated_script;
 mod articulated_tactics;
 mod composition;
 mod duelist;
+mod embodied_script;
 mod genome;
 mod minds;
 mod random;
@@ -90,6 +98,11 @@ pub use composition::{
     CommandAuthority, ComposedController, CompositionError, PartialEmbodiedSource, PolicySource,
 };
 pub use duelist::{DuelistPolicy, DuelistWeights, Stance, DUELIST_GENOME_LEN};
+pub use embodied_script::{
+    neutral_embodied_command, scripted_embodied_command, scripted_embodied_command_with,
+    EmbodiedPhase, EmbodiedScriptConfig, GroundSense, NeutralEmbodiedPolicy,
+    ScriptedEmbodiedPolicy, EMBODIED_CYCLE_TICKS, EMBODIED_HEIGHT_TICKS, EMBODIED_PHASE_TICKS,
+};
 pub use genome::{PolicySpec, MAX_GENOME_LEN};
 pub use random::{neutral_articulated_command, IdlePolicy, NeutralArticulatedPolicy, RandomPolicy};
 pub use runner::{run, run_articulated, RunConfig, RunResult};
@@ -563,6 +576,99 @@ impl ArticulatedPolicyKind {
     }
 }
 
+/// Every embodied policy that can be named from outside this crate.
+///
+/// [`ArticulatedPolicyKind`]'s sibling under [`sim::CombatModel::Embodied`], and
+/// a third enum rather than three more codes on either of the others -- see the
+/// module header. The codes are **append-only** for the same reason theirs are:
+/// they are what a saved configuration or a URL carries.
+///
+/// **[`EmbodiedPolicyKind::build`] returns a policy and not an `Option`, which
+/// is where this one deliberately differs.** `ArticulatedPolicyKind` answers
+/// `None` for its learned code because a trained fighter is a kind *plus fifteen
+/// kilobytes of weights* and nothing keyed by an integer has anywhere to put a
+/// checkpoint. Nothing here is a checkpoint. Session 09 measured the learning
+/// boundary and deferred widening the network's input, so an embodied `Learned`
+/// code would be a promise made before the session that owes it exists -- and
+/// reserving one now would be predicting exactly the thing the plan declined to
+/// predict. The day one arrives, the return type gains an `Option` and every
+/// call site is told so by the compiler.
+///
+/// [`ComposedController`] is not a kind either, for the checkpoint argument's
+/// shape rather than its subject: it is a *set of sources*, one of which is a
+/// human hand, and an integer has nowhere to put a person.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default)]
+pub enum EmbodiedPolicyKind {
+    /// Stands there, arms slack. The control condition.
+    #[default]
+    Neutral,
+    /// The scripted embodied policy: close, guard, circle, unwind, take the
+    /// ground.
+    Scripted,
+    /// [`Scripted`] with the elevation term switched off -- the policy for which
+    /// all ground is level.
+    ///
+    /// **It is a registry entry rather than a test-only constructor because it
+    /// is what the next session measures against**, and the comparison has to be
+    /// runnable from a command line, mirrored, bracketed inside one round.
+    /// On a flat fixture it is byte for byte [`Scripted`], which is what makes a
+    /// difference measured on a sculpted corpus attributable to the term.
+    ///
+    /// [`Scripted`]: EmbodiedPolicyKind::Scripted
+    ScriptedLevel,
+}
+
+impl EmbodiedPolicyKind {
+    pub const ALL: [EmbodiedPolicyKind; 3] = [
+        EmbodiedPolicyKind::Neutral,
+        EmbodiedPolicyKind::Scripted,
+        EmbodiedPolicyKind::ScriptedLevel,
+    ];
+
+    pub const fn code(self) -> u32 {
+        match self {
+            EmbodiedPolicyKind::Neutral => 0,
+            EmbodiedPolicyKind::Scripted => 1,
+            EmbodiedPolicyKind::ScriptedLevel => 2,
+        }
+    }
+
+    pub const fn from_code(code: u32) -> Option<EmbodiedPolicyKind> {
+        match code {
+            0 => Some(EmbodiedPolicyKind::Neutral),
+            1 => Some(EmbodiedPolicyKind::Scripted),
+            2 => Some(EmbodiedPolicyKind::ScriptedLevel),
+            _ => None,
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<EmbodiedPolicyKind> {
+        EmbodiedPolicyKind::ALL.into_iter().find(|k| k.name() == name)
+    }
+
+    /// The name a report or a dropdown labels this policy with. Hyphenated like
+    /// `attack-moves`, so one vocabulary describes a fight wherever it is run.
+    pub const fn name(self) -> &'static str {
+        match self {
+            EmbodiedPolicyKind::Neutral => "neutral",
+            EmbodiedPolicyKind::Scripted => "scripted",
+            EmbodiedPolicyKind::ScriptedLevel => "scripted-level",
+        }
+    }
+
+    pub fn build(self) -> Box<dyn EmbodiedPolicy> {
+        match self {
+            EmbodiedPolicyKind::Neutral => Box::new(NeutralEmbodiedPolicy),
+            EmbodiedPolicyKind::Scripted => {
+                Box::new(ScriptedEmbodiedPolicy::new(EmbodiedScriptConfig::SEEKING))
+            }
+            EmbodiedPolicyKind::ScriptedLevel => {
+                Box::new(ScriptedEmbodiedPolicy::new(EmbodiedScriptConfig::LEVEL))
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -659,6 +765,54 @@ mod tests {
             );
             policy.reset();
         }
+    }
+
+    #[test]
+    fn embodied_policy_codes_are_append_only() {
+        // The same claim the other two registries make, and it is worth making
+        // three times rather than once generically: these numbers are what a
+        // saved configuration carries, and a generic helper over three enums
+        // would be one place for all three to be wrong together.
+        assert_eq!(EmbodiedPolicyKind::Neutral.code(), 0);
+        assert_eq!(EmbodiedPolicyKind::Scripted.code(), 1);
+        assert_eq!(EmbodiedPolicyKind::ScriptedLevel.code(), 2);
+        assert_eq!(EmbodiedPolicyKind::from_code(3), None);
+        for kind in EmbodiedPolicyKind::ALL {
+            assert_eq!(EmbodiedPolicyKind::from_code(kind.code()), Some(kind));
+            assert_eq!(EmbodiedPolicyKind::from_name(kind.name()), Some(kind));
+        }
+        assert_eq!(EmbodiedPolicyKind::from_name("nonesuch"), None);
+    }
+
+    #[test]
+    fn every_embodied_kind_builds_and_decides() {
+        let obs = sim::ArticulatedObservation::BLANK;
+        for kind in EmbodiedPolicyKind::ALL {
+            let mut policy = kind.build();
+            let command = policy.decide(&obs);
+            assert!(
+                command.articulated.move_dir.length() <= Fx::ONE + Fx::from_ratio(1, 1000),
+                "{} produced an over-long move", kind.name()
+            );
+            policy.reset();
+        }
+    }
+
+    /// The three registries do not share a code space, which is the whole reason
+    /// there are three of them. The same integer names a different policy on each
+    /// seam, so nothing may cross between them by number -- and `2` is the code
+    /// that proves it, because all three define one.
+    #[test]
+    fn the_three_policy_registries_do_not_share_a_code_space() {
+        assert_eq!(PolicyKind::from_code(2).map(PolicyKind::name), Some("idle"));
+        assert_eq!(
+            ArticulatedPolicyKind::from_code(2).map(ArticulatedPolicyKind::name),
+            Some("windmill"),
+        );
+        assert_eq!(
+            EmbodiedPolicyKind::from_code(2).map(EmbodiedPolicyKind::name),
+            Some("scripted-level"),
+        );
     }
 
     #[test]
