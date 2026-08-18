@@ -111,6 +111,60 @@ The solver is handed collider scratch and never a world column, so a mid-tick
 `ResolutionError` costs the tick its contact and leaves no half-written body. Anatomy
 evolution and `articulated` damage do not participate: v2-14 mutates no HP.
 
+## The module tree, and what measuring first saved
+
+`crates/sim/src/world/` is a module tree whose members are named for the tick phase group
+each one owns, with `struct World` in `mod.rs`. It was one file until the two refactor
+sessions that preceded the embodied model, and the numbers are worth keeping because they
+are what decided the shape of the work rather than what described it afterwards.
+
+Measured on 2026-08-17, `world.rs` was **20,470 lines, of which 12,541 were `#[cfg(test)]`
+modules** -- roughly 7.9k lines of production `World` and twelve and a half thousand lines
+of tests for it, in one file, with the tests for the actuator several thousand lines away
+from the actuator. The split moved the tests with their code. `contact_phase.rs` is now the
+largest member at about 5.9k lines, most of that its own tests.
+
+**The obvious second and third targets turned out not to be targets, and that is the part
+worth recording.** `combat/contact.rs` reads as 9,045 lines and is 2,659 lines of
+production code; `combat/resolution.rs` reads as 5,623 and is 1,982. Both are ordinary.
+Splitting them would have been a week of hash risk spent on files that were never the
+problem, and only measuring the `#[cfg(test)]` share separated the one genuine case from
+the two apparent ones.
+
+The split cost nothing in visibility churn, for a Rust rule that decides the whole shape of
+such a refactor: **a private field is visible to the defining module and all of its
+descendants.** Moving `impl World` blocks into siblings while `struct World` stays in
+`mod.rs` keeps every one of the ~90 private columns private and reachable. No field became
+`pub(crate)`, so no new access was granted to the rest of the crate and the diff was a
+move. Both sessions moved no pin, which is the only acceptance criterion a refactor should
+have.
+
+## A new variant is how a golden registry stays still
+
+The embodied body model was added as a third `CombatModel` variant beside the two it
+replaced, rather than by editing the articulated actuator in place, and the reason was
+neither caution nor compatibility -- nothing in this tree has a consumer outside it.
+
+**It was that the third variant made the pins unreachable by construction.** Every
+mechanic landed inside `Embodied`, whose fixtures were new, so the pins guarding the two
+older models could not move however wrong the new mechanic was. Each session could then
+state *nothing moves* as a design property rather than as a hope, and any move at all was
+a failed isolation to be diagnosed rather than a number to re-record.
+
+That is the technique and not a fact about combat: when a change would otherwise reach a
+frozen byte stream, add the variant, land the work where no existing fixture can reach it,
+and delete the old variant in a separate session whose only acceptance criterion is that
+the surviving pins agree to the byte. `CombatModel::Legacy`'s deletion is the worked
+example: about 13,000 lines came out and `EMBODIED_CORPUS_DIGEST` agreed exactly, which is
+what said the cut had been made in the right place.
+
+What it costs is that both variants exist at once, with two phase schedules and two sets
+of state columns, and the second cost is subtler and was paid: the older model's columns
+stayed inside the surviving hash stream after its behaviour was gone, because removing them
+would have moved the very pin the deletion was being checked against. Retiring those
+columns is therefore a separate session with a re-record and a fight-identity proof of its
+own.
+
 ## Source anchors
 
 - Storage and construction: [`World` fields and `World::new`](../../crates/sim/src/world/mod.rs)

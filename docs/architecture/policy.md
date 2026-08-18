@@ -257,6 +257,39 @@ happens on a dungeon whose every tile is level.
 difference measured on the hill would be partly a difference the flat corpus would
 show too; without the second, there would be nothing to measure.
 
+### What the shipped script is worth, measured
+
+**It does not play well, and that is a property of what it was built for rather than a
+defect in it.** Over 400 mirrored trials of `embodied-duel-v1` under the script on both
+sides, measured 2026-08-18:
+
+```text
+clock     33/400 decided by a body (8.2%), 367 reached tick 3600 (91.8%)
+fights    3522.6449 ticks mean, 3600.0000 median
+contacts  816852 resolutions, of which 626361 weapon/body
+health    fighter ends on 0.8687 mean, brute on 0.6021 mean
+guard     diagonal 52.06% of 42800 commanded pairs
+```
+
+At 60 Hz the median duel is sixty seconds of continuous contact with no result. The reading
+that matters is the contact column: **1,566 weapon-on-body facts per trial deliver about
+0.40 of the Brute's health between them**, a shade over a ten-thousandth of a health point
+each. The bodies are not failing to reach each other; they are standing inside each other
+and rubbing, and damage is kinetic energy, so a blade at nearly zero relative speed does
+nearly nothing however often it touches.
+
+The `guard` row is the other half. 52.06% diagonal has been read as competence and is not:
+the guard height is `HEIGHTS[((tick + GUARD_LEAD_TICKS) / HEIGHT_TICKS) % 3]`, a clock that
+**never looks at the incoming blow**, and the diagonal is the arithmetic of two clocks half
+a step apart on a table whose three off-diagonal cells are structurally unreachable.
+
+None of this is news to the file: `embodied_script.rs` says in its own header that it does
+not tune, because there was no embodied corpus to tune against when it was written. It
+existed to make the corpus possible. The corpus exists now, and the measured baseline above
+is what a policy that plays is measured against. The forward work is
+[the embodied fight plan](../plans/fight-00-overview.md); the numbers here are current and
+this document is where they live.
+
 ## The non-legacy registry, and the one code it cannot build
 
 `ArticulatedPolicyKind` is the non-legacy seam's registry and a sibling of
@@ -391,6 +424,41 @@ carry, so its loop is pinned to the runner by an equivalence test; and the brows
 needs two independently selected policies, while `run_articulated` installs one
 policy kind on both sides. A future shared versioned policy envelope is still a
 proposal, not an omitted part of the current seam.
+
+## A recorded direction: options, and the two selection boundaries
+
+Not current and not authorized -- recorded here because the distinction it turns on is a
+real one about this repository's seams, and it was the only durable content of a research
+plan set that was retired in 2026-08 without a session ever running.
+
+The proposal was a slower meta-policy choosing among complete, understandable combat
+options while a lower-level controller executes each choice long enough for it to have an
+effect. An option is a versioned `(loadout, strategy)` pair -- `(shield+sword, charge)`,
+`(shield+sword, withdraw)`, `(club, hold-measure)` -- so several options may share one
+loadout, which is what isolates strategy selection from equipment selection.
+
+**The part worth keeping is that "selection" means two different things and conflating them
+would break replay.**
+
+- *Encounter selection* happens **before** `World` construction and may choose any eligible
+  pair. The chosen loadout becomes ordinary scenario input and is fingerprinted and
+  replayed exactly as it is today.
+- *Tactical selection* happens **during** a fight and may change only the strategy. Every
+  candidate must match the already-equipped loadout, and a selector asking for another
+  loadout is refused by option id rather than silently swapping gear -- a hand's contents
+  are a scenario fact, and changing one mid-fight under an unmoved fingerprint is the
+  shape of bug this repository has shipped and caught more than once.
+
+The hierarchy would own no `World`, no snapshot, no hidden target state and no
+authoritative memory: the selected strategy still receives only an observation and returns
+only a command, and replay still records submitted commands, so replay needs neither the
+selector nor its catalog nor its model. That property is what made the proposal compatible
+with [the agent boundary](../../DESIGN.md#the-agent-boundary) rather than an exception to
+it, and it is the reason to record the shape rather than the ambition.
+
+It was retired because its own precondition was never met: it required a mechanically
+productive corpus with context-dependent option advantage to be demonstrated first, and no
+such demonstration exists. Any successor needs a separately approved causal question.
 
 ## Source anchors
 

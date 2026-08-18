@@ -38,11 +38,13 @@ depth band erased the room face and made the geometry read as a disappearing sla
 The gate and clipped paint lived beside `wallBandCutsHero` in `web/main.js`, and went
 with it; the rule survives as art direction the 3D path owes rather than as code.
 
-The Canvas reference path also treats blur and dash state as measured costs. Do not
-add `shadowBlur` as ambient polish or introduce another dashed-stroke pass without a
-foreground-browser comparison and the repeated baseline required by the
+Blur and dash state are measured costs, and the rule outlives the renderer that
+measured it. Do not add `shadowBlur` as ambient polish or introduce another
+dashed-stroke pass without a foreground-browser comparison and the repeated baseline
+required by the
 [Canvas evidence method](../performance/evidence/2026-08-canvas-rendering.md#method-and-controls).
-That is a renderer-specific budget, not a simulation or art-asset rule.
+The measurement was taken on the retired Canvas path; what generalizes is the method and
+the refusal to accept a polish pass on assertion, not the millisecond figures.
 
 ## The published anatomy has no neck
 
@@ -64,18 +66,57 @@ bounds, but foreground reset/walk/fog/Arena review remains the acceptance author
 That review is recorded in the
 [arena matrix](../performance/v2-arena-matrix.md#owed-visual-judgements).
 
+## What the 2026-08-17 production pass established
+
+Nine sessions of concept-production work landed against `web/assets/CONCEPT.png`, and the
+durable half of what they built belongs here rather than in a finished plan.
+
+- **All four wall orientations exist with stable topology identity.** Disclosure and
+  remembered-state changes no longer delete and recreate the same facade, which was the
+  defect that made walls flicker on every fog update.
+- **Walls have physical depth, coping, and authored 1/2/3/5/8-cell modules**, and the map
+  is filled by floor or overburden rather than by blank background pretending to be world
+  geometry. The solid/open envelope is still the authoritative tile topology; the geometry
+  composed inside it is presentation.
+- **Figures are assembled at their authoritative pose by direct joint-local mesh
+  parenting.** The former pale quad and orange head fragment came from broken GPU
+  skin/root composition, and the repair carries a mutation-proven regression -- which is
+  the standard, because a rig that silently falls back to a proxy looks like a rig.
+- **Doors are physical hinged publications**, torch fixtures and authoritative torch
+  objects use the pinned authored flame path, and the old cone and duplicate room-proxy
+  artifacts are gone.
+- **Six views are directly selectable** -- World, Geometry, Top Down, First Person, Free,
+  Dev -- with mouse movement the default, direct tank movement opt-in, and Q/E turns.
+- **The HUD is reachable without covering the play field**: FPS readout, health, equipment,
+  control cluster and a collapsed Systems drawer.
+
+**What it did not establish is style parity, and the pass was frozen rather than
+finished.** The current capture is an acceptance baseline: the target reads as one painted
+scene and the current renderer has the same broad composition vocabulary while its
+individual systems still read as separate 3D assets. The six specific comparison failures
+carried forward -- fire scale, stone relief, floor breakup, combatant finish, composition
+hierarchy and HUD art direction -- are forward work and are listed with their owed sessions
+in [the concept production plan](../plans/concept-production-00-overview.md), alongside
+this document, which owns the shipped visual language.
+
 ## Renderer roles
 
-The shipped Canvas renderer remains the playable reference and diagnostic renderer.
-It is the control for simulation, visibility, and presentation comparisons, and its
-Tactical and Dev modes remain useful even after a production client exists.
+**There is one renderer.** This section described the Canvas path as the playable
+reference and the control for every presentation comparison; that page was retired during
+the embodied-combat work, along with about 16.2k lines that no build included and no test
+executed. Comments and documents citing `web/main.js`, `web/draw.js`, `web/rig.js` or
+`web/assets.js` as a source of truth are stale by definition, and several presentation
+constants in `client/src/render/` were derived from it and now say so in the past tense.
 
-The shipped v2 presentation path defaults to the procedural Babylon greybox and can
-load the pinned representative-room GLB for review. Both read renderer-owned snapshot
-copies, repeat the authoritative visibility boundary, and never own simulation
-state. The room pipeline establishes reproducible authored-asset delivery, not a
-visible art or foreground performance pass; both decisions remain pending. The
-durable rationale is recorded in [ADR 0003](../decisions/0003-renderer-outside-sim.md).
+What survives of it is art direction rather than code, and where that is so this document
+says which rule the 3D path *owes* rather than which file implements it -- the local
+cutaway rule above is the worked example.
+
+The shipped presentation path is the Babylon client. It defaults to the procedural greybox
+and can load the pinned representative-room GLB for review. It reads renderer-owned
+snapshot copies, repeats the authoritative visibility boundary, and never owns simulation
+state. The durable rationale is recorded in
+[ADR 0003](../decisions/0003-renderer-outside-sim.md).
 
 ## Superseded DESIGN destinations
 

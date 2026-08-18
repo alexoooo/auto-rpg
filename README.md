@@ -424,7 +424,7 @@ evidence](docs/performance/evidence/2026-08-combat-mechanics.md).
 
 ## Where this goes next
 
-The remaining implementation roadmap is the [v2 plan](docs/plans/v2-00-overview.md).
+The remaining implementation roadmap is [the embodied fight](docs/plans/fight-00-overview.md).
 Completed sessions are removed from it. Shipped behavior and unresolved measured
 limits remain with the design, architecture, reference, and performance documents
 linked from [DESIGN.md](DESIGN.md).

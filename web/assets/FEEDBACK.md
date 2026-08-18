@@ -2,7 +2,7 @@
 
 Stage 1 passed on 2026-08-07. Stage 2's files and in-game composition passed on 2026-08-08;
 the repeated visible-browser performance control passed on 2026-08-08 after the World backing
-store correction now recorded in `docs/plans/v2-00-overview.md`. The 2D batch is locked as the
+store correction now recorded in `docs/performance/README.md`. The 2D batch is locked as the
 legacy client baseline; the v2 roadmap supersedes its mass-production instruction.
 
 This heading is the gate. It is the first thing to read in this file and the first thing to

@@ -72,10 +72,11 @@ These are the current named pins:
 | Pin | Current value | Ownership | Re-record rule |
 |---|---:|---|---|
 
-**Five browser goldens were deleted by embodied session 10**, with the model they
-measured. They are recorded here rather than removed, because the one thing a reader
-needs from a registry about a pin that is gone is what it *was* — a number found in an
-old log or an old branch has to be identifiable as retired rather than as a mismatch:
+**Six pins were deleted by embodied session 10**, with the model they measured — four
+browser goldens, one lab golden, and one that lived in `crates/sim`'s own suite. They are
+recorded here rather than removed, because the one thing a reader needs from a registry
+about a pin that is gone is what it *was*: a number found in an old log or an old branch
+has to be identifiable as retired rather than as a mismatch.
 
 | Deleted pin | Last value | What it measured |
 |---|---:|---|
@@ -86,7 +87,7 @@ old log or an old branch has to be identifiable as retired rather than as a mism
 | `SWAP_HASH` | `0xd2d38c5ad27c3f13` | a legacy death and replacement |
 | `BOW_HASH` | `0xce5fa25b974e0701` | a legacy arrow in flight |
 
-All five named `CombatModel::Legacy` fixtures by construction and none of them is
+All six named `CombatModel::Legacy` fixtures by construction and none of them is
 re-derivable under the model that survives: a legacy body has no anatomy, no contact
 solver and no swept arm, so there is no embodied fight that is "the same walk" or "the
 same battle". They are not superseded by a replacement pin one for one. What replaces

@@ -109,6 +109,8 @@ node tools/check_docs.js                          # documentation links, anchors
 node tools/check_deps.js                          # no crate may reach a registry or a git source
 node --test tools/check_deps.test.js              # and the fixture that guards that audit
 node tools/validate_assets.js web/assets3d/room_slice.glb   # the room asset against its pinned hashes
+node --test "client/test/*.test.mjs"              # the four client suites, 235 tests
+npm run check:abi                                 # generated TypeScript against its generator
 
 npm run dev                                       # builds release wasm, Vite serves the studio
 ```
@@ -235,8 +237,14 @@ Notes that will otherwise cost you a build:
 - **Do not run `cargo fmt`.** The tree is deliberately not rustfmt-clean — 222
   divergences across 25 files, most of them hand-formatted for readability. Running it
   produces an enormous unrelated diff. Match the surrounding style by hand.
-- There is no clippy config, no CI, and no lint gate. `cargo test` and
-  `node --test tools/wasm_check.js` are the gate.
+- **The four client suites are part of the gate and were not on any list here until
+  2026-08-18.** `node --test "client/test/*.test.mjs"` runs 235 tests across
+  `worker-protocol`, `render-contract`, `studio-shell` and `wasm-memory`. The verification
+  pass that shipped the `CombatModel::Legacy` deletion omitted them, and they caught a real
+  regression the moment they were run. The bare directory form `node --test client/test/`
+  fails on this platform; quote the glob.
+- There is no clippy config, no CI, and no lint gate. `cargo test`,
+  `node --test tools/wasm_check.js` and the client suites are the gate.
 
 ## The one rule everything else serves
 
@@ -407,8 +415,14 @@ expected to.**
 Plans are updated in place as sessions complete, and the whole set is deleted in the
 commit that finishes the topic (see `iso-*` in the history of `docs/plans`).
 
-The live roadmap is [`docs/plans/v2-00-overview.md`](docs/plans/v2-00-overview.md).
-Completed sessions are retired rather than kept as a progress ledger. The
+The live roadmap is [`docs/plans/fight-00-overview.md`](docs/plans/fight-00-overview.md):
+one topic that finishes retiring the older combat models and makes the embodied fight worth
+watching. The visual work owed after the 2026-08-17 production pass is the other live topic,
+[`docs/plans/concept-production-00-overview.md`](docs/plans/concept-production-00-overview.md).
+Completed sessions are retired rather than kept as a progress ledger, and the `v2-*`,
+`embodied-*`, `smart-ai-*` and `hierarchical-ai-*` sets were consolidated out of
+`docs/plans/` on 2026-08-18 with their durable content folded into architecture, design,
+reference and performance documents. The
 articulated-bow and representative Fighter/Brute rig slices are complete; their
 durable contracts now live in the command, projectile, ABI, contact, asset and
 browser references. The exact-law target-parity closeout is complete too. The apparent

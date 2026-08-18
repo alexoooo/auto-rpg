@@ -109,6 +109,48 @@ embodied one too — at
 replay, and the sculpted half is the only replay corpus in the repository whose floor
 reaches a state hash at all.
 
+## What the corpus says about fight quality
+
+The rows above were recorded to register a pin and to price one term. Read for a different
+question -- *is this a fight worth watching* -- they answer no, and the answer is load
+bearing enough to state here rather than leave to be re-derived.
+
+Re-measured on 2026-08-18 at 200 seeds by two orientations, which is half the corpus above
+and agrees with it:
+
+```text
+clock     33/400 decided by a body (8.2%), 367 reached tick 3600 (91.8%)
+fights    3522.6449 ticks mean, 3600.0000 median
+contacts  816852 resolutions, of which 626361 weapon/body
+blows     332 severances, max weapon-body energy raw 45760
+health    fighter ends on 0.8687 mean, brute on 0.6021 mean
+guard     diagonal 52.06% of 42800 commanded pairs
+seed 0    3600 ticks, Decision(Heroes), 2757 contacts
+```
+
+**At 60 Hz the median duel is sixty seconds of continuous contact with no result**, and the
+expected time to a body is about two and a half minutes.
+
+The diagnostic column is `weapon/body`, not the win rate. 626,361 weapon-on-body facts over
+400 trials is **1,566 per trial**, and between them they take about 0.40 of the Brute's
+health -- a shade over a ten-thousandth of a health point each. The bodies are not failing
+to reach each other. They are standing inside each other and rubbing. Damage is kinetic
+energy, so a blade at nearly zero relative speed does nearly nothing however often it
+touches, and the occasional real blow (`worst tick took 16.3432 health`) is drowned in
+noise.
+
+The `guard` row is the second half and is the one most likely to be misread. 52.06%
+diagonal against a 33% floor looks like a defence that works. It is not: the guard height
+is a clock, `HEIGHTS[((tick + GUARD_LEAD_TICKS) / HEIGHT_TICKS) % 3]`, which never reads
+the incoming blow, and three of the nine cells in the table are structurally unreachable --
+`GUARD_LEAD_TICKS` in `embodied_script.rs` carries that arithmetic and says so.
+
+None of this contradicts the corpus's purpose. `embodied_script.rs` states in its own
+header that it does not tune, because no embodied corpus existed to tune against when it
+was written; it existed to make one possible. This section is the baseline that a policy
+which actually plays gets measured against, and the forward work that does so is
+[the embodied fight plan](../plans/fight-00-overview.md).
+
 ## The high-ground measurement
 
 `lab embodied --high-ground`, at
