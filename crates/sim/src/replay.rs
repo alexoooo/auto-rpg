@@ -173,7 +173,6 @@ impl Replay {
         &self, ticks: u32, bearing_max_speed_raw: i32, bearing_accel_raw: i32,
     ) -> World {
         let mut world = World::new(&self.scenario, self.seed);
-        let mut next_command = 0;
         let mut next_submitted = 0;
         let mut next_order = 0;
         let mut next_objective = 0;
@@ -200,21 +199,12 @@ impl Replay {
             if world.tick() >= ticks {
                 break;
             }
-            while self.scenario.combat_model == crate::CombatModel::Legacy
-                && next_command < self.entries.len()
-                && self.entries[next_command].tick <= world.tick()
-            {
-                let entry = self.entries[next_command];
-                world.submit(entry.entity, entry.command);
-                next_command += 1;
-            }
             while self.scenario.combat_model.has_articulated_columns()
                 && next_submitted < self.submitted_entries.len()
                 && self.submitted_entries[next_submitted].tick <= world.tick()
             {
                 let entry = self.submitted_entries[next_submitted];
                 match entry.command {
-                    SubmittedCommand::Legacy(_) => {}
                     SubmittedCommand::Articulated(command) => {
                         let _ = world.submit_articulated_v1(entry.entity, command);
                     }
@@ -320,11 +310,28 @@ mod tests {
     fn playback_uses_only_the_model_selected_command_vector() {
         let scenario = Scenario::articulated_duel();
         let mut replay = Replay::new(&scenario, 1);
-        replay.record(0, EntityId::new(0, 0), Command::moving(Vec2::X));
+        // **The wrong-grammar record is now an embodied one on an articulated
+        // scenario**, which is the same shape of mistake the test was written for:
+        // a record whose grammar the world does not accept must be skipped rather
+        // than coerced. It used to be a legacy command, and that variant is gone.
         replay.record_submitted(
             0,
             EntityId::new(0, 0),
-            SubmittedCommand::Legacy(Command::moving(Vec2::Y)),
+            SubmittedCommand::Embodied(crate::EmbodiedCommandV1::new(
+                crate::ArticulatedCommandV1 {
+                    move_dir: Vec2::Y,
+                    body_yaw: fx::Angle::ZERO,
+                    intent: crate::Intent::Hold,
+                    arms: [crate::ArmTarget {
+                        bearing: fx::Angle::ZERO,
+                        height: crate::CombatHeight::MID,
+                        reach: Fx::ZERO,
+                        effort: Fx::ZERO,
+                    }; 2],
+                    grips: [crate::GripRequest::Keep; 2],
+                    releases: [crate::ReleaseRequest::Keep; 2],
+                },
+            )),
         );
         replay.finish(1);
         let played = replay.play();

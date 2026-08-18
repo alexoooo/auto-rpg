@@ -1,4 +1,15 @@
-//! Doors and destructible dungeon props.
+//! Doors and dungeon props.
+//!
+//! **Props are no longer destructible, and that is a gap rather than a design.**
+//! Breaking one was `resolve_dungeon_prop_swings`, which swept the *legacy*
+//! blade -- `limb[i].swing`, `blade(i)`, `blade_was[i]` -- against a prop
+//! circle, and no other path in the repository damages a prop. It went with the
+//! legacy model in embodied session 10. What survives works on any body:
+//! barrels and pottery push a body out of them through [`World::settle`], and
+//! webs and water slow one through [`World::dungeon_slow_at`]. So a barrel is
+//! still an obstacle and a web is still difficult ground; neither can be
+//! cleared. Restoring that means the contact solver seeing a prop as a
+//! collider, which is a mechanic and not a repair.
 //!
 //! A door is pressure, not a switch: a body leaning on one accumulates against
 //! its resistance and the door opens when the accumulation wins. That is why
@@ -7,75 +18,6 @@
 use super::*;
 
 impl World {
-    /// Applies legacy weapon damage to physical props. The body-damage pass is
-    /// intentionally left unchanged: props are a separate energy sink, not a
-    /// fourth combat contact kind.
-    pub(super) fn resolve_dungeon_prop_swings(&mut self) {
-        if self.dungeon_props.is_empty() { return; }
-        self.prop_impacts.clear();
-        for i in 0..self.alive.len() {
-            if !self.alive[i] || !self.limb[i].swing.is_live() { continue; }
-            let (base, tip) = match self.blade(i) { Some(segment) => segment, None => continue };
-            let (was_base, was_tip) = self.blade_was[i].unwrap_or((base, tip));
-            let action = self.action_of(i).spec();
-            let speed = self.arm(i).spec.length * self.limb[i].spin.abs() + self.vel[i].length();
-            let amount = rules::blow_damage(
-                action.mass,
-                speed,
-                rules::power_multiplier(self.stats[i].power),
-            );
-            if !amount.is_positive() { continue; }
-            let mut first: Option<(Fx, usize)> = None;
-            for (prop_index, prop) in self.dungeon_props.iter().enumerate() {
-                if prop.broken || !prop.max_hp.is_positive() { continue; }
-                let radius = prop.half_extents.x.max(prop.half_extents.y);
-                let Some(hit) = fx::swept_segment_circle(
-                    was_base, was_tip, base, tip,
-                    prop.position, prop.position, radius,
-                ) else { continue; };
-                if first.is_none_or(|(toi, best)| (hit.t, prop.identity) <
-                    (toi, self.dungeon_props[best].identity)) {
-                    first = Some((hit.t, prop_index));
-                }
-            }
-            if let Some((toi, prop)) = first {
-                self.prop_impacts.push(PropImpact {
-                    toi, prop, attacker: self.id_of(i), amount,
-                });
-            }
-        }
-        sort_prop_impacts(&mut self.prop_impacts, &self.dungeon_props);
-        for impact in &self.prop_impacts {
-            let prop = &mut self.dungeon_props[impact.prop];
-            if prop.broken { continue; }
-            prop.hp -= impact.amount;
-            if !prop.hp.is_positive() {
-                prop.hp = Fx::ZERO;
-                prop.broken = true;
-            }
-        }
-        self.prop_impacts.clear();
-    }
-
-    /// Leans on doors, and opens whichever has been leant on long enough.
-    ///
-    /// Runs after movement has resolved -- so the positions it measures are the
-    /// ones the tick ended at -- and before the dead are reaped, so a body that
-    /// was standing on a door when the blow landed still spent that tick
-    /// pushing it.
-    ///
-    /// **Two passes rather than one**, which is the shape
-    /// [`World::resolve_swings`] uses and for the same reason: the first pass
-    /// only reads and marks, the second decides. Folded into one, the answer
-    /// would depend on which unit was visited first -- the door would open under
-    /// whichever body happened to hold the lower index, and a second body
-    /// leaning on the same door in the same tick would find it already floor.
-    ///
-    /// Two conditions to be leaning, and neither is sufficient alone. Being
-    /// *near* a door is where every route on the level converges, so proximity
-    /// alone would have a corridor's worth of traffic opening every door it
-    /// walked past; asking only about the commanded direction would have a body
-    /// across the room opening one by facing it.
     pub(super) fn press_doors(&mut self) {
         if self.doors.is_empty() {
             return;
@@ -91,7 +33,22 @@ impl World {
             if !self.alive[i] || !self.kind[i].opens_doors() {
                 continue;
             }
-            let dir = self.command[i].move_dir.clamp_length(Fx::ONE);
+            // **The submitted movement vector, read through the same helper the
+            // movement phase reads it through.** This used to be
+            // `self.command[i].move_dir` -- the *legacy* command column, which
+            // nothing writes on a world that has articulated columns. So from
+            // the moment a body was jointed, no door in the repository could be
+            // opened: `Dungeon::open_door` was unreachable from the browser, and
+            // the test that would have caught it was written against a Legacy
+            // fixture and deleted for want of one.
+            //
+            // `world_move_dir` and not the raw field, because an embodied
+            // command's vector is torso-relative: leaning on a door is a
+            // question about where the body is pushing in the world, and reading
+            // the raw column would have a body facing south open the door to its
+            // east.
+            let requested = self.articulated_command[i].map_or(Vec2::ZERO, |c| c.move_dir);
+            let dir = self.world_move_dir(i, requested).clamp_length(Fx::ONE);
             if dir.is_zero() {
                 continue;
             }
@@ -183,7 +140,7 @@ mod tests {
         assert!(Body::Fighter.opens_doors());
         let i = w.alive_ids(Faction::Heroes)[0].index as usize;
         w.pos[i] = against_the_jamb(&w, i);
-        w.command[i] = Command::moving(EAST);
+        lean(&mut w, i, EAST);
 
         assert!(w.dungeon.solid(4, 2), "the door starts shut");
         for _ in 0..rules::DOOR_TICKS - 1 {
@@ -211,7 +168,7 @@ mod tests {
         assert!(!Body::Brute.opens_doors());
         let i = w.alive_ids(Faction::Heroes)[0].index as usize;
         w.pos[i] = against_the_jamb(&w, i);
-        w.command[i] = Command::moving(EAST);
+        lean(&mut w, i, EAST);
 
         for _ in 0..rules::DOOR_TICKS * 4 {
             w.press_doors();
@@ -231,12 +188,12 @@ mod tests {
         // it accumulates, because the decay is symmetric with the gain and the
         // gap between brushes is as long as the brush.
         for _ in 0..20 {
-            w.command[i] = Command::moving(EAST);
+            lean(&mut w, i, EAST);
             for _ in 0..10 {
                 w.press_doors();
             }
             assert_eq!(w.doors[0].pressed, 10);
-            w.command[i] = Command::HOLD;
+            lean(&mut w, i, Vec2::ZERO);
             for _ in 0..10 {
                 w.press_doors();
             }
@@ -247,7 +204,7 @@ mod tests {
         // Standing in the doorway facing away from it is not leaning on it
         // either: proximity alone would have every route on the level opening
         // every door it converged on.
-        w.command[i] = Command::moving(Vec2::new(-Fx::ONE, Fx::ZERO));
+        lean(&mut w, i, Vec2::new(-Fx::ONE, Fx::ZERO));
         for _ in 0..rules::DOOR_TICKS * 2 {
             w.press_doors();
         }
@@ -255,7 +212,7 @@ mod tests {
 
         // And so is leaning on it from across the room.
         w.pos[i] = at_tile(1, 2);
-        w.command[i] = Command::moving(EAST);
+        lean(&mut w, i, EAST);
         for _ in 0..rules::DOOR_TICKS * 2 {
             w.press_doors();
         }
@@ -276,7 +233,7 @@ mod tests {
         w.set_order(Faction::Heroes, Order::Goto(at_tile(6, 2)));
         for tick in 0..240 {
             let (dir, _) = w.nav_step(i);
-            w.command[i] = Command::moving(if dir.is_zero() { EAST } else { dir });
+            lean(&mut w, i, if dir.is_zero() { EAST } else { dir });
             w.step();
             if w.doors[0].open {
                 assert!(tick >= rules::DOOR_TICKS as u32, "opened in {tick} ticks");

@@ -529,9 +529,12 @@ mod tests {
             }
         }
 
-        // A Legacy scenario refuses every articulated submission by model, and
-        // it is the only way this harness reaches the `NotStored` arm at all.
-        let scenario = Scenario::duel();
+        // **An embodied scenario refuses every articulated submission by model**,
+        // and it is the only way this harness reaches the `NotStored` arm at all.
+        // It was a Legacy scenario, which refused for the same reason and no
+        // longer exists; the two surviving grammars refuse each other, which is
+        // the same claim on the pair that is left.
+        let scenario = Scenario::embodied_duel();
         let config = RunConfig {
             max_ticks: Some(30),
             record: true,

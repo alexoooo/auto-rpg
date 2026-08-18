@@ -147,8 +147,11 @@ model. At the degenerate centre hit, a fast tangential blade is perpendicular to
 the radial normal and would contribute nothing even though it swept through the
 body. The magnitude correctly prices a cut. Body motion has a meaningful approach
 direction, so charging toward a blow adds to it and retreating subtracts from it.
-The current invariant is tested by
-[`impact_is_the_blade_plus_the_closing_and_backing_off_helps`](../../crates/sim/src/world/legacy.rs#L2609).
+That invariant was tested by `impact_is_the_blade_plus_the_closing_and_backing_off_helps`
+in `crates/sim/src/world/legacy.rs`, which embodied session 10 deleted with the model.
+**The argument survives the test and is now the contact solver's**: a swept segment
+against a swept body carries the closing speed in the same way, and
+[the contact solver](../reference/contact-solver.md) owns the current statement of it.
 
 ## Dependencies and the browser boundary
 
@@ -237,6 +240,6 @@ owned by [Determinism](../reference/determinism.md).
 - Bounded temporal sweep: [`swept_segment_circle`](../../crates/fx/src/geom.rs#L176)
 - Current clamp rationale: [`agility_multiplier`](../../crates/sim/src/rules.rs#L253)
 - Exhaustive historical-bound cost guard: [`no_blade_can_outrun_the_smallest_body`](../../crates/sim/src/entity.rs#L319)
-- Current blade/body sweep: [`World::resolve_swings`](../../crates/sim/src/world/legacy.rs#L333)
-- Impact magnitude/projection composition: [`World::impact_speed`](../../crates/sim/src/world/legacy.rs#L1147)
+- Current blade/body sweep: [`World::resolve_contact`](../../crates/sim/src/world/contact_phase.rs) -- the legacy `resolve_swings` it replaced was deleted with its model
+- Impact magnitude and projection: [`contact_behavior_corpus`](../../crates/sim/src/combat/resolution.rs)
 - Browser buffer and ABI authority: [`browser-runtime.md`](../architecture/browser-runtime.md)

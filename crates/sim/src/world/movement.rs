@@ -355,19 +355,6 @@ mod tests {
     }
 
     #[test]
-    fn legacy_commands_still_derive_facing_from_movement_and_cannot_turn_in_place() {
-        let mut world = duel_world();
-        let fighter = EntityId::new(0, 0);
-        world.submit(fighter, Command::moving(Vec2::Y));
-        world.step();
-        assert_eq!(world.facing[0], Angle::QUARTER);
-        world.submit(fighter, Command::HOLD);
-        for _ in 0..10 { world.step(); }
-        assert_eq!(world.facing[0], Angle::QUARTER);
-        assert!(world.body_yaw.is_empty());
-    }
-
-    #[test]
     fn leg_injury_reduces_acceleration_not_requested_direction() {
         // This is a locomotion law, so use the ordinary articulated duel and
         // stop before either body can make contact. The former fragile fixture
@@ -618,11 +605,28 @@ mod tests {
         assert!(w.pos[i].y > Fx::ONE, "came out the wrong side: {:?}", w.pos[i]);
     }
 
+    /// A two-body arena with the pair chosen, for the shove tests.
+    ///
+    /// **`Scenario::duel_of` is gone with the legacy model** and it is not much
+    /// missed here: what these three tests need is two bodies of chosen mass on
+    /// open ground, and the seeded ring placement `duel_of` rolled was noise they
+    /// immediately overwrote anyway -- every one of them assigns `pos` by hand.
+    /// So the fixture is the articulated duel with both bodies swapped to the
+    /// kinds under test and dressed for a world that has articulated columns.
+    fn shove_pair(hero: Body, villain: Body) -> Scenario {
+        let mut scenario = Scenario::articulated_duel();
+        for (unit, kind) in scenario.units.iter_mut().zip([hero, villain]) {
+            unit.set_body(kind);
+            crate::scenario::equip_fixture_body(unit);
+        }
+        scenario
+    }
+
     #[test]
     fn charging_a_heavier_body_costs_the_charger_more() {
         // Barging is now a decision with a price, and the price scales with who
         // you barge. Both are thrown, and the light one is thrown further.
-        let mut w = World::new(&Scenario::duel_of(Body::Skitterer, Body::Brute, 1), 1);
+        let mut w = World::new(&shove_pair(Body::Skitterer, Body::Brute), 1);
         let light = w.alive_ids(Faction::Heroes)[0].index as usize;
         let heavy = w.alive_ids(Faction::Monsters)[0].index as usize;
 
@@ -659,7 +663,7 @@ mod tests {
         // to be free to hold: the overlap was split down the middle, so a
         // Skitterer pressed against a Brute shoved exactly as hard as it was
         // shoved. Now the ground each yields is the *other* one's weight.
-        let mut w = World::new(&Scenario::duel_of(Body::Skitterer, Body::Brute, 1), 1);
+        let mut w = World::new(&shove_pair(Body::Skitterer, Body::Brute), 1);
         let light = w.alive_ids(Faction::Heroes)[0].index as usize;
         let heavy = w.alive_ids(Faction::Monsters)[0].index as usize;
         assert!(w.mass[heavy] > w.mass[light], "premise");
@@ -697,7 +701,7 @@ mod tests {
         // The mirror case the old rule got right and the new one must not
         // break: two identical fighters must each give exactly half, or a
         // symmetric duel picks a winner out of the collision solver.
-        let mut w = World::new(&Scenario::duel_of(Body::Fighter, Body::Fighter, 1), 1);
+        let mut w = World::new(&shove_pair(Body::Fighter, Body::Fighter), 1);
         let (a, b) = (
             w.alive_ids(Faction::Heroes)[0].index as usize,
             w.alive_ids(Faction::Monsters)[0].index as usize,
@@ -714,7 +718,7 @@ mod tests {
 
     #[test]
     fn bodies_are_pushed_apart_and_stay_in_the_arena() {
-        let mut scenario = Scenario::duel();
+        let mut scenario = Scenario::articulated_duel();
         // Spawn both units on the exact same spot: the degenerate case.
         scenario.units[1].spawn = scenario.units[0].spawn;
         let mut w = World::new(&scenario, 1);
@@ -735,39 +739,22 @@ mod tests {
         }
     }
 
-    /// **The whole of what `Run` buys**, measured through a live world rather
-    /// than read off the registry -- `move_bonus` has been multiplied into
-    /// `apply_movement` since before there was a row that used it, and a
-    /// multiply by one proves nothing about a multiply by 1.35.
-    #[test]
-    fn a_running_fighter_actually_runs_faster() {
-        fn ground_covered(action: ActionKind) -> Fx {
-            let mut scenario = Scenario::duel();
-            scenario.units[0].loadout = Loadout::single(action);
-            let mut w = World::new(&scenario, 1);
-            let hero = w.alive_ids(Faction::Heroes)[0];
-            let h = w.resolve(hero).unwrap();
-            let from = w.pos[h];
-            // Straight down +y, away from the other fighter rather than along
-            // the line the two are placed on. Ninety ticks and not more: the
-            // hero spawns at y=8 in a 16-deep arena, so a runner reaches the
-            // wall around tick 105 and `move_body` would quietly cap the very
-            // measurement this test exists to take.
-            for _ in 0..90 {
-                w.submit(hero, Command::moving(Vec2::Y));
-                w.step();
-            }
-            (w.pos[h] - from).length()
-        }
+    // **`a_running_fighter_actually_runs_faster` is gone, and the reason is a
+    // finding rather than a tidy-up: no body the surviving model can construct
+    // can hold `ActionKind::Run` at all.**
+    //
+    // The test measured what `Run` buys -- `move_bonus` is 1.35 against a
+    // sword's 1.0 -- through a live world rather than off the registry, because a
+    // multiply by one proves nothing about a multiply by 1.35. `move_bonus` is
+    // still read by `apply_articulated_movement`, so the *mechanic* survives.
+    // What does not survive is any way to put `Run` in a hand: construction ties
+    // every loadout slot to an equipment row (`validate_rows`, `LoadoutMismatch`),
+    // and the shipped spec table has three items -- a sword, a shield and a club
+    // -- none of which carries a move bonus. A body with empty hands has no
+    // loadout slot to name `Run` in either.
+    //
+    // So this is a mechanic with no reachable subject, and the honest next step is
+    // an equipment row that grants footspeed rather than a test that pretends one
+    // exists.
 
-        let walked = ground_covered(ActionKind::Sword);
-        let ran = ground_covered(ActionKind::Run);
-        assert!(walked.is_positive(), "the walker never set off");
-        // The row is 1.35; traction has to pay for the extra speed on the way up
-        // to it, so the ratio over a fixed window is a little under the ceiling.
-        assert!(
-            ran > walked * Fx::from_ratio(13, 10),
-            "run covered {ran:?} against a walk's {walked:?}"
-        );
-    }
 }

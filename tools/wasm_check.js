@@ -2678,16 +2678,19 @@ test("descending out of an arena returns an ordinary floor", () => {
   // is spelled out with its meaning rather than carried over.
   assert.equal(u32(wasm.set_policy(0, 2)), 1, "an ordinary floor refused scripted-level");
 
-  // **The floor below an arena is an *articulated* floor, not the embodied one
-  // `init` opens**, and that follows from `Sim::descend` building the next
-  // scenario under `self.world.combat_model()`: the world it is descending out
-  // of is the duel's, and a duel is articulated. So the stance section is
-  // zero-length here while `init`'s floor fills it. Asserted rather than left
-  // implicit, because "descend answers the depth" is true either way and the
-  // difference is invisible from every other export.
+  // **The floor below an arena is the floor `init` opens**, and that is a
+  // correction rather than a restatement. It used to be an *articulated* floor:
+  // `Sim::descend` built the next scenario under `self.world.combat_model()`,
+  // the world it descends out of is the duel's, and a duel was articulated -- so
+  // a hero who walked down out of an arena landed on a legless floor while the
+  // same hero from `init` had legs. Session 10 deleted the legacy model and made
+  // the generated floor embodied at its source, so the question of which model a
+  // descent inherits no longer has two answers. Asserted rather than left
+  // implicit, because "descend answers the depth" was true either way and the
+  // difference was invisible from every other export.
   assert.ok(u32(wasm.pose_len()) > 0, "the floor below published no bodies");
-  assert.equal(u32(wasm.embodied_stance_len()), 0,
-    "the floor below an arena grew legs, so descend no longer carries the model");
+  assert.equal(u32(wasm.embodied_stance_len()), u32(wasm.pose_len()),
+    "the floor below an arena has a stance row short of one per body");
 
   // 300 is `shippedArena().maxTicks`, which is where the tick used to stick:
   // the arena loop's gate was still reading the previous configuration's limit.

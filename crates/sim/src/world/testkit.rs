@@ -9,7 +9,7 @@ use super::*;
 use super::hash::hash_exact_owners;
 
 pub(super) fn duel_world() -> World {
-    World::new(&Scenario::duel(), 1)
+    World::new(&Scenario::articulated_duel(), 1)
 }
 
 pub(super) fn articulated_command() -> ArticulatedCommandV1 {
@@ -391,7 +391,7 @@ pub(super) fn crowded_scenario() -> Scenario {
 /// monster that had no business being there. Tests that want an opponent
 /// add one; every caller places its body by hand anyway.
 pub(super) fn carved_world(rows: &[&str]) -> World {
-    let mut scenario = Scenario::duel();
+    let mut scenario = Scenario::articulated_duel();
     scenario.dungeon = crate::dungeon::parse(rows);
     scenario.units.truncate(1);
     scenario.units[0].spawn = Vec2::new(Fx::from_ratio(15, 10), Fx::from_ratio(15, 10));
@@ -407,7 +407,7 @@ pub(super) fn carved_world(rows: &[&str]) -> World {
 /// fixture has to hold one -- half the point of it is that a Brute can
 /// reach a door and still not open it.
 pub(super) fn door_world(body: Body) -> World {
-    let mut scenario = Scenario::duel();
+    let mut scenario = Scenario::articulated_duel();
     scenario.dungeon = crate::dungeon::parse(&[
         "#########", // 0
         "#...#...#", // 1
@@ -417,8 +417,38 @@ pub(super) fn door_world(body: Body) -> World {
     ]);
     scenario.units.truncate(1);
     scenario.units[0].set_body(body);
+    // **Re-dressed after the body change, or construction refuses it.**
+    // `UnitSpec::set_body` rewrites the stat sheet and the default loadout, and a
+    // world with articulated columns checks the loadout against the equipment
+    // *rows*: a Brute holding the fighter frame's sword and shield is a
+    // `LoadoutMismatch`. This fixture built Legacy bodies until session 10 and
+    // had nothing to keep in step.
+    crate::scenario::equip_fixture_body(&mut scenario.units[0]);
     scenario.units[0].spawn = at_tile(2, 2);
     World::new(&scenario, 1)
+}
+
+/// Makes `i` lean in `dir`, through the column the door phase actually reads.
+///
+/// **`press_doors` used to read `World::command[i]`** -- the legacy command --
+/// and nothing writes that column on a world with articulated columns, so from
+/// the moment a body was jointed no door could be opened at all. These fixtures
+/// wrote that column directly; they write the submitted one now, which is what
+/// the phase reads through `World::world_move_dir`.
+pub(super) fn lean(w: &mut World, i: usize, dir: Vec2) {
+    w.articulated_command[i] = Some(crate::ArticulatedCommandV1 {
+        move_dir: dir,
+        body_yaw: fx::Angle::ZERO,
+        intent: crate::Intent::Hold,
+        arms: [crate::ArmTarget {
+            bearing: fx::Angle::ZERO,
+            height: crate::CombatHeight::MID,
+            reach: Fx::ZERO,
+            effort: Fx::ZERO,
+        }; 2],
+        grips: [crate::GripRequest::Keep; 2],
+        releases: [crate::ReleaseRequest::Keep; 2],
+    });
 }
 
 /// The centre of a tile, which is where these fixtures place things.
@@ -443,7 +473,7 @@ pub(super) const EAST: Vec2 = Vec2 {
 /// `door_world`, with a monster of `body` standing in the eastern chamber
 /// and the Heroes' Fighter in the western one. The Monsters hunt.
 pub(super) fn penned_world(body: Body) -> World {
-    let mut scenario = Scenario::duel();
+    let mut scenario = Scenario::articulated_duel();
     scenario.dungeon = crate::dungeon::parse(&[
         "#########", // 0
         "#...#...#", // 1
@@ -453,6 +483,8 @@ pub(super) fn penned_world(body: Body) -> World {
     ]);
     scenario.units[0].spawn = at_tile(2, 2);
     scenario.units[1].set_body(body);
+    // Re-dressed after the body change; see `door_world` for why.
+    crate::scenario::equip_fixture_body(&mut scenario.units[1]);
     scenario.units[1].spawn = at_tile(6, 2);
     let mut w = World::new(&scenario, 1);
     w.set_objective(Faction::Monsters, Objective::Hunt);

@@ -167,12 +167,21 @@ pub use event::Event;
 pub use hand::{Hand, Swing};
 pub use hash_domain::{DigestCompareError, HashDomain, StateDigest};
 pub use loadout::Loadout;
+/// The subject-scoped observation and its parts.
+///
+/// **No feature vector.** `sim::FEATURE_COUNT`, `FEATURE_LAYOUT_VERSION` and the
+/// three per-model block widths went with the legacy `Observation` in embodied
+/// session 10, because they were methods *on* it: the articulated and embodied
+/// blocks were written from a legacy observation that embedded an
+/// `ArticulatedObservation` as a field, so the surviving blocks were reachable
+/// only through the type being deleted. Nothing in the workspace read any of
+/// them. The learning interface that ships is `learn_core::write_features`,
+/// which builds its own columns from named fields here and is pinned by
+/// `LEARNED_INFERENCE_DIGEST`; a second, unexercised feature layout beside it
+/// was a contract with nobody.
 pub use obs::{
-    ArticulatedObservation, Contact, Observation, ObservedArm, ObservedOpponent,
-    ObservedOpponentStance, ObservedShield, ObservedStance,
-    ARTICULATED_FEATURE_COUNT, ARTICULATED_OPPONENT_FEATURES, ARTICULATED_SELF_FEATURES,
-    EMBODIED_FEATURE_COUNT, EMBODIED_OPPONENT_FEATURES, EMBODIED_SELF_FEATURES,
-    FEATURE_COUNT, FEATURE_LAYOUT_VERSION, LEGACY_FEATURE_COUNT, MAX_ARTICULATED_OPPONENTS,
+    ArticulatedObservation, ObservedArm, ObservedOpponent,
+    ObservedOpponentStance, ObservedShield, ObservedStance, MAX_ARTICULATED_OPPONENTS,
 };
 pub use pose::{AnimationHint, ArticulatedPose, PosedArm};
 pub use replay::{CommandRecord, ObjectiveRecord, OrderRecord, Replay, SubmittedCommandRecord};
@@ -188,9 +197,10 @@ pub use rules::{
     WHIFF_RECOVERY, WINDUP_ARC,
 };
 pub use scenario::{
-    CombatModel, Scenario, ScenarioFingerprintError, UnitSpec, DUNGEON_COLS, DUNGEON_ROWS,
+    equip_fixture_body, CombatModel, Scenario, ScenarioFingerprintError, UnitSpec, DUNGEON_COLS,
+    DUNGEON_ROWS,
 };
-pub use world::{ArticulatedProjectileView, DungeonObjectKind, DungeonObjectView, Outcome, ShotView,
+pub use world::{ArticulatedProjectileView, DungeonObjectKind, DungeonObjectView, Outcome,
                 Snapshot, SpawnError, StanceView, UnitView, World, WorldBuildError};
 #[cfg(feature = "cartesian-recoil")]
 pub use world::ExactLatticeEnvelope;

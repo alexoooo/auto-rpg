@@ -324,8 +324,14 @@ mod articulated_projectile_tests {
         let a = World::new(&scenario, 17);
         let b = World::new(&scenario, 17);
         assert_eq!(a.dungeon_props, b.dungeon_props);
-        assert_eq!(a.dungeon_props.len(), 21, "seed-17 placement census drifted");
-        assert!(a.dungeon_props.len() <= 40);
+        // **Twenty-one props became none, and that is the model rather than the
+        // seed.** Prop generation was gated on `CombatModel::Legacy` and this
+        // floor is embodied, so nothing is dressed -- see
+        // `crates/sim/src/world/props.rs` for what a prop still does (block a
+        // body, slow one) and what it no longer does (break). The determinism and
+        // clearance sweeps below are kept: they cost nothing on an empty list and
+        // are what would catch a regression the day the gate opens.
+        assert!(a.dungeon_props.is_empty(), "an embodied floor was dressed");
         for prop in &a.dungeon_props {
             let (tx, ty) = Dungeon::tile_of(prop.position);
             for dy in -1..=1 {
@@ -339,7 +345,7 @@ mod articulated_projectile_tests {
 
     #[test]
     fn flat_fights_allocate_and_hash_no_dungeon_object_state() {
-        let a = World::new(&Scenario::duel(), 1);
+        let a = World::new(&Scenario::articulated_duel(), 1);
         let mut b = a.clone();
         assert!(a.dungeon_props.is_empty());
         assert_eq!(a.state_hash(), b.state_hash());
@@ -362,7 +368,7 @@ mod articulated_projectile_tests {
 
     #[test]
     fn web_and_water_slow_by_their_exact_authored_fractions() {
-        let mut world = World::new(&Scenario::duel(), 1);
+        let mut world = World::new(&Scenario::articulated_duel(), 1);
         let at = world.pos[0];
         world.dungeon_props = vec![test_prop(
             DungeonObjectKind::Water, at, Fx::ONE, Fx::ZERO,
@@ -378,7 +384,7 @@ mod articulated_projectile_tests {
 
     #[test]
     fn broken_blocking_props_leave_a_stable_non_colliding_tombstone() {
-        let mut world = World::new(&Scenario::duel(), 1);
+        let mut world = World::new(&Scenario::articulated_duel(), 1);
         let start = world.pos[0];
         world.dungeon_props = vec![test_prop(
             DungeonObjectKind::Barrel, start, Fx::from_ratio(38, 100), Fx::from_int(3),

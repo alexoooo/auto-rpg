@@ -1107,9 +1107,12 @@ mod tests {
     #[cfg(feature = "cartesian-recoil")]
     #[test]
     fn first_authoritative_exact_field_and_its_hash_land_in_the_same_transition() {
-        let legacy = World::new(&Scenario::duel(), 1);
-        assert_eq!((legacy.exact_owners.len(), legacy.exact_owners.capacity()), (0, 0),
-                   "Legacy allocated the feature-only articulated column");
+        // The control that opened this test is gone with the model: a Legacy world
+        // allocated no exact-owner column at all, which was the strongest way to
+        // say the column follows the model rather than the build. Every surviving
+        // world allocates it under this feature, so what is left is the claim
+        // below -- that when it is allocated, every slot carries an owner whose
+        // fields agree with the body's.
         let scenario = Scenario::articulated_duel();
         let mut world = World::new(&scenario, 1);
         assert_eq!(world.exact_owners.len(), world.alive.len());

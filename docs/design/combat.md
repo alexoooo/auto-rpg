@@ -2,7 +2,7 @@
 
 **Purpose:** Preserve the rationale, measured corrections, and trade-offs behind the current combat model.
 **Status:** current
-**Canonical source:** [`World` combat phases](../../crates/sim/src/world/mod.rs#L1867), [`Hand`](../../crates/sim/src/hand.rs#L181), and [`rules`](../../crates/sim/src/rules.rs#L1)
+**Canonical source:** [`World` combat phases](../../crates/sim/src/world/mod.rs#L1820), [`Hand`](../../crates/sim/src/hand.rs#L181), and [`rules`](../../crates/sim/src/rules.rs#L1)
 **Update when:** Limb state, action roles, collision, damage, recoil, perception, recovery, regeneration, or timeout design changes.
 
 This document explains why the mechanics have their current shape. Exact enum
@@ -55,9 +55,12 @@ The first shield-ready tuning compared the draw only with telegraph duration.
 That was the wrong interval: contact comes after the telegraph, partway through
 the strike. Live-world measurements showed much more response time than the
 windup alone implied. The corrected tuning lets slow attacks be answered by a
-deliberate swap while fast attacks demand an already-held answer. The paired
-world tests near [`a_club_can_be_answered_by_swapping_to_a_guard`](../../crates/sim/src/world/legacy.rs#L2732)
-own that behavioral constraint.
+deliberate swap while fast attacks demand an already-held answer. The paired world tests that owned that behavioural constraint --
+`a_club_can_be_answered_by_swapping_to_a_guard` and its neighbours -- were in
+`crates/sim/src/world/legacy.rs`, and went with the model in embodied session 10.
+**The measurement above is the record of a tuning decision, not of live code**: a
+jointed arm has no swap-to-guard window, because its guard is a bearing and a reach
+rather than a slot, and the interval this section is about does not exist for it.
 
 ### What this cost, honestly
 
@@ -398,7 +401,7 @@ anchors whose wording did not become standalone headings here:
 - Limb phases and transition rationale: [`hand.rs`](../../crates/sim/src/hand.rs#L92)
 - Action roles and registry: [`action.rs`](../../crates/sim/src/action.rs#L28)
 - Loadout mutation: [`loadout.rs`](../../crates/sim/src/loadout.rs#L18)
-- Tick ordering and combat resolution: [`world/mod.rs`](../../crates/sim/src/world/mod.rs#L1867)
+- Tick ordering and combat resolution: [`world/mod.rs`](../../crates/sim/src/world/mod.rs#L1820)
 - Damage, blocking, regeneration, and recovery constants: [`rules.rs`](../../crates/sim/src/rules.rs#L39)
 - Spacing and stance decisions: **no longer owned by a policy in this repository.**
   `duelist.rs` was deleted with the legacy seam in embodied session 10, and its
@@ -407,4 +410,4 @@ anchors whose wording did not become standalone headings here:
   [`embodied_script.rs`](../../crates/policy/src/embodied_script.rs), which decides
   where to stand from the ground under its feet rather than from a stance, so it is
   a successor in position and not in kind.
-- Termination outcome: [`World::timeout`](../../crates/sim/src/world/query.rs#L1278)
+- Termination outcome: [`World::timeout`](../../crates/sim/src/world/query.rs#L1153)

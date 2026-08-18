@@ -352,14 +352,7 @@ pub fn validate_construction(
     table: Option<&CombatSpecTableV1>,
     units: &[crate::UnitSpec],
 ) -> Result<(), CombatSpecError> {
-    match model {
-        crate::CombatModel::Legacy => {
-            if table.is_some() { return Err(CombatSpecError::UnexpectedTable); }
-            if units.iter().any(|unit| unit.articulated.is_some()) { return Err(CombatSpecError::UnitPresence); }
-            return Ok(());
-        }
-        crate::CombatModel::Articulated | crate::CombatModel::Embodied => {}
-    }
+    let _ = model;
     let table = table.ok_or(CombatSpecError::MissingTable)?;
     if units.iter().any(|unit| unit.articulated.is_none()) { return Err(CombatSpecError::UnitPresence); }
     let rows = units.iter().map(|unit| unit.articulated.unwrap()).collect::<Vec<_>>();
@@ -999,12 +992,4 @@ mod tests {
         assert!((0..BODY_VOLUME_COUNT).all(|volume| volume_region(volume).is_some()));
     }
 
-    #[test]
-    fn legacy_scenarios_carry_no_articulated_specs() {
-        for scenario in [crate::Scenario::duel(), crate::Scenario::room(), crate::Scenario::skirmish(1, 2, 2)] {
-            assert_eq!(scenario.combat_specs, None);
-            assert!(scenario.units.iter().all(|unit| unit.articulated.is_none()));
-            assert_eq!(validate_construction(scenario.combat_model, None, &scenario.units), Ok(()));
-        }
-    }
 }

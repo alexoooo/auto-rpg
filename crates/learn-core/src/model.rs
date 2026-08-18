@@ -1604,21 +1604,16 @@ mod tests {
         // number quoted in three places is a number that drifts. It was wrong
         // in two of them until this line existed.
         assert_eq!(ModelShape::CURRENT.weight_count(), 3_858);
-        let whole_vector = ModelShape {
-            inputs: sim::FEATURE_COUNT,
-            hidden: HIDDEN_UNITS,
-            outputs: LEARN_ACTION_LOGITS,
-        };
-        // **A documentation cross-check and not a pin.** It moved 922 -> 954
-        // when the embodied block was appended, and the move costs this crate
-        // nothing: `write_features` here reads named fields of
-        // `ArticulatedObservation` and never the flattened vector, so the
-        // 41-column slice, `ModelShape::CURRENT` and `LEARNED_INFERENCE_DIGEST`
-        // are all untouched by a column added to the other one. What this line
-        // is for is the sentence above it: the header quotes both numbers, and
-        // this is what makes a stale quotation fail rather than mislead.
-        assert_eq!(sim::FEATURE_COUNT, 954);
-        assert_eq!(whole_vector.weight_count(), 62_290);
+        // **The alternative it was priced against no longer exists.** This went
+        // on to build a `ModelShape` over `sim::FEATURE_COUNT` -- the flattened
+        // 954-column observation vector -- and assert that it would have cost
+        // 62,290 weights against this slice's 3,858. Embodied session 10 deleted
+        // that vector: it hung off the legacy `Observation`, and nothing in the
+        // workspace read it, this crate least of all. The comparison is kept as
+        // prose in the module header, where it is an argument about why the
+        // slice is hand-picked, rather than as an assertion about a constant
+        // that is gone. The 16x figure is what the header quotes and it is a
+        // fact about a design that was rejected, not about code that ships.
     }
 
     #[test]

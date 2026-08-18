@@ -251,140 +251,6 @@ impl World {
         &self.pending
     }
 
-    /// What `id` can perceive right now.
-    ///
-    /// Returns a blank observation for a stale handle rather than panicking --
-    /// the sim is total, and callers driving a replay may name the dead.
-    pub fn observe(&self, id: EntityId) -> Observation {
-        let i = match self.resolve(id) {
-            Some(i) => i,
-            None => {
-                return Observation::blank(self.tick, id, Faction::Heroes, Vec2::ZERO, Order::Hold)
-            }
-        };
-
-        let stats = self.stats[i];
-        let me = self.pos[i];
-        let mut obs = Observation::blank(
-            self.tick,
-            id,
-            self.faction[i],
-            me,
-            self.orders[self.faction[i].index()],
-        );
-
-        let spec = self.action_of(i).spec();
-        obs.hp_frac = self.health_fraction_of(i);
-        obs.radius = self.radius[i];
-        obs.action_length = spec.length;
-        obs.action_arc = spec.arc;
-        obs.min_strike_range = self.dead_zone(i);
-        obs.limb = self.limb[i];
-        obs.sight_range = stats.sight_range();
-        // **What this body will actually settle at**, which is what
-        // `apply_movement` computes and therefore what this field has always
-        // claimed to be. Missing the bonus is not a shortfall in a percept, it
-        // is the percept being wrong: `DuelistPolicy` divides by this in its
-        // `sqrt(2*a*d)` braking law to pace a final stride, so a running fighter
-        // would brake for a walk and slide straight through its own station.
-        //
-        // Moves nothing today -- `move_bonus` is exactly `Fx::ONE` for every row
-        // that was playable before `Run` landed, and a multiply by one is
-        // bit-exact -- which is what makes this safe to land ahead of the mind
-        // that will use it.
-        obs.move_speed = stats.move_speed() * spec.move_bonus;
-        obs.traction = stats.traction();
-        obs.velocity = self.vel[i];
-        obs.recoil_drift = self.recoil_drift(i);
-        obs.decision_period = stats.decision_period();
-        // `1` only if a cut could begin this tick, and otherwise how far through
-        // whatever is stopping it. A hand back at guard but not re-armed reports
-        // *zero* rather than one: it is physically ready and the policy is not,
-        // and that is a distinction worth being able to see.
-        obs.held = self.action_of(i);
-        obs.slot = self.slot[i];
-        obs.stowed = self.stowed_of(i);
-        obs.swap_ticks = self.swap_ticks(i);
-        obs.attack_ready = {
-            let limb = self.limb[i];
-            match limb.swing {
-                // A limb with nothing to attack with is never ready, whatever
-                // phase it happens to be sitting in. `can_attack` and not
-                // `is_live_capable`: a drawn bow has no blade and is very much
-                // readying an attack.
-                _ if !spec.role.can_attack() => Fx::ZERO,
-                Swing::Guard if limb.armed => Fx::ONE,
-                Swing::Guard => Fx::ZERO,
-                // Capped below one so no unready phase can ever claim to be
-                // ready, however close to the end of itself it is.
-                _ => limb.phase_progress(self.arm(i)) * Fx::from_ratio(9, 10),
-            }
-        };
-        // To the nearest masonry, which on a floor plan with nothing carved is
-        // the arena edge and is bit-for-bit the four expressions that used to
-        // be written out here. See [`Dungeon::clearance`].
-        obs.wall_clearance = Cardinal::ALL.map(|dir| self.dungeon.clearance(me, dir));
-        let (nav_dir, nav_distance) = self.nav_step(i);
-        obs.nav_dir = nav_dir;
-        obs.nav_distance = nav_distance;
-
-        // Selection happens on ground truth (you notice what is genuinely
-        // nearest); noise is applied afterwards to what was noticed. Drawing
-        // noise per candidate instead would cost an RNG call per entity pair
-        // and would not change the character of the mistake.
-        let sight = stats.sight_range();
-        let cap = stats.tracked_contacts();
-        let mut enemies = Nearest::new(cap);
-        let mut allies = Nearest::new(cap);
-        for j in 0..self.alive.len() {
-            if j == i || !self.alive[j] {
-                continue;
-            }
-            let distance = (self.pos[j] - me).length();
-            if distance > sight {
-                continue;
-            }
-            // Rock stops eyes. Applied to allies as well as enemies: `cohesion`
-            // and `ally_centre` steer toward the mean of what is in view, and a
-            // body pulled toward a squadmate on the far side of a wall walks
-            // into the wall for exactly the reason a body pulled toward an enemy
-            // does.
-            //
-            // Free and bit-identical on an uncarved plan; see `Dungeon::sees`.
-            if !self.dungeon.sees(me, self.pos[j]) {
-                continue;
-            }
-            if self.faction[j] == self.faction[i] {
-                allies.offer(distance, j);
-            } else {
-                enemies.offer(distance, j);
-            }
-        }
-
-        // One stream per (seed, tick, entity): what an agent misperceives
-        // depends on who it is and when, never on iteration order.
-        let mut rng = Rng::from_stream(
-            self.seed,
-            self.tick as u64,
-            ((i as u64) << 32) | self.generation[i] as u64,
-        );
-        let noise = stats.perception_noise();
-
-        let mut buffer = [Contact::default(); MAX_CONTACTS];
-        for (slot, &(_, j)) in enemies.items().iter().enumerate() {
-            buffer[slot] = self.contact(i, j, noise, &mut rng);
-        }
-        obs.set_enemies(&buffer[..enemies.len()]);
-
-        for (slot, &(_, j)) in allies.items().iter().enumerate() {
-            buffer[slot] = self.contact(i, j, noise, &mut rng);
-        }
-        obs.set_allies(&buffer[..allies.len()]);
-
-        obs.articulated = self.observe_articulated(id);
-        obs
-    }
-
     /// What `id` can perceive of the articulated fight.
     ///
     /// The subject-scoped twin of [`World::observe`], and total in exactly the
@@ -1357,24 +1223,7 @@ impl World {
                 .filter(|&i| self.alive[i])
                 .map(|i| self.view_at(i))
                 .collect(),
-            shots: self.shots().collect(),
         }
-    }
-
-    /// Arrows currently in the air, in ascending slot order.
-    ///
-    /// Borrowed and lazy so `web::write_frame` can walk it straight into the
-    /// frame buffer without allocating every tick; [`World::snapshot`] collects
-    /// it because a `Snapshot` owns its contents by definition.
-    pub fn shots(&self) -> impl Iterator<Item = ShotView> + '_ {
-        (0..self.shot_alive.len())
-            .filter(move |&k| self.shot_alive[k])
-            .map(move |k| ShotView {
-                position: self.shot_pos[k],
-                heading: self.shot_vel[k].angle(),
-                speed: self.shot_vel[k].length(),
-                faction: self.shot_faction[k],
-            })
     }
 
     /// Live articulated arrows in stable slot order.
@@ -1390,152 +1239,6 @@ impl World {
                 radius: self.articulated_projectile_radius[slot],
                 remaining_range: self.articulated_projectile_range[slot],
             })
-    }
-
-    fn contact(&self, observer: usize, target: usize, noise: Fx, rng: &mut Rng) -> Contact {
-        let mut offset = self.pos[target] - self.pos[observer];
-        let mut hp_frac = self.health_fraction_of(target);
-        let limb = self.limb[target];
-        let mut facing = self.facing[target];
-        let mut limb_angle = limb.angle;
-        let mut limb_spin = limb.spin;
-        let mut limb_line = limb.line;
-        let mut limb_left = Fx::from_int(limb.swing_left as i32);
-
-        let mut velocity = self.vel[target];
-        let mut min_strike_range = self.dead_zone(target);
-        let mut threat = self.peak_damage(target) / self.max_health_of(observer);
-        let mut frailty = self.peak_damage(observer) / self.max_health_of(target);
-        let mut knockback_taken = self.knockback(target, observer);
-        let mut knockback_dealt = self.knockback(observer, target);
-        let mut heft = self.mass[target] / self.mass[observer].max(Fx::EPSILON);
-
-        // How hard someone else can swing does not get easier to judge as you
-        // close, so these errors are taken from the raw stat before the range
-        // scaling below touches it. Captured here because that line shadows
-        // `noise`; see `Contact::min_strike_range` for the argument.
-        let judgement = noise * rules::CAPABILITY_JUDGEMENT;
-
-        // Error grows with range. A flat error is the obvious model and it is
-        // wrong in a way that only shows up once aiming is geometric: half a
-        // unit of uncertainty is nothing at the edge of sight and is *thirty
-        // degrees* of aiming error at arm's length, where the window in which a
-        // blade reaches a body is about sixteen degrees wide. Every archetype
-        // stood nose to nose and missed, and the fights timed out. Scaling by
-        // range says the sensible thing instead -- you can see exactly where
-        // someone standing next to you is, and only roughly where someone at
-        // the limit of your sight is.
-        let noise = noise * (offset.length() / self.stats[observer].sight_range()).min(Fx::ONE);
-
-        if !noise.is_zero() {
-            offset += Vec2::new(rng.gaussian(noise), rng.gaussian(noise));
-            hp_frac =
-                (hp_frac + rng.gaussian(noise * Fx::from_ratio(1, 5))).clamp(Fx::ZERO, Fx::ONE);
-
-            // Hand bearings blur in proportion to the same noise, scaled into
-            // angle units: at `perception 0` (noise 1.5) that is a standard
-            // deviation of about 25 degrees, and clean by `perception 15`. This
-            // is where perception stops being a scouting stat -- a blade whose
-            // bearing you cannot read is a blade you cannot block, and a spin
-            // you cannot read is a recovery you cannot punish.
-            //
-            // Deliberately *not* applied to where the enemy is: `offset` is
-            // already noised, so a policy aiming at its perceived position
-            // inherits an aim error of `atan(noise / distance)` for free.
-            // Blurring the bearing again on top would charge for the same
-            // mistake twice.
-            let bearing_noise = noise * Fx::from_int(3000);
-            let blur = |a: Angle, rng: &mut Rng| -> Angle {
-                a + Angle::from_raw(rng.gaussian(bearing_noise).trunc_int() as u16)
-            };
-            facing = blur(facing, rng);
-            limb_angle = blur(limb_angle, rng);
-            limb_line = blur(limb_line, rng);
-
-            limb_spin += rng.gaussian(noise * Fx::from_int(300));
-
-            // Where it is going, and the error is absolute rather than
-            // proportional. Reading a walk is a question about a body, not
-            // about a capability: a fast enemy is not harder to see moving than
-            // a slow one, and scaling the error by the speed would say a
-            // stationary fighter's stillness is perfectly legible while a
-            // sprint is a blur. Scaled off top speed so it means the same thing
-            // whatever the roster is tuned to.
-            let drift = noise * self.stats[target].move_speed() * rules::VELOCITY_JUDGEMENT;
-            velocity += Vec2::new(rng.gaussian(drift), rng.gaussian(drift));
-
-            // The timing read, and the one number a dim fighter gets most
-            // wrong. At `perception 0` this is a standard deviation of about
-            // twelve ticks against a Brute's thirty-three-tick telegraph: not
-            // enough to miss that a blow is coming, easily enough to dodge into
-            // it. Clamped at zero because a negative count would read as a cut
-            // that already landed.
-            limb_left = (limb_left + rng.gaussian(noise * Fx::from_int(8))).max(Fx::ZERO);
-
-            // Proportional rather than absolute: a long weapon has a long dead
-            // zone and misjudging it by a fixed distance would make the biggest
-            // weapons the easiest to read, which is backwards. Floored at zero
-            // because a negative dead zone reads as a blade that is dangerous
-            // from inside its own hilt.
-            min_strike_range =
-                (min_strike_range + rng.gaussian(judgement * min_strike_range)).max(Fx::ZERO);
-
-            // Proportional for the same reason, and each has exactly one
-            // unknown factor in it: `threat` is a guess about how hard the
-            // other one hits, `frailty` a guess about how much it can take.
-            // Own damage and own health are proprioception and arrive clean, so
-            // the two are symmetric and share the error.
-            threat = (threat + rng.gaussian(judgement * threat)).max(Fx::ZERO);
-            frailty = (frailty + rng.gaussian(judgement * frailty)).max(Fx::ZERO);
-
-            // The same judgement, about the same pairing, on the momentum side.
-            // Drawn separately rather than sharing `threat`'s error because they
-            // are separately wrong: a weapon that is heavy for its speed throws
-            // people further than it wounds them, and a fighter that could infer
-            // one figure from the other would be reading a correlation the roster
-            // deliberately does not have.
-            knockback_taken =
-                (knockback_taken + rng.gaussian(judgement * knockback_taken)).max(Fx::ZERO);
-            knockback_dealt =
-                (knockback_dealt + rng.gaussian(judgement * knockback_dealt)).max(Fx::ZERO);
-
-            // Sizing somebody up, which is the oldest judgement in fighting and
-            // the least improved by walking closer -- so it takes `judgement`
-            // like the four above rather than the range-scaled noise. Floored
-            // just above zero: a heft of zero would read as an opponent with no
-            // weight at all, which is a thing a policy would divide by.
-            heft = (heft + rng.gaussian(judgement * heft)).max(Fx::EPSILON);
-        }
-
-        Contact {
-            id: self.id_of(target),
-            offset,
-            distance: offset.length(),
-            hp_frac,
-            radius: self.radius[target],
-            action_length: self.action_of(target).spec().length,
-            min_strike_range,
-            threat,
-            frailty,
-            knockback_taken,
-            knockback_dealt,
-            heft,
-            velocity,
-            facing,
-            limb_angle,
-            limb_reach: limb.reach,
-            limb_spin,
-            // Exact, unlike everything around it. A blade hauled back over a
-            // shoulder is not a subtle cue; what a dim fighter gets wrong is
-            // when it arrives and along which line, and both of those are
-            // blurred above.
-            limb_swing: limb.swing,
-            limb_left,
-            limb_line,
-            action: self.action_of(target),
-            action_arc: self.action_of(target).spec().arc,
-
-        }
     }
 
     fn view_at(&self, i: usize) -> UnitView {
@@ -1633,43 +1336,13 @@ mod tests {
         assert_eq!(before.lower.z, after.lower.z, "a region swept vertically");
     }
 
-    #[test]
-    fn health_observation_frame_fitness_and_outcome_share_one_derivation() {
-        let (world, region) = braced_thrust(&fragile_scenario(&[1]));
-        let brute = world.id_of(1);
-        let expected = world.wounds[1].health(world.anatomy_spec(1).expect("articulated anatomy"));
-        assert!(expected < anatomy::max_health(world.anatomy_spec(1).unwrap()),
-                "the fixture wounded region {region} without changing health");
-
-        // The published view.
-        let view = world.view(brute).expect("a live brute");
-        assert_eq!(view.hp, expected);
-        assert_eq!(view.max_hp, anatomy::max_health(world.anatomy_spec(1).unwrap()));
-        // The observation, which reports the same number as a fraction.
-        let mut world = world;
-        let observation = world.observe(brute);
-        assert_eq!(observation.hp_frac, world.health_fraction_of(1));
-        assert_eq!(observation.hp_frac, expected / view.max_hp);
-        // The timeout comparison, which is the fitness input.
-        assert_eq!(world.health_fraction(Faction::Monsters), observation.hp_frac);
-        assert_eq!(world.health_fraction(Faction::Heroes), Fx::ONE);
-        assert_eq!(world.timeout(), Outcome::Decision(Faction::Heroes));
-        // And the outcome, which is the same derivation taken to zero.
-        assert_eq!(world.outcome(), None);
-        world.wounds[1].parts[BodyPart::Torso as usize].integrity = Fx::ZERO;
-        world.reap_dead_articulated();
-        assert_eq!(world.outcome(), Some(Outcome::HeroesWin));
-        assert_eq!(world.health_fraction(Faction::Monsters), Fx::ZERO);
-        assert!(world.view(brute).is_none());
-    }
-
     // ------------------------------------------------------------- published pose
 
     #[test]
-    fn a_pose_is_refused_for_a_legacy_world_a_stale_identity_and_a_corpse() {
-        let legacy = duel_world();
-        assert_eq!(legacy.articulated_pose(legacy.id_of(0)), None,
-                   "a Legacy world published an articulated pose out of empty columns");
+    fn a_pose_is_refused_for_a_stale_identity_and_a_corpse() {
+        // The strongest case is gone with the model: a Legacy world published no
+        // pose because it allocated no pose columns at all. What is left is a
+        // world that has them, refusing the two handles that name nobody.
 
         let mut world = World::new(&Scenario::articulated_duel(), 1);
         let fighter = EntityId::new(0, 0);
@@ -1975,17 +1648,18 @@ mod tests {
     }
 
     #[test]
-    fn an_articulated_observation_is_blank_for_a_legacy_world_a_stale_identity_and_a_corpse() {
+    fn an_articulated_observation_is_blank_for_a_stale_identity_and_a_corpse() {
         // The same four refusals `articulated_pose` answers `None` to, and they
         // have to be the same four: an observation is a pose with an eye in
         // front of it, and a corpse that published nothing to draw must not
         // publish something to fight.
-        let legacy = duel_world();
-        assert_eq!(legacy.observe_articulated(legacy.id_of(0)), ArticulatedObservation::BLANK,
-                   "a Legacy world observed articulated state out of empty columns");
-        // And through the public door: the legacy observation carries the block
-        // anyway, blank, so the feature vector has one width.
-        assert!(!legacy.observe(legacy.id_of(0)).articulated.present());
+        //
+        // **A third case has gone with the legacy model.** This test also
+        // asserted that a Legacy world observed a blank articulated block out of
+        // columns it never allocated -- the strongest form of the claim, because
+        // it was a world where the columns were empty rather than merely stale.
+        // There is no legless world left to build, so what remains is a stale
+        // handle and a corpse: both live worlds where the *slot* is wrong.
 
         let mut world = World::new(&Scenario::articulated_duel(), 1);
         let fighter = EntityId::new(0, 0);
@@ -1997,7 +1671,6 @@ mod tests {
         assert!(world.wounds[0].is_dead());
         assert_eq!(world.observe_articulated(fighter), ArticulatedObservation::BLANK,
                    "an unreaped corpse observed itself");
-        assert!(!world.observe(fighter).articulated.present());
     }
 
     #[test]
@@ -2061,8 +1734,6 @@ mod tests {
             assert_eq!(obs.wound_fraction[part], anatomy::part_wound_fraction(&state, &spec, part));
         }
         assert_eq!(obs.severed_mask, 0);
-        // The same observation through the public door, byte for byte.
-        assert_eq!(world.observe(fighter).articulated, obs);
     }
 
     #[test]
@@ -2188,19 +1859,19 @@ mod tests {
         // the blank value throughout rather than a half-filled one.
         assert!((world.pos[7] - world.pos[0]).length() < world.stats[0].sight_range());
 
-        // The cap is `MAX_ARTICULATED_OPPONENTS` and *not* the per-observer
-        // `tracked_contacts` the legacy list narrows to. A dim eye holds fewer
-        // legacy contacts and the same six articulated rows: the articulated
-        // block's width is a fixed wasm stride, so a dim character's rows are
-        // blurred rather than fewer.
+        // **A dim eye holds the same six rows, blurred rather than fewer**, and
+        // that is the half of this claim that survives the legacy list. The
+        // width here is a fixed wasm row stride before it is a percept, so
+        // `Stats::tracked_contacts` -- which did narrow the legacy contact list,
+        // and which this test used to check against it -- reaches nothing in this
+        // block. The comparison is gone with the list; the property is asserted
+        // on its own terms.
         world.stats[0].perception = 3;
-        assert_eq!(world.stats[0].tracked_contacts(), 3);
-        let dim = world.observe(hero);
-        assert_eq!(dim.enemies().len(), 3, "the legacy list stopped narrowing");
-        assert_eq!(dim.articulated.opponent_count, 5,
-                   "five enemies inside a 7.8 unit sight range");
-        for slot in dim.articulated.opponent_count as usize..MAX_ARTICULATED_OPPONENTS {
-            assert_eq!(dim.articulated.opponents[slot], ObservedOpponent::BLANK,
+        assert_eq!(world.stats[0].tracked_contacts(), 3, "a dim eye stopped being dim");
+        let dim = world.observe_articulated(hero);
+        assert_eq!(dim.opponent_count, 5, "five enemies inside a 7.8 unit sight range");
+        for slot in dim.opponent_count as usize..MAX_ARTICULATED_OPPONENTS {
+            assert_eq!(dim.opponents[slot], ObservedOpponent::BLANK,
                        "an unused row carried something");
         }
     }
@@ -2479,41 +2150,6 @@ mod tests {
     }
 
     #[test]
-    fn the_articulated_and_legacy_perception_streams_never_share_a_draw() {
-        // ASCII `ARTOBS1`, which is the whole provenance of the constant.
-        assert_eq!(ARTICULATED_OBSERVATION_DOMAIN.to_be_bytes(), *b"\0ARTOBS1");
-
-        // The two streams key on the same (tick, entity) pair by construction,
-        // so without the domain a body would be handed one error twice and a
-        // policy reading both blocks would see a coincidence it could learn.
-        for seed in [0u64, 1, 0x9E37_79B9_7F4A_7C15, u64::MAX] {
-            for tick in [0u64, 1, 600] {
-                for entity in [0u64, (3 << 32) | 5, u64::MAX] {
-                    let mut legacy = Rng::from_stream(seed, tick, entity);
-                    let mut articulated =
-                        Rng::from_stream(seed ^ ARTICULATED_OBSERVATION_DOMAIN, tick, entity);
-                    let left: Vec<u32> = (0..8).map(|_| legacy.next_u32()).collect();
-                    let right: Vec<u32> = (0..8).map(|_| articulated.next_u32()).collect();
-                    assert_ne!(left, right, "seed {seed} tick {tick} entity {entity}");
-                    assert_ne!(left[0], right[0], "the two streams opened on the same draw");
-                }
-            }
-        }
-
-        // And through the world, where the legacy contact and the articulated
-        // row describe the same body at the same tick: two independent errors,
-        // not one written twice.
-        let mut world = World::new(&fragile_scenario(&[]), 1);
-        world.stats[1].perception = 0;
-        let obs = world.observe(EntityId::new(1, 0));
-        let contact = obs.enemies()[0];
-        let row = obs.articulated.opponents[0];
-        assert_eq!(contact.id, row.id, "the two blocks describe different bodies");
-        assert_ne!(contact.offset + world.pos[1], Vec2::new(row.body_position.x, row.body_position.y),
-                   "the legacy and articulated eyes misplaced the body identically");
-    }
-
-    #[test]
     fn contact_timing_is_one_unless_something_is_closing() {
         // Written on the velocity columns rather than driven by commands, for
         // the reason `resolve_closing` gives: this is about the formula, and a
@@ -2549,103 +2185,6 @@ mod tests {
         // reading somebody will expect.
         world.pos[1] = world.pos[0];
         assert_eq!(timing(&world), Fx::ONE);
-    }
-
-    /// A stand-in for a shipped policy, small enough to live here and close
-    /// enough to catch a decision-level regression.
-    ///
-    /// `crates/sim` cannot depend on `crates/policy` -- the dependency runs the
-    /// other way -- so this is how "the same observation produces the same
-    /// decision" becomes an assertion in this crate rather than only a lab
-    /// hash. It reads the columns a utility policy reads: the nearest enemy,
-    /// its bearing, its distance, and whether a cut could start this tick.
-    fn stand_in_policy(obs: &Observation) -> Command {
-        let Some(foe) = obs.nearest_enemy() else { return Command::HOLD };
-        let line = foe.offset.angle();
-        if foe.distance > obs.full_reach() + foe.radius {
-            return Command::attacking(foe.offset.normalize(), foe.id);
-        }
-        let limb = if obs.can_strike() {
-            LimbCommand::attack(line, Strike::Nearest)
-        } else {
-            LimbCommand::new(line, obs.limb.reach)
-        };
-        Command::swinging(Vec2::ZERO, foe.id, limb)
-    }
-
-    /// The scripted legacy run the prefix pin is taken over: every feature
-    /// index `0..450` of every observation, folded in decision order, and the
-    /// state hash the resulting commands produce.
-    fn legacy_prefix_probe() -> (u64, u64) {
-        let mut world = World::new(&Scenario::skirmish(11, 2, 3), 4);
-        world.set_order(Faction::Heroes, Order::Advance(Vec2::from_ints(1, 0)));
-        world.set_order(Faction::Monsters, Order::Advance(Vec2::from_ints(-1, 0)));
-        let mut buffer = vec![Fx::ZERO; crate::obs::FEATURE_COUNT];
-        let mut prefix = Hash64::new();
-        for _ in 0..600 {
-            for id in world.pending_decisions().to_vec() {
-                let obs = world.observe(id);
-                obs.write_features(&mut buffer);
-                for value in &buffer[..crate::obs::LEGACY_FEATURE_COUNT] {
-                    prefix.write_i32(value.raw());
-                }
-                world.submit(id, stand_in_policy(&obs));
-            }
-            world.step();
-        }
-        (prefix.finish(), world.state_hash())
-    }
-
-    #[test]
-    fn legacy_feature_prefix_and_policy_decisions_are_byte_identical() {
-        // **Both numbers were recorded on the tree immediately before the
-        // articulated block was appended**, by running this same probe against
-        // `FEATURE_COUNT == 450`, and they are the evidence that indices
-        // `0..450` did not move. A version bump is allowed to add columns; it
-        // is not allowed to renumber one, and nothing else in the suite would
-        // notice if it did.
-        //
-        // The state hash is the second half of the claim. Every command in the
-        // run is a pure function of the observation, so an observation that
-        // changed anywhere -- including in a field the vector does not carry --
-        // lands here as a different fight. `cargo run --release -p lab -- hash`
-        // makes the same argument with the shipped utility policy.
-        assert_eq!(legacy_prefix_probe(), (0x811f_a73c_2759_1214, 0x95b0_7997_3691_3997));
-    }
-
-    #[test]
-    fn the_articulated_feature_block_stays_inside_the_vectors_range() {
-        // `feature_vector_has_a_stable_width` runs on an all-Legacy fixture, so
-        // it asserts the `-2..=2` invariant over 472 zeros. This is the same
-        // claim where the block is actually populated, with the dimmest eye in
-        // the game so the noise is at its widest and the clamps are load
-        // bearing rather than decorative.
-        let mut world = World::new(&crowded_scenario(), 1);
-        for i in 0..world.alive.len() {
-            world.stats[i].perception = 0;
-        }
-        let mut buffer = vec![Fx::ZERO; crate::obs::FEATURE_COUNT];
-        let mut populated = 0;
-        for tick in 0..40 {
-            for i in 0..world.alive.len() {
-                if !world.alive[i] { continue; }
-                let yaw = if i == 0 { Angle::ZERO } else { Angle::HALF };
-                world.submit_articulated_v1(world.id_of(i), reaching_command(yaw, Fx::ONE));
-            }
-            world.step();
-            for i in 0..world.alive.len() {
-                if !world.alive[i] { continue; }
-                let obs = world.observe(world.id_of(i));
-                assert_eq!(obs.write_features(&mut buffer), crate::obs::FEATURE_COUNT);
-                if obs.articulated.present() {
-                    populated += obs.articulated.opponent_count as usize;
-                }
-                for (k, v) in buffer.iter().enumerate() {
-                    assert!(v.abs() <= Fx::from_int(2), "feature {k} out of range at tick {tick}: {v}");
-                }
-            }
-        }
-        assert!(populated > 200, "the fixture filled {populated} opponent rows, so it proves little");
     }
 
     /// A held command that turns an embodied body across its whole yaw range,
@@ -2718,15 +2257,12 @@ mod tests {
                    world.observe_articulated(hero).stance.twist_fraction,
                    "the perceived twist is not the twist");
 
-        // And it reaches the vector, in the row the block's layout names.
-        let mut buffer = vec![Fx::ZERO; crate::obs::FEATURE_COUNT];
-        world.observe(brute).write_features(&mut buffer);
-        let row = crate::obs::LEGACY_FEATURE_COUNT
-            + crate::obs::ARTICULATED_FEATURE_COUNT
-            + crate::obs::EMBODIED_SELF_FEATURES
-            + slot * crate::obs::EMBODIED_OPPONENT_FEATURES;
-        assert_eq!(buffer[row], Fx::ONE, "the perceived row is not marked present");
-        assert_eq!(buffer[row + 2], Fx::ONE, "the mid-step column is clear");
+        // **The vector half of this test is gone.** It went on to assert that the
+        // same two facts reached the feature vector at the index the embodied
+        // block's layout named. There is no vector: it hung off the legacy
+        // observation, nothing in the workspace read it, and it was deleted with
+        // the model. What is asserted above is the percept itself, which is what
+        // the vector was copying.
     }
 
     /// An observed body stands on the floor the posed body stands on, its own
@@ -2946,61 +2482,6 @@ mod tests {
         assert!(worst > 0, "the sweep never moved the elbow off an exact half");
     }
 
-    /// One world, one subject, two writes: the same 954 numbers.
-    ///
-    /// An observation is a read and nothing in it may depend on how many times
-    /// it has been taken -- and the embodied block is the first one built out of
-    /// a *cloned* anatomy and a pair of derived joints rather than out of stored
-    /// columns, which is exactly the shape that can pick up state by accident.
-    ///
-    /// Driven for a while first, because the claim is uninteresting on a world
-    /// where every stance column is still its constructed value: the fixture is
-    /// asserted to have a live twist, a sunk pelvis and a running step before
-    /// anything is compared.
-    #[test]
-    fn a_feature_vector_written_twice_from_one_world_is_identical() {
-        let mut world = World::new(&embodied_within_sight(), 3);
-        let hero = world.alive_ids(Faction::Heroes)[0];
-        let brute = world.alive_ids(Faction::Monsters)[0];
-        for _ in 0..30 {
-            world.submit_embodied_v1(hero, turning_embodied_command(Angle::HALF));
-            world.submit_embodied_v1(brute, turning_embodied_command(Angle::QUARTER));
-            world.step();
-        }
-
-        let stance = world.observe_articulated(hero).stance;
-        assert!(stance.present, "the fixture lost its legs");
-        assert!(!stance.twist_fraction.is_zero(), "the fixture never wound its torso up");
-        assert!(stance.pelvis_fraction < Fx::ONE, "the fixture never sank its pelvis");
-        assert!(!stance.step_fraction.is_zero(), "the fixture never forced a step");
-        assert!(stance.reach_headroom.iter().any(|v| v.is_positive()),
-                "the fixture holds both arms locked out, so headroom proves nothing");
-
-        for id in [hero, brute] {
-            let mut first = vec![Fx::from_int(9); crate::obs::FEATURE_COUNT];
-            let written = world.observe(id).write_features(&mut first);
-            assert_eq!(written, crate::obs::FEATURE_COUNT);
-            let mut second = vec![Fx::from_int(-9); crate::obs::FEATURE_COUNT];
-            assert_eq!(world.observe(id).write_features(&mut second), written);
-            assert_eq!(first, second, "two reads of one world disagreed");
-            // The two range tests above hold the whole vector to `2` and reach
-            // the embodied block only as zeros. This is the same claim on a live
-            // embodied world, and at `1` rather than `2` for the block itself:
-            // nothing in those 32 columns is a raw world quantity like a club's
-            // `action_length`, which is what the looser bound is there for.
-            // Every one of them is a fraction of a constant, and a fraction that
-            // left the interval would be a divisor that is not the bound it
-            // claims to be.
-            for (k, v) in first.iter().enumerate() {
-                assert!(v.abs() <= Fx::from_int(2), "feature {k} left the interval at {v:?}");
-            }
-            let block = crate::obs::LEGACY_FEATURE_COUNT + crate::obs::ARTICULATED_FEATURE_COUNT;
-            for (k, v) in first[block..].iter().enumerate() {
-                assert!(v.abs() <= Fx::ONE, "embodied feature {k} left the interval at {v:?}");
-            }
-        }
-    }
-
     #[test]
     fn a_fight_that_runs_out_of_clock_is_decided_on_points() {
         // A draw was the honest answer while the clock was the only thing that
@@ -3025,8 +2506,14 @@ mod tests {
         // therefore level, therefore a draw" the moment they became 18 and 12.
         // `health_fraction` is a ratio and clamps at zero, so a test that feeds
         // it absolute damage is a test written in units it does not use.
+        // **Bled rather than de-`hp`-ed.** `World::hp` is the legacy health
+        // column and `health_fraction` no longer reads it: a body with an anatomy
+        // row is scored through `anatomy::blood_fraction`, so subtracting from
+        // `hp` left both sides at full health and the timeout a draw. The
+        // fraction taken is the same 30%.
         let b = w.resolve(brute).unwrap();
-        w.hp[b] -= w.max_hp[b] * Fx::from_ratio(30, 100);
+        let bled = w.wounds[b].blood * Fx::from_ratio(30, 100);
+        w.wounds[b].blood -= bled;
         assert_eq!(w.timeout(), Outcome::Decision(Faction::Heroes));
         assert_eq!(w.timeout().winner(), Some(Faction::Heroes));
         assert!(!w.timeout().is_decisive());
@@ -3034,336 +2521,9 @@ mod tests {
 
         // ...and it swings back when the hero is the one bleeding.
         let h = w.resolve(hero).unwrap();
-        w.hp[h] -= w.max_hp[h] * Fx::from_ratio(70, 100);
+        let bled = w.wounds[h].blood * Fx::from_ratio(70, 100);
+        w.wounds[h].blood -= bled;
         assert_eq!(w.timeout(), Outcome::Decision(Faction::Monsters));
-    }
-
-    #[test]
-    fn an_enemys_dead_zone_is_perceived_rather_than_known() {
-        // The number that was missing, and the reason the strongest answer to a
-        // heavy weapon was not derivable from an observation at all: a `Contact`
-        // said how *long* an enemy's blade was but nothing about how fast it
-        // could be swung, so where it stopped being dangerous could not be
-        // worked out and a policy had to be told by a hand-set gene.
-        let mut scenario = Scenario::duel();
-        scenario.units[0].spawn = Vec2::from_ints(14, 8);
-        scenario.units[1].spawn = Vec2::from_ints(18, 8);
-
-        let truth = rules::dead_zone(rules::Arm::resolve(
-            ActionKind::Club.spec(),
-            Body::Brute.base_stats(),
-            Body::Brute.radius(),
-        ));
-
-        // A sharp eye reads it exactly...
-        let sharp = {
-            let mut s = scenario.clone();
-            s.units[0].stats = Stats::new(6, 6, 8, 18, 8);
-            let w = World::new(&s, 3);
-            let hero = w.alive_ids(Faction::Heroes)[0];
-            w.observe(hero).enemies()[0].min_strike_range
-        };
-        assert_eq!(sharp, truth, "a clean observer misjudged a fixed fact");
-
-        // ...and a dim one does not, over any single sample or across many.
-        let mut worst = Fx::ZERO;
-        for seed in 0..64u64 {
-            let mut s = scenario.clone();
-            s.units[0].stats = Stats::new(6, 6, 8, 0, 8);
-            let w = World::new(&s, seed);
-            let hero = w.alive_ids(Faction::Heroes)[0];
-            let seen = w.observe(hero).enemies()[0].min_strike_range;
-            assert!(seen >= Fx::ZERO, "read a negative dead zone");
-            worst = worst.max((seen - truth).abs());
-        }
-        assert!(
-            worst > truth * Fx::from_ratio(2, 10),
-            "a blind observer's worst read was off by only {worst} on {truth}; \
-             judging how hard someone can swing is supposed to be the skill"
-        );
-
-        // Its own is exact whatever its eyesight -- a fighter knows how hard it
-        // can swing, however badly it reads anyone else.
-        let mut s = scenario.clone();
-        s.units[0].stats = Stats::new(6, 6, 8, 0, 8);
-        let w = World::new(&s, 1);
-        let hero = w.alive_ids(Faction::Heroes)[0];
-        assert_eq!(
-            w.observe(hero).min_strike_range,
-            rules::dead_zone(rules::Arm::resolve(
-                ActionKind::Sword.spec(),
-                Stats::new(6, 6, 8, 0, 8),
-                Body::Fighter.radius(),
-            ))
-        );
-    }
-
-    /// A duel between two arbitrary archetypes, seen through a sharp hero's
-    /// eyes. Returns the hero's read of the villain.
-    fn sizing_up(hero: Body, villain: Body) -> Contact {
-        let mut s = Scenario::duel();
-        s.units[0].set_body(hero);
-        s.units[0].stats = Stats::new(
-            hero.base_stats().power,
-            hero.base_stats().agility,
-            hero.base_stats().intellect,
-            18, // clean eyes: this is about the figure, not about the blur
-            hero.base_stats().vitality,
-        );
-        s.units[0].spawn = Vec2::from_ints(14, 8);
-        s.units[1].set_body(villain);
-        s.units[1].stats = villain.base_stats();
-        s.units[1].spawn = Vec2::from_ints(18, 8);
-        let w = World::new(&s, 3);
-        let id = w.alive_ids(Faction::Heroes)[0];
-        w.observe(id).enemies()[0]
-    }
-
-    #[test]
-    fn the_same_weapon_is_a_different_threat_to_a_different_body() {
-        // The whole reason the field is a fraction. `power`, `weapon.weight` and
-        // `max_hp` are all absolute and none of them is in an observation --
-        // correctly, because an absolute number is not something one fighter can
-        // read off another. What *is* readable is the ratio, and the ratio is
-        // what decides whether an exchange is a scratch or a third of the fight.
-        let to_warrior = sizing_up(Body::Fighter, Body::Brute).threat;
-        let to_skitterer = sizing_up(Body::Skitterer, Body::Brute).threat;
-
-        assert!(
-            to_skitterer > to_warrior * Fx::TWO,
-            "the same axe reads as {to_skitterer} to a Skitterer and {to_warrior} \
-             to a Fighter; it should be far worse news for the smaller body"
-        );
-        // And a knife is not an axe, whoever is holding it.
-        let knife = sizing_up(Body::Fighter, Body::Skitterer).threat;
-        assert!(
-            knife * Fx::TWO < to_warrior,
-            "a Fighter rates a Skitterer's knife at {knife} against a Brute's \
-             axe at {to_warrior}"
-        );
-    }
-
-    #[test]
-    fn one_fighters_threat_is_the_others_frailty() {
-        // The two fields are one quantity read from opposite ends, and a policy
-        // comparing "blows I can take" against "blows it can take" is relying on
-        // exactly that. If they ever drift apart the comparison is nonsense.
-        for (hero, villain) in [
-            (Body::Fighter, Body::Brute),
-            (Body::Skitterer, Body::Rogue),
-            (Body::Brute, Body::Brute),
-        ] {
-            let ours = sizing_up(hero, villain);
-            let theirs = sizing_up(villain, hero);
-            assert_eq!(
-                ours.threat, theirs.frailty,
-                "{hero:?} vs {villain:?}: what the villain does to us and what \
-                 it thinks we take from it are the same blow"
-            );
-            assert_eq!(ours.frailty, theirs.threat, "{hero:?} vs {villain:?}");
-        }
-    }
-
-    #[test]
-    fn one_fighters_knockback_dealt_is_the_others_taken() {
-        // `threat`/`frailty` mirrored, on the momentum side, and it has to hold
-        // for the same reason: a fighter deciding whether to trade shoves is
-        // comparing the two ends of one quantity, and a pair that drifts apart
-        // makes the comparison meaningless.
-        for (hero, villain) in [
-            (Body::Fighter, Body::Brute),
-            (Body::Skitterer, Body::Rogue),
-            (Body::Brute, Body::Brute),
-        ] {
-            let ours = sizing_up(hero, villain);
-            let theirs = sizing_up(villain, hero);
-            assert_eq!(
-                ours.knockback_taken, theirs.knockback_dealt,
-                "{hero:?} vs {villain:?}: the ground the villain takes off us \
-                 and the ground it thinks it takes are the same blow"
-            );
-            assert_eq!(
-                ours.knockback_dealt, theirs.knockback_taken,
-                "{hero:?} vs {villain:?}"
-            );
-        }
-    }
-
-    #[test]
-    fn how_heavy_someone_looks_is_the_reciprocal_of_how_heavy_you_look_to_them() {
-        // `heft` is a ratio and the two ends of it are the same ratio inverted,
-        // which is what makes "can I move this" and "can it move me" one
-        // question rather than two. A pair that drifts apart would let both
-        // fighters believe they are the heavier one, and both would charge.
-        for (hero, villain) in [
-            (Body::Skitterer, Body::Brute),
-            (Body::Fighter, Body::Rogue),
-            (Body::Brute, Body::Brute),
-        ] {
-            let ours = sizing_up(hero, villain).heft;
-            let theirs = sizing_up(villain, hero).heft;
-            assert!(
-                (ours * theirs - Fx::ONE).abs() < Fx::from_ratio(1, 100),
-                "{hero:?} vs {villain:?}: {ours} and {theirs} do not multiply to one"
-            );
-        }
-        // ...and it is not readable off body size, which is the whole reason it
-        // is a percept. A Brute is 15% denser than it looks and a Skitterer 20%
-        // lighter, so the pairing lands well clear of the radius ratio squared.
-        let seen = sizing_up(Body::Skitterer, Body::Brute).heft;
-        let looks = {
-            let (r, s) = (Body::Brute.radius(), Body::Skitterer.radius());
-            fx::mul_div(r, r, s * s)
-        };
-        assert!(
-            (seen - looks).abs() > Fx::from_ratio(1, 2),
-            "a Brute weighs {seen} Skitterers and looks like {looks} of one -- \
-             close enough that `radius` would have done the job"
-        );
-    }
-
-    #[test]
-    fn a_fighters_own_swing_costs_it_ground_and_it_can_see_how_much() {
-        // The percept `recoil_drift` exists for, and the invariant that keeps it
-        // honest: it is the same stopping-distance question as
-        // `Contact::knockback_taken`, asked about your own weapon, so the two are
-        // directly comparable and a policy weighing "what this cut costs me" against
-        // "what standing here costs me" is comparing like with like.
-        let mut s = Scenario::duel();
-        s.units[0].set_body(Body::Brute);
-        s.units[0].stats = Body::Brute.base_stats();
-        s.units[1].set_body(Body::Skitterer);
-        s.units[1].stats = Body::Skitterer.base_stats();
-        let w = World::new(&s, 3);
-
-        for i in 0..2 {
-            let drift = w.recoil_drift(i);
-            assert!(
-                drift.is_positive() && drift < Fx::from_int(100),
-                "{:?} reads its own recoil as {drift}",
-                w.kind[i]
-            );
-        }
-        // Every archetype, so nothing in the roster can go degenerate quietly,
-        // and the observation carries it.
-        for kind in Body::ALL {
-            let obs = sizing_up_own(kind);
-            assert!(obs.recoil_drift.is_positive(), "{kind:?} swings for free");
-        }
-    }
-
-    /// The observation a `kind` has of itself, for the self-percept tests.
-    fn sizing_up_own(kind: Body) -> crate::Observation {
-        let mut s = Scenario::duel();
-        s.units[0].set_body(kind);
-        s.units[0].stats = kind.base_stats();
-        let w = World::new(&s, 3);
-        w.observe(w.id_of(0))
-    }
-
-    #[test]
-    fn weight_decides_what_a_blow_moves_rather_than_what_it_costs() {
-        // **The point of the whole phase, stated as a comparison**, and the
-        // interesting half is which end of the exchange carries it.
-        //
-        // Not the weapon. Damage is bounded by the muscle -- a swing is a fixed
-        // torque over a fixed arc -- and so, it turns out, is most of the
-        // momentum: a Brute's axe out-shoves a Skitterer's knife by about the
-        // same factor it out-wounds it, because the knife is dense and hafted
-        // forward and the axe is swung slowly.
-        //
-        // The **target** is where the spread lives, and it is a hundredfold
-        // where damage has none at all: one identical blow is one identical
-        // number of points off whoever takes it, and moves a Skitterer twenty
-        // times as far as it moves a Brute. Weight is a defence no stat buys and
-        // no skill answers, and it is the reason both figures are in the
-        // observation rather than one being inferred from the other.
-        let by_axe = sizing_up(Body::Fighter, Body::Brute);
-        let by_knife = sizing_up(Body::Fighter, Body::Skitterer);
-        assert!(
-            by_axe.knockback_taken > by_knife.knockback_taken * Fx::TWO,
-            "an axe moved a Fighter {} against a knife's {} -- a weapon's weight \
-             is supposed to be worth something here even if it is not worth much",
-            by_axe.knockback_taken,
-            by_knife.knockback_taken
-        );
-
-        let vs_brute = sizing_up(Body::Brute, Body::Fighter).knockback_taken;
-        let vs_skitterer = sizing_up(Body::Skitterer, Body::Fighter).knockback_taken;
-        assert!(
-            vs_skitterer > vs_brute * Fx::from_int(20),
-            "one Fighter blow moved a Skitterer {vs_skitterer} and a Brute \
-             {vs_brute}; being heavy is supposed to be a defence no stat buys"
-        );
-    }
-
-    #[test]
-    fn what_a_blow_will_cost_is_judged_rather_than_known() {
-        let mut scenario = Scenario::duel();
-        scenario.units[0].spawn = Vec2::from_ints(14, 8);
-        scenario.units[1].spawn = Vec2::from_ints(18, 8);
-
-        let truth = sizing_up(Body::Fighter, Body::Brute).threat;
-
-        // A dim fighter does not merely dodge late -- it misprices the fight it
-        // is in, which is a much more interesting way to lose. And the error is
-        // proportional, so it never reads a blow as free.
-        let mut worst = Fx::ZERO;
-        for seed in 0..64u64 {
-            let mut s = scenario.clone();
-            s.units[0].stats = Stats::new(6, 6, 8, 0, 8);
-            let w = World::new(&s, seed);
-            let hero = w.alive_ids(Faction::Heroes)[0];
-            let seen = w.observe(hero).enemies()[0];
-            assert!(seen.threat >= Fx::ZERO, "read a negative threat");
-            assert!(seen.frailty >= Fx::ZERO, "read a negative frailty");
-            worst = worst.max((seen.threat - truth).abs());
-        }
-        assert!(
-            worst > truth * Fx::from_ratio(2, 10),
-            "a blind observer's worst read was off by only {worst} on {truth}"
-        );
-    }
-
-    #[test]
-    fn wall_clearance_on_an_open_floor_plan_is_the_arena_edge() {
-        // Version 11 changed what this field *means*, and this is the assertion
-        // that the change costs nothing anywhere it did not have to: on the
-        // scenarios the lab runs, every one of these four numbers is raw for
-        // raw the expression that used to be written out in `observe`.
-        let mut w = duel_world();
-        let id = w.alive_ids(Faction::Heroes)[0];
-        let i = id.index as usize;
-        for p in [
-            Vec2::from_ints(12, 8),
-            Vec2::new(Fx::from_ratio(1, 2), Fx::from_ratio(157, 100)),
-            Vec2::new(Fx::from_ratio(2351, 100), Fx::from_ratio(1, 100)),
-        ] {
-            w.pos[i] = p;
-            let obs = w.observe(id);
-            assert_eq!(obs.wall_clearance[0], p.x.max(Fx::ZERO));
-            assert_eq!(obs.wall_clearance[1], (w.arena.x - p.x).max(Fx::ZERO));
-            assert_eq!(obs.wall_clearance[2], p.y.max(Fx::ZERO));
-            assert_eq!(obs.wall_clearance[3], (w.arena.y - p.y).max(Fx::ZERO));
-            assert_eq!(obs.nav_dir, Vec2::ZERO, "no objective, no route");
-            assert_eq!(obs.nav_distance, Fx::MAX);
-        }
-    }
-
-    #[test]
-    fn wall_clearance_stops_at_masonry() {
-        let mut w = carved_world(&[
-            "#######", //
-            "#..#..#",
-            "#..#..#",
-            "#######",
-        ]);
-        let id = w.alive_ids(Faction::Heroes)[0];
-        w.pos[id.index as usize] = Vec2::new(Fx::from_ratio(15, 10), Fx::from_ratio(15, 10));
-        let obs = w.observe(id);
-        // The pillar column's near face is at x = 3, not the arena's at x = 7.
-        assert_eq!(obs.wall_clearance[1], Fx::from_ratio(15, 10));
-        assert_eq!(obs.wall_clearance[0], Fx::from_ratio(5, 10));
     }
 
     // ------------------------------------------------------------------ sight
@@ -3379,17 +2539,27 @@ mod tests {
     /// to clear ground, which is what lets a test press a body against a wall
     /// face on purpose.
     fn peopled_world(rows: &[&str], bodies: &[(Body, Faction, Vec2)]) -> World {
-        let mut scenario = Scenario::duel();
+        let mut scenario = Scenario::articulated_duel();
         scenario.dungeon = crate::dungeon::parse(rows);
         scenario.units = bodies
             .iter()
-            .map(|&(kind, faction, spawn)| UnitSpec {
-                kind,
-                faction,
-                stats: kind.base_stats(),
-                loadout: kind.default_loadout(),
-                articulated: None,
-                spawn,
+            .map(|&(kind, faction, spawn)| {
+                let mut unit = UnitSpec {
+                    kind,
+                    faction,
+                    stats: kind.base_stats(),
+                    loadout: kind.default_loadout(),
+                    articulated: None,
+                    spawn,
+                };
+                // **Dressed, because a world with articulated columns refuses a
+                // body without an anatomy row.** This helper built Legacy bodies
+                // until session 10 and could leave the row `None`; the fixture it
+                // starts from now carries a spec table, and
+                // `validate_construction` checks every unit against it before a
+                // column exists.
+                crate::scenario::equip_fixture_body(&mut unit);
+                unit
             })
             .collect();
         World::new(&scenario, 1)
@@ -3412,388 +2582,6 @@ mod tests {
     }
 
     #[test]
-    fn on_an_open_floor_plan_every_contact_survives() {
-        // **The test that protects `LAB_HASH`**, and it makes the claim in two
-        // pieces because the claim has two halves.
-        //
-        // The first half is that `Dungeon::open` really is the uncarved value the
-        // short-circuit keys on however it was arrived at -- reached here once
-        // through `Scenario::room` and once through a hand-written grid of the
-        // same extent, which is the construction path `dungeon::parse` and the
-        // generator both take.
-        //
-        // The second half is the one that would actually catch a regression, and
-        // it is not a comparison between two runs of the new code: it recomputes
-        // the *old* rule -- distance and the perception cap, no line of sight at
-        // all -- and asserts the observation is that list, in that order, for
-        // every body on the field. Every scenario in the repository but a
-        // generated one is uncarved, so if this holds then none of them moved,
-        // and the number the lab prints cannot have.
-        let bodies = [
-            (Body::Fighter, Faction::Heroes, Vec2::from_ints(10, 8)),
-            (Body::Fighter, Faction::Heroes, Vec2::from_ints(12, 6)),
-            (Body::Rogue, Faction::Heroes, Vec2::from_ints(4, 13)),
-            (Body::Skitterer, Faction::Monsters, Vec2::from_ints(13, 9)),
-            (Body::Skitterer, Faction::Monsters, Vec2::from_ints(15, 7)),
-            (Body::Brute, Faction::Monsters, Vec2::from_ints(18, 12)),
-        ];
-        let build = |dungeon: Dungeon| {
-            let mut scenario = Scenario::room();
-            scenario.dungeon = dungeon;
-            scenario.units = bodies
-                .iter()
-                .map(|&(kind, faction, spawn)| UnitSpec {
-                    kind,
-                    faction,
-                    stats: kind.base_stats(),
-                    loadout: kind.default_loadout(),
-                    articulated: None,
-                    spawn,
-                })
-                .collect();
-            World::new(&scenario, 9)
-        };
-        let room = Scenario::room().dungeon;
-        let by_hand = crate::dungeon::parse(&[".".repeat(24).as_str(); 16]);
-        assert_eq!(room.extent(), by_hand.extent(), "the twins differ in size");
-        assert!(!room.carved() && !by_hand.carved());
-        assert_eq!(room, by_hand, "two ways of writing the same empty room");
-
-        let a = build(room);
-        let b = build(by_hand);
-        let mut left = vec![Fx::ZERO; crate::obs::FEATURE_COUNT];
-        let mut right = vec![Fx::ZERO; crate::obs::FEATURE_COUNT];
-
-        let mut contacts = 0;
-        for id in a.alive_ids(Faction::Heroes).into_iter().chain(a.alive_ids(Faction::Monsters)) {
-            let i = id.index as usize;
-            let obs = a.observe(id);
-
-            // Field for field, against the twin. The feature vector rather than
-            // the struct because it is what a mind is actually handed, it is
-            // `Fx` throughout so a mismatch is a mismatch, and `Observation` has
-            // no `PartialEq` to lean on.
-            obs.write_features(&mut left);
-            b.observe(id).write_features(&mut right);
-            assert_eq!(left, right, "entity {i} observed two empty rooms differently");
-
-            // And against the rule that was here before this change set.
-            let enemy_side = match a.faction[i] {
-                Faction::Heroes => Faction::Monsters,
-                Faction::Monsters => Faction::Heroes,
-            };
-            let seen: Vec<EntityId> = obs.enemies().iter().map(|c| c.id).collect();
-            assert_eq!(seen, by_distance_alone(&a, i, enemy_side), "entity {i}'s foes");
-            let allied: Vec<EntityId> = obs.allies().iter().map(|c| c.id).collect();
-            assert_eq!(allied, by_distance_alone(&a, i, a.faction[i]), "entity {i}'s allies");
-            contacts += seen.len() + allied.len();
-        }
-        assert!(
-            contacts > 12,
-            "the fixture produced {contacts} contacts, so it proves very little"
-        );
-    }
-
-    #[test]
-    fn a_foe_behind_one_tile_of_rock_is_not_a_contact() {
-        // **The reported bug, as a fixture.** A Fighter (radius 0.45) and a
-        // Skitterer (0.30) pressed against opposite faces of a single tile of
-        // masonry are 0.45 + 1.00 + 0.30 = 1.75 apart -- well inside the dimmest
-        // sight range in the game -- and used to appear in each other's contact
-        // list, which is what took both policies out of `march` and into
-        // `engage` and left them swinging at a wall forever.
-        //
-        //   0123456789
-        let rows = [
-            "##########", // 0
-            "#..#.....#", // 1  a pillar at (3, 1)
-            "#........#", // 2  and the same span of floor, uninterrupted
-            "##########", // 3
-        ];
-        // Hard against the two faces of column 3, to a hundredth: `overlaps`
-        // compares strictly, so a body exactly touching a face still fits, and
-        // both of these are legal standing room.
-        let west = Fx::from_ratio(255, 100);
-        let east = Fx::from_ratio(430, 100);
-        let apart = Fx::from_ratio(175, 100);
-
-        for (row, blocked) in [(1, true), (2, false)] {
-            let y = Fx::from_int(row) + Fx::HALF;
-            let w = peopled_world(
-                &rows,
-                &[
-                    (Body::Fighter, Faction::Heroes, Vec2::new(west, y)),
-                    (Body::Skitterer, Faction::Monsters, Vec2::new(east, y)),
-                ],
-            );
-            let hero = w.alive_ids(Faction::Heroes)[0];
-            let foe = w.alive_ids(Faction::Monsters)[0];
-
-            // The premises, so that a failure below is about sight and not about
-            // arithmetic drifting out from under the test.
-            assert_eq!(
-                (w.pos[foe.index as usize] - w.pos[hero.index as usize]).length(),
-                apart,
-                "row {row}: the fixture is not 1.75 apart"
-            );
-            for id in [hero, foe] {
-                let i = id.index as usize;
-                assert!(
-                    w.dungeon.is_clear(w.pos[i], w.radius[i]),
-                    "row {row}: entity {i} is standing in the rock"
-                );
-                assert!(
-                    apart <= w.stats[i].sight_range(),
-                    "row {row}: entity {i} could not see that far in any case"
-                );
-            }
-
-            let hero_sees = w.observe(hero);
-            let foe_sees = w.observe(foe);
-            if blocked {
-                assert!(
-                    hero_sees.enemies().is_empty(),
-                    "the hero saw through a wall: {:?}",
-                    hero_sees.enemies()
-                );
-                assert!(
-                    foe_sees.enemies().is_empty(),
-                    "the monster saw through a wall: {:?}",
-                    foe_sees.enemies()
-                );
-            } else {
-                // The same distance, the same bodies, the same carved level --
-                // only the tile between them is gone. If this half ever fails,
-                // the ray is not permissive, it is broken.
-                assert_eq!(
-                    hero_sees.enemies().iter().map(|c| c.id).collect::<Vec<_>>(),
-                    vec![foe],
-                    "the corridor is open and the hero still saw nothing"
-                );
-                assert_eq!(
-                    foe_sees.enemies().iter().map(|c| c.id).collect::<Vec<_>>(),
-                    vec![hero]
-                );
-            }
-        }
-    }
-
-    #[test]
-    fn occlusion_applies_to_allies_too() {
-        // Why `sees` is asked about allies and not only about enemies:
-        // `cohesion` and `ally_centre` steer a body toward the mean of the
-        // friends it can see, so a squadmate on the far side of a wall walks the
-        // formation into the wall exactly as a target on the far side of one
-        // walks the fight into it.
-        //
-        //   0123456
-        let w = peopled_world(
-            &[
-                "#######", // 0
-                "#..#..#", // 1
-                "#.....#", // 2
-                "#######", // 3
-            ],
-            &[
-                (Body::Fighter, Faction::Heroes, Vec2::new(Fx::from_ratio(15, 10), Fx::from_ratio(15, 10))),
-                (Body::Fighter, Faction::Heroes, Vec2::new(Fx::from_ratio(15, 10), Fx::from_ratio(25, 10))),
-                (Body::Fighter, Faction::Heroes, Vec2::new(Fx::from_ratio(45, 10), Fx::from_ratio(15, 10))),
-            ],
-        );
-        let ids = w.alive_ids(Faction::Heroes);
-        let (me, beside, behind) = (ids[0], ids[1], ids[2]);
-        let i = me.index as usize;
-
-        // Both allies are in range, and the perception cap has room for both, so
-        // neither of those can be the reason one of them is missing.
-        assert!(w.stats[i].tracked_contacts() >= 2);
-        for other in [beside, behind] {
-            let d = (w.pos[other.index as usize] - w.pos[i]).length();
-            assert!(d <= w.stats[i].sight_range(), "{other:?} is out of range at {d}");
-        }
-
-        let obs = w.observe(me);
-        assert_eq!(
-            obs.allies().iter().map(|c| c.id).collect::<Vec<_>>(),
-            vec![beside],
-            "the ally behind the pillar is still being steered toward"
-        );
-    }
-
-    #[test]
-    fn occlusion_is_applied_before_the_perception_cap() {
-        // The placement of the one line, asserted rather than argued. A dim
-        // observer holds two contacts in mind; four foes are inside its 6.0 of
-        // sight, and the *two nearest* are behind rock. Spend the budget on the
-        // nearest and the observation comes back full of masonry and the body
-        // never learns about the pair it can actually see -- which is why the ray
-        // fires before `Nearest::offer` and not after it.
-        //
-        //   012345678901
-        let mut scenario = Scenario::duel();
-        scenario.dungeon = crate::dungeon::parse(&[
-            "############", // 0
-            "#..#.......#", // 1
-            "#..#.......#", // 2
-            "#..#.......#", // 3
-            "#..#.......#", // 4
-            "#..........#", // 5   the way round, at the bottom
-            "############", // 6
-        ]);
-        let place = |x, y| Vec2::new(Fx::from_ratio(x, 10), Fx::from_ratio(y, 10));
-        let hidden = [place(45, 15), place(45, 25)];
-        let visible = [place(15, 55), place(25, 55)];
-        scenario.units = std::iter::once((Body::Fighter, Faction::Heroes, place(15, 15)))
-            .chain(
-                hidden
-                    .iter()
-                    .chain(visible.iter())
-                    .map(|&at| (Body::Skitterer, Faction::Monsters, at)),
-            )
-            .map(|(kind, faction, spawn)| UnitSpec {
-                kind,
-                faction,
-                stats: kind.base_stats(),
-                loadout: kind.default_loadout(),
-                articulated: None,
-                spawn,
-            })
-            .collect();
-        // Half blind: `tracked_contacts` is 2 and `sight_range` is 6.0.
-        scenario.units[0].stats.perception = 0;
-        let w = World::new(&scenario, 1);
-
-        let me = w.alive_ids(Faction::Heroes)[0];
-        let i = me.index as usize;
-        assert_eq!(w.stats[i].tracked_contacts(), 2);
-        let foes = w.alive_ids(Faction::Monsters);
-
-        // The premise: all four are in range, and the two behind the wall are
-        // the two the old rule would have picked.
-        let mut ranked: Vec<(Fx, EntityId)> = foes
-            .iter()
-            .map(|&id| ((w.pos[id.index as usize] - w.pos[i]).length(), id))
-            .collect();
-        for &(d, id) in &ranked {
-            assert!(d <= w.stats[i].sight_range(), "{id:?} is out of range at {d}");
-        }
-        ranked.sort();
-        assert_eq!(
-            ranked[..2].iter().map(|&(_, id)| id).collect::<Vec<_>>(),
-            foes[..2].to_vec(),
-            "the fixture did not put the hidden pair nearest"
-        );
-
-        let obs = w.observe(me);
-        assert_eq!(
-            obs.enemies().iter().map(|c| c.id).collect::<Vec<_>>(),
-            foes[2..].to_vec(),
-            "the budget was spent on the foes behind the wall"
-        );
-    }
-
-    #[test]
-    fn perception_noise_makes_a_dim_unit_see_wrong_but_a_sharp_one_see_true() {
-        let mut scenario = Scenario::duel();
-        scenario.units[0].stats.perception = 20; // perfect
-        scenario.units[1].stats.perception = 0; // half blind
-                                                // Close enough that even 6.0 units of sight reaches.
-        scenario.units[0].spawn = Vec2::from_ints(10, 8);
-        scenario.units[1].spawn = Vec2::from_ints(14, 8);
-        let w = World::new(&scenario, 99);
-        let sharp = w.alive_ids(Faction::Heroes)[0];
-        let dim = w.alive_ids(Faction::Monsters)[0];
-
-        let sharp_truth = w.view(dim).unwrap().position - w.view(sharp).unwrap().position;
-        let dim_truth = -sharp_truth;
-
-        assert_eq!(
-            w.observe(sharp).nearest_enemy().unwrap().offset,
-            sharp_truth,
-            "perfect perception should be exact"
-        );
-        assert_ne!(
-            w.observe(dim).nearest_enemy().unwrap().offset,
-            dim_truth,
-            "zero perception should be noisy"
-        );
-    }
-
-    #[test]
-    fn observation_is_a_pure_function_of_state() {
-        let w = World::new(&Scenario::skirmish(3, 3, 4), 77);
-        for id in w.pending_decisions() {
-            let a = w.observe(*id);
-            let b = w.observe(*id);
-            assert_eq!(a.hp_frac, b.hp_frac);
-            assert_eq!(a.enemies().len(), b.enemies().len());
-            for (x, y) in a.enemies().iter().zip(b.enemies()) {
-                assert_eq!(x, y, "observation noise was not reproducible");
-            }
-        }
-    }
-
-    #[test]
-    fn perception_caps_how_much_of_the_field_is_visible() {
-        let mut scenario = Scenario::skirmish(5, 1, 8);
-        // Put a dim hero in the middle of the swarm.
-        scenario.units[0].stats.perception = 0;
-        let middle = scenario.arena() * Fx::HALF;
-        scenario.units[0].spawn = middle;
-        for u in scenario.units.iter_mut().skip(1) {
-            u.spawn = middle + Vec2::from_ints(1, 1);
-        }
-        let w = World::new(&scenario, 5);
-        let hero = w.alive_ids(Faction::Heroes)[0];
-        let obs = w.observe(hero);
-        assert_eq!(
-            obs.enemies().len(),
-            Stats::tracked_contacts(w.view(hero).unwrap().stats),
-            "a dim unit tracked more contacts than its perception allows"
-        );
-    }
-
-    #[test]
-    fn feature_vector_has_a_stable_width() {
-        let mut w = World::new(&Scenario::skirmish(11, 2, 3), 4);
-        let mut buffer = vec![Fx::ZERO; crate::obs::FEATURE_COUNT];
-        // Every order kind, because the order slot is the one part of the
-        // layout whose value depends on which variant is standing. The `Goto`
-        // destination sits far outside the arena on purpose: it is the case
-        // where an unclamped world-space point would leave the range.
-        for order in [
-            Order::Hold,
-            Order::Advance(Vec2::from_ints(30, -40)),
-            Order::Regroup,
-            Order::Focus(EntityId::NONE),
-            Order::Goto(Vec2::from_ints(400, -400)),
-        ] {
-            w.set_order(Faction::Heroes, order);
-            w.set_order(Faction::Monsters, order);
-            for id in w.pending_decisions() {
-                let written = w.observe(*id).write_features(&mut buffer);
-                assert_eq!(written, crate::obs::FEATURE_COUNT);
-                for (k, v) in buffer.iter().enumerate() {
-                    assert!(
-                        v.abs() <= Fx::from_int(2),
-                        "feature {k} out of range under {order:?}: {v}"
-                    );
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn a_character_knows_its_own_reaction_speed() {
-        let w = World::new(&Scenario::room(), 1);
-        let hero = w.alive_ids(Faction::Heroes)[0];
-        assert_eq!(
-            w.observe(hero).decision_period,
-            Stats::decision_period(w.view(hero).unwrap().stats)
-        );
-    }
-
-    #[test]
     fn nearest_keeps_the_closest_in_order() {
         let mut n = Nearest::new(3);
         for (d, i) in [(5, 0), (1, 1), (9, 2), (3, 3), (1, 4)] {
@@ -3804,30 +2592,4 @@ mod tests {
         assert_eq!(got, vec![1, 4, 3]);
     }
 
-    /// A fighter has to be able to see its own footspeed, or the braking law in
-    /// `DuelistPolicy` paces a run as though it were a walk and slides straight
-    /// through whatever mark it aimed at.
-    #[test]
-    fn a_runner_knows_its_own_footspeed() {
-        let mut scenario = Scenario::duel();
-        scenario.units[0].loadout = Loadout::single(ActionKind::Run);
-        let w = World::new(&scenario, 1);
-        let hero = w.alive_ids(Faction::Heroes)[0];
-        let h = w.resolve(hero).unwrap();
-        let base = w.stats[h].move_speed();
-
-        assert_eq!(
-            w.observe(hero).move_speed,
-            base * ActionKind::Run.spec().move_bonus,
-            "a runner reported a walker's speed"
-        );
-
-        // And the other rows are untouched, which is what made this safe to land
-        // without moving a hash.
-        let mut plain = Scenario::duel();
-        plain.units[0].loadout = Loadout::single(ActionKind::Sword);
-        let w = World::new(&plain, 1);
-        let hero = w.alive_ids(Faction::Heroes)[0];
-        assert_eq!(w.observe(hero).move_speed, base);
-    }
 }

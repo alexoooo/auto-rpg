@@ -56,16 +56,16 @@ and are not repeated here. This is the *kind* of evidence each one has.
 
 | Constant | How the value was chosen | What holds it there now |
 |---|---|---|
-| `STANCE_TWIST_LIMIT_RAW` | a judgement about play, with both failure modes named | [`the_twist_limit_is_bounded_from_both_sides`](../../crates/sim/src/world/mod.rs#L3185) |
-| `STANCE_HIP_MOVING_SPEED_RAW` | derived: the torso's own rate, unchanged | [`a_moving_body_turns_its_hips_faster_than_a_standing_one`](../../crates/sim/src/world/mod.rs#L3065) |
-| `STANCE_HIP_STANDING_SPEED_RAW` | derived: half the moving rate, and the ratio is the mechanic | [`the_standing_hip_rate_is_bounded_from_both_sides`](../../crates/sim/src/world/mod.rs#L3195) |
+| `STANCE_TWIST_LIMIT_RAW` | a judgement about play, with both failure modes named | [`the_twist_limit_is_bounded_from_both_sides`](../../crates/sim/src/world/mod.rs#L3064) |
+| `STANCE_HIP_MOVING_SPEED_RAW` | derived: the torso's own rate, unchanged | [`a_moving_body_turns_its_hips_faster_than_a_standing_one`](../../crates/sim/src/world/mod.rs#L2944) |
+| `STANCE_HIP_STANDING_SPEED_RAW` | derived: half the moving rate, and the ratio is the mechanic | [`the_standing_hip_rate_is_bounded_from_both_sides`](../../crates/sim/src/world/mod.rs#L3074) |
 | `STANCE_HIP_ACCEL_RAW` | derived: the torso's acceleration, unchanged | nothing bounds it; it is an equality by definition |
-| `STANCE_STEP_TICKS` | arithmetic on the two rates, plus one upper judgement | [`a_forced_step_outlasts_the_turn_it_exists_to_make`](../../crates/sim/src/world/mod.rs#L3236) |
-| `STANCE_STEP_MOVE_AUTHORITY_RAW` | a judgement: not zero, not one | [`the_step_authority_is_bounded_from_both_sides`](../../crates/sim/src/world/mod.rs#L3203) |
-| `PELVIS_HEIGHT_RAW` | anatomy: the pelvis is halfway up a standing body | [`pelvis_height_falls_with_speed_and_with_twist_and_is_never_commanded`](../../crates/sim/src/world/mod.rs#L3103), on the base value only |
+| `STANCE_STEP_TICKS` | arithmetic on the two rates, plus one upper judgement | [`a_forced_step_outlasts_the_turn_it_exists_to_make`](../../crates/sim/src/world/mod.rs#L3115) |
+| `STANCE_STEP_MOVE_AUTHORITY_RAW` | a judgement: not zero, not one | [`the_step_authority_is_bounded_from_both_sides`](../../crates/sim/src/world/mod.rs#L3082) |
+| `PELVIS_HEIGHT_RAW` | anatomy: the pelvis is halfway up a standing body | [`pelvis_height_falls_with_speed_and_with_twist_and_is_never_commanded`](../../crates/sim/src/world/mod.rs#L2982), on the base value only |
 | `PELVIS_SPEED_DROP_RAW` | a judgement, "small on purpose", with no bound on the magnitude | the same test, in direction only |
 | `PELVIS_TWIST_DROP_RAW` | the same judgement, stated twice deliberately | the same test, in direction only |
-| `ELBOW_PLANE_MAX_SPEED_RAW` | derived from a **measured** constant | [`the_elbow_plane_rate_is_bounded_from_both_sides`](../../crates/sim/src/world/mod.rs#L3223) |
+| `ELBOW_PLANE_MAX_SPEED_RAW` | derived from a **measured** constant | [`the_elbow_plane_rate_is_bounded_from_both_sides`](../../crates/sim/src/world/mod.rs#L3102) |
 | `UPPER_ARM_FRACTION_RAW` | a refusal to invent an asymmetry, not a measurement | [`an_elbow_stop_is_a_fold_and_not_a_hinge`](../../crates/sim/src/combat/limb.rs#L745), which bounds what the equality forces |
 | `ELBOW_MIN_INCLUDED_ANGLE_RAW` | anatomy: where a human elbow meets its own bicep | the same test, from both sides |
 
@@ -207,7 +207,7 @@ those measurements are real numbers with real slack in them.
 
 ### The arm-length clamp, swept over its whole commanded range
 
-[`a_hand_can_never_be_further_from_its_shoulder_than_the_arm_is_long`](../../crates/sim/src/world/mod.rs#L2976)
+[`a_hand_can_never_be_further_from_its_shoulder_than_the_arm_is_long`](../../crates/sim/src/world/mod.rs#L2855)
 enumerates both bodies × two pelvis heights × four yaws × two limbs × sixteen bearings ×
 nine heights × nine reaches and asserts the realised hand stayed on the annulus. **Both
 bounds carry the exact slack that was measured**: one raw unit over the outer bound and

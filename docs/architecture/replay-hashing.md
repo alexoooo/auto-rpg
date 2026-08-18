@@ -113,7 +113,7 @@ not replace the final typed state-digest comparison.
 - Durable codec and mandatory playback validation:
   [`ReplayEnvelope`](../../crates/sim/src/codec.rs#L186)
 - Scenario fields and current fingerprint byte stream:
-  [`Scenario::fingerprint`](../../crates/sim/src/scenario.rs#L624)
+  [`Scenario::fingerprint`](../../crates/sim/src/scenario.rs#L458)
 - Live state hash byte stream: [`World::state_hash`](../../crates/sim/src/world/hash.rs#L83)
 - Hash primitive: [`crates/fx/src/hash.rs`](../../crates/fx/src/hash.rs)
 - Harness recording and final comparison tests:

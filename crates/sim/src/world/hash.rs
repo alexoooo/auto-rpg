@@ -224,11 +224,6 @@ impl World {
     /// A state fingerprint carrying the byte grammar needed to compare it.
     pub fn state_digest(&self) -> crate::StateDigest {
         match self.combat_model {
-            crate::CombatModel::Legacy => crate::StateDigest {
-                domain: crate::HashDomain::LegacyV1,
-                schema: 1,
-                value: self.legacy_core_hash(),
-            },
             crate::CombatModel::Articulated => crate::StateDigest {
                 domain: crate::HashDomain::ArticulatedV1,
                 schema: 1,
@@ -442,19 +437,6 @@ mod tests {
         mutate(&mut changed);
         assert_eq!(changed.state_hash(), legacy, "actuator state leaked into LegacyV1");
         assert_ne!(changed.state_digest().value, digest, "actuator field was omitted from ArticulatedV1");
-    }
-
-    #[test]
-    fn legacy_worlds_do_not_allocate_or_hash_articulated_pose() {
-        let mut world = duel_world();
-        let before = world.state_hash();
-        let digest = world.state_digest();
-        assert!(world.articulated_pose_test_view(EntityId::new(0, 0)).is_none());
-        assert!(world.body_yaw.is_empty() && world.arms.is_empty() && world.grips.is_empty());
-        world.step();
-        assert_eq!(digest.domain, crate::HashDomain::LegacyV1);
-        assert_ne!(world.state_hash(), before, "ordinary legacy stepping still advances the core hash");
-        assert_eq!(world.state_hash(), world.state_digest().value);
     }
 
     #[test]
@@ -863,7 +845,7 @@ mod tests {
 
         // A Legacy world has no contact runtime to count with and must answer
         // zero rather than reaching into an `Option` that is not there.
-        let legacy = World::new(&Scenario::duel(), 1);
+        let legacy = World::new(&Scenario::articulated_duel(), 1);
         assert_eq!(legacy.contact_solver_rejections(), 0);
     }
 
@@ -1101,7 +1083,7 @@ mod tests {
         let i = a.alive_ids(Faction::Heroes)[0].index as usize;
         for w in [&mut a, &mut b] {
             w.pos[i] = against_the_jamb(w, i);
-            w.command[i] = Command::moving(EAST);
+            crate::world::testkit::lean(w, i, EAST);
         }
         assert_eq!(
             a.state_hash(),
@@ -1141,10 +1123,12 @@ mod tests {
             "a fighter given a point of power fingerprints as the fighter it was"
         );
 
-        let mut promoted = base.clone();
-        assert!(promoted.set_body(hero, Body::Rogue));
-        assert_ne!(base.state_hash(), promoted.state_hash());
-        assert_ne!(sharper.state_hash(), promoted.state_hash());
+        // **The body half of this claim is gone with `World::set_body`.** It
+        // promoted the fighter to a Rogue and asserted that the new frame moved
+        // the fingerprint and moved it somewhere other than a point of power
+        // would. A jointed body's frame is construction now -- the anatomy row is
+        // in the spec table and hashed there -- so there is no mutator left to
+        // make the comparison with. The stat half below is the whole of it.
 
         // The other half of the claim: a rewrite that changes nothing must move
         // no fingerprint either, or every one of these is merely noise.

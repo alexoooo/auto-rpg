@@ -3,7 +3,7 @@ use crate::combat::spec::{combat_specs_into, ArticulatedUnitSpecV1, CombatSpecTa
 use crate::entity::{Body, Faction};
 use crate::loadout::Loadout;
 use crate::rules::Stats;
-use fx::{Fx, Hash64, Rng, Vec2};
+use fx::{Hash64, Rng, Vec2};
 
 /// One unit's starting condition. Spawn positions are explicit, never rolled
 /// at world-construction time: a [`Scenario`] is a complete, inspectable
@@ -27,7 +27,6 @@ pub struct UnitSpec {
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum CombatModel {
-    Legacy = 0,
     Articulated = 1,
     /// The *Die by the Sword* body: an articulated one whose arms are driven
     /// relative to the torso, whose hips constrain the torso, and whose floor
@@ -45,8 +44,6 @@ pub enum CombatModel {
 /// is asking whether contact runs.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum CommandGrammar {
-    /// `Command`, `Loadout`, `set_body`, `face_legacy`.
-    Legacy,
     /// `ArticulatedCommandV1`.
     Articulated,
     /// `EmbodiedCommandV1`. A separate payload from the articulated one, and
@@ -66,7 +63,6 @@ impl CombatModel {
     /// variant would have to be pattern-matched into one site at a time.
     pub(crate) const fn has_articulated_columns(self) -> bool {
         match self {
-            CombatModel::Legacy => false,
             CombatModel::Articulated | CombatModel::Embodied => true,
         }
     }
@@ -79,7 +75,6 @@ impl CombatModel {
     /// a `ContactRuntime` that is `None`.
     pub(crate) const fn uses_contact_solver(self) -> bool {
         match self {
-            CombatModel::Legacy => false,
             CombatModel::Articulated | CombatModel::Embodied => true,
         }
     }
@@ -98,7 +93,6 @@ impl CombatModel {
     /// collapsing them would silently renumber a frozen identity.
     pub(crate) const fn identity_word(self) -> u16 {
         match self {
-            CombatModel::Legacy => 1,
             CombatModel::Articulated => 2,
             CombatModel::Embodied => 3,
         }
@@ -113,7 +107,7 @@ impl CombatModel {
     /// would start indexing a stance column it never allocated.
     pub(crate) const fn has_stance(self) -> bool {
         match self {
-            CombatModel::Legacy | CombatModel::Articulated => false,
+            CombatModel::Articulated => false,
             CombatModel::Embodied => true,
         }
     }
@@ -129,7 +123,7 @@ impl CombatModel {
     /// stance column it never allocated, or the reverse.
     pub(crate) const fn has_swing_plane(self) -> bool {
         match self {
-            CombatModel::Legacy | CombatModel::Articulated => false,
+            CombatModel::Articulated => false,
             CombatModel::Embodied => true,
         }
     }
@@ -152,7 +146,7 @@ impl CombatModel {
     /// cost of being able to say which property a future model is opting into.
     pub(crate) const fn has_jointed_arms(self) -> bool {
         match self {
-            CombatModel::Legacy | CombatModel::Articulated => false,
+            CombatModel::Articulated => false,
             CombatModel::Embodied => true,
         }
     }
@@ -165,7 +159,7 @@ impl CombatModel {
     /// asked in two places.
     pub(crate) const fn command_frame(self) -> CommandFrame {
         match self {
-            CombatModel::Legacy | CombatModel::Articulated => CommandFrame::World,
+            CombatModel::Articulated => CommandFrame::World,
             CombatModel::Embodied => CommandFrame::Torso,
         }
     }
@@ -173,7 +167,6 @@ impl CombatModel {
     /// Which submitted-command grammar this model accepts.
     pub(crate) const fn command_grammar(self) -> CommandGrammar {
         match self {
-            CombatModel::Legacy => CommandGrammar::Legacy,
             CombatModel::Articulated => CommandGrammar::Articulated,
             CombatModel::Embodied => CommandGrammar::Embodied,
         }
@@ -333,6 +326,40 @@ pub struct Scenario {
     pub max_ticks: u32,
 }
 
+/// The anatomy and equipment rows one body needs before a world with articulated
+/// columns will take it.
+///
+/// **Two anatomies in the table against four bodies in the roster**: the brute's
+/// frame for a Brute and the fighter's for everything else. Nothing finer is
+/// measured, and guessing a third would be inventing a spec.
+///
+/// **The anatomy decides first and the request second**, which is a correction
+/// rather than the obvious order. Asking about the guard first is invisible while
+/// the only body walking in behind one is a Fighter, and wrong as soon as
+/// anything else can: a Brute holding the fighter frame's sword and shield is a
+/// construction `World::try_spawn` refuses outright under the exact law, because
+/// `exact_lattice_for_unit` has no lattice for that mass against that equipment.
+/// It made a browser spawn button answer `0` under one feature and not the other.
+///
+/// It lives here rather than in `crates/web` because two callers need it -- the
+/// generated floor below and the browser's spawn path -- and a body dressed two
+/// different ways is a body one of them cannot build.
+pub fn equip_fixture_body(unit: &mut UnitSpec) {
+    let anatomy = if matches!(unit.kind, Body::Brute) { 2 } else { 1 };
+    let (equipment, loadout) = if anatomy == 2 {
+        ([Some(3), None], crate::Loadout::single(crate::ActionKind::Club))
+    } else if unit.loadout.secondary == Some(crate::ActionKind::Shield) {
+        (
+            [Some(1), Some(2)],
+            crate::Loadout::pair(crate::ActionKind::Sword, crate::ActionKind::Shield),
+        )
+    } else {
+        ([Some(1), None], crate::Loadout::single(crate::ActionKind::Sword))
+    };
+    unit.loadout = loadout;
+    unit.articulated = Some(ArticulatedUnitSpecV1 { anatomy, equipment });
+}
+
 impl Scenario {
     /// The playable extent.
     ///
@@ -342,207 +369,6 @@ impl Scenario {
     /// they do.
     pub fn arena(&self) -> Vec2 {
         self.dungeon.extent()
-    }
-
-    /// A fixed, hand-placed one-on-one. No randomness at all -- this is the
-    /// scenario tests use when they need to reason about exact positions.
-    pub fn duel() -> Scenario {
-        Scenario {
-            name: "duel".to_string(),
-            combat_model: CombatModel::Legacy,
-            combat_specs: None,
-            dungeon: Dungeon::open(24, 16),
-            portal: None,
-            torches: Vec::new(),
-            max_ticks: 60 * 60,
-            units: vec![
-                UnitSpec {
-                    kind: Body::Fighter,
-                    faction: Faction::Heroes,
-                    stats: Body::Fighter.base_stats(),
-                    loadout: Body::Fighter.default_loadout(),
-                    articulated: None,
-                    spawn: Vec2::from_ints(6, 8),
-                },
-                UnitSpec {
-                    kind: Body::Brute,
-                    faction: Faction::Monsters,
-                    stats: Body::Brute.base_stats(),
-                    loadout: Body::Brute.default_loadout(),
-                    articulated: None,
-                    spawn: Vec2::from_ints(18, 8),
-                },
-            ],
-        }
-    }
-
-    /// A seeded one-on-one between two chosen archetypes.
-    ///
-    /// The pair is placed on a ring about the arena centre at a rolled bearing,
-    /// diametrically opposite each other. That the *bearing* is what the seed
-    /// changes is the whole point: with a fixed east-west placement every duel
-    /// of the same matchup is the same fight, differing only in perception
-    /// noise, so a win rate measured over a thousand seeds is really one sample
-    /// repeated a thousand times. Rotating the engagement gives the approach,
-    /// the walls and the swing geometry something to vary.
-    ///
-    /// [`Scenario::duel`] stays as it is -- fixed and hand-placed -- because
-    /// tests that reason about exact positions need it to be.
-    pub fn duel_of(hero: Body, villain: Body, seed: u64) -> Scenario {
-        let dungeon = Dungeon::open(24, 16);
-        let centre = dungeon.extent() * Fx::HALF;
-        let mut rng = Rng::new(seed);
-        let bearing = rng.angle();
-        // Six units apart, which is inside the *shortest* sight range in the
-        // game (a Brute's 7.8), so both fighters see each other on the first
-        // tick. That is deliberate and it is what makes this a duel harness:
-        // spawn them further apart and the pair spends the run failing to find
-        // each other, because the standing order that would bring them together
-        // points along a fixed axis while this placement is rotated. Search is
-        // a real and unsolved problem, and measuring it by accident inside a
-        // swordsmanship measurement is how you end up tuning combat to fix
-        // navigation.
-        let apart = Vec2::from_angle(bearing) * Fx::from_int(3);
-
-        Scenario {
-            name: format!("duel-{}-vs-{}", hero.name(), villain.name()),
-            combat_model: CombatModel::Legacy,
-            combat_specs: None,
-            dungeon,
-            portal: None,
-            torches: Vec::new(),
-            // Two and a half minutes, up from ninety seconds, for the same
-            // reason `skirmish` needed it: a duel is roughly a dozen landed
-            // blows a side now rather than three or four, so it takes about
-            // twice as long. At the old limit the tail of slow fights was being
-            // cut off mid-exchange, and because a disengaged fighter heals back
-            // to full, those came back as *ties* -- 20% of the dim end of the
-            // skill range was two fully-healed characters standing in opposite
-            // corners with the clock stopped.
-            max_ticks: 150 * 60,
-            units: vec![
-                UnitSpec {
-                    kind: hero,
-                    faction: Faction::Heroes,
-                    stats: hero.base_stats(),
-                    loadout: hero.default_loadout(),
-                    articulated: None,
-                    spawn: centre - apart,
-                },
-                UnitSpec {
-                    kind: villain,
-                    faction: Faction::Monsters,
-                    stats: villain.base_stats(),
-                    loadout: villain.default_loadout(),
-                    articulated: None,
-                    spawn: centre + apart,
-                },
-            ],
-        }
-    }
-
-    /// An empty room with a single hero. No opposition, no time limit: the
-    /// sandbox the browser build opens with, and the scenario the navigation
-    /// tests use.
-    ///
-    /// `max_ticks` is effectively unbounded because there is no fight here to
-    /// time out -- nothing multiplies it, and [`Scenario::fingerprint`] only
-    /// hashes it. Nothing the lab iterates should be pointed at this: the
-    /// fitness function and the runner both assume two populated sides.
-    pub fn room() -> Scenario {
-        Scenario {
-            name: "room".to_string(),
-            combat_model: CombatModel::Legacy,
-            combat_specs: None,
-            dungeon: Dungeon::open(24, 16),
-            portal: None,
-            torches: Vec::new(),
-            max_ticks: u32::MAX,
-            units: vec![UnitSpec {
-                kind: Body::Fighter,
-                faction: Faction::Heroes,
-                stats: Body::Fighter.base_stats(),
-                loadout: Body::Fighter.default_loadout(),
-                articulated: None,
-                spawn: Vec2::from_ints(12, 8),
-            }],
-        }
-    }
-
-    /// A seeded skirmish: heroes spawn in the left third, monsters in the
-    /// right third, both jittered.
-    ///
-    /// The vertical band is deliberately narrower than the arena. Sight range
-    /// is around 10 units and the arena is 28 tall, so spawning across the full
-    /// height produces fights where the two sides walk straight past each other
-    /// and time out. Search behaviour is a real design problem, but it is not
-    /// this milestone's, and an experiment harness whose runs mostly end in
-    /// "nobody found anybody" measures nothing.
-    ///
-    /// The RNG is consumed here and then discarded -- the scenario it produces
-    /// is a plain value. Two runs of the same seed are identical because the
-    /// *setup* is identical, not because the world re-rolls the same numbers.
-    pub fn skirmish(seed: u64, heroes: u32, monsters: u32) -> Scenario {
-        let dungeon = Dungeon::open(40, 28);
-        let arena = dungeon.extent();
-        let mut rng = Rng::new(seed);
-        let mut units = Vec::with_capacity((heroes + monsters) as usize);
-
-        for _ in 0..heroes {
-            let kind = if rng.chance(1, 3) {
-                Body::Rogue
-            } else {
-                Body::Fighter
-            };
-            units.push(UnitSpec {
-                kind,
-                faction: Faction::Heroes,
-                stats: kind.base_stats(),
-                loadout: kind.default_loadout(),
-                articulated: None,
-                spawn: Vec2::new(
-                    rng.range(Fx::from_int(3), Fx::from_int(12)),
-                    rng.range(Fx::from_int(8), arena.y - Fx::from_int(8)),
-                ),
-            });
-        }
-
-        for _ in 0..monsters {
-            let kind = if rng.chance(1, 4) {
-                Body::Brute
-            } else {
-                Body::Skitterer
-            };
-            units.push(UnitSpec {
-                kind,
-                faction: Faction::Monsters,
-                stats: kind.base_stats(),
-                loadout: kind.default_loadout(),
-                articulated: None,
-                spawn: Vec2::new(
-                    rng.range(arena.x - Fx::from_int(12), arena.x - Fx::from_int(3)),
-                    rng.range(Fx::from_int(8), arena.y - Fx::from_int(8)),
-                ),
-            });
-        }
-
-        Scenario {
-            name: format!("skirmish-{heroes}v{monsters}"),
-            combat_model: CombatModel::Legacy,
-            combat_specs: None,
-            dungeon,
-            portal: None,
-            torches: Vec::new(),
-            units,
-            // Two and a half minutes, up from ninety seconds. A phased attack is
-            // a windup, a cut and a recovery where a windmill was a blow every
-            // nine ticks, so a fight of this size takes about twice as long as
-            // it used to and a fifth of them were timing out with both sides
-            // still standing. A draw scores zero, teaches evolution nothing and
-            // costs a full limit of compute -- it is the most expensive possible
-            // way to learn nothing, and buying the extra time back is cheap.
-            max_ticks: 150 * 60,
-        }
     }
 
     /// A generated dungeon, one level deep.
@@ -607,10 +433,18 @@ impl Scenario {
             });
         }
 
+        for unit in &mut units {
+            equip_fixture_body(unit);
+        }
+
         Scenario {
-            name: format!("dungeon-{depth}"),
-            combat_model: CombatModel::Legacy,
-            combat_specs: None,
+            // **The model is in the name because it is in the fingerprint.**
+            // `crates/web` used to rename this floor when it re-dressed it for a
+            // model, and re-dressing is now this function's job, so the name is
+            // too.
+            name: format!("embodied-dungeon-{depth}"),
+            combat_model: CombatModel::Embodied,
+            combat_specs: Some(CombatSpecTableV1::fixtures()),
             dungeon: level.dungeon,
             portal: Some(level.portal),
             torches: level.torches,
@@ -653,23 +487,51 @@ impl Scenario {
     }
 
     /// The only shipped articulated construction fixture before v2-18.
+    ///
+    /// **Written out rather than built from `Scenario::duel`**, which it was
+    /// until embodied session 10 deleted that Legacy constructor. Every field
+    /// here is the one it inherited, and it has to be: `embodied-duel-v1` is
+    /// this fixture under another name and another model word, its fingerprint
+    /// is `0x1a1e8e74eecd55d5`, and that number is folded into
+    /// `EMBODIED_CORPUS_DIGEST`. The `24x16` floor, the sixty-second clock, both
+    /// bodies' kinds and stat sheets, and the fighter's default loadout are
+    /// therefore not free choices -- they are the shape of a pinned corpus.
+    /// `articulated_duel_v1_has_the_frozen_identity_and_placement` is what would
+    /// notice a slip.
     pub fn articulated_duel() -> Scenario {
-        let mut scenario = Scenario::duel();
-        scenario.name = "articulated-duel-v1".to_string();
-        scenario.combat_model = CombatModel::Articulated;
-        scenario.combat_specs = Some(CombatSpecTableV1::fixtures());
-        scenario.units[0].articulated = Some(ArticulatedUnitSpecV1 {
-            anatomy: 1,
-            equipment: [Some(1), Some(2)],
-        });
-        scenario.units[1].articulated = Some(ArticulatedUnitSpecV1 {
-            anatomy: 2,
-            equipment: [Some(3), None],
-        });
-        scenario.units[1].loadout = crate::Loadout::single(crate::ActionKind::Club);
-        scenario.units[0].spawn = Vec2::from_ints(7, 6);
-        scenario.units[1].spawn = Vec2::from_ints(17, 10);
-        scenario
+        Scenario {
+            name: "articulated-duel-v1".to_string(),
+            combat_model: CombatModel::Articulated,
+            combat_specs: Some(CombatSpecTableV1::fixtures()),
+            dungeon: Dungeon::open(24, 16),
+            portal: None,
+            torches: Vec::new(),
+            max_ticks: 60 * 60,
+            units: vec![
+                UnitSpec {
+                    kind: Body::Fighter,
+                    faction: Faction::Heroes,
+                    stats: Body::Fighter.base_stats(),
+                    loadout: Body::Fighter.default_loadout(),
+                    articulated: Some(ArticulatedUnitSpecV1 {
+                        anatomy: 1,
+                        equipment: [Some(1), Some(2)],
+                    }),
+                    spawn: Vec2::from_ints(7, 6),
+                },
+                UnitSpec {
+                    kind: Body::Brute,
+                    faction: Faction::Monsters,
+                    stats: Body::Brute.base_stats(),
+                    loadout: crate::Loadout::single(crate::ActionKind::Club),
+                    articulated: Some(ArticulatedUnitSpecV1 {
+                        anatomy: 2,
+                        equipment: [Some(3), None],
+                    }),
+                    spawn: Vec2::from_ints(17, 10),
+                },
+            ],
+        }
     }
 
     /// The embodied control: `articulated_duel` under a different name and a
@@ -949,27 +811,54 @@ fn action_spec_definition_bytes(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use fx::Fx;
 
     #[test]
     fn scenario_v1_is_length_delimited_and_distinguishes_loadouts() {
-        let base = Scenario::duel();
+        // **On `articulated-duel-v1` because the fixture it used is gone.** It was
+        // `Scenario::duel`, deleted with the legacy model; what this test is
+        // about is the *grammar* -- that the name is length-delimited and that a
+        // loadout reaches the stream -- and that is a property of the sink, not
+        // of which fixture goes through it.
+        let base = Scenario::articulated_duel();
         // Hand-pinned rather than compared only with another invocation: this
         // moves if the u16 name boundary disappears even though the name bytes
-        // themselves remain in the stream.
-        assert_eq!(base.fingerprint(), 0x74d9_3bea_e624_85b2);
+        // themselves remain in the stream. The value is the one
+        // `articulated_duel_v1_has_the_frozen_identity_and_placement` pins, and
+        // the duplication is deliberate: if the two disagree, one of them is
+        // reading a fixture the other is not.
+        assert_eq!(base.fingerprint(), 0x068d_05fc_ada1_027b);
 
+        // **A kit is two agreeing facts now, so the test changes both.** It used
+        // to hand the fighter a Knife and then a Bow, which a Legacy scenario
+        // accepted because nothing checked a loadout against anything. A world
+        // with articulated columns ties every slot to an equipment row, and
+        // `Scenario::fingerprint` runs that check before it hashes -- so a
+        // loadout edited on its own is a scenario that refuses to have an
+        // identity at all, which is a different claim from this one.
         let mut rearmed = base.clone();
-        rearmed.units[0].loadout = Loadout::single(crate::ActionKind::Knife);
+        rearmed.units[0].loadout = crate::Loadout::single(crate::ActionKind::Club);
+        rearmed.units[0].articulated = Some(ArticulatedUnitSpecV1 {
+            anatomy: 1,
+            equipment: [Some(3), None],
+        });
         assert_ne!(base.fingerprint(), rearmed.fingerprint());
 
+        // And dropping the off hand, which moves the secondary slot rather than
+        // the primary one.
         let mut secondary = base.clone();
-        secondary.units[0].loadout.secondary = Some(crate::ActionKind::Bow);
+        secondary.units[0].loadout = crate::Loadout::single(crate::ActionKind::Sword);
+        secondary.units[0].articulated = Some(ArticulatedUnitSpecV1 {
+            anatomy: 1,
+            equipment: [Some(1), None],
+        });
         assert_ne!(base.fingerprint(), secondary.fingerprint());
+        assert_ne!(rearmed.fingerprint(), secondary.fingerprint());
     }
 
     #[test]
     fn scenario_v1_rejects_a_name_that_cannot_fit_its_length_field() {
-        let mut scenario = Scenario::duel();
+        let mut scenario = Scenario::articulated_duel();
         scenario.name = "x".repeat(u16::MAX as usize + 1);
         assert_eq!(
             scenario.try_fingerprint(),
@@ -1012,55 +901,6 @@ mod tests {
         let mut changed = spec;
         changed.move_bonus = changed.move_bonus + Fx::from_raw(1);
         assert_ne!(expected, fingerprint(action, changed));
-    }
-
-    #[test]
-    fn skirmish_is_a_pure_function_of_its_seed() {
-        assert_eq!(Scenario::skirmish(42, 3, 5), Scenario::skirmish(42, 3, 5));
-        assert_ne!(Scenario::skirmish(42, 3, 5), Scenario::skirmish(43, 3, 5));
-        assert_eq!(
-            Scenario::skirmish(42, 3, 5).fingerprint(),
-            Scenario::skirmish(42, 3, 5).fingerprint()
-        );
-    }
-
-    #[test]
-    fn a_seeded_duel_rotates_the_engagement() {
-        let a = Scenario::duel_of(Body::Rogue, Body::Brute, 1);
-        let b = Scenario::duel_of(Body::Rogue, Body::Brute, 2);
-        assert_ne!(
-            a.units[0].spawn, b.units[0].spawn,
-            "the seed must change the geometry, not only the noise"
-        );
-        assert_eq!(a, Scenario::duel_of(Body::Rogue, Body::Brute, 1));
-
-        for s in [&a, &b] {
-            assert_eq!(s.count(Faction::Heroes), 1);
-            assert_eq!(s.count(Faction::Monsters), 1);
-            for u in &s.units {
-                assert!(u.spawn.x > Fx::ONE && u.spawn.x < s.arena().x - Fx::ONE);
-                assert!(u.spawn.y > Fx::ONE && u.spawn.y < s.arena().y - Fx::ONE);
-            }
-            // Opposite each other, and inside the shortest sight range in the
-            // game, so a duel starts as a duel rather than as a search.
-            let gap = (s.units[0].spawn - s.units[1].spawn).length();
-            assert!((gap - Fx::from_int(6)).abs() < Fx::ONE, "gap {gap}");
-            let shortest = Body::ALL
-                .iter()
-                .map(|k| k.base_stats().sight_range())
-                .fold(Fx::MAX, Fx::min);
-            assert!(gap < shortest, "gap {gap} exceeds the shortest sight {shortest}");
-        }
-    }
-
-    #[test]
-    fn the_room_is_one_hero_alone_inside_the_arena() {
-        let s = Scenario::room();
-        assert_eq!(s.count(Faction::Heroes), 1);
-        assert_eq!(s.count(Faction::Monsters), 0);
-        let hero = s.units[0];
-        assert!(hero.spawn.x > Fx::ZERO && hero.spawn.x < s.arena().x);
-        assert!(hero.spawn.y > Fx::ZERO && hero.spawn.y < s.arena().y);
     }
 
     #[test]
@@ -1360,7 +1200,21 @@ mod tests {
         let arrived = s.units[0];
         assert_eq!(arrived.kind, Body::Rogue);
         assert_eq!(arrived.stats, hero.stats);
-        assert_eq!(arrived.loadout, hero.loadout);
+        // **What the hero keeps is its body and its sheet. Its hands are the
+        // table's.** `Scenario::dungeon` builds a world with articulated columns
+        // now, and construction ties every loadout slot to an equipment *row*:
+        // `validate_rows` refuses a body holding an action the spec table has no
+        // item for. The shipped table has three items -- a sword, a shield and a
+        // club -- so a descending Rogue carrying a Shortsword arrives with the
+        // sword, because there is no Shortsword to give it.
+        //
+        // That is a real narrowing of "the character persists" and it is stated
+        // rather than asserted away: the fix is a wider equipment table, not a
+        // looser check. `crates/web` already did this mapping on its own side of
+        // the wall before the sim took it over, so nothing regressed with the
+        // move -- what changed is that the constraint is now visible here.
+        assert_eq!(arrived.loadout.secondary, hero.loadout.secondary.map(|_| crate::ActionKind::Shield));
+        assert!(arrived.articulated.is_some(), "a descending hero arrived undressed");
         assert_ne!(arrived.spawn, Vec2::ZERO, "left standing at the origin");
     }
 
@@ -1402,39 +1256,5 @@ mod tests {
             .any(|u| u.kind == Body::Brute)));
     }
 
-    #[test]
-    fn skirmish_spawns_the_requested_units_inside_the_arena() {
-        let s = Scenario::skirmish(7, 4, 9);
-        assert_eq!(s.count(Faction::Heroes), 4);
-        assert_eq!(s.count(Faction::Monsters), 9);
-        for u in &s.units {
-            assert!(
-                u.spawn.x > Fx::ZERO && u.spawn.x < s.arena().x,
-                "{:?}",
-                u.spawn
-            );
-            assert!(
-                u.spawn.y > Fx::ZERO && u.spawn.y < s.arena().y,
-                "{:?}",
-                u.spawn
-            );
-        }
-        // Factions start apart, so a run begins with an approach phase.
-        let hero_max_x = s
-            .units
-            .iter()
-            .filter(|u| u.faction == Faction::Heroes)
-            .map(|u| u.spawn.x)
-            .max()
-            .unwrap();
-        let monster_min_x = s
-            .units
-            .iter()
-            .filter(|u| u.faction == Faction::Monsters)
-            .map(|u| u.spawn.x)
-            .min()
-            .unwrap();
-        assert!(hero_max_x < monster_min_x);
-    }
 }
 

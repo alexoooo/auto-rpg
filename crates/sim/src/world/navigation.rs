@@ -390,9 +390,6 @@ mod tests {
             "the fighter should out-think the brute"
         );
 
-        w.submit(hero, Command::HOLD);
-        w.submit(brute, Command::HOLD);
-
         let mut hero_decisions = 0;
         let mut brute_decisions = 0;
         for _ in 0..600 {
@@ -402,7 +399,6 @@ mod tests {
                 } else {
                     brute_decisions += 1;
                 }
-                w.submit(id, Command::HOLD);
             }
             w.step();
         }
@@ -430,14 +426,22 @@ mod tests {
     /// that walks a hero up to it is making a claim about the route rather than
     /// about how two circles settle against one another.
     fn monster_at(w: &mut World, at: Vec2) -> EntityId {
-        w.spawn(&UnitSpec {
+        let mut spec = UnitSpec {
             kind: Body::Skitterer,
             faction: Faction::Monsters,
             stats: Body::Skitterer.base_stats(),
+            // **Dressed from the spec table, and it cannot keep its claws.** A
+            // loadout slot and an equipment row are one fact checked twice, so a
+            // body may only name an action the table carries an item for -- and
+            // the table has a sword, a shield and a club. Nothing in these tests
+            // is a claim about what the monster holds; what matters is that it is
+            // a body standing in a tile.
             loadout: Body::Skitterer.default_loadout(),
             articulated: None,
             spawn: at,
-        })
+        };
+        crate::scenario::equip_fixture_body(&mut spec);
+        w.spawn(&spec)
     }
 
     #[test]
@@ -486,7 +490,7 @@ mod tests {
         // Same floor plan, same quarry tile, arrived at two different ways: one
         // world spawned there, the other walked there.
         let build = |walk: bool| {
-            let mut scenario = Scenario::duel();
+            let mut scenario = Scenario::articulated_duel();
             scenario.dungeon = crate::dungeon::parse(&rows);
             scenario.units[0].spawn = Vec2::new(Fx::from_ratio(15, 10), Fx::from_ratio(15, 10));
             scenario.units[1].spawn = Vec2::new(Fx::from_ratio(65, 10), Fx::from_ratio(15, 10));
@@ -502,7 +506,7 @@ mod tests {
             };
             if walk {
                 for _ in 0..200 {
-                    w.command[hero] = Command::moving(Vec2::new(Fx::ONE, -Fx::ONE).normalize());
+                    crate::world::testkit::lean(&mut w, hero, Vec2::new(Fx::ONE, -Fx::ONE).normalize());
                     w.step();
                 }
             }
@@ -541,9 +545,10 @@ mod tests {
         );
         w.refresh_nav();
 
-        let obs = w.observe(id);
-        assert_eq!(obs.nav_dir, Vec2::ZERO);
-        assert_eq!(obs.nav_distance, Fx::MAX);
+        // Read off `nav_step` rather than out of an observation: the legacy
+        // observation's `nav_dir` and `nav_distance` columns were copies of
+        // exactly this pair, and they went with it.
+        assert_eq!(w.nav_step(id.index as usize), (Vec2::ZERO, Fx::MAX));
     }
 
     #[test]
@@ -558,7 +563,7 @@ mod tests {
         let m = monster.index as usize;
         assert!(!Body::Skitterer.opens_doors());
         assert_eq!(w.nav_step(m), (Vec2::ZERO, Fx::MAX));
-        assert_eq!(w.observe(monster).nav_distance, Fx::MAX);
+        assert_eq!(w.nav_step(m).1, Fx::MAX);
 
         // And it has one the moment the door is floor. Opened through the
         // world's own doorway rather than by writing tiles, so this is the same
@@ -588,14 +593,22 @@ mod tests {
 
         // The Skitterer standing beside it on the same tick still has none, off
         // the same world -- which is the claim "two arms" is making.
-        let skitterer = w.spawn(&UnitSpec {
+        let mut spec = UnitSpec {
             kind: Body::Skitterer,
             faction: Faction::Monsters,
             stats: Body::Skitterer.base_stats(),
+            // **Dressed from the spec table, and it cannot keep its claws.** A
+            // loadout slot and an equipment row are one fact checked twice, so a
+            // body may only name an action the table carries an item for -- and
+            // the table has a sword, a shield and a club. Nothing in these tests
+            // is a claim about what the monster holds; what matters is that it is
+            // a body standing in a tile.
             loadout: Body::Skitterer.default_loadout(),
             articulated: None,
             spawn: at_tile(6, 1),
-        });
+        };
+        crate::scenario::equip_fixture_body(&mut spec);
+        let skitterer = w.spawn(&spec);
         w.refresh_nav();
         let s = skitterer.index as usize;
         assert_eq!(w.nav_arm(s), 0);
@@ -634,9 +647,9 @@ mod tests {
         // The route is honestly longer than the straight line, which is the
         // whole reason the straight-line distance could not be reused: at four
         // units of open air the character would think it was nearly there.
-        let obs = w.observe(id);
-        assert!(obs.nav_distance < Fx::MAX, "there is a way round");
-        assert!(obs.nav_distance > (dest - w.pos[i]).length() + Fx::TWO);
+        let (_, remaining) = w.nav_step(i);
+        assert!(remaining < Fx::MAX, "there is a way round");
+        assert!(remaining > (dest - w.pos[i]).length() + Fx::TWO);
 
         // Asserted by walking it, because that is the claim. A first step due
         // east is perfectly correct here -- the pillar is two tiles away and
@@ -648,7 +661,7 @@ mod tests {
                 assert!(tick > 40, "arrived in {tick} ticks, which is a straight line");
                 return;
             }
-            w.command[i] = Command::moving(dir);
+            crate::world::testkit::lean(&mut w, i, dir);
             w.step();
             assert!(
                 w.is_walkable(w.pos[i], w.radius[i]),
@@ -678,10 +691,8 @@ mod tests {
         w.set_order(Faction::Heroes, Order::Goto(dest));
         w.refresh_nav();
 
-        let obs = w.observe(id);
         let straight = dest - w.pos[i];
-        assert_eq!(obs.nav_dir, straight.normalize());
-        assert_eq!(obs.nav_distance, straight.length());
+        assert_eq!(w.nav_step(i), (straight.normalize(), straight.length()));
     }
 
     #[test]
@@ -708,7 +719,7 @@ mod tests {
 
         // Honestly longer than the straight line, so a hero four units of open
         // air from its quarry does not believe it is nearly there.
-        let mut left = w.observe(id).nav_distance;
+        let mut left = w.nav_step(i).1;
         assert!(left < Fx::MAX, "there is a way round");
         assert!(left > (w.pos[q] - w.pos[i]).length() + Fx::TWO);
 
@@ -728,7 +739,7 @@ mod tests {
             // circles behind a wall.
             assert!(now <= left, "tick {tick}: the route got longer, {left} -> {now}");
             left = now;
-            w.command[i] = Command::moving(dir);
+            crate::world::testkit::lean(&mut w, i, dir);
             w.step();
             assert!(
                 w.is_walkable(w.pos[i], w.radius[i]),
@@ -770,9 +781,14 @@ mod tests {
             "the fixture never routed to a living quarry"
         );
 
-        w.hp[prey.index as usize] = Fx::ZERO;
+        // **Bled rather than emptied.** `World::hp` is the legacy health column
+        // and the reaper does not read it on a jointed body: a body with an
+        // anatomy row dies when `wounds.blood` runs out. Writing `hp` left the
+        // quarry in perfect health, which is a silent no-op rather than a
+        // failure until the assertion below.
+        w.wounds[prey.index as usize].blood = Fx::ZERO;
         w.step();
-        assert!(!w.is_alive(prey), "the quarry survived being emptied");
+        assert!(!w.is_alive(prey), "the quarry survived being bled out");
         w.refresh_nav();
         assert_eq!(w.nav_step(i), (Vec2::ZERO, Fx::MAX), "routed at a corpse");
 

@@ -2366,68 +2366,17 @@ struct Sim {
     hero_spec: UnitSpec,
 }
 
-/// The floor [`init`] opens, with the combat model switched on or left alone.
+/// The generated floor, at `depth`, carrying `hero`.
 ///
-/// One builder rather than two, because [`Sim::descend`] has to be able to
-/// rebuild whichever floor the run is standing on. `Scenario::dungeon` alone
-/// would hand a Legacy scenario to a hero carrying an articulated row, and
-/// `World::new` refuses that construction by panicking.
-///
-/// **The room and the hero are `init`'s exactly. The monsters are re-equipped,
-/// and that is a fact about the shipped spec table rather than a choice.**
-/// `CombatSpecTableV1::fixtures()` is one sword, one shield and one club, and
-/// an articulated unit's loadout must name the equipment it is given slot for
-/// slot -- so the generated roster's `Knife` and `Punch`, which have no
-/// equipment row, cannot cross. Inventing rows for them would be inventing
-/// combat geometry nobody measured. The mapping below spends only what exists:
-/// a Brute keeps its club, every other body takes the sword, and the off hand
-/// is empty because a fist is not an item. `init`'s Fighter is untouched --
-/// sword and shield are rows 1 and 2 of the table, which is the pair it already
-/// walks in holding.
-///
-/// **On a descent the hero goes through the same mapping**, and so does every
-/// body the enemy panel walks in: [`equip_articulated`] is shared with
-/// [`Sim::walk_in`] and [`Sim::swap_in_hero`] precisely so there is one of it.
-/// A run whose player reached for a bow arrives holding a sword. That is not a
-/// bug to fix here: there is no bow equipment row, so the alternative is a floor
-/// that cannot be constructed at all. It stops happening when the fixtures table
-/// grows the rows, and until then the mapping is deliberately total -- a partial
-/// one that kept some unedited loadouts and rewrote others would be a floor that
-/// builds or does not depending on which slider was last touched.
-fn dungeon_scenario(
-    seed: u64,
-    depth: u32,
-    hero: UnitSpec,
-    model: sim::CombatModel,
-) -> Scenario {
-    let mut scenario = Scenario::dungeon(seed, depth, hero);
-    if model == sim::CombatModel::Legacy {
-        return scenario;
-    }
-    // A different name, because a scenario that fights under a different model
-    // is a different scenario and `Scenario::fingerprint` should say so -- and
-    // the name is taken **from the model asked for**, which it was not until
-    // a second caller existed. `model` reached this function from the start and
-    // decided only the early return above; the two lines below wrote
-    // `Articulated` whatever it said, which was invisible while one caller
-    // passed one value and would have opened an articulated room under an
-    // embodied name the moment a second one did.
-    let named = match model {
-        // Unreachable, because Legacy returned above. Named rather than
-        // `unreachable!` on this file's standing rule: a trap behind
-        // `pub extern "C"` poisons the instance for the life of the page, and a
-        // wrong string is a bug a fingerprint will report.
-        sim::CombatModel::Legacy => "legacy",
-        sim::CombatModel::Articulated => "articulated",
-        sim::CombatModel::Embodied => "embodied",
-    };
-    scenario.name = format!("{named}-dungeon-{depth}");
-    scenario.combat_model = model;
-    scenario.combat_specs = Some(sim::CombatSpecTableV1::fixtures());
-    for unit in &mut scenario.units {
-        equip_articulated(unit);
-    }
-    scenario
+/// **A pass-through now, and it is kept for the name rather than the work.**
+/// This function existed because `Scenario::dungeon` built a Legacy floor and
+/// the browser had to re-dress it: rename it for the model, attach the fixture
+/// spec table, and give every unit an anatomy row. Embodied session 10 moved all
+/// of that into `Scenario::dungeon` itself, where the generated floor and the
+/// spawn path can no longer dress a body two different ways. What is left here
+/// is one call, and the two callers keep reading as they did.
+fn dungeon_scenario(seed: u64, depth: u32, hero: UnitSpec) -> Scenario {
+    Scenario::dungeon(seed, depth, hero)
 }
 
 /// The anatomy and equipment rows one unit needs before a world with
@@ -2540,7 +2489,7 @@ impl Sim {
     /// table between them cannot produce one.
     fn new(seed: u64) -> Sim {
         Sim::on(
-            &dungeon_scenario(seed, 0, starting_hero(), sim::CombatModel::Embodied),
+            &dungeon_scenario(seed, 0, starting_hero()),
             seed,
         )
     }
@@ -2851,12 +2800,7 @@ impl Sim {
         // which `World::new` refuses by panicking, one call inside a
         // `pub extern "C"` export. On a Legacy run this is the same scenario it
         // always was, byte for byte.
-        let scenario = dungeon_scenario(
-            self.world.seed(),
-            self.depth,
-            self.hero_spec,
-            self.world.combat_model(),
-        );
+        let scenario = dungeon_scenario(self.world.seed(), self.depth, self.hero_spec);
         let mut world = Sim::open(&scenario, self.world.seed());
         // The new floor's contact vectors, reserved **while the world is still a
         // local** -- the same ordering [`init`] keeps, and for the
@@ -2875,9 +2819,8 @@ impl Sim {
         // report. Reachable only on `ContactCapacityError::Allocation` -- 64 is
         // `MAX_ARTICULATED_ENTITIES`, so the entity limit cannot refuse -- which
         // is an out-of-memory module.
-        self.contact_high_water = match world.combat_model() {
-            sim::CombatModel::Legacy => 0,
-            sim::CombatModel::Articulated | sim::CombatModel::Embodied => {
+        self.contact_high_water = {
+            {
                 match world.try_reserve_contact_slots(MAX_UNITS) {
                     Ok(()) => MAX_UNITS as u32,
                     Err(_) => 0,
@@ -4005,12 +3948,7 @@ impl Sim {
         // that would answer is `pub(crate)` to the sim. The match is exhaustive,
         // so the session that deletes a variant is told about this line by the
         // compiler.
-        match self.world.combat_model() {
-            sim::CombatModel::Legacy => {}
-            sim::CombatModel::Articulated | sim::CombatModel::Embodied => {
-                equip_articulated(&mut spec);
-            }
-        }
+        equip_articulated(&mut spec);
         // **`try_spawn`, never `spawn`.** `World::spawn` turns a refused
         // construction into a panic, and a panic behind a `pub extern "C"` is a
         // trap that poisons the instance for the life of the page -- the next
@@ -4111,12 +4049,7 @@ impl Sim {
         // and for the same reason -- and it is why a character asked for with a
         // bow arrives holding a sword. See [`equip_articulated`] for why the
         // mapping is total.
-        match self.world.combat_model() {
-            sim::CombatModel::Legacy => {}
-            sim::CombatModel::Articulated | sim::CombatModel::Embodied => {
-                equip_articulated(&mut arriving);
-            }
-        }
+        equip_articulated(&mut arriving);
         // `try_spawn` rather than `World::spawn`, for the whole of the argument
         // [`Sim::walk_in`] makes: a refused construction there is a panic, and a
         // panic behind this boundary is a trap that poisons the page.
@@ -4511,20 +4444,13 @@ impl Sim {
         // interleaved because the unit block is variable length and every unit
         // row's internal offsets have to stay where the page expects them --
         // only the base of this section moves.
-        let mut shots = 0;
-        for shot in self.world.shots() {
-            if shots == MAX_SHOTS {
-                break;
-            }
-            let row = &mut frame[HEADER_LEN + count * UNIT_STRIDE + shots * SHOT_STRIDE..];
-            row[SHOT_X] = shot.position.x.to_f32();
-            row[SHOT_Y] = shot.position.y.to_f32();
-            // The binary angle raw, exactly as `limb_angle_raw` is carried: the
-            // client owns the conversion and no transcendental runs in here.
-            row[SHOT_HEADING_RAW] = shot.heading.raw() as f32;
-            row[SHOT_FACTION] = shot.faction.index() as f32;
-            shots += 1;
-        }
+        // **Always empty, and the length word is written anyway.** The legacy
+        // shot columns went with their model in embodied session 10 and an
+        // articulated arrow publishes on `ARTICULATED_PROJECTILE` instead. The
+        // section stays because removing it moves `FRAME_LAYOUT_VERSION` across
+        // five files; what it costs is one word a frame, and what it buys is that
+        // the block after it does not move.
+        let shots = 0usize;
         frame[7] = shots as f32;
 
         // Events, in a third block after the arrows, and after them for exactly
@@ -5481,7 +5407,7 @@ fn with_sim<R>(default: R, f: impl FnOnce(&mut Sim) -> R) -> R {
 pub extern "C" fn init(seed: u32) {
     let seed = u64::from(seed);
     install_articulated(
-        &dungeon_scenario(seed, 0, starting_hero(), sim::CombatModel::Embodied),
+        &dungeon_scenario(seed, 0, starting_hero()),
         seed,
     );
 }
@@ -11883,9 +11809,7 @@ mod tests {
         // Byte-identical under the Legacy model, which is what makes the
         // sentence above checkable rather than merely plausible: the builder
         // adds nothing until it is asked for a model that needs it.
-        assert_eq!(dungeon_scenario(3, 0, starting_hero(), sim::CombatModel::Legacy), plain);
-
-        let room = dungeon_scenario(3, 0, starting_hero(), sim::CombatModel::Embodied);
+        let room = dungeon_scenario(3, 0, starting_hero());
         assert_eq!(room.dungeon, plain.dungeon, "the embodied floor is a different floor plan");
         assert_eq!(room.portal, plain.portal);
         assert_eq!(room.torches, plain.torches);
@@ -11909,52 +11833,6 @@ mod tests {
         assert!(World::try_new(&room, 3).is_ok(), "the floor does not construct");
     }
 
-    /// The embodied room is the articulated room under a different model word,
-    /// and [`init`] opens it with legs.
-    ///
-    /// **Two claims, and the second is the one that would have been missed.**
-    /// The first is that nothing about the floor plan, the roster or the kit
-    /// depends on the model -- the same argument
-    /// `the_articulated_room_is_inits_room_and_inits_hero` makes one model back.
-    /// The second is that the scenario's *name* follows the model: `model`
-    /// reached `dungeon_scenario` from the start and decided only the Legacy
-    /// early return, so both lines below it wrote `Articulated` whatever it
-    /// said. That was invisible while one caller passed one value. It would have
-    /// opened an articulated room under `init_embodied` -- and `Scenario::
-    /// fingerprint` writes the model identity word, so the fixture would have
-    /// carried the wrong identity and said nothing about it.
-    #[test]
-    fn the_embodied_room_is_the_articulated_room_under_a_different_model() {
-        let articulated = dungeon_scenario(3, 0, starting_hero(), sim::CombatModel::Articulated);
-        let embodied = dungeon_scenario(3, 0, starting_hero(), sim::CombatModel::Embodied);
-        assert_eq!(embodied.combat_model, sim::CombatModel::Embodied);
-        assert_eq!(embodied.name, "embodied-dungeon-0");
-        assert_ne!(embodied.name, articulated.name, "one name for two models");
-        // Everything else, by construction: rebuild the articulated one with the
-        // embodied one's two identity fields and require them equal, so a field
-        // added to `Scenario` later is covered without being listed here.
-        let mut renamed = articulated.clone();
-        renamed.name = embodied.name.clone();
-        renamed.combat_model = embodied.combat_model;
-        assert_eq!(renamed, embodied, "the model word changed something besides itself");
-        assert_ne!(embodied.fingerprint(), articulated.fingerprint(),
-                   "two models answered one identity");
-
-        // And it opens, with the column an articulated body does not have.
-        init(3);
-        assert_ne!(pose_len(), 0, "the embodied room installed no bodies");
-        assert_eq!(embodied_stance_len(), pose_len(),
-                   "an embodied room published poses without legs");
-        assert_eq!(contact_high_water(), MAX_UNITS as u32);
-        // The same floor under the other model, through the installer `init`
-        // itself uses -- there is no export that opens one any more, and the
-        // distinctness claim is worth more than the export was.
-        install_articulated(&articulated, 3);
-        assert_ne!(pose_len(), 0, "the articulated room installed no bodies");
-        assert_eq!(embodied_stance_len(), 0,
-                   "the articulated room published a stance, so the two are not distinct");
-    }
-
     #[test]
     fn init_fails_closed_and_installs_nothing() {
         init(7);
@@ -11962,7 +11840,7 @@ mod tests {
         assert_ne!(state_hash(), 0, "the previous world was never installed");
 
         let mut broken =
-            dungeon_scenario(7, 0, starting_hero(), sim::CombatModel::Embodied);
+            dungeon_scenario(7, 0, starting_hero());
         // A unit with no articulated row is the refusal `validate_construction`
         // owes. It has to be built by hand: everything the export itself can
         // build is valid by construction, and a fail-closed arm nothing can
@@ -12773,7 +12651,7 @@ mod tests {
     /// them touches.
     fn install_floor(seed: u32, edit: impl FnOnce(&mut Scenario)) {
         let mut scenario =
-            dungeon_scenario(u64::from(seed), 0, starting_hero(), sim::CombatModel::Embodied);
+            dungeon_scenario(u64::from(seed), 0, starting_hero());
         edit(&mut scenario);
         install_articulated(&scenario, u64::from(seed));
     }
@@ -14214,8 +14092,6 @@ mod tests {
                 + MAX_SHOTS * SHOT_STRIDE
                 + MAX_EVENTS * EVENT_STRIDE
         );
-        assert!(Scenario::room().units.len() <= MAX_UNITS);
-        assert!(Scenario::skirmish(1234, 4, 6).units.len() <= MAX_UNITS);
         // The frame cannot be asked for more arrows than the world can hold.
         assert_eq!(MAX_SHOTS, sim::MAX_SHOTS);
 

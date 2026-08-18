@@ -201,12 +201,13 @@ impl EmbodiedCommandV1 {
 
 /// What a submitted command is, tagged by the grammar that produced it.
 ///
-/// The tag is the wire discriminant a replay stores: `0` legacy, `1`
-/// articulated, `2` embodied. It is frozen, so a variant is appended and never
-/// renumbered.
+/// The tag is the wire discriminant a replay stores: `1` articulated, `2`
+/// embodied. It is frozen, so a variant is appended and never renumbered --
+/// **including the one that is gone.** `0` was legacy and is not reused: a
+/// decoder that met it would otherwise read an old record as a new grammar, so
+/// the number stays retired and the codec refuses it by name.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum SubmittedCommand {
-    Legacy(Command),
     Articulated(ArticulatedCommandV1),
     Embodied(EmbodiedCommandV1),
 }

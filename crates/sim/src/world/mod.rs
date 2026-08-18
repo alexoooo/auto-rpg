@@ -16,13 +16,13 @@ use crate::command::{
     validate_articulated, ArmTarget, ArticulatedCommandV1, Command, CommandReject, GripRequest,
     Intent, LimbSlot, Objective, Order, ReleaseRequest, SubmitArticulatedOutcome,
 };
-use crate::action::{ActionKind, ActionSpec, Role};
+use crate::action::{ActionKind, ActionSpec};
 use crate::dungeon::{Cardinal, Door, Dungeon};
 use crate::loadout::Loadout;
 use crate::entity::{EntityId, Faction, Body};
 use crate::event::Event;
-use crate::hand::{Hand, Swing};
-use crate::obs::{ArticulatedObservation, Contact, Observation, ObservedArm, ObservedOpponent,
+use crate::hand::Hand;
+use crate::obs::{ArticulatedObservation, ObservedArm, ObservedOpponent,
                  ObservedOpponentStance, ObservedShield, ObservedStance,
                  MAX_ARTICULATED_OPPONENTS};
 use crate::pose::{AnimationHint, ArticulatedPose, PosedArm};
@@ -62,7 +62,6 @@ use fx::{Angle, Fx, Hash64, Rng, Vec2, Vec3};
 
 mod query;
 mod hash;
-mod legacy;
 mod movement;
 mod navigation;
 mod articulated;
@@ -1066,13 +1065,19 @@ fn check_contact_envelope(
 /// neighbourhood, so a blocking prop always has a route around it.
 fn generate_dungeon_props(scenario: &Scenario, seed: u64) -> Vec<DungeonPropState> {
     // The one `CombatModel` question in this crate that none of the three
-    // predicates answers: dressing is part of the legacy dungeon feature set.
-    // Written as an exhaustive match rather than `!= Legacy` so a third model
-    // has to decide rather than inherit an answer from a comparison.
-    let dressed = match scenario.combat_model {
-        crate::CombatModel::Legacy => true,
-        crate::CombatModel::Articulated | crate::CombatModel::Embodied => false,
-    };
+    // predicates answers: dressing was part of the legacy dungeon feature set.
+    //
+    // **Nothing is dressed now, and that is a measured gap rather than a
+    // decision.** Of the three things a prop does, one dies with the legacy
+    // model and two do not. Breaking one was a sweep of the *legacy* blade
+    // against a prop circle and has no successor. But barrel and pottery
+    // collision runs for any body, through `World::settle`, and web and water
+    // slowing is model-independent code that only the legacy movement phase
+    // happened to call. So generating props here would stand unbreakable
+    // furniture on the floor, and not generating them costs two behaviours that
+    // work. `world/props.rs` carries the whole argument; ungating this is one
+    // line on the day a prop is a collider the contact solver sweeps.
+    let dressed = false;
     if !dressed
         || !scenario.dungeon.carved()
         || scenario.dungeon.cols() != crate::DUNGEON_COLS
@@ -1158,21 +1163,6 @@ pub struct Snapshot {
     pub tick: u32,
     pub arena: Vec2,
     pub units: Vec<UnitView>,
-    /// Arrows in the air. Not units: they have no health and nothing to decide.
-    pub shots: Vec<ShotView>,
-}
-
-/// One arrow, as much of it as a renderer needs.
-///
-/// Four fields and no owner, deliberately. Nothing on screen keys on who loosed
-/// a shot -- and by the time one lands that fighter may be dead, so a view
-/// carrying the handle would be inviting a lookup that returns `None`.
-#[derive(Clone, Copy, Debug)]
-pub struct ShotView {
-    pub position: Vec2,
-    pub heading: Angle,
-    pub speed: Fx,
-    pub faction: Faction,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -1290,27 +1280,18 @@ const EPILOGUE: &[Phase] = &[
     ("navigation",     |w, _| w.refresh_nav()),
 ];
 
-/// The order [`World::step`]'s doc comment argues for, in the order it argues.
-const LEGACY_PHASES: &[Phase] = &[
-    ("regenerate",       |w, _| w.regenerate()),
-    ("apply movement",   |w, _| w.apply_movement()),
-    ("separate",         |w, _| w.separate()),
-    ("drive legacy limb", |w, _| w.drive_limbs()),
-    ("legacy parries",   |w, _| w.resolve_parries()),
-    ("legacy swings",    |w, _| w.resolve_swings()),
-    ("prop swings",      |w, _| w.resolve_dungeon_prop_swings()),
-    ("recoil",           |w, _| w.apply_recoil()),
-    ("shots",            |w, _| w.resolve_shots()),
-    ("doors",            |w, _| w.press_doors()),
-    ("reap",             |w, _| w.reap_dead()),
-];
-
-// The rows the two body models share, each written **once** and listed twice
+// The rows the two body schedules share, each written **once** and listed twice
 // below. Two hand-typed tables would recreate exactly the hazard the table
 // removed -- a second place to forget `press_doors` -- while a single aliased
 // table cannot express the one row that genuinely differs. Naming the rows is
 // what buys both: a divergence is a substituted name in a list, and an omission
 // is a missing name rather than a missing closure.
+//
+// **Two schedules for one model, and that is the shape session 10 left rather
+// than an oversight.** `ARTICULATED_PHASES` and `EMBODIED_PHASES` differ in
+// exactly one row -- `stance` where `body yaw` stands -- and the articulated one
+// survives only as long as `CombatModel::Articulated` does. When that goes the
+// two collapse and every `P_` alias below becomes a plain row in one list.
 const P_RETAIN_CONTACT: Phase = ("retain contact entry", |w, _| w.retain_contact_entry());
 const P_MOVEMENT: Phase = ("apply articulated movement", |w, _| w.apply_articulated_movement());
 const P_LOCOMOTION: Phase = ("record contact locomotion", |w, _| w.record_contact_locomotion());
@@ -1377,7 +1358,6 @@ const EMBODIED_PHASES: &[Phase] = &[
 /// loop in [`World::step_with_arm_rates`] has to hand `&mut self` to each body.
 const fn model_phases(model: crate::CombatModel) -> &'static [Phase] {
     match model {
-        crate::CombatModel::Legacy => LEGACY_PHASES,
         crate::CombatModel::Articulated => ARTICULATED_PHASES,
         crate::CombatModel::Embodied => EMBODIED_PHASES,
     }
@@ -1559,13 +1539,8 @@ impl World {
     pub fn try_spawn(&mut self, spec: &UnitSpec) -> Result<EntityId, SpawnError> {
         #[cfg(feature = "cartesian-recoil")]
         let mut exact_scale = 0i128;
-        match self.combat_model {
-            crate::CombatModel::Legacy => {
-                if spec.articulated.is_some() {
-                    return Err(SpawnError::CombatSpec(CombatSpecError::UnexpectedTable));
-                }
-            }
-            crate::CombatModel::Articulated | crate::CombatModel::Embodied => {
+        {
+            {
                 let row = spec.articulated
                     .ok_or(SpawnError::CombatSpec(CombatSpecError::UnitPresence))?;
                 let table = self.combat_specs.as_ref()
@@ -1748,35 +1723,6 @@ impl World {
         self.id_of(i)
     }
 
-    /// Records `id`'s decision and pushes its next decision tick out by its
-    /// [`Stats::decision_period`]. Stale handles are ignored.
-    pub fn submit(&mut self, id: EntityId, command: Command) {
-        if self.combat_model.command_grammar() != CommandGrammar::Legacy {
-            return;
-        }
-        if let Some(i) = self.resolve(id) {
-            self.command[i] = command;
-            self.next_decision[i] = self.tick + self.stats[i].decision_period() as u32;
-        }
-    }
-
-    /// Turns one live legacy body without translating it.
-    ///
-    /// This is the narrow host-control counterpart to World::submit. It does
-    /// not invent a second command or enter replay serialization: the web host
-    /// integrates its held turn input at the fixed simulation cadence, then
-    /// records the resulting legacy facing in the same authoritative column
-    /// movement already writes. Articulated worlds and stale handles refuse it,
-    /// so this cannot bypass their body-yaw actuator.
-    pub fn face_legacy(&mut self, id: EntityId, facing: Angle) {
-        if self.combat_model.command_grammar() != CommandGrammar::Legacy {
-            return;
-        }
-        if let Some(i) = self.resolve(id).filter(|&i| self.alive[i]) {
-            self.facing[i] = facing;
-        }
-    }
-
     /// Sets a faction's standing order. This is the player's whole input
     /// channel; it lands in every observation of that faction from the next
     /// decision onward.
@@ -1802,30 +1748,6 @@ impl World {
 
     pub const fn combat_model(&self) -> crate::CombatModel {
         self.combat_model
-    }
-
-    /// Rewrites what `id` is carrying.
-    ///
-    /// Input bookkeeping, exactly as [`World::set_order`] is: the page owns a
-    /// character's kit and the sim only carries it. Answers `false` for a handle
-    /// that no longer resolves.
-    ///
-    /// The slot is **not** reset. Rewriting the stowed slot leaves a fighter
-    /// holding what it was holding, which is the whole point of being able to do
-    /// it mid-fight; rewriting the held slot changes the thing in its hand on
-    /// the spot, and it is the caller's business whether that is fair.
-    pub fn set_loadout(&mut self, id: EntityId, loadout: Loadout) -> bool {
-        if self.combat_model.command_grammar() != CommandGrammar::Legacy { return false; }
-        match self.resolve(id) {
-            Some(i) => {
-                self.loadout[i] = loadout;
-                if !loadout.holds(self.slot[i] as usize) {
-                    self.slot[i] = 0;
-                }
-                true
-            }
-            None => false,
-        }
     }
 
     /// Rewrites `id`'s attributes.
@@ -1858,42 +1780,6 @@ impl World {
                 self.stats[i] = stats;
                 self.max_hp[i] = max_hp;
                 self.hp[i] = max_hp * frac;
-                true
-            }
-            None => false,
-        }
-    }
-
-    /// Rewrites `id`'s archetype.
-    ///
-    /// The live counterpart of [`UnitSpec::set_body`], and it exists for the
-    /// same reason that one does: a bare `kind` write is a **half-change**. A
-    /// body is a size, a weight and a stat sheet, and none of the three is
-    /// derivable from the others once they are separate columns -- so this takes
-    /// the whole archetype, its default loadout included, and a caller wanting a
-    /// Brute holding a bow says so afterwards with [`World::set_loadout`].
-    ///
-    /// Both halves that already have a home go through it: the stat sheet
-    /// through [`World::set_stats`], so the health fraction survives a change of
-    /// body and the rescale lives in exactly one place, and the kit through
-    /// [`World::set_loadout`], so a slot the new default cannot fill is put back
-    /// to the primary rather than left dangling.
-    ///
-    /// Finishes by putting the body back inside the arena. A Skitterer (radius
-    /// 0.30) standing against a wall and promoted to a Brute (0.70) is otherwise
-    /// left with four tenths of itself inside the masonry, and `move_body` also
-    /// zeroes the clipped velocity axis -- which is what stops a wall-pinned
-    /// body shoving everything that comes near it.
-    pub fn set_body(&mut self, id: EntityId, body: Body) -> bool {
-        if self.combat_model.command_grammar() != CommandGrammar::Legacy { return false; }
-        match self.resolve(id) {
-            Some(i) => {
-                self.kind[i] = body;
-                self.radius[i] = body.radius();
-                self.mass[i] = body.mass();
-                self.set_stats(id, body.base_stats());
-                self.set_loadout(id, body.default_loadout());
-                self.move_body(i, self.pos[i]);
                 true
             }
             None => false,
@@ -2394,14 +2280,13 @@ mod tests {
 
     #[test]
     fn articulated_columns_follow_every_allocated_and_reused_slot() {
-        let legacy = duel_world();
-        assert!(legacy.body_yaw.is_empty());
-        assert!(legacy.arms.is_empty());
-        assert!(legacy.grips.is_empty());
-        assert!(legacy.shield_pose.is_empty());
-        assert!(legacy.move_authority.is_empty());
-        assert!(legacy.turn_authority.is_empty());
-        assert!(legacy.arm_authority.is_empty());
+        // **The control that used to open this test is gone.** It built a
+        // Legacy world and asserted every articulated column was *empty* -- the
+        // strongest form of "these columns follow the model", because it was a
+        // world where they were never allocated at all. There is no model left
+        // that leaves them empty, so what remains below is the other half: that
+        // on a world which does allocate them, every allocated and reused slot
+        // carries one.
 
         let scenario = Scenario::articulated_duel();
         let mut world = World::new(&scenario, 1);
@@ -2461,8 +2346,8 @@ mod tests {
         world.move_authority[2] = Fx::HALF;
         world.turn_authority[2] = Fx::HALF;
         world.arm_authority[2] = [Fx::HALF; 2];
-        world.hp[2] = Fx::ZERO;
-        world.reap_dead();
+        world.wounds[2].blood = Fx::ZERO;
+        world.reap_dead_articulated();
         let replacement = world.spawn(&scenario.units[1]);
         assert_eq!(replacement, EntityId::new(2, 1));
         assert_lengths(&world, 3);
@@ -2490,10 +2375,16 @@ mod tests {
         let fighter = EntityId::new(0, 0);
         let construction = (world.kind[0], world.loadout[0], world.articulated_anatomy[0],
             world.articulated_carried[0], world.articulated_equipment[0], world.grips[0]);
+        // **Two of the three refusals this checked are now absences.**
+        // `World::set_body` and `World::set_loadout` returned `false` on a world
+        // with articulated columns, because a jointed body's kit and frame are
+        // construction rather than state -- the equipment rows are in the spec
+        // table and hashed into the digest, and the grip actuator holds an item
+        // by spec id. Session 10 deleted both methods, so the claim is enforced
+        // by the type system and no longer needs an assertion. What is still
+        // worth asserting is the *other* half: that the one mutator which does
+        // survive, `set_stats`, reaches the digest.
         let before = world.state_digest().value;
-        assert!(!world.set_body(fighter, Body::Brute));
-        assert!(!world.set_loadout(fighter, Loadout::single(ActionKind::Club)));
-        assert_eq!(world.state_digest().value, before);
         let changed_stats = Stats::new(1, 2, 3, 4, 5);
         assert!(world.set_stats(fighter, changed_stats));
         assert_eq!(world.stats[0], changed_stats);
@@ -2719,18 +2610,6 @@ mod tests {
     // `resolve_contact` under `contact`. Reading the name off the table is what
     // made that impossible to write. The golden hashes are the evidence that the
     // order itself did not change, and none of them moved.
-
-    #[test]
-    fn the_legacy_phase_trace_is_unchanged() {
-        let mut world = duel_world();
-        world.phase_trace_enabled = true;
-        world.step();
-        assert_eq!(world.phase_trace, [
-            "clear events", "expire decisions", "regenerate", "apply movement", "separate",
-            "drive legacy limb", "legacy parries", "legacy swings", "prop swings", "recoil",
-            "shots", "doors", "reap", "increment tick", "pending", "navigation",
-        ]);
-    }
 
     #[test]
     fn articulated_contact_runs_after_geometry_and_before_doors() {
@@ -3445,20 +3324,6 @@ mod tests {
         assert!(embodied.articulated_command[0].is_none(), "a refused command was stored");
     }
 
-    /// The legacy surface stays legacy-only, and an embodied world is refused
-    /// by the same predicate that refuses an articulated one.
-    #[test]
-    fn an_embodied_world_refuses_every_legacy_mutator() {
-        let mut embodied = World::new(&Scenario::embodied_duel(), 1);
-        let id = embodied.alive_ids(Faction::Heroes)[0];
-        let before = embodied.state_digest().value;
-        embodied.submit(id, Command::HOLD);
-        embodied.face_legacy(id, Angle::QUARTER);
-        assert!(!embodied.set_loadout(id, crate::Loadout::single(ActionKind::Punch)));
-        assert!(!embodied.set_body(id, Body::Brute));
-        assert_eq!(embodied.state_digest().value, before);
-    }
-
     /// The fingerprint separates the two fixtures, and by **two** things rather
     /// than one: the name bytes and the model word. The plan that proposed this
     /// session said the model was not in the fingerprint. It is, and this is
@@ -3478,32 +3343,6 @@ mod tests {
         remodelled.combat_model = crate::CombatModel::Embodied;
         assert_ne!(remodelled.fingerprint(), embodied.fingerprint(),
                    "the name bytes are not in the fingerprint after all");
-    }
-
-    /// A predicate is only worth having if it agrees with the columns it names,
-    /// so both of these assert it against a **built world** rather than against
-    /// the enum. Asserting `Legacy.has_articulated_columns() == false` would
-    /// restate the function body; asserting that the world it built left those
-    /// columns empty is the claim.
-    #[test]
-    fn a_legacy_world_answers_no_to_every_articulated_column_predicate() {
-        let world = duel_world();
-        let model = world.combat_model();
-        assert!(!model.has_articulated_columns());
-        assert!(!model.uses_contact_solver());
-        assert_eq!(model.command_grammar(), CommandGrammar::Legacy);
-
-        assert!(!world.alive.is_empty(), "an empty world would satisfy this vacuously");
-        assert!(world.contact.is_none(), "no contact runtime");
-        for (name, len) in [
-            ("body_yaw", world.body_yaw.len()), ("arms", world.arms.len()),
-            ("grips", world.grips.len()), ("shield_pose", world.shield_pose.len()),
-            ("move_authority", world.move_authority.len()),
-            ("turn_authority", world.turn_authority.len()),
-            ("arm_authority", world.arm_authority.len()), ("wounds", world.wounds.len()),
-        ] {
-            assert_eq!(len, 0, "a legacy world allocated `{name}`");
-        }
     }
 
     #[test]
@@ -3534,7 +3373,7 @@ mod tests {
     /// literal is the point -- a third literal could drift like the first two.
     #[test]
     fn the_phase_table_and_the_phase_trace_cannot_disagree() {
-        for scenario in [Scenario::duel(), Scenario::articulated_duel()] {
+        for scenario in [Scenario::articulated_duel(), Scenario::embodied_duel()] {
             let mut world = World::new(&scenario, 1);
             let expected: Vec<&'static str> = PROLOGUE.iter()
                 .chain(model_phases(world.combat_model))
@@ -3569,25 +3408,6 @@ mod tests {
             SubmitArticulatedOutcome::Stored { rejection: Some(_), .. }));
         world.apply_articulated_grips();
         assert_eq!((world.arms[0], world.grips[0]), (before, grips));
-    }
-
-    #[test]
-    fn legacy_worlds_have_no_contact_state_or_schedule_phase() {
-        let mut world = duel_world();
-        assert!(world.contact.is_none(), "a legacy world allocated contact state");
-        assert!(world.contact_resolutions().is_empty());
-        assert_eq!(world.contact_cap_hits(), 0);
-        // Reserving is an exact no-op here, and deliberately so even past the
-        // articulated ceiling: a legacy world has nothing to reserve, so it has
-        // nothing to refuse either, and a host that reserves unconditionally
-        // must not have to know which model it is holding.
-        assert_eq!(world.try_reserve_contact_slots(4_096), Ok(()));
-        assert!(world.contact.is_none());
-        world.phase_trace_enabled = true;
-        world.step();
-        assert!(!world.phase_trace.iter().any(|phase| phase.contains("contact")),
-                "a legacy tick scheduled a contact phase");
-        assert!(world.contact.is_none(), "a legacy tick created contact state");
     }
 
     #[test]
@@ -3668,13 +3488,20 @@ mod tests {
 
     #[test]
     fn wrong_model_and_stale_subjects_are_not_stored_or_recorded() {
-        let mut legacy = duel_world();
-        let before = legacy.state_hash();
+        // **The wrong model is now the sibling rather than the ancestor.** This
+        // opened by handing an articulated command to a Legacy world, which had
+        // no articulated command column to store it in. The refusal that is left
+        // to check is the one between the two surviving grammars: an embodied
+        // world refuses an articulated payload, because the two are separate
+        // contracts of different widths and coercing one into the other is
+        // exactly what `CommandReject::WrongModel` exists to prevent.
+        let mut embodied = World::new(&Scenario::embodied_duel(), 1);
+        let before = embodied.state_hash();
         assert_eq!(
-            legacy.submit_articulated_v1(EntityId::new(0, 0), articulated_command()),
+            embodied.submit_articulated_v1(EntityId::new(0, 0), articulated_command()),
             SubmitArticulatedOutcome::NotStored(CommandReject::WrongModel)
         );
-        assert_eq!(legacy.state_hash(), before);
+        assert_eq!(embodied.state_hash(), before);
 
         let scenario = Scenario::articulated_duel();
         let mut world = World::new(&scenario, 1);
@@ -3684,21 +3511,6 @@ mod tests {
             SubmitArticulatedOutcome::NotStored(CommandReject::StaleEntity)
         );
         assert_eq!(world.state_digest().value, before);
-    }
-
-    #[test]
-    fn legacy_policy_command_and_submission_shapes_remain_unchanged() {
-        let mut legacy = duel_world();
-        let id = EntityId::new(0, 0);
-        let command = Command::moving(Vec2::X);
-        legacy.submit(id, command);
-        assert_eq!(legacy.command[0], command);
-
-        let scenario = Scenario::articulated_duel();
-        let mut articulated = World::new(&scenario, 1);
-        articulated.submit(id, command);
-        assert_eq!(articulated.command[0], Command::HOLD);
-        assert_eq!(articulated.articulated_command[0], None);
     }
 
     #[test]
@@ -3811,8 +3623,8 @@ mod tests {
         let mut world = World::new(&scenario, 1);
         let command = articulated_command();
         let _ = world.submit_articulated_v1(EntityId::new(0, 0), command);
-        world.hp[0] = Fx::ZERO;
-        world.reap_dead();
+        world.wounds[0].blood = Fx::ZERO;
+        world.reap_dead_articulated();
         assert!(!world.alive[0]);
         assert_eq!(world.articulated_command[0], Some(command));
         let retained = world.state_digest().value;
@@ -3868,73 +3680,23 @@ mod tests {
         let h = w.resolve(hero).unwrap();
         // The control: while the handle resolves, both are honoured.
         assert!(w.set_stats(hero, Body::Rogue.base_stats()));
-        assert!(w.set_body(hero, Body::Rogue));
 
-        w.hp[h] = Fx::ZERO;
+        // **Bled out rather than zeroed.** `hp` is the legacy health column and
+        // nothing reads it on a jointed body: `World::health_of` routes a body
+        // with an anatomy row through `anatomy::max_health`, so writing `hp` to
+        // zero leaves a fighter in perfect health and the reaper untroubled.
+        w.wounds[h].blood = Fx::ZERO;
         w.step();
-        assert!(!w.is_alive(hero), "the fighter survived being zeroed");
+        assert!(!w.is_alive(hero), "the fighter survived being bled out");
 
         assert_eq!(w.stats(hero), None);
         assert!(
             !w.set_stats(hero, Body::Brute.base_stats()),
             "a dead handle rewrote the attributes of whoever inherits its slot"
         );
-        assert!(!w.set_body(hero, Body::Brute));
         assert!(!w.set_stats(EntityId::NONE, Body::Brute.base_stats()));
-        assert!(!w.set_body(EntityId::NONE, Body::Brute));
         // Nothing leaked into the slot the corpse left behind.
         assert_eq!(w.stats[h], Body::Rogue.base_stats());
     }
 
-    #[test]
-    fn set_body_moves_a_grown_body_out_of_the_wall() {
-        // Hard against the west wall at exactly its own radius, which is where
-        // `move_body` would have left it and therefore a legal place to stand.
-        let mut scenario = Scenario::duel();
-        scenario.units[0].set_body(Body::Skitterer);
-        scenario.units[0].spawn = Vec2::new(Body::Skitterer.radius(), Fx::from_int(8));
-        let mut w = World::new(&scenario, 1);
-        let hero = w.alive_ids(Faction::Heroes)[0];
-        let h = w.resolve(hero).unwrap();
-        assert!(
-            w.pos[h].x < Body::Brute.radius(),
-            "the body did not start inside the Brute it is about to become, \
-             so nothing here is being tested"
-        );
-
-        assert!(w.set_body(hero, Body::Brute));
-        let r = w.radius[h];
-        assert_eq!(r, Body::Brute.radius());
-        assert!(
-            w.pos[h].x >= r && w.pos[h].x <= w.arena.x - r,
-            "a promoted body was left in the masonry at {:?}",
-            w.pos[h]
-        );
-        assert!(w.pos[h].y >= r && w.pos[h].y <= w.arena.y - r, "{:?}", w.pos[h]);
-    }
-
-    #[test]
-    fn set_body_resets_the_loadout() {
-        // The half-change `UnitSpec::set_body` warns about, through a live
-        // world: promote the archer and it is holding a Brute's kit, not a
-        // Skitterer's bow on the end of a Brute's arm.
-        let mut scenario = Scenario::duel();
-        scenario.units[0].set_body(Body::Skitterer);
-        scenario.units[0].loadout = Loadout::single(ActionKind::Bow);
-        let mut w = World::new(&scenario, 1);
-        let hero = w.alive_ids(Faction::Heroes)[0];
-        let h = w.resolve(hero).unwrap();
-        assert_eq!(w.held(hero), Some((0, ActionKind::Bow)));
-
-        assert!(w.set_body(hero, Body::Brute));
-        assert_eq!(w.loadout(hero), Some(Body::Brute.default_loadout()));
-        assert_eq!(w.held(hero), Some((0, Body::Brute.default_action())));
-        assert_eq!(w.stats(hero), Some(Body::Brute.base_stats()));
-        // And the cached halves moved with it. A `kind` that walked off on its
-        // own is exactly the failure this method exists to make impossible.
-        assert_eq!(w.kind[h], Body::Brute);
-        assert_eq!(w.radius[h], Body::Brute.radius());
-        assert_eq!(w.mass[h], Body::Brute.mass());
-        assert_eq!(w.max_hp[h], Body::Brute.base_stats().max_hp());
-    }
 }
