@@ -691,6 +691,62 @@ impl Scenario {
         scenario
     }
 
+    /// The embodied control with a hill in the middle of it.
+    ///
+    /// **The first sculpted scenario in the repository**, and it exists to make
+    /// one measurement possible: a policy that seeks the high ground has to beat
+    /// the same policy with that term switched off, on a corpus where there is
+    /// high ground to seek. Session 04 gave the floor a height column and
+    /// nothing has used it -- every shipped fixture is flat, `Dungeon::digest`
+    /// short-circuits on `sculpted`, and that is exactly why no golden hash can
+    /// see this fixture arrive.
+    ///
+    /// **Radial about the point the four spawn tiles are equidistant from, and
+    /// that point is not the arena's centre.** The fighter stands at `(7, 6)`
+    /// and the brute at `(17, 10)`, so their tile *centres* are `(7.5, 6.5)` and
+    /// `(17.5, 10.5)` -- a pair symmetric about `(12.5, 8.5)` rather than about
+    /// `(12, 8)`, because a tile is a unit square whose centre is half a tile
+    /// past its index. Measuring from the arena's middle instead put one body
+    /// two terraces up and the other on the flat, which the test below caught.
+    ///
+    /// Centred where it is, all four spawn tiles sit at `29` squared units from
+    /// the top -- the two canonical ones and the two `lab` produces by
+    /// reflecting `spawn.y` about `y = 8` for its second orientation. Neither
+    /// body is nearer the hill in either arrangement, which is what makes a
+    /// win rate here a fact about the policy rather than about the corner it
+    /// started in.
+    ///
+    /// **Terraced in twos because three is the limit.** `TERRAIN_STEP_UP_RAW` is
+    /// three height units, so every ring rises two from the one outside it:
+    /// climbable from every direction with a unit of margin, and no ring is a
+    /// ledge that can only be jumped down. The outermost ring ends at `25`, so
+    /// the spawn tiles are outside it by four and the first tick is not a step
+    /// onto a slope.
+    pub fn embodied_slope() -> Scenario {
+        let mut scenario = Scenario::embodied_duel();
+        scenario.name = "embodied-slope-v1".to_string();
+        let (cols, rows) = (scenario.dungeon.cols(), scenario.dungeon.rows());
+        let heights = (0..rows as usize * cols as usize).map(|at| {
+            // Integer tile indices against integer ring bounds, with no `Fx` in
+            // sight. The half-tile the centre argument above turns on cancels on
+            // both sides of the subtraction, so the arithmetic that decides a
+            // terrace is exact and a boundary cannot fall a raw unit the wrong
+            // way and put one tile of one ring on the wrong terrace --
+            // asymmetrically, which is the one failure this fixture cannot have.
+            let dx = (at % cols as usize) as i32 - 12;
+            let dy = (at / cols as usize) as i32 - 8;
+            match dx * dx + dy * dy {
+                0..=3 => 6,
+                4..=11 => 4,
+                12..=24 => 2,
+                _ => 0,
+            }
+        }).collect();
+        let tiles = vec![crate::dungeon::OPEN; rows as usize * cols as usize];
+        scenario.dungeon = Dungeon::from_tiles_and_heights(cols, rows, tiles, heights);
+        scenario
+    }
+
     pub fn count(&self, faction: Faction) -> usize {
         self.units.iter().filter(|u| u.faction == faction).count()
     }
@@ -927,6 +983,87 @@ mod tests {
         assert_eq!(embodied.combat_specs, articulated.combat_specs);
         assert_eq!(embodied.max_ticks, articulated.max_ticks);
         assert_eq!(embodied.fingerprint(), 0x1a1e_8e74_eecd_55d5);
+    }
+
+    /// The sculpted fixture is the embodied one with a hill in it, and the hill
+    /// is fair, climbable and level where the bodies stand.
+    ///
+    /// **Four claims, and each of them is a way the fixture could have measured
+    /// the wrong thing.** A hill off the midpoint would have measured which side
+    /// a policy started on. A hill that is not symmetric under `y = 8` would
+    /// have measured which orientation `lab` was running. A riser over
+    /// `TERRAIN_STEP_UP_RAW` would have been a wall from below, so "seek the
+    /// high ground" could have meant "walk into a cliff and stop". And a spawn
+    /// on a slope would have started one body above the other.
+    #[test]
+    fn the_sculpted_fixture_is_a_fair_climbable_hill() {
+        let slope = Scenario::embodied_slope();
+        let flat = Scenario::embodied_duel();
+        assert!(slope.dungeon.sculpted(), "the sculpted fixture is flat");
+        assert!(!flat.dungeon.sculpted(), "the control stopped being flat");
+        assert_eq!(slope.units, flat.units, "the hill moved a body");
+        assert_eq!(slope.combat_model, flat.combat_model);
+
+        let (cols, rows) = (slope.dungeon.cols() as i32, slope.dungeon.rows() as i32);
+        let at = |x: i32, y: i32| slope.dungeon.height_at(
+            Vec2::new(Fx::from_int(x) + Fx::HALF, Fx::from_int(y) + Fx::HALF));
+
+        // Symmetric about its own centre on both axes, which is what "radial"
+        // has to mean once the ring test is integer arithmetic on tile indices.
+        // Reflections that leave the grid are skipped rather than clamped: the
+        // hill sits half a tile off the arena's middle by construction, so a
+        // clamp would compare a tile with itself and assert nothing.
+        for y in 0..rows {
+            for x in 0..cols {
+                if 24 - x < cols { assert_eq!(at(x, y), at(24 - x, y),
+                    "tile ({x}, {y}) is not radial in x"); }
+                if 16 - y < rows { assert_eq!(at(x, y), at(x, 16 - y),
+                    "tile ({x}, {y}) is not radial in y"); }
+            }
+        }
+
+        // Every orthogonal neighbour is enterable in both directions, which is
+        // the property `TERRAIN_STEP_UP_RAW` bounds and the one a terrace of
+        // twos was chosen to keep.
+        for y in 0..rows {
+            for x in 0..cols {
+                for (dx, dy) in [(1, 0), (0, 1)] {
+                    let (nx, ny) = (x + dx, y + dy);
+                    if nx >= cols || ny >= rows { continue; }
+                    assert!(slope.dungeon.passable_between((x, y), (nx, ny)),
+                            "({x}, {y}) cannot step to ({nx}, {ny})");
+                    assert!(slope.dungeon.passable_between((nx, ny), (x, y)),
+                            "({nx}, {ny}) cannot step back to ({x}, {y})");
+                }
+            }
+        }
+
+        // Level where the two bodies stand, and level under the pair `lab`
+        // produces by reflecting `spawn.y` about `y = 8` for its second
+        // orientation. All four tiles are the same 29 squared units from the
+        // top, so neither body is nearer the hill in either arrangement -- that
+        // is the whole fairness claim and it is why the centre is where it is.
+        let ground = |p: Vec2| slope.dungeon.height_at(p);
+        for spawn in [Vec2::from_ints(7, 6), Vec2::from_ints(17, 10),
+                      Vec2::from_ints(7, 10), Vec2::from_ints(17, 6)] {
+            assert_eq!(ground(spawn), Fx::ZERO, "a body spawns on the slope at {spawn:?}");
+        }
+        for (x, y) in [(7, 6), (17, 10), (7, 10), (17, 6)] {
+            assert_eq!((x - 12) * (x - 12) + (y - 8) * (y - 8), 29,
+                       "spawn tile ({x}, {y}) is not the others' distance from the top");
+        }
+        // And there is a high ground to seek: the plateau is above the floor.
+        assert!(at(12, 8) > Fx::ZERO, "the hill has no top");
+        assert_eq!(at(12, 8), at(11, 7), "the plateau is not flat");
+
+        // A different fixture with a different identity, differing from the
+        // control by the name and the floor and nothing else.
+        let mut renamed = flat.clone();
+        renamed.name = slope.name.clone();
+        renamed.dungeon = slope.dungeon.clone();
+        assert_eq!(renamed, slope);
+        assert_ne!(slope.fingerprint(), flat.fingerprint());
+        assert_eq!(slope.fingerprint(), 0xf49d_e9a6_1f93_9163);
     }
 
     fn descending_hero() -> UnitSpec {

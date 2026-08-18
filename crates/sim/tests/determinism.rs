@@ -441,8 +441,11 @@ mod embodied {
     }
 
     fn drive(record: Option<&mut Replay>) -> (World, Vec<u64>) {
-        let scenario = Scenario::embodied_duel();
-        let mut world = World::new(&scenario, 31);
+        drive_on(&Scenario::embodied_duel(), record)
+    }
+
+    fn drive_on(scenario: &Scenario, record: Option<&mut Replay>) -> (World, Vec<u64>) {
+        let mut world = World::new(scenario, 31);
         let ids: Vec<_> = world
             .alive_ids(Faction::Heroes)
             .into_iter()
@@ -498,6 +501,80 @@ mod embodied {
                 "an embodied replay diverged at tick {tick}",
             );
         }
+    }
+
+    /// **The first fixture with a floor that is not flat, through the whole
+    /// run/re-run/replay claim.**
+    ///
+    /// Session 04 gave every tile a height and every body a `ground_z` sampled
+    /// from it, and until this fixture existed nothing in the repository had a
+    /// non-zero one: `Dungeon::digest` short-circuits on `sculpted`, so the
+    /// height vector was outside every golden hash and outside every replay.
+    /// That is what made adding elevation free, and it is also what left the
+    /// column unmeasured. A height that reached the state hash on the live run
+    /// and not on the replayed one would have been invisible until a fight was
+    /// driven up a hill.
+    ///
+    /// The script is the flat fixture's, unchanged, so the difference between
+    /// this test and its sibling is the floor and nothing else.
+    #[test]
+    fn an_embodied_replay_reproduces_a_run_on_a_sculpted_floor() {
+        let scenario = Scenario::embodied_slope();
+        let mut replay = Replay::new(&scenario, 31);
+        let (live, digests) = drive_on(&scenario, Some(&mut replay));
+        replay.finish(TICKS);
+
+        assert_eq!(replay.play().state_digest().value, live.state_digest().value);
+        for tick in 1..=TICKS {
+            assert_eq!(
+                replay.play_until(tick).state_digest().value,
+                digests[tick as usize - 1],
+                "a sculpted embodied replay diverged at tick {tick}",
+            );
+        }
+        // And it is a different fight from the flat one, which is the assertion
+        // that stops this from passing on a hill nobody walked on: two runs of
+        // the same script over the same seed, differing only in the floor.
+        let (flat, _) = drive(None);
+        assert_ne!(live.state_digest().value, flat.state_digest().value,
+                   "the hill changed nothing, so the floor is not reaching the state");
+    }
+
+    /// A body on the hill stands above a body on the floor, and the height it
+    /// stands at is the tile's own.
+    ///
+    /// The pair matters. "Somebody's `z` moved" would pass on a body that had
+    /// wandered onto a terrace by accident; "the `z` is the floor under it" is
+    /// what says the sample is the terrain rather than a number of its own.
+    #[test]
+    fn a_body_on_the_hill_stands_on_the_hill() {
+        let scenario = Scenario::embodied_slope();
+        let mut world = World::new(&scenario, 31);
+        let id = world.alive_ids(Faction::Heroes)[0];
+        // Walked, not teleported: the body has to reach the terrace through the
+        // movement phase, which is the only thing that resamples `ground_z`.
+        let mut highest = Fx::ZERO;
+        for tick in 0..TICKS {
+            let mut command = EmbodiedCommandV1::new(scripted(tick, 0));
+            // Straight across the hill, in the body frame, at full authority.
+            // Everything else the script does is left alone.
+            command.articulated.move_dir = Vec2::new(Fx::ONE, Fx::ZERO);
+            command.articulated.body_yaw = Angle::ZERO;
+            world.submit_embodied_v1(id, command);
+            world.step();
+            let pose = world.articulated_pose(id).expect("a live hero has a pose");
+            // **Every tick, not just the last.** The body walks over the hill
+            // and off the far side, so a final reading would be a reading from
+            // the floor again -- which is exactly the shape of test that would
+            // have passed while the sample was broken.
+            assert_eq!(
+                pose.body.z,
+                scenario.dungeon.height_at(fx::Vec2::new(pose.body.x, pose.body.y)),
+                "at tick {tick} the body's z is not the floor under it",
+            );
+            highest = highest.max(pose.body.z);
+        }
+        assert!(highest > Fx::ZERO, "the body never left the floor");
     }
 
     /// The domain is part of the answer. An embodied digest compared against an
