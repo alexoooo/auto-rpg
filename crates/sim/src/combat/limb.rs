@@ -199,39 +199,15 @@ pub(crate) fn reach_headroom(
     ((widest - asked) / anatomy.arm_length).clamp(Fx::ZERO, Fx::ONE)
 }
 
-/// The nearest hand the arm can actually hold, along the shoulder-to-hand line.
-///
-/// **This is the fix for the hole this module's header records.** A hand outside
-/// the annulus is pulled onto it rather than refused, so a policy that asks for
-/// an impossible pose gets the nearest possible one instead of a pose the arm
-/// silently stretches to. Pulling along the existing direction is what keeps the
-/// answer a *clamp*: the bearing the caller asked for survives, only the
-/// extension changes.
-pub(crate) fn reachable_hand(
-    anatomy: &BodyAnatomySpec, yaw: Angle, limb: usize, hand: Vec3, elbow: Elbow,
-) -> Vec3 {
-    let shoulder = shoulder(anatomy, yaw, limb);
-    let offset = hand - shoulder;
-    let distance = offset.length();
-    let (inner, outer) = elbow.reach_bounds();
-    if distance >= inner && distance <= outer { return hand; }
-    if distance == Fx::ZERO {
-        // Exactly on the shoulder, where the offset carries no direction at all.
-        // Ahead is the only answer that invents nothing: every other choice
-        // would be picking a bearing the caller did not ask for.
-        return shoulder + Vec3::new(inner, Fx::ZERO, Fx::ZERO);
-    }
-    let want = distance.clamp(inner, outer);
-    // Scaled component-wise through `mul_div` rather than by a precomputed
-    // ratio: one truncation per axis instead of one on the ratio and one on the
-    // product, which is the difference between a hand on the annulus and a hand
-    // a raw unit outside it.
-    shoulder + Vec3::new(
-        mul_div(offset.x, want, distance),
-        mul_div(offset.y, want, distance),
-        mul_div(offset.z, want, distance),
-    )
-}
+// **`reachable_hand` stood here and had no caller at all.** It pulled a hand
+// outside the elbow's annulus back onto it along the shoulder-to-hand line, so
+// that an impossible pose became the nearest possible one rather than a refusal.
+// That is the right shape for the clamp and it is not where the clamp happens:
+// the embodied arm driver applies [`reachable_extent`] to the commanded
+// `(height, reach)` *before* integration, so a hand outside the annulus is never
+// constructed to be pulled back. The clamp this crate ships works in joint
+// space; a Cartesian one that never ran is a second answer waiting to disagree
+// with the first.
 
 /// The arm as a polyline, shoulder first, hand last.
 ///

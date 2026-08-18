@@ -37,7 +37,7 @@ no successor is a property of the *observation* rather than an omission:
 `ArticulatedObservation` is subject-scoped and has no faction column, so "the
 other side" appears in it only as `opponents`, already selected. Per-side routing
 therefore belongs to whoever drives the run, which does know both factions.
-[`ArticulatedPolicy`](../../crates/policy/src/lib.rs#L208) carries that argument
+[`ArticulatedPolicy`](../../crates/policy/src/lib.rs#L212) carries that argument
 in full, beside the doctest pair showing that no policy can be handed a `&World`.
 
 ## Observation to command
@@ -332,10 +332,19 @@ than an extension of either, on `ArticulatedPolicyKind`'s own argument: the thre
 seams share no code space, so `2` names `idle`, `windmill` and `scripted-level`
 depending on which registry is being read, and a collision between them is a page
 showing a different fight when a dropdown moves. Codes are append-only for the same
-reason. The three are `neutral`, `scripted` and `scripted-level`, the last being
-the scripted policy with its elevation term switched off -- a registry entry rather
-than a test-only constructor because it is what the next session measures against,
-and that comparison has to be runnable from a command line.
+reason. The four are `neutral`, `scripted`, `scripted-level` and `tactical`.
+`scripted-level` is the scripted policy with its elevation term switched off -- a
+registry entry rather than a test-only constructor because it is what the high-ground
+measurement runs against, and that comparison has to be runnable from a command line.
+`tactical` is the strike planner behind this seam: `StrikePlanner` is frame-free,
+because every quantity it reads is a world quantity measured off an observation whose
+type is the same on both seams, so the port shares the planner and forks only the
+command assembly. The frame enters in one four-line function,
+[`into_torso_frame`](../../crates/policy/src/embodied_tactics.rs#L76), which subtracts
+the *observed* yaw and not the commanded one -- the world re-adds
+`World::body_yaw[i].angle`, and the commanded yaw is a request the actuator chases at a
+bounded rate. Its first measured outing is
+[the tactical policy record](../performance/embodied-tactical-policy.md).
 
 **`EmbodiedPolicyKind::build` returns a policy and not an `Option`, which is where
 it deliberately differs from its sibling.** `ArticulatedPolicyKind` answers `None`
@@ -346,6 +355,31 @@ widening the network's input, so an embodied learned code would be a promise mad
 before the session that owes it exists. `ComposedController` is not a kind either,
 for the same argument's shape rather than its subject -- it is a set of sources, one
 of which is a human hand, and an integer has nowhere to put a person.
+
+## `script_digest` answers a constant for every embodied fight
+
+`policy::script_digest` reduces a submitted-command stream to eight bytes so that two
+runs of the same script can be compared without keeping the stream. **It cannot see an
+embodied run at all.** Its loop keeps only `SubmittedCommand::Articulated`, and its doc
+comment accounts for the arm it drops as `Legacy`, which "cannot occur". `Embodied`
+occurs on every record of every embodied run, so the digest counts zero records and
+finishes at the empty-stream constant `0x89b684347e2caedd` -- the same number for the
+script, for the control, and for a matchup running a different policy on each side.
+
+`lab embodied` therefore folds its own stream under `ARPG-EMBODIED-SCRIPT-V1` rather
+than calling it; that function is
+[`embodied_script_digest`](../../crates/lab/src/main.rs#L1182), it copies
+`script_digest`'s grammar byte for byte over `EmbodiedCommandV1::payload_bytes`, and its
+doc comment carries the whole argument. **The repair to the shared function is still
+owed** and is a one-line change -- the third match arm -- but it is a change to a
+function three registered digests feed from, so it is a session with a hash prediction
+rather than a cleanup.
+
+It was found only because three `crates/lab` tests were written against the number
+first and all three went red. A `script` column that looks like a fingerprint and is a
+constant is exactly the invisible green-test failure `AGENTS.md`'s house style warns
+about, and it shipped in a report for the length of one session. The measured record is
+[the embodied corpus](../performance/embodied-corpus-and-high-ground.md).
 
 ## Frozen networks are current, and where the float stops
 
@@ -462,11 +496,12 @@ such demonstration exists. Any successor needs a separately approved causal ques
 
 ## Source anchors
 
-- The articulated seam: [`ArticulatedPolicy`](../../crates/policy/src/lib.rs#L208)
-- The embodied seam: [`EmbodiedPolicy`](../../crates/policy/src/lib.rs#L260)
-- The non-legacy seam's registry: [`ArticulatedPolicyKind`](../../crates/policy/src/lib.rs#L303)
-- The embodied seam's registry: [`EmbodiedPolicyKind`](../../crates/policy/src/lib.rs#L454)
+- The articulated seam: [`ArticulatedPolicy`](../../crates/policy/src/lib.rs#L212)
+- The embodied seam: [`EmbodiedPolicy`](../../crates/policy/src/lib.rs#L264)
+- The non-legacy seam's registry: [`ArticulatedPolicyKind`](../../crates/policy/src/lib.rs#L307)
+- The embodied seam's registry: [`EmbodiedPolicyKind`](../../crates/policy/src/lib.rs#L458)
 - The scripted embodied policy: [`crates/policy/src/embodied_script.rs`](../../crates/policy/src/embodied_script.rs)
+- The tactical embodied policy: [`crates/policy/src/embodied_tactics.rs`](../../crates/policy/src/embodied_tactics.rs)
 - Headless decision loops: [`crates/policy/src/runner.rs`](../../crates/policy/src/runner.rs)
 - Subject-scoped inputs: [`crates/sim/src/obs.rs`](../../crates/sim/src/obs.rs)
 - The command grammars, `Order` and `Objective`: [`crates/sim/src/command.rs`](../../crates/sim/src/command.rs)

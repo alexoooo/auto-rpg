@@ -606,37 +606,16 @@ impl Command {
         }
     }
 
-    pub(crate) fn hash_into(self, h: &mut Hash64) {
-        h.write_i32(self.move_dir.x.raw());
-        h.write_i32(self.move_dir.y.raw());
-        match self.intent {
-            Intent::Hold => h.write_u8(0),
-            Intent::Attack(id) => {
-                h.write_u8(1);
-                id.hash_into(h);
-            }
-            Intent::Flee => h.write_u8(2),
-        }
-        // Appended after the intent block, so the bytes an `Order` contributes
-        // are untouched. The limb command is the difference between a fight and
-        // two people standing next to each other, so a replay that dropped it
-        // would reproduce the walking and none of the swordplay.
-        //
-        // All three fields are hashed even though no single role reads all of
-        // them, because the alternative is a hash whose shape depends on what
-        // the limb happened to be holding -- and a replay that cannot tell
-        // "attack" from "guard" apart reproduces the footwork and none of the
-        // fight.
-        h.write_u16(self.limb.angle.raw());
-        h.write_i32(self.limb.reach.raw());
-        h.write_u8(self.limb.strike.discriminant() as u8);
-        // Appended after the limb block. A run in which the agent asked to change
-        // what it was holding and one in which it did not are different runs,
-        // and a replay that could not tell them apart would reproduce the
-        // footwork and none of the loadout play -- the same argument the limb
-        // block above makes one level down.
-        h.write_u8(self.slot);
-    }
+    // **`Command::hash_into` went with the column it was written for.** The
+    // state hash wrote one of these per allocated slot, and the byte order it
+    // used carried a real argument: the limb block was appended after the intent
+    // block so that the bytes an `Order` contributes stayed untouched, and all
+    // three limb fields were hashed even though no single role reads all of
+    // them, because a hash whose *shape* depended on what the limb happened to
+    // be holding cannot tell an attack from a guard. The column that held these
+    // is gone -- nothing could write it once the legacy grammar and `submit`
+    // went, so every body of every fight hashed `Command::HOLD` -- and a byte
+    // grammar with no stream to write into is not a contract, it is a function.
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
@@ -1064,43 +1043,13 @@ mod tests {
         }
     }
 
-    #[test]
-    fn limb_commands_reach_the_command_hash() {
-        // Same shape as `goto_hashes_its_destination`, and for the same reason:
-        // state the sim acts on but the hash ignores makes two different runs
-        // indistinguishable to replay verification. Two swings in opposite
-        // directions are about as different as two runs get.
-        let hashed = |a: Command| {
-            let mut h = Hash64::new();
-            a.hash_into(&mut h);
-            h.finish()
-        };
-        let target = EntityId::new(2, 0);
-        let east = LimbCommand::new(Angle::ZERO, Fx::ONE);
-        let west = LimbCommand::new(Angle::HALF, Fx::ONE);
-
-        assert_ne!(
-            hashed(Command::swinging(Vec2::ZERO, target, east)),
-            hashed(Command::swinging(Vec2::ZERO, target, west)),
-            "two opposite swings are indistinguishable to the state hash"
-        );
-        assert_ne!(
-            hashed(Command::swinging(Vec2::ZERO, target, east)),
-            hashed(Command::attacking(Vec2::ZERO, target)),
-            "an extended blade hashes the same as a tucked one"
-        );
-        // The strike verb is the difference between a guard along a line and an
-        // attack thrown through it, and only one of those can be punished.
-        assert_ne!(
-            hashed(Command::swinging(Vec2::ZERO, target, east)),
-            hashed(Command::swinging(
-                Vec2::ZERO,
-                target,
-                LimbCommand::attack(Angle::ZERO, Strike::Nearest)
-            )),
-            "a guard and a cut along the same line hash alike"
-        );
-    }
+    // **`limb_commands_reach_the_command_hash` went with `Command::hash_into`.**
+    // It asserted that two opposite swings, an extended blade against a tucked
+    // one, and a guard against a cut along the same line all hashed apart --
+    // the property that stops a replay reproducing the footwork and none of the
+    // fight. The command it hashed is no longer in any hash stream, so the test
+    // was checking a byte order nothing writes. `goto_hashes_its_destination`
+    // below is the same claim about `Order`, which is still hashed.
 
     #[test]
     fn goto_hashes_its_destination() {

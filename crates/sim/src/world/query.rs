@@ -1254,7 +1254,14 @@ impl World {
             mass: self.mass[i],
             hp: self.health_of(i).max(Fx::ZERO),
             max_hp: self.max_health_of(i),
-            intent: self.command[i].intent,
+            // **Off the live articulated command**, which is what the pose row
+            // beside this one already publishes as `POSE_INTENT`. It used to
+            // read the legacy submitted column, and nothing could write that:
+            // `Intent::Hold` went out under `UNIT_INTENT` on every frame of
+            // every fight while the pose row carried what the body was actually
+            // trying to do, so two published words that name the same thing
+            // disagreed by construction. The column is gone and they agree.
+            intent: self.articulated_command[i].map_or(Intent::Hold, |command| command.intent),
             limb: self.limb[i],
             action: self.action_of(i),
             spec: self.action_of(i).spec(),
@@ -2506,11 +2513,12 @@ mod tests {
         // therefore level, therefore a draw" the moment they became 18 and 12.
         // `health_fraction` is a ratio and clamps at zero, so a test that feeds
         // it absolute damage is a test written in units it does not use.
-        // **Bled rather than de-`hp`-ed.** `World::hp` is the legacy health
-        // column and `health_fraction` no longer reads it: a body with an anatomy
-        // row is scored through `anatomy::blood_fraction`, so subtracting from
-        // `hp` left both sides at full health and the timeout a draw. The
-        // fraction taken is the same 30%.
+        // **Bled rather than de-`hp`-ed**, and only one of those is still
+        // spellable. `health_fraction` scores a body with an anatomy row
+        // through `anatomy::blood_fraction`; this note used to record that
+        // subtracting from the legacy `hp` column instead left both sides at
+        // full health and the timeout a draw, and that column has since gone.
+        // The fraction taken is the same 30%.
         let b = w.resolve(brute).unwrap();
         let bled = w.wounds[b].blood * Fx::from_ratio(30, 100);
         w.wounds[b].blood -= bled;

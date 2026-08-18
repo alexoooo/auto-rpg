@@ -83,8 +83,17 @@ the two exist only because the payload widths had to grow apart, and a flattened
 whose `payload_bytes` writes exactly the same 57 bytes changes no wire at all.
 
 The check that says the flattening was byte-neutral is already written and already
-pinned: `ARTICULATED_COMMAND_HASH` is taken over the payload, and
-`EMBODIED_COMMAND_BYTES` is asserted in `tools/wasm_check.js`. Neither may move.
+pinned: `EMBODIED_COMMAND_BYTES` is asserted in `tools/wasm_check.js`, and
+`ARTICULATED_COMMAND_HASH` carries the stored command's `payload_bytes()`. Neither
+may move.
+
+**But `ARTICULATED_COMMAND_HASH` is not "taken over the payload", which is what
+this paragraph used to say.** It is `world.state_digest().value` of an unstepped
+fixture, and the payload is one contributor among many -- so it also folds
+`legacy_core_hash`, and session 01 moved it for exactly that reason. It is still
+the right check for a byte-neutral flattening, because a fixture that does not step
+cannot move it any other way; it is the wrong pin to *describe* as a payload pin,
+since the next reader who has to predict a move will predict the wrong set.
 
 ## The naming vocabulary, stated once
 
@@ -113,7 +122,7 @@ cargo test -p sim --features cartesian-recoil
 cargo test -p lab --features cartesian-recoil
 cargo build --release                                  # still zero warnings
 cargo run --release -p lab -- embodied --corpus-digest
-cargo run --release -p lab -- verify --embodied --seeds 200
+cargo run --release -p lab -- verify --seeds 200
 cargo build --release --target wasm32-unknown-unknown -p web
 cargo build --release --target wasm32-unknown-unknown -p web --features cartesian-recoil
 node --test tools/wasm_check.js

@@ -1,60 +1,15 @@
 //! Where a body ends the tick.
 //!
-//! The two models reach this file by different doors -- `apply_movement` for
-//! Legacy and `apply_articulated_movement` for Articulated -- and then share
-//! `separate`, `move_body` and the tile and prop collision beneath them.
-//! Everything here is planar: a body has no vertical degree of freedom.
+//! One door in -- `apply_articulated_movement` -- and then `separate`,
+//! `move_body` and the tile and prop collision beneath it. There were two:
+//! `apply_movement` steered a body from the legacy `command` column, and it
+//! left with that column, taking `dungeon_slow_at` with it because nothing
+//! else ever called one. Everything here is planar: a body has no vertical
+//! degree of freedom.
 
 use super::*;
 
 impl World {
-    /// Steers each body toward the velocity its command asked for, then moves it.
-    ///
-    /// The commanded direction is a request for a *velocity*, not a
-    /// displacement, and [`Stats::traction`] bounds how much of the difference
-    /// can be paid off in one tick. One rule covers three things that used to
-    /// be free: getting up to speed, stopping, and shedding a shove -- a body
-    /// with no order is asking for zero and brakes toward it at the same rate
-    /// it would accelerate.
-    ///
-    /// What this replaces was `pos += dir * move_speed`, which is to say a body
-    /// that reached full speed instantly and could reverse it in a tick. Under
-    /// that rule an approach could always be recalled, so there was nothing to
-    /// read: the only way to be caught out of position was to be somewhere bad
-    /// *right now*, never to have committed to going there.
-    pub(super) fn apply_movement(&mut self) {
-        for i in 0..self.alive.len() {
-            if !self.alive[i] {
-                self.vel[i] = Vec2::ZERO;
-                continue;
-            }
-            self.start_pos[i] = self.pos[i];
-            let dir = self.command[i].move_dir.clamp_length(Fx::ONE);
-            // What is in hand can buy footspeed. `move_bonus` is exactly
-            // `Fx::ONE` for every action that is not a movement one, so this
-            // multiply is the identity for the whole current roster and moves no
-            // hash -- it is here so that landing `Run` is a one-row edit to the
-            // registry rather than a change to the movement rule.
-            let want = dir * self.stats[i].move_speed() * self.action_of(i).spec().move_bonus
-                * self.dungeon_slow_at(self.pos[i]);
-            let change = (want - self.vel[i]).clamp_length(self.stats[i].traction());
-            self.vel[i] += change;
-            self.move_body(i, self.pos[i] + self.vel[i]);
-            if !dir.is_zero() {
-                // `facing` is where the feet are going, and nothing else. It is
-                // not consulted by any combat rule -- blows are decided by blade
-                // geometry -- so a character can back away from a fight while
-                // still swinging into it.
-                //
-                // Read off the *order* rather than off the velocity, which now
-                // differ: a body that has asked to reverse is still drifting the
-                // old way for a few ticks, and pointing it backwards through
-                // those would be reporting the momentum as the intention.
-                self.facing[i] = dir.angle();
-            }
-        }
-    }
-
     /// Circle push-apart. O(n^2) and deliberately so for now: at a few dozen
     /// entities a spatial hash is slower and much easier to get subtly wrong.
     /// Revisit when a scenario needs hundreds.
@@ -230,25 +185,6 @@ impl World {
         self.ground_z[i] = self.dungeon.height_at(self.pos[i]);
     }
 
-    pub(super) fn dungeon_slow_at(&self, p: Vec2) -> Fx {
-        let mut scale = Fx::ONE;
-        for prop in &self.dungeon_props {
-            if prop.broken || !matches!(prop.kind, DungeonObjectKind::Web | DungeonObjectKind::Water) {
-                continue;
-            }
-            let radius = prop.half_extents.x.max(prop.half_extents.y);
-            if (p - prop.position).length() <= radius {
-                let candidate = match prop.kind {
-                    DungeonObjectKind::Web => Fx::from_ratio(65, 100),
-                    DungeonObjectKind::Water => Fx::from_ratio(80, 100),
-                    _ => Fx::ONE,
-                };
-                scale = scale.min(candidate);
-            }
-        }
-        scale
-    }
-
     pub(super) fn resolve_dungeon_props(&mut self, i: usize) {
         for prop in &self.dungeon_props {
             if prop.broken || !matches!(prop.kind, DungeonObjectKind::Barrel | DungeonObjectKind::Pottery) {
@@ -418,71 +354,18 @@ mod tests {
         assert_eq!(hurt.move_authority[0], Fx::HALF, "the impairment did not survive the run");
     }
 
-    #[test]
-    fn getting_going_and_stopping_both_take_time() {
-        // Momentum, at its plainest. A body used to reach full speed on the
-        // tick it was told to and stop on the tick it was told to, which is
-        // what made spacing a question about position rather than commitment.
-        let mut w = duel_world();
-        let hero = w.alive_ids(Faction::Heroes)[0];
-        let i = hero.index as usize;
-        let top = w.stats[i].move_speed();
-
-        w.pos[i] = Vec2::new(w.arena.x * Fx::HALF, w.arena.y * Fx::HALF);
-        w.command[i] = Command::moving(Vec2::X);
-        w.apply_movement();
-        let after_one = w.vel[i].length();
-        assert!(
-            after_one < top * Fx::from_ratio(3, 10),
-            "one tick got it to {after_one} of a {top} top speed"
-        );
-
-        for _ in 0..40 {
-            w.apply_movement();
-        }
-        let cruising = w.vel[i].length();
-        assert!(
-            (cruising - top).abs() < Fx::from_ratio(1, 1000),
-            "settled at {cruising} instead of {top}"
-        );
-
-        // And it cannot simply stop. Ordered to hold, it slides.
-        w.command[i] = Command::HOLD;
-        let braking_from = w.pos[i];
-        for _ in 0..40 {
-            w.apply_movement();
-        }
-        assert!(w.vel[i].length() < Fx::from_ratio(1, 1000), "never stopped");
-        let slide = (w.pos[i] - braking_from).length();
-        assert!(
-            slide > Fx::from_ratio(25, 100),
-            "stopped in {slide} units, which is no commitment at all"
-        );
-    }
-
-    #[test]
-    fn a_wall_takes_the_momentum_it_stops() {
-        // Position used to be the only thing a wall clipped, which was harmless
-        // while velocity was recomputed from displacement every tick. With
-        // velocity carried across ticks it is not: a body pinned against a wall
-        // stays convinced it is running at full speed, and both `impact_speed`
-        // and `separate` believe it. The symptom was a 4v6 that could not
-        // finish, with the survivors shoving each other off a wall forever.
-        let mut w = duel_world();
-        let i = w.alive_ids(Faction::Heroes)[0].index as usize;
-
-        // Hard against the western wall, still being told to walk west, and
-        // drifting north along it.
-        w.pos[i] = Vec2::new(w.radius[i], w.arena.y * Fx::HALF);
-        w.command[i] = Command::moving(Vec2::new(-Fx::ONE, Fx::ONE).normalize());
-        for _ in 0..30 {
-            w.apply_movement();
-        }
-
-        assert_eq!(w.vel[i].x, Fx::ZERO, "the wall banked the momentum");
-        assert!(w.vel[i].y.is_positive(), "sliding along a wall must still work");
-        assert_eq!(w.pos[i].x, w.radius[i]);
-    }
+    // **Two tests went with `apply_movement`, and neither claim went with
+    // them.** `getting_going_and_stopping_both_take_time` measured that a body
+    // takes time to reach its top speed and time to shed it; that is a
+    // `Stats::traction` claim and
+    // `move_authority_scales_acceleration_without_changing_requested_velocity`
+    // above makes it on the surviving path, from a standing start to a settled
+    // cruise. `a_wall_takes_the_momentum_it_stops` measured that a clipped step
+    // banks the momentum it stopped rather than leaving the body convinced it is
+    // still running -- the bug behind a 4v6 whose survivors shoved each other
+    // off a wall forever -- and both `a_shove_cannot_push_a_body_through_a_wall`
+    // and `on_an_open_floor_plan_a_move_is_the_arena_clamp_it_always_was` assert
+    // exactly that about `move_body`, which is where the banking lives.
 
     #[test]
     fn on_an_open_floor_plan_a_move_is_the_arena_clamp_it_always_was() {
@@ -546,6 +429,14 @@ mod tests {
         // one down their seam. Without the internal-edge cull the body is shoved
         // out of each seam as it crosses it, which shows up as the along-wall
         // travel stalling -- or, at speed, as the body being flung south.
+        //
+        // **Driven through `move_body` rather than through a movement phase**,
+        // since `apply_movement` went with the legacy command column. The claim
+        // is about `resolve_tiles` and the internal-edge cull inside it, so the
+        // acceleration rule that used to sit on top was scaffolding: writing the
+        // velocity is what the pure fixtures in `combat::resolution` do for the
+        // same reason, and it keeps this from quietly becoming a test of
+        // whatever `Stats::traction` happens to be.
         let mut w = carved_world(&[
             "##########", //
             "#........#",
@@ -557,11 +448,12 @@ mod tests {
         // Hard against the north wall's inner face, pressed into it and walking
         // east along it.
         w.pos[i] = Vec2::new(Fx::from_ratio(15, 10), Fx::ONE + r);
-        w.command[i] = Command::moving(Vec2::new(Fx::ONE, -Fx::ONE).normalize());
+        let step = Vec2::new(Fx::ONE, -Fx::ONE).normalize() * w.stats[i].move_speed();
 
         let mut previous = w.pos[i].x;
         for tick in 0..120 {
-            w.apply_movement();
+            w.vel[i] = step;
+            w.move_body(i, w.pos[i] + w.vel[i]);
             assert!(
                 w.is_walkable(w.pos[i], r),
                 "tick {tick}: pushed into the wall at {:?}",

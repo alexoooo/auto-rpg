@@ -139,7 +139,7 @@ not the argument.
 | `ELBOW_MIN_INCLUDED_ANGLE_RAW` | `7_282` | forty degrees, about where a human elbow meets its own bicep |
 
 `ELBOW_PLANE_MAX_SPEED_RAW` is **a rate bound and deliberately not a bill**. The
-work an arm does about its own axis is not modelled — `bill_fatigue` charges the
+work an arm does about its own axis is not modelled — `bill_fatigue_for_grip` charges the
 hand's travel and the bearing's sweep, both of which move the hand — so charging
 the plane to the fatigue budget would be inventing a cost with nothing behind it.
 A plane change is free and slow, which is the pair of properties the swept forearm

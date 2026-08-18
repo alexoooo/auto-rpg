@@ -14,7 +14,7 @@ and deleting it in the wrong order throws it away.
 
 The plumbing is done and is not what is missing. The dungeon route opens embodied on
 both sides, stance is published and the client consumes it, one hand composes with the
-other, and `lab verify --embodied` holds run/re-run/replay agreement over 250 seeds.
+other, and `lab verify` holds run/re-run/replay agreement over 250 seeds.
 
 What is missing is that the embodied AI does not fight. Measured on 2026-08-18,
 `cargo run --release -p lab -- embodied --seeds 200 --mirrored`:
@@ -89,7 +89,7 @@ value is inside it. Reversing those two is the one mistake this plan exists to p
 | session | lands | depends on |
 |---|---|---|
 | [01](fight-01-the-dead-columns-and-the-dead-code.md) | the state stream loses the columns no jointed body writes; thirty dead-code warnings go with them | none |
-| [02](fight-02-the-blow-that-is-aimed.md) | `EmbodiedPolicyKind::Tactical` -- the strike planner ported to the torso frame | none; 01 is independent |
+| [02](fight-02-the-blow-that-is-aimed.md) | **landed 2026-08-18** -- `EmbodiedPolicyKind::Tactical`, the strike planner ported to the torso frame; beats neutral, loses to the script, [measured](../performance/embodied-tactical-policy.md) | none; 01 is independent |
 | [03](fight-03-the-guard-that-watches.md) | the guard reads the incoming weapon instead of a clock | 02 |
 | [04](fight-04-the-fight-that-ends.md) | footwork and measure; the preregistered acceptance corpus; the ground term retired | 03 |
 | [05](fight-05-the-articulated-model-is-deleted.md) | `CombatModel::Articulated` and everything typed to it | 04 |
@@ -208,7 +208,7 @@ cargo test
 cargo test -p sim --features cartesian-recoil
 cargo test -p lab --features cartesian-recoil
 cargo run --release -p lab -- embodied --corpus-digest
-cargo run --release -p lab -- verify --embodied --seeds 200
+cargo run --release -p lab -- verify --seeds 200
 cargo build --release --target wasm32-unknown-unknown -p web
 node --test tools/wasm_check.js
 node tools/check_docs.js

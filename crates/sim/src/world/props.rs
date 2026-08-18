@@ -1,15 +1,20 @@
 //! Doors and dungeon props.
 //!
-//! **Props are no longer destructible, and that is a gap rather than a design.**
-//! Breaking one was `resolve_dungeon_prop_swings`, which swept the *legacy*
-//! blade -- `limb[i].swing`, `blade(i)`, `blade_was[i]` -- against a prop
-//! circle, and no other path in the repository damages a prop. It went with the
-//! legacy model in embodied session 10. What survives works on any body:
-//! barrels and pottery push a body out of them through [`World::settle`], and
-//! webs and water slow one through [`World::dungeon_slow_at`]. So a barrel is
-//! still an obstacle and a web is still difficult ground; neither can be
-//! cleared. Restoring that means the contact solver seeing a prop as a
-//! collider, which is a mechanic and not a repair.
+//! **Props are no longer destructible and difficult ground no longer slows
+//! anybody. Both are gaps rather than designs.** Breaking one was
+//! `resolve_dungeon_prop_swings`, which swept the *legacy* blade --
+//! `limb[i].swing`, `blade(i)`, `blade_was[i]` -- against a prop circle, and no
+//! other path in the repository damages a prop; it went with the legacy model in
+//! embodied session 10. Slowing was `World::dungeon_slow_at`, a factor of 0.65
+//! through a web and 0.80 through water, and **the only caller it ever had was
+//! `apply_movement`**: `apply_articulated_movement` never asked it anything, so
+//! from the tick a body became jointed a web slowed nothing. It went with that
+//! phase and the legacy command column the phase read.
+//!
+//! What survives works on any body: barrels and pottery push a body out of them
+//! through [`World::settle`]. A barrel is still an obstacle; a web is scenery.
+//! Restoring either means the contact solver seeing a prop as a collider, which
+//! is a mechanic and not a repair.
 //!
 //! A door is pressure, not a switch: a body leaning on one accumulates against
 //! its resistance and the door opens when the accumulation wins. That is why
@@ -110,21 +115,19 @@ impl World {
                 // because anything narrower plugs, and opening it a tile at a
                 // time would produce exactly the gap that argument rules out.
                 //
-                // Nothing invalidates the route fields here and nothing needs
-                // to. `refresh_nav`'s key hashes `dungeon.fingerprint()`, which
-                // `open_door` has just moved, so every field rebuilds on the
-                // refresh at the bottom of this tick. A second mechanism would
-                // be a second thing to keep in step.
+                // **This used to say that nothing invalidates the route fields
+                // here and nothing needs to**, because `refresh_nav`'s key
+                // hashed `dungeon.fingerprint()`, which `open_door` moves. There
+                // are no route fields: the flow field was deleted for having no
+                // reader, and `World::door_shut` -- whose one caller was the
+                // field's `nav_arm` -- went with it. What `open_door` still
+                // moves is the fingerprint every *other* derivation is keyed on,
+                // which is why it is one call and not two.
                 self.dungeon.open_door(self.doors[k].door.cells());
             }
         }
 
         self.door_pushed = pushed;
-    }
-
-    /// Whether any door on this level is still shut. See [`World::nav_arm`].
-    pub(super) fn door_shut(&self) -> bool {
-        self.doors.iter().any(|d| !d.open)
     }
 }
 
@@ -224,25 +227,25 @@ mod tests {
     fn a_door_opens_inside_the_tick_loop() {
         // The three tests above drive `press_doors` directly, which is the only
         // way to hold a body against a jamb for exactly `DOOR_TICKS`. This one
-        // is the wiring: a walk into a door, through `World::step`, opens it and
-        // the route field on the far side notices.
+        // is the wiring: a walk into a door, through `World::step`, opens it.
+        //
+        // **It used to steer by `World::nav_step` and assert that the Skitterer
+        // on the far side gained a route on the same tick**, which was the one
+        // test in the repository that exercised the flow field's rebuild-on-a-
+        // moved-fingerprint. The field is gone; the wiring claim is not, and it
+        // is the half that was about doors. Leaning east is what the route
+        // answered here anyway -- the hero starts at tile (2, 2) and the doorway
+        // is at (4, 2) -- so the fixture drives the same walk with one fewer
+        // subsystem in it.
         let mut w = penned_world(Body::Skitterer);
         let hero = w.alive_ids(Faction::Heroes)[0];
         let i = hero.index as usize;
-        w.set_objective(Faction::Heroes, Objective::Order);
-        w.set_order(Faction::Heroes, Order::Goto(at_tile(6, 2)));
         for tick in 0..240 {
-            let (dir, _) = w.nav_step(i);
-            lean(&mut w, i, if dir.is_zero() { EAST } else { dir });
+            lean(&mut w, i, EAST);
             w.step();
             if w.doors[0].open {
                 assert!(tick >= rules::DOOR_TICKS as u32, "opened in {tick} ticks");
                 assert!(!w.dungeon.solid(4, 2));
-                // The route field is keyed on the floor plan's digest, so the
-                // rebuild is already done by the bottom of the tick that opened
-                // it. Nothing invalidates it by hand and nothing should.
-                let m = w.alive_ids(Faction::Monsters)[0].index as usize;
-                assert!(w.nav_step(m).1 < Fx::MAX, "the Skitterer is still penned");
                 return;
             }
         }

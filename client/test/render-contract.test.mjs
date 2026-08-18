@@ -2565,8 +2565,8 @@ test("the_render_loop_feeds_the_review_camera_the_hero_and_only_the_hero", async
   }
   renderer.stop();
   assert.ok(followCalls.length > 0, "the render loop never fed the review camera");
-  // The faction-0 unit is the hero AGENTS.md guarantees exactly one of; the
-  // monster's position must never reach the camera.
+  // The faction-0 unit is the hero `crates/web`'s `init` spawns exactly one of;
+  // the monster's position must never reach the camera.
   assert.deepEqual(followCalls[0], [2.25, 0.5]);
   assert.ok(followCalls.every(([x, z]) => x === 2.25 && z === 0.5));
   renderer.dispose();

@@ -208,8 +208,11 @@ pub fn sqrt_product(a: Fx, b: Fx) -> Fx {
 /// **Truncates toward zero**, unlike [`Fx`]'s `Mul`, which floors. That is
 /// deliberate: truncation is odd-symmetric, so a mirrored pair of fighters
 /// exchanging mirrored impulses gets mirrored answers instead of drifting apart
-/// by a raw unit on whichever side happens to be negative. `Hand::track` makes
-/// the same choice for the same reason.
+/// by a raw unit on whichever side happens to be negative. [`Vec2`]'s
+/// `Mul<Fx>` makes the same choice for the same reason, and its doc comment
+/// carries the measurement that found it.
+///
+/// [`Vec2`]: crate::Vec2
 ///
 /// `c == 0` saturates in the sign of the numerator rather than panicking; the
 /// sim must be total. Callers that can divide by zero must guard.

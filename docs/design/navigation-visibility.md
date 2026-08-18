@@ -2,7 +2,7 @@
 
 **Purpose:** Explain why the floor, routing, sight, orders, and browser route have their current shapes.
 **Status:** current
-**Canonical source:** [`Dungeon`](../../crates/sim/src/dungeon.rs#L159) and [`World::refresh_nav`](../../crates/sim/src/world/navigation.rs#L62). The two policy order adapters this header used to name were `utility.rs` and `duelist.rs`, deleted with the legacy seam in embodied session 10 -- **they were the only readers the flow field ever had**, which is why this document now records the order channel as built and unconsumed rather than as a live input
+**Canonical source:** [`Dungeon`](../../crates/sim/src/dungeon.rs#L159) and [`World::set_order`](../../crates/sim/src/world/mod.rs). The two policy order adapters this header used to name were `utility.rs` and `duelist.rs`, deleted with the legacy seam in embodied session 10 -- **they were the only readers the flow field ever had**. It named `World::refresh_nav` beside `Dungeon` until 2026-08-18, when the flow field was deleted for that reason: a channel built and unconsumed for a session is a note, and one built and unconsumed for two is a cost
 **Update when:** Floor representation, collision, routing, visibility, order semantics, or route ownership changes.
 
 ## The floor plan
@@ -57,19 +57,41 @@ adding elevation to the engine moved no golden hash, and it is the same property
 keeps every legacy fixture in the registry unreachable from the sculpted embodied
 corpus.
 
-## Routing is authoritative information
+## Routing was authoritative information, and there is no routing
+
+**The flow field was deleted on 2026-08-18.** `World::refresh_nav` rebuilt it in the
+epilogue of every tick of every fight, and `nav_arm`, `reachable_point`,
+`nav_goal_point` and `nav_step` were its readers. All five had zero production callers by
+then: the observation columns a body read a heading out of (`nav_dir`, `nav_distance`)
+went with the legacy `Observation`, the two policy adapters went with the legacy seam, and
+the browser's `set_goto`, `set_focus` and `clear_order` exports had already been removed —
+so nothing left in the repository could ask for a route, while a breadth-first search over
+the whole floor ran per faction per tick. It was not hashed, so removing it moved no pin.
+
+The design below is recorded rather than described, because it is what a session
+restoring the channel should start from and none of it was found to be wrong.
 
 The world owns the floor, so it owns the answer to “how do I reach that point?” An
-observation publishes `nav_dir` and `nav_distance`; the policy still decides whether
-to follow them. The field is a four-neighbor, multi-source BFS rebuilt when its goal
-changes. Eight neighbors at equal cost would make a diagonal falsely cost one tile;
-the straight-line shortcut supplies useful diagonals without a weighted queue.
+observation published `nav_dir` and `nav_distance`; the policy still decided whether
+to follow them. The field was a four-neighbor, multi-source BFS rebuilt when its goal
+changed. Eight neighbors at equal cost would make a diagonal falsely cost one tile;
+the straight-line shortcut supplied useful diagonals without a weighted queue. Two arms
+per faction, indexed by whether the body opens doors, because one field cannot answer for
+a faction holding both a Brute that must walk around a shut door and a Fighter that walks
+through it — and the second arm was built only while something was still shut *and* that
+side held a living body that could open it, which is 14% of a tick on the carved bench.
 
 `Objective` is an input channel like `Order`: it is supplied from outside, hashed,
 and recorded in replay. It defaults to `None`, so a scenario that did not request
-routing does not silently gain it. Monsters may route toward known heroes within a
+routing did not silently gain it. Monsters could route toward known heroes within a
 bounded route distance; without the bound a whole floor converges into one opening
 brawl.
+
+**What a restoration owes, in order.** A navigation column on
+`ArticulatedObservation` — a mechanic, since somebody has to decide what a jointed body
+*knows* about a route it has not walked. Then a route source to fill it. Then a policy
+that steers on it. `World::set_order` carries the same list at the door a host actually
+calls.
 
 ## Sight and fog
 
@@ -93,9 +115,13 @@ open visible neighbor, preventing light from leaking through a wall according to
 direction. See [browser runtime](../architecture/browser-runtime.md#visibility-authority)
 for publication ownership.
 
-## Orders are a leash, not remote control
+## Orders were a leash, not remote control
 
-A live `Order::Goto` or `Order::Focus` controls the feet while hands and intent remain
+**Past tense throughout this section and the two below it**, for the reason the routing
+section above gives: nothing reads an order. What follows is the design that was reached
+and measured, kept because a restoration should not have to rediscover it.
+
+A live `Order::Goto` or `Order::Focus` controlled the feet while hands and intent remained
 policy-owned. The first implementation only consulted orders while marching with no
 contact, which made clicks ineffective during a fight. The next replaced combat
 footwork completely and used a one-tick arrival band; a shove re-armed the order and
@@ -187,9 +213,11 @@ when no direction remains, `Command::HOLD` preserves both position and facing.
 
 The fixed `ROUTE_MAX` of 24 covers roughly 29 world units at the page's 1.2-unit
 sampling interval. Scalar append/clear calls avoid a second detachable wasm-memory
-view. Beginning a leg changes authoritative state because `World::set_order` rebuilds
-the flow field and orders enter `state_hash`; the queue itself remains browser-host
-state.
+view. Beginning a leg changed authoritative state because orders enter `state_hash` — and,
+until the flow field was deleted, because `World::set_order` rebuilt it. The rebuild is
+gone; the hash write is not, so setting an order still moves a digest and still changes
+nothing anybody can observe, which is the whole of the finding recorded in
+`crates/sim/tests/determinism.rs`. The queue itself remained browser-host state.
 
 Five host transitions discard a queued path: a plain `set_goto`, `set_focus`,
 `clear_order`, hero replacement, and descent. Focus is the dangerous one to omit:

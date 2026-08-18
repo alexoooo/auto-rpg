@@ -146,20 +146,50 @@ impl World {
             objective.hash_into(&mut h);
         }
         h.write_u32(self.alive.len() as u32);
+        // **Four columns below read as legacy and are not.** The session that
+        // deleted `hp`, `max_hp` and the submitted `command` word from this loop
+        // owes the next reader the sentence saying why it stopped where it did,
+        // because a careless second pass at "delete the legacy columns" would
+        // take these and weaken the fingerprint.
+        //
+        // `facing` is live state. [`World::initialize_articulated_pose`] seeds
+        // both the body yaw and the squared stance from it, and
+        // [`World::apply_articulated_movement`] rewrites it on every tick a body
+        // is travelling: it is where the feet are pointing, and it is an input
+        // to the pose the fight is decided on.
+        //
+        // `loadout` and `slot` are read together by [`World::action_of`], which
+        // resolves which action a hand is using; the observation and the
+        // combat-spec lookup both go through that answer. A run in which a
+        // fighter swapped and one in which it did not must not fingerprint
+        // alike -- the same argument the paragraph below already makes for them,
+        // and it survives unchanged.
+        //
+        // `limb` is the only one of the four that is merely *constant* rather
+        // than live: a spawn-time `Hand` that nothing evolves, published on
+        // `UnitView` and read in the browser as `view.limb.swing`. Removing a
+        // column that is constant rather than absent buys one word of hash and
+        // costs a public type change, which is a later session's trade and not
+        // this one's -- this one already moves two pins.
         for i in 0..self.alive.len() {
             h.write_bool(self.alive[i]);
             h.write_u32(self.generation[i]);
             h.write_i32(self.pos[i].x.raw());
             h.write_i32(self.pos[i].y.raw());
             h.write_u16(self.facing[i].raw());
-            h.write_i32(self.hp[i].raw());
             h.write_i32(self.vel[i].x.raw());
             h.write_i32(self.vel[i].y.raw());
-            // Every field of every hand, `phase` included. It looks like a
-            // rounding residue and it is real state: two worlds differing only
-            // in phase produce different angles one tick later, and a replay
-            // that did not fingerprint it would diverge with nothing to point
-            // at.
+            // Every field of every hand, `phase` included. **That sentence used
+            // to continue "it looks like a rounding residue and it is real
+            // state: two worlds differing only in phase produce different angles
+            // one tick later", and that half is no longer true.** The phase
+            // machine that made it true -- `Hand::drive` and the four phases
+            // under it -- was deleted for having no production caller, so a hand
+            // now holds whatever `Hand::resting` gave it at spawn and holds it
+            // for the whole fight. The column is still written whole because it
+            // is still *published* whole, on `UnitView`, and a fingerprint that
+            // covered only the fields a reader happens to use today is a
+            // fingerprint that goes quiet the day one more is drawn.
             self.limb[i].hash_into(&mut h);
             // The loadout and the slot are state the sim acts on, and the page
             // can change both -- so a run in which a fighter swapped and one in
@@ -175,49 +205,35 @@ impl World {
             // so a run in which the page raised a fighter's vitality and one in
             // which it did not must not fingerprint alike.
             //
-            // `radius`, `mass` and `max_hp` are written even though all three
-            // are derived -- the first two from `kind` and the third from
-            // `stats` -- because they are *cached* derivations sitting in their
-            // own columns, and a mutator that updated one and forgot another is
-            // precisely the half-change `UnitSpec::set_body` exists to warn
-            // about. A fingerprint that cannot see the halves apart cannot catch
-            // it.
+            // `radius` and `mass` are written even though both are derived
+            // from `kind`, because they are *cached* derivations sitting in
+            // their own columns, and a mutator that updated one and forgot the
+            // other is precisely the half-change `UnitSpec::set_body` exists to
+            // warn about. A fingerprint that cannot see the halves apart cannot
+            // catch it. `max_hp` was the third of that list and is gone: it
+            // cached `Stats::max_hp` for a health domain that no surviving body
+            // has, so it was a cache of a number nothing read.
             self.stats[i].hash_into(&mut h);
             self.kind[i].hash_into(&mut h);
             h.write_i32(self.radius[i].raw());
             h.write_i32(self.mass[i].raw());
-            h.write_i32(self.max_hp[i].raw());
             h.write_u32(self.next_decision[i]);
             h.write_u32(self.last_combat[i]);
             h.write_i32(self.regen_left[i].raw());
             h.write_i32(self.damage_dealt[i].raw());
-            self.command[i].hash_into(&mut h);
         }
-        // Arrows. State the sim acts on like any other: two worlds identical but
-        // for one having a shot in the air diverge the moment it arrives.
-        //
-        // Written **unconditionally**, including the length when there are no
-        // arrows anywhere. Hashing the block only when it is non-empty would
-        // have spared a golden re-record and left a fingerprint that cannot see
-        // a broken projectile column until something is already flying -- which
-        // is precisely when a replay is hardest to reason about.
-        //
-        // `shot_free` is not hashed, following `World::free`'s precedent: the
-        // free list is reachable-state bookkeeping, and any two worlds with the
-        // same history have the same one.
-        h.write_u32(self.shot_alive.len() as u32);
-        for k in 0..self.shot_alive.len() {
-            h.write_bool(self.shot_alive[k]);
-            h.write_i32(self.shot_pos[k].x.raw());
-            h.write_i32(self.shot_pos[k].y.raw());
-            h.write_i32(self.shot_vel[k].x.raw());
-            h.write_i32(self.shot_vel[k].y.raw());
-            h.write_i32(self.shot_range[k].raw());
-            h.write_i32(self.shot_mass[k].raw());
-            h.write_i32(self.shot_power[k].raw());
-            h.write_u8(self.shot_faction[k].index() as u8);
-            self.shot_owner[k].hash_into(&mut h);
-        }
+        // **The arrows used to be hashed here, and the block wrote a length word
+        // and then nothing.** Its argument was a good one and it outlived its
+        // subject: the shot table was fingerprinted *unconditionally*, length
+        // included when no arrow existed anywhere, precisely so that a broken
+        // projectile column would be caught before something was already flying
+        // rather than after. What retired it is that no surviving body can nock
+        // an arrow into that table -- an articulated bow looses into
+        // `articulated_projectile_*`, which
+        // [`World::articulated_state_digest`] hashes on the same terms and with
+        // the same length-first argument. The block below the entity loop is
+        // therefore this one's replacement rather than its neighbour, and it
+        // sits in the digest that owns the model instead of in the shared core.
         h.finish()
     }
 

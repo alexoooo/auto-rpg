@@ -318,7 +318,7 @@ pub struct ActionSpec {
     /// Multiplier on [`crate::Stats::move_speed`] while this is held. [`Fx::ONE`]
     /// for everything that is not [`ActionKind::Run`]; the column exists now so
     /// that landing `Run` is a table edit rather than a change to
-    /// `World::apply_movement`.
+    /// `World::apply_articulated_movement`.
     pub move_bonus: Fx,
 }
 

@@ -994,6 +994,11 @@ empty tick 24, and three contact ticks make exactly 591 bytes. The required dige
 `0x1adfa9e01e36edf9`. The test constructs all expected bytes independently and
 compares fields before hashing.
 
+The writer is `#[cfg(test)]`. Nothing outside that test has ever read these bytes --
+no wasm export answers them and no registry row but this corpus's own names them -- so
+since 2026-08-18 it is built only when the suite is. The grammar above is still the
+contract; what changed is that a serializer with no consumer stopped shipping.
+
 ## Behavioral corpus V2
 
 The behavioral proof calls the production collector/resolver with test-only

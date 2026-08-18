@@ -5202,8 +5202,9 @@ mod tests {
             .raw().max(0) as u128;
         let weight = normal_weight.checked_mul(closing_weight).unwrap();
         assert!(weight > 0, "retained fact lost its physical allocation weight");
-        let allocated = resolution::allocate_weighted(
-            if allocate_response { dissipated } else { 0 }, &[weight]);
+        let mut allocated = Vec::new();
+        resolution::allocate_weighted_into(
+            if allocate_response { dissipated } else { 0 }, &[weight], &mut allocated).unwrap();
         let channel = resolution::WeaponBodyChannel {
             weapon_axis: (previous_tip - previous_hilt).normalized_or_zero(),
             weapon_relative_velocity: weapon.velocity - body.velocity,

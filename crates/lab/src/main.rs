@@ -81,8 +81,8 @@ fn usage() {
         "auto-rpg experiment lab
 
   verify  --seeds N --threads N --verbose
-          --slope --policy neutral|scripted|scripted-level
-          --hero-policy|--monster-policy neutral|scripted|scripted-level
+          --slope --policy neutral|scripted|scripted-level|tactical
+          --hero-policy|--monster-policy neutral|scripted|scripted-level|tactical
           Runs every seed twice and replays the recording, and checks all three
           agree bit-exactly. This is the guarantee the whole architecture rests
           on. --verbose prints every seed's digest, which is what you diff
@@ -94,8 +94,8 @@ fn usage() {
           replay corpus in this repository carries into a state hash.
 
   embodied --seeds N --threads N --mirrored --seed-zero-only --slope
-           --policy neutral|scripted|scripted-level
-           --hero-policy|--monster-policy neutral|scripted|scripted-level
+           --policy neutral|scripted|scripted-level|tactical
+           --hero-policy|--monster-policy neutral|scripted|scripted-level|tactical
            --corpus-digest --high-ground
           The corpus measurement under the embodied model. It runs
           `embodied-duel-v1` unless --slope names the sculpted fixture, and
@@ -1211,6 +1211,7 @@ fn embodied_name(kind: EmbodiedPolicyKind) -> &'static str {
         EmbodiedPolicyKind::Neutral => "the neutral control",
         EmbodiedPolicyKind::Scripted => "the embodied script",
         EmbodiedPolicyKind::ScriptedLevel => "the embodied script with the ground term off (control)",
+        EmbodiedPolicyKind::Tactical => "the tactical embodied policy",
     }
 }
 
@@ -1707,13 +1708,29 @@ const EMBODIED_CORPUS_TICKS: u32 = 600;
 /// skip it. **The fix is a second pin rather than a `cfg` that skips the test**,
 /// because skipping would leave the feature build with no corpus check at all,
 /// which is the state that let this through.
+///
+/// **Both values moved once, on the day the legacy columns were deleted, and
+/// the move is a grammar move rather than a fight move.** Every cell of this
+/// fold is a `World::state_digest`, and `articulated_state_digest` folds
+/// `legacy_core_hash` into each one; that function lost `hp`, `max_hp`, the
+/// submitted `command` word and the whole nine-column projectile block, so this
+/// number could not have stayed still. **The rule this row was missing, worth
+/// stating once where the next reader will find it: any pin taken over
+/// `World::state_digest` folds `legacy_core_hash`, and there are five of them.**
+///
+/// The evidence that the fights are where they were is not this number, which
+/// only agrees with itself. `lab embodied --seeds 400 --mirrored` was captured
+/// before and after on both fixtures, and every reported line -- outcomes,
+/// clock, sides, fights, health, contacts, blocked, guard, blows and commands --
+/// is byte-identical; only the digest column moved. Previously
+/// `0x14882fb0e0f851e5` by default and `0x09ca917b5b5283cf` under the feature.
 #[cfg(not(feature = "cartesian-recoil"))]
-const EMBODIED_CORPUS_DIGEST: u64 = 0x1488_2fb0_e0f8_51e5;
+const EMBODIED_CORPUS_DIGEST: u64 = 0x00e0_8317_d7a3_1c7c;
 
 /// The same fold over the same *fixtures* under the other solver; see above for
 /// why "the same corpus" would be the wrong phrase for it.
 #[cfg(feature = "cartesian-recoil")]
-const EMBODIED_CORPUS_DIGEST: u64 = 0x09ca_917b_5b52_83cf;
+const EMBODIED_CORPUS_DIGEST: u64 = 0x5f97_2ba9_7577_5ee2;
 
 /// The four arenas of the pin corpus, in the order the fold writes them.
 ///

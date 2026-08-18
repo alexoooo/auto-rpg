@@ -1399,6 +1399,17 @@ pub fn contact_bounds(high_water: usize) -> Result<ContactBounds, ContactCapacit
 /// Collect the earliest fact per contacting pair. World owns construction and
 /// capacity; this function owns only the hostile matrix and its full-identity
 /// ordering.
+///
+/// **A harness over [`scan_candidates_into`], gated rather than deleted.** It
+/// holds no rule of its own -- it allocates a scratch, calls the shipped scan,
+/// and projects the `fact` out of each candidate -- so a test that uses it is
+/// exercising production code and not a second implementation. Seventeen call
+/// sites across this module and `world/contact_phase.rs` read it, and inlining
+/// three lines of scratch bookkeeping into each of them would add no coverage
+/// and cost every one of those tests its subject. What it must not do is ship,
+/// because a `Vec` per call is the allocation the `_into` shape exists to
+/// refuse.
+#[cfg(test)]
 pub fn collect_contacts(colliders: &[ContactCollider]) -> Vec<ContactFact> {
     let mut scratch = ContactCollectionScratch::default();
     scan_candidates_into(colliders, &mut scratch);

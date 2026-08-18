@@ -1,16 +1,13 @@
-use crate::command::{Command, Objective, Order, SubmittedCommand};
+use crate::command::{Objective, Order, SubmittedCommand};
 use crate::entity::{EntityId, Faction};
 use crate::scenario::Scenario;
 use crate::world::World;
 
 /// One decision, as it was made.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct CommandRecord {
-    pub tick: u32,
-    pub entity: EntityId,
-    pub command: Command,
-}
-
+///
+/// There were two of these types and a `CommandRecord` beside this one carried
+/// the legacy grammar. Nothing could write it once that grammar and `submit`
+/// went, and it is gone with the vector that held it.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct SubmittedCommandRecord {
     pub tick: u32,
@@ -70,9 +67,10 @@ pub struct Replay {
     /// How many ticks the original run lasted. Playback stops here even if the
     /// last decisions came earlier.
     pub ticks: u32,
-    pub entries: Vec<CommandRecord>,
-    /// Versioned submitted commands. Exactly one command vector is active for
-    /// a persisted replay, selected by the scenario's combat model.
+    /// Versioned submitted commands. There were two vectors here and a rule
+    /// that exactly one of them was active for a persisted replay, selected by
+    /// the scenario's combat model; the legacy one is gone, so what was a rule
+    /// something had to enforce is now a fact about the only vector there is.
     pub submitted_entries: Vec<SubmittedCommandRecord>,
     /// Player orders, in the order they were issued.
     pub orders: Vec<OrderRecord>,
@@ -89,19 +87,10 @@ impl Replay {
             scenario: scenario.clone(),
             scenario_fingerprint: scenario.fingerprint(),
             ticks: 0,
-            entries: Vec::new(),
             submitted_entries: Vec::new(),
             orders: Vec::new(),
             objectives: Vec::new(),
         }
-    }
-
-    pub fn record(&mut self, tick: u32, entity: EntityId, command: Command) {
-        self.entries.push(CommandRecord {
-            tick,
-            entity,
-            command,
-        });
     }
 
     pub fn record_submitted(&mut self, tick: u32, entity: EntityId, command: SubmittedCommand) {
@@ -134,11 +123,11 @@ impl Replay {
     }
 
     pub fn len(&self) -> usize {
-        self.entries.len() + self.submitted_entries.len()
+        self.submitted_entries.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.entries.is_empty() && self.submitted_entries.is_empty()
+        self.submitted_entries.is_empty()
     }
 
     /// Re-runs the recorded decisions and returns the final world.

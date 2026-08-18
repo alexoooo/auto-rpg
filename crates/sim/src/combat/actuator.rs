@@ -126,7 +126,7 @@ pub const ARM_BEARING_ACCEL_RAW: i32 = 364;
 /// number with no sweep behind it pretending to be a measurement.
 ///
 /// **It is a rate bound and deliberately not a bill.** The work an arm does
-/// about its own axis is not modelled -- `bill_fatigue` charges the hand's
+/// about its own axis is not modelled -- `bill_fatigue_for_grip` charges the hand's
 /// travel and the bearing's sweep, both of which move the hand -- so charging
 /// the plane to the fatigue or effort budget would be inventing a cost with
 /// nothing behind it. A plane change is free and slow, which is the pair of
@@ -643,11 +643,16 @@ pub(crate) fn integrate_arm_with_recoil_for_grip(
     step
 }
 
-pub(crate) fn bill_fatigue(state: &mut ArmState, inertia: Fx, effort: Fx, step: ArmStep) {
-    bill_fatigue_with_com_delta(state, inertia, effort, step, Vec3::ZERO, Fx::ONE, Grip::OneHanded);
-}
-
-/// [`bill_fatigue`] for an arm that shares its item's work with another.
+/// Charge one tick of arm work against `state`'s fatigue, for an arm whose
+/// centre of mass did not move relative to its hand.
+///
+/// **The one-argument `bill_fatigue` that stood here is gone.** It was this call
+/// with `Grip::OneHanded` written in, and the only caller it had left was the
+/// test below -- which was comparing it against
+/// `bill_fatigue_with_com_delta(.., Vec3::ZERO, ..)`, an expression it had
+/// itself become. That test now drives this function, which is what
+/// `world/articulated.rs` calls, so the byte-identity claim is about a path
+/// something ships.
 pub(crate) fn bill_fatigue_for_grip(
     state: &mut ArmState, inertia: Fx, effort: Fx, step: ArmStep, grip: Grip,
 ) {
@@ -769,12 +774,12 @@ mod tests {
             delta_height_speed: Fx::from_raw(17), delta_reach_speed: Fx::from_raw(9),
             idle_at_entry: false };
         let inertia = Fx::from_ratio(3, 4); let effort = Fx::from_ratio(7, 8);
-        bill_fatigue(&mut ordinary, inertia, effort, step);
+        bill_fatigue_for_grip(&mut ordinary, inertia, effort, step, Grip::OneHanded);
         bill_fatigue_with_com_delta(&mut extended, inertia, effort, step, Vec3::ZERO, Fx::ONE,
             Grip::OneHanded);
         assert_eq!(extended, ordinary);
         let mut ordinary_idle = ordinary; let mut extended_idle = ordinary;
-        bill_fatigue(&mut ordinary_idle, inertia, effort, idle_step());
+        bill_fatigue_for_grip(&mut ordinary_idle, inertia, effort, idle_step(), Grip::OneHanded);
         bill_fatigue_with_com_delta(&mut extended_idle, inertia, effort, idle_step(), Vec3::ZERO,
             Fx::ONE, Grip::OneHanded);
         assert_eq!(extended_idle, ordinary_idle);

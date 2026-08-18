@@ -530,8 +530,9 @@ impl Dungeon {
     /// in which the field is wrong.
     ///
     /// Writes in place rather than rebuilding through [`Dungeon::from_tiles`],
-    /// which would allocate. See `World::nav_queue` for why allocation inside a
-    /// tick is a thing this crate avoids.
+    /// which would allocate. `World`'s contact runtime reserves its scratch once
+    /// against the allocated-slot high water for the same reason: allocation
+    /// inside a tick is a thing this crate avoids.
     ///
     /// `carved` is deliberately **not** recomputed. A level that had a door in
     /// it has masonry by construction, so on anything the generator produces the
@@ -740,8 +741,13 @@ impl Dungeon {
     ///
     /// **Four neighbours, not eight.** Eight at unit cost is simply wrong -- a
     /// diagonal is 1.414 -- and correcting it needs a weighted queue, which is a
-    /// different algorithm for a gain the straight-line shortcut in
-    /// `World::nav_step` already delivers wherever it matters.
+    /// different algorithm for a gain the straight-line shortcut in the route
+    /// reader already delivered wherever it mattered. **That reader is gone** --
+    /// `World::nav_step` went with the flow field, and with it the last caller
+    /// outside this module's own tests. The search is kept because the floor
+    /// plan is what owns the question and because restoring an order channel
+    /// restores its first consumer; see
+    /// `docs/design/navigation-visibility.md`.
     pub fn distances_for(
         &self,
         seeds: &[u32],
@@ -1401,7 +1407,8 @@ const LAYOUT_STREAM: u64 = 1 << 62;
 /// A fixed array rather than a `Vec`, so a level is not a hundred small
 /// allocations -- this crate is compiled to wasm and driven from a page holding
 /// typed-array views into linear memory, where an allocation that grows memory
-/// detaches every one of them (see `World::nav_queue`).
+/// detaches every one of them. `World`'s contact scratch is reserved once for
+/// the same reason.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Door {
     pub cells: [u32; CORRIDOR as usize],
@@ -3559,5 +3566,43 @@ mod tests {
             Vec2::from_ints(23, 15),
             Fx::from_ratio(70, 100)
         ));
+    }
+
+    /// **Moved here from `world/navigation.rs` when the flow field was
+    /// deleted.** It was written against `World`'s route rebuild and never
+    /// needed one: every line of it is about [`Dungeon::distances`], which is
+    /// the search, and this is that function's only caller.
+    #[test]
+    fn a_distance_field_reaches_every_open_tile_and_only_those() {
+        let d = parse(&[
+            "#######", //
+            "#.....#",
+            "#.###.#",
+            "#.....#",
+            "#######",
+        ]);
+        let mut dist = Vec::new();
+        let mut queue = Vec::new();
+        let seed = d.cell(1, 1).unwrap();
+        d.distances(&[seed], &mut dist, &mut queue);
+
+        let mut reached = 0;
+        for ty in 0..d.rows() as i32 {
+            for tx in 0..d.cols() as i32 {
+                let at = dist[d.cell(tx, ty).unwrap() as usize];
+                if d.solid(tx, ty) {
+                    assert_eq!(at, u16::MAX, "masonry at ({tx}, {ty}) got a distance");
+                } else {
+                    assert_ne!(at, u16::MAX, "open ({tx}, {ty}) was never reached");
+                    reached += 1;
+                }
+            }
+        }
+        assert_eq!(reached, d.open_count());
+        assert_eq!(dist[seed as usize], 0);
+        // Round the ring the long way or the short way, the far corner is five
+        // tiles either side of the block.
+        assert_eq!(dist[d.cell(5, 1).unwrap() as usize], 4);
+        assert_eq!(dist[d.cell(1, 3).unwrap() as usize], 2);
     }
 }

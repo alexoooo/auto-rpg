@@ -435,11 +435,11 @@ mod tests {
         };
         let result = run_articulated(&scenario, 21, Recorder::default(), &config);
         let replay = result.replay.as_ref().expect("recording was requested");
-        assert!(!replay.entries.is_empty() || !replay.submitted_entries.is_empty());
-        // The articulated seam writes the versioned vector and never the legacy
-        // one, which is the half of "exactly one command vector is active" that
-        // the recorder is responsible for.
-        assert!(replay.entries.is_empty(), "the legacy vector must stay empty");
+        // This used to assert *which* of two command vectors the articulated
+        // seam wrote to, which was the recorder's half of "exactly one command
+        // vector is active". The legacy vector is gone, so the half that is
+        // still the recorder's is that it recorded at all.
+        assert!(!replay.submitted_entries.is_empty(), "the recorder wrote nothing");
         let played = replay.play();
         assert_eq!(played.state_hash(), result.state_hash);
         assert_eq!(played.tick(), result.ticks);

@@ -89,6 +89,7 @@ mod articulated_script;
 mod articulated_tactics;
 mod composition;
 mod embodied_script;
+mod embodied_tactics;
 mod neutral;
 mod runner;
 
@@ -112,6 +113,9 @@ pub use embodied_script::{
     neutral_embodied_command, scripted_embodied_command, scripted_embodied_command_with,
     EmbodiedPhase, EmbodiedScriptConfig, GroundSense, NeutralEmbodiedPolicy,
     ScriptedEmbodiedPolicy, EMBODIED_CYCLE_TICKS, EMBODIED_HEIGHT_TICKS, EMBODIED_PHASE_TICKS,
+};
+pub use embodied_tactics::{
+    into_torso, into_torso_frame, TacticalEmbodiedPolicy, TACTICAL_EMBODIED_POLICY_CODE,
 };
 pub use neutral::{neutral_articulated_command, NeutralArticulatedPolicy};
 pub use runner::{run_articulated, RunConfig, RunResult};
@@ -475,13 +479,23 @@ pub enum EmbodiedPolicyKind {
     ///
     /// [`Scripted`]: EmbodiedPolicyKind::Scripted
     ScriptedLevel,
+    /// The strike planner behind the embodied seam: it names a region, prices
+    /// the sweep that would cross it, and spends a commit on the best one.
+    ///
+    /// The first embodied policy that *aims*. The other three answer the
+    /// question "what should a body be doing" without ever asking where the
+    /// opponent is soft; this one picks a `BodyPart` and buys a sweep that
+    /// crosses it. What it does not know is that the body it drives has hips --
+    /// see [`TacticalEmbodiedPolicy`].
+    Tactical,
 }
 
 impl EmbodiedPolicyKind {
-    pub const ALL: [EmbodiedPolicyKind; 3] = [
+    pub const ALL: [EmbodiedPolicyKind; 4] = [
         EmbodiedPolicyKind::Neutral,
         EmbodiedPolicyKind::Scripted,
         EmbodiedPolicyKind::ScriptedLevel,
+        EmbodiedPolicyKind::Tactical,
     ];
 
     pub const fn code(self) -> u32 {
@@ -489,6 +503,7 @@ impl EmbodiedPolicyKind {
             EmbodiedPolicyKind::Neutral => 0,
             EmbodiedPolicyKind::Scripted => 1,
             EmbodiedPolicyKind::ScriptedLevel => 2,
+            EmbodiedPolicyKind::Tactical => TACTICAL_EMBODIED_POLICY_CODE,
         }
     }
 
@@ -497,6 +512,7 @@ impl EmbodiedPolicyKind {
             0 => Some(EmbodiedPolicyKind::Neutral),
             1 => Some(EmbodiedPolicyKind::Scripted),
             2 => Some(EmbodiedPolicyKind::ScriptedLevel),
+            TACTICAL_EMBODIED_POLICY_CODE => Some(EmbodiedPolicyKind::Tactical),
             _ => None,
         }
     }
@@ -512,6 +528,7 @@ impl EmbodiedPolicyKind {
             EmbodiedPolicyKind::Neutral => "neutral",
             EmbodiedPolicyKind::Scripted => "scripted",
             EmbodiedPolicyKind::ScriptedLevel => "scripted-level",
+            EmbodiedPolicyKind::Tactical => "tactical",
         }
     }
 
@@ -524,6 +541,7 @@ impl EmbodiedPolicyKind {
             EmbodiedPolicyKind::ScriptedLevel => {
                 Box::new(ScriptedEmbodiedPolicy::new(EmbodiedScriptConfig::LEVEL))
             }
+            EmbodiedPolicyKind::Tactical => Box::new(TacticalEmbodiedPolicy::default()),
         }
     }
 }
@@ -591,7 +609,13 @@ mod tests {
         assert_eq!(EmbodiedPolicyKind::Neutral.code(), 0);
         assert_eq!(EmbodiedPolicyKind::Scripted.code(), 1);
         assert_eq!(EmbodiedPolicyKind::ScriptedLevel.code(), 2);
-        assert_eq!(EmbodiedPolicyKind::from_code(3), None);
+        assert_eq!(EmbodiedPolicyKind::Tactical.code(), 3);
+        // One past the registry, which is the refusal a `from_code` written as a
+        // range check gets wrong. The number moves every time the vocabulary
+        // grows, and `tools/wasm_check.js` writes it down a second time because
+        // it is checking the *wasm* export rather than this function -- so when
+        // this line moves, that one does too.
+        assert_eq!(EmbodiedPolicyKind::from_code(4), None);
         for kind in EmbodiedPolicyKind::ALL {
             assert_eq!(EmbodiedPolicyKind::from_code(kind.code()), Some(kind));
             assert_eq!(EmbodiedPolicyKind::from_name(kind.name()), Some(kind));

@@ -361,7 +361,8 @@ export class GreyboxRenderer {
       this.#actors.acceptSnapshot(sample.snapshot);
       this.#hero = sample.snapshot.units.find((unit) => unit.faction === 0 && unit.visible) ?? null;
       if (this.#reviewCamera?.follow !== undefined) {
-        // Faction 0 is the hero; AGENTS.md guarantees exactly one.
+        // Faction 0 is the hero, and `init` spawns exactly one of them --
+        // the guarantee is `crates/web`'s own, not a document's.
         const hero = sample.snapshot.units.find((unit) => unit.faction === 0);
         if (hero !== undefined) this.#reviewCamera.follow(hero.x, hero.y);
       }

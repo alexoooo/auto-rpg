@@ -79,9 +79,19 @@ if (CARTESIAN_RECOIL) BUILD.push("--features", "cartesian-recoil");
 // physical fields. This unstepped fixture owns no projectile slots, but the
 // zero count is still four new bytes. The previous pair was
 // `0x28dca7e757a1ba3f` / `0x8d92c50f3a16ebce`.
+// Then the session that deleted the legacy columns moved all three of the pins
+// below, and that one is a subtraction rather than an append: `hp`, `max_hp`,
+// the submitted `command` word and the nine-column projectile block left
+// `legacy_core_hash`, which `World::state_digest` folds before it writes
+// anything of its own. **Every pin here that is a state digest moves with that
+// function**, which is these three; `ARTICULATED_STREAM_DIGEST` and
+// `COMBAT_GEOMETRY_HASH` are published bytes and did not move. The previous
+// values were `0x7194bc636096a0ff` / `0x31282286fc157e8e` for the command hash
+// and `0x4b07e93ccdc137ea` / `0x4cbafe3e0f71e14f` below. Native MSVC measured
+// every one of them before this file was edited.
 const ARTICULATED_COMMAND_HASH = CARTESIAN_RECOIL
-  ? 0x31282286fc157e8en
-  : 0x7194bc636096a0ffn;
+  ? 0xfb22a48ceb8b8132n
+  : 0x30ccbd6fc0891853n;
 const COMBAT_GEOMETRY_HASH = 0x9d15344883cf6e9cn;
 // Both moved on 2026-08-16 with the release verb. They are stored-command
 // fixtures, and `exact_diagnostics.rs` writes the payload *width* as a `u16`
@@ -91,8 +101,8 @@ const COMBAT_GEOMETRY_HASH = 0x9d15344883cf6e9cn;
 // projectile store then appended its allocated-slot count and retained rows to
 // every folded state digest, moving these from `0x88e6ea929b8d4305` and
 // `0x8dc443385973a5c8` respectively.
-const EXACT_TRAJECTORY_STATE_DIGEST = 0x4b07e93ccdc137ean;
-const LIFTED_COULOMB_SOLVER_DIGEST = 0x4cbafe3e0f71e14fn;
+const EXACT_TRAJECTORY_STATE_DIGEST = 0x13fa3ac347aeab12n;
+const LIFTED_COULOMB_SOLVER_DIGEST = 0x30e1b4031f01ecc8n;
 // A four-byte envelope and a 53-byte payload. Written out rather than derived,
 // because this file exists to disagree with Rust when Rust is wrong: the export
 // is asserted against this number, so computing it the way the export computes
@@ -1856,10 +1866,20 @@ test("a policy can be chosen across the boundary", () => {
   assert.equal(wasm.policy_kind(1), 1, "selecting one side moved the other");
   assert.equal(wasm.set_policy(0, 2), 1, "could not select scripted-level");
   assert.equal(wasm.policy_kind(0), 2);
-  // 3 is one past the registry. It is checked beside 999 because an off-by-one
+  // 3 is `tactical`, appended by fight session 02. It is asserted here rather
+  // than only natively because the registry crossing this boundary is the whole
+  // subject of the test, and a policy the dropdown cannot reach is one nobody
+  // can watch.
+  assert.equal(wasm.set_policy(0, 3), 1, "could not select tactical");
+  assert.equal(wasm.policy_kind(0), 3);
+  assert.equal(wasm.set_policy(0, 2), 1, "could not select scripted-level back");
+  // 4 is one past the registry. It is checked beside 999 because an off-by-one
   // is the refusal a `from_code` written as a range check gets wrong, and a
-  // wildly out-of-range code is the one it gets right.
-  assert.equal(wasm.set_policy(0, 3), 0, "a code one past the registry was accepted");
+  // wildly out-of-range code is the one it gets right. **The number moves every
+  // time the vocabulary grows** -- it was 3 until `tactical` was appended -- and
+  // `embodied_policy_codes_are_append_only` writes it down a second time,
+  // because that one is checking the Rust function and this one the export.
+  assert.equal(wasm.set_policy(0, 4), 0, "a code one past the registry was accepted");
   assert.equal(wasm.set_policy(0, 999), 0, "an unknown policy code was accepted");
   assert.equal(wasm.policy_kind(0), 2, "a refused code moved the policy anyway");
   assert.equal(wasm.set_policy(0, 1), 1, "could not select the scripted policy back");

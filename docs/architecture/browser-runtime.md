@@ -273,6 +273,65 @@ for, and it needs an input path that exists in no layer. Widening past two fight
 the cheaper debt of the two: `MAX_POSES` is 64 and nothing below the panels assumes two,
 but the picker, the stage layout and the two first-person viewports all do.
 
+## The trace file is a two-file contract
+
+`#/arena` runs its own fight -- it writes a configuration, a Worker of its own records
+the duel in wasm, and the transferred pose, region, projectile and combat-event buffers
+are what the page scrubs -- but it still plays a recorded `lab trace` file through the
+same `FightSource` seam when one is named by `?trace=`. `npm run view`, which is Vite
+with no wasm build, is enough to *open* the route, because the Worker is constructed
+lazily on the first **[Fight]**, and is not enough to press it.
+
+**The trace format is written in one file and refused in another, on purpose.**
+[`crates/lab/src/trace.rs`](../../crates/lab/src/trace.rs) writes it and
+[`client/src/fight/trace.ts`](../../client/src/fight/trace.ts) refuses a schema it does
+not know. Change one and you change both, and bump `TRACE_SCHEMA` in both. It is at
+`arpg-fight-trace-6`, and each step of that history is a different lesson:
+
+| from | why |
+|---|---|
+| 2 -> 3 | the single `script` field became `heroes`, `monsters` and `checkpoint`, because a fight driven from a checkpoint is the first one whose two bodies are driven by different things |
+| 3 -> 4 | each frame gained its live projectile rows |
+| 4 -> 5 | **a column changed meaning rather than being added**, which is the case the bump's own doc comment reserves it for |
+| 5 -> 6 | `pose.regions` went from five rows to seven when a jointed arm became two swept capsules |
+
+The 4 -> 5 move is the one worth reading twice. `channels()` splits a share four ways
+and both the trace row and the combat-event ABI carry three channel words;
+`crates/web/src/lib.rs` summed `crush_raw + pressure_raw` into its pressure word and
+said why, while `trace.rs` wrote `pressure_raw` alone under a comment describing a
+three-way `channels()` that had already become four. **The bug was invisible for the
+reason worth remembering: `crush_raw` is zero in every default-law fixture**, so
+`cut + thrust + pressure == share` held everywhere anybody looked. It fails on seed 3 of
+the shipped duel, where frame 460's first contact splits 194 into crush 36 and pressure
+157 and the recorded columns sum to 158 -- and `a_live_fight_matches_the_traced_fight`
+could not report it, because `web/fight.json` is gitignored and every stale copy stopped
+at the schema guard first. **A gate that refuses the file before comparing it is not a
+passing gate.**
+
+The 5 -> 6 move is the same *kind* of reason and not the same reason. Until an arm
+became two capsules, row `i` of `pose.regions` was named by `regionNames[i]`. It no
+longer is: the array is the swept-volume list, `regionNames` is anatomy, and they agree
+on their first five entries and nowhere after. A schema-5 file read by the current page
+would draw each arm as one capsule and fail the live-versus-traced comparison inside a
+pose diff, which is the confusing half of the failure the guard exists to make plain.
+
+`trace` also takes fourteen keys that *describe* a duel instead of running the pinned
+one -- the two anatomies, the four hands, and the shield and weapon dimensions. **Give
+none of them and the fixture runs byte for byte**, which is what makes a traced run
+comparable with the gate that measured it; give any one and the scenario becomes
+`configured-duel-v1` under its own fingerprint and the file stops being comparable. The
+switch is the key list itself rather than a builder that always runs, because
+`DuelConfigV1::shipped()` reproduces the fixture's table and unit rows exactly -- an
+always-builder would have moved nothing but the scenario name, which is drift whose one
+visible symptom is a header nobody reads twice. `lab`'s own `trace` help text carries
+the rest, including the two ways of asking for nothing that exit 2.
+
+**The development-only `/fight.html` this seam grew out of is gone.** v2-17 needed it
+when its gate failed and its last three explanations were refuted by measurement, and
+`AGENTS.md` carried a standing promise that the session landing the real pose channel
+would delete it. Both halves are paid: v2-ui-01 deleted the page and v2-ui-07 landed the
+channel.
+
 ## Visibility authority
 
 Fog is published by the wasm boundary rather than reconstructed from render-space
@@ -356,8 +415,8 @@ intersects the floor, and torch/material treatment remains schematic and repetit
 ## Source anchors
 
 - Fixed publication pools: [`thread_local!`](../../crates/web/src/lib.rs#L1671)
-- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L4338)
-- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L5407)
+- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L4341)
+- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L5414)
 - Worker adapter and atomic scalar phase: [`readPublication`](../../client/src/runtime/sim.worker.ts#L94)
 - Pure protocol host: [`SimWorkerHost`](../../client/src/runtime/sim-worker-host.ts#L55)
 - Main-thread lease owner: [`SimClient`](../../client/src/runtime/sim-client.ts#L122)

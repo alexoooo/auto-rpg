@@ -72,7 +72,6 @@ pub enum ReplayField {
     CommandSubject,
     CommandIntent,
     CommandIntentTarget,
-    CommandStrike,
     OrderFaction,
     OrderKind,
     OrderPayload,
@@ -135,7 +134,7 @@ arithmetic before allocation; an ordinary exceeded documented cap is
 |---:|---:|---|---|
 | 0 | 4 | magic | ASCII `ARPG` |
 | 4 | 2 | codec version | `1` |
-| 6 | 2 | command schema | `0` for v2-10 legacy records; `2` for articulated records, and `1` is retired |
+| 6 | 2 | command schema | `2` for articulated records and `3` for embodied ones; `1` was reserved and never shipped, and `0` is the retired legacy stream |
 | 8 | 1 | hash domain | `0` LegacyV1; `1` ArticulatedV1 |
 | 9 | 1 | flags | `0`; every bit is reserved |
 | 10 | 2 | hash schema | `1` |
@@ -150,11 +149,21 @@ at most both the payload length and `MAX_SCENARIO_RECORD_BYTES`. There is no che
 scenario identity, command-stream evidence digests, and final state digests have
 separate jobs and must not be relabeled as transport corruption detection.
 
-The tuple accepted in v2-10 is exactly:
+The tuple accepted in v2-10 was exactly:
 
 ```text
 command schema 0, LegacyV1 (0), hash schema 1, CombatModel::Legacy (0)
 ```
+
+**That tuple is gone, and schema `0` is refused by its own number.** The legacy
+record stream was unwritable from the day the legacy command grammar was deleted --
+nothing could produce a record for it -- and it was removed from the format on
+2026-08-18 rather than kept frozen and empty, so that the layout moved once rather
+than twice. A file still declaring `0` fails the decoder's header check with
+`UnknownCommandSchema(0)` before a byte of its command section is read; an envelope
+assembled in memory carrying it fails the schema tuple with `CommandModelMismatch`.
+Both refusals name the number, which is the whole obligation a retired schema
+value carries.
 
 v2-11 adds exactly the payload owned by
 [Articulated command V1](articulated-command-v1.md#coordinate-and-scalar-rules):
@@ -254,28 +263,18 @@ Commands require `tick < tick_limit`. Orders and objectives permit
 `tick <= tick_limit` because current playback applies them before its terminal tick
 check. No bytes may remain after the last objective.
 
-### Legacy command schema 0
+### Legacy command schema 0, retired
 
-Every command record is exactly 37 bytes:
-
-| Offset | Width | Field |
-|---:|---:|---|
-| 0 | 4 | tick |
-| 4 | 4 | subject entity index |
-| 8 | 4 | subject entity generation |
-| 12 | 4, 4 | move raw x, y |
-| 20 | 1 | intent: Hold `0`, Attack `1`, Flee `2` |
-| 21 | 4, 4 | intent target index, generation |
-| 29 | 2 | limb angle raw |
-| 31 | 4 | limb reach raw |
-| 35 | 1 | strike: None `0`, Nearest `1`, Widdershins `2`, Sunwise `3` |
-| 36 | 1 | requested loadout slot |
-
-Hold/Flee require both target words to be zero. Attack requires an initial-roster
-index and generation zero. Subject identity also requires an initial-roster index
-and generation zero. The codec contains no spawn records, so accepting another
-generation would promise a replay history the format cannot express. Move and limb
-reach retain legacy total semantics and are not range-rejected.
+A command record under schema `0` was exactly 37 bytes -- tick, subject index and
+generation, a raw move vector, an intent tag with its target words, a limb angle,
+reach and strike verb, and a requested loadout slot -- and the format no longer
+carries it. The rules it enforced survive on the schemas that replaced it and are
+worth restating once, because they are properties of *this codec* and not of the
+legacy grammar: subject identity must be an initial-roster index with generation
+zero, since the codec contains no spawn records and accepting another generation
+would promise a replay history the format cannot express; and a tag that carries no
+target requires its target words to be zero, so two readers cannot disagree about a
+record.
 
 ### Orders and objectives
 

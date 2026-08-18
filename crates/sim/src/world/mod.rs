@@ -13,11 +13,11 @@
 //! the wrong file.
 
 use crate::command::{
-    validate_articulated, ArmTarget, ArticulatedCommandV1, Command, CommandReject, GripRequest,
+    validate_articulated, ArmTarget, ArticulatedCommandV1, CommandReject, GripRequest,
     Intent, LimbSlot, Objective, Order, ReleaseRequest, SubmitArticulatedOutcome,
 };
 use crate::action::{ActionKind, ActionSpec};
-use crate::dungeon::{Cardinal, Door, Dungeon};
+use crate::dungeon::{Door, Dungeon};
 use crate::loadout::Loadout;
 use crate::entity::{EntityId, Faction, Body};
 use crate::event::Event;
@@ -200,18 +200,20 @@ pub struct World {
     /// [`World::state_hash`] now writes the cached column as well as the kind it
     /// came from.
     mass: Vec<Fx>,
-    hp: Vec<Fx>,
-    max_hp: Vec<Fx>,
     limb: Vec<Hand>,
     /// What each unit brought. See `crate::Loadout`.
     loadout: Vec<Loadout>,
     /// Which loadout slot is in hand. Always `0` until the swap lands.
     slot: Vec<u8>,
     next_decision: Vec<u32>,
-    command: Vec<Command>,
-    /// Last accepted submitted command for the articulated domain. Separate
-    /// from the legacy column so an inert articulated world cannot change a
-    /// legacy tick or hash by merely existing.
+    /// The last accepted submitted command, and now the only one a body has.
+    ///
+    /// It used to sit beside a legacy `command` column and was deliberately
+    /// separate from it, so that an inert articulated world could not change a
+    /// legacy tick or hash by merely existing. That column is gone: nothing
+    /// could write it once the legacy grammar and `submit` went, so it held
+    /// `Command::HOLD` for every body of every fight and hashed it every tick.
+    /// The isolation argument retired with the thing it isolated from.
     ///
     /// It carries the articulated *half* of an embodied command too; the
     /// embodied-only half lives in [`World::elbow_plane`]. See
@@ -249,9 +251,13 @@ pub struct World {
     move_authority: Vec<Fx>,
     turn_authority: Vec<Fx>,
     arm_authority: Vec<[Fx; 2]>,
-    /// The articulated health authority, one row per allocated slot. Empty in
-    /// every Legacy world, which is what keeps `hp`, `max_hp` and `regen_left`
-    /// the only health there is over there.
+    /// The health authority, one row per allocated slot, and since `hp` and
+    /// `max_hp` went there is no other. This used to say "empty in every Legacy
+    /// world, which is what keeps `hp`, `max_hp` and `regen_left` the only
+    /// health there is over there": there is no over there any more, and the
+    /// two columns that sentence pointed at are gone. `regen_left` survives
+    /// them because it is a *budget* that the hashed stream carries, not a
+    /// second answer to how hurt a body is.
     ///
     /// It is taken out of the world for the length of one contact solve -- see
     /// [`World::resolve_contact`] -- because the trial projector holds `&World`
@@ -284,34 +290,15 @@ pub struct World {
     // `Hand::line` is frozen when a cut commits: an arrow is a fact about the
     // past. Its archer may have swapped the bow away, walked off, or died, and
     // none of that may change what is already in the air.
-    /// Whether this slot holds a live arrow.
-    shot_alive: Vec<bool>,
-    /// Position at the end of the last tick. The previous position is not a
-    /// column: velocity is constant over a flight, so `resolve_shots` carries
-    /// the near end of the segment in a local.
-    shot_pos: Vec<Vec2>,
-    /// Constant for the life of the shot, world units per tick. Nothing slows an
-    /// arrow in this model -- no drag, no gravity -- so range is bounded by
-    /// [`World::shot_range`] rather than by the arrow running out of speed.
-    shot_vel: Vec<Vec2>,
-    /// World units of flight left, from the archer's [`Stats::sight_range`].
-    /// **Spent as distance rather than counted in ticks**, so a faster shot
-    /// reaches further within the same budget instead of merely arriving sooner.
-    shot_range: Vec<Fx>,
-    /// The bow's [`ActionSpec::mass`] and the archer's [`rules::power_multiplier`],
-    /// so `rules::blow_damage` can be called at impact exactly as a blade calls
-    /// it -- see [`World::loose`] for why the bow's own mass is the honest term.
-    shot_mass: Vec<Fx>,
-    shot_power: Vec<Fx>,
-    /// Who loosed it, and for whom. The faction is frozen *separately* from the
-    /// owner: an arrow whose archer is already dead still must not hit its own
-    /// side, and a dead owner's handle no longer resolves to a faction.
-    shot_owner: Vec<EntityId>,
-    shot_faction: Vec<Faction>,
-    shot_free: Vec<u32>,
-
-    // Articulated arrows are deliberately not legacy shots. The legacy hash writes
-    // every shot column wholesale, while this store belongs only to ArticulatedV1.
+    //
+    // **There were two of these stores and the elder one held nothing.** Nine
+    // `shot_*` columns outlived the grammar that loosed into them, so they were
+    // allocated empty and stayed empty, while `legacy_core_hash` wrote their
+    // length word unconditionally on every tick of every fight -- a fingerprint
+    // over a table nothing could put an arrow in. Nothing outside that hash read
+    // them. They are gone; the store below, which is what an
+    // `ARTICULATED_PROJECTILE` row publishes from, is the one that has been
+    // carrying the arrows.
     articulated_projectile_alive: Vec<bool>,
     articulated_projectile_generation: Vec<u32>,
     articulated_projectile_pos: Vec<Vec3>,
@@ -341,36 +328,33 @@ pub struct World {
     /// allocate and hash no prop state at all.
     dungeon_props: Vec<DungeonPropState>,
 
-    /// One route field per faction **per door capability**, indexed
-    /// `[faction][opens_doors as usize]`. See [`Nav`].
-    ///
-    /// Two arms rather than one because a faction is not uniform: Monsters may
-    /// hold a Brute that must walk around a shut door and a Rogue that walks
-    /// through it, and one field cannot answer both. The arms are identical on a
-    /// level with no shut door left, which is most of a level's life, so
-    /// [`World::refresh_nav`] builds the second only while one is still shut
-    /// *and* this side holds a living body that opens doors -- the two halves of
-    /// [`World::nav_arm`]'s own test -- and [`World::nav_arm`] reads only the
-    /// first otherwise.
-    nav: [[Nav; 2]; 2],
-    /// Scratch for [`World::refresh_nav`]: the search frontier and the cells it
-    /// starts from.
-    ///
-    /// **Held on the world rather than allocated per rebuild, and that is not
-    /// tidiness.** This crate is compiled to wasm and driven from a page that
-    /// holds typed-array views into linear memory; an allocation can grow that
-    /// memory, and growing it *detaches every view the page is holding*. A
-    /// search that allocates is a search that can blank the screen.
-    nav_queue: Vec<u32>,
-    nav_seeds: Vec<u32>,
+    // **The navigation flow field stood here and is gone.** `nav` was one route
+    // field per faction per door capability, `nav_queue` and `nav_seeds` were
+    // its search scratch, and `refresh_nav` rebuilt all of it in the epilogue of
+    // every tick of every fight. Its four readers -- `nav_arm`,
+    // `reachable_point`, `nav_goal_point` and `nav_step` -- had no production
+    // caller: the two policy adapters that consumed a heading went with the
+    // legacy seam, `ArticulatedObservation` has no navigation column, and
+    // `crates/web`'s `set_goto`, `set_focus` and `clear_order` exports were
+    // already deleted, so nothing left in the repository could ask for a route.
+    // It cost a full breadth-first search over the floor, per faction, per tick,
+    // for an answer nobody collected.
+    //
+    // Deleting it moved no pin, and that is a property of where it sat rather
+    // than luck: the field was **not hashed** (see the note that stood on `Nav`,
+    // reproduced by `World::set_order`), being a derivation of the floor plan
+    // and the objectives, both of which are. `orders` and `objectives` stay --
+    // they are inputs a host sets and the state stream carries.
 
     // Per-tick scratch. Held on the world so the tick loop allocates once for
     // the life of the fight rather than once per tick. Always empty by the time
-    // anything can observe the world, so neither enters `state_hash`.
-    blows: Vec<Blow>,
-    pierces: Vec<Pierce>,
-    impulses: Vec<Impulse>,
-    prop_impacts: Vec<PropImpact>,
+    // anything can observe the world, so none of it enters `state_hash`.
+    //
+    // Four more rows stood here -- `blows`, `pierces`, `impulses` and
+    // `prop_impacts` -- with the four deferred-event types they carried. The
+    // collect-then-apply arrangement they existed for was the legacy swing
+    // resolver's, and the contact solver defers its own writes through
+    // `ContactRuntime`, so nothing had pushed to any of the four for some time.
     start_pos: Vec<Vec2>,
     /// Where each sword blade was before this tick's motion, so
     /// [`World::resolve_swings`] can sweep the segment rather than sample it.
@@ -450,23 +434,6 @@ pub struct DungeonObjectView {
     pub material_code: u32,
 }
 
-/// Tile distances from one faction's objective, and what they were built for.
-///
-/// **Not hashed.** A derivation of the floor plan and the objectives, both of
-/// which are, and therefore in the same class as [`World::pending`] and the
-/// per-tick scratch: state that can be recomputed from hashed state cannot make
-/// two worlds differ without the hashed state differing first.
-#[derive(Clone, Default)]
-struct Nav {
-    /// One entry per tile, in tiles, [`u16::MAX`] where the objective cannot be
-    /// reached. Empty when there is no objective at all.
-    dist: Vec<u16>,
-    /// Fingerprint of the floor plan and the cells the field was grown from.
-    /// The field is stale exactly when this changes, which for a walking quarry
-    /// is once every twenty-odd ticks rather than every tick.
-    key: u64,
-}
-
 /// The longest a sub-step of [`World::move_body`] may be.
 ///
 /// Half a tile, because the thinnest masonry the generator produces is one tile
@@ -482,72 +449,6 @@ const HALF_TILE: Fx = Fx::HALF;
 /// wild displacement costs four sub-steps instead of a hundred.
 const MAX_STEP: Fx = Fx::TWO;
 
-/// A landed blow, collected during the read-only pass and applied afterwards.
-#[derive(Clone, Copy)]
-struct Blow {
-    source: usize,
-    target: usize,
-    amount: Fx,
-    absorbed: Fx,
-    blocked: bool,
-    at: Vec2,
-    /// Velocity the blow adds to the target, world units per tick. Carried on
-    /// the blow rather than applied where it is computed because the first pass
-    /// is read-only: [`World::impact_speed`] reads `vel`, so a shove written
-    /// there would change what the *next* attacker's blow is worth and make a
-    /// mutual exchange depend on entity index.
-    shove: Vec2,
-}
-
-/// A landed arrow, collected during the read-only pass and applied afterwards.
-///
-/// [`Blow`]'s twin, and a separate type rather than a reuse because the source
-/// is a **handle** and not an index. An arrow outlives the archer that loosed
-/// it, so by the time it lands there may be no entity left to credit -- and the
-/// slot that owner occupied may belong to somebody else entirely.
-#[derive(Clone, Copy)]
-struct Pierce {
-    shot: usize,
-    target: usize,
-    source: EntityId,
-    amount: Fx,
-    absorbed: Fx,
-    blocked: bool,
-    at: Vec2,
-    shove: Vec2,
-}
-
-/// A prop hit collected against the tick-start snapshot and applied in a
-/// canonical order. Time of impact is first so simultaneous weapons cannot
-/// make destruction depend on entity allocation order.
-#[derive(Clone, Copy)]
-struct PropImpact {
-    toi: Fx,
-    prop: usize,
-    attacker: EntityId,
-    amount: Fx,
-}
-
-fn sort_prop_impacts(impacts: &mut [PropImpact], props: &[DungeonPropState]) {
-    impacts.sort_by_key(|impact|
-        (impact.toi, props[impact.prop].identity, impact.attacker));
-}
-
-/// A change to a hand's motion, likewise deferred.
-#[derive(Clone, Copy)]
-struct Impulse {
-    entity: usize,
-
-    /// Multiplies the existing spin. Negative values reverse the swing.
-    scale: Fx,
-    /// Added after scaling, in raw angle units per tick.
-    add: Fx,
-    /// Extra recovery ticks to end the running attack with, if this impulse
-    /// ends one at all. `None` leaves the phase machine alone -- which is what
-    /// a shoved *shield* wants, having no attack to interrupt.
-    recover: Option<u16>,
-}
-
 /// Retained contact state for an Articulated world.
 ///
 /// `state` and the feature-only exact external-energy rows are authoritative:
@@ -555,10 +456,11 @@ struct Impulse {
 /// remaining scratch and published resolutions are evidence, which is why the
 /// whole struct sits outside `legacy_core_hash`.
 ///
-/// Reserved once against the allocated-slot high water, for the same reason
-/// `nav_queue` is held on the world rather than allocated per rebuild: this
-/// crate is driven from a page holding typed-array views into linear memory,
-/// and a `Vec` that grows can grow that memory and detach every one of them.
+/// Reserved once against the allocated-slot high water, and the reason is the
+/// one this crate holds everywhere: it is driven from a page holding typed-array
+/// views into linear memory, and a `Vec` that grows can grow that memory and
+/// detach every one of them. The navigation search's `nav_queue` was the other
+/// column held for that reason, and went with the flow field.
 #[derive(Default)]
 struct ContactRuntime {
     state: ContactSolverState,
@@ -1274,10 +1176,12 @@ const PROLOGUE: &[Phase] = &[
     ("expire decisions", |w, _| w.expire_unanswered_decisions()),
 ];
 
+// A third row, `("navigation", |w, _| w.refresh_nav())`, stood here and every
+// model scheduled it unconditionally. It rebuilt a route field nothing read; the
+// note where the `nav` columns were declared has the argument.
 const EPILOGUE: &[Phase] = &[
     ("increment tick", |w, _| w.tick += 1),
     ("pending",        |w, _| w.refresh_pending()),
-    ("navigation",     |w, _| w.refresh_nav()),
 ];
 
 // The rows the two body schedules share, each written **once** and listed twice
@@ -1419,13 +1323,10 @@ impl World {
             facing: Vec::with_capacity(n),
             radius: Vec::with_capacity(n),
             mass: Vec::with_capacity(n),
-            hp: Vec::with_capacity(n),
-            max_hp: Vec::with_capacity(n),
             limb: Vec::with_capacity(n),
             loadout: Vec::with_capacity(n),
             slot: Vec::with_capacity(n),
             next_decision: Vec::with_capacity(n),
-            command: Vec::with_capacity(n),
             articulated_command: Vec::with_capacity(n),
             articulated_anatomy: Vec::with_capacity(n),
             articulated_carried: Vec::with_capacity(n),
@@ -1460,15 +1361,6 @@ impl World {
             last_combat: Vec::with_capacity(n),
             regen_left: Vec::with_capacity(n),
             damage_dealt: Vec::with_capacity(n),
-            shot_alive: Vec::new(),
-            shot_pos: Vec::new(),
-            shot_vel: Vec::new(),
-            shot_range: Vec::new(),
-            shot_mass: Vec::new(),
-            shot_power: Vec::new(),
-            shot_owner: Vec::new(),
-            shot_faction: Vec::new(),
-            shot_free: Vec::new(),
             articulated_projectile_alive: Vec::with_capacity(rules::MAX_SHOTS),
             articulated_projectile_generation: Vec::with_capacity(rules::MAX_SHOTS),
             articulated_projectile_pos: Vec::with_capacity(rules::MAX_SHOTS),
@@ -1498,16 +1390,6 @@ impl World {
                 })
                 .collect(),
             dungeon_props: generate_dungeon_props(scenario, seed),
-            nav: [
-                [Nav::default(), Nav::default()],
-                [Nav::default(), Nav::default()],
-            ],
-            nav_queue: Vec::new(),
-            nav_seeds: Vec::new(),
-            blows: Vec::new(),
-            pierces: Vec::new(),
-            impulses: Vec::new(),
-            prop_impacts: Vec::with_capacity(64),
             start_pos: Vec::with_capacity(n),
             blade_was: Vec::with_capacity(n),
             blade_p: Vec::with_capacity(n),
@@ -1522,7 +1404,6 @@ impl World {
             world.try_spawn(spec)?;
         }
         world.refresh_pending();
-        world.refresh_nav();
         Ok(world)
     }
 
@@ -1631,13 +1512,10 @@ impl World {
                 self.facing.push(Angle::ZERO);
                 self.radius.push(spec.kind.radius());
                 self.mass.push(spec.kind.mass());
-                self.hp.push(max_hp);
-                self.max_hp.push(max_hp);
                 self.limb.push(Hand::default());
                 self.loadout.push(Loadout::single(ActionKind::Punch));
                 self.slot.push(0);
                 self.next_decision.push(0);
-                self.command.push(Command::HOLD);
                 self.articulated_command.push(None);
                 self.articulated_anatomy.push(None);
                 self.articulated_carried.push([None; 2]);
@@ -1696,10 +1574,7 @@ impl World {
         self.slot[i] = 0;
         self.radius[i] = spec.kind.radius();
         self.mass[i] = spec.kind.mass();
-        self.hp[i] = max_hp;
-        self.max_hp[i] = max_hp;
         self.next_decision[i] = self.tick;
-        self.command[i] = Command::HOLD;
         self.articulated_command[i] = None;
         self.articulated_anatomy[i] = spec.articulated.map(|row| row.anatomy);
         self.articulated_carried[i] = spec.articulated.map_or([None; 2], |row| row.equipment);
@@ -1723,27 +1598,42 @@ impl World {
         self.id_of(i)
     }
 
-    /// Sets a faction's standing order. This is the player's whole input
-    /// channel; it lands in every observation of that faction from the next
-    /// decision onward.
+    /// Sets a faction's standing order.
+    ///
+    /// **Ordered movement is not implemented for the surviving model, and this
+    /// is the door that says so.** The order lands in `World::orders`, it is
+    /// hashed as an input, and it is recorded in a replay -- and then nothing
+    /// consumes it. Two things used to: the legacy `Observation` carried
+    /// `nav_dir` and `nav_distance`, and `World::refresh_nav` built the flow
+    /// field those two were read off. The observation went with
+    /// `CombatModel::Legacy`; the flow field went in this session, because it
+    /// was a breadth-first search over the whole floor, per faction, per tick,
+    /// for an answer whose last reader had already been deleted.
+    ///
+    /// So this is an input the simulation carries and no body can perceive, and
+    /// it is a capability loss rather than a tidy-up. Giving it a reader again
+    /// takes three things, in this order: a navigation column on
+    /// [`ArticulatedObservation`] (which is a mechanic -- somebody has to decide
+    /// what a jointed body *knows* about a route it has not walked); a route
+    /// source to fill it, which means restoring a flow field or replacing it
+    /// with something that answers the same question; and a policy that steers
+    /// on it. `docs/design/navigation-visibility.md` records what the deleted
+    /// field did and what the browser half of the channel looked like before it
+    /// was removed, so none of it has to be rediscovered.
+    ///
+    /// The order channel itself stays because it is an input a host owns: this
+    /// method and [`World::set_objective`] are public, the two columns are in
+    /// the state stream, and a replay round-trips them.
     pub fn set_order(&mut self, faction: Faction, order: Order) {
         self.orders[faction.index()] = order;
-        // The route is part of what an order *means* now, so it has to be
-        // current by the time anybody observes -- and an order arrives between
-        // two steps, which is exactly when the per-tick refresh is not running.
-        // Without this the faction spends its first decision after every new
-        // destination reading a field built for the previous one, which reads
-        // as the character taking a moment to notice the click.
-        self.refresh_nav();
     }
 
     /// Sets what a faction is trying to reach. Shaped exactly like
     /// [`World::set_order`] because it is the same kind of thing: an input the
-    /// sim carries and does not second-guess. See [`Objective`].
+    /// sim carries and does not second-guess -- and, like an order, one nothing
+    /// currently reads. See [`Objective`] and the note above.
     pub fn set_objective(&mut self, faction: Faction, objective: Objective) {
         self.objectives[faction.index()] = objective;
-        // Current before anybody observes; see [`World::set_order`].
-        self.refresh_nav();
     }
 
     pub const fn combat_model(&self) -> crate::CombatModel {
@@ -1752,34 +1642,38 @@ impl World {
 
     /// Rewrites `id`'s attributes.
     ///
-    /// Input bookkeeping, exactly as [`World::set_loadout`] is: the page owns a
-    /// character's attributes and the sim only fights with them. Answers `false`
-    /// for a handle that no longer resolves.
+    /// Input bookkeeping: the page owns a character's attributes and the sim
+    /// only fights with them. Answers `false` for a handle that no longer
+    /// resolves, and the `bool` is load-bearing -- `crates/web` calls this from
+    /// the attribute dials and the refusal is the half a caller acts on.
     ///
-    /// Health is rescaled to hold the **fraction**, not the absolute value.
-    /// Vitality is the only stat that moves the bar's length, and either of the
-    /// two obvious alternatives is a rule rather than an input: keeping the
-    /// absolute health gifts a full bar to anyone who raises vitality mid-fight,
-    /// and would kill outright anyone who lowers it. A fighter at half health is
-    /// a fighter at half health whatever body it is wearing.
+    /// **This used to rescale health to hold the fraction, and the argument for
+    /// it is kept because it is still the right answer to the question it was
+    /// asked.** It ran: vitality is the only stat that moves the bar's length,
+    /// and either obvious alternative is a rule rather than an input -- keeping
+    /// the absolute health gifts a full bar to anyone who raises vitality
+    /// mid-fight and kills outright anyone who lowers it, while a fighter at
+    /// half health is a fighter at half health whatever body it is wearing.
     ///
-    /// The decision clock is deliberately left alone. [`World::submit`]
-    /// re-derives it from the new [`Stats::decision_period`] at the very next
-    /// decision, so a character made sharper starts thinking faster one beat
-    /// later -- which is the correct lag, and a reset here would hand a free
-    /// out-of-turn decision to anyone touching the intellect dial mid-swing.
+    /// What retired it is that the bar it rescaled is gone rather than that the
+    /// reasoning was wrong. Health is `anatomy::max_health(spec)` scaled by a
+    /// regional fraction, and that maximum sums
+    /// [`BodyAnatomySpec::integrity_maxima`] and reads no [`Stats`] field at
+    /// all -- so vitality does not move the denominator, there is no fraction to
+    /// hold, and the rescale was already the identity for every body this model
+    /// can construct. Only the writes to `hp` and `max_hp` have gone with the
+    /// columns.
+    ///
+    /// The decision clock is deliberately left alone.
+    /// [`World::submit_articulated_v1`] re-derives it from the new
+    /// [`Stats::decision_period`] at the very next decision, so a character made
+    /// sharper starts thinking faster one beat later -- which is the correct
+    /// lag, and a reset here would hand a free out-of-turn decision to anyone
+    /// touching the intellect dial mid-swing.
     pub fn set_stats(&mut self, id: EntityId, stats: Stats) -> bool {
         match self.resolve(id) {
             Some(i) => {
-                // Read before the write, and clamped: `hp` runs negative for one
-                // phase between a lethal blow and `reap_dead`, and a negative
-                // fraction rescaled into a larger bar is a corpse getting
-                // *deader* the more vitality it is given.
-                let frac = self.legacy_hp_frac(i);
-                let max_hp = stats.max_hp();
                 self.stats[i] = stats;
-                self.max_hp[i] = max_hp;
-                self.hp[i] = max_hp * frac;
                 true
             }
             None => false,
@@ -2120,8 +2014,13 @@ impl World {
         }
     }
 
-    /// The immutable anatomy a slot was constructed with. `None` in every
-    /// Legacy world, which is what routes the health query back to `hp`.
+    /// The immutable anatomy a slot was constructed with.
+    ///
+    /// `None` used to mean "a Legacy world", which is what routed the health
+    /// query back to `hp`. Both are gone: construction ties every body to an
+    /// anatomy row, so `None` here now means a slot no validated spawn can
+    /// produce, and [`World::health_of`]'s standing `debug_assert!` is what
+    /// says so.
     fn anatomy_spec(&self, i: usize) -> Option<&BodyAnatomySpec> {
         self.combat_specs.as_ref()?.anatomy((*self.articulated_anatomy.get(i)?)?)
     }
@@ -2146,30 +2045,55 @@ impl World {
         self.anatomy_spec(self.resolve(id)?)
     }
 
-    /// Current health, in whichever domain this world's model owns.
+    /// Current health, and the anatomy is the whole of it.
     ///
     /// Every consumer goes through here -- observation, the published view, the
-    /// timeout comparison, and damage credit -- because the articulated model
-    /// deliberately has no HP column to fall out of step with. Legacy answers
-    /// its own `hp` byte for byte.
+    /// timeout comparison, and damage credit -- because the one thing worse than
+    /// one health column is two. There was a second: `hp`, which this fell
+    /// through to for a body carrying no anatomy row. It is gone, and the
+    /// `debug_assert!` standing in its place is what keeps it gone.
+    ///
+    /// **The arm was measured unreachable rather than argued unreachable.** The
+    /// assertion was armed on this fallback and on [`World::max_health_of`]'s,
+    /// and the whole test suite plus sixteen full-length embodied duel trials
+    /// were run against it in the dev profile, where `debug-assertions` is on.
+    /// Neither fired. There is a reason it cannot -- construction ties every
+    /// loadout slot to an equipment row and therefore every body to an anatomy,
+    /// and `Scenario::fingerprint` runs that check before it hashes -- but the
+    /// reason is an argument and the run is the evidence, which is why the
+    /// assertion stays as a standing guard instead of leaving with the column it
+    /// was measuring.
+    ///
+    /// [`Fx::ZERO`] rather than a panic on the release path, because the sim is
+    /// total by policy: the one way here is a body that construction refuses, so
+    /// a corrupt replay produces a fighter at no health rather than a crash
+    /// three frames into playback.
     fn health_of(&self, i: usize) -> Fx {
         match (self.anatomy_spec(i), self.wounds.get(i)) {
             (Some(spec), Some(state)) => state.health(spec),
-            _ => self.hp[i],
+            _ => {
+                debug_assert!(false, "a body with no anatomy row reached health_of");
+                Fx::ZERO
+            }
         }
     }
 
+    /// The maximum [`World::health_of`] is a fraction of. Same shape, same
+    /// standing guard, and the same measurement behind it.
+    ///
+    /// Zero is the safe constant here and not merely the quiet one: every
+    /// division by this value tests the denominator first --
+    /// [`World::health_fraction`] answers zero for a side that sums to nothing,
+    /// and the per-body fraction beside it does the same -- so even a reached
+    /// arm could not produce a division by what it answered.
     fn max_health_of(&self, i: usize) -> Fx {
         match self.anatomy_spec(i) {
             Some(spec) => anatomy::max_health(spec),
-            None => self.max_hp[i],
+            None => {
+                debug_assert!(false, "a body with no anatomy row reached max_health_of");
+                Fx::ZERO
+            }
         }
-    }
-
-    fn health_fraction_of(&self, i: usize) -> Fx {
-        let maximum = self.max_health_of(i);
-        if !maximum.is_positive() { return Fx::ZERO; }
-        (self.health_of(i) / maximum).clamp(Fx::ZERO, Fx::ONE)
     }
 
     fn equipment_in_grip(&self, i: usize, limb: usize) -> Option<crate::EquipmentSpec> {
@@ -2202,25 +2126,6 @@ impl World {
         EntityId::new(i as u32, self.generation[i])
     }
 
-    #[inline]
-    fn legacy_hp_frac(&self, i: usize) -> Fx {
-        (self.hp[i] / self.max_hp[i]).clamp(Fx::ZERO, Fx::ONE)
-    }
-
-    /// The radius inside which no swing of `i`'s weapon is worth more than a
-    /// graze, however hard it is thrown.
-    ///
-    /// Impact is linear in the arm and energy is its square, so the whole curve
-    /// is fixed by one point on it: whatever the blade carries at one unit of
-    /// reach scales by `r^2`. Inverting that gives the dead zone.
-    ///
-    /// Reported to its owner exactly ([`Observation::min_strike_range`] -- a
-    /// fighter knows how hard it can swing) and to everyone else blurred
-    /// ([`Contact::min_strike_range`] -- judging someone else's is the skill).
-    fn dead_zone(&self, i: usize) -> Fx {
-        rules::dead_zone(self.arm(i))
-    }
-
     /// **What `i` is holding.**
     ///
     /// The single lookup that replaced `kind.weapon()`. Everything that used to
@@ -2239,38 +2144,6 @@ impl World {
             .unwrap_or(self.loadout[i].primary)
     }
 
-    /// What `i` has in its other slot, if it has one.
-    #[inline]
-    fn stowed_of(&self, i: usize) -> Option<ActionKind> {
-        let other = 1 - self.slot[i].min(1);
-        self.loadout[i].slot(other as usize)
-    }
-
-    /// Ticks it would cost `i` to bring its stowed action out, resolved against
-    /// its agility. Zero when there is nothing to swap to.
-    ///
-    /// Charged against the *incoming* action rather than the outgoing one: you
-    /// drop what you are holding instantly and pay for what you are drawing,
-    /// which is why a club is slow to bring up and quick to abandon.
-    fn swap_ticks(&self, i: usize) -> u16 {
-        match self.stowed_of(i) {
-            Some(next) => rules::phase_ticks(
-                next.spec().ready,
-                rules::agility_multiplier(self.stats[i].agility),
-            ),
-            None => 0,
-        }
-    }
-
-    /// `i`'s action resolved against `i`'s body and stats.
-    ///
-    /// Cheap enough to build per call -- four multiplies -- and building it per
-    /// call is what keeps it impossible to hold a stale one. That mattered when
-    /// it was derived from three separate arrays; it matters more now that one
-    /// of them is a slot a fighter can change while the arm is being used.
-    fn arm(&self, i: usize) -> rules::Arm {
-        rules::Arm::resolve(self.action_of(i).spec(), self.stats[i], self.radius[i])
-    }
 }
 
 #[cfg(test)]
@@ -2583,9 +2456,16 @@ mod tests {
         let mut world = World::new(&scenario, 1);
         let fighter = EntityId::new(0, 0);
         let brute = EntityId::new(1, 0);
-        world.hp[0] -= Fx::ONE;
-        world.hp[1] = Fx::ZERO;
-        let hp = world.hp.clone();
+        // **Both bodies start away from full**, or "the health did not move" is
+        // a claim a heal could not have falsified. Blood and not integrity:
+        // integrity is what the actuator reads its authority from, and this is a
+        // test about a body that is only moving its arms. Blood decays only
+        // against an open wound, of which there are none here, so an unchanged
+        // anatomy column is the whole assertion -- healing, damage and the
+        // bleed clock all have to write it.
+        world.wounds[0].blood -= Fx::ONE;
+        world.wounds[1].blood -= Fx::TWO;
+        let wounds = world.wounds.clone();
         let limbs = world.limb.clone();
         let mut command = world.neutral_articulated(0);
         command.arms[0] = ArmTarget { bearing: Angle::HALF, height: crate::CombatHeight::HIGH,
@@ -2596,10 +2476,10 @@ mod tests {
         for _ in 0..180 {
             assert!(world.step().is_empty());
         }
-        assert_eq!(world.hp, hp);
+        assert_eq!(world.wounds, wounds);
         assert_eq!(world.alive, [true, true]);
         assert_eq!(world.limb, limbs);
-        assert!(world.shot_alive.is_empty());
+        assert!(world.articulated_projectile_alive.is_empty());
     }
 
     // The two literals below gained `prop swings`, `loose projectiles` and
@@ -2621,7 +2501,11 @@ mod tests {
             "apply articulated movement", "record contact locomotion", "separate",
             "body yaw", "grips", "arms", "geometry", "loose projectiles", "contact",
             "resolve projectiles", "anatomy", "doors", "reap",
-            "increment tick", "pending", "navigation",
+            // A `"navigation"` row closed this list until the flow field was
+            // deleted. Its removal is the only edit to this literal, and that is
+            // what the table exists to make visible: a phase leaving is a name
+            // leaving a list, not a silence.
+            "increment tick", "pending",
         ]);
     }
 
@@ -3637,36 +3521,42 @@ mod tests {
     }
 
     #[test]
-    fn set_stats_preserves_the_health_fraction() {
+    fn set_stats_writes_the_attributes_and_cannot_move_the_health() {
+        // **This was `set_stats_preserves_the_health_fraction`**, and the
+        // property it named went with the bar it was about rather than with a
+        // change of mind: `anatomy::max_health` sums the anatomy spec and reads
+        // no `Stats` field, so vitality cannot lengthen or shorten what a body
+        // has to lose. What is still worth checking is the *outcome* the rescale
+        // existed to produce -- that turning the dial in either direction is
+        // inert on the health -- rather than the rescale itself.
         let mut w = duel_world();
         let hero = w.alive_ids(Faction::Heroes)[0];
         let h = w.resolve(hero).unwrap();
-        w.hp[h] = w.max_hp[h] * Fx::HALF;
+        // Away from full, so a heal would have somewhere to show.
+        w.wounds[h].blood = w.wounds[h].blood * Fx::HALF;
+        let (health, maximum) = (w.health_of(h), w.max_health_of(h));
+        assert!(health.is_positive() && health < maximum,
+                "the fixture is at full health, so this proves nothing");
 
-        // Up. The bar gets longer and the fighter does not get healthier: a
-        // vitality dial that handed out a full bar would be a heal button
-        // wearing an attribute's name.
+        // Up. The stat sheet still moves -- the page reads `Stats::max_hp` and
+        // is entitled to -- and nothing in the world does.
         let mut stats = w.stats(hero).unwrap();
         stats.vitality += 10;
+        assert!(stats.max_hp() > Body::Fighter.base_stats().max_hp(),
+                "vitality bought nothing, so this proves nothing");
         assert!(w.set_stats(hero, stats));
-        assert_eq!(w.max_hp[h], stats.max_hp(), "the bar did not follow vitality");
-        assert!(
-            w.max_hp[h] > Body::Fighter.base_stats().max_hp(),
-            "the bar never grew, so this proves nothing"
-        );
-        assert_eq!(w.legacy_hp_frac(h), Fx::HALF, "{} of {}", w.hp[h], w.max_hp[h]);
+        assert_eq!(w.stats(hero), Some(stats), "the attributes were not written");
+        assert_eq!((w.health_of(h), w.max_health_of(h)), (health, maximum));
 
-        // And down, which is the direction that can kill. It must not.
+        // And down, which is the direction that could kill. It must not.
         stats.vitality = 1;
         assert!(w.set_stats(hero, stats));
-        assert_eq!(w.max_hp[h], stats.max_hp());
-        assert_eq!(w.legacy_hp_frac(h), Fx::HALF, "{} of {}", w.hp[h], w.max_hp[h]);
-        assert!(w.hp[h].is_positive(), "lowering vitality killed a fighter");
-        assert!(w.is_alive(hero));
+        assert_eq!((w.health_of(h), w.max_health_of(h)), (health, maximum));
+        assert!(w.is_alive(hero), "lowering vitality killed a fighter");
 
-        // The decision clock is left where it was; `submit` re-derives it from
-        // the new period on the next decision, and that one beat of lag is the
-        // point rather than an oversight.
+        // The decision clock is left where it was; `submit_articulated_v1`
+        // re-derives it from the new period on the next decision, and that one
+        // beat of lag is the point rather than an oversight.
         stats.intellect = 19;
         let before = w.next_decision[h];
         assert!(w.set_stats(hero, stats));
@@ -3681,10 +3571,11 @@ mod tests {
         // The control: while the handle resolves, both are honoured.
         assert!(w.set_stats(hero, Body::Rogue.base_stats()));
 
-        // **Bled out rather than zeroed.** `hp` is the legacy health column and
-        // nothing reads it on a jointed body: `World::health_of` routes a body
-        // with an anatomy row through `anatomy::max_health`, so writing `hp` to
-        // zero leaves a fighter in perfect health and the reaper untroubled.
+        // **Bled out, because there is nothing else left to zero.** This used
+        // to note that writing the legacy `hp` column to zero left a fighter in
+        // perfect health and the reaper untroubled, since `World::health_of`
+        // routes a body with an anatomy row through `anatomy::max_health`. That
+        // column is gone; the blood is the health.
         w.wounds[h].blood = Fx::ZERO;
         w.step();
         assert!(!w.is_alive(hero), "the fighter survived being bled out");

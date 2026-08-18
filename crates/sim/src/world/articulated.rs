@@ -280,7 +280,6 @@ impl World {
                 self.exact_owners[i] = None;
             }
             self.generation[i] = self.generation[i].wrapping_add(1);
-            self.command[i] = Command::HOLD;
             self.free.push(i as u32);
             self.events.push(Event::Death { entity, killer });
         }

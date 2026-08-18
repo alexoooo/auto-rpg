@@ -65,8 +65,7 @@ flowchart TD
     doors --> reap["reap dead"]
     reap --> tick["increment tick"]
     tick --> pending["refresh pending decisions"]
-    pending --> nav["refresh navigation fields"]
-    nav --> events["return this tick's events"]
+    pending --> events["return this tick's events"]
 ```
 
 The non-legacy schedule shares clear/expiry, planar movement, body separation, doors, and
@@ -84,8 +83,12 @@ model-specific death land in later mechanical sessions. No future non-legacy sch
 may differ from the exact phase order in the current actuator reference contract.
 
 `events` is cleared at the next step and is an outward report rather than
-authoritative input. Navigation fields, pending-decision lists, free lists, and
-per-tick scratch arrays are derived or reachable-state bookkeeping. The exact
+authoritative input. Pending-decision lists, free lists, and per-tick scratch
+arrays are derived or reachable-state bookkeeping. **A third phase,
+`refresh navigation fields`, closed the tail of every tick until 2026-08-18** and
+was the largest member of that class; it was deleted with the flow field, whose
+last reader had gone with the legacy observation. See
+[navigation and visibility](../design/navigation-visibility.md). The exact
 state-hash byte stream is owned by `World::state_hash`, not by this prose; see
 [Replay and hashing](replay-hashing.md).
 
@@ -169,6 +172,6 @@ own.
 
 - Storage and construction: [`World` fields and `World::new`](../../crates/sim/src/world/mod.rs)
 - Decision seam: [`World::pending_decisions` and `World::observe`](../../crates/sim/src/world/query.rs), and [`World::submit`](../../crates/sim/src/world/mod.rs)
-- Tick phase order: [`World::step`](../../crates/sim/src/world/mod.rs#L1820)
+- Tick phase order: [`World::step`](../../crates/sim/src/world/mod.rs#L1714)
 - Observation shape and feature projection: [`obs.rs`](../../crates/sim/src/obs.rs)
 - Command, order, and objective inputs: [`command.rs`](../../crates/sim/src/command.rs)

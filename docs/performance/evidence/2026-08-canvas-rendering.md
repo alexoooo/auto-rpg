@@ -10,8 +10,9 @@ visible Chrome window; exact CPU, GPU, and driver were not recorded, so these re
 must not be generalized as a cross-machine budget.
 
 This record preserves the measurements formerly under
-`DESIGN.md#performance-notes` and the method repeated in
-`AGENTS.md#gotchas-that-have-already-cost-time`.
+`DESIGN.md#performance-notes`. The method they were taken by is stated once, for
+current use, in [performance evidence](../README.md); `AGENTS.md` repeated it until
+2026-08-18 and now carries only the rule and a link.
 
 ## Method and controls
 

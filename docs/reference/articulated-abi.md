@@ -738,8 +738,12 @@ capped feed.
 Rounds are interleaved — one round touches all six cells, two policy pairings
 across three batch sizes, before the next begins — and each cell keeps its best
 of nine. The six process runs below were then pinned to logical CPU 0 at high
-priority, which is what `AGENTS.md` prescribes for `lab bench` on this machine
-and what the original measurement did not do. It matters more than interleaving
+priority, which the guidance of the day prescribed and the original measurement did
+not do. **That prescription is now historical**: the host these runs were taken on
+was a hybrid-core laptop, the current one is uniform, and
+[performance evidence](../performance/README.md) records why pinning buys nothing
+against a machine with no slow core. The numbers below were real on the machine that
+produced them. It matters more than interleaving
 did: an unpinned process reads up to 15% faster on a good run and about 1.8×
 slower on a migrated one, and the migration moves **every cell in that process at
 once**, so a figure quoted from a single unpinned run is not evidence about the
@@ -776,7 +780,8 @@ harnesses against one configuration.
 What survives either way, and is all a recorder needed: a 3,600-tick fight
 records in **0.3 to 0.4 seconds**. Quote the range and name the pass, never a
 single figure — the practice of quoting one is what produced four numbers for one
-quantity on this machine. See `AGENTS.md` on why best-of-N understates here.
+quantity on this machine. Why best-of-N understates here, and what to bracket
+instead, is in [performance evidence](../performance/README.md).
 
 **Every pass above measures one pairing, and the pairing moves the drive further
 than anything the recorder does.** A separate six-run pass, taken beside the paired
@@ -1474,8 +1479,12 @@ holds two `combat_events` reservations at once — 512 KiB now that the capacity
 reservation no longer fits
 in the slack a single warm round leaves behind, so a proof warmed on one seed and then
 driven across three watched its first `init` grow linear memory. Warming the same seed
-twice does not fix it: the peak is per *floor*, because a generated room's nav fields
-and fog are most of a `Sim` and every seed generates a different room.
+twice does not fix it: the peak is per *floor*, because a generated room's fog is most
+of a `Sim` and every seed generates a different room. **It said "nav fields and fog"
+until 2026-08-18**, when the navigation flow field was deleted for having no reader --
+which moved the articulated fixture's plateau from 291 pages to 309 and its settling
+round from 4 to 15, the fifth reading in a row saying the plateau tracks dlmalloc's
+allocation order rather than what a `Sim` weighs.
 `published_legacy_views_survive_every_warm_path_without_memory_growth` is the test
 that says so. At 1024 it warmed every seed once and settled at 30 pages; at 2048 that
 stopped being enough and the guarded phase grew on its second visit to a seed, so it

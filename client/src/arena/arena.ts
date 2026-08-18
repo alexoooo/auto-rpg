@@ -385,14 +385,18 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   const THREE_QUARTER = "3/4 view";
 
   /**
-   * `?stage=paired` -- the frame-time measurement, as AGENTS.md asks for it.
+   * `?stage=paired` -- the frame-time measurement, as `docs/performance/README.md`
+   * asks for it. (`AGENTS.md` stated those rules until 2026-08-18 and now carries
+   * the one-line rule and a link.)
    *
    * Three rules there, and the third is the one a query string alone cannot
    * keep: *compare paired frames, not paired runs*. `?stage=off` satisfies the
    * first -- it removes the work rather than hiding it, and a hidden or detached
    * canvas still rasterises every pixel -- but two page loads are two runs, and
-   * a run-versus-run difference on a machine that migrates a thread onto an
-   * E-core measures the scheduler.
+   * a run-versus-run difference measures the machine's drift as much as the
+   * feature. (This used to name core migration as the mechanism; that was a
+   * property of a hybrid-core laptop this project no longer runs on. Warming
+   * within a run is not, and it is enough on its own.)
    *
    * So this mode interleaves the two configurations inside **one** run over one
    * scene: the three viewports draw on every other animation frame while the
@@ -451,13 +455,14 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
    */
   async function startStage(): Promise<void> {
     // **`?stage=off` is the baseline for the frame-time measurement**, and it is
-    // here rather than in a console snippet because AGENTS.md is specific about
+    // here rather than in a console snippet because the probe method is specific
+    // about
     // why: rendering cost has to be measured by *removing* the work, not by
     // hiding it, and a hidden or detached canvas still rasterises every pixel.
     // This is the only switch that takes the three viewports out of the frame
     // entirely while leaving the plan, the elevation, the chart and the whole
     // transport exactly as they were -- `?stage=paired` above removes the same
-    // work on alternate frames instead, which is the comparison AGENTS.md says
+    // work on alternate frames instead, which is the comparison that method says
     // survives. It doubles as the way to use this page on a machine whose WebGL2
     // is broken.
     if (params.get("stage") === "off") {

@@ -33,17 +33,33 @@ trait over an enum.
 ## Host standing inputs, and the fact that nothing perceives them
 
 `Order` and `Objective` are set on the world by the host, not returned by a policy.
-They are still hashed into `World::state_hash`, and they are still refreshed into the
-navigation flow field every tick.
+They are still hashed into `World::state_hash` and still recorded in a replay.
+
+**This section used to add "and they are still refreshed into the navigation flow field
+every tick". There is no flow field.** `World::refresh_nav` and its four readers were
+deleted on 2026-08-18 for having no production caller: they rebuilt a breadth-first
+distance field over the whole floor, per faction, per tick, and the last thing that ever
+read a heading out of it — the legacy policy order adapters — had already gone. The field
+was not hashed, being a derivation of the floor plan and the objectives, so deleting it
+moved no pin.
 
 **No surviving observation carries them.** `Order` reached a body through
 `Observation::nav_dir` and `nav_distance`, which were columns of the deleted legacy
 observation; `ArticulatedObservation` has neither an order column nor a navigation one.
-So a standing order is currently an input the simulation carries and no body can
+So a standing order is an input the simulation carries and no body can
 perceive — which is why the browser's click-to-move exports were removed rather than
 left drawing a marker the fighter ignored.
-[Navigation and visibility](../design/navigation-visibility.md) records that in full,
-including what it would take to give the channel a reader again.
+
+**Ordered movement is therefore not implemented, and restoring it is three pieces of
+work in this order.** First a navigation column on `ArticulatedObservation`, which is a
+mechanic and not a plumbing job: somebody has to decide what a jointed body *knows* about
+a route it has not walked, and the answer is what the column's width and blur are.
+Second a route source to fill it — the deleted field, or anything else that answers "which
+way from here"; `World::set_order` is where the sim would call it, and the epilogue is
+where it used to be rebuilt. Third a policy that steers on it.
+[Navigation and visibility](../design/navigation-visibility.md) records what the deleted
+field did and what the browser half of the channel looked like before it was removed, so
+none of that has to be rediscovered.
 
 ## Actions and loadouts
 

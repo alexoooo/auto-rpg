@@ -1190,13 +1190,12 @@ fn validate_indexed_values<T>(cases: &[IndexedCase], rows: &[(usize, strong_stri
     Ok(())
 }
 
-fn collect_indexed_cases_with<T, M>(cases: &[IndexedCase], measure: M)
-    -> Result<Vec<T>, CalibrationCollectError>
-where T: Send, M: Fn(IndexedCase) -> (strong_strike::StrongCase, T) + Sync
-{
-    collect_indexed_cases_with_expected(cases, cases.len(), measure)
-}
-
+// A `collect_indexed_cases_with(cases, measure)` wrapper stood here, defaulting
+// `expected_len` to `cases.len()`. Production never called it -- every shipped
+// path knows the descriptor count it is owed and passes it, which is the whole
+// reason the parameter exists -- so the default it supplied was the one case
+// that cannot refuse a miscount. Its test callers pass `cases.len()` explicitly
+// now, which says out loud that they are asserting on a plan they built.
 fn collect_indexed_cases_with_expected<T, M>(cases: &[IndexedCase], expected_len: usize, measure: M)
     -> Result<Vec<T>, CalibrationCollectError>
 where T: Send, M: Fn(IndexedCase) -> (strong_strike::StrongCase, T) + Sync
@@ -1612,7 +1611,7 @@ mod tests {
         let cases = synthetic_indexed_cases(CALIBRATION_WORKERS);
         let turn = Mutex::new(0usize); let ready = Condvar::new();
         let completion = Mutex::new(Vec::new());
-        let rows = collect_indexed_cases_with(&cases, |case| {
+        let rows = collect_indexed_cases_with_expected(&cases, cases.len(), |case| {
             let name = std::thread::current().name().unwrap().to_string();
             let shard: usize = name.rsplit('-').next().unwrap().parse().unwrap();
             let wanted = CALIBRATION_WORKERS - 1 - shard;
@@ -1632,7 +1631,7 @@ mod tests {
 
         let cases = synthetic_indexed_cases(8);
         let visits: Vec<_> = (0..cases.len()).map(|_| AtomicUsize::new(0)).collect();
-        let rows = collect_indexed_cases_with(&cases, |case| {
+        let rows = collect_indexed_cases_with_expected(&cases, cases.len(), |case| {
             visits[case.ordinal].fetch_add(1, Ordering::Relaxed);
             (case.case, case.ordinal)
         }).unwrap();
@@ -1651,13 +1650,13 @@ mod tests {
         assert_eq!(attempted.load(Ordering::Relaxed), 0,
             "a wrong production descriptor count must fail before spawning");
 
-        let displaced = collect_indexed_cases_with(&cases, |case| {
+        let displaced = collect_indexed_cases_with_expected(&cases, cases.len(), |case| {
             let returned = cases[(case.ordinal + 1) % cases.len()].case;
             (returned, case.ordinal)
         });
         assert!(matches!(displaced,
             Err(CalibrationCollectError::InvalidDescriptor { .. })));
-        let duplicated = collect_indexed_cases_with(&cases, |case| {
+        let duplicated = collect_indexed_cases_with_expected(&cases, cases.len(), |case| {
             (cases[0].case, case.ordinal)
         });
         assert!(matches!(duplicated,
@@ -1672,7 +1671,8 @@ mod tests {
         assert_eq!(CALIBRATION_WORKERS, 4);
         assert_eq!(CALIBRATION_STACK_BYTES, 16 * 1024 * 1024);
         let names = Mutex::new(BTreeSet::new());
-        collect_indexed_cases_with(&synthetic_indexed_cases(8), |case| {
+        let cases = synthetic_indexed_cases(8);
+        collect_indexed_cases_with_expected(&cases, cases.len(), |case| {
             names.lock().unwrap().insert(
                 std::thread::current().name().unwrap().to_string());
             (case.case, ())
@@ -1688,7 +1688,7 @@ mod tests {
     #[test]
     fn a_panicking_calibration_worker_is_a_named_error_before_reporting() {
         let cases = synthetic_indexed_cases(8);
-        let result = collect_indexed_cases_with(&cases, |case| {
+        let result = collect_indexed_cases_with_expected(&cases, cases.len(), |case| {
             if case.ordinal == 4 { panic!("synthetic worker failure"); }
             (case.case, case.ordinal)
         });
@@ -1724,7 +1724,7 @@ mod tests {
 
     #[test]
     fn an_empty_calibration_plan_needs_no_worker() {
-        let rows = collect_indexed_cases_with::<usize, _>(&[],
+        let rows = collect_indexed_cases_with_expected::<usize, _>(&[], 0,
             |case| (case.case, case.ordinal)).unwrap();
         assert!(rows.is_empty());
     }
@@ -1748,7 +1748,7 @@ mod tests {
         let indexed: Vec<_> = cases.into_iter().enumerate()
             .map(|(ordinal, case)| IndexedCase { ordinal, case }).collect();
         let serial: Vec<_> = cases.into_iter().map(measure_matched_row).collect();
-        let parallel = collect_indexed_cases_with(&indexed,
+        let parallel = collect_indexed_cases_with_expected(&indexed, indexed.len(),
             |case| { let row = measure_matched_row(case.case); (row.case, row) }).unwrap();
         assert_eq!(parallel, serial);
         assert_eq!(parallel.iter().map(calibration_csv_row).collect::<String>(),

@@ -177,8 +177,9 @@ fn training_types_cannot_enter_authoritative_state() {
     //      escaped into the world except as a value the command ABI can
     //      express -- there is no `f32` anywhere in that payload, and a policy
     //      that had smuggled one out would fail to encode.
-    //   2. The replay carries no legacy command vector, which is the half of
-    //      "exactly one command vector is active" that the recorder owns.
+    //   2. The replay records at all. This used to assert that it carried no
+    //      *legacy* command vector, which was the half of "exactly one command
+    //      vector is active" the recorder owned; there is one vector now.
     //   3. **The replay reproduces the run without the model.** `Replay::play`
     //      takes no policy and cannot load a checkpoint; it feeds stored
     //      commands back through the same entry. If any part of the fight had
@@ -196,7 +197,6 @@ fn training_types_cannot_enter_authoritative_state() {
     assert_eq!(result.rejected, 0);
 
     let replay = result.replay.as_ref().expect("recording was requested");
-    assert!(replay.entries.is_empty(), "the legacy command vector must stay empty");
     assert!(!replay.submitted_entries.is_empty());
     for record in &replay.submitted_entries {
         let SubmittedCommand::Articulated(command) = record.command else {

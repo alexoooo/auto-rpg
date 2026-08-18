@@ -150,7 +150,7 @@ new registry entry for the fixed-guard control is append-only at code `4`.
 cargo test
 cargo test -p policy
 cargo run --release -p lab -- embodied --corpus-digest
-cargo run --release -p lab -- verify --embodied --seeds 200
+cargo run --release -p lab -- verify --seeds 200
 cargo build --release --target wasm32-unknown-unknown -p web
 node --test tools/wasm_check.js
 node tools/check_docs.js

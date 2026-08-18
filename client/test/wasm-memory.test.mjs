@@ -613,9 +613,31 @@ test("published_legacy_views_survive_every_warm_path_without_memory_growth", () 
   // the same script steps again to 309 at `seed 0xffffffff, round 3`, which is
   // the paragraph above making its point a third time: two is not a smaller
   // eight, it is a different sequence, and it is the one that was run.
+  //
+  // **Then two stopped holding, and what moved it was a `World` that got
+  // smaller.** The session that deleted the legacy columns took `hp`, `max_hp`,
+  // the submitted `command` column and nine projectile columns out of every
+  // `World`, so a `Sim` costs fewer bytes and the allocator reaches its
+  // high-water *later in the same script* -- which is the failure this fixture
+  // is shaped to catch and not a failure a smaller world sounds like it should
+  // cause. Traced on 2026-08-18 after that deletion, in warm plateau / first
+  // guarded growth:
+  //
+  //   1 round  235 / grew at seed 1, cycle 1 -> 261
+  //   2 rounds 261 / grew at seed 1, cycle 2 -> 305
+  //   3 rounds 261 / grew at seed 1, cycle 1 -> 305
+  //   4 rounds 261 / flat across all twelve cycles
+  //   5 rounds 261 / flat
+  //   6 rounds 287 / flat
+  //
+  // Four is what ships, on the rule this comment has now applied four times:
+  // the count that is measured to hold is the count that ships. Six is not four
+  // with margin -- it reaches a *different* plateau, 287, one round into seed 1
+  // -- and three is not four with a little less; it grows a cycle earlier than
+  // two does. Only the flat rows are candidates, and four is the smallest.
   let initialRevisions = null;
   for (const seed of [0, 1, 0xffff_ffff]) {
-    for (let round = 1; round <= 2; round++) initialRevisions = exercise(wasm, abi, seed);
+    for (let round = 1; round <= 4; round++) initialRevisions = exercise(wasm, abi, seed);
   }
   const shape = publicationShape(wasm, abi);
   const memory = wasm.memory;
@@ -793,10 +815,22 @@ const ARTICULATED_DEPTHS = 4;
 const CLINCH_BATCH_ROUNDS = 16;
 
 // Warm rounds before the guard closes, and guarded cycles after it. Both are
-// per seed, and the warm-up drives exactly what the cycles then drive -- see
-// the reading recorded at the warm loop for why one round is already enough and
-// three is margin.
-const ARTICULATED_WARM_ROUNDS = 12;
+// per seed, and the warm-up drives exactly what the cycles then drive. The
+// reading that chose the count is recorded at the warm loop.
+//
+// **A short warm-up here passes, and passes vacuously, which is the trap.** The
+// pass/fail boundary is not monotonic: measured 2026-08-18 in isolation, one
+// warm round PASSES, fourteen FAILS, and fifteen passes. The plateau steps once
+// at cumulative round fifteen, so a warm-up of one never drives the fixture near
+// the step at all -- its three guarded cycles finish at round four and the guard
+// closes over a world that has not yet allocated what it is going to. Only a
+// warm-up that has already crossed the step is asserting anything, which is why
+// "the smallest count measured flat" means the smallest flat count *at the
+// plateau* and not the smallest flat count outright. Anyone re-tuning this must
+// run it in isolation (`--test-name-pattern`): the legacy fixture above shares
+// this module's allocator and warms it first, so a whole-file run can hide the
+// boundary this constant is chosen against.
+const ARTICULATED_WARM_ROUNDS = 15;
 const ARTICULATED_GUARDED_CYCLES = 3;
 
 // The articulated stress fixture: every path v2-16 added, at the maxima this
@@ -1060,6 +1094,27 @@ test("published_views_survive_articulated_stress_without_memory_growth", () => {
   // classes and allocation order rather than what the world weighs. Twelve is
   // three times the settling round and it stays twelve, which is the count that
   // was run.
+  //
+  // **Re-traced on 2026-08-18 after the navigation flow field was deleted:
+  // 291 -> 309, settling round 4 -> 15, and twelve stopped holding.** Per round
+  // on the shipped script: 265 from round one, flat through round fourteen, a
+  // single step to 309 at round fifteen, then 309 unchanged through a measured
+  // round forty. Twelve failed at `seed 1, cycle 3`, thirteen at cycle 2 and
+  // fourteen at cycle 1 -- the warm-up walking toward the step one cycle at a
+  // time, which is the clearest picture this fixture has ever given of what a
+  // short warm-up looks like from inside the guard. It is the *fifth* reading
+  // saying the plateau is dlmalloc's and not the world's: `World` lost four
+  // route fields, a search queue and a seed list, so a generated floor allocates
+  // less and reaches its high water eleven rounds later on the identical script.
+  //
+  // **Fifteen ships, which breaks this fixture's habit of taking a multiple.**
+  // The legacy sibling's rule is the one applied: only flat rows are candidates
+  // and the smallest is the answer. Sixteen, twenty and thirty were each measured
+  // flat at the same 309, so a session that widens the world again has a ladder
+  // rather than a single point -- and the ladder is what the multiple was really
+  // buying. What it costs is the argument against it here: twenty runs this
+  // fixture in 45s and thirty in 76s against fifteen's 35s, and a doubling that
+  // is measured to be unnecessary is not margin, it is forty seconds of gate.
   let last = null;
   for (let round = 1; round <= ARTICULATED_WARM_ROUNDS; round++) {
     for (const seed of seeds) last = articulatedStress(wasm, abi, seed);

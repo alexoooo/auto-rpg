@@ -70,7 +70,7 @@ pub use anatomy::{AnatomyState, BodyPart, PartWoundState};
 pub use codec::{
     ReplayDecodeError, ReplayEncodeError, ReplayEnvelope, ReplayField, ReplayLimit,
     ReplayPlayError, ReplayStream, ReplayValidationError, ARTICULATED_COMMAND_SCHEMA_RESERVED,
-    LEGACY_COMMAND_SCHEMA, REPLAY_CODEC_VERSION,
+    REPLAY_CODEC_VERSION,
 };
 pub use command::{
     ArmTarget, ArticulatedCommandV1, ArticulatedPayloadError, CombatHeight, Command,
@@ -184,7 +184,7 @@ pub use obs::{
     ObservedOpponentStance, ObservedShield, ObservedStance, MAX_ARTICULATED_OPPONENTS,
 };
 pub use pose::{AnimationHint, ArticulatedPose, PosedArm};
-pub use replay::{CommandRecord, ObjectiveRecord, OrderRecord, Replay, SubmittedCommandRecord};
+pub use replay::{ObjectiveRecord, OrderRecord, Replay, SubmittedCommandRecord};
 pub use rules::{
     agility_multiplier, block_leak, blow_damage, dead_zone, peak_damage, peak_impulse, peak_recoil,
     phase_ticks, power_multiplier, strike_ticks, Arm, Stats, ARM_INERTIA, BLOCK_LEAK_BRACED,

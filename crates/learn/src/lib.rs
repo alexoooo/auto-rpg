@@ -42,11 +42,12 @@
 //! keep it is what belongs in a browser artifact rather than what the linker
 //! will let through.
 //!
-//! `AGENTS.md`'s standing instruction, *if a second host for the learning crate
-//! ever appears, check first that it is not `web`*, is discharged by v2-ui-08.
-//! The check was made and the answer is that `web` may see `learn_core` and may
-//! not see this crate; `docs/architecture/learning.md`, under "The boundary,
-//! which did not move", is where that answer lives now.
+//! The standing instruction *if a second host for the learning crate ever
+//! appears, check first that it is not `web`* was discharged for `learn_core` by
+//! v2-ui-08: the check was made and the answer is that `web` may see `learn_core`
+//! and may not see this crate. It stands unchanged for this one. `AGENTS.md`
+//! carried both until 2026-08-18; `docs/architecture/learning.md`, under "The
+//! boundary, which did not move", is where the rule and the answer live now.
 //!
 //! # The three versioned contracts
 //!

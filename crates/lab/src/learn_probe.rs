@@ -1201,7 +1201,6 @@ mod tests {
         assert!(replay.is_intact());
         assert_eq!(replay.ticks, ticks);
         assert!(!replay.submitted_entries.is_empty(), "nothing was recorded");
-        assert!(replay.entries.is_empty(), "an articulated run recorded a legacy command");
         assert_eq!(replay.play().state_hash(), hash);
     }
 

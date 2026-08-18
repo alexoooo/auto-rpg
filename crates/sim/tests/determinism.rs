@@ -240,12 +240,19 @@ mod embodied {
     // `player_orders_change_the_outcome_without_breaking_determinism` cannot be
     // written for this model. An order reaches a legacy agent through
     // `Observation::order`, and the embodied percept is
-    // `ArticulatedObservation`, which has no order column and no nav column. The
-    // one phase that reads `World::orders` at all is `refresh_nav`, in the
-    // epilogue every model shares, and all it does there is build a distance
-    // field -- whose only reader is `World::nav_step`, whose only caller is
-    // `World::observe`, which is a legacy-grammar read an embodied driver never
-    // takes. Setting an order on an embodied world *does* move its digest,
+    // `ArticulatedObservation`, which has no order column and no nav column.
+    //
+    // **The next sentence used to say that the one phase reading `World::orders`
+    // at all is `refresh_nav`, in the epilogue every model shares, whose
+    // distance field is read only by `World::nav_step` and thence by
+    // `World::observe` -- a legacy-grammar read an embodied driver never takes.
+    // That is superseded: there is no such phase.** The chain it describes was
+    // dead at both ends, so the session after this one deleted the flow field
+    // outright, along with `refresh_nav`, the `nav` columns and the epilogue
+    // row. Nothing whatever reads `World::orders` now. The measurement below is
+    // unaffected -- it was already measuring a channel with no reader, and
+    // removing the writer that fed no reader cannot change what it found.
+    // Setting an order on an embodied world *does* move its digest,
     // because the orders array is hashed as an input -- and that is the whole of
     // what it does. Measured over 300 ticks of the script above under `Hold`,
     // `Advance`, `Regroup` and `Goto`, with and without `Objective::Order`,
@@ -649,12 +656,102 @@ mod embodied {
     /// the day it was written -- which is worse than no pin at all, because a
     /// gate that is red for a reason nobody intended teaches the next reader to
     /// skip it.
+    ///
+    /// **Both values moved once, on the day the legacy columns were deleted,
+    /// and the move is a grammar move rather than a fight move.**
+    /// `World::articulated_state_digest` folds `legacy_core_hash` into every
+    /// digest it produces, and that function lost `hp`, `max_hp`, the submitted
+    /// `command` word and the whole nine-column projectile block, so every
+    /// embodied digest in the repository moved by construction. What says the
+    /// fight did not is that everything else this test prints is unchanged: the
+    /// default build still resolves on tick 322 as a `HeroesWin` through 242
+    /// contact resolutions and the feature build on tick 183 as a `MonstersWin`
+    /// through 8, and `deleting_the_legacy_columns_left_the_wounds_where_they_were`
+    /// below holds the per-region integrity and wound fractions recorded before
+    /// the deletion without one of its numbers being edited. Previously
+    /// `0x5527190dea6be0c2` by default and `0x81e51e499a5d01fd` under the
+    /// feature.
     #[cfg(not(feature = "cartesian-recoil"))]
-    const EMBODIED_GOLDEN_DIGEST: u64 = 0x5527_190d_ea6b_e0c2;
+    const EMBODIED_GOLDEN_DIGEST: u64 = 0x49d4_12eb_6102_0365;
 
     /// The same fight under the wider hash stream; see above.
     #[cfg(feature = "cartesian-recoil")]
-    const EMBODIED_GOLDEN_DIGEST: u64 = 0x81e5_1e49_9a5d_01fd;
+    const EMBODIED_GOLDEN_DIGEST: u64 = 0xc8a7_45fd_f389_7645;
+
+    /// The wounds the legacy columns would have shadowed, recorded **before**
+    /// they were deleted.
+    ///
+    /// Five pins moved in the session that deleted `hp`, `max_hp`,
+    /// `World::command`, the projectile columns and `Replay::entries` from the
+    /// state stream -- every pin taken over `World::state_digest`, because
+    /// `articulated_state_digest` folds `legacy_core_hash` -- and a re-recorded
+    /// hash proves nothing on its own: it is a new number agreeing with itself.
+    /// This is the claim the re-record cannot carry: that the *fight* is where
+    /// it was. Per-region integrity and wound fractions are exactly
+    /// the quantities the deleted health columns shadowed, so if `hp` had been
+    /// feeding anything, these are what would move.
+    ///
+    /// Recorded on x86-64 Windows, rustc 1.97.1, over `Scenario::embodied_duel`
+    /// at seed 31 driven by [`closing`] through [`Aim::Perceived`] for 600
+    /// ticks, on the commit before the deletion. Re-record only alongside a
+    /// deliberate change to embodied mechanics, and never to make this test
+    /// agree with a deletion.
+    ///
+    /// **Two constants, selected by feature, and the second was recorded the
+    /// same way and for the same reason.** `cartesian-recoil` is a different
+    /// contact solver, so this fixture resolves before tick 600 under it and
+    /// only one body is left to read -- which made a single twenty-value
+    /// constant fail the feature build from the day it was written, the exact
+    /// shape of red gate `EMBODIED_CORPUS_DIGEST`'s row records session 09
+    /// shipping. Both arrays were measured on the commit *before* the deletion,
+    /// the feature one by injecting this test into a worktree at that commit,
+    /// and both are unchanged after it. That makes the exact-law build a second
+    /// independent witness that the fight did not move rather than a build with
+    /// no witness at all.
+    #[test]
+    fn deleting_the_legacy_columns_left_the_wounds_where_they_were() {
+        // Fighter integrity, Fighter wounds, Brute integrity, Brute wounds --
+        // five regions each, in `BodyPart` order. The Brute's torso is down to
+        // 44416/65536 and its left arm to 30688, which is what makes this a
+        // fixture that could report a change rather than a pair of untouched
+        // bodies.
+        #[cfg(not(feature = "cartesian-recoil"))]
+        const WOUNDS: [i32; 20] = [
+            65536, 65536, 61504, 65536, 65536, 0, 0, 0, 0, 0,
+            65536, 44416, 30688, 65536, 65536, 0, 6304, 34848, 0, 0,
+        ];
+        // The survivor's five regions and five wounds, under the other solver.
+        // One body and not two: the loser is dead and off `alive_ids` by tick
+        // 600, and a torso at 61600 with a wound of 96 is a body that was in a
+        // fight rather than one that stood still.
+        #[cfg(feature = "cartesian-recoil")]
+        const WOUNDS: [i32; 10] = [65536, 61600, 65536, 65536, 65536, 0, 96, 0, 0, 0];
+        let mut world = World::new(&Scenario::embodied_duel(), 31);
+        let mut live = Vec::new();
+        for _ in 0..600 {
+            live.clear();
+            live.extend(world.alive_ids(Faction::Heroes));
+            live.extend(world.alive_ids(Faction::Monsters));
+            let tick = world.tick();
+            for slot in 0..live.len() {
+                let id = live[slot];
+                let Some(to) = heading(&world, id, &live, slot, Aim::Perceived) else { continue };
+                world.submit_embodied_v1(id, closing(tick, to));
+            }
+            world.step();
+        }
+        let mut measured = Vec::new();
+        for faction in [Faction::Heroes, Faction::Monsters] {
+            for id in world.alive_ids(faction) {
+                let obs = world.observe_articulated(id);
+                measured.extend(obs.integrity_fraction.iter().map(|f| f.raw()));
+                measured.extend(obs.wound_fraction.iter().map(|f| f.raw()));
+            }
+        }
+        println!("wounds after 600 ticks: {measured:?}");
+        assert_eq!(measured.len(), WOUNDS.len(), "the fixture stopped being two live bodies");
+        assert_eq!(measured, WOUNDS.to_vec(), "the deleted columns were feeding the wounds");
+    }
 
     #[test]
     fn the_pinned_embodied_fight_is_unchanged() {

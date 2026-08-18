@@ -235,10 +235,10 @@ owned by [Determinism](../reference/determinism.md).
 ## Source anchors
 
 - Explicit world columns and generational storage: [`World`](../../crates/sim/src/world/mod.rs#L143)
-- Pairwise body separation: [`World::separate`](../../crates/sim/src/world/movement.rs#L61)
+- Pairwise body separation: [`World::separate`](../../crates/sim/src/world/movement.rs#L16)
 - Static closest-approach predicate: [`segment_circle`](../../crates/fx/src/geom.rs#L130)
 - Bounded temporal sweep: [`swept_segment_circle`](../../crates/fx/src/geom.rs#L176)
-- Current clamp rationale: [`agility_multiplier`](../../crates/sim/src/rules.rs#L253)
+- Current clamp rationale: [`agility_multiplier`](../../crates/sim/src/rules.rs#L265)
 - Exhaustive historical-bound cost guard: [`no_blade_can_outrun_the_smallest_body`](../../crates/sim/src/entity.rs#L319)
 - Current blade/body sweep: [`World::resolve_contact`](../../crates/sim/src/world/contact_phase.rs) -- the legacy `resolve_swings` it replaced was deleted with its model
 - Impact magnitude and projection: [`contact_behavior_corpus`](../../crates/sim/src/combat/resolution.rs)

@@ -104,7 +104,7 @@ crates/sim/src/combat/contact.rs:1402     collect_contacts
 crates/sim/src/combat/limb.rs:210         reachable_hand
 crates/sim/src/combat/resolution.rs:487   resolve_group
 crates/sim/src/combat/resolution.rs:702   allocate_weighted
-crates/sim/src/combat/resolution.rs:954   ContactClock::AbsoluteTick
+crates/sim/src/combat/resolution.rs:954   ContactTimeBasis::AbsoluteTick
 crates/sim/src/combat/resolution.rs:1843  serialize_contact_corpus
 crates/sim/src/hand.rs:319                multiple methods
 crates/sim/src/rules.rs:39,52             REGEN_DELAY, REGEN_PER_TICK
@@ -123,41 +123,99 @@ crates/lab/src/tactical_mechanics.rs:1193 collect_indexed_cases_with
 **Two of these are not simply deletions and must be decided rather than swept.**
 
 - `crates/sim/src/world/navigation.rs`'s four unused methods are the *reader side* of the
-  navigation flow field, which is still refreshed every tick and still hashed. Deleting
-  the readers makes the writer's cost unaccounted for. Either delete the flow field with
-  them, or keep them and add `#[allow(dead_code)]` **with a comment naming what would use
-  it** -- the commands reference already records that a standing order is an input no body
-  can perceive, and this is the other end of that sentence.
+  navigation flow field, which is refreshed every tick. **This sentence used to continue
+  "and still hashed", and that was wrong** -- corrected in place on 2026-08-18 by the
+  session that acted on it, because the claim is what the decision turns on.
+  `crates/sim/src/world/mod.rs` documented the exclusion deliberately, on `Nav`: *"Not
+  hashed. A derivation of the floor plan and the objectives, both of which are."* So
+  deleting the field could not move a pin, and the choice between the two options below
+  was not the trade the paragraph thought it was. Deleting the readers makes the writer's
+  cost unaccounted for, so: either delete the flow field with them, or keep them and add
+  `#[allow(dead_code)]` **with a comment naming what would use it** -- the commands
+  reference already records that a standing order is an input no body can perceive, and
+  this is the other end of that sentence. **The session deleted it**, along with
+  `refresh_nav`, the `nav`/`nav_seeds`/`nav_queue` columns, the `EPILOGUE` row, `door_shut`
+  and the eight tests that drove the readers; no pin moved, in either feature
+  configuration. Two tests in that file were not deletions:
+  `the_flow_field_reaches_every_open_tile_and_only_those` was about `Dungeon::distances`
+  and never needed a `World`, so it moved to `dungeon.rs` under a name that says so, and
+  `a_door_opens_inside_the_tick_loop` in `props.rs` was converted -- it steered by
+  `nav_step` and now leans east, which is the heading the route answered anyway, keeping
+  the claim that a door opens inside `World::step`.
+  `orders` and `objectives` stayed, hash writes and all. The capability lost -- ordered
+  movement, which nothing implements for the surviving model -- is written down at
+  `World::set_order`, in `docs/reference/commands.md` and in
+  `docs/design/navigation-visibility.md`, naming what a future session would have to
+  build.
 - `REGEN_DELAY` and `REGEN_PER_TICK` are a game rule, not scaffolding. Regeneration on an
   anatomy body is healing a wound, which is a mechanic nothing implements. Delete the
   constants and say in `rules.rs` that the mechanic left with the legacy health column, so
-  the next person to want it knows it was removed rather than forgotten.
+  the next person to want it knows it was removed rather than forgotten. Done, beside
+  `REGEN_BUDGET`, which survives them: `World::regen_left` is written to
+  `max_hp * REGEN_BUDGET` at spawn and read only by the state hash, so it is a hashed
+  spawn-time constant rather than a column that is always zero -- and it stays, because it
+  is in the state stream and this session's pins were already re-recorded.
+
+**A third needed deciding and the list did not flag it.** `ContactTimeBasis::AbsoluteTick`
+is *not* dead: `ExactKinematics::time_basis` constructs it, inside an `impl` that is
+`#[cfg(feature = "cartesian-recoil")]`, so it is live production code under that feature
+and merely unconstructed in the default build. An ungated default-build test reads it too,
+so a `cfg` on the variant would not compile. It carries
+`#[cfg_attr(not(feature = "cartesian-recoil"), allow(dead_code))]` and a comment naming
+the feature that constructs it, and that is the only `allow(dead_code)` this session
+added.
+
+**The rest split three ways and the split was the work.** Genuinely unreferenced ->
+deleted (`reachable_hand`, `REGEN_DELAY`, `REGEN_PER_TICK`, `PARRY_RECOVERY`,
+`PARRY_MIN_SPIN`, `MIN_STRIKE_REACH`, `MIN_BLOCK_REACH`, `graze_floor`,
+`health_fraction_of`, `swap_ticks`, and the chains that only they reached). Reachable only
+from a `#[cfg(test)]` caller -> read the *test* rather than the function: a `Vec`-returning
+wrapper whose `_into` sibling is what production calls (`resolve_group`,
+`allocate_weighted`, `bill_fatigue`, `collect_indexed_cases_with`) had its test converted
+onto the shipped signature and was then deleted, which strictly widens what the suite
+covers; a genuine harness that holds no rule of its own (`collect_contacts`,
+`serialize_contact_corpus`) was marked `#[cfg(test)]` so it stops shipping and stops
+warning, with its tests kept.
 
 The end state is `cargo build --release` with **zero warnings**, and that is checkable in
 one line, which is why it is worth reaching rather than approaching.
 
 ## Hash expectations
 
-**Two pins move and this session owns both.**
+**This section said "two pins move and this session owns both", and it was wrong
+by three.** Corrected in place on 2026-08-18 by the session it was written for,
+because the mistake it made is the one the repository keeps making and the
+correction is worth more than the prediction was.
+
+**Five pins move**, and the rule that generates the list is one sentence: *every pin
+taken over `World::state_digest` folds `legacy_core_hash`*, because
+`World::articulated_state_digest` opens with `h.write_u64(self.legacy_core_hash())`.
+There is no state-digest pin this session can leave still.
 
 | pin | why it moves |
 |---|---|
 | `EMBODIED_CORPUS_DIGEST` | folds `World::state_digest` over 32 trials |
-| `EMBODIED_GOLDEN_DIGEST` | `World::state_hash` of an embodied fixture in `crates/sim`'s own suite |
+| `EMBODIED_GOLDEN_DIGEST` | `World::state_digest` of an embodied fixture in `crates/sim`'s own suite |
+| `ARTICULATED_COMMAND_HASH` | `crates/web` reads `world.state_digest().value` of an unstepped fixture |
+| `EXACT_TRAJECTORY_STATE_DIGEST` | `exact_diagnostics.rs` folds three `state_digest()` calls into it |
+| `LIFTED_COULOMB_SOLVER_DIGEST` | its `state_words` folds one into every `LiftedReceipt` |
 
-Both have a `cartesian-recoil` variant that moves with them; `crates/lab/src/main.rs`
-carries two `#[cfg]`-selected `EMBODIED_CORPUS_DIGEST` values and both must be re-recorded
-in the same commit. A red pin under `--features cartesian-recoil` is how the last session
-found out it had shipped one; do not repeat it.
+Each has a `cartesian-recoil` variant, and the last three are **paired native/wasm
+target-agreement guards**: measure natively in both configurations first, write the
+numbers down, and only then edit a wasm mirror. A one-sided move is a portability
+failure and not a number to choose. The two exact digests are behind
+`#[cfg(feature = "cartesian-recoil")]` at `crates/sim/src/lib.rs`, so **a default
+`cargo test` is structurally incapable of seeing them move** -- which is how this
+section came to name them as unrelated.
 
 **Nothing else may move.** In particular:
 
 - `ARTICULATED_STREAM_DIGEST` is the *published* pose, region, event, projectile and
-  stance bytes. No legacy column is in it. If it moves, a publication changed and this
-  session did something it did not intend.
-- `COMBAT_GEOMETRY_HASH`, `ARTICULATED_COMMAND_HASH`, `CONTACT_BEHAVIOR_DIGEST`,
-  `LEARNED_INFERENCE_DIGEST`, `EXACT_TRAJECTORY_STATE_DIGEST` and
-  `LIFTED_COULOMB_SOLVER_DIGEST` are unrelated streams.
+  stance bytes. No legacy column is in it, and it is the one digest-shaped pin here
+  that is genuinely a publication rather than a state fold. If it moves, a
+  publication changed and this session did something it did not intend.
+- `COMBAT_GEOMETRY_HASH`, `CONTACT_BEHAVIOR_DIGEST` and `LEARNED_INFERENCE_DIGEST`
+  are unrelated streams.
 - The four embodied scenario fingerprints and the `articulated-duel-v1` fingerprint are
   `Scenario::fingerprint`, which reads no world state at all.
 
@@ -200,15 +258,15 @@ cargo test -p sim --features cartesian-recoil
 cargo test -p lab --features cartesian-recoil
 cargo build --release                                  # zero warnings
 cargo run --release -p lab -- embodied --corpus-digest
-cargo run --release -p lab -- verify --embodied --seeds 200
-cargo run --release -p lab -- verify --embodied --slope --seeds 50
+cargo run --release -p lab -- verify --seeds 200
+cargo run --release -p lab -- verify --slope --seeds 50
 cargo build --release --target wasm32-unknown-unknown -p web
 node --test tools/wasm_check.js
 node tools/check_docs.js
 node --test "client/test/*.test.mjs"
 ```
 
-`lab verify --embodied` matters more than usual here: it is run/re-run/replay agreement,
+`lab verify` matters more than usual here: it is run/re-run/replay agreement,
 and this session changes the replay format by removing `Replay::entries`. A codec that
 still round-trips is the whole claim.
 

@@ -57,7 +57,19 @@ promised:
 - **A direction fence.** `the_learned_policy_is_unreachable_from_sim` in
   `crates/learn-core/tests/direction.rs` asks Cargo for the resolved graph and asserts
   that `fx`, `sim` and `policy` reach neither crate, that `web` reaches `learn-core`,
-  and that `web` does not reach `learn`.
+  and that `web` does not reach `learn`. **It is the whole of that enforcement** -- the
+  compiler was never doing it -- and it reads `cargo tree` rather than the manifests
+  because reading them as text is how it failed. It matched `path = "../` byte-exactly
+  and let three ordinary spellings straight past: `{path="../learn"}`,
+  `path = "../learn/"`, and `learn.workspace = true`. A hand-rolled parser of somebody
+  else's format has that shape of hazard by construction.
+**The standing instruction that goes with the arrow, recorded here because it used to
+live in `AGENTS.md` and the enforcement is not the same thing as the rule:** *if a
+second host for `crates/learn` ever appears, check first that it is not `web`.* It was
+discharged once, for `learn-core`, by the session that split the crates -- the check was
+made and the answer is the amendment above. It **stands unchanged for `learn`**, whose
+only host is `lab`, through `lab learn-probe` and `lab trace --policy learned`.
+
 - **A cross-target pin.** `LEARNED_INFERENCE_DIGEST` (`0xbdba8d64d340ce32`) is FNV-1a-64
   over the logit words the shipped checkpoint produces on a fixed 64-case corpus. It is
   duplicated in `crates/web/src/lib.rs` and `tools/wasm_check.js`, and native and wasm
@@ -72,6 +84,31 @@ and an integer registry has nowhere to put them. The dispatch lives in `crates/w
 asks for code 4 with nothing loaded is refused by name with `ARENA_NO_CHECKPOINT`. The
 ABI for fetching and installing one is in
 [`articulated-abi.md`](../reference/articulated-abi.md#the-checkpoint-staging-buffer).
+
+**Neither crate carries a crates.io dependency, and neither does anything else.**
+`tools/check_deps.js` walks **every** workspace member from `cargo metadata --no-deps`
+and refuses any registry or git source. It seeded that walk from a hard-coded five-name
+list until 2026-08, which left `web` and `lab` unaudited -- a registry crate added
+straight to `crates/web/Cargo.toml` compiled into `web.wasm` and the audit reported
+"passed". `tools/check_deps.test.js` is the fixture that guards the audit, and `cargo
+test` does not run it: run both when you touch a manifest or the audited set.
+
+## The one `unsafe` exception in the repository
+
+`fx`, `sim`, `policy`, `learn-core` and `learn` are all `#![forbid(unsafe_code)]`.
+**One test binary is the exception and it is the only one.**
+`crates/learn/tests/allocation.rs` installs a counting `#[global_allocator]`, which
+`std` requires to be an `unsafe impl`, because that is the only way to make
+`frozen_inference_allocates_nothing_after_warmup` an actual measurement rather than an
+assertion about the source.
+
+It ships in nothing, every `unsafe fn` body writes its own block under
+`#![deny(unsafe_op_in_unsafe_fn)]`, and the library it tests -- `learn-core`, since the
+split -- is still `forbid`. **That split made the claim sharper rather than moving it:**
+the code it counts now ships inside `web.wasm`, where an allocation on the decision path
+grows linear memory and detaches every typed array the page holds. If a future session
+decides the exception is not worth it, delete the file and the claim together -- keeping
+the claim without the counter is the one outcome that would be worse than either.
 
 ## The hand-written policies, unchanged
 

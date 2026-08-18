@@ -366,21 +366,14 @@ mod articulated_projectile_tests {
         }
     }
 
-    #[test]
-    fn web_and_water_slow_by_their_exact_authored_fractions() {
-        let mut world = World::new(&Scenario::articulated_duel(), 1);
-        let at = world.pos[0];
-        world.dungeon_props = vec![test_prop(
-            DungeonObjectKind::Water, at, Fx::ONE, Fx::ZERO,
-        )];
-        assert_eq!(world.dungeon_slow_at(at), Fx::from_ratio(80, 100));
-        world.dungeon_props.push(test_prop(
-            DungeonObjectKind::Web, at, Fx::ONE, Fx::from_int(2),
-        ));
-        assert_eq!(world.dungeon_slow_at(at), Fx::from_ratio(65, 100));
-        world.dungeon_props[1].broken = true;
-        assert_eq!(world.dungeon_slow_at(at), Fx::from_ratio(80, 100));
-    }
+    // **`web_and_water_slow_by_their_exact_authored_fractions` went with the
+    // function it pinned.** It asserted 0.80 through water, 0.65 through a web,
+    // and 0.80 again once the web was broken -- the numbers `World::dungeon_slow_at`
+    // authored. `apply_movement` was that function's only caller, so the factor
+    // had reached no body since bodies became jointed, and both went together;
+    // `world/props.rs` records what that leaves a web being. The fractions are
+    // written down there so the next person to want difficult ground is choosing
+    // to re-author them rather than inventing them from nothing.
 
     #[test]
     fn broken_blocking_props_leave_a_stable_non_colliding_tombstone() {
@@ -401,31 +394,11 @@ mod articulated_projectile_tests {
         assert_eq!(world.dungeon_objects().count(), 1, "destruction removed stable identity");
     }
 
-    #[test]
-    fn simultaneous_prop_hits_sort_by_time_identity_then_attacker() {
-        let mut props = vec![
-            test_prop(DungeonObjectKind::Barrel, Vec2::ZERO, Fx::HALF, Fx::ONE),
-            test_prop(DungeonObjectKind::Pottery, Vec2::X, Fx::HALF, Fx::ONE),
-        ];
-        props[0].identity = 12;
-        props[1].identity = 4;
-        let mut impacts = [
-            PropImpact { toi: Fx::HALF, prop: 0,
-                attacker: EntityId { index: 8, generation: 1 }, amount: Fx::ONE },
-            PropImpact { toi: Fx::HALF, prop: 1,
-                attacker: EntityId { index: 9, generation: 1 }, amount: Fx::ONE },
-            PropImpact { toi: Fx::HALF, prop: 1,
-                attacker: EntityId { index: 2, generation: 1 }, amount: Fx::ONE },
-            PropImpact { toi: Fx::from_ratio(1, 4), prop: 0,
-                attacker: EntityId { index: 10, generation: 1 }, amount: Fx::ONE },
-        ];
-        sort_prop_impacts(&mut impacts, &props);
-        assert_eq!(impacts.map(|impact|
-            (impact.toi, props[impact.prop].identity, impact.attacker.index)), [
-            (Fx::from_ratio(1, 4), 12, 10),
-            (Fx::HALF, 4, 2),
-            (Fx::HALF, 4, 9),
-            (Fx::HALF, 12, 8),
-        ]);
-    }
+    // **`simultaneous_prop_hits_sort_by_time_identity_then_attacker` went with
+    // `sort_prop_impacts`.** It pinned the canonical order -- time of impact,
+    // then prop identity, then attacker -- that stopped destruction depending on
+    // entity allocation order. Nothing had produced a `PropImpact` since the
+    // legacy swing resolver was deleted, so the sort was ordering a list that
+    // could only be empty, and the ordering rule it defended is worth restating
+    // rather than re-deriving the day props become breakable again.
 }

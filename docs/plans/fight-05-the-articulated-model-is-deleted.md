@@ -146,7 +146,8 @@ checkpoint is a separate question and the answer is *keep it*: it decodes the sa
 | `EMBODIED_CORPUS_DIGEST` | **must not move.** A deletion that reaches it has reached the embodied model. Revert; do not re-record. |
 | `EMBODIED_GOLDEN_DIGEST` | must not move, same argument |
 | the four embodied fingerprints | must not move |
-| `ARTICULATED_STREAM_DIGEST`, `ARTICULATED_COMMAND_HASH`, `CONTACT_BEHAVIOR_DIGEST` | must not move; they are published bytes and payload widths, not model choices |
+| `ARTICULATED_STREAM_DIGEST`, `CONTACT_BEHAVIOR_DIGEST` | must not move; they are published bytes and payload widths, not model choices |
+| `ARTICULATED_COMMAND_HASH` | **this row used to be grouped with the two above and the grouping was wrong.** It is `world.state_digest().value` of an unstepped fixture, so it folds `legacy_core_hash` like every state-digest pin; session 01 moved it. Whether it moves here depends on whether this session's deletion reaches that stream, which is a question to answer rather than assume |
 | `COMBAT_GEOMETRY_HASH` | must not move |
 | `LEARNED_INFERENCE_DIGEST` | must not move; a move means the reseat touched the forward pass |
 | `articulated-duel-v1` fingerprint | **deleted**, with its fixture |
@@ -166,7 +167,7 @@ cargo test -p lab --features cartesian-recoil
 cargo build --release                                  # still zero warnings
 cargo run --release -p lab -- embodied --corpus-digest
 cargo run --release -p lab -- embodied --seeds 400 --mirrored --policy tactical
-cargo run --release -p lab -- verify --embodied --seeds 200
+cargo run --release -p lab -- verify --seeds 200
 cargo build --release --target wasm32-unknown-unknown -p web
 cargo build --release --target wasm32-unknown-unknown -p web --features cartesian-recoil
 node --test tools/wasm_check.js

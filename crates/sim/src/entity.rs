@@ -178,10 +178,13 @@ impl Body {
     /// nothing about what it is. If that stops being convincing, the answer is
     /// to take the knife off the Skitterer, not to give it the door.
     ///
-    /// The consequence is the point: a room of Skitterers behind a shut door is
-    /// an engagement the player opens, because their route field
-    /// ([`crate::World::refresh_nav`]) says the hero is unreachable and they
-    /// hold.
+    /// The consequence was the point: a room of Skitterers behind a shut door
+    /// was an engagement the player opened, because their route field said the
+    /// hero was unreachable and they held. **There is no route field** --
+    /// `World::refresh_nav` was deleted for having no reader -- so what this
+    /// flag decides today is only who can lean a door open in
+    /// `World::press_doors`. The rest of the sentence is the mechanic it is
+    /// waiting for.
     pub const fn opens_doors(self) -> bool {
         match self {
             Body::Fighter | Body::Rogue => true,

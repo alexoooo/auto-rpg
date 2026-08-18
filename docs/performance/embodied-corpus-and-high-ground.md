@@ -2,7 +2,7 @@
 
 **Purpose:** Record the embodied corpus, its registered pin, and the measured result of the elevation term — including that the term lost.
 **Status:** current
-**Canonical source:** this record, [`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1804), and the `EMBODIED_CORPUS_DIGEST` row in the [golden registry](../reference/hashes.md#golden-registry)
+**Canonical source:** this record, [`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1821), and the `EMBODIED_CORPUS_DIGEST` row in the [golden registry](../reference/hashes.md#golden-registry)
 **Update when:** An embodied fixture, the embodied script, the corpus shape, the pin, or the high-ground result changes.
 
 **Host:** MSVC x86-64, Windows 10, AMD Ryzen 9 3950X, 32 logical cores. **Date:** 2026-08-17.
@@ -14,8 +14,8 @@ cargo run --release -p lab -- embodied --seeds 400 --mirrored
 cargo run --release -p lab -- embodied --seeds 400 --mirrored --slope
 cargo run --release -p lab -- embodied --corpus-digest
 cargo run --release -p lab -- embodied --high-ground
-cargo run --release -p lab -- verify --embodied --seeds 200
-cargo run --release -p lab -- verify --embodied --slope --seeds 50
+cargo run --release -p lab -- verify --seeds 200
+cargo run --release -p lab -- verify --slope --seeds 50
 ```
 
 Every number below is a pure function of the fixtures, the seeds and the two policies.
@@ -25,7 +25,7 @@ range — see [the measurement design](#why-this-is-mirrored-and-swapped-and-not
 ## The corpus
 
 Two shipped fixtures, each in its canonical orientation and in the reflection across
-`y = 8` that [`lab articulated`](../../crates/lab/src/main.rs#L1804) has always run for
+`y = 8` that [`lab articulated`](../../crates/lab/src/main.rs#L1821) has always run for
 its second orientation.
 
 | fixture | canonical | mirrored |
@@ -80,8 +80,8 @@ the policy at once, since no embodied fixture can be driven by an articulated sc
 
 ## The registered pin
 
-`EMBODIED_CORPUS_DIGEST = 0x14882fb0e0f851e5`, defined at
-[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1688) and asserted by
+`EMBODIED_CORPUS_DIGEST = 0x00e08317d7a31c7c`, defined at
+[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1728) and asserted by
 `the_embodied_corpus_digest_is_the_pinned_one`.
 
 ```text
@@ -90,9 +90,18 @@ fixture   0x1a1e8e74eecd55d5  embodied-duel-v1 canonical
 fixture   0x95b6b5f9bc80865d  embodied-duel-v1 mirrored across y=8.0000
 fixture   0xf49de9a61f939163  embodied-slope-v1 canonical
 fixture   0x7f09908444ffa113  embodied-slope-v1 mirrored across y=8.0000
-digest    0x14882fb0e0f851e5
-pinned    0x14882fb0e0f851e5  agrees
+digest    0x00e08317d7a31c7c
+pinned    0x00e08317d7a31c7c  agrees
 ```
+
+**It was `0x14882fb0e0f851e5` until 2026-08-18, and the four arena fingerprints
+above are the reason that move is not a measurement change.** The session that
+deleted the legacy columns took `hp`, `max_hp`, the submitted `command` word and
+the nine-column legacy projectile block out of `legacy_core_hash`, which every
+`World::state_digest` folds -- so the digest column of this report had to move
+while nothing the report *measures* did. Both `lab embodied --seeds 400
+--mirrored` runs below were re-captured after the deletion and every line of both
+is byte-identical to the numbers on this page.
 
 Its full ownership and re-record rule are in the
 [golden registry](../reference/hashes.md#golden-registry). The short version is that it
@@ -100,7 +109,9 @@ exists so a later session that retires the legacy and articulated measurements h
 something to be wrong against, and that a session which only *deletes another model*
 may not re-record it.
 
-`lab verify --embodied` is the other half of that debt. `lab verify` has only ever
+`lab verify` is the other half of that debt, and it is a *conversion* rather than a
+second mode -- **there is no `--embodied` flag and there never was**, though prose in
+several documents grew one. `verify` has only ever
 driven a Legacy skirmish, and run/re-run/replay agreement is a property of the replay
 codec rather than of any body model, so the claim is now made over seeds under the
 embodied one too — at
@@ -154,7 +165,7 @@ which actually plays gets measured against, and the forward work that does so is
 ## The high-ground measurement
 
 `lab embodied --high-ground`, at
-[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1991). The subject is
+[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L2008). The subject is
 `EmbodiedScriptConfig::SEEKING` and the control is
 [`EmbodiedScriptConfig`](../../crates/policy/src/embodied_script.rs#L247)`::LEVEL`,
 which is the same script with the elevation term switched off so completely that the

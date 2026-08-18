@@ -84,9 +84,11 @@ combat clocks, damage accounting, and persistent command; then every allocated
 projectile slot and its state. The implementation includes dead allocated slots
 so allocation history cannot disappear from the comparison.
 
-Derived or ephemeral collections such as events, pending-decision and
-navigation caches, per-tick scratch, and free-list bookkeeping are not separate
-hash inputs. This prose is a guide to ownership, not an alternative hash
+Derived or ephemeral collections such as events, pending-decision caches,
+per-tick scratch, and free-list bookkeeping are not separate hash inputs. The
+navigation flow field was the largest member of that class and was deleted on
+2026-08-18 for having no reader; its exclusion from the hash is why deleting it
+moved no pin. This prose is a guide to ownership, not an alternative hash
 specification: changing the exact calls or order in the legacy core changes
 the hash stream and must be reviewed against the repository's golden hashes.
 
@@ -109,9 +111,9 @@ not replace the final typed state-digest comparison.
 ## Source anchors
 
 - Record types, recorder methods, integrity check, and playback order:
-  [`Replay`](../../crates/sim/src/replay.rs#L64)
+  [`Replay`](../../crates/sim/src/replay.rs#L61)
 - Durable codec and mandatory playback validation:
-  [`ReplayEnvelope`](../../crates/sim/src/codec.rs#L186)
+  [`ReplayEnvelope`](../../crates/sim/src/codec.rs#L191)
 - Scenario fields and current fingerprint byte stream:
   [`Scenario::fingerprint`](../../crates/sim/src/scenario.rs#L458)
 - Live state hash byte stream: [`World::state_hash`](../../crates/sim/src/world/hash.rs#L83)

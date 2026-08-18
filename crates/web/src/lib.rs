@@ -2662,16 +2662,19 @@ impl Sim {
     /// Builds the world a scenario describes, with both objective channels
     /// switched on.
     ///
-    /// **Both channels are switched on and neither is read any more**, which is
-    /// stated here rather than quietly repaired. `Objective::Order` and
-    /// `Objective::Hunt` build a flow field per faction, and the only readers of
-    /// a flow field are `nav_dir` and `nav_distance` on the legacy
-    /// `Observation` -- a column an embodied body does not have. They are left
-    /// switched on because turning them off is a change to *world construction*
-    /// on a path a fixture may still open under another model, and because the
-    /// deletion that makes them unreachable belongs to the session that removes
-    /// the legacy observation rather than to this one. See the standing order
-    /// section for the exports that went when the readers did.
+    /// **Both channels are switched on and neither is read at all**, which is
+    /// stated here rather than quietly repaired. This used to add that
+    /// `Objective::Order` and `Objective::Hunt` build a flow field per faction
+    /// whose only readers were `nav_dir` and `nav_distance` on the legacy
+    /// `Observation`, and that deleting the field belonged to a later session.
+    /// That session has happened: `World::refresh_nav` and its readers are gone,
+    /// so setting an objective now writes two words that reach `state_hash` and
+    /// nothing else. They are left switched on because turning them off is a
+    /// change to *world construction* on a path a fixture may still open, and
+    /// because the input is the half worth keeping -- see the standing order
+    /// section for the exports that went when the readers did, and
+    /// `World::set_order` for what giving the channel a reader again would
+    /// take.
     ///
     /// One function rather than two copies, because [`Sim::new`] and
     /// [`Sim::descend`] have to agree about this and a level that quietly
@@ -4836,7 +4839,11 @@ const fn hero_from_code(code: u32) -> Body {
     }
 }
 
-/// What a unit is trying to do, in the same encoding `Command` hashes with.
+/// What a unit is trying to do, in the encoding the replay codec writes an
+/// intent tag in. This used to say "the same encoding `Command` hashes with",
+/// and that hash is gone with the legacy command column; the three numbers are
+/// unchanged because the codec still writes them, so the ABI word is the ABI
+/// word it always was.
 const fn intent_code(intent: Intent) -> u32 {
     match intent {
         Intent::Hold => 0,
@@ -5418,11 +5425,12 @@ pub extern "C" fn init(seed: u32) {
 // focus readers were deleted here, and the reason is a missing column rather
 // than a change of taste.**
 //
-// `World::set_order` is not model-gated: it accepts an embodied world, rebuilds
-// the faction's flow field and reaches `World::state_hash`. But the flow field's
-// only readers are `nav_dir` and `nav_distance` on the *legacy* `Observation`,
-// and the order itself is copied into that same struct. An
-// `ArticulatedObservation` -- which is the whole of what an embodied body
+// `World::set_order` is not model-gated: it accepts an embodied world and
+// reaches `World::state_hash`. It also rebuilt the faction's flow field until
+// that field was deleted -- for exactly the reason below, arrived at from the
+// other end. The field's only readers were `nav_dir` and `nav_distance` on the
+// *legacy* `Observation`, and the order itself is copied into that same struct.
+// An `ArticulatedObservation` -- which is the whole of what an embodied body
 // perceives -- has no order column and no nav column. So on this floor a click
 // moved the state hash, drew a destination pip in the frame header, rebuilt a
 // field nobody read, and changed nothing whatsoever about where anybody walked.
@@ -9732,12 +9740,29 @@ mod tests {
         // this is another grammar move rather than a projectile-values move.
         // Previously `0x28dc_a7e7_57a1_ba3f` (default) and
         // `0x8d92_c50f_3a16_ebce` (exact).
+        //
+        // **Moved again by the session that deleted the legacy columns, and
+        // this one is a *subtraction* where the five before it were additions.**
+        // `articulated_state_digest` folds `legacy_core_hash` before it writes a
+        // byte of its own, and that function lost `hp`, `max_hp`, the submitted
+        // `command` word and the whole nine-column projectile block -- so this
+        // reading could not have stayed still, and the plan that owned the
+        // session listed this pin among the ones that must not move. It was
+        // wrong for a reason worth writing down where the next reader is
+        // standing: **this is a `World::state_digest` pin, not a published-bytes
+        // pin, and every state-digest pin folds `legacy_core_hash`.** There are
+        // five of them. `ARTICULATED_STREAM_DIGEST` above is the published-bytes
+        // one, and it did not move.
+        //
+        // Native MSVC measured both values below before either wasm mirror was
+        // edited, and a fresh wasm artifact of each configuration then answered
+        // the same numbers. Previously `0x7194_bc63_6096_a0ff` (default) and
+        // `0x3128_2286_fc15_7e8e` (exact).
         #[cfg(not(feature = "cartesian-recoil"))]
-        assert_eq!(fixture_digest, 0x7194_bc63_6096_a0ff);
+        assert_eq!(fixture_digest, 0x30cc_bd6f_c089_1853);
         #[cfg(feature = "cartesian-recoil")]
-        // Moved with its default-law twin above, and by the same appended
-        // allocated-slot count.
-        assert_eq!(fixture_digest, 0x3128_2286_fc15_7e8e,
+        // Moved with its default-law twin above, and by the same subtraction.
+        assert_eq!(fixture_digest, 0xfb22_a48c_eb8b_8132,
             "the unregistered exact-law command witness moved");
     }
 
@@ -12355,8 +12380,20 @@ mod tests {
     /// allocated-slot count and every retained slot's lifecycle and physical
     /// fields to each folded `state_digest()`. Previously
     /// `0x88e6ea929b8d4305`.
+    ///
+    /// **Moved again by the deletion of the legacy columns**, and through the
+    /// same route as the sentence above: `exact_diagnostics.rs` folds
+    /// `state_digest()` values into this stream, `articulated_state_digest`
+    /// folds `legacy_core_hash` into each of those, and that function lost
+    /// `hp`, `max_hp`, the submitted `command` word and the nine-column
+    /// projectile block. The two sessions before this one each found out the
+    /// hard way that a plan naming only `ARTICULATED_COMMAND_HASH` is naming a
+    /// third of the affected set; the durable statement is that **every pin
+    /// taken over `World::state_digest` folds `legacy_core_hash`**, and this is
+    /// one of the five. Native measured first, both wasm artifacts agreed after.
+    /// Previously `0x4b07e93ccdc137ea`.
     #[cfg(feature = "cartesian-recoil")]
-    const EXACT_TRAJECTORY_STATE_DIGEST: u64 = 0x4b07_e93c_cdc1_37ea;
+    const EXACT_TRAJECTORY_STATE_DIGEST: u64 = 0x13fa_3ac3_47ae_ab12;
 
     /// The terminal source-41 lifted Coulomb solver corpus, paired with the
     /// feature-only wasm exports and registered in `docs/reference/hashes.md`.
@@ -12365,9 +12402,12 @@ mod tests {
     /// `0x83cd7bb2b73aeb9e`; its `command_receipt` writes the same width word
     /// and the same payload. **Moved again by the appended authoritative
     /// articulated-projectile store** in every folded state digest, from
-    /// `0x8dc443385973a5c8`.
+    /// `0x8dc443385973a5c8`. **Moved again with its sibling above** when the
+    /// legacy columns left `legacy_core_hash`, which every folded
+    /// `state_digest()` carries; from `0x4cbafe3e0f71e14f`, native measured
+    /// first and both wasm artifacts agreeing after.
     #[cfg(feature = "cartesian-recoil")]
-    const LIFTED_COULOMB_SOLVER_DIGEST: u64 = 0x4cba_fe3e_0f71_e14f;
+    const LIFTED_COULOMB_SOLVER_DIGEST: u64 = 0x30e1_b403_1f01_ecc8;
 
     /// FNV-1a-64 over the logits `checkpoints/v2-probe.ckpt` produces on
     /// `learn_core`'s fixed observation corpus, prefix `ARPG-LEARNED-V1`.
