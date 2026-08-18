@@ -609,8 +609,14 @@ pub enum EmbodiedPolicyKind {
     /// all ground is level.
     ///
     /// **It is a registry entry rather than a test-only constructor because it
-    /// is what the next session measures against**, and the comparison has to be
-    /// runnable from a command line, mirrored, bracketed inside one round.
+    /// is what the measurement runs against**, and that comparison has to be
+    /// reachable from a command line and named per side. It is mirrored and
+    /// side-swapped rather than *bracketed*: a win rate over a fixed seed set is
+    /// a pure function of the two policies and the fixture, so repeating it
+    /// inside a round would report the same number twice and imply a variance
+    /// that does not exist. What the repetitions cancel is the arena and the
+    /// anatomy, not noise.
+    ///
     /// On a flat fixture it is byte for byte [`Scripted`], which is what makes a
     /// difference measured on a sculpted corpus attributable to the term.
     ///

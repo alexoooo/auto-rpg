@@ -28,14 +28,14 @@ use trace::{FightTrace, TraceRun};
 use fx::{Fx, Hash64, Vec2};
 use policy::{
     run, script_digest, ArmRoles, ArticulatedPolicy, ClosingAttackControlPolicy,
-    OpeningsArticulatedPolicy, PolicyKind,
+    EmbodiedPolicy, EmbodiedPolicyKind, OpeningsArticulatedPolicy, PolicyKind,
     RunConfig, RunResult, ScriptedArticulatedPolicy, TacticalArticulatedPolicy,
     WindmillArticulatedPolicy,
 };
 use sim::{
     AnatomyChoice, Body, CombatHeight, ContactKind, DuelConfigV1, EntityId, Faction, Intent,
-    Outcome, Scenario, StateDigest, SubmitArticulatedOutcome, SubmittedCommand,
-    SubmittedCommandRecord, UnitSpec, World,
+    Outcome, Replay, Scenario, StateDigest, SubmitArticulatedOutcome, SubmitEmbodiedOutcome,
+    SubmittedCommand, SubmittedCommandRecord, UnitSpec, World,
 };
 use std::time::Instant;
 
@@ -48,6 +48,7 @@ fn main() {
         "evolve" => evolution(&args),
         "duel" => duel(&args),
         "articulated" => articulated(&args),
+        "embodied" => embodied(&args),
         "strike-corpus" => strike_corpus::strike_corpus(&args),
         "strong-strike" => strong_strike::strong_strike(),
         "tactical-mechanics" => {
@@ -100,9 +101,16 @@ fn usage() {
           otherwise, because a browser frame has one core to spend.
 
   verify  --seeds N --verbose
+          --embodied --slope --policy neutral|scripted|scripted-level
           Replays every run and checks it reproduces bit-exactly. This is the
           guarantee the whole architecture rests on. --verbose prints every
           seed's hash, which is what you diff against another platform.
+          Without --embodied it drives the Legacy skirmish, which is the only
+          model this command has ever spoken. **Run, re-run and replay agreement
+          is a property of the codec and not of a body model**, so --embodied
+          makes the identical claim over `embodied-duel-v1` -- and --slope over
+          the sculpted fixture, whose floor is the one thing no other replay
+          corpus in this repository has ever carried into a state hash.
 
   hash    --seed N --scenario N
           Prints the state fingerprint of a canonical run. The same number must
@@ -126,6 +134,23 @@ fn usage() {
           with the feet of phases 3, 4, 7 and 8 closing instead of planted,
           which is the cell the reference table leaves unstated. Neither
           control is the reference script and neither may be pinned.
+
+  embodied --seeds N --threads N --mirrored --seed-zero-only --slope
+           --policy neutral|scripted|scripted-level
+           --hero-policy P --monster-policy P
+           --corpus-digest --high-ground
+          `articulated`'s sibling under the embodied model, reporting the same
+          fixed labels so the two corpora read side by side. It runs
+          `embodied-duel-v1` unless --slope names the sculpted fixture, and
+          --mirrored adds the reflection across y=8 for the same reason it does
+          there: one orientation measures the spawn as well as the policy.
+          --corpus-digest is the frozen pin corpus and refuses every override
+          that would change what it measures; the number it prints is the one
+          `docs/reference/hashes.md` registers.
+          --high-ground is the elevation measurement: the embodied script
+          against itself with the high-ground term switched off on one side,
+          on the sculpted fixture, over both orientations and both side
+          assignments. It refuses overrides for the same reason.
 
   strike-corpus --policy neutral|striker --seeds N --mirrored
           Runs nine fixed approach offsets against stationary Fighter and
@@ -512,6 +537,17 @@ fn bench(args: &Args) {
 }
 
 fn verify(args: &Args) {
+    // **The claim is about the codec, so it outlives the model it was written
+    // against.** This command has only ever driven `Scenario::skirmish` through
+    // a Legacy policy, and the session that retires the Legacy model retires the
+    // measurement with it -- taking with it the only thing in the repository
+    // that says run, re-run and replay agree *over seeds* rather than at one.
+    // `crates/sim/tests/determinism.rs` holds the embodied property at a single
+    // seed on each fixture; this arm is the broader claim, and it exists so that
+    // the broader claim is not the one that gets deleted.
+    if args.flag("embodied") {
+        return verify_embodied(args);
+    }
     let count = args.u32("seeds", 50) as u64;
     let heroes = args.u32("heroes", 4);
     let monsters = args.u32("monsters", 6);
@@ -565,6 +601,153 @@ fn verify(args: &Args) {
     } else {
         eprintln!("{failures}/{count} runs failed verification");
         std::process::exit(1);
+    }
+}
+
+/// Run, re-run and replay agreement over seeds, under the embodied model.
+///
+/// **The reason this exists is that the property is the codec's and the command
+/// that holds it is Legacy's.** `crates/sim/tests/determinism.rs` already drives
+/// both embodied fixtures through run, re-run and replay, including at every
+/// intermediate tick -- at *one* seed each, with a hand-written script. The
+/// claim `lab verify` makes is the broader one: over a range of seeds, driven by
+/// the policy a corpus is actually measured with, whose commands are a function
+/// of the observation and therefore reach parts of the command space no
+/// hand-written script visits on purpose. That is the claim session 10 would
+/// otherwise delete along with the model it happens to be written against.
+///
+/// Fanned out across threads where the Legacy arm is serial, and the reason is
+/// arithmetic rather than taste: an embodied fixture runs to 3,600 ticks with
+/// two articulated bodies in contact, so 200 seeds is 600 fights and a serial
+/// pass takes minutes. The fan-out is `articulated_trials`' own -- index-ordered
+/// slots, so no chunk boundary can reorder what is reported, which is the
+/// property `results_do_not_depend_on_the_thread_that_computed_them` holds.
+fn verify_embodied(args: &Args) {
+    let count = args.u32("seeds", 50) as u64;
+    let threads = args.usize("threads", default_threads());
+    let scenario = embodied_fixture(args);
+    let matchup = embodied_matchup_from(args).unwrap_or_else(|sentence| {
+        eprintln!("{sentence}");
+        std::process::exit(2);
+    });
+    let verbose = args.flag("verbose");
+
+    println!(
+        "{count} embodied runs of {} (0x{:016x}) under {}",
+        scenario.name,
+        scenario.fingerprint(),
+        matchup.name()
+    );
+
+    let seeds: Vec<u64> = (0..count).collect();
+    let mut slots: Vec<Option<Result<(u32, Outcome, StateDigest), String>>> =
+        vec![None; seeds.len()];
+    if !seeds.is_empty() {
+        let chunk = seeds.len().div_ceil(threads.max(1)).max(1);
+        std::thread::scope(|scope| {
+            for (chunk_seeds, out) in seeds.chunks(chunk).zip(slots.chunks_mut(chunk)) {
+                let scenario = &scenario;
+                scope.spawn(move || {
+                    for (i, &seed) in chunk_seeds.iter().enumerate() {
+                        out[i] = Some(verify_one_embodied(scenario, seed, matchup, None));
+                    }
+                });
+            }
+        });
+    }
+
+    let mut failures = 0;
+    for (seed, slot) in slots.into_iter().enumerate() {
+        match slot.expect("every seed should have produced a verdict") {
+            Ok((ticks, outcome, state)) => {
+                if verbose {
+                    println!(
+                        "seed {seed:<5} {:?}/{} 0x{:016x}  {ticks:>5} ticks  {outcome:?}",
+                        state.domain, state.schema, state.value
+                    );
+                }
+            }
+            Err(sentence) => {
+                println!("seed {seed}: {sentence}");
+                failures += 1;
+            }
+        }
+    }
+
+    if failures == 0 {
+        println!("{count} embodied runs verified: identical on re-run and exact on replay");
+    } else {
+        eprintln!("{failures}/{count} embodied runs failed verification");
+        std::process::exit(1);
+    }
+}
+
+/// One seed's three passes, as a verdict a thread can hand back.
+///
+/// The failing sentences are the Legacy arm's, said about an embodied digest:
+/// a re-run that disagrees, a replay that diverges. The third one has no Legacy
+/// counterpart -- `Replay::is_intact` recomputes the scenario fingerprint, and a
+/// recording that could not name the fixture it came from is not a replay of it.
+/// `limit` is [`measure_embodied_matchup`]'s own tick bound and the command line
+/// always passes `None`. It is a parameter so that
+/// `an_embodied_run_is_identical_on_re_run_and_exact_on_replay` can assert
+/// against *this* function rather than against a copy of its three comparisons:
+/// a fixture fight is 3,600 ticks and a debug build cannot afford three of them,
+/// and a test that re-derived the comparisons here would be reading the thing it
+/// is supposed to be checking.
+fn verify_one_embodied(
+    scenario: &Scenario,
+    seed: u64,
+    matchup: EmbodiedMatchup,
+    limit: Option<u32>,
+) -> Result<(u32, Outcome, StateDigest), String> {
+    let mut replay = Replay::new(scenario, seed);
+    let mut heroes = matchup.heroes.build();
+    let mut monsters = matchup.monsters.build();
+    let first = measure_embodied_matchup(
+        scenario,
+        seed,
+        heroes.as_mut(),
+        monsters.as_mut(),
+        limit,
+        Some(&mut replay),
+        None,
+    );
+    let again = measure_embodied(scenario, seed, matchup, limit);
+
+    // Through `compare` rather than `==`, because `StateDigest` has no
+    // `PartialEq` on purpose: a domain or a schema mismatch is an error and not
+    // a `false`. On this path a mismatch would mean one of the two runs was not
+    // the embodied model at all, which is worth a different sentence.
+    match first.state.compare(again.state) {
+        Ok(true) => {}
+        Ok(false) => {
+            return Err(format!(
+                "re-running the same inputs gave a different result \
+                 (0x{:016x} then 0x{:016x})",
+                first.state.value, again.state.value
+            ))
+        }
+        Err(error) => return Err(format!("the two runs are not the same grammar: {error:?}")),
+    }
+    if first.digest != again.digest {
+        return Err(format!(
+            "re-running the same inputs submitted a different command stream \
+             (0x{:016x} then 0x{:016x})",
+            first.digest, again.digest
+        ));
+    }
+    if !replay.is_intact() {
+        return Err("the recording does not name the scenario it was taken from".to_string());
+    }
+    let played = replay.play().state_digest();
+    match played.compare(first.state) {
+        Ok(true) => Ok((first.ticks, first.outcome, first.state)),
+        Ok(false) => Err(format!(
+            "replay diverged (live 0x{:016x}, replay 0x{:016x})",
+            first.state.value, played.value
+        )),
+        Err(error) => Err(format!("the replay is not the same grammar: {error:?}")),
     }
 }
 
@@ -845,13 +1028,22 @@ impl Matchup {
 /// hold. `an_asymmetric_matchup_runs_a_different_policy_on_each_side` and
 /// `a_valueless_matchup_key_is_refused_rather_than_running_one_script_on_both`
 /// are what hold these.
-fn matchup_from(args: &Args) -> Result<Matchup, String> {
+///
+/// The two refusals every matchup reader owes, spelled once.
+///
+/// **Shared rather than copied because both of them are traps and not rules.** A
+/// second reader that re-derived them would be a second chance to get one
+/// subtly wrong, and the failure mode of getting one wrong is silence: a
+/// symmetric corpus wearing an asymmetric header. Nothing here reads the script
+/// vocabulary, which is what makes it usable by a reader whose vocabulary is a
+/// different model's.
+fn matchup_key_refusal(args: &Args) -> Option<String> {
     // The `Args::parse` trap `duel_config_from` documents at length, and it bites
     // harder here: a demoted `--hero-policy` leaves a *symmetric* run wearing the
     // header of an asymmetric one, which is the corpus silently answering a
     // different question than the operator asked.
     if let Some(key) = MATCHUP_KEYS.iter().find(|key| args.flag(key)) {
-        return Err(format!(
+        return Some(format!(
             "--{key} names the script driving one side and needs a value: it was given none"
         ));
     }
@@ -863,10 +1055,17 @@ fn matchup_from(args: &Args) -> Result<Matchup, String> {
     // being ignored. It is named here rather than in a general unknown-key rule
     // because only this key silently changes what is being measured.
     if args.flag("matchup") || args.text("matchup").is_some() {
-        return Err(format!(
+        return Some(format!(
             "--matchup is not a key this build has: name each side with {}",
             MATCHUP_KEYS.map(|key| format!("--{key}")).join(" and ")
         ));
+    }
+    None
+}
+
+fn matchup_from(args: &Args) -> Result<Matchup, String> {
+    if let Some(sentence) = matchup_key_refusal(args) {
+        return Err(sentence);
     }
     let base = script_from(args);
     let mut matchup = Matchup::symmetric(base);
@@ -1206,7 +1405,11 @@ fn measure_articulated_matchup(
         max_blow_raw,
         max_tick_damage,
         rejected,
-        digest: script_digest(&stream),
+        // `expect` and not a fallback: this arm drives an articulated world, so
+        // every record is an articulated one and a refusal here would mean the
+        // fixture had changed model underneath the harness -- which is a thing
+        // to stop on rather than to report a number for.
+        digest: script_digest(&stream).expect("an articulated run stores articulated commands"),
         state: world.state_digest(),
     }
 }
@@ -1349,7 +1552,9 @@ fn first_competence_rejection(mut scenario: Scenario, mirrored: bool)
                 pair: world.exact_scan_pair_rejection(),
                 policy: latest_policy, offered: latest_offered, stored: latest_stored,
                 decision_calls, steps,
-                command_digest: script_digest(&stream), state: world.state_digest(),
+                command_digest: script_digest(&stream)
+                    .expect("an articulated run stores articulated commands"),
+                state: world.state_digest(),
             });
         }
     }
@@ -1564,7 +1769,30 @@ fn articulated(args: &Args) {
         Vec::new()
     };
     let elapsed = started.elapsed();
+    report_trials(&canonical, &reflected, mirrored, &original, elapsed);
+}
 
+/// The fixed-label report both corpora print.
+///
+/// **One summariser and two callers rather than two summarisers**, because the
+/// point of the embodied corpus wearing this report is that the two can be read
+/// side by side -- and a column that drifted apart would be worse than a column
+/// that was never there. Nothing in it is articulated-only: every field it
+/// touches is one [`ArticulatedTrial`] carries, and that struct is the embodied
+/// corpus's row too, under the alias that says so.
+///
+/// `canonical` is the unreflected orientation and its length is the seed count,
+/// which is what the `sides` percentage is a fraction of; `reflected` is empty
+/// when no mirror was run.
+fn report_trials(
+    canonical: &[ArticulatedTrial],
+    reflected: &[ArticulatedTrial],
+    mirrored: bool,
+    scenario: &Scenario,
+    elapsed: std::time::Duration,
+) {
+    let seeds = canonical.len();
+    let original = scenario;
     let all: Vec<&ArticulatedTrial> = canonical.iter().chain(reflected.iter()).collect();
     let trials = all.len().max(1);
     let fighter_wins = |set: &[ArticulatedTrial]| {
@@ -1645,13 +1873,13 @@ fn articulated(args: &Args) {
         original.max_ticks,
         100.0 * limits as f64 / trials as f64
     );
-    let (won, mirrored_won) = (fighter_wins(&canonical), fighter_wins(&reflected));
+    let (won, mirrored_won) = (fighter_wins(canonical), fighter_wins(reflected));
     if mirrored {
         let side = won.abs_diff(mirrored_won);
         println!(
             "sides     fighter wins {won} canonical, {mirrored_won} mirrored, \
              difference {side} ({:.2} percentage points)",
-            100.0 * side as f64 / seeds.len().max(1) as f64
+            100.0 * side as f64 / seeds.max(1) as f64
         );
     } else {
         println!("sides     fighter wins {won} canonical (no mirror was run)");
@@ -1692,11 +1920,14 @@ fn articulated(args: &Args) {
     );
     println!("commands  {rejected} refused submissions");
 
-    // The two fingerprints of the canonical pin run, printed and deliberately
-    // **not** recorded anywhere. `ARTICULATED_HASH` is created once, at the very
-    // end of v2-17, after both gates pass; a constant pinned here would be a
-    // promise about a physics that checkpoint B is still allowed to change, and
-    // `docs/reference/hashes.md` forbids exactly that.
+    // The two fingerprints of the canonical seed-zero run, printed and
+    // deliberately **not** recorded anywhere. `ARTICULATED_HASH` is created
+    // once, at the very end of v2-17, after both gates pass; a constant pinned
+    // here would be a promise about a physics that checkpoint B is still allowed
+    // to change, and `docs/reference/hashes.md` forbids exactly that. The
+    // embodied corpus prints the same line and is under the same rule: its pin
+    // is `EMBODIED_CORPUS_DIGEST`, which is a fold over a frozen corpus reached
+    // by its own flag, and is not this line under another name.
     if let Some(pin) = canonical.first().filter(|t| t.seed == 0) {
         println!(
             "seed 0    {:?}/{} 0x{:016x}  script 0x{:016x}",
@@ -1708,6 +1939,1264 @@ fn articulated(args: &Args) {
         );
     }
     println!("          {:.2}s wall", elapsed.as_secs_f64());
+}
+
+// ---- the embodied corpus
+
+/// The embodied corpus's row, which **is** [`ArticulatedTrial`] rather than a
+/// copy of it.
+///
+/// Every column that struct carries is read off the `World` immediately after a
+/// step -- resolutions by kind, cap hits, the energy-ledger excess, severances,
+/// health -- and not one of them is articulated-only. What names the model is
+/// the `domain` word inside `state`, which an embodied run answers
+/// `HashDomain::EmbodiedV1` to and an articulated one `ArticulatedV1`; that is
+/// exactly why `StateDigest` carries a domain instead of being a bare `u64`, and
+/// it makes a digest from one corpus offered as the other's a type error rather
+/// than two numbers that differ.
+///
+/// A second struct with the same twenty fields would be a second thing to keep
+/// in step with the summariser below, and the summariser is the whole reason
+/// either of them exists: the two reports are meant to be read side by side, so
+/// a column that drifted apart would be worse than no column.
+type EmbodiedTrial = ArticulatedTrial;
+
+/// The ASCII domain prefix of [`embodied_script_digest`], on
+/// `policy::SCRIPT_DIGEST_DOMAIN`'s own precedent: a bare FNV of a byte stream
+/// is a number any other byte stream can collide with, and a domain prefix is
+/// the cheapest way to make "this is an *embodied* command stream" part of what
+/// was hashed. A different prefix from the articulated one, deliberately, since
+/// the two grammars differ by four bytes and a shared prefix would invite the
+/// comparison.
+const EMBODIED_SCRIPT_DIGEST_DOMAIN: &[u8] = b"ARPG-EMBODIED-SCRIPT-V1";
+
+/// One embodied run's stored command stream, as eight bytes.
+///
+/// **This exists because `policy::script_digest` answers the empty-stream
+/// constant for every embodied fight, and does it silently.** Its loop is
+/// `let SubmittedCommand::Articulated(command) = record.command else { continue }`,
+/// and its doc comment accounts for the skipped arm as
+/// `SubmittedCommand::Legacy`, which "cannot occur". `SubmittedCommand::Embodied`
+/// occurs on every record of every embodied run, so the digest counts zero
+/// records and finishes at `0x89b684347e2caedd` -- the same number for the
+/// script, the control, and a matchup with a different policy on each side.
+/// Three tests in this file were written against it and all three failed on the
+/// first run, which is the only reason it was found: an embodied corpus reported
+/// a `script` column that looked like a fingerprint and was a constant.
+///
+/// **The fix belongs in `crates/policy` and is not taken here.** Teaching
+/// `script_digest` the third arm is a one-line change to a function that feeds
+/// `ARTICULATED_STREAM_DIGEST`'s neighbours and every pinned articulated
+/// `script` column, and this session's whole job is to record numbers that hold
+/// still. So the embodied corpus digests its own stream, under its own domain,
+/// and the day `script_digest` grows the arm this function is what it has to
+/// agree with -- or be deleted in favour of.
+///
+/// The grammar is `script_digest`'s, byte for byte, over
+/// `EmbodiedCommandV1::payload_bytes` instead of the articulated 53: the tick,
+/// the subject's full identity, the payload, and the record count last so that a
+/// stream cannot be extended by a record whose bytes happen to be zero.
+fn embodied_script_digest(records: &[SubmittedCommandRecord]) -> u64 {
+    let mut h = Hash64::new();
+    h.write_bytes(EMBODIED_SCRIPT_DIGEST_DOMAIN);
+    let mut counted = 0u32;
+    for record in records {
+        let SubmittedCommand::Embodied(command) = record.command else {
+            continue;
+        };
+        h.write_u32(record.tick);
+        h.write_u32(record.entity.index);
+        h.write_u32(record.entity.generation);
+        h.write_bytes(&command.payload_bytes());
+        counted += 1;
+    }
+    h.write_u32(counted);
+    h.finish()
+}
+
+/// The sentence fragment naming an embodied policy in a report headline, on
+/// [`Script::name`]'s terms exactly.
+///
+/// Separate from [`EmbodiedPolicyKind::name`] for the reason [`Script::token`]
+/// is separate from [`Script::name`]: that one is the identifier a command line
+/// and a trace header spell, this one is English. The vocabulary itself is *not*
+/// duplicated -- `--policy` parses through `EmbodiedPolicyKind::from_name`, so
+/// there is one list of embodied policy names in the repository and this
+/// function does not add a second.
+fn embodied_name(kind: EmbodiedPolicyKind) -> &'static str {
+    match kind {
+        EmbodiedPolicyKind::Neutral => "the neutral control",
+        EmbodiedPolicyKind::Scripted => "the embodied script",
+        EmbodiedPolicyKind::ScriptedLevel => "the embodied script with the ground term off (control)",
+    }
+}
+
+/// Which embodied policy drives each side.
+///
+/// [`Matchup`]'s sibling and deliberately not a widening of it. The two hold
+/// different enums because the two enums build different traits --
+/// `Box<dyn ArticulatedPolicy>` and `Box<dyn EmbodiedPolicy>` -- returning
+/// different command types, and a single matchup over a runtime-tagged script
+/// would make "which model is this fight" a question answered at the submission
+/// call rather than at the type. That is the argument `embodied_script.rs`
+/// exists as a separate file for, one layer down.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+struct EmbodiedMatchup {
+    heroes: EmbodiedPolicyKind,
+    monsters: EmbodiedPolicyKind,
+}
+
+/// A bare kind *is* the symmetric matchup, exactly as a bare [`Script`] is.
+impl From<EmbodiedPolicyKind> for EmbodiedMatchup {
+    fn from(kind: EmbodiedPolicyKind) -> EmbodiedMatchup {
+        EmbodiedMatchup::symmetric(kind)
+    }
+}
+
+impl EmbodiedMatchup {
+    fn symmetric(kind: EmbodiedPolicyKind) -> EmbodiedMatchup {
+        EmbodiedMatchup { heroes: kind, monsters: kind }
+    }
+
+    fn is_symmetric(self) -> bool {
+        self.heroes == self.monsters
+    }
+
+    /// One name when both sides are the same and "x against y" when they are
+    /// not, which is [`Matchup::name`]'s rule and is what lets a symmetric
+    /// embodied corpus be read without noticing the feature.
+    fn name(self) -> String {
+        if self.is_symmetric() {
+            embodied_name(self.heroes).to_string()
+        } else {
+            format!("{} against {}", embodied_name(self.heroes), embodied_name(self.monsters))
+        }
+    }
+}
+
+/// The embodied matchup the flags add up to, or the sentence the run should be
+/// refused with.
+///
+/// Returned rather than printed-and-exited, on [`matchup_from`]'s discipline and
+/// through [`matchup_key_refusal`]'s two shared traps. The vocabulary is
+/// `EmbodiedPolicyKind`'s own and is not written down a second time here: an
+/// embodied fight named `scripted-level` in the studio, in a report and on a
+/// command line is one word everywhere.
+fn embodied_matchup_from(args: &Args) -> Result<EmbodiedMatchup, String> {
+    if let Some(sentence) = matchup_key_refusal(args) {
+        return Err(sentence);
+    }
+    let read = |key: &str| -> Result<Option<EmbodiedPolicyKind>, String> {
+        let Some(name) = args.text(key) else { return Ok(None) };
+        EmbodiedPolicyKind::from_name(name).map(Some).ok_or_else(|| {
+            let vocabulary: Vec<&str> =
+                EmbodiedPolicyKind::ALL.iter().map(|kind| kind.name()).collect();
+            format!(
+                "--{key} does not know the policy \"{name}\": it takes {}",
+                vocabulary.join(", ")
+            )
+        })
+    };
+    // `--policy` sets both, so a bare `--policy` with no value would silently
+    // resolve to the default and run a corpus nobody asked for. It is the same
+    // demotion the two asymmetric keys are refused for, and it is refused here
+    // rather than in the shared helper because the shared helper is used by a
+    // reader whose `--policy` is [`script_from`]'s, which has its own arms.
+    if args.flag("policy") {
+        return Err(
+            "--policy names the embodied policy driving both sides and needs a value: \
+             it was given none"
+                .to_string(),
+        );
+    }
+    let base = read("policy")?.unwrap_or(EmbodiedPolicyKind::Scripted);
+    let mut matchup = EmbodiedMatchup::symmetric(base);
+    if let Some(kind) = read("hero-policy")? {
+        matchup.heroes = kind;
+    }
+    if let Some(kind) = read("monster-policy")? {
+        matchup.monsters = kind;
+    }
+    Ok(matchup)
+}
+
+/// The pinned fixture reflected across `y = 8`, embodied.
+///
+/// [`mirror_spawns`] rather than a second reflection, so `--mirrored` means the
+/// same thing in both corpora, and for the reason that function records: the
+/// spawn yaws are their own negations under a Y reflection, so nothing but the
+/// spawn row moves. On the sculpted fixture it is more than a convenience --
+/// the hill is centred so that all four spawn tiles are the same 29 squared
+/// units from the top, which is what makes the reflected half a control on the
+/// arena rather than a second sample of it.
+fn mirrored_embodied(scenario: &Scenario) -> Scenario {
+    let mut mirror = scenario.clone();
+    mirror_spawns(&mut mirror);
+    mirror
+}
+
+/// The same fixture with the two spawns exchanged.
+///
+/// **Not the mirror, and it answers a question the mirror cannot.** Mirroring
+/// reflects both spawns about `y = 8` and leaves each body on its own side of
+/// the arena; this puts the Fighter where the Brute was. On a fixture whose two
+/// spawns stand on different ground -- `embodied_ledge` -- that is the only way
+/// to get each anatomy onto each ground, which is what divides the anatomy out
+/// of a measurement about the ground.
+fn swapped_embodied(scenario: &Scenario) -> Scenario {
+    let mut swapped = scenario.clone();
+    assert!(swapped.units.len() >= 2, "a duel fixture has two bodies");
+    let first = swapped.units[0].spawn;
+    swapped.units[0].spawn = swapped.units[1].spawn;
+    swapped.units[1].spawn = first;
+    swapped
+}
+
+/// The two shipped embodied fixtures, chosen by `--slope`.
+fn embodied_fixture(args: &Args) -> Scenario {
+    if args.flag("slope") {
+        Scenario::embodied_slope()
+    } else {
+        Scenario::embodied_duel()
+    }
+}
+
+/// Where the two sides actually stood, accumulated over a run.
+///
+/// **The diagnostic that separates "the term is wrong" from "the criterion is
+/// wrong", and it is needed because the measurement came out against the term.**
+/// A win rate alone cannot tell a policy that failed to take the high ground
+/// from one that took it and gained nothing by it, and those are two different
+/// findings with two different owners.
+///
+/// An optional observer on the ordinary loop rather than a second loop, on
+/// [`measure_articulated_traced`]'s precedent exactly: a third copy of the
+/// decision loop is a third thing to drift, and an observer that returns nothing
+/// to the world cannot change the fight it is watching.
+///
+/// It reads `articulated_pose(..).body.z`, which is the floor the body is
+/// standing on -- `a_body_on_the_hill_stands_on_the_hill` in the determinism
+/// suite is what says that column is the terrain and not a number of its own.
+#[derive(Clone, Copy, Default, Debug)]
+struct ElevationProbe {
+    /// Per faction, Heroes then Monsters: the summed floor height under every
+    /// live body at every tick, how many samples that is, and the highest floor
+    /// any of them reached.
+    ///
+    /// **The sum is raw `i64` and not `Fx`, and the first version of this was
+    /// wrong for exactly that reason.** `Fx` is 16.16, so its integer range
+    /// stops at 32,767: sixty-four trials of 3,600 ticks is a quarter of a
+    /// million samples, and a divisor built with `Fx::from_int` wrapped. It
+    /// printed a mean floor of exactly `1.0000` for both sides -- a number this
+    /// fixture cannot produce, since its summit is `0.75` -- and it read as a
+    /// plausible-looking tie. Nothing here reaches authoritative state, so the
+    /// accumulator is free to be wider than the quantity it accumulates.
+    sum_raw: [i64; 2],
+    samples: [u64; 2],
+    peak: [Fx; 2],
+    /// Samples taken above the flat.
+    ///
+    /// A mean alone cannot separate "climbed a little, everywhere" from
+    /// "climbed a lot, briefly", and on this fixture the two have opposite
+    /// readings: the hill is centred between the spawns, so *closing* is
+    /// climbing whether a policy meant it or not.
+    above: [u64; 2],
+}
+
+impl ElevationProbe {
+    fn mean(&self, faction: Faction) -> Fx {
+        let at = faction as usize;
+        if self.samples[at] == 0 {
+            return Fx::ZERO;
+        }
+        Fx::from_raw((self.sum_raw[at] / self.samples[at] as i64) as i32)
+    }
+
+    /// What share of the run this side spent off the flat, as a percentage.
+    fn uphill(&self, faction: Faction) -> f64 {
+        let at = faction as usize;
+        100.0 * self.above[at] as f64 / self.samples[at].max(1) as f64
+    }
+
+    fn absorb(&mut self, other: &ElevationProbe) {
+        for at in 0..2 {
+            self.sum_raw[at] += other.sum_raw[at];
+            self.samples[at] += other.samples[at];
+            self.peak[at] = self.peak[at].max(other.peak[at]);
+            self.above[at] += other.above[at];
+        }
+    }
+}
+
+/// Drives one seed of an embodied fixture to its stop and records what the
+/// mechanics did.
+///
+/// A second copy of [`measure_articulated_matchup`]'s loop and **not** a
+/// generalisation of it. The two differ in the one place a generalisation would
+/// have had to hide: the command type. `submit_embodied_v1` takes an
+/// `EmbodiedCommandV1`, whose `swing_plane` has no articulated counterpart, and
+/// a loop that took both through a runtime tag would put the model behind a
+/// branch at exactly the call that decides which grammar the world is speaking.
+/// `World::submit_embodied_v1` already refuses the wrong model by name, and the
+/// value of that refusal is that nothing ever reaches it.
+///
+/// `limit` is the tick bound, `None` meaning the scenario's own. **A parameter
+/// rather than an edited `Scenario::max_ticks`**, because `max_ticks` is in the
+/// fingerprint: a corpus that shortened the fight by editing the scenario would
+/// stop being a corpus of `embodied-duel-v1` and the pin naming that fixture
+/// would be naming something else.
+fn measure_embodied_matchup(
+    scenario: &Scenario,
+    seed: u64,
+    hero_policy: &mut dyn EmbodiedPolicy,
+    monster_policy: &mut dyn EmbodiedPolicy,
+    limit: Option<u32>,
+    mut replay: Option<&mut Replay>,
+    mut elevation: Option<&mut ElevationProbe>,
+) -> EmbodiedTrial {
+    let config = RunConfig::default();
+    let mut world = World::new(scenario, seed);
+    // Set *and recorded*, on `run_articulated`'s reasoning exactly: no embodied
+    // observation has an order column, so nothing reads these, and they reach
+    // the state hash anyway. A replay that recorded only the inputs somebody
+    // currently reads would stop reproducing its run the day the embodied model
+    // grows a standing order, and it would do it silently.
+    for (faction, order) in [
+        (Faction::Heroes, config.orders[0]),
+        (Faction::Monsters, config.orders[1]),
+    ] {
+        world.set_order(faction, order);
+        if let Some(replay) = replay.as_deref_mut() {
+            replay.record_order(0, faction, order);
+        }
+    }
+
+    let heroes = world.alive_ids(Faction::Heroes);
+    // Both rosters read once, before anybody has died. `articulated_pose`
+    // answers `None` for a slot that is no longer live, which is what keeps a
+    // stale handle out of the probe's mean rather than a second liveness query
+    // per tick.
+    let monsters = world.alive_ids(Faction::Monsters);
+    // **`reset` is load-bearing here in a way it is not on the articulated
+    // side.** `ScriptedEmbodiedPolicy` carries `GroundSense`, which is a row of
+    // per-run memory: the floor it started on and the highest it has reached. A
+    // corpus that reused an instance across seeds without this would carry seed
+    // n-1's hill into seed n, and the symptom would be a win rate that depended
+    // on the order the seeds were chunked into threads.
+    hero_policy.reset();
+    monster_policy.reset();
+
+    let mut due: Vec<EntityId> = Vec::new();
+    let mut stream: Vec<SubmittedCommandRecord> = Vec::new();
+    let mut contacts = 0u64;
+    let mut kinds = [0u64; 4];
+    let mut guard_pairs = [[0u64; 3]; 3];
+    let mut commanded: Vec<(bool, Option<usize>, Option<usize>)> = Vec::new();
+    let mut max_energy_excess = 0u64;
+    let mut severances = 0u64;
+    let mut max_blow_raw = 0u64;
+    let mut max_tick_damage = Fx::ZERO;
+    let mut dealt = Fx::ZERO;
+    let mut rejected = 0u32;
+
+    let limit = limit.unwrap_or(scenario.max_ticks);
+    while world.outcome().is_none() && world.tick() < limit {
+        due.clear();
+        due.extend_from_slice(world.pending_decisions());
+        commanded.clear();
+        for &id in &due {
+            let obs = world.observe_articulated(id);
+            let command = if heroes.contains(&id) {
+                hero_policy.decide(&obs)
+            } else {
+                monster_policy.decide(&obs)
+            };
+            let roles = ArmRoles::of(&obs);
+            commanded.push((
+                matches!(command.articulated.intent, Intent::Attack(_)),
+                height_index(command.articulated.arms[roles.weapon].height),
+                height_index(command.articulated.arms[1 - roles.weapon].height),
+            ));
+            match world.submit_embodied_v1(id, command) {
+                SubmitEmbodiedOutcome::Stored { command, rejection } => {
+                    if rejection.is_some() {
+                        rejected += 1;
+                    }
+                    // The stored command and never the offered one, for
+                    // `ARPG-SCRIPT-V1`'s reason and for the replay's: a refused
+                    // submission stores the neutral command, and a recording
+                    // that carried the refused one would replay a fight the live
+                    // run never had.
+                    let record = SubmittedCommandRecord {
+                        tick: world.tick(),
+                        entity: id,
+                        command: SubmittedCommand::Embodied(command),
+                    };
+                    if let Some(replay) = replay.as_deref_mut() {
+                        replay.record_submitted(record.tick, record.entity, record.command);
+                    }
+                    stream.push(record);
+                }
+                SubmitEmbodiedOutcome::NotStored(_) => rejected += 1,
+            }
+        }
+        for (attacker, &(attacking, weapon, _)) in commanded.iter().enumerate() {
+            let Some(weapon) = weapon.filter(|_| attacking) else { continue };
+            for (defender, &(_, _, guard)) in commanded.iter().enumerate() {
+                if defender == attacker {
+                    continue;
+                }
+                if let Some(guard) = guard {
+                    guard_pairs[weapon][guard] += 1;
+                }
+            }
+        }
+        let _ = world.step();
+        for row in world.contact_resolutions() {
+            contacts += 1;
+            kinds[row.fact.key.kind as usize] += 1;
+            max_energy_excess = max_energy_excess
+                .max(row.energy.after_raw.saturating_sub(row.energy.before_raw));
+            severances += u64::from(row.severed);
+            max_blow_raw = max_blow_raw.max(row.cut_raw.saturating_add(row.thrust_raw));
+        }
+        let total = world.damage_dealt(Faction::Heroes) + world.damage_dealt(Faction::Monsters);
+        max_tick_damage = max_tick_damage.max(total - dealt);
+        dealt = total;
+        if let Some(probe) = elevation.as_deref_mut() {
+            for (at, roster) in [&heroes, &monsters].into_iter().enumerate() {
+                for &id in roster {
+                    let Some(pose) = world.articulated_pose(id) else { continue };
+                    probe.sum_raw[at] += i64::from(pose.body.z.raw());
+                    probe.samples[at] += 1;
+                    probe.peak[at] = probe.peak[at].max(pose.body.z);
+                    probe.above[at] += u64::from(pose.body.z > Fx::ZERO);
+                }
+            }
+        }
+    }
+
+    if let Some(replay) = replay.as_deref_mut() {
+        replay.finish(world.tick());
+    }
+    let settled = world.outcome();
+    EmbodiedTrial {
+        seed,
+        outcome: settled.unwrap_or_else(|| world.timeout()),
+        timed_out: settled.is_none(),
+        ticks: world.tick(),
+        hero_health: world.health_fraction(Faction::Heroes),
+        monster_health: world.health_fraction(Faction::Monsters),
+        contacts,
+        kinds,
+        guard_pairs,
+        cap_hits: world.contact_cap_hits(),
+        max_energy_excess,
+        solver_rejections: world.contact_solver_rejections(),
+        first_rejection: world.first_contact_rejection(),
+        severances,
+        max_blow_raw,
+        max_tick_damage,
+        rejected,
+        digest: embodied_script_digest(&stream),
+        state: world.state_digest(),
+    }
+}
+
+/// One seed, one matchup, fresh policies, no recording.
+fn measure_embodied(
+    scenario: &Scenario,
+    seed: u64,
+    matchup: impl Into<EmbodiedMatchup>,
+    limit: Option<u32>,
+) -> EmbodiedTrial {
+    let matchup = matchup.into();
+    let mut heroes = matchup.heroes.build();
+    let mut monsters = matchup.monsters.build();
+    measure_embodied_matchup(scenario, seed, heroes.as_mut(), monsters.as_mut(), limit, None, None)
+}
+
+/// The same index-ordered fan-out [`articulated_trials`] uses, embodied.
+///
+/// `limit` is [`measure_embodied_matchup`]'s tick bound, `None` meaning the
+/// fixture's own -- carried through rather than fixed here so that a bounded
+/// corpus is one call and never a second loop.
+fn embodied_trials(
+    scenario: &Scenario,
+    seeds: &[u64],
+    threads: usize,
+    matchup: impl Into<EmbodiedMatchup>,
+    limit: Option<u32>,
+) -> Vec<EmbodiedTrial> {
+    let matchup = matchup.into();
+    let mut slots: Vec<Option<EmbodiedTrial>> = vec![None; seeds.len()];
+    if seeds.is_empty() {
+        return Vec::new();
+    }
+    let chunk = seeds.len().div_ceil(threads.max(1)).max(1);
+
+    std::thread::scope(|scope| {
+        for (chunk_seeds, out) in seeds.chunks(chunk).zip(slots.chunks_mut(chunk)) {
+            scope.spawn(move || {
+                for (i, &seed) in chunk_seeds.iter().enumerate() {
+                    out[i] = Some(measure_embodied(scenario, seed, matchup, limit));
+                }
+            });
+        }
+    });
+
+    slots
+        .into_iter()
+        .map(|slot| slot.expect("every seed should have produced a trial"))
+        .collect()
+}
+
+/// The registered embodied pin: one number over a fixed corpus of embodied
+/// state digests.
+///
+/// **This is what session 10 checks itself against.** `bench`, `verify`, `hash`,
+/// `duel` and `evolve` are Legacy-only and `articulated` drives a model that
+/// session is deleting, so on the day those pins go there is nothing left in the
+/// repository that would notice an embodied fight changing. The registry row in
+/// [`docs/reference/hashes.md`] says so in those words.
+///
+/// The corpus is deliberately small and deliberately truncated. It is
+/// [`EMBODIED_CORPUS_SEEDS`] seeds of **both** shipped embodied fixtures in
+/// **both** orientations, each stopped at [`EMBODIED_CORPUS_TICKS`], with the
+/// embodied script on both sides. Two properties are worth stating because both
+/// were choices:
+///
+/// * **The slope is in it.** A pin over the flat fixture alone could not see
+///   `ground_z`, terrain routing or the elevation term at all -- `Dungeon::digest`
+///   short-circuits on `sculpted`, which is exactly why adding elevation to the
+///   engine moved no golden hash and exactly why one that can see it has to name
+///   the sculpted fixture.
+/// * **It is bounded by ticks and not by a shortened scenario.** `max_ticks` is
+///   in `Scenario::fingerprint`, so editing it would produce a fixture that is
+///   not `embodied-duel-v1`, and this row's claim is about that fixture by
+///   fingerprint. The bound is passed to the loop instead.
+///
+/// What it folds is the typed digest and nothing else: the domain word, the
+/// schema, and the value, per trial, after the fixture's own fingerprint. The
+/// command stream is *not* folded, on purpose -- a pin that moved when the
+/// policy moved would be reporting two independent things through one number,
+/// and the policy has its own witness in the corpus report's `script` column.
+const EMBODIED_CORPUS_SEEDS: u64 = 8;
+
+/// The tick bound of the pin corpus.
+///
+/// 600 rather than the fixture's 3,600 because of what those ticks contain: the
+/// articulated corpus reaches its clock in 95% of trials, so the last five sixths
+/// of a fight are two bodies that have already stopped deciding anything new,
+/// while the first 600 are the whole approach -- the closing, the climb, the
+/// first exchanges, and on the sculpted fixture the terrain sampling that no
+/// other pinned corpus in this repository reaches. It also makes the constant's
+/// own test affordable in a debug build, which is the difference between a pin a
+/// gate checks and a pin a reader is asked to trust.
+const EMBODIED_CORPUS_TICKS: u32 = 600;
+
+/// The pinned value. Re-record with
+/// `cargo run --release -p lab -- embodied --corpus-digest`.
+const EMBODIED_CORPUS_DIGEST: u64 = 0x1488_2fb0_e0f8_51e5;
+
+/// The four arenas of the pin corpus, in the order the fold writes them.
+///
+/// Flat then sculpted, canonical then mirrored. **The order is part of the
+/// grammar**: a fold is not a set, and two corpora differing only in which
+/// fixture came first are two different numbers.
+fn embodied_corpus_arenas() -> Vec<Scenario> {
+    let mut arenas = Vec::with_capacity(4);
+    for scenario in [Scenario::embodied_duel(), Scenario::embodied_slope()] {
+        let mirror = mirrored_embodied(&scenario);
+        arenas.push(scenario);
+        arenas.push(mirror);
+    }
+    arenas
+}
+
+/// The corpus itself, as one number.
+///
+/// Computed across threads and folded in a fixed order afterwards, which are two
+/// separate statements and both are needed: the trials are independent, so the
+/// fan-out is free, and the fold is over index-ordered slots, so no chunk
+/// boundary can reach the number. It is fanned out because a pin nothing can
+/// afford to check is not a pin -- `the_embodied_corpus_digest_is_the_pinned_one`
+/// runs this in a debug build.
+fn embodied_corpus_digest() -> u64 {
+    let arenas = embodied_corpus_arenas();
+    let mut slots: Vec<Option<StateDigest>> =
+        vec![None; arenas.len() * EMBODIED_CORPUS_SEEDS as usize];
+    let threads = default_threads();
+    let chunk = slots.len().div_ceil(threads.max(1)).max(1);
+    let arenas_ref = &arenas;
+    std::thread::scope(|scope| {
+        for (index, out) in slots.chunks_mut(chunk).enumerate() {
+            let base = index * chunk;
+            scope.spawn(move || {
+                for (offset, slot) in out.iter_mut().enumerate() {
+                    let at = base + offset;
+                    let arena = &arenas_ref[at / EMBODIED_CORPUS_SEEDS as usize];
+                    let seed = (at % EMBODIED_CORPUS_SEEDS as usize) as u64;
+                    *slot = Some(
+                        measure_embodied(
+                            arena,
+                            seed,
+                            EmbodiedPolicyKind::Scripted,
+                            Some(EMBODIED_CORPUS_TICKS),
+                        )
+                        .state,
+                    );
+                }
+            });
+        }
+    });
+
+    let mut h = Hash64::new();
+    h.write_bytes(b"ARPG-EMBODIED-CORPUS-V1");
+    h.write_u32(EMBODIED_CORPUS_TICKS);
+    h.write_u64(EMBODIED_CORPUS_SEEDS);
+    for (at, digest) in slots.into_iter().enumerate() {
+        if at % EMBODIED_CORPUS_SEEDS as usize == 0 {
+            h.write_u64(arenas[at / EMBODIED_CORPUS_SEEDS as usize].fingerprint());
+        }
+        let digest = digest.expect("every corpus cell should have produced a digest");
+        // The domain and the schema and not only the value, because the three
+        // are what a `StateDigest` is: a value read under the wrong grammar is
+        // not a smaller mistake than a wrong value.
+        h.write_u8(digest.domain as u8);
+        h.write_u16(digest.schema);
+        h.write_u64(digest.value);
+    }
+    h.finish()
+}
+
+/// Every key that would change what a frozen embodied mode measures, refused by
+/// name before any world is built.
+///
+/// [`competence_override`]'s rule and its reason: a command that looks like the
+/// pin corpus must never quietly measure a different one. `--threads` is on the
+/// list even though the fan-out is index-ordered, because a frozen mode that
+/// accepted it would be inviting a reader to believe the number depends on it.
+fn embodied_override(args: &Args) -> Option<&'static str> {
+    ["seeds", "threads", "seed-zero-only", "mirrored", "slope", "policy",
+     "hero-policy", "monster-policy", "ticks"]
+        .into_iter()
+        .find(|key| args.flag(key) || args.text(key).is_some())
+}
+
+/// `articulated`'s sibling: the same corpus shape, the same report labels, under
+/// the embodied model.
+fn embodied(args: &Args) {
+    // Named together rather than tested one after the other, so that asking for
+    // both is a refusal instead of a silent precedence rule. Two frozen
+    // measurements on one line is exactly the shape of input where "nearly
+    // right" survives review: the operator gets a number, and it is the other
+    // measurement's.
+    let frozen: Vec<&str> = ["corpus-digest", "high-ground"]
+        .into_iter()
+        .filter(|key| args.flag(key))
+        .collect();
+    if frozen.len() > 1 {
+        eprintln!(
+            "embodied --corpus-digest and --high-ground are two frozen measurements: name one"
+        );
+        std::process::exit(2);
+    }
+    if let Some(&mode) = frozen.first() {
+        if let Some(key) = embodied_override(args) {
+            eprintln!("embodied --{mode} accepts no --{key} override");
+            std::process::exit(2);
+        }
+        return match mode {
+            "corpus-digest" => embodied_corpus_report(),
+            _ => high_ground_report(),
+        };
+    }
+    let count = args.u32("seeds", 400) as u64;
+    let threads = args.usize("threads", default_threads());
+    let seeds: Vec<u64> = if args.flag("seed-zero-only") {
+        vec![0]
+    } else {
+        (0..count).collect()
+    };
+    let original = embodied_fixture(args);
+    let mirror = mirrored_embodied(&original);
+    let mirrored = args.flag("mirrored");
+
+    let matchup = embodied_matchup_from(args).unwrap_or_else(|sentence| {
+        eprintln!("{sentence}");
+        std::process::exit(2);
+    });
+
+    println!(
+        "{} seeds x {} orientation{} = {} trials of {} under {}",
+        seeds.len(),
+        if mirrored { 2 } else { 1 },
+        if mirrored { "s" } else { "" },
+        seeds.len() * if mirrored { 2 } else { 1 },
+        original.name,
+        matchup.name()
+    );
+    println!(
+        "fixture   0x{:016x} canonical, 0x{:016x} mirrored across y={}",
+        original.fingerprint(),
+        mirror.fingerprint(),
+        original.arena().y / Fx::from_int(2)
+    );
+
+    let started = Instant::now();
+    let canonical = embodied_trials(&original, &seeds, threads, matchup, None);
+    let reflected = if mirrored {
+        embodied_trials(&mirror, &seeds, threads, matchup, None)
+    } else {
+        Vec::new()
+    };
+    let elapsed = started.elapsed();
+    report_trials(&canonical, &reflected, mirrored, &original, elapsed);
+}
+
+/// The pin corpus, printed with everything a reader needs to re-record it.
+fn embodied_corpus_report() {
+    let started = Instant::now();
+    let digest = embodied_corpus_digest();
+    let elapsed = started.elapsed();
+    println!(
+        "corpus    {EMBODIED_CORPUS_SEEDS} seeds x 2 fixtures x 2 orientations = {} trials, \
+         {EMBODIED_CORPUS_TICKS} ticks each, under the embodied script",
+        EMBODIED_CORPUS_SEEDS * 4
+    );
+    // The arenas the fold actually walked, in the order it walked them, rather
+    // than a second list built the same way: a header that named a fixture the
+    // corpus did not run would be the one error nobody re-reads a header to
+    // catch.
+    for (at, arena) in embodied_corpus_arenas().into_iter().enumerate() {
+        // The mirror keeps the fixture's name and therefore not its
+        // fingerprint, which `mirrored_articulated_duel` records at length. So
+        // the orientation is printed beside the name rather than read off it.
+        let orientation = if at % 2 == 0 {
+            "canonical".to_string()
+        } else {
+            format!("mirrored across y={}", arena.arena().y / Fx::from_int(2))
+        };
+        println!("fixture   0x{:016x}  {} {orientation}", arena.fingerprint(), arena.name);
+    }
+    println!("digest    0x{digest:016x}");
+    println!(
+        "pinned    0x{EMBODIED_CORPUS_DIGEST:016x}  {}",
+        if digest == EMBODIED_CORPUS_DIGEST { "agrees" } else { "MOVED" }
+    );
+    println!("          {:.2}s wall", elapsed.as_secs_f64());
+    if digest != EMBODIED_CORPUS_DIGEST {
+        std::process::exit(1);
+    }
+}
+
+/// The number of seeds each arm of the high-ground measurement runs.
+const HIGH_GROUND_SEEDS: u64 = 400;
+
+/// One arm of the high-ground measurement: which policy sat on which side, and
+/// what the corpus did with it.
+struct HighGroundArm {
+    label: &'static str,
+    /// The faction carrying the seeking configuration, or `None` when both
+    /// sides carry the same one.
+    seeking: Option<Faction>,
+    trials: Vec<EmbodiedTrial>,
+}
+
+impl HighGroundArm {
+    fn wins(&self, faction: Faction) -> usize {
+        self.wins_in(faction, 0, self.trials.len())
+    }
+
+    /// Wins over the seeds `[from, to)` of **both** orientations, for the
+    /// split-half below.
+    ///
+    /// The trials arrive in seed order, canonical block then mirrored, so a
+    /// range of seed indices has to be taken from both blocks rather than from
+    /// the front of the vector: a first half taken naively would be the whole
+    /// canonical orientation and none of the mirror, which is a different
+    /// question with a plausible-looking answer.
+    fn wins_in(&self, faction: Faction, from: usize, to: usize) -> usize {
+        let block = self.trials.len() / 2;
+        self.trials
+            .iter()
+            .enumerate()
+            .filter(|(at, _)| {
+                let seed = at % block;
+                seed >= from && seed < to
+            })
+            .filter(|(_, t)| t.outcome.winner() == Some(faction))
+            .count()
+    }
+
+    fn kills(&self, faction: Faction) -> usize {
+        self.trials
+            .iter()
+            .filter(|t| !t.timed_out && t.outcome.winner() == Some(faction))
+            .count()
+    }
+}
+
+/// **The elevation measurement, and the whole acceptance criterion for session
+/// 04 having been worth doing.**
+///
+/// The embodied script against itself with the high-ground term switched off on
+/// one side, on the sculpted fixture, over `HIGH_GROUND_SEEDS` seeds by two
+/// orientations by two side assignments.
+///
+/// **It is not bracketed and must not be.** Bracketing `control -> subject ->
+/// control` inside a round and quoting a range across pinned processes is the
+/// protocol for a wall-clock number that swings two to three times run to run.
+/// A win rate over a fixed seed set is a pure function of the two policies and
+/// the fixture: three pinned processes would print the same number three times
+/// and imply a variance that does not exist. Copying a benchmark protocol onto a
+/// deterministic measurement makes it look more careful and makes it say less.
+///
+/// What it does need is two controls, and each one is a control on a *different*
+/// thing the corpus would otherwise measure alongside the term:
+///
+/// * **The mirror**, on the arena. The two policies sit at different spawns, so
+///   a single orientation measures the spawn. `embodied_slope` is centred so
+///   that all four spawn tiles are the same 29 squared units from the top, which
+///   is what makes the reflected half a control rather than a second sample.
+/// * **The side swap**, on the bodies. The Fighter carries a sword and a plate
+///   and the Brute a club, and they are not equal fighters -- `lab articulated`
+///   reports 285/299 over 800 trials of the same pair. A single assignment would
+///   therefore measure the anatomy as well as the term. Running both, and
+///   pooling the seeking side's wins across them, cancels it *exactly*: if the
+///   term did nothing, both assignments would reproduce the both-seeking control
+///   below and the pooled counts would be equal by construction.
+///
+/// That third arm -- the same corpus with the term on both sides -- is not part
+/// of the comparison and is printed anyway, because it is what tells a reader
+/// whether a gap of n duels is large or small on this fixture.
+fn high_ground_report() {
+    // **Both sculpted fixtures, and the pair is the result.** `embodied_slope`
+    // puts its hill on the midpoint, which is fair and is the wrong experiment:
+    // a hill between two closing bodies is not a choice, because closing *is*
+    // climbing. Its own elevation line says so -- both sides spend more than
+    // half the fight off the flat whether or not they are trying to -- and a
+    // margin measured there is a fact about the fixture. `embodied_knolls` puts
+    // the high ground perpendicular to the approach, where taking it costs
+    // something. Printing only the second would hide why the first is not the
+    // answer; printing only the first is what this report did before the second
+    // existed.
+    for (scenario, summit) in [
+        (Scenario::embodied_slope(), Vec2::from_ints(12, 8)),
+        (Scenario::embodied_knolls(), Vec2::from_ints(10, 13)),
+    ] {
+        high_ground_on(&scenario, summit);
+        println!();
+    }
+    elevation_advantage_report();
+}
+
+/// Whether standing higher wins fights at all, with the policy divided out.
+///
+/// **The measurement above cannot answer this and it took two fixtures to see
+/// why.** It runs a policy that *seeks* height against one that ignores it, so
+/// a loss is consistent with two different worlds: one where the term is bad,
+/// and one where height is worth nothing and no term could have paid for it.
+/// The elevation diagnostic separates "did it go up" from "did going up help",
+/// and it says the seeking side barely goes up -- which leaves the second world
+/// entirely unmeasured.
+///
+/// So this one takes the choice away. `embodied_ledge` stands one body on a
+/// plateau and the other on the floor; both run the **same** policy, so the only
+/// difference between them is the ground under their feet. Wins are counted by
+/// the spawn a body started on rather than by its faction, and the two spawns
+/// are exchanged as well as mirrored, so each anatomy fights from each side.
+///
+/// A margin here is elevation's own effect. A margin in the report above, given
+/// this one, is the term's.
+fn elevation_advantage_report() {
+    let ledge = Scenario::embodied_ledge();
+    let flat = Scenario::embodied_duel();
+    let started = Instant::now();
+
+    println!(
+        "advantage    {} seeds x 2 orientations x 2 spawn assignments = {} trials of {}",
+        HIGH_GROUND_SEEDS,
+        HIGH_GROUND_SEEDS * 4,
+        ledge.name,
+    );
+    println!(
+        "fixture      0x{:016x} canonical, 0x{:016x} spawns exchanged",
+        ledge.fingerprint(),
+        swapped_embodied(&ledge).fingerprint(),
+    );
+    let raised = west_east_margin(&ledge);
+    println!(
+        "term         plateau {} wins, floor {} wins over {} trials, margin {:+} ({:+.2} points)",
+        raised.west, raised.east, raised.trials, raised.margin(), raised.points(),
+    );
+
+    // **The control that says "higher" and not "west".** The ledge runs down
+    // `x`, so the body on the plateau is also the body on the left, and the two
+    // spawns are not symmetric about the arena in `x`: `(7, 6)` and `(17, 10)`
+    // sit five either side of `x = 12` as points, but in tiles whose centres are
+    // 7.5 and 17.5. The same count on the flat fixture -- same policy, same
+    // seeds, same two exchanges -- is what separates the height from the side of
+    // the room it happens to be on.
+    let level = west_east_margin(&flat);
+    println!(
+        "control      0x{:016x} {} -- west {} wins, east {} wins, margin {:+} ({:+.2} points)",
+        flat.fingerprint(), flat.name,
+        level.west, level.east, level.margin(), level.points(),
+    );
+    println!(
+        "verdict      standing higher is worth {:+} duels ({:+.2} points) once the side of \
+         the room is taken off",
+        raised.margin() - level.margin(),
+        raised.points() - level.points(),
+    );
+    println!(
+        "sampling     plateau split-half {:+} and {:+}, flat {:+} and {:+} -- {}",
+        raised.halves[0], raised.halves[1], level.halves[0], level.halves[1],
+        if raised.halves[0].signum() * raised.halves[1].signum() < 0 {
+            "THE TWO HALVES DISAGREE IN SIGN, so the margin is inside its own sampling spread"
+        } else {
+            "both halves of the measurement agree in sign"
+        }
+    );
+    println!("             {:.2}s wall", started.elapsed().as_secs_f64());
+}
+
+/// Wins for the body that spawned west of the arena's middle against the one
+/// east of it, over both orientations and both spawn assignments.
+struct SideMargin {
+    west: usize,
+    east: usize,
+    trials: usize,
+    halves: [i64; 2],
+}
+
+impl SideMargin {
+    fn margin(&self) -> i64 {
+        self.west as i64 - self.east as i64
+    }
+
+    fn points(&self) -> f64 {
+        100.0 * self.margin() as f64 / self.trials.max(1) as f64
+    }
+}
+
+fn west_east_margin(scenario: &Scenario) -> SideMargin {
+    let seeds: Vec<u64> = (0..HIGH_GROUND_SEEDS).collect();
+    let threads = default_threads();
+    let both = EmbodiedMatchup::symmetric(EmbodiedPolicyKind::Scripted);
+    let mut out = SideMargin { west: 0, east: 0, trials: 0, halves: [0; 2] };
+    for arrangement in [scenario.clone(), swapped_embodied(scenario)] {
+        for arena in [arrangement.clone(), mirrored_embodied(&arrangement)] {
+            // Read off the arena rather than assumed, so exchanging the spawns
+            // cannot silently keep counting the same faction.
+            let west = arena.units.iter()
+                .find(|unit| unit.spawn.x < Fx::from_int(12))
+                .map(|unit| unit.faction)
+                .expect("one body stands west of the middle");
+            let east = match west {
+                Faction::Heroes => Faction::Monsters,
+                Faction::Monsters => Faction::Heroes,
+            };
+            let rows = embodied_trials(&arena, &seeds, threads, both, None);
+            for (at, row) in rows.iter().enumerate() {
+                let half = usize::from(at >= seeds.len() / 2);
+                match row.outcome.winner() {
+                    Some(w) if w == west => { out.west += 1; out.halves[half] += 1; }
+                    Some(w) if w == east => { out.east += 1; out.halves[half] -= 1; }
+                    _ => {}
+                }
+            }
+            out.trials += rows.len();
+        }
+    }
+    out
+}
+
+/// One sculpted fixture's arms, margin, elevation diagnostic and attribution.
+fn high_ground_on(scenario: &Scenario, summit: Vec2) {
+    let mirror = mirrored_embodied(scenario);
+    let seeds: Vec<u64> = (0..HIGH_GROUND_SEEDS).collect();
+    let threads = default_threads();
+    let flat = Scenario::embodied_duel();
+
+    println!(
+        "high ground  {} seeds x 2 orientations x 3 arms = {} trials of {}",
+        seeds.len(),
+        seeds.len() * 6,
+        scenario.name
+    );
+    println!(
+        "fixture      0x{:016x} canonical, 0x{:016x} mirrored across y={}",
+        scenario.fingerprint(),
+        mirror.fingerprint(),
+        scenario.arena().y / Fx::from_int(2)
+    );
+    println!(
+        "control      0x{:016x} {} -- where the term has to be inert",
+        flat.fingerprint(),
+        flat.name
+    );
+
+    let started = Instant::now();
+    let arms: Vec<HighGroundArm> = [
+        (
+            "fighter seeks",
+            Some(Faction::Heroes),
+            EmbodiedMatchup {
+                heroes: EmbodiedPolicyKind::Scripted,
+                monsters: EmbodiedPolicyKind::ScriptedLevel,
+            },
+        ),
+        (
+            "brute seeks",
+            Some(Faction::Monsters),
+            EmbodiedMatchup {
+                heroes: EmbodiedPolicyKind::ScriptedLevel,
+                monsters: EmbodiedPolicyKind::Scripted,
+            },
+        ),
+        (
+            "both seek",
+            None,
+            EmbodiedMatchup::symmetric(EmbodiedPolicyKind::Scripted),
+        ),
+    ]
+    .into_iter()
+    .map(|(label, seeking, matchup)| {
+        let mut trials = embodied_trials(scenario, &seeds, threads, matchup, None);
+        trials.extend(embodied_trials(&mirror, &seeds, threads, matchup, None));
+        HighGroundArm { label, seeking, trials }
+    })
+    .collect();
+    let elapsed = started.elapsed();
+
+    for arm in &arms {
+        println!(
+            "{:<12} fighter {} wins ({} kills), brute {} wins ({} kills), {} trials",
+            arm.label,
+            arm.wins(Faction::Heroes),
+            arm.kills(Faction::Heroes),
+            arm.wins(Faction::Monsters),
+            arm.kills(Faction::Monsters),
+            arm.trials.len(),
+        );
+    }
+
+    // The two assignments pooled, which is the measurement. The both-seeking arm
+    // is excluded by its own `seeking: None` rather than by position, so a
+    // fourth arm cannot be added into the headline by accident.
+    let (mut seeking_wins, mut level_wins) = (0usize, 0usize);
+    let mut pooled = 0usize;
+    for arm in arms.iter().filter(|arm| arm.seeking.is_some()) {
+        let seeking = arm.seeking.expect("filtered");
+        let level = match seeking {
+            Faction::Heroes => Faction::Monsters,
+            Faction::Monsters => Faction::Heroes,
+        };
+        seeking_wins += arm.wins(seeking);
+        level_wins += arm.wins(level);
+        pooled += arm.trials.len();
+    }
+    let margin = seeking_wins as i64 - level_wins as i64;
+    println!(
+        "term         seeking {seeking_wins} wins, level {level_wins} wins over {pooled} trials, \
+         margin {margin:+} ({:+.2} percentage points)",
+        100.0 * margin as f64 / pooled.max(1) as f64
+    );
+    println!(
+        "verdict      the high-ground term {}",
+        match margin {
+            0 => "wins exactly as many duels as it loses".to_string(),
+            m if m > 0 => format!("wins {m} more duels than it loses"),
+            m => format!("loses {} more duels than it wins", -m),
+        }
+    );
+
+    // **Determinism buys exactness, not significance, and the split is what
+    // says which one the margin above is.** The plan corrected this measurement
+    // away from wall-clock bracketing on the ground that a win rate over a fixed
+    // seed set is a pure function of the policies and the fixture -- which is
+    // true and answers the wrong objection. Nothing here varies between runs;
+    // what varies is the *sample*, because four hundred seeds are four hundred
+    // fights out of the space of all of them. A margin whose two halves disagree
+    // in sign is a margin inside its own sampling spread, and printing only the
+    // pooled number would let that pass as a result.
+    //
+    // Split by seed and not by orientation, and each half carries both -- see
+    // `wins_in`. Halving the orientations instead would measure the mirror.
+    let half = HIGH_GROUND_SEEDS as usize / 2;
+    let mut halves = [0i64; 2];
+    for (at, (from, to)) in [(0, half), (half, HIGH_GROUND_SEEDS as usize)].into_iter().enumerate() {
+        let (mut up, mut level) = (0usize, 0usize);
+        for arm in arms.iter().filter(|arm| arm.seeking.is_some()) {
+            let seeking = arm.seeking.expect("filtered");
+            let flatly = match seeking {
+                Faction::Heroes => Faction::Monsters,
+                Faction::Monsters => Faction::Heroes,
+            };
+            up += arm.wins_in(seeking, from, to);
+            level += arm.wins_in(flatly, from, to);
+        }
+        halves[at] = up as i64 - level as i64;
+    }
+    println!(
+        "sampling     split-half margins {:+} and {:+} over {} seeds each -- {}",
+        halves[0],
+        halves[1],
+        half,
+        if halves[0].signum() * halves[1].signum() < 0 {
+            "THE TWO HALVES DISAGREE IN SIGN, so the pooled margin is inside its own sampling spread"
+        } else if halves[0] == 0 || halves[1] == 0 {
+            "one half is exactly even, so the pooled margin rests on the other"
+        } else {
+            "both halves agree in sign"
+        }
+    );
+
+    // **Whichever way the margin came out, the next question is whether the
+    // term did the thing it names.** A win rate cannot tell a policy that failed
+    // to take the high ground from one that took it and gained nothing, and the
+    // two findings belong to different owners: the first is the term's, the
+    // second is the criterion's.
+    let probe = high_ground_elevation(scenario, &mirror);
+    println!(
+        "elevation    {HIGH_GROUND_PROBE_SEEDS} seeds x 2 orientations x 2 assignments, \
+         mean floor: seeking {}, level {}",
+        probe.mean(Faction::Heroes),
+        probe.mean(Faction::Monsters),
+    );
+    println!(
+        "             peak floor reached: seeking {}, level {}  (the summit is {})",
+        probe.peak[0],
+        probe.peak[1],
+        scenario.dungeon.height_at(summit),
+    );
+    println!(
+        "             ticks spent off the flat: seeking {:.1}%, level {:.1}%",
+        probe.uphill(Faction::Heroes),
+        probe.uphill(Faction::Monsters),
+    );
+
+    // **The attribution, measured rather than asserted.** The whole reading of
+    // the margin above is that a difference on the hill is the elevation term
+    // and cannot be anything else, and this is the run that says so: the same
+    // two arms on the flat fixture, where the term is meant to be a policy that
+    // never so much as stores an elevation. `policy`'s own
+    // `the_two_configurations_agree_on_flat_ground` asserts it against the
+    // observation; a line in this report that only *claimed* it would be the
+    // shape of guard this repository has been burned by three times.
+    let (identical, compared) = flat_control_agreement(&flat, threads);
+    println!(
+        "attribution  {identical}/{compared} flat trials byte-identical with the term on and off{}",
+        if identical == compared { "" } else { "  -- THE TERM IS NOT INERT ON FLAT GROUND" }
+    );
+    // The corpus and the diagnostic reported separately, because they are two
+    // different amounts of work and a single number would invite a reader to
+    // divide it by the wrong trial count.
+    println!(
+        "             {:.2}s wall over the corpus, {:.2}s over the diagnostic",
+        elapsed.as_secs_f64(),
+        started.elapsed().as_secs_f64() - elapsed.as_secs_f64(),
+    );
+}
+
+/// The control that makes the margin attributable: on flat ground the two
+/// configurations must be the same fight.
+///
+/// Returns how many of the trials agreed and how many were compared, rather
+/// than a `bool`, so the report can print a fraction and a reader can tell "all
+/// of them" from "the loop ran zero times" -- which is the failure a boolean
+/// guard cannot distinguish from a pass.
+fn flat_control_agreement(flat: &Scenario, threads: usize) -> (usize, usize) {
+    let seeds: Vec<u64> = (0..HIGH_GROUND_PROBE_SEEDS).collect();
+    let asymmetric = EmbodiedMatchup {
+        heroes: EmbodiedPolicyKind::Scripted,
+        monsters: EmbodiedPolicyKind::ScriptedLevel,
+    };
+    let symmetric = EmbodiedMatchup::symmetric(EmbodiedPolicyKind::Scripted);
+    let (mut identical, mut compared) = (0usize, 0usize);
+    for arena in [flat.clone(), mirrored_embodied(flat)] {
+        let with = embodied_trials(&arena, &seeds, threads, asymmetric, None);
+        let without = embodied_trials(&arena, &seeds, threads, symmetric, None);
+        for (a, b) in with.iter().zip(without.iter()) {
+            compared += 1;
+            // The state and the command stream both: a term that moved a
+            // command the world then clamped back would agree on the state and
+            // still not be inert.
+            if a.state.compare(b.state) == Ok(true) && a.digest == b.digest {
+                identical += 1;
+            }
+        }
+    }
+    (identical, compared)
+}
+
+/// How many seeds the elevation diagnostic samples.
+///
+/// Far fewer than the win-rate corpus and deliberately so: it answers "does the
+/// term climb", which is a per-tick fact about every body in every trial rather
+/// than one bit per trial, so a small corpus already carries hundreds of
+/// thousands of samples. Sampling the whole 1,600 would multiply the command's
+/// wall time for a decimal place nobody would read differently.
+const HIGH_GROUND_PROBE_SEEDS: u64 = 16;
+
+/// The floor the two configurations actually stood on, pooled so that index 0 is
+/// always the seeking side and index 1 always the level one.
+///
+/// **The pooling is what makes the two columns comparable.** Each assignment is
+/// run and then read off the faction that carried the term, so the Fighter's own
+/// habits appear in both columns exactly once and cannot be mistaken for the
+/// term.
+fn high_ground_elevation(scenario: &Scenario, mirror: &Scenario) -> ElevationProbe {
+    let mut pooled = ElevationProbe::default();
+    for (seeking, matchup) in [
+        (
+            Faction::Heroes,
+            EmbodiedMatchup {
+                heroes: EmbodiedPolicyKind::Scripted,
+                monsters: EmbodiedPolicyKind::ScriptedLevel,
+            },
+        ),
+        (
+            Faction::Monsters,
+            EmbodiedMatchup {
+                heroes: EmbodiedPolicyKind::ScriptedLevel,
+                monsters: EmbodiedPolicyKind::Scripted,
+            },
+        ),
+    ] {
+        for arena in [scenario, mirror] {
+            for seed in 0..HIGH_GROUND_PROBE_SEEDS {
+                let mut probe = ElevationProbe::default();
+                let mut heroes = matchup.heroes.build();
+                let mut monsters = matchup.monsters.build();
+                measure_embodied_matchup(
+                    arena,
+                    seed,
+                    heroes.as_mut(),
+                    monsters.as_mut(),
+                    None,
+                    None,
+                    Some(&mut probe),
+                );
+                // Re-indexed onto (seeking, level) rather than (Heroes,
+                // Monsters), which is the whole point of running both
+                // assignments.
+                if seeking == Faction::Monsters {
+                    probe = ElevationProbe {
+                        sum_raw: [probe.sum_raw[1], probe.sum_raw[0]],
+                        samples: [probe.samples[1], probe.samples[0]],
+                        peak: [probe.peak[1], probe.peak[0]],
+                        above: [probe.above[1], probe.above[0]],
+                    };
+                }
+                pooled.absorb(&probe);
+            }
+        }
+    }
+    pooled
 }
 
 fn evolution(args: &Args) {
@@ -2177,7 +3666,8 @@ mod tests {
             solver_rejections: world.contact_solver_rejections(),
             exact: world.first_exact_contact_rejection(),
             pair: world.exact_scan_pair_rejection(),
-            command_digest: script_digest(&stream),
+            command_digest: script_digest(&stream)
+                .expect("an articulated run stores articulated commands"),
             state_domain: state.domain, state_schema: state.schema, state_value: state.value,
         }
     }
@@ -2679,7 +4169,7 @@ mod tests {
         assert_eq!(trial.monster_health, harness.monster_health);
         assert_eq!(trial.rejected, harness.rejected);
         let replay = harness.replay.as_ref().expect("recording was requested");
-        assert_eq!(trial.digest, script_digest(&replay.submitted_entries));
+        assert_eq!(Some(trial.digest), script_digest(&replay.submitted_entries));
         // And the typed digest, which `RunResult` does not carry: replaying the
         // runner's own recording has to land on the exact state this loop
         // reported. Through `compare` rather than `==`, because `StateDigest`
@@ -2756,7 +4246,7 @@ mod tests {
             },
         );
         let replay = harness.replay.as_ref().expect("recording was requested");
-        assert_eq!(composed.digest, script_digest(&replay.submitted_entries));
+        assert_eq!(Some(composed.digest), script_digest(&replay.submitted_entries));
     }
 
     #[cfg(not(feature = "cartesian-recoil"))]
@@ -2841,5 +4331,228 @@ mod tests {
             (0, None),
             "the second ordinary seed changed count or law",
         );
+    }
+
+    /// The bound every embodied test in this module runs under.
+    ///
+    /// A fixture fight is 3,600 ticks and reaches its clock, so a debug build
+    /// pays for the whole of it to learn something the first few hundred ticks
+    /// already say. 300 is the determinism suite's own bound, chosen there for
+    /// the same reason, and it is past the approach on both fixtures -- which is
+    /// what these tests are about.
+    const TEST_TICKS: Option<u32> = Some(300);
+
+    #[test]
+    fn the_embodied_corpus_digest_is_the_pinned_one() {
+        // **The pin session 10 checks itself against.** `bench`, `verify`,
+        // `hash`, `duel` and `evolve` are Legacy-only and `articulated` drives a
+        // model that session deletes, so without this number the day the older
+        // pins go is a day nothing in the repository would notice an embodied
+        // fight changing.
+        assert_eq!(
+            embodied_corpus_digest(),
+            EMBODIED_CORPUS_DIGEST,
+            "the embodied corpus moved; see its row in docs/reference/hashes.md",
+        );
+
+        // And the corpus is the two registered fixtures and their reflections,
+        // in the order the fold writes them. Without this the constant above
+        // could be re-recorded over a corpus that had quietly stopped containing
+        // the sculpted fixture -- which is the half that reads `ground_z` at
+        // all, and therefore the half a flat-only corpus cannot miss noticing
+        // the loss of.
+        let arenas = embodied_corpus_arenas();
+        let names: Vec<&str> = arenas.iter().map(|arena| arena.name.as_str()).collect();
+        assert_eq!(
+            names,
+            ["embodied-duel-v1", "embodied-duel-v1", "embodied-slope-v1", "embodied-slope-v1"],
+        );
+        assert_eq!(arenas[0].fingerprint(), 0x1a1e_8e74_eecd_55d5);
+        assert_eq!(arenas[2].fingerprint(), 0xf49d_e9a6_1f93_9163);
+        // A mirror is a different scenario and must never wear the pin.
+        assert_ne!(arenas[1].fingerprint(), arenas[0].fingerprint());
+        assert_ne!(arenas[3].fingerprint(), arenas[2].fingerprint());
+    }
+
+    #[test]
+    fn an_embodied_run_is_identical_on_re_run_and_exact_on_replay() {
+        // The claim `lab verify --embodied` makes, on the function that makes
+        // it. `crates/sim/tests/determinism.rs` holds the same property under a
+        // hand-written script; what this adds is the policy a corpus is measured
+        // with, whose commands are a function of the observation -- and the
+        // sculpted fixture, whose floor is the only thing in the repository that
+        // reaches a state hash through `Dungeon::digest`'s `sculpted` arm.
+        for scenario in embodied_corpus_arenas() {
+            let verdict = verify_one_embodied(
+                &scenario,
+                3,
+                EmbodiedMatchup::symmetric(EmbodiedPolicyKind::Scripted),
+                TEST_TICKS,
+            );
+            let (ticks, _, state) = verdict.unwrap_or_else(|sentence| {
+                panic!("{}: {sentence}", scenario.name);
+            });
+            assert_eq!(ticks, 300, "{}", scenario.name);
+            assert_eq!(state.domain, sim::HashDomain::EmbodiedV1, "{}", scenario.name);
+        }
+    }
+
+    #[test]
+    fn the_ground_term_is_inert_on_the_flat_fixture_and_not_on_the_sculpted_one() {
+        // **The property the whole high-ground measurement rests on.** If the
+        // two configurations were different policies rather than one policy with
+        // a term switched off, a difference measured on the hill would say
+        // nothing about elevation. `policy`'s own
+        // `the_two_configurations_agree_on_flat_ground` asserts the first half
+        // against the observation; this asserts it through the corpus loop the
+        // measurement actually runs, which is where a difference would have to
+        // appear to matter.
+        let seeking = EmbodiedMatchup::symmetric(EmbodiedPolicyKind::Scripted);
+        let level = EmbodiedMatchup::symmetric(EmbodiedPolicyKind::ScriptedLevel);
+
+        let flat = Scenario::embodied_duel();
+        let a = measure_embodied(&flat, 3, seeking, TEST_TICKS);
+        let b = measure_embodied(&flat, 3, level, TEST_TICKS);
+        assert_eq!(a.state.compare(b.state), Ok(true), "the term moved a flat fight");
+        assert_eq!(a.digest, b.digest, "the term moved a flat command stream");
+
+        // And it is not inert everywhere, or the assertion above would be
+        // satisfied by a term that had been deleted.
+        let slope = Scenario::embodied_slope();
+        let up = measure_embodied(&slope, 3, seeking, TEST_TICKS);
+        let flatly = measure_embodied(&slope, 3, level, TEST_TICKS);
+        assert_eq!(
+            up.state.compare(flatly.state),
+            Ok(false),
+            "the term changed nothing on a hill",
+        );
+        assert_ne!(up.digest, flatly.digest, "the term commanded nothing different on a hill");
+    }
+
+    #[test]
+    fn an_asymmetric_embodied_matchup_runs_a_different_policy_on_each_side() {
+        // The claim is about the fight and not about the parse, on
+        // `an_asymmetric_matchup_runs_a_different_policy_on_each_side`'s
+        // reasoning: a flag that resolved correctly and then installed one
+        // policy on both sides anyway would pass every assertion about
+        // `matchup.heroes`.
+        let matchup = embodied_matchup_from(&traced_args(
+            "embodied --hero-policy scripted --monster-policy scripted-level",
+        ))
+        .expect("a legal matchup");
+        assert_eq!(matchup.heroes, EmbodiedPolicyKind::Scripted);
+        assert_eq!(matchup.monsters, EmbodiedPolicyKind::ScriptedLevel);
+        assert!(!matchup.is_symmetric());
+
+        // On the sculpted fixture, because that is the only place the two
+        // configurations are different policies at all -- on the flat one this
+        // assertion would be false and the feature would still work.
+        let slope = Scenario::embodied_slope();
+        let asymmetric = measure_embodied(&slope, 3, matchup, TEST_TICKS);
+        let symmetric = measure_embodied(&slope, 3, EmbodiedPolicyKind::Scripted, TEST_TICKS);
+        assert_ne!(
+            asymmetric.digest, symmetric.digest,
+            "the asymmetric matchup produced the same command stream as one policy on both sides",
+        );
+
+        // And an unflagged run is the symmetric scripted one, which is what the
+        // registered corpus is measured under.
+        let unflagged = embodied_matchup_from(&traced_args("embodied --seeds 4"))
+            .expect("a legal line");
+        assert!(unflagged.is_symmetric());
+        assert_eq!(unflagged.heroes, EmbodiedPolicyKind::Scripted);
+    }
+
+    #[test]
+    fn a_valueless_embodied_policy_key_is_refused_rather_than_running_the_default() {
+        // The `Args::parse` demotion, three times over. `--policy` is on the
+        // list because it sets *both* sides: a demoted one leaves the corpus
+        // running the default script under a header the operator reads as their
+        // own choice, which is the same failure as the two asymmetric keys and
+        // is reached the same way.
+        for line in [
+            "embodied --policy --seeds 4",
+            "embodied --hero-policy --seeds 4",
+            "embodied --monster-policy",
+        ] {
+            let refusal = embodied_matchup_from(&traced_args(line)).expect_err(line);
+            assert!(refusal.contains("-policy"), "the refusal must name the key: {refusal}");
+            assert!(refusal.contains("needs a value"), "{refusal}");
+        }
+
+        // A well-formed value naming no policy, refused with the vocabulary --
+        // and the vocabulary is `EmbodiedPolicyKind`'s own, so a policy added
+        // there appears here without this file being edited.
+        let unknown = embodied_matchup_from(&traced_args("embodied --policy composed"))
+            .expect_err("composed is an articulated script");
+        assert!(unknown.contains("composed"), "{unknown}");
+        for kind in EmbodiedPolicyKind::ALL {
+            assert!(unknown.contains(kind.name()), "the refusal must list {}: {unknown}", kind.name());
+        }
+
+        // `--matchup a:b` is a spelling this build never had, refused here by
+        // the same shared helper that refuses it for the articulated corpus.
+        let matchup = embodied_matchup_from(&traced_args("embodied --matchup scripted:neutral"))
+            .expect_err("a spelling this build does not have");
+        assert!(matchup.contains("--matchup"), "{matchup}");
+        assert!(matchup.contains("--hero-policy"), "{matchup}");
+
+        // And the control: every legal spelling still resolves.
+        for kind in EmbodiedPolicyKind::ALL {
+            let line = format!("embodied --policy {}", kind.name());
+            assert_eq!(
+                embodied_matchup_from(&traced_args(&line)),
+                Ok(EmbodiedMatchup::symmetric(kind)),
+                "{line}",
+            );
+        }
+    }
+
+    #[test]
+    fn the_frozen_embodied_modes_refuse_every_measurement_changing_override() {
+        // `competence_override`'s rule, and its reason: a command line that
+        // looks like the pin corpus must never quietly measure a different one.
+        for (key, value) in [
+            ("seeds", Some("8")), ("threads", Some("1")), ("seed-zero-only", None),
+            ("mirrored", None), ("slope", None), ("policy", Some("neutral")),
+            ("hero-policy", Some("scripted")), ("monster-policy", Some("neutral")),
+            ("ticks", Some("600")),
+        ] {
+            for mode in ["corpus-digest", "high-ground"] {
+                let mut tokens =
+                    vec!["embodied".to_string(), format!("--{mode}"), format!("--{key}")];
+                if let Some(value) = value {
+                    tokens.push(value.to_string());
+                }
+                let args = Args::parse(tokens);
+                assert_eq!(embodied_override(&args), Some(key), "--{mode} --{key}");
+            }
+        }
+        for mode in ["corpus-digest", "high-ground"] {
+            let frozen = Args::parse(vec!["embodied".into(), format!("--{mode}")]);
+            assert_eq!(embodied_override(&frozen), None, "--{mode}");
+        }
+    }
+
+    #[test]
+    fn embodied_results_do_not_depend_on_the_thread_that_computed_them() {
+        // The same claim `articulated_trials` makes, and it is worth making
+        // again rather than inherited: `ScriptedEmbodiedPolicy` carries a row of
+        // per-run ground memory, so a chunking that reused an instance across
+        // seeds would carry one seed's hill into the next -- and the symptom
+        // would be a corpus that depended on the thread count.
+        let scenario = Scenario::embodied_slope();
+        let seeds: Vec<u64> = (0..4).collect();
+        let one: Vec<u64> =
+            embodied_trials(&scenario, &seeds, 1, EmbodiedPolicyKind::Scripted, TEST_TICKS)
+                .iter()
+                .map(|t| t.digest)
+                .collect();
+        let many: Vec<u64> =
+            embodied_trials(&scenario, &seeds, 4, EmbodiedPolicyKind::Scripted, TEST_TICKS)
+                .iter()
+                .map(|t| t.digest)
+                .collect();
+        assert_eq!(one, many);
     }
 }

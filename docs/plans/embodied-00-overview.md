@@ -87,7 +87,7 @@ the rest of the crate and the diff is a move.
 | [06](embodied-06-stance.md) | **done.** pelvis height, hip yaw distinct from torso yaw, twist budget that forces a step, `EMBODIED_STANCE_V1` published | 04 and 05 |
 | [07](embodied-07-elbow-and-forearm.md) | **done.** arm-length constraint, derived elbow, commanded swing plane, forearm as a swept collider; `ARTICULATED_STREAM_DIGEST` moved once, by layout | 06 |
 | [08](embodied-08-command-composition.md) | **done.** one hand human, the other hand AI, merged before submission | 05 |
-| [09](embodied-09-observation-and-policy.md) | embodied observation block, scripted policy, learning boundary | 07 and 08 |
+| [09](embodied-09-observation-and-policy.md) | **done.** embodied observation block, scripted policy, learning boundary deferred; `lab embodied`, `lab verify --embodied`, `EMBODIED_CORPUS_DIGEST` registered. The high-ground measurement ran and **the term lost** -- 759 seeking wins against 839, and the term takes 0.5% of the hill's relief | 07 and 08 |
 | [10](embodied-10-retire-the-older-models.md) | `Legacy` and `Articulated` deleted; `Embodied` is the only model | 09 |
 
 Sessions 04 and 05 are independent of each other. Everything from 06 onward is
@@ -100,6 +100,16 @@ the only policies that can drive a fight and the only fixtures that measure one,
 the exact moment sessions 07 and 09 need something to check themselves against --
 there is no `embodied_script.rs` yet, and Embodied has no corpus. After 09 there is
 one, and the deletion becomes a subtraction rather than a leap.
+
+**Session 09 has paid that debt and session 10 should check its own work against
+three named things rather than against "nothing broke".** `lab embodied` is the corpus
+in `lab articulated`'s report shape; `lab verify --embodied` is run/re-run/replay
+agreement over seeds, which is a property of the replay codec rather than of the Legacy
+model it was written against; and `EMBODIED_CORPUS_DIGEST` is one number over eight
+seeds of both embodied fixtures in both orientations, which `cargo test -p lab` runs.
+Its registry row states the rule session 10 needs most: a session that only retires
+another model may not re-record it, because a deletion that moves it has reached the
+embodied model.
 
 ## Constants introduced
 

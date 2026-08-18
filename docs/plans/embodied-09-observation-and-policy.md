@@ -1,7 +1,16 @@
 # Embodied 09 -- what a fighter perceives about a body it now has
 
-**Status:** proposed. Depends on [07](embodied-07-elbow-and-forearm.md) and
+**Status:** done. Depended on [07](embodied-07-elbow-and-forearm.md) and
 [08](embodied-08-command-composition.md).
+
+Everything below landed, and the last of it -- the corpus, the embodied verify, the pin
+and the elevation measurement -- is recorded in
+[docs/performance/embodied-corpus-and-high-ground.md](../performance/embodied-corpus-and-high-ground.md).
+**The high-ground measurement came out against the term** and the plan's acceptance
+criterion for [session 04](embodied-04-terrain-and-elevation.md) is therefore not met:
+759 seeking wins against 839 over 1,600 mirrored, side-swapped trials, a margin of -80
+and -5.00 percentage points. The bullet at the end of this file carries the full
+reading, including which of the term and the criterion the evidence indicts.
 
 Give the observation the state the previous six sessions added, write a scripted
 embodied policy that can drive it, and decide -- with a measurement, not in advance --
@@ -166,15 +175,35 @@ concrete: **`bench`, `verify`, `hash`, `duel` and `evolve` are all Legacy-only**
 in `crates/lab` mentions `Scenario::embodied_duel` at all, and no wasm export opens an
 embodied world -- `crates/web` reaches one only from `#[cfg(test)]`.
 
-So this session also delivers, as the replacement rather than as extras:
+So this session also delivers, as the replacement rather than as extras -- **all four
+landed**:
 
-- a `lab embodied` subcommand mirroring `lab articulated`'s corpus and report;
+- a `lab embodied` subcommand mirroring `lab articulated`'s corpus and report. It runs
+  N seeds by two orientations on either embodied fixture, takes an `EmbodiedPolicyKind`
+  per side on `articulated`'s own `--hero-policy`/`--monster-policy` vocabulary, and
+  prints through the *same* summariser -- one function, two callers, so a column cannot
+  drift apart from the corpus it is meant to be read beside;
 - an embodied `verify` -- run, re-run, replay, all three agreeing -- because that is
-  the property `lab verify` holds for Legacy and nothing holds for Embodied;
-- one embodied golden pin, recorded here so that session 10 has something to be wrong
-  against; and
+  the property `lab verify` holds for Legacy and nothing holds for Embodied. 200 seeds
+  of `embodied-duel-v1` and 50 of `embodied-slope-v1` pass. It is fanned out where the
+  Legacy arm is serial, because an embodied fixture is 3,600 ticks of two articulated
+  bodies in contact and 200 seeds is 600 fights;
+- one embodied golden pin, `EMBODIED_CORPUS_DIGEST = 0x14882fb0e0f851e5`, recorded here
+  so that session 10 has something to be wrong against. Its registry row says in those
+  words what it is for, and says that a session which only retires another model may
+  not re-record it; and
 - an `init_embodied` export, so the browser can open the model it is going to be the
   only one of.
+
+**One thing was found rather than delivered, and it is owed to `crates/policy`.**
+`script_digest` keeps only `SubmittedCommand::Articulated` and accounts for the arm it
+drops as `Legacy`, which "cannot occur". `Embodied` occurs on every record of every
+embodied run, so the function counts zero records and returns the empty-stream constant
+`0x89b684347e2caedd` -- the same number for the script, the control, and a matchup with
+a different policy on each side. Three `crates/lab` tests were written against it and
+all three went red on their first run, which is the only reason it was seen. `lab`
+folds its own stream under `ARPG-EMBODIED-SCRIPT-V1` in the meantime; the repair to the
+shared function belongs to a session allowed to touch `crates/policy`.
 
 ## The scripted policy
 
@@ -196,27 +225,43 @@ beat the same policy with that term disabled.
 - `reach_headroom_falls_to_zero_exactly_where_the_annulus_clamp_bites`
 - `an_opponent_mid_step_is_visible_as_mid_step`
 - `a_feature_vector_written_twice_from_one_world_is_identical`
-- `the_high_ground_term_wins_more_duels_than_it_loses` -- 400 mirrored seeds on
-  `Scenario::embodied_slope`, the scripted policy against *itself* with the
-  high-ground term disabled on one side.
+- `the_high_ground_term_wins_more_duels_than_it_loses` -- **it does not**, and the
+  criterion turned out to be a poor proxy for the question it stood in for. The
+  measurement, its two corrections and its result are written up in
+  [the evidence record](../performance/embodied-corpus-and-high-ground.md); what
+  belongs here is what the plan got wrong.
 
-  **The bracketing this plan originally asked for is wrong here and the correction
-  is worth keeping.** It said to bracket `control -> subject -> control` inside each
-  round and report a range across several pinned processes, because `lab bench`
-  numbers swing two to three times run to run on a hybrid-core laptop. That is the
-  protocol for a *wall-clock* measurement and this is not one: a win rate over a
-  fixed seed set is a pure function of the two policies and the fixture, it is
-  byte-reproducible, and running it in three processes would report the same number
-  three times while implying a variance that does not exist. Copying a benchmark
-  protocol onto a deterministic measurement makes it look more careful and makes it
-  say less.
+  **The bracketing this plan originally asked for was wrong, and so was the
+  correction.** It first said to bracket `control -> subject -> control` and report a
+  range across pinned processes, which is the protocol for a wall-clock number that
+  swings two to three times run to run. A win rate over a fixed seed set does not swing:
+  it is a pure function of the two policies and the fixture. But *deterministic* is not
+  *significant*. Nothing varies between runs; the **sample** varies, because four
+  hundred seeds are four hundred fights out of the space of all of them. The control
+  that was actually needed is a split-half over the seeds, and it is not the one either
+  version of this plan named.
 
-  What it does need is the *mirror*, and for a reason the timing protocol has no
-  analogue of: the two policies sit at different spawns, so a single orientation
-  measures the spawn as well as the term. `lab articulated` already runs 400 seeds
-  by two orientations for exactly that reason, and `embodied_slope` is centred so
-  that all four spawn tiles are equidistant from the hill -- which is what makes the
-  mirrored half a control on the arena rather than a second sample of it.
+  **The corpus needed two more controls the plan did not name**, both on the mirror's
+  own argument. The mirror controls the arena; nothing in it controls the *bodies*, so
+  a single side assignment measures a Fighter-against-Brute matchup alongside the term
+  -- fixed by running both assignments and pooling. And a fixture whose high ground
+  sits between the two spawns cannot measure seeking at all, because closing *is*
+  climbing there: `embodied_slope` reported both sides spending 55% of every fight off
+  the flat whether they meant to or not, and moving the high ground off the approach
+  (`embodied_knolls`) took the margin from -80 to -14.
+
+  **The criterion itself is the deeper mistake.** "A policy that seeks the high ground
+  must beat the same policy with that term disabled" fails identically whether height is
+  worthless or the policy is simply bad at seeking it, so it cannot answer the question
+  session 04 needed answering. `embodied_ledge` asks that one directly -- one body
+  spawned high, one low, the same policy on both -- and the answer is that height is
+  worth about three percentage points once the side of the room is controlled for. The
+  mechanic is sound and the term captures almost none of it.
+
+  **And the control on that measurement changed its answer by an order of magnitude.**
+  Raw, the plateau wins 41 points. On flat ground with the same spawns the western body
+  wins 38, because every body spawns facing due east and only one of them faces the
+  other. Elevation is the remaining three.
 
 ## Verification
 
@@ -224,8 +269,12 @@ beat the same policy with that term disabled.
 cargo test
 cargo run --release -p lab -- hash
 cargo run --release -p lab -- verify      --seeds 200
+cargo run --release -p lab -- verify      --embodied --seeds 200
 cargo run --release -p lab -- duel        --seeds 400
 cargo run --release -p lab -- articulated --seeds 400 --mirrored
+cargo run --release -p lab -- embodied    --seeds 400 --mirrored
+cargo run --release -p lab -- embodied    --corpus-digest
+cargo run --release -p lab -- embodied    --high-ground
 cargo build --release --target wasm32-unknown-unknown -p web
 node --test tools/wasm_check.js
 node tools/check_docs.js
@@ -241,7 +290,10 @@ durable documents rather than staying here as a ledger:
 - the terrain rules amend
   [navigation and visibility](../design/navigation-visibility.md#the-floor-plan);
 - the stance and elbow constants, with their sweeps, go to
-  `docs/performance/` beside the articulated gate evidence;
+  `docs/performance/` beside the articulated gate evidence -- the corpus, the pin and
+  the high-ground result are already there, in
+  [embodied-corpus-and-high-ground.md](../performance/embodied-corpus-and-high-ground.md),
+  and that document survives the deletion of this one;
 - the argument for a third model rather than a third repository, and the measurement
   that `world.rs` was the only oversized production file, belong in
   [ADR 0004](../decisions/0004-purpose-built-simulation-kernel.md) as an amendment --

@@ -93,6 +93,13 @@ cargo run --release -p lab -- articulated --seeds 400 --mirrored  # the v2-17 ga
 cargo run --release -p lab -- articulated --seeds 400 --mirrored --policy windmill
 cargo run --release -p lab -- articulated --seeds 400 --mirrored --attack-moves
 
+cargo run --release -p lab -- embodied --seeds 400 --mirrored          # its embodied sibling
+cargo run --release -p lab -- embodied --seeds 400 --mirrored --slope  # on the sculpted fixture
+cargo run --release -p lab -- embodied --corpus-digest   # EMBODIED_CORPUS_DIGEST, exits 1 on a move
+cargo run --release -p lab -- embodied --high-ground     # the elevation measurement
+cargo run --release -p lab -- verify --embodied --seeds 200          # run/re-run/replay, embodied
+cargo run --release -p lab -- verify --embodied --slope --seeds 50   # and over a floor that is not flat
+
 # Feature-only exact mechanics use the same lab commands and harness:
 cargo run --release -p lab --features cartesian-recoil -- tactical-mechanics --quick
 
@@ -312,6 +319,17 @@ separate changes; `lib.rs`'s doc comment on `ROOM_HASH` records the earlier one.
 A second, independent regression surface for `crates/policy` changes meant to be
 behaviour-neutral: `cargo run --release -p lab -- duel --seeds 400` win rates.
 
+**The embodied model has exactly one pin and it is cheap on purpose.**
+`EMBODIED_CORPUS_DIGEST` folds the state digests of eight seeds of both embodied
+fixtures, both orientations, 600 ticks each, and `cargo test -p lab` runs it. It exists
+because `bench`, `verify`, `hash`, `duel` and `evolve` are Legacy-only and
+`articulated` drives a model that is scheduled for deletion — so it is what a session
+retiring those measurements checks itself against. Its
+[registry row](docs/reference/hashes.md#golden-registry) says which moves it may
+re-record and which it may not, and the argument that no *other* pin can see an
+embodied fight is the same `Dungeon::digest` short circuit that made adding elevation
+free: a flat dungeon never hashes a height.
+
 ## The frame ABI is a handshake across five files
 
 The wasm frame is a mirrored contract, so a layout change must update Rust, the wasm
@@ -502,6 +520,18 @@ deliberately, because refusing needs a channel that export does not have: it ans
 the new depth, and there is no depth that means "no". Where the caller can be told,
 tell it. Where it cannot, doing the right thing silently still beats doing the wrong
 thing silently, and the choice gets written down either way.
+
+**`policy::script_digest` answers a constant for every embodied fight.** Its loop keeps
+only `SubmittedCommand::Articulated`, and its doc comment accounts for the arm it drops
+as `Legacy`, which "cannot occur". `Embodied` occurs on every record of every embodied
+run, so the digest counts zero records and finishes at `0x89b684347e2caedd` — the same
+number for the script, for the control, and for a matchup running a different policy on
+each side. `lab embodied` therefore folds its own stream under `ARPG-EMBODIED-SCRIPT-V1`
+rather than calling it, and the repair to the shared function is still owed. It was
+found only because three `crates/lab` tests were written against the number first and
+all three went red; a `script` column that looks like a fingerprint and is a constant is
+exactly the green-test failure this file's house style section warns about, and it
+shipped in a report for the length of one session.
 
 **Overdraw is counted in pixels, not milliseconds.** Canvas2D commands are queued, so
 a microbenchmark that loops a draw call times the rasteriser's back-pressure. The

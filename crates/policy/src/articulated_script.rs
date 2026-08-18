@@ -1048,25 +1048,35 @@ pub const SCRIPT_DIGEST_DOMAIN: &[u8] = b"ARPG-SCRIPT-V1";
 /// commands would produce a digest for a fight nobody had.
 ///
 /// Each record contributes the tick, the subject's index and generation, and
-/// then the canonical 51-byte payload -- little-endian throughout, because
-/// [`Hash64`] writes integers little-endian and the payload is little-endian by
-/// its own contract. The full identity and not just the index: a replay
-/// outliving a slot reuse would otherwise hash two different fighters the same.
-/// The record count goes in last so that a stream cannot be extended by a
-/// record whose bytes happen to be zero.
+/// then the canonical payload -- little-endian throughout, because [`Hash64`]
+/// writes integers little-endian and the payload is little-endian by its own
+/// contract. The full identity and not just the index: a replay outliving a slot
+/// reuse would otherwise hash two different fighters the same. The record count
+/// goes in last so that a stream cannot be extended by a record whose bytes
+/// happen to be zero.
 ///
-/// A [`SubmittedCommand::Legacy`] record contributes nothing and is not counted.
-/// It cannot occur -- a persisted replay has exactly one active command vector,
-/// selected by the scenario's combat model -- and the alternative to skipping it
-/// is a panic in a measurement path, which trades an impossible wrong number for
-/// an impossible dead lab.
-pub fn script_digest(records: &[SubmittedCommandRecord]) -> u64 {
+/// **`None` for a stream this cannot fold, and it used to be a number.** The
+/// loop skipped every arm but `Articulated` and the comment here accounted for
+/// the skip as `SubmittedCommand::Legacy`, which "cannot occur" -- true, and it
+/// stopped being the only skippable arm the day `Embodied` existed. An embodied
+/// stream then counted zero records and came back as the empty-stream constant:
+/// the *same* number for a script, its control, and a matchup running a
+/// different policy on each side, in a column that reads like a fingerprint. The
+/// lab found it by asserting two runs differed and getting equality.
+///
+/// Refusing by name rather than panicking, because this is a measurement path
+/// and a trap here takes the whole harness down; and refusing rather than
+/// growing an arm, because an embodied stream has its own domain --
+/// [`SCRIPT_DIGEST_DOMAIN`] names the articulated grammar, and two grammars
+/// folded under one prefix are two things that can collide while claiming to be
+/// comparable.
+pub fn script_digest(records: &[SubmittedCommandRecord]) -> Option<u64> {
     let mut h = Hash64::new();
     h.write_bytes(SCRIPT_DIGEST_DOMAIN);
     let mut counted = 0u32;
     for record in records {
         let SubmittedCommand::Articulated(command) = record.command else {
-            continue;
+            return None;
         };
         h.write_u32(record.tick);
         h.write_u32(record.entity.index);
@@ -1075,7 +1085,7 @@ pub fn script_digest(records: &[SubmittedCommandRecord]) -> u64 {
         counted += 1;
     }
     h.write_u32(counted);
-    h.finish()
+    Some(h.finish())
 }
 
 #[cfg(test)]
@@ -1959,7 +1969,7 @@ mod tests {
         for byte in (records.len() as u32).to_le_bytes() {
             expected.write_u8(byte);
         }
-        assert_eq!(script_digest(records), expected.finish());
+        assert_eq!(script_digest(records), Some(expected.finish()));
         assert_eq!(SCRIPT_DIGEST_DOMAIN, b"ARPG-SCRIPT-V1");
     }
 
@@ -1975,7 +1985,7 @@ mod tests {
         let base = scripted_articulated_command(&world.observe_articulated(EntityId::new(0, 0)));
         replay.record_submitted(4, EntityId::new(0, 0), SubmittedCommand::Articulated(base));
         replay.record_submitted(9, EntityId::new(1, 0), SubmittedCommand::Articulated(base));
-        let digest = script_digest(&replay.submitted_entries);
+        let digest = script_digest(&replay.submitted_entries).expect("an articulated stream");
 
         let variants: [(&str, Box<dyn Fn(&mut Vec<SubmittedCommandRecord>)>); 5] = [
             ("tick", Box::new(|rows: &mut Vec<SubmittedCommandRecord>| rows[0].tick = 5)),
@@ -2002,12 +2012,47 @@ mod tests {
         for (column, mutate) in variants {
             let mut rows = replay.submitted_entries.clone();
             mutate(&mut rows);
-            assert_ne!(digest, script_digest(&rows), "the digest ignores the {column}");
+            assert_ne!(Some(digest), script_digest(&rows), "the digest ignores the {column}");
         }
 
         // And the domain is in it: an empty stream is not the empty FNV.
         let mut bare = Hash64::new();
         bare.write_u32(0);
-        assert_ne!(script_digest(&[]), bare.finish());
+        assert_ne!(script_digest(&[]), Some(bare.finish()));
+    }
+
+    /// A stream this cannot fold is refused by name, and it used to be a number.
+    ///
+    /// **The empty-stream constant is what makes the old behaviour dangerous
+    /// rather than merely wrong**, and it is asserted here so the shape of the
+    /// failure is on the record: an embodied stream skipped every record, counted
+    /// zero, and came back as exactly the digest of no commands at all. Two runs
+    /// with different policies on different sides agreed, in a column whose whole
+    /// job is to say they differ. The lab found it by asserting two runs were
+    /// unequal and getting equality.
+    #[test]
+    fn a_stream_of_another_grammar_is_refused_rather_than_counted_as_empty() {
+        let scenario = Scenario::embodied_duel();
+        let mut replay = Replay::new(&scenario, 0);
+        let world = World::new(&scenario, 0);
+        let base = scripted_articulated_command(&world.observe_articulated(EntityId::new(0, 0)));
+        replay.record_submitted(4, EntityId::new(0, 0),
+            SubmittedCommand::Embodied(sim::EmbodiedCommandV1::new(base)));
+        assert_eq!(script_digest(&replay.submitted_entries), None);
+        // The number it used to answer, so the regression is named rather than
+        // described: the digest of a stream with nothing in it.
+        assert_eq!(script_digest(&[]), Some(0x89b6_8434_7e2c_aedd));
+
+        // One embodied record among articulated ones is refused too. A loop that
+        // skipped the arm it could not read would fold the rest and answer a
+        // number for a run it had only partly seen, which is the worse half of
+        // the same bug.
+        let mut mixed = vec![SubmittedCommandRecord {
+            tick: 1, entity: EntityId::new(0, 0),
+            command: SubmittedCommand::Articulated(base),
+        }];
+        assert!(script_digest(&mixed).is_some());
+        mixed.push(replay.submitted_entries[0]);
+        assert_eq!(script_digest(&mixed), None);
     }
 }

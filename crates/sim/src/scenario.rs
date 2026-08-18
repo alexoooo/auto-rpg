@@ -747,6 +747,124 @@ impl Scenario {
         scenario
     }
 
+    /// Two knolls flanking the line the two bodies close along.
+    ///
+    /// **The fixture that can actually ask whether elevation is worth seeking**,
+    /// and it exists because [`Scenario::embodied_slope`] provably cannot. That
+    /// one puts the hill on the midpoint, which is fair and is the wrong
+    /// experiment: a hill between two closing bodies is not a choice, because
+    /// closing *is* climbing. Measured on it, both sides spent 55% of the fight
+    /// off the flat whether or not they were trying to, and a policy carrying an
+    /// elevation term gained 0.0036 of mean floor -- half a percent of the
+    /// hill's entire relief -- while paying the tactical price of seeking it.
+    /// The number that came out was about the fixture.
+    ///
+    /// Here the high ground is **perpendicular to the approach**, so taking it
+    /// is a detour with a cost and a payoff rather than something that happens
+    /// on the way. The two centres sit on the perpendicular bisector of the two
+    /// spawns, one either side, at `(10, 13)` and `(14, 3)`.
+    ///
+    /// **Fair in both orientations, and by a different argument in each.**
+    /// Canonically the spawns are `(7, 6)` and `(17, 10)`, and every one of the
+    /// four spawn-to-knoll distances is `58` squared units: neither body is
+    /// nearer either summit, so seeking one is a pure detour. `lab` produces its
+    /// second orientation by reflecting `spawn.y` about `y = 8`, giving `(7, 10)`
+    /// and `(17, 6)`; there each body is `18` from one knoll and `98` from the
+    /// other, which is not equidistant but *is* symmetric -- the two have the
+    /// same near knoll and the same far one. A single knoll cannot have both
+    /// properties: the only point equidistant from all four spawns is the
+    /// midpoint, which is the fixture this one replaces.
+    ///
+    /// **Terraced on the Chebyshev distance and not the Euclidean one, which is
+    /// the correction a first draft needed.** Rings cut from squared distance
+    /// let two *adjacent* tiles skip a terrace -- `(14, 1)` is 4 squared units
+    /// from its summit and `(14, 0)` is 9, so they landed two terraces apart and
+    /// the riser between them was 4 height steps against a `TERRAIN_STEP_UP_RAW`
+    /// of 3. A wall, in the middle of a hill built to be climbed, and the
+    /// enterability sweep in the test below is what found it. Chebyshev distance
+    /// changes by at most one between neighbours, so a terrace per unit is a
+    /// riser of exactly two everywhere by construction rather than by checking.
+    ///
+    /// The knoll is therefore a square stepped pyramid rather than a cone. That
+    /// is a shape chosen for a guarantee and not for looks, which is worth
+    /// saying because a rounder one is available and is wrong.
+    ///
+    /// Each reaches two tiles, so the two 5-by-5 blocks are disjoint, every
+    /// spawn is seven tiles from both summits, and neither is clipped by the
+    /// arena's edge -- a clipped knoll would make the near one in the mirrored
+    /// orientation a different shape from the other body's, which is exactly the
+    /// asymmetry this fixture is built to avoid.
+    pub fn embodied_knolls() -> Scenario {
+        let mut scenario = Scenario::embodied_duel();
+        scenario.name = "embodied-knolls-v1".to_string();
+        let (cols, rows) = (scenario.dungeon.cols(), scenario.dungeon.rows());
+        let heights = (0..rows as usize * cols as usize).map(|at| {
+            let (tx, ty) = ((at % cols as usize) as i32, (at / cols as usize) as i32);
+            // The nearer of the two, so the terraces of one cannot be read as a
+            // second ring of the other. The two blocks are disjoint -- the test
+            // below asserts it -- but taking the minimum makes that a property
+            // of the arithmetic rather than of the constants happening to be far
+            // enough apart.
+            let near = [(10, 13), (14, 3)].into_iter()
+                .map(|(cx, cy): (i32, i32)| (tx - cx).abs().max((ty - cy).abs()))
+                .min()
+                .expect("two knolls");
+            match near {
+                0 => 6,
+                1 => 4,
+                2 => 2,
+                _ => 0,
+            }
+        }).collect();
+        let tiles = vec![crate::dungeon::OPEN; rows as usize * cols as usize];
+        scenario.dungeon = Dungeon::from_tiles_and_heights(cols, rows, tiles, heights);
+        scenario
+    }
+
+    /// One body starts on a ledge and the other on the floor.
+    ///
+    /// **This is the fixture that asks whether elevation is worth *having*,
+    /// which is a different question from whether a policy can go and get it**,
+    /// and separating the two is the only way to read the high-ground
+    /// measurement at all. `embodied_knolls` puts the high ground where seeking
+    /// it costs something and measures a policy that seeks it. If that policy
+    /// loses, two very different things could be true: the term is bad, or
+    /// height confers nothing and no term could have paid for it. Neither
+    /// fixture can tell them apart, because in both the policy chooses where to
+    /// stand.
+    ///
+    /// Here nobody chooses. The arena is a plateau on one side and a floor on
+    /// the other, and the two spawns sit one on each. Run the **same** policy on
+    /// both bodies and the only difference between them is the ground, so a win
+    /// rate split by which spawn a body started on is elevation's own effect
+    /// with the policy divided out.
+    ///
+    /// The ledge runs down `x`, not `y`, because `lab` mirrors an orientation by
+    /// reflecting `spawn.y`: a ledge across `y` would put both bodies on the
+    /// same side of it in one of the two orientations. Across `x` the spawns
+    /// stay on opposite sides of it in both, and swapping the two *spawns*
+    /// -- which the measurement does -- is what puts each anatomy on each side.
+    ///
+    /// Terraced in twos for [`Scenario::embodied_knolls`]'s reason. It is a
+    /// ramp and not a cliff on purpose: a body on the floor must be able to
+    /// climb, or the measurement is about a wall rather than about height.
+    pub fn embodied_ledge() -> Scenario {
+        let mut scenario = Scenario::embodied_duel();
+        scenario.name = "embodied-ledge-v1".to_string();
+        let (cols, rows) = (scenario.dungeon.cols(), scenario.dungeon.rows());
+        let heights = (0..rows as usize * cols as usize).map(|at| {
+            match (at % cols as usize) as i32 {
+                ..=8 => 6,
+                9 => 4,
+                10 => 2,
+                _ => 0,
+            }
+        }).collect();
+        let tiles = vec![crate::dungeon::OPEN; rows as usize * cols as usize];
+        scenario.dungeon = Dungeon::from_tiles_and_heights(cols, rows, tiles, heights);
+        scenario
+    }
+
     pub fn count(&self, faction: Faction) -> usize {
         self.units.iter().filter(|u| u.faction == faction).count()
     }
@@ -1064,6 +1182,148 @@ mod tests {
         assert_eq!(renamed, slope);
         assert_ne!(slope.fingerprint(), flat.fingerprint());
         assert_eq!(slope.fingerprint(), 0xf49d_e9a6_1f93_9163);
+    }
+
+    /// The two knolls are a detour, they are equal, and neither is clipped.
+    ///
+    /// **The claim that distinguishes this fixture from its predecessor is the
+    /// first one.** `embodied_slope`'s hill is on the midpoint, so a body
+    /// closing on its opponent climbs whether or not it is trying to; these sit
+    /// off the approach, so the distance to a summit is a cost. That is asserted
+    /// as "every point on the segment between the spawns is level", which is the
+    /// property "off the approach" actually means.
+    #[test]
+    fn the_two_knolls_flank_the_approach_and_are_equal() {
+        let knolls = Scenario::embodied_knolls();
+        let flat = Scenario::embodied_duel();
+        assert!(knolls.dungeon.sculpted());
+        assert_eq!(knolls.units, flat.units, "a knoll moved a body");
+
+        let (cols, rows) = (knolls.dungeon.cols() as i32, knolls.dungeon.rows() as i32);
+        let at = |x: i32, y: i32| knolls.dungeon.height_at(
+            Vec2::new(Fx::from_int(x) + Fx::HALF, Fx::from_int(y) + Fx::HALF));
+
+        // **The approach is level, end to end.** Sampled at every sixteenth of
+        // the segment rather than at its tiles, because a body walks through
+        // points and a tile-wise walk could step over a raised tile the segment
+        // passes through a corner of.
+        let (a, b) = (Vec2::from_ints(7, 6), Vec2::from_ints(17, 10));
+        for step in 0..=16 {
+            let t = Fx::from_ratio(step, 16);
+            let p = a + (b - a) * t;
+            assert_eq!(knolls.dungeon.height_at(p), Fx::ZERO,
+                       "the approach climbs at {p:?}, so seeking height is not a detour");
+        }
+
+        // Canonically every spawn is the same distance from every summit, so
+        // neither body is nearer either one.
+        for (sx, sy) in [(7, 6), (17, 10)] {
+            for (cx, cy) in [(10, 13), (14, 3)] {
+                assert_eq!((sx - cx) * (sx - cx) + (sy - cy) * (sy - cy), 58,
+                           "spawn ({sx}, {sy}) is not 58 from knoll ({cx}, {cy})");
+            }
+        }
+        // Mirrored, each body has one near knoll and one far one, and the two
+        // have the same pair. Not equidistant -- no single point is equidistant
+        // from all four spawns except the midpoint -- but symmetric, which is
+        // what the measurement needs.
+        let reach = |sx: i32, sy: i32| {
+            let mut d: Vec<i32> = [(10, 13), (14, 3)].into_iter()
+                .map(|(cx, cy)| (sx - cx) * (sx - cx) + (sy - cy) * (sy - cy)).collect();
+            d.sort();
+            d
+        };
+        assert_eq!(reach(7, 10), vec![18, 98]);
+        assert_eq!(reach(17, 6), vec![18, 98]);
+
+        // Both summits are the same height and both are unclipped: every tile
+        // the ring test raises is inside the grid, so the near knoll in the
+        // mirrored orientation is the same shape as the other body's.
+        assert_eq!(at(10, 13), at(14, 3));
+        assert!(at(10, 13) > Fx::ZERO, "the knolls have no top");
+        let raised = |cx: i32, cy: i32| (0..rows).flat_map(move |y| (0..cols).map(move |x| (x, y)))
+            .filter(move |&(x, y)| (x - cx).abs().max((y - cy).abs()) <= 2)
+            .collect::<Vec<_>>();
+        assert_eq!(raised(10, 13).len(), 25, "a knoll is clipped by the arena edge");
+        assert_eq!(raised(14, 3).len(), 25, "a knoll is clipped by the arena edge");
+        // And disjoint, so the minimum above is never choosing between two
+        // terraces of comparable height.
+        for tile in raised(10, 13) {
+            assert!(!raised(14, 3).contains(&tile), "the two knolls overlap at {tile:?}");
+        }
+
+        // Climbable from every direction in both, and level where the bodies
+        // stand under either orientation.
+        for y in 0..rows {
+            for x in 0..cols {
+                for (dx, dy) in [(1, 0), (0, 1)] {
+                    let (nx, ny) = (x + dx, y + dy);
+                    if nx >= cols || ny >= rows { continue; }
+                    assert!(knolls.dungeon.passable_between((x, y), (nx, ny))
+                            && knolls.dungeon.passable_between((nx, ny), (x, y)),
+                            "({x}, {y}) and ({nx}, {ny}) are not both enterable");
+                }
+            }
+        }
+        for spawn in [Vec2::from_ints(7, 6), Vec2::from_ints(17, 10),
+                      Vec2::from_ints(7, 10), Vec2::from_ints(17, 6)] {
+            assert_eq!(knolls.dungeon.height_at(spawn), Fx::ZERO,
+                       "a body spawns on a knoll at {spawn:?}");
+        }
+
+        assert_ne!(knolls.fingerprint(), Scenario::embodied_slope().fingerprint());
+        assert_eq!(knolls.fingerprint(), 0xb4ff_9f28_ca20_c6a4);
+    }
+
+    /// The ledge is a ramp, it divides the two spawns, and it divides them in
+    /// both orientations.
+    ///
+    /// The last claim is the one that would have been missed. `lab` mirrors by
+    /// reflecting `spawn.y`, so a ledge running across `y` would put both bodies
+    /// on the same side of it in one of the two orientations and the measurement
+    /// would silently average "one high, one low" with "both high".
+    #[test]
+    fn the_ledge_divides_the_two_spawns_in_both_orientations() {
+        let ledge = Scenario::embodied_ledge();
+        assert!(ledge.dungeon.sculpted());
+        assert_eq!(ledge.units, Scenario::embodied_duel().units, "the ledge moved a body");
+
+        let high = ledge.dungeon.height_at(Vec2::from_ints(7, 6));
+        assert!(high > Fx::ZERO, "the raised spawn is on the floor");
+        for low in [Vec2::from_ints(17, 10), Vec2::from_ints(17, 6)] {
+            assert_eq!(ledge.dungeon.height_at(low), Fx::ZERO, "{low:?} is not on the floor");
+        }
+        // Mirrored, the raised spawn is still raised and still the same height:
+        // reflecting `y` cannot cross a ledge that runs down `x`.
+        assert_eq!(ledge.dungeon.height_at(Vec2::from_ints(7, 10)), high);
+
+        // A ramp and not a cliff: the body on the floor can climb it, or the
+        // measurement is about a wall.
+        let (cols, rows) = (ledge.dungeon.cols() as i32, ledge.dungeon.rows() as i32);
+        for y in 0..rows {
+            for x in 0..cols {
+                for (dx, dy) in [(1, 0), (0, 1)] {
+                    let (nx, ny) = (x + dx, y + dy);
+                    if nx >= cols || ny >= rows { continue; }
+                    assert!(ledge.dungeon.passable_between((x, y), (nx, ny))
+                            && ledge.dungeon.passable_between((nx, ny), (x, y)),
+                            "({x}, {y}) and ({nx}, {ny}) are not both enterable");
+                }
+            }
+        }
+        // Flat along `y`, which is what makes "which side of the ledge" the only
+        // thing that separates the two spawns.
+        for y in 1..rows {
+            for x in 0..cols {
+                assert_eq!(ledge.dungeon.height_at(
+                               Vec2::new(Fx::from_int(x) + Fx::HALF, Fx::from_int(y) + Fx::HALF)),
+                           ledge.dungeon.height_at(
+                               Vec2::new(Fx::from_int(x) + Fx::HALF, Fx::HALF)),
+                           "column {x} is not level along y");
+            }
+        }
+
+        assert_eq!(ledge.fingerprint(), 0x1217_3f98_b7be_ab8d);
     }
 
     fn descending_hero() -> UnitSpec {

@@ -234,11 +234,15 @@ const DEFAULT_CIRCLE_SIDE: i32 = 1;
 
 /// Whether the elevation term is on.
 ///
-/// **A parameter and not a global, because the next session measures this policy
+/// **A parameter and not a global, because the measurement runs this policy
 /// against itself with the term disabled**, and two builds of one library that
-/// differ by a `static` cannot be run in the same process, mirrored, in the same
-/// round. Bracketing a control against its subject inside one round is the only
-/// comparison this repository accepts for a number that moves 2-3x run to run.
+/// differ by a `static` cannot be run against each other in one process at all.
+///
+/// The comparison is *not* bracketed, which is the protocol this repository uses
+/// for a number that moves two to three times run to run. A win rate over a fixed
+/// seed set does not move: it is a pure function of the two policies and the
+/// fixture. What it is repeated over is the mirror and the side swap, and those
+/// cancel the arena and the anatomy rather than noise.
 ///
 /// It is a struct with one field rather than a `bool` argument so that the day a
 /// second term needs the same treatment, the call sites do not change shape and
