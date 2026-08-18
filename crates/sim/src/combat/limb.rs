@@ -157,6 +157,48 @@ pub(crate) fn reachable_extent(
     (held_height, held_reach)
 }
 
+/// How much of the annulus the arm has left before [`reachable_extent`]'s clamp
+/// bites, as a fraction of `arm_length` in `[0, 1]`.
+///
+/// **Headroom and not reach, and that is the point of publishing it.** After the
+/// elbow, an arm can be commanded to a pose it cannot hold; a fighter that can
+/// see how much extension is left can choose between stepping in and reaching
+/// further, and one that sees only where its hand is cannot tell a comfortable
+/// guard from a locked-out one. Zero means the arm is against its own outer
+/// bound and [`reachable_extent`] is already taking the difference.
+///
+/// **Measured from the height the forward map will actually produce, and it
+/// takes that height from [`reachable_extent`] rather than deriving it again.**
+/// That is the second of the two wrong answers `reachable_extent`'s own doc
+/// records having given, and the same trap is here twice over: the vertical
+/// budget moves the height, and the round trip through `standing_height` moves
+/// it again. A budget computed from the height that was *asked* for describes a
+/// pose the arm is not in. Asking rather than re-deriving is what makes the two
+/// agree by construction instead of by inspection -- the same argument
+/// [`Elbow::reach_bounds`] is one function for.
+///
+/// The **asked** horizontal is what the remainder is measured against and not
+/// the clamped one, and that is what makes zero mean zero: `reachable_extent`'s
+/// reach comes back through a truncating division, so a hand sitting exactly on
+/// the outer bound would otherwise report a raw unit of headroom it does not
+/// have.
+///
+/// The inner bound is deliberately absent. An over-folded arm has plenty of
+/// extension left and this column says so; what it cannot do is say how much
+/// room there is to fold, which is not a question anything asks.
+pub(crate) fn reach_headroom(
+    anatomy: &BodyAnatomySpec, height: CombatHeight, reach: Fx, elbow: Elbow,
+) -> Fx {
+    if !anatomy.arm_length.is_positive() { return Fx::ZERO; }
+    let (_, outer) = elbow.reach_bounds();
+    let (held_height, _) = reachable_extent(anatomy, height, reach, elbow);
+    let realised_z = anatomy.standing_height * Fx::from_raw(held_height.raw());
+    let dz = realised_z - anatomy.shoulder_height;
+    let widest = (outer * outer - dz * dz).max(Fx::ZERO).sqrt();
+    let asked = anatomy.arm_length * reach.max(Fx::from_raw(ARM_MIN_REACH_RAW));
+    ((widest - asked) / anatomy.arm_length).clamp(Fx::ZERO, Fx::ONE)
+}
+
 /// The nearest hand the arm can actually hold, along the shoulder-to-hand line.
 ///
 /// **This is the fix for the hole this module's header records.** A hand outside
@@ -763,6 +805,126 @@ mod tests {
                 assert_eq!(arm.segments().count(), 1);
             }
         }
+    }
+
+    /// Headroom is zero exactly where the annulus clamp bites, and positive
+    /// everywhere it does not.
+    ///
+    /// **"Bites" is asked geometrically rather than restated.** The pose goes
+    /// through `hand_position` at the height `reachable_extent` will actually
+    /// hold, and the question is whether that hand is further from the shoulder
+    /// than the two links can span -- a three-dimensional length against
+    /// `outer`. `reach_headroom` answers the same question as
+    /// `sqrt(outer^2 - dz^2)` against a horizontal, which is the same claim
+    /// through different arithmetic: the two can disagree by a truncation and
+    /// cannot disagree by a transposition or a missing clamp.
+    ///
+    /// The second claim is the trap: **the headroom is what is left before
+    /// `reachable_extent`'s own bound**, so asking that function where the bound
+    /// is -- by clamping a reach of one at the same height -- and subtracting
+    /// the reach asked for has to give the same number back. `reachable_extent`
+    /// measures its bound from the height it will actually hold, so a headroom
+    /// measured from the height that was *asked* for disagrees with it by six
+    /// raw units at height 6/16 on the Fighter, which is what this caught.
+    ///
+    /// **Idempotence under the height clamp was the first spelling and it is the
+    /// wrong test**, recorded here because it looks stronger than it is:
+    /// `reachable_extent` is not idempotent on the height. Its realised height
+    /// truncates a raw unit below the vertical budget it was clamped into, so a
+    /// second pass re-clamps it upward, and near the bottom of the range
+    /// `d(widest)/d(dz)` is about four -- so two raw units of height become
+    /// twenty of headroom. That is a property of the clamp and not of this
+    /// function, and a test asserting it would have been asserting the wrong
+    /// thing about the right code.
+    ///
+    /// Swept over the whole commanded range rather than sampled at the corners,
+    /// because both ends are interesting: a fully lowered arm spends its whole
+    /// length on the vertical and has no horizontal budget at all, and a fully
+    /// extended one is on the outer bound at every height.
+    #[test]
+    fn reach_headroom_falls_to_zero_exactly_where_the_annulus_clamp_bites() {
+        let mut spent = 0;
+        let mut clear = 0;
+        let mut moved = 0;
+        let mut vertically_clamped = 0;
+        for anatomy in anatomies() {
+            let elbow = Elbow::of(&anatomy);
+            let (_, outer) = elbow.reach_bounds();
+            let yaw = Angle::from_raw(11_000);
+            let bearing = Angle::from_raw(21_000);
+            for limb in 0..2 {
+                let at = shoulder(&anatomy, yaw, limb);
+                for height_step in 0..=16 {
+                    let height = CombatHeight::try_from_raw(Fx::from_ratio(height_step, 16).raw())
+                        .expect("a height inside the unit interval");
+                    for reach_step in 0..=16 {
+                        let reach = Fx::from_ratio(reach_step, 16);
+                        let (held_height, _) =
+                            reachable_extent(&anatomy, height, reach, elbow);
+                        if held_height != height { vertically_clamped += 1; }
+                        let hand =
+                            hand_position(&anatomy, yaw, limb, bearing, held_height, reach);
+                        let headroom = reach_headroom(&anatomy, height, reach, elbow);
+                        let named = format!(
+                            "{:?}-arm {limb} at height {height_step}/16 reach {reach_step}/16",
+                            anatomy.standing_height);
+                        let span = (hand - at).length();
+                        if span > outer { moved += 1; }
+                        // One raw unit of slack on the bound, **measured rather
+                        // than chosen**. Across this sweep exactly 61 of 1,156
+                        // poses come within 24 raw units of `outer` -- sixty a
+                        // unit outside it and one a unit inside -- and every one
+                        // of them has zero headroom, while no pose with headroom
+                        // left comes anywhere near. A three-dimensional
+                        // `length()` and a `sqrt(outer^2 - dz^2)` are two
+                        // truncating routes to the same boundary and one unit is
+                        // the whole of their disagreement. Zero fails, on the
+                        // Brute at height zero.
+                        if span + Fx::from_raw(1) >= outer {
+                            assert!(headroom.is_zero(),
+                                    "{named}: the arm is out of annulus and headroom is {headroom:?}");
+                            spent += 1;
+                        } else {
+                            assert!(headroom.is_positive(),
+                                    "{named}: the arm is inside its annulus and headroom is zero");
+                            // And the slack is bounded from above by the same
+                            // measurement: a pose with headroom left is never
+                            // within sixteen raw units of the bound, so a slack
+                            // that had to grow would have to fail one of these
+                            // rather than quietly absorb it.
+                            assert!(span + Fx::from_raw(16) < outer,
+                                    "{named}: headroom is positive {} raw units from the bound",
+                                    outer.raw() - span.raw());
+                            clear += 1;
+                        }
+                        // Where the bound is, asked of the function that owns
+                        // it: a reach of one at this height comes back clamped
+                        // to the widest the arm can hold.
+                        let (_, widest) = reachable_extent(&anatomy, height, Fx::ONE, elbow);
+                        let asked = reach.max(Fx::from_raw(ARM_MIN_REACH_RAW));
+                        let left = (widest - asked).max(Fx::ZERO);
+                        // Two raw units, measured across this sweep and exact
+                        // from both sides: one fails, three would pass on an
+                        // error that had grown. Two truncating divisions by
+                        // `arm_length` separate the two answers and nothing
+                        // else does.
+                        assert!((headroom - left).abs() <= Fx::from_raw(2),
+                                "{named}: headroom {headroom:?} against {left:?} left \
+                                 before the clamp -- it read the height it was asked for");
+                    }
+                }
+            }
+        }
+        // Both sides of the claim are reached, the clamp genuinely bites on some
+        // of them, and so does the height clamp the second assertion is about. A
+        // sweep that produced only one of the four would assert far less than it
+        // reads as asserting.
+        assert!(spent > 0 && clear > 0,
+                "the sweep found {spent} spent and {clear} clear poses");
+        assert!(moved > 0,
+                "the sweep never asked for a pose the clamp actually shortens");
+        assert!(vertically_clamped > 0,
+                "the sweep never reached a height the vertical budget refuses");
     }
 
     /// The hole, still open in the raw forward map -- which is the guard rather

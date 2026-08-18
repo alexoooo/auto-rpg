@@ -48,8 +48,9 @@ The three self dimensions and two self weapon poses are structured-observation
 views only. They expose the immutable anatomy row and the same current segment pose
 the renderer receives, so a policy can predict whether its own committed sweep is
 reachable. They are not serialized, hashed, or appended to `write_features`; the
-feature layout below remains version 12 and 922 columns. Subject weapon ownership is
-the pose rule: a two-handed segment occupies the right slot once.
+feature layout below is version 13 and 954 columns, and none of it is theirs.
+Subject weapon ownership is the pose rule: a two-handed segment occupies the right
+slot once.
 
 **Every position in these structs is world space**, including hands, target hands,
 weapon endpoints, region endpoints, and shield centres. This is the rule
@@ -128,11 +129,14 @@ region/equipment geometry keeps its exact local shape and is translated by
 measured-minus-true body position, so one noisy body does not shear into disconnected
 parts.
 
-## Appended feature block
+## Appended feature blocks
 
-V2-16 sets `FEATURE_LAYOUT_VERSION = 12`,
-`ARTICULATED_FEATURE_COUNT = 472`, and `FEATURE_COUNT = 922`. Existing indices
-`0..450` remain byte-identical. Legacy observations append 472 zeroes.
+V2-16 set `FEATURE_LAYOUT_VERSION = 12`, `ARTICULATED_FEATURE_COUNT = 472` and
+`FEATURE_COUNT = 922`; embodied session 09 appended a second block and took the
+version to **13** and the width to **954**. Existing indices `0..450` remain
+byte-identical under both, which is what the `legacy feature prefix` pin exists to
+refuse a change to. A Legacy observation appends 472 zeroes and then 32 more; an
+articulated one fills the first block and zeroes the second.
 
 The articulated block is 64 self features followed by six 68-feature opponent rows.
 Self order is: present; eight capability bits; yaw cosine/sine; body velocity XYZ;
@@ -186,6 +190,46 @@ Each opponent row, 68 wide, six of them starting at block offset 64:
 | 67 | 1 | contact timing |
 
 `64 + 6*68 = 472`, and `450 + 472 = 922`.
+
+### The embodied block, indices 922..954
+
+Written only by a body that has legs and an elbow; `CombatModel::Embodied` is the
+only model that does, so a Legacy or Articulated observation leaves all 32 columns
+zero.
+
+| index | width | contents |
+|---|---:|---|
+| 0 | 1 | present |
+| 1..2 | 2 | hip yaw relative to torso yaw, cosine and sine |
+| 3 | 1 | twist as a signed fraction of the stance budget |
+| 4 | 1 | pelvis as a fraction of standing pelvis height |
+| 5 | 1 | step remaining as a fraction of a step's duration |
+| 6..9 | 4 | left arm: elbow relative to its own shoulder XYZ over arm length, reach headroom |
+| 10..13 | 4 | right arm, the same four |
+| 14..16 | 3 | opponent 0: present, twist fraction, mid-step |
+| ... | 3 each | opponents 1 through 5 |
+
+`14 + 6*3 = 32`, and `922 + 32 = 954`.
+
+**Each half carries its own `present`, which the articulated block above does not
+need.** There, a blank row is zeros and nothing else, and no live body writes an
+all-zero row. Here one can: a body squared, level and standing still has zero twist,
+zero hip offset and no step running, so "nothing to report" and "nothing is
+happening" would be the same bytes. The hips go in as cosine and sine for the same
+shape of reason.
+
+**Every embodied value is a fraction and none is a raw quantity.**
+`STANCE_TWIST_LIMIT_RAW`, `STANCE_STEP_TICKS` and `PELVIS_HEIGHT_RAW` are `pub`
+inside `crates/sim`'s actuator module and are deliberately not re-exported, so a
+consumer cannot reach the divisor -- and the divisor is the half that carries the
+meaning. Publishing the ratio is the only shape of these facts that crosses the
+boundary at all. The elbow is relative to its own shoulder over arm length for the
+same reason: no shoulder is published anywhere.
+
+**Reach headroom is the column the block exists for.** After the elbow session an
+arm can be commanded to a pose it cannot hold, and the clamp in front of the
+integrator silently takes the difference. A fighter that reads only where its hand is
+cannot tell a comfortable guard from a locked-out one.
 
 **One frame for the whole block, and it is the subject's body position.** Every
 position in the block -- the subject's own hands and shield, every opponent's body, and

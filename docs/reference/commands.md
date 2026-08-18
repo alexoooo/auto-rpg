@@ -13,7 +13,7 @@ are the primary current policy interface. `Observation::write_features` projects
 the same boundary into a fixed `Fx` vector for a future learned policy. No current
 shipped policy consumes that vector.
 
-The current `FEATURE_LAYOUT_VERSION` is `12` and `FEATURE_COUNT` is `922`.
+The current `FEATURE_LAYOUT_VERSION` is `13` and `FEATURE_COUNT` is `954`.
 Values are approximately normalized to `-1..=1`; absent contact slots are zero.
 The ordered layout is:
 
@@ -26,14 +26,49 @@ The ordered layout is:
 | walls | 4 | normalized clearance in the stored cardinal order |
 | navigation | 3 | route direction x/y and normalized route distance |
 | articulated | 472 | the subject's own joints, then six opponent rows |
+| embodied | 32 | the subject's own legs and elbows, then six opponent rows |
 
 The first six blocks are `LEGACY_FEATURE_COUNT = 450` values wide and are frozen:
 version 12 appended the articulated block whole and moved nothing below index 450.
 The articulated block is blank -- 472 zeroes -- in every Legacy world, so the vector
 has one width whichever combat model a scenario picked. Its contents, frame, and
 normalization are owned by
-[`articulated-abi.md`](articulated-abi.md#appended-feature-block) and are not repeated
+[`articulated-abi.md`](articulated-abi.md#appended-feature-blocks) and are not repeated
 here.
+
+Version 13 appended the embodied block on the same terms and moved nothing below
+index 922. It is blank -- 32 zeroes -- in every Legacy and every Articulated world,
+because only `CombatModel::Embodied` has legs. Its 14 self values are: present; the
+hips relative to the torso as cosine and sine; the twist as a signed fraction of the
+stance budget; the pelvis as a fraction of standing pelvis height; the step as a
+fraction of its own duration; then, per left/right arm, the elbow relative to that
+arm's shoulder as XYZ fractions of arm length, and reach headroom. Each of the six
+3-value opponent rows is: present, their twist fraction, and whether they are
+mid-step.
+
+**Each half carries its own `present` value**, which the articulated block does not
+need and this one does. A blank articulated row is all zeroes and unambiguous because
+no live body writes one; a body squared, level and standing still has zero twist, zero
+hip offset and no step running, so without the flag "nothing to report" and "nothing
+is happening" would be identical bytes. The hips enter as a cosine and sine pair for
+the same reason rather than for the wrap-seam reason the other angle pairs give: the
+budget is a sixth of a turn and goes nowhere near the seam, but `cos(0)` is one and an
+absent body's column is zero.
+
+**Every embodied value is a fraction rather than a raw quantity, and that is a
+constraint rather than a convention.** `STANCE_TWIST_LIMIT_RAW`, `STANCE_STEP_TICKS`
+and `PELVIS_HEIGHT_RAW` are public inside `crates/sim` and deliberately not re-exported
+from it, so nothing outside that crate can normalize a raw twist, tick count or pelvis
+height for itself. The divisor is the half that carries the meaning and it stays in;
+publishing the numerator alone would publish a number no reader could interpret. The
+same rule puts the elbow relative to its own shoulder over arm length -- the shoulder
+is published nowhere, so the subtraction happens at the source or not at all.
+
+Opponent stance is **exact and carries no perception noise**, unlike the geometric
+values in the articulated opponent rows. A twist is the angle between two halves of one
+silhouette and a body's bearing is already exact for that reason; mid-step is
+categorical, like a severed region. What a dim fighter reads wrong stays what it always
+read wrong -- where the body is.
 
 Each 33-value contact slot is ordered as: normalized offset x/y, normalized
 distance, health fraction, radius, action length, facing x/y, limb direction x/y,
@@ -168,8 +203,8 @@ hash stream owned by their `hash_into` methods and `World::state_hash`.
 
 ## Source anchors
 
-- Structured observation and current feature layout: [`Observation`](../../crates/sim/src/obs.rs#L582), [`FEATURE_LAYOUT_VERSION`](../../crates/sim/src/obs.rs#L966), [`Observation::write_features`](../../crates/sim/src/obs.rs#L1160)
-- Subject-scoped articulated observation: [`ArticulatedObservation`](../../crates/sim/src/obs.rs#L431), [`World::observe_articulated`](../../crates/sim/src/world/query.rs#L402)
+- Structured observation and current feature layout: [`Observation`](../../crates/sim/src/obs.rs#L723), [`FEATURE_LAYOUT_VERSION`](../../crates/sim/src/obs.rs#L1179), [`Observation::write_features`](../../crates/sim/src/obs.rs#L1373)
+- Subject-scoped articulated observation: [`ArticulatedObservation`](../../crates/sim/src/obs.rs#L562), [`World::observe_articulated`](../../crates/sim/src/world/query.rs#L418)
 - Strike variants and discriminants: [`Strike`](../../crates/sim/src/command.rs#L427)
 - Current limb shape: [`LimbCommand`](../../crates/sim/src/command.rs#L496)
 - Current policy output: [`Command`](../../crates/sim/src/command.rs#L544)

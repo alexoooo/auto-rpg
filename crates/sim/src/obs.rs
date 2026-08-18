@@ -279,6 +279,134 @@ impl ObservedShield {
     };
 }
 
+/// The subject's own legs and joints: what a body with hips knows about itself.
+///
+/// **Every number here is a fraction of a constant a policy cannot reach.**
+/// `STANCE_TWIST_LIMIT_RAW`, `STANCE_STEP_TICKS` and `PELVIS_HEIGHT_RAW` are
+/// `pub` in `crate::combat::actuator` and deliberately not re-exported from
+/// `sim`, so nothing outside this crate can normalise a raw twist, a raw tick
+/// count or a raw pelvis height for itself. Publishing the raw values would
+/// therefore publish numbers no reader could interpret -- the divisor is the
+/// half that carries the meaning, and it is the half that stays inside. That is
+/// the same argument [`Contact::min_strike_range`] makes about deriving and
+/// handing over rather than leaving to be reconstructed, taken to the case where
+/// reconstruction is not merely wasteful but impossible.
+///
+/// Blank on a Legacy or Articulated world, exactly as an absent articulated body
+/// fills its block with zeros. `present` is a field and not an identity, and
+/// that is the one place this struct breaks the rule
+/// [`ObservedOpponent::present`] sets: a body squared, level and standing still
+/// has zero twist, zero hip offset and no step running, so "nothing to report"
+/// and "nothing is happening" would be the same bytes.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ObservedStance {
+    /// Whether this body has legs at all.
+    pub present: bool,
+    /// **The hips, measured from the torso** -- where the feet point, in the
+    /// frame an embodied command is given in, so a policy that reads this and
+    /// then turns is talking about the zero it just read.
+    ///
+    /// It is the same scalar as [`ObservedStance::twist_fraction`] with the
+    /// opposite sign, because one measures the hips from the torso and the other
+    /// the torso from the hips. The fraction keeps `StanceState::twist`'s sign,
+    /// which is what the stance publication and every document in the repository
+    /// call the twist; the angle keeps the command frame's. **Neither is
+    /// derivable from the other outside this crate**, which is why both are here:
+    /// the conversion between an angle and a fraction of the budget is a
+    /// multiplication by the budget, and the budget is the constant that stays
+    /// in.
+    pub hip_yaw: Angle,
+    /// The twist as a signed fraction of the budget, `[-1, 1]`. One is wound to
+    /// the limit and has to step before the torso can turn any further, which is
+    /// the whole tactic the stance model exists to create.
+    pub twist_fraction: Fx,
+    /// Pelvis height as a fraction of the standing pelvis, `[0, 1]`. One is
+    /// upright; below one is a body that has spent height on speed or on twist.
+    pub pelvis_fraction: Fx,
+    /// How much of a forced step is left to run, `[0, 1]`. Zero is settled.
+    pub step_fraction: Fx,
+    /// Each elbow relative to its own shoulder, as a fraction of `arm_length`,
+    /// indexed like [`ArticulatedObservation::arms`].
+    ///
+    /// Relative to the *shoulder* and not to the body origin, which is the one
+    /// place this crate's articulated block rule -- one frame for everything --
+    /// is deliberately not followed. An elbow is not a targeting fact: nothing
+    /// asks whether its elbow is near an opponent's head. What it answers is
+    /// which way the arm is folded, and that is a question about the arm alone.
+    /// The shoulder is not published anywhere, so the subtraction has to happen
+    /// here or not at all; dividing by `arm_length` rather than by sight range
+    /// follows for the same reason, and puts the column near a half by
+    /// construction, since the elbow sits at the upper link's length.
+    pub elbow: [Vec3; 2],
+    /// How much of the annulus each arm has left before the reach clamp bites,
+    /// as a fraction of `arm_length` in `[0, 1]`. See `combat::limb`'s
+    /// `reach_headroom`.
+    ///
+    /// **The one non-obvious column and the point of the block.** An arm can be
+    /// commanded to a pose it cannot hold, so a fighter that can see how much
+    /// extension it has left can choose between stepping in and reaching
+    /// further; one that sees only where its hand is cannot tell a comfortable
+    /// guard from a locked-out one.
+    pub reach_headroom: [Fx; 2],
+}
+
+impl ObservedStance {
+    /// No legs: what a Legacy or Articulated world answers, and what a blank
+    /// observation carries.
+    pub const BLANK: ObservedStance = ObservedStance {
+        present: false,
+        hip_yaw: Angle::ZERO,
+        twist_fraction: Fx::ZERO,
+        pelvis_fraction: Fx::ZERO,
+        step_fraction: Fx::ZERO,
+        elbow: [Vec3::ZERO; 2],
+        reach_headroom: [Fx::ZERO; 2],
+    };
+}
+
+/// An opponent's legs, as much of them as a look across the floor gives.
+///
+/// Narrower than [`ObservedStance`] by a long way, and the cut is where
+/// proprioception stops. How far a pelvis has sunk and where an elbow is folded
+/// are things a body knows about *itself*; what an opponent's silhouette says is
+/// which way its feet point relative to its shoulders, and whether they are
+/// moving.
+///
+/// **Exact, with no perception noise, and the argument is the one
+/// [`ObservedOpponent::body_yaw`] already makes.** A body's bearing is its whole
+/// silhouette, and the twist is the angle between two halves of that same
+/// silhouette -- if a fighter can read where a body faces it can read that the
+/// body is wound up, because being wound up is what a body *looks like*. Mid-step
+/// is categorical for the reason [`ObservedOpponent::severed_mask`] is: feet
+/// under you or feet moving is not a subtle cue. What a dim fighter gets wrong
+/// stays what it always got wrong -- where the body is.
+///
+/// It is worth stating what that concedes, since the saturated twist is meant to
+/// be an *opening*: reading it is free, so the opening is there for anybody who
+/// looks. That is the right shape for a mechanic whose cost is paid by the body
+/// that is wound up rather than by the one watching it, and the alternative
+/// would have made an eighth draw in `observed_opponent`'s seven-draw stream,
+/// which is an ABI and not a knob.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ObservedOpponentStance {
+    pub present: bool,
+    /// Their twist as a signed fraction of the budget, `[-1, 1]`, signed like
+    /// [`ObservedStance::twist_fraction`].
+    pub twist_fraction: Fx,
+    /// Whether their feet are committed. A flag and not a countdown: how many
+    /// ticks a step has left to run is a fact about somebody else's actuator,
+    /// and nothing in a silhouette says it.
+    pub stepping: bool,
+}
+
+impl ObservedOpponentStance {
+    pub const BLANK: ObservedOpponentStance = ObservedOpponentStance {
+        present: false,
+        twist_fraction: Fx::ZERO,
+        stepping: false,
+    };
+}
+
 /// One of the subject's own two arms, exactly.
 ///
 /// Proprioception is free -- the same rule [`Observation::position`] states --
@@ -382,6 +510,8 @@ pub struct ObservedOpponent {
     /// exactly one, and the number only becomes informative inside the last
     /// stride. Zero is "already here". A receding or stationary pair is one.
     pub contact_timing: Fx,
+    /// Their legs, or [`ObservedOpponentStance::BLANK`] on a model with none.
+    pub stance: ObservedOpponentStance,
 }
 
 impl ObservedOpponent {
@@ -403,6 +533,7 @@ impl ObservedOpponent {
         shield: ObservedShield::BLANK,
         severed_mask: 0,
         contact_timing: Fx::ZERO,
+        stance: ObservedOpponentStance::BLANK,
     };
 
     /// Whether anybody is standing in this row.
@@ -467,6 +598,15 @@ pub struct ArticulatedObservation {
     /// The subject's held segments in world space. Indexed like [`Self::arms`]
     /// and following the same one-collider ownership rule as opponent weapons.
     pub weapons: [Option<SegmentPose>; 2],
+    /// The subject's own legs and joints, or [`ObservedStance::BLANK`] on a
+    /// model with none.
+    ///
+    /// **Last, and it stays last**, for the reason
+    /// [`Observation::articulated`] is last: its feature block is appended
+    /// after the articulated one and everything below is frozen against weights
+    /// that do not exist yet but will. Keeping the struct order and the vector
+    /// order the same is what makes that easy to see.
+    pub stance: ObservedStance,
 }
 
 impl ArticulatedObservation {
@@ -547,6 +687,7 @@ impl ArticulatedObservation {
         arm_length: Fx::ZERO,
         hand_radius: Fx::ZERO,
         weapons: [None; 2],
+        stance: ObservedStance::BLANK,
     };
 
     /// Whether this observation describes a body at all.
@@ -850,9 +991,50 @@ pub const ARTICULATED_OPPONENT_FEATURES: usize = 1
 pub const ARTICULATED_FEATURE_COUNT: usize =
     ARTICULATED_SELF_FEATURES + MAX_ARTICULATED_OPPONENTS * ARTICULATED_OPPONENT_FEATURES;
 
+/// Values per arm in the embodied self block: the elbow relative to its own
+/// shoulder XYZ, and reach headroom.
+const EMBODIED_ARM_FEATURES: usize = 3 + 1;
+
+/// The subject's own embodied run: present; the hips relative to the torso as
+/// cosine and sine; twist, pelvis and step as fractions; then two arms.
+///
+/// **The `present` column is the one thing this block has that the articulated
+/// block does not, and it is not redundancy.** The articulated block's rule is
+/// that a blank row is zeros and nothing else, which works there because no live
+/// body writes an all-zero row -- a present body has a capability bit, a yaw
+/// cosine, an integrity fraction. Here one can: a body squared, level and
+/// standing still has zero twist, zero hip offset and no step running, so
+/// "nothing to report" and "nothing is happening" would otherwise be the same
+/// bytes.
+///
+/// The hips go in as a cosine and a sine for the same shape of reason and not
+/// for the wrap-seam one the legacy block gives: the budget is a sixth of a turn
+/// and nothing here goes near the seam, but `cos(0)` is one and an absent body's
+/// column is zero, so the pair separates a squared body from no body at all in a
+/// column that a raw angle would have collapsed.
+pub const EMBODIED_SELF_FEATURES: usize = 1 + 2 + 3 + 2 * EMBODIED_ARM_FEATURES;
+
+/// One opponent's embodied row: present, their twist fraction, and whether they
+/// are mid-step.
+///
+/// Three columns against the self block's fourteen, and the cut is where
+/// proprioception stops -- see [`ObservedOpponentStance`]. It carries its own
+/// `present` for the reason [`EMBODIED_SELF_FEATURES`] does, and it has to be
+/// its own rather than borrowed from the articulated row's: a reader of this
+/// block cannot see index `450 + 64 + 68 * slot` from here.
+pub const EMBODIED_OPPONENT_FEATURES: usize = 1 + 1 + 1;
+
+/// Width of the appended embodied block: one self run, then six opponent rows
+/// whether or not anybody is standing in them.
+///
+/// Fixed width for the reason [`ARTICULATED_FEATURE_COUNT`] is.
+pub const EMBODIED_FEATURE_COUNT: usize =
+    EMBODIED_SELF_FEATURES + MAX_ARTICULATED_OPPONENTS * EMBODIED_OPPONENT_FEATURES;
+
 /// Width of the flattened feature vector produced by
 /// [`Observation::write_features`].
-pub const FEATURE_COUNT: usize = LEGACY_FEATURE_COUNT + ARTICULATED_FEATURE_COUNT;
+pub const FEATURE_COUNT: usize =
+    LEGACY_FEATURE_COUNT + ARTICULATED_FEATURE_COUNT + EMBODIED_FEATURE_COUNT;
 
 /// Bumped whenever the layout of [`Observation::write_features`] changes shape
 /// or meaning.
@@ -963,7 +1145,38 @@ pub const FEATURE_COUNT: usize = LEGACY_FEATURE_COUNT + ARTICULATED_FEATURE_COUN
 /// reads the first 450 columns exactly as before and cannot see the fight.
 ///
 /// Paid now, while there are still no weights.
-pub const FEATURE_LAYOUT_VERSION: u32 = 12;
+///
+/// Version 13 is the embodied body, and it is the second bump that adds nothing
+/// to indices `0..450` -- nor, this time, to `450..922`. The 32 new slots
+/// ([`EMBODIED_FEATURE_COUNT`]) are appended whole after the articulated block
+/// and never interleaved with it, so a version-12 vector is a version-13 vector
+/// with the tail cut off, exactly as a version-11 one was a version-12 one.
+///
+/// **Appending is a cost decision here rather than the rule**, and it is the one
+/// place in these sessions where the conservative shape wins the argument: the
+/// shipped checkpoint is frozen against this layout, so renumbering a column it
+/// reads buys a tidier vector at the price of a retrain and a re-score.
+/// Everywhere else in the embodied work the answer is interleave and bump.
+///
+/// What the 32 carry is the legs and the joint the articulated body has no
+/// concept of. A twist against a budget, a pelvis against its standing height, a
+/// step running down, and per arm an elbow and how much extension is left before
+/// the arm's own clamp takes over. The argument version 7 makes about missing
+/// *concepts* applies to every one of them: an articulated fighter cannot ask
+/// "is that body wound out to its limit" because an articulated body has no
+/// limit to be wound to, and it cannot ask "can I reach further from here"
+/// because an articulated arm has no bound to reach. A network trained on
+/// version 12 reads the first 922 columns exactly as before and cannot see the
+/// footwork.
+///
+/// **Each half of the block carries its own `present` column**, which is the one
+/// structural difference from the articulated block. See
+/// [`EMBODIED_SELF_FEATURES`] for why an all-zero row is not enough here when it
+/// was enough there.
+///
+/// Paid now, while there are still no weights -- and the `legacy feature prefix`
+/// pin is what says the price was zero for indices `0..450`.
+pub const FEATURE_LAYOUT_VERSION: u32 = 13;
 
 /// Speed, in world units per tick, that normalises to `1` in the feature
 /// vector. Comfortably above any archetype's top speed, so it is the knockback
@@ -1351,6 +1564,9 @@ impl Observation {
 
         debug_assert_eq!(i, LEGACY_FEATURE_COUNT, "the frozen prefix changed width");
         i = self.write_articulated_features(out, i);
+        debug_assert_eq!(i, LEGACY_FEATURE_COUNT + ARTICULATED_FEATURE_COUNT,
+                         "the articulated block changed width");
+        i = self.write_embodied_features(out, i);
 
         debug_assert_eq!(i, FEATURE_COUNT);
         FEATURE_COUNT
@@ -1563,6 +1779,69 @@ impl Observation {
         debug_assert_eq!(i, block + ARTICULATED_FEATURE_COUNT);
         i
     }
+
+    /// The appended embodied block, 32 wide, starting past the articulated one.
+    /// Returns the cursor past it.
+    ///
+    /// **No frame and no divisor, which is what separates it from the block
+    /// above.** Nothing in here is a position in the world: every column is
+    /// already a fraction of something -- of the twist budget, of the standing
+    /// pelvis, of a step's duration, of `arm_length` -- and it is a fraction in
+    /// the *observation* and not merely in the vector, because the constants
+    /// those fractions divide by are `pub` in `crate::combat::actuator` and
+    /// deliberately unreachable from outside `sim`. A policy holding a raw twist
+    /// could not normalise it, so the struct publishes the ratio and this writer
+    /// copies it. See [`ObservedStance`].
+    ///
+    /// The two `present` columns are read off the stance flags and not off the
+    /// identities beside them, so each half of the block is self-describing:
+    /// a reader that has only these 32 numbers can still tell a squared,
+    /// standing body from no body at all.
+    fn write_embodied_features(&self, out: &mut [Fx], from: usize) -> usize {
+        let block = from;
+        let art = &self.articulated;
+        let flag = |b: bool| if b { Fx::ONE } else { Fx::ZERO };
+
+        let mut i = block;
+        let stance = &art.stance;
+        if stance.present {
+            out[i] = Fx::ONE;
+            // The hips as a pair, on the argument `EMBODIED_SELF_FEATURES`
+            // gives: `cos(0)` is one, so a squared body and an absent one differ
+            // here rather than agreeing on zero.
+            out[i + 1] = stance.hip_yaw.cos();
+            out[i + 2] = stance.hip_yaw.sin();
+            // Fractions at their source, so none of them is re-divided here.
+            out[i + 3] = stance.twist_fraction;
+            out[i + 4] = stance.pelvis_fraction;
+            out[i + 5] = stance.step_fraction;
+            for limb in 0..2 {
+                let base = i + 6 + limb * EMBODIED_ARM_FEATURES;
+                out[base] = stance.elbow[limb].x;
+                out[base + 1] = stance.elbow[limb].y;
+                out[base + 2] = stance.elbow[limb].z;
+                out[base + 3] = stance.reach_headroom[limb];
+            }
+        }
+        i += EMBODIED_SELF_FEATURES;
+        debug_assert_eq!(i, block + EMBODIED_SELF_FEATURES);
+
+        for slot in 0..MAX_ARTICULATED_OPPONENTS {
+            let base = i + slot * EMBODIED_OPPONENT_FEATURES;
+            let foe = &art.opponents[slot].stance;
+            // An empty row is three zeros. `ObservedOpponent::BLANK` carries a
+            // blank stance, so a row that is blank in the articulated block is
+            // blank here too without this having to consult it.
+            if !foe.present { continue; }
+            out[base] = Fx::ONE;
+            out[base + 1] = foe.twist_fraction;
+            out[base + 2] = flag(foe.stepping);
+        }
+        i += MAX_ARTICULATED_OPPONENTS * EMBODIED_OPPONENT_FEATURES;
+
+        debug_assert_eq!(i, block + EMBODIED_FEATURE_COUNT);
+        i
+    }
 }
 
 #[cfg(test)]
@@ -1637,6 +1916,14 @@ mod tests {
             shield: shield(origin + point(slot * 9 + 6)),
             severed_mask: 0b1_1111,
             contact_timing: Fx::from_ratio(1, 2),
+            stance: ObservedOpponentStance {
+                present: true,
+                twist_fraction: Fx::from_ratio(slot + 1, 8),
+                // True on every row, for the reason both arms are severed
+                // above: a flag is a column, and a fixture that leaves it clear
+                // leaves the column unproven.
+                stepping: true,
+            },
         };
 
         let mut obs = Observation::blank(
@@ -1670,6 +1957,22 @@ mod tests {
                 Some(SegmentPose { hilt: origin + point(31), tip: origin + point(32), radius: Fx::from_ratio(1, 25) }),
                 None,
             ],
+            stance: ObservedStance {
+                present: true,
+                // Thirty degrees, so the cosine and the sine are both non-zero
+                // and different -- a writer that transposed them would pass at
+                // a multiple of a quarter turn.
+                hip_yaw: Angle::from_degrees(30),
+                twist_fraction: -Fx::from_ratio(1, 3),
+                pelvis_fraction: Fx::from_ratio(9, 10),
+                step_fraction: Fx::from_ratio(1, 2),
+                // Already a fraction of `arm_length` in the observation, so
+                // these are the values the writer copies rather than world
+                // points it scales -- a triple outside `-1..=1` here would be a
+                // fixture the producer cannot make.
+                elbow: [point(1), point(4)],
+                reach_headroom: [Fx::from_ratio(1, 5), Fx::from_ratio(2, 5)],
+            },
         };
         obs
     }
@@ -1692,19 +1995,27 @@ mod tests {
             documented_self + MAX_ARTICULATED_OPPONENTS * documented_opponent
         );
         assert_eq!(
-            (LEGACY_FEATURE_COUNT, ARTICULATED_FEATURE_COUNT, FEATURE_COUNT),
-            (450, 472, 922)
+            (LEGACY_FEATURE_COUNT, ARTICULATED_FEATURE_COUNT, EMBODIED_FEATURE_COUNT,
+             FEATURE_COUNT),
+            (450, 472, 32, 954)
         );
-        assert_eq!(FEATURE_LAYOUT_VERSION, 12);
+        assert_eq!(FEATURE_LAYOUT_VERSION, 13);
 
         // And the third number: what the writer actually reaches. Every column
         // of the block is fed something that cannot round to zero, so a slot
         // the walk skips shows up here, and a slot it double-books shows up in
         // the cursor assertions inside `write_articulated_features`.
+        //
+        // **Bounded to the articulated block** rather than running to the end of
+        // the vector, which is what it did while the articulated block *was* the
+        // end. An unbounded walk would report the embodied block's holes under
+        // articulated column names, and `embodied_features_have_one_documented_
+        // width` is what owns those 32.
         let obs = every_column_filled();
         let mut out = vec![Fx::ZERO; FEATURE_COUNT];
         assert_eq!(obs.write_features(&mut out), FEATURE_COUNT);
-        for (k, v) in out[LEGACY_FEATURE_COUNT..].iter().enumerate() {
+        let articulated = LEGACY_FEATURE_COUNT..LEGACY_FEATURE_COUNT + ARTICULATED_FEATURE_COUNT;
+        for (k, v) in out[articulated].iter().enumerate() {
             let named = if k < ARTICULATED_SELF_FEATURES {
                 format!("self {k}")
             } else {
@@ -1717,6 +2028,155 @@ mod tests {
             };
             assert!(!v.is_zero(), "articulated feature {k} ({named}) was never written");
         }
+    }
+
+    #[test]
+    fn embodied_features_have_one_documented_width() {
+        // Summed from the rows rather than from the crate's part constants, on
+        // the same terms as the articulated width above: present; the hips as
+        // cosine and sine; twist, pelvis and step; then per arm an elbow XYZ and
+        // reach headroom. The opponent row is present, twist, mid-step.
+        let documented_self: usize = 1 + 2 + 3 + 4 + 4;
+        let documented_opponent: usize = 1 + 1 + 1;
+        assert_eq!((documented_self, documented_opponent), (14, 3));
+        assert_eq!(EMBODIED_SELF_FEATURES, documented_self);
+        assert_eq!(EMBODIED_OPPONENT_FEATURES, documented_opponent);
+        assert_eq!(
+            EMBODIED_FEATURE_COUNT,
+            documented_self + MAX_ARTICULATED_OPPONENTS * documented_opponent
+        );
+
+        // And what the writer actually reaches, on the fixture that cannot
+        // legally contain a zero anywhere in the block.
+        let obs = every_column_filled();
+        let mut out = vec![Fx::ZERO; FEATURE_COUNT];
+        assert_eq!(obs.write_features(&mut out), FEATURE_COUNT);
+        let block = LEGACY_FEATURE_COUNT + ARTICULATED_FEATURE_COUNT;
+        for (k, v) in out[block..].iter().enumerate() {
+            let named = if k < EMBODIED_SELF_FEATURES {
+                format!("self {k}")
+            } else {
+                let row = k - EMBODIED_SELF_FEATURES;
+                format!(
+                    "opponent {} column {}",
+                    row / EMBODIED_OPPONENT_FEATURES,
+                    row % EMBODIED_OPPONENT_FEATURES
+                )
+            };
+            assert!(!v.is_zero(), "embodied feature {k} ({named}) was never written");
+        }
+
+        // Every column of the block is inside `-1..=1`, which is tighter than
+        // the `2` the two live-world range tests in `query.rs` hold the whole
+        // vector to. It can be: nothing here is a raw world quantity that a
+        // divisor merely approximates -- every column is a fraction of a
+        // constant, so one outside the interval would be a divisor that is not
+        // the bound it claims to be.
+        for (k, v) in out[block..].iter().enumerate() {
+            assert!(v.abs() <= Fx::ONE, "embodied feature {k} left the interval at {v:?}");
+        }
+    }
+
+    /// A body with legs, and a body without, are the same 32 columns wide.
+    ///
+    /// The two halves are asserted separately because they answer to separate
+    /// `present` flags, which is the whole of what distinguishes this block from
+    /// the articulated one: a subject with no opponents in view still writes a
+    /// full self run, and a Legacy world writes neither.
+    #[test]
+    fn an_embodied_observation_has_a_fixed_width_whatever_it_perceives() {
+        let block = LEGACY_FEATURE_COUNT + ARTICULATED_FEATURE_COUNT;
+        for perceived in 0..=MAX_ARTICULATED_OPPONENTS {
+            let mut obs = every_column_filled();
+            obs.articulated.opponent_count = perceived as u8;
+            for slot in perceived..MAX_ARTICULATED_OPPONENTS {
+                obs.articulated.opponents[slot] = ObservedOpponent::BLANK;
+            }
+            // Pre-dirtied past the end, so a writer that ran long clears the
+            // guard and one that stopped short leaves nines inside the block.
+            let mut out = vec![Fx::from_int(9); FEATURE_COUNT + 3];
+            assert_eq!(obs.write_features(&mut out), FEATURE_COUNT,
+                       "the width moved with {perceived} opponents perceived");
+            assert_eq!(&out[FEATURE_COUNT..], &[Fx::from_int(9); 3],
+                       "the writer ran past its width");
+
+            let row = |slot: usize| {
+                let base = block + EMBODIED_SELF_FEATURES + slot * EMBODIED_OPPONENT_FEATURES;
+                &out[base..base + EMBODIED_OPPONENT_FEATURES]
+            };
+            for slot in 0..perceived {
+                assert!(row(slot).iter().all(|v| !v.is_zero()),
+                        "filled embodied row {slot} has a hole");
+            }
+            for slot in perceived..MAX_ARTICULATED_OPPONENTS {
+                assert!(row(slot).iter().all(|v| v.is_zero()),
+                        "unused embodied row {slot} carried a value");
+            }
+            // The self run is untouched by how much is perceived.
+            assert_eq!(out[block], Fx::ONE, "the self present column moved");
+            assert!(out[block..block + EMBODIED_SELF_FEATURES].iter().all(|v| !v.is_zero()),
+                    "the self run has a hole at {perceived} opponents");
+        }
+    }
+
+    /// A Legacy world writes the embodied block as blank, exactly as it writes
+    /// the articulated one.
+    ///
+    /// The `present` columns are the load-bearing part: an all-zero row is what
+    /// this asserts, and the two flags are why an all-zero row is unambiguous
+    /// here at all.
+    #[test]
+    fn a_legacy_observation_writes_the_embodied_block_as_blank() {
+        let obs = Observation::blank(
+            0,
+            EntityId::new(0, 0),
+            Faction::Heroes,
+            Vec2::ZERO,
+            Order::Hold,
+        );
+        assert_eq!(obs.articulated.stance, ObservedStance::BLANK,
+                   "a blank observation claimed a stance");
+        let mut out = vec![Fx::from_int(9); FEATURE_COUNT + 3];
+        assert_eq!(obs.write_features(&mut out), FEATURE_COUNT);
+        let block = LEGACY_FEATURE_COUNT + ARTICULATED_FEATURE_COUNT;
+        assert_eq!(
+            out[block..FEATURE_COUNT].iter().filter(|v| v.is_zero()).count(),
+            EMBODIED_FEATURE_COUNT,
+            "a Legacy world wrote an embodied value"
+        );
+        assert_eq!(&out[FEATURE_COUNT..], &[Fx::from_int(9); 3], "the writer ran past its width");
+    }
+
+    /// The embodied block is appended after the articulated one and never
+    /// interleaved with it: blanking the stance moves the last 32 columns and
+    /// nothing else.
+    ///
+    /// This is the structural half of the `legacy feature prefix` pin's claim.
+    /// The pin itself lives in `query.rs` and drives a whole scripted fight
+    /// through a policy; this is the cheap statement of the same property,
+    /// stated over both frozen blocks rather than only the first.
+    #[test]
+    fn the_legacy_feature_prefix_is_unmoved_by_the_embodied_block() {
+        let filled = every_column_filled();
+        let mut with = vec![Fx::ZERO; FEATURE_COUNT];
+        filled.write_features(&mut with);
+
+        let mut blanked = filled.clone();
+        blanked.articulated.stance = ObservedStance::BLANK;
+        for slot in 0..MAX_ARTICULATED_OPPONENTS {
+            blanked.articulated.opponents[slot].stance = ObservedOpponentStance::BLANK;
+        }
+        let mut without = vec![Fx::ZERO; FEATURE_COUNT];
+        blanked.write_features(&mut without);
+
+        let frozen = LEGACY_FEATURE_COUNT + ARTICULATED_FEATURE_COUNT;
+        assert_eq!(with[..frozen], without[..frozen],
+                   "the embodied block reached a frozen column");
+        // And it is not vacuous: the tail did move.
+        assert_ne!(with[frozen..], without[frozen..],
+                   "blanking the stance changed nothing, so the comparison above proves nothing");
+        assert!(without[frozen..].iter().all(|v| v.is_zero()),
+                "a blanked stance still wrote a column");
     }
 
     #[test]
@@ -1734,8 +2194,13 @@ mod tests {
         // clears the guard.
         let mut out = vec![Fx::from_int(9); FEATURE_COUNT + 3];
         assert_eq!(obs.write_features(&mut out), FEATURE_COUNT);
+        // Bounded to the articulated block, which it did not have to be while
+        // that block ran to the end of the vector.
+        // `a_legacy_observation_writes_the_embodied_block_as_blank` makes the
+        // same claim about the 32 after it.
+        let articulated = LEGACY_FEATURE_COUNT..LEGACY_FEATURE_COUNT + ARTICULATED_FEATURE_COUNT;
         assert_eq!(
-            out[LEGACY_FEATURE_COUNT..FEATURE_COUNT].iter().filter(|v| v.is_zero()).count(),
+            out[articulated].iter().filter(|v| v.is_zero()).count(),
             ARTICULATED_FEATURE_COUNT,
             "a blank articulated block wrote a value"
         );
@@ -1954,12 +2419,21 @@ mod tests {
         let mut before = vec![Fx::ZERO; FEATURE_COUNT];
         base.write_features(&mut before);
 
+        // **The range is the articulated block and no longer the tail of the
+        // vector, and the narrowing is itself the assertion.** It ran to
+        // `FEATURE_COUNT` while the articulated block *was* the tail; once the
+        // embodied block was appended, every row of the table below would have
+        // started failing on columns it says nothing about. Narrowed, an
+        // articulated perturbation that reached an embodied column is caught
+        // rather than absorbed -- the wider range would have quietly accepted
+        // one as an extra moved offset in the list.
+        let articulated = LEGACY_FEATURE_COUNT..LEGACY_FEATURE_COUNT + ARTICULATED_FEATURE_COUNT;
         let mut after = vec![Fx::ZERO; FEATURE_COUNT];
         for Column { named, expect, nudge } in documented_columns() {
             let mut obs = base.clone();
             nudge(&mut obs.articulated);
             obs.write_features(&mut after);
-            let moved: Vec<usize> = (LEGACY_FEATURE_COUNT..FEATURE_COUNT)
+            let moved: Vec<usize> = articulated.clone()
                 .filter(|&k| before[k] != after[k])
                 .map(|k| k - LEGACY_FEATURE_COUNT)
                 .collect();

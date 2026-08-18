@@ -132,26 +132,28 @@ with:
 cargo run --release -p lab -- learn-probe evaluate --checkpoint checkpoints/v2-probe.ckpt
 ```
 
-## Three things the survey found that this plan did not know
+## Three things the survey found that this plan did not know -- all now done
 
-**The observation has no elevation at all.** `World::observe_articulated` builds the
-body origin as `Vec3::new(me.x, me.y, Fx::ZERO)` while `World::articulated_pose` uses
-`self.ground_z[i]`. Correcting the origin would move every articulated position column
-on a sculpted world; appending a dedicated ground-height column leaves the frozen block
-still. Append.
+**The observation had no elevation at all.** `World::observe_articulated` built the
+body origin as `Vec3::new(me.x, me.y, Fx::ZERO)` while `World::articulated_pose` used
+`self.ground_z[i]`. The first draft of this section said to append a ground-height
+column and leave the origin alone; the section above it, written later, says why that
+was the wrong call, and the origin was corrected instead. **The two paragraphs
+contradicted each other for a day and the implementing session had to notice**, which
+is the argument for retiring a superseded paragraph rather than leaving it beside its
+replacement.
 
-**No policy seam returns an embodied command.** `ArticulatedPolicy` returns
-`ArticulatedCommandV1`, and session 08's `ComposedController::decide` is an *inherent*
-method rather than a trait impl, so there is nothing to implement. This session adds
-`EmbodiedPolicy` beside `ArticulatedPolicy`, with `ComposedController` and the scripted
-policy both implementing it. Session 10 deletes the articulated one and the wart in the
-observation's name with it.
+**No policy seam returned an embodied command.** `ArticulatedPolicy` returns
+`ArticulatedCommandV1`, and session 08's `ComposedController::decide` was an *inherent*
+method rather than a trait impl, so there was nothing to implement. `EmbodiedPolicy`
+now sits beside `ArticulatedPolicy` with `ComposedController` implementing it. Session
+10 deletes the articulated one and the wart in the observation's name with it.
 
-**There is no sculpted `Scenario` anywhere.** `Dungeon::from_tiles_and_heights` is
+**There was no sculpted `Scenario` anywhere.** `Dungeon::from_tiles_and_heights` was
 called only from its own tests, and `sculpted` is derived from the heights rather than
-passed -- an all-zero height vector *is* flat, digests as flat and routes as flat. The
-high-ground measurement needs a fixture built from scratch, and building it is what
-makes `ROOM_HASH`, `BATTLE_HASH`, `SWAP_HASH`, `BOW_HASH`, `LAB_HASH` and
+passed -- an all-zero height vector *is* flat, digests as flat and routes as flat.
+`Scenario::embodied_slope` is that fixture, and the derivation is what makes
+`ROOM_HASH`, `BATTLE_HASH`, `SWAP_HASH`, `BOW_HASH`, `LAB_HASH` and
 `GOLDEN_STATE_HASH` unreachable from it: the digest's `if sculpted` short circuit means
 a flat dungeon never hashes a height.
 

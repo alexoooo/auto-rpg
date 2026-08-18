@@ -168,8 +168,10 @@ pub use hand::{Hand, Swing};
 pub use hash_domain::{DigestCompareError, HashDomain, StateDigest};
 pub use loadout::Loadout;
 pub use obs::{
-    ArticulatedObservation, Contact, Observation, ObservedArm, ObservedOpponent, ObservedShield,
+    ArticulatedObservation, Contact, Observation, ObservedArm, ObservedOpponent,
+    ObservedOpponentStance, ObservedShield, ObservedStance,
     ARTICULATED_FEATURE_COUNT, ARTICULATED_OPPONENT_FEATURES, ARTICULATED_SELF_FEATURES,
+    EMBODIED_FEATURE_COUNT, EMBODIED_OPPONENT_FEATURES, EMBODIED_SELF_FEATURES,
     FEATURE_COUNT, FEATURE_LAYOUT_VERSION, LEGACY_FEATURE_COUNT, MAX_ARTICULATED_OPPONENTS,
 };
 pub use pose::{AnimationHint, ArticulatedPose, PosedArm};

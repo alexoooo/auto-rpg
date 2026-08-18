@@ -10,10 +10,10 @@
 //! * [`ModelShape`] -- the layer widths. Not versioned by a number because it
 //!   *is* a number, and [`crate::Checkpoint`] compares it directly.
 //!
-//! # The 922-element vector is not the input, and that is the main decision
+//! # The 954-element vector is not the input, and that is the main decision
 //!
-//! [`sim::FEATURE_COUNT`] is 922 and [`sim::Observation::write_features`]
-//! writes all of it. Handing that to a 64-unit network is 60,242 weights, and
+//! [`sim::FEATURE_COUNT`] is 954 and [`sim::Observation::write_features`]
+//! writes all of it. Handing that to a 64-unit network is 62,290 weights, and
 //! the optimizer in `crates/learn` is a `(mu + lambda)` evolution strategy with
 //! no gradient at all -- it moves a population of twenty-odd points around by
 //! Gaussian perturbation, and 60,000 dimensions is not a space twenty points
@@ -1597,7 +1597,7 @@ mod tests {
         );
         // 41 x 64 + 64 + 64 x 18 + 18. Spelled out because it is the number
         // that decides whether the optimizer has a chance. The alternative the
-        // plan proposed -- the whole 922-column vector -- is computed here from
+        // plan proposed -- the whole 954-column vector -- is computed here from
         // the same expression rather than written down, because it is quoted in
         // the module header and in `docs/performance/v2-learning-probe.md`, and a
         // number quoted in three places is a number that drifts. It was wrong
@@ -1608,8 +1608,16 @@ mod tests {
             hidden: HIDDEN_UNITS,
             outputs: LEARN_ACTION_LOGITS,
         };
-        assert_eq!(sim::FEATURE_COUNT, 922);
-        assert_eq!(whole_vector.weight_count(), 60_242);
+        // **A documentation cross-check and not a pin.** It moved 922 -> 954
+        // when the embodied block was appended, and the move costs this crate
+        // nothing: `write_features` here reads named fields of
+        // `ArticulatedObservation` and never the flattened vector, so the
+        // 41-column slice, `ModelShape::CURRENT` and `LEARNED_INFERENCE_DIGEST`
+        // are all untouched by a column added to the other one. What this line
+        // is for is the sentence above it: the header quotes both numbers, and
+        // this is what makes a stale quotation fail rather than mislead.
+        assert_eq!(sim::FEATURE_COUNT, 954);
+        assert_eq!(whole_vector.weight_count(), 62_290);
     }
 
     #[test]

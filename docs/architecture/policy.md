@@ -107,6 +107,47 @@ so perception is shared even where the command is not. The name is a wart that
 outlives its model and the session that retires `Articulated` is the one that
 gets to fix it.
 
+### What an embodied policy is allowed to see, and why it arrives as fractions
+
+`ArticulatedObservation` carries an `ObservedStance`, and each `ObservedOpponent`
+carries a narrower `ObservedOpponentStance`. Both are blank on a Legacy or
+Articulated world, on the rule the articulated block already sets: one struct and
+one vector width whichever model a scenario picked.
+
+The subject's own values are the hips relative to the torso, the twist as a signed
+fraction of the stance budget, the pelvis as a fraction of standing pelvis height,
+the step as a fraction of its own duration, and per arm the elbow relative to that
+arm's shoulder plus how much of the reach annulus is left before the clamp bites.
+A perceived opponent gets two of those: their twist fraction and whether they are
+mid-step.
+
+**The fractions are the boundary and not a convenience.** `STANCE_TWIST_LIMIT_RAW`,
+`STANCE_STEP_TICKS` and `PELVIS_HEIGHT_RAW` live in `crates/sim`'s actuator module
+and are deliberately not re-exported from `sim`, so a policy cannot reach them.
+That makes a raw twist an uninterpretable number on the far side of the seam --
+the divisor is the half that carries the meaning, and it is the half that stays
+in. Publishing the ratio is therefore the only shape of this fact that crosses the
+boundary at all, and the same argument puts the elbow relative to its own shoulder
+over arm length, since no shoulder is published anywhere. It is the argument
+`Contact::min_strike_range` already makes about deriving and handing over rather
+than leaving to be reconstructed, taken to the case where reconstruction is not
+merely wasteful but impossible.
+
+**Reach headroom is the column the seam gained rather than a rescaling of one it
+had.** An embodied arm can be commanded to a pose it cannot hold, and the clamp in
+front of the integrator silently takes the difference. A policy that reads only
+where its hand is cannot tell a comfortable guard from a locked-out one; one that
+reads how much extension is left can choose between stepping in and reaching
+further. Zero means the arm is against its own outer bound.
+
+**Opponent stance is exact and carries no perception noise**, unlike the geometry
+in the same row. A twist is the angle between two halves of one silhouette, and a
+body's bearing is already exact for exactly that reason; mid-step is categorical
+like a severed region. The concession is deliberate: a saturated twist is meant to
+be an opening, and an opening whose cost is paid by the body that is wound up is
+the right shape for it. What a dim fighter reads wrong stays what it always read
+wrong -- where the body is.
+
 `ComposedController` -- the session-08 controller that merges a human hand and an
 AI hand into one submission -- keeps its inherent `decide` and `reset` as the
 implementation, and the trait impl forwards to them. A caller holding one by

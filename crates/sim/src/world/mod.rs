@@ -23,7 +23,8 @@ use crate::entity::{EntityId, Faction, Body};
 use crate::event::Event;
 use crate::hand::{Hand, Swing};
 use crate::obs::{ArticulatedObservation, Contact, Observation, ObservedArm, ObservedOpponent,
-                 ObservedShield, MAX_ARTICULATED_OPPONENTS};
+                 ObservedOpponentStance, ObservedShield, ObservedStance,
+                 MAX_ARTICULATED_OPPONENTS};
 use crate::pose::{AnimationHint, ArticulatedPose, PosedArm};
 use crate::rules::{self, Stats, MAX_CONTACTS};
 use crate::scenario::{CommandFrame, CommandGrammar, Scenario, UnitSpec};

@@ -2,7 +2,7 @@
 
 **Purpose:** Preserve the rationale, measured corrections, and trade-offs behind the current combat model.
 **Status:** current
-**Canonical source:** [`World` combat phases](../../crates/sim/src/world/mod.rs#L1866), [`Hand`](../../crates/sim/src/hand.rs#L181), and [`rules`](../../crates/sim/src/rules.rs#L1)
+**Canonical source:** [`World` combat phases](../../crates/sim/src/world/mod.rs#L1867), [`Hand`](../../crates/sim/src/hand.rs#L181), and [`rules`](../../crates/sim/src/rules.rs#L1)
 **Update when:** Limb state, action roles, collision, damage, recoil, perception, recovery, regeneration, or timeout design changes.
 
 This document explains why the mechanics have their current shape. Exact enum
@@ -398,7 +398,7 @@ anchors whose wording did not become standalone headings here:
 - Limb phases and transition rationale: [`hand.rs`](../../crates/sim/src/hand.rs#L92)
 - Action roles and registry: [`action.rs`](../../crates/sim/src/action.rs#L28)
 - Loadout mutation: [`loadout.rs`](../../crates/sim/src/loadout.rs#L18)
-- Tick ordering and combat resolution: [`world/mod.rs`](../../crates/sim/src/world/mod.rs#L1866)
+- Tick ordering and combat resolution: [`world/mod.rs`](../../crates/sim/src/world/mod.rs#L1867)
 - Damage, blocking, regeneration, and recovery constants: [`rules.rs`](../../crates/sim/src/rules.rs#L39)
 - Duelist spacing and stance decisions: [`duelist.rs`](../../crates/policy/src/duelist.rs#L1)
-- Termination outcome: [`World::timeout`](../../crates/sim/src/world/query.rs#L1139)
+- Termination outcome: [`World::timeout`](../../crates/sim/src/world/query.rs#L1278)

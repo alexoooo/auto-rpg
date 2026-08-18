@@ -34,6 +34,23 @@ fn severed_mask_of(state: &AnatomyState) -> u8 {
     mask
 }
 
+/// A raw hip-to-torso twist as a signed fraction of the budget, `[-1, 1]`.
+///
+/// One writer for the two published fractions -- the subject's and every
+/// perceived opponent's -- for the reason [`severed_mask_of`] is one writer for
+/// the two masks: two divisions by the same constant are two chances to disagree
+/// about which way the sign runs, and the sign is the whole of what a policy
+/// reads off this column.
+///
+/// The clamp is a guard rather than a routine flattening. `drive_stance` cannot
+/// leave a twist outside the budget -- `world::mod`'s
+/// `a_torso_cannot_turn_past_its_hips_by_more_than_the_twist_budget` asserts
+/// it -- while a hand-built world can, and the vector's `-1..=1` invariant is
+/// worth more than a number nothing can act on.
+fn twist_fraction(twist_raw: i32) -> Fx {
+    Fx::from_ratio(twist_raw, actuator::STANCE_TWIST_LIMIT_RAW).clamp(-Fx::ONE, Fx::ONE)
+}
+
 /// Bounded "k nearest" accumulator: insertion sort into a fixed array, ties
 /// broken by entity index so the result never depends on scan order.
 struct Nearest {
@@ -409,7 +426,28 @@ impl World {
         let Some(spec) = self.anatomy_spec(i) else { return ArticulatedObservation::BLANK };
 
         let me = self.pos[i];
-        let body = Vec3::new(me.x, me.y, Fx::ZERO);
+        // **The floor the body is standing on, exactly as
+        // [`World::articulated_pose`] reads it**, and it used to be `Fx::ZERO`
+        // here while the pose row used `ground_z`. The observation and the pose
+        // disagreed about where a body was, which on a sculpted floor plan puts
+        // every column of this block a hill's height away from the geometry the
+        // renderer and the contact phase use.
+        //
+        // Correcting the origin rather than appending a "ground height relative
+        // to the opponent's" column is the whole of the fix, and the rejected
+        // alternative is why: every *other* spatial column here -- opponent
+        // capsules, weapon endpoints, hand positions -- would still have been
+        // flattened onto z = 0, so a fighter on a hill would have read the
+        // height difference in one column and seen a level opponent in twenty.
+        // The relative ground now falls out of the positions that were always
+        // supposed to carry it.
+        //
+        // **It is free today and the golden registry is what says so**: every
+        // shipped scenario is flat, `ground_z` is zero everywhere, and not one
+        // existing column moves. `lab articulated --seeds 400 --mirrored`
+        // reads commands derived from this block, so a change on a flat world
+        // would land in its `script` digest.
+        let body = Vec3::new(me.x, me.y, self.ground_z[i]);
         let command = self.articulated_command[i].unwrap_or_else(|| self.neutral_articulated(i));
         let targets = self.articulated_targets(i, spec, &command);
         // Proprioception is free, so every column below is ground truth. The
@@ -524,6 +562,89 @@ impl World {
             arm_length: spec.arm_length,
             hand_radius: spec.hand_radius,
             weapons,
+            stance: self.observed_stance(i),
+        }
+    }
+
+    /// The subject's own legs and joints, or [`ObservedStance::BLANK`].
+    ///
+    /// **Every column is a fraction, and the divisor is what stays inside.**
+    /// `STANCE_TWIST_LIMIT_RAW`, `PELVIS_HEIGHT_RAW` and `STANCE_STEP_TICKS` are
+    /// `pub` in `crate::combat::actuator` and are not re-exported from `sim`, so
+    /// a policy handed the raw numbers could not turn them into anything. The
+    /// ratio is the half that carries the meaning and this is the only place it
+    /// can be taken.
+    ///
+    /// Guarded on the model rather than on the column's length, so a Legacy or
+    /// Articulated world pays nothing at all -- not the two `posed_anatomy`
+    /// clones below, and not the pair of `reachable_extent` calls inside
+    /// `reach_headroom`. The articulated observation is already measured at 6%
+    /// of `lab bench`, and a model with no legs should not be paying for legs.
+    fn observed_stance(&self, i: usize) -> ObservedStance {
+        if !self.combat_model.has_stance() { return ObservedStance::BLANK; }
+        let Some(stance) = self.stance.get(i).copied() else { return ObservedStance::BLANK };
+        let yaw = self.body_yaw[i].angle;
+        // The posed anatomy, so the shoulder the elbow is measured from is the
+        // one the collider builder and the sweep use. Reading the immutable row
+        // would put the joint a pelvis-drop above the arm it belongs to, on
+        // exactly the model that has a pelvis to drop -- the same argument
+        // `arm_elbows` makes one layer down, and the reason it is the value
+        // both of them read.
+        let anatomy = self.posed_anatomy(i);
+        let links = crate::combat::limb::Elbow::of(&anatomy);
+        let elbows = self.arm_elbows(i);
+        let arm_length = anatomy.arm_length;
+        let over_arm = |v: Fx| {
+            if arm_length.is_positive() { (v / arm_length).clamp(-Fx::ONE, Fx::ONE) } else { Fx::ZERO }
+        };
+        ObservedStance {
+            present: true,
+            // The hips measured from the torso: the frame an embodied command is
+            // given in. See `ObservedStance::hip_yaw` for why this and the
+            // fraction below are opposite in sign and why both are published.
+            hip_yaw: stance.hip_yaw - yaw,
+            twist_fraction: twist_fraction(stance.twist(yaw)),
+            // Clamped although the driver cannot produce a pelvis above the
+            // standing one: a hand-built world can, and a column outside the
+            // vector's invariant is worse than a saturated one.
+            pelvis_fraction: (stance.pelvis / Fx::from_raw(actuator::PELVIS_HEIGHT_RAW))
+                .clamp(Fx::ZERO, Fx::ONE),
+            step_fraction: Fx::from_ratio(
+                stance.step_left as i32, actuator::STANCE_STEP_TICKS as i32,
+            ).clamp(Fx::ZERO, Fx::ONE),
+            elbow: core::array::from_fn(|limb| match elbows[limb] {
+                // An embodied hand is clamped into the annulus before it is
+                // integrated, so the joint always closes and `None` is a bug
+                // rather than a case. Zero is what it writes, and zero is a
+                // pose no real elbow takes -- the joint sits an upper link away
+                // from the shoulder, never on it.
+                Some(joint) => {
+                    let d = joint - crate::combat::limb::shoulder(&anatomy, yaw, limb);
+                    Vec3::new(over_arm(d.x), over_arm(d.y), over_arm(d.z))
+                }
+                None => Vec3::ZERO,
+            }),
+            reach_headroom: core::array::from_fn(|limb| {
+                crate::combat::limb::reach_headroom(
+                    &anatomy, self.arms[i][limb].height, self.arms[i][limb].reach, links,
+                )
+            }),
+        }
+    }
+
+    /// An opponent's legs, or [`ObservedOpponentStance::BLANK`].
+    ///
+    /// **Exact, and the argument is `body_yaw`'s**: the twist is the angle
+    /// between two halves of one silhouette, and a fighter that can read where a
+    /// body faces can read that it is wound up. See [`ObservedOpponentStance`]
+    /// for what that concedes and why it is the right concession.
+    fn observed_opponent_stance(&self, j: usize) -> ObservedOpponentStance {
+        if !self.combat_model.has_stance() { return ObservedOpponentStance::BLANK; }
+        let Some(stance) = self.stance.get(j).copied() else { return ObservedOpponentStance::BLANK };
+        ObservedOpponentStance {
+            present: true,
+            twist_fraction: twist_fraction(stance.twist(self.body_yaw[j].angle)),
+            stepping: stance.step_left > 0,
         }
     }
 
@@ -589,10 +710,16 @@ impl World {
         let mut jitter = [Fx::ZERO; 7];
         for draw in jitter.iter_mut() { *draw = rng.signed_unit(); }
 
+        // The perceived body origin, on the floor it is standing on. The Z term
+        // used to be the noise alone, which said every opponent stands at z = 0
+        // however far up or down the plan it is -- the same disagreement with
+        // [`World::articulated_pose`] the subject's own origin carried, and it
+        // has to be corrected in both places or a fighter on a hill would see
+        // itself raised and everybody else level.
         let measured = Vec3::new(
             self.pos[j].x + jitter[0] * noise,
             self.pos[j].y + jitter[1] * noise,
-            jitter[2] * noise,
+            self.ground_z[j] + jitter[2] * noise,
         );
         // A quarter of the positional error. Velocity is a difference of two
         // positions a tick apart, so an eye that misplaces a body by a stride
@@ -680,6 +807,8 @@ impl World {
             // the "nothing is closing" one is a judgement like any other, and
             // skipping it there would make the noise term mean two things.
             contact_timing: (timing + jitter[6] * noise / 8).clamp(Fx::ZERO, Fx::ONE),
+            // Exact, and drawn against nothing: the stream stays seven draws.
+            stance: self.observed_opponent_stance(j),
         }
     }
 
@@ -2229,10 +2358,14 @@ mod tests {
             }
             let row = obs.opponents[slot];
             let j = row.id.index as usize;
+            // The Z term is the floor the body stands on plus its draw, and the
+            // floor is written out although this fixture is flat: the formula
+            // is what this test states, and a copy of it that omitted the term
+            // would read as a claim that a perceived body is always at z = 0.
             assert_eq!(row.body_position, Vec3::new(
                 world.pos[j].x + jitter[0] * noise,
                 world.pos[j].y + jitter[1] * noise,
-                jitter[2] * noise,
+                world.ground_z[j] + jitter[2] * noise,
             ), "row {slot} position is not draws 0..3 at the full scale");
             assert_eq!(row.body_velocity, Vec3::new(
                 world.vel[j].x + jitter[3] * noise / 4,
@@ -2414,6 +2547,359 @@ mod tests {
             }
         }
         assert!(populated > 200, "the fixture filled {populated} opponent rows, so it proves little");
+    }
+
+    /// A held command that turns an embodied body across its whole yaw range,
+    /// so its hips have to chase and its twist saturates.
+    fn turning_embodied_command(yaw: Angle) -> crate::EmbodiedCommandV1 {
+        crate::EmbodiedCommandV1::new(ArticulatedCommandV1 {
+            move_dir: Vec2::ZERO,
+            body_yaw: yaw,
+            intent: Intent::Hold,
+            arms: [ArmTarget {
+                bearing: Angle::ZERO,
+                height: crate::CombatHeight::MID,
+                reach: Fx::HALF,
+                effort: Fx::HALF,
+            }; 2],
+            grips: [GripRequest::Keep; 2],
+            releases: [ReleaseRequest::Keep; 2],
+        })
+    }
+
+    /// A body whose feet are committed is visible as such to the body watching
+    /// it, in the struct and in the column behind it.
+    ///
+    /// **The settled reading is taken first and it is half the test.** A step
+    /// flag that was simply always set would satisfy the second half on its own,
+    /// and the interesting failure here is not "no signal" but "a signal that
+    /// never goes out" -- `step_left` runs down and the flag has to follow it.
+    /// `embodied_duel` with the two bodies inside each other's sight.
+    ///
+    /// The shipped pair stands at `(7, 6)` and `(17, 10)`, ten and three
+    /// quarters apart, which is outside the brute's eye -- the corpus closes
+    /// that distance over the first hundred ticks and these tests are not about
+    /// walking. Moved rather than stepped, so a test about perception does not
+    /// depend on a hundred ticks of locomotion behaving.
+    fn embodied_within_sight() -> Scenario {
+        let mut scenario = Scenario::embodied_duel();
+        scenario.units[1].spawn = Vec2::from_ints(11, 8);
+        scenario
+    }
+
+    #[test]
+    fn an_opponent_mid_step_is_visible_as_mid_step() {
+        let mut world = World::new(&embodied_within_sight(), 1);
+        let hero = world.alive_ids(Faction::Heroes)[0];
+        let brute = world.alive_ids(Faction::Monsters)[0];
+        let watched = |world: &World| {
+            let obs = world.observe_articulated(brute);
+            let slot = obs.opponents().iter().position(|foe| foe.id == hero)
+                .expect("the brute cannot see the hero it is standing in front of");
+            (slot, obs.opponents[slot].stance)
+        };
+
+        let (slot, settled) = watched(&world);
+        assert!(settled.present, "an embodied opponent came back with no stance");
+        assert!(!settled.stepping, "a body that has not been asked to turn reads as mid-step");
+
+        // Half a turn is four and a half budgets away, so the request is refused
+        // on the first tick and arms a step.
+        world.submit_embodied_v1(hero, turning_embodied_command(Angle::HALF));
+        world.step();
+        let i = world.resolve(hero).expect("a live hero");
+        assert!(world.stance[i].step_left > 0, "the fixture armed no step");
+
+        let (again, stepping) = watched(&world);
+        assert_eq!(again, slot, "the row moved and the columns below name the wrong body");
+        assert!(stepping.stepping, "a body mid-step reads as settled");
+        // Their twist, as a perception, is the same signed fraction the body
+        // itself reads -- exact, because a twist is a silhouette.
+        assert_eq!(stepping.twist_fraction,
+                   world.observe_articulated(hero).stance.twist_fraction,
+                   "the perceived twist is not the twist");
+
+        // And it reaches the vector, in the row the block's layout names.
+        let mut buffer = vec![Fx::ZERO; crate::obs::FEATURE_COUNT];
+        world.observe(brute).write_features(&mut buffer);
+        let row = crate::obs::LEGACY_FEATURE_COUNT
+            + crate::obs::ARTICULATED_FEATURE_COUNT
+            + crate::obs::EMBODIED_SELF_FEATURES
+            + slot * crate::obs::EMBODIED_OPPONENT_FEATURES;
+        assert_eq!(buffer[row], Fx::ONE, "the perceived row is not marked present");
+        assert_eq!(buffer[row + 2], Fx::ONE, "the mid-step column is clear");
+    }
+
+    /// An observed body stands on the floor the posed body stands on, its own
+    /// and everybody else's.
+    ///
+    /// **The correction this session made, asserted where it can be seen.**
+    /// `observe_articulated` built the body origin as `(x, y, 0)` while
+    /// `articulated_pose` used `ground_z`, so on a sculpted plan the observation
+    /// and the pose disagreed about where a body was -- and *every* spatial
+    /// column of the articulated block hangs off that origin, so a fighter on a
+    /// hill read its own hands, its shield, and every opponent's capsule a
+    /// hill's height out of place.
+    ///
+    /// It is asserted on `embodied_slope` because that is the only fixture in
+    /// the repository with a hill in it. On every flat one the claim is true of
+    /// the broken code as well, which is exactly why the correction moved no
+    /// golden hash and why this test had to be written against the sculpted
+    /// fixture to say anything at all.
+    #[test]
+    fn an_observed_body_stands_on_the_floor_the_posed_body_stands_on() {
+        let scenario = Scenario::embodied_slope();
+        let mut world = World::new(&scenario, 31);
+        let ids = [world.alive_ids(Faction::Heroes)[0], world.alive_ids(Faction::Monsters)[0]];
+        let mut highest = Fx::ZERO;
+        let mut perceived = 0;
+        let mut uphill = 0;
+        // Walked toward each other over the hill, because the movement phase is
+        // the only thing that resamples `ground_z` and a teleported body would
+        // be standing on a height nothing had sampled.
+        for _ in 0..240 {
+            for (at, id) in ids.iter().enumerate() {
+                let toward = if at == 0 { Fx::ONE } else { -Fx::ONE };
+                let mut command = turning_embodied_command(Angle::ZERO);
+                command.articulated.move_dir = Vec2::new(toward, Fx::ZERO);
+                world.submit_embodied_v1(*id, command);
+            }
+            world.step();
+            for id in ids {
+                let pose = world.articulated_pose(id).expect("a live body has a pose");
+                let obs = world.observe_articulated(id);
+                assert_eq!(obs.body_position, pose.body,
+                           "the observed origin is not the posed one");
+                highest = highest.max(pose.body.z);
+                // And the same for a body seen from across the hill, allowing
+                // the observer's own error and nothing else. `jitter` is a
+                // fraction in `[-1, 1)`, so the whole of what the perceived
+                // floor may differ from the true one by is the perception term
+                // -- and before the correction the difference was the terrace
+                // itself, which is larger than any eye in the game is wrong by.
+                let noise = world.stats[world.resolve(id).expect("a live body")]
+                    .perception_noise();
+                for foe in obs.opponents() {
+                    let theirs = world.articulated_pose(foe.id).expect("a live opponent");
+                    assert!((foe.body_position.z - theirs.body.z).abs() <= noise,
+                            "a perceived body is {:?} off the floor it stands on, \
+                             against {noise:?} of noise",
+                            foe.body_position.z - theirs.body.z);
+                    if theirs.body.z.is_positive() { uphill += 1; }
+                    perceived += 1;
+                }
+            }
+        }
+        assert!(highest > Fx::ZERO, "neither body ever left the floor");
+        assert!(perceived > 0, "the two never saw each other, so half the claim is vacuous");
+    }
+
+    /// The hips are published in the torso's frame, the twist is published over
+    /// the budget, and the two are one scalar with opposite signs.
+    ///
+    /// **Three claims, none of them a restatement of the producer.** A body
+    /// wound by hand to exactly the budget publishes exactly one, which is what
+    /// says the divisor is `STANCE_TWIST_LIMIT_RAW` and not some other constant
+    /// -- a divisor twice the budget would answer a half here and every other
+    /// assertion in this file would still pass. The angle and the fraction agree
+    /// in magnitude, which is what says the angle is measured from the torso: a
+    /// hip bearing left in the world frame is an absolute heading with no
+    /// relation to a twist at all. And the sign is asserted in both directions
+    /// because the two fields deliberately disagree about it -- the fraction
+    /// keeps `StanceState::twist`'s sign and the angle keeps the command
+    /// frame's -- which is exactly the kind of thing that gets "tidied" into
+    /// agreement by somebody who has not read why.
+    ///
+    /// **Wound by hand because the driver never sits at its limit**, and that is
+    /// a property rather than a shortcut: the torso's *target* is clamped into
+    /// the budget, so the integrator converges on a reachable angle instead of
+    /// saturating against one. Driving `Angle::HALF` for forty ticks reaches
+    /// 0.09 of the budget, not 1. The live pose is what the loop below is for.
+    #[test]
+    fn the_published_hips_are_the_torsos_and_the_twist_is_the_budgets() {
+        let mut world = World::new(&embodied_within_sight(), 11);
+        let hero = world.alive_ids(Faction::Heroes)[0];
+        let budget = actuator::STANCE_TWIST_LIMIT_RAW;
+        let i = world.resolve(hero).expect("a live hero");
+
+        // **The live pose first**, because the hand-wound cases below leave the
+        // column in a state no driver produces, and anything asserted after one
+        // of those is a claim about a fixture rather than about a fight.
+        let mut moved = 0;
+        for _ in 0..40 {
+            world.submit_embodied_v1(hero, turning_embodied_command(Angle::HALF));
+            world.step();
+            let stance = world.observe_articulated(hero).stance;
+            // The torso measured from the hips, read out of the published
+            // angle, against the same quantity read out of the published
+            // fraction. One raw unit of angle: the fraction is a truncating
+            // division by the budget and multiplying it back cannot recover the
+            // unit it dropped.
+            let from_angle = Angle::ZERO.delta(stance.hip_yaw);
+            let from_fraction = (stance.twist_fraction * Fx::from_int(budget)).round_int();
+            assert!((from_angle - from_fraction).abs() <= 1,
+                    "the hips say {from_angle} raw of twist and the fraction says {from_fraction}");
+            if from_angle != 0 { moved += 1; }
+        }
+        assert!(moved > 0, "the twist never left zero, so the agreement above is vacuous");
+
+        for turn in [1, -1] {
+            let wound = Angle::from_raw((turn * budget) as u16);
+            world.stance[i].hip_yaw = world.body_yaw[i].angle - wound;
+            let stance = world.observe_articulated(hero).stance;
+            assert_eq!(stance.twist_fraction, Fx::from_int(turn),
+                       "a body wound to its budget does not read as its budget");
+            assert_eq!(Angle::ZERO.delta(stance.hip_yaw), turn * budget,
+                       "the published hips are not the torso's frame");
+            // Past the budget, which no driver produces and a hand-built world
+            // can: the column saturates rather than leaving the interval.
+            world.stance[i].hip_yaw = world.body_yaw[i].angle - wound - wound;
+            assert_eq!(world.observe_articulated(hero).stance.twist_fraction,
+                       Fx::from_int(turn), "twice the budget left the interval");
+        }
+    }
+
+    /// The pelvis and the step are published over their own constants, and a
+    /// body that has spent neither publishes exactly one of each.
+    ///
+    /// **Exactly one is the assertion**, and it is the only thing in the suite
+    /// that reads either column's scale. A divisor that was not the standing
+    /// pelvis, or not the step's own duration, answers something else here and
+    /// passes everything else -- which is what a policy reading "how much of a
+    /// step is left" would then be wrong about, silently, because the constants
+    /// it would need to check are not exported to it.
+    #[test]
+    fn a_settled_pelvis_and_a_fresh_step_are_published_as_whole_ones() {
+        let mut world = World::new(&embodied_within_sight(), 7);
+        let hero = world.alive_ids(Faction::Heroes)[0];
+        let fresh = world.observe_articulated(hero).stance;
+        assert_eq!(fresh.pelvis_fraction, Fx::ONE,
+                   "a body standing square is not published at full height");
+        assert_eq!(fresh.step_fraction, Fx::ZERO, "a settled body has a step running");
+
+        // One tick of a request four and a half budgets away: refused, so a step
+        // arms at its full duration.
+        world.submit_embodied_v1(hero, turning_embodied_command(Angle::HALF));
+        world.step();
+        let armed = world.observe_articulated(hero).stance;
+        assert_eq!(armed.step_fraction, Fx::ONE, "a freshly armed step is not a whole step");
+        assert!(armed.pelvis_fraction < Fx::ONE, "a wound torso cost the pelvis nothing");
+
+        // And it runs down rather than sticking, reaching zero on the tick its
+        // own duration says -- which is the other half of what makes the
+        // divisor the duration and not merely a number the numerator reaches.
+        let i = world.resolve(hero).expect("a live hero");
+        let ticks = u32::from(actuator::STANCE_STEP_TICKS);
+        for tick in 0..ticks {
+            // A yaw the budget can already hold, so nothing re-arms.
+            world.submit_embodied_v1(hero, turning_embodied_command(world.body_yaw[i].angle));
+            world.step();
+            let running = world.observe_articulated(hero).stance;
+            assert_eq!(running.step_fraction.is_zero(), tick + 1 >= ticks,
+                       "the step is {:?} of the way through on tick {tick} of {ticks}",
+                       running.step_fraction);
+        }
+    }
+
+    /// The published elbow is half an arm's length from the origin it is
+    /// measured from, which is what says that origin is the shoulder.
+    ///
+    /// **The magnitude is the assertion and it is not a restatement.** Nothing
+    /// in `observed_stance` computes a length; what it does is subtract a
+    /// shoulder and divide by `arm_length`. The elbow lies on the circle of
+    /// radius `upper` about the shoulder by construction -- that is what
+    /// `elbow_point` solves -- so a correctly-based column has magnitude
+    /// `UPPER_ARM_FRACTION`, and one left in the body frame is a shoulder-height
+    /// away and saturates the clamp instead. A body-frame elbow passes every
+    /// other assertion in this file; this is the one it fails.
+    #[test]
+    fn a_published_elbow_is_half_an_arm_from_its_own_shoulder() {
+        let mut world = World::new(&embodied_within_sight(), 5);
+        // Both bodies, because the Fighter and the Brute differ in every
+        // dimension this reads and a claim that holds for one shape is not a
+        // claim -- the same rule `limb.rs`'s own sweeps follow.
+        let ids = [world.alive_ids(Faction::Heroes)[0], world.alive_ids(Faction::Monsters)[0]];
+        let upper = Fx::from_raw(crate::combat::limb::UPPER_ARM_FRACTION_RAW);
+        let mut worst = 0i32;
+        for tick in 0..60 {
+            for id in ids { world.submit_embodied_v1(id, turning_embodied_command(Angle::HALF)); }
+            world.step();
+            for id in ids {
+                let stance = world.observe_articulated(id).stance;
+                assert!(stance.present, "a body lost its legs at tick {tick}");
+                for limb in 0..2 {
+                    let span = stance.elbow[limb].length();
+                    worst = worst.max((span - upper).abs().raw());
+                    // Six raw units, measured across this sweep and exact from
+                    // both sides: five fails and seven would pass on an error
+                    // that had grown. Four of them are the slack
+                    // `the_elbow_lies_on_both_link_circles` already measures on
+                    // the circle itself; three per-axis truncations by an
+                    // `arm_length` under one scale those up rather than adding
+                    // to them, and the Fighter alone measures four while the
+                    // pair measures six.
+                    assert!((span - upper).abs() <= Fx::from_raw(6),
+                            "tick {tick} arm {limb}: the elbow is {span:?} from its origin, \
+                             not the upper link's {upper:?}");
+                }
+            }
+        }
+        assert!(worst > 0, "the sweep never moved the elbow off an exact half");
+    }
+
+    /// One world, one subject, two writes: the same 954 numbers.
+    ///
+    /// An observation is a read and nothing in it may depend on how many times
+    /// it has been taken -- and the embodied block is the first one built out of
+    /// a *cloned* anatomy and a pair of derived joints rather than out of stored
+    /// columns, which is exactly the shape that can pick up state by accident.
+    ///
+    /// Driven for a while first, because the claim is uninteresting on a world
+    /// where every stance column is still its constructed value: the fixture is
+    /// asserted to have a live twist, a sunk pelvis and a running step before
+    /// anything is compared.
+    #[test]
+    fn a_feature_vector_written_twice_from_one_world_is_identical() {
+        let mut world = World::new(&embodied_within_sight(), 3);
+        let hero = world.alive_ids(Faction::Heroes)[0];
+        let brute = world.alive_ids(Faction::Monsters)[0];
+        for _ in 0..30 {
+            world.submit_embodied_v1(hero, turning_embodied_command(Angle::HALF));
+            world.submit_embodied_v1(brute, turning_embodied_command(Angle::QUARTER));
+            world.step();
+        }
+
+        let stance = world.observe_articulated(hero).stance;
+        assert!(stance.present, "the fixture lost its legs");
+        assert!(!stance.twist_fraction.is_zero(), "the fixture never wound its torso up");
+        assert!(stance.pelvis_fraction < Fx::ONE, "the fixture never sank its pelvis");
+        assert!(!stance.step_fraction.is_zero(), "the fixture never forced a step");
+        assert!(stance.reach_headroom.iter().any(|v| v.is_positive()),
+                "the fixture holds both arms locked out, so headroom proves nothing");
+
+        for id in [hero, brute] {
+            let mut first = vec![Fx::from_int(9); crate::obs::FEATURE_COUNT];
+            let written = world.observe(id).write_features(&mut first);
+            assert_eq!(written, crate::obs::FEATURE_COUNT);
+            let mut second = vec![Fx::from_int(-9); crate::obs::FEATURE_COUNT];
+            assert_eq!(world.observe(id).write_features(&mut second), written);
+            assert_eq!(first, second, "two reads of one world disagreed");
+            // The two range tests above hold the whole vector to `2` and reach
+            // the embodied block only as zeros. This is the same claim on a live
+            // embodied world, and at `1` rather than `2` for the block itself:
+            // nothing in those 32 columns is a raw world quantity like a club's
+            // `action_length`, which is what the looser bound is there for.
+            // Every one of them is a fraction of a constant, and a fraction that
+            // left the interval would be a divisor that is not the bound it
+            // claims to be.
+            for (k, v) in first.iter().enumerate() {
+                assert!(v.abs() <= Fx::from_int(2), "feature {k} left the interval at {v:?}");
+            }
+            let block = crate::obs::LEGACY_FEATURE_COUNT + crate::obs::ARTICULATED_FEATURE_COUNT;
+            for (k, v) in first[block..].iter().enumerate() {
+                assert!(v.abs() <= Fx::ONE, "embodied feature {k} left the interval at {v:?}");
+            }
+        }
     }
 
     #[test]
