@@ -80,6 +80,36 @@ waiver](embodied-00-overview.md#backwards-compatibility-is-not-a-constraint-here
 worth doing in the same session rather than leaving a word that exists to distinguish
 one thing from nothing.
 
+## What survives, measured rather than assumed
+
+Two things a session opening this plan would reasonably expect to lose, and does
+not. Both were checked on 2026-08-18 before the session started, because the cost
+of assuming either way is a day.
+
+**The browser frame survives Legacy.** `FRAME` looks like the legacy publication --
+its unit rows carry `limb_angle_raw`, `action_kind` and `slot0_action`, and `init`
+opens a legacy dungeon -- but `Sim::write_frame` reads `World::order`,
+`World::view` and `alive_count`, none of which is model-keyed. `init_articulated`
+and `init_embodied` publish a frame through the same writer. So `#/game` keeps its
+renderer and this session changes which model `init` opens rather than deleting the
+section it draws from.
+
+**`Sim::descend` already routes through the model-aware builder**, which is what
+`init_embodied` exercised: a descending hero carries an articulated row, and handing
+that row to a plain Legacy `Scenario::dungeon` is a construction `World::new`
+refuses. The generated floor is not legacy-only.
+
+**The blast radius, counted.** `world/legacy.rs` is 3,263 lines; the four legacy
+policies are 5,817 (`duelist` 2,348, `utility` 1,783, `minds` 852, `swing` 634) with
+`genome.rs`'s 163 behind them; the two articulated policies are 3,816. That is
+roughly 13k lines of outright deletion before `obs.rs` loses its 450-column prefix
+and `lab/src/main.rs` loses five of its ten subcommands.
+
+**`lab evolve` goes with the thing it evolves.** It evolves `UtilityWeights` through
+`PolicySpec`, and the embodied script is not a genome. Porting evolution to a policy
+with no weights would be inventing a subject for it; deleting it with `utility.rs` is
+the honest call, and it should be made explicitly rather than by omission.
+
 ## The names outlive the models, and that is the trap
 
 With `Articulated` deleted, `ArticulatedObservation`, `ArticulatedPolicy`,
