@@ -196,11 +196,27 @@ beat the same policy with that term disabled.
 - `reach_headroom_falls_to_zero_exactly_where_the_annulus_clamp_bites`
 - `an_opponent_mid_step_is_visible_as_mid_step`
 - `a_feature_vector_written_twice_from_one_world_is_identical`
-- `the_high_ground_term_wins_more_duels_than_it_loses` -- 400 mirrored seeds on a
-  sculpted corpus, reported with its range across several pinned processes rather
-  than a best-of, and bracketed `control -> subject -> control` inside each round.
-  `lab bench` numbers swing 2-3x run to run on a hybrid-core laptop and best-of-N
-  cannot tell a migrated process from a clean one.
+- `the_high_ground_term_wins_more_duels_than_it_loses` -- 400 mirrored seeds on
+  `Scenario::embodied_slope`, the scripted policy against *itself* with the
+  high-ground term disabled on one side.
+
+  **The bracketing this plan originally asked for is wrong here and the correction
+  is worth keeping.** It said to bracket `control -> subject -> control` inside each
+  round and report a range across several pinned processes, because `lab bench`
+  numbers swing two to three times run to run on a hybrid-core laptop. That is the
+  protocol for a *wall-clock* measurement and this is not one: a win rate over a
+  fixed seed set is a pure function of the two policies and the fixture, it is
+  byte-reproducible, and running it in three processes would report the same number
+  three times while implying a variance that does not exist. Copying a benchmark
+  protocol onto a deterministic measurement makes it look more careful and makes it
+  say less.
+
+  What it does need is the *mirror*, and for a reason the timing protocol has no
+  analogue of: the two policies sit at different spawns, so a single orientation
+  measures the spawn as well as the term. `lab articulated` already runs 400 seeds
+  by two orientations for exactly that reason, and `embodied_slope` is centred so
+  that all four spawn tiles are equidistant from the hill -- which is what makes the
+  mirrored half a control on the arena rather than a second sample of it.
 
 ## Verification
 
