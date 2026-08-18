@@ -861,8 +861,16 @@ pub const POSE_RIGHT_HINT: usize = 65;
 
 // ------------------------------------------------------------ region capsules
 //
-// The five volumes the contact phase sweeps, published beside the pose rows
-// rather than rebuilt from an anatomy row on the far side of the wall.
+// The volumes the contact phase sweeps, published beside the pose rows rather
+// than rebuilt from an anatomy row on the far side of the wall.
+//
+// **Seven of them and not five, since the elbow.** The section is keyed by swept
+// volume rather than by anatomy region: rows 0..5 are the five `BodyPart`s in
+// their own discriminant order and rows 5 and 6 are the two forearms, absent on
+// a body whose arms are one link. The forearms were appended rather than
+// interleaved beside each arm precisely so that the five leading indices did not
+// move -- `client/src/arena/geometry.ts` reads regions 2 and 3 as the arms
+// positionally, and `strong_strike.rs` swaps 2 and 3 to mirror a fight.
 //
 // **A third section and not five more pose columns.** Folding them in would move
 // [`POSE_LAYOUT_VERSION`] for a body of data that is constant across most of a
@@ -886,14 +894,27 @@ pub const POSE_RIGHT_HINT: usize = 65;
 /// Version of the region row layout. Its own number rather than a second
 /// reading of [`POSE_LAYOUT_VERSION`]: this section adds no pose column and a
 /// pose column moving says nothing about these eight words.
-pub const REGION_LAYOUT_VERSION: u32 = 1;
-
-/// Rows one body publishes, one per [`sim::AnatomyRegion`].
 ///
-/// Written as the sim's own count and never as a second literal five, exactly
-/// as [`MAX_POSES`] is written as `sim::MAX_ARTICULATED_ENTITIES`. A sixth
-/// region would then widen this section rather than silently truncating it.
-pub const REGIONS_PER_BODY: usize = sim::AnatomyRegion::COUNT;
+/// **Moved 1 -> 2 by the forearm collider**, and the move is what distinguishes
+/// that session's `ARTICULATED_STREAM_DIGEST` re-record from the values-only
+/// ones in its registry row: [`REGIONS_PER_BODY`] went from five to seven, so
+/// the region section of every tick is a different length and everything after
+/// it moves with it. A reader holding version 1 would index row `n * 5` and get
+/// somebody else's torso.
+pub const REGION_LAYOUT_VERSION: u32 = 2;
+
+/// Rows one body publishes, one per swept volume.
+///
+/// Written as the sim's own count and never as a second literal, exactly as
+/// [`MAX_POSES`] is written as `sim::MAX_ARTICULATED_ENTITIES`. An eighth volume
+/// would then widen this section rather than silently truncating it.
+///
+/// **`sim::BODY_VOLUME_COUNT` and no longer `sim::AnatomyRegion::COUNT`, and the
+/// two are now different numbers.** This section publishes what the contact
+/// phase *sweeps*; the pose block's per-region arrays publish what anatomy
+/// *has*. They were one number by coincidence until an arm became two capsules.
+/// See the assertion in `emit_abi.rs` that states the relation between them.
+pub const REGIONS_PER_BODY: usize = sim::BODY_VOLUME_COUNT;
 
 /// Rows the region buffer holds: [`REGIONS_PER_BODY`] for each of the
 /// [`MAX_POSES`] bodies the pose buffer holds.
@@ -1130,6 +1151,14 @@ pub const COMBAT_EVENT_NO_BODY_PART: u32 = u32::MAX;
 /// [`REGION_PRESENT`], which is what the eighth word buys and what the extra
 /// 1,280 bytes of it cost.
 ///
+/// **The forearm collider grew that third term by two rows a body**, 10,240 to
+/// 14,336, because [`REGIONS_PER_BODY`] is the swept-volume count and a jointed
+/// arm is two capsules. It is charged on every body including the single-link
+/// ones whose last two rows are always absent, for the reason the stance section
+/// gives below: a fixed array is charged once, and one that appeared when an
+/// embodied world was installed would grow linear memory on that call and detach
+/// every typed array the page holds.
+///
 /// **The stance section is the fifth term and the cheapest of the five:** 1,536
 /// bytes, half a percent on top of the 290,816 the four before it cost, for the
 /// six words a pair of legs is. It is charged whether or not the installed world
@@ -1150,9 +1179,9 @@ const _: () = assert!(
         + MAX_COMBAT_EVENTS * COMBAT_EVENT_STRIDE * 4
         + MAX_REGIONS * REGION_STRIDE * 4
         + MAX_ARTICULATED_PROJECTILES * ARTICULATED_PROJECTILE_STRIDE * 4
-        + MAX_EMBODIED_STANCE * EMBODIED_STANCE_STRIDE * 4 == 292_352,
+        + MAX_EMBODIED_STANCE * EMBODIED_STANCE_STRIDE * 4 == 296_448,
     "the articulated publication budget is 16,896 pose bytes plus 262,144 event bytes \
-     plus 10,240 region bytes plus 1,536 projectile bytes plus 1,536 stance bytes",
+     plus 14,336 region bytes plus 1,536 projectile bytes plus 1,536 stance bytes",
 );
 
 // ---------------------------------------------------------- the arena config
@@ -5065,10 +5094,16 @@ fn combat_event_row(tick: u32, row: &sim::ContactResolution) -> [u32; COMBAT_EVE
         .copy_from_slice(&u64_words(row.crush_raw + row.pressure_raw));
     out[COMBAT_EVENT_DEFLECTED_LO..=COMBAT_EVENT_DEFLECTED_HI]
         .copy_from_slice(&u64_words(row.deflected_raw));
-    out[COMBAT_EVENT_BODY_PART] = if fact.region == sim::NO_REGION {
-        COMBAT_EVENT_NO_BODY_PART
-    } else {
-        u32::from(fact.region)
+    // **The published word is the body part, so the volume is mapped and not
+    // copied.** The fact carries the swept volume the solver chose, which is
+    // seven-valued; this column has always been a `BodyPart` and its sentinel
+    // sits outside the five. Publishing the raw volume would have put a `5` or a
+    // `6` in a column every reader indexes into a five-element name table -- and
+    // `sim::volume_region` answering `None` is exactly the "no anatomy here"
+    // case the sentinel already means, so the two arms collapse into one.
+    out[COMBAT_EVENT_BODY_PART] = match sim::volume_region(fact.volume as usize) {
+        Some(part) => part as u32,
+        None => COMBAT_EVENT_NO_BODY_PART,
     };
     out[COMBAT_EVENT_SEVERED] = u32::from(row.severed);
     out
@@ -5130,20 +5165,31 @@ fn write_pose_buffer(sim: &Sim, out: &mut [u32; MAX_POSES * POSE_STRIDE]) -> (u3
     (rows, dropped)
 }
 
-/// The five swept volumes of one published body, from the one function that
-/// builds them.
+/// The swept volumes of one published body, from the one function that builds
+/// them.
 ///
 /// **Every argument is either the pose's own or the anatomy the world was
-/// constructed with, and nothing here computes geometry.** The origin, the yaw
-/// and the two hands come off the pose; `present` is the severed mask read the
-/// way `World` reads it when it builds its own colliders; and the shapes come
-/// back from `sim::body_region_volumes`, the function the contact phase sweeps.
+/// constructed with, and nothing here computes geometry.** The origin, the yaw,
+/// the two hands and now the two elbows come off the pose; `present` is the
+/// severed mask read the way `World` reads it when it builds its own colliders;
+/// and the shapes come back from `sim::jointed_body_region_volumes`, the
+/// function the contact phase sweeps.
 ///
-/// **The hands go in body-relative and come out world space.**
-/// `body_region_volumes` adds the origin itself, which is the single conversion
-/// the whole contact module is arranged around; the pose row publishes hands in
-/// world space, so the subtraction here undoes that one conversion rather than
-/// inventing a second frame.
+/// **`present` is five bits and the answer is seven volumes**, which is the
+/// region/volume distinction in miniature and is the one place this file used to
+/// get it wrong. The mask was built as `[bool; REGIONS_PER_BODY]` -- correct
+/// exactly while that constant was the region count. It is a *severance* mask,
+/// `POSE_SEVERED_MASK` has one bit per `BodyPart`, and there is no state in
+/// which a forearm is severed and its arm is not, so widening it would have been
+/// inventing two bits nothing publishes.
+///
+/// **The hands and elbows go in body-relative and come out world space.**
+/// `jointed_body_region_volumes` adds the origin itself, which is the single
+/// conversion the whole contact module is arranged around; the pose row
+/// publishes both in world space, so the subtraction here undoes that one
+/// conversion rather than inventing a second frame. The elbow is `None` for a
+/// single-link body and the last two rows then come back absent, which is why
+/// this is one call and not a branch on the combat model.
 ///
 /// A separate function from the buffer writer so a hand-built pose can be put
 /// through the *publication's* path rather than through a second spelling of
@@ -5154,10 +5200,12 @@ fn pose_region_volumes(
     pose: &sim::ArticulatedPose,
     anatomy: &sim::BodyAnatomySpec,
 ) -> [sim::RegionVolume; REGIONS_PER_BODY] {
-    let present: [bool; REGIONS_PER_BODY] =
+    let present: [bool; sim::AnatomyRegion::COUNT] =
         core::array::from_fn(|part| pose.severed_mask & (1 << part) == 0);
     let hands = [pose.arms[0].hand - pose.body, pose.arms[1].hand - pose.body];
-    sim::body_region_volumes(pose.body, anatomy, pose.body_yaw, hands, present)
+    let elbows = [pose.arms[0].elbow.map(|joint| joint - pose.body),
+                  pose.arms[1].elbow.map(|joint| joint - pose.body)];
+    sim::jointed_body_region_volumes(pose.body, anatomy, pose.body_yaw, hands, present, elbows)
 }
 
 /// Fills the region buffer from the same bodies [`write_pose_buffer`] walks,
@@ -10548,15 +10596,21 @@ mod tests {
                         pose.id.index, view.kind, view.faction, pose.id.index,
                     );
                 }
-                let present: [bool; REGIONS_PER_BODY] =
+                // The severed mask is `BodyPart`-wide and the answer is
+                // volume-wide; see `pose_region_volumes`, which this is the
+                // independent second spelling of.
+                let present: [bool; sim::AnatomyRegion::COUNT] =
                     core::array::from_fn(|part| pose.severed_mask & (1 << part) == 0);
                 let hands = [pose.arms[0].hand - pose.body, pose.arms[1].hand - pose.body];
-                let expected = sim::body_region_volumes(
+                let elbows = [pose.arms[0].elbow.map(|joint| joint - pose.body),
+                              pose.arms[1].elbow.map(|joint| joint - pose.body)];
+                let expected = sim::jointed_body_region_volumes(
                     pose.body,
                     &anatomy[pose.id.index as usize],
                     pose.body_yaw,
                     hands,
                     present,
+                    elbows,
                 );
                 for part in 0..REGIONS_PER_BODY {
                     let row = rows[body * REGIONS_PER_BODY + part];
@@ -10703,6 +10757,75 @@ mod tests {
         }
     }
 
+    /// Every swept volume gets a published row, on both kinds of body.
+    ///
+    /// **The length relation is the section's whole reader contract and it had
+    /// to survive the widening**: region row `n` belongs to pose row
+    /// `n / REGIONS_PER_BODY` and carries no identity of its own, so
+    /// `region_len == REGIONS_PER_BODY * pose_len` is the only thing standing
+    /// between a reader and somebody else's torso. `the_region_section_covers_
+    /// every_published_pose` checks it across every world this module installs;
+    /// this one checks that the multiplier is the *volume* count, and that the
+    /// two extra rows are the forearms rather than padding.
+    ///
+    /// The two models are both driven because the section is one shape for both.
+    /// An articulated body publishes its last two rows absent and an embodied
+    /// one publishes them present; a section whose width followed the model
+    /// would make `REGIONS_PER_BODY` a lie on one of them.
+    #[cfg(not(feature = "cartesian-recoil"))]
+    #[test]
+    fn the_published_region_section_covers_every_volume() {
+        // Not a second literal seven: the relation, so that an eighth volume or
+        // a sixth region fails here rather than silently re-shaping the wire.
+        assert_eq!(REGIONS_PER_BODY, sim::BODY_VOLUME_COUNT);
+        assert_eq!(REGIONS_PER_BODY, sim::AnatomyRegion::COUNT + 2);
+
+        for (scenario, jointed) in [(Scenario::articulated_duel(), false),
+                                    (Scenario::embodied_duel(), true)] {
+            install_articulated(&scenario, 1);
+            step(8);
+            let rows = published_regions();
+            assert!(pose_len() > 0, "a duel published no poses to cover");
+            assert_eq!(region_len(), REGIONS_PER_BODY as u32 * pose_len());
+            assert_eq!(rows.len(), REGIONS_PER_BODY * pose_len() as usize);
+
+            let poses: Vec<sim::ArticulatedPose> = SIM.with(|sim| {
+                let borrowed = sim.borrow();
+                borrowed.as_ref().expect("a world").world.articulated_poses().collect()
+            });
+            let raw = |value: Fx| value.raw() as u32;
+            for (body, pose) in poses.iter().enumerate() {
+                for limb in 0..2 {
+                    let arm = rows[body * REGIONS_PER_BODY
+                                   + sim::AnatomyRegion::LeftArm as usize + limb];
+                    let fore = rows[body * REGIONS_PER_BODY + sim::forearm_volume(limb)];
+                    assert_eq!(fore[REGION_PRESENT], u32::from(jointed),
+                        "body {body} limb {limb} published the wrong forearm presence");
+                    let Some(elbow) = pose.arms[limb].elbow else {
+                        assert!(!jointed, "a jointed body published no elbow");
+                        continue;
+                    };
+                    // The forearm's `lower` **is** the published elbow, to the
+                    // raw unit, and the upper arm's `upper` is the same point.
+                    // That identity is what let `client/src/arena/scene.ts` stop
+                    // inventing a joint: the page reads the capsule the solver
+                    // swept rather than solving a triangle of its own.
+                    assert_eq!([fore[REGION_LOWER_X], fore[REGION_LOWER_Y], fore[REGION_LOWER_Z]],
+                               [raw(elbow.x), raw(elbow.y), raw(elbow.z)],
+                               "body {body} limb {limb}: the forearm does not start at the elbow");
+                    assert_eq!([arm[REGION_UPPER_X], arm[REGION_UPPER_Y], arm[REGION_UPPER_Z]],
+                               [raw(elbow.x), raw(elbow.y), raw(elbow.z)],
+                               "body {body} limb {limb}: the upper arm does not end at the elbow");
+                    let hand = pose.arms[limb].hand;
+                    assert_eq!([fore[REGION_UPPER_X], fore[REGION_UPPER_Y], fore[REGION_UPPER_Z]],
+                               [raw(hand.x), raw(hand.y), raw(hand.z)],
+                               "body {body} limb {limb}: the forearm does not reach the hand");
+                    assert_eq!(fore[REGION_RADIUS], arm[REGION_RADIUS]);
+                }
+            }
+        }
+    }
+
     #[test]
     fn an_articulated_module_publishes_a_zero_length_stance_section_and_not_no_section() {
         // The distinction the whole publication turns on. Only
@@ -10814,61 +10937,90 @@ mod tests {
     /// The evidence the `ARTICULATED_STREAM_DIGEST` move rests on, kept as a
     /// measurement rather than as a sentence in a commit message.
     ///
-    /// Suppress the stance section's contribution and the digest is the number
-    /// that was registered before the section existed, byte for byte. So the
-    /// pose, event, region and projectile words of all twenty ticks are
-    /// untouched and the whole of the move is the appended tail -- which is what
-    /// makes it an extension rather than a stream that got rewritten.
+    /// **Suppress the region section and the digest is what it was before the
+    /// forearm landed, byte for byte.** So the pose, event, projectile and
+    /// stance words of all twenty ticks are untouched, and the whole of the move
+    /// is the region section going from five rows a body to seven. That is the
+    /// difference between a *layout* move -- which is what this one is, and what
+    /// `REGION_LAYOUT_VERSION` moving from 1 to 2 says -- and a values move, in
+    /// which a `crates/sim` change reaches the fixture and the fight itself is
+    /// different.
     ///
-    /// **The constant below is a historical record and is not this pin.** It was
-    /// the registered `ARTICULATED_STREAM_DIGEST` on the day the stance section
-    /// landed. A later session that moves the live digest for a *values* reason
-    /// -- a `crates/sim` change reaching the fixture -- moves this one with it
-    /// and must re-measure both together; a session that finds it can no longer
-    /// make this equality hold by re-measuring has changed the prefix, which is
-    /// the thing this test exists to refuse.
+    /// **This test supersedes `the_stance_section_extends_the_digest_without_
+    /// disturbing_its_prefix`**, and the supersession is the interesting part.
+    /// That test suppressed the *stance* section and compared the rest against
+    /// `0x3b0d5c93d5560dd9`, the digest registered the day before the stance
+    /// section existed -- a stream whose region words were five rows a body.
+    /// There is no longer any way to compute that stream, so the equality could
+    /// not be repaired by re-measuring, and its own doc comment reserved exactly
+    /// that outcome for "changed the prefix". The prefix *was* changed, on
+    /// purpose, by widening the section this one suppresses. The stance claim
+    /// survives as the second assertion below, in a form that needs no constant.
+    ///
+    /// **The constant below is a historical record and is not this pin.** It is
+    /// the region-suppressed digest measured on `b453ca1`, the commit before the
+    /// forearm collider, using this exact suppression. A later session that
+    /// moves the live digest for a values reason moves this one with it and must
+    /// re-measure both together.
     #[cfg(not(feature = "cartesian-recoil"))]
     #[test]
-    fn the_stance_section_extends_the_digest_without_disturbing_its_prefix() {
-        const BEFORE_THE_STANCE_SECTION: u64 = 0x3b0d_5c93_d556_0dd9;
+    fn the_region_section_is_the_whole_of_the_forearm_digest_move() {
+        const BEFORE_THE_FOREARM: u64 = 0xc648_2a30_f399_d2cb;
 
-        let mut prefix = fx::Hash64::new();
-        prefix.write_bytes(b"ARPG-STREAM-V1");
-        drive_stream_digest_script(|published| {
-            prefix.write_u32(published.tick);
-            prefix.write_u32((published.poses.len() / POSE_STRIDE) as u32);
-            prefix.write_u32(published.poses_dropped);
-            for &word in published.poses {
-                prefix.write_u32(word);
-            }
-            prefix.write_u32((published.events.len() / COMBAT_EVENT_STRIDE) as u32);
-            prefix.write_u32(published.events_dropped);
-            for &word in published.events {
-                prefix.write_u32(word);
-            }
-            prefix.write_u32((published.regions.len() / REGION_STRIDE) as u32);
-            prefix.write_u32(published.regions_dropped);
-            for &word in published.regions {
-                prefix.write_u32(word);
-            }
-            prefix.write_u32(
-                (published.projectiles.len() / ARTICULATED_PROJECTILE_STRIDE) as u32,
-            );
-            prefix.write_u32(published.projectiles_dropped);
-            for &word in published.projectiles {
-                prefix.write_u32(word);
-            }
-            // And here the stance section is simply not written, which is the
-            // whole of the difference between the two numbers below.
-        });
+        // Everything but the region section, in the stream's own order.
+        let fold = |stances: bool| {
+            let mut digest = fx::Hash64::new();
+            digest.write_bytes(b"ARPG-STREAM-V1");
+            drive_stream_digest_script(|published| {
+                digest.write_u32(published.tick);
+                digest.write_u32((published.poses.len() / POSE_STRIDE) as u32);
+                digest.write_u32(published.poses_dropped);
+                for &word in published.poses {
+                    digest.write_u32(word);
+                }
+                digest.write_u32((published.events.len() / COMBAT_EVENT_STRIDE) as u32);
+                digest.write_u32(published.events_dropped);
+                for &word in published.events {
+                    digest.write_u32(word);
+                }
+                // And here the region section is simply not written, which is
+                // the whole of the difference this session made.
+                digest.write_u32(
+                    (published.projectiles.len() / ARTICULATED_PROJECTILE_STRIDE) as u32,
+                );
+                digest.write_u32(published.projectiles_dropped);
+                for &word in published.projectiles {
+                    digest.write_u32(word);
+                }
+                if stances {
+                    digest.write_u32(
+                        (published.stances.len() / EMBODIED_STANCE_STRIDE) as u32,
+                    );
+                    digest.write_u32(published.stances_dropped);
+                    for &word in published.stances {
+                        digest.write_u32(word);
+                    }
+                }
+            });
+            digest.finish()
+        };
+
         assert_eq!(
-            prefix.finish(),
-            BEFORE_THE_STANCE_SECTION,
-            "the stance section disturbed the pose/event/region/projectile prefix",
+            fold(true),
+            BEFORE_THE_FOREARM,
+            "the forearm disturbed the pose/event/projectile/stance words",
         );
         assert_ne!(
             articulated_stream_digest(),
-            BEFORE_THE_STANCE_SECTION,
+            fold(true),
+            "the region section went on the wire and the portability digest did not notice",
+        );
+        // The stance claim the superseded test carried, without its constant:
+        // dropping the fifth section still changes the number, so it is still
+        // reaching the digest on a fixture that has no stance rows at all.
+        assert_ne!(
+            fold(false),
+            fold(true),
             "a fifth section went on the wire and the portability digest did not notice",
         );
     }
@@ -10918,9 +11070,15 @@ mod tests {
         // a rule this host applies to the geometry after the fact.
         published_regions_are_the_swept_capsules(&scenario, "after a severance");
 
+        // **The mask is `BodyPart`-wide and the section is volume-wide**, so the
+        // comparison runs over the five region rows only. The two after them are
+        // the forearms, which this fixture -- an articulated duel -- publishes
+        // absent on every body and every tick because its arms are one link;
+        // they are checked separately below rather than folded in, because
+        // "absent" means two different things in the two halves.
         let rows = published_regions();
         let mut absent = 0;
-        for part in 0..REGIONS_PER_BODY {
+        for part in 0..sim::AnatomyRegion::COUNT {
             let row = rows[body * REGIONS_PER_BODY + part];
             let gone = mask & (1 << part) != 0;
             assert_eq!(
@@ -10932,6 +11090,11 @@ mod tests {
             absent += u32::from(gone);
         }
         assert!(absent > 0, "the mask said something was severed and every region was present");
+        for (at, row) in rows.iter().enumerate() {
+            if at % REGIONS_PER_BODY < sim::AnatomyRegion::COUNT { continue; }
+            assert_eq!(row[REGION_PRESENT], 0,
+                "a single-link arm published a forearm at row {at}");
+        }
 
         // Every other body still has all five, which is what makes the column a
         // fact about a region rather than about the fight.
@@ -10939,7 +11102,7 @@ mod tests {
             if other == body {
                 continue;
             }
-            for part in 0..REGIONS_PER_BODY {
+            for part in 0..sim::AnatomyRegion::COUNT {
                 assert_eq!(
                     rows[other * REGIONS_PER_BODY + part][REGION_PRESENT],
                     1,
@@ -11011,9 +11174,16 @@ mod tests {
         );
         assert_eq!(pose.severed_mask & 1, 0, "the fixture's head is severed and it should not be");
         assert_eq!(head[REGION_PRESENT], 1);
-        for part in 0..REGIONS_PER_BODY {
+        // The five region rows follow the mask bit by bit; the two forearm rows
+        // follow the *elbow*, and this hand-built pose publishes none -- see
+        // `PosedArm::elbow`, which `every_pose_column_filled` leaves `None`.
+        for part in 0..sim::AnatomyRegion::COUNT {
             let row = region_row(&volumes[part]);
             assert_eq!(row[REGION_PRESENT], u32::from(pose.severed_mask & (1 << part) == 0));
+        }
+        for limb in 0..2 {
+            assert_eq!(region_row(&volumes[sim::forearm_volume(limb)])[REGION_PRESENT], 0,
+                "an elbowless pose published a forearm");
         }
 
         // The same head, severed, is seven identical words and a zero.
@@ -11096,12 +11266,19 @@ mod tests {
             arms: [
                 sim::PosedArm {
                     hand: point(21),
+                    // No elbow on either arm of this hand-built row, and it is
+                    // the right answer rather than a placeholder: nothing in the
+                    // pose *section* publishes an elbow -- it reaches the wire
+                    // through the region rows, as the forearm's `lower` -- so a
+                    // fixture for the pose row has no column to fill.
+                    elbow: None,
                     velocity: point(31),
                     fatigue: scalar(200),
                     target_hand: point(41),
                 },
                 sim::PosedArm {
                     hand: point(51),
+                    elbow: None,
                     velocity: point(61),
                     fatigue: scalar(201),
                     target_hand: point(71),
@@ -11289,8 +11466,8 @@ mod tests {
                     let word = |value: Fx| value.raw() as u32;
                     let lo = |value: u64| value as u32;
                     let hi = |value: u64| (value >> 32) as u32;
-                    saw_named_region |= fact.region != sim::NO_REGION;
-                    saw_absent_region |= fact.region == sim::NO_REGION;
+                    saw_named_region |= sim::volume_region(fact.volume as usize).is_some();
+                    saw_absent_region |= sim::volume_region(fact.volume as usize).is_none();
                     let columns: [(&str, usize, u32); COMBAT_EVENT_STRIDE] = [
                         // The tick that was *integrated*, read before the step:
                         // the time of impact beside it is a fraction of that
@@ -11339,14 +11516,16 @@ mod tests {
                         ("deflected lo", COMBAT_EVENT_DEFLECTED_LO, lo(resolution.deflected_raw)),
                         ("deflected hi", COMBAT_EVENT_DEFLECTED_HI, hi(resolution.deflected_raw)),
                         // The one column the host translates rather than
-                        // copies: `sim::NO_REGION` widens to `u32::MAX` so a
-                        // reader that lost the width cannot read the sentinel
-                        // as a region index.
-                        ("body part", COMBAT_EVENT_BODY_PART, if fact.region == sim::NO_REGION {
-                            COMBAT_EVENT_NO_BODY_PART
-                        } else {
-                            u32::from(fact.region)
-                        }),
+                        // copies, and it now translates twice over: a swept
+                        // volume becomes its `BodyPart` through
+                        // `sim::volume_region`, and a fact with no body becomes
+                        // `u32::MAX` so a reader that lost the width cannot read
+                        // the sentinel as a region index.
+                        ("body part", COMBAT_EVENT_BODY_PART,
+                         match sim::volume_region(fact.volume as usize) {
+                             Some(part) => part as u32,
+                             None => COMBAT_EVENT_NO_BODY_PART,
+                         }),
                         ("severed", COMBAT_EVENT_SEVERED, u32::from(resolution.severed)),
                     ];
                     for &(named, index, value) in &columns {
@@ -11481,7 +11660,13 @@ mod tests {
         // The sentinel is `u32::MAX` and not the sim's widened `0xff`, so a
         // reader that lost track of the width cannot mistake it for the fifth
         // region -- or for any region a later anatomy might add.
-        assert!(!regions.contains(&u32::from(sim::NO_REGION)));
+        assert!(!regions.contains(&u32::from(sim::NO_VOLUME)));
+        // And no swept-volume index reaches this column either: a forearm is
+        // published as its arm, so `5` and `6` are values the wire never carries
+        // here even though the region section is seven rows wide.
+        assert!(regions.iter().all(|&part|
+            (part as usize) < sim::AnatomyRegion::COUNT || part == COMBAT_EVENT_NO_BODY_PART),
+            "a swept volume index reached the body-part column; saw {regions:?}");
     }
 
     #[test]
@@ -11856,9 +12041,9 @@ mod tests {
         assert_eq!(combat_event_layout_version(), 1, "COMBAT_EVENT_LAYOUT_VERSION");
         assert_eq!(combat_event_stride(), 32, "COMBAT_EVENT_STRIDE");
         assert_eq!(combat_event_capacity(), 2048, "MAX_COMBAT_EVENTS");
-        assert_eq!(region_layout_version(), 1, "REGION_LAYOUT_VERSION");
+        assert_eq!(region_layout_version(), 2, "REGION_LAYOUT_VERSION");
         assert_eq!(region_stride(), 8, "REGION_STRIDE");
-        assert_eq!(region_capacity(), 320, "MAX_REGIONS");
+        assert_eq!(region_capacity(), 448, "MAX_REGIONS");
         assert_eq!(articulated_projectile_layout_version(), 1,
             "ARTICULATED_PROJECTILE_LAYOUT_VERSION");
         assert_eq!(articulated_projectile_stride(), 12,
@@ -11871,13 +12056,15 @@ mod tests {
         // The two relationships worth asserting rather than transcribing: the
         // pose cap *is* the sim's articulated cap, so a sim that grew its own
         // limit fails here instead of quietly publishing a truncated roster,
-        // and the region cap is that cap times the sim's own region count, so a
-        // sixth anatomy region cannot leave the section publishing five.
+        // and the region cap is that cap times the sim's own **swept volume**
+        // count, so an eighth volume cannot leave the section publishing seven.
+        // It read `AnatomyRegion::COUNT` while a body was five capsules; a
+        // jointed arm is two, and the two numbers parted company there.
         assert_eq!(pose_capacity(), sim::MAX_ARTICULATED_ENTITIES as u32);
         assert_eq!(
             region_capacity(),
-            pose_capacity() * sim::AnatomyRegion::COUNT as u32,
-            "the region buffer cannot hold five rows for every pose row",
+            pose_capacity() * sim::BODY_VOLUME_COUNT as u32,
+            "the region buffer cannot hold one row per swept volume for every pose row",
         );
         assert_eq!(articulated_projectile_capacity(), sim::MAX_SHOTS as u32,
             "the projectile buffer is narrower than the authoritative store");
@@ -12458,20 +12645,45 @@ mod tests {
     /// before: two poses and ten regions every tick, one event row on ticks 3
     /// and 5, none on 0, 1, 2 and 4, and now zero stances throughout.
     ///
-    /// The prefix claim is measured rather than asserted, by
-    /// `the_stance_section_extends_the_digest_without_disturbing_its_prefix`:
-    /// suppress this section's contribution and the number is the registered
-    /// `0x3b0d5c93d5560dd9` byte for byte, so nothing in the pose, event, region
-    /// or projectile words of any tick moved. Nothing in `crates/sim` changed and
-    /// no other pin moved -- `selftest_hash`, `ROOM_HASH`, `BATTLE_HASH`,
-    /// `BOW_HASH`, `SWAP_HASH`, `ARTICULATED_COMMAND_HASH`,
-    /// `CONTACT_BEHAVIOR_DIGEST`, `COMBAT_GEOMETRY_HASH` and
-    /// `LEARNED_INFERENCE_DIGEST` all answer what they answered -- which is the
-    /// signature of a layout move and the same shape v2-ui-06's was.
+    /// The prefix claim for that move was measured by
+    /// `the_stance_section_extends_the_digest_without_disturbing_its_prefix`,
+    /// which the forearm collider superseded; see
+    /// `the_region_section_is_the_whole_of_the_forearm_digest_move` for why the
+    /// equality it asserted can no longer be computed. Nothing in `crates/sim`
+    /// changed for the stance move and no other pin moved -- `selftest_hash`,
+    /// `ROOM_HASH`, `BATTLE_HASH`, `BOW_HASH`, `SWAP_HASH`,
+    /// `ARTICULATED_COMMAND_HASH`, `CONTACT_BEHAVIOR_DIGEST`,
+    /// `COMBAT_GEOMETRY_HASH` and `LEARNED_INFERENCE_DIGEST` all answer what
+    /// they answered -- which is the signature of a layout move and the same
+    /// shape v2-ui-06's was. Native MSVC measured `0x686ecf8a2f5dd479` and the
+    /// exact build's `0xde453a669e770512` before either wasm owner was edited,
+    /// and a fresh wasm artifact then answered both.
+    ///
+    /// **Moved again by the forearm collider, from `0x686ecf8a2f5dd479`, and
+    /// this one is a *layout* move rather than an extension or a values move.**
+    /// A body presents seven swept volumes instead of five, so
+    /// [`REGIONS_PER_BODY`] is 7, the region section of every tick is fourteen
+    /// rows instead of ten, and everything after it in that tick's stream moves
+    /// with it. [`REGION_LAYOUT_VERSION`] moves 1 -> 2 alongside, which is what
+    /// distinguishes this from the two values-only moves in this pin's registry
+    /// row: a reader holding version 1 would index row `n * 5`.
+    ///
+    /// **The fixture's fight did not change**, which is the claim that has to be
+    /// earned rather than asserted, and
+    /// `the_region_section_is_the_whole_of_the_forearm_digest_move` earns it:
+    /// suppress the region section and the number is `0xc6482a30f399d2cb`, the
+    /// same suppression measured on `b453ca1`, so every pose, event, projectile
+    /// and stance word of all twenty ticks is byte-identical. The shape printer
+    /// reports the same counts with a wider region section: two poses every
+    /// tick, one event row on ticks 3 and 5, none on 0, 1, 2 and 4, and fourteen
+    /// regions instead of ten. This fixture is `Scenario::articulated_duel`, so
+    /// its arms are one link and its two appended volumes are absent on every
+    /// row -- their *presence in the stream* is the move, exactly as the stance
+    /// section's zero-length tail was.
     /// Native MSVC measured the value below and the exact build's
-    /// `0xde453a669e770512` before either wasm owner was edited, and a fresh
+    /// `0x9e9442671b790fb2` before either wasm owner was edited, and a fresh
     /// wasm artifact then answered both.
-    const ARTICULATED_STREAM_DIGEST: u64 = 0x686e_cf8a_2f5d_d479;
+    const ARTICULATED_STREAM_DIGEST: u64 = 0x2a34_c910_4bdf_18b9;
 
     /// The north-wall stored-command lifecycle, paired with the feature-only
     /// wasm exports and registered in `docs/reference/hashes.md`.

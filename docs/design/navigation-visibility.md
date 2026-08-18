@@ -129,8 +129,8 @@ browser-host convenience queue over that channel, not simulation state and not a
 per-unit order system. The wasm host advances waypoints, drops unreachable or stalled
 legs, clears the queue on a plain click, focus change, death, swap, or descent, and
 uses fixed capacity so route editing cannot grow wasm memory while JavaScript holds
-typed-array views. The queue implementation begins at [`Sim::route`](../../crates/web/src/lib.rs#L2254)
-and its exports at [`route_clear`](../../crates/web/src/lib.rs#L5773).
+typed-array views. The queue implementation begins at [`Sim::route`](../../crates/web/src/lib.rs#L2236)
+and its exports at [`route_clear`](../../crates/web/src/lib.rs#L5824).
 
 The leg test runs in Rust once per simulation tick. One animation frame may hand
 `Sim::advance` up to eight catch-up ticks, so a page-side arrival test would overshoot

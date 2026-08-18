@@ -981,14 +981,19 @@ const COMBAT_EVENT_STRIDE = 32;
 // of each impulse survives the energy check -- and 556 doubles to 1,112. Nothing
 // was dropped at 1024; the rule is headroom, not survival.
 const MAX_COMBAT_EVENTS = 2048;
-// docs/reference/articulated-abi.md, "Region rows". Eight words a region --
-// lower point, upper point, radius, present -- five regions a body, and the
-// same 64 bodies the pose buffer holds. `present` is a published word and not
-// something read off the geometry, because the head is a degenerate capsule
-// whose endpoints coincide on every body on every tick.
-const REGION_LAYOUT_VERSION = 1;
+// docs/reference/articulated-abi.md, "Region rows". Eight words a volume --
+// lower point, upper point, radius, present -- seven **swept volumes** a body,
+// and the same 64 bodies the pose buffer holds. `present` is a published word
+// and not something read off the geometry, because the head is a degenerate
+// capsule whose endpoints coincide on every body on every tick.
+//
+// Seven and not five since the forearm collider: rows 0..5 are the five
+// `BodyPart`s in their own order and rows 5 and 6 are the two forearms, absent
+// on a body whose arms are one link. The version moved with the width, which is
+// what a reader holding version 1 needs -- it would index row `n * 5`.
+const REGION_LAYOUT_VERSION = 2;
 const REGION_STRIDE = 8;
-const REGIONS_PER_BODY = 5;
+const REGIONS_PER_BODY = 7;
 const MAX_REGIONS = MAX_POSES * REGIONS_PER_BODY;
 const ARTICULATED_PROJECTILE_LAYOUT_VERSION = 1;
 const ARTICULATED_PROJECTILE_STRIDE = 12;
@@ -1024,6 +1029,11 @@ const REGION_PRESENT = 7;
 // `AnatomyRegion::Head`, the degenerate one. Its two endpoints coincide and its
 // extent is its radius alone, which is why the eighth word exists.
 const REGION_HEAD = 0;
+// How many of the seven swept volumes a body is are *anatomy*. The pose row's
+// two fraction blocks and its severed mask are this wide; the region section is
+// `REGIONS_PER_BODY` wide, and the two stopped being one number when an arm
+// became two capsules. `POSE_BODY_PART_COUNT` is the generated ABI's name for it.
+const BODY_PART_COUNT = 5;
 // Idle 0, Chasing 1, Braced 2, Contact 3, Recoiling 4, Severed 5. Append-only,
 // so this only ever grows and a code past it is a module animating something
 // this file has never been told about.
@@ -1106,14 +1116,25 @@ const SEVERED_MASK_BITS = 5;
 // `Scenario::articulated_duel` and only `CombatModel::Embodied` has legs, so the
 // appended tail is a zero length and a zero drop count on each of the twenty
 // ticks, and their presence is the whole of the move. Every per-tick count above
-// is unchanged. `the_stance_section_extends_the_digest_without_disturbing_its_prefix`
-// in crates/web measures the prefix claim rather than asserting it: with this
-// section's contribution suppressed the digest is the previous number byte for
-// byte. Native MSVC measured both values below before either owner was edited,
-// and a fresh wasm artifact then answered both.
+// is unchanged.
+//
+// **Moved again by the forearm collider, from 0x686ecf8a2f5dd479, and this one
+// is a layout move.** The region section went from five rows a body to seven, so
+// its words and everything after them in each tick's stream moved;
+// `REGION_LAYOUT_VERSION` moved 1 -> 2 alongside, which is what separates this
+// from the two values-only moves in the pin's registry row. The fixture's fight
+// did not change, and `the_region_section_is_the_whole_of_the_forearm_digest_move`
+// in crates/web measures that rather than asserting it: suppress the region
+// section and the digest is 0xc6482a30f399d2cb, the same suppression measured on
+// b453ca1, so every pose, event, projectile and stance word of all twenty ticks
+// is byte-identical. That test supersedes
+// `the_stance_section_extends_the_digest_without_disturbing_its_prefix`, whose
+// constant was a stream with a five-row region section and can no longer be
+// computed. Native MSVC measured both values below before either owner was
+// edited, and a fresh wasm artifact then answered both.
 const ARTICULATED_STREAM_DIGEST = CARTESIAN_RECOIL
-  ? 0xde453a669e770512n
-  : 0x686ecf8a2f5dd479n;
+  ? 0x9e9442671b790fb2n
+  : 0x2a34c9104bdf18b9n;
 
 // The live pose rows, copied out. Words and not floats: every published column
 // is a `u32`, and the signed ones are two's-complement raw bits.
@@ -1246,9 +1267,9 @@ test("wasm_exports_match_layout_stride_capacity_and_drop_fields", () => {
   assert.equal(u32(wasm.combat_event_len()), 0, "nobody has stepped and the feed is not empty");
   assert.equal(u32(wasm.combat_events_dropped()), 0, "nobody has stepped and the feed dropped a row");
   // The region section carries no identity of its own, so it is read against
-  // `pose_len` and this is the whole of that contract: five rows a body, in the
-  // same order, every time. A reader that checked nothing else could still not
-  // land a capsule on the wrong body.
+  // `pose_len` and this is the whole of that contract: `REGIONS_PER_BODY` rows a
+  // body, in the same order, every time. A reader that checked nothing else could
+  // still not land a capsule on the wrong body.
   assert.equal(
     u32(wasm.region_len()),
     rows * REGIONS_PER_BODY,
@@ -1426,16 +1447,22 @@ test("native_and_wasm_pose_event_stream_digests_match", () => {
   // The digest carries the region words now, and a number agreeing on both
   // targets says nothing about whether those words are the rows the reference
   // describes. Two facts the document states in prose and the digest cannot:
-  // the section is five rows a body in pose order, and the head is a degenerate
+  // the section is seven rows a body in pose order, and the head is a degenerate
   // capsule that is nonetheless **present** -- which is the case a reader
   // inferring absence from geometry would delete from every body in every
   // fight, and the reason the eighth word is published at all.
+  //
+  // **The severed mask covers the first five rows and no more.** It is one bit
+  // per `BodyPart` and the section is one row per swept volume; rows 5 and 6 are
+  // the two forearms, which this fixture -- an articulated duel, whose arms are
+  // one link -- publishes absent on every body. Comparing them against bits 5
+  // and 6 of a five-bit mask would demand that they be present.
   const regions = regionRows();
   assert.equal(regions.length, rows.length * REGIONS_PER_BODY, "the region section is not per pose");
   let degenerate = 0;
   for (let body = 0; body < rows.length; body++) {
     const severed = rows[body][POSE_SEVERED_MASK];
-    for (let part = 0; part < REGIONS_PER_BODY; part++) {
+    for (let part = 0; part < BODY_PART_COUNT; part++) {
       const region = regions[body * REGIONS_PER_BODY + part];
       assert.equal(
         region[REGION_PRESENT],
@@ -1443,6 +1470,13 @@ test("native_and_wasm_pose_event_stream_digests_match", () => {
         `body ${body} region ${part}: presence disagrees with the pose row's severed mask`,
       );
       assert.ok(region[REGION_PRESENT] <= 1, "presence is not zero or one");
+    }
+    for (let part = BODY_PART_COUNT; part < REGIONS_PER_BODY; part++) {
+      assert.equal(
+        regions[body * REGIONS_PER_BODY + part][REGION_PRESENT],
+        0,
+        `body ${body} volume ${part}: a single-link arm published a forearm`,
+      );
     }
     const head = regions[body * REGIONS_PER_BODY + REGION_HEAD];
     assert.deepEqual(

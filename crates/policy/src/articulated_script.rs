@@ -65,10 +65,13 @@
 //! **Corrected the same day: the pose is one of two, chosen by what the hand
 //! holds.** The first version of the override put *every* off hand at three
 //! quarters of reach, which is a guard on a hand carrying a plate and a shove
-//! on an empty one -- `geometry::body_region_volumes` builds an arm region as
-//! the capsule from shoulder to hand, so it lengthened the Brute's empty
+//! on an empty one -- `geometry::body_region_volumes` builds a single-link arm
+//! as the capsule from shoulder to hand, so it lengthened the Brute's empty
 //! `LeftArm` collider forward by half an arm length, and on this roster an arm
-//! region holds the same integrity maximum as the torso. The arm is still
+//! region holds the same integrity maximum as the torso. (Single-link: an
+//! embodied body splits that capsule at the elbow into two, and the reach still
+//! sets where the far end lands, so the mechanism below is unchanged and the
+//! measured 1.49x is a claim about the articulated roster this script drives.) The arm is still
 //! static, still in body frame, still the same bearing rule, and still the
 //! same for every phase; only the reach is conditional. [`off_hand`] carries
 //! the measurement.
@@ -465,9 +468,11 @@ fn tucked(body_yaw: Angle) -> ArmTarget {
 /// rather than a guard -- and it is wrong for an empty one, because an empty
 /// hand is not carrying anything to the place it is being held out to.
 ///
-/// What it *is* carrying is the arm. `geometry::body_region_volumes` builds an
-/// arm region as the capsule from the yaw-rotated shoulder to the hand, so
-/// reach is that capsule's length, and on this roster
+/// What it *is* carrying is the arm. `geometry::body_region_volumes` builds a
+/// single-link arm as the capsule from the yaw-rotated shoulder to the hand, so
+/// reach is that capsule's length -- and on a jointed arm it is still the
+/// distance the far end of the *pair* reaches, so the argument survives the
+/// elbow with a different capsule count under it. On this roster
 /// `integrity_maxima` gives an arm region the same maximum as the torso.
 /// Extending an empty off hand from a quarter to three quarters therefore does
 /// not park a guard in front of anything; it grows a torso-grade interceptor
@@ -1500,9 +1505,11 @@ mod tests {
     #[test]
     fn an_empty_off_hand_does_not_lengthen_the_arm_it_hangs_from() {
         // **The mechanism the conditional reach exists for, measured rather
-        // than argued.** `geometry::body_region_volumes` builds an arm region
-        // as the capsule from the yaw-rotated shoulder to the hand, so the off
-        // hand's reach *is* that capsule's length -- and on this roster
+        // than argued.** `geometry::body_region_volumes` builds a single-link
+        // arm as the capsule from the yaw-rotated shoulder to the hand, so the
+        // off hand's reach *is* that capsule's length -- this script drives an
+        // articulated roster, whose arms have no elbow to split them -- and on
+        // this roster
         // `integrity_maxima` gives an arm region the same maximum as the torso.
         // An empty hand held out at a guard's reach is therefore not a guard;
         // it is a torso-grade interceptor grown into the line, which is what

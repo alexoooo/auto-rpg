@@ -141,7 +141,13 @@ impl ContactTrialProjector for ContactProjector<'_> {
             if !matches!(row.fact.key.kind,
                 ContactKind::WeaponBody | ContactKind::ProjectileBody) { continue; }
             let Some(target) = world.resolve(row.fact.key.b) else { continue };
-            let Some(part) = BodyPart::from_index(row.fact.region as usize) else { continue };
+            // **`volume_region` and never `BodyPart::from_index`, which is the
+            // whole of what the rename was for.** A fact names the swept volume
+            // the solver chose; volumes 5 and 6 are the two forearms and
+            // `from_index` answers `None` for both, so the old spelling would
+            // have dropped every forearm wound here in silence -- no panic, no
+            // refusal, just a blow that landed and did nothing.
+            let Some(part) = volume_region(row.fact.volume as usize) else { continue };
             let Some(spec) = world.anatomy_spec(target) else { continue };
             let before = self.wounds[target].parts[part as usize];
             if before.severed { continue; }
@@ -157,8 +163,8 @@ impl ContactTrialProjector for ContactProjector<'_> {
                 .ok_or(ResolutionError::EnergyNumerator)?;
             let square = anatomy::squareness(
                 row.fact.velocity_a - row.fact.velocity_b,
-                outward_region_normal(colliders, row.fact.key.b, part, row.fact.point,
-                                      world.body_yaw[target].angle),
+                outward_region_normal(colliders, row.fact.key.b, row.fact.volume as usize,
+                                      row.fact.point, world.body_yaw[target].angle),
             );
             let ledger = anatomy::armor_transfer(incoming, spec.armor[part as usize], square);
             row.deflected_raw = ledger.deflected;
@@ -236,7 +242,10 @@ impl ContactTrialProjector for ContactProjector<'_> {
                 // with no consumer -- but a fact that penetrated nothing severed
                 // nothing, however the region ended up.
                 if loss.is_positive() {
-                    if let Some(part) = BodyPart::from_index(row.fact.region as usize) {
+                    // The same bridge as the measuring pass, for the same
+                    // reason: a forearm blow that took the arm off has to report
+                    // the severance it caused.
+                    if let Some(part) = volume_region(row.fact.volume as usize) {
                         row.severed = after.parts[part as usize].severed;
                     }
                 } else {
@@ -284,8 +293,18 @@ impl ContactTrialProjector for ContactProjector<'_> {
             let state = self.wounds[owner];
             match &mut row.shape {
                 ContactShape::Body { parts, .. } => {
-                    for part in 0..BodyPart::COUNT {
-                        if state.parts[part].severed { parts[part].present = false; }
+                    // **Walked over volumes and mapped back, not over regions
+                    // and indexed directly.** `parts` is volume-keyed and
+                    // `state.parts` is region-keyed, and the loop below used one
+                    // index for both -- correct exactly while the two lists were
+                    // the same length. A severed arm would have left its forearm
+                    // live for the rest of the tick, still swept, still able to
+                    // take a blow off a limb the body no longer has.
+                    for volume in 0..BODY_VOLUME_COUNT {
+                        let Some(part) = volume_region(volume) else { continue };
+                        if state.parts[part as usize].severed {
+                            parts[volume].present = false;
+                        }
                     }
                 }
                 // A two-handed item answers to both arms and is owned by the
@@ -318,16 +337,26 @@ impl ContactTrialProjector for ContactProjector<'_> {
 /// not a flattering one: how square the blow then reads depends on where the
 /// weapon was going, exactly as it does everywhere else, and a body struck
 /// along its own facing reads square while one struck across it reads a graze.
+///
+/// **Keyed by the swept *volume* the solver chose and never by its region.** The
+/// two agree for a head, a torso, a pair of legs and a single-link arm, which is
+/// why indexing by `BodyPart` was correct until an arm became two capsules. It
+/// stops being correct there: the elbow folds to within forty degrees of itself,
+/// so a forearm blow measured against the shoulder-to-elbow axis can report a
+/// medial direction most of a right angle away from the surface it actually
+/// struck, and `anatomy::squareness` turns that straight into how much armor
+/// declines. The caller has the winning volume on the fact in front of it, so
+/// taking the region instead was throwing away the answer on the way in.
 fn outward_region_normal(
-    colliders: &[ContactCollider], body: EntityId, part: BodyPart, point: Vec3, yaw: Angle,
+    colliders: &[ContactCollider], body: EntityId, volume: usize, point: Vec3, yaw: Angle,
 ) -> Vec3 {
     let forward = Vec3::new(yaw.cos(), yaw.sin(), Fx::ZERO);
     let Some(row) = colliders.iter().find(|row| {
         row.entity == body && matches!(row.shape, ContactShape::Body { .. })
     }) else { return forward };
     let ContactShape::Body { parts, .. } = row.shape else { return forward };
-    let volume = parts[part as usize];
-    let delta = point - medial_point(point, volume.previous_lower, volume.previous_upper);
+    let Some(swept) = parts.get(volume) else { return forward };
+    let delta = point - medial_point(point, swept.previous_lower, swept.previous_upper);
     let normal = delta.normalized_or_zero();
     if normal == Vec3::ZERO { forward } else { normal }
 }
@@ -581,6 +610,7 @@ impl World {
                 pos: self.pos[i],
                 locomotion: Vec2::ZERO,
                 arms: self.arms[i],
+                elbows: self.arm_elbows(i),
                 shield: self.shield_pose[i],
                 yaw: self.body_yaw[i],
                 grips: self.grips[i],
@@ -1465,12 +1495,19 @@ impl World {
                 core::array::from_fn(|part| !state.parts[part].severed);
 
             let yaw = self.body_yaw[i].angle;
-            let previous = geometry::body_region_volumes(
+            // **Each end of the sweep gets the elbow that end actually had.**
+            // The tick-entry one was retained by `retain_contact_entry` and the
+            // settled one is derived now; passing either one to both ends would
+            // sweep a forearm between a joint the body occupied and one it did
+            // not. `arm_elbows` answers `[None; 2]` for a single-link model, and
+            // `jointed_body_region_volumes` then leaves volumes 5 and 6 absent --
+            // which is why this is one call site and not a branch on the model.
+            let previous = geometry::jointed_body_region_volumes(
                 previous_origin, anatomy, entry.yaw.angle,
-                [entry.arms[0].hand, entry.arms[1].hand], present);
-            let requested = geometry::body_region_volumes(
+                [entry.arms[0].hand, entry.arms[1].hand], present, entry.elbows);
+            let requested = geometry::jointed_body_region_volumes(
                 requested_origin, anatomy, yaw,
-                [self.arms[i][0].hand, self.arms[i][1].hand], present);
+                [self.arms[i][0].hand, self.arms[i][1].hand], present, self.arm_elbows(i));
             rows.push(ContactCollider {
                 entity, faction, slot: BODY_SLOT, mass: self.mass[i],
                 surface: anatomy.surface, velocity: body_velocity, present: true,
@@ -2331,8 +2368,8 @@ mod tests {
                 &contact.exact_owners, &contact.colliders, a, b,
                 candidate.toi.get().raw() as u32, &mut scratch)
                 .unwrap().expect("frozen exact contact");
-            assert_eq!((recomputed.key, recomputed.toi, recomputed.region),
-                       (candidate.key, candidate.toi, candidate.region));
+            assert_eq!((recomputed.key, recomputed.toi, recomputed.volume),
+                       (candidate.key, candidate.toi, candidate.volume));
         }
         let mut ignored = [false; 3];
         for a in 0..contact.exact_trajectories.len() {
@@ -2774,7 +2811,7 @@ mod tests {
         assert!(world.damage_dealt[0].is_positive(), "the wound was credited to nobody");
         // The severance is on the row that made it, not merely in the column.
         assert!(world.contact_resolutions().iter()
-            .any(|row| row.fact.region == region && row.severed),
+            .any(|row| row.fact.volume == region && row.severed),
             "the resolution that severed a region did not say so");
         // Untouched regions are untouched. One blow is one region.
         assert_eq!(brute.parts.iter().filter(|row| row.severed).count(), 1);
@@ -2786,8 +2823,242 @@ mod tests {
         resolve_closing(&mut world, &[(1, -Fx::ONE)]);
         assert!(!world.contact_resolutions().is_empty(),
                 "the second blow reached nothing, so the absence check is vacuous");
-        assert!(world.contact_resolutions().iter().all(|row| row.fact.region != region),
+        assert!(world.contact_resolutions().iter().all(|row| row.fact.volume != region),
                 "a severed region answered a sweep");
+    }
+
+    /// A fact whose volume is a forearm wounds the arm the forearm belongs to.
+    ///
+    /// **The test that fails loudest if the rename is done without the map.**
+    /// `ContactFact::volume` was called `region` while a body presented one
+    /// capsule per anatomy region, so `BodyPart::from_index` was a correct
+    /// reading of it by coincidence. Volumes 5 and 6 are the two forearms and
+    /// `from_index` answers `None` for both -- so the old spelling does not
+    /// panic, does not refuse and does not log: it takes the `else { continue }`
+    /// and the blow simply does nothing.
+    ///
+    /// Driven through [`ContactProjector::after_group`] with a *landed*
+    /// resolution whose volume byte has been moved, rather than through a fight
+    /// aimed at an elbow. Aiming would make this a test about where a weapon goes
+    /// -- and about which of two overlapping capsules wins a tie-break -- when the
+    /// question is only whether the wounding pass can read the byte. The volume
+    /// is moved onto the arm the blow did *not* name, so a wound landing on the
+    /// old region would fail here rather than pass by luck.
+    #[test]
+    fn a_forearm_contact_wounds_the_arm_it_belongs_to() {
+        use crate::combat::spec::forearm_volume;
+
+        let mut world = World::new(&fragile_scenario(&[1]), 1000);
+        brace_weapon(&mut world, 0);
+        world.retain_contact_entry();
+        world.record_contact_locomotion();
+        world.vel[1] = Vec2::new(-Fx::ONE, Fx::ZERO);
+        world.resolve_contact();
+
+        let mut rows: Vec<ContactResolution> = world.contact_resolutions().iter()
+            .filter(|row| row.fact.key.kind == ContactKind::WeaponBody)
+            .copied().collect();
+        assert_eq!(rows.len(), 1, "the braced fixture stopped landing exactly one body blow");
+        let landed = volume_region(rows[0].fact.volume as usize)
+            .expect("a body fact named no region");
+        // The arm the blow did not name, so the assertion below is about the map
+        // and not about the byte that was already there.
+        let limb = if landed == BodyPart::LeftArm {
+            LimbSlot::RightArm as usize
+        } else { LimbSlot::LeftArm as usize };
+        let forearm = forearm_volume(limb);
+        let arm = volume_region(forearm).expect("a forearm answers for its arm");
+        assert_ne!(arm, landed, "the fixture's own region is the one being moved onto");
+        assert!(BodyPart::from_index(forearm).is_none(),
+                "a forearm volume became a region, so this test proves nothing");
+        rows[0].fact.volume = forearm as u8;
+
+        // A body nobody has hit yet, so the loss below is this row's alone.
+        let mut wounds: Vec<AnatomyState> = (0..world.alive.len())
+            .map(|i| world.anatomy_spec(i).map(AnatomyState::new)
+                 .unwrap_or(AnatomyState::EMPTY))
+            .collect();
+        let target = world.resolve(rows[0].fact.key.b).expect("a live target");
+        let maximum = world.anatomy_spec(target).unwrap().integrity_maxima[arm as usize];
+        assert_eq!(wounds[target].parts[arm as usize].integrity, maximum);
+
+        let entry = world.contact.as_ref().expect("contact state").entry.clone();
+        let mut colliders = world.contact.as_ref().expect("contact state").colliders.clone();
+        let mut credit = vec![Fx::ZERO; wounds.len()];
+        let (mut bodies, mut deltas, mut fact_loss) = (Vec::new(), Vec::new(), Vec::new());
+        {
+            let mut projector = ContactProjector {
+                world: &world, entry: &entry, bodies: &mut bodies, wounds: &mut wounds,
+                credit: &mut credit, deltas: &mut deltas, fact_loss: &mut fact_loss,
+            };
+            projector.after_group(&mut colliders, &mut rows).expect("the wounding pass refused");
+        }
+
+        assert!(wounds[target].parts[arm as usize].integrity < maximum,
+                "a forearm contact wounded nothing at all");
+        assert!(wounds[target].parts[landed as usize].integrity
+                == world.anatomy_spec(target).unwrap().integrity_maxima[landed as usize],
+                "the wound followed the old byte rather than the volume it names");
+        assert!(rows[0].severed, "the row that emptied the arm did not report it");
+        assert!(credit[world.resolve(rows[0].fact.key.a).expect("a live source")].is_positive(),
+                "a forearm blow was credited to nobody");
+        // And the severance reached the geometry, both capsules of it: pass three
+        // is the one `a_severed_arm_takes_its_forearm_with_it` guards in the
+        // constructor, and this is the same rule one layer up.
+        let body = colliders.iter().find(|row| row.entity == rows[0].fact.key.b
+            && matches!(row.shape, ContactShape::Body { .. })).expect("a body row");
+        let ContactShape::Body { parts, .. } = body.shape else { unreachable!() };
+        assert!(!parts[arm as usize].present && !parts[forearm].present,
+                "a severed arm kept one of its two capsules");
+    }
+
+    /// Moving the forearm changes what a forearm blow deflects, which is the
+    /// call site's half of the claim below.
+    ///
+    /// The test after this one shows that `outward_region_normal` *can* tell the
+    /// two links apart; it cannot show that the wounding pass hands it the right
+    /// one, because it calls the function itself. This drives the real pass and
+    /// perturbs only the capsule the fact names. A caller passing the region's
+    /// index would never read that capsule, so the two runs would deflect
+    /// identically -- which is why the assertion is `assert_ne!` and why the
+    /// upper arm is held still across both runs.
+    #[test]
+    fn a_forearm_blows_deflection_follows_the_forearm_capsule() {
+        use crate::combat::spec::forearm_volume;
+
+        // **Armored, and it has to be**: `armor_transfer` multiplies the
+        // deflected share by `1 - squareness`, so a bare region deflects nothing
+        // at any angle and the normal this test is about reaches no number at
+        // all. Coverage and hardness are total so the whole glancing share is
+        // visible; absorption is left alone.
+        let mut scenario = fragile_scenario(&[1]);
+        scenario.combat_specs.as_mut().unwrap().anatomies[1].armor =
+            [crate::ArmorSpec { coverage: Fx::ONE, hardness: Fx::ONE,
+                                absorption: Fx::ZERO, material: crate::Material::Steel };
+             BodyPart::COUNT];
+        let mut world = World::new(&scenario, 1000);
+        brace_weapon(&mut world, 0);
+        world.retain_contact_entry();
+        world.record_contact_locomotion();
+        world.vel[1] = Vec2::new(-Fx::ONE, Fx::ZERO);
+        world.resolve_contact();
+
+        let landed: Vec<ContactResolution> = world.contact_resolutions().iter()
+            .filter(|row| row.fact.key.kind == ContactKind::WeaponBody)
+            .copied().collect();
+        assert_eq!(landed.len(), 1, "the braced fixture stopped landing exactly one body blow");
+        let limb = LimbSlot::RightArm as usize;
+        let forearm = forearm_volume(limb);
+        let entry = world.contact.as_ref().expect("contact state").entry.clone();
+        let base = world.contact.as_ref().expect("contact state").colliders.clone();
+
+        // One run of the real wounding pass with the forearm capsule laid along
+        // `axis`, and nothing else touched.
+        let deflected = |axis: Vec3| -> u64 {
+            let mut rows = landed.clone();
+            rows[0].fact.volume = forearm as u8;
+            let mut colliders = base.clone();
+            let row = colliders.iter_mut().find(|row| row.entity == rows[0].fact.key.b
+                && matches!(row.shape, ContactShape::Body { .. })).expect("a body row");
+            let ContactShape::Body { parts, .. } = &mut row.shape else { unreachable!() };
+            let at = rows[0].fact.point;
+            // Laid *beside* the contact rather than through it: a capsule
+            // whose end is the contact point has the contact as its own medial
+            // point, so the delta is zero and every axis reports body forward.
+            parts[forearm] = RegionSweep {
+                previous_lower: at + axis, previous_upper: at + axis + axis,
+                requested_lower: at + axis, requested_upper: at + axis + axis,
+                radius: Fx::from_ratio(1, 4), present: true,
+            };
+            let mut wounds: Vec<AnatomyState> = (0..world.alive.len())
+                .map(|i| world.anatomy_spec(i).map(AnatomyState::new)
+                     .unwrap_or(AnatomyState::EMPTY))
+                .collect();
+            let mut credit = vec![Fx::ZERO; wounds.len()];
+            let (mut bodies, mut deltas, mut fact_loss) = (Vec::new(), Vec::new(), Vec::new());
+            {
+                let mut projector = ContactProjector {
+                    world: &world, entry: &entry, bodies: &mut bodies, wounds: &mut wounds,
+                    credit: &mut credit, deltas: &mut deltas, fact_loss: &mut fact_loss,
+                };
+                projector.after_group(&mut colliders, &mut rows).expect("the wounding pass refused");
+            }
+            rows[0].deflected_raw
+        };
+
+        // Two links a quarter turn apart, which is inside the elbow's own fold,
+        // and one of them across the closing direction. Both perpendicular to
+        // the approach would read square zero either way and the fixture would
+        // pass on a coincidence rather than on the normal.
+        let along = deflected(Vec3::from_ints(1, 0, 0));
+        let across = deflected(Vec3::from_ints(0, 1, 0));
+        assert_ne!(along, across,
+                   "the deflection ignored the capsule the fact named, so the wounding pass                     is still reading the region's first volume");
+    }
+
+    /// The surface direction comes from the volume that was struck, not from its
+    /// region's first volume.
+    ///
+    /// **A fold, not a hinge, is exactly why this matters.** The elbow stops at
+    /// forty degrees, so the two links of one arm can sit most of a right angle
+    /// apart, and the medial point of the wrong link is then somewhere the blow
+    /// never went. `anatomy::squareness` turns that direction straight into how
+    /// much armor declines, so reading the upper arm for a forearm blow is not a
+    /// rounding error -- it is a different amount of damage.
+    ///
+    /// The two links here are deliberately perpendicular and the contact sits on
+    /// the far side of the forearm from the shoulder, which is the arrangement
+    /// where the two answers disagree most and where taking the region's index
+    /// would have pointed the normal back along the upper arm.
+    #[test]
+    fn a_forearm_blow_takes_its_normal_from_the_forearm() {
+        use crate::combat::spec::forearm_volume;
+
+        let limb = LimbSlot::RightArm as usize;
+        let arm = BodyPart::RightArm;
+        let shoulder = Vec3::from_ints(0, 0, 4);
+        let elbow = shoulder + Vec3::from_ints(2, 0, 0);
+        let hand = elbow + Vec3::from_ints(0, 2, 0);
+        let absent = RegionSweep {
+            previous_lower: Vec3::ZERO, previous_upper: Vec3::ZERO,
+            requested_lower: Vec3::ZERO, requested_upper: Vec3::ZERO,
+            radius: Fx::ZERO, present: false,
+        };
+        let capsule = |lower: Vec3, upper: Vec3| RegionSweep {
+            previous_lower: lower, previous_upper: upper,
+            requested_lower: lower, requested_upper: upper,
+            radius: Fx::from_ratio(1, 4), present: true,
+        };
+        let mut parts = [absent; BODY_VOLUME_COUNT];
+        parts[arm as usize] = capsule(shoulder, elbow);
+        parts[forearm_volume(limb)] = capsule(elbow, hand);
+
+        let spec = crate::combat::spec::fighter_anatomy();
+        let body = EntityId::new(0, 1);
+        let colliders = vec![ContactCollider {
+            entity: body, faction: Faction::Heroes, slot: BODY_SLOT, mass: Fx::ONE,
+            surface: spec.surface, velocity: Vec3::ZERO, present: true,
+            velocity_offset: Vec3::ZERO,
+            shape: ContactShape::Body {
+                previous_origin: Vec3::ZERO, requested_origin: Vec3::ZERO, parts,
+            },
+        }];
+
+        // Beside the forearm's midpoint, on the `+x` side -- away from the upper
+        // arm, which runs along `+x` from the shoulder.
+        let point = elbow + Vec3::new(Fx::ONE, Fx::ONE, Fx::ZERO);
+        let from_forearm = outward_region_normal(
+            &colliders, body, forearm_volume(limb), point, Angle::ZERO);
+        let from_upper = outward_region_normal(
+            &colliders, body, arm as usize, point, Angle::ZERO);
+        assert_ne!(from_forearm, from_upper,
+                   "the two links answer the same normal, so this fixture proves nothing");
+        // The forearm runs along `+y`, so its medial point under this contact is
+        // directly below it in `y` and the surface faces `+x` exactly.
+        assert_eq!(from_forearm, Vec3::new(Fx::ONE, Fx::ZERO, Fx::ZERO));
+        // The upper arm runs along `+x` and ends at the elbow, so its medial
+        // point is the elbow and it would have reported a diagonal instead.
+        assert!(from_upper.y.is_positive(), "the upper arm's answer is the one being ruled out");
     }
 
     #[test]
@@ -2904,7 +3175,7 @@ mod tests {
         let world = two_on_one(true, ActionKind::Sword, 1);
         let rows: Vec<_> = world.contact_resolutions().iter()
             .filter(|row| row.fact.key.kind == ContactKind::WeaponBody)
-            .map(|row| (row.fact.key.a.index, row.group_ordinal, row.fact.region, row.severed))
+            .map(|row| (row.fact.key.a.index, row.group_ordinal, row.fact.volume, row.severed))
             .collect();
         assert_eq!(rows.len(), 2, "the fixture stopped putting two blades in one body");
         assert_eq!(rows[0].1, rows[1].1, "the two blows fell into different groups");
@@ -2981,7 +3252,7 @@ mod tests {
         let world = two_on_one(false, ActionKind::Club, 3);
         let rows: Vec<_> = world.contact_resolutions().iter()
             .filter(|row| row.fact.key.kind == ContactKind::WeaponBody)
-            .map(|row| (row.fact.key.a.index, row.group_ordinal, row.fact.region))
+            .map(|row| (row.fact.key.a.index, row.group_ordinal, row.fact.volume))
             .collect();
         assert_eq!(rows.len(), 2, "the fixture stopped putting two blades in one body");
         assert_eq!(rows[0].1, rows[1].1, "the two blows fell into different groups");
@@ -3031,7 +3302,7 @@ mod tests {
         let world = two_on_one(true, ActionKind::Sword, 4);
         let rows: Vec<_> = world.contact_resolutions().iter()
             .filter(|row| row.fact.key.kind == ContactKind::WeaponBody)
-            .map(|row| (row.fact.key.a.index, row.fact.region,
+            .map(|row| (row.fact.key.a.index, row.fact.volume,
                         row.cut_raw + row.thrust_raw + row.crush_raw, row.severed))
             .collect();
         assert_eq!(rows.len(), 2, "the fixture stopped putting two blades in one body");
@@ -3148,9 +3419,15 @@ mod tests {
             && matches!(row.shape, ContactShape::Body { .. })).expect("a body row");
         let ContactShape::Body { parts, .. } = body.shape else { unreachable!() };
         assert!(!parts[BodyPart::Legs as usize].present, "a severed region was rebuilt present");
-        assert!(parts.iter().enumerate()
+        assert!(parts[..BodyPart::COUNT].iter().enumerate()
             .all(|(at, part)| at == BodyPart::Legs as usize || part.present),
             "rebuilding took a sound region with it");
+        // The two forearm volumes are absent for a reason that has nothing to do
+        // with severance: `fragile_scenario` is articulated, so its arms are one
+        // link and `arm_elbows` answers `[None; 2]`. Asserted here rather than
+        // left implied, because "absent" reads like a wound at this distance.
+        assert!(parts[BodyPart::COUNT..].iter().all(|part| !part.present),
+                "an articulated body presented a forearm");
         // And the impairment it implies survives the same boundary.
         assert_eq!(world.move_authority[0], Fx::ZERO);
         assert_eq!(world.turn_authority[0], Fx::ZERO);
@@ -4889,7 +5166,7 @@ mod tests {
         assert_eq!((fact.key.kind, fact.key.a_slot, fact.key.b_slot),
                    (ContactKind::WeaponBody, LimbSlot::RightArm as u8, BODY_SLOT));
         let target = world.resolve(fact.key.b).unwrap();
-        let part = BodyPart::from_index(fact.region as usize).unwrap();
+        let part = volume_region(fact.volume as usize).unwrap();
         let mut colliders = Vec::new();
         world.build_contact_colliders(&contact.entry, &mut colliders, &world.wounds);
         assert_eq!(crate::combat::contact::collect_contacts(&colliders), vec![fact],
@@ -5175,7 +5452,7 @@ mod tests {
                     finished_body.velocity.x.raw(), finished_body.velocity.y.raw()),
                    (704_458, 505_911, 29_491, 655_360, 524_288, 93, 1_757, 0, 0));
         assert_eq!((resolutions[0].group_alpha_raw, resolutions[0].cut_raw,
-                    resolutions[0].thrust_raw, resolutions[0].pressure_raw, fact.region),
+                    resolutions[0].thrust_raw, resolutions[0].pressure_raw, fact.volume),
                    (65_536, 131, 0, 144, BodyPart::Legs as u8));
         world.wounds = wounds;
         contact.colliders = colliders;
@@ -5193,7 +5470,7 @@ mod tests {
         let next = world.arms[source][limb];
         assert_ne!((committed.hand, committed.post_contact_com_velocity),
                    (next.hand, next.post_contact_com_velocity));
-        let region = BodyPart::from_index(fact.region as usize).unwrap();
+        let region = volume_region(fact.volume as usize).unwrap();
         assert_eq!((world.wounds[world.resolve(fact.key.b).unwrap()].parts[region as usize].integrity.raw(),
                     world.wounds[world.resolve(fact.key.b).unwrap()].parts[region as usize].wound.raw()),
                    (118_496, 12_576));

@@ -461,10 +461,19 @@ test("the_browser_contact_warmup_does_not_grow_wasm_memory", () => {
   // order rather than of what the world weighs. A page figure here is a record
   // of one build's arena and never a budget.
   //
-  // Thirty-seven is now three and a half times the settling round rather than
-  // two thirds again, and it stays thirty-seven. Cutting it would buy a second
-  // of test time by spending the margin that caught this fixture out twice, and
-  // the settling round has now moved in both directions.
+  // **The forearm collider moved it a fourth time, and barely: 266 -> 265, with
+  // the settling round 10 -> 16.** Traced per round on the same script: 213 from
+  // round one, 239 from round two, 265 from round sixteen, then 265 unchanged
+  // through round sixty. The session grew `MAX_REGIONS` by 4,096 bytes -- two
+  // more swept volumes a body across all 64 -- and the arena came back one page
+  // *smaller*, which is the third reading in a row saying the same thing: the
+  // plateau tracks dlmalloc's size classes and allocation order, not what the
+  // world weighs.
+  //
+  // Thirty-seven is now a little over twice the settling round rather than three
+  // and a half times it, and it stays thirty-seven. Cutting it would buy a
+  // second of test time by spending the margin that caught this fixture out
+  // twice, and the settling round has now moved in both directions.
   for (let round = 1; round <= 37; round++) {
     for (const seed of seeds) contactWarmup(wasm, abi, seed);
   }
@@ -966,7 +975,19 @@ test("published_views_survive_articulated_stress_without_memory_growth", () => {
   // and **the page count did not move with any of the three appends**: 4.26,
   // 4.41, 4.44 and 4.46 pages all round up to the same 5. The arrays are
   // static, so every one of those publications was free at this resolution. The
-  // next page boundary is 327,680 bytes, 35,328 further on.
+  // next page boundary is 327,680 bytes, 35,328 further on. The forearm
+  // collider then widened the region section to `8 * 448 * 4` for 296,448,
+  // which is 4.52 pages and still the same 5.
+  //
+  // **Re-traced after the forearm collider: 302 -> 305, settling round 12 -> 4.**
+  // Per round on the same script: 261 from round one, flat through round three,
+  // a single step to 305 at round four, then 305 unchanged through a measured
+  // round forty. Twelve is now three times the settling round rather than twice
+  // it, and it stays twelve -- the count that ships is the count that was run,
+  // which is what the paragraph above insists on. The static publication grew by
+  // one page's worth of *arithmetic* and none of a page, so the three pages here
+  // are the allocator's arena again; the sibling fixture moved *down* one page
+  // in the same commit, which is the same evidence from the other side.
   let last = null;
   for (let round = 1; round <= ARTICULATED_WARM_ROUNDS; round++) {
     for (const seed of seeds) last = articulatedStress(wasm, abi, seed);
@@ -1192,6 +1213,14 @@ test("arena_start_allocates_within_the_warm_set", async () => {
   // settling round from 12 to 22 to 10, and from 4 to 1, on changes that added
   // a few bytes a body -- which is the argument for leaving margin alone rather
   // than trimming it to the latest reading.
+  //
+  // **Re-traced again after the forearm collider: 238 pages from round one, flat
+  // through a measured round twenty.** Two pages up, no step, settling round
+  // still one, count still eight. This is the fixture whose plateau has moved
+  // the least across four sessions, and it is also the one that drives the
+  // fewest generated floors -- which is the clearest single piece of evidence
+  // that the page counts in this file are dominated by the *rooms* a warm-up
+  // builds rather than by the static publication arrays a session widens.
   for (let r = 1; r <= 8; r += 1) round();
 
   const shape = publicationShape(wasm, abi);
@@ -1216,7 +1245,12 @@ test("arena_start_allocates_within_the_warm_set", async () => {
   ];
   const retainedLengths = retained.map((view) => view.byteLength);
   assert.ok(retainedLengths.every((length) => length > 0), "warm fixture left an empty retained view");
-  assert.equal(retainedLengths[3], 10_240, "the region buffer is not the reference's 10,240 bytes");
+  // 14,336 and not the 10,240 the reference charged before the forearm collider:
+  // the section is one row per **swept volume** and a jointed arm is two
+  // capsules, so `REGIONS_PER_BODY` is 7. Written as the reference's number
+  // rather than as `regionBytes` so a stride or a capacity moving fails here
+  // instead of agreeing with itself.
+  assert.equal(retainedLengths[3], 14_336, "the region buffer is not the reference's 14,336 bytes");
   assert.equal(retainedLengths[4], 1_536,
     "the projectile buffer is not the reference's 1,536 bytes");
   // **FURNITURE is deliberately not retained**, on the same argument the two
@@ -1309,7 +1343,13 @@ test("the_index_survives_a_death", async () => {
   assert.equal(poses.length / recording.poseStride, deathTick * 2 + 1,
     "a whole fight's pose rows are two a tick until the kill and one on it");
   assert.equal(index[deathTick * RECORDER.RECORDING_INDEX_STRIDE + RECORDER.INDEX_POSE_COUNT], 1);
-  assert.equal(index[deathTick * RECORDER.RECORDING_INDEX_STRIDE + RECORDER.INDEX_REGION_COUNT], 5);
+  // One body's worth of region rows, which is `REGIONS_PER_BODY` and is seven
+  // since the forearm collider -- the surviving fighter's five anatomy regions
+  // plus its two forearm volumes, absent on an articulated body and published
+  // all the same so the section is one shape for every combat model.
+  assert.equal(index[deathTick * RECORDER.RECORDING_INDEX_STRIDE + RECORDER.INDEX_REGION_COUNT],
+    recording.regionsPerBody);
+  assert.equal(recording.regionsPerBody, 7);
   // Every frame carries the tick it was published at, and the region section
   // covers exactly its own poses.
   for (let frame = 0; frame < source.frameCount(); frame += 1) {
@@ -1375,7 +1415,7 @@ test("a_live_fight_matches_the_traced_fight", async (t) => {
   const checkpoint = new Uint8Array(fs.readFileSync(CHECKPOINT));
   for (const fixture of fixtures) {
     const trace = JSON.parse(fs.readFileSync(fixture.full, "utf8"));
-    assert.equal(trace.schema, "arpg-fight-trace-5",
+    assert.equal(trace.schema, "arpg-fight-trace-6",
       `${fixture.file} is schema ${trace.schema}; re-record it with: ${fixture.command}`);
     // The live fight is built from the trace's own header, so the two are the
     // same configuration by construction rather than by a comment.

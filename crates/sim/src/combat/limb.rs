@@ -193,26 +193,36 @@ pub(crate) fn reachable_hand(
 
 /// The arm as a polyline, shoulder first, hand last.
 ///
-/// One segment today. It exists as a type rather than a tuple so that the
-/// session which adds an elbow adds a point here and every consumer follows
-/// without an edit of its own.
+/// One segment for a single-link arm and two for a jointed one. It exists as a
+/// type rather than a tuple so that the session which added the elbow added a
+/// point here and every consumer followed without an edit of its own -- which
+/// is what happened.
 pub(crate) struct ArmPolyline {
     points: [Vec3; 3],
     len: usize,
 }
 
 impl ArmPolyline {
+    // **The three named ends have no production caller and are kept anyway.**
+    // `segments` is what the collider builder reads, because "how many capsules
+    // is an arm" must be asked exactly once; these three are how a test names an
+    // end without re-deriving it from the same expression the code under test
+    // used, which is the difference between an assertion and a restatement. They
+    // were production readers until the forearm split the arm in two.
     /// The shoulder end.
+    #[allow(dead_code)]
     pub(crate) fn shoulder(&self) -> Vec3 {
         self.points[0]
     }
 
     /// The hand end.
+    #[allow(dead_code)]
     pub(crate) fn hand(&self) -> Vec3 {
         self.points[self.len - 1]
     }
 
     /// The elbow, for an arm that has one.
+    #[allow(dead_code)]
     pub(crate) fn elbow(&self) -> Option<Vec3> {
         (self.len == 3).then(|| self.points[1])
     }
@@ -323,34 +333,37 @@ fn scaled(v: Vec3, numerator: Fx, denominator: Fx) -> Vec3 {
     )
 }
 
-/// The arm from `shoulder` to `hand`, in the body frame.
+/// The arm from `shoulder` through a solved `elbow` to `hand`, in the body
+/// frame.
 ///
 /// Takes the hand rather than deriving it, because its callers already hold the
 /// authoritative hand: the actuator integrates towards a target and contact
 /// moves the result, so a polyline that recomputed the hand from a command
 /// would draw an arm the solver is not using.
-pub(crate) fn arm_polyline(
-    anatomy: &BodyAnatomySpec, yaw: Angle, limb: usize, hand: Vec3,
-) -> ArmPolyline {
-    let at = shoulder(anatomy, yaw, limb);
-    ArmPolyline { points: [at, hand, Vec3::ZERO], len: 2 }
-}
-
-/// The same arm with its elbow in it.
 ///
-/// A second constructor rather than an `Option` parameter on the first, because
-/// the two answer different questions -- "where does this body's arm run" versus
-/// "where does a *jointed* arm run" -- and a caller that has no elbow to give
-/// should not have to say so.
-pub(crate) fn jointed_arm_polyline(
-    anatomy: &BodyAnatomySpec, yaw: Angle, limb: usize, hand: Vec3, elbow: Elbow, plane: Angle,
+/// **It takes the elbow for a stronger version of the same reason, and that is
+/// why this is one constructor and not the two the elbow session planned.** The
+/// plan called for `arm_polyline` beside a `jointed_arm_polyline` that solved
+/// the joint itself, on the argument that a caller with no elbow to give should
+/// not have to say so. Building the collider is what turned that argument round:
+/// the contact phase needs the arm at *both* ends of a sweep, and the tick-entry
+/// end is the elbow the body actually **had** when the tick began -- which is
+/// not `elbow_point` of this tick's plane and last tick's hand, and is not
+/// recoverable from anything the retention row would otherwise carry. So the
+/// elbow is solved once, by `World::arm_elbows`, and retained; a constructor
+/// that solved it again would be a second answer to a question whose whole
+/// point is that it was asked earlier.
+///
+/// The `Option` is therefore not a model switch dressed as a parameter. It is
+/// the retained slot's own shape -- either a solved elbow or a hand outside the
+/// two links' annulus -- and `None` falls back to the single segment because a
+/// collider builder needs a connected arm more than it needs a joint.
+pub(crate) fn arm_polyline(
+    anatomy: &BodyAnatomySpec, yaw: Angle, limb: usize, hand: Vec3, elbow: Option<Vec3>,
 ) -> ArmPolyline {
     let at = shoulder(anatomy, yaw, limb);
-    match elbow_point(at, hand, elbow, plane) {
+    match elbow {
         Some(joint) => ArmPolyline { points: [at, joint, hand], len: 3 },
-        // A hand the annulus cannot reach has no elbow. Falling back to the
-        // single segment keeps the arm a connected thing rather than dropping
-        // it, which is what a collider builder needs more than it needs a joint.
         None => ArmPolyline { points: [at, hand, Vec3::ZERO], len: 2 },
     }
 }
@@ -441,7 +454,7 @@ mod tests {
                             &anatomy, yaw, limb, Angle::from_raw(bearing_raw),
                             CombatHeight::MID, Fx::from_ratio(3, 4),
                         );
-                        let arm = arm_polyline(&anatomy, yaw, limb, hand);
+                        let arm = arm_polyline(&anatomy, yaw, limb, hand, None);
                         assert_eq!(arm.shoulder(), shoulder(&anatomy, yaw, limb));
                         assert_eq!(arm.hand(), hand);
                     }
@@ -697,7 +710,7 @@ mod tests {
     /// A jointed polyline is still an arm: it starts at the shoulder, ends at
     /// the hand, and its two segments meet.
     #[test]
-    fn a_jointed_arm_polyline_runs_shoulder_elbow_hand() {
+    fn a_jointed_arm_runs_shoulder_elbow_hand() {
         for anatomy in anatomies() {
             let elbow = Elbow::of(&anatomy);
             let (inner, outer) = elbow.reach_bounds();
@@ -705,10 +718,12 @@ mod tests {
             for limb in 0..2 {
                 let at = shoulder(&anatomy, yaw, limb);
                 let hand = at + Vec3::new((inner + outer) * Fx::HALF, Fx::ZERO, Fx::ZERO);
-                let arm = jointed_arm_polyline(&anatomy, yaw, limb, hand, elbow, Angle::ZERO);
+                let solved = elbow_point(at, hand, elbow, Angle::ZERO);
+                let arm = arm_polyline(&anatomy, yaw, limb, hand, solved);
                 assert_eq!(arm.shoulder(), at);
                 assert_eq!(arm.hand(), hand);
-                let joint = arm.elbow().expect("a reachable hand has an elbow");
+                let joint = solved.expect("a reachable hand has an elbow");
+                assert_eq!(arm.elbow(), Some(joint));
                 let segments: Vec<_> = arm.segments().collect();
                 assert_eq!(segments.len(), 2, "a jointed arm is two segments");
                 assert_eq!(segments[0], (at, joint));
@@ -728,7 +743,7 @@ mod tests {
         let at = shoulder(&anatomy, yaw, 1);
         let far = at + Vec3::new(anatomy.arm_length * Fx::from_int(3), Fx::ZERO, Fx::ZERO);
         assert_eq!(elbow_point(at, far, elbow, Angle::ZERO), None);
-        let arm = jointed_arm_polyline(&anatomy, yaw, 1, far, elbow, Angle::ZERO);
+        let arm = arm_polyline(&anatomy, yaw, 1, far, elbow_point(at, far, elbow, Angle::ZERO));
         assert_eq!(arm.elbow(), None);
         assert_eq!(arm.segments().count(), 1);
         assert_eq!((arm.shoulder(), arm.hand()), (at, far));
@@ -743,7 +758,7 @@ mod tests {
             for limb in 0..2 {
                 let hand = hand_position(
                     &anatomy, yaw, limb, Angle::ZERO, CombatHeight::MID, Fx::HALF);
-                let arm = arm_polyline(&anatomy, yaw, limb, hand);
+                let arm = arm_polyline(&anatomy, yaw, limb, hand, None);
                 assert_eq!(arm.elbow(), None);
                 assert_eq!(arm.segments().count(), 1);
             }

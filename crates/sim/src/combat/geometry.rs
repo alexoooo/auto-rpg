@@ -6,6 +6,7 @@
 
 use crate::{AnatomyRegion, BodyAnatomySpec, EquipmentGeometry, EquipmentSpec,
             EquipmentSpecId, GripBinding, GripState, LimbSlot, SurfaceSpec};
+use crate::combat::spec::{forearm_volume, BODY_VOLUME_COUNT};
 use super::actuator::{ArmState, ShieldPose};
 use fx::{Angle, Fx, Vec3};
 
@@ -182,7 +183,7 @@ pub(crate) fn held_shield_collider(
     None
 }
 
-/// The five regional volumes at one pose, in `AnatomyRegion` order.
+/// The seven swept volumes at one pose, with each arm as one capsule.
 ///
 /// Head, torso and legs are rigid against the body origin: the immutable
 /// `centre_z`/`half_height` pair is read straight out of the spec and only the
@@ -191,6 +192,15 @@ pub(crate) fn held_shield_collider(
 /// is why this takes a yaw and two hands rather than an origin alone. A blow
 /// that lands on a raised arm has to land on the arm, and the arm is only where
 /// the pose says it is.
+///
+/// **Seven volumes and five `present` bits, and the asymmetry is the design.**
+/// The answer is [`BODY_VOLUME_COUNT`] wide because the collider list is; the
+/// mask is [`AnatomyRegion::COUNT`] wide because it is a *severance* mask and
+/// severance is anatomical. There is no state in which a forearm is gone and its
+/// arm is not. A body built here has no elbow, so volumes 5 and 6 come back
+/// absent -- see [`jointed_body_region_volumes`], which is the constructor for
+/// the model that does.
+///
 /// `present` is the caller's, region by region, and it covers all five rather
 /// than the two limbs a fight usually takes off. A destroyed pair of legs is
 /// survivable -- death is head, torso, or blood -- so a body can go on fighting
@@ -202,10 +212,69 @@ pub fn body_region_volumes(
     yaw: Angle,
     hands: [Vec3; 2],
     present: [bool; AnatomyRegion::COUNT],
-) -> [RegionVolume; AnatomyRegion::COUNT] {
+) -> [RegionVolume; BODY_VOLUME_COUNT] {
+    region_volumes(body_origin, anatomy, yaw, hands, present, [None; 2])
+}
+
+/// The same seven volumes with each arm split at its elbow.
+///
+/// **A second constructor rather than an `Option` parameter on the first**,
+/// because the two answer different questions -- "what does this body present to
+/// the solver" versus "what does a *jointed* body present" -- and a single-link
+/// caller should not have to say that it has no elbow to give.
+///
+/// One layer down, [`super::limb::arm_polyline`] made the opposite choice and
+/// takes the `Option` itself. That is not an inconsistency: this decision is
+/// about *models*, and there are two, while the one down there is about a
+/// retained slot that either holds a solved elbow or holds a hand outside the
+/// annulus, which is one question with two answers rather than two questions.
+///
+/// `elbows` is body-origin-relative, exactly as `hands` is, and is a point
+/// rather than a plane: the elbow at the far end of a sweep is the one the body
+/// *had*, and re-deriving it here from a plane the caller happens to be holding
+/// now would draw the arm through a joint it never occupied.
+///
+/// A forearm volume is present exactly when its arm's region is present **and**
+/// an elbow was supplied. Neither half implies the other: a severed arm has no
+/// forearm however well the joint solved, and a hand outside the two links'
+/// annulus has no elbow however healthy the arm is.
+pub fn jointed_body_region_volumes(
+    body_origin: Vec3,
+    anatomy: &BodyAnatomySpec,
+    yaw: Angle,
+    hands: [Vec3; 2],
+    present: [bool; AnatomyRegion::COUNT],
+    elbows: [Option<Vec3>; 2],
+) -> [RegionVolume; BODY_VOLUME_COUNT] {
+    region_volumes(body_origin, anatomy, yaw, hands, present, elbows)
+}
+
+/// The one body of both constructors above.
+///
+/// Written through [`super::limb::ArmPolyline::segments`] rather than through
+/// its endpoints, so that "how many capsules is an arm" is asked exactly once
+/// and answered by the polyline. A single-link arm yields one segment and fills
+/// only its region's own volume; a jointed one yields two and fills the forearm
+/// beside it. The single-link path is bit-identical to the expression this
+/// replaced -- `segments()` on a two-point polyline is `(shoulder, hand)`, which
+/// is the pair that stood here -- and
+/// `an_articulated_body_still_presents_five_volumes` measures that rather than
+/// trusting it.
+fn region_volumes(
+    body_origin: Vec3,
+    anatomy: &BodyAnatomySpec,
+    yaw: Angle,
+    hands: [Vec3; 2],
+    present: [bool; AnatomyRegion::COUNT],
+    elbows: [Option<Vec3>; 2],
+) -> [RegionVolume; BODY_VOLUME_COUNT] {
+    // The two forearm rows keep this fill unless an arm below hands them a
+    // second segment. Absent and degenerate rather than absent and arm-shaped:
+    // every geometry path skips an absent volume, and a row carrying live
+    // endpoints it swears are not there is a row somebody will one day read.
     let mut volumes = [RegionVolume { lower: body_origin, upper: body_origin,
-                                      radius: Fx::ZERO, present: true };
-                       AnatomyRegion::COUNT];
+                                      radius: Fx::ZERO, present: false };
+                       BODY_VOLUME_COUNT];
     for (at, region) in anatomy.regions.iter().enumerate() {
         let vertical = |half: Fx| body_origin + Vec3::new(Fx::ZERO, Fx::ZERO, region.centre_z + half);
         volumes[at] = match region.region {
@@ -223,13 +292,27 @@ pub fn body_region_volumes(
                 } else {
                     LimbSlot::RightArm as usize
                 };
-                // One capsule, from the polyline's ends. It used to be the same
-                // two points computed here by hand; `limb` owns them now so a
-                // second link lands in one place rather than three.
-                let arm = super::limb::arm_polyline(anatomy, yaw, slot, hands[slot]);
+                // The polyline's segments, in order. It used to be two points
+                // computed here by hand; `limb` owns them now so a second link
+                // lands in one place rather than three.
+                let arm = super::limb::arm_polyline(
+                    anatomy, yaw, slot, hands[slot], elbows[slot]);
+                let mut links = arm.segments();
+                let (upper_lower, upper_upper) = links.next().expect("an arm has a first link");
+                if let Some((fore_lower, fore_upper)) = links.next() {
+                    volumes[forearm_volume(slot)] = RegionVolume {
+                        lower: body_origin + fore_lower,
+                        upper: body_origin + fore_upper,
+                        // The arm's own radius on both links. A forearm is not a
+                        // separate anatomy row and has no dimension of its own to
+                        // read, and tapering it would be a number nobody measured.
+                        radius: region.radius,
+                        present: present[at],
+                    };
+                }
                 RegionVolume {
-                    lower: body_origin + arm.shoulder(),
-                    upper: body_origin + arm.hand(),
+                    lower: body_origin + upper_lower,
+                    upper: body_origin + upper_upper,
                     radius: region.radius,
                     present: present[at],
                 }
@@ -360,7 +443,158 @@ mod tests {
             present[gone as usize] = false;
             let cut = body_region_volumes(origin, &anatomy, Angle::ZERO, hands, present);
             assert!(!cut[gone as usize].present, "{gone:?} survived its own absence");
-            assert!(cut.iter().enumerate().all(|(at, row)| at == gone as usize || row.present));
+            // The five region volumes only: this constructor's last two rows are
+            // absent on every body it builds, which is the next test's subject.
+            assert!(cut[..AnatomyRegion::COUNT].iter().enumerate()
+                    .all(|(at, row)| at == gone as usize || row.present));
+        }
+    }
+
+    /// The guard, and the reason this session could leave every articulated
+    /// corpus alone: a body built through the single-link constructor presents
+    /// the same five volumes it presented before the elbow existed, and two
+    /// absent rows after them.
+    ///
+    /// **Compared against a locally written-out expression rather than against
+    /// the constructor's own output**, because the rows are now assembled by a
+    /// polyline and a `segments()` iterator, and comparing the function with
+    /// itself would pass whatever those did. The five points below are the four
+    /// spec-derived ones and `shoulder`/`hand`, which is the pair that stood in
+    /// this file before `limb` owned it.
+    #[test]
+    fn an_articulated_body_still_presents_five_volumes() {
+        let anatomy = spec::fighter_anatomy();
+        let origin = Vec3::from_ints(-2, 7, 0);
+        for yaw_raw in [0u16, 9_001, 32_768, 61_111] {
+            let yaw = Angle::from_raw(yaw_raw);
+            let hands = [Vec3::from_ints(1, 2, 1), Vec3::new(Fx::HALF, -Fx::ONE, Fx::TWO)];
+            let volumes = body_region_volumes(origin, &anatomy, yaw, hands,
+                                              [true; AnatomyRegion::COUNT]);
+            assert_eq!(volumes.len(), crate::BODY_VOLUME_COUNT);
+            for (at, region) in anatomy.regions.iter().enumerate() {
+                let side = if at == AnatomyRegion::LeftArm as usize {
+                    Some(anatomy.shoulder_half_width)
+                } else if at == AnatomyRegion::RightArm as usize {
+                    Some(-anatomy.shoulder_half_width)
+                } else { None };
+                let expected = match side {
+                    Some(side) => {
+                        let slot = at - AnatomyRegion::LeftArm as usize;
+                        RegionVolume {
+                            lower: origin + Vec3::new(-yaw.sin() * side,
+                                                      fx::mul_div(yaw.cos(), side, Fx::ONE),
+                                                      anatomy.shoulder_height),
+                            upper: origin + hands[slot],
+                            radius: region.radius, present: true,
+                        }
+                    }
+                    None => {
+                        let half = if region.region == AnatomyRegion::Head {
+                            Fx::ZERO
+                        } else { region.half_height };
+                        let at_z = |offset: Fx| origin
+                            + Vec3::new(Fx::ZERO, Fx::ZERO, region.centre_z + offset);
+                        RegionVolume { lower: at_z(-half), upper: at_z(half),
+                                       radius: region.radius, present: true }
+                    }
+                };
+                assert_eq!(volumes[at], expected, "volume {at} moved at yaw {yaw_raw}");
+            }
+            // The two appended rows exist and are absent, which is what every
+            // geometry path skips. Absent *and* degenerate: a row carrying live
+            // endpoints it swears are not there is a row somebody will read.
+            for limb in 0..2 {
+                let forearm = volumes[crate::forearm_volume(limb)];
+                assert!(!forearm.present, "a one-link arm published a forearm");
+                assert_eq!((forearm.lower, forearm.upper, forearm.radius),
+                           (origin, origin, Fx::ZERO));
+            }
+        }
+    }
+
+    /// A jointed arm is two capsules that meet: the upper arm ends exactly where
+    /// the forearm begins, with no gap and no overlap at the joint.
+    ///
+    /// Exactly, to the raw unit, and not within a slack -- the two rows are built
+    /// from the same polyline point, so any difference at all would mean the
+    /// builder had derived the joint twice. That is the failure this is for; the
+    /// elbow's own accuracy against the two link circles is
+    /// `the_elbow_lies_on_both_link_circles`'s job and is not restated here.
+    #[test]
+    fn a_jointed_arm_is_two_capsules_that_meet_at_the_elbow() {
+        use crate::combat::limb::{elbow_point, shoulder, Elbow};
+        for anatomy in [spec::fighter_anatomy(), spec::brute_anatomy()] {
+            let links = Elbow::of(&anatomy);
+            let (inner, outer) = links.reach_bounds();
+            let origin = Vec3::from_ints(3, -4, 0);
+            for yaw_raw in [0u16, 12_345, 32_768] {
+                let yaw = Angle::from_raw(yaw_raw);
+                for plane_raw in [0u16, 16_384, 40_000] {
+                    let plane = Angle::from_raw(plane_raw);
+                    let hands: [Vec3; 2] = core::array::from_fn(|limb| {
+                        shoulder(&anatomy, yaw, limb)
+                            + Vec3::new((inner + outer) * Fx::HALF, Fx::ZERO, Fx::ZERO)
+                    });
+                    let elbows: [Option<Vec3>; 2] = core::array::from_fn(|limb| {
+                        elbow_point(shoulder(&anatomy, yaw, limb), hands[limb], links, plane)
+                    });
+                    assert!(elbows.iter().all(Option::is_some), "a mid-annulus hand had no elbow");
+                    let volumes = jointed_body_region_volumes(
+                        origin, &anatomy, yaw, hands, [true; AnatomyRegion::COUNT], elbows);
+                    for limb in 0..2 {
+                        let arm = volumes[AnatomyRegion::LeftArm as usize + limb];
+                        let fore = volumes[crate::forearm_volume(limb)];
+                        assert!(arm.present && fore.present);
+                        assert_eq!(arm.lower, origin + shoulder(&anatomy, yaw, limb),
+                                   "the upper arm left the shoulder");
+                        assert_eq!(arm.upper, fore.lower,
+                                   "the two links do not meet at the joint");
+                        assert_eq!(arm.upper, origin + elbows[limb].unwrap(),
+                                   "the joint is not the elbow that was supplied");
+                        assert_eq!(fore.upper, origin + hands[limb],
+                                   "the forearm did not reach the hand");
+                        assert_eq!((arm.radius, fore.radius),
+                                   (anatomy.regions[AnatomyRegion::LeftArm as usize + limb].radius,
+                                    anatomy.regions[AnatomyRegion::LeftArm as usize + limb].radius));
+                    }
+                }
+            }
+        }
+    }
+
+    /// A severed arm takes its forearm with it.
+    ///
+    /// The failure mode the region-keyed/volume-keyed conflation would otherwise
+    /// have: `present` is five bits and the answer is seven volumes, so an arm
+    /// whose bit is clear must clear *both* of its capsules. A forearm left live
+    /// on a body that has no arm is a limb the sweep can still hit.
+    #[test]
+    fn a_severed_arm_takes_its_forearm_with_it() {
+        use crate::combat::limb::{elbow_point, shoulder, Elbow};
+        let anatomy = spec::fighter_anatomy();
+        let links = Elbow::of(&anatomy);
+        let (inner, outer) = links.reach_bounds();
+        let yaw = Angle::from_raw(4_242);
+        let hands: [Vec3; 2] = core::array::from_fn(|limb| {
+            shoulder(&anatomy, yaw, limb) + Vec3::new((inner + outer) * Fx::HALF, Fx::ZERO, Fx::ZERO)
+        });
+        let elbows: [Option<Vec3>; 2] = core::array::from_fn(|limb| {
+            elbow_point(shoulder(&anatomy, yaw, limb), hands[limb], links, Angle::ZERO)
+        });
+        for limb in 0..2 {
+            let region = AnatomyRegion::LeftArm as usize + limb;
+            let mut present = [true; AnatomyRegion::COUNT];
+            present[region] = false;
+            let volumes = jointed_body_region_volumes(
+                Vec3::ZERO, &anatomy, yaw, hands, present, elbows);
+            assert!(!volumes[region].present, "a severed arm kept its upper capsule");
+            assert!(!volumes[crate::forearm_volume(limb)].present,
+                    "a severed arm kept its forearm");
+            // And only that arm went: the other one keeps both of its capsules,
+            // so this is a severance rather than a switch that turns off the pair.
+            let other = 1 - limb;
+            assert!(volumes[AnatomyRegion::LeftArm as usize + other].present);
+            assert!(volumes[crate::forearm_volume(other)].present);
         }
     }
 

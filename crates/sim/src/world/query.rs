@@ -120,17 +120,29 @@ impl World {
         })
     }
 
-    /// The five region sweeps this tick's contact phase was asked about, each
-    /// as its `(previous, requested)` volume. The companion to
-    /// [`World::swept_weapon`], and it exists for the same reason: a region
+    /// The swept volumes this tick's contact phase was asked about, each as its
+    /// `(previous, requested)` shape. The companion to
+    /// [`World::swept_weapon`], and it exists for the same reason: a volume
     /// rebuilt from a post-step pose is one endpoint of the sweep, not the
-    /// sweep, and a region rebuilt from an *observation* is not even that --
+    /// sweep, and one rebuilt from an *observation* is not even that --
     /// perception noise displaces it by more than a body's width.
     ///
-    /// Indexed by [`BodyPart`], which is the same order the collider builder
-    /// filled and the same order [`crate::body_region_volumes`] returns.
+    /// **Grown from five to [`BODY_VOLUME_COUNT`] rather than left at five and
+    /// truncated, and the choice is the whole reason this doc comment moved.**
+    /// The promise here is "what the solver swept", and after the elbow that is
+    /// seven capsules on an embodied body. A five-wide answer would have silently
+    /// dropped the two the fight is most likely to be decided by -- a forearm is
+    /// the part of an arm a blade meets first -- and every caller of this is an
+    /// oracle checking the solver's own answer, which cannot check a row it
+    /// cannot see. [`ObservedOpponent::regions`](crate::ObservedOpponent::regions)
+    /// makes the opposite call for the opposite reason; see `observed_opponent`.
+    ///
+    /// Indexed by swept volume, which is the same order the collider builder
+    /// filled and the same order [`crate::body_region_volumes`] returns: volumes
+    /// `0..5` are the five [`BodyPart`]s and `5`/`6` are the two forearms. Use
+    /// [`crate::volume_region`] to go the other way.
     pub fn swept_regions(&self, id: EntityId)
-        -> Option<[(RegionVolume, RegionVolume); BodyPart::COUNT]>
+        -> Option<[(RegionVolume, RegionVolume); BODY_VOLUME_COUNT]>
     {
         self.contact.as_ref()?.swept.iter().find_map(|row| {
             if row.entity != id { return None }
@@ -597,9 +609,26 @@ impl World {
         let present: [bool; BodyPart::COUNT] =
             core::array::from_fn(|part| !state.parts[part].severed);
         let yaw = self.body_yaw[j].angle;
+        // **The first five volumes and deliberately not all seven, which is the
+        // one place in the crate where a swept-volume list is narrowed to
+        // anatomy on purpose.** An observation is a targeting view: a policy
+        // picks a `BodyPart` to aim at, and a forearm is not separately
+        // targetable -- it has no armour row, no integrity, and no severance of
+        // its own, so a sixth and seventh row would be two more capsules a
+        // policy could name and no new decision it could make.
+        //
+        // Keeping it five is also what leaves the observation layout still.
+        // `ARTICULATED_OPPONENT_FEATURES` counts region words, so widening this
+        // moves `FEATURE_LAYOUT_VERSION`, every trained checkpoint's input shape
+        // and `LEARNED_INFERENCE_DIGEST` -- which is session 09's business and
+        // not a rider on a collider change. The truncation is safe by
+        // construction rather than by luck: volumes `0..5` are the five regions
+        // in `AnatomyRegion::ALL` order and always will be, which is exactly what
+        // `forearm_volume` appending rather than interleaving buys.
         let regions = geometry::body_region_volumes(
             measured, anatomy, yaw,
             [self.arms[j][0].hand, self.arms[j][1].hand], present);
+        let regions = core::array::from_fn(|part| regions[part]);
 
         let mut weapons = [None; 2];
         for limb in 0..2 {
@@ -692,10 +721,17 @@ impl World {
         let command = self.articulated_command[i].unwrap_or_else(|| self.neutral_articulated(i));
         let targets = self.articulated_targets(i, spec, &command);
 
+        // Solved once for the pair, because `arm_elbows` clones a posed anatomy
+        // and derives both link lengths from it; asking per limb inside the
+        // closure below would do that work twice for one answer.
+        let elbows = self.arm_elbows(i);
         let arms = core::array::from_fn(|limb| {
             let arm = self.arms[i][limb];
             PosedArm {
                 hand: body + arm.hand,
+                // Into world space here, with `hand`, because the frame this row
+                // promises is world and `arm_elbows` answers in the body's.
+                elbow: elbows[limb].map(|joint| body + joint),
                 velocity: arm.linear_velocity,
                 fatigue: arm.fatigue,
                 target_hand: body + targets[limb],
@@ -1436,7 +1472,7 @@ mod tests {
         let defender = EntityId::new(1, 0);
         let region = world.contact_resolutions().iter()
             .find(|row| row.fact.key.kind == ContactKind::WeaponBody && row.severed)
-            .expect("the advancing fixture severed no region").fact.region as usize;
+            .expect("the advancing fixture severed no region").fact.volume as usize;
 
         let live = world.contact.as_ref().expect("an articulated contact runtime")
             .colliders.iter().copied()

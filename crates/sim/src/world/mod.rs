@@ -29,7 +29,8 @@ use crate::rules::{self, Stats, MAX_CONTACTS};
 use crate::scenario::{CommandFrame, CommandGrammar, Scenario, UnitSpec};
 use crate::anatomy::{self, AnatomyState, BodyPart};
 use crate::combat::spec::{ArticulatedUnitSpecV1, BodyAnatomySpec, CombatSpecError,
-                          CombatSpecTableV1, resolved_equipment};
+                          CombatSpecTableV1, resolved_equipment, volume_region,
+                          BODY_VOLUME_COUNT};
 use crate::combat::actuator::{self, ArmState, BodyYawState, ElbowPlaneState, GripState,
                               ShieldPose, StanceState};
 use crate::combat::contact::{contact_bounds, medial_point, try_reserve_exact,
@@ -759,6 +760,22 @@ struct TickEntry {
     pos: Vec2,
     locomotion: Vec2,
     arms: [ArmState; 2],
+    /// Each arm's elbow as the tick began, body-relative, or `None` for a
+    /// one-link arm and for a hand the links cannot reach.
+    ///
+    /// **Retained rather than re-derived, and that is the whole reason it is a
+    /// column here.** The contact phase sweeps from the tick-entry pose to the
+    /// settled one, so it needs the elbow at *both* ends -- and the entry end is
+    /// a function of the entry hand and the plane the body was holding then.
+    /// Solving it at collider-build time would apply this tick's plane, already
+    /// chased by up to `ELBOW_PLANE_MAX_SPEED_RAW`, to last tick's hand: an arm
+    /// that swung its elbow across the body would sweep a forearm from a joint it
+    /// never occupied, and hand the solver a closing speed nothing produced.
+    ///
+    /// It sits beside `arms` because it is the same kind of fact -- where the
+    /// limb was -- and because this buffer's lifetime is already exactly one
+    /// tick's contact evidence.
+    elbows: [Option<Vec3>; 2],
     shield: Option<ShieldPose>,
     /// Retained because the contract's retention list says to. The commit turned
     /// out not to read either: an arm's inverse map and the `Both` mirror both
@@ -2731,14 +2748,33 @@ mod tests {
     /// - session 06 gave the body hips and a pelvis, which coincide with a free
     ///   torso only while it is also not translating;
     /// - session 07 gave the arm a length it cannot exceed, so the two agree only
-    ///   on a pose an articulated arm would also have held.
+    ///   on a pose an articulated arm would also have held;
+    /// - session 07's second half gave the embodied arm an **elbow**, which is a
+    ///   published column the articulated arm does not have and never will.
     ///
-    /// The last one is not a range this test can assume, so it **finds** one: it
-    /// searches the command space for a target the annulus clamp leaves
+    /// The fourth is a different kind of narrowing from the first three and it is
+    /// worth separating. The others restricted the *conditions* under which the
+    /// two agree; this one carves one column out of the comparison permanently,
+    /// because the whole point of the session that added it is that an embodied
+    /// arm bends and an articulated one does not. So the column is excluded and
+    /// then asserted **from both sides** -- every articulated elbow `None`, every
+    /// embodied one `Some` -- which is what stops "exclude the difference" from
+    /// degenerating into "stop looking". A one-sided exclusion would be satisfied
+    /// by an embodied body that had quietly stopped solving its elbow at all.
+    ///
+    /// The annulus condition is not a range this test can assume, so it **finds**
+    /// one: it searches the command space for a target the clamp leaves
     /// untouched, and fails if there is none. Everything else -- grips, contact,
     /// anatomy, projectiles, doors, the whole rest of the tick -- is still
     /// asserted identical, which is what a session changing one of those for
     /// `Embodied` alone would be caught by.
+    ///
+    /// **It is not a claim that the two fights are still the same fight once
+    /// something is hit.** An embodied body presents seven swept volumes and an
+    /// articulated one five, so a blow that lands on a bent forearm has no
+    /// articulated counterpart. This script never brings the two bodies into
+    /// contact, which is why the equality survives at all; the guard that the
+    /// *articulated* corpus did not move is `lab articulated`, not this.
     #[test]
     fn an_embodied_duel_equals_the_articulated_duel_while_its_stance_is_inert() {
         let mut articulated = World::new(&Scenario::articulated_duel(), 7);
@@ -2804,7 +2840,22 @@ mod tests {
             embodied.step();
             let left: Vec<_> = articulated.articulated_poses().collect();
             let right: Vec<_> = embodied.articulated_poses().collect();
-            assert_eq!(left, right, "poses diverged at tick {tick}");
+            // The elbow column, out of the comparison and then asserted from
+            // both sides. See the doc comment: excluding it one-sidedly would be
+            // satisfied by an embodied body that stopped solving a joint.
+            assert!(left.iter().all(|pose| pose.arms.iter().all(|arm| arm.elbow.is_none())),
+                    "an articulated arm grew an elbow at tick {tick}");
+            assert!(right.iter().all(|pose| pose.arms.iter().all(|arm| arm.elbow.is_some())),
+                    "an embodied arm lost its elbow at tick {tick}");
+            let straightened = |poses: &[ArticulatedPose]| -> Vec<ArticulatedPose> {
+                poses.iter().map(|pose| {
+                    let mut pose = *pose;
+                    for arm in &mut pose.arms { arm.elbow = None; }
+                    pose
+                }).collect()
+            };
+            assert_eq!(straightened(&left), straightened(&right),
+                       "poses diverged at tick {tick}");
             for pose in &right {
                 assert_eq!(pose.body_yaw, Angle::ZERO,
                            "the equality's own condition failed at tick {tick}");
@@ -3065,8 +3116,10 @@ mod tests {
 
         // And the arm the contact phase sweeps follows, because it is built from
         // the same spec.
-        let tall_arm = crate::combat::limb::arm_polyline(&tall, Angle::ZERO, 1, Vec3::ZERO);
-        let low_arm = crate::combat::limb::arm_polyline(&crouched, Angle::ZERO, 1, Vec3::ZERO);
+        let tall_arm =
+            crate::combat::limb::arm_polyline(&tall, Angle::ZERO, 1, Vec3::ZERO, None);
+        let low_arm =
+            crate::combat::limb::arm_polyline(&crouched, Angle::ZERO, 1, Vec3::ZERO, None);
         assert!(low_arm.shoulder().z < tall_arm.shoulder().z);
     }
 

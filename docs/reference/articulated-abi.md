@@ -77,7 +77,11 @@ torso capsule, both arm capsules, leg capsule, both weapon endpoints, shield geo
 severed mask, and `contact_timing`. Geometry uses the same structs and coordinates as
 the anatomy contract: the five regions are `RegionVolume` rows built by
 `body_region_volumes`, and the head sphere is the degenerate one whose two endpoints
-coincide rather than a second shape. `contact_timing` is **ticks until arrival,
+coincide rather than a second shape. **Five and not the seven swept volumes the
+region section publishes**, deliberately: this is a targeting view, a forearm is
+not separately targetable, and widening it would move `FEATURE_LAYOUT_VERSION` and
+every trained checkpoint's input shape. The truncation is safe because volumes
+`0..5` are the five regions in `AnatomyRegion::ALL` order. `contact_timing` is **ticks until arrival,
 saturating at one** -- the formula divides world units by world units per tick -- so it
 is informative only inside the last stride and is not a countdown in seconds. It is
 computed from the observation's own columns, so the opponent terms are the measured
@@ -904,11 +908,36 @@ that runs after every mutating export.
 
 ## Region rows
 
-`REGION_LAYOUT_VERSION=1`, `REGIONS_PER_BODY=5`, `REGION_STRIDE=8`, and
-`MAX_REGIONS = MAX_POSES * REGIONS_PER_BODY = 320`. One row per anatomy region of
-every live articulated body, in `AnatomyRegion` order inside a body and in the
-[pose rows](#pose-rows)' order across bodies. The row is `sim::RegionVolume` word
-for word.
+`REGION_LAYOUT_VERSION=2`, `REGIONS_PER_BODY=7`, `REGION_STRIDE=8`, and
+`MAX_REGIONS = MAX_POSES * REGIONS_PER_BODY = 448`. One row per **swept volume**
+of every live articulated body, in `sim::BODY_VOLUME_COUNT` order inside a body
+and in the [pose rows](#pose-rows)' order across bodies. The row is
+`sim::RegionVolume` word for word.
+
+**Seven volumes over five anatomy regions, and the gap between those two numbers
+is the section's one subtlety.** Rows `0..5` are the five `AnatomyRegion`s in
+their own discriminant order and keep those indices exactly; rows 5 and 6 are the
+left and right **forearm**, which exist only on a body whose arms have an elbow
+to split them at. A single-link body publishes them absent — `present` zero,
+endpoints at the body origin, radius zero — so the section is one shape for every
+combat model and a reader never branches on which kind of body it is holding.
+
+The forearms are appended rather than interleaved beside each arm because the
+five leading indices are read positionally by three consumers at once:
+`client/src/arena/geometry.ts` names regions 2 and 3 as the arms, the pose row's
+`POSE_SEVERED_MASK` numbers its bits the same way, and `crates/lab` swaps 2 and 3
+to mirror a fight. Interleaving would have renumbered all three for nothing.
+
+**A forearm is not a sixth and seventh anatomy region**, and the pose row's
+per-region arrays stayed five for that reason. Anatomy is what can be wounded,
+armored and severed; a forearm is none of those on its own — it is part of an arm,
+covered by the arm's armor row, and losing it is losing the arm. `POSE_SEVERED_MASK`
+is therefore still five bits, `POSE_INTEGRITY_FIRST` and `POSE_WOUND_FIRST` still
+span five words each, and `COMBAT_EVENT_BODY_PART` still carries a `BodyPart`:
+`sim::volume_region` maps a contact's swept volume to the region it belongs to
+before the word is written, so a forearm blow is published as a blow on its arm.
+`emit_abi.rs` asserts `REGIONS_PER_BODY == POSE_BODY_PART_COUNT + 2` rather than
+the identity the two used to have.
 
 | words | field |
 |---:|---|
@@ -917,10 +946,14 @@ for word.
 | 6 | radius |
 | 7 | present |
 
-**The five capsules the contact phase sweeps, from the function that sweeps
-them.** `publish` calls `sim::body_region_volumes` with the pose's own origin,
-yaw and hands and with `present` read off the pose's severed mask; nothing on the
-host side computes geometry. That is the section's whole reason to exist, and it
+**The capsules the contact phase sweeps, from the function that sweeps them.**
+`publish` calls `sim::jointed_body_region_volumes` with the pose's own origin,
+yaw, hands and elbows and with `present` read off the pose's severed mask;
+nothing on the host side computes geometry. The mask goes in five bits wide and
+the answer comes back seven rows wide, which is the region/volume distinction in
+miniature: there is no state in which a forearm is severed and its arm is not, so
+the mask has nothing to say about rows 5 and 6 and the constructor derives them
+from the arm's bit and the elbow together. That is the section's whole reason to exist, and it
 is the same rule the pose row states as "the row is otherwise the sim's own
 `ArticulatedPose` word for word".
 
@@ -962,11 +995,14 @@ It rides as an **eighth word per region**. The two rejected placements and why:
   capsule the contact phase does not sweep.
 
 The published cost of the eighth word is **1,280 bytes**, taking the section from
-8,960 to 10,240.
+8,960 to 10,240. The forearm collider then took it from 10,240 to **14,336**, two
+more rows a body on all 64, charged whether or not the installed world has an
+elbow anywhere in it — a fixed array is charged once, and one that grew when an
+embodied world was installed would detach every typed array the page holds.
 
 **The row carries no identity, and the section is read against `pose_len`.**
 Region row `n` describes pose row `n / REGIONS_PER_BODY`; two identity words
-repeated five times a body would be a second answer to a question the pose row
+repeated seven times a body would be a second answer to a question the pose row
 beside it already answers. What a reader checks before it indexes is
 `region_len == REGIONS_PER_BODY * pose_len`, which is one comparison and is the
 only thing that can be wrong — the same shape as the boot handshake refusing a
@@ -1214,8 +1250,10 @@ ledger, one impact sound per row — must key on the call that stepped rather th
 publication, or it counts every contact once per intervening export. `step(0)` clears
 the feed, which is the same rule seen from the other end.
 
-The four static arrays cost 16,896, 262,144, 10,240 and 1,536 bytes respectively,
-for 290,816 bytes excluding thread-local wrapper bookkeeping. The 57-byte command buffer
+The four static arrays cost 16,896, 262,144, 14,336 and 1,536 bytes respectively,
+for 294,912 bytes excluding thread-local wrapper bookkeeping. (The region term was
+10,240 and the total 290,816 until the forearm collider took the section from five
+rows a body to seven.) The 57-byte command buffer
 belongs to v2-11 and is not charged again, and neither are the 120-byte
 configuration buffer or v2-ui-08's 32,768-byte checkpoint staging buffer and its
 32-byte digest — those are *input* and are charged where they are declared. The
@@ -1457,8 +1495,9 @@ rather than set — the shipped clinch fixture spends 78 ticks turning around be
 first touches — so the script asks for no rotation at all and gets its contact out of
 the placement instead. Ticks 0, 1, 2 and 4 resolve nothing, ticks 3 and 5 resolve two
 rows, and every tick from 6 resolves one, which is how the reference's "including an
-empty tick" is actually covered. Every tick carries two pose rows and ten region rows,
-no projectile rows and no stance rows. The two empty sections are still driven through
+empty tick" is actually covered. Every tick carries two pose rows and fourteen
+region rows — ten until the forearm collider widened the section — no projectile
+rows and no stance rows. The two empty sections are still driven through
 their own writers rather than short-circuited to an empty slice: a script that
 hard-coded the emptiness would prove that the host *believes* the section is empty,
 where running the writer proves the section is.

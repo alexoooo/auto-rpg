@@ -161,7 +161,7 @@ v2-ui-07 landed the channel.
 The trace is a two-file contract — `crates/lab/src/trace.rs` writes it and
 `client/src/fight/trace.ts` refuses a schema it does not know, on purpose. Change
 one and you change both, and bump `TRACE_SCHEMA` in both. It is at
-`arpg-fight-trace-5`; v2-19 moved it from 2 by replacing the single `script` field
+`arpg-fight-trace-6`; v2-19 moved it from 2 by replacing the single `script` field
 with `heroes`, `monsters` and `checkpoint`, because a learned fight is the first
 one whose two bodies are driven by different things. The articulated-arrow session
 moved it from 3 by adding each frame's live projectile rows.
@@ -179,6 +179,15 @@ contact splits 194 into crush 36 and pressure 157 and the recorded columns sum t
 158 -- and `a_live_fight_matches_the_traced_fight` could not report it, because
 `web/fight.json` is gitignored and every stale copy stopped at the schema guard
 first. A gate that refuses the file before comparing it is not a passing gate.
+
+It moved from 5 for the same *kind* of reason and not the same reason. `pose.regions`
+went from five rows to seven when a jointed arm became two swept capsules, and until
+it did, row `i` was named by `regionNames[i]`. It no longer is: the array is the
+swept-volume list, `regionNames` is anatomy, and they agree on their first five
+entries and nowhere after. A schema-5 file read by the current page would draw each
+arm as one capsule and fail the live-versus-traced comparison inside a pose diff —
+the confusing half of the failure the guard exists to make plain, which is the same
+lesson the paragraph above records from the other end.
 
 `trace` also takes fourteen keys that *describe* a duel instead of running the pinned
 one — the two anatomies, the four hands, and the shield and weapon dimensions.

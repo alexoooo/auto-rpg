@@ -364,7 +364,11 @@ fn measure_case_at(
                 // *is* the first contact rather than of whichever row happens to
                 // be last on that tick.
                 if first_contact_tick.is_none() {
-                    first_contact_region = Some(resolution.fact.region);
+                    // The **region**, mapped from the volume the fact carries:
+                    // this column is compared against the `BodyPart` the strike
+                    // intended, and a forearm blow is a blow on that arm.
+                    first_contact_region = sim::volume_region(resolution.fact.volume as usize)
+                        .map(|part| part as u8);
                     first_contact_crossed = Some(match (swept_blade, swept_body) {
                         (Some((previous, requested)), Some(regions)) => regions.iter()
                             .any(|&region| crosses(previous, requested, region)),

@@ -118,9 +118,13 @@ back to +X only when relative velocity is also zero. Thus a positive-time exact
 crossing closes, while an initially separating overlap receives no attracting impulse. The
 point is the componentwise midpoint made by adding signed raw coordinates in `i64`,
 dividing by two with truncation toward zero, then narrowing; never saturate before
-the divide. A weapon/body or projectile/body fact carries the `BodyPart` its regional
-projection chose; weapon/weapon and weapon/shield carry `NO_REGION`, `0xff`, which
-is outside every discriminant rather than aliasing one. Velocities are generalized
+the divide. A weapon/body or projectile/body fact carries the **swept volume** its
+projection chose, in `0..BODY_VOLUME_COUNT`; weapon/weapon and weapon/shield carry
+`NO_VOLUME`, `0xff`, which is outside every volume index rather than aliasing one.
+The field is `ContactFact::volume` and is deliberately not called `region`: volumes
+`0..5` are the five `BodyPart`s and volumes 5 and 6 are the two forearms, so a
+reader that wants anatomy must go through `volume_region` and not index a five-wide
+array with the byte. Velocities are generalized
 point velocities over one tick, not per-second values.
 
 ## Tick-entry poses and collider construction
@@ -206,12 +210,16 @@ from the retained and requested poses. The sweep linearly interpolates those cor
 it does not interpolate and renormalize a separate normal. The finite face is
 two-sided. "Front" fixes its offset and reported orientation, not a back-face cull.
 
-A body is its five regional volumes plus the planar body endpoint they were built
-from, in `AnatomyRegion` order, as one collider row with `BODY_SLOT`. Head is a sphere,
-torso and legs are vertical capsules from the immutable `centre_z ± half_height`, and
-each arm is the capsule from its yaw-rotated shoulder to the current hand with the
-immutable arm radius; a region absent for the tick -- a severed arm -- is skipped by
-the sweep rather than reduced to a point. Geometry and region choice are
+A body is its `BODY_VOLUME_COUNT` swept volumes plus the planar body endpoint they
+were built from, as one collider row with `BODY_SLOT`. Volumes `0..5` are the five
+`AnatomyRegion`s in their own order and volumes 5 and 6 are the two forearms. Head is
+a sphere, torso and legs are vertical capsules from the immutable
+`centre_z ± half_height`, and an arm is the capsule from its yaw-rotated shoulder to
+the current hand — or, on a model whose arms have an elbow, the two capsules
+shoulder-to-elbow and elbow-to-hand, both carrying the immutable arm radius. A volume
+absent for the tick — a severed arm, or either forearm of a single-link body — is
+skipped by the sweep rather than reduced to a point, and a severed arm takes both of
+its capsules with it. Geometry and region choice are
 [`anatomy-health.md`](anatomy-health.md#region-volumes-and-assignment)'s; this document
 owns only that the five arrive as one row and leave as one fact. Its surface,
 generalized mass, and velocity remain the anatomy surface, cached body mass, and body
@@ -1006,10 +1014,13 @@ cap without actuator fixture noise.
 | 6 | exception to zero-length rows: weapon A hilt 0/tip 32768, both translate +65536; temporary radius-zero body point B stays at 65536; both mass 1, restitution 0, edge/point 1 | 0 | WeaponBody at 32768 and point 65536, alpha 65536, ledger `(32768,16384,16384)`, channels `(cut=0,thrust=16240,pressure=144,deflected=0)`, final `[(81920,32768),(81920,32768)]`, where A's serialized coordinate is final tip |
 
 Every listed fact has generation zero, A right slot, and normal +X. Weapon/weapon B
-is right slot and kind 0; case 6 B is `BODY_SLOT` and kind 2. Region is `0xff` except
-case 6, whose five regional volumes are the same coincident zero-radius point the
-v2-14 row was -- so the choice falls all the way through the tuple to `BodyPart` order
-and answers Head, `0`.
+is right slot and kind 0; case 6 B is `BODY_SLOT` and kind 2. The volume byte is
+`0xff` except case 6, whose swept volumes are all the same coincident zero-radius
+point the v2-14 row was — so the choice falls all the way through the tuple to volume
+order and answers Head, `0`. The forearm collider widened that fixture's volume list
+from five to seven and left the corpus byte-identical: the two appended volumes are
+absent, every geometry path skips an absent volume, and the winning index is still
+`0`.
 Point X equals the listed global TOI except case 6, whose point X is 65,536. Y/Z are
 zero. Fact velocities are the pre-group moving label's `(65536,0,0)` and stationary
 zero, except case 4's `(16384,0,0)` / `(-16384,0,0)`. Proposed/applied diagnostic

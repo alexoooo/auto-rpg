@@ -328,9 +328,14 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
         if diagnostic_groups != resolved_groups { return None; }
         accepted_groups += diagnostic_groups;
         for row in played.contact_resolutions() {
+            // **A volume compared against a region discriminant, and it is exact
+            // rather than lucky.** Volumes `0..5` are the five regions in their
+            // own order, so the Legs *volume* is the Legs *region*'s number.
+            // What this predicate would not catch is a forearm blow -- volume 5
+            // or 6 -- and it is not meant to: the fixture is a thrust at a leg.
             if row.fact.key.kind == ContactKind::WeaponBody
                 && row.fact.key.a == attacker && row.fact.key.a_slot == 1
-                && row.fact.key.b == defender && row.fact.region == BodyPart::Legs as u8 {
+                && row.fact.key.b == defender && row.fact.volume == BodyPart::Legs as u8 {
                 if weapon_body_ticks.last() != Some(&(tick + 1)) {
                     weapon_body_ticks.push(tick + 1);
                 }
@@ -340,7 +345,7 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
             let key = row.fact.key;
             write_entity(&mut hash, key.a); hash.write_u8(key.a_slot);
             write_entity(&mut hash, key.b); hash.write_u8(key.b_slot); write_contact_kind(&mut hash, key.kind);
-            hash.write_u8(row.fact.region);
+            hash.write_u8(row.fact.volume);
             hash.write_u32(row.fact.toi.get().raw() as u32);
             write_vec3(&mut hash, row.fact.point); write_vec3(&mut hash, row.fact.normal);
             write_vec3(&mut hash, row.fact.velocity_a); write_vec3(&mut hash, row.fact.velocity_b);
@@ -535,7 +540,7 @@ fn raw_lifted_command_receipt(strike_delta: i32, reach_delta: i32, mirrored: boo
         if world.contact_resolutions().iter().any(|row| row.fact.key.kind == ContactKind::WeaponBody
             && row.fact.key.a == attacker && row.fact.key.a_slot == limb as u8
             && row.fact.key.b == defender && row.fact.key.b_slot == crate::BODY_SLOT
-            && row.fact.region == BodyPart::Legs as u8) { break; }
+            && row.fact.volume == BodyPart::Legs as u8) { break; }
     }
     command_receipt(scenario.fingerprint(), &replay.submitted_entries)
 }
@@ -594,7 +599,7 @@ fn lifted_case_with_provenance(strike_delta: i32, reach_delta: i32, mirrored: bo
             row.fact.key.kind == ContactKind::WeaponBody
                 && row.fact.key.a == attacker && row.fact.key.a_slot == limb as u8
                 && row.fact.key.b == defender && row.fact.key.b_slot == crate::BODY_SLOT
-                && row.fact.region == BodyPart::Legs as u8
+                && row.fact.volume == BodyPart::Legs as u8
         }).count();
         if attributed != 0 && selected_row.is_none() {
             if attributed != 1 || first.contact_resolutions().len() != 1 {
@@ -696,7 +701,7 @@ fn lifted_receipts() -> Option<Vec<LiftedReceipt>> {
                 || mirror.row.fact.key.a_slot != LimbSlot::LeftArm as u8
                 || plain.row.fact.key.b_slot != mirror.row.fact.key.b_slot
                 || plain.row.fact.key.kind != mirror.row.fact.key.kind
-                || plain.row.fact.region != mirror.row.fact.region
+                || plain.row.fact.volume != mirror.row.fact.volume
                 || (plain.row.fact.toi.get().raw() - mirror.row.fact.toi.get().raw()).abs() > 1
                 || (plain.row.fact.point.x.raw() - mirror.row.fact.point.x.raw()).abs() > 1
                 || (plain.row.fact.point.y.raw() + mirror.row.fact.point.y.raw()
@@ -769,7 +774,7 @@ fn hash_lifted(rows: &[LiftedReceipt], mutation: LiftedMutation) -> u64 {
         let row = receipt.row; let key = row.fact.key;
         write_entity(&mut hash, key.a); hash.write_u8(if mutation == LiftedMutation::Key && at == 0 { key.a_slot ^ 1 } else { key.a_slot });
         write_entity(&mut hash, key.b); hash.write_u8(key.b_slot); write_contact_kind(&mut hash, key.kind);
-        hash.write_u8(if mutation == LiftedMutation::Region && at == 0 { row.fact.region ^ 1 } else { row.fact.region });
+        hash.write_u8(if mutation == LiftedMutation::Region && at == 0 { row.fact.volume ^ 1 } else { row.fact.volume });
         hash.write_u32(if mutation == LiftedMutation::Toi && at == 0 { row.fact.toi.get().raw() as u32 ^ 1 } else { row.fact.toi.get().raw() as u32 });
         let mut point = row.fact.point;
         if mutation == LiftedMutation::Geometry && at == 0 { point.x = Fx::from_raw(point.x.raw() ^ 1); }

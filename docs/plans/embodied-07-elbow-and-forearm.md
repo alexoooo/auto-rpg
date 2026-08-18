@@ -1,10 +1,11 @@
 # Embodied 07 -- two links, a derived elbow, and an arm that is finally as long as it says
 
-**Status:** the arm-length constraint and the derived elbow are complete and landed
-2026-08-17, and no pin moved. **The commanded swing plane landed the same day**, also
+**Status:** complete. The arm-length constraint and the derived elbow landed
+2026-08-17 with no pin moved; **the commanded swing plane landed the same day**, also
 with no pin moved -- `EMBODIED_PAYLOAD_BYTES` 53 -> 57, the embodied layout version
-1 -> 2, and the first embodied-only world column. The forearm **collider** is
-outstanding; what it needs and why it was separated is at the foot of this file.
+1 -> 2, and the first embodied-only world column. **The forearm collider landed the
+same day and moved exactly one pin**, `ARTICULATED_STREAM_DIGEST`, as a layout move;
+it is written up at the foot of this file.
 
 ## This is a mechanics fix, not an animation one
 
@@ -164,8 +165,8 @@ caller with no elbow to give should not have to say so.
 ## Verification, as run
 
 ```powershell
-cargo test                                                      # sim 649 in its lib alone
-cargo test -p sim --features cartesian-recoil                    # 819 passed, 0 failed
+cargo test                                                      # sim 654 in its lib alone
+cargo test -p sim --features cartesian-recoil                    # 823 passed, 0 failed
 cargo run --release -p lab -- hash                                # 0xfe31370e141ef531
 cargo run --release -p lab -- verify      --seeds 200
 cargo run --release -p lab -- duel        --seeds 400
@@ -175,9 +176,19 @@ node --test tools/wasm_check.js                                   # 33 pass, 0 f
 node tools/check_docs.js
 ```
 
+The forearm collider re-ran all of the above and added the client half:
+`lab strong-strike` both ways, `npm run check`, `node tools/check_deps.js`, and the
+four `client/test` suites. `cargo test` answers 654 in `sim`'s lib and 141 in `web`'s;
+`cargo test -p sim --features cartesian-recoil` answers 823; `lab hash` is still
+`0xfe31370e141ef531`; `duel --seeds 400` is still 238/162 at 59.5%; the articulated
+gate is still the same fixture pair, the same 285/299 split, **1,761,481** resolutions
+and **337** severances. `wasm_check.js` passes 33 on both builds.
+
 ## Hash expectation, and what happened
 
-**Nothing moved, across both halves.** The clamp answers `CommandFrame::World` for
+### The first two halves
+
+**Nothing moved.** The clamp answers `CommandFrame::World` for
 every model but `Embodied`, so `ARTICULATED_COMMAND_HASH`, `ARTICULATED_STREAM_DIGEST`
 and both exact digests cannot see it; `COMBAT_GEOMETRY_HASH` and
 `CONTACT_BEHAVIOR_DIGEST` are corpus pins over the shared primitives, which gained no
@@ -200,24 +211,96 @@ The wasm mirrors moved with the constants and not with a pin:
 `crates/web/src/lib.rs` and again in `tools/wasm_check.js`, whose 57-byte embodied
 fixture grew to 61 and whose header word became layout 2.
 
-## What is outstanding, and why it was separated
+## The forearm as a collider, as landed
 
-**The forearm as a collider.** `body_region_volumes` returns one capsule per region
-and `AnatomyRegion::COUNT` is 5. Growing the *volume list* to seven while keeping
-region *identity* at five is the plan's design and it still holds -- the selection
-tuple `(toi, medial_distance_squared, BodyPart)` already tolerates two volumes
-answering the same part, and `ArmPolyline::segments` is the seam it needs. What it
-touches is `build_contact_colliders` and the region publication, and the second of
-those is in the same file as the stance publication that was in flight when this
-landed.
+`BODY_VOLUME_COUNT` is 7 and `AnatomyRegion::COUNT` stays 5. The selection tuple
+`(toi, medial_distance_squared, volume)` already tolerated two volumes answering one
+`BodyPart`, and `ArmPolyline::segments` was the seam, exactly as this plan predicted.
 
-The swing plane is **done** and is recorded above rather than here. One thing it
-learned is worth carrying into the collider work: the fork
+**The rename was the whole safety argument and it worked as designed.**
+`ContactFact::region` became `ContactFact::volume` and `NO_REGION` became
+`NO_VOLUME`, which broke every reader at compile time. Four of them turned the byte
+into anatomy and would otherwise have dropped a forearm wound in silence -- the
+wounding pass and the severance report in `contact_phase.rs`, the published
+`COMBAT_EVENT_BODY_PART` word, and `learn`'s region histogram -- and three more
+wanted the volume and kept it. `volume_region` is the single bridge; the trap it
+closes is that `BodyPart::from_index(5)` answers `None`, so the old spelling takes an
+`else { continue }` and the blow does nothing at all.
+
+Two constructors and not an `Option` parameter: `body_region_volumes` builds a body
+whose arms are one capsule and `jointed_body_region_volumes` one whose arms are two,
+on `limb`'s own argument one layer down. `present` stays five wide on both, because
+it is a *severance* mask and there is no state in which a forearm is gone and its arm
+is not.
+
+The elbow is derived and never stored -- `World::arm_elbows` is a function of the
+posed anatomy, the hand and the held plane -- but it is **retained** in `TickEntry`,
+because contact sweeps from the tick-entry pose to the settled one and needs the
+joint the body actually had at each end. Applying this tick's plane to last tick's
+hand would sweep a forearm from a joint the body never occupied.
+
+`PosedArm::elbow` is published in world space so `crates/web` and `crates/lab` can
+build the same seven volumes without reaching for `Elbow`, which stays `pub(crate)`.
+On the browser side the forearm's `lower` **is** that elbow to the raw unit, which is
+what let `client/src/arena/scene.ts` stop inventing one; `elbowOf` survives as the
+fallback for a single-link body, and its own doc records that the invention was
+overruled on 43-68% of recorded arm rows.
+
+Three things this plan did not know:
+
+- **`World::swept_regions` had to grow to seven and the observation had to stay at
+  five**, and the two decisions point in opposite directions on purpose. The first is
+  an oracle checking the solver's own answer and cannot check a row it cannot see;
+  the second is a targeting view, a forearm is not separately targetable, and
+  widening it would move `FEATURE_LAYOUT_VERSION` and every trained checkpoint's
+  input shape -- which is session 09's business.
+- **`TRACE_SCHEMA` moved 5 -> 6.** `pose.regions` stopped being parallel to
+  `regionNames`, which is a column changing meaning rather than one being added. The
+  live and traced paths agree at seven rows --
+  `a_live_fight_matches_the_traced_fight` passes on 3,601 and 641 recorded frames --
+  and a schema-5 file would have failed inside a pose diff instead of at the door.
+- **`emit_abi.rs` asserted `REGIONS_PER_BODY == POSE_BODY_PART_COUNT`.** They are now
+  two numbers; the assertion states `+ 2` and says why the pose block's per-region
+  arrays stayed five.
+
+One thing the swing plane learned carried straight over, in a milder form: the fork
 [session 03](embodied-03-embodied-model-scaffold.md) made kept the three articulated
-digests still, exactly as designed, but it did **not** protect the replay codec, which
-read both schemas at `ARTICULATED_PAYLOAD_BYTES`. A forked width is not
-self-enforcing at a reader that hard-codes the other one, and the symptom was four
-bytes of desynchronisation surfacing as `LimitExceeded(OrderRecords)` -- a refusal
-about the order stream, from a defect in the command stream. Look for the same shape
-wherever the region publication assumes five volumes because
-`AnatomyRegion::COUNT` is five.
+digests still but did **not** protect the replay codec, which read both schemas at
+`ARTICULATED_PAYLOAD_BYTES`. The same shape here would have been a reader assuming
+five volumes because `AnatomyRegion::COUNT` is five -- and there were six of them, all
+found by the rename rather than by inspection.
+
+### The forearm collider
+
+**`ARTICULATED_STREAM_DIGEST` moved and it is the only pin that did**, predicted in
+writing before anything was run: `0x686ecf8a2f5dd479` -> `0x2a34c9104bdf18b9` on the
+default build and `0xde453a669e770512` -> `0x9e9442671b790fb2` on the exact one, with
+`REGION_LAYOUT_VERSION` 1 -> 2 beside it. It is a **layout** move rather than an
+extension or a values move: the region section went from five rows a body to seven, so
+its words and everything after them in each tick's stream shifted.
+
+**That the fight did not change is measured rather than argued**, which is what the
+prediction was owed. `the_region_section_is_the_whole_of_the_forearm_digest_move`
+recomputes the digest with the region section suppressed and gets
+`0xc6482a30f399d2cb` -- the same suppression measured on `b453ca1` in a throwaway
+worktree before any of this landed -- so every pose, event, projectile and stance word
+of all twenty ticks is byte-identical. It supersedes
+`the_stance_section_extends_the_digest_without_disturbing_its_prefix`, whose constant
+was a stream with a five-row region section and can no longer be computed.
+
+Everything else answered what it answered: `LAB_HASH` `0xfe31370e141ef531`,
+`CONTACT_BEHAVIOR_DIGEST` `0x587b0259e877105a` over the same 3,548 bytes,
+`COMBAT_GEOMETRY_HASH` `0x9d15344883cf6e9c`, `ARTICULATED_COMMAND_HASH`, both exact
+digests, `LEARNED_INFERENCE_DIGEST`, every legacy golden, both scenario fingerprints
+and the legacy feature prefix. `lab articulated --seeds 400 --mirrored` answers the
+same fixture pair, the same 285/299 split, the same 1,761,481 resolutions and the same
+337 severances -- articulated bodies get `[None; 2]` elbows, so their arm volume is
+still shoulder-to-hand and volumes 5 and 6 are absent.
+
+**The three warm-up plateaus in `client/test/wasm-memory.test.mjs` all moved and none
+of the loop counts needed to.** Re-traced: the contact fixture 266 -> 265 with its
+settling round 10 -> 16; the articulated stress fixture 302 -> 305 with its settling
+round 12 -> 4; the arena warm set 236 -> 238, still settling on round one. The session
+grew `MAX_REGIONS` by 4,096 bytes and one fixture came back a page *smaller*, which is
+the fourth reading in a row saying those figures are records of dlmalloc's arena and
+never budgets.

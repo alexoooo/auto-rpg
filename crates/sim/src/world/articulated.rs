@@ -129,6 +129,45 @@ impl World {
         self.stance_anatomy(i, anatomy)
     }
 
+    /// Where this slot's two elbows are, in the **body frame**, or `None` each.
+    ///
+    /// **Derived on demand and never stored, which is the same decision the
+    /// shield pose made and the opposite of the one the swing plane made.** An
+    /// elbow is a function of three columns the world already holds -- the
+    /// anatomy, the hand, and the held plane -- so a stored copy would be a
+    /// fourth thing that can disagree with them, and it would have to be written
+    /// by every phase that moves a hand: the actuator, the contact commit, the
+    /// entry clamp and the severance path. The plane is *state* because nothing
+    /// else in the world implies it; the elbow is not.
+    ///
+    /// The frame is the body's, matching [`ArmState::hand`], because the one
+    /// consumer that needs world space is the published pose and
+    /// `body_region_volumes` adds the origin itself. Handing back world
+    /// coordinates here would put the single conversion `combat::geometry` is
+    /// arranged around in two places.
+    ///
+    /// Guarded on the anatomy rather than on `alive`, because
+    /// `retain_contact_entry` walks dead rows on purpose -- keeping the row index
+    /// equal to the slot index is what removes the need for a second mapping --
+    /// and [`World::posed_anatomy`] panics on a slot that has none.
+    pub(super) fn arm_elbows(&self, i: usize) -> [Option<Vec3>; 2] {
+        if !self.combat_model.has_jointed_arms() { return [None; 2]; }
+        if self.anatomy_spec(i).is_none() { return [None; 2]; }
+        // The *posed* anatomy, so a crouched body's elbow is solved against the
+        // shoulder the collider builder and the sweep will use. Reading the
+        // immutable row would put the joint a pelvis-drop above the arm it
+        // belongs to, on exactly the model that has a pelvis to drop.
+        let anatomy = self.posed_anatomy(i);
+        let links = crate::combat::limb::Elbow::of(&anatomy);
+        let yaw = self.body_yaw[i].angle;
+        core::array::from_fn(|limb| crate::combat::limb::elbow_point(
+            crate::combat::limb::shoulder(&anatomy, yaw, limb),
+            self.arms[i][limb].hand,
+            links,
+            self.elbow_plane[i][limb].held,
+        ))
+    }
+
     fn stance_anatomy(&self, i: usize, anatomy: &BodyAnatomySpec) -> BodyAnatomySpec {
         if !self.combat_model.has_stance() { return anatomy.clone(); }
         let standing = Fx::from_raw(actuator::PELVIS_HEIGHT_RAW);

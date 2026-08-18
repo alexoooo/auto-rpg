@@ -182,7 +182,12 @@ fn belongs_to(
     row: &sim::ContactResolution, attacker: EntityId, defender: EntityId,
     hand: LimbSlot, region: BodyPart,
 ) -> bool {
-    belongs_to_fields(row.fact.key.kind, row.fact.region, row.fact.key.a,
+    // The volume becomes a region before the comparison, so a blow on a bent
+    // forearm counts as the arm blow it is. `belongs_to_fields` takes the mapped
+    // byte because its other caller builds one by hand from a `BodyPart`.
+    belongs_to_fields(row.fact.key.kind,
+        sim::volume_region(row.fact.volume as usize).map_or(sim::NO_VOLUME, |part| part as u8),
+        row.fact.key.a,
         row.fact.key.a_slot, row.fact.key.b, row.fact.key.b_slot,
         attacker, defender, hand, region)
 }

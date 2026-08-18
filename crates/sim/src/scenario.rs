@@ -134,6 +134,29 @@ impl CombatModel {
         }
     }
 
+    /// Whether this model's arms are two links and present a forearm to the
+    /// contact solver.
+    ///
+    /// The fourth predicate, agreeing with the three above on every member
+    /// today, and split from them on the same principle: this one is a question
+    /// about **geometry** -- how many capsules a body hands the sweep -- while
+    /// `has_swing_plane` is about the command surface and `has_stance` is about
+    /// the legs. They come apart in both directions. A model could command a
+    /// plane and still collide as one capsule, which is exactly what this
+    /// session's predecessor shipped for a day; and a model could split its arm
+    /// at a fixed elbow with no plane to steer it, which is what a cheaper
+    /// version of this session would have been.
+    ///
+    /// **Session 10 collapses all four**, when `Legacy` and `Articulated` go and
+    /// the question stops having two answers. Until then, four predicates is the
+    /// cost of being able to say which property a future model is opting into.
+    pub(crate) const fn has_jointed_arms(self) -> bool {
+        match self {
+            CombatModel::Legacy | CombatModel::Articulated => false,
+            CombatModel::Embodied => true,
+        }
+    }
+
     /// Which frame a submitted arm bearing and movement vector are measured in.
     ///
     /// This is the whole of what separates an embodied body from an articulated

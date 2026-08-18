@@ -39,7 +39,10 @@ use crate::combat::wide::WideRational4096;
 #[cfg(feature = "cartesian-recoil")]
 use crate::combat::lifted_solver::{solve_lifted_group, LiftedContact, LiftedSolverReject,
                                   LiftedSolverScratch};
-use crate::combat::spec::{AnatomyRegion, SurfaceSpec};
+use crate::combat::spec::{SurfaceSpec, BODY_VOLUME_COUNT};
+// Anatomy is a fixture vocabulary here: the resolver names swept volumes.
+#[cfg(test)]
+use crate::combat::spec::AnatomyRegion;
 use crate::{EntityId, Faction};
 use fx::{Fx, TimeOfImpact, Vec3};
 
@@ -1393,7 +1396,7 @@ fn solve_contact_tick_with<P: ContactTrialProjector, K: ContactKinematics>(
             {
                 let recomputed = recomputed.ok_or(ResolutionError::ExactScan)?;
                 if recomputed.key != fact.key
-                    || (recomputed.region != fact.region
+                    || (recomputed.volume != fact.volume
                         && fact.key.kind != ContactKind::ProjectileBody) {
                     return Err(ResolutionError::ExactScan);
                 }
@@ -1973,7 +1976,7 @@ fn behavior_case(case_id: u32) -> Vec<ContactCollider> {
                 slot: BODY_SLOT, mass: Fx::ONE, surface, velocity: Vec3::ZERO,
                 velocity_offset: Vec3::ZERO, present: true,
                 shape: ContactShape::Body { previous_origin: body_point, requested_origin: body_point,
-                    parts: [part; AnatomyRegion::COUNT] } };
+                    parts: [part; BODY_VOLUME_COUNT] } };
             vec![weapon, body]
         }
         _ => unreachable!(),
@@ -2012,7 +2015,7 @@ pub(crate) mod tests {
         ExactContactTrajectory { entity: EntityId::new(index, 0), faction: Faction::Heroes,
             slot: BODY_SLOT, kind: GeneralizedKind::Body, mass_raw: 65_536,
             surface: surface(Fx::ZERO), motor: MotorShape::Body {
-                origin: point, parts: [bound; AnatomyRegion::COUNT],
+                origin: point, parts: [bound; BODY_VOLUME_COUNT],
             }, owner_index, held_index: None, equipment_spec: None, present: true }
     }
 
@@ -2387,7 +2390,7 @@ pub(crate) mod tests {
         for candidate in scratch.candidates() {
             let time_raw = candidate.fact.toi.get().raw() as u32;
             selections.push(AuditCertifiedSelection { time_raw, key: candidate.fact.key,
-                region: candidate.fact.region, medial_order_only: 0 });
+                region: candidate.fact.volume, medial_order_only: 0 });
             provenance.push(AuditCertifiedProvenance { key: candidate.fact.key, time_raw,
                 wide_toi: candidate.wide_toi.ok_or(ExactScanReject::CompatibilityIdentity)? });
         }
@@ -2799,7 +2802,7 @@ pub(crate) mod tests {
         ContactFact {
             key: ContactKey { a: EntityId::new(a, 0), a_slot: 1,
                               b: EntityId::new(b, 0), b_slot: if kind == ContactKind::WeaponBody { BODY_SLOT } else { 1 }, kind },
-            toi: TimeOfImpact::new_clamped(Fx::from_raw(toi)), region: 0xff,
+            toi: TimeOfImpact::new_clamped(Fx::from_raw(toi)), volume: 0xff,
             point: Vec3::new(Fx::from_raw(toi), Fx::ZERO, Fx::ZERO), normal: Vec3::X,
             velocity_a: Vec3::new(Fx::from_raw(va), Fx::ZERO, Fx::ZERO),
             velocity_b: Vec3::new(Fx::from_raw(vb), Fx::ZERO, Fx::ZERO),
@@ -3148,7 +3151,7 @@ pub(crate) mod tests {
                         previous_lower: Vec3::ZERO, previous_upper: Vec3::ZERO,
                         requested_lower: body, requested_upper: body,
                         radius: Fx::ZERO, present: true,
-                    }; AnatomyRegion::COUNT] } },
+                    }; BODY_VOLUME_COUNT] } },
         ]
     }
 
@@ -3347,7 +3350,7 @@ pub(crate) mod tests {
                     b_slot: match kind { ContactKind::WeaponShield => 0, ContactKind::WeaponBody => BODY_SLOT, _ => 1 },
                     ..base.key
                 },
-                region: if kind == ContactKind::WeaponBody { 1 } else { 0xff },
+                volume: if kind == ContactKind::WeaponBody { 1 } else { 0xff },
                 point: Vec3::Z,
                 ..base
             };

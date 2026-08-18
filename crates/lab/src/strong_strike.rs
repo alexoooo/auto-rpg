@@ -575,10 +575,20 @@ fn measure_case_schedule_with(case: StrongCase, strike_effort: Fx, chamber_ticks
             answer.normal = row.fact.normal; answer.impulse_on_a = row.impulse.on_a;
             answer.group_alpha_raw = Some(row.group_alpha_raw);
             answer.velocity_a = row.fact.velocity_a; answer.velocity_b = row.fact.velocity_b;
-            answer.region = BodyPart::ALL.get(row.fact.region as usize).copied();
-            answer.crossing_oracle = answer.region.zip(world.swept_regions(defender))
-                .map(|(part, regions)| {
-                    let (previous, requested) = regions[part as usize];
+            // The region the blow landed in, through the one bridge: a fact
+            // names a swept volume, and indexing `BodyPart::ALL` with it would
+            // answer `None` for a forearm and silently drop the whole
+            // measurement -- the region, the crossing oracle and the integrity
+            // comparison that reads it.
+            answer.region = sim::volume_region(row.fact.volume as usize);
+            // **The oracle reads the volume the solver chose, not the region's
+            // primary one.** `swept_regions` is volume-keyed, so a forearm blow
+            // is checked against the forearm capsule that took it; asking the
+            // arm's own row would test a crossing of a capsule the blow may
+            // never have entered.
+            answer.crossing_oracle = world.swept_regions(defender)
+                .map(|regions| {
+                    let (previous, requested) = regions[row.fact.volume as usize];
                     CrossingOracle { previous, requested }
                 });
             answer.energy_before_raw = row.energy.before_raw;
@@ -1322,10 +1332,13 @@ fn write_scan_pair(out: &mut String, value: Option<sim::ExactScanPairRejectionDi
 #[cfg(feature = "cartesian-recoil")]
 fn write_resolution(out: &mut String, at: usize, row: sim::ContactResolution) {
     use core::fmt::Write;
-    writeln!(out, "resolution index={at} group_ordinal={} group_alpha_raw={} key={}:{}:{}:{}:{} toi_raw={} region={} point={} normal={} velocity_a={} velocity_b={} impulse_a={} impulse_b={} energy_before={} energy_after={} dissipated={} cut={} thrust={} pressure={} deflected={} severed={}",
+    // `volume=` and not `region=`: this is a transcript of the fact, and the
+    // fact's byte is the swept volume the solver chose. A label that said
+    // "region" over a `5` would be a reader's afternoon.
+    writeln!(out, "resolution index={at} group_ordinal={} group_alpha_raw={} key={}:{}:{}:{}:{} toi_raw={} volume={} point={} normal={} velocity_a={} velocity_b={} impulse_a={} impulse_b={} energy_before={} energy_after={} dissipated={} cut={} thrust={} pressure={} deflected={} severed={}",
         row.group_ordinal, row.group_alpha_raw, entity_text(row.fact.key.a), row.fact.key.a_slot,
         entity_text(row.fact.key.b), row.fact.key.b_slot, contact_kind_name(row.fact.key.kind),
-        row.fact.toi.get().raw(), row.fact.region, vec3_text(row.fact.point), vec3_text(row.fact.normal),
+        row.fact.toi.get().raw(), row.fact.volume, vec3_text(row.fact.point), vec3_text(row.fact.normal),
         vec3_text(row.fact.velocity_a), vec3_text(row.fact.velocity_b), vec3_text(row.impulse.on_a),
         vec3_text(row.impulse.on_b), row.energy.before_raw, row.energy.after_raw,
         row.energy.dissipated_raw, row.cut_raw, row.thrust_raw, row.pressure_raw,
@@ -1848,8 +1861,13 @@ fn validate_scan_pair(pair: &ScanPairOwned) -> Result<(), String> {
         || pair.b_shape != ExactScanShapeDiagnostic::Body
         || pair.orientation != ExactSegmentBodyOrientationDiagnostic::SegmentBody
     { return Err("tick 46 target admission drifted".into()); }
+    // The transcript has one row per **swept volume**, so its bound is
+    // `BODY_VOLUME_COUNT` and not the five regions it was written against: the
+    // scanner pushes a diagnostic row before it tests presence, so an absent
+    // forearm still costs a row.
     if pair.region_count != pair.regions.len() || pair.visit_count != pair.visits.len()
-        || pair.regions.len() > BodyPart::COUNT || pair.visits.len() > BodyPart::COUNT * 96 {
+        || pair.regions.len() > sim::BODY_VOLUME_COUNT
+        || pair.visits.len() > sim::BODY_VOLUME_COUNT * 96 {
         return Err("tick 46 transcript exceeded its fixed bound".into());
     }
     let mut visit_start = 0;
@@ -2647,7 +2665,11 @@ fn validate_pair_aabb(containing: &ScanPairOwned, aabb: &PairAabbOwned) -> Resul
         return Err("smart132 recorder-invalid pair-AABB evidence was refused".into());
     }
     let reject = matches!(aabb.terminal, ExactPairAabbTerminalDiagnostic::Reject(_));
-    if aabb.points.len() > 24 || aabb.bounds.len() > 3 || aabb.gaps.len() > 3 {
+    // Four points for the segment plus four per swept volume, which is the same
+    // arithmetic `EXACT_PAIR_AABB_POINT_CAP` is. It was 24 while a body was five
+    // capsules.
+    if aabb.points.len() > sim::BODY_VOLUME_COUNT * 4 + 4
+        || aabb.bounds.len() > 3 || aabb.gaps.len() > 3 {
         return Err("smart132 pair-AABB evidence exceeded its fixed bound".into());
     }
     let a_count = aabb.points.iter().take_while(|row| row.side == ExactPairAabbSideDiagnostic::A).count();
@@ -2674,13 +2696,15 @@ fn validate_pair_aabb(containing: &ScanPairOwned, aabb: &PairAabbOwned) -> Resul
                 row.source != source || row.endpoint != endpoint || row.region.is_some())
             { return Err("smart132 segment point semantic order drifted".into()); }
         } else {
-            if rows.len() > 20 || (!reject && rows.len() % 4 != 0) {
+            // Four points per swept volume, so the bound is the volume count
+            // and not the five regions the twenty was.
+            if rows.len() > sim::BODY_VOLUME_COUNT * 4 || (!reject && rows.len() % 4 != 0) {
                 return Err("smart132 body point cardinality drifted".into());
             }
             let mut previous_region = None;
             for group in rows.chunks(4) {
                 let region = group[0].region.ok_or("smart132 body point region was missing")?;
-                if region as usize >= BodyPart::COUNT {
+                if region as usize >= sim::BODY_VOLUME_COUNT {
                     return Err("smart132 body point region was out of range".into());
                 }
                 if previous_region.is_some_and(|previous| previous >= region)
@@ -4109,9 +4133,15 @@ fn resolution_rows(rows_in: &[sim::ContactResolution], mapped_mirror: bool) -> V
             key.a, a_slot, key.b, b_slot, key.kind)));
         rows.push(trace_field("resolution.toi", row.fact.toi.get().raw()));
         rows.push(trace_field("resolution.alpha", row.group_alpha_raw));
-        rows.push(trace_field("resolution.region", if mapped_mirror {
-            match row.fact.region { 2 => 3, 3 => 2, other => other }
-        } else { row.fact.region }));
+        // **Four indices swap under the mirror and not two**, because an arm is
+        // two swept volumes: 2 and 3 are the upper arms and 5 and 6 are the
+        // forearms that hang off them. Reflecting a fight exchanges left and
+        // right, so a mirrored corpus that swapped only the first pair would
+        // report a left forearm where the plain run reported a right one and
+        // stop being a mirror -- silently, since both values are legal.
+        rows.push(trace_field("resolution.volume", if mapped_mirror {
+            match row.fact.volume { 2 => 3, 3 => 2, 5 => 6, 6 => 5, other => other }
+        } else { row.fact.volume }));
         rows.extend(point_rows("resolution.point", row.fact.point, mapped_mirror));
         rows.extend(vector_rows("resolution.normal", row.fact.normal, mapped_mirror));
         rows.extend(vector_rows("resolution.velocity_a", row.fact.velocity_a, mapped_mirror));

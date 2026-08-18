@@ -130,6 +130,14 @@ export const OWN_BODY_HIDDEN_REGIONS: readonly number[] = Object.freeze([0, 1]);
  *
  * Two rules, and they are the same rule: `present` is false for a region the
  * body does not have, and a set bit in `severed` is a region it no longer has.
+ *
+ * **The second rule reaches the two forearm rows through the first one**, which
+ * is worth stating because `severed` has no bit for them: it is five bits, one
+ * per `BodyPart`. The simulation clears a severed arm's forearm `present` bit in
+ * the same pass that clears the arm's own -- `a_severed_arm_takes_its_forearm_with_it`
+ * is what holds it to that -- so `index >= 5` is covered by the check above and
+ * the shift below reading bit 5 or 6 of a five-bit mask is inert rather than
+ * wrong.
  */
 export function regionDrawn(pose: Pose, index: number): boolean {
   const region = pose.regions[index];
@@ -138,14 +146,35 @@ export function regionDrawn(pose: Pose, index: number): boolean {
 }
 
 /**
- * The region a limb's own capsule is, in `BodyPart` order.
+ * The region a limb's **upper** arm capsule is, in `BodyPart` order.
  *
  * `regionNames` is head, torso, leftArm, rightArm, legs and `severed`'s bits are
  * numbered the same way, so limb `n` is region `n + 2`. Written down once
  * because everything a hand carries has to be gated on it and a body part
  * counted from the wrong end draws a wrong picture rather than crashing.
+ *
+ * **These two indices did not move when the arm gained an elbow**, and that is
+ * why the simulation appended the two forearm volumes after the five regions
+ * instead of interleaving them beside each arm. See {@link FOREARM_REGIONS}.
  */
 export const ARM_REGIONS: readonly [number, number] = Object.freeze([2, 3]);
+
+/**
+ * The region a limb's forearm capsule is, when the body has one.
+ *
+ * **Rows 5 and 6, past the end of `regionNames`, and the asymmetry is the
+ * simulation's design rather than an oversight here.** A published body is a
+ * list of *swept volumes* and `regionNames` is a list of *anatomy regions*; a
+ * jointed arm is two capsules answering for one region, so the two lists agree
+ * on their first five entries and the volume list is longer. A forearm has no
+ * name here because it has no integrity, no wound row and no severance bit of
+ * its own -- it is part of an arm.
+ *
+ * Absent on a body whose arms are one link, which is every recorded fixture:
+ * `present` is false on both rows and {@link regionDrawn} refuses them, so this
+ * draws nothing extra on any articulated fight.
+ */
+export const FOREARM_REGIONS: readonly [number, number] = Object.freeze([5, 6]);
 
 /**
  * Whether this arm is still on the body, and so whether what it holds is drawn.

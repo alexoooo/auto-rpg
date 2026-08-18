@@ -356,7 +356,7 @@ function syntheticTrace() {
     poses: [pose(0, -5 * ONE + t * ONE), pose(1, 5 * ONE)],
   });
   return {
-    schema: "arpg-fight-trace-5", one: ONE, scenario: "duel", mirrored: false,
+    schema: "arpg-fight-trace-6", one: ONE, scenario: "duel", mirrored: false,
     fingerprint: "abc123", seed: 3, heroes: "composed", monsters: "composed",
     checkpoint: null, outcome: "Heroes", timedOut: false, ticks: 2, maxTicks: 3600,
     arena: [48 * ONE, 32 * ONE], frameCount: 3, truncated: false,

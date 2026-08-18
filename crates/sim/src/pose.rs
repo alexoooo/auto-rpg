@@ -68,6 +68,22 @@ pub enum AnimationHint {
 pub struct PosedArm {
     /// The hand, in world space.
     pub hand: Vec3,
+    /// The elbow, in world space, or `None` for a body whose arms are one link.
+    ///
+    /// **Published rather than left to the reader to solve, and the browser is
+    /// the reason.** `client/src/arena/geometry.ts::elbowOf` invents one from the
+    /// shoulder, the hand and half an arm length, and its own doc records that
+    /// the invention is overruled on 43-68% of the recorded arm rows because the
+    /// published hand is further from the shoulder than two bones can span. That
+    /// is a second answer to a question the simulation now answers, which is
+    /// exactly what publishing the swept volumes exists to stop.
+    ///
+    /// World space, beside `hand`, and not the `Elbow` link pair it came from:
+    /// `Elbow` is `pub(crate)` and stays that way, because a consumer holding the
+    /// two link lengths would be a consumer that could solve a *different* elbow
+    /// -- a different plane, a different rounding -- and draw an arm the contact
+    /// phase is not sweeping.
+    pub elbow: Option<Vec3>,
     /// The hand's velocity **relative to the body origin**, in world units per
     /// tick -- the column the actuator integrates, unconverted. The absolute
     /// velocity is [`ArticulatedPose::body_velocity`] plus this, which is the

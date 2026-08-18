@@ -85,7 +85,7 @@ the rest of the crate and the diff is a move.
 | [04](embodied-04-terrain-and-elevation.md) | **done.** sculpted terrain column, body z as a terrain sample, walls from slope | 03 |
 | [05](embodied-05-torso-relative-command.md) | **done.** arm bearing and movement become torso-relative | 03 |
 | [06](embodied-06-stance.md) | **done.** pelvis height, hip yaw distinct from torso yaw, twist budget that forces a step, `EMBODIED_STANCE_V1` published | 04 and 05 |
-| [07](embodied-07-elbow-and-forearm.md) | **arm-length constraint, derived elbow and commanded swing plane done**; forearm collider outstanding | 06 |
+| [07](embodied-07-elbow-and-forearm.md) | **done.** arm-length constraint, derived elbow, commanded swing plane, forearm as a swept collider; `ARTICULATED_STREAM_DIGEST` moved once, by layout | 06 |
 | [08](embodied-08-command-composition.md) | **done.** one hand human, the other hand AI, merged before submission | 05 |
 | [09](embodied-09-observation-and-policy.md) | embodied observation block, scripted policy, learning boundary | 07 and 08 |
 | [10](embodied-10-retire-the-older-models.md) | `Legacy` and `Articulated` deleted; `Embodied` is the only model | 09 |
@@ -161,6 +161,17 @@ Two exceptions, both predicted here and budgeted to their session:
   stays byte-identical. The articulated fixture has no embodied body, so its new tail
   is a zero length and a zero drop count -- present, and therefore a grammar change.
   This is the same shape of move v2-ui-06 made when the region section landed.
+- **Session 07's forearm moves the same pin again, and by *layout* rather than by
+  extension.** This paragraph said nothing about session 07 while the elbow was
+  expected to be derived geometry only; a forearm the solver sweeps is a published
+  volume, so `REGIONS_PER_BODY` goes 5 to 7, `MAX_REGIONS` 320 to 448 and the region
+  section of every tick is rewritten in place with everything after it shifting.
+  `REGION_LAYOUT_VERSION` goes 1 to 2 and is what says which kind of move it is. The
+  claim that has to be earned is that the *fight* did not change, and it is earned by
+  recomputing the digest with the region section suppressed and matching the value
+  the same suppression gives on the commit before -- the same technique session 06
+  used, pointed at a different section. Nothing else moves: `AnatomyRegion::COUNT`
+  stays 5, so the pose block, the anatomy hash row and the observation are untouched.
 
 **Session 09 owns the only feature-layout move.** Embodied columns append after the
 articulated block, so the `legacy feature prefix` pin over indices `0..450` must not
@@ -212,7 +223,10 @@ treat an unpredicted move as a bug until the exact byte path proves otherwise. A
 waiver changes is what happens once that argument is made and holds -- the move is
 re-recorded rather than designed around. Session 06's `ARTICULATED_STREAM_DIGEST` is
 the worked example: predicted here, argued from the digest grammar, measured against a
-recomputation with the new section suppressed, then recorded.
+recomputation with the new section suppressed, then recorded. Session 07's forearm is
+the second, and it is the harder case -- a section rewritten in place rather than
+appended, so the suppression had to be measured on the *previous commit* in a
+throwaway worktree before the number could be defended.
 
 **The frame ABI's six-file handshake is a within-build agreement.** Writer and readers
 are all built from this commit, so the rule keeps them agreeing with *each other*

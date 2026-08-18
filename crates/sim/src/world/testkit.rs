@@ -199,7 +199,7 @@ pub(super) fn braced_thrust(scenario: &Scenario) -> (World, u8) {
     resolve_closing(&mut world, &[(1, -Fx::ONE)]);
     let region = world.contact_resolutions().iter()
         .find(|row| row.fact.key.kind == ContactKind::WeaponBody)
-        .expect("the braced fixture reached no body").fact.region;
+        .expect("the braced fixture reached no body").fact.volume;
     (world, region)
 }
 

@@ -60,7 +60,7 @@ use policy::{
 use sim::{
     ArticulatedCommandV1, ArticulatedObservation, BodyPart, CombatHeight, ContactKind, EntityId,
     Faction, Intent, Outcome, Replay, ResolutionError, Scenario, SubmitArticulatedOutcome,
-    SubmittedCommand, World, BODY_SLOT, NO_REGION,
+    SubmittedCommand, World, volume_region, BODY_SLOT,
 };
 use std::time::Instant;
 
@@ -360,7 +360,13 @@ pub struct Mechanics {
     /// met a plate instead of a body.
     pub kinds: [u64; 4],
     /// Weapon/body resolutions by the region they landed in, in [`BodyPart`]
-    /// order, with a final bucket for [`sim::NO_REGION`].
+    /// order, with a final bucket for a fact that names no body at all.
+    ///
+    /// **Regions and not swept volumes, which is a narrowing rather than a
+    /// truncation.** A body presents seven capsules and five of them are
+    /// anatomy; a forearm blow is an arm blow here, through
+    /// [`sim::volume_region`], because what this table is for is "where did the
+    /// policy put the blade" and a forearm is part of an arm.
     ///
     /// **A zero in the head column is not evidence that a policy chose not to
     /// aim there**, and anything reporting this table has to say so: the three
@@ -626,11 +632,14 @@ pub fn rollout_with(
                 audit.max_blow_raw = audit
                     .max_blow_raw
                     .max(row.cut_raw.saturating_add(row.thrust_raw));
-                let region = if row.fact.region == NO_REGION {
-                    BodyPart::COUNT
-                } else {
-                    (row.fact.region as usize).min(BodyPart::COUNT)
-                };
+                // The fact names a swept volume, and `volume_region` is the one
+                // bridge to anatomy: a forearm answers for its arm, so a blow
+                // that landed below the elbow is counted in the arm's bucket
+                // rather than in the "no region" one. Reading the byte as a
+                // region index would have put every forearm blow in `COUNT` and
+                // reported the probe's arm coverage as a fifth too low.
+                let region = volume_region(row.fact.volume as usize)
+                    .map_or(BodyPart::COUNT, |part| part as usize);
                 audit.regions[region] += 1;
                 // Whichever side of the fact is holding something is the side
                 // that swung; the other carries `BODY_SLOT`.

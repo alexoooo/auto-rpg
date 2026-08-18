@@ -35,7 +35,16 @@ use std::fmt::Write as _;
 /// Bumped when a field changes meaning, never when one is added: the page
 /// refuses a file whose schema it does not know, which is the difference between
 /// "the viewer is out of date" and "the viewer is drawing the wrong thing".
-pub const TRACE_SCHEMA: &str = "arpg-fight-trace-5";
+///
+/// **Moved from 5 by the forearm collider, and it is a meaning change rather
+/// than an addition.** `pose.regions` went from five rows to seven, and until it
+/// did, row `i` was named by `regionNames[i]`. It no longer is: the array is the
+/// swept-volume list and the name table is anatomy, which agree on their first
+/// five entries and nowhere after. A schema-5 file read by this page would draw
+/// two arms as one capsule each and would fail
+/// `a_live_fight_matches_the_traced_fight` deep inside a pose diff -- which is
+/// the confusing half of the failure the guard exists to make plain.
+pub const TRACE_SCHEMA: &str = "arpg-fight-trace-6";
 
 /// Raw units in one world unit, carried in the file rather than assumed by the
 /// reader. `Fx::ONE.raw()` is not public API to a page.
@@ -158,8 +167,18 @@ impl FightTrace {
             // takes them body-relative -- it adds the origin itself, which is
             // the single conversion the whole contact module is arranged around.
             let hands = [pose.arms[0].hand - pose.body, pose.arms[1].hand - pose.body];
-            let regions = sim::body_region_volumes(
-                pose.body, anatomy, pose.body_yaw, hands, present,
+            // The **swept volumes**, all seven of them, through the same
+            // constructor `crates/web` publishes with. A jointed arm is two
+            // capsules, and `a_live_fight_matches_the_traced_fight` compares
+            // this array against the live one field for field -- so a trace that
+            // wrote the five anatomy regions here would fail that comparison
+            // rather than merely draw a shorter arm. The elbows are `None` on
+            // every articulated body, which is why no recorded fixture's rows 5
+            // and 6 are anything but absent.
+            let elbows = [pose.arms[0].elbow.map(|joint| joint - pose.body),
+                          pose.arms[1].elbow.map(|joint| joint - pose.body)];
+            let regions = sim::jointed_body_region_volumes(
+                pose.body, anatomy, pose.body_yaw, hands, present, elbows,
             );
 
             let _ = write!(out, "{{\"id\":");
@@ -275,7 +294,14 @@ impl FightTrace {
             let _ = write!(out, ",\"aSlot\":{},\"b\":", key.a_slot);
             entity(out, key.b);
             let _ = write!(out, ",\"bSlot\":{},\"kind\":{},\"region\":{}",
-                key.b_slot, key.kind as u8, row.fact.region);
+                key.b_slot, key.kind as u8,
+                // The **region**, mapped, and not the volume the fact carries.
+                // `regionNames` below has five entries and `Trace.region` is
+                // documented as an index into it, so a forearm is written as its
+                // arm. Writing the raw volume would put a `5` in a column the
+                // reader names from a five-element table.
+                sim::volume_region(row.fact.volume as usize)
+                    .map_or(sim::NO_VOLUME, |part| part as u8));
             out.push_str(",\"point\":");
             vec3(out, row.fact.point);
             out.push_str(",\"normal\":");
@@ -384,10 +410,16 @@ impl FightTrace {
 
         // Names for every code the frames carry as a number, so the reader owns
         // no copy of an enum that `sim` can renumber underneath it.
+        // Five names for a `regions` array that is seven long, and the
+        // mismatch is the point rather than a bug: this table names **anatomy**
+        // -- it is what the contact column and the severed readout index -- while
+        // `pose.regions` is the swept-volume list the solver works in. The first
+        // five agree by construction, which is what `forearm_volume` appending
+        // rather than interleaving buys.
         out.push_str(",\"regionNames\":[\"head\",\"torso\",\"leftArm\",\"rightArm\",\"legs\"]");
         out.push_str(",\"hintNames\":[\"idle\",\"chasing\",\"braced\",\"contact\",\"recoiling\",\"severed\"]");
         out.push_str(",\"contactKinds\":[\"weaponWeapon\",\"weaponShield\",\"weaponBody\",\"projectileBody\"]");
-        let _ = write!(out, ",\"bodySlot\":{},\"noRegion\":{}", sim::BODY_SLOT, sim::NO_REGION);
+        let _ = write!(out, ",\"bodySlot\":{},\"noRegion\":{}", sim::BODY_SLOT, sim::NO_VOLUME);
 
         out.push_str(",\"bodies\":[");
         for (index, unit) in scenario.units.iter().enumerate() {

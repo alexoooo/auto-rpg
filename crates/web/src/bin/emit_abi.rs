@@ -45,11 +45,13 @@ const FURNITURE_DOOR_OPEN: u8 = 1;
 /// the consumer indexes `POSE_INTEGRITY_FIRST + part` against a number rather
 /// than against a literal five it also has to keep in step with `BodyPart`.
 ///
-/// The same number as `REGIONS_PER_BODY` and deliberately its own name: one is
-/// how wide a pose row's fraction blocks are, the other is how many region rows
-/// a body publishes, and a consumer reaching for the wrong one would be reading
-/// the right value for the wrong reason. Both are `sim::AnatomyRegion::COUNT`
-/// in Rust, so they cannot drift; the test below states the identity once.
+/// **It used to be the same number as `REGIONS_PER_BODY`, and it is not any
+/// more.** The two always answered different questions -- one is how wide a pose
+/// row's fraction blocks are, the other is how many region rows a body publishes
+/// -- and having them agree numerically was what let a consumer reach for the
+/// wrong one and get the right value. The forearm collider separated them: a
+/// body presents seven swept volumes and has five anatomy regions. The test
+/// below states the relation that replaced the identity.
 const POSE_BODY_PART_COUNT: usize = sim::AnatomyRegion::COUNT;
 
 /// The slot value that names the body itself rather than a grip. Carried across
@@ -548,10 +550,32 @@ mod tests {
         // are one cap. A stance buffer that could fill first would drop the legs
         // of a body whose torso crossed.
         assert_eq!(MAX_EMBODIED_STANCE, MAX_POSES);
-        // One number under two names, stated once so a consumer reaching for
-        // either gets the same five. See `POSE_BODY_PART_COUNT`.
-        assert_eq!(REGIONS_PER_BODY, POSE_BODY_PART_COUNT);
-        // Five region rows for every pose row the buffer beside it can hold. A
+        // **Two numbers, and this states which is which.** The region section is
+        // keyed by *swept volume* and the pose block's fraction arrays by
+        // *anatomy region*: a jointed arm is two capsules for one region, so
+        // there are two more region rows than there are body parts, and the two
+        // extra are the forearms. `assert_eq!(REGIONS_PER_BODY,
+        // POSE_BODY_PART_COUNT)` stood here while the two were one number, and a
+        // consumer that read the identity out of it would now index a five-wide
+        // integrity array with a `5`.
+        //
+        // The pose block's arrays stayed five because they are anatomy and
+        // anatomy did not grow: a forearm has no integrity, no wound row, no
+        // armour and no severance of its own -- it is part of an arm, and losing
+        // it is losing the arm. Widening them would have moved
+        // `POSE_LAYOUT_VERSION`, the anatomy hash row and every observation
+        // feature that counts region words, all to publish two columns that are
+        // copies of the two beside them.
+        //
+        // The relation is stated as arithmetic rather than as a bare inequality
+        // so that a third capsule per arm, or a sixth region, fails here.
+        assert_eq!(REGIONS_PER_BODY, POSE_BODY_PART_COUNT + 2);
+        // The first `POSE_BODY_PART_COUNT` region rows are the body parts in
+        // their own order, which is what lets a consumer keep indexing regions 2
+        // and 3 as the arms. The forearms were appended and not interleaved for
+        // exactly that reason.
+        assert!(REGIONS_PER_BODY >= POSE_BODY_PART_COUNT);
+        // Region rows for every pose row the buffer beside it can hold. A
         // region row carries no identity -- the pose row at `n / REGIONS_PER_BODY`
         // is its identity -- so a capacity that could fill first would publish
         // half a body and misalign every row after it.

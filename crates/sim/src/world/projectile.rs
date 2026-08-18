@@ -221,7 +221,7 @@ mod articulated_projectile_tests {
             let row = world.contact_resolutions().iter()
                 .find(|row| row.fact.key.kind == ContactKind::ProjectileBody)
                 .expect("shared solver omitted projectile/body fact");
-            assert_eq!(row.fact.region as usize, part);
+            assert_eq!(row.fact.volume as usize, part);
             assert!(world.wounds[target].parts[part].integrity < before);
             assert_eq!(world.articulated_projectiles().count(), 0);
         }

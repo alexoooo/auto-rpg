@@ -135,15 +135,15 @@ pub use combat::resolution::{ExactContactGroupDiagnostic, ExactContactKeyDiagnos
 /// solver stays private: the host reserves the high water before it hands the
 /// page a pointer, and has to be able to say which count refused.
 ///
-/// [`ContactKind`], [`BODY_SLOT`] and [`NO_REGION`] come with it because the
+/// [`ContactKind`], [`BODY_SLOT`] and [`NO_VOLUME`] come with it because the
 /// host mirrors a resolution row word for word: the kind is a published
 /// column, and the two sentinels are the difference between "the body itself"
-/// and "slot zero" and between "no anatomy here" and "the head". A second copy
+/// and "slot zero" and between "no body here" and "the head". A second copy
 /// of either number on the far side of the wall is a mis-read waiting to
 /// happen.
 pub use combat::contact::{
     ContactCapacityError, ContactKind, ContactResolution, BODY_SLOT,
-    MAX_ARTICULATED_ENTITIES, NO_REGION,
+    MAX_ARTICULATED_ENTITIES, NO_VOLUME,
 };
 /// The two published shapes out of `geometry`, and nothing else. The pose row
 /// draws exactly a [`SegmentPose`] and the subject-scoped observation carries
@@ -151,7 +151,13 @@ pub use combat::contact::{
 /// fields would be a second thing to keep in step with the collider builder.
 /// The collider rows themselves stay private -- those are the contact phase's
 /// business.
-pub use combat::geometry::{body_region_volumes, RegionVolume, SegmentPose};
+///
+/// Both constructors are exported and not just the one a host happens to use
+/// today: `crates/web` and `crates/lab` build the same volumes the contact phase
+/// sweeps, and a host that could only ask for the single-link shape would draw
+/// an embodied body's arm as a capsule the solver is not sweeping.
+pub use combat::geometry::{body_region_volumes, jointed_body_region_volumes,
+                           RegionVolume, SegmentPose};
 pub use dungeon::{Cardinal, Door, Dungeon, Level, Rect, Torch, CORRIDOR, DOOR, OPEN, WALL};
 pub use entity::{EntityId, Faction, Body};
 #[cfg(feature = "cartesian-recoil")]
