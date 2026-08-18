@@ -29,6 +29,34 @@ Uncarved rooms short-circuit interior collision, clearance, and sight. That is t
 mechanical reason older flat scenarios retain their behavior and do not merely happen
 to produce the same answer.
 
+### The floor has a height, and a wall is a consequence of it
+
+The grid carries a signed `i16` of height steps per tile beside its byte of kind, at
+`TERRAIN_HEIGHT_RAW_UNIT` — an eighth of a world unit — per step. Each tile is one
+flat plateau: there is no interpolation across a tile and no slope within one. That
+is the Doom sector model, and it is chosen over a smoothed heightfield because a
+smoothed one puts a body's floor between two tiles and makes every collision query
+ask which of them it is standing on.
+
+**A rise greater than `TERRAIN_STEP_UP_RAW` — three height steps — is impassable
+uphill and passable downhill**, and that one directional rule produces both a ledge
+and a cliff. A "ledge" tile kind beside a "cliff" tile kind would be two kinds
+agreeing by convention about the same geometry; a rise is the geometry, and asking
+whether it can be entered from a given side is the whole question.
+
+The threshold is a whole number of steps deliberately. Every rise the grid can
+express is a multiple of the unit, so a threshold falling between two of them names
+a boundary that does not exist — `0.45` and `0.375` admit and refuse exactly the same
+set of rises, and only one of them says so.
+
+**A flat dungeon is not merely fast here, it is *unreachable* from an elevated one.**
+`Dungeon::digest` folds the height vector only when `sculpted` is true, and `sculpted`
+is derived from the heights rather than passed: a dungeon asked for with heights that
+are all zero **is** flat, digests as one and routes as one. That short circuit is why
+adding elevation to the engine moved no golden hash, and it is the same property that
+keeps every legacy fixture in the registry unreachable from the sculpted embodied
+corpus.
+
 ## Routing is authoritative information
 
 The world owns the floor, so it owns the answer to “how do I reach that point?” An
