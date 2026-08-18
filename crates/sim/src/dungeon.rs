@@ -1269,8 +1269,8 @@ impl Dungeon {
     /// **Two passes, and the second is not a fudge.** An open tile is visible when
     /// its centre can be reached by a ray. A *solid* tile is visible when any of
     /// its four neighbours is an open tile that is -- which is the identical rule
-    /// `rebuildLevelPaths` already uses in `web/main.js` to decide which rock faces
-    /// catch light. Deriving both edges from one rule is what makes the fog
+    /// `rebuildLevelPaths` used on the retired Canvas page to decide which rock
+    /// faces caught light. Deriving both edges from one rule is what makes the fog
     /// boundary and the lit-face boundary agree instead of disagreeing by a tile.
     /// Testing a wall tile's own centre would fail every time, because the centre
     /// of a solid tile is inside the masonry the ray is looking for.

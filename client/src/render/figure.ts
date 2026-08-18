@@ -8,14 +8,14 @@
 // the presentation contract.
 //
 // **Every pose the sim has an opinion about comes out of the snapshot**, on
-// the Canvas rig's own driving rules (`web/main.js` `drawRig`, `web/rig.js`):
-// `stridePhase` is the walk clock the sim publishes for exactly this,
-// `vx`/`vy` are whether it is walking at all, `limbSwing`/`limbSwingLeft`/
-// `swingSpan` are the attack phase, and `limbAngle`/`limbReach` are where the
-// hand and the blade actually are. The two invented quantities are the legs'
-// swing shape and the off arm's carry pose, both fractions of published
-// numbers -- and unlike the Canvas rig there is no idle-breath clock here, so
-// a pinned snapshot pins the whole pose.
+// the retired Canvas rig's own driving rules (its `drawRig` and the proportion
+// tables beside it): `stridePhase` is the walk clock the sim publishes for
+// exactly this, `vx`/`vy` are whether it is walking at all, `limbSwing`/
+// `limbSwingLeft`/`swingSpan` are the attack phase, and `limbAngle`/`limbReach`
+// are where the hand and the blade actually are. The two invented quantities
+// are the legs' swing shape and the off arm's carry pose, both fractions of
+// published numbers -- and unlike that rig there is no idle-breath clock here,
+// so a pinned snapshot pins the whole pose.
 //
 // The world-to-scene mapping is this page's: world `(x, y)` to scene
 // `(x, z)`, yaw negated (see `ActorPresentation#pose`). With the root at
@@ -40,8 +40,8 @@ import type { PresentationUnit } from "./presentation.js";
 
 const TAU = Math.PI * 2;
 
-// Swing phases and action roles, as `web/main.js` names the same frame
-// columns. Not imported: that file is a classic script on the Canvas page.
+// Swing phases and action roles, under the names the retired Canvas page
+// gave the same frame columns.
 const SWING_SWAP = 4;
 const ROLE_STRIKE = 0;
 const ROLE_GUARD = 1;
@@ -51,9 +51,9 @@ const ROLE_SHOOT = 3;
 const SLOT_EMPTY = 255;
 
 /**
- * Body heights in **radii**, from `web/main.js` `BODY_H` -- the presentation
- * heights the Canvas page's health bars, pick boxes and reviewed art already
- * measure from. Height is presentation only; the sim has no opinion.
+ * Body heights in **radii**, from `BODY_H` in the retired Canvas page -- the
+ * presentation heights its health bars, pick boxes and the reviewed art
+ * already measured from. Height is presentation only; the sim has no opinion.
  */
 const BODY_HEIGHT_RADII: Readonly<Record<number, number>> = Object.freeze({
   0: 3.0, 1: 3.2, 2: 2.7, 3: 1.1,
@@ -67,12 +67,12 @@ export function figureBodyHeightRadii(kind: number): number {
 const KIND_SKITTERER = 3;
 
 // The upright proportions, all fractions of published quantities, following
-// `web/rig.js` `RIG_UPRIGHT` (side offsets, joint heights as fractions of the
-// shoulder) and its named constants. Where that table quotes a billboard
-// half-width, the diameter here was set by eye at the same review size.
+// `RIG_UPRIGHT` from the retired Canvas rig (side offsets, joint heights as
+// fractions of the shoulder) and its named constants. Where that table quoted a
+// billboard half-width, the diameter here was set by eye at the same review size.
 const SHOULDER_OF_HEIGHT = 0.72;
 const HIP_OF_SHOULDER = 0.46;
-/** `web/rig.js` `RIG_HAND`: a hand at the shoulder reads as a salute. */
+/** `RIG_HAND`, from the retired Canvas rig: a hand at the shoulder reads as a salute. */
 const HAND_OF_SHOULDER = 0.8;
 const LEG_SIDE = 0.38;
 const ARM_SIDE = 0.62;
@@ -83,9 +83,9 @@ const CARRY_OF_SHOULDER = 0.44;
 const LEG_SWING = 0.42;
 const ARM_SWING = 0.24;
 const FOOT_LIFT_OF_SHOULDER = 0.09;
-/** `web/rig.js` `RIG_WALK_FULL`: full stride at this speed per radius. */
+/** `RIG_WALK_FULL`, from the retired Canvas rig: full stride at this speed per radius. */
 const WALK_FULL_SPEED_PER_RADIUS = 0.05;
-/** `web/rig.js` `RIG_SHIELD_OUT`: the guard buckler rides past the hand. */
+/** `RIG_SHIELD_OUT`, from the retired Canvas rig: the guard buckler rides past the hand. */
 const SHIELD_OUT = 1.15;
 
 export type FigureTone = "skin" | "trim" | "steel";
@@ -191,8 +191,8 @@ const instanceOf = (
  *
  * The shield socket is nailed to the off hand rather than re-parented per
  * tick: the legacy frame publishes no holder, the sim's one limb is the main
- * arm, and the guard buckler is the Canvas rig's own convention
- * (`RIG_SLOT_SHIELD` draws on the limb bearing during `Role::Guard`).
+ * arm, and the guard buckler is the retired Canvas rig's own convention
+ * (`RIG_SLOT_SHIELD` drew on the limb bearing during `Role::Guard`).
  */
 export function buildFigure(scene: Scene, sources: FigureSources, name: string, kind: number): Figure {
   const { root, nodes } = buildRigNodes(scene, `${name}:`);
@@ -303,8 +303,9 @@ function stretchPart(part: InstancedMesh, length: number, thickness: number): vo
  *
  * The blade is not negotiable: hilt at `radius` along `limbAngle` at hand
  * height, tip at `radius + actionLength * limbReach` -- the segment
- * `World::blade` builds and tests against, the same rule `web/main.js`
- * `drawRig` states as the one thing in its rig that may never take garnish.
+ * `World::blade` builds and tests against, the same rule the retired Canvas
+ * page's `drawRig` stated as the one thing in its rig that may never take
+ * garnish.
  */
 export function poseFigure(figure: Figure, unit: PresentationUnit): void {
   const root = figure.root;
@@ -380,7 +381,8 @@ export function poseFigure(figure: Figure, unit: PresentationUnit): void {
   crest.scaling.set(headRadius * 1.9, headRadius * 0.9, 0.07);
 
   // Legs, from the hips to feet that swing with the published stride and lift
-  // on the forward half of their own swing -- `web/rig.js`'s walk, in 3D.
+  // on the forward half of their own swing -- the retired Canvas rig's walk,
+  // in 3D.
   for (const [suffix, side, legPhase] of [["leg:right", -LEG_SIDE, phase], ["leg:left", LEG_SIDE, phase + TAU / 2]] as const) {
     const foot: Local = [
       LEG_SWING * Math.sin(legPhase) * walk,
@@ -391,9 +393,9 @@ export function poseFigure(figure: Figure, unit: PresentationUnit): void {
   }
 
   // Arms. The main (right) arm reaches for the published hand and stops
-  // solving there -- no elbow, on the Canvas rig's own argument that an elbow
-  // is invisible at review size. Mid-swap the hand is empty and the arm
-  // returns to the carry over the swap's own progress. The off (left) arm
+  // solving there -- no elbow, on the retired Canvas rig's own argument that
+  // an elbow is invisible at review size. Mid-swap the hand is empty and the
+  // arm returns to the carry over the swap's own progress. The off (left) arm
   // holds the carry and swings with the walk.
   const shoulderRight: Local = [0, 0.94 * shoulder, -ARM_SIDE];
   const shoulderLeft: Local = [0, 0.94 * shoulder, ARM_SIDE];
@@ -462,7 +464,7 @@ export function poseFigure(figure: Figure, unit: PresentationUnit): void {
   // The guard buckler, on the limb's own bearing and not on the off hand --
   // the sim has exactly one limb and it is the one the guard arc is drawn at;
   // a shield on the other arm would claim cover somewhere the sim will not
-  // defend (`web/main.js`, `RIG_SLOT_SHIELD`).
+  // defend (`RIG_SLOT_SHIELD`, from the retired Canvas page).
   const shield = part("shield");
   const shieldLive = unit.actionRole === ROLE_GUARD && !swapping && activeAction !== SLOT_EMPTY;
   shield.setEnabled(shieldLive);
@@ -497,8 +499,9 @@ type CrawlerPose = Readonly<{
 
 /**
  * The Skitterer: wider than it is tall, a low body on splayed legs with the
- * head carried out in front -- `web/rig.js` `RIG_CRAWLER`'s read, in 3D. Its
- * bite is a blade segment out of `limbAngle` like anybody else's.
+ * head carried out in front -- `RIG_CRAWLER`'s read from the retired Canvas
+ * rig, in 3D. Its bite is a blade segment out of `limbAngle` like anybody
+ * else's.
  */
 function poseCrawler(figure: Figure, unit: PresentationUnit, pose: CrawlerPose): void {
   const { node, part, height, walk, phase } = pose;

@@ -21,9 +21,9 @@ crates/learn-core  frozen inference: compact features, a small MLP, the checkpoi
 crates/learn    the learning probe: the population that trains one
 crates/lab      headless experiment CLI
 crates/web      the browser boundary: a hand-rolled wasm ABI, no wasm-bindgen
-web/            the studio shell and the legacy Canvas page
+web/            the studio shell and its assets
 client/         the TypeScript studio: hash router, v2 Worker protocol, arena
-tools/          sine table generator, dev server, the wasm/native equality check
+tools/          sine table generator, the wasm/native equality check, repository gates
 docs/plans/     working plans, one file per landable session
 ```
 
@@ -68,12 +68,12 @@ spellings past it (`{path="../learn"}`, `path = "../learn/"`, and
 `learn.workspace = true`), which is the shape of hazard a hand-rolled parser of
 somebody else's format always has.
 
-Sizes worth knowing before you go looking: `crates/web/src/lib.rs` (~16.1k lines) and
-`web/main.js` (~13.1k) are the two big single files. `crates/sim/src/world/` is a module
-tree rather than one file — each sibling of `mod.rs` is named for the tick phase group
-it owns, and the largest of them is `contact_phase.rs` (~5.9k).
-`web/main.js` is organised by banner comments (`// ---- the floor`, `// ---- draw`,
-`// ---- hud`, …); grep for those to navigate rather than reading top to bottom.
+Sizes worth knowing before you go looking: `crates/web/src/lib.rs` (~16.1k lines) is
+now the one big single file. `crates/sim/src/world/` is a module tree rather than one
+file — each sibling of `mod.rs` is named for the tick phase group it owns, and the
+largest of them is `contact_phase.rs` (~5.9k). `web/main.js` was the other big one at
+~13.1k until the Canvas page was retired; if a comment still points at it, that
+comment is stale.
 
 ## Commands
 
@@ -114,12 +114,10 @@ node --test tools/check_deps.test.js              # and the fixture that guards 
 node tools/validate_assets.js web/assets3d/room_slice.glb   # the room asset against its pinned hashes
 
 npm run dev                                       # builds release wasm, Vite serves the studio
-node tools/serve.js                               # legacy Canvas page only
-node tools/serve.js --no-build --port 9000        # legacy Canvas page only
 ```
 
 **Development servers stay attached to the command that launched them.** Run
-`npm run dev`, `npm run view` and `node tools/serve.js` in the foreground; do not
+`npm run dev` and `npm run view` in the foreground; do not
 use `Start-Process`, `start`, a detached process, or a background helper merely so
 the invoking command can return. On Windows a child survives its parent unless a
 launcher deliberately supplies stronger lifetime management, and a detached Vite
@@ -132,17 +130,21 @@ The development and production contract is root-hosted `/` plus `/web.wasm`. The
 studio shell `web/index.html` is the single `rollupOptions.input` and everything a
 reader can reach is a hash route beneath it: `#/game` is the v2 worker diagnostic,
 `#/arena` watches a fight. Its TypeScript module graph must run through Vite;
-`tools/serve.js` has no bundler and cannot serve it, which is why that server answers
-`/` with the legacy page instead. `npm run build` emits the production pair as
+Vite is the only development server there is, since the dependency-free
+`tools/serve.js` was written for the Canvas page and was retired with it.
+`npm run build` emits the production pair as
 `dist/index.html` and `dist/web.wasm`. Deep links are queries on a route rather than
 on a page — `/#/game?stress=greybox&renderer=canvas`,
 `/#/arena?trace=/fight-learned.json` — and every parameter each one accepts is the
 one it accepted before.
 
-`web/legacy.html` is the playable Canvas game, moved from `index.html` byte for byte.
-Four classic scripts sharing top-level `const`s are not a module graph, so it is not a
-route, stays out of `rollupOptions.input` and ships in nothing; `tools/serve.js` and
-the Vite dev server both hand it straight out of `web/`.
+**The Canvas game is gone.** `web/legacy.html` and its four classic scripts were
+retired in the embodied-combat work: ~16.2k lines that no build included and no test
+executed, whose only live cost was a standing obligation to mirror every ABI change
+into a file that shipped nowhere. Comments and documents citing `web/main.js`,
+`web/draw.js`, `web/rig.js` or `web/assets.js` as a source of truth are stale by
+definition; several presentation constants in `client/src/render/` were derived from
+it and say so in the past tense.
 
 `#/arena` runs its own fight. It writes a configuration, a Worker of its own records
 the duel in wasm, and the transferred pose, region, projectile and combat-event
@@ -301,23 +303,27 @@ separate changes; `lib.rs`'s doc comment on `ROOM_HASH` records the earlier one.
 A second, independent regression surface for `crates/policy` changes meant to be
 behaviour-neutral: `cargo run --release -p lab -- duel --seeds 400` win rates.
 
-## The frame ABI is a handshake across six files
+## The frame ABI is a handshake across five files
 
-The wasm frame is a mirrored contract, so a layout change must update Rust, the
-legacy page, the wasm equality check, the generated worker ABI and its snapshot
-parser, and the reference together. Follow the canonical
+The wasm frame is a mirrored contract, so a layout change must update Rust, the wasm
+equality check, the generated worker ABI and its snapshot parser, and the reference
+together. Follow the canonical
 [frame ABI change rules](docs/reference/frame-abi.md#compatibility-rules) for exact
 fields, versions, identity, and append-only constraints — that document owns the
 list and is the one to count from. A partial mirror update is not green even if one
 side still draws.
 
-**This heading said "four files" until v2-ui-06 and the number predated the v2
-client split**: `crates/web/src/lib.rs`, `web/main.js` and `tools/wasm_check.js`
-were the whole of it before `crates/web/src/bin/emit_abi.rs` began generating
-`client/src/protocol/abi.generated.ts` for `client/src/state/snapshot.ts` to read.
+**This heading has now been "four", "six" and "five", and the drift is the lesson.**
+`crates/web/src/lib.rs`, `web/main.js` and `tools/wasm_check.js` were the whole of it
+until `crates/web/src/bin/emit_abi.rs` began generating
+`client/src/protocol/abi.generated.ts` for `client/src/state/snapshot.ts` to read,
+which made it six; retiring the Canvas page took `web/main.js` back out and made it
+five. Count from the reference rather than from this heading — a number in prose goes
+stale the moment a mirror is added or removed, and this one has twice.
+
 The same handshake applies separately to each of the ABIs beside the frame — the
-pose, region, articulated-projectile and combat-event publications in
-[`articulated-abi.md`](docs/reference/articulated-abi.md) — which are not sections
+pose, region, articulated-projectile, combat-event and embodied-stance publications
+in [`articulated-abi.md`](docs/reference/articulated-abi.md) — which are not sections
 of the frame and do not move `FRAME_LAYOUT_VERSION`.
 
 ## House style
@@ -359,14 +365,12 @@ This codebase has an unusually strong and unusually consistent voice. Match it.
   deleting the paired `removeShadowCaster` leaves everything green). Before believing a
   test, break the line it is about and watch it fail.
 - **Rust and JavaScript sources are ASCII.** `--` for a dash, never `—`. Markdown
-  files use real em dashes, and both hand-written pages — `web/index.html` and
-  `web/legacy.html` — write `&mdash;`. Do not mix the two conventions.
+  files use real em dashes, and the hand-written page `web/index.html` writes
+  `&mdash;`. Do not mix the two conventions.
 - **Tests are named as sentences** — `no_blade_can_outrun_the_smallest_body`,
   `a_replay_reproduces_the_run_it_recorded`, `results_do_not_depend_on_the_thread_that_computed_them`.
   Most live in `#[cfg(test)] mod tests` next to the code; cross-cutting ones live in
   `crates/*/tests/`.
-- **`web/main.js` is a classic script**, not a module: every top-level `function` is
-  a reassignable global. That is load-bearing for the profiling method below.
 
 ## Plans
 

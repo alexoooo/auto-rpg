@@ -134,8 +134,9 @@ use sim::{
 ///
 /// `14` is `events_dropped`: how many rows the [`MAX_EVENTS`] cap ate this
 /// frame. **It exists so that "the cap is generous" can be checked from the
-/// console instead of believed**, which is the same reason `floorBakes` exists
-/// in `main.js` -- a bound nobody can observe is a bound nobody maintains.
+/// console instead of believed**, which is the same reason `floorBakes` existed
+/// on the retired Canvas page -- a bound nobody can observe is a bound nobody
+/// maintains.
 /// Written on every [`Sim::write_frame`] and therefore never stale; there is
 /// deliberately no `max_events()` export, so this is the page's only way to
 /// learn that the feed was truncated.
@@ -189,12 +190,12 @@ pub const HEADER_LEN: usize = 15;
 /// tell the AI is being scored on reading.
 ///
 /// `27` is `sight_range`, in world units, from [`sim::Stats::sight_range`].
-/// **It is here to kill the last mirrored formula in the page.** `main.js` used
-/// to write `(60 + 6 * perception) / 10` by hand, which is the exact species of
-/// copy the registry post-mortem in `loadRegistry` is about -- and it is now
-/// worse than it was, because a stat can be changed live and a body can be
-/// swapped underneath it, so the number the page draws a vision ring from has
-/// to be the number the observation code actually used.
+/// **It is here to kill the last mirrored formula in the page.** The retired
+/// Canvas page used to write `(60 + 6 * perception) / 10` by hand, which is the
+/// exact species of copy the registry post-mortem in `loadRegistry` is about --
+/// and it is now worse than it was, because a stat can be changed live and a
+/// body can be swapped underneath it, so the number the page draws a vision ring
+/// from has to be the number the observation code actually used.
 ///
 /// `28` is `visible`: `1` if the player can see this body, `0` if not.
 /// **Hero-centric, and that is the point** -- it answers what the *player* can
@@ -327,10 +328,10 @@ pub const EVENT_AUX1: usize = 7;
 /// Most events one frame will carry.
 ///
 /// The client caps itself at eight ticks of catch-up per animation frame
-/// (`MAX_CATCHUP_TICKS` in `main.js`), and that used to mean "a blow or two and
-/// the odd declaration". It no longer does: phase changes, footfalls and shoves
-/// are events now, and every one of them is per body per tick rather than per
-/// exchange.
+/// (`MAX_CATCHUP_TICKS`, as the retired Canvas page named it), and that used to
+/// mean "a blow or two and the odd declaration". It no longer does: phase
+/// changes, footfalls and shoves are events now, and every one of them is per
+/// body per tick rather than per exchange.
 ///
 /// **Measured, and the crowd turned out not to be the variable.** Sweeping a
 /// generated level plus 4, 8, 16, 32 and 63 extra Brutes, over 1,200 ticks each
@@ -1952,9 +1953,9 @@ fn trace_at(traces: &[Trace], entity: EntityId) -> Trace {
 ///
 /// `EntityId::NONE` is `u32::MAX`, which is neither a slot the page can look up
 /// nor the `255` it reads as absent. Overloading `255` is safe on exactly the
-/// argument `ID_INDEX_SPAN` makes in `main.js`: slots are recycled through a
-/// free list, so a live index never climbs past the number of bodies standing
-/// at once, which [`MAX_UNITS`] caps at 64.
+/// argument `ID_INDEX_SPAN` made on the retired Canvas page: slots are recycled
+/// through a free list, so a live index never climbs past the number of bodies
+/// standing at once, which [`MAX_UNITS`] caps at 64.
 const fn actor_index(id: EntityId) -> u32 {
     if id.is_none() {
         SLOT_EMPTY
@@ -4368,7 +4369,8 @@ impl Sim {
         // the only thing that can answer. The same two header slots carry it,
         // so this is a better value and not a layout change -- which is what
         // let it land without moving [`FRAME_LAYOUT_VERSION`] or the hardcoded
-        // `HEADER_LEN` in `tools/wasm_check.js` and `web/main.js`.
+        // `HEADER_LEN` in `tools/wasm_check.js` -- and, while it shipped, on the
+        // retired Canvas page.
         //
         // A handle that no longer resolves cannot actually reach the `ZERO`
         // branch through [`step`]: [`Sim::expire_focus`] runs inside the tick
@@ -4715,8 +4717,9 @@ fn write_unit(
     // How far this body can see, in world units, straight from the stat sheet
     // the observation code reads. The page drew a vision ring from its own copy
     // of `(60 + 6 * perception) / 10` until this column existed, which was the
-    // last mirrored sim formula in `main.js` -- and the one with the shortest
-    // remaining life, because the hero's perception is a live dial now.
+    // last mirrored sim formula on the retired Canvas page -- and the one with
+    // the shortest remaining life, because the hero's perception is a live dial
+    // now.
     row[UNIT_SIGHT_RANGE] = view.stats.sight_range().to_f32();
 
     // Whether the player can see this body: `1` yes, `0` no.
@@ -5449,10 +5452,10 @@ pub extern "C" fn set_goto(x_milli: i32, y_milli: i32) {
         // Refused on a configured duel; the argument is on
         // [`order_is_the_callers`]. **Silently, and that is the one unsatisfying
         // corner of this refusal**: the export answers nothing, and widening it
-        // to a packed word is a change to a name `web/main.js`, the generated
-        // worker ABI and the frame reference all carry -- for a call no arena
-        // route makes. [`set_focus`] and [`route_push`] have somewhere to say it
-        // and do.
+        // to a packed word is a change to a name the generated worker ABI and
+        // the frame reference both carry -- and the retired Canvas page carried
+        // before them -- for a call no arena route makes. [`set_focus`] and
+        // [`route_push`] have somewhere to say it and do.
         if !order_is_the_callers(sim) {
             return;
         }

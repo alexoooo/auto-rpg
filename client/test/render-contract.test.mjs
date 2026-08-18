@@ -3150,7 +3150,13 @@ test("vite_build_rewrites_no_hand_written_page_under_web_including_its_own_input
   // is on the list now because it is the Rollup *input*: the one source file a
   // misbehaving plugin could rewrite in place, which is more exposure than it had
   // as a bystander, not less.
-  const handWritten = ["web/index.html", "web/legacy.html", "web/main.js", "web/style.css"];
+  //
+  // The list is down to that one entry since the Canvas page was retired, and it
+  // is deliberately still a list. The guarantee is "the build rewrites no
+  // hand-written source under `web/`", which is a claim about a set; collapsing
+  // it to a single `assert` would make the next file added to `web/` a silent
+  // omission rather than a one-word edit.
+  const handWritten = ["web/index.html"];
   for (const name of handWritten) {
     assert.ok(fs.existsSync(path.join(ROOT, name)),
       `${name} is named by this test as a file the build must not touch, and it does not exist`);
@@ -3204,7 +3210,6 @@ test("vite_build_rewrites_no_hand_written_page_under_web_including_its_own_input
         + "and the room assets are no longer lazy");
   }
   const html = fs.readFileSync(path.join(ROOT, "web", "index.html"), "utf8");
-  assert.match(html, /legacy page/);
   assert.match(html, /button:disabled, button:disabled:hover/);
   assert.match(html, /id="performance-start" type="button" disabled/);
   assert.match(html, /id="interaction-hint"/);

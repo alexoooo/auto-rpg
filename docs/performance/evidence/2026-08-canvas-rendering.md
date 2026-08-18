@@ -2,7 +2,7 @@
 
 **Purpose:** Preserve the measurements that located the shipped Canvas renderer's bottlenecks and corrected four misleading hypotheses.
 **Status:** historical
-**Canonical source:** [`drawVision`](../../../web/main.js#L7930), [`MAX_DASH_SEGMENTS`](../../../web/main.js#L8009), and this migrated evidence record
+**Canonical source:** this migrated evidence record, and nothing else. `drawVision` and `MAX_DASH_SEGMENTS` lived in `web/main.js`, retired with the Canvas page — a historical measurement cannot be re-anchored to code that no longer exists, and pointing this line at the 3D renderer would claim these numbers were measured against it.
 **Update when:** The Canvas baseline, profiling method, or interpretation of these measurements changes.
 
 **Date:** August 2026. **Hardware:** the user's hybrid-core Windows laptop and its

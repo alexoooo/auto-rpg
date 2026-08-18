@@ -2,7 +2,7 @@
 
 **Purpose:** Preserve the shipped visual language, the boundary between gameplay readouts and rendering style, and the evidence required of shipped figures.
 **Status:** current
-**Canonical source:** [`web/main.js`](../../web/main.js#L6513), [`web/style.css`](../../web/style.css), [`web/assets/ASSET_SPEC.md`](../../web/assets/ASSET_SPEC.md), and the [renderer contract](../reference/renderer-contract.md#renderer-owned-snapshot-boundary)
+**Canonical source:** [`web/assets/ASSET_SPEC.md`](../../web/assets/ASSET_SPEC.md), [`client/src/render/`](../../client/src/render/renderer.ts), and the [renderer contract](../reference/renderer-contract.md#renderer-owned-snapshot-boundary)
 **Update when:** Art direction, view-mode controls, HUD language, the published body proportions, or the reference renderer changes.
 
 ## A warm, legible room
@@ -10,8 +10,9 @@
 The room is brown-black rather than blue-black. Materials separate primarily by
 lightness, not hue; doors and flame spend the limited chroma budget where recognition
 needs it. Palette constants are relationships, not independent swatches, and should
-be tuned as a ladder. The current source of truth is [`PAL`](../../web/main.js#L6513)
-and the asset authoring contract, not a copied color table here.
+be tuned as a ladder. The source of truth is the asset authoring contract, not a
+copied color table here. It was `PAL` in `web/main.js` until the Canvas page was
+retired, and no single constant has inherited that role.
 
 World-mode environment marks obey the room palette. Gameplay instruments — health,
 lock, destination, reach, and visibility readouts — retain deliberate chroma and are
@@ -34,8 +35,8 @@ World mode therefore keeps ordinary depth ordering, then yields foreground mason
 only inside a soft, upright, hero-sized ellipse where a nearby wall would cover the
 hero. The wall's shaded side remains outside that local cutaway; fading a complete
 depth band erased the room face and made the geometry read as a disappearing slab.
-The current gate and clipped paint live beside
-[`wallBandCutsHero`](../../web/main.js#L11098).
+The gate and clipped paint lived beside `wallBandCutsHero` in `web/main.js`, and went
+with it; the rule survives as art direction the 3D path owes rather than as code.
 
 The Canvas reference path also treats blur and dash state as measured costs. Do not
 add `shadowBlur` as ambient polish or introduce another dashed-stroke pass without a

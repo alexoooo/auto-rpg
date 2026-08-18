@@ -911,8 +911,10 @@ function startsSomething(lines, index) {
     const inside = text.slice(comment[0].length);
     // A section head inside a doc block is the start of something even though
     // the line above it is also a comment: `//! # The frame buffer` is what
-    // `frame-abi.md` points at, and `web/main.js` navigates by `// ---- draw`
-    // banners the same way.
+    // `frame-abi.md` points at. The rule was written against `web/main.js` too,
+    // which navigated by `// ---- draw` banners before it was retired with the
+    // Canvas page, and the banner shape long outlived it -- see `// ---- exports`
+    // in `crates/web/src/lib.rs`.
     if (/^#{1,6}\s+\S/.test(inside) || /^[-=*_]{4,}/.test(inside)) return true;
     return !/^(?:\/\/|\/\*|\*|#(?!\[)|<!--|--|;;)/.test((lines[index - 1] || "").trim());
   }

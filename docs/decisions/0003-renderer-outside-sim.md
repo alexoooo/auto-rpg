@@ -1,8 +1,8 @@
 # ADR 0003: Keep renderers outside simulation authority
 
-**Purpose:** Record why rendering is a snapshot consumer and why Canvas remains a reference beside the procedural GPU client.
+**Purpose:** Record why rendering is a snapshot consumer rather than an authority.
 **Status:** current
-**Canonical source:** [`crates/sim/Cargo.toml`](../../crates/sim/Cargo.toml), [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L4361), [`web/main.js`](../../web/main.js#L11246), and the [renderer contract](../reference/renderer-contract.md#renderer-owned-snapshot-boundary)
+**Canonical source:** [`crates/sim/Cargo.toml`](../../crates/sim/Cargo.toml), [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L4361), and the [renderer contract](../reference/renderer-contract.md#renderer-owned-snapshot-boundary)
 **Update when:** A renderer gains authority, a new host boundary ships, or the production renderer choice changes.
 
 ## Decision
@@ -11,10 +11,15 @@
 that crate, consumes observations or snapshots, and cannot write presentation types
 back into `Scenario`, `World`, submitted commands, replay, or hash domains.
 
-The current Canvas client remains the reference/debug renderer. The shipped v2
-procedural greybox is GPU-based and consumes copied snapshots from a Worker-owned
-wasm instance. Both clients consume the same authoritative visibility and identity
-information; neither may infer a second gameplay truth from scene geometry.
+The shipped v2 procedural greybox is GPU-based and consumes copied snapshots from a
+Worker-owned wasm instance. It consumes authoritative visibility and identity
+information and may not infer a second gameplay truth from scene geometry.
+
+**Amended 2026-08-17: the Canvas client was the reference/debug renderer and has been
+retired.** That removes the comparison instrument this ADR named, and it does not
+disturb the decision — the boundary is what keeps a renderer replaceable, and
+replacing one is what just happened. The reasoning below is kept as written and read
+in the past tense.
 
 ## Why
 
@@ -24,11 +29,14 @@ math, or asset types from contaminating replay determinism. The glue is delibera
 the hand-written browser ABI is a visible contract instead of an engine object graph
 quietly becoming game state.
 
-Canvas has known performance ceilings, but it is also the known behavioral control.
-Replacing it outright would remove the comparison instrument at the moment a new
-renderer needs one. The GPU client is therefore a reversible presentation bet, not a
-rewrite of simulation ownership. Its renderer seam has shipped; production art and
-its foreground performance decision remain separate gates.
+Canvas had known performance ceilings, but it was also the known behavioural control,
+and replacing it outright would have removed the comparison instrument at the moment a
+new renderer needed one. The GPU client was therefore a reversible presentation bet
+rather than a rewrite of simulation ownership. **That bet has now been settled**: the
+seam shipped, the GPU client became the only entry, and the control was retired once
+it had nothing left to control for. The order matters and is the point — the control
+outlived the risk it was held against, rather than being dropped while the risk was
+live.
 
 ## Consequences
 
@@ -36,7 +44,8 @@ its foreground performance decision remain separate gates.
 - Renderer-specific interpolation, particles, cameras, assets, and wall clocks remain
   presentation state.
 - Authoritative fog and stable entity handles cross the boundary explicitly.
-- Canvas stays runnable for debugging and A/B comparisons beside the GPU client.
+- Canvas stayed runnable for debugging and A/B comparisons until it was retired; a
+  future renderer bet owes itself a control of its own rather than inheriting this one.
 - Any renderer protocol change must preserve or version its handshake rather than
   reaching into `World` directly.
 

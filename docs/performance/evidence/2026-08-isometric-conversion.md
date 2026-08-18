@@ -2,7 +2,7 @@
 
 **Purpose:** Preserve what the Canvas isometric conversion changed, measured, and left unresolved.
 **Status:** historical
-**Canonical source:** [`WORLD_DPR_MAX`](../../../web/main.js#L2108), [`render`](../../../web/main.js#L11245), and this migrated evidence record
+**Canonical source:** this migrated evidence record, and nothing else. `WORLD_DPR_MAX` and `render` lived in `web/main.js`, retired with the Canvas page — a historical measurement cannot be re-anchored to code that no longer exists.
 **Update when:** World-mode projection, backing resolution, pixel-identity method, or the isometric reference baseline changes.
 
 **Date:** August 2026. **Hardware:** the user's Windows machine in a visible Chrome

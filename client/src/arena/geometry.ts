@@ -32,9 +32,10 @@ export type ScenePoint = readonly [number, number, number];
  * **The negated `y` is the whole of the handedness argument, and it is a
  * deliberate departure from `ActorPresentation#pose` in `render/actors.ts`,
  * which now carries the other half of this note.** That file draws the legacy
- * world, whose 2D authority `web/main.js` runs `+y` *down* the screen; against
- * that convention `(x, y) -> (x, z)` is orientation-correct and nobody has ever
- * seen a mirrored greybox because a cylinder has no chirality to mirror.
+ * world, whose 2D authority -- the retired Canvas page -- ran `+y` *down* the
+ * screen; against that convention `(x, y) -> (x, z)` is orientation-correct and
+ * nobody has ever seen a mirrored greybox because a cylinder has no chirality
+ * to mirror.
  *
  * This page's authority is `fight/view.ts`, which runs `+y` **up** the screen and
  * explains at length why: `actuator::shoulder` puts `LimbSlot::LeftArm` at

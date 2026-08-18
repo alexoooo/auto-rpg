@@ -159,8 +159,11 @@ const EVENT_STEP = 7;
 // "nobody": a portal opening and a descent are facts about the level and name
 // no body at all.
 const NOBODY = 255;
-// `web::MAX_UNITS`. Written down rather than exported, because the page does not
-// enforce it either -- see main.js's own mirror.
+// `web::MAX_UNITS`. Written down rather than exported. The reason given here was
+// that the retired Canvas page mirrored it the same way and did not enforce it
+// either; with that page gone the honest statement is narrower -- this is a
+// hand-kept mirror of a Rust constant, caught only by the frame-layout test
+// below noticing that a count no longer fits.
 const MAX_UNITS = 64;
 
 // How long the frame says it is, from its own three counts.
@@ -266,9 +269,9 @@ const stateHash = () => hash64(wasm.state_hash_lo(), wasm.state_hash_hi());
 // Never hold a typed array across a wasm call, not one call and not one line:
 // any allocating call can grow linear memory, and growing it detaches the
 // buffer every existing view points into. The frame is a fixed array whose
-// address never moves, so this is belt and braces here -- but web/main.js runs
-// the same rule at sixty frames a second, where it is the difference between a
-// renderer and a silently empty canvas.
+// address never moves, so this is belt and braces here -- but the client's
+// worker runs the same rule at sixty frames a second, where it is the difference
+// between a renderer and a silently empty canvas.
 function frame() {
   const view = new Float32Array(wasm.memory.buffer, u32(wasm.frame_ptr()), u32(wasm.frame_len()));
   return Array.from(view);
@@ -407,9 +410,9 @@ test("the boundary exports everything the client calls", () => {
     // what a hand-maintained count in a comment does, and the reason the number
     // is worth keeping anyway is that it is the only thing here that notices a
     // publication whose six names somebody forgot to add.
-    // Every one of them has no caller on the legacy page at all --
-    // v2-ui-07 gave them a caller in a worker of its own and this page will
-    // never be it -- so this list is the
+    // Every one of them is called from a worker and from nowhere else --
+    // v2-ui-07 gave them one, and the Canvas page that never called them has
+    // since been retired -- so this list is the
     // *only* thing standing between a renamed export and a silent gap, and the
     // gap would be silent in the worst way: `pose_len()`, `region_len()` and
     // `combat_event_len()` read as `undefined`, `undefined >>> 0` is `0`, and a
@@ -463,9 +466,9 @@ test("the boundary exports everything the client calls", () => {
     // heap has never held -- so a rename here would leave that test warming
     // nothing and failing on growth it caused itself.
     "init_articulated",
-    // The configured duel. Seven names with no caller on the legacy page at all
-    // -- the studio has written this buffer since v2-ui-07 and the legacy page
-    // never will -- so this list is
+    // The configured duel. Seven names the studio has written since v2-ui-07 and
+    // nothing else ever has -- the Canvas page that never called them is
+    // retired -- so this list is
     // again the only thing between a renamed export and a silent gap, and the
     // gap would be silent in the usual way: `arena_start()` reads as `undefined`,
     // `undefined >>> 0` is `0`, and a packed word of zero is "not started, no

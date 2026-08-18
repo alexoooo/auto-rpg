@@ -186,10 +186,10 @@ function write(rel, cv) {
 // sim rather than trusting this file.
 
 const PX_PER_WORLD_UNIT = 86; // the default framing's scale
-const UPRIGHT_EX = Math.SQRT2; // web/main.js PROJ.ex, the upright projection
+const UPRIGHT_EX = Math.SQRT2; // PROJ.ex, the retired Canvas page's upright projection
 
-// Fighter, out of crates/sim/src/entity.rs (radius 0.45) and web/main.js
-// (BODY_H 3.0 radii). 109 x 116 in a 128 x 160 cell.
+// Fighter, out of crates/sim/src/entity.rs (radius 0.45) and the retired
+// Canvas page (BODY_H 3.0 radii). 109 x 116 in a 128 x 160 cell.
 const FIGHTER_RADIUS = 0.45;
 const FIGHTER_H_RADII = 3.0;
 const CELL = [128, 160];

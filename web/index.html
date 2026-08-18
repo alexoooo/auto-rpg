@@ -87,7 +87,6 @@
     .route-game pre { background: #0b0f14; padding: 1rem; border-radius: .5rem; }
     .route-game #greybox { display: block; width: 100%; aspect-ratio: 16 / 9; background: #080b0f;
       border: 1px solid #34404d; border-radius: .5rem; touch-action: none; }
-    .route-game .legacy-link { font-size: .85rem; }
 
     /* The authored room is the route, not an illustration above a diagnostics
        form. The overlays sit at the protected edge of the glass and remain
@@ -299,9 +298,6 @@
           <a class="enter" href="#/arena">Battle Arena</a>
         </section>
       </div>
-      <p class="muted legacy-link">The original Canvas game is a separate page with no build
-        step and four classic scripts sharing top-level state, so it is not a route here:
-        <a href="/legacy.html">open the legacy page</a>.</p>
     </div>
   </template>
 
@@ -379,8 +375,7 @@
         <details class="game-instruments">
           <summary>Systems and capture</summary>
           <p class="game-route-note">The authored room is the production view. Use
-            <code>?room=procedural</code> for the procedural diagnostic, or
-            <a href="/legacy.html">open the legacy Canvas page</a>.</p>
+            <code>?room=procedural</code> for the procedural diagnostic.</p>
           <div class="game-instrument-grid">
             <fieldset>
               <legend>Simulation</legend>

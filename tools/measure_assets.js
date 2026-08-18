@@ -40,7 +40,7 @@ const ROOT = path.resolve(__dirname, "..");
 // the one that would drift silently is the scale.
 
 const PX_PER_WORLD_UNIT = 86; // the default framing's scale, stated as law in ASSET_SPEC.md
-const UPRIGHT_EX = Math.SQRT2; // web/main.js PROJ.ex: a world circle of radius r is r*scale*ex wide
+const UPRIGHT_EX = Math.SQRT2; // PROJ.ex, from the retired Canvas page: a world circle of radius r is r*scale*ex wide
 
 const FLOOR_WORLD = 4; // a floor or wall top face is 4 world units square
 const WALL_WORLD = [1, 1.6]; // a wall side face, in world units
@@ -48,7 +48,7 @@ const DECAL_WORLD = [1, 2]; // grime / moss / cracks, square, somewhere in this 
 
 /**
  * Radius out of `crates/sim/src/entity.rs` (`Body::radius`), height in radii out
- * of `web/main.js` (`BODY_H`), cell out of ASSET_SPEC.md.
+ * of the retired Canvas page (`BODY_H`), cell out of ASSET_SPEC.md.
  *
  * The drawn size is derived from the first two rather than tabulated, because
  * it is not a free choice: the width is the body's own collision circle
@@ -75,10 +75,10 @@ for (const a of Object.values(ARCHETYPES)) {
     Math.round(a.radius * a.radii * PX_PER_WORLD_UNIT),
   ];
   // The shoulder, where the arm and the shield pivot: the crown, less the head
-  // radius, less the head's offset below it -- `HEADS` in web/main.js, the same
-  // two numbers the upright silhouette draws the head circle from. Reproduces
-  // ASSET_SPEC.md section 8.5 exactly: 88, 75 and 131 px above the feet, so
-  // pivots at [64, 72], [56, 69] and [96, 61].
+  // radius, less the head's offset below it -- `HEADS` in the retired Canvas
+  // page, the same two numbers its upright silhouette drew the head circle
+  // from. Reproduces ASSET_SPEC.md section 8.5 exactly: 88, 75 and 131 px above
+  // the feet, so pivots at [64, 72], [56, 69] and [96, 61].
   //
   // The spec tabulates it only for the three archetypes that have arms. A
   // Skitterer ships `head` instead and the same construction places it -- the
