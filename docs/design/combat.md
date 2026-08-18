@@ -400,5 +400,11 @@ anchors whose wording did not become standalone headings here:
 - Loadout mutation: [`loadout.rs`](../../crates/sim/src/loadout.rs#L18)
 - Tick ordering and combat resolution: [`world/mod.rs`](../../crates/sim/src/world/mod.rs#L1867)
 - Damage, blocking, regeneration, and recovery constants: [`rules.rs`](../../crates/sim/src/rules.rs#L39)
-- Duelist spacing and stance decisions: [`duelist.rs`](../../crates/policy/src/duelist.rs#L1)
+- Spacing and stance decisions: **no longer owned by a policy in this repository.**
+  `duelist.rs` was deleted with the legacy seam in embodied session 10, and its
+  stance machine -- block, evade, circle, punish, feint -- was written against a
+  body that was a disc with one blade angle. The nearest surviving thing is
+  [`embodied_script.rs`](../../crates/policy/src/embodied_script.rs), which decides
+  where to stand from the ground under its feet rather than from a stance, so it is
+  a successor in position and not in kind.
 - Termination outcome: [`World::timeout`](../../crates/sim/src/world/query.rs#L1278)

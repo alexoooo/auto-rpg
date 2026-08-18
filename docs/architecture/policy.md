@@ -3,74 +3,98 @@
 **Purpose:** Describe the current observation-to-command policy seams and their implementations.
 **Status:** current
 **Canonical source:** [`crates/policy/src/lib.rs`](../../crates/policy/src/lib.rs), [`Observation`](../../crates/sim/src/obs.rs), and [`Command`](../../crates/sim/src/command.rs)
-**Update when:** The `Policy`, `ArticulatedPolicy` or `EmbodiedPolicy` trait, observation contract, command shape, policy registry, or run harness changes.
+**Update when:** The `ArticulatedPolicy` or `EmbodiedPolicy` trait, observation contract, command shape, policy registry, or run harness changes.
 
 ## The complete policy seam
 
-There are three seams, one per `CombatModel`, and each has one required
+There are two seams, one per surviving `CombatModel`, and each has one required
 operation:
 
 ```rust
-fn decide(&mut self, obs: &Observation) -> Command;                          // Policy
 fn decide(&mut self, obs: &ArticulatedObservation) -> ArticulatedCommandV1;  // ArticulatedPolicy
 fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1;     // EmbodiedPolicy
 ```
 
-The legacy half is described immediately below; the other two share a section.
-This heading used to cover only the first of them, which was complete while a
-body was a disc with one blade angle and is not now.
+**There were three.** `CombatModel::Legacy`'s seam was
+`fn decide(&Observation) -> Command`, and embodied session 10 deleted it with the
+model. What is worth carrying forward is the general sentence rather than the
+signature: everything downstream of this crate -- a neural policy, an evolved
+controller, a scripted test dummy, a human's mouse -- is the same one method, and
+the simulation cannot tell them apart and does not try to. The crate's module
+header argues why these are separate traits rather than one trait over an enum
+payload, and why the seams therefore do not compose.
 
-`reset` is optional policy lifecycle behavior, and the run harness calls it
+`reset` is optional policy lifecycle behaviour and the run harness calls it
 before every run. A policy may keep its own memory, but it receives neither
-`&World` nor a mutation capability. All authoritative effects return through a
-`Command` submitted by the driver.
+`&World` nor a mutation capability; every authoritative effect returns through a
+submitted command. **Nothing currently asserts that a caller who forgets `reset`
+is caught** -- the test that did belonged to the deleted seam, and the gap is
+recorded in the crate header rather than only here.
 
-`TeamPolicy` dispatches the same trait by the observation's faction, allowing
-different hero and monster implementations without changing the simulation.
-`PolicyKind` is the external registry for `Utility`, `Duelist`, `Idle`, and
-`Random`; its integer codes are append-only because saved configuration and the
-wasm boundary use them.
+There is no team wrapper that runs one policy per side. The legacy seam had one,
+`TeamPolicy`, which dispatched on `Observation::faction` -- and the reason it has
+no successor is a property of the *observation* rather than an omission:
+`ArticulatedObservation` is subject-scoped and has no faction column, so "the
+other side" appears in it only as `opponents`, already selected. Per-side routing
+therefore belongs to whoever drives the run, which does know both factions.
+[`ArticulatedPolicy`](../../crates/policy/src/lib.rs#L208) carries that argument
+in full, beside the doctest pair showing that no policy can be handed a `&World`.
 
 ## Observation to command
 
-`World::observe` produces a deterministic observation for one subject. It
-contains exact self and standing-input information plus bounded, noisy contact
-information. Policies operate on those perceived values. `Observation` can
-also write a fixed-width feature vector whose shape is guarded by
-`FEATURE_LAYOUT_VERSION`; the current shipped policies make their decisions
-directly from Rust fields rather than consuming a learned model through that
-feature buffer.
+`World::observe_articulated` produces a deterministic subject-scoped observation:
+exact proprioception, and bounded noisy information about everything else.
+Policies operate on those perceived values. What an embodied policy may see, and
+why it arrives as fractions rather than as world units, is
+[below](#what-an-embodied-policy-is-allowed-to-see-and-why-it-arrives-as-fractions).
 
-The current `Command` has four parts:
+An `ArticulatedCommandV1` is a movement vector, a torso yaw, an intent, and per
+arm a bearing, a height, a reach, an effort, a grip request and a release
+request. An `EmbodiedCommandV1` is that plus a swing plane per arm, and its
+movement vector and arm bearings are read **relative to the torso** rather than
+absolutely -- the same byte offsets meaning different things, which
+[the embodied command contract](../reference/embodied-command-v1.md) owns.
 
-- `move_dir`: desired movement, with magnitude clamped by the simulation;
-- `intent`: hold, attack a generational entity id, or flee;
-- `limb`: exactly one `LimbCommand`; and
-- `slot`: a request to select one loadout slot.
+The legacy `Command` was four parts: a movement vector, an intent, exactly one
+`LimbCommand` carrying an absolute angle and a guard reach and a strike choice,
+and a loadout slot. **The singular limb is why that seam could not simply be
+widened.** A body that is a disc with one blade angle is asked where to stand,
+where a jointed opponent is a set of swept volumes and two blades and the
+question is which of them to put steel into. Different observation, different
+command, different entry into `World`.
 
-The singular limb is important current behavior. `LimbCommand` carries an
-absolute `angle`, a guard `reach`, and a `strike` choice. A guard-role hand
-reads angle and reach; a strike-role hand reads angle and strike. There is no
-second limb command and no per-joint articulated action in the current seam.
-The selected command persists until the subject's next decision tick.
-
-Faction `Order` and `Objective` are not policy outputs. The host sets them on
-`World`, and the resulting standing values reach each observation for policy
-interpretation.
+Faction `Order` and `Objective` are not policy outputs and, on a surviving model,
+are not policy *inputs* either. The host still sets them on `World` and they
+still reach the state hash, but neither surviving observation carries an order or
+navigation column, so nothing perceives them.
+[Navigation and visibility](../design/navigation-visibility.md) owns that finding
+and what it cost the browser.
 
 ## Run harness ownership
 
-`policy::run` resets the policy, constructs a `World`, applies initial orders,
-and repeats the decision loop followed by `World::step`. It optionally records
-the submitted commands and orders into a `Replay`, counts selected events, and
-returns outcome metrics and the final `World::state_hash`. `lab` uses this
-harness for experiments. The browser follows the same observation/decision/
-submission shape around its render loop, but owns its host timing separately.
+`policy::run_articulated` resets the policy, constructs a `World`, applies
+initial orders, and repeats the decision loop followed by `World::step`. It
+optionally records the submitted commands into a `Replay`, and returns outcome
+metrics and the final `World::state_hash`. **What it records is what the world
+*stored*, not what the policy offered** -- a refused submission stores the
+neutral command atomically and returns the reason beside it, and recording the
+offered command would replay a different fight the day validation moved by a raw
+unit.
 
-The determinism boundary is intentionally below the policy. A current
-fixed-point policy can be reproducible, but `World` remains portable even if a
-future policy uses target-dependent floating-point inference because replay
-stores the command it chose.
+`policy::run` was the legacy loop and is gone. Three claims went with it that
+nothing in this crate now makes, and they are listed in the crate's module header
+rather than left implicit, because a deleted test leaves no trace.
+
+**There is no weight search in this repository any more.** The genome surface --
+`PolicySpec`, `MAX_GENOME_LEN`, and `lab evolve` above them -- optimised the
+*named weights of a hand-authored policy*, and the embodied script has none, so
+porting the search would have meant inventing a subject for it.
+[Learning status](learning.md) carries that argument and the loss.
+
+The determinism boundary is intentionally below the policy. A fixed-point policy
+can be reproducible, but `World` remains portable even if a future policy uses
+target-dependent floating-point inference, because a replay stores the command it
+chose.
 
 ## The non-legacy seam
 
@@ -370,13 +394,12 @@ proposal, not an omitted part of the current seam.
 
 ## Source anchors
 
-- Trait, team dispatch, and policy registry: [`Policy`](../../crates/policy/src/lib.rs#L121)
-- Non-legacy seam: [`ArticulatedPolicy`](../../crates/policy/src/lib.rs#L217)
-- The embodied seam: [`EmbodiedPolicy`](../../crates/policy/src/lib.rs#L317)
-- The non-legacy seam's registry: [`ArticulatedPolicyKind`](../../crates/policy/src/lib.rs#L450)
-- The embodied seam's registry: [`EmbodiedPolicyKind`](../../crates/policy/src/lib.rs#L601)
+- The articulated seam: [`ArticulatedPolicy`](../../crates/policy/src/lib.rs#L208)
+- The embodied seam: [`EmbodiedPolicy`](../../crates/policy/src/lib.rs#L260)
+- The non-legacy seam's registry: [`ArticulatedPolicyKind`](../../crates/policy/src/lib.rs#L303)
+- The embodied seam's registry: [`EmbodiedPolicyKind`](../../crates/policy/src/lib.rs#L454)
 - The scripted embodied policy: [`crates/policy/src/embodied_script.rs`](../../crates/policy/src/embodied_script.rs)
 - Headless decision loops: [`crates/policy/src/runner.rs`](../../crates/policy/src/runner.rs)
 - Subject-scoped inputs: [`crates/sim/src/obs.rs`](../../crates/sim/src/obs.rs)
-- `Command`, the single `LimbCommand`, `Order`, and `Objective`: [`crates/sim/src/command.rs`](../../crates/sim/src/command.rs)
-- Submission and scheduling: [`World::submit`](../../crates/sim/src/world/mod.rs)
+- The command grammars, `Order` and `Objective`: [`crates/sim/src/command.rs`](../../crates/sim/src/command.rs)
+- Submission and scheduling: [`World::submit_embodied_v1`](../../crates/sim/src/world/mod.rs)

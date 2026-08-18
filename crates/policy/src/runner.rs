@@ -1,4 +1,4 @@
-use crate::{ArticulatedPolicy, Policy};
+use crate::ArticulatedPolicy;
 use fx::{Fx, Vec2};
 use sim::{
     CommandReject, EntityId, Event, Faction, Order, Outcome, Replay, Scenario,
@@ -89,92 +89,21 @@ impl RunResult {
     }
 }
 
-/// Drives a scenario to a conclusion.
+/// **`run` -- the legacy loop this file was written around -- is gone.**
+/// It was eleven lines and drove `Policy` over the legacy `Observation`, and
+/// three claims went with it that nothing else in this crate now makes: that a
+/// run is reproducible from its seed, that a recorded run replays exactly, and
+/// that a policy instance can be reused across rollouts without one leaking into
+/// the next. The first two are asserted for the surviving model in
+/// `crates/sim/tests/determinism.rs`, which is the better home for them anyway
+/// -- they are properties of the simulator, not of a runner. **The third is not
+/// asserted anywhere**: `reset` is still on both surviving traits and nothing
+/// checks that a caller who forgets it gets caught. That is a real gap and it is
+/// written here rather than in a commit message.
 ///
-/// This is the only loop in the project that knows how to play the game, and
-/// it is eleven lines long. Both the headless lab and (eventually) the browser
-/// client run this same shape -- the client just renders between steps.
-pub fn run(
-    scenario: &Scenario,
-    seed: u64,
-    mut policy: impl Policy,
-    config: &RunConfig,
-) -> RunResult {
-    policy.reset();
-
-    let mut world = World::new(scenario, seed);
-    let limit = config.max_ticks.unwrap_or(scenario.max_ticks);
-    let mut replay = config.record.then(|| Replay::new(scenario, seed));
-
-    for (faction, order) in [
-        (Faction::Heroes, config.orders[0]),
-        (Faction::Monsters, config.orders[1]),
-    ] {
-        world.set_order(faction, order);
-        if let Some(replay) = replay.as_mut() {
-            replay.record_order(0, faction, order);
-        }
-    }
-    let mut due: Vec<EntityId> = Vec::new();
-    let mut decisions = 0u64;
-    let (mut blows, mut blocks, mut parries, mut shots) = (0u32, 0u32, 0u32, 0u32);
-
-    while world.outcome().is_none() && world.tick() < limit {
-        due.clear();
-        due.extend_from_slice(world.pending_decisions());
-        for &id in &due {
-            let command = policy.decide(&world.observe(id));
-            if let Some(replay) = replay.as_mut() {
-                replay.record(world.tick(), id, command);
-            }
-            world.submit(id, command);
-            decisions += 1;
-        }
-        for event in world.step() {
-            match event {
-                Event::Damage { .. } => blows += 1,
-                Event::Block { .. } => blocks += 1,
-                Event::Parry { .. } => parries += 1,
-                // Counted as a shot thrown, not as a shot landed -- whether it
-                // arrives comes back later as a `Damage` like anything else.
-                Event::Loose { .. } => shots += 1,
-                // Neither of these is a term in a fitness score. A death is
-                // already counted by the outcome and by the health fractions;
-                // a shove is presentation. Spelled out rather than swept into
-                // a `_` arm so that the next variant has to be thought about
-                // here rather than silently ignored.
-                Event::Death { .. } | Event::Shove { .. } => {}
-            }
-        }
-    }
-
-    let ticks = world.tick();
-    if let Some(replay) = replay.as_mut() {
-        replay.finish(ticks);
-    }
-
-    RunResult {
-        // A fight that ran out of clock is scored on points rather than thrown
-        // away; see `World::timeout`. `Outcome::Draw` still comes back for a
-        // genuine tie, so "the two sides never found each other" stays visible.
-        outcome: world.outcome().unwrap_or_else(|| world.timeout()),
-        ticks,
-        state_hash: world.state_hash(),
-        hero_health: world.health_fraction(Faction::Heroes),
-        monster_health: world.health_fraction(Faction::Monsters),
-        hero_damage: world.damage_dealt(Faction::Heroes),
-        monster_damage: world.damage_dealt(Faction::Monsters),
-        decisions,
-        blows,
-        blocks,
-        parries,
-        shots,
-        // Nothing here can be refused; see the fields' documentation.
-        rejected: 0,
-        first_rejection: None,
-        replay,
-    }
-}
+/// It also took `doing_something_beats_doing_nothing`, the control-condition
+/// claim that a policy which acts beats one that does not. The embodied corpus
+/// reports win rates and could carry that claim; it does not carry it today.
 
 /// Drives an articulated scenario to a conclusion.
 ///
@@ -329,99 +258,9 @@ pub fn run_articulated(
 mod tests {
     use super::*;
     use crate::{
-        neutral_articulated_command, IdlePolicy, NeutralArticulatedPolicy, TeamPolicy,
-        UtilityPolicy,
+        neutral_articulated_command, NeutralArticulatedPolicy,
     };
     use sim::{ArticulatedCommandV1, ArticulatedObservation, CommandField, Intent};
-
-    #[test]
-    fn a_run_is_reproducible() {
-        let scenario = Scenario::skirmish(3, 4, 5);
-        let config = RunConfig::default();
-        let a = run(&scenario, 17, &mut UtilityPolicy::baseline(), &config);
-        let b = run(&scenario, 17, &mut UtilityPolicy::baseline(), &config);
-        assert_eq!(a.state_hash, b.state_hash);
-        assert_eq!(a.ticks, b.ticks);
-        assert_eq!(a.outcome, b.outcome);
-    }
-
-    #[test]
-    fn a_recorded_run_replays_exactly() {
-        let scenario = Scenario::skirmish(8, 3, 4);
-        let config = RunConfig {
-            record: true,
-            ..RunConfig::default()
-        };
-        let result = run(&scenario, 21, &mut UtilityPolicy::baseline(), &config);
-        let replay = result.replay.as_ref().expect("recording was requested");
-        assert!(!replay.is_empty());
-        let played = replay.play();
-        assert_eq!(played.state_hash(), result.state_hash);
-        assert_eq!(played.tick(), result.ticks);
-    }
-
-    #[test]
-    fn a_policy_instance_can_be_reused_without_leaking_between_runs() {
-        // Policies hold per-entity memory; if `reset` were skipped, the second
-        // run would start with opinions about entities from the first.
-        let scenario = Scenario::skirmish(12, 4, 4);
-        let config = RunConfig::default();
-        let mut policy = UtilityPolicy::baseline();
-        let first = run(&scenario, 5, &mut policy, &config);
-        let _ = run(&Scenario::skirmish(99, 6, 2), 6, &mut policy, &config);
-        let again = run(&scenario, 5, &mut policy, &config);
-        assert_eq!(first.state_hash, again.state_hash);
-    }
-
-    #[test]
-    fn doing_something_beats_doing_nothing() {
-        // The floor test for the whole fitness pipeline: if a real policy does
-        // not reliably beat a side that stands still and gets eaten, the
-        // measurement is broken and every experiment above it is noise.
-        let config = RunConfig::default();
-        let mut wins = 0;
-        let trials = 12;
-        for seed in 0..trials {
-            let mut team = TeamPolicy::new(UtilityPolicy::baseline(), IdlePolicy);
-            let scenario = Scenario::skirmish(seed, 4, 4);
-            if run(&scenario, seed, &mut team, &config).heroes_won() {
-                wins += 1;
-            }
-        }
-        // Should be 12/12. The bound is loose because losing here means the
-        // heroes failed to *find* four stationary targets, which is a search
-        // problem this milestone has not solved, not a fighting problem.
-        assert!(
-            wins * 4 >= trials * 3,
-            "active heroes only won {wins}/{trials} against a side that does nothing"
-        );
-    }
-
-    #[test]
-    fn fights_reach_a_conclusion_instead_of_timing_out() {
-        // Agents that cannot find each other produce a lab full of draws, and
-        // a fitness function fed on draws cannot rank anything.
-        let config = RunConfig::default();
-        let mut resolved = 0;
-        // Enough samples to actually measure a rate. The measured draw rate is
-        // around 8% over 48 skirmishes, and a threshold of 20% needs more than a
-        // handful of seeds to sit safely above that: at 24 trials an ordinary
-        // unlucky slice lands five draws about one time in nine, which is a
-        // flaky test rather than a failing game. Sixty is enough that the
-        // threshold is measuring the game.
-        let trials = 60;
-        for seed in 0..trials {
-            let scenario = Scenario::skirmish(seed + 100, 4, 6);
-            let result = run(&scenario, seed, &mut UtilityPolicy::baseline(), &config);
-            if result.outcome != Outcome::Draw {
-                resolved += 1;
-            }
-        }
-        assert!(
-            resolved * 5 >= trials * 4,
-            "only {resolved}/{trials} fights resolved; agents are failing to engage"
-        );
-    }
 
     // ------------------------------------------------------- articulated seam
 

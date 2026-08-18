@@ -17,8 +17,9 @@
 //! the optimizer in `crates/learn` is a `(mu + lambda)` evolution strategy with
 //! no gradient at all -- it moves a population of twenty-odd points around by
 //! Gaussian perturbation, and 60,000 dimensions is not a space twenty points
-//! explore. The existing genome optimizer sizes its whole world at
-//! [`policy::MAX_GENOME_LEN`], which is 24.
+//! explore. For scale: the genome optimizer that shipped beside this one sized
+//! its whole world at 24 named weights (`policy::MAX_GENOME_LEN`, deleted with
+//! the legacy policies in embodied session 10).
 //!
 //! So the slice below is hand-picked, and being hand-picked is a *claim*: that
 //! a fighter needs the bearing and range of the thing in front of it, the

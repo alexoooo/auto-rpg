@@ -619,7 +619,13 @@ function checkArchitecture(root) {
     if (name === "simulation.md") {
       requireSymbolAnchor(markdown, file, root, "crates/sim/src/world/mod.rs", /pub fn step\s*\(/, "World::step", errors);
     } else if (name === "policy.md") {
-      requireSymbolAnchor(markdown, file, root, "crates/policy/src/lib.rs", /pub trait Policy\b/, "Policy trait", errors);
+      // `\w*Policy` rather than the literal `Policy`, because the crate has
+      // had one seam trait, then three, then two, and the name of the
+      // surviving one has changed with them. What this rule is for is that
+      // the architecture page cites *a seam trait declaration in that file*;
+      // pinning the spelling made the gate fail on a rename, which is the
+      // one edit it should have nothing to say about.
+      requireSymbolAnchor(markdown, file, root, "crates/policy/src/lib.rs", /pub trait \w*Policy\b/, "a policy seam trait", errors);
     } else if (name === "replay-hashing.md") {
       requireSymbolAnchor(markdown, file, root, "crates/sim/src/replay.rs", /pub struct Replay\b/, "Replay", errors);
       requireSymbolAnchor(markdown, file, root, "crates/sim/src/scenario.rs", /pub fn fingerprint\s*\(/, "Scenario::fingerprint", errors);

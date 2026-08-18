@@ -3039,9 +3039,10 @@ impl Sim {
 
     /// `frames` ticks of the full loop.
     ///
-    /// Deliberately not [`policy::run`]: that loop gates on `World::outcome()`,
-    /// which reports `HeroesWin` from tick zero when there is nothing left to
-    /// fight, so it would return before the hero took a step.
+    /// **Its own loop rather than the crate's**, which was true of the deleted
+    /// `policy::run` and is true of `policy::run_articulated`: those gate on
+    /// `World::outcome()`, which reports `HeroesWin` from tick zero when there is
+    /// nothing left to fight, so either would return before the hero took a step.
     ///
     /// The answering half is not optional either. `expire_unanswered_decisions`
     /// advances an agent's decision clock even when nothing answered it, so a

@@ -2,7 +2,7 @@
 
 **Purpose:** Explain why the floor, routing, sight, orders, and browser route have their current shapes.
 **Status:** current
-**Canonical source:** [`Dungeon`](../../crates/sim/src/dungeon.rs#L159), [`World::observe`](../../crates/sim/src/world/query.rs#L257), and the policy order adapters ([utility](../../crates/policy/src/utility.rs#L511), [duelist](../../crates/policy/src/duelist.rs#L685))
+**Canonical source:** [`Dungeon`](../../crates/sim/src/dungeon.rs#L159) and [`World::refresh_nav`](../../crates/sim/src/world/navigation.rs#L62). The two policy order adapters this header used to name were `utility.rs` and `duelist.rs`, deleted with the legacy seam in embodied session 10 -- **they were the only readers the flow field ever had**, which is why this document now records the order channel as built and unconsumed rather than as a live input
 **Update when:** Floor representation, collision, routing, visibility, order semantics, or route ownership changes.
 
 ## The floor plan

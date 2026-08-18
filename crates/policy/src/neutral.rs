@@ -1,28 +1,27 @@
-//! The control conditions, one per seam, plus the fuzzer.
+//! The control condition, and the one command every seam falls back to.
 //!
-//! Named for [`RandomPolicy`], which is the only thing in here with any
-//! machinery, but what the module actually holds is the policies that exist so
-//! that something else can be measured against them.
+//! **Was `random.rs`, and the rename is the point.** The module was named for
+//! `RandomPolicy`, a fuzzer that flailed a legacy limb, and it also held
+//! `IdlePolicy` -- the do-nothing control that evolution measured candidates
+//! against. Both drove the legacy seam and both went with it: the fuzzer's
+//! subject was `Command::limb` and `Command::slot`, neither of which exists on a
+//! body whose arms are driven by an actuator, and the control's subject was a
+//! genome search that is also gone. What is left is the thing they were filed
+//! beside: the neutral command, which is not a control at all but the answer the
+//! sim itself substitutes for a submission it refuses.
+//!
+//! A fuzzer for the surviving seam would be worth having and is not this one.
+//! It would have to produce an `EmbodiedCommandV1` -- a bearing, a height, a
+//! reach, an effort and a plane per arm -- and the interesting state transitions
+//! it should hammer are the contact solver's refusals, not a swing phase.
+//! Nothing in the repository does that today.
 
-use crate::{ArticulatedPolicy, Policy};
-use fx::{Fx, Rng, Vec2};
+use crate::ArticulatedPolicy;
+use fx::{Fx, Vec2};
 use sim::{
-    ArmTarget, ArticulatedCommandV1, ArticulatedObservation, CombatHeight, Command, GripRequest,
-    ReleaseRequest,
-    Intent, LimbCommand, Observation,
+    ArmTarget, ArticulatedCommandV1, ArticulatedObservation, CombatHeight, GripRequest,
+    Intent, ReleaseRequest,
 };
-
-/// Does nothing. The control condition: any evolved policy that cannot beat
-/// this is not learning, and any fitness function that cannot tell them apart
-/// is not measuring.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct IdlePolicy;
-
-impl Policy for IdlePolicy {
-    fn decide(&mut self, _obs: &Observation) -> Command {
-        Command::HOLD
-    }
-}
 
 /// The command the sim substitutes for a submission it refuses, rebuilt from
 /// the one column of the observation it depends on.
@@ -58,10 +57,11 @@ pub fn neutral_articulated_command(obs: &ArticulatedObservation) -> ArticulatedC
     }
 }
 
-/// Stands there, arms tucked. [`IdlePolicy`]'s articulated twin and the same
-/// control condition -- with one extra job the legacy one does not have.
+/// Stands there, arms tucked. The control condition on this seam, and it does
+/// one job the legacy `IdlePolicy` it replaced did not have to.
 ///
-/// [`Command::HOLD`] is a constant; the neutral articulated command is not,
+/// That policy returned `Command::HOLD`, a constant; the neutral articulated
+/// command is not a constant,
 /// because it has to name the yaw the body is already holding or the actuator
 /// reads a request to spin to north. So this is also the smallest exercise of
 /// the seam that reads its observation at all, which is what makes it the
@@ -75,81 +75,11 @@ impl ArticulatedPolicy for NeutralArticulatedPolicy {
     }
 }
 
-/// Flails. Useful as a noise floor and as a fuzzer -- a run against random
-/// commands exercises state transitions a sensible policy never reaches.
-#[derive(Clone, Debug)]
-pub struct RandomPolicy {
-    rng: Rng,
-}
-
-impl RandomPolicy {
-    pub fn new(seed: u64) -> RandomPolicy {
-        RandomPolicy {
-            rng: Rng::new(seed),
-        }
-    }
-}
-
-impl Policy for RandomPolicy {
-    fn decide(&mut self, obs: &Observation) -> Command {
-        let move_dir = self.rng.unit_vec();
-        let enemies = obs.enemies();
-        let intent = if enemies.is_empty() || self.rng.chance(1, 4) {
-            Intent::Hold
-        } else {
-            Intent::Attack(enemies[self.rng.below(enemies.len() as u32) as usize].id)
-        };
-        // The limb flails too. A fuzzer that left it tucked would never exercise
-        // the swing, parry or block paths at all, which are most of the
-        // interesting state transitions in the sim.
-        let limb = LimbCommand::new(self.rng.angle(), self.rng.range(Fx::ZERO, Fx::ONE));
-        Command {
-            move_dir,
-            intent,
-            // Rolls a slot too. The swap gate is the newest state machine in the
-            // sim and this is the only thing in the crate that will hammer it
-            // from illegal phases on purpose.
-            slot: self.rng.below(2) as u8,
-            limb,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use fx::{Angle, Fx, Vec2};
-    use sim::{EntityId, Faction, Order, Scenario, SubmitArticulatedOutcome, World};
-
-    #[test]
-    fn random_policy_is_reproducible_from_its_seed() {
-        let obs = Observation::blank(
-            0,
-            EntityId::new(0, 0),
-            Faction::Heroes,
-            Vec2::ZERO,
-            Order::Hold,
-        );
-        let mut a = RandomPolicy::new(1234);
-        let mut b = RandomPolicy::new(1234);
-        for _ in 0..100 {
-            assert_eq!(a.decide(&obs), b.decide(&obs));
-        }
-    }
-
-    #[test]
-    fn idle_policy_never_moves() {
-        let obs = Observation::blank(
-            0,
-            EntityId::new(0, 0),
-            Faction::Heroes,
-            Vec2::ZERO,
-            Order::Hold,
-        );
-        let command = IdlePolicy.decide(&obs);
-        assert_eq!(command.move_dir.length(), Fx::ZERO);
-        assert_eq!(command.intent, Intent::Hold);
-    }
+    use sim::{EntityId, Scenario, SubmitArticulatedOutcome, World};
 
     #[test]
     fn the_neutral_command_is_the_one_the_world_substitutes() {
