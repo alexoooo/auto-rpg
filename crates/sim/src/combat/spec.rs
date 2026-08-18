@@ -305,7 +305,7 @@ pub fn validate_construction(
             if units.iter().any(|unit| unit.articulated.is_some()) { return Err(CombatSpecError::UnitPresence); }
             return Ok(());
         }
-        crate::CombatModel::Articulated => {}
+        crate::CombatModel::Articulated | crate::CombatModel::Embodied => {}
     }
     let table = table.ok_or(CombatSpecError::MissingTable)?;
     if units.iter().any(|unit| unit.articulated.is_none()) { return Err(CombatSpecError::UnitPresence); }

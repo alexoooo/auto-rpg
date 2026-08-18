@@ -1,6 +1,14 @@
 # Embodied combat -- overview
 
-**Status:** proposed. No session has started.
+**Status:** active. Sessions [01](embodied-01-world-module-split.md),
+[02](embodied-02-phase-schedule-and-seams.md), [03](embodied-03-embodied-model-scaffold.md)
+[04](embodied-04-terrain-and-elevation.md),
+[05](embodied-05-torso-relative-command.md) and
+[08](embodied-08-command-composition.md) are complete, and
+[06](embodied-06-stance.md) is complete on the simulation side with only its
+publication outstanding. The two refactor
+sessions moved no pin, so the gate on the mechanics sessions is discharged, and the
+third model is in the tree with no behaviour of its own.
 
 The target is the *Die by the Sword* control model, simplified only where the
 simplification does not cost depth, delivered inside the AI-focused auto-battle
@@ -31,17 +39,18 @@ discarding the one before it, and it is the whole argument for evolving:
   reason to pay for a variant instead of editing the articulated actuator in place.
 
 What does *not* survive contact with this list is the shape of one file. That is what
-sessions 01 and 02 are for, and no implementation session may begin before both are
-green.
+sessions 01 and 02 were for, and no implementation session may begin before both are
+green. Both are.
 
 ## Refactoring is the schedule, not a preamble
 
-Sessions 03 through 09 each add a joint, a column, or a phase to code that is
-currently reached through `crates/sim/src/world.rs`. Measured on 2026-08-17 that file
-is **20,470 lines, of which 12,541 are `#[cfg(test)]` modules** -- so roughly 7.9k
-lines of production `World` and twelve and a half thousand lines of tests for it,
-in one file, with the tests for the actuator sitting several thousand lines away from
-the actuator.
+Sessions 03 through 09 each add a joint, a column, or a phase to code that was, until
+sessions 01 and 02 ran, reached through a single `crates/sim/src/world.rs`. Measured
+on 2026-08-17 that file was **20,470 lines, of which 12,541 were `#[cfg(test)]`
+modules** -- so roughly 7.9k lines of production `World` and twelve and a half
+thousand lines of tests for it, in one file, with the tests for the actuator sitting
+several thousand lines away from the actuator. It is now a `world/` module tree whose
+largest member is `contact_phase.rs` at 5.9k lines, most of that its own tests.
 
 **The obvious second and third targets turned out not to be targets, and measuring
 first is the reason this plan has two refactor sessions instead of four.**
@@ -54,8 +63,8 @@ The two sessions are therefore narrow and both are provable rather than argued:
 
 | session | subject | proof that nothing changed |
 |---|---|---|
-| [01](embodied-01-world-module-split.md) | `world.rs` becomes a `world/` module tree | every pin in the golden registry, byte for byte, plus the `#[cfg(test)]` phase trace |
-| [02](embodied-02-phase-schedule-and-seams.md) | the phase schedule becomes data; limb geometry gets one owner | the same, plus a phase-trace equality test per model |
+| [01](embodied-01-world-module-split.md) | `world.rs` becomes a `world/` module tree -- **done, nothing moved** | every pin in the golden registry, byte for byte, plus the `#[cfg(test)]` phase trace and an unchanged test count of 1156 |
+| [02](embodied-02-phase-schedule-and-seams.md) | the phase schedule becomes data; limb geometry gets one owner -- **done, nothing moved** | the same, plus a trace read off the table rather than written beside the call |
 
 Session 01 costs nothing in visibility churn, and the reason is a Rust rule worth
 stating up front because it decides the whole shape of the split: **a private field is
@@ -69,19 +78,27 @@ the rest of the crate and the diff is a move.
 
 | session | result | depends on |
 |---|---|---|
-| [01](embodied-01-world-module-split.md) | `world.rs` split by phase; tests travel with their code | none |
-| [02](embodied-02-phase-schedule-and-seams.md) | declarative phase schedule, limb-geometry seam, model-extension seam | 01 |
-| [03](embodied-03-embodied-model-scaffold.md) | `CombatModel::Embodied`, `EmbodiedCommandV1`, own hash block, no new behaviour | 02 |
-| [04](embodied-04-terrain-and-elevation.md) | sculpted terrain column, body z as a terrain sample, walls from slope | 03 |
-| [05](embodied-05-torso-relative-command.md) | arm bearing and movement become torso-relative | 03 |
-| [06](embodied-06-stance.md) | pelvis height, hip yaw distinct from torso yaw, twist budget that forces a step | 04 and 05 |
-| [07](embodied-07-elbow-and-forearm.md) | two-link arm, derived elbow, forearm collider, a real arm-length constraint | 06 |
-| [08](embodied-08-command-composition.md) | one hand human, the other hand AI, merged before submission | 05 |
+| [01](embodied-01-world-module-split.md) | **done.** `world.rs` split by phase; tests travelled with their code | none |
+| [02](embodied-02-phase-schedule-and-seams.md) | **done.** declarative phase schedule, limb-geometry seam, model-extension seam | 01 |
+| [03](embodied-03-embodied-model-scaffold.md) | **done.** `CombatModel::Embodied`, `EmbodiedCommandV1`, own hash domain, no new behaviour | 02 |
+| [04](embodied-04-terrain-and-elevation.md) | **done.** sculpted terrain column, body z as a terrain sample, walls from slope | 03 |
+| [05](embodied-05-torso-relative-command.md) | **done.** arm bearing and movement become torso-relative | 03 |
+| [06](embodied-06-stance.md) | **sim side done.** pelvis height, hip yaw distinct from torso yaw, twist budget that forces a step; publication outstanding | 04 and 05 |
+| [07](embodied-07-elbow-and-forearm.md) | **arm-length constraint and derived elbow done**; forearm collider and commanded swing plane outstanding | 06 |
+| [08](embodied-08-command-composition.md) | **done.** one hand human, the other hand AI, merged before submission | 05 |
 | [09](embodied-09-observation-and-policy.md) | embodied observation block, scripted policy, learning boundary | 07 and 08 |
+| [10](embodied-10-retire-the-older-models.md) | `Legacy` and `Articulated` deleted; `Embodied` is the only model | 09 |
 
 Sessions 04 and 05 are independent of each other. Everything from 06 onward is
 serial, because stance changes where a shoulder is and the elbow hangs off the
 shoulder.
+
+**Session 10 exists because the owner decided on 2026-08-17 that both older models
+go**, and the ordering is the whole of the decision. Deleting them today would take
+the only policies that can drive a fight and the only fixtures that measure one, at
+the exact moment sessions 07 and 09 need something to check themselves against --
+there is no `embodied_script.rs` yet, and Embodied has no corpus. After 09 there is
+one, and the deletion becomes a subtraction rather than a leap.
 
 ## Constants introduced
 
@@ -113,8 +130,11 @@ trace. A move is a failed refactor and is reverted rather than re-recorded; that
 the entire acceptance criterion for both.
 
 **Sessions 03 through 08 move nothing either, and this is a design property rather
-than a hope.** `Scenario::fingerprint` does not write the combat model, so a new
-enum variant is invisible to it. Every embodied mechanic is reachable only from a
+than a hope.** The argument this plan gave was wrong and session 03 corrected it in
+place: `Scenario::fingerprint` **does** write the combat model, as a `u16` identity
+word. It reaches the same conclusion by a better route -- every shipped fixture
+keeps the word it already wrote, and a third variant adds a third value that only an
+`Embodied` scenario can produce. Every embodied mechanic is reachable only from a
 new `Embodied` scenario. `EmbodiedCommandV1` is a *separate* payload from the
 articulated one specifically so that widening it in sessions 06 and 07 cannot reach
 `ARTICULATED_COMMAND_HASH`, `EXACT_TRAJECTORY_STATE_DIGEST` or
@@ -147,6 +167,60 @@ may keep the trained network on the existing slice and defer that, and if it doe
 defer it, the move is owned rather than a portability failure and owes a re-score
 against **88.922** on `learn-probe evaluate`'s 400 held-out seeds.
 
+## Backwards compatibility is not a constraint here
+
+**Stated by the owner on 2026-08-17: backwards compatibility is fine where it is free,
+and is not to be paid for in development time at this stage of development.** Nothing
+in this tree has a consumer outside it -- no saved replay, no serialized world, no
+client built from a different commit -- so an append-only rule whose only beneficiary
+is a reader that does not exist is a rule costing this plan sessions.
+
+For the remainder of these sessions, then:
+
+- **Widen a payload in place rather than appending to it.** `EMBODIED_PAYLOAD_BYTES`
+  going 53 to 57 for [session 07](embodied-07-elbow-and-forearm.md)'s swing plane is a
+  straight edit of the embodied layout, not a reserved-tail exercise.
+- **Bump a layout version rather than designing around one.** The versions exist to be
+  bumped, and every mirror of every one of them ships from this commit.
+- **Renumber, reorder, and delete.** A discriminant, a column order, or a
+  compatibility fallback kept only for an older shape of itself can go.
+
+### The test is cost, and for one artefact the answer flips
+
+The waiver is about development time, so the question at each seam is what honouring
+compatibility costs against what breaking it costs -- not which of the two is more
+principled. The trained checkpoint is the one place in this tree where breaking it is
+the expensive side: it is frozen against the feature layout, so renumbering a column
+it reads costs a retrain and a re-score against **88.922**.
+[Session 09](embodied-09-observation-and-policy.md) therefore still appends its block
+after the articulated one, and still keeps the `legacy feature prefix` pin as the
+guard that says it did. That is the waiver being applied, not an exception to it.
+
+### Three things look like compatibility and are not
+
+**The golden registry is a determinism surface.** Its pins do not exist so that old
+data still loads; they exist to catch a behaviour change nobody intended -- a
+truncation reordered, a phase moved, an iteration that stopped being stable. The
+repository rule survives the waiver whole: state which pins you expect to move, and
+treat an unpredicted move as a bug until the exact byte path proves otherwise. All the
+waiver changes is what happens once that argument is made and holds -- the move is
+re-recorded rather than designed around. Session 06's `ARTICULATED_STREAM_DIGEST` is
+the worked example: predicted here, argued from the digest grammar, measured against a
+recomputation with the new section suppressed, then recorded.
+
+**The frame ABI's six-file handshake is a within-build agreement.** Writer and readers
+are all built from this commit, so the rule keeps them agreeing with *each other*
+rather than with last month. Bumping the version is cheap and is the intended escape
+hatch; a reordering that leaves one of the six mirrors behind is still the bug that
+repaints the game while producing valid numbers.
+
+**A replay that no longer decodes is fine; one that decodes to something else is
+not.** Old recordings are disposable. What is not disposable is the property that a
+recording round-trips to the scenario it was taken from, and [session
+03](embodied-03-embodied-model-scaffold.md) found exactly that break -- a second copy
+of the combat-model match inside the replay codec, answering `2` for an embodied
+fight. No waiver makes that acceptable, because it was never a compatibility bug.
+
 ## What is deliberately not in this plan
 
 - **Knees.** With legs automatic and no jump or crouch, the depth of legs in the
@@ -164,9 +238,10 @@ against **88.922** on `learn-probe evaluate`'s 400 held-out seeds.
   five regions and makes the arm *volume* a two-segment polyline, which the region
   tuple in [anatomy assignment](../reference/anatomy-health.md#region-volumes-and-assignment)
   already tolerates.
-- **Retiring `Articulated`.** It stays as the control, the way the Canvas game stayed
-  as the control for the GPU client. Deciding whether it ever goes is downstream of
-  session 09 having something to compare.
+- **Retiring `Articulated`.** This was an open question until 2026-08-17 and is now
+  [session 10](embodied-10-retire-the-older-models.md): both older models go, and only
+  the ordering was ever in doubt. Until then `Articulated` is the control, the way the
+  Canvas game stayed the control for the GPU client.
 
 ## Verification
 

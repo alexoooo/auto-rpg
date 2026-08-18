@@ -239,7 +239,7 @@ and still left the median closure speed roughly 35x below the legacy impact scal
 Most dissipated energy therefore remains under the raw-144 `CONTACT_ENERGY_FLOOR`
 and lands entirely in pressure, which changes no anatomy. A charging *body* onto a
 braced weapon clears the floor comfortably; the present arm swing usually does not.
-Every wound test in `crates/sim/src/world.rs` therefore scales the target's regional
+Every wound test in `crates/sim/src/world/contact_phase.rs` therefore scales the target's regional
 maxima down, exactly as the mechanical gate's severance case specifies. The measured
 limits and rejected alternatives are in the
 [articulated gate evidence](../performance/v2-articulated-gate.md).

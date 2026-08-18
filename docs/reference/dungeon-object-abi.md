@@ -2,7 +2,7 @@
 
 **Purpose:** Define the authoritative browser publication for physical dungeon objects.
 **Status:** current
-**Canonical source:** Rust layout and exports in [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs), generated TypeScript ABI in [`client/src/protocol/abi.generated.ts`](../../client/src/protocol/abi.generated.ts), and object state in [`world.rs`](../../crates/sim/src/world.rs).
+**Canonical source:** Rust layout and exports in [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs), generated TypeScript ABI in [`client/src/protocol/abi.generated.ts`](../../client/src/protocol/abi.generated.ts), and object state in [`world/mod.rs`](../../crates/sim/src/world/mod.rs).
 **Update when:** Any object word, kind, identity, state flag, extent, health, progress, or buffer lifecycle changes.
 
 `DUNGEON_OBJECT_V1` is separate from the frame and legacy furniture publications.

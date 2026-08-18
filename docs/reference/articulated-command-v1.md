@@ -2,7 +2,7 @@
 
 **Purpose:** Define the typed command, validation outcome, replay bytes, and wasm action buffer for the first articulated combat model.
 **Status:** current
-**Canonical source:** This contract plus `crates/sim/src/command.rs`, `crates/sim/src/world.rs`, `crates/sim/src/codec.rs`, and `crates/web/src/lib.rs`.
+**Canonical source:** This contract plus `crates/sim/src/command.rs`, `crates/sim/src/world/mod.rs`, `crates/sim/src/codec.rs`, and `crates/web/src/lib.rs`.
 **Update when:** An articulated input field, range, discriminant, fallback, or byte offset changes.
 
 <!-- DOC_CONTRACT: articulated-command-v1 -->

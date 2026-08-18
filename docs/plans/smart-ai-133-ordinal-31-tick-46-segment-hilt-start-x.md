@@ -114,8 +114,8 @@ Production edits are limited to:
 - `crates/sim/src/combat/resolution.rs`: request/view forwarding beside
   `ContactTickScratch::begin_exact_diagnostics` at line 779 and the Smart132
   forwarding at lines 5425--5438;
-- `crates/sim/src/world.rs` and `crates/sim/src/lib.rs`: public feature-only
-  request/view forwarding beside lines 18947--18975 and exports beside lines
+- `crates/sim/src/world/query.rs` and `crates/sim/src/lib.rs`: public feature-only
+  request/view forwarding beside lines 179--214 and exports beside lines
   119--126;
 - `crates/lab/src/strong_strike.rs`: factor the existing O(T) Smart132 runner at
   lines 2083--2917; add validation, comparison and rendering beside it;
@@ -138,11 +138,11 @@ absent. Smart130, Smart131 and Smart132 exact artifact tests remain byte-identic
 Instrument the computation that already executes; do not recompute a parallel
 answer. The frozen chain is:
 
-1. `World::build_contact_colliders` at `crates/sim/src/world.rs:6085` obtains the
+1. `World::build_contact_colliders` at `crates/sim/src/world/contact_phase.rs:1456` obtains the
    segment collider from `geometry::held_segment_colliders` at
    `crates/sim/src/combat/geometry.rs:87`. `segment_pose` at line 76 defines the
    previous hilt as `previous_body + previous_arm.hand`.
-2. `build_exact_contact_trajectories` at `crates/sim/src/world.rs:7046` copies that
+2. `build_exact_contact_trajectories` at `crates/sim/src/world/contact_phase.rs:399` copies that
    previous hilt X to `ExactMotorPoint::at_tick_start_raw[0]` and the requested-minus-
    previous hilt X to `tick_delta_raw[0]`.
 3. `wide_swept_aabbs_are_disjoint` at `crates/sim/src/combat/contact.rs:3153` chooses

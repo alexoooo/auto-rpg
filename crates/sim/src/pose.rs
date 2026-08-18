@@ -98,8 +98,16 @@ pub struct PosedArm {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct ArticulatedPose {
     pub id: EntityId,
-    /// The body origin, world space. Z is the floor: the model gives a body no
-    /// vertical degree of freedom.
+    /// The body origin, world space.
+    ///
+    /// **Z is the floor, and the floor now has a height.** This used to read
+    /// "the model gives a body no vertical degree of freedom", and the
+    /// correction is narrower than it looks: a body still has none *of its own*
+    /// -- there is no jump, no crouch and no ballistic motion -- but the floor
+    /// under it is a per-tile plateau, so `z` is a function of position rather
+    /// than the constant zero. That restriction is what keeps the third axis out
+    /// of the momentum solver, and it is why elevation cost this row no ABI
+    /// change: words 2..4 have published body XYZ since the layout was frozen.
     pub body: Vec3,
     pub body_yaw: Angle,
     /// World units per tick, Z always zero. See [`PosedArm::velocity`].

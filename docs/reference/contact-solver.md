@@ -2,7 +2,7 @@
 
 **Purpose:** Freeze contact layouts, ordering, equations, cap behavior, projectile/body participation, and corpus bytes.
 **Status:** current
-**Canonical source:** [`contact.rs`](../../crates/sim/src/combat/contact.rs), [`resolution.rs`](../../crates/sim/src/combat/resolution.rs), and the contact phase in [`world.rs`](../../crates/sim/src/world.rs)
+**Canonical source:** [`contact.rs`](../../crates/sim/src/combat/contact.rs), [`resolution.rs`](../../crates/sim/src/combat/resolution.rs), and the contact phase in [`world/contact_phase.rs`](../../crates/sim/src/world/contact_phase.rs)
 **Update when:** A collider, contact field, coefficient, equation, ordering rule, cap rule, or digest byte changes.
 
 This is the canonical deterministic contract for the purpose-built XYZ contact

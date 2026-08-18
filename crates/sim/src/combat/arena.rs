@@ -613,7 +613,7 @@ mod tests {
         // unopenable world" has to be written down somewhere that fails when it
         // stops being true.
         //
-        // 300 is past `CONTACT_COORDINATE_LIMIT` (256, `crates/sim/src/world.rs`)
+        // 300 is past `CONTACT_COORDINATE_LIMIT` (256, `crates/sim/src/world/mod.rs`)
         // and well inside `Fx`'s range, so it is the spawn bound that answers and
         // not saturation.
         let mut config = DuelConfigV1::shipped();

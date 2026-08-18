@@ -35,6 +35,13 @@ pub const LEGACY_COMMAND_SCHEMA: u16 = 0;
 /// not have.
 pub const ARTICULATED_COMMAND_SCHEMA_RESERVED: u16 = 2;
 const _: () = assert!(ARTICULATED_COMMAND_SCHEMA_RESERVED == SUBMITTED_COMMAND_LAYOUT_VERSION);
+/// The envelope schema an embodied replay declares.
+///
+/// A third value rather than a reuse of the articulated one, because the two
+/// payloads are separate contracts whose widths will diverge: an envelope has to
+/// say which width its command records have before anything reads one. Schemas
+/// 0, 1 and 2 keep their meanings exactly.
+pub const EMBODIED_COMMAND_SCHEMA: u16 = 3;
 
 pub const MAX_REPLAY_ENVELOPE_BYTES: usize = 16_777_216;
 pub const MAX_SCENARIO_RECORD_BYTES: usize = 1_048_576;
@@ -52,6 +59,8 @@ const SUBMITTED_LEGACY_COMMAND_BYTES: usize = 38;
 /// Tick, entity index, entity generation, the kind byte, and the payload:
 /// `4 + 4 + 4 + 1 + ARTICULATED_PAYLOAD_BYTES`. Was 64 while the payload was 51.
 const ARTICULATED_COMMAND_BYTES: usize = 13 + ARTICULATED_PAYLOAD_BYTES;
+/// The same thirteen-byte prefix over the embodied payload's own width.
+const EMBODIED_COMMAND_BYTES: usize = 13 + crate::command::EMBODIED_PAYLOAD_BYTES;
 const ORDER_BYTES: usize = 14;
 const OBJECTIVE_BYTES: usize = 6;
 
@@ -261,6 +270,7 @@ impl ReplayEnvelope {
         let command_schema = reader.u16()?;
         if command_schema != LEGACY_COMMAND_SCHEMA
             && command_schema != SUBMITTED_COMMAND_LAYOUT_VERSION
+            && command_schema != EMBODIED_COMMAND_SCHEMA
         {
             return Err(ReplayDecodeError::UnknownCommandSchema(command_schema));
         }
@@ -268,6 +278,7 @@ impl ReplayEnvelope {
         let hash_domain = match domain_code {
             0 => HashDomain::LegacyV1,
             1 => HashDomain::ArticulatedV1,
+            2 => HashDomain::EmbodiedV1,
             value => return Err(ReplayDecodeError::UnknownHashDomain(value)),
         };
         if reader.u8()? != 0 {
@@ -300,6 +311,7 @@ impl ReplayEnvelope {
             (command_schema, hash_domain, hash_schema, scanned.combat_model),
             (LEGACY_COMMAND_SCHEMA, HashDomain::LegacyV1, 1, CombatModel::Legacy)
                 | (SUBMITTED_COMMAND_LAYOUT_VERSION, HashDomain::ArticulatedV1, 1, CombatModel::Articulated)
+                | (EMBODIED_COMMAND_SCHEMA, HashDomain::EmbodiedV1, 1, CombatModel::Embodied)
         );
         if !tuple_ok {
             return Err(ReplayDecodeError::CommandModelMismatch);
@@ -419,12 +431,13 @@ fn validate_envelope(envelope: &ReplayEnvelope) -> Result<(), ReplayValidationEr
         (envelope.command_schema, envelope.hash_domain, envelope.hash_schema, envelope.replay.scenario.combat_model),
         (LEGACY_COMMAND_SCHEMA, HashDomain::LegacyV1, 1, CombatModel::Legacy)
             | (SUBMITTED_COMMAND_LAYOUT_VERSION, HashDomain::ArticulatedV1, 1, CombatModel::Articulated)
+            | (EMBODIED_COMMAND_SCHEMA, HashDomain::EmbodiedV1, 1, CombatModel::Embodied)
     );
     if !tuple_ok {
         return Err(ReplayValidationError::CommandModelMismatch);
     }
     if (envelope.command_schema == LEGACY_COMMAND_SCHEMA && !envelope.replay.submitted_entries.is_empty())
-        || (envelope.command_schema == SUBMITTED_COMMAND_LAYOUT_VERSION && !envelope.replay.entries.is_empty())
+        || (envelope.command_schema != LEGACY_COMMAND_SCHEMA && !envelope.replay.entries.is_empty())
     {
         return Err(ReplayValidationError::CommandModelMismatch);
     }
@@ -536,16 +549,19 @@ fn validate_records(replay: &Replay, tick_limit: u32) -> Result<(), ReplayValida
         if !initial_id(record.entity, roster) {
             return Err(ReplayValidationError::InvalidField(ReplayField::CommandSubject));
         }
-        match record.command {
+        let (command, model) = match record.command {
             SubmittedCommand::Legacy(_) => return Err(ReplayValidationError::CommandModelMismatch),
-            SubmittedCommand::Articulated(command) => {
-                command.payload_bytes();
-                crate::command::validate_articulated(command)
-                    .map_err(|_| ReplayValidationError::InvalidField(ReplayField::ArticulatedCommand))?;
-                let unit = &replay.scenario.units[record.entity.index as usize];
-                validate_grips(command, replay.scenario.combat_specs.as_ref(), unit)?;
-            }
+            SubmittedCommand::Articulated(command) => (command, CombatModel::Articulated),
+            SubmittedCommand::Embodied(command) => (command.articulated, CombatModel::Embodied),
+        };
+        if model != replay.scenario.combat_model {
+            return Err(ReplayValidationError::CommandModelMismatch);
         }
+        command.payload_bytes();
+        crate::command::validate_articulated(command)
+            .map_err(|_| ReplayValidationError::InvalidField(ReplayField::ArticulatedCommand))?;
+        let unit = &replay.scenario.units[record.entity.index as usize];
+        validate_grips(command, replay.scenario.combat_specs.as_ref(), unit)?;
     }
     prior = None;
     for (at, record) in replay.orders.iter().enumerate() {
@@ -623,7 +639,7 @@ fn scenario_record_len(scenario: &Scenario) -> Option<usize> {
         len = len.checked_add(if unit.loadout.secondary.is_some() { 68 } else { 42 })?;
     }
     len = len.checked_add(4)?.checked_add(scenario.torches.len().checked_mul(5)?)?;
-    if scenario.combat_model == CombatModel::Articulated {
+    if scenario.combat_model.has_articulated_columns() {
         let table = scenario.combat_specs.as_ref()?;
         len = len.checked_add(1 + 2 + 2)?;
         len = len.checked_add(table.anatomies.len().checked_mul(BODY_ANATOMY_SPEC_V1_BYTES)?)?;
@@ -649,6 +665,7 @@ fn payload_len(scenario_len: usize, replay: &Replay) -> Option<usize> {
             let width = match record.command {
                 SubmittedCommand::Legacy(_) => SUBMITTED_LEGACY_COMMAND_BYTES,
                 SubmittedCommand::Articulated(_) => ARTICULATED_COMMAND_BYTES,
+                SubmittedCommand::Embodied(_) => EMBODIED_COMMAND_BYTES,
             };
             sum.checked_add(width)
         })?)?;
@@ -700,7 +717,7 @@ fn scan_streams(
             prior = Some(record.tick);
             if let Some(out) = output.as_deref_mut() { out.commands.push(record); }
         } else {
-            let record = read_submitted_command(reader, roster, scenario)?;
+            let record = read_submitted_command(reader, roster, command_schema, scenario)?;
             decode_tick(prior, record.tick, at, ReplayStream::Commands, tick_limit, false)?;
             prior = Some(record.tick);
             if let Some(out) = output.as_deref_mut() { out.submitted_commands.push(record); }
@@ -781,7 +798,7 @@ fn read_combat_extension(
     loadouts: &[Loadout],
 ) -> Result<Option<(CombatSpecTableV1, Vec<ArticulatedUnitSpecV1>)>, ReplayDecodeError> {
     if codec_version == REPLAY_CODEC_VERSION_V1 {
-        return if model == CombatModel::Articulated {
+        return if model.has_articulated_columns() {
             Err(ReplayDecodeError::MissingCombatSpecs)
         } else {
             Ok(None)
@@ -790,14 +807,15 @@ fn read_combat_extension(
     let present = reader.u8()?;
     match (model, present) {
         (CombatModel::Legacy, 0) => return Ok(None),
-        (CombatModel::Legacy, 1) | (CombatModel::Articulated, 0) => {
+        (CombatModel::Legacy, 1)
+        | (CombatModel::Articulated | CombatModel::Embodied, 0) => {
             return Err(ReplayDecodeError::InvalidField(ReplayField::CombatSpecPresence));
         }
         (_, 2..=u8::MAX) => return Err(ReplayDecodeError::UnknownDiscriminant {
             field: ReplayField::CombatSpecPresence,
             value: present as u32,
         }),
-        (CombatModel::Articulated, 1) => {}
+        (CombatModel::Articulated | CombatModel::Embodied, 1) => {}
     }
     let schema = reader.u16()?;
     if schema != COMBAT_SPEC_SCHEMA_V1 {
@@ -851,13 +869,14 @@ fn scan_combat_extension(
     unit_count: usize,
 ) -> Result<(), ReplayDecodeError> {
     if codec_version == REPLAY_CODEC_VERSION_V1 {
-        return if model == CombatModel::Articulated { Err(ReplayDecodeError::MissingCombatSpecs) } else { Ok(()) };
+        return if model.has_articulated_columns() { Err(ReplayDecodeError::MissingCombatSpecs) } else { Ok(()) };
     }
     match (model, reader.u8()?) {
         (CombatModel::Legacy, 0) => return Ok(()),
-        (CombatModel::Legacy, 1) | (CombatModel::Articulated, 0) => return Err(ReplayDecodeError::InvalidField(ReplayField::CombatSpecPresence)),
+        (CombatModel::Legacy, 1)
+        | (CombatModel::Articulated | CombatModel::Embodied, 0) => return Err(ReplayDecodeError::InvalidField(ReplayField::CombatSpecPresence)),
         (_, value @ 2..=u8::MAX) => return Err(ReplayDecodeError::UnknownDiscriminant { field: ReplayField::CombatSpecPresence, value: value as u32 }),
-        (CombatModel::Articulated, 1) => {}
+        (CombatModel::Articulated | CombatModel::Embodied, 1) => {}
     }
     let schema = reader.u16()?;
     if schema != COMBAT_SPEC_SCHEMA_V1 { return Err(ReplayDecodeError::UnknownDiscriminant { field: ReplayField::CombatSpecSchema, value: schema as u32 }); }
@@ -893,7 +912,12 @@ fn scan_combat_extension(
 
 fn validate_combat_extension_after_eof(bytes: &[u8], codec_version: u16) -> Result<(), ReplayDecodeError> {
     let mut reader = ByteReader::new(bytes);
-    let model = match reader.u8()? { 0 => CombatModel::Legacy, 1 => CombatModel::Articulated, _ => unreachable!() };
+    let model = match reader.u8()? {
+        0 => CombatModel::Legacy,
+        1 => CombatModel::Articulated,
+        2 => CombatModel::Embodied,
+        _ => unreachable!("scan_scenario has already refused every other value"),
+    };
     let name_len = reader.u16()? as usize;
     reader.take(name_len)?;
     let cols = reader.u16()? as usize;
@@ -1017,6 +1041,7 @@ fn scan_scenario(bytes: &[u8], codec_version: u16) -> Result<ScenarioScan, Repla
     let combat_model = match reader.u8()? {
         0 => CombatModel::Legacy,
         1 => CombatModel::Articulated,
+        2 => CombatModel::Embodied,
         value => return Err(ReplayDecodeError::UnknownDiscriminant {
             field: ReplayField::CombatModel,
             value: value as u32,
@@ -1115,9 +1140,9 @@ fn scan_scenario(bytes: &[u8], codec_version: u16) -> Result<ScenarioScan, Repla
     }
     let mut hash = Hash64::new();
     hash.write_bytes(b"ARPG-SCENARIO");
-    hash.write_u16(if combat_model == CombatModel::Legacy { 1 } else { 2 });
+    hash.write_u16(combat_model.identity_word());
     hash.write_bytes(&bytes[..identity_end]);
-    if combat_model == CombatModel::Articulated {
+    if combat_model.has_articulated_columns() {
         hash.write_bytes(&bytes[extension_start..]);
     }
     Ok(ScenarioScan {
@@ -1133,6 +1158,7 @@ fn build_scenario(bytes: &[u8], codec_version: u16) -> Result<Scenario, ReplayDe
     let combat_model = match reader.u8()? {
         0 => CombatModel::Legacy,
         1 => CombatModel::Articulated,
+        2 => CombatModel::Embodied,
         value => return Err(ReplayDecodeError::UnknownDiscriminant {
             field: ReplayField::CombatModel,
             value: value as u32,
@@ -1335,9 +1361,14 @@ fn read_command(reader: &mut ByteReader<'_>, roster: usize) -> Result<CommandRec
     })
 }
 
+/// `command_schema` decides which record tag is legal, and it is passed in
+/// rather than inferred from the tag byte on purpose: an envelope that declares
+/// one width and carries records of another is a model mismatch, and a reader
+/// that trusted the tag would silently read the wrong number of bytes.
 fn read_submitted_command(
     reader: &mut ByteReader<'_>,
     roster: usize,
+    command_schema: u16,
     scenario: Option<&Scenario>,
 ) -> Result<SubmittedCommandRecord, ReplayDecodeError> {
     let tick = reader.u32()?;
@@ -1345,9 +1376,10 @@ fn read_submitted_command(
     if !initial_id(entity, roster) {
         return Err(ReplayDecodeError::InvalidField(ReplayField::CommandSubject));
     }
+    let expected_tag = if command_schema == EMBODIED_COMMAND_SCHEMA { 2 } else { 1 };
     match reader.u8()? {
-        0 => return Err(ReplayDecodeError::CommandModelMismatch),
-        1 => {}
+        tag if tag == expected_tag => {}
+        0 | 1 | 2 => return Err(ReplayDecodeError::CommandModelMismatch),
         value => return Err(ReplayDecodeError::UnknownDiscriminant {
             field: ReplayField::SubmittedCommandKind,
             value: value as u32,
@@ -1376,11 +1408,14 @@ fn read_submitted_command(
             }
         }
     }
-    Ok(SubmittedCommandRecord {
-        tick,
-        entity,
-        command: SubmittedCommand::Articulated(command),
-    })
+    // The payload grammar is shared, so the tag decides only which contract the
+    // record claims to be -- which is what a replay has to reproduce verbatim.
+    let command = if command_schema == EMBODIED_COMMAND_SCHEMA {
+        SubmittedCommand::Embodied(crate::command::EmbodiedCommandV1::new(command))
+    } else {
+        SubmittedCommand::Articulated(command)
+    };
+    Ok(SubmittedCommandRecord { tick, entity, command })
 }
 
 fn payload_decode_error(error: ArticulatedPayloadError) -> ReplayDecodeError {
@@ -1511,6 +1546,10 @@ fn write_submitted_command(out: &mut ByteWriter, record: SubmittedCommandRecord)
             out.u8(1);
             out.bytes.extend_from_slice(&command.payload_bytes());
         }
+        SubmittedCommand::Embodied(command) => {
+            out.u8(2);
+            out.bytes.extend_from_slice(&command.payload_bytes());
+        }
     }
 }
 
@@ -1634,6 +1673,92 @@ mod tests {
             tick_limit: replay.ticks,
             replay,
         }
+    }
+
+    fn embodied_envelope() -> ReplayEnvelope {
+        let mut envelope = articulated_envelope_for(Scenario::embodied_duel());
+        envelope.command_schema = EMBODIED_COMMAND_SCHEMA;
+        envelope.hash_domain = HashDomain::EmbodiedV1;
+        for record in &mut envelope.replay.submitted_entries {
+            if let SubmittedCommand::Articulated(command) = record.command {
+                record.command =
+                    SubmittedCommand::Embodied(crate::command::EmbodiedCommandV1::new(command));
+            }
+        }
+        envelope
+    }
+
+    #[test]
+    fn an_embodied_envelope_round_trips_through_its_own_schema() {
+        let envelope = embodied_envelope();
+        let bytes = envelope.encode().expect("encodes");
+        let decoded = ReplayEnvelope::decode(&bytes).expect("embodied envelope");
+        assert_eq!(decoded.command_schema, EMBODIED_COMMAND_SCHEMA);
+        assert_eq!(decoded.hash_domain, HashDomain::EmbodiedV1);
+        assert_eq!(decoded.replay.submitted_entries, envelope.replay.submitted_entries);
+        assert!(matches!(
+            decoded.replay.submitted_entries[0].command,
+            SubmittedCommand::Embodied(_)
+        ));
+    }
+
+    /// The record tag is read against the envelope's declared schema and not
+    /// against itself, so an embodied replay carrying articulated records is a
+    /// model mismatch rather than fifty-three bytes read at the wrong width.
+    #[test]
+    fn an_embodied_schema_replay_refuses_an_articulated_tag() {
+        let envelope = embodied_envelope();
+        let mut bytes = envelope.encode().expect("encodes");
+        let tag = tag_offset(&bytes);
+        assert_eq!(bytes[tag], 2, "the embodied record tag is not where this test looked");
+        bytes[tag] = 1;
+        assert_eq!(ReplayEnvelope::decode(&bytes).unwrap_err(), ReplayDecodeError::CommandModelMismatch);
+        bytes[tag] = 0;
+        assert_eq!(ReplayEnvelope::decode(&bytes).unwrap_err(), ReplayDecodeError::CommandModelMismatch);
+        bytes[tag] = 3;
+        assert!(matches!(
+            ReplayEnvelope::decode(&bytes),
+            Err(ReplayDecodeError::UnknownDiscriminant {
+                field: ReplayField::SubmittedCommandKind, value: 3,
+            })
+        ));
+    }
+
+    #[test]
+    fn an_articulated_schema_replay_refuses_an_embodied_tag() {
+        let mut bytes = articulated_envelope().encode().expect("encodes");
+        let tag = tag_offset(&bytes);
+        assert_eq!(bytes[tag], 1);
+        bytes[tag] = 2;
+        assert_eq!(ReplayEnvelope::decode(&bytes).unwrap_err(), ReplayDecodeError::CommandModelMismatch);
+    }
+
+    /// The header tuple binds schema, hash domain and combat model together, so
+    /// an embodied scenario cannot be shipped under an articulated header.
+    ///
+    /// It is refused at **encode**, one step earlier than the decoder would
+    /// catch it, which is the better of the two places: a mismatched envelope
+    /// never reaches a file. The decoder still refuses it -- see
+    /// `an_embodied_schema_replay_refuses_an_articulated_tag`, which reaches the
+    /// decode path by editing bytes the encoder already wrote.
+    #[test]
+    fn an_embodied_scenario_refuses_an_articulated_header() {
+        let mut envelope = embodied_envelope();
+        envelope.command_schema = SUBMITTED_COMMAND_LAYOUT_VERSION;
+        envelope.hash_domain = HashDomain::ArticulatedV1;
+        assert_eq!(
+            envelope.encode().unwrap_err(),
+            ReplayEncodeError::Invalid(ReplayValidationError::CommandModelMismatch),
+        );
+    }
+
+    /// Locates the one submitted record's tag byte: the stream count sits four
+    /// bytes past the scenario record, and each record is tick plus a
+    /// twelve-byte identity before the tag.
+    fn tag_offset(bytes: &[u8]) -> usize {
+        let scenario_bytes =
+            u32::from_le_bytes(bytes[HEADER_BYTES - 4..HEADER_BYTES].try_into().unwrap()) as usize;
+        HEADER_BYTES + scenario_bytes + 4 + 12
     }
 
     fn articulated_envelope() -> ReplayEnvelope {

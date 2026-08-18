@@ -2,7 +2,7 @@
 
 **Purpose:** Preserve the measurements and rejected mechanics hypotheses that led from the failed smart-combat gate to the current lifted-state work.
 **Status:** current
-**Canonical source:** feature-gated mechanics and fixtures in `crates/sim/src/combat/{contact,lifted_solver,resolution,trajectory,wide}.rs`, `crates/sim/src/world.rs`, and `crates/sim/src/replay.rs`.
+**Canonical source:** feature-gated mechanics and fixtures in `crates/sim/src/combat/{contact,lifted_solver,resolution,trajectory,wide}.rs`, `crates/sim/src/world/contact_phase.rs`, and `crates/sim/src/replay.rs`.
 **Update when:** The retained contact, generalized response model, lifted state, or mechanical-gate decision changes.
 
 ## Outcome

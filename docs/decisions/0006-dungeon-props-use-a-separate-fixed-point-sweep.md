@@ -2,7 +2,7 @@
 
 **Purpose:** Record why physical dungeon dressing is authoritative without becoming a combat-contact kind.
 **Status:** current
-**Canonical source:** The object rules and state live in [`world.rs`](../../crates/sim/src/world.rs); the browser mirror is [Dungeon object ABI](../reference/dungeon-object-abi.md).
+**Canonical source:** The object rules live in [`world/props.rs`](../../crates/sim/src/world/props.rs) and their state in [`world/mod.rs`](../../crates/sim/src/world/mod.rs); the browser mirror is [Dungeon object ABI](../reference/dungeon-object-abi.md).
 **Update when:** Object kinds, placement, collision, slow fractions, durability, impact ordering, tombstones, or publication layout changes.
 
 **ADR status:** accepted

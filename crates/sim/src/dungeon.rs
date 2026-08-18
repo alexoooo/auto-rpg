@@ -33,7 +33,7 @@
 //! rather than the byte itself, precisely so that adding "water" or "rubble"
 //! later is a new predicate and not a new representation.
 
-use fx::{Fx, Hash64, Rng, Vec2};
+use fx::{mul_div, Fx, Hash64, Rng, Vec2, ONE_RAW};
 
 /// An open tile. Anything else is solid; see [`Dungeon::solid`].
 pub const OPEN: u8 = 0;
@@ -54,6 +54,60 @@ pub const WALL: u8 = 1;
 /// be turned into [`OPEN`] ([`Dungeon::open_door`]). Everything else in this
 /// file treats the two identically and must keep doing so.
 pub const DOOR: u8 = 2;
+
+// ------------------------------------------------------------------ elevation
+
+/// One height step, in raw 16.16 world units: an eighth of a world unit.
+///
+/// **A world unit is a metre.** That is a measurement off the shipped roster
+/// rather than a convention adopted here -- `fighter_anatomy` stands 9/5 of a
+/// unit with its shoulders at 7/5 and a hand 1/10 across, `brute_anatomy`
+/// stands 2, and a corridor is three tiles. Every number below is read off that
+/// scale, which is why they are anthropometric rather than round.
+///
+/// **The session plan said a body was about one world unit tall; it is 1.8**,
+/// and the correction is recorded rather than quietly applied because it moves
+/// both constants: at a body of 1.0 a knee-high step would be a quarter of a
+/// unit and everything here would be half what it is.
+///
+/// Bounded above by the stair. The shallowest thing anybody builds out of
+/// height steps is a staircase, and a riser a 1.8-unit body climbs without
+/// thinking about it is about 0.18. A quantum coarser than one riser cannot
+/// express a stair at all, and terrain that goes straight from flat to
+/// unclimbable is a wall generator with extra steps.
+///
+/// Bounded below by the hand. A rise under 0.1 -- the shipped hand radius, and
+/// about the shortest length this game draws -- is invisible on screen while
+/// still being able to turn a route around, which is the worst failure this
+/// system has available: a body refusing to walk somewhere for a reason the
+/// player cannot see.
+///
+/// `one_height_step_is_between_a_hand_and_a_stair_riser` holds both ends.
+pub const TERRAIN_HEIGHT_RAW_UNIT: i32 = ONE_RAW / 8;
+
+/// The rise a walking body may enter: three height steps, 3/8 of a world unit.
+///
+/// Bounded below by the staircase. A stair on this grid has a tread of a whole
+/// tile and a riser of one or two [`TERRAIN_HEIGHT_RAW_UNIT`], so a step-up
+/// under two units would make an ordinary flight of stairs a cliff -- and
+/// stairs are the first thing anybody builds with a height field. It would also
+/// leave the height unit doing no work: with a step-up of one unit every rise
+/// the grid can express is either level or impassable, and there is no such
+/// thing as gentle ground.
+///
+/// Bounded above by the knee. A body 1.8 units tall carries its knee a shade
+/// over half a unit up, and the knee is exactly the height a person steps onto
+/// without putting a hand down. Half a unit or more is a climb, and a ledge a
+/// walking body strolls up is the one thing this session must not produce.
+///
+/// **A whole number of height steps, and that is not tidiness.** Every rise the
+/// grid can express is a multiple of the unit, so a threshold falling between
+/// two of them names a boundary that does not exist: 0.45 and 0.375 admit and
+/// refuse exactly the same set of rises, and only one of them says so.
+///
+/// `the_step_up_admits_a_stair_and_refuses_a_knee_high_ledge` holds both ends
+/// and the multiple.
+pub const TERRAIN_STEP_UP_RAW: i32 = 3 * TERRAIN_HEIGHT_RAW_UNIT;
 
 /// The four axis directions, in the order `Observation::wall_clearance` has
 /// always reported them.
@@ -87,10 +141,13 @@ impl Cardinal {
 
 /// Which ground exists, and where.
 ///
-/// There is exactly one constructor that can produce tiles
-/// ([`Dungeon::from_tiles`]) and exactly one mutator ([`Dungeon::open_door`]),
-/// which is what lets [`Dungeon::fingerprint`] be a cached field instead of a
-/// walk over the grid.
+/// There are exactly two constructors that can produce tiles
+/// ([`Dungeon::from_tiles`] and [`Dungeon::from_tiles_and_heights`]) and
+/// exactly one mutator ([`Dungeon::open_door`]), which is what lets
+/// [`Dungeon::fingerprint`] be a cached field instead of a walk over the grid.
+/// It said "exactly one constructor" until elevation landed; the count is the
+/// incidental part and "every path in is one of a short list that digests
+/// before it returns" is the property.
 ///
 /// That claim used to read "no mutator at all". Doors made it false, and the
 /// honest repair was to say what the property actually rests on rather than to
@@ -104,6 +161,18 @@ pub struct Dungeon {
     rows: u16,
     /// Row-major, `cols * rows` of them.
     tiles: Vec<u8>,
+    /// Row-major beside `tiles`, one signed count of
+    /// [`TERRAIN_HEIGHT_RAW_UNIT`] per tile.
+    ///
+    /// `i16` rather than `Fx`, and the choice is the whole exactness argument:
+    /// a floor is a step function, so a height is a *count*, and two tiles are
+    /// level exactly when their counts are equal. Stored as `Fx` the same
+    /// question would be an equality between two numbers that arithmetic is
+    /// allowed to have rounded. The range is +-32767 steps -- +-4096 world
+    /// units, three orders past anything a level holds -- and, more to the
+    /// point, `step * TERRAIN_HEIGHT_RAW_UNIT` stays inside an `i32`, so
+    /// [`Dungeon::height_at`] cannot saturate for any value that fits the field.
+    heights: Vec<i16>,
     digest: u64,
     /// Whether any tile is solid.
     ///
@@ -113,6 +182,19 @@ pub struct Dungeon {
     /// remains is the arena clamp that was there before, instruction for
     /// instruction.
     carved: bool,
+    /// Whether any tile is off the flat.
+    ///
+    /// [`Dungeon::carved`]'s twin, and it exists for exactly the reason
+    /// `carved` gives above. Every shipped scenario is flat, so this is false,
+    /// so the digest never reaches [`Dungeon::heights`] and every routing and
+    /// sight predicate below runs the code it ran before elevation existed.
+    ///
+    /// Set from whether any height is non-zero and never from the caller's
+    /// intent. That is what makes "a dungeon built with heights that are all
+    /// zero is a flat dungeon" a fact about the constructor rather than a
+    /// convention somebody has to keep -- and it is what stops a driver from
+    /// moving a golden hash by asking for elevation and then not using any.
+    sculpted: bool,
 }
 
 impl Dungeon {
@@ -131,18 +213,83 @@ impl Dungeon {
         let want = cols as usize * rows as usize;
         tiles.resize(want, WALL);
 
-        let mut h = Hash64::new();
-        h.write_u16(cols);
-        h.write_u16(rows);
-        h.write_bytes(&tiles);
+        Dungeon {
+            cols,
+            rows,
+            carved: tiles.iter().any(|&t| t != OPEN),
+            sculpted: false,
+            digest: Dungeon::digest(cols, rows, &tiles, &[], false),
+            heights: vec![0; want],
+            tiles,
+        }
+    }
+
+    /// The one constructor that can produce elevation, and the only way to set
+    /// `sculpted`.
+    ///
+    /// Total in both vectors, for [`Dungeon::from_tiles`]' reason: this crate
+    /// is driven from a `cdylib` where a panic poisons the whole instance. A
+    /// short `heights` is padded with **zeros** rather than with the masonry
+    /// `tiles` is padded with, because the two vectors answer different
+    /// questions -- `tiles` says whether there is floor and a missing answer
+    /// there must be the safe one, while `heights` only says how high, and the
+    /// safe answer to a missing height is the floor everything else is on.
+    ///
+    /// `sculpted` comes from the heights and not from the caller. A dungeon
+    /// asked for with heights that are all zero **is** flat: it digests as one
+    /// and it routes as one, which is
+    /// `a_sculpted_dungeon_of_all_zero_heights_digests_as_a_flat_one`.
+    pub fn from_tiles_and_heights(
+        cols: u16,
+        rows: u16,
+        mut tiles: Vec<u8>,
+        mut heights: Vec<i16>,
+    ) -> Dungeon {
+        let want = cols as usize * rows as usize;
+        tiles.resize(want, WALL);
+        heights.resize(want, 0);
+        let sculpted = heights.iter().any(|&step| step != 0);
 
         Dungeon {
             cols,
             rows,
             carved: tiles.iter().any(|&t| t != OPEN),
-            digest: h.finish(),
+            sculpted,
+            digest: Dungeon::digest(cols, rows, &tiles, &heights, sculpted),
+            heights,
             tiles,
         }
+    }
+
+    /// The fingerprint, and the one place it is computed.
+    ///
+    /// Three callers -- both constructors and [`Dungeon::open_door`] -- where
+    /// there used to be two copies of the same writes under a comment saying
+    /// "a digest computed two ways is two digests". A third copy is the point
+    /// at which that comment stops being enough on its own.
+    ///
+    /// **The guard is the whole hash argument of this session.** A flat dungeon
+    /// writes the shape and the tiles and stops, byte for byte what it wrote
+    /// before heights existed, so `ROOM_HASH`, `BATTLE_HASH`, `SWAP_HASH`,
+    /// `BOW_HASH`, `LAB_HASH` and `GOLDEN_STATE_HASH` cannot be reached from
+    /// here. If one of them moves, the guard is wrong and the session stops
+    /// rather than re-records.
+    ///
+    /// `write_u16(step as u16)` rather than a `write_i16` that [`Hash64`] does
+    /// not have: those are the same two's-complement bytes, written the way
+    /// `Hash64::write_i32` already writes a signed value through `write_u32`,
+    /// and growing `fx` for one caller is a wider change than the line it saves.
+    fn digest(cols: u16, rows: u16, tiles: &[u8], heights: &[i16], sculpted: bool) -> u64 {
+        let mut h = Hash64::new();
+        h.write_u16(cols);
+        h.write_u16(rows);
+        h.write_bytes(tiles);
+        if sculpted {
+            for step in heights {
+                h.write_u16(*step as u16);
+            }
+        }
+        h.finish()
     }
 
     pub const fn cols(&self) -> u16 {
@@ -161,6 +308,12 @@ impl Dungeon {
 
     pub const fn carved(&self) -> bool {
         self.carved
+    }
+
+    /// Whether any tile is off the flat. See the field for why this is the
+    /// short-circuit rather than a convenience.
+    pub const fn sculpted(&self) -> bool {
+        self.sculpted
     }
 
     /// Fingerprint of the whole grid. See [`Dungeon`] for why this is a field.
@@ -218,6 +371,125 @@ impl Dungeon {
         }
     }
 
+    /// [`Dungeon::passable_for_routing`], asked about a **step** rather than
+    /// about a tile.
+    ///
+    /// The tile form keeps its exact signature, because being able to work a
+    /// door is a property of the tile and the door is what every caller of it
+    /// is asking about. Whether a body may *get there* is a different question
+    /// with a different arity, and this is where the two are combined;
+    /// [`Dungeon::distances_for`] is its one caller.
+    ///
+    /// The door rule is asked first and the rise second, so a shut door on a
+    /// plateau is refused for being shut. That ordering is not observable in
+    /// the answer and is worth fixing anyway: it is the order the two rules
+    /// would have to be read in to explain a refusal to anybody.
+    pub fn passable_for_routing_between(
+        &self,
+        from: (i32, i32),
+        to: (i32, i32),
+        opens_doors: bool,
+    ) -> bool {
+        if !self.passable_for_routing(to.0, to.1, opens_doors) {
+            return false;
+        }
+        if !self.sculpted {
+            return true;
+        }
+        self.rise_is_enterable(from, to)
+    }
+
+    /// Whether a body standing on `from` may step onto `to`. On a flat dungeon
+    /// this is exactly `!self.solid(to)`, which is why every existing caller is
+    /// inert.
+    ///
+    /// **Directional, and that is the interesting part.** A rise greater than
+    /// [`TERRAIN_STEP_UP_RAW`] is impassable uphill and passable downhill, which
+    /// is what makes a ledge a one-way drop and a cliff a wall from below. One
+    /// rule produces both, where a "ledge" tile kind beside a "cliff" tile kind
+    /// would be two things somebody has to keep agreeing.
+    ///
+    /// A [`WALL`] stays impassable whatever the heights say. Masonry is not
+    /// merely a very tall floor -- you cannot stand on top of it -- and a rule
+    /// that let a body climb a wall by making it short enough would give the
+    /// floor plan two ways of saying no and no way of telling them apart.
+    ///
+    /// `from` is not required to be adjacent to `to` and is not required to be
+    /// open. Nothing in the rule needs either, every caller supplies a
+    /// neighbour, and adding a check would put a branch in the collision
+    /// resolver's inner loop to reject an input it cannot produce.
+    pub fn passable_between(&self, from: (i32, i32), to: (i32, i32)) -> bool {
+        if !self.sculpted {
+            return !self.solid(to.0, to.1);
+        }
+        if self.solid(to.0, to.1) {
+            return false;
+        }
+        self.rise_is_enterable(from, to)
+    }
+
+    /// Whether the rise from one tile to another is one a walking body may
+    /// enter. Says nothing about what is *on* either tile; the two public
+    /// predicates above each bring their own idea of what counts as floor.
+    ///
+    /// Integer arithmetic throughout and no `Fx` in sight. Both heights are
+    /// counts, so their difference is a count, and the comparison is exact
+    /// rather than exact-looking: a rise of one step and a rise the threshold
+    /// names can never be within a rounding of each other.
+    fn rise_is_enterable(&self, from: (i32, i32), to: (i32, i32)) -> bool {
+        let rise = self.height_step(to.0, to.1) as i32 - self.height_step(from.0, from.1) as i32;
+        // At most 65535 steps of 8192 raw, which is an eighth of `i32`.
+        rise * TERRAIN_HEIGHT_RAW_UNIT <= TERRAIN_STEP_UP_RAW
+    }
+
+    /// The floor of a tile, as its signed count of [`TERRAIN_HEIGHT_RAW_UNIT`].
+    ///
+    /// **Off the grid is zero, and it never matters.** Out of range is solid to
+    /// [`Dungeon::solid`], so every caller that could reach a tile out there has
+    /// already refused it on that ground; answering zero keeps this total
+    /// without adding a second out-of-range convention to remember beside the
+    /// one [`Dungeon::tile`] states at length.
+    fn height_step(&self, tx: i32, ty: i32) -> i16 {
+        if tx < 0 || ty < 0 || tx >= self.cols as i32 || ty >= self.rows as i32 {
+            return 0;
+        }
+        self.heights[ty as usize * self.cols as usize + tx as usize]
+    }
+
+    /// The floor of a tile, in world units. [`Dungeon::height_at`] by tile
+    /// rather than by point, for the sight walk, which has the tile already.
+    fn floor_of(&self, tx: i32, ty: i32) -> Fx {
+        Fx::from_raw(self.height_step(tx, ty) as i32 * TERRAIN_HEIGHT_RAW_UNIT)
+    }
+
+    /// The floor height under `p`, in world units.
+    ///
+    /// **Each tile is one flat plateau: there is no interpolation across a tile
+    /// and no slope within one.** That is the Doom sector model, and it is
+    /// chosen over a smoothed heightfield for two reasons worth writing down.
+    ///
+    /// Interpolation is where a fixed-point terrain sampler grows a rounding
+    /// argument nobody wants to have: every sample becomes a divide, every
+    /// divide truncates, and "these two bodies are standing on the same floor"
+    /// stops being decidable at all. Here it is an equality between two `i16`s.
+    ///
+    /// And a step function is what makes "the wall is a tall tile" true by
+    /// construction rather than by threshold. Masonry and a cliff are the same
+    /// object seen from below, so nothing has to keep the two definitions in
+    /// step -- which is the failure mode a heightfield beside a tile grid has,
+    /// and it shows up as a body walking through a wall that was drawn.
+    ///
+    /// Exact by the arithmetic rather than by luck: an `i16` count times
+    /// [`TERRAIN_HEIGHT_RAW_UNIT`] is at most 268 million, an eighth of `i32`'s
+    /// range, so the multiply cannot saturate and `Fx` carries the answer whole.
+    pub fn height_at(&self, p: Vec2) -> Fx {
+        if !self.sculpted {
+            return Fx::ZERO;
+        }
+        let (tx, ty) = Dungeon::tile_of(p);
+        self.floor_of(tx, ty)
+    }
+
     /// The tile a point falls in. Floors, so a point exactly on a boundary
     /// belongs to the tile it is the low edge of.
     pub fn tile_of(p: Vec2) -> (i32, i32) {
@@ -269,6 +541,11 @@ impl Dungeon {
     /// through a level. A flag that says "this level has geometry worth
     /// consulting" must not stop saying it because somebody opened a door.
     ///
+    /// `sculpted` is not recomputed either, and there is nothing to recompute:
+    /// this writes tiles and never heights, so the flag it would recompute is
+    /// the flag it already holds. It is passed to the digest for that reason
+    /// rather than re-derived.
+    ///
     /// Total: a cell off the grid, or one that is not a door, is ignored.
     pub fn open_door(&mut self, cells: &[u32]) {
         for &cell in cells {
@@ -279,12 +556,9 @@ impl Dungeon {
             }
         }
         // Exactly `from_tiles`' digest, in the same order, because a digest
-        // computed two ways is two digests.
-        let mut h = Hash64::new();
-        h.write_u16(self.cols);
-        h.write_u16(self.rows);
-        h.write_bytes(&self.tiles);
-        self.digest = h.finish();
+        // computed two ways is two digests -- which is now held by calling the
+        // same function rather than by writing the same lines twice.
+        self.digest = Dungeon::digest(self.cols, self.rows, &self.tiles, &self.heights, self.sculpted);
     }
 
     /// The shut doorways in this grid, grouped into the runs that open together.
@@ -402,14 +676,35 @@ impl Dungeon {
     /// roster's widest radius (a Brute's 0.70) that span is 1.40 world units,
     /// so it is at most three columns by three rows -- nine reads, whatever the
     /// body.
+    ///
+    /// On a sculpted dungeon the reads are the same nine and the predicate is
+    /// [`Dungeon::passable_between`] instead of [`Dungeon::solid`]: a cliff is
+    /// masonry to the body standing under it, and it is *not* masonry to the
+    /// same body standing on top of it, so the question has to carry where the
+    /// body is. The flat arm below is what it was, taken by a branch on
+    /// `sculpted` rather than arrived at by arguing that the two agree.
     pub fn is_clear(&self, p: Vec2, radius: Fx) -> bool {
         let lo_x = (p.x - radius).floor_int();
         let hi_x = (p.x + radius).floor_int();
         let lo_y = (p.y - radius).floor_int();
         let hi_y = (p.y + radius).floor_int();
+        if !self.sculpted {
+            for ty in lo_y..=hi_y {
+                for tx in lo_x..=hi_x {
+                    if self.solid(tx, ty) && overlaps(p, radius, tx, ty) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+        // The body's own tile is in this span and is trivially enterable from
+        // itself -- a rise of zero -- so the plateau a body is standing on
+        // never reports the body as buried in it.
+        let here = Dungeon::tile_of(p);
         for ty in lo_y..=hi_y {
             for tx in lo_x..=hi_x {
-                if self.solid(tx, ty) && overlaps(p, radius, tx, ty) {
+                if !self.passable_between(here, (tx, ty)) && overlaps(p, radius, tx, ty) {
                     return false;
                 }
             }
@@ -473,6 +768,40 @@ impl Dungeon {
         }
 
         let mut head = 0;
+        if !self.sculpted {
+            while head < queue.len() {
+                let cell = queue[head] as i32;
+                head += 1;
+                let step = dist[cell as usize].saturating_add(1);
+                let (tx, ty) = (cell % cols, cell / cols);
+                for dir in Cardinal::ALL {
+                    let (dx, dy) = dir.step();
+                    let (nx, ny) = (tx + dx, ty + dy);
+                    if !self.passable_for_routing(nx, ny, opens_doors) {
+                        continue;
+                    }
+                    let next = (ny * cols + nx) as usize;
+                    if dist[next] != u16::MAX {
+                        continue;
+                    }
+                    dist[next] = step;
+                    queue.push(next as u32);
+                }
+            }
+            return;
+        }
+
+        // The same search with a directional edge test, written out rather than
+        // folded into the walk above so that a flat level -- which is every
+        // shipped one, and the only kind `ROOM_HASH` has ever routed over --
+        // runs the loop it ran before elevation existed.
+        //
+        // **The field this produces is one-way and the reader must not assume
+        // otherwise.** A drop off a ledge is an edge in one direction only, so
+        // "distance from the goal" is not "distance to the goal" any more, and
+        // the seeds have to be the thing you want to reach. Every caller
+        // already seeds from the goal, which is why this lands as a change of
+        // rule and not a change of shape.
         while head < queue.len() {
             let cell = queue[head] as i32;
             head += 1;
@@ -481,7 +810,7 @@ impl Dungeon {
             for dir in Cardinal::ALL {
                 let (dx, dy) = dir.step();
                 let (nx, ny) = (tx + dx, ty + dy);
-                if !self.passable_for_routing(nx, ny, opens_doors) {
+                if !self.passable_for_routing_between((tx, ty), (nx, ny), opens_doors) {
                     continue;
                 }
                 let next = (ny * cols + nx) as usize;
@@ -513,8 +842,22 @@ impl Dungeon {
     /// the honest answer is diagonal. Closest-point has neither problem, and on
     /// a flat face it degenerates to exactly the cardinal push the arena clamp
     /// makes -- which is what lets a body slide *along* a wall.
+    ///
+    /// # What elevation changes, and what it does not
+    ///
+    /// Two `solid` tests become [`Dungeon::passable_between`] asked from the
+    /// body's own tile, and the geometry between them is untouched -- a cliff
+    /// presents the same box face masonry does, so there is nothing new to
+    /// intersect. The internal-edge cull has to move with them or a body
+    /// sliding along a run of cliff is shoved out of every seam it passes,
+    /// which is the identical stutter the cull was written for and would be
+    /// twice as confusing for having a documented fix ten lines above it.
     pub fn push_out(&self, p: Vec2, radius: Fx, tx: i32, ty: i32) -> Option<(Vec2, Vec2)> {
-        if !self.solid(tx, ty) {
+        if !self.sculpted {
+            if !self.solid(tx, ty) {
+                return None;
+            }
+        } else if self.passable_between(Dungeon::tile_of(p), (tx, ty)) {
             return None;
         }
         let lo = Vec2::from_ints(tx, ty);
@@ -543,10 +886,22 @@ impl Dungeon {
         // any other. A face whose neighbour is solid is buried; a corner is
         // buried when either tile sharing its edges is solid, because then one
         // of those presents the face and the face case has already handled it.
-        let buried = match (sx, sy) {
-            (0, _) => self.solid(tx, ty + sy),
-            (_, 0) => self.solid(tx + sx, ty),
-            _ => self.solid(tx + sx, ty) || self.solid(tx, ty + sy),
+        let buried = if !self.sculpted {
+            match (sx, sy) {
+                (0, _) => self.solid(tx, ty + sy),
+                (_, 0) => self.solid(tx + sx, ty),
+                _ => self.solid(tx + sx, ty) || self.solid(tx, ty + sy),
+            }
+        } else {
+            let here = Dungeon::tile_of(p);
+            match (sx, sy) {
+                (0, _) => !self.passable_between(here, (tx, ty + sy)),
+                (_, 0) => !self.passable_between(here, (tx + sx, ty)),
+                _ => {
+                    !self.passable_between(here, (tx + sx, ty))
+                        || !self.passable_between(here, (tx, ty + sy))
+                }
+            }
         };
         if buried {
             return None;
@@ -564,6 +919,13 @@ impl Dungeon {
     /// next. A point walled in on all four sides is left alone, which cannot
     /// happen on a generated level -- every placement is validated against the
     /// widest body in the roster -- and is not worth inventing a rule for.
+    ///
+    /// **Heights are deliberately not consulted here**, and that is a statement
+    /// about what ejection is for rather than an omission: a body is never
+    /// *inside* a plateau, it is standing on top of one. Only masonry can bury
+    /// a centre, so only masonry can be ejected from, and the four faces this
+    /// looks through are the four faces of a solid tile whatever the terrain
+    /// around it does.
     fn eject(&self, p: Vec2, radius: Fx, tx: i32, ty: i32) -> Option<(Vec2, Vec2)> {
         let mut best: Option<(Fx, Vec2)> = None;
         for dir in Cardinal::ALL {
@@ -602,6 +964,16 @@ impl Dungeon {
     /// collision resolver uses, and only fall back to a scan of tile centres
     /// when the point is buried deeply enough that pushing does not resolve it.
     /// Falls back to `p` when nothing in the level fits the body at all.
+    ///
+    /// **This function needs no elevation branch of its own, and that is worth
+    /// saying rather than leaving to be rediscovered.** Every question it asks
+    /// is asked through [`Dungeon::is_clear`] and [`Dungeon::push_out`], both of
+    /// which carry the `!self.sculpted` fast path and the directional rule
+    /// already, so a `sculpted` test here would be a second copy of a decision
+    /// that has been made twice below. The one `solid` call left is the
+    /// fallback scan's, and it is right as it stands: the top of a plateau is
+    /// somewhere a body can stand, and `is_clear` on that tile's centre is what
+    /// decides whether it fits.
     pub fn nearest_clear(&self, p: Vec2, radius: Fx) -> Vec2 {
         if self.is_clear(p, radius) {
             return p;
@@ -658,12 +1030,17 @@ impl Dungeon {
     /// edge of the grid when there is nothing in the way.
     ///
     /// This is what `Observation::wall_clearance` reports. On a floor plan with
-    /// nothing carved it is **bit-for-bit** the formula that field used before
-    /// floor plans existed -- taken by the early return below rather than
-    /// arrived at by the walk, so that it is a fact about the code and not a
-    /// claim about arithmetic.
+    /// nothing carved **and nothing sculpted** it is **bit-for-bit** the
+    /// formula that field used before floor plans existed -- taken by the early
+    /// return below rather than arrived at by the walk, so that it is a fact
+    /// about the code and not a claim about arithmetic.
+    ///
+    /// The `sculpted` half of that guard is not decoration. A dungeon can have
+    /// no masonry at all and still have a cliff in it, and reporting the arena
+    /// edge there would tell a policy there was open ground where the floor
+    /// stops.
     pub fn clearance(&self, p: Vec2, dir: Cardinal) -> Fx {
-        if !self.carved {
+        if !self.sculpted && !self.carved {
             let extent = self.extent();
             return match dir {
                 Cardinal::NegX => p.x,
@@ -679,20 +1056,42 @@ impl Dungeon {
             return Fx::ZERO;
         }
         let (dx, dy) = dir.step();
+        if !self.sculpted {
+            loop {
+                tx += dx;
+                ty += dy;
+                if !self.solid(tx, ty) {
+                    continue;
+                }
+                // The face of that tile that is turned toward `p`.
+                return match dir {
+                    Cardinal::NegX => p.x - Fx::from_int(tx + 1),
+                    Cardinal::PosX => Fx::from_int(tx) - p.x,
+                    Cardinal::NegY => p.y - Fx::from_int(ty + 1),
+                    Cardinal::PosY => Fx::from_int(ty) - p.y,
+                }
+                .max(Fx::ZERO);
+            }
+        }
+
+        // **The rise is measured between neighbours and not from `p`'s own
+        // floor**, which is the one way to get this wrong. A staircase climbing
+        // away from the body is open ground it can walk up; measured against
+        // where it is standing, the fourth stair would be reported as a wall
+        // and the policy would be told a corridor was a dead end.
         loop {
-            tx += dx;
-            ty += dy;
-            if !self.solid(tx, ty) {
-                continue;
+            let (nx, ny) = (tx + dx, ty + dy);
+            if !self.passable_between((tx, ty), (nx, ny)) {
+                return match dir {
+                    Cardinal::NegX => p.x - Fx::from_int(nx + 1),
+                    Cardinal::PosX => Fx::from_int(nx) - p.x,
+                    Cardinal::NegY => p.y - Fx::from_int(ny + 1),
+                    Cardinal::PosY => Fx::from_int(ny) - p.y,
+                }
+                .max(Fx::ZERO);
             }
-            // The face of that tile that is turned toward `p`.
-            return match dir {
-                Cardinal::NegX => p.x - Fx::from_int(tx + 1),
-                Cardinal::PosX => Fx::from_int(tx) - p.x,
-                Cardinal::NegY => p.y - Fx::from_int(ty + 1),
-                Cardinal::PosY => Fx::from_int(ty) - p.y,
-            }
-            .max(Fx::ZERO);
+            tx = nx;
+            ty = ny;
         }
     }
 
@@ -704,6 +1103,38 @@ impl Dungeon {
     /// division saturates, so a segment that barely moves on one axis reports
     /// "never crosses an x boundary" rather than overflowing into a crossing
     /// that is not there.
+    ///
+    /// # Height, on a sculpted dungeon
+    ///
+    /// Masonry blocks as it always did, and **a tile also blocks when its floor
+    /// rises more than [`TERRAIN_STEP_UP_RAW`] above the line joining the two
+    /// endpoints' floors**. A tall plateau then occludes exactly as masonry
+    /// does, which is "walls and obstacles emerge from the elevation" made
+    /// mechanical, and it is the *same* threshold
+    /// [`Dungeon::passable_between`] uses: what a body cannot step onto, it
+    /// cannot see over. One number, two consequences, and no second constant to
+    /// keep in agreement with the first.
+    ///
+    /// Read the other way round, the line plus the threshold is an eye: the ray
+    /// carries an eye one step-up above the interpolated floor, and a tile
+    /// blocks when its floor exceeds that eye. The two readings are the same
+    /// arithmetic; the first is the one that says why the number is that number.
+    ///
+    /// **One `mul_div` per step and no division at all.** `t` is already the
+    /// fraction of the whole segment the walk has covered, so interpolating
+    /// between the two floors is a scaling and never a ratio that has to be
+    /// formed -- which matters because forming it is where a fixed-point
+    /// sampler acquires the rounding argument the plateau model exists to
+    /// avoid.
+    ///
+    /// What this does not do: the far endpoint's floor rides up with the
+    /// plateau, so a ray *onto* the top of a cliff is not blocked by the cliff.
+    /// For sight that is right -- you can see the top of a wall you cannot
+    /// climb. For [`Dungeon::is_walk_clear`], which fires three of these, it is
+    /// a hole, and the tile-by-tile [`Dungeon::passable_between`] in the
+    /// collision resolver is what actually refuses the walk. Recorded here
+    /// rather than papered over: closing it needs a walkability mode on this
+    /// function, and this session did not need one.
     pub fn raycast(&self, from: Vec2, to: Vec2) -> Option<Fx> {
         let (mut tx, mut ty) = Dungeon::tile_of(from);
         if self.solid(tx, ty) {
@@ -719,11 +1150,39 @@ impl Dungeon {
         let (mut t_max_x, t_delta_x) = axis(from.x, d.x, tx, step_x);
         let (mut t_max_y, t_delta_y) = axis(from.y, d.y, ty, step_y);
 
+        if !self.sculpted {
+            loop {
+                // Ties step in x. Arbitrary, and therefore something to state
+                // rather than leave to the comparison operator: it is what makes
+                // a shot through the exact corner of four tiles one answer
+                // instead of two.
+                let t = if t_max_x <= t_max_y {
+                    tx += step_x;
+                    let t = t_max_x;
+                    t_max_x += t_delta_x;
+                    t
+                } else {
+                    ty += step_y;
+                    let t = t_max_y;
+                    t_max_y += t_delta_y;
+                    t
+                };
+                if t > Fx::ONE {
+                    return None;
+                }
+                if self.solid(tx, ty) {
+                    return Some(t);
+                }
+            }
+        }
+
+        // Both ends sampled once, outside the walk. The start tile needs no
+        // test of its own: at `t` of zero the line is the start floor exactly,
+        // and a tile never rises above itself.
+        let from_floor = self.floor_of(tx, ty);
+        let climb = self.height_at(to) - from_floor;
+        let step_up = Fx::from_raw(TERRAIN_STEP_UP_RAW);
         loop {
-            // Ties step in x. Arbitrary, and therefore something to state
-            // rather than leave to the comparison operator: it is what makes a
-            // shot through the exact corner of four tiles one answer instead of
-            // two.
             let t = if t_max_x <= t_max_y {
                 tx += step_x;
                 let t = t_max_x;
@@ -741,6 +1200,9 @@ impl Dungeon {
             if self.solid(tx, ty) {
                 return Some(t);
             }
+            if self.floor_of(tx, ty) - (from_floor + mul_div(climb, t, Fx::ONE)) > step_up {
+                return Some(t);
+            }
         }
     }
 
@@ -752,8 +1214,13 @@ impl Dungeon {
     /// as the centreline, and being *slightly* conservative is the right error
     /// to make: the worst case is a character walking round something it could
     /// have squeezed past.
+    ///
+    /// The `!self.sculpted` half of the guard below is what stops a level with
+    /// no masonry and a cliff across it from answering "walk anywhere"; the
+    /// three rays behind it read height through [`Dungeon::raycast`], which
+    /// also records the one case they get wrong.
     pub fn is_walk_clear(&self, from: Vec2, to: Vec2, radius: Fx) -> bool {
-        if !self.carved {
+        if !self.sculpted && !self.carved {
             return true;
         }
         let d = to - from;
@@ -782,8 +1249,14 @@ impl Dungeon {
     /// flat scenario would pay a DDA per entity pair per decision for an answer
     /// that is always `true`. It is also what makes the change bit-identical
     /// there, mechanically rather than by argument.
+    ///
+    /// **`sculpted` joins that guard rather than replacing it**, and it has to:
+    /// a floor plan with no masonry in it can still have a cliff across the
+    /// middle, and a `carved`-only guard would hand back `true` without looking.
+    /// A flat dungeon still never walks a tile, which is the property the
+    /// paragraph above is about.
     pub fn sees(&self, from: Vec2, to: Vec2) -> bool {
-        !self.carved || self.raycast(from, to).is_none()
+        (!self.sculpted && !self.carved) || self.raycast(from, to).is_none()
     }
 
     /// Marks every tile visible from `from` within `radius`, as `1` in `out`.
@@ -806,6 +1279,16 @@ impl Dungeon {
     /// sight range of twelve that is about 450 tiles of some twelve steps each,
     /// and the caller recomputes only when the observer's *tile* changes -- which
     /// is exactly when a tile-granular answer can change.
+    ///
+    /// **Elevation reaches this only through [`Dungeon::raycast`], and it needs
+    /// nothing of its own.** The `!self.sculpted` fast path is that ray's,
+    /// taken once per tile, so a flat level pays what it paid. Both passes are
+    /// already right on sculpted ground for reasons worth recording, because
+    /// each looks like an omission: pass 1 asks the ray, which now stops at a
+    /// cliff, so a plateau shadows the floor behind it; and pass 2 lights only
+    /// *solid* faces because the top of a plateau is an open tile that pass 1
+    /// has already lit or already refused. Adding a plateau to pass 2 would
+    /// light the same cells twice under a rule that disagreed with the ray.
     pub fn visible_tiles(&self, from: Vec2, radius: Fx, out: &mut [u8]) {
         for slot in out.iter_mut() {
             *slot = 0;
@@ -1584,9 +2067,9 @@ fn axis(origin: Fx, delta: Fx, tile: i32, step: i32) -> (Fx, Fx) {
 /// anything else is floor; rows read top to bottom, so the picture in the test
 /// is the picture on the screen.
 ///
-/// At module scope rather than inside `mod tests` because `world.rs` builds its
-/// collision fixtures with it too, and a hand-written `Vec<u8>` in each of them
-/// is a test whose *setup* has to be decoded before its assertion can be read.
+/// At module scope rather than inside `mod tests` because `crates/sim/src/world/`
+/// builds its collision fixtures with it too, and a hand-written `Vec<u8>` in each
+/// of them is a test whose *setup* has to be decoded before its assertion can be read.
 #[cfg(test)]
 pub(crate) fn parse(rows: &[&str]) -> Dungeon {
     let cols = rows.iter().map(|r| r.len()).max().unwrap_or(0);
@@ -2003,6 +2486,485 @@ mod tests {
         let mut short = vec![9u8; 3];
         d.visible_tiles(at(4, 2), Fx::from_int(4), &mut short);
         assert_eq!(short, vec![0, 0, 0]);
+    }
+
+    // -------------------------------------------------------------- elevation
+
+    /// A floor plan from [`parse`], lifted by a second picture: `0`..`9` is
+    /// that many height steps and anything else is level.
+    ///
+    /// Two pictures of one room rather than a `Vec<i16>` beside a `Vec<u8>`,
+    /// for [`parse`]'s reason -- a fixture whose *setup* has to be decoded
+    /// before its assertion can be read is a test nobody rereads.
+    fn sculpt(tiles: &[&str], heights: &[&str]) -> Dungeon {
+        let flat = parse(tiles);
+        let (cols, rows) = (flat.cols() as usize, flat.rows() as usize);
+        let mut steps = Vec::with_capacity(cols * rows);
+        for ty in 0..rows {
+            for tx in 0..cols {
+                let ch = heights
+                    .get(ty)
+                    .and_then(|row| row.as_bytes().get(tx))
+                    .copied()
+                    .unwrap_or(b'.');
+                steps.push(if ch.is_ascii_digit() { (ch - b'0') as i16 } else { 0 });
+            }
+        }
+        Dungeon::from_tiles_and_heights(flat.cols(), flat.rows(), flat.tiles().to_vec(), steps)
+    }
+
+    /// The fixture the routing digest is recorded over: rooms, a pillar, a
+    /// corridor and a shut door, small enough to walk exhaustively.
+    const BATTERY: [&str; 6] = [
+        "##########",
+        "#....#...#",
+        "#.##.+.#.#",
+        "#.#..#.#.#",
+        "#....#...#",
+        "##########",
+    ];
+
+    /// Every planar query this file answers, over one dungeon, as one digest.
+    ///
+    /// Recorded before elevation existed and asserted after. A hand-rolled
+    /// reimplementation of the old rules would be a second copy of the thing
+    /// under test and would agree with a wrong edit made in both places; a
+    /// number recorded from a build that predates the change cannot.
+    fn routing_digest(d: &Dungeon) -> u64 {
+        let mut h = Hash64::new();
+        let (cols, rows) = (d.cols() as i32, d.rows() as i32);
+        let radii = [Fx::from_ratio(30, 100), Fx::from_ratio(70, 100)];
+        for ty in -1..=rows {
+            for tx in -1..=cols {
+                h.write_bool(d.solid(tx, ty));
+                h.write_u8(d.tile(tx, ty));
+                h.write_bool(d.passable_for_routing(tx, ty, false));
+                h.write_bool(d.passable_for_routing(tx, ty, true));
+            }
+        }
+        // Off-centre, because a rule that only ever sees a tile centre is a
+        // rule half tested.
+        let points: Vec<Vec2> = (0..rows)
+            .step_by(7)
+            .flat_map(|ty| {
+                (0..cols).step_by(7).map(move |tx| {
+                    Vec2::new(
+                        Fx::from_int(tx) + Fx::from_ratio(37, 100),
+                        Fx::from_int(ty) + Fx::from_ratio(61, 100),
+                    )
+                })
+            })
+            .collect();
+        for &p in &points {
+            for dir in Cardinal::ALL {
+                h.write_i32(d.clearance(p, dir).raw());
+            }
+            let (tx, ty) = Dungeon::tile_of(p);
+            for r in radii {
+                h.write_bool(d.is_clear(p, r));
+                let near = d.nearest_clear(p, r);
+                h.write_i32(near.x.raw());
+                h.write_i32(near.y.raw());
+                for dir in Cardinal::ALL {
+                    let (dx, dy) = dir.step();
+                    match d.push_out(p, r, tx + dx, ty + dy) {
+                        None => h.write_bool(false),
+                        Some((to, n)) => {
+                            h.write_bool(true);
+                            h.write_i32(to.x.raw());
+                            h.write_i32(to.y.raw());
+                            h.write_i32(n.x.raw());
+                            h.write_i32(n.y.raw());
+                        }
+                    }
+                }
+            }
+        }
+        for (i, &a) in points.iter().enumerate() {
+            for &b in points.iter().skip(i) {
+                h.write_bool(d.sees(a, b));
+                match d.raycast(a, b) {
+                    None => h.write_bool(false),
+                    Some(t) => {
+                        h.write_bool(true);
+                        h.write_i32(t.raw());
+                    }
+                }
+                for r in radii {
+                    h.write_bool(d.is_walk_clear(a, b, r));
+                }
+            }
+        }
+        let (mut dist, mut queue) = (Vec::new(), Vec::new());
+        let seeds: Vec<u32> = (0..cols * rows).step_by(97).map(|c| c as u32).collect();
+        for opens in [false, true] {
+            d.distances_for(&seeds, opens, &mut dist, &mut queue);
+            for &v in dist.iter() {
+                h.write_u16(v);
+            }
+        }
+        let mut out = vec![0u8; (cols * rows) as usize];
+        d.visible_tiles(points[points.len() / 2], Fx::from_int(12), &mut out);
+        h.write_bytes(&out);
+        h.finish()
+    }
+
+    #[test]
+    fn one_height_step_is_between_a_hand_and_a_stair_riser() {
+        // **Both ends, and neither is decoration.** A bound on one side is
+        // satisfied by a range wider than the decision: `>= a hand` alone is
+        // happy with a quantum half a body tall, and `<= a riser` alone is
+        // happy with one nobody can see. This repository has shipped two
+        // one-sided bounds and both looked like coverage.
+        //
+        // A world unit is a metre, read off the shipped roster:
+        // `fighter_anatomy` stands 9/5 with a hand 1/10 across.
+        let riser = Fx::from_ratio(18, 100).raw();
+        let hand = Fx::from_ratio(1, 10).raw();
+        assert!(
+            TERRAIN_HEIGHT_RAW_UNIT <= riser,
+            "a quantum coarser than a stair riser cannot express a stair at all"
+        );
+        assert!(
+            TERRAIN_HEIGHT_RAW_UNIT >= hand,
+            "a rise nobody can see must not be able to turn a route around"
+        );
+        // The exactness claim `Dungeon::height_at` makes, as arithmetic: the
+        // tallest value the `i16` field can hold, times the unit, is nowhere
+        // near saturating an `i32`.
+        let tallest = i16::MAX as i32 * TERRAIN_HEIGHT_RAW_UNIT;
+        assert!(tallest > 0 && tallest < i32::MAX / 4, "raw {tallest}");
+    }
+
+    #[test]
+    fn the_step_up_admits_a_stair_and_refuses_a_knee_high_ledge() {
+        // Below: two height steps, which is one tread of an ordinary flight. A
+        // step-up under that makes a staircase a cliff, and one of a single
+        // step leaves no rise that is neither level nor impassable -- the
+        // height field would be a second wall grid.
+        assert!(
+            TERRAIN_STEP_UP_RAW >= 2 * TERRAIN_HEIGHT_RAW_UNIT,
+            "a staircase must be ground rather than a cliff"
+        );
+        // Above: the knee of a 1.8-unit body, a shade over half a unit. At or
+        // past that a body is climbing, and a ledge a walking body strolls up
+        // is not a ledge.
+        assert!(
+            TERRAIN_STEP_UP_RAW < ONE_RAW / 2,
+            "nothing above the knee may be entered at a walk"
+        );
+        // And it names a rise the grid can express. A threshold between two
+        // representable rises admits and refuses exactly the set the multiple
+        // below it does, while claiming to be somewhere else.
+        assert_eq!(TERRAIN_STEP_UP_RAW % TERRAIN_HEIGHT_RAW_UNIT, 0);
+    }
+
+    #[test]
+    fn a_flat_dungeon_fingerprints_exactly_as_it_did_before_heights_existed() {
+        // **The load-bearing test of this session.** Every value below was
+        // recorded by running this file's digest on a build that predated
+        // `heights`, and is asserted rather than recomputed: a test that
+        // re-derives its expectation from the code under test agrees with any
+        // code at all.
+        //
+        // If one of these moves, the `sculpted` short-circuit is wrong and the
+        // session stops rather than re-records -- `ROOM_HASH`, `BATTLE_HASH`,
+        // `SWAP_HASH`, `BOW_HASH`, `LAB_HASH` and `GOLDEN_STATE_HASH` are all
+        // downstream of this digest.
+        assert_eq!(Dungeon::open(24, 16).fingerprint(), 0xacc3_5e42_5d5c_221d);
+        assert_eq!(
+            Dungeon::open(crate::DUNGEON_COLS, crate::DUNGEON_ROWS).fingerprint(),
+            0x4752_15a4_2757_c084
+        );
+        assert_eq!(
+            parse(&["#######", "#..#..#", "#..#..#", "#######"]).fingerprint(),
+            0x0576_03a1_17d8_ff72
+        );
+        assert_eq!(
+            parse(&["#######", "#..+..#", "#######"]).fingerprint(),
+            0xe72a_7271_edc5_27a1
+        );
+        // The floor plan the game actually ships, at the extent it ships at.
+        assert_eq!(level(0, 0).dungeon.fingerprint(), 0x081e_2419_b20d_9d47);
+        assert_eq!(level(7, 3).dungeon.fingerprint(), 0x4dbf_15bc_d8ae_19e0);
+
+        // And the one mutator, which re-digests in place. Opening every door on
+        // a level has to land where it landed before too, or `open_door` and
+        // the constructors have drifted apart -- which is the failure the
+        // shared `Dungeon::digest` exists to make impossible and this asserts
+        // rather than trusts.
+        let mut l = level(11, 0);
+        assert_eq!(l.dungeon.fingerprint(), 0xf19f_0766_3d8c_a952);
+        let doors = l.doors.clone();
+        for door in &doors {
+            l.dungeon.open_door(door.cells());
+        }
+        assert_eq!(l.dungeon.fingerprint(), 0xe2f1_d408_c8a3_6c7c);
+    }
+
+    #[test]
+    fn a_sculpted_dungeon_fingerprints_differently_from_the_same_tiles_flat() {
+        let tiles = ["#####", "#...#", "#...#", "#####"];
+        let flat = parse(&tiles);
+        let hill = sculpt(&tiles, &[".....", ".....", ".1...", "....."]);
+        assert!(!flat.sculpted());
+        assert!(hill.sculpted());
+        assert_ne!(flat.fingerprint(), hill.fingerprint());
+        // The grids are byte-identical, so it is the heights the digest saw and
+        // nothing else.
+        assert_eq!(flat.tiles(), hill.tiles());
+
+        // Every cell, and not a summary of them: a different height and the
+        // same height somewhere else are both different levels.
+        let higher = sculpt(&tiles, &[".....", ".....", ".2...", "....."]);
+        let elsewhere = sculpt(&tiles, &[".....", ".....", "..1..", "....."]);
+        assert_ne!(hill.fingerprint(), higher.fingerprint());
+        assert_ne!(hill.fingerprint(), elsewhere.fingerprint());
+
+        // A pit is not its own mirror image. `sculpt` cannot draw a negative
+        // step, which is exactly why this one is built by hand: it is what
+        // `write_u16(step as u16)` has to preserve.
+        let mut steps = vec![0i16; 20];
+        steps[2 * 5 + 1] = -1;
+        let pit = Dungeon::from_tiles_and_heights(5, 4, flat.tiles().to_vec(), steps);
+        assert!(pit.sculpted());
+        assert_ne!(pit.fingerprint(), hill.fingerprint());
+        assert_ne!(pit.fingerprint(), flat.fingerprint());
+    }
+
+    #[test]
+    fn a_sculpted_dungeon_of_all_zero_heights_digests_as_a_flat_one() {
+        // The property that stops a driver moving a golden hash by asking for
+        // elevation it does not use: `sculpted` is read off the heights and
+        // never off the caller's intent.
+        let tiles = ["#####", "#.+.#", "#...#", "#####"];
+        let flat = parse(&tiles);
+        let asked = Dungeon::from_tiles_and_heights(5, 4, flat.tiles().to_vec(), vec![0i16; 20]);
+        assert!(!asked.sculpted());
+        assert_eq!(asked.fingerprint(), flat.fingerprint());
+        assert_eq!(asked, flat, "and the same value, not merely the same digest");
+
+        // A short `heights` is padded flat rather than refused, so a dungeon
+        // that says nothing about height is the same dungeon too.
+        let silent = Dungeon::from_tiles_and_heights(5, 4, flat.tiles().to_vec(), Vec::new());
+        assert_eq!(silent, flat);
+
+        // Including through the mutator, which is where two digest paths would
+        // show up as a divergence that only appears half a minute into a level.
+        let (mut a, mut b) = (asked, flat);
+        let cell = a.cell(2, 1).unwrap();
+        a.open_door(&[cell]);
+        b.open_door(&[cell]);
+        assert_eq!(a.fingerprint(), b.fingerprint());
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn a_rise_above_the_step_up_is_impassable_uphill_and_passable_down() {
+        // A staircase from x = 1 to x = 4, then a plateau four steps up, then a
+        // long drop back to the floor. Nothing but the border is solid, so
+        // every refusal below comes from the height alone.
+        //
+        //  x:  01234567
+        let d = sculpt(
+            &["########", "#......#", "########"],
+            &["........", ".012370.", "........"],
+        );
+        let (low, one, three) = ((1, 1), (2, 1), (4, 1));
+        let (cliff, far) = ((5, 1), (6, 1));
+
+        // One step at a time is a staircase and a staircase is ground.
+        assert!(d.passable_between(low, one));
+        assert!(d.passable_between(one, (3, 1)));
+        assert!(d.passable_between((3, 1), three));
+        // Three steps at once is exactly the step-up, and it is admitted: the
+        // constant names the rise a body **may** enter, not the first it may
+        // not.
+        assert!(d.passable_between(low, three));
+        // Four is one over. A wall from below...
+        assert!(!d.passable_between(three, cliff));
+        assert!(!d.passable_between(low, cliff));
+        assert!(!d.passable_between(far, cliff));
+        // ...and a drop from above, which is the whole of "a ledge is one-way".
+        assert!(d.passable_between(cliff, three));
+        assert!(d.passable_between(cliff, far));
+        assert!(d.passable_between(cliff, low));
+        // Masonry is not a short cliff: it refuses in both directions however
+        // the heights fall, and so does the outside of the world.
+        assert!(!d.passable_between(low, (0, 1)));
+        assert!(!d.passable_between(cliff, (7, 1)));
+        assert!(!d.passable_between(low, (1, -1)));
+
+        // The same rule reaches routing, which is what makes a cliff a boundary
+        // of the level rather than a decoration on it. Seeded on the plateau
+        // every tile is reachable, because you can jump down; seeded on the
+        // floor the plateau and everything behind it is not.
+        let (mut dist, mut queue) = (Vec::new(), Vec::new());
+        d.distances(&[d.cell(5, 1).unwrap()], &mut dist, &mut queue);
+        assert_ne!(dist[d.cell(1, 1).unwrap() as usize], u16::MAX);
+        assert_ne!(dist[d.cell(6, 1).unwrap() as usize], u16::MAX);
+        d.distances(&[d.cell(1, 1).unwrap()], &mut dist, &mut queue);
+        assert_eq!(
+            dist[d.cell(5, 1).unwrap() as usize],
+            u16::MAX,
+            "a cliff a body cannot climb is still on its route"
+        );
+        assert_eq!(dist[d.cell(6, 1).unwrap() as usize], u16::MAX);
+    }
+
+    #[test]
+    fn a_tall_tile_blocks_sight_that_the_same_tile_flat_does_not() {
+        //   0123456
+        let tiles = ["#######", "#.....#", "#######"];
+        let flat = parse(&tiles);
+        let (eye, far) = (at(1, 1), at(5, 1));
+        assert!(flat.sees(eye, far), "premise: flat, nothing is in the way");
+
+        // Three steps is the step-up exactly: ground a body may walk onto is
+        // ground it may see over, which is the same number saying both things.
+        let ramp = sculpt(&tiles, &[".......", "...3...", "......."]);
+        assert!(ramp.sees(eye, far), "a rise a body may step onto is not a wall");
+
+        // Four steps is one over, and it occludes exactly as masonry does.
+        let wall = sculpt(&tiles, &[".......", "...4...", "......."]);
+        assert!(!wall.sees(eye, far));
+        assert!(!wall.sees(far, eye), "and from the other side too");
+        assert_eq!(
+            wall.tiles(),
+            flat.tiles(),
+            "the grids are identical, so it is the height that stopped the ray"
+        );
+        // A walk across it is refused for the same reason.
+        assert!(!wall.is_walk_clear(eye, far, Fx::from_ratio(30, 100)));
+
+        // The ray stops at the cliff face rather than somewhere past it.
+        let t = wall.raycast(eye, far).expect("the plateau is in the way");
+        let landed = eye + (far - eye) * t;
+        assert!(
+            (landed.x - Fx::from_int(3)).abs() < Fx::from_ratio(1, 100),
+            "the ray stopped at {landed:?} rather than at the face"
+        );
+
+        // A tile never occludes itself, and a body on the plateau sees the
+        // floor below it: the line the ray carries joins the two floors, so it
+        // rides up with the plateau you are standing on.
+        assert!(wall.sees(at(3, 1), at(3, 1)));
+        assert!(wall.sees(at(3, 1), far));
+        assert!(wall.sees(far, at(3, 1)), "and the top of a cliff is visible from under it");
+
+        // Fog agrees with sight, because it is the same ray: the tiles behind
+        // the plateau are dark and the plateau itself is not.
+        let mut out = vec![0u8; wall.cols() as usize * wall.rows() as usize];
+        wall.visible_tiles(eye, Fx::from_int(8), &mut out);
+        assert_eq!(out[wall.cell(3, 1).unwrap() as usize], 1);
+        assert_eq!(out[wall.cell(4, 1).unwrap() as usize], 0);
+        assert_eq!(out[wall.cell(5, 1).unwrap() as usize], 0);
+    }
+
+    #[test]
+    fn a_floor_is_a_step_function_with_no_slope_inside_a_tile() {
+        let d = sculpt(&["####", "#..#", "####"], &["....", ".02.", "...."]);
+        let two = Fx::from_raw(2 * TERRAIN_HEIGHT_RAW_UNIT);
+        let y = Fx::from_ratio(150, 100);
+        // Every point of a tile reports that tile's plateau, the point a hair
+        // inside its far edge included. There is nothing to interpolate, which
+        // is the whole reason no sample here is a divide.
+        for hundredths in [1, 50, 99] {
+            let x = Fx::from_int(2) + Fx::from_ratio(hundredths, 100);
+            assert_eq!(d.height_at(Vec2::new(x, y)), two);
+        }
+        assert_eq!(d.height_at(at(1, 1)), Fx::ZERO);
+        // The discontinuity sits exactly where `tile_of` floors, so a point on
+        // the boundary belongs to the tile it is the low edge of.
+        assert_eq!(d.height_at(Vec2::new(Fx::from_int(2), y)), two);
+        assert_eq!(
+            d.height_at(Vec2::new(Fx::from_int(2) - Fx::EPSILON, y)),
+            Fx::ZERO
+        );
+        // A flat dungeon answers zero without reading a cell -- including well
+        // outside its own extent, which every other method here calls masonry.
+        let open = Dungeon::open(4, 4);
+        assert_eq!(open.height_at(at(2, 2)), Fx::ZERO);
+        assert_eq!(open.height_at(Vec2::from_ints(-9, 40)), Fx::ZERO);
+        assert_eq!(d.height_at(Vec2::from_ints(-9, 40)), Fx::ZERO);
+    }
+
+    #[test]
+    fn a_cliff_is_masonry_from_below_and_a_ledge_from_above() {
+        // Column 3 is four steps up. Nothing inside the border is solid, so
+        // every refusal below is the height doing masonry's job.
+        let d = sculpt(
+            &["######", "#....#", "#....#", "######"],
+            &["......", "...4..", "...4..", "......"],
+        );
+        let r = Fx::from_ratio(45, 100);
+        let y = Fx::from_ratio(150, 100);
+        let under = Vec2::new(Fx::from_ratio(280, 100), y);
+        let atop = Vec2::new(Fx::from_ratio(320, 100), y);
+
+        // A body beside the cliff overlaps it and does not fit...
+        assert!(!d.is_clear(under, r));
+        // ...and the same circle on top of it does, because from up there the
+        // neighbour is a drop.
+        assert!(d.is_clear(atop, r));
+
+        // `clearance` reports the face as a wall from below and does not report
+        // it at all from above: a ledge is not something to steer away from.
+        assert_eq!(d.clearance(at(2, 1), Cardinal::PosX), Fx::from_ratio(50, 100));
+        assert_eq!(d.clearance(at(3, 1), Cardinal::NegX), Fx::from_ratio(250, 100));
+
+        // And the collision resolver pushes out of a cliff exactly as it pushes
+        // out of a wall, along the face normal and by the overlap.
+        let (to, n) = d.push_out(under, r, 3, 1).expect("a cliff must push like a wall");
+        assert_eq!(n, Vec2::new(-Fx::ONE, Fx::ZERO));
+        assert_eq!(to.y, y, "a face push is cardinal, so it slides along the cliff");
+        // 2.80 pushed back to 3.00 - 0.45, to a hundredth rather than to the
+        // raw: `normalize` and `length` both truncate, so the point lands a hair
+        // inside where the algebra says. That is the safe direction and the
+        // reason the flat tests measure this the same way.
+        assert!(
+            (to.x - Fx::from_ratio(255, 100)).abs() < Fx::from_ratio(1, 100),
+            "pushed to {to:?}"
+        );
+        assert!(d.is_clear(to, r), "and the body fits where it was put");
+        // From on top there is nothing to be pushed out of.
+        assert_eq!(d.push_out(atop, r, 2, 1), None);
+    }
+
+    #[test]
+    fn every_routing_query_on_a_flat_dungeon_answers_what_it_answered_before() {
+        // `routing_digest` walks `solid`, `tile`, `passable_for_routing`,
+        // `clearance`, `is_clear`, `nearest_clear`, `push_out`, `sees`,
+        // `raycast`, `is_walk_clear`, `distances_for` and `visible_tiles` over
+        // one dungeon. All three numbers were recorded on a build that predated
+        // `heights`.
+        assert_eq!(routing_digest(&Dungeon::open(24, 16)), 0xb743_4318_660c_18c9);
+        assert_eq!(routing_digest(&level(3, 1).dungeon), 0x1807_cc4e_1208_8805);
+        assert_eq!(routing_digest(&parse(&BATTERY)), 0x824e_e2ff_5d5f_ea0b);
+
+        // And the two directional predicates degenerate, which is why every
+        // existing caller of them is inert rather than merely unchanged.
+        let d = level(3, 1).dungeon;
+        for ty in -1..=d.rows() as i32 {
+            for tx in -1..=d.cols() as i32 {
+                for dir in Cardinal::ALL {
+                    let (dx, dy) = dir.step();
+                    let to = (tx + dx, ty + dy);
+                    assert_eq!(d.passable_between((tx, ty), to), !d.solid(to.0, to.1));
+                    for opens in [false, true] {
+                        assert_eq!(
+                            d.passable_for_routing_between((tx, ty), to, opens),
+                            d.passable_for_routing(to.0, to.1, opens)
+                        );
+                    }
+                }
+            }
+        }
+        // Nothing generated is sculpted, and that is what makes every golden
+        // unreachable from this session rather than merely unmoved by it.
+        for seed in 0..8u64 {
+            assert!(!level(seed, 1).dungeon.sculpted());
+        }
     }
 
     // ------------------------------------------------------------ generation

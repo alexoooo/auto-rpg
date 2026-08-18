@@ -4,6 +4,11 @@
 pub enum HashDomain {
     LegacyV1 = 0,
     ArticulatedV1 = 1,
+    /// The embodied body's own block. A separate domain rather than a wider
+    /// `ArticulatedV1`, so that comparing an embodied digest against an
+    /// articulated one is a type-level mismatch rather than two numbers that
+    /// happen to differ.
+    EmbodiedV1 = 2,
 }
 
 /// A state fingerprint together with the grammar needed to interpret it.

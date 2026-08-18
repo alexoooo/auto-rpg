@@ -1,8 +1,88 @@
 use crate::{ArmTarget, BodyAnatomySpec, CombatHeight, EquipmentSpec, Stats};
-use fx::{mul_div, Angle, Fx, Vec2, Vec3};
+use fx::{Angle, Fx, Vec3};
+// Both are read only from feature-gated bodies, which is why the default build
+// prunes them and the feature build needs them back.
+#[cfg(feature = "cartesian-recoil")]
+use fx::{mul_div, Vec2};
 
 pub const BODY_YAW_MAX_SPEED_RAW: i32 = 546;
 pub const BODY_YAW_ACCEL_RAW: i32 = 91;
+
+// ---------------------------------------------------------------- stance
+//
+// The legs' constraint on the torso, for `CombatModel::Embodied`. Legs are
+// automatically controlled and there is no leg command; what these five
+// constants buy is the *cost* the legs impose, which is the whole of what the
+// source material's footwork is.
+//
+// **Every one is a placeholder until a sweep produces it, and every one is
+// bounded from both sides by the decision it encodes rather than by one side
+// of a range.** The sweep they owe is
+// `lab articulated --seeds 400 --mirrored` against the embodied corpus; the
+// tests named below are what would catch them drifting in the meantime.
+
+/// How far an embodied torso may turn away from its hips before the legs have
+/// to move. A sixth of a turn.
+///
+/// - **Below about a tenth of a turn** an ordinary guard change would force a
+///   step, so footwork would stop being a choice and become a tax on aiming.
+/// - **At or above a quarter turn** a fighter could cover both flanks without
+///   moving its feet, and the constraint would buy nothing a free torso did not
+///   already give.
+///
+/// `the_twist_limit_is_bounded_from_both_sides` asserts both ends.
+pub const STANCE_TWIST_LIMIT_RAW: i32 = 10_922;
+
+/// How fast the hips turn while the body is translating or stepping: the same
+/// rate the torso gets, because a body that is already moving its feet is not
+/// paying for the turn twice.
+pub const STANCE_HIP_MOVING_SPEED_RAW: i32 = BODY_YAW_MAX_SPEED_RAW;
+
+/// How fast the hips turn while the body is standing still. Half.
+///
+/// **This asymmetry is the mechanic.** A moving body reorients for free because
+/// it is already committing its feet; a standing one pays, which is what makes
+/// "step to bring the weapon round" a decision rather than a formality. Equal
+/// rates would delete the decision; a standing rate near zero would make a
+/// stationary fighter unable to answer anything off its centre line.
+/// `a_moving_body_turns_its_hips_faster_than_a_standing_one` asserts the strict
+/// inequality, and `the_standing_hip_rate_is_bounded_from_both_sides` the range.
+pub const STANCE_HIP_STANDING_SPEED_RAW: i32 = BODY_YAW_MAX_SPEED_RAW / 2;
+
+/// Hip angular acceleration. The torso's, unchanged: what differs between hips
+/// and torso is the ceiling they accelerate towards, not how hard they can push.
+pub const STANCE_HIP_ACCEL_RAW: i32 = BODY_YAW_ACCEL_RAW;
+
+/// How long a forced step lasts, in ticks.
+///
+/// Long enough that the hips actually arrive -- a sixth of a turn at the moving
+/// rate takes `10_922 / 546`, twenty ticks, so a step shorter than that would
+/// end with the twist still saturated and re-arm immediately, which is a stutter
+/// rather than a step. Short enough that a fighter is not committed for a
+/// visible fraction of a second at 60Hz.
+pub const STANCE_STEP_TICKS: u8 = 24;
+
+/// What a forced step costs in movement authority while it runs.
+///
+/// **Not zero and not one**, and both ends matter: zero would make a forced step
+/// a stun, which is a much heavier mechanic than "your feet are busy"; one would
+/// make it free and the constraint would be decorative.
+/// `a_forced_step_reduces_move_authority_for_exactly_its_duration` asserts the
+/// duration, and `the_step_authority_is_bounded_from_both_sides` the value.
+pub const STANCE_STEP_MOVE_AUTHORITY_RAW: i32 = 32_768;
+
+/// Standing pelvis height, as a fraction of standing height.
+pub const PELVIS_HEIGHT_RAW: i32 = 32_768;
+
+/// How far the pelvis sinks at full planar speed, as a fraction of standing
+/// height, and how far again at a saturated twist.
+///
+/// Small on purpose: this is a crouch that shifts weight, not one that changes
+/// what a blow can reach. The two terms are separate constants because they are
+/// separate claims -- a body can be sprinting square-on or standing wound up --
+/// and one combined number could not express either.
+pub const PELVIS_SPEED_DROP_RAW: i32 = 3_277;
+pub const PELVIS_TWIST_DROP_RAW: i32 = 3_277;
 /// How fast an arm may slew its bearing, and how hard it may accelerate into it.
 ///
 /// **Doubled from `1_092`/`182` on 2026-08-15, and the pair moves together**
@@ -54,6 +134,51 @@ pub const PRODUCTION_ARM_CALIBRATION: ArmCalibration = ArmCalibration {
     bearing_max_speed_raw: ARM_BEARING_MAX_SPEED_RAW,
     bearing_accel_raw: ARM_BEARING_ACCEL_RAW,
 };
+
+/// What the legs are doing, for a body whose legs are automatic.
+///
+/// There is no leg command and there will not be one: with locomotion automatic
+/// and no jump or crouch, the depth of legs in the source material is stance and
+/// footwork -- where your weight is, which way your hips face, and whether you
+/// can bring a weapon round without repositioning. Knee angle is a thing a
+/// renderer solves from foot and pelvis positions and it changes no decision.
+///
+/// **Twist is not a field.** It is `body_yaw.delta(hip_yaw)`, derived wherever
+/// it is wanted, because a stored copy is a second thing that can disagree with
+/// the two angles it is a function of -- and the clamp that bounds it already
+/// lives on the torso's target.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct StanceState {
+    /// Hip bearing, world space: the feet direction.
+    pub hip_yaw: Angle,
+    pub hip_yaw_speed_turns: Fx,
+    pub hip_authority_residue: Fx,
+    /// Pelvis height as a fraction of standing height. **Derived, never
+    /// commanded**: `PELVIS_HEIGHT_RAW` less a speed term less a twist term,
+    /// each clamped, evaluated left to right. The grouping is written down
+    /// because `Fx` truncates and a reordering is a different number.
+    pub pelvis: Fx,
+    /// Ticks remaining in a forced step. Zero when the body is settled.
+    pub step_left: u8,
+}
+
+impl StanceState {
+    /// A body standing square, feet under it, at full height.
+    pub const fn squared(hip_yaw: Angle) -> StanceState {
+        StanceState {
+            hip_yaw,
+            hip_yaw_speed_turns: Fx::ZERO,
+            hip_authority_residue: Fx::ZERO,
+            pelvis: Fx::from_raw(PELVIS_HEIGHT_RAW),
+            step_left: 0,
+        }
+    }
+
+    /// Signed hip-to-torso twist in raw angle units, always within the budget.
+    pub fn twist(&self, body_yaw: Angle) -> i32 {
+        body_yaw.delta(self.hip_yaw)
+    }
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct BodyYawState {
@@ -129,74 +254,33 @@ pub(crate) fn settle_post_contact_com(c: Vec3, solved_body: Vec2, settled_body: 
     absolute - Vec3::new(settled_body.x, settled_body.y, Fx::ZERO)
 }
 
-pub(crate) fn shoulder(anatomy: &BodyAnatomySpec, yaw: Angle, limb: usize) -> Vec3 {
-    let side = if limb == 0 { anatomy.shoulder_half_width } else { -anatomy.shoulder_half_width };
-    Vec3::new(-yaw.sin() * side, mul_div(yaw.cos(), side, Fx::ONE), anatomy.shoulder_height)
-}
-
-pub(crate) fn hand_position(
-    anatomy: &BodyAnatomySpec,
-    yaw: Angle,
-    limb: usize,
-    bearing: Angle,
-    height: CombatHeight,
-    reach: Fx,
-) -> Vec3 {
-    let shoulder = shoulder(anatomy, yaw, limb);
-    let physical_reach = anatomy.arm_length * reach.max(Fx::from_raw(ARM_MIN_REACH_RAW));
-    Vec3::new(
-        shoulder.x + bearing.cos() * physical_reach,
-        shoulder.y + mul_div(bearing.sin(), physical_reach, Fx::ONE),
-        anatomy.standing_height * Fx::from_raw(height.raw()),
-    )
-}
-
-/// The inverse of [`hand_position`]: the joint pose that puts the hand where
-/// contact left it, clamped to the joint's own limits.
-///
-/// Contact moves an absolute hand while the authoritative state is a joint
-/// pose, so something has to run this direction -- and it cannot be exact. A
-/// shoulder cannot reach past its arm and height is a bounded fraction of
-/// standing height, so the pose that comes back may put the hand somewhere
-/// else. That is why the caller must re-derive the hand from this answer rather
-/// than keep the one it asked for, and why the contract makes the *clamped*
-/// hand the state the energy check reads.
-///
-/// `fallback_bearing` is answered when the hand lands exactly on the shoulder
-/// axis, where the horizontal vector is zero and carries no direction at all.
-/// Reusing the current bearing there is the only choice that does not invent
-/// one; the hand is on the axis either way, so nothing observable turns on it.
-pub(crate) fn inverse_hand(
-    anatomy: &BodyAnatomySpec,
-    yaw: Angle,
-    limb: usize,
-    hand: Vec3,
-    fallback_bearing: Angle,
-) -> (Angle, CombatHeight, Fx) {
-    let shoulder = shoulder(anatomy, yaw, limb);
-    let planar = Vec2::new(hand.x - shoulder.x, hand.y - shoulder.y);
-    let bearing = if planar.is_zero() { fallback_bearing } else { planar.angle() };
-    let height = if anatomy.standing_height.is_positive() {
-        (hand.z / anatomy.standing_height).clamp(Fx::ZERO, Fx::ONE)
-    } else {
-        Fx::ZERO
-    };
-    let reach = if anatomy.arm_length.is_positive() {
-        planar.length() / anatomy.arm_length
-    } else {
-        Fx::ONE
-    };
-    (
-        bearing,
-        CombatHeight::try_from_raw(height.raw()).expect("height clamped into range"),
-        reach.clamp(Fx::from_raw(ARM_MIN_REACH_RAW), Fx::ONE),
-    )
-}
+// Where an arm is now belongs to `limb`, and is re-exported here so no caller
+// changed when it moved. The arm's collision volume was being built a second
+// time in `geometry.rs` from these same two points; one owner is what stops the
+// two answers drifting apart.
+pub(crate) use super::limb::{hand_position, inverse_hand, shoulder};
 
 pub(crate) fn integrate_yaw(state: &mut BodyYawState, target: Angle, authority: Fx) {
+    integrate_yaw_with_rates(state, target, authority, BODY_YAW_MAX_SPEED_RAW, BODY_YAW_ACCEL_RAW)
+}
+
+/// The same integrator at a rate the caller names.
+///
+/// Exists because hips are not a torso: they turn slower when a body is
+/// standing and at the full rate when it is stepping, and the alternative --
+/// a second copy of this arithmetic -- is how the two would come to disagree
+/// about what a saturated speed does. Same shape as
+/// [`integrate_arm_with_rates`], and for the same reason.
+pub(crate) fn integrate_yaw_with_rates(
+    state: &mut BodyYawState,
+    target: Angle,
+    authority: Fx,
+    max_speed_raw: i32,
+    accel_raw: i32,
+) {
     let error = target.delta(state.angle);
-    let desired = error.clamp(-BODY_YAW_MAX_SPEED_RAW, BODY_YAW_MAX_SPEED_RAW);
-    let n = BODY_YAW_ACCEL_RAW as i64 * authority.raw() as i64
+    let desired = error.clamp(-max_speed_raw, max_speed_raw);
+    let n = accel_raw as i64 * authority.raw() as i64
         + state.authority_residue.raw() as i64;
     let acceleration = n / Fx::ONE.raw() as i64;
     state.authority_residue = Fx::from_raw((n - acceleration * Fx::ONE.raw() as i64) as i32);
@@ -254,7 +338,8 @@ pub const TWO_HANDED_FATIGUE_SHARES: i32 = 2;
 /// authoritative target, and whose effort, fatigue, stats and authority are read
 /// are all unchanged and all still the right arm's --
 /// `a_two_handed_trajectory_uses_right_authority_effort_and_target_only` in
-/// `crates/sim/src/world.rs` is the standing proof of the half that did not move.
+/// `crates/sim/src/world/articulated.rs` is the standing proof of the half that
+/// did not move.
 ///
 /// [`Grip::OneHanded`] is **inert by construction**: both methods below return
 /// their argument untouched. That is what lets every one-handed caller keep its

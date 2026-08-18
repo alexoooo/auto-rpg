@@ -1,166 +1,165 @@
 # Embodied 04 -- terrain height, and walls that fall out of it
 
-**Status:** proposed. Depends on [03](embodied-03-embodied-model-scaffold.md).
-Independent of [05](embodied-05-torso-relative-command.md).
+**Status:** complete. Landed 2026-08-17. No pin moved.
 
-Give `Dungeon` a per-tile floor height, make an embodied body's `z` a sample of it,
-and let un-enterable terrain replace the `WALL` tile rather than sit beside it. No
+`Dungeon` has a per-tile floor height, an embodied body's `z` is a sample of it,
+and un-enterable terrain can replace the `WALL` tile rather than sit beside it. No
 jump, no crouch, no ballistic motion: **`z` is a function of position, never an
 integrated degree of freedom.** That single restriction is what keeps the third axis
-out of the momentum solver and makes this session small.
+out of the momentum solver and made this session small.
 
-## Why this is cheaper than it looks
+## Why it was cheaper than it looks
 
-Three facts, all measurable in the tree today:
+Three facts, all measurable in the tree before the session started:
 
-- the contact solver is already fully three-dimensional. Arms are capsules at
+- the contact solver was already fully three-dimensional. Arms are capsules at
   arbitrary `z`, weapons are `SegmentPose`s in XYZ, and the sweep is
   segment-against-segment. Nothing in
   [the contact contract](../reference/contact-solver.md#contract) assumes a floor;
-- the pose row already publishes **body XYZ at words 2..4**
-  ([pose rows](../reference/articulated-abi.md#pose-rows)). Elevation costs **zero
-  ABI change**. `POSE_STRIDE` stays 66 and `POSE_LAYOUT_VERSION` stays 1;
-- `ArticulatedPose::body` at
-  [`pose.rs#L99`](../../crates/sim/src/pose.rs#L99) is already a `Vec3` whose doc
-  comment says "Z is the floor". This session deletes that sentence and replaces it,
-  which is the whole of the type change.
+- the pose row already published **body XYZ at words 2..4**
+  ([pose rows](../reference/articulated-abi.md#pose-rows)). Elevation cost **zero
+  ABI change**. `POSE_STRIDE` is still 66 and `POSE_LAYOUT_VERSION` is still 1;
+- [`ArticulatedPose::body`](../../crates/sim/src/pose.rs#L101) was already a `Vec3`
+  whose doc comment said "Z is the floor". This session corrected that sentence
+  rather than deleting it, and the correction is narrower than it looks: a body
+  still has no vertical degree of freedom **of its own**.
 
 ## Tiles are flat plateaus
 
 Each tile carries one height. There is no interpolation across a tile and no slope
-within one, so a floor is a step function and every arithmetic operation stays exact.
-This is the Doom sector model, and it is chosen over a smoothed heightfield for two
+within one, so a floor is a step function and every arithmetic operation stays
+exact. This is the Doom sector model, chosen over a smoothed heightfield for two
 reasons: interpolation is where a fixed-point terrain sampler grows a rounding
 argument nobody wants to have, and a step function is what makes "the wall is a tall
 tile" true by construction rather than by threshold.
 
-```rust
-pub const TERRAIN_HEIGHT_RAW_UNIT: i32 = ...;   // one height step, raw 16.16
-pub const TERRAIN_STEP_UP_RAW: i32 = ...;       // the rise a walking body may enter
-```
+`TERRAIN_HEIGHT_RAW_UNIT` is an eighth of a world unit and `TERRAIN_STEP_UP_RAW`
+is three of those. Both are bounded from **both** sides by their own tests --
+`one_height_step_is_between_a_hand_and_a_stair_riser` and
+`the_step_up_admits_a_stair_and_refuses_a_knee_high_ledge`.
 
-`Dungeon` at [`dungeon.rs#L102`](../../crates/sim/src/dungeon.rs#L102) gains
-`heights: Vec<i16>`, row-major beside `tiles`, each value a signed count of
-`TERRAIN_HEIGHT_RAW_UNIT`, and `sculpted: bool` beside the existing `carved: bool`.
+`Dungeon` gained `heights: Vec<i16>` row-major beside `tiles`, and `sculpted: bool`
+beside the existing `carved: bool`.
 
 ## The digest short-circuit is the whole hash argument
 
 `carved` exists so that "every pre-existing scenario is provably unchanged" is a
-short-circuit rather than an argument. Reuse it exactly:
+short-circuit rather than an argument. `sculpted` reuses it exactly:
 
 ```rust
-// in Dungeon::from_tiles, and in the new from_tiles_and_heights
 h.write_u16(cols);
 h.write_u16(rows);
-h.write_bytes(&tiles);
-if sculpted { for step in &heights { h.write_i16(*step); } }
+h.write_bytes(tiles);
+if sculpted { for step in heights { h.write_u16(*step as u16); } }
 ```
 
-Every shipped scenario is flat, so `sculpted` is false, so
-`Dungeon::fingerprint` answers what it answers today, byte for byte, and
-`ROOM_HASH`, `BATTLE_HASH`, `SWAP_HASH`, `BOW_HASH`, `LAB_HASH` and
-`GOLDEN_STATE_HASH` are unreachable. `Dungeon::from_tiles`
-([`dungeon.rs#L130`](../../crates/sim/src/dungeon.rs#L130)) keeps its exact signature
-and fills `heights` with zeros; `from_tiles_and_heights` is the new constructor and
-the only way to set `sculpted`.
+`Dungeon::from_tiles` keeps its exact signature, fills `heights` with zeros and sets
+`sculpted = false`; `from_tiles_and_heights` is the new constructor and the only way
+to set it. It derives `sculpted` from whether any height is **non-zero**, so a
+"sculpted" dungeon of all zeros digests identically to a flat one --
+`a_sculpted_dungeon_of_all_zero_heights_digests_as_a_flat_one` asserts that, and it
+is what makes the property about the *values* rather than about which constructor
+was called.
 
-If any of those six pins moves, the short-circuit is wrong and the session stops
-rather than re-records.
+Every shipped scenario is flat, so `ROOM_HASH`, `BATTLE_HASH`, `SWAP_HASH`,
+`BOW_HASH`, `LAB_HASH` and `GOLDEN_STATE_HASH` are unreachable rather than argued
+about. All six answer what they answered before.
 
-## Passability becomes directional, and that is the interesting part
+## Passability became directional
 
-`Dungeon::solid(tx, ty)` at
-[`dungeon.rs#L180`](../../crates/sim/src/dungeon.rs#L180) answers a question about one
-tile. Whether a body may *enter* a tile depends on where it comes from, so add:
+`passable_between(from, to)` answers whether a body standing on `from` may step onto
+`to`. On a flat dungeon it is exactly `!self.solid(to)`, which is why every existing
+caller is inert. On a sculpted one a rise greater than `TERRAIN_STEP_UP_RAW` is
+impassable **uphill and passable downhill**, which is what makes a ledge a one-way
+drop and a cliff a wall from below.
 
-```rust
-/// Whether a body standing on `from` may step onto `to`. On a flat dungeon this
-/// is exactly `!self.solid(to)`, which is why every existing caller is inert.
-pub fn passable_between(&self, from: (i32, i32), to: (i32, i32)) -> bool
-```
+`passable_for_routing`, `is_clear`, `distances_for`, `push_out`, `nearest_clear`,
+`clearance` and `is_walk_clear` all route through it, and every one takes the
+`!self.sculpted` fast path first, so a flat dungeon runs the code it ran before
+instruction for instruction.
 
-A `WALL` tile stays impassable. On a sculpted dungeon a rise greater than
-`TERRAIN_STEP_UP_RAW` is impassable in the uphill direction and passable downhill,
-which is what makes a ledge a one-way drop and a cliff a wall from below.
+## Sight reads height, or a cliff is not a wall
 
-The callers that need it, all in `dungeon.rs`: `passable_for_routing`
-[L213](../../crates/sim/src/dungeon.rs#L213), `is_clear`
-[L405](../../crates/sim/src/dungeon.rs#L405), `distances_for`
-[L450](../../crates/sim/src/dungeon.rs#L450), `push_out`
-[L516](../../crates/sim/src/dungeon.rs#L516), `nearest_clear`
-[L605](../../crates/sim/src/dungeon.rs#L605), `clearance`
-[L665](../../crates/sim/src/dungeon.rs#L665), `is_walk_clear`
-[L755](../../crates/sim/src/dungeon.rs#L755). Every one of them takes the
-`!self.sculpted` fast path first and runs the code it runs today.
-
-## Sight has to read height or a cliff is not a wall
-
-`raycast` [L707](../../crates/sim/src/dungeon.rs#L707), `sees`
-[L785](../../crates/sim/src/dungeon.rs#L785) and `visible_tiles`
-[L809](../../crates/sim/src/dungeon.rs#L809) are planar. On a sculpted dungeon a tile
+`raycast`, `sees` and `visible_tiles` were planar. On a sculpted dungeon a tile
 blocks sight when its floor height exceeds the eye height of the ray at that tile,
-where eye height is interpolated between the two endpoints' eye `z` with one
-`mul_div` per step and no division outside it. A tall plateau then occludes exactly
-as masonry does, which is the sentence "walls and obstacles naturally emerge from the
-elevation" made mechanical.
-
-Fog and the browser waypoint queue read these, so
-[navigation and visibility](../design/navigation-visibility.md#sight-and-fog) is
-amended by this session rather than after it.
+interpolated between the two endpoints with one `mul_div` per step and no division
+outside it. A tall plateau then occludes exactly as masonry does, which is the
+sentence "walls and obstacles naturally emerge from the elevation" made mechanical.
+All three carry the same `!self.sculpted` fast path.
 
 ## The body's own z
 
-`World` gains `ground_z: Vec<Fx>`, written in the embodied movement phase from
-`dungeon.height_at(pos[i])` after the planar position settles, and hashed in the
-`EmbodiedV1` block. It is derived state and is stored rather than recomputed because
-the contact phase and the publication both read it and must agree.
+`World` gained `ground_z: Vec<Fx>`. **Derived, and stored anyway**: it is a pure
+function of `pos` and the dungeon, but the contact phase and the pose publication
+both read it and must agree, and recomputing it in two places is how they would stop.
+It is maintained in `settle` -- wherever `pos` changes -- and sampled once at spawn,
+so the pair cannot be observed disagreeing. That is the same property `Dungeon`'s
+cached digest rests on.
 
-Two consumers change, both by one term:
+Two consumers changed, both by one term:
 
-- `build_contact_colliders` (`world/contact_phase.rs` after session 01) forms the
-  absolute collider origin as `(pos.x, pos.y, ground_z)` where it forms
-  `(pos.x, pos.y, 0)` today. This is the one line that puts the whole existing
-  three-dimensional solver on a hill;
-- the pose publication writes `ground_z` into the body `z` word that is already
+- `build_contact_colliders` forms the sweep's two ends as
+  `(start.x, start.y, height_at(start))` and `(end.x, end.y, ground_z[i])` where it
+  formed `(x, y, 0)` before. **Both ends, at their own tile**, because a body that
+  stepped up during the tick swept from the lower floor to the higher one and a
+  single height would flatten that back out. This is the one line that puts the whole
+  existing three-dimensional solver on a hill;
+- the pose publication writes `ground_z` into the body `z` word that was already
   there.
 
-`ArticulatedPose::body`'s doc comment is corrected in place, and the correction is
-recorded rather than the old sentence deleted: the model gave a body no vertical
-degree of freedom, it now takes one from the floor, and it still has none of its own.
+`ground_z` is hashed in the `EmbodiedV1` block **and only there**, appended behind
+`matches!(model, Embodied)`, so an articulated digest answers exactly what it
+answered before terrain existed.
 
 ## Tests
 
+In `crates/sim/src/dungeon.rs`:
+
 - `a_flat_dungeon_fingerprints_exactly_as_it_did_before_heights_existed`
 - `a_sculpted_dungeon_fingerprints_differently_from_the_same_tiles_flat`
+- `a_sculpted_dungeon_of_all_zero_heights_digests_as_a_flat_one`
 - `a_rise_above_the_step_up_is_impassable_uphill_and_passable_down`
+- `a_cliff_is_masonry_from_below_and_a_ledge_from_above`
 - `a_tall_tile_blocks_sight_that_the_same_tile_flat_does_not`
-- `a_body_on_a_plateau_publishes_the_plateau_height_as_its_pose_z`
-- `a_weapon_swung_on_a_ledge_reaches_a_body_below_it` -- the point of the session:
-  the existing solver resolves a cross-elevation contact with no solver change.
-- `an_embodied_duel_on_flat_terrain_still_equals_the_articulated_duel` -- session
-  03's equality, unbroken, because flat terrain must change nothing.
+- `a_floor_is_a_step_function_with_no_slope_inside_a_tile`
+- `every_routing_query_on_a_flat_dungeon_answers_what_it_answered_before`
+- `one_height_step_is_between_a_hand_and_a_stair_riser` and
+  `the_step_up_admits_a_stair_and_refuses_a_knee_high_ledge` -- the two constants,
+  each bounded from both sides
 
-Break `passable_between`'s uphill branch to `true` and watch the third test fail
-before believing it.
+In `crates/sim/src/world/mod.rs`:
 
-## Verification
+- `a_body_on_a_plateau_publishes_the_plateau_height_as_its_pose_z`, with the flat
+  arrangement of the same fixture asserted alongside so the claim is about the
+  terrain and not about the spawns
+- `a_weapon_swung_on_a_ledge_reaches_a_body_below_it` -- the point of the session.
+  It asserts contact still happens across the step **and** that the contact count
+  differs from the flat control. That second half is the load-bearing one: if
+  `build_contact_colliders` still put both bodies at `z = 0` the two fights would be
+  bit-identical and the counts equal. **Shown failing** -- reverting the two collider
+  origins makes both fights report exactly 19 contacts and the test names it.
+- `a_flat_world_hashes_no_terrain_and_a_stepped_one_does`, which also writes rubbish
+  into an articulated world's `ground_z` and asserts its digest does not move
+
+## Verification, as run
 
 ```powershell
-cargo test
-cargo run --release -p lab -- hash
+cargo test                                                      # 1212 passed, 0 failed
+cargo run --release -p lab -- hash                               # 0xfe31370e141ef531
 cargo run --release -p lab -- verify --seeds 200
 cargo run --release -p lab -- bench  --carved
+cargo run --release -p lab -- duel   --seeds 400
+cargo run --release -p lab -- articulated --seeds 400 --mirrored
 cargo build --release --target wasm32-unknown-unknown -p web
 node --test tools/wasm_check.js
 node tools/check_docs.js
 ```
 
-## Hash expectation
+## Hash expectation, and what happened
 
-**Nothing moves**, on the `sculpted` short-circuit above. `ROOM_HASH` is the one to
-watch and the one most likely to surprise: its script is the only golden that issues
-an `Order::Goto`, so it is the only one that reaches `ordered_feet`, and any change
-to routing reaches it. Routing changes here are gated behind `sculpted` and
-`ROOM_HASH`'s dungeon is flat -- but "no golden reaches this code" has been wrong
-about `ROOM_HASH` at least twice, so run it first and read the number rather than the
-argument.
+**Nothing moved**, on the `sculpted` short-circuit. `ROOM_HASH` was the one to watch
+and the one most likely to surprise -- its script is the only golden that issues an
+`Order::Goto`, so it is the only one that reaches `ordered_feet`, and routing now goes
+through `passable_between`. It answers what it answered before, because every routing
+query takes the `!sculpted` fast path and `ROOM_HASH`'s dungeon is flat. `bench
+--carved` still runs the shipped floor plan at its usual throughput.

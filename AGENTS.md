@@ -68,8 +68,10 @@ spellings past it (`{path="../learn"}`, `path = "../learn/"`, and
 `learn.workspace = true`), which is the shape of hazard a hand-rolled parser of
 somebody else's format always has.
 
-Sizes worth knowing before you go looking: `crates/web/src/lib.rs` (~14.6k lines),
-`crates/sim/src/world.rs` (~13.6k) and `web/main.js` (~13.1k) are the three big files.
+Sizes worth knowing before you go looking: `crates/web/src/lib.rs` (~16.1k lines) and
+`web/main.js` (~13.1k) are the two big single files. `crates/sim/src/world/` is a module
+tree rather than one file — each sibling of `mod.rs` is named for the tick phase group
+it owns, and the largest of them is `contact_phase.rs` (~5.9k).
 `web/main.js` is organised by banner comments (`// ---- the floor`, `// ---- draw`,
 `// ---- hud`, …); grep for those to navigate rather than reading top to bottom.
 

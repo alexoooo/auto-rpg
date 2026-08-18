@@ -2,7 +2,7 @@
 
 **Purpose:** Describe the current in-memory and durable replay paths and their typed hash domains.
 **Status:** current
-**Canonical source:** [`Replay`](../../crates/sim/src/replay.rs), [`ReplayEnvelope`](../../crates/sim/src/codec.rs), [`Scenario::fingerprint`](../../crates/sim/src/scenario.rs), and [`World::state_hash`](../../crates/sim/src/world.rs)
+**Canonical source:** [`Replay`](../../crates/sim/src/replay.rs), [`ReplayEnvelope`](../../crates/sim/src/codec.rs), [`Scenario::fingerprint`](../../crates/sim/src/scenario.rs), and [`World::state_hash`](../../crates/sim/src/world/hash.rs)
 **Update when:** Replay records, codec validation, playback order, or either hash byte stream changes.
 
 ## Current replay flow
@@ -111,10 +111,10 @@ not replace the final typed state-digest comparison.
 - Record types, recorder methods, integrity check, and playback order:
   [`Replay`](../../crates/sim/src/replay.rs#L64)
 - Durable codec and mandatory playback validation:
-  [`ReplayEnvelope`](../../crates/sim/src/codec.rs#L175)
+  [`ReplayEnvelope`](../../crates/sim/src/codec.rs#L186)
 - Scenario fields and current fingerprint byte stream:
-  [`Scenario::fingerprint`](../../crates/sim/src/scenario.rs#L452)
-- Live state hash byte stream: [`World::state_hash`](../../crates/sim/src/world.rs#L4900)
+  [`Scenario::fingerprint`](../../crates/sim/src/scenario.rs#L585)
+- Live state hash byte stream: [`World::state_hash`](../../crates/sim/src/world/hash.rs#L83)
 - Hash primitive: [`crates/fx/src/hash.rs`](../../crates/fx/src/hash.rs)
 - Harness recording and final comparison tests:
   [`crates/policy/src/runner.rs`](../../crates/policy/src/runner.rs)

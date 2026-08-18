@@ -29,6 +29,139 @@ pub struct UnitSpec {
 pub enum CombatModel {
     Legacy = 0,
     Articulated = 1,
+    /// The *Die by the Sword* body: an articulated one whose arms are driven
+    /// relative to the torso, whose hips constrain the torso, and whose floor
+    /// has a height. It starts as an exact copy of [`CombatModel::Articulated`]
+    /// so that every later mechanic lands as a measurable difference from a
+    /// control rather than as a new fight nobody can compare.
+    Embodied = 2,
+}
+
+/// Which submitted-command grammar a model accepts.
+///
+/// Kept distinct from `CombatModel` because the guards that ask this question
+/// are asking about the *command surface* and not about the body: `set_loadout`
+/// refuses an articulated world for the same reason `submit` does, and neither
+/// is asking whether contact runs.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum CommandGrammar {
+    /// `Command`, `Loadout`, `set_body`, `face_legacy`.
+    Legacy,
+    /// `ArticulatedCommandV1`.
+    Articulated,
+    /// `EmbodiedCommandV1`. A separate payload from the articulated one, and
+    /// separate on purpose: three pinned digests read `ARTICULATED_PAYLOAD_BYTES`
+    /// and have moved together twice, so a stance model that widened *that*
+    /// payload would re-record all three plus their wasm mirrors.
+    Embodied,
+}
+
+impl CombatModel {
+    /// Whether this model owns the articulated pose columns: body yaw, arms,
+    /// grips, shield pose, the three authority factors, anatomy, and the
+    /// contact runtime.
+    ///
+    /// A model answering `false` leaves those columns empty, so every read of
+    /// them is guarded by this rather than by a `== Articulated` that a third
+    /// variant would have to be pattern-matched into one site at a time.
+    pub(crate) const fn has_articulated_columns(self) -> bool {
+        match self {
+            CombatModel::Legacy => false,
+            CombatModel::Articulated | CombatModel::Embodied => true,
+        }
+    }
+
+    /// Whether this model resolves contact through the swept XYZ solver.
+    ///
+    /// Separate from [`CombatModel::has_articulated_columns`] even though the
+    /// two agree today, because they are different questions. Flattening them
+    /// is how a model that has a pose but no contact phase would start indexing
+    /// a `ContactRuntime` that is `None`.
+    pub(crate) const fn uses_contact_solver(self) -> bool {
+        match self {
+            CombatModel::Legacy => false,
+            CombatModel::Articulated | CombatModel::Embodied => true,
+        }
+    }
+
+    /// The word `Scenario::try_fingerprint` writes to say which model a
+    /// scenario is.
+    ///
+    /// One function rather than two copies of a `match`, because the replay
+    /// codec recomputes the same fingerprint from the decoded bytes and the two
+    /// have to agree exactly. They did not, for the length of one session: the
+    /// codec's copy answered `2` for every non-legacy model, so an embodied
+    /// replay decoded to a fingerprint its own scenario did not have.
+    ///
+    /// **Not `self as u16`.** The wire discriminants are 0/1/2 and these words
+    /// are 1/2/3; they are two numbering schemes over the same enum and
+    /// collapsing them would silently renumber a frozen identity.
+    pub(crate) const fn identity_word(self) -> u16 {
+        match self {
+            CombatModel::Legacy => 1,
+            CombatModel::Articulated => 2,
+            CombatModel::Embodied => 3,
+        }
+    }
+
+    /// Whether this model's torso is turned by its hips rather than freely.
+    ///
+    /// Separate from [`CombatModel::command_frame`] even though the two agree
+    /// today, and for the reason the pair above already gives: they are
+    /// different questions. A model could read a torso-relative bearing without
+    /// having legs to constrain it, and flattening the two is how such a model
+    /// would start indexing a stance column it never allocated.
+    pub(crate) const fn has_stance(self) -> bool {
+        match self {
+            CombatModel::Legacy | CombatModel::Articulated => false,
+            CombatModel::Embodied => true,
+        }
+    }
+
+    /// Which frame a submitted arm bearing and movement vector are measured in.
+    ///
+    /// This is the whole of what separates an embodied body from an articulated
+    /// one in the arm driver and the movement phase, and it is a predicate
+    /// rather than two `== Embodied` comparisons because it is one question
+    /// asked in two places.
+    pub(crate) const fn command_frame(self) -> CommandFrame {
+        match self {
+            CombatModel::Legacy | CombatModel::Articulated => CommandFrame::World,
+            CombatModel::Embodied => CommandFrame::Torso,
+        }
+    }
+
+    /// Which submitted-command grammar this model accepts.
+    pub(crate) const fn command_grammar(self) -> CommandGrammar {
+        match self {
+            CombatModel::Legacy => CommandGrammar::Legacy,
+            CombatModel::Articulated => CommandGrammar::Articulated,
+            CombatModel::Embodied => CommandGrammar::Embodied,
+        }
+    }
+}
+
+/// Whether a submitted bearing and movement vector are absolute or torso-relative.
+///
+/// The articulated contract is explicit that a bearing is absolute: *body yaw
+/// moves the shoulders, it does not silently rewrite an absolute arm target.*
+/// That was a deliberate choice and it has a cost the source material does not
+/// pay -- **turning the body does not carry the sword**, so footwork and swing
+/// are two independent subsystems that happen to share a shoulder.
+///
+/// `Torso` couples them. Turning the hips swings the weapon; reaching across
+/// the body costs bearing travel the torso could have supplied for free; and a
+/// body that must turn to bring its weapon round is a body whose stance can
+/// constrain its attack. The two readings are not interchangeable and both are
+/// useful: an absolute bearing is stable under yaw, a relative one is stable
+/// under the body.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum CommandFrame {
+    /// Absolute world bearings, and a world-space movement vector.
+    World,
+    /// Measured from the torso: `+x` is forward, `+y` is body-left, and a zero
+    /// bearing holds the arm directly ahead at every yaw.
+    Torso,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -466,9 +599,15 @@ impl Scenario {
         })?;
         let mut h = Hash64::new();
         h.write_bytes(b"ARPG-SCENARIO");
-        h.write_u16(match self.combat_model { CombatModel::Legacy => 1, CombatModel::Articulated => 2 });
+        // **The model *is* in the fingerprint**, contrary to what the embodied
+        // plan asserted before this session measured it. That does not make a
+        // new variant move an old pin: every shipped fixture keeps the value it
+        // wrote, and only a scenario that asks for `Embodied` writes the third
+        // one. The word is the reason `embodied-duel-v1` differs from
+        // `articulated-duel-v1` by more than its name bytes.
+        h.write_u16(self.combat_model.identity_word());
         scenario_v1_fields_into(self, name_len, &mut h);
-        if self.combat_model == CombatModel::Articulated {
+        if self.combat_model.has_articulated_columns() {
             combat_specs_into(self.combat_specs.as_ref(), &self.units, &mut h);
         }
         Ok(h.finish())
@@ -491,6 +630,25 @@ impl Scenario {
         scenario.units[1].loadout = crate::Loadout::single(crate::ActionKind::Club);
         scenario.units[0].spawn = Vec2::from_ints(7, 6);
         scenario.units[1].spawn = Vec2::from_ints(17, 10);
+        scenario
+    }
+
+    /// The embodied control: `articulated_duel` under a different name and a
+    /// different model, and identical in every other field.
+    ///
+    /// Built *from* the articulated fixture rather than beside it, so the two
+    /// cannot drift apart. That is the whole design of the embodied plan: every
+    /// mechanic from session 04 onward is measured as a difference from this
+    /// pair, and a difference is only readable if the control is the same fight.
+    ///
+    /// Its fingerprint is a new number and differs from `articulated-duel-v1`
+    /// by exactly two things -- the name bytes and the model word -- which is
+    /// worth stating because the plan that proposed this session claimed
+    /// `Scenario::fingerprint` did not write the model. It does.
+    pub fn embodied_duel() -> Scenario {
+        let mut scenario = Scenario::articulated_duel();
+        scenario.name = "embodied-duel-v1".to_string();
+        scenario.combat_model = CombatModel::Embodied;
         scenario
     }
 
@@ -708,6 +866,30 @@ mod tests {
         assert_eq!(scenario.fingerprint(), 0x068d_05fc_ada1_027b);
     }
 
+    /// The embodied control's identity, pinned on the same terms.
+    ///
+    /// It differs from `articulated-duel-v1` by **two** things and it is worth
+    /// naming both: the name bytes, and the model word `try_fingerprint` writes
+    /// before them. The embodied plan asserted the model was not in the
+    /// fingerprint; measuring it is what found otherwise, and
+    /// `CombatModel::identity_word` is now the one place that word is written.
+    ///
+    /// Every other field is the articulated fixture's, because
+    /// `Scenario::embodied_duel` is built *from* it. That is the whole point:
+    /// sessions 04 onward measure a difference, and a difference needs a
+    /// control that is otherwise the same fight.
+    #[test]
+    fn embodied_duel_v1_has_the_frozen_identity_and_the_articulated_arrangement() {
+        let embodied = Scenario::embodied_duel();
+        let articulated = Scenario::articulated_duel();
+        assert_eq!(embodied.name, "embodied-duel-v1");
+        assert_eq!(embodied.combat_model, CombatModel::Embodied);
+        assert_eq!(embodied.units, articulated.units);
+        assert_eq!(embodied.combat_specs, articulated.combat_specs);
+        assert_eq!(embodied.max_ticks, articulated.max_ticks);
+        assert_eq!(embodied.fingerprint(), 0x1a1e_8e74_eecd_55d5);
+    }
+
     fn descending_hero() -> UnitSpec {
         UnitSpec {
             kind: Body::Rogue,
@@ -819,3 +1001,4 @@ mod tests {
         assert!(hero_max_x < monster_min_x);
     }
 }
+

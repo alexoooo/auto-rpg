@@ -115,6 +115,8 @@ fn generated() -> String {
     emit!(REGIONS_PER_BODY);
     emit!(ARTICULATED_PROJECTILE_LAYOUT_VERSION);
     emit!(ARTICULATED_PROJECTILE_STRIDE);
+    emit!(EMBODIED_STANCE_LAYOUT_VERSION);
+    emit!(EMBODIED_STANCE_STRIDE);
     output.push('\n');
     emit!(MAX_UNITS);
     emit!(MAX_SHOTS);
@@ -127,6 +129,7 @@ fn generated() -> String {
     emit!(MAX_COMBAT_EVENTS);
     emit!(MAX_REGIONS);
     emit!(MAX_ARTICULATED_PROJECTILES);
+    emit!(MAX_EMBODIED_STANCE);
     output.push('\n');
     emit!(FRAME_OFFSET);
     emit!(MAP_OFFSET);
@@ -363,6 +366,13 @@ fn generated() -> String {
     emit!(ARTICULATED_PROJECTILE_VELOCITY_Z);
     emit!(ARTICULATED_PROJECTILE_RADIUS);
     emit!(ARTICULATED_PROJECTILE_REMAINING_RANGE);
+    output.push('\n');
+    emit!(EMBODIED_STANCE_ENTITY_INDEX);
+    emit!(EMBODIED_STANCE_ENTITY_GENERATION);
+    emit!(EMBODIED_STANCE_HIP_YAW_RAW);
+    emit!(EMBODIED_STANCE_PELVIS_RAW);
+    emit!(EMBODIED_STANCE_TWIST_RAW);
+    emit!(EMBODIED_STANCE_STEP_LEFT);
     output.push_str(
         "\nexport const FOCUS_NONE = 4294967295;\n\
          export const FOCUS_IDENTITY_EXPORTS = [\n\
@@ -415,7 +425,8 @@ mod tests {
         // that would otherwise go quiet -- an assertion that every region fits
         // says nothing about a region reserved for nobody. The buffer ends
         // within one alignment step of the dungeon-object block, so a pose,
-        // combat-event or anatomy-region block appended here without a consumer
+        // combat-event, anatomy-region or stance block appended here without a
+        // consumer
         // fails this line rather than silently widening three pooled buffers and
         // the memset `snapshot.ts` runs once per filtered publication. All three
         // wait on the *game* path's visibility-filtered copy: v2-ui-07 was named
@@ -525,6 +536,18 @@ mod tests {
             ARTICULATED_PROJECTILE_VELOCITY_Y, ARTICULATED_PROJECTILE_VELOCITY_Z,
             ARTICULATED_PROJECTILE_RADIUS, ARTICULATED_PROJECTILE_REMAINING_RANGE,
         ], core::array::from_fn::<_, ARTICULATED_PROJECTILE_STRIDE, _>(|index| index));
+        // The stance row, in the same idiom a fifth time. Six columns: a full
+        // identity, the two angles that are not the body's own, and the two
+        // scalars a renderer cannot derive from anything else it is given.
+        assert_eq!([
+            EMBODIED_STANCE_ENTITY_INDEX, EMBODIED_STANCE_ENTITY_GENERATION,
+            EMBODIED_STANCE_HIP_YAW_RAW, EMBODIED_STANCE_PELVIS_RAW,
+            EMBODIED_STANCE_TWIST_RAW, EMBODIED_STANCE_STEP_LEFT,
+        ], core::array::from_fn::<_, EMBODIED_STANCE_STRIDE, _>(|index| index));
+        // A stance belongs to a body that also publishes a pose, so the two caps
+        // are one cap. A stance buffer that could fill first would drop the legs
+        // of a body whose torso crossed.
+        assert_eq!(MAX_EMBODIED_STANCE, MAX_POSES);
         // One number under two names, stated once so a consumer reaching for
         // either gets the same five. See `POSE_BODY_PART_COUNT`.
         assert_eq!(REGIONS_PER_BODY, POSE_BODY_PART_COUNT);

@@ -2,7 +2,7 @@
 
 **Purpose:** Describe the current authoritative `World`, decision boundary, and tick order.
 **Status:** current
-**Canonical source:** [`World`](../../crates/sim/src/world.rs) and the public simulation types re-exported by [`sim`](../../crates/sim/src/lib.rs)
+**Canonical source:** [`World`](../../crates/sim/src/world/) and the public simulation types re-exported by [`sim`](../../crates/sim/src/lib.rs)
 **Update when:** `World` ownership, decision scheduling, or the order of any tick phase changes.
 
 ## What `World` owns
@@ -113,8 +113,8 @@ evolution and `articulated` damage do not participate: v2-14 mutates no HP.
 
 ## Source anchors
 
-- Storage and construction: [`World` fields and `World::new`](../../crates/sim/src/world.rs)
-- Decision seam: [`World::pending_decisions`, `World::observe`, and `World::submit`](../../crates/sim/src/world.rs)
-- Tick phase order: [`World::step`](../../crates/sim/src/world.rs#L3009)
+- Storage and construction: [`World` fields and `World::new`](../../crates/sim/src/world/mod.rs)
+- Decision seam: [`World::pending_decisions` and `World::observe`](../../crates/sim/src/world/query.rs), and [`World::submit`](../../crates/sim/src/world/mod.rs)
+- Tick phase order: [`World::step`](../../crates/sim/src/world/mod.rs#L1898)
 - Observation shape and feature projection: [`obs.rs`](../../crates/sim/src/obs.rs)
 - Command, order, and objective inputs: [`command.rs`](../../crates/sim/src/command.rs)

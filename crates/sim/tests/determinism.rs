@@ -398,3 +398,106 @@ fn a_run_actually_resolves_rather_than_timing_out() {
     assert!(world.tick() > 30, "resolved suspiciously fast");
     assert!(replay.len() > 50, "hardly any decisions were made");
 }
+
+/// The embodied model is subject to the same contract as the other two, and the
+/// cheapest way to say so is to run it through the same three questions: does a
+/// run repeat, does its replay reproduce it, and does it reproduce at every
+/// intermediate tick rather than only at the end.
+///
+/// It lives here rather than beside the model because this file is where the
+/// determinism contract is asserted, and a third model that is *not* asserted
+/// here would be a third model nobody had checked.
+mod embodied {
+    use super::*;
+    use sim::{
+        ArmTarget, ArticulatedCommandV1, CombatHeight, EmbodiedCommandV1, GripRequest, Intent,
+        ReleaseRequest, SubmittedCommand,
+    };
+    use fx::Angle;
+
+    const TICKS: u32 = 300;
+
+    /// Varies with the tick and the slot so the fight is not a pair of statues,
+    /// and is a pure function of both so two runs cannot diverge by accident.
+    fn scripted(tick: u32, slot: usize) -> ArticulatedCommandV1 {
+        let phase = tick.wrapping_mul(1_013).wrapping_add(slot as u32 * 17);
+        let arm = |k: u32| ArmTarget {
+            bearing: Angle::from_raw(phase.wrapping_mul(7).wrapping_add(k * 4_099) as u16),
+            height: CombatHeight::try_from_raw((phase.wrapping_add(k) % 65_537) as i32).unwrap(),
+            reach: Fx::from_raw((phase.wrapping_mul(5).wrapping_add(k) % 65_537) as i32),
+            effort: Fx::ONE,
+        };
+        ArticulatedCommandV1 {
+            move_dir: Vec2::new(
+                Fx::from_raw((phase % 46_341) as i32 - 23_170),
+                Fx::from_raw((phase.wrapping_mul(3) % 46_341) as i32 - 23_170),
+            ),
+            body_yaw: Angle::from_raw(phase.wrapping_mul(11) as u16),
+            intent: Intent::Hold,
+            arms: [arm(0), arm(1)],
+            grips: [GripRequest::Keep; 2],
+            releases: [ReleaseRequest::Keep; 2],
+        }
+    }
+
+    fn drive(record: Option<&mut Replay>) -> (World, Vec<u64>) {
+        let scenario = Scenario::embodied_duel();
+        let mut world = World::new(&scenario, 31);
+        let ids: Vec<_> = world
+            .alive_ids(Faction::Heroes)
+            .into_iter()
+            .chain(world.alive_ids(Faction::Monsters))
+            .collect();
+        let mut replay = record;
+        let mut digests = Vec::with_capacity(TICKS as usize);
+        for tick in 0..TICKS {
+            for (slot, id) in ids.iter().enumerate() {
+                let command = EmbodiedCommandV1::new(scripted(tick, slot));
+                if let Some(replay) = replay.as_deref_mut() {
+                    replay.record_submitted(tick, *id, SubmittedCommand::Embodied(command));
+                }
+                world.submit_embodied_v1(*id, command);
+            }
+            world.step();
+            digests.push(world.state_digest().value);
+        }
+        (world, digests)
+    }
+
+    #[test]
+    fn an_embodied_run_repeats_itself_exactly() {
+        let (left, left_digests) = drive(None);
+        let (right, right_digests) = drive(None);
+        assert_eq!(left_digests, right_digests);
+        assert_eq!(left.state_digest().value, right.state_digest().value);
+        // Not a pair of statues: a run whose digest never moved would satisfy
+        // every assertion above without simulating anything.
+        assert!(left_digests.windows(2).any(|pair| pair[0] != pair[1]));
+    }
+
+    #[test]
+    fn an_embodied_replay_reproduces_its_run_at_every_intermediate_tick() {
+        let scenario = Scenario::embodied_duel();
+        let mut replay = Replay::new(&scenario, 31);
+        let (live, digests) = drive(Some(&mut replay));
+        replay.finish(TICKS);
+
+        assert_eq!(replay.play().state_digest().value, live.state_digest().value);
+        for tick in 1..=TICKS {
+            assert_eq!(
+                replay.play_until(tick).state_digest().value,
+                digests[tick as usize - 1],
+                "an embodied replay diverged at tick {tick}",
+            );
+        }
+    }
+
+    /// The domain is part of the answer. An embodied digest compared against an
+    /// articulated one is a grammar mismatch, not two numbers that differ.
+    #[test]
+    fn an_embodied_digest_reports_its_own_domain() {
+        let (world, _) = drive(None);
+        assert_eq!(world.state_digest().domain, sim::HashDomain::EmbodiedV1);
+        assert_eq!(world.state_digest().schema, 1);
+    }
+}

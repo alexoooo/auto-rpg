@@ -64,6 +64,7 @@
 
 mod articulated_script;
 mod articulated_tactics;
+mod composition;
 mod duelist;
 mod genome;
 mod minds;
@@ -84,6 +85,9 @@ pub use articulated_tactics::{
     TacticalArticulatedPolicy, TacticalContextV1, TacticalIntentV1, TacticalPhase,
     ThreatAssessmentV1, OPENINGS_POLICY_CODE, ROBUST_STRIKE_HEIGHT, ROBUST_STRIKE_TICKS,
     TACTICAL_INTENT_COUNT, TACTICAL_PHASE_COUNT, TACTICAL_POLICY_CODE,
+};
+pub use composition::{
+    CommandAuthority, ComposedController, CompositionError, PartialEmbodiedSource, PolicySource,
 };
 pub use duelist::{DuelistPolicy, DuelistWeights, Stance, DUELIST_GENOME_LEN};
 pub use genome::{PolicySpec, MAX_GENOME_LEN};

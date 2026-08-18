@@ -6,7 +6,7 @@
 
 use crate::{AnatomyRegion, BodyAnatomySpec, EquipmentGeometry, EquipmentSpec,
             EquipmentSpecId, GripBinding, GripState, LimbSlot, SurfaceSpec};
-use super::actuator::{self, ArmState, ShieldPose};
+use super::actuator::{ArmState, ShieldPose};
 use fx::{Angle, Fx, Vec3};
 
 /// One held segment at one pose, in **world** space: the hilt is the absolute
@@ -218,14 +218,18 @@ pub fn body_region_volumes(
                 radius: region.radius, present: present[at],
             },
             AnatomyRegion::LeftArm | AnatomyRegion::RightArm => {
-                let limb = if region.region == AnatomyRegion::LeftArm {
+                let slot = if region.region == AnatomyRegion::LeftArm {
                     LimbSlot::LeftArm as usize
                 } else {
                     LimbSlot::RightArm as usize
                 };
+                // One capsule, from the polyline's ends. It used to be the same
+                // two points computed here by hand; `limb` owns them now so a
+                // second link lands in one place rather than three.
+                let arm = super::limb::arm_polyline(anatomy, yaw, slot, hands[slot]);
                 RegionVolume {
-                    lower: body_origin + actuator::shoulder(anatomy, yaw, limb),
-                    upper: body_origin + hands[limb],
+                    lower: body_origin + arm.shoulder(),
+                    upper: body_origin + arm.hand(),
                     radius: region.radius,
                     present: present[at],
                 }

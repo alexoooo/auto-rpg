@@ -1175,7 +1175,8 @@ fn vec3_text(value: Vec3) -> String {
 #[cfg(feature = "cartesian-recoil")]
 fn hash_domain_name(value: sim::HashDomain) -> &'static str {
     match value { sim::HashDomain::LegacyV1 => "legacy_v1",
-        sim::HashDomain::ArticulatedV1 => "articulated_v1" }
+        sim::HashDomain::ArticulatedV1 => "articulated_v1",
+        sim::HashDomain::EmbodiedV1 => "embodied_v1" }
 }
 
 #[cfg(feature = "cartesian-recoil")]

@@ -59,7 +59,8 @@ Current marked contracts are [determinism](reference/determinism.md#contract), t
 [validation and budgets](reference/room-asset-contract.md#validation-and-budgets),
 [disclosure mapping](reference/room-asset-contract.md#authored-room-disclosure-mapping),
 [loader lifecycle and failure](reference/room-asset-contract.md#loader-lifecycle-and-failure), and
-[presentation-only bounds](reference/room-asset-contract.md#presentation-only-bounds).
+[presentation-only bounds](reference/room-asset-contract.md#presentation-only-bounds), and the
+[embodied submission contract](reference/embodied-command-v1.md#the-embodied-submission-contract).
 
 ## Target hierarchy
 

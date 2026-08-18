@@ -21,7 +21,7 @@ const TICKS: u32 = 56;
 /// that one can freeze a tick number -- 80 -- for its first exact refusal.
 ///
 /// Frozen here rather than read from `combat::actuator`, for the reason
-/// `CAPTURED_ARM_RATES` in `crates/sim/src/world.rs` gives at length: the slew
+/// `CAPTURED_ARM_RATES` in `crates/sim/src/world/testkit.rs` gives at length: the slew
 /// rate does not appear in either digest, it only decides *which tick of a
 /// swing happens to touch*, and all three of these fixtures are transcripts of
 /// one named tick sequence. Neither pin's registry row lists the actuator among
@@ -309,7 +309,11 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
             }
             hash.write_bytes(&payload);
         }
-        hash.write_u8(match state.domain { HashDomain::LegacyV1 => 0, HashDomain::ArticulatedV1 => 1 });
+        hash.write_u8(match state.domain {
+            HashDomain::LegacyV1 => 0,
+            HashDomain::ArticulatedV1 => 1,
+            HashDomain::EmbodiedV1 => 2,
+        });
         hash.write_u16(state.schema);
         hash.write_u64(state.value);
         hash.write_u32(played.contact_cap_hits());
@@ -721,7 +725,11 @@ enum LiftedMutation {
 }
 
 fn write_state(hash: &mut Hash64, state: (HashDomain, u16, u64)) {
-    hash.write_u8(match state.0 { HashDomain::LegacyV1 => 0, HashDomain::ArticulatedV1 => 1 });
+    hash.write_u8(match state.0 {
+        HashDomain::LegacyV1 => 0,
+        HashDomain::ArticulatedV1 => 1,
+        HashDomain::EmbodiedV1 => 2,
+    });
     hash.write_u16(state.1); hash.write_u64(state.2);
 }
 

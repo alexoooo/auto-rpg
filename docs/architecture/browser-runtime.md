@@ -345,9 +345,9 @@ intersects the floor, and torch/material treatment remains schematic and repetit
 
 ## Source anchors
 
-- Fixed publication pools: [`thread_local!`](../../crates/web/src/lib.rs#L1603)
-- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L4280)
-- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L5238)
+- Fixed publication pools: [`thread_local!`](../../crates/web/src/lib.rs#L1665)
+- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L4360)
+- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L5374)
 - Worker adapter and atomic scalar phase: [`readPublication`](../../client/src/runtime/sim.worker.ts#L94)
 - Pure protocol host: [`SimWorkerHost`](../../client/src/runtime/sim-worker-host.ts#L55)
 - Main-thread lease owner: [`SimClient`](../../client/src/runtime/sim-client.ts#L122)

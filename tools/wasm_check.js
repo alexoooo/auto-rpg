@@ -118,6 +118,12 @@ const LIFTED_COULOMB_SOLVER_DIGEST = 0x4cbafe3e0f71e14fn;
 // is asserted against this number, so computing it the way the export computes
 // it would assert nothing. It was 55 through payload layout 1.
 const SUBMITTED_COMMAND_BYTES = 57;
+// The same envelope over the embodied payload, which is the same width today
+// and is not the same constant: three pinned digests are taken over the
+// articulated width and have moved together twice, and the embodied model has
+// fields still to come. Written out here for the reason above.
+const EMBODIED_COMMAND_BYTES = 57;
+const EMBODIED_COMMAND_LAYOUT_VERSION = 1;
 
 // The frame header, as the client reads it.
 const HEADER_LEN = 15;
@@ -391,11 +397,17 @@ test("the boundary exports everything the client calls", () => {
     // no longer caps" into a fixture that quietly stops covering the tick shape
     // it was written for.
     "contact_cap_hits",
-    // The v2-16 pose and combat-event publications and v2-ui-06's region
-    // capsules: twenty-one names, counting down to
-    // `articulated_stream_digest_hi` and *not* counting the configured duel's
-    // seven, which v2-ui-05 inserted in the middle and gave their own note.
-    // Nineteen of the twenty-one have no caller on the legacy page at all --
+    // The v2-16 pose and combat-event publications, v2-ui-06's region capsules,
+    // the arrow session's projectiles and `EMBODIED_STANCE_V1`'s stances:
+    // **thirty-two** names, counting down to `articulated_stream_digest_hi` and
+    // *not* counting `init_articulated`, the configured duel's seven or the
+    // checkpoint's eight, each of which was inserted in the middle and given its
+    // own note. **It read "twenty-one" until the stance section counted it**, and
+    // it had been wrong since at least the projectile block landed -- which is
+    // what a hand-maintained count in a comment does, and the reason the number
+    // is worth keeping anyway is that it is the only thing here that notices a
+    // publication whose six names somebody forgot to add.
+    // Every one of them has no caller on the legacy page at all --
     // v2-ui-07 gave them a caller in a worker of its own and this page will
     // never be it -- so this list is the
     // *only* thing standing between a renamed export and a silent gap, and the
@@ -430,6 +442,21 @@ test("the boundary exports everything the client calls", () => {
     "articulated_projectile_capacity",
     "articulated_projectiles_dropped",
     "articulated_projectile_layout_version",
+    // The stance section. Six names with no caller anywhere yet -- no export
+    // installs an embodied world, so every world the browser can open publishes
+    // a zero-length section here -- which makes this list the whole of what
+    // stands between a rename and a session that finds the export missing when
+    // it finally writes the reader. `embodied_stance_len()` is the one whose
+    // silence would be loudest, and worse than `region_len()`'s: a zero is the
+    // *correct* answer for every world this module can currently build, so
+    // `undefined >>> 0` reads as the right number for the wrong reason and every
+    // assertion below it passes vacuously forever.
+    "embodied_stance_ptr",
+    "embodied_stance_len",
+    "embodied_stance_stride",
+    "embodied_stance_capacity",
+    "embodied_stances_dropped",
+    "embodied_stance_layout_version",
     // `init`'s room under the articulated model. Its only callers today are the
     // two tests below and client/test/wasm-memory.test.mjs, which warms it
     // because it is the call that reserves 64 rows of contact vectors a Legacy
@@ -472,6 +499,15 @@ test("the boundary exports everything the client calls", () => {
     "submitted_command_len",
     "submitted_command_layout_version",
     "submit_articulated",
+    // The embodied twin of the four names above. Nothing calls these anywhere
+    // yet -- no export installs an embodied world, so the only answer the
+    // browser can get out of `submit_embodied` today is the refusal -- which
+    // makes this list the whole of what stands between a rename and a session
+    // that finds the export missing when it finally writes the caller.
+    "embodied_command_ptr",
+    "embodied_command_len",
+    "embodied_command_layout_version",
+    "submit_embodied",
     "selftest_hash_lo",
     "selftest_hash_hi",
     "set_policy",
@@ -678,6 +714,46 @@ test("the articulated command scratch matches Rust and stores atomically", () =>
   console.log(`articulated     ${hex(measured)}  == native command fixture`);
 });
 
+test("an articulated module refuses submit_embodied by name", () => {
+  // There is no embodied world to reach from here -- no export installs one --
+  // so the refusal is the whole of what this boundary can answer today, and it
+  // is the half worth checking anyway: a control that accepted a request it
+  // cannot act on would say nothing about it.
+  wasm.init_articulated_test(1);
+  assert.equal(wasm.embodied_command_len(), EMBODIED_COMMAND_BYTES);
+  assert.equal(wasm.embodied_command_layout_version(), EMBODIED_COMMAND_LAYOUT_VERSION);
+  assert.notEqual(u32(wasm.embodied_command_ptr()), u32(wasm.submitted_command_ptr()),
+    "the embodied scratch is the articulated one under another name");
+  // Layout 1 and kind 2 over the same 53 payload bytes the fixture above uses:
+  // the two grammars are byte-identical today and the envelope is the whole of
+  // what separates them, which is exactly the pair worth staging.
+  const fixture = Uint8Array.from([
+    0x01,0x00,0x02,0x00, 0x01,0x00,0x00,0x00, 0xfe,0xff,0xff,0xff,
+    0x34,0x12,0x01, 0x44,0x33,0x22,0x11, 0x88,0x77,0x66,0x55,
+    0x45,0x23, 0x00,0x40,0x00,0x00, 0x03,0x00,0x00,0x00,
+    0x04,0x00,0x00,0x00, 0x56,0x34, 0x00,0xc0,0x00,0x00,
+    0x05,0x00,0x00,0x00, 0x06,0x00,0x00,0x00, 0x02,0x01,0x01,0x00,
+    0x00,0x01,
+  ]);
+  assert.equal(fixture.length, EMBODIED_COMMAND_BYTES, "the fixture is not a whole command");
+  const scratch = () => new Uint8Array(wasm.memory.buffer, u32(wasm.embodied_command_ptr()),
+                                       EMBODIED_COMMAND_BYTES);
+  scratch().set(fixture);
+  const before = hash64(wasm.state_digest_lo(), wasm.state_digest_hi());
+  assert.equal(u32(wasm.submit_embodied(0, 0)), 2 << 8,
+    "an articulated module accepted an embodied command");
+  // And the model outranks the bytes: an intent tag no grammar has, at payload
+  // offset 10. Without a model check ahead of the structural one this answers
+  // `1` and names the payload for what is a model mismatch -- which is the only
+  // input that can tell this boundary's guard from the world's own.
+  const malformed = fixture.slice();
+  malformed[4 + 10] = 9;
+  scratch().set(malformed);
+  assert.equal(u32(wasm.submit_embodied(0, 0)), 2 << 8, "wrong model lost precedence");
+  assert.equal(hash64(wasm.state_digest_lo(), wasm.state_digest_hi()), before,
+    "a refused embodied command mutated the world");
+});
+
 test("combat geometry matches the frozen native digest", () => {
   assert.equal(
     hash64(wasm.combat_geometry_digest_lo(), wasm.combat_geometry_digest_hi()),
@@ -862,7 +938,7 @@ test("the behavioral contact corpus is the bytes the reference specifies", () =>
   console.log(`contact corpus ${hex(CONTACT_BEHAVIOR_DIGEST)}  == ${expected.length} bytes built here`);
 });
 
-// ---------------------------------- the articulated pose/region/event ABI
+// --------------------------- the articulated pose/region/event/stance ABI
 
 // docs/reference/articulated-abi.md, "Pose rows" and "Combat-event rows". Every
 // number below is transcribed from that document and none is read off the
@@ -907,6 +983,14 @@ const MAX_REGIONS = MAX_POSES * REGIONS_PER_BODY;
 const ARTICULATED_PROJECTILE_LAYOUT_VERSION = 1;
 const ARTICULATED_PROJECTILE_STRIDE = 12;
 const MAX_ARTICULATED_PROJECTILES = 32;
+// The stance section: six words a body -- a full identity, the hip bearing, the
+// pelvis fraction and the signed twist, plus the ticks left in a forced step --
+// for every live body under `CombatModel::Embodied`, and none at all under the
+// other two. The capacity is the pose capacity because a body with legs is a
+// body that also publishes a pose.
+const EMBODIED_STANCE_LAYOUT_VERSION = 1;
+const EMBODIED_STANCE_STRIDE = 6;
+const MAX_EMBODIED_STANCE = MAX_POSES;
 const DUNGEON_OBJECT_LAYOUT_VERSION = 1;
 const DUNGEON_OBJECT_STRIDE = 12;
 const MAX_DUNGEON_OBJECTS = 512;
@@ -940,7 +1024,7 @@ const INTENTS = 3;
 // Five `BodyPart` bits and nothing above them.
 const SEVERED_MASK_BITS = 5;
 
-// FNV-1a-64 over the published pose, combat-event, region and projectile words of a scripted
+// FNV-1a-64 over the published pose, combat-event, region, projectile and stance words of a scripted
 // articulated fight, prefixed ASCII `ARPG-STREAM-V1`. The script is
 // `Scenario::articulated_duel()` at seed 1 with the fighter moved to (9,6) and
 // the brute to (7,6), one articulated command submitted to each on tick zero and
@@ -962,7 +1046,7 @@ const SEVERED_MASK_BITS = 5;
 // so the two spawns the script depends on are unreachable across the wall.
 // What the pin buys anyway is the whole cross-target claim, which is what this
 // file is for: the number was recorded natively, the module recomputes it from
-// its own run through the same four buffer writers `publish` calls, and the two agreeing
+// its own run through the same five buffer writers `publish` calls, and the two agreeing
 // means wasm32 encodes what MSVC x86-64 encodes. What a single number cannot
 // catch is an encoder wrong the same way on both targets, and the row grammar
 // checked beside it is the part of the reference this file *can* rebuild.
@@ -1003,9 +1087,23 @@ const SEVERED_MASK_BITS = 5;
 // landed beside it changed the event prefix as well: the default build now has
 // one row on ticks 3 and 5, while exact has one on tick 3 only. Native MSVC
 // measured the values below before either owner was edited.
+//
+// **Moved a sixth time by `EMBODIED_STANCE_V1`, from `0x3b0d5c93d5560dd9` and
+// exact `0x2fa1256f412b2e32`, and this one is an extension and nothing else.**
+// A fifth publication went on the wire -- one row per live embodied body -- and
+// the digest is every published word of every publication, so it reaches this
+// number whether or not the fixture has a row. It has none: the script is
+// `Scenario::articulated_duel` and only `CombatModel::Embodied` has legs, so the
+// appended tail is a zero length and a zero drop count on each of the twenty
+// ticks, and their presence is the whole of the move. Every per-tick count above
+// is unchanged. `the_stance_section_extends_the_digest_without_disturbing_its_prefix`
+// in crates/web measures the prefix claim rather than asserting it: with this
+// section's contribution suppressed the digest is the previous number byte for
+// byte. Native MSVC measured both values below before either owner was edited,
+// and a fresh wasm artifact then answered both.
 const ARTICULATED_STREAM_DIGEST = CARTESIAN_RECOIL
-  ? 0x2fa1256f412b2e32n
-  : 0x3b0d5c93d5560dd9n;
+  ? 0xde453a669e770512n
+  : 0x686ecf8a2f5dd479n;
 
 // The live pose rows, copied out. Words and not floats: every published column
 // is a `u32`, and the signed ones are two's-complement raw bits.
@@ -1062,6 +1160,9 @@ test("wasm_exports_match_layout_stride_capacity_and_drop_fields", () => {
     "articulated_projectile_ptr", "articulated_projectile_len",
     "articulated_projectile_stride", "articulated_projectile_capacity",
     "articulated_projectiles_dropped", "articulated_projectile_layout_version",
+    "embodied_stance_ptr", "embodied_stance_len", "embodied_stance_stride",
+    "embodied_stance_capacity", "embodied_stances_dropped",
+    "embodied_stance_layout_version",
     "init_articulated",
   ]) {
     assert.equal(typeof wasm[name], "function", `web.wasm does not export ${name}()`);
@@ -1095,6 +1196,13 @@ test("wasm_exports_match_layout_stride_capacity_and_drop_fields", () => {
     MAX_ARTICULATED_PROJECTILES,
     "MAX_ARTICULATED_PROJECTILES",
   );
+  assert.equal(
+    u32(wasm.embodied_stance_layout_version()),
+    EMBODIED_STANCE_LAYOUT_VERSION,
+    "EMBODIED_STANCE_LAYOUT_VERSION",
+  );
+  assert.equal(u32(wasm.embodied_stance_stride()), EMBODIED_STANCE_STRIDE, "EMBODIED_STANCE_STRIDE");
+  assert.equal(u32(wasm.embodied_stance_capacity()), MAX_EMBODIED_STANCE, "MAX_EMBODIED_STANCE");
 
   // A Legacy world publishes none of the four streams, and that is the half of the
   // drop-field assertion that is not vacuous: zero rows *and* zero dropped is a
@@ -1113,6 +1221,8 @@ test("wasm_exports_match_layout_stride_capacity_and_drop_fields", () => {
     "a Legacy world published an articulated projectile row");
   assert.equal(u32(wasm.articulated_projectiles_dropped()), 0,
     "a Legacy world dropped an articulated projectile row");
+  assert.equal(u32(wasm.embodied_stance_len()), 0, "a Legacy world published a stance row");
+  assert.equal(u32(wasm.embodied_stances_dropped()), 0, "a Legacy world dropped a stance row");
 
   // And a fresh articulated world, where the pose buffer is not empty and both
   // drop fields still read zero.
@@ -1137,24 +1247,34 @@ test("wasm_exports_match_layout_stride_capacity_and_drop_fields", () => {
   assert.equal(u32(wasm.regions_dropped()), 0, "a published body carried no capsules");
   assert.equal(u32(wasm.articulated_projectiles_dropped()), 0,
     "a fresh articulated world dropped a projectile row");
+  // A zero-length stance section rather than an absent one, which is the whole
+  // of what this publication says on an articulated world. The length is zero
+  // and the drop count is zero: nothing was published *and* nothing was turned
+  // away, so a reader is being told that this world has no legs rather than that
+  // it ran out of room for them.
+  assert.equal(u32(wasm.embodied_stance_len()), 0,
+    "an articulated world published a stance row");
+  assert.equal(u32(wasm.embodied_stances_dropped()), 0,
+    "an articulated world dropped a stance row");
 
   // Fixed arrays whose addresses never move, which is the one property the
   // worker's typed arrays depend on for the life of the module. Checked against
   // the *capacity* rather than the live length: the arrays are reserved whole at
-  // construction, so a module that placed 290,816 bytes of statics past the end
+  // construction, so a module that placed 292,352 bytes of statics past the end
   // of its own memory would be caught here rather than on the first busy tick.
-  const [poseAt, eventAt, regionAt, projectileAt] = [
+  const [poseAt, eventAt, regionAt, projectileAt, stanceAt] = [
     u32(wasm.pose_ptr()), u32(wasm.combat_event_ptr()), u32(wasm.region_ptr()),
-    u32(wasm.articulated_projectile_ptr()),
+    u32(wasm.articulated_projectile_ptr()), u32(wasm.embodied_stance_ptr()),
   ];
-  assert.ok(poseAt > 0 && eventAt > 0 && regionAt > 0 && projectileAt > 0,
+  assert.ok(poseAt > 0 && eventAt > 0 && regionAt > 0 && projectileAt > 0 && stanceAt > 0,
     "a published buffer is at address zero");
-  assert.equal(new Set([poseAt, eventAt, regionAt, projectileAt]).size, 4,
+  assert.equal(new Set([poseAt, eventAt, regionAt, projectileAt, stanceAt]).size, 5,
     "two buffers share an address");
   assert.equal(poseAt % 4, 0, "the pose buffer is not u32-aligned");
   assert.equal(eventAt % 4, 0, "the combat-event buffer is not u32-aligned");
   assert.equal(regionAt % 4, 0, "the region buffer is not u32-aligned");
   assert.equal(projectileAt % 4, 0, "the projectile buffer is not u32-aligned");
+  assert.equal(stanceAt % 4, 0, "the stance buffer is not u32-aligned");
   const memoryBytes = wasm.memory.buffer.byteLength;
   for (const [name, at, bytes] of [
     ["POSES", poseAt, MAX_POSES * POSE_STRIDE * 4],
@@ -1162,14 +1282,15 @@ test("wasm_exports_match_layout_stride_capacity_and_drop_fields", () => {
     ["REGIONS", regionAt, MAX_REGIONS * REGION_STRIDE * 4],
     ["ARTICULATED_PROJECTILES", projectileAt,
       MAX_ARTICULATED_PROJECTILES * ARTICULATED_PROJECTILE_STRIDE * 4],
+    ["EMBODIED_STANCES", stanceAt, MAX_EMBODIED_STANCE * EMBODIED_STANCE_STRIDE * 4],
   ]) {
     assert.ok(at + bytes <= memoryBytes, `${name} runs past the end of linear memory`);
   }
   wasm.step(8);
   assert.deepEqual(
     [u32(wasm.pose_ptr()), u32(wasm.combat_event_ptr()), u32(wasm.region_ptr()),
-      u32(wasm.articulated_projectile_ptr())],
-    [poseAt, eventAt, regionAt, projectileAt],
+      u32(wasm.articulated_projectile_ptr()), u32(wasm.embodied_stance_ptr())],
+    [poseAt, eventAt, regionAt, projectileAt, stanceAt],
     "a published buffer moved across a step",
   );
   assert.equal(
@@ -1181,7 +1302,8 @@ test("wasm_exports_match_layout_stride_capacity_and_drop_fields", () => {
     `articulated abi ${rows} pose rows, ` +
       `${MAX_POSES}x${POSE_STRIDE} + ${MAX_COMBAT_EVENTS}x${COMBAT_EVENT_STRIDE}` +
       ` + ${MAX_REGIONS}x${REGION_STRIDE}` +
-      ` + ${MAX_ARTICULATED_PROJECTILES}x${ARTICULATED_PROJECTILE_STRIDE} words reserved`,
+      ` + ${MAX_ARTICULATED_PROJECTILES}x${ARTICULATED_PROJECTILE_STRIDE}` +
+      ` + ${MAX_EMBODIED_STANCE}x${EMBODIED_STANCE_STRIDE} words reserved`,
   );
 });
 

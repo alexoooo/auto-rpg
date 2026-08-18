@@ -35,6 +35,13 @@ Opponent twist is the perception that makes [session 06](embodied-06-stance.md) 
 tactic rather than a constraint: a body wound to its limit must step before it can
 swing back, and that is the opening.
 
+**Appending is a cost decision here rather than a rule**, and it is the one seam in
+this plan where [the compatibility
+waiver](embodied-00-overview.md#backwards-compatibility-is-not-a-constraint-here)
+argues *for* the conservative shape: the trained checkpoint is frozen against this
+layout, so renumbering a column it reads buys a nicer vector at the price of a retrain
+and a re-score. Everywhere else in these sessions, interleave and bump the version.
+
 ## Hash expectation, stated before the edit
 
 `FEATURE_LAYOUT_VERSION` at

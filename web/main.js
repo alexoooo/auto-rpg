@@ -93,7 +93,7 @@ const MAX_EVENTS = 128;
  * `unit.id` is `generation * ID_INDEX_SPAN + index`, one number rather than the
  * `"index:generation"` string this page used to build sixty times a second per
  * body. A `World` slot is recycled through a free list
- * (`crates/sim/src/world.rs`), so the live indices never climb past the number of
+ * (`crates/sim/src/world/mod.rs`), so the live indices never climb past the number of
  * bodies standing at once -- which `web::MAX_UNITS` caps at 64. **128 is the next
  * power of two above that cap**, so the pair is packed without loss and, just as
  * importantly, `id % ID_INDEX_SPAN` gives the index back exactly.
@@ -1540,7 +1540,7 @@ function blend(a, b, t, span, lockHeld, out) {
 
   // The arrows, matched by **row index** -- the one match in this file that is
   // not an identity, and a deliberate compromise rather than an oversight.
-  // `ShotView` carries no handle by design (`crates/sim/src/world.rs`) and
+  // `ShotView` carries no handle by design (`crates/sim/src/world/mod.rs`) and
   // `shots()` emits the live slots in ascending order, so an arrow landing
   // shifts every row after it up by one and row `i` becomes a different arrow.
   //

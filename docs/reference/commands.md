@@ -2,7 +2,7 @@
 
 **Purpose:** Specify the current authoritative input vocabulary at the policy and host boundaries.
 **Status:** current
-**Canonical source:** [`Command`](../../crates/sim/src/command.rs#L407) and the adjacent input enums in the same module.
+**Canonical source:** [`Command`](../../crates/sim/src/command.rs#L502) and the adjacent input enums in the same module.
 **Update when:** `Observation` feature layout, `Command`, `LimbCommand`, actions, loadouts, standing inputs, or their encoded discriminants change.
 
 <!-- DOC_CONTRACT: policy-observation -->
@@ -169,12 +169,12 @@ hash stream owned by their `hash_into` methods and `World::state_hash`.
 ## Source anchors
 
 - Structured observation and current feature layout: [`Observation`](../../crates/sim/src/obs.rs#L582), [`FEATURE_LAYOUT_VERSION`](../../crates/sim/src/obs.rs#L966), [`Observation::write_features`](../../crates/sim/src/obs.rs#L1160)
-- Subject-scoped articulated observation: [`ArticulatedObservation`](../../crates/sim/src/obs.rs#L431), [`World::observe_articulated`](../../crates/sim/src/world.rs#L2186)
-- Strike variants and discriminants: [`Strike`](../../crates/sim/src/command.rs#L290)
-- Current limb shape: [`LimbCommand`](../../crates/sim/src/command.rs#L359)
-- Current policy output: [`Command`](../../crates/sim/src/command.rs#L407)
-- Intent variants: [`Intent`](../../crates/sim/src/command.rs#L505)
+- Subject-scoped articulated observation: [`ArticulatedObservation`](../../crates/sim/src/obs.rs#L431), [`World::observe_articulated`](../../crates/sim/src/world/query.rs#L390)
+- Strike variants and discriminants: [`Strike`](../../crates/sim/src/command.rs#L385)
+- Current limb shape: [`LimbCommand`](../../crates/sim/src/command.rs#L454)
+- Current policy output: [`Command`](../../crates/sim/src/command.rs#L502)
+- Intent variants: [`Intent`](../../crates/sim/src/command.rs#L600)
 - Action roles and append-only registry: [`Role`](../../crates/sim/src/action.rs#L28), [`ActionKind`](../../crates/sim/src/action.rs#L116)
 - Two-slot loadout contract: [`Loadout`](../../crates/sim/src/loadout.rs#L18)
-- Faction orders and encoding: [`Order`](../../crates/sim/src/command.rs#L529)
-- Routing objectives: [`Objective`](../../crates/sim/src/command.rs#L636)
+- Faction orders and encoding: [`Order`](../../crates/sim/src/command.rs#L624)
+- Routing objectives: [`Objective`](../../crates/sim/src/command.rs#L731)

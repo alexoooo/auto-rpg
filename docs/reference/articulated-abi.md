@@ -1019,6 +1019,105 @@ Exports are `articulated_projectile_ptr`, `articulated_projectile_len`,
 `articulated_projectiles_dropped`, and
 `articulated_projectile_layout_version`. The fixed buffer costs 1,536 bytes.
 
+## Stance rows
+
+`EMBODIED_STANCE_LAYOUT_VERSION=1`, `EMBODIED_STANCE_STRIDE=6`, and
+`MAX_EMBODIED_STANCE = MAX_POSES = 64`. One row per live embodied body, in the
+[pose rows](#pose-rows)' order across bodies. The row is `sim::StanceView` word for
+word and the host derives none of it.
+
+| words | field |
+|---:|---|
+| 0..1 | entity index, generation |
+| 2 | hip yaw raw |
+| 3 | pelvis height, as a fraction of standing height |
+| 4 | twist raw, signed |
+| 5 | forced-step ticks remaining |
+
+**The hip yaw is the feet bearing and is not the body yaw at pose word 5.** That the two
+can differ at all is what this publication exists to say: an articulated body turns as
+one piece, an embodied one turns its torso against its hips and has to move its feet
+when the twist runs out. It is an `Angle` and widens to `u32` on the word rules above.
+`pelvis` is a **fraction of standing height** and deliberately not a world-space z —
+what a renderer wants is how far the body has sunk relative to its own size, and the
+size is already in the anatomy it holds. `step_left` is ticks remaining in a forced step
+and reads zero when the body is settled.
+
+**`twist_raw` is derived at the publication boundary and is stored nowhere.**
+`StanceState` has no twist field: the twist is `body_yaw.delta(hip_yaw)`, and a stored
+copy is a second thing that can disagree with the two angles it is a function of. That
+it is nonetheless *published* is an application of the same rule rather than a
+contradiction of it. A consumer holding this row's hip yaw and the pose row's body yaw
+could do the subtraction itself, and that subtraction is exactly the second copy the sim
+declines to keep: a wrapping signed delta over binary turns, taken across two sections,
+against a bound that lives on the torso's target rather than on either angle
+(`STANCE_TWIST_LIMIT_RAW`, a sixth of a turn). Deriving it once, on the side that owns
+the rule, is cheaper than every reader deriving it and one reader deriving it
+differently.
+
+It is **reinterpreted and not widened**, which is this row's one departure from the
+`Angle` rule above: a twist is a signed delta and not a bearing, so a sign extension
+would make a quarter turn to the right and `0xffff_c000` two different words for one
+twist.
+
+The same word is deliberately **absent from the state hash**, which is the mirror of the
+argument above and not a second opinion about it. Both angles it derives from are
+already in that stream, so hashing the twist would hash one fact twice and would let a
+later change to the derivation disagree with itself. A published stream and a hashed
+state want opposite things from a derived column — the reader wants it computed once, by
+the owner; the digest wants it not counted twice — and this column is in both, on both
+rules.
+
+**The section is published for every model, and a zero length is an answer rather than a
+silence.** `publish` drives off `World::stances()` with no `has_stance` branch of its
+own, so a Legacy or Articulated world writes its zero rows through the same code an
+embodied one writes its roster through; a host that branched first would have two paths
+where the sim has one, and the second path is the one nothing ever runs. Every world
+this module can currently open takes that path, because no export installs an embodied
+one — which makes the distinction load-bearing rather than decorative. "Nothing, and I
+am telling you so" is a different answer from "this module has never heard of stances",
+and the length word is the only thing carrying the difference: a reader that took a
+zero-length section for a missing one could not tell an articulated fight from an
+artifact built before the publication existed. That is the distinction the boot
+handshake's layout version exists to make, and this length is what makes it per tick.
+
+**A fifth publication and not six more pose columns**, on the region section's argument
+exactly. A pose row is written for every articulated body and a stance exists only under
+`CombatModel::Embodied`, so folding these words in would widen every row of every fight
+to carry six most of them do not have — and it would move `POSE_LAYOUT_VERSION`, which
+is a version about pose columns and has nothing to say about hips. The layout version
+here is its own number for `REGION_LAYOUT_VERSION`'s reason: this section adds no pose
+column, and a pose column moving says nothing about these six words.
+
+**The row carries a full identity where a region row does not**, because the stance
+section is not a fixed multiple of the pose section. Region row `n` belongs to pose row
+`n / REGIONS_PER_BODY` and needs no identity of its own; no such arithmetic exists here,
+since the ordinary case today is a full pose buffer beside an empty stance one.
+`embodied_stance_len() == pose_len()` holds on an embodied world and is asserted there
+rather than stated as a law of this ABI. Identity is the join, and it is both words of
+one: an index alone would answer just as happily for the body that took the slot next.
+
+`MAX_EMBODIED_STANCE` is written as `MAX_POSES` and never as a second literal 64. A body
+with legs is a body that also publishes a pose, so a stance cap that could fill first
+would drop the legs of a body whose torso crossed — the half-a-body failure
+`MAX_REGIONS` is written this way to refuse. `embodied_stances_dropped` is therefore
+zero in every reachable case, and is published anyway on `poses_dropped`'s terms: the
+prefix rule means nothing if a reader cannot tell that it fired.
+
+Exports are `embodied_stance_ptr`, `embodied_stance_len`, `embodied_stance_stride`,
+`embodied_stance_capacity`, `embodied_stances_dropped`, and
+`embodied_stance_layout_version`. `embodied_stance_len` counts rows, not words. The
+section is filled at publication from end-of-call state, in the slot order the pose rows
+are written in. The buffer is authoritative and unfiltered exactly as the pose buffer
+is: a hip bearing is which way a body is *about* to be able to move and a forced step is
+how long it cannot change its mind for, both for bodies the viewer may have no way of
+seeing, so the worker filters this beside the pose rows it belongs to. It costs 1,536
+fixed bytes — half a percent on top of the 290,816 the four publications before it cost
+— and it is charged whether the installed world has legs or not, which is what a fixed
+array buys and a lazily allocated one would give away: a buffer that appeared when an
+embodied world was installed would grow linear memory on that call and detach every
+typed array the page is holding.
+
 ## Combat-event rows
 
 `COMBAT_EVENT_LAYOUT_VERSION=1`, `MAX_COMBAT_EVENTS=2048`, and
@@ -1307,25 +1406,43 @@ Use FNV-1a-64 with the constants in the contact contract. Prefix ASCII
 `ARPG-STREAM-V1`. For every tick, including an empty tick, feed little-endian:
 `tick:u32`, pose length, poses dropped, every live pose row word, event length, events
 dropped, every live event row word, region length, regions dropped, every live region
-row word, projectile length, projectiles dropped, every live projectile row word.
+row word, projectile length, projectiles dropped, every live projectile row word,
+stance length, stances dropped, every live stance row word.
 Tests drive one tick per publication so drop metadata has one meaning. Native
 and wasm use identical scripted inputs and bytes; state hashes are not part of this
 digest.
 
-**The region words are appended after the event words rather than beside the pose
-words, and projectile words are appended after the region words.** The byte order is
-append-only for the reason the columns and the codes are.** A stream that reordered
+**Every section after the first two is appended behind the one before it rather than
+woven in beside the pose words: regions after events, projectiles after regions,
+stances after projectiles.** The byte order is append-only for the reason the columns
+and the codes are. A stream that reordered
 would move the digest by the same amount an extension
 does, and the two would be indistinguishable afterwards. Written this way, the
 pose-and-event prefix of every tick is byte-identical to what v2-16 pinned, so
-v2-ui-06's move can be read as the extension it is.
+v2-ui-06's move can be read as the extension it is — and so can every move since.
+
+**A section reaches this digest whether or not the fixture has a row for it**, which is
+what the [stance rows](#stance-rows) made visible. The script below is
+`Scenario::articulated_duel` and only `CombatModel::Embodied` has legs, so the fifth
+section contributes a zero length and a zero drop count on each of the twenty ticks and
+nothing else — and **their presence is the whole of the move**, from
+`0x3b0d5c93d5560dd9` to `0x686ecf8a2f5dd479` in the default build and from
+`0x2fa1256f412b2e32` to `0xde453a669e770512` under `cartesian-recoil`, native and wasm
+agreeing on both. A section that vanished when it had nothing to say would be
+indistinguishable here from a section nobody added, which is the argument the empty
+*tick* is already carried on. The claim that the move is an extension is **measured
+rather than asserted**:
+`the_stance_section_extends_the_digest_without_disturbing_its_prefix` in
+`crates/web/src/lib.rs` recomputes the digest with the stance tail suppressed and gets
+the old value byte for byte, so no pose, event, region or projectile word of any tick
+moved.
 
 The digest is exported as `articulated_stream_digest_lo()` and
 `articulated_stream_digest_hi()`, on the `selftest_hash` precedent: a self-contained
 scripted drive that builds its own world, digests each publication and throws it away
 without touching `SIM`, `FRAME`, `POSES`, `REGIONS`, `ARTICULATED_PROJECTILES`,
-`COMBAT_EVENTS`, the tile buffer or
-the furniture buffer. It goes through the **same** four buffer writers `publish` calls
+`EMBODIED_STANCES`, `COMBAT_EVENTS`, the tile buffer or
+the furniture buffer. It goes through the **same** five buffer writers `publish` calls
 rather than a parallel encoder — a digest built by a second writer proves that two
 encoders agree and says nothing about what the page reads. Unlike `selftest_hash` it
 allocates enough to move the heap, so it is cached on first touch and belongs in a
@@ -1340,7 +1457,11 @@ rather than set — the shipped clinch fixture spends 78 ticks turning around be
 first touches — so the script asks for no rotation at all and gets its contact out of
 the placement instead. Ticks 0, 1, 2 and 4 resolve nothing, ticks 3 and 5 resolve two
 rows, and every tick from 6 resolves one, which is how the reference's "including an
-empty tick" is actually covered. Every tick carries two pose rows and ten region rows.
+empty tick" is actually covered. Every tick carries two pose rows and ten region rows,
+no projectile rows and no stance rows. The two empty sections are still driven through
+their own writers rather than short-circuited to an empty slice: a script that
+hard-coded the emptiness would prove that the host *believes* the section is empty,
+where running the writer proves the section is.
 The pin is registered in [`hashes.md`](hashes.md#golden-registry).
 
 **The JavaScript half pins the number and does not rebuild the bytes, and that is
@@ -1364,3 +1485,15 @@ enumerations. Since v2-ui-06 it checks the region grammar on the same terms — 
 rows a body in pose order, presence against the pose row's severed mask, and the head
 published as a degenerate capsule that is nonetheless present, which is the one fact
 in this section a reader could plausibly get backwards.
+
+**The stance section has no row grammar beside it there and cannot have one yet**, and
+that gap is recorded rather than left to be discovered: no export installs an embodied
+world, so every world the JavaScript check can open publishes zero rows. What crosses
+the wall is the section's layout version, stride, capacity, a distinct aligned pointer
+inside linear memory, and the zero itself paired with a zero drop count — which is the
+whole of what an empty publication has to say and exactly the pair that distinguishes it
+from an absent one. The row grammar is checked natively instead, by
+`an_embodied_bodys_stance_row_round_trips`, which reads every published row back against
+`World::stance` column by column and then submits a quarter-turn order to prove the
+columns move — two bodies standing still satisfy a round trip that a buffer written once
+at spawn would also satisfy.

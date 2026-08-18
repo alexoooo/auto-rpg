@@ -428,7 +428,28 @@ test("the_browser_contact_warmup_does_not_grow_wasm_memory", () => {
   // surfaced in a *guarded* cycle -- which reads as a leak and is not one:
   // twenty-nine consecutive rounds at 248 is the evidence it converges. Twenty
   // is the settling round plus two thirds again as margin.
-  for (let round = 1; round <= 20; round++) {
+  //
+  // **Thirty-seven rounds since 2026-08-17, and it is the same failure the
+  // paragraph above describes, found by the same trace.** The embodied sessions
+  // gave every world a `ground_z` and a `stance` column and every dungeon a
+  // heights vector; the plateau moved 248 -> 307 and the settling round moved
+  // 12 -> 22, so twenty rounds again left the fixture one step short and the
+  // step landed inside a guarded cycle, on `seed 0, cycle 2`. Traced per round:
+  // 211 from round one, 237 from round four, 263 from round fifteen, 307 from
+  // round twenty-two, then **307 unchanged through round sixty**. The gaps
+  // between steps widen -- 3, 11, 7 -- and then stop, which is what separates a
+  // settling allocator from a slow leak, and thirty-nine consecutive flat
+  // rounds is a stronger reading than the twenty-nine above.
+  //
+  // **The plateau moving by 59 pages is not the new columns' own size.** They
+  // are a `ground_z` and a `stance` row per body and one `i16` per tile --
+  // kilobytes across the two worlds a reset holds live, against nearly four
+  // megabytes of page count. It is dlmalloc's arena, which grows in 26- and
+  // 44-page bites here, taking a different number of them once the size classes
+  // shift. That scale is set by two worlds at 64 reserved rows over three
+  // seeds, and none of it is what this fixture measures: the subject is still
+  // that nothing grows *after* the guard closes.
+  for (let round = 1; round <= 37; round++) {
     for (const seed of seeds) contactWarmup(wasm, abi, seed);
   }
 
@@ -874,17 +895,21 @@ test("published_views_survive_articulated_stress_without_memory_growth", () => {
   // detached every retained view, and warming the same seed twice did not fix it
   // because the peak is per *floor*.
   //
-  // **Measured, and it settles at 242 pages from the end of round one** --
+  // **Measured, and it settles at 258 pages from the end of round one** --
   // unchanged through a measured round six, and unchanged through a measured
   // sixth guarded cycle. One round would therefore do; three is margin that
   // costs about a second, on the sibling fixture's argument that a warm-up
-  // whose cost is invisible is the wrong place to be frugal. Two readings for
-  // the shape of the number: the legacy fixture beside this one settles at 38
-  // pages and the articulated contact fixture at 221, so most of the 242 is the
-  // articulated *room* -- a generated floor with a roster on it -- rather than
-  // the 289,280 bytes of pose, event and region array, which is 5 pages. It read
-  // 237 while `MAX_COMBAT_EVENTS` was 1024; four of the pages between are that
-  // capacity doubling, static array and live reservations together.
+  // whose cost is invisible is the wrong place to be frugal. It read 242 until
+  // the embodied sessions of 2026-08-17 widened the world; the sibling contact
+  // fixture traces what that widening did to the allocator, and why a page
+  // figure here is a record rather than a claim. Two readings for the shape of
+  // the number: the legacy fixture beside this one settles at 38 pages and the
+  // articulated contact fixture at 307, so most of the 258 is the articulated
+  // *room* -- a generated floor with a roster on it -- rather than the 292,352
+  // bytes of pose, event, region, projectile and stance array, which is 5
+  // pages. It read 237 while `MAX_COMBAT_EVENTS` was 1024; four of the pages
+  // between are that capacity doubling, static array and live reservations
+  // together.
   //
   // **The 241 this comment carried until v2-ui-07 was stale, and v2-ui-08 said
   // so where it landed rather than fixing it here.** The 32,768-byte checkpoint
@@ -896,10 +921,11 @@ test("published_views_survive_articulated_stress_without_memory_growth", () => {
   // The publication budget was 279,040 across v2-16's two publications until
   // v2-ui-06 appended the five swept region capsules per body (`8 * 320 * 4`)
   // for 289,280. The projectile publication adds `32 * 12 * 4`, reaching
-  // 290,816, and **the page count did not move with either append**: 4.26, 4.41
-  // and 4.44 pages all round up to the same 5. The arrays are static, so both
-  // publications were free at this resolution. The next page boundary is
-  // 327,680 bytes, 36,864 further on.
+  // 290,816, and the stance publication `64 * 6 * 4`, reaching 292,352 --
+  // and **the page count did not move with any of the three appends**: 4.26,
+  // 4.41, 4.44 and 4.46 pages all round up to the same 5. The arrays are
+  // static, so every one of those publications was free at this resolution. The
+  // next page boundary is 327,680 bytes, 35,328 further on.
   let last = null;
   for (let round = 1; round <= ARTICULATED_WARM_ROUNDS; round++) {
     for (const seed of seeds) last = articulatedStress(wasm, abi, seed);

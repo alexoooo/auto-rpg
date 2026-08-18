@@ -74,9 +74,10 @@ pub use codec::{
 };
 pub use command::{
     ArmTarget, ArticulatedCommandV1, ArticulatedPayloadError, CombatHeight, Command,
-    CommandField, CommandReject, GripRequest, Intent, LimbCommand, LimbSlot, Objective, Order,
-    ReleaseRequest, Strike, SubmitArticulatedOutcome, SubmittedCommand, ARTICULATED_PAYLOAD_BYTES,
-    SUBMITTED_COMMAND_LAYOUT_VERSION,
+    CommandField, CommandReject, EmbodiedCommandV1, GripRequest, Intent, LimbCommand, LimbSlot,
+    Objective, Order, ReleaseRequest, Strike, SubmitArticulatedOutcome, SubmitEmbodiedOutcome,
+    SubmittedCommand, ARTICULATED_PAYLOAD_BYTES, EMBODIED_COMMAND_LAYOUT_VERSION,
+    EMBODIED_PAYLOAD_BYTES, SUBMITTED_COMMAND_LAYOUT_VERSION,
 };
 pub use combat::spec::{
     club, fighter_anatomy, shield, sword, AnatomyRegion, AnatomyRegionSpec, AnatomySpecId,
@@ -181,7 +182,7 @@ pub use scenario::{
     CombatModel, Scenario, ScenarioFingerprintError, UnitSpec, DUNGEON_COLS, DUNGEON_ROWS,
 };
 pub use world::{ArticulatedProjectileView, DungeonObjectKind, DungeonObjectView, Outcome, ShotView,
-                Snapshot, SpawnError, UnitView, World, WorldBuildError};
+                Snapshot, SpawnError, StanceView, UnitView, World, WorldBuildError};
 #[cfg(feature = "cartesian-recoil")]
 pub use world::ExactLatticeEnvelope;
 #[cfg(feature = "cartesian-recoil")]

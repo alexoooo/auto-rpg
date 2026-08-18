@@ -208,7 +208,7 @@ impl Replay {
                 world.submit(entry.entity, entry.command);
                 next_command += 1;
             }
-            while self.scenario.combat_model == crate::CombatModel::Articulated
+            while self.scenario.combat_model.has_articulated_columns()
                 && next_submitted < self.submitted_entries.len()
                 && self.submitted_entries[next_submitted].tick <= world.tick()
             {
@@ -217,6 +217,9 @@ impl Replay {
                     SubmittedCommand::Legacy(_) => {}
                     SubmittedCommand::Articulated(command) => {
                         let _ = world.submit_articulated_v1(entry.entity, command);
+                    }
+                    SubmittedCommand::Embodied(command) => {
+                        let _ = world.submit_embodied_v1(entry.entity, command);
                     }
                 }
                 next_submitted += 1;
