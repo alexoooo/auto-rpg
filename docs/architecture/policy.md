@@ -3,21 +3,22 @@
 **Purpose:** Describe the current observation-to-command policy seams and their implementations.
 **Status:** current
 **Canonical source:** [`crates/policy/src/lib.rs`](../../crates/policy/src/lib.rs), [`Observation`](../../crates/sim/src/obs.rs), and [`Command`](../../crates/sim/src/command.rs)
-**Update when:** The `Policy` or `ArticulatedPolicy` trait, observation contract, command shape, policy registry, or run harness changes.
+**Update when:** The `Policy`, `ArticulatedPolicy` or `EmbodiedPolicy` trait, observation contract, command shape, policy registry, or run harness changes.
 
 ## The complete policy seam
 
-There are two seams, one per `CombatModel`, and each has one required
+There are three seams, one per `CombatModel`, and each has one required
 operation:
 
 ```rust
 fn decide(&mut self, obs: &Observation) -> Command;                          // Policy
 fn decide(&mut self, obs: &ArticulatedObservation) -> ArticulatedCommandV1;  // ArticulatedPolicy
+fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1;     // EmbodiedPolicy
 ```
 
-The legacy half is described immediately below; the non-legacy half has its own
-section. This heading used to cover only the first of them, which was complete
-while a body was a disc with one blade angle and is not now.
+The legacy half is described immediately below; the other two share a section.
+This heading used to cover only the first of them, which was complete while a
+body was a disc with one blade angle and is not now.
 
 `reset` is optional policy lifecycle behavior, and the run harness calls it
 before every run. A policy may keep its own memory, but it receives neither
@@ -81,16 +82,38 @@ signature shows that none can. On the stable toolchain rustdoc does not enforce
 a pinned error code, so the fence is paired with a compiling twin that differs
 only by the `&World` parameter.
 
-The two traits are separate rather than one trait over a `SubmittedCommand`
+The three traits are separate rather than one trait over a `SubmittedCommand`
 enum. The model is chosen once by the `Scenario` and never mixes inside a
-world, so a mismatch is static information; `World::submit` and
-`World::submit_articulated_v1` already refuse the wrong model at the boundary,
-and a second refusal one layer up would buy nothing.
+world, so a mismatch is static information; `World::submit`,
+`World::submit_articulated_v1` and `World::submit_embodied_v1` already refuse
+the wrong model at the boundary, and a second refusal one layer up would buy
+nothing.
 
 There is no non-legacy `TeamPolicy`. `TeamPolicy` routes on the observation's
 faction, and `ArticulatedObservation` has no faction column -- "the other side"
 appears only as already-selected `opponents`. Per-side routing belongs to
 whoever drives the run.
+
+`EmbodiedPolicy` is the third of the three and differs from `ArticulatedPolicy`
+in exactly one place: it returns an `EmbodiedCommandV1`. That is not a
+formality. An embodied command carries a swing plane the articulated payload has
+no offsets for, so a policy typed to return the articulated command could not
+command an elbow, and an adapter between the two would have to invent a plane --
+which is inventing state rather than converting it.
+
+It takes an `ArticulatedObservation` because that is what an embodied body
+produces: `CombatModel::has_articulated_columns` answers true for both models,
+so perception is shared even where the command is not. The name is a wart that
+outlives its model and the session that retires `Articulated` is the one that
+gets to fix it.
+
+`ComposedController` -- the session-08 controller that merges a human hand and an
+AI hand into one submission -- keeps its inherent `decide` and `reset` as the
+implementation, and the trait impl forwards to them. A caller holding one by
+value should not have to import a trait to drive it; the trait exists so a
+*driver* can hold either it or a scripted embodied policy behind one
+`Box<dyn EmbodiedPolicy>`, which is a different need and arrived a session
+later.
 
 ## The non-legacy registry, and the one code it cannot build
 
@@ -207,9 +230,10 @@ proposal, not an omitted part of the current seam.
 
 ## Source anchors
 
-- Trait, team dispatch, and policy registry: [`Policy`](../../crates/policy/src/lib.rs#L104)
-- Non-legacy seam: [`ArticulatedPolicy`](../../crates/policy/src/lib.rs#L202)
-- The non-legacy seam's registry: [`ArticulatedPolicyKind`](../../crates/policy/src/lib.rs#L388)
+- Trait, team dispatch, and policy registry: [`Policy`](../../crates/policy/src/lib.rs#L108)
+- Non-legacy seam: [`ArticulatedPolicy`](../../crates/policy/src/lib.rs#L204)
+- The embodied seam: [`EmbodiedPolicy`](../../crates/policy/src/lib.rs#L304)
+- The non-legacy seam's registry: [`ArticulatedPolicyKind`](../../crates/policy/src/lib.rs#L437)
 - Headless decision loops: [`crates/policy/src/runner.rs`](../../crates/policy/src/runner.rs)
 - Subject-scoped inputs: [`crates/sim/src/obs.rs`](../../crates/sim/src/obs.rs)
 - `Command`, the single `LimbCommand`, `Order`, and `Objective`: [`crates/sim/src/command.rs`](../../crates/sim/src/command.rs)
