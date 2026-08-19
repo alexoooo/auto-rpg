@@ -22,12 +22,31 @@ A trained network drives a fighter, natively and in the browser.
 | inference | [`crates/learn-core`](../../crates/learn-core/src/model.rs) -- the compact feature slice, the forward pass, the action table, the checkpoint codec |
 | training | [`crates/learn`](../../crates/learn/src/probe.rs) -- a `(mu + lambda)` population optimizer, six elites of a population, Gaussian mutation at sigma 0.08 |
 | hosts | native `lab learn-probe` and `lab trace --policy learned`; `web.wasm`, since `learn-core` is [`crates/web`](../../crates/web/Cargo.toml)'s dependency |
-| the score | 88.922 mean return over 400 held-out seeds, 95% CI `[86.287, 91.962]`, 30 kills, against the scripted windmill's 84.606 |
+| the score | **not currently established.** See below |
 
-Reproduce the score with
+**The score row used to read "88.922 mean return over 400 held-out seeds, 95% CI
+`[86.287, 91.962]`, 30 kills, against the scripted windmill's 84.606", and every part
+of that is now history.** It was measured on the *articulated* duel against the
+articulated windmill, and session 05 deleted the model, both its fixtures and two of
+the five conditions the comparison ranked. `crates/learn`'s corpus is `embodied-duel-v1`
+now and its non-learned conditions are a zeroed network, the scripted body, the strike
+planner and that planner with a fixed guard — so there is no windmill to beat and no
+number here that a reader can check.
+
+**The checkpoint itself is unaffected and still ships.** `ModelShape`, both layout
+versions and the forward pass are untouched, `checkpoints/v2-probe.ckpt` decodes, and
+`LEARNED_INFERENCE_DIGEST` is unmoved at `0xbdba8d64d340ce32`. What is missing is a
+*score* for it on the corpus that exists, and producing one is a measurement session
+rather than a deletion session's business — the weights were fitted against a fighter
+that no longer exists, so the honest expectation is that the number is worse and the
+useful work is retraining rather than re-scoring.
+
+Get today's figure with
 `cargo run --release -p lab -- learn-probe evaluate --checkpoint checkpoints/v2-probe.ckpt`.
 The training and evaluation logs under `checkpoints/` are gitignored, so the command is
 the citation and the `.ckpt` is the only tracked artifact.
+[The v2 learning probe record](../performance/v2-learning-probe.md) holds the last full
+table and is marked historical for the same reason this row is.
 
 **No gradient is computed anywhere.** The optimizer is an evolution strategy over the
 whole weight vector: it samples, scores through the ordinary rollout harness, keeps

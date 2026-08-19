@@ -2,22 +2,21 @@
 //!
 //! # Why this file has its own decision loop
 //!
-//! [`policy::run_articulated`] drives **one** policy instance across both sides
-//! of a fight, and there is no articulated `TeamPolicy` -- `policy`'s module
-//! header argues at length why there cannot be one, and the argument is good:
+//! [`policy::run_embodied`] drives **one** policy instance across both sides of
+//! a fight, and there is no embodied `TeamPolicy` -- `policy`'s module header
+//! argues at length why there cannot be one, and the argument is good:
 //! `ArticulatedObservation` has no faction column, so a wrapper cannot route on
 //! it without publishing a fact no fighter perceives. Per-side routing belongs
 //! to whoever drives the run.
 //!
 //! This crate is whoever drives the run, and it has to route: the entire
 //! measurement is *candidate against frozen baseline*, and a loop that put the
-//! candidate on both sides would be measuring self-play. So [`rollout`] is the
-//! third copy of that loop in the repository -- the runner's, `lab`'s
-//! `measure_articulated_traced`, and this one -- and it is a copy for the same
-//! reason `lab`'s is: it needs something the runner does not carry. Two copies
-//! drift, so `the_rollout_is_the_run_the_harness_would_have_driven` pins this
-//! one against `run_articulated` on the one configuration where the two agree,
-//! which is the same guard `lab` uses.
+//! candidate on both sides would be measuring self-play. So [`rollout`] is a
+//! second copy of that loop -- the runner's and this one -- and it is a copy for
+//! the reason `lab`'s traced loop is: it needs something the runner does not
+//! carry. Two copies drift, so
+//! `the_rollout_is_the_run_the_harness_would_have_driven` pins this one against
+//! [`policy::run_embodied`] on the one configuration where the two agree.
 //!
 //! # The return function is the experiment
 //!
@@ -28,102 +27,100 @@
 //! learned nothing. So the return below is shaped, in the spirit of
 //! `lab::fitness::fitness`, and **the shaping is only worth having if it
 //! discriminates**. `crates/learn/tests/return_discrimination.rs` measures
-//! exactly that, against the three scripted policies, and the honest outcome of
-//! this session is "it does not" if that is what the numbers say.
+//! exactly that, and the honest outcome of a session is "it does not" if that is
+//! what the numbers say.
 //!
-//! It is not what they say. Measured 2026-08-10 over 400 mirrored trials each,
-//! every candidate on the heroes against the composed script on the monsters:
+//! # Two of the three fighters that validated the shaping no longer exist
+//!
+//! **Written here rather than quietly dropped, because the claim this crate
+//! rests on got weaker and a reader has to be able to see by how much.** What
+//! established that the return discriminates was three *articulated* scripts,
+//! measured 2026-08-10 over 400 mirrored trials each against the composed
+//! script: composed 64.953, windmill 82.225, attack-moves 75.728, three
+//! bootstrap intervals disjoint and every pair separated by three to eight times
+//! its combined standard error. Those numbers are **history**: session 05
+//! deleted the articulated model and with it the corpus and two of the three
+//! fighters.
+//!
+//! [`policy::EmbodiedPolicyKind::Scripted`] is the composed script's successor.
+//! **There is no embodied windmill and no embodied closing-attack control**, and
+//! inventing one would be shipping a policy out of a deletion session -- it
+//! would need an append-only registry code, which belongs to whoever measures
+//! it. The specific claim that is gone and is not coming back is *"the phases
+//! are not decoration"*, which only a windmill could answer.
+//!
+//! What the surviving registry offers instead is the scripted body, the strike
+//! planner, and the planner with its guard read switched off. The
+//! discrimination test asks the same question of those three, and it was
+//! **re-measured rather than carried over** -- 400 mirrored trials each against
+//! the scripted body, `embodied-duel-v1`, 2026-08-19:
 //!
 //! | policy | mean return | standard error | bootstrap 95% CI |
 //! |---|---|---|---|
-//! | composed | 64.953 | 1.277 | [62.465, 67.348] |
-//! | windmill | 82.225 | 0.864 | [80.652, 83.917] |
-//! | attack-moves | 75.728 | 1.191 | [73.546, 78.131] |
+//! | scripted | 87.023 | 1.867 | [83.374, 90.657] |
+//! | tactical | 66.939 | 1.623 | [63.779, 70.202] |
+//! | tactical-fixed-guard | 69.712 | 1.556 | [66.620, 72.797] |
 //!
-//! All three pairs are separated by three to eight times their combined
-//! standard error and the three intervals are disjoint. Two things follow, and
-//! the second is the more interesting: the return has something in it to train
-//! against, and **the composed script is the weakest of the three fighters by a
-//! wide margin** -- the windmill wins 399 of 400 against the same opponent the
-//! composed script beats 330 times. A learned policy is being asked to beat a
-//! baseline that a control condition already beats by seventeen points.
+//! **Two of the three pairs separate and the third does not**, which is a
+//! sharper answer than the articulated corpus gave and is worth reading as one.
+//! The script clears both planners by 20.084 and 17.311 points against a summed
+//! standard error near 3.4 -- five times its own noise. The two planners are
+//! 2.773 apart against 3.179, which is *indistinguishable*: **this return cannot
+//! see the guard read**, and that is a fact about the return and not about the
+//! guard. Anything measuring the guard needs a term this one does not have.
+//!
+//! And the headline the return itself produces: **the scripted body outscores
+//! the strike planner by twenty points on its own corpus.** The planner takes
+//! 96 losses in 400 where the script takes 48, and removes 23% of the Brute
+//! where the script removes 40%. A session tuning the planner has a number to
+//! beat and it is not the planner's.
 
 use learn_core::checkpoint::{Checkpoint, CheckpointV2, TrainingRecord};
 use learn_core::model::{
-    uniform, LearnedArticulatedPolicy, LearnedTacticalPolicyV2, Model, ModelV2,
+    uniform, LearnedEmbodiedPolicy, LearnedTacticalEmbodiedPolicyV2, Model, ModelV2,
 };
 use fx::{Fx, Rng};
-use policy::{
-    ArticulatedPolicy, ArmRoles, ClosingAttackControlPolicy, RunConfig, ScriptedArticulatedPolicy,
-    WindmillArticulatedPolicy,
-};
+use policy::{ArmRoles, EmbodiedPolicy, EmbodiedPolicyKind, RunConfig};
 use sim::{
-    ArticulatedCommandV1, ArticulatedObservation, BodyPart, CombatHeight, ContactKind, EntityId,
-    Faction, Intent, Outcome, Replay, ResolutionError, Scenario, SubmitArticulatedOutcome,
+    ArticulatedObservation, BodyPart, CombatHeight, ContactKind, EmbodiedCommandV1, EntityId,
+    Faction, Intent, Outcome, Replay, ResolutionError, Scenario, SubmitEmbodiedOutcome,
     SubmittedCommand, World, volume_region, BODY_SLOT,
 };
 use std::time::Instant;
 
 // ------------------------------------------------------------------ the corpus
 
-/// The scripted opponents a candidate can be measured against.
-///
-/// Named for what `lab articulated --policy` already calls them, so a figure
-/// quoted out of this crate and a figure quoted out of that command are talking
-/// about the same fighter.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
-pub enum Baseline {
-    /// The twelve-phase composed script: the reference.
-    #[default]
-    Composed,
-    /// Commit forever, alternating endpoints. The control that says whether the
-    /// phases are decoration.
-    Windmill,
-    /// The composed script with its attack phases' feet put back. The control
-    /// that exists because checkpoint A's corpus turned out to be measuring
-    /// `AttackFootwork::Planted`.
-    ClosingAttack,
-}
-
-impl Baseline {
-    pub const ALL: [Baseline; 3] = [
-        Baseline::Composed,
-        Baseline::Windmill,
-        Baseline::ClosingAttack,
-    ];
-
-    pub fn policy(self) -> Box<dyn ArticulatedPolicy> {
-        match self {
-            Baseline::Composed => Box::new(ScriptedArticulatedPolicy),
-            Baseline::Windmill => Box::new(WindmillArticulatedPolicy),
-            Baseline::ClosingAttack => Box::new(ClosingAttackControlPolicy),
-        }
-    }
-
-    pub const fn name(self) -> &'static str {
-        match self {
-            Baseline::Composed => "composed",
-            Baseline::Windmill => "windmill",
-            Baseline::ClosingAttack => "attack-moves",
-        }
-    }
-
-    pub fn from_name(name: &str) -> Option<Baseline> {
-        Baseline::ALL.into_iter().find(|b| b.name() == name)
-    }
-}
+// **There is no `Baseline` enum here any more, and its replacement is
+// [`policy::EmbodiedPolicyKind`].** This crate used to carry its own three-entry
+// list of scripted opponents, "named for what `lab articulated --policy` already
+// calls them, so a figure quoted out of this crate and a figure quoted out of
+// that command are talking about the same fighter". Session 05 deleted all three
+// scripts, and the honest way to keep that argument is to stop keeping a second
+// copy of the vocabulary at all: the registry is the thing a saved
+// configuration, a URL and every `lab embodied` table already name, its codes are
+// append-only, and a policy nobody has measured cannot be added to it by
+// accident from in here. A local enum reduced to its one surviving entry would
+// have been a registry with one row that still had to be kept in step with the
+// real one.
 
 // ------------------------------------------- the phase-randomised control
 
-/// One period of the composed script's whole clock.
+/// One period of the scripted embodied policy's whole clock.
 ///
-/// Three clocks run inside `scripted_articulated_command` and they do not share
-/// a period: the twelve phases are `tick % 360`, both height selectors are
-/// `tick / 90 % 3` (270), and the cut reverses on `tick / 360 % 2` (720). The
-/// least common multiple of 270 and 720 is `2^4 * 3^3 * 5`, and an offset drawn
-/// uniformly below it is uniform over the script's whole state rather than over
-/// one of its three cycles. `the_phase_offsets_cover_the_scripts_whole_period`
-/// checks the number against the constants rather than trusting this paragraph.
+/// Three clocks run inside `scripted_embodied_command` and they do not share a
+/// period: the four phases are `tick % 120`, both height selectors are
+/// `tick / 90 % 3` (270), and the cut reverses on `tick / 120 % 2` (240). The
+/// least common multiple is `2^4 * 3^3 * 5`, and an offset drawn uniformly below
+/// it is uniform over the script's whole state rather than over one of its three
+/// cycles. `the_phase_offsets_cover_the_scripts_whole_period` checks the number
+/// against the constants rather than trusting this paragraph.
+///
+/// **The same 2,160 the articulated script needed, and that is a coincidence
+/// worth naming rather than leaning on.** The old numbers were 360, 270 and 720;
+/// these are 120, 270 and 240, and the two sets happen to share a least common
+/// multiple. The test recomputes it from `policy`'s own constants, so a session
+/// that retunes the embodied tempo moves this number rather than silently
+/// randomising over a fraction of the cycle.
 pub const SCRIPT_PERIOD_TICKS: u32 = 2_160;
 
 /// Mixed into the run seed before drawing an offset.
@@ -139,40 +136,58 @@ pub fn phase_offset(seed: u64) -> u32 {
     Rng::new(seed ^ PHASE_SALT).below(SCRIPT_PERIOD_TICKS)
 }
 
-/// A scripted opponent whose clock starts somewhere the candidate cannot know.
+/// A registry policy whose clock starts somewhere the candidate cannot know.
 ///
 /// **This exists because a fixed script can be beaten by reading its clock
-/// rather than by fighting it.** `ScriptedArticulatedPolicy` is a pure function
-/// of the observation: its phase is `tick % 360` and its guard is
-/// `(tick + GUARD_LEAD_TICKS) / 90 % 3`, both of which the candidate can read
-/// straight off `obs.tick` -- features 1 and 2 of [`crate::write_features`] are
-/// literally the cosine and sine of that phase, put there on purpose. A policy
-/// that learns "at phase 3 a chamber is coming" has learned the opponent's
-/// timetable and not swordsmanship, and the two are indistinguishable from a
-/// mean return.
+/// rather than by fighting it.** `scripted_embodied_command` reads three clocks
+/// off `obs.tick` -- four phases on `tick % 120`, two height selectors on
+/// `tick / 90 % 3`, and the cut direction on `tick / 120 % 2` -- and features 1
+/// and 2 of [`crate::write_features`] are the cosine and sine of
+/// `tick % CYCLE_TICKS`, put there on purpose. A policy that learns "at phase 3
+/// a chamber is coming" has learned the opponent's timetable and not
+/// swordsmanship, and the two are indistinguishable from a mean return.
 ///
-/// The wrapper is the cheapest control that tells them apart: one constant
-/// offset per run, drawn from the run seed, added to the tick the delegate
-/// reads. The candidate's own observation is untouched, so its phase columns
-/// still say where the *world* is in a 360-tick cycle -- they have simply
-/// stopped predicting the opponent. An edge that survives this is an edge
-/// against a fighter; an edge that collapses was a clock reading.
+/// **How much of the timetable those two columns give away shrank when the
+/// model did, and the honest version is worth writing down.** `CYCLE_TICKS` is
+/// 360 and the embodied phase clock is 120, and 360 is a multiple of 120 -- so
+/// `tick % 360` still determines the phase exactly and a chamber is still
+/// predictable from the input slice. The two 270-tick height clocks and the
+/// 240-tick cut reversal are **not** determined by it, where under the
+/// articulated script the phase column and the phase clock were the same 360.
+/// So the control now guards a smaller leak than it was built for: it can still
+/// catch a policy reading the chamber, and it never could catch one reading the
+/// guard height.
 ///
-/// **It lives here and not in `policy`.** `ScriptedArticulatedPolicy` is a pure
-/// function of the observation with no per-run memory, `script_digest` is
-/// defined over what it submits, and the reference script must stay the thing
-/// `ARPG-SCRIPT-V1` describes. Per-run state belongs to whoever drives the run,
-/// which is this crate -- the same argument `policy`'s module header makes about
-/// why there is no articulated `TeamPolicy`.
+/// The wrapper is the cheapest control there is: one constant offset per run,
+/// drawn from the run seed, added to the tick the delegate reads. The
+/// candidate's own observation is untouched, so its phase columns still say
+/// where the *world* is in a 360-tick cycle -- they have simply stopped
+/// predicting the opponent. An edge that survives this is an edge against a
+/// fighter; an edge that collapses was a clock reading.
+///
+/// **It lives here and not in `policy`.** A registry entry has to stay the thing
+/// its code names -- `EmbodiedPolicyKind`'s codes are what a saved configuration
+/// and a URL carry -- and `EMBODIED_CORPUS_DIGEST` is folded over a corpus that
+/// names `EmbodiedPolicyKind::Scripted` by kind. Per-run state belongs to
+/// whoever drives the run, which is this crate: the same argument `policy`'s
+/// module header makes about why there is no embodied `TeamPolicy`.
+///
+/// It wraps whatever the registry builds rather than the script specifically,
+/// because the offset is a fact about *how* a delegate is driven and not about
+/// which delegate it is. Handed a policy with no clock in it the wrapper is the
+/// identity, which is the right answer and not a silent no-op:
+/// `a_phase_shifted_opponent_is_the_script_reading_a_different_clock` asserts a
+/// changed fight, so a delegate that ignored the tick would fail there rather
+/// than quietly turning the control off.
 pub struct PhaseShiftedScript {
-    inner: Box<dyn ArticulatedPolicy>,
+    inner: Box<dyn EmbodiedPolicy>,
     offset: u32,
 }
 
 impl PhaseShiftedScript {
-    pub fn new(baseline: Baseline, seed: u64) -> PhaseShiftedScript {
+    pub fn new(kind: EmbodiedPolicyKind, seed: u64) -> PhaseShiftedScript {
         PhaseShiftedScript {
-            inner: baseline.policy(),
+            inner: kind.build(),
             offset: phase_offset(seed),
         }
     }
@@ -182,8 +197,8 @@ impl PhaseShiftedScript {
     }
 }
 
-impl ArticulatedPolicy for PhaseShiftedScript {
-    fn decide(&mut self, obs: &ArticulatedObservation) -> ArticulatedCommandV1 {
+impl EmbodiedPolicy for PhaseShiftedScript {
+    fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
         // The tick and nothing else. `ArticulatedObservation` is `Copy`, so the
         // shifted view is a stack value that dies at the end of this call and
         // cannot leak into what the world is told; the delegate reads no other
@@ -203,26 +218,42 @@ impl ArticulatedPolicy for PhaseShiftedScript {
     }
 }
 
-/// A baseline script, and whether its clock is where the script would put it.
+/// A registry policy, and whether its clock is where the script would put it.
 ///
-/// Two orthogonal facts rather than a fourth [`Baseline`], because they are not
-/// four points on one axis: the baseline says *which* script the candidate is
-/// fighting and the flag says whether that script is predictable. Folding them
-/// would make "the windmill, phase-randomised" unspellable, and the windmill is
-/// the control that currently sets the bar.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+/// Two orthogonal facts rather than two more [`policy::EmbodiedPolicyKind`]
+/// codes, because they are not points on one axis: the kind says *which* fighter
+/// the candidate is facing and the flag says whether that fighter is
+/// predictable. Folding them would make "the strike planner, phase-randomised"
+/// unspellable -- and it would put a per-run wrapper into an append-only
+/// registry whose entries are what a saved configuration carries.
+///
+/// **No `Default`, deliberately.** It had one, through `Baseline`'s, and it
+/// answered "the composed script" -- the reference fighter. The registry's
+/// default is [`policy::EmbodiedPolicyKind::Neutral`], a body that stands there
+/// with its arms slack, so a derived `Default` here would silently hand a
+/// caller a corpus fought against a statue and every return in it would be a
+/// number about nothing. Every construction site names its opponent.
+///
+/// **And no `label`.** It answered `"windmill+phase"` for a table column, and
+/// its one caller was `lab trace`'s learned arm, which no longer holds one of
+/// these. `lab learn-probe`'s tables name the *condition* rather than the
+/// opponent and print the opponent once as a sentence, through
+/// `learn_probe::opponent_prose`; a second spelling kept for nobody is a column
+/// nobody reads. The `+phase` suffix goes back in beside the caller that wants
+/// it.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Opponent {
-    pub baseline: Baseline,
+    pub kind: EmbodiedPolicyKind,
     pub phase_randomised: bool,
 }
 
 impl Opponent {
-    pub const fn frozen(baseline: Baseline) -> Opponent {
-        Opponent { baseline, phase_randomised: false }
+    pub const fn frozen(kind: EmbodiedPolicyKind) -> Opponent {
+        Opponent { kind, phase_randomised: false }
     }
 
-    pub const fn randomised(baseline: Baseline) -> Opponent {
-        Opponent { baseline, phase_randomised: true }
+    pub const fn randomised(kind: EmbodiedPolicyKind) -> Opponent {
+        Opponent { kind, phase_randomised: true }
     }
 
     /// A fresh opponent for one run, with this run's phase already chosen.
@@ -230,31 +261,18 @@ impl Opponent {
     /// Per seed rather than per corpus, which is what "per-run constant" means
     /// and is the whole content of the control. It costs one boxed policy per
     /// trial against a fight that runs three thousand six hundred ticks.
-    pub fn policy_for(self, seed: u64) -> Box<dyn ArticulatedPolicy> {
+    pub fn policy_for(self, seed: u64) -> Box<dyn EmbodiedPolicy> {
         if self.phase_randomised {
-            Box::new(PhaseShiftedScript::new(self.baseline, seed))
+            Box::new(PhaseShiftedScript::new(self.kind, seed))
         } else {
-            self.baseline.policy()
-        }
-    }
-
-    /// The name a table column carries. `+phase` rather than a second column,
-    /// so a figure quoted out of a report says which opponent produced it.
-    pub const fn label(self) -> &'static str {
-        match (self.baseline, self.phase_randomised) {
-            (Baseline::Composed, false) => "composed",
-            (Baseline::Composed, true) => "composed+phase",
-            (Baseline::Windmill, false) => "windmill",
-            (Baseline::Windmill, true) => "windmill+phase",
-            (Baseline::ClosingAttack, false) => "attack-moves",
-            (Baseline::ClosingAttack, true) => "attack-moves+phase",
+            self.kind.build()
         }
     }
 }
 
-impl From<Baseline> for Opponent {
-    fn from(baseline: Baseline) -> Opponent {
-        Opponent::frozen(baseline)
+impl From<EmbodiedPolicyKind> for Opponent {
+    fn from(kind: EmbodiedPolicyKind) -> Opponent {
+        Opponent::frozen(kind)
     }
 }
 
@@ -279,15 +297,21 @@ pub fn held_out_seeds(count: usize) -> Vec<u64> {
     (0..count as u64).map(|i| HELD_OUT_SEED_BASE + i).collect()
 }
 
-/// The pinned fixture reflected across `y = 8`.
+/// The pinned embodied fixture reflected across `y = 8`.
 ///
-/// `lab`'s `mirrored_articulated_duel`, re-derived because it is private there,
-/// and identical for the reason it gives: the spawn yaws are faction-derived --
-/// zero for Heroes, `HALF` for Monsters -- and both are their own negations, so
-/// a Y reflection needs no yaw column. The mirror keeps the fixture's name and
-/// therefore not its fingerprint; nothing measured on it is the canonical pin.
-pub fn mirrored_articulated_duel() -> Scenario {
-    let mut scenario = Scenario::articulated_duel();
+/// `lab`'s `mirrored_embodied`, re-derived because that function and the
+/// `mirror_spawns` it calls are both private there, and **body for body the same
+/// reflection** rather than a fourth one written from scratch: `--mirrored` has
+/// to mean one thing across `lab embodied`, `lab learn-probe` and this crate, or
+/// two corpora that both say "mirrored" are two different corpora. The reason it
+/// is only the spawn row is the one that function records: the spawn yaws are
+/// faction-derived -- zero for Heroes, `HALF` for Monsters -- and both are their
+/// own negations, so a Y reflection needs no yaw column.
+///
+/// The mirror keeps the fixture's name and therefore not its fingerprint;
+/// nothing measured on it is the canonical pin.
+pub fn mirrored_embodied_duel() -> Scenario {
+    let mut scenario = Scenario::embodied_duel();
     let height = scenario.arena().y;
     for unit in scenario.units.iter_mut() {
         unit.spawn.y = height - unit.spawn.y;
@@ -303,8 +327,8 @@ pub fn mirrored_articulated_duel() -> Scenario {
 /// two that say whether the run is trustworthy at all, and the damage pair,
 /// which the return does **not** read. It is a separate struct rather than the
 /// runner's because the runner's cannot be produced by a loop that routes two
-/// policies, and widening `RunResult` with a second policy slot would put an
-/// articulated-only concern on the hot path of every legacy rollout in `lab`.
+/// policies, and widening `RunResult` with a second policy slot would put this
+/// crate's concern on the hot path of every corpus run in `lab`.
 ///
 /// The damage pair is carried because v2-19's comparison table asks for damage
 /// dealt beside the health fractions and reading it off a `World` after the
@@ -455,13 +479,13 @@ impl Mechanics {
 pub struct Recorders<'a> {
     pub mechanics: Option<&'a mut Mechanics>,
     /// The normal replay envelope, recorded exactly as
-    /// [`policy::run_articulated`] records it: the orders at tick zero and the
+    /// [`policy::run_embodied`] records it: the orders at tick zero and the
     /// **stored** command per decision, never the offered one.
     ///
     /// v2-19 asks for held-out runs to be recorded as replays and for a replay
     /// never to load the checkpoint, and this is the half that makes the second
     /// half true by construction: what lands in the envelope is an
-    /// `ArticulatedCommandV1`, so playback needs no model, no weights and no
+    /// `EmbodiedCommandV1`, so playback needs no model, no weights and no
     /// `learn` at all. `recorded_learned_replays_do_not_load_the_model` is the
     /// value-level assertion.
     pub replay: Option<&'a mut Replay>,
@@ -476,8 +500,8 @@ pub struct Recorders<'a> {
 pub fn rollout(
     scenario: &Scenario,
     seed: u64,
-    heroes: &mut dyn ArticulatedPolicy,
-    monsters: &mut dyn ArticulatedPolicy,
+    heroes: &mut dyn EmbodiedPolicy,
+    monsters: &mut dyn EmbodiedPolicy,
     max_ticks: Option<u32>,
 ) -> Rollout {
     rollout_with(
@@ -494,8 +518,8 @@ pub fn rollout(
 pub fn rollout_with(
     scenario: &Scenario,
     seed: u64,
-    heroes: &mut dyn ArticulatedPolicy,
-    monsters: &mut dyn ArticulatedPolicy,
+    heroes: &mut dyn EmbodiedPolicy,
+    monsters: &mut dyn EmbodiedPolicy,
     max_ticks: Option<u32>,
     recorders: &mut Recorders,
 ) -> Rollout {
@@ -504,10 +528,10 @@ pub fn rollout_with(
 
     let config = RunConfig::default();
     let mut world = World::new(scenario, seed);
-    // Set for the reason `run_articulated` sets them: an articulated
-    // observation has no order column so nothing reads these, and they reach the
-    // state hash anyway -- a driver that skipped them would fingerprint a
-    // different world from the one the runner fingerprints for the same seed.
+    // Set for the reason `run_embodied` sets them: an embodied body perceives no
+    // order either, so nothing reads these, and they reach the state hash anyway
+    // -- a driver that skipped them would fingerprint a different world from the
+    // one the runner fingerprints for the same seed.
     for (faction, order) in [
         (Faction::Heroes, config.orders[0]),
         (Faction::Monsters, config.orders[1]),
@@ -570,19 +594,25 @@ pub fn rollout_with(
                 // lockstep question is what the two sides asked for, and a
                 // refused submission is already counted one field down.
                 let roles = ArmRoles::of(&obs);
-                let weapon = height_index(command.arms[roles.weapon].height);
+                // Through `.articulated`, which is where the two heights live:
+                // an `EmbodiedCommandV1` is the shared fifty-three bytes plus a
+                // swing plane per arm, and the plane is not a height. The
+                // bearings underneath are torso-frame now and this audit never
+                // reads one.
+                let arms = command.articulated.arms;
+                let weapon = height_index(arms[roles.weapon].height);
                 commanded.push((
-                    matches!(command.intent, Intent::Attack(_)),
+                    matches!(command.articulated.intent, Intent::Attack(_)),
                     weapon,
-                    height_index(command.arms[1 - roles.weapon].height),
+                    height_index(arms[1 - roles.weapon].height),
                 ));
                 match standing.iter_mut().find(|row| row.0 == id) {
                     Some(row) => row.1 = weapon,
                     None => standing.push((id, weapon)),
                 }
             }
-            match world.submit_articulated_v1(id, command) {
-                SubmitArticulatedOutcome::Stored { command, rejection } => {
+            match world.submit_embodied_v1(id, command) {
+                SubmitEmbodiedOutcome::Stored { command, rejection } => {
                     if rejection.is_some() {
                         rejected += 1;
                     }
@@ -593,11 +623,19 @@ pub fn rollout_with(
                         replay.record_submitted(
                             world.tick(),
                             id,
-                            SubmittedCommand::Articulated(command),
+                            SubmittedCommand::Embodied(command),
                         );
                     }
                 }
-                SubmitArticulatedOutcome::NotStored(_) => rejected += 1,
+                // **A refusal here is almost certainly `WrongModel` and not a
+                // range failure**, because `submit_embodied_v1` compiles against
+                // any world and answers a runtime refusal when the scenario's
+                // grammar disagrees. A harness pointed at an articulated fixture
+                // therefore builds, runs its whole clock, refuses every
+                // submission and reports two bodies standing still -- which is
+                // why `Rollout::rejected` voids a run as evidence rather than
+                // being a statistic beside it.
+                SubmitEmbodiedOutcome::NotStored(_) => rejected += 1,
             }
         }
         if let Some(audit) = recorders.mechanics.as_deref_mut() {
@@ -715,11 +753,12 @@ pub const RETURN_MUTUAL: f32 = 20.0;
 /// since the failure mode there is two bodies that never damage each other at
 /// all rather than two that trade too eagerly.
 ///
-/// **Measured, and the measurement changes what these two are for.** Over 400
-/// mirrored trials of each scripted policy against the composed script
+/// **Measured, and the measurement changes what these two are for. The
+/// measurement is also history, and the constants outlived it.** Over 400
+/// mirrored trials of each *articulated* script against the composed script
 /// (`the_return_components_over_the_corpus`, 2026-08-10), the four terms
-/// average -- and sum, exactly, to the mean return, which is what the test
-/// asserts rather than prints:
+/// averaged -- and summed, exactly, to the mean return, which is what the test
+/// asserted rather than printed:
 ///
 /// | policy | outcome | survival | attrition | time | sum |
 /// |---|---|---|---|---|---|
@@ -727,23 +766,43 @@ pub const RETURN_MUTUAL: f32 = 20.0;
 /// | windmill | 55.875 | 39.956 | 10.136 | -23.743 | 82.225 |
 /// | attack-moves | 54.150 | 39.872 | 5.235 | -23.528 | 75.729 |
 ///
-/// So **survival is very nearly a constant** -- the Fighter ends between 0.988
-/// and 0.999 whatever it does -- and so is the time penalty, because 97-99% of
-/// fights reach the clock. The whole of the discrimination is carried by the
-/// outcome term, whose span is 10.05 points, and the attrition term, whose span
-/// is 6.65. Sixty is therefore the number that makes attrition comparable with
-/// the outcome rather than a rounding error beside it, and that is what it is
-/// chosen for. Forty on survival buys almost nothing today and is kept because
-/// the day a policy learns to lose health is the day it stops being a constant,
-/// and a return with no term for it would reward that policy exactly as much.
+/// Session 05 deleted the corpus and two of the three fighters, so **those six
+/// rows cannot be reproduced on this tree** and are kept as the provenance of
+/// two constants rather than as a current fact. What they bought: **survival is
+/// very nearly a constant** -- the Fighter ended between 0.988 and 0.999
+/// whatever it did -- and so is the time penalty, because 97-99% of fights
+/// reached the clock. The whole of the discrimination was carried by the outcome
+/// term, whose span is 10.05 points, and the attrition term, whose span is 6.65.
+/// Sixty is therefore the number that makes attrition comparable with the
+/// outcome rather than a rounding error beside it, and that is what it is chosen
+/// for. Forty on survival buys almost nothing and is kept because the day a
+/// policy learns to lose health is the day it stops being a constant, and a
+/// return with no term for it would reward that policy exactly as much.
+///
+/// **Re-measured on the embodied corpus**, same command, 2026-08-19:
+///
+/// | policy | outcome | survival | attrition | time | sum |
+/// |---|---|---|---|---|---|
+/// | scripted | 51.888 | 34.749 | 23.871 | -23.484 | 87.023 |
+/// | tactical | 42.250 | 34.526 | 13.941 | -23.778 | 66.939 |
+/// | tactical-fixed-guard | 43.900 | 35.450 | 14.164 | -23.802 | 69.712 |
+///
+/// **The reasoning above survived the model change and one of its premises did
+/// not.** The time penalty is still a constant -- 92 to 99% of fights reach the
+/// clock -- and survival is still nearly one, 0.863 to 0.886. But attrition is
+/// no longer a rounding error: its span is **9.93** points across three
+/// fighters where it was 6.65, and the outcome term's span fell from 10.05 to
+/// 9.64. The two carry the discrimination roughly equally now, where the outcome
+/// term used to carry most of it, and sixty is the weight that made that
+/// possible rather than a number that happened to survive.
 pub const RETURN_SURVIVAL: f32 = 40.0;
 pub const RETURN_ATTRITION: f32 = 60.0;
 
 /// Ticks per point of return lost.
 ///
-/// `lab::fitness::TICK_PENALTY_DIVISOR`, unchanged, and on this corpus it is a
-/// constant: essentially every articulated fight reaches the clock, so every run
-/// pays exactly `3600 / 150 = 24`. It is kept anyway, because the shape is the
+/// `lab::fitness::TICK_PENALTY_DIVISOR`, unchanged, and on this corpus it is
+/// nearly a constant: about 92% of embodied fights reach the clock, so most runs
+/// pay exactly `3600 / 150 = 24`. It is kept anyway, because the shape is the
 /// part that has to survive the day a fight can end early -- a return with no
 /// time term rewards a policy that discovers how to stall, and evolution will
 /// find that out long before anybody reads the corpus.
@@ -852,7 +911,7 @@ pub struct ProbeConfig {
     ///
     /// `evolve.rs` redraws its seed set every generation, to stop a population
     /// overfitting to one set of spawn positions. That argument does not
-    /// transfer: `Scenario::articulated_duel` is hand-placed and the only thing
+    /// transfer: `Scenario::embodied_duel` is hand-placed and the only thing
     /// a seed varies is the sim's RNG stream, so redrawing would buy noise
     /// between generations rather than coverage -- and v2-19 needs a training
     /// seed set a checkpoint can *record*, which a per-generation redraw cannot
@@ -879,8 +938,8 @@ pub struct ProbeConfig {
     pub threads: usize,
     pub master_seed: u64,
     pub max_ticks: Option<u32>,
-    /// Which script the candidate trains against, and whether that script's
-    /// clock is predictable.
+    /// Which registry entry the candidate trains against, and whether that
+    /// fighter's clock is predictable.
     ///
     /// **Not recorded in the checkpoint**, which carries the seed set and the
     /// optimizer settings and not this. That is a real gap and it is written
@@ -905,7 +964,7 @@ impl Default for ProbeConfig {
             threads: 4,
             master_seed: 1,
             max_ticks: None,
-            opponent: Opponent::frozen(Baseline::Composed),
+            opponent: Opponent::frozen(EmbodiedPolicyKind::Scripted),
             verbose: false,
         }
     }
@@ -921,9 +980,9 @@ pub struct Corpus {
 
 impl Corpus {
     pub fn new(mirrored: bool) -> Corpus {
-        let mut scenarios = vec![Scenario::articulated_duel()];
+        let mut scenarios = vec![Scenario::embodied_duel()];
         if mirrored {
-            scenarios.push(mirrored_articulated_duel());
+            scenarios.push(mirrored_embodied_duel());
         }
         Corpus { scenarios }
     }
@@ -951,7 +1010,7 @@ impl Corpus {
     pub fn returns(
         &self,
         seeds: &[u64],
-        candidate: &mut dyn ArticulatedPolicy,
+        candidate: &mut dyn EmbodiedPolicy,
         opponent: Opponent,
         max_ticks: Option<u32>,
         out: &mut Vec<f32>,
@@ -974,7 +1033,7 @@ impl Corpus {
 
 /// Mean return of one model over the configured corpus.
 pub fn score(model: &Model, corpus: &Corpus, config: &ProbeConfig) -> f32 {
-    let mut policy = LearnedArticulatedPolicy::new(model.clone());
+    let mut policy = LearnedEmbodiedPolicy::new(model.clone());
     let mut returns = Vec::with_capacity(corpus.trials(&config.seeds));
     corpus.returns(
         &config.seeds,
@@ -991,7 +1050,7 @@ pub fn score(model: &Model, corpus: &Corpus, config: &ProbeConfig) -> f32 {
 }
 
 pub fn score_v2(model: &ModelV2, corpus: &Corpus, config: &ProbeConfig) -> f32 {
-    let mut policy = LearnedTacticalPolicyV2::new(model.clone());
+    let mut policy = LearnedTacticalEmbodiedPolicyV2::new(model.clone());
     let mut returns = Vec::with_capacity(corpus.trials(&config.seeds));
     corpus.returns(&config.seeds, &mut policy, config.opponent, config.max_ticks, &mut returns);
     if returns.is_empty() { 0.0 } else { returns.iter().sum::<f32>() / returns.len() as f32 }
@@ -1269,8 +1328,8 @@ fn record_v2(config: &ProbeConfig, elite: usize, generations: u32, best_score: f
 #[cfg(test)]
 mod tests {
     use super::*;
-    use learn_core::model::{LearnedArticulatedPolicy, HEIGHTS};
-    use policy::{run_articulated, CYCLE_TICKS, HEIGHT_TICKS};
+    use learn_core::model::{LearnedEmbodiedPolicy, HEIGHTS};
+    use policy::{run_embodied, EMBODIED_CYCLE_TICKS, EMBODIED_HEIGHT_TICKS};
 
     /// The fixture with the two bodies moved inside each other's sight.
     ///
@@ -1278,38 +1337,50 @@ mod tests {
     /// placement is 10.8 apart against a 9.6 sight range, so a test about the
     /// seam rather than about search has to start in contact.
     fn duel_in_sight() -> Scenario {
-        let mut scenario = Scenario::articulated_duel();
+        let mut scenario = Scenario::embodied_duel();
         scenario.units[0].spawn = fx::Vec2::from_ints(10, 8);
         scenario.units[1].spawn = fx::Vec2::from_ints(14, 8);
         scenario
     }
 
+    /// The scripted embodied policy, which is every one of these tests' stand-in
+    /// for "a fighter". `EmbodiedPolicyKind::Scripted` and never
+    /// `ScriptedEmbodiedPolicy::default()`: the default configuration is not the
+    /// shipped row, and a test that built one would be measuring a policy nobody
+    /// selected -- the trap `TacticalEmbodiedPolicy`'s hand-written `Default`
+    /// exists to document.
+    fn scripted() -> Box<dyn EmbodiedPolicy> {
+        EmbodiedPolicyKind::Scripted.build()
+    }
+
     #[test]
     fn the_rollout_is_the_run_the_harness_would_have_driven() {
-        // The third copy of the decision loop in this repository, pinned
+        // The second copy of the decision loop in this repository, pinned
         // against the first. With the *same* policy on both sides the two loops
         // are asking the same question, so they have to produce the same fight
         // down to the state hash -- which is the only thing that can catch this
-        // copy drifting from `run_articulated`.
+        // copy drifting from `run_embodied`.
+        //
+        // **`rejected` being equal is not enough on its own and never was.**
+        // `submit_embodied_v1` compiles against any world and refuses at
+        // runtime, so two loops that both submitted nothing would agree on every
+        // field here. The state hash is what makes the agreement mean a fight
+        // happened, and the explicit zero below is what says the fight was the
+        // one the policies asked for.
         let scenario = duel_in_sight();
         let config = RunConfig {
             max_ticks: Some(240),
             ..RunConfig::default()
         };
-        let harness = run_articulated(&scenario, 3, ScriptedArticulatedPolicy, &config);
-        let mine = rollout(
-            &scenario,
-            3,
-            &mut ScriptedArticulatedPolicy,
-            &mut ScriptedArticulatedPolicy,
-            Some(240),
-        );
+        let harness = run_embodied(&scenario, 3, scripted(), &config);
+        let mine = rollout(&scenario, 3, scripted().as_mut(), scripted().as_mut(), Some(240));
         assert_eq!(mine.state_hash, harness.state_hash);
         assert_eq!(mine.ticks, harness.ticks);
         assert_eq!(mine.outcome, harness.outcome);
         assert_eq!(mine.hero_health, harness.hero_health);
         assert_eq!(mine.monster_health, harness.monster_health);
         assert_eq!(mine.rejected, harness.rejected);
+        assert_eq!(mine.rejected, 0, "the embodied grammar refused a scripted embodied command");
     }
 
     #[test]
@@ -1322,12 +1393,12 @@ mod tests {
         // not the training that is under test.
         for seed in 0..4u64 {
             let mut rng = Rng::new(seed * 7 + 1);
-            let mut learned = LearnedArticulatedPolicy::new(Model::random(&mut rng));
+            let mut learned = LearnedEmbodiedPolicy::new(Model::random(&mut rng));
             let result = rollout(
                 &duel_in_sight(),
                 seed,
                 &mut learned,
-                &mut ScriptedArticulatedPolicy,
+                scripted().as_mut(),
                 Some(300),
             );
             assert_eq!(result.rejected, 0, "seed {seed}");
@@ -1350,17 +1421,25 @@ mod tests {
 
     #[test]
     fn the_phase_offsets_cover_the_scripts_whole_period() {
-        // 2,160 is a claim about three constants in `policy`, and a claim about
+        // 2,160 is a claim about two constants in `policy`, and a claim about
         // somebody else's constants is exactly the kind that stops being true
-        // quietly. Recomputed from them rather than pinned as a literal.
+        // quietly. Recomputed from them rather than pinned as a literal -- which
+        // matters more since the reseat than it did before it, because the
+        // embodied clocks are 120 and 270 where the articulated ones were 360
+        // and 270 and the least common multiple came out the same by
+        // coincidence. A literal would have survived that unchanged and said
+        // nothing.
         fn gcd(a: u32, b: u32) -> u32 {
             if b == 0 { a } else { gcd(b, a % b) }
         }
         let lcm = |a: u32, b: u32| a / gcd(a, b) * b;
-        // The three clocks: twelve phases of `PHASE_TICKS` (which is
-        // `CYCLE_TICKS`), the height selector's `HEIGHT_TICKS * 3`, and the cut
-        // reversal's `CYCLE_TICKS * 2`.
-        let period = lcm(lcm(CYCLE_TICKS, HEIGHT_TICKS * 3), CYCLE_TICKS * 2);
+        // The three clocks: four phases making up `EMBODIED_CYCLE_TICKS`, the
+        // height selectors' `EMBODIED_HEIGHT_TICKS * 3`, and the cut reversal's
+        // `EMBODIED_CYCLE_TICKS * 2`.
+        let period = lcm(
+            lcm(EMBODIED_CYCLE_TICKS, EMBODIED_HEIGHT_TICKS * 3),
+            EMBODIED_CYCLE_TICKS * 2,
+        );
         assert_eq!(period, SCRIPT_PERIOD_TICKS);
 
         // And the draw actually spreads over it. Sixteen buckets, a thousand
@@ -1389,7 +1468,7 @@ mod tests {
         // shifted tick, so nothing about the fighter has changed except when it
         // is in its cycle. Second: it is a *different fight*, so the wrapper
         // reached the world at all.
-        let mut wrapped = PhaseShiftedScript::new(Baseline::Composed, 11);
+        let mut wrapped = PhaseShiftedScript::new(EmbodiedPolicyKind::Scripted, 11);
         let offset = wrapped.offset();
         assert!(offset > 0, "seed 11 drew a zero offset; pick another seed");
 
@@ -1406,22 +1485,16 @@ mod tests {
         shifted.tick = 137 + offset;
         assert_eq!(
             wrapped.decide(&obs),
-            ScriptedArticulatedPolicy.decide(&shifted),
+            scripted().decide(&shifted),
             "the wrapper is not the script it wraps"
         );
 
-        let frozen = rollout(
-            &scenario,
-            11,
-            &mut ScriptedArticulatedPolicy,
-            &mut ScriptedArticulatedPolicy,
-            Some(600),
-        );
+        let frozen = rollout(&scenario, 11, scripted().as_mut(), scripted().as_mut(), Some(600));
         let randomised = rollout(
             &scenario,
             11,
-            &mut ScriptedArticulatedPolicy,
-            &mut PhaseShiftedScript::new(Baseline::Composed, 11),
+            scripted().as_mut(),
+            &mut PhaseShiftedScript::new(EmbodiedPolicyKind::Scripted, 11),
             Some(600),
         );
         assert_ne!(
@@ -1436,8 +1509,8 @@ mod tests {
         let again = rollout(
             &scenario,
             11,
-            &mut ScriptedArticulatedPolicy,
-            &mut PhaseShiftedScript::new(Baseline::Composed, 11),
+            scripted().as_mut(),
+            &mut PhaseShiftedScript::new(EmbodiedPolicyKind::Scripted, 11),
             Some(600),
         );
         assert_eq!(again.state_hash, randomised.state_hash, "the control is not reproducible");
@@ -1451,20 +1524,14 @@ mod tests {
         // kind of obvious that a later audit reading something it has to compute
         // could quietly stop being.
         let scenario = duel_in_sight();
-        let plain = rollout(
-            &scenario,
-            5,
-            &mut ScriptedArticulatedPolicy,
-            &mut ScriptedArticulatedPolicy,
-            Some(600),
-        );
+        let plain = rollout(&scenario, 5, scripted().as_mut(), scripted().as_mut(), Some(600));
         let mut mechanics = Mechanics::default();
         let mut replay = sim::Replay::new(&scenario, 5);
         let audited = rollout_with(
             &scenario,
             5,
-            &mut ScriptedArticulatedPolicy,
-            &mut ScriptedArticulatedPolicy,
+            scripted().as_mut(),
+            scripted().as_mut(),
             Some(600),
             &mut Recorders {
                 mechanics: Some(&mut mechanics),
@@ -1501,8 +1568,8 @@ mod tests {
         // It is two different facts in the two directions, and both are needed:
         // the candidate is always the Fighter, but the region table pools every
         // weapon/body row, so the Brute's swings are in the same column.
-        let scenario = Scenario::articulated_duel();
-        let table = scenario.combat_specs.as_ref().expect("an articulated fixture");
+        let scenario = Scenario::embodied_duel();
+        let table = scenario.combat_specs.as_ref().expect("a combat fixture");
         let spec = |unit: usize| {
             let row = scenario.units[unit].articulated.expect("an articulated unit");
             (
@@ -1604,8 +1671,8 @@ mod tests {
         let plain = rollout_with(
             &duel_in_sight(),
             9,
-            &mut ScriptedArticulatedPolicy,
-            &mut ScriptedArticulatedPolicy,
+            scripted().as_mut(),
+            scripted().as_mut(),
             Some(300),
             &mut Recorders { mechanics: Some(&mut mechanics), replay: None },
         );
@@ -1783,7 +1850,7 @@ mod tests {
             threads: 1,
             master_seed: 99,
             max_ticks: Some(180),
-            opponent: Opponent::frozen(Baseline::Composed),
+            opponent: Opponent::frozen(EmbodiedPolicyKind::Scripted),
             verbose: false,
         };
         let one = train(&base);
@@ -1796,20 +1863,46 @@ mod tests {
     }
 
     #[test]
-    fn every_baseline_names_itself_and_fights() {
-        for baseline in Baseline::ALL {
-            assert_eq!(Baseline::from_name(baseline.name()), Some(baseline));
-            let mut candidate = baseline.policy();
+    fn every_registry_entry_names_itself_and_fights_this_corpus() {
+        // **The whole registry and not the subset this crate measures**, which
+        // is the point: `EmbodiedPolicyKind` is append-only and belongs to
+        // `crates/policy`, so the entry that breaks here is the one somebody
+        // added without a corpus in mind. It replaces
+        // `every_baseline_names_itself_and_fights`, which walked this crate's
+        // own three-entry copy of a vocabulary that no longer exists.
+        for kind in EmbodiedPolicyKind::ALL {
+            assert_eq!(EmbodiedPolicyKind::from_name(kind.name()), Some(kind));
+            let mut candidate = kind.build();
             let result = rollout(
                 &duel_in_sight(),
                 5,
                 candidate.as_mut(),
-                &mut ScriptedArticulatedPolicy,
+                scripted().as_mut(),
                 Some(180),
             );
-            assert_eq!(result.rejected, 0, "{}", baseline.name());
+            assert_eq!(result.rejected, 0, "{}", kind.name());
             assert!(shaped_return(&result).is_finite());
         }
-        assert_eq!(Baseline::from_name("nonesuch"), None);
+        assert_eq!(EmbodiedPolicyKind::from_name("nonesuch"), None);
+
+        // And the two entries this crate deliberately does not measure are still
+        // the reason it does not. `Neutral` is a body that never commands a
+        // weapon height at all, so it cannot be a row in a table about aiming;
+        // `ScriptedLevel` is byte for byte `Scripted` on a flat fixture, which
+        // `embodied-duel-v1` is, so a row for it would print the same fighter
+        // twice. Both are asserted rather than asserted-about-in-prose, because
+        // the second one stops being true the day this corpus grows a hill.
+        let level = rollout(
+            &duel_in_sight(),
+            5,
+            EmbodiedPolicyKind::ScriptedLevel.build().as_mut(),
+            scripted().as_mut(),
+            Some(180),
+        );
+        let seeking = rollout(&duel_in_sight(), 5, scripted().as_mut(), scripted().as_mut(), Some(180));
+        assert_eq!(
+            level.state_hash, seeking.state_hash,
+            "the elevation term moved a fight on flat ground",
+        );
     }
 }

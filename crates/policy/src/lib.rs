@@ -97,16 +97,13 @@ mod runner;
 
 pub use articulated_script::{
     script_digest, scripted_articulated_command, scripted_articulated_command_with,
-    windmill_articulated_command, ArmRoles, AttackFootwork, ClosingAttackControlPolicy,
-    ScriptedArticulatedPolicy, WindmillArticulatedPolicy, CYCLE_TICKS, EIGHTH_TURN,
+    windmill_articulated_command, AttackFootwork, ClosingAttackControlPolicy,
+    ScriptedArticulatedPolicy, WindmillArticulatedPolicy, CYCLE_TICKS,
     GUARD_LEAD_TICKS, HEIGHT_TICKS, PHASE_TICKS, SCRIPT_DIGEST_DOMAIN,
 };
 pub use articulated_tactics::{
-    robust_strike_schedule_command, OpeningsArticulatedPolicy, PlanScoring, StrikeDiagnostics,
-    StrikePlan, StrikePlanner, StrikerArticulatedPolicy,
-    TacticalArticulatedPolicy, TacticalContextV1, TacticalIntentV1, TacticalPhase,
-    ThreatAssessmentV1, OPENINGS_POLICY_CODE, ROBUST_STRIKE_HEIGHT, ROBUST_STRIKE_TICKS,
-    TACTICAL_INTENT_COUNT, TACTICAL_PHASE_COUNT, TACTICAL_POLICY_CODE,
+    robust_strike_schedule_command, OpeningsArticulatedPolicy, StrikerArticulatedPolicy,
+    TacticalArticulatedPolicy, OPENINGS_POLICY_CODE, TACTICAL_POLICY_CODE,
 };
 pub use composition::{
     CommandAuthority, ComposedController, CompositionError, PartialEmbodiedSource, PolicySource,
@@ -124,12 +121,16 @@ pub use embodied_script::{
     ScriptedEmbodiedPolicy, EMBODIED_CYCLE_TICKS, EMBODIED_HEIGHT_TICKS, EMBODIED_PHASE_TICKS,
 };
 pub use embodied_tactics::{
-    into_torso, into_torso_frame, TacticalConfig, TacticalEmbodiedPolicy,
-    FIXED_GUARD_EMBODIED_POLICY_CODE, TACTICAL_EMBODIED_POLICY_CODE,
+    into_torso, into_torso_frame, PlanScoring, StrikeDiagnostics, StrikePlan, StrikePlanner,
+    TacticalConfig, TacticalContextV1, TacticalEmbodiedPolicy, TacticalIntentV1, TacticalPhase,
+    ThreatAssessmentV1, FIXED_GUARD_EMBODIED_POLICY_CODE, ROBUST_STRIKE_HEIGHT,
+    ROBUST_STRIKE_TICKS, TACTICAL_EMBODIED_POLICY_CODE, TACTICAL_INTENT_COUNT,
+    TACTICAL_PHASE_COUNT,
 };
 pub use neutral::{neutral_articulated_command, NeutralArticulatedPolicy};
-pub use runner::{run_articulated, RunConfig, RunResult};
+pub use runner::{run_articulated, run_embodied, RunConfig, RunResult};
 
+use fx::Angle;
 use sim::{ArticulatedCommandV1, ArticulatedObservation, EmbodiedCommandV1};
 
 /// Turns a subject-scoped articulated observation into a decision.
@@ -297,6 +298,103 @@ impl<P: EmbodiedPolicy + ?Sized> EmbodiedPolicy for Box<P> {
 
     fn reset(&mut self) {
         (**self).reset();
+    }
+}
+
+/// An eighth of a turn, raw.
+///
+/// Spelled out because [`Angle`] names [`Angle::QUARTER`] and [`Angle::HALF`]
+/// and stops there, and the cut chamber offset is half a quarter. Written as a
+/// constant rather than `Angle::QUARTER` halved so that the number in the
+/// reference table and the number here are the same literal.
+///
+/// **Here rather than in a script, because it outlives every script.** It was
+/// declared in `articulated_script.rs` and declared a second time, privately and
+/// identically, in `articulated_tactics.rs`; session 05 deletes both files and
+/// the number survives them -- the strike arcs either side of a bearing are an
+/// eighth, the scripted guard arc is an eighth, and
+/// `learn_core::model::BEARING_OFFSETS` is an eighth each way. That last one is
+/// why the two copies were a hazard rather than a duplication:
+/// `the_action_table_is_the_scripts_own_vocabulary` pins the learned action
+/// table against *this* constant, so a private second copy that drifted would
+/// move an action decode without moving the test that watches it.
+pub const EIGHTH_TURN: Angle = Angle::from_raw(8_192);
+
+/// Which arm guards and which arm strikes.
+///
+/// Both are read out of the capability mask and the published grips rather than
+/// out of the scenario, because a policy has no scenario -- and because the
+/// answer changes mid-fight when an arm comes off.
+///
+/// **Public because a measurement of this script cannot attribute a height
+/// without it.** `lab articulated` reports the joint distribution of (attacker
+/// weapon height, defender guard height), and "which of the two commanded arms
+/// is the weapon" is a fact about the script rather than about the fixture: it
+/// moves when an arm is severed, so a lab that re-derived it from the
+/// capability mask would be a second copy of the rule below, free to drift from
+/// it exactly when a fight got interesting.
+///
+/// **Beside the two seam traits since session 05, because the paragraph above
+/// is not really about a script.** The rule reads an
+/// [`ArticulatedObservation`], which both seams take, and what it answers -- the
+/// right hand when both are armed, the live one when the right came off -- is a
+/// fact about a *body*. The file it was written in is being deleted, and
+/// `embodied_script.rs`, `embodied_guard.rs` and the strike planner all still
+/// ask it the same question about bodies that have no script at all.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ArmRoles {
+    pub guard: usize,
+    pub weapon: usize,
+}
+
+impl ArmRoles {
+    pub fn of(obs: &ArticulatedObservation) -> ArmRoles {
+        let weapon_bit = [
+            ArticulatedObservation::LEFT_WEAPON,
+            ArticulatedObservation::RIGHT_WEAPON,
+        ];
+        // The right hand when both are armed. That is the sim's own ownership
+        // rule -- a two-handed item fills the right slot and clears the left
+        // weapon bit -- so following it here keeps "the weapon arm" meaning the
+        // arm that owns the collider.
+        //
+        // **A disarmed body still has to name one**, because the script is total
+        // and the four attack phases have to point somewhere. The reference does
+        // not cover this cell at all, so the fallback is a resolution: the right
+        // arm, unless the right arm is the one that came off. A Fighter that has
+        // lost its sword arm would otherwise spend a third of every cycle
+        // swinging a stump *and* tucking the live shield the tuck rule takes
+        // away from it -- defenceless and harmless at once -- which cannot be
+        // what the table means by "the weapon arm" on a body that has none.
+        //
+        // Half of that stopped being true on 2026-08-10: the off arm now holds
+        // [`off_hand`] rather than the tuck, so the wrong answer here would
+        // leave that Fighter guarded and merely harmless instead of both. The
+        // resolution does not change -- swinging a stump for a third of every
+        // cycle is still the thing being avoided -- but the second clause of
+        // the argument for it is gone and should not be quoted.
+        let weapon = if obs.can(weapon_bit[1]) {
+            1
+        } else if obs.can(weapon_bit[0]) {
+            0
+        } else if obs.arms[1].severed && !obs.arms[0].severed {
+            0
+        } else {
+            1
+        };
+        // The occupied hand that is not holding a weapon, which is the shield
+        // hand without needing to know which side the shield binds to. Reading
+        // `SHIELD` alone would not say *where* it is, and reading the equipment
+        // id alone would need the spec table this side of the seam cannot see.
+        let shield = if obs.can(ArticulatedObservation::SHIELD) {
+            (0..2).find(|&i| obs.arms[i].equipment.is_some() && !obs.can(weapon_bit[i]))
+        } else {
+            None
+        };
+        ArmRoles {
+            guard: shield.unwrap_or(weapon),
+            weapon,
+        }
     }
 }
 

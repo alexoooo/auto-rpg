@@ -153,11 +153,22 @@ impl Replay {
     /// through [`World::step_with_arm_rates`]; without the matching seam here
     /// the live and replayed halves would disagree the moment somebody tuned
     /// the actuator, and the fixture would report that as a replay divergence
-    /// rather than as the actuator change it is. Private, with
-    /// [`Replay::play_until_with_arm_calibration`] below as the one way past
-    /// it: raw rates are this crate's own spelling, and a caller that has to
-    /// name two loose integers has two chances to name a pair no live half
-    /// used.
+    /// rather than as the actuator change it is.
+    ///
+    /// **Private, and with nothing past it any more.** *Nothing outside this
+    /// crate records a run at anything but the production pair* was this
+    /// comment's claim until 2026-08-15, when Lab froze strike fixtures that
+    /// recorded a run and replayed it as their own check; an
+    /// `ArmCalibration`-typed seam was opened here so pinning their live half
+    /// alone could not make an actuator change arrive as "live and replay
+    /// disagree", which is the one sentence a live-versus-replay comparison
+    /// must never be able to say by accident. Those fixtures were deleted with
+    /// the articulated model, so the claim is true again and the seam went with
+    /// them. What did not change is why the rates travel as a named pair:
+    /// `exact_diagnostics` and this file's own exact tests still record and
+    /// replay at `exact_diagnostics::CAPTURED_ARM_RATES`, and a caller that
+    /// names two loose integers instead has two chances to name a pair no live
+    /// half used.
     pub(crate) fn play_until_with_arm_rates(
         &self, ticks: u32, bearing_max_speed_raw: i32, bearing_accel_raw: i32,
     ) -> World {
@@ -207,33 +218,6 @@ impl Replay {
         }
 
         world
-    }
-
-    /// The Lab-visible half of the seam above, paired with
-    /// [`World::step_with_arm_calibration`].
-    ///
-    /// The sentence this comment used to carry -- *nothing outside this crate
-    /// records a run at anything but the production pair* -- stopped being true
-    /// on 2026-08-15, and the way it stopped is the reason this exists. Lab's
-    /// frozen strike fixtures record a run and then replay it as their own
-    /// check, so pinning only their live half would have made an actuator
-    /// change arrive as "live and replay disagree" -- the one sentence a
-    /// live-versus-replay comparison must never be able to say by accident.
-    /// Behind `lab-calibration` and taking an [`ArmCalibration`] rather than
-    /// two integers for the same reasons the stepping seam does: nothing that
-    /// ships records a run at anything but the production pair, and the pair
-    /// travels as one value so the two halves cannot be given different ones.
-    ///
-    /// [`ArmCalibration`]: crate::ArmCalibration
-    #[cfg(feature = "lab-calibration")]
-    pub fn play_until_with_arm_calibration(
-        &self, ticks: u32, calibration: crate::ArmCalibration,
-    ) -> World {
-        self.play_until_with_arm_rates(
-            ticks,
-            calibration.bearing_max_speed_raw,
-            calibration.bearing_accel_raw,
-        )
     }
 }
 

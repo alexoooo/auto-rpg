@@ -5,14 +5,48 @@
 //! the evidence rows needed to review why that authority moved.
 
 use crate::{AnatomyChoice, AnatomyState, ArmTarget, ArticulatedCommandV1, Body, BodyPart,
-            CombatHeight, ContactKind, ContactResolution, DuelConfigV1, EntityId,
-            EquipmentGeometry, GripRequest, HashDomain, Intent, LimbSlot,
-            RecoilExternalEnergy, ReleaseRequest, Replay, ResolutionError, Scenario,
-            SubmitArticulatedOutcome, SubmittedCommand, World,
+            CombatHeight, CombatModel, ContactKind, ContactResolution, DuelConfigV1,
+            EmbodiedCommandV1, EntityId, EquipmentGeometry, GripRequest, HashDomain, Intent,
+            LimbSlot, RecoilExternalEnergy, ReleaseRequest, Replay, ResolutionError, Scenario,
+            SubmitEmbodiedOutcome, SubmittedCommand, World,
             ARTICULATED_PAYLOAD_BYTES, SUBMITTED_COMMAND_LAYOUT_VERSION};
 use fx::{Angle, Fx, Hash64, Vec2, Vec3};
 
 const TICKS: u32 = 56;
+
+/// [`Scenario::duel_from`] under the model these fixtures now drive.
+///
+/// **The model is named here rather than inherited**, and that is the whole
+/// reason this function exists. `duel_from` is an articulated constructor at the
+/// moment this was written and a later step of the same session reseats it; a
+/// fixture that waited for that would have changed model twice -- once when it
+/// was ported and once when the constructor moved under it -- and both pins
+/// below would have moved twice with one registry sentence to explain it.
+/// Writing the word here means each pin moves exactly once, for exactly this
+/// reason, and the second reseat is a no-op it can prove.
+fn embodied_duel_from(config: &DuelConfigV1) -> Option<Scenario> {
+    let mut scenario = Scenario::duel_from(config).ok()?;
+    scenario.combat_model = CombatModel::Embodied;
+    Some(scenario)
+}
+
+/// Whether both bodies are still standing exactly as they spawned.
+///
+/// **The embodied tick runs `P_STANCE` where the articulated one runs
+/// `P_BODY_YAW`**, and `drive_stance` turns the torso against the hips under a
+/// twist budget and can spend a step to do it. Neither fixture below asks for a
+/// turn or a stride, so the legs should be inert -- but "should be inert" is the
+/// shape of claim this repository keeps discovering was wrong, and an inert
+/// phase that silently stopped being inert would turn a north-wall
+/// stored-command transcript into a different experiment while the digest went
+/// on looking like a guard. Checked every tick rather than at the end: a hip
+/// that turned and turned back would pass an endpoint comparison.
+fn legs_are_inert(world: &World, ids: [EntityId; 2], hips: [Angle; 2]) -> bool {
+    ids.iter().zip(hips).all(|(id, hip)| {
+        matches!(world.stance(*id), Some(stance)
+            if stance.step_left == 0 && stance.hip_yaw == hip)
+    })
+}
 
 /// The arm slew ceiling and acceleration the exact fixtures were captured at.
 ///
@@ -41,7 +75,15 @@ const TICKS: u32 = 56;
 /// the attacker's tick-54 release row) were never seen -- so `digest_with`
 /// refused. The lifted neighbourhood stayed on its feet and lost its mechanics
 /// gate instead: the same blade arrived hard enough to dissipate 985 raw where
-/// the frozen row dissipates 278.
+/// the frozen row then dissipated 278.
+///
+/// **Those five numbers are the deleted model's, and the experiment is not
+/// re-runnable on this tree**; they are kept rather than restated because what
+/// they demonstrate -- that this pair decides which tick of a swing touches, and
+/// that a wrong pair makes a pin inert rather than red -- is the argument, and
+/// it survived the port unchanged. Ported to the embodied body the same fixture
+/// witnesses ticks `[44, 45]`, a remainder window opening at 44, a tick-44 wall
+/// row and the same tick-54 release row, and the lifted row dissipates 147.
 ///
 /// What still moves these digests is a change to the exact solver, the contact
 /// grammar, the stored-command layout or the fixed-point arithmetic under them,
@@ -164,42 +206,71 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
     // The north wall was selected by the measured response direction. Moving
     // the old east-wall premise until it happened to collide would have made
     // this a searched corpus rather than the ordinary source-41 strike.
+    //
+    // **The range closed to exactly three quarters when the fixture was ported
+    // to the embodied body, and the bearing did not move at all.** Both
+    // components of `(-163_840, -65_536)` divide by four exactly, so
+    // `(-offset).angle()` -- and with it the chamber and strike bearings the
+    // schedule below is written in -- is bit-identical to the one the deleted
+    // model's fixture used. What changed is the *reach the arm can hold*:
+    // `World::world_arm_target` clamps an embodied arm through
+    // `combat::limb::reachable_extent`, and this fixture's `CombatHeight` of
+    // `16_384` sits 0.95 of a metre below a 0.75-metre arm's shoulder, so the
+    // commanded reach of `Fx::ONE` is held at the elbow's minimum instead. The
+    // blade starts that much closer to the body, and the strike fell short of a
+    // body it used to reach. Closing the range by a fixed exact ratio is the
+    // opposite of searching for a collision: one number, chosen so the line of
+    // attack is arithmetically the same one.
     let mut config = DuelConfigV1::shipped();
     let target = Vec2::new(Fx::from_int(12), Fx::from_int(16) - Body::Brute.radius());
     if target.y.raw() != 1_002_701 { return None; }
-    let offset = Vec2::new(Fx::from_raw(-163_840), Fx::from_raw(-65_536));
+    let offset = Vec2::new(Fx::from_raw(-122_880), Fx::from_raw(-49_152));
     config.fighters[1].spawn = target;
     config.fighters[0].spawn = target + offset;
     config.fighters[0].hands[1].as_mut()?.geometry = EquipmentGeometry::Segment {
         length: Fx::from_int(2), radius: Fx::from_ratio(1, 25),
     };
     config.max_ticks = TICKS;
-    let scenario = Scenario::duel_from(&config).ok()?;
+    let scenario = embodied_duel_from(&config)?;
     let mut first = World::new(&scenario, 0);
     let mut second = World::new(&scenario, 0);
     let mut replay = Replay::new(&scenario, 0);
     let attacker = EntityId::new(0, 0);
     let defender = EntityId::new(1, 0);
+    let bodies = [attacker, defender];
     let yaws = [first.articulated_pose(attacker)?.body_yaw,
                 first.articulated_pose(defender)?.body_yaw];
+    let hips = [first.stance(attacker)?.hip_yaw, first.stance(defender)?.hip_yaw];
     let toward = (-offset).angle();
     let chamber = toward - Angle::from_raw(8_192);
     let strike = toward + Angle::from_raw(8_192);
     let strike_height = CombatHeight::try_from_raw(16_384)?;
+    // **`body_yaw` is absolute under both frames and every arm bearing is not.**
+    // The world re-adds the yaw the body is holding in `World::world_arm_target`,
+    // so a fixture that kept writing world bearings would aim every arm a whole
+    // facing away from where it aimed under the deleted model. An idle arm is
+    // therefore `Angle::ZERO` -- along the torso -- and not the yaw it used to
+    // repeat, and `move_dir` is the one field that ports by luck, because zero
+    // rotates to zero.
     let neutral = |yaw| {
-        let arm = ArmTarget { bearing: yaw, height: CombatHeight::MID,
+        let arm = ArmTarget { bearing: Angle::ZERO, height: CombatHeight::MID,
                               reach: Fx::ZERO, effort: Fx::ZERO };
         ArticulatedCommandV1 { move_dir: Vec2::ZERO, body_yaw: yaw,
             intent: Intent::Hold, arms: [arm; 2], grips: [GripRequest::Keep; 2],
             releases: [ReleaseRequest::Keep; 2] }
     };
-    let command_at = |tick, id| {
+    // `held` is the yaw read off the body at submission and **not** the yaw the
+    // command requests: `body_yaw` is a request the actuator chases at a bounded
+    // rate, so subtracting it would land the arm short by the whole turn on any
+    // tick that asked for one. `policy::embodied_tactics::into_torso_frame` is
+    // the same subtraction for the same reason and says so at length.
+    let command_at = |tick, id, held: Angle| {
         if id == defender { return neutral(yaws[1]); }
         let mut command = neutral(yaws[0]);
         if tick < 53 {
             command.intent = Intent::Attack(defender);
             command.arms[1] = ArmTarget {
-                bearing: if tick < 28 { chamber } else { strike },
+                bearing: (if tick < 28 { chamber } else { strike }) - held,
                 height: strike_height,
                 reach: if tick < 28 { Fx::ONE } else { Fx::from_raw(61_440) },
                 effort: Fx::ONE,
@@ -232,20 +303,25 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
     let (max_speed, accel) = CAPTURED_ARM_RATES;
 
     for tick in 0..TICKS {
-        for id in [attacker, defender] {
-            let requested = command_at(tick, id);
-            let stored = match first.submit_articulated_v1(id, requested) {
-                SubmitArticulatedOutcome::Stored { command, rejection: None } => command,
+        for id in bodies {
+            let requested = command_at(tick, id, first.articulated_pose(id)?.body_yaw);
+            let stored = match first.submit_embodied_v1(id, EmbodiedCommandV1::new(requested)) {
+                SubmitEmbodiedOutcome::Stored { command, rejection: None } => command,
                 _ => return None,
             };
             let rerun = if verify_reproduction {
-                match second.submit_articulated_v1(id, requested) {
-                    SubmitArticulatedOutcome::Stored { command, rejection: None } => command,
+                // Framed against `second`'s own body rather than handed
+                // `first`'s command, so that the rerun proves the torso
+                // conversion reproduces as well as the submission does.
+                let rerun_requested =
+                    command_at(tick, id, second.articulated_pose(id)?.body_yaw);
+                match second.submit_embodied_v1(id, EmbodiedCommandV1::new(rerun_requested)) {
+                    SubmitEmbodiedOutcome::Stored { command, rejection: None } => command,
                     _ => return None,
                 }
             } else { stored };
             if rerun != stored { return None; }
-            replay.record_submitted(tick, id, SubmittedCommand::Articulated(stored));
+            replay.record_submitted(tick, id, SubmittedCommand::Embodied(stored));
         }
         first.step_with_arm_rates(max_speed, accel);
         if verify_reproduction { second.step_with_arm_rates(max_speed, accel); }
@@ -287,6 +363,9 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
             || played.exact_contact_group_diagnostics().iter().any(|row| row.reject.is_some()) {
             return None;
         }
+        if !legs_are_inert(&first, bodies, hips) || !legs_are_inert(&played, bodies, hips) {
+            return None;
+        }
 
         hash.write_u32(tick + 1);
         let commands = replay.submitted_entries.iter().filter(|row| row.tick == tick)
@@ -301,8 +380,8 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
             hash.write_u8(1);
             hash.write_u8(0);
             hash.write_u16(ARTICULATED_PAYLOAD_BYTES as u16);
-            let SubmittedCommand::Articulated(command) = row.command else { return None };
-            let mut payload = command.payload_bytes();
+            let SubmittedCommand::Embodied(command) = row.command else { return None };
+            let mut payload = command.articulated.payload_bytes();
             if mutation.command_byte && !changed_command {
                 payload[0] ^= 1;
                 changed_command = true;
@@ -330,12 +409,22 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
         for row in played.contact_resolutions() {
             // **A volume compared against a region discriminant, and it is exact
             // rather than lucky.** Volumes `0..5` are the five regions in their
-            // own order, so the Legs *volume* is the Legs *region*'s number.
-            // What this predicate would not catch is a forearm blow -- volume 5
-            // or 6 -- and it is not meant to: the fixture is a thrust at a leg.
+            // own order, so the Torso *volume* is the Torso *region*'s number,
+            // and volumes 5 and 6 -- the two forearms an embodied arm presents
+            // -- are appended after them rather than renumbering anything.
+            //
+            // **It was the Legs until this fixture was ported, and the region
+            // moved for a reason worth keeping.** An embodied arm cannot hold a
+            // hand 0.95 metres below its own shoulder, so the clamp lifts this
+            // strike from a thrust at a leg to a cut across the chest, and the
+            // defender's forearm -- which the deleted model did not present to
+            // the solver at all -- now hangs between the blade and the leg it
+            // used to reach. `an_articulated_arm_target_is_still_unclamped` is
+            // the test that recorded the old model's freedom to command the
+            // pose this one refuses.
             if row.fact.key.kind == ContactKind::WeaponBody
                 && row.fact.key.a == attacker && row.fact.key.a_slot == 1
-                && row.fact.key.b == defender && row.fact.volume == BodyPart::Legs as u8 {
+                && row.fact.key.b == defender && row.fact.volume == BodyPart::Torso as u8 {
                 if weapon_body_ticks.last() != Some(&(tick + 1)) {
                     weapon_body_ticks.push(tick + 1);
                 }
@@ -369,13 +458,18 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
             } else { row.reason };
             hash.write_u8(reason); write_i128(&mut hash, row.signed_numerator);
             write_i128(&mut hash, row.denominator);
+            // Both witnesses are keyed to a tick and to an exact rational, and
+            // both were re-read when the range closed -- the wall row on the
+            // tick the blade lands, which is now 44, and the release row on the
+            // tick after the grip lets go, which is still 54 because the grip
+            // schedule did not move.
             wall |= row.entity == defender && row.lane == 0
                 && row.reason == RecoilExternalEnergy::WALL
-                && tick + 1 == 45 && row.signed_numerator == -9_986_235_012
+                && tick + 1 == 44 && row.signed_numerator == -12_045_818_473
                 && row.denominator == 8_589_934_592;
             release |= row.entity == attacker && row.lane == 2
                 && row.reason == RecoilExternalEnergy::RELEASE
-                && tick + 1 == 54 && row.signed_numerator == -1_073_625_268_272
+                && tick + 1 == 54 && row.signed_numerator == -503_974_948_800
                 && row.denominator == 8_589_934_592;
         }
         for id in [attacker, defender] {
@@ -390,9 +484,9 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
             }
         }
     }
-    if accepted_groups != 2 || weapon_body_ticks != [45, 46]
-        || momentum_ticks != (45..=56).collect::<Vec<_>>()
-        || position_ticks != (45..=56).collect::<Vec<_>>()
+    if accepted_groups != 2 || weapon_body_ticks != [44, 45]
+        || momentum_ticks != (44..=56).collect::<Vec<_>>()
+        || position_ticks != (44..=56).collect::<Vec<_>>()
         || !momentum_remainder || !position_remainder || !wall || !release {
         return None;
     }
@@ -410,7 +504,12 @@ pub fn exact_trajectory_state_digest() -> u64 {
     digest_with(DigestMutation::default()).unwrap_or(0)
 }
 
-const LIFTED_OFFSET: Vec2 = Vec2::new(Fx::from_raw(-163_840), Fx::from_raw(-65_536));
+/// Three quarters of the frozen `(-2.5, -1.0)`, and the same value
+/// `digest_with` spawns its attacker at -- see the argument there for why the
+/// range closed and the bearing did not. Both components divide by four exactly,
+/// so `(-LIFTED_OFFSET).angle()` is the bearing the deleted model's fixture
+/// struck along, to the raw unit.
+const LIFTED_OFFSET: Vec2 = Vec2::new(Fx::from_raw(-122_880), Fx::from_raw(-49_152));
 const LIFTED_STRIKE_DELTAS: [i32; 3] = [-1, 0, 1];
 const LIFTED_REACH_DELTAS: [i32; 3] = [-256, 0, 256];
 
@@ -464,7 +563,9 @@ fn lifted_config(strike_delta: i32, reach_delta: i32, mirrored: bool) -> Option<
 }
 
 fn neutral_command(obs: &crate::ArticulatedObservation) -> ArticulatedCommandV1 {
-    let arm = ArmTarget { bearing: obs.body_yaw, height: CombatHeight::MID,
+    // Zero is "along the torso" under `CommandFrame::Torso`, which is what an
+    // idle arm means; the world adds `obs.body_yaw` back in `world_arm_target`.
+    let arm = ArmTarget { bearing: Angle::ZERO, height: CombatHeight::MID,
                           reach: Fx::ZERO, effort: Fx::ZERO };
     ArticulatedCommandV1 { move_dir: Vec2::ZERO, body_yaw: obs.body_yaw,
         intent: Intent::Hold, arms: [arm; 2], grips: [GripRequest::Keep; 2],
@@ -497,7 +598,10 @@ fn lifted_coulomb_diagnostic_command(obs: &crate::ArticulatedObservation,
     let limb = if mirrored { LimbSlot::LeftArm } else { LimbSlot::RightArm };
     command.intent = Intent::Attack(defender);
     command.arms[limb as usize] = ArmTarget {
-        bearing: if tick < 28 { chamber } else { strike },
+        // Both are world bearings above and the command frame is the torso, so
+        // the yaw the body is **holding** comes off here -- `obs.body_yaw` and
+        // never `command.body_yaw`, which is only what the actuator is chasing.
+        bearing: (if tick < 28 { chamber } else { strike }) - obs.body_yaw,
         height: CombatHeight::try_from_raw(16_384).expect("fixed source-41 height"),
         reach: if tick < 28 { Fx::ONE } else { Fx::from_raw(61_440 + reach_delta) },
         effort: Fx::ONE,
@@ -513,15 +617,15 @@ fn command_receipt(fingerprint: u64, records: &[crate::SubmittedCommandRecord]) 
         hash.write_u32(record.tick); write_entity(&mut hash, record.entity);
         hash.write_u16(SUBMITTED_COMMAND_LAYOUT_VERSION);
         hash.write_u8(1); hash.write_u8(0); hash.write_u16(ARTICULATED_PAYLOAD_BYTES as u16);
-        let SubmittedCommand::Articulated(command) = record.command else { return None };
-        hash.write_bytes(&command.payload_bytes());
+        let SubmittedCommand::Embodied(command) = record.command else { return None };
+        hash.write_bytes(&command.articulated.payload_bytes());
     }
     Some(hash.finish())
 }
 
 fn raw_lifted_command_receipt(strike_delta: i32, reach_delta: i32, mirrored: bool) -> Option<u64> {
     let config = lifted_config(strike_delta, reach_delta, mirrored)?;
-    let scenario = Scenario::duel_from(&config).ok()?;
+    let scenario = embodied_duel_from(&config)?;
     let mut world = World::new(&scenario, 0);
     let mut replay = Replay::new(&scenario, 0);
     let (attacker, defender) = (EntityId::new(0, 0), EntityId::new(1, 0));
@@ -529,18 +633,18 @@ fn raw_lifted_command_receipt(strike_delta: i32, reach_delta: i32, mirrored: boo
         for id in world.pending_decisions().to_vec() {
             let requested = lifted_command(&world, id, attacker, defender, tick,
                                            reach_delta, mirrored);
-            let stored = match world.submit_articulated_v1(id, requested) {
-                SubmitArticulatedOutcome::Stored { command, rejection: None } => command,
+            let stored = match world.submit_embodied_v1(id, EmbodiedCommandV1::new(requested)) {
+                SubmitEmbodiedOutcome::Stored { command, rejection: None } => command,
                 _ => return None,
             };
-            replay.record_submitted(tick, id, SubmittedCommand::Articulated(stored));
+            replay.record_submitted(tick, id, SubmittedCommand::Embodied(stored));
         }
         world.step_with_arm_rates(CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
         let limb = if mirrored { LimbSlot::LeftArm } else { LimbSlot::RightArm };
         if world.contact_resolutions().iter().any(|row| row.fact.key.kind == ContactKind::WeaponBody
             && row.fact.key.a == attacker && row.fact.key.a_slot == limb as u8
             && row.fact.key.b == defender && row.fact.key.b_slot == crate::BODY_SLOT
-            && row.fact.volume == BodyPart::Legs as u8) { break; }
+            && row.fact.volume == BodyPart::Torso as u8) { break; }
     }
     command_receipt(scenario.fingerprint(), &replay.submitted_entries)
 }
@@ -553,11 +657,13 @@ fn lifted_case_with_provenance(strike_delta: i32, reach_delta: i32, mirrored: bo
                                source: LiftedStrikeProvenance) -> Option<LiftedReceipt> {
     require_ordinary_strike_provenance(source).ok()?;
     let config = lifted_config(strike_delta, reach_delta, mirrored)?;
-    let scenario = Scenario::duel_from(&config).ok()?;
+    let scenario = embodied_duel_from(&config)?;
     let mut first = World::new(&scenario, 0);
     let mut second = World::new(&scenario, 0);
     let mut replay = Replay::new(&scenario, 0);
     let (attacker, defender) = (EntityId::new(0, 0), EntityId::new(1, 0));
+    let bodies = [attacker, defender];
+    let hips = [first.stance(attacker)?.hip_yaw, first.stance(defender)?.hip_yaw];
     let limb = if mirrored { LimbSlot::LeftArm } else { LimbSlot::RightArm };
     let mut contact_tick = None;
     let mut selected_row = None;
@@ -570,18 +676,18 @@ fn lifted_case_with_provenance(strike_delta: i32, reach_delta: i32, mirrored: bo
         }
         for id in pending {
             let requested = lifted_command(&first, id, attacker, defender, tick, reach_delta, mirrored);
-            let stored = match first.submit_articulated_v1(id, requested) {
-                SubmitArticulatedOutcome::Stored { command, rejection: None } => command,
+            let stored = match first.submit_embodied_v1(id, EmbodiedCommandV1::new(requested)) {
+                SubmitEmbodiedOutcome::Stored { command, rejection: None } => command,
                 _ => { #[cfg(test)] eprintln!("lifted stored first failed tick {tick} id {:?}", id); return None },
             };
             let rerun_requested = lifted_command(&second, id, attacker, defender, tick,
                                                   reach_delta, mirrored);
-            let rerun = match second.submit_articulated_v1(id, rerun_requested) {
-                SubmitArticulatedOutcome::Stored { command, rejection: None } => command,
+            let rerun = match second.submit_embodied_v1(id, EmbodiedCommandV1::new(rerun_requested)) {
+                SubmitEmbodiedOutcome::Stored { command, rejection: None } => command,
                 _ => { #[cfg(test)] eprintln!("lifted stored rerun failed tick {tick} id {:?}", id); return None },
             };
             if stored != rerun { #[cfg(test)] eprintln!("lifted command mismatch tick {tick}"); return None; }
-            replay.record_submitted(tick, id, SubmittedCommand::Articulated(stored));
+            replay.record_submitted(tick, id, SubmittedCommand::Embodied(stored));
         }
         first.step_with_arm_rates(CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
         second.step_with_arm_rates(CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
@@ -595,11 +701,20 @@ fn lifted_case_with_provenance(strike_delta: i32, reach_delta: i32, mirrored: bo
             #[cfg(test)] eprintln!("lifted ({strike_delta},{reach_delta}) mirror={mirrored}: rerun mismatch tick {tick}");
             return None;
         }
+        if !legs_are_inert(&first, bodies, hips) {
+            #[cfg(test)] eprintln!("lifted ({strike_delta},{reach_delta}) mirror={mirrored}: legs moved by tick {tick}");
+            return None;
+        }
         let attributed = first.contact_resolutions().iter().filter(|row| {
             row.fact.key.kind == ContactKind::WeaponBody
                 && row.fact.key.a == attacker && row.fact.key.a_slot == limb as u8
                 && row.fact.key.b == defender && row.fact.key.b_slot == crate::BODY_SLOT
-                && row.fact.volume == BodyPart::Legs as u8
+                // Torso rather than Legs since the port, for the reason
+                // `digest_with`'s own predicate gives at length -- and it is the
+                // region that keeps the mirror comparison below meaningful:
+                // Head, Torso and Legs are invariant under the reflection this
+                // corpus takes, and the four arm volumes are not.
+                && row.fact.volume == BodyPart::Torso as u8
         }).count();
         if attributed != 0 && selected_row.is_none() {
             if attributed != 1 || first.contact_resolutions().len() != 1 {
@@ -642,8 +757,8 @@ fn lifted_case_with_provenance(strike_delta: i32, reach_delta: i32, mirrored: bo
     if row.fact.toi.get() <= Fx::ZERO || row.fact.toi.get() >= Fx::ONE
         || row.impulse.key != row.fact.key || row.impulse.on_a == Vec3::ZERO
         || row.impulse.on_b != -row.impulse.on_a
-        || row.group_alpha_raw != 65_536 || row.energy.dissipated_raw != 278
-        || row.energy.before_raw.checked_sub(row.energy.after_raw) != Some(278)
+        || row.group_alpha_raw != 65_536 || row.energy.dissipated_raw != 147
+        || row.energy.before_raw.checked_sub(row.energy.after_raw) != Some(147)
         || played_post.contact_cap_hits() != 0 || played_post.contact_solver_rejections() != 0
         || played_post.first_exact_contact_rejection().is_some()
         || played_post.exact_contact_group_diagnostics().iter().any(|group| group.reject.is_some()) {
@@ -931,8 +1046,8 @@ mod tests {
     #[test]
     fn signed_i128_words_are_sixteen_little_endian_twos_complement_bytes() {
         assert_eq!(i128_le_bytes(-1), [0xff; 16]);
-        assert_eq!(i128_le_bytes(-9_986_235_012),
-            [0x7c, 0x25, 0xc6, 0xac, 0xfd, 0xff, 0xff, 0xff,
+        assert_eq!(i128_le_bytes(-12_045_818_473),
+            [0x97, 0x65, 0x03, 0x32, 0xfd, 0xff, 0xff, 0xff,
              0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]);
     }
 
@@ -978,6 +1093,7 @@ mod tests {
             LiftedStrikeProvenance::DirectPoseOrExactState).is_none());
         assert!(lifted_case(-1, -256, false).is_some());
     }
+
 
     #[test]
     #[ignore]

@@ -101,8 +101,17 @@ const COMBAT_GEOMETRY_HASH = 0x9d15344883cf6e9cn;
 // projectile store then appended its allocated-slot count and retained rows to
 // every folded state digest, moving these from `0x88e6ea929b8d4305` and
 // `0x8dc443385973a5c8` respectively.
-const EXACT_TRAJECTORY_STATE_DIGEST = 0x13fa3ac347aeab12n;
-const LIFTED_COULOMB_SOLVER_DIGEST = 0x30e1b4031f01ecc8n;
+// Both moved again when their fixtures were ported off the deleted articulated
+// model, from `0x13fa3ac347aeab12` and `0x30e1b4031f01ecc8`. Not a bug and not a
+// portability failure: the exact laws are in the contact solver, which the
+// embodied body uses unchanged, so the grammar, the bounds and the named classes
+// are the same and only the body driving them is new. Four routes reach both --
+// the model byte and the payload tag in the state prefix, the state stream's
+// appended floor/stance/elbow tail, torso-relative arm bearings, and an arm the
+// reach clamp now holds where the articulated one was unclamped. Native MSVC
+// measured both before this file was edited.
+const EXACT_TRAJECTORY_STATE_DIGEST = 0x5add1f2ca295e79bn;
+const LIFTED_COULOMB_SOLVER_DIGEST = 0x1f9afcf81ba74700n;
 // A four-byte envelope and a 53-byte payload. Written out rather than derived,
 // because this file exists to disagree with Rust when Rust is wrong: the export
 // is asserted against this number, so computing it the way the export computes

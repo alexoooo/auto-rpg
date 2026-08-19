@@ -141,7 +141,7 @@
 //! functions of the observation, so neither implements `reset` -- there is no
 //! per-run memory for the harness to clear.
 
-use crate::ArticulatedPolicy;
+use crate::{ArmRoles, ArticulatedPolicy, EIGHTH_TURN};
 use fx::{Angle, Fx, Hash64, Vec2};
 use sim::{
     ArmTarget, ArticulatedCommandV1, ArticulatedObservation, CombatHeight, GripRequest, Intent,
@@ -226,14 +226,6 @@ pub const HEIGHT_TICKS: u32 = 90;
 /// transcribes tick by tick rather than phase by phase for that one column.
 pub const GUARD_LEAD_TICKS: u32 = HEIGHT_TICKS / 2;
 
-/// An eighth of a turn, raw.
-///
-/// Spelled out because [`Angle`] names [`Angle::QUARTER`] and [`Angle::HALF`]
-/// and stops there, and the cut chamber offset is half a quarter. Written as a
-/// constant rather than `Angle::QUARTER` halved so that the number in the
-/// reference table and the number here are the same literal.
-pub const EIGHTH_TURN: Angle = Angle::from_raw(8_192);
-
 /// The three ordinary heights, in the order `(tick / 90) % 3` walks them.
 /// How far the guard bearing may leave the body's own facing, either way.
 ///
@@ -271,76 +263,6 @@ const THREE_QUARTERS: Fx = Fx::from_ratio(3, 4);
 /// no such edge: the risk is entirely at the top of the range.
 const APPROACH_SPEED: Fx = Fx::from_ratio(15, 16);
 const WITHDRAW_SPEED: Fx = Fx::HALF;
-
-/// Which arm guards and which arm strikes.
-///
-/// Both are read out of the capability mask and the published grips rather than
-/// out of the scenario, because a policy has no scenario -- and because the
-/// answer changes mid-fight when an arm comes off.
-///
-/// **Public because a measurement of this script cannot attribute a height
-/// without it.** `lab articulated` reports the joint distribution of (attacker
-/// weapon height, defender guard height), and "which of the two commanded arms
-/// is the weapon" is a fact about the script rather than about the fixture: it
-/// moves when an arm is severed, so a lab that re-derived it from the
-/// capability mask would be a second copy of the rule below, free to drift from
-/// it exactly when a fight got interesting.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct ArmRoles {
-    pub guard: usize,
-    pub weapon: usize,
-}
-
-impl ArmRoles {
-    pub fn of(obs: &ArticulatedObservation) -> ArmRoles {
-        let weapon_bit = [
-            ArticulatedObservation::LEFT_WEAPON,
-            ArticulatedObservation::RIGHT_WEAPON,
-        ];
-        // The right hand when both are armed. That is the sim's own ownership
-        // rule -- a two-handed item fills the right slot and clears the left
-        // weapon bit -- so following it here keeps "the weapon arm" meaning the
-        // arm that owns the collider.
-        //
-        // **A disarmed body still has to name one**, because the script is total
-        // and the four attack phases have to point somewhere. The reference does
-        // not cover this cell at all, so the fallback is a resolution: the right
-        // arm, unless the right arm is the one that came off. A Fighter that has
-        // lost its sword arm would otherwise spend a third of every cycle
-        // swinging a stump *and* tucking the live shield the tuck rule takes
-        // away from it -- defenceless and harmless at once -- which cannot be
-        // what the table means by "the weapon arm" on a body that has none.
-        //
-        // Half of that stopped being true on 2026-08-10: the off arm now holds
-        // [`off_hand`] rather than the tuck, so the wrong answer here would
-        // leave that Fighter guarded and merely harmless instead of both. The
-        // resolution does not change -- swinging a stump for a third of every
-        // cycle is still the thing being avoided -- but the second clause of
-        // the argument for it is gone and should not be quoted.
-        let weapon = if obs.can(weapon_bit[1]) {
-            1
-        } else if obs.can(weapon_bit[0]) {
-            0
-        } else if obs.arms[1].severed && !obs.arms[0].severed {
-            0
-        } else {
-            1
-        };
-        // The occupied hand that is not holding a weapon, which is the shield
-        // hand without needing to know which side the shield binds to. Reading
-        // `SHIELD` alone would not say *where* it is, and reading the equipment
-        // id alone would need the spec table this side of the seam cannot see.
-        let shield = if obs.can(ArticulatedObservation::SHIELD) {
-            (0..2).find(|&i| obs.arms[i].equipment.is_some() && !obs.can(weapon_bit[i]))
-        } else {
-            None
-        };
-        ArmRoles {
-            guard: shield.unwrap_or(weapon),
-            weapon,
-        }
-    }
-}
 
 /// One phase's answer, before the two arm rows are placed on a particular body.
 ///

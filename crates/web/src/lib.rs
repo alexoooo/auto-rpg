@@ -12392,8 +12392,21 @@ mod tests {
     /// taken over `World::state_digest` folds `legacy_core_hash`**, and this is
     /// one of the five. Native measured first, both wasm artifacts agreed after.
     /// Previously `0x4b07e93ccdc137ea`.
+    ///
+    /// **Moved again when the fixture was ported off the deleted articulated
+    /// model, and this is the one move here that is not a bug.** The exact laws
+    /// live in the contact solver, which the embodied body uses unchanged, so
+    /// the property this pin protects outlived the model that happened to
+    /// exercise it: the digest grammar, the solver bounds and every named class
+    /// are the same words in the same order. Four independent routes reach the
+    /// number -- the prefix's model byte and payload tag both go `1 -> 2`, the
+    /// state stream gains its `ground_z`, stance and elbow-plane tail, every arm
+    /// bearing is now torso-relative, and the arm the fixture drives is clamped
+    /// by `reachable_extent` where the articulated one was not. Previously
+    /// `0x13fa3ac347aeab12`. Native MSVC measured first; the exact wasm artifact
+    /// agreed.
     #[cfg(feature = "cartesian-recoil")]
-    const EXACT_TRAJECTORY_STATE_DIGEST: u64 = 0x13fa_3ac3_47ae_ab12;
+    const EXACT_TRAJECTORY_STATE_DIGEST: u64 = 0x5add_1f2c_a295_e79b;
 
     /// The terminal source-41 lifted Coulomb solver corpus, paired with the
     /// feature-only wasm exports and registered in `docs/reference/hashes.md`.
@@ -12406,8 +12419,17 @@ mod tests {
     /// legacy columns left `legacy_core_hash`, which every folded
     /// `state_digest()` carries; from `0x4cbafe3e0f71e14f`, native measured
     /// first and both wasm artifacts agreeing after.
+    ///
+    /// **Moved again with its sibling above by the port off the deleted
+    /// articulated model**, through the same four routes, and with one more of
+    /// its own: an embodied arm cannot hold the pose the source-41 schedule
+    /// commands, so the corpus closed its range to exactly three quarters along
+    /// the same bearing and its blow lands on the torso rather than the leg the
+    /// defender's new forearm now shields. The eighteen cases, their order, the
+    /// bounds `16/42/8/96` and the ordinal are unchanged. Previously
+    /// `0x30e1b4031f01ecc8`.
     #[cfg(feature = "cartesian-recoil")]
-    const LIFTED_COULOMB_SOLVER_DIGEST: u64 = 0x30e1_b403_1f01_ecc8;
+    const LIFTED_COULOMB_SOLVER_DIGEST: u64 = 0x1f9a_fcf8_1ba7_4700;
 
     /// FNV-1a-64 over the logits `checkpoints/v2-probe.ckpt` produces on
     /// `learn_core`'s fixed observation corpus, prefix `ARPG-LEARNED-V1`.

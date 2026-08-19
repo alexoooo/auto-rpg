@@ -1,21 +1,54 @@
 # V2 learning probe held-out corpus
 
 **Purpose:** Record the measured comparison v2-19's `expand` / `revise` / `stop` decision was made on.
-**Status:** current
-**Canonical source:** this record, `crates/lab/src/learn_probe.rs`, and the checkpoint it names
-**Update when:** The probe is retrained, the corpus changes, or a condition is added or removed.
+**Status:** historical
+**Canonical source:** this record. The corpus measured below was the *articulated* duel, and the session that deleted the articulated model deleted both its fixtures; it was last runnable at `c4e9d67`, and **nothing in this document is re-runnable on this tree**.
+**Update when:** Nothing. A successor that re-runs the probe on the embodied corpus writes its own record; this one is closed.
 
 **Host:** MSVC x86-64 Windows 11, 20 logical cores. **Date:** 2026-08-11.
 
-Reproduce with:
+## Why this is history and exactly what of it died
+
+Session 05 deleted the articulated combat model. Three things this record rests on went
+with it, and a reader should know which before quoting any number below.
+
+- **The two fixtures.** Every table here is measured on `articulated-duel-v1`,
+  fingerprint `0x068d05fcada1027b`, and its `y = 8` reflection `0x6dbf62f0b336050b`.
+  Both are gone. `crates/learn`'s corpus is `embodied-duel-v1` now
+  (`0x1a1e8e74eecd55d5` canonical, `0x95b6b5f9bc80865d` mirrored), which is a
+  different fight between the same two anatomies under a different command grammar.
+- **Two of the five conditions.** `windmill` and `attack-moves` were articulated
+  scripts. `policy::EmbodiedPolicyKind` has no windmill and no closing-attack entry,
+  and inventing one would be shipping a policy out of a deletion session. The
+  conditions `lab learn-probe evaluate` runs now are `constant`, `scripted`,
+  `tactical`, `tactical-fixed-guard` and `learned`.
+- **The headline, therefore.** "`learned - windmill`: +4.316 paired, +5.1%" names a
+  comparison one side of which no longer exists. It is not a number a successor can
+  re-derive, re-check or improve on; it is a number about a model.
+
+**What did not die is the checkpoint and the argument.** `checkpoints/v2-probe.ckpt`
+still decodes — `ModelShape`, both layout versions and the forward pass are untouched
+by session 05, and `LEARNED_INFERENCE_DIGEST` is unmoved at `0xbdba8d64d340ce32` —
+and the two arguments this record exists for both outlived their corpus: that a gate
+measured against one hand-picked baseline is a gate a constant passes, and that two
+verdicts straddling a bar are not evidence of a clock reading unless the difference of
+the differences says so.
+
+Reproduce **nothing** with the block below. It is kept because the commands are still
+spelled that way and a reader tracing how the tables were made needs it:
 
 ```powershell
 cargo run --release -p lab -- learn-probe train --spec v2-probe
 cargo run --release -p lab -- learn-probe evaluate --checkpoint checkpoints/v2-probe.ckpt
 ```
 
-**The first command does not reproduce the checkpoint below.** It is capped on wall
-clock rather than on generations, so a faster or busier host stops somewhere else.
+Both still run, and on this tree they measure the embodied corpus against a different
+set of conditions — so a run of the second command produces a table with the same
+column headings and none of the same rows. That is the specific way this document is
+now able to mislead, which is why it says so here rather than at the bottom.
+
+**The first command did not reproduce the checkpoint below even then.** It is capped on
+wall clock rather than on generations, so a faster or busier host stops somewhere else.
 That is why `checkpoints/v2-probe.ckpt` is committed: it is the artifact the decision
 is recorded against, and it cannot be regenerated from its own command line.
 
@@ -62,7 +95,8 @@ Two hundred seeds in two orientations, `1000000..1000200`, four hundred trials. 
 training seeds this checkpoint records are `0..6`; `HELD_OUT_SEED_BASE` is 1,000,000
 and `held_out_seeds_are_disjoint_from_training` is what keeps the gap true when
 somebody widens the training set. Fixture `0x068d05fcada1027b` canonical,
-`0x6dbf62f0b336050b` mirrored.
+`0x6dbf62f0b336050b` mirrored — **both deleted by session 05**, which is the fact that
+makes every table below unrepeatable.
 
 Five conditions, all on the heroes, all on the same trials:
 
@@ -98,6 +132,14 @@ seed over the script's whole 2,160-tick period, before delegating. It exists bec
 `(tick + 45) / 90 % 3`, and features 1 and 2 of the probe's input slice are the cosine
 and sine of that phase — so a policy that learns the opponent's timetable and a policy
 that learns to fight produce the same mean return.
+
+The wrapper survived the reseat and the *leak it guards shrank*: the embodied script's
+phase clock is `tick % 120` and 360 is a multiple of 120, so the phase is still exactly
+readable from the input slice, but its two 270-tick height clocks and its 240-tick cut
+reversal are not. The 2,160-tick period happens to be the same number for both scripts,
+by coincidence of two different clock sets, and
+`the_phase_offsets_cover_the_scripts_whole_period` recomputes it rather than pinning
+the literal so that the coincidence cannot quietly become an assumption.
 
 | condition | mean | s.e. | bootstrap 95% CI | kills | on points | lost | tick-limit | mean ticks |
 |---|---:|---:|---|---:|---:|---:|---:|---:|

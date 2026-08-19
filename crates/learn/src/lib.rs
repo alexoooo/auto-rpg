@@ -1,19 +1,21 @@
 //! The learning probe: the population that trains one small network, and the
 //! measurements that say whether it learned anything.
 //!
-//! This crate exists to answer one question -- *does a learned articulated
-//! policy beat the scripted one by enough to justify a larger roadmap* -- and
-//! v2-19 draws the boundary it is allowed to answer it inside. The boundary is
-//! worth restating here, because every design decision below follows from it:
+//! This crate exists to answer one question -- *does a learned policy beat the
+//! scripted one by enough to justify a larger roadmap* -- and v2-19 draws the
+//! boundary it is allowed to answer it inside. The boundary is worth restating
+//! here, because every design decision below follows from it:
 //!
 //! * **It may use floating point**, which nothing under `crates/fx`,
 //!   `crates/sim` or the deterministic parts of `crates/policy` may. That is
 //!   affordable for exactly one reason: no learned type reaches [`sim::World`],
 //!   [`sim::Scenario`], [`sim::SubmittedCommand`], a replay, or a hash. What
-//!   reaches the world is an [`sim::ArticulatedCommandV1`] built out of a fixed
-//!   table of `Fx` constants, chosen by an argmax. The `f32` stops at the
-//!   argmax. [`learn_core`] carries that argument in full, because it owns the
-//!   types it is about.
+//!   reaches the world is an [`sim::EmbodiedCommandV1`] built out of a fixed
+//!   table of `Fx` constants, chosen by an argmax and then rotated into the
+//!   torso frame by `policy::into_torso_frame`. The `f32` stops at the argmax --
+//!   the rotation is `Fx` arithmetic on a table entry, which is why the frame
+//!   adapter did not widen this boundary. [`learn_core`] carries that argument
+//!   in full, because it owns the types it is about.
 //! * No search, no browser learning host, no rollout workers, no skill catalog,
 //!   no hierarchy, no workbench. Those are what an `expand` decision would
 //!   authorise and this crate is what decides whether there is one.
@@ -71,9 +73,11 @@ pub use learn_core::{
     compose, hex, learned_inference_case, learned_inference_digest, sha256, write_features,
     write_features_v2, Checkpoint, CheckpointError, CheckpointV2, CheckpointV2Error,
     FeatureMemory, Footwork, LearnedActionV1, LearnedActionV2, LearnedArticulatedPolicy,
-    LearnedTacticalPolicyV2, Model, ModelShape, ModelShapeV2, ModelV2, Posture, Sha256,
+    LearnedEmbodiedPolicy, LearnedTacticalEmbodiedPolicyV2, LearnedTacticalPolicyV2, Model,
+    ModelShape, ModelShapeV2, ModelV2, Posture, Sha256,
     TrainingRecord,
-    CHECKPOINT_FORMAT_VERSION, CHECKPOINT_MAGIC, FOOTWORK_COUNT, GUARD_HEIGHT_COUNT, HEAD_OFFSETS,
+    CHECKPOINT_FORMAT_VERSION, CHECKPOINT_MAGIC, CYCLE_TICKS, FOOTWORK_COUNT, GUARD_HEIGHT_COUNT,
+    HEAD_OFFSETS,
     HEAD_WIDTHS, HIDDEN_UNITS, LEARNED_INFERENCE_CASES, LEARNED_INFERENCE_DIGEST_DOMAIN,
     LEARN_ACTION_LAYOUT_VERSION, LEARN_ACTION_LOGITS, LEARN_FEATURE_COUNT,
     LEARN_FEATURE_LAYOUT_VERSION, LEARN_V2_ACTION_LAYOUT_VERSION, LEARN_V2_ACTION_LOGITS,
@@ -81,9 +85,9 @@ pub use learn_core::{
     WEAPON_BEARING_COUNT, WEAPON_HEIGHT_COUNT,
 };
 pub use probe::{
-    band, held_out_seeds, mirrored_articulated_duel, phase_offset, rollout, rollout_with, score,
+    band, held_out_seeds, mirrored_embodied_duel, phase_offset, rollout, rollout_with, score,
     score_v2, shaped_return, train, train_v2, train_with, train_with_v2, training_seeds, Band,
-    Baseline, Corpus, Mechanics, Opponent,
+    Corpus, Mechanics, Opponent,
     PhaseShiftedScript, ProbeConfig, Recorders, Rollout, HELD_OUT_SEED_BASE, RETURN_ATTRITION,
     RETURN_DECISION, RETURN_MUTUAL, RETURN_SURVIVAL, RETURN_TICK_DIVISOR, RETURN_WIN,
     SCRIPT_PERIOD_TICKS, TRAINING_SEED_BASE,

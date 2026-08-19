@@ -343,7 +343,7 @@ per side.
 because every quantity it reads is a world quantity measured off an observation whose
 type is the same on both seams, so the port shares the planner and forks only the
 command assembly. The frame enters in one four-line function,
-[`into_torso_frame`](../../crates/policy/src/embodied_tactics.rs#L83), which subtracts
+[`into_torso_frame`](../../crates/policy/src/embodied_tactics.rs#L93), which subtracts
 the *observed* yaw and not the commanded one -- the world re-adds
 `World::body_yaw[i].angle`, and the commanded yaw is a request the actuator chases at a
 bounded rate. Its first measured outing is
@@ -378,7 +378,7 @@ and which every pinned `articulated-duel-v1` measurement was taken with, and
 `TacticalEmbodiedPolicy`, which session 04 retuned against `embodied-duel-v1`. Editing
 the constants in place would have retuned the first silently. `Footwork::ARTICULATED`
 is therefore the planner's own pre-session-04 numbers,
-[`StrikePlanner::footwork`](../../crates/policy/src/articulated_tactics.rs#L206) is the
+[`StrikePlanner::footwork`](../../crates/policy/src/embodied_tactics.rs#L402) is the
 constructor that takes a row, and `StrikePlanner::default()` still answers the
 articulated one -- which is why `TacticalEmbodiedPolicy` has a hand-written `Default`
 rather than a derived one.
@@ -414,7 +414,7 @@ script, for the control, and for a matchup running a different policy on each si
 
 `lab embodied` therefore folds its own stream under `ARPG-EMBODIED-SCRIPT-V1` rather
 than calling it; that function is
-[`embodied_script_digest`](../../crates/lab/src/main.rs#L1191), it copies
+[`embodied_script_digest`](../../crates/lab/src/main.rs#L1128), it copies
 `script_digest`'s grammar byte for byte over `EmbodiedCommandV1::payload_bytes`, and its
 doc comment carries the whole argument. **The repair to the shared function is still
 owed** and is a one-line change -- the third match arm -- but it is a change to a
@@ -544,8 +544,8 @@ such demonstration exists. Any successor needs a separately approved causal ques
 
 - The articulated seam: [`ArticulatedPolicy`](../../crates/policy/src/lib.rs#L222)
 - The embodied seam: [`EmbodiedPolicy`](../../crates/policy/src/lib.rs#L274)
-- The non-legacy seam's registry: [`ArticulatedPolicyKind`](../../crates/policy/src/lib.rs#L317)
-- The embodied seam's registry: [`EmbodiedPolicyKind`](../../crates/policy/src/lib.rs#L468)
+- The non-legacy seam's registry: [`ArticulatedPolicyKind`](../../crates/policy/src/lib.rs#L415)
+- The embodied seam's registry: [`EmbodiedPolicyKind`](../../crates/policy/src/lib.rs#L566)
 - The scripted embodied policy: [`crates/policy/src/embodied_script.rs`](../../crates/policy/src/embodied_script.rs)
 - The tactical embodied policy: [`crates/policy/src/embodied_tactics.rs`](../../crates/policy/src/embodied_tactics.rs)
 - The guard that reads the blade: [`crates/policy/src/embodied_guard.rs`](../../crates/policy/src/embodied_guard.rs)

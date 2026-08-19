@@ -138,21 +138,6 @@ pub const ARM_MIN_REACH_RAW: i32 = 16_384;
 pub const FATIGUE_WORK_SCALE_RAW: i32 = 256;
 pub const FATIGUE_RECOVERY_RAW: i32 = 4;
 
-/// The two bearing rates varied by Lab's clean-strike experiment. This is not
-/// scenario or world state: ordinary stepping always supplies [`PRODUCTION_ARM_CALIBRATION`].
-#[cfg(feature = "lab-calibration")]
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct ArmCalibration {
-    pub bearing_max_speed_raw: i32,
-    pub bearing_accel_raw: i32,
-}
-
-#[cfg(feature = "lab-calibration")]
-pub const PRODUCTION_ARM_CALIBRATION: ArmCalibration = ArmCalibration {
-    bearing_max_speed_raw: ARM_BEARING_MAX_SPEED_RAW,
-    bearing_accel_raw: ARM_BEARING_ACCEL_RAW,
-};
-
 /// What the legs are doing, for a body whose legs are automatic.
 ///
 /// There is no leg command and there will not be one: with locomotion automatic

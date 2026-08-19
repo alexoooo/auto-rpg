@@ -51,6 +51,44 @@ matters because `client/src/arena/picker.ts` refuses an out-of-range code with t
 The realistic `crates/lab` reduction is about 13,700 lines of 15,881, which is closer to
 six sevenths than to the two thirds claimed below.
 
+## A second survey, run 2026-08-19, before the session opened
+
+The survey above was run on 2026-08-18 and did not go far enough. A second read-only
+survey found six more items, and one of them changes how every step of this session is
+checked.
+
+- **`cargo check` is not a valid checkpoint for this session, and choosing it is the exact
+  failure this plan warns about for the lab harnesses.** The articulated/embodied split is
+  enforced at *runtime*: `World::submit_articulated_v1` and `submit_embodied_v1` both
+  compile against any world and answer `NotStored(CommandReject::WrongModel)` when the
+  grammar disagrees. So a half-done reseat compiles, runs, refuses every command and exits
+  0. **Every checkpoint here is `cargo test` for the affected packages**, and every
+  reseated submitting fixture asserts `rejection: None` or a nonzero contact count.
+- **`Scenario::fingerprint` writes two model-derived values, not one.** The identity word
+  `3` at `scenario.rs:481`, and the wire discriminant `2` written by
+  `scenario_v1_fields_into` at `:744` -- which is also the replay record's model tag. Both
+  are frozen. This plan names only the first.
+- **`World::articulated_state_digest` writes a third and fourth frozen model value**, the
+  model byte at `world/hash.rs:281` and `payload_tag` at `:293`, both `2` for Embodied and
+  both inside five pins. They must survive the enum's deletion as named literals.
+- **`lab trace` is still articulated end to end** and this plan does not mention it.
+  `trace_fight` builds `Scenario::articulated_duel()` and `mirrored_articulated_duel()` and
+  submits through `submit_articulated_v1`. It produces `web/fight.json` and
+  `web/fight-learned.json`, which `client/test/wasm-memory.test.mjs`'s differential oracle
+  compares the browser against. It is reseated in the same step as `#/arena`.
+- **The golden registry's canonical anchor names an empty table.**
+  [`docs/reference/hashes.md`](../reference/hashes.md#golden-registry) carries the
+  `golden-registry` contract marker, the heading, the sentence *"These are the current
+  named pins:"*, a table header, a separator -- and no rows. The live registry is the
+  unheaded table further down under *"Mechanics pins added by the v2 sessions"*. Repairing
+  that structure is in scope for whoever lands the re-records: a registry whose canonical
+  anchor is an empty table is the same shape as a green guard asserting nothing.
+- **`crates/lab/src/main.rs`'s `a_traced_run_is_the_run_the_gate_measured` has no
+  `#[test]` attribute and has never run**, while three surviving places cite it as the
+  assertion that keeps the trace recorder an observer of the fight. It drives
+  `Scenario::articulated_duel()`, so it cannot simply be given its attribute. Port it,
+  give it the attribute, and break it on purpose once to prove it bites.
+
 ## What goes
 
 ### The model itself
@@ -198,7 +236,7 @@ caught before the edit rather than after.
 | `EMBODIED_GOLDEN_DIGEST` | must not move, same argument |
 | the four embodied fingerprints | must not move |
 | `CONTACT_BEHAVIOR_DIGEST` | must not move; it is a payload width and a behavioural corpus, not a model choice |
-| `ARTICULATED_STREAM_DIGEST` | **moves, and this row used to say it must not.** Its fixture is `stream_digest_scenario` in [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs), which is `Scenario::articulated_duel` renamed and respawned. Reseat it to `Embodied` and `has_jointed_arms` turns true, so a body presents seven swept volumes instead of five, `REGIONS_PER_BODY` goes 5 -> 7 and the region section of all twenty ticks is rewritten in place. That is a **layout** move by the registry row's own three-way vocabulary, not an extension and not a values move, and `REGION_LAYOUT_VERSION` is the field that says so. Predict both values, native first, in both feature configurations, before touching a wasm mirror |
+| `ARTICULATED_STREAM_DIGEST` | **moves -- and this row has now been wrong twice, in opposite directions.** It first said the pin must not move. It was corrected on 2026-08-18 to say it moves as a **layout** change because `REGIONS_PER_BODY` goes five to seven. That correction was also wrong: `REGIONS_PER_BODY` is *already* seven ([`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L893), `= sim::BODY_VOLUME_COUNT`) and `REGION_LAYOUT_VERSION` is already `2`, both moved by the earlier forearm-collider session, whose own comment at `:876` records it. Corrected again on 2026-08-19 by a survey run before the session opened. What reseating `stream_digest_scenario` actually changes is what the fixture *computes*: the two forearm rows go from absent to present, because `World::arm_elbows` early-returns `[None; 2]` for a model without jointed arms; the stance section goes from a zero length on every tick to two real rows; and **the fight itself changes**, because a zero bearing means world east under `CommandFrame::World` and along the torso under `Torso`, and the brute spawns facing west. Every stride, word offset, section order, count grammar and ABI version is unchanged -- which is precisely what **values** means in this row's three-way vocabulary. **No layout version may be bumped here**, and a session that bumps one is wrong. Predict both values, native first, in both feature configurations, before touching a wasm mirror |
 | `ARTICULATED_COMMAND_HASH` | **moves.** This row used to be grouped with the one above and the grouping was wrong twice over. It is `world.state_digest().value` of an unstepped fixture, so it folds `legacy_core_hash` like every state-digest pin; session 01 moved it. It moves *here* for a second and independent reason the row did not have: its fixture is `init_articulated_test`, which is also `Scenario::articulated_duel`, so the deletion reaches it through the fixture as well as through the stream |
 | `COMBAT_GEOMETRY_HASH` | must not move |
 | `LEARNED_INFERENCE_DIGEST` | must not move; a move means the reseat touched the forward pass. **And it is reachable from the files being deleted, which the plan did not say.** `crates/learn-core/src/model.rs` imports `CYCLE_TICKS`, `EIGHTH_TURN`, `TACTICAL_INTENT_COUNT`, `StrikePlanner`, `TacticalContextV1` and `TacticalIntentV1` from `policy` in **non-test** code, and builds a feature column as `(obs.tick % CYCLE_TICKS) * 65_536 / CYCLE_TICKS`. Those constants and that intent ordering are inside the digest's owned set and must survive byte-identically |

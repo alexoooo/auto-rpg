@@ -34,7 +34,7 @@
 
 use fx::{Fx, Rng, Vec3};
 use learn::{LearnedArticulatedPolicy, Model};
-use policy::ArticulatedPolicy;
+use policy::{ArticulatedPolicy, EmbodiedPolicy};
 use sim::{ArticulatedObservation, EntityId, SegmentPose};
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
@@ -181,6 +181,30 @@ fn frozen_inference_allocates_nothing_after_warmup() {
     // the assertion above pass forever.
     let (_, control) = allocations_during(|| vec![0u8; 64]);
     assert!(control > 0, "the allocation counter is not counting");
+
+    // **And the same claim through the frame adapter, which is what every
+    // corpus in this repository actually drives.** Since session 05 the training
+    // loop, the held-out evaluation and `lab learn-probe` all hold a
+    // `LearnedEmbodiedPolicy`, so a `Vec` added inside `into_torso_frame` or
+    // inside the adapter would be paid for once per decision by every one of
+    // them and the measurement above would not see it. The adapter is four lines
+    // of `Fx` arithmetic on `Copy` values today, and "today" is the qualifier a
+    // counter removes.
+    let mut rng = Rng::new(2026);
+    let mut embodied = learn::LearnedEmbodiedPolicy::new(Model::random(&mut rng));
+    embodied.decide(&facing(0));
+    let (last, allocations) = allocations_during(|| {
+        let mut last = None;
+        for obs in &observations {
+            last = Some(embodied.decide(obs));
+        }
+        last
+    });
+    assert!(last.is_some());
+    assert_eq!(
+        allocations, 0,
+        "two thousand embodied decisions asked the allocator for {allocations} blocks"
+    );
 }
 
 #[test]

@@ -1718,19 +1718,6 @@ impl World {
         )
     }
 
-    /// Drive one experimental Lab tick without putting the candidate rates in
-    /// scenario, replay, or authoritative state. The ordinary [`World::step`]
-    /// path cannot observe this seam and always supplies the production pair.
-    #[cfg(feature = "lab-calibration")]
-    pub fn step_with_arm_calibration(
-        &mut self, calibration: crate::ArmCalibration,
-    ) -> &[Event] {
-        self.step_with_arm_rates(
-            calibration.bearing_max_speed_raw,
-            calibration.bearing_accel_raw,
-        )
-    }
-
     // `pub(crate)` rather than private because a frozen fixture is not always
     // in this file: `exact_diagnostics` and `replay`'s exact tests capture a
     // configuration too, and each of them has to pin the arm rate it was

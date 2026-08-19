@@ -14,19 +14,16 @@
 
 mod args;
 mod learn_probe;
-mod strong_strike;
-mod strike_corpus;
-mod tactical_mechanics;
 mod trace;
 
 use args::Args;
 use trace::{FightTrace, TraceRun};
 use fx::{Fx, Hash64, Vec2};
 use policy::{
-    script_digest, ArmRoles, ArticulatedPolicy, ClosingAttackControlPolicy,
-    EmbodiedPolicy, EmbodiedPolicyKind, Footwork, OpeningsArticulatedPolicy,
-    RunConfig, ScriptedArticulatedPolicy, TacticalArticulatedPolicy,
-    WindmillArticulatedPolicy,
+    script_digest, ArmRoles, ArticulatedPolicy, ArticulatedPolicyKind,
+    ClosingAttackControlPolicy, EmbodiedPolicy, EmbodiedPolicyKind, Footwork,
+    OpeningsArticulatedPolicy, RunConfig, ScriptedArticulatedPolicy,
+    TacticalArticulatedPolicy, WindmillArticulatedPolicy,
 };
 use sim::{
     AnatomyChoice, CombatHeight, ContactKind, DuelConfigV1, EntityId, Faction, Intent,
@@ -40,31 +37,6 @@ fn main() {
     match args.command() {
         "verify" => verify(&args),
         "embodied" => embodied(&args),
-        "strike-corpus" => strike_corpus::strike_corpus(&args),
-        "strong-strike" => strong_strike::strong_strike(),
-        "tactical-mechanics" => {
-            if tactical_mechanics::ordinal_31_tick_46_segment_hilt_start_x_requested(&args) {
-                if let Err(error) = tactical_mechanics::ordinal_31_tick_46_segment_hilt_start_x_mode(&args) {
-                    eprintln!("{error}");
-                    std::process::exit(2);
-                }
-            } else if tactical_mechanics::ordinal_31_tick_46_pair_aabb_requested(&args) {
-                if let Err(error) = tactical_mechanics::ordinal_31_tick_46_pair_aabb_mode(&args) {
-                    eprintln!("{error}");
-                    std::process::exit(2);
-                }
-            } else if tactical_mechanics::ordinal_31_tick_46_scan_requested(&args) {
-                if let Err(error) = tactical_mechanics::ordinal_31_tick_46_scan_mode(&args) {
-                    eprintln!("{error}");
-                    std::process::exit(2);
-                }
-            } else if tactical_mechanics::ordinal_31_provenance_requested(&args) {
-                if let Err(error) = tactical_mechanics::ordinal_31_provenance_mode(&args) {
-                    eprintln!("{error}");
-                    std::process::exit(2);
-                }
-            } else { tactical_mechanics::tactical_mechanics(&args); }
-        }
         "trace" => trace_fight(&args),
         "learn-probe" => learn_probe::learn_probe(&args),
         "" | "help" => usage(),
@@ -120,44 +92,9 @@ fn usage() {
           it reaches the two entries that drive a planner: a matchup with no
           such side is refused rather than run with the row dropped.
 
-  strike-corpus --policy neutral|striker --seeds N --mirrored
-          Runs nine fixed approach offsets against stationary Fighter and
-          Brute targets and writes one CSV evidence row per case. A geometric
-          cross is the committed weapon sweep through the region the policy
-          named; contact and wound columns are recorded independently.
-
-  strong-strike
-          Drives one controlled maximum-effort tip-of-sword hit and a held-arm
-          control through the production World, printing raw pose kinematics,
-          contact energy channels and before/after anatomy facts.
-
-  tactical-mechanics --quick|--calibration|--held-out|--strike-corpus|--anatomical-mirror-corpus|--noise-free-mirror-corpus|--mirror-trace-1536|--ordinal-31-provenance|--ordinal-31-tick-46-scan|--ordinal-31-tick-46-pair-aabb|--ordinal-31-tick-46-segment-hilt-start-x
-          Brackets the tactical controller between byte-equal strong-strike
-          references on their exact fixed scenario. --calibration runs the
-          frozen 900-cell matched corpus and --write PATH records its fixed CSV.
-          --summary-write PATH records the same deterministic summary printed
-          to stdout, without relying on shell redirection.
-          --held-out remains guarded by a structurally valid calibration.
-          --strike-corpus runs the complete predeclared Smart39 mechanics-only
-          grid and every eligible pair's eighteen local orientations.
-          --anatomical-mirror-corpus reruns it with Smart40's swapped hands,
-          attacking limb, schedule, and contact-key reflection.
-          --noise-free-mirror-corpus retains that grammar and derives the
-          Smart41 schedule from its declared spawn offset rather than perception.
-          --mirror-trace-1536 runs only Smart41 central ordinal 1536 and its
-          anatomical mirror, stopping at their first tick/phase/field divergence.
-          --ordinal-31-provenance --write PATH runs the fixed Smart130
-          reference/held/reference live-rerun-replay trace on one named worker.
-          --ordinal-31-tick-46-scan --write PATH runs the fixed Smart131
-          reference/held/reference tick-46 segment/body scan-budget transcript.
-          --ordinal-31-tick-46-pair-aabb --write PATH runs the fixed Smart132
-          reference/held/reference tick-46 exact swept-pair-AABB transcript.
-          --ordinal-31-tick-46-segment-hilt-start-x --write PATH runs the fixed
-          Smart133 reference/held/reference point-X operand transcript.
-
   trace   --seed N --policy composed|windmill|tactical|learned --attack-moves --mirrored
           --ticks N --out PATH
-          --checkpoint PATH --phase-random             (--policy learned only)
+          --checkpoint PATH   (--phase-random is refused; see learn-probe)
           --opponent composed|windmill|attack-moves    (--policy learned only)
           --fighter-a fighter|brute            --fighter-b fighter|brute
           --a-left  sword|shield|club|empty    --a-right ...  (and the b twins)
@@ -201,19 +138,19 @@ fn usage() {
   learn-probe train    --gens N --pop N --elite N --seeds N --sigma-pct N
                        [--action-layout tactical-v2]
                        --threads N --master-seed N --ticks N --plain
-                       --opponent composed|windmill|attack-moves --phase-random
+                       --opponent <embodied policy> --phase-random
                        --spec v2-probe --out PATH --quiet
   learn-probe evaluate --checkpoint PATH --seeds N --threads N --plain
                        [--action-layout tactical-v2]
-                       --opponent composed|windmill|attack-moves
-                       --frozen-only --no-replay
-          v2-19's learning probe. `train` evolves one small network against a
-          frozen script and writes the checkpoint atomically. `evaluate` runs
-          five conditions -- a constant network, the three scripts, and the
-          checkpoint -- over held-out seeds the optimizer never saw, against
-          both the frozen opponent and a phase-randomised control, and prints
-          the comparison the decision is made on. A held-out run is recorded as
-          the ordinary replay envelope and replayed with no model in the room."
+                       --opponent <embodied policy> --frozen-only --no-replay
+          v2-19's learning probe, embodied since session 05. --opponent takes an
+          EmbodiedPolicyKind name (as `embodied --policy` does), defaulting to
+          `scripted` and not the registry's `neutral`. `train` evolves one
+          network against it and writes the checkpoint atomically. `evaluate`
+          scores five conditions -- a constant network, the scripted body, the
+          strike planner, that planner with a fixed guard, and the checkpoint --
+          on held-out seeds the optimizer never saw, against both a frozen and a
+          phase-randomised clock, replaying every learned run with no model."
     );
 }
 
@@ -2808,17 +2745,58 @@ fn trace_fight(args: &Args) {
     let learned = args.text("policy") == Some("learned");
     let (mut hero_policy, mut monster_policy, hero_token, monster_token, digest, headline);
     if learned {
+        // **`--opponent` names `ArticulatedPolicyKind` directly here, and this
+        // block is scaffolding with a named successor.** It used to read
+        // `learn_probe::opponent_from`, which is `crates/learn`'s opponent
+        // vocabulary; session 05 moved that crate's corpus onto the embodied
+        // model, so `learn::Opponent` now builds an `EmbodiedPolicy` and this
+        // articulated trace cannot hold one. `trace` is still articulated on
+        // purpose -- it is reseated to `EmbodiedPolicyKind` in the same step as
+        // `#/arena`, and **that step deletes these lines rather than editing
+        // them**. Until it lands, a reader who finds two policy vocabularies in
+        // this file should read this one as the one on its way out: nothing else
+        // in `lab` selects an articulated kind by string.
+        //
+        // Leaving it borrowing `learn`'s vocabulary was the alternative and it
+        // is the worse one: `learn_probe.rs` would have had to keep an
+        // articulated opponent list whose only consumer is this call, which is
+        // two vocabularies bought with a file that outlives the problem.
+        //
+        // What this drops is `--phase-random`. The wrapper lives in
+        // `crates/learn` and is embodied now, so it cannot be offered here --
+        // and it is **refused by name** rather than ignored, because a flag that
+        // accepts an input it cannot act on and says nothing is the bug two
+        // reviews of this repository found ten instances of. The control is
+        // still reachable through `lab learn-probe evaluate`, which runs it on
+        // every condition unless told `--frozen-only`.
+        if args.flag("phase-random") {
+            eprintln!(
+                "--phase-random is not available on `lab trace`: the phase-shifted wrapper \n\
+                 moved to the embodied model with crates/learn's corpus, and this command is \n\
+                 still articulated. Run `lab learn-probe evaluate`, which scores every \n\
+                 condition against the phase-randomised control by default."
+            );
+            std::process::exit(2);
+        }
+        let opponent = args.choice(
+            "opponent",
+            ArticulatedPolicyKind::Composed,
+            &[
+                ("composed", ArticulatedPolicyKind::Composed),
+                ("windmill", ArticulatedPolicyKind::Windmill),
+                ("attack-moves", ArticulatedPolicyKind::AttackMoves),
+            ],
+        );
         let checkpoint = learn_probe::load_checkpoint(args);
-        let opponent = learn_probe::opponent_from(args);
         hero_policy = Box::new(learn::LearnedArticulatedPolicy::new(checkpoint.model.clone()))
             as Box<dyn ArticulatedPolicy>;
-        monster_policy = opponent.policy_for(seed);
+        // `build` answers `None` only for `ArticulatedPolicyKind::Learned`, and
+        // the three above are scripts. The `expect` is the compiler being told
+        // what the table already says rather than a case nobody thought about.
+        monster_policy = opponent.build().expect("a scripted kind builds a policy");
         hero_token = "learned".to_string();
-        monster_token = opponent.label().to_string();
-        headline = format!(
-            "the learned policy against {}",
-            learn_probe::opponent_prose(opponent)
-        );
+        monster_token = opponent.name().to_string();
+        headline = format!("the learned policy against the {} script", opponent.name());
         digest = Some(checkpoint.digest());
     } else {
         // The same matchup `articulated` resolves, so that a corpus row and the

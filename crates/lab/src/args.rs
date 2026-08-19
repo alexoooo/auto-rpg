@@ -65,12 +65,6 @@ impl Args {
         self.positional.get(1).map(String::as_str).unwrap_or("")
     }
 
-    pub fn positionals(&self) -> &[String] { &self.positional }
-
-    pub fn pairs(&self) -> &[(String, String)] { &self.pairs }
-
-    pub fn flags(&self) -> &[String] { &self.flags }
-
     fn raw(&self, key: &str) -> Option<&str> {
         self.pairs
             .iter()
