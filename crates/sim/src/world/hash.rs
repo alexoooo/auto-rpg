@@ -445,14 +445,14 @@ mod tests {
     use crate::world::testkit::*;
 
     fn assert_actuator_hash_mutation(mutate: impl FnOnce(&mut World)) {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let base = World::new(&scenario, 1);
         let legacy = base.state_hash();
         let digest = base.state_digest().value;
         let mut changed = base.clone();
         mutate(&mut changed);
         assert_eq!(changed.state_hash(), legacy, "actuator state leaked into LegacyV1");
-        assert_ne!(changed.state_digest().value, digest, "actuator field was omitted from ArticulatedV1");
+        assert_ne!(changed.state_digest().value, digest, "actuator field was omitted from EmbodiedV1");
     }
 
     #[test]
@@ -461,7 +461,7 @@ mod tests {
         assert_actuator_hash_mutation(|w| w.body_yaw[0].speed_turns = Fx::from_raw(1));
         assert_actuator_hash_mutation(|w| w.body_yaw[0].authority_residue = Fx::from_raw(1));
         // Not an actuator row, but it rides in the same digest and answers to
-        // the same rule: ArticulatedV1 sees it, LegacyV1 must not.
+        // the same rule: EmbodiedV1 sees it, LegacyV1 must not.
         assert_actuator_hash_mutation(|w| {
             w.contact.as_mut().expect("articulated contact state").state.cap_hits = 1;
         });
@@ -527,7 +527,7 @@ mod tests {
 
     #[test]
     fn move_turn_and_arm_impairment_factors_are_one_and_already_hashed() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let world = World::new(&scenario, 1);
         for id in [EntityId::new(0, 0), EntityId::new(1, 0)] {
             let pose = world.articulated_pose_test_view(id).unwrap();
@@ -542,7 +542,7 @@ mod tests {
     #[cfg(feature = "cartesian-recoil")]
     #[test]
     fn every_exact_trajectory_hash_word_is_load_bearing_in_fixed_entity_limb_xyz_order() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let baseline = exact_owner_rows_hash(&World::new(&scenario, 1));
         let mut scale = World::new(&scenario, 1);
         scale.exact_owners[0].as_mut().unwrap().common_scale += 1;
@@ -712,8 +712,21 @@ mod tests {
         (0..world.alive.len()).flat_map(|i| anatomy_row_bytes(world, i)).collect()
     }
 
-    fn articulated_suffix_bytes(world: &World) -> Vec<u8> {
-        #[allow(unused_mut)]
+    /// The width of one slot's embodied tail, in bytes: `ground_z` (4), the
+    /// stance row (2 + 4 + 4 + 4 + 1) and the two elbow planes (2 + 2 each).
+    ///
+    /// Spelled out rather than read off a `size_of`, for the same reason
+    /// `anatomy_row_bytes` is written by hand: a width taken from the struct
+    /// would agree with a struct that had drifted from the wire grammar.
+    const EMBODIED_TAIL_BYTES: usize = 4 + 15 + 8;
+
+    /// Every authoritative byte the digest writes *after* the contact cap
+    /// counter, mirrored by hand.
+    ///
+    /// Named for what it is rather than for a model: it was
+    /// `articulated_suffix_bytes` while there were two grammars and the
+    /// embodied tail was somebody else's problem.
+    fn authoritative_suffix_bytes(world: &World) -> Vec<u8> {
         let mut bytes = anatomy_suffix_bytes(world);
         #[cfg(feature = "cartesian-recoil")]
         for owner in &world.exact_owners {
@@ -754,12 +767,34 @@ mod tests {
                 bytes.extend_from_slice(&row.denominator.to_le_bytes());
             }
         }
+        // **The embodied tail, in the order the digest appends it**: the floor,
+        // the legs, then both halves of each elbow plane. It belongs in this
+        // mirror rather than only in the digest because the unwind below walks
+        // back over everything written *after* the cap counter -- a mirror that
+        // stopped at the anatomy rows would recover a state that is not the
+        // actuator loop's, and the comparison would be two wrong numbers agreeing.
+        for z in &world.ground_z {
+            bytes.extend_from_slice(&z.raw().to_le_bytes());
+        }
+        for stance in &world.stance {
+            bytes.extend_from_slice(&stance.hip_yaw.raw().to_le_bytes());
+            bytes.extend_from_slice(&stance.hip_yaw_speed_turns.raw().to_le_bytes());
+            bytes.extend_from_slice(&stance.hip_authority_residue.raw().to_le_bytes());
+            bytes.extend_from_slice(&stance.pelvis.raw().to_le_bytes());
+            bytes.push(stance.step_left);
+        }
+        for planes in &world.elbow_plane {
+            for plane in planes {
+                bytes.extend_from_slice(&plane.commanded.raw().to_le_bytes());
+                bytes.extend_from_slice(&plane.held.raw().to_le_bytes());
+            }
+        }
         bytes
     }
 
     #[test]
     fn contact_cap_hashes_once_after_all_actuator_rows() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let base = World::new(&scenario, 1);
         let mut bumped = base.clone();
         bumped.contact.as_mut().expect("articulated contact state").state.cap_hits = 1;
@@ -787,11 +822,14 @@ mod tests {
             }
             state
         };
-        let rows = articulated_suffix_bytes(&base);
+        let rows = authoritative_suffix_bytes(&base);
         #[cfg(not(feature = "cartesian-recoil"))]
-        assert_eq!(rows.len(), base.alive.len() * crate::anatomy::ANATOMY_HASH_ROW_BYTES);
+        assert_eq!(rows.len(),
+                   base.alive.len() * (crate::anatomy::ANATOMY_HASH_ROW_BYTES
+                                       + EMBODIED_TAIL_BYTES));
         #[cfg(feature = "cartesian-recoil")]
-        assert_eq!(rows.len(), base.alive.len() * (crate::anatomy::ANATOMY_HASH_ROW_BYTES + 386) + 4);
+        assert_eq!(rows.len(), base.alive.len()
+            * (crate::anatomy::ANATOMY_HASH_ROW_BYTES + 386 + EMBODIED_TAIL_BYTES) + 4);
         let actuator_tail = unwind(base.state_digest().value, 0, &rows);
         assert_eq!(unwind(bumped.state_digest().value, 1, &rows), actuator_tail,
                    "cap_hits and the authoritative rows are not the digest's tail");
@@ -804,7 +842,7 @@ mod tests {
         wider.try_spawn(&scenario.units[1]).expect("a third row");
         let mut wider_bumped = wider.clone();
         wider_bumped.contact.as_mut().expect("articulated contact state").state.cap_hits = 1;
-        let wider_rows = articulated_suffix_bytes(&wider);
+        let wider_rows = authoritative_suffix_bytes(&wider);
         let wider_tail = unwind(wider.state_digest().value, 0, &wider_rows);
         assert_ne!(wider_tail, actuator_tail, "a third actuator row hashed nothing");
         assert_eq!(unwind(wider_bumped.state_digest().value, 1, &wider_rows), wider_tail,
@@ -814,7 +852,7 @@ mod tests {
     #[cfg(feature = "cartesian-recoil")]
     #[test]
     fn rejection_provenance_changes_no_hash_publication_or_retained_capacity() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let base = World::new(&scenario, 1);
         let mut witnessed = base.clone();
         let capacities = witnessed.contact_capacities();
@@ -849,7 +887,7 @@ mod tests {
         // field away and *is* hashed, so the pairing worth pinning is that the
         // two answer differently: a capped tick truncated the physics and a
         // refused one rolled it back, and only the first is state.
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let base = World::new(&scenario, 1);
         assert_eq!(base.contact_solver_rejections(), 0);
         let mut refused = base.clone();
@@ -857,17 +895,18 @@ mod tests {
         assert_eq!(refused.contact_solver_rejections(), 3);
         assert_eq!(refused.state_hash(), base.state_hash());
         assert_eq!(refused.state_digest().value, base.state_digest().value,
-                   "a diagnostic counter reached the ArticulatedV1 digest");
+                   "a diagnostic counter reached the EmbodiedV1 digest");
 
-        // A Legacy world has no contact runtime to count with and must answer
-        // zero rather than reaching into an `Option` that is not there.
-        let legacy = World::new(&Scenario::articulated_duel(), 1);
-        assert_eq!(legacy.contact_solver_rejections(), 0);
+        // **The Legacy half of this test is gone.** It built a second world on
+        // a model that allocated no contact runtime at all and asserted that the
+        // accessor answered zero rather than unwrapping an absent `Option`. Every
+        // surviving model allocates one, so there is no fixture left to make the
+        // claim with -- the `expect` above is the only reader of that `Option` now.
     }
 
     #[test]
     fn every_mutable_anatomy_field_changes_only_articulated_hashing() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let base = World::new(&scenario, 1);
         let mutate: [(&str, fn(&mut World)); 6] = [
             ("integrity", |w| w.wounds[0].parts[BodyPart::Torso as usize].integrity -= Fx::from_raw(1)),
@@ -882,8 +921,8 @@ mod tests {
             change(&mut moved);
             assert_eq!(moved.state_hash(), base.state_hash(), "{name} leaked into LegacyV1");
             assert_ne!(moved.state_digest().value, base.state_digest().value,
-                       "{name} is not in the ArticulatedV1 digest");
-            assert_eq!(moved.state_digest().domain, crate::HashDomain::ArticulatedV1);
+                       "{name} is not in the EmbodiedV1 digest");
+            assert_eq!(moved.state_digest().domain, crate::HashDomain::EmbodiedV1);
         }
         // Every part is hashed, not just the ones a fixture happens to wound.
         for part in 0..BodyPart::COUNT {
@@ -904,11 +943,11 @@ mod tests {
     #[test]
     fn every_articulated_command_field_changes_only_the_articulated_hash_domain() {
         let digest = |command: ArticulatedCommandV1| {
-            let scenario = Scenario::articulated_duel();
+            let scenario = Scenario::embodied_duel();
             let mut world = World::new(&scenario, 1);
             assert!(matches!(
-                world.submit_articulated_v1(EntityId::new(0, 0), command),
-                SubmitArticulatedOutcome::Stored { rejection: None, .. }
+                world.submit_embodied_v1(EntityId::new(0, 0), crate::EmbodiedCommandV1::new(command)),
+                crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }
             ));
             (world.state_hash(), world.state_digest().value)
         };
@@ -962,53 +1001,98 @@ mod tests {
         assert_ne!(right_zero_digest, base_digest, "right grip tag was omitted");
     }
 
-    /// The embodied tail is embodied-only, measured rather than argued.
+    /// The embodied tail moves `EmbodiedV1` and leaves the legacy core alone.
     ///
-    /// Every column behind the model guard is perturbed by one raw unit on an
-    /// embodied world; `EmbodiedV1` must move and `LegacyV1` must not. Two of the
-    /// three are not even *allocated* on an articulated world, which is a
-    /// stronger statement than a digest that happened not to move, so for those
-    /// the measurement is the empty column; `ground_z` is allocated for every
-    /// model and is therefore the one that has to be perturbed over there and
-    /// watched not to land.
+    /// **This is domain separation, and it is a different claim from the one
+    /// `contact_cap_hashes_once_after_all_actuator_rows` makes.** That test
+    /// mirrors these same bytes and winds the digest back over them, which pins
+    /// their presence, their width and their order *inside* `EmbodiedV1`. It says
+    /// nothing about where else they might have been written. `legacy_core_hash`
+    /// is folded by every state-digest pin in the repository, so a column that
+    /// reached it would move five pins for a reason nobody predicted -- and
+    /// would move them in the same direction as a real change, which is the
+    /// shape that survives review.
     ///
-    /// **Both halves of the elbow plane are driven separately.** A digest that
+    /// **It replaces `an_embodied_only_column_cannot_move_an_articulated_digest`,
+    /// and it is deliberately not that test renamed.** The old one drove the
+    /// sweep on an embodied world and then asserted, on a second *articulated*
+    /// world, that the same columns were unallocated and that `ground_z` did not
+    /// reach `ArticulatedV1`. That half was a comparison against a digest and a
+    /// model that no longer exist. The half that survives is this one, so it is
+    /// written as its own test rather than left as the residue of a deletion.
+    ///
+    /// Every field is swept, not one per column: the old test perturbed
+    /// `stance.pelvis` alone and would have passed with the other four stance
+    /// words missing from the stream.
+    ///
+    /// **Both halves of both elbow planes are driven separately.** A digest that
     /// wrote `commanded` twice, or `held` twice, would pass a check that only
-    /// moved the pair together.
+    /// ever moved the pair together.
     #[test]
-    fn an_embodied_only_column_cannot_move_an_articulated_digest() {
+    fn every_embodied_only_column_moves_its_own_digest_and_not_the_legacy_core() {
         let embodied = World::new(&Scenario::embodied_duel(), 7);
-        let mut articulated = World::new(&Scenario::articulated_duel(), 7);
-        assert!(articulated.stance.is_empty() && articulated.elbow_plane.is_empty(),
-                "an articulated world allocated an embodied-only column");
-        assert!(!embodied.elbow_plane.is_empty(), "the embodied world has no elbow-plane column");
+        assert_eq!(embodied.state_digest().domain, crate::HashDomain::EmbodiedV1);
+        assert!(!embodied.stance.is_empty() && !embodied.elbow_plane.is_empty()
+                    && !embodied.ground_z.is_empty(),
+                "the fixture allocated no embodied-only column, so the sweep below is vacuous");
 
-        let before = articulated.state_digest().value;
-        articulated.ground_z[0] = Fx::from_raw(1);
-        assert_eq!(articulated.state_digest().value, before, "the floor reached ArticulatedV1");
-
-        let mutations: [fn(&mut World); 6] = [
-            |w| w.ground_z[0] = Fx::from_raw(1),
-            |w| w.stance[0].pelvis = Fx::from_raw(1),
-            |w| w.elbow_plane[0][0].commanded = Angle::from_raw(1),
-            |w| w.elbow_plane[0][1].commanded = Angle::from_raw(1),
-            |w| w.elbow_plane[0][0].held = Angle::from_raw(1),
-            |w| w.elbow_plane[0][1].held = Angle::from_raw(1),
+        // Each perturbation takes a slot, because the sweep asks two questions
+        // of every column and the second one needs the other row. The value is
+        // moved by `+ 1` from whatever the fixture holds rather than assigned a
+        // chosen constant, so a column whose default happened to equal that
+        // constant cannot pass by not changing at all.
+        let mutations: [(&str, fn(&mut World, usize)); 10] = [
+            ("ground_z", |w, i| w.ground_z[i] += Fx::from_raw(1)),
+            ("stance hip_yaw", |w, i| w.stance[i].hip_yaw = w.stance[i].hip_yaw + Angle::from_raw(1)),
+            ("stance hip_yaw_speed_turns", |w, i| w.stance[i].hip_yaw_speed_turns += Fx::from_raw(1)),
+            ("stance hip_authority_residue", |w, i| w.stance[i].hip_authority_residue += Fx::from_raw(1)),
+            ("stance pelvis", |w, i| w.stance[i].pelvis += Fx::from_raw(1)),
+            ("stance step_left", |w, i| w.stance[i].step_left += 1),
+            ("left elbow commanded", |w, i| w.elbow_plane[i][0].commanded =
+                w.elbow_plane[i][0].commanded + Angle::from_raw(1)),
+            ("right elbow commanded", |w, i| w.elbow_plane[i][1].commanded =
+                w.elbow_plane[i][1].commanded + Angle::from_raw(1)),
+            ("left elbow held", |w, i| w.elbow_plane[i][0].held =
+                w.elbow_plane[i][0].held + Angle::from_raw(1)),
+            ("right elbow held", |w, i| w.elbow_plane[i][1].held =
+                w.elbow_plane[i][1].held + Angle::from_raw(1)),
         ];
-        for (at, mutate) in mutations.into_iter().enumerate() {
-            let mut changed = embodied.clone();
-            let (legacy, digest) = (changed.state_hash(), changed.state_digest().value);
-            mutate(&mut changed);
-            assert_ne!(changed.state_digest().value, digest,
-                       "embodied column {at} was omitted from EmbodiedV1");
-            assert_eq!(changed.state_hash(), legacy,
-                       "embodied column {at} leaked into LegacyV1");
+        let (base_digest, base_legacy) = (embodied.state_digest().value, embodied.state_hash());
+        for (name, mutate) in mutations {
+            let mut first = embodied.clone();
+            mutate(&mut first, 0);
+            assert_ne!(first.state_digest().value, base_digest,
+                       "{name} was omitted from EmbodiedV1");
+            assert_eq!(first.state_hash(), base_legacy,
+                       "{name} leaked into the legacy core hash");
+
+            // The same perturbation one row down. Both worlds carry one extra
+            // raw unit of the same column, so a stream that folded the column
+            // into a single word -- a sum, an XOR, any unordered bucket -- gives
+            // them the same digest, and a stream that wrote slot zero alone
+            // leaves the second world equal to the base.
+            //
+            // **Written as a second perturbation rather than as a row swap**,
+            // which is what this checked first and what made it green for the
+            // wrong reason: `stance[i]` is seeded `StanceState::squared(facing)`
+            // and the two factions spawn facing opposite ways, so
+            // `stance.swap(0, 1)` moves the digest whatever column the row named.
+            // Measured, not reasoned: folding `ground_z` into one total on
+            // purpose left the swap version passing and only this one bit.
+            let mut second = embodied.clone();
+            mutate(&mut second, 1);
+            assert_ne!(second.state_digest().value, base_digest,
+                       "{name} is hashed for slot zero only");
+            assert_eq!(second.state_hash(), base_legacy,
+                       "{name} leaked into the legacy core hash from slot one");
+            assert_ne!(first.state_digest().value, second.state_digest().value,
+                       "{name} shares one unordered bucket with the other slot's copy");
         }
     }
 
     #[test]
     fn each_equip_slot_payload_byte_reaches_the_articulated_hash_independently() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let legacy_core = world.state_hash();
         let mut command = articulated_command();
@@ -1035,7 +1119,7 @@ mod tests {
 
     #[test]
     fn immutable_spec_binding_and_resolved_columns_reach_only_the_articulated_digest() {
-        let base_scenario = Scenario::articulated_duel();
+        let base_scenario = Scenario::embodied_duel();
         let base = World::new(&base_scenario, 1);
         let legacy_core = base.state_hash();
         let digest = base.state_digest().value;
@@ -1067,7 +1151,7 @@ mod tests {
 
     #[test]
     fn swapped_carrying_slots_cannot_collide_when_the_actions_and_resolved_arms_match() {
-        let mut scenario = Scenario::articulated_duel();
+        let mut scenario = Scenario::embodied_duel();
         scenario.combat_specs.as_mut().unwrap().equipment[1].action = ActionKind::Sword;
         scenario.units[0].loadout = Loadout::pair(ActionKind::Sword, ActionKind::Sword);
         let mut first = World::new(&scenario, 1);

@@ -345,7 +345,7 @@ mod articulated_projectile_tests {
 
     #[test]
     fn flat_fights_allocate_and_hash_no_dungeon_object_state() {
-        let a = World::new(&Scenario::articulated_duel(), 1);
+        let a = World::new(&Scenario::embodied_duel(), 1);
         let mut b = a.clone();
         assert!(a.dungeon_props.is_empty());
         assert_eq!(a.state_hash(), b.state_hash());
@@ -377,7 +377,7 @@ mod articulated_projectile_tests {
 
     #[test]
     fn broken_blocking_props_leave_a_stable_non_colliding_tombstone() {
-        let mut world = World::new(&Scenario::articulated_duel(), 1);
+        let mut world = World::new(&Scenario::embodied_duel(), 1);
         let start = world.pos[0];
         world.dungeon_props = vec![test_prop(
             DungeonObjectKind::Barrel, start, Fx::from_ratio(38, 100), Fx::from_int(3),

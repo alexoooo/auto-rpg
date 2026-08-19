@@ -22,13 +22,22 @@
 //! extension is a pose no arm could hold, and a policy that asks for one gets
 //! it.
 //!
-//! **It is closed for `CombatModel::Embodied` and deliberately open for
-//! everyone else.** [`reachable_extent`] clamps a commanded `(height, reach)`
-//! onto the annulus the two links can actually span, and the embodied arm driver
-//! applies it before integration. The articulated arithmetic is untouched,
-//! because closing it there would move every articulated corpus and the
-//! comparison those corpora exist for -- and
-//! `an_articulated_arm_target_is_still_unclamped` asserts that it stayed open.
+//! **It is closed at the command boundary and deliberately not here.**
+//! [`reachable_extent`] clamps a commanded `(height, reach)` onto the annulus
+//! the two links can actually span, and `World::world_arm_target` applies it to
+//! every torso-frame target before integration -- which is every body the
+//! surviving model builds. This paragraph named
+//! `an_articulated_arm_target_is_still_unclamped` as the guard that the *other*
+//! model stayed open; that model and that test are gone together, and the
+//! clamp's own tests are below.
+//!
+//! The arithmetic in this module stays unclamped even so, and for two reasons
+//! worth keeping: bounding the pose here as well as the target would move every
+//! pinned corpus, because `hand_position` is on the publication path for every
+//! body; and clamping a *result* leaves the actuator converging forever on a
+//! pose it cannot reach and sitting at the limit with a permanent error, where
+//! clamping the target makes it chase something it can hold and stop.
+//! `World::reachable_arm_target` carries that second argument in full.
 
 use crate::{BodyAnatomySpec, CombatHeight};
 use fx::{mul_div, Angle, Fx, Vec2, Vec3};
@@ -767,10 +776,26 @@ mod tests {
         assert_eq!((arm.shoulder(), arm.hand()), (at, far));
     }
 
-    /// The single-link polyline is unchanged, which is the guard: an articulated
-    /// arm is still one capsule from shoulder to hand.
+    /// The single-link polyline is unchanged, which is the guard: an arm handed
+    /// no elbow is still one capsule from shoulder to hand.
+    ///
+    /// **Renamed off the model that used to be its subject.** It read
+    /// `an_articulated_arm_is_still_one_capsule_from_shoulder_to_hand` while
+    /// there was a model whose arms had no joint; the `None` it passes is now
+    /// the *other* caller's, and that caller has not gone anywhere.
+    /// `body_region_volumes` gives no elbow at all -- it is what an observation's
+    /// targeting view is built through -- and `elbow_point` answers `None` for
+    /// any hand outside the two links' annulus, which is a state a jointed body
+    /// reaches every time it over-reaches.
+    ///
+    /// It is not `an_unreachable_hand_leaves_the_arm_one_segment` twice over:
+    /// that one derives its `None` from a hand it put out of range, so it
+    /// measures `elbow_point`'s refusal as much as the polyline's fallback.
+    /// This one hands `None` straight in at a hand the arm *can* reach, over
+    /// both anatomies and both limbs, so the fallback is the only thing under
+    /// test.
     #[test]
-    fn an_articulated_arm_is_still_one_capsule_from_shoulder_to_hand() {
+    fn an_arm_with_no_elbow_is_still_one_capsule_from_shoulder_to_hand() {
         for anatomy in anatomies() {
             let yaw = Angle::from_raw(30_000);
             for limb in 0..2 {

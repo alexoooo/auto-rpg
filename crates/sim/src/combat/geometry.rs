@@ -198,8 +198,8 @@ pub(crate) fn held_shield_collider(
 /// mask is [`AnatomyRegion::COUNT`] wide because it is a *severance* mask and
 /// severance is anatomical. There is no state in which a forearm is gone and its
 /// arm is not. A body built here has no elbow, so volumes 5 and 6 come back
-/// absent -- see [`jointed_body_region_volumes`], which is the constructor for
-/// the model that does.
+/// absent -- see [`jointed_body_region_volumes`], which is the constructor for a
+/// body that has one.
 ///
 /// `present` is the caller's, region by region, and it covers all five rather
 /// than the two limbs a fight usually takes off. A destroyed pair of legs is
@@ -225,9 +225,12 @@ pub fn body_region_volumes(
 ///
 /// One layer down, [`super::limb::arm_polyline`] made the opposite choice and
 /// takes the `Option` itself. That is not an inconsistency: this decision is
-/// about *models*, and there are two, while the one down there is about a
-/// retained slot that either holds a solved elbow or holds a hand outside the
-/// annulus, which is one question with two answers rather than two questions.
+/// about which *body* the caller is describing, and there are two of those --
+/// the five-region targeting view an observation publishes, which has no joint
+/// to give, and the jointed body the contact phase sweeps -- while the one down
+/// there is about a retained slot that either holds a solved elbow or holds a
+/// hand outside the annulus, which is one question with two answers rather than
+/// two questions.
 ///
 /// `elbows` is body-origin-relative, exactly as `hands` is, and is a point
 /// rather than a plane: the elbow at the far end of a sweep is the one the body
@@ -258,7 +261,7 @@ pub fn jointed_body_region_volumes(
 /// beside it. The single-link path is bit-identical to the expression this
 /// replaced -- `segments()` on a two-point polyline is `(shoulder, hand)`, which
 /// is the pair that stood here -- and
-/// `an_articulated_body_still_presents_five_volumes` measures that rather than
+/// `a_single_link_body_still_presents_five_volumes` measures that rather than
 /// trusting it.
 fn region_volumes(
     body_origin: Vec3,
@@ -450,19 +453,29 @@ mod tests {
         }
     }
 
-    /// The guard, and the reason this session could leave every articulated
-    /// corpus alone: a body built through the single-link constructor presents
-    /// the same five volumes it presented before the elbow existed, and two
-    /// absent rows after them.
+    /// The guard on the single-link constructor, which outlived the model that
+    /// used to be its whole reason: a body built through [`body_region_volumes`]
+    /// presents the same five volumes it presented before the elbow existed, and
+    /// two absent rows after them.
+    ///
+    /// **"Articulated" is not what this is about, and the rename says so.** It
+    /// was `an_articulated_body_still_presents_five_volumes` while there was a
+    /// model whose arms had no joint; there is not, and the single-link
+    /// constructor is still on a live path regardless.
+    /// `World::observed_opponent` builds its targeting view through it and then
+    /// truncates to the five anatomical regions -- a forearm has no armour row,
+    /// no integrity and no severance, so it is not separately targetable -- so
+    /// every observation an embodied fight publishes comes through here with no
+    /// elbow to give.
     ///
     /// **Compared against a locally written-out expression rather than against
-    /// the constructor's own output**, because the rows are now assembled by a
+    /// the constructor's own output**, because the rows are assembled by a
     /// polyline and a `segments()` iterator, and comparing the function with
     /// itself would pass whatever those did. The five points below are the four
     /// spec-derived ones and `shoulder`/`hand`, which is the pair that stood in
     /// this file before `limb` owned it.
     #[test]
-    fn an_articulated_body_still_presents_five_volumes() {
+    fn a_single_link_body_still_presents_five_volumes() {
         let anatomy = spec::fighter_anatomy();
         let origin = Vec3::from_ints(-2, 7, 0);
         for yaw_raw in [0u16, 9_001, 32_768, 61_111] {

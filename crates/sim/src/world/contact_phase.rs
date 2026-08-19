@@ -2584,7 +2584,7 @@ mod tests {
 
     #[test]
     fn crowded_separation_shifts_both_contact_endpoints_equally() {
-        let mut world = World::new(&Scenario::articulated_duel(), 1);
+        let mut world = World::new(&Scenario::embodied_duel(), 1);
         // The contract's three planar points, injected rather than coaxed out of
         // real stats. What is under test is the subtraction; a fixture that had
         // to reach 3/16 by tuning agility would be testing the actuator, and
@@ -2610,7 +2610,7 @@ mod tests {
     #[test]
     fn mixed_body_and_equipment_entry_clamps_translate_each_endpoint_once() {
         const L: Fx = crate::combat::contact::CONTACT_COMPONENT_SPEED_LIMIT;
-        let mut world = World::new(&Scenario::articulated_duel(), 1);
+        let mut world = World::new(&Scenario::embodied_duel(), 1);
         world.retain_contact_entry();
         world.vel[0] = Vec2::new(Fx::from_int(5), Fx::ZERO);
         world.arms[0][1].linear_velocity = Vec3::new(Fx::ONE, Fx::ZERO, Fx::ZERO);
@@ -2659,7 +2659,7 @@ mod tests {
         // whole phase rather than through `clamp_contact_entry` alone, because
         // the commit is the thing under test; the duel's pair stands ten units
         // apart, so nothing else in it resolves.
-        let mut world = World::new(&Scenario::articulated_duel(), 1);
+        let mut world = World::new(&Scenario::embodied_duel(), 1);
         world.retain_contact_entry();
         world.record_contact_locomotion();
         world.vel[0] = Vec2::new(Fx::from_int(5), Fx::ZERO);
@@ -2675,6 +2675,22 @@ mod tests {
         assert_ne!(arm.linear_velocity, Vec3::ZERO,
                    "the clamp moved the hand and the commit reported no motion");
         assert_eq!(world.vel[0], Vec2::new(L, Fx::ZERO), "the commit disturbed the clamped body");
+    }
+
+    /// The anatomy region a swept volume wounds.
+    ///
+    /// **A volume is no longer a region index, and every fixture below that
+    /// indexes `integrity_maxima` or `AnatomyState::parts` with one has to come
+    /// through here.** An embodied body presents seven swept volumes -- the five
+    /// named regions and then the two forearms -- so `braced_thrust`'s answer
+    /// panicked as a region index the day the arms grew an elbow.
+    /// `combat::spec::volume_region` is the repository's single bridge between
+    /// the two numberings and `a_forearm_contact_wounds_the_arm_it_belongs_to`
+    /// is what says reading the volume as a region instead loses the blow
+    /// silently rather than loudly.
+    fn wounded_part(volume: u8) -> BodyPart {
+        crate::combat::spec::volume_region(volume as usize)
+            .expect("a body fact named no region")
     }
 
     /// [`fragile_scenario`] with the fighter's sword swapped for the brute's
@@ -2759,8 +2775,9 @@ mod tests {
                 "the blunt channel took less than a quarter of what was available");
 
         // And it reached anatomy, which is what `pressure` never did.
-        let part = world.wounds[1].parts[region as usize];
-        let maximum = world.anatomy_spec(1).unwrap().integrity_maxima[region as usize];
+        let struck = wounded_part(region);
+        let part = world.wounds[1].parts[struck as usize];
+        let maximum = world.anatomy_spec(1).unwrap().integrity_maxima[struck as usize];
         assert!(part.integrity < maximum, "the club's crush never became an integrity loss");
     }
 
@@ -2776,8 +2793,9 @@ mod tests {
         let (world, region) = braced_thrust(&club_armed(&[1]));
         let crush: u64 = world.contact_resolutions().iter().map(|row| row.crush_raw).sum();
         assert!(crush > 0, "the fixture stopped crushing, so it cannot answer this");
-        let part = world.wounds[1].parts[region as usize];
-        let maximum = world.anatomy_spec(1).unwrap().integrity_maxima[region as usize];
+        let struck = wounded_part(region);
+        let part = world.wounds[1].parts[struck as usize];
+        let maximum = world.anatomy_spec(1).unwrap().integrity_maxima[struck as usize];
         assert!(part.integrity < maximum, "the fixture stopped wounding at all");
         assert_eq!(part.wound, Fx::ZERO, "a club opened a bleeding wound");
 
@@ -2801,7 +2819,7 @@ mod tests {
     #[test]
     fn a_wounding_contact_records_its_region_shock_and_source() {
         let (world, region) = braced_thrust(&fragile_scenario(&[1]));
-        let part = BodyPart::from_index(region as usize).expect("a body fact named no region");
+        let part = wounded_part(region);
         let brute = world.wounds[1];
         assert!(brute.parts[part as usize].severed,
                 "a raw unit of integrity survived a whole contact");
@@ -3072,7 +3090,7 @@ mod tests {
         scenario.combat_specs.as_mut().unwrap().anatomies[1].integrity_maxima =
             [Fx::from_int(8); BodyPart::COUNT];
         let (world, region) = braced_thrust(&scenario);
-        let part = world.wounds[1].parts[region as usize];
+        let part = world.wounds[1].parts[wounded_part(region) as usize];
         assert!(!part.severed, "a body with eight units of integrity lost a region");
         assert!(part.integrity < Fx::from_int(8), "the blow took nothing off");
         // The exact path sums the physical owner and held rows before its one
@@ -3102,7 +3120,8 @@ mod tests {
         // numbers, and without it the entire block could be deleted and
         // replaced by `penetrating = incoming` unnoticed.
         let (bare, region) = braced_thrust(&fragile_scenario(&[1]));
-        assert!(bare.wounds[1].parts[region as usize].severed);
+        let struck = wounded_part(region);
+        assert!(bare.wounds[1].parts[struck as usize].severed);
         let deflected: u64 = bare.contact_resolutions().iter().map(|row| row.deflected_raw).sum();
         assert_eq!(deflected, 0, "a bare body deflected energy");
 
@@ -3116,7 +3135,6 @@ mod tests {
                                    material: Material::Steel };
             braced_thrust(&scenario)
         };
-        let struck = BodyPart::from_index(region as usize).expect("a body fact named no region");
 
         // Hard full coverage sheds most of it and not all of it, and both
         // halves of that are the wiring rather than the formula. A thrust that
@@ -3143,7 +3161,7 @@ mod tests {
         #[cfg(not(feature = "cartesian-recoil"))]
         assert_eq!((incoming, deflected), (3_584, 3_185));
         assert!(deflected < incoming, "the plate deflected the whole incident budget");
-        assert!(hard.wounds[1].parts[region as usize].severed,
+        assert!(hard.wounds[1].parts[struck as usize].severed,
                 "what got past the plate reached nothing");
 
         // Absorption is the other half of the same seam and is billed on a
@@ -3160,7 +3178,7 @@ mod tests {
         // is looked up by the region the blow chose, not by the body.
         let elsewhere = BodyPart::ALL.into_iter().find(|part| *part != struck).expect("a second region");
         let (mismatched, _) = plate(Fx::ZERO, Fx::ONE, elsewhere);
-        assert!(mismatched.wounds[1].parts[region as usize].severed,
+        assert!(mismatched.wounds[1].parts[struck as usize].severed,
                 "a plate on the wrong region turned the blow");
     }
 
@@ -3278,18 +3296,34 @@ mod tests {
         // exercise the same proportional-share and final-remainder rule. The
         // lifted restitution/cone choice moves that physical floor-once loss.
         //
-        // Re-recorded on 2026-08-16 by combat-arms-05, and the *sum* is the
-        // reason this is a re-record rather than a regression: it is unmoved at
-        // `3_145_728` in both laws, because the body lost exactly what it lost.
-        // What moved is the split -- the club used to convert only its axial
-        // half and now crushes what its absent edge declines, so it takes a
-        // larger share of the same loss and the sword takes correspondingly
-        // less. Previously `(2_753_037, 392_691)` and `(2_782_916, 362_812)`.
+        // Re-recorded on 2026-08-16 by combat-arms-05: the club used to convert
+        // only its axial half and now crushes what its absent edge declines, so
+        // it takes a larger share of the same loss and the sword takes
+        // correspondingly less. Previously `(2_753_037, 392_691)` and
+        // `(2_782_916, 362_812)`.
+        //
+        // **The two laws stopped agreeing about the total on 2026-08-19, and
+        // the reason is the elbow rather than the allocator.** The sum used to
+        // be `3_145_728` under both, which is what made pinning it once
+        // defensible: the body lost what it lost and only the split was in
+        // question. An embodied body presents seven swept volumes and the last
+        // two are the forearms, so the pair of blows no longer lands on the
+        // same two capsules under both laws. Measured here: the club takes
+        // volume 5 -- the left forearm -- under either law, while the sword
+        // takes volume 2, the left arm region, under the default law and
+        // volume 1, the torso, under the exact one. Different capsules absorb
+        // different amounts and the two totals part company.
+        //
+        // Both laws still split what they allocate by the same
+        // proportional-share and final-remainder rule, which is the whole
+        // subject of this test, so the total is selected by law rather than
+        // left as one number pretending to be law-independent.
         #[cfg(feature = "cartesian-recoil")]
         assert_eq!((sword.raw(), club.raw()), (2_561_356, 584_372));
         #[cfg(not(feature = "cartesian-recoil"))]
-        assert_eq!((sword.raw(), club.raw()), (2_517_442, 628_286));
-        assert_eq!(sword.raw() + club.raw(), 3_145_728, "the body lost a different amount");
+        assert_eq!((sword.raw(), club.raw()), (366_194, 158_110));
+        let total = if cfg!(feature = "cartesian-recoil") { 3_145_728 } else { 524_304 };
+        assert_eq!(sword.raw() + club.raw(), total, "the body lost a different amount");
     }
 
     #[test]
@@ -3422,12 +3456,14 @@ mod tests {
         assert!(parts[..BodyPart::COUNT].iter().enumerate()
             .all(|(at, part)| at == BodyPart::Legs as usize || part.present),
             "rebuilding took a sound region with it");
-        // The two forearm volumes are absent for a reason that has nothing to do
-        // with severance: `fragile_scenario` is articulated, so its arms are one
-        // link and `arm_elbows` answers `[None; 2]`. Asserted here rather than
-        // left implied, because "absent" reads like a wound at this distance.
-        assert!(parts[BodyPart::COUNT..].iter().all(|part| !part.present),
-                "an articulated body presented a forearm");
+        // The two forearm volumes are present, and that is the other half of
+        // the same rule rather than a second subject: a body whose legs are gone
+        // still hands the sweep the seven volumes an embodied arm's elbow gives
+        // it. Asserted beside the absent one because the builder writes both
+        // from one loop -- a loop that took presence from the region table alone
+        // would answer for five and lose every forearm blow silently.
+        assert!(parts[BodyPart::COUNT..].iter().all(|part| part.present),
+                "an embodied body presented no forearm");
         // And the impairment it implies survives the same boundary.
         assert_eq!(world.move_authority[0], Fx::ZERO);
         assert_eq!(world.turn_authority[0], Fx::ZERO);
@@ -3435,7 +3471,7 @@ mod tests {
 
     #[test]
     fn body_body_contact_remains_planar_and_single_sourced() {
-        // Two overlapping hostile articulated bodies. Body against body is
+        // Two overlapping hostile embodied bodies. Body against body is
         // `World::separate`'s and only `World::separate`'s, so the solver must
         // never key a row body-to-body -- otherwise one overlap is answered
         // twice, once planar and once in three dimensions, and the two answers
@@ -3443,11 +3479,11 @@ mod tests {
         //
         // The contract names this fixture as carrying no equipment. It cannot:
         // `Loadout`'s slot 0 is not an `Option` and `validate_rows` requires the
-        // carried equipment and the loadout to agree slot for slot, so an
-        // articulated row always holds something. Keeping the duel's equipment
+        // carried equipment and the loadout to agree slot for slot, so a
+        // carrying row always holds something. Keeping the duel's equipment
         // costs the test nothing, because what it asserts is the absence of a
         // body/body *key*, not the absence of all contact.
-        let mut scenario = Scenario::articulated_duel();
+        let mut scenario = Scenario::embodied_duel();
         scenario.units[0].spawn = Vec2::from_ints(8, 8);
         scenario.units[1].spawn = Vec2::new(Fx::from_int(8) + Fx::from_ratio(1, 4), Fx::from_int(8));
         let mut world = World::new(&scenario, 1);
@@ -3508,10 +3544,24 @@ mod tests {
         // And the repeated half: a crowd that separation has to unpick every
         // tick, with the two of them inside each other's weapons throughout.
         let mut world = clinch_world();
+        let mut resolved = 0usize;
         for _ in 0..40 {
-            world.submit_articulated_v1(EntityId::new(0, 0), reaching_command(Angle::ZERO, Fx::ONE));
-            world.submit_articulated_v1(EntityId::new(1, 0), reaching_command(Angle::HALF, Fx::ONE));
+            for (id, yaw) in [(EntityId::new(0, 0), Angle::ZERO),
+                              (EntityId::new(1, 0), Angle::HALF)] {
+                // **Stored, and stored without a rejection.** A submission the
+                // world refuses is neither a compile error nor a panic: it
+                // leaves the slot holding whatever it held, and forty ticks of
+                // that would still satisfy every clamp below, because an entry
+                // clamp has nothing to do when nothing moves. Asserting the
+                // command arrived is what keeps the clamps below about a crowd
+                // rather than about two bodies standing still.
+                assert!(matches!(world.submit_embodied_v1(id,
+                    crate::EmbodiedCommandV1::new(reaching_command(yaw, Fx::ONE))),
+                    crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }),
+                    "the reaching command was refused rather than obeyed");
+            }
             world.step();
+            resolved += world.contact_resolutions().len();
             let contact = world.contact.as_ref().expect("articulated contact state");
             for row in &contact.colliders {
                 assert!(inside(row.velocity.x) && inside(row.velocity.y) && inside(row.velocity.z),
@@ -3531,6 +3581,10 @@ mod tests {
                 assert!(row.group_alpha_raw <= 65_536);
             }
         }
+        // Every clamp above has the form "nothing left the envelope", which an
+        // arena where nothing ever touched satisfies perfectly. This is what
+        // says the forty ticks were a crowd.
+        assert!(resolved > 0, "the repeated half resolved nothing, so its clamps are vacuous");
     }
 
     #[test]
@@ -3747,10 +3801,29 @@ mod tests {
                    "alpha zero changed the closure's energy");
     }
 
-    // These raw premises freeze the same captured strike after the shoulder and
-    // hand Y product changed to one toward-zero quotient. The assertions below
-    // still own the nonlinear, restitution and energy behavior; changing only
-    // that authoritative product should require re-recording these words.
+    /// One strike, captured raw, and the premise of the twenty-two tests below.
+    ///
+    /// **The subject of those tests is the contact solver, which is
+    /// model-independent**: `resolve_contact` sits in `EMBODIED_PHASES` exactly
+    /// where it sat in `ARTICULATED_PHASES`. What the model decides is only
+    /// which configuration gets frozen -- one particular strike, at one
+    /// particular tick -- which is why the session that deleted the articulated
+    /// fixture reseated this and re-recorded its words rather than deleting it.
+    ///
+    /// **The reseat was not a frame conversion, and that is the finding worth
+    /// keeping.** Measured on 2026-08-19: flipping the old fixture to `Embodied`
+    /// and subtracting the observed body yaw from every arm bearing on every
+    /// tick -- the exact inverse `World::world_arm_target` re-adds -- leaves a
+    /// strike that never reaches `ContactKind::WeaponBody` at all in its
+    /// ninety-six ticks. The bearing was never the problem: both bodies spawn at
+    /// `Angle::ZERO` and neither turns, so the two frames name the same world
+    /// angle throughout. What moved the strike is the *elbow*.
+    /// `reachable_extent` clamps an embodied arm's height and reach onto the
+    /// annulus the elbow permits before the actuator integrates, and at
+    /// `CombatHeight::LOW` it folds this anatomy back to the minimum reach with
+    /// its hand under the shoulder. The placement and the height below are both
+    /// measurements, and every raw word in the tests that follow was re-recorded
+    /// against them.
     fn directional_captured_strike() -> (
         World, ContactRuntime, Vec<GeneralizedCollider>, crate::combat::contact::ContactFact,
         Vec3, Vec3, Fx,
@@ -3760,56 +3833,84 @@ mod tests {
         config.fighters[0].hands[1].as_mut().unwrap().geometry = crate::EquipmentGeometry::Segment {
             length: Fx::from_int(2), radius: Fx::from_ratio(1, 25),
         };
-        config.fighters[1].spawn = Vec2::new(Fx::from_ratio(631, 50), Fx::from_int(8));
+        config.fighters[1].spawn = Vec2::new(Fx::from_ratio(1_256, 100), Fx::from_int(8));
         config.fighters[1].anatomy = crate::AnatomyChoice::Fighter;
         config.max_ticks = 96;
-        // ARTICULATED-FIXTURE-SHIM -- reseat and re-record.
-        //
-        // `duel_from` builds `CombatModel::Embodied` since v2-ui-08 and every
-        // command below is `submit_articulated_v1`, so without this line the
-        // fixture is 96 ticks of `NotStored(WrongModel)` and fails on "captured
-        // strike lost contact" -- four hundred lines from the cause.
-        //
-        // **The subject of the sixteen tests below is the contact solver, which
-        // is model-independent**: `resolve_contact` sits in `EMBODIED_PHASES`
-        // exactly where it sits in `ARTICULATED_PHASES`. What is articulated
-        // here is only the *premise* -- one particular strike, captured raw. So
-        // this is reseat-and-re-record work and not a deletion.
-        //
-        // **And the reseat is not a frame conversion.** Measured on 2026-08-19
-        // by flipping this fixture to `Embodied` and subtracting the observed
-        // body yaw from every arm bearing on every tick -- the exact inverse the
-        // world re-adds, `policy::embodied_tactics::into_torso_frame`'s
-        // arithmetic: the strike **never reaches `ContactKind::WeaponBody` at
-        // all** in its 96 ticks. An embodied torso is clamped to its hips by
-        // `STANCE_TWIST_LIMIT_RAW` and the hips only turn toward `move_dir`,
-        // which is zero throughout here, so the body does not present the blade
-        // the way a freely-yawed one does. Whoever reseats this needs a new
-        // placement and chamber, measured, and then re-records every raw word
-        // below against it.
-        let mut scenario = Scenario::duel_from(&config).unwrap();
-        scenario.combat_model = crate::CombatModel::Articulated;
+        let scenario = Scenario::duel_from(&config).unwrap();
         let mut world = World::new(&scenario, 0);
         let (attacker, defender) = (world.id_of(0), world.id_of(1));
         let yaw = world.body_yaw[0].angle;
         let chamber = Angle::from_raw(yaw.raw().wrapping_sub(Angle::QUARTER.raw()));
+        // **`chamber` and `yaw` are torso-frame offsets that happen to be world
+        // angles, and only here.** Every command below takes its `body_yaw` from
+        // `neutral_articulated`, which asks for the yaw the body already holds,
+        // so slot 0 never turns off `Angle::ZERO` and `world_arm_target` adds a
+        // zero back on the way in. Give this fixture a body that turns and the
+        // two frames come apart and the subtraction becomes real.
+        //
+        // **Sixty-one hundred-and-twenty-eighths of standing height, and it is
+        // a measurement rather than a taste.** The articulated capture asked for
+        // `CombatHeight::LOW` and got it: a one-link arm holds any height its
+        // shoulder can point at. An embodied elbow cannot, and
+        // `reachable_extent` folds a low, fully-extended arm back onto the
+        // annulus -- at `LOW` this anatomy comes back at the minimum reach
+        // with its hand tucked under the shoulder, and the blade then meets
+        // the target below the axis of the volume it strikes, which gives the
+        // fact a vertical normal. That is not a re-record, it is a different
+        // kind of contact: `CartesianResponseProjector` refuses a body row
+        // carrying a Z impulse at all, so every `cartesian_contact_trial`
+        // below answers `ResolutionError::Projector` and
+        // `retained_static_search_rejects_the_imported_normal_bracket_before_selection`
+        // answers `UnsupportedNonPlanar`.
+        //
+        // Swept on 2026-08-19 over every height from `0.34` to `0.625` in raw
+        // steps of 128 and every hundredth of a unit of spacing from `11.50` to
+        // `12.62` -- about twelve thousand placements, of which six hundred and
+        // eleven reach a single weapon/body fact at all. This pair keeps every
+        // premise the tests below assert *about the contact* rather than about
+        // a number: a planar normal, a canonical tangent axis of 2, a Coulomb
+        // proposal strictly inside the friction cone rather than on it, a
+        // post-impact COM-relative velocity the free-hand test can read, a
+        // 256-direction cone sweep that finds no consistent sliding direction,
+        // and the coupled per-angle search's own `(NoConvergence, 608, 16)` --
+        // which is the articulated capture's rejection, evaluation for
+        // evaluation and gap for gap.
+        //
+        // **And it answers the same words under both laws**, which is not free
+        // and is why the spacing stayed out near the articulated capture's.
+        // Under `cartesian-recoil` a contact resolved before the captured one
+        // moves the exact owner rows and the strike diverges; the whole band
+        // below about `12.2` loses the fact entirely and reports
+        // "captured strike lost contact" only in the feature build. Every
+        // placement in the surviving band was checked in both builds and every
+        // planar one agrees raw word for raw word.
+        let height = crate::CombatHeight::try_from_raw(Fx::from_ratio(61, 128).raw())
+            .expect("sixty-one hundred-and-twenty-eighths is a legal height");
         let strike = |world: &World, bearing| {
             let mut command = world.neutral_articulated(0);
             command.intent = Intent::Attack(defender);
-            command.arms[1] = ArmTarget { bearing, height: crate::CombatHeight::LOW,
+            command.arms[1] = ArmTarget { bearing, height,
                                           reach: Fx::ONE, effort: Fx::ONE };
             command
         };
         let (max_speed, accel) = CAPTURED_ARM_RATES;
         for _ in 0..48 {
-            world.submit_articulated_v1(attacker, strike(&world, chamber));
-            world.submit_articulated_v1(defender, world.neutral_articulated(1));
+            assert!(matches!(world.submit_embodied_v1(attacker,
+                crate::EmbodiedCommandV1::new(strike(&world, chamber))),
+                crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }),
+                "the chamber was refused rather than obeyed");
+            world.submit_embodied_v1(defender,
+                crate::EmbodiedCommandV1::new(world.neutral_articulated(1)));
             world.step_with_arm_rates(max_speed, accel);
         }
         let mut before = None;
         for _ in 0..48 {
-            world.submit_articulated_v1(attacker, strike(&world, yaw));
-            world.submit_articulated_v1(defender, world.neutral_articulated(1));
+            assert!(matches!(world.submit_embodied_v1(attacker,
+                crate::EmbodiedCommandV1::new(strike(&world, yaw))),
+                crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }),
+                "the follow-through was refused rather than obeyed");
+            world.submit_embodied_v1(defender,
+                crate::EmbodiedCommandV1::new(world.neutral_articulated(1)));
             let saved = world.clone(); world.step_with_arm_rates(max_speed, accel);
             if world.contact_resolutions().iter().any(|row| row.fact.key.kind == ContactKind::WeaponBody) {
                 before = Some(saved); break;
@@ -3855,9 +3956,9 @@ mod tests {
         let (world, contact, rows, fact, _, _, _) = directional_captured_strike();
         let at = |entity, slot| rows.iter().position(|row| row.entity == entity && row.slot == slot).unwrap();
         let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
-        assert_eq!((fact.normal.x.raw(), fact.normal.y.raw()), (2_256, 65_497));
+        assert_eq!((fact.normal.x.raw(), fact.normal.y.raw()), (7_810, 65_069));
         let q0 = (rows[b].velocity - rows[a].velocity).dot(fact.normal).raw();
-        assert_eq!(q0, -6_345);
+        assert_eq!(q0, -5_539);
         let mut bodies = Vec::new(); let mut trial = Vec::new();
         let mut wounds = world.wounds.clone(); let mut credit = vec![Fx::ZERO; wounds.len()];
         let mut deltas = Vec::new(); let mut fact_loss = Vec::new();
@@ -3874,7 +3975,7 @@ mod tests {
         };
         let (p, twice) = (probe(256, &mut projector, &mut trial),
                           probe(512, &mut projector, &mut trial));
-        assert_eq!((p, twice, twice - 2 * p), (501, 964, -38));
+        assert_eq!((p, twice, twice - 2 * p), (489, 957, -21));
         assert!((twice - 2 * p).abs() > 1,
                 "the joint response unexpectedly became linear enough to solve");
     }
@@ -3942,9 +4043,10 @@ mod tests {
         let (world, contact, rows, fact, old_proposal, _, _) = directional_captured_strike();
         let at = |entity, slot| rows.iter().position(|row| row.entity == entity && row.slot == slot).unwrap();
         let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
-        assert_eq!((fact.normal.x.raw(), fact.normal.y.raw(), fact.normal.z.raw()), (2_256, 65_497, 0));
-        assert_eq!((rows[b].velocity - rows[a].velocity).dot(fact.normal).raw(), -6_345);
-        let before_energy = resolution::closure_energy(&rows).unwrap(); assert_eq!(before_energy, 380);
+        assert_eq!((fact.normal.x.raw(), fact.normal.y.raw(), fact.normal.z.raw()),
+                   (7_810, 65_069, 0));
+        assert_eq!((rows[b].velocity - rows[a].velocity).dot(fact.normal).raw(), -5_539);
+        let before_energy = resolution::closure_energy(&rows).unwrap(); assert_eq!(before_energy, 291);
         let mut bodies = Vec::new(); let mut trial = Vec::new();
         let mut wounds = world.wounds.clone(); let mut credit = vec![Fx::ZERO; wounds.len()];
         let mut deltas = Vec::new(); let mut fact_loss = Vec::new();
@@ -3979,7 +4081,7 @@ mod tests {
         let owned_mass: i64 = rows.iter().filter(|row| row.entity == fact.key.b)
             .map(|row| row.mass.raw() as i64).sum();
         assert_eq!(owned_mass, 211_681);
-        let before_energy = resolution::closure_energy(&rows).unwrap(); assert_eq!(before_energy, 380);
+        let before_energy = resolution::closure_energy(&rows).unwrap(); assert_eq!(before_energy, 291);
         let mut bodies = Vec::new(); let mut trial = Vec::new();
         let mut wounds = world.wounds.clone(); let mut credit = vec![Fx::ZERO; wounds.len()];
         let mut deltas = Vec::new(); let mut fact_loss = Vec::new();
@@ -4005,7 +4107,7 @@ mod tests {
                 resolution::closure_energy(&trial)?))
         }).expect("ownership-aware nonlinear response should reach flesh restitution");
         assert_eq!(result, Nonlinear1dCandidate {
-            impulse: 64_869, q: 0, energy: 103, evaluations: 33,
+            impulse: 64_982, q: 0, energy: 79, evaluations: 33,
         });
     }
 
@@ -4194,7 +4296,7 @@ mod tests {
             (trial[b].velocity - trial[a].velocity).dot(fact.normal).raw() - q0
         };
         let (p, twice) = (probe(256), probe(512));
-        assert_eq!((p, twice, twice - 2 * p), (501, 964, -38));
+        assert_eq!((p, twice, twice - 2 * p), (489, 957, -21));
         let branch = if (twice - 2 * p).abs() > 1 {
             Err(Nonlinear1dReject::UnsupportedNonlinear)
         } else { Ok(()) };
@@ -4210,15 +4312,17 @@ mod tests {
         let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
         let owned_mass: i64 = rows.iter().filter(|row| row.entity == fact.key.b)
             .map(|row| row.mass.raw() as i64).sum();
-        let scale_raw = 64_858i32;
+        let scale_raw = 64_982i32;
         let scale = |component: Fx| Fx::from_raw(
             ((component.raw() as i64 * scale_raw as i64) / 65_536) as i32);
         let tangents = canonical_tangents(fact.normal).unwrap();
         assert_eq!(tangents.axis, 2);
         // Give the retained row a second, Z-tangent slip component. This is a
-        // test-only velocity perturbation on the actual articulated projector,
-        // not a new body degree of freedom: the target body's Z reaction is
-        // still discarded by the floor.
+        // test-only velocity perturbation on the actual jointed-arm projector
+        // -- "articulated" in this test's name and the next's is the *arm*,
+        // which the surviving model has two links of, not the deleted combat
+        // model -- and not a new body degree of freedom: the target body's Z
+        // reaction is still discarded by the floor.
         rows[a].velocity += tangents.second * Fx::from_raw(64);
         let impulse = Vec3::new(scale(proposal.x), scale(proposal.y), scale(proposal.z))
             - tangents.second * Fx::from_raw(64);
@@ -4249,9 +4353,9 @@ mod tests {
         let q = after_relative.dot(fact.normal).raw();
         let after_tangent = after_relative - fact.normal * after_relative.dot(fact.normal);
         let after_energy = resolution::closure_energy(&trial).unwrap();
-        assert_eq!((normal_raw, tangent_words, limit), (5_626, [99, -64], 1_406));
-        assert_eq!((before_tangent.length().raw(), after_tangent.length().raw()), (129, 97));
-        assert_eq!((q, before_energy, after_energy), (-1, 380, 103));
+        assert_eq!((normal_raw, tangent_words, limit), (4_921, [-332, -64], 1_230));
+        assert_eq!((before_tangent.length().raw(), after_tangent.length().raw()), (378, 12));
+        assert_eq!((q, before_energy, after_energy), (0, 291, 79));
         assert!(after_energy <= before_energy);
         assert!(after_tangent.length() <= before_tangent.length(), "friction increased projected slip");
         assert!(after_tangent.length().raw() > 1,
@@ -4269,9 +4373,9 @@ mod tests {
         let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
         let tangents = canonical_tangents(fact.normal).unwrap();
         rows[a].velocity += tangents.second * Fx::from_raw(64);
-        let normal_raw = 5_626i64;
+        let normal_raw = 4_921i64;
         let limit = tangent_limit_raw(friction.raw(), normal_raw).unwrap();
-        assert_eq!(limit, 1_406);
+        assert_eq!(limit, 1_230);
         let owned_mass: i64 = rows.iter().filter(|row| row.entity == fact.key.b)
             .map(|row| row.mass.raw() as i64).sum();
         let numerator = |state: &[GeneralizedCollider]| -> i128 {
@@ -4301,7 +4405,7 @@ mod tests {
             ([relative.dot(fact.normal).raw(), relative.dot(tangents.first).raw(),
               relative.dot(tangents.second).raw()], numerator(trial))
         };
-        let (normal_q, normal_numerator) = project(99, -64, &mut projector, &mut trial);
+        let (normal_q, normal_numerator) = project(-332, -64, &mut projector, &mut trial);
         assert!(normal_q[0].abs() <= 1 && normal_numerator <= initial_numerator);
         let mut best = None;
         for step in 0u16..256 {
@@ -4319,7 +4423,7 @@ mod tests {
             }
         }
         assert_eq!((initial_numerator, normal_numerator, normal_q),
-                   (3_272_654_787_696, 888_762_214_957, [-1, -97, -12]));
+                   (2_503_991_288_880, 682_796_431_610, [1, -6, -11]));
         assert_eq!(best, None,
                    "a 256-direction cone search must not hide its energy/normal rejection");
     }
@@ -4342,7 +4446,7 @@ mod tests {
         let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
         let owned_mass: i64 = rows.iter().filter(|row| row.entity == fact.key.b)
             .map(|row| row.mass.raw() as i64).sum();
-        let scale_raw = 64_858i32;
+        let scale_raw = 64_982i32;
         let scale = |component: Fx| Fx::from_raw(
             ((component.raw() as i64 * scale_raw as i64) / 65_536) as i32);
         let impulse = Vec3::new(scale(proposal.x), scale(proposal.y), scale(proposal.z));
@@ -4390,7 +4494,8 @@ mod tests {
             evaluations += 1; assert!(evaluations <= 3_072);
             // A normal coordinate is pure `-n*lambda`. The ordinary proposal
             // already contains Coulomb tangent and would bias every ray by the
-            // stale session-13 `(99,-64)` response.
+            // captured `(-332, -64)` response -- `(99, -64)` before the
+            // embodied reseat, and the same argument either way.
             let normal = Vec3::new(
                 Fx::from_raw(toward_zero_component(-fact.normal.x.raw(), scale_raw).unwrap()),
                 Fx::from_raw(toward_zero_component(-fact.normal.y.raw(), scale_raw).unwrap()),
@@ -4468,10 +4573,10 @@ mod tests {
         };
         assert_eq!((result, evaluations, gap_count), (Err(SlidingSolveReject::NoConvergence), 608, 16));
         let (lower, upper, rejected_angle, vector) = rejected_gap.unwrap();
-        assert_eq!((lower, upper, rejected_angle), ((5_623, -2), (5_624, 2), 60_188));
-        assert_eq!((vector.x.raw(), vector.y.raw(), vector.z.raw()), (-1_223, 42, -689));
-        assert_eq!(gap_rows[0], (60_173, 5_623, -2, 5_624, 3));
-        assert_eq!(gap_rows[15], (60_188, 5_623, -2, 5_624, 2));
+        assert_eq!((lower, upper, rejected_angle), ((4_921, -3), (4_922, 2), 34_568));
+        assert_eq!((vector.x.raw(), vector.y.raw(), vector.z.raw()), (1_203, -144, -211));
+        assert_eq!(gap_rows[0], (34_553, 4_921, -3, 4_922, 2));
+        assert_eq!(gap_rows[15], (34_568, 4_921, -3, 4_922, 2));
     }
 
     #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -4663,13 +4768,13 @@ mod tests {
 
     #[test]
     fn normal_component_integerization_mirrors_and_permutes_exactly() {
-        let normal = Vec3::new(Fx::from_raw(2_256), Fx::from_raw(65_497), Fx::ZERO);
-        let (a, count) = normal_component_candidates(normal, 5_623);
-        let (mirrored, mirror_count) = normal_component_candidates(-normal, 5_623);
+        let normal = Vec3::new(Fx::from_raw(7_810), Fx::from_raw(65_069), Fx::ZERO);
+        let (a, count) = normal_component_candidates(normal, 4_921);
+        let (mirrored, mirror_count) = normal_component_candidates(-normal, 4_921);
         assert_eq!((count, mirror_count), (4, 4));
         for value in &a[..count] { assert!(mirrored[..mirror_count].contains(&-*value)); }
         let permuted_normal = Vec3::new(normal.y, normal.x, normal.z);
-        let (permuted, permuted_count) = normal_component_candidates(permuted_normal, 5_623);
+        let (permuted, permuted_count) = normal_component_candidates(permuted_normal, 4_921);
         assert_eq!(permuted_count, count);
         for value in &a[..count] {
             assert!(permuted[..count].contains(&Vec3::new(value.y, value.x, value.z)));
@@ -4696,10 +4801,10 @@ mod tests {
         let mut projector = ContactProjector { world: &world, entry: &contact.entry,
             bodies: &mut bodies, wounds: &mut wounds, credit: &mut credit,
             deltas: &mut deltas, fact_loss: &mut fact_loss };
-        for angle_raw in 60_173u16..=60_188 {
+        for angle_raw in 34_553u16..=34_568 {
             let angle = Angle::from_raw(angle_raw);
             let direction = (tangents.first * angle.cos() + tangents.second * angle.sin()).normalized_or_zero();
-            for magnitude in [5_623, 5_624] {
+            for magnitude in [4_921, 4_922] {
                 let (candidates, count) = normal_component_candidates(fact.normal, magnitude);
                 for (rounding, normal) in candidates[..count].iter().enumerate() {
                     evaluations += 1;
@@ -4883,7 +4988,7 @@ mod tests {
     }
 
     #[test]
-    fn generalized_joint_attributes_the_sword_limb_and_rejects_its_captured_boundary() {
+    fn generalized_joint_attributes_the_sword_limb_and_rejects_both_reach_boundaries() {
         let (world, contact, rows, fact, _, _, _) = directional_captured_strike();
         let source = fact.key.a.index as usize;
         assert_eq!(fact.key.a_slot, LimbSlot::RightArm as u8);
@@ -4895,18 +5000,50 @@ mod tests {
         assert_eq!(sword_rows[0].mass.raw(), 81_264);
         let arm = world.arms[source][limb]; let anatomy = world.anatomy_spec(source).unwrap();
         let yaw = world.body_yaw[source].angle;
-        assert_eq!((arm.height.raw(), arm.reach.raw()), (16_384, 65_536));
-        assert_eq!(forward_joint_jacobian(anatomy, yaw, limb, arm),
+        // **The captured arm is inside the joint's own bounds now, and that is
+        // the reseat rather than a weakening.** The articulated capture asked
+        // for `reach: Fx::ONE` and got it -- a one-link arm holds whatever its
+        // shoulder points at -- so the arm the strike landed with sat exactly on
+        // the outer boundary, and the first assertion here was about that arm.
+        // `reachable_extent` clamps an embodied arm onto the annulus its elbow
+        // permits before the actuator integrates, and this capture's height is
+        // outside the band where the elbow can still lay the arm straight: at
+        // `61/128` a commanded `Fx::ONE` comes back `45_278`.
+        //
+        // **That band is narrow but it is not empty, and the note that first
+        // stood here said it was.** Swept at full resolution over every legal
+        // `CombatHeight` against this fixture's own `posed_anatomy`, identical
+        // for both slots: `Fx::ONE` survives unclamped for `height_raw` in
+        // `50_832..=51_115`, two hundred and eighty-four raw units straddling
+        // the `50_972` that puts the hand level with the shoulder -- the one
+        // place `dz` is zero and the annulus reaches the whole `arm_length`. A
+        // capture aimed there could still arrive on the outer boundary; this one
+        // is aimed a third of the body lower and cannot. The superseded claim --
+        // a maximum held reach of `65_533`, hence `Fx::ONE` unreachable at any
+        // height -- was a sampling artefact, and an instructive one: the sweep
+        // behind it stepped 512 raw at a time and stepped over the band.
+        //
+        // Both boundaries are still asserted, on constructed neighbours, and the
+        // captured arm now carries the other half of the same claim -- that the
+        // jacobian exists in between. Dropping either end would leave a
+        // predicate satisfied by a function that always refused.
+        assert_eq!((arm.height.raw(), arm.reach.raw()), (31_231, 45_278));
+        let captured = forward_joint_jacobian(anatomy, yaw, limb, arm)
+            .expect("the captured arm is inside the joint bounds");
+        assert_eq!((captured[0], captured[1]), (Vec3::X, Vec3::Y));
+        let mut extended = arm; extended.reach = Fx::ONE;
+        assert_eq!(forward_joint_jacobian(anatomy, yaw, limb, extended),
                    Err(GeneralizedJointReject::ActiveBoundary));
         let mut interior = arm;
         interior.height = crate::CombatHeight::MID;
         interior.reach = Fx::from_raw(32_768);
         let jacobian = forward_joint_jacobian(anatomy, yaw, limb, interior).unwrap();
-        assert_eq!((fact.normal.x.raw(), fact.normal.y.raw(), fact.normal.z.raw()), (2_256, 65_497, 0));
+        assert_eq!((fact.normal.x.raw(), fact.normal.y.raw(), fact.normal.z.raw()),
+                   (7_810, 65_069, 0));
         let at = |entity, slot| rows.iter().position(|row| row.entity == entity && row.slot == slot).unwrap();
         let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
-        assert_eq!((rows[b].velocity - rows[a].velocity).dot(fact.normal).raw(), -6_345);
-        assert_eq!(resolution::closure_energy(&rows).unwrap(), 380);
+        assert_eq!((rows[b].velocity - rows[a].velocity).dot(fact.normal).raw(), -5_539);
+        assert_eq!(resolution::closure_energy(&rows).unwrap(), 291);
         assert_eq!((jacobian[0], jacobian[1]), (Vec3::X, Vec3::Y));
         assert_eq!(actuator::hand_position(anatomy, yaw, limb, arm.bearing, arm.height, arm.reach), arm.hand);
         let mut bounded = arm; bounded.reach = Fx::from_raw(actuator::ARM_MIN_REACH_RAW);
@@ -4916,7 +5053,7 @@ mod tests {
     #[test]
     fn cartesian_contact_trial_reaches_the_retained_sword_restitution_without_inverse_hand() {
         let (_world, _contact, rows, fact, _, proposal, _) = directional_captured_strike();
-        assert_eq!(fact.toi.get().raw(), 55_702);
+        assert_eq!(fact.toi.get().raw(), 30_514);
         let at = |entity, slot| rows.iter().position(|row| row.entity == entity && row.slot == slot).unwrap();
         let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
         let before_energy = resolution::closure_energy(&rows).unwrap();
@@ -4933,9 +5070,9 @@ mod tests {
                 resolution::closure_energy(&trial)?))
         }).unwrap();
         assert_eq!(answer, Nonlinear1dCandidate {
-            impulse: 65_560, q: 0, energy: 105, evaluations: 35,
+            impulse: 65_550, q: 0, energy: 80, evaluations: 35,
         });
-        assert_eq!(before_energy - answer.energy, 275);
+        assert_eq!(before_energy - answer.energy, 211);
     }
 
     #[test]
@@ -4944,7 +5081,7 @@ mod tests {
         let sums = vec![[0i128; 3]; rows.len()]; let mut trial = Vec::new();
         cartesian_contact_trial(&rows, &sums, 0, &mut trial).unwrap();
         assert_eq!(trial, rows);
-        assert_eq!(resolution::closure_energy(&trial).unwrap(), 380);
+        assert_eq!(resolution::closure_energy(&trial).unwrap(), 291);
     }
 
     #[test]
@@ -4957,7 +5094,7 @@ mod tests {
         assert_eq!((rows[a].entity, rows[a].slot, rows[b].entity, rows[b].slot),
                    (fact.key.a, fact.key.a_slot, fact.key.b, fact.key.b_slot));
         let scale = |component: Fx| Fx::from_raw(
-            ((component.raw() as i64 * 65_560i64) / 65_536) as i32);
+            ((component.raw() as i64 * 65_550i64) / 65_536) as i32);
         let impulse = Vec3::new(scale(proposal.x), scale(proposal.y), scale(proposal.z));
         let mut sums = vec![[0i128; 3]; rows.len()];
         sums[a] = [impulse.x.raw() as i128, impulse.y.raw() as i128, impulse.z.raw() as i128];
@@ -4965,18 +5102,18 @@ mod tests {
         let mut trial = Vec::new(); cartesian_contact_trial(&rows, &sums, 65_536, &mut trial).unwrap();
         let toi = fact.toi.get(); let remaining = Fx::ONE - toi;
         let displacement = rows[a].velocity * toi + trial[a].velocity * remaining;
-        assert_eq!((toi.raw(), remaining.raw()), (55_702, 9_834));
+        assert_eq!((toi.raw(), remaining.raw()), (30_514, 35_022));
         assert_eq!((rows[a].velocity.x.raw(), rows[a].velocity.y.raw(),
                     trial[a].velocity.x.raw(), trial[a].velocity.y.raw(),
                     displacement.x.raw(), displacement.y.raw()),
-                   (332, 6_337, 93, 1_757, 295, 5_649));
+                   (290, 5_543, 81, 1_537, 178, 3_401));
         assert_ne!(displacement, trial[a].velocity,
                    "a nonzero TOI cannot store post-impact velocity as whole-tick displacement");
         let hand_post = trial[a].velocity - trial[b].velocity - rows[a].velocity_offset;
         assert_eq!((rows[a].velocity_offset.x.raw(), rows[a].velocity_offset.y.raw(),
                     rows[a].velocity_offset.z.raw()), (197, 3_768, 0));
         assert_eq!((hand_post.x.raw(), hand_post.y.raw(), hand_post.z.raw()),
-                   (-195, -3_769, 0));
+                   (-196, -3_769, 0));
     }
 
     #[test]
@@ -4990,7 +5127,7 @@ mod tests {
         assert_eq!((rows[a].kind, rows[b].kind, rows[a].mass.raw()),
                    (GeneralizedKind::Equipment, GeneralizedKind::Body, 81_264));
         let scale = |component: Fx| Fx::from_raw(
-            ((component.raw() as i64 * 65_560i64) / 65_536) as i32);
+            ((component.raw() as i64 * 65_550i64) / 65_536) as i32);
         let impulse = Vec3::new(scale(proposal.x), scale(proposal.y), scale(proposal.z));
         let mut sums = vec![[0i128; 3]; rows.len()];
         sums[a] = [impulse.x.raw() as i128, impulse.y.raw() as i128, impulse.z.raw() as i128];
@@ -5008,18 +5145,18 @@ mod tests {
                 owns_equipment: true }
         };
         let initial = sample(rows[a], rows[b]); let post = sample(trial[a], trial[b]);
-        assert_eq!(equipment_com_relative_velocity_raw(post).unwrap(), [2, -1, 0]);
+        assert_eq!(equipment_com_relative_velocity_raw(post).unwrap(), [1, -1, 0]);
         assert_eq!(post.velocity_offset_raw, [197, 3_768, 0]);
-        assert_eq!(post.hand_velocity_raw, [-195, -3_769, 0]);
+        assert_eq!(post.hand_velocity_raw, [-196, -3_769, 0]);
         assert_eq!((widened_equipment_com_numerator(&[initial]).unwrap(),
                     widened_equipment_com_numerator(&[post]).unwrap()),
-                   (3_272_321_930_352, 251_568_802_272));
+                   (2_503_658_431_536, 192_508_727_520));
         let changed_offset = [post.velocity_offset_raw[0] + 31,
                               post.velocity_offset_raw[1] - 17, 0];
-        let free_hand = [2 - changed_offset[0], -1 - changed_offset[1], 0];
+        let free_hand = [1 - changed_offset[0], -1 - changed_offset[1], 0];
         let transported = EquipmentComSample { hand_velocity_raw: free_hand,
             velocity_offset_raw: changed_offset, ..post };
-        assert_eq!(equipment_com_relative_velocity_raw(transported).unwrap(), [2, -1, 0],
+        assert_eq!(equipment_com_relative_velocity_raw(transported).unwrap(), [1, -1, 0],
                    "the next scalar offset changed inertial equipment COM momentum");
         assert_eq!(widened_equipment_com_numerator(&[transported]),
                    widened_equipment_com_numerator(&[post]));
@@ -5055,7 +5192,7 @@ mod tests {
                     entry.linear_velocity.x.raw(), entry.linear_velocity.y.raw(),
                     entry.linear_velocity.z.raw(), entry.post_contact_com_velocity.x.raw(),
                     entry.post_contact_com_velocity.y.raw(), entry.post_contact_com_velocity.z.raw()),
-                   (49_097, -18_376, 29_491, 98, 1_882, 0, -240, -4_581, 0));
+                   (33_832, -19_426, 56_215, -20, -366, 0, -209, -4_006, 0));
         // The capture's own rates, not the production pair: the tick pinned
         // below is the one after the tick this fixture froze, and reading the
         // live constants here would let an actuator tuning move a word that is
@@ -5067,7 +5204,7 @@ mod tests {
         assert_eq!((next.hand.x.raw(), next.hand.y.raw(), next.hand.z.raw(),
                     next.post_contact_com_velocity.x.raw(), next.post_contact_com_velocity.y.raw(),
                     next.post_contact_com_velocity.z.raw(), next.fatigue.raw(), next.work_residue.raw()),
-                   (48_933, -24_768, 29_491, -138, -4_479, 0, 22, 1));
+                   (33_699, -25_243, 56_215, -107, -3_904, 0, 5, 236));
         assert!(next.hand != entry.hand || next.post_contact_com_velocity != entry.post_contact_com_velocity,
                 "active COM recoil was ignored on the next actuator tick");
         assert!(next.fatigue >= entry.fatigue);
@@ -5076,7 +5213,7 @@ mod tests {
     #[cfg(feature = "cartesian-recoil")]
     #[test]
     fn release_and_replacement_publish_exact_widened_recoil_energy() {
-        let mut world = World::new(&Scenario::articulated_duel(), 0);
+        let mut world = World::new(&Scenario::embodied_duel(), 0);
         world.retain_contact_entry();
         let id = world.id_of(0);
         world.arms[0][1].post_contact_active = true;
@@ -5131,7 +5268,7 @@ mod tests {
     #[cfg(feature = "cartesian-recoil")]
     #[test]
     fn cap_reconciliation_uses_the_same_exact_signed_row_grammar() {
-        let mut world = World::new(&Scenario::articulated_duel(), 0);
+        let mut world = World::new(&Scenario::embodied_duel(), 0);
         world.retain_contact_entry();
         let entity = world.id_of(0);
         let mut contact = world.contact.take().unwrap();
@@ -5209,7 +5346,7 @@ mod tests {
         }).unwrap();
         let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
         let scale = |component: Fx| Fx::from_raw(
-            ((component.raw() as i64 * 65_560i64) / 65_536) as i32);
+            ((component.raw() as i64 * 65_550i64) / 65_536) as i32);
         let impulse = Vec3::new(scale(proposal.x), scale(proposal.y), scale(proposal.z));
         let mut sums = vec![[0i128; 3]; rows.len()];
         sums[a] = [impulse.x.raw() as i128, impulse.y.raw() as i128,
@@ -5243,7 +5380,7 @@ mod tests {
             resolution::channels(allocated[0], channel);
         let mut resolutions = vec![ContactResolution {
             group_ordinal: 0,
-            // `65_560` scaled the frozen proposal before it entered this row.
+            // `65_550` scaled the frozen proposal before it entered this row.
             // The finalizer applies that already-scaled impulse in full.
             group_alpha_raw: 65_536,
             fact,
@@ -5296,19 +5433,19 @@ mod tests {
         let checkpoint = frozen_single_fact_anatomy_checkpoint(true, true);
         assert_eq!(checkpoint.row.energy,
                    crate::combat::contact::EnergyLedger {
-                       before_raw: 380, after_raw: 105, dissipated_raw: 275 });
+                       before_raw: 291, after_raw: 80, dissipated_raw: 211 });
         assert_eq!(checkpoint.row.group_alpha_raw, 65_536,
                    "proposal scale leaked into the finalizer alpha");
         assert_eq!((checkpoint.row.cut_raw, checkpoint.row.thrust_raw,
                     checkpoint.row.pressure_raw, checkpoint.row.deflected_raw),
-                   (131, 0, 144, 0));
+                   (67, 0, 144, 0));
         assert_eq!((checkpoint.part, checkpoint.before.integrity.raw(),
                     checkpoint.after.integrity.raw()),
-                   (BodyPart::Legs, 131_072, 118_496));
+                   (BodyPart::Torso, 131_072, 124_640));
         assert_eq!((checkpoint.before.wound.raw(), checkpoint.after.wound.raw()),
-                   (0, 12_576));
+                   (0, 6_432));
         assert_eq!((checkpoint.before_fraction, checkpoint.after_fraction),
-                   ((65_536, 0), (59_248, 6_288)));
+                   ((65_536, 0), (62_320, 3_216)));
         for other in BodyPart::ALL {
             if other == checkpoint.part { continue; }
             assert_eq!(checkpoint.after_anatomy.parts[other as usize],
@@ -5334,7 +5471,7 @@ mod tests {
     fn retained_anatomy_requires_the_actual_after_group_hook() {
         let checkpoint = frozen_single_fact_anatomy_checkpoint(true, false);
         assert_eq!((checkpoint.row.cut_raw, checkpoint.row.thrust_raw,
-                    checkpoint.row.pressure_raw), (131, 0, 144));
+                    checkpoint.row.pressure_raw), (67, 0, 144));
         assert_eq!(checkpoint.after, checkpoint.before,
                    "anatomy changed when the actual after_group hook was skipped");
         assert_eq!(checkpoint.after_fraction, checkpoint.before_fraction);
@@ -5356,7 +5493,7 @@ mod tests {
         let at = |entity, slot| rows.iter().position(|row| row.entity == entity && row.slot == slot).unwrap();
         let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
         let scale = |component: Fx| Fx::from_raw(
-            ((component.raw() as i64 * 65_560i64) / 65_536) as i32);
+            ((component.raw() as i64 * 65_550i64) / 65_536) as i32);
         let impulse = Vec3::new(scale(proposal.x), scale(proposal.y), scale(proposal.z));
         let mut sums = vec![[0i128; 3]; rows.len()];
         sums[a] = [impulse.x.raw() as i128, impulse.y.raw() as i128, impulse.z.raw() as i128];
@@ -5406,18 +5543,26 @@ mod tests {
                              physical_tangent.z.raw() as i64],
                     resolution::tests::tangent_limit_raw(friction.raw(), jn).unwrap(),
                     numerator(&entry_rows), numerator(&normal_only), numerator(&projected)),
-                   (-6_345, 0, 2, 0, 5_687, [101, 0], [-102, 3, 0], 1_421,
-                    3_272_321_930_352, 908_190_556_849, 907_535_410_717));
+                   (-5_539, 0, 1, 0, 4_964, [-334, 0], [331, -40, 0], 1_241,
+                    2_503_658_431_536, 702_664_790_917, 694_583_037_284));
         assert_eq!([outward.x.raw() as i64, outward.y.raw() as i64,
-                    outward.z.raw() as i64], [-102, 3, 0]);
+                    outward.z.raw() as i64], [330, -40, 0]);
         let classified = resolution::tests::classify_committed_friction(
-            -6_345, 0, restitution.raw(), jn, friction.raw(), [-102, 3, 0],
-            [[-102, 3, 0]; 2], [2, 0], [1, 1], 101i128 * 2i128,
-            3_272_321_930_352, 908_190_556_849, 907_535_410_717, true,
+            -5_539, 0, restitution.raw(), jn, friction.raw(), [330, -40, 0],
+            [[330, -40, 0]; 2], [1, 0], [1, 1], -334i128 * 2i128,
+            2_503_658_431_536, 702_664_790_917, 694_583_037_284, true,
         ).unwrap();
         assert!(classified.normal_valid && classified.cone_valid);
-        assert!(!classified.static_valid,
-                "two raw units of residual slip were called static friction");
+        // **Static now, and that is the capture rather than the rule.** The
+        // articulated capture committed with two raw units of tangential slip
+        // left, which is outside the classifier's one-unit tolerance, so the
+        // impulse was neither a sticking nor a sliding solution and the pair of
+        // negatives here said exactly that. The embodied capture commits with
+        // one, and one sticks. `classify_committed_friction` is being asked
+        // about a different contact, not being read differently -- and the
+        // sliding half below is what still separates the two answers.
+        assert!(classified.static_valid,
+                "one raw unit of residual slip stopped being static friction");
         assert!(!classified.sliding_valid,
                 "an impulse deep inside the Coulomb disk was called sliding friction");
         let weapon = colliders[closure_rows[a]]; let body = colliders[closure_rows[b]];
@@ -5440,7 +5585,7 @@ mod tests {
             65_536 - fact.toi.get().raw() as u32).unwrap();
         assert_eq!((fact.toi.get().raw(), resolutions[0].energy.before_raw,
                     resolutions[0].energy.after_raw, resolutions[0].energy.dissipated_raw),
-                   (55_702, 380, 105, 275));
+                   (30_514, 291, 80, 211));
 
         let mut wounds = world.wounds.clone(); let mut bodies = Vec::new();
         let mut credit = vec![Fx::ZERO; wounds.len()]; let mut deltas = Vec::new();
@@ -5464,7 +5609,7 @@ mod tests {
                         .dot(basis.first).raw(),
                     (finished_contact_b.velocity - finished_contact_a.velocity)
                         .dot(basis.second).raw()),
-                   (0, 2, 0));
+                   (0, 1, 0));
         let finished_weapon = colliders.iter().copied().find(|row|
             row.entity == fact.key.a && row.slot == fact.key.a_slot).unwrap();
         let finished_body = colliders.iter().copied().find(|row|
@@ -5477,10 +5622,10 @@ mod tests {
                     previous_origin.x.raw(), previous_origin.y.raw(),
                     finished_weapon.velocity.x.raw(), finished_weapon.velocity.y.raw(),
                     finished_body.velocity.x.raw(), finished_body.velocity.y.raw()),
-                   (704_458, 505_911, 29_491, 655_360, 524_288, 93, 1_757, 0, 0));
+                   (689_193, 504_862, 56_215, 655_360, 524_288, 81, 1_537, 0, 0));
         assert_eq!((resolutions[0].group_alpha_raw, resolutions[0].cut_raw,
                     resolutions[0].thrust_raw, resolutions[0].pressure_raw, fact.volume),
-                   (65_536, 131, 0, 144, BodyPart::Legs as u8));
+                   (65_536, 67, 0, 144, BodyPart::Torso as u8));
         world.wounds = wounds;
         contact.colliders = colliders;
         contact.resolutions = resolutions;
@@ -5492,7 +5637,7 @@ mod tests {
                     committed.linear_velocity.x.raw(), committed.linear_velocity.y.raw(),
                     committed.linear_velocity.z.raw(), committed.post_contact_com_velocity.x.raw(),
                     committed.post_contact_com_velocity.y.raw(), committed.post_contact_com_velocity.z.raw()),
-                   (49_098, -18_377, 29_491, 99, 1_881, 0, 93, 1_757, 0));
+                   (33_833, -19_426, 56_215, -19, -366, 0, 81, 1_537, 0));
         world.drive_articulated_arms(CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
         let next = world.arms[source][limb];
         assert_ne!((committed.hand, committed.post_contact_com_velocity),
@@ -5500,7 +5645,7 @@ mod tests {
         let region = volume_region(fact.volume as usize).unwrap();
         assert_eq!((world.wounds[world.resolve(fact.key.b).unwrap()].parts[region as usize].integrity.raw(),
                     world.wounds[world.resolve(fact.key.b).unwrap()].parts[region as usize].wound.raw()),
-                   (118_496, 12_576));
+                   (124_640, 6_432));
     }
 
     #[cfg(feature = "cartesian-recoil")]
@@ -5588,16 +5733,16 @@ mod tests {
             accepted.push((key, q, slip, after));
         }
         assert_eq!(endpoints, vec![
-            ([-293, -5616, -1], -6, -96, 0),
-            ([-292, -5616, -1], -6, -96, 0),
-            ([-294, -5616, -1], -6, -97, 0),
-            ([-293, -5616, -2], -6, -96, 2),
+            ([-770, -5570, -1], 779, -488, 2),
+            ([-769, -5571, -1], 779, -488, 2),
+            ([-771, -5570, -1], 779, -489, 2),
+            ([-770, -5570, -2], 779, -488, 2),
         ]);
         assert_eq!((unique.len(), restitution_rejects, slip_rejects,
                     cone_rejects, energy_rejects, accepted.len(), q_range),
-                   (48, 48, 0, 0, 0, 0, (-6, -5)),
+                   (50, 50, 0, 0, 0, 0, (779, 783)),
                    "pin the actual-projector bracket diagnostic");
-        assert_eq!(normal_only_q, vec![(5_623, -11), (5_624, -10)]);
+        assert_eq!(normal_only_q, vec![(5_623, 779), (5_624, 783)]);
         let terminal = if normal_only_q.iter().all(|row| row.1 < 0)
             || normal_only_q.iter().all(|row| row.1 > 0) {
             StaticSearchReject::MissingNormalBracket
@@ -5678,22 +5823,42 @@ mod tests {
             assert!(left.0 <= right.0 && left.1 <= right.1,
                     "full-domain normal response reversed between scalar samples");
         }
-        assert!(roots.is_empty(), "checkpoint A unexpectedly found a representable root");
-        assert!(lower_rows.iter().all(|row| row.1 < -1));
-        assert!(upper_rows.iter().all(|row| row.1 < -1 || row.1 > 1));
+        // **The domain has a root in it now, and these three lines are what
+        // say so rather than a `roots.is_empty()` that would have to be
+        // deleted.** The articulated capture's upper word straddled zero
+        // without landing on it -- every integer rounding of the normal there
+        // left `|q| > 1` -- which is what `FullDomainContactReject::NormalGap`
+        // named and what an empty `roots` recorded. The embodied capture's
+        // normal is oblique enough that two of the roundings at the upper word
+        // land exactly on `q == 0` and inside the entry energy. The bisection,
+        // its sample ladder and its call count are untouched; what moved is the
+        // contact underneath them.
+        assert_eq!(roots, vec![(-587, -4_885, 0, 0, 690_615_366_361),
+                               (-586, -4_885, 0, 0, 690_584_242_249)],
+                   "the full-domain bracket's representable roots moved");
+        assert!(lower_rows.iter().all(|row| row.1 < -1),
+                "the lower end of the bracket stopped opening");
+        assert!(upper_rows.iter().any(|row| row.1.unsigned_abs() <= 1),
+                "the upper end of the bracket stopped closing on a root");
         assert_eq!(sampled, vec![0, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512,
-            1_024, 2_048, 4_096, 8_192, 6_144, 5_120, 5_632, 5_888, 5_760,
-            5_696, 5_664, 5_648, 5_640, 5_636, 5_634, 5_633]);
-        let terminal = FullDomainContactReject::NormalGap;
-        assert_eq!(terminal, FullDomainContactReject::NormalGap);
+            1_024, 2_048, 4_096, 8_192, 6_144, 5_120, 4_608, 4_864, 4_992,
+            4_928, 4_896, 4_912, 4_920, 4_916, 4_918, 4_919]);
+        // Named rather than deleted: `NormalGap` is the rejection the exact
+        // solver would reach on a domain with no representable root, and this
+        // capture is the counterexample to it rather than an instance of it.
+        let terminal = if roots.is_empty() { Some(FullDomainContactReject::NormalGap) }
+            else { None };
+        assert_eq!(terminal, None);
         assert_eq!((lower, upper, sampled.len(), calls,
                     lower_rows.iter().map(|row| row.1).min().unwrap(),
                     lower_rows.iter().map(|row| row.1).max().unwrap(),
                     upper_rows.iter().map(|row| row.1).min().unwrap(),
                     upper_rows.iter().map(|row| row.1).max().unwrap(), initial, roots),
-                   (5_632, 5_633, 27, 101, -3, -3, -3, 2,
-                    3_272_321_930_352, vec![]),
-                   "full-domain normal target changed from its named NormalGap");
+                   (4_919, 4_920, 27, 105, -4, -3, -3, 0,
+                    2_503_658_431_536,
+                    vec![(-587, -4_885, 0, 0, 690_615_366_361),
+                         (-586, -4_885, 0, 0, 690_584_242_249)]),
+                   "full-domain normal target changed");
     }
 
     #[cfg(feature = "cartesian-recoil")]
@@ -5706,7 +5871,7 @@ mod tests {
         let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
         let basis = canonical_tangents(fact.normal).unwrap();
         let scale = |component: Fx| Fx::from_raw(
-            ((component.raw() as i64 * 65_560i64) / 65_536) as i32);
+            ((component.raw() as i64 * 65_550i64) / 65_536) as i32);
         let centre_impulse = Vec3::new(scale(proposal.x), scale(proposal.y), scale(proposal.z));
         let owned_b_mass: i64 = rows.iter().filter(|row| row.entity == fact.key.b)
             .map(|row| row.mass.raw() as i64).sum();
@@ -5733,12 +5898,12 @@ mod tests {
         };
         let centre = project(centre_impulse);
         assert_eq!(([centre_impulse.x.raw(), centre_impulse.y.raw(), centre_impulse.z.raw()], centre),
-                   ([-297, -5_680, 0], [65, -101, 0]));
+                   ([-260, -4_968, 0], [47, -3, 2]));
         // Smart31's declared centre belongs to the alternate Cartesian trial
         // mapper. The production projector is the only allowed oracle here;
         // a different seed is attribution failure, not permission to derive a
         // Jacobian around a response the plan did not predeclare.
-        let seed_gate = if centre == [0, 2, 0] { None }
+        let seed_gate = if centre == [0, 1, 0] { None }
             else { Some(ResidualTrustReject::Projector) };
         drop(project);
         assert_eq!((calls, seed_gate), (1, Some(ResidualTrustReject::Projector)));
@@ -5750,7 +5915,7 @@ mod tests {
                              -alternate_sums[a][2]];
         let mut alternate = Vec::new();
         cartesian_contact_trial(&rows, &alternate_sums, 65_536, &mut alternate).unwrap();
-        assert_eq!(residual(&alternate), [0, 2, 0],
+        assert_eq!(residual(&alternate), [0, 1, 0],
                    "the refused seed stopped identifying the alternate mapper exactly");
     }
 
@@ -5793,8 +5958,8 @@ mod tests {
         assert_eq!(([proposal.x.raw(), proposal.y.raw(), proposal.z.raw()],
                     [sums[a][0], sums[a][1], sums[a][2]],
                     [sums[b][0], sums[b][1], sums[b][2]], residual(&rows), residual(&first)),
-                   ([-183,-3_508,0], [-183,-3_508,0], [183,3_508,0],
-                    [-6_345,113,0], [69,-11,0]),
+                   ([-162,-3_069,0], [-162,-3_069,0], [162,3_069,0],
+                    [-5_539,-373,0], [49,-4,2]),
                    "pin entry-only production seed provenance");
         let directions = [-fact.normal, basis.first, basis.second];
         let mut probes = Vec::new();
@@ -5822,11 +5987,11 @@ mod tests {
             probes.push(([pair.0.x.raw(), pair.0.y.raw(), pair.0.z.raw()], sides));
         }
         assert_eq!((probes, columns, midpoints, terminal), (vec![
-            ([-2, -64, 0], [[184, -14, 0], [-47, -10, 0]]),
-            ([-64, 2, 0], [[67, -119, 0], [64, 53, 0]]),
-            ([0, 0, 64], [[69, -11, -50], [69, -11, 53]]),
-        ], vec![[231,-4,0], [3,-172,0], [0,0,-103]],
-           vec![[-1,-2,0], [-7,-44,0], [0,0,3]],
+            ([-8, -64, 0], [[166, -4, 2], [-67, -5, 2]]),
+            ([-64, 8, 0], [[50, -119, 2], [52, 113, 2]]),
+            ([0, 0, 64], [[49, -4, -50], [49, -4, 52]]),
+        ], vec![[233,1,0], [-2,-232,0], [0,0,-102]],
+           vec![[1,-1,0], [4,2,0], [0,0,-2]],
            Some(resolution::tests::SeedProvenanceReject::Nonlinear)),
                    "fixed h64 neighborhood or its global classification changed");
         resolution::build_group_sums(rows.len(), &proposed, &mut sums).unwrap();
@@ -5993,16 +6158,10 @@ mod tests {
         config.fighters[0].hands[1].as_mut().unwrap().geometry = crate::EquipmentGeometry::Segment {
             length: Fx::from_int(2), radius: Fx::from_ratio(1, 25),
         };
-        config.fighters[1].spawn = Vec2::new(Fx::from_ratio(631, 50), Fx::from_int(8));
+        config.fighters[1].spawn = Vec2::new(Fx::from_ratio(1_256, 100), Fx::from_int(8));
         config.fighters[1].anatomy = crate::AnatomyChoice::Fighter;
         config.max_ticks = 96;
         let mut scenario = Scenario::duel_from(&config).unwrap();
-        // ARTICULATED-FIXTURE-SHIM -- reseat and re-record, on
-        // `directional_captured_strike`'s argument exactly: this reuses that
-        // fixture's measured placement and chamber, so it inherits both the
-        // model and the finding that a frame conversion alone does not
-        // reproduce the contact.
-        scenario.combat_model = crate::CombatModel::Articulated;
         let sword = scenario.units[0].articulated.unwrap().equipment.into_iter()
             .flatten().next().unwrap();
         scenario.combat_specs.as_mut().unwrap().equipment.iter_mut()
@@ -6013,22 +6172,35 @@ mod tests {
         let (attacker, defender) = (world.id_of(0), world.id_of(1));
         let yaw = world.body_yaw[0].angle;
         let chamber = Angle::from_raw(yaw.raw().wrapping_sub(Angle::QUARTER.raw()));
+        // The same measured height, for the same reason: at `CombatHeight::LOW`
+        // the elbow folds the arm back to its minimum reach and the blade stops
+        // arriving. See `directional_captured_strike`.
+        let height = crate::CombatHeight::try_from_raw(Fx::from_ratio(61, 128).raw())
+            .expect("sixty-one hundred-and-twenty-eighths is a legal height");
         let strike = |world: &World, bearing| {
             let mut command = world.neutral_articulated(0);
             command.intent = Intent::Attack(defender);
-            command.arms[1] = ArmTarget { bearing, height: crate::CombatHeight::LOW,
+            command.arms[1] = ArmTarget { bearing, height,
                                           reach: Fx::ONE, effort: Fx::ONE };
             command
         };
         for _ in 0..48 {
-            world.submit_articulated_v1(attacker, strike(&world, chamber));
-            world.submit_articulated_v1(defender, world.neutral_articulated(1));
+            assert!(matches!(world.submit_embodied_v1(attacker,
+                crate::EmbodiedCommandV1::new(strike(&world, chamber))),
+                crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }),
+                "the chamber was refused rather than obeyed");
+            world.submit_embodied_v1(defender,
+                crate::EmbodiedCommandV1::new(world.neutral_articulated(1)));
             world.step();
         }
         let mut hit = false;
         for _ in 0..48 {
-            world.submit_articulated_v1(attacker, strike(&world, yaw));
-            world.submit_articulated_v1(defender, world.neutral_articulated(1));
+            assert!(matches!(world.submit_embodied_v1(attacker,
+                crate::EmbodiedCommandV1::new(strike(&world, yaw))),
+                crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }),
+                "the follow-through was refused rather than obeyed");
+            world.submit_embodied_v1(defender,
+                crate::EmbodiedCommandV1::new(world.neutral_articulated(1)));
             world.step();
             if world.contact_resolutions().iter().any(|row|
                 row.fact.key.kind == ContactKind::WeaponBody) {
@@ -6113,7 +6285,7 @@ mod smart131_world_forwarding_test {
 
     #[test]
     fn the_segment_body_target_world_api_forwards_one_step_lifecycle() {
-        let mut world = World::new(&Scenario::articulated_duel(), 1);
+        let mut world = World::new(&Scenario::embodied_duel(), 1);
         let target = crate::ExactSegmentBodyDiagnosticTarget {
             key: crate::ExactContactKeyDiagnostic {
                 a: EntityId::new(0, 0), a_slot: 1,

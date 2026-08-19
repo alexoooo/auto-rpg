@@ -496,8 +496,11 @@ impl Scenario {
     /// `EMBODIED_CORPUS_DIGEST`. The `24x16` floor, the sixty-second clock, both
     /// bodies' kinds and stat sheets, and the fighter's default loadout are
     /// therefore not free choices -- they are the shape of a pinned corpus.
-    /// `articulated_duel_v1_has_the_frozen_identity_and_placement` is what would
-    /// notice a slip.
+    /// `embodied_duel_v1_has_the_frozen_identity_and_placement` is what would
+    /// notice a slip, and it now writes that arrangement out itself rather than
+    /// reading it back off this function: nothing in `crates/sim` builds an
+    /// articulated fixture any more, and this one is waiting to be inlined into
+    /// `embodied_duel` and deleted.
     pub fn articulated_duel() -> Scenario {
         Scenario {
             name: "articulated-duel-v1".to_string(),
@@ -815,19 +818,20 @@ mod tests {
 
     #[test]
     fn scenario_v1_is_length_delimited_and_distinguishes_loadouts() {
-        // **On `articulated-duel-v1` because the fixture it used is gone.** It was
-        // `Scenario::duel`, deleted with the legacy model; what this test is
-        // about is the *grammar* -- that the name is length-delimited and that a
-        // loadout reaches the stream -- and that is a property of the sink, not
-        // of which fixture goes through it.
-        let base = Scenario::articulated_duel();
+        // **On `embodied-duel-v1` because both fixtures before it are gone.** It
+        // was `Scenario::duel`, deleted with the legacy model, and then
+        // `articulated_duel`, deleted with the articulated one; what this test
+        // is about is the *grammar* -- that the name is length-delimited and
+        // that a loadout reaches the stream -- and that is a property of the
+        // sink, not of which fixture goes through it.
+        let base = Scenario::embodied_duel();
         // Hand-pinned rather than compared only with another invocation: this
         // moves if the u16 name boundary disappears even though the name bytes
         // themselves remain in the stream. The value is the one
-        // `articulated_duel_v1_has_the_frozen_identity_and_placement` pins, and
+        // `embodied_duel_v1_has_the_frozen_identity_and_placement` pins, and
         // the duplication is deliberate: if the two disagree, one of them is
         // reading a fixture the other is not.
-        assert_eq!(base.fingerprint(), 0x068d_05fc_ada1_027b);
+        assert_eq!(base.fingerprint(), 0x1a1e_8e74_eecd_55d5);
 
         // **A kit is two agreeing facts now, so the test changes both.** It used
         // to hand the fighter a Knife and then a Bow, which a Legacy scenario
@@ -858,7 +862,7 @@ mod tests {
 
     #[test]
     fn scenario_v1_rejects_a_name_that_cannot_fit_its_length_field() {
-        let mut scenario = Scenario::articulated_duel();
+        let mut scenario = Scenario::embodied_duel();
         scenario.name = "x".repeat(u16::MAX as usize + 1);
         assert_eq!(
             scenario.try_fingerprint(),
@@ -903,44 +907,53 @@ mod tests {
         assert_ne!(expected, fingerprint(action, changed));
     }
 
+    /// The embodied control's identity, and the arrangement that identity is
+    /// taken over.
+    ///
+    /// **Written out rather than compared with a second fixture.** This asserted
+    /// field-by-field equality with `Scenario::articulated_duel` while
+    /// `embodied_duel` was built *from* that function and the two differed by
+    /// the name bytes and the model word alone. With the articulated model gone
+    /// there is no other fixture to differ from, and a test that compares a
+    /// thing with itself is worse than no test -- so the arrangement is spelled
+    /// out here instead: the `24x16` floor, the sixty-second clock, both
+    /// spawns, both bodies' kinds and both anatomy and equipment rows.
+    ///
+    /// None of those is a free choice. `0x1a1e8e74eecd55d5` is folded into
+    /// `EMBODIED_CORPUS_DIGEST`, so the shape of this fixture is the shape of a
+    /// pinned corpus, and a field that slips here is a corpus no longer
+    /// measuring the fight it was recorded against.
+    ///
+    /// The fingerprint is hand-pinned rather than recomputed because **the model
+    /// is in it**: `CombatModel::identity_word` writes `3` for Embodied and
+    /// `Scenario::fingerprint` writes that word before the name bytes. The
+    /// embodied plan asserted the model was not in the fingerprint; measuring it
+    /// is what found otherwise.
     #[test]
-    fn articulated_duel_v1_has_the_frozen_identity_and_placement() {
-        let scenario = Scenario::articulated_duel();
-        assert_eq!(scenario.name, "articulated-duel-v1");
+    fn embodied_duel_v1_has_the_frozen_identity_and_placement() {
+        let scenario = Scenario::embodied_duel();
+        assert_eq!(scenario.name, "embodied-duel-v1");
+        assert_eq!(scenario.combat_model, CombatModel::Embodied);
+        assert_eq!((scenario.dungeon.cols(), scenario.dungeon.rows()), (24, 16));
+        assert_eq!(scenario.max_ticks, 60 * 60);
+        assert_eq!(scenario.combat_specs, Some(CombatSpecTableV1::fixtures()));
+        assert_eq!(scenario.units.len(), 2);
+        assert_eq!(scenario.units[0].kind, Body::Fighter);
         assert_eq!(scenario.units[0].spawn, Vec2::from_ints(7, 6));
+        assert_eq!(scenario.units[0].articulated,
+                   Some(ArticulatedUnitSpecV1 { anatomy: 1, equipment: [Some(1), Some(2)] }));
+        assert_eq!(scenario.units[1].kind, Body::Brute);
         assert_eq!(scenario.units[1].spawn, Vec2::from_ints(17, 10));
-        // Moved once, by v2-20 shrinking the shield row, and it is worth
-        // pinning here precisely because it does move: the fingerprint covers
-        // the immutable spec table, so an edit to the plate makes this a
-        // different fixture, and every corpus, replay integrity check and
-        // evidence artifact that names `articulated-duel-v1` is a claim about
-        // the version whose equipment it was recorded against. The name is
-        // frozen and the number is not. Previously `0x2a6c_c967_8c08_730d`.
-        assert_eq!(scenario.fingerprint(), 0x068d_05fc_ada1_027b);
-    }
-
-    /// The embodied control's identity, pinned on the same terms.
-    ///
-    /// It differs from `articulated-duel-v1` by **two** things and it is worth
-    /// naming both: the name bytes, and the model word `try_fingerprint` writes
-    /// before them. The embodied plan asserted the model was not in the
-    /// fingerprint; measuring it is what found otherwise, and
-    /// `CombatModel::identity_word` is now the one place that word is written.
-    ///
-    /// Every other field is the articulated fixture's, because
-    /// `Scenario::embodied_duel` is built *from* it. That is the whole point:
-    /// sessions 04 onward measure a difference, and a difference needs a
-    /// control that is otherwise the same fight.
-    #[test]
-    fn embodied_duel_v1_has_the_frozen_identity_and_the_articulated_arrangement() {
-        let embodied = Scenario::embodied_duel();
-        let articulated = Scenario::articulated_duel();
-        assert_eq!(embodied.name, "embodied-duel-v1");
-        assert_eq!(embodied.combat_model, CombatModel::Embodied);
-        assert_eq!(embodied.units, articulated.units);
-        assert_eq!(embodied.combat_specs, articulated.combat_specs);
-        assert_eq!(embodied.max_ticks, articulated.max_ticks);
-        assert_eq!(embodied.fingerprint(), 0x1a1e_8e74_eecd_55d5);
+        assert_eq!(scenario.units[1].articulated,
+                   Some(ArticulatedUnitSpecV1 { anatomy: 2, equipment: [Some(3), None] }));
+        // Worth pinning here precisely because the number *can* move: the
+        // fingerprint covers the immutable spec table, so an edit to the shield
+        // plate makes this a different fixture, and every corpus, replay
+        // integrity check and evidence artifact that names `embodied-duel-v1` is
+        // a claim about the version whose equipment it was recorded against. The
+        // name is frozen and the number is not -- but moving it invalidates
+        // recorded evidence rather than merely renumbering it.
+        assert_eq!(scenario.fingerprint(), 0x1a1e_8e74_eecd_55d5);
     }
 
     /// The sculpted fixture is the embodied one with a hill in it, and the hill

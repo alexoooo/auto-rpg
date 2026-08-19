@@ -9,7 +9,7 @@ use super::*;
 use super::hash::hash_exact_owners;
 
 pub(super) fn duel_world() -> World {
-    World::new(&Scenario::articulated_duel(), 1)
+    World::new(&Scenario::embodied_duel(), 1)
 }
 
 pub(super) fn articulated_command() -> ArticulatedCommandV1 {
@@ -29,8 +29,28 @@ pub(super) fn articulated_command() -> ArticulatedCommandV1 {
     }
 }
 
+/// The same six fields, wrapped for the surviving submission path.
+///
+/// `ArticulatedCommandV1` is still the *inner* command type, so
+/// `articulated_command` stays and this is a wrapper rather than a replacement:
+/// a test that wants to talk about the payload wants the inner value, and a test
+/// that wants to submit wants this. `EmbodiedCommandV1::new` supplies the
+/// neutral swing plane, which is the plane the elbow hung in before the field
+/// existed -- so a fixture with no opinion about the plane gets the old default
+/// rather than a number somebody chose.
+///
+/// **The bearing is unchanged and is now read in the torso frame.**
+/// `Angle::QUARTER` meant "world north" and now means "a quarter turn left of
+/// the torso", which lands on world north only for a body holding
+/// `Angle::ZERO` -- true of every body at spawn, and of every body these
+/// fixtures never turn. A caller that turns its body first and still wants north
+/// has to take the yaw off itself.
+pub(super) fn embodied_command() -> crate::EmbodiedCommandV1 {
+    crate::EmbodiedCommandV1::new(articulated_command())
+}
+
 pub(super) fn both_scenario() -> Scenario {
-    let mut scenario = Scenario::articulated_duel();
+    let mut scenario = Scenario::embodied_duel();
     let mut both = crate::club();
     both.id = 4;
     both.binding = crate::GripBinding::Both;
@@ -77,26 +97,7 @@ pub(super) fn smart_60_entry(reflected: bool) -> Smart60Entry {
         EquipmentGeometry::Segment { length: Fx::from_int(2),
                                      radius: Fx::from_ratio(1, 25) };
     config.max_ticks = 49;
-    let mut scenario = Scenario::duel_from(&config).expect("the Smart60 duel is legal");
-    // ARTICULATED-FIXTURE-SHIM -- reseat and re-record.
-    //
-    // `duel_from` builds `CombatModel::Embodied` since v2-ui-08 and the loop
-    // below submits world-frame `ArticulatedCommandV1`s. The two `Stored {
-    // rejection: None }` assertions there are what catch this, loudly and at
-    // the submission, which is why they are written that way -- but the fix is
-    // not to relax them.
-    //
-    // **Most of what the Smart60 probes assert is a reflection**: plain against
-    // mirrored under `y -> -y`, which is a property of the solver and not of a
-    // command grammar, so it must survive the reseat unchanged. A handful of
-    // absolute words do not -- `(-14_040, 14_040)` and the published hand Y in
-    // `tick_34_recoil_offset_balance_is_odd_under_reflection` -- and those are
-    // the re-record. `tick_33_commit_to_tick_34_entry_names_the_first_unequal_
-    // word` also insists tick 33 retained a resolution at all, and the sibling
-    // finding in `contact_phase.rs`'s `directional_captured_strike` is that a
-    // per-tick frame conversion alone did **not** keep a captured strike in
-    // contact. Expect to re-measure the placement, not just rotate the bearings.
-    scenario.combat_model = crate::CombatModel::Articulated;
+    let scenario = Scenario::duel_from(&config).expect("the Smart60 duel is legal");
     let mut world = World::new(&scenario, 0);
     let attacker = world.id_of(0); let defender = world.id_of(1);
     let declared = (-offset).angle();
@@ -118,6 +119,15 @@ pub(super) fn smart_60_entry(reflected: bool) -> Smart60Entry {
     let height = crate::CombatHeight::try_from_raw(
         (local_height / shown.standing_height).clamp(Fx::ZERO, Fx::ONE).raw())
         .expect("the observed legs centre is a legal height");
+    // **The bearings go in unrotated, and that is a measurement rather than an
+    // oversight.** `CommandFrame::Torso` reads `ArmTarget::bearing` as an offset
+    // from the yaw the body holds at submission, so a world bearing normally has
+    // to have that yaw taken off it -- but every command here is built on
+    // `neutral_articulated`, which asks for the yaw the body already has, and
+    // both bodies spawn at `Angle::ZERO`. Slot 0 therefore never turns, the two
+    // frames name the same world bearing for the whole of the swing, and
+    // subtracting a yaw of zero would have been ceremony. Give this fixture a
+    // body that turns and the subtraction becomes real.
     let make = |world: &World, bearing| {
         let mut command = world.neutral_articulated(0);
         command.intent = Intent::Attack(defender);
@@ -128,10 +138,12 @@ pub(super) fn smart_60_entry(reflected: bool) -> Smart60Entry {
     for tick in 0..33 {
         let command = make(&world, if tick < 16 { chamber } else { follow });
         let held = world.neutral_articulated(1);
-        assert!(matches!(world.submit_articulated_v1(attacker, command),
-                         SubmitArticulatedOutcome::Stored { rejection: None, .. }));
-        assert!(matches!(world.submit_articulated_v1(defender, held),
-                         SubmitArticulatedOutcome::Stored { rejection: None, .. }));
+        assert!(matches!(
+            world.submit_embodied_v1(attacker, crate::EmbodiedCommandV1::new(command)),
+            crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }));
+        assert!(matches!(
+            world.submit_embodied_v1(defender, crate::EmbodiedCommandV1::new(held)),
+            crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }));
         world.step_with_arm_rates(CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
     }
     let target = make(&world, follow).arms[limb];
@@ -168,7 +180,7 @@ pub(super) fn mapped_arm_words(plain: ArmState, mirror: ArmState) -> bool {
 /// the solver happens to hit. `docs/reference/articulated-mechanical-gate.md`
 /// names the same trick for its severance case.
 pub(super) fn fragile_scenario(fragile: &[usize]) -> Scenario {
-    let mut scenario = Scenario::articulated_duel();
+    let mut scenario = Scenario::embodied_duel();
     scenario.units[0].spawn = Vec2::from_ints(10, 8);
     scenario.units[1].spawn = Vec2::new(Fx::from_ratio(23, 2), Fx::from_int(8));
     for &at in fragile {
@@ -244,12 +256,12 @@ pub(super) fn sever_arm(world: &mut World, i: usize, part: BodyPart) {
 /// A fighter and a brute a unit and a half apart -- inside each other's
 /// weapons -- with the reaching commands that make them touch.
 ///
-/// Not `Scenario::articulated_duel()` unmodified: that fixture stands the
+/// Not `Scenario::embodied_duel()` unmodified: that fixture stands the
 /// pair ten units apart and its spawns are pinned by
-/// `articulated_duel_v1_has_the_frozen_identity_and_placement`, so a
-/// contact fixture has to move them here.
+/// `embodied_duel_v1_has_the_frozen_identity_and_the_articulated_arrangement`,
+/// so a contact fixture has to move them here.
 pub(super) fn clinch_scenario() -> Scenario {
-    let mut scenario = Scenario::articulated_duel();
+    let mut scenario = Scenario::embodied_duel();
     scenario.units[0].spawn = Vec2::from_ints(10, 8);
     scenario.units[1].spawn = Vec2::new(Fx::from_ratio(23, 2), Fx::from_int(8));
     scenario
@@ -259,9 +271,25 @@ pub(super) fn clinch_world() -> World {
     World::new(&clinch_scenario(), 1000)
 }
 
+/// Face `yaw` and reach along it.
+///
+/// **`yaw` is a world angle for the torso and no longer one for the arms**, and
+/// the difference matters on the first few ticks. Under `CommandFrame::Torso` an
+/// `ArmTarget::bearing` is an offset from the yaw the body is holding *at
+/// submission* -- not the yaw the same command asks for -- so writing `yaw` into
+/// both fields aimed the arm at twice it and swung the reaching hand away from
+/// the opponent as the body turned. The bearing is `Angle::ZERO` instead, which
+/// is "straight ahead of the torso": it agrees with `yaw` from the moment the
+/// body has finished turning, and it is a request the arm can hold at every yaw
+/// on the way there rather than one that unwinds itself.
+///
+/// The consequence for a caller that submits once and steps once: the arm points
+/// along the body's *current* facing, not along `yaw`. Bodies spawn at
+/// `Angle::ZERO`, so a caller wanting a westward reach has to let the yaw
+/// arrive -- which is what `step_into_contact` re-submitting every tick does.
 pub(super) fn reaching_command(yaw: Angle, reach: Fx) -> ArticulatedCommandV1 {
     let arm = |reach| ArmTarget {
-        bearing: yaw, height: crate::CombatHeight::MID, reach, effort: Fx::ONE,
+        bearing: Angle::ZERO, height: crate::CombatHeight::MID, reach, effort: Fx::ONE,
     };
     ArticulatedCommandV1 {
         move_dir: Vec2::ZERO, body_yaw: yaw, intent: Intent::Hold,
@@ -284,7 +312,8 @@ pub(super) fn step_into_contact(world: &mut World) -> u32 {
             if !world.alive[i] { continue; }
             let yaw = if i == 0 { Angle::ZERO } else { Angle::HALF };
             let reach = if i == 0 { Fx::ONE } else { Fx::from_ratio(1, 4) };
-            world.submit_articulated_v1(world.id_of(i), reaching_command(yaw, reach));
+            world.submit_embodied_v1(world.id_of(i),
+                crate::EmbodiedCommandV1::new(reaching_command(yaw, reach)));
         }
         world.step();
         if !world.contact_resolutions().is_empty() { return tick; }
@@ -296,21 +325,45 @@ pub(super) fn step_into_contact(world: &mut World) -> u32 {
 ///
 /// Frozen here rather than read from `actuator`, and that is the whole
 /// point of the pair existing. The tests below assert exact raw words about
-/// *one* articulated configuration -- a normal of `(2_256, 65_497)`, a
-/// closing quotient of `-6_345`, a time of impact of `55_702`. None of them
+/// *one* embodied configuration -- a normal of `(7_810, 65_069)`, a
+/// closing quotient of `-5_539`, a time of impact of `30_514`. None of them
 /// is about how fast an arm may slew; the slew rate only decides which tick
 /// of the swing happens to touch, and therefore which configuration gets
 /// frozen. Reading the production constants here made every one of those
 /// words re-aim whenever somebody tuned the actuator, which is not a frozen
 /// capture at all: doubling the pair on 2026-08-15 moved twelve of them at
-/// once, and three of those read *each other's* captured words -- `64_858`
-/// scales the proposal, which is where `5_626` came from, which is where
-/// `(99, -64)` came from -- so re-recording would have meant re-deriving a
+/// once, and three of those read *each other's* captured words -- `64_982`
+/// scales the proposal, which is where `4_921` came from, which is where
+/// `(-332, -64)` came from -- so re-recording would have meant re-deriving a
 /// consistent chain by hand rather than reading an output back. One link in
 /// that chain, `bounded_sliding_friction_rejects_the_actual_articulated_cone`,
 /// asserts a *property* of the triple rather than its value, and a hand-fitted
 /// replacement triple is exactly the shape of edit that leaves such a test
 /// green while it stops proving anything.
+///
+/// That chain re-recorded once more with the embodied reseat, and **not for
+/// the reason the Smart60 words below moved -- one cause does not cover
+/// both.** `directional_captured_strike` had to be re-placed and re-aimed:
+/// the spacing went from `631/50` to `1256/100` and the target height from
+/// `CombatHeight::LOW` to `61/128`. At `LOW`, `reachable_extent` folds this
+/// anatomy back to `ARM_MIN_REACH_RAW` and leaves the hand under the
+/// shoulder -- a commanded `(16_384, 65_536)` is held as `(24_532, 16_384)`
+/// -- and a hand under the shoulder gives `normal.z = 4_405`, which
+/// `CartesianResponseProjector` refuses outright. So the fixture itself
+/// moved and the chain moved with it. The Smart60 words below moved with
+/// their fixture standing exactly where it was.
+///
+/// One consequence of that reseat belongs here rather than only at the
+/// capture, because it bounds what this fixture can ever assert again:
+/// **a captured strike can no longer land on `reach == Fx::ONE`.** An
+/// embodied arm is clamped onto its elbow's annulus before the actuator
+/// integrates, so the captured arm now sits at `(31_231, 45_278)` and the
+/// outer boundary is not a pose it can reach; `forward_joint_jacobian`
+/// refuses `Fx::ONE` by name. A test that asserted that boundary *from a
+/// capture* cannot be written that way again --
+/// `generalized_joint_attributes_the_sword_limb_and_rejects_both_reach_boundaries`
+/// asserts both ends on constructed neighbours instead, and keeps the
+/// capture for the claim that the jacobian exists between them.
 ///
 /// So the fixture pins the rates it was measured at. A future actuator
 /// change moves nothing here, and every argument below stays about the
@@ -320,9 +373,35 @@ pub(super) fn step_into_contact(world: &mut World) -> u32 {
 ///
 /// `smart_60_entry` and `smart_60_probe` *above* read it for the same
 /// reason and were repaired the same day: their tick-33 entry and tick-34
-/// recoil words -- `(-14_040, 14_040)`, `441_359` -- name one tick of one
-/// swing, so the doubled pair did not disprove them, it aimed them at a
-/// different tick. `crates/sim/src/exact_diagnostics.rs` carries the only
+/// recoil words name one tick of one swing, so the doubled pair did not
+/// disprove them, it aimed them at a different tick. That is still the
+/// argument and it is the reason a wrong pair here is dangerous rather than
+/// merely wrong: those pins would go on passing, about a configuration
+/// nobody chose to freeze. Inert, not red.
+///
+/// Those words are now `(-19_151, 19_151)` and `436_667`. They read
+/// `(-14_040, 14_040)` and `441_359` while this fixture was seated on
+/// `CombatModel::Articulated`, and **what moved them is `reachable_extent`,
+/// not the frame.** An embodied arm may not be commanded past the annulus
+/// its two links span, and this target is outside it: the commanded
+/// `(bearing 13_013, height 14_563, reach 32_768)` is held as
+/// `(13_013, 24_532, 16_384)`, so the tick-33 entry hand goes from
+/// `(0.3492, -0.1130, 0.3999)` to `(0.1773, -0.1974, 0.6727)` -- shorter and
+/// higher, which is what a clamp onto an annulus does -- and every word
+/// downstream of that pose moved with it. The frame conversion is the
+/// *identity* here: this attacker never leaves `Angle::ZERO`, so
+/// `World::world_arm_target` hands back the bearing it was given and the arm
+/// still holds `4_546` under both models. A reader who credits the torso
+/// frame with the move will predict the wrong set of words next time.
+///
+/// Neither number was read back off a compiler. Both are still exact
+/// reflections of their mirrors -- `-19_151` against `19_151`, and a
+/// published hand that mirrors about the fixture's `y = 8`, since
+/// `436_667 + 611_909 = 1_048_576`, which is `16.0` in raw units -- and that
+/// oddness is asserted separately from the value, so a pasted number would
+/// have to be a coincidence to survive.
+///
+/// `crates/sim/src/exact_diagnostics.rs` carries the only
 /// other copy of this pair -- for the two exact digests and `replay`'s
 /// south-wall transcript, which are outside this `#[cfg(test)]` module and
 /// so cannot read this one.
@@ -410,7 +489,7 @@ pub(super) fn crowded_scenario() -> Scenario {
 /// monster that had no business being there. Tests that want an opponent
 /// add one; every caller places its body by hand anyway.
 pub(super) fn carved_world(rows: &[&str]) -> World {
-    let mut scenario = Scenario::articulated_duel();
+    let mut scenario = Scenario::embodied_duel();
     scenario.dungeon = crate::dungeon::parse(rows);
     scenario.units.truncate(1);
     scenario.units[0].spawn = Vec2::new(Fx::from_ratio(15, 10), Fx::from_ratio(15, 10));
@@ -426,7 +505,7 @@ pub(super) fn carved_world(rows: &[&str]) -> World {
 /// fixture has to hold one -- half the point of it is that a Brute can
 /// reach a door and still not open it.
 pub(super) fn door_world(body: Body) -> World {
-    let mut scenario = Scenario::articulated_duel();
+    let mut scenario = Scenario::embodied_duel();
     scenario.dungeon = crate::dungeon::parse(&[
         "#########", // 0
         "#...#...#", // 1
@@ -454,6 +533,13 @@ pub(super) fn door_world(body: Body) -> World {
 /// the moment a body was jointed no door could be opened at all. These fixtures
 /// wrote that column directly; they write the submitted one now, which is what
 /// the phase reads through `World::world_move_dir`.
+///
+/// **`dir` is a world vector only because the yaw written below is zero.**
+/// `world_move_dir` rotates a requested direction by the body's yaw under
+/// `CommandFrame::Torso`, so the two agree exactly while `body_yaw` stays at
+/// `Angle::ZERO` -- which this command asks for on every call, and which the
+/// door fixtures never override. A fixture that turns a body and then leans
+/// would get its lean turned with it.
 pub(super) fn lean(w: &mut World, i: usize, dir: Vec2) {
     w.articulated_command[i] = Some(crate::ArticulatedCommandV1 {
         move_dir: dir,
@@ -492,7 +578,7 @@ pub(super) const EAST: Vec2 = Vec2 {
 /// `door_world`, with a monster of `body` standing in the eastern chamber
 /// and the Heroes' Fighter in the western one. The Monsters hunt.
 pub(super) fn penned_world(body: Body) -> World {
-    let mut scenario = Scenario::articulated_duel();
+    let mut scenario = Scenario::embodied_duel();
     scenario.dungeon = crate::dungeon::parse(&[
         "#########", // 0
         "#...#...#", // 1

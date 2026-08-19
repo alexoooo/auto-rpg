@@ -34,11 +34,14 @@ Three further facts sharpen that rather than soften it:
 
 - **The sweep the constants name cannot measure them.** The block comment names the debt
   as `lab articulated --seeds 400 --mirrored` against the embodied corpus. `lab
-  articulated` runs `Scenario::articulated_duel` or a configured duel built from it, and
-  an articulated body has no stance column at all — `an_articulated_body_has_no_stance_row`
-  is the assertion that it does not. The embodied corpus is driven by `lab embodied`,
-  which did not exist when the debt was written. **The owed sweep, as spelled, is
-  unrunnable**; whoever pays it will be writing a harness, not typing a recorded command.
+  articulated` ran `Scenario::articulated_duel` or a configured duel built from it, and an
+  articulated body had no stance column at all — which the surviving model always has, so
+  the mismatch was never a matter of degree. The embodied corpus is driven by `lab
+  embodied`, which did not exist when the debt was written. **The owed sweep, as spelled,
+  is unrunnable**; whoever pays it will be writing a harness, not typing a recorded
+  command. Written in the past tense since 2026-08-19: the command, the fixture and the
+  assertion that recorded the absence — `an_articulated_body_has_no_stance_row` — were all
+  deleted with the articulated model, and the debt is unchanged by that.
 - **The repository's only actuator sweep harness varied two constants, neither of them one
   of these, and it is now gone too.** `strike-corpus --calibrate-actuator` stepped a
   four-rung ladder of `(bearing_max_speed_raw, bearing_accel_raw)` over the striker corpus,
@@ -58,17 +61,17 @@ and are not repeated here. This is the *kind* of evidence each one has.
 
 | Constant | How the value was chosen | What holds it there now |
 |---|---|---|
-| `STANCE_TWIST_LIMIT_RAW` | a judgement about play, with both failure modes named | [`the_twist_limit_is_bounded_from_both_sides`](../../crates/sim/src/world/mod.rs#L2935) |
-| `STANCE_HIP_MOVING_SPEED_RAW` | derived: the torso's own rate, unchanged | [`a_moving_body_turns_its_hips_faster_than_a_standing_one`](../../crates/sim/src/world/mod.rs#L2815) |
-| `STANCE_HIP_STANDING_SPEED_RAW` | derived: half the moving rate, and the ratio is the mechanic | [`the_standing_hip_rate_is_bounded_from_both_sides`](../../crates/sim/src/world/mod.rs#L2945) |
+| `STANCE_TWIST_LIMIT_RAW` | a judgement about play, with both failure modes named | [`the_twist_limit_is_bounded_from_both_sides`](../../crates/sim/src/world/mod.rs#L2788) |
+| `STANCE_HIP_MOVING_SPEED_RAW` | derived: the torso's own rate, unchanged | [`a_moving_body_turns_its_hips_faster_than_a_standing_one`](../../crates/sim/src/world/mod.rs#L2684) |
+| `STANCE_HIP_STANDING_SPEED_RAW` | derived: half the moving rate, and the ratio is the mechanic | [`the_standing_hip_rate_is_bounded_from_both_sides`](../../crates/sim/src/world/mod.rs#L2798) |
 | `STANCE_HIP_ACCEL_RAW` | derived: the torso's acceleration, unchanged | nothing bounds it; it is an equality by definition |
-| `STANCE_STEP_TICKS` | arithmetic on the two rates, plus one upper judgement | [`a_forced_step_outlasts_the_turn_it_exists_to_make`](../../crates/sim/src/world/mod.rs#L2986) |
-| `STANCE_STEP_MOVE_AUTHORITY_RAW` | a judgement: not zero, not one | [`the_step_authority_is_bounded_from_both_sides`](../../crates/sim/src/world/mod.rs#L2953) |
-| `PELVIS_HEIGHT_RAW` | anatomy: the pelvis is halfway up a standing body | [`pelvis_height_falls_with_speed_and_with_twist_and_is_never_commanded`](../../crates/sim/src/world/mod.rs#L2853), on the base value only |
+| `STANCE_STEP_TICKS` | arithmetic on the two rates, plus one upper judgement | [`a_forced_step_outlasts_the_turn_it_exists_to_make`](../../crates/sim/src/world/mod.rs#L2839) |
+| `STANCE_STEP_MOVE_AUTHORITY_RAW` | a judgement: not zero, not one | [`the_step_authority_is_bounded_from_both_sides`](../../crates/sim/src/world/mod.rs#L2806) |
+| `PELVIS_HEIGHT_RAW` | anatomy: the pelvis is halfway up a standing body | [`pelvis_height_falls_with_speed_and_with_twist_and_is_never_commanded`](../../crates/sim/src/world/mod.rs#L2722), on the base value only |
 | `PELVIS_SPEED_DROP_RAW` | a judgement, "small on purpose", with no bound on the magnitude | the same test, in direction only |
 | `PELVIS_TWIST_DROP_RAW` | the same judgement, stated twice deliberately | the same test, in direction only |
-| `ELBOW_PLANE_MAX_SPEED_RAW` | derived from a **measured** constant | [`the_elbow_plane_rate_is_bounded_from_both_sides`](../../crates/sim/src/world/mod.rs#L2973) |
-| `UPPER_ARM_FRACTION_RAW` | a refusal to invent an asymmetry, not a measurement | [`an_elbow_stop_is_a_fold_and_not_a_hinge`](../../crates/sim/src/combat/limb.rs#L721), which bounds what the equality forces |
+| `ELBOW_PLANE_MAX_SPEED_RAW` | derived from a **measured** constant | [`the_elbow_plane_rate_is_bounded_from_both_sides`](../../crates/sim/src/world/mod.rs#L2826) |
+| `UPPER_ARM_FRACTION_RAW` | a refusal to invent an asymmetry, not a measurement | [`an_elbow_stop_is_a_fold_and_not_a_hinge`](../../crates/sim/src/combat/limb.rs#L730), which bounds what the equality forces |
 | `ELBOW_MIN_INCLUDED_ANGLE_RAW` | anatomy: where a human elbow meets its own bicep | the same test, from both sides |
 
 **`STANCE_HIP_ACCEL_RAW` is the one row with no bound at all**, and that is defensible
@@ -209,7 +212,7 @@ those measurements are real numbers with real slack in them.
 
 ### The arm-length clamp, swept over its whole commanded range
 
-[`a_hand_can_never_be_further_from_its_shoulder_than_the_arm_is_long`](../../crates/sim/src/world/mod.rs#L2726)
+[`a_hand_can_never_be_further_from_its_shoulder_than_the_arm_is_long`](../../crates/sim/src/world/mod.rs#L2617)
 enumerates both bodies × two pelvis heights × four yaws × two limbs × sixteen bearings ×
 nine heights × nine reaches and asserts the realised hand stayed on the annulus. **Both
 bounds carry the exact slack that was measured**: one raw unit over the outer bound and
@@ -223,7 +226,7 @@ excess grew with both axes at once, and every one-axis sweep missed it.
 
 ### The elbow solution, swept across the annulus and six planes
 
-[`the_elbow_lies_on_both_link_circles`](../../crates/sim/src/combat/limb.rs#L557) sweeps
+[`the_elbow_lies_on_both_link_circles`](../../crates/sim/src/combat/limb.rs#L566) sweeps
 seventeen radii across the reachable annulus at four bearings, four yaws, both limbs and
 six commanded planes. The measured maximum error off either link circle is **four raw
 units**, and it is exact from both sides: three fails, and five would pass on an error that

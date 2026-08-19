@@ -225,10 +225,34 @@ impl Replay {
 mod tests {
     use super::*;
     use crate::{
-        ArmTarget, CombatHeight, GripRequest, ReleaseRequest, Scenario, SubmitArticulatedOutcome,
+        ArmTarget, CombatHeight, EmbodiedCommandV1, GripRequest, ReleaseRequest, Scenario,
+        SubmitEmbodiedOutcome,
     };
     use fx::{Angle, Fx, Vec2};
 
+    // **`playback_uses_only_the_model_selected_command_vector` is gone with the
+    // second grammar it needed.** It put a record whose grammar the scenario's
+    // model does not accept into a replay and asserted that playback skipped it
+    // rather than coerced it. Keeping that subject through this step would have
+    // meant reseating it the other way round -- an *articulated* record inside
+    // an embodied replay -- which is a fixture building the retired grammar,
+    // the one thing this step exists to stop doing. And it cannot be written at
+    // all once `SubmittedCommand::Articulated` and `submit_articulated_v1`
+    // follow the model out: with one grammar there is no record a world can
+    // refuse, so the property is not untested but vacuous. The drain in
+    // `play_until` it was written against is production code and outlives it,
+    // with nothing left to select between. What survives of the claim -- that
+    // playback feeds the sim the recorded commands and nothing beside them --
+    // is `embodied_replays_reproduce_every_pose` below, over 180 ticks.
+
+    /// The shared six fields every fixture below drives, with the neutral swing
+    /// plane supplied at the submission by [`EmbodiedCommandV1::new`].
+    ///
+    /// Kept in the inner grammar rather than the outer one because every caller
+    /// edits a field of it before submitting, and none of them has an opinion
+    /// about the plane: the neutral plane is the one the elbow hung in before
+    /// the field existed, so the wrapper asks for exactly what these fixtures
+    /// asked for when they were articulated.
     fn command() -> crate::ArticulatedCommandV1 {
         let arm = ArmTarget {
             bearing: Angle::ZERO,
@@ -248,29 +272,34 @@ mod tests {
 
     #[test]
     fn rejected_commands_record_only_the_final_safe_command() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let mut replay = Replay::new(&scenario, 1);
-        let mut requested = command();
-        requested.arms[0].reach = Fx::from_raw(Fx::ONE.raw() + 1);
-        let returned = if let SubmitArticulatedOutcome::Stored { command: stored, rejection: Some(_) } =
-            world.submit_articulated_v1(EntityId::new(0, 0), requested)
+        let mut invalid = command();
+        invalid.arms[0].reach = Fx::from_raw(Fx::ONE.raw() + 1);
+        let requested = EmbodiedCommandV1::new(invalid);
+        let returned = if let SubmitEmbodiedOutcome::Stored { command: stored, rejection: Some(_) } =
+            world.submit_embodied_v1(EntityId::new(0, 0), requested)
         {
             assert_ne!(stored, requested);
-            replay.record_submitted(0, EntityId::new(0, 0), SubmittedCommand::Articulated(stored));
+            replay.record_submitted(0, EntityId::new(0, 0), SubmittedCommand::Embodied(stored));
             stored
         } else {
             panic!("invalid live request did not return its fallback");
         };
-        if let SubmitArticulatedOutcome::Stored { command: stored, .. } =
-            world.submit_articulated_v1(EntityId::new(9, 0), command())
+        if let SubmitEmbodiedOutcome::Stored { command: stored, .. } =
+            world.submit_embodied_v1(EntityId::new(9, 0), EmbodiedCommandV1::new(command()))
         {
-            replay.record_submitted(0, EntityId::new(9, 0), SubmittedCommand::Articulated(stored));
+            replay.record_submitted(0, EntityId::new(9, 0), SubmittedCommand::Embodied(stored));
         }
         assert_eq!(replay.submitted_entries.len(), 1);
-        assert_eq!(replay.submitted_entries[0].command, SubmittedCommand::Articulated(returned));
-        assert_eq!(returned.body_yaw, Angle::ZERO);
-        assert_eq!(returned.grips, [GripRequest::Keep; 2]);
+        assert_eq!(replay.submitted_entries[0].command, SubmittedCommand::Embodied(returned));
+        assert_eq!(returned.articulated.body_yaw, Angle::ZERO);
+        assert_eq!(returned.articulated.grips, [GripRequest::Keep; 2]);
+        // The substitute parks the elbow where it was rather than swinging it to
+        // a plane nobody asked for, which is the embodied half of the same
+        // atomicity the six shared fields get.
+        assert_eq!(returned.swing_plane, [Angle::ZERO; 2]);
         world.step();
         replay.finish(1);
         let played = replay.play();
@@ -280,46 +309,13 @@ mod tests {
     }
 
     #[test]
-    fn playback_uses_only_the_model_selected_command_vector() {
-        let scenario = Scenario::articulated_duel();
-        let mut replay = Replay::new(&scenario, 1);
-        // **The wrong-grammar record is now an embodied one on an articulated
-        // scenario**, which is the same shape of mistake the test was written for:
-        // a record whose grammar the world does not accept must be skipped rather
-        // than coerced. It used to be a legacy command, and that variant is gone.
-        replay.record_submitted(
-            0,
-            EntityId::new(0, 0),
-            SubmittedCommand::Embodied(crate::EmbodiedCommandV1::new(
-                crate::ArticulatedCommandV1 {
-                    move_dir: Vec2::Y,
-                    body_yaw: fx::Angle::ZERO,
-                    intent: crate::Intent::Hold,
-                    arms: [crate::ArmTarget {
-                        bearing: fx::Angle::ZERO,
-                        height: crate::CombatHeight::MID,
-                        reach: Fx::ZERO,
-                        effort: Fx::ZERO,
-                    }; 2],
-                    grips: [crate::GripRequest::Keep; 2],
-                    releases: [crate::ReleaseRequest::Keep; 2],
-                },
-            )),
-        );
-        replay.finish(1);
-        let played = replay.play();
-        let mut fresh = World::new(&scenario, 1);
-        fresh.step();
-        assert_eq!(played.state_digest().value, fresh.state_digest().value);
-    }
-
-    #[test]
-    fn articulated_replays_reproduce_every_pose() {
-        let scenario = Scenario::articulated_duel();
+    fn embodied_replays_reproduce_every_pose() {
+        let scenario = Scenario::embodied_duel();
         let fighter = EntityId::new(0, 0);
         let brute = EntityId::new(1, 0);
         let mut world = World::new(&scenario, 1);
         let mut replay = Replay::new(&scenario, 1);
+        let mut stored_count = 0usize;
         for tick in 0..180 {
             if tick % 15 == 0 {
                 let phase = (tick / 15) % 4;
@@ -342,11 +338,22 @@ mod tests {
                     2 => [GripRequest::EquipSlot(1), GripRequest::Keep],
                     _ => [GripRequest::Keep; 2],
                 };
-                let stored = match world.submit_articulated_v1(fighter, next) {
-                    SubmitArticulatedOutcome::Stored { command, .. } => command,
-                    outcome => panic!("live articulated command was not stored: {outcome:?}"),
+                // The plane is driven too, and asymmetrically. A fixture that
+                // left it neutral would replay a column the live run never
+                // moved, which is a replay claim about nothing -- and the
+                // elbow is the whole of what an embodied arm has that an
+                // articulated one did not.
+                let mut requested = EmbodiedCommandV1::new(next);
+                requested.swing_plane = [
+                    Angle::from_raw((tick as u32).wrapping_mul(331) as u16),
+                    Angle::from_raw((tick as u32).wrapping_mul(733).wrapping_add(4_099) as u16),
+                ];
+                let stored = match world.submit_embodied_v1(fighter, requested) {
+                    SubmitEmbodiedOutcome::Stored { command, rejection: None } => command,
+                    outcome => panic!("live embodied command was not stored: {outcome:?}"),
                 };
-                replay.record_submitted(tick, fighter, SubmittedCommand::Articulated(stored));
+                replay.record_submitted(tick, fighter, SubmittedCommand::Embodied(stored));
+                stored_count += 1;
             }
             world.step();
             replay.finish(tick + 1);
@@ -357,6 +364,13 @@ mod tests {
             assert_eq!(played.articulated_pose_test_view(brute), world.articulated_pose_test_view(brute),
                 "brute pose diverged at tick {}", tick + 1);
         }
+        // Twelve submissions that the world *stored*, not twelve it refused.
+        // `submit_embodied_v1` against a world of the wrong grammar answers
+        // `NotStored(WrongModel)` without panicking, so a reseat that missed
+        // this fixture would reproduce a hundred and eighty ticks of two
+        // statues and report it as replay fidelity.
+        assert_eq!(stored_count, 12);
+        assert_eq!(replay.submitted_entries.len(), 12);
     }
 
     /// The contract's own fixture, and the only proof that contact's writes are
@@ -364,13 +378,14 @@ mod tests {
     /// without going through the recorded command stream would reproduce here
     /// only by accident, and would diverge on the tick after the accident.
     ///
-    /// Deliberately not `Scenario::articulated_duel()`: that fixture spawns
-    /// `(7,6)` and `(17,10)`, ten units apart and touching nothing, and its
-    /// fingerprint is pinned so the spawns cannot be moved in place. The pair
-    /// below starts a unit and a half apart, which is inside the brute's club.
+    /// Deliberately not `Scenario::embodied_duel()` as it ships: that fixture
+    /// spawns `(7,6)` and `(17,10)`, ten units apart and touching nothing, and
+    /// its fingerprint `0x1a1e8e74eecd55d5` is pinned so the spawns cannot be
+    /// moved in place. The pair below starts a unit and a half apart, which is
+    /// inside the brute's club.
     #[test]
     fn contact_modified_pose_survives_replay_at_every_tick() {
-        let mut scenario = Scenario::articulated_duel();
+        let mut scenario = Scenario::embodied_duel();
         scenario.units[0].spawn = Vec2::from_ints(10, 8);
         scenario.units[1].spawn = Vec2::new(Fx::from_ratio(23, 2), Fx::from_int(8));
         let fighter = EntityId::new(0, 0);
@@ -387,29 +402,39 @@ mod tests {
         // the proof was always about: a swing that lands, is stopped, and has
         // to replay bit for bit from the recorded command rather than from the
         // pose the solver happened to leave.
+        //
+        // **Every bearing below is a torso offset**, which is what
+        // `CombatModel::Embodied` means by `CommandFrame::Torso`. The
+        // articulated fixture this was reseated from wrote world bearings, and
+        // the transform is `torso = world - body_yaw`: the fighter faces east
+        // at yaw zero so its column is unchanged, and the brute faces west at
+        // yaw `HALF` so its `HALF` becomes `ZERO`. Left as `HALF` it would have
+        // aimed the brute's arms *away* from the fighter, which is a different
+        // fixture reporting the same test name.
         let tucked = Fx::from_ratio(1, 4);
         let arm = |bearing: Angle, reach: Fx, effort: Fx| ArmTarget {
             bearing, height: CombatHeight::MID, reach, effort,
         };
-        let held = |yaw: Angle, arms: [ArmTarget; 2]| crate::ArticulatedCommandV1 {
-            move_dir: Vec2::ZERO, body_yaw: yaw, intent: crate::Intent::Hold,
-            arms, grips: [GripRequest::Keep; 2], releases: [ReleaseRequest::Keep; 2],
-        };
+        let held = |yaw: Angle, arms: [ArmTarget; 2]| EmbodiedCommandV1::new(
+            crate::ArticulatedCommandV1 {
+                move_dir: Vec2::ZERO, body_yaw: yaw, intent: crate::Intent::Hold,
+                arms, grips: [GripRequest::Keep; 2], releases: [ReleaseRequest::Keep; 2],
+            });
         let orders = [
             (fighter, held(Angle::ZERO, [
                 arm(Angle::ZERO, tucked, Fx::ZERO), arm(Angle::ZERO, Fx::ONE, Fx::ONE)])),
             (brute, held(Angle::HALF, [
-                arm(Angle::HALF, tucked, Fx::ONE), arm(Angle::HALF, tucked, Fx::ONE)])),
+                arm(Angle::ZERO, tucked, Fx::ONE), arm(Angle::ZERO, tucked, Fx::ONE)])),
         ];
 
         let mut weapon_body_rows = 0usize;
         for tick in 0..60 {
             for (id, requested) in orders {
-                let stored = match world.submit_articulated_v1(id, requested) {
-                    SubmitArticulatedOutcome::Stored { command, .. } => command,
-                    outcome => panic!("live articulated command was not stored: {outcome:?}"),
+                let stored = match world.submit_embodied_v1(id, requested) {
+                    SubmitEmbodiedOutcome::Stored { command, rejection: None } => command,
+                    outcome => panic!("live embodied command was not stored: {outcome:?}"),
                 };
-                replay.record_submitted(tick, id, SubmittedCommand::Articulated(stored));
+                replay.record_submitted(tick, id, SubmittedCommand::Embodied(stored));
             }
             world.step();
             weapon_body_rows += world.contact_resolutions().iter()
@@ -429,6 +454,7 @@ mod tests {
             assert_eq!(played.contact_cap_hits(), world.contact_cap_hits(),
                 "the cap counter diverged at tick {}", tick + 1);
         }
+        println!("weapon/body contact rows over 60 ticks: {weapon_body_rows}");
         assert!(weapon_body_rows > 0, "the fixture never produced a weapon/body contact");
     }
 
@@ -444,11 +470,12 @@ mod tests {
         use crate::RecoilExternalEnergy;
 
         // The arm rates this transcript was captured at, pinned for the reason
-        // `exact_diagnostics::CAPTURED_ARM_RATES` gives: tick 80 below is the
-        // tick a swing of *this* speed first refuses on, so reading the
-        // production ceiling here would re-aim a frozen tick number every time
-        // somebody tuned the actuator. Doubling the pair on 2026-08-15 moved it
-        // to 65, which is the same swing arriving early and not a solver change.
+        // `exact_diagnostics::CAPTURED_ARM_RATES` gives: the refusal tick
+        // asserted at the bottom is the tick a swing of *this* speed first
+        // refuses on, so reading the production ceiling here would re-aim a
+        // frozen tick number every time somebody tuned the actuator. Doubling
+        // the pair on 2026-08-15 moved it to 65, which is the same swing
+        // arriving early and not a solver change.
         let rates = crate::exact_diagnostics::CAPTURED_ARM_RATES;
 
         // This is the captured chamber-to-strike command geometry, translated
@@ -468,35 +495,23 @@ mod tests {
         config.fighters[1].spawn = Vec2::new(Fx::from_ratio(631, 50), wall_side);
         config.fighters[1].anatomy = crate::AnatomyChoice::Fighter;
         config.max_ticks = 100;
-        let mut scenario = Scenario::duel_from(&config).unwrap();
-        // ARTICULATED-FIXTURE-SHIM -- reseat and re-record.
-        //
-        // `duel_from` builds `CombatModel::Embodied` since v2-ui-08, and this
-        // transcript is a hundred ticks of world-frame `ArticulatedCommandV1`
-        // recorded as `SubmittedCommand::Articulated`. The two `panic!`s on the
-        // submissions below are what catch it, at the submission and by name.
-        //
-        // What the test owns -- live equals rerun equals replay, every
-        // authoritative word, every tick -- is model-independent. What is
-        // articulated is the transcript: the wall-side placement, the tick-48
-        // bearing change, the tick-95 release, and above all `diagnostic.tick ==
-        // 80`, which the comment above `rates` already explains is a property of
-        // *this* swing at *these* rates. Reseating means writing the same
-        // transcript as `SubmittedCommand::Embodied` through `submit_embodied_v1`
-        // and re-measuring the refusal tick; it does not mean relaxing 80 into a
-        // range, which would be an assertion satisfied by a fixture that stopped
-        // refusing for a different reason.
-        scenario.combat_model = crate::CombatModel::Articulated;
+        let scenario = Scenario::duel_from(&config).unwrap();
         let fighter = EntityId::new(0, 0);
         let brute = EntityId::new(1, 0);
         let arm = |bearing: Angle, reach: Fx, effort: Fx| ArmTarget {
             bearing, height: CombatHeight::MID, reach, effort,
         };
-        let held = |yaw: Angle, arms: [ArmTarget; 2], grips| crate::ArticulatedCommandV1 {
-            move_dir: Vec2::ZERO, body_yaw: yaw, intent: crate::Intent::Hold, arms, grips,
-            releases: [ReleaseRequest::Keep; 2],
-        };
+        let held = |yaw: Angle, arms: [ArmTarget; 2], grips| EmbodiedCommandV1::new(
+            crate::ArticulatedCommandV1 {
+                move_dir: Vec2::ZERO, body_yaw: yaw, intent: crate::Intent::Hold, arms, grips,
+                releases: [ReleaseRequest::Keep; 2],
+            });
         let tucked = Fx::from_ratio(1, 4);
+        // Torso offsets, transformed from the world bearings this transcript was
+        // recorded in by subtracting each body's own yaw: the fighter holds yaw
+        // zero throughout so its column is unchanged, and the brute's `HALF` at
+        // yaw `HALF` is `ZERO`. The tick-48 bearing change is what the transcript
+        // is about and it survives the transform intact.
         let command_at = |tick, id| if id == fighter {
             held(Angle::ZERO, [
                 arm(Angle::ZERO, tucked, Fx::ZERO),
@@ -509,8 +524,8 @@ mod tests {
             })
         } else {
             held(Angle::HALF, [
-                arm(Angle::HALF, tucked, Fx::ONE),
-                arm(Angle::HALF, tucked, Fx::ONE),
+                arm(Angle::ZERO, tucked, Fx::ONE),
+                arm(Angle::ZERO, tucked, Fx::ONE),
             ], [GripRequest::Keep; 2])
         };
 
@@ -525,16 +540,16 @@ mod tests {
         for tick in 0..100 {
             for id in [fighter, brute] {
                 let requested = command_at(tick, id);
-                let stored = match first.submit_articulated_v1(id, requested) {
-                    SubmitArticulatedOutcome::Stored { command, .. } => command,
-                    outcome => panic!("live articulated command was not stored: {outcome:?}"),
+                let stored = match first.submit_embodied_v1(id, requested) {
+                    SubmitEmbodiedOutcome::Stored { command, .. } => command,
+                    outcome => panic!("live embodied command was not stored: {outcome:?}"),
                 };
-                let rerun = match second.submit_articulated_v1(id, requested) {
-                    SubmitArticulatedOutcome::Stored { command, .. } => command,
-                    outcome => panic!("rerun articulated command was not stored: {outcome:?}"),
+                let rerun = match second.submit_embodied_v1(id, requested) {
+                    SubmitEmbodiedOutcome::Stored { command, .. } => command,
+                    outcome => panic!("rerun embodied command was not stored: {outcome:?}"),
                 };
                 assert_eq!(rerun, stored, "stored command diverged at tick {tick}");
-                replay.record_submitted(tick, id, SubmittedCommand::Articulated(stored));
+                replay.record_submitted(tick, id, SubmittedCommand::Embodied(stored));
             }
             first.step_with_arm_rates(rates.0, rates.1);
             second.step_with_arm_rates(rates.0, rates.1);
@@ -599,6 +614,20 @@ mod tests {
             .expect("the exact refusal had no feature-only provenance");
         assert_eq!(diagnostic.cause, crate::ResolutionError::ExactSolver);
         assert_eq!(diagnostic.phase, crate::ExactContactRejectPhase::SolveGroup);
+        // **80 after the reseat as well as before it, and it was re-measured
+        // rather than carried over.** This transcript was articulated until
+        // session 05 and moved to `submit_embodied_v1` whole. The fight is not
+        // the same fight -- the final state digest is `0x83eb2c1a6ecf49bb`
+        // where the articulated run's was `0x6dfca6fed7c9ae7b`, which it must
+        // be, since `articulated_state_digest` writes the model word and the
+        // body now has elbows, two more swept volumes and a stance row. What
+        // did not move is the breakpoint: the same tick, the same
+        // `SolveGroup` phase, the same right-arm-into-body key, and one
+        // accepted contact group either side. The transform that kept the
+        // geometry is written above `command_at`. If a future edit moves 80,
+        // that is a claim about this swing at these rates and wants a sentence
+        // here, not a wider assertion: a range would be satisfied by a fixture
+        // that stopped refusing for a different reason.
         assert_eq!(diagnostic.tick, 80);
         assert_eq!(diagnostic.key, Some((fighter, crate::LimbSlot::RightArm as u8,
                                         brute, crate::combat::contact::BODY_SLOT,
@@ -612,7 +641,7 @@ mod tests {
 
     #[test]
     fn equal_tick_submissions_replay_in_insertion_order_without_chaining_grips() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let fighter = EntityId::new(0, 0);
         let mut world = World::new(&scenario, 1);
         let mut replay = Replay::new(&scenario, 1);
@@ -621,15 +650,17 @@ mod tests {
         let mut keep_right = command();
         keep_right.grips = [GripRequest::Keep, GripRequest::EquipSlot(0)];
         for requested in [release, keep_right] {
-            let stored = match world.submit_articulated_v1(fighter, requested) {
-                SubmitArticulatedOutcome::Stored { command, rejection: None } => command,
+            let stored = match world.submit_embodied_v1(fighter, EmbodiedCommandV1::new(requested)) {
+                SubmitEmbodiedOutcome::Stored { command, rejection: None } => command,
                 outcome => panic!("same-tick request unexpectedly rejected: {outcome:?}"),
             };
-            replay.record_submitted(0, fighter, SubmittedCommand::Articulated(stored));
+            replay.record_submitted(0, fighter, SubmittedCommand::Embodied(stored));
         }
         assert_eq!(replay.submitted_entries.len(), 2);
-        assert_eq!(replay.submitted_entries[0].command, SubmittedCommand::Articulated(release));
-        assert_eq!(replay.submitted_entries[1].command, SubmittedCommand::Articulated(keep_right));
+        assert_eq!(replay.submitted_entries[0].command,
+            SubmittedCommand::Embodied(EmbodiedCommandV1::new(release)));
+        assert_eq!(replay.submitted_entries[1].command,
+            SubmittedCommand::Embodied(EmbodiedCommandV1::new(keep_right)));
         world.step();
         replay.finish(1);
         let played = replay.play();

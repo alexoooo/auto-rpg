@@ -266,15 +266,33 @@ mod tests {
 
     #[test]
     fn move_authority_scales_acceleration_without_changing_requested_velocity() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut full = World::new(&scenario, 1);
         let mut impaired = full.clone();
         impaired.move_authority[0] = Fx::HALF;
         let fighter = EntityId::new(0, 0);
         let mut command = articulated_command();
         command.move_dir = Vec2::X;
-        let _ = full.submit_articulated_v1(fighter, command);
-        let _ = impaired.submit_articulated_v1(fighter, command);
+        // **The yaw the body already holds, which is what keeps `move_dir` a
+        // world vector.** `CommandFrame::Torso` reads it in the body frame, so
+        // `Vec2::X` is "forward" rather than "east" and a body that is turning is
+        // a body whose world request rotates under it. The shared fixture asks
+        // for `Angle::QUARTER` and the fighter spawns at `Angle::ZERO`, so the
+        // heading below drifted a quarter turn across the settling run -- which
+        // is a fact about the frame and not about move authority, and this test
+        // is about move authority. Held square, the two frames name the same
+        // vector at every tick and every equality below is the one it always
+        // made.
+        command.body_yaw = Angle::ZERO;
+        // Stored, and stored without a per-field rejection. A submission the
+        // world refuses is not a quiet no-op -- it leaves the body holding
+        // nothing and every equality below then measures two idle worlds
+        // agreeing, which is the shape this reseat has to be proof against.
+        for world in [&mut full, &mut impaired] {
+            assert!(matches!(
+                world.submit_embodied_v1(fighter, crate::EmbodiedCommandV1::new(command)),
+                crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }));
+        }
         let requested = full.stats[0].move_speed() * full.action_of(0).spec().move_bonus;
         full.step();
         impaired.step();
@@ -292,10 +310,10 @@ mod tests {
 
     #[test]
     fn leg_injury_reduces_acceleration_not_requested_direction() {
-        // This is a locomotion law, so use the ordinary articulated duel and
+        // This is a locomotion law, so use the ordinary embodied duel and
         // stop before either body can make contact. The former fragile fixture
         // reached combat under the exact feature and measured settlement.
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut hurt = World::new(&scenario, 1);
         let sound = World::new(&scenario, 1);
         // Half the legs, no shock: the factor the actuator reads is exactly a
@@ -318,7 +336,13 @@ mod tests {
         // exactly half the acceleration, and the acceleration is the only thing
         // it touches.
         for world in [&mut hurt, &mut sound] {
-            world.submit_articulated_v1(EntityId::new(0, 0), command(Vec2::X));
+            // Asserted rather than discarded: `submit_embodied_v1` refuses by
+            // returning, so a fixture that ignores the outcome measures two
+            // bodies standing still and calls it a locomotion law.
+            assert!(matches!(
+                world.submit_embodied_v1(EntityId::new(0, 0),
+                                         crate::EmbodiedCommandV1::new(command(Vec2::X))),
+                crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }));
             world.step();
             assert!(world.contact_resolutions().is_empty());
             assert_eq!(world.contact_solver_rejections(), 0);
@@ -337,16 +361,37 @@ mod tests {
         // later. Three-four-five, so the request is exactly unit length and
         // survives `validate_move`'s magnitude check; a diagonal of two ones
         // does not, and is silently swapped for the neutral command.
+        //
+        // **Seventy ticks rather than thirty-five, and the settled heading is
+        // the request turned a quarter, because `move_dir` is read in the body
+        // frame now.** Under `CommandFrame::Torso` a body that is still turning
+        // is a body whose *world* request rotates under it -- and the impaired
+        // body turns at half the rate, so at thirty-five ticks the two were
+        // chasing different world directions and this equality measured the yaw
+        // gap rather than the traction law. Both bodies do arrive at
+        // `Angle::QUARTER`, and only then does the world request stand still:
+        // the sound one settles at forty-one ticks and the impaired one at
+        // fifty-eight, while the sound one reaches the west wall at a hundred
+        // and ninety, where the arena clamp takes its x component and this stops
+        // being a locomotion measurement. Seventy is clear of both ends.
         let diagonal = command(Vec2::new(Fx::from_ratio(3, 5), Fx::from_ratio(4, 5)));
-        for _ in 0..35 {
+        for _ in 0..70 {
             for world in [&mut hurt, &mut sound] {
-                world.submit_articulated_v1(EntityId::new(0, 0), diagonal);
+                assert!(matches!(
+                    world.submit_embodied_v1(EntityId::new(0, 0),
+                                             crate::EmbodiedCommandV1::new(diagonal)),
+                    crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }));
                 world.step();
                 assert!(world.contact_resolutions().is_empty());
                 assert_eq!(world.contact_solver_rejections(), 0);
             }
         }
-        assert_eq!((sound.vel[0].x.raw(), sound.vel[0].y.raw()), (2_110, 2_813));
+        // `(3/5, 4/5)` turned a quarter is `(-4/5, 3/5)`, and exactly so: the
+        // sine table is exact at `Angle::QUARTER`, so the settled speed is the
+        // one the world frame gave -- 3_516 raw -- with its components swapped
+        // and one negated. Previously `(2_110, 2_813)`, when `Vec2::X` in a
+        // command meant east rather than forward.
+        assert_eq!((sound.vel[0].x.raw(), sound.vel[0].y.raw()), (-2_813, 2_110));
         assert_eq!(hurt.vel[0], sound.vel[0], "impairment changed the requested velocity");
         assert_eq!(sound.body_yaw[0].angle.raw(), 16_384);
         assert_eq!(hurt.body_yaw[0].angle, sound.body_yaw[0].angle,
@@ -503,10 +548,10 @@ mod tests {
     /// missed here: what these three tests need is two bodies of chosen mass on
     /// open ground, and the seeded ring placement `duel_of` rolled was noise they
     /// immediately overwrote anyway -- every one of them assigns `pos` by hand.
-    /// So the fixture is the articulated duel with both bodies swapped to the
+    /// So the fixture is the embodied duel with both bodies swapped to the
     /// kinds under test and dressed for a world that has articulated columns.
     fn shove_pair(hero: Body, villain: Body) -> Scenario {
-        let mut scenario = Scenario::articulated_duel();
+        let mut scenario = Scenario::embodied_duel();
         for (unit, kind) in scenario.units.iter_mut().zip([hero, villain]) {
             unit.set_body(kind);
             crate::scenario::equip_fixture_body(unit);
@@ -610,7 +655,7 @@ mod tests {
 
     #[test]
     fn bodies_are_pushed_apart_and_stay_in_the_arena() {
-        let mut scenario = Scenario::articulated_duel();
+        let mut scenario = Scenario::embodied_duel();
         // Spawn both units on the exact same spot: the degenerate case.
         scenario.units[1].spawn = scenario.units[0].spawn;
         let mut w = World::new(&scenario, 1);

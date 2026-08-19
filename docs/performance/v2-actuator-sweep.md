@@ -5,7 +5,13 @@
 **Canonical source:** this record, the executable actuator tests, and [Articulated actuators](../reference/articulated-actuators.md)
 **Update when:** An actuator constant, operation order, fixture anatomy/equipment row, or trace changes.
 
-**Fixture:** `Scenario::articulated_duel()`, name `articulated-duel-v1`, seed `1`
+**Fixture:** `Scenario::embodied_duel()`, name `embodied-duel-v1`, seed `1`
+
+It was `Scenario::articulated_duel()` / `articulated-duel-v1` until 2026-08-19, when
+session 05 deleted that fixture with the model it named. **The traces below did not
+move**, which is the fact worth recording rather than the rename: the two scenarios
+differed only in their name bytes and their model word, and every vector this document
+lists reads an actuator that both bodies drive the same way.
 
 This is deterministic mechanics evidence, not a wall-clock benchmark. Every number
 below is a signed raw 16.16 integer except angle bearings, which are raw wrapping

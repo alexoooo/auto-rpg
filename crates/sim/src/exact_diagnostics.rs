@@ -419,9 +419,11 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
             // strike from a thrust at a leg to a cut across the chest, and the
             // defender's forearm -- which the deleted model did not present to
             // the solver at all -- now hangs between the blade and the leg it
-            // used to reach. `an_articulated_arm_target_is_still_unclamped` is
-            // the test that recorded the old model's freedom to command the
-            // pose this one refuses.
+            // used to reach. The old model's freedom to command the pose this
+            // one refuses was recorded by
+            // `an_articulated_arm_target_is_still_unclamped`, deleted with the
+            // model on 2026-08-19 -- so the clamp is now guarded from the other
+            // side only, by `reachable_extent`'s own tests in `combat::limb`.
             if row.fact.key.kind == ContactKind::WeaponBody
                 && row.fact.key.a == attacker && row.fact.key.a_slot == 1
                 && row.fact.key.b == defender && row.fact.volume == BodyPart::Torso as u8 {

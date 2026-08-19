@@ -5,6 +5,18 @@
 **Canonical source:** feature-gated mechanics and fixtures in `crates/sim/src/combat/{contact,lifted_solver,resolution,trajectory,wide}.rs`, `crates/sim/src/world/contact_phase.rs`, and `crates/sim/src/replay.rs`.
 **Update when:** The retained contact, generalized response model, lifted state, or mechanical-gate decision changes.
 
+**Every raw word below is the deleted articulated body's, and it is kept rather than
+restated.** The Smart59-61 entries quote `441359|441358`, `-14040|14041` and
+`-14040|14040` as the words a focused trace stopped on. Session 05 ported that fixture
+to the embodied body on 2026-08-19 and the same probes now read `436667` and
+`(-19151, 19151)` -- moved by `reachable_extent` clamping a commanded pose onto the
+annulus a jointed arm can span, and by nothing else, since the commanded bearing is
+byte-identical under both models at `4_546`. The numbers are left as they were because
+**what this record preserves is a sequence of hypotheses and their refutations**, and
+re-measuring a refuted hypothesis against a different body would produce a document that
+looks like the same evidence and is evidence of nothing. The live words are asserted in
+`crates/sim/src/world/articulated.rs`.
+
 ## Outcome
 
 The Arena observation that motivated this work was real: learned and tactical

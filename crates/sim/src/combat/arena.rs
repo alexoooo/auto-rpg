@@ -1,9 +1,8 @@
 //! A duel described at runtime, beside the duel that is pinned.
 //!
 //! **Why a second constructor and not a parameter on the first.** The combat
-//! spec-table digest `0x78e5b57ae0c6bbd6`, the `embodied-duel-v1` fingerprint
-//! `0x1a1e8e74eecd55d5` and the `articulated-duel-v1` fingerprint
-//! `0x068d05fcada1027b` all hash [`CombatSpecTableV1::fixtures`]
+//! spec-table digest `0x78e5b57ae0c6bbd6` and the `embodied-duel-v1`
+//! fingerprint `0x1a1e8e74eecd55d5` both hash [`CombatSpecTableV1::fixtures`]
 //! through `write_combat_specs`, and the golden registry's warning about that
 //! table is blunt: a shield dimension moves four pins at once. But `fixtures()`
 //! is a **function that builds a fresh `Vec` on every call** from five row
@@ -15,7 +14,7 @@
 //! here rather than in a plan that will be deleted:
 //!
 //! > Do not edit `fighter_anatomy`, `brute_anatomy`, `sword`, `shield`, `club`,
-//! > `fixtures`, `articulated_duel`, `COMBAT_SPEC_SCHEMA_V1`, `write_anatomy`,
+//! > `fixtures`, `embodied_duel`, `COMBAT_SPEC_SCHEMA_V1`, `write_anatomy`,
 //! > `write_equipment`, `write_unit`, `write_combat_specs`, `write_surface`,
 //! > `write_armor`, `ScenarioByteSink`, `scenario_v1_fields_into` or
 //! > `action_definition_bytes`.
@@ -541,24 +540,22 @@ mod tests {
         );
         let table_digest = digest.finish();
         let embodied = Scenario::embodied_duel().fingerprint();
-        // **Three numbers and not two, since v2-ui-08.** `duel_from` builds
-        // `CombatModel::Embodied` now, so the pin a configured duel is measured
-        // beside is `embodied-duel-v1`; `articulated-duel-v1` is kept in the same
-        // breath because `embodied_duel` is built *from* `articulated_duel` and
-        // the golden registry names this test as that pin's second assertion
-        // site. Dropping it here would leave the registry's ownership column
-        // naming a line that asserts a different number.
-        let articulated = Scenario::articulated_duel().fingerprint();
+        // **Two numbers and not three, since the articulated model went.** This
+        // asserted `articulated-duel-v1` alongside, because `embodied_duel` was
+        // built *from* `articulated_duel` and the golden registry named this
+        // test as that pin's second assertion site. The fixture is deleted and
+        // the pin is retired rather than moved, so the third assertion went with
+        // it; `embodied-duel-v1` is the fixture fingerprint the registry's
+        // "a shield dimension moves four pins at once" warning now means.
+        //
         // Printed, so the session that has to say "unmoved" has a command that
         // says it rather than a test name that implies it:
         // `cargo test -p sim -- --nocapture the_shipped_fixture_digest`.
         println!("after {} runtime tables:", built.len());
         println!("  combat spec-table digest        {table_digest:#018x}");
         println!("  embodied-duel-v1 fingerprint    {embodied:#018x}");
-        println!("  articulated-duel-v1 fingerprint {articulated:#018x}");
         assert_eq!(table_digest, 0x78e5_b57a_e0c6_bbd6, "the combat spec-table digest moved");
         assert_eq!(embodied, 0x1a1e_8e74_eecd_55d5, "the embodied-duel-v1 fingerprint moved");
-        assert_eq!(articulated, 0x068d_05fc_ada1_027b, "the articulated-duel-v1 fingerprint moved");
     }
 
     #[test]

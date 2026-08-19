@@ -1163,8 +1163,8 @@ mod tests {
     fn regenerate_actuator_evidence() {
         use std::fmt::Write as _;
 
-        let scenario = crate::Scenario::articulated_duel();
-        assert_eq!(scenario.name, "articulated-duel-v1");
+        let scenario = crate::Scenario::embodied_duel();
+        assert_eq!(scenario.name, "embodied-duel-v1");
         let _seed_one_world = crate::World::new(&scenario, 1);
         let table = scenario.combat_specs.as_ref().unwrap();
         assert_eq!(table.anatomy(1), Some(&crate::fighter_anatomy()));

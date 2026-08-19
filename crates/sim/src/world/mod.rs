@@ -2148,10 +2148,18 @@ mod tests {
         // on a world which does allocate them, every allocated and reused slot
         // carries one.
 
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let assert_lengths = |world: &World, len| {
             assert_eq!(world.body_yaw.len(), len);
+            // **The stance and the elbow plane are on this list because the
+            // test that carried the claim is gone.**
+            // `an_articulated_body_has_no_stance_row` was half an assertion
+            // about a model that no longer exists; the half that survives it is
+            // that an embodied body has one row of each per allocated slot, and
+            // this is the list that says so.
+            assert_eq!(world.stance.len(), len);
+            assert_eq!(world.elbow_plane.len(), len);
             assert_eq!(world.arms.len(), len);
             assert_eq!(world.grips.len(), len);
             assert_eq!(world.shield_pose.len(), len);
@@ -2206,11 +2214,24 @@ mod tests {
         world.move_authority[2] = Fx::HALF;
         world.turn_authority[2] = Fx::HALF;
         world.arm_authority[2] = [Fx::HALF; 2];
+        // Dirtied, not merely read afterwards: a reuse check whose slot was
+        // already canonical is the shape of green guard that asserts nothing.
+        world.stance[2] = StanceState::squared(Angle::QUARTER);
+        world.stance[2].step_left = 9;
+        world.elbow_plane[2] =
+            [ElbowPlaneState { commanded: Angle::QUARTER, held: Angle::QUARTER }; 2];
         world.wounds[2].blood = Fx::ZERO;
         world.reap_dead_articulated();
         let replacement = world.spawn(&scenario.units[1]);
         assert_eq!(replacement, EntityId::new(2, 1));
         assert_lengths(&world, 3);
+        // Squared on the *new* occupant's bearing -- the row is a Monster, which
+        // spawns facing half a turn round -- and the plane back to neutral. A
+        // body that inherited either would start its fight mid-step.
+        assert_eq!(world.stance[2], StanceState::squared(Angle::HALF),
+                   "a reused slot inherited a stance");
+        assert_eq!(world.elbow_plane[2], [ElbowPlaneState::NEUTRAL; 2],
+                   "a reused slot inherited an elbow plane");
         #[cfg(feature = "cartesian-recoil")]
         for arm in world.arms[2] {
             assert_eq!((arm.post_contact_active, arm.post_contact_com_velocity),
@@ -2230,7 +2251,7 @@ mod tests {
 
     #[test]
     fn articulated_mutation_apis_preserve_immutable_construction() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let fighter = EntityId::new(0, 0);
         let construction = (world.kind[0], world.loadout[0], world.articulated_anatomy[0],
@@ -2255,23 +2276,36 @@ mod tests {
 
     #[test]
     fn neutral_fallback_uses_authoritative_body_yaw_after_stationary_divergence() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let fighter = EntityId::new(0, 0);
         let mut command = articulated_command();
         command.body_yaw = Angle::QUARTER;
-        let _ = world.submit_articulated_v1(fighter, command);
+        let _ = world.submit_embodied_v1(fighter, crate::EmbodiedCommandV1::new(command));
         world.step();
         assert_eq!(world.facing[0], Angle::ZERO);
         assert_eq!(world.body_yaw[0].angle, Angle::from_raw(91));
-        let outcome = world.submit_articulated_fallback_v1(fighter, crate::CommandField::LeftReach);
+        let outcome = world.submit_embodied_fallback_v1(fighter, crate::CommandField::LeftReach);
         let stored = match outcome {
-            SubmitArticulatedOutcome::Stored { command, rejection: Some(CommandReject::OutOfRange(_)) } => command,
+            crate::SubmitEmbodiedOutcome::Stored {
+                command, rejection: Some(CommandReject::OutOfRange(_)),
+            } => command,
             other => panic!("unexpected fallback outcome: {other:?}"),
         };
-        assert_eq!(stored.body_yaw, Angle::from_raw(91));
-        assert_eq!(stored.arms[0].bearing, Angle::from_raw(91));
-        assert_eq!(stored.arms[1].bearing, Angle::from_raw(91));
+        // The divergence is the whole test: `facing` is still zero and the
+        // authoritative yaw is not, so a fallback reading the wrong column
+        // stores the wrong number rather than nothing.
+        assert_eq!(stored.articulated.body_yaw, Angle::from_raw(91));
+        // **The arms read zero and that is the same claim, not a weaker one.**
+        // An embodied bearing is measured from the torso, so "ahead" is the
+        // offset zero; `World::world_arm_target` adds the body yaw back on the
+        // way in, and storing the yaw here would ask a neutral arm for twice it.
+        // `World::neutral_articulated` records that correction in full.
+        assert_eq!(stored.articulated.arms[0].bearing, Angle::ZERO);
+        assert_eq!(stored.articulated.arms[1].bearing, Angle::ZERO);
+        // And the plane the fallback substitutes is the neutral one rather than
+        // whatever the refused command's predecessor left behind.
+        assert_eq!(stored.swing_plane, [Angle::ZERO; 2]);
     }
 
     #[test]
@@ -2319,7 +2353,7 @@ mod tests {
     #[cfg(feature = "cartesian-recoil")]
     #[test]
     fn shipped_exact_lattices_pin_scale_and_endpoint_denominator_bits() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let table = scenario.combat_specs.as_ref().unwrap();
         let hero = exact_lattice_for_unit(scenario.units[0].kind.mass().raw(), table,
             scenario.units[0].articulated.unwrap()).unwrap();
@@ -2344,7 +2378,7 @@ mod tests {
     #[cfg(feature = "cartesian-recoil")]
     #[test]
     fn adversarial_coprime_spawn_refuses_before_any_world_authority_moves() {
-        let mut scenario = Scenario::articulated_duel();
+        let mut scenario = Scenario::embodied_duel();
         let table = scenario.combat_specs.as_mut().unwrap();
         let mut left = table.equipment[0];
         left.id = table.equipment.last().unwrap().id + 1;
@@ -2387,22 +2421,25 @@ mod tests {
 
     #[test]
     fn grip_requests_apply_atomically_or_not_at_all() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let fighter = EntityId::new(0, 0);
         let initial = world.grips[0];
         let mut invalid = world.neutral_articulated(0);
         invalid.grips = [GripRequest::Release, GripRequest::EquipSlot(1)];
-        assert!(matches!(world.submit_articulated_v1(fighter, invalid),
-            SubmitArticulatedOutcome::Stored { command, rejection: Some(CommandReject::MissingEquipment { .. }) }
-                if command.grips == [GripRequest::Keep; 2]));
+        assert!(matches!(world.submit_embodied_v1(fighter, crate::EmbodiedCommandV1::new(invalid)),
+            crate::SubmitEmbodiedOutcome::Stored { command, rejection: Some(CommandReject::MissingEquipment { .. }) }
+                if command.articulated.grips == [GripRequest::Keep; 2]));
         assert_eq!(world.grips[0], initial, "submission changed one arm before the step");
         world.step();
         assert_eq!(world.grips[0], initial, "fallback did not preserve the complete pair");
 
         let mut release = world.neutral_articulated(0);
         release.grips = [GripRequest::Release; 2];
-        let _ = world.submit_articulated_v1(fighter, release);
+        assert!(matches!(
+            world.submit_embodied_v1(fighter, crate::EmbodiedCommandV1::new(release)),
+            crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }),
+            "the release transaction was refused, so the step below proves nothing");
         assert_eq!(world.grips[0], initial, "accepted transaction applied before step");
         world.step();
         assert_eq!(world.grips[0], [GripState { equipment_slot: None }; 2]);
@@ -2410,7 +2447,7 @@ mod tests {
 
     #[test]
     fn a_two_handed_grip_cannot_bind_a_shield() {
-        let mut scenario = Scenario::articulated_duel();
+        let mut scenario = Scenario::embodied_duel();
         let mut shield = crate::shield();
         shield.id = 4;
         shield.action = ActionKind::Club;
@@ -2421,7 +2458,7 @@ mod tests {
             scenario.combat_model, scenario.combat_specs.as_ref(), &scenario.units,
         ), Err(crate::CombatSpecError::GripConflict));
 
-        let mut scenario = Scenario::articulated_duel();
+        let mut scenario = Scenario::embodied_duel();
         let mut left = crate::shield();
         left.id = 4;
         left.action = ActionKind::Sword;
@@ -2439,7 +2476,7 @@ mod tests {
 
     #[test]
     fn articulated_actuation_cannot_create_healing_damage_death_recoil_or_shots() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let fighter = EntityId::new(0, 0);
         let brute = EntityId::new(1, 0);
@@ -2458,8 +2495,12 @@ mod tests {
         command.arms[0] = ArmTarget { bearing: Angle::HALF, height: crate::CombatHeight::HIGH,
             reach: Fx::ONE, effort: Fx::ONE };
         command.arms[1] = command.arms[0];
-        let _ = world.submit_articulated_v1(fighter, command);
-        let _ = world.submit_articulated_v1(brute, command);
+        for id in [fighter, brute] {
+            assert!(matches!(
+                world.submit_embodied_v1(id, crate::EmbodiedCommandV1::new(command)),
+                crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }),
+                "a refused command would leave both bodies standing still");
+        }
         for _ in 0..180 {
             assert!(world.step().is_empty());
         }
@@ -2469,7 +2510,7 @@ mod tests {
         assert!(world.articulated_projectile_alive.is_empty());
     }
 
-    // The two literals below gained `prop swings`, `loose projectiles` and
+    // The literal below gained `prop swings`, `loose projectiles` and
     // `resolve projectiles` when the schedule became a table. **No phase moved
     // and none was added**: those three bodies always ran here, in this order,
     // and simply had no trace name of their own -- `resolve_dungeon_prop_swings`
@@ -2477,184 +2518,34 @@ mod tests {
     // `resolve_contact` under `contact`. Reading the name off the table is what
     // made that impossible to write. The golden hashes are the evidence that the
     // order itself did not change, and none of them moved.
+    //
+    // **This said "the two literals below" and had been wrong since 2026-08-18.**
+    // The second was `the_legacy_phase_trace_is_unchanged`, which went with
+    // `CombatModel::Legacy` -- and the sentence about `legacy swings` above is
+    // kept anyway, because it is the argument for reading a phase name off the
+    // table and that argument outlived the schedule it was learnt on.
 
     #[test]
-    fn articulated_contact_runs_after_geometry_and_before_doors() {
-        let mut world = World::new(&Scenario::articulated_duel(), 1);
+    fn contact_runs_after_geometry_and_before_doors() {
+        let mut world = World::new(&Scenario::embodied_duel(), 1);
         world.phase_trace_enabled = true;
         world.step();
         assert_eq!(world.phase_trace, [
             "clear events", "expire decisions", "retain contact entry",
             "apply articulated movement", "record contact locomotion", "separate",
-            "body yaw", "grips", "arms", "geometry", "loose projectiles", "contact",
+            // `"stance"` stands where `"body yaw"` stood, which is the one row
+            // the two schedules ever differed by; the articulated schedule and
+            // the literal that named it went with the model.
+            "stance", "grips", "arms", "geometry", "loose projectiles", "contact",
             "resolve projectiles", "anatomy", "doors", "reap",
             // A `"navigation"` row closed this list until the flow field was
-            // deleted. Its removal is the only edit to this literal, and that is
-            // what the table exists to make visible: a phase leaving is a name
-            // leaving a list, not a silence.
+            // deleted, and that is what the table exists to make visible: a
+            // phase leaving is a name leaving a list, not a silence. It read
+            // "the only edit to this literal" until the articulated model went
+            // and `"stance"` replaced `"body yaw"` above -- a substitution, and
+            // visible in the list for the same reason.
             "increment tick", "pending",
         ]);
-    }
-
-    /// A command that varies with the tick and the slot, so a run exercises
-    /// movement, turning, reach and effort rather than standing still.
-    ///
-    /// Deterministic and cheap on purpose: the point is a long identical pair
-    /// of fights, not a realistic one.
-    fn scripted_embodied(tick: u32, slot: usize) -> ArticulatedCommandV1 {
-        let phase = tick.wrapping_mul(977).wrapping_add(slot as u32 * 31);
-        let arm = |k: u32| ArmTarget {
-            bearing: Angle::from_raw(phase.wrapping_mul(13).wrapping_add(k * 7_001) as u16),
-            height: crate::CombatHeight::try_from_raw(
-                (phase.wrapping_add(k * 3) % 65_537) as i32).unwrap(),
-            reach: Fx::from_raw((phase.wrapping_add(k * 11) % 65_537) as i32),
-            effort: Fx::from_raw((phase.wrapping_mul(3).wrapping_add(k) % 65_537) as i32),
-        };
-        ArticulatedCommandV1 {
-            // Both zero, and both load-bearing. Zero yaw is the one bearing at
-            // which a torso-relative reading and an absolute one agree; zero
-            // movement is what keeps the hips from turning for free and the
-            // pelvis from sinking, neither of which an articulated body does.
-            move_dir: Vec2::ZERO,
-            body_yaw: Angle::ZERO,
-            intent: Intent::Hold,
-            arms: [arm(0), arm(1)],
-            grips: [GripRequest::Keep; 2],
-            releases: [ReleaseRequest::Keep; 2],
-        }
-    }
-
-    /// An embodied fight is an articulated fight **while its stance is inert and
-    /// its arms are inside the annulus**, tick for tick.
-    ///
-    /// The condition has been narrowed three times and every narrowing is the
-    /// measurement rather than a weakening:
-    ///
-    /// - session 03 asserted it unconditionally;
-    /// - session 05 made an embodied bearing torso-relative, so the two readings
-    ///   coincide only at zero yaw;
-    /// - session 06 gave the body hips and a pelvis, which coincide with a free
-    ///   torso only while it is also not translating;
-    /// - session 07 gave the arm a length it cannot exceed, so the two agree only
-    ///   on a pose an articulated arm would also have held;
-    /// - session 07's second half gave the embodied arm an **elbow**, which is a
-    ///   published column the articulated arm does not have and never will.
-    ///
-    /// The fourth is a different kind of narrowing from the first three and it is
-    /// worth separating. The others restricted the *conditions* under which the
-    /// two agree; this one carves one column out of the comparison permanently,
-    /// because the whole point of the session that added it is that an embodied
-    /// arm bends and an articulated one does not. So the column is excluded and
-    /// then asserted **from both sides** -- every articulated elbow `None`, every
-    /// embodied one `Some` -- which is what stops "exclude the difference" from
-    /// degenerating into "stop looking". A one-sided exclusion would be satisfied
-    /// by an embodied body that had quietly stopped solving its elbow at all.
-    ///
-    /// The annulus condition is not a range this test can assume, so it **finds**
-    /// one: it searches the command space for a target the clamp leaves
-    /// untouched, and fails if there is none. Everything else -- grips, contact,
-    /// anatomy, projectiles, doors, the whole rest of the tick -- is still
-    /// asserted identical, which is what a session changing one of those for
-    /// `Embodied` alone would be caught by.
-    ///
-    /// **It is not a claim that the two fights are still the same fight once
-    /// something is hit.** An embodied body presents seven swept volumes and an
-    /// articulated one five, so a blow that lands on a bent forearm has no
-    /// articulated counterpart. This script never brings the two bodies into
-    /// contact, which is why the equality survives at all; the guard that the
-    /// *articulated* corpus did not move is `lab articulated`, not this.
-    #[test]
-    fn an_embodied_duel_equals_the_articulated_duel_while_its_stance_is_inert() {
-        let mut articulated = World::new(&Scenario::articulated_duel(), 7);
-        let mut embodied = World::new(&Scenario::embodied_duel(), 7);
-        let roster = |world: &World| -> Vec<EntityId> {
-            world.alive_ids(Faction::Heroes).into_iter()
-                .chain(world.alive_ids(Faction::Monsters))
-                .collect()
-        };
-        let ids = roster(&articulated);
-        assert_eq!(ids, roster(&embodied), "the two fixtures spawned different rosters");
-        assert!(!ids.is_empty());
-
-        // The fixture spawns its two bodies facing each other, so one of them
-        // starts at half a turn. Zero both, identically, and square the hips with
-        // them: a squared torso over unmoved feet is a body wound to its limit,
-        // which is the opposite of the inert stance this test is establishing.
-        for world in [&mut articulated, &mut embodied] {
-            for slot in 0..ids.len() {
-                world.body_yaw[slot].angle = Angle::ZERO;
-                world.body_yaw[slot].speed_turns = Fx::ZERO;
-                if slot < world.stance.len() {
-                    world.stance[slot] = StanceState::squared(Angle::ZERO);
-                }
-            }
-        }
-
-        // Find a pose both arms can hold. Searched rather than assumed, because
-        // the annulus depends on two anatomies and a pelvis, and a hard-coded
-        // pair would quietly stop being reachable the day any of them moved.
-        let reachable = |world: &World| {
-            for height_raw in (0..=Fx::ONE.raw()).step_by(2_048) {
-                for reach_raw in (0..=Fx::ONE.raw()).step_by(2_048) {
-                    let target = ArmTarget {
-                        bearing: Angle::ZERO,
-                        height: crate::CombatHeight::try_from_raw(height_raw).unwrap(),
-                        reach: Fx::from_raw(reach_raw),
-                        effort: Fx::ONE,
-                    };
-                    let holds = (0..ids.len()).all(|slot| {
-                        (0..2).all(|limb| world.reachable_arm_target(slot, limb, target) == target)
-                    });
-                    if holds { return Some(target); }
-                }
-            }
-            None
-        };
-        let held = reachable(&embodied).expect("no arm pose in the whole command space is reachable");
-
-        let mut moved = false;
-        for tick in 0..600u32 {
-            for (slot, id) in ids.iter().enumerate() {
-                let mut command = scripted_embodied(tick, slot);
-                command.arms = [held; 2];
-                assert!(matches!(
-                    articulated.submit_articulated_v1(*id, command),
-                    SubmitArticulatedOutcome::Stored { rejection: None, .. }));
-                assert!(matches!(
-                    embodied.submit_embodied_v1(*id, crate::EmbodiedCommandV1::new(command)),
-                    crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }));
-            }
-            articulated.step();
-            embodied.step();
-            let left: Vec<_> = articulated.articulated_poses().collect();
-            let right: Vec<_> = embodied.articulated_poses().collect();
-            // The elbow column, out of the comparison and then asserted from
-            // both sides. See the doc comment: excluding it one-sidedly would be
-            // satisfied by an embodied body that stopped solving a joint.
-            assert!(left.iter().all(|pose| pose.arms.iter().all(|arm| arm.elbow.is_none())),
-                    "an articulated arm grew an elbow at tick {tick}");
-            assert!(right.iter().all(|pose| pose.arms.iter().all(|arm| arm.elbow.is_some())),
-                    "an embodied arm lost its elbow at tick {tick}");
-            let straightened = |poses: &[ArticulatedPose]| -> Vec<ArticulatedPose> {
-                poses.iter().map(|pose| {
-                    let mut pose = *pose;
-                    for arm in &mut pose.arms { arm.elbow = None; }
-                    pose
-                }).collect()
-            };
-            assert_eq!(straightened(&left), straightened(&right),
-                       "poses diverged at tick {tick}");
-            for pose in &right {
-                assert_eq!(pose.body_yaw, Angle::ZERO,
-                           "the equality's own condition failed at tick {tick}");
-            }
-            for slot in 0..ids.len() {
-                assert_eq!(embodied.stance[slot], StanceState::squared(Angle::ZERO),
-                           "the stance stopped being inert at tick {tick}");
-            }
-            moved |= left.iter().any(|pose| pose.arms[1].hand != Vec3::ZERO);
-        }
-        assert!(moved, "600 ticks of an identical script moved neither fighter's hand");
     }
 
     /// Drives one embodied body under a held command and hands back the world.
@@ -2775,28 +2666,6 @@ mod tests {
         }
     }
 
-    /// The articulated arm is **not** clamped, and that is the guard: closing the
-    /// hole for one model must not close it for the other, or every articulated
-    /// corpus would move.
-    #[test]
-    fn an_articulated_arm_target_is_still_unclamped() {
-        let world = World::new(&Scenario::articulated_duel(), 1);
-        let anatomy = world.posed_anatomy(0);
-        let outer = crate::combat::limb::Elbow::of(&anatomy).reach_bounds().1;
-        let reaching = ArmTarget {
-            bearing: Angle::ZERO,
-            height: crate::CombatHeight::HIGH,
-            reach: Fx::ONE,
-            effort: Fx::ONE,
-        };
-        assert_eq!(world.world_arm_target(0, 1, reaching), reaching);
-        let hand = actuator::hand_position(
-            &anatomy, Angle::ZERO, 1, reaching.bearing, reaching.height, reaching.reach);
-        let shoulder = crate::combat::limb::shoulder(&anatomy, Angle::ZERO, 1);
-        assert!((hand - shoulder).length() > outer,
-                "the articulated arm was clamped, and its corpora are about to move");
-    }
-
     /// The asymmetry that makes footwork a decision, raced against **the same
     /// target**.
     ///
@@ -2911,22 +2780,6 @@ mod tests {
         assert!(low_arm.shoulder().z < tall_arm.shoulder().z);
     }
 
-    /// An articulated body allocates no stance at all, which is what keeps a
-    /// mechanic it does not have from reaching its digest.
-    #[test]
-    fn an_articulated_body_has_no_stance_row() {
-        let articulated = World::new(&Scenario::articulated_duel(), 1);
-        let legacy = duel_world();
-        assert!(articulated.stance.is_empty());
-        assert!(legacy.stance.is_empty());
-        assert!(!articulated.combat_model.has_stance());
-        assert!(!legacy.combat_model.has_stance());
-
-        let embodied = World::new(&Scenario::embodied_duel(), 1);
-        assert_eq!(embodied.stance.len(), embodied.alive.len());
-        assert!(embodied.combat_model.has_stance());
-    }
-
     /// **Bounded from both sides**, and from the decision rather than from a
     /// sweep -- the sweep it owes is named on the constant. A one-sided bound is
     /// satisfied by a range wider than the decision and this repository has
@@ -2999,20 +2852,22 @@ mod tests {
     #[test]
     fn an_embodied_arm_bearing_is_measured_from_the_body_and_not_from_the_world() {
         let mut embodied = World::new(&Scenario::embodied_duel(), 1);
-        let mut articulated = World::new(&Scenario::articulated_duel(), 1);
         let held = ArmTarget {
             bearing: Angle::from_raw(9_000),
             height: crate::CombatHeight::MID,
             reach: Fx::HALF,
             effort: Fx::ONE,
         };
+        // **The control was an articulated world reading the same bearing
+        // absolutely, and it went with the model.** What replaces it is the
+        // sweep's own first entry: at a yaw of zero the two readings coincide,
+        // so a conversion that had stopped adding the yaw would pass there and
+        // fail at every other yaw in the list -- including one raw unit, which
+        // is smaller than any rounding this arithmetic does.
         for yaw_raw in [0u16, 1, 16_384, 32_768, 49_152, 65_535] {
             let yaw = Angle::from_raw(yaw_raw);
             embodied.body_yaw[0].angle = yaw;
-            articulated.body_yaw[0].angle = yaw;
             assert_eq!(embodied.world_arm_target(0, 1, held).bearing, yaw + held.bearing);
-            assert_eq!(articulated.world_arm_target(0, 1, held).bearing, held.bearing,
-                       "an articulated bearing stopped being absolute");
             // Everything except the bearing is carried through untouched.
             let converted = embodied.world_arm_target(0, 1, held);
             assert_eq!((converted.height, converted.reach, converted.effort),
@@ -3038,7 +2893,6 @@ mod tests {
     #[test]
     fn embodied_movement_is_expressed_in_the_body_frame() {
         let mut embodied = World::new(&Scenario::embodied_duel(), 1);
-        let mut articulated = World::new(&Scenario::articulated_duel(), 1);
         let forward = Vec2::new(Fx::ONE, Fx::ZERO);
         let left = Vec2::new(Fx::ZERO, Fx::ONE);
 
@@ -3051,23 +2905,25 @@ mod tests {
         assert_eq!(embodied.world_move_dir(0, forward), Vec2::new(Fx::ZERO, Fx::ONE));
         assert_eq!(embodied.world_move_dir(0, left), Vec2::new(-Fx::ONE, Fx::ZERO));
 
-        // The articulated reading is unchanged at every yaw, which is the guard.
-        for yaw_raw in [0u16, 16_384, 32_768, 49_152] {
-            articulated.body_yaw[0].angle = Angle::from_raw(yaw_raw);
-            assert_eq!(articulated.world_move_dir(0, forward), forward);
-            assert_eq!(articulated.world_move_dir(0, left), left);
-        }
+        // **The articulated control that closed this went with the model.** The
+        // zero-yaw pair above is what is left holding the other side, and it
+        // does hold it: a rotation applied twice, or applied the wrong way
+        // round, is still the identity at zero and is not at a quarter, so the
+        // two cases together bound the conversion rather than either alone.
     }
 
     /// The whole point of the session, measured through the actual tick rather
     /// than through the conversion: hold one bearing, turn the body a quarter,
-    /// and the embodied arm comes round with it while the articulated one does
-    /// not.
+    /// and the hand comes round with it.
     ///
-    /// Bounded from **both** sides. The embodied arm must arrive within a
-    /// sixteenth of a turn of the torso and the articulated one must stay within
-    /// a sixteenth of where it started, so neither a body that failed to turn
-    /// nor an arm that spun freely could pass.
+    /// Bounded from **both** sides, and after the articulated model went both
+    /// bounds are about the same body. The torso must arrive within a sixteenth
+    /// of a turn of the yaw it asked for, so a body that never turned fails; and
+    /// the arm must arrive within a sixteenth **of the torso** rather than of
+    /// where it started, so an arm that held its world bearing -- which is
+    /// exactly what the deleted articulated control did on purpose -- fails too.
+    /// The two targets are a quarter turn apart, which is what stops one
+    /// assertion from being satisfied by the other's answer.
     #[test]
     fn turning_the_body_carries_the_hand_with_it_at_a_held_bearing() {
         let held = ArmTarget {
@@ -3076,44 +2932,29 @@ mod tests {
             reach: Fx::HALF,
             effort: Fx::ONE,
         };
-        let drive = |scenario: Scenario| -> (Angle, Angle) {
-            let mut world = World::new(&scenario, 1);
-            let id = world.alive_ids(Faction::Heroes)[0];
-            let command = ArticulatedCommandV1 {
-                move_dir: Vec2::ZERO,
-                body_yaw: Angle::QUARTER,
-                intent: Intent::Hold,
-                arms: [held; 2],
-                grips: [GripRequest::Keep; 2],
-                releases: [ReleaseRequest::Keep; 2],
-            };
-            for _ in 0..400 {
-                match world.combat_model.command_grammar() {
-                    CommandGrammar::Embodied => {
-                        world.submit_embodied_v1(id, crate::EmbodiedCommandV1::new(command));
-                    }
-                    _ => {
-                        world.submit_articulated_v1(id, command);
-                    }
-                }
-                world.step();
-            }
-            (world.body_yaw[0].angle, world.arms[0][1].bearing)
-        };
+        let mut world = World::new(&Scenario::embodied_duel(), 1);
+        let id = world.alive_ids(Faction::Heroes)[0];
+        let command = crate::EmbodiedCommandV1::new(ArticulatedCommandV1 {
+            move_dir: Vec2::ZERO,
+            body_yaw: Angle::QUARTER,
+            intent: Intent::Hold,
+            arms: [held; 2],
+            grips: [GripRequest::Keep; 2],
+            releases: [ReleaseRequest::Keep; 2],
+        });
+        for _ in 0..400 {
+            assert!(matches!(world.submit_embodied_v1(id, command),
+                crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }),
+                "a refused command would leave the body facing where it started");
+            world.step();
+        }
+        let (yaw, arm) = (world.body_yaw[0].angle, world.arms[0][1].bearing);
 
         let sixteenth = 4_096i32;
-        let (embodied_yaw, embodied_arm) = drive(Scenario::embodied_duel());
-        let (articulated_yaw, articulated_arm) = drive(Scenario::articulated_duel());
-
-        assert!(embodied_yaw.delta(Angle::QUARTER).abs() < sixteenth,
-                "the embodied body did not reach its commanded yaw: {embodied_yaw:?}");
-        assert!(articulated_yaw.delta(Angle::QUARTER).abs() < sixteenth,
-                "the articulated body did not reach its commanded yaw: {articulated_yaw:?}");
-
-        assert!(embodied_arm.delta(Angle::QUARTER).abs() < sixteenth,
-                "the embodied arm did not follow the torso: {embodied_arm:?}");
-        assert!(articulated_arm.delta(Angle::ZERO).abs() < sixteenth,
-                "the articulated arm followed the torso, and it must not: {articulated_arm:?}");
+        assert!(yaw.delta(Angle::QUARTER).abs() < sixteenth,
+                "the body did not reach its commanded yaw: {yaw:?}");
+        assert!(arm.delta(Angle::QUARTER).abs() < sixteenth,
+                "the arm did not follow the torso: {arm:?}");
     }
 
     /// The 2026-08-16 shield-normal amendment survives the frame change: the
@@ -3121,121 +2962,37 @@ mod tests {
     /// session that arm is one the torso can turn.
     #[test]
     fn the_shield_normal_still_follows_the_arm_that_carries_it() {
-        for scenario in [Scenario::articulated_duel(), Scenario::embodied_duel()] {
-            let mut world = World::new(&scenario, 1);
-            let id = world.alive_ids(Faction::Heroes)[0];
-            for _ in 0..120 {
-                let command = ArticulatedCommandV1 {
-                    move_dir: Vec2::ZERO,
-                    body_yaw: Angle::QUARTER,
-                    intent: Intent::Hold,
-                    arms: [ArmTarget {
-                        bearing: Angle::ZERO,
-                        height: crate::CombatHeight::MID,
-                        reach: Fx::HALF,
-                        effort: Fx::ONE,
-                    }; 2],
-                    grips: [GripRequest::Keep; 2],
-                    releases: [ReleaseRequest::Keep; 2],
-                };
-                match world.combat_model.command_grammar() {
-                    CommandGrammar::Embodied => {
-                        world.submit_embodied_v1(id, crate::EmbodiedCommandV1::new(command));
-                    }
-                    _ => {
-                        world.submit_articulated_v1(id, command);
-                    }
-                }
-                world.step();
-            }
-            let Some(shield) = world.shield_pose[0] else { continue };
-            let carrying = world.arms[0][0].bearing;
-            assert_eq!(shield.normal,
-                       Vec3::new(carrying.cos(), carrying.sin(), Fx::ZERO),
-                       "{}: the plate stopped facing where its arm points", scenario.name);
+        let mut world = World::new(&Scenario::embodied_duel(), 1);
+        let id = world.alive_ids(Faction::Heroes)[0];
+        let command = crate::EmbodiedCommandV1::new(ArticulatedCommandV1 {
+            move_dir: Vec2::ZERO,
+            body_yaw: Angle::QUARTER,
+            intent: Intent::Hold,
+            arms: [ArmTarget {
+                bearing: Angle::ZERO,
+                height: crate::CombatHeight::MID,
+                reach: Fx::HALF,
+                effort: Fx::ONE,
+            }; 2],
+            grips: [GripRequest::Keep; 2],
+            releases: [ReleaseRequest::Keep; 2],
+        });
+        for _ in 0..120 {
+            assert!(matches!(world.submit_embodied_v1(id, command),
+                crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }));
+            world.step();
         }
-    }
-
-    /// The two digests must **not** agree, and the reason is the point: one
-    /// carries `CombatModel::Embodied` in its prefix and reports the
-    /// `EmbodiedV1` domain, so comparing them is a grammar mismatch rather than
-    /// two numbers that happen to differ.
-    #[test]
-    fn an_embodied_digest_is_not_an_articulated_one_even_on_an_identical_fight() {
-        let articulated = World::new(&Scenario::articulated_duel(), 7);
-        let embodied = World::new(&Scenario::embodied_duel(), 7);
-        assert_eq!(articulated.state_digest().domain, crate::HashDomain::ArticulatedV1);
-        assert_eq!(embodied.state_digest().domain, crate::HashDomain::EmbodiedV1);
-        assert_ne!(articulated.state_digest().value, embodied.state_digest().value);
-    }
-
-    /// A control that cannot honour a request refuses it **by name** and
-    /// returns the refusal, so a test can assert the sentence rather than read
-    /// a log for it.
-    #[test]
-    fn an_articulated_world_refuses_submit_embodied_by_name() {
-        let mut articulated = World::new(&Scenario::articulated_duel(), 1);
-        let id = articulated.alive_ids(Faction::Heroes)[0];
-        let command = crate::EmbodiedCommandV1::new(scripted_embodied(0, 0));
-        assert_eq!(
-            articulated.submit_embodied_v1(id, command),
-            crate::SubmitEmbodiedOutcome::NotStored(CommandReject::WrongModel),
-        );
-        assert!(articulated.articulated_command[0].is_none(), "a refused command was stored");
-    }
-
-    #[test]
-    fn an_embodied_world_refuses_submit_articulated_by_name() {
-        let mut embodied = World::new(&Scenario::embodied_duel(), 1);
-        let id = embodied.alive_ids(Faction::Heroes)[0];
-        assert_eq!(
-            embodied.submit_articulated_v1(id, scripted_embodied(0, 0)),
-            SubmitArticulatedOutcome::NotStored(CommandReject::WrongModel),
-        );
-        assert!(embodied.articulated_command[0].is_none(), "a refused command was stored");
-    }
-
-    /// The fingerprint separates the two fixtures, and by **two** things rather
-    /// than one: the name bytes and the model word. The plan that proposed this
-    /// session said the model was not in the fingerprint. It is, and this is
-    /// what measures that rather than restating it.
-    #[test]
-    fn the_embodied_fixture_fingerprints_apart_from_the_articulated_one() {
-        let articulated = Scenario::articulated_duel();
-        let embodied = Scenario::embodied_duel();
-        assert_ne!(articulated.fingerprint(), embodied.fingerprint());
-
-        let mut renamed = articulated.clone();
-        renamed.name = embodied.name.clone();
-        assert_ne!(renamed.fingerprint(), embodied.fingerprint(),
-                   "the model word is not in the fingerprint after all");
-
-        let mut remodelled = articulated.clone();
-        remodelled.combat_model = crate::CombatModel::Embodied;
-        assert_ne!(remodelled.fingerprint(), embodied.fingerprint(),
-                   "the name bytes are not in the fingerprint after all");
-    }
-
-    #[test]
-    fn an_articulated_world_answers_yes_to_every_articulated_column_predicate() {
-        let world = World::new(&Scenario::articulated_duel(), 1);
-        let model = world.combat_model();
-        assert!(model.has_articulated_columns());
-        assert!(model.uses_contact_solver());
-        assert_eq!(model.command_grammar(), CommandGrammar::Articulated);
-
-        let bodies = world.alive.len();
-        assert!(bodies > 0, "an empty world would satisfy this vacuously");
-        assert!(world.contact.is_some(), "no contact runtime");
-        for (name, len) in [
-            ("body_yaw", world.body_yaw.len()), ("arms", world.arms.len()),
-            ("grips", world.grips.len()), ("shield_pose", world.shield_pose.len()),
-            ("move_authority", world.move_authority.len()),
-            ("turn_authority", world.turn_authority.len()),
-            ("arm_authority", world.arm_authority.len()), ("wounds", world.wounds.len()),
-        ] {
-            assert_eq!(len, bodies, "an articulated world is missing `{name}`");
-        }
+        // `expect` rather than the `else { continue }` this had while it looped
+        // over two fixtures: with one world left, a fighter carrying no plate is
+        // a fixture that proves nothing rather than an arm of the loop to skip.
+        let shield = world.shield_pose[0].expect("the fighter carries a plate");
+        let carrying = world.arms[0][0].bearing;
+        assert_eq!(shield.normal,
+                   Vec3::new(carrying.cos(), carrying.sin(), Fx::ZERO),
+                   "the plate stopped facing where its arm points");
+        // And the arm turned, or the equality above is a claim about a plate
+        // that never moved.
+        assert_ne!(carrying, Angle::ZERO, "the carrying arm never left its bearing");
     }
 
     /// The property the table exists for: a phase that runs without a trace
@@ -3244,28 +3001,28 @@ mod tests {
     /// literal is the point -- a third literal could drift like the first two.
     #[test]
     fn the_phase_table_and_the_phase_trace_cannot_disagree() {
-        for scenario in [Scenario::articulated_duel(), Scenario::embodied_duel()] {
-            let mut world = World::new(&scenario, 1);
-            let expected: Vec<&'static str> = PROLOGUE.iter()
-                .chain(model_phases(world.combat_model))
-                .chain(EPILOGUE)
-                .map(|&(name, _)| name)
-                .collect();
-            world.phase_trace_enabled = true;
-            world.step();
-            assert_eq!(world.phase_trace, expected, "{}", scenario.name);
-            // Twice, because the trace accumulates: a second tick must append a
-            // second identical run rather than a shorter or a reordered one.
-            world.step();
-            assert_eq!(world.phase_trace.len(), expected.len() * 2, "{}", scenario.name);
-            assert_eq!(&world.phase_trace[expected.len()..], &expected[..], "{}", scenario.name);
-        }
+        let scenario = Scenario::embodied_duel();
+        let mut world = World::new(&scenario, 1);
+        let expected: Vec<&'static str> = PROLOGUE.iter()
+            .chain(model_phases(world.combat_model))
+            .chain(EPILOGUE)
+            .map(|&(name, _)| name)
+            .collect();
+        assert!(!expected.is_empty(), "an empty schedule would satisfy this vacuously");
+        world.phase_trace_enabled = true;
+        world.step();
+        assert_eq!(world.phase_trace, expected, "{}", scenario.name);
+        // Twice, because the trace accumulates: a second tick must append a
+        // second identical run rather than a shorter or a reordered one.
+        world.step();
+        assert_eq!(world.phase_trace.len(), expected.len() * 2, "{}", scenario.name);
+        assert_eq!(&world.phase_trace[expected.len()..], &expected[..], "{}", scenario.name);
     }
 
     #[cfg(feature = "cartesian-recoil")]
     #[test]
     fn rejected_grip_transaction_preserves_recoil_byte_exact() {
-        let mut world = World::new(&Scenario::articulated_duel(), 0);
+        let mut world = World::new(&Scenario::embodied_duel(), 0);
         world.arms[0][0].post_contact_active = true;
         world.arms[0][0].post_contact_com_velocity = Vec3::new(
             Fx::from_raw(5), Fx::from_raw(7), Fx::from_raw(-11));
@@ -3275,15 +3032,16 @@ mod tests {
         let before = world.arms[0]; let grips = world.grips[0];
         let mut invalid = world.neutral_articulated(0);
         invalid.grips = [GripRequest::Release, GripRequest::EquipSlot(1)];
-        assert!(matches!(world.submit_articulated_v1(world.id_of(0), invalid),
-            SubmitArticulatedOutcome::Stored { rejection: Some(_), .. }));
+        assert!(matches!(
+            world.submit_embodied_v1(world.id_of(0), crate::EmbodiedCommandV1::new(invalid)),
+            crate::SubmitEmbodiedOutcome::Stored { rejection: Some(_), .. }));
         world.apply_articulated_grips();
         assert_eq!((world.arms[0], world.grips[0]), (before, grips));
     }
 
     #[test]
     fn contact_scratch_grows_only_with_allocated_high_water() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let reserved = world.contact_capacities();
         assert!(reserved.iter().all(|capacity| *capacity > 0), "construction reserved nothing");
@@ -3309,7 +3067,7 @@ mod tests {
 
     #[test]
     fn invalid_dynamic_contact_capacity_fails_before_spawn_mutates() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let row = scenario.units[1];
         for _ in world.alive.len()..crate::MAX_ARTICULATED_ENTITIES {
@@ -3337,7 +3095,7 @@ mod tests {
         // `Fx::MIN` is the case the arena bound alone would wave through: arena
         // settling would later have clamped it, so only checking the row as
         // handed over catches it.
-        let mut scenario = Scenario::articulated_duel();
+        let mut scenario = Scenario::embodied_duel();
         scenario.units[0].spawn = Vec2::new(Fx::MIN, Fx::ZERO);
         // `.err()` rather than `unwrap_err()`: `World` is deliberately not
         // `Debug`, and the failure is the whole point of this call anyway.
@@ -3346,7 +3104,7 @@ mod tests {
 
         // And the reach, not just the origin: 256 is inside the envelope on its
         // own and outside it once the body's own arm is added.
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let mut row = scenario.units[1];
         row.spawn = Vec2::from_ints(256, 0);
@@ -3357,44 +3115,53 @@ mod tests {
         assert_eq!(world.state_digest().value, digest);
     }
 
+    /// A subject whose generation no longer resolves is refused **and leaves no
+    /// trace** -- neither a stored command nor a moved decision clock, both of
+    /// which the digest would show.
+    ///
+    /// **This was `wrong_model_and_stale_subjects_are_not_stored_or_recorded`
+    /// and it has lost half its subject with the articulated model.** The other
+    /// half handed a command of the wrong grammar to a world that had no column
+    /// to store it in -- first a Legacy world, then an embodied one refusing an
+    /// articulated payload -- and with one grammar left there is no wrong model
+    /// to be refused for. The name went with the half it named: a guard whose
+    /// name claims a check it no longer makes is a defect this repository has
+    /// shipped repeatedly.
     #[test]
-    fn wrong_model_and_stale_subjects_are_not_stored_or_recorded() {
-        // **The wrong model is now the sibling rather than the ancestor.** This
-        // opened by handing an articulated command to a Legacy world, which had
-        // no articulated command column to store it in. The refusal that is left
-        // to check is the one between the two surviving grammars: an embodied
-        // world refuses an articulated payload, because the two are separate
-        // contracts of different widths and coercing one into the other is
-        // exactly what `CommandReject::WrongModel` exists to prevent.
-        let mut embodied = World::new(&Scenario::embodied_duel(), 1);
-        let before = embodied.state_hash();
-        assert_eq!(
-            embodied.submit_articulated_v1(EntityId::new(0, 0), articulated_command()),
-            SubmitArticulatedOutcome::NotStored(CommandReject::WrongModel)
-        );
-        assert_eq!(embodied.state_hash(), before);
-
-        let scenario = Scenario::articulated_duel();
+    fn a_stale_subject_is_not_stored_or_recorded() {
+        let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let before = world.state_digest().value;
         assert_eq!(
-            world.submit_articulated_v1(EntityId::new(0, 9), articulated_command()),
-            SubmitArticulatedOutcome::NotStored(CommandReject::StaleEntity)
+            world.submit_embodied_v1(EntityId::new(0, 9), embodied_command()),
+            crate::SubmitEmbodiedOutcome::NotStored(CommandReject::StaleEntity)
         );
         assert_eq!(world.state_digest().value, before);
+
+        // The control, without which "nothing moved" is a sentence a submission
+        // path that refused *everything* would also satisfy -- which is the
+        // exact failure this session's reseats are guarding against.
+        assert!(matches!(
+            world.submit_embodied_v1(EntityId::new(0, 0), embodied_command()),
+            crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }
+        ));
+        assert_ne!(world.state_digest().value, before);
     }
 
     #[test]
     fn invalid_range_or_equipment_replaces_the_whole_command_atomically() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let hero = EntityId::new(0, 0);
         let mut bad = articulated_command();
         bad.arms[0].reach = Fx::from_raw(Fx::ONE.raw() + 1);
-        match world.submit_articulated_v1(hero, bad) {
-            SubmitArticulatedOutcome::Stored { command, rejection } => {
+        match world.submit_embodied_v1(hero, crate::EmbodiedCommandV1::new(bad)) {
+            crate::SubmitEmbodiedOutcome::Stored { command, rejection } => {
                 assert_eq!(rejection, Some(CommandReject::OutOfRange(crate::CommandField::LeftReach)));
-                assert_eq!(command, world.neutral_articulated(0));
+                assert_eq!(command.articulated, world.neutral_articulated(0));
+                // The plane is part of "the whole command": a substitute that
+                // kept the refused request's plane would be a partial accept.
+                assert_eq!(command.swing_plane, [Angle::ZERO; 2]);
             }
             other => panic!("invalid live command was not replaced: {other:?}"),
         }
@@ -3402,23 +3169,24 @@ mod tests {
         let mut equip = articulated_command();
         equip.grips = [GripRequest::EquipSlot(1), GripRequest::Keep];
         assert!(matches!(
-            world.submit_articulated_v1(hero, equip),
-            SubmitArticulatedOutcome::Stored { command, rejection: None } if command == equip
+            world.submit_embodied_v1(hero, crate::EmbodiedCommandV1::new(equip)),
+            crate::SubmitEmbodiedOutcome::Stored { command, rejection: None }
+                if command.articulated == equip
         ));
 
         let mut twice_bad = articulated_command();
         twice_bad.move_dir.x = Fx::from_raw(Fx::ONE.raw() + 1);
         twice_bad.arms[0].reach = Fx::from_raw(Fx::ONE.raw() + 1);
         assert!(matches!(
-            world.submit_articulated_v1(hero, twice_bad),
-            SubmitArticulatedOutcome::Stored {
+            world.submit_embodied_v1(hero, crate::EmbodiedCommandV1::new(twice_bad)),
+            crate::SubmitEmbodiedOutcome::Stored {
                 rejection: Some(CommandReject::OutOfRange(crate::CommandField::MoveX)), ..
             }
         ));
         equip.grips[0] = GripRequest::EquipSlot(7);
         assert!(matches!(
-            world.submit_articulated_v1(hero, equip),
-            SubmitArticulatedOutcome::Stored {
+            world.submit_embodied_v1(hero, crate::EmbodiedCommandV1::new(equip)),
+            crate::SubmitEmbodiedOutcome::Stored {
                 rejection: Some(CommandReject::MissingEquipment { arm: LimbSlot::LeftArm, slot: 7 }), ..
             }
         ));
@@ -3426,7 +3194,7 @@ mod tests {
 
     #[test]
     fn immutable_bindings_accept_only_the_arm_that_physically_holds_the_item() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let fighter = EntityId::new(0, 0);
         let brute = EntityId::new(1, 0);
@@ -3437,8 +3205,10 @@ mod tests {
         ] {
             let mut command = articulated_command();
             command.grips = grips;
-            assert!(matches!(world.submit_articulated_v1(id, command),
-                SubmitArticulatedOutcome::Stored { command: stored, rejection: None } if stored == command));
+            assert!(matches!(
+                world.submit_embodied_v1(id, crate::EmbodiedCommandV1::new(command)),
+                crate::SubmitEmbodiedOutcome::Stored { command: stored, rejection: None }
+                    if stored.articulated == command));
         }
         for (id, grips, arm, slot) in [
             (fighter, [GripRequest::EquipSlot(0), GripRequest::Keep], LimbSlot::LeftArm, 0),
@@ -3447,17 +3217,19 @@ mod tests {
         ] {
             let mut command = articulated_command();
             command.grips = grips;
-            assert!(matches!(world.submit_articulated_v1(id, command),
-                SubmitArticulatedOutcome::Stored {
+            assert!(matches!(
+                world.submit_embodied_v1(id, crate::EmbodiedCommandV1::new(command)),
+                crate::SubmitEmbodiedOutcome::Stored {
                     command: stored,
                     rejection: Some(CommandReject::MissingEquipment { arm: rejected_arm, slot: rejected_slot }),
-                } if stored == world.neutral_articulated(id.index as usize) && rejected_arm == arm && rejected_slot == slot));
+                } if stored.articulated == world.neutral_articulated(id.index as usize)
+                    && rejected_arm == arm && rejected_slot == slot));
         }
     }
 
     #[test]
     fn a_test_only_both_binding_requires_matching_same_slot_requests() {
-        let mut scenario = Scenario::articulated_duel();
+        let mut scenario = Scenario::embodied_duel();
         let mut both = crate::club();
         both.id = 4;
         both.binding = crate::GripBinding::Both;
@@ -3467,22 +3239,26 @@ mod tests {
         let brute = EntityId::new(1, 0);
         let mut command = articulated_command();
         command.grips = [GripRequest::EquipSlot(0); 2];
-        assert!(matches!(world.submit_articulated_v1(brute, command), SubmitArticulatedOutcome::Stored { rejection: None, .. }));
+        assert!(matches!(
+            world.submit_embodied_v1(brute, crate::EmbodiedCommandV1::new(command)),
+            crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }));
         command.grips = [GripRequest::Release, GripRequest::Keep];
-        assert!(matches!(world.submit_articulated_v1(brute, command), SubmitArticulatedOutcome::Stored {
-            rejection: Some(CommandReject::MissingEquipment { arm: LimbSlot::RightArm, slot: 0 }), ..
-        }));
+        assert!(matches!(
+            world.submit_embodied_v1(brute, crate::EmbodiedCommandV1::new(command)),
+            crate::SubmitEmbodiedOutcome::Stored {
+                rejection: Some(CommandReject::MissingEquipment { arm: LimbSlot::RightArm, slot: 0 }), ..
+            }));
     }
 
     #[test]
-    fn a_stationary_articulated_body_can_store_a_turn_request() {
-        let scenario = Scenario::articulated_duel();
+    fn a_stationary_body_can_store_a_turn_request() {
+        let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
-        let command = articulated_command();
+        let command = embodied_command();
         let before = world.state_digest().value;
         assert!(matches!(
-            world.submit_articulated_v1(EntityId::new(0, 0), command),
-            SubmitArticulatedOutcome::Stored { command: stored, rejection: None } if stored == command
+            world.submit_embodied_v1(EntityId::new(0, 0), command),
+            crate::SubmitEmbodiedOutcome::Stored { command: stored, rejection: None } if stored == command
         ));
         assert_ne!(world.state_digest().value, before);
         assert_eq!(world.view(EntityId::new(0, 0)).unwrap().facing, Angle::ZERO);
@@ -3490,10 +3266,13 @@ mod tests {
 
     #[test]
     fn dead_allocated_slots_retain_their_articulated_command() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let command = articulated_command();
-        let _ = world.submit_articulated_v1(EntityId::new(0, 0), command);
+        assert!(matches!(
+            world.submit_embodied_v1(EntityId::new(0, 0), crate::EmbodiedCommandV1::new(command)),
+            crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }),
+            "nothing was stored, so the retention below would be vacuous");
         world.wounds[0].blood = Fx::ZERO;
         world.reap_dead_articulated();
         assert!(!world.alive[0]);
@@ -3541,7 +3320,7 @@ mod tests {
         assert_eq!((w.health_of(h), w.max_health_of(h)), (health, maximum));
         assert!(w.is_alive(hero), "lowering vitality killed a fighter");
 
-        // The decision clock is left where it was; `submit_articulated_v1`
+        // The decision clock is left where it was; `submit_embodied_v1`
         // re-derives it from the new period on the next decision, and that one
         // beat of lag is the point rather than an oversight.
         stats.intellect = 19;

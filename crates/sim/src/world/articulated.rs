@@ -599,10 +599,39 @@ impl World {
 mod tests {
     use super::*;
     use crate::world::testkit::*;
+    use crate::{EmbodiedCommandV1, SubmitEmbodiedOutcome};
 
+    /// Submit one command and insist the world stored it.
+    ///
+    /// **Every submission in this module goes through here, and the reason is
+    /// the reseat's own hazard.** `submit_embodied_v1` answers
+    /// `NotStored(WrongModel)` rather than panicking when the world's grammar
+    /// disagrees, so a fixture that dropped the outcome would go on stepping a
+    /// world nobody had commanded, and every assertion below it would measure
+    /// the neutral pose instead of the commanded one -- green, and about
+    /// nothing. A `let _ =` here is that defect waiting to happen.
+    ///
+    /// The neutral swing plane is the plane the elbow hung in before the field
+    /// existed, so a fixture with no opinion about the plane asks for exactly
+    /// what it used to get.
+    fn submit(world: &mut World, id: EntityId, command: ArticulatedCommandV1) {
+        assert!(matches!(world.submit_embodied_v1(id, EmbodiedCommandV1::new(command)),
+                         SubmitEmbodiedOutcome::Stored { rejection: None, .. }),
+                "the fixture's command was refused rather than stored");
+    }
+
+    /// **Reseated onto the embodied fixture, and not one hand word moved.**
+    ///
+    /// That is a claim rather than luck, and the three added blocks below are
+    /// what make it checkable. A spawned stance is `squared` at exactly
+    /// `PELVIS_HEIGHT_RAW`, so `stance_anatomy`'s drop is zero and the shoulders
+    /// every tuck is measured from are the anatomy row's own; a spawn pelvis
+    /// anywhere else would lower all four hands at once. So the pelvis is
+    /// asserted through `posed_anatomy` rather than only as a number, which is
+    /// the form that ties it to the coordinates above it.
     #[test]
-    fn articulated_spawn_initializes_yaw_arms_grips_and_shield_exactly() {
-        let scenario = Scenario::articulated_duel();
+    fn an_embodied_spawn_initializes_yaw_arms_grips_shield_stance_and_elbows_exactly() {
+        let scenario = Scenario::embodied_duel();
         let world = World::new(&scenario, 1);
         let fighter = world.articulated_pose_test_view(EntityId::new(0, 0)).unwrap();
         assert_eq!(fighter.body_yaw, BodyYawState {
@@ -649,11 +678,27 @@ mod tests {
         }
         assert_eq!((brute.move_authority, brute.turn_authority, brute.arm_authority),
             (Fx::ONE, Fx::ONE, [Fx::ONE; 2]));
+
+        // The three columns an embodied spawn adds. A row apiece, square under
+        // its own facing at full height, both elbows in the neutral plane, and
+        // both arms actually jointed -- `arm_elbows` answers `[None; 2]` on a
+        // model without them, so `is_some` is the difference between a forearm
+        // the contact phase sweeps and one that is not there.
+        assert_eq!(world.stance.len(), world.alive.len());
+        assert_eq!(world.elbow_plane.len(), world.alive.len());
+        for (i, facing) in [Angle::ZERO, Angle::HALF].into_iter().enumerate() {
+            assert_eq!(world.stance[i], StanceState::squared(facing));
+            assert_eq!(&world.posed_anatomy(i), world.anatomy_spec(i).unwrap(),
+                "a spawn pelvis off `PELVIS_HEIGHT_RAW` would move every hand above");
+            assert_eq!(world.elbow_plane[i], [ElbowPlaneState::NEUTRAL; 2]);
+            assert!(world.arm_elbows(i).iter().all(Option::is_some),
+                "an embodied arm spawned without an elbow");
+        }
     }
 
     #[test]
     fn set_stats_changes_next_tick_arm_caps_without_changing_construction() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let fighter = EntityId::new(0, 0);
         let mut slow = World::new(&scenario, 1);
         let mut fast = slow.clone();
@@ -667,7 +712,7 @@ mod tests {
             reach: Fx::ONE, effort: Fx::ONE,
         };
         for world in [&mut slow, &mut fast] {
-            let _ = world.submit_articulated_v1(fighter, command);
+            submit(world, fighter, command);
             world.step();
         }
         assert!(fast.arms[0][1].bearing_speed_turns > slow.arms[0][1].bearing_speed_turns);
@@ -678,14 +723,13 @@ mod tests {
 
     #[test]
     fn a_stationary_body_turns_toward_its_requested_yaw() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let fighter = EntityId::new(0, 0);
         let at = world.view(fighter).unwrap().position;
         let mut command = articulated_command();
         command.body_yaw = Angle::QUARTER;
-        assert!(matches!(world.submit_articulated_v1(fighter, command),
-            SubmitArticulatedOutcome::Stored { rejection: None, .. }));
+        submit(&mut world, fighter, command);
         world.step();
         let pose = world.articulated_pose_test_view(fighter).unwrap();
         assert_eq!(world.view(fighter).unwrap().position, at);
@@ -695,12 +739,12 @@ mod tests {
 
     #[test]
     fn body_yaw_obeys_acceleration_speed_and_half_turn_tie() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let fighter = EntityId::new(0, 0);
         let mut command = articulated_command();
         command.body_yaw = Angle::HALF;
-        let _ = world.submit_articulated_v1(fighter, command);
+        submit(&mut world, fighter, command);
         let mut speeds = Vec::new();
         for _ in 0..6 {
             world.step();
@@ -712,12 +756,12 @@ mod tests {
 
     #[test]
     fn body_yaw_snaps_without_overshoot_or_residual_speed() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let fighter = EntityId::new(0, 0);
         let mut command = articulated_command();
         command.body_yaw = Angle::from_raw(100);
-        let _ = world.submit_articulated_v1(fighter, command);
+        submit(&mut world, fighter, command);
         world.step();
         assert_eq!((world.body_yaw[0].angle.raw(), world.body_yaw[0].speed_turns.raw()), (91, 91));
         world.step();
@@ -726,17 +770,45 @@ mod tests {
         assert_eq!((world.body_yaw[0].angle.raw(), world.body_yaw[0].speed_turns.raw()), (100, 0));
     }
 
+    /// **The embodied stance ties the feet to the turn, and the turn still does
+    /// not spend the legs' effort.** That is a stronger claim than the one this
+    /// test made under the articulated model, where nothing about moving could
+    /// have reached the yaw at all; the hip assertion at the end is what keeps
+    /// it from being an empty one, because without a divergence to survive the
+    /// equality in the loop is satisfied by two identical worlds.
+    ///
+    /// The two worlds do diverge, and **not for the reason the constants
+    /// advertise** -- this was measured rather than argued. Both have a forced
+    /// step armed for the whole window, because a quarter turn is outside the
+    /// twist budget and re-arms it every tick, so both sets of hips turn at the
+    /// *moving* rate and the standing/moving asymmetry never gets to bite. What
+    /// differs is what they chase. A standing body chases its own torso angle
+    /// and lands on it exactly, which zeroes its hip speed every tick; a
+    /// translating one chases `move_dir`, and "straight ahead" pushed through
+    /// `world_move_dir`'s rotation and back out through `Vec2::angle` comes back
+    /// a few raw units past the torso -- 94 against 91 on tick 2, 280 against
+    /// 273 on tick 3 -- so those hips never arrive, never reset, and run one
+    /// acceleration step ahead from there on.
+    ///
+    /// The torso is what survives it, and that is the test's subject. Its target
+    /// is the hips plus the twist budget, and while the budget is saturated the
+    /// torso is against its own speed ceiling in both worlds, so where the hips
+    /// have got to cannot move it. Over the first 40 ticks of this fixture the
+    /// two yaws agree on every one of them, and the hips part company on tick 3.
     #[test]
     fn translation_and_turning_do_not_share_effort() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut stationary = World::new(&scenario, 1);
         let mut moving = stationary.clone();
         let fighter = EntityId::new(0, 0);
         let mut turn = articulated_command();
         turn.body_yaw = Angle::QUARTER;
-        let _ = stationary.submit_articulated_v1(fighter, turn);
+        submit(&mut stationary, fighter, turn);
+        // World `+x` under the articulated model and "straight ahead" under the
+        // embodied one; the body spawns facing `Angle::ZERO`, so it is the same
+        // request on the tick it is submitted and the fixture keeps its meaning.
         turn.move_dir = Vec2::X;
-        let _ = moving.submit_articulated_v1(fighter, turn);
+        submit(&mut moving, fighter, turn);
         for _ in 0..8 {
             stationary.step();
             moving.step();
@@ -744,11 +816,13 @@ mod tests {
         }
         assert_eq!(stationary.vel[0], Vec2::ZERO);
         assert!(!moving.vel[0].is_zero());
+        assert_ne!(stationary.stance[0].hip_yaw, moving.stance[0].hip_yaw,
+                   "the legs never diverged, so the yaws agreed about nothing");
     }
 
     #[test]
     fn a_right_bound_shield_is_found_past_an_empty_or_nonshield_left_grip() {
-        let mut scenario = Scenario::articulated_duel();
+        let mut scenario = Scenario::embodied_duel();
         let mut right_shield = crate::shield();
         right_shield.id = 4;
         right_shield.binding = crate::GripBinding::Right;
@@ -785,15 +859,14 @@ mod tests {
     fn release_both_hands(world: &mut World, id: EntityId) {
         let mut command = world.neutral_articulated(id.index as usize);
         command.grips = [GripRequest::Release; 2];
-        assert!(matches!(world.submit_articulated_v1(id, command),
-            SubmitArticulatedOutcome::Stored { rejection: None, .. }));
+        submit(world, id, command);
         world.step();
         assert_eq!(world.grips[id.index as usize], [GripState { equipment_slot: None }; 2]);
     }
 
     #[test]
     fn both_arms_chase_targets_independently() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let fighter = EntityId::new(0, 0);
         release_both_hands(&mut world, fighter);
@@ -806,7 +879,7 @@ mod tests {
             bearing: Angle::HALF, height: crate::CombatHeight::LOW,
             reach: Fx::HALF, effort: Fx::ONE,
         };
-        let _ = world.submit_articulated_v1(fighter, command);
+        submit(&mut world, fighter, command);
         world.step();
         let arms = world.arms[0];
         assert!(arms[0].bearing_speed_turns.raw() > 0);
@@ -819,14 +892,14 @@ mod tests {
 
     #[test]
     fn an_intermediate_height_uses_the_same_actuator() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let fighter = EntityId::new(0, 0);
         release_both_hands(&mut world, fighter);
         let mut command = world.neutral_articulated(0);
         command.arms[0].height = crate::CombatHeight::try_from_raw(40_000).unwrap();
         command.arms[0].effort = Fx::ONE;
-        let _ = world.submit_articulated_v1(fighter, command);
+        submit(&mut world, fighter, command);
         world.step();
         assert!(world.arms[0][0].height.raw() > crate::CombatHeight::MID.raw());
         assert!(world.arms[0][0].height.raw() < 40_000);
@@ -834,7 +907,7 @@ mod tests {
 
     #[test]
     fn changing_height_and_reach_takes_more_than_one_tick() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let fighter = EntityId::new(0, 0);
         release_both_hands(&mut world, fighter);
@@ -842,7 +915,7 @@ mod tests {
         command.arms[0].height = crate::CombatHeight::HIGH;
         command.arms[0].reach = Fx::ONE;
         command.arms[0].effort = Fx::ONE;
-        let _ = world.submit_articulated_v1(fighter, command);
+        submit(&mut world, fighter, command);
         world.step();
         assert!(world.arms[0][0].height.raw() > crate::CombatHeight::MID.raw());
         assert!(world.arms[0][0].height.raw() <= crate::CombatHeight::MID.raw() + actuator::ARM_LINEAR_ACCEL_RAW);
@@ -852,7 +925,7 @@ mod tests {
 
     #[test]
     fn requested_effort_scales_torque_and_not_position() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut low = World::new(&scenario, 1);
         let fighter = EntityId::new(0, 0);
         release_both_hands(&mut low, fighter);
@@ -862,9 +935,9 @@ mod tests {
             bearing: Angle::QUARTER, height: crate::CombatHeight::HIGH,
             reach: Fx::ONE, effort: Fx::from_ratio(1, 4),
         };
-        let _ = low.submit_articulated_v1(fighter, command);
+        submit(&mut low, fighter, command);
         command.arms[0].effort = Fx::ONE;
-        let _ = high.submit_articulated_v1(fighter, command);
+        submit(&mut high, fighter, command);
         low.step();
         high.step();
         assert!(high.arms[0][0].bearing_speed_turns > low.arms[0][0].bearing_speed_turns);
@@ -880,7 +953,7 @@ mod tests {
 
     #[test]
     fn a_heavy_weapon_fatigues_its_arm_sooner() {
-        let mut sword_scenario = Scenario::articulated_duel();
+        let mut sword_scenario = Scenario::embodied_duel();
         sword_scenario.units[0].articulated.as_mut().unwrap().equipment = [Some(1), None];
         sword_scenario.units[0].loadout = Loadout::single(ActionKind::Sword);
         let mut club_scenario = sword_scenario.clone();
@@ -900,7 +973,7 @@ mod tests {
             for world in [&mut sword_world, &mut club_world] {
                 let mut command = world.neutral_articulated(0);
                 command.arms[1] = target;
-                let _ = world.submit_articulated_v1(fighter, command);
+                submit(world, fighter, command);
                 world.step();
             }
         }
@@ -915,6 +988,16 @@ mod tests {
         // from 210 to 262 raw. Both sides are pinned exactly so that a
         // change which raised sword fatigue to meet the club's would be caught
         // by the recordings even though the inequality below still held.
+        //
+        // **The embodied reseat did not move either row, and that is a
+        // measurement rather than an assumption.** `reachable_extent` does clamp
+        // this fixture's outward target -- `(HIGH, Fx::ONE)` is held as
+        // `(HIGH, 65_390)` -- but the clamp never binds, because the arm
+        // reverses every twenty ticks and its reach gets no further than about
+        // a third of the way out before it is asked back. The inward target
+        // `(MID, ARM_MIN_REACH_RAW)` comes back unclamped, and the two bearings
+        // are byte identical under both frames because this body never leaves
+        // `Angle::ZERO`. So the work billed is the same work.
         assert_eq!((sword_world.arms[0][1].fatigue.raw(), sword_world.arms[0][1].work_residue.raw()), (115, 67));
         assert_eq!((club_world.arms[0][1].fatigue.raw(), club_world.arms[0][1].work_residue.raw()), (377, 119));
         assert!(club_world.arms[0][1].fatigue > sword_world.arms[0][1].fatigue);
@@ -943,8 +1026,17 @@ mod tests {
     fn smart_60_probe(fixture: Smart60Entry) -> Tick34Probe {
         let i = 0; let limb = fixture.limb;
         let entry = fixture.world.arms[i][limb];
-        let anatomy = fixture.world.combat_specs.as_ref().unwrap()
-            .anatomy(fixture.world.articulated_anatomy[i].unwrap()).unwrap().clone();
+        // **The posed anatomy and the world-frame target, because those are the
+        // two the arms phase itself integrates with.** The probe's whole job is
+        // to reproduce one tick of `drive_articulated_arms` outside the world so
+        // its intermediate vectors can be read, and it can only do that from the
+        // same inputs: an embodied torso carries a pelvis that has already sunk
+        // by tick 33, and an embodied `ArmTarget::bearing` is measured from the
+        // torso. Reading the immutable anatomy row and the unconverted command
+        // would model a world this fixture is not, and the published hand below
+        // -- which comes back out of a real step -- is what would disagree.
+        let anatomy = fixture.world.posed_anatomy(i);
+        let target = fixture.world.world_arm_target(i, limb, fixture.target);
         let yaw = fixture.world.body_yaw[i].angle;
         let item = fixture.world.equipment_in_grip(i, limb).expect("the attacking sword");
         let EquipmentGeometry::Segment { length, .. } = item.geometry else { unreachable!() };
@@ -952,7 +1044,7 @@ mod tests {
         let mut forward = entry;
         forward.post_contact_active = false;
         forward.post_contact_com_velocity = Vec3::ZERO;
-        actuator::integrate_arm_with_recoil(&mut forward, &anatomy, yaw, limb, fixture.target,
+        actuator::integrate_arm_with_recoil(&mut forward, &anatomy, yaw, limb, target,
             Some(item), args.0, args.1, CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
         let old_direction = Vec3::new(entry.bearing.cos(), entry.bearing.sin(), Fx::ZERO);
         let new_direction = Vec3::new(forward.bearing.cos(), forward.bearing.sin(), Fx::ZERO);
@@ -964,7 +1056,7 @@ mod tests {
         let factor = |value: u8| Fx::from_ratio(8 + value as i32, 28)
             .clamp(Fx::from_ratio(1, 4), Fx::ONE);
         let inertia = actuator::equipment_inertia(Some(item));
-        let available = ((((fixture.target.effort * args.1) * (Fx::ONE - entry.fatigue))
+        let available = ((((target.effort * args.1) * (Fx::ONE - entry.fatigue))
             * factor(args.0.power)) / inertia).clamp(Fx::ZERO, Fx::ONE);
         let linear_accel = (Fx::from_raw(actuator::ARM_LINEAR_ACCEL_RAW) * available).raw().abs();
         let linear_max = (Fx::from_raw(actuator::ARM_LINEAR_MAX_SPEED_RAW)
@@ -972,15 +1064,16 @@ mod tests {
         let com_accel = (Fx::from_raw(linear_accel) * anatomy.arm_length).raw().abs();
         let com_max = (Fx::from_raw(linear_max) * anatomy.arm_length).raw().abs();
         let mut actual = entry;
-        actuator::integrate_arm_with_recoil(&mut actual, &anatomy, yaw, limb, fixture.target,
+        actuator::integrate_arm_with_recoil(&mut actual, &anatomy, yaw, limb, target,
             Some(item), args.0, args.1, CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
         let mut stepped = fixture.world.clone();
         let mut command = stepped.neutral_articulated(i);
         command.intent = Intent::Attack(stepped.id_of(1));
         command.arms[limb] = fixture.target;
-        let _ = stepped.submit_articulated_v1(stepped.id_of(i), command);
+        let (attacker, defender) = (stepped.id_of(i), stepped.id_of(1));
+        submit(&mut stepped, attacker, command);
         let held = stepped.neutral_articulated(1);
-        let _ = stepped.submit_articulated_v1(stepped.id_of(1), held);
+        submit(&mut stepped, defender, held);
         stepped.step_with_arm_rates(CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
         let published_hand_y = stepped.articulated_pose(stepped.id_of(i)).unwrap().arms[limb].hand.y;
         Tick34Probe { entry, forward, actual, old_direction, new_direction, old_offset,
@@ -1040,12 +1133,39 @@ mod tests {
         assert_ne!(p.offset_floor.y, -m.offset_floor.y,
                    "ordinary balance scaling unexpectedly remained odd");
         assert_eq!(p.offset_exact.y, -m.offset_exact.y);
-        assert_eq!((p.actual.hand.y.raw(), m.actual.hand.y.raw()), (-14_040, 14_040));
+        // **Re-recorded with the embodied reseat, for exactly one of the four
+        // reasons the reseat has: `reachable_extent`.** An embodied arm may not
+        // be commanded past the annulus its elbow permits, and this fixture's
+        // target is outside it -- `World::world_arm_target` holds the commanded
+        // `(height 14_563, reach 32_768)` as `(24_532, 16_384)` on the tick-33
+        // world. So the tick-33 entry hand moved from `(0.3492, -0.1130,
+        // 0.3999)` to `(0.1773, -0.1974, 0.6727)`, shorter and higher, which is
+        // what a clamp onto the annulus does, and every word downstream of that
+        // pose moved with it.
+        //
+        // The other three differences the model makes were measured here rather
+        // than assumed, and all three are inert: the commanded bearing is byte
+        // identical at `4_546` under both models, because this attacker never
+        // leaves `Angle::ZERO` and the torso frame therefore names the same
+        // world bearing; the stance's pelvis is still exactly
+        // `PELVIS_HEIGHT_RAW`, so `posed_anatomy` hands back the anatomy row
+        // unlowered; and tick 33 still retains exactly one resolution, so this
+        // is still a probe of a captured strike rather than of an empty tick.
+        //
+        // **What did not move is the point.** Every reflection in this module
+        // survived byte for byte, which is what says the solver is unchanged and
+        // only the pose it was handed differs. Both re-recorded words are still
+        // exact reflections -- `-19_151` against `19_151`, and a published hand
+        // that mirrors about the fixture's `y = 8` -- and that oddness is
+        // asserted independently below and in
+        // `tick_34_recoil_hand_maps_after_only_offset_scaling_changes`, so
+        // neither number is a value read back off a compiler and pasted.
+        assert_eq!((p.actual.hand.y.raw(), m.actual.hand.y.raw()), (-19_151, 19_151));
         assert_eq!((p.published_hand_y.raw(),
                     Fx::from_int(16).raw() - m.published_hand_y.raw()),
-                   (441_359, 441_359));
+                   (436_667, 436_667));
         let repaired = (smart_60_choice(p, p.offset_exact), smart_60_choice(m, m.offset_exact));
-        assert_eq!((repaired.0.0.y.raw(), repaired.1.0.y.raw()), (-14_040, 14_040));
+        assert_eq!((repaired.0.0.y.raw(), repaired.1.0.y.raw()), (-19_151, 19_151));
         assert_eq!(repaired.0.0.y, -repaired.1.0.y);
         // The ordering guard: corrupting the retained recoil changes the
         // downstream answer before offset scaling is considered, so the
@@ -1099,8 +1219,13 @@ mod tests {
         assert_eq!(p.actual.linear_velocity.x, m.actual.linear_velocity.x);
         assert_eq!(p.actual.linear_velocity.y, -m.actual.linear_velocity.y);
         assert_eq!(p.actual.linear_velocity.z, m.actual.linear_velocity.z);
+        // Re-recorded with the reseat; the reason is written out beside its twin
+        // in `tick_34_recoil_offset_balance_is_odd_under_reflection`. The two
+        // components being equal *is* the reflection -- the mirrored hand about
+        // the fixture's `y = 8` -- so the property this line is here for is
+        // unchanged and only the pose behind it moved.
         assert_eq!((p.published_hand_y.raw(), Fx::from_int(16).raw() - m.published_hand_y.raw()),
-                   (441_359, 441_359));
+                   (436_667, 436_667));
     }
 
     #[cfg(feature = "cartesian-recoil")]
@@ -1112,7 +1237,7 @@ mod tests {
         // world allocates it under this feature, so what is left is the claim
         // below -- that when it is allocated, every slot carries an owner whose
         // fields agree with the body's.
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         assert_eq!(world.exact_owners.len(), world.alive.len());
         for i in 0..world.alive.len() {
@@ -1159,7 +1284,7 @@ mod tests {
     #[cfg(feature = "cartesian-recoil")]
     #[test]
     fn ordinary_actuation_changes_motor_coefficients_without_erasing_response() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let before_arm = world.arms[0];
         let before_exact = world.exact_owners[0];
@@ -1167,8 +1292,7 @@ mod tests {
         command.arms[1].bearing = Angle::QUARTER;
         command.arms[1].reach = Fx::ONE;
         command.arms[1].effort = Fx::ONE;
-        assert!(matches!(world.submit_articulated_v1(EntityId::new(0, 0), command),
-                         SubmitArticulatedOutcome::Stored { rejection: None, .. }));
+        submit(&mut world, EntityId::new(0, 0), command);
         world.step();
         assert_ne!(world.arms[0], before_arm, "the fixture did not actuate an arm");
         assert_eq!(world.exact_owners[0], before_exact,
@@ -1178,7 +1302,7 @@ mod tests {
     #[cfg(feature = "cartesian-recoil")]
     #[test]
     fn equip_release_and_severance_replace_exact_tags_and_mass_atomically() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let body_mass = world.mass[0].raw();
         let sword = world.equipment_in_grip(0, 1).unwrap();
@@ -1216,7 +1340,7 @@ mod tests {
     #[cfg(feature = "cartesian-recoil")]
     #[test]
     fn release_and_unequal_replacement_preserve_the_common_lattice_exactly() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let owner = world.exact_owners[0].as_mut().unwrap();
         owner.common_response.group_time_raw = 1_234;
@@ -1282,7 +1406,7 @@ mod tests {
     #[cfg(feature = "cartesian-recoil")]
     #[test]
     fn inactive_and_reused_slots_are_canonical_before_their_first_scan() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let dead = world.exact_owners[1].unwrap();
         world.exact_owners[1].as_mut().unwrap()
@@ -1308,7 +1432,7 @@ mod tests {
 
     #[test]
     fn grip_transactions_validate_the_resulting_current_pair() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let world = World::new(&scenario, 1);
         assert_eq!(world.resulting_grips(0, [GripRequest::Keep; 2]).unwrap(), [Some(1), Some(0)]);
         assert_eq!(world.resulting_grips(0, [GripRequest::Release; 2]).unwrap(), [None, None]);
@@ -1350,7 +1474,7 @@ mod tests {
             bearing: Angle::QUARTER, height: crate::CombatHeight::HIGH,
             reach: Fx::ONE, effort: Fx::ONE,
         };
-        let _ = world.submit_articulated_v1(brute, command);
+        submit(&mut world, brute, command);
         world.step();
         let [left, right] = world.arms[1];
         assert_eq!(left.bearing.raw(), world.body_yaw[1].angle.raw().wrapping_mul(2).wrapping_sub(right.bearing.raw()));
@@ -1379,7 +1503,7 @@ mod tests {
             reach: Fx::ONE, effort: Fx::ONE,
         };
         for world in [&mut full, &mut left_impaired, &mut right_impaired] {
-            let _ = world.submit_articulated_v1(brute, command);
+            submit(world, brute, command);
             world.step();
         }
         assert_eq!(full.arms[1], left_impaired.arms[1]);
@@ -1390,8 +1514,8 @@ mod tests {
         let mut full_command = command;
         let mut low_command = command;
         low_command.arms[1].effort = Fx::HALF;
-        let _ = full_effort.submit_articulated_v1(brute, full_command);
-        let _ = low_effort.submit_articulated_v1(brute, low_command);
+        submit(&mut full_effort, brute, full_command);
+        submit(&mut low_effort, brute, low_command);
         full_effort.step();
         low_effort.step();
         assert_ne!(full_effort.arms[1], low_effort.arms[1]);
@@ -1407,13 +1531,13 @@ mod tests {
             bearing: Angle::HALF, height: crate::CombatHeight::HIGH,
             reach: Fx::ONE, effort: Fx::ONE,
         };
-        let _ = ignored_a.submit_articulated_v1(brute, full_command);
-        let _ = ignored_b.submit_articulated_v1(brute, changed_left);
+        submit(&mut ignored_a, brute, full_command);
+        submit(&mut ignored_b, brute, changed_left);
         ignored_a.step();
         ignored_b.step();
         assert_eq!(ignored_a.arms[1], ignored_b.arms[1]);
 
-        let independent_scenario = Scenario::articulated_duel();
+        let independent_scenario = Scenario::embodied_duel();
         let fighter = EntityId::new(0, 0);
         let mut independent = World::new(&independent_scenario, 1);
         let mut independent_impaired = independent.clone();
@@ -1424,7 +1548,7 @@ mod tests {
             reach: Fx::ONE, effort: Fx::ONE,
         };
         for world in [&mut independent, &mut independent_impaired] {
-            let _ = world.submit_articulated_v1(fighter, command);
+            submit(world, fighter, command);
             world.step();
         }
         assert!(independent.arms[0][0].bearing_speed_turns
@@ -1507,9 +1631,18 @@ mod tests {
     /// rather than of a rule. Bounded from both sides on purpose: re-recording
     /// the old assertion's expected vector would have left a test that passes
     /// whether or not the normal tracks anything.
+    ///
+    /// **The two bearings below are the reseat's whole edit, and they are not a
+    /// re-record.** An embodied `ArmTarget::bearing` is measured from the torso,
+    /// so "agrees with its body" is `Angle::ZERO` here where it was `QUARTER`,
+    /// and "disagrees by a quarter turn" is a quarter turn *back* where it was
+    /// an absolute zero. The world bearings both arms end up holding -- and
+    /// therefore every normal asserted below -- are the ones this test always
+    /// measured. Written as `body_yaw` arithmetic rather than as two literals,
+    /// so a reader can see that only the frame moved.
     #[test]
     fn the_shield_normal_follows_the_arm_that_holds_it() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let fighter = EntityId::new(0, 0);
 
         // Side one: an arm that agrees with its body is EXACTLY body yaw, so
@@ -1517,9 +1650,9 @@ mod tests {
         let mut agreed = World::new(&scenario, 1);
         let mut command = agreed.neutral_articulated(0);
         command.body_yaw = Angle::QUARTER;
-        command.arms[0].bearing = Angle::QUARTER;
+        command.arms[0].bearing = Angle::ZERO;
         command.arms[0].effort = Fx::ONE;
-        let _ = agreed.submit_articulated_v1(fighter, command);
+        submit(&mut agreed, fighter, command);
         for _ in 0..200 {
             agreed.step();
             if agreed.body_yaw[0].angle == Angle::QUARTER
@@ -1538,9 +1671,11 @@ mod tests {
         let mut swung = World::new(&scenario, 1);
         let mut command = swung.neutral_articulated(0);
         command.body_yaw = Angle::QUARTER;
-        command.arms[0].bearing = Angle::ZERO;
+        // A quarter turn back from a torso a quarter turn round: world east,
+        // which is the bearing the assertions below are written at.
+        command.arms[0].bearing = Angle::from_raw(Angle::QUARTER.raw().wrapping_neg());
         command.arms[0].effort = Fx::ONE;
-        let _ = swung.submit_articulated_v1(fighter, command);
+        submit(&mut swung, fighter, command);
         for _ in 0..200 {
             swung.step();
             if swung.body_yaw[0].angle == Angle::QUARTER
@@ -1565,14 +1700,14 @@ mod tests {
     /// mechanical one. Under the old rule the two faces here were identical.
     #[test]
     fn a_freed_guard_bearing_moves_the_plate_the_solver_sweeps() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let fighter = EntityId::new(0, 0);
         let face_at = |bearing: Angle| {
             let mut world = World::new(&scenario, 1);
             let mut command = world.neutral_articulated(0);
             command.arms[0].bearing = bearing;
             command.arms[0].effort = Fx::ONE;
-            let _ = world.submit_articulated_v1(fighter, command);
+            submit(&mut world, fighter, command);
             for _ in 0..200 {
                 world.step();
                 if world.arms[0][0].bearing == bearing { break; }
@@ -1602,14 +1737,14 @@ mod tests {
 
     #[test]
     fn changing_shield_height_takes_more_than_one_tick() {
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let fighter = EntityId::new(0, 0);
         let before = world.shield_pose[0].unwrap().centre.z;
         let mut command = world.neutral_articulated(0);
         command.arms[0].height = crate::CombatHeight::HIGH;
         command.arms[0].effort = Fx::ONE;
-        let _ = world.submit_articulated_v1(fighter, command);
+        submit(&mut world, fighter, command);
         world.step();
         let arm = world.arms[0][0];
         assert!(arm.height.raw() > crate::CombatHeight::MID.raw());
@@ -1646,7 +1781,8 @@ mod tests {
             releases: [ReleaseRequest::Keep; 2],
         };
         let before = world.arms[0][1];
-        world.submit_articulated_v1(world.id_of(0), swing);
+        let wounded = world.id_of(0);
+        submit(&mut world, wounded, swing);
         world.step();
         assert_eq!(world.arms[0][1].bearing, before.bearing,
                    "a severed arm accelerated toward a commanded bearing");
@@ -1661,8 +1797,7 @@ mod tests {
         // re-acquiring a weapon the contact phase would only drop again.
         let mut retake = world.neutral_articulated(0);
         retake.grips = [GripRequest::Keep, GripRequest::EquipSlot(0)];
-        assert!(matches!(world.submit_articulated_v1(world.id_of(0), retake),
-                         SubmitArticulatedOutcome::Stored { rejection: None, .. }));
+        submit(&mut world, wounded, retake);
         for _ in 0..3 { world.step(); }
         assert_eq!(world.grips[0][LimbSlot::RightArm as usize],
                    GripState { equipment_slot: None }, "a severed arm took its sword back");
@@ -1691,7 +1826,8 @@ mod tests {
                 "a released shield still built a collider");
         // The shield does not come back when the next command says `Keep`:
         // `Keep` reads the grip the release left behind.
-        world.submit_articulated_v1(world.id_of(0), world.neutral_articulated(0));
+        let (wounded, neutral) = (world.id_of(0), world.neutral_articulated(0));
+        submit(&mut world, wounded, neutral);
         world.step();
         assert_eq!(world.shield_pose[0], None, "a dropped shield re-attached itself");
     }
@@ -1936,7 +2072,7 @@ mod tests {
     #[cfg(feature = "cartesian-recoil")]
     #[test]
     fn grip_change_and_severance_clear_owned_recoil_without_touching_the_other_arm() {
-        let mut world = World::new(&Scenario::articulated_duel(), 0);
+        let mut world = World::new(&Scenario::embodied_duel(), 0);
         world.retain_contact_entry();
         world.arms[0][0].post_contact_active = true;
         world.arms[0][0].post_contact_com_velocity = Vec3::new(
@@ -1966,7 +2102,7 @@ mod tests {
 
     #[test]
     fn cartesian_hand_clamp_is_identity_interior_and_projects_exact_boundaries() {
-        let world = World::new(&Scenario::articulated_duel(), 0);
+        let world = World::new(&Scenario::embodied_duel(), 0);
         let anatomy = world.anatomy_spec(0).unwrap(); let yaw = Angle::ZERO;
         let shoulder = actuator::shoulder(anatomy, yaw, 1);
         assert_eq!((shoulder.x.raw(), shoulder.y.raw(), shoulder.z.raw()), (0, -16_384, 91_750));
@@ -1995,7 +2131,7 @@ mod tests {
 
     #[test]
     fn cartesian_transport_preserves_residual_at_idle_and_moves_yaw_once() {
-        let world = World::new(&Scenario::articulated_duel(), 0);
+        let world = World::new(&Scenario::embodied_duel(), 0);
         let anatomy = world.anatomy_spec(0).unwrap(); let mut contacted = world.arms[0][1];
         contacted.bearing = Angle::ZERO; contacted.height = crate::CombatHeight::MID;
         contacted.reach = Fx::from_ratio(1, 2);

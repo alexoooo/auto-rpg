@@ -910,7 +910,7 @@ mod tests {
 
     #[test]
     fn immutable_specs_change_scenario_fingerprints() {
-        let scenario = crate::Scenario::articulated_duel();
+        let scenario = crate::Scenario::embodied_duel();
         let original = scenario.fingerprint();
         let mut changed = scenario.clone();
         changed.combat_specs.as_mut().unwrap().equipment[0].mass += Fx::from_raw(1);
@@ -922,7 +922,7 @@ mod tests {
 
     #[test]
     fn unknown_duplicate_missing_and_mismatched_specs_fail_closed() {
-        let scenario = crate::Scenario::articulated_duel();
+        let scenario = crate::Scenario::embodied_duel();
         assert_eq!(validate_construction(scenario.combat_model, scenario.combat_specs.as_ref(), &scenario.units), Ok(()));
         let mut changed = scenario.clone();
         changed.combat_specs.as_mut().unwrap().anatomies[0].schema = 2;

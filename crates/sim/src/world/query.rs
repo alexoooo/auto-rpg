@@ -975,22 +975,6 @@ impl World {
         false
     }
 
-    #[cfg(all(test, feature = "cartesian-recoil"))]
-    pub(crate) fn exact_wall_commit_test_view(&self, id: EntityId)
-        -> Option<(Vec2, Vec2, Vec2, Vec2)>
-    {
-        let i = self.resolve(id)?;
-        let staged = self.contact.as_ref()?.exact_commit.iter()
-            .find(|row| row.entity == id)?;
-        Some((staged.position, staged.velocity, self.pos[i], self.vel[i]))
-    }
-
-    #[cfg(all(test, feature = "cartesian-recoil"))]
-    pub(crate) fn body_motion_test_view(&self, id: EntityId) -> Option<(Vec2, Vec2)> {
-        let i = self.resolve(id)?;
-        Some((self.pos[i], self.vel[i]))
-    }
-
     #[cfg(feature = "cartesian-recoil")]
     pub(crate) fn anatomy_diagnostic_view(&self, id: EntityId) -> Option<AnatomyState> {
         self.wounds.get(self.resolve(id)?).copied()
@@ -1288,7 +1272,6 @@ impl World {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::command::{LimbCommand, Strike};
     use crate::world::testkit::*;
 
     /// The same phases, but with the closing bodies actually *travelling* the
@@ -1365,7 +1348,7 @@ mod tests {
         // pose because it allocated no pose columns at all. What is left is a
         // world that has them, refusing the two handles that name nobody.
 
-        let mut world = World::new(&Scenario::articulated_duel(), 1);
+        let mut world = World::new(&Scenario::embodied_duel(), 1);
         let fighter = EntityId::new(0, 0);
         assert!(world.articulated_pose(fighter).is_some(), "the fixture has no live fighter");
         assert_eq!(world.articulated_pose(EntityId::new(0, 1)), None, "a stale generation resolved");
@@ -1383,7 +1366,7 @@ mod tests {
 
     #[test]
     fn a_published_pose_is_world_space_throughout() {
-        let mut world = World::new(&Scenario::articulated_duel(), 1);
+        let mut world = World::new(&Scenario::embodied_duel(), 1);
         // Moved off both axes, so a missing translation cannot pass by landing
         // on a zero component.
         world.pos[0] = Vec2::new(Fx::from_ratio(37, 4), Fx::from_ratio(13, 8));
@@ -1418,7 +1401,7 @@ mod tests {
 
     #[test]
     fn the_target_hand_is_the_pose_the_actuator_is_chasing() {
-        let mut world = World::new(&Scenario::articulated_duel(), 1);
+        let mut world = World::new(&Scenario::embodied_duel(), 1);
         let fighter = EntityId::new(0, 0);
         let spec = world.anatomy_spec(0).cloned().expect("articulated anatomy");
         let body = Vec3::new(world.pos[0].x, world.pos[0].y, Fx::ZERO);
@@ -1441,15 +1424,35 @@ mod tests {
         // With a command stored it is that command's hand, at the yaw the body
         // has turned to by now -- the shoulder rotates, so a target frozen at
         // the yaw the order was given would drift off the arm.
-        world.submit_articulated_v1(fighter, articulated_command());
+        //
+        // **Two embodied facts are folded into the expectation, and both are the
+        // subject rather than noise.** The bearing is torso-relative, so the yaw
+        // is added on the way in; and an elbow cannot straighten past the annulus
+        // it permits, so the fixture's `Fx::ONE` comes back shorter. Both are
+        // taken from `reachable_extent` -- the clamp `world_arm_target` itself
+        // applies -- rather than written down, because a fitted pair would have
+        // to be re-fitted every time the anatomy moved and would by then be
+        // saying nothing about the frame.
+        let command = articulated_command();
+        assert!(matches!(
+            world.submit_embodied_v1(fighter, crate::EmbodiedCommandV1::new(command)),
+            crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }),
+            "the command was refused, so the pose below is the neutral one");
         for _ in 0..3 { world.step(); }
         let body = Vec3::new(world.pos[0].x, world.pos[0].y, Fx::ZERO);
         let pose = world.articulated_pose(fighter).expect("a live fighter");
-        assert_eq!(pose.intent, articulated_command().intent);
+        assert_eq!(pose.intent, command.intent);
+        let anatomy = world.posed_anatomy(0);
+        let elbow = crate::combat::limb::Elbow::of(&anatomy);
+        let yaw = world.body_yaw[0].angle;
         for limb in 0..2 {
-            let arm = articulated_command().arms[limb];
+            let arm = command.arms[limb];
+            let (height, reach) =
+                crate::combat::limb::reachable_extent(&anatomy, arm.height, arm.reach, elbow);
+            assert!(reach < arm.reach,
+                    "the elbow permitted the whole reach, so the clamp is not measured");
             assert_eq!(pose.arms[limb].target_hand, body + actuator::hand_position(
-                &spec, world.body_yaw[0].angle, limb, arm.bearing, arm.height, arm.reach));
+                &spec, yaw, limb, yaw + arm.bearing, height, reach));
             assert_ne!(pose.arms[limb].hand, pose.arms[limb].target_hand,
                        "the arm arrived, so this fixture no longer separates the two");
         }
@@ -1521,6 +1524,12 @@ mod tests {
     /// `Torso`. It was inert -- a neutral command carries zero effort and the
     /// actuator moves nothing without authority -- and it still reached the
     /// published target of every slot nobody had commanded.
+    ///
+    /// **The world-frame half of this test went with the articulated model.**
+    /// It stood a second fixture beside this one and asserted that a neutral arm
+    /// *there* still answered the absolute yaw, so that closing the hole for one
+    /// frame could not close it for the other. There is one frame left, and a
+    /// second fixture under it would be this one twice.
     #[test]
     fn a_neutral_embodied_command_points_the_arm_ahead_and_not_twice_the_yaw() {
         let mut world = World::new(&Scenario::embodied_duel(), 1);
@@ -1536,21 +1545,17 @@ mod tests {
         assert_eq!(neutral.arms[0].bearing, Angle::ZERO,
                    "a neutral embodied arm is not asked for straight ahead");
         assert_eq!(neutral.body_yaw, yaw, "a torso is measured relative to itself");
-        // The articulated fixture keeps the absolute answer, which is the guard:
-        // closing the hole for one frame must not close it for the other.
-        let mut articulated = World::new(&Scenario::articulated_duel(), 1);
-        articulated.submit_articulated_v1(EntityId::new(0, 0), articulated_command());
-        for _ in 0..200 { articulated.step(); }
-        let world_yaw = articulated.body_yaw[0].angle;
-        assert_eq!(articulated.neutral_articulated(0).arms[0].bearing, world_yaw,
-                   "an articulated neutral arm stopped facing the way the body does");
     }
 
     #[test]
     fn a_two_handed_item_publishes_one_right_hand_weapon_and_a_mirrored_target() {
         let mut world = World::new(&both_scenario(), 1);
         assert!(world.two_handed(1), "the brute is not holding the club in both hands");
-        world.submit_articulated_v1(EntityId::new(1, 0), reaching_command(Angle::HALF, Fx::ONE));
+        assert!(matches!(
+            world.submit_embodied_v1(EntityId::new(1, 0),
+                crate::EmbodiedCommandV1::new(reaching_command(Angle::HALF, Fx::ONE))),
+            crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }),
+            "the brute's reaching command was refused, so nothing below is its pose");
         world.step();
 
         let pose = world.articulated_pose(EntityId::new(1, 0)).expect("a live brute");
@@ -1570,14 +1575,26 @@ mod tests {
 
         // And a one-handed pair is not mirrored: the fighter in the same world
         // answers each arm's own command.
-        world.submit_articulated_v1(EntityId::new(0, 0), articulated_command());
+        let command = articulated_command();
+        assert!(matches!(
+            world.submit_embodied_v1(EntityId::new(0, 0),
+                crate::EmbodiedCommandV1::new(command)),
+            crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }),
+            "the fighter's command was refused, so the pose below is the neutral one");
         world.step();
         let fighter = world.articulated_pose(EntityId::new(0, 0)).expect("a live fighter");
         let spec = world.anatomy_spec(0).cloned().expect("articulated anatomy");
         let body = Vec3::new(world.pos[0].x, world.pos[0].y, Fx::ZERO);
-        let arm = articulated_command().arms[0];
+        // The torso-relative bearing and the elbow's annulus, the same pair the
+        // sibling target-hand fixture folds in; see it for why both are read off
+        // `reachable_extent` rather than written down as numbers.
+        let anatomy = world.posed_anatomy(0);
+        let yaw = world.body_yaw[0].angle;
+        let arm = command.arms[0];
+        let (height, reach) = crate::combat::limb::reachable_extent(
+            &anatomy, arm.height, arm.reach, crate::combat::limb::Elbow::of(&anatomy));
         assert_eq!(fighter.arms[0].target_hand, body + actuator::hand_position(
-            &spec, world.body_yaw[0].angle, 0, arm.bearing, arm.height, arm.reach));
+            &spec, yaw, 0, yaw + arm.bearing, height, reach));
     }
 
     #[test]
@@ -1614,15 +1631,15 @@ mod tests {
     fn every_animation_hint_is_reachable() {
         // Idle and Braced. At construction every joint has arrived, so the only
         // thing separating the fighter's two arms is what they hold.
-        let still = World::new(&Scenario::articulated_duel(), 1);
+        let still = World::new(&Scenario::embodied_duel(), 1);
         assert_eq!(still.articulated_pose(EntityId::new(0, 0)).unwrap().hints,
                    [AnimationHint::Braced, AnimationHint::Idle]);
         assert_eq!(still.articulated_pose(EntityId::new(1, 0)).unwrap().hints,
                    [AnimationHint::Idle; 2], "the brute has no shield to brace behind");
 
         // Chasing outranks Braced: a shield arm in motion is not holding still.
-        let mut chasing = World::new(&Scenario::articulated_duel(), 1);
-        chasing.submit_articulated_v1(EntityId::new(0, 0), articulated_command());
+        let mut chasing = World::new(&Scenario::embodied_duel(), 1);
+        chasing.submit_embodied_v1(EntityId::new(0, 0), embodied_command());
         chasing.step();
         assert_eq!(chasing.articulated_pose(EntityId::new(0, 0)).unwrap().hints,
                    [AnimationHint::Chasing; 2]);
@@ -1682,7 +1699,7 @@ mod tests {
         // There is no legless world left to build, so what remains is a stale
         // handle and a corpse: both live worlds where the *slot* is wrong.
 
-        let mut world = World::new(&Scenario::articulated_duel(), 1);
+        let mut world = World::new(&Scenario::embodied_duel(), 1);
         let fighter = EntityId::new(0, 0);
         assert!(world.observe_articulated(fighter).present(), "the fixture has no live fighter");
         assert_eq!(world.observe_articulated(EntityId::new(0, 1)), ArticulatedObservation::BLANK);
@@ -1696,7 +1713,7 @@ mod tests {
 
     #[test]
     fn an_articulated_observation_is_the_subjects_own_joints_exactly() {
-        let mut world = World::new(&Scenario::articulated_duel(), 1);
+        let mut world = World::new(&Scenario::embodied_duel(), 1);
         // Off both axes, so a missing translation cannot pass by landing on a
         // zero component.
         world.pos[0] = Vec2::new(Fx::from_ratio(37, 4), Fx::from_ratio(13, 8));
@@ -1759,7 +1776,7 @@ mod tests {
 
     #[test]
     fn an_articulated_observation_carries_the_subjects_reachable_weapon_geometry() {
-        let mut world = World::new(&Scenario::articulated_duel(), 1);
+        let mut world = World::new(&Scenario::embodied_duel(), 1);
         world.pos[0] = Vec2::new(Fx::from_ratio(37, 4), Fx::from_ratio(13, 8));
         let fighter = EntityId::new(0, 0);
         let obs = world.observe_articulated(fighter);
@@ -1781,7 +1798,7 @@ mod tests {
 
     #[test]
     fn observing_weapon_geometry_does_not_change_the_world_hash() {
-        let world = World::new(&Scenario::articulated_duel(), 17);
+        let world = World::new(&Scenario::embodied_duel(), 17);
         let before = world.state_hash();
         let first = world.observe_articulated(EntityId::new(0, 0));
         let second = world.observe_articulated(EntityId::new(0, 0));
@@ -1822,7 +1839,10 @@ mod tests {
         let mut empty = world.clone();
         let mut release = empty.neutral_articulated(0);
         release.grips = [GripRequest::Release; 2];
-        let _ = empty.submit_articulated_v1(EntityId::new(0, 0), release);
+        assert!(matches!(
+            empty.submit_embodied_v1(EntityId::new(0, 0), crate::EmbodiedCommandV1::new(release)),
+            crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }),
+            "the release was refused, so the grips below are the ones it started with");
         empty.step();
         assert_eq!(capable(&empty, 0), A::MOVEMENT | A::TURNING);
 
@@ -1897,11 +1917,49 @@ mod tests {
         }
     }
 
+    /// The last occlusion test in the repository, and that is worth knowing.
+    ///
+    /// **There was a family of them and it went with Legacy.**
+    /// `a_foe_behind_one_tile_of_rock_is_not_a_contact`,
+    /// `occlusion_applies_to_allies_too` and
+    /// `on_an_open_floor_plan_every_contact_survives` were deleted in `4c84aba`
+    /// -- "embodied 10: Legacy is gone, and no pin moved" -- together with
+    /// `World::observe` and the `Contact` list they were written against. The
+    /// two fixtures that served them outlived their callers as dead code until
+    /// this session removed them: `peopled_world`, which could stand four or
+    /// five bodies anywhere on a carved floor plan, and `by_distance_alone`,
+    /// which recomputed the whole expected list by hand and compared it. This
+    /// test is the articulated counterpart of the first of the three, and the
+    /// note that stood here named that test as a live sibling -- which it has
+    /// not been since `4c84aba`. It hand-rolls its plan off `fragile_scenario`
+    /// for the same reason: the shared multi-body carved fixture is the one
+    /// that went.
+    ///
+    /// **What is therefore unguarded, written down so the next person can decide
+    /// to pay it rather than discover it.** Two claims `by_distance_alone`
+    /// checked end to end have no successor:
+    ///
+    /// - **Ties broken on the entity index, through `observe_articulated`.**
+    ///   `nearest_keeps_the_closest_in_order` asserts the rule of `Nearest` in
+    ///   isolation, and no fixture in this file stands two enemies at equal
+    ///   distance -- `crowded_scenario` spaces its seven strictly apart. So a
+    ///   selection that sorted on distance alone, and whose order therefore
+    ///   flipped with the slot order, would pass everything here.
+    /// - **Selection on a carved plan holding more than two bodies.**
+    ///   `crowded_scenario` holds nine, on open ground; this holds two, on a
+    ///   carved one. Nothing holds several *and* a floor plan, which is the
+    ///   case `peopled_world` existed for.
+    ///
+    /// Two things that look like gaps and are not, so neither gets re-added:
+    /// there is no ally block in the articulated ABI at all, so
+    /// `occlusion_applies_to_allies_too` has nothing to be the successor to;
+    /// and `Stats::tracked_contacts` no longer narrows this list, because
+    /// `MAX_ARTICULATED_OPPONENTS` is a fixed wasm row stride before it is a
+    /// percept. `World::observe_articulated`'s own doc owns the first and
+    /// `the_articulated_opponent_list_is_the_nearest_six_enemies_in_sight`
+    /// carries the second.
     #[test]
     fn rock_stops_the_articulated_eye_too() {
-        // `a_foe_behind_one_tile_of_rock_is_not_a_contact`, asked of the
-        // articulated list, because the two selections must use one predicate
-        // and not two that agree today.
         //           0123456789
         let rows = ["##########",
                     "#..#.....#",
@@ -2348,6 +2406,15 @@ mod tests {
         }
         assert!(highest > Fx::ZERO, "neither body ever left the floor");
         assert!(perceived > 0, "the two never saw each other, so half the claim is vacuous");
+        // And a body that was *seen* stood above the floor rather than beside
+        // the hill. `highest` says an observer climbed at some tick and
+        // `perceived` says the two had each other in sight at some tick;
+        // neither says the two ever coincided. Down on the flat both floors are
+        // zero and `|dz| <= noise` is satisfied by any answer at all, so without
+        // this the whole sweep could run on level ground and still pass. The
+        // counter was incremented and never read, which is that hole with the
+        // evidence for closing it already collected.
+        assert!(uphill > 0, "no opponent was ever seen while standing above the floor");
     }
 
     /// The hips are published in the torso's frame, the twist is published over
@@ -2549,59 +2616,6 @@ mod tests {
     }
 
     // ------------------------------------------------------------------ sight
-
-    /// A world on `rows` holding `bodies` exactly where they are listed, and
-    /// nothing else.
-    ///
-    /// Every occlusion test below is a statement about *who is in whose contact
-    /// list*, so the fixture has to be able to say where four or five bodies
-    /// stand and which side each is on. `carved_world` deliberately carries one
-    /// body and every caller places it by hand; this is the same bargain widened,
-    /// and the spawn is used verbatim -- `World::spawn` does not snap a placement
-    /// to clear ground, which is what lets a test press a body against a wall
-    /// face on purpose.
-    fn peopled_world(rows: &[&str], bodies: &[(Body, Faction, Vec2)]) -> World {
-        let mut scenario = Scenario::articulated_duel();
-        scenario.dungeon = crate::dungeon::parse(rows);
-        scenario.units = bodies
-            .iter()
-            .map(|&(kind, faction, spawn)| {
-                let mut unit = UnitSpec {
-                    kind,
-                    faction,
-                    stats: kind.base_stats(),
-                    loadout: kind.default_loadout(),
-                    articulated: None,
-                    spawn,
-                };
-                // **Dressed, because a world with articulated columns refuses a
-                // body without an anatomy row.** This helper built Legacy bodies
-                // until session 10 and could leave the row `None`; the fixture it
-                // starts from now carries a spec table, and
-                // `validate_construction` checks every unit against it before a
-                // column exists.
-                crate::scenario::equip_fixture_body(&mut unit);
-                unit
-            })
-            .collect();
-        World::new(&scenario, 1)
-    }
-
-    /// The contact list `observe` would have produced before rock stopped eyes:
-    /// everything of `side` inside `i`'s sight range, nearest first, cut to `i`'s
-    /// perception cap. `Nearest` breaks ties on the entity index, so a plain sort
-    /// of `(distance, index)` reproduces its order exactly.
-    fn by_distance_alone(w: &World, i: usize, side: Faction) -> Vec<EntityId> {
-        let sight = w.stats[i].sight_range();
-        let mut found: Vec<(Fx, usize)> = (0..w.alive.len())
-            .filter(|&j| j != i && w.alive[j] && w.faction[j] == side)
-            .map(|j| ((w.pos[j] - w.pos[i]).length(), j))
-            .filter(|&(d, _)| d <= sight)
-            .collect();
-        found.sort();
-        found.truncate(w.stats[i].tracked_contacts());
-        found.into_iter().map(|(_, j)| w.id_of(j)).collect()
-    }
 
     #[test]
     fn nearest_keeps_the_closest_in_order() {
