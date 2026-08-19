@@ -714,6 +714,45 @@ impl EmbodiedPolicyKind {
             EmbodiedPolicyKind::Tactical | EmbodiedPolicyKind::TacticalFixedGuard
         )
     }
+
+    /// Whether a constant offset added to `obs.tick` is a different fighter, or
+    /// the same one.
+    ///
+    /// **The question is here because a control nobody can honour turns into the
+    /// identity without saying so.** `learn::PhaseShiftedScript` shifts the tick
+    /// its delegate reads and touches nothing else, so an entry whose behaviour
+    /// does not depend on the absolute tick comes back byte for byte unchanged.
+    /// What that costs is not a crash: `lab learn-probe` scores a second board
+    /// against the phase-randomised opponent, labels it the control, and the
+    /// verdict ladder then reasons about what phase randomisation cost over a
+    /// difference that is structurally zero -- at twice the wall clock. So the
+    /// registry answers the question and the commands refuse by name.
+    ///
+    /// **[`Tactical`] is the trap, and its answer is `false`.** It reads
+    /// `obs.tick` in five places and every one of them is a *difference* --
+    /// `obs.tick - self.phase_started` for the phase clock,
+    /// `obs.tick - previous.tick` for the threat estimate -- so a constant
+    /// offset cancels out of all of them. Grepping for `obs.tick` gets this
+    /// entry wrong; only the fight settles it, which is why
+    /// `learn`'s `the_registry_knows_which_opponent_a_phase_shift_can_move`
+    /// runs one per entry and compares state hashes rather than trusting this
+    /// paragraph.
+    ///
+    /// An exhaustive `match` rather than [`reads_footwork`]'s `matches!`, and
+    /// the difference is the whole point: `matches!` carries a silent `false`
+    /// arm, so an appended entry would inherit "no clock" without anybody
+    /// having measured it. Here it fails to compile until somebody answers.
+    ///
+    /// [`Tactical`]: EmbodiedPolicyKind::Tactical
+    /// [`reads_footwork`]: EmbodiedPolicyKind::reads_footwork
+    pub const fn reads_the_clock(self) -> bool {
+        match self {
+            EmbodiedPolicyKind::Scripted | EmbodiedPolicyKind::ScriptedLevel => true,
+            EmbodiedPolicyKind::Neutral
+            | EmbodiedPolicyKind::Tactical
+            | EmbodiedPolicyKind::TacticalFixedGuard => false,
+        }
+    }
 }
 
 #[cfg(test)]

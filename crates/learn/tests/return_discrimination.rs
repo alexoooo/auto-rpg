@@ -86,8 +86,11 @@
 //! script's 48, and 23% of the Brute removed against 40%. Whether that is the
 //! planner being worse or this return pricing what the planner does badly is
 //! not decidable from one table -- the tick-limit column says the planner ends
-//! almost nothing, 4 settled fights in 400 against the script's 33, and the
-//! attrition and outcome terms are the two that carry the gap.
+//! almost nothing, 9 settled fights in 400 against the script's 33, and the
+//! attrition and outcome terms are the two that carry the gap. **The number was
+//! 4 here and 4 is the fixed-guard control's**, one row down from the subject of
+//! this paragraph; both planners are far below the script and the correction
+//! does not move the reading, which is exactly why nobody caught it.
 //!
 //! Ignored by default because a full pass is thousands of sixty-second fights.
 //!

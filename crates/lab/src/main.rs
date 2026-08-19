@@ -94,7 +94,8 @@ fn usage() {
 
   trace   --seed N --policy composed|windmill|tactical|learned --attack-moves --mirrored
           --ticks N --out PATH
-          --checkpoint PATH   (--phase-random is refused; see learn-probe)
+          --checkpoint PATH   (--phase-random is refused under every --policy,
+                               not only this arm; the control lives in learn-probe)
           --opponent composed|windmill|attack-moves    (--policy learned only)
           --fighter-a fighter|brute            --fighter-b fighter|brute
           --a-left  sword|shield|club|empty    --a-right ...  (and the b twins)
@@ -150,7 +151,12 @@ fn usage() {
           scores five conditions -- a constant network, the scripted body, the
           strike planner, that planner with a fixed guard, and the checkpoint --
           on held-out seeds the optimizer never saw, against both a frozen and a
-          phase-randomised clock, replaying every learned run with no model."
+          phase-randomised clock, replaying every learned run with no model.
+          A phase-randomised clock needs an opponent that has one: `neutral`,
+          `tactical` and `tactical-fixed-guard` do not read the tick, so both
+          commands refuse them by name rather than scoring a control board
+          identical to the frozen one. --frozen-only scores those with no
+          control at all."
     );
 }
 
@@ -2696,6 +2702,38 @@ fn refuse_duel(error: sim::CombatSpecError) -> ! {
     std::process::exit(2);
 }
 
+/// Why `lab trace` cannot honour `--phase-random`, or `None` if it was not
+/// asked to.
+///
+/// **Returned rather than printed and exited**, which is the half of
+/// AGENTS.md's refusal rule the first version of this skipped: it quoted the
+/// ten-instances gotcha in its own comment and then wrote an `eprintln!` and an
+/// `exit(2)`, so no test could read the sentence and nothing would notice it
+/// going away. `a_trace_refuses_a_phase_shift_it_cannot_apply` reads it.
+///
+/// **And read for every `--policy`, not only `learned`.** It sat inside the
+/// learned arm, so `trace --policy composed --phase-random` ignored the flag in
+/// silence while the usage line said flatly that the flag is refused -- which
+/// is the same bug the comment beside it was quoting. The reason the flag
+/// cannot be honoured is a property of this command and not of one of its arms:
+/// `learn::PhaseShiftedScript` has wrapped an `EmbodiedPolicy` since session 05
+/// and every policy `trace` drives is articulated, so under no `--policy` is
+/// there anything here for it to wrap. The control is still reachable through
+/// `lab learn-probe evaluate`, which scores it on every condition unless told
+/// `--frozen-only`.
+fn trace_phase_random_refusal(args: &Args) -> Option<String> {
+    if !args.flag("phase-random") {
+        return None;
+    }
+    Some(
+        "--phase-random is not available on `lab trace`: the phase-shifted wrapper moved \
+         to the embodied model with crates/learn's corpus, and this command is still \
+         articulated under every --policy. Run `lab learn-probe evaluate`, which scores \
+         every condition against the phase-randomised control by default."
+            .to_string(),
+    )
+}
+
 /// One fight, written out to be looked at.
 ///
 /// **The one command in this lab that produces no number.** Everything else here
@@ -2709,6 +2747,10 @@ fn refuse_duel(error: sim::CombatSpecError) -> ! {
 /// It takes one seed, because a fight is a thing you watch and not a thing you
 /// aggregate.
 fn trace_fight(args: &Args) {
+    if let Some(sentence) = trace_phase_random_refusal(args) {
+        eprintln!("{sentence}");
+        std::process::exit(2);
+    }
     let seed = args.number("seed", 3);
     let mirrored = args.flag("mirrored");
     // The fixture unless a picker flag was given, and then the fixture's own
@@ -2762,22 +2804,10 @@ fn trace_fight(args: &Args) {
         // articulated opponent list whose only consumer is this call, which is
         // two vocabularies bought with a file that outlives the problem.
         //
-        // What this drops is `--phase-random`. The wrapper lives in
-        // `crates/learn` and is embodied now, so it cannot be offered here --
-        // and it is **refused by name** rather than ignored, because a flag that
-        // accepts an input it cannot act on and says nothing is the bug two
-        // reviews of this repository found ten instances of. The control is
-        // still reachable through `lab learn-probe evaluate`, which runs it on
-        // every condition unless told `--frozen-only`.
-        if args.flag("phase-random") {
-            eprintln!(
-                "--phase-random is not available on `lab trace`: the phase-shifted wrapper \n\
-                 moved to the embodied model with crates/learn's corpus, and this command is \n\
-                 still articulated. Run `lab learn-probe evaluate`, which scores every \n\
-                 condition against the phase-randomised control by default."
-            );
-            std::process::exit(2);
-        }
+        // What this drops is `--phase-random`, and the refusal is
+        // [`trace_phase_random_refusal`] rather than a sentence printed here.
+        // See it for why it is returned rather than printed, and for why it is
+        // read before this branch rather than inside it.
         let opponent = args.choice(
             "opponent",
             ArticulatedPolicyKind::Composed,
@@ -3051,6 +3081,7 @@ mod tests {
                    *smart116_serial_controls());
     }
 
+    #[test]
     fn a_traced_run_is_the_run_the_gate_measured() {
         // The recorder is an observer and the fight must not be able to tell it
         // is there. That is obvious from the code today and it is exactly the
@@ -3058,6 +3089,16 @@ mod tests {
         // compute -- a region volume, a spec lookup, a scratch buffer -- could
         // quietly stop being. Every column of the trial, including the state
         // digest, which is the one that would notice a single changed bit.
+        //
+        // **It had no `#[test]` attribute until 2026-08-19 and had therefore
+        // never run**, while four places in this repository -- the `trace` usage
+        // text, `measure_articulated_traced`, the picker test below and
+        // `learn`'s `an_audited_rollout_is_the_rollout_it_audits` -- cited it as
+        // the thing keeping the recorder an observer. `cargo test -p lab` said
+        // so out loud as a dead-code warning the whole time. It passes as
+        // written; both halves were then broken on purpose to check that it
+        // can fail -- stepping the world once when a recorder is present moves
+        // the state digest, and dropping the spawn frame fails the frame count.
         let scenario = Scenario::articulated_duel();
         let mut recorder = FightTrace::new(&scenario, u32::MAX);
         let traced = measure_articulated_traced(&scenario, 3, Script::Composed, Some(&mut recorder));
@@ -3090,6 +3131,41 @@ mod tests {
 
     fn traced_args(line: &str) -> Args {
         Args::parse(line.split_whitespace().map(String::from).collect())
+    }
+
+    #[test]
+    fn a_trace_refuses_a_phase_shift_it_cannot_apply() {
+        // The sentence, because that is what a person reads and what a later
+        // edit can silently delete. The previous refusal printed and exited, so
+        // this assertion could not exist and the second half of the bug -- the
+        // flag being ignored outright on the three scripted arms -- lived
+        // underneath it for a session.
+        //
+        // Every arm of `--policy` and the bare command, because the reason the
+        // flag cannot be honoured belongs to the command and not to `learned`.
+        for line in [
+            "trace --phase-random",
+            "trace --policy composed --phase-random",
+            "trace --policy windmill --phase-random",
+            "trace --policy tactical --phase-random",
+            "trace --policy learned --phase-random --checkpoint checkpoints/v2-probe.ckpt",
+        ] {
+            let refusal = trace_phase_random_refusal(&traced_args(line))
+                .unwrap_or_else(|| panic!("{line} was accepted"));
+            assert!(refusal.contains("--phase-random"), "{refusal}");
+            assert!(
+                refusal.contains("learn-probe"),
+                "the refusal does not say where the control still lives: {refusal}"
+            );
+        }
+
+        // And it refuses nothing else. A refusal that fired on every line would
+        // satisfy the loop above and take the command with it.
+        assert_eq!(trace_phase_random_refusal(&traced_args("trace --seed 3")), None);
+        assert_eq!(
+            trace_phase_random_refusal(&traced_args("trace --policy learned --mirrored")),
+            None
+        );
     }
 
     #[test]

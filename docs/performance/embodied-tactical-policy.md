@@ -818,6 +818,51 @@ what the derived bands are for, and it is why they are part of the rule rather
 than a check applied afterwards. All of those rows were measured; they are not
 argued.
 
+## A third harness, measured on 2026-08-19, reaches the same verdict
+
+**Session 05 did not set out to measure this and measured it anyway**, which is why it is
+worth more than a fourth run of the same corpus would be. Deleting the articulated model
+forced `crates/learn`'s return-discrimination corpus off the articulated duel and onto
+`embodied-duel-v1`, and two of its three script baselines had no embodied equivalent. The
+test could not be kept over a shrunken corpus without becoming a green assertion about
+nothing, so it was **re-measured** on the three registry entries that are distinct fighters
+on flat ground.
+
+400 mirrored trials each, native MSVC x86-64:
+
+| policy | mean return | s.e. | 95% CI | wins/losses |
+|---|---:|---:|---|---|
+| `scripted` | 87.023 | 1.867 | [83.374, 90.657] | 352/48 |
+| `tactical` | 66.939 | 1.623 | [63.779, 70.202] | 304/96 |
+| `tactical-fixed-guard` | 69.712 | 1.556 | [66.620, 72.797] | 316/84 |
+
+```powershell
+cargo test -p learn --release --test return_discrimination -- --ignored --nocapture
+```
+
+**The frozen script outscores the strike planner by twenty points on the planner's own
+corpus.** Session 04 measured 39.69% wins against that script and recorded `revise`; this is
+a different harness, a different metric and a different scoring function reaching the same
+place. Two independent measurements agreeing is worth more than either alone, and neither
+was built to flatter the other -- the return function was fitted for a learning probe long
+before this topic opened, and it ranks the shipped fighter below the control it was built
+to beat.
+
+**And this return cannot see the guard read at all.** `tactical` and
+`tactical-fixed-guard` separate by 2.773 against a threshold of 3.179 -- indistinguishable.
+[The guard threshold section](#the-preregistered-guard-threshold-revise) records the read
+buying a 65.86% diagonal, so the read is doing something the *diagonal* can see; what this
+says is that whatever it buys does not reach the return. That is a bound on the guard's
+value, not a refutation of it, and the two numbers are measuring different things: one asks
+whether the plate goes where the blade is, the other asks whether the fight ends better.
+
+**The two questions this corpus can no longer ask** are recorded here because they were
+answerable before this session and are not now. The articulated windmill answered *are the
+phases decoration?* and the closing-attack control answered a matched-aggression question.
+Neither has an embodied equivalent, and building one would have been shipping a policy out
+of a deletion session. If a later topic wants either answer it is building a new control
+and measuring it, not re-running something.
+
 ## The finding: two of the four rows are not reachable by a policy
 
 **This is recorded as a finding rather than as a shortfall, which is what

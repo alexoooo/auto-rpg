@@ -89,9 +89,20 @@ if (CARTESIAN_RECOIL) BUILD.push("--features", "cartesian-recoil");
 // values were `0x7194bc636096a0ff` / `0x31282286fc157e8e` for the command hash
 // and `0x4b07e93ccdc137ea` / `0x4cbafe3e0f71e14f` below. Native MSVC measured
 // every one of them before this file was edited.
+// Then the embodied reseat moved it a seventh time, from `0x30ccbd6fc0891853` /
+// `0xfb22a48ceb8b8132`, and this one is the *fixture* rather than an append or a
+// subtraction: the probe is `init_embodied_test`'s duel and its bytes go in
+// through `submit_embodied`. Four routes, all predicted from the fixture before
+// the run -- the state prefix's model byte and payload tag both go `1 -> 2`, the
+// stored payload is 57 bytes instead of 53 because of the two swing planes, the
+// embodied state stream carries a `ground_z`/stance/elbow tail the articulated
+// one has no columns for, and an embodied body is *constructed* with legs and
+// jointed arms. The probe is still unstepped, so every body row is still its
+// construction row; it is a different construction. Native MSVC measured both
+// values before this file was edited.
 const ARTICULATED_COMMAND_HASH = CARTESIAN_RECOIL
-  ? 0xfb22a48ceb8b8132n
-  : 0x30ccbd6fc0891853n;
+  ? 0x8ba5f039b1a76712n
+  : 0xbe7dc38c780c4403n;
 const COMBAT_GEOMETRY_HASH = 0x9d15344883cf6e9cn;
 // Both moved on 2026-08-16 with the release verb. They are stored-command
 // fixtures, and `exact_diagnostics.rs` writes the payload *width* as a `u16`
@@ -385,7 +396,14 @@ test("the boundary exports everything the client calls", () => {
     // one model left there is nothing to select, so the two extra names are gone
     // and every fixture below drives this one.
     "init",
+    // The two boundary fixtures, one per model, and both are needed because the
+    // pair is what makes every model refusal below reachable from here: an
+    // embodied command offered to `init_articulated_test`'s duel, an articulated
+    // one offered to `init_embodied_test`'s. `ARTICULATED_COMMAND_HASH` is taken
+    // over the second, because a paired golden can only be taken over a world
+    // this side can also open.
     "init_articulated_test",
+    "init_embodied_test",
     // **`set_goto`, `set_focus`, `clear_order`, the three route names and the
     // two focus readers stood here and are gone.** Not a rename to chase: an
     // `ArticulatedObservation` has no order column and no nav column, so the
@@ -710,41 +728,61 @@ test("the lifted Coulomb solver digest is feature-only, paired and cached", () =
   console.log(`lifted solver digest 0x${first.toString(16).padStart(16, "0")} memory pages ${pagesBefore}/${pagesAfterFirst}/${pagesAfterSecond}`);
 });
 
-test("the articulated command scratch matches Rust and stores atomically", () => {
-  wasm.init_articulated_test(1);
-  // 57 and layout 2 since the release verb landed: two bytes appended to a
-  // payload that was already fully packed. Rewritten here rather than
-  // re-recorded -- this file is the independent reconstruction of the same
-  // fixture `crates/web/src/lib.rs` writes, and a mirror copied from the thing
-  // it mirrors checks nothing.
-  assert.equal(wasm.submitted_command_len(), SUBMITTED_COMMAND_BYTES);
-  assert.equal(wasm.submitted_command_layout_version(), 2);
-  const fixture = Uint8Array.from(ARTICULATED_COMMAND_FIXTURE);
-  assert.equal(fixture.length, SUBMITTED_COMMAND_BYTES, "the fixture is not a whole command");
-  new Uint8Array(wasm.memory.buffer, u32(wasm.submitted_command_ptr()),
-                 SUBMITTED_COMMAND_BYTES).set(fixture);
-  assert.equal(u32(wasm.submit_articulated(0, 0)), 1, "valid command was not stored verbatim");
-  assert.equal(wasm.state_digest_domain(), 1);
+// **`ARTICULATED_COMMAND_HASH` keeps its name over an embodied fixture**, which
+// is a wart rather than a mistake and is worth naming rather than leaving for a
+// reader to trip over. The whole `articulated_*` vocabulary in this boundary --
+// this pin, `ARTICULATED_STREAM_DIGEST`, `articulated_projectile_*`,
+// `install_articulated` -- is about a world with **articulated columns**, which
+// both surviving models have; renaming it is the step that touches every crate
+// at once and it is not this one. The fixture below is what the name has to be
+// read against, and the fixture is embodied.
+test("the embodied command scratch matches Rust and stores atomically", () => {
+  wasm.init_embodied_test(1);
+  // 61 and layout 2 since the swing plane landed: four bytes appended after a
+  // payload whose first fifty-three are the articulated grammar's. Rewritten
+  // here rather than re-recorded -- this file is the independent reconstruction
+  // of the same fixture `crates/web/src/lib.rs` writes, and a mirror copied from
+  // the thing it mirrors checks nothing.
+  assert.equal(wasm.embodied_command_len(), EMBODIED_COMMAND_BYTES);
+  assert.equal(wasm.embodied_command_layout_version(), EMBODIED_COMMAND_LAYOUT_VERSION);
+  const fixture = Uint8Array.from(EMBODIED_COMMAND_FIXTURE);
+  assert.equal(fixture.length, EMBODIED_COMMAND_BYTES, "the fixture is not a whole command");
+  new Uint8Array(wasm.memory.buffer, u32(wasm.embodied_command_ptr()),
+                 EMBODIED_COMMAND_BYTES).set(fixture);
+  assert.equal(u32(wasm.submit_embodied(0, 0)), 1, "valid command was not stored verbatim");
+  // Domain 2 is `EmbodiedV1`, and it read 1 while this pin was taken over the
+  // articulated duel. The pair says which serializer produced the number, so a
+  // world that stored the bytes under the other tail is caught here rather than
+  // by the value -- which is the half a moved constant alone cannot diagnose.
+  assert.equal(wasm.state_digest_domain(), 2);
   assert.equal(wasm.state_digest_schema(), 1);
   const measured = hash64(wasm.state_digest_lo(), wasm.state_digest_hi());
-  assert.equal(measured, ARTICULATED_COMMAND_HASH, "articulated command digest differs from native");
+  assert.equal(measured, ARTICULATED_COMMAND_HASH, "embodied command digest differs from native");
 
   const malformed = fixture.slice();
   malformed[10 + 4] = 9; // intent tag at payload offset 10
   malformed.set([0x01, 0x00, 0x01, 0x00], 4); // also numerically out of range: syntax wins
-  new Uint8Array(wasm.memory.buffer, u32(wasm.submitted_command_ptr()),
-                 SUBMITTED_COMMAND_BYTES).set(malformed);
-  assert.equal(u32(wasm.submit_articulated(0, 0)), 1 << 8, "mixed malformed/range input stored a fallback");
+  new Uint8Array(wasm.memory.buffer, u32(wasm.embodied_command_ptr()),
+                 EMBODIED_COMMAND_BYTES).set(malformed);
+  assert.equal(u32(wasm.submit_embodied(0, 0)), 1 << 8, "mixed malformed/range input stored a fallback");
   assert.equal(hash64(wasm.state_digest_lo(), wasm.state_digest_hi()), measured, "NotStored mutated state");
-  console.log(`articulated     ${hex(measured)}  == native command fixture`);
+  console.log(`embodied cmd    ${hex(measured)}  == native command fixture`);
 });
 
 test("an articulated module refuses submit_embodied by name", () => {
-  // `init_articulated_test` is now the only articulated world this boundary can
-  // build, which is what keeps this refusal reachable at all: `init` opens an
-  // embodied floor, so without this fixture the wrong-model answer would have no
-  // caller and the test below it would be the only direction ever driven.
+  // `init_articulated_test` is still the only articulated world this boundary
+  // can build, which is what keeps this refusal reachable at all: `init` opens
+  // an embodied floor and `init_embodied_test` an embodied duel, so without this
+  // fixture the wrong-model answer would have no caller and the test below it
+  // would be the only direction ever driven. **That is the reason the fixture
+  // was not reseated when the command pin moved to `init_embodied_test`** --
+  // reseating it would have deleted this test rather than moved it.
   wasm.init_articulated_test(1);
+  // The articulated scratch's own width and version, asserted here since the
+  // pinned command test above stopped being the one that reads them. Written out
+  // rather than derived, for the reason at the top of this file.
+  assert.equal(wasm.submitted_command_len(), SUBMITTED_COMMAND_BYTES);
+  assert.equal(wasm.submitted_command_layout_version(), 2);
   assert.equal(wasm.embodied_command_len(), EMBODIED_COMMAND_BYTES);
   assert.equal(wasm.embodied_command_layout_version(), EMBODIED_COMMAND_LAYOUT_VERSION);
   assert.notEqual(u32(wasm.embodied_command_ptr()), u32(wasm.submitted_command_ptr()),
@@ -1092,13 +1130,14 @@ const INTENTS = 3;
 const SEVERED_MASK_BITS = 5;
 
 // FNV-1a-64 over the published pose, combat-event, region, projectile and stance words of a scripted
-// articulated fight, prefixed ASCII `ARPG-STREAM-V1`. The script is
-// `Scenario::articulated_duel()` at seed 1 with the fighter moved to (9,6) and
-// the brute to (7,6), one articulated command submitted to each on tick zero and
-// none after, twenty ticks and one publication each -- ticks 0, 1, 2 and 4
-// resolve nothing, ticks 3 and 5 resolve two rows and every tick from 6 resolves
-// one, so both an empty tick and sixteen ticks of event rows are inside this
-// number.
+// fight, prefixed ASCII `ARPG-STREAM-V1`. The script is
+// `Scenario::embodied_duel()` at seed 1 with the fighter moved to (9,6) and
+// the brute to (7,6), one embodied command submitted to each on tick zero and
+// none after, twenty ticks and one publication each. Measured shape: every tick
+// carries two pose rows, fourteen region rows, two stance rows and no projectile
+// rows; the default build resolves one contact row on ticks 0, 3, 4, 5 and 6 and
+// nothing on the other fifteen, and the exact build carries one more on tick 7.
+// So both an empty tick and a run of contact are inside this number.
 // Pinned again in crates/web/src/lib.rs exactly as the five state hashes are;
 // `divergence` above explains what a one-sided failure means.
 //
@@ -1109,8 +1148,8 @@ const SEVERED_MASK_BITS = 5;
 // It is twenty ticks of fixed-point simulation output, and the only thing that
 // can produce those bytes is the sim -- nor could this file read them out of a
 // publication and re-digest them, because the script is not drivable from here:
-// `init_articulated_test` builds the *unmoved* duel and no export places a body,
-// so the two spawns the script depends on are unreachable across the wall.
+// `init_embodied_test` builds the *unmoved* embodied duel and no export places a
+// body, so the two spawns the script depends on are unreachable across the wall.
 // What the pin buys anyway is the whole cross-target claim, which is what this
 // file is for: the number was recorded natively, the module recomputes it from
 // its own run through the same five buffer writers `publish` calls, and the two agreeing
@@ -1171,17 +1210,42 @@ const SEVERED_MASK_BITS = 5;
 // `REGION_LAYOUT_VERSION` moved 1 -> 2 alongside, which is what separates this
 // from the two values-only moves in the pin's registry row. The fixture's fight
 // did not change, and `the_region_section_is_the_whole_of_the_forearm_digest_move`
-// in crates/web measures that rather than asserting it: suppress the region
-// section and the digest is 0xc6482a30f399d2cb, the same suppression measured on
+// in crates/web measured that rather than asserting it: suppress the region
+// section and the digest was 0xc6482a30f399d2cb, the same suppression measured on
 // b453ca1, so every pose, event, projectile and stance word of all twenty ticks
-// is byte-identical. That test supersedes
+// was byte-identical. That test superseded
 // `the_stance_section_extends_the_digest_without_disturbing_its_prefix`, whose
-// constant was a stream with a five-row region section and can no longer be
-// computed. Native MSVC measured both values below before either owner was
-// edited, and a fresh wasm artifact then answered both.
+// constant was a stream with a five-row region section and could no longer be
+// computed. Native MSVC measured 0x2a34c9104bdf18b9 and exact 0x9e9442671b790fb2
+// before either owner was edited, and a fresh wasm artifact then answered both.
+//
+// **Moved a ninth time when the script was reseated onto
+// `Scenario::embodied_duel`, from those two values, and this one is a *values*
+// move.** No stride, word offset, section order, count grammar or ABI version
+// changed and none may: `REGIONS_PER_BODY` is 7 and `REGION_LAYOUT_VERSION` is 2
+// on both sides of the move, because the forearm collider had already done that.
+// Four routes, all predicted from the fixture first: the stance section goes
+// from a zero length to two real rows, both forearm rows go from absent to
+// present (`World::arm_elbows` returns `[None; 2]` without jointed arms),
+// `ground_z` and the elbow planes reach the pose words, and **the fight itself is
+// different** because `Angle::ZERO` is world east under `CommandFrame::World` and
+// straight ahead under `Torso`. The last one is visible in the shape: the default
+// build's contact ticks go from 3 and 5 to 0, 3, 4, 5 and 6.
+//
+// `0xc6482a30f399d2cb` above is the prefix witness and it died with the
+// articulated fixture -- there is no suppression of the current stream that
+// reproduces a stream the current script does not run, and re-measuring it
+// against the new fight would look like the same evidence while being evidence
+// of nothing. The test in crates/web is now
+// `the_region_and_stance_sections_both_reach_the_stream_digest` and keeps the
+// half that needs no constant. `ARTICULATED_COMMAND_HASH` moved beside this pin
+// for its own fixture's own reseat; `COMBAT_GEOMETRY_HASH`,
+// `CONTACT_BEHAVIOR_DIGEST`, `LEARNED_INFERENCE_DIGEST` and both exact-law
+// digests are unmoved. Native MSVC measured both values below before either wasm
+// owner was edited, and a fresh artifact of each build then answered both.
 const ARTICULATED_STREAM_DIGEST = CARTESIAN_RECOIL
-  ? 0x9e9442671b790fb2n
-  : 0x2a34c9104bdf18b9n;
+  ? 0x4bf34984d56d2795n
+  : 0x96e4e51de0c00d62n;
 
 // The live pose rows, copied out. Words and not floats: every published column
 // is a `u32`, and the signed ones are two's-complement raw bits.
@@ -1257,7 +1321,7 @@ test("wasm_exports_match_layout_stride_capacity_and_drop_fields", () => {
     "embodied_stance_ptr", "embodied_stance_len", "embodied_stance_stride",
     "embodied_stance_capacity", "embodied_stances_dropped",
     "embodied_stance_layout_version",
-    "init", "init_articulated_test",
+    "init", "init_articulated_test", "init_embodied_test",
   ]) {
     assert.equal(typeof wasm[name], "function", `web.wasm does not export ${name}()`);
   }

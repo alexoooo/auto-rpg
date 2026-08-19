@@ -1155,7 +1155,43 @@ fn strike_command(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sim::{ARM_MIN_REACH_RAW, DuelConfigV1, EquipmentGeometry, Faction, Scenario, World};
+    use sim::{
+        ARM_MIN_REACH_RAW, DuelConfigV1, EquipmentGeometry, Faction, Scenario,
+        SubmitArticulatedOutcome, World,
+    };
+
+    /// Submits a command and insists the world took it.
+    ///
+    /// **`let _ = world.submit_articulated_v1(..)` is what these call sites used
+    /// to be, and it is a refusal nobody hears.** Every fixture in this module
+    /// is `Scenario::duel_from`, which is `CombatModel::Articulated` today; the
+    /// day it becomes `Embodied` this entry answers
+    /// `NotStored(CommandReject::WrongModel)` for every submission and the fight
+    /// becomes two bodies standing still. Three of the four tests that drove a
+    /// world through here **passed anyway** when that was measured on
+    /// 2026-08-19 by flipping the fixture: the planner's phase machine runs off
+    /// observations and a tick counter, so it still commits, and a test that
+    /// checks the plan against a cached observation never asks whether anything
+    /// moved. Only `the_intercept_model_agrees_with_the_derived_plate_at_a_
+    /// nonzero_guard_bearing` went red, and it went red for a reason two steps
+    /// downstream of the cause.
+    ///
+    /// So the outcome is matched and the stored command is compared against the
+    /// offered one. What that buys is a failure that names the submission rather
+    /// than an assertion about geometry four hundred ticks later.
+    fn submit(world: &mut World, id: EntityId, command: ArticulatedCommandV1) {
+        match world.submit_articulated_v1(id, command) {
+            SubmitArticulatedOutcome::Stored { command: stored, rejection: None } => {
+                assert_eq!(stored, command, "the world stored a command nobody offered");
+            }
+            SubmitArticulatedOutcome::Stored { rejection: Some(reject), .. } => {
+                panic!("{id:?} had its command replaced by the neutral one: {reject:?}")
+            }
+            SubmitArticulatedOutcome::NotStored(reject) => {
+                panic!("{id:?} could not submit at all: {reject:?}")
+            }
+        }
+    }
 
     fn close_duel() -> Scenario {
         let mut config = DuelConfigV1::shipped();
@@ -1188,7 +1224,7 @@ mod tests {
             command.arms[0] = ArmTarget {
                 bearing, height: CombatHeight::MID, reach: GUARD_REACH, effort: Fx::ONE,
             };
-            let _ = world.submit_articulated_v1(fighter, command);
+            submit(&mut world, fighter, command);
             for _ in 0..400 { world.step(); }
             let obs = world.observe_articulated(fighter);
             assert!(obs.shield.present, "the fighter must be carrying the plate");
@@ -1252,7 +1288,7 @@ mod tests {
             for id in world.pending_decisions().to_vec() {
                 let obs = world.observe_articulated(id);
                 let command = if id == attacker { planner.decide(&obs) } else { neutral_articulated_command(&obs) };
-                let _ = world.submit_articulated_v1(id, command);
+                submit(world, id, command);
             }
             let _ = world.step();
             if planner.phase() == TacticalPhase::Commit { return planner.context().plan.unwrap() }
@@ -1281,7 +1317,7 @@ mod tests {
                     }
                     command
                 } else { neutral_articulated_command(&obs) };
-                let _ = world.submit_articulated_v1(id, command);
+                submit(&mut world, id, command);
             }
             let _ = world.step();
             if planner.phase() == TacticalPhase::Commit { break }
@@ -1600,7 +1636,7 @@ mod tests {
             for id in world.pending_decisions().to_vec() {
                 let row = world.observe_articulated(id);
                 let command = if id == attacker { planner.decide(&row) } else { neutral_articulated_command(&row) };
-                let _ = world.submit_articulated_v1(id, command);
+                submit(&mut world, id, command);
             }
             let _ = world.step();
             assert!(world.tick() < 300, "no reachable mirrored-plan fixture");

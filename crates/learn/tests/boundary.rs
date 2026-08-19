@@ -109,13 +109,38 @@ fn learned_output_uses_only_the_versioned_action_table() {
     // heads far more evenly than a converged one, which is likely to sit on one
     // row of the table for the whole fight.
     //
-    // **The reconstruction goes through the frame adapter and not only through
-    // `compose`**, because that is what the world was handed. It is still a
-    // reconstruction from the table -- `into_torso_frame` is a rotation by a
-    // yaw read off the same observation, with nothing of the network in it -- so
-    // a bearing interpolated between two table entries still fails to match any
-    // row. What would have been wrong is comparing `compose`'s output with the
-    // recording and quietly asserting nothing about the conversion.
+    // **The reconstruction goes through the frame adapter, and what that buys
+    // and what it does not are worth separating.** The recording is what the
+    // world was handed, on the far side of `into_torso_frame`, so the search
+    // has to put the candidate row through the same function to compare at all.
+    //
+    // What it buys: the right-hand side is produced by `LearnedEmbodiedPolicy`
+    // and not by this test, so a `decide` that did anything after composing --
+    // a reach scaled by a logit, a bearing interpolated between two rows -- has
+    // no row to land on and the search fails. That is the fence, and it is the
+    // whole of what this test asserts.
+    //
+    // **What it does not buy is the conversion's sign, and an earlier comment
+    // here claimed the opposite.** `into_torso_frame` is applied to both sides
+    // with the same `obs`, so it cancels: an adapter that *added* `obs.body_yaw`
+    // instead of subtracting it -- the exact wrong answer that function's own
+    // doc warns about -- leaves every assertion below green. Measured on
+    // 2026-08-19 by making that edit: all three tests in this file passed and
+    // `policy`'s `the_same_plan_at_two_yaws_produces_two_torso_commands_that_
+    // point_one_way` and `the_neutral_articulated_command_converts_to_the_
+    // neutral_embodied_command_exactly` are the two that went red. Those are the
+    // sign's guards; `a_world_vector_survives_the_round_trip` guards the other
+    // half of the same function, the step rotation, and stayed green under a
+    // flipped bearing.
+    //
+    // **And there is no version of this search that checks both**, which is why
+    // the fix is this paragraph rather than a rewrite. Comparing `compose`'s
+    // output against a world-frame recording sounds stronger and is strictly
+    // weaker: `LearnedArticulatedPolicy::decide` *is* `compose(obs, action)`, so
+    // both sides of that comparison would be this test's own call to `compose`
+    // and the row search would succeed for any implementation of it. The
+    // conversion cancels because the recording is on its far side, and the
+    // recording is on its far side because that is where the fence is.
     let table = every_action();
     let mut checked = 0usize;
     let mut distinct = std::collections::HashSet::new();

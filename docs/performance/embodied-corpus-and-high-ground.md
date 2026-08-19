@@ -2,7 +2,7 @@
 
 **Purpose:** Record the embodied corpus, its registered pin, and the measured result of the elevation term — including that the term lost.
 **Status:** current
-**Canonical source:** this record, [`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1891), and the `EMBODIED_CORPUS_DIGEST` row in the [golden registry](../reference/hashes.md#golden-registry)
+**Canonical source:** this record, [`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1897), and the `EMBODIED_CORPUS_DIGEST` row in the [golden registry](../reference/hashes.md#golden-registry)
 **Update when:** An embodied fixture, the embodied script, the corpus shape, the pin, or the high-ground result changes.
 
 **Host:** MSVC x86-64, Windows 10, AMD Ryzen 9 3950X, 32 logical cores. **Date:** 2026-08-17.
@@ -25,7 +25,7 @@ range — see [the measurement design](#why-this-is-mirrored-and-swapped-and-not
 ## The corpus
 
 Two shipped fixtures, each in its canonical orientation and in the reflection across
-`y = 8` that [`lab articulated`](../../crates/lab/src/main.rs#L1891) has always run for
+`y = 8` that [`lab articulated`](../../crates/lab/src/main.rs#L1897) has always run for
 its second orientation.
 
 | fixture | canonical | mirrored |
@@ -81,7 +81,7 @@ the policy at once, since no embodied fixture can be driven by an articulated sc
 ## The registered pin
 
 `EMBODIED_CORPUS_DIGEST = 0x00e08317d7a31c7c`, defined at
-[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1667) and asserted by
+[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1673) and asserted by
 `the_embodied_corpus_digest_is_the_pinned_one`.
 
 ```text
@@ -115,7 +115,7 @@ several documents grew one. `verify` has only ever
 driven a Legacy skirmish, and run/re-run/replay agreement is a property of the replay
 codec rather than of any body model, so the claim is now made over seeds under the
 embodied one too — at
-[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L186). 200 seeds of
+[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L192). 200 seeds of
 `embodied-duel-v1` and 50 of `embodied-slope-v1` are identical on re-run and exact on
 replay, and the sculpted half is the only replay corpus in the repository whose floor
 reaches a state hash at all.
@@ -165,7 +165,7 @@ which actually plays gets measured against, and the forward work that does so is
 ## The high-ground measurement
 
 `lab embodied --high-ground`, at
-[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L2076). The subject is
+[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L2082). The subject is
 `EmbodiedScriptConfig::SEEKING` and the control is
 [`EmbodiedScriptConfig`](../../crates/policy/src/embodied_script.rs#L259)`::LEVEL`,
 which is the same script with the elevation term switched off so completely that the

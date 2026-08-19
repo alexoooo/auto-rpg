@@ -1,6 +1,6 @@
 //! The browser boundary.
 //!
-//! One `cdylib`, a hundred and thirty-five `extern "C"` functions, and a handful of
+//! One `cdylib`, a hundred and thirty-six `extern "C"` functions, and a handful of
 //! packed buffers that JavaScript reads straight out of linear memory -- the
 //! `f32` frame, the `u8` tiles, fog and furniture beside it, the `u32` dungeon
 //! objects at [`dungeon_object_ptr`], and the articulated publications beginning at [`pose_ptr`] and ending at
@@ -2036,7 +2036,7 @@ struct Sim {
     /// **Written wherever `world` is**, exactly as [`Sim::anatomy`] is and for a
     /// sharper reason: a stale anatomy row costs a body its capsules, and a
     /// stale duel drives the *wrong loop* over the wrong roster. [`Sim::try_on`]
-    /// and [`init_articulated_test`] build a whole replacement `Sim` and are
+    /// and [`install_boundary_fixture`] build a whole replacement `Sim` and are
     /// clean by construction; [`Sim::descend`] mutates in place and is the one
     /// place that owes the line explicitly.
     arena: Option<Arena>,
@@ -2055,7 +2055,7 @@ struct Sim {
     ///
     /// **A fixed array and not a `Vec`, and that is a measurement rather than a
     /// preference.** A `Vec` sized to the roster is one more heap allocation on
-    /// a path that holds two whole worlds at once -- every `init_articulated_test`
+    /// a path that holds two whole worlds at once -- every `init_*_test` fixture
     /// resets by building the replacement before dropping the installed one --
     /// and adding one moved the peak: `the_browser_contact_warmup_does_not_grow_wasm_memory`
     /// settled at 221 pages after one warm round and, with the `Vec`, stepped to
@@ -2080,9 +2080,11 @@ struct Sim {
     /// function that runs after every mutating export.
     ///
     /// **Written wherever `world` is**, and there are three such places:
-    /// [`Sim::try_on`], [`Sim::descend`] and [`init_articulated_test`], which
-    /// swaps a duel in behind a `Sim` built on a generated floor. (The test
-    /// helper `articulated_test_world` is a fourth and copies the third.)
+    /// [`Sim::try_on`], [`Sim::descend`] and [`install_boundary_fixture`], which
+    /// swaps a duel in behind a `Sim` built on a generated floor and is the
+    /// shared body of [`init_articulated_test`] and [`init_embodied_test`].
+    /// (The test helpers `articulated_test_world` and `embodied_test_world`
+    /// are a fourth and a fifth, and both copy the third.)
     ///
     /// A stale one cannot draw a wrong body: it costs that body its five region
     /// rows, which breaks `region_len == REGIONS_PER_BODY * pose_len` and is
@@ -2192,7 +2194,7 @@ struct Sim {
     /// authoritative state and must not be inspected as if it were. So the host
     /// writes down what it asked for on the call that answered `Ok`, and
     /// nothing else may write this: a world installed without that answer is
-    /// not installed at all (see [`init_articulated_test`]), which is what keeps
+    /// not installed at all (see [`install_boundary_fixture`]), which is what keeps
     /// this a fact rather than a hopeful copy.
     ///
     /// It lives on `Sim` and not in a `thread_local!` for the reason every other
@@ -2589,7 +2591,7 @@ impl Sim {
             // Zero and not `MAX_UNITS`: nothing has been reserved *yet*, and
             // this field records the call that answered `Ok` rather than the
             // model. Three places can honestly write anything else --
-            // `init`, `init_articulated_test` and `Sim::descend` --
+            // `init`, the two `init_*_test` fixtures and `Sim::descend` --
             // and each of them does it while the world it reserved against is
             // still a local.
             contact_high_water: 0,
@@ -5328,8 +5330,9 @@ fn publish() {
         // an `init` has filled it -- so every header float held either a written
         // value or a zero that was never anything else. The note ended by saying
         // that a future export which could clear `SIM` has to zero the header
-        // here, and there are now two of them -- [`init_articulated_test`] and
-        // [`init`], both of which refuse to install a world whose
+        // here, and there are now three of them -- [`init_articulated_test`],
+        // [`init_embodied_test`] and [`init`], all of which refuse to install a
+        // world whose
         // construction or whose contact reservation the sim would not answer
         // `Ok` to. A header left over from the last live sim would then report
         // that sim's unit count, depth and feed truncation over a world that is
@@ -5464,21 +5467,72 @@ pub extern "C" fn init(seed: u32) {
 /// Deterministic articulated command-boundary fixture used by the native/wasm
 /// equality gate until the representative articulated room lands in v2-17.
 ///
+/// **It keeps its model and its name, and that is a measurement rather than an
+/// omission.** The plan for the embodied reseat was to point this export at
+/// `Scenario::embodied_duel` and rename it, on the argument that it is the only
+/// two-body world a browser can open and the pinned command digest should be
+/// taken over the surviving model. The first half of that is what
+/// [`init_embodied_test`] is; the second half is why *this* one is still here.
+/// The boundary clinch -- `CLINCH_YAW`, `CLINCH_WALK`, `CLINCH_SWEEP` and the
+/// `CLINCH_CAP_TICK` that `client/test/wasm-memory.test.mjs` mirrors -- is a
+/// hand-written byte table of **world-frame** bearings, and
+/// `CombatModel::command_frame` reads the same bytes relative to the torso under
+/// the embodied grammar. Measured through a fresh wasm artifact: the identical
+/// table on the embodied duel resolves **zero** contacts in 400 ticks, and the
+/// obvious torso-frame translation -- walk straight forward, arm bearing zero --
+/// makes first contact on tick 87 and never spends a group ordinal at all.
+/// Reseating this export therefore does not move a fixture; it deletes one, and
+/// building its embodied replacement is a measurement job that belongs with the
+/// deletion of `Scenario::articulated_duel` rather than with a digest re-record.
+///
 /// **Reserves the contact vectors for the frame's own ceiling before the world
 /// is reachable.** See the body for why the reservation is here and not left to
 /// the first spawn, and for what a refused reservation does.
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn init_articulated_test(seed: u32) {
+    install_boundary_fixture(&Scenario::articulated_duel(), seed);
+}
+
+/// [`init_articulated_test`] against the model that survives: the same two
+/// bodies on the same open floor, embodied.
+///
+/// **The pinned command digest is taken over this one**, which is the whole
+/// reason it exists. `ARTICULATED_COMMAND_HASH` is a paired golden -- Rust and
+/// `tools/wasm_check.js` both write the number down, so a one-sided move is
+/// target disagreement rather than a fixture that drifted -- and the browser can
+/// only pin a world an export will open for it. Leaving that pin on the
+/// articulated duel would have left the *surviving* grammar's stored-command
+/// bytes uncrossed by any cross-target check at all.
+///
+/// **A second export rather than a reseat of the one above**, and that export's
+/// own comment carries the measurement that forced the split. Two names is what
+/// this boundary had before -- `init_articulated` and `init_embodied` were both
+/// exports -- and this one outlives the other by exactly as long as
+/// `Scenario::articulated_duel` does.
+///
+/// It shares [`install_boundary_fixture`] rather than reaching for
+/// [`install_articulated`], and the difference is not cosmetic: that one goes
+/// through [`Sim::try_open`], which sets both factions' objectives, and
+/// objectives are hashed state. Building the pinned world down a second path
+/// would have moved the digest by a route that has nothing to do with the model.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn init_embodied_test(seed: u32) {
+    install_boundary_fixture(&Scenario::embodied_duel(), seed);
+}
+
+/// The body both boundary fixtures share, so the only difference between them is
+/// the scenario they are handed.
+fn install_boundary_fixture(scenario: &Scenario, seed: u32) {
     let mut fresh = Sim::new(u64::from(seed));
-    let scenario = Scenario::articulated_duel();
-    fresh.world = World::new(&scenario, u64::from(seed));
+    fresh.world = World::new(scenario, u64::from(seed));
     // The world's anatomy rows, replaced along with the world. This fixture
     // swaps a duel in behind a `Sim` built on a generated floor, so the table it
     // inherited is that floor's roster rather than this duel's -- and a region
     // section written against it would publish the wrong capsules. Every place
     // that assigns `world` owes this line; see [`Sim::anatomy`].
-    fresh.anatomy = scenario_anatomy(&scenario);
+    fresh.anatomy = scenario_anatomy(scenario);
     // Here, while `fresh` is still a local: one line further down the world is
     // reachable through `SIM`, and the `publish` below hands the page a frame
     // pointer it is entitled to keep a typed array over. A contact vector that
@@ -5577,7 +5631,7 @@ fn install_articulated(scenario: &Scenario, seed: u64) {
 /// "nothing has grown it *yet*". This is the difference between those two.
 ///
 /// It reports what the call that opened this world reserved -- one of [`init`],
-/// [`init_articulated_test`] or [`Sim::descend`] -- rather
+/// [`init_articulated_test`], [`init_embodied_test`] or [`Sim::descend`] -- rather
 /// than what the world holds, because the world deliberately does not publish
 /// the second: contact capacity is not authoritative state and
 /// `try_reserve_contact_slots` forbids reading it back as if it were.
@@ -8033,9 +8087,16 @@ const STREAM_DIGEST_TICKS: u32 = 20;
 
 /// The two bodies the scripted stream drives, two units apart.
 ///
-/// [`Scenario::articulated_duel`] with the spawns pulled together and swapped,
+/// [`Scenario::embodied_duel`] with the spawns pulled together and swapped,
 /// and nothing else touched. The shipped duel stands its fighter and its brute
 /// ten units apart and would spend the whole script closing.
+///
+/// **It was `Scenario::articulated_duel` and the two spawn edits are unchanged
+/// across the move**, which is what makes the digest's move readable as one
+/// cause. Both scenarios are the same fighter, the same brute, the same open
+/// `24x16` floor and the same spec table -- `embodied_duel` is built *from*
+/// `articulated_duel` and overwrites the name and the model word -- so the only
+/// difference the stream can see is the model.
 ///
 /// **The fighter stands east of the brute, which is the point of the swap.**
 /// Every body spawns facing east, and both the body yaw and the arm bearings
@@ -8044,12 +8105,19 @@ const STREAM_DIGEST_TICKS: u32 = 20;
 /// at all: the brute's club already points east, the fighter walks west onto
 /// it, and the contact is geometry rather than patience.
 ///
-/// Two units, measured. Three halves has the club inside the fighter on tick
-/// zero, which costs the script the empty ticks it exists to carry; five halves
-/// never touches inside a script worth digesting.
+/// Two units, measured, and **measured against the articulated model**. Three
+/// halves had the club inside the fighter on tick zero, which cost the script
+/// the empty ticks it exists to carry; five halves never touched inside a script
+/// worth digesting. The embodied reseat spent part of that margin without being
+/// asked to: the fixture resolves a row on tick zero now, as well as on 3
+/// through 6, so the *opening* tick is no longer one of the empty ones. Fifteen
+/// of the twenty still are -- 1, 2 and everything from 7 -- and
+/// `empty_ticks_enter_both_stream_digests` still earns its claim on them. Moving
+/// the spawns to recover the opening would be a second cause for a pin that
+/// moved for one, so it is recorded here rather than done.
 fn stream_digest_scenario() -> Scenario {
-    let mut scenario = Scenario::articulated_duel();
-    scenario.name = "articulated-stream-v1".to_string();
+    let mut scenario = Scenario::embodied_duel();
+    scenario.name = "embodied-stream-v1".to_string();
     scenario.units[0].spawn = Vec2::from_ints(9, 6);
     scenario.units[1].spawn = Vec2::from_ints(7, 6);
     scenario
@@ -8058,9 +8126,17 @@ fn stream_digest_scenario() -> Scenario {
 /// The command each body is given, once, on tick zero.
 ///
 /// One submission and no later ones, exactly as the reference's high-water
-/// fixture does it: an articulated command is stored and driven toward until
-/// something replaces it, so a script that resubmitted every tick would be
-/// measuring the submission path rather than the stream.
+/// fixture does it: a stored command is driven toward until something replaces
+/// it, so a script that resubmitted every tick would be measuring the submission
+/// path rather than the stream.
+///
+/// It still builds an [`sim::ArticulatedCommandV1`] and the caller wraps it in
+/// [`sim::EmbodiedCommandV1::new`], which is the neutral swing plane on both
+/// arms. That is the right constructor here and not a shortcut: this function
+/// has no plane to give, and an adapter forced to invent one would be inventing
+/// state. The plane that is *not* neutral lives in the command fixture that
+/// pins `ARTICULATED_COMMAND_HASH`, where two different nonzero planes are what
+/// catch a boundary reading one offset twice.
 ///
 /// `move_dir` is a full unit along the bearing, which is the fastest a body may
 /// ask to walk -- `validate_move` refuses a magnitude *above* one, and an axis
@@ -8260,11 +8336,26 @@ fn drive_stream_digest_script(mut feed: impl FnMut(StreamPublication)) {
     // the script asks for no rotation at all and gets its contact out of the
     // geometry instead: the brute stands still with its club pointing east and
     // the fighter walks west onto it.
+    //
+    // **The zero means something else than it did, and the byte did not move.**
+    // `CombatModel::command_frame` reads `move_dir` and every arm bearing
+    // relative to the torso under the embodied grammar and absolutely under the
+    // articulated one, so `Angle::ZERO` was world east here and is now straight
+    // ahead, and `west` is a torso-relative axis rather than a compass point.
+    // The script asks for no rotation either way and still gets its contact out
+    // of the placement, but it is not the same fight -- which is one of the four
+    // routes the `ARTICULATED_STREAM_DIGEST` re-record names, and the reason a
+    // reader diffing these two lines across the move would conclude wrongly that
+    // nothing changed.
     let west = Vec2::new(-Fx::ONE, Fx::ZERO);
-    sim.world
-        .submit_articulated_v1(fighter, stream_digest_command(Angle::ZERO, west, brute));
-    sim.world
-        .submit_articulated_v1(brute, stream_digest_command(Angle::ZERO, Vec2::ZERO, fighter));
+    sim.world.submit_embodied_v1(
+        fighter,
+        sim::EmbodiedCommandV1::new(stream_digest_command(Angle::ZERO, west, brute)),
+    );
+    sim.world.submit_embodied_v1(
+        brute,
+        sim::EmbodiedCommandV1::new(stream_digest_command(Angle::ZERO, Vec2::ZERO, fighter)),
+    );
 
     // The five published buffers, built once and reused across the script
     // rather than allocated per tick: this runs on `wasm32-unknown-unknown`,
@@ -8296,11 +8387,16 @@ fn drive_stream_digest_script(mut feed: impl FnMut(StreamPublication)) {
         let (region_rows, regions_dropped) = write_region_buffer(&sim, &mut regions);
         let (projectile_rows, projectiles_dropped) =
             write_articulated_projectile_buffer(&sim, &mut projectiles);
-        // Driven through the publication's own writer and not short-circuited to
-        // an empty slice, even though this fixture is Articulated and the writer
-        // is known to answer `(0, 0)`. A script that hard-coded the emptiness
-        // would prove that this file believes the section is empty; running the
-        // writer proves the section is.
+        // Driven through the publication's own writer rather than short-circuited
+        // to an empty slice, and the argument for that is **stronger** now than
+        // when it was written. It used to read "even though this fixture is
+        // Articulated and the writer is known to answer `(0, 0)`": a script that
+        // hard-coded the emptiness would have proved that this file believes the
+        // section is empty, where running the writer proved the section is. The
+        // fixture is embodied and the writer answers two real rows, so what the
+        // call now proves is not emptiness but the rows themselves -- the same
+        // six words per body `publish` hands the page, produced by the same
+        // function rather than by a second one that agrees with it today.
         let (stance_rows, stances_dropped) =
             write_embodied_stance_buffer(&sim, &mut stances);
         feed(StreamPublication {
@@ -8329,6 +8425,12 @@ mod tests {
     /// exception, and it is the only reason these names are in scope at all.
     use sim::{Dungeon, DUNGEON_COLS, DUNGEON_ROWS, OPEN, WALL};
 
+    /// The articulated duel, installed without publishing.
+    ///
+    /// [`embodied_test_world`] is its twin and the two must not converge: both
+    /// directions of the model refusal need a world of each grammar, and
+    /// `submit_embodied`'s "wrong model lost precedence" assertion has no
+    /// subject at all without an articulated one to be refused from.
     fn articulated_test_world() {
         let mut fresh = Sim::new(1);
         let scenario = Scenario::articulated_duel();
@@ -9627,6 +9729,23 @@ mod tests {
     // `each_side_may_run_a_different_policy` is where an arena refusing it is
     // checked.
 
+    /// `submit_articulated`'s refusal ordering, and the atomicity of everything
+    /// it turns away.
+    ///
+    /// **`ARTICULATED_COMMAND_HASH` used to be the last twenty lines of this
+    /// test and is now
+    /// [`the_embodied_command_fixture_is_stored_and_pinned_across_both_targets`].**
+    /// The pin moved to the model the game still runs, so its fixture is
+    /// [`init_embodied_test`] and its bytes go in through [`submit_embodied`].
+    /// The ladder below did **not** move with it, and that is deliberate rather
+    /// than left over: `submit_articulated` is still a `pub extern "C"` export
+    /// with a live articulated caller in `arena_start`, and both worlds this
+    /// ladder needs are still installable -- `init`'s embodied floor for the
+    /// wrong-model rung and [`articulated_test_world`] for every rung after it.
+    /// Moving it would have deleted the only coverage of this export's refusal
+    /// ordering while the export still ships, and duplicated a ladder
+    /// `the_embodied_wasm_scratch_is_its_own_buffer_and_submission_is_atomic`
+    /// already runs.
     #[test]
     fn articulated_wasm_scratch_is_fixed_and_submission_is_atomic() {
         assert_ne!(submitted_command_ptr(), 0);
@@ -9687,24 +9806,56 @@ mod tests {
         assert_eq!(submit_articulated(0, 0), 1 << 8);
         let after = SIM.with(|sim| sim.borrow().as_ref().unwrap().world.state_digest().value);
         assert_eq!(after, before, "reserved-byte rejection mutated the world");
+    }
 
-        init_articulated_test(1);
-        // Rewritten for layout 2, byte for byte beside its twin in
-        // `crates/sim/src/command.rs`. The leading `0x02` is the layout version
-        // and the trailing `0x00,0x01` are the two release verbs -- the left arm
-        // keeps, the right looses -- which is the only asymmetric pair in here
-        // and therefore the only one that catches a writer filling both from one
-        // arm.
-        let fixture: [u8; 57] = [
-            0x02,0x00,0x01,0x00, 0x01,0x00,0x00,0x00, 0xfe,0xff,0xff,0xff,
+    /// `ARTICULATED_COMMAND_HASH`: one hand-written wire buffer, stored through
+    /// the boundary, read back as `World::state_digest`.
+    ///
+    /// **Split out of [`articulated_wasm_scratch_is_fixed_and_submission_is_atomic`]
+    /// when the pin moved to the embodied duel, because the two halves stopped
+    /// sharing an export.** That test's ladder is about `submit_articulated`'s
+    /// refusal *ordering* and still has both worlds it needs; this is about the
+    /// bytes a **browser** can stage into the grammar the game runs, which means
+    /// [`init_embodied_test`] and [`submit_embodied`].
+    ///
+    /// **`init_embodied_test` and not `embodied_test_world`**, even though the
+    /// two build the same world: this number is a *paired* golden, and
+    /// `tools/wasm_check.js` can only reach a world an export opens for it. A pin
+    /// whose fixture the far side cannot build is a pin with one owner.
+    ///
+    /// **The buffer is written out rather than encoded, and that is the point of
+    /// it.** `tools/wasm_check.js` stages the same sixty-one bytes from a copy it
+    /// keeps itself; a fixture assembled by calling `payload_bytes` would agree
+    /// with a drifting encoder by construction, which is the failure mode that
+    /// file records for the contact corpus.
+    #[test]
+    fn the_embodied_command_fixture_is_stored_and_pinned_across_both_targets() {
+        init_embodied_test(1);
+        // **Sixty-one bytes where the articulated twin was fifty-seven, and the
+        // envelope's kind byte is `0x02` rather than `0x01`.** The fifty-three
+        // shared payload bytes below are the same ones `crates/sim/src/command.rs`
+        // spells out, byte for byte, because `write_payload` is one function and
+        // the fork is about width; the four appended are the two swing planes.
+        //
+        // Three asymmetric pairs and no accident among them. The trailing
+        // release verbs are `0x00,0x01` -- the left arm keeps, the right looses
+        // -- which catches a writer filling both arms from one. The two planes
+        // are `0x4567` and `0x89ab`: **different, and neither of them zero**,
+        // for `EMBODIED_FIXTURE_PLANE`'s reason in `crates/sim/src/codec.rs`. A
+        // pair that was equal, or that was the neutral plane `EmbodiedCommandV1::new`
+        // answers, would round-trip just as happily through a boundary that
+        // truncated the buffer back to the articulated width or read one offset
+        // twice.
+        let fixture: [u8; 61] = [
+            0x02,0x00,0x02,0x00, 0x01,0x00,0x00,0x00, 0xfe,0xff,0xff,0xff,
             0x34,0x12,0x01, 0x44,0x33,0x22,0x11, 0x88,0x77,0x66,0x55,
             0x45,0x23, 0x00,0x40,0x00,0x00, 0x03,0x00,0x00,0x00,
             0x04,0x00,0x00,0x00, 0x56,0x34, 0x00,0xc0,0x00,0x00,
             0x05,0x00,0x00,0x00, 0x06,0x00,0x00,0x00, 0x02,0x01,0x01,0x00,
-            0x00,0x01,
+            0x00,0x01, 0x67,0x45, 0xab,0x89,
         ];
-        SUBMITTED_COMMAND.with(|buffer| *buffer.borrow_mut() = fixture);
-        assert_eq!(submit_articulated(0, 0), 1);
+        EMBODIED_COMMAND.with(|buffer| *buffer.borrow_mut() = fixture);
+        assert_eq!(submit_embodied(0, 0), 1);
         let fixture_digest = SIM.with(|sim| sim.borrow().as_ref().unwrap().world.state_digest().value);
         // Moved by v2-15, and by exactly one thing: ArticulatedV1 hashing now
         // writes one 61-byte anatomy row per allocated slot after the global
@@ -9754,15 +9905,39 @@ mod tests {
         // five of them. `ARTICULATED_STREAM_DIGEST` above is the published-bytes
         // one, and it did not move.
         //
-        // Native MSVC measured both values below before either wasm mirror was
-        // edited, and a fresh wasm artifact of each configuration then answered
-        // the same numbers. Previously `0x7194_bc63_6096_a0ff` (default) and
-        // `0x3128_2286_fc15_7e8e` (exact).
+        // **Moved a seventh time when its fixture was reseated onto the embodied
+        // model, and this one is neither an append nor a subtraction: it is the
+        // fixture.** The probe is [`init_embodied_test`]'s
+        // `Scenario::embodied_duel` where it was `init_articulated_test`'s
+        // `Scenario::articulated_duel`, and the bytes go in through
+        // [`submit_embodied`] instead of [`submit_articulated`]. Four routes
+        // reach the number and all four were predicted from the fixture before
+        // the run:
+        //
+        // 1. `articulated_state_digest` writes the model byte and the payload
+        //    tag, and both go `1 -> 2` for Embodied.
+        // 2. `World::state_digest` writes `payload_bytes()` for every stored
+        //    command, and the embodied payload is 57 bytes where the articulated
+        //    one is 53 -- the two swing planes, which this fixture makes
+        //    different and nonzero rather than neutral.
+        // 3. The embodied state stream carries a tail the articulated one has
+        //    no columns for: `ground_z`, the stance rows and the elbow planes.
+        // 4. The probe is still unstepped, so every body row is its construction
+        //    row -- but an embodied body is constructed with legs and jointed
+        //    arms, so the construction is a different one.
+        //
+        // Previously `0x30cc_bd6f_c089_1853` (default) and
+        // `0xfb22_a48c_eb8b_8132` (exact). Native MSVC measured both values
+        // below before either wasm mirror was edited, and a fresh wasm artifact
+        // of each configuration then answered the same numbers -- which is what
+        // makes this a re-record rather than target disagreement. The move
+        // before it was the legacy-column subtraction, from
+        // `0x7194_bc63_6096_a0ff` (default) and `0x3128_2286_fc15_7e8e` (exact).
         #[cfg(not(feature = "cartesian-recoil"))]
-        assert_eq!(fixture_digest, 0x30cc_bd6f_c089_1853);
+        assert_eq!(fixture_digest, 0xbe7d_c38c_780c_4403);
         #[cfg(feature = "cartesian-recoil")]
-        // Moved with its default-law twin above, and by the same subtraction.
-        assert_eq!(fixture_digest, 0xfb22_a48c_eb8b_8132,
+        // Moved with its default-law twin above, and by the same reseat.
+        assert_eq!(fixture_digest, 0x8ba5_f039_b1a7_6712,
             "the unregistered exact-law command witness moved");
     }
 
@@ -10541,8 +10716,8 @@ mod tests {
         //
         // **One legless world is left and it is a fixture**, which is worth
         // saying because it used to be the ordinary case: `init` opens legs now,
-        // so `init_articulated_test` is the whole of the subject until the
-        // session that retires it.
+        // and [`init_embodied_test`] opens them too, so `init_articulated_test`
+        // is the whole of the subject until the session that retires it.
         init_articulated_test(1);
         assert!(published_stances().is_empty(), "a legless world published a stance row");
         assert_eq!((embodied_stance_len(), embodied_stances_dropped()), (0, 0));
@@ -10565,17 +10740,17 @@ mod tests {
             (1, 6, 64),
         );
 
-        // And the same claim inside the portable digest, where it is the thing
-        // that moved the pin: every tick of the scripted fight feeds a stance
-        // slice that is empty and a drop count that is zero, which is two words
-        // per tick that a stream without the section would not carry at all.
-        let mut ticks = 0u32;
-        drive_stream_digest_script(|published| {
-            ticks += 1;
-            assert!(published.stances.is_empty(), "the articulated script grew legs");
-            assert_eq!(published.stances_dropped, 0);
-        });
-        assert_eq!(ticks, STREAM_DIGEST_TICKS);
+        // **The scripted half of this test is gone and its claim is stronger for
+        // it.** It drove `drive_stream_digest_script` and required every one of
+        // the twenty ticks to feed an empty stance slice and a zero drop count,
+        // because that zero-length tail was what moved `ARTICULATED_STREAM_DIGEST`
+        // when the section landed. The script is embodied now: it feeds two real
+        // rows a tick, so the section is load-bearing in the digest by value
+        // rather than by presence, and
+        // `the_region_and_stance_sections_both_reach_the_stream_digest` measures
+        // that with its `fold(false)` against `fold(true)`. A section that
+        // reaches the digest with rows in it is the harder case to lose
+        // silently, so nothing is owed here.
     }
 
     #[test]
@@ -10639,39 +10814,47 @@ mod tests {
         assert_ne!(settled, turned, "a quarter-turn order moved nobody's hips");
     }
 
-    /// The evidence the `ARTICULATED_STREAM_DIGEST` move rests on, kept as a
-    /// measurement rather than as a sentence in a commit message.
+    /// Both appended sections are load-bearing in `ARTICULATED_STREAM_DIGEST`:
+    /// suppress either and the number changes.
     ///
-    /// **Suppress the region section and the digest is what it was before the
-    /// forearm landed, byte for byte.** So the pose, event, projectile and
-    /// stance words of all twenty ticks are untouched, and the whole of the move
-    /// is the region section going from five rows a body to seven. That is the
-    /// difference between a *layout* move -- which is what this one is, and what
-    /// `REGION_LAYOUT_VERSION` moving from 1 to 2 says -- and a values move, in
-    /// which a `crates/sim` change reaches the fixture and the fight itself is
-    /// different.
+    /// **This was `the_region_section_is_the_whole_of_the_forearm_digest_move`,
+    /// and the half it is named for died with the articulated fixture.** It held
+    /// `BEFORE_THE_FOREARM = 0xc6482a30f399d2cb` -- the digest of *this* script
+    /// with the region section suppressed, measured on `b453ca1`, the commit
+    /// before the forearm collider -- and required the suppression to reproduce
+    /// it, which is what earned the claim that the forearm move was a layout move
+    /// and not a values one: every pose, event, projectile and stance word of all
+    /// twenty ticks was byte-identical either side of it.
     ///
-    /// **This test supersedes `the_stance_section_extends_the_digest_without_
-    /// disturbing_its_prefix`**, and the supersession is the interesting part.
-    /// That test suppressed the *stance* section and compared the rest against
-    /// `0x3b0d5c93d5560dd9`, the digest registered the day before the stance
-    /// section existed -- a stream whose region words were five rows a body.
-    /// There is no longer any way to compute that stream, so the equality could
-    /// not be repaired by re-measuring, and its own doc comment reserved exactly
-    /// that outcome for "changed the prefix". The prefix *was* changed, on
-    /// purpose, by widening the section this one suppresses. The stance claim
-    /// survives as the second assertion below, in a form that needs no constant.
+    /// Reseating `stream_digest_scenario` onto `Scenario::embodied_duel` made
+    /// that number uncomputable. The script is a different fight -- rows on ticks
+    /// 0 and 3 through 6 where the articulated one resolved nothing before tick
+    /// 3 and kept resolving well past 6, two real stance rows a tick where it had
+    /// none, and both forearms present where they were absent -- so no
+    /// suppression of the current stream can reproduce a stream the current
+    /// fixture does not run.
     ///
-    /// **The constant below is a historical record and is not this pin.** It is
-    /// the region-suppressed digest measured on `b453ca1`, the commit before the
-    /// forearm collider, using this exact suppression. A later session that
-    /// moves the live digest for a values reason moves this one with it and must
-    /// re-measure both together.
+    /// **This is precisely the fate this test recorded for the one it
+    /// superseded**, and the symmetry is the point rather than a coincidence.
+    /// `the_stance_section_extends_the_digest_without_disturbing_its_prefix`
+    /// compared a stance-suppressed fold against `0x3b0d5c93d5560dd9`, the digest
+    /// registered the day before the stance section existed; the forearm widened
+    /// the region section, changed the prefix, and left that equality
+    /// unrepairable by re-measurement. Its own doc comment had reserved exactly
+    /// that outcome for "changed the prefix". The prefix has now been changed
+    /// again, by the fixture rather than by a section, and a witness taken over a
+    /// fixture dies when the fixture is reseated. **Neither number is re-recorded
+    /// against the new fight**: a constant re-measured on a different script
+    /// would look like the same evidence and would be evidence of nothing.
+    ///
+    /// What survives needs no constant and is the half that still bites: drop
+    /// either appended section from the fold and the digest moves. The stance
+    /// half is *stronger* than it was, because the script now feeds two real rows
+    /// a tick where it used to feed a zero length -- presence was the whole of
+    /// what the old fixture could show.
     #[cfg(not(feature = "cartesian-recoil"))]
     #[test]
-    fn the_region_section_is_the_whole_of_the_forearm_digest_move() {
-        const BEFORE_THE_FOREARM: u64 = 0xc648_2a30_f399_d2cb;
-
+    fn the_region_and_stance_sections_both_reach_the_stream_digest() {
         // Everything but the region section, in the stream's own order.
         let fold = |stances: bool| {
             let mut digest = fx::Hash64::new();
@@ -10710,19 +10893,14 @@ mod tests {
             digest.finish()
         };
 
-        assert_eq!(
-            fold(true),
-            BEFORE_THE_FOREARM,
-            "the forearm disturbed the pose/event/projectile/stance words",
-        );
         assert_ne!(
             articulated_stream_digest(),
             fold(true),
             "the region section went on the wire and the portability digest did not notice",
         );
         // The stance claim the superseded test carried, without its constant:
-        // dropping the fifth section still changes the number, so it is still
-        // reaching the digest on a fixture that has no stance rows at all.
+        // dropping the fifth section still changes the number -- and on this
+        // fixture it is dropping two rows a tick rather than a zero length.
         assert_ne!(
             fold(false),
             fold(true),
@@ -11477,6 +11655,19 @@ mod tests {
         }
         // Compatibility also proves the across-tick half a per-tick check
         // cannot see.
+        //
+        // **The two advances were 6 and 8 and the batch started at tick 6, until
+        // the scripted fixture was reseated onto the embodied model.** That is a
+        // moved *fixture coordinate* and not a weakened claim: the drive is the
+        // same script, and what changed is when it makes contact. It used to
+        // resolve nothing until tick 3 and then carry a row on nearly every tick
+        // to twenty, so a batch opened at tick 6 spanned several. The embodied
+        // fight is shorter -- rows on ticks 0 and 3 through 6 and nothing after
+        // -- so a batch opened at 6 holds exactly one row and the across-tick
+        // half would have been asserting nothing. Opened at 3 it holds four,
+        // over four ticks, which is the property this half is for. The shape is
+        // measured by `print_the_articulated_stream_digest` and the numbers
+        // below are read off it rather than guessed.
         #[cfg(not(feature = "cartesian-recoil"))]
         let scenario = stream_digest_scenario();
         #[cfg(not(feature = "cartesian-recoil"))]
@@ -11486,17 +11677,21 @@ mod tests {
         #[cfg(not(feature = "cartesian-recoil"))]
         let west = EntityId::new(1, 0);
         #[cfg(not(feature = "cartesian-recoil"))]
-        sim.world.submit_articulated_v1(
+        sim.world.submit_embodied_v1(
             east,
-            stream_digest_command(Angle::ZERO, Vec2::new(-Fx::ONE, Fx::ZERO), west),
+            sim::EmbodiedCommandV1::new(
+                stream_digest_command(Angle::ZERO, Vec2::new(-Fx::ONE, Fx::ZERO), west),
+            ),
         );
         #[cfg(not(feature = "cartesian-recoil"))]
-        sim.world
-            .submit_articulated_v1(west, stream_digest_command(Angle::ZERO, Vec2::ZERO, east));
+        sim.world.submit_embodied_v1(
+            west,
+            sim::EmbodiedCommandV1::new(stream_digest_command(Angle::ZERO, Vec2::ZERO, east)),
+        );
         #[cfg(not(feature = "cartesian-recoil"))]
-        sim.advance(6);
+        sim.advance(3);
         #[cfg(not(feature = "cartesian-recoil"))]
-        sim.advance(8);
+        sim.advance(4);
         #[cfg(not(feature = "cartesian-recoil"))]
         let rows = sim.combat_events.clone();
         // Bounded lifted resolution deliberately refuses some coupled contact
@@ -11512,7 +11707,7 @@ mod tests {
         #[cfg(not(feature = "cartesian-recoil"))]
         assert_ne!(ticks.first(), ticks.last(), "the batch never crossed a tick boundary");
         #[cfg(not(feature = "cartesian-recoil"))]
-        assert_eq!(*ticks.first().unwrap(), 6, "the batch did not start at the first tick of the call");
+        assert_eq!(*ticks.first().unwrap(), 3, "the batch did not start at the first tick of the call");
         let keys: Vec<_> = rows.iter().map(event_order_key).collect();
         let mut sorted = keys.clone();
         sorted.sort_unstable();
@@ -12242,17 +12437,20 @@ mod tests {
 
     /// The scripted pose, region, projectile and combat-event stream, as one number.
     ///
-    /// The script: [`Scenario::articulated_duel`] at seed 1 with the fighter
+    /// The script: [`Scenario::embodied_duel`] at seed 1 with the fighter
     /// moved to `(9,6)` and the brute to `(7,6)`, one attack command each on
     /// tick zero and none after -- the fighter walking due west at full
     /// magnitude, the brute standing still, both asking for the bearing they
     /// already have. Twenty ticks, one publication per tick, digested through
     /// [`write_pose_buffer`], [`write_combat_event_buffer`],
-    /// [`write_region_buffer`] and [`write_articulated_projectile_buffer`].
-    /// Ticks 0, 1, 2 and 4 carry no contact, ticks 3
-    /// and 5 carry two rows, and the rest carry one; every tick carries two pose
-    /// rows and ten region rows; this sword-and-shield fixture carries zero
-    /// projectile rows but still digests their length and drop words each tick.
+    /// [`write_region_buffer`], [`write_articulated_projectile_buffer`] and
+    /// [`write_embodied_stance_buffer`]. Measured shape, read off
+    /// `print_the_articulated_stream_digest` rather than inferred: every tick
+    /// carries two pose rows, fourteen region rows, two stance rows and no
+    /// projectile rows, and still digests the projectile length and drop words;
+    /// the default build resolves one contact row on ticks 0, 3, 4, 5 and 6 and
+    /// none on the other fifteen, and the `cartesian-recoil` build carries one
+    /// more, on tick 7.
     ///
     /// Not a fight golden. It pins the *bytes the page reads*, which is a
     /// different property from a run hash's and one a hand-rolled ABI can get
@@ -12328,9 +12526,12 @@ mod tests {
     ///
     /// The prefix claim for that move was measured by
     /// `the_stance_section_extends_the_digest_without_disturbing_its_prefix`,
-    /// which the forearm collider superseded; see
-    /// `the_region_section_is_the_whole_of_the_forearm_digest_move` for why the
-    /// equality it asserted can no longer be computed. Nothing in `crates/sim`
+    /// which the forearm collider superseded, and its successor
+    /// `the_region_section_is_the_whole_of_the_forearm_digest_move` died the same
+    /// way in turn; see
+    /// [`the_region_and_stance_sections_both_reach_the_stream_digest`], which is
+    /// what both became, for why neither equality can be computed any more.
+    /// Nothing in `crates/sim`
     /// changed for the stance move and no other pin moved -- `selftest_hash`,
     /// `ROOM_HASH`, `BATTLE_HASH`, `BOW_HASH`, `SWAP_HASH`,
     /// `ARTICULATED_COMMAND_HASH`, `CONTACT_BEHAVIOR_DIGEST`,
@@ -12351,20 +12552,51 @@ mod tests {
     ///
     /// **The fixture's fight did not change**, which is the claim that has to be
     /// earned rather than asserted, and
-    /// `the_region_section_is_the_whole_of_the_forearm_digest_move` earns it:
-    /// suppress the region section and the number is `0xc6482a30f399d2cb`, the
+    /// `the_region_section_is_the_whole_of_the_forearm_digest_move` earned it:
+    /// suppress the region section and the number was `0xc6482a30f399d2cb`, the
     /// same suppression measured on `b453ca1`, so every pose, event, projectile
-    /// and stance word of all twenty ticks is byte-identical. The shape printer
-    /// reports the same counts with a wider region section: two poses every
+    /// and stance word of all twenty ticks was byte-identical. The shape printer
+    /// reported the same counts with a wider region section: two poses every
     /// tick, one event row on ticks 3 and 5, none on 0, 1, 2 and 4, and fourteen
-    /// regions instead of ten. This fixture is `Scenario::articulated_duel`, so
-    /// its arms are one link and its two appended volumes are absent on every
-    /// row -- their *presence in the stream* is the move, exactly as the stance
-    /// section's zero-length tail was.
-    /// Native MSVC measured the value below and the exact build's
+    /// regions instead of ten. That fixture was `Scenario::articulated_duel`, so
+    /// its arms were one link and its two appended volumes were absent on every
+    /// row -- their *presence in the stream* was the move, exactly as the stance
+    /// section's zero-length tail had been.
+    /// Native MSVC measured `0x2a34c9104bdf18b9` and the exact build's
     /// `0x9e9442671b790fb2` before either wasm owner was edited, and a fresh
     /// wasm artifact then answered both.
-    const ARTICULATED_STREAM_DIGEST: u64 = 0x2a34_c910_4bdf_18b9;
+    ///
+    /// **Moved a ninth time when the script was reseated onto
+    /// `Scenario::embodied_duel`, and it is a *values* move -- the fifth of that
+    /// kind, against three layout moves and two extensions.** No stride, word
+    /// offset, section order, count grammar or ABI version changed, and none may:
+    /// [`REGIONS_PER_BODY`] is 7 and [`REGION_LAYOUT_VERSION`] is 2 on both sides
+    /// of the move, because an earlier forearm-collider session did that. What
+    /// changed is what the fixture *computes*, by four routes predicted from the
+    /// fixture before the run:
+    ///
+    /// 1. The stance section goes from a zero length on every tick to two real
+    ///    rows -- the pin's first move where that section carries a value rather
+    ///    than announcing its presence.
+    /// 2. Both forearm rows go from absent to present. `World::arm_elbows`
+    ///    early-returns `[None; 2]` without jointed arms, so the two volumes the
+    ///    forearm collider added were published empty on every row of every tick
+    ///    of the old script.
+    /// 3. `ground_z` and the elbow planes reach the pose words.
+    /// 4. **The fight itself is different**, because `Angle::ZERO` is world east
+    ///    under `CommandFrame::World` and straight ahead under `Torso`. The
+    ///    default build's contact ticks go from 3 and 5 to 0, 3, 4, 5 and 6.
+    ///
+    /// Nothing in `crates/sim` changed and nothing in `crates/policy` can reach
+    /// this pin -- `stream_digest_command` is one hand-written command per body,
+    /// submitted once on tick zero, and it never calls a script. `ARTICULATED_COMMAND_HASH`
+    /// moved beside it, for its own fixture's own reseat rather than for this
+    /// one; `CONTACT_BEHAVIOR_DIGEST`, `COMBAT_GEOMETRY_HASH`,
+    /// `LEARNED_INFERENCE_DIGEST` and both exact-law digests answer what they
+    /// answered. Native MSVC measured the value below and the exact build's
+    /// `0x4bf34984d56d2795` before either wasm owner was edited, and a fresh
+    /// wasm artifact of each build then answered both.
+    const ARTICULATED_STREAM_DIGEST: u64 = 0x96e4_e51d_e0c0_0d62;
 
     /// The north-wall stored-command lifecycle, paired with the feature-only
     /// wasm exports and registered in `docs/reference/hashes.md`.

@@ -174,11 +174,25 @@ pub fn phase_offset(seed: u64) -> u32 {
 ///
 /// It wraps whatever the registry builds rather than the script specifically,
 /// because the offset is a fact about *how* a delegate is driven and not about
-/// which delegate it is. Handed a policy with no clock in it the wrapper is the
-/// identity, which is the right answer and not a silent no-op:
-/// `a_phase_shifted_opponent_is_the_script_reading_a_different_clock` asserts a
-/// changed fight, so a delegate that ignored the tick would fail there rather
-/// than quietly turning the control off.
+/// which delegate it is. **Handed a delegate with no clock in it the wrapper is
+/// the identity, and that is a silent no-op rather than the right answer.**
+/// Three of the five registry entries are such delegates -- `neutral` never
+/// reads the tick, and both planners read it only as the interval between two
+/// of their own observations, out of which a constant offset cancels. Measured,
+/// not reasoned about: `the_registry_knows_which_opponent_a_phase_shift_can_move`
+/// runs one fight per entry and compares state hashes.
+///
+/// Nothing in this type can refuse, because by the time a wrapper exists the
+/// caller has already decided to build the control. So the fact lives on the
+/// registry as [`policy::EmbodiedPolicyKind::reads_the_clock`] and the *caller*
+/// refuses by name -- `lab learn-probe`'s `opponent_from` and
+/// `evaluate_opponents` return the sentence. An earlier version of this
+/// paragraph claimed
+/// `a_phase_shifted_opponent_is_the_script_reading_a_different_clock` would
+/// catch a clockless delegate; it only ever wraps
+/// [`policy::EmbodiedPolicyKind::Scripted`], so it caught nothing and
+/// `--opponent neutral` printed a control board identical to the frozen one,
+/// row for row, with a verdict computed off the difference.
 pub struct PhaseShiftedScript {
     inner: Box<dyn EmbodiedPolicy>,
     offset: u32,
@@ -1468,6 +1482,12 @@ mod tests {
         // shifted tick, so nothing about the fighter has changed except when it
         // is in its cycle. Second: it is a *different fight*, so the wrapper
         // reached the world at all.
+        //
+        // **Both claims are about `Scripted` and neither generalises**, which is
+        // worth saying because this test was cited as the thing that would catch
+        // a delegate with no clock in it and it never could:
+        // `the_registry_knows_which_opponent_a_phase_shift_can_move` is where
+        // the other four entries are measured.
         let mut wrapped = PhaseShiftedScript::new(EmbodiedPolicyKind::Scripted, 11);
         let offset = wrapped.offset();
         assert!(offset > 0, "seed 11 drew a zero offset; pick another seed");
@@ -1514,6 +1534,54 @@ mod tests {
             Some(600),
         );
         assert_eq!(again.state_hash, randomised.state_hash, "the control is not reproducible");
+    }
+
+    #[test]
+    fn the_registry_knows_which_opponent_a_phase_shift_can_move() {
+        // The companion to the test above, and the one that makes its claim
+        // true. That one wraps `Scripted` and only `Scripted`, so a delegate
+        // with no clock in it fails nothing there -- which is exactly what
+        // happened: `--opponent neutral` scored a phase-randomised board that
+        // was the frozen board again, and the verdict ladder priced the
+        // difference between a fight and itself.
+        //
+        // So the registry carries the answer and this walks every entry and
+        // *measures* it. A fight per kind, state hash against state hash: an
+        // entry `EmbodiedPolicyKind::reads_the_clock` calls a clock reader has
+        // to produce a different fight when its tick moves, and one it calls
+        // clockless has to produce the identical one. Both directions, because
+        // a one-sided check is satisfied by answering `false` everywhere.
+        let scenario = duel_in_sight();
+        let seed = 3;
+        for kind in EmbodiedPolicyKind::ALL {
+            let mut wrapped = PhaseShiftedScript::new(kind, seed);
+            assert!(wrapped.offset() > 0, "seed {seed} drew a zero offset; pick another");
+            let frozen =
+                rollout(&scenario, seed, scripted().as_mut(), kind.build().as_mut(), Some(900));
+            let shifted =
+                rollout(&scenario, seed, scripted().as_mut(), &mut wrapped, Some(900));
+            if kind.reads_the_clock() {
+                assert_ne!(
+                    frozen.state_hash, shifted.state_hash,
+                    "{} is registered as a clock reader and the shift did not move its fight",
+                    kind.name()
+                );
+            } else {
+                assert_eq!(
+                    frozen.state_hash, shifted.state_hash,
+                    "{} is registered as clockless and the shift moved its fight, so \
+                     the control it silently disables is not silent after all",
+                    kind.name()
+                );
+            }
+        }
+        // And the registry is not answering `false` to everything, which would
+        // satisfy the equality arm for every entry and turn the whole loop into
+        // a tautology about a control nobody can run.
+        assert!(
+            EmbodiedPolicyKind::ALL.iter().any(|kind| kind.reads_the_clock()),
+            "no registry entry can honour a phase shift, so the control has no opponent"
+        );
     }
 
     #[test]
@@ -1862,6 +1930,35 @@ mod tests {
         assert_eq!(Checkpoint::from_bytes(&bytes), Ok(one));
     }
 
+    /// `Neutral` under a tap, so "it never aims" can be asserted rather than
+    /// written down.
+    ///
+    /// It counts departures instead of asserting per tick because the useful
+    /// failure message is "how many of how many", not the first one: a policy
+    /// that aimed on one tick in six hundred and a policy that aimed on all of
+    /// them are different bugs and a panic on the first departure cannot tell
+    /// them apart.
+    struct NeutralWatch {
+        inner: Box<dyn EmbodiedPolicy>,
+        decisions: u32,
+        departures: u32,
+    }
+
+    impl EmbodiedPolicy for NeutralWatch {
+        fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
+            let command = self.inner.decide(obs);
+            self.decisions += 1;
+            if command != policy::neutral_embodied_command(obs) {
+                self.departures += 1;
+            }
+            command
+        }
+
+        fn reset(&mut self) {
+            self.inner.reset();
+        }
+    }
+
     #[test]
     fn every_registry_entry_names_itself_and_fights_this_corpus() {
         // **The whole registry and not the subset this crate measures**, which
@@ -1886,12 +1983,33 @@ mod tests {
         assert_eq!(EmbodiedPolicyKind::from_name("nonesuch"), None);
 
         // And the two entries this crate deliberately does not measure are still
-        // the reason it does not. `Neutral` is a body that never commands a
-        // weapon height at all, so it cannot be a row in a table about aiming;
-        // `ScriptedLevel` is byte for byte `Scripted` on a flat fixture, which
-        // `embodied-duel-v1` is, so a row for it would print the same fighter
-        // twice. Both are asserted rather than asserted-about-in-prose, because
-        // the second one stops being true the day this corpus grows a hill.
+        // the reason it does not. `Neutral` answers `neutral_embodied_command`
+        // on every tick of a real fight -- zero reach, zero effort, both arms at
+        // MID whatever the opponent does -- so it never aims and cannot be a row
+        // in a table about aiming; `ScriptedLevel` is byte for byte `Scripted`
+        // on a flat fixture, which `embodied-duel-v1` is, so a row for it would
+        // print the same fighter twice.
+        //
+        // **Both are asserted, and until 2026-08-19 only the second one was**
+        // while this comment claimed both were. The first was stated as "never
+        // commands a weapon height at all", which is also not quite what the
+        // policy does: it commands MID, always, and what makes it not a fighter
+        // is that the command does not depend on the fight. That is the version
+        // below, and it is the one that would notice `Neutral` growing a reflex.
+        let mut watched = NeutralWatch {
+            inner: EmbodiedPolicyKind::Neutral.build(),
+            decisions: 0,
+            departures: 0,
+        };
+        let neutral = rollout(&duel_in_sight(), 5, &mut watched, scripted().as_mut(), Some(180));
+        assert_eq!(neutral.rejected, 0);
+        assert!(watched.decisions > 0, "the control never decided anything");
+        assert_eq!(
+            watched.departures, 0,
+            "{} of {} neutral commands were not the neutral command",
+            watched.departures, watched.decisions
+        );
+
         let level = rollout(
             &duel_in_sight(),
             5,

@@ -414,7 +414,7 @@ script, for the control, and for a matchup running a different policy on each si
 
 `lab embodied` therefore folds its own stream under `ARPG-EMBODIED-SCRIPT-V1` rather
 than calling it; that function is
-[`embodied_script_digest`](../../crates/lab/src/main.rs#L1128), it copies
+[`embodied_script_digest`](../../crates/lab/src/main.rs#L1134), it copies
 `script_digest`'s grammar byte for byte over `EmbodiedCommandV1::payload_bytes`, and its
 doc comment carries the whole argument. **The repair to the shared function is still
 owed** and is a one-line change -- the third match arm -- but it is a change to a

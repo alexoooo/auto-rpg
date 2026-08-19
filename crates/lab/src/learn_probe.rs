@@ -57,6 +57,17 @@
 //! run seed. **If the learned edge collapses against the second, that is the
 //! finding**, and this command says so in the verdict rather than leaving it to
 //! a reader.
+//!
+//! **Three of the five registry entries cannot be that second opponent, and the
+//! run is refused rather than doubled.** `neutral` reads no clock and both
+//! planners read one only as the interval between two of their own
+//! observations, so the wrapper is the identity for all three: the control
+//! board comes back byte-identical to the frozen board, the verdict prices the
+//! difference between a fight and itself, and it costs twice the wall clock to
+//! print. `EmbodiedPolicyKind::reads_the_clock` is where the registry answers
+//! the question and [`evaluate_opponents`] is where the answer becomes a
+//! sentence. `--frozen-only` scores such an opponent with no control at all,
+//! which is the honest version of what the doubled run was doing.
 
 use crate::args::Args;
 use learn::{
@@ -78,6 +89,15 @@ use std::time::Instant;
 /// here without an edit, and a table of names kept beside a registry is a table
 /// that goes stale the first time somebody adds to it. `Args::choice` refuses an
 /// unknown string by name and lists these, so the refusal stays legible.
+///
+/// **What widening this from three baselines to the whole registry cost was one
+/// unasked question**, and the answer belongs on the registry rather than here:
+/// the three entries it replaced all read `obs.tick`, so the phase-randomised
+/// control worked for every one of them and nothing had to check. Only two of
+/// the five it selects now do. `EmbodiedPolicyKind::reads_the_clock` makes an
+/// appended entry answer that question before it can be selected, and
+/// [`opponent_from`] turns a wrong answer into a refusal instead of a
+/// duplicated board.
 fn opponent_kinds() -> Vec<(&'static str, EmbodiedPolicyKind)> {
     EmbodiedPolicyKind::ALL.iter().map(|&k| (k.name(), k)).collect()
 }
@@ -169,19 +189,110 @@ fn check_spec(args: &Args) {
     }
 }
 
-/// The opponent the candidate is measured against, script and clock together.
-pub fn opponent_from(args: &Args) -> Opponent {
+/// The opponent the candidate is measured against, script and clock together,
+/// or the sentence the run should be refused with.
+///
+/// Returned rather than printed-and-exited, on `embodied_matchup_from`'s
+/// discipline and for AGENTS.md's reason: a refusal a test cannot read is half
+/// the rule, and it is the half that has already shipped ten instances of this
+/// bug. `a_phase_shift_is_refused_by_name_for_an_opponent_with_no_clock` reads
+/// the sentence.
+pub fn opponent_from(args: &Args) -> Result<Opponent, String> {
     // `Scripted` and **not** the registry's own default, which is `Neutral` -- a
     // body that stands there with its arms slack. A corpus fought against a
-    // statue would produce a full table of finite numbers about nothing, which
-    // is the shape of failure this command is written to refuse rather than to
-    // print.
+    // statue is a full table of finite numbers about nothing.
+    //
+    // **It is a default and not a guard**, which is the correction this comment
+    // used to get wrong: it claimed the command was "written to refuse rather
+    // than to print" a fight against a statue, and `--opponent neutral` printed
+    // exactly that. Nothing here refuses a weak opponent and nothing should --
+    // a control condition is a legitimate thing to score against. What is
+    // refused below is narrower and is a real impossibility: asking for a
+    // phase-randomised opponent that has no phase to randomise.
     let kind = args.choice("opponent", EmbodiedPolicyKind::Scripted, &opponent_kinds());
     if args.flag("phase-random") {
-        Opponent::randomised(kind)
-    } else {
-        Opponent::frozen(kind)
+        if !kind.reads_the_clock() {
+            return Err(phase_refusal(
+                kind,
+                "--phase-random asks for an opponent whose clock starts somewhere the \
+                 candidate cannot know",
+            ));
+        }
+        return Ok(Opponent::randomised(kind));
     }
+    Ok(Opponent::frozen(kind))
+}
+
+/// Why a phase-shifted opponent of this kind would not be one, as a sentence.
+///
+/// One wording behind both callers, because the two inputs that reach it --
+/// `--phase-random` on `train` and the control board `evaluate` scores by
+/// default -- are the same impossibility and a reader who saw two different
+/// explanations would go looking for two different bugs.
+fn phase_refusal(kind: EmbodiedPolicyKind, asked: &str) -> String {
+    let clocked: Vec<&str> = EmbodiedPolicyKind::ALL
+        .iter()
+        .filter(|kind| kind.reads_the_clock())
+        .map(|kind| kind.name())
+        .collect();
+    format!(
+        "{asked}, and {} has no clock to start: its behaviour does not depend on the \
+         tick it is handed, so the phase-shifted wrapper is the identity and the control \
+         would be a second copy of the frozen run scored at twice the cost. Name {} \
+         with --opponent, or drop the control.",
+        kind.name(),
+        clocked.join(" or "),
+    )
+}
+
+/// The boards `evaluate` scores, or the sentence the run should be refused with.
+///
+/// **The phase-randomised board is not behind a flag**, which is why this
+/// refusal exists at all and why `opponent_from`'s is not enough: `evaluate`
+/// runs the control on every condition unless told `--frozen-only`, so an
+/// opponent that cannot honour it turns the second board into a duplicate of
+/// the first without anybody having typed `--phase-random`. That is what
+/// `--opponent neutral` and `--opponent tactical` did -- two byte-identical
+/// boards, the second labelled the control, and a verdict computed over a
+/// structural zero.
+fn evaluate_opponents(args: &Args) -> Result<Vec<Opponent>, String> {
+    let frozen = opponent_from(args)?;
+    if args.flag("frozen-only") {
+        // `--frozen-only --phase-random` is the one pair that reaches here
+        // asking for both a control and no control. Refused rather than
+        // resolved by precedence, on `embodied`'s rule for two frozen
+        // measurements on one line: the operator gets a number either way and
+        // it is the other request's.
+        if frozen.phase_randomised {
+            return Err(
+                "--frozen-only scores no control and --phase-random asks for one: name one"
+                    .to_string(),
+            );
+        }
+        return Ok(vec![Opponent::frozen(frozen.kind)]);
+    }
+    if !frozen.kind.reads_the_clock() {
+        return Err(phase_refusal(
+            frozen.kind,
+            "learn-probe evaluate scores every condition against the phase-randomised \
+             control as well as the frozen opponent",
+        ));
+    }
+    Ok(vec![
+        Opponent::frozen(frozen.kind),
+        Opponent::randomised(frozen.kind),
+    ])
+}
+
+/// A refusal on the way out of one of this command's arms.
+///
+/// The sentences are returned so that a test can read them, and something still
+/// has to print one and stop -- this is that something, in one place rather
+/// than at each of the four arms. Exit 2 is `lab`'s code for "the command line
+/// asked for a thing it cannot have", which every refusal reaching here is.
+fn refuse(sentence: String) -> ! {
+    eprintln!("{sentence}");
+    std::process::exit(2);
 }
 
 /// An opponent as a sentence, for a headline rather than a table column.
@@ -274,7 +385,7 @@ fn train(args: &Args) {
             0 => None,
             ticks => Some(ticks),
         },
-        opponent: opponent_from(args),
+        opponent: opponent_from(args).unwrap_or_else(|sentence| refuse(sentence)),
         verbose: !args.flag("quiet"),
     };
     let path = output_path(args);
@@ -386,7 +497,7 @@ fn train_tactical_v2(args: &Args) {
         threads: args.usize("threads", default_threads()),
         master_seed: args.number("master-seed", SPEC_MASTER_SEED),
         max_ticks: match args.u32("ticks", 0) { 0 => None, ticks => Some(ticks) },
-        opponent: opponent_from(args),
+        opponent: opponent_from(args).unwrap_or_else(|sentence| refuse(sentence)),
         verbose: !args.flag("quiet"),
     };
     let path = output_path(args);
@@ -432,7 +543,8 @@ fn evaluate_tactical_v2(args: &Args) {
         mirrored: !args.flag("plain"), sigma: 0.0,
         threads: args.usize("threads", default_threads()), master_seed: SPEC_MASTER_SEED,
         max_ticks: match args.u32("ticks", 0) { 0 => None, ticks => Some(ticks) },
-        opponent: opponent_from(args), verbose: false,
+        opponent: opponent_from(args).unwrap_or_else(|sentence| refuse(sentence)),
+        verbose: false,
     };
     let corpus = Corpus::new(config.mirrored);
     let score = learn::score_v2(&checkpoint.model, &corpus, &config);
@@ -703,15 +815,8 @@ fn evaluate(args: &Args) {
     let mirrored = !args.flag("plain");
     let threads = args.usize("threads", default_threads());
     let corpus = Corpus::new(mirrored);
-    let frozen = opponent_from(args);
-    let opponents: Vec<Opponent> = if args.flag("frozen-only") {
-        vec![Opponent::frozen(frozen.kind)]
-    } else {
-        vec![
-            Opponent::frozen(frozen.kind),
-            Opponent::randomised(frozen.kind),
-        ]
-    };
+    let opponents = evaluate_opponents(args).unwrap_or_else(|sentence| refuse(sentence));
+    let frozen = opponents[0];
     let replays = !args.flag("no-replay");
 
     let original = Scenario::embodied_duel();
@@ -1260,6 +1365,73 @@ mod tests {
 
     fn tiny_corpus() -> (Corpus, Vec<u64>) {
         (Corpus::new(false), held_out_seeds(1))
+    }
+
+    fn probe_args(line: &str) -> crate::args::Args {
+        crate::args::Args::parse(line.split_whitespace().map(String::from).collect())
+    }
+
+    #[test]
+    fn a_phase_shift_is_refused_by_name_for_an_opponent_with_no_clock() {
+        // The sentence and not the exit code, which is the half of AGENTS.md's
+        // rule the previous version of this refusal skipped: an `eprintln!` and
+        // an `exit(2)` refuse correctly and are unreadable from a test, so
+        // nothing catches the refusal disappearing.
+        //
+        // Every clockless entry, walked out of the registry rather than named,
+        // so an appended one that answers `reads_the_clock` wrongly arrives here
+        // rather than in a table of duplicated numbers.
+        for kind in EmbodiedPolicyKind::ALL.iter().filter(|k| !k.reads_the_clock()) {
+            let line = format!("learn-probe train --opponent {} --phase-random", kind.name());
+            let refusal = opponent_from(&probe_args(&line))
+                .expect_err("a clockless opponent cannot honour --phase-random");
+            assert!(refusal.contains("--phase-random"), "{refusal}");
+            assert!(refusal.contains(kind.name()), "the refusal does not name the opponent: {refusal}");
+            assert!(
+                refusal.contains(EmbodiedPolicyKind::Scripted.name()),
+                "the refusal does not name an opponent that would work: {refusal}"
+            );
+
+            // And `evaluate` refuses the same run with no flag typed at all,
+            // because its control board is not behind one.
+            let line = format!("learn-probe evaluate --opponent {}", kind.name());
+            let refusal = evaluate_opponents(&probe_args(&line))
+                .expect_err("evaluate scores a control it cannot build");
+            assert!(refusal.contains(kind.name()), "{refusal}");
+
+            // `--frozen-only` is the way to score it, and it is not refused.
+            let line = format!("learn-probe evaluate --opponent {} --frozen-only", kind.name());
+            assert_eq!(
+                evaluate_opponents(&probe_args(&line)),
+                Ok(vec![Opponent::frozen(*kind)]),
+                "--frozen-only is the arm that has no control to disable"
+            );
+        }
+    }
+
+    #[test]
+    fn a_clock_reading_opponent_still_gets_both_boards() {
+        // The other direction, which is what stops the refusal above from being
+        // satisfied by refusing everything. `scripted` is what the command runs
+        // by default and the phase-randomised board is the reason the command
+        // has a verdict ladder at all.
+        assert_eq!(
+            opponent_from(&probe_args("learn-probe train --phase-random")),
+            Ok(Opponent::randomised(EmbodiedPolicyKind::Scripted)),
+        );
+        assert_eq!(
+            evaluate_opponents(&probe_args("learn-probe evaluate")),
+            Ok(vec![
+                Opponent::frozen(EmbodiedPolicyKind::Scripted),
+                Opponent::randomised(EmbodiedPolicyKind::Scripted),
+            ]),
+        );
+        // Two requests that contradict each other, named rather than resolved
+        // by precedence.
+        assert!(evaluate_opponents(&probe_args(
+            "learn-probe evaluate --frozen-only --phase-random"
+        ))
+        .is_err());
     }
 
     #[test]

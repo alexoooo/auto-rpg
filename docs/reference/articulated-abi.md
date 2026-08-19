@@ -1528,20 +1528,34 @@ pose-and-event prefix of every tick is byte-identical to what v2-16 pinned, so
 v2-ui-06's move can be read as the extension it is — and so can every move since.
 
 **A section reaches this digest whether or not the fixture has a row for it**, which is
-what the [stance rows](#stance-rows) made visible. The script below is
-`Scenario::articulated_duel` and only `CombatModel::Embodied` has legs, so the fifth
-section contributes a zero length and a zero drop count on each of the twenty ticks and
-nothing else — and **their presence is the whole of the move**, from
-`0x3b0d5c93d5560dd9` to `0x686ecf8a2f5dd479` in the default build and from
+what the [stance rows](#stance-rows) made visible. The script below was
+`Scenario::articulated_duel` when that section landed, and only `CombatModel::Embodied`
+has legs, so the fifth section contributed a zero length and a zero drop count on each
+of the twenty ticks and nothing else — and **their presence was the whole of the move**,
+from `0x3b0d5c93d5560dd9` to `0x686ecf8a2f5dd479` in the default build and from
 `0x2fa1256f412b2e32` to `0xde453a669e770512` under `cartesian-recoil`, native and wasm
 agreeing on both. A section that vanished when it had nothing to say would be
 indistinguishable here from a section nobody added, which is the argument the empty
-*tick* is already carried on. The claim that the move is an extension is **measured
-rather than asserted**:
-`the_stance_section_extends_the_digest_without_disturbing_its_prefix` in
-`crates/web/src/lib.rs` recomputes the digest with the stance tail suppressed and gets
-the old value byte for byte, so no pose, event, region or projectile word of any tick
-moved.
+*tick* is already carried on.
+
+**The script is embodied now and the section carries two real rows a tick**, so the
+claim above can no longer be measured on this fixture and it does not need to be: what
+was being defended was a section whose only contribution was its own presence, and this
+one contributes values. The claim that *survives* is the weaker-sounding and harder one
+— drop the section from the fold and the number moves —
+which `the_region_and_stance_sections_both_reach_the_stream_digest` in
+`crates/web/src/lib.rs` asserts without a constant.
+
+Both prefix witnesses this section used to carry are gone, and the second one went the
+way the first did. `the_stance_section_extends_the_digest_without_disturbing_its_prefix`
+compared a stance-suppressed fold against the digest registered the day before the
+stance section existed; the forearm collider widened the region section, changed the
+prefix, and left that equality unrepairable. Its successor compared a *region*-suppressed
+fold against `0xc6482a30f399d2cb`, measured on `b453ca1`; reseating the script onto
+`Scenario::embodied_duel` left that one unrepairable in turn, because no suppression of
+the current stream reproduces a stream the current fixture does not run. **Neither number
+was re-measured against the new fight.** A constant re-measured on a different script
+looks like the same evidence and is evidence of nothing.
 
 The digest is exported as `articulated_stream_digest_lo()` and
 `articulated_stream_digest_hi()`, on the `selftest_hash` precedent: a self-contained
@@ -1554,21 +1568,43 @@ encoders agree and says nothing about what the page reads. Unlike `selftest_hash
 allocates enough to move the heap, so it is cached on first touch and belongs in a
 caller's warm-up; see the memory note above.
 
-The script is `Scenario::articulated_duel()` at seed 1 with the fighter moved to
-`(9,6)` and the brute to `(7,6)`, one articulated command submitted to each on tick
-zero and none after: the fighter walks due west at full magnitude, the brute stands
+The script is `Scenario::embodied_duel()` at seed 1 with the fighter moved to
+`(9,6)` and the brute to `(7,6)`, one embodied command submitted to each on tick
+zero and none after: the fighter walks at full magnitude along its own `-x`, the brute stands
 still, and both ask for the bearing they already have. Twenty ticks, one publication
-each. Every body spawns facing east and both body yaw and arm bearings are *driven*
-rather than set — the shipped clinch fixture spends 78 ticks turning around before it
-first touches — so the script asks for no rotation at all and gets its contact out of
-the placement instead. Ticks 0, 1, 2 and 4 resolve nothing, ticks 3 and 5 resolve two
-rows, and every tick from 6 resolves one, which is how the reference's "including an
-empty tick" is actually covered. Every tick carries two pose rows and fourteen
-region rows — ten until the forearm collider widened the section — no projectile
-rows and no stance rows. The two empty sections are still driven through
-their own writers rather than short-circuited to an empty slice: a script that
-hard-coded the emptiness would prove that the host *believes* the section is empty,
-where running the writer proves the section is.
+each. Both body yaw and arm bearings are *driven* rather than set — the shipped clinch
+fixture spends 78 ticks turning around before it first touches — so the script asks for
+no rotation at all and gets its contact out of the placement instead.
+
+**It was `Scenario::articulated_duel()` until the embodied reseat, and the two spawn
+edits are unchanged across that move**, which is what makes the pin's move readable as
+one cause: `embodied_duel` is built from `articulated_duel` and overwrites the name and
+the model word, so the only thing the stream can see is the model. What it sees is not
+small. `Angle::ZERO` is world east under `CommandFrame::World` and straight ahead under
+`Torso`, so **the fight is a different fight** even though neither the command builder
+nor the spawns changed a byte. The clearest reading of that is the walk: `(-1, 0)` was
+due west and is now *backwards*, which happens to still be west while the fighter's
+commanded yaw is zero — the same displacement arrived at through a different sentence,
+which is exactly the trap a reader diffing the two versions of this script would fall
+into.
+
+The shape below is measured by `print_the_articulated_stream_digest`, not inferred.
+Every tick carries two pose rows, fourteen region rows — ten until the forearm collider
+widened the section — two stance rows and no projectile rows. The default build resolves
+one contact row on ticks 0, 3, 4, 5 and 6 and nothing on the other fifteen; the
+`cartesian-recoil` build carries one more, on tick 7. So the reference's "including an
+empty tick" is covered fifteen times over, though **not on the opening tick any more**:
+the articulated script resolved nothing until tick 3, and the two-unit gap was chosen
+against that model to buy exactly that. Recovering it would mean moving the spawns,
+which would be a second cause for a pin that moved for one, so it is recorded here
+rather than done.
+
+The one empty section left — projectiles — is still driven through its own writer rather
+than short-circuited to an empty slice: a script that hard-coded the emptiness would
+prove that the host *believes* the section is empty, where running the writer proves the
+section is. The stance section is driven through its writer for a stronger reason now
+that it has rows: what crosses is the same six words per body `publish` hands the page,
+produced by the same function rather than by a second one that agrees with it today.
 The pin is registered in [`hashes.md`](hashes.md#golden-registry).
 
 **The JavaScript half pins the number and does not rebuild the bytes, and that is
@@ -1580,8 +1616,8 @@ drifting solver by construction. That argument does not transfer here. This stre
 not a table a document can state; it is twenty ticks of fixed-point simulation output,
 and the only thing that can produce those bytes is the sim. Nor can the check read
 them out of a live publication and re-digest them: the script moves the two spawns,
-`init_articulated_test` builds the *unmoved* duel, and no export places a body, so the
-script cannot be driven from across the wall. What the dual pin still buys is the
+`init_embodied_test` builds the *unmoved* embodied duel, and no export places a body, so
+the script cannot be driven from across the wall. What the dual pin still buys is the
 whole cross-target claim — the value was recorded natively, and the module recomputes
 it through the same four writers `publish` calls. What one number cannot catch is an
 encoder wrong the same way on both targets, so
@@ -1593,14 +1629,23 @@ rows a body in pose order, presence against the pose row's severed mask, and the
 published as a degenerate capsule that is nonetheless present, which is the one fact
 in this section a reader could plausibly get backwards.
 
-**The stance section has no row grammar beside it there and cannot have one yet**, and
-that gap is recorded rather than left to be discovered: no export installs an embodied
-world, so every world the JavaScript check can open publishes zero rows. What crosses
-the wall is the section's layout version, stride, capacity, a distinct aligned pointer
-inside linear memory, and the zero itself paired with a zero drop count — which is the
-whole of what an empty publication has to say and exactly the pair that distinguishes it
-from an absent one. The row grammar is checked natively instead, by
-`an_embodied_bodys_stance_row_round_trips`, which reads every published row back against
-`World::stance` column by column and then submits a quarter-turn order to prove the
-columns move — two bodies standing still satisfy a round trip that a buffer written once
-at spawn would also satisfy.
+**The stance section has no row grammar beside it there and still does not**, and the
+reason has changed twice, which is worth recording rather than leaving to be discovered.
+It read *"no export installs an embodied world, so every world the JavaScript check can
+open publishes zero rows"* — true when it was written and false in two stages since.
+`init` opens an embodied floor, and `init_embodied_test` now opens the embodied duel; so
+the check has two embodied worlds and one legless one (`init_articulated_test`), and the
+zero it asserts is a reading of *that* fixture rather than of everything the boundary
+can build.
+
+What crosses the wall for the legless world is the section's layout version, stride,
+capacity, a distinct aligned pointer inside linear memory, and the zero itself paired
+with a zero drop count — which is the whole of what an empty publication has to say and
+exactly the pair that distinguishes it from an absent one. That witness is
+`init_articulated_test`'s and it dies with `Scenario::articulated_duel`: the boundary
+will then have no way to be *asked* for a legless world, and "empty because this model
+has no legs" will stop being a distinction any export can draw. The row grammar is
+checked natively instead, by `an_embodied_bodys_stance_row_round_trips`, which reads
+every published row back against `World::stance` column by column and then submits a
+quarter-turn order to prove the columns move — two bodies standing still satisfy a round
+trip that a buffer written once at spawn would also satisfy.
