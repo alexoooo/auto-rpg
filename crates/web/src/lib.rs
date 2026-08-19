@@ -2587,23 +2587,34 @@ impl Sim {
         for faction in [Faction::Heroes, Faction::Monsters] {
             units.extend_from_slice(&world.alive_ids(faction));
         }
-        // **Both sides open on the same mind, and the asymmetry that used to be
-        // here went with the registry it was drawn from.**
+        // **Both sides open on the fighter, and the paragraph this replaced is
+        // kept below because it was true when it was written and stopped being
+        // true rather than because it was wrong.**
         //
-        // The legacy seam had two minds to contrast -- a naive baseline whose
-        // footwork never looked at what was in its hand, against one that
+        // It read: the legacy seam had two minds to contrast -- a naive baseline
+        // whose footwork never looked at what was in its hand, against one that
         // dispatched per role -- and watching the same room go differently when
-        // the dropdown moved was the page's whole subject. `EmbodiedPolicyKind`
-        // is not that registry: it holds one mind, one copy of that mind with a
-        // single term switched off, and a control that stands there. Opening
-        // either side on the control would be a room where one side does not
-        // fight, which is not a contrast worth watching -- it is an empty room
-        // with an explanation.
+        // the dropdown moved was the page's whole subject; `EmbodiedPolicyKind`
+        // is not that registry, it holds one mind, one copy of that mind with a
+        // single term switched off, and a control that stands there. That was an
+        // accurate description of a three-entry registry, and the conclusion it
+        // drew -- open both sides on the one mind, because the alternative is an
+        // empty room with an explanation -- followed from it.
         //
-        // Both sides are still switchable from [`set_policy`], so the comparison
-        // the panel exists for is a press away rather than the state the room
-        // opens in.
-        let kinds = [EmbodiedPolicyKind::Scripted, EmbodiedPolicyKind::Scripted];
+        // The registry now holds a fighter that aims at a named region and
+        // guards against a blade it reads, the script that fighter was built to
+        // beat, and that fighter with its guard read switched off. **The
+        // asymmetry the old paragraph says was missing is exactly what
+        // `tactical` against `scripted` now is**, and it is the comparison this
+        // whole topic was built to make visible.
+        //
+        // Opening on `tactical` on *both* sides rather than on that contrast is
+        // deliberate: this route is the dungeon, not the arena, and a reader who
+        // came here to watch a fight should see the shipped fighter on both
+        // sides of it. `#/arena` is the route whose whole subject is the matchup,
+        // it opens on the contrast, and both sides here are still a
+        // [`set_policy`] press away.
+        let kinds = [EmbodiedPolicyKind::Tactical, EmbodiedPolicyKind::Tactical];
         let mut sim = Sim {
             world,
             policies: [kinds[0].build(), kinds[1].build()],
@@ -8332,6 +8343,32 @@ fn drive_stream_digest_script(mut feed: impl FnMut(StreamPublication)) {
         // instance. An empty stream fails its pin loudly on the far side.
         return;
     };
+    // **The policies are named here rather than defaulted, because this fixture
+    // drives a pinned digest and a room default moved it once already.** That is
+    // not a hypothetical: the session that opened `#/game` on
+    // `EmbodiedPolicyKind::Tactical` changed one line in [`Sim::try_on`] and
+    // `ARTICULATED_STREAM_DIGEST` moved, from `0x96e4e51de0c00d62` to
+    // `0xfb1d4456a7ef82d1` -- a two-target, four-copy portability witness
+    // reached by a dropdown's opening value, which it is not supposed to be
+    // reachable by at all. **The failure reads as a portability failure**, and
+    // that is the expensive part: it names the target boundary and says nothing
+    // at all about the product decision that caused it.
+    //
+    // Which mind a reader meets on `#/game` is a product decision and it may
+    // move again. This digest is not one -- it is the witness that wasm and
+    // native publish the same words out of the same fight -- so it borrows
+    // nothing from the room. **This is not a preference for the old default
+    // either:** the number was recorded over a fight driven by `Scripted` on
+    // both sides, and naming that here is the whole difference between a fixture
+    // and a default that happened to agree with one. The two looked identical
+    // until the day they did not.
+    //
+    // `assert_documented_event_order` builds this same scenario a second time
+    // and has to say the same thing for the same reason; the two are separate
+    // because that test opens its batch mid-script rather than reading every
+    // tick.
+    sim.set_policy(Faction::Heroes, EmbodiedPolicyKind::Scripted);
+    sim.set_policy(Faction::Monsters, EmbodiedPolicyKind::Scripted);
     // Reserved up front so the run's own contact vectors do not grow under it.
     // This costs one allocation burst before any pointer is handed out, which
     // is the same discipline `init` keeps.
@@ -11542,6 +11579,16 @@ mod tests {
         let scenario = stream_digest_scenario();
         #[cfg(not(feature = "cartesian-recoil"))]
         let mut sim = Sim::try_on(&scenario, STREAM_DIGEST_SEED).expect("the scripted fixture");
+        // Named rather than inherited, for the reason `drive_stream_digest_script`
+        // gives at length: the room opens on `Tactical` and the *fixture* is
+        // scripted. Here it buys the tick coordinates below rather than a pin --
+        // the batch starting at 3 and spanning four ticks is a fact about this
+        // script, and a mind reading the room instead of the script would move
+        // both numbers without moving anything this test is about.
+        #[cfg(not(feature = "cartesian-recoil"))]
+        sim.set_policy(Faction::Heroes, EmbodiedPolicyKind::Scripted);
+        #[cfg(not(feature = "cartesian-recoil"))]
+        sim.set_policy(Faction::Monsters, EmbodiedPolicyKind::Scripted);
         #[cfg(not(feature = "cartesian-recoil"))]
         let east = EntityId::new(0, 0);
         #[cfg(not(feature = "cartesian-recoil"))]
@@ -13204,18 +13251,26 @@ mod tests {
     #[test]
     fn a_faction_can_be_handed_a_different_mind_mid_fight() {
         init_quiet(1);
-        // **Both sides open on the same mind now**, which is the opposite of
-        // what this used to assert and is asserted for the same reason: it is
-        // one line in `Sim::try_on` away from quietly reverting, and the
-        // registry it is drawn from has one mind and one control in it. See that
-        // function for why opening either side on the control would be an empty
-        // room with an explanation attached.
-        assert_eq!(policy_kind(0), EmbodiedPolicyKind::Scripted.code());
-        assert_eq!(policy_kind(1), EmbodiedPolicyKind::Scripted.code());
+        // **Both sides open on the fighter**, which is what this used to assert
+        // of `scripted` and is asserted for the same reason: it is one line in
+        // `Sim::try_on` away from quietly reverting, and the registry it is
+        // drawn from now holds a fighter, the script that fighter was built to
+        // beat, and two variations. See that function for why the dungeon opens
+        // on the shipped fighter on both sides and `#/arena` opens on the
+        // contrast between them.
+        //
+        // **The line is worth guarding in this direction more than it was in the
+        // last one.** A revert to `scripted` on both sides would still open a
+        // room where two bodies fight, so nothing above would go red and every
+        // screenshot would still look like a fight -- it would just be the
+        // control fighting itself. That is precisely the failure this file is
+        // built to make loud rather than plausible.
+        assert_eq!(policy_kind(0), EmbodiedPolicyKind::Tactical.code());
+        assert_eq!(policy_kind(1), EmbodiedPolicyKind::Tactical.code());
 
         assert_eq!(set_policy(0, EmbodiedPolicyKind::Neutral.code()), 1);
         assert_eq!(policy_kind(0), EmbodiedPolicyKind::Neutral.code());
-        assert_eq!(policy_kind(1), EmbodiedPolicyKind::Scripted.code(), "both sides moved");
+        assert_eq!(policy_kind(1), EmbodiedPolicyKind::Tactical.code(), "both sides moved");
 
         // An unknown code changes nothing rather than trapping.
         assert_eq!(set_policy(0, 999), 0);
@@ -13832,8 +13887,8 @@ mod tests {
         // generated level for this half rather than the carved one: it needs
         // monsters that can reach the character, which a fixture built out of
         // sealed chambers deliberately does not have.
-        init_quiet(1);
-        assert!(kill_the_hero(), "six brutes could not kill one fighter");
+        init_quiet(FATAL_SEED);
+        assert!(kill_the_hero(), "twelve brutes could not kill one fighter");
         let standing = rows();
         assert!(!standing.is_empty(), "the killers all died too");
         for row in standing {
@@ -14517,6 +14572,75 @@ mod tests {
         // and fights while being invisible in the frame.
     }
 
+    /// The seeds a fixture opens on when what it needs from the room is a
+    /// **death**.
+    ///
+    /// **They were all `1`, and `1` does not kill any more.** `Sim::try_on`
+    /// opens both sides on `EmbodiedPolicyKind::Tactical` rather than on
+    /// `Scripted`, and a Fighter that reads the blade coming at it outlasts
+    /// twelve Brutes for longer than any budget in this file: seed 1 reaches the
+    /// end of eighteen thousand ticks with 10.2 of its 12 health still on it.
+    /// That is a *fixture coordinate* that moved with a default and not a rule
+    /// that changed -- twelve Brutes still kill a Fighter, and the floor plans
+    /// they do it on are now the exception rather than the majority.
+    ///
+    /// Measured rather than hunted by hand, twice. Seeds 1 through 24, twelve
+    /// Brutes, eighteen thousand ticks: nine reach a death and fifteen do not.
+    /// Then those nine again one tick at a time, which is the tick each
+    /// character fell on:
+    ///
+    /// ```text
+    /// seed    2     3     5     7     9    10    15    16    24
+    /// fell 11517 12985 16635 13778 11403 16782  7221  3512 17667
+    /// ```
+    ///
+    /// The four below are the cheapest of the nine, fastest first, and **cost is
+    /// a correctness argument here rather than a preference**: three of these
+    /// fixtures run a fall one tick at a time, and the difference between 3,512
+    /// ticks and 17,667 is the difference between a suite somebody runs and one
+    /// they skip. Four is also the width
+    /// `a_replacement_lands_where_the_last_one_fell` needs, because where a body
+    /// falls is a fact about the floor plan it was chased across.
+    ///
+    /// Seed 16 leads for two reasons beyond being fastest. It is one of only two
+    /// of the nine that still kills after the sixty-tick warmup
+    /// `a_replacement_takes_no_credit_for_the_last_ones_thinking` opens with --
+    /// sixty ticks of standing about moves the fight enough to lose the other
+    /// seven, which is worth knowing before adding a warmup to any of these. And
+    /// it reaches its death with all twelve Brutes still up, which
+    /// `dead_monsters_stop_holding_a_place_in_the_roster` counts: seeds 3, 5, 9
+    /// and 24 lose between one and three of them on the way.
+    const FATAL_SEEDS: [u32; 4] = [16, 15, 9, 2];
+
+    /// The one of [`FATAL_SEEDS`] a fixture takes when it needs a single death
+    /// and does not care which floor it happens on.
+    const FATAL_SEED: u32 = FATAL_SEEDS[0];
+
+    /// The seed the two fixtures that **edit the sheet before the death** open
+    /// on, because an edited sheet is a different fight.
+    ///
+    /// **This is the finding, and it is worth more than the number.** The mind
+    /// in the room reads the sheet: perception is sight range -- `6.0 + 0.6 *
+    /// perception`, so the 14 those two fixtures dial in is 14.4 units against a
+    /// stock Fighter's 9.6 -- and intellect is ticks between decisions. A
+    /// tactical Fighter acts on both, so raising them before the Brutes arrive
+    /// produces a fight [`FATAL_SEED`] was not measured on, and it does not
+    /// survive: seed 16 with perception 14 ends eighteen thousand ticks with the
+    /// character still up.
+    ///
+    /// Swept the same way, seeds 1 through 24, twelve Brutes, eighteen thousand
+    /// ticks. With perception alone at 14, five seeds kill -- 7, 8, 12, 18 and
+    /// 21. With intellect 17 beside it, three do -- 4, 8 and 24.
+    /// **Seed 8 is the only one in both**, which is what makes one constant
+    /// honest here rather than two: it falls at 10,140 ticks with the sheet
+    /// `changing_the_body_rebuilds_the_sheet_it_is_a_sheet_for` writes and at
+    /// 4,380 with the one `a_stat_sheet_outlives_the_character_wearing_it`
+    /// writes.
+    ///
+    /// A fixture that dials in a *third* sheet cannot assume this seed. Sweep
+    /// it, the way both of these were.
+    const SHEETED_FATAL_SEED: u32 = 8;
+
     /// Kills whoever is standing on the hero's side, and answers whether it
     /// worked. Twelve brutes is not subtle, and it should not be.
     ///
@@ -14528,6 +14652,12 @@ mod tests {
     /// across seeds 1..6, which is a fixture that fails on the seed rather than
     /// on the rule. Twelve brings the worst of those to 8,909 and the budget
     /// below covers it with margin.
+    ///
+    /// **Twelve is no longer enough on its own**, which is what [`FATAL_SEEDS`]
+    /// is for: against a tactical Fighter twelve of them decide fewer than half
+    /// the floor plans inside this budget, so the caller has to open on a seed
+    /// where they do. Widening the budget instead would buy a suite that takes
+    /// minutes and still fails on the seed.
     fn kill_the_hero() -> bool {
         for _ in 0..12 {
             spawn_monster(BRUTE, SLOT_EMPTY, SLOT_EMPTY);
@@ -14547,12 +14677,15 @@ mod tests {
     /// `Body::base_stats()`, so every dial went back to the archetype default.
     #[test]
     fn a_stat_sheet_outlives_the_character_wearing_it() {
-        init_quiet(1);
+        // [`SHEETED_FATAL_SEED`] rather than [`FATAL_SEED`], and the two lines
+        // below are why: the mind reads the sheet, so raising it changes the
+        // fight the Brutes have to win.
+        init_quiet(SHEETED_FATAL_SEED);
         assert_eq!(set_hero_stat(3, 14), 1, "perception would not move");
         assert_eq!(set_hero_stat(2, 17), 1, "intellect would not move");
         assert_eq!(hero_stat(3), 14);
 
-        assert!(kill_the_hero(), "six brutes could not kill one fighter");
+        assert!(kill_the_hero(), "twelve brutes could not kill one fighter");
 
         // Dead, and the rail is still describing something real: the sheet the
         // next character walks in wearing, which is what the player is choosing
@@ -14588,9 +14721,12 @@ mod tests {
     /// was testing is the same rule and it is still `Sim::swap_in_hero`'s.
     #[test]
     fn changing_the_body_rebuilds_the_sheet_it_is_a_sheet_for() {
-        init_quiet(1);
+        // [`SHEETED_FATAL_SEED`], for the reason
+        // `a_stat_sheet_outlives_the_character_wearing_it` gives: a sheet the
+        // mind reads is an input to the fight below it.
+        init_quiet(SHEETED_FATAL_SEED);
         set_hero_stat(3, 14);
-        assert!(kill_the_hero(), "six brutes could not kill one fighter");
+        assert!(kill_the_hero(), "twelve brutes could not kill one fighter");
 
         assert_eq!(swap_in_hero(ROGUE, SLOT_EMPTY, SLOT_EMPTY), 1, "the room refused a Rogue");
         assert_eq!(hero_body(), ROGUE);
@@ -14611,10 +14747,10 @@ mod tests {
         // The page has to say something when the character falls, so the state
         // it says it about needs to be reachable. The assertion is that death is
         // representable, not that any particular fight is balanced.
-        init_quiet(1);
+        init_quiet(FATAL_SEED);
         let fell = kill_the_hero();
         println!("the hero fell at tick {}", tick());
-        assert!(fell, "six brutes could not kill one fighter");
+        assert!(fell, "twelve brutes could not kill one fighter");
         assert!(hero_row().is_none());
         assert!(frame()[6] > 0.0, "nothing left to draw");
         // Every remaining row is a monster, and the frame is still well formed.
@@ -14658,7 +14794,7 @@ mod tests {
     /// room with a handful of bodies in it.
     #[test]
     fn dead_monsters_stop_holding_a_place_in_the_roster() {
-        init_quiet(1);
+        init_quiet(FATAL_SEED);
         assert_eq!(roster_len(), 1);
         assert!(kill_the_hero(), "twelve brutes could not kill one fighter");
         assert!(hero_row().is_none(), "the hero survived its own funeral");
@@ -14724,7 +14860,7 @@ mod tests {
 
     #[test]
     fn a_replacement_walks_into_the_room_the_last_one_died_in() {
-        init_quiet(1);
+        init_quiet(FATAL_SEED);
         let fallen = hero_row().expect("the room did not open with a hero");
         let at = fall_to_brutes();
         let standing = monsters().len();
@@ -14777,7 +14913,7 @@ mod tests {
         // The reason this takes an archetype rather than just bringing the
         // fighter back. Same room, same monsters, same policy -- and a
         // character that thinks faster, sees further and dies sooner.
-        init_quiet(1);
+        init_quiet(FATAL_SEED);
         fall_to_brutes();
         assert_eq!(swap_in_hero(ROGUE, SLOT_EMPTY, SLOT_EMPTY), 1, "nobody arrived");
 
@@ -14799,7 +14935,7 @@ mod tests {
         // monster archetype on the player's side of the room. Falling through
         // to a hero build instead is the whole reason the two decoders are
         // separate functions.
-        init_quiet(1);
+        init_quiet(FATAL_SEED);
         fall_to_brutes();
         assert_eq!(swap_in_hero(9_999, SLOT_EMPTY, SLOT_EMPTY), 1);
         assert_eq!(hero_row().expect("nobody arrived")[7], 0.0, "kind: Fighter");
@@ -14820,7 +14956,7 @@ mod tests {
         // what the page flashes a ring off, and a replacement that arrived
         // holding the dead one's number would take credit for a decision it did
         // not make.
-        init_quiet(1);
+        init_quiet(FATAL_SEED);
         step(60);
         fall_to_brutes();
 
@@ -14853,8 +14989,15 @@ mod tests {
         // eight seeds put half a minute into `cargo test -p web` on their own.
         // Four still crosses four different plans, which is what the sweep is
         // for.
+        //
+        // **They were 1 through 4 and two of those four no longer produce a
+        // death at all**, which would have left this sweep asserting nothing on
+        // half its plans -- see [`FATAL_SEEDS`] for the measurement that picked
+        // these. Four *hunted* seeds is a narrower claim than four consecutive
+        // ones and it is the honest one: the fixture needs a fall to have
+        // somewhere to come back to.
         let mut furthest = 0.0f32;
-        for seed in 1..5u32 {
+        for seed in FATAL_SEEDS {
             init_quiet(seed);
             let fall = fall_to_brutes_watching();
             assert_eq!(swap_in_hero(FIGHTER, SLOT_EMPTY, SLOT_EMPTY), 1, "seed {seed}: nobody arrived");
@@ -14889,7 +15032,10 @@ mod tests {
                 hero[1],
             );
         }
-        println!("furthest a replacement drifted off the fall across eight seeds: {furthest}");
+        println!(
+            "furthest a replacement drifted off the fall across {} seeds: {furthest}",
+            FATAL_SEEDS.len(),
+        );
     }
 
     #[test]
@@ -14933,14 +15079,14 @@ mod tests {
         // invisible from the outside -- except that a swap has to *consume* a
         // roll, or a monster spawned on the same tick afterwards would be
         // placed exactly where one spawned before the swap would have been.
-        init_quiet(1);
+        init_quiet(FATAL_SEED);
         fall_to_brutes();
         swap_in_hero(FIGHTER, SLOT_EMPTY, SLOT_EMPTY);
         let after_swap = monsters().len();
         spawn_monster(SKITTERER, SLOT_EMPTY, SLOT_EMPTY);
         let with = monsters()[after_swap].clone();
 
-        init_quiet(1);
+        init_quiet(FATAL_SEED);
         fall_to_brutes();
         spawn_monster(SKITTERER, SLOT_EMPTY, SLOT_EMPTY);
         let without = monsters()[after_swap].clone();
@@ -15081,7 +15227,7 @@ mod tests {
         // A death first, and it is the hero's: twelve brutes will finish a
         // Fighter and a Fighter will not finish one Skitterer. See
         // `kill_the_hero`.
-        init_quiet(1);
+        init_quiet(FATAL_SEED);
         for _ in 0..12 {
             spawn_monster(BRUTE, SLOT_EMPTY, SLOT_EMPTY);
         }

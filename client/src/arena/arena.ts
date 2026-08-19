@@ -342,14 +342,26 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   /**
    * The controls the page opens with.
    *
-   * **`tactical` on both sides since v2-ui-08**, where it was `attack-moves`.
-   * That code left the vocabulary with `ArticulatedPolicyKind`, and of the five
-   * that replaced it `tactical` is the one that aims: it names a body region,
-   * prices the sweep that would cross it and spends a commit on the best one, so
-   * a reader who opens `#/arena` and presses the button sees two fighters trying
-   * to hit each other rather than two scripts running past each other. That is
-   * the whole point of the default -- a first look is the one screen most
-   * readers will judge the mechanics on.
+   * **`tactical` against `scripted`, and the pairing is the point.** It was
+   * `attack-moves` on both sides, then `tactical` on both sides from v2-ui-08 --
+   * the argument each time being that a first look should not open on the entry
+   * least likely to land a blow, which is why `tactical` is on the left and
+   * stays there: of the five embodied entries it is the one that *aims*, naming
+   * a body region, pricing the sweep that would cross it and spending a commit
+   * on the best one.
+   *
+   * What changed is the right-hand side. This page's whole subject is watching
+   * the same room go differently when the selection moves, and two copies of one
+   * mind is the one pairing that shows a reader nothing about the selection --
+   * it is a mirror match, and a mirror match reads as "the fight looks like
+   * this" rather than as "this is what the choice buys you". `scripted` is the
+   * control `tactical` was built to beat, so the opening screen is the
+   * comparison rather than a sample of it.
+   *
+   * **`#/game` opens on `tactical` on both sides and that is not an
+   * inconsistency**: the dungeon is a room a reader came to watch a fight in and
+   * should show the shipped fighter on both sides of it. `Sim::try_on` in
+   * `crates/web/src/lib.rs` carries the other half of this argument.
    *
    * **It was `selectCustomFight` and had a sibling.** `selectControlledPreset`
    * filled these same controls with the Smart101 demonstration and disabled
@@ -366,9 +378,9 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     setPickerValue("b-right", "club");
     setPickerValue("arena-seed", "3");
     clearTwoHanded();
-    populatePolicies(container, "tactical", "tactical");
+    populatePolicies(container, "tactical", "scripted");
     setPickerValue("a-policy", "tactical");
-    setPickerValue("b-policy", "tactical");
+    setPickerValue("b-policy", "scripted");
   }
 
   // ---------------------------------------------------------------- the panels
@@ -872,22 +884,26 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     go(frameAtClick(loaded.series, chart, event.clientX));
   });
 
-  // **`tactical` rather than `attack-moves`, since v2-ui-08**, and the reason is
-  // the reason the old default was chosen: a first look at this page should not
-  // open on the entry least likely to land a blow. `attack-moves` was that
-  // choice among the articulated scripts -- it was the twelve-phase script with
-  // its four attack phases moving the feet, against a plain script that spent
-  // 68.6% of its ticks with the blade stopped and decided 2.0% of duels where
-  // closing footwork decided 14.5%. That vocabulary is gone. Of the five
+  // **`tactical` against `scripted`**, and the reason the aiming entry is on the
+  // left is the reason the old default was chosen: a first look at this page
+  // should not open on the entry least likely to land a blow. `attack-moves` was
+  // that choice among the articulated scripts -- it was the twelve-phase script
+  // with its four attack phases moving the feet, against a plain script that
+  // spent 68.6% of its ticks with the blade stopped and decided 2.0% of duels
+  // where closing footwork decided 14.5%. That vocabulary is gone. Of the five
   // embodied entries, `tactical` is the only one that *aims*: it names a body
   // region, prices the sweep that would cross it and spends a commit on the best
   // one, where the two scripted entries answer "what should a body be doing"
   // without asking where the opponent is soft.
   //
+  // The right-hand side is `scripted` and was `tactical`, because a mirror match
+  // is the one pairing that shows nothing about the dropdown this page exists
+  // for. See `selectCustomFight` for the whole of that argument.
+  //
   // `selectCustomFight` writes the same pair, and the duplication is on purpose:
   // this call is the page opening and that one is a reset, and a reset that
   // silently differed from the opening state is a control nobody can trust.
-  populatePolicies(container, "tactical", "tactical");
+  populatePolicies(container, "tactical", "scripted");
   for (const control of pickerControls(container)) {
     control.addEventListener("change", refreshPicker);
   }

@@ -837,18 +837,28 @@ test("the_picker_and_the_config_agree_on_every_policy_code", () => {
 
 test("the_arena_opens_on_a_pairing_that_fights", async () => {
   // The half of the deleted preset test that was about something else: the
-  // controls the page opens with. **`tactical` on both sides since v2-ui-08**,
-  // where it was `attack-moves` -- of the five embodied entries it is the only
-  // one that aims, and a first look at this page should not open on the entry
-  // least likely to land a blow. The argument sits on `populatePolicies` in
-  // `arena.ts`; this is what would notice it drifting.
+  // controls the page opens with. **`tactical` against `scripted`**, where it
+  // was `attack-moves` on both sides and then `tactical` on both sides -- of the
+  // five embodied entries `tactical` is the only one that aims, and a first look
+  // at this page should not open on the entry least likely to land a blow, while
+  // the side facing it is the control that entry was built to beat. A mirror
+  // match is the one pairing that shows a reader nothing about the dropdown this
+  // page is built around. The argument sits on `populatePolicies` in `arena.ts`;
+  // this is what would notice it drifting.
+  //
+  // **The pair is asserted rather than the left-hand side**, and that is the
+  // whole reason this line is here rather than being folded into the "opens with
+  // something live" check below: every entry in the registry is live, so a
+  // default that quietly went back to `tactical` on both sides would keep the
+  // button enabled and keep the page fighting -- and would stop being a
+  // comparison.
   const harness = installDom();
   try {
     const { mount } = await import(compiled("client/src/arena/arena.js"));
     const container = harness.container();
     const handle = await mount(container, new URLSearchParams());
     assert.deepEqual([container.querySelector("#a-policy").value,
-      container.querySelector("#b-policy").value], ["tactical", "tactical"]);
+      container.querySelector("#b-policy").value], ["tactical", "scripted"]);
     assert.equal(container.querySelector("#arena-seed").value, "3");
     // Nothing disables the controls any more: the only thing that ever did was
     // the preset, and a control left disabled by a dropdown that no longer

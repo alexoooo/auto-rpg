@@ -331,6 +331,77 @@ function heroRow(live) {
   return null;
 }
 
+// ------------------------------------------------------- a room rigged to kill
+
+// **A fixture engineered to put the hero's body on the floor, and a number
+// nobody should read a fight out of.** Two tests below need a corpse: one is
+// about a slot going back on the free list and coming out again at the next
+// generation, the other about which derived event kinds a fight reports. Neither
+// is about whether an embodied fight resolves, or how, or who wins.
+//
+// It does not resolve, mostly. A sweep of all twenty-five embodied pairings over
+// seeds 0..20 ran **511 of 525 fights to the 3,600-tick clock** with both bodies
+// still standing, so a death is the exception. A fixture that waited for a fair
+// one would be a coin toss dressed as a test, and the seed that made it land
+// would break the day somebody moved a constant near the contact solver.
+//
+// So the room is rigged, twice over.
+//
+// **The hero is put on `neutral`, the control that stands there.** It does not
+// fight back, which is the whole reason it is the right opponent here.
+//
+// **The monsters are put on `scripted`, and the ordering is the surprising
+// half.** Against a body that does nothing, the script kills and the tactical
+// mind does not: twelve *tactical* Brutes left a standing Fighter above 10 of
+// its 12 health after 6,000 ticks on every one of seeds 1..12, while twelve
+// scripted ones put it down on nineteen seeds out of twenty-four. So the room's
+// own default is no use here, and the pair is named rather than inherited -- the
+// same reason `drive_stream_digest_script` names its policies in
+// `crates/web/src/lib.rs`, and the same near miss: a fixture that borrows a
+// default is a fixture a product decision can move.
+//
+// Twelve Brutes and not three, and not more. Three is what this fixture used
+// before the default moved and it now kills on no seed at all; twelve kills seed
+// 1 at tick 5,260. Piling on more bodies does not help -- twenty-four and forty
+// Brutes both left the Fighter alive past 6,000 on seven of eight seeds, because
+// a crowd that cannot reach the target is not pressure -- and twenty-four
+// Skitterers reach the death sooner in *ticks* (3,202) while costing more wall
+// clock, since every extra body is stepped on every one of them.
+//
+// Measured over seeds 1..24, this kills on nineteen of them and the latest is
+// 11,367. The five it does not -- 14, 15, 18, 19 and 22 -- are mostly not close
+// calls: four of the five end at *full* health, because on those floor plans the
+// mob never reaches the hero at all. That is a fact about the generator rather
+// than a budget away from working. **Do not raise the cap chasing them.** A cap
+// raised until a test passes is a test that measures the cap. The 18,000 below
+// is over three times seed 1's death and well past every death the sweep found,
+// which is the rule the old 6,000 was picked by when the death was at 1,759 --
+// and it is free, because the drive stops at the death rather than at the cap.
+function openRiggedRoom(seed) {
+  wasm.init(seed);
+  assert.equal(u32(wasm.set_policy(0, 0)), 1, "could not stand the hero down");
+  assert.equal(u32(wasm.set_policy(1, 1)), 1, "could not put the monsters on the script");
+  for (let i = 0; i < 12; i++) wasm.spawn_monster(2, 255, 255);
+}
+
+// Drives a rigged room until the hero falls, one tick at a time, answering the
+// tick it happened on or null.
+//
+// **One tick a call and not a batch**, because `onTick` reads the event feed and
+// that feed is cleared per *call*: a `step(30)` would report the thirtieth tick's
+// rows and silently drop twenty-nine ticks of them. The caller that does not read
+// events pays the same price for the same reason it shares this fixture -- two
+// copies of a drive is how a fixture and the claim about it drift apart.
+function driveToHeroDeath(onTick) {
+  for (let i = 0; i < 18_000; i++) {
+    wasm.step(1);
+    const live = frame();
+    if (onTick !== undefined) onTick(live);
+    if (heroRow(live) === null) return u32(wasm.tick());
+  }
+  return null;
+}
+
 // The message that matters more than the assertion it is attached to.
 function divergence(what, native, measured) {
   return [
@@ -1854,19 +1925,19 @@ test("a fight reports the kinds a fight is made of", () => {
   // level cleared by a kill, and an embodied hero does not reliably finish a
   // monster, so no fixture here can produce one and none can prove it will not.
   //
-  // Three brutes and not twelve: on a populated floor the hero falls at tick
-  // 1,759 against three, against 7,249 against twelve, and a cap that has to
-  // walk eighteen thousand single ticks through JavaScript costs fifteen
-  // seconds for a row it already has. 6,000 is the cap because it is over three
-  // times the measured death and the drive stops at the death itself.
-  wasm.init(1);
-  for (let i = 0; i < 3; i++) wasm.spawn_monster(2, 255, 255);
+  // **The death this needs is bought rather than fought for.** It used to be
+  // three Brutes on a populated floor, dead at tick 1,759 under a 6,000-tick cap
+  // chosen as over three times that; both sides of the room have since opened on
+  // `tactical`, and three Brutes now finish the Fighter on *no* seed from 1 to 24
+  // inside 6,000. That is the model saying an embodied fight does not resolve,
+  // which is a true thing and not this test's subject: what is being checked here
+  // is that the derived event kinds are reported, and a row does not care how
+  // earned the blow behind it was. `openRiggedRoom` carries the whole of that
+  // argument and the measurements that chose its pairing.
+  openRiggedRoom(1);
 
   const seen = new Map();
-  let died = false;
-  for (let i = 0; i < 6_000 && !died; i++) {
-    wasm.step(1);
-    const live = frame();
+  const at = driveToHeroDeath((live) => {
     const base = HEADER_LEN + UNIT_STRIDE * live[6] + SHOT_STRIDE * live[7];
     for (let e = 0; e < live[8]; e++) {
       const row = live.slice(base + e * EVENT_STRIDE, base + (e + 1) * EVENT_STRIDE);
@@ -1880,9 +1951,8 @@ test("a fight reports the kinds a fight is made of", () => {
       }
     }
     assert.equal(live[14], 0, "events_dropped: a brawl at one tick a call overran the feed");
-    died = heroRow(live) === null;
-  }
-  assert.ok(died, "three brutes no longer finish the fighter inside 6,000 ticks");
+  });
+  assert.ok(at !== null, "the rigged room no longer finishes the fighter inside 18,000 ticks");
 
   // And the descent, taken through the export rather than by walking into a way
   // out: the level is not clear, so there is nothing to walk into, and the row
@@ -1927,16 +1997,32 @@ test("a policy can be chosen across the boundary", () => {
   // carried over -- a saved code from the old space would select the wrong mind
   // silently, and this file is where that has to be noticed.
   wasm.init(1);
-  // **Both sides open on the same mind now**, which is the opposite of what this
-  // used to assert. The registry has one policy and one control in it, and
-  // opening either side on the control is an empty room with an explanation
-  // attached.
-  assert.equal(wasm.policy_kind(0), 1, "heroes should open on the scripted embodied policy");
-  assert.equal(wasm.policy_kind(1), 1, "monsters should open on it too");
+  // **Both sides open on the fighter**, which is what this used to assert of
+  // `scripted` and is asserted for exactly the same reason: the room is one line
+  // in `Sim::try_on` away from quietly reverting. The registry it reads now holds
+  // a fighter, the script that fighter was built to beat, and two variations of
+  // the fighter -- so the old default is no longer "the one mind there is", it is
+  // the control, and a revert would open the room on the control fighting
+  // itself.
+  //
+  // **That is worth a wasm-side assertion more than it was before.** A revert
+  // still draws two bodies swinging at each other, so nothing else in this file
+  // and nothing on the page would go red; it is only a number that says which
+  // mind is in the room. `a_faction_can_be_handed_a_different_mind_mid_fight` in
+  // `crates/web/src/lib.rs` is this assertion's native twin, and the two are kept
+  // in step deliberately -- a one-sided failure here is target disagreement, the
+  // same diagnosis the paired digests are shaped around.
+  //
+  // `#/arena` opens on `tactical` against `scripted` instead, and the difference
+  // is not an inconsistency: that route's subject is the dropdown, so it opens on
+  // the comparison, and this route's subject is the room, so it opens on the
+  // fighter twice.
+  assert.equal(wasm.policy_kind(0), 3, "heroes should open on the tactical embodied policy");
+  assert.equal(wasm.policy_kind(1), 3, "monsters should open on it too");
 
   assert.equal(wasm.set_policy(0, 0), 1, "could not select the neutral control");
   assert.equal(wasm.policy_kind(0), 0);
-  assert.equal(wasm.policy_kind(1), 1, "selecting one side moved the other");
+  assert.equal(wasm.policy_kind(1), 3, "selecting one side moved the other");
   assert.equal(wasm.set_policy(0, 2), 1, "could not select scripted-level");
   assert.equal(wasm.policy_kind(0), 2);
   // 3 is `tactical`, appended by fight session 02. It is asserted here rather
@@ -2390,22 +2476,23 @@ test("the fog is rebuilt when the hero changes tile and at no other time", () =>
 // part company without anything else looking wrong.
 
 test("a death frees the slot and a replacement comes out of it", () => {
-  wasm.init(1);
+  // **The room is rigged to produce a death and this test is not about the
+  // fight.** What is being checked is index bookkeeping -- a slot freed, and a
+  // new body coming out of it at the next generation -- which is where a 64-bit
+  // native `usize` and a 32-bit wasm one part company without anything else
+  // looking wrong. `openRiggedRoom` says how it is rigged and why, and the short
+  // version is that three Brutes stopped being lethal the day both sides of the
+  // room opened on `tactical`.
+  openRiggedRoom(1);
   const opened = heroRow(frame());
   assert.deepEqual([opened[9], opened[10]], [0, 0],
     "the room's first hero does not hold slot 0 at generation 0");
-  for (let i = 0; i < 3; i++) wasm.spawn_monster(2, 255, 255);
 
   // Driven to the death rather than for a fixed number of ticks. The tick it
   // happens on is a fact about the embodied policy and would be a pin nothing
-  // native shares; that it happens at all inside a bound several times the
-  // measured 1,759 is the claim.
-  let died = false;
-  for (let i = 0; i < 6_000 && !died; i++) {
-    wasm.step(1);
-    died = heroRow(frame()) === null;
-  }
-  assert.ok(died, "three brutes no longer finish the fighter inside 6,000 ticks");
+  // native shares; that it happens at all inside the bound is the claim.
+  const at = driveToHeroDeath();
+  assert.ok(at !== null, "the rigged room no longer finishes the fighter inside 18,000 ticks");
   assert.equal(u32(wasm.swap_in_hero(1, 255, 255)), 1, "nobody arrived");
 
   const live = frame();

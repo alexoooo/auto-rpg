@@ -326,6 +326,18 @@ page shows the model every other measurement in the repository is taken under, w
 the whole point: a page running a model nothing else measured would be a demonstration
 of something nobody had a number for.
 
+**The two routes open on different pairings out of that one registry, deliberately.**
+`#/game` opens on `tactical` against `tactical` and `#/arena` on `tactical` against
+`scripted`. The dungeon is a room a reader came to watch a fight in, so both sides of it
+are the shipped fighter; the arena's whole subject is the dropdown, and a mirror match is
+the one pairing that shows nothing about a selection -- so it opens on the comparison the
+fighter was built to win, against the control it was built to beat. Both defaults are one
+line away from quietly reverting and both have a test that would say so:
+`a_faction_can_be_handed_a_different_mind_mid_fight` in `crates/web/src/lib.rs` and
+`the_arena_opens_on_a_pairing_that_fights` in `client/test/studio-shell.test.mjs`. A
+revert in either direction still draws two bodies fighting, which is exactly why the
+guard is an assertion rather than a screenshot.
+
 There is no `learned` entry in that registry and its absence is a decision rather than an
 oversight. A trained fighter is a kind *plus fifteen kilobytes of weights* and a policy
 byte has nowhere to put a checkpoint. That is not a gap this boundary can close on its
@@ -433,8 +445,8 @@ intersects the floor, and torch/material treatment remains schematic and repetit
 ## Source anchors
 
 - Fixed publication pools: [`thread_local!`](../../crates/web/src/lib.rs#L1702)
-- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L4384)
-- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L5458)
+- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L4395)
+- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L5469)
 - Worker adapter and atomic scalar phase: [`readPublication`](../../client/src/runtime/sim.worker.ts#L94)
 - Pure protocol host: [`SimWorkerHost`](../../client/src/runtime/sim-worker-host.ts#L55)
 - Main-thread lease owner: [`SimClient`](../../client/src/runtime/sim-client.ts#L122)
