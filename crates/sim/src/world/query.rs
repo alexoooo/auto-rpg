@@ -672,6 +672,20 @@ impl World {
             // An eighth of the positional error, and applied to both branches:
             // the "nothing is closing" one is a judgement like any other, and
             // skipping it there would make the noise term mean two things.
+            //
+            // **At the shipped duel's stats this column is a coin flip as a
+            // boolean, and so is the `closing` sign above it.** Two separate
+            // facts, measured 2026-08-18 and recorded here because a policy
+            // reaches for this column first: the saturating branch sits exactly
+            // at `ONE`, so symmetric noise pushes it below one on half of all
+            // draws at every range; and `velocity` is already blurred by a
+            // quarter of the positional error, which for a Fighter's eye is
+            // 0.225 world units per tick against a whole closing range of
+            // 0.0994. Nothing here changes -- the model is right and the eyes
+            // are dim -- but a reader deciding whether to gate on either should
+            // know it before spending a session on it. The measurement is
+            // `docs/performance/embodied-tactical-policy.md`; the design
+            // consequence is `docs/design/navigation-visibility.md`.
             contact_timing: (timing + jitter[6] * noise / 8).clamp(Fx::ZERO, Fx::ONE),
             // Exact, and drawn against nothing: the stream stays seven draws.
             stance: self.observed_opponent_stance(j),

@@ -115,6 +115,50 @@ open visible neighbor, preventing light from leaking through a wall according to
 direction. See [browser runtime](../architecture/browser-runtime.md#visibility-authority)
 for publication ownership.
 
+## The velocity channel exists and cannot be read
+
+**Measured 2026-08-18, and it is a companion to the routing section above rather than a
+detail of one session.** That section records a channel that was *built and unconsumed*.
+This one records a channel that is published, consumed, and carries no usable signal at
+the stats the shipped fixtures give their bodies: **no policy in this simulation can tell
+an approaching body from a receding one.**
+
+`ObservedOpponent::body_velocity` is the true velocity plus `jitter[3..5] * noise / 4`,
+where `noise` is [`Stats::perception_noise`](../../crates/sim/src/rules.rs) and equals
+`(15 - perception) / 10`. `contact_timing` is a scalar derived from that same blurred
+velocity and then blurred again by `jitter[6] * noise / 8` on *both* branches, saturating
+branch included. The arithmetic that settles it is the ratio of two published constants:
+the whole achievable range of closing speed between `embodied-duel-v1`'s Fighter and
+Brute is `move_speed(6) + move_speed(2) = 0.0994` world units per tick, against a velocity
+error of `0.225` for the Fighter's eye and `0.300` for the Brute's. The noise is 2.3x to
+3.0x the entire signal.
+
+Measured over 9,689 driven decision ticks, the sign of a closing term recomputed from the
+published columns agrees with ground truth **51.59%** of the time, a genuinely receding or
+stationary body reads as closing **49.47%** of the time, and no deadband separates the two.
+`no_published_column_separates_an_approach_from_a_retreat` re-drives that measurement on
+every `cargo test`, so it is a standing property of the fixture rather than a note.
+[The tactical policy record](../performance/embodied-tactical-policy.md#nothing-published-can-tell-an-approach-from-a-retreat)
+carries the full sweep and the derivation.
+
+**This is a statement about these fixtures' eyes and not about the observation model.** At
+perception 12 or better the velocity term drops below the closing range and the judgement
+becomes honest; the Fighter is 6 and the Brute 3. Three things would make it readable, and
+all three are perception-channel changes rather than policy changes: a velocity term
+quieter than a quarter of the positional noise, a longer baseline than one tick — a policy
+integrating observed range over many ticks, which costs the memory a deadband design
+exists to avoid — or a published closing scalar that is not re-blurred on the way out.
+
+**No session of [the embodied fight](../plans/fight-00-overview.md) may add one**, and
+that is a roadmap constraint rather than a claim about shipped code: the plan states
+outright that it does not add a perception channel, and names its footwork session as the
+one most likely to want one. Footwork and measure discipline are exactly the decisions
+that want a closing judgement, so that session has to hold measure off range and stance
+instead -- the shipped guard already does, and
+[the tactical policy record](../performance/embodied-tactical-policy.md#nothing-published-can-tell-an-approach-from-a-retreat)
+is what it is measured against. Giving the channel a reader is a separate topic with its
+own measurement, and it belongs here beside the other two.
+
 ## Orders were a leash, not remote control
 
 **Past tense throughout this section and the two below it**, for the reason the routing

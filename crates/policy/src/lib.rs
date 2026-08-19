@@ -88,6 +88,8 @@
 mod articulated_script;
 mod articulated_tactics;
 mod composition;
+mod embodied_footwork;
+mod embodied_guard;
 mod embodied_script;
 mod embodied_tactics;
 mod neutral;
@@ -109,13 +111,21 @@ pub use articulated_tactics::{
 pub use composition::{
     CommandAuthority, ComposedController, CompositionError, PartialEmbodiedSource, PolicySource,
 };
+pub use embodied_footwork::{
+    Footwork, LUNGE_SPEED_RAW, MEASURE_MARGIN_RAW, MEASURE_MIN_FRACTION_RAW,
+    UNWIND_TWIST_RAW,
+};
+pub use embodied_guard::{
+    incoming_height, GuardCommand, GuardRead, GUARD_COMMIT_TICKS, GUARD_READ_DEADBAND_RAW,
+};
 pub use embodied_script::{
     neutral_embodied_command, scripted_embodied_command, scripted_embodied_command_with,
     EmbodiedPhase, EmbodiedScriptConfig, GroundSense, NeutralEmbodiedPolicy,
     ScriptedEmbodiedPolicy, EMBODIED_CYCLE_TICKS, EMBODIED_HEIGHT_TICKS, EMBODIED_PHASE_TICKS,
 };
 pub use embodied_tactics::{
-    into_torso, into_torso_frame, TacticalEmbodiedPolicy, TACTICAL_EMBODIED_POLICY_CODE,
+    into_torso, into_torso_frame, TacticalConfig, TacticalEmbodiedPolicy,
+    FIXED_GUARD_EMBODIED_POLICY_CODE, TACTICAL_EMBODIED_POLICY_CODE,
 };
 pub use neutral::{neutral_articulated_command, NeutralArticulatedPolicy};
 pub use runner::{run_articulated, RunConfig, RunResult};
@@ -488,14 +498,28 @@ pub enum EmbodiedPolicyKind {
     /// crosses it. What it does not know is that the body it drives has hips --
     /// see [`TacticalEmbodiedPolicy`].
     Tactical,
+    /// [`Tactical`] with the guard read switched off -- the policy whose plate
+    /// goes where the body faces and never where the blade is.
+    ///
+    /// **A registry entry rather than a test-only constructor**, on
+    /// [`ScriptedLevel`]'s argument exactly: it is what the guard measurement
+    /// runs against, and that comparison has to be reachable from a command line
+    /// and nameable per side. The control still *holds* a guard -- same arm,
+    /// same reach, same effort, on the body's own centre line -- so the measured
+    /// difference is the read and not "one of them has an arm up".
+    ///
+    /// [`Tactical`]: EmbodiedPolicyKind::Tactical
+    /// [`ScriptedLevel`]: EmbodiedPolicyKind::ScriptedLevel
+    TacticalFixedGuard,
 }
 
 impl EmbodiedPolicyKind {
-    pub const ALL: [EmbodiedPolicyKind; 4] = [
+    pub const ALL: [EmbodiedPolicyKind; 5] = [
         EmbodiedPolicyKind::Neutral,
         EmbodiedPolicyKind::Scripted,
         EmbodiedPolicyKind::ScriptedLevel,
         EmbodiedPolicyKind::Tactical,
+        EmbodiedPolicyKind::TacticalFixedGuard,
     ];
 
     pub const fn code(self) -> u32 {
@@ -504,6 +528,7 @@ impl EmbodiedPolicyKind {
             EmbodiedPolicyKind::Scripted => 1,
             EmbodiedPolicyKind::ScriptedLevel => 2,
             EmbodiedPolicyKind::Tactical => TACTICAL_EMBODIED_POLICY_CODE,
+            EmbodiedPolicyKind::TacticalFixedGuard => FIXED_GUARD_EMBODIED_POLICY_CODE,
         }
     }
 
@@ -513,6 +538,7 @@ impl EmbodiedPolicyKind {
             1 => Some(EmbodiedPolicyKind::Scripted),
             2 => Some(EmbodiedPolicyKind::ScriptedLevel),
             TACTICAL_EMBODIED_POLICY_CODE => Some(EmbodiedPolicyKind::Tactical),
+            FIXED_GUARD_EMBODIED_POLICY_CODE => Some(EmbodiedPolicyKind::TacticalFixedGuard),
             _ => None,
         }
     }
@@ -529,6 +555,7 @@ impl EmbodiedPolicyKind {
             EmbodiedPolicyKind::Scripted => "scripted",
             EmbodiedPolicyKind::ScriptedLevel => "scripted-level",
             EmbodiedPolicyKind::Tactical => "tactical",
+            EmbodiedPolicyKind::TacticalFixedGuard => "tactical-fixed-guard",
         }
     }
 
@@ -541,8 +568,53 @@ impl EmbodiedPolicyKind {
             EmbodiedPolicyKind::ScriptedLevel => {
                 Box::new(ScriptedEmbodiedPolicy::new(EmbodiedScriptConfig::LEVEL))
             }
-            EmbodiedPolicyKind::Tactical => Box::new(TacticalEmbodiedPolicy::default()),
+            EmbodiedPolicyKind::Tactical => {
+                Box::new(TacticalEmbodiedPolicy::new(TacticalConfig::READING))
+            }
+            EmbodiedPolicyKind::TacticalFixedGuard => {
+                Box::new(TacticalEmbodiedPolicy::new(TacticalConfig::FIXED_GUARD))
+            }
         }
+    }
+
+    /// The same entry with its planner's feet told `footwork`, or `None` for an
+    /// entry that has no planner to tell.
+    ///
+    /// **`None` rather than the entry built unchanged**, so that a caller
+    /// handed a footwork row it cannot spend has to say so out loud. That is
+    /// the shape of the bug two reviews of this repository found ten instances
+    /// of: a flag accepted an input it could not act on and said nothing.
+    /// `lab embodied --footwork` refuses the run by name when
+    /// [`EmbodiedPolicyKind::reads_footwork`] is false on both sides.
+    ///
+    /// Nothing in the shipped registry goes through here. It exists so that
+    /// **every sweep table in `docs/performance/embodied-tactical-policy.md` is
+    /// reproducible from a command this repository ships** rather than from an
+    /// edit to a constant and a rebuild, which is how session 04 produced them
+    /// and why the review that followed could not check one of them.
+    pub fn build_with_footwork(self, footwork: Footwork) -> Option<Box<dyn EmbodiedPolicy>> {
+        let config = match self {
+            EmbodiedPolicyKind::Tactical => TacticalConfig::READING,
+            EmbodiedPolicyKind::TacticalFixedGuard => TacticalConfig::FIXED_GUARD,
+            EmbodiedPolicyKind::Neutral
+            | EmbodiedPolicyKind::Scripted
+            | EmbodiedPolicyKind::ScriptedLevel => return None,
+        };
+        Some(Box::new(TacticalEmbodiedPolicy::with_footwork(config, footwork)))
+    }
+
+    /// Whether this entry drives a [`StrikePlanner`] and can therefore be
+    /// handed a [`Footwork`] row at all.
+    ///
+    /// Written as its own arm rather than as `build_with_footwork(..).is_some()`
+    /// because the caller that needs it is deciding whether to *refuse a run*,
+    /// and building a policy to find out would be allocating a fighter in order
+    /// to throw it away.
+    pub const fn reads_footwork(self) -> bool {
+        matches!(
+            self,
+            EmbodiedPolicyKind::Tactical | EmbodiedPolicyKind::TacticalFixedGuard
+        )
     }
 }
 
@@ -610,17 +682,52 @@ mod tests {
         assert_eq!(EmbodiedPolicyKind::Scripted.code(), 1);
         assert_eq!(EmbodiedPolicyKind::ScriptedLevel.code(), 2);
         assert_eq!(EmbodiedPolicyKind::Tactical.code(), 3);
+        assert_eq!(EmbodiedPolicyKind::TacticalFixedGuard.code(), 4);
         // One past the registry, which is the refusal a `from_code` written as a
         // range check gets wrong. The number moves every time the vocabulary
-        // grows, and `tools/wasm_check.js` writes it down a second time because
-        // it is checking the *wasm* export rather than this function -- so when
-        // this line moves, that one does too.
-        assert_eq!(EmbodiedPolicyKind::from_code(4), None);
+        // grows -- it was 4 until `tactical-fixed-guard` was appended -- and
+        // `tools/wasm_check.js` writes it down a second time because it is
+        // checking the *wasm* export rather than this function, so when this
+        // line moves, that one does too.
+        assert_eq!(EmbodiedPolicyKind::from_code(5), None);
         for kind in EmbodiedPolicyKind::ALL {
             assert_eq!(EmbodiedPolicyKind::from_code(kind.code()), Some(kind));
             assert_eq!(EmbodiedPolicyKind::from_name(kind.name()), Some(kind));
         }
         assert_eq!(EmbodiedPolicyKind::from_name("nonesuch"), None);
+    }
+
+    /// Only the two entries with a [`StrikePlanner`] behind them can be handed
+    /// a footwork row, and the predicate that says so and the constructor that
+    /// does it agree on which those are.
+    ///
+    /// **Both halves, so that neither can quietly widen.** A
+    /// `build_with_footwork` that answered `Some` for the script would run a
+    /// corpus under a policy nobody selected; a `reads_footwork` that answered
+    /// `true` for it would make `lab embodied --footwork --policy scripted`
+    /// accept a row it then silently drops, which is the refusal
+    /// `AGENTS.md` names by name.
+    #[test]
+    fn only_a_kind_with_a_planner_can_be_handed_a_footwork_row() {
+        let mut with_feet = 0;
+        for kind in EmbodiedPolicyKind::ALL {
+            let built = kind.build_with_footwork(Footwork::ARTICULATED);
+            assert_eq!(
+                built.is_some(), kind.reads_footwork(),
+                "{} disagrees with itself about whether it has feet to tell", kind.name()
+            );
+            if let Some(mut policy) = built {
+                with_feet += 1;
+                let command = policy.decide(&sim::ArticulatedObservation::BLANK);
+                assert!(
+                    command.articulated.move_dir.length() <= Fx::ONE + Fx::from_ratio(1, 1000),
+                    "{} produced an over-long move", kind.name()
+                );
+            }
+        }
+        assert_eq!(with_feet, 2, "the registry's planner-driven entries are tactical and its control");
+        assert!(!EmbodiedPolicyKind::Scripted.reads_footwork(),
+                "the frozen control grew feet a flag can move");
     }
 
     #[test]

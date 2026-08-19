@@ -50,7 +50,8 @@ why: it says outright that it does not tune, because there was no embodied corpu
 tune against on the day it was written. It existed to make the corpus possible. It did
 that, the corpus now exists, and this topic is what the corpus was for.
 
-Two smaller measured facts the sessions below act on:
+Three smaller measured facts the sessions below act on -- the third arrived with
+session 03 and was not here when the first two were written:
 
 - **The one term that was supposed to be clever measured negative.** `--high-ground`
   returns 759 seeking wins against 839 level over 1,600 trials, a margin of -5.00
@@ -61,13 +62,27 @@ Two smaller measured facts the sessions below act on:
   duel on an open fixture; a real limit in a dungeon room with props, and named here so
   that no session below is surprised by it. [Navigation and visibility](../design/navigation-visibility.md)
   owns what it would take to give that channel a reader.
+- **No policy can tell an approaching body from a receding one**, which session 03
+  measured while trying to build the gate its own rule 1 asked for. The velocity channel
+  is published and unreadable at these fixtures' perception: the noise on
+  `ObservedOpponent::body_velocity` is 2.3x to 3.0x the entire range of closing speed the
+  Fighter and the Brute can produce between them, and the sign of a recomputed closing
+  term agrees with ground truth 51.59% of the time.
+  [The measurement](../performance/embodied-tactical-policy.md#nothing-published-can-tell-an-approach-from-a-retreat)
+  and [what a readable channel would take](../design/navigation-visibility.md#the-velocity-channel-exists-and-cannot-be-read)
+  are both written down. **Session 04 is the one this bears on** -- footwork and measure
+  discipline are exactly the decisions that want a closing judgement -- and it must hold
+  measure off range and stance rather than adding a perception channel, which this topic
+  forbids.
 
 ## The ordering trap, which is the whole of the plan's shape
 
-`crates/policy/src/articulated_tactics.rs` is 1,803 lines of region-targeted strike
-planner. It translates the observed weapon by the commanded hand displacement and then
-asks **the same fixed-point swept geometry the contact phase asks** whether that capsule
-can cross a named `BodyPart`. It is the only code in this repository that aims.
+`crates/policy/src/articulated_tactics.rs` was 1,803 lines of region-targeted strike
+planner when this was written and is 2,403 now, sessions 03 and 04 having added the
+footwork parameterisation and its bounding tests. It translates the observed weapon by
+the commanded hand displacement and then asks **the same fixed-point swept geometry the
+contact phase asks** whether that capsule can cross a named `BodyPart`. It is the only
+code in this repository that aims.
 
 It is typed to `ArticulatedPolicy`, and the retired `embodied-10` plan -- the one this
 topic supersedes -- listed it for deletion under the condition *"once `embodied_script.rs`
@@ -90,8 +105,8 @@ value is inside it. Reversing those two is the one mistake this plan exists to p
 |---|---|---|
 | [01](fight-01-the-dead-columns-and-the-dead-code.md) | the state stream loses the columns no jointed body writes; thirty dead-code warnings go with them | none |
 | [02](fight-02-the-blow-that-is-aimed.md) | **landed 2026-08-18** -- `EmbodiedPolicyKind::Tactical`, the strike planner ported to the torso frame; beats neutral, loses to the script, [measured](../performance/embodied-tactical-policy.md) | none; 01 is independent |
-| [03](fight-03-the-guard-that-watches.md) | the guard reads the incoming weapon instead of a clock | 02 |
-| [04](fight-04-the-fight-that-ends.md) | footwork and measure; the preregistered acceptance corpus; the ground term retired | 03 |
+| [03](fight-03-the-guard-that-watches.md) | **landed 2026-08-18** -- the guard reads the incoming weapon instead of a clock; `EmbodiedPolicyKind::TacticalFixedGuard` is its control. Guard diagonal 69.68% against a preregistered 70%: recorded [`revise`](../performance/embodied-tactical-policy.md#session-03-the-guard-that-watches) | 02 |
+| [04](fight-04-the-fight-that-ends.md) | **landed 2026-08-19** -- footwork and measure on `Footwork`, the ground term never ported, `lab embodied --footwork` so the sweeps are reproducible; **all four preregistered rows `revise`**, and two of them recorded as [not reachable by a policy](../performance/embodied-tactical-policy.md#the-finding-two-of-the-four-rows-are-not-reachable-by-a-policy) | 03 |
 | [05](fight-05-the-articulated-model-is-deleted.md) | `CombatModel::Articulated` and everything typed to it | 04 |
 | [06](fight-06-the-names.md) | `Articulated` drops out of every surviving name; `CommandGrammar` collapses | 05 |
 | [07](fight-07-the-browser-and-the-close.md) | the studio opens on the new fighter; docs folded; this plan set deleted | 06 |
@@ -130,17 +145,25 @@ to appeal to.
 Preregistered here so that session 04 cannot choose its threshold after seeing the
 result. Measured on `embodied-duel-v1`, 400 seeds, both orientations, both assignments:
 
-| quantity | baseline (the script) | acceptance |
-|---|---:|---:|
-| trials decided by a body | 8.2% | **at least 50%** |
-| median fight length | 3600 ticks | **under 1800 ticks** |
-| subject wins against the script | -- | **at least 60%** |
-| guard diagonal | 52.06% | **at least 70%** |
+| quantity | baseline (the script) | acceptance | session 04 measured |
+|---|---:|---:|---:|
+| trials decided by a body | 8.2% | **at least 50%** | 0.8% -- `revise` |
+| median fight length | 3600 ticks | **under 1800 ticks** | 3600 -- `revise` |
+| subject wins against the script | -- | **at least 60%** | 39.69% -- `revise` |
+| guard diagonal | 52.06% | **at least 70%** -- session 03 measured 69.68% and recorded `revise` | 65.86% -- `revise` |
 
 A session that misses a row records `revise` with the matched evidence and **does not
 weaken the threshold, enlarge the policy or promote the fighter after seeing the
-result.** That is the discipline the retired hierarchical-ai plan set was written under
-and it is worth keeping.
+result.** Session 04 missed all four and did none of those things. The first row it
+missed by a factor of 62 -- 0.8% against 50% -- and the second by a factor of 2, since
+3,600 ticks is twice the 1,800 the row asks for; this entry read "the first two rows it
+missed by a factor of eight", and eight is neither of those, it is the ratio of health
+removal the record's own arithmetic section is about.
+[The record](../performance/embodied-tactical-policy.md#the-finding-two-of-the-four-rows-are-not-reachable-by-a-policy)
+carries the argument that says no policy on this fixture reaches those two rows --
+**the frozen script itself removes 0.394 of a bar from the body that has to reach zero,
+where half the trials ending needs a mean of at least 0.5.** That is the discipline the
+retired hierarchical-ai plan set was written under and it is worth keeping.
 
 The fifth acceptance is not a number: session 07 puts the fighter in front of the owner
 at a foreground browser, and only the owner's judgement closes the topic. A green corpus
@@ -154,12 +177,50 @@ that a constant carries its provenance -- **and a test that bounds it from both 
 applies to all of them.
 
 ```text
-TACTICAL_EMBODIED_POLICY_CODE     3    the new registry entry, append-only after scripted-level
-GUARD_READ_DEADBAND_RAW                how far an observed weapon must move to change the guard height
-GUARD_COMMIT_TICKS                     how long a read guard holds before it may be re-read
-MEASURE_MARGIN_RAW                     the standoff the feet hold outside strike measure
-COMMIT_MIN_OPENING_RAW                 the smallest opening the planner will spend a commit on
+TACTICAL_EMBODIED_POLICY_CODE     3    landed 02; the registry entry, append-only after scripted-level
+FIXED_GUARD_EMBODIED_POLICY_CODE  4    landed 03; the guard measurement's control
+GUARD_READ_DEADBAND_RAW       3_277    landed 03; 0.05 of standing height, and two ticks of
+                                       ARM_LINEAR_MAX_SPEED_RAW to within one raw unit
+GUARD_COMMIT_TICKS               13    landed 03; the ticks `chase` needs to carry a hand one
+                                       band. The placeholder here read 12 and was one short
+GUARD_EFFORT                    1.0    landed 03; full, where the script's guard asks a half,
+                                       because this one is asked to arrive inside the window
+GUARD_ARC                     8_192    landed 03; an eighth turn, the same arc the script uses
+REST_REACH        ARM_MIN_REACH_RAW    landed 03; where an *empty* guard hand sits, which is
+                                       half of every body in the corpus
+MEASURE_MARGIN_RAW           32_768    landed 04; a half, the standoff the feet hold outside
+                                       strike measure. Configuration on `Footwork` rather than
+                                       a `const`, because `StrikePlanner` drives two seams and
+                                       only the embodied one was retuned
+MEASURE_MIN_FRACTION_RAW     52_428    landed 04; four fifths, clear of both fixture bodies'
+                                       own resting blades and inside the band the measure
+                                       gate leaves a commit. It read 49_152 (three
+                                       quarters) until a review found the sweep had been
+                                       run on a ratio the session plan does not name
+LUNGE_SPEED_RAW              32_768    landed 04; a half of `move_speed`, the feet crossing
+                                       measure during the commit. **Not on this list before**,
+                                       and it is the one change of the four that moved the
+                                       diagnosis metric
+UNWIND_TWIST_RAW             57_344    landed 04; seven eighths, `embodied_script.rs`'s own
+                                       threshold copied for `embodied_guard.rs`'s reason
+COMMIT_MIN_OPENING_RAW           --    **not landed.** Session 04 measured the lever it sits on
+                                       pointing the wrong way and recorded that instead
 ```
+
+`Footwork::ARTICULATED` carries the planner's own pre-session-04 numbers -- a standoff of
+1/10, a floor of 3/5 and no lunge at all -- and is a frozen control rather than a default
+worth improving: `#/arena` renders a fight driven by it, and every pinned articulated
+measurement was taken with it. Session 04 proved the split by re-running the articulated
+corpus at `44b05d4` and comparing bytes rather than by arguing from the type.
+
+**Three of session 03's constants were not on this list and shipped with no bounding test at all**, which
+is the rule above being broken rather than a gap in it. They are `embodied_guard.rs`'s
+own spellings of three constants `embodied_script.rs` already had -- copied rather than
+imported, deliberately, because the script is the frozen control and this policy's
+constants must not become casualties of whatever happens to it -- and a copied constant
+is still a constant introduced. All three were mutated in both directions on 2026-08-18
+with nothing in the workspace failing; each now carries a two-sided test, named in
+[session 03](fight-03-the-guard-that-watches.md#tests).
 
 ## Hash expectations
 

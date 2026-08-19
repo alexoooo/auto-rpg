@@ -37,7 +37,7 @@ no successor is a property of the *observation* rather than an omission:
 `ArticulatedObservation` is subject-scoped and has no faction column, so "the
 other side" appears in it only as `opponents`, already selected. Per-side routing
 therefore belongs to whoever drives the run, which does know both factions.
-[`ArticulatedPolicy`](../../crates/policy/src/lib.rs#L212) carries that argument
+[`ArticulatedPolicy`](../../crates/policy/src/lib.rs#L222) carries that argument
 in full, beside the doctest pair showing that no policy can be handed a `&World`.
 
 ## Observation to command
@@ -332,19 +332,65 @@ than an extension of either, on `ArticulatedPolicyKind`'s own argument: the thre
 seams share no code space, so `2` names `idle`, `windmill` and `scripted-level`
 depending on which registry is being read, and a collision between them is a page
 showing a different fight when a dropdown moves. Codes are append-only for the same
-reason. The four are `neutral`, `scripted`, `scripted-level` and `tactical`.
-`scripted-level` is the scripted policy with its elevation term switched off -- a
-registry entry rather than a test-only constructor because it is what the high-ground
-measurement runs against, and that comparison has to be runnable from a command line.
+reason. The five are `neutral`, `scripted`, `scripted-level`, `tactical` and
+`tactical-fixed-guard`. Two of the five are controls, and both are registry entries
+rather than test-only constructors for the same reason: they are what a measurement
+runs against, and that comparison has to be runnable from a command line and nameable
+per side.
+
+`scripted-level` is the scripted policy with its elevation term switched off.
 `tactical` is the strike planner behind this seam: `StrikePlanner` is frame-free,
 because every quantity it reads is a world quantity measured off an observation whose
 type is the same on both seams, so the port shares the planner and forks only the
 command assembly. The frame enters in one four-line function,
-[`into_torso_frame`](../../crates/policy/src/embodied_tactics.rs#L76), which subtracts
+[`into_torso_frame`](../../crates/policy/src/embodied_tactics.rs#L83), which subtracts
 the *observed* yaw and not the commanded one -- the world re-adds
 `World::body_yaw[i].angle`, and the commanded yaw is a request the actuator chases at a
 bounded rate. Its first measured outing is
 [the tactical policy record](../performance/embodied-tactical-policy.md).
+
+`tactical` also carries **the only guard in this repository that is a read rather than
+a clock**. [`GuardRead`](../../crates/policy/src/embodied_guard.rs) takes the nearest
+live blade's tip, expresses it as a fraction of the subject's own standing height above
+the floor its owner stands on, and commands the nearest of the three bands -- deadbanded
+so a blade that has not moved does not move the arm, and committed for the thirteen
+ticks the actuator needs to carry a hand one band. **No tick can produce a height no
+blade produced** — which is the narrow claim and the true one. This paragraph said "it
+reads no tick, no phase and no counter" until 2026-08-18, and that was contradicted by
+the sentence before it: the guard reads `obs.tick` to know whether its thirteen ticks
+have run, and `StrikePlanner::phase` to know whether the strike owns the arm. What the
+tick and the phase can do is *gate* the read; neither can select a value.
+`tactical-fixed-guard` is that policy with the read switched off: the same arm,
+the same reach and the same effort, permanently on the body's own centre line, so a
+difference measured between the two is the read and not "one of them has an arm up".
+The result of racing them, including the four departures from the session plan that came
+out of reading the simulator rather than the corpus, is in
+[the tactical policy record](../performance/embodied-tactical-policy.md#session-03-the-guard-that-watches).
+
+`tactical` also carries **the one piece of this seam that is configuration rather
+than code**. [`Footwork`](../../crates/policy/src/embodied_footwork.rs) is four numbers
+a `StrikePlanner` spends on its feet -- the standoff it holds outside its own reach,
+the fraction of reach at which it gives ground, how fast the feet cross measure during
+a commit, and the twist fraction at which a wound torso walks while it unwinds. It is a
+struct on the planner and not four module constants for `TacticalConfig`'s reason:
+**one planner drives two seams.** `TacticalArticulatedPolicy`, which `#/arena` renders
+and which every pinned `articulated-duel-v1` measurement was taken with, and
+`TacticalEmbodiedPolicy`, which session 04 retuned against `embodied-duel-v1`. Editing
+the constants in place would have retuned the first silently. `Footwork::ARTICULATED`
+is therefore the planner's own pre-session-04 numbers,
+[`StrikePlanner::footwork`](../../crates/policy/src/articulated_tactics.rs#L206) is the
+constructor that takes a row, and `StrikePlanner::default()` still answers the
+articulated one -- which is why `TacticalEmbodiedPolicy` has a hand-written `Default`
+rather than a derived one.
+
+The row survives `StrikePlanner::reset`, on `PlanScoring`'s precedent: a corpus runner
+resets between seeds, and a reset that restored `Default` wholesale would demote every
+seed after the first to a policy nobody selected. And it is reachable from a command
+line -- `lab embodied --footwork margin,floor,lunge,unwind` -- so that the sweeps in
+[the tactical policy record](../performance/embodied-tactical-policy.md#session-04-the-fight-that-ends-and-does-not)
+are reproducible without editing a constant and rebuilding. `EmbodiedPolicyKind::build_with_footwork`
+answers `None` for the three entries with no planner, so a row that cannot be spent is
+refused by name rather than dropped.
 
 **`EmbodiedPolicyKind::build` returns a policy and not an `Option`, which is where
 it deliberately differs from its sibling.** `ArticulatedPolicyKind` answers `None`
@@ -368,7 +414,7 @@ script, for the control, and for a matchup running a different policy on each si
 
 `lab embodied` therefore folds its own stream under `ARPG-EMBODIED-SCRIPT-V1` rather
 than calling it; that function is
-[`embodied_script_digest`](../../crates/lab/src/main.rs#L1182), it copies
+[`embodied_script_digest`](../../crates/lab/src/main.rs#L1191), it copies
 `script_digest`'s grammar byte for byte over `EmbodiedCommandV1::payload_bytes`, and its
 doc comment carries the whole argument. **The repair to the shared function is still
 owed** and is a one-line change -- the third match arm -- but it is a change to a
@@ -496,12 +542,14 @@ such demonstration exists. Any successor needs a separately approved causal ques
 
 ## Source anchors
 
-- The articulated seam: [`ArticulatedPolicy`](../../crates/policy/src/lib.rs#L212)
-- The embodied seam: [`EmbodiedPolicy`](../../crates/policy/src/lib.rs#L264)
-- The non-legacy seam's registry: [`ArticulatedPolicyKind`](../../crates/policy/src/lib.rs#L307)
-- The embodied seam's registry: [`EmbodiedPolicyKind`](../../crates/policy/src/lib.rs#L458)
+- The articulated seam: [`ArticulatedPolicy`](../../crates/policy/src/lib.rs#L222)
+- The embodied seam: [`EmbodiedPolicy`](../../crates/policy/src/lib.rs#L274)
+- The non-legacy seam's registry: [`ArticulatedPolicyKind`](../../crates/policy/src/lib.rs#L317)
+- The embodied seam's registry: [`EmbodiedPolicyKind`](../../crates/policy/src/lib.rs#L468)
 - The scripted embodied policy: [`crates/policy/src/embodied_script.rs`](../../crates/policy/src/embodied_script.rs)
 - The tactical embodied policy: [`crates/policy/src/embodied_tactics.rs`](../../crates/policy/src/embodied_tactics.rs)
+- The guard that reads the blade: [`crates/policy/src/embodied_guard.rs`](../../crates/policy/src/embodied_guard.rs)
+- What a planner's feet are told: [`crates/policy/src/embodied_footwork.rs`](../../crates/policy/src/embodied_footwork.rs)
 - Headless decision loops: [`crates/policy/src/runner.rs`](../../crates/policy/src/runner.rs)
 - Subject-scoped inputs: [`crates/sim/src/obs.rs`](../../crates/sim/src/obs.rs)
 - The command grammars, `Order` and `Objective`: [`crates/sim/src/command.rs`](../../crates/sim/src/command.rs)

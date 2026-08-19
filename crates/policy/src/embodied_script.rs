@@ -107,6 +107,17 @@ pub const EMBODIED_HEIGHT_TICKS: u32 = 90;
 /// constant; a half is the smallest offset that is not a whole multiple of the
 /// period. Six of the nine cells become reachable and three remain unreachable,
 /// which is the honest ceiling of the fix and not a claim to have closed it.
+///
+/// **This clock is a control and not a recommendation.** It was the best that
+/// could be done by a file with no embodied corpus to tune against, and it has
+/// been superseded: [`crate::GuardRead`] answers the guard height from the
+/// observed incoming weapon, and **no tick there can produce a height no blade
+/// produced** -- the narrow claim, because that guard does read `obs.tick`, to
+/// decide when its arm has had long enough to arrive. Here the tick *is* the
+/// answer. This policy is frozen as
+/// the measurement's control, so the clock stays exactly as it is -- a reader
+/// who finds it first should not have to discover `embodied_guard.rs` to learn
+/// that it is the baseline rather than the design.
 const GUARD_LEAD_TICKS: u32 = EMBODIED_HEIGHT_TICKS / 2;
 
 /// An eighth of a turn: the chamber and commit offsets, and the guard arc.

@@ -31,8 +31,15 @@
 //! is the reading `embodied_script.rs` already argued for the weapon arm. The
 //! guard arm's plane is a *decision* rather than a default and belongs to the
 //! session that makes it.
+//!
+//! **It is still owed, and the session that gave this policy a guard did not
+//! pay it.** [`crate::GuardRead`] decides the guard arm's bearing, height and
+//! reach; it leaves the plane at zero on purpose, because the measurement that
+//! session ran is the read guard against the *same* guard with the read
+//! switched off, and a plane folded in on one arm of that comparison and not
+//! the other would have made the difference two things.
 
-use crate::{EmbodiedPolicy, StrikePlanner};
+use crate::{EmbodiedPolicy, Footwork, GuardRead, StrikePlanner};
 use fx::{Angle, Vec2};
 use sim::{ArticulatedCommandV1, ArticulatedObservation, EmbodiedCommandV1};
 
@@ -86,7 +93,45 @@ pub fn into_torso_frame(
     EmbodiedCommandV1::new(out)
 }
 
-/// The strike planner behind the embodied seam.
+/// The registry code for the fixed-guard control. Append-only after `tactical`.
+pub const FIXED_GUARD_EMBODIED_POLICY_CODE: u32 = 4;
+
+/// Whether the guard arm reads the incoming blade.
+///
+/// **A parameter and not a global**, on `EmbodiedScriptConfig`'s argument
+/// exactly: the measurement runs this policy against itself with the term
+/// disabled, and two builds of one library that differ by a `static` cannot be
+/// run against each other in one process at all. It is a struct with one field
+/// rather than a bare `bool` for that file's second reason -- the day a second
+/// term needs the same treatment the call sites do not change shape, and nobody
+/// has to remember which of two positional booleans is which.
+///
+/// The comparison is not bracketed. A win rate over a fixed seed set is a pure
+/// function of the two policies and the fixture; what the repetitions cancel is
+/// the arena and the anatomy, not noise.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct TacticalConfig {
+    /// With this `false` the guard arm still holds a guard -- same arm, same
+    /// reach, same effort -- permanently on the body's own centre line. The
+    /// control is deliberately *a guard that does not read* rather than *no
+    /// guard*, so the measured difference is the read and cannot be "one policy
+    /// has an arm up and the other does not".
+    pub read_guard: bool,
+}
+
+impl TacticalConfig {
+    /// The shipped policy: it reads the blade.
+    pub const READING: TacticalConfig = TacticalConfig { read_guard: true };
+
+    /// The control: a guard on the centre line, whatever is coming.
+    pub const FIXED_GUARD: TacticalConfig = TacticalConfig { read_guard: false };
+}
+
+impl Default for TacticalConfig {
+    fn default() -> TacticalConfig { TacticalConfig::READING }
+}
+
+/// The strike planner behind the embodied seam, with a guard that watches.
 ///
 /// **What it does not know is hips.** The planner was written against
 /// articulated bodies with no stance; an embodied body has a torso the hips
@@ -96,19 +141,87 @@ pub fn into_torso_frame(
 /// rather than guessed -- `docs/performance/embodied-tactical-policy.md` records
 /// the corpus this policy scored on its first outing, so a session that tunes
 /// against it is tuning against a number and not a memory.
-#[derive(Clone, Copy, Debug, Default)]
+///
+/// **The guard is written after the frame conversion and not before it**, which
+/// is the one ordering decision this type makes. [`GuardRead`] answers in the
+/// torso frame -- zero bearing is the body's own facing, which is the whole
+/// simplification that frame buys -- so converting its answer a second time
+/// would subtract the yaw twice and point the plate a whole facing off the line
+/// it was aimed at.
+#[derive(Clone, Copy, Debug)]
 pub struct TacticalEmbodiedPolicy {
     planner: StrikePlanner,
+    guard: GuardRead,
+}
+
+/// **A hand-written `Default` and not a derive**, which is the same trap
+/// [`GuardRead::reset`] documents one file over. `StrikePlanner::default()` is
+/// the *articulated* footwork row, deliberately, so that every pinned
+/// articulated measurement keeps the planner it was taken with -- and a derived
+/// `Default` here would have silently handed the embodied policy that row, in
+/// the twenty-odd tests that construct it that way and nowhere a reader would
+/// look. It is `new(TacticalConfig::default())` and nothing else.
+impl Default for TacticalEmbodiedPolicy {
+    fn default() -> TacticalEmbodiedPolicy {
+        TacticalEmbodiedPolicy::new(TacticalConfig::default())
+    }
 }
 
 impl TacticalEmbodiedPolicy {
+    pub fn new(config: TacticalConfig) -> TacticalEmbodiedPolicy {
+        TacticalEmbodiedPolicy::with_footwork(config, Footwork::EMBODIED)
+    }
+
+    /// The same policy with its planner's feet told a row of somebody's
+    /// choosing, which is how every sweep table in
+    /// `docs/performance/embodied-tactical-policy.md` is produced.
+    ///
+    /// **This exists because the alternative was a rebuild per row**, and a
+    /// measurement nobody can re-run from a shipped command is a measurement
+    /// that will be quoted long after it stopped being true. Session 04 swept
+    /// four constants by editing [`Footwork::EMBODIED`] and rebuilding, and the
+    /// review that followed could not reproduce a single one of its tables
+    /// without doing the same. `lab embodied --footwork` reaches this.
+    ///
+    /// It is not a default worth taking: [`Footwork::EMBODIED`] is the shipped
+    /// row and [`TacticalEmbodiedPolicy::new`] is what the registry builds.
+    pub fn with_footwork(
+        config: TacticalConfig,
+        footwork: Footwork,
+    ) -> TacticalEmbodiedPolicy {
+        TacticalEmbodiedPolicy {
+            planner: StrikePlanner::footwork(footwork),
+            guard: GuardRead::new(config.read_guard),
+        }
+    }
+
     pub fn planner(&self) -> &StrikePlanner { &self.planner }
+
+    /// What the guard has decided. Public so a test can say *which* rule moved
+    /// an arm rather than only that one did.
+    pub fn guard(&self) -> &GuardRead { &self.guard }
+
+    pub fn config(&self) -> TacticalConfig {
+        TacticalConfig { read_guard: self.guard.reads() }
+    }
 }
 
 impl EmbodiedPolicy for TacticalEmbodiedPolicy {
     fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
-        into_torso_frame(obs, self.planner.decide(obs))
+        let mut command = into_torso_frame(obs, self.planner.decide(obs));
+        if let Some(guard) = self.guard.decide(obs, &self.planner) {
+            command.articulated.arms[guard.arm] = guard.target;
+        }
+        command
     }
 
-    fn reset(&mut self) { self.planner.reset(); }
+    /// The planner's fight and the guard's memory both go; the guard's
+    /// *configuration* stays, on `StrikePlanner::reset`'s precedent. A reset
+    /// that restored `Default` wholesale would demote every seed after the first
+    /// to a policy nobody selected, and here that policy would be the subject
+    /// standing in for the control.
+    fn reset(&mut self) {
+        self.planner.reset();
+        self.guard.reset();
+    }
 }

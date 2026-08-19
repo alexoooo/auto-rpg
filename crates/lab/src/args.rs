@@ -199,7 +199,12 @@ impl Args {
 /// Written out rather than folded into [`Args::decimal`] so it can be tested
 /// against the strings a person actually types, including the ones that must be
 /// refused: a silently-accepted `"0,35"` is `--sigma-pct 100O` again.
-fn parse_decimal(text: &str) -> Option<Fx> {
+///
+/// Visible to the crate because `--footwork` reads four of these out of one
+/// comma-separated value and cannot go through [`Args::decimal`], which reads a
+/// whole key. One reader for "what does a decimal on this command line mean",
+/// rather than a second one that could disagree about `"0,35"`.
+pub(crate) fn parse_decimal(text: &str) -> Option<Fx> {
     let (negative, digits) = match text.strip_prefix('-') {
         Some(rest) => (true, rest),
         None => (false, text),

@@ -24,7 +24,7 @@ use trace::{FightTrace, TraceRun};
 use fx::{Fx, Hash64, Vec2};
 use policy::{
     script_digest, ArmRoles, ArticulatedPolicy, ClosingAttackControlPolicy,
-    EmbodiedPolicy, EmbodiedPolicyKind, OpeningsArticulatedPolicy,
+    EmbodiedPolicy, EmbodiedPolicyKind, Footwork, OpeningsArticulatedPolicy,
     RunConfig, ScriptedArticulatedPolicy, TacticalArticulatedPolicy,
     WindmillArticulatedPolicy,
 };
@@ -81,8 +81,8 @@ fn usage() {
         "auto-rpg experiment lab
 
   verify  --seeds N --threads N --verbose
-          --slope --policy neutral|scripted|scripted-level|tactical
-          --hero-policy|--monster-policy neutral|scripted|scripted-level|tactical
+          --slope --policy neutral|scripted|scripted-level|tactical|tactical-fixed-guard
+          --hero-policy|--monster-policy neutral|scripted|scripted-level|tactical|tactical-fixed-guard
           Runs every seed twice and replays the recording, and checks all three
           agree bit-exactly. This is the guarantee the whole architecture rests
           on. --verbose prints every seed's digest, which is what you diff
@@ -94,8 +94,9 @@ fn usage() {
           replay corpus in this repository carries into a state hash.
 
   embodied --seeds N --threads N --mirrored --seed-zero-only --slope
-           --policy neutral|scripted|scripted-level|tactical
-           --hero-policy|--monster-policy neutral|scripted|scripted-level|tactical
+           --policy neutral|scripted|scripted-level|tactical|tactical-fixed-guard
+           --hero-policy|--monster-policy neutral|scripted|scripted-level|tactical|tactical-fixed-guard
+           --footwork margin,floor,lunge,unwind
            --corpus-digest --high-ground
           The corpus measurement under the embodied model. It runs
           `embodied-duel-v1` unless --slope names the sculpted fixture, and
@@ -110,6 +111,14 @@ fn usage() {
           against itself with the high-ground term switched off on one side,
           on the sculpted fixture, over both orientations and both side
           assignments. It refuses overrides for the same reason.
+          --footwork replaces the four numbers a strike planner's feet are
+          told, as ratios or decimals in the order margin, floor, lunge,
+          unwind -- so `--footwork 1/2,4/5,1/2,7/8` is the shipped row and
+          `--footwork 1/10,3/5,0,2` is the articulated one with the unwind
+          read out of reach. It is what every sweep table in
+          docs/performance/embodied-tactical-policy.md is produced with, and
+          it reaches the two entries that drive a planner: a matchup with no
+          such side is refused rather than run with the row dropped.
 
   strike-corpus --policy neutral|striker --seeds N --mirrored
           Runs nine fixed approach offsets against stationary Fighter and
@@ -318,8 +327,8 @@ fn verify_one_embodied(
     limit: Option<u32>,
 ) -> Result<(u32, Outcome, StateDigest), String> {
     let mut replay = Replay::new(scenario, seed);
-    let mut heroes = matchup.heroes.build();
-    let mut monsters = matchup.monsters.build();
+    let mut heroes = matchup.build(matchup.heroes);
+    let mut monsters = matchup.build(matchup.monsters);
     let first = measure_embodied_matchup(
         scenario,
         seed,
@@ -1212,6 +1221,8 @@ fn embodied_name(kind: EmbodiedPolicyKind) -> &'static str {
         EmbodiedPolicyKind::Scripted => "the embodied script",
         EmbodiedPolicyKind::ScriptedLevel => "the embodied script with the ground term off (control)",
         EmbodiedPolicyKind::Tactical => "the tactical embodied policy",
+        EmbodiedPolicyKind::TacticalFixedGuard =>
+            "the tactical embodied policy with the guard read off (control)",
     }
 }
 
@@ -1228,6 +1239,16 @@ fn embodied_name(kind: EmbodiedPolicyKind) -> &'static str {
 struct EmbodiedMatchup {
     heroes: EmbodiedPolicyKind,
     monsters: EmbodiedPolicyKind,
+    /// The footwork row `--footwork` named, or `None` for the row each entry
+    /// ships with.
+    ///
+    /// **On the matchup and not beside it**, because it is part of what a run
+    /// measures in exactly the way the two policy names are: a corpus quoted
+    /// without it is a corpus nobody can reproduce, which is the defect this
+    /// field exists to close. [`EmbodiedMatchup::name`] therefore prints it,
+    /// and prints nothing at all when it is `None`, so every report recorded
+    /// before this flag existed still reads back byte for byte.
+    footwork: Option<Footwork>,
 }
 
 /// A bare kind *is* the symmetric matchup, exactly as a bare [`Script`] is.
@@ -1239,23 +1260,110 @@ impl From<EmbodiedPolicyKind> for EmbodiedMatchup {
 
 impl EmbodiedMatchup {
     fn symmetric(kind: EmbodiedPolicyKind) -> EmbodiedMatchup {
-        EmbodiedMatchup { heroes: kind, monsters: kind }
+        EmbodiedMatchup { heroes: kind, monsters: kind, footwork: None }
     }
 
     fn is_symmetric(self) -> bool {
         self.heroes == self.monsters
     }
 
+    /// One side's policy, built with the footwork row if it has feet to tell.
+    ///
+    /// The `None` arm is not a silent drop: [`embodied_matchup_from`] refuses
+    /// the whole run when *neither* side reads a footwork row, so reaching here
+    /// with `None` means the other side took it. Only an entry driving a
+    /// [`policy::StrikePlanner`] has feet to configure, and that is a property
+    /// of the entry rather than of the flag.
+    fn build(self, kind: EmbodiedPolicyKind) -> Box<dyn EmbodiedPolicy> {
+        match self.footwork {
+            Some(row) => kind.build_with_footwork(row).unwrap_or_else(|| kind.build()),
+            None => kind.build(),
+        }
+    }
+
     /// One name when both sides are the same and "x against y" when they are
     /// not, which is [`Matchup::name`]'s rule and is what lets a symmetric
     /// embodied corpus be read without noticing the feature.
     fn name(self) -> String {
-        if self.is_symmetric() {
+        let pair = if self.is_symmetric() {
             embodied_name(self.heroes).to_string()
         } else {
             format!("{} against {}", embodied_name(self.heroes), embodied_name(self.monsters))
+        };
+        match self.footwork {
+            None => pair,
+            Some(row) => format!(
+                "{pair}, footwork {}/{}/{}/{}",
+                row.margin, row.min_fraction, row.lunge, row.unwind_twist
+            ),
         }
     }
+}
+
+/// The four numbers `--footwork` names, or the sentence the run should be
+/// refused with.
+///
+/// **Ratios and decimals, and no floating point on the path**, which is
+/// [`Args::decimal`]'s rule and its reason: this lab's output is compared
+/// against a wasm build byte for byte, and `"0.5".parse::<f64>()` is one
+/// rounding mode away from a different raw value. `1/2` and `0.5` are both
+/// [`Fx::from_ratio`], and the record writes the sweeps as ratios because that
+/// is what their derivations are.
+///
+/// The order is the order [`Footwork`]'s fields are declared in and the order
+/// the sweep tables are printed in -- margin, floor, lunge, unwind -- and it is
+/// four values or a refusal, because three values silently read as a shorter
+/// row would be a corpus measuring a policy nobody named.
+fn footwork_from(args: &Args) -> Result<Option<Footwork>, String> {
+    // The `Args::parse` demotion `matchup_key_refusal` documents: a valueless
+    // `--footwork` becomes a flag, and a flag this reader ignored would leave
+    // an operator believing a swept row ran when the shipped one did.
+    if args.flag("footwork") {
+        return Err(
+            "--footwork names four numbers, margin,floor,lunge,unwind, and needs a value: \
+             it was given none"
+                .to_string(),
+        );
+    }
+    let Some(text) = args.text("footwork") else { return Ok(None) };
+    let terms: Vec<&str> = text.split(',').collect();
+    if terms.len() != 4 {
+        return Err(format!(
+            "--footwork takes four values in the order margin,floor,lunge,unwind: \
+             \"{text}\" has {}",
+            terms.len()
+        ));
+    }
+    let mut values = [Fx::ZERO; 4];
+    for (value, term) in values.iter_mut().zip(terms) {
+        *value = footwork_term(term).ok_or_else(|| {
+            format!("--footwork does not know the number \"{term}\": \
+                     each term is a ratio like 7/8 or a decimal like 0.875")
+        })?;
+    }
+    Ok(Some(Footwork {
+        margin: values[0],
+        min_fraction: values[1],
+        lunge: values[2],
+        unwind_twist: values[3],
+    }))
+}
+
+/// One `--footwork` term: `7/8`, `0.875` or `2`.
+///
+/// Split out so the refusals can be tested against the strings a person types.
+/// A zero denominator is refused rather than saturated, because
+/// `Fx::from_ratio` would divide by it.
+fn footwork_term(term: &str) -> Option<Fx> {
+    let Some((num, den)) = term.split_once('/') else {
+        return args::parse_decimal(term);
+    };
+    let num: i32 = num.trim().parse().ok()?;
+    let den: i32 = den.trim().parse().ok()?;
+    if den == 0 {
+        return None;
+    }
+    Some(Fx::from_ratio(num, den))
 }
 
 /// The embodied matchup the flags add up to, or the sentence the run should be
@@ -1300,6 +1408,29 @@ fn embodied_matchup_from(args: &Args) -> Result<EmbodiedMatchup, String> {
     }
     if let Some(kind) = read("monster-policy")? {
         matchup.monsters = kind;
+    }
+    matchup.footwork = footwork_from(args)?;
+    // A footwork row is a thing a `StrikePlanner` is told, and the script and
+    // the neutral control have no planner to tell. Refused rather than dropped,
+    // by name and with the two policies that cannot spend it, because a run
+    // that accepted the row and then ran the shipped one would answer a
+    // question nobody asked and look like it answered the one they did.
+    if matchup.footwork.is_some()
+        && !matchup.heroes.reads_footwork()
+        && !matchup.monsters.reads_footwork()
+    {
+        return Err(format!(
+            "--footwork is a row for a strike planner's feet and neither {} nor {} has one: \
+             name a side with {}",
+            matchup.heroes.name(),
+            matchup.monsters.name(),
+            EmbodiedPolicyKind::ALL
+                .iter()
+                .filter(|kind| kind.reads_footwork())
+                .map(|kind| kind.name())
+                .collect::<Vec<&str>>()
+                .join(" or ")
+        ));
     }
     Ok(matchup)
 }
@@ -1595,8 +1726,8 @@ fn measure_embodied(
     limit: Option<u32>,
 ) -> EmbodiedTrial {
     let matchup = matchup.into();
-    let mut heroes = matchup.heroes.build();
-    let mut monsters = matchup.monsters.build();
+    let mut heroes = matchup.build(matchup.heroes);
+    let mut monsters = matchup.build(matchup.monsters);
     measure_embodied_matchup(scenario, seed, heroes.as_mut(), monsters.as_mut(), limit, None, None)
 }
 
@@ -1813,7 +1944,7 @@ fn embodied_corpus_digest() -> u64 {
 /// accepted it would be inviting a reader to believe the number depends on it.
 fn embodied_override(args: &Args) -> Option<&'static str> {
     ["seeds", "threads", "seed-zero-only", "mirrored", "slope", "policy",
-     "hero-policy", "monster-policy", "ticks"]
+     "hero-policy", "monster-policy", "ticks", "footwork"]
         .into_iter()
         .find(|key| args.flag(key) || args.text(key).is_some())
 }
@@ -2181,6 +2312,7 @@ fn high_ground_on(scenario: &Scenario, summit: Vec2) {
             EmbodiedMatchup {
                 heroes: EmbodiedPolicyKind::Scripted,
                 monsters: EmbodiedPolicyKind::ScriptedLevel,
+                footwork: None,
             },
         ),
         (
@@ -2189,6 +2321,7 @@ fn high_ground_on(scenario: &Scenario, summit: Vec2) {
             EmbodiedMatchup {
                 heroes: EmbodiedPolicyKind::ScriptedLevel,
                 monsters: EmbodiedPolicyKind::Scripted,
+                footwork: None,
             },
         ),
         (
@@ -2348,6 +2481,7 @@ fn flat_control_agreement(flat: &Scenario, threads: usize) -> (usize, usize) {
     let asymmetric = EmbodiedMatchup {
         heroes: EmbodiedPolicyKind::Scripted,
         monsters: EmbodiedPolicyKind::ScriptedLevel,
+        footwork: None,
     };
     let symmetric = EmbodiedMatchup::symmetric(EmbodiedPolicyKind::Scripted);
     let (mut identical, mut compared) = (0usize, 0usize);
@@ -2391,6 +2525,7 @@ fn high_ground_elevation(scenario: &Scenario, mirror: &Scenario) -> ElevationPro
             EmbodiedMatchup {
                 heroes: EmbodiedPolicyKind::Scripted,
                 monsters: EmbodiedPolicyKind::ScriptedLevel,
+                footwork: None,
             },
         ),
         (
@@ -2398,14 +2533,15 @@ fn high_ground_elevation(scenario: &Scenario, mirror: &Scenario) -> ElevationPro
             EmbodiedMatchup {
                 heroes: EmbodiedPolicyKind::ScriptedLevel,
                 monsters: EmbodiedPolicyKind::Scripted,
+                footwork: None,
             },
         ),
     ] {
         for arena in [scenario, mirror] {
             for seed in 0..HIGH_GROUND_PROBE_SEEDS {
                 let mut probe = ElevationProbe::default();
-                let mut heroes = matchup.heroes.build();
-                let mut monsters = matchup.monsters.build();
+                let mut heroes = matchup.build(matchup.heroes);
+                let mut monsters = matchup.build(matchup.monsters);
                 measure_embodied_matchup(
                     arena,
                     seed,
@@ -3608,6 +3744,114 @@ mod tests {
         assert_eq!(unflagged.heroes, EmbodiedPolicyKind::Scripted);
     }
 
+    /// `--footwork` changes the fight and not only the header, and it is
+    /// refused by name when the matchup has no feet for it.
+    ///
+    /// **The first half is the one worth writing**, on
+    /// `an_asymmetric_embodied_matchup_runs_a_different_policy_on_each_side`'s
+    /// reasoning exactly: a flag that parsed into `EmbodiedMatchup::footwork`
+    /// and was then dropped on the way to `build` would satisfy every assertion
+    /// about the parsed struct. So the row is checked through a command stream,
+    /// against the same seed under the row the entry ships with.
+    #[test]
+    fn a_footwork_row_reaches_the_fight_and_is_refused_where_there_are_no_feet() {
+        let swept = embodied_matchup_from(&traced_args(
+            "embodied --policy tactical --footwork 1/10,3/5,0,7/8",
+        ))
+        .expect("a legal row");
+        let row = swept.footwork.expect("the row parsed");
+        assert_eq!(
+            (row.margin, row.min_fraction, row.lunge, row.unwind_twist),
+            (Fx::from_ratio(1, 10), Fx::from_ratio(3, 5), Fx::ZERO, Fx::from_ratio(7, 8)),
+        );
+        // Decimals and ratios are one vocabulary, so the header a run prints
+        // can be typed back in.
+        let decimals = embodied_matchup_from(&traced_args(
+            "embodied --policy tactical --footwork 0.1000,0.6000,0,0.8750",
+        ))
+        .expect("a legal row")
+        .footwork
+        .expect("the row parsed");
+        assert_eq!(decimals, row, "a decimal row and its ratio spelling disagree");
+
+        // Through the fight: the articulated row on an embodied body is a
+        // different command stream from the shipped one.
+        let flat = Scenario::embodied_duel();
+        let shipped = measure_embodied(
+            &flat, 3, EmbodiedMatchup::symmetric(EmbodiedPolicyKind::Tactical), TEST_TICKS);
+        let overridden = measure_embodied(&flat, 3, swept, TEST_TICKS);
+        assert_ne!(shipped.digest, overridden.digest,
+                   "the footwork row never reached the policy that was built");
+        assert_eq!(shipped.state.compare(overridden.state), Ok(false),
+                   "the footwork row commanded a different fight and the world agreed");
+
+        // And the row the shipped entry already carries is a no-op, which is
+        // what says the flag is spelling the same numbers the constants do.
+        let restated = embodied_matchup_from(&traced_args(
+            "embodied --policy tactical --footwork 1/2,4/5,1/2,7/8",
+        ))
+        .expect("a legal row");
+        let same = measure_embodied(&flat, 3, restated, TEST_TICKS);
+        assert_eq!(same.digest, shipped.digest,
+                   "the flag spelled the shipped row and got a different fight");
+
+        // The header carries it, and carries nothing when it is absent, so
+        // every report recorded before this flag existed still reads back.
+        assert!(restated.name().contains("footwork 0.5000/0.7999/0.5000/0.8750"),
+                "the header does not say which row ran: {}", restated.name());
+        assert_eq!(EmbodiedMatchup::symmetric(EmbodiedPolicyKind::Tactical).name(),
+                   "the tactical embodied policy");
+
+        // The refusal: a matchup with no planner on either side cannot spend a
+        // footwork row, and says so with both policies in the sentence.
+        let refusal = embodied_matchup_from(&traced_args(
+            "embodied --hero-policy scripted --monster-policy neutral --footwork 1/2,4/5,1/2,7/8",
+        ))
+        .expect_err("neither side has feet to tell");
+        for word in ["--footwork", "scripted", "neutral", "tactical"] {
+            assert!(refusal.contains(word), "the refusal must name {word}: {refusal}");
+        }
+        // One side is enough, because a footwork row is a property of an entry
+        // and the script has no planner by construction.
+        assert!(embodied_matchup_from(&traced_args(
+            "embodied --hero-policy tactical --monster-policy scripted --footwork 1/2,4/5,1/2,7/8",
+        ))
+        .is_ok());
+    }
+
+    /// Every way of typing `--footwork` wrong is refused, and none of them
+    /// silently runs the shipped row.
+    ///
+    /// A sweep table is only reproducible if a mistyped row fails loudly: a
+    /// dropped fourth term that quietly became the shipped constant would put a
+    /// wrong number in a record and no way to notice.
+    #[test]
+    fn a_mistyped_footwork_row_is_refused_rather_than_partly_read() {
+        for (line, needle) in [
+            ("embodied --policy tactical --footwork", "needs a value"),
+            ("embodied --policy tactical --footwork 1/2,4/5,1/2", "has 3"),
+            ("embodied --policy tactical --footwork 1/2,4/5,1/2,7/8,1", "has 5"),
+            ("embodied --policy tactical --footwork 1/2,4/5,1/2,x", "\"x\""),
+            ("embodied --policy tactical --footwork 1/2,4/5,1/2,7/0", "\"7/0\""),
+            ("embodied --policy tactical --footwork 1/2;4/5;1/2;7/8", "has 1"),
+        ] {
+            let refusal = embodied_matchup_from(&traced_args(line)).expect_err(line);
+            assert!(refusal.starts_with("--footwork"),
+                    "the refusal must name the key: {refusal}");
+            assert!(refusal.contains(needle),
+                    "the refusal must name what was wrong ({needle}): {refusal}");
+        }
+        // And the terms that must be accepted, including the two the record's
+        // sweep tables spell: a lunge of zero, and an unwind above the clamped
+        // range of `twist_fraction`, which is the "never fires" row.
+        for line in [
+            "embodied --policy tactical --footwork 0,4/5,0,2",
+            "embodied --policy tactical --footwork 0.5,0.8,0.5,0.875",
+        ] {
+            assert!(embodied_matchup_from(&traced_args(line)).is_ok(), "{line}");
+        }
+    }
+
     #[test]
     fn a_valueless_embodied_policy_key_is_refused_rather_than_running_the_default() {
         // The `Args::parse` demotion, three times over. `--policy` is on the
@@ -3662,7 +3906,7 @@ mod tests {
             ("seeds", Some("8")), ("threads", Some("1")), ("seed-zero-only", None),
             ("mirrored", None), ("slope", None), ("policy", Some("neutral")),
             ("hero-policy", Some("scripted")), ("monster-policy", Some("neutral")),
-            ("ticks", Some("600")),
+            ("ticks", Some("600")), ("footwork", Some("1/2,4/5,1/2,7/8")),
         ] {
             for mode in ["corpus-digest", "high-ground"] {
                 let mut tokens =

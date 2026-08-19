@@ -9,7 +9,7 @@
 //! region. Execution remains feedback-controlled: measure closes until the
 //! real hilt-to-region range fits the observed arm plus blade.
 
-use crate::{neutral_articulated_command, ArmRoles, ArticulatedPolicy};
+use crate::{neutral_articulated_command, ArmRoles, ArticulatedPolicy, Footwork};
 use fx::{closest_points_on_segments, swept_segment_segment, Angle, Fx, Vec2, Vec3};
 use sim::{
     ArmTarget, ArticulatedCommandV1, ArticulatedObservation, BodyPart, CombatHeight, EntityId,
@@ -22,8 +22,10 @@ const RECOVER_TICKS: u32 = 24;
 const EIGHTH_TURN: Angle = Angle::from_raw(8_192);
 const APPROACH_SPEED: Fx = Fx::from_ratio(15, 16);
 const WITHDRAW_SPEED: Fx = Fx::HALF;
-const MEASURE_MARGIN: Fx = Fx::from_ratio(1, 10);
-const MEASURE_MIN_FRACTION: Fx = Fx::from_ratio(3, 5);
+// The two measure numbers used to be `const`s here. They are configuration now
+// and live on [`Footwork`], because this planner drives two seams and only one
+// of them was retuned; `Footwork::ARTICULATED` is this file's own pair,
+// unchanged, and `StrikePlanner::default()` still carries it.
 const GUARD_REACH: Fx = Fx::from_ratio(3, 4);
 const STRIKE_CHAMBER_REACH: Fx = Fx::ONE;
 const STRIKE_COMMIT_REACH: Fx = Fx::from_raw(61_440);
@@ -169,6 +171,7 @@ pub struct StrikePlanner {
     threat_crossing: Option<SegmentPose>,
     opponent_recovering: bool,
     scoring: PlanScoring,
+    footwork: Footwork,
 }
 
 impl Default for StrikePlanner {
@@ -177,6 +180,7 @@ impl Default for StrikePlanner {
             phase: TacticalPhase::Seek, plan: None, phase_started: 0, intent: None,
             previous: None, observed_tick: None, threat: None, threat_crossing: None,
             opponent_recovering: false, scoring: PlanScoring::NearestRegion,
+            footwork: Footwork::ARTICULATED,
         }
     }
 }
@@ -189,6 +193,18 @@ impl StrikePlanner {
     /// the planner to `Default`, which would silently drop a set one.
     pub fn scoring(scoring: PlanScoring) -> Self {
         Self { scoring, ..Self::default() }
+    }
+
+    /// The same planner with its feet told something else.
+    ///
+    /// A constructor rather than a setter, on [`StrikePlanner::scoring`]'s
+    /// argument exactly, and configuration that survives
+    /// [`StrikePlanner::reset`] for its reason: a corpus runner resets between
+    /// seeds, and a reset that restored `Default` wholesale would quietly demote
+    /// every seed after the first to the articulated row -- which is a corpus
+    /// measuring a policy nobody selected.
+    pub fn footwork(footwork: Footwork) -> Self {
+        Self { footwork, ..Self::default() }
     }
 
     pub fn phase(&self) -> TacticalPhase { self.phase }
@@ -260,8 +276,12 @@ impl StrikePlanner {
     /// `reset` is called between seeds by every corpus runner. Restoring
     /// `Default` wholesale would quietly demote the second seed onwards to
     /// nearest-region, which is a corpus measuring a policy nobody selected.
-    /// `an_openings_planner_keeps_its_scoring_across_a_reset` holds it.
-    pub fn reset(&mut self) { *self = Self { scoring: self.scoring, ..Self::default() }; }
+    /// `an_openings_planner_keeps_its_scoring_across_a_reset` holds it. The
+    /// footwork row rides along for the same reason, held by
+    /// `an_embodied_planner_keeps_its_footwork_across_a_reset`.
+    pub fn reset(&mut self) {
+        *self = Self { scoring: self.scoring, footwork: self.footwork, ..Self::default() };
+    }
 
     pub fn decide(&mut self, obs: &ArticulatedObservation) -> ArticulatedCommandV1 {
         self.decide_with_intent(obs, TacticalIntentV1::StrikeBest)
@@ -304,13 +324,12 @@ impl StrikePlanner {
                 return intent_command(obs, foe, intent);
             }
             if let Some(plan) = choose_plan(obs, foe, intent, self.scoring) {
-                if in_measure(obs, foe, plan.hand) {
-                    self.plan = Some(plan);
-                    self.phase = TacticalPhase::Chamber;
-                    self.phase_started = obs.tick;
-                } else {
-                    return measure_command(obs, foe, toward, plan.hand);
+                if !in_measure(obs, foe, plan.hand, self.footwork) {
+                    return measure_command(obs, foe, toward, plan.hand, self.footwork);
                 }
+                self.plan = Some(plan);
+                self.phase = TacticalPhase::Chamber;
+                self.phase_started = obs.tick;
             } else {
                 return feet_command(obs, foe, toward, APPROACH_SPEED);
             }
@@ -337,8 +356,21 @@ impl StrikePlanner {
             _ => {}
         }
 
-        strike_command(obs, foe, plan, self.phase)
+        strike_command(obs, foe, plan, self.phase, self.footwork, unwinding(obs, self.footwork))
     }
+}
+
+/// Whether the torso has spent its twist budget and needs a foot down.
+///
+/// **Gated on `ObservedStance::present`, which is the whole of the degradation
+/// onto a model without legs** -- `embodied_script.rs` spends the same line for
+/// the same reason, and names the trap: a `twist_fraction` of zero is the one
+/// value that means nothing is wrong, so an ungated read is indistinguishable
+/// from a squared, standing body and would never fire. On an articulated world
+/// the column is absent and this is always false, which is why
+/// `Footwork::ARTICULATED` carries an unwind threshold it can never reach.
+fn unwinding(obs: &ArticulatedObservation, footwork: Footwork) -> bool {
+    obs.stance.present && obs.stance.twist_fraction.abs() >= footwork.unwind_twist
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -920,12 +952,17 @@ fn choose_plan(
     best.map(|row| row.5)
 }
 
-fn in_measure(obs: &ArticulatedObservation, foe: &ObservedOpponent, hand: LimbSlot) -> bool {
+fn in_measure(
+    obs: &ArticulatedObservation,
+    foe: &ObservedOpponent,
+    hand: LimbSlot,
+    footwork: Footwork,
+) -> bool {
     let Some(weapon) = obs.weapons[hand as usize] else { return false };
     let blade = weapon.tip.distance(weapon.hilt);
     let distance = planar(foe.body_position - obs.body_position).length();
     let reach = obs.arm_length + blade;
-    distance >= reach * MEASURE_MIN_FRACTION && distance <= reach + MEASURE_MARGIN
+    distance >= reach * footwork.min_fraction && distance <= reach + footwork.margin
 }
 
 fn measure_command(
@@ -933,13 +970,14 @@ fn measure_command(
     foe: &ObservedOpponent,
     toward: Angle,
     hand: LimbSlot,
+    footwork: Footwork,
 ) -> ArticulatedCommandV1 {
     let Some(weapon) = obs.weapons[hand as usize] else {
         return feet_command(obs, foe, toward, APPROACH_SPEED);
     };
     let reach = obs.arm_length + weapon.tip.distance(weapon.hilt);
     let distance = planar(foe.body_position - obs.body_position).length();
-    if distance < reach * MEASURE_MIN_FRACTION {
+    if distance < reach * footwork.min_fraction {
         feet_command(obs, foe, toward + Angle::HALF, WITHDRAW_SPEED)
     } else {
         feet_command(obs, foe, toward, APPROACH_SPEED)
@@ -994,10 +1032,74 @@ fn strike_command(
     foe: &ObservedOpponent,
     plan: StrikePlan,
     phase: TacticalPhase,
+    footwork: Footwork,
+    unwinding: bool,
 ) -> ArticulatedCommandV1 {
     let mut command = neutral_articulated_command(obs);
     let toward = planar(foe.body_position - obs.body_position).angle();
     command.body_yaw = toward;
+    // **The twist budget, spent rather than waited out**, and what this line
+    // buys is one branch of `World::drive_stance` and not the step.
+    //
+    // It writes a `move_dir`, so `translating` there becomes true, so the hips
+    // turn at `STANCE_HIP_MOVING_SPEED_RAW` instead of
+    // `STANCE_HIP_STANDING_SPEED_RAW` -- twice the rate. That is the whole of
+    // the mechanical gain: a wound-up torso unwinds by having its hips catch
+    // up, and a planted body's hips catch up at half speed. The body also
+    // translates, which is a real cost and is why this is spent on the chamber
+    // alone.
+    //
+    // **Two things it does not do**, both of which an earlier draft of this
+    // comment claimed. It does not *arm* a step: `drive_stance` arms one from
+    // `want != held` alone -- a turn the budget refused -- and a planner cannot
+    // reach that flag from here. And it does not move `hip_target`: that is
+    // `move_dir.angle()` while translating and `body_yaw` while planted, and the
+    // vector written below is along `body_yaw`, so the hips are already
+    // chasing exactly this angle. Direction is not what changes; rate is.
+    //
+    // `command.body_yaw` above is deliberately left asking for the whole turn.
+    // `drive_stance` re-arms its step for as long as the request exceeds the
+    // budget, so a planner that backed its own request off to something
+    // reachable would end that step early and leave the twist where it was.
+    if unwinding {
+        command.move_dir = Vec2::new(obs.body_yaw.cos(), obs.body_yaw.sin()) * APPROACH_SPEED;
+    }
+    // **The lunge: the commit crosses measure and the recovery leaves it**, and
+    // it is written after the unwind above rather than before it because a body
+    // cannot step two ways in one tick. The commit and the recovery already have
+    // a job for the feet, so the unwinding step is spent on the chamber alone --
+    // the one phase of a strike with feet to spare. That is an ordering and not
+    // a rule, and it is the reason there is no third branch here.
+    //
+    // This is the one thing on this file's list of session-04 changes that the
+    // session plan did not enumerate, and it is the plan's own thesis sentence:
+    // *"a fighter that holds measure, then crosses it once at speed, converts
+    // 1,566 worthless facts into a handful of expensive ones."* Crossing measure
+    // is something the feet do. Until this line the planner planted them for all
+    // 80 ticks of chamber, commit and recovery, so its blade carried the arm's
+    // sweep and nothing else -- and `embodied_script.rs` records the same
+    // correction, made the same way and paid for by the articulated corpus:
+    // "`AttackFootwork::Planted` ... a body decays to a standstill in about
+    // fourteen ticks with `move_dir` zero, and the arm term alone could not
+    // reach `CONTACT_ENERGY_FLOOR`".
+    //
+    // One speed and not two, spent forward and then taken back, because the
+    // lunge and its recovery are one decision: a step that is worth making into
+    // the exchange is worth unmaking out of it, and a second constant would be a
+    // second sweep for a number the first one already fixes. The chamber is
+    // deliberately *not* included -- it is the wind-up, the body is meant to be
+    // still outside measure while it happens, and stepping through it would be
+    // closing before the blade is loaded.
+    match phase {
+        TacticalPhase::Commit => {
+            command.move_dir = Vec2::new(toward.cos(), toward.sin()) * footwork.lunge;
+        }
+        TacticalPhase::Recover => {
+            let away = toward + Angle::HALF;
+            command.move_dir = Vec2::new(away.cos(), away.sin()) * footwork.lunge;
+        }
+        _ => {}
+    }
     command.intent = Intent::Attack(plan.opponent);
     command.arms[plan.hand as usize] = match phase {
         TacticalPhase::Chamber => ArmTarget {
@@ -1020,7 +1122,8 @@ fn strike_command(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sim::{DuelConfigV1, EquipmentGeometry, Faction, Scenario, SubmitArticulatedOutcome, World};
+    use sim::{ARM_MIN_REACH_RAW, DuelConfigV1, EquipmentGeometry, Faction, Scenario,
+              SubmitArticulatedOutcome, World};
 
     fn close_duel() -> Scenario {
         let mut config = DuelConfigV1::shipped();
@@ -1214,8 +1317,10 @@ mod tests {
             chamber_bearing: toward - EIGHTH_TURN,
             commit_bearing: toward + EIGHTH_TURN, height: CombatHeight::MID };
         let weapon = obs.weapons[hand].expect("the selected hand carries the fixture sword");
-        let chamber = strike_command(&obs, &foe, plan, TacticalPhase::Chamber);
-        let commit = strike_command(&obs, &foe, plan, TacticalPhase::Commit);
+        let chamber = strike_command(&obs, &foe, plan, TacticalPhase::Chamber,
+                                     Footwork::ARTICULATED, false);
+        let commit = strike_command(&obs, &foe, plan, TacticalPhase::Commit,
+                                    Footwork::ARTICULATED, false);
         assert_eq!(chamber.arms[hand].reach.raw(), 65_536);
         assert_eq!(commit.arms[hand].reach.raw(), 61_440);
         let predicted_chamber = predicted_segment(&obs, hand, weapon,
@@ -1800,4 +1905,501 @@ mod tests {
         scoped.opponents[0] = foe;
         assert_eq!(tactical.decide(&scoped), planner.decide(&scoped));
     }
+
+    // --------------------------------------- session 04: the feet, both-sided
+
+    /// The two bodies `embodied-duel-v1` fields, each as the observation it has
+    /// of itself and the move speed its own stats answer.
+    ///
+    /// Read off the fixture rather than written down, because every bound below
+    /// is a claim about *these two anatomies*. A fixture edit that changed an
+    /// arm or a blade would move the admitted band, and a test carrying its own
+    /// copy of 1.70 and 2.30 would go on passing while the constants stopped
+    /// meaning what their doc comments say.
+    fn embodied_bodies() -> Vec<(ArticulatedObservation, Fx)> {
+        let scenario = Scenario::embodied_duel();
+        let world = World::new(&scenario, 0);
+        let mut rows = Vec::new();
+        for faction in [Faction::Heroes, Faction::Monsters] {
+            let ids = world.alive_ids(faction);
+            assert_eq!(ids.len(), 1, "the duel fixture fields one body a side");
+            let unit = scenario.units.iter().find(|unit| unit.faction == faction)
+                .expect("a side with a body on it has a unit spec");
+            rows.push((world.observe_articulated(ids[0]), unit.stats.move_speed()));
+        }
+        rows
+    }
+
+    /// The weapon hand as the slot `in_measure` and `StrikePlan` speak in.
+    /// `ArmRoles::of` answers an index into `arms`, and the two are the same
+    /// number in two types.
+    fn weapon_slot(obs: &ArticulatedObservation) -> LimbSlot {
+        if ArmRoles::of(obs).weapon == 0 { LimbSlot::LeftArm } else { LimbSlot::RightArm }
+    }
+
+    fn blade_length(obs: &ArticulatedObservation) -> Fx {
+        let hand = ArmRoles::of(obs).weapon;
+        let blade = obs.weapons[hand].expect("both fixture bodies carry a weapon");
+        blade.tip.distance(blade.hilt)
+    }
+
+    /// `arm_length + blade`: a body's own origin to a fully extended tip, which
+    /// is what every number in [`Footwork`] is a fraction or an offset of.
+    fn strike_reach(obs: &ArticulatedObservation) -> Fx {
+        obs.arm_length + blade_length(obs)
+    }
+
+    /// The ground one commit's lunge covers, before acceleration is charged for.
+    fn commit_ground(speed: Fx, footwork: Footwork) -> Fx {
+        speed * Fx::from_int(COMMIT_TICKS as i32) * footwork.lunge
+    }
+
+    /// How wide the band `in_measure` admits is, from its two ends.
+    fn measure_band(obs: &ArticulatedObservation, footwork: Footwork) -> Fx {
+        strike_reach(obs) * (Fx::ONE - footwork.min_fraction) + footwork.margin
+    }
+
+    /// A foe standing exactly `distance` due east of the subject, and nothing
+    /// else. `in_measure` reads one field of an opponent and this is it, so a
+    /// blank body with a position is the whole of the input rather than a
+    /// fixture whose spawn a later session could move.
+    fn foe_at(obs: &ArticulatedObservation, distance: Fx) -> ObservedOpponent {
+        let mut foe = ObservedOpponent::BLANK;
+        foe.body_position = obs.body_position + Vec3::new(distance, Fx::ZERO, Fx::ZERO);
+        assert_eq!(planar(foe.body_position - obs.body_position).length(), distance,
+                   "the probe geometry is not exact, so a one-raw pin would be noise");
+        foe
+    }
+
+    /// `MEASURE_MARGIN_RAW` and `LUNGE_SPEED_RAW` are bounded by the same two
+    /// inequalities read from opposite ends, and this is the margin's end.
+    ///
+    /// **On this fixture the pair admits `[0.4113, 0.6391]` and nothing outside
+    /// it.** The width is written down rather than left to be inferred from two
+    /// inequalities, because a bound whose width nobody states is how a
+    /// field-of-view assertion of `FOV / 2 > 46` came to pass for anything from
+    /// 93 to 179 degrees and look like coverage. A half sits inside with room at
+    /// both ends, and the quarter-steps either side of it are both outside --
+    /// **by a different inequality each**, which is what makes the two bounds
+    /// two bounds rather than one written twice.
+    ///
+    /// Neither end is the sweep. The sweep is in
+    /// `docs/performance/embodied-tactical-policy.md` and it chose a half from
+    /// inside this band; what this test holds is that the band still contains
+    /// the shipped value after somebody edits an anatomy row.
+    #[test]
+    fn the_measure_margin_is_the_ground_one_commit_can_cross() {
+        let footwork = Footwork::EMBODIED;
+        for (obs, speed) in embodied_bodies() {
+            // Above: a standoff further out than the ground one commit covers is
+            // ground the body cannot cross while the arm sweeps, so the blade
+            // arrives where the body is not.
+            assert!(footwork.margin <= commit_ground(speed, footwork),
+                    "a commit cannot cross the standoff it chambered from");
+            // Below: the same arithmetic from the other side. A lunge that
+            // carries the body further than the whole measure band is wide ends
+            // the commit out the near side of it, which is the rub the standoff
+            // exists to stop -- and the margin is one of the two terms in that
+            // width, so it is the term that has to be large enough.
+            assert!(commit_ground(speed, footwork) <= measure_band(&obs, footwork),
+                    "one commit carries the body clean through the measure band");
+        }
+
+        // The width, stated by making both ends fail. The Brute is the slower
+        // body and is what the upper end is about; the Fighter has the shorter
+        // reach and the narrower band, and is what the lower end is about.
+        let mut bodies = embodied_bodies();
+        let (brute, brute_speed) = bodies.pop().expect("the monster side");
+        let (fighter, fighter_speed) = bodies.pop().expect("the hero side");
+        let wide = Footwork { margin: Fx::from_ratio(3, 4), ..footwork };
+        assert!(wide.margin > commit_ground(brute_speed, wide),
+                "three quarters is inside what the Brute's own commit can cross");
+        assert!(commit_ground(brute_speed, wide) <= measure_band(&brute, wide),
+                "three quarters fails the upper bound and nothing else");
+        let narrow = Footwork { margin: Fx::from_ratio(1, 4), ..footwork };
+        assert!(narrow.margin <= commit_ground(fighter_speed, narrow),
+                "a quarter is well inside what the Fighter's commit can cross");
+        assert!(commit_ground(fighter_speed, narrow) > measure_band(&fighter, narrow),
+                "a quarter fails the lower bound and nothing else");
+
+        // And the value itself, pinned through the function that consumes it
+        // against a literal half rather than against the constant -- an
+        // assertion that a body at `reach + MEASURE_MARGIN` is in measure is
+        // true of every margin there is.
+        let hand = weapon_slot(&fighter);
+        let edge = strike_reach(&fighter) + Fx::HALF;
+        assert!(in_measure(&fighter, &foe_at(&fighter, edge), hand, footwork),
+                "a body at reach plus a half is outside the measure it commits from");
+        let past = Fx::from_raw(edge.raw() + 1);
+        assert!(!in_measure(&fighter, &foe_at(&fighter, past), hand, footwork),
+                "the margin reaches one raw unit further than a half");
+    }
+
+    /// `MEASURE_MIN_FRACTION_RAW`, bounded below by the extension the actuator
+    /// holds an idle arm at and above by the measure band a commit has to land
+    /// in.
+    ///
+    /// **On this fixture the arm's own two extensions admit `(0.7228, 0.9724)`,
+    /// and at the shipped margin and lunge the measure band cuts that to
+    /// `(0.7228, 0.8521]`** -- so four fifths sits inside with room at both
+    /// ends and seven eighths does not. Below the lower end a body holding its
+    /// measure already has its own resting tip past its opponent's origin,
+    /// which is the rub and is present before either body has decided anything.
+    /// Above the upper end the band `in_measure` admits is narrower than the
+    /// ground one commit covers, so the commit ends out the near side of it.
+    ///
+    /// The earlier draft of this comment named only the arm's pair and called
+    /// the upper end "a measure its own committed extension can no longer reach
+    /// out of". That end is real and it is 0.9724, and it is not the one that
+    /// binds: nothing between 0.8521 and 0.9724 is reachable at the shipped
+    /// margin and lunge, and the corpus row at seven eighths was outside the
+    /// band the whole time it was being read as a worse point inside it.
+    #[test]
+    fn the_measure_floor_clears_a_resting_blade() {
+        let footwork = Footwork::EMBODIED;
+        let mut resting_worst = Fx::ZERO;
+        let mut committed_worst = Fx::ONE;
+        for (obs, _) in embodied_bodies() {
+            let reach = strike_reach(&obs);
+            // `neutral_articulated_command` asks for `reach: Fx::ZERO` and the
+            // actuator clamps it up to `ARM_MIN_REACH_RAW`, so a body doing
+            // nothing at all still holds its tip this far out.
+            let resting = (obs.arm_length * Fx::from_raw(ARM_MIN_REACH_RAW)
+                           + blade_length(&obs)) / reach;
+            assert!(footwork.min_fraction > resting,
+                    "the measure floor stands a body inside its own resting blade");
+            // The other extension: what the commit phase actually asks for.
+            let committed = (obs.arm_length * STRIKE_COMMIT_REACH
+                             + blade_length(&obs)) / reach;
+            assert!(footwork.min_fraction < committed,
+                    "the feet give ground to a measure the commit cannot reach out of");
+            if resting > resting_worst { resting_worst = resting; }
+            if committed < committed_worst { committed_worst = committed; }
+        }
+        // The width, so the bound is honest rather than merely true: the
+        // Brute's resting blade is the lower end and the Fighter's committed
+        // one is the upper, and seven tenths -- the row below the shipped one
+        // in the corpus's own sweep -- is outside.
+        assert_eq!((resting_worst.raw(), committed_worst.raw()), (47_371, 63_728));
+        assert!(Fx::from_ratio(7, 10) < resting_worst,
+                "seven tenths would clear the Brute's resting blade after all");
+        assert!(Fx::ONE > committed_worst,
+                "a floor at full reach would still be inside what a commit reaches");
+
+        // **And the ceiling that actually binds, which is not that one.** The
+        // arm's own committed extension leaves the floor room up to 0.9724, and
+        // the measure band leaves it far less: a floor that high makes
+        // `reach * (1 - min_fraction) + margin` narrower than the ground one
+        // commit covers, which is the second inequality
+        // `the_lunge_is_bounded_by_the_two_ways_a_commit_wastes_itself` holds.
+        // At the shipped margin and lunge that caps the floor at 0.8521, so
+        // seven eighths -- a row the corpus swept and reported -- is outside the
+        // band rather than merely worse in it, and the shipped four fifths sits
+        // inside with room at both ends.
+        let steep = Footwork { min_fraction: Fx::from_ratio(7, 8), ..footwork };
+        let (fighter, fighter_speed) = embodied_bodies().remove(0);
+        assert!(commit_ground(fighter_speed, steep) > measure_band(&fighter, steep),
+                "a floor of seven eighths still leaves a band one commit fits inside");
+        assert!(commit_ground(fighter_speed, footwork) <= measure_band(&fighter, footwork),
+                "the shipped floor leaves no band for the commit to land in");
+
+        // And the value, pinned through `in_measure` against a literal four
+        // fifths. One raw unit inside the floor and the feet give ground; at
+        // the floor itself they hold.
+        let hand = weapon_slot(&fighter);
+        let floor = strike_reach(&fighter) * Fx::from_ratio(4, 5);
+        assert!(in_measure(&fighter, &foe_at(&fighter, floor), hand, footwork),
+                "the floor is above four fifths of reach");
+        let under = Fx::from_raw(floor.raw() - 1);
+        assert!(!in_measure(&fighter, &foe_at(&fighter, under), hand, footwork),
+                "the floor is below four fifths of reach");
+    }
+
+    /// `LUNGE_SPEED_RAW`, held by the two ways a commit wastes itself.
+    ///
+    /// **On this fixture the pair admits `[0.3911, 0.5590]` and nothing outside
+    /// it.** It is the same two inequalities
+    /// `the_measure_margin_is_the_ground_one_commit_can_cross` states, solved
+    /// for the speed instead of the standoff: too slow and the commit never
+    /// crosses the margin it chambered from, so the blade arrives where the body
+    /// is not; too fast and one commit carries the body clean through the
+    /// measure band and out the near side, which is the rub again with the feet
+    /// doing the rubbing. A half sits inside, and the two ends of the swept
+    /// curve -- zero and one -- are the two failures it sits between.
+    ///
+    /// Zero is the articulated row and is a real setting rather than a disabled
+    /// one: it is what the planner did before this session, and what `#/arena`
+    /// still runs.
+    #[test]
+    fn the_lunge_is_bounded_by_the_two_ways_a_commit_wastes_itself() {
+        let footwork = Footwork::EMBODIED;
+        for (obs, speed) in embodied_bodies() {
+            assert!(commit_ground(speed, footwork) >= footwork.margin,
+                    "the commit never crosses the standoff it chambered from");
+            assert!(commit_ground(speed, footwork) <= measure_band(&obs, footwork),
+                    "one commit walks the body through the whole measure band");
+        }
+        let mut bodies = embodied_bodies();
+        let (brute, brute_speed) = bodies.pop().expect("the monster side");
+        let (fighter, fighter_speed) = bodies.pop().expect("the hero side");
+        let planted = Footwork { lunge: Fx::ZERO, ..footwork };
+        assert!(commit_ground(brute_speed, planted) < planted.margin,
+                "a planted commit crosses no ground, which is what it always did");
+        let sprint = Footwork { lunge: Fx::ONE, ..footwork };
+        assert!(commit_ground(fighter_speed, sprint) > measure_band(&fighter, sprint),
+                "a commit at full speed no longer walks the Fighter through the band");
+        assert!(commit_ground(brute_speed, sprint) > measure_band(&brute, sprint),
+                "a commit at full speed no longer walks the Brute through the band");
+
+        // And which phases spend it, pinned through `strike_command` against a
+        // literal half. The foe is due east, so the commanded step is the lunge
+        // itself on one axis and nothing on the other, and the three phases can
+        // be read apart without an angle in the way.
+        let foe = foe_at(&fighter, strike_reach(&fighter));
+        let plan = StrikePlan { opponent: foe.id, region: BodyPart::Torso,
+            hand: weapon_slot(&fighter),
+            chamber_bearing: Angle::ZERO, commit_bearing: Angle::ZERO,
+            height: CombatHeight::MID };
+        let step = |phase| strike_command(&fighter, &foe, plan, phase, footwork, false).move_dir;
+        assert_eq!(step(TacticalPhase::Commit), Vec2::new(Fx::HALF, Fx::ZERO),
+                   "the commit does not cross measure at a half of move speed");
+        assert_eq!(step(TacticalPhase::Recover), Vec2::new(-Fx::HALF, Fx::ZERO),
+                   "the recovery does not leave measure at the speed it entered");
+        // The chamber is deliberately outside it: that is the wind-up, and
+        // stepping through it is closing before the blade is loaded.
+        assert_eq!(step(TacticalPhase::Chamber), Vec2::ZERO,
+                   "the chamber steps, so the body closes before the blade is loaded");
+    }
+
+    /// `UNWIND_TWIST_RAW`, and the one thing that makes it safe to carry on the
+    /// articulated row as well.
+    ///
+    /// **The threshold admits `(0.5, 1.0)` and seven eighths sits inside it**,
+    /// which is `embodied_script.rs`'s own argument for its own copy, unchanged:
+    /// below about a half an ordinary guard change would step, so footwork would
+    /// become a tax on aiming; at one the step would only begin after the torso
+    /// had already stopped turning, so the policy would be reacting to the
+    /// constraint rather than spending it.
+    ///
+    /// The second half is the gate. `ObservedStance::present` is false on a body
+    /// with no legs, so `Footwork::ARTICULATED` can carry a threshold it never
+    /// reaches -- and that is what leaves every pinned articulated measurement
+    /// the planner it was taken with. An ungated read would be worse than
+    /// useless, because a `twist_fraction` of zero is the one value that means
+    /// nothing is wrong.
+    #[test]
+    fn the_unwind_threshold_is_the_scripts_and_never_fires_without_hips() {
+        // **The band first and the pin after it, which is not cosmetic.** These
+        // three lines shipped with the equality at the top, and an equality
+        // against the constant makes every inequality below it unreachable by
+        // any mutation of that constant: the test would already have failed.
+        // Two of the three assertions were decoration, in a test the record
+        // described as two-sided.
+        assert!(Footwork::EMBODIED.unwind_twist > Fx::HALF,
+                "an ordinary guard change would force a step");
+        assert!(Footwork::EMBODIED.unwind_twist < Fx::ONE,
+                "the step could only start after the turn had already stopped");
+        assert_eq!(Footwork::EMBODIED.unwind_twist, Fx::from_ratio(7, 8));
+        assert_eq!(Footwork::ARTICULATED.unwind_twist, Footwork::EMBODIED.unwind_twist,
+                   "the articulated row must carry the same number it cannot reach");
+
+        let (mut obs, _) = embodied_bodies().remove(0);
+        assert!(obs.stance.present, "the embodied fixture publishes a stance");
+        // Pinned against a literal seven eighths, and from both sides of it.
+        obs.stance.twist_fraction = Fx::from_ratio(7, 8);
+        assert!(unwinding(&obs, Footwork::EMBODIED), "the threshold is above seven eighths");
+        obs.stance.twist_fraction = Fx::from_raw(Fx::from_ratio(7, 8).raw() - 1);
+        assert!(!unwinding(&obs, Footwork::EMBODIED), "the threshold is below seven eighths");
+        // Signed, because a torso wound the other way is just as stuck.
+        obs.stance.twist_fraction = -Fx::from_ratio(7, 8);
+        assert!(unwinding(&obs, Footwork::EMBODIED), "a torso wound the other way never steps");
+
+        // The gate, which is what the articulated row rests on: fully wound, in
+        // both directions, on a body with no legs, and it still does not fire.
+        obs.stance.present = false;
+        for wound in [Fx::ONE, -Fx::ONE] {
+            obs.stance.twist_fraction = wound;
+            assert!(!unwinding(&obs, Footwork::ARTICULATED),
+                    "a body with no legs read a twist it does not have");
+            assert!(!unwinding(&obs, Footwork::EMBODIED),
+                    "a body with no legs read a twist it does not have");
+        }
+    }
+
+    /// The whole opponent moved so that it stands `distance` from the subject
+    /// on the line it is already on.
+    ///
+    /// Everything that carries a world position moves together -- the body
+    /// origin, the five region volumes, both held segments and the plate --
+    /// because `choose_plan` and `in_measure` read different ones of those and
+    /// a foe whose regions had stayed behind its body would be a shape no world
+    /// can produce. [`foe_at`] is the blank-row version and answers a different
+    /// question: it probes `in_measure` alone, which reads one field.
+    fn foe_moved_to(
+        obs: &ArticulatedObservation,
+        foe: &ObservedOpponent,
+        distance: Fx,
+    ) -> ObservedOpponent {
+        let offset = planar(foe.body_position - obs.body_position);
+        let toward = offset.angle();
+        let target = Vec2::new(toward.cos(), toward.sin()) * distance;
+        let delta = Vec3::new(target.x - offset.x, target.y - offset.y, Fx::ZERO);
+        let mut moved = *foe;
+        moved.body_position += delta;
+        for region in moved.regions.iter_mut() {
+            region.lower += delta;
+            region.upper += delta;
+        }
+        for weapon in moved.weapons.iter_mut().flatten() {
+            weapon.hilt += delta;
+            weapon.tip += delta;
+        }
+        moved.shield.centre += delta;
+        moved
+    }
+
+    /// **The planner spends its own footwork row on its own measure decision**,
+    /// which is the one thing nothing else in this file was checking.
+    ///
+    /// `decide` asks [`in_measure`] whether to chamber and hands
+    /// [`measure_command`] the answer when it will not, and both take a
+    /// [`Footwork`]. Until this test, replacing `self.footwork` with
+    /// `Footwork::ARTICULATED` at those two call sites left the whole workspace
+    /// green -- 103 passed, 0 failed on the tree it was found in -- and moved
+    /// the corpus hard: 726,226 weapon-on-body resolutions to 838,103, 162
+    /// severances to 183, and six fights decided by a body to one. Half of
+    /// session 04's tuning could be reverted with nothing going red, because the
+    /// bounding tests call `in_measure` as a free function with a hand-built row
+    /// and `an_embodied_planner_keeps_its_footwork_across_a_reset` reads the
+    /// struct field. Both are "the reporter rather than the thing reported";
+    /// this one closes the loop through `decide`.
+    ///
+    /// The probe is one distance at which the two shipped rows disagree, run
+    /// through both. Seven tenths of a body's own reach is *below*
+    /// [`Footwork::EMBODIED`]'s floor of four fifths and *above*
+    /// [`Footwork::ARTICULATED`]'s of three fifths, so at that distance the
+    /// embodied row gives ground and the articulated one chambers. Asserted in
+    /// both directions, so a mutation at either call site is caught by one of
+    /// the two halves.
+    #[test]
+    fn a_planner_measures_with_the_footwork_it_was_built_with() {
+        // The close articulated duel and not `embodied_duel`, for one reason:
+        // it is the fixture whose two bodies can see each other at spawn.
+        // Nothing asserted below depends on the anatomy -- the probe distance
+        // is built out of the subject's own reach -- and the stance column
+        // being absent keeps this test about measure alone.
+        let scenario = close_duel();
+        let world = World::new(&scenario, 0);
+        let hero = world.alive_ids(Faction::Heroes)[0];
+        let mut obs = world.observe_articulated(hero);
+        let reach = strike_reach(&obs);
+        // Between the two floors and inside both margins: three fifths of reach
+        // is the articulated floor and four fifths the embodied one.
+        let probe = reach * Fx::from_ratio(7, 10);
+        let standing = obs.opponents()[0];
+        obs.opponents[0] = foe_moved_to(&obs, &standing, probe);
+        let foe = obs.opponents()[0];
+        let hand = weapon_slot(&obs);
+        assert!(in_measure(&obs, &foe, hand, Footwork::ARTICULATED),
+                "the probe distance is outside the articulated row's measure");
+        assert!(!in_measure(&obs, &foe, hand, Footwork::EMBODIED),
+                "the probe distance is inside the embodied row's measure");
+
+        // The articulated row commits: it is in measure, so `decide` takes the
+        // plan and enters the chamber.
+        let mut articulated = StrikePlanner::footwork(Footwork::ARTICULATED);
+        let chambering = articulated.decide(&obs);
+        assert_eq!(articulated.phase(), TacticalPhase::Chamber,
+                   "a planner on the articulated row did not chamber from its own measure");
+
+        // The embodied row gives ground: it is inside the floor, so `decide`
+        // returns `measure_command`'s withdrawal and never leaves Measure.
+        let mut embodied = StrikePlanner::footwork(Footwork::EMBODIED);
+        let withdrawing = embodied.decide(&obs);
+        assert_eq!(embodied.phase(), TacticalPhase::Measure,
+                   "a planner on the embodied row chambered from inside its own floor");
+        let toward = planar(foe.body_position - obs.body_position).angle();
+        let away = toward + Angle::HALF;
+        assert_eq!(withdrawing.body_yaw, away,
+                   "the embodied row did not turn the body away from the foe");
+        assert_eq!(withdrawing.move_dir,
+                   Vec2::new(away.cos() * WITHDRAW_SPEED, away.sin() * WITHDRAW_SPEED),
+                   "the embodied row did not give ground at the withdraw speed");
+        assert_ne!(withdrawing.move_dir, chambering.move_dir,
+                   "the two footwork rows produced the same step from one observation");
+    }
+
+    /// **The unwinding read is spent**, which the predicate test could not say.
+    ///
+    /// `the_unwind_threshold_is_the_scripts_and_never_fires_without_hips` covers
+    /// [`unwinding`] and stops there: `if false && unwinding {` inside
+    /// [`strike_command`] left every crate that can reach `policy` green. A
+    /// predicate nothing consumes is a reporter, and this asserts the
+    /// consumption -- the chamber steps along the torso's own facing at
+    /// `APPROACH_SPEED` when the torso has spent its twist, and does not when
+    /// it has not.
+    ///
+    /// The chamber, because that is the only phase the step survives: the
+    /// commit and the recovery overwrite `move_dir` with the lunge, and both
+    /// halves of that ordering are asserted here too, so that writing the
+    /// unwinding step below the lunge instead of above it fails rather than
+    /// quietly changing the fight.
+    #[test]
+    fn a_spent_twist_puts_a_foot_down_during_the_chamber() {
+        let (fighter, _) = embodied_bodies().remove(0);
+        let foe = foe_at(&fighter, strike_reach(&fighter));
+        let plan = StrikePlan { opponent: foe.id, region: BodyPart::Torso,
+            hand: weapon_slot(&fighter),
+            chamber_bearing: Angle::ZERO, commit_bearing: Angle::ZERO,
+            height: CombatHeight::MID };
+        let step = |phase, unwinding| {
+            strike_command(&fighter, &foe, plan, phase, Footwork::EMBODIED, unwinding).move_dir
+        };
+        // Along the torso's own facing, which is the angle the hips have to
+        // close -- not along the bearing to the foe, which is where the blade
+        // goes.
+        let facing = Vec2::new(fighter.body_yaw.cos(), fighter.body_yaw.sin()) * APPROACH_SPEED;
+        assert_ne!(facing, Vec2::ZERO, "the probe cannot tell a step from no step");
+        assert_eq!(step(TacticalPhase::Chamber, true), facing,
+                   "a torso at its twist limit chambered without putting a foot down");
+        assert_eq!(step(TacticalPhase::Chamber, false), Vec2::ZERO,
+                   "an unwound torso stepped anyway, so the read decides nothing");
+
+        // And the ordering: the commit and the recovery own the feet, so the
+        // unwinding step is overwritten there rather than added to.
+        let lunge = Vec2::new(Fx::HALF, Fx::ZERO);
+        assert_eq!(step(TacticalPhase::Commit, true), lunge,
+                   "the unwinding step survived into the commit and fought the lunge");
+        assert_eq!(step(TacticalPhase::Recover, true), -lunge,
+                   "the unwinding step survived into the recovery and fought the lunge");
+    }
+
+    /// The footwork row survives a reset, on
+    /// `an_openings_planner_keeps_its_scoring_across_a_reset`'s reason exactly:
+    /// a corpus runner resets between seeds, and a reset that restored `Default`
+    /// wholesale would quietly demote every seed after the first to the
+    /// articulated row -- a corpus measuring a policy nobody selected, with the
+    /// first seed the only honest row in it.
+    #[test]
+    fn an_embodied_planner_keeps_its_footwork_across_a_reset() {
+        let mut planner = StrikePlanner::footwork(Footwork::EMBODIED);
+        assert_eq!(planner.footwork, Footwork::EMBODIED);
+        planner.reset();
+        assert_eq!(planner.footwork, Footwork::EMBODIED,
+                   "reset dropped the footwork row the policy was built with");
+
+        // And the two policies that own one, from both ends of the seam: the
+        // embodied policy is built on the swept row, and the articulated one is
+        // still on the row every pinned measurement was taken with.
+        let mut embodied = crate::TacticalEmbodiedPolicy::default();
+        assert_eq!(embodied.planner().footwork, Footwork::EMBODIED);
+        crate::EmbodiedPolicy::reset(&mut embodied);
+        assert_eq!(embodied.planner().footwork, Footwork::EMBODIED);
+
+        let mut tactical = TacticalArticulatedPolicy::default();
+        assert_eq!(tactical.planner.footwork, Footwork::ARTICULATED);
+        ArticulatedPolicy::reset(&mut tactical);
+        assert_eq!(tactical.planner.footwork, Footwork::ARTICULATED);
+    }
+
 }

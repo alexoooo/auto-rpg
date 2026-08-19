@@ -12,13 +12,53 @@ they were driving", never checked the condition, and would have deleted the only
 this repository that aims. Sessions 02 through 04 are what make the condition true. If
 they recorded `revise`, this session does not run.
 
+## Scope this plan understated, surveyed before it opened
+
+Measured on 2026-08-18 by a read-only survey and re-verified against source, because a
+deletion that discovers its own scope halfway through is a deletion that gets abandoned
+halfway through. Six items, none of which the prose below anticipated.
+
+- **`Scenario::duel_from` is itself an articulated constructor.** `crates/sim/src/combat/arena.rs`
+  hard-writes `combat_model: CombatModel::Articulated` into `configured-duel-v1`, and about
+  eighty call sites in fourteen files depend on it -- including the `#/arena` install path
+  and `crates/sim/src/world/testkit.rs`. This plan names it only as the thing the three lab
+  harnesses drive. It is the single largest unscoped item and it has to be reseated or twinned
+  before anything else compiles.
+- **`Scenario::embodied_duel` is built *from* `Scenario::articulated_duel`**, in
+  `crates/sim/src/scenario.rs`: it clones it and overwrites the name and the model word.
+  `embodied_slope`, `knolls` and `ledge` chain off `embodied_duel` in turn. Inline it, and
+  **prove `0x1a1e8e74eecd55d5` is byte-unchanged before touching anything else** -- that
+  fingerprint is folded into `EMBODIED_CORPUS_DIGEST`, and that function's own doc comment
+  already records an earlier plan getting this exact fingerprint wrong.
+- **`CombatModel` has eight predicates, not six.** `has_swing_plane` and `has_jointed_arms`
+  are missing from the list above.
+- **There is a second `identity_word` write site**, in `crates/sim/src/codec.rs`, on the
+  decode side. It must agree with `Scenario::fingerprint` byte for byte, and the scenario
+  file's own comment records that the two diverged once already.
+- **`crates/learn` and `crates/lab/src/learn_probe.rs` are articulated end to end**, not
+  just `LearnedArticulatedPolicy`. `crates/learn/src/probe.rs` builds `articulated_duel` and
+  `mirrored_articulated_duel` fixtures, scores against three articulated *script* baselines,
+  and drives `policy::run_articulated`. `lab learn-probe train|evaluate` and four `crates/learn`
+  integration tests go with them. An adapter on the learned policy fixes none of that, and
+  this plan owes the decision.
+- **`crates/policy/src/runner.rs` has no embodied twin.** `run_articulated` is the only run
+  loop in the file; `RunConfig` and `RunResult` survive because `crates/web` uses them.
+
+Two smaller corrections to numbers quoted above: `strong_strike.rs` is 6,460 lines rather
+than 6,453, and `ArticulatedPolicyKind::ALL` has seven entries rather than six -- which
+matters because `client/src/arena/picker.ts` refuses an out-of-range code with the sentence
+*"not one of the six articulated policy codes"* and a client test asserts that wording.
+The realistic `crates/lab` reduction is about 13,700 lines of 15,881, which is closer to
+six sevenths than to the two thirds claimed below.
+
 ## What goes
 
 ### The model itself
 
-`CombatModel` collapses to nothing. With one body model left, the six predicates --
+`CombatModel` collapses to nothing. With one body model left, the eight predicates --
 `has_articulated_columns`, `uses_contact_solver`, `identity_word`, `has_stance`,
-`command_frame`, `command_grammar` -- are six matches that can only answer one way, and
+`has_swing_plane`, `has_jointed_arms`, `command_frame`, `command_grammar` -- are eight
+matches that can only answer one way, and
 `CommandGrammar` and `CommandFrame` go with them. **This is the payoff of the whole
 topic**: those enums were built exhaustive so a new model would be a compile error at
 every decision point, and with one model that machinery is pure weight.
@@ -31,8 +71,9 @@ and say at the write site that the number is a wire value rather than a discrimi
 ### The policies
 
 - `crates/policy/src/articulated_script.rs` (2,058 lines) and
-  `articulated_tactics.rs` (1,803).
-- The `ArticulatedPolicy` trait, `ArticulatedPolicyKind`, and the six-entry registry.
+  `articulated_tactics.rs` (2,403 -- it was 1,803 when this line was written, and
+  sessions 03 and 04 added the footwork parameterisation and its bounding tests).
+- The `ArticulatedPolicy` trait, `ArticulatedPolicyKind`, and the seven-entry registry.
 - `neutral_articulated_command` and `crates/policy/src/runner.rs`'s articulated path.
 
 **`StrikePlanner` moves rather than dies.** Session 02 deliberately left it in
@@ -141,15 +182,26 @@ checkpoint is a separate question and the answer is *keep it*: it decodes the sa
 
 ## Hash expectations
 
+**This table predicted a no-move for two pins whose fixtures this session deletes, and
+the prediction was wrong.** Corrected in place on 2026-08-18 by a survey run before the
+session opened, because the registry's own re-record rule asks a session to predict its
+moves *in writing first* -- and a prediction that is discovered to be wrong halfway
+through a twelve-thousand-line deletion is not a prediction, it is a surprise. The two
+rows are marked below. The correction is worth more than the original table was: it is
+the third time in this repository that a plan has named `ARTICULATED_COMMAND_HASH` as a
+payload pin and been caught by the state-digest fold, and the first time it has been
+caught before the edit rather than after.
+
 | pin | expectation |
 |---|---|
 | `EMBODIED_CORPUS_DIGEST` | **must not move.** A deletion that reaches it has reached the embodied model. Revert; do not re-record. |
 | `EMBODIED_GOLDEN_DIGEST` | must not move, same argument |
 | the four embodied fingerprints | must not move |
-| `ARTICULATED_STREAM_DIGEST`, `CONTACT_BEHAVIOR_DIGEST` | must not move; they are published bytes and payload widths, not model choices |
-| `ARTICULATED_COMMAND_HASH` | **this row used to be grouped with the two above and the grouping was wrong.** It is `world.state_digest().value` of an unstepped fixture, so it folds `legacy_core_hash` like every state-digest pin; session 01 moved it. Whether it moves here depends on whether this session's deletion reaches that stream, which is a question to answer rather than assume |
+| `CONTACT_BEHAVIOR_DIGEST` | must not move; it is a payload width and a behavioural corpus, not a model choice |
+| `ARTICULATED_STREAM_DIGEST` | **moves, and this row used to say it must not.** Its fixture is `stream_digest_scenario` in [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs), which is `Scenario::articulated_duel` renamed and respawned. Reseat it to `Embodied` and `has_jointed_arms` turns true, so a body presents seven swept volumes instead of five, `REGIONS_PER_BODY` goes 5 -> 7 and the region section of all twenty ticks is rewritten in place. That is a **layout** move by the registry row's own three-way vocabulary, not an extension and not a values move, and `REGION_LAYOUT_VERSION` is the field that says so. Predict both values, native first, in both feature configurations, before touching a wasm mirror |
+| `ARTICULATED_COMMAND_HASH` | **moves.** This row used to be grouped with the one above and the grouping was wrong twice over. It is `world.state_digest().value` of an unstepped fixture, so it folds `legacy_core_hash` like every state-digest pin; session 01 moved it. It moves *here* for a second and independent reason the row did not have: its fixture is `init_articulated_test`, which is also `Scenario::articulated_duel`, so the deletion reaches it through the fixture as well as through the stream |
 | `COMBAT_GEOMETRY_HASH` | must not move |
-| `LEARNED_INFERENCE_DIGEST` | must not move; a move means the reseat touched the forward pass |
+| `LEARNED_INFERENCE_DIGEST` | must not move; a move means the reseat touched the forward pass. **And it is reachable from the files being deleted, which the plan did not say.** `crates/learn-core/src/model.rs` imports `CYCLE_TICKS`, `EIGHTH_TURN`, `TACTICAL_INTENT_COUNT`, `StrikePlanner`, `TacticalContextV1` and `TacticalIntentV1` from `policy` in **non-test** code, and builds a feature column as `(obs.tick % CYCLE_TICKS) * 65_536 / CYCLE_TICKS`. Those constants and that intent ordering are inside the digest's owned set and must survive byte-identically |
 | `articulated-duel-v1` fingerprint | **deleted**, with its fixture |
 | `EXACT_TRAJECTORY_STATE_DIGEST` | **moves**, fixture ported, re-recorded in three copies |
 | `LIFTED_COULOMB_SOLVER_DIGEST` | **moves**, same |

@@ -1,6 +1,38 @@
 # Fight 04 -- the fight that ends
 
-**Status:** ready. Depends on session 03. Blocks 05.
+**Status:** **landed 2026-08-19, with all four preregistered rows recorded `revise`.**
+Depends on session 03. Blocks 05.
+
+What landed: `Footwork`, a four-field configuration on `StrikePlanner`, so that the
+embodied seam could be tuned without touching the articulated policy `#/arena` runs;
+the measure standoff and floor swept against `embodied-duel-v1`; a lunge on the commit
+and the recovery, which this plan did not enumerate and which is the only one of the
+four changes that moved the metric this plan named; the twist read, which spends a
+saturated budget on walking while the hips catch up rather than on a smaller ask; and
+`lab embodied --footwork`, so that every sweep table in the record is reproducible from
+a command this repository ships rather than from an edit to a constant and a rebuild.
+
+What did not: `COMMIT_MIN_OPENING_RAW`, because every measured lever that made a body
+commit less cost more than it bought. And the acceptance. **`weapon/body` per trial fell
+25.1%, not the order of magnitude this plan predicted, and severances rose 21.8% -- so
+half of the plan's own success test is met and the half that decides is not.** The
+fights end at the same rate they did, and
+[the record](../performance/embodied-tactical-policy.md#the-finding-two-of-the-four-rows-are-not-reachable-by-a-policy)
+carries the argument saying why no policy on this fixture can end them: a fight ends when
+**one** body reaches zero, so half the trials ending needs a mean drain on the deeper-drained
+body of at least 0.5 of a bar, and the shipped fighter manages 0.197 while the frozen
+script -- the most decisive thing in the repository -- manages 0.394. That is the finding
+this plan's own "what this session may not change" section asks for, recorded rather than
+tuned around.
+
+**One correction landed after the fact and is recorded rather than folded away.** The
+sweeps that chose the four constants optimised *severances per ten thousand
+weapon-on-body contacts*, a ratio this plan never names; the metric this plan does name
+is the conjunction quoted below, on two absolute quantities. Re-decided on the plan's
+own words, `MEASURE_MIN_FRACTION_RAW` moves from three quarters to four fifths and the
+other three stay. The rule, the complete admissible grid it was applied over, and the
+seed-set control that rejected a fifteen-sixteenths unwind are in
+[the record](../performance/embodied-tactical-policy.md#how-the-shipped-point-was-chosen-and-the-objective-that-was-got-wrong-once).
 
 Sessions 02 and 03 give a body something to aim and something to defend with. This is the
 session that has to make a duel *finish*, and it is the one carrying the overview's
@@ -85,12 +117,16 @@ cargo run --release -p lab -- embodied --seeds 400 --mirrored --hero-policy scri
 cargo run --release -p lab -- embodied --seeds 400 --mirrored --slope --policy tactical
 ```
 
-| quantity | baseline | acceptance |
-|---|---:|---:|
-| trials decided by a body | 8.2% | at least 50% |
-| median fight length | 3600 ticks | under 1800 ticks |
-| tactical wins against the script | -- | at least 60% |
-| guard diagonal | 52.06% | at least 70% |
+A sweep row is the first of those with `--footwork margin,floor,lunge,unwind` added.
+That flag did not exist while the sweeps were first run, which left no published table
+reproducible from anything the repository ships; it does now.
+
+| quantity | baseline | acceptance | measured |
+|---|---:|---:|---:|
+| trials decided by a body | 8.2% | at least 50% | 0.8% -- `revise` |
+| median fight length | 3600 ticks | under 1800 ticks | 3600 -- `revise` |
+| tactical wins against the script | -- | at least 60% | 39.69% -- `revise` |
+| guard diagonal | 52.06% | at least 70% | 65.86% -- `revise` |
 
 The `--slope` run is not part of the acceptance and is run anyway: a fighter tuned only on
 flat ground that falls apart on the sculpted fixture has been tuned to a fixture rather

@@ -1872,14 +1872,21 @@ test("a policy can be chosen across the boundary", () => {
   // can watch.
   assert.equal(wasm.set_policy(0, 3), 1, "could not select tactical");
   assert.equal(wasm.policy_kind(0), 3);
+  // 4 is `tactical-fixed-guard`, appended by fight session 03 as the control the
+  // guard measurement runs against. A control that can only be reached from a
+  // command line is a control nobody can watch beside its subject, which is the
+  // whole reason it is a registry entry rather than a test-only constructor.
+  assert.equal(wasm.set_policy(0, 4), 1, "could not select tactical-fixed-guard");
+  assert.equal(wasm.policy_kind(0), 4);
   assert.equal(wasm.set_policy(0, 2), 1, "could not select scripted-level back");
-  // 4 is one past the registry. It is checked beside 999 because an off-by-one
+  // 5 is one past the registry. It is checked beside 999 because an off-by-one
   // is the refusal a `from_code` written as a range check gets wrong, and a
   // wildly out-of-range code is the one it gets right. **The number moves every
-  // time the vocabulary grows** -- it was 3 until `tactical` was appended -- and
+  // time the vocabulary grows** -- it was 3 until `tactical` was appended and 4
+  // until `tactical-fixed-guard` was -- and
   // `embodied_policy_codes_are_append_only` writes it down a second time,
   // because that one is checking the Rust function and this one the export.
-  assert.equal(wasm.set_policy(0, 4), 0, "a code one past the registry was accepted");
+  assert.equal(wasm.set_policy(0, 5), 0, "a code one past the registry was accepted");
   assert.equal(wasm.set_policy(0, 999), 0, "an unknown policy code was accepted");
   assert.equal(wasm.policy_kind(0), 2, "a refused code moved the policy anyway");
   assert.equal(wasm.set_policy(0, 1), 1, "could not select the scripted policy back");
