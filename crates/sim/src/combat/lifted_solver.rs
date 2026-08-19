@@ -739,7 +739,7 @@ mod tests {
 
     fn contact(normal_raw: [i32; 3], friction_raw: i32) -> LiftedContact {
         let _ = Faction::Heroes;
-        let fact = ContactFact { key: key(1), toi: TimeOfImpact::ZERO, region: 0,
+        let fact = ContactFact { key: key(1), toi: TimeOfImpact::ZERO, volume: 0,
             point: Vec3::ZERO,
             normal: Vec3::new(Fx::from_raw(normal_raw[0]), Fx::from_raw(normal_raw[1]),
                               Fx::from_raw(normal_raw[2])),
@@ -765,7 +765,7 @@ mod tests {
                 let bound = crate::combat::trajectory::ExactMotorBounds {
                     lower: point, upper: point, radius_raw: 0, present: true };
                 MotorShape::Body { origin: point,
-                    parts: [bound; crate::combat::spec::AnatomyRegion::COUNT] }
+                    parts: [bound; crate::combat::spec::BODY_VOLUME_COUNT] }
             } else { MotorShape::Segment { hilt: point, tip: point, radius_raw: 0 } },
             owner_index: 0, held_index: None, equipment_spec: None, present: true }
     }
@@ -796,7 +796,7 @@ mod tests {
         let owners = vec![owner(a, true), owner(b, false)];
         let motor = vec![[65_536, tangent_raw, 0], [0; 3]];
         let fact = ContactFact { key: ContactKey { a, a_slot: 0, b, b_slot: BODY_SLOT,
-            kind: ContactKind::WeaponBody }, toi: TimeOfImpact::ZERO, region: 0,
+            kind: ContactKind::WeaponBody }, toi: TimeOfImpact::ZERO, volume: 0,
             point: Vec3::ZERO, normal: Vec3::X, velocity_a: Vec3::ZERO,
             velocity_b: Vec3::ZERO };
         let contact = LiftedContact::from_state(fact, 0, 1, &trajectories, &owners, &motor)
@@ -1041,7 +1041,7 @@ mod tests {
         let motor = vec![[65_536, 65_536, 0], [0; 3], [0; 3]];
         let make = |b_entity, normal| ContactFact {
             key: ContactKey { a, a_slot: 0, b: b_entity, b_slot: BODY_SLOT,
-                kind: ContactKind::WeaponBody }, toi: TimeOfImpact::ZERO, region: 0,
+                kind: ContactKind::WeaponBody }, toi: TimeOfImpact::ZERO, volume: 0,
             point: Vec3::ZERO, normal, velocity_a: Vec3::ZERO, velocity_b: Vec3::ZERO,
         };
         let facts = vec![

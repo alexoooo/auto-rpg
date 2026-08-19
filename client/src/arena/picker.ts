@@ -16,12 +16,16 @@
 //     not a fighter this simulation can build, and the refusal says that rather
 //     than saying "invalid".
 //   - `learned` had no browser inference path when this file was written, so it
-//     was refused for a live fight and offered only for a recorded one. **That
-//     is over**: v2-ui-08 split an inference-only `learn-core`, landed policy
-//     code 4 and shipped `checkpoints/v2-probe.ckpt` at a URL, and v2-ui-07
-//     wired the fetch. Every policy now runs live. What is left of the old
-//     rule is a *note* rather than a refusal -- the weights are a fetch, and a
-//     fetch can fail in ways the other four cannot.
+//     was refused for a live fight and offered only for a recorded one. It
+//     briefly had one -- v2-ui-08's first half split an inference-only
+//     `learn-core`, landed policy code 4 and shipped `checkpoints/v2-probe.ckpt`
+//     at a URL -- and then lost it again in the same session's second half,
+//     because moving `#/arena` onto `EmbodiedPolicyKind` moved it onto a
+//     registry with no `learned` entry and no room for a checkpoint in a policy
+//     byte. So `learned` is not a picker policy at all now, live or recorded.
+//     `lab trace --policy learned` still writes one, and a *trace* loaded
+//     through `?trace=` still names it in its header -- which is why
+//     `checkpointCopy` survives with its recording arm and not its live one.
 //
 // A third rule is visible in the same Rust and deliberately not encoded yet: the
 // equipment table binds each action to a hand (`Sword` right, `Shield` left,
@@ -49,37 +53,48 @@ const HANDS = ["empty", "sword", "shield", "club", "bow"] as const;
 export type HandCode = (typeof HANDS)[number];
 
 export interface PolicyOption {
-  /** The code session 05 lands, and the token `lab trace` writes into a header. */
+  /** An `EmbodiedPolicyKind::name`, and the token `lab trace` writes into a header. */
   readonly code: string;
   readonly label: string;
-  /** Whether the live articulated driver can run it. See the header note. */
+  /**
+   * Whether the live driver can run it. See the header note.
+   *
+   * **True of all five, and kept anyway.** It was `false` for `learned` before
+   * there was browser inference, and the refusal it drives is the only thing
+   * standing between "this build offers an option" and "this build runs it".
+   * A field that is constant today is cheap; a picker that offers a policy the
+   * driver refuses, with nothing to say so, is the shape two reviews of this
+   * repository found ten instances of.
+   */
   readonly live: boolean;
   /**
    * Whether running it live needs a file this build has to fetch first.
    *
-   * True of `learned` and of nothing else. A trained fighter is a kind *plus
-   * fifteen kilobytes of weights*, and the weights are deliberately not compiled
-   * into the wasm -- so this option can fail for a reason the other four cannot,
-   * and the picker says so before the button is pressed rather than after.
+   * **Nothing sets it since v2-ui-08.** It was `learned`'s and only `learned`'s,
+   * and `learned` is not an `EmbodiedPolicyKind`. It is kept for `live`'s reason
+   * one field up: the day a policy needs an asset, the note belongs here rather
+   * than in a new mechanism, and `review` already says the sentence.
    */
   readonly fetches?: string;
 }
 
 /**
- * The six policies, in append-only code order.
+ * The five policies, in `EmbodiedPolicyKind` code order.
  *
  * The labels carry the constraint rather than a tooltip carrying it, because a
  * disabled-looking option a reader has to hover to understand is an option they
  * will assume is broken.
+ *
+ * **The order is load-bearing twice over**: `ARENA_POLICY_NAMES` is indexed by
+ * code, and `populatePolicies` fills both dropdowns from this table, so a row
+ * out of order would put a label on the wrong fighter.
  */
 export const POLICIES: readonly PolicyOption[] = [
-  { code: "neutral", label: "neutral", live: true },
-  { code: "composed", label: "composed", live: true },
-  { code: "windmill", label: "windmill", live: true },
-  { code: "attack-moves", label: "attack-moves", live: true },
-  { code: "learned", label: "learned (fetches a checkpoint)", live: true, fetches: "/checkpoints/v2-probe.ckpt" },
-  { code: "tactical", label: "tactical", live: true },
-  { code: "openings", label: "openings (aims off the shield)", live: true },
+  { code: "neutral", label: "neutral (stands still)", live: true },
+  { code: "scripted", label: "scripted", live: true },
+  { code: "scripted-level", label: "scripted-level (no elevation term)", live: true },
+  { code: "tactical", label: "tactical (aims at a region)", live: true },
+  { code: "tactical-fixed-guard", label: "tactical-fixed-guard (guard does not read)", live: true },
 ];
 
 export type PolicyCode = string;
@@ -87,7 +102,17 @@ export type PolicyCode = string;
 /** Which arena context is asking for checkpoint and validation copy. */
 export type FightMode = "recording" | "live";
 
-/** Why a checkpoint matters in each of the arena's two independent contexts. */
+/**
+ * Why a checkpoint matters in each of the arena's two independent contexts.
+ *
+ * **Only the recording arm has a caller since v2-ui-08.** `learned` left the
+ * picker with the arena's move to `EmbodiedPolicyKind`, so no live fight loads
+ * weights; `arena.ts` still reaches the recording arm, driven by a *loaded trace
+ * header* saying "learned", which `lab trace --policy learned` still writes. The
+ * live sentence is kept beside it because the two are one decision -- what a
+ * checkpoint means here -- and splitting them would leave the surviving half
+ * looking like a fact about recordings rather than half of a contrast.
+ */
 export function checkpointCopy(mode: FightMode): string {
   return mode === "live"
     ? "Live learned fighter: loads checkpoints/v2-probe.ckpt and runs those weights."
@@ -217,10 +242,17 @@ export function review(matchup: Matchup, mode: FightMode): Review {
   for (const [label, side] of sides(matchup)) {
     const policy = POLICIES.find((option) => option.code === side.policy);
     if (policy === undefined) {
+      // **The count comes from the table.** It read "the six articulated policy
+      // codes" while `POLICIES` had seven rows and then five, and the verbatim
+      // assertion in `studio-shell.test.mjs` kept passing through both -- which
+      // is the third time this exact trap has been recorded here. A sentence
+      // built from `POLICIES.length` cannot go stale when a row is appended.
       return {
-        refusal: `${label} is set to ${side.policy}, which is not one of the six articulated `
-          + `policy codes. The picker and ArticulatedPolicyKind are two halves of one `
-          + `vocabulary, so this means one of them moved.`,
+        refusal: `${label} is set to ${side.policy}, which is not one of the `
+          + `${POLICIES.length} embodied policy codes `
+          + `(${POLICIES.map((option) => option.code).join(", ")}). The picker and `
+          + `EmbodiedPolicyKind are two halves of one vocabulary, so this means one of `
+          + `them moved.`,
         notes: [],
       };
     }
@@ -243,6 +275,32 @@ export function review(matchup: Matchup, mode: FightMode): Review {
       notes.push(checkpointCopy("recording"));
     }
   }
+
+  // **Two notes about what this arena cannot show, and both were measured
+  // rather than reasoned.** Driving `arena_start` through the wasm ABI on
+  // 2026-08-19 with the shipped loadout, seed 3, over the page's own 3,600-tick
+  // clock: two `neutral` fighters moved **no pose word at all** -- 0 of 132 --
+  // and resolved no contact, and `scripted` against `scripted-level` produced
+  // the same state hash `0x29b33ddb1e73ea23` to the bit.
+  //
+  // Neither is a bug and neither may be silent. A dropdown that offers a choice
+  // and then shows the reader the same fight, or no fight, is the shape
+  // `AGENTS.md` describes: a control that accepted an input it could not act on
+  // and said nothing. It cannot be a refusal -- both requests are honoured
+  // exactly as specified -- so it is converted into a sentence, which is the
+  // other half of that rule.
+  const codes = sides(matchup).map(([, side]) => side.policy);
+  if (codes.every((code) => code === "neutral")) {
+    notes.push("Both fighters are neutral, which is the control condition: arms slack, feet "
+      + "still. Measured over the whole 3,600-tick clock it moves no pose word and resolves "
+      + "no contact. Give at least one side another policy to see a fight.");
+  }
+  if (codes.includes("scripted-level")) {
+    notes.push("scripted-level is scripted with the elevation term switched off, and this "
+      + "arena's floor is flat -- so on this fixture the two are the same fight, byte for "
+      + "byte. The difference they exist to measure is on sculpted ground: "
+      + "cargo run --release -p lab -- embodied --slope.");
+  }
   return { refusal: null, notes };
 }
 
@@ -264,7 +322,7 @@ export function arenaConfigOf(matchup: Matchup): ArenaConfig {
     // `review` refuses an unknown policy before [Run selected fight] is enabled, so this is
     // unreachable from the controls -- and it throws rather than defaulting,
     // because a silent `0` would run `neutral` under another name's label.
-    if (policy === null) throw new Error(`${side.policy} is not an articulated policy code`);
+    if (policy === null) throw new Error(`${side.policy} is not an embodied policy code`);
     return {
       anatomy: ANATOMY_CODES[side.anatomy],
       policy,
@@ -288,7 +346,7 @@ export interface Recording {
 }
 
 /**
- * The three recorded fights `lab trace` writes into `web/`.
+ * The recorded fights `lab trace` writes into `web/`.
  *
  * **Development fixtures, and this table is the only thing that assumes they
  * exist.** `.gitignore` excludes `web/fight*.json` and the production build's
@@ -307,9 +365,8 @@ export interface Recording {
  * fight quietly attributed to the wrong policy.
  */
 export const RECORDINGS: readonly Recording[] = [
-  { url: "/fight.json", heroes: "composed", monsters: "composed" },
-  { url: "/fight-windmill.json", heroes: "windmill", monsters: "windmill" },
-  { url: "/fight-learned.json", heroes: "learned", monsters: "composed" },
+  { url: "/fight.json", heroes: "scripted", monsters: "scripted" },
+  { url: "/fight-tactical.json", heroes: "tactical", monsters: "tactical" },
 ];
 
 /** The recording whose two sides are the two policies picked, if one exists. */
@@ -320,35 +377,44 @@ export function resolveRecording(matchup: Matchup): Recording | null {
 }
 
 /**
- * The scripts `lab` can put on one named side.
+ * The policies `lab` can put on one named side.
  *
- * `neutral` is absent on purpose: it is an `ArticulatedPolicyKind` the browser
- * can select and **not** a `lab` script, so a command naming it would exit 2.
- * The list mirrors `MATCHUP_SCRIPTS` in `crates/lab/src/main.rs`.
+ * **It is `POLICIES`' own list since v2-ui-08, which is the point.** It used to
+ * be a copy of `MATCHUP_SCRIPTS` in `crates/lab/src/main.rs` -- a second
+ * vocabulary, with `neutral` deliberately absent because the browser could
+ * select it and `lab` could not spell it, so a command naming it would exit 2.
+ * That step deleted `Script` and put `lab trace --policy`,
+ * `--hero-policy`/`--monster-policy` on `EmbodiedPolicyKind::from_name`, which
+ * is the same registry this picker reads. So the two halves cannot disagree,
+ * and deriving the list is what keeps that true when a policy is appended
+ * rather than restating it and hoping.
  */
-const TRACEABLE_SCRIPTS: readonly string[] = [
-  "composed", "windmill", "attack-moves", "tactical", "openings",
-];
+const TRACEABLE_SCRIPTS: readonly string[] = POLICIES.map((option) => option.code);
 
 /**
  * The `lab trace` command that would record this pairing, or null if none does.
  *
- * `--policy` still puts **one script on both sides** -- that is what makes a
- * scripted trace a control -- but `--hero-policy`/`--monster-policy` name a
- * driver per side, so a mixed scripted pairing now has a command where it used
- * to have none. `--policy learned` keeps its own `--opponent` spelling, which is
- * the older and narrower door to the same asymmetry.
+ * `--policy` puts **one policy on both sides** -- that is what makes a symmetric
+ * trace a control -- and `--hero-policy`/`--monster-policy` name a driver per
+ * side, so a mixed pairing has a command too.
+ *
+ * **It can no longer answer null from the picker, and the `null` stays.** Every
+ * `POLICIES` code is a `lab` policy since v2-ui-08, so the two branches below
+ * that could refuse are unreachable from the controls -- but they are reachable
+ * from a `?trace=` header, from a saved matchup and from a test, and the
+ * alternative to refusing is printing a command that exits 2 at the reader's
+ * shell. `missingRecording` prints whatever this answers.
+ *
+ * The `learned` arm went with the picker's `learned` entry. `lab trace --policy
+ * learned --opponent <policy>` still exists; nothing here can spell the pairing
+ * it records, because no side of this picker can be set to `learned`.
  */
 export function recordingCommand(matchup: Matchup): string | null {
   const a = matchup.a.policy;
   const b = matchup.b.policy;
   const base = `cargo run --release -p lab -- trace --seed ${matchup.seed}`;
-  if (a === "learned" && (b === "composed" || b === "windmill" || b === "attack-moves")) {
-    return `${base} --policy learned --checkpoint checkpoints/v2-probe.ckpt --opponent ${b}`;
-  }
   if (!TRACEABLE_SCRIPTS.includes(a) || !TRACEABLE_SCRIPTS.includes(b)) return null;
   if (a !== b) return `${base} --hero-policy ${a} --monster-policy ${b}`;
-  if (a === "attack-moves") return `${base} --policy composed --attack-moves`;
   return `${base} --policy ${a}`;
 }
 
@@ -359,8 +425,8 @@ export function missingRecording(matchup: Matchup): string {
   const command = recordingCommand(matchup);
   if (command === null) {
     return `${pairing}, and no lab trace command produces one: --hero-policy and `
-      + `--monster-policy take ${TRACEABLE_SCRIPTS.join(", ")}, and neutral is a browser policy `
-      + `rather than a lab script. Press Run selected fight to run this pairing live instead.`;
+      + `--monster-policy take ${TRACEABLE_SCRIPTS.join(", ")}. `
+      + `Press Run selected fight to run this pairing live instead.`;
   }
   const pair = matchup.a.policy === matchup.b.policy
     ? matchup.a.policy
@@ -479,6 +545,14 @@ export function populatePolicies(root: HTMLElement, heroes: string, monsters: st
       node.selected = option.code === chosen;
       target.append(node);
     }
+    // **And the select's own value, which `selected` alone does not reliably
+    // set.** In a browser the two are the same thing; `HTMLSelectElement.value`
+    // is the property every reader here goes through -- `readMatchup`,
+    // `setPickerValue`, the picker's own tests -- and leaving it to be derived
+    // meant the route opened with `a-policy` reading the empty string under any
+    // DOM that does not model the derivation. Written after the loop so it
+    // cannot be undone by a later `selected`.
+    target.value = chosen;
   }
 }
 

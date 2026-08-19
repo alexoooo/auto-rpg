@@ -87,7 +87,6 @@
     .route-game pre { background: #0b0f14; padding: 1rem; border-radius: .5rem; }
     .route-game #greybox { display: block; width: 100%; aspect-ratio: 16 / 9; background: #080b0f;
       border: 1px solid #34404d; border-radius: .5rem; touch-action: none; }
-    .route-game .legacy-link { font-size: .85rem; }
 
     /* The authored room is the route, not an illustration above a diagnostics
        form. The overlays sit at the protected edge of the glass and remain
@@ -299,9 +298,6 @@
           <a class="enter" href="#/arena">Battle Arena</a>
         </section>
       </div>
-      <p class="muted legacy-link">The original Canvas game is a separate page with no build
-        step and four classic scripts sharing top-level state, so it is not a route here:
-        <a href="/legacy.html">open the legacy page</a>.</p>
     </div>
   </template>
 
@@ -379,15 +375,13 @@
         <details class="game-instruments">
           <summary>Systems and capture</summary>
           <p class="game-route-note">The authored room is the production view. Use
-            <code>?room=procedural</code> for the procedural diagnostic, or
-            <a href="/legacy.html">open the legacy Canvas page</a>.</p>
+            <code>?room=procedural</code> for the procedural diagnostic.</p>
           <div class="game-instrument-grid">
             <fieldset>
               <legend>Simulation</legend>
               <div class="controls">
                 <label>Seed <input id="seed" type="number" min="0" max="4294967295" value="1"></label>
                 <button id="reset" data-sim-control type="button">Reset</button>
-                <button id="withdraw" data-sim-control type="button">Withdraw</button>
                 <label>Body/stats <select id="spawn-kind"><option value="2">Brute</option><option value="0">Fighter</option></select></label>
                 <label>Primary <select id="spawn-primary"><option value="2">Sword</option><option value="4">Shield</option></select></label>
                 <label>Secondary <select id="spawn-secondary"><option value="255">Empty</option><option value="2">Sword</option><option value="4">Shield</option></select></label>
@@ -438,14 +432,11 @@
       <h1>Battle Arena</h1>
 
       <div class="picker">
-        <div class="picker-row">
-          <label>demo
-            <select id="arena-preset">
-              <option value="custom" selected>Custom fight</option>
-              <option value="robust-strike">Robust Strike (controlled)</option>
-            </select>
-          </label>
-        </div>
+        <!-- The `demo` row held one alternative to "Custom fight": the Robust
+             Strike controlled demonstration, which v2-ui-08 deleted along with
+             the 120-byte preset in `crates/web` that recognised it. A select
+             with one option is a control that does nothing, so the row went with
+             it rather than being left standing. -->
         <div class="picker-row hero">
           <span class="side">Fighter A</span>
           <label>anatomy

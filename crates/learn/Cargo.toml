@@ -7,12 +7,18 @@ license.workspace = true
 
 [features]
 # A pass-through and not a capability of this crate: it owns no exact-law code
-# and gains no API from it. It exists so that `boundary.rs` can tell the two
-# laws apart, because `a_zeroed_network_is_a_fighter_and_not_a_statue` pins a
-# tick count and the two laws legitimately end that fight on different ticks.
-# Without it, `cargo test --workspace --features cartesian-recoil` builds this
-# crate's tests against the exact `sim` while `cfg(feature = ...)` reads false
-# here, so the test would have no way to name which law it is measuring.
+# and gains no API from it.
+#
+# **Its original reason has expired and the feature is kept for a different
+# one.** It was added so `boundary.rs` could tell the two laws apart, because
+# `a_zeroed_network_is_a_fighter_and_not_a_statue` pinned a tick count the two
+# laws ended differently. That test now asserts the fight runs its full 600-tick
+# clock, which both laws satisfy, and **no `cfg(feature = "cartesian-recoil")`
+# remains anywhere in this crate**. What keeps the line here is the invocation:
+# `cargo test --workspace --features cartesian-recoil` errors on a member that
+# does not declare the feature, so removing it would break that spelling. The
+# repository gate uses `-p sim -p lab` and does not exercise this crate under
+# the feature at all.
 cartesian-recoil = ["sim/cartesian-recoil"]
 
 [dependencies]

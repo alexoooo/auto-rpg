@@ -1,10 +1,9 @@
 use crate::command::{
-    ArticulatedCommandV1, ArticulatedPayloadError, Command, GripRequest, Intent, LimbCommand,
-    Objective, Order, Strike, SubmittedCommand, ARTICULATED_PAYLOAD_BYTES,
-    SUBMITTED_COMMAND_LAYOUT_VERSION,
+    ArticulatedCommandV1, ArticulatedPayloadError, GripRequest, Objective, Order,
+    SubmittedCommand, ARTICULATED_PAYLOAD_BYTES, SUBMITTED_COMMAND_LAYOUT_VERSION,
 };
 #[cfg(test)]
-use crate::command::ReleaseRequest;
+use crate::command::{Intent, ReleaseRequest};
 use crate::combat::spec::{
     combat_specs_into, validate_construction, AnatomyRegion, AnatomyRegionSpec, ArmorSpec,
     ArticulatedUnitSpecV1, BodyAnatomySpec, CombatSpecError, CombatSpecTableV1,
@@ -16,18 +15,27 @@ use crate::dungeon::{Cardinal, Dungeon, Torch, DOOR, OPEN, WALL};
 use crate::entity::{Body, EntityId, Faction};
 use crate::hash_domain::HashDomain;
 use crate::loadout::Loadout;
-use crate::replay::{CommandRecord, ObjectiveRecord, OrderRecord, Replay, SubmittedCommandRecord};
+use crate::replay::{ObjectiveRecord, OrderRecord, Replay, SubmittedCommandRecord};
 use crate::rules::Stats;
 use crate::scenario::{
     action_definition_bytes, scenario_v1_fields_into, CombatModel, Scenario, ScenarioByteSink,
     UnitSpec,
 };
 use crate::world::World;
-use fx::{Angle, Fx, Hash64, Vec2};
+use fx::{Fx, Hash64, Vec2};
+#[cfg(test)]
+use fx::Angle;
 
 pub const REPLAY_CODEC_VERSION: u16 = 2;
 pub const REPLAY_CODEC_VERSION_V1: u16 = 1;
-pub const LEGACY_COMMAND_SCHEMA: u16 = 0;
+// **Schema `0` was the legacy command record stream and has no constant any
+// more.** `validate_envelope` refused any envelope declaring it while the
+// versioned vector was non-empty, and no surviving scenario wrote it, so the
+// section was unwritable as well as unread; it is out of the format rather than
+// frozen empty inside it. A file still carrying the number is refused by that
+// number: `UnknownCommandSchema(0)` from the header check in `decode`, and
+// `CommandModelMismatch` from the schema tuple for an envelope assembled in
+// memory. Neither reads a byte of the section it declares.
 /// Was 1 through payload layout 1. It is the envelope's declared command
 /// schema, and the assertion below is what makes it the layout version rather
 /// than a number that merely started out equal to it -- a payload widening that
@@ -35,6 +43,13 @@ pub const LEGACY_COMMAND_SCHEMA: u16 = 0;
 /// not have.
 pub const ARTICULATED_COMMAND_SCHEMA_RESERVED: u16 = 2;
 const _: () = assert!(ARTICULATED_COMMAND_SCHEMA_RESERVED == SUBMITTED_COMMAND_LAYOUT_VERSION);
+/// The envelope schema an embodied replay declares.
+///
+/// A third value rather than a reuse of the articulated one, because the two
+/// payloads are separate contracts whose widths will diverge: an envelope has to
+/// say which width its command records have before anything reads one. Schemas
+/// 0, 1 and 2 keep their meanings exactly.
+pub const EMBODIED_COMMAND_SCHEMA: u16 = 3;
 
 pub const MAX_REPLAY_ENVELOPE_BYTES: usize = 16_777_216;
 pub const MAX_SCENARIO_RECORD_BYTES: usize = 1_048_576;
@@ -47,11 +62,11 @@ pub const MAX_ORDER_RECORDS: usize = 65_536;
 pub const MAX_OBJECTIVE_RECORDS: usize = 65_536;
 
 const HEADER_BYTES: usize = 40;
-const LEGACY_COMMAND_BYTES: usize = 37;
-const SUBMITTED_LEGACY_COMMAND_BYTES: usize = 38;
 /// Tick, entity index, entity generation, the kind byte, and the payload:
 /// `4 + 4 + 4 + 1 + ARTICULATED_PAYLOAD_BYTES`. Was 64 while the payload was 51.
 const ARTICULATED_COMMAND_BYTES: usize = 13 + ARTICULATED_PAYLOAD_BYTES;
+/// The same thirteen-byte prefix over the embodied payload's own width.
+const EMBODIED_COMMAND_BYTES: usize = 13 + crate::command::EMBODIED_PAYLOAD_BYTES;
 const ORDER_BYTES: usize = 14;
 const OBJECTIVE_BYTES: usize = 6;
 
@@ -106,7 +121,6 @@ pub enum ReplayField {
     CommandSubject,
     CommandIntent,
     CommandIntentTarget,
-    CommandStrike,
     SubmittedCommandKind,
     ArticulatedCommand,
     CommandGrip,
@@ -220,17 +234,12 @@ impl ReplayEnvelope {
             combat_specs_into(scenario.combat_specs.as_ref(), &scenario.units, &mut out);
         }
 
-        let command_count = if self.command_schema == LEGACY_COMMAND_SCHEMA {
-            self.replay.entries.len()
-        } else {
-            self.replay.submitted_entries.len()
-        };
-        out.u32(command_count as u32);
-        if self.command_schema == LEGACY_COMMAND_SCHEMA {
-            for record in &self.replay.entries { write_command(&mut out, *record); }
-        } else {
-            for record in &self.replay.submitted_entries { write_submitted_command(&mut out, *record); }
-        }
+        // One count and one loop. The branch that stood here chose between the
+        // legacy record stream and this one on `command_schema`, and every
+        // envelope that can still be encoded took this arm -- so the bytes a
+        // surviving replay writes are the bytes it wrote before.
+        out.u32(self.replay.submitted_entries.len() as u32);
+        for record in &self.replay.submitted_entries { write_submitted_command(&mut out, *record); }
         out.u32(self.replay.orders.len() as u32);
         for record in &self.replay.orders {
             write_order(&mut out, *record);
@@ -259,8 +268,12 @@ impl ReplayEnvelope {
             return Err(ReplayDecodeError::UnknownCodecVersion(codec_version));
         }
         let command_schema = reader.u16()?;
-        if command_schema != LEGACY_COMMAND_SCHEMA
-            && command_schema != SUBMITTED_COMMAND_LAYOUT_VERSION
+        // The retired legacy schema is not on this list, so a file carrying it
+        // stops here and by its own number rather than being carried as far as
+        // the tuple check below. Refusing it by name is the whole of what a
+        // retired schema value owes a reader.
+        if command_schema != SUBMITTED_COMMAND_LAYOUT_VERSION
+            && command_schema != EMBODIED_COMMAND_SCHEMA
         {
             return Err(ReplayDecodeError::UnknownCommandSchema(command_schema));
         }
@@ -268,6 +281,7 @@ impl ReplayEnvelope {
         let hash_domain = match domain_code {
             0 => HashDomain::LegacyV1,
             1 => HashDomain::ArticulatedV1,
+            2 => HashDomain::EmbodiedV1,
             value => return Err(ReplayDecodeError::UnknownHashDomain(value)),
         };
         if reader.u8()? != 0 {
@@ -298,8 +312,8 @@ impl ReplayEnvelope {
         let scanned = scan_scenario(scenario_slice, codec_version)?;
         let tuple_ok = matches!(
             (command_schema, hash_domain, hash_schema, scanned.combat_model),
-            (LEGACY_COMMAND_SCHEMA, HashDomain::LegacyV1, 1, CombatModel::Legacy)
-                | (SUBMITTED_COMMAND_LAYOUT_VERSION, HashDomain::ArticulatedV1, 1, CombatModel::Articulated)
+            (SUBMITTED_COMMAND_LAYOUT_VERSION, HashDomain::ArticulatedV1, 1, CombatModel::Articulated)
+                | (EMBODIED_COMMAND_SCHEMA, HashDomain::EmbodiedV1, 1, CombatModel::Embodied)
         );
         if !tuple_ok {
             return Err(ReplayDecodeError::CommandModelMismatch);
@@ -345,7 +359,6 @@ impl ReplayEnvelope {
             scenario,
             scenario_fingerprint,
             ticks: tick_limit,
-            entries: records.commands,
             submitted_entries: records.submitted_commands,
             orders: records.orders,
             objectives: records.objectives,
@@ -373,7 +386,12 @@ impl ReplayEnvelope {
 /// scenario cleared by the ceiling of one version and then written at the other
 /// is a replay that its own decoder rejects.
 fn codec_version_for(model: CombatModel) -> u16 {
-    if model == CombatModel::Legacy { REPLAY_CODEC_VERSION_V1 } else { REPLAY_CODEC_VERSION }
+    // One answer, now that there is one model that writes replays. Version 1 was
+    // the Legacy ceiling; a v1 envelope reaching the decoder fails the schema
+    // tuple above, which is a better refusal than a version comparison because it
+    // names the field that disagreed.
+    let _ = model;
+    REPLAY_CODEC_VERSION
 }
 
 /// The unit ceiling in force for one scenario record.
@@ -417,17 +435,16 @@ fn validate_envelope(envelope: &ReplayEnvelope) -> Result<(), ReplayValidationEr
     }
     let tuple_ok = matches!(
         (envelope.command_schema, envelope.hash_domain, envelope.hash_schema, envelope.replay.scenario.combat_model),
-        (LEGACY_COMMAND_SCHEMA, HashDomain::LegacyV1, 1, CombatModel::Legacy)
-            | (SUBMITTED_COMMAND_LAYOUT_VERSION, HashDomain::ArticulatedV1, 1, CombatModel::Articulated)
+        (SUBMITTED_COMMAND_LAYOUT_VERSION, HashDomain::ArticulatedV1, 1, CombatModel::Articulated)
+            | (EMBODIED_COMMAND_SCHEMA, HashDomain::EmbodiedV1, 1, CombatModel::Embodied)
     );
     if !tuple_ok {
         return Err(ReplayValidationError::CommandModelMismatch);
     }
-    if (envelope.command_schema == LEGACY_COMMAND_SCHEMA && !envelope.replay.submitted_entries.is_empty())
-        || (envelope.command_schema == SUBMITTED_COMMAND_LAYOUT_VERSION && !envelope.replay.entries.is_empty())
-    {
-        return Err(ReplayValidationError::CommandModelMismatch);
-    }
+    // The cross-check that used to follow -- that the vector matching the
+    // declared schema is the non-empty one -- had nothing left to compare once
+    // the legacy vector went. There is one command vector now, and the tuple
+    // above is what says which grammar the records in it are written in.
     let computed = envelope.replay.scenario.try_fingerprint().map_err(|error| match error {
         crate::ScenarioFingerprintError::NameTooLong { .. } => ReplayValidationError::LimitExceeded(ReplayLimit::ScenarioNameBytes),
         crate::ScenarioFingerprintError::InvalidCombatSpecs(CombatSpecError::MissingTable) => ReplayValidationError::MissingCombatSpecs,
@@ -506,7 +523,7 @@ fn validate_scenario(scenario: &Scenario, tick_limit: u32) -> Result<(), ReplayV
 }
 
 fn validate_records(replay: &Replay, tick_limit: u32) -> Result<(), ReplayValidationError> {
-    validate_count(replay.entries.len().saturating_add(replay.submitted_entries.len()), MAX_COMMAND_RECORDS, ReplayLimit::CommandRecords)?;
+    validate_count(replay.submitted_entries.len(), MAX_COMMAND_RECORDS, ReplayLimit::CommandRecords)?;
     validate_count(replay.orders.len(), MAX_ORDER_RECORDS, ReplayLimit::OrderRecords)?;
     validate_count(
         replay.objectives.len(),
@@ -515,37 +532,24 @@ fn validate_records(replay: &Replay, tick_limit: u32) -> Result<(), ReplayValida
     )?;
     let roster = replay.scenario.units.len();
     let mut prior = None;
-    for (at, record) in replay.entries.iter().enumerate() {
-        validate_tick(prior, record.tick, at, ReplayStream::Commands, tick_limit, false)?;
-        prior = Some(record.tick);
-        if !initial_id(record.entity, roster) {
-            return Err(ReplayValidationError::InvalidField(ReplayField::CommandSubject));
-        }
-        if let Intent::Attack(target) = record.command.intent {
-            if !initial_id(target, roster) {
-                return Err(ReplayValidationError::InvalidField(
-                    ReplayField::CommandIntentTarget,
-                ));
-            }
-        }
-    }
-    prior = None;
     for (at, record) in replay.submitted_entries.iter().enumerate() {
         validate_tick(prior, record.tick, at, ReplayStream::Commands, tick_limit, false)?;
         prior = Some(record.tick);
         if !initial_id(record.entity, roster) {
             return Err(ReplayValidationError::InvalidField(ReplayField::CommandSubject));
         }
-        match record.command {
-            SubmittedCommand::Legacy(_) => return Err(ReplayValidationError::CommandModelMismatch),
-            SubmittedCommand::Articulated(command) => {
-                command.payload_bytes();
-                crate::command::validate_articulated(command)
-                    .map_err(|_| ReplayValidationError::InvalidField(ReplayField::ArticulatedCommand))?;
-                let unit = &replay.scenario.units[record.entity.index as usize];
-                validate_grips(command, replay.scenario.combat_specs.as_ref(), unit)?;
-            }
+        let (command, model) = match record.command {
+            SubmittedCommand::Articulated(command) => (command, CombatModel::Articulated),
+            SubmittedCommand::Embodied(command) => (command.articulated, CombatModel::Embodied),
+        };
+        if model != replay.scenario.combat_model {
+            return Err(ReplayValidationError::CommandModelMismatch);
         }
+        command.payload_bytes();
+        crate::command::validate_articulated(command)
+            .map_err(|_| ReplayValidationError::InvalidField(ReplayField::ArticulatedCommand))?;
+        let unit = &replay.scenario.units[record.entity.index as usize];
+        validate_grips(command, replay.scenario.combat_specs.as_ref(), unit)?;
     }
     prior = None;
     for (at, record) in replay.orders.iter().enumerate() {
@@ -623,7 +627,7 @@ fn scenario_record_len(scenario: &Scenario) -> Option<usize> {
         len = len.checked_add(if unit.loadout.secondary.is_some() { 68 } else { 42 })?;
     }
     len = len.checked_add(4)?.checked_add(scenario.torches.len().checked_mul(5)?)?;
-    if scenario.combat_model == CombatModel::Articulated {
+    if scenario.combat_model.has_articulated_columns() {
         let table = scenario.combat_specs.as_ref()?;
         len = len.checked_add(1 + 2 + 2)?;
         len = len.checked_add(table.anatomies.len().checked_mul(BODY_ANATOMY_SPEC_V1_BYTES)?)?;
@@ -644,14 +648,13 @@ fn scenario_record_len(scenario: &Scenario) -> Option<usize> {
 }
 
 fn payload_len(scenario_len: usize, replay: &Replay) -> Option<usize> {
-    let command_bytes = replay.entries.len().checked_mul(LEGACY_COMMAND_BYTES)?
-        .checked_add(replay.submitted_entries.iter().try_fold(0usize, |sum, record| {
-            let width = match record.command {
-                SubmittedCommand::Legacy(_) => SUBMITTED_LEGACY_COMMAND_BYTES,
-                SubmittedCommand::Articulated(_) => ARTICULATED_COMMAND_BYTES,
-            };
-            sum.checked_add(width)
-        })?)?;
+    let command_bytes = replay.submitted_entries.iter().try_fold(0usize, |sum, record| {
+        let width = match record.command {
+            SubmittedCommand::Articulated(_) => ARTICULATED_COMMAND_BYTES,
+            SubmittedCommand::Embodied(_) => EMBODIED_COMMAND_BYTES,
+        };
+        sum.checked_add(width)
+    })?;
     scenario_len
         .checked_add(4)?.checked_add(command_bytes)?
         .checked_add(4)?.checked_add(replay.orders.len().checked_mul(ORDER_BYTES)?)?
@@ -670,7 +673,6 @@ fn initial_id(id: EntityId, roster: usize) -> bool {
 
 #[derive(Default)]
 struct DecodedStreams {
-    commands: Vec<CommandRecord>,
     submitted_commands: Vec<SubmittedCommandRecord>,
     orders: Vec<OrderRecord>,
     objectives: Vec<ObjectiveRecord>,
@@ -686,25 +688,14 @@ fn scan_streams(
 ) -> Result<(), ReplayDecodeError> {
     let command_count = read_count(reader, MAX_COMMAND_RECORDS, ReplayLimit::CommandRecords)?;
     if let Some(out) = output.as_deref_mut() {
-        if command_schema == LEGACY_COMMAND_SCHEMA {
-            out.commands = Vec::with_capacity(command_count);
-        } else {
-            out.submitted_commands = Vec::with_capacity(command_count);
-        }
+        out.submitted_commands = Vec::with_capacity(command_count);
     }
     let mut prior = None;
     for at in 0..command_count {
-        if command_schema == LEGACY_COMMAND_SCHEMA {
-            let record = read_command(reader, roster)?;
-            decode_tick(prior, record.tick, at, ReplayStream::Commands, tick_limit, false)?;
-            prior = Some(record.tick);
-            if let Some(out) = output.as_deref_mut() { out.commands.push(record); }
-        } else {
-            let record = read_submitted_command(reader, roster, scenario)?;
-            decode_tick(prior, record.tick, at, ReplayStream::Commands, tick_limit, false)?;
-            prior = Some(record.tick);
-            if let Some(out) = output.as_deref_mut() { out.submitted_commands.push(record); }
-        }
+        let record = read_submitted_command(reader, roster, command_schema, scenario)?;
+        decode_tick(prior, record.tick, at, ReplayStream::Commands, tick_limit, false)?;
+        prior = Some(record.tick);
+        if let Some(out) = output.as_deref_mut() { out.submitted_commands.push(record); }
     }
 
     let order_count = read_count(reader, MAX_ORDER_RECORDS, ReplayLimit::OrderRecords)?;
@@ -781,7 +772,7 @@ fn read_combat_extension(
     loadouts: &[Loadout],
 ) -> Result<Option<(CombatSpecTableV1, Vec<ArticulatedUnitSpecV1>)>, ReplayDecodeError> {
     if codec_version == REPLAY_CODEC_VERSION_V1 {
-        return if model == CombatModel::Articulated {
+        return if model.has_articulated_columns() {
             Err(ReplayDecodeError::MissingCombatSpecs)
         } else {
             Ok(None)
@@ -789,15 +780,14 @@ fn read_combat_extension(
     }
     let present = reader.u8()?;
     match (model, present) {
-        (CombatModel::Legacy, 0) => return Ok(None),
-        (CombatModel::Legacy, 1) | (CombatModel::Articulated, 0) => {
+        (CombatModel::Articulated | CombatModel::Embodied, 0) => {
             return Err(ReplayDecodeError::InvalidField(ReplayField::CombatSpecPresence));
         }
         (_, 2..=u8::MAX) => return Err(ReplayDecodeError::UnknownDiscriminant {
             field: ReplayField::CombatSpecPresence,
             value: present as u32,
         }),
-        (CombatModel::Articulated, 1) => {}
+        (CombatModel::Articulated | CombatModel::Embodied, 1) => {}
     }
     let schema = reader.u16()?;
     if schema != COMBAT_SPEC_SCHEMA_V1 {
@@ -851,13 +841,12 @@ fn scan_combat_extension(
     unit_count: usize,
 ) -> Result<(), ReplayDecodeError> {
     if codec_version == REPLAY_CODEC_VERSION_V1 {
-        return if model == CombatModel::Articulated { Err(ReplayDecodeError::MissingCombatSpecs) } else { Ok(()) };
+        return if model.has_articulated_columns() { Err(ReplayDecodeError::MissingCombatSpecs) } else { Ok(()) };
     }
     match (model, reader.u8()?) {
-        (CombatModel::Legacy, 0) => return Ok(()),
-        (CombatModel::Legacy, 1) | (CombatModel::Articulated, 0) => return Err(ReplayDecodeError::InvalidField(ReplayField::CombatSpecPresence)),
+        (CombatModel::Articulated | CombatModel::Embodied, 0) => return Err(ReplayDecodeError::InvalidField(ReplayField::CombatSpecPresence)),
         (_, value @ 2..=u8::MAX) => return Err(ReplayDecodeError::UnknownDiscriminant { field: ReplayField::CombatSpecPresence, value: value as u32 }),
-        (CombatModel::Articulated, 1) => {}
+        (CombatModel::Articulated | CombatModel::Embodied, 1) => {}
     }
     let schema = reader.u16()?;
     if schema != COMBAT_SPEC_SCHEMA_V1 { return Err(ReplayDecodeError::UnknownDiscriminant { field: ReplayField::CombatSpecSchema, value: schema as u32 }); }
@@ -893,7 +882,16 @@ fn scan_combat_extension(
 
 fn validate_combat_extension_after_eof(bytes: &[u8], codec_version: u16) -> Result<(), ReplayDecodeError> {
     let mut reader = ByteReader::new(bytes);
-    let model = match reader.u8()? { 0 => CombatModel::Legacy, 1 => CombatModel::Articulated, _ => unreachable!() };
+    let model = match reader.u8()? {
+        // `0` was Legacy. It is not translated into the surviving model: those
+        // bytes describe a fight between two discs with one blade angle each, and
+        // decoding them as an embodied scenario would produce a fight that never
+        // happened out of a record of one that did. Refused by name, like any
+        // other value this reader does not know.
+        1 => CombatModel::Articulated,
+        2 => CombatModel::Embodied,
+        _ => unreachable!("scan_scenario has already refused every other value"),
+    };
     let name_len = reader.u16()? as usize;
     reader.take(name_len)?;
     let cols = reader.u16()? as usize;
@@ -1015,8 +1013,13 @@ fn map_combat_decode_error(error: CombatSpecError) -> ReplayDecodeError {
 fn scan_scenario(bytes: &[u8], codec_version: u16) -> Result<ScenarioScan, ReplayDecodeError> {
     let mut reader = ByteReader::new(bytes);
     let combat_model = match reader.u8()? {
-        0 => CombatModel::Legacy,
+        // `0` was Legacy. It is not translated into the surviving model: those
+        // bytes describe a fight between two discs with one blade angle each, and
+        // decoding them as an embodied scenario would produce a fight that never
+        // happened out of a record of one that did. Refused by name, like any
+        // other value this reader does not know.
         1 => CombatModel::Articulated,
+        2 => CombatModel::Embodied,
         value => return Err(ReplayDecodeError::UnknownDiscriminant {
             field: ReplayField::CombatModel,
             value: value as u32,
@@ -1115,9 +1118,9 @@ fn scan_scenario(bytes: &[u8], codec_version: u16) -> Result<ScenarioScan, Repla
     }
     let mut hash = Hash64::new();
     hash.write_bytes(b"ARPG-SCENARIO");
-    hash.write_u16(if combat_model == CombatModel::Legacy { 1 } else { 2 });
+    hash.write_u16(combat_model.identity_word());
     hash.write_bytes(&bytes[..identity_end]);
-    if combat_model == CombatModel::Articulated {
+    if combat_model.has_articulated_columns() {
         hash.write_bytes(&bytes[extension_start..]);
     }
     Ok(ScenarioScan {
@@ -1131,8 +1134,13 @@ fn scan_scenario(bytes: &[u8], codec_version: u16) -> Result<ScenarioScan, Repla
 fn build_scenario(bytes: &[u8], codec_version: u16) -> Result<Scenario, ReplayDecodeError> {
     let mut reader = ByteReader::new(bytes);
     let combat_model = match reader.u8()? {
-        0 => CombatModel::Legacy,
+        // `0` was Legacy. It is not translated into the surviving model: those
+        // bytes describe a fight between two discs with one blade angle each, and
+        // decoding them as an embodied scenario would produce a fight that never
+        // happened out of a record of one that did. Refused by name, like any
+        // other value this reader does not know.
         1 => CombatModel::Articulated,
+        2 => CombatModel::Embodied,
         value => return Err(ReplayDecodeError::UnknownDiscriminant {
             field: ReplayField::CombatModel,
             value: value as u32,
@@ -1277,67 +1285,14 @@ fn read_action_definition(
     Ok(action)
 }
 
-fn read_command(reader: &mut ByteReader<'_>, roster: usize) -> Result<CommandRecord, ReplayDecodeError> {
-    let tick = reader.u32()?;
-    let entity = EntityId::new(reader.u32()?, reader.u32()?);
-    if !initial_id(entity, roster) {
-        return Err(ReplayDecodeError::InvalidField(ReplayField::CommandSubject));
-    }
-    let move_dir = Vec2::new(Fx::from_raw(reader.i32()?), Fx::from_raw(reader.i32()?));
-    let intent_tag = reader.u8()?;
-    let target = EntityId::new(reader.u32()?, reader.u32()?);
-    let intent = match intent_tag {
-        0 => {
-            if target.index != 0 || target.generation != 0 {
-                return Err(ReplayDecodeError::NonCanonicalField(ReplayField::CommandIntentTarget));
-            }
-            Intent::Hold
-        }
-        1 => {
-            if !initial_id(target, roster) {
-                return Err(ReplayDecodeError::InvalidField(ReplayField::CommandIntentTarget));
-            }
-            Intent::Attack(target)
-        }
-        2 => {
-            if target.index != 0 || target.generation != 0 {
-                return Err(ReplayDecodeError::NonCanonicalField(ReplayField::CommandIntentTarget));
-            }
-            Intent::Flee
-        }
-        value => return Err(ReplayDecodeError::UnknownDiscriminant {
-            field: ReplayField::CommandIntent,
-            value: value as u32,
-        }),
-    };
-    let angle = Angle::from_raw(reader.u16()?);
-    let reach = Fx::from_raw(reader.i32()?);
-    let strike = match reader.u8()? {
-        0 => Strike::None,
-        1 => Strike::Nearest,
-        2 => Strike::Widdershins,
-        3 => Strike::Sunwise,
-        value => return Err(ReplayDecodeError::UnknownDiscriminant {
-            field: ReplayField::CommandStrike,
-            value: value as u32,
-        }),
-    };
-    let slot = reader.u8()?;
-    Ok(CommandRecord {
-        tick,
-        entity,
-        command: Command {
-            move_dir,
-            intent,
-            limb: LimbCommand { angle, reach, strike },
-            slot,
-        },
-    })
-}
-
+/// `command_schema` decides which record tag is legal, and it is passed in
+/// rather than inferred from the tag byte on purpose: an envelope that declares
+/// one width and carries records of another is a model mismatch, and a reader
+/// that trusted the tag would silently read the wrong number of bytes.
 fn read_submitted_command(
     reader: &mut ByteReader<'_>,
     roster: usize,
+    command_schema: u16,
     scenario: Option<&Scenario>,
 ) -> Result<SubmittedCommandRecord, ReplayDecodeError> {
     let tick = reader.u32()?;
@@ -1345,21 +1300,49 @@ fn read_submitted_command(
     if !initial_id(entity, roster) {
         return Err(ReplayDecodeError::InvalidField(ReplayField::CommandSubject));
     }
+    let expected_tag = if command_schema == EMBODIED_COMMAND_SCHEMA { 2 } else { 1 };
     match reader.u8()? {
-        0 => return Err(ReplayDecodeError::CommandModelMismatch),
-        1 => {}
+        tag if tag == expected_tag => {}
+        0 | 1 | 2 => return Err(ReplayDecodeError::CommandModelMismatch),
         value => return Err(ReplayDecodeError::UnknownDiscriminant {
             field: ReplayField::SubmittedCommandKind,
             value: value as u32,
         }),
     }
-    let payload: &[u8; ARTICULATED_PAYLOAD_BYTES] = reader
-        .take(ARTICULATED_PAYLOAD_BYTES)?
-        .try_into()
-        .unwrap();
-    let command = ArticulatedCommandV1::from_payload_bytes(payload)
-        .map_err(payload_decode_error)?;
-    for grip in command.grips {
+    // **The width is the declared schema's, not the shared grammar's.** This
+    // read `ARTICULATED_PAYLOAD_BYTES` for both schemas while the two widths
+    // were equal, and the equality was the only thing holding it up: the moment
+    // the embodied payload grew to 57 the writer emitted four bytes this reader
+    // did not consume, and everything after the command stream was read from
+    // four bytes too early. It does not surface as a wrong command -- it
+    // surfaces as the order-stream count being read out of the middle of a
+    // payload, which is why `an_embodied_envelope_round_trips_through_its_own_schema`
+    // failed as `LimitExceeded(OrderRecords)` rather than as a mismatched field.
+    let embodied = command_schema == EMBODIED_COMMAND_SCHEMA;
+    let width = if embodied { crate::command::EMBODIED_PAYLOAD_BYTES }
+                else { ARTICULATED_PAYLOAD_BYTES };
+    let payload = reader.take(width)?;
+    // Each contract through its own reader. The embodied one is not
+    // `ArticulatedCommandV1::from_payload_bytes` plus a wrapper: the wrapper
+    // could only supply a neutral plane, which is a silent way of dropping a
+    // field a replay is required to reproduce verbatim.
+    let command = if embodied {
+        let payload: &[u8; crate::command::EMBODIED_PAYLOAD_BYTES] =
+            payload.try_into().unwrap();
+        SubmittedCommand::Embodied(
+            crate::command::EmbodiedCommandV1::from_payload_bytes(payload)
+                .map_err(payload_decode_error)?)
+    } else {
+        let payload: &[u8; ARTICULATED_PAYLOAD_BYTES] = payload.try_into().unwrap();
+        SubmittedCommand::Articulated(
+            ArticulatedCommandV1::from_payload_bytes(payload).map_err(payload_decode_error)?)
+    };
+    // The grip check below is over the shared half, which both contracts have.
+    let articulated = match command {
+        SubmittedCommand::Embodied(embodied) => embodied.articulated,
+        SubmittedCommand::Articulated(articulated) => articulated,
+    };
+    for grip in articulated.grips {
         if let GripRequest::EquipSlot(slot) = grip {
             if slot > 1 {
                 return Err(ReplayDecodeError::InvalidField(ReplayField::CommandGrip));
@@ -1367,7 +1350,8 @@ fn read_submitted_command(
             if let Some(scenario) = scenario {
                 let unit = &scenario.units[entity.index as usize];
                 let valid = match (scenario.combat_specs.as_ref(), unit.articulated) {
-                    (Some(table), Some(row)) => crate::combat::spec::grips_valid(table, row, command.grips),
+                    (Some(table), Some(row)) =>
+                        crate::combat::spec::grips_valid(table, row, articulated.grips),
                     _ => unit.loadout.holds(slot as usize),
                 };
                 if !valid {
@@ -1376,11 +1360,7 @@ fn read_submitted_command(
             }
         }
     }
-    Ok(SubmittedCommandRecord {
-        tick,
-        entity,
-        command: SubmittedCommand::Articulated(command),
-    })
+    Ok(SubmittedCommandRecord { tick, entity, command })
 }
 
 fn payload_decode_error(error: ArticulatedPayloadError) -> ReplayDecodeError {
@@ -1469,63 +1449,20 @@ fn require_zero_payload(first: u32, second: u32, field: ReplayField) -> Result<(
     }
 }
 
-fn write_command(out: &mut ByteWriter, record: CommandRecord) {
-    out.u32(record.tick);
-    out.u32(record.entity.index);
-    out.u32(record.entity.generation);
-    out.i32(record.command.move_dir.x.raw());
-    out.i32(record.command.move_dir.y.raw());
-    match record.command.intent {
-        Intent::Hold => {
-            out.u8(0);
-            out.u32(0);
-            out.u32(0);
-        }
-        Intent::Attack(target) => {
-            out.u8(1);
-            out.u32(target.index);
-            out.u32(target.generation);
-        }
-        Intent::Flee => {
-            out.u8(2);
-            out.u32(0);
-            out.u32(0);
-        }
-    }
-    out.u16(record.command.limb.angle.raw());
-    out.i32(record.command.limb.reach.raw());
-    out.u8(record.command.limb.strike.discriminant() as u8);
-    out.u8(record.command.slot);
-}
-
 fn write_submitted_command(out: &mut ByteWriter, record: SubmittedCommandRecord) {
     out.u32(record.tick);
     out.u32(record.entity.index);
     out.u32(record.entity.generation);
     match record.command {
-        SubmittedCommand::Legacy(command) => {
-            out.u8(0);
-            write_command_payload(out, command);
-        }
         SubmittedCommand::Articulated(command) => {
             out.u8(1);
             out.bytes.extend_from_slice(&command.payload_bytes());
         }
+        SubmittedCommand::Embodied(command) => {
+            out.u8(2);
+            out.bytes.extend_from_slice(&command.payload_bytes());
+        }
     }
-}
-
-fn write_command_payload(out: &mut ByteWriter, command: Command) {
-    out.i32(command.move_dir.x.raw());
-    out.i32(command.move_dir.y.raw());
-    match command.intent {
-        Intent::Hold => { out.u8(0); out.u32(0); out.u32(0); }
-        Intent::Attack(target) => { out.u8(1); out.u32(target.index); out.u32(target.generation); }
-        Intent::Flee => { out.u8(2); out.u32(0); out.u32(0); }
-    }
-    out.u16(command.limb.angle.raw());
-    out.i32(command.limb.reach.raw());
-    out.u8(command.limb.strike.discriminant() as u8);
-    out.u8(command.slot);
 }
 
 fn write_order(out: &mut ByteWriter, record: OrderRecord) {
@@ -1622,18 +1559,196 @@ mod tests {
     use crate::combat::contact::MAX_ARTICULATED_ENTITIES;
     use crate::{ActionKind, ArmTarget, CombatHeight};
 
+    // **`replay_codec_v1_matches_the_documented_offset_fixture` is gone, and it is
+    // the one deletion here that costs something.** It pinned the version-1
+    // envelope's byte offsets against the table in
+    // `docs/reference/replay-codec-v1.md`, built from the smallest Legacy
+    // scenario the encoder would take. Version 1 was the Legacy ceiling: no
+    // surviving scenario writes it, so the fixture cannot be constructed and the
+    // offsets it pinned have no producer left to drift. What still checks the v1
+    // header is the refusal path -- a v1 envelope now fails the schema tuple,
+    // which `replay_decoder_rejects_a_model_schema_domain_mismatch` covers -- so
+    // the format is refused by name rather than silently mis-read. The offset
+    // table in that document is now history rather than a contract, and the
+    // document should say so.
+
+    /// The smallest scenario the surviving model will encode.
+    ///
+    /// **It is not as small as it was.** These tests want a minimum because they
+    /// are about byte offsets, truncation and discriminants rather than about a
+    /// fight, and the old minimum was a Legacy scenario with no spec table and no
+    /// units at all. A world with articulated columns refuses both: every unit
+    /// needs an anatomy row and the table has to be present, which
+    /// `validate_construction` checks before anything is allocated. So the floor
+    /// is one tile, the roster is one dressed body, and the table is the shipped
+    /// fixture set -- and that is the floor of the format now.
+    fn minimal_scenario(name: &str) -> Scenario {
+        let mut hero = UnitSpec {
+            kind: Body::Fighter,
+            faction: Faction::Heroes,
+            stats: Body::Fighter.base_stats(),
+            loadout: Body::Fighter.default_loadout(),
+            articulated: None,
+            spawn: Vec2::ZERO,
+        };
+        crate::scenario::equip_fixture_body(&mut hero);
+        Scenario {
+            name: name.to_string(),
+            combat_model: CombatModel::Embodied,
+            combat_specs: Some(crate::CombatSpecTableV1::fixtures()),
+            dungeon: Dungeon::open(1, 1),
+            units: vec![hero],
+            portal: None,
+            torches: Vec::new(),
+            max_ticks: 1,
+        }
+    }
+
+    /// A valid envelope round the given scenario, tagged for the model that
+    /// scenario is.
+    ///
+    /// **The tag used to be hard-coded legacy** -- command schema `0` and
+    /// `HashDomain::LegacyV1` -- because every scenario these refusal tests built
+    /// was Legacy. With one model left the fixtures are articulated or embodied,
+    /// and the schema tuple is checked on decode, so a hard-coded legacy tag now
+    /// fails every one of them with `CommandModelMismatch` before reaching the
+    /// refusal under test. Reading the tag off the scenario is what keeps each
+    /// test asserting the thing it names.
     fn envelope_for(scenario: Scenario, ticks: u32) -> ReplayEnvelope {
+        let (command_schema, hash_domain) = match scenario.combat_model {
+            CombatModel::Articulated => (SUBMITTED_COMMAND_LAYOUT_VERSION, HashDomain::ArticulatedV1),
+            CombatModel::Embodied => (EMBODIED_COMMAND_SCHEMA, HashDomain::EmbodiedV1),
+        };
         let mut replay = Replay::new(&scenario, 7);
         replay.finish(ticks);
         ReplayEnvelope {
-            command_schema: LEGACY_COMMAND_SCHEMA,
-            hash_domain: HashDomain::LegacyV1,
+            command_schema,
+            hash_domain,
             hash_schema: 1,
             scenario_fingerprint: replay.scenario_fingerprint,
             seed: replay.seed,
             tick_limit: replay.ticks,
             replay,
         }
+    }
+
+    /// The two arms get **different** planes and neither is zero, so a reader
+    /// that dropped the field, read one offset twice, or read the pair at the
+    /// articulated width cannot round-trip by accident.
+    const EMBODIED_FIXTURE_PLANE: [Angle; 2] =
+        [Angle::from_raw(0x4567), Angle::from_raw(0x89ab)];
+
+    fn embodied_envelope() -> ReplayEnvelope {
+        let mut envelope = articulated_envelope_for(Scenario::embodied_duel());
+        envelope.command_schema = EMBODIED_COMMAND_SCHEMA;
+        envelope.hash_domain = HashDomain::EmbodiedV1;
+        for record in &mut envelope.replay.submitted_entries {
+            if let SubmittedCommand::Articulated(command) = record.command {
+                let mut embodied = crate::command::EmbodiedCommandV1::new(command);
+                embodied.swing_plane = EMBODIED_FIXTURE_PLANE;
+                record.command = SubmittedCommand::Embodied(embodied);
+            }
+        }
+        envelope
+    }
+
+    #[test]
+    fn an_embodied_envelope_round_trips_through_its_own_schema() {
+        let envelope = embodied_envelope();
+        let bytes = envelope.encode().expect("encodes");
+        let decoded = ReplayEnvelope::decode(&bytes).expect("embodied envelope");
+        assert_eq!(decoded.command_schema, EMBODIED_COMMAND_SCHEMA);
+        assert_eq!(decoded.hash_domain, HashDomain::EmbodiedV1);
+        assert_eq!(decoded.replay.submitted_entries, envelope.replay.submitted_entries);
+        assert!(matches!(
+            decoded.replay.submitted_entries[0].command,
+            SubmittedCommand::Embodied(_)
+        ));
+    }
+
+    /// The record is read at the **embodied** width, and the plane survives it.
+    ///
+    /// Two failures live here and the equality above would report either of them
+    /// as one mismatch, so they are separated: a reader that reconstructs the
+    /// record through `EmbodiedCommandV1::new` loses the plane while consuming
+    /// the right number of bytes, and a reader that consumes
+    /// `ARTICULATED_PAYLOAD_BYTES` desynchronises the stream so that everything
+    /// after this record is read from four bytes too early. The stream is one
+    /// record long here, so the second failure surfaces as a trailing-byte
+    /// refusal rather than as garbage -- which is exactly why the plane is
+    /// asserted on its own as well.
+    #[test]
+    fn an_embodied_command_record_carries_its_swing_plane() {
+        let envelope = embodied_envelope();
+        let bytes = envelope.encode().expect("encodes");
+        let decoded = ReplayEnvelope::decode(&bytes).expect("embodied envelope");
+        let SubmittedCommand::Embodied(command) = decoded.replay.submitted_entries[0].command
+            else { panic!("the embodied record decoded as another grammar") };
+        assert_eq!(command.swing_plane, EMBODIED_FIXTURE_PLANE);
+        // And the width is the embodied one, counted from the tag byte rather
+        // than from a constant this file also uses to write it.
+        let tag = tag_offset(&bytes);
+        assert_eq!(&bytes[tag + 1..tag + 1 + crate::command::EMBODIED_PAYLOAD_BYTES],
+                   command.payload_bytes().as_slice());
+    }
+
+    /// The record tag is read against the envelope's declared schema and not
+    /// against itself, so an embodied replay carrying articulated records is a
+    /// model mismatch rather than fifty-three bytes read at the wrong width.
+    #[test]
+    fn an_embodied_schema_replay_refuses_an_articulated_tag() {
+        let envelope = embodied_envelope();
+        let mut bytes = envelope.encode().expect("encodes");
+        let tag = tag_offset(&bytes);
+        assert_eq!(bytes[tag], 2, "the embodied record tag is not where this test looked");
+        bytes[tag] = 1;
+        assert_eq!(ReplayEnvelope::decode(&bytes).unwrap_err(), ReplayDecodeError::CommandModelMismatch);
+        bytes[tag] = 0;
+        assert_eq!(ReplayEnvelope::decode(&bytes).unwrap_err(), ReplayDecodeError::CommandModelMismatch);
+        bytes[tag] = 3;
+        assert!(matches!(
+            ReplayEnvelope::decode(&bytes),
+            Err(ReplayDecodeError::UnknownDiscriminant {
+                field: ReplayField::SubmittedCommandKind, value: 3,
+            })
+        ));
+    }
+
+    #[test]
+    fn an_articulated_schema_replay_refuses_an_embodied_tag() {
+        let mut bytes = articulated_envelope().encode().expect("encodes");
+        let tag = tag_offset(&bytes);
+        assert_eq!(bytes[tag], 1);
+        bytes[tag] = 2;
+        assert_eq!(ReplayEnvelope::decode(&bytes).unwrap_err(), ReplayDecodeError::CommandModelMismatch);
+    }
+
+    /// The header tuple binds schema, hash domain and combat model together, so
+    /// an embodied scenario cannot be shipped under an articulated header.
+    ///
+    /// It is refused at **encode**, one step earlier than the decoder would
+    /// catch it, which is the better of the two places: a mismatched envelope
+    /// never reaches a file. The decoder still refuses it -- see
+    /// `an_embodied_schema_replay_refuses_an_articulated_tag`, which reaches the
+    /// decode path by editing bytes the encoder already wrote.
+    #[test]
+    fn an_embodied_scenario_refuses_an_articulated_header() {
+        let mut envelope = embodied_envelope();
+        envelope.command_schema = SUBMITTED_COMMAND_LAYOUT_VERSION;
+        envelope.hash_domain = HashDomain::ArticulatedV1;
+        assert_eq!(
+            envelope.encode().unwrap_err(),
+            ReplayEncodeError::Invalid(ReplayValidationError::CommandModelMismatch),
+        );
+    }
+
+    /// Locates the one submitted record's tag byte: the stream count sits four
+    /// bytes past the scenario record, and each record is tick plus a
+    /// twelve-byte identity before the tag.
+    fn tag_offset(bytes: &[u8]) -> usize {
+        let scenario_bytes =
+            u32::from_le_bytes(bytes[HEADER_BYTES - 4..HEADER_BYTES].try_into().unwrap()) as usize;
+        HEADER_BYTES + scenario_bytes + 4 + 12
     }
 
     fn articulated_envelope() -> ReplayEnvelope {
@@ -1697,7 +1812,6 @@ mod tests {
         assert_eq!(&bytes[start + 4..start + 4 + ARTICULATED_COMMAND_BYTES], &expected);
         let decoded = ReplayEnvelope::decode(&bytes).unwrap();
         assert_eq!(decoded.replay.submitted_entries, envelope.replay.submitted_entries);
-        assert!(decoded.replay.entries.is_empty());
         assert!(decoded.play().is_ok());
     }
 
@@ -1772,16 +1886,13 @@ mod tests {
     }
 
     #[test]
-    fn codec_v2_accepts_legacy_presence_zero_and_rejects_presence_mismatches() {
-        let mut legacy = envelope_for(Scenario::duel(), 1).encode().unwrap();
-        let scenario_len = u32::from_le_bytes(legacy[36..40].try_into().unwrap()) as usize;
-        legacy.insert(HEADER_BYTES + scenario_len, 0);
-        legacy[4..6].copy_from_slice(&REPLAY_CODEC_VERSION.to_le_bytes());
-        let payload_len = u32::from_le_bytes(legacy[12..16].try_into().unwrap()) + 1;
-        legacy[12..16].copy_from_slice(&payload_len.to_le_bytes());
-        legacy[36..40].copy_from_slice(&((scenario_len + 1) as u32).to_le_bytes());
-        assert_eq!(ReplayEnvelope::decode(&legacy).unwrap().replay.scenario, Scenario::duel());
-
+    fn codec_v2_rejects_a_combat_spec_presence_mismatch() {
+        // **The first half of this test is gone with the model it was about.** It
+        // took a Legacy scenario -- which carries no spec table -- appended the
+        // version-2 presence byte as `0`, and checked that the v2 decoder
+        // accepted "no table, and it says so". Every surviving scenario carries a
+        // table, so `presence == 0` is now a refusal rather than a shape, and it
+        // is the refusal the half below checks.
         let mut articulated = articulated_envelope().encode().unwrap();
         let scenario_len = u32::from_le_bytes(articulated[36..40].try_into().unwrap()) as usize;
         let extension_len = 1 + 2 + 2 + 2 * BODY_ANATOMY_SPEC_V1_BYTES + 2
@@ -1920,6 +2031,36 @@ mod tests {
         bytes[at..at + 4].copy_from_slice(&value.to_le_bytes());
     }
 
+    /// Records one neutral submitted command, on the only stream there is.
+    ///
+    /// **These tests used `Replay::record`**, the legacy command stream, because
+    /// it was the cheapest record to build. That stream became unwritable when
+    /// the legacy grammar went -- an envelope carrying it had to declare command
+    /// schema `0`, which no surviving scenario writes -- and the comment here
+    /// said it would stay frozen in the format until the same step removed the
+    /// legacy columns from the state hash, so that the format moved once rather
+    /// than twice. This is that step, and the section is gone.
+    fn hold(replay: &mut Replay, tick: u32, entity: EntityId) {
+        replay.record_submitted(tick, entity, SubmittedCommand::Articulated(neutral_command()));
+    }
+
+    /// A command every field of which is the quiet value.
+    fn neutral_command() -> ArticulatedCommandV1 {
+        ArticulatedCommandV1 {
+            move_dir: Vec2::ZERO,
+            body_yaw: Angle::ZERO,
+            intent: Intent::Hold,
+            arms: [ArmTarget {
+                bearing: Angle::ZERO,
+                height: CombatHeight::MID,
+                reach: Fx::ZERO,
+                effort: Fx::ZERO,
+            }; 2],
+            grips: [GripRequest::Keep; 2],
+            releases: [ReleaseRequest::Keep; 2],
+        }
+    }
+
     fn scenario_len(bytes: &[u8]) -> usize {
         u32::from_le_bytes(bytes[36..40].try_into().unwrap()) as usize
     }
@@ -1949,131 +2090,6 @@ mod tests {
     }
 
     #[test]
-    fn replay_codec_v1_matches_the_documented_offset_fixture() {
-        let scenario = Scenario {
-            name: "x".to_string(),
-            combat_model: CombatModel::Legacy,
-            combat_specs: None,
-            dungeon: Dungeon::open(1, 1),
-            units: Vec::new(),
-            portal: None,
-            torches: Vec::new(),
-            max_ticks: 1,
-        };
-        assert_eq!(scenario.fingerprint(), 0x22c5_4dc8_462a_1204);
-        let replay = Replay {
-            seed: 0,
-            scenario,
-            scenario_fingerprint: 0x22c5_4dc8_462a_1204,
-            ticks: 0,
-            entries: Vec::new(),
-            submitted_entries: Vec::new(),
-            orders: Vec::new(),
-            objectives: Vec::new(),
-        };
-        let envelope = ReplayEnvelope {
-            command_schema: 0,
-            hash_domain: HashDomain::LegacyV1,
-            hash_schema: 1,
-            scenario_fingerprint: replay.scenario_fingerprint,
-            seed: 0,
-            tick_limit: 0,
-            replay,
-        };
-        let expected: [u8; 78] = [
-            0x41, 0x52, 0x50, 0x47, 0x01, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x01, 0x00, 0x26, 0x00, 0x00, 0x00,
-            0x04, 0x12, 0x2a, 0x46, 0xc8, 0x4d, 0xc5, 0x22,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x1a, 0x00, 0x00, 0x00,
-            0x00, 0x01, 0x00, 0x78, 0x01, 0x00, 0x01, 0x00,
-            0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        ];
-        let encoded = envelope.encode().unwrap();
-        assert_eq!(encoded, expected);
-        let decoded = ReplayEnvelope::decode(&expected).unwrap();
-        assert_eq!(decoded.replay.scenario, envelope.replay.scenario);
-        assert_eq!(decoded.replay.entries.len(), 0);
-    }
-
-    #[test]
-    fn replay_codec_round_trips_every_legacy_variant() {
-        let mut tiles = vec![OPEN; 24 * 16];
-        tiles[1] = WALL;
-        tiles[2] = DOOR;
-        let mut scenario = Scenario::duel();
-        scenario.dungeon = Dungeon::from_tiles(24, 16, tiles);
-        scenario.max_ticks = 20;
-        scenario.units = ActionKind::ALL.into_iter().enumerate().map(|(i, action)| {
-            let kind = Body::ALL[i % Body::ALL.len()];
-            UnitSpec {
-                kind,
-                faction: if i % 2 == 0 { Faction::Heroes } else { Faction::Monsters },
-                stats: kind.base_stats(),
-                loadout: Loadout::pair(action, ActionKind::ALL[(i + 1) % ActionKind::ALL.len()]),
-                articulated: None,
-                spawn: Vec2::from_ints(2 + i as i32, 2 + (i % 3) as i32),
-            }
-        }).collect();
-        scenario.torches = vec![
-            Torch { tx: 1, ty: 1, face: Cardinal::NegX },
-            Torch { tx: 2, ty: 1, face: Cardinal::PosX },
-            Torch { tx: 3, ty: 1, face: Cardinal::NegY },
-            Torch { tx: 4, ty: 1, face: Cardinal::PosY },
-        ];
-        let mut envelope = envelope_for(scenario, 10);
-        let hero = EntityId::new(0, 0);
-        let foe = EntityId::new(1, 0);
-        let intents = [Intent::Hold, Intent::Attack(foe), Intent::Flee, Intent::Hold];
-        let strikes = [Strike::None, Strike::Nearest, Strike::Widdershins, Strike::Sunwise];
-        for i in 0..4 {
-            envelope.replay.record(i as u32, hero, Command {
-                move_dir: Vec2::new(Fx::from_raw(i as i32 - 2), Fx::from_raw(2 - i as i32)),
-                intent: intents[i],
-                limb: LimbCommand {
-                    angle: Angle::from_raw((i * 17_000) as u16),
-                    reach: Fx::from_raw(i as i32 * 13),
-                    strike: strikes[i],
-                },
-                slot: i as u8,
-            });
-        }
-        let orders = [
-            Order::Hold,
-            Order::Advance(Vec2::new(Fx::MIN, Fx::MAX)),
-            Order::Regroup,
-            Order::Focus(foe),
-            Order::Goto(Vec2::new(Fx::MAX, Fx::MIN)),
-        ];
-        for (tick, order) in orders.into_iter().enumerate() {
-            envelope.replay.record_order(tick as u32, Faction::Heroes, order);
-        }
-        for (tick, objective) in [Objective::None, Objective::Order, Objective::Hunt]
-            .into_iter().enumerate()
-        {
-            envelope.replay.record_objective(tick as u32, Faction::Monsters, objective);
-        }
-        let bytes = envelope.encode().unwrap();
-        let decoded = ReplayEnvelope::decode(&bytes).unwrap();
-        assert_eq!(decoded.replay.scenario, envelope.replay.scenario);
-        assert_eq!(decoded.replay.entries, envelope.replay.entries);
-        assert_eq!(decoded.replay.orders, envelope.replay.orders);
-        assert_eq!(decoded.replay.objectives, envelope.replay.objectives);
-        assert_eq!(
-            decoded.replay.scenario.units.iter().map(|unit| unit.kind).collect::<Vec<_>>(),
-            Body::ALL.into_iter().chain(Body::ALL).collect::<Vec<_>>()
-        );
-        assert_eq!(
-            decoded.replay.scenario.units.iter().map(|unit| unit.loadout.primary).collect::<Vec<_>>(),
-            ActionKind::ALL
-        );
-        assert_eq!(decoded.encode().unwrap(), bytes);
-    }
-
-    #[test]
     fn replay_decoder_checks_outer_bounds_before_allocating() {
         let bytes = vec![0; MAX_REPLAY_ENVELOPE_BYTES + 1];
         assert_eq!(
@@ -2085,7 +2101,7 @@ mod tests {
 
     #[test]
     fn replay_decoder_rejects_bad_lengths_counts_utf8_and_trailing_data() {
-        let base = envelope_for(Scenario::duel(), 2).encode().unwrap();
+        let base = envelope_for(Scenario::articulated_duel(), 2).encode().unwrap();
 
         let mut bad = base.clone();
         put_u32(&mut bad, 12, 1);
@@ -2124,7 +2140,7 @@ mod tests {
 
     #[test]
     fn replay_decoder_rejects_every_truncation_and_bounded_count_before_construction() {
-        let base = envelope_for(Scenario::duel(), 2).encode().unwrap();
+        let base = envelope_for(Scenario::articulated_duel(), 2).encode().unwrap();
         for end in 0..HEADER_BYTES {
             assert_eq!(decode_error(&base[..end]), ReplayDecodeError::TooShort, "cut {end}");
         }
@@ -2132,23 +2148,9 @@ mod tests {
             assert_eq!(decode_error(&base[..end]), ReplayDecodeError::PayloadLength, "cut {end}");
         }
 
-        let mut one = Scenario {
-            name: "x".to_string(),
-            combat_model: CombatModel::Legacy,
-            combat_specs: None,
-            dungeon: Dungeon::open(1, 1),
-            units: vec![UnitSpec {
-                kind: Body::Fighter,
-                faction: Faction::Heroes,
-                stats: Body::Fighter.base_stats(),
-                loadout: Loadout::single(ActionKind::Sword),
-                articulated: None,
-                spawn: Vec2::ZERO,
-            }],
-            portal: None,
-            torches: vec![Torch { tx: 0, ty: 0, face: Cardinal::NegX }],
-            max_ticks: 2,
-        };
+        let mut one = minimal_scenario("x");
+        one.torches = vec![Torch { tx: 0, ty: 0, face: Cardinal::NegX }];
+        one.max_ticks = 2;
         let base = envelope_for(one.clone(), 1).encode().unwrap();
         let cases = [
             (41usize, (MAX_SCENARIO_NAME_BYTES as u32 + 1) as u16, ReplayDecodeError::LimitExceeded(ReplayLimit::ScenarioNameBytes)),
@@ -2169,7 +2171,10 @@ mod tests {
         put_u32(&mut bad, 58, MAX_SCENARIO_UNITS as u32 + 1);
         assert_eq!(decode_error(&bad), ReplayDecodeError::LimitExceeded(ReplayLimit::ScenarioUnits));
         let mut bad = base.clone();
-        put_u32(&mut bad, 104, MAX_SCENARIO_TORCHES as u32 + 1);
+        // 130 and not 104: the unit record grew by the articulated row, which is
+        // eight bytes of anatomy and equipment ids, and the spec table it points
+        // into follows the torches.
+        put_u32(&mut bad, 130, MAX_SCENARIO_TORCHES as u32 + 1);
         assert_eq!(decode_error(&bad), ReplayDecodeError::LimitExceeded(ReplayLimit::ScenarioTorches));
         let mut bad = base.clone();
         put_u32(&mut bad, 36, MAX_SCENARIO_RECORD_BYTES as u32 + 1);
@@ -2187,7 +2192,9 @@ mod tests {
         put_u32(&mut bad, 69, 65_537);
         assert_eq!(decode_error(&bad), ReplayDecodeError::InvalidField(ReplayField::UnitSpawn));
         let mut bad = extent;
-        bad[108] = 1;
+        // 134 and not 108: the torch block sits past the unit records, and a unit
+        // record grew by its articulated row.
+        bad[134] = 1;
         assert_eq!(decode_error(&bad), ReplayDecodeError::InvalidField(ReplayField::TorchPosition));
     }
 
@@ -2207,21 +2214,6 @@ mod tests {
                 ..template
             });
         }
-        scenario
-    }
-
-    /// A Legacy roster on an arena wide enough to stand 4,096 units on distinct
-    /// tiles, so the only bound a full roster can trip is the one under test.
-    fn legacy_roster(rows: usize) -> Scenario {
-        let mut scenario = Scenario::duel();
-        scenario.dungeon = Dungeon::open(64, 64);
-        let template = scenario.units[0];
-        scenario.units = (0..rows)
-            .map(|at| UnitSpec {
-                spawn: Vec2::from_ints((at % 64) as i32, (at / 64) as i32),
-                ..template
-            })
-            .collect();
         scenario
     }
 
@@ -2289,60 +2281,17 @@ mod tests {
     }
 
     #[test]
-    fn legacy_codec_retains_its_4096_unit_ceiling() {
-        // 65 is refused for a model, not for a codec: Legacy must not notice it.
-        let sixty_five = envelope_for(legacy_roster(MAX_ARTICULATED_ENTITIES + 1), 1)
-            .encode().unwrap();
-        assert_eq!(
-            ReplayEnvelope::decode(&sixty_five).unwrap().replay.scenario.units.len(),
-            MAX_ARTICULATED_ENTITIES + 1,
-        );
-
-        let full = envelope_for(legacy_roster(MAX_SCENARIO_UNITS), 1);
-        let bytes = full.encode().unwrap();
-        let decoded = ReplayEnvelope::decode(&bytes).unwrap();
-        assert_eq!(decoded.replay.scenario.units.len(), MAX_SCENARIO_UNITS);
-        assert_eq!(decoded.replay.scenario, full.replay.scenario);
-
-        let over = envelope_for(legacy_roster(MAX_SCENARIO_UNITS + 1), 1);
-        let expected = ReplayValidationError::LimitExceeded(ReplayLimit::ScenarioUnits);
-        assert_eq!(over.encode(), Err(ReplayEncodeError::Invalid(expected)));
-        assert_eq!(play_error(&over), ReplayPlayError::Invalid(expected));
-
-        let at = unit_count_at(&full.replay.scenario);
-        let mut row_4097 = bytes;
-        put_u32(&mut row_4097, at, MAX_SCENARIO_UNITS as u32 + 1);
-        assert_eq!(
-            decode_error(&row_4097),
-            ReplayDecodeError::LimitExceeded(ReplayLimit::ScenarioUnits),
-        );
-    }
-
-    #[test]
     fn replay_decoder_rejects_every_header_and_scenario_discriminant() {
-        let scenario = Scenario {
-            name: "x".to_string(),
-            combat_model: CombatModel::Legacy,
-            combat_specs: None,
-            dungeon: Dungeon::open(1, 1),
-            units: vec![UnitSpec {
-                kind: Body::Fighter,
-                faction: Faction::Heroes,
-                stats: Body::Fighter.base_stats(),
-                loadout: Loadout::single(ActionKind::Sword),
-                articulated: None,
-                spawn: Vec2::ZERO,
-            }],
-            portal: None,
-            torches: vec![Torch { tx: 0, ty: 0, face: Cardinal::NegX }],
-            max_ticks: 2,
-        };
+        let mut scenario = minimal_scenario("x");
+        scenario.torches = vec![Torch { tx: 0, ty: 0, face: Cardinal::NegX }];
+        scenario.max_ticks = 2;
+        let scenario = scenario;
         let base = envelope_for(scenario, 1).encode().unwrap();
         let mut bad = base.clone();
         bad[4..6].copy_from_slice(&3u16.to_le_bytes());
         assert_eq!(decode_error(&bad), ReplayDecodeError::UnknownCodecVersion(3));
         // **The articulated schema, whatever number it currently is.** This
-        // scenario is Legacy, so declaring the articulated command schema over
+        // fixture is embodied, so declaring the articulated command schema over
         // it is a model mismatch rather than an unknown schema. Written through
         // the constant because the two arms below swapped numbers when the
         // payload widened -- 1 was the articulated schema and 2 was unknown;
@@ -2353,10 +2302,18 @@ mod tests {
         bad[6..8].copy_from_slice(&ARTICULATED_COMMAND_SCHEMA_RESERVED.to_le_bytes());
         assert_eq!(decode_error(&bad), ReplayDecodeError::CommandModelMismatch);
         let retired = ARTICULATED_COMMAND_SCHEMA_RESERVED - 1;
-        assert_ne!(retired, LEGACY_COMMAND_SCHEMA, "the retired schema is the legacy one");
         let mut bad = base.clone();
         bad[6..8].copy_from_slice(&retired.to_le_bytes());
         assert_eq!(decode_error(&bad), ReplayDecodeError::UnknownCommandSchema(retired));
+        // And `0`, which is retired in the other direction: 1 was reserved and
+        // never shipped, while 0 was a real schema a decoder read a whole
+        // section for. A file still carrying it has to be **refused by that
+        // number** rather than parsed as one of the two surviving widths, which
+        // is what the header check does now that the section is gone. Spelled as
+        // a literal because the constant that named it went with the section.
+        let mut bad = base.clone();
+        bad[6..8].copy_from_slice(&0u16.to_le_bytes());
+        assert_eq!(decode_error(&bad), ReplayDecodeError::UnknownCommandSchema(0));
         let mut bad = base.clone();
         bad[8] = 9;
         assert_eq!(decode_error(&bad), ReplayDecodeError::UnknownHashDomain(9));
@@ -2367,7 +2324,7 @@ mod tests {
         bad[10..12].copy_from_slice(&2u16.to_le_bytes());
         assert_eq!(
             decode_error(&bad),
-            ReplayDecodeError::UnknownHashSchema { domain: HashDomain::LegacyV1, schema: 2 }
+            ReplayDecodeError::UnknownHashSchema { domain: HashDomain::EmbodiedV1, schema: 2 }
         );
 
         let mutations = [
@@ -2379,7 +2336,9 @@ mod tests {
             (77, 9, ReplayField::PrimaryAction),
             (78, 9, ReplayField::ActionRole),
             (103, 9, ReplayField::SecondaryPresence),
-            (112, 9, ReplayField::TorchFace),
+            // 138 and not 112: the unit record grew by its articulated row, and
+            // the torch block sits past the units.
+            (138, 9, ReplayField::TorchFace),
         ];
         for (at, value, field) in mutations {
             let mut bad = base.clone();
@@ -2394,17 +2353,25 @@ mod tests {
 
     #[test]
     fn replay_decoder_rejects_every_stream_discriminant_and_canonical_zero_payload() {
-        let mut envelope = envelope_for(Scenario::duel(), 3);
-        envelope.replay.record(0, EntityId::new(0, 0), Command::HOLD);
+        let mut envelope = envelope_for(Scenario::articulated_duel(), 3);
+        hold(&mut envelope.replay, 0, EntityId::new(0, 0));
         envelope.replay.record_order(0, Faction::Heroes, Order::Hold);
         envelope.replay.record_objective(0, Faction::Heroes, Objective::None);
         let base = envelope.encode().unwrap();
+        // One record count; a submitted record is a thirteen-byte header and the
+        // articulated payload, whose own intent tag is at 10 and first grip at 47.
         let command = stream_start(&base) + 4;
-        let order = command + LEGACY_COMMAND_BYTES + 4;
+        let submitted_bytes = 13 + ARTICULATED_PAYLOAD_BYTES;
+        let order = command + submitted_bytes + 4;
         let objective = order + ORDER_BYTES + 4;
         let mutations = [
-            (command + 20, 9u8, ReplayField::CommandIntent),
-            (command + 35, 9, ReplayField::CommandStrike),
+            (command + 13 + 10, 9u8, ReplayField::CommandIntent),
+            // `CommandStrike` had no successor and is gone with the record it
+            // named: a strike was a *legacy* limb verb, and a jointed arm is
+            // driven by a bearing, a height, a reach and an effort with no
+            // discriminant among them. The grip is the articulated payload's
+            // tagged field and takes its place here.
+            (command + 13 + 47, 9, ReplayField::CommandGrip),
             (order + 4, 9, ReplayField::OrderFaction),
             (order + 5, 9, ReplayField::OrderKind),
             (objective + 4, 9, ReplayField::ObjectiveFaction),
@@ -2419,7 +2386,10 @@ mod tests {
             );
         }
         let mut bad = base.clone();
-        bad[command + 21] = 1;
+        // A `Hold` carries no target, so a non-zero one beside it is a record two
+        // readers would disagree about. Payload offset 11 is the target's first
+        // byte; the header before it is thirteen.
+        bad[command + 13 + 11] = 1;
         assert_eq!(
             decode_error(&bad),
             ReplayDecodeError::NonCanonicalField(ReplayField::CommandIntentTarget)
@@ -2431,17 +2401,25 @@ mod tests {
             ReplayDecodeError::NonCanonicalField(ReplayField::OrderPayload)
         );
 
-        let mut flee = envelope_for(Scenario::duel(), 3);
-        flee.replay.record(0, EntityId::new(0, 0), Command { intent: Intent::Flee, ..Command::HOLD });
+        // **On the submitted stream, where the same canonical form is checked.**
+        // A `Flee` carries no target, so a non-zero target beside it is a record
+        // that two readers would disagree about -- and the articulated payload
+        // refuses it structurally, before any of it reaches a world.
+        let mut flee = envelope_for(Scenario::articulated_duel(), 3);
+        let mut command = neutral_command();
+        command.intent = Intent::Flee;
+        flee.replay.record_submitted(0, EntityId::new(0, 0), SubmittedCommand::Articulated(command));
         let mut bad = flee.encode().unwrap();
-        let command = stream_start(&bad) + 4;
-        bad[command + 21] = 1;
+        // The record count (4), the record header (tick, index, generation and the
+        // grammar tag = 13), then the payload's own intent-target offset (11).
+        let target = stream_start(&bad) + 4 + 13 + 11;
+        bad[target] = 1;
         assert_eq!(
             decode_error(&bad),
             ReplayDecodeError::NonCanonicalField(ReplayField::CommandIntentTarget)
         );
 
-        let mut regroup = envelope_for(Scenario::duel(), 3);
+        let mut regroup = envelope_for(Scenario::articulated_duel(), 3);
         regroup.replay.record_order(0, Faction::Heroes, Order::Regroup);
         let mut bad = regroup.encode().unwrap();
         let order = stream_start(&bad) + 4 + 4;
@@ -2454,7 +2432,7 @@ mod tests {
 
     #[test]
     fn replay_decoder_rejects_unknown_and_noncanonical_discriminants() {
-        let base = envelope_for(Scenario::duel(), 2).encode().unwrap();
+        let base = envelope_for(Scenario::articulated_duel(), 2).encode().unwrap();
         let mut bad = base.clone();
         bad[40] = 9;
         assert_eq!(
@@ -2465,11 +2443,13 @@ mod tests {
             }
         );
 
-        let mut with_command = envelope_for(Scenario::duel(), 2);
-        with_command.replay.record(0, EntityId::new(0, 0), Command::HOLD);
+        let mut with_command = envelope_for(Scenario::articulated_duel(), 2);
+        hold(&mut with_command.replay, 0, EntityId::new(0, 0));
         let mut bad = with_command.encode().unwrap();
         let record = stream_start(&bad) + 4;
-        bad[record + 21] = 1;
+        // The record's thirteen-byte header, then the payload's intent-target
+        // offset. A `Hold` with a target set is a record two readers disagree on.
+        bad[record + 13 + 11] = 1;
         assert_eq!(
             decode_error(&bad),
             ReplayDecodeError::NonCanonicalField(ReplayField::CommandIntentTarget)
@@ -2478,12 +2458,15 @@ mod tests {
 
     #[test]
     fn replay_decoder_rejects_nonmonotonic_streams_and_records_after_the_limit() {
-        let mut envelope = envelope_for(Scenario::duel(), 3);
-        envelope.replay.record(1, EntityId::new(0, 0), Command::HOLD);
-        envelope.replay.record(2, EntityId::new(1, 0), Command::HOLD);
+        let mut envelope = envelope_for(Scenario::articulated_duel(), 3);
+        hold(&mut envelope.replay, 1, EntityId::new(0, 0));
+        hold(&mut envelope.replay, 2, EntityId::new(1, 0));
         let base = envelope.encode().unwrap();
+        // One record count -- the encoder writes the legacy stream or the
+        // submitted one, never both -- then the first record: a thirteen-byte
+        // header and a fifty-three byte articulated payload.
         let first = stream_start(&base) + 4;
-        let second = first + LEGACY_COMMAND_BYTES;
+        let second = first + 13 + ARTICULATED_PAYLOAD_BYTES;
 
         let mut bad = base.clone();
         put_u32(&mut bad, second, 0);
@@ -2505,8 +2488,8 @@ mod tests {
 
     #[test]
     fn replay_decoder_rejects_entity_handles_outside_the_initial_roster() {
-        let mut envelope = envelope_for(Scenario::duel(), 2);
-        envelope.replay.record(0, EntityId::new(0, 0), Command::HOLD);
+        let mut envelope = envelope_for(Scenario::articulated_duel(), 2);
+        hold(&mut envelope.replay, 0, EntityId::new(0, 0));
         let mut bad = envelope.encode().unwrap();
         let record = stream_start(&bad) + 4;
         put_u32(&mut bad, record + 8, 1);
@@ -2518,14 +2501,19 @@ mod tests {
 
     #[test]
     fn replay_decoder_rejects_a_model_schema_domain_mismatch() {
-        let mut bad = envelope_for(Scenario::duel(), 2).encode().unwrap();
-        bad[8] = HashDomain::ArticulatedV1 as u8;
+        // **The mismatch is now between the two surviving grammars.** This wrote
+        // `ArticulatedV1` over a Legacy envelope's domain byte; the envelope is
+        // articulated by construction now, so that write was a no-op and the
+        // replay decoded cleanly. An embodied domain over an articulated scenario
+        // is the same claim on the pair that is left.
+        let mut bad = envelope_for(Scenario::articulated_duel(), 2).encode().unwrap();
+        bad[8] = HashDomain::EmbodiedV1 as u8;
         assert_eq!(decode_error(&bad), ReplayDecodeError::CommandModelMismatch);
     }
 
     #[test]
     fn replay_decoder_rejects_a_changed_action_registry_definition() {
-        let mut bad = envelope_for(Scenario::duel(), 2).encode().unwrap();
+        let mut bad = envelope_for(Scenario::articulated_duel(), 2).encode().unwrap();
         let needle = action_definition_bytes(ActionKind::Sword);
         let at = bad.windows(needle.len()).position(|window| window == needle).unwrap();
         bad[at + 2] ^= 1;
@@ -2539,7 +2527,7 @@ mod tests {
 
     #[test]
     fn replay_decoder_rejects_a_stop_after_the_scenario_cutoff() {
-        let mut scenario = Scenario::duel();
+        let mut scenario = Scenario::articulated_duel();
         scenario.max_ticks = 1;
         let mut bad = envelope_for(scenario, 1).encode().unwrap();
         put_u32(&mut bad, 32, 2);
@@ -2551,7 +2539,7 @@ mod tests {
 
     #[test]
     fn encode_and_play_reject_each_duplicate_envelope_field_mismatch() {
-        let base = envelope_for(Scenario::duel(), 2);
+        let base = envelope_for(Scenario::articulated_duel(), 2);
         let cases = [ReplayField::Seed, ReplayField::TickLimit, ReplayField::ScenarioFingerprint];
         for field in cases {
             let mut envelope = base.clone();
@@ -2569,7 +2557,7 @@ mod tests {
 
     #[test]
     fn replay_play_rechecks_identity_before_constructing_a_world() {
-        let mut envelope = envelope_for(Scenario::duel(), 2);
+        let mut envelope = envelope_for(Scenario::articulated_duel(), 2);
         envelope.replay.scenario.name.push('x');
         let computed = envelope.replay.scenario.fingerprint();
         let expected = ReplayValidationError::ScenarioFingerprintMismatch {
@@ -2582,12 +2570,22 @@ mod tests {
     #[test]
     fn replay_play_rechecks_tuple_scenario_bounds_order_ticks_and_entities() {
         for change in 0..4 {
-            let mut envelope = envelope_for(Scenario::duel(), 2);
+            let mut envelope = envelope_for(Scenario::articulated_duel(), 2);
             match change {
-                0 => envelope.command_schema = ARTICULATED_COMMAND_SCHEMA_RESERVED,
-                1 => envelope.hash_domain = HashDomain::ArticulatedV1,
+                // The retired schema, which is the sharpest case this tuple
+                // has: an envelope declaring the legacy command grammar over a
+                // scenario that is not legacy, assembled in memory rather than
+                // decoded, so the header check that refuses the number on the
+                // way in never sees it and the tuple is the whole of the
+                // refusal. Written as `0` because the constant that named it
+                // went with the record stream it declared.
+                0 => envelope.command_schema = 0,
+                // The mismatched values are the *embodied* ones now: the envelope
+                // is articulated by construction, so writing the articulated
+                // domain or model over it changed nothing and the replay played.
+                1 => envelope.hash_domain = HashDomain::EmbodiedV1,
                 2 => envelope.hash_schema = 2,
-                3 => envelope.replay.scenario.combat_model = CombatModel::Articulated,
+                3 => envelope.replay.scenario.combat_model = CombatModel::Embodied,
                 _ => unreachable!(),
             }
             assert_eq!(
@@ -2597,7 +2595,7 @@ mod tests {
             );
         }
 
-        let mut envelope = envelope_for(Scenario::duel(), 2);
+        let mut envelope = envelope_for(Scenario::articulated_duel(), 2);
         envelope.replay.scenario.name = "x".repeat(MAX_SCENARIO_NAME_BYTES + 1);
         sync_fingerprint(&mut envelope);
         assert_eq!(
@@ -2607,7 +2605,7 @@ mod tests {
             ))
         );
 
-        let mut envelope = envelope_for(Scenario::duel(), 2);
+        let mut envelope = envelope_for(Scenario::articulated_duel(), 2);
         let cols = envelope.replay.scenario.dungeon.cols();
         let rows = envelope.replay.scenario.dungeon.rows();
         let mut tiles = envelope.replay.scenario.dungeon.tiles().to_vec();
@@ -2621,7 +2619,7 @@ mod tests {
             ))
         );
 
-        let mut envelope = envelope_for(Scenario::duel(), 2);
+        let mut envelope = envelope_for(Scenario::articulated_duel(), 2);
         envelope.replay.scenario.portal = Some(Vec2::new(
             Fx::from_raw((envelope.replay.scenario.dungeon.cols() as i32) * 65_536 + 1),
             Fx::ZERO,
@@ -2634,7 +2632,7 @@ mod tests {
             ))
         );
 
-        let mut envelope = envelope_for(Scenario::duel(), 2);
+        let mut envelope = envelope_for(Scenario::articulated_duel(), 2);
         envelope.replay.scenario.torches.push(Torch {
             tx: envelope.replay.scenario.dungeon.cols(),
             ty: 0,
@@ -2647,9 +2645,9 @@ mod tests {
             ))
         );
 
-        let mut envelope = envelope_for(Scenario::duel(), 2);
-        envelope.replay.record(1, EntityId::new(0, 0), Command::HOLD);
-        envelope.replay.record(0, EntityId::new(1, 0), Command::HOLD);
+        let mut envelope = envelope_for(Scenario::articulated_duel(), 2);
+        hold(&mut envelope.replay, 1, EntityId::new(0, 0));
+        hold(&mut envelope.replay, 0, EntityId::new(1, 0));
         assert_eq!(
             play_error(&envelope),
             ReplayPlayError::Invalid(ReplayValidationError::NonMonotonic {
@@ -2658,8 +2656,8 @@ mod tests {
             })
         );
 
-        let mut envelope = envelope_for(Scenario::duel(), 2);
-        envelope.replay.record(2, EntityId::new(0, 0), Command::HOLD);
+        let mut envelope = envelope_for(Scenario::articulated_duel(), 2);
+        hold(&mut envelope.replay, 2, EntityId::new(0, 0));
         assert_eq!(
             play_error(&envelope),
             ReplayPlayError::Invalid(ReplayValidationError::RecordAfterTickLimit {
@@ -2668,16 +2666,19 @@ mod tests {
             })
         );
 
-        let mut envelope = envelope_for(Scenario::duel(), 2);
-        envelope.replay.record(0, EntityId::new(0, 1), Command::HOLD);
+        // A generation the initial roster never issued. `hold` records against
+        // the submitted stream, which is where the subject check now lives.
+        let mut envelope = envelope_for(Scenario::articulated_duel(), 2);
+        hold(&mut envelope.replay, 0, EntityId::new(0, 1));
         assert_eq!(
             play_error(&envelope),
             ReplayPlayError::Invalid(ReplayValidationError::InvalidField(
                 ReplayField::CommandSubject,
-            ))
+            )),
+            "a submitted command named a body the roster never had",
         );
 
-        let mut envelope = envelope_for(Scenario::duel(), 2);
+        let mut envelope = envelope_for(Scenario::articulated_duel(), 2);
         envelope.replay.record_order(0, Faction::Heroes, Order::Focus(EntityId::new(9, 0)));
         assert_eq!(
             play_error(&envelope),
@@ -2689,7 +2690,7 @@ mod tests {
 
     #[test]
     fn scenario_fingerprint_and_codec_share_one_canonical_byte_sink() {
-        let envelope = envelope_for(Scenario::duel(), 2);
+        let envelope = envelope_for(Scenario::articulated_duel(), 2);
         let bytes = envelope.encode().unwrap();
         let decoded = ReplayEnvelope::decode(&bytes).unwrap();
         assert_eq!(decoded.replay.scenario.fingerprint(), envelope.scenario_fingerprint);
@@ -2700,3 +2701,4 @@ mod tests {
         }
     }
 }
+

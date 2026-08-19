@@ -3,7 +3,10 @@
 **You have read nothing else, and you do not need to.** This document is complete on its own.
 Every dimension, every colour, every filename and every pose convention you need is stated here.
 Where a number came from somewhere else in the repository, the number itself is written out here
-and the source is given in small print as provenance — you never have to go and look.
+and the source is given in small print as provenance — you never have to go and look. That last
+part is now load-bearing rather than a courtesy: the provenance lines citing `web/main.js` name
+the retired Canvas page, so those files are gone and the numbers here are the only copy. They are
+still the right numbers; the citation records where they were derived, not where to check them.
 
 **Read `FEEDBACK.md`, in this same directory, immediately after this file and before you draw
 anything.** It carries the review of everything delivered so far: what passed, what must be

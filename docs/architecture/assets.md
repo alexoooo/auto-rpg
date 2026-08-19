@@ -1,11 +1,17 @@
 # Asset pipeline
 
-**Purpose:** Describe the current Canvas PNG pipeline, procedural GPU fallbacks, and pinned room-asset and combatant glTF-binary pipelines.
+**Purpose:** Describe the reviewed PNG set and the retired Canvas pipeline that consumed it, procedural GPU fallbacks, and pinned room-asset and combatant glTF-binary pipelines.
 **Status:** current
-**Canonical source:** [`web/assets/ASSET_SPEC.md`](../../web/assets/ASSET_SPEC.md), [`web/assets/manifest.json`](../../web/assets/manifest.json), [`web/assets.js`](../../web/assets.js), the [room asset contract](../reference/room-asset-contract.md), the [combatant asset contract](../reference/combatant-asset-contract.md), and the [renderer visibility contract](../reference/renderer-contract.md#visibility-and-subsystem-presence)
+**Canonical source:** [`web/assets/ASSET_SPEC.md`](../../web/assets/ASSET_SPEC.md), [`web/assets/manifest.json`](../../web/assets/manifest.json), the [room asset contract](../reference/room-asset-contract.md), the [combatant asset contract](../reference/combatant-asset-contract.md), and the [renderer visibility contract](../reference/renderer-contract.md#visibility-and-subsystem-presence)
 **Update when:** Asset formats, validation, manifest semantics, loading, fallback behavior, where the rig node list lives, or render integration changes.
 
-The playable Canvas path consumes a checked-in PNG set. The v2 GPU client retains
+**Read the split before reading the detail:** the PNG set, its authoring
+specification, its manifest and its offline checkers are all still here and still
+enforced, but the browser code that drew from them went with the Canvas page, so
+"Browser loading and fallback" below records how that retired path worked and
+"v2 GPU asset paths" onward is the live client.
+
+The Canvas path consumed a checked-in PNG set. The v2 GPU client retains
 procedural room and figure geometry as controls and fallbacks, loads the pinned
 representative-room `GLB` when that room is selected. It separately loads the pinned
 Fighter and Brute combatant glTF binary for authored GPU dresses. All generation and validation are
@@ -54,26 +60,27 @@ loaded by the page.
 
 ## Browser loading and fallback
 
-`web/legacy.html` loads `draw.js`, `rig.js`, and `assets.js` before `main.js`.
-`assets.js` fetches the manifest once at boot without blocking wasm or the game loop.
-It expands `{facing}` and `{frame}` patterns once during parsing, then lazily creates
-an `Image` on the first request for each leaf. Surfaces and faces become reusable
-`CanvasPattern` paint entries; other images enter the same fixed paint table directly.
-Draw extraction receives a paint-table index, never an `HTMLImageElement`.
+`assets.js` fetched the manifest once at boot without blocking wasm or the game loop.
+It expanded `{facing}` and `{frame}` patterns once during parsing, then lazily created
+an `Image` on the first request for each leaf. Surfaces and faces became reusable
+`CanvasPattern` paint entries; other images entered the same fixed paint table directly.
+Draw extraction received a paint-table index, never an `HTMLImageElement`.
 
-Failure is an explicit supported path. A missing or malformed manifest, unknown key,
-404, decode failure, or paint-table exhaustion returns `DL_NO_PAINT`, warns at most
-once, and takes the procedural fallback already present at the draw site. Failed
-images are terminal and are not retried every frame. `?noart=1` or the
-`assetsEnabled` console switch exercises the same fallback path for review.
+Failure was an explicit supported path. A missing or malformed manifest, unknown key,
+404, decode failure, or paint-table exhaustion returned `DL_NO_PAINT`, warned at most
+once, and took the procedural fallback already present at the draw site. Failed
+images were terminal and were not retried every frame. `?noart=1` or the
+`assetsEnabled` console switch exercised the same fallback path for review.
 
-`rig.js` owns body-local proportions and alternative sprite/procedural rows;
-`main.js` combines those tables with snapshot pose and camera projection; `draw.js`
-alone touches Canvas. A resolved composite body replaces its fallback body segments,
-while arm/shield/weapon rows may remain mixed during incremental integration. The
-weapon art is stretched between the projected hilt and tip of the same simulation
+`rig.js` owned body-local proportions and alternative sprite/procedural rows;
+`main.js` combined those tables with snapshot pose and camera projection; `draw.js`
+alone touched Canvas. A resolved composite body replaced its fallback body segments,
+while arm/shield/weapon rows could remain mixed during incremental integration. The
+weapon art was stretched between the projected hilt and tip of the same simulation
 blade segment used by combat, keeping presentation and hit geometry joined at the
-snapshot rather than at an asset-specific correction.
+snapshot rather than at an asset-specific correction — which is the one rule from this
+path that survived it, and the v2 dresses hang from published endpoints for the same
+reason.
 
 ## v2 GPU asset paths
 

@@ -17,8 +17,9 @@
 
 #![forbid(unsafe_code)]
 
-use learn::{band, held_out_seeds, score, training_seeds, Baseline, Corpus, Model, ProbeConfig};
-use learn::LearnedArticulatedPolicy;
+use learn::{band, held_out_seeds, score, training_seeds, Corpus, Model, ProbeConfig};
+use learn::LearnedEmbodiedPolicy;
+use policy::EmbodiedPolicyKind;
 
 #[test]
 #[ignore = "a few hundred sixty-second fights"]
@@ -36,7 +37,7 @@ fn a_short_training_run_climbs_and_writes_a_loadable_checkpoint() {
         threads,
         master_seed: 20_260_810,
         max_ticks: None,
-        opponent: learn::Opponent::frozen(Baseline::Composed),
+        opponent: learn::Opponent::frozen(EmbodiedPolicyKind::Scripted),
         verbose: true,
     };
     println!(
@@ -76,30 +77,30 @@ fn a_short_training_run_climbs_and_writes_a_loadable_checkpoint() {
     let corpus = Corpus::new(true);
     let learned = score(&checkpoint.model, &corpus, &evaluation);
 
-    let mut scripted = Baseline::Composed.policy();
+    let mut scripted = EmbodiedPolicyKind::Scripted.build();
     let mut returns = Vec::new();
     corpus.returns(
         &held_out,
         scripted.as_mut(),
-        learn::Opponent::frozen(Baseline::Composed),
+        learn::Opponent::frozen(EmbodiedPolicyKind::Scripted),
         None,
         &mut returns,
     );
     let baseline = band(&returns, 7);
 
     let mut untrained_returns = Vec::new();
-    let mut untrained = LearnedArticulatedPolicy::new(Model::zeros());
+    let mut untrained = LearnedEmbodiedPolicy::new(Model::zeros());
     corpus.returns(
         &held_out,
         &mut untrained,
-        learn::Opponent::frozen(Baseline::Composed),
+        learn::Opponent::frozen(EmbodiedPolicyKind::Scripted),
         None,
         &mut untrained_returns,
     );
     let untrained = band(&untrained_returns, 8);
 
     println!("\nheld out on {} seeds x 2 orientations:", held_out.len());
-    println!("  composed script  {baseline}");
+    println!("  scripted body    {baseline}");
     println!("  zeroed network   {untrained}");
     println!("  trained network  mean={learned:>8.3}");
     println!(

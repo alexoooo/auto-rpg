@@ -2,7 +2,7 @@
 
 **Purpose:** Record why articulated arrows enter the shared contact solver as explicit projectile colliders instead of maintaining a second damage law.
 **Status:** current
-**Canonical source:** The current normative contracts are [Contact solver](../reference/contact-solver.md) and [Anatomy and health](../reference/anatomy-health.md); implementation lives in [`contact.rs`](../../crates/sim/src/combat/contact.rs), [`resolution.rs`](../../crates/sim/src/combat/resolution.rs), and [`world.rs`](../../crates/sim/src/world.rs).
+**Canonical source:** The current normative contracts are [Contact solver](../reference/contact-solver.md) and [Anatomy and health](../reference/anatomy-health.md); implementation lives in [`contact.rs`](../../crates/sim/src/combat/contact.rs), [`resolution.rs`](../../crates/sim/src/combat/resolution.rs), and [`world/projectile.rs`](../../crates/sim/src/world/projectile.rs) with the contact phase in [`world/contact_phase.rs`](../../crates/sim/src/world/contact_phase.rs).
 **Update when:** Projectile contact identity, solver participation, regional assignment, damage credit, capacity, or the legacy-hash isolation boundary changes.
 
 **ADR status:** accepted

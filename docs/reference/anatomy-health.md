@@ -53,22 +53,28 @@ fixtures remain sword-right, shield-left, and club-right.
 
 ## Region volumes and assignment
 
-Head is a sphere. Torso and combined legs are vertical capsules. Each arm is the
-capsule from its yaw-rotated shoulder to the current hand, with the immutable arm
-radius. A severed arm has no shoulder-to-hand volume or grip collider after the group
-that severs it. The severance event still carries its contact point.
+Head is a sphere. Torso and combined legs are vertical capsules. An arm is the capsule
+from its yaw-rotated shoulder to the current hand, with the immutable arm radius — or,
+on a model whose arms have an elbow, **two** capsules at that radius, shoulder to elbow
+and elbow to hand, occupying the arm's own volume index and an appended forearm index.
+A severed arm has neither capsule and no grip collider after the group that severs it.
+The severance event still carries its contact point.
 
-For one weapon/body candidate, sweep all five volumes, then choose the least tuple
-`(toi.raw, medial_distance_squared.raw, BodyPart as u8)`. A projectile/body
+For one weapon/body candidate, sweep every present volume, then choose the least tuple
+`(toi.raw, medial_distance_squared.raw, volume as u8)`. **Two volumes may answer for
+one `BodyPart` and that is what the tuple's tail was already able to tolerate**: an
+upper arm and its forearm compete on equal terms and `volume_region` sends either one
+to the same part downstream, so an arm that is two capsules still produces one fact
+and one wound. A projectile/body
 compatibility candidate uses the same tuple with the projectile represented as a
 zero-length segment plus its stored radius. The medial distance is from the chosen
 contact point to the sphere center or capsule medial segment. Do not compare surface
 distance and do not use float normalization. Publish only that one fact and its chosen
-region; equal or overlapping regions never create duplicate ContactKeys. All five use
-the general swept segment/segment primitive rather than the vertical-capsule one: two
-of them are arms, which point wherever the actuator left them, and with equal endpoint
-displacement and a zero half-height the two primitives run the identical conservative
-advance.
+volume; equal or overlapping volumes never create duplicate ContactKeys. All of them
+use the general swept segment/segment primitive rather than the vertical-capsule one:
+four of them can be arm links, which point wherever the actuator left them, and with
+equal endpoint displacement and a zero half-height the two primitives run the identical
+conservative advance.
 
 The exact projectile scan certifies the first body envelope and global contact time;
 the anatomy projection then chooses the nearest present regional medial capsule at
@@ -149,9 +155,10 @@ Constants are raw Fx: `BLEED_PER_WOUND = 18` (`1/3600` rounded down),
 `min(1-shock, integrity_loss / max_health / 2)` to shock. Shock decay never runs
 between simultaneous facts.
 
-When integrity reaches zero, set `severed=true`. A severed region contributes no volume
-to any sweep from the group that severed it onward, and that is a property of the
-region rather than of the limbs: the death rule reads head, torso and blood only, so a
+When integrity reaches zero, set `severed=true`. A severed region contributes **no
+volume** to any sweep from the group that severed it onward — neither of them, for an
+arm that is two capsules — and that is a property of the region rather than of the
+limbs: the death rule reads head, torso and blood only, so a
 body fights on with its legs destroyed and those legs must not reappear when the next
 tick rebuilds its colliders. A severed arm additionally has effort factor zero,
 releases its grip at group end, and contributes no equipment collider on the
@@ -239,7 +246,7 @@ and still left the median closure speed roughly 35x below the legacy impact scal
 Most dissipated energy therefore remains under the raw-144 `CONTACT_ENERGY_FLOOR`
 and lands entirely in pressure, which changes no anatomy. A charging *body* onto a
 braced weapon clears the floor comfortably; the present arm swing usually does not.
-Every wound test in `crates/sim/src/world.rs` therefore scales the target's regional
+Every wound test in `crates/sim/src/world/contact_phase.rs` therefore scales the target's regional
 maxima down, exactly as the mechanical gate's severance case specifies. The measured
 limits and rejected alternatives are in the
 [articulated gate evidence](../performance/v2-articulated-gate.md).

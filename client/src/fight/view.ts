@@ -59,10 +59,10 @@ export function contactColour(kind: number): string {
 /**
  * A true bird's eye: `x` to the right and **`y` up**, centred with a fixed span.
  *
- * **The y flip is load-bearing and it disagrees with the legacy Canvas page on
- * purpose.** `web/main.js` draws the world through a bare `ctx.translate`, so
- * `+y` runs down its screen; a diagnostic that copied that would be a mirror of
- * the world the simulation describes. `actuator::shoulder` puts
+ * **The y flip is load-bearing and it disagrees with the retired Canvas page on
+ * purpose.** That page drew the world through a bare `ctx.translate`, so `+y`
+ * ran down its screen; a diagnostic that copied that would be a mirror of the
+ * world the simulation describes. `actuator::shoulder` puts
  * `LimbSlot::LeftArm` at `(-sin yaw, cos yaw) * half_width` -- the +90 degree
  * side, which is a body's anatomical left only under a right-handed frame with
  * `y` up. Drawn `y` down, a Fighter facing screen-right holds its shield below

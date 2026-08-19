@@ -2,7 +2,7 @@
 
 **Purpose:** Preserve the measurements that located the shipped Canvas renderer's bottlenecks and corrected four misleading hypotheses.
 **Status:** historical
-**Canonical source:** [`drawVision`](../../../web/main.js#L7930), [`MAX_DASH_SEGMENTS`](../../../web/main.js#L8009), and this migrated evidence record
+**Canonical source:** this migrated evidence record, and nothing else. `drawVision` and `MAX_DASH_SEGMENTS` lived in `web/main.js`, retired with the Canvas page — a historical measurement cannot be re-anchored to code that no longer exists, and pointing this line at the 3D renderer would claim these numbers were measured against it.
 **Update when:** The Canvas baseline, profiling method, or interpretation of these measurements changes.
 
 **Date:** August 2026. **Hardware:** the user's hybrid-core Windows laptop and its
@@ -10,8 +10,9 @@ visible Chrome window; exact CPU, GPU, and driver were not recorded, so these re
 must not be generalized as a cross-machine budget.
 
 This record preserves the measurements formerly under
-`DESIGN.md#performance-notes` and the method repeated in
-`AGENTS.md#gotchas-that-have-already-cost-time`.
+`DESIGN.md#performance-notes`. The method they were taken by is stated once, for
+current use, in [performance evidence](../README.md); `AGENTS.md` repeated it until
+2026-08-18 and now carries only the rule and a link.
 
 ## Method and controls
 

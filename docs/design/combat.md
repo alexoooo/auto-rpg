@@ -2,7 +2,7 @@
 
 **Purpose:** Preserve the rationale, measured corrections, and trade-offs behind the current combat model.
 **Status:** current
-**Canonical source:** [`World` combat phases](../../crates/sim/src/world.rs#L3009), [`Hand`](../../crates/sim/src/hand.rs#L181), and [`rules`](../../crates/sim/src/rules.rs#L1)
+**Canonical source:** [`World` combat phases](../../crates/sim/src/world/mod.rs#L1714), [`Hand`](../../crates/sim/src/hand.rs#L182), and [`rules`](../../crates/sim/src/rules.rs#L1)
 **Update when:** Limb state, action roles, collision, damage, recoil, perception, recovery, regeneration, or timeout design changes.
 
 This document explains why the mechanics have their current shape. Exact enum
@@ -55,9 +55,12 @@ The first shield-ready tuning compared the draw only with telegraph duration.
 That was the wrong interval: contact comes after the telegraph, partway through
 the strike. Live-world measurements showed much more response time than the
 windup alone implied. The corrected tuning lets slow attacks be answered by a
-deliberate swap while fast attacks demand an already-held answer. The paired
-world tests near [`a_club_can_be_answered_by_swapping_to_a_guard`](../../crates/sim/src/world.rs#L19362)
-own that behavioral constraint.
+deliberate swap while fast attacks demand an already-held answer. The paired world tests that owned that behavioural constraint --
+`a_club_can_be_answered_by_swapping_to_a_guard` and its neighbours -- were in
+`crates/sim/src/world/legacy.rs`, and went with the model in embodied session 10.
+**The measurement above is the record of a tuning decision, not of live code**: a
+jointed arm has no swap-to-guard window, because its guard is a bearing and a reach
+rather than a slot, and the interval this section is about does not exist for it.
 
 ### What this cost, honestly
 
@@ -74,12 +77,22 @@ because it is the reason that normalization exists.
 
 ## Why it is a state machine and not a bearing
 
+**Past tense, and the argument is kept rather than the code.** The four-phase limb
+this section describes was deleted on 2026-08-18: `Hand::drive` and the nine methods
+under it had no production caller, because an arm under both surviving models is
+driven by `combat/actuator.rs` from a bearing, a height, a reach and an effort. The
+three design facts below are what the phases bought, and they are what a session
+giving the jointed arm a commitment mechanic has to buy again by other means --
+which is why this stays a design document and not a changelog entry. `crates/sim/src/hand.rs`
+carries the same argument at the code, with the eight tuning constants named in
+`rules.rs`.
+
 The first limb interface let a policy directly aim an extended blade every
 tick. It was more expressive and produced one dominant behavior: rotate a live
 hitbox continuously. With no instant at which an attack began, there was no cue
 to read, commitment to punish, or miss to exploit.
 
-The phased model establishes three design facts:
+The phased model established three design facts:
 
 - an attack announces itself during windup;
 - its line becomes committed for the damaging phase; and
@@ -95,9 +108,10 @@ their own declared line. Fights still looked plausible, which is why the
 correction is preserved here: visual motion was not evidence that the damaging
 arc completed.
 
-Holding the attack request does not chain attacks. A new strike requires a
+Holding the attack request did not chain attacks. A new strike required a
 release between requests; otherwise the windmill returns as repeated phased
-attacks. [`Hand::armed`](../../crates/sim/src/hand.rs#L250) owns this edge.
+attacks. [`Hand::armed`](../../crates/sim/src/hand.rs#L251) is the field that owned
+this edge, and it survives as a hashed, published word with nothing left to read it.
 
 ## Where you stand still decides what it costs
 
@@ -286,10 +300,18 @@ reward the gap explicitly.
 
 ## Rules that exist for termination, not for flavour
 
-Out-of-combat regeneration exists because a cautious wounded fighter otherwise
-retreats and re-engages forever. It is delayed, suppressed while an enemy is in
-sight, and budgeted across the fight so retreat can recover without resetting
+Out-of-combat regeneration existed because a cautious wounded fighter otherwise
+retreats and re-engages forever. It was delayed, suppressed while an enemy was in
+sight, and budgeted across the fight so retreat could recover without resetting
 every lost exchange.
+
+**It is not implemented.** `REGEN_DELAY` and `REGEN_PER_TICK` were deleted with the
+legacy health column they were denominated in, and the reason they were not simply
+re-denominated is the anatomy: health on a surviving body is per-region integrity,
+open wounds and blood, so regenerating it means deciding how a wound closes rather
+than adding a fraction of a maximum. `REGEN_BUDGET` survives as the ceiling the
+measurement fixed -- the fight-resetting failure above is what it bounds -- and
+`rules.rs` carries the argument in full beside it.
 
 When a scenario's clock ends, remaining health decides the result on points.
 That outcome stays distinguishable from a kill and is worth less in fitness. A
@@ -395,10 +417,16 @@ anchors whose wording did not become standalone headings here:
 
 ## Source anchors
 
-- Limb phases and transition rationale: [`hand.rs`](../../crates/sim/src/hand.rs#L92)
+- Limb phases, and where the machine that ran them went: [`hand.rs`](../../crates/sim/src/hand.rs#L1)
 - Action roles and registry: [`action.rs`](../../crates/sim/src/action.rs#L28)
 - Loadout mutation: [`loadout.rs`](../../crates/sim/src/loadout.rs#L18)
-- Tick ordering and combat resolution: [`world.rs`](../../crates/sim/src/world.rs#L3009)
-- Damage, blocking, regeneration, and recovery constants: [`rules.rs`](../../crates/sim/src/rules.rs#L39)
-- Duelist spacing and stance decisions: [`duelist.rs`](../../crates/policy/src/duelist.rs#L1)
-- Termination outcome: [`World::timeout`](../../crates/sim/src/world.rs#L4784)
+- Tick ordering and combat resolution: [`world/mod.rs`](../../crates/sim/src/world/mod.rs#L1725)
+- Damage, blocking and recovery constants, and why regeneration is not among them: [`rules.rs`](../../crates/sim/src/rules.rs#L37)
+- Spacing and stance decisions: **no longer owned by a policy in this repository.**
+  `duelist.rs` was deleted with the legacy seam in embodied session 10, and its
+  stance machine -- block, evade, circle, punish, feint -- was written against a
+  body that was a disc with one blade angle. The nearest surviving thing is
+  [`embodied_script.rs`](../../crates/policy/src/embodied_script.rs), which decides
+  where to stand from the ground under its feet rather than from a stance, so it is
+  a successor in position and not in kind.
+- Termination outcome: [`World::timeout`](../../crates/sim/src/world/query.rs#L1153)

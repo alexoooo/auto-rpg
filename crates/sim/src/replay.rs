@@ -1,16 +1,13 @@
-use crate::command::{Command, Objective, Order, SubmittedCommand};
+use crate::command::{Objective, Order, SubmittedCommand};
 use crate::entity::{EntityId, Faction};
 use crate::scenario::Scenario;
 use crate::world::World;
 
 /// One decision, as it was made.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct CommandRecord {
-    pub tick: u32,
-    pub entity: EntityId,
-    pub command: Command,
-}
-
+///
+/// There were two of these types and a `CommandRecord` beside this one carried
+/// the legacy grammar. Nothing could write it once that grammar and `submit`
+/// went, and it is gone with the vector that held it.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct SubmittedCommandRecord {
     pub tick: u32,
@@ -70,9 +67,10 @@ pub struct Replay {
     /// How many ticks the original run lasted. Playback stops here even if the
     /// last decisions came earlier.
     pub ticks: u32,
-    pub entries: Vec<CommandRecord>,
-    /// Versioned submitted commands. Exactly one command vector is active for
-    /// a persisted replay, selected by the scenario's combat model.
+    /// Versioned submitted commands. There were two vectors here and a rule
+    /// that exactly one of them was active for a persisted replay, selected by
+    /// the scenario's combat model; the legacy one is gone, so what was a rule
+    /// something had to enforce is now a fact about the only vector there is.
     pub submitted_entries: Vec<SubmittedCommandRecord>,
     /// Player orders, in the order they were issued.
     pub orders: Vec<OrderRecord>,
@@ -89,19 +87,10 @@ impl Replay {
             scenario: scenario.clone(),
             scenario_fingerprint: scenario.fingerprint(),
             ticks: 0,
-            entries: Vec::new(),
             submitted_entries: Vec::new(),
             orders: Vec::new(),
             objectives: Vec::new(),
         }
-    }
-
-    pub fn record(&mut self, tick: u32, entity: EntityId, command: Command) {
-        self.entries.push(CommandRecord {
-            tick,
-            entity,
-            command,
-        });
     }
 
     pub fn record_submitted(&mut self, tick: u32, entity: EntityId, command: SubmittedCommand) {
@@ -134,11 +123,11 @@ impl Replay {
     }
 
     pub fn len(&self) -> usize {
-        self.entries.len() + self.submitted_entries.len()
+        self.submitted_entries.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.entries.is_empty() && self.submitted_entries.is_empty()
+        self.submitted_entries.is_empty()
     }
 
     /// Re-runs the recorded decisions and returns the final world.
@@ -164,16 +153,26 @@ impl Replay {
     /// through [`World::step_with_arm_rates`]; without the matching seam here
     /// the live and replayed halves would disagree the moment somebody tuned
     /// the actuator, and the fixture would report that as a replay divergence
-    /// rather than as the actuator change it is. Private, with
-    /// [`Replay::play_until_with_arm_calibration`] below as the one way past
-    /// it: raw rates are this crate's own spelling, and a caller that has to
-    /// name two loose integers has two chances to name a pair no live half
-    /// used.
+    /// rather than as the actuator change it is.
+    ///
+    /// **Private, and with nothing past it any more.** *Nothing outside this
+    /// crate records a run at anything but the production pair* was this
+    /// comment's claim until 2026-08-15, when Lab froze strike fixtures that
+    /// recorded a run and replayed it as their own check; an
+    /// `ArmCalibration`-typed seam was opened here so pinning their live half
+    /// alone could not make an actuator change arrive as "live and replay
+    /// disagree", which is the one sentence a live-versus-replay comparison
+    /// must never be able to say by accident. Those fixtures were deleted with
+    /// the articulated model, so the claim is true again and the seam went with
+    /// them. What did not change is why the rates travel as a named pair:
+    /// `exact_diagnostics` and this file's own exact tests still record and
+    /// replay at `exact_diagnostics::CAPTURED_ARM_RATES`, and a caller that
+    /// names two loose integers instead has two chances to name a pair no live
+    /// half used.
     pub(crate) fn play_until_with_arm_rates(
         &self, ticks: u32, bearing_max_speed_raw: i32, bearing_accel_raw: i32,
     ) -> World {
         let mut world = World::new(&self.scenario, self.seed);
-        let mut next_command = 0;
         let mut next_submitted = 0;
         let mut next_order = 0;
         let mut next_objective = 0;
@@ -200,23 +199,17 @@ impl Replay {
             if world.tick() >= ticks {
                 break;
             }
-            while self.scenario.combat_model == crate::CombatModel::Legacy
-                && next_command < self.entries.len()
-                && self.entries[next_command].tick <= world.tick()
-            {
-                let entry = self.entries[next_command];
-                world.submit(entry.entity, entry.command);
-                next_command += 1;
-            }
-            while self.scenario.combat_model == crate::CombatModel::Articulated
+            while self.scenario.combat_model.has_articulated_columns()
                 && next_submitted < self.submitted_entries.len()
                 && self.submitted_entries[next_submitted].tick <= world.tick()
             {
                 let entry = self.submitted_entries[next_submitted];
                 match entry.command {
-                    SubmittedCommand::Legacy(_) => {}
                     SubmittedCommand::Articulated(command) => {
                         let _ = world.submit_articulated_v1(entry.entity, command);
+                    }
+                    SubmittedCommand::Embodied(command) => {
+                        let _ = world.submit_embodied_v1(entry.entity, command);
                     }
                 }
                 next_submitted += 1;
@@ -225,33 +218,6 @@ impl Replay {
         }
 
         world
-    }
-
-    /// The Lab-visible half of the seam above, paired with
-    /// [`World::step_with_arm_calibration`].
-    ///
-    /// The sentence this comment used to carry -- *nothing outside this crate
-    /// records a run at anything but the production pair* -- stopped being true
-    /// on 2026-08-15, and the way it stopped is the reason this exists. Lab's
-    /// frozen strike fixtures record a run and then replay it as their own
-    /// check, so pinning only their live half would have made an actuator
-    /// change arrive as "live and replay disagree" -- the one sentence a
-    /// live-versus-replay comparison must never be able to say by accident.
-    /// Behind `lab-calibration` and taking an [`ArmCalibration`] rather than
-    /// two integers for the same reasons the stepping seam does: nothing that
-    /// ships records a run at anything but the production pair, and the pair
-    /// travels as one value so the two halves cannot be given different ones.
-    ///
-    /// [`ArmCalibration`]: crate::ArmCalibration
-    #[cfg(feature = "lab-calibration")]
-    pub fn play_until_with_arm_calibration(
-        &self, ticks: u32, calibration: crate::ArmCalibration,
-    ) -> World {
-        self.play_until_with_arm_rates(
-            ticks,
-            calibration.bearing_max_speed_raw,
-            calibration.bearing_accel_raw,
-        )
     }
 }
 
@@ -317,11 +283,28 @@ mod tests {
     fn playback_uses_only_the_model_selected_command_vector() {
         let scenario = Scenario::articulated_duel();
         let mut replay = Replay::new(&scenario, 1);
-        replay.record(0, EntityId::new(0, 0), Command::moving(Vec2::X));
+        // **The wrong-grammar record is now an embodied one on an articulated
+        // scenario**, which is the same shape of mistake the test was written for:
+        // a record whose grammar the world does not accept must be skipped rather
+        // than coerced. It used to be a legacy command, and that variant is gone.
         replay.record_submitted(
             0,
             EntityId::new(0, 0),
-            SubmittedCommand::Legacy(Command::moving(Vec2::Y)),
+            SubmittedCommand::Embodied(crate::EmbodiedCommandV1::new(
+                crate::ArticulatedCommandV1 {
+                    move_dir: Vec2::Y,
+                    body_yaw: fx::Angle::ZERO,
+                    intent: crate::Intent::Hold,
+                    arms: [crate::ArmTarget {
+                        bearing: fx::Angle::ZERO,
+                        height: crate::CombatHeight::MID,
+                        reach: Fx::ZERO,
+                        effort: Fx::ZERO,
+                    }; 2],
+                    grips: [crate::GripRequest::Keep; 2],
+                    releases: [crate::ReleaseRequest::Keep; 2],
+                },
+            )),
         );
         replay.finish(1);
         let played = replay.play();
@@ -485,7 +468,25 @@ mod tests {
         config.fighters[1].spawn = Vec2::new(Fx::from_ratio(631, 50), wall_side);
         config.fighters[1].anatomy = crate::AnatomyChoice::Fighter;
         config.max_ticks = 100;
-        let scenario = Scenario::duel_from(&config).unwrap();
+        let mut scenario = Scenario::duel_from(&config).unwrap();
+        // ARTICULATED-FIXTURE-SHIM -- reseat and re-record.
+        //
+        // `duel_from` builds `CombatModel::Embodied` since v2-ui-08, and this
+        // transcript is a hundred ticks of world-frame `ArticulatedCommandV1`
+        // recorded as `SubmittedCommand::Articulated`. The two `panic!`s on the
+        // submissions below are what catch it, at the submission and by name.
+        //
+        // What the test owns -- live equals rerun equals replay, every
+        // authoritative word, every tick -- is model-independent. What is
+        // articulated is the transcript: the wall-side placement, the tick-48
+        // bearing change, the tick-95 release, and above all `diagnostic.tick ==
+        // 80`, which the comment above `rates` already explains is a property of
+        // *this* swing at *these* rates. Reseating means writing the same
+        // transcript as `SubmittedCommand::Embodied` through `submit_embodied_v1`
+        // and re-measuring the refusal tick; it does not mean relaxing 80 into a
+        // range, which would be an assertion satisfied by a fixture that stopped
+        // refusing for a different reason.
+        scenario.combat_model = crate::CombatModel::Articulated;
         let fighter = EntityId::new(0, 0);
         let brute = EntityId::new(1, 0);
         let arm = |bearing: Angle, reach: Fx, effort: Fx| ArmTarget {

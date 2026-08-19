@@ -194,11 +194,11 @@ export interface ArenaWasmAdapter {
   /**
    * The allocating calls, taken once and deliberately together.
    *
-   * `init_articulated` reserves 64 rows of contact vectors a Legacy heap has
-   * never held and `load_checkpoint` builds the weight vector; both grow linear
-   * memory the first time, and linear-memory growth detaches every typed array
-   * view. A recording in flight is the worst possible moment for that, so these
-   * two run before a single buffer is allocated and never again.
+   * `init` reserves 64 rows of contact vectors the module has not held before
+   * and `load_checkpoint` builds the weight vector; both grow linear memory the
+   * first time, and linear-memory growth detaches every typed array view. A
+   * recording in flight is the worst possible moment for that, so these two run
+   * before a single buffer is allocated and never again.
    *
    * Answers `load_checkpoint`'s packed word, or `0` when no checkpoint was given.
    */
@@ -223,7 +223,7 @@ type U32Export = () => number;
 /** Every export the arena path calls, so `requiredFunctions` can name them. */
 export interface ArenaExports {
   memory: WebAssembly.Memory;
-  init_articulated(seed: number): void;
+  init(seed: number): void;
   arena_config_ptr: U32Export; arena_config_len: U32Export;
   arena_config_layout_version: U32Export;
   arena_start(seed: number): number;
@@ -249,7 +249,11 @@ export interface ArenaExports {
 
 /** The names above, for `sim.worker.ts`'s boot check and for `wasm_check.js`. */
 export const ARENA_EXPORTS = [
-  "init_articulated",
+  // Named here as well as in the worker's own list, because this list is what
+  // the arena path *calls* rather than a set of distinct names: `warmUp` drives
+  // `init`, and an export a caller has that no list mentions is the gap both
+  // lists exist to close.
+  "init",
   "arena_config_ptr", "arena_config_len", "arena_config_layout_version",
   "arena_start", "arena_fingerprint_lo", "arena_fingerprint_hi", "arena_policy",
   "checkpoint_ptr", "checkpoint_capacity", "checkpoint_installed",
@@ -350,10 +354,10 @@ export function createArenaAdapter(wasm: ArenaExports): ArenaWasmAdapter {
   return {
     warmUp(seed, checkpoint) {
       checkLayout();
-      // The articulated room and not the duel: it is the call that reserves the
+      // The generated room and not the duel: it is the call that reserves the
       // contact vectors, and it is the one already in the memory proof's warm
       // set. `arena_start` then replaces the world without growing anything.
-      wasm.init_articulated(seed);
+      wasm.init(seed);
       if (checkpoint === null) return 0;
       const capacity = wasm.checkpoint_capacity() >>> 0;
       if (checkpoint.length > capacity) {

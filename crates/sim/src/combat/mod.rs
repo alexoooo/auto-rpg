@@ -10,6 +10,7 @@ pub mod arena;
 // accreting transient mechanics merely because it landed first.
 pub mod actuator;
 pub mod contact;
+pub(crate) mod limb;
 pub(crate) mod geometry;
 pub mod resolution;
 

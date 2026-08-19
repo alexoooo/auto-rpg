@@ -2,7 +2,7 @@
 
 **Purpose:** Define the exact packed frame consumed by both current browser entries.
 **Status:** current
-**Canonical source:** [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L429), [`web/main.js`](../../web/main.js#L45), and [`tools/wasm_check.js`](../../tools/wasm_check.js#L83)
+**Canonical source:** [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L431) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L174)
 **Update when:** A frame column, section, code meaning, capacity, or layout version changes.
 
 <!-- DOC_CONTRACT: frame-abi-layout -->
@@ -19,11 +19,11 @@ array with a **15-float header**, followed by `unit_count` rows of **33 floats**
 | shot | `x`, `y`, `heading_raw`, `faction` |
 | event | `kind`, `x`, `y`, `amount`, `actor_index`, `other_index`, `aux0`, `aux1` |
 
-The authoritative definitions are [`HEADER_LEN`](../../crates/web/src/lib.rs#L140),
-[`UNIT_STRIDE`](../../crates/web/src/lib.rs#L221),
-[`SHOT_STRIDE`](../../crates/web/src/lib.rs#L269),
-[`EVENT_STRIDE`](../../crates/web/src/lib.rs#L315), and
-[`FRAME_LAYOUT_VERSION`](../../crates/web/src/lib.rs#L427).
+The authoritative definitions are [`HEADER_LEN`](../../crates/web/src/lib.rs#L145),
+[`UNIT_STRIDE`](../../crates/web/src/lib.rs#L226),
+[`SHOT_STRIDE`](../../crates/web/src/lib.rs#L274),
+[`EVENT_STRIDE`](../../crates/web/src/lib.rs#L320), and
+[`FRAME_LAYOUT_VERSION`](../../crates/web/src/lib.rs#L432).
 
 **This document owns the frame and nothing else.** Three further `u32` publications sit
 beside `FRAME` in the same linear memory — the pose rows, the region capsules and the
@@ -49,20 +49,22 @@ use separate integer exports.
 
 Columns and codes are append-only inside a layout version. A reordering can repaint
 the game while producing valid numbers, so it is never a harmless cleanup. Any shape
-or meaning change bumps the layout version and updates all copies together — **five
-obligations across six files**, which is the count `AGENTS.md` defers to and the one
+or meaning change bumps the layout version and updates all copies together — **four
+obligations across five files**, which is the count `AGENTS.md` defers to and the one
 to correct if a mirror is ever added or removed:
 
 1. `crates/web/src/lib.rs`: Rust constants, writer, and module layout comment;
-2. `web/main.js` constants and parser;
-3. `tools/wasm_check.js` constants and assertions;
-4. `crates/web/src/bin/emit_abi.rs` → `client/src/protocol/abi.generated.ts`, which is
+2. `tools/wasm_check.js` constants and assertions;
+3. `crates/web/src/bin/emit_abi.rs` → `client/src/protocol/abi.generated.ts`, which is
    regenerated and never hand-edited, plus `client/src/state/snapshot.ts` which reads
    it; and
-5. this reference.
+4. this reference.
 
-Obligation 4 is two files, which is where "four" came from and why it was wrong: the
-number predated the v2 client split, and `AGENTS.md` carried it until v2-ui-06.
+Obligation 3 is two files, which is where a long-carried "four" came from and why it
+was wrong then: the number predated the v2 client split and `AGENTS.md` carried it
+until v2-ui-06, at which point the true count was six. Retiring the Canvas page
+removed `web/main.js` and its hand-written parser, which is the second obligation this
+list used to carry and the reason the count is five rather than six today.
 
 At boot the page compares version, header length, and each stride against wasm and
 refuses to draw a layout it does not understand. `frame_ptr` and `frame_len` are pure
@@ -76,5 +78,8 @@ remove spatial rows and recompute the three live counts before transfer. That
 presentation-only filtering does not define another frame layout version.
 
 This document is the canonical destination for the exact layout formerly copied by
-`AGENTS.md#the-frame-abi-is-a-handshake-across-six-files` and the frame-layout prose
-in `DESIGN.md#performance-notes`.
+`AGENTS.md`'s frame-ABI handshake heading and the frame-layout prose in
+`DESIGN.md#performance-notes`. That heading is deliberately not named here by anchor:
+it carries the mirror count, the count has been four, six and five, and a reference
+that pinned itself to one of those spellings would go stale the next time a mirror is
+added or removed.

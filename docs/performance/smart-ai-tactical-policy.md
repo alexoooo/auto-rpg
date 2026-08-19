@@ -2,7 +2,7 @@
 
 **Purpose:** Preserve the tactical controller's measured behavioral-gate result and downstream blocker.
 **Status:** current
-**Canonical source:** this record and `crates/policy/src/articulated_tactics.rs`.
+**Canonical source:** this record. The controller measured here was `crates/policy/src/articulated_tactics.rs` and the reference below came from `crates/lab/src/strong_strike.rs`; the session that deleted the articulated model deleted both, they were last runnable at `c4e9d67`, and **this measurement is not re-runnable on this tree**.
 **Update when:** Tactical threat assessment, phase transitions, strike planning, or contact-energy behavior changes.
 
 **Measured:** 2026-08-11, native MSVC x86-64.

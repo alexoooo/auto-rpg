@@ -9,23 +9,32 @@
 //! # The gate v2-19 wrote down was passable by a constant
 //!
 //! The session file asks for a 5% improvement over the scripted baseline with a
-//! confidence interval excluding zero. Measured over 400 mirrored trials against
-//! the composed script, the three fighters that already exist score 64.953
-//! (composed), 75.728 (attack-moves) and 82.225 (windmill) -- and **a network
-//! with every weight at zero scores about 76.** Argmax over a zeroed head picks
-//! index zero, so that network is the constant "advance, weapon low, straight
-//! down the line, chamber, guard low", and it beats the composed script by
-//! fifteen percent without having learned anything at all. A gate measured
-//! against the weakest of four available fighters is a gate a constant passes,
-//! and a headline of the form "learning beats the script" off it would be
-//! measuring the script's weakness.
+//! confidence interval excluding zero. Measured over 400 mirrored trials of the
+//! *articulated* corpus against the composed script, the three scripts that
+//! existed then scored 64.953 (composed), 75.728 (attack-moves) and 82.225
+//! (windmill) -- and **a network with every weight at zero scored about 76.**
+//! Argmax over a zeroed head picks index zero, so that network is the constant
+//! "advance, weapon low, straight down the line, chamber, guard low", and it
+//! beat the composed script by fifteen percent without having learned anything
+//! at all. A gate measured against the weakest of four available fighters is a
+//! gate a constant passes, and a headline of the form "learning beats the
+//! script" off it would be measuring the script's weakness.
 //!
 //! So the bar this file implements is **beating the best non-learned condition**
-//! -- all five of them run, on the same held-out seeds, against the same
-//! opponent -- by five percent, with a *paired* bootstrap interval on the
-//! difference excluding zero. Paired because every condition fights the same
-//! seed in the same orientation, and the paired interval is both tighter and
-//! the honest one for that design.
+//! -- all of them run, on the same held-out seeds, against the same opponent --
+//! by five percent, with a *paired* bootstrap interval on the difference
+//! excluding zero. Paired because every condition fights the same seed in the
+//! same orientation, and the paired interval is both tighter and the honest one
+//! for that design.
+//!
+//! **The four numbers in the paragraph above are history.** Session 05 deleted
+//! the articulated model, its corpus and two of those three scripts; nothing in
+//! this file can reproduce them and they are kept because the *argument* they
+//! bought -- do not measure against one hand-picked baseline -- outlived the
+//! measurement. The conditions this command runs now are the surviving registry
+//! entries plus the zeroed network, and what they score is whatever the next run
+//! of `learn-probe evaluate` prints. `docs/performance/v2-learning-probe.md`
+//! records the last full table and is marked historical for the same reason.
 //!
 //! **The zeroed network is reported as "constant" and never as "the null
 //! model".** Which constant it is falls out of the order of the entries in each
@@ -35,33 +44,63 @@
 //!
 //! # Two opponents, because a fixed script can be beaten by reading its clock
 //!
-//! `ScriptedArticulatedPolicy` is a pure function of the observation: its phase
-//! is `tick % 360` and its guard is `(tick + 45) / 90 % 3`. Features 1 and 2 of
-//! the learned policy's input slice are the cosine and sine of that phase, put
-//! there deliberately. A policy that learns the opponent's timetable and a
-//! policy that learns to fight produce the same mean return, and only one of
-//! them is worth a roadmap. So every condition is scored twice: against the
-//! frozen script, and against [`learn::PhaseShiftedScript`], which is the same
-//! script with a per-run constant tick offset drawn from the run seed. **If the
-//! learned edge collapses against the second, that is the finding**, and this
-//! command says so in the verdict rather than leaving it to a reader.
+//! `scripted_embodied_command` reads three clocks straight off `obs.tick`: four
+//! phases on `tick % 120`, two height selectors on `tick / 90 % 3`, and the cut
+//! direction on `tick / 120 % 2`. Features 1 and 2 of the learned policy's input
+//! slice are the cosine and sine of `tick % 360`, put there deliberately, and
+//! 360 is a multiple of 120 -- so the phase is still exactly readable from the
+//! input while the two 270-tick height clocks are not. A policy that learns the
+//! opponent's timetable and a policy that learns to fight produce the same mean
+//! return, and only one of them is worth a roadmap. So every condition is scored
+//! twice: against the frozen policy, and against [`learn::PhaseShiftedScript`],
+//! which is the same policy with a per-run constant tick offset drawn from the
+//! run seed. **If the learned edge collapses against the second, that is the
+//! finding**, and this command says so in the verdict rather than leaving it to
+//! a reader.
+//!
+//! **Three of the five registry entries cannot be that second opponent, and the
+//! run is refused rather than doubled.** `neutral` reads no clock and both
+//! planners read one only as the interval between two of their own
+//! observations, so the wrapper is the identity for all three: the control
+//! board comes back byte-identical to the frozen board, the verdict prices the
+//! difference between a fight and itself, and it costs twice the wall clock to
+//! print. `EmbodiedPolicyKind::reads_the_clock` is where the registry answers
+//! the question and [`evaluate_opponents`] is where the answer becomes a
+//! sentence. `--frozen-only` scores such an opponent with no control at all,
+//! which is the honest version of what the doubled run was doing.
 
 use crate::args::Args;
 use learn::{
-    band, held_out_seeds, training_seeds, Band, Baseline, Checkpoint, Corpus,
-    LearnedArticulatedPolicy, Mechanics, Model, Opponent, ProbeConfig, Recorders, Rollout,
+    band, held_out_seeds, training_seeds, Band, Checkpoint, Corpus, LearnedEmbodiedPolicy,
+    Mechanics, Model, Opponent, ProbeConfig, Recorders, Rollout,
 };
-use policy::ArticulatedPolicy;
+use policy::{EmbodiedPolicy, EmbodiedPolicyKind};
 use sim::{BodyPart, ContactKind, Faction, Outcome, Replay, Scenario};
 use std::path::PathBuf;
 use std::time::Instant;
 
-/// The three scripts, spelled exactly as `lab articulated --policy` spells them.
-const BASELINES: [(&str, Baseline); 3] = [
-    ("composed", Baseline::Composed),
-    ("windmill", Baseline::Windmill),
-    ("attack-moves", Baseline::ClosingAttack),
-];
+/// What `--opponent` accepts: the embodied registry, spelled exactly as
+/// `EmbodiedPolicyKind::name` spells it and therefore exactly as
+/// `lab embodied --policy` spells it.
+///
+/// **Built from `EmbodiedPolicyKind::ALL` rather than written out**, which is
+/// the whole reason this file stopped carrying its own three-entry list of
+/// baselines: a registry entry appended in `crates/policy` becomes selectable
+/// here without an edit, and a table of names kept beside a registry is a table
+/// that goes stale the first time somebody adds to it. `Args::choice` refuses an
+/// unknown string by name and lists these, so the refusal stays legible.
+///
+/// **What widening this from three baselines to the whole registry cost was one
+/// unasked question**, and the answer belongs on the registry rather than here:
+/// the three entries it replaced all read `obs.tick`, so the phase-randomised
+/// control worked for every one of them and nothing had to check. Only two of
+/// the five it selects now do. `EmbodiedPolicyKind::reads_the_clock` makes an
+/// appended entry answer that question before it can be selected, and
+/// [`opponent_from`] turns a wrong answer into a refusal instead of a
+/// duplicated board.
+fn opponent_kinds() -> Vec<(&'static str, EmbodiedPolicyKind)> {
+    EmbodiedPolicyKind::ALL.iter().map(|&k| (k.name(), k)).collect()
+}
 
 /// The one named spec v2-19's command line asks for, and its settings.
 ///
@@ -150,27 +189,125 @@ fn check_spec(args: &Args) {
     }
 }
 
-/// The opponent the candidate is measured against, script and clock together.
-pub fn opponent_from(args: &Args) -> Opponent {
-    let baseline = args.choice("opponent", Baseline::Composed, &BASELINES);
+/// The opponent the candidate is measured against, script and clock together,
+/// or the sentence the run should be refused with.
+///
+/// Returned rather than printed-and-exited, on `embodied_matchup_from`'s
+/// discipline and for AGENTS.md's reason: a refusal a test cannot read is half
+/// the rule, and it is the half that has already shipped ten instances of this
+/// bug. `a_phase_shift_is_refused_by_name_for_an_opponent_with_no_clock` reads
+/// the sentence.
+pub fn opponent_from(args: &Args) -> Result<Opponent, String> {
+    // `Scripted` and **not** the registry's own default, which is `Neutral` -- a
+    // body that stands there with its arms slack. A corpus fought against a
+    // statue is a full table of finite numbers about nothing.
+    //
+    // **It is a default and not a guard**, which is the correction this comment
+    // used to get wrong: it claimed the command was "written to refuse rather
+    // than to print" a fight against a statue, and `--opponent neutral` printed
+    // exactly that. Nothing here refuses a weak opponent and nothing should --
+    // a control condition is a legitimate thing to score against. What is
+    // refused below is narrower and is a real impossibility: asking for a
+    // phase-randomised opponent that has no phase to randomise.
+    let kind = args.choice("opponent", EmbodiedPolicyKind::Scripted, &opponent_kinds());
     if args.flag("phase-random") {
-        Opponent::randomised(baseline)
-    } else {
-        Opponent::frozen(baseline)
+        if !kind.reads_the_clock() {
+            return Err(phase_refusal(
+                kind,
+                "--phase-random asks for an opponent whose clock starts somewhere the \
+                 candidate cannot know",
+            ));
+        }
+        return Ok(Opponent::randomised(kind));
     }
+    Ok(Opponent::frozen(kind))
+}
+
+/// Why a phase-shifted opponent of this kind would not be one, as a sentence.
+///
+/// One wording behind both callers, because the two inputs that reach it --
+/// `--phase-random` on `train` and the control board `evaluate` scores by
+/// default -- are the same impossibility and a reader who saw two different
+/// explanations would go looking for two different bugs.
+fn phase_refusal(kind: EmbodiedPolicyKind, asked: &str) -> String {
+    let clocked: Vec<&str> = EmbodiedPolicyKind::ALL
+        .iter()
+        .filter(|kind| kind.reads_the_clock())
+        .map(|kind| kind.name())
+        .collect();
+    format!(
+        "{asked}, and {} has no clock to start: its behaviour does not depend on the \
+         tick it is handed, so the phase-shifted wrapper is the identity and the control \
+         would be a second copy of the frozen run scored at twice the cost. Name {} \
+         with --opponent, or drop the control.",
+        kind.name(),
+        clocked.join(" or "),
+    )
+}
+
+/// The boards `evaluate` scores, or the sentence the run should be refused with.
+///
+/// **The phase-randomised board is not behind a flag**, which is why this
+/// refusal exists at all and why `opponent_from`'s is not enough: `evaluate`
+/// runs the control on every condition unless told `--frozen-only`, so an
+/// opponent that cannot honour it turns the second board into a duplicate of
+/// the first without anybody having typed `--phase-random`. That is what
+/// `--opponent neutral` and `--opponent tactical` did -- two byte-identical
+/// boards, the second labelled the control, and a verdict computed over a
+/// structural zero.
+fn evaluate_opponents(args: &Args) -> Result<Vec<Opponent>, String> {
+    let frozen = opponent_from(args)?;
+    if args.flag("frozen-only") {
+        // `--frozen-only --phase-random` is the one pair that reaches here
+        // asking for both a control and no control. Refused rather than
+        // resolved by precedence, on `embodied`'s rule for two frozen
+        // measurements on one line: the operator gets a number either way and
+        // it is the other request's.
+        if frozen.phase_randomised {
+            return Err(
+                "--frozen-only scores no control and --phase-random asks for one: name one"
+                    .to_string(),
+            );
+        }
+        return Ok(vec![Opponent::frozen(frozen.kind)]);
+    }
+    if !frozen.kind.reads_the_clock() {
+        return Err(phase_refusal(
+            frozen.kind,
+            "learn-probe evaluate scores every condition against the phase-randomised \
+             control as well as the frozen opponent",
+        ));
+    }
+    Ok(vec![
+        Opponent::frozen(frozen.kind),
+        Opponent::randomised(frozen.kind),
+    ])
+}
+
+/// A refusal on the way out of one of this command's arms.
+///
+/// The sentences are returned so that a test can read them, and something still
+/// has to print one and stop -- this is that something, in one place rather
+/// than at each of the four arms. Exit 2 is `lab`'s code for "the command line
+/// asked for a thing it cannot have", which every refusal reaching here is.
+fn refuse(sentence: String) -> ! {
+    eprintln!("{sentence}");
+    std::process::exit(2);
 }
 
 /// An opponent as a sentence, for a headline rather than a table column.
 pub fn opponent_prose(opponent: Opponent) -> String {
-    let script = match opponent.baseline {
-        Baseline::Composed => "the composed script",
-        Baseline::Windmill => "the windmill control",
-        Baseline::ClosingAttack => "the composed script with closing attacks",
+    let policy = match opponent.kind {
+        EmbodiedPolicyKind::Neutral => "a body with its arms slack",
+        EmbodiedPolicyKind::Scripted => "the scripted body",
+        EmbodiedPolicyKind::ScriptedLevel => "the scripted body with the elevation term off",
+        EmbodiedPolicyKind::Tactical => "the strike planner",
+        EmbodiedPolicyKind::TacticalFixedGuard => "the strike planner with a fixed guard",
     };
     if opponent.phase_randomised {
-        format!("{script} started at a per-run phase")
+        format!("{policy} started at a per-run phase")
     } else {
-        script.to_string()
+        policy.to_string()
     }
 }
 
@@ -234,13 +371,13 @@ fn train(args: &Args) {
         elite: args.usize("elite", SPEC_ELITE),
         seeds: training_seeds(args.usize("seeds", SPEC_SEEDS).max(1)),
         // Mirrored unless told otherwise, which is the opposite default from
-        // `articulated`. There the mirror is a second measurement; here it is
+        // `embodied`. There the mirror is a second measurement; here it is
         // the only evidence a candidate is not overfitting to one orientation,
         // and a training run that skipped it would produce a checkpoint whose
         // held-out number nobody could interpret.
         mirrored: !args.flag("plain"),
         // Percent, because the parser speaks integers and `--sigma 0.08` would
-        // be a lie. `evolve`'s convention, unchanged.
+        // be a lie. The retired `evolve`'s convention, kept.
         sigma: args.u32("sigma-pct", SPEC_SIGMA_PCT) as f32 / 100.0,
         threads: args.usize("threads", default_threads()),
         master_seed: args.number("master-seed", SPEC_MASTER_SEED),
@@ -248,7 +385,7 @@ fn train(args: &Args) {
             0 => None,
             ticks => Some(ticks),
         },
-        opponent: opponent_from(args),
+        opponent: opponent_from(args).unwrap_or_else(|sentence| refuse(sentence)),
         verbose: !args.flag("quiet"),
     };
     let path = output_path(args);
@@ -360,7 +497,7 @@ fn train_tactical_v2(args: &Args) {
         threads: args.usize("threads", default_threads()),
         master_seed: args.number("master-seed", SPEC_MASTER_SEED),
         max_ticks: match args.u32("ticks", 0) { 0 => None, ticks => Some(ticks) },
-        opponent: opponent_from(args),
+        opponent: opponent_from(args).unwrap_or_else(|sentence| refuse(sentence)),
         verbose: !args.flag("quiet"),
     };
     let path = output_path(args);
@@ -406,7 +543,8 @@ fn evaluate_tactical_v2(args: &Args) {
         mirrored: !args.flag("plain"), sigma: 0.0,
         threads: args.usize("threads", default_threads()), master_seed: SPEC_MASTER_SEED,
         max_ticks: match args.u32("ticks", 0) { 0 => None, ticks => Some(ticks) },
-        opponent: opponent_from(args), verbose: false,
+        opponent: opponent_from(args).unwrap_or_else(|sentence| refuse(sentence)),
+        verbose: false,
     };
     let corpus = Corpus::new(config.mirrored);
     let score = learn::score_v2(&checkpoint.model, &corpus, &config);
@@ -423,10 +561,24 @@ fn evaluate_tactical_v2(args: &Args) {
 /// The five things that can be on the Fighter.
 ///
 /// **Five and not two.** v2-19 compares "learned" with "scripted" and the plan's
-/// own measurement showed that is not one comparison but four: the three scripts
-/// are seventeen points apart, and a constant network sits in the middle of
-/// them. A table with two rows in it cannot say which of those a learned policy
-/// actually beat.
+/// own measurement showed that is not one comparison but four: on the deleted
+/// articulated corpus the three scripts were seventeen points apart and a
+/// constant network sat in the middle of them. A table with two rows in it
+/// cannot say which of those a learned policy actually beat.
+///
+/// **Five again after session 05, and it is not the same five.** `Composed`,
+/// `AttackMoves` and `Windmill` were articulated scripts and all three are gone;
+/// `policy::EmbodiedPolicyKind` has no windmill and no closing-attack entry, and
+/// inventing one would be shipping a policy out of a deletion session. What
+/// replaced them is the three surviving registry entries that are distinct
+/// fighters on `embodied-duel-v1`. **Two of the registry's five are deliberately
+/// not rows**: `Neutral` never commands a weapon height, so it cannot be a row
+/// in a table about aiming and would only widen the gap the bar is measured
+/// across; and `ScriptedLevel` is byte for byte `Scripted` on a flat fixture,
+/// which this one is, so a row for it would print the same fighter twice.
+/// `every_registry_entry_names_itself_and_fights_this_corpus` in `crates/learn`
+/// asserts that identity rather than assuming it, so the day this corpus grows a
+/// hill the omission fails there.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Condition {
     /// A network of zeros. Argmax ties to the lowest index in every head, so it
@@ -435,9 +587,9 @@ enum Condition {
     /// floor**, because which constant it is falls out of the order of the
     /// entries in each head.
     Constant,
-    Composed,
-    AttackMoves,
-    Windmill,
+    Scripted,
+    Tactical,
+    TacticalFixedGuard,
     Learned,
 }
 
@@ -445,29 +597,47 @@ impl Condition {
     /// Learned last, so a reader meets the four things it has to beat first.
     const ALL: [Condition; 5] = [
         Condition::Constant,
-        Condition::Composed,
-        Condition::AttackMoves,
-        Condition::Windmill,
+        Condition::Scripted,
+        Condition::Tactical,
+        Condition::TacticalFixedGuard,
         Condition::Learned,
     ];
 
-    fn name(self) -> &'static str {
+    /// The registry entry behind this row, or `None` for the two that are
+    /// networks. Named rather than matched twice, so the name and the policy
+    /// cannot disagree about which fighter a row is.
+    fn kind(self) -> Option<EmbodiedPolicyKind> {
         match self {
-            Condition::Constant => "constant",
-            Condition::Composed => "composed",
-            Condition::AttackMoves => "attack-moves",
-            Condition::Windmill => "windmill",
-            Condition::Learned => "learned",
+            Condition::Scripted => Some(EmbodiedPolicyKind::Scripted),
+            Condition::Tactical => Some(EmbodiedPolicyKind::Tactical),
+            Condition::TacticalFixedGuard => Some(EmbodiedPolicyKind::TacticalFixedGuard),
+            Condition::Constant | Condition::Learned => None,
         }
     }
 
-    fn policy(self, model: &Model) -> Box<dyn ArticulatedPolicy> {
+    /// A registry row is named by the registry, so a table column and a
+    /// `--policy` string cannot disagree about which fighter a number is about.
+    /// The two network rows name themselves, and they are spelled out rather
+    /// than caught by a wildcard: a variant appended here would otherwise be
+    /// silently labelled `learned` and land in the row the comparison is drawn
+    /// against.
+    fn name(self) -> &'static str {
         match self {
-            Condition::Constant => Box::new(LearnedArticulatedPolicy::new(Model::zeros())),
-            Condition::Composed => Baseline::Composed.policy(),
-            Condition::AttackMoves => Baseline::ClosingAttack.policy(),
-            Condition::Windmill => Baseline::Windmill.policy(),
-            Condition::Learned => Box::new(LearnedArticulatedPolicy::new(model.clone())),
+            Condition::Constant => "constant",
+            Condition::Learned => "learned",
+            Condition::Scripted | Condition::Tactical | Condition::TacticalFixedGuard => {
+                self.kind().expect("a registry row names a kind").name()
+            }
+        }
+    }
+
+    fn policy(self, model: &Model) -> Box<dyn EmbodiedPolicy> {
+        match self {
+            Condition::Constant => Box::new(LearnedEmbodiedPolicy::new(Model::zeros())),
+            Condition::Learned => Box::new(LearnedEmbodiedPolicy::new(model.clone())),
+            Condition::Scripted | Condition::Tactical | Condition::TacticalFixedGuard => {
+                self.kind().expect("a registry row names a kind").build()
+            }
         }
     }
 }
@@ -645,19 +815,12 @@ fn evaluate(args: &Args) {
     let mirrored = !args.flag("plain");
     let threads = args.usize("threads", default_threads());
     let corpus = Corpus::new(mirrored);
-    let frozen = opponent_from(args);
-    let opponents: Vec<Opponent> = if args.flag("frozen-only") {
-        vec![Opponent::frozen(frozen.baseline)]
-    } else {
-        vec![
-            Opponent::frozen(frozen.baseline),
-            Opponent::randomised(frozen.baseline),
-        ]
-    };
+    let opponents = evaluate_opponents(args).unwrap_or_else(|sentence| refuse(sentence));
+    let frozen = opponents[0];
     let replays = !args.flag("no-replay");
 
-    let original = Scenario::articulated_duel();
-    let mirror = learn::mirrored_articulated_duel();
+    let original = Scenario::embodied_duel();
+    let mirror = learn::mirrored_embodied_duel();
 
     println!("learn-probe evaluate");
     println!("  checkpoint  {}", path.display());
@@ -727,7 +890,7 @@ fn evaluate(args: &Args) {
     println!(
         "  opponent    {} -- and the checkpoint format does not record which\n  \
          \\            opponent it was trained against, so this is an assumption",
-        opponent_prose(Opponent::frozen(frozen.baseline)),
+        opponent_prose(Opponent::frozen(frozen.kind)),
     );
 
     let started = Instant::now();
@@ -1043,6 +1206,28 @@ fn verdict(boards: &[Board]) {
     let mut randomised_passed = false;
     let mut randomised_ran = false;
     let mut safe = true;
+    // Counted rather than folded into `safe`, and that is a correction the
+    // reseat forced rather than a relaxation anybody wanted. **The articulated
+    // corpus refused zero contact ticks and this one does not.** `lab embodied
+    // --seeds 8 --mirrored` reports two refusals on the shipped script, and
+    // every sweep row in `docs/performance/embodied-tactical-policy.md` records
+    // between 28 and 91; a refusal is a property of the embodied fixture, not a
+    // broken harness, and a verdict that read "the corpus above is not evidence"
+    // on every run would be a headline nobody could act on.
+    //
+    // What a refusal actually costs is one specific claim, and only that one:
+    // `World::resolve_contact` clears the row list for exactly the condition
+    // `max_energy_excess` measures, so a zero excess **read beside a nonzero
+    // refusal count audits nothing**. That is the correction
+    // `docs/performance/v2-articulated-contact-research.md` records under
+    // Smart102 -- a windmill regression froze exactly one `EnergyNumerator`
+    // refusal and was told it "may not call zero excess evidence" -- and this is
+    // the same rule applied to a corpus where refusals are ordinary.
+    //
+    // A **refused submission** is still a hard failure and is still inside
+    // `safe`. That one voids the run outright: the world stores the neutral
+    // command, so the fight that happened is not the fight the policy asked for.
+    let mut refused_ticks = 0u32;
     let mut replayed = true;
 
     for board in boards {
@@ -1071,9 +1256,8 @@ fn verdict(boards: &[Board]) {
             frozen_passed = passes;
         }
         for row in &board.rows {
-            safe &= row.rejected() == 0
-                && row.mechanics.solver_rejections == 0
-                && row.mechanics.max_energy_excess == 0;
+            safe &= row.rejected() == 0 && row.mechanics.max_energy_excess == 0;
+            refused_ticks += row.mechanics.solver_rejections;
         }
         replayed &= learned.replay_failures() == 0;
     }
@@ -1082,6 +1266,20 @@ fn verdict(boards: &[Board]) {
         "  {:<22} {}",
         "v2-17 safety",
         if safe { "green" } else { "BROKEN -- the corpus above is not evidence" }
+    );
+    println!(
+        "  {:<22} {}",
+        "energy audit",
+        match refused_ticks {
+            0 => "zero excess over zero refused contact ticks -- the excess is evidence"
+                .to_string(),
+            n => format!(
+                "zero excess over {n} refused contact ticks -- the excess audits nothing, \n  \
+                 \\                     because a refusal clears the rows a violation would \n  \
+                 \\                     appear in. Ordinary on this fixture; see \n  \
+                 \\                     docs/performance/embodied-tactical-policy.md"
+            ),
+        }
     );
     println!(
         "  {:<22} {}",
@@ -1097,7 +1295,7 @@ fn verdict(boards: &[Board]) {
         .iter()
         .find(|b| !b.opponent.phase_randomised)
         .map(|b| b.best_non_learned().condition)
-        .unwrap_or(Condition::Windmill);
+        .unwrap_or(Condition::Tactical);
     let lost = collapse(boards, reference);
     let clock_read = match &lost {
         Some(lost) => {
@@ -1128,6 +1326,28 @@ fn verdict(boards: &[Board]) {
          on what phase randomisation costs contains zero -- so the two verdicts \
          differ because of where the bar sits, and no clock-reading claim is earned \
          in either direction"
+    // **The mirror of the arm above, and it was missing until it fired.** This
+    // ladder ran with no arm for "passes against the unpredictable opponent and
+    // not the predictable one", on the unstated assumption that the frozen board
+    // is always the easier of the two -- so a run fell through to the last arm
+    // and printed "does not beat the best non-learned condition" two lines under
+    // a board line reading PASS. A conclusion that contradicts the table above it
+    // is worse than no conclusion, which is why this arm exists rather than being
+    // left to a reader who would have to notice.
+    //
+    // The assumption is wrong twice over. `phase costs` can come back *negative*
+    // -- randomising the opponent's clock can help the candidate, if what the
+    // frozen clock gave it was a timetable it had overfitted the wrong way -- and
+    // the reference is the best non-learned condition on each board separately,
+    // so the two edges are not always over the same fighter. What settles it is
+    // the paired interval, exactly as in the arm above.
+    } else if randomised_passed {
+        "**the result straddles the bar from the other side, and the clock is not \
+         what decides it either**: the edge clears the bar against the \
+         unpredictable opponent and not against the predictable one, which is the \
+         opposite shape from a clock reading. Read the paired interval above and \
+         the two board lines rather than this sentence -- a policy has not beaten \
+         a baseline it failed to beat on one of the two boards"
     } else {
         "the learned policy does not beat the best non-learned condition"
     };
@@ -1145,6 +1365,73 @@ mod tests {
 
     fn tiny_corpus() -> (Corpus, Vec<u64>) {
         (Corpus::new(false), held_out_seeds(1))
+    }
+
+    fn probe_args(line: &str) -> crate::args::Args {
+        crate::args::Args::parse(line.split_whitespace().map(String::from).collect())
+    }
+
+    #[test]
+    fn a_phase_shift_is_refused_by_name_for_an_opponent_with_no_clock() {
+        // The sentence and not the exit code, which is the half of AGENTS.md's
+        // rule the previous version of this refusal skipped: an `eprintln!` and
+        // an `exit(2)` refuse correctly and are unreadable from a test, so
+        // nothing catches the refusal disappearing.
+        //
+        // Every clockless entry, walked out of the registry rather than named,
+        // so an appended one that answers `reads_the_clock` wrongly arrives here
+        // rather than in a table of duplicated numbers.
+        for kind in EmbodiedPolicyKind::ALL.iter().filter(|k| !k.reads_the_clock()) {
+            let line = format!("learn-probe train --opponent {} --phase-random", kind.name());
+            let refusal = opponent_from(&probe_args(&line))
+                .expect_err("a clockless opponent cannot honour --phase-random");
+            assert!(refusal.contains("--phase-random"), "{refusal}");
+            assert!(refusal.contains(kind.name()), "the refusal does not name the opponent: {refusal}");
+            assert!(
+                refusal.contains(EmbodiedPolicyKind::Scripted.name()),
+                "the refusal does not name an opponent that would work: {refusal}"
+            );
+
+            // And `evaluate` refuses the same run with no flag typed at all,
+            // because its control board is not behind one.
+            let line = format!("learn-probe evaluate --opponent {}", kind.name());
+            let refusal = evaluate_opponents(&probe_args(&line))
+                .expect_err("evaluate scores a control it cannot build");
+            assert!(refusal.contains(kind.name()), "{refusal}");
+
+            // `--frozen-only` is the way to score it, and it is not refused.
+            let line = format!("learn-probe evaluate --opponent {} --frozen-only", kind.name());
+            assert_eq!(
+                evaluate_opponents(&probe_args(&line)),
+                Ok(vec![Opponent::frozen(*kind)]),
+                "--frozen-only is the arm that has no control to disable"
+            );
+        }
+    }
+
+    #[test]
+    fn a_clock_reading_opponent_still_gets_both_boards() {
+        // The other direction, which is what stops the refusal above from being
+        // satisfied by refusing everything. `scripted` is what the command runs
+        // by default and the phase-randomised board is the reason the command
+        // has a verdict ladder at all.
+        assert_eq!(
+            opponent_from(&probe_args("learn-probe train --phase-random")),
+            Ok(Opponent::randomised(EmbodiedPolicyKind::Scripted)),
+        );
+        assert_eq!(
+            evaluate_opponents(&probe_args("learn-probe evaluate")),
+            Ok(vec![
+                Opponent::frozen(EmbodiedPolicyKind::Scripted),
+                Opponent::randomised(EmbodiedPolicyKind::Scripted),
+            ]),
+        );
+        // Two requests that contradict each other, named rather than resolved
+        // by precedence.
+        assert!(evaluate_opponents(&probe_args(
+            "learn-probe evaluate --frozen-only --phase-random"
+        ))
+        .is_err());
     }
 
     #[test]
@@ -1182,8 +1469,8 @@ mod tests {
         let mut replay = Replay::new(scenario, seeds[0]);
         let (hash, ticks) = {
             let mut rng = fx::Rng::new(4);
-            let mut learned = LearnedArticulatedPolicy::new(Model::random(&mut rng));
-            let mut opponent = Opponent::frozen(Baseline::Composed).policy_for(seeds[0]);
+            let mut learned = LearnedEmbodiedPolicy::new(Model::random(&mut rng));
+            let mut opponent = Opponent::frozen(EmbodiedPolicyKind::Scripted).policy_for(seeds[0]);
             let result = learn::rollout_with(
                 scenario,
                 seeds[0],
@@ -1201,7 +1488,6 @@ mod tests {
         assert!(replay.is_intact());
         assert_eq!(replay.ticks, ticks);
         assert!(!replay.submitted_entries.is_empty(), "nothing was recorded");
-        assert!(replay.entries.is_empty(), "an articulated run recorded a legacy command");
         assert_eq!(replay.play().state_hash(), hash);
     }
 
@@ -1226,8 +1512,16 @@ mod tests {
         obs.opponents[0].body_position = fx::Vec3::new(fx::Fx::from_int(4), fx::Fx::ZERO, fx::Fx::ZERO);
 
         let command = constant.decide(&obs);
-        let zeroed = learn::compose(&obs, learn::LearnedActionV1::default());
+        // Through the frame adapter, because that is what the row is: the
+        // condition builds a `LearnedEmbodiedPolicy`, and comparing against
+        // `compose` alone would assert about a command this table never runs.
+        // The fixture faces due east with a zero body yaw, so the conversion is
+        // the identity here -- which is why the columns below can still be read
+        // as world quantities, and why that is stated rather than assumed.
+        assert_eq!(obs.body_yaw, fx::Angle::ZERO, "the columns below are read in the world frame");
+        let zeroed = policy::into_torso_frame(&obs, learn::compose(&obs, learn::LearnedActionV1::default()));
         assert_eq!(command, zeroed, "the constant is not the all-zero action");
+        let command = command.articulated;
         // Advance: a step of the approach magnitude straight at the opponent.
         assert!(command.move_dir.x > fx::Fx::ZERO && command.move_dir.y == fx::Fx::ZERO);
         // LOW on both arms, and the weapon arm chambered rather than resting.
@@ -1254,7 +1548,7 @@ mod tests {
             returns,
             mechanics: Mechanics::default(),
         };
-        let reference = rows(base, Condition::Windmill);
+        let reference = rows(base, Condition::Tactical);
         let learned = rows(shifted, Condition::Learned);
         let comparison = Comparison::of(&learned, &reference, 5);
         assert!((comparison.difference.mean - 3.0).abs() < 1e-4);

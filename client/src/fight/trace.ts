@@ -12,7 +12,12 @@
 // energy above the floor", "did this tip move at all" -- on the integers the
 // simulation actually decided them on.
 
-export const TRACE_SCHEMA = "arpg-fight-trace-5";
+// **6, not 5, since the forearm collider.** `Pose.regions` went from five rows
+// to seven and stopped being parallel to `Trace.regionNames`; see that field and
+// `crates/lab/src/trace.rs`'s own note, which owns the argument. A schema-5 file
+// read here would draw each arm as one capsule and would fail the live-versus-
+// traced comparison deep inside a pose diff instead of being refused at the door.
+export const TRACE_SCHEMA = "arpg-fight-trace-6";
 
 export type V3 = readonly [number, number, number];
 /** `[index, generation]`, as `EntityId` is spelled on the Rust side. */
@@ -67,6 +72,16 @@ export interface Pose {
   readonly arms: readonly [Arm, Arm];
   readonly weapons: readonly [Segment | null, Segment | null];
   readonly shield: ShieldFace | null;
+  /**
+   * The **swept volumes**, in the simulation's own order: rows 0..5 are the five
+   * `regionNames` in that order and rows 5 and 6 are the two forearms.
+   *
+   * Longer than `regionNames` on purpose. That list names anatomy -- what can be
+   * wounded and severed, and what `Contact.region` indexes -- while this one is
+   * what the contact phase sweeps, and a jointed arm is two capsules answering
+   * for one region. A body whose arms are one link publishes the last two rows
+   * absent.
+   */
   readonly regions: readonly Region[];
   readonly integrity: readonly number[];
   readonly wound: readonly number[];

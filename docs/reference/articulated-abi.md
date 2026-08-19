@@ -48,8 +48,9 @@ The three self dimensions and two self weapon poses are structured-observation
 views only. They expose the immutable anatomy row and the same current segment pose
 the renderer receives, so a policy can predict whether its own committed sweep is
 reachable. They are not serialized, hashed, or appended to `write_features`; the
-feature layout below remains version 12 and 922 columns. Subject weapon ownership is
-the pose rule: a two-handed segment occupies the right slot once.
+feature layout below is version 13 and 954 columns, and none of it is theirs.
+Subject weapon ownership is the pose rule: a two-handed segment occupies the right
+slot once.
 
 **Every position in these structs is world space**, including hands, target hands,
 weapon endpoints, region endpoints, and shield centres. This is the rule
@@ -77,7 +78,11 @@ torso capsule, both arm capsules, leg capsule, both weapon endpoints, shield geo
 severed mask, and `contact_timing`. Geometry uses the same structs and coordinates as
 the anatomy contract: the five regions are `RegionVolume` rows built by
 `body_region_volumes`, and the head sphere is the degenerate one whose two endpoints
-coincide rather than a second shape. `contact_timing` is **ticks until arrival,
+coincide rather than a second shape. **Five and not the seven swept volumes the
+region section publishes**, deliberately: this is a targeting view, a forearm is
+not separately targetable, and widening it would move `FEATURE_LAYOUT_VERSION` and
+every trained checkpoint's input shape. The truncation is safe because volumes
+`0..5` are the five regions in `AnatomyRegion::ALL` order. `contact_timing` is **ticks until arrival,
 saturating at one** -- the formula divides world units by world units per tick -- so it
 is informative only inside the last stride and is not a countdown in seconds. It is
 computed from the observation's own columns, so the opponent terms are the measured
@@ -124,11 +129,14 @@ region/equipment geometry keeps its exact local shape and is translated by
 measured-minus-true body position, so one noisy body does not shear into disconnected
 parts.
 
-## Appended feature block
+## Appended feature blocks
 
-V2-16 sets `FEATURE_LAYOUT_VERSION = 12`,
-`ARTICULATED_FEATURE_COUNT = 472`, and `FEATURE_COUNT = 922`. Existing indices
-`0..450` remain byte-identical. Legacy observations append 472 zeroes.
+V2-16 set `FEATURE_LAYOUT_VERSION = 12`, `ARTICULATED_FEATURE_COUNT = 472` and
+`FEATURE_COUNT = 922`; embodied session 09 appended a second block and took the
+version to **13** and the width to **954**. Existing indices `0..450` remain
+byte-identical under both, which is what the `legacy feature prefix` pin exists to
+refuse a change to. A Legacy observation appends 472 zeroes and then 32 more; an
+articulated one fills the first block and zeroes the second.
 
 The articulated block is 64 self features followed by six 68-feature opponent rows.
 Self order is: present; eight capability bits; yaw cosine/sine; body velocity XYZ;
@@ -182,6 +190,46 @@ Each opponent row, 68 wide, six of them starting at block offset 64:
 | 67 | 1 | contact timing |
 
 `64 + 6*68 = 472`, and `450 + 472 = 922`.
+
+### The embodied block, indices 922..954
+
+Written only by a body that has legs and an elbow; `CombatModel::Embodied` is the
+only model that does, so a Legacy or Articulated observation leaves all 32 columns
+zero.
+
+| index | width | contents |
+|---|---:|---|
+| 0 | 1 | present |
+| 1..2 | 2 | hip yaw relative to torso yaw, cosine and sine |
+| 3 | 1 | twist as a signed fraction of the stance budget |
+| 4 | 1 | pelvis as a fraction of standing pelvis height |
+| 5 | 1 | step remaining as a fraction of a step's duration |
+| 6..9 | 4 | left arm: elbow relative to its own shoulder XYZ over arm length, reach headroom |
+| 10..13 | 4 | right arm, the same four |
+| 14..16 | 3 | opponent 0: present, twist fraction, mid-step |
+| ... | 3 each | opponents 1 through 5 |
+
+`14 + 6*3 = 32`, and `922 + 32 = 954`.
+
+**Each half carries its own `present`, which the articulated block above does not
+need.** There, a blank row is zeros and nothing else, and no live body writes an
+all-zero row. Here one can: a body squared, level and standing still has zero twist,
+zero hip offset and no step running, so "nothing to report" and "nothing is
+happening" would be the same bytes. The hips go in as cosine and sine for the same
+shape of reason.
+
+**Every embodied value is a fraction and none is a raw quantity.**
+`STANCE_TWIST_LIMIT_RAW`, `STANCE_STEP_TICKS` and `PELVIS_HEIGHT_RAW` are `pub`
+inside `crates/sim`'s actuator module and are deliberately not re-exported, so a
+consumer cannot reach the divisor -- and the divisor is the half that carries the
+meaning. Publishing the ratio is the only shape of these facts that crosses the
+boundary at all. The elbow is relative to its own shoulder over arm length for the
+same reason: no shoulder is published anywhere.
+
+**Reach headroom is the column the block exists for.** After the elbow session an
+arm can be commanded to a pose it cannot hold, and the clamp in front of the
+integrator silently takes the difference. A fighter that reads only where its hand is
+cannot tell a comfortable guard from a locked-out one.
 
 **One frame for the whole block, and it is the subject's body position.** Every
 position in the block -- the subject's own hands and shield, every opponent's body, and
@@ -246,6 +294,7 @@ Exports are:
 
 ```text
 init_articulated(seed:u32) -> void
+init_embodied(seed:u32) -> void
 submitted_command_ptr() -> u32
 submitted_command_len() -> u32              // 57 bytes
 submitted_command_layout_version() -> u32   // 2
@@ -253,7 +302,21 @@ submit_articulated(index:u32, generation:u32) -> u32
 ```
 
 `init_articulated` uses the same room/hero fixture as `init` with
-`CombatModel::Articulated`; it does not alter `init`. Submit returns the exact packed
+`CombatModel::Articulated`; it does not alter `init`. `init_embodied` opens that
+same room under `CombatModel::Embodied` and is a third export rather than a
+parameter for the reason `init` and `init_articulated` are two: the export's name
+is the whole of what a page selects a model with, and a page passing an integer
+could pass a wrong one. It publishes one stance row per body where the other two
+publish none, which is what makes the zero-length stance section on an articulated
+world a distinction rather than a section nothing ever fills.
+
+**The model word was not reaching the scenario, and `init_embodied` is what
+found it.** `dungeon_scenario` took a `CombatModel` from the start and used it
+only to decide whether to return the plain Legacy scenario; the two lines after
+that wrote `Articulated` whatever it had been given. One caller passing one value
+made that invisible. Since `Scenario::fingerprint` writes the combat model's
+identity word, the fixture would have carried the articulated identity under an
+embodied name and nothing would have said so. Submit returns the exact packed
 outcome/reason/detail word already specified by v2-11; v2-16 neither remaps it nor
 calls a second decoder. Rejection and fallback semantics therefore remain identical
 across the direct wasm and worker paths.
@@ -273,8 +336,8 @@ measured; when the fixtures table grows those rows, this mapping should shrink t
 nothing. `the_articulated_room_is_inits_room_and_inits_hero` pins the half that is
 identical.
 
-`init_articulated` fails closed on a refused construction and on a refused contact
-reservation alike: it installs no world at all rather than one whose next spawn could
+`init_articulated` and `init_embodied` fail closed on a refused construction and on
+a refused contact reservation alike: it installs no world at all rather than one whose next spawn could
 grow linear memory under a live typed array, and never traps. Because the shipped
 fixture is valid by construction, the closed path is exercised through a
 deliberately broken scenario in `init_articulated_fails_closed_and_installs_nothing`.
@@ -305,8 +368,8 @@ is that it is no longer the only such world. `ROOM_HASH`, `BATTLE_HASH`,
 `SWAP_HASH` and `BOW_HASH` are all produced by `Sim::advance`, and a branch the
 legacy path cannot enter is the only obviously-safe shape there.
 
-The loop ported is `lab`'s `measure_articulated_matchup` and **not**
-`policy::run_articulated`, which takes one `impl ArticulatedPolicy` and installs
+The loop ported is `lab`'s `measure_embodied_matchup` and **not**
+`policy::run_embodied`, which takes one `impl EmbodiedPolicy` and installs
 it on both sides — right for a control condition and useless for an arena.
 Routing is on the alive set captured at install, because
 [`ArticulatedObservation`](#subject-scoped-observation) has no faction column.
@@ -317,37 +380,47 @@ either would fingerprint a different world. `a_scripted_arena_fight_in_wasm_matc
 is what says the two agree, against a second spelling of the loop rather than
 against a pinned number.
 
-Policies are named by a second registry, `policy::ArticulatedPolicyKind`,
-separate from `PolicyKind` because the two seams share no code space:
+Policies are named by `policy::EmbodiedPolicyKind`, which is also the registry
+`set_policy` takes on an ordinary floor:
 
 | code | policy | source |
 |---:|---|---|
-| 0 | `neutral` | `NeutralArticulatedPolicy` |
-| 1 | `composed` | `ScriptedArticulatedPolicy` |
-| 2 | `windmill` | `WindmillArticulatedPolicy` |
-| 3 | `attack-moves` | `ClosingAttackControlPolicy` |
-| 4 | `learned` | `learn_core::LearnedArticulatedPolicy`, over the installed checkpoint |
-| 5 | `tactical` | `TacticalArticulatedPolicy` |
-| 6 | `openings` | `OpeningsArticulatedPolicy` |
+| 0 | `neutral` | `NeutralEmbodiedPolicy` |
+| 1 | `scripted` | `ScriptedEmbodiedPolicy`, `EmbodiedScriptConfig::SEEKING` |
+| 2 | `scripted-level` | `ScriptedEmbodiedPolicy`, `EmbodiedScriptConfig::LEVEL` |
+| 3 | `tactical` | `TacticalEmbodiedPolicy`, `TacticalConfig::READING` |
+| 4 | `tactical-fixed-guard` | `TacticalEmbodiedPolicy`, `TacticalConfig::FIXED_GUARD` |
 
-Codes 5 and 6 were shipping and selectable in the browser for some time before
-this table named them; it listed 0-4 and never mentioned `tactical` at all.
+**This table replaced a different one in v2-ui-08 and the codes are not a
+superset.** `Scenario::duel_from` builds `CombatModel::Embodied` since that
+session, so `#/arena` reads the embodied registry where it read
+`ArticulatedPolicyKind`'s seven entries — `neutral`, `composed`, `windmill`,
+`attack-moves`, `learned`, `tactical`, `openings`, in that code order. A page
+holding a saved `4` now selects `tactical-fixed-guard` where it selected
+`learned`; `5` and `6` were `tactical` and `openings` and are refused with
+[`ARENA_UNKNOWN_POLICY`](#refusing-by-name). The registry is append-only from
+here.
 
-Code 4 was named and refused rather than omitted, so that the session splitting
-an inference-only crate out of `crates/learn` would be purely additive. It was,
-and v2-ui-08 landed it: `learn-core` is `crates/web`'s dependency, the fifth code
-builds, and the reservation cost that session no rework here at all.
+**There is no `learned` code and adding one is a decision, not an omission.**
+`EmbodiedPolicyKind::build` returns a policy rather than an `Option` precisely
+because nothing in it is a checkpoint: a trained fighter is a kind *plus fifteen
+kilobytes of weights*, which a registry keyed by an integer has nowhere to put,
+and session 09 measured the learning boundary and deferred the network widening
+that would earn the code. [The checkpoint staging
+buffer](#the-checkpoint-staging-buffer) below is untouched and
+`learned_inference_digest_lo` is still taken over what it installed; what no longer exists is a *fighter* built from it. `lab
+trace --policy learned` still records one, so a trace header can still name it
+and the studio still explains the digest when it does.
 
-**`ArticulatedPolicyKind::build` still answers `None` for it, and that is the
-contract rather than a leftover.** `crates/policy` is in `check_deps.js`'s
-deterministic set and must not gain a float dependency; and more durably, a
-trained fighter is a kind *plus fifteen kilobytes of weights*, which a registry
-keyed by an integer has nowhere to put. The dispatch is `crates/web`'s
-`build_articulated_policy`, beside the buffer that holds the weights. What a
-fighter asking for code 4 with no checkpoint installed gets is
-[`ARENA_NO_CHECKPOINT`](#refusing-by-name) and not `ARENA_POLICY_UNAVAILABLE` --
-"fetch one" and "rebuild the module" are different instructions, and a studio
-that could not tell them apart would show the wrong one.
+Two reason codes lost their producers in that move and **keep their numbers**:
+`ARENA_POLICY_UNAVAILABLE` (7), which meant "this build cannot construct that
+policy", and `ARENA_NO_CHECKPOINT` (26), which meant "that fighter wants a
+network and none is installed". Neither has a path back to a producer — there is
+no unbuildable code and no code that wants a checkpoint. They are reserved rather
+than recycled on the rule `crates/sim/src/codec.rs` states for a retired command
+schema: these bytes cross a worker boundary and outlive a build in whatever a
+page saved, so a number that once meant something must be refused by that number
+rather than quietly given a new meaning.
 
 ### The checkpoint staging buffer
 
@@ -415,15 +488,21 @@ v2-ui-07 is the session that wrote the client.**
    was recorded from. **This is the only handshake step that is optional**, and
    it is the one that makes a live fight and a recorded one comparable on
    identical terms.
-5. Only then may a fighter carry policy code `4`. `arena_start` refuses with
-   `ARENA_NO_CHECKPOINT` otherwise, and installs nothing.
+5. **Step five was "only then may a fighter carry policy code `4`", and there is
+   no step five.** `arena_start` refused code 4 with `ARENA_NO_CHECKPOINT`
+   otherwise and installed nothing; v2-ui-08 moved the arena onto
+   `EmbodiedPolicyKind`, which has no `learned` entry, so no policy byte asks for
+   a network. The four steps above are unchanged and still hold the digest, which
+   is what the handshake is for now: `learned_inference_digest_lo` is taken over
+   the checkpoint that was *installed*, so the sequence that installs it is the
+   sequence a pinned two-target number depends on.
 
 The installed network is **not** per-world state. It survives `init`, `descend`
 and `arena_start` exactly as a fetched file survives a page navigating within a
 session, which is why it is not on `Sim` and owes none of the companion lines
-`Sim::anatomy` and `Sim::arena` do. What *is* per-world is the policy instance
-built out of it, and that lives in the arena's own `policies` array where the
-rule is already paid.
+`Sim::anatomy` and `Sim::arena` do. What used to be per-world was the policy
+instance built out of it, in the arena's own `policies` array; since v2-ui-08
+nothing in this module builds a fighter from a checkpoint at all.
 
 `load_checkpoint` packs its answer with a word of its own:
 
@@ -589,7 +668,7 @@ arena_config_layout_version() -> u32    // 2
 arena_start(seed:u32) -> u32
 arena_fingerprint_lo() -> u32
 arena_fingerprint_hi() -> u32
-arena_policy(faction_code:u32) -> u32   // ArticulatedPolicyKind::code, or 0xffff_ffff
+arena_policy(faction_code:u32) -> u32   // EmbodiedPolicyKind::code, or 0xffff_ffff
 ```
 
 `arena_fingerprint_*` is `Scenario::try_fingerprint` of the installed
@@ -606,18 +685,17 @@ command uses:
 bits  0..7   outcome: not started 0, started 1
 bits  8..15  reason
 bits 16..23  the fighter the refusal is about, or 255
-bits 24..31  the hand it is about; the **policy code** for reasons 7 and 26,
-                 which are the two about a policy rather than about a slot;
-                 otherwise 255
+bits 24..31  the hand it is about, or 255
 ```
 
-A client decoding bits 24..31 must branch on the reason and not on the byte. The
-collision is real but it is not at `4`: `ARENA_HANDS` is 2, so a hand byte is
-only ever `0`, `1` or `255`, and what a hand index collides with is policy code
-`0` (`neutral`) or `1` (`composed`). The two refusals that put a *code* there are
-`7` (policy unavailable, now unreachable) and `26` (no checkpoint installed,
-which is the one code 4 gets today), so a reader that saw `0` in that byte and
-guessed would say "the left hand" about a refusal that is about `neutral`.
+**Bits 24..31 carried a *policy code* for reasons 7 and 26 and no longer carry
+one for anything.** Those were the two refusals about a policy rather than about
+a slot, and v2-ui-08 retired both; the surviving policy refusal, `6`, is about
+the whole fighter and writes 255 there. The collision that made this worth a
+paragraph was real -- `ARENA_HANDS` is 2, so a hand byte is only ever `0`, `1` or
+`255`, and a code `0` in that field would have read as "the left hand" -- and it
+is gone rather than solved. A client still has to branch on the reason if either
+number is ever produced again; nothing produces them today.
 
 Reasons are `0` none, `1` unknown layout, `2` wrong fighter count, `3`
 noncanonical bytes, `4` unknown anatomy, `5` unknown item code, `6` unknown
@@ -633,13 +711,21 @@ it beside `NoEquipment` and changing an already-shipped meaning. One
 opaque zero would make a studio say "invalid" for a typo, for an impossibility
 and for a session that has not landed yet.
 
-**Thirteen are reachable from a control and the rest are not**, and the split is
-not the one the plan predicted; v2-ui-08 then swapped one of the twelve for
-another rather than adding one. `7` was reachable while the fifth policy code
-had no implementation on this side of the wall. It now has one, so `7` joins the
-unreachable set and `26` takes its place in the twelve -- the fifth code is
-buildable and the only thing it can be missing is its weights. Both keep their
-numbers, on this section's own argument about the seven below. `Fraction`,
+**Twelve are reachable from a control and the rest are not**, and the split is
+not the one the plan predicted.
+
+**Two of the unreachable ones are *retired* rather than merely unreachable, and
+the difference matters.** `7` (policy unavailable) needed a registry entry the
+boundary could not build and `26` (no checkpoint) needed a fighter that wants a
+network; `EmbodiedPolicyKind::build` returns a policy and never an `Option`, and
+that registry has no `learned` entry, so neither has a producer or a path back to
+one. The seven spec errors below are not like that: `crates/sim` can still answer
+every one of them and a widened control brings them back without a byte moving.
+Both retired numbers stay declared and distinct on the codec's retired-schema
+rule, and `every arena policy byte either fights or is refused by name` in
+`tools/wasm_check.js` drives all 256 values a page can write into a policy slot
+and asserts neither number comes back from any of them -- which is the half of
+"retired" that a declaration cannot say on its own. `Fraction`,
 `Maximum`, `IdOrder`,
 `MissingReference`, `LoadoutMismatch`, `TooManyAnatomies` and `TooManyEquipment`
 were named as slider-reachable and are not: `Scenario::duel_from` derives
@@ -664,8 +750,9 @@ instance for the life of the page, turning a bad slider value into a reload.
 
 **Measured in wasm under Node on 2026-08-11, re-measured the same day after
 review, and only one of the three original figures survived.** The fixture is a
-3,600-tick configured duel — the shipped arrangement, `composed` against
-`windmill`, seed 3, in contact from the first clinch to the tick limit — driven
+3,600-tick configured duel — the shipped arrangement, the articulated `composed`
+script against `windmill`, seed 3, in contact from the first clinch to the tick
+limit — driven
 three ways: as 3,600 `step(1)` calls, as 450 `step(8)` calls, and as one
 `step(3600)`. The control is the same duel with `neutral` on both sides, which
 never touches at all: it resolves zero contact rows against the contact pairing's
@@ -675,8 +762,12 @@ capped feed.
 Rounds are interleaved — one round touches all six cells, two policy pairings
 across three batch sizes, before the next begins — and each cell keeps its best
 of nine. The six process runs below were then pinned to logical CPU 0 at high
-priority, which is what `AGENTS.md` prescribes for `lab bench` on this machine
-and what the original measurement did not do. It matters more than interleaving
+priority, which the guidance of the day prescribed and the original measurement did
+not do. **That prescription is now historical**: the host these runs were taken on
+was a hybrid-core laptop, the current one is uniform, and
+[performance evidence](../performance/README.md) records why pinning buys nothing
+against a machine with no slow core. The numbers below were real on the machine that
+produced them. It matters more than interleaving
 did: an unpinned process reads up to 15% faster on a good run and about 1.8×
 slower on a migrated one, and the migration moves **every cell in that process at
 once**, so a figure quoted from a single unpinned run is not evidence about the
@@ -713,7 +804,8 @@ harnesses against one configuration.
 What survives either way, and is all a recorder needed: a 3,600-tick fight
 records in **0.3 to 0.4 seconds**. Quote the range and name the pass, never a
 single figure — the practice of quoting one is what produced four numbers for one
-quantity on this machine. See `AGENTS.md` on why best-of-N understates here.
+quantity on this machine. Why best-of-N understates here, and what to bracket
+instead, is in [performance evidence](../performance/README.md).
 
 **Every pass above measures one pairing, and the pairing moves the drive further
 than anything the recorder does.** A separate six-run pass, taken beside the paired
@@ -904,11 +996,36 @@ that runs after every mutating export.
 
 ## Region rows
 
-`REGION_LAYOUT_VERSION=1`, `REGIONS_PER_BODY=5`, `REGION_STRIDE=8`, and
-`MAX_REGIONS = MAX_POSES * REGIONS_PER_BODY = 320`. One row per anatomy region of
-every live articulated body, in `AnatomyRegion` order inside a body and in the
-[pose rows](#pose-rows)' order across bodies. The row is `sim::RegionVolume` word
-for word.
+`REGION_LAYOUT_VERSION=2`, `REGIONS_PER_BODY=7`, `REGION_STRIDE=8`, and
+`MAX_REGIONS = MAX_POSES * REGIONS_PER_BODY = 448`. One row per **swept volume**
+of every live articulated body, in `sim::BODY_VOLUME_COUNT` order inside a body
+and in the [pose rows](#pose-rows)' order across bodies. The row is
+`sim::RegionVolume` word for word.
+
+**Seven volumes over five anatomy regions, and the gap between those two numbers
+is the section's one subtlety.** Rows `0..5` are the five `AnatomyRegion`s in
+their own discriminant order and keep those indices exactly; rows 5 and 6 are the
+left and right **forearm**, which exist only on a body whose arms have an elbow
+to split them at. A single-link body publishes them absent — `present` zero,
+endpoints at the body origin, radius zero — so the section is one shape for every
+combat model and a reader never branches on which kind of body it is holding.
+
+The forearms are appended rather than interleaved beside each arm because the
+five leading indices are read positionally by three consumers at once:
+`client/src/arena/geometry.ts` names regions 2 and 3 as the arms, the pose row's
+`POSE_SEVERED_MASK` numbers its bits the same way, and `crates/lab` swaps 2 and 3
+to mirror a fight. Interleaving would have renumbered all three for nothing.
+
+**A forearm is not a sixth and seventh anatomy region**, and the pose row's
+per-region arrays stayed five for that reason. Anatomy is what can be wounded,
+armored and severed; a forearm is none of those on its own — it is part of an arm,
+covered by the arm's armor row, and losing it is losing the arm. `POSE_SEVERED_MASK`
+is therefore still five bits, `POSE_INTEGRITY_FIRST` and `POSE_WOUND_FIRST` still
+span five words each, and `COMBAT_EVENT_BODY_PART` still carries a `BodyPart`:
+`sim::volume_region` maps a contact's swept volume to the region it belongs to
+before the word is written, so a forearm blow is published as a blow on its arm.
+`emit_abi.rs` asserts `REGIONS_PER_BODY == POSE_BODY_PART_COUNT + 2` rather than
+the identity the two used to have.
 
 | words | field |
 |---:|---|
@@ -917,10 +1034,14 @@ for word.
 | 6 | radius |
 | 7 | present |
 
-**The five capsules the contact phase sweeps, from the function that sweeps
-them.** `publish` calls `sim::body_region_volumes` with the pose's own origin,
-yaw and hands and with `present` read off the pose's severed mask; nothing on the
-host side computes geometry. That is the section's whole reason to exist, and it
+**The capsules the contact phase sweeps, from the function that sweeps them.**
+`publish` calls `sim::jointed_body_region_volumes` with the pose's own origin,
+yaw, hands and elbows and with `present` read off the pose's severed mask;
+nothing on the host side computes geometry. The mask goes in five bits wide and
+the answer comes back seven rows wide, which is the region/volume distinction in
+miniature: there is no state in which a forearm is severed and its arm is not, so
+the mask has nothing to say about rows 5 and 6 and the constructor derives them
+from the arm's bit and the elbow together. That is the section's whole reason to exist, and it
 is the same rule the pose row states as "the row is otherwise the sim's own
 `ArticulatedPose` word for word".
 
@@ -962,11 +1083,14 @@ It rides as an **eighth word per region**. The two rejected placements and why:
   capsule the contact phase does not sweep.
 
 The published cost of the eighth word is **1,280 bytes**, taking the section from
-8,960 to 10,240.
+8,960 to 10,240. The forearm collider then took it from 10,240 to **14,336**, two
+more rows a body on all 64, charged whether or not the installed world has an
+elbow anywhere in it — a fixed array is charged once, and one that grew when an
+embodied world was installed would detach every typed array the page holds.
 
 **The row carries no identity, and the section is read against `pose_len`.**
 Region row `n` describes pose row `n / REGIONS_PER_BODY`; two identity words
-repeated five times a body would be a second answer to a question the pose row
+repeated seven times a body would be a second answer to a question the pose row
 beside it already answers. What a reader checks before it indexes is
 `region_len == REGIONS_PER_BODY * pose_len`, which is one comparison and is the
 only thing that can be wrong — the same shape as the boot handshake refusing a
@@ -1018,6 +1142,105 @@ Exports are `articulated_projectile_ptr`, `articulated_projectile_len`,
 `articulated_projectile_stride`, `articulated_projectile_capacity`,
 `articulated_projectiles_dropped`, and
 `articulated_projectile_layout_version`. The fixed buffer costs 1,536 bytes.
+
+## Stance rows
+
+`EMBODIED_STANCE_LAYOUT_VERSION=1`, `EMBODIED_STANCE_STRIDE=6`, and
+`MAX_EMBODIED_STANCE = MAX_POSES = 64`. One row per live embodied body, in the
+[pose rows](#pose-rows)' order across bodies. The row is `sim::StanceView` word for
+word and the host derives none of it.
+
+| words | field |
+|---:|---|
+| 0..1 | entity index, generation |
+| 2 | hip yaw raw |
+| 3 | pelvis height, as a fraction of standing height |
+| 4 | twist raw, signed |
+| 5 | forced-step ticks remaining |
+
+**The hip yaw is the feet bearing and is not the body yaw at pose word 5.** That the two
+can differ at all is what this publication exists to say: an articulated body turns as
+one piece, an embodied one turns its torso against its hips and has to move its feet
+when the twist runs out. It is an `Angle` and widens to `u32` on the word rules above.
+`pelvis` is a **fraction of standing height** and deliberately not a world-space z —
+what a renderer wants is how far the body has sunk relative to its own size, and the
+size is already in the anatomy it holds. `step_left` is ticks remaining in a forced step
+and reads zero when the body is settled.
+
+**`twist_raw` is derived at the publication boundary and is stored nowhere.**
+`StanceState` has no twist field: the twist is `body_yaw.delta(hip_yaw)`, and a stored
+copy is a second thing that can disagree with the two angles it is a function of. That
+it is nonetheless *published* is an application of the same rule rather than a
+contradiction of it. A consumer holding this row's hip yaw and the pose row's body yaw
+could do the subtraction itself, and that subtraction is exactly the second copy the sim
+declines to keep: a wrapping signed delta over binary turns, taken across two sections,
+against a bound that lives on the torso's target rather than on either angle
+(`STANCE_TWIST_LIMIT_RAW`, a sixth of a turn). Deriving it once, on the side that owns
+the rule, is cheaper than every reader deriving it and one reader deriving it
+differently.
+
+It is **reinterpreted and not widened**, which is this row's one departure from the
+`Angle` rule above: a twist is a signed delta and not a bearing, so a sign extension
+would make a quarter turn to the right and `0xffff_c000` two different words for one
+twist.
+
+The same word is deliberately **absent from the state hash**, which is the mirror of the
+argument above and not a second opinion about it. Both angles it derives from are
+already in that stream, so hashing the twist would hash one fact twice and would let a
+later change to the derivation disagree with itself. A published stream and a hashed
+state want opposite things from a derived column — the reader wants it computed once, by
+the owner; the digest wants it not counted twice — and this column is in both, on both
+rules.
+
+**The section is published for every model, and a zero length is an answer rather than a
+silence.** `publish` drives off `World::stances()` with no `has_stance` branch of its
+own, so a Legacy or Articulated world writes its zero rows through the same code an
+embodied one writes its roster through; a host that branched first would have two paths
+where the sim has one, and the second path is the one nothing ever runs. Every world
+this module can currently open takes that path, because no export installs an embodied
+one — which makes the distinction load-bearing rather than decorative. "Nothing, and I
+am telling you so" is a different answer from "this module has never heard of stances",
+and the length word is the only thing carrying the difference: a reader that took a
+zero-length section for a missing one could not tell an articulated fight from an
+artifact built before the publication existed. That is the distinction the boot
+handshake's layout version exists to make, and this length is what makes it per tick.
+
+**A fifth publication and not six more pose columns**, on the region section's argument
+exactly. A pose row is written for every articulated body and a stance exists only under
+`CombatModel::Embodied`, so folding these words in would widen every row of every fight
+to carry six most of them do not have — and it would move `POSE_LAYOUT_VERSION`, which
+is a version about pose columns and has nothing to say about hips. The layout version
+here is its own number for `REGION_LAYOUT_VERSION`'s reason: this section adds no pose
+column, and a pose column moving says nothing about these six words.
+
+**The row carries a full identity where a region row does not**, because the stance
+section is not a fixed multiple of the pose section. Region row `n` belongs to pose row
+`n / REGIONS_PER_BODY` and needs no identity of its own; no such arithmetic exists here,
+since the ordinary case today is a full pose buffer beside an empty stance one.
+`embodied_stance_len() == pose_len()` holds on an embodied world and is asserted there
+rather than stated as a law of this ABI. Identity is the join, and it is both words of
+one: an index alone would answer just as happily for the body that took the slot next.
+
+`MAX_EMBODIED_STANCE` is written as `MAX_POSES` and never as a second literal 64. A body
+with legs is a body that also publishes a pose, so a stance cap that could fill first
+would drop the legs of a body whose torso crossed — the half-a-body failure
+`MAX_REGIONS` is written this way to refuse. `embodied_stances_dropped` is therefore
+zero in every reachable case, and is published anyway on `poses_dropped`'s terms: the
+prefix rule means nothing if a reader cannot tell that it fired.
+
+Exports are `embodied_stance_ptr`, `embodied_stance_len`, `embodied_stance_stride`,
+`embodied_stance_capacity`, `embodied_stances_dropped`, and
+`embodied_stance_layout_version`. `embodied_stance_len` counts rows, not words. The
+section is filled at publication from end-of-call state, in the slot order the pose rows
+are written in. The buffer is authoritative and unfiltered exactly as the pose buffer
+is: a hip bearing is which way a body is *about* to be able to move and a forced step is
+how long it cannot change its mind for, both for bodies the viewer may have no way of
+seeing, so the worker filters this beside the pose rows it belongs to. It costs 1,536
+fixed bytes — half a percent on top of the 290,816 the four publications before it cost
+— and it is charged whether the installed world has legs or not, which is what a fixed
+array buys and a lazily allocated one would give away: a buffer that appeared when an
+embodied world was installed would grow linear memory on that call and detach every
+typed array the page is holding.
 
 ## Combat-event rows
 
@@ -1115,8 +1338,10 @@ ledger, one impact sound per row — must key on the call that stepped rather th
 publication, or it counts every contact once per intervening export. `step(0)` clears
 the feed, which is the same rule seen from the other end.
 
-The four static arrays cost 16,896, 262,144, 10,240 and 1,536 bytes respectively,
-for 290,816 bytes excluding thread-local wrapper bookkeeping. The 57-byte command buffer
+The four static arrays cost 16,896, 262,144, 14,336 and 1,536 bytes respectively,
+for 294,912 bytes excluding thread-local wrapper bookkeeping. (The region term was
+10,240 and the total 290,816 until the forearm collider took the section from five
+rows a body to seven.) The 57-byte command buffer
 belongs to v2-11 and is not charged again, and neither are the 120-byte
 configuration buffer or v2-ui-08's 32,768-byte checkpoint staging buffer and its
 32-byte digest — those are *input* and are charged where they are declared. The
@@ -1278,8 +1503,12 @@ holds two `combat_events` reservations at once — 512 KiB now that the capacity
 reservation no longer fits
 in the slack a single warm round leaves behind, so a proof warmed on one seed and then
 driven across three watched its first `init` grow linear memory. Warming the same seed
-twice does not fix it: the peak is per *floor*, because a generated room's nav fields
-and fog are most of a `Sim` and every seed generates a different room.
+twice does not fix it: the peak is per *floor*, because a generated room's fog is most
+of a `Sim` and every seed generates a different room. **It said "nav fields and fog"
+until 2026-08-18**, when the navigation flow field was deleted for having no reader --
+which moved the articulated fixture's plateau from 291 pages to 309 and its settling
+round from 4 to 15, the fifth reading in a row saying the plateau tracks dlmalloc's
+allocation order rather than what a `Sim` weighs.
 `published_legacy_views_survive_every_warm_path_without_memory_growth` is the test
 that says so. At 1024 it warmed every seed once and settled at 30 pages; at 2048 that
 stopped being enough and the guarded phase grew on its second visit to a seed, so it
@@ -1307,40 +1536,99 @@ Use FNV-1a-64 with the constants in the contact contract. Prefix ASCII
 `ARPG-STREAM-V1`. For every tick, including an empty tick, feed little-endian:
 `tick:u32`, pose length, poses dropped, every live pose row word, event length, events
 dropped, every live event row word, region length, regions dropped, every live region
-row word, projectile length, projectiles dropped, every live projectile row word.
+row word, projectile length, projectiles dropped, every live projectile row word,
+stance length, stances dropped, every live stance row word.
 Tests drive one tick per publication so drop metadata has one meaning. Native
 and wasm use identical scripted inputs and bytes; state hashes are not part of this
 digest.
 
-**The region words are appended after the event words rather than beside the pose
-words, and projectile words are appended after the region words.** The byte order is
-append-only for the reason the columns and the codes are.** A stream that reordered
+**Every section after the first two is appended behind the one before it rather than
+woven in beside the pose words: regions after events, projectiles after regions,
+stances after projectiles.** The byte order is append-only for the reason the columns
+and the codes are. A stream that reordered
 would move the digest by the same amount an extension
 does, and the two would be indistinguishable afterwards. Written this way, the
 pose-and-event prefix of every tick is byte-identical to what v2-16 pinned, so
-v2-ui-06's move can be read as the extension it is.
+v2-ui-06's move can be read as the extension it is — and so can every move since.
+
+**A section reaches this digest whether or not the fixture has a row for it**, which is
+what the [stance rows](#stance-rows) made visible. The script below was
+`Scenario::articulated_duel` when that section landed, and only `CombatModel::Embodied`
+has legs, so the fifth section contributed a zero length and a zero drop count on each
+of the twenty ticks and nothing else — and **their presence was the whole of the move**,
+from `0x3b0d5c93d5560dd9` to `0x686ecf8a2f5dd479` in the default build and from
+`0x2fa1256f412b2e32` to `0xde453a669e770512` under `cartesian-recoil`, native and wasm
+agreeing on both. A section that vanished when it had nothing to say would be
+indistinguishable here from a section nobody added, which is the argument the empty
+*tick* is already carried on.
+
+**The script is embodied now and the section carries two real rows a tick**, so the
+claim above can no longer be measured on this fixture and it does not need to be: what
+was being defended was a section whose only contribution was its own presence, and this
+one contributes values. The claim that *survives* is the weaker-sounding and harder one
+— drop the section from the fold and the number moves —
+which `the_region_and_stance_sections_both_reach_the_stream_digest` in
+`crates/web/src/lib.rs` asserts without a constant.
+
+Both prefix witnesses this section used to carry are gone, and the second one went the
+way the first did. `the_stance_section_extends_the_digest_without_disturbing_its_prefix`
+compared a stance-suppressed fold against the digest registered the day before the
+stance section existed; the forearm collider widened the region section, changed the
+prefix, and left that equality unrepairable. Its successor compared a *region*-suppressed
+fold against `0xc6482a30f399d2cb`, measured on `b453ca1`; reseating the script onto
+`Scenario::embodied_duel` left that one unrepairable in turn, because no suppression of
+the current stream reproduces a stream the current fixture does not run. **Neither number
+was re-measured against the new fight.** A constant re-measured on a different script
+looks like the same evidence and is evidence of nothing.
 
 The digest is exported as `articulated_stream_digest_lo()` and
 `articulated_stream_digest_hi()`, on the `selftest_hash` precedent: a self-contained
 scripted drive that builds its own world, digests each publication and throws it away
 without touching `SIM`, `FRAME`, `POSES`, `REGIONS`, `ARTICULATED_PROJECTILES`,
-`COMBAT_EVENTS`, the tile buffer or
-the furniture buffer. It goes through the **same** four buffer writers `publish` calls
+`EMBODIED_STANCES`, `COMBAT_EVENTS`, the tile buffer or
+the furniture buffer. It goes through the **same** five buffer writers `publish` calls
 rather than a parallel encoder — a digest built by a second writer proves that two
 encoders agree and says nothing about what the page reads. Unlike `selftest_hash` it
 allocates enough to move the heap, so it is cached on first touch and belongs in a
 caller's warm-up; see the memory note above.
 
-The script is `Scenario::articulated_duel()` at seed 1 with the fighter moved to
-`(9,6)` and the brute to `(7,6)`, one articulated command submitted to each on tick
-zero and none after: the fighter walks due west at full magnitude, the brute stands
+The script is `Scenario::embodied_duel()` at seed 1 with the fighter moved to
+`(9,6)` and the brute to `(7,6)`, one embodied command submitted to each on tick
+zero and none after: the fighter walks at full magnitude along its own `-x`, the brute stands
 still, and both ask for the bearing they already have. Twenty ticks, one publication
-each. Every body spawns facing east and both body yaw and arm bearings are *driven*
-rather than set — the shipped clinch fixture spends 78 ticks turning around before it
-first touches — so the script asks for no rotation at all and gets its contact out of
-the placement instead. Ticks 0, 1, 2 and 4 resolve nothing, ticks 3 and 5 resolve two
-rows, and every tick from 6 resolves one, which is how the reference's "including an
-empty tick" is actually covered. Every tick carries two pose rows and ten region rows.
+each. Both body yaw and arm bearings are *driven* rather than set — the shipped clinch
+fixture spends 78 ticks turning around before it first touches — so the script asks for
+no rotation at all and gets its contact out of the placement instead.
+
+**It was `Scenario::articulated_duel()` until the embodied reseat, and the two spawn
+edits are unchanged across that move**, which is what makes the pin's move readable as
+one cause: `embodied_duel` is built from `articulated_duel` and overwrites the name and
+the model word, so the only thing the stream can see is the model. What it sees is not
+small. `Angle::ZERO` is world east under `CommandFrame::World` and straight ahead under
+`Torso`, so **the fight is a different fight** even though neither the command builder
+nor the spawns changed a byte. The clearest reading of that is the walk: `(-1, 0)` was
+due west and is now *backwards*, which happens to still be west while the fighter's
+commanded yaw is zero — the same displacement arrived at through a different sentence,
+which is exactly the trap a reader diffing the two versions of this script would fall
+into.
+
+The shape below is measured by `print_the_articulated_stream_digest`, not inferred.
+Every tick carries two pose rows, fourteen region rows — ten until the forearm collider
+widened the section — two stance rows and no projectile rows. The default build resolves
+one contact row on ticks 0, 3, 4, 5 and 6 and nothing on the other fifteen; the
+`cartesian-recoil` build carries one more, on tick 7. So the reference's "including an
+empty tick" is covered fifteen times over, though **not on the opening tick any more**:
+the articulated script resolved nothing until tick 3, and the two-unit gap was chosen
+against that model to buy exactly that. Recovering it would mean moving the spawns,
+which would be a second cause for a pin that moved for one, so it is recorded here
+rather than done.
+
+The one empty section left — projectiles — is still driven through its own writer rather
+than short-circuited to an empty slice: a script that hard-coded the emptiness would
+prove that the host *believes* the section is empty, where running the writer proves the
+section is. The stance section is driven through its writer for a stronger reason now
+that it has rows: what crosses is the same six words per body `publish` hands the page,
+produced by the same function rather than by a second one that agrees with it today.
 The pin is registered in [`hashes.md`](hashes.md#golden-registry).
 
 **The JavaScript half pins the number and does not rebuild the bytes, and that is
@@ -1352,8 +1640,8 @@ drifting solver by construction. That argument does not transfer here. This stre
 not a table a document can state; it is twenty ticks of fixed-point simulation output,
 and the only thing that can produce those bytes is the sim. Nor can the check read
 them out of a live publication and re-digest them: the script moves the two spawns,
-`init_articulated_test` builds the *unmoved* duel, and no export places a body, so the
-script cannot be driven from across the wall. What the dual pin still buys is the
+`init_embodied_test` builds the *unmoved* embodied duel, and no export places a body, so
+the script cannot be driven from across the wall. What the dual pin still buys is the
 whole cross-target claim — the value was recorded natively, and the module recomputes
 it through the same four writers `publish` calls. What one number cannot catch is an
 encoder wrong the same way on both targets, so
@@ -1364,3 +1652,24 @@ enumerations. Since v2-ui-06 it checks the region grammar on the same terms — 
 rows a body in pose order, presence against the pose row's severed mask, and the head
 published as a degenerate capsule that is nonetheless present, which is the one fact
 in this section a reader could plausibly get backwards.
+
+**The stance section has no row grammar beside it there and still does not**, and the
+reason has changed twice, which is worth recording rather than leaving to be discovered.
+It read *"no export installs an embodied world, so every world the JavaScript check can
+open publishes zero rows"* — true when it was written and false in two stages since.
+`init` opens an embodied floor, and `init_embodied_test` now opens the embodied duel; so
+the check has two embodied worlds and one legless one (`init_articulated_test`), and the
+zero it asserts is a reading of *that* fixture rather than of everything the boundary
+can build.
+
+What crosses the wall for the legless world is the section's layout version, stride,
+capacity, a distinct aligned pointer inside linear memory, and the zero itself paired
+with a zero drop count — which is the whole of what an empty publication has to say and
+exactly the pair that distinguishes it from an absent one. That witness is
+`init_articulated_test`'s and it dies with `Scenario::articulated_duel`: the boundary
+will then have no way to be *asked* for a legless world, and "empty because this model
+has no legs" will stop being a distinction any export can draw. The row grammar is
+checked natively instead, by `an_embodied_bodys_stance_row_round_trips`, which reads
+every published row back against `World::stance` column by column and then submits a
+quarter-turn order to prove the columns move — two bodies standing still satisfy a round
+trip that a buffer written once at spawn would also satisfy.

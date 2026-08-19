@@ -2,7 +2,7 @@
 
 **Purpose:** Preserve the parameterized strong-reference/tactical calibration and its validity stop.
 **Status:** current
-**Canonical source:** `crates/lab/src/tactical_mechanics.rs` and `crates/lab/src/strong_strike.rs`.
+**Canonical source:** this record. The bracket was run by `crates/lab/src/tactical_mechanics.rs` against the references in `crates/lab/src/strong_strike.rs`, both deleted with the articulated model they drove; they were last runnable at `c4e9d67`, and **none of the commands quoted below is re-runnable on this tree**.
 **Update when:** The strong reference, tactical controller, matched scenarios, or contact-to-anatomy waterfall changes.
 
 **Measured:** 2026-08-12 under default mechanics; rerun 2026-08-14 and ordinal-31
@@ -10,6 +10,12 @@ provenance 2026-08-15 under `cartesian-recoil`, native MSVC x86-64 Windows relea
 build.
 
 ## Method
+
+Every command block in this document is a transcript rather than an instruction. The
+harnesses behind them submitted through `submit_articulated_v1`, and the model that
+grammar addressed no longer exists; kept anyway, because a measurement whose apparatus
+is gone is history, and history that names the apparatus and the commit it ran at is
+worth more than a link to a file that is not there.
 
 ```powershell
 cargo run --release -p lab -- tactical-mechanics --quick

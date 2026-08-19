@@ -2,7 +2,7 @@
 
 **Purpose:** Define the typed command, validation outcome, replay bytes, and wasm action buffer for the first articulated combat model.
 **Status:** current
-**Canonical source:** This contract plus `crates/sim/src/command.rs`, `crates/sim/src/world.rs`, `crates/sim/src/codec.rs`, and `crates/web/src/lib.rs`.
+**Canonical source:** This contract plus `crates/sim/src/command.rs`, `crates/sim/src/world/mod.rs`, `crates/sim/src/codec.rs`, and `crates/web/src/lib.rs`.
 **Update when:** An articulated input field, range, discriminant, fallback, or byte offset changes.
 
 <!-- DOC_CONTRACT: articulated-command-v1 -->
@@ -163,10 +163,13 @@ buffer and diagnostics may report it directly. All unused detail bytes are zero.
 
 The wasm boundary also exports `state_digest_lo`, `state_digest_hi`,
 `state_digest_domain`, and `state_digest_schema`, plus the narrow
-`init_articulated_test` fixture. They let `tools/wasm_check.js` prove that the same
+`init_articulated_test` fixture and its embodied twin `init_embodied_test`. They let
+`tools/wasm_check.js` prove that the same
 submitted bytes produce the same typed digest natively and under wasm before the
-representative articulated room lands. Existing legacy hash exports and `init`
-retain their meanings.
+representative articulated room lands. Two fixtures rather than one because a
+model refusal has two directions and each needs a world of the other grammar;
+`ARTICULATED_COMMAND_HASH` is taken over the embodied one. Existing legacy hash
+exports and `init` retain their meanings.
 
 ## Atomic validation, fallback, and recording
 

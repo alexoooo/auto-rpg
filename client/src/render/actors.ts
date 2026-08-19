@@ -295,12 +295,12 @@ export class ActorPresentation {
    * one is its mirror.** `client/src/arena/geometry.ts`'s `scenePoint` maps world
    * `(x, y, height)` to `(x, height, -y)` and does *not* negate yaw, because its
    * 2D authority `fight/view.ts` draws `+y` up the screen while this page's,
-   * `web/main.js`, draws `+y` down; the two conventions differ by a reflection,
-   * so the two renderers must too. Neither is wrong and neither may be copied
-   * into the other's page. The old cylinder had no chirality, so nothing here
-   * ever exposed the difference; the figure does -- its main arm is a named
-   * hand -- and `figure.ts` states which local axis is the anatomical left and
-   * why. The domains and the argument are recorded in
+   * the retired Canvas page, drew `+y` down; the two conventions differ by a
+   * reflection, so the two renderers must too. Neither is wrong and neither may
+   * be copied into the other's page. The old cylinder had no chirality, so
+   * nothing here ever exposed the difference; the figure does -- its main arm is
+   * a named hand -- and `figure.ts` states which local axis is the anatomical
+   * left and why. The domains and the argument are recorded in
    * `docs/architecture/browser-runtime.md`.
    */
   #pose(node: ActorNode, unit: PresentationUnit, snapshot: PresentationSnapshot): void {

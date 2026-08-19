@@ -1,11 +1,11 @@
 # Browser runtime
 
-**Purpose:** Describe the Canvas and v2 GPU browser entries, their wasm ownership, rendering boundaries, the arena's published and invented geometry, room loading, memory handshakes, and visibility data.
+**Purpose:** Describe the v2 GPU browser entry, its wasm ownership, rendering boundaries, the arena's published and invented geometry, room loading, memory handshakes, and visibility data.
 **Status:** current
-**Canonical source:** [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs), [`web/main.js`](../../web/main.js), [`client/src/runtime/sim.worker.ts`](../../client/src/runtime/sim.worker.ts), [`client/src/runtime/sim-client.ts`](../../client/src/runtime/sim-client.ts), and the [renderer contract](../reference/renderer-contract.md#renderer-owned-snapshot-boundary)
+**Canonical source:** [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs), [`client/src/runtime/sim.worker.ts`](../../client/src/runtime/sim.worker.ts), [`client/src/runtime/sim-client.ts`](../../client/src/runtime/sim-client.ts), and the [renderer contract](../reference/renderer-contract.md#renderer-owned-snapshot-boundary)
 **Update when:** The wasm ABI, buffer ownership, browser execution context, frame parser, visibility publication, what the arena's two dresses draw, or the rendering backend changes.
 
-A browser can open two things, and only one of them ships. The studio at
+A browser can open one thing. The studio at
 [`web/index.html`](../../web/index.html) is built by Vite, is the build's single
 Rollup input, and is one hash-routed application: `#/game` owns the legacy simulation
 behind a module Worker and renders disclosed snapshots as the procedural Babylon
@@ -15,40 +15,37 @@ command, buffer, and backend diagnostics; `#/arena` takes two loadouts and a see
 records the fight
 they describe in a Worker of its own, and scrubs the transferred pose, region and
 combat-event buffers -- and still replays a recorded `lab trace` file through the same
-`FightSource` seam when one is named by `?trace=`. The playable game at
-[`web/legacy.html`](../../web/legacy.html) is a classic-script Canvas application with
-no JavaScript build step. It loads `draw.js`, `rig.js`, `assets.js`, then `main.js` in
-dependency order, and `main.js` fetches and instantiates `web.wasm` on the browser's
-main thread. Four classic scripts sharing top-level state are not a module graph, so
-that page stays out of the Rollup input and out of `dist/`; `tools/serve.js` and the
-Vite dev server both serve it from `web/` directly.
-The studio is a presentation proof rather than a replacement for the playable Canvas
-entry.
+`FightSource` seam when one is named by `?trace=`.
+
+**The playable Canvas game beside it was retired in the embodied-combat work**, and
+its absence is why this document now describes one entry rather than two.
+`web/legacy.html` loaded `draw.js`, `rig.js`, `assets.js` then `main.js` on the
+browser's main thread; four classic scripts sharing top-level state are not a module
+graph, so it stayed out of the Rollup input and out of `dist/` for its whole life. It
+was never built and never executed by a test, and its one live cost was an obligation
+to mirror every frame-ABI change into a page that shipped nowhere. The studio was a
+presentation proof beside a playable entry; it is now the entry.
 
 ## Current flow
 
 ```mermaid
 flowchart LR
-    I[Legacy DOM input and animation clock] --> J[web/main.js]
     D[v2 controls and animation clock] --> K[SimClient]
     K -->|typed messages and returned leases| W[sim.worker.ts]
     W -->|integer C ABI calls| E[crates/web exports]
-    J -->|integer C ABI calls| E
     E --> S[thread-local Sim wrapping World and policies]
     S -->|publish after world/frame-visible mutation or step| B[fixed frame, map, visibility, and furniture buffers]
     B -->|exported pointer, length, stride, revision| M[wasm linear memory]
-    M --> V[main.js typed-array views and copies]
     M -->|atomic filtered copy| W
     W -->|one of three transferred snapshots| K
     K -->|synchronous renderer-owned copy| R[Presentation snapshots]
     R -->|identity, visibility, interpolation| G[Babylon greybox]
-    V --> P[frame parse and level bake]
-    P --> C[Canvas display list and HUD]
 ```
 
-The two paths never share a live wasm instance. Each page owns its own instance and
-authoritative `World`; only one page is active in a browsing context. The `#/game`
-route's current contract is the [worker lifecycle and state machine](../reference/worker-protocol.md#lifecycle-and-terminal-state).
+No two entries share a live wasm instance: `#/game` and `#/arena` each construct one
+inside a Worker of their own, each holding its own authoritative `World`, and the hash
+router mounts one route at a time. The `#/game` route's current contract is the
+[worker lifecycle and state machine](../reference/worker-protocol.md#lifecycle-and-terminal-state).
 
 The browser owns pacing and calls the exported `step(n)`. The boundary advances
 exactly the requested number of ticks; the page caps catch-up work rather than making
@@ -107,8 +104,12 @@ Rows can shift after a death, so consumers use the stable handle defined by the
 [frame ABI reference](../reference/frame-abi.md#identity-and-numeric-representation)
 rather than treating a row as identity.
 
-The ABI layout is mirrored in Rust, `main.js`, and `tools/wasm_check.js`. At boot the
-page validates the compatibility handshake defined by the
+The ABI layout is mirrored in Rust, in `tools/wasm_check.js`, and — by way of
+`emit_abi.rs` — in the generated `client/src/protocol/abi.generated.ts` that the
+snapshot parser reads. `main.js` mirrored it as well until it was retired with the
+Canvas page; the standing obligation to hand-edit a parser in a file no build included
+is precisely what that retirement bought back. At boot the page validates the
+compatibility handshake defined by the
 [frame ABI reference](../reference/frame-abi.md#compatibility-rules) and refuses to
 draw on disagreement. Frame, map, visibility, and furniture accessors, tick/hash
 exports, registry lookups, and integer command exports make up the hand-rolled
@@ -116,17 +117,25 @@ boundary. The crate uses neither `wasm-bindgen` nor browser host types.
 
 ## Direct views and retained copies
 
-`frameView()` constructs a live `Float32Array` over exported linear memory for the
-current frame. From the moment that view is created until parsing finishes, code must
-not call back into wasm: a call could mutate the buffer or grow memory. `parseFrame`
-therefore performs arithmetic only and writes into long-lived JavaScript pools. The
-page re-derives the live frame view rather than retaining it.
+**This section describes the retired Canvas page and is kept because the rule it
+records outlived it.** `frameView()`, `parseFrame`, `readMap`, `readVis` and
+`readFurniture` lived in `web/main.js` and exist nowhere now; what they demonstrated
+still governs every consumer of this boundary, and `tools/wasm_check.js` and
+`client/test/wasm-memory.test.mjs` are where it is enforced today.
+
+`frameView()` constructed a live `Float32Array` over exported linear memory for the
+current frame. From the moment that view was created until parsing finished, code
+could not call back into wasm: a call may mutate the buffer or grow memory, and
+growing it detaches every existing view. `parseFrame` therefore performed arithmetic
+only and wrote into long-lived JavaScript pools, and the page re-derived the live
+frame view rather than retaining it.
 
 The floor map, visibility field, and furniture records survive across frames, so
-`readMap`, `readVis`, and `readFurniture` copy their short-lived `Uint8Array` views
+`readMap`, `readVis`, and `readFurniture` copied their short-lived `Uint8Array` views
 into JavaScript-owned arrays. Revisions decide when the level bake must be rebuilt.
-On the legacy page this is still a direct-memory ABI: the copy is made by the
-consumer, not posted by a worker or serialized by Rust.
+That page read a direct-memory ABI, with the copy made by the consumer rather than
+posted by a worker or serialized by Rust; the studio moved that copy into a Worker,
+which is the difference the section below describes.
 
 ## Worker renderer path
 
@@ -175,9 +184,10 @@ into the other's page.** The `#/game` greybox maps world `(x, y)` to Babylon `(x
 with height on `y` and yaw negated. The `#/arena` capsule panels map world
 `(x, y, height)` to Babylon `(x, height, -y)` and do **not** negate yaw. Each is the
 orientation-correct mapping against its own 2D authority, which is why the disagreement
-is deliberate rather than a defect: [`web/main.js`](../../web/main.js) draws `+y` down
-the screen, so the greybox's determinant `-1` map reads the same way round as the page
-it proxies, and a cylinder has no chirality for a reader to catch it out on;
+is deliberate rather than a defect: `web/main.js` drew `+y` down the screen until it
+was retired with the Canvas page, so the greybox's determinant `-1` map reads the same
+way round as the page it was written to proxy, and a cylinder has no chirality for a
+reader to catch it out on;
 [`client/src/fight/view.ts`](../../client/src/fight/view.ts) draws `+y` up and argues
 why at length -- `actuator::shoulder` puts `LimbSlot::LeftArm` on the +90-degree side,
 which is a body's anatomical left only in a right-handed frame with `y` up -- so the
@@ -190,14 +200,14 @@ WebGPU is attempted in automatic mode; a recorded support or
 initialization failure falls back to an explicit WebGL2 context. Backend loss stops
 the renderer rather than silently switching during a run. The exact
 [backend lifecycle](../reference/renderer-contract.md#backend-selection-and-loss)
-is shared by the page and its diagnostics. The legacy Canvas path remains the
-playable reference browser runtime.
+is shared by the page and its diagnostics.
 
 For local studio development, `npm run dev` first builds the release web wasm and then
-starts Vite. Open `/` on the printed Vite origin. The dependency-free
-`tools/serve.js` remains the legacy Canvas server; it serves files beneath `web/`
-directly, cannot resolve the studio's TypeScript module graph beneath `client/`, and
-therefore answers `/` with `web/legacy.html` rather than the shell.
+starts Vite. Open `/` on the printed Vite origin. **Vite is the only development
+server**: the dependency-free `tools/serve.js` was written for the Canvas page and was
+retired with it, having no bundler and so no way to resolve the studio's TypeScript
+module graph beneath `client/`. A server is in the loop at all only because a `file://`
+page cannot instantiate WebAssembly.
 Development and production both reserve the origin-root URLs `/` and
 `/web.wasm`; the Worker fetches the latter by absolute URL. `npm run build` emits
 those deployable files as `dist/index.html` and `dist/web.wasm`, so mounting the output
@@ -262,6 +272,83 @@ carries that argument -- so driving a body from this page is what they are event
 for, and it needs an input path that exists in no layer. Widening past two fighters is
 the cheaper debt of the two: `MAX_POSES` is 64 and nothing below the panels assumes two,
 but the picker, the stage layout and the two first-person viewports all do.
+
+## The trace file is a two-file contract
+
+`#/arena` runs its own fight -- it writes a configuration, a Worker of its own records
+the duel in wasm, and the transferred pose, region, projectile and combat-event buffers
+are what the page scrubs -- but it still plays a recorded `lab trace` file through the
+same `FightSource` seam when one is named by `?trace=`. `npm run view`, which is Vite
+with no wasm build, is enough to *open* the route, because the Worker is constructed
+lazily on the first **[Fight]**, and is not enough to press it.
+
+**The trace format is written in one file and refused in another, on purpose.**
+[`crates/lab/src/trace.rs`](../../crates/lab/src/trace.rs) writes it and
+[`client/src/fight/trace.ts`](../../client/src/fight/trace.ts) refuses a schema it does
+not know. Change one and you change both, and bump `TRACE_SCHEMA` in both. It is at
+`arpg-fight-trace-6`, and each step of that history is a different lesson:
+
+| from | why |
+|---|---|
+| 2 -> 3 | the single `script` field became `heroes`, `monsters` and `checkpoint`, because a fight driven from a checkpoint is the first one whose two bodies are driven by different things |
+| 3 -> 4 | each frame gained its live projectile rows |
+| 4 -> 5 | **a column changed meaning rather than being added**, which is the case the bump's own doc comment reserves it for |
+| 5 -> 6 | `pose.regions` went from five rows to seven when a jointed arm became two swept capsules |
+
+The 4 -> 5 move is the one worth reading twice. `channels()` splits a share four ways
+and both the trace row and the combat-event ABI carry three channel words;
+`crates/web/src/lib.rs` summed `crush_raw + pressure_raw` into its pressure word and
+said why, while `trace.rs` wrote `pressure_raw` alone under a comment describing a
+three-way `channels()` that had already become four. **The bug was invisible for the
+reason worth remembering: `crush_raw` is zero in every default-law fixture**, so
+`cut + thrust + pressure == share` held everywhere anybody looked. It fails on seed 3 of
+the shipped duel, where frame 460's first contact splits 194 into crush 36 and pressure
+157 and the recorded columns sum to 158 -- and `a_live_fight_matches_the_traced_fight`
+could not report it, because `web/fight.json` is gitignored and every stale copy stopped
+at the schema guard first. **A gate that refuses the file before comparing it is not a
+passing gate.**
+
+The 5 -> 6 move is the same *kind* of reason and not the same reason. Until an arm
+became two capsules, row `i` of `pose.regions` was named by `regionNames[i]`. It no
+longer is: the array is the swept-volume list, `regionNames` is anatomy, and they agree
+on their first five entries and nowhere after. A schema-5 file read by the current page
+would draw each arm as one capsule and fail the live-versus-traced comparison inside a
+pose diff, which is the confusing half of the failure the guard exists to make plain.
+
+**Both sides of that seam are `CombatModel::Embodied` since v2-ui-08**, and it is the
+change that made the comparison worth having. `Scenario::duel_from` -- what `arena_start`
+builds -- does not build an articulated world any more, and neither does `lab trace`,
+which until then carried a second policy vocabulary of its own. Both read
+`policy::EmbodiedPolicyKind` now: `neutral`, `scripted`, `scripted-level`, `tactical`,
+`tactical-fixed-guard`. Five names, one registry, and `#/arena`'s dropdown,
+`lab trace --policy` and `lab embodied --policy` all spell a fight the same way. So the
+page shows the model every other measurement in the repository is taken under, which is
+the whole point: a page running a model nothing else measured would be a demonstration
+of something nobody had a number for.
+
+There is no `learned` entry in that registry and its absence is a decision rather than an
+oversight. A trained fighter is a kind *plus fifteen kilobytes of weights* and a policy
+byte has nowhere to put a checkpoint. That is not a gap this boundary can close on its
+own, and the [ABI reference](../reference/articulated-abi.md#the-configured-duel) carries
+the argument. A recorded fight can still name one, when `lab trace --policy learned` is
+what wrote it, and `?trace=` is the route that plays it.
+
+`trace` also takes fourteen keys that *describe* a duel instead of running the pinned
+one -- the two anatomies, the four hands, and the shield and weapon dimensions. **Give
+none of them and the fixture runs byte for byte**, which is what makes a traced run
+comparable with the gate that measured it; give any one and the scenario becomes
+`configured-duel-v1` under its own fingerprint and the file stops being comparable. The
+switch is the key list itself rather than a builder that always runs, because
+`DuelConfigV1::shipped()` reproduces the fixture's table and unit rows exactly -- an
+always-builder would have moved nothing but the scenario name, which is drift whose one
+visible symptom is a header nobody reads twice. `lab`'s own `trace` help text carries
+the rest, including the two ways of asking for nothing that exit 2.
+
+**The development-only `/fight.html` this seam grew out of is gone.** v2-17 needed it
+when its gate failed and its last three explanations were refuted by measurement, and
+`AGENTS.md` carried a standing promise that the session landing the real pose channel
+would delete it. Both halves are paid: v2-ui-01 deleted the page and v2-ui-07 landed the
+channel.
 
 ## Visibility authority
 
@@ -345,9 +432,9 @@ intersects the floor, and torch/material treatment remains schematic and repetit
 
 ## Source anchors
 
-- Fixed publication pools: [`thread_local!`](../../crates/web/src/lib.rs#L1603)
-- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L4280)
-- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L5238)
+- Fixed publication pools: [`thread_local!`](../../crates/web/src/lib.rs#L1702)
+- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L4384)
+- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L5458)
 - Worker adapter and atomic scalar phase: [`readPublication`](../../client/src/runtime/sim.worker.ts#L94)
 - Pure protocol host: [`SimWorkerHost`](../../client/src/runtime/sim-worker-host.ts#L55)
 - Main-thread lease owner: [`SimClient`](../../client/src/runtime/sim-client.ts#L122)

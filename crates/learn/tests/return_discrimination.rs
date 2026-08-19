@@ -10,11 +10,87 @@
 //! noise.
 //!
 //! So before anything is trained, the return is pointed at three fighters that
-//! are known to be different -- the composed script, the windmill control, and
-//! the closing-attack control -- and asked whether it can see the difference.
-//! If the three means are not separated by more than their own seed-to-seed
-//! noise, **that finding is the result of this session** and no checkpoint
-//! trained against this return means anything.
+//! are known to be different and asked whether it can see the difference. If
+//! the three means are not separated by more than their own seed-to-seed noise,
+//! **that finding is the result of the session** and no checkpoint trained
+//! against this return means anything.
+//!
+//! # Which three fighters, and what session 05 cost this file
+//!
+//! **The three used to be the composed script, the windmill control and the
+//! closing-attack control, and two of those three no longer exist.** That is a
+//! real loss and not a renaming. The windmill was the control that asked
+//! *whether the twelve scripted phases were decoration*, and the closing-attack
+//! control was the one that existed because a checkpoint's corpus turned out to
+//! be measuring `AttackFootwork::Planted`. Session 05 deleted the articulated
+//! model, and `policy::EmbodiedPolicyKind` -- the registry that replaced this
+//! crate's own list -- has no windmill and no closing-attack entry. **Neither
+//! question is answerable on this tree, and inventing an embodied windmill to
+//! restore the shape would be shipping a policy out of a deletion session.**
+//!
+//! What survives is a different and slightly harder three, and the numbers below
+//! were re-measured on it rather than carried over:
+//!
+//! - **scripted** -- `EmbodiedPolicyKind::Scripted`, the composed script's
+//!   successor and the fighter every other embodied corpus is measured against.
+//! - **tactical** -- the strike planner. It names a body region, prices the
+//!   sweep that would cross it, and spends a commit on the best one; it is the
+//!   first embodied policy that aims.
+//! - **tactical-fixed-guard** -- the planner with its guard read switched off.
+//!
+//! The registry's other two entries are deliberately not rows. `Neutral` is a
+//! body that stands there with its arms slack, and a return that could not
+//! separate a statue from a fighter would be broken in a way no measurement is
+//! needed to notice -- including it would make the assertion below pass
+//! vacuously. `ScriptedLevel` is byte for byte `Scripted` on a flat fixture, and
+//! `embodied-duel-v1` is flat, so it would print the same fighter twice;
+//! `every_registry_entry_names_itself_and_fights_this_corpus` in `crates/learn`
+//! asserts that identity rather than assuming it.
+//!
+//! The last pair is the harder half of the new question: `tactical` and
+//! `tactical-fixed-guard` differ by one term, where the old three differed by
+//! whole scripts. A return that separates the script from the planner and
+//! **not** those two is a legible and useful result, which is why the assertion
+//! is still "at least one pair" and not "all three".
+//!
+//! # What it answered, measured 2026-08-19
+//!
+//! 400 mirrored trials of each, all against the scripted body, native MSVC
+//! x86-64. Re-measured on `embodied-duel-v1` rather than carried over from the
+//! deleted articulated corpus:
+//!
+//! | policy | mean | s.e. | bootstrap 95% CI | wins | losses | settled | tick-limit |
+//! |---|---:|---:|---|---:|---:|---:|---:|
+//! | scripted | 87.023 | 1.867 | [83.374, 90.657] | 352 | 48 | 33 | 91.8% |
+//! | tactical | 66.939 | 1.623 | [63.779, 70.202] | 304 | 96 | 9 | 97.8% |
+//! | tactical-fixed-guard | 69.712 | 1.556 | [66.620, 72.797] | 316 | 84 | 4 | 99.0% |
+//!
+//! | pair | gap | summed s.e. | |
+//! |---|---:|---:|---|
+//! | scripted vs tactical | 20.084 | 3.490 | separated |
+//! | scripted vs tactical-fixed-guard | 17.311 | 3.424 | separated |
+//! | tactical vs tactical-fixed-guard | 2.773 | 3.179 | **indistinguishable** |
+//!
+//! **Two of three, and the third is the informative one.** The return clears the
+//! script from either planner by five times its own noise, so it has something
+//! in it to train against and the assertion below is not passing on a
+//! technicality. It **cannot see the guard read**: the two planners differ by
+//! exactly that term and by 0.87 of a summed standard error, which is a fact
+//! about this return rather than about the guard. Anything measuring the guard
+//! needs a term this one does not have -- `lab embodied` scores that comparison
+//! on win rate instead, and `docs/performance/embodied-tactical-policy.md` is
+//! where it lives.
+//!
+//! **And the result nobody was looking for: the script beats the planner by
+//! twenty points on the planner's own corpus.** 96 losses in 400 against the
+//! script's 48, and 23% of the Brute removed against 40%. Whether that is the
+//! planner being worse or this return pricing what the planner does badly is
+//! not decidable from one table -- the tick-limit column says the planner ends
+//! almost nothing, 9 settled fights in 400 against the script's 33, and the
+//! attrition and outcome terms are the two that carry the gap. **The number was
+//! 4 here and 4 is the fixed-guard control's**, one row down from the subject of
+//! this paragraph; both planners are far below the script and the correction
+//! does not move the reading, which is exactly why nobody caught it.
 //!
 //! Ignored by default because a full pass is thousands of sixty-second fights.
 //!
@@ -24,8 +100,18 @@
 
 #![forbid(unsafe_code)]
 
-use learn::{band, shaped_return, Band, Baseline, Corpus, Rollout};
+use learn::{band, shaped_return, Band, Corpus, Rollout};
+use policy::EmbodiedPolicyKind;
 use sim::{Faction, Outcome};
+
+/// The registry entries this corpus can tell apart. See the module header for
+/// why it is not all five and for the two questions that went with the two
+/// controls session 05 deleted.
+const CANDIDATES: [EmbodiedPolicyKind; 3] = [
+    EmbodiedPolicyKind::Scripted,
+    EmbodiedPolicyKind::Tactical,
+    EmbodiedPolicyKind::TacticalFixedGuard,
+];
 
 /// Seeds per orientation. Both orientations are always run, so the sample is
 /// twice this.
@@ -105,8 +191,8 @@ fn mean(values: &[f32]) -> f32 {
 
 /// Runs one candidate over the mirrored corpus against a fixed opponent.
 ///
-/// The candidate is always the heroes and the opponent is always the composed
-/// script, which is `evolve.rs`'s arrangement: the question is "better than the
+/// The candidate is always the heroes and the opponent is always the scripted
+/// body, which is `evolve.rs`'s arrangement: the question is "better than the
 /// thing we wrote by hand", not "better at a symmetric game".
 ///
 /// Fanned out across seeds because one fight is about half a second of wall
@@ -115,12 +201,12 @@ fn mean(values: &[f32]) -> f32 {
 /// the same numbers whatever the machine is doing -- the same property
 /// `evolve.rs` gets out of chunked scoring, and it matters more here, because
 /// these numbers are going into a plan.
-fn measure(candidate: Baseline, opponent: Baseline) -> Corpse {
+fn measure(candidate: EmbodiedPolicyKind, opponent: EmbodiedPolicyKind) -> Corpse {
     let corpus = Corpus::new(true);
     let seeds: Vec<u64> = (0..SEEDS as u64).collect();
     let scenarios = [
-        sim::Scenario::articulated_duel(),
-        learn::mirrored_articulated_duel(),
+        sim::Scenario::embodied_duel(),
+        learn::mirrored_embodied_duel(),
     ];
     let threads = std::thread::available_parallelism()
         .map(|n| n.get())
@@ -133,8 +219,8 @@ fn measure(candidate: Baseline, opponent: Baseline) -> Corpse {
         std::thread::scope(|scope| {
             for (chunk_seeds, slot) in seeds.chunks(chunk).zip(slots.iter_mut()) {
                 scope.spawn(move || {
-                    let mut policy = candidate.policy();
-                    let mut baseline = opponent.policy();
+                    let mut policy = candidate.build();
+                    let mut baseline = opponent.build();
                     for &seed in chunk_seeds {
                         slot.push(learn::rollout(
                             scenario,
@@ -177,15 +263,15 @@ fn report(name: &str, corpse: &Corpse, seed: u64) -> Band {
 
 #[test]
 #[ignore = "a full pass is 1,200 sixty-second fights"]
-fn the_shaped_return_separates_the_three_scripted_policies() {
+fn the_shaped_return_separates_the_policies_that_survived_the_model() {
     println!(
-        "\n{} seeds x 2 orientations = {} trials per policy, all against the composed script\n",
+        "\n{} seeds x 2 orientations = {} trials per policy, all against the scripted body\n",
         SEEDS,
         SEEDS * 2
     );
     let mut bands = Vec::new();
-    for (i, candidate) in Baseline::ALL.into_iter().enumerate() {
-        let corpse = measure(candidate, Baseline::Composed);
+    for (i, candidate) in CANDIDATES.into_iter().enumerate() {
+        let corpse = measure(candidate, EmbodiedPolicyKind::Scripted);
         assert_eq!(corpse.rejected, 0, "{} submitted a refused command", candidate.name());
         bands.push((candidate, report(candidate.name(), &corpse, 0xA11CE + i as u64)));
         println!();
@@ -226,12 +312,15 @@ fn the_shaped_return_separates_the_three_scripted_policies() {
     println!();
 
     // The assertion is deliberately not "all three pairs separate". Two of the
-    // three fighters could genuinely be equally good, and a return that could
-    // not admit that would be a return with a thumb on the scale. What the
-    // return must not be is blind to *every* difference between a twelve-phase
-    // script, a windmill, and a script whose feet move -- those three do
-    // visibly different things, and a scalar that ranks them all the same is a
-    // scalar with nothing in it to train against.
+    // three fighters could genuinely be equally good -- and since the reseat two
+    // of them differ by one term rather than by a whole script, so that is the
+    // measured outcome rather than the allowed-for one: at 2026-08-19 the two
+    // planners came back 2.773 apart against a summed standard error of 3.179.
+    // A return that could not admit that would be a return with a thumb on the
+    // scale. What the return must not be is blind to *every* difference between
+    // a clocked script, a planner that aims, and that planner with its guard
+    // blinded -- those three do visibly different things, and a scalar that
+    // ranks them all the same is a scalar with nothing in it to train against.
     assert!(
         separated > 0,
         "the shaped return did not separate any of the {pairs} pairs: it does not \
@@ -247,8 +336,8 @@ fn the_return_components_over_the_corpus() {
     // carry, and choosing them without looking at their range is how a term
     // ends up contributing nothing.
     println!();
-    for candidate in Baseline::ALL {
-        let corpse = measure(candidate, Baseline::Composed);
+    for candidate in CANDIDATES {
+        let corpse = measure(candidate, EmbodiedPolicyKind::Scripted);
         let (outcome, survival, attrition, time) = corpse.components();
         println!(
             "{:>14}  n={}  outcome {outcome:.3}  survival {survival:.3}  \
@@ -287,12 +376,12 @@ fn the_return_components_over_the_corpus() {
 #[ignore = "one fight, to time the corpus before committing to it"]
 fn one_fight_is_fast_enough_to_run_a_corpus_of() {
     let started = std::time::Instant::now();
-    let mut composed = Baseline::Composed.policy();
-    let mut opponent = Baseline::Composed.policy();
+    let mut scripted = EmbodiedPolicyKind::Scripted.build();
+    let mut opponent = EmbodiedPolicyKind::Scripted.build();
     let result = learn::rollout(
-        &sim::Scenario::articulated_duel(),
+        &sim::Scenario::embodied_duel(),
         0,
-        composed.as_mut(),
+        scripted.as_mut(),
         opponent.as_mut(),
         None,
     );
@@ -301,9 +390,10 @@ fn one_fight_is_fast_enough_to_run_a_corpus_of() {
         "\none {}-tick fight in {:?}; {} trials would take about {:?} on one thread\n",
         result.ticks,
         elapsed,
-        SEEDS * 2 * 3,
-        elapsed * (SEEDS * 2 * 3) as u32
+        SEEDS * 2 * CANDIDATES.len(),
+        elapsed * (SEEDS * 2 * CANDIDATES.len()) as u32
     );
+    assert_eq!(result.rejected, 0, "the embodied grammar refused a scripted embodied command");
     // The clock and not a body, which is what v2-17 measured and what makes
     // the discrimination question worth asking at all. Which *side* takes the
     // decision is a fact about the fixture rather than about this crate --

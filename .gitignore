@@ -43,3 +43,9 @@ checkpoints/*.partial
 # preference about one machine, not a contract every contributor inherits.
 .claude/settings.local.json
 .claude/local/
+
+# MSYS drops one of these beside the repository root when a `bash.exe` child
+# crashes -- which happens under this repository's own test load. One was
+# committed by a `git add -A` on 2026-08-17 and lived for four commits. It is a
+# crash artifact of the shell, not of anything here.
+*.stackdump

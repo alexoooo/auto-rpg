@@ -11,10 +11,10 @@
 #![allow(dead_code)]
 
 use crate::combat::contact::{
-    ContactFact, ContactKind, ContactResolution, BODY_SLOT, MAX_ARTICULATED_ENTITIES, NO_REGION,
+    ContactFact, ContactKind, ContactResolution, BODY_SLOT, MAX_ARTICULATED_ENTITIES, NO_VOLUME,
 };
 use crate::combat::resolution::GeneralizedKind;
-use crate::combat::spec::{AnatomyRegion, EquipmentSpecId, SurfaceSpec};
+use crate::combat::spec::{EquipmentSpecId, SurfaceSpec, BODY_VOLUME_COUNT};
 use crate::{EntityId, Faction};
 use fx::{Fx, Vec3};
 
@@ -100,7 +100,7 @@ pub(crate) struct ExactMotorBounds {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum MotorShape {
     Projectile { point: ExactMotorPoint, radius_raw: i32 },
-    Body { origin: ExactMotorPoint, parts: [ExactMotorBounds; AnatomyRegion::COUNT] },
+    Body { origin: ExactMotorPoint, parts: [ExactMotorBounds; BODY_VOLUME_COUNT] },
     Segment { hilt: ExactMotorPoint, tip: ExactMotorPoint, radius_raw: i32 },
     Shield { corners: [ExactMotorPoint; 4] },
 }
@@ -156,7 +156,7 @@ pub(crate) struct EvaluatedMotorBounds {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum EvaluatedContactShape {
     Projectile { point: ExactPoint, radius_raw: i32 },
-    Body { origin: ExactPoint, parts: [EvaluatedMotorBounds; AnatomyRegion::COUNT] },
+    Body { origin: ExactPoint, parts: [EvaluatedMotorBounds; BODY_VOLUME_COUNT] },
     Segment { hilt: ExactPoint, tip: ExactPoint, radius_raw: i32 },
     Shield { corners: [ExactPoint; 4] },
 }
@@ -496,8 +496,8 @@ pub(crate) fn evaluate_exact(
             let origin = translated_motor_point(origin, common, None, global_time_raw)?;
             let mut evaluated = [EvaluatedMotorBounds {
                 lower: origin, upper: origin, radius_raw: 0, present: false,
-            }; AnatomyRegion::COUNT];
-            for at in 0..AnatomyRegion::COUNT {
+            }; BODY_VOLUME_COUNT];
+            for at in 0..BODY_VOLUME_COUNT {
                 evaluated[at] = EvaluatedMotorBounds {
                     lower: translated_motor_point(parts[at].lower, common, None, global_time_raw)?,
                     upper: translated_motor_point(parts[at].upper, common, None, global_time_raw)?,
@@ -673,6 +673,12 @@ pub(crate) fn validate_exact_rows(
     Ok(())
 }
 
+/// **This validator wants the volume and not the region, and it is the one
+/// reader for which that is true.** It proves the fact against the motor rows
+/// the solver actually swept, so it indexes `parts` -- which is
+/// [`BODY_VOLUME_COUNT`] wide and carries a `present` bit per swept capsule.
+/// Mapping to anatomy first would ask a five-wide question of a seven-wide array
+/// and would accept a fact naming a forearm the body does not have.
 fn validate_fact_pair(
     fact: ContactFact, a: ExactContactTrajectory, b: ExactContactTrajectory,
 ) -> Result<(), ExactTrajectoryReject> {
@@ -680,23 +686,23 @@ fn validate_fact_pair(
     if a.faction == b.faction || a.entity == b.entity { return Err(ExactTrajectoryReject::FactPair); }
     match (fact.key.kind, a.motor, b.motor) {
         (ContactKind::ProjectileBody, MotorShape::Projectile { .. }, MotorShape::Body { parts, .. }) => {
-            let region = fact.region as usize;
+            let volume = fact.volume as usize;
             if fact.key.a_slot == BODY_SLOT || fact.key.b_slot != BODY_SLOT
-                || region >= AnatomyRegion::COUNT || !parts[region].present {
+                || volume >= BODY_VOLUME_COUNT || !parts[volume].present {
                 return Err(ExactTrajectoryReject::FactPair);
             }
         }
         (ContactKind::WeaponBody, MotorShape::Segment { .. }, MotorShape::Body { parts, .. }) => {
-            let region = fact.region as usize;
-            if fact.key.b_slot != BODY_SLOT || region >= AnatomyRegion::COUNT || !parts[region].present {
+            let volume = fact.volume as usize;
+            if fact.key.b_slot != BODY_SLOT || volume >= BODY_VOLUME_COUNT || !parts[volume].present {
                 return Err(ExactTrajectoryReject::FactPair);
             }
         }
         (ContactKind::WeaponShield, MotorShape::Segment { .. }, MotorShape::Shield { .. }) => {
-            if fact.region != NO_REGION { return Err(ExactTrajectoryReject::FactPair); }
+            if fact.volume != NO_VOLUME { return Err(ExactTrajectoryReject::FactPair); }
         }
         (ContactKind::WeaponWeapon, MotorShape::Segment { .. }, MotorShape::Segment { .. }) => {
-            if fact.region != NO_REGION || (a.entity, a.slot) > (b.entity, b.slot) {
+            if fact.volume != NO_VOLUME || (a.entity, a.slot) > (b.entity, b.slot) {
                 return Err(ExactTrajectoryReject::FactPair);
             }
         }
@@ -1072,13 +1078,13 @@ mod tests {
             motor: MotorShape::Body { origin: point([0; 3], [0; 3]),
                 parts: [ExactMotorBounds { lower: point([0; 3], [0; 3]),
                     upper: point([0; 3], [0; 3]), radius_raw: 1, present: true };
-                    AnatomyRegion::COUNT] },
+                    BODY_VOLUME_COUNT] },
             owner_index, held_index: None, equipment_spec: None, present: true }
     }
 
     fn weapon_body_fact(a: EntityId, b: EntityId) -> ContactFact {
         ContactFact { key: ContactKey { a, a_slot: 0, b, b_slot: BODY_SLOT,
-            kind: ContactKind::WeaponBody }, toi: TimeOfImpact::ZERO, region: 0,
+            kind: ContactKind::WeaponBody }, toi: TimeOfImpact::ZERO, volume: 0,
             point: Vec3::ZERO, normal: Vec3::Z, velocity_a: Vec3::ZERO, velocity_b: Vec3::ZERO }
     }
 
@@ -1306,7 +1312,7 @@ mod tests {
         let mut allied = rows; allied[1].faction = Faction::Heroes;
         assert_eq!(apply_exact_impulse(&allied, &owners, fact, [1,0,0]),
                    Err(ExactTrajectoryReject::FactPair));
-        let bad_region = ContactFact { region: AnatomyRegion::COUNT as u8, ..fact };
+        let bad_region = ContactFact { volume: BODY_VOLUME_COUNT as u8, ..fact };
         assert_eq!(apply_exact_impulse(&rows, &owners, bad_region, [1,0,0]),
                    Err(ExactTrajectoryReject::FactPair));
         let stale = ContactFact { key: ContactKey { a: EntityId::new(entity.index, entity.generation + 1),

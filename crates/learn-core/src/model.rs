@@ -10,15 +10,16 @@
 //! * [`ModelShape`] -- the layer widths. Not versioned by a number because it
 //!   *is* a number, and [`crate::Checkpoint`] compares it directly.
 //!
-//! # The 922-element vector is not the input, and that is the main decision
+//! # The 954-element vector is not the input, and that is the main decision
 //!
-//! [`sim::FEATURE_COUNT`] is 922 and [`sim::Observation::write_features`]
-//! writes all of it. Handing that to a 64-unit network is 60,242 weights, and
+//! [`sim::FEATURE_COUNT`] is 954 and [`sim::Observation::write_features`]
+//! writes all of it. Handing that to a 64-unit network is 62,290 weights, and
 //! the optimizer in `crates/learn` is a `(mu + lambda)` evolution strategy with
 //! no gradient at all -- it moves a population of twenty-odd points around by
 //! Gaussian perturbation, and 60,000 dimensions is not a space twenty points
-//! explore. The existing genome optimizer sizes its whole world at
-//! [`policy::MAX_GENOME_LEN`], which is 24.
+//! explore. For scale: the genome optimizer that shipped beside this one sized
+//! its whole world at 24 named weights (`policy::MAX_GENOME_LEN`, deleted with
+//! the legacy policies in embodied session 10).
 //!
 //! So the slice below is hand-picked, and being hand-picked is a *claim*: that
 //! a fighter needs the bearing and range of the thing in front of it, the
@@ -58,11 +59,12 @@
 
 use fx::{closest_point_on_segment, Angle, Fx, Rng, Vec2, Vec3};
 use policy::{
-    ArticulatedPolicy, StrikePlanner, TacticalContextV1, TacticalIntentV1, CYCLE_TICKS,
-    EIGHTH_TURN, TACTICAL_INTENT_COUNT,
+    into_torso_frame, ArticulatedPolicy, EmbodiedPolicy, StrikePlanner, TacticalContextV1,
+    TacticalIntentV1, EIGHTH_TURN, TACTICAL_INTENT_COUNT,
 };
 use sim::{
-    ArmTarget, ArticulatedCommandV1, ArticulatedObservation, BodyPart, CombatHeight, GripRequest,
+    ArmTarget, ArticulatedCommandV1, ArticulatedObservation, BodyPart, CombatHeight,
+    EmbodiedCommandV1, GripRequest,
     ReleaseRequest,
     Intent, SegmentPose,
 };
@@ -77,6 +79,32 @@ use sim::{
 /// number, and a slot inserted rather than appended repoints every weight above
 /// it at a quantity it was never fitted to.
 pub const LEARN_FEATURE_LAYOUT_VERSION: u32 = 1;
+
+/// The clock columns 1 and 2 of [`write_features`] read the fight against.
+///
+/// **The literal, and deliberately not the derivation it used to be.** It was
+/// `policy::PHASE_TICKS * 12`, the period of the articulated script's twelve
+/// phases, and session 05 deletes that script. A constant derived from one that
+/// no longer exists is a trap; re-deriving it from the surviving clock would be
+/// a worse one, because `policy::EMBODIED_CYCLE_TICKS` is **120** and not 360,
+/// and a unification of the two would move a pin while looking like tidying.
+///
+/// **Frozen rather than merely stable.** `LEARNED_INFERENCE_DIGEST` is taken
+/// over the output words of a forward pass, and [`write_features`] builds
+/// columns 1 and 2 as `(tick % CYCLE_TICKS)` turned into a (cos, sin) pair -- so
+/// this number is inside that digest by value. It is also the one pin whose own
+/// registry row says a move it cannot explain is a portability failure rather
+/// than a number to re-record, which makes an unexplained edit here expensive to
+/// diagnose and cheap to avoid.
+///
+/// **Here and not in `crates/policy`, since session 05.** After that session
+/// this crate is its only consumer outside a test, and it is the crate that owns
+/// the digest freezing it: a constant and the pin taken over it should not live
+/// in different crates. The dependency arrow agrees -- `learn-core` depends on
+/// `policy` and never the reverse -- and moving it out of the neighbourhood of
+/// `EMBODIED_CYCLE_TICKS` removes the temptation to unify them structurally
+/// rather than by asking people not to.
+pub const CYCLE_TICKS: u32 = 360;
 
 /// Width of the slice [`write_features`] writes.
 pub const LEARN_FEATURE_COUNT: usize = 41;
@@ -1350,6 +1378,75 @@ impl ArticulatedPolicy for LearnedArticulatedPolicy {
     }
 }
 
+/// [`LearnedArticulatedPolicy`] driving an embodied body.
+///
+/// **An adapter and not a retirement, which is the decision worth writing
+/// down.** Session 05 deletes the articulated model and the obvious reading is
+/// that a policy named `Articulated` goes with it. It does not, and
+/// `LEARNED_INFERENCE_DIGEST` is why: that pin is a *portability* claim over
+/// [`ModelShape`], the feature layout, the action layout and the forward pass,
+/// and none of those four is a combat model. Rewriting the network to answer an
+/// [`EmbodiedCommandV1`] directly would move it, and a move that those four
+/// cannot explain is the one thing that pin's registry row says is a failure
+/// rather than a re-record. So the network is untouched and the frame
+/// conversion is bolted on outside it.
+///
+/// [`TacticalEmbodiedPolicy`]'s shape exactly, deliberately: one call to
+/// `into_torso_frame` around the inner `decide` and nothing else. That function
+/// is the one place in the repository the world/torso sign lives, and a second
+/// adapter that did the subtraction itself would be a second place for it to be
+/// wrong -- see its own comment for which of the two available yaws it is
+/// measured from and why the other one is the tempting wrong answer.
+///
+/// **The swing plane stays neutral**, because [`compose`] has nothing to say
+/// about it: the action table's five heads are footwork, weapon height, weapon
+/// bearing, posture and guard height, and an elbow plane is a sixth head that
+/// nobody has trained. `EmbodiedCommandV1::new` writes the zero plane, which is
+/// the fold the body had before the field existed, so this adapter asks for the
+/// pose the network was fitted against rather than inventing one.
+///
+/// [`TacticalEmbodiedPolicy`]: policy::TacticalEmbodiedPolicy
+#[derive(Clone, Debug)]
+pub struct LearnedEmbodiedPolicy {
+    inner: LearnedArticulatedPolicy,
+}
+
+impl LearnedEmbodiedPolicy {
+    pub fn new(model: Model) -> LearnedEmbodiedPolicy {
+        LearnedEmbodiedPolicy { inner: LearnedArticulatedPolicy::new(model) }
+    }
+
+    pub fn model(&self) -> &Model {
+        self.inner.model()
+    }
+
+    /// The head indices, before they become a command, on
+    /// [`LearnedArticulatedPolicy::action`]'s contract exactly.
+    ///
+    /// It answers the action and not the command, so it is the same value on
+    /// both sides of the adapter -- which is what lets a diagnostic report *which
+    /// row of the table* an embodied run chose without knowing that a frame
+    /// conversion happened at all.
+    pub fn action(&mut self, obs: &ArticulatedObservation) -> LearnedActionV1 {
+        self.inner.action(obs)
+    }
+
+    /// The feature slice as it stood at the last decision. Diagnostics only.
+    pub fn last_features(&self) -> &[f32; LEARN_FEATURE_COUNT] {
+        self.inner.last_features()
+    }
+}
+
+impl EmbodiedPolicy for LearnedEmbodiedPolicy {
+    fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
+        into_torso_frame(obs, self.inner.decide(obs))
+    }
+
+    fn reset(&mut self) {
+        self.inner.reset();
+    }
+}
+
 /// Frozen tactical inference wrapped around the fixed-point strike controller.
 #[derive(Clone, Debug)]
 pub struct LearnedTacticalPolicyV2 {
@@ -1407,10 +1504,64 @@ impl ArticulatedPolicy for LearnedTacticalPolicyV2 {
     }
 }
 
+/// [`LearnedTacticalPolicyV2`] driving an embodied body.
+///
+/// [`LearnedEmbodiedPolicy`]'s adapter over the tactical network, and the same
+/// four lines for the same reason. It is worth saying why this one is an adapter
+/// rather than a deletion, because the argument is *not* the one above: the V2
+/// network is not inside `LEARNED_INFERENCE_DIGEST` at all -- that pin folds
+/// `ModelShape::CURRENT`'s three widths and every `LEARN_ACTION_LOGITS` output
+/// word, which is V1 -- so nothing here would have moved a pin.
+///
+/// It is an adapter because deleting it is a scope increase into
+/// [`crate::CheckpointV2`], its format version and its whole test battery, for a
+/// model that promotion is still owed on. A session that retires the articulated
+/// *body* has no business retiring a second checkpoint format on the way past.
+///
+/// **What it wraps is a planner, and the planner is where the frame question
+/// actually lives.** [`StrikePlanner`] answers in world coordinates -- it is the
+/// same planner [`TacticalEmbodiedPolicy`] holds, and that type converts its
+/// answer the same way. The network above it chooses a [`TacticalIntentV1`] and
+/// never touches a bearing, so the conversion is entirely below the learned part
+/// and the digest-shaped question does not arise.
+///
+/// [`TacticalEmbodiedPolicy`]: policy::TacticalEmbodiedPolicy
+#[derive(Clone, Debug)]
+pub struct LearnedTacticalEmbodiedPolicyV2 {
+    inner: LearnedTacticalPolicyV2,
+}
+
+impl LearnedTacticalEmbodiedPolicyV2 {
+    pub fn new(model: ModelV2) -> LearnedTacticalEmbodiedPolicyV2 {
+        LearnedTacticalEmbodiedPolicyV2 { inner: LearnedTacticalPolicyV2::new(model) }
+    }
+
+    pub fn model(&self) -> &ModelV2 { self.inner.model() }
+    pub fn planner(&self) -> &StrikePlanner { self.inner.planner() }
+    pub fn last_features(&self) -> &[f32; LEARN_V2_FEATURE_COUNT] { self.inner.last_features() }
+
+    /// The newly sampled action, or `None` while the controller owns a
+    /// chamber/commit/recovery sequence. [`LearnedTacticalPolicyV2::action`]'s
+    /// contract exactly.
+    pub fn action(&mut self, obs: &ArticulatedObservation) -> Option<LearnedActionV2> {
+        self.inner.action(obs)
+    }
+}
+
+impl EmbodiedPolicy for LearnedTacticalEmbodiedPolicyV2 {
+    fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
+        into_torso_frame(obs, self.inner.decide(obs))
+    }
+
+    fn reset(&mut self) {
+        self.inner.reset();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use policy::{scripted_articulated_command, TacticalPhase, GUARD_LEAD_TICKS, HEIGHT_TICKS, PHASE_TICKS};
+    use policy::{scripted_articulated_command, TacticalPhase, PHASE_TICKS};
     use sim::{EntityId, RegionVolume};
 
     /// A Fighter looking east with a Brute four units due east: shield left,
@@ -1485,19 +1636,48 @@ mod tests {
         // **The height is not one of the copies, and pinning it as one is what
         // broke.** This read `CombatHeight::MID` on both rows, which was true
         // only while `off_hand` hardcoded it; v2-20 put the script's off hand on
-        // a clock -- `(tick + GUARD_LEAD_TICKS) / HEIGHT_TICKS` -- and made that
-        // same height this crate's fifth action head. So the expectation is
-        // computed from the clock rather than named, and it is sampled at one
-        // tick per height so the coupling is proved instead of spot-checked. A
-        // literal here would break again at the next change to the lead, and it
-        // would break as a stale constant rather than as a real disagreement.
-        let guard_clock = |tick: u32| {
-            [CombatHeight::LOW, CombatHeight::MID, CombatHeight::HIGH]
-                [(((tick + GUARD_LEAD_TICKS) / HEIGHT_TICKS) % 3) as usize]
+        // a clock and made that same height this crate's fifth action head. So
+        // the expectation is *read off the script* rather than named, and it is
+        // sampled at one tick per height so the coupling is proved instead of
+        // spot-checked. A literal here would break again at the next change to
+        // the lead, and it would break as a stale constant rather than as a real
+        // disagreement.
+        //
+        // **Read off the script rather than recomputed from its constants,
+        // since session 05.** This was `(tick + GUARD_LEAD_TICKS) / HEIGHT_TICKS
+        // % 3` over two constants imported from `policy::articulated_script`,
+        // and that session is taking that file's exports down to what survives
+        // it -- `CYCLE_TICKS` moved into this crate for exactly that reason, and
+        // a test holding `HEIGHT_TICKS` public would have been the last thing
+        // keeping a doomed name exported.
+        //
+        // **It is the same claim from the other side and not a weaker one.** The
+        // height is an *input* to `off_hand` rather than something it computes,
+        // so what this test owes is "handed the script's height, this crate's
+        // copy reproduces the script's arm" -- the reach, the effort and the
+        // bearing. Which height the clock picks at which tick is
+        // `articulated_script`'s own claim and is asserted there. Two things are
+        // added where the arithmetic left, and both are checks the two-constant
+        // version could not make: the two bodies are shown to read *one* clock,
+        // and the sample ticks are searched rather than named, which proves the
+        // coverage `[0, HEIGHT_TICKS, 2 * HEIGHT_TICKS]` assumed.
+        let guard_height = |tick: u32| {
+            let held = scripted_articulated_command(&fighter_facing(tick)).arms[0].height;
+            let empty = scripted_articulated_command(&brute_facing(tick)).arms[0].height;
+            assert_eq!(held, empty, "tick {tick}: the two bodies read different guard clocks");
+            held
         };
-        let samples = [0, HEIGHT_TICKS, 2 * HEIGHT_TICKS];
+        // Searched over three of this crate's own cycles, which is longer than
+        // any guard period the script can have without the phase table changing
+        // shape -- and if it ever is not, this fails as a missing height rather
+        // than as a wrong one.
+        let samples = [CombatHeight::LOW, CombatHeight::MID, CombatHeight::HIGH].map(|height| {
+            (0..CYCLE_TICKS * 3)
+                .find(|&tick| guard_height(tick) == height)
+                .expect("the script no longer guards at all three heights")
+        });
         assert_eq!(
-            samples.map(guard_clock),
+            samples.map(guard_height),
             [CombatHeight::LOW, CombatHeight::MID, CombatHeight::HIGH],
             "the sample ticks stopped covering all three guard heights",
         );
@@ -1517,9 +1697,9 @@ mod tests {
         // the intended difference.
         for tick in samples {
             let held = scripted_articulated_command(&fighter_facing(tick)).arms[0];
-            assert_eq!(held, off_hand(Angle::ZERO, guard_clock(tick), true), "tick {tick}");
+            assert_eq!(held, off_hand(Angle::ZERO, guard_height(tick), true), "tick {tick}");
             let empty = scripted_articulated_command(&brute_facing(tick)).arms[0];
-            assert_eq!(empty, off_hand(Angle::ZERO, guard_clock(tick), false), "tick {tick}");
+            assert_eq!(empty, off_hand(Angle::ZERO, guard_height(tick), false), "tick {tick}");
         }
         // The threat is straight ahead in these fixtures, which is what makes
         // the four-column equality above hold. Stated as an assertion so that
@@ -1597,19 +1777,22 @@ mod tests {
         );
         // 41 x 64 + 64 + 64 x 18 + 18. Spelled out because it is the number
         // that decides whether the optimizer has a chance. The alternative the
-        // plan proposed -- the whole 922-column vector -- is computed here from
+        // plan proposed -- the whole 954-column vector -- is computed here from
         // the same expression rather than written down, because it is quoted in
         // the module header and in `docs/performance/v2-learning-probe.md`, and a
         // number quoted in three places is a number that drifts. It was wrong
         // in two of them until this line existed.
         assert_eq!(ModelShape::CURRENT.weight_count(), 3_858);
-        let whole_vector = ModelShape {
-            inputs: sim::FEATURE_COUNT,
-            hidden: HIDDEN_UNITS,
-            outputs: LEARN_ACTION_LOGITS,
-        };
-        assert_eq!(sim::FEATURE_COUNT, 922);
-        assert_eq!(whole_vector.weight_count(), 60_242);
+        // **The alternative it was priced against no longer exists.** This went
+        // on to build a `ModelShape` over `sim::FEATURE_COUNT` -- the flattened
+        // 954-column observation vector -- and assert that it would have cost
+        // 62,290 weights against this slice's 3,858. Embodied session 10 deleted
+        // that vector: it hung off the legacy `Observation`, and nothing in the
+        // workspace read it, this crate least of all. The comparison is kept as
+        // prose in the module header, where it is an argument about why the
+        // slice is hand-picked, rather than as an assertion about a constant
+        // that is gone. The 16x figure is what the header quotes and it is a
+        // fact about a design that was rejected, not about code that ships.
     }
 
     #[test]
@@ -1749,7 +1932,12 @@ mod tests {
             sim::Scenario::articulated_duel().max_ticks as f32,
             "feature 3 divides by a clock the fixture no longer runs on"
         );
-        // And the cycle the phase pair reads is the script's, not a second 360.
+        // And the cycle the phase pair reads is 360. This was a cross-check
+        // while the constant was `PHASE_TICKS * 12` in another crate; now that
+        // it is a literal here it cannot fail on its own, and what it is for is
+        // that moving the number costs two edits and a read of the paragraph
+        // above it. The guard that bites is `LEARNED_INFERENCE_DIGEST`, which
+        // folds the feature column computed from it.
         assert_eq!(CYCLE_TICKS, 360);
     }
 

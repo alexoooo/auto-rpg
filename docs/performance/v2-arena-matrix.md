@@ -18,8 +18,9 @@ what the first section is for.
 Claude-in-Chrome tab is always `visibilityState: "hidden"`, and a hidden tab here got not
 a throttled loop but no loop: a probe waiting on seven consecutive
 `requestAnimationFrame` callbacks never resolved in forty-five seconds, and playback sat
-on its starting tick throughout. This is sharper than the throttle AGENTS.md warns about,
-and it is not a pessimistic reading to be sharpened by a longer sample — there is no
+on its starting tick throughout. This was sharper than the throttle the guidance warned
+about at the time, and that correction has since been folded into
+[the measurement method](README.md). It is not a pessimistic reading to be sharpened by a longer sample — there is no
 sample. There is no version of an agent session that produces these numbers, and
 inventing one would be worse than not having them.
 
@@ -44,7 +45,7 @@ reach is green.
 ## Measurement procedure
 
 Two query modes exist for this measurement, and each answers a different one of
-AGENTS.md's probe rules.
+[the probe rules](README.md).
 
 - **`#/arena?stage=off` removes the work rather than hiding it.** It builds no engine and
   no scene while leaving the plan, the elevation, the chart and the whole transport

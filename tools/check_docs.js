@@ -14,7 +14,9 @@ const DESIGN_DOCUMENTS = ["combat.md", "navigation-visibility.md", "presentation
 const DECISION_DOCUMENTS = [
   "0001-deterministic-fixed-point.md", "0002-record-commands-in-replays.md", "0003-renderer-outside-sim.md",
 ];
-const REFERENCE_DOCUMENTS = ["determinism.md", "commands.md", "hashes.md", "frame-abi.md"];
+const REFERENCE_DOCUMENTS = [
+  "determinism.md", "commands.md", "hashes.md", "frame-abi.md", "embodied-command-v1.md",
+];
 const DESIGN_COMPATIBILITY_ANCHORS = [
   "the-determinism-contract", "the-agent-boundary", "the-swing", "weight-momentum-and-inertia", "replays",
   "deliberate-non-choices", "the-floor-plan", "performance-notes", "art-direction",
@@ -615,13 +617,19 @@ function checkArchitecture(root) {
     if (diagrams !== expectedDiagrams) errors.push(`${rel}: expected ${expectedDiagrams} Mermaid block, found ${diagrams}`);
 
     if (name === "simulation.md") {
-      requireSymbolAnchor(markdown, file, root, "crates/sim/src/world.rs", /pub fn step\s*\(/, "World::step", errors);
+      requireSymbolAnchor(markdown, file, root, "crates/sim/src/world/mod.rs", /pub fn step\s*\(/, "World::step", errors);
     } else if (name === "policy.md") {
-      requireSymbolAnchor(markdown, file, root, "crates/policy/src/lib.rs", /pub trait Policy\b/, "Policy trait", errors);
+      // `\w*Policy` rather than the literal `Policy`, because the crate has
+      // had one seam trait, then three, then two, and the name of the
+      // surviving one has changed with them. What this rule is for is that
+      // the architecture page cites *a seam trait declaration in that file*;
+      // pinning the spelling made the gate fail on a rename, which is the
+      // one edit it should have nothing to say about.
+      requireSymbolAnchor(markdown, file, root, "crates/policy/src/lib.rs", /pub trait \w*Policy\b/, "a policy seam trait", errors);
     } else if (name === "replay-hashing.md") {
       requireSymbolAnchor(markdown, file, root, "crates/sim/src/replay.rs", /pub struct Replay\b/, "Replay", errors);
       requireSymbolAnchor(markdown, file, root, "crates/sim/src/scenario.rs", /pub fn fingerprint\s*\(/, "Scenario::fingerprint", errors);
-      requireSymbolAnchor(markdown, file, root, "crates/sim/src/world.rs", /pub fn state_hash\s*\(/, "World::state_hash", errors);
+      requireSymbolAnchor(markdown, file, root, "crates/sim/src/world/hash.rs", /pub fn state_hash\s*\(/, "World::state_hash", errors);
     } else if (name === "browser-runtime.md") {
       requireSymbolAnchor(markdown, file, root, "crates/web/src/lib.rs", /thread_local!\s*\{/, "thread_local publication pools", errors);
       requireSymbolAnchor(markdown, file, root, "crates/web/src/lib.rs", /fn write_frame\s*\(/, "Sim::write_frame", errors);
@@ -909,8 +917,10 @@ function startsSomething(lines, index) {
     const inside = text.slice(comment[0].length);
     // A section head inside a doc block is the start of something even though
     // the line above it is also a comment: `//! # The frame buffer` is what
-    // `frame-abi.md` points at, and `web/main.js` navigates by `// ---- draw`
-    // banners the same way.
+    // `frame-abi.md` points at. The rule was written against `web/main.js` too,
+    // which navigated by `// ---- draw` banners before it was retired with the
+    // Canvas page, and the banner shape long outlived it -- see `// ---- exports`
+    // in `crates/web/src/lib.rs`.
     if (/^#{1,6}\s+\S/.test(inside) || /^[-=*_]{4,}/.test(inside)) return true;
     return !/^(?:\/\/|\/\*|\*|#(?!\[)|<!--|--|;;)/.test((lines[index - 1] || "").trim());
   }

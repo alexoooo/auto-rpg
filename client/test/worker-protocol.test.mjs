@@ -148,18 +148,17 @@ class FakeWasm {
     this.furnitureLength = 0;
     this.dungeonObjects = new Uint32Array(ABI.MAX_DUNGEON_OBJECTS * ABI.DUNGEON_OBJECT_STRIDE);
     this.dungeonObjectLength = 0;
-    this.focusEntityIndex = ABI.FOCUS_NONE;
-    this.focusEntityGeneration = ABI.FOCUS_NONE;
     this.revision = 1;
     this.trap = false;
     this.controlMask = 0;
   }
   init(seed) { this.calls.push(["init", seed]); this.now = 0; }
-  setControl(mask) { this.controlMask = mask & 7; this.calls.push(["control", mask]); }
+  // The tick is recorded because `setControl` is now the queue tests' carrier
+  // command -- `withdraw` was, and it is gone with the order channel -- and what
+  // those tests are about is *when* a queued command lands relative to the step.
+  setControl(mask) { this.controlMask = mask & 7; this.calls.push(["control", mask, this.now]); }
   control() { return this.controlMask; }
   setInput(...values) { this.calls.push(["input", ...values]); }
-  setGoto(x, y) { this.calls.push(["goto", x, y, this.now]); }
-  clearOrder() { this.calls.push(["withdraw", this.now]); }
   spawnMonster(kind, primary, secondary) { this.calls.push(["spawn", kind, primary, secondary, this.now]); return 7; }
   swapInHero(kind, primary, secondary) { this.calls.push(["respawn", kind, primary, secondary, this.now]); return 1; }
   step(ticks) { if (this.trap) throw new Error("trap"); this.calls.push(["step", ticks, this.now]); this.now += ticks; this.revision++; }
@@ -179,7 +178,6 @@ class FakeWasm {
       dungeonObjectLength: this.dungeonObjectLength, dungeonObjectsDropped: 0,
       mapTileSizeMilli: 1000, mapRevision: this.revision,
       visRevision: this.revision, furnitureRevision: this.revision,
-      focusEntityIndex: this.focusEntityIndex, focusEntityGeneration: this.focusEntityGeneration,
     };
   }
   setRows({ units = [], shots = [], events = [] }) {
@@ -346,10 +344,15 @@ test("init_and_reset_emit_the_exact_lifecycle_messages", async () => {
   assert.equal(messages(sent, "error").at(-1).code, "invalidMessage");
 });
 
-test("mouse_orders_are_default_and_direct_tank_input_starts_released", async () => {
+test("direct_tank_input_starts_released", async () => {
+  // **This was `mouse_orders_are_default_and_...` and the mouse order is gone**,
+  // so what is left is the half that still has a subject: a fresh session hands
+  // the character back to its policy and holds no key down. It is the *only*
+  // input channel now, which makes the released opening more load-bearing than
+  // it was, not less -- there is no click to fall back to.
   const { wasm } = await harness();
   assert.deepEqual(wasm.calls.slice(0, 3), [
-    ["init", 4], ["control", 0], ["input", 0, 0, 0, 0, 0, 0, 0],
+    ["init", 4], ["control", 0, 0], ["input", 0, 0, 0, 0, 0, 0, 0],
   ]);
 });
 
@@ -421,10 +424,10 @@ test("fatal_state_ignores_everything_except_a_valid_outstanding_buffer_return", 
 
 test("commands_apply_before_stepping_their_target_tick_in_sequence_order", async () => {
   const { host, sent, wasm } = await harness();
-  await host.handle(command(2, 1, 0, { kind: "goto", xMilli: -7, yMilli: 8 }));
+  await host.handle(command(2, 1, 0, { kind: "setControl", mask: 1 }));
   await host.handle(command(3, 2, 0, { kind: "spawn", kindCode: 2, primary: 2, secondary: 4 }));
   await host.handle(advance(4, 20_000));
-  assert.deepEqual(wasm.calls.slice(3), [["goto", -7, 8, 0], ["spawn", 2, 2, 4, 0], ["step", 1, 0]]);
+  assert.deepEqual(wasm.calls.slice(3), [["control", 1, 0], ["spawn", 2, 2, 4, 0], ["step", 1, 0]]);
   const acks = messages(sent, "commandAck");
   assert.deepEqual(acks.map((ack) => [ack.sequence, ack.status, ack.tick]), [[1, "accepted", 0], [2, "accepted", 0], [1, "applied", 0], [2, "applied", 0]]);
   assert.equal(acks.at(-1).result, 7);
@@ -432,22 +435,22 @@ test("commands_apply_before_stepping_their_target_tick_in_sequence_order", async
 
 test("sequence_gaps_regressions_and_late_targets_are_rejected", async () => {
   const { host, sent } = await harness();
-  await host.handle(command(2, 2, 0, { kind: "withdraw" }));
-  await host.handle(command(3, 1, 2, { kind: "withdraw" }));
-  await host.handle(command(4, 1, 2, { kind: "withdraw" }));
-  await host.handle(command(5, 2, 1, { kind: "withdraw" }));
+  await host.handle(command(2, 2, 0, { kind: "setControl", mask: 1 }));
+  await host.handle(command(3, 1, 2, { kind: "setControl", mask: 1 }));
+  await host.handle(command(4, 1, 2, { kind: "setControl", mask: 1 }));
+  await host.handle(command(5, 2, 1, { kind: "setControl", mask: 1 }));
   await host.handle(advance(6, 50_000));
-  await host.handle(command(7, 2, 1, { kind: "withdraw" }));
+  await host.handle(command(7, 2, 1, { kind: "setControl", mask: 1 }));
   assert.deepEqual(messages(sent, "commandAck").filter((x) => x.status === "rejected").map((x) => x.reason),
     ["sequenceGap", "duplicateSequence", "regressedTargetTick", "lateTargetTick"]);
 });
 
 test("queue_and_future_horizon_limits_reject_without_consuming_sequence", async () => {
   const { host, sent } = await harness();
-  await host.handle(command(2, 1, 601, { kind: "withdraw" }));
-  await host.handle(command(3, 1, 600, { kind: "withdraw" }));
-  for (let sequence = 2; sequence <= 256; sequence++) await host.handle(command(100 + sequence, sequence, 600, { kind: "withdraw" }));
-  await host.handle(command(999, 257, 600, { kind: "withdraw" }));
+  await host.handle(command(2, 1, 601, { kind: "setControl", mask: 1 }));
+  await host.handle(command(3, 1, 600, { kind: "setControl", mask: 1 }));
+  for (let sequence = 2; sequence <= 256; sequence++) await host.handle(command(100 + sequence, sequence, 600, { kind: "setControl", mask: 1 }));
+  await host.handle(command(999, 257, 600, { kind: "setControl", mask: 1 }));
   assert.equal(messages(sent, "commandAck").find((x) => x.requestId === 2).reason, "targetTooFar");
   assert.equal(messages(sent, "commandAck").find((x) => x.requestId === 999).reason, "queueFull");
   assert.equal(host.diagnostics().lastAcceptedSequence, 256);
@@ -457,19 +460,23 @@ test("queue_and_future_horizon_limits_reject_without_consuming_sequence", async 
 test("paused_advances_apply_current_tick_commands_without_stepping_or_accruing_time", async () => {
   const { host, wasm, sent } = await harness();
   await host.handle(base("setPaused", 2, { epoch: 1, paused: true }));
-  await host.handle(command(3, 1, 0, { kind: "withdraw" }));
+  await host.handle(command(3, 1, 0, { kind: "setControl", mask: 1 }));
   await host.handle(advance(4, Number.MAX_SAFE_INTEGER));
   await host.handle(base("setPaused", 5, { epoch: 1, paused: false }));
   await host.handle(advance(6, 1));
   assert.equal(wasm.now, 0);
-  assert.deepEqual(wasm.calls.filter((x) => x[0] === "withdraw"), [["withdraw", 0]]);
+  // The session's own opening `setControl(0)` is the first of these, and the
+  // queued one is the second: what the assertion is about is that the queued
+  // command landed at tick 0 without a step under it.
+  assert.deepEqual(wasm.calls.filter((x) => x[0] === "control"),
+    [["control", 0, 0], ["control", 1, 0]]);
   assert.equal(messages(sent, "advanceAck").find((x) => x.requestId === 4).steppedTicks, 0);
 });
 
 test("reset_rejects_queued_commands_and_advances_the_epoch", async () => {
   const { host, sent } = await harness();
-  await host.handle(command(2, 1, 10, { kind: "withdraw" }));
-  await host.handle(command(3, 2, 11, { kind: "withdraw" }));
+  await host.handle(command(2, 1, 10, { kind: "setControl", mask: 1 }));
+  await host.handle(command(3, 2, 11, { kind: "setControl", mask: 1 }));
   await host.handle(base("reset", 4, { epoch: 1, seed: 2, paused: false }));
   assert.deepEqual(messages(sent, "commandAck").slice(-2).map((x) => [x.sequence, x.status, x.reason]), [[1, "rejected", "oldEpoch"], [2, "rejected", "oldEpoch"]]);
   assert.equal(host.diagnostics().epoch, 2);
@@ -589,8 +596,14 @@ test("hidden_units_shots_events_furniture_and_objects_do_not_cross_the_worker_bo
   const eventShown = Float32Array.from([1, 0.5, 0.5, 0, 1, 9, 0, 0]);
   const eventHidden = Float32Array.from([1, 2.5, 2.5, 0, 9, 1, 0, 0]);
   wasm.setRows({ units: [shown, hidden], shots: [shotShown, shotHidden], events: [eventShown, eventHidden] });
+  // Header slots 2, 3 and 4 carried an order kind and an order point, and the
+  // filter used to blank the point when it named a body the player could not
+  // see. **The two focus exports that fed that check are gone and the module now
+  // reports `Hold` at the origin forever**, so what is asserted below is the
+  // opposite claim and the one that is still true: the header is *relayed*, not
+  // rewritten, except for the three section counts. Written non-zero here so the
+  // assertion cannot pass by agreeing with a zeroed buffer.
   wasm.frame[2] = 3; wasm.frame[3] = 2.5; wasm.frame[4] = 2.5;
-  wasm.focusEntityIndex = 9; wasm.focusEntityGeneration = 8;
   wasm.vis.fill(2); wasm.vis[10] = 0;
   wasm.furniture.set([1, 0, 0, 1, 1, 2, 2, 9]); wasm.furnitureLength = 2;
   wasm.dungeonObjects.set([
@@ -602,7 +615,8 @@ test("hidden_units_shots_events_furniture_and_objects_do_not_cross_the_worker_bo
   const snapshot = messages(sent, "snapshot")[0];
   const view = parseSnapshot(snapshot);
   assert.deepEqual([view.frame[6], view.frame[7], view.frame[8]], [1, 1, 1]);
-  assert.deepEqual([view.frame[3], view.frame[4]], [0, 0]);
+  assert.deepEqual([view.frame[2], view.frame[3], view.frame[4]], [3, 2.5, 2.5],
+    "the filter rewrote a header slot that is not a section count");
   const eventAt = ABI.HEADER_LEN + ABI.UNIT_STRIDE + ABI.SHOT_STRIDE;
   assert.deepEqual([view.frame[eventAt + 4], view.frame[eventAt + 5]], [1, -1]);
   assert.equal(view.map[10], MAP_UNKNOWN);
@@ -619,18 +633,22 @@ test("hidden_units_shots_events_furniture_and_objects_do_not_cross_the_worker_bo
   assert.equal(remembered.mapRevision, originalRevision);
 });
 
-test("focus_headers_and_remembered_tiles_do_not_leak_hidden_motion_or_door_changes", async () => {
+test("remembered_tiles_do_not_leak_door_changes_behind_the_fog", async () => {
+  // **This was `focus_headers_and_remembered_tiles_...` and the focus half has
+  // no subject left.** The header's order point is `Hold` at the origin on every
+  // frame the module can build, and the two exports that named the quarry are
+  // gone -- so the leak that half existed for cannot occur, and asserting it
+  // would be asserting against a constant. What is left is the half that is
+  // still a live disclosure: a tile the hero has *seen* is remembered at the
+  // value it was seen at, and a change to it behind the fog does not cross.
   const { host, sent, wasm } = await harness(false);
   wasm.setRows({ units: [
     unit({ x: 2.5, y: 2.5, index: 9, generation: 7 }),
     unit({ x: 2.5, y: 2.5, visible: 0, index: 9, generation: 8 }),
   ] });
-  wasm.frame[2] = 3; wasm.frame[3] = 2.5; wasm.frame[4] = 2.5;
-  wasm.focusEntityIndex = 9; wasm.focusEntityGeneration = 8;
   wasm.map[1] = 41; wasm.vis.fill(2);
   await host.handle(initMessage());
   const first = messages(sent, "snapshot")[0];
-  assert.deepEqual([...parseSnapshot(first).frame.subarray(3, 5)], [0, 0]);
   assert.equal(parseSnapshot(first).map[1], 41);
   await returnSnapshot(host, first);
   wasm.map[1] = 99; wasm.vis[1] = 1;
@@ -764,7 +782,7 @@ test("sim_client_posts_a_default_tick_command_only_after_the_outstanding_advance
   const { client, worker } = await clientHarness();
   const advancing = client.advance(20_000);
   const advanceMessage = worker.sent.map((entry) => entry.message).findLast((message) => message.kind === "advance");
-  const applying = client.command({ kind: "withdraw" });
+  const applying = client.command({ kind: "setControl", mask: 1 });
   assert.equal(worker.sent.some((entry) => entry.message.kind === "command"), false);
 
   worker.emitMessage({ kind: "advanceAck", version: MSG.WORKER_PROTOCOL_VERSION, requestId: advanceMessage.requestId,
@@ -853,7 +871,7 @@ test("sim_client_requires_exact_command_epoch_target_and_status_transitions", as
     { status: "applied" },
   ]) {
     const { client, worker } = await clientHarness();
-    const applying = client.command({ kind: "withdraw" }, 0);
+    const applying = client.command({ kind: "setControl", mask: 1 }, 0);
     const rejected = assert.rejects(applying, /matching request|before it was accepted/);
     const request = worker.sent.at(-1).message;
     worker.emitMessage({ kind: "commandAck", version: MSG.WORKER_PROTOCOL_VERSION, requestId: request.requestId,
@@ -895,7 +913,7 @@ test("sim_client_rejects_tick_inconsistent_matching_acknowledgements", async () 
   }
   {
     const { client, worker } = await clientHarness();
-    const applying = client.command({ kind: "withdraw" }, 0);
+    const applying = client.command({ kind: "setControl", mask: 1 }, 0);
     const request = worker.sent.at(-1).message;
     worker.emitMessage({ kind: "commandAck", version: MSG.WORKER_PROTOCOL_VERSION, requestId: request.requestId,
       epoch: 1, sequence: 1, targetTick: 0, status: "accepted", tick: 0 });
@@ -910,7 +928,7 @@ test("command_sequence_exhaustion_never_emits_a_value_above_u32", async () => {
   {
     const { client, worker } = await clientHarness();
     client.setNextSequenceForTest(0x1_0000_0000);
-    const rejected = assert.rejects(client.command({ kind: "withdraw" }), /command sequence exhausted/);
+    const rejected = assert.rejects(client.command({ kind: "setControl", mask: 1 }), /command sequence exhausted/);
     await rejected;
     assert.equal(worker.sent.some((entry) => entry.message.kind === "command"), false);
     assert.equal(client.diagnostics().terminal, true);
@@ -919,7 +937,7 @@ test("command_sequence_exhaustion_never_emits_a_value_above_u32", async () => {
   {
     const { client, worker } = await clientHarness();
     client.setNextSequenceForTest(0xffff_ffff);
-    const applying = client.command({ kind: "withdraw" }, 0);
+    const applying = client.command({ kind: "setControl", mask: 1 }, 0);
     const rejected = assert.rejects(applying, /command sequence exhausted/);
     const request = worker.sent.at(-1).message;
     assert.equal(request.sequence, 0xffff_ffff);
@@ -929,7 +947,7 @@ test("command_sequence_exhaustion_never_emits_a_value_above_u32", async () => {
     assert.ok(worker.sent.filter((entry) => entry.message.kind === "command")
       .every((entry) => entry.message.sequence <= 0xffff_ffff));
     assert.equal(worker.terminateCalls, 1);
-    assert.throws(() => client.command({ kind: "withdraw" }), /command sequence exhausted/);
+    assert.throws(() => client.command({ kind: "setControl", mask: 1 }), /command sequence exhausted/);
   }
 });
 
@@ -972,7 +990,7 @@ test("sim_client_fatal_error_and_termination_reject_all_promises_and_prevent_adv
     const [snapshot] = await snapshotPair();
     worker.emitMessage(snapshot);
     const pause = client.setPaused(true);
-    const commandPromise = client.command({ kind: "withdraw" }, 0);
+    const commandPromise = client.command({ kind: "setControl", mask: 1 }, 0);
     const pauseRejected = assert.rejects(pause);
     const commandRejected = assert.rejects(commandPromise);
     worker.emitMessage(terminalMessage);
@@ -1302,8 +1320,8 @@ test("a_recorded_fight_transfers_its_buffers_and_its_index", async () => {
   assert.equal(last.ticks, 16);
   assert.equal(last.frameCount, 17, "one frame before the first step and one after every step");
   assert.equal(last.recordingTruncated, false);
-  assert.equal(last.heroes, "composed");
-  assert.equal(last.monsters, "windmill");
+  assert.equal(last.heroes, "scripted");
+  assert.equal(last.monsters, "scripted-level");
   assert.equal(last.fingerprint, "0x00000000deadbeef");
   assert.equal(last.checkpoint, null);
   assert.equal(arena.warmed, 1, "the allocating calls run once, before any buffer exists");
@@ -1497,12 +1515,20 @@ test("a_refused_checkpoint_stops_the_recording_and_names_the_file", async () => 
 });
 
 test("an_installed_checkpoint_is_named_in_the_recording", async () => {
+  // **The recording still carries the digest and no longer carries a policy that
+  // wanted it.** `ArenaClient` posts `checkpoint: null` since v2-ui-08 -- no
+  // embodied policy code asks for a network -- but the worker's `warmUp` still
+  // installs one it is handed, and `checkpointDigest()` still names it. So the
+  // header field is what it always was: which weights were in the module when
+  // this fight was recorded. The policy names beside it are `EmbodiedPolicyKind`
+  // now, and `4` is `tactical-fixed-guard` where it was `learned`.
   const digest = "7a05fc8c76ad47858ac69f770d595fa556b1bfb81dbf7d62ced831e751e26b6c";
   const arena = new FakeArena({ ticks: 4, digest });
   const { last } = await record(arena, arenaConfig({ policies: [4, 2] }), new ArrayBuffer(15_580));
   assert.equal(last.kind, "fightRecording");
   assert.equal(last.checkpoint, digest);
-  assert.equal(last.heroes, "learned");
+  assert.equal(last.heroes, "tactical-fixed-guard");
+  assert.equal(last.monsters, "scripted-level");
 });
 
 test("a_legacy_v1_session_is_accepted_and_refused_the_arena_kinds", async () => {
@@ -1581,7 +1607,7 @@ function arenaClientHarness() {
 const recordingMessage = (requestId, over) => ({
   kind: "fightRecording", version: MSG.WORKER_PROTOCOL_VERSION, requestId,
   spectator: true, one: 65_536, scenario: "configured-duel-v1", mirrored: false,
-  fingerprint: "0x00000000deadbeef", seed: 3, heroes: "composed", monsters: "windmill",
+  fingerprint: "0x00000000deadbeef", seed: 3, heroes: "scripted", monsters: "tactical",
   checkpoint: null, outcome: "Draw", timedOut: true, ticks: 2, maxTicks: 3_600,
   frameCount: 3, recordingTruncated: false, arena: [0, 0],
   poseLayoutVersion: 1, poseStride: ABI.POSE_STRIDE,
@@ -1704,31 +1730,32 @@ test("a_second_fight_cancels_the_first_and_waits_for_its_refusal", async () => {
   assert.equal((await third3).seed, 7);
 
   // **Two presses with `learned`, which is the shape that reached the browser.**
-  // `run` awaits the checkpoint fetch, and the old guard tested `#pending`
-  // *before* that await while assigning it *after* -- so both presses found the
-  // slot empty, both posted a start, and no cancel was posted at all. The second
-  // then came back `arenaBusy` from a worker that was recording the first.
-  const originalFetch = globalThis.fetch;
-  try {
-    globalThis.fetch = async () => ({
-      ok: true, status: 200, arrayBuffer: async () => new ArrayBuffer(15_580),
-    });
-    const learned = arenaClientHarness();
-    const early = learned.client.run(arenaConfig({ policies: [4, 2], seed: 3 }), () => {});
-    const late = learned.client.run(arenaConfig({ policies: [4, 2], seed: 11 }), () => {});
-    const earlyRejected = assert.rejects(early, /cancelled/);
-    await settle();
-    await settle();
-    assert.deepEqual(learned.worker.sent.map((entry) => entry.message.kind), ["arenaStart"],
-      "two presses that both suspend on the checkpoint fetch must post one start, not two");
-    await earlyRejected;
-    const only = learned.worker.sent.at(-1).message;
-    assert.equal(only.seed, 11, "the newest press is the one that runs");
-    learned.worker.emitMessage(recordingMessage(only.requestId, { seed: 11 }));
-    assert.equal((await late).seed, 11);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+  // `run` awaits before it writes `#pending`, and the old guard tested that slot
+  // *before* the await while assigning it *after* -- so both presses found it
+  // empty, both posted a start, and no cancel was posted at all. The second then
+  // came back `arenaBusy` from a worker that was recording the first.
+  //
+  // **The await used to be the checkpoint fetch and is now `await previous`.**
+  // v2-ui-08 removed the fetch with the `learned` policy code, and the window is
+  // still there: the first press replaces `#idle` with a promise that only
+  // resolves in its own `finally`, so a second press suspends on it before
+  // reaching the slot. A fetch was never what made this reachable -- it was only
+  // the longest await -- and this test is the record that the shorter one is
+  // enough.
+  const pressed = arenaClientHarness();
+  const early = pressed.client.run(arenaConfig({ policies: [1, 2], seed: 3 }), () => {});
+  const late = pressed.client.run(arenaConfig({ policies: [1, 2], seed: 11 }), () => {});
+  const earlyRejected = assert.rejects(early, /cancelled/);
+  await settle();
+  await settle();
+  assert.deepEqual(pressed.worker.sent.map((entry) => entry.message.kind), ["arenaStart"],
+    "two presses that both suspend before the slot must post one start, not two");
+  await earlyRejected;
+  const only = pressed.worker.sent.at(-1).message;
+  assert.equal(only.seed, 11, "the newest press is the one that runs");
+  assert.equal(only.checkpoint, null, "a press carried a network nothing asked for");
+  pressed.worker.emitMessage(recordingMessage(only.requestId, { seed: 11 }));
+  assert.equal((await late).seed, 11);
 });
 
 test("a_recording_is_decoded_rather_than_cast_and_an_unfiltered_stream_must_declare_itself", async () => {
@@ -1796,38 +1823,46 @@ test("a_recorded_index_that_points_past_its_own_buffers_is_refused_rather_than_c
     /not a whole number of rows/);
 });
 
-test("the_learned_policy_fetches_its_checkpoint_and_says_so_when_it_cannot", async () => {
+test("the_arena_client_fetches_nothing_and_posts_no_network", async () => {
+  // **`the_learned_policy_fetches_its_checkpoint_and_says_so_when_it_cannot`
+  // stood here.** It drove `ArenaClient.run` with policy code 4 against a 404
+  // and required the rejection to name `/checkpoints/v2-probe.ckpt`, then
+  // against a working fetch and required the bytes to travel transferred beside
+  // the config and to be fetched **once** across two presses.
+  //
+  // v2-ui-08 moved `#/arena` onto `EmbodiedPolicyKind`, which has no `learned`
+  // entry, so no policy code asks for a network and the fetch it drove is gone.
+  // The `checkpoint` field on `arenaStart` is not: the worker's
+  // `warmUp(seed, checkpoint)` and its `checkpointRefused` refusal are the
+  // browser's only path for installing one, and retiring a transport because its
+  // caller went is a protocol change nothing asked for. **So what has to be
+  // asserted is that the field is null and that no fetch happens at all** --
+  // otherwise "the client stopped fetching" is a claim nothing here would
+  // notice going false, which is how a page starts pulling fifteen kilobytes on
+  // every press again.
   const original = globalThis.fetch;
+  let fetches = 0;
   try {
-    globalThis.fetch = async () => ({ ok: false, status: 404, statusText: "Not Found" });
-    const { client } = arenaClientHarness();
-    await assert.rejects(client.run(arenaConfig({ policies: [4, 2] }), () => {}),
-      /checkpoints\/v2-probe\.ckpt/);
-
-    const bytes = new Uint8Array(15_580).fill(7);
-    let fetches = 0;
     globalThis.fetch = async (url) => {
       fetches += 1;
-      assert.equal(url, "/checkpoints/v2-probe.ckpt");
-      return { ok: true, status: 200, arrayBuffer: async () => bytes.buffer.slice(0) };
+      throw new Error(`the arena client fetched ${url}`);
     };
-    const second = arenaClientHarness();
-    const running = second.client.run(arenaConfig({ policies: [4, 2] }), () => {});
-    await settle();
-    const posted = second.worker.sent.at(-1);
-    assert.equal(posted.message.checkpoint.byteLength, 15_580);
-    assert.equal(posted.transfer.length, 2, "the checkpoint travels transferred beside the config");
-    second.worker.emitMessage(recordingMessage(posted.message.requestId));
-    await running;
-    // Fetched once and kept: a reader pressing [Fight] twice should not pull the
-    // same fifteen kilobytes twice, and a fresh copy travels each time because
-    // the last one was transferred away.
-    const again = second.client.run(arenaConfig({ policies: [4, 2] }), () => {});
-    await settle();
-    assert.equal(fetches, 1);
-    assert.equal(second.worker.sent.at(-1).message.checkpoint.byteLength, 15_580);
-    second.worker.emitMessage(recordingMessage(second.worker.sent.at(-1).message.requestId));
-    await again;
+    for (const policies of [[0, 0], [1, 2], [3, 4], [4, 4]]) {
+      const { worker, client } = arenaClientHarness();
+      const running = client.run(arenaConfig({ policies }), () => {});
+      await settle();
+      const posted = worker.sent.at(-1);
+      assert.equal(posted.message.kind, "arenaStart");
+      assert.equal(posted.message.checkpoint, null,
+        `policies ${policies} posted a network`);
+      assert.equal(posted.transfer.length, 1,
+        "only the configuration buffer travels transferred");
+      worker.emitMessage(recordingMessage(posted.message.requestId));
+      const recording = await running;
+      assert.equal(recording.checkpoint, null,
+        "a recording named a checkpoint nothing installed");
+    }
+    assert.equal(fetches, 0, "the arena client fetched something");
   } finally {
     globalThis.fetch = original;
   }

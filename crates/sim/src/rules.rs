@@ -34,22 +34,27 @@ pub const DT: Fx = Fx::from_ratio(1, TICKS_PER_SECOND as i32);
 /// input shape.
 pub const MAX_CONTACTS: usize = 6;
 
-/// Ticks a unit must go without dealing or taking damage before it starts
-/// recovering.
-pub const REGEN_DELAY: u32 = 3 * TICKS_PER_SECOND;
-
-/// Fraction of maximum health recovered per tick once out of combat: a full
-/// heal takes about thirty seconds.
-///
-/// This is not flavour. Without it, an agent whose health falls below its
-/// caution threshold can never come back -- it flees, loses sight of the
-/// enemy, marches back under its standing order, flees again, forever. Every
-/// such fight ends in a timeout. Measured over 400 rollouts that was 12% of
-/// all runs, with mean surviving health of 0.20: not two sides failing to find
-/// each other, but two sides of walking wounded who could neither fight nor
-/// finish. Regeneration turns disengaging into a real tactic (retreat, recover,
-/// return) instead of a slow-motion draw.
-pub const REGEN_PER_TICK: Fx = Fx::from_ratio(1, 1800);
+// **Regeneration was removed rather than forgotten, and the argument for it is
+// kept here because the argument is still good.**
+//
+// `REGEN_DELAY` (three seconds out of combat) and `REGEN_PER_TICK` (1/1800 of
+// maximum health per tick, so a full heal in about thirty seconds) stood here
+// and were deleted with the legacy health column they were denominated in.
+// They were not flavour. Without them an agent whose health falls below its
+// caution threshold can never come back -- it flees, loses sight of the enemy,
+// marches back under its standing order, flees again, forever. Measured over
+// 400 rollouts that was 12% of all runs, with mean surviving health of 0.20:
+// not two sides failing to find each other, but two sides of walking wounded
+// who could neither fight nor finish.
+//
+// **What makes them unimplementable rather than merely unused is the anatomy.**
+// Health on a surviving body is `AnatomyState`: per-region integrity, open
+// wounds, and blood. Regenerating it means healing a wound -- deciding which
+// region closes first, what an open cut does while it closes, and whether lost
+// blood comes back -- and nothing in the model does any of that. A fraction of
+// a maximum, applied per tick, is an answer to a question the legacy scalar
+// asked and the anatomy does not. Restoring the tactic means writing that
+// mechanic; it does not mean restoring these two numbers.
 
 /// Total health a unit may regenerate over one whole fight, as a multiple of
 /// its maximum. **The rule that makes attrition monotone.**
@@ -62,16 +67,23 @@ pub const REGEN_PER_TICK: Fx = Fx::from_ratio(1, 1800);
 /// ladder cannot be built on top of that: the bottom rung has to *lose*, and it
 /// cannot lose a fight that keeps starting over.
 ///
-/// One full bar, spent however the fight demands. Retreating to recover stays a
-/// real tactic -- it is the whole reason [`REGEN_PER_TICK`] exists -- and it is
-/// now a resource rather than a reset, so a fighter who is being beaten runs out
-/// of second chances and dies of the first fight rather than the fifth.
+/// One full bar, spent however the fight demands. Retreating to recover was the
+/// tactic this budget existed to bound, and it is now a resource rather than a
+/// reset, so a fighter who is being beaten runs out of second chances and dies
+/// of the first fight rather than the fifth.
+///
+/// **Nothing spends it.** With the per-tick recovery gone (see the note above),
+/// `World::regen_left` is written to `max_hp * REGEN_BUDGET` at spawn and never
+/// read again except by the state hash -- a hashed spawn-time constant. It is
+/// kept for the same reason the constant is: the ceiling is the half of the
+/// mechanic that was measured, and it is the half a future healing rule would
+/// need first.
 pub const REGEN_BUDGET: Fx = Fx::ONE;
 
 // ------------------------------------------------------------------ the swing
 
-/// An action resolved against the body using it: everything
-/// [`crate::Hand::track`] needs, and nothing it has to look up.
+/// An action resolved against the body using it: everything the swing law
+/// reads, and nothing it has to look up.
 ///
 /// It exists because swing dynamics stopped being a property of the weapon. A
 /// blade's angular acceleration is `muscle / inertia`, and both halves come from
@@ -263,9 +275,9 @@ pub const fn agility_multiplier(agility: u8) -> Fx {
 /// Inverting that gives the radius at which it reaches the bar and no further
 /// down.
 ///
-/// The bar is [`graze_floor`] rather than [`ENERGY_FLOOR`] itself, so this
-/// stays the honest answer to "how close do I have to be to be safe" -- see
-/// [`GRAZE_FRACTION`], which is what a contact below it costs the swinger.
+/// The bar is a [`GRAZE_FRACTION`] share of what this fighter's own best blow
+/// does rather than [`ENERGY_FLOOR`] itself, so this stays the honest answer to
+/// "how close do I have to be to be safe".
 ///
 /// Public because it is the number a fighter needs about *everyone* and not
 /// only about itself -- see [`crate::Contact::min_strike_range`], which is this
@@ -299,15 +311,6 @@ pub fn dead_zone(arm: Arm) -> Fx {
     // the wrong radius.
     let bite = ENERGY_FLOOR + (tip - ENERGY_FLOOR) * GRAZE_FRACTION;
     (bite / unit).sqrt()
-}
-
-/// What a contact must be worth, in damage, to count as a cut at all.
-///
-/// A share of what this fighter's own best blow would do, so it scales with the
-/// weapon instead of being one more flat number that every archetype meets at a
-/// different point on its arc. See [`GRAZE_FRACTION`].
-pub fn graze_floor(arm: Arm, stats: Stats) -> Fx {
-    peak_damage(arm, stats) * GRAZE_FRACTION
 }
 
 /// Share of its own [`peak_damage`] a contact has to be worth before it counts
@@ -741,17 +744,6 @@ pub const STRIKE_SPENT_ARC: i32 = FOLLOW_THROUGH * 3 / 4;
 /// stop of last resort.
 pub const STRIKE_TIMEOUT: u16 = 150;
 
-/// How long a [`crate::Role::Shoot`] limb stays in [`crate::Swing::Strike`].
-///
-/// One tick, because a loose is an instant and not an arc. A blade's strike is
-/// long because the blade *is* the attack and has to travel; a bow's attack
-/// leaves the bow, and what happens afterwards is the arrow's business and
-/// [`crate::World::resolve_shots`]'s. Long enough for the world to see the
-/// phase edge and put a shot in the air, and no longer -- the archer should be
-/// back at guard, or into its recovery, while its arrow is still crossing the
-/// room.
-pub const SHOT_RELEASE_TICKS: u16 = 1;
-
 /// Most arrows the world will carry at once.
 ///
 /// A refusal and not a queue: a bow's draw-release-recover cycle is longer than
@@ -769,13 +761,17 @@ pub const MAX_SHOTS: usize = 32;
 /// are correct with no new percept and no new constant: the arrow *is* the
 /// blade's release, pointed forwards.
 ///
-/// **Not the hand's live spin, and this is the sharpest trap in the feature.**
-/// [`crate::Hand::track`] brakes so as to arrive at rest on whatever bearing it
-/// was sent to, and a bow at the end of its draw has arrived -- so `limb.spin`
-/// at the release edge is very nearly *zero*. Reading it here would leave every
-/// bow in the game firing harmless arrows, with nothing failing anywhere and no
-/// number out of place to point at. Pinned by
-/// `hand::tests::a_drawn_bow_is_at_rest_when_it_looses`.
+/// **This used to be the sharpest trap in the feature, and it has been closed
+/// by construction rather than answered again.** The one-limb `Hand` braked so
+/// as to arrive at rest on whatever bearing it was sent to, and a bow at the
+/// end of its draw had arrived -- so `limb.spin` at the release edge was very
+/// nearly *zero*, and reading it here would have left every bow in the game
+/// firing harmless arrows with no number out of place to point at.
+/// `hand::tests::a_drawn_bow_is_at_rest_when_it_looses` pinned that, and went
+/// with the phase machine. Nothing replaced it because there is nothing left to
+/// pin: `World::loose_articulated_projectiles` resolves an [`Arm`] from the bow
+/// spec and the archer's stats and hands it straight here, and there is no live
+/// spin anywhere on that path to substitute by mistake.
 pub fn shot_speed(arm: Arm) -> Fx {
     fx::tangential_speed(arm.reachable_spin(), arm.pivot + arm.spec.length) * BOW_EFFICIENCY
 }
@@ -802,21 +798,11 @@ pub fn shot_speed(arm: Arm) -> Fx {
 /// [`ENERGY_FLOOR`] has taken its cut.
 pub const BOW_EFFICIENCY: Fx = Fx::from_ratio(75, 100);
 
-/// Ceiling on a [`crate::Swing::Swap`], in ticks. The stop of last resort, the
-/// same kind of thing [`STRIKE_TIMEOUT`] is.
-///
-/// Two seconds is far past any row in the registry -- the slowest real draw is a
-/// club on a Brute at 23 ticks -- so this never binds in a fight. What it bounds
-/// is the pathological corner: `agility_multiplier` floors at 0.55, and a
-/// hypothetical action with a large `ready` on a feeble body could otherwise
-/// take a fighter out of the fight for longer than the fight.
-pub const SWAP_MAX_TICKS: u16 = 120;
-
 /// How long a cut with this weapon stays live: long enough to carry the blade
 /// through its whole arc, and no longer.
 ///
-/// Derived from the same physics [`crate::Hand::track`] runs -- accelerate at
-/// the torque cap, subject to a top speed -- rather than picked, because the
+/// Derived from the same physics the limb integrator runs -- accelerate at the
+/// torque cap, subject to a top speed -- rather than picked, because the
 /// four weapons differ by a factor of five in how fast they can move a blade and
 /// one number cannot be right for all of them. A cut must reach
 /// [`STRIKE_SPENT_ARC`] past its line, from [`WINDUP_ARC`] behind it, at the
@@ -880,28 +866,38 @@ pub fn strike_ticks(arm: Arm) -> u16 {
 /// honest.
 pub const STRIKE_SLACK: Fx = Fx::from_ratio(19, 10);
 
-/// Extension a blade is held at between attacks.
-///
-/// Above [`MIN_STRIKE_REACH`], so a guarding blade is still a *segment* and can
-/// be crossed -- catching a cut on your own blade is a real answer, and it is
-/// the one available to a fighter whose shield is on the wrong side. It deals
-/// no damage regardless, because damage is gated on the strike phase and not on
-/// extension.
-pub const GUARD_REACH: Fx = Fx::from_ratio(30, 100);
-
-/// Extension a blade is drawn back to during a windup.
-///
-/// Halfway out: far enough that a cocked blade is unmistakable at a glance and
-/// has somewhere to be caught, short enough that [`REACH_DRAG`] does not stop
-/// the hand from getting there inside the telegraph.
-pub const WINDUP_REACH: Fx = Fx::from_ratio(50, 100);
+// **Eight constants of the one-limb phase machine stood in this file and went
+// with it**, when `Hand`'s `drive`/`begin_swap`/`step_attack`/`track` were
+// deleted for having no production caller (see the header of `hand.rs` for what
+// drives an arm instead). They are named here rather than left as a silence,
+// because each of them is a *number somebody chose* and the next person to want
+// the mechanic should know they were measured and not merely mislaid:
+//
+// * `SHOT_RELEASE_TICKS` (1) -- a loose is an instant, not an arc, so a bow left
+//   `Swing::Strike` on the tick after the draw ran out.
+// * `SWAP_MAX_TICKS` (120) -- the stop of last resort on a swap, the same kind
+//   of thing `STRIKE_TIMEOUT` is; two seconds is far past the slowest real draw
+//   (a club on a Brute at 23 ticks) and bounded only the pathological corner.
+// * `GUARD_REACH` (0.30) -- what a blade was held at between attacks: above
+//   `MIN_STRIKE_REACH`, so a guarding blade was still a segment that could be
+//   crossed. `crates/policy` declares its own `GUARD_REACH` of 0.75 twice and
+//   never read this one; those are a different quantity and are untouched.
+// * `WINDUP_REACH` (0.50) -- halfway out, so a cocked blade was unmistakable and
+//   `REACH_DRAG` could still get the hand there inside the telegraph.
+// * `PARRY_RECOVERY` (12) and `PARRY_MIN_SPIN` (200 raw angle units per tick) --
+//   the blade-on-blade pair. The spin floor existed because a pair that happens
+//   to line up would otherwise report a parry on every tick it stayed lined up.
+// * `MIN_STRIKE_REACH` (0.15) and `MIN_BLOCK_REACH` (0.20) -- the extensions
+//   below which a blade was not a hitbox and a shield covered nothing, which is
+//   what made "tucked" mean something mechanically rather than only visually.
+//
+// A jointed arm asks none of these: reach is a physical extension along a real
+// arm length, a hitbox is a swept capsule the contact solver sweeps, and there
+// are no phases to hold an extension for.
 
 /// Extra recovery ticks when a cut is stopped by a shield. This plus the
 /// weapon's own recovery *is* the reward for blocking.
 pub const BLOCK_RECOVERY: u16 = 14;
-
-/// Extra recovery ticks when two blades cross.
-pub const PARRY_RECOVERY: u16 = 12;
 
 /// Extra recovery ticks for a cut that finishes its arc having touched nothing
 /// at all. **The price of a miss, and the reward for a dodge.**
@@ -948,19 +944,6 @@ pub fn phase_ticks(base: u16, agility: Fx) -> u16 {
     let scaled = Fx::from_int(base as i32) / agility.max(Fx::from_ratio(1, 4));
     scaled.round_int().clamp(1, 600) as u16
 }
-
-/// Combined spin, raw angle units per tick, below which two crossed blades are
-/// merely touching rather than parrying. Without a floor, a pair that happens to
-/// line up reports a parry on every tick it stays lined up.
-pub const PARRY_MIN_SPIN: Fx = Fx::from_int(200);
-
-/// Extension below which a blade is not a hitbox at all. Makes "tucked" mean
-/// something mechanically rather than only visually, and doubles as the early
-/// out that keeps the geometry off the hot path.
-pub const MIN_STRIKE_REACH: Fx = Fx::from_ratio(15, 100);
-
-/// Extension below which a shield covers nothing.
-pub const MIN_BLOCK_REACH: Fx = Fx::from_ratio(20, 100);
 
 /// Proportional error in a fighter's read of what *someone else* can do, per
 /// unit of [`Stats::perception_noise`].
@@ -1168,8 +1151,10 @@ mod tests {
         };
         let telegraph = |body: Body, a: ActionKind| ticks(body, a.spec().windup);
         let draw = |body: Body, a: ActionKind| ticks(body, a.spec().ready);
-        // What a whiffed attack leaves its owner helpless for. The penalty is
-        // scaled with the recovery, not added flat -- see `Hand::recover`.
+        // What a whiffed attack leaves its owner helpless for. The penalty was
+        // scaled with the recovery, not added flat, by `Hand::recover` -- which
+        // went with the phase machine, so this table is now the budget the
+        // registry implies rather than one anything spends.
         let whiff =
             |body: Body, a: ActionKind| ticks(body, a.spec().recovery + WHIFF_RECOVERY);
 
@@ -1470,18 +1455,16 @@ mod tests {
                     "{kind:?} at agility {agility} has a dead zone of {safe}, which \
                      swallows its own blade: it cannot hurt anything at all"
                 );
-                // The band, stated the way the sim enforces it: whatever the
-                // stats, a contact worth less than `GRAZE_FRACTION` of this
-                // fighter's best blow is not a cut and does not spend the swing.
-                let floor = graze_floor(arm, stats);
-                assert!(
-                    floor > Fx::ZERO,
-                    "{kind:?} at agility {agility} has no graze floor at all"
-                );
-                assert!(
-                    floor < peak_damage(arm, stats),
-                    "{kind:?} at agility {agility} cannot clear its own graze floor"
-                );
+                // **Two assertions stood here and went with `graze_floor`.**
+                // They read `peak_damage(arm, stats) * GRAZE_FRACTION` back and
+                // checked it was above zero and below `peak_damage` -- which,
+                // once that function was one line of exactly that expression,
+                // was arithmetic about a fraction rather than a claim about the
+                // sim. The band they described is a *legacy* contact rule: a
+                // surviving contact is billed against `CONTACT_ENERGY_FLOOR` in
+                // `combat::resolution`, and nothing consults a per-fighter graze
+                // floor at all. `GRAZE_FRACTION` still earns its keep one line
+                // up, where `dead_zone` inverts it.
             }
         }
     }

@@ -65,10 +65,13 @@
 //! **Corrected the same day: the pose is one of two, chosen by what the hand
 //! holds.** The first version of the override put *every* off hand at three
 //! quarters of reach, which is a guard on a hand carrying a plate and a shove
-//! on an empty one -- `geometry::body_region_volumes` builds an arm region as
-//! the capsule from shoulder to hand, so it lengthened the Brute's empty
+//! on an empty one -- `geometry::body_region_volumes` builds a single-link arm
+//! as the capsule from shoulder to hand, so it lengthened the Brute's empty
 //! `LeftArm` collider forward by half an arm length, and on this roster an arm
-//! region holds the same integrity maximum as the torso. The arm is still
+//! region holds the same integrity maximum as the torso. (Single-link: an
+//! embodied body splits that capsule at the elbow into two, and the reach still
+//! sets where the far end lands, so the mechanism below is unchanged and the
+//! measured 1.49x is a claim about the articulated roster this script drives.) The arm is still
 //! static, still in body frame, still the same bearing rule, and still the
 //! same for every phase; only the reach is conditional. [`off_hand`] carries
 //! the measurement.
@@ -138,7 +141,7 @@
 //! functions of the observation, so neither implements `reset` -- there is no
 //! per-run memory for the harness to clear.
 
-use crate::ArticulatedPolicy;
+use crate::{ArmRoles, ArticulatedPolicy, EIGHTH_TURN};
 use fx::{Angle, Fx, Hash64, Vec2};
 use sim::{
     ArmTarget, ArticulatedCommandV1, ArticulatedObservation, CombatHeight, GripRequest, Intent,
@@ -223,14 +226,6 @@ pub const HEIGHT_TICKS: u32 = 90;
 /// transcribes tick by tick rather than phase by phase for that one column.
 pub const GUARD_LEAD_TICKS: u32 = HEIGHT_TICKS / 2;
 
-/// An eighth of a turn, raw.
-///
-/// Spelled out because [`Angle`] names [`Angle::QUARTER`] and [`Angle::HALF`]
-/// and stops there, and the cut chamber offset is half a quarter. Written as a
-/// constant rather than `Angle::QUARTER` halved so that the number in the
-/// reference table and the number here are the same literal.
-pub const EIGHTH_TURN: Angle = Angle::from_raw(8_192);
-
 /// The three ordinary heights, in the order `(tick / 90) % 3` walks them.
 /// How far the guard bearing may leave the body's own facing, either way.
 ///
@@ -268,76 +263,6 @@ const THREE_QUARTERS: Fx = Fx::from_ratio(3, 4);
 /// no such edge: the risk is entirely at the top of the range.
 const APPROACH_SPEED: Fx = Fx::from_ratio(15, 16);
 const WITHDRAW_SPEED: Fx = Fx::HALF;
-
-/// Which arm guards and which arm strikes.
-///
-/// Both are read out of the capability mask and the published grips rather than
-/// out of the scenario, because a policy has no scenario -- and because the
-/// answer changes mid-fight when an arm comes off.
-///
-/// **Public because a measurement of this script cannot attribute a height
-/// without it.** `lab articulated` reports the joint distribution of (attacker
-/// weapon height, defender guard height), and "which of the two commanded arms
-/// is the weapon" is a fact about the script rather than about the fixture: it
-/// moves when an arm is severed, so a lab that re-derived it from the
-/// capability mask would be a second copy of the rule below, free to drift from
-/// it exactly when a fight got interesting.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct ArmRoles {
-    pub guard: usize,
-    pub weapon: usize,
-}
-
-impl ArmRoles {
-    pub fn of(obs: &ArticulatedObservation) -> ArmRoles {
-        let weapon_bit = [
-            ArticulatedObservation::LEFT_WEAPON,
-            ArticulatedObservation::RIGHT_WEAPON,
-        ];
-        // The right hand when both are armed. That is the sim's own ownership
-        // rule -- a two-handed item fills the right slot and clears the left
-        // weapon bit -- so following it here keeps "the weapon arm" meaning the
-        // arm that owns the collider.
-        //
-        // **A disarmed body still has to name one**, because the script is total
-        // and the four attack phases have to point somewhere. The reference does
-        // not cover this cell at all, so the fallback is a resolution: the right
-        // arm, unless the right arm is the one that came off. A Fighter that has
-        // lost its sword arm would otherwise spend a third of every cycle
-        // swinging a stump *and* tucking the live shield the tuck rule takes
-        // away from it -- defenceless and harmless at once -- which cannot be
-        // what the table means by "the weapon arm" on a body that has none.
-        //
-        // Half of that stopped being true on 2026-08-10: the off arm now holds
-        // [`off_hand`] rather than the tuck, so the wrong answer here would
-        // leave that Fighter guarded and merely harmless instead of both. The
-        // resolution does not change -- swinging a stump for a third of every
-        // cycle is still the thing being avoided -- but the second clause of
-        // the argument for it is gone and should not be quoted.
-        let weapon = if obs.can(weapon_bit[1]) {
-            1
-        } else if obs.can(weapon_bit[0]) {
-            0
-        } else if obs.arms[1].severed && !obs.arms[0].severed {
-            0
-        } else {
-            1
-        };
-        // The occupied hand that is not holding a weapon, which is the shield
-        // hand without needing to know which side the shield binds to. Reading
-        // `SHIELD` alone would not say *where* it is, and reading the equipment
-        // id alone would need the spec table this side of the seam cannot see.
-        let shield = if obs.can(ArticulatedObservation::SHIELD) {
-            (0..2).find(|&i| obs.arms[i].equipment.is_some() && !obs.can(weapon_bit[i]))
-        } else {
-            None
-        };
-        ArmRoles {
-            guard: shield.unwrap_or(weapon),
-            weapon,
-        }
-    }
-}
 
 /// One phase's answer, before the two arm rows are placed on a particular body.
 ///
@@ -465,9 +390,11 @@ fn tucked(body_yaw: Angle) -> ArmTarget {
 /// rather than a guard -- and it is wrong for an empty one, because an empty
 /// hand is not carrying anything to the place it is being held out to.
 ///
-/// What it *is* carrying is the arm. `geometry::body_region_volumes` builds an
-/// arm region as the capsule from the yaw-rotated shoulder to the hand, so
-/// reach is that capsule's length, and on this roster
+/// What it *is* carrying is the arm. `geometry::body_region_volumes` builds a
+/// single-link arm as the capsule from the yaw-rotated shoulder to the hand, so
+/// reach is that capsule's length -- and on a jointed arm it is still the
+/// distance the far end of the *pair* reaches, so the argument survives the
+/// elbow with a different capsule count under it. On this roster
 /// `integrity_maxima` gives an arm region the same maximum as the torso.
 /// Extending an empty off hand from a quarter to three quarters therefore does
 /// not park a guard in front of anything; it grows a torso-grade interceptor
@@ -1043,25 +970,35 @@ pub const SCRIPT_DIGEST_DOMAIN: &[u8] = b"ARPG-SCRIPT-V1";
 /// commands would produce a digest for a fight nobody had.
 ///
 /// Each record contributes the tick, the subject's index and generation, and
-/// then the canonical 51-byte payload -- little-endian throughout, because
-/// [`Hash64`] writes integers little-endian and the payload is little-endian by
-/// its own contract. The full identity and not just the index: a replay
-/// outliving a slot reuse would otherwise hash two different fighters the same.
-/// The record count goes in last so that a stream cannot be extended by a
-/// record whose bytes happen to be zero.
+/// then the canonical payload -- little-endian throughout, because [`Hash64`]
+/// writes integers little-endian and the payload is little-endian by its own
+/// contract. The full identity and not just the index: a replay outliving a slot
+/// reuse would otherwise hash two different fighters the same. The record count
+/// goes in last so that a stream cannot be extended by a record whose bytes
+/// happen to be zero.
 ///
-/// A [`SubmittedCommand::Legacy`] record contributes nothing and is not counted.
-/// It cannot occur -- a persisted replay has exactly one active command vector,
-/// selected by the scenario's combat model -- and the alternative to skipping it
-/// is a panic in a measurement path, which trades an impossible wrong number for
-/// an impossible dead lab.
-pub fn script_digest(records: &[SubmittedCommandRecord]) -> u64 {
+/// **`None` for a stream this cannot fold, and it used to be a number.** The
+/// loop skipped every arm but `Articulated` and the comment here accounted for
+/// the skip as `SubmittedCommand::Legacy`, which "cannot occur" -- true, and it
+/// stopped being the only skippable arm the day `Embodied` existed. An embodied
+/// stream then counted zero records and came back as the empty-stream constant:
+/// the *same* number for a script, its control, and a matchup running a
+/// different policy on each side, in a column that reads like a fingerprint. The
+/// lab found it by asserting two runs differed and getting equality.
+///
+/// Refusing by name rather than panicking, because this is a measurement path
+/// and a trap here takes the whole harness down; and refusing rather than
+/// growing an arm, because an embodied stream has its own domain --
+/// [`SCRIPT_DIGEST_DOMAIN`] names the articulated grammar, and two grammars
+/// folded under one prefix are two things that can collide while claiming to be
+/// comparable.
+pub fn script_digest(records: &[SubmittedCommandRecord]) -> Option<u64> {
     let mut h = Hash64::new();
     h.write_bytes(SCRIPT_DIGEST_DOMAIN);
     let mut counted = 0u32;
     for record in records {
         let SubmittedCommand::Articulated(command) = record.command else {
-            continue;
+            return None;
         };
         h.write_u32(record.tick);
         h.write_u32(record.entity.index);
@@ -1070,7 +1007,7 @@ pub fn script_digest(records: &[SubmittedCommandRecord]) -> u64 {
         counted += 1;
     }
     h.write_u32(counted);
-    h.finish()
+    Some(h.finish())
 }
 
 #[cfg(test)]
@@ -1500,9 +1437,11 @@ mod tests {
     #[test]
     fn an_empty_off_hand_does_not_lengthen_the_arm_it_hangs_from() {
         // **The mechanism the conditional reach exists for, measured rather
-        // than argued.** `geometry::body_region_volumes` builds an arm region
-        // as the capsule from the yaw-rotated shoulder to the hand, so the off
-        // hand's reach *is* that capsule's length -- and on this roster
+        // than argued.** `geometry::body_region_volumes` builds a single-link
+        // arm as the capsule from the yaw-rotated shoulder to the hand, so the
+        // off hand's reach *is* that capsule's length -- this script drives an
+        // articulated roster, whose arms have no elbow to split them -- and on
+        // this roster
         // `integrity_maxima` gives an arm region the same maximum as the torso.
         // An empty hand held out at a guard's reach is therefore not a guard;
         // it is a torso-grade interceptor grown into the line, which is what
@@ -1952,7 +1891,7 @@ mod tests {
         for byte in (records.len() as u32).to_le_bytes() {
             expected.write_u8(byte);
         }
-        assert_eq!(script_digest(records), expected.finish());
+        assert_eq!(script_digest(records), Some(expected.finish()));
         assert_eq!(SCRIPT_DIGEST_DOMAIN, b"ARPG-SCRIPT-V1");
     }
 
@@ -1968,7 +1907,7 @@ mod tests {
         let base = scripted_articulated_command(&world.observe_articulated(EntityId::new(0, 0)));
         replay.record_submitted(4, EntityId::new(0, 0), SubmittedCommand::Articulated(base));
         replay.record_submitted(9, EntityId::new(1, 0), SubmittedCommand::Articulated(base));
-        let digest = script_digest(&replay.submitted_entries);
+        let digest = script_digest(&replay.submitted_entries).expect("an articulated stream");
 
         let variants: [(&str, Box<dyn Fn(&mut Vec<SubmittedCommandRecord>)>); 5] = [
             ("tick", Box::new(|rows: &mut Vec<SubmittedCommandRecord>| rows[0].tick = 5)),
@@ -1995,12 +1934,47 @@ mod tests {
         for (column, mutate) in variants {
             let mut rows = replay.submitted_entries.clone();
             mutate(&mut rows);
-            assert_ne!(digest, script_digest(&rows), "the digest ignores the {column}");
+            assert_ne!(Some(digest), script_digest(&rows), "the digest ignores the {column}");
         }
 
         // And the domain is in it: an empty stream is not the empty FNV.
         let mut bare = Hash64::new();
         bare.write_u32(0);
-        assert_ne!(script_digest(&[]), bare.finish());
+        assert_ne!(script_digest(&[]), Some(bare.finish()));
+    }
+
+    /// A stream this cannot fold is refused by name, and it used to be a number.
+    ///
+    /// **The empty-stream constant is what makes the old behaviour dangerous
+    /// rather than merely wrong**, and it is asserted here so the shape of the
+    /// failure is on the record: an embodied stream skipped every record, counted
+    /// zero, and came back as exactly the digest of no commands at all. Two runs
+    /// with different policies on different sides agreed, in a column whose whole
+    /// job is to say they differ. The lab found it by asserting two runs were
+    /// unequal and getting equality.
+    #[test]
+    fn a_stream_of_another_grammar_is_refused_rather_than_counted_as_empty() {
+        let scenario = Scenario::embodied_duel();
+        let mut replay = Replay::new(&scenario, 0);
+        let world = World::new(&scenario, 0);
+        let base = scripted_articulated_command(&world.observe_articulated(EntityId::new(0, 0)));
+        replay.record_submitted(4, EntityId::new(0, 0),
+            SubmittedCommand::Embodied(sim::EmbodiedCommandV1::new(base)));
+        assert_eq!(script_digest(&replay.submitted_entries), None);
+        // The number it used to answer, so the regression is named rather than
+        // described: the digest of a stream with nothing in it.
+        assert_eq!(script_digest(&[]), Some(0x89b6_8434_7e2c_aedd));
+
+        // One embodied record among articulated ones is refused too. A loop that
+        // skipped the arm it could not read would fold the rest and answer a
+        // number for a run it had only partly seen, which is the worse half of
+        // the same bug.
+        let mut mixed = vec![SubmittedCommandRecord {
+            tick: 1, entity: EntityId::new(0, 0),
+            command: SubmittedCommand::Articulated(base),
+        }];
+        assert!(script_digest(&mixed).is_some());
+        mixed.push(replay.submitted_entries[0]);
+        assert_eq!(script_digest(&mixed), None);
     }
 }

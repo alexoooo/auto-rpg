@@ -396,10 +396,12 @@ export default defineConfig({
   build: {
     outDir: outputRoot,
     emptyOutDir: true,
-    // One entry: the studio shell. `legacy.html` is deliberately absent, exactly
-    // as the legacy page has always been -- four classic scripts sharing top-level
-    // `const`s are not a module graph and Rollup has nothing to do with them. It is
-    // served out of `web/` by the Vite dev server and by `tools/serve.js`.
+    // One entry, and now the only one there could be. `legacy.html` was never in
+    // this list either: four classic scripts sharing top-level `const`s are not a
+    // module graph, so Rollup had nothing to do with them and the page was served
+    // as static files instead. That is why retiring it changed nothing here -- it
+    // was already outside every build, which was most of the argument for retiring
+    // it.
     rollupOptions: { input: resolve(webRoot, "index.html") },
   },
 });

@@ -39,7 +39,10 @@ use crate::combat::wide::WideRational4096;
 #[cfg(feature = "cartesian-recoil")]
 use crate::combat::lifted_solver::{solve_lifted_group, LiftedContact, LiftedSolverReject,
                                   LiftedSolverScratch};
-use crate::combat::spec::{AnatomyRegion, SurfaceSpec};
+use crate::combat::spec::{SurfaceSpec, BODY_VOLUME_COUNT};
+// Anatomy is a fixture vocabulary here: the resolver names swept volumes.
+#[cfg(test)]
+use crate::combat::spec::AnatomyRegion;
 use crate::{EntityId, Faction};
 use fx::{Fx, TimeOfImpact, Vec3};
 
@@ -480,22 +483,15 @@ fn clamp_vec(value: Vec3) -> Vec3 {
 }
 
 /// Resolve one immutable simultaneous group. Facts must already be key-sorted.
-/// Every accumulator is applied once; the returned rows preserve that order.
-pub fn resolve_group(
-    colliders: &mut [GeneralizedCollider],
-    contacts: &[ProposedContact],
-    group_ordinal: u8,
-) -> Result<Vec<ContactResolution>, ResolutionError> {
-    let mut sums = Vec::with_capacity(colliders.len());
-    let mut trial = Vec::with_capacity(colliders.len());
-    let mut weights = Vec::with_capacity(contacts.len());
-    let mut shares = Vec::with_capacity(contacts.len());
-    let mut output = Vec::with_capacity(contacts.len());
-    resolve_group_into(colliders, contacts, group_ordinal, &mut IndependentPointProjector,
-        &mut sums, &mut trial, &mut weights, &mut shares, &mut output)?;
-    Ok(output)
-}
-
+/// Every accumulator is applied once; the output rows preserve that order.
+///
+/// **A `Vec`-returning `resolve_group` wrapper stood in front of this and is
+/// gone.** It allocated five scratch vectors per call, handed them here with an
+/// [`IndependentPointProjector`], and returned the output -- and nothing but one
+/// test ever called it, because the whole point of the `_into` shape is that a
+/// world driving a contact tick owns its scratch and allocates none. A test
+/// against the wrapper was a test of a call shape the sim does not make; that
+/// test drives this signature now.
 pub fn resolve_group_into<P: ContactTrialProjector>(
     colliders: &mut [GeneralizedCollider],
     contacts: &[ProposedContact],
@@ -696,12 +692,15 @@ fn allocate_shares_into(
     allocate_weighted_into(total, weights, shares)
 }
 
-pub fn allocate_weighted(total: u64, weights: &[u128]) -> Vec<u64> {
-    let mut result = Vec::with_capacity(weights.len());
-    allocate_weighted_into(total, weights, &mut result).expect("bounded contact weights");
-    result
-}
-
+/// Split `total` across `weights`, giving the last nonzero weight the remainder
+/// so the parts sum to the whole exactly.
+///
+/// **An `allocate_weighted` wrapper returning a fresh `Vec` stood here**, with
+/// an `.expect("bounded contact weights")` swallowing the overflow arm. Two
+/// tests called it and nothing else did: the solver allocates its share vector
+/// once per tick and passes it in, and a wrapper that panics where the caller
+/// gets a `Result` is a second error contract for one function. Both tests read
+/// this signature now, which is the one that ships.
 pub fn allocate_weighted_into(
     total: u64, weights: &[u128], result: &mut Vec<u64>,
 ) -> Result<(), ResolutionError> {
@@ -948,7 +947,22 @@ impl ContactTickScratch {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-enum ContactTimeBasis { RemainingTick, AbsoluteTick }
+enum ContactTimeBasis {
+    RemainingTick,
+    /// **Live production code, constructed only behind `cartesian-recoil`.**
+    /// `ExactKinematics::time_basis` -- the whole `impl` is
+    /// `#[cfg(feature = "cartesian-recoil")]` -- answers this, because an exact
+    /// fact carries absolute tick time rather than a remainder to be mapped. The
+    /// default build still *reads* the variant, in
+    /// `exact_time_basis_bypasses_mapping_for_membership_and_suppression`, which
+    /// is why this is an `allow` narrowed to the default build rather than a
+    /// `cfg` on the variant: a `cfg` would delete it out from under an ungated
+    /// test. Removing the allow when the feature is on is deliberate -- there
+    /// the variant must be constructed, and a warning is the right answer if it
+    /// stops being.
+    #[cfg_attr(not(feature = "cartesian-recoil"), allow(dead_code))]
+    AbsoluteTick,
+}
 
 fn candidate_global_time(basis: ContactTimeBasis, global: u32, fact: ContactFact) -> u32 {
     match basis {
@@ -1393,7 +1407,7 @@ fn solve_contact_tick_with<P: ContactTrialProjector, K: ContactKinematics>(
             {
                 let recomputed = recomputed.ok_or(ResolutionError::ExactScan)?;
                 if recomputed.key != fact.key
-                    || (recomputed.region != fact.region
+                    || (recomputed.volume != fact.volume
                         && fact.key.kind != ContactKind::ProjectileBody) {
                     return Err(ResolutionError::ExactScan);
                 }
@@ -1837,6 +1851,21 @@ fn cap_at_last_safe_pose(
     state.cap_hits = state.cap_hits.saturating_add(1);
 }
 
+/// The `ARPG-CONTACT-V1` portable serialization corpus, written out for the one
+/// test that pins its byte order.
+///
+/// **Gated rather than deleted, and gated rather than kept shipping.** It has no
+/// consumer: no wasm export answers these bytes, no golden registry row names
+/// them, and `CONTACT_BEHAVIOR_DIGEST` is [`contact_behavior_corpus`]'s
+/// `ARPG-CONTACT-BEHAVIOR-V2` stream, which is a different grammar over a
+/// different fixture and is what `tools/wasm_check.js` rebuilds. What this does
+/// have is a *documented* grammar -- "Portable serialization corpus" in
+/// `docs/reference/contact-solver.md`, down to the 591-byte length and the
+/// `0x1adfa9e01e36edf9` digest -- and a test that constructs every expected byte
+/// independently before comparing. Deleting the writer would delete the only
+/// thing that can fail when that section drifts; shipping it put a serializer
+/// nobody calls into every artifact.
+#[cfg(test)]
 pub fn serialize_contact_corpus(ticks: &[(u32, &[ContactResolution], u32)]) -> Vec<u8> {
     let mut bytes = b"ARPG-CONTACT-V1".to_vec();
     for &(tick, rows, cap_hits) in ticks {
@@ -1973,7 +2002,7 @@ fn behavior_case(case_id: u32) -> Vec<ContactCollider> {
                 slot: BODY_SLOT, mass: Fx::ONE, surface, velocity: Vec3::ZERO,
                 velocity_offset: Vec3::ZERO, present: true,
                 shape: ContactShape::Body { previous_origin: body_point, requested_origin: body_point,
-                    parts: [part; AnatomyRegion::COUNT] } };
+                    parts: [part; BODY_VOLUME_COUNT] } };
             vec![weapon, body]
         }
         _ => unreachable!(),
@@ -2012,7 +2041,7 @@ pub(crate) mod tests {
         ExactContactTrajectory { entity: EntityId::new(index, 0), faction: Faction::Heroes,
             slot: BODY_SLOT, kind: GeneralizedKind::Body, mass_raw: 65_536,
             surface: surface(Fx::ZERO), motor: MotorShape::Body {
-                origin: point, parts: [bound; AnatomyRegion::COUNT],
+                origin: point, parts: [bound; BODY_VOLUME_COUNT],
             }, owner_index, held_index: None, equipment_spec: None, present: true }
     }
 
@@ -2387,7 +2416,7 @@ pub(crate) mod tests {
         for candidate in scratch.candidates() {
             let time_raw = candidate.fact.toi.get().raw() as u32;
             selections.push(AuditCertifiedSelection { time_raw, key: candidate.fact.key,
-                region: candidate.fact.region, medial_order_only: 0 });
+                region: candidate.fact.volume, medial_order_only: 0 });
             provenance.push(AuditCertifiedProvenance { key: candidate.fact.key, time_raw,
                 wide_toi: candidate.wide_toi.ok_or(ExactScanReject::CompatibilityIdentity)? });
         }
@@ -2799,7 +2828,7 @@ pub(crate) mod tests {
         ContactFact {
             key: ContactKey { a: EntityId::new(a, 0), a_slot: 1,
                               b: EntityId::new(b, 0), b_slot: if kind == ContactKind::WeaponBody { BODY_SLOT } else { 1 }, kind },
-            toi: TimeOfImpact::new_clamped(Fx::from_raw(toi)), region: 0xff,
+            toi: TimeOfImpact::new_clamped(Fx::from_raw(toi)), volume: 0xff,
             point: Vec3::new(Fx::from_raw(toi), Fx::ZERO, Fx::ZERO), normal: Vec3::X,
             velocity_a: Vec3::new(Fx::from_raw(va), Fx::ZERO, Fx::ZERO),
             velocity_b: Vec3::new(Fx::from_raw(vb), Fx::ZERO, Fx::ZERO),
@@ -3148,7 +3177,7 @@ pub(crate) mod tests {
                         previous_lower: Vec3::ZERO, previous_upper: Vec3::ZERO,
                         requested_lower: body, requested_upper: body,
                         radius: Fx::ZERO, present: true,
-                    }; AnatomyRegion::COUNT] } },
+                    }; BODY_VOLUME_COUNT] } },
         ]
     }
 
@@ -3187,7 +3216,11 @@ pub(crate) mod tests {
         let mut states = [state(0, Vec3::X), state(1, Vec3::ZERO), state(2, Vec3::ZERO)];
         let contacts = [proposed(fact(0, 1, ContactKind::WeaponWeapon, 0, 65_536, 0), 0, 1, Fx::ONE),
                         proposed(fact(0, 2, ContactKind::WeaponWeapon, 0, 65_536, 0), 0, 2, Fx::ONE)];
-        assert_eq!(resolve_group(&mut states, &contacts, 0).unwrap()[0].group_alpha_raw, 43_691);
+        let (mut sums, mut trial) = (Vec::new(), Vec::new());
+        let (mut weights, mut shares, mut output) = (Vec::new(), Vec::new(), Vec::new());
+        resolve_group_into(&mut states, &contacts, 0, &mut IndependentPointProjector,
+            &mut sums, &mut trial, &mut weights, &mut shares, &mut output).unwrap();
+        assert_eq!(output[0].group_alpha_raw, 43_691);
     }
 
     #[test]
@@ -3204,7 +3237,9 @@ pub(crate) mod tests {
     #[test]
     fn contact_resolution_channels_do_not_narrow() {
         let total = u64::from(u32::MAX) + 1;
-        assert_eq!(allocate_weighted(total, &[1]), vec![total]);
+        let mut whole = Vec::new();
+        allocate_weighted_into(total, &[1], &mut whole).unwrap();
+        assert_eq!(whole, vec![total]);
         let row = WeaponBodyChannel { weapon_axis: Vec3::X, weapon_relative_velocity: Vec3::ZERO,
                                       edge_factor: Fx::ONE, point_factor: Fx::ONE,
                                       crush_factor: Fx::ONE, zero_length: true };
@@ -3347,7 +3382,7 @@ pub(crate) mod tests {
                     b_slot: match kind { ContactKind::WeaponShield => 0, ContactKind::WeaponBody => BODY_SLOT, _ => 1 },
                     ..base.key
                 },
-                region: if kind == ContactKind::WeaponBody { 1 } else { 0xff },
+                volume: if kind == ContactKind::WeaponBody { 1 } else { 0xff },
                 point: Vec3::Z,
                 ..base
             };

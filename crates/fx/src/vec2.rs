@@ -204,8 +204,10 @@ impl Neg for Vec2 {
 /// 62.5671 against 62.5717 before it was tracked down.
 ///
 /// Truncation is odd, so the mirror holds exactly. [`fx::mul_div`] makes the
-/// same choice for the same reason, and `Hand::track` makes it a third time on
-/// its angle integration.
+/// same choice for the same reason. It was made a third time in `sim`'s
+/// one-limb `Hand::track`, on its angle integration; that arm was retired with
+/// the phase machine, and every surviving integration reaches the rule through
+/// these two.
 ///
 /// [`fx::mul_div`]: crate::mul_div
 impl Mul<Fx> for Vec2 {

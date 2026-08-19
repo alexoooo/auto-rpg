@@ -5,7 +5,12 @@
 //! also lets replay, wasm, and the mechanical proof inspect the same result.
 
 use crate::{EntityId, Faction};
-use crate::combat::spec::{AnatomyRegion, SurfaceSpec};
+use crate::combat::spec::{SurfaceSpec, BODY_VOLUME_COUNT};
+// Anatomy is a fixture vocabulary here and nowhere else: production code in this
+// file names swept volumes, and the day it names a region again is the day this
+// import stops being test-only.
+#[cfg(test)]
+use crate::combat::spec::AnatomyRegion;
 #[cfg(feature = "cartesian-recoil")]
 use crate::combat::spec::EquipmentSpecId;
 #[cfg(any(test, feature = "cartesian-recoil"))]
@@ -45,10 +50,15 @@ pub const MAX_CONTACT_FACTS_PER_GROUP: usize = 512;
 pub const MAX_CONTACT_RESOLUTIONS_PER_TICK: usize = 4_096;
 pub const BODY_SLOT: u8 = 0xff;
 
-/// The region byte a fact that is not against a body carries. Weapon/weapon and
-/// weapon/shield have no anatomy to name, and `0xff` is outside every
-/// `BodyPart` discriminant rather than aliasing one of them.
-pub const NO_REGION: u8 = 0xff;
+/// The volume byte a fact that is not against a body carries. Weapon/weapon and
+/// weapon/shield have no body to name, and `0xff` is outside every
+/// [`BODY_VOLUME_COUNT`] index rather than aliasing one of them.
+///
+/// **Named for the volume rather than the region, which is the narrower and now
+/// the true statement.** It was `NO_REGION` while the two numberings were the
+/// same list; a fact carries the swept volume the solver chose, and
+/// [`crate::volume_region`] is what turns that into anatomy.
+pub const NO_VOLUME: u8 = 0xff;
 
 /// Componentwise entry clamp on every generalized contact velocity.
 ///
@@ -417,7 +427,18 @@ pub enum ExactScanRejectDiagnostic {
 pub struct ContactFact {
     pub key: ContactKey,
     pub toi: TimeOfImpact,
-    pub region: u8,
+    /// The **swept volume** the selection tuple chose, in `0..BODY_VOLUME_COUNT`,
+    /// or [`NO_VOLUME`] for a fact with no body on either side.
+    ///
+    /// **Not a region, and the name is the whole safety argument.** It was
+    /// `region` while a body presented exactly one volume per anatomy region, so
+    /// every reader that wanted anatomy could index a five-wide array with it and
+    /// be right by coincidence. A jointed arm presents two volumes for one
+    /// region, so `5` and `6` are now legal values that `BodyPart::from_index`
+    /// answers `None` for -- and a reader that kept the old spelling would drop a
+    /// forearm wound in silence rather than fail. [`crate::volume_region`] is the
+    /// one bridge; there is no other correct way to turn this byte into anatomy.
+    pub volume: u8,
     pub point: Vec3,
     pub normal: Vec3,
     pub velocity_a: Vec3,
@@ -454,11 +475,13 @@ pub struct ContactResolution {
     pub severed: bool,
 }
 
-/// One region's swept capsule for the whole tick.
+/// One swept volume's capsule for the whole tick.
 ///
-/// Five of these are a body. They are absolute rather than body-relative
-/// because two of them -- the arms -- are not rigid against the origin, so
-/// there is no one offset that could carry them.
+/// [`BODY_VOLUME_COUNT`] of these are a body, and that is seven rather than five
+/// because a jointed arm is two capsules answering for one region. They are
+/// absolute rather than body-relative because four of them -- the arms and the
+/// forearms -- are not rigid against the origin, so there is no one offset that
+/// could carry them.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct RegionSweep {
     pub previous_lower: Vec3,
@@ -485,14 +508,20 @@ pub enum ContactShape {
         radius: Fx,
     },
     Shield { previous: [Vec3; 4], requested: [Vec3; 4] },
-    /// A body is its five regional volumes plus the planar origin they were
-    /// built from. The origin is carried rather than recovered from a region,
-    /// because the commit needs the body's own settled point and every region
-    /// is offset from it by something the spec chose.
+    /// A body is its [`BODY_VOLUME_COUNT`] swept volumes plus the planar origin
+    /// they were built from. The origin is carried rather than recovered from a
+    /// volume, because the commit needs the body's own settled point and every
+    /// volume is offset from it by something the spec chose.
+    ///
+    /// The list is seven wide on every body, including the single-link ones
+    /// whose last two rows are always absent. A width that varied by model would
+    /// have to be a `Vec` in a `Copy` row the solver keeps on the stack, and
+    /// every loop over it would have to ask which model it was looking at; two
+    /// absent rows cost two skipped presence tests and nothing else.
     Body {
         previous_origin: Vec3,
         requested_origin: Vec3,
-        parts: [RegionSweep; AnatomyRegion::COUNT],
+        parts: [RegionSweep; BODY_VOLUME_COUNT],
     },
 }
 
@@ -548,9 +577,9 @@ struct CertifiedProvenance { key: ContactKey, time_raw: u32,
                              compatibility_sweep: Option<ExactCompatibilitySweepDiagnostic> }
 
 #[cfg(feature = "cartesian-recoil")]
-const EXACT_SEGMENT_BODY_VISIT_CAP: usize = AnatomyRegion::COUNT * 96;
+const EXACT_SEGMENT_BODY_VISIT_CAP: usize = BODY_VOLUME_COUNT * 96;
 #[cfg(feature = "cartesian-recoil")]
-const EXACT_PAIR_AABB_POINT_CAP: usize = AnatomyRegion::COUNT * 4 + 4;
+const EXACT_PAIR_AABB_POINT_CAP: usize = BODY_VOLUME_COUNT * 4 + 4;
 #[cfg(feature = "cartesian-recoil")]
 const EXACT_PAIR_AABB_AXIS_CAP: usize = 3;
 #[cfg(feature = "cartesian-recoil")]
@@ -944,7 +973,7 @@ impl Clone for ExactSegmentBodyTargetState {
 #[cfg(feature = "cartesian-recoil")]
 impl ExactSegmentBodyTargetState {
     fn try_reserve(&mut self) -> Result<(), ContactCapacityError> {
-        try_reserve_exact(&mut self.regions, AnatomyRegion::COUNT)?;
+        try_reserve_exact(&mut self.regions, BODY_VOLUME_COUNT)?;
         try_reserve_exact(&mut self.visits, EXACT_SEGMENT_BODY_VISIT_CAP)?;
         self.pair_aabb.try_reserve()?; self.point_x.try_reserve()
     }
@@ -971,7 +1000,7 @@ impl ExactSegmentBodyTargetState {
             && self.test_mutation == ExactSegmentBodyTestMutation::AllowSecondPending {
             self.test_mutation_fired = self.test_mutation_receipt; false
         } else { occupied };
-        if occupied || self.regions.capacity() < AnatomyRegion::COUNT
+        if occupied || self.regions.capacity() < BODY_VOLUME_COUNT
             || self.visits.capacity() < EXACT_SEGMENT_BODY_VISIT_CAP
             || self.pair_aabb.points.capacity() < EXACT_PAIR_AABB_POINT_CAP
             || self.pair_aabb.bounds.capacity() < EXACT_PAIR_AABB_AXIS_CAP
@@ -1061,7 +1090,7 @@ struct ExactSegmentBodyTargetRows<'a> {
 #[cfg(feature = "cartesian-recoil")]
 impl ExactSegmentBodyTargetRows<'_> {
     fn push_region(&mut self, row: ExactSegmentBodyRegionDiagnostic) -> Option<usize> {
-        if self.regions.len() == AnatomyRegion::COUNT { *self.invalid = true; return None }
+        if self.regions.len() == BODY_VOLUME_COUNT { *self.invalid = true; return None }
         let at = self.regions.len(); self.regions.push(row); Some(at)
     }
 
@@ -1370,6 +1399,17 @@ pub fn contact_bounds(high_water: usize) -> Result<ContactBounds, ContactCapacit
 /// Collect the earliest fact per contacting pair. World owns construction and
 /// capacity; this function owns only the hostile matrix and its full-identity
 /// ordering.
+///
+/// **A harness over [`scan_candidates_into`], gated rather than deleted.** It
+/// holds no rule of its own -- it allocates a scratch, calls the shipped scan,
+/// and projects the `fact` out of each candidate -- so a test that uses it is
+/// exercising production code and not a second implementation. Seventeen call
+/// sites across this module and `world/contact_phase.rs` read it, and inlining
+/// three lines of scratch bookkeeping into each of them would add no coverage
+/// and cost every one of those tests its subject. What it must not do is ship,
+/// because a `Vec` per call is the allocation the `_into` shape exists to
+/// refuse.
+#[cfg(test)]
 pub fn collect_contacts(colliders: &[ContactCollider]) -> Vec<ContactFact> {
     let mut scratch = ContactCollectionScratch::default();
     scan_candidates_into(colliders, &mut scratch);
@@ -1402,7 +1442,7 @@ fn scan_compatibility_candidates_into(
             if let Some(mut candidate) = candidate(a, b) {
                 #[cfg(feature = "cartesian-recoil")]
                 { candidate.wide_toi = Some(ExactWideToiDiagnostic {
-                    key: candidate.fact.key, region: candidate.fact.region,
+                    key: candidate.fact.key, region: candidate.fact.volume,
                     primitive: ExactWidePrimitiveDiagnostic::CompatibilityFallback,
                     interval_start_raw: 0, interval_end_raw: 65_536,
                     visited_times_raw: [0; 8], safe_steps_raw: [0; 8], visit_count: 0,
@@ -1479,8 +1519,8 @@ fn scan_detector_into(
                     || scratch.exact_wide.segment.candidate.len() != SEGMENT_CANDIDATE_CAP
                     || scratch.exact_wide.segment.committed.len() != 1
                     || scratch.exact_wide.rectangle_candidates.capacity() < 7
-                    || scratch.exact_wide.aabb_left.capacity() < AnatomyRegion::COUNT * 4
-                    || scratch.exact_wide.aabb_right.capacity() < AnatomyRegion::COUNT * 4 {
+                    || scratch.exact_wide.aabb_left.capacity() < BODY_VOLUME_COUNT * 4
+                    || scratch.exact_wide.aabb_right.capacity() < BODY_VOLUME_COUNT * 4 {
                     return Err(ExactScanReject::CompatibilityIdentity);
                 }
                 scratch.certified_selections.clear();
@@ -1727,7 +1767,7 @@ fn scan_detector_into(
                         .find(|row| row.fact.key == candidate.fact.key)
                         .and_then(|row| row.compatibility_sweep);
                     scratch.certified_selections.push(CertifiedSelection { time_raw,
-                        key: candidate.fact.key, region: candidate.fact.region,
+                        key: candidate.fact.key, region: candidate.fact.volume,
                         medial: candidate.wide_medial.unwrap_or_else(WideRational4096::zero) });
                     scratch.certified_provenance.push(CertifiedProvenance { time_raw,
                         key: candidate.fact.key, wide_toi, compatibility_sweep });
@@ -1764,7 +1804,7 @@ fn scan_detector_into(
                     // the envelope's region here would reject the same valid
                     // projectile/body key before the shared solver can project
                     // it onto anatomy.
-                    if fact.key != selection.key || (fact.region != selection.region
+                    if fact.key != selection.key || (fact.volume != selection.region
                             && selection.key.kind != ContactKind::ProjectileBody) {
                         return Err(ExactScanReject::CompatibilityIdentity);
                     }
@@ -2468,8 +2508,8 @@ impl ExactWideScratch {
     fn try_reserve(&mut self) -> Result<(), ContactCapacityError> {
         self.segment.try_reserve()?;
         try_reserve_exact(&mut self.rectangle_candidates, 7)?;
-        try_reserve_exact(&mut self.aabb_left, AnatomyRegion::COUNT * 4)?;
-        try_reserve_exact(&mut self.aabb_right, AnatomyRegion::COUNT * 4)?;
+        try_reserve_exact(&mut self.aabb_left, BODY_VOLUME_COUNT * 4)?;
+        try_reserve_exact(&mut self.aabb_right, BODY_VOLUME_COUNT * 4)?;
         #[cfg(feature = "cartesian-recoil")]
         self.segment_body_separation.try_reserve()?;
         Ok(())
@@ -2952,11 +2992,11 @@ fn wide_midpoint_in_frame(a: &WidePoint, b: &WidePoint, frame_raw: [i32; 3])
 fn make_wide_candidate(
     a: &ContactCollider, b: &ContactCollider, kind: ContactKind, toi: TimeOfImpact,
     point_a: &WidePoint, point_b: &WidePoint, frame_raw: [i32; 3],
-    distance_sq: Fx, feature: u8, region: u8,
+    distance_sq: Fx, feature: u8, volume: u8,
 ) -> Result<Candidate, ExactScanReject> {
     let mut candidate = make_candidate(a, b, kind, toi,
         wide_point_in_frame(point_a, frame_raw)?, wide_point_in_frame(point_b, frame_raw)?,
-        distance_sq, feature, region);
+        distance_sq, feature, volume);
     candidate.fact.point = wide_midpoint_in_frame(point_a, point_b, frame_raw)?;
     Ok(candidate)
 }
@@ -3554,7 +3594,7 @@ struct WideSweptAabbView<'a> {
 fn push_wide_aabb_point(out: &mut Vec<WidePoint>, point: WidePoint)
     -> Result<(), ExactScanReject>
 {
-    if out.len() == AnatomyRegion::COUNT * 4 || out.len() == out.capacity() {
+    if out.len() == BODY_VOLUME_COUNT * 4 || out.len() == out.capacity() {
         return Err(ExactScanReject::CompatibilityIdentity);
     }
     out.push(point);
@@ -3627,7 +3667,7 @@ fn fill_wide_swept_aabb_points(
             }
         }
         MotorShape::Body { parts, .. } => {
-            for region in 0..AnatomyRegion::COUNT {
+            for region in 0..BODY_VOLUME_COUNT {
                 if !parts[region].present { continue; }
                 let Some((l0, u0, radius_raw)) =
                     wide_body_region_at_time(row, owner, region, start)? else { continue };
@@ -3934,10 +3974,10 @@ fn wide_sweep_segments(a: &ExactContactTrajectory, ao: &ExactOwnerTrajectory,
             let mut candidate = make_candidate(&pa, &pb, ContactKind::WeaponWeapon,
                 TimeOfImpact::new_clamped(Fx::from_raw(time as i32)), wide_point_to_vec3(closest.a)?,
                 wide_point_to_vec3(closest.b)?, Fx::from_raw(i32::try_from(distance)
-                    .map_err(|_| ExactScanReject::ArithmeticEnvelope)?), closest.feature, NO_REGION);
+                    .map_err(|_| ExactScanReject::ArithmeticEnvelope)?), closest.feature, NO_VOLUME);
             #[cfg(feature = "cartesian-recoil")]
             { candidate.wide_toi = Some(ExactWideToiDiagnostic { key: candidate.fact.key,
-                region: NO_REGION, primitive: ExactWidePrimitiveDiagnostic::SegmentSegment,
+                region: NO_VOLUME, primitive: ExactWidePrimitiveDiagnostic::SegmentSegment,
                 interval_start_raw: ao.common_response.group_time_raw, interval_end_raw: 65_536,
                 visited_times_raw: [0; 8], safe_steps_raw: [0; 8], visit_count: 0,
                 accepted_root_raw: time, closest_feature: closest.feature,
@@ -3988,10 +4028,10 @@ fn wide_sweep_segment_shield(segment: &ExactContactTrajectory, so: &ExactOwnerTr
                 wide_point_to_vec3(closest.a)?, wide_point_to_vec3(closest.b)?,
                 Fx::from_raw(i32::try_from(distance)
                     .map_err(|_| ExactScanReject::ArithmeticEnvelope)?),
-                closest.feature, NO_REGION);
+                closest.feature, NO_VOLUME);
             #[cfg(feature = "cartesian-recoil")]
             { candidate.wide_toi = Some(ExactWideToiDiagnostic { key: candidate.fact.key,
-                region: NO_REGION, primitive: ExactWidePrimitiveDiagnostic::SegmentShield,
+                region: NO_VOLUME, primitive: ExactWidePrimitiveDiagnostic::SegmentShield,
                 interval_start_raw: so.common_response.group_time_raw, interval_end_raw: 65_536,
                 visited_times_raw: [0; 8], safe_steps_raw: [0; 8], visit_count: 0,
                 accepted_root_raw: time, closest_feature: closest.feature,
@@ -4235,7 +4275,7 @@ fn wide_sweep_segment_body(weapon: &ExactContactTrajectory, wo: &ExactOwnerTraje
     let mut winner: Option<(u32, usize, WideSegmentClosest, WideRational4096)> = None;
     #[cfg(feature = "cartesian-recoil")]
     let mut winner_trace = ExactWideVisitTrace::default();
-    for region in 0..AnatomyRegion::COUNT {
+    for region in 0..BODY_VOLUME_COUNT {
         let group = wo.common_response.group_time_raw;
         #[cfg(feature = "cartesian-recoil")]
         let region_at = diagnostic.as_mut().and_then(|rows| rows.push_region(
@@ -4724,7 +4764,7 @@ pub(crate) fn exact_contact_at_pose(
          MotorShape::Body { .. }) => {
             let projectile = matches!(left.motor, MotorShape::Projectile { .. });
             let mut chosen = None;
-            for region in 0..AnatomyRegion::COUNT {
+            for region in 0..BODY_VOLUME_COUNT {
                 let Some((closest, radius_raw, medial)) = wide_segment_body_at_time(
                     left, owner_left, right, owner_right, region, time,
                     &mut scratch.exact_wide)? else { continue };
@@ -4778,7 +4818,7 @@ pub(crate) fn exact_contact_at_pose(
             } else { Some(make_wide_candidate(&published_left, &published_right,
                 ContactKind::WeaponWeapon, toi, &closest.a, &closest.b,
                 wide_owner_motor_frame(trajectories, left)?,
-                Fx::ZERO, closest.feature, NO_REGION)?) }
+                Fx::ZERO, closest.feature, NO_VOLUME)?) }
         }
         (MotorShape::Segment { .. }, MotorShape::Shield { .. }) => {
             let (hilt, tip, radius_raw) = wide_segment_at_time(left, owner_left, time)?;
@@ -4791,7 +4831,7 @@ pub(crate) fn exact_contact_at_pose(
             } else { Some(make_wide_candidate(&published_left, &published_right,
                 ContactKind::WeaponShield, toi, &closest.a, &closest.b,
                 wide_owner_motor_frame(trajectories, left)?,
-                Fx::ZERO, closest.feature, NO_REGION)?) }
+                Fx::ZERO, closest.feature, NO_VOLUME)?) }
         }
         (MotorShape::Shield { .. }, MotorShape::Segment { .. }) => {
             return exact_contact_at_pose(trajectories, owners, compatibility, b, a, time, scratch);
@@ -5029,7 +5069,7 @@ fn exact_sweep_segment_body(
 ) -> Result<Option<Candidate>, ExactScanReject> {
     let mut winner: Option<(u32, crate::combat::trajectory::ExactRational, usize,
                             ExactSegmentClosest)> = None;
-    for region in 0..AnatomyRegion::COUNT {
+    for region in 0..BODY_VOLUME_COUNT {
         let Some((time, closest, medial)) = exact_sweep_segment_body_region(
             weapon, weapon_owner, body, body_owner, region)? else { continue };
         let replace = match winner {
@@ -5083,7 +5123,7 @@ fn exact_sweep_pair(
                                               (closest.distance_sq.numerator
                                                / closest.distance_sq.denominator) >> 16)
                                               .map_err(|_| ExactScanReject::ArithmeticEnvelope)?),
-                                          closest.feature, NO_REGION)));
+                                          closest.feature, NO_VOLUME)));
         }
         if time == 65_536 || exact_cmp(speed, exact_zero())? == Ordering::Equal { return Ok(None); }
         let delta = exact_vector_sub(closest.a, closest.b)?;
@@ -5186,8 +5226,8 @@ pub(crate) fn zero_response_compatibility(
                     lower: motor_point(Vec3::ZERO, Vec3::ZERO),
                     upper: motor_point(Vec3::ZERO, Vec3::ZERO),
                     radius_raw: 0, present: false,
-                }; AnatomyRegion::COUNT];
-                for at in 0..AnatomyRegion::COUNT {
+                }; BODY_VOLUME_COUNT];
+                for at in 0..BODY_VOLUME_COUNT {
                     bounds[at] = ExactMotorBounds {
                         lower: motor_point(parts[at].previous_lower, parts[at].requested_lower),
                         upper: motor_point(parts[at].previous_upper, parts[at].requested_upper),
@@ -5278,8 +5318,8 @@ fn zero_response_shape(row: &ExactContactTrajectory, time: u32)
             let origin = zero_response_motor_point(origin, time)?;
             let mut out = [crate::combat::trajectory::EvaluatedMotorBounds {
                 lower: origin, upper: origin, radius_raw: 0, present: false,
-            }; AnatomyRegion::COUNT];
-            for at in 0..AnatomyRegion::COUNT {
+            }; BODY_VOLUME_COUNT];
+            for at in 0..BODY_VOLUME_COUNT {
                 out[at] = crate::combat::trajectory::EvaluatedMotorBounds {
                     lower: zero_response_motor_point(parts[at].lower, time)?,
                     upper: zero_response_motor_point(parts[at].upper, time)?,
@@ -5321,7 +5361,7 @@ fn evaluated_matches(row: ContactCollider, at_start: EvaluatedContactShape,
          EvaluatedContactShape::Body { origin: a, parts: pa },
          EvaluatedContactShape::Body { origin: b, parts: pb }) =>
             rational_is_raw(a, previous_origin) && rational_is_raw(b, requested_origin)
-            && (0..AnatomyRegion::COUNT).all(|at| pa[at].radius_raw == parts[at].radius.raw()
+            && (0..BODY_VOLUME_COUNT).all(|at| pa[at].radius_raw == parts[at].radius.raw()
                 && pb[at].radius_raw == parts[at].radius.raw()
                 && pa[at].present == parts[at].present && pb[at].present == parts[at].present
                 && rational_is_raw(pa[at].lower, parts[at].previous_lower)
@@ -5461,7 +5501,7 @@ fn segment_segment_at_pose(a: &ContactCollider, b: &ContactCollider, toi: TimeOf
     let ContactShape::Segment { previous_hilt: bh, previous_tip: bt, .. } = b.shape else { return None };
     let closest = closest_points_on_segments(ah, at, bh, bt);
     Some(make_candidate(a, b, ContactKind::WeaponWeapon, toi,
-                        closest.a, closest.b, closest.distance_sq, 0, NO_REGION))
+                        closest.a, closest.b, closest.distance_sq, 0, NO_VOLUME))
 }
 
 fn segment_shield_at_pose(weapon: &ContactCollider, shield: &ContactCollider, toi: TimeOfImpact) -> Option<Candidate> {
@@ -5469,7 +5509,7 @@ fn segment_shield_at_pose(weapon: &ContactCollider, shield: &ContactCollider, to
     let ContactShape::Shield { previous, .. } = shield.shape else { return None };
     let closest = closest_points_segment_rectangle(previous_hilt, previous_tip, previous);
     Some(make_candidate(weapon, shield, ContactKind::WeaponShield, toi,
-                        closest.a, closest.b, closest.distance_sq, closest.feature, NO_REGION))
+                        closest.a, closest.b, closest.distance_sq, closest.feature, NO_VOLUME))
 }
 
 /// Re-derive a weapon/body fact at a single frozen pose, region included.
@@ -5581,10 +5621,10 @@ fn segment_segment_candidate(
     );
     #[allow(unused_mut)]
     let mut candidate = make_candidate(a, b, ContactKind::WeaponWeapon, toi, closest.a, closest.b,
-                                       closest.distance_sq, 0, NO_REGION);
+                                       closest.distance_sq, 0, NO_VOLUME);
     #[cfg(feature = "cartesian-recoil")]
     { candidate.compatibility_sweep = Some(compatibility_segment_diagnostic(candidate.fact.key,
-        NO_REGION, ah0, at0, ah1, at1, ar, bh0, bt0, bh1, bt1, br, toi)); }
+        NO_VOLUME, ah0, at0, ah1, at1, ar, bh0, bt0, bh1, bt1, br, toi)); }
     Some(candidate)
 }
 
@@ -5607,10 +5647,10 @@ fn segment_shield_candidate(
     );
     #[allow(unused_mut)]
     let mut candidate = make_candidate(weapon, shield, ContactKind::WeaponShield, toi,
-                        closest.a, closest.b, closest.distance_sq, closest.feature, NO_REGION);
+                        closest.a, closest.b, closest.distance_sq, closest.feature, NO_VOLUME);
     #[cfg(feature = "cartesian-recoil")]
     { candidate.compatibility_sweep = Some(ExactCompatibilitySweepDiagnostic {
-        key: candidate.fact.key, region: NO_REGION,
+        key: candidate.fact.key, region: NO_VOLUME,
         primitive: ExactCompatibilityPrimitiveDiagnostic::SweptSegmentRectangle,
         points_raw: [previous_hilt, previous_tip, requested_hilt, requested_tip,
                      previous[0], previous[1], previous[2], previous[3],
@@ -5621,23 +5661,29 @@ fn segment_shield_candidate(
     Some(candidate)
 }
 
-/// One weapon against a whole body: sweep all five volumes and publish the one
-/// the contract chooses.
+/// One weapon against a whole body: sweep every volume and publish the one the
+/// contract chooses.
 ///
-/// Exactly one fact comes out however many regions the weapon reaches. That is
+/// Exactly one fact comes out however many volumes the weapon reaches. That is
 /// not a simplification, it is the identity rule: a `ContactKey` names a body
-/// and not a region, so a second regional fact would be a duplicate key -- and
+/// and not a volume, so a second volume's fact would be a duplicate key -- and
 /// duplicate keys are what the driver's in-place sort has no total order over.
-/// The region is carried on the fact instead, and the tie-break tail on
-/// `BodyPart` is what makes two overlapping volumes answer the same way every
+/// The volume is carried on the fact instead, and the tie-break tail on the
+/// volume index is what makes two overlapping capsules answer the same way every
 /// time rather than in scan order.
 ///
-/// Every region is a general capsule rather than a vertical one, because two of
-/// them are: an arm runs shoulder to hand and points wherever the actuator left
-/// it. `swept_segment_segment` covers the vertical cases exactly -- with equal
-/// endpoint displacement and a zero half-height its conservative advance is the
-/// same sequence as the vertical form's -- so this is one primitive, not a
-/// generalisation that costs the columns anything.
+/// **The tail tolerating two volumes that answer the same body part is what let
+/// the forearm land without a second fact.** An upper arm and its forearm are
+/// separate rows here and both are legal winners; `volume_region` sends either
+/// one to the same `BodyPart` downstream, so the identity rule above is
+/// undisturbed by an arm that is now two capsules.
+///
+/// Every volume is a general capsule rather than a vertical one, because four of
+/// them are: an arm runs shoulder to elbow to hand and points wherever the
+/// actuator left it. `swept_segment_segment` covers the vertical cases exactly
+/// -- with equal endpoint displacement and a zero half-height its conservative
+/// advance is the same sequence as the vertical form's -- so this is one
+/// primitive, not a generalisation that costs the columns anything.
 fn segment_body_candidate(
     weapon: &ContactCollider, segment: ContactShape, body: &ContactCollider, capsule: ContactShape,
 ) -> Option<Candidate> {
@@ -5683,7 +5729,7 @@ fn segment_body_candidate(
 
 fn make_candidate(
     a: &ContactCollider, b: &ContactCollider, kind: ContactKind, toi: TimeOfImpact,
-    point_a: Vec3, point_b: Vec3, distance_sq: Fx, feature: u8, region: u8,
+    point_a: Vec3, point_b: Vec3, distance_sq: Fx, feature: u8, volume: u8,
 ) -> Candidate {
     let delta = point_b - point_a;
     let normal = if delta != Vec3::ZERO {
@@ -5700,7 +5746,7 @@ fn make_candidate(
             b_slot: if matches!(kind, ContactKind::WeaponBody | ContactKind::ProjectileBody) {
                 BODY_SLOT
             } else { b.slot }, kind },
-            toi, region, point: midpoint(point_a, point_b), normal,
+            toi, volume, point: midpoint(point_a, point_b), normal,
             velocity_a: a.velocity, velocity_b: b.velocity,
         },
         distance_sq,
@@ -5765,7 +5811,7 @@ pub(crate) fn write_fact(bytes: &mut Vec<u8>, fact: ContactFact) {
     put_u32(bytes, fact.key.b_slot as u32);
     put_u32(bytes, fact.key.kind as u32);
     put_u32(bytes, fact.toi.get().raw() as u32);
-    put_u32(bytes, fact.region as u32);
+    put_u32(bytes, fact.volume as u32);
     put_vec3(bytes, fact.point);
     put_vec3(bytes, fact.normal);
     put_vec3(bytes, fact.velocity_a);
@@ -6326,9 +6372,9 @@ mod tests {
                                            requested_hilt: to, requested_tip: to, radius: Fx::ZERO } }
     }
 
-    /// A body whose five regional volumes are the same point: overlapping in
-    /// the strongest possible sense, so the region it answers is decided by the
-    /// `BodyPart` tail of the tie-break and nothing else.
+    /// A body whose every swept volume is the same point: overlapping in the
+    /// strongest possible sense, so the volume it answers is decided by the
+    /// index tail of the tie-break and nothing else.
     fn coincident_body(entity: u32, faction: Faction, at: Vec3) -> ContactCollider {
         let part = RegionSweep {
             previous_lower: at, previous_upper: at, requested_lower: at, requested_upper: at,
@@ -6339,7 +6385,7 @@ mod tests {
             surface: surface(), velocity: Vec3::ZERO, velocity_offset: Vec3::ZERO, present: true,
             shape: ContactShape::Body {
                 previous_origin: at, requested_origin: at,
-                parts: [part; AnatomyRegion::COUNT],
+                parts: [part; BODY_VOLUME_COUNT],
             },
         }
     }
@@ -6368,7 +6414,7 @@ mod tests {
         let absent = RegionSweep { previous_lower: Vec3::ZERO, previous_upper: Vec3::ZERO,
             requested_lower: Vec3::ZERO, requested_upper: Vec3::ZERO,
             radius: Fx::ZERO, present: false };
-        let mut parts = [absent; AnatomyRegion::COUNT];
+        let mut parts = [absent; BODY_VOLUME_COUNT];
         parts[AnatomyRegion::Legs as usize] = RegionSweep {
             previous_lower: lower, previous_upper: upper,
             requested_lower: lower, requested_upper: upper,
@@ -6379,7 +6425,7 @@ mod tests {
         let attacker_origin = reflect(point([0, 458_752, 0]));
         let attacker_body = ContactCollider { shape: ContactShape::Body {
                 previous_origin: attacker_origin, requested_origin: attacker_origin,
-                parts: [absent; AnatomyRegion::COUNT] },
+                parts: [absent; BODY_VOLUME_COUNT] },
             ..coincident_body(0, Faction::Heroes, attacker_origin) };
         let rows = [attacker_body, weapon, target_body];
         let exact = zero_response_compatibility(&rows).unwrap();
@@ -6425,7 +6471,7 @@ mod tests {
         eprintln!("literal point={} | {} normal={:?} | {:?}", plain.point.y.raw(),
             mirror.point.y.raw(), plain.normal, mirror.normal);
         assert_eq!((plain.toi.get().raw(), mirror.toi.get().raw()), (38_127, 38_127));
-        assert_eq!((plain.region, mirror.region),
+        assert_eq!((plain.volume, mirror.volume),
                    (AnatomyRegion::Legs as u8, AnatomyRegion::Legs as u8));
         assert_eq!((plain.point.y.raw(), mirror.point.y.raw(),
                     1_048_576 - mirror.point.y.raw()),
@@ -6438,15 +6484,15 @@ mod tests {
         let plain = tick_32_resolution_provenance(false).fact;
         let mirror = tick_32_resolution_provenance(true).fact;
         assert_eq!((plain.key.a, plain.key.a_slot, plain.key.b, plain.key.b_slot,
-                    plain.key.kind, plain.toi, plain.region),
+                    plain.key.kind, plain.toi, plain.volume),
                    (mirror.key.a, 1 - mirror.key.a_slot, mirror.key.b, mirror.key.b_slot,
-                    mirror.key.kind, mirror.toi, mirror.region));
+                    mirror.key.kind, mirror.toi, mirror.volume));
         assert_eq!((plain.velocity_a.x, plain.velocity_a.y, plain.velocity_a.z),
                    (mirror.velocity_a.x, -mirror.velocity_a.y, mirror.velocity_a.z));
         assert_eq!(plain.velocity_b, mirror.velocity_b);
         // Resolution decoration is downstream of this identical fact identity;
         // the lifted row copies ordinal/alpha, impulse, energy and channels.
-        assert_eq!((plain.toi.get().raw(), plain.region), (38_127, 4));
+        assert_eq!((plain.toi.get().raw(), plain.volume), (38_127, 4));
     }
 
     #[cfg(feature = "cartesian-recoil")]
@@ -6553,7 +6599,7 @@ mod tests {
     #[test]
     fn exact_point_publication_does_not_change_toi_region_distance_or_key() {
         let plain = tick_32_resolution_provenance(false);
-        assert_eq!((plain.fact.toi.get().raw(), plain.fact.region, plain.closest.feature),
+        assert_eq!((plain.fact.toi.get().raw(), plain.fact.volume, plain.closest.feature),
                    (38_127, AnatomyRegion::Legs as u8, 0));
         assert_eq!((plain.fact.key.a, plain.fact.key.a_slot, plain.fact.key.b,
                     plain.fact.key.b_slot, plain.fact.key.kind),
@@ -6823,7 +6869,7 @@ mod tests {
         let absent = RegionSweep { previous_lower: Vec3::ZERO, previous_upper: Vec3::ZERO,
             requested_lower: Vec3::ZERO, requested_upper: Vec3::ZERO,
             radius: Fx::ZERO, present: false };
-        let mut parts = [absent; AnatomyRegion::COUNT];
+        let mut parts = [absent; BODY_VOLUME_COUNT];
         let lower = point([827_064, 13_107, 91_750]);
         let upper = point([814_776, 13_107, 58_982]);
         parts[AnatomyRegion::Legs as usize] = RegionSweep {
@@ -6853,7 +6899,7 @@ mod tests {
                 b: rows[1].entity, b_slot: BODY_SLOT, kind: ContactKind::WeaponBody })
             .collect();
         assert_eq!(selected.len(), 1);
-        assert_eq!((selected[0].fact.toi.get().raw(), selected[0].fact.region),
+        assert_eq!((selected[0].fact.toi.get().raw(), selected[0].fact.volume),
                    (902, AnatomyRegion::Legs as u8));
         let mut scratch = ContactCollectionScratch::default(); scratch.try_reserve(2).unwrap();
         assert_eq!(exact_contact_at_pose(&exact.trajectories, &exact.owners, &rows,
@@ -7518,7 +7564,7 @@ mod tests {
 
         let segment_row = segment(0, Faction::Heroes, Vec3::ZERO, Vec3::X, Vec3::X);
         let mut body_row = coincident_body(1, Faction::Monsters, Vec3::ZERO);
-        let absent = AnatomyRegion::COUNT / 2;
+        let absent = BODY_VOLUME_COUNT / 2;
         if let ContactShape::Body { parts, .. } = &mut body_row.shape {
             for part in parts.iter_mut() { part.present = true; }
             parts[absent].present = false;
@@ -7544,7 +7590,7 @@ mod tests {
              ExactPairAabbEndpointDiagnostic::End),
         ];
         let mut ordinal = 0u8;
-        for region in 0..AnatomyRegion::COUNT { if region != absent {
+        for region in 0..BODY_VOLUME_COUNT { if region != absent {
             for (source, endpoint) in [
                 (ExactPairAabbPointSourceDiagnostic::BodyLower,
                  ExactPairAabbEndpointDiagnostic::Start),
@@ -7762,7 +7808,7 @@ mod tests {
     #[cfg(feature = "cartesian-recoil")]
     fn smart131_trace_is_complete(diagnostic: ExactSegmentBodyTargetDiagnostic<'_>) -> bool {
         let Some(pair) = diagnostic.pair else { return diagnostic.encounter_count == 0 };
-        pair.regions.len() <= AnatomyRegion::COUNT
+        pair.regions.len() <= BODY_VOLUME_COUNT
             && pair.visits.len() <= EXACT_SEGMENT_BODY_VISIT_CAP
             && pair.regions.iter().all(|region| {
                 let end = region.visit_start + region.visit_count as usize;
@@ -7820,7 +7866,7 @@ mod tests {
         assert_eq!(cloned.segment_body_target_diagnostic(),
                    scratch.segment_body_target_diagnostic());
         let cloned_capacities = cloned.capacities();
-        assert!(cloned_capacities[18] >= AnatomyRegion::COUNT);
+        assert!(cloned_capacities[18] >= BODY_VOLUME_COUNT);
         assert!(cloned_capacities[19] >= EXACT_SEGMENT_BODY_VISIT_CAP);
         assert!(cloned_capacities[20] >= EXACT_PAIR_AABB_POINT_CAP);
         assert!(cloned_capacities[21] >= EXACT_PAIR_AABB_AXIS_CAP);
@@ -7976,11 +8022,11 @@ mod tests {
         let mut other = segment(1, Faction::Monsters, Vec3::ZERO, Vec3::ZERO, Vec3::ZERO);
         let point = WidePoint([WideRational4096::zero(); 3]);
         let zero = make_wide_candidate(&row, &other, ContactKind::WeaponWeapon,
-            TimeOfImpact::ZERO, &point, &point, [0; 3], Fx::ZERO, 0, NO_REGION).unwrap();
+            TimeOfImpact::ZERO, &point, &point, [0; 3], Fx::ZERO, 0, NO_VOLUME).unwrap();
         assert_eq!(zero.fact.normal, Vec3::X);
         other.velocity = -Vec3::Y;
         let moving = make_wide_candidate(&row, &other, ContactKind::WeaponWeapon,
-            TimeOfImpact::ONE, &point, &point, [0; 3], Fx::ZERO, 0, NO_REGION).unwrap();
+            TimeOfImpact::ONE, &point, &point, [0; 3], Fx::ZERO, 0, NO_VOLUME).unwrap();
         assert_eq!(moving.fact.normal, Vec3::Y);
     }
 
@@ -8040,7 +8086,7 @@ mod tests {
         let denominator = 1i128 << 96;
         let term = WideRational4096::new(1, denominator).unwrap();
         let mut total = WideRational4096::zero();
-        let terms = MAX_ARTICULATED_ENTITIES * AnatomyRegion::COUNT * 4 - 1;
+        let terms = MAX_ARTICULATED_ENTITIES * BODY_VOLUME_COUNT * 4 - 1;
         for _ in 0..terms {
             total = wide_add(total, term).unwrap();
         }
@@ -8391,13 +8437,13 @@ mod tests {
         exact.owners[1].common_response.momentum[0].velocity_raw = 3;
         let mut scratch = ContactCollectionScratch::default(); scratch.try_reserve(1).unwrap();
         scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows, &mut scratch).unwrap();
-        assert_eq!(scratch.candidates()[0].fact.region, 0);
+        assert_eq!(scratch.candidates()[0].fact.volume, 0);
         assert_eq!(scratch.candidates()[0].fact.velocity_b.x.raw(), 3);
 
         let MotorShape::Body { ref mut parts, .. } = exact.trajectories[1].motor else { panic!() };
         parts[0].present = false;
         scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows, &mut scratch).unwrap();
-        assert_eq!(scratch.candidates()[0].fact.region, 1);
+        assert_eq!(scratch.candidates()[0].fact.volume, 1);
     }
 
     #[test]
@@ -8526,15 +8572,19 @@ mod tests {
     }
 
     #[test]
-    fn wide_aabb_scratch_reserves_two_exact_twenty_point_buffers() {
+    /// Four points a swept volume, both sides. Written as the arithmetic rather
+    /// than as the 20 that stood here, because the twenty was five regions times
+    /// four and the five became [`BODY_VOLUME_COUNT`].
+    fn wide_aabb_scratch_reserves_two_exact_per_volume_buffers() {
         let mut scratch = ExactWideScratch::default();
         scratch.try_reserve().unwrap();
         assert_eq!((scratch.aabb_left.len(), scratch.aabb_right.len()), (0, 0));
-        assert!(scratch.aabb_left.capacity() >= 20 && scratch.aabb_right.capacity() >= 20);
+        assert!(scratch.aabb_left.capacity() >= BODY_VOLUME_COUNT * 4
+                && scratch.aabb_right.capacity() >= BODY_VOLUME_COUNT * 4);
     }
 
     #[test]
-    fn wide_aabb_fill_uses_four_eight_and_twenty_points_in_frozen_order() {
+    fn wide_aabb_fill_uses_four_eight_and_one_pair_per_volume_in_frozen_order() {
         let segment_row = segment(0, Faction::Heroes, Vec3::ZERO, Vec3::X, Vec3::X);
         let shield_row = ContactCollider { entity: EntityId::new(0, 0),
             faction: Faction::Heroes, slot: 0, mass: Fx::ONE, surface: surface(),
@@ -8542,9 +8592,15 @@ mod tests {
             shape: ContactShape::Shield { previous: shield_face(),
                 requested: shield_face().map(|point| point + Vec3::X) } };
         let body_row = coincident_body(0, Faction::Heroes, Vec3::ZERO);
-        for (row, count) in [(segment_row, 4), (shield_row, 8), (body_row, 20)] {
+        // A body contributes four points per **present** volume, and
+        // `coincident_body` presents all of them, so the count is the volume
+        // count and not the region count. It was 20 while a body was five
+        // capsules.
+        for (row, count) in [(segment_row, 4), (shield_row, 8),
+                             (body_row, BODY_VOLUME_COUNT * 4)] {
             let exact = zero_response_compatibility(&[row]).unwrap();
-            let mut points = Vec::new(); try_reserve_exact(&mut points, 20).unwrap();
+            let mut points = Vec::new();
+            try_reserve_exact(&mut points, BODY_VOLUME_COUNT * 4).unwrap();
             fill_wide_swept_aabb_points(
                 &mut points, &exact.trajectories[0], &exact.owners[0], 0, 65_536,
                 #[cfg(feature = "cartesian-recoil")] ExactPairAabbSideDiagnostic::A,
@@ -8568,7 +8624,7 @@ mod tests {
         let exact = zero_response_compatibility(&rows).unwrap();
         let mut scratch = ExactWideScratch::default(); scratch.try_reserve().unwrap();
         let capacities = (scratch.aabb_left.capacity(), scratch.aabb_right.capacity());
-        for region in 0..AnatomyRegion::COUNT {
+        for region in 0..BODY_VOLUME_COUNT {
             let _ = wide_segment_body_region_aabbs_are_disjoint_during(
                 &exact.trajectories[0], &exact.owners[0], &exact.trajectories[1],
                 &exact.owners[1], region, 0, 65_536, &mut scratch).unwrap();
@@ -8578,17 +8634,26 @@ mod tests {
     }
 
     #[test]
-    fn a_twenty_first_aabb_point_refuses_before_push() {
-        let mut points = Vec::new(); try_reserve_exact(&mut points, 20).unwrap();
-        for _ in 0..20 {
+    /// One past four points a volume refuses, and refuses *before* the push --
+    /// which is what keeps the buffer's capacity an argument about the worst
+    /// case rather than a place a reallocation can hide.
+    ///
+    /// The buffer is reserved one row wider than the cap on purpose, so that the
+    /// cap is what refuses and not `out.len() == out.capacity()`. The twenty this
+    /// was written against did both at once, and could not have told them apart.
+    fn a_point_past_the_body_volume_cap_refuses_before_push() {
+        let cap = BODY_VOLUME_COUNT * 4;
+        let mut points = Vec::new(); try_reserve_exact(&mut points, cap + 1).unwrap();
+        for _ in 0..cap {
             push_wide_aabb_point(&mut points,
                 WidePoint([WideRational4096::zero(); 3])).unwrap();
         }
         let capacity = points.capacity();
+        assert!(capacity > cap, "the cap and the capacity refuse together");
         assert_eq!(push_wide_aabb_point(&mut points,
             WidePoint([WideRational4096::zero(); 3])),
             Err(ExactScanReject::CompatibilityIdentity));
-        assert_eq!((points.len(), points.capacity()), (20, capacity));
+        assert_eq!((points.len(), points.capacity()), (cap, capacity));
     }
 
     #[test]
@@ -8963,8 +9028,8 @@ mod tests {
             assert_eq!(facts.len(), 1, "a body published more than one fact at z={}", height.raw());
             assert_eq!(facts[0].key.kind, ContactKind::WeaponBody);
             assert_eq!(facts[0].key.b_slot, BODY_SLOT);
-            assert_eq!(facts[0].region, expected as u8,
-                       "a strike at z={} chose region {}", height.raw(), facts[0].region);
+            assert_eq!(facts[0].volume, expected as u8,
+                       "a strike at z={} chose region {}", height.raw(), facts[0].volume);
         }
     }
 
@@ -8977,7 +9042,7 @@ mod tests {
         let weapon = segment(0, Faction::Heroes, Vec3::from_ints(1, 0, 0), -Vec3::X, -Vec3::X * Fx::TWO);
         let facts = collect_contacts(&[weapon, coincident_body(1, Faction::Monsters, Vec3::ZERO)]);
         assert_eq!(facts.len(), 1, "coincident regions produced duplicate contact keys");
-        assert_eq!(facts[0].region, AnatomyRegion::Head as u8);
+        assert_eq!(facts[0].volume, AnatomyRegion::Head as u8);
 
         // And the middle term, isolated. Two half-radius spheres, one centred
         // on the weapon and one a little above it, both already containing it
@@ -8992,7 +9057,13 @@ mod tests {
             radius: Fx::HALF, present: true,
         };
         let absent = RegionSweep { present: false, ..sphere(Fx::ZERO) };
-        let parts = [absent, sphere(Fx::from_ratio(2, 5)), sphere(Fx::ZERO), absent, absent];
+        // Written as a fill plus two writes rather than as a literal list, so
+        // that a body growing an eighth volume is a compile error in one place
+        // instead of a silently short array here. The five-element literal this
+        // replaced is exactly what the forearm session had to find.
+        let mut parts = [absent; BODY_VOLUME_COUNT];
+        parts[AnatomyRegion::Torso as usize] = sphere(Fx::from_ratio(2, 5));
+        parts[AnatomyRegion::LeftArm as usize] = sphere(Fx::ZERO);
         let body = ContactCollider {
             shape: ContactShape::Body {
                 previous_origin: Vec3::ZERO, requested_origin: Vec3::ZERO, parts,
@@ -9012,7 +9083,7 @@ mod tests {
 
         let facts = collect_contacts(&[weapon, body]);
         assert_eq!(facts.len(), 1);
-        assert_eq!(facts[0].region, AnatomyRegion::LeftArm as u8,
+        assert_eq!(facts[0].volume, AnatomyRegion::LeftArm as u8,
                    "the nearer medial axis lost to the lower BodyPart");
     }
 
@@ -9026,7 +9097,7 @@ mod tests {
         parts[AnatomyRegion::Torso as usize].present = false;
         let facts = collect_contacts(&[thrust_at_height(Fx::from_ratio(11, 10)), fighter]);
         assert_eq!(facts.len(), 1);
-        assert_ne!(facts[0].region, AnatomyRegion::Torso as u8,
+        assert_ne!(facts[0].volume, AnatomyRegion::Torso as u8,
                    "an absent region still answered a sweep");
 
         // Absent everywhere is no fact at all, not a degenerate point one.

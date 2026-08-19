@@ -1,6 +1,6 @@
 import {
   DUNGEON_OBJECT_LAYOUT_VERSION, DUNGEON_OBJECT_OFFSET, DUNGEON_OBJECT_STRIDE,
-  EVENT_STRIDE, FOCUS_NONE, FRAME_LAYOUT_VERSION, FRAME_MAX, FRAME_OFFSET, FURNITURE_MAX,
+  EVENT_STRIDE, FRAME_LAYOUT_VERSION, FRAME_MAX, FRAME_OFFSET, FURNITURE_MAX,
   FURNITURE_OFFSET, FURNITURE_STRIDE, HEADER_LEN, MAP_MAX, MAP_OFFSET,
   MAX_DUNGEON_OBJECTS, MAX_EVENTS, MAX_SHOTS, MAX_UNITS, SHOT_STRIDE, SNAPSHOT_BUFFER_BYTES,
   UNIT_STRIDE, VIS_OFFSET,
@@ -10,10 +10,6 @@ import {
 } from "../protocol/messages.js";
 
 export const MAP_UNKNOWN = 255;
-const ORDER_FOCUS = 3;
-const HEADER_ORDER_KIND = 2;
-const HEADER_ORDER_X = 3;
-const HEADER_ORDER_Y = 4;
 const HEADER_UNIT_COUNT = 6;
 const HEADER_SHOT_COUNT = 7;
 const HEADER_EVENT_COUNT = 8;
@@ -34,7 +30,6 @@ export type LegacyPublication = {
   dungeonObjectLength: number; dungeonObjectsDropped: number;
   mapCols: number; mapRows: number; mapTileSizeMilli: number;
   mapRevision: number; visRevision: number; furnitureRevision: number;
-  focusEntityIndex: number; focusEntityGeneration: number;
 };
 
 export type FilteredPublication = Omit<SnapshotMessage,
@@ -97,22 +92,21 @@ export class SnapshotFilterState {
     let outputAt = HEADER_LEN;
     let unitCount = 0;
     const visibleIndices = new Set<number>();
-    const visibleIdentities = new Set<string>();
     for (let row = 0; row < sourceUnits; row++, sourceAt += UNIT_STRIDE) {
       if (src[sourceAt + UNIT_VISIBLE] === 0) continue;
       out.set(src.subarray(sourceAt, sourceAt + UNIT_STRIDE), outputAt);
       visibleIndices.add(numberAt(src, sourceAt + UNIT_ENTITY_INDEX));
-      visibleIdentities.add(`${numberAt(src, sourceAt + UNIT_ENTITY_INDEX)}:${numberAt(src, sourceAt + UNIT_ENTITY_GENERATION)}`);
       outputAt += UNIT_STRIDE;
       unitCount++;
     }
-    if (out[HEADER_ORDER_KIND] === ORDER_FOCUS
-      && (publication.focusEntityIndex === FOCUS_NONE
-        || publication.focusEntityGeneration === FOCUS_NONE
-        || !visibleIdentities.has(`${publication.focusEntityIndex}:${publication.focusEntityGeneration}`))) {
-      out[HEADER_ORDER_X] = 0;
-      out[HEADER_ORDER_Y] = 0;
-    }
+    // **The order point used to be blanked here and there is nothing left to
+    // blank.** A `Focus` order named a quarry, and a quarry the player could not
+    // see leaked its position through header slots 3 and 4 -- so the filter read
+    // `focus_entity_index` and `focus_entity_generation` beside the visible set
+    // and zeroed the point when the two did not name a body in it. Those two
+    // exports are gone with the order channel: an embodied body perceives no
+    // standing order, header slot 2 is `Hold` forever, and slots 3 and 4 are the
+    // origin. Nothing reaches the frame to be hidden.
 
     const mapLength = publication.mapLength;
     const filteredMap = new Uint8Array(mapLength);
@@ -228,8 +222,7 @@ export function validateLegacyPublication(value: LegacyPublication): void {
   }
   const integerFields = [value.frameLength, value.mapLength, value.visLength, value.furnitureLength,
     value.dungeonObjectLength, value.dungeonObjectsDropped,
-    value.mapCols, value.mapRows, value.mapTileSizeMilli, value.mapRevision, value.visRevision, value.furnitureRevision,
-    value.focusEntityIndex, value.focusEntityGeneration];
+    value.mapCols, value.mapRows, value.mapTileSizeMilli, value.mapRevision, value.visRevision, value.furnitureRevision];
   if (!integerFields.every((field) => isU32(field))) throw new RangeError("publication metadata is not u32");
   if (value.mapTileSizeMilli === 0 || value.mapCols * value.mapRows !== value.mapLength
     || value.mapLength !== value.visLength || value.mapLength > MAP_MAX) throw new RangeError("map/VIS shape is invalid");

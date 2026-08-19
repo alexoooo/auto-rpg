@@ -45,11 +45,13 @@ const FURNITURE_DOOR_OPEN: u8 = 1;
 /// the consumer indexes `POSE_INTEGRITY_FIRST + part` against a number rather
 /// than against a literal five it also has to keep in step with `BodyPart`.
 ///
-/// The same number as `REGIONS_PER_BODY` and deliberately its own name: one is
-/// how wide a pose row's fraction blocks are, the other is how many region rows
-/// a body publishes, and a consumer reaching for the wrong one would be reading
-/// the right value for the wrong reason. Both are `sim::AnatomyRegion::COUNT`
-/// in Rust, so they cannot drift; the test below states the identity once.
+/// **It used to be the same number as `REGIONS_PER_BODY`, and it is not any
+/// more.** The two always answered different questions -- one is how wide a pose
+/// row's fraction blocks are, the other is how many region rows a body publishes
+/// -- and having them agree numerically was what let a consumer reach for the
+/// wrong one and get the right value. The forearm collider separated them: a
+/// body presents seven swept volumes and has five anatomy regions. The test
+/// below states the relation that replaced the identity.
 const POSE_BODY_PART_COUNT: usize = sim::AnatomyRegion::COUNT;
 
 /// The slot value that names the body itself rather than a grip. Carried across
@@ -115,6 +117,8 @@ fn generated() -> String {
     emit!(REGIONS_PER_BODY);
     emit!(ARTICULATED_PROJECTILE_LAYOUT_VERSION);
     emit!(ARTICULATED_PROJECTILE_STRIDE);
+    emit!(EMBODIED_STANCE_LAYOUT_VERSION);
+    emit!(EMBODIED_STANCE_STRIDE);
     output.push('\n');
     emit!(MAX_UNITS);
     emit!(MAX_SHOTS);
@@ -127,6 +131,7 @@ fn generated() -> String {
     emit!(MAX_COMBAT_EVENTS);
     emit!(MAX_REGIONS);
     emit!(MAX_ARTICULATED_PROJECTILES);
+    emit!(MAX_EMBODIED_STANCE);
     output.push('\n');
     emit!(FRAME_OFFSET);
     emit!(MAP_OFFSET);
@@ -363,13 +368,20 @@ fn generated() -> String {
     emit!(ARTICULATED_PROJECTILE_VELOCITY_Z);
     emit!(ARTICULATED_PROJECTILE_RADIUS);
     emit!(ARTICULATED_PROJECTILE_REMAINING_RANGE);
-    output.push_str(
-        "\nexport const FOCUS_NONE = 4294967295;\n\
-         export const FOCUS_IDENTITY_EXPORTS = [\n\
-         \x20 \"focus_entity_index\",\n\
-         \x20 \"focus_entity_generation\",\n\
-         ] as const;\n",
-    );
+    output.push('\n');
+    emit!(EMBODIED_STANCE_ENTITY_INDEX);
+    emit!(EMBODIED_STANCE_ENTITY_GENERATION);
+    emit!(EMBODIED_STANCE_HIP_YAW_RAW);
+    emit!(EMBODIED_STANCE_PELVIS_RAW);
+    emit!(EMBODIED_STANCE_TWIST_RAW);
+    emit!(EMBODIED_STANCE_STEP_LEFT);
+    // **The focus block was emitted here and is gone with the exports it named.**
+    // `FOCUS_IDENTITY_EXPORTS` was a two-name list the worker spread into its
+    // boot check, and `FOCUS_NONE` was the sentinel the snapshot filter compared
+    // those two exports' answers against. `focus_entity_index` and
+    // `focus_entity_generation` no longer exist -- an embodied body perceives no
+    // standing order, so there is no quarry to name -- and a generated constant
+    // whose only reader was fed by a deleted export is a mirror of nothing.
     output
 }
 
@@ -415,7 +427,8 @@ mod tests {
         // that would otherwise go quiet -- an assertion that every region fits
         // says nothing about a region reserved for nobody. The buffer ends
         // within one alignment step of the dungeon-object block, so a pose,
-        // combat-event or anatomy-region block appended here without a consumer
+        // combat-event, anatomy-region or stance block appended here without a
+        // consumer
         // fails this line rather than silently widening three pooled buffers and
         // the memset `snapshot.ts` runs once per filtered publication. All three
         // wait on the *game* path's visibility-filtered copy: v2-ui-07 was named
@@ -525,10 +538,44 @@ mod tests {
             ARTICULATED_PROJECTILE_VELOCITY_Y, ARTICULATED_PROJECTILE_VELOCITY_Z,
             ARTICULATED_PROJECTILE_RADIUS, ARTICULATED_PROJECTILE_REMAINING_RANGE,
         ], core::array::from_fn::<_, ARTICULATED_PROJECTILE_STRIDE, _>(|index| index));
-        // One number under two names, stated once so a consumer reaching for
-        // either gets the same five. See `POSE_BODY_PART_COUNT`.
-        assert_eq!(REGIONS_PER_BODY, POSE_BODY_PART_COUNT);
-        // Five region rows for every pose row the buffer beside it can hold. A
+        // The stance row, in the same idiom a fifth time. Six columns: a full
+        // identity, the two angles that are not the body's own, and the two
+        // scalars a renderer cannot derive from anything else it is given.
+        assert_eq!([
+            EMBODIED_STANCE_ENTITY_INDEX, EMBODIED_STANCE_ENTITY_GENERATION,
+            EMBODIED_STANCE_HIP_YAW_RAW, EMBODIED_STANCE_PELVIS_RAW,
+            EMBODIED_STANCE_TWIST_RAW, EMBODIED_STANCE_STEP_LEFT,
+        ], core::array::from_fn::<_, EMBODIED_STANCE_STRIDE, _>(|index| index));
+        // A stance belongs to a body that also publishes a pose, so the two caps
+        // are one cap. A stance buffer that could fill first would drop the legs
+        // of a body whose torso crossed.
+        assert_eq!(MAX_EMBODIED_STANCE, MAX_POSES);
+        // **Two numbers, and this states which is which.** The region section is
+        // keyed by *swept volume* and the pose block's fraction arrays by
+        // *anatomy region*: a jointed arm is two capsules for one region, so
+        // there are two more region rows than there are body parts, and the two
+        // extra are the forearms. `assert_eq!(REGIONS_PER_BODY,
+        // POSE_BODY_PART_COUNT)` stood here while the two were one number, and a
+        // consumer that read the identity out of it would now index a five-wide
+        // integrity array with a `5`.
+        //
+        // The pose block's arrays stayed five because they are anatomy and
+        // anatomy did not grow: a forearm has no integrity, no wound row, no
+        // armour and no severance of its own -- it is part of an arm, and losing
+        // it is losing the arm. Widening them would have moved
+        // `POSE_LAYOUT_VERSION`, the anatomy hash row and every observation
+        // feature that counts region words, all to publish two columns that are
+        // copies of the two beside them.
+        //
+        // The relation is stated as arithmetic rather than as a bare inequality
+        // so that a third capsule per arm, or a sixth region, fails here.
+        assert_eq!(REGIONS_PER_BODY, POSE_BODY_PART_COUNT + 2);
+        // The first `POSE_BODY_PART_COUNT` region rows are the body parts in
+        // their own order, which is what lets a consumer keep indexing regions 2
+        // and 3 as the arms. The forearms were appended and not interleaved for
+        // exactly that reason.
+        assert!(REGIONS_PER_BODY >= POSE_BODY_PART_COUNT);
+        // Region rows for every pose row the buffer beside it can hold. A
         // region row carries no identity -- the pose row at `n / REGIONS_PER_BODY`
         // is its identity -- so a capacity that could fill first would publish
         // half a body and misalign every row after it.

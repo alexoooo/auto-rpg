@@ -1,7 +1,7 @@
 // The main thread's half of the recording channel.
 //
 // One `Worker` per mounted arena route, reused for every [Fight]. Not one per
-// fight: instantiating `web.wasm` and warming `init_articulated` costs more than
+// fight: instantiating `web.wasm` and warming `init` costs more than
 // the fight does, and a worker that is thrown away after each recording pays
 // both again every time.
 //
@@ -16,11 +16,8 @@ import type {
   TerminatedMessage,
 } from "../protocol/messages.js";
 import { WORKER_PROTOCOL_VERSION, isU32 } from "../protocol/messages.js";
-import { LEARNED_POLICY_CODE, encodeArenaConfig, type ArenaConfig } from "./arena-config.js";
+import { encodeArenaConfig, type ArenaConfig } from "./arena-config.js";
 import type { Recording } from "../fight/live.js";
-
-/** Where the trained network is served from, in development and in `dist`. */
-export const CHECKPOINT_URL = "/checkpoints/v2-probe.ckpt";
 
 export type ArenaProgress = (ticksDone: number, ticksTotal: number) => void;
 
@@ -160,7 +157,6 @@ export class ArenaClient {
    */
   #claim = 0;
   #nextRequestId = 1;
-  #checkpoint: ArrayBuffer | null = null;
   #disposed = false;
 
   constructor(createWorker: () => Worker) {
@@ -180,13 +176,15 @@ export class ArenaClient {
    * **The claim is taken before the first `await` and the wake-up is checked
    * against it, and both halves were missing.** The guard used to be one
    * `if (this.#pending !== null)` over a field assigned *inside* the returned
-   * promise's executor -- which runs after `await this.#loadCheckpoint()`. Two
-   * presses of a `learned` matchup therefore both found the slot empty while
+   * promise's executor -- which ran after an `await` on the checkpoint fetch.
+   * Two presses of a `learned` matchup therefore both found the slot empty while
    * suspended on the same fetch, both posted a start, and the second came back
    * `arenaBusy` from a worker recording the first. The same hole in a second
    * shape: two waiters released by one `cancelled` refusal both resumed past a
    * test that had been true when they took it, and the middle promise never
-   * settled because `#pending` had already been overwritten.
+   * settled because `#pending` had already been overwritten. **The fetch went in
+   * v2-ui-08 and the guard stays**: `await previous` is still an `await` before
+   * the slot is written, so the second shape is reachable with no fetch at all.
    *
    * So a press that is superseded before it posts anything is refused rather
    * than queued. Queueing was the alternative and it is wrong for a button: a
@@ -209,13 +207,17 @@ export class ArenaClient {
     try {
       await previous;
       this.#requireNewest(claim);
-      const needsCheckpoint = config.fighters.some((fighter) => fighter.policy === LEARNED_POLICY_CODE);
-      // Fetched before the worker is asked to do anything, so a missing checkpoint
-      // is a sentence about a file rather than a refusal from wasm. The bytes are
-      // kept: a reader pressing [Fight] twice should not fetch the same fifteen
-      // kilobytes twice, and the buffer is transferred so a fresh copy travels.
-      const checkpoint = needsCheckpoint ? await this.#loadCheckpoint() : null;
-      this.#requireNewest(claim);
+      // **No policy code asks for a network since v2-ui-08**, so this is always
+      // `null` and the fetch that used to stand here is gone. `#/arena` reads
+      // `EmbodiedPolicyKind`, which has no `learned` entry; `arena-config.ts`
+      // carries the reason. The *field* survives because the worker's
+      // `warmUp(seed, checkpoint)` and its `checkpointRefused` refusal are the
+      // browser's only path for installing a network at all, and retiring a
+      // transport because its one caller went is a protocol change with nothing
+      // asking for it. **It is owed a decision** -- either a policy that wants
+      // it or a removal -- and this comment is the record that it is unset
+      // rather than merely unused.
+      const checkpoint: ArrayBuffer | null = null;
       const worker = this.#requireWorker();
       const requestId = this.#nextRequestId++;
       // `encodeArenaConfig` allocates its own array, so the buffer under it is an
@@ -266,21 +268,6 @@ export class ArenaClient {
     this.#settle(new Error("the arena client was disposed"));
     this.#worker?.terminate();
     this.#worker = null;
-  }
-
-  async #loadCheckpoint(): Promise<ArrayBuffer> {
-    if (this.#checkpoint !== null) return this.#checkpoint.slice(0);
-    const response = await fetch(CHECKPOINT_URL, { cache: "no-store" });
-    if (!response.ok) {
-      throw new ArenaRefused(
-        `the learned policy needs ${CHECKPOINT_URL}, and this build answered `
-        + `${response.status} ${response.statusText}. It is committed and the production `
-        + `build copies it, so a 404 here means the file is missing rather than that the `
-        + `policy is unavailable.`);
-    }
-    const bytes = await response.arrayBuffer();
-    this.#checkpoint = bytes;
-    return bytes.slice(0);
   }
 
   #requireWorker(): Worker {

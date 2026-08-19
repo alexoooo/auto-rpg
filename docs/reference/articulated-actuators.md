@@ -2,7 +2,7 @@
 
 **Purpose:** Freeze initialization, integration, grip, shield, phase, and hashing rules for `v2-13`.
 **Status:** current
-**Canonical source:** This contract plus `crates/sim/src/combat/actuator.rs`, `crates/sim/src/world.rs`, and `crates/sim/src/replay.rs`.
+**Canonical source:** This contract plus `crates/sim/src/combat/actuator.rs`, `crates/sim/src/world/articulated.rs`, and `crates/sim/src/replay.rs`.
 **Update when:** An actuator constant, formula, phase order, initialization, or hashed field changes.
 
 ## Persistent state
@@ -398,7 +398,7 @@ each same-tick submission therefore validates against the same current
 authoritative grip pair, never against an earlier pending request. A host records
 the safe command returned by a rejected request, not the rejected request.
 
-No production pose-view API is added for proof. Under `cfg(test)`, `world.rs`
+No production pose-view API is added for proof. Under `cfg(test)`, `world/mod.rs`
 exposes a crate-private copied test view containing `BodyYawState`, both
 `ArmState` rows, both `GripState` rows, `Option<ShieldPose>`, and all four
 authority factors. Replay tests compare that view and `StateDigest` after every

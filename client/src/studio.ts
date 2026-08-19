@@ -11,12 +11,14 @@
 // **Hash routes rather than the History API.** This ships to a static `dist/` and
 // is served in development by Vite, and neither rewrites an unknown path to
 // `index.html`. A History-API route would 404 on reload, which is the one failure
-// a reader cannot work around. `tools/serve.js` is deliberately not on that list:
-// it has no bundler, so it cannot serve this page's TypeScript module graph at
-// all, and it answers `/` with the legacy Canvas game instead.
+// a reader cannot work around. Vite is the whole of that list: the one other
+// server this repository had, `tools/serve.js`, had no bundler and could not
+// resolve this page's module graph at all, and it was retired with the Canvas
+// page it was written for.
 //
-// The legacy Canvas game is deliberately *not* a route. It is four classic scripts
-// sharing top-level `const`s with no bundler; it gets a link and nothing else.
+// The Canvas game this shell replaced was retired in the embodied-combat work.
+// It was four classic scripts sharing top-level `const`s with no bundler, it was
+// never in a production build, and every route is now a route here.
 
 declare global {
   /**
@@ -123,30 +125,6 @@ function noteMissingRecordings(home: HTMLElement): void {
   enter.before(note);
 }
 
-/**
- * Retire the links to the legacy Canvas page in a build that does not carry it.
- *
- * `vite.config.ts` has one entry and `publicDir: false`, so `dist/` holds the shell,
- * the wasm, the two room assets and the checkpoint -- and no `legacy.html`. That is
- * deliberate and stated there: four classic scripts sharing top-level `const`s are not
- * a module graph and Rollup has nothing to do with them. The consequence was two links
- * on the shipped page that 404, which is worse than no link at all, because a reader
- * cannot tell a page that was never built from one that is broken.
- *
- * The anchor is **replaced rather than hidden**. A hidden link is still in the document
- * for everything that reads the document rather than looks at it, and the sentence
- * around it still promises a page that is not there. Replacing it makes both halves
- * true at once.
- */
-function retireLegacyLinks(mounted: HTMLElement): void {
-  mounted.querySelectorAll('a[href="/legacy.html"]').forEach((link) => {
-    const instead = document.createElement("span");
-    instead.className = "muted";
-    instead.textContent = "it ships only with the development server";
-    link.replaceWith(instead);
-  });
-}
-
 async function main(): Promise<void> {
   const root = element<HTMLElement>("studio-root");
   const routeLabel = element<HTMLElement>("studio-route");
@@ -220,7 +198,6 @@ async function main(): Promise<void> {
       root.append(fragment);
       // Every route, not just the main screen: the game route carries the second of
       // the two links, and a reader reaches it without passing through the first.
-      if (import.meta.env.PROD) retireLegacyLinks(mounted);
       if (route.load === undefined) {
         if (path === "/" && import.meta.env.PROD) noteMissingRecordings(mounted);
         return;

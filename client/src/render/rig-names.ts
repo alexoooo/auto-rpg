@@ -12,7 +12,11 @@
 //
 // The three order-sensitive facts, written down because a list of strings
 // hides them: `RIG_REGIONS` is in `regionNames` order, so `RIG_REGIONS[i]` is
-// the node for `pose.regions[i]`; `arm_left`/`hand_left` are limb 0 and
+// the node for `pose.regions[i]` **for the first five rows only** -- a published
+// body is a list of swept volumes and rows 5 and 6 are the two forearms, which
+// have no anatomy node here because they have no anatomy row anywhere; the
+// consumer in `arena/scene.ts` skips an index this list does not answer for;
+// `arm_left`/`hand_left` are limb 0 and
 // `arm_right`/`hand_right` limb 1, which is `LimbSlot`'s own order; and
 // `RIG_NODES` concatenates the four lists in the sidecar's `semanticNames`
 // order, which the runtime/asset contract test checks directly against the
@@ -26,7 +30,15 @@ export const RIG_SOCKETS = Object.freeze([
   "socket_weapon_left", "socket_weapon_right", "socket_shield",
 ] as const);
 
-/** In `regionNames` order: head, torso, leftArm, rightArm, legs. */
+/**
+ * In `regionNames` order: head, torso, leftArm, rightArm, legs.
+ *
+ * **Five and not seven**, though a published body now carries seven region rows.
+ * This list is part of the pinned combatant sidecar's semantic node closure, and
+ * a forearm is not a semantic node an authored rig has: `arm_left`/`hand_left`
+ * are already the two bones an elbow separates, and they are placed from the
+ * published joint rather than from a region capsule.
+ */
 export const RIG_REGIONS = Object.freeze([
   "region_head", "region_torso", "region_left_arm", "region_right_arm", "region_legs",
 ] as const);

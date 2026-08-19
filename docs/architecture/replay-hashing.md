@@ -2,7 +2,7 @@
 
 **Purpose:** Describe the current in-memory and durable replay paths and their typed hash domains.
 **Status:** current
-**Canonical source:** [`Replay`](../../crates/sim/src/replay.rs), [`ReplayEnvelope`](../../crates/sim/src/codec.rs), [`Scenario::fingerprint`](../../crates/sim/src/scenario.rs), and [`World::state_hash`](../../crates/sim/src/world.rs)
+**Canonical source:** [`Replay`](../../crates/sim/src/replay.rs), [`ReplayEnvelope`](../../crates/sim/src/codec.rs), [`Scenario::fingerprint`](../../crates/sim/src/scenario.rs), and [`World::state_hash`](../../crates/sim/src/world/hash.rs)
 **Update when:** Replay records, codec validation, playback order, or either hash byte stream changes.
 
 ## Current replay flow
@@ -84,9 +84,11 @@ combat clocks, damage accounting, and persistent command; then every allocated
 projectile slot and its state. The implementation includes dead allocated slots
 so allocation history cannot disappear from the comparison.
 
-Derived or ephemeral collections such as events, pending-decision and
-navigation caches, per-tick scratch, and free-list bookkeeping are not separate
-hash inputs. This prose is a guide to ownership, not an alternative hash
+Derived or ephemeral collections such as events, pending-decision caches,
+per-tick scratch, and free-list bookkeeping are not separate hash inputs. The
+navigation flow field was the largest member of that class and was deleted on
+2026-08-18 for having no reader; its exclusion from the hash is why deleting it
+moved no pin. This prose is a guide to ownership, not an alternative hash
 specification: changing the exact calls or order in the legacy core changes
 the hash stream and must be reviewed against the repository's golden hashes.
 
@@ -109,12 +111,12 @@ not replace the final typed state-digest comparison.
 ## Source anchors
 
 - Record types, recorder methods, integrity check, and playback order:
-  [`Replay`](../../crates/sim/src/replay.rs#L64)
+  [`Replay`](../../crates/sim/src/replay.rs#L61)
 - Durable codec and mandatory playback validation:
-  [`ReplayEnvelope`](../../crates/sim/src/codec.rs#L175)
+  [`ReplayEnvelope`](../../crates/sim/src/codec.rs#L191)
 - Scenario fields and current fingerprint byte stream:
-  [`Scenario::fingerprint`](../../crates/sim/src/scenario.rs#L452)
-- Live state hash byte stream: [`World::state_hash`](../../crates/sim/src/world.rs#L4900)
+  [`Scenario::fingerprint`](../../crates/sim/src/scenario.rs#L458)
+- Live state hash byte stream: [`World::state_hash`](../../crates/sim/src/world/hash.rs#L83)
 - Hash primitive: [`crates/fx/src/hash.rs`](../../crates/fx/src/hash.rs)
 - Harness recording and final comparison tests:
   [`crates/policy/src/runner.rs`](../../crates/policy/src/runner.rs)

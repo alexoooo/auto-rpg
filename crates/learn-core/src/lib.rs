@@ -137,8 +137,9 @@ pub use digest::{
 };
 pub use model::{
     compose, write_features, write_features_v2, FeatureMemory, Footwork, LearnedActionV1,
-    LearnedActionV2, LearnedArticulatedPolicy, LearnedTacticalPolicyV2, Model, ModelShape,
-    ModelShapeV2, ModelV2, Posture, FOOTWORK_COUNT, GUARD_HEIGHT_COUNT, HEAD_OFFSETS,
+    LearnedActionV2, LearnedArticulatedPolicy, LearnedEmbodiedPolicy,
+    LearnedTacticalEmbodiedPolicyV2, LearnedTacticalPolicyV2, Model, ModelShape,
+    ModelShapeV2, ModelV2, Posture, CYCLE_TICKS, FOOTWORK_COUNT, GUARD_HEIGHT_COUNT, HEAD_OFFSETS,
     HEAD_WIDTHS, HIDDEN_UNITS, LEARN_ACTION_LAYOUT_VERSION, LEARN_ACTION_LOGITS,
     LEARN_FEATURE_COUNT, LEARN_FEATURE_LAYOUT_VERSION, LEARN_V2_ACTION_LAYOUT_VERSION,
     LEARN_V2_ACTION_LOGITS, LEARN_V2_FEATURE_COUNT, LEARN_V2_FEATURE_LAYOUT_VERSION,

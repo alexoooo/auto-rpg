@@ -300,9 +300,9 @@ crates/learn-core  frozen inference: a compact feature slice, a small MLP and
 crates/learn    the trainer that produces a checkpoint; native lab only
 crates/lab      headless experiment CLI
 crates/web      the browser boundary: a hand-rolled wasm ABI, no wasm-bindgen
-web/            the legacy Canvas page and the v2 diagnostic HTML entry
+web/            the studio HTML entry, the reviewed PNG art, the pinned 3D assets
 client/         the TypeScript v2 Worker protocol and diagnostic client
-tools/          generators, the legacy-page server, and repository checks
+tools/          generators, a dependency-free wasm/asset server, and repository checks
 docs/plans/     working plans, updated in place as sessions complete
 ```
 
@@ -322,42 +322,27 @@ learning crates are and are not allowed to touch is in
 
 ## Getting started
 
-To play it:
-
-```
-rustup target add wasm32-unknown-unknown          # once
-node tools/serve.js                               # legacy Canvas page only
-```
-
-Then open the printed URL. Click to send the character somewhere, or drag to trace
-it a path; right-click or `Esc` to make it hold its ground; `F` to withdraw the
-order entirely and watch it decide for itself; `S` and `B` to send in a skitterer
-or a brute; `1` and `2` to choose which of the two things you are carrying is in
-your hand; `C`, `V` and `X` to take its movement, its choice of kit or its aim; `E`
-for the Hero rail, which stays live after your character falls so you can dress the
-next one — and keeps the attributes you set rather than handing them back to the
-archetype; `Space` to freeze the world; `G` to cycle how the room is drawn; the
-wheel to zoom; `R` to open a fresh room. The `?` in the corner holds the same list,
-kept in the page rather than here. A server is needed because a `file://` page
-cannot instantiate wasm — that is the only reason.
-
-To open the studio instead — the shipped v2 Worker diagnostic and the Battle Arena,
-in one application:
+To play it — the game, the v2 Worker diagnostic and the Battle Arena are one
+application:
 
 ```text
+rustup target add wasm32-unknown-unknown          # once
 npm ci                                            # once, or after lockfile changes
 npm run dev                                       # builds release wasm, starts Vite
 ```
 
 Open the Vite origin at `/`. That is the studio: one page, two destinations behind
-hash routes — `#/game` is the diagnostic, `#/arena` takes two loadouts and a seed,
-runs that fight in a Worker of its own and lets you scrub it. Plain `#/arena` opens
-without fetching a recording: the picker names the next matchup, and **Run selected
-fight** creates it. An explicit `#/arena?trace=/fight.json` plays that development
+hash routes — `#/game` is the game and its diagnostic together, `#/arena` takes two
+loadouts and a seed, runs that fight in a Worker of its own and lets you scrub it.
+Plain `#/arena` opens without fetching a recording: the picker names the next
+matchup, and **Run selected fight** creates it. An explicit `#/arena?trace=/fight.json` plays that development
 recording while separately naming what the controls will run next; playback does not
 execute its AI, and a checkpoint digest identifies the weights used when the trace
-was made. Its TypeScript module graph requires Vite; `tools/serve.js`
-serves only the classic Canvas files and answers `/` with the legacy page instead.
+was made. A server is in the loop at all because a `file://` page cannot instantiate
+wasm — that is the only reason, and it was the only reason the retired Canvas page
+needed one too. The dependency-free `tools/serve.js` written for that page went with
+it: it had no bundler and could not resolve the studio's TypeScript module graph, so
+Vite is the development server now.
 Both development and production host the studio and wasm artifact at the origin
 root as `/` and `/web.wasm`. See the
 [browser runtime](docs/architecture/browser-runtime.md#worker-renderer-path) for
@@ -439,7 +424,7 @@ evidence](docs/performance/evidence/2026-08-combat-mechanics.md).
 
 ## Where this goes next
 
-The remaining implementation roadmap is the [v2 plan](docs/plans/v2-00-overview.md).
+The remaining implementation roadmap is [the embodied fight](docs/plans/fight-00-overview.md).
 Completed sessions are removed from it. Shipped behavior and unresolved measured
 limits remain with the design, architecture, reference, and performance documents
 linked from [DESIGN.md](DESIGN.md).

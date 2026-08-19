@@ -65,12 +65,6 @@ impl Args {
         self.positional.get(1).map(String::as_str).unwrap_or("")
     }
 
-    pub fn positionals(&self) -> &[String] { &self.positional }
-
-    pub fn pairs(&self) -> &[(String, String)] { &self.pairs }
-
-    pub fn flags(&self) -> &[String] { &self.flags }
-
     fn raw(&self, key: &str) -> Option<&str> {
         self.pairs
             .iter()
@@ -199,7 +193,12 @@ impl Args {
 /// Written out rather than folded into [`Args::decimal`] so it can be tested
 /// against the strings a person actually types, including the ones that must be
 /// refused: a silently-accepted `"0,35"` is `--sigma-pct 100O` again.
-fn parse_decimal(text: &str) -> Option<Fx> {
+///
+/// Visible to the crate because `--footwork` reads four of these out of one
+/// comma-separated value and cannot go through [`Args::decimal`], which reads a
+/// whole key. One reader for "what does a decimal on this command line mean",
+/// rather than a second one that could disagree about `"0,35"`.
+pub(crate) fn parse_decimal(text: &str) -> Option<Fx> {
     let (negative, digits) = match text.strip_prefix('-') {
         Some(rest) => (true, rest),
         None => (false, text),
@@ -236,10 +235,10 @@ mod tests {
 
     #[test]
     fn parses_command_pairs_and_flags() {
-        let a = args("evolve --gens 40 --pop 24 --verbose");
-        assert_eq!(a.command(), "evolve");
-        assert_eq!(a.number("gens", 1), 40);
-        assert_eq!(a.usize("pop", 1), 24);
+        let a = args("embodied --seeds 40 --threads 24 --verbose");
+        assert_eq!(a.command(), "embodied");
+        assert_eq!(a.number("seeds", 1), 40);
+        assert_eq!(a.usize("threads", 1), 24);
         assert!(a.flag("verbose"));
         assert!(!a.flag("quiet"));
         assert_eq!(a.number("missing", 7), 7);
@@ -255,9 +254,9 @@ mod tests {
 
     #[test]
     fn a_valueless_option_at_the_end_is_a_flag() {
-        let a = args("hash --write");
-        assert!(a.flag("write"));
-        assert_eq!(a.command(), "hash");
+        let a = args("embodied --mirrored");
+        assert!(a.flag("mirrored"));
+        assert_eq!(a.command(), "embodied");
     }
 
     #[test]
@@ -321,8 +320,8 @@ mod tests {
         assert_eq!(a.usize("seeds", 1), 200);
         assert!(a.flag("mirrored"));
 
-        let bare = args("hash");
-        assert_eq!(bare.command(), "hash");
+        let bare = args("embodied");
+        assert_eq!(bare.command(), "embodied");
         assert_eq!(bare.subcommand(), "", "a missing arm is empty, not the command again");
         assert_eq!(args("").command(), "");
     }

@@ -103,6 +103,7 @@ import {
 import { ArenaEnvironment } from "./environment.js";
 import {
   ARENA_VIEWPORTS, ARM_REGIONS, FAR_PLANE, FIRST_PERSON_FOV_DEGREES, FIRST_PERSON_PITCH_DEGREES,
+  FOREARM_REGIONS,
   NEAR_PLANE, OWN_BODY_HIDDEN_REGIONS, RIG_CLIPS, RIG_REGIONS, THREE_QUARTER_FOV_DEGREES,
   armDrawn, blendPose, bodyAxes, capsuleBetween, capsuleCentre, capsuleParts, directionFrame,
   elbowOf, eyeOf, gaitOf, legsOf, regionDrawn, scenePoint, sceneLength, sceneYaw, segmentFrame,
@@ -906,9 +907,19 @@ export class ArenaContent {
     const gait = gaitOf(view.frame.t + view.alpha, length(pose.vel));
 
     // The elbows first, because four other nodes point along them.
+    //
+    // **Read when the simulation publishes one, invented only when it does
+    // not.** A body whose arms have an elbow publishes a forearm capsule, and
+    // that capsule's `lower` *is* the elbow -- the same point the contact phase
+    // swept, to the raw unit. `elbowOf` stays as the fallback for the bodies
+    // that have no second link, and its own doc records how bad a guess it was:
+    // overruled on 43-68% of the recorded arm rows, because the published hand
+    // is further from the shoulder than two half-arm bones can span.
     const elbowFor = (limb: 0 | 1): ScenePoint => {
       const region = pose.regions[ARM_REGIONS[limb]];
       const hand = scenePoint(pose.arms[limb].hand);
+      const forearm = pose.regions[FOREARM_REGIONS[limb]];
+      if (forearm !== undefined && forearm.present) return scenePoint(forearm.lower);
       // No published shoulder or no published arm length is no solve: the elbow
       // collapses onto the hand and the arm is drawn as the one capsule the
       // simulation gave, which is the same refusal to invent a dimension that
@@ -958,11 +969,14 @@ export class ArenaContent {
       const hand = scenePoint(pose.arms[limb].hand);
       const elbow = elbows[limb];
       const shoulder = region === undefined ? hand : scenePoint(region.lower);
-      // **Position published, direction invented.** An upper-arm bone points at
-      // the elbow and a forearm bone points at the hand from the elbow, and the
-      // elbow is the one guess in the arm; the two node *origins* are the
-      // published shoulder and the published hand to the raw unit, which is what
-      // the agreement check reads.
+      // **The two node origins are published; the elbow between them is
+      // published too on a jointed body and invented on a single-link one.**
+      // That second half is what changed: an upper-arm bone points at the elbow
+      // and a forearm bone points at the hand from the elbow, and on a body that
+      // publishes a forearm capsule the joint they meet at is the simulation's
+      // own, not this file's triangle. `elbowFor` above is where the choice is
+      // made. The shoulder and the hand were always exact to the raw unit, which
+      // is what the agreement check reads.
       placeWorld(node(limb === 0 ? "arm_left" : "arm_right"), shoulder,
         segmentFrame(shoulder, elbow, forward));
       placeWorld(node(limb === 0 ? "hand_left" : "hand_right"), hand,

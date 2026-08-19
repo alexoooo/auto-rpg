@@ -2,7 +2,7 @@
 
 **Purpose:** Define typed scenario and state digests without changing the legacy state-hash byte stream.
 **Status:** current
-**Canonical source:** [`Scenario::try_fingerprint`](../../crates/sim/src/scenario.rs), [`World::state_digest`](../../crates/sim/src/world.rs), and this byte grammar.
+**Canonical source:** [`Scenario::try_fingerprint`](../../crates/sim/src/scenario.rs), [`World::state_digest`](../../crates/sim/src/world/hash.rs), and this byte grammar.
 **Update when:** Scenario identity, an authoritative state field, hash schema, or digest comparison rules change.
 
 <!-- DOC_CONTRACT: hash-domains-v1 -->

@@ -2,7 +2,7 @@
 
 **Purpose:** Record the session-04 arm-slew experiment and its rejection.
 **Status:** current
-**Canonical source:** this record and the calibration harness in [`strike_corpus.rs`](../../crates/lab/src/strike_corpus.rs)
+**Canonical source:** this record. The ladder was stepped by `crates/lab/src/strike_corpus.rs`, which the session that deleted the articulated model deleted with it; it was last runnable at `c4e9d67` and **this measurement is not re-runnable on this tree**.
 **Update when:** The striker, actuator rates, contact solver, corpus cases, or calibration interpretation changes.
 
 Measured on 2026-08-11; production constants remained unchanged.
@@ -64,11 +64,10 @@ the candidate.
 `ContactFact::region` already records the region each contact was attributed to, and
 `BodyPart` is a re-export of `AnatomyRegion`, so the two index spaces are one. The
 calibration table therefore gains `wrong_region` and `unexplained` beside `tunnelling`
-at no measurement cost. The two counters and the rows that pin their exhaustiveness
-live with the rest of the harness in
-[`strike_corpus.rs`](../../crates/lab/src/strike_corpus.rs); Smart134 predeclares the
-acceptance rule before the numbers are read, because this repository has already been
-caught choosing a rule after seeing its output.
+at no measurement cost. The two counters and the rows that pinned their exhaustiveness
+lived with the rest of the harness in `crates/lab/src/strike_corpus.rs`, which is gone;
+Smart134 predeclared the acceptance rule before the numbers were read, because this
+repository has already been caught choosing a rule after seeing its output.
 
 ### The split, measured 2026-08-15
 

@@ -2,7 +2,7 @@
 
 **Purpose:** Record why the current game uses explicit structure-of-arrays state and audited geometry instead of an ECS, spatial framework, or general physics engine.
 **Status:** current
-**Canonical source:** [`World`](../../crates/sim/src/world.rs#L188), deterministic geometry in [`fx`](../../crates/fx/src/geom.rs#L92), and the dependency manifests under [`crates/`](../../crates/)
+**Canonical source:** [`World`](../../crates/sim/src/world/mod.rs#L143), deterministic geometry in [`fx`](../../crates/fx/src/geom.rs#L92), and the dependency manifests under [`crates/`](../../crates/)
 **Update when:** Entity storage, broad-phase collision, contact solving, hit detection, authoritative dependencies, or the browser ABI architecture changes.
 
 **ADR status:** accepted
@@ -147,8 +147,11 @@ model. At the degenerate centre hit, a fast tangential blade is perpendicular to
 the radial normal and would contribute nothing even though it swept through the
 body. The magnitude correctly prices a cut. Body motion has a meaningful approach
 direction, so charging toward a blow adds to it and retreating subtracts from it.
-The current invariant is tested by
-[`impact_is_the_blade_plus_the_closing_and_backing_off_helps`](../../crates/sim/src/world.rs#L19104).
+That invariant was tested by `impact_is_the_blade_plus_the_closing_and_backing_off_helps`
+in `crates/sim/src/world/legacy.rs`, which embodied session 10 deleted with the model.
+**The argument survives the test and is now the contact solver's**: a swept segment
+against a swept body carries the closing speed in the same way, and
+[the contact solver](../reference/contact-solver.md) owns the current statement of it.
 
 ## Dependencies and the browser boundary
 
@@ -185,6 +188,41 @@ generated binding layer outside simulation authority.
 
 ## Compatibility declaration
 
+## Amendment, 2026-08-18: a third body model in the same kernel
+
+**The strongest evidence this decision has yet had, and it arrived as a
+by-product.** The embodied combat work replaced the entire body model — a floor
+with height, hips that turn slower than the torso, a two-link arm with a
+commanded elbow plane, and seven swept collider volumes over five anatomy
+regions — and it landed *inside* this kernel, as a third `CombatModel` beside
+the two already there, without discarding either.
+
+What survived that replacement untouched is the list this ADR is about: the
+swept segment/segment contact solver, the impulse and energy law, regional
+anatomy with severance, the generational free list, and the fixed-point
+determinism apparatus. A general physics engine would have had to be replaced
+along with the model, because the model *is* what a physics engine encodes; an
+audited set of small fixed-point algorithms is a set of parts, and parts get
+reused.
+
+**The variant is also what kept the golden registry still**, which is a property
+no framework offers. Every mechanics session landed inside `Embodied`, whose
+fixtures are new, so the pins guarding `Legacy` and `Articulated` could not move
+by construction — and each session stated that in advance and treated a surprise
+as a bug. Two of them found real defects that way: a replay reader consuming the
+wrong payload width for one schema, and a frame conversion applied in one of the
+two places that needed it.
+
+**One counter-measurement belongs here too, because it cuts against the ADR's
+grain.** The plan that opened this work assumed three or four refactoring
+sessions were needed before any of it could start. Measured, only one file was
+genuinely oversized: `world.rs` at 20,470 lines, of which 12,541 were
+`#[cfg(test)]`. `combat/contact.rs` reads as 9,045 lines and is 2,659 lines of
+production code; `combat/resolution.rs` reads as 5,623 and is 1,982. Splitting
+either would have been a week of hash risk spent on a file that was never the
+problem. Explicit hand-written subsystems get *long*, and length is not the
+measurement — the ratio of production code to its own tests is.
+
 **Former anchor:** `DESIGN.md#deliberate-non-choices`
 
 **Durable destination:** this ADR is the exact destination for the former anchor's
@@ -196,12 +234,12 @@ owned by [Determinism](../reference/determinism.md).
 
 ## Source anchors
 
-- Explicit world columns and generational storage: [`World`](../../crates/sim/src/world.rs#L188)
-- Pairwise body separation: [`World::separate`](../../crates/sim/src/world.rs#L3407)
+- Explicit world columns and generational storage: [`World`](../../crates/sim/src/world/mod.rs#L143)
+- Pairwise body separation: [`World::separate`](../../crates/sim/src/world/movement.rs#L16)
 - Static closest-approach predicate: [`segment_circle`](../../crates/fx/src/geom.rs#L130)
 - Bounded temporal sweep: [`swept_segment_circle`](../../crates/fx/src/geom.rs#L176)
-- Current clamp rationale: [`agility_multiplier`](../../crates/sim/src/rules.rs#L253)
+- Current clamp rationale: [`agility_multiplier`](../../crates/sim/src/rules.rs#L265)
 - Exhaustive historical-bound cost guard: [`no_blade_can_outrun_the_smallest_body`](../../crates/sim/src/entity.rs#L319)
-- Current blade/body sweep: [`World::resolve_swings`](../../crates/sim/src/world.rs#L3595)
-- Impact magnitude/projection composition: [`World::impact_speed`](../../crates/sim/src/world.rs#L7208)
+- Current blade/body sweep: [`World::resolve_contact`](../../crates/sim/src/world/contact_phase.rs) -- the legacy `resolve_swings` it replaced was deleted with its model
+- Impact magnitude and projection: [`contact_behavior_corpus`](../../crates/sim/src/combat/resolution.rs)
 - Browser buffer and ABI authority: [`browser-runtime.md`](../architecture/browser-runtime.md)

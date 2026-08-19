@@ -1,6 +1,6 @@
 import {
   DUNGEON_OBJECT_LAYOUT_VERSION, DUNGEON_OBJECT_STRIDE, EVENT_STRIDE,
-  FOCUS_IDENTITY_EXPORTS, FRAME_LAYOUT_VERSION, FRAME_MAX, FURNITURE_MAX,
+  FRAME_LAYOUT_VERSION, FRAME_MAX, FURNITURE_MAX,
   FURNITURE_STRIDE, HEADER_LEN, MAP_MAX, MAX_DUNGEON_OBJECTS, SHOT_STRIDE, UNIT_STRIDE,
 } from "../protocol/abi.generated.js";
 import type { WorkerMessage } from "../protocol/messages.js";
@@ -15,8 +15,6 @@ type RawExports = WebAssembly.Exports & ArenaExports & {
   set_control(mask: number): void;
   control(): number;
   set_input(moveXMilli: number, moveYMilli: number, aimRaw: number, reachMilli: number, slot: number, strike: number, turnMilli: number): void;
-  set_goto(xMilli: number, yMilli: number): void;
-  clear_order(): void;
   spawn_monster(kindCode: number, primary: number, secondary: number): number;
   swap_in_hero(kindCode: number, primary: number, secondary: number): number;
   step(ticks: number): void;
@@ -31,7 +29,6 @@ type RawExports = WebAssembly.Exports & ArenaExports & {
   dungeon_object_ptr: U32Export; dungeon_object_len: U32Export; dungeon_object_stride: U32Export;
   dungeon_object_capacity: U32Export; dungeon_objects_dropped: U32Export;
   dungeon_object_layout_version: U32Export;
-  focus_entity_index: U32Export; focus_entity_generation: U32Export;
 };
 
 // Every export this adapter calls, checked before a single one is used.
@@ -45,14 +42,13 @@ type RawExports = WebAssembly.Exports & ArenaExports & {
 // in this list that nothing calls is a promise the list does not otherwise make.
 // This is the session with a caller.
 const requiredFunctions = [
-  "init", "set_control", "control", "set_input", "set_goto", "clear_order", "spawn_monster", "swap_in_hero", "step", "tick",
+  "init", "set_control", "control", "set_input", "spawn_monster", "swap_in_hero", "step", "tick",
   "frame_ptr", "frame_len", "frame_layout_version", "header_len", "unit_stride",
   "shot_stride", "event_stride", "map_ptr", "map_len", "map_cols", "map_rows",
   "map_tile_size_milli", "map_revision", "vis_ptr", "vis_len", "vis_revision",
   "furniture_ptr", "furniture_len", "furniture_stride", "furniture_revision",
   "dungeon_object_ptr", "dungeon_object_len", "dungeon_object_stride",
   "dungeon_object_capacity", "dungeon_objects_dropped", "dungeon_object_layout_version",
-  ...FOCUS_IDENTITY_EXPORTS,
   ...ARENA_EXPORTS,
 ] as const;
 
@@ -87,8 +83,6 @@ async function createAdapter(): Promise<WasmAdapter> {
     control: () => wasm.control() >>> 0,
     setInput: (moveXMilli, moveYMilli, aimRaw, reachMilli, slot, strike, turnMilli) =>
       wasm.set_input(moveXMilli, moveYMilli, aimRaw, reachMilli, slot, strike, turnMilli),
-    setGoto: (xMilli, yMilli) => wasm.set_goto(xMilli, yMilli),
-    clearOrder: () => wasm.clear_order(),
     spawnMonster: (kindCode, primary, secondary) => wasm.spawn_monster(kindCode, primary, secondary),
     swapInHero: (kindCode, primary, secondary) => wasm.swap_in_hero(kindCode, primary, secondary),
     step: (ticks) => wasm.step(ticks),
@@ -122,8 +116,6 @@ async function createAdapter(): Promise<WasmAdapter> {
       const dungeonObjectCapacity = wasm.dungeon_object_capacity() >>> 0;
       const dungeonObjectsDropped = wasm.dungeon_objects_dropped() >>> 0;
       const dungeonObjectLayoutVersion = wasm.dungeon_object_layout_version() >>> 0;
-      const focusEntityIndex = wasm.focus_entity_index() >>> 0;
-      const focusEntityGeneration = wasm.focus_entity_generation() >>> 0;
       const memory = wasm.memory.buffer;
       const mapCells = mapCols * mapRows;
 
@@ -163,7 +155,7 @@ async function createAdapter(): Promise<WasmAdapter> {
         furnitureStride, frameLength, mapLength, visLength, furnitureLength,
         dungeonObjectLayoutVersion, dungeonObjectStride, dungeonObjectLength, dungeonObjectsDropped,
         mapCols, mapRows, mapTileSizeMilli, mapRevision, visRevision,
-        furnitureRevision, focusEntityIndex, focusEntityGeneration,
+        furnitureRevision,
         frame: new Float32Array(memory, framePointer, frameLength),
         map: new Uint8Array(memory, mapPointer, mapLength),
         vis: new Uint8Array(memory, visPointer, visLength),

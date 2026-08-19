@@ -2277,15 +2277,15 @@ test("bootstrap_disposes_initialized_client_and_renderer_when_input_attachment_f
   assert.deepEqual([initialized, rendererDisposals, clientDisposals], [1, 1, 1]);
 });
 
-test("greybox_input_targets_only_known_floor_and_rounds_world_milli_once", () => {
-  const world = snapshot();
-  assert.deepEqual(greyboxInput.pointToGotoCommand(world, { x: 1.2345, z: 0.5004 }),
-    { kind: "goto", xMilli: 1235, yMilli: 500 });
-  assert.equal(greyboxInput.pointToGotoCommand(world, { x: 0.5, z: 0.5 }), null);
-  assert.equal(greyboxInput.pointToGotoCommand(world, { x: 2.5, z: 0.5 }), null);
-  assert.equal(greyboxInput.pointToGotoCommand(world, { x: Number.NaN, z: 0.5 }), null);
-  assert.equal(greyboxInput.pointToGotoCommand(world, { x: 3_000_000, z: 0.5 }), null);
-});
+// **`greybox_input_targets_only_known_floor_and_rounds_world_milli_once` was
+// here and its subject is gone.** It covered `pointToGotoCommand`: a ground pick
+// against the remembered map, refused off the floor plan, rounded to integer
+// thousandths exactly once. Nothing about that reasoning was wrong -- the
+// destination it produced was, because an `ArticulatedObservation` carries no
+// standing order and no nav field, so the click moved the state hash and painted
+// a header pip and moved nobody. The function went with the command, and what is
+// left of the pointer is the aim, the drag and the wheel, which the tests below
+// still drive.
 
 test("greybox_input_ignores_reset_terminal_and_disposes_pointer_wheel_and_escape_handlers", async () => {
   const oldWindow = globalThis.window;
@@ -2301,8 +2301,12 @@ test("greybox_input_ignores_reset_terminal_and_disposes_pointer_wheel_and_escape
   const errors = [];
   let blocked = false;
   let projectionFails = false;
+  // Aim and action both on, because `projectGround` is only reached through the
+  // aim now: the click that used to call it is gone, and a probe that never
+  // calls the throwing callback cannot witness the recovery it is here for.
   const input = new greyboxInput.GreyboxInput({
     canvas, snapshot: () => snapshot(), blocked: () => blocked,
+    aimEnabled: () => true, actionEnabled: () => true,
     projectGround: () => {
       if (projectionFails) throw new Error("projection failed");
       return { x: 1.25, z: 0.5 };
@@ -2321,30 +2325,39 @@ test("greybox_input_ignores_reset_terminal_and_disposes_pointer_wheel_and_escape
   Object.defineProperty(escape, "key", { value: "Escape" });
   fakeWindow.dispatchEvent(escape);
   await Promise.resolve();
-  assert.deepEqual(commands, [
-    { kind: "goto", xMilli: 1250, yMilli: 500 },
-    { kind: "setInput", moveXMilli: 0, moveYMilli: 0, turnMilli: 0,
-      aimRaw: 0, reachMilli: 0, slot: 0, strike: 0 },
-    { kind: "withdraw" },
-  ]);
+  // **Three `setInput` rows and no `goto` or `withdraw`.** The press sends the
+  // strike, the release sends its end, and Escape releases every held key --
+  // which is the whole of what it does now that there is no standing order to
+  // withdraw. Three and not five because this fixture's snapshot carries no
+  // faction-zero body, so the aim update itself finds nobody to aim and sends
+  // nothing; the button is what produces every row here.
+  assert.deepEqual(commands.map((command) => command.kind),
+    ["setInput", "setInput", "setInput"]);
+  assert.deepEqual(commands.map((command) => command.strike), [1, 0, 0]);
+  // The press alone, because it is the one that reports. `#pointerDown` runs the
+  // aim inside its own try and hands a throw to `onError`; the release runs it
+  // outside one, so a second dispatch under a failing projector would leave the
+  // rejection travelling past the end of the test rather than being asserted
+  // inside it.
   projectionFails = true;
   canvas.dispatchEvent(pointer);
-  canvas.dispatchEvent(pointerUp);
   assert.deepEqual(errors, ["projection failed"]);
   projectionFails = false;
+  canvas.dispatchEvent(pointerUp);
+  const sent = commands.length;
   blocked = true;
   canvas.dispatchEvent(pointer);
   canvas.dispatchEvent(pointerUp);
   fakeWindow.dispatchEvent(escape);
   await Promise.resolve();
-  assert.equal(commands.length, 3);
+  assert.equal(commands.length, sent, "a blocked canvas still submitted");
   input.dispose();
   blocked = false;
   canvas.dispatchEvent(pointer);
   canvas.dispatchEvent(pointerUp);
   fakeWindow.dispatchEvent(escape);
   await Promise.resolve();
-  assert.equal(commands.length, 3);
+  assert.equal(commands.length, sent, "a disposed input still submitted");
   globalThis.window = oldWindow;
 });
 
@@ -2385,7 +2398,7 @@ test("held_qe_are_persistent_tank_turn_input_and_release_sends_zero", async () =
   globalThis.window = oldWindow;
 });
 
-test("primary_pointer_click_issues_goto_while_primary_drag_moves_the_live_camera", async () => {
+test("a_primary_click_sends_nothing_while_a_primary_drag_moves_the_live_camera", async () => {
   const oldWindow = globalThis.window;
   globalThis.window = new EventTarget();
   const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
@@ -2441,10 +2454,15 @@ test("primary_pointer_click_issues_goto_while_primary_drag_moves_the_live_camera
     return event;
   };
 
+  // The click used to project this exact point to `{ goto, 5000, 5000 }`, which
+  // is the middle of the ten-by-ten floor -- so the projector and the camera are
+  // still lined up here and it is the *command* that is gone. The drag half
+  // below is what the pointer is for now, and it is the half that was always
+  // about the camera rather than about the character.
   canvas.dispatchEvent(pointer("pointerdown", 260, 145));
   canvas.dispatchEvent(pointer("pointerup", 260, 145));
   await Promise.resolve();
-  assert.deepEqual(commands, [{ kind: "goto", xMilli: 5000, yMilli: 5000 }]);
+  assert.deepEqual(commands, [], "a primary click still issues a simulation command");
 
   const before = renderer.camera.getTarget().clone();
   const beforePosition = renderer.camera.position.clone();
@@ -2464,14 +2482,14 @@ test("primary_pointer_click_issues_goto_while_primary_drag_moves_the_live_camera
     `dragging right must move the camera target screen-left; got ${JSON.stringify({ before, after, screenRight, screenRightMotion })}`);
   assert.ok((afterPosition.x - beforePosition.x) * screenRight.x
     + (afterPosition.z - beforePosition.z) * screenRight.z < 0);
-  assert.equal(commands.length, 1, "a primary drag must not also issue a goto command");
+  assert.equal(commands.length, 0, "a primary drag issued a simulation command");
 
   input.dispose();
   renderer.dispose();
   globalThis.window = oldWindow;
 });
 
-test("default_aim_tracking_does_not_steal_mouse_goto_but_direct_action_does", async () => {
+test("a_primary_press_strikes_only_when_direct_action_is_on", async () => {
   const oldWindow = globalThis.window;
   globalThis.window = new EventTarget();
   class FakeCanvas extends EventTarget {
@@ -2485,7 +2503,13 @@ test("default_aim_tracking_does_not_steal_mouse_goto_but_direct_action_does", as
     Object.assign(event, { button: 0, clientX: 10, clientY: 10, pointerId: id });
     return event;
   };
-  for (const [action, expected] of [[false, "goto"], [true, "setInput"]]) {
+  // **This was `default_aim_tracking_does_not_steal_mouse_goto_but_direct_action
+  // _does`, and the thing there was to steal is gone.** With direct action off a
+  // primary press used to fall through to the destination click; it now falls
+  // through to a camera gesture and says nothing at all, which is the reading the
+  // `undefined` below is. With it on, the press is the strike -- unchanged, and
+  // now the only thing a primary button can mean.
+  for (const [action, expected] of [[false, undefined], [true, "setInput"]]) {
     const canvas = new FakeCanvas();
     const commands = [];
     const input = new greyboxInput.GreyboxInput({
@@ -2498,7 +2522,7 @@ test("default_aim_tracking_does_not_steal_mouse_goto_but_direct_action_does", as
     canvas.dispatchEvent(pointer("pointerup", action ? 2 : 1));
     await Promise.resolve();
     assert.equal(commands[0]?.kind, expected);
-    if (action) assert.equal(commands.some((command) => command.strike === 1), true);
+    assert.equal(commands.some((command) => command.strike === 1), action);
     input.dispose();
   }
   globalThis.window = oldWindow;
@@ -2541,8 +2565,8 @@ test("the_render_loop_feeds_the_review_camera_the_hero_and_only_the_hero", async
   }
   renderer.stop();
   assert.ok(followCalls.length > 0, "the render loop never fed the review camera");
-  // The faction-0 unit is the hero AGENTS.md guarantees exactly one of; the
-  // monster's position must never reach the camera.
+  // The faction-0 unit is the hero `crates/web`'s `init` spawns exactly one of;
+  // the monster's position must never reach the camera.
   assert.deepEqual(followCalls[0], [2.25, 0.5]);
   assert.ok(followCalls.every(([x, z]) => x === 2.25 && z === 0.5));
   renderer.dispose();
@@ -2635,27 +2659,34 @@ test("free_mode_refuses_simulation_commands_and_restores_follow_on_exit", async 
     commands.push(["toolbar", { kind }]);
   });
 
+  // **The canvas half is a *drag* now and not a click.** This used to press the
+  // floor and watch a `goto` reach the queue, which was the sharpest reading
+  // available: a simulation command crossing while the review camera was free.
+  // There is no such command left, so what the free camera is asserted to block
+  // is the pan -- the gesture that is still live -- and the toolbar carries the
+  // simulation half on `spawn`, which is one of the two that survived.
   canvasClick(1); canvasDrag(2);
-  await assert.rejects(toolbar("withdraw"), /free review camera/);
+  await assert.rejects(toolbar("spawn"), /free review camera/);
   assert.deepEqual(commands, []); assert.equal(pans, 0);
 
   renderer.acceptSnapshot(world, 0);
   assert.equal(renderer.reviewCameraFree, true);
   canvasClick(3);
-  await assert.rejects(toolbar("withdraw"), /free review camera/);
+  await assert.rejects(toolbar("spawn"), /free review camera/);
   assert.deepEqual(commands, []);
 
   renderer.setReviewCameraFree(false);
-  canvasClick(4);
-  await toolbar("withdraw");
+  canvasDrag(4);
+  await toolbar("spawn");
   await Promise.resolve();
   assert.deepEqual(commands.map(([source, command]) => [source, command.kind]),
-    [["canvas", "goto"], ["toolbar", "withdraw"]]);
+    [["toolbar", "spawn"]]);
+  assert.equal(pans, 1, "an unblocked drag did not pan, so the block above proves nothing");
 
   renderer.setReviewCameraFree(true);
   canvasClick(5); canvasDrag(6);
-  await assert.rejects(toolbar("withdraw"), /free review camera/);
-  assert.equal(commands.length, 2); assert.equal(pans, 0);
+  await assert.rejects(toolbar("spawn"), /free review camera/);
+  assert.equal(commands.length, 1); assert.equal(pans, 1);
   input.dispose(); renderer.dispose(); globalThis.window = oldWindow;
 });
 
@@ -2746,15 +2777,21 @@ test("greybox_input_keeps_one_pointer_owner_and_recovers_after_throwing_host_cal
   canvas.dispatchEvent(pointer("pointermove", 1, 30, 10));
   assert.deepEqual(errors, ["pan failed"]);
   assert.deepEqual(canvas.releaseCalls, [1]);
+  // **The recovery is read off the capture book now and not off a command.** A
+  // press and a release used to leave a `goto` in `commands`, which was the
+  // cheapest witness that the gesture machine was working again; with no click
+  // command left, what says the same thing is that pointer 3 was captured and
+  // then released like any other.
   canvas.dispatchEvent(pointer("pointerdown", 3, 10, 10));
   canvas.dispatchEvent(pointer("pointerup", 3, 10, 10));
   await Promise.resolve();
-  assert.equal(commands.length, 1, "a gesture after a throwing pan must recover");
+  assert.deepEqual(canvas.captureCalls, [1, 3], "a gesture after a throwing pan must recover");
+  assert.equal(commands.length, 0, "a click issued a simulation command");
 
   canvas.dispatchEvent(pointer("pointerdown", 4, 10, 10));
   canvas.dispatchEvent(pointer("pointercancel", 4, 10, 10));
   assert.deepEqual(canvas.releaseCalls, [1, 3, 4]);
-  assert.equal(commands.length, 1, "pointercancel must never become a click");
+  assert.equal(commands.length, 0, "pointercancel must never become a command");
 
   canvas.throwCapture = true;
   canvas.dispatchEvent(pointer("pointerdown", 5, 10, 10));
@@ -3150,7 +3187,13 @@ test("vite_build_rewrites_no_hand_written_page_under_web_including_its_own_input
   // is on the list now because it is the Rollup *input*: the one source file a
   // misbehaving plugin could rewrite in place, which is more exposure than it had
   // as a bystander, not less.
-  const handWritten = ["web/index.html", "web/legacy.html", "web/main.js", "web/style.css"];
+  //
+  // The list is down to that one entry since the Canvas page was retired, and it
+  // is deliberately still a list. The guarantee is "the build rewrites no
+  // hand-written source under `web/`", which is a claim about a set; collapsing
+  // it to a single `assert` would make the next file added to `web/` a silent
+  // omission rather than a one-word edit.
+  const handWritten = ["web/index.html"];
   for (const name of handWritten) {
     assert.ok(fs.existsSync(path.join(ROOT, name)),
       `${name} is named by this test as a file the build must not touch, and it does not exist`);
@@ -3204,7 +3247,6 @@ test("vite_build_rewrites_no_hand_written_page_under_web_including_its_own_input
         + "and the room assets are no longer lazy");
   }
   const html = fs.readFileSync(path.join(ROOT, "web", "index.html"), "utf8");
-  assert.match(html, /legacy page/);
   assert.match(html, /button:disabled, button:disabled:hover/);
   assert.match(html, /id="performance-start" type="button" disabled/);
   assert.match(html, /id="interaction-hint"/);

@@ -21,8 +21,6 @@ export interface LegacyWasmAdapter {
   setControl(mask: number): void;
   control(): number;
   setInput(moveXMilli: number, moveYMilli: number, aimRaw: number, reachMilli: number, slot: number, strike: number, turnMilli: number): void;
-  setGoto(xMilli: number, yMilli: number): void;
-  clearOrder(): void;
   spawnMonster(kindCode: number, primary: number, secondary: number): number;
   swapInHero(kindCode: number, primary: number, secondary: number): number;
   step(ticks: number): void;
@@ -383,8 +381,6 @@ export class SimWorkerHost {
 
   private apply(command: LegacyClientCommand): number | undefined {
     const wasm = this.requireWasm();
-    if (command.kind === "goto") return void wasm.setGoto(command.xMilli, command.yMilli);
-    if (command.kind === "withdraw") return void wasm.clearOrder();
     if (command.kind === "setControl") {
       wasm.setControl(command.mask);
       return wasm.control() >>> 0;

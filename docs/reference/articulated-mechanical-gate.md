@@ -151,7 +151,7 @@ rotation applied to the same reach vector, so the angle between them is **exactl
 at every bearing, every reach and every tick**, including the 17.4% of ticks where the
 contact commit writes the hand directly -- because `derive_shield_pose` then reads the
 achieved bearing too. `the_shield_normal_follows_the_arm_that_holds_it` in
-`crates/sim/src/world.rs` bounds that from both sides.
+`crates/sim/src/world/articulated.rs` bounds that from both sides.
 
 The 23.96 degree figure survives with a different meaning. Measured against the **body
 origin** rather than the shoulder, the residual is the shoulder's own lateral offset,

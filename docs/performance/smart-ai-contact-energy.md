@@ -2,7 +2,7 @@
 
 **Purpose:** Record the session-05 offline contact-floor interpretations and decision.
 **Status:** current
-**Canonical source:** this record and the offline ledger in [`strike_corpus.rs`](../../crates/lab/src/strike_corpus.rs)
+**Canonical source:** this record. The offline ledger was `crates/lab/src/strike_corpus.rs`, which the session that deleted the articulated model deleted with it; it was last runnable at `c4e9d67` and **this measurement is not re-runnable on this tree**.
 **Update when:** Contact allocation, the energy floor, the striker, or the stationary-target corpus changes.
 
 Measured on 2026-08-11. No authoritative contact rule or state changed.
