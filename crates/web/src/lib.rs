@@ -108,9 +108,8 @@
 use std::cell::{Cell, RefCell};
 
 use fx::{Angle, Fx, Rng, Vec2};
-use learn_core::{Checkpoint, CheckpointError, LearnedArticulatedPolicy, Model};
-use policy::{ArticulatedPolicy, ArticulatedPolicyKind, EmbodiedPolicy, EmbodiedPolicyKind,
-             RunConfig, TacticalArticulatedPolicy};
+use learn_core::{Checkpoint, CheckpointError, Model};
+use policy::{EmbodiedPolicy, EmbodiedPolicyKind, RunConfig};
 use sim::{
     ArmTarget, ArticulatedCommandV1, ArticulatedObservation, ArticulatedPayloadError, Cardinal,
     CombatHeight, CommandReject, EmbodiedCommandV1, EntityId,
@@ -846,7 +845,10 @@ pub const POSE_RIGHT_HINT: usize = 65;
 // a body whose arms are one link. The forearms were appended rather than
 // interleaved beside each arm precisely so that the five leading indices did not
 // move -- `client/src/arena/geometry.ts` reads regions 2 and 3 as the arms
-// positionally, and `strong_strike.rs` swaps 2 and 3 to mirror a fight.
+// positionally. `crates/lab/src/strong_strike.rs` swapped the same two indices
+// to mirror a fight and is the reason this was written down; session 05 deleted
+// that file, and the positional read in the client is what is left depending on
+// it.
 //
 // **A third section and not five more pose columns.** Folding them in would move
 // [`POSE_LAYOUT_VERSION`] for a body of data that is constant across most of a
@@ -1278,47 +1280,36 @@ const ARENA_HANDS: usize = 2;
 /// [`sim::DuelConfigV1::fighters`] fixes rather than chooses.
 const ARENA_FIGHTERS: usize = 2;
 
-fn controlled_robust_strike_bytes() -> [u8; ARENA_CONFIG_BYTES] {
-    fn word(bytes: &mut [u8], at: usize, value: i32) {
-        bytes[at..at + 4].copy_from_slice(&value.to_le_bytes());
-    }
-    fn hand(bytes: &mut [u8], at: usize, item: u8,
-            mass: Fx, balance: Fx, dimensions: [Fx; 3]) {
-        bytes[at + ARENA_HAND_ITEM] = item;
-        word(bytes, at + ARENA_HAND_MASS, mass.raw());
-        word(bytes, at + ARENA_HAND_BALANCE, balance.raw());
-        word(bytes, at + ARENA_HAND_DIMENSION_0, dimensions[0].raw());
-        word(bytes, at + ARENA_HAND_DIMENSION_1, dimensions[1].raw());
-        word(bytes, at + ARENA_HAND_DIMENSION_2, dimensions[2].raw());
-    }
-    let mut bytes = [0; ARENA_CONFIG_BYTES];
-    bytes[ARENA_HEADER_LAYOUT..ARENA_HEADER_LAYOUT + 2]
-        .copy_from_slice(&ARENA_CONFIG_LAYOUT_VERSION.to_le_bytes());
-    bytes[ARENA_HEADER_FIGHTERS] = ARENA_FIGHTERS as u8;
-    bytes[ARENA_HEADER_MAX_TICKS..ARENA_HEADER_MAX_TICKS + 4]
-        .copy_from_slice(&53u32.to_le_bytes());
-    let hero = ARENA_HEADER_BYTES;
-    bytes[hero + ARENA_FIGHTER_ANATOMY] = 0;
-    bytes[hero + ARENA_FIGHTER_POLICY] = ArticulatedPolicyKind::Tactical.code() as u8;
-    word(&mut bytes, hero + ARENA_FIGHTER_SPAWN_X, 622_592);
-    word(&mut bytes, hero + ARENA_FIGHTER_SPAWN_Y, 458_752);
-    hand(&mut bytes, hero + ARENA_FIGHTER_HANDS, sim::ActionKind::Shield.code() as u8,
-        Fx::from_ratio(9, 10), Fx::from_ratio(7, 20),
-        [Fx::from_ratio(1, 4), Fx::from_ratio(1, 4), Fx::from_ratio(1, 20)]);
-    hand(&mut bytes, hero + ARENA_FIGHTER_HANDS + ARENA_HAND_BYTES,
-        sim::ActionKind::Sword.code() as u8, Fx::from_ratio(31, 25), Fx::from_ratio(11, 20),
-        [Fx::from_int(2), Fx::from_ratio(1, 25), Fx::ZERO]);
-    let brute = ARENA_HEADER_BYTES + ARENA_FIGHTER_BYTES;
-    bytes[brute + ARENA_FIGHTER_ANATOMY] = 1;
-    bytes[brute + ARENA_FIGHTER_POLICY] = ArticulatedPolicyKind::Neutral.code() as u8;
-    word(&mut bytes, brute + ARENA_FIGHTER_SPAWN_X, 786_432);
-    word(&mut bytes, brute + ARENA_FIGHTER_SPAWN_Y, 524_288);
-    bytes[brute + ARENA_FIGHTER_HANDS + ARENA_HAND_ITEM] = ARENA_HAND_EMPTY;
-    hand(&mut bytes, brute + ARENA_FIGHTER_HANDS + ARENA_HAND_BYTES,
-        sim::ActionKind::Club.code() as u8, Fx::from_ratio(223, 100), Fx::from_ratio(61, 100),
-        [Fx::from_ratio(29, 20), Fx::from_ratio(3, 50), Fx::ZERO]);
-    bytes
-}
+// **The `controlled_robust_strike` preset was deleted in v2-ui-08, and this note
+// is what is left of it.** `controlled_robust_strike_bytes` wrote an exact
+// 120-byte configuration, `install_arena` compared the whole buffer against it,
+// and an exact match swapped fighter A's policy for
+// `TacticalArticulatedPolicy::controlled_robust_strike` -- a frozen
+// ordinal-3144 schedule from the paused smart-ai topic. Three tests pinned it:
+// the buffer's own bytes, that one nearby byte did not activate it, and an
+// exact energy ledger on the attributed Legs event at tick 45 of 53.
+//
+// It went for two reasons and not one. The schedule writes **world** bearings --
+// `robust_strike_schedule_command` derives them from a declared spawn offset --
+// and this arena is `CombatModel::Embodied`, where a bearing is read from the
+// torso; the same numbers are a different swing, so the pinned ledger would have
+// had to be re-recorded to say anything, and a re-recorded pin proves nothing
+// about the session that moved it. And the preset lived in
+// `crates/policy/src/articulated_tactics.rs`, which the next step deletes with
+// the model, so keeping it meant keeping a world-frame command builder alive
+// inside a torso-frame policy for one call site the page cannot reach except by
+// writing 120 exact bytes.
+//
+// **What was lost, named rather than glossed.** The ledger assertion was this
+// module's only pin on a *specific* published combat event -- one blow, one
+// tick, six energy words -- and nothing replaces it byte for byte. What still
+// holds the arena's publication path is
+// `a_scripted_arena_fight_in_wasm_matches_the_same_fight_in_lab`, which compares
+// the whole fight against `lab`'s loop rather than one row of it, and
+// `ARTICULATED_STREAM_DIGEST`, which folds every published buffer for
+// `STREAM_DIGEST_TICKS`. Both are wider and neither is exact about one blow.
+// A session that wants that assertion back should write it against an embodied
+// fixture and record the ledger from that fixture, not from this one.
 
 // The arithmetic, asserted rather than commented, so that moving one offset is a
 // failed build here instead of a wrong sentence three files away. The three
@@ -1370,16 +1361,30 @@ const _: () = assert!(
 // page says "invalid" and nobody can find out which.
 //
 // Reachable today: unknown layout, wrong fighter count, noncanonical bytes,
-// unknown anatomy, unknown item, unknown policy, a `learned` fighter with no
-// checkpoint loaded, a refused construction, `Dimension`, `GripConflict`,
-// `NoEquipment`, `UnknownAction` and the Bow's one canonical grip.
+// unknown anatomy, unknown item, unknown policy, a refused construction,
+// `Dimension`, `GripConflict`, `NoEquipment`, `UnknownAction` and the Bow's one
+// canonical grip. Twelve.
 //
-// **v2-ui-08 swapped one for another rather than adding one**, and the swap is
-// worth reading. `ARENA_POLICY_UNAVAILABLE` was reachable while `learned` had
-// no implementation on this side of the wall; it now has one, so that code
-// joins the unreachable set and `ARENA_NO_CHECKPOINT` takes its place in the
-// twelve. Both keep their numbers, on the argument this section already makes
-// about the seven spec errors.
+// **Two of these are retired rather than merely unreachable, and the difference
+// matters.** The seven spec errors above are refusals `crates/sim` can still
+// answer and this parser can no longer provoke -- a widened control brings them
+// back without a byte moving. `ARENA_POLICY_UNAVAILABLE` (7) and
+// `ARENA_NO_CHECKPOINT` (26) are not like that: v2-ui-08 moved the arena onto
+// `EmbodiedPolicyKind`, whose `build` returns a policy and never an `Option`,
+// and whose registry has no `learned` entry for a checkpoint to be missing
+// *for*. There is no control to widen and no asset to fetch. They have no
+// producer and no path back to one.
+//
+// **The numbers stay put anyway, and are refused by their numbers.** This is the
+// codec's rule for a retired schema (`crates/sim/src/codec.rs`, the paragraph
+// above `ARTICULATED_COMMAND_SCHEMA_RESERVED`): a wire value that once meant
+// something is not recycled, because a host still holding it must be told it is
+// wrong rather than quietly given a different meaning. Renumbering 27 down into
+// 26 would make every already-shipped page that maps 26 to "load a checkpoint"
+// silently correct about the byte and wrong about the fight.
+// `the_arena_configuration_buffer_is_the_documented_layout` walks the reason set
+// and is what says the two are still declared, still distinct and still
+// unproduced.
 
 /// Nothing was wrong. Paired with an outcome of `1`.
 pub const ARENA_OK: u8 = 0;
@@ -1414,21 +1419,30 @@ pub const ARENA_UNKNOWN_ANATOMY: u8 = 4;
 /// [`sim::ActionKind::code`]. Distinct from [`ARENA_UNKNOWN_ACTION`], which is
 /// an action that exists and has no equipment row.
 pub const ARENA_UNKNOWN_ITEM: u8 = 5;
-/// A fighter's policy byte is not an [`policy::ArticulatedPolicyKind::code`].
-pub const ARENA_UNKNOWN_POLICY: u8 = 6;
-/// The policy is one this build cannot construct. The slot byte carries the
-/// code, so the refusal names it.
+/// A fighter's policy byte is not an [`policy::EmbodiedPolicyKind::code`].
 ///
-/// **Unreachable since v2-ui-08, and kept for the reason the seven unreachable
-/// spec errors below are kept.** It was code `4`'s refusal while `learned` had
-/// no implementation on this side of the wall; that session split
-/// `crates/learn-core` out of `crates/learn` and every code in
-/// [`ArticulatedPolicyKind`] now has a constructor here. A `learned` fighter
-/// with no network loaded is [`ARENA_NO_CHECKPOINT`] instead, which is a
-/// different sentence: "this build cannot make that fighter" is a rebuild and
-/// "you have not given me one" is a fetch. Folding the two on the grounds that
-/// only one of them can happen today is how a studio ends up saying the wrong
-/// thing on the day the other one does.
+/// **The one policy refusal with a producer since v2-ui-08**, and the reason it
+/// is worth saying so is that the other two below used to share the work. A
+/// stale saved code -- `4` meant `learned` on the articulated registry and means
+/// `tactical-fixed-guard` on this one, and `5` and `6` meant `tactical` and
+/// `openings` and mean nothing -- arrives here and is named.
+pub const ARENA_UNKNOWN_POLICY: u8 = 6;
+/// **Retired in v2-ui-08. The number is reserved and nothing produces it.**
+///
+/// It meant "the policy is one this build cannot construct", with the code in
+/// the slot byte so the refusal named it. That sentence needed a registry with
+/// an entry the boundary could not build, and there is no longer one:
+/// [`policy::EmbodiedPolicyKind::build`] returns a policy rather than an
+/// `Option`, on the argument written out on the enum itself -- nothing in that
+/// registry is fifteen kilobytes of weights.
+///
+/// **Retired and not deleted, and the difference is the wire.** These bytes
+/// cross a worker boundary and outlive a build in whatever a page saved. A
+/// number that once meant something is refused by that number rather than
+/// recycled -- `crates/sim/src/codec.rs` states the rule for a retired command
+/// schema and this is the same rule. Renumbering [`ARENA_BOW_GRIP`] down into
+/// this slot would leave every shipped page that maps `7` to "rebuild" correct
+/// about the byte and wrong about the fight.
 pub const ARENA_POLICY_UNAVAILABLE: u8 = 7;
 /// The sim refused to build the world even though the specification validated.
 ///
@@ -1477,14 +1491,23 @@ pub const ARENA_NO_EQUIPMENT: u8 = 24;
 /// land here; Bow owns a runtime row without changing the hashed fixture table.
 pub const ARENA_UNKNOWN_ACTION: u8 = 25;
 
-/// A fighter asked for `learned` and no checkpoint is installed. The slot byte
-/// carries the policy code, exactly as [`ARENA_POLICY_UNAVAILABLE`] does.
+/// **Retired in v2-ui-08, in the same session that produced it. The number is
+/// reserved and nothing produces it.**
 ///
-/// Appended by v2-ui-08 rather than folded into the code above it, because a
-/// studio can act on this one: the answer is [`load_checkpoint`] and not a
-/// rebuild. It is also the only refusal in this table whose cause is a call the
-/// page has not made yet rather than a value the page wrote down, which is why
-/// it is worth its own number even though both would grey out the same entry.
+/// It meant "a fighter asked for `learned` and no checkpoint is installed", with
+/// the policy code in the slot byte. It was worth its own number beside
+/// [`ARENA_POLICY_UNAVAILABLE`] because a studio could act on it -- the answer
+/// was [`load_checkpoint`] and not a rebuild. What removed it is that
+/// [`policy::EmbodiedPolicyKind`] has no `learned` entry for a fighter to ask
+/// for: a trained fighter is a kind plus a checkpoint, an arena policy byte has
+/// nowhere to put one, and session 09 deferred the widening that would earn the
+/// code. The checkpoint machinery itself is untouched -- [`load_checkpoint`]
+/// still validates and installs, and [`learned_inference_digest`] is still taken
+/// over what it installed, which is the pinned portability claim `AGENTS.md`
+/// calls the digest's fifth owner. What no longer exists is a fighter built out
+/// of it.
+///
+/// Reserved rather than deleted, on the argument beside `7`.
 pub const ARENA_NO_CHECKPOINT: u8 = 26;
 /// A Bow was not the sole item in the right hand under a two-handed grip.
 ///
@@ -1571,9 +1594,17 @@ pub const ARENA_NO_POLICY: u32 = u32::MAX;
 // because a stale one describes a world that no longer exists. An installed
 // checkpoint describes no world at all: it is a host asset, like the action
 // table or the sine table, and it survives `init`, `descend` and `arena_start`
-// exactly as a fetched file survives a page navigating within a session. What
-// *is* per-world is the [`LearnedArticulatedPolicy`] built out of it, and that
-// lives in [`Arena::policies`] where the rule is already paid.
+// exactly as a fetched file survives a page navigating within a session.
+//
+// **Nothing in this build makes a fighter out of it, and that is v2-ui-08's
+// doing rather than an oversight.** What used to be per-world was the
+// `LearnedArticulatedPolicy` in [`Arena::policies`]; the arena's policy byte is
+// an [`EmbodiedPolicyKind::code`] now and that registry has no `learned` entry,
+// for the reason written on the enum -- a trained fighter is a kind plus fifteen
+// kilobytes of weights and an integer has nowhere to put them. The buffer, the
+// validation and the digest all stay, because [`learned_inference_digest_lo`] is
+// taken over the *installed* model and is a pinned two-target portability claim;
+// what is missing is a policy, not a consumer.
 
 /// How many bytes of checkpoint [`CHECKPOINT`] will hold.
 ///
@@ -1982,14 +2013,20 @@ const fn actor_index(id: EntityId) -> u32 {
 /// limit. [`Sim::descend`] carries the line that closes it, and the argument
 /// for clearing rather than refusing.
 struct Arena {
-    /// One articulated policy per faction, indexed by [`Faction::index`].
+    /// One embodied policy per faction, indexed by [`Faction::index`].
     ///
     /// **Two instances and not one driven twice**, which is the whole point:
-    /// `policy::run_articulated` takes a single `impl ArticulatedPolicy` and
-    /// installs it on both sides, which is right for a control and useless for
-    /// an arena. The shape ported here is `lab`'s `measure_articulated_matchup`.
-    policies: [Box<dyn ArticulatedPolicy>; 2],
-    kinds: [ArticulatedPolicyKind; 2],
+    /// `policy::run_embodied` takes a single `impl EmbodiedPolicy` and installs
+    /// it on both sides, which is right for a control and useless for an arena.
+    /// The shape ported here is `lab`'s `measure_embodied_matchup`.
+    ///
+    /// **The same type [`Sim::policies`] holds since v2-ui-08.** They were two
+    /// registries over two traits until this session moved `duel_from` onto
+    /// `CombatModel::Embodied`; the two fields stay separate because an arena
+    /// is driven by [`Sim::advance_arena`] over a captured roster and a dungeon
+    /// by [`Sim::advance`], not because the vocabularies differ.
+    policies: [Box<dyn EmbodiedPolicy>; 2],
+    kinds: [EmbodiedPolicyKind; 2],
     /// The Heroes' identities, captured once at install.
     ///
     /// **Routing is on the alive set and not on the observation**, because
@@ -3491,20 +3528,24 @@ impl Sim {
     /// `frames` ticks of the arena's loop: observe, decide per side, submit,
     /// step, harvest.
     ///
-    /// **A port of `lab`'s `measure_articulated_matchup` and not of
-    /// `policy::run_articulated`**, because the second one takes a single
-    /// `impl ArticulatedPolicy` and installs it on both sides. That is exactly
+    /// **A port of `lab`'s `measure_embodied_matchup` and not of
+    /// `policy::run_embodied`**, because the second one takes a single
+    /// `impl EmbodiedPolicy` and installs it on both sides. That is exactly
     /// right for a control condition and useless for an arena, whose whole
     /// subject is watching two different fighters meet.
     ///
-    /// Four things differ from the loop above and all four follow from the
-    /// model rather than from taste.
+    /// Four things differ from the loop above and all four follow from what an
+    /// arena *is* rather than from taste. **Until v2-ui-08 the first of them was
+    /// the model**: this loop submitted `ArticulatedCommandV1` and the loop above
+    /// submitted `EmbodiedCommandV1`, over two policy registries and two
+    /// vocabularies. `Scenario::duel_from` builds `CombatModel::Embodied` now,
+    /// so both loops speak one grammar and what is left below is about roster,
+    /// stopping and publication.
     ///
-    /// **The observation and the entry are the articulated ones**, and the loop
-    /// above is embodied rather than legacy now -- so what separates the two is
-    /// the grammar's width and not whether commands are stored at all. `World::submit`
-    /// still refuses everything that is not Legacy, which was the defect v2-ui-05
-    /// closed here and which the embodied port closed in the other loop.
+    /// **The observation is the articulated one under both grammars**, which is
+    /// not a leftover: `EmbodiedPolicy::decide` takes an
+    /// `ArticulatedObservation` too. A body's *view* did not change when its
+    /// command frame did.
     ///
     /// **The legacy event feed is cleared and never filled.** The articulated
     /// arm of `World::step` emits exactly one `Event` variant, `Event::Death`,
@@ -3570,7 +3611,7 @@ impl Sim {
                 // the fight carries on either way, and the page's channel for
                 // "the world refused something" is `submit_articulated`'s packed
                 // word rather than a counter nobody publishes.
-                let _ = self.world.submit_articulated_v1(id, command);
+                let _ = self.world.submit_embodied_v1(id, command);
                 if side == Faction::Heroes {
                     self.last_decision_tick = self.world.tick();
                 }
@@ -6116,9 +6157,18 @@ pub const extern "C" fn checkpoint_capacity() -> u32 { CHECKPOINT_CAPACITY as u3
 /// Whether a network is installed: `1` after a successful [`load_checkpoint`],
 /// `0` before the first one.
 ///
-/// Read by a studio to decide whether the `learned` entry in its policy picker
-/// is selectable, which is the difference between an option a reader can be
-/// told about and one that answers [`ARENA_NO_CHECKPOINT`] when they pick it.
+/// **It was the picker's gate and is not any more.** A studio read it to decide
+/// whether the `learned` entry in its policy dropdown was selectable, which was
+/// the difference between an option a reader can be told about and one that
+/// answers [`ARENA_NO_CHECKPOINT`] when they pick it. v2-ui-08 moved the arena
+/// onto [`EmbodiedPolicyKind`], which has no `learned` entry, so there is no
+/// dropdown row for this to grey out.
+///
+/// What it still answers is whether [`learned_inference_digest_lo`] is reporting
+/// on a network or on nothing -- that digest is `0` with no model installed, and
+/// `AGENTS.md` names `Checkpoint::from_bytes` as the pin's fifth owner precisely
+/// because the digest is taken over the checkpoint that was *installed*. A
+/// caller reading the digest without this is reading a zero it cannot interpret.
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn checkpoint_installed() -> u32 {
@@ -6334,53 +6384,6 @@ fn saturating_detail(value: usize) -> u16 {
     value.min(CHECKPOINT_NO_DETAIL as usize - 1) as u16
 }
 
-/// An instance of one articulated policy, including the one `crates/policy`
-/// cannot build.
-///
-/// **`ArticulatedPolicyKind::build` answering `None` for `Learned` is correct
-/// and stays**, which is worth stating because the obvious repair is to teach
-/// that function about a network and it would be a mistake. `crates/policy` is
-/// audited by `tools/check_deps.js`, which walks every workspace member, and
-/// must not gain a float
-/// dependency; more to the point, a checkpoint is a *host asset*, so a registry
-/// that could build one would need a way to be handed 15 KB of weights, and the
-/// place that already holds them is here. So the dispatch lives at the boundary
-/// that owns the arena and `policy` keeps a total function over the codes it
-/// can honestly answer.
-fn build_articulated_policy(
-    kind: ArticulatedPolicyKind,
-    index: usize,
-) -> Result<Box<dyn ArticulatedPolicy>, ArenaRefusal> {
-    if let Some(policy) = kind.build() {
-        return Ok(policy);
-    }
-    // `Learned` is the only kind `build` refuses, and it is refused here only
-    // for want of a network. Written as a `match` on the kind rather than as an
-    // `else` so that a second unbuildable code appended to the registry is a
-    // failed build in the one place that would otherwise quietly report "no
-    // checkpoint" about a policy that has nothing to do with checkpoints.
-    match kind {
-        ArticulatedPolicyKind::Learned => CHECKPOINT_MODEL.with(|model| {
-            match model.borrow().as_ref() {
-                Some(model) => {
-                    let brain: Box<dyn ArticulatedPolicy> =
-                        Box::new(LearnedArticulatedPolicy::new(model.clone()));
-                    Ok(brain)
-                }
-                None => Err(ArenaRefusal::policy(ARENA_NO_CHECKPOINT, index, kind.code())),
-            }
-        }),
-        ArticulatedPolicyKind::Neutral
-        | ArticulatedPolicyKind::Composed
-        | ArticulatedPolicyKind::Windmill
-        | ArticulatedPolicyKind::AttackMoves
-        | ArticulatedPolicyKind::Tactical
-        | ArticulatedPolicyKind::Openings => {
-            Err(ArenaRefusal::policy(ARENA_POLICY_UNAVAILABLE, index, kind.code()))
-        }
-    }
-}
-
 // ----------------------------------------------------------------- the arena
 //
 // One configured duel, built from [`ARENA_CONFIG`] and run by
@@ -6491,9 +6494,8 @@ fn arena_fingerprint() -> u64 {
     with_sim(0, |sim| sim.arena.as_ref().map_or(0, |arena| arena.fingerprint))
 }
 
-/// Which articulated policy a side is running, as an
-/// [`ArticulatedPolicyKind::code`], or [`ARENA_NO_POLICY`] when this world is not
-/// an arena.
+/// Which policy a side is running, as an [`EmbodiedPolicyKind::code`], or
+/// [`ARENA_NO_POLICY`] when this world is not an arena.
 ///
 /// `0` is `neutral` and a perfectly ordinary answer, so absence needs a value no
 /// code can take rather than a zero -- the same reason [`POLICY_KIND_UNKNOWN`]
@@ -6524,7 +6526,7 @@ fn install_arena(bytes: &[u8; ARENA_CONFIG_BYTES], seed: u64) -> Result<(), Aren
     let max_ticks =
         u32::from_le_bytes(bytes[ARENA_HEADER_MAX_TICKS..][..4].try_into().unwrap());
 
-    let (fighter_a, kind_a, mut policy_a) = parse_arena_fighter(bytes, 0)?;
+    let (fighter_a, kind_a, policy_a) = parse_arena_fighter(bytes, 0)?;
     let (fighter_b, kind_b, policy_b) = parse_arena_fighter(bytes, 1)?;
     let config = sim::DuelConfigV1 { fighters: [fighter_a, fighter_b], max_ticks };
 
@@ -6567,11 +6569,6 @@ fn install_arena(bytes: &[u8; ARENA_CONFIG_BYTES], seed: u64) -> Result<(), Aren
     fresh.world.set_objective(Faction::Heroes, Objective::None);
     fresh.world.set_objective(Faction::Monsters, Objective::None);
 
-    if seed == 0 && bytes == &controlled_robust_strike_bytes() {
-        let target = fresh.world.alive_ids(Faction::Monsters)[0];
-        policy_a = Box::new(TacticalArticulatedPolicy::controlled_robust_strike(target));
-    }
-
     let heroes = fresh.world.alive_ids(Faction::Heroes);
     fresh.arena = Some(Arena {
         policies: [policy_a, policy_b],
@@ -6595,7 +6592,7 @@ fn install_arena(bytes: &[u8; ARENA_CONFIG_BYTES], seed: u64) -> Result<(), Aren
 fn parse_arena_fighter(
     bytes: &[u8; ARENA_CONFIG_BYTES],
     index: usize,
-) -> Result<(sim::DuelFighterV1, ArticulatedPolicyKind, Box<dyn ArticulatedPolicy>), ArenaRefusal> {
+) -> Result<(sim::DuelFighterV1, EmbodiedPolicyKind, Box<dyn EmbodiedPolicy>), ArenaRefusal> {
     let base = ARENA_HEADER_BYTES + index * ARENA_FIGHTER_BYTES;
     let at = |offset: usize| i32::from_le_bytes(bytes[base + offset..][..4].try_into().unwrap());
 
@@ -6608,19 +6605,26 @@ fn parse_arena_fighter(
         _ => return Err(ArenaRefusal::fighter(ARENA_UNKNOWN_ANATOMY, index)),
     };
     let code = u32::from(bytes[base + ARENA_FIGHTER_POLICY]);
-    let kind = ArticulatedPolicyKind::from_code(code)
+    let kind = EmbodiedPolicyKind::from_code(code)
         .ok_or(ArenaRefusal::fighter(ARENA_UNKNOWN_POLICY, index))?;
-    // Refused by name, with the code in the slot byte: "this build cannot make
-    // that fighter" is a different sentence from "nobody has heard of that
-    // number", and a studio showing one entry greyed out has to be able to tell
-    // them apart. Since v2-ui-08 there is a third sentence and `learned` is the
-    // only kind that can say it -- see [`build_articulated_policy`].
-    let mut policy = build_articulated_policy(kind, index)?;
-    // `ArticulatedPolicy::reset`'s contract, honoured even though it is a no-op
-    // on an instance built one line above and on a policy with no state. It is
-    // what stops "fresh" from quietly coming to mean "whatever a stateful
-    // successor happens to construct itself with", which is the same reason
-    // `lab`'s matchup loop resets two policies it has just built.
+    // **Every code this parser accepts now builds**, which is the whole of what
+    // v2-ui-08 did to this line. `EmbodiedPolicyKind::build` returns a policy
+    // rather than an `Option` -- its own comment argues why, and the argument is
+    // that nothing in that registry is a checkpoint -- so the two refusals that
+    // used to live between here and a running fight, `ARENA_POLICY_UNAVAILABLE`
+    // and `ARENA_NO_CHECKPOINT`, have no producer left. They keep their numbers
+    // and are retired by name where they are declared. What survives is
+    // `ARENA_UNKNOWN_POLICY` above: a byte outside the registry is still a
+    // refusal that names the offending code, which is the one thing a page
+    // sending a stale saved code needs to be told.
+    let mut policy = kind.build();
+    // `EmbodiedPolicy::reset`'s contract, honoured even though it is a no-op on
+    // an instance built one line above. It is what stops "fresh" from quietly
+    // coming to mean "whatever a stateful successor happens to construct itself
+    // with" -- and `ScriptedEmbodiedPolicy` already carries `GroundSense`, a row
+    // of per-run memory, so this is not hypothetical here the way it was on the
+    // articulated side. `lab`'s matchup loop resets two policies it has just
+    // built for exactly that reason.
     policy.reset();
 
     let mut hands = [None, None];
@@ -6763,12 +6767,6 @@ impl ArenaRefusal {
 
     const fn hand(reason: u8, fighter: usize, hand: usize) -> ArenaRefusal {
         ArenaRefusal { reason, fighter: fighter as u8, slot: hand as u8 }
-    }
-
-    /// The one refusal whose slot byte is not a hand. See
-    /// [`ARENA_POLICY_UNAVAILABLE`].
-    const fn policy(reason: u8, fighter: usize, code: u32) -> ArenaRefusal {
-        ArenaRefusal { reason, fighter: fighter as u8, slot: code as u8 }
     }
 
     const fn packed(self) -> u32 {
@@ -7154,12 +7152,23 @@ pub extern "C" fn set_policy(faction_code: u32, policy_code: u32) -> u32 {
         None => return 0,
     };
     let took = with_sim(0, |sim| {
-        // **An arena refuses this, and answers `0` because `0` is true.** Its
-        // fighters run `ArticulatedPolicyKind`, `Sim::advance_arena` never
-        // consults `sim.policies`, and a call that reported success would leave
-        // a page showing a dropdown that had done nothing. The articulated
-        // registry is written once, by [`arena_start`], and read back by
-        // [`arena_policy`].
+        // **An arena refuses this, and answers `0` because `0` is true.**
+        // [`Sim::advance_arena`] drives [`Arena::policies`] and never consults
+        // `sim.policies`, so a call that reported success would leave a page
+        // showing a dropdown that had done nothing.
+        //
+        // **The reason is no longer that the two are different registries.**
+        // Until v2-ui-08 an arena's fighters ran `ArticulatedPolicyKind` and
+        // this export took `EmbodiedPolicyKind`, and answering `1` would have
+        // installed a code from one vocabulary into a slot read by the other.
+        // Both are `EmbodiedPolicyKind` now and the refusal stands anyway, for
+        // the narrower reason it always also had: an arena's pair is written
+        // once, by [`arena_start`], as half of a 120-byte configuration whose
+        // fingerprint names the fight. A dropdown that swapped one side mid-run
+        // would leave [`arena_policy`] and [`arena_fingerprint_lo`] describing a
+        // fight that is not being fought. The page changes an arena's policy the
+        // way it changes its swords: by writing a configuration and calling
+        // [`arena_start`] again.
         if sim.arena.is_some() {
             return 0;
         }
@@ -7173,15 +7182,16 @@ pub extern "C" fn set_policy(faction_code: u32, policy_code: u32) -> u32 {
 /// Which policy a faction is running, as a [`policy::EmbodiedPolicyKind::code`],
 /// or [`POLICY_KIND_UNKNOWN`] on a world this vocabulary does not describe.
 ///
-/// **An arena answers that it does not know, rather than answering an
-/// articulated code through an embodied export.** Those are the only two honest
-/// options and the second is worse: `EmbodiedPolicyKind` and
-/// [`ArticulatedPolicyKind`] are separate registries precisely so that one
-/// integer does not mean two things, and `2` is `scripted-level` on one and
-/// `windmill` on the other. An export documented as returning one registry's
-/// code that sometimes returns the other's would put that collision back inside
-/// a single function, on a page whose whole subject is watching the fight change
-/// when the dropdown moves.
+/// **An arena answers that it does not know, and kept doing so after v2-ui-08
+/// made the two registries one.** The original reason was a collision: an arena
+/// ran `ArticulatedPolicyKind`, where `2` is `windmill`, and this export is
+/// documented as returning `EmbodiedPolicyKind`, where `2` is `scripted-level`.
+/// That reason is gone. What is left is that this export is the read half of
+/// [`set_policy`], which an arena refuses -- so a page that got a code back here
+/// would reasonably write one back there and be told `0`. [`arena_policy`] is
+/// the arena's own read, it takes a faction, and it answers the same registry.
+/// A second export answering the same question is only worth having while the
+/// two can disagree about what a page may *do* with the answer.
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn policy_kind(faction_code: u32) -> u32 {
@@ -8440,144 +8450,6 @@ mod tests {
         SIM.with(|sim| *sim.borrow_mut() = Some(fresh));
     }
 
-    #[test]
-    fn robust_strike_arena_configuration_is_the_exact_controlled_boundary() {
-        let bytes = controlled_robust_strike_bytes();
-        assert_eq!(bytes.len(), 120);
-        assert_eq!(u32::from_le_bytes(bytes[4..8].try_into().unwrap()), 53);
-        assert_eq!(bytes[ARENA_HEADER_BYTES + ARENA_FIGHTER_POLICY],
-                   ArticulatedPolicyKind::Tactical.code() as u8);
-        assert_eq!(bytes[ARENA_HEADER_BYTES + ARENA_FIGHTER_BYTES
-                         + ARENA_FIGHTER_POLICY],
-                   ArticulatedPolicyKind::Neutral.code() as u8);
-        assert_eq!(i32::from_le_bytes(bytes[ARENA_HEADER_BYTES
-                   + ARENA_FIGHTER_HANDS + ARENA_HAND_BYTES
-                   + ARENA_HAND_DIMENSION_0..][..4].try_into().unwrap()), 131_072);
-    }
-
-    #[test]
-    fn a_nearby_arena_config_uses_ordinary_tactical_instead_of_the_preset() {
-        let exact = controlled_robust_strike_bytes();
-        install_arena(&exact, 0).unwrap();
-        let controlled = with_sim(None, |sim| {
-            let hero = sim.world.alive_ids(Faction::Heroes)[0];
-            let obs = sim.world.observe_articulated(hero);
-            Some(sim.arena.as_mut().unwrap().policies[0].decide(&obs))
-        }).unwrap();
-
-        let mut nearby = exact;
-        nearby[ARENA_HEADER_MAX_TICKS..ARENA_HEADER_MAX_TICKS + 4]
-            .copy_from_slice(&57u32.to_le_bytes());
-        install_arena(&nearby, 0).unwrap();
-        let ordinary = with_sim(None, |sim| {
-            let hero = sim.world.alive_ids(Faction::Heroes)[0];
-            let obs = sim.world.observe_articulated(hero);
-            Some(sim.arena.as_mut().unwrap().policies[0].decide(&obs))
-        }).unwrap();
-        assert_ne!(ordinary.payload_bytes(), controlled.payload_bytes(),
-                   "one nearby byte must not activate the controlled schedule");
-    }
-
-    #[test]
-    fn robust_strike_arena_publishes_the_attributed_event_and_matching_damage() {
-        install_arena(&controlled_robust_strike_bytes(), 0).unwrap();
-        let before = with_sim(None, |sim| {
-            let brute = sim.world.alive_ids(Faction::Monsters)[0];
-            Some(sim.world.observe_articulated(brute).integrity_fraction[sim::BodyPart::Legs as usize])
-        }).unwrap();
-        let mut matching = Vec::new();
-        for _ in 0..53 {
-            step(1);
-            for row in published_events() {
-                    if row[COMBAT_EVENT_A_INDEX] == 0
-                        && row[COMBAT_EVENT_A_SLOT] == sim::LimbSlot::RightArm as u32
-                        && row[COMBAT_EVENT_B_INDEX] == 1
-                        && row[COMBAT_EVENT_B_SLOT] == u32::from(sim::BODY_SLOT)
-                        && row[COMBAT_EVENT_BODY_PART] == sim::BodyPart::Legs as u32
-                    {
-                        matching.push(row);
-                    }
-            }
-        }
-        // **One row in the default build, two under `cartesian-recoil`, and
-        // the second one is not a second blow.** The exact law resolves the
-        // same swing and then publishes a resting contact on the next tick,
-        // `3153 -> 3153` with nothing dissipated and nothing cut, which is the
-        // blade lying against the leg it has already opened. It is asserted
-        // below rather than filtered out, because "the extra row carries no
-        // energy" is the whole of the reason one row and two rows are the same
-        // demonstration -- a filter would have hidden a genuine second blow
-        // just as effectively.
-        #[cfg(not(feature = "cartesian-recoil"))]
-        assert_eq!(matching.len(), 1, "the controlled strike must have one unambiguous Legs event");
-        #[cfg(feature = "cartesian-recoil")]
-        assert_eq!(matching.len(), 2,
-            "the exact law's controlled strike must be one blow and one resting row");
-        assert_eq!((matching[0][COMBAT_EVENT_TICK], tick()), (45, 53));
-        let wide = |row: [u32; COMBAT_EVENT_STRIDE], lo: usize, hi: usize|
-            u64::from(row[lo]) | (u64::from(row[hi]) << 32);
-        let ledger = |row: [u32; COMBAT_EVENT_STRIDE]| (
-            wide(row, COMBAT_EVENT_ENERGY_BEFORE_LO, COMBAT_EVENT_ENERGY_BEFORE_HI),
-            wide(row, COMBAT_EVENT_ENERGY_AFTER_LO, COMBAT_EVENT_ENERGY_AFTER_HI),
-            wide(row, COMBAT_EVENT_ENERGY_DISSIPATED_LO, COMBAT_EVENT_ENERGY_DISSIPATED_HI),
-            wide(row, COMBAT_EVENT_CUT_LO, COMBAT_EVENT_CUT_HI),
-            wide(row, COMBAT_EVENT_THRUST_LO, COMBAT_EVENT_THRUST_HI),
-            wide(row, COMBAT_EVENT_PRESSURE_LO, COMBAT_EVENT_PRESSURE_HI),
-        );
-        // **The exact ledger, and it is pinned from both sides on purpose.**
-        // These four assertions used to read `dissipated > 0`, `cut > 0 ||
-        // thrust > 0` and `after <= before`, and a range that wide cannot
-        // defend the thing the preset exists to demonstrate: between the
-        // Smart117/118 measurement and 2026-08-15 the same fingerprint, tick,
-        // region and pressure went from `346 -> 68` with cut 133 to
-        // `346 -> 166` with cut 35 -- the allocated share fell from 278 to 180
-        // and the visible wound with it, from 6% of the Brute's legs to 1.7% --
-        // and every one of those one-sided bounds stayed green through it.
-        // A blow getting 3.8x weaker is exactly what this test is for.
-        //
-        // So these are a pin and not a bound. If one moves, say which mechanic
-        // moved it and re-record the row in the tactical policy record with it;
-        // do not widen the assertion back into a range.
-        //
-        // Moved once already, by Smart134's doubled arm bearing rates, and the
-        // pin did its job in both directions within one session: it caught the
-        // silent 3.8x loss above, then measured the repair. Incoming group
-        // energy went 346 to 1,274 and cut went 35 to 508, so the demonstration
-        // is now four times the blow it was when it was first recorded rather
-        // than a quarter of it, and the contact lands at tick 45 instead of 52.
-        // `pressure` is 145 through all three recordings because it is the
-        // residue `share - cut - thrust` against a 144-raw floor, so it reads as
-        // the floor plus rounding no matter how hard the blow is -- which is
-        // exactly why it is the one channel that proves nothing on its own.
-        //
-        // **The two builds get a row each, and the pair is the interesting
-        // part.** The default response law allocates 655 of the same 1,274 raw
-        // and the exact one 985; the exact law cuts 840 where the default cuts
-        // 508. Same fingerprint, same tick, same region, same incoming energy,
-        // and the shipping preset lands a half-again harder blow under the
-        // feature -- which is a fact about the two laws rather than about
-        // either recording, and the reason to pin both rather than to gate one
-        // out and read the other as "the" ledger.
-        #[cfg(not(feature = "cartesian-recoil"))]
-        assert_eq!(ledger(matching[0]), (1274, 619, 655, 508, 2, 145),
-            "the controlled strike's published energy ledger moved");
-        #[cfg(feature = "cartesian-recoil")]
-        assert_eq!(ledger(matching[0]), (1274, 289, 985, 840, 0, 145),
-            "the controlled strike's published energy ledger moved");
-        #[cfg(feature = "cartesian-recoil")]
-        assert_eq!((matching[1][COMBAT_EVENT_TICK], ledger(matching[1])),
-            (46, (3153, 3153, 0, 0, 0, 0)),
-            "the exact law's second Legs row stopped being an inert resting contact");
-        let (after, rejections) = with_sim((None, u32::MAX), |sim| {
-            let brute = sim.world.alive_ids(Faction::Monsters)[0];
-            (Some(sim.world.observe_articulated(brute)
-                  .integrity_fraction[sim::BodyPart::Legs as usize]),
-             sim.world.contact_solver_rejections())
-        });
-        assert!(after.unwrap() < before, "the attributed Legs event did not reduce Legs integrity");
-        assert_eq!(rejections, 0);
-    }
-
     /// A duel written into [`ARENA_CONFIG`] the way the studio writes it.
     ///
     /// The mirror of [`install_arena`]'s parse, and deliberately a separate
@@ -8585,7 +8457,7 @@ mod tests {
     /// it is handed to agrees with itself by construction and says nothing about
     /// the layout. This one is written against the offset constants, which is
     /// what a page has.
-    fn write_arena_config(config: &sim::DuelConfigV1, policies: [ArticulatedPolicyKind; 2]) {
+    fn write_arena_config(config: &sim::DuelConfigV1, policies: [EmbodiedPolicyKind; 2]) {
         ARENA_CONFIG.with(|buffer| {
             let mut bytes = buffer.borrow_mut();
             bytes.fill(0);
@@ -8659,24 +8531,24 @@ mod tests {
     fn the_lab_loop(
         scenario: &Scenario,
         seed: u64,
-        kinds: [ArticulatedPolicyKind; 2],
+        kinds: [EmbodiedPolicyKind; 2],
     ) -> (u64, Option<sim::Outcome>, u32) {
-        let policies =
-            [kinds[0].build().expect("a buildable policy"), kinds[1].build().expect("a buildable policy")];
-        the_lab_loop_with(scenario, seed, policies)
+        the_lab_loop_with(scenario, seed, [kinds[0].build(), kinds[1].build()])
     }
 
     /// [`the_lab_loop`] over two policies the caller built.
     ///
-    /// Split out for the one kind `ArticulatedPolicyKind::build` cannot make:
-    /// a learned fighter needs a network, and where the network comes from is
-    /// the host's business rather than the registry's. Everything below the
-    /// signature is the same loop, which is what keeps the learned comparison
-    /// and the scripted one comparisons of the same thing.
+    /// **It was split out for the one kind `ArticulatedPolicyKind::build` could
+    /// not make**, and that kind is gone: `EmbodiedPolicyKind::build` is total,
+    /// so `the_lab_loop` above is now the whole of it. The split survives
+    /// because a caller *outside* the registry -- a checkpoint, a wrapper, a
+    /// policy assembled for one assertion -- is still a thing a test may want to
+    /// drive through the identical loop, and a helper that only took two codes
+    /// would push such a caller into writing a third copy of it.
     fn the_lab_loop_with(
         scenario: &Scenario,
         seed: u64,
-        mut policies: [Box<dyn ArticulatedPolicy>; 2],
+        mut policies: [Box<dyn EmbodiedPolicy>; 2],
     ) -> (u64, Option<sim::Outcome>, u32) {
         let mut world = World::new(scenario, seed);
         let orders = RunConfig::default().orders;
@@ -8693,7 +8565,7 @@ mod tests {
                 let obs = world.observe_articulated(id);
                 let side = usize::from(!heroes.contains(&id));
                 let command = policies[side].decide(&obs);
-                let _ = world.submit_articulated_v1(id, command);
+                let _ = world.submit_embodied_v1(id, command);
             }
             let _ = world.step();
         }
@@ -8833,7 +8705,7 @@ mod tests {
         // that what it hands `duel_from` is the configuration that was staged.
         let mut config = sim::DuelConfigV1::shipped();
         config.fighters[1].two_handed = true;
-        let kinds = [ArticulatedPolicyKind::Composed, ArticulatedPolicyKind::Windmill];
+        let kinds = [EmbodiedPolicyKind::Scripted, EmbodiedPolicyKind::Tactical];
         write_arena_config(&config, kinds);
         let fighters = ARENA_CONFIG.with(|buffer| {
             let bytes = *buffer.borrow();
@@ -8890,7 +8762,7 @@ mod tests {
         // shipped fixture does not kill inside sixty seconds, so both runs stop
         // on the tick limit and the *limit* is what has to agree as well.
         config.max_ticks = 300;
-        let kinds = [ArticulatedPolicyKind::Composed, ArticulatedPolicyKind::AttackMoves];
+        let kinds = [EmbodiedPolicyKind::Scripted, EmbodiedPolicyKind::Tactical];
         write_arena_config(&config, kinds);
         assert_eq!(
             arena_start(3),
@@ -8910,22 +8782,35 @@ mod tests {
             "the arena's fight is not the lab's fight"
         );
         // And it was a fight rather than three hundred quiet ticks. **The two
-        // laws diverged here on 2026-08-16 and converged again the same day.**
-        // The exact law briefly ended this fight on a body at 229, once the
+        // laws have split here twice and this is the second time.** The exact
+        // law briefly ended the articulated fixture on a body at 229 once the
         // plate's normal began following the arm that carries it; the crush
-        // channel then took it back to the clock, because crushing costs
+        // channel took it back to the clock the same day, because crushing costs
         // integrity and opens no bleeding wound, so both bodies absorb more
-        // before either falls. Both laws run the configuration's clock out
-        // again, so the split is gone rather than re-recorded. The equality
-        // against `the_lab_loop` above is what says the two spellings of the
-        // loop still agree, and it has not moved on either law through any of
-        // it.
+        // before either falls. v2-ui-08 split them again by making the fight
+        // embodied: the default law runs the configured clock out and the exact
+        // one decides on a body at 244.
+        //
+        // Pinned from both sides rather than relaxed to `<= max_ticks`. A bound
+        // that accepted either would accept a fixture that had stopped fighting
+        // as readily as one that had got faster, and the *reason* to pin a
+        // stopping tick at all is that it is the cheapest witness that the two
+        // laws are two laws. The equality against `the_lab_loop` above is the
+        // load-bearing one and has not moved on either law through any of it.
         assert!(arena_state().2 > 32, "the arena went quiet almost immediately");
+        #[cfg(not(feature = "cartesian-recoil"))]
         assert_eq!(arena_state().2, config.max_ticks,
                    "the arena fight no longer runs its configured clock");
+        #[cfg(feature = "cartesian-recoil")]
+        assert_eq!(arena_state().2, 244,
+                   "the exact law's decision tick moved");
         // One row per **live** articulated body, which is what `pose_len` means.
-        // Both fights reach the clock with both fighters standing.
+        // The default fight reaches the clock with both standing; the exact one
+        // ends on a body, and one row is what that looks like from here.
+        #[cfg(not(feature = "cartesian-recoil"))]
         assert_eq!(pose_len(), 2, "an arena publishes one pose row per fighter");
+        #[cfg(feature = "cartesian-recoil")]
+        assert_eq!(pose_len(), 1, "the exact law's decided fight left two bodies standing");
         assert!(combat_event_len() > 0, "three hundred ticks resolved no contact");
     }
 
@@ -8943,9 +8828,9 @@ mod tests {
         config.max_ticks = 200;
         let mut hashes = Vec::new();
         for kinds in [
-            [ArticulatedPolicyKind::Composed, ArticulatedPolicyKind::Composed],
-            [ArticulatedPolicyKind::Composed, ArticulatedPolicyKind::Neutral],
-            [ArticulatedPolicyKind::Neutral, ArticulatedPolicyKind::Composed],
+            [EmbodiedPolicyKind::Scripted, EmbodiedPolicyKind::Scripted],
+            [EmbodiedPolicyKind::Scripted, EmbodiedPolicyKind::Neutral],
+            [EmbodiedPolicyKind::Neutral, EmbodiedPolicyKind::Scripted],
         ] {
             write_arena_config(&config, kinds);
             assert_eq!(arena_start(3) & 0xff, 1, "{kinds:?} was refused");
@@ -8966,7 +8851,7 @@ mod tests {
         assert_eq!(policy_kind(1), POLICY_KIND_UNKNOWN);
         assert_eq!(set_policy(0, EmbodiedPolicyKind::Neutral.code()), 0,
                    "an arena took an embodied policy");
-        assert_eq!(arena_policy(0), ArticulatedPolicyKind::Neutral.code());
+        assert_eq!(arena_policy(0), EmbodiedPolicyKind::Neutral.code());
     }
 
     #[test]
@@ -8988,7 +8873,7 @@ mod tests {
         // broken is not a rule, so it is written down here.
         let mut config = sim::DuelConfigV1::shipped();
         config.max_ticks = 300;
-        write_arena_config(&config, [ArticulatedPolicyKind::Composed; 2]);
+        write_arena_config(&config, [EmbodiedPolicyKind::Scripted; 2]);
         assert_eq!(
             arena_start(3),
             submit_result(1, ARENA_OK, ARENA_WHOLE_CONFIG, ARENA_WHOLE_CONFIG),
@@ -9021,7 +8906,7 @@ mod tests {
         // about a world that is standing there rather than about `None`.
         let mut config = sim::DuelConfigV1::shipped();
         config.max_ticks = 120;
-        let kinds = [ArticulatedPolicyKind::Composed, ArticulatedPolicyKind::Windmill];
+        let kinds = [EmbodiedPolicyKind::Scripted, EmbodiedPolicyKind::Tactical];
         write_arena_config(&config, kinds);
         assert_eq!(arena_start(3) & 0xff, 1);
         step(40);
@@ -9100,17 +8985,13 @@ mod tests {
         poke_arena_config(ARENA_HEADER_BYTES + ARENA_FIGHTER_BYTES + ARENA_FIGHTER_POLICY, 9);
         assert_eq!(arena_start(9), ArenaRefusal::fighter(ARENA_UNKNOWN_POLICY, 1).packed());
 
-        // 7. The policy with no network behind it yet. See
-        // `the_learned_code_is_refused_by_name` for the rest of it, including
-        // the half that says this refusal is about the checkpoint rather than
-        // about the code.
-        assert_eq!(checkpoint_installed(), 0, "this thread has already loaded a network");
-        write_arena_config(&config, [ArticulatedPolicyKind::Learned, kinds[1]]);
-        assert_eq!(
-            arena_start(9),
-            ArenaRefusal::policy(ARENA_NO_CHECKPOINT, 0, ArticulatedPolicyKind::Learned.code())
-                .packed()
-        );
+        // 7. **Was the `learned` code with no network behind it, and there is no
+        // seventh case.** `ARENA_NO_CHECKPOINT` was produced here; v2-ui-08 put
+        // the arena on `EmbodiedPolicyKind`, which has no `learned` entry, and
+        // retired the code. `the_retired_policy_reasons_are_reserved_and_unproduced`
+        // is what replaced this case, and it is a wider claim than this one was:
+        // it drives every byte a page can put in the slot and asserts that
+        // neither retired number comes back from any of them.
 
         // 8. A placement the world will not build: the fighter dragged out
         // through the wall of a 24x16 room.
@@ -9172,69 +9053,87 @@ mod tests {
         // takes a new configuration.
         step(40);
         assert_eq!(tick(), standing.2 + 40);
-        write_arena_config(&config, [ArticulatedPolicyKind::Neutral; 2]);
+        write_arena_config(&config, [EmbodiedPolicyKind::Neutral; 2]);
         assert_eq!(arena_start(11) & 0xff, 1, "the instance stopped accepting fights");
-        assert_eq!(arena_policy(0), ArticulatedPolicyKind::Neutral.code());
+        assert_eq!(arena_policy(0), EmbodiedPolicyKind::Neutral.code());
         assert_eq!(tick(), 0);
     }
 
     #[test]
-    fn the_learned_code_is_refused_by_name() {
-        // Code 4 is **named**, which v2-ui-05 wrote this test for and v2-ui-08
-        // has now changed the second half of. `from_code` knows it, `name` says
-        // "learned", and `ArticulatedPolicyKind::build` still answers `None` --
-        // deliberately, and permanently: `crates/policy` is inside `check_deps.js`'s
-        // audit and must not gain a float dependency, and a
-        // checkpoint is 15 KB of host asset that a registry has no way to be
-        // handed. The dispatch lives in `build_articulated_policy` here.
+    fn the_retired_policy_reasons_are_reserved_and_unproduced() {
+        // **The replacement for `the_learned_code_is_refused_by_name`**, which
+        // v2-ui-05 wrote and v2-ui-08 removed the subject of. That test held
+        // code `4`: `ArticulatedPolicyKind::from_code` knew it, `name` said
+        // "learned", `build` answered `None`, and `arena_start` refused it by
+        // name with `ARENA_NO_CHECKPOINT` until a network was loaded. The arena
+        // reads `EmbodiedPolicyKind` now, whose `build` is total and which has
+        // no `learned` entry, so both `ARENA_POLICY_UNAVAILABLE` and
+        // `ARENA_NO_CHECKPOINT` lost their producers in one move.
         //
-        // What moved is what the refusal *says*. It was "this build cannot make
-        // that fighter"; it is now "you have not given me one", which is a
-        // sentence a studio can act on.
-        assert_eq!(ArticulatedPolicyKind::from_code(4), Some(ArticulatedPolicyKind::Learned));
-        assert_eq!(ArticulatedPolicyKind::Learned.name(), "learned");
-        assert!(ArticulatedPolicyKind::Learned.build().is_none());
-        assert_eq!(checkpoint_installed(), 0, "this thread has already loaded a network");
+        // The numbers stay declared and reserved, on the codec's retired-schema
+        // rule. What has to be checked is therefore two different things, and a
+        // test that checked only the first would be the shape `AGENTS.md` calls
+        // a green guard asserting nothing.
+        //
+        // **One: the numbers are still there and still distinct.**
+        assert_eq!(ARENA_POLICY_UNAVAILABLE, 7);
+        assert_eq!(ARENA_NO_CHECKPOINT, 26);
+        assert!(ARENA_REASONS.contains(&ARENA_POLICY_UNAVAILABLE));
+        assert!(ARENA_REASONS.contains(&ARENA_NO_CHECKPOINT));
+        assert!(reasons_are_distinct(&ARENA_REASONS));
 
+        // **Two: nothing produces them.** Every one of the 256 values a page can
+        // write into a policy slot, on both sides, with a network installed and
+        // without -- because "no checkpoint" was a refusal about an *absent*
+        // asset and the honest way to say it is gone is to look for it in the
+        // state where it used to fire. A registered code installs and its own
+        // code is read back; anything else is `ARENA_UNKNOWN_POLICY`, which is
+        // the one policy refusal that still has a producer.
         let config = sim::DuelConfigV1::shipped();
-        for side in 0..2 {
-            let mut kinds = [ArticulatedPolicyKind::Composed; 2];
-            kinds[side] = ArticulatedPolicyKind::Learned;
-            write_arena_config(&config, kinds);
-            assert_eq!(
-                arena_start(3),
-                ArenaRefusal::policy(ARENA_NO_CHECKPOINT, side, 4).packed(),
-                "the learned policy was not refused on side {side}"
-            );
-            assert_eq!(arena_policy(0), ARENA_NO_POLICY, "a refusal installed a world");
+        let registered: Vec<u32> =
+            EmbodiedPolicyKind::ALL.iter().map(|kind| kind.code()).collect();
+        assert_eq!(registered, vec![0, 1, 2, 3, 4], "the embodied registry is no longer 0..5");
+        for loaded in [false, true] {
+            if loaded {
+                assert_eq!(load_checkpoint(stage_shipped_checkpoint()) & 0xff, 1);
+            } else {
+                assert_eq!(checkpoint_installed(), 0, "this thread already loaded a network");
+            }
+            for side in 0..2 {
+                for byte in 0..=255u32 {
+                    write_arena_config(&config, [EmbodiedPolicyKind::Scripted; 2]);
+                    poke_arena_config(
+                        ARENA_HEADER_BYTES + side * ARENA_FIGHTER_BYTES + ARENA_FIGHTER_POLICY,
+                        byte as u8,
+                    );
+                    let packed = arena_start(3);
+                    let reason = ((packed >> 8) & 0xff) as u8;
+                    assert_ne!(reason, ARENA_POLICY_UNAVAILABLE,
+                        "policy byte {byte} on side {side} produced a retired reason");
+                    assert_ne!(reason, ARENA_NO_CHECKPOINT,
+                        "policy byte {byte} on side {side} produced a retired reason");
+                    if registered.contains(&byte) {
+                        assert_eq!(packed & 0xff, 1, "registered code {byte} was refused");
+                        assert_eq!(arena_policy(side as u32), byte,
+                            "code {byte} installed and read back as something else");
+                    } else {
+                        assert_eq!(packed, ArenaRefusal::fighter(ARENA_UNKNOWN_POLICY, side).packed(),
+                            "unregistered code {byte} was not named");
+                    }
+                }
+            }
         }
 
-        // "Named" is a different answer from "unknown", which is the whole
-        // reason the code is held rather than left free: `7` is a number nobody
-        // has heard of and `4` is a fighter waiting for its weights.
-        //
-        // **This sentinel moves every time a code is appended**, and that is the
-        // append-only registry working rather than a nuisance: it was `6` until
-        // `openings` took that code, and a test still poking `6` would have gone
-        // on asserting "unknown" about a policy that builds. Keep it one past
-        // the last registered code.
-        write_arena_config(&config, [ArticulatedPolicyKind::Composed; 2]);
-        assert_eq!(ArticulatedPolicyKind::from_code(7), None, "7 is no longer the free code");
-        poke_arena_config(ARENA_HEADER_BYTES + ARENA_FIGHTER_POLICY, 7);
-        assert_eq!(arena_start(3), ArenaRefusal::fighter(ARENA_UNKNOWN_POLICY, 0).packed());
-
-        // And with a network in hand the same twenty bytes are taken, which is
-        // what says the refusal above is about the checkpoint and not about the
-        // code. Two halves of one claim, in one test, because either on its own
-        // is satisfied by a constant.
-        assert_eq!(load_checkpoint(stage_shipped_checkpoint()) & 0xff, 1);
-        for side in 0..2 {
-            let mut kinds = [ArticulatedPolicyKind::Composed; 2];
-            kinds[side] = ArticulatedPolicyKind::Learned;
-            write_arena_config(&config, kinds);
-            assert_eq!(arena_start(3) & 0xff, 1, "a loaded network was still refused");
-            assert_eq!(arena_policy(side as u32), ArticulatedPolicyKind::Learned.code());
-        }
+        // And the codes that moved meaning rather than disappearing, spelled out
+        // because a page can have saved one. `4` was `learned` on the old
+        // registry and is `tactical-fixed-guard` on this one -- it installs, and
+        // it installs *something else*, which is worth an assertion because a
+        // silent reinterpretation is the failure a reserved number exists to
+        // prevent and this one is the case where reserving was not available.
+        // `5` and `6` were `tactical` and `openings` and are now refused.
+        assert_eq!(EmbodiedPolicyKind::from_code(4), Some(EmbodiedPolicyKind::TacticalFixedGuard));
+        assert_eq!(EmbodiedPolicyKind::from_code(5), None);
+        assert_eq!(EmbodiedPolicyKind::from_code(6), None);
     }
 
     #[test]
@@ -9242,11 +9141,11 @@ mod tests {
         assert_eq!(checkpoint_installed(), 0);
         let config = sim::DuelConfigV1::shipped();
         write_arena_config(&config, [
-            ArticulatedPolicyKind::Tactical,
-            ArticulatedPolicyKind::Neutral,
+            EmbodiedPolicyKind::Tactical,
+            EmbodiedPolicyKind::Neutral,
         ]);
         assert_eq!(arena_start(23) & 0xff, 1);
-        assert_eq!(arena_policy(0), ArticulatedPolicyKind::Tactical.code());
+        assert_eq!(arena_policy(0), EmbodiedPolicyKind::Tactical.code());
     }
 
     /// The shipped artifact, the one `lab learn-probe evaluate` scores and the
@@ -9431,96 +9330,48 @@ mod tests {
 
         // And the instance is still usable after twenty refused calls, in both
         // senses: it takes the good file again, and it runs a fight with it.
+        //
+        // **The fight is no longer the network's**, because no arena code names
+        // one since v2-ui-08. What the pairing still says is the thing it was
+        // written for: twenty refused loads did not leave the module unable to
+        // install a checkpoint or to open a duel. The digest below is what says
+        // the network that was installed is the right one.
         assert_eq!(load_checkpoint(stage_shipped_checkpoint()) & 0xff, 1);
         assert_eq!(read_checkpoint_digest(), installed);
+        assert_ne!(learned_inference_digest_lo(), 0,
+                   "the reinstalled network is not being read");
         let mut config = sim::DuelConfigV1::shipped();
         config.max_ticks = 40;
-        write_arena_config(&config, [ArticulatedPolicyKind::Learned, ArticulatedPolicyKind::Windmill]);
+        write_arena_config(&config, [EmbodiedPolicyKind::Scripted, EmbodiedPolicyKind::Tactical]);
         assert_eq!(arena_start(3) & 0xff, 1, "the instance stopped taking fights");
         step(config.max_ticks);
         assert_eq!(tick(), config.max_ticks);
     }
 
-    #[test]
-    fn a_learned_fight_in_wasm_matches_the_same_fight_in_lab() {
-        // **Stronger than the digest, and it is what the digest is for.**
-        // `LEARNED_INFERENCE_DIGEST` compares one corpus of sixty-four
-        // independent forward passes; this compares 3,600 ticks of compounding
-        // decisions, where every command changes the observation the next one is
-        // made from -- so a single divergent logit anywhere in the fight moves
-        // the state hash and keeps it moved.
-        //
-        // **"in wasm" means through the `pub extern "C"` ABI and not on the
-        // wasm target.** This is a native test in a `#[cfg(test)]` module and
-        // it never runs on `wasm32-unknown-unknown`, so what it compares is two
-        // *spellings* of one loop on one host. It is stronger than the digest
-        // about compounding decisions and says nothing whatever about
-        // portability: the whole of the cross-target evidence for a learned
-        // fight is `LEARNED_INFERENCE_DIGEST` over the sixty-four-case corpus.
-        // That is a boundary and not a gap -- a pinned learned-fight state hash
-        // is `ARTICULATED_HASH` under another name, which no session before
-        // v2-17 may create.
-        //
-        // The shape is `a_scripted_arena_fight_in_wasm_matches_the_same_fight_in_lab`'s
-        // exactly: one fight driven through the ABI from the configuration
-        // buffer, the other by a hand-written copy of `lab`'s matchup loop, and
-        // the two compared on the state hash, the outcome and the stopping tick.
-        assert_eq!(load_checkpoint(stage_shipped_checkpoint()) & 0xff, 1);
-        let config = sim::DuelConfigV1::shipped();
-        assert_eq!(config.max_ticks, 3_600, "the shipped duel is no longer a full-length fight");
-        let kinds = [ArticulatedPolicyKind::Learned, ArticulatedPolicyKind::Windmill];
-        write_arena_config(&config, kinds);
-        assert_eq!(
-            arena_start(3),
-            submit_result(1, ARENA_OK, ARENA_WHOLE_CONFIG, ARENA_WHOLE_CONFIG),
-            "the learned configuration was refused",
-        );
-        assert_eq!(arena_policy(0), ArticulatedPolicyKind::Learned.code());
-        // One call for the whole fight, which is what a recorder does.
-        step(config.max_ticks);
-
-        let scenario = Scenario::duel_from(&config).expect("the shipped pair");
-        let model = Checkpoint::from_bytes(SHIPPED_CHECKPOINT)
-            .expect("the shipped checkpoint is loadable")
-            .model;
-        let arena = arena_state();
-        assert_eq!(
-            arena,
-            the_lab_loop_with(
-                &scenario,
-                3,
-                [
-                    Box::new(LearnedArticulatedPolicy::new(model)),
-                    kinds[1].build().expect("a buildable policy"),
-                ],
-            ),
-            "the arena's learned fight is not the lab's learned fight",
-        );
-        // And it was a fight rather than 3,600 quiet ticks. A learned fighter is
-        // the only policy in the registry with a network behind it, so "it ran"
-        // is not something to take on trust: a checkpoint that failed to install
-        // would produce a refusal, but a checkpoint that installed and decided
-        // nothing would look exactly like a neutral body.
-        assert!(combat_event_len() > 0, "the learned fight resolved no contact");
-        assert!(pose_len() >= 1, "the arena published no bodies at all");
-        // **On this seed the learned fighter kills the Brute**, at tick 3,339,
-        // which is a good deal more than "the loop ran" -- the shipped scripted
-        // pairing does not settle inside 3,600 ticks. It is deliberately not
-        // asserted: an outcome and a stopping tick are a claim about the
-        // *simulation*, this session changed none of it, and a fixture pinned
-        // here would fail the next time somebody moved the contact solver for
-        // reasons that have nothing to do with the browser. What is asserted is
-        // that both spellings of the loop reached the same one, which is the
-        // comparison above and is the claim this test exists to make.
-
-        // The same fight against a *scripted* fighter is a different fight,
-        // which is what says the network is being consulted at all rather than
-        // the loop falling back to something.
-        write_arena_config(&config, [ArticulatedPolicyKind::Composed, kinds[1]]);
-        assert_eq!(arena_start(3) & 0xff, 1);
-        step(config.max_ticks);
-        assert_ne!(arena_state().0, arena.0, "the learned fighter fought like the script");
-    }
+    // **`a_learned_fight_in_wasm_matches_the_same_fight_in_lab` went with the
+    // arena's `learned` code in v2-ui-08, and this is what it said.** It drove
+    // 3,600 ticks through the `pub extern "C"` ABI with a checkpoint on the
+    // Fighter, drove the same fight again through a hand-written copy of `lab`'s
+    // matchup loop, and required the state hash, the outcome and the stopping
+    // tick to agree -- which is a much stronger statement than
+    // `LEARNED_INFERENCE_DIGEST` makes, because every command changes the
+    // observation the next one is made from, so one divergent logit moves the
+    // hash and keeps it moved. Its second half swapped the network for a script
+    // and required a different fight, so "the network is consulted at all" was
+    // measured rather than assumed.
+    //
+    // Its subject is gone: an arena policy byte is an `EmbodiedPolicyKind::code`
+    // and that registry has no `learned` entry, for the reason written on the
+    // enum. **What is lost, and what is not.**
+    // `a_scripted_arena_fight_in_wasm_matches_the_same_fight_in_lab` still holds
+    // the two spellings of the loop against each other over a full fight, so the
+    // *loop* is as covered as it was. `LEARNED_INFERENCE_DIGEST` still pins the
+    // network across the two targets over its sixty-four-case corpus, and is
+    // still taken over the checkpoint this module installed. What no longer has
+    // a test here is compounding learned decisions through this ABI -- and the
+    // reason that is a boundary rather than a hole is that nothing through this
+    // ABI can produce them. `crates/learn`'s own rollouts are where a learned
+    // fight is driven now.
 
     #[test]
     fn native_and_wasm_learned_inference_digests_match() {
@@ -9628,7 +9479,7 @@ mod tests {
         // anywhere reported it; the page was a hung level.
         let mut config = sim::DuelConfigV1::shipped();
         config.max_ticks = 300;
-        let kinds = [ArticulatedPolicyKind::Composed, ArticulatedPolicyKind::Windmill];
+        let kinds = [EmbodiedPolicyKind::Scripted, EmbodiedPolicyKind::Tactical];
         write_arena_config(&config, kinds);
         assert_eq!(arena_start(3) & 0xff, 1, "the shipped configuration was refused");
         step(50);
@@ -9686,7 +9537,7 @@ mod tests {
             };
         }
 
-        let scripted = [ArticulatedPolicyKind::Composed, ArticulatedPolicyKind::Windmill];
+        let scripted = [EmbodiedPolicyKind::Scripted, EmbodiedPolicyKind::Tactical];
         write_arena_config(&config, scripted);
         let hand_words = ARENA_CONFIG.with(|buffer| {
             let bytes = buffer.borrow();
@@ -9708,14 +9559,27 @@ mod tests {
         ], "the native twin no longer stages wasm_check's equipment words");
         assert_eq!(arena_start(3) & 0xff, 1, "the scripted fixture was refused");
         step(3_600);
-        assert_eq!(tick(), 278, "the exact scripted fixture's stopping tick moved");
+        // **263 and not 278**, which moved because v2-ui-08 made this fight
+        // embodied and staged `scripted` against `tactical` where it staged the
+        // articulated `composed` against `windmill`. The wasm side pins the same
+        // number against the same staged words.
+        assert_eq!(tick(), 263, "the exact scripted fixture's stopping tick moved");
 
+        // **The second fixture was `learned` against `windmill` and is now
+        // `tactical` against `tactical-fixed-guard`.** The point of a second one
+        // is unchanged -- two staged fights over one set of equipment words, so
+        // a stopping tick that moved for a *policy* reason is told apart from one
+        // that moved for a geometry reason -- and the pair it uses had to change
+        // because no arena policy code names a network any more. It is also the
+        // pair `tools/wasm_check.js` finds byte-identical under this law, and the
+        // 255 below is what says so from the native side: they die on the same
+        // tick because the fight is over before a guard read matters.
         assert_eq!(load_checkpoint(stage_shipped_checkpoint()) & 0xff, 1);
         write_arena_config(&config,
-            [ArticulatedPolicyKind::Learned, ArticulatedPolicyKind::Windmill]);
-        assert_eq!(arena_start(3) & 0xff, 1, "the learned fixture was refused");
+            [EmbodiedPolicyKind::Tactical, EmbodiedPolicyKind::TacticalFixedGuard]);
+        assert_eq!(arena_start(3) & 0xff, 1, "the second fixture was refused");
         step(3_600);
-        assert_eq!(tick(), 300, "the exact learned fixture's stopping tick moved");
+        assert_eq!(tick(), 255, "the exact tactical fixture's stopping tick moved");
     }
 
     // **`an_installed_arena_refuses_every_order_export` went with the exports it
@@ -10345,7 +10209,7 @@ mod tests {
         config.fighters[0].two_handed = true;
         write_arena_config(
             &config,
-            [ArticulatedPolicyKind::Composed, ArticulatedPolicyKind::Neutral],
+            [EmbodiedPolicyKind::Scripted, EmbodiedPolicyKind::Neutral],
         );
         assert_eq!(arena_start(3) & 0xff, 1, "the canonical Bow grip was refused");
         let owner = POSES.with(|poses| {
@@ -10359,15 +10223,21 @@ mod tests {
             reach: Fx::ZERO,
             effort: Fx::ZERO,
         };
-        write_submitted(sim::ArticulatedCommandV1 {
+        // **Through the embodied envelope since v2-ui-08**, because
+        // `Scenario::duel_from` builds `CombatModel::Embodied` and an arena
+        // world answers `WrongModel` to an articulated payload. The bearing is
+        // `Angle::ZERO` under both frames here only because `reach` is zero and
+        // the arm is not being aimed: what this edge is about is the release
+        // verb, which `EmbodiedCommandV1` carries through unchanged.
+        write_embodied(sim::EmbodiedCommandV1::new(sim::ArticulatedCommandV1 {
             move_dir: Vec2::ZERO,
             body_yaw: Angle::ZERO,
             intent: Intent::Hold,
             arms: [arm; 2],
             grips: [sim::GripRequest::Keep; 2],
             releases: [sim::ReleaseRequest::Keep, sim::ReleaseRequest::Loose],
-        });
-        assert_eq!(submit_articulated(owner[0], owner[1]), 1,
+        }));
+        assert_eq!(submit_embodied(owner[0], owner[1]), 1,
             "the explicit right-arm Loose command was refused");
         // The arena policy normally submits the next command before stepping
         // and would overwrite this test's edge. Step the authoritative world
@@ -10544,7 +10414,7 @@ mod tests {
         // Way two: a configured duel, whose anatomy rows are built at runtime.
         let mut config = sim::DuelConfigV1::shipped();
         config.max_ticks = 240;
-        let kinds = [ArticulatedPolicyKind::Composed, ArticulatedPolicyKind::Windmill];
+        let kinds = [EmbodiedPolicyKind::Scripted, EmbodiedPolicyKind::Tactical];
         write_arena_config(&config, kinds);
         assert_eq!(arena_start(3) & 0xff, 1, "the configured duel refused to start");
         let arena = Scenario::duel_from(&config).expect("the shipped configuration builds");

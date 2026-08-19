@@ -1,8 +1,9 @@
 //! A duel described at runtime, beside the duel that is pinned.
 //!
 //! **Why a second constructor and not a parameter on the first.** The combat
-//! spec-table digest `0x78e5b57ae0c6bbd6` and the `articulated-duel-v1`
-//! fingerprint `0x068d05fcada1027b` both hash [`CombatSpecTableV1::fixtures`]
+//! spec-table digest `0x78e5b57ae0c6bbd6`, the `embodied-duel-v1` fingerprint
+//! `0x1a1e8e74eecd55d5` and the `articulated-duel-v1` fingerprint
+//! `0x068d05fcada1027b` all hash [`CombatSpecTableV1::fixtures`]
 //! through `write_combat_specs`, and the golden registry's warning about that
 //! table is blunt: a shield dimension moves four pins at once. But `fixtures()`
 //! is a **function that builds a fresh `Vec` on every call** from five row
@@ -25,7 +26,7 @@
 //! no writer changes, no record width changes, and nothing the digests read has
 //! moved. `the_shipped_fixture_digest_is_unmoved_by_a_runtime_table` is what
 //! says the invariant held rather than merely asserting it: it builds several
-//! configurations and then recomputes both pinned numbers.
+//! configurations and then recomputes all three pinned numbers.
 
 use crate::combat::spec::{
     brute_anatomy, club, fighter_anatomy, shield, sword, validate_construction, AnatomySpecId,
@@ -183,8 +184,8 @@ impl DuelConfigV1 {
     /// **That separation is a convention and not an invariant.** The name is the
     /// *only* byte that differs -- `the_shipped_arrangement_is_expressible`
     /// proves it by comparing the whole `Scenario` -- and [`Scenario::name`] is
-    /// a `pub String`, so writing `"articulated-duel-v1"` into it reproduces
-    /// `0x068d05fcada1027b` exactly, which the second half of
+    /// a `pub String`, so writing `"embodied-duel-v1"` into it reproduces
+    /// `0x1a1e8e74eecd55d5` exactly, which the second half of
     /// `a_configured_duel_is_never_the_pinned_fixture` asserts rather than
     /// leaves to be discovered. The constructor names a configured duel; nothing
     /// afterwards defends the name. Making it defensible would mean a private
@@ -279,7 +280,7 @@ fn is_guard(action: ActionKind) -> bool {
 }
 
 impl Scenario {
-    /// A two-fighter articulated scenario built from a runtime description.
+    /// A two-fighter embodied scenario built from a runtime description.
     ///
     /// **Named `duel_from` and not `arena_duel`.** [`Scenario::arena`] already
     /// means the playable extent, and a second sense of "arena" in the same
@@ -326,7 +327,7 @@ impl Scenario {
     /// dimensions.
     ///
     /// The scenario is named `configured-duel-v1` and not
-    /// `articulated-duel-v1`, for the reason `dungeon_scenario` renames its
+    /// `embodied-duel-v1`, for the reason `dungeon_scenario` renames its
     /// floors: a scenario built at runtime is a different scenario and its
     /// fingerprint has to say so, or a recorded fight can be mistaken for the
     /// pin. The name is the whole of that distinction and `Scenario.name` is
@@ -418,7 +419,7 @@ impl Scenario {
 
         let scenario = Scenario {
             name: "configured-duel-v1".to_string(),
-            combat_model: CombatModel::Articulated,
+            combat_model: CombatModel::Embodied,
             combat_specs: Some(CombatSpecTableV1 { anatomies, equipment }),
             // The same 24x16 rectangle every hand-placed duel in the repository
             // stands on. Not a knob: the extent is the one thing here that would
@@ -539,15 +540,25 @@ mod tests {
             &mut digest,
         );
         let table_digest = digest.finish();
-        let fixture = Scenario::articulated_duel().fingerprint();
+        let embodied = Scenario::embodied_duel().fingerprint();
+        // **Three numbers and not two, since v2-ui-08.** `duel_from` builds
+        // `CombatModel::Embodied` now, so the pin a configured duel is measured
+        // beside is `embodied-duel-v1`; `articulated-duel-v1` is kept in the same
+        // breath because `embodied_duel` is built *from* `articulated_duel` and
+        // the golden registry names this test as that pin's second assertion
+        // site. Dropping it here would leave the registry's ownership column
+        // naming a line that asserts a different number.
+        let articulated = Scenario::articulated_duel().fingerprint();
         // Printed, so the session that has to say "unmoved" has a command that
         // says it rather than a test name that implies it:
         // `cargo test -p sim -- --nocapture the_shipped_fixture_digest`.
         println!("after {} runtime tables:", built.len());
         println!("  combat spec-table digest        {table_digest:#018x}");
-        println!("  articulated-duel-v1 fingerprint {fixture:#018x}");
+        println!("  embodied-duel-v1 fingerprint    {embodied:#018x}");
+        println!("  articulated-duel-v1 fingerprint {articulated:#018x}");
         assert_eq!(table_digest, 0x78e5_b57a_e0c6_bbd6, "the combat spec-table digest moved");
-        assert_eq!(fixture, 0x068d_05fc_ada1_027b, "the articulated-duel-v1 fingerprint moved");
+        assert_eq!(embodied, 0x1a1e_8e74_eecd_55d5, "the embodied-duel-v1 fingerprint moved");
+        assert_eq!(articulated, 0x068d_05fc_ada1_027b, "the articulated-duel-v1 fingerprint moved");
     }
 
     #[test]
@@ -567,7 +578,7 @@ mod tests {
         // guarantee a convention rather than an invariant.
         let scenario = Scenario::duel_from(&DuelConfigV1::shipped()).expect("the shipped pair");
         assert_eq!(scenario.combat_specs, Some(CombatSpecTableV1::fixtures()));
-        let mut fixture = Scenario::articulated_duel();
+        let mut fixture = Scenario::embodied_duel();
         assert_ne!(scenario.name, fixture.name, "the two are told apart by the name");
         fixture.name = scenario.name.clone();
         assert_eq!(scenario, fixture, "a described duel differs from the fixture somewhere else");
@@ -585,13 +596,13 @@ mod tests {
         // which is a thing to know before recording evidence against a name.
         let scenario = Scenario::duel_from(&DuelConfigV1::shipped()).expect("the shipped pair");
         assert_eq!(scenario.name, "configured-duel-v1");
-        assert_ne!(scenario.fingerprint(), 0x068d_05fc_ada1_027b);
+        assert_ne!(scenario.fingerprint(), 0x1a1e_8e74_eecd_55d5);
 
         let mut renamed = scenario.clone();
-        renamed.name = "articulated-duel-v1".to_string();
+        renamed.name = "embodied-duel-v1".to_string();
         assert_eq!(
             renamed.fingerprint(),
-            0x068d_05fc_ada1_027b,
+            0x1a1e_8e74_eecd_55d5,
             "the name is the whole distinction, and a caller can rewrite it"
         );
 

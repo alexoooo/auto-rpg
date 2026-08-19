@@ -2495,22 +2495,35 @@ const ARENA_UNKNOWN_LAYOUT = 1;
 const ARENA_WRONG_FIGHTER_COUNT = 2;
 const ARENA_NONCANONICAL = 3;
 const ARENA_UNKNOWN_ANATOMY = 4;
+const ARENA_UNKNOWN_POLICY = 6;
 const ARENA_NO_EQUIPMENT = 24;
-// v2-ui-08's, and it replaced `ARENA_POLICY_UNAVAILABLE` (7) as the answer a
-// `learned` fighter gets. That code still exists and is now unreachable: every
-// `ArticulatedPolicyKind` has a constructor on this side of the wall, so the
-// only thing a learned fighter can be missing is its weights, and "fetch one"
-// is a different instruction from "rebuild the module".
+// **Two reason codes are declared, reserved and produced by nothing**, and this
+// file checks the second half of that rather than taking it on trust.
+// `ARENA_POLICY_UNAVAILABLE` was the answer a code `crates/policy` could not
+// build got, and `ARENA_NO_CHECKPOINT` was the answer a `learned` fighter with
+// no weights got. v2-ui-08 moved the arena onto `EmbodiedPolicyKind`, whose
+// `build` returns a policy and never an `Option` and which has no `learned`
+// entry, so both lost their producers in one move. The numbers stay put on the
+// codec's retired-schema rule -- these bytes cross a worker boundary and outlive
+// a build -- and `every arena policy byte either fights or is refused by name`
+// below is what says nothing answers them.
+const ARENA_POLICY_UNAVAILABLE = 7;
 const ARENA_NO_CHECKPOINT = 26;
 // `sim::ActionKind::code`.
 const SWORD = 2;
 const CLUB = 3;
 const SHIELD = 4;
-// `policy::ArticulatedPolicyKind::code`.
+// `policy::EmbodiedPolicyKind::code`. The registry is 0..5 and append-only;
+// `5`, `6` and `7` were `tactical`, `openings` and free on the articulated one
+// this replaced, and all three are refused here.
 const NEUTRAL = 0;
-const COMPOSED = 1;
-const WINDMILL = 2;
-const LEARNED = 4;
+const SCRIPTED = 1;
+const SCRIPTED_LEVEL = 2;
+const TACTICAL = 3;
+const TACTICAL_FIXED_GUARD = 4;
+const EMBODIED_POLICY_CODES = [
+  NEUTRAL, SCRIPTED, SCRIPTED_LEVEL, TACTICAL, TACTICAL_FIXED_GUARD,
+];
 // `web::ARENA_NO_POLICY` and `web::POLICY_KIND_UNKNOWN`, which are the same
 // sentinel for two different registries: `0` is a real answer in both.
 const NO_POLICY = 0xffffffff;
@@ -2529,11 +2542,16 @@ const SHIELD_ITEM = {
 };
 const EMPTY_HAND = { item: ARENA_HAND_EMPTY, mass: 0, balance: 0, dims: [0, 0, 0] };
 
+// **`SCRIPTED` against `TACTICAL`, where it was `COMPOSED` against `WINDMILL`.**
+// Not a rename: the pairing has to be two policies that produce *different*
+// commands, and `SCRIPTED_LEVEL` is byte for byte `SCRIPTED` on a flat floor --
+// which this arena's is. A configuration staged with those two would satisfy
+// "the policies are consulted at all" while proving nothing.
 const shippedArena = () => ({
   maxTicks: 300,
   fighters: [
-    { anatomy: 0, policy: COMPOSED, spawn: [fx(7), fx(6)], hands: [SHIELD_ITEM, SWORD_ITEM] },
-    { anatomy: 1, policy: WINDMILL, spawn: [fx(17), fx(10)], hands: [EMPTY_HAND, CLUB_ITEM] },
+    { anatomy: 0, policy: SCRIPTED, spawn: [fx(7), fx(6)], hands: [SHIELD_ITEM, SWORD_ITEM] },
+    { anatomy: 1, policy: TACTICAL, spawn: [fx(17), fx(10)], hands: [EMPTY_HAND, CLUB_ITEM] },
   ],
 });
 
@@ -2619,7 +2637,7 @@ test("a configured duel runs inside the module and refuses by name", () => {
   // A legacy world knows nothing about any of this, which is the half of the
   // read-back that is not vacuous.
   wasm.init(1);
-  assert.equal(u32(wasm.arena_policy(0)), NO_POLICY, "a legacy world named an articulated policy");
+  assert.equal(u32(wasm.arena_policy(0)), NO_POLICY, "a legacy world named an arena policy");
   assert.equal(arenaFingerprint(), 0n, "a legacy world named a configuration");
 
   const config = shippedArena();
@@ -2629,8 +2647,8 @@ test("a configured duel runs inside the module and refuses by name", () => {
     { outcome: 1, reason: 0, fighter: ARENA_WHOLE_CONFIG, slot: ARENA_WHOLE_CONFIG },
     "the module refused a legal configuration",
   );
-  assert.equal(u32(wasm.arena_policy(0)), COMPOSED);
-  assert.equal(u32(wasm.arena_policy(1)), WINDMILL);
+  assert.equal(u32(wasm.arena_policy(0)), SCRIPTED);
+  assert.equal(u32(wasm.arena_policy(1)), TACTICAL);
   // The legacy registry says it does not know rather than naming a `PolicyKind`
   // nothing in an arena consults.
   assert.equal(u32(wasm.policy_kind(0)), NO_POLICY, "an arena answered a legacy policy code");
@@ -2643,13 +2661,16 @@ test("a configured duel runs inside the module and refuses by name", () => {
   // the overshoot has to be inert either way.
   //
   // **The two builds stop for different reasons and that is the point.** The
-  // default reaches the configured limit; exact decides at 278. The former
+  // default reaches the configured limit; exact decides at 263. The former
   // exact expectation of 164 came from running `DuelConfigV1::shipped()`
-  // natively, whose weapon dimensions are not the round legal values above.
-  // `exact_wasm_check_fights_match_the_same_native_configuration` now asserts
-  // these raw words and 278 together. A `<= maxTicks` bound would defend none
-  // of the configuration identity, the early decision, or the limit clamp.
-  const STOPS_AT = CARTESIAN_RECOIL ? 278 : config.maxTicks;
+  // natively, whose weapon dimensions are not the round legal values above; the
+  // one before this was 278, and it moved because v2-ui-08 made this fight
+  // embodied and staged `scripted` against `tactical` where it staged the
+  // articulated `composed` against `windmill`.
+  // `exact_wasm_check_fights_match_the_same_native_configuration` asserts these
+  // raw words and 263 together. A `<= maxTicks` bound would defend none of the
+  // configuration identity, the early decision, or the limit clamp.
+  const STOPS_AT = CARTESIAN_RECOIL ? 263 : config.maxTicks;
   wasm.step(3_600);
   assert.equal(u32(wasm.tick()), STOPS_AT, "the arena did not stop where it should");
   assert.ok(u32(wasm.combat_event_len()) > 0, "the whole fight resolved no contact");
@@ -2687,15 +2708,13 @@ test("a configured duel runs inside the module and refuses by name", () => {
       bytes.fill(0, at, at + ARENA_HAND_BYTES);
       bytes[at] = ARENA_HAND_EMPTY;
     }, { reason: ARENA_NO_EQUIPMENT, fighter: ARENA_WHOLE_CONFIG, slot: ARENA_WHOLE_CONFIG }],
-    // v2-ui-08 landed the policy and this refusal is now about the *network*:
-    // the studio greys the entry out until it has fetched one, and the slot byte
-    // carries the code, which is what "refused by name" means here. Guarded
-    // rather than assumed, because the test below installs a checkpoint and this
-    // assertion would go vacuous if the two ever swapped order.
-    ["the learned policy with no checkpoint", (bytes) => {
-      assert.equal(u32(wasm.checkpoint_installed()), 0, "a network is already installed");
-      bytes[ARENA_HEADER_BYTES + 1] = LEARNED;
-    }, { reason: ARENA_NO_CHECKPOINT, fighter: 0, slot: LEARNED }],
+    // **This slot held "the learned policy with no checkpoint" and the answer
+    // was `ARENA_NO_CHECKPOINT`.** v2-ui-08 retired that reason with the code
+    // that produced it; what is left in its place is the one policy refusal that
+    // still has a producer, on the first byte past the registry.
+    ["a policy code past the registry", (bytes) => {
+      bytes[ARENA_HEADER_BYTES + 1] = 5;
+    }, { reason: ARENA_UNKNOWN_POLICY, fighter: 0, slot: ARENA_WHOLE_CONFIG }],
     // The two-handed marker anywhere but a full right hand: on the Fighter's
     // left hand block, byte 1. The legal placement is asserted below, where a
     // two-handed club installs and fights.
@@ -2832,10 +2851,17 @@ test("an installed arena refuses the exports that would rewrite its fight", () =
     // ordinary-floor half below rather than by the answer alone.
     ["swap_in_hero", () => assert.equal(u32(wasm.swap_in_hero(1, 255, 255)), 0,
       "swap_in_hero took on an arena")],
-    // The dropdown, which answers `0` because `0` is true: an arena's fighters
-    // run `ArticulatedPolicyKind` and `Sim::advance_arena` never consults
-    // `sim.policies`, so a call that reported success would leave a page showing
-    // a control that had done nothing.
+    // The dropdown, which answers `0` because `0` is true: `Sim::advance_arena`
+    // drives `Arena::policies` and never consults `sim.policies`, so a call that
+    // reported success would leave a page showing a control that had done
+    // nothing. **The reason used to be that the two were different registries**
+    // -- an arena ran `ArticulatedPolicyKind` and this export takes
+    // `EmbodiedPolicyKind` -- and v2-ui-08 made them one. The refusal stands on
+    // the narrower reason it always also had: an arena's pair is written once,
+    // by `arena_start`, as half of a configuration whose fingerprint names the
+    // fight, and a dropdown that swapped one side mid-run would leave
+    // `arena_policy` and `arena_fingerprint_lo` describing a fight nobody is
+    // fighting.
     ["set_policy", () => assert.equal(u32(wasm.set_policy(0, 0)), 0, "set_policy took on an arena")],
     // And the direct-control channel, which is the one that replaced the order
     // exports -- so it is the one whose leak would be the same leak in a new
@@ -3093,67 +3119,129 @@ test("a refused checkpoint does not grow linear memory", () => {
   wasm.init(1);
 });
 
-test("a learned fighter runs a configured duel inside the module", () => {
-  // **No pinned number here either, and for the reason the scripted duel above
-  // gives.** The number this would pin is an articulated fight's state hash,
-  // which is `ARTICULATED_HASH` under another name -- planned by v2-17,
-  // deliberately absent, and which no session before it may create. The
-  // cross-target claim this session owes is `LEARNED_INFERENCE_DIGEST`, and that
-  // is pinned; the fight equality is
-  // `a_learned_fight_in_wasm_matches_the_same_fight_in_lab` in crates/web, over
-  // 3,600 ticks of the same configuration against a second spelling of `lab`'s
-  // loop.
+// **`a learned fighter runs a configured duel inside the module` stood here and
+// went with the arena's `learned` code in v2-ui-08.** It installed the shipped
+// checkpoint, staged code 4, and checked that the module took it, ran a fight
+// rather than standing still, fought the same fight twice from the same bytes,
+// and fought a *different* one from the script. `#/arena` reads
+// `EmbodiedPolicyKind` now and that registry has no `learned` entry, so there is
+// no configuration left to stage. `LEARNED_INFERENCE_DIGEST` above is untouched
+// and is the whole of the cross-target claim about the network; what is gone is
+// a learned *fight* through this ABI, and `crates/learn`'s own rollouts are
+// where one is driven.
+
+test("every arena policy byte either fights or is refused by name", () => {
+  // **The claim `AGENTS.md` asks for in as many words**: a request a control
+  // cannot honour must be refused by name, and a request it can honour must
+  // take effect. The page sends one byte per fighter and there are 256 of them,
+  // so the honest sweep is all 256 rather than the five that are supposed to
+  // work -- a registry that quietly accepted a sixth would pass a test that only
+  // tried the five.
   //
-  // What is checked here is everything that does not require inventing a pin:
-  // that the module takes the code once a network is installed, that it runs the
-  // fight rather than standing still, that the same bytes fight the same fight
-  // twice, and that a learned fighter is not a scripted one wearing its number.
-  // Loaded here rather than inherited, for the reason the test above gives.
-  assert.equal(
-    checkpointResult(wasm.load_checkpoint(stageCheckpoint(fs.readFileSync(CHECKPOINT)))).outcome,
-    1,
-  );
-  const config = shippedArena();
-  config.fighters[0].policy = LEARNED;
-  stageArena(arenaBytes(config));
-  assert.deepEqual(
-    arenaResult(wasm.arena_start(3)),
-    { outcome: 1, reason: 0, fighter: ARENA_WHOLE_CONFIG, slot: ARENA_WHOLE_CONFIG },
-    "the module refused a learned fighter with a network installed",
-  );
-  assert.equal(u32(wasm.arena_policy(0)), LEARNED);
-  assert.equal(u32(wasm.arena_policy(1)), WINDMILL);
+  // Three things are asserted per byte, and the second is the one this test
+  // exists for: **a policy that installs and then produces a motionless fight is
+  // the failure this cannot ship.** So a registered code has to install, read
+  // back as itself, and move a pose word -- with `neutral` carved out by name,
+  // because standing still is what that entry *is* and a sweep that demanded
+  // motion of it would be demanding the control condition stop being a control.
+  wasm.init(1);
+  const baseline = shippedArena();
+  const moved = new Map();
+  for (let byte = 0; byte < 256; byte += 1) {
+    const config = shippedArena();
+    // **600 and not 300, measured.** The other side is held at `TACTICAL` so
+    // that a body has something to react to -- `neutral` on both sides is a
+    // fight in which nothing happens by design, which would make "did it move"
+    // unanswerable rather than false. At 300 ticks that fight has resolved three
+    // contact rows and `TACTICAL_FIXED_GUARD` has had nothing to not-read, so it
+    // is byte for byte `TACTICAL` and the distinctness assertion below fails on
+    // a pair that is genuinely different by 600. Measured on 2026-08-19: the two
+    // separate between tick 300 and tick 600, at 49 rows against 23.
+    config.maxTicks = 600;
+    config.fighters[0].policy = byte;
+    config.fighters[1].policy = TACTICAL;
+    stageArena(arenaBytes(config));
+    const answer = arenaResult(wasm.arena_start(3));
+    if (!EMBODIED_POLICY_CODES.includes(byte)) {
+      assert.deepEqual(
+        answer,
+        { outcome: 0, reason: ARENA_UNKNOWN_POLICY, fighter: 0, slot: ARENA_WHOLE_CONFIG },
+        `policy byte ${byte} was not refused by name`,
+      );
+      continue;
+    }
+    assert.equal(answer.outcome, 1, `registered policy ${byte} was refused`);
+    assert.equal(u32(wasm.arena_policy(0)), byte, `policy ${byte} read back as something else`);
+    const before = Array.from(
+      new Uint32Array(wasm.memory.buffer, u32(wasm.pose_ptr()), u32(wasm.pose_len()) * POSE_STRIDE));
+    wasm.step(config.maxTicks);
+    // **The clock or a body, and not the clock alone.** Under the default law
+    // every one of these five reaches 600; under `cartesian-recoil` the neutral
+    // hero is killed by the tactical monster at 410, and a fixture that demanded
+    // the full clock would be asserting that no policy is ever good enough to
+    // win -- which is the opposite of what this page is for. `pose_len` is one
+    // row per **live** body, so a short fight has to be a decided one.
+    const ticks = u32(wasm.tick());
+    assert.ok(ticks > 0 && ticks <= config.maxTicks, `policy ${byte} stepped to ${ticks}`);
+    assert.ok(ticks === config.maxTicks || u32(wasm.pose_len()) < 2,
+      `policy ${byte} stopped at ${ticks} with both bodies standing`);
+    const after = Array.from(
+      new Uint32Array(wasm.memory.buffer, u32(wasm.pose_ptr()), u32(wasm.pose_len()) * POSE_STRIDE));
+    assert.notDeepEqual(after, before, `policy ${byte} installed and published a motionless fight`);
+    moved.set(byte, stateHash());
+  }
 
-  wasm.step(3_600);
-  // Default still decides at 259. Exact reaches the configured 300-tick limit.
-  // The second fight in
-  // `exact_wasm_check_fights_match_the_same_native_configuration` stages these
-  // same equipment words and policies through the native ABI and asserts 300;
-  // this is cross-target equality over one input, not a re-pin across two
-  // differently specified fights.
-  const stopped = u32(wasm.tick());
-  const LEARNED_STOPS_AT = CARTESIAN_RECOIL ? config.maxTicks : 259;
-  assert.equal(stopped, LEARNED_STOPS_AT, "the learned duel no longer ends where it did");
-  assert.ok(
-    stopped > 32 && stopped <= config.maxTicks,
-    "the learned duel either stood still or ran past its own clock",
-  );
-  assert.ok(u32(wasm.combat_event_len()) > 0, "the learned fight resolved no contact");
-  const fought = stateHash();
+  // Neither retired reason came back from any of the 256, which is the half of
+  // "retired" that a declaration cannot say on its own.
+  assert.equal(EMBODIED_POLICY_CODES.length, 5, "the embodied registry changed size");
+  for (const retired of [ARENA_POLICY_UNAVAILABLE, ARENA_NO_CHECKPOINT]) {
+    for (let byte = 0; byte < 256; byte += 1) {
+      const config = shippedArena();
+      config.fighters[0].policy = byte;
+      stageArena(arenaBytes(config));
+      assert.notEqual(arenaResult(wasm.arena_start(3)).reason, retired,
+        `policy byte ${byte} produced retired reason ${retired}`);
+    }
+  }
 
-  stageArena(arenaBytes(config));
+  // **And the dropdown changes the fight, with two documented exceptions and a
+  // feature gate between them.**
+  //
+  // `scripted-level` is `scripted` with the elevation term switched off and this
+  // arena's floor is flat, so those two are the same fight *here* under both
+  // laws -- asserted as an equality rather than left out, because if they ever
+  // diverge on flat ground the elevation term has started reading something that
+  // is not elevation.
+  //
+  // `tactical-fixed-guard` is `tactical` with the guard read switched off, and
+  // whether that shows depends on how long the fight lasts. Measured on
+  // 2026-08-19: under the default law the two separate between tick 300 and tick
+  // 600 and end apart, so four fights are distinct. **Under `cartesian-recoil`
+  // the fight is over at tick 255 with one body standing** and the guard has had
+  // nothing to not-read, so they are byte for byte the same and three are. That
+  // is a fact about how fast the exact law kills rather than about the guard --
+  // the same pair separates under the default law on the same seed -- and it is
+  // pinned from both sides rather than relaxed into "at least three", because a
+  // count that tolerated both would tolerate the two collapsing for a real
+  // reason.
+  assert.equal(moved.get(SCRIPTED), moved.get(SCRIPTED_LEVEL),
+    "scripted and scripted-level diverged on a flat floor");
+  const distinct = new Set([
+    moved.get(NEUTRAL), moved.get(SCRIPTED), moved.get(TACTICAL),
+    moved.get(TACTICAL_FIXED_GUARD),
+  ]);
+  assert.equal(distinct.size, CARTESIAN_RECOIL ? 3 : 4,
+    "the number of distinct fights the five policies produce moved");
+  assert.equal(moved.get(TACTICAL) === moved.get(TACTICAL_FIXED_GUARD), CARTESIAN_RECOIL,
+    "the guard read stopped mattering, or started, on the law it did not");
+  // The three that must differ under either law: the control, a script and an
+  // aimer are three different fights or the dropdown is decoration.
+  assert.equal(new Set([moved.get(NEUTRAL), moved.get(SCRIPTED), moved.get(TACTICAL)]).size, 3,
+    "neutral, scripted and tactical did not produce three different fights");
+
+  // And the module is still usable, on the standing fail-closed discipline.
+  stageArena(arenaBytes(baseline));
   assert.equal(arenaResult(wasm.arena_start(3)).outcome, 1);
-  wasm.step(3_600);
-  assert.equal(stateHash(), fought, "the same network and seed fought differently");
-
-  const scripted = shippedArena();
-  stageArena(arenaBytes(scripted));
-  assert.equal(arenaResult(wasm.arena_start(3)).outcome, 1);
-  wasm.step(3_600);
-  assert.notEqual(stateHash(), fought, "the learned fighter fought like the script");
-  console.log(
-    `learned duel   ${config.maxTicks} ticks, ${u32(wasm.combat_event_len())} contact rows`,
-  );
-
+  console.log(`arena policies 5 registered, 251 refused by name, ${distinct.size} distinct fights`);
   wasm.init(1);
 });

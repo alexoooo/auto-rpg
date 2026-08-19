@@ -48,7 +48,6 @@ import {
   bodyColours, contactColour, drawScene, elevationCamera, planCamera, type Options,
 } from "../fight/view.js";
 import { ArenaClient, ArenaRefused } from "../runtime/arena-client.js";
-import { robustStrikeArenaConfig } from "../runtime/arena-config.js";
 import { createSimWorker } from "../runtime/sim-worker.js";
 import {
   arenaConfigOf, checkpointCopy, missingRecording, pickerControls, populatePolicies, readMatchup,
@@ -279,7 +278,6 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   const spanInput = element<HTMLInputElement>(container, "span");
   const azimuthInput = element<HTMLInputElement>(container, "azimuth");
   const fightButton = element<HTMLButtonElement>(container, "fight");
-  const presetInput = element<HTMLSelectElement>(container, "arena-preset");
   const pickerMessage = element<HTMLElement>(container, "picker-message");
   const modeTexture = element<HTMLButtonElement>(container, "mode-texture");
   const modeGeometry = element<HTMLButtonElement>(container, "mode-geometry");
@@ -330,8 +328,6 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   /** One token per [Run selected fight]. Only the newest press may write to the panels. */
   let fightAttempt = 0;
 
-  const controlledPreset = (): boolean => presetInput.value === "robust-strike";
-
   function setPickerValue(id: string, value: string): void {
     element<HTMLInputElement | HTMLSelectElement>(container, id).value = value;
   }
@@ -343,30 +339,25 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     }
   }
 
-  function selectControlledPreset(): void {
-    setPickerValue("a-anatomy", "fighter");
-    setPickerValue("a-left", "shield");
-    setPickerValue("a-right", "sword");
-    setPickerValue("a-policy", "tactical");
-    setPickerValue("b-anatomy", "brute");
-    setPickerValue("b-left", "empty");
-    setPickerValue("b-right", "club");
-    setPickerValue("b-policy", "neutral");
-    setPickerValue("arena-seed", "0");
-    clearTwoHanded();
-    for (const control of pickerControls(container)) {
-      if (control instanceof HTMLInputElement || control instanceof HTMLSelectElement) {
-        control.disabled = true;
-      }
-    }
-  }
-
+  /**
+   * The controls the page opens with.
+   *
+   * **`tactical` on both sides since v2-ui-08**, where it was `attack-moves`.
+   * That code left the vocabulary with `ArticulatedPolicyKind`, and of the five
+   * that replaced it `tactical` is the one that aims: it names a body region,
+   * prices the sweep that would cross it and spends a commit on the best one, so
+   * a reader who opens `#/arena` and presses the button sees two fighters trying
+   * to hit each other rather than two scripts running past each other. That is
+   * the whole point of the default -- a first look is the one screen most
+   * readers will judge the mechanics on.
+   *
+   * **It was `selectCustomFight` and had a sibling.** `selectControlledPreset`
+   * filled these same controls with the Smart101 demonstration and disabled
+   * every one of them; v2-ui-08 deleted the preset it drove, so the `demo`
+   * dropdown, its two options and the `disabled` sweep went with it. The
+   * re-enabling loop below is gone for the same reason: nothing disables them.
+   */
   function selectCustomFight(): void {
-    for (const control of pickerControls(container)) {
-      if (control instanceof HTMLInputElement || control instanceof HTMLSelectElement) {
-        control.disabled = false;
-      }
-    }
     setPickerValue("a-anatomy", "fighter");
     setPickerValue("a-left", "shield");
     setPickerValue("a-right", "sword");
@@ -375,9 +366,9 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     setPickerValue("b-right", "club");
     setPickerValue("arena-seed", "3");
     clearTwoHanded();
-    populatePolicies(container, "attack-moves", "attack-moves");
-    setPickerValue("a-policy", "attack-moves");
-    setPickerValue("b-policy", "attack-moves");
+    populatePolicies(container, "tactical", "tactical");
+    setPickerValue("a-policy", "tactical");
+    setPickerValue("b-policy", "tactical");
   }
 
   // ---------------------------------------------------------------- the panels
@@ -644,10 +635,6 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
       pickerMessage.textContent = verdict.refusal;
       return;
     }
-    if (controlledPreset()) {
-      pickerMessage.textContent = "Controlled demonstration: Tactical code 5 uses a Fighter shield and 2-unit sword from (9.5, 7) against the neutral Brute at (12, 8). It targets Legs with a 28 + 28 command schedule and stops on the certified impact at frame 53.";
-      return;
-    }
     // **Every sentence here is recomputed from the live controls**, and none of
     // it is remembered from the last [Run selected fight] or the last load. A remembered
     // sentence is one that goes on naming a policy nobody has selected: the
@@ -810,7 +797,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     status.textContent = "Recording...";
     const started = performance.now();
     try {
-      const config = controlledPreset() ? robustStrikeArenaConfig() : arenaConfigOf(matchup);
+      const config = arenaConfigOf(matchup);
       const fight = await arena.run(config, (ticksDone, ticksTotal) => {
         if (!current()) return;
         status.textContent = `Recording... tick ${ticksDone} of ${ticksTotal}`;
@@ -885,16 +872,22 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     go(frameAtClick(loaded.series, chart, event.clientX));
   });
 
-  // **`attack-moves` rather than `composed`, since 2026-08-15.** Both are the
-  // twelve-phase script; the difference is that this one's four attack phases
-  // move the feet. The plain script was the default until the arm bearing rates
-  // doubled and it turned out to convert almost none of the increase -- it
-  // commands zero effort on eight of twelve phases and arrives inside the other
-  // four, so it spends 68.6% of its ticks with the blade stopped, and it decides
-  // 2.0% of duels where closing footwork decides 14.5% and takes the Brute to
-  // half health. A first look at this page should not open on the one script
-  // measured to be worst at landing a blow.
-  populatePolicies(container, "attack-moves", "attack-moves");
+  // **`tactical` rather than `attack-moves`, since v2-ui-08**, and the reason is
+  // the reason the old default was chosen: a first look at this page should not
+  // open on the entry least likely to land a blow. `attack-moves` was that
+  // choice among the articulated scripts -- it was the twelve-phase script with
+  // its four attack phases moving the feet, against a plain script that spent
+  // 68.6% of its ticks with the blade stopped and decided 2.0% of duels where
+  // closing footwork decided 14.5%. That vocabulary is gone. Of the five
+  // embodied entries, `tactical` is the only one that *aims*: it names a body
+  // region, prices the sweep that would cross it and spends a commit on the best
+  // one, where the two scripted entries answer "what should a body be doing"
+  // without asking where the opponent is soft.
+  //
+  // `selectCustomFight` writes the same pair, and the duplication is on purpose:
+  // this call is the page opening and that one is a reset, and a reset that
+  // silently differed from the opening state is a control nobody can trust.
+  populatePolicies(container, "tactical", "tactical");
   for (const control of pickerControls(container)) {
     control.addEventListener("change", refreshPicker);
   }
@@ -1078,12 +1071,6 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   } else {
     status.textContent = "Run a fight.";
   }
-  presetInput.addEventListener("change", () => {
-    if (controlledPreset()) selectControlledPreset();
-    else selectCustomFight();
-    refreshPicker();
-  });
-
   return {
     dispose(): void {
       // Idempotent, because the shell disposes on navigation *and* on

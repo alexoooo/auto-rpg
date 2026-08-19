@@ -3763,7 +3763,33 @@ mod tests {
         config.fighters[1].spawn = Vec2::new(Fx::from_ratio(631, 50), Fx::from_int(8));
         config.fighters[1].anatomy = crate::AnatomyChoice::Fighter;
         config.max_ticks = 96;
-        let mut world = World::new(&Scenario::duel_from(&config).unwrap(), 0);
+        // ARTICULATED-FIXTURE-SHIM -- reseat and re-record.
+        //
+        // `duel_from` builds `CombatModel::Embodied` since v2-ui-08 and every
+        // command below is `submit_articulated_v1`, so without this line the
+        // fixture is 96 ticks of `NotStored(WrongModel)` and fails on "captured
+        // strike lost contact" -- four hundred lines from the cause.
+        //
+        // **The subject of the sixteen tests below is the contact solver, which
+        // is model-independent**: `resolve_contact` sits in `EMBODIED_PHASES`
+        // exactly where it sits in `ARTICULATED_PHASES`. What is articulated
+        // here is only the *premise* -- one particular strike, captured raw. So
+        // this is reseat-and-re-record work and not a deletion.
+        //
+        // **And the reseat is not a frame conversion.** Measured on 2026-08-19
+        // by flipping this fixture to `Embodied` and subtracting the observed
+        // body yaw from every arm bearing on every tick -- the exact inverse the
+        // world re-adds, `policy::embodied_tactics::into_torso_frame`'s
+        // arithmetic: the strike **never reaches `ContactKind::WeaponBody` at
+        // all** in its 96 ticks. An embodied torso is clamped to its hips by
+        // `STANCE_TWIST_LIMIT_RAW` and the hips only turn toward `move_dir`,
+        // which is zero throughout here, so the body does not present the blade
+        // the way a freely-yawed one does. Whoever reseats this needs a new
+        // placement and chamber, measured, and then re-records every raw word
+        // below against it.
+        let mut scenario = Scenario::duel_from(&config).unwrap();
+        scenario.combat_model = crate::CombatModel::Articulated;
+        let mut world = World::new(&scenario, 0);
         let (attacker, defender) = (world.id_of(0), world.id_of(1));
         let yaw = world.body_yaw[0].angle;
         let chamber = Angle::from_raw(yaw.raw().wrapping_sub(Angle::QUARTER.raw()));
@@ -5971,6 +5997,12 @@ mod tests {
         config.fighters[1].anatomy = crate::AnatomyChoice::Fighter;
         config.max_ticks = 96;
         let mut scenario = Scenario::duel_from(&config).unwrap();
+        // ARTICULATED-FIXTURE-SHIM -- reseat and re-record, on
+        // `directional_captured_strike`'s argument exactly: this reuses that
+        // fixture's measured placement and chamber, so it inherits both the
+        // model and the finding that a frame conversion alone does not
+        // reproduce the contact.
+        scenario.combat_model = crate::CombatModel::Articulated;
         let sword = scenario.units[0].articulated.unwrap().equipment.into_iter()
             .flatten().next().unwrap();
         scenario.combat_specs.as_mut().unwrap().equipment.iter_mut()

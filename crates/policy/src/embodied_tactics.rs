@@ -1157,37 +1157,53 @@ mod tests {
     use super::*;
     use sim::{
         ARM_MIN_REACH_RAW, DuelConfigV1, EquipmentGeometry, Faction, Scenario,
-        SubmitArticulatedOutcome, World,
+        SubmitEmbodiedOutcome, World,
     };
 
     /// Submits a command and insists the world took it.
     ///
     /// **`let _ = world.submit_articulated_v1(..)` is what these call sites used
     /// to be, and it is a refusal nobody hears.** Every fixture in this module
-    /// is `Scenario::duel_from`, which is `CombatModel::Articulated` today; the
-    /// day it becomes `Embodied` this entry answers
-    /// `NotStored(CommandReject::WrongModel)` for every submission and the fight
-    /// becomes two bodies standing still. Three of the four tests that drove a
-    /// world through here **passed anyway** when that was measured on
-    /// 2026-08-19 by flipping the fixture: the planner's phase machine runs off
-    /// observations and a tick counter, so it still commits, and a test that
-    /// checks the plan against a cached observation never asks whether anything
-    /// moved. Only `the_intercept_model_agrees_with_the_derived_plate_at_a_
-    /// nonzero_guard_bearing` went red, and it went red for a reason two steps
-    /// downstream of the cause.
+    /// is `Scenario::duel_from`, which built `CombatModel::Articulated` until
+    /// v2-ui-08 flipped it to `Embodied` for the browser; against an embodied
+    /// world this entry answers `NotStored(CommandReject::WrongModel)` for every
+    /// submission and the fight becomes two bodies standing still. Three of the
+    /// four tests that drove a world through here **passed anyway** when that was
+    /// measured on 2026-08-19 by flipping the fixture: the planner's phase
+    /// machine runs off observations and a tick counter, so it still commits, and
+    /// a test that checks the plan against a cached observation never asks
+    /// whether anything moved. Only `the_intercept_model_agrees_with_the_derived_
+    /// plate_at_a_nonzero_guard_bearing` went red, and it went red for a reason
+    /// two steps downstream of the cause.
     ///
     /// So the outcome is matched and the stored command is compared against the
     /// offered one. What that buys is a failure that names the submission rather
     /// than an assertion about geometry four hundred ticks later.
-    fn submit(world: &mut World, id: EntityId, command: ArticulatedCommandV1) {
-        match world.submit_articulated_v1(id, command) {
-            SubmitArticulatedOutcome::Stored { command: stored, rejection: None } => {
-                assert_eq!(stored, command, "the world stored a command nobody offered");
+    ///
+    /// **It takes the observation and rotates, rather than submitting what the
+    /// planner returned.** `StrikePlanner::decide` answers a *world*-frame
+    /// command -- that is this module's own header, and the frame enters exactly
+    /// once, in [`into_torso_frame`]. So the honest way to drive an embodied
+    /// world from a plan is the way `TacticalEmbodiedPolicy::decide` does it,
+    /// through that one adapter, and these four tests now do rather than pinning
+    /// the fixture back to a model no shipped policy submits into. All four were
+    /// green under the reseat on 2026-08-19 without an assertion moving, which is
+    /// the evidence that what they measure is the plan and not the frame.
+    fn submit(
+        world: &mut World,
+        id: EntityId,
+        obs: &ArticulatedObservation,
+        command: ArticulatedCommandV1,
+    ) {
+        let offered = into_torso_frame(obs, command);
+        match world.submit_embodied_v1(id, offered) {
+            SubmitEmbodiedOutcome::Stored { command: stored, rejection: None } => {
+                assert_eq!(stored, offered, "the world stored a command nobody offered");
             }
-            SubmitArticulatedOutcome::Stored { rejection: Some(reject), .. } => {
+            SubmitEmbodiedOutcome::Stored { rejection: Some(reject), .. } => {
                 panic!("{id:?} had its command replaced by the neutral one: {reject:?}")
             }
-            SubmitArticulatedOutcome::NotStored(reject) => {
+            SubmitEmbodiedOutcome::NotStored(reject) => {
                 panic!("{id:?} could not submit at all: {reject:?}")
             }
         }
@@ -1220,11 +1236,12 @@ mod tests {
         // assumes; a different reach would confound the offset under test.
         let error_at = |bearing: Angle| {
             let mut world = World::new(&scenario, 17);
-            let mut command = neutral_articulated_command(&world.observe_articulated(fighter));
+            let shown = world.observe_articulated(fighter);
+            let mut command = neutral_articulated_command(&shown);
             command.arms[0] = ArmTarget {
                 bearing, height: CombatHeight::MID, reach: GUARD_REACH, effort: Fx::ONE,
             };
-            submit(&mut world, fighter, command);
+            submit(&mut world, fighter, &shown, command);
             for _ in 0..400 { world.step(); }
             let obs = world.observe_articulated(fighter);
             assert!(obs.shield.present, "the fighter must be carrying the plate");
@@ -1288,7 +1305,7 @@ mod tests {
             for id in world.pending_decisions().to_vec() {
                 let obs = world.observe_articulated(id);
                 let command = if id == attacker { planner.decide(&obs) } else { neutral_articulated_command(&obs) };
-                submit(world, id, command);
+                submit(world, id, &obs, command);
             }
             let _ = world.step();
             if planner.phase() == TacticalPhase::Commit { return planner.context().plan.unwrap() }
@@ -1317,7 +1334,7 @@ mod tests {
                     }
                     command
                 } else { neutral_articulated_command(&obs) };
-                submit(&mut world, id, command);
+                submit(&mut world, id, &obs, command);
             }
             let _ = world.step();
             if planner.phase() == TacticalPhase::Commit { break }
@@ -1636,7 +1653,7 @@ mod tests {
             for id in world.pending_decisions().to_vec() {
                 let row = world.observe_articulated(id);
                 let command = if id == attacker { planner.decide(&row) } else { neutral_articulated_command(&row) };
-                submit(&mut world, id, command);
+                submit(&mut world, id, &row, command);
             }
             let _ = world.step();
             assert!(world.tick() < 300, "no reachable mirrored-plan fixture");

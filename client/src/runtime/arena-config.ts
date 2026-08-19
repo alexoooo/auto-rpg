@@ -13,7 +13,7 @@
 //
 // **What catches a drift is a comparison, not a compile error, and there are two
 // of them.** These bytes build `configured-duel-v1`, and `DuelConfigV1::shipped()`'s
-// own doc comment says that arrangement reproduces `articulated-duel-v1` row for
+// own doc comment says that arrangement reproduces `embodied-duel-v1` row for
 // row and id for id, differing in the scenario *name* alone. So the fight this
 // file describes and the fight `lab trace` records are the same fixed-point
 // simulation, and `a_live_fight_matches_the_traced_fight` compares them field for
@@ -78,19 +78,30 @@ const HAND_BLOCK_BYTES = 22;
 export const ARENA_MAX_TICKS = 60 * 60;
 
 /**
- * `ArticulatedPolicyKind`, by code.
+ * `EmbodiedPolicyKind`, by code.
  *
  * The codes are the ABI's and the names are the tokens `lab trace` writes into a
  * trace header, which is what lets a recorded fight and a live one be described
  * by the same sentence. Index is the code, so the array position is load-bearing.
+ *
+ * **It was `ArticulatedPolicyKind`'s seven names until v2-ui-08**, and the codes
+ * are not a superset: `4` was `learned` and is `tactical-fixed-guard`, and `5`
+ * and `6` were `tactical` and `openings` and are refused. A saved `4` therefore
+ * selects a real policy that is not the one it selected before -- which is why
+ * `the_retired_policy_reasons_are_reserved_and_unproduced` in `crates/web`
+ * asserts that specific reinterpretation rather than leaving it to be found.
+ *
+ * There is no `learned` entry. A trained fighter is a kind *plus fifteen
+ * kilobytes of weights* and `EmbodiedPolicyKind` has nowhere to put a
+ * checkpoint; `crates/policy/src/lib.rs` carries the argument. `lab trace
+ * --policy learned` still records one, so a *trace* header can still say
+ * "learned" and `arena.ts` still explains the digest when it does -- what has no
+ * code is a live one.
  */
 export const ARENA_POLICY_NAMES = [
-  "neutral", "composed", "windmill", "attack-moves", "learned", "tactical", "openings",
+  "neutral", "scripted", "scripted-level", "tactical", "tactical-fixed-guard",
 ] as const;
 export type ArenaPolicyName = (typeof ARENA_POLICY_NAMES)[number];
-
-/** The one code that needs a checkpoint installed before `arena_start` takes it. */
-export const LEARNED_POLICY_CODE = 4;
 
 export function policyCodeOf(name: string): number | null {
   const code = ARENA_POLICY_NAMES.indexOf(name as ArenaPolicyName);
@@ -220,30 +231,15 @@ export interface ArenaConfig {
   readonly seed: number;
 }
 
-/** Smart101 ordinal 3144, exposed only as an explicitly controlled demo. */
-export function robustStrikeArenaConfig(): ArenaConfig {
-  const longSword: ConfiguredHand = { ...HAND_ITEMS.sword, a: 2 * ONE_RAW };
-  return {
-    seed: 0,
-    maxTicks: 53,
-    fighters: [
-      {
-        anatomy: ANATOMY_CODES.fighter,
-        policy: 5,
-        spawn: { x: 622_592, y: 458_752 },
-        hands: [HAND_ITEMS.shield, longSword],
-        twoHanded: false,
-      },
-      {
-        anatomy: ANATOMY_CODES.brute,
-        policy: 0,
-        spawn: { x: 786_432, y: 524_288 },
-        hands: [HAND_ITEMS.empty, HAND_ITEMS.club],
-        twoHanded: false,
-      },
-    ],
-  };
-}
+// **`robustStrikeArenaConfig` went with the Rust preset in v2-ui-08.** It wrote
+// the Smart101 ordinal-3144 demonstration -- a Fighter with a two-unit sword at
+// (9.5, 7) under policy code 5, a neutral Brute at (12, 8), 53 ticks -- and
+// `install_arena` recognised the exact 120 bytes and swapped in a frozen
+// world-frame command schedule. `crates/web/src/lib.rs` carries the reasons it
+// went, above where `controlled_robust_strike_bytes` stood; the short one is
+// that the schedule wrote world bearings into what is now a torso frame, so the
+// same bytes are a different swing and the pinned ledger they existed to
+// demonstrate could only be re-recorded, not kept.
 
 function writeHand(view: DataView, at: number, hand: ConfiguredHand): void {
   view.setUint8(at, hand.code);
@@ -426,9 +422,20 @@ export const ARENA_REFUSALS: Readonly<Record<number, string>> = {
   27: "a bow must be the sole right-hand item under a two-handed grip",
 };
 
-/** `ARENA_NO_CHECKPOINT`, the one refusal a picker offering `learned` can reach. */
+/**
+ * `ARENA_NO_CHECKPOINT`, and `ARENA_POLICY_UNAVAILABLE` beside it: **the two
+ * reasons v2-ui-08 retired, still decoded here on purpose.**
+ *
+ * Nothing produces either since `#/arena` moved to `EmbodiedPolicyKind` -- that
+ * registry's `build` is total and it has no `learned` entry, so there is no
+ * unbuildable code and no code that wants a network. The numbers are reserved
+ * rather than recycled, on the rule `crates/sim/src/codec.rs` states for a
+ * retired command schema: a byte that once meant something crosses this worker
+ * boundary and outlives a build in whatever a page saved. Decoding them is the
+ * other half of that: a module or a saved word that still carries one has to be
+ * told what it means and not shown a number this build "does not name".
+ */
 export const ARENA_NO_CHECKPOINT = 26;
-/** `ARENA_POLICY_UNAVAILABLE`, unreachable since v2-ui-08 and decoded anyway. */
 export const ARENA_POLICY_UNAVAILABLE = 7;
 /** `ARENA_WHOLE_CONFIG`: the refusal is about the configuration, not a slot. */
 const ARENA_WHOLE_CONFIG = 255;

@@ -1227,12 +1227,12 @@ const { LiveFightSource } = require(path.join(OUT, "client/src/fight/live.js"));
 const CHECKPOINT = path.join(root, "checkpoints", "v2-probe.ckpt");
 
 /** The picker's own vocabulary, as the arena route will assemble it. */
-function liveConfig({ heroes = "composed", monsters = "composed", seed = 3,
+function liveConfig({ heroes = "scripted", monsters = "scripted", seed = 3,
   hands = [["shield", "sword"], ["empty", "club"]], twoHanded = [false, false],
   anatomies = [0, 1] } = {}) {
   const policy = (name) => {
     const code = CONFIG.policyCodeOf(name);
-    assert.notEqual(code, null, `${name} is not an articulated policy code`);
+    assert.notEqual(code, null, `${name} is not an embodied policy code`);
     return code;
   };
   return {
@@ -1280,9 +1280,9 @@ test("arena_start_allocates_within_the_warm_set", async () => {
   // grow the heap under the guard.
   const arrangements = [
     liveConfig(),
-    liveConfig({ heroes: "windmill", monsters: "attack-moves", anatomies: [1, 1],
+    liveConfig({ heroes: "scripted-level", monsters: "tactical", anatomies: [1, 1],
       hands: [["club", "club"], ["sword", "shield"]], seed: 7 }),
-    liveConfig({ heroes: "learned", monsters: "windmill", seed: 3 }),
+    liveConfig({ heroes: "tactical-fixed-guard", monsters: "neutral", seed: 3 }),
   ];
 
   const round = (guard = null) => {
@@ -1419,23 +1419,29 @@ test("arena_start_allocates_within_the_warm_set", async () => {
 
 test("the_index_survives_a_death", async () => {
   const wasm = instantiate();
-  // A current default-mechanics kill rather than the learned checkpoint's old
-  // v2-ui-08 outcome. The windmill control drives both sides here, matching
-  // `lab trace --policy windmill --seed 3`: native and wasm both end on tick
-  // 3,012 with the Fighter standing. Re-measured three times on 2026-08-16:
-  // 1,260 -> 2,620 after Smart134 doubled the arm bearing rates; 2,620 -> 947
-  // once the guard bearing was freed and the plate's normal began following the
-  // arm that carries it; then 947 -> 3,012 when the crush channel gave blunt
-  // energy somewhere to go. The last one lengthens the fight rather than
-  // shortening it, which is the crush channel behaving as designed: it costs
-  // integrity and opens no bleeding wound, so both sides take real damage
-  // without starting a bleed clock. Keeping a real death is load-bearing -- a
-  // timeout has two pose rows in every frame and cannot test this index seam.
-  const deathTick = 3_012;
-  const config = liveConfig({ heroes: "windmill", monsters: "windmill", seed: 3 });
+  // **Keeping a real death is load-bearing** -- a timeout has two pose rows in
+  // every frame and cannot test this index seam -- so the fixture is chosen by
+  // that requirement and nothing else, and it has had to move twice.
+  //
+  // It was the learned checkpoint's fight, then `windmill` on both sides at seed
+  // 3, ending at tick 3,012 with the Fighter standing. v2-ui-08 moved `#/arena`
+  // onto `EmbodiedPolicyKind` and `windmill` stopped existing. **Nothing kills
+  // at seed 3 under any of the twenty-five embodied pairings**: every one of the
+  // 525 fights of a sweep over seeds 0 to 20, staged through this file's own
+  // `encodeArenaConfig` on 2026-08-19, reached the 3,600-tick clock except
+  // fourteen -- and only four distinct fights among those, because
+  // `scripted-level` is `scripted` on flat ground. Seed 14 under `scripted` on
+  // both sides is the earliest symmetric one, and symmetric matters: a fixture
+  // whose loser stood still would make the survivor's health assertion below
+  // vacuous.
+  //
+  // That an embodied duel between two competent policies runs its clock 97% of
+  // the time is worth recording here rather than only in a plan.
+  const deathTick = 2_900;
+  const config = liveConfig({ heroes: "scripted", monsters: "scripted", seed: 14 });
   const recording = await recordLive(wasm, config);
 
-  assert.equal(recording.ticks, deathTick, "the windmill control's kill tick moved");
+  assert.equal(recording.ticks, deathTick, "the embodied kill fixture's tick moved");
   assert.equal(recording.outcome, "HeroesWin");
   assert.equal(recording.timedOut, false);
   assert.equal(recording.recordingTruncated, false);
@@ -1449,15 +1455,12 @@ test("the_index_survives_a_death", async () => {
   assert.equal(source.frameAt(deathTick - 1).poses.length, 2);
   assert.equal(source.frameAt(deathTick).poses.length, 1);
   assert.equal(source.frameAt(deathTick).poses[0].id[0], 0, "the Fighter is the survivor");
-  // The survivor is no longer untouched: `lab trace --policy windmill --seed 3`
-  // reports "3012 ticks, a body decided it / HeroesWin, hero 0.8098 monster
-  // 0.0000, 779 contacts, 3 severances" natively on 2026-08-16, and 0.8098 is
-  // exactly 53_072/65_536. Re-recorded alongside the death tick above -- both
-  // moved for the same reason, and native and wasm agree on both. The series so
-  // far: 65_536, then 65_408, then 64_240, now 53_072. The survivor keeps losing
-  // more of its health as the model gets better at spending energy on bodies,
-  // which is the direction every change in this topic was aiming at.
-  assert.deepEqual(source.frameAt(deathTick).health, [53_072, 0]);
+  // The survivor is not untouched, which is what makes this a health assertion
+  // rather than a liveness one: 48_581 of 65_536 is 74.1%, so the Fighter won a
+  // fight it was losing a quarter of. Re-recorded with the fixture above; the
+  // series under the articulated `windmill` control was 65_536, 65_408, 64_240,
+  // 53_072, and this is a different fight rather than the next term in it.
+  assert.deepEqual(source.frameAt(deathTick).health, [48_581, 0]);
 
   // **The index, as an assertion rather than as a comment.** This is the
   // arithmetic a reader without one would do; after the kill it lands on a row
@@ -1516,13 +1519,24 @@ test("the_index_survives_a_death", async () => {
 // carries none, so a clean clone has nothing to compare against. When one is
 // present the comparison is mandatory; when none is, the test says which command
 // writes one.
+// **The second fixture was `web/fight-learned.json` and is now the page's own
+// default pairing.** The comparison builds the live fight out of the trace's
+// header, so a fixture whose `heroes` is a policy the picker cannot name is a
+// fixture this test cannot stage: v2-ui-08 moved `#/arena` onto
+// `EmbodiedPolicyKind`, which has no `learned` entry. Dropping to one fixture
+// was the alternative and it is weaker -- one symmetric scripted fight would
+// leave the comparison blind to whatever the *other* dropdown entry does -- so
+// the pair is kept and the second one is `tactical` on both sides, which is what
+// `#/arena` opens on and therefore the fight most readers will see first.
 const TRACE_FIXTURES = [
-  { file: "web/fight.json", command: "cargo run --release -p lab -- trace --seed 3 --out web/fight.json" },
   {
-    file: "web/fight-learned.json",
-    command: "cargo run --release -p lab -- trace --policy learned "
-      + "--checkpoint checkpoints/v2-probe.ckpt --opponent windmill --seed 3 "
-      + "--out web/fight-learned.json",
+    file: "web/fight.json",
+    command: "cargo run --release -p lab -- trace --seed 3 --out web/fight.json",
+  },
+  {
+    file: "web/fight-tactical.json",
+    command: "cargo run --release -p lab -- trace --seed 3 --policy tactical "
+      + "--out web/fight-tactical.json",
   },
 ];
 
@@ -1570,9 +1584,13 @@ test("a_live_fight_matches_the_traced_fight", async (t) => {
     // The two fields that must **not** agree, asserted so the difference is a
     // decision rather than an oversight. A runtime scenario is named
     // `configured-duel-v1` precisely so a recorded fight cannot be mistaken for
-    // the `articulated-duel-v1` pin, and the fingerprint follows the name.
+    // the `embodied-duel-v1` pin, and the fingerprint follows the name. The
+    // traced name was `articulated-duel-v1` until v2-ui-08 put both sides on
+    // `CombatModel::Embodied`; that the two *fights* are identical while the two
+    // *names* are not is the whole of what this pair asserts, and it is exactly
+    // as true under one model as under two.
     assert.equal(live.header.scenario, "configured-duel-v1", `${where}scenario`);
-    assert.equal(trace.scenario, "articulated-duel-v1", `${where}traced scenario`);
+    assert.equal(trace.scenario, "embodied-duel-v1", `${where}traced scenario`);
     assert.notEqual(live.header.fingerprint, trace.fingerprint, `${where}fingerprint`);
     // `NO_REGION` widens to a whole word on the wire so a reader that lost track
     // of the column width cannot mistake it for a region index.

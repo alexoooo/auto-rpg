@@ -368,8 +368,8 @@ is that it is no longer the only such world. `ROOM_HASH`, `BATTLE_HASH`,
 `SWAP_HASH` and `BOW_HASH` are all produced by `Sim::advance`, and a branch the
 legacy path cannot enter is the only obviously-safe shape there.
 
-The loop ported is `lab`'s `measure_articulated_matchup` and **not**
-`policy::run_articulated`, which takes one `impl ArticulatedPolicy` and installs
+The loop ported is `lab`'s `measure_embodied_matchup` and **not**
+`policy::run_embodied`, which takes one `impl EmbodiedPolicy` and installs
 it on both sides — right for a control condition and useless for an arena.
 Routing is on the alive set captured at install, because
 [`ArticulatedObservation`](#subject-scoped-observation) has no faction column.
@@ -380,37 +380,47 @@ either would fingerprint a different world. `a_scripted_arena_fight_in_wasm_matc
 is what says the two agree, against a second spelling of the loop rather than
 against a pinned number.
 
-Policies are named by a second registry, `policy::ArticulatedPolicyKind`,
-separate from `PolicyKind` because the two seams share no code space:
+Policies are named by `policy::EmbodiedPolicyKind`, which is also the registry
+`set_policy` takes on an ordinary floor:
 
 | code | policy | source |
 |---:|---|---|
-| 0 | `neutral` | `NeutralArticulatedPolicy` |
-| 1 | `composed` | `ScriptedArticulatedPolicy` |
-| 2 | `windmill` | `WindmillArticulatedPolicy` |
-| 3 | `attack-moves` | `ClosingAttackControlPolicy` |
-| 4 | `learned` | `learn_core::LearnedArticulatedPolicy`, over the installed checkpoint |
-| 5 | `tactical` | `TacticalArticulatedPolicy` |
-| 6 | `openings` | `OpeningsArticulatedPolicy` |
+| 0 | `neutral` | `NeutralEmbodiedPolicy` |
+| 1 | `scripted` | `ScriptedEmbodiedPolicy`, `EmbodiedScriptConfig::SEEKING` |
+| 2 | `scripted-level` | `ScriptedEmbodiedPolicy`, `EmbodiedScriptConfig::LEVEL` |
+| 3 | `tactical` | `TacticalEmbodiedPolicy`, `TacticalConfig::READING` |
+| 4 | `tactical-fixed-guard` | `TacticalEmbodiedPolicy`, `TacticalConfig::FIXED_GUARD` |
 
-Codes 5 and 6 were shipping and selectable in the browser for some time before
-this table named them; it listed 0-4 and never mentioned `tactical` at all.
+**This table replaced a different one in v2-ui-08 and the codes are not a
+superset.** `Scenario::duel_from` builds `CombatModel::Embodied` since that
+session, so `#/arena` reads the embodied registry where it read
+`ArticulatedPolicyKind`'s seven entries — `neutral`, `composed`, `windmill`,
+`attack-moves`, `learned`, `tactical`, `openings`, in that code order. A page
+holding a saved `4` now selects `tactical-fixed-guard` where it selected
+`learned`; `5` and `6` were `tactical` and `openings` and are refused with
+[`ARENA_UNKNOWN_POLICY`](#refusing-by-name). The registry is append-only from
+here.
 
-Code 4 was named and refused rather than omitted, so that the session splitting
-an inference-only crate out of `crates/learn` would be purely additive. It was,
-and v2-ui-08 landed it: `learn-core` is `crates/web`'s dependency, the fifth code
-builds, and the reservation cost that session no rework here at all.
+**There is no `learned` code and adding one is a decision, not an omission.**
+`EmbodiedPolicyKind::build` returns a policy rather than an `Option` precisely
+because nothing in it is a checkpoint: a trained fighter is a kind *plus fifteen
+kilobytes of weights*, which a registry keyed by an integer has nowhere to put,
+and session 09 measured the learning boundary and deferred the network widening
+that would earn the code. [The checkpoint staging
+buffer](#the-checkpoint-staging-buffer) below is untouched and
+`learned_inference_digest_lo` is still taken over what it installed; what no longer exists is a *fighter* built from it. `lab
+trace --policy learned` still records one, so a trace header can still name it
+and the studio still explains the digest when it does.
 
-**`ArticulatedPolicyKind::build` still answers `None` for it, and that is the
-contract rather than a leftover.** `crates/policy` is in `check_deps.js`'s
-deterministic set and must not gain a float dependency; and more durably, a
-trained fighter is a kind *plus fifteen kilobytes of weights*, which a registry
-keyed by an integer has nowhere to put. The dispatch is `crates/web`'s
-`build_articulated_policy`, beside the buffer that holds the weights. What a
-fighter asking for code 4 with no checkpoint installed gets is
-[`ARENA_NO_CHECKPOINT`](#refusing-by-name) and not `ARENA_POLICY_UNAVAILABLE` --
-"fetch one" and "rebuild the module" are different instructions, and a studio
-that could not tell them apart would show the wrong one.
+Two reason codes lost their producers in that move and **keep their numbers**:
+`ARENA_POLICY_UNAVAILABLE` (7), which meant "this build cannot construct that
+policy", and `ARENA_NO_CHECKPOINT` (26), which meant "that fighter wants a
+network and none is installed". Neither has a path back to a producer — there is
+no unbuildable code and no code that wants a checkpoint. They are reserved rather
+than recycled on the rule `crates/sim/src/codec.rs` states for a retired command
+schema: these bytes cross a worker boundary and outlive a build in whatever a
+page saved, so a number that once meant something must be refused by that number
+rather than quietly given a new meaning.
 
 ### The checkpoint staging buffer
 
@@ -478,15 +488,21 @@ v2-ui-07 is the session that wrote the client.**
    was recorded from. **This is the only handshake step that is optional**, and
    it is the one that makes a live fight and a recorded one comparable on
    identical terms.
-5. Only then may a fighter carry policy code `4`. `arena_start` refuses with
-   `ARENA_NO_CHECKPOINT` otherwise, and installs nothing.
+5. **Step five was "only then may a fighter carry policy code `4`", and there is
+   no step five.** `arena_start` refused code 4 with `ARENA_NO_CHECKPOINT`
+   otherwise and installed nothing; v2-ui-08 moved the arena onto
+   `EmbodiedPolicyKind`, which has no `learned` entry, so no policy byte asks for
+   a network. The four steps above are unchanged and still hold the digest, which
+   is what the handshake is for now: `learned_inference_digest_lo` is taken over
+   the checkpoint that was *installed*, so the sequence that installs it is the
+   sequence a pinned two-target number depends on.
 
 The installed network is **not** per-world state. It survives `init`, `descend`
 and `arena_start` exactly as a fetched file survives a page navigating within a
 session, which is why it is not on `Sim` and owes none of the companion lines
-`Sim::anatomy` and `Sim::arena` do. What *is* per-world is the policy instance
-built out of it, and that lives in the arena's own `policies` array where the
-rule is already paid.
+`Sim::anatomy` and `Sim::arena` do. What used to be per-world was the policy
+instance built out of it, in the arena's own `policies` array; since v2-ui-08
+nothing in this module builds a fighter from a checkpoint at all.
 
 `load_checkpoint` packs its answer with a word of its own:
 
@@ -652,7 +668,7 @@ arena_config_layout_version() -> u32    // 2
 arena_start(seed:u32) -> u32
 arena_fingerprint_lo() -> u32
 arena_fingerprint_hi() -> u32
-arena_policy(faction_code:u32) -> u32   // ArticulatedPolicyKind::code, or 0xffff_ffff
+arena_policy(faction_code:u32) -> u32   // EmbodiedPolicyKind::code, or 0xffff_ffff
 ```
 
 `arena_fingerprint_*` is `Scenario::try_fingerprint` of the installed
@@ -669,18 +685,17 @@ command uses:
 bits  0..7   outcome: not started 0, started 1
 bits  8..15  reason
 bits 16..23  the fighter the refusal is about, or 255
-bits 24..31  the hand it is about; the **policy code** for reasons 7 and 26,
-                 which are the two about a policy rather than about a slot;
-                 otherwise 255
+bits 24..31  the hand it is about, or 255
 ```
 
-A client decoding bits 24..31 must branch on the reason and not on the byte. The
-collision is real but it is not at `4`: `ARENA_HANDS` is 2, so a hand byte is
-only ever `0`, `1` or `255`, and what a hand index collides with is policy code
-`0` (`neutral`) or `1` (`composed`). The two refusals that put a *code* there are
-`7` (policy unavailable, now unreachable) and `26` (no checkpoint installed,
-which is the one code 4 gets today), so a reader that saw `0` in that byte and
-guessed would say "the left hand" about a refusal that is about `neutral`.
+**Bits 24..31 carried a *policy code* for reasons 7 and 26 and no longer carry
+one for anything.** Those were the two refusals about a policy rather than about
+a slot, and v2-ui-08 retired both; the surviving policy refusal, `6`, is about
+the whole fighter and writes 255 there. The collision that made this worth a
+paragraph was real -- `ARENA_HANDS` is 2, so a hand byte is only ever `0`, `1` or
+`255`, and a code `0` in that field would have read as "the left hand" -- and it
+is gone rather than solved. A client still has to branch on the reason if either
+number is ever produced again; nothing produces them today.
 
 Reasons are `0` none, `1` unknown layout, `2` wrong fighter count, `3`
 noncanonical bytes, `4` unknown anatomy, `5` unknown item code, `6` unknown
@@ -696,13 +711,21 @@ it beside `NoEquipment` and changing an already-shipped meaning. One
 opaque zero would make a studio say "invalid" for a typo, for an impossibility
 and for a session that has not landed yet.
 
-**Thirteen are reachable from a control and the rest are not**, and the split is
-not the one the plan predicted; v2-ui-08 then swapped one of the twelve for
-another rather than adding one. `7` was reachable while the fifth policy code
-had no implementation on this side of the wall. It now has one, so `7` joins the
-unreachable set and `26` takes its place in the twelve -- the fifth code is
-buildable and the only thing it can be missing is its weights. Both keep their
-numbers, on this section's own argument about the seven below. `Fraction`,
+**Twelve are reachable from a control and the rest are not**, and the split is
+not the one the plan predicted.
+
+**Two of the unreachable ones are *retired* rather than merely unreachable, and
+the difference matters.** `7` (policy unavailable) needed a registry entry the
+boundary could not build and `26` (no checkpoint) needed a fighter that wants a
+network; `EmbodiedPolicyKind::build` returns a policy and never an `Option`, and
+that registry has no `learned` entry, so neither has a producer or a path back to
+one. The seven spec errors below are not like that: `crates/sim` can still answer
+every one of them and a widened control brings them back without a byte moving.
+Both retired numbers stay declared and distinct on the codec's retired-schema
+rule, and `every arena policy byte either fights or is refused by name` in
+`tools/wasm_check.js` drives all 256 values a page can write into a policy slot
+and asserts neither number comes back from any of them -- which is the half of
+"retired" that a declaration cannot say on its own. `Fraction`,
 `Maximum`, `IdOrder`,
 `MissingReference`, `LoadoutMismatch`, `TooManyAnatomies` and `TooManyEquipment`
 were named as slider-reachable and are not: `Scenario::duel_from` derives
@@ -727,8 +750,9 @@ instance for the life of the page, turning a bad slider value into a reload.
 
 **Measured in wasm under Node on 2026-08-11, re-measured the same day after
 review, and only one of the three original figures survived.** The fixture is a
-3,600-tick configured duel — the shipped arrangement, `composed` against
-`windmill`, seed 3, in contact from the first clinch to the tick limit — driven
+3,600-tick configured duel — the shipped arrangement, the articulated `composed`
+script against `windmill`, seed 3, in contact from the first clinch to the tick
+limit — driven
 three ways: as 3,600 `step(1)` calls, as 450 `step(8)` calls, and as one
 `step(3600)`. The control is the same duel with `neutral` on both sides, which
 never touches at all: it resolves zero contact rows against the contact pairing's

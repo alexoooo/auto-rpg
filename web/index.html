@@ -432,14 +432,11 @@
       <h1>Battle Arena</h1>
 
       <div class="picker">
-        <div class="picker-row">
-          <label>demo
-            <select id="arena-preset">
-              <option value="custom" selected>Custom fight</option>
-              <option value="robust-strike">Robust Strike (controlled)</option>
-            </select>
-          </label>
-        </div>
+        <!-- The `demo` row held one alternative to "Custom fight": the Robust
+             Strike controlled demonstration, which v2-ui-08 deleted along with
+             the 120-byte preset in `crates/web` that recognised it. A select
+             with one option is a control that does nothing, so the row went with
+             it rather than being left standing. -->
         <div class="picker-row hero">
           <span class="side">Fighter A</span>
           <label>anatomy

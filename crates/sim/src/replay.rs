@@ -468,7 +468,25 @@ mod tests {
         config.fighters[1].spawn = Vec2::new(Fx::from_ratio(631, 50), wall_side);
         config.fighters[1].anatomy = crate::AnatomyChoice::Fighter;
         config.max_ticks = 100;
-        let scenario = Scenario::duel_from(&config).unwrap();
+        let mut scenario = Scenario::duel_from(&config).unwrap();
+        // ARTICULATED-FIXTURE-SHIM -- reseat and re-record.
+        //
+        // `duel_from` builds `CombatModel::Embodied` since v2-ui-08, and this
+        // transcript is a hundred ticks of world-frame `ArticulatedCommandV1`
+        // recorded as `SubmittedCommand::Articulated`. The two `panic!`s on the
+        // submissions below are what catch it, at the submission and by name.
+        //
+        // What the test owns -- live equals rerun equals replay, every
+        // authoritative word, every tick -- is model-independent. What is
+        // articulated is the transcript: the wall-side placement, the tick-48
+        // bearing change, the tick-95 release, and above all `diagnostic.tick ==
+        // 80`, which the comment above `rates` already explains is a property of
+        // *this* swing at *these* rates. Reseating means writing the same
+        // transcript as `SubmittedCommand::Embodied` through `submit_embodied_v1`
+        // and re-measuring the refusal tick; it does not mean relaxing 80 into a
+        // range, which would be an assertion satisfied by a fixture that stopped
+        // refusing for a different reason.
+        scenario.combat_model = crate::CombatModel::Articulated;
         let fighter = EntityId::new(0, 0);
         let brute = EntityId::new(1, 0);
         let arm = |bearing: Angle, reach: Fx, effort: Fx| ArmTarget {

@@ -315,6 +315,24 @@ on their first five entries and nowhere after. A schema-5 file read by the curre
 would draw each arm as one capsule and fail the live-versus-traced comparison inside a
 pose diff, which is the confusing half of the failure the guard exists to make plain.
 
+**Both sides of that seam are `CombatModel::Embodied` since v2-ui-08**, and it is the
+change that made the comparison worth having. `Scenario::duel_from` -- what `arena_start`
+builds -- does not build an articulated world any more, and neither does `lab trace`,
+which until then carried a second policy vocabulary of its own. Both read
+`policy::EmbodiedPolicyKind` now: `neutral`, `scripted`, `scripted-level`, `tactical`,
+`tactical-fixed-guard`. Five names, one registry, and `#/arena`'s dropdown,
+`lab trace --policy` and `lab embodied --policy` all spell a fight the same way. So the
+page shows the model every other measurement in the repository is taken under, which is
+the whole point: a page running a model nothing else measured would be a demonstration
+of something nobody had a number for.
+
+There is no `learned` entry in that registry and its absence is a decision rather than an
+oversight. A trained fighter is a kind *plus fifteen kilobytes of weights* and a policy
+byte has nowhere to put a checkpoint. That is not a gap this boundary can close on its
+own, and the [ABI reference](../reference/articulated-abi.md#the-configured-duel) carries
+the argument. A recorded fight can still name one, when `lab trace --policy learned` is
+what wrote it, and `?trace=` is the route that plays it.
+
 `trace` also takes fourteen keys that *describe* a duel instead of running the pinned
 one -- the two anatomies, the four hands, and the shield and weapon dimensions. **Give
 none of them and the fixture runs byte for byte**, which is what makes a traced run
@@ -414,9 +432,9 @@ intersects the floor, and torch/material treatment remains schematic and repetit
 
 ## Source anchors
 
-- Fixed publication pools: [`thread_local!`](../../crates/web/src/lib.rs#L1671)
-- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L4343)
-- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L5417)
+- Fixed publication pools: [`thread_local!`](../../crates/web/src/lib.rs#L1702)
+- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L4384)
+- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L5458)
 - Worker adapter and atomic scalar phase: [`readPublication`](../../client/src/runtime/sim.worker.ts#L94)
 - Pure protocol host: [`SimWorkerHost`](../../client/src/runtime/sim-worker-host.ts#L55)
 - Main-thread lease owner: [`SimClient`](../../client/src/runtime/sim-client.ts#L122)

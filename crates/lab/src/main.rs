@@ -19,17 +19,22 @@ mod trace;
 use args::Args;
 use trace::{FightTrace, TraceRun};
 use fx::{Fx, Hash64, Vec2};
+use policy::{ArmRoles, EmbodiedPolicy, EmbodiedPolicyKind, Footwork, RunConfig};
+// The articulated block below `verify_one_embodied` is test-only and goes with
+// `CombatModel::Articulated`; these are its imports, gated so the release build
+// stays warning-free rather than by widening the block back into the binary.
+#[cfg(test)]
 use policy::{
-    script_digest, ArmRoles, ArticulatedPolicy, ArticulatedPolicyKind,
-    ClosingAttackControlPolicy, EmbodiedPolicy, EmbodiedPolicyKind, Footwork,
-    OpeningsArticulatedPolicy, RunConfig, ScriptedArticulatedPolicy,
-    TacticalArticulatedPolicy, WindmillArticulatedPolicy,
+    script_digest, ArticulatedPolicy, ClosingAttackControlPolicy, ScriptedArticulatedPolicy,
+    WindmillArticulatedPolicy,
 };
 use sim::{
     AnatomyChoice, CombatHeight, ContactKind, DuelConfigV1, EntityId, Faction, Intent,
-    Outcome, Replay, Scenario, StateDigest, SubmitArticulatedOutcome, SubmitEmbodiedOutcome,
+    Outcome, Replay, Scenario, StateDigest, SubmitEmbodiedOutcome,
     SubmittedCommand, SubmittedCommandRecord, World,
 };
+#[cfg(test)]
+use sim::SubmitArticulatedOutcome;
 use std::time::Instant;
 
 fn main() {
@@ -92,34 +97,42 @@ fn usage() {
           it reaches the two entries that drive a planner: a matchup with no
           such side is refused rather than run with the row dropped.
 
-  trace   --seed N --policy composed|windmill|tactical|learned --attack-moves --mirrored
+  trace   --seed N --policy <embodied policy>|learned --mirrored
+          --hero-policy <embodied policy>  --monster-policy <embodied policy>
+          --footwork M,F,L,U
           --ticks N --out PATH
           --checkpoint PATH   (--phase-random is refused under every --policy,
                                not only this arm; the control lives in learn-probe)
-          --opponent composed|windmill|attack-moves    (--policy learned only)
+          --opponent <embodied policy>                 (--policy learned only)
           --fighter-a fighter|brute            --fighter-b fighter|brute
           --a-left  sword|shield|club|empty    --a-right ...  (and the b twins)
           --a-two-handed on|off                (and the b twin; needs a full
           right hand and an empty left one)
           --a-shield-half-width R --a-shield-half-height R
           --a-weapon-length R --a-weapon-mass R            (and the b twins)
-          Writes one articulated fight to JSON so it can be watched frame by
+          Writes one embodied fight to JSON so it can be watched frame by
           frame in the browser: every published pose, every regional capsule,
           every resolution row. The run is the identical loop the gate measures
           and the recorder cannot change it -- `a_traced_run_is_the_run_the_gate_
           measured` is what says so. --ticks bounds the recording and never the
           fight, and a truncated file says so in its header. Defaults to
           web/fight.json, which `npm run view` serves to the studio's Battle
-          Arena at /#/arena.
-          --policy learned puts a checkpoint on the Fighter and a script on the
+          Arena at /#/arena, and the page's own fight is the same model this
+          writes -- which is the whole reason a browser can be checked against
+          this file at all.
+          <embodied policy> is `EmbodiedPolicyKind`'s vocabulary, exactly as
+          `embodied` reads it: neutral, scripted, scripted-level, tactical,
+          tactical-fixed-guard. It had a second vocabulary of its own until
+          v2-ui-08 and now has none.
+          --policy learned puts a checkpoint on the Fighter and a policy on the
           Brute, which is the arrangement `learn-probe` measures; the header
-          then names both sides and the checkpoint digest. **The three options
-          marked `--policy learned only` apply to that arm alone.** A script
-          drives both bodies -- one policy, two sides, which is what makes a
-          scripted trace a control -- so `--policy windmill --opponent composed`
-          is not a mixed fight and never was; it is a windmill mirror, and the
-          header's `heroes`/`monsters` pair is what says so rather than this
-          paragraph.
+          then names both sides and the checkpoint digest. **The two options
+          marked `--policy learned only` apply to that arm alone.** Otherwise
+          one policy drives both bodies unless --hero-policy/--monster-policy
+          name a side each -- which is what makes a symmetric trace a control --
+          so `--policy scripted --opponent tactical` is not a mixed fight and
+          never was; it is a scripted mirror, and the header's
+          `heroes`/`monsters` pair is what says so rather than this paragraph.
           The fourteen keys in the four-line block at the top of this entry
           describe a duel instead of running the pinned one. **Give none of them
           and the fixture runs, byte for byte** --
@@ -280,6 +293,7 @@ fn verify_one_embodied(
         limit,
         Some(&mut replay),
         None,
+        None,
     );
     let again = measure_embodied(scenario, seed, matchup, limit);
 
@@ -320,6 +334,16 @@ fn verify_one_embodied(
 }
 
 // ------------------------------------------------------- the articulated fixture
+//
+// **Everything from here to `height_index` is test-only and goes with
+// `CombatModel::Articulated`.** `lab articulated` was deleted three sessions
+// ago and `lab trace` stopped being articulated in v2-ui-08, so nothing this
+// binary can be asked to do reaches any of it. What is left is the evidence the
+// articulated model still owes -- the three scripts are distinguishable, the
+// measured loop is the runner's loop, and the created-energy excess is zero on
+// two seeds under three scripts -- and deleting that evidence before the model
+// it is about would be deleting a test to save a compile. The step that removes
+// the enum removes this block and its three tests together.
 
 /// Which script drives both sides of the fixture.
 ///
@@ -327,6 +351,10 @@ fn verify_one_embodied(
 /// so on purpose: `Composed` is the twelve-phase script the `ARPG-SCRIPT-V1`
 /// digest is defined over, and nothing recorded under either other arm may be
 /// offered as evidence for it.
+///
+/// It had `Tactical` and `Openings` arms until v2-ui-08. They were `--policy`
+/// spellings and nothing else -- no evidence test named either -- so they went
+/// with the flag rather than being kept as an enum nobody constructs.
 ///
 /// The controls exist because checkpoint A's 800/800 tick-limit corpus turned
 /// out to be a property of the script rather than of the physics: phases 3, 4,
@@ -336,15 +364,15 @@ fn verify_one_embodied(
 /// because it always walked, the closing script because that is the single
 /// cell under evaluation -- so between them they say whether the floor is
 /// binding for this physics or only for that reading of the table.
+#[cfg(test)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Script {
     Composed,
     Windmill,
     ClosingAttacks,
-    Tactical,
-    Openings,
 }
 
+#[cfg(test)]
 impl Script {
     /// A fresh instance per faction, which is what the fixture asks for.
     fn policy(self) -> Box<dyn ArticulatedPolicy> {
@@ -352,8 +380,6 @@ impl Script {
             Script::Composed => Box::new(ScriptedArticulatedPolicy),
             Script::Windmill => Box::new(WindmillArticulatedPolicy),
             Script::ClosingAttacks => Box::new(ClosingAttackControlPolicy),
-            Script::Tactical => Box::new(TacticalArticulatedPolicy::default()),
-            Script::Openings => Box::new(OpeningsArticulatedPolicy::default()),
         }
     }
 
@@ -362,58 +388,7 @@ impl Script {
             Script::Composed => "the composed script",
             Script::Windmill => "the windmill control",
             Script::ClosingAttacks => "the composed script with closing attacks (control)",
-            Script::Tactical => "the tactical policy",
-            Script::Openings => "the openings policy",
         }
-    }
-
-    /// The same three arms as the command line spells them, for a machine
-    /// reader. Separate from [`Script::name`] because that one is a sentence
-    /// fragment and this one is an identifier, and a trace header that carried
-    /// "the composed script" would make its consumer parse English.
-    fn token(self) -> &'static str {
-        match self {
-            Script::Composed => "composed",
-            Script::Windmill => "windmill",
-            Script::ClosingAttacks => "attack-moves",
-            Script::Tactical => "tactical",
-            Script::Openings => "openings",
-        }
-    }
-}
-
-/// The script knobs, resolved once for every command that takes them.
-///
-/// Two knobs rather than one three-way choice, because they are not three points
-/// on one axis: `--policy` picks which script runs, and `--attack-moves` edits
-/// one cell of the composed one. Folding the control into the policy list would
-/// let `--policy windmill --attack-moves` look like a thing, and it is not --
-/// the windmill never plants its feet.
-fn script_from(args: &Args) -> Script {
-    match args.choice(
-        "policy",
-        Script::Composed,
-        &[
-            ("composed", Script::Composed),
-            ("windmill", Script::Windmill),
-            ("tactical", Script::Tactical),
-            ("openings", Script::Openings),
-        ],
-    ) {
-        Script::Composed if args.flag("attack-moves") => Script::ClosingAttacks,
-        Script::Windmill if args.flag("attack-moves") => {
-            eprintln!("--attack-moves edits the composed script; the windmill already walks");
-            std::process::exit(2);
-        }
-        Script::Tactical if args.flag("attack-moves") => {
-            eprintln!("--attack-moves edits the composed script; tactical decides its own feet");
-            std::process::exit(2);
-        }
-        Script::Openings if args.flag("attack-moves") => {
-            eprintln!("--attack-moves edits the composed script; openings decides its own feet");
-            std::process::exit(2);
-        }
-        chosen => chosen,
     }
 }
 
@@ -424,69 +399,6 @@ fn script_from(args: &Args) -> Script {
 /// duel key is.
 const MATCHUP_KEYS: [&str; 2] = ["hero-policy", "monster-policy"];
 
-/// The script vocabulary the asymmetric keys accept, which is
-/// [`Script::token`]'s own list rather than `--policy`'s.
-///
-/// `--policy` cannot spell `attack-moves` -- it is reached by `--attack-moves`
-/// editing the composed script, because for that flag the two really are one
-/// choice. Here they are not: a matchup names a driver per side, and a side
-/// wanting the closing-attack control has no second flag to reach it with.
-const MATCHUP_SCRIPTS: [(&str, Script); 5] = [
-    ("composed", Script::Composed),
-    ("windmill", Script::Windmill),
-    ("attack-moves", Script::ClosingAttacks),
-    ("tactical", Script::Tactical),
-    ("openings", Script::Openings),
-];
-
-/// Which script drives each side.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-struct Matchup {
-    heroes: Script,
-    monsters: Script,
-}
-
-/// A bare script *is* the symmetric matchup, so every caller that always ran one
-/// control on both sides keeps saying so in one word.
-impl From<Script> for Matchup {
-    fn from(script: Script) -> Matchup {
-        Matchup::symmetric(script)
-    }
-}
-
-impl Matchup {
-    /// One script on both sides, which is what every symmetric corpus is.
-    fn symmetric(script: Script) -> Matchup {
-        Matchup { heroes: script, monsters: script }
-    }
-
-    fn is_symmetric(self) -> bool {
-        self.heroes == self.monsters
-    }
-
-    /// The headline, which says "x" once when both sides are the same and
-    /// "x against y" when they are not -- so that a symmetric run's output is
-    /// unchanged from before this existed and a reader never has to notice the
-    /// feature to read the old corpus.
-    fn name(self) -> String {
-        if self.is_symmetric() {
-            self.heroes.name().to_string()
-        } else {
-            format!("{} against {}", self.heroes.name(), self.monsters.name())
-        }
-    }
-}
-
-/// The matchup the flags add up to, or the sentence the run should be refused
-/// with.
-///
-/// **Returned rather than printed-and-exited**, on exactly the discipline
-/// [`duel_config_from`] states: a key that cannot be honoured has to stop the run
-/// rather than be dropped from it, and a test can only assert a refusal it can
-/// hold. `an_asymmetric_matchup_runs_a_different_policy_on_each_side` and
-/// `a_valueless_matchup_key_is_refused_rather_than_running_one_script_on_both`
-/// are what hold these.
-///
 /// The two refusals every matchup reader owes, spelled once.
 ///
 /// **Shared rather than copied because both of them are traps and not rules.** A
@@ -521,48 +433,23 @@ fn matchup_key_refusal(args: &Args) -> Option<String> {
     None
 }
 
-fn matchup_from(args: &Args) -> Result<Matchup, String> {
-    if let Some(sentence) = matchup_key_refusal(args) {
-        return Err(sentence);
-    }
-    let base = script_from(args);
-    let mut matchup = Matchup::symmetric(base);
-    for (key, side) in MATCHUP_KEYS.into_iter().zip([true, false]) {
-        let Some(name) = args.text(key) else { continue };
-        let Some((_, script)) = MATCHUP_SCRIPTS.iter().find(|(token, _)| *token == name) else {
-            let vocabulary: Vec<&str> = MATCHUP_SCRIPTS.iter().map(|(token, _)| *token).collect();
-            return Err(format!(
-                "--{key} does not know the script \"{name}\": it takes {}",
-                vocabulary.join(", ")
-            ));
-        };
-        if side { matchup.heroes = *script } else { matchup.monsters = *script }
-    }
-    Ok(matchup)
-}
-
-/// The pinned fixture reflected across `y = 8`.
-///
-/// **Chosen because it is the only reflection that costs the scenario nothing.**
-/// The spawn yaws are derived from the faction -- zero for Heroes, `HALF` for
-/// Monsters -- and both are their own negations, so a Y reflection leaves both
-/// bodies facing exactly where a mirrored fighter should face without the
-/// scenario growing a yaw column to be told about it. An X reflection would need
-/// one.
-///
-/// The mirror keeps the fixture's name and therefore *does not* keep its
-/// fingerprint, which is correct and worth saying out loud: a mirrored run is a
-/// run of a different scenario, it is never the pin, and nothing recorded from
-/// it may be offered as the canonical seed-zero replay.
-fn mirrored_articulated_duel() -> Scenario {
-    let mut scenario = Scenario::articulated_duel();
-    mirror_spawns(&mut scenario);
-    scenario
-}
-
 /// The reflection itself, so that `trace`'s `--mirrored` means the same thing
 /// over a described duel as it does over the pinned one. Reads the height off
 /// the scenario rather than writing `8` down a second time.
+///
+/// **`y = 8` and not `x = 12`, because it is the only reflection that costs the
+/// scenario nothing.** The spawn yaws are derived from the faction -- zero for
+/// Heroes, `HALF` for Monsters -- and both are their own negations, so a Y
+/// reflection leaves both bodies facing exactly where a mirrored fighter should
+/// face without the scenario growing a yaw column to be told about it. An X
+/// reflection would need one.
+///
+/// A mirror keeps its fixture's *name* and therefore does not keep its
+/// fingerprint, which is correct and worth saying out loud: a mirrored run is a
+/// run of a different scenario, it is never the pin, and nothing recorded from
+/// it may be offered as the canonical seed-zero replay.
+/// `the_mirror_reflects_the_spawn_row_and_nothing_else` is what holds both
+/// halves.
 fn mirror_spawns(scenario: &mut Scenario) {
     let height = scenario.arena().y;
     for unit in scenario.units.iter_mut() {
@@ -679,10 +566,13 @@ struct ArticulatedTrial {
 /// `the_measured_run_is_the_run_the_harness_would_have_driven` pins this one
 /// against the runner's.
 ///
-/// **The two sides are separate parameters so that `lab trace` can watch a
-/// learned fight**, which is a fight with a different policy on each side. The
-/// corpus that used to drive this always put one script on both, and it went
-/// with the articulated model; `trace` is what is left, and it needs the split.
+/// **The two sides are separate parameters** because the corpus that drove this
+/// always put one script on both and `lab trace` did not. Both callers are gone
+/// -- the articulated corpus with the model, `trace` to
+/// `measure_embodied_matchup` in v2-ui-08 -- and the shape is kept rather than
+/// narrowed, because narrowing it would be editing the loop the three surviving
+/// tests exist to hold still.
+#[cfg(test)]
 fn measure_articulated_matchup(
     scenario: &Scenario,
     seed: u64,
@@ -1312,8 +1202,10 @@ fn footwork_term(term: &str) -> Option<Fx> {
 /// The embodied matchup the flags add up to, or the sentence the run should be
 /// refused with.
 ///
-/// Returned rather than printed-and-exited, on [`matchup_from`]'s discipline and
-/// through [`matchup_key_refusal`]'s two shared traps. The vocabulary is
+/// Returned rather than printed-and-exited, on [`duel_config_from`]'s discipline
+/// and through [`matchup_key_refusal`]'s two shared traps -- a key that cannot be
+/// honoured has to stop the run rather than be dropped from it, and a test can
+/// only assert a refusal it can hold. The vocabulary is
 /// `EmbodiedPolicyKind`'s own and is not written down a second time here: an
 /// embodied fight named `scripted-level` in the studio, in a report and on a
 /// command line is one word everywhere.
@@ -1378,12 +1270,15 @@ fn embodied_matchup_from(args: &Args) -> Result<EmbodiedMatchup, String> {
     Ok(matchup)
 }
 
-/// The pinned fixture reflected across `y = 8`, embodied.
+/// Any fixture reflected across `y = 8`.
 ///
 /// [`mirror_spawns`] rather than a second reflection, so `--mirrored` means the
-/// same thing in both corpora, and for the reason that function records: the
-/// spawn yaws are their own negations under a Y reflection, so nothing but the
-/// spawn row moves. On the sculpted fixture it is more than a convenience --
+/// same thing everywhere it is spelled, and for the reason that function
+/// records: the spawn yaws are their own negations under a Y reflection, so
+/// nothing but the spawn row moves. It takes a `&Scenario` rather than building
+/// one, which is what let the articulated twin beside it go in v2-ui-08 without
+/// the reflection being written down twice.
+/// On the sculpted fixture it is more than a convenience --
 /// the hill is centred so that all four spawn tiles are the same 29 squared
 /// units from the top, which is what makes the reflected half a control on the
 /// arena rather than a second sample of it.
@@ -1503,6 +1398,14 @@ impl ElevationProbe {
 /// fingerprint: a corpus that shortened the fight by editing the scenario would
 /// stop being a corpus of `embodied-duel-v1` and the pin naming that fixture
 /// would be naming something else.
+///
+/// `recorder` is `lab trace`'s frame sink, and it **observes**: it is handed the
+/// world after each step and returns nothing to it, so a traced run and an
+/// untraced one are the same fight by construction.
+/// `a_traced_run_is_the_run_the_gate_measured` is the assertion that keeps that
+/// true if it ever stops being obvious -- the bound is on the *file* and never
+/// on the fight, which is why the recorder's own limit is `FightTrace::new`'s
+/// and not this function's `limit`.
 fn measure_embodied_matchup(
     scenario: &Scenario,
     seed: u64,
@@ -1511,6 +1414,7 @@ fn measure_embodied_matchup(
     limit: Option<u32>,
     mut replay: Option<&mut Replay>,
     mut elevation: Option<&mut ElevationProbe>,
+    mut recorder: Option<&mut FightTrace>,
 ) -> EmbodiedTrial {
     let config = RunConfig::default();
     let mut world = World::new(scenario, seed);
@@ -1558,6 +1462,12 @@ fn measure_embodied_matchup(
     let mut rejected = 0u32;
 
     let limit = limit.unwrap_or(scenario.max_ticks);
+    // Frame zero is the fixture as it spawned, before anybody has decided
+    // anything. It is the only frame that shows the starting geometry, which is
+    // half of what a first look at this fight is for.
+    if let Some(trace) = recorder.as_deref_mut() {
+        trace.record(&world);
+    }
     while world.outcome().is_none() && world.tick() < limit {
         due.clear();
         due.extend_from_slice(world.pending_decisions());
@@ -1632,6 +1542,9 @@ fn measure_embodied_matchup(
                 }
             }
         }
+        if let Some(trace) = recorder.as_deref_mut() {
+            trace.record(&world);
+        }
     }
 
     if let Some(replay) = replay.as_deref_mut() {
@@ -1671,7 +1584,9 @@ fn measure_embodied(
     let matchup = matchup.into();
     let mut heroes = matchup.build(matchup.heroes);
     let mut monsters = matchup.build(matchup.monsters);
-    measure_embodied_matchup(scenario, seed, heroes.as_mut(), monsters.as_mut(), limit, None, None)
+    measure_embodied_matchup(
+        scenario, seed, heroes.as_mut(), monsters.as_mut(), limit, None, None, None,
+    )
 }
 
 /// The index-ordered fan-out the corpus is measured through.
@@ -1979,8 +1894,8 @@ fn embodied_corpus_report() {
     // catch.
     for (at, arena) in embodied_corpus_arenas().into_iter().enumerate() {
         // The mirror keeps the fixture's name and therefore not its
-        // fingerprint, which `mirrored_articulated_duel` records at length. So
-        // the orientation is printed beside the name rather than read off it.
+        // fingerprint, which `mirror_spawns` records at length. So the
+        // orientation is printed beside the name rather than read off it.
         let orientation = if at % 2 == 0 {
             "canonical".to_string()
         } else {
@@ -2493,6 +2408,7 @@ fn high_ground_elevation(scenario: &Scenario, mirror: &Scenario) -> ElevationPro
                     None,
                     None,
                     Some(&mut probe),
+                    None,
                 );
                 // Re-indexed onto (seeking, level) rather than (Heroes,
                 // Monsters), which is the whole point of running both
@@ -2712,24 +2628,30 @@ fn refuse_duel(error: sim::CombatSpecError) -> ! {
 /// going away. `a_trace_refuses_a_phase_shift_it_cannot_apply` reads it.
 ///
 /// **And read for every `--policy`, not only `learned`.** It sat inside the
-/// learned arm, so `trace --policy composed --phase-random` ignored the flag in
+/// learned arm, so `trace --policy scripted --phase-random` ignored the flag in
 /// silence while the usage line said flatly that the flag is refused -- which
 /// is the same bug the comment beside it was quoting. The reason the flag
-/// cannot be honoured is a property of this command and not of one of its arms:
-/// `learn::PhaseShiftedScript` has wrapped an `EmbodiedPolicy` since session 05
-/// and every policy `trace` drives is articulated, so under no `--policy` is
-/// there anything here for it to wrap. The control is still reachable through
-/// `lab learn-probe evaluate`, which scores it on every condition unless told
-/// `--frozen-only`.
+/// cannot be honoured is a property of this command and not of one of its arms.
+///
+/// **The reason changed in v2-ui-08 and so did the sentence**, because the old
+/// one stopped being true the moment `trace` became embodied. It read "this
+/// command is still articulated under every --policy", which was the whole of
+/// why `learn::PhaseShiftedScript` -- an `EmbodiedPolicy` wrapper since session
+/// 05 -- had nothing here to wrap. It has something to wrap now. What it still
+/// does not have is a fight anybody could read the result against: a trace
+/// exists to be *compared* -- against the corpus row `lab embodied` measured,
+/// and against the browser, which is what the client's
+/// `a_live_fight_matches_the_traced_fight` does with the file this command
+/// writes -- and no corpus command in this binary shifts a phase. A trace
+/// nothing can be compared with is a fight with an unnamed variable in it. The
+/// control stays where the comparison is: `lab learn-probe evaluate` scores it
+/// on every condition unless told `--frozen-only`.
 fn trace_phase_random_refusal(args: &Args) -> Option<String> {
     if !args.flag("phase-random") {
         return None;
     }
     Some(
-        "--phase-random is not available on `lab trace`: the phase-shifted wrapper moved \
-         to the embodied model with crates/learn's corpus, and this command is still \
-         articulated under every --policy. Run `lab learn-probe evaluate`, which scores \
-         every condition against the phase-randomised control by default."
+        "--phase-random is not available on `lab trace`: no corpus command in this binary \n         shifts a phase, so a shifted trace is a fight neither `lab embodied` nor the \n         browser could be compared against. Run `lab learn-probe evaluate`, which scores \n         every condition against the phase-randomised control by default."
             .to_string(),
     )
 }
@@ -2762,8 +2684,8 @@ fn trace_fight(args: &Args) {
         std::process::exit(2);
     });
     let scenario = match described {
-        None if mirrored => mirrored_articulated_duel(),
-        None => Scenario::articulated_duel(),
+        None if mirrored => mirrored_embodied(&Scenario::embodied_duel()),
+        None => Scenario::embodied_duel(),
         Some(config) => {
             let mut scenario = Scenario::duel_from(&config).unwrap_or_else(|e| refuse_duel(e));
             if mirrored {
@@ -2780,79 +2702,78 @@ fn trace_fight(args: &Args) {
         .unwrap_or("web/fight.json")
         .to_string();
 
-    // **`learned` is a fourth arm of `--policy` and not a flag beside it**, for
-    // the reason `script_from` gives about `--attack-moves`: the four are one
+    // **`learned` is an arm of `--policy` and not a flag beside it**: it is one
     // choice of what drives the Fighter, and a flag would let
-    // `--policy windmill --checkpoint x` look like a thing it is not.
+    // `--policy scripted --checkpoint x` look like a thing it is not. It is the
+    // one word `--policy` accepts that `EmbodiedPolicyKind` does not have,
+    // because a trained fighter is a kind *plus fifteen kilobytes of weights*
+    // and `EmbodiedPolicyKind::build` -- which returns a policy rather than an
+    // `Option` -- has nowhere to put a checkpoint. That argument is written out
+    // on the enum itself.
     let learned = args.text("policy") == Some("learned");
     let (mut hero_policy, mut monster_policy, hero_token, monster_token, digest, headline);
     if learned {
-        // **`--opponent` names `ArticulatedPolicyKind` directly here, and this
-        // block is scaffolding with a named successor.** It used to read
-        // `learn_probe::opponent_from`, which is `crates/learn`'s opponent
-        // vocabulary; session 05 moved that crate's corpus onto the embodied
-        // model, so `learn::Opponent` now builds an `EmbodiedPolicy` and this
-        // articulated trace cannot hold one. `trace` is still articulated on
-        // purpose -- it is reseated to `EmbodiedPolicyKind` in the same step as
-        // `#/arena`, and **that step deletes these lines rather than editing
-        // them**. Until it lands, a reader who finds two policy vocabularies in
-        // this file should read this one as the one on its way out: nothing else
-        // in `lab` selects an articulated kind by string.
+        // `--opponent` names an `EmbodiedPolicyKind`, which is the same
+        // vocabulary `--policy`, `--hero-policy` and `--monster-policy` read
+        // through `embodied_matchup_from`. It was `ArticulatedPolicyKind`'s
+        // three scripts until v2-ui-08, on a scaffold whose own comment named
+        // this step as the one that deletes it rather than edits it.
         //
-        // Leaving it borrowing `learn`'s vocabulary was the alternative and it
-        // is the worse one: `learn_probe.rs` would have had to keep an
-        // articulated opponent list whose only consumer is this call, which is
-        // two vocabularies bought with a file that outlives the problem.
+        // Every entry is offered rather than a chosen three, because
+        // `EmbodiedPolicyKind::build` cannot refuse: there is no arm here that
+        // answers `None` the way the articulated `Learned` code did, so a subset
+        // would be a shorter list with no reason behind it.
         //
         // What this drops is `--phase-random`, and the refusal is
         // [`trace_phase_random_refusal`] rather than a sentence printed here.
         // See it for why it is returned rather than printed, and for why it is
         // read before this branch rather than inside it.
-        let opponent = args.choice(
-            "opponent",
-            ArticulatedPolicyKind::Composed,
-            &[
-                ("composed", ArticulatedPolicyKind::Composed),
-                ("windmill", ArticulatedPolicyKind::Windmill),
-                ("attack-moves", ArticulatedPolicyKind::AttackMoves),
-            ],
-        );
+        let named = args.text("opponent").unwrap_or("scripted");
+        let Some(opponent) = EmbodiedPolicyKind::from_name(named) else {
+            let vocabulary: Vec<&str> =
+                EmbodiedPolicyKind::ALL.iter().map(|kind| kind.name()).collect();
+            eprintln!(
+                "--opponent does not know the policy \"{named}\": it takes {}",
+                vocabulary.join(", ")
+            );
+            std::process::exit(2);
+        };
         let checkpoint = learn_probe::load_checkpoint(args);
-        hero_policy = Box::new(learn::LearnedArticulatedPolicy::new(checkpoint.model.clone()))
-            as Box<dyn ArticulatedPolicy>;
-        // `build` answers `None` only for `ArticulatedPolicyKind::Learned`, and
-        // the three above are scripts. The `expect` is the compiler being told
-        // what the table already says rather than a case nobody thought about.
-        monster_policy = opponent.build().expect("a scripted kind builds a policy");
+        hero_policy = Box::new(learn::LearnedEmbodiedPolicy::new(checkpoint.model.clone()))
+            as Box<dyn EmbodiedPolicy>;
+        monster_policy = opponent.build();
         hero_token = "learned".to_string();
         monster_token = opponent.name().to_string();
-        headline = format!("the learned policy against the {} script", opponent.name());
+        headline = format!("the learned policy against {}", embodied_name(opponent));
         digest = Some(checkpoint.digest());
     } else {
-        // The same matchup `articulated` resolves, so that a corpus row and the
+        // The same matchup `embodied` resolves, so that a corpus row and the
         // trace a reader opens to look at it are the same fight. A trace is the
         // one place an asymmetric fight was already watchable -- through
-        // `--policy learned --opponent` -- and this is that door widened to the
-        // scripts rather than a second one cut beside it.
-        let matchup = matchup_from(args).unwrap_or_else(|sentence| {
+        // `--policy learned --opponent` -- and this is that door widened to
+        // every registry entry rather than a second one cut beside it.
+        let matchup = embodied_matchup_from(args).unwrap_or_else(|sentence| {
             eprintln!("{sentence}");
             std::process::exit(2);
         });
-        hero_policy = matchup.heroes.policy();
-        monster_policy = matchup.monsters.policy();
-        hero_token = matchup.heroes.token().to_string();
-        monster_token = matchup.monsters.token().to_string();
+        hero_policy = matchup.build(matchup.heroes);
+        monster_policy = matchup.build(matchup.monsters);
+        hero_token = matchup.heroes.name().to_string();
+        monster_token = matchup.monsters.name().to_string();
         headline = matchup.name();
         digest = None;
     }
 
     let mut recorder = FightTrace::new(&scenario, limit);
     let started = Instant::now();
-    let trial = measure_articulated_matchup(
+    let trial = measure_embodied_matchup(
         &scenario,
         seed,
         hero_policy.as_mut(),
         monster_policy.as_mut(),
+        None,
+        None,
+        None,
         Some(&mut recorder),
     );
     let json = recorder.finish(&TraceRun {
@@ -2914,40 +2835,54 @@ fn trace_fight(args: &Args) {
 mod tests {
     use super::*;
 
-    /// One seed of an articulated fixture under one matchup, with a frame
-    /// recorder optionally hung off it.
+    /// One seed of the pinned *articulated* fixture under one script.
+    ///
+    /// **Symmetric, because nothing asymmetric is left to ask it.** It used to
+    /// take a `Matchup`; `trace` was the only caller that needed two sides and
+    /// `trace` is embodied since v2-ui-08, so the parameter was a shape kept for
+    /// a caller that no longer exists. The three tests that still use this are
+    /// the articulated model's own evidence and every one of them runs one
+    /// script on both sides.
+    fn measure_articulated(scenario: &Scenario, seed: u64, script: Script) -> ArticulatedTrial {
+        let mut heroes = script.policy();
+        let mut monsters = script.policy();
+        measure_articulated_matchup(scenario, seed, heroes.as_mut(), monsters.as_mut(), None)
+    }
+
+    /// One seed of an embodied fixture under one matchup, with a frame recorder
+    /// optionally hung off it.
     ///
     /// **A test helper rather than a command's, and it was the other way round
-    /// until the articulated corpus was deleted.** `articulated_trials` was its
-    /// caller; what is left in the binary is `trace`, which builds its two
-    /// policies itself because one of them may be a checkpoint. The wrapper
-    /// survives here because the claims below are about the *loop* and not about
-    /// how a caller chose its policies, and a test that assembled two boxes per
-    /// assertion would be reading the thing it is supposed to be checking.
+    /// until the articulated corpus was deleted.** What is left in the binary is
+    /// `trace`, which builds its two policies itself because one of them may be
+    /// a checkpoint. The wrapper survives here because the claims below are
+    /// about the *loop* and not about how a caller chose its policies, and a
+    /// test that assembled two boxes per assertion would be reading the thing it
+    /// is supposed to be checking.
     ///
     /// A recorder observes and returns nothing to the world, so the traced and
     /// untraced runs are the same fight by construction --
     /// `a_traced_run_is_the_run_the_gate_measured` is the assertion that keeps
     /// it true if that ever stops being obvious.
-    fn measure_articulated_traced(
+    fn measure_embodied_traced(
         scenario: &Scenario,
         seed: u64,
-        matchup: impl Into<Matchup>,
+        matchup: impl Into<EmbodiedMatchup>,
         recorder: Option<&mut FightTrace>,
-    ) -> ArticulatedTrial {
+    ) -> EmbodiedTrial {
         let matchup = matchup.into();
-        let mut heroes = matchup.heroes.policy();
-        let mut monsters = matchup.monsters.policy();
-        measure_articulated_matchup(scenario, seed, heroes.as_mut(), monsters.as_mut(), recorder)
-    }
-
-    /// The same run with nothing watching it.
-    fn measure_articulated(
-        scenario: &Scenario,
-        seed: u64,
-        matchup: impl Into<Matchup>,
-    ) -> ArticulatedTrial {
-        measure_articulated_traced(scenario, seed, matchup, None)
+        let mut heroes = matchup.build(matchup.heroes);
+        let mut monsters = matchup.build(matchup.monsters);
+        measure_embodied_matchup(
+            scenario,
+            seed,
+            heroes.as_mut(),
+            monsters.as_mut(),
+            None,
+            None,
+            None,
+            recorder,
+        )
     }
 
     #[test]
@@ -3003,8 +2938,11 @@ mod tests {
         scenario.max_ticks = limit;
         let mut world = World::new(&scenario, 0);
         let heroes = world.alive_ids(Faction::Heroes);
-        let mut policies = [TacticalArticulatedPolicy::default(),
-                            TacticalArticulatedPolicy::default()];
+        // Named through `policy::` rather than imported: this is the only caller
+        // left, and it is behind `cartesian-recoil`, so a plain `use` is an
+        // unused import in the default build.
+        let mut policies = [policy::TacticalArticulatedPolicy::default(),
+                            policy::TacticalArticulatedPolicy::default()];
         policies[0].reset(); policies[1].reset();
         let mut stream = Vec::new();
         let mut attempts = 0u32; let mut stored = 0u32;
@@ -3046,7 +2984,7 @@ mod tests {
             std::sync::OnceLock::new();
         ROWS.get_or_init(|| [
             smart116_control(Scenario::articulated_duel(), false),
-            smart116_control(mirrored_articulated_duel(), true),
+            smart116_control(mirrored_embodied(&Scenario::articulated_duel()), true),
         ])
     }
 
@@ -3076,7 +3014,7 @@ mod tests {
         let canonical = std::thread::spawn(||
             smart116_control(Scenario::articulated_duel(), false));
         let mirrored = std::thread::spawn(||
-            smart116_control(mirrored_articulated_duel(), true));
+            smart116_control(mirrored_embodied(&Scenario::articulated_duel()), true));
         assert_eq!([canonical.join().unwrap(), mirrored.join().unwrap()],
                    *smart116_serial_controls());
     }
@@ -3092,17 +3030,21 @@ mod tests {
         //
         // **It had no `#[test]` attribute until 2026-08-19 and had therefore
         // never run**, while four places in this repository -- the `trace` usage
-        // text, `measure_articulated_traced`, the picker test below and
-        // `learn`'s `an_audited_rollout_is_the_rollout_it_audits` -- cited it as
-        // the thing keeping the recorder an observer. `cargo test -p lab` said
-        // so out loud as a dead-code warning the whole time. It passes as
-        // written; both halves were then broken on purpose to check that it
-        // can fail -- stepping the world once when a recorder is present moves
-        // the state digest, and dropping the spawn frame fails the frame count.
-        let scenario = Scenario::articulated_duel();
+        // text, `measure_embodied_traced`, the picker test below and `learn`'s
+        // `an_audited_rollout_is_the_rollout_it_audits` -- cited it as the thing
+        // keeping the recorder an observer. `cargo test -p lab` said so out loud
+        // as a dead-code warning the whole time. It passes as written; both
+        // halves were broken on purpose to check that it can fail -- stepping
+        // the world once when a recorder is present moves the state digest, and
+        // dropping the spawn frame fails the frame count. **Re-checked in
+        // v2-ui-08** after the recorder moved from `measure_articulated_matchup`
+        // to `measure_embodied_matchup`, by the same two edits: the digest half
+        // failed with `Ok(false)`, the frame half with 600 against 601.
+        let scenario = Scenario::embodied_duel();
+        let matchup = EmbodiedPolicyKind::Scripted;
         let mut recorder = FightTrace::new(&scenario, u32::MAX);
-        let traced = measure_articulated_traced(&scenario, 3, Script::Composed, Some(&mut recorder));
-        let plain = measure_articulated(&scenario, 3, Script::Composed);
+        let traced = measure_embodied_traced(&scenario, 3, matchup, Some(&mut recorder));
+        let plain = measure_embodied(&scenario, 3, matchup, None);
 
         // Through `compare` rather than `==`: `StateDigest` has no `PartialEq`
         // on purpose, because a domain or schema mismatch is an error and not a
@@ -3120,8 +3062,8 @@ mod tests {
         // spawn. A recorder that silently dropped the last frame would still
         // pass every assertion above.
         let json = recorder.finish(&TraceRun {
-            scenario: &scenario, seed: 3, heroes: Script::Composed.token(),
-            monsters: Script::Composed.token(), checkpoint: None, mirrored: false,
+            scenario: &scenario, seed: 3, heroes: matchup.name(),
+            monsters: matchup.name(), checkpoint: None, mirrored: false,
             outcome: traced.outcome, timed_out: traced.timed_out, ticks: traced.ticks,
         });
         assert!(json.contains(&format!("\"frameCount\":{}", plain.ticks + 1)), "frame count");
@@ -3145,8 +3087,8 @@ mod tests {
         // flag cannot be honoured belongs to the command and not to `learned`.
         for line in [
             "trace --phase-random",
-            "trace --policy composed --phase-random",
-            "trace --policy windmill --phase-random",
+            "trace --policy scripted --phase-random",
+            "trace --policy neutral --phase-random",
             "trace --policy tactical --phase-random",
             "trace --policy learned --phase-random --checkpoint checkpoints/v2-probe.ckpt",
         ] {
@@ -3177,7 +3119,7 @@ mod tests {
         // only visible difference would be the fingerprint in a header nobody
         // reads twice.
         assert_eq!(duel_config_from(&traced_args("trace --seed 3 --mirrored")), Ok(None));
-        assert_eq!(duel_config_from(&traced_args("trace --policy windmill --ticks 60")), Ok(None));
+        assert_eq!(duel_config_from(&traced_args("trace --policy neutral --ticks 60")), Ok(None));
         for key in DUEL_KEYS {
             // A dimension key names an item, so the line has to put that item in
             // a hand as well: `--b-shield-half-width` alone is a refusal now and
@@ -3311,84 +3253,6 @@ mod tests {
     }
 
     #[test]
-    fn an_asymmetric_matchup_runs_a_different_policy_on_each_side() {
-        // **The claim is about the fight, not about the parse.** A flag that
-        // resolved correctly and then installed one script on both sides anyway
-        // is precisely the harness gap this exists to close, and it would pass
-        // any assertion about `matchup.heroes`. So the two sides' submitted
-        // command streams are compared instead: if a different policy really is
-        // driving each side, they cannot agree.
-        let matchup = matchup_from(&traced_args(
-            "trace --hero-policy attack-moves --monster-policy openings",
-        )).expect("a legal matchup");
-        assert_eq!(matchup.heroes, Script::ClosingAttacks);
-        assert_eq!(matchup.monsters, Script::Openings);
-        assert!(!matchup.is_symmetric());
-
-        let scenario = Scenario::articulated_duel();
-        let asymmetric = measure_articulated(&scenario, 3, matchup);
-        let symmetric = measure_articulated(&scenario, 3, Script::ClosingAttacks);
-        assert_ne!(
-            asymmetric.digest, symmetric.digest,
-            "the asymmetric matchup produced the same command stream as one script on both sides",
-        );
-
-        // And a run with neither key is exactly the symmetric one, which is what
-        // lets every pinned baseline still be compared against. `--policy`'s own
-        // vocabulary cannot spell `attack-moves` -- it is reached by the flag
-        // that edits the composed script -- so this is the pairing that says an
-        // unflagged line still resolves to one script on both sides.
-        let unflagged = matchup_from(&traced_args("trace --policy windmill"))
-            .expect("a legal line");
-        assert!(unflagged.is_symmetric());
-        assert_eq!(
-            measure_articulated(&scenario, 3, unflagged).digest,
-            measure_articulated(&scenario, 3, Script::Windmill).digest,
-            "an unflagged run stopped reproducing the corpus it was pinned against",
-        );
-    }
-
-    #[test]
-    fn a_valueless_matchup_key_is_refused_rather_than_running_one_script_on_both() {
-        // The `Args::parse` trap again, and it bites harder here than on a duel
-        // key: a demoted `--hero-policy` leaves a *symmetric* corpus wearing the
-        // header of an asymmetric one, so the run answers a different question
-        // than the operator asked and nothing in the output says so.
-        for line in [
-            "trace --hero-policy --seeds 4",
-            "trace --monster-policy",
-        ] {
-            let refusal = matchup_from(&traced_args(line)).expect_err(line);
-            assert!(refusal.contains("-policy"), "the refusal must name the key: {refusal}");
-            assert!(refusal.contains("needs a value"), "{refusal}");
-        }
-
-        // A well-formed value that names no script, refused with the vocabulary
-        // rather than with a number.
-        let unknown = matchup_from(&traced_args("trace --hero-policy neutral"))
-            .expect_err("neutral is not a lab script");
-        assert!(unknown.contains("--hero-policy"), "{unknown}");
-        assert!(unknown.contains("neutral"), "{unknown}");
-        assert!(unknown.contains("openings"), "the refusal must list what it takes: {unknown}");
-
-        // `--matchup a:b` is a spelling this build never had. `Args` drops an
-        // unknown key silently, so without a refusal it runs symmetrically and
-        // says nothing -- the same failure as the demotion above, reached by a
-        // different route. Both the valued and the bare form are refused, and
-        // the refusal names the keys that do exist rather than only complaining.
-        for line in ["trace --matchup openings:attack-moves", "trace --matchup"] {
-            let refusal = matchup_from(&traced_args(line)).expect_err(line);
-            assert!(refusal.contains("--matchup"), "the refusal must name the key: {refusal}");
-            assert!(refusal.contains("--hero-policy") && refusal.contains("--monster-policy"),
-                    "the refusal must name what to use instead: {refusal}");
-        }
-
-        // And the control: a run with no matchup key at all is still the
-        // symmetric one, so the refusal above cannot be firing on everything.
-        assert!(matchup_from(&traced_args("trace --seeds 4")).is_ok());
-    }
-
-    #[test]
     fn a_recorded_configuration_names_itself_in_the_file_and_not_only_on_stdout() {
         // The header is the only part of a trace that outlives the terminal it
         // was printed in, and `--mirrored` used to write `null` there for every
@@ -3401,10 +3265,11 @@ mod tests {
         let mut scenario = Scenario::duel_from(&config).expect("a legal duel");
         mirror_spawns(&mut scenario);
         let mut recorder = FightTrace::new(&scenario, 1);
-        let trial = measure_articulated_traced(&scenario, 3, Script::Composed, Some(&mut recorder));
+        let matchup = EmbodiedPolicyKind::Scripted;
+        let trial = measure_embodied_traced(&scenario, 3, matchup, Some(&mut recorder));
         let json = recorder.finish(&TraceRun {
-            scenario: &scenario, seed: 3, heroes: Script::Composed.token(),
-            monsters: Script::Composed.token(), checkpoint: None, mirrored: true,
+            scenario: &scenario, seed: 3, heroes: matchup.name(),
+            monsters: matchup.name(), checkpoint: None, mirrored: true,
             outcome: trial.outcome, timed_out: trial.timed_out, ticks: trial.ticks,
         });
         assert!(
@@ -3427,11 +3292,11 @@ mod tests {
         // either way a configured fight has stopped being comparable with the
         // corpus it is meant to be read against.
         let described = Scenario::duel_from(&DuelConfigV1::shipped()).expect("the shipped pair");
-        let fixture = Scenario::articulated_duel();
+        let fixture = Scenario::embodied_duel();
         assert_ne!(described.fingerprint(), fixture.fingerprint(), "a runtime duel wore the pin");
 
-        let a = measure_articulated(&described, 3, Script::Composed);
-        let b = measure_articulated(&fixture, 3, Script::Composed);
+        let a = measure_embodied(&described, 3, EmbodiedPolicyKind::Scripted, None);
+        let b = measure_embodied(&fixture, 3, EmbodiedPolicyKind::Scripted, None);
         assert_eq!(a.state.compare(b.state), Ok(true));
         assert_eq!((a.ticks, a.outcome, a.contacts, a.severances), (b.ticks, b.outcome, b.contacts, b.severances));
         assert_eq!(a.digest, b.digest);
@@ -3476,16 +3341,17 @@ mod tests {
         // the one the gate would have reported, and the header has to admit that
         // what a viewer is showing is a prefix. Getting this backwards would put
         // a fight that "ended at tick 60" on the screen.
-        let scenario = Scenario::articulated_duel();
+        let scenario = Scenario::embodied_duel();
+        let matchup = EmbodiedPolicyKind::Scripted;
         let mut recorder = FightTrace::new(&scenario, 60);
-        let trial = measure_articulated_traced(&scenario, 3, Script::Composed, Some(&mut recorder));
-        let unbounded = measure_articulated(&scenario, 3, Script::Composed);
+        let trial = measure_embodied_traced(&scenario, 3, matchup, Some(&mut recorder));
+        let unbounded = measure_embodied(&scenario, 3, matchup, None);
         assert_eq!(trial.state.compare(unbounded.state), Ok(true));
         assert!(trial.ticks > 60, "the fixture runs past the recording bound");
 
         let json = recorder.finish(&TraceRun {
-            scenario: &scenario, seed: 3, heroes: Script::Composed.token(),
-            monsters: Script::Composed.token(), checkpoint: None, mirrored: false,
+            scenario: &scenario, seed: 3, heroes: matchup.name(),
+            monsters: matchup.name(), checkpoint: None, mirrored: false,
             outcome: trial.outcome, timed_out: trial.timed_out, ticks: trial.ticks,
         });
         assert!(json.contains("\"frameCount\":60"), "the recording stopped at its bound");
@@ -3538,8 +3404,8 @@ mod tests {
         // The mirror measures north/south geometry, so it has to be a pure
         // reflection: anything else it changed would be a second variable in a
         // comparison built to have one.
-        let original = Scenario::articulated_duel();
-        let mirror = mirrored_articulated_duel();
+        let original = Scenario::embodied_duel();
+        let mirror = mirrored_embodied(&original);
         assert_eq!(mirror.units[0].spawn, Vec2::from_ints(7, 10));
         assert_eq!(mirror.units[1].spawn, Vec2::from_ints(17, 6));
         assert_ne!(
@@ -3796,6 +3662,22 @@ mod tests {
             .expect("a legal line");
         assert!(unflagged.is_symmetric());
         assert_eq!(unflagged.heroes, EmbodiedPolicyKind::Scripted);
+
+        // **And `trace` reads the same words as `embodied`.** v2-ui-08 deleted
+        // `an_asymmetric_matchup_runs_a_different_policy_on_each_side`, whose
+        // claim this test already made against a different reader: `trace` had
+        // its own `Script` vocabulary and its own `matchup_from`, and now there
+        // is one of each. That is only worth having if the surviving reader is
+        // reachable from both commands, so the line is spelled here rather than
+        // assumed -- a `trace` that grew a second reader would leave this
+        // passing and the two vocabularies apart again.
+        assert_eq!(
+            embodied_matchup_from(&traced_args(
+                "trace --hero-policy scripted --monster-policy scripted-level",
+            )),
+            Ok(matchup),
+            "trace and embodied stopped naming their sides the same way",
+        );
     }
 
     /// `--footwork` changes the fight and not only the header, and it is

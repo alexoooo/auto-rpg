@@ -77,7 +77,26 @@ pub(super) fn smart_60_entry(reflected: bool) -> Smart60Entry {
         EquipmentGeometry::Segment { length: Fx::from_int(2),
                                      radius: Fx::from_ratio(1, 25) };
     config.max_ticks = 49;
-    let scenario = Scenario::duel_from(&config).expect("the Smart60 duel is legal");
+    let mut scenario = Scenario::duel_from(&config).expect("the Smart60 duel is legal");
+    // ARTICULATED-FIXTURE-SHIM -- reseat and re-record.
+    //
+    // `duel_from` builds `CombatModel::Embodied` since v2-ui-08 and the loop
+    // below submits world-frame `ArticulatedCommandV1`s. The two `Stored {
+    // rejection: None }` assertions there are what catch this, loudly and at
+    // the submission, which is why they are written that way -- but the fix is
+    // not to relax them.
+    //
+    // **Most of what the Smart60 probes assert is a reflection**: plain against
+    // mirrored under `y -> -y`, which is a property of the solver and not of a
+    // command grammar, so it must survive the reseat unchanged. A handful of
+    // absolute words do not -- `(-14_040, 14_040)` and the published hand Y in
+    // `tick_34_recoil_offset_balance_is_odd_under_reflection` -- and those are
+    // the re-record. `tick_33_commit_to_tick_34_entry_names_the_first_unequal_
+    // word` also insists tick 33 retained a resolution at all, and the sibling
+    // finding in `contact_phase.rs`'s `directional_captured_strike` is that a
+    // per-tick frame conversion alone did **not** keep a captured strike in
+    // contact. Expect to re-measure the placement, not just rotate the bearings.
+    scenario.combat_model = crate::CombatModel::Articulated;
     let mut world = World::new(&scenario, 0);
     let attacker = world.id_of(0); let defender = world.id_of(1);
     let declared = (-offset).angle();

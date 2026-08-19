@@ -234,14 +234,29 @@ mod tests {
     use crate::embodied_tactics::{assess_threat, centre, weapon_is_withdrawing, PreviousOpponent};
     use crate::Footwork;
     use fx::Vec3;
-    use sim::{BodyPart, DuelConfigV1, Faction, ObservedOpponent, Scenario, SegmentPose,
-              SubmitArticulatedOutcome, World};
+    use sim::{BodyPart, CombatModel, DuelConfigV1, Faction, ObservedOpponent, Scenario,
+              SegmentPose, SubmitArticulatedOutcome, World};
 
     fn close_duel() -> Scenario {
         let mut config = DuelConfigV1::shipped();
         config.fighters[0].spawn = Vec2::from_ints(10, 8);
         config.fighters[1].spawn = Vec2::from_ints(12, 8);
-        Scenario::duel_from(&config).unwrap()
+        let mut scenario = Scenario::duel_from(&config).unwrap();
+        // ARTICULATED-FIXTURE-SHIM -- delete with the model.
+        //
+        // `duel_from` builds `CombatModel::Embodied` since v2-ui-08, and
+        // `the_striker_submits_no_refused_commands` below submits world-frame
+        // `ArticulatedCommandV1`s: without this line every one of them is
+        // `NotStored(WrongModel)` and the test asserts nothing about a striker.
+        // There is no embodied reseat to write, because the subject here **is**
+        // the articulated model -- `StrikerArticulatedPolicy` implements
+        // `ArticulatedPolicy` and this whole file goes when the enum does. The
+        // agent that deletes `CombatModel::Articulated` deletes this file and
+        // this line together; it must not flip the model to `Embodied` and keep
+        // the test, because a striker that emits world bearings into a torso
+        // frame is a different policy wearing the same name.
+        scenario.combat_model = CombatModel::Articulated;
+        scenario
     }
 
     fn threat_pair(step: Fx, lateral: Fx) -> (ArticulatedObservation, ArticulatedObservation) {

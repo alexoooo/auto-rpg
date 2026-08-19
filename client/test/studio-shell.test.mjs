@@ -357,7 +357,7 @@ function syntheticTrace() {
   });
   return {
     schema: "arpg-fight-trace-6", one: ONE, scenario: "duel", mirrored: false,
-    fingerprint: "abc123", seed: 3, heroes: "composed", monsters: "composed",
+    fingerprint: "abc123", seed: 3, heroes: "scripted", monsters: "scripted",
     checkpoint: null, outcome: "Heroes", timedOut: false, ticks: 2, maxTicks: 3600,
     arena: [48 * ONE, 32 * ONE], frameCount: 3, truncated: false,
     impactThreshold: ONE / 4, contactEnergyFloor: 512,
@@ -378,7 +378,7 @@ function syntheticTrace() {
   };
 }
 
-const side = (overrides = {}) => ({ anatomy: "fighter", left: "shield", right: "sword", twoHanded: false, policy: "composed", ...overrides });
+const side = (overrides = {}) => ({ anatomy: "fighter", left: "shield", right: "sword", twoHanded: false, policy: "scripted", ...overrides });
 const matchup = (a = {}, b = {}, seed = 3) => ({ a: side(a), b: side(b), seed });
 
 // ----------------------------------------------------------------- the shell's routing
@@ -614,53 +614,68 @@ test("the_picker_refuses_the_grips_the_simulation_refuses_and_encodes_the_legal_
     [{ hand: CONFIG.HAND_ITEMS.club, binding: "Both" }, null]);
 });
 
-test("learned_runs_live_and_is_noted_once_because_it_is_the_one_policy_that_fetches", () => {
-  // **This test used to assert the opposite and it was right to.** `learned` had
-  // no browser inference path, so the picker refused it for a live fight and
-  // offered it only for a recorded one. v2-ui-08 split an inference-only
-  // `learn-core`, landed policy code 4 and shipped the checkpoint at a URL, and
-  // v2-ui-07 wired the fetch -- so every policy runs live and what is left of
-  // the old rule is a *note*. The note is not a leftover either: a trained
-  // fighter is a kind plus fifteen kilobytes of weights, and a fetch can fail in
-  // ways a compiled-in script cannot.
+test("the_picker_says_when_a_choice_it_honours_shows_the_reader_nothing", () => {
+  // **`learned_runs_live_and_is_noted_once_because_it_is_the_one_policy_that_
+  // fetches` stood here and its subject is gone.** `learned` had no browser
+  // inference path, then had one, and then stopped being a picker policy at all
+  // when v2-ui-08 moved `#/arena` onto `EmbodiedPolicyKind` -- a registry with
+  // no `learned` entry, because a trained fighter is a kind plus fifteen
+  // kilobytes of weights and a policy byte has nowhere to put a checkpoint.
+  //
+  // What replaces it is the same *shape* of claim about two different choices,
+  // and both were measured through the wasm ABI on 2026-08-19 rather than
+  // reasoned: two `neutral` fighters move no pose word at all in 3,600 ticks,
+  // and `scripted` against `scripted-level` produces the same state hash to the
+  // bit because this arena's floor is flat. Both requests are honoured exactly
+  // as specified, so neither can be a refusal -- and a dropdown that shows the
+  // reader the same fight, or no fight, without saying so is the shape
+  // `AGENTS.md` calls a control accepting an input it cannot act on.
   assert.deepEqual(picker.POLICIES.filter((option) => !option.live), [],
-    "every articulated policy has a live driver since v2-ui-08");
-  assert.deepEqual(picker.POLICIES.filter((option) => option.fetches !== undefined)
-    .map((option) => option.code), ["learned"],
-    "learned is the one policy that needs a file this build has to fetch");
+    "every embodied policy has a live driver");
+  assert.deepEqual(picker.POLICIES.filter((option) => option.fetches !== undefined), [],
+    "no embodied policy fetches an asset");
 
-  for (const chosen of [matchup({ policy: "learned" }), matchup({}, { policy: "learned" })]) {
-    const live = picker.review(chosen, "live");
-    assert.equal(live.refusal, null, "a live learned fight is no longer refused");
-    assert.equal(live.notes.length, 1);
-    // The file, by name, because "fetch one" and "rebuild the module" are the two
-    // instructions `ARENA_NO_CHECKPOINT` exists to keep apart.
-    assert.match(live.notes[0], /checkpoints\/v2-probe\.ckpt/);
-    assert.doesNotMatch(live.notes[0], /no live fight can run/);
+  const both = picker.review(matchup({ policy: "neutral" }, { policy: "neutral" }), "live");
+  assert.equal(both.refusal, null, "neutral is a legal choice and not a refusal");
+  assert.equal(both.notes.length, 1);
+  assert.match(both.notes[0], /control condition/);
+  assert.match(both.notes[0], /no pose word/);
 
-    // A *recorded* fight names what the digest is for instead: which learned
-    // policy is on screen, since two checkpoints an hour apart are not the same
-    // fighter. It used to name `fight-learned.json`, and that stopped being true
-    // when [Run selected fight] stopped resolving the recordings table.
-    const recorded = picker.review(chosen, "recording");
-    assert.equal(recorded.refusal, null);
-    assert.equal(recorded.notes.length, 1);
-    assert.match(recorded.notes[0], /digest/);
+  // One side neutral is a fight, so it is not noted.
+  assert.deepEqual(picker.review(matchup({ policy: "neutral" }, { policy: "tactical" }), "live"),
+    { refusal: null, notes: [] });
+
+  // And the level note, on either side and once for both.
+  for (const chosen of [
+    matchup({ policy: "scripted-level" }),
+    matchup({}, { policy: "scripted-level" }),
+    matchup({ policy: "scripted-level" }, { policy: "scripted-level" }),
+  ]) {
+    const verdict = picker.review(chosen, "live");
+    assert.equal(verdict.refusal, null);
+    assert.equal(verdict.notes.length, 1, "one note however many sides ask for it");
+    assert.match(verdict.notes[0], /the same fight, byte for byte/);
+    assert.match(verdict.notes[0], /embodied --slope/);
   }
-  // Both sides learned is still one note: a sentence printed twice reads as two
-  // different problems.
-  for (const mode of ["live", "recording"]) {
-    const both = picker.review(matchup({ policy: "learned" }, { policy: "learned" }), mode);
-    assert.equal(both.notes.length, 1, `${mode}: one note however many sides ask for it`);
-  }
+
   // The empty hands are checked first, because a refusal a reader cannot act on
   // until they have fixed a different refusal is a worse first sentence.
-  assert.match(picker.review(matchup({ policy: "learned", left: "empty", right: "empty" }), "live").refusal,
+  assert.match(picker.review(matchup({ policy: "neutral", left: "empty", right: "empty" }), "live").refusal,
     /^Fighter A has both hands empty/);
   // A policy neither half of the vocabulary knows is still a refusal, and it says
-  // which half moved rather than saying "invalid".
-  assert.match(picker.review(matchup({ policy: "telepathy" }), "live").refusal,
-    /not one of the six articulated policy codes/);
+  // which half moved rather than saying "invalid". **The count comes from
+  // `POLICIES.length` now**: this assertion read "the six articulated policy
+  // codes" verbatim while the table held seven rows and then five, which is the
+  // third instance of that trap recorded in this repository.
+  const unknown = picker.review(matchup({ policy: "telepathy" }), "live").refusal;
+  assert.match(unknown, new RegExp(`not one of the ${picker.POLICIES.length} embodied policy codes`));
+  assert.match(unknown, /EmbodiedPolicyKind/);
+  // And the retired names are refused by name, which is what a saved matchup
+  // from before v2-ui-08 arrives as.
+  for (const gone of ["composed", "windmill", "attack-moves", "openings", "learned"]) {
+    assert.match(picker.review(matchup({ policy: gone }), "live").refusal,
+      new RegExp(`is set to ${gone}, which is not one of`));
+  }
   assert.deepEqual(picker.review(matchup(), "live"), { refusal: null, notes: [] });
 });
 
@@ -673,58 +688,53 @@ test("every_policy_pairing_resolves_to_the_one_recording_that_carries_it_or_to_n
     assert.equal(resolved, recording);
   }
   assert.deepEqual(picker.RECORDINGS.map((row) => row.url),
-    ["/fight.json", "/fight-windmill.json", "/fight-learned.json"]);
-  // A pairing nothing recorded, and the reversal of one that is: `heroes` and
-  // `monsters` are not interchangeable.
-  assert.equal(picker.resolveRecording(matchup({ policy: "composed" }, { policy: "windmill" })), null);
-  assert.equal(picker.resolveRecording(matchup({ policy: "composed" }, { policy: "learned" })), null);
+    ["/fight.json", "/fight-tactical.json"]);
+  // A pairing nothing recorded, and a mixed one built from two that are:
+  // `heroes` and `monsters` are not interchangeable, and both rows being
+  // symmetric is exactly the case a `find` reading one side would get away with.
+  assert.equal(picker.resolveRecording(matchup({ policy: "scripted" }, { policy: "tactical" })), null);
+  assert.equal(picker.resolveRecording(matchup({ policy: "tactical" }, { policy: "scripted" })), null);
   assert.equal(picker.resolveRecording(matchup({ policy: "neutral" }, { policy: "neutral" })), null);
 });
 
 test("a_recording_command_exists_only_where_lab_trace_could_actually_produce_one", () => {
   const command = (a, b, seed = 3) => picker.recordingCommand(matchup({ policy: a }, { policy: b }, seed));
-  assert.equal(command("composed", "composed"),
-    "cargo run --release -p lab -- trace --seed 3 --policy composed");
-  assert.equal(command("windmill", "windmill"),
-    "cargo run --release -p lab -- trace --seed 3 --policy windmill");
-  assert.equal(command("tactical", "tactical"),
-    "cargo run --release -p lab -- trace --seed 3 --policy tactical");
-  // `--attack-moves` edits composed rather than being a policy of its own.
-  assert.equal(command("attack-moves", "attack-moves"),
-    "cargo run --release -p lab -- trace --seed 3 --policy composed --attack-moves");
-  assert.equal(command("learned", "composed"),
-    "cargo run --release -p lab -- trace --seed 3 --policy learned "
-      + "--checkpoint checkpoints/v2-probe.ckpt --opponent composed");
-  assert.equal(command("learned", "windmill", 11),
-    "cargo run --release -p lab -- trace --seed 11 --policy learned "
-      + "--checkpoint checkpoints/v2-probe.ckpt --opponent windmill");
-  // A mixed *scripted* pairing now has a command, which it did not before
-  // combat-arms 03. `--policy` still installs one script on both sides -- that
-  // is what makes a scripted trace a control -- but `--hero-policy` and
-  // `--monster-policy` name a driver per side, so the corpus and the trace a
-  // reader opens to look at it can be the same fight.
-  assert.equal(command("composed", "windmill"),
-    "cargo run --release -p lab -- trace --seed 3 --hero-policy composed --monster-policy windmill");
-  assert.equal(command("openings", "attack-moves", 5),
-    "cargo run --release -p lab -- trace --seed 5 --hero-policy openings --monster-policy attack-moves");
-  assert.equal(command("openings", "openings"),
-    "cargo run --release -p lab -- trace --seed 3 --policy openings");
-  // `learned` keeps its own narrower spelling and is not a matchup arm, so a
-  // pairing that puts it on the second side still has no command.
-  assert.equal(command("composed", "learned"), null);
-  assert.equal(command("learned", "learned"), null);
-  // And `neutral` has none in either direction: it is an `ArticulatedPolicyKind`
-  // the browser can select and not a `lab` script, so naming it would exit 2.
-  assert.equal(command("neutral", "neutral"), null);
-  assert.equal(command("learned", "neutral"), null);
-  assert.equal(command("neutral", "composed"), null);
+  // **Every picker code is a `lab` policy since v2-ui-08**, which is the whole
+  // of what that step did here: `lab trace` had a `Script` vocabulary of its own
+  // -- composed, windmill, attack-moves, tactical, openings -- and `--policy`,
+  // `--hero-policy` and `--monster-policy` now read
+  // `EmbodiedPolicyKind::from_name`, the same registry this table is. So the
+  // list is derived rather than restated, and this loop is what says the
+  // derivation holds for every row rather than for the two somebody typed out.
+  for (const option of picker.POLICIES) {
+    assert.equal(command(option.code, option.code),
+      `cargo run --release -p lab -- trace --seed 3 --policy ${option.code}`);
+  }
+  assert.equal(command("scripted", "tactical"),
+    "cargo run --release -p lab -- trace --seed 3 --hero-policy scripted --monster-policy tactical");
+  assert.equal(command("tactical-fixed-guard", "neutral", 5),
+    "cargo run --release -p lab -- trace --seed 5 --hero-policy tactical-fixed-guard "
+      + "--monster-policy neutral");
+  // **`neutral` has a command now and used to have none**, which is the two
+  // vocabularies merging rather than a widening: it was an
+  // `ArticulatedPolicyKind` the browser could select and not a `lab` script, so
+  // naming it exited 2.
+  assert.equal(command("neutral", "neutral"),
+    "cargo run --release -p lab -- trace --seed 3 --policy neutral");
+  // And a name from neither half still has none. It is unreachable from the
+  // controls -- `review` refuses it before the button is enabled -- and reachable
+  // from a `?trace=` header and from a saved matchup, and the alternative to
+  // `null` is printing a command that exits 2 at the reader's shell.
+  assert.equal(command("composed", "composed"), null);
+  assert.equal(command("learned", "scripted"), null);
+  assert.equal(command("scripted", "windmill"), null);
 });
 
 test("a_missing_recording_names_the_command_that_would_make_one_or_says_none_would", () => {
-  const recordable = picker.missingRecording(matchup({ policy: "windmill" }, { policy: "windmill" }, 7));
-  assert.match(recordable, /^No recording pairs windmill on Fighter A against windmill on Fighter B/);
-  assert.match(recordable, /--seed 7 --policy windmill --out web\/fight-windmill\.json/);
-  assert.match(recordable, /#\/arena\?trace=\/fight-windmill\.json/);
+  const recordable = picker.missingRecording(matchup({ policy: "neutral" }, { policy: "neutral" }, 7));
+  assert.match(recordable, /^No recording pairs neutral on Fighter A against neutral on Fighter B/);
+  assert.match(recordable, /--seed 7 --policy neutral --out web\/fight-neutral\.json/);
+  assert.match(recordable, /#\/arena\?trace=\/fight-neutral\.json/);
   // This asserted `/v2-ui-07/` while the prose named that session as future work.
   // It has landed, so the sentence points at the button instead -- and the point
   // of the assertion is unchanged: a reader who asked for a pairing nothing
@@ -732,10 +742,13 @@ test("a_missing_recording_names_the_command_that_would_make_one_or_says_none_wou
   assert.match(recordable, /Press Run selected fight to run this pairing live instead/);
   assert.doesNotMatch(recordable, /v2-ui/);
 
-  const mixed = picker.missingRecording(matchup({ policy: "learned" }, { policy: "windmill" }));
-  assert.match(mixed, /--out web\/fight-learned-vs-windmill\.json/);
+  const mixed = picker.missingRecording(matchup({ policy: "scripted" }, { policy: "neutral" }));
+  assert.match(mixed, /--out web\/fight-scripted-vs-neutral\.json/);
 
-  const impossible = picker.missingRecording(matchup({ policy: "neutral" }, { policy: "composed" }));
+  // A name from neither vocabulary, which is what a matchup saved before
+  // v2-ui-08 arrives as. `review` refuses it before the button is enabled, so
+  // this sentence is what a `?trace=` header carrying one produces.
+  const impossible = picker.missingRecording(matchup({ policy: "windmill" }, { policy: "scripted" }));
   assert.match(impossible, /and no lab trace command produces one/);
   assert.doesNotMatch(impossible, /Record one with/);
 });
@@ -785,54 +798,71 @@ test("a_recording_mismatch_describes_what_is_on_screen_rather_than_what_was_pick
   assert.equal(picker.recordingMismatch(picked, { ...header, bodies: [header.bodies[0]] }), null);
 });
 
-test("tactical_is_policy_code_five_in_rust_config_and_the_picker", () => {
-  const tactical = picker.POLICIES.find((option) => option.code === "tactical");
-  assert.deepEqual(tactical, { code: "tactical", label: "tactical", live: true });
-  assert.equal(CONFIG.policyCodeOf("tactical"), 5);
-  const live = picker.review(matchup({ policy: "tactical" }), "live");
-  assert.deepEqual(live, { refusal: null, notes: [] },
-    "a live tactical fight needs no checkpoint fetch");
-  assert.equal(picker.arenaConfigOf(matchup({ policy: "tactical" })).fighters[0].policy, 5);
+test("the_picker_and_the_config_agree_on_every_policy_code", () => {
+  // **Was `tactical_is_policy_code_five_in_rust_config_and_the_picker`**, which
+  // pinned one row and one number. v2-ui-08 moved both halves onto
+  // `EmbodiedPolicyKind`, where `tactical` is `3` and not `5` -- so a test
+  // written around one row would have to be re-recorded every time the registry
+  // grows, and a test written around one row is also the shape that let
+  // `POLICIES` and `ARENA_POLICY_NAMES` drift apart in the first place. Every
+  // row, both directions.
+  assert.equal(picker.POLICIES.length, CONFIG.ARENA_POLICY_NAMES.length,
+    "the picker and the config disagree about how many policies there are");
+  picker.POLICIES.forEach((option, code) => {
+    assert.equal(CONFIG.ARENA_POLICY_NAMES[code], option.code,
+      `POLICIES[${code}] and ARENA_POLICY_NAMES[${code}] name different policies`);
+    assert.equal(CONFIG.policyCodeOf(option.code), code,
+      `${option.code} does not round-trip to ${code}`);
+    assert.equal(picker.arenaConfigOf(matchup({ policy: option.code })).fighters[0].policy, code,
+      `${option.code} did not reach the buffer as ${code}`);
+  });
+  // The registry itself, so a *reordering* that kept both sides agreeing is
+  // still caught. These are `EmbodiedPolicyKind::code`'s own numbers and the
+  // enum is append-only.
+  assert.deepEqual([...CONFIG.ARENA_POLICY_NAMES],
+    ["neutral", "scripted", "scripted-level", "tactical", "tactical-fixed-guard"]);
 });
 
-test("robust strike is an explicit controlled preset with exact ordinal 3144 bytes", () => {
-  const config = CONFIG.robustStrikeArenaConfig();
-  const bytes = CONFIG.encodeArenaConfig(config);
-  const view = new DataView(bytes.buffer);
-  assert.equal(bytes.length, 120);
-  assert.deepEqual([config.seed, config.maxTicks], [0, 53]);
-  assert.deepEqual([view.getUint8(9), view.getUint8(65)], [5, 0]);
-  assert.deepEqual([view.getInt32(12, true), view.getInt32(16, true)], [622592, 458752]);
-  assert.deepEqual([view.getInt32(68, true), view.getInt32(72, true)], [786432, 524288]);
-  assert.equal(view.getInt32(52, true), 131072);
-  assert.equal(SHELL_HTML.includes("Robust Strike (controlled)"), true);
-});
+// **`robust strike is an explicit controlled preset with exact ordinal 3144
+// bytes` and `leaving the robust strike preset restores the ordinary
+// attack-moves arena` stood here.** Between them they pinned
+// `robustStrikeArenaConfig`'s 120 bytes, the `demo` dropdown's second option,
+// the disabling of every picker control while it was selected, the sentence it
+// wrote, and the restoration of the custom defaults on the way out. v2-ui-08
+// deleted the Rust preset those bytes addressed -- `crates/web/src/lib.rs`
+// carries the reasons, and the short one is that the frozen schedule wrote world
+// bearings into what is now a torso frame -- so the dropdown, its markup and
+// both tests went with it. `the_arena_opens_on_a_pairing_that_fights` below is
+// what covers the defaults the second of them also happened to assert.
 
-test("leaving the robust strike preset restores the ordinary attack-moves arena", async () => {
+test("the_arena_opens_on_a_pairing_that_fights", async () => {
+  // The half of the deleted preset test that was about something else: the
+  // controls the page opens with. **`tactical` on both sides since v2-ui-08**,
+  // where it was `attack-moves` -- of the five embodied entries it is the only
+  // one that aims, and a first look at this page should not open on the entry
+  // least likely to land a blow. The argument sits on `populatePolicies` in
+  // `arena.ts`; this is what would notice it drifting.
   const harness = installDom();
   try {
     const { mount } = await import(compiled("client/src/arena/arena.js"));
     const container = harness.container();
     const handle = await mount(container, new URLSearchParams());
-    const preset = container.querySelector("#arena-preset");
-    preset.value = "robust-strike";
-    for (const entry of harness.listenersOn(preset, "change")) entry.listener({ target: preset });
-    assert.equal(container.querySelector("#a-policy").value, "tactical");
-    assert.equal(container.querySelector("#b-policy").value, "neutral");
-    assert.equal(container.querySelector("#arena-seed").value, "0");
-    assert.equal(container.querySelector("#a-policy").disabled, true);
-    assert.match(container.querySelector("#picker-message").textContent,
-      /Controlled demonstration: Tactical code 5.*neutral Brute.*Legs.*28 \+ 28 command schedule.*frame 53/);
-
-    preset.value = "custom";
-    for (const entry of harness.listenersOn(preset, "change")) entry.listener({ target: preset });
-    // `attack-moves`, not `composed`: the custom default moved when the plain
-    // composed script was measured to convert almost none of the doubled arm
-    // rates -- the argument sits on `populatePolicies` in `arena.ts`.
     assert.deepEqual([container.querySelector("#a-policy").value,
-      container.querySelector("#b-policy").value], ["attack-moves", "attack-moves"]);
+      container.querySelector("#b-policy").value], ["tactical", "tactical"]);
     assert.equal(container.querySelector("#arena-seed").value, "3");
-    assert.equal(container.querySelector("#a-policy").disabled, false);
+    // Nothing disables the controls any more: the only thing that ever did was
+    // the preset, and a control left disabled by a dropdown that no longer
+    // exists would be unreachable rather than merely unused.
+    for (const control of picker.pickerControls(container)) {
+      assert.equal(control.disabled, false, `${control.id} opened disabled`);
+    }
+    // And the `demo` dropdown is gone from the markup rather than left showing
+    // one option.
+    assert.equal(SHELL_HTML.includes("arena-preset"), false);
+    assert.equal(SHELL_HTML.includes("Robust Strike"), false);
+    // The opening matchup is one the picker accepts, which is what makes the
+    // button live on the first paint.
+    assert.equal(container.querySelector("#fight").disabled, false);
     await handle.dispose();
     harness.dropSubtree(container);
   } finally {
@@ -880,19 +910,27 @@ test("the_picker_names_the_loaded_fight_separately_from_the_next_matchup", async
   try {
     const { mount } = await import(compiled("client/src/arena/arena.js"));
     const container = harness.container();
+    // **The loaded header still says `learned`, and that is not a leftover.**
+    // `lab trace --policy learned` writes one, and `?trace=` is the only way a
+    // page reaches such a fight now that no live policy code names a network --
+    // so a recorded header naming a policy the picker cannot select is exactly
+    // the case this test is for.
     const handle = await mount(container,
       new URLSearchParams([["trace", "/fight-learned.json"]]));
     harness.fetches[0].settle({
-      ...syntheticTrace(), heroes: "learned", monsters: "composed", checkpoint: "0123456789abcdef",
+      ...syntheticTrace(), heroes: "learned", monsters: "scripted", checkpoint: "0123456789abcdef",
     });
     await settle();
-    container.querySelector("#b-policy").value = "windmill";
+    container.querySelector("#b-policy").value = "neutral";
     for (const entry of harness.listenersOn(container.querySelector("#b-policy"), "change")) {
       entry.listener({ target: container.querySelector("#b-policy") });
     }
     const copy = container.querySelector("#picker-message").textContent;
-    assert.match(copy, /Viewing recording: learned vs composed, seed 3/);
-    assert.match(copy, /Next fight: learned vs windmill, seed 3/);
+    assert.match(copy, /Viewing recording: learned vs scripted, seed 3/);
+    assert.match(copy, /Next fight: tactical vs neutral, seed 3/);
+    // The recorded checkpoint note, which is the one arm of `checkpointCopy`
+    // that still has a caller.
+    assert.match(copy, /the digest identifies the weights used/);
     await handle.dispose();
     harness.dropSubtree(container);
   } finally {
@@ -910,10 +948,10 @@ test("checkpoint_copy_distinguishes_live_execution_from_recorded_provenance", ()
 
 test("a_policy_mismatch_names_the_recording_that_is_still_on_screen", () => {
   const { frames: _frames, schema: _schema, ...header } = syntheticTrace();
-  const picked = matchup({ policy: "learned" }, { policy: "windmill" }, header.seed);
+  const picked = matchup({ policy: "tactical" }, { policy: "neutral" }, header.seed);
   const mismatch = picker.recordingMismatch(picked, header);
-  assert.match(mismatch, /The recording still on screen is composed vs composed/);
-  assert.match(mismatch, /controls describe learned vs windmill/);
+  assert.match(mismatch, /The recording still on screen is scripted vs scripted/);
+  assert.match(mismatch, /controls describe tactical vs neutral/);
   assert.doesNotMatch(mismatch, /\. [a-z]/,
     "each independently useful mismatch clause must start as a sentence");
 });

@@ -1320,8 +1320,8 @@ test("a_recorded_fight_transfers_its_buffers_and_its_index", async () => {
   assert.equal(last.ticks, 16);
   assert.equal(last.frameCount, 17, "one frame before the first step and one after every step");
   assert.equal(last.recordingTruncated, false);
-  assert.equal(last.heroes, "composed");
-  assert.equal(last.monsters, "windmill");
+  assert.equal(last.heroes, "scripted");
+  assert.equal(last.monsters, "scripted-level");
   assert.equal(last.fingerprint, "0x00000000deadbeef");
   assert.equal(last.checkpoint, null);
   assert.equal(arena.warmed, 1, "the allocating calls run once, before any buffer exists");
@@ -1515,12 +1515,20 @@ test("a_refused_checkpoint_stops_the_recording_and_names_the_file", async () => 
 });
 
 test("an_installed_checkpoint_is_named_in_the_recording", async () => {
+  // **The recording still carries the digest and no longer carries a policy that
+  // wanted it.** `ArenaClient` posts `checkpoint: null` since v2-ui-08 -- no
+  // embodied policy code asks for a network -- but the worker's `warmUp` still
+  // installs one it is handed, and `checkpointDigest()` still names it. So the
+  // header field is what it always was: which weights were in the module when
+  // this fight was recorded. The policy names beside it are `EmbodiedPolicyKind`
+  // now, and `4` is `tactical-fixed-guard` where it was `learned`.
   const digest = "7a05fc8c76ad47858ac69f770d595fa556b1bfb81dbf7d62ced831e751e26b6c";
   const arena = new FakeArena({ ticks: 4, digest });
   const { last } = await record(arena, arenaConfig({ policies: [4, 2] }), new ArrayBuffer(15_580));
   assert.equal(last.kind, "fightRecording");
   assert.equal(last.checkpoint, digest);
-  assert.equal(last.heroes, "learned");
+  assert.equal(last.heroes, "tactical-fixed-guard");
+  assert.equal(last.monsters, "scripted-level");
 });
 
 test("a_legacy_v1_session_is_accepted_and_refused_the_arena_kinds", async () => {
@@ -1599,7 +1607,7 @@ function arenaClientHarness() {
 const recordingMessage = (requestId, over) => ({
   kind: "fightRecording", version: MSG.WORKER_PROTOCOL_VERSION, requestId,
   spectator: true, one: 65_536, scenario: "configured-duel-v1", mirrored: false,
-  fingerprint: "0x00000000deadbeef", seed: 3, heroes: "composed", monsters: "windmill",
+  fingerprint: "0x00000000deadbeef", seed: 3, heroes: "scripted", monsters: "tactical",
   checkpoint: null, outcome: "Draw", timedOut: true, ticks: 2, maxTicks: 3_600,
   frameCount: 3, recordingTruncated: false, arena: [0, 0],
   poseLayoutVersion: 1, poseStride: ABI.POSE_STRIDE,
@@ -1722,31 +1730,32 @@ test("a_second_fight_cancels_the_first_and_waits_for_its_refusal", async () => {
   assert.equal((await third3).seed, 7);
 
   // **Two presses with `learned`, which is the shape that reached the browser.**
-  // `run` awaits the checkpoint fetch, and the old guard tested `#pending`
-  // *before* that await while assigning it *after* -- so both presses found the
-  // slot empty, both posted a start, and no cancel was posted at all. The second
-  // then came back `arenaBusy` from a worker that was recording the first.
-  const originalFetch = globalThis.fetch;
-  try {
-    globalThis.fetch = async () => ({
-      ok: true, status: 200, arrayBuffer: async () => new ArrayBuffer(15_580),
-    });
-    const learned = arenaClientHarness();
-    const early = learned.client.run(arenaConfig({ policies: [4, 2], seed: 3 }), () => {});
-    const late = learned.client.run(arenaConfig({ policies: [4, 2], seed: 11 }), () => {});
-    const earlyRejected = assert.rejects(early, /cancelled/);
-    await settle();
-    await settle();
-    assert.deepEqual(learned.worker.sent.map((entry) => entry.message.kind), ["arenaStart"],
-      "two presses that both suspend on the checkpoint fetch must post one start, not two");
-    await earlyRejected;
-    const only = learned.worker.sent.at(-1).message;
-    assert.equal(only.seed, 11, "the newest press is the one that runs");
-    learned.worker.emitMessage(recordingMessage(only.requestId, { seed: 11 }));
-    assert.equal((await late).seed, 11);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+  // `run` awaits before it writes `#pending`, and the old guard tested that slot
+  // *before* the await while assigning it *after* -- so both presses found it
+  // empty, both posted a start, and no cancel was posted at all. The second then
+  // came back `arenaBusy` from a worker that was recording the first.
+  //
+  // **The await used to be the checkpoint fetch and is now `await previous`.**
+  // v2-ui-08 removed the fetch with the `learned` policy code, and the window is
+  // still there: the first press replaces `#idle` with a promise that only
+  // resolves in its own `finally`, so a second press suspends on it before
+  // reaching the slot. A fetch was never what made this reachable -- it was only
+  // the longest await -- and this test is the record that the shorter one is
+  // enough.
+  const pressed = arenaClientHarness();
+  const early = pressed.client.run(arenaConfig({ policies: [1, 2], seed: 3 }), () => {});
+  const late = pressed.client.run(arenaConfig({ policies: [1, 2], seed: 11 }), () => {});
+  const earlyRejected = assert.rejects(early, /cancelled/);
+  await settle();
+  await settle();
+  assert.deepEqual(pressed.worker.sent.map((entry) => entry.message.kind), ["arenaStart"],
+    "two presses that both suspend before the slot must post one start, not two");
+  await earlyRejected;
+  const only = pressed.worker.sent.at(-1).message;
+  assert.equal(only.seed, 11, "the newest press is the one that runs");
+  assert.equal(only.checkpoint, null, "a press carried a network nothing asked for");
+  pressed.worker.emitMessage(recordingMessage(only.requestId, { seed: 11 }));
+  assert.equal((await late).seed, 11);
 });
 
 test("a_recording_is_decoded_rather_than_cast_and_an_unfiltered_stream_must_declare_itself", async () => {
@@ -1814,38 +1823,46 @@ test("a_recorded_index_that_points_past_its_own_buffers_is_refused_rather_than_c
     /not a whole number of rows/);
 });
 
-test("the_learned_policy_fetches_its_checkpoint_and_says_so_when_it_cannot", async () => {
+test("the_arena_client_fetches_nothing_and_posts_no_network", async () => {
+  // **`the_learned_policy_fetches_its_checkpoint_and_says_so_when_it_cannot`
+  // stood here.** It drove `ArenaClient.run` with policy code 4 against a 404
+  // and required the rejection to name `/checkpoints/v2-probe.ckpt`, then
+  // against a working fetch and required the bytes to travel transferred beside
+  // the config and to be fetched **once** across two presses.
+  //
+  // v2-ui-08 moved `#/arena` onto `EmbodiedPolicyKind`, which has no `learned`
+  // entry, so no policy code asks for a network and the fetch it drove is gone.
+  // The `checkpoint` field on `arenaStart` is not: the worker's
+  // `warmUp(seed, checkpoint)` and its `checkpointRefused` refusal are the
+  // browser's only path for installing one, and retiring a transport because its
+  // caller went is a protocol change nothing asked for. **So what has to be
+  // asserted is that the field is null and that no fetch happens at all** --
+  // otherwise "the client stopped fetching" is a claim nothing here would
+  // notice going false, which is how a page starts pulling fifteen kilobytes on
+  // every press again.
   const original = globalThis.fetch;
+  let fetches = 0;
   try {
-    globalThis.fetch = async () => ({ ok: false, status: 404, statusText: "Not Found" });
-    const { client } = arenaClientHarness();
-    await assert.rejects(client.run(arenaConfig({ policies: [4, 2] }), () => {}),
-      /checkpoints\/v2-probe\.ckpt/);
-
-    const bytes = new Uint8Array(15_580).fill(7);
-    let fetches = 0;
     globalThis.fetch = async (url) => {
       fetches += 1;
-      assert.equal(url, "/checkpoints/v2-probe.ckpt");
-      return { ok: true, status: 200, arrayBuffer: async () => bytes.buffer.slice(0) };
+      throw new Error(`the arena client fetched ${url}`);
     };
-    const second = arenaClientHarness();
-    const running = second.client.run(arenaConfig({ policies: [4, 2] }), () => {});
-    await settle();
-    const posted = second.worker.sent.at(-1);
-    assert.equal(posted.message.checkpoint.byteLength, 15_580);
-    assert.equal(posted.transfer.length, 2, "the checkpoint travels transferred beside the config");
-    second.worker.emitMessage(recordingMessage(posted.message.requestId));
-    await running;
-    // Fetched once and kept: a reader pressing [Fight] twice should not pull the
-    // same fifteen kilobytes twice, and a fresh copy travels each time because
-    // the last one was transferred away.
-    const again = second.client.run(arenaConfig({ policies: [4, 2] }), () => {});
-    await settle();
-    assert.equal(fetches, 1);
-    assert.equal(second.worker.sent.at(-1).message.checkpoint.byteLength, 15_580);
-    second.worker.emitMessage(recordingMessage(second.worker.sent.at(-1).message.requestId));
-    await again;
+    for (const policies of [[0, 0], [1, 2], [3, 4], [4, 4]]) {
+      const { worker, client } = arenaClientHarness();
+      const running = client.run(arenaConfig({ policies }), () => {});
+      await settle();
+      const posted = worker.sent.at(-1);
+      assert.equal(posted.message.kind, "arenaStart");
+      assert.equal(posted.message.checkpoint, null,
+        `policies ${policies} posted a network`);
+      assert.equal(posted.transfer.length, 1,
+        "only the configuration buffer travels transferred");
+      worker.emitMessage(recordingMessage(posted.message.requestId));
+      const recording = await running;
+      assert.equal(recording.checkpoint, null,
+        "a recording named a checkpoint nothing installed");
+    }
+    assert.equal(fetches, 0, "the arena client fetched something");
   } finally {
     globalThis.fetch = original;
   }
