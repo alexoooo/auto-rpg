@@ -67,7 +67,7 @@ ARPG_CARTESIAN_RECOIL=1 node --test tools/wasm_check.js
 cargo run --release -p lab -- embodied --corpus-digest   # exits 1 on a moved pin
 cargo run --release -p lab -- verify --seeds 200      # run, re-run, replay agree
 
-node --test "client/test/*.test.mjs"              # the five client suites, 254 tests
+node --test "client/test/*.test.mjs"              # the five client suites, 308 tests
 npm run check:abi                                 # generated TypeScript vs its generator
 node tools/check_docs.js                          # documentation links, anchors, authority
 node tools/check_deps.js                          # no crate may reach a registry or git source

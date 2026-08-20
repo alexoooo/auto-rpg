@@ -1,6 +1,6 @@
 # Arena 05 -- the hands on the body
 
-**Status:** ready once sessions 01, 02 and 04 have landed, **and not before**. Blocks 06.
+**Status:** complete (2026-08-20). Blocks 06.
 
 This is the session `docs/architecture/browser-runtime.md` has been describing in the
 negative: *"driving a body from this page is what they are eventually for, and it needs an
@@ -16,7 +16,7 @@ construction, and has a test proving the result replays with neither party in th
 human side is a `ComposedController` in the arena's ordinary policy slot, with a host-fed
 source claiming navigation and one arm and the configured policy claiming the other.
 `ComposedController` satisfies `Policy` (`composition.rs:181`), which is exactly
-what `Arena::policies` holds (`crates/web/src/lib.rs:2034`), so the slot accepts it as-is.
+what `Arena::policies` holds (`crates/web/src/lib.rs:2303`), so the slot accepts it as-is.
 
 **Navigation authority is not permission to infer navigation from the weapon.** This
 session stages `W`/`S` as forward/back, `A`/`D` as body turn and `Q`/`E` as sidestep.
@@ -33,7 +33,7 @@ around.** See the next section before writing any of it.
 `advance_arena` asks a policy **only for the bodies in `pending_decisions()`**:
 
 ```rust
-// crates/web/src/lib.rs:3615-3626
+// crates/web/src/lib.rs:3903-3945
 due.clear();
 due.extend_from_slice(self.world.pending_decisions());
 for &id in &due {
@@ -55,7 +55,7 @@ two-tick latency is unreachable by construction, not by tuning.
 The every-tick submission is a property of `drive_hero`, and it comes from *where it is
 called* rather than from anything inside it: the dungeon branch excludes the driven body
 from the pending loop and calls it unconditionally afterwards
-(`crates/web/src/lib.rs:3149-3153`, `:3195-3199`). `advance_arena` has no such call.
+(`crates/web/src/lib.rs:3436-3483`). `advance_arena` now has the matching call.
 
 So the first change in this session is the seam, not the composition:
 
@@ -87,7 +87,7 @@ copying, the bit-masked in-place overwrite is not.
 
 ## What `drive_hero` does and why it is not the model
 
-`crates/web/src/lib.rs:3891-3963`, the dungeon route's human path: cache the policy's whole
+`crates/web/src/lib.rs:4199-4261`, the dungeon route's human path: cache the policy's whole
 command, refresh it on the body's `decision_period`, then overwrite `body_yaw` and
 `move_dir` under `CONTROL_FEET` and one `ArmTarget` under `CONTROL_LIMB`, and submit every
 tick. It expresses with three bit-masks and an in-place overwrite exactly what
@@ -186,17 +186,20 @@ let controller: Box<dyn Policy> = match control {
 };
 ```
 
-`ARENA_CONTROL_UNAVAILABLE` (29) is **retired** here, not renumbered: the code stays spent
-for the reason `ARENA_POLICY_UNAVAILABLE` and `ARENA_NO_CHECKPOINT` are already spent -- a
-saved configuration or a URL can carry a refusal code, so reusing one makes an old artifact
-say something new. **No new refusal code is added**, so `ARENA_REASONS`,
-`worker-protocol.test.mjs`'s literal count and `ARENA_REFUSALS` do not move in this
-session; they moved in 02 and that is the only place they move.
+`ARENA_CONTROL_UNAVAILABLE` (29) is **retired from `arena_start`**, not renumbered: the
+code stays spent for the reason `ARENA_POLICY_UNAVAILABLE` and `ARENA_NO_CHECKPOINT`
+are already spent. Review corrected the earlier blanket "no new refusal" claim:
+staging has two actionable target failures which did not exist in session 02, so reason
+30, `ARENA_INPUT_REFUSED`, is appended. Its named detail bytes are `1` for an unknown
+faction, `2` for a valid policy-controlled side, and `3` for no installed arena.
+Faction decoding is strict -- only `0` and `1` reach a side -- rather than reusing the
+older helper whose contract maps every nonzero value to Monsters. `ARENA_REASONS`, the
+client refusal table, and the structural Rust/client mirror therefore all widen by one.
 
 **Nothing but four bytes crosses this boundary.** `submit_result(outcome, reason, detail,
-slot)` (`crates/web/src/lib.rs:6119`) packs four `u8`s into a `u32`, and `install_arena`
+slot)` (`crates/web/src/lib.rs:6427`) packs four `u8`s into a `u32`, and `install_arena`
 returns `Result<(), ArenaRefusal>` where `ArenaRefusal` is `{ reason, fighter, slot }`
-(`:6749`). The client renders every sentence itself from its mirrored `ARENA_REFUSALS`
+(`:7230`). The client renders every sentence itself from its mirrored `ARENA_REFUSALS`
 table. So a plan that says a refusal "carries the message verbatim" is describing a
 channel that does not exist -- if a future refusal needs to distinguish six causes, the
 free `detail` byte carries the discriminant and the client mirrors six sentences.
@@ -244,6 +247,13 @@ most `CONTROL_INPUT_MAX_HOLD_TICKS`:
 const CONTROL_INPUT_MAX_HOLD_TICKS: u32 = 6;
 ```
 
+Two implementation corrections are load-bearing. `HostSource` claims the primary arm
+but leaves it at `ComposedController`'s observation-relative neutral value until session
+06; copying the host buffer's zero placeholder would invent a world target. And the
+composition is assembled only after the fresh `World` exists, so
+`CadencedEmbodiedSource` receives the constructed body's exact `decision_period` rather
+than a second anatomy-derived estimate.
+
 ## The drive stops running ahead, without becoming refresh-rate physics
 
 Today's spectator drive produces as fast as it can. A controlled fight cannot: **the worker
@@ -270,10 +280,13 @@ advance(nowMs: number): number {
 
 The rAF samples the current keys and host arm target for presentation. The clock answers
 how many authoritative ticks elapsed. At 120 or 144 Hz some frames owe no tick; at 30 Hz
-a frame normally owes two, each submitted separately because `combat_event_len` is cleared
-per host call. **No tick is coalesced and no simulation step is tied one-for-one to a
-display frame.** If the worker already has one request in flight, elapsed time remains in
-the clock and backpressure drains it one tick at a time; it does not send concurrent steps.
+a frame normally owes two. The studio sends one request with `ticksDue: 1`, waits for its
+acknowledgement, samples the next yaw/command, and recursively drains the remaining
+backlog. The worker retains bounded batch support as a defensive transport contract and
+still calls `step(1)`, captures and posts separately for every tick because
+`combat_event_len` clears per host call. **No tick is coalesced and no simulation step is
+tied one-for-one to a display frame.** While one request is in flight elapsed time remains
+queued transactionally; the exact stepped-count acknowledgement commits it.
 
 ```ts
 // client/src/runtime/arena-recorder.ts -- the controlled path beside the spectator path.
@@ -281,8 +294,15 @@ onArenaInput(message) {
   wasm.writeEmbodiedCommand(message.bytes);
   const staged = wasm.stageInput(message.faction);
   if (!staged) return refuse(staged);
-  wasm.step();
-  postChunk(captureOneFrame());   // backpressure, never coalescing
+  let steppedTicks = 0;
+  for (let tick = 0; tick < message.ticksDue; tick += 1) {
+    const before = wasm.tick();
+    wasm.step();
+    if (wasm.tick() === before) break;
+    steppedTicks += 1;
+    await postChunk(captureOneFrame()); // one publication and backpressure per tick
+  }
+  postInputAck(message.requestId, steppedTicks);
 }
 ```
 
@@ -292,12 +312,16 @@ navigation frame, resets the accumulator and waits for a fresh user gesture. Ret
 the tab cannot spend the hidden interval as a catch-up burst, and losing pointer lock
 cannot leave a body walking or a cut powered.
 
-**Chunk buffers come from a fixed pool with backpressure and never coalesce**, and that is
+**Controlled chunks use a fixed credit window with backpressure and never coalesce**, and that is
 the one place this path must differ from `FixedBufferPool`. Coalescing -- dropping a
 publication when no buffer is free -- is correct for a 60 Hz spectator view and is silent
 data loss for a fight somebody is in: the dropped tick is a tick of *their* fight.
-`ARENA_CHUNK_POOL_SLOTS` is 3, and running out means the display is behind, which is
-precisely when the fight should wait for the player.
+`ARENA_CONTROLLED_CHUNK_CREDITS` is 3. Controlled chunks are newly allocated exact copies
+with at most three unacknowledged until the main thread returns a lightweight
+`arenaChunkAck`; the separate
+batch `arenaInputAck` commits clock time only after every tick was posted. Running out
+means the display is behind, which is precisely when the fight should wait for the player.
+Reusable returned buffers remain a performance optimization rather than a shipped claim.
 
 The message re-entrancy this depends on already works and is worth knowing rather than
 discovering: `yieldToMessages` is `setTimeout(resolve, 0)` -- a **macrotask**, and
@@ -307,7 +331,7 @@ message is dispatched into a re-entrant `handle()` while the outer one is suspen
 
 ## The stance the HUD needs comes across here, not in 07
 
-`embodied_stance_ptr`/`_len` (`crates/web/src/lib.rs:6931-6966`) publishes the twist,
+`embodied_stance_ptr`/`_len` (`crates/web/src/lib.rs:7412-7422`) publishes the twist,
 pelvis and step fractions and **no client module reads it**. The twist fraction is what
 says *"you are about to be forced to step"*. Keyboard turning and a weapon physically
 carried by the shoulder make that something the player feels, so it belongs on their HUD,
@@ -316,9 +340,9 @@ and session 07 is where it is drawn.
 **Getting it there is transport work and it lands in this session**, because this is the
 session already widening the transport. It is not free: `ARENA_EXPORTS` and the
 `ArenaExports` interface (`client/src/runtime/arena-recorder.ts:224-269`) name no stance
-export, the recording allocates six buffers with no stance among them (`:553-560`), and
-`RECORDING_INDEX_STRIDE` is **9** with no stance start or count (`:135-144`). A seventh
-buffer and two more index words move the chunk contract, which is exactly the kind of
+export, the recording formerly allocated six buffers with no stance among them, and
+`RECORDING_INDEX_STRIDE` was **9** with no stance start or count. A seventh buffer and
+two more index words move the chunk contract, which is exactly the kind of
 change a documents-and-HUD session budgets no time for. Doing it here keeps session 07
 honest about its own claim that nothing moves.
 
@@ -338,11 +362,10 @@ decision.
 `A`/`D` command a yaw target at a bounded host turn rate; they do not write angular speed
 into the simulator, because no such command exists. The rate is a feel constant measured
 in session 07, named `BODY_TURN_INPUT_TURNS_PER_SECOND`, and converted to an absolute
-world-yaw target using the fixed 60 Hz control clock. It is tested on both sides of the
-decision: below the lower bound a half-turn cannot be completed before an ordinary
-opponent circles behind; above the upper bound a single 60 Hz press can cross enough of
-the stance limit to force an accidental step. The shipped value is not chosen in this
-session without that foreground measurement.
+world-yaw target using the fixed 60 Hz control clock. Session 05 installs the explicitly
+uncalibrated baseline `0.5` turns per second: three degrees per control tick and a held
+half-turn in one second. Its tests prove deterministic 60 Hz integration and A/D
+separation; session 07 owns the visible-browser feel bounds.
 
 An embodied torso may only turn `STANCE_TWIST_LIMIT_RAW` -- a sixth of a turn -- away from
 its hips before the legs are forced to move, and a forced step costs
@@ -395,14 +418,23 @@ it.
 
 | file | change |
 |---|---|
-| `crates/web/src/lib.rs` | the `driven` seam in `advance_arena`; `HostSource`, `CadencedEmbodiedSource`, the staged-input slot, `arena_stage_input`, `arena_start`'s composition branch. **Re-anchor `browser-runtime.md:447-449` in the same change** -- inserting anything above `lib.rs:1707` shifts all three |
+| `crates/web/src/lib.rs` | the `driven` seam in `advance_arena`; `HostSource`, `CadencedEmbodiedSource`, the staged-input slot, `arena_stage_input`, `arena_start`'s composition branch. **Re-anchor `browser-runtime.md:492-494` to `lib.rs:1850`, `:4712`, and `:5788` in the same change** |
 | `client/src/protocol/messages.ts` | `ArenaInputMessage` and its V1 refusal sentence |
 | `client/src/runtime/sim-worker-host.ts` | **the dispatch, and it is not optional.** `arenaStart` and `arenaCancel` are matched *above* the session guard at `:148-155`; anything else reaching an arena session is answered `alreadyInitialized`. `arenaInput` goes above that line or it is refused. `arenaStart` also awaits `recordArenaFight` to completion and clears `arenaRequestId` in a `finally` at `:289`, so a drive that steps inside the input handler restructures that lifetime |
 | `client/src/runtime/arena-recorder.ts` | the controlled drive; the stance section below; `ARENA_EXPORTS` gains `arena_stage_input`, `embodied_command_ptr`, `embodied_command_len`, `embodied_command_layout_version`, `embodied_stance_ptr`, `embodied_stance_len` |
 | `client/src/runtime/arena-client.ts` | `input()`, and the decode for the new kind |
+| `client/src/runtime/arena-config.ts` | reason 30 and its three detail sentences; reason 29 remains retired |
+| `client/src/arena/picker.ts` | Human preflight and the shared strike-hand rule |
 | `client/src/arena/controlled-clock.ts` | new: the pure 60 Hz accumulator, one in-flight tick and stop/reset semantics; imports `TICKS_PER_SECOND` rather than spelling `60` |
 | `client/src/arena/arena-input.ts` | new: keyboard body state and the 61-byte command encoder; the arm remains a neutral placeholder until 06 |
-| `client/src/arena/arena.ts` | the controlled phase; rAF samples input and asks the fixed clock for due ticks; blur/hidden/pause/pointer-lock loss clear it; follow defaults to the human side |
+| `client/src/arena/arena.ts` | the controlled phase; rAF samples and drains one acknowledged tick at a time; blur/hidden/pause/pointer-lock loss clear it; follow defaults to the human side |
+| `client/src/fight/source.ts` | live-only optional stance data without widening trace JSON |
+| `client/src/fight/live.ts` | eleven-word index and full generational stance join |
+| `client/test/worker-protocol.test.mjs` | clock, batching, credit ownership, stream layout, stance identity and refusal behavior |
+| `client/test/studio-shell.test.mjs` | actual DOM input wiring, stops, pause and default Human follow |
+| `client/test/arena-stream.test.mjs` | the spectator fixture's seventh stance buffer and the terminal malformed-V2 behavior |
+| `tools/wasm_check.js` | native/wasm mirrors for staged input, refusal details and the stance publication |
+| `web/index.html` | the honest session-05 Human-control label in the static shell contract |
 | `docs/reference/embodied-command-v1.md` | the host-staged path beside the submitted one |
 | `docs/reference/worker-protocol.md` | the input message and the controlled drive |
 | `docs/architecture/policy.md` | composition reaching a host, and the browser recorder still owed |
@@ -420,7 +452,7 @@ it.
 - `the_off_hand_keeps_the_swing_plane_its_policy_asked_for`
 - `the_input_hold_is_bounded_from_both_sides`
 - `a_held_input_expires_to_neutral_rather_than_to_its_last_value`
-- `a_human_side_still_produces_the_same_arena_fingerprint`
+- `the_arena_fingerprint_does_not_change_when_a_side_is_handed_to_a_human`
 
 `tools/wasm_check.js`: `arena_stage_input` must answer identically on both targets, and a
 staged frame must move a pose word -- the same shape as the sweep that already asserts a
@@ -433,6 +465,8 @@ registered policy code installs, reads back and moves one.
 - `sixty_one_hundred_twenty_and_one_hundred_forty_four_hertz_each_advance_sixty_ticks_in_one_second`
 - `a_hidden_interval_is_cleared_and_not_replayed_as_catch_up`
 - `only_one_controlled_tick_is_in_flight`
+- `a_stance_is_joined_by_full_generational_identity`
+- `an_unknown_arena_stream_layout_is_refused_before_a_chunk`
 
 `client/test/studio-shell.test.mjs`:
 - `key_down_reaches_the_simulation_within_two_ticks`

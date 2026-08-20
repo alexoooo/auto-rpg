@@ -20,6 +20,7 @@ const tsc = spawnSync(process.execPath, [
   "client/src/runtime/sim-worker-host.ts", "client/src/runtime/sim-client.ts",
   "client/src/runtime/arena-config.ts", "client/src/runtime/arena-recorder.ts",
   "client/src/fight/live.ts", "client/src/runtime/arena-client.ts",
+  "client/src/arena/controlled-clock.ts", "client/src/arena/arena-input.ts",
 ], { cwd: ROOT, encoding: "utf8" });
 assert.equal(tsc.status, 0, `TypeScript test compilation failed:\n${tsc.stdout}\n${tsc.stderr}`);
 
@@ -32,7 +33,18 @@ const { parseSnapshot, MAP_UNKNOWN } = require(path.join(OUT, "client/src/state/
 const CONFIG = require(path.join(OUT, "client/src/runtime/arena-config.js"));
 const RECORDER = require(path.join(OUT, "client/src/runtime/arena-recorder.js"));
 const { StreamingFightSource } = require(path.join(OUT, "client/src/fight/live.js"));
+const { TraceFightSource } = require(path.join(OUT, "client/src/fight/source.js"));
 const { ArenaClient } = require(path.join(OUT, "client/src/runtime/arena-client.js"));
+const { ControlledClock } = require(path.join(OUT, "client/src/arena/controlled-clock.js"));
+const ARENA_INPUT = require(path.join(OUT, "client/src/arena/arena-input.js"));
+
+test("an_old_trace_frame_has_no_live_stance_field", () => {
+  const frame = { t: 0, poses: [], contacts: [], projectiles: [], health: [1, 1] };
+  const source = new TraceFightSource({ schema: "arpg-fight-trace-6", frames: [frame],
+    outcome: "Draw" });
+  assert.equal(Object.hasOwn(source.frameAt(0), "stances"), false);
+  assert.equal(source.frameAt(0).stances, undefined);
+});
 
 /** Let every already-resolved promise run: a run() awaits a fetch before posting. */
 const settle = async () => { for (let turn = 0; turn < 6; turn += 1) await Promise.resolve(); };
@@ -102,6 +114,7 @@ class FakeArena {
     this.warmed = 0;
     this.starts = 0;
     this.steps = 0;
+    this.staged = [];
   }
   warmUp(_seed, checkpoint) {
     this.warmed += 1;
@@ -131,6 +144,12 @@ class FakeArena {
     this.steps += 1;
     if (this.now < this.ticks) this.now += 1;
   }
+  writeEmbodiedCommand(bytes) { this.command = Uint8Array.from(bytes); }
+  stageInput(faction) {
+    this.staged.push({ faction, bytes: Uint8Array.from(this.command) });
+    this.stagedAt = this.now;
+    return 1;
+  }
   /** Two bodies until `deathTick`, then one -- which is the whole point of the index. */
   bodies() {
     return this.deathTick !== null && this.now >= this.deathTick ? 1 : 2;
@@ -144,7 +163,10 @@ class FakeArena {
       // fixed stride would hand back body 0 where body 1 is published.
       poses[at + ABI.POSE_ENTITY_INDEX] = this.deathTick !== null && bodies === 1 ? 1 : body;
       poses[at + ABI.POSE_ENTITY_GENERATION] = 1;
-      poses[at + ABI.POSE_BODY_X] = this.now * 1000 + body;
+      const held = this.stagedAt !== undefined && this.now - this.stagedAt <= 6;
+      const stagedMove = held ? new DataView(this.command.buffer, this.command.byteOffset,
+        this.command.byteLength).getInt32(4, true) : 0;
+      poses[at + ABI.POSE_BODY_X] = this.now * 1000 + body + (stagedMove === 0 ? 0 : 123);
       poses[at + ABI.POSE_INTENT] = 1;
     }
     const regions = new Uint32Array(bodies * ABI.REGIONS_PER_BODY * ABI.REGION_STRIDE);
@@ -152,6 +174,12 @@ class FakeArena {
       regions[row * ABI.REGION_STRIDE + ABI.REGION_PRESENT] = 1;
     }
     const events = new Uint32Array(this.eventsPerTick * ABI.COMBAT_EVENT_STRIDE);
+    const stances = new Uint32Array(bodies * RECORDER.EMBODIED_STANCE_STRIDE);
+    for (let body = 0; body < bodies; body += 1) {
+      const poseIndex = this.deathTick !== null && bodies === 1 ? 1 : body;
+      stances[body * RECORDER.EMBODIED_STANCE_STRIDE] = poseIndex;
+      stances[body * RECORDER.EMBODIED_STANCE_STRIDE + 1] = 1;
+    }
     const projectileRows = this.projectileAt === this.now ? 1 : 0;
     const projectiles = new Uint32Array(projectileRows * ABI.ARTICULATED_PROJECTILE_STRIDE);
     if (projectileRows !== 0) {
@@ -172,7 +200,7 @@ class FakeArena {
       poseRows: bodies, regionRows: bodies * ABI.REGIONS_PER_BODY,
       projectileRows, eventRows: this.eventsPerTick,
       posesDropped: 0, regionsDropped: 0, projectilesDropped: 0, eventsDropped: 0,
-      poses, regions, projectiles, events,
+      poses, regions, projectiles, events, stances, stancesDropped: 0,
       alive: bodies === 1 ? [1, 0] : [1, 1],
       health: bodies === 1 ? [65_536, 0] : [65_536, 32_768],
       maxHealth: [65_536, 65_536],
@@ -1238,6 +1266,83 @@ const arenaConfig = ({
   seed,
 });
 
+test("sixty_one_hundred_twenty_and_one_hundred_forty_four_hertz_each_advance_sixty_ticks_in_one_second", () => {
+  for (const hz of [60, 120, 144]) {
+    const clock = new ControlledClock(0);
+    let stepped = 0;
+    for (let frame = 1; frame <= hz; frame += 1) {
+      clock.advance(frame * 1_000 / hz);
+      const due = clock.beginBatch();
+      if (due !== 0) { stepped += due; clock.settleBatch(due); }
+    }
+    assert.equal(stepped, 60, `${hz} Hz changed the authoritative tick rate`);
+  }
+});
+
+test("only_one_controlled_batch_is_in_flight_and_backlog_drains_transactionally", () => {
+  const clock = new ControlledClock(0);
+  clock.advance(100);
+  assert.equal(clock.beginBatch(), 6);
+  assert.equal(clock.beginBatch(), 0, "a second batch crossed the first");
+  clock.advance(200);
+  assert.equal(clock.dueTicks, 12, "in-flight elapsed time was discarded");
+  clock.settleBatch(6);
+  assert.equal(clock.dueTicks, 6);
+  assert.equal(clock.beginBatch(), 6);
+  clock.settleBatch(6);
+  assert.equal(clock.dueTicks, 0);
+});
+
+test("a_hidden_interval_is_cleared_and_not_replayed_as_catch_up", () => {
+  const clock = new ControlledClock(0);
+  clock.advance(50);
+  clock.stop(50);
+  clock.advance(50_000);
+  clock.resume(50_000);
+  assert.equal(clock.advance(50_000 + 1_000 / 60), 1);
+});
+
+test("keyboard_navigation_uses_torso_axes_and_an_exact_in_range_diagonal", () => {
+  const input = new ARENA_INPUT.ArenaInput();
+  const words = (bytes) => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  input.keyDown("KeyW");
+  let view = words(input.encode([7, 9]));
+  assert.deepEqual([view.getInt32(4, true), view.getInt32(8, true)], [65_536, 0]);
+  input.keyDown("KeyQ");
+  view = words(input.encode([7, 9]));
+  assert.deepEqual([view.getInt32(4, true), view.getInt32(8, true)], [46_340, 46_340]);
+  assert.ok(46_340 ** 2 * 2 <= 65_536 ** 2);
+  input.keyDown("KeyS");
+  input.keyDown("KeyE");
+  view = words(input.encode([7, 9]));
+  assert.deepEqual([view.getInt32(4, true), view.getInt32(8, true)], [0, 0],
+    "opposite keys did not cancel");
+  input.clear();
+  input.setYaw(1_000);
+  input.keyDown("KeyA");
+  view = words(input.encode([7, 9]));
+  assert.equal(view.getUint16(12, true), 1_546);
+  input.keyUp("KeyA"); input.keyDown("KeyD");
+  view = words(input.encode([7, 9]));
+  assert.equal(view.getUint16(12, true), 1_000);
+});
+
+test("an_arena_input_is_refused_at_v1_by_name_and_batch_size_is_bounded", () => {
+  const message = { kind: "arenaInput", version: 1, requestId: 2, arenaRequestId: 1,
+    faction: 0, ticksDue: 1, bytes: new ArrayBuffer(61) };
+  const legacy = MSG.decodeClientMessage(message);
+  assert.equal(legacy.ok, false);
+  assert.match(legacy.detail, /arenaInput.*legacy V1/);
+  assert.equal(MSG.decodeClientMessage({ ...message, version: 2, ticksDue: 0 }).ok, true,
+    "a stage-only neutral command was refused");
+  assert.equal(MSG.decodeClientMessage({ ...message, version: 2,
+    ticksDue: MSG.MAX_CONTROLLED_BATCH_TICKS }).ok, true);
+  const tooMany = MSG.decodeClientMessage({ ...message, version: 2,
+    ticksDue: MSG.MAX_CONTROLLED_BATCH_TICKS + 1 });
+  assert.equal(tooMany.ok, false);
+  assert.match(tooMany.detail, /arenaInput ticksDue 16 exceeds MAX_CONTROLLED_BATCH_TICKS 15/);
+});
+
 function arenaStartMessage(config, requestId = 1, checkpoint = null) {
   const bytes = CONFIG.encodeArenaConfig(config);
   return {
@@ -1295,6 +1400,7 @@ function wholeFight(opened, chunks) {
     ["regions", opened.regionStride, RECORDER.INDEX_REGION_START],
     ["projectiles", opened.articulatedProjectileStride, RECORDER.INDEX_PROJECTILE_START],
     ["events", opened.combatEventStride, RECORDER.INDEX_EVENT_START],
+    ["stances", opened.embodiedStanceStride, RECORDER.INDEX_STANCE_START],
   ];
   const parts = new Map(sections.map(([name]) => [name, []]));
   const bases = new Map(sections.map(([name]) => [name, 0]));
@@ -1479,10 +1585,29 @@ test("an_arena_refusal_reads_its_policy_code_and_not_a_hand_index", () => {
   assert.deepEqual(reasons, reasons.map((_, index) => index));
   // The two the layout bump added, at the top of a dense table, so the highest
   // index is the newest code and the assertion below it still points at Bow.
-  assert.equal(reasons.length, 30);
-  assert.equal(reasons.at(-1), CONFIG.ARENA_CONTROL_UNAVAILABLE);
+  assert.equal(reasons.length, 31);
+  assert.equal(reasons.at(-1), CONFIG.ARENA_INPUT_REFUSED);
   assert.match(CONFIG.ARENA_REFUSALS[CONFIG.ARENA_UNKNOWN_CONTROL], /control code/i);
   assert.match(CONFIG.ARENA_REFUSALS[CONFIG.ARENA_CONTROL_UNAVAILABLE], /driven by you.*input path/i);
+  for (const [detail, phrase] of [[1, /faction.*does not know/], [2, /policy-controlled/],
+    [3, /before an arena fight/]]) {
+    assert.match(CONFIG.decodeArenaRefusal((CONFIG.ARENA_INPUT_REFUSED << 8 | detail << 16) >>> 0).sentence,
+      phrase);
+  }
+  for (const [detail, faction, name] of [[2, 0, "Heroes"], [2, 1, "Monsters"],
+    [3, 0, "Heroes"], [3, 1, "Monsters"]]) {
+    const decoded = CONFIG.decodeArenaRefusal(
+      (CONFIG.ARENA_INPUT_REFUSED << 8 | detail << 16 | faction << 24) >>> 0);
+    assert.equal(decoded.fighter, faction);
+    assert.match(decoded.sentence, new RegExp(name));
+  }
+  const rustInputReasons = fs.readFileSync(path.join(ROOT, "crates", "web", "src", "lib.rs"), "utf8");
+  for (const [name, value] of [
+    ["ARENA_INPUT_REFUSED", CONFIG.ARENA_INPUT_REFUSED],
+    ["ARENA_INPUT_UNKNOWN_FACTION", CONFIG.ARENA_INPUT_UNKNOWN_FACTION],
+    ["ARENA_INPUT_POLICY_CONTROLLED", CONFIG.ARENA_INPUT_POLICY_CONTROLLED],
+    ["ARENA_INPUT_NO_ARENA", CONFIG.ARENA_INPUT_NO_ARENA],
+  ]) assert.match(rustInputReasons, new RegExp(`pub const ${name}: u8 = ${value};`));
   assert.match(CONFIG.ARENA_REFUSALS[27], /bow.*right-hand.*two-handed/i);
 });
 
@@ -1505,13 +1630,14 @@ test("a_recorded_fight_transfers_its_buffers_and_its_index", async () => {
   assert.equal(opened.checkpoint, null);
   assert.equal(arena.warmed, 1, "the allocating calls run once, before any buffer exists");
   assert.equal(chunks.length, Math.ceil(17 / MSG.ARENA_STREAM_CHUNK_TICKS));
-  // Every buffer is transferred rather than copied: six of them, in order, on
+  // Every buffer is transferred rather than copied: seven of them, in order, on
   // every chunk. The count is read off the message and not off a sentence --
   // `worker-protocol.md` said five for two sessions while the code moved six.
   for (const entry of sent.filter((one) => one.message.kind === "arenaChunk")) {
     const chunk = entry.message;
     assert.deepEqual(entry.transfer,
-      [chunk.poses, chunk.regions, chunk.projectiles, chunk.events, chunk.index, chunk.health]);
+      [chunk.poses, chunk.regions, chunk.projectiles, chunk.events, chunk.stances,
+        chunk.index, chunk.health]);
   }
   const source = (await record(arena, arenaConfig())).source();
   assert.equal(source.frameCount(), 17);
@@ -1527,6 +1653,128 @@ test("a_recorded_fight_transfers_its_buffers_and_its_index", async () => {
   // closing speed is a measurement and a reader cannot tell it from an absence.
   const contact = source.frameAt(3).contacts[0];
   assert.deepEqual([contact.velocityA, contact.impulseB, contact.alpha], [null, null, null]);
+});
+
+test("the_controlled_drive_stalls_at_three_credits_and_resumes_on_chunk_ack", async () => {
+  assert.equal(RECORDER.ARENA_CONTROLLED_CHUNK_CREDITS, 3,
+    "the controlled credit window is exactly three adopted chunks");
+  const arena = new FakeArena({ ticks: 7 });
+  const { host, sent } = arenaHost(arena);
+  const config = arenaConfig({ controls: [CONFIG.ARENA_CONTROL_HUMAN, CONFIG.ARENA_CONTROL_POLICY],
+    maxTicks: 7 });
+  const running = host.handle(arenaStartMessage(config, 1));
+  await settle();
+  const initial = messages(sent, "arenaChunk")[0];
+  assert.ok(initial, "a controlled fight did not publish frame zero");
+  assert.equal(messages(sent, "arenaOpened")[0].heroes, "you + scripted off hand",
+    "a Human header claimed its tactical off hand drove the whole body");
+  assert.equal(sent.find((entry) => entry.message === initial).transfer.length, 0,
+    "a controlled chunk transferred away before its adoption acknowledgement");
+  await host.handle({ kind: "arenaChunkAck", version: 2, requestId: 2,
+    arenaRequestId: 1, firstFrame: initial.firstFrame });
+  const heldInput = new ARENA_INPUT.ArenaInput();
+  heldInput.keyDown("KeyW");
+  await host.handle({ kind: "arenaInput", version: 2, requestId: 3, arenaRequestId: 1,
+    faction: 0, ticksDue: 7, bytes: heldInput.encode([1, 1]).buffer });
+  await settle();
+  assert.equal(messages(sent, "arenaChunk").length, 4,
+    "more than three unacknowledged controlled chunks crossed the credit window");
+  assert.equal(messages(sent, "arenaInputAck").length, 0,
+    "the batch acknowledged while its chunks were stalled");
+
+  const acknowledged = new Set([initial.firstFrame]);
+  while (messages(sent, "arenaInputAck").length === 0) {
+    const chunk = messages(sent, "arenaChunk").find((one) => !acknowledged.has(one.firstFrame));
+    assert.ok(chunk, "the controlled drive did not resume after a returned credit");
+    acknowledged.add(chunk.firstFrame);
+    await host.handle({ kind: "arenaChunkAck", version: 2, requestId: 10 + acknowledged.size,
+      arenaRequestId: 1, firstFrame: chunk.firstFrame });
+    await settle();
+  }
+  assert.deepEqual(messages(sent, "arenaInputAck").map((ack) => ack.steppedTicks), [7]);
+  assert.equal(arena.staged.length, 1, "one sampled batch was staged more than once");
+  const driven = messages(sent, "arenaChunk").filter((chunk) => chunk.firstFrame > 0);
+  assert.deepEqual(driven.map((chunk) => {
+    const x = new Uint32Array(chunk.poses)[ABI.POSE_BODY_X];
+    return x - chunk.firstFrame * 1000;
+  }), [123, 123, 123, 123, 123, 123, 0],
+  "a missed input frame did not hold for six ticks and expire to neutral on tick seven");
+  for (const chunk of messages(sent, "arenaChunk")) {
+    if (!acknowledged.has(chunk.firstFrame)) {
+      acknowledged.add(chunk.firstFrame);
+      await host.handle({ kind: "arenaChunkAck", version: 2, requestId: 30 + acknowledged.size,
+        arenaRequestId: 1, firstFrame: chunk.firstFrame });
+    }
+  }
+  await host.handle({ kind: "arenaCancel", version: 2, requestId: 99 });
+  await running;
+});
+
+test("a_controlled_finish_waits_for_the_final_chunk_ack_without_reporting_it_invalid", async () => {
+  const arena = new FakeArena({ ticks: 1 });
+  const { host, sent } = arenaHost(arena);
+  const config = arenaConfig({ controls: [1, 0], maxTicks: 1 });
+  const running = host.handle(arenaStartMessage(config, 1));
+  await settle();
+  const first = messages(sent, "arenaChunk")[0];
+  await host.handle({ kind: "arenaChunkAck", version: 2, requestId: 2,
+    arenaRequestId: 1, firstFrame: first.firstFrame });
+  await host.handle({ kind: "arenaInput", version: 2, requestId: 3, arenaRequestId: 1,
+    faction: 0, ticksDue: 1, bytes: new Uint8Array(61).buffer });
+  await settle();
+  const finalChunk = messages(sent, "arenaChunk").at(-1);
+  await host.handle({ kind: "arenaInput", version: 2, requestId: 4, arenaRequestId: 1,
+    faction: 0, ticksDue: 1, bytes: new Uint8Array(61).buffer });
+  await settle();
+  assert.equal(messages(sent, "arenaFinished").length, 0,
+    "finish crossed before the main thread adopted its final chunk");
+  await host.handle({ kind: "arenaChunkAck", version: 2, requestId: 5,
+    arenaRequestId: 1, firstFrame: finalChunk.firstFrame });
+  await running;
+  assert.equal(messages(sent, "arenaFinished").length, 1);
+  assert.equal(messages(sent, "error").length, 0,
+    "a valid final credit was cleared before its acknowledgement arrived");
+});
+
+test("a_zero_tick_input_stages_neutral_without_advancing_the_fight", async () => {
+  const arena = new FakeArena({ ticks: 4 });
+  const config = arenaConfig({ controls: [1, 0], maxTicks: 4 });
+  let calls = 0;
+  const result = await RECORDER.recordArenaFight(arena, config, CONFIG.encodeArenaConfig(config),
+    null, { onOpened() {}, onChunk() {}, async yieldToMessages() {},
+      nextInput: async () => calls++ === 0
+        ? { requestId: 7, faction: 0, ticksDue: 0, bytes: new Uint8Array(61) } : null },
+    () => false);
+  assert.equal(result.ok, false);
+  assert.equal(arena.staged.length, 1);
+  assert.equal(arena.steps, 0, "a stage-only neutral command advanced an authoritative tick");
+});
+
+test("a_missed_input_frame_holds_and_then_expires", async () => {
+  const arena = new FakeArena({ ticks: 20 });
+  const config = arenaConfig({ controls: [1, 0], maxTicks: 20 });
+  const held = new ARENA_INPUT.ArenaInput(); held.keyDown("KeyW");
+  const chunks = [];
+  let next = 0;
+  const result = await RECORDER.recordArenaFight(arena, config, CONFIG.encodeArenaConfig(config),
+    null, { onOpened() {}, onChunk: (chunk) => chunks.push(chunk), async yieldToMessages() {},
+      nextInput: async () => next++ === 0
+        ? { requestId: 4, faction: 0, ticksDue: 7, bytes: held.encode([1, 1]) } : null },
+    () => false);
+  assert.equal(result.ok, false);
+  assert.equal(arena.staged.length, 1);
+  assert.deepEqual(chunks.filter((chunk) => chunk.firstFrame > 0).map((chunk) =>
+    new Uint32Array(chunk.poses)[ABI.POSE_BODY_X] - chunk.firstFrame * 1000),
+  [123, 123, 123, 123, 123, 123, 0]);
+});
+
+test("a_stance_is_joined_by_full_generational_identity", async () => {
+  const recorded = await record(new FakeArena({ ticks: 1 }), arenaConfig({ maxTicks: 1 }));
+  const opened = recorded.opened;
+  const chunk = { ...recorded.chunks[0], stances: recorded.chunks[0].stances.slice(0) };
+  const source = new StreamingFightSource(opened);
+  new Uint32Array(chunk.stances)[1] = 99;
+  assert.throws(() => source.adopt(chunk), /stance 0:99 without its pose/);
 });
 
 test("the_index_survives_a_death", async () => {
@@ -1818,11 +2066,16 @@ const openedMessage = (requestId, over = {}) => ({
   spectator: true, one: 65_536, scenario: "configured-duel-v1", mirrored: false,
   fingerprint: "0x00000000deadbeef", seed: 3, heroes: "scripted", monsters: "tactical",
   checkpoint: null, maxTicks: 3_600, arena: [0, 0],
+  arenaStreamLayoutVersion: RECORDER.ARENA_STREAM_LAYOUT_VERSION,
+  recordingIndexStride: RECORDER.RECORDING_INDEX_STRIDE,
   poseLayoutVersion: 1, poseStride: ABI.POSE_STRIDE,
   regionLayoutVersion: 1, regionStride: ABI.REGION_STRIDE, regionsPerBody: ABI.REGIONS_PER_BODY,
   articulatedProjectileLayoutVersion: 1,
   articulatedProjectileStride: ABI.ARTICULATED_PROJECTILE_STRIDE,
   combatEventLayoutVersion: 1, combatEventStride: ABI.COMBAT_EVENT_STRIDE,
+  embodiedStanceLayoutVersion: RECORDER.EMBODIED_STANCE_LAYOUT_VERSION,
+  embodiedStanceStride: RECORDER.EMBODIED_STANCE_STRIDE,
+  embodiedStanceCapacity: RECORDER.EMBODIED_STANCE_CAPACITY,
   impactThreshold: 3_932, contactEnergyFloor: 144, bodySlot: 255, noRegion: 4_294_967_295,
   regionNames: [], hintNames: [], contactKinds: [], bodies: [],
   ...over,
@@ -1833,7 +2086,7 @@ const chunkMessage = (requestId, over = {}) => ({
   kind: "arenaChunk", version: MSG.WORKER_PROTOCOL_VERSION, requestId,
   firstFrame: 0, frameCount: 1,
   poses: new ArrayBuffer(0), regions: new ArrayBuffer(0), projectiles: new ArrayBuffer(0),
-  events: new ArrayBuffer(0),
+  events: new ArrayBuffer(0), stances: new ArrayBuffer(0),
   index: new Uint32Array(RECORDER.RECORDING_INDEX_STRIDE).buffer,
   health: new Int32Array(2).buffer,
   ...over,
@@ -1844,6 +2097,7 @@ const finishedMessage = (requestId, over = {}) => ({
   outcome: "Draw", timedOut: true, ticks: 0, frameCount: 1, recordingTruncated: false,
   posesDropped: 0, regionsDropped: 0, articulatedProjectilesDropped: 0,
   combatEventsDropped: 0,
+  embodiedStancesDropped: 0,
   ...over,
 });
 
@@ -1892,6 +2146,131 @@ test("the_arena_client_transfers_its_configuration_and_streams_the_fight", async
   assert.equal(fight.header.outcome, "Draw");
   assert.equal(fight.kind, undefined, "the protocol envelope must not reach the source");
   assert.equal(fight.requestId, undefined);
+});
+
+test("layout_and_extent_failures_replace_the_worker_before_the_next_fight", async () => {
+  const workers = [];
+  const client = new ArenaClient(() => {
+    const worker = new FakeWorker(); workers.push(worker); return worker;
+  });
+  let running = client.run(arenaConfig(), noStream());
+  await settle();
+  let worker = workers.at(-1);
+  const requestId = worker.sent.at(-1).message.requestId;
+  worker.emitMessage(openedMessage(requestId, { recordingIndexStride: 9 }));
+  await assert.rejects(running, /arena stream layout.*index stride 9/);
+  assert.equal(worker.terminateCalls, 1);
+
+  running = client.run(arenaConfig(), noStream());
+  await settle();
+  worker = workers.at(-1);
+  const secondId = worker.sent.at(-1).message.requestId;
+  worker.emitMessage(openedMessage(secondId));
+  const broken = chunkMessage(secondId);
+  new Uint32Array(broken.index)[RECORDER.INDEX_POSE_COUNT] = 1;
+  worker.emitMessage(broken);
+  await assert.rejects(running, /addresses pose rows/);
+  assert.equal(worker.terminateCalls, 1);
+
+  running = client.run(arenaConfig(), noStream());
+  await settle();
+  worker = workers.at(-1);
+  const thirdId = worker.sent.at(-1).message.requestId;
+  emitFight(worker, thirdId);
+  await running;
+  assert.equal(workers.length, 3);
+});
+
+test("correlated_malformed_v2_arena_messages_reject_and_replace_the_worker", async () => {
+  const workers = [];
+  const client = new ArenaClient(() => {
+    const worker = new FakeWorker(); workers.push(worker); return worker;
+  });
+  for (const broken of [
+    { arenaStreamLayoutVersion: undefined },
+    { embodiedStanceStride: undefined },
+    { embodiedStanceCapacity: "64" },
+  ]) {
+    const running = client.run(arenaConfig(), noStream());
+    await settle();
+    const worker = workers.at(-1);
+    const requestId = worker.sent.at(-1).message.requestId;
+    worker.emitMessage(openedMessage(requestId, broken));
+    await assert.rejects(running, /malformed arenaOpened response/);
+    assert.equal(worker.terminateCalls, 1);
+  }
+  assert.equal(workers.length, 3, "a malformed stream worker was reused by the next Fight");
+  const healthy = client.run(arenaConfig(), noStream());
+  await settle();
+  const worker = workers.at(-1);
+  const requestId = worker.sent.at(-1).message.requestId;
+  emitFight(worker, requestId);
+  await healthy;
+  assert.equal(workers.length, 4);
+});
+
+test("a_nonfatal_input_error_rejects_only_that_input_and_the_fight_remains_available", async () => {
+  const { worker, client } = arenaClientHarness();
+  const running = client.run(arenaConfig({ controls: [1, 0] }), noStream());
+  await settle();
+  const start = worker.sent.at(-1).message;
+  worker.emitMessage(openedMessage(start.requestId));
+  worker.emitMessage(chunkMessage(start.requestId));
+  const refused = client.input(0, new Uint8Array(61), 16);
+  const inputMessage = worker.sent.find((entry) => entry.message.kind === "arenaInput").message;
+  worker.emitMessage({ kind: "error", version: 2, requestId: inputMessage.requestId,
+    epoch: 0, code: "invalidMessage", fatal: false, detail: "ticksDue exceeds 15" });
+  await assert.rejects(refused, /ticksDue exceeds 15/);
+  const accepted = client.input(0, new Uint8Array(61), 1);
+  const second = worker.sent.filter((entry) => entry.message.kind === "arenaInput").at(-1).message;
+  worker.emitMessage({ kind: "arenaInputAck", version: 2, requestId: second.requestId,
+    arenaRequestId: start.requestId, steppedTicks: 1 });
+  assert.equal(await accepted, 1);
+  worker.emitMessage(finishedMessage(start.requestId));
+  await running;
+});
+
+test("a_malformed_correlated_input_ack_rejects_the_fight_and_replaces_its_worker", async () => {
+  const workers = [];
+  const client = new ArenaClient(() => {
+    const worker = new FakeWorker(); workers.push(worker); return worker;
+  });
+  const running = client.run(arenaConfig({ controls: [1, 0] }), noStream());
+  await settle();
+  const worker = workers[0];
+  const start = worker.sent.at(-1).message;
+  worker.emitMessage(openedMessage(start.requestId));
+  worker.emitMessage(chunkMessage(start.requestId));
+  void client.input(0, new Uint8Array(61), 1).catch(() => {});
+  const input = worker.sent.filter((entry) => entry.message.kind === "arenaInput").at(-1).message;
+  worker.emitMessage({ kind: "arenaInputAck", version: 2, requestId: input.requestId,
+    arenaRequestId: start.requestId, steppedTicks: "1" });
+  await assert.rejects(running, /malformed arenaInputAck response/);
+  assert.equal(worker.terminateCalls, 1);
+  const next = client.run(arenaConfig(), noStream());
+  await settle();
+  const fresh = workers.at(-1);
+  emitFight(fresh, fresh.sent.at(-1).message.requestId);
+  await next;
+  assert.equal(workers.length, 2);
+});
+
+test("only_one_controlled_tick_is_in_flight", async () => {
+  const { worker, client } = arenaClientHarness();
+  const config = arenaConfig({ controls: [1, 0] });
+  const running = client.run(config, noStream());
+  await settle();
+  const start = worker.sent.at(-1).message;
+  worker.emitMessage(openedMessage(start.requestId));
+  worker.emitMessage(chunkMessage(start.requestId));
+  const first = client.input(0, new Uint8Array(61), 1);
+  await assert.rejects(client.input(0, new Uint8Array(61), 1), /already in flight/);
+  const sent = worker.sent.find((entry) => entry.message.kind === "arenaInput").message;
+  worker.emitMessage({ kind: "arenaInputAck", version: 2, requestId: sent.requestId,
+    arenaRequestId: start.requestId, steppedTicks: 1 });
+  assert.equal(await first, 1);
+  worker.emitMessage(finishedMessage(start.requestId));
+  await running;
 });
 
 test("a_fatal_worker_error_settles_a_recording_it_does_not_name", async () => {
@@ -1998,7 +2377,7 @@ test("a_second_fight_cancels_the_first_and_waits_for_its_refusal", async () => {
   assert.equal((await late).header.seed, 11);
 });
 
-test("a_recording_is_decoded_rather_than_cast_and_an_unfiltered_stream_must_declare_itself", async () => {
+test("uncorrelated_garbage_is_ignored_and_an_unfiltered_stream_must_declare_itself", async () => {
   // **A `postMessage` is structured-cloned data and a TypeScript type is not a
   // trust boundary.** `SimClient` has had `decodeWorkerMessage` since v2-ui-02
   // and this channel had three `as` casts instead, which is the same gap the
@@ -2020,15 +2399,14 @@ test("a_recording_is_decoded_rather_than_cast_and_an_unfiltered_stream_must_decl
     ["the fingerprint is not a string", (over) => { over.fingerprint = 0xdeadbeef; }],
   ];
   for (const [what, break_] of malformed) {
-    const message = openedMessage(requestId);
+    const message = openedMessage(requestId + 99);
     break_(message);
     worker.emitMessage(message);
     await settle();
     assert.equal(opened, 0, `${what}: a fight was opened`);
     assert.equal(worker.sent.length, 1, `${what}: nothing more is posted`);
   }
-  // Not one of the six settled the promise: a message this client cannot read is
-  // dropped, and the fight it is still waiting for arrives afterwards.
+  // Uncorrelated garbage cannot settle this request; its real opening follows.
   emitFight(worker, requestId, { seed: 3 });
   assert.equal((await running).header.seed, 3);
 
@@ -2040,8 +2418,8 @@ test("a_recording_is_decoded_rather_than_cast_and_an_unfiltered_stream_must_decl
   await settle();
   const lateId = late.worker.sent.at(-1).message.requestId;
   late.worker.emitMessage(openedMessage(lateId));
-  late.worker.emitMessage(chunkMessage(lateId, { index: [0, 0, 0] }));
-  late.worker.emitMessage(chunkMessage(lateId, { frameCount: 0 }));
+  late.worker.emitMessage(chunkMessage(lateId + 99, { index: [0, 0, 0] }));
+  late.worker.emitMessage(chunkMessage(lateId + 99, { frameCount: 0 }));
   await settle();
   assert.equal(chunks, 0, "a malformed chunk was adopted");
   late.worker.emitMessage(chunkMessage(lateId));

@@ -945,9 +945,12 @@ test("the_seed_and_the_fight_button_belong_to_the_matchup_and_not_to_side_b", ()
 });
 
 test("both_sides_driven_by_you_is_refused_by_naming_the_one_keyboard", () => {
+  assert.equal(picker.HUMAN_CONTROL_LABEL, "you (keyboard; hand reserved)");
+  assert.doesNotMatch(picker.HUMAN_CONTROL_LABEL, /mouse/i,
+    "session 05 claimed the pointer already drives a hand");
   const both = picker.review(matchup({ control: "human" }, { control: "human" }), "live");
   assert.match(both.refusal, /^Fighter A and Fighter B are both set to be driven by you/);
-  assert.match(both.refusal, /one keyboard and one pointer/);
+  assert.match(both.refusal, /one keyboard and one reserved hand-control channel/);
   assert.match(both.refusal, /Set one of the two back to a policy/);
   assert.deepEqual(both.notes, []);
   // The word the plan singled out as the useless one, absent here as it is from
@@ -957,58 +960,42 @@ test("both_sides_driven_by_you_is_refused_by_naming_the_one_keyboard", () => {
   // sentence -- the build's, below -- so this refusal has to be about the pair
   // rather than about the presence of a human at all.
   for (const one of [matchup({ control: "human" }), matchup({}, { control: "human" })]) {
-    assert.doesNotMatch(picker.review(one, "live").refusal,
+    assert.doesNotMatch(picker.review(one, "live").refusal ?? "",
       /both set to be driven by you/, "one human side answered the two-keyboards refusal");
   }
 });
 
-test("a_human_side_with_an_empty_right_hand_is_refused_by_naming_the_hand", () => {
-  // The pointer aims the right hand, so a human side with an empty one is a
-  // reader holding a mouse that commands nothing. The left hand is deliberately
-  // full, so the earlier both-hands-empty refusal cannot be what answers.
+test("a_human_side_uses_the_configured_strike_hand_else_right", () => {
+  // A shield is not a strike hand, so shield-left/empty-right reaches the
+  // documented Right fallback and names the empty hand.
   for (const [label, chosen] of [
     ["Fighter A", matchup({ control: "human", left: "shield", right: "empty" })],
     ["Fighter B", matchup({}, { control: "human", left: "shield", right: "empty" })],
   ]) {
     const verdict = picker.review(chosen, "live");
     assert.match(verdict.refusal, new RegExp(`^${label} is set to be driven by you`));
-    assert.match(verdict.refusal, /right hand is empty and the right hand is the one the pointer aims/);
-    assert.match(verdict.refusal, new RegExp(`Give ${label} a weapon in its right hand`));
+    assert.match(verdict.refusal, /right hand is empty and the right hand is reserved for direct control/);
+    assert.match(verdict.refusal, new RegExp(`Give ${label} a weapon in that hand`));
     assert.deepEqual(verdict.notes, []);
   }
-  // Bounded from both sides: a *policy* side with an empty right hand is fine
-  // -- it is a shield-carrying fighter -- and a human side with a full right
-  // hand gets the build's refusal instead of this one.
+  // A left-only sword is the important opposite: it is the strike hand, so the
+  // picker must not reimplement the old always-Right rule.
   assert.equal(picker.review(matchup({ left: "shield", right: "empty" }), "live").refusal, null);
-  assert.doesNotMatch(
-    picker.review(matchup({ control: "human", left: "empty", right: "sword" }), "live").refusal,
-    /right hand is empty/);
+  const leftOnly = matchup({ control: "human", left: "sword", right: "empty" });
+  assert.equal(picker.humanArmOf(leftOnly.a), "left");
+  assert.equal(picker.review(leftOnly, "live").refusal, null);
+  assert.equal(picker.humanArmOf(matchup({ control: "human", left: "shield", right: "empty" }).a),
+    "right");
 });
 
-test("a_human_side_is_refused_by_name_until_the_input_path_exists", () => {
-  // **The refusal this session exists for.** The configuration can spell "this
-  // side is driven by a person" one session before `advance_arena` can act on
-  // it, and the honest answer is a sentence naming what would happen at the
-  // wire -- not a fight in which the policy quietly drove the body.
+test("one_human_side_reaches_the_configuration_without_the_retired_refusal", () => {
   for (const chosen of [matchup({ control: "human" }), matchup({}, { control: "human" })]) {
     const verdict = picker.review(chosen, "live");
-    assert.match(verdict.refusal, /^A side is set to be driven by you/);
-    assert.match(verdict.refusal, /this build has no input path for the arena yet/);
-    // The refusal names the code the module would answer, so a reader who sees
-    // it in a console and a reader who sees it on the page are reading the same
-    // word. `ARENA_CONTROL_UNAVAILABLE` is 29 in `crates/web` and here.
-    assert.match(verdict.refusal, /ARENA_CONTROL_UNAVAILABLE/);
+    assert.equal(verdict.refusal, null);
     assert.equal(CONFIG.ARENA_CONTROL_UNAVAILABLE, 29);
     assert.match(CONFIG.ARENA_REFUSALS[CONFIG.ARENA_CONTROL_UNAVAILABLE], /no arena input path/);
-    assert.deepEqual(verdict.notes, []);
   }
-  // Bounded from the other side, which is the half that will start failing when
-  // arena-05 lands and is supposed to: two policy sides are not refused.
   assert.equal(picker.review(matchup(), "live").refusal, null);
-  // And the choice still reaches the buffer, refused or not: the picker refuses
-  // before the button, and the encoder is what the module refuses. If
-  // `arenaConfigOf` quietly wrote a policy byte here there would be nothing for
-  // `arena_start` to refuse and the second net would be gone.
   const config = picker.arenaConfigOf(matchup({ control: "human" }));
   assert.equal(config.fighters[0].control, CONFIG.ARENA_CONTROL_HUMAN);
   assert.equal(config.fighters[1].control, CONFIG.ARENA_CONTROL_POLICY);
@@ -1451,6 +1438,8 @@ function syntheticOpening(requestId) {
     spectator: true, one: ONE, scenario: "configured-duel-v1", mirrored: false,
     fingerprint: "0x00000000deadbeef", seed: 3, heroes: "scripted", monsters: "scripted",
     checkpoint: null, maxTicks: 3_600, arena: [48 * ONE, 32 * ONE],
+    arenaStreamLayoutVersion: RECORDER.ARENA_STREAM_LAYOUT_VERSION,
+    recordingIndexStride: RECORDER.RECORDING_INDEX_STRIDE,
     poseLayoutVersion: ABI.POSE_LAYOUT_VERSION, poseStride: ABI.POSE_STRIDE,
     regionLayoutVersion: ABI.REGION_LAYOUT_VERSION, regionStride: ABI.REGION_STRIDE,
     regionsPerBody: ABI.REGIONS_PER_BODY,
@@ -1458,6 +1447,9 @@ function syntheticOpening(requestId) {
     articulatedProjectileStride: ABI.ARTICULATED_PROJECTILE_STRIDE,
     combatEventLayoutVersion: ABI.COMBAT_EVENT_LAYOUT_VERSION,
     combatEventStride: ABI.COMBAT_EVENT_STRIDE,
+    embodiedStanceLayoutVersion: RECORDER.EMBODIED_STANCE_LAYOUT_VERSION,
+    embodiedStanceStride: RECORDER.EMBODIED_STANCE_STRIDE,
+    embodiedStanceCapacity: RECORDER.EMBODIED_STANCE_CAPACITY,
     impactThreshold: ONE / 4, contactEnergyFloor: 512,
     bodySlot: 255, noRegion: 4_294_967_295,
     regionNames: trace.regionNames, hintNames: trace.hintNames, contactKinds: trace.contactKinds,
@@ -1472,6 +1464,7 @@ function syntheticChunk(requestId, firstFrame, frameCount) {
   const regions = new Uint32Array(frameCount * bodies * ABI.REGIONS_PER_BODY * ABI.REGION_STRIDE);
   const index = new Uint32Array(frameCount * RECORDER.RECORDING_INDEX_STRIDE);
   const health = new Int32Array(frameCount * 2);
+  const stances = new Uint32Array(frameCount * bodies * RECORDER.EMBODIED_STANCE_STRIDE);
   for (let frame = 0; frame < frameCount; frame += 1) {
     const tick = firstFrame + frame;
     for (let body = 0; body < bodies; body += 1) {
@@ -1481,6 +1474,9 @@ function syntheticChunk(requestId, firstFrame, frameCount) {
       // Bodies eleven units apart and closing, so `adopt`'s default span and
       // azimuth have something real to read.
       poses[at + ABI.POSE_BODY_X] = body === 0 ? tick * 16 : 11 * ONE;
+      const stanceAt = (frame * bodies + body) * RECORDER.EMBODIED_STANCE_STRIDE;
+      stances[stanceAt] = body;
+      stances[stanceAt + 1] = 1;
     }
     const at = frame * RECORDER.RECORDING_INDEX_STRIDE;
     index[at + RECORDER.INDEX_TICK] = tick;
@@ -1488,6 +1484,8 @@ function syntheticChunk(requestId, firstFrame, frameCount) {
     index[at + RECORDER.INDEX_POSE_COUNT] = bodies;
     index[at + RECORDER.INDEX_REGION_START] = frame * bodies * ABI.REGIONS_PER_BODY;
     index[at + RECORDER.INDEX_REGION_COUNT] = bodies * ABI.REGIONS_PER_BODY;
+    index[at + RECORDER.INDEX_STANCE_START] = frame * bodies;
+    index[at + RECORDER.INDEX_STANCE_COUNT] = bodies;
     health[frame * 2] = ONE;
     health[frame * 2 + 1] = ONE;
   }
@@ -1495,7 +1493,7 @@ function syntheticChunk(requestId, firstFrame, frameCount) {
     kind: "arenaChunk", version: PROTOCOL.WORKER_PROTOCOL_VERSION, requestId,
     firstFrame, frameCount,
     poses: poses.buffer, regions: regions.buffer,
-    projectiles: new ArrayBuffer(0), events: new ArrayBuffer(0),
+    projectiles: new ArrayBuffer(0), events: new ArrayBuffer(0), stances: stances.buffer,
     index: index.buffer, health: health.buffer,
   };
 }
@@ -1505,7 +1503,8 @@ function syntheticFinish(requestId, frameCount) {
     kind: "arenaFinished", version: PROTOCOL.WORKER_PROTOCOL_VERSION, requestId,
     outcome: "Decision(Heroes)", timedOut: true, ticks: frameCount - 1, frameCount,
     recordingTruncated: false,
-    posesDropped: 0, regionsDropped: 0, articulatedProjectilesDropped: 0, combatEventsDropped: 0,
+    posesDropped: 0, regionsDropped: 0, articulatedProjectilesDropped: 0,
+    combatEventsDropped: 0, embodiedStancesDropped: 0,
   };
 }
 
@@ -1529,6 +1528,245 @@ const tickOf = (container) => {
   const shown = /tick (\d+)/.exec(container.querySelector("#tick").textContent);
   return shown === null ? null : Number(shown[1]);
 };
+
+async function controlledRoute(harness) {
+  const { mount } = await import(compiled("client/src/arena/arena.js"));
+  const container = harness.container();
+  const handle = await mount(container, new URLSearchParams([["stage", "off"]]));
+  const control = container.querySelector("#a-control");
+  control.value = "human";
+  for (const entry of harness.listenersOn(control, "change")) entry.listener({ target: control });
+  container.querySelector("#fight").click();
+  await settle();
+  const worker = harness.workers.at(-1);
+  const start = worker.sent.find((entry) => entry.message.kind === "arenaStart").message;
+  worker.emit({ ...syntheticOpening(start.requestId), heroes: "you + tactical off hand" });
+  worker.emit(syntheticChunk(start.requestId, 0, 1));
+  await settle();
+  let frame = 0;
+  let now = performance.now();
+  const key = (code, key = code) => {
+    const event = { target: globalThis.window, key, code, preventDefault() {} };
+    for (const entry of harness.listenersOn(globalThis.window, "keydown")) entry.listener(event);
+  };
+  const nextInput = async () => {
+    const before = worker.sent.filter((entry) => entry.message.kind === "arenaInput").length;
+    now += 20;
+    harness.runFrame(now);
+    await settle();
+    const inputs = worker.sent.filter((entry) => entry.message.kind === "arenaInput");
+    assert.ok(inputs.length > before, "the route did not stage input on the next control tick");
+    return inputs.at(-1).message;
+  };
+  const runFrame = async (elapsedMs) => {
+    now += elapsedMs;
+    harness.runFrame(now);
+    await settle();
+  };
+  const acknowledge = async (input) => {
+    frame += 1;
+    worker.emit(syntheticChunk(start.requestId, frame, 1));
+    worker.emit({ kind: "arenaInputAck", version: 2, requestId: input.requestId,
+      arenaRequestId: start.requestId, steppedTicks: 1 });
+    await settle();
+  };
+  return { container, handle, worker, start, key, nextInput, acknowledge, runFrame };
+}
+
+test("thirty_sixty_one_hundred_twenty_and_one_hundred_forty_four_hertz_stage_the_same_yaw_sequence", async () => {
+  const sequences = [];
+  for (const hz of [30, 60, 120, 144]) {
+    const harness = installDom();
+    try {
+      const route = await controlledRoute(harness);
+      route.key("KeyA");
+      const yaws = [];
+      let acknowledged = 0;
+      for (let display = 0; display < hz; display += 1) {
+        await route.runFrame(1_000 / hz);
+        for (;;) {
+          const inputs = route.worker.sent.filter((entry) => entry.message.kind === "arenaInput");
+          if (acknowledged >= inputs.length) break;
+          const input = inputs[acknowledged++].message;
+          assert.equal(input.ticksDue, 1, `${hz} Hz batched distinct yaw ticks`);
+          yaws.push(new DataView(input.bytes).getUint16(12, true));
+          await route.acknowledge(input);
+        }
+      }
+      assert.equal(yaws.length, 60, `${hz} Hz did not drain exactly sixty sampled ticks`);
+      sequences.push(yaws);
+      await route.handle.dispose(); harness.dropSubtree(route.container);
+    } finally { harness.restore(); }
+  }
+  for (const sequence of sequences.slice(1)) assert.deepEqual(sequence, sequences[0]);
+  assert.deepEqual(sequences[0].slice(0, 3), [546, 1_092, 1_638]);
+});
+
+test("key_down_reaches_a_controlled_fight_within_two_ticks_and_follow_defaults_to_the_human", async () => {
+  const harness = installDom();
+  try {
+    const { mount } = await import(compiled("client/src/arena/arena.js"));
+    const container = harness.container();
+    const handle = await mount(container, new URLSearchParams([["stage", "off"]]));
+    const control = container.querySelector("#a-control");
+    control.value = "human";
+    for (const entry of harness.listenersOn(control, "change")) entry.listener({ target: control });
+    container.querySelector("#fight").click();
+    await settle();
+    const worker = harness.workers.at(-1);
+    const start = worker.sent.find((entry) => entry.message.kind === "arenaStart").message;
+    worker.emit({ ...syntheticOpening(start.requestId), heroes: "you + tactical off hand" });
+    worker.emit(syntheticChunk(start.requestId, 0, 1));
+    await settle();
+    assert.equal(container.querySelector("#arena-follow").value, "a");
+
+    const keyEvent = { target: globalThis.window, key: "w", code: "KeyW",
+      preventDefault() { this.prevented = true; } };
+    for (const entry of harness.listenersOn(globalThis.window, "keydown")) entry.listener(keyEvent);
+    harness.runFrame(performance.now() + 20);
+    await settle();
+    const input = worker.sent.find((entry) => entry.message.kind === "arenaInput")?.message;
+    assert.ok(input, "a held key did not reach the worker within two ticks");
+    assert.ok(input.ticksDue >= 1 && input.ticksDue <= 2);
+    const view = new DataView(input.bytes);
+    assert.deepEqual([view.getInt32(4, true), view.getInt32(8, true)], [ONE, 0]);
+    assert.equal(view.getUint8(14), 1, "live body input did not target the opponent");
+    await handle.dispose();
+    harness.dropSubtree(container);
+  } finally {
+    harness.restore();
+  }
+});
+
+test("w_and_s_move_in_the_torsos_forward_axis", async () => {
+  for (const [code, expected] of [["KeyW", ONE], ["KeyS", -ONE]]) {
+    const harness = installDom();
+    try {
+      const route = await controlledRoute(harness);
+      route.key(code);
+      const input = await route.nextInput();
+      const view = new DataView(input.bytes);
+      assert.deepEqual([view.getInt32(4, true), view.getInt32(8, true)], [expected, 0]);
+      await route.handle.dispose(); harness.dropSubtree(route.container);
+    } finally { harness.restore(); }
+  }
+});
+
+test("a_and_d_turn_the_body_while_q_and_e_sidestep", async () => {
+  for (const [code, yaw, side] of [
+    ["KeyA", 546, 0], ["KeyD", 65_536 - 546, 0],
+    ["KeyQ", 0, ONE], ["KeyE", 0, -ONE],
+  ]) {
+    const harness = installDom();
+    try {
+      const route = await controlledRoute(harness);
+      route.key(code);
+      const input = await route.nextInput();
+      const view = new DataView(input.bytes);
+      assert.equal(view.getUint16(12, true), yaw, `${code} wrote the wrong yaw`);
+      assert.equal(view.getInt32(8, true), side, `${code} wrote the wrong sidestep`);
+      await route.handle.dispose(); harness.dropSubtree(route.container);
+    } finally { harness.restore(); }
+  }
+});
+
+test("mouse_motion_changes_no_navigation_or_body_yaw_byte", async () => {
+  const harness = installDom();
+  try {
+    const route = await controlledRoute(harness);
+    const stage = route.container.querySelector("#arena-stage");
+    const canvas = route.container.querySelector("#arena-3d");
+    for (const entry of harness.listenersOn(stage, "pointermove")) entry.listener({
+      target: canvas, pointerId: 17, movementX: 90, movementY: -40, buttons: 1,
+      preventDefault() {},
+    });
+    const input = await route.nextInput();
+    const view = new DataView(input.bytes);
+    assert.deepEqual([view.getInt32(4, true), view.getInt32(8, true), view.getUint16(12, true)],
+      [0, 0, 0]);
+    await route.handle.dispose(); harness.dropSubtree(route.container);
+  } finally { harness.restore(); }
+});
+
+test("blur_visibility_pause_and_pointer_lock_loss_clear_every_held_input", async () => {
+  for (const stop of ["blur", "hidden", "pause", "pointerlock"]) {
+    const harness = installDom();
+    try {
+      const route = await controlledRoute(harness);
+      route.key("KeyW", "w");
+      if (stop === "blur") {
+        for (const entry of harness.listenersOn(globalThis.window, "blur")) entry.listener({});
+      } else if (stop === "hidden") {
+        globalThis.document.visibilityState = "hidden";
+        for (const entry of harness.listenersOn(globalThis.document, "visibilitychange")) entry.listener({});
+      } else if (stop === "pointerlock") {
+        globalThis.document.pointerLockElement = null;
+        for (const entry of harness.listenersOn(globalThis.document, "pointerlockchange")) entry.listener({});
+      } else route.key("Space", " ");
+      await settle();
+      const input = route.worker.sent.filter((entry) => entry.message.kind === "arenaInput").at(-1).message;
+      const view = new DataView(input.bytes);
+      assert.deepEqual([view.getInt32(4, true), view.getInt32(8, true), view.getUint8(14)],
+        [0, 0, 0], `${stop} left held input staged`);
+      assert.equal(input.ticksDue, 0, `${stop} advanced a tick while staging neutral`);
+      assert.equal(route.worker.sent.filter((entry) => entry.message.kind === "arenaChunk").length, 0,
+        `${stop} produced a new authoritative frame`);
+      assert.equal(route.container.querySelector("#play").textContent, "Play",
+        `${stop} did not pause a fight still being produced`);
+      await route.handle.dispose(); harness.dropSubtree(route.container);
+    } finally { harness.restore(); }
+  }
+});
+
+test("space_pauses_a_fight_that_is_still_being_produced", async () => {
+  const harness = installDom();
+  try {
+    const route = await controlledRoute(harness);
+    assert.equal(route.container.querySelector("#play").textContent, "Pause");
+    route.key("Space", " ");
+    assert.equal(route.container.querySelector("#play").textContent, "Play");
+    await route.handle.dispose(); harness.dropSubtree(route.container);
+  } finally { harness.restore(); }
+});
+
+test("an_immediate_resume_outlives_the_stale_neutral_ack_and_stages_fresh_input", async () => {
+  const harness = installDom();
+  try {
+    const route = await controlledRoute(harness);
+    route.key("Space", " ");
+    const neutral = route.worker.sent.filter((entry) => entry.message.kind === "arenaInput").at(-1).message;
+    assert.equal(neutral.ticksDue, 0);
+    route.key("Space", " ");
+    route.key("KeyA");
+    route.worker.emit({ kind: "arenaInputAck", version: 2, requestId: neutral.requestId,
+      arenaRequestId: route.start.requestId, steppedTicks: 0 });
+    await settle();
+    await route.runFrame(20);
+    const fresh = route.worker.sent.filter((entry) => entry.message.kind === "arenaInput").at(-1).message;
+    assert.notEqual(fresh.requestId, neutral.requestId);
+    assert.equal(fresh.ticksDue, 1);
+    assert.equal(new DataView(fresh.bytes).getUint16(12, true), 546);
+    await route.handle.dispose(); harness.dropSubtree(route.container);
+  } finally { harness.restore(); }
+});
+
+test("movement_keys_after_a_controlled_fight_finishes_are_not_swallowed_or_restarted", async () => {
+  const harness = installDom();
+  try {
+    const route = await controlledRoute(harness);
+    route.worker.emit(syntheticFinish(route.start.requestId, 1));
+    await settle();
+    const before = route.worker.sent.filter((entry) => entry.message.kind === "arenaInput").length;
+    const event = { target: globalThis.window, key: "w", code: "KeyW", prevented: false,
+      preventDefault() { this.prevented = true; } };
+    for (const entry of harness.listenersOn(globalThis.window, "keydown")) entry.listener(event);
+    await route.runFrame(20);
+    assert.equal(event.prevented, false);
+    assert.equal(route.worker.sent.filter((entry) => entry.message.kind === "arenaInput").length, before);
+    assert.equal(route.container.querySelector("#play").textContent, "Play");
+    await route.handle.dispose(); harness.dropSubtree(route.container);
+  } finally { harness.restore(); }
+});
 
 test("the_arena_draws_a_frame_before_the_fight_has_finished", async () => {
   const harness = installDom();

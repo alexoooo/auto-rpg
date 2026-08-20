@@ -1,6 +1,6 @@
 # The arena you can fight in -- overview
 
-**Status:** in progress. Sessions 01 through 04 are complete; session 05 is next. The
+**Status:** in progress. Sessions 01 through 05 are complete; session 06 is next. The
 topic opened after the embodied fight's session 07 closed and its plan files were deleted.
 
 The goal, in the owner's words on 2026-08-19: **pick two units side by side with a 3D
@@ -216,16 +216,17 @@ applies to all of them.**
 ```text
 ARENA_STREAM_CHUNK_TICKS        30   01; ticks per streamed chunk on the spectator drive.
                                      Bounded both ways: at 1 the fight pays a postMessage
-                                     and six allocations per tick; at 300 -- today's
+                                     and seven allocations per tick; at 300 -- today's
                                      RECORDING_CHUNK_TICKS -- the first frame is five
                                      seconds of fight late at 1x
 ARENA_STREAM_LEAD_TICKS         15   01; how far production must lead the displayed frame
                                      before playback starts or resumes. At 0 playback
                                      stalls at every chunk boundary; at a whole chunk it
                                      is the old wait in smaller units
-ARENA_CHUNK_POOL_SLOTS           3   05; chunk buffers in flight. The lockstep drive uses
-                                     backpressure and never coalesces, which is the one
-                                     place it must differ from FixedBufferPool
+ARENA_CONTROLLED_CHUNK_CREDITS   3   05; controlled chunks allowed in flight. Exact chunk
+                                     copies are allocated per tick and retained by the
+                                     recording; credits add lossless backpressure without
+                                     claiming a reusable worker buffer pool
 ARENA_FIGHTER_CONTROL            2   02; the config byte, taking the first of the two
                                      bytes ARENA_FIGHTER_RESERVED holds. A byte that stops
                                      being reserved is a layout change, not a free bit
@@ -236,17 +237,20 @@ ARENA_UNKNOWN_CONTROL           28   02; the control byte is neither of those
 ARENA_CONTROL_UNAVAILABLE       29   02; a human side was asked for and this build has no
                                      input path. Retired by 05, and it is a retirement
                                      rather than a renumbering -- the code stays spent
+ARENA_INPUT_REFUSED             30   05; staging named an unknown faction, a policy side,
+                                     or no installed arena. Detail bytes 1, 2 and 3 keep
+                                     those three instructions distinct
 CONTROL_INPUT_MAX_HOLD_TICKS     6   05; how long a staged input frame is re-used when the
                                      page misses a frame. At 1 one dropped frame stops the
                                      body dead; at 60 a tabbed-away player walks for a
                                      second after they stop looking
-HUMAN_ARM_SLOT           right arm   05; which hand the pointer owns by default. Named
-                                     rather than a literal 1, because ArmRoles::of already
-                                     answers "which hand is the weapon" and can disagree
-                                     with the default on a Brute
-BODY_TURN_INPUT_TURNS_PER_SECOND --  05/07; keyboard yaw-target rate, measured in the
-                                     control lab and bounded below by a useful half-turn
-                                     and above by an accidental one-tick forced step
+HUMAN_ARM_SLOT       strike/right   05; the configured strike hand, falling back to Right
+                                     when neither hand strikes. Authority is fixed at
+                                     construction and does not move after an amputation
+BODY_TURN_INPUT_TURNS_PER_SECOND 0.5 05/07; provisional keyboard yaw-target rate. Session
+                                     07 measures and may replace it in the control lab,
+                                     bounded below by a useful half-turn and above by an
+                                     accidental one-tick forced step
 HUMAN_ARM_RESTING_EFFORT        1/2  06; the existing held-guard effort and the floor for
                                      every moving human hand, not a value drag speed may
                                      lower toward zero

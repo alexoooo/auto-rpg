@@ -109,12 +109,15 @@ use std::cell::{Cell, RefCell};
 
 use fx::{Angle, Fx, Rng, Vec2};
 use learn_core::{Checkpoint, CheckpointError, Model};
-use policy::{Policy, PolicyKind, RunConfig};
+use policy::{
+    CommandAuthority, ComposedController, PartialCommandSource,
+    Policy, PolicyKind, RunConfig,
+};
 use sim::{
     ArmTarget, Observation, PayloadError, Cardinal,
     CombatHeight, CommandReject, CommandV1, EntityId,
     Event, Faction, Intent, Objective, Order, Scenario,
-    Body, Stats, Swing, Torch, UnitSpec, Loadout, Strike, UnitView, World,
+    Body, Stats, Swing, Torch, UnitSpec, Loadout, Strike, UnitView, World, LimbSlot,
 };
 
 /// Floats before the first unit: `[arena_x, arena_y, order_kind, order_x,
@@ -1296,11 +1299,9 @@ pub const ARENA_CONTROL_POLICY: u8 = 0;
 /// policy either way, and two fields that must agree are two fields that can
 /// disagree.
 ///
-/// **Refused with [`ARENA_CONTROL_UNAVAILABLE`] until arena-05 builds the input
-/// path.** The configuration carries the choice one session before anything can
-/// act on it, deliberately, so that the picker and the wire land together --
-/// and the refusal is what keeps that from being a control that accepts an
-/// input it cannot honour and says nothing.
+/// Arena-05 builds the host input path. The configuration carried the choice
+/// one session before anything could act on it, and the now-retired
+/// [`ARENA_CONTROL_UNAVAILABLE`] refusal kept that intermediate build honest.
 pub const ARENA_CONTROL_HUMAN: u8 = 1;
 
 /// What [`ARENA_HAND_ITEM`] holds for an empty hand.
@@ -1584,7 +1585,7 @@ pub const ARENA_BOW_GRIP: u8 = 27;
 /// bumped to layout 3 without learning the byte writes a zero and gets a fight;
 /// a layout-4 page writing a control this build has not heard of gets named.
 pub const ARENA_UNKNOWN_CONTROL: u8 = 28;
-/// A human side was configured and this build has no arena input path.
+/// A human side was configured before this build had an arena input path.
 ///
 /// **Retired by arena-05 rather than renumbered.** The code stays spent, on the
 /// rule [`ARENA_POLICY_UNAVAILABLE`] and [`ARENA_NO_CHECKPOINT`] already
@@ -1598,6 +1599,16 @@ pub const ARENA_UNKNOWN_CONTROL: u8 = 28;
 /// instances of. It names the fighter it is about, so a split-screen picker can
 /// point at the column that has to change.
 pub const ARENA_CONTROL_UNAVAILABLE: u8 = 29;
+/// A staged arena command names no human-controlled side.
+///
+/// The detail byte distinguishes an unknown faction (`1`), a valid side whose
+/// configuration says policy (`2`), and no installed arena (`3`). One reason
+/// is enough because each asks the caller to correct the target or lifetime,
+/// while the detail tells it which one was wrong.
+pub const ARENA_INPUT_REFUSED: u8 = 30;
+pub const ARENA_INPUT_UNKNOWN_FACTION: u8 = 1;
+pub const ARENA_INPUT_POLICY_CONTROLLED: u8 = 2;
+pub const ARENA_INPUT_NO_ARENA: u8 = 3;
 
 /// Every reason byte declared above, in one array, so that the claim "every
 /// refusal has its own number" is a failed build rather than a failing test.
@@ -1618,7 +1629,7 @@ pub const ARENA_CONTROL_UNAVAILABLE: u8 = 29;
 /// gap: there is no reflection over a module's consts.
 ///
 /// What narrows it is [`reasons_are_dense`] beside the distinctness assert.
-/// This list is `0..30` exactly -- ascending, no gaps -- so a code appended
+/// This list is `0..31` exactly -- ascending, no gaps -- so a code appended
 /// above the last one and left out of it makes the *next* appended code collide
 /// rather than slipping past forever, and an insertion into a gap is a failed
 /// build immediately. **It does not catch the first omission**, and saying so
@@ -1626,7 +1637,7 @@ pub const ARENA_CONTROL_UNAVAILABLE: u8 = 29;
 /// adding the row in the edit that adds the code, which arena-02 did for `28`
 /// and `29` and verified by giving one of them `27` on purpose and watching the
 /// build fail.
-const ARENA_REASONS: [u8; 30] = [
+const ARENA_REASONS: [u8; 31] = [
     ARENA_OK, ARENA_UNKNOWN_LAYOUT, ARENA_WRONG_FIGHTER_COUNT, ARENA_NONCANONICAL,
     ARENA_UNKNOWN_ANATOMY, ARENA_UNKNOWN_ITEM, ARENA_UNKNOWN_POLICY, ARENA_POLICY_UNAVAILABLE,
     ARENA_CONSTRUCTION_REFUSED, ARENA_RESERVATION_REFUSED, ARENA_NAME_TOO_LONG,
@@ -1634,7 +1645,7 @@ const ARENA_REASONS: [u8; 30] = [
     ARENA_TOO_MANY_EQUIPMENT, ARENA_ID_ORDER, ARENA_UNKNOWN_SCHEMA, ARENA_DIMENSION,
     ARENA_FRACTION, ARENA_MAXIMUM, ARENA_MISSING_REFERENCE, ARENA_LOADOUT_MISMATCH,
     ARENA_GRIP_CONFLICT, ARENA_NO_EQUIPMENT, ARENA_UNKNOWN_ACTION, ARENA_NO_CHECKPOINT,
-    ARENA_BOW_GRIP, ARENA_UNKNOWN_CONTROL, ARENA_CONTROL_UNAVAILABLE,
+    ARENA_BOW_GRIP, ARENA_UNKNOWN_CONTROL, ARENA_CONTROL_UNAVAILABLE, ARENA_INPUT_REFUSED,
 ];
 
 /// Pairwise, because thirty is small and a sort needs an allocation no `const`
@@ -2137,6 +2148,133 @@ const fn actor_index(id: EntityId) -> u32 {
     }
 }
 
+/// How many authoritative ticks one staged host command may cover.
+///
+/// One makes a dropped display frame stop a body mid-stride; sixty lets a
+/// hidden page keep walking for a second. Six is one tenth of a second at the
+/// fixed simulation rate, long enough for one missed frame and short enough to
+/// expire before an ordinary reaction.
+const CONTROL_INPUT_MAX_HOLD_TICKS: u32 = 6;
+
+#[derive(Clone, Copy)]
+struct StagedArenaInput {
+    tick: u32,
+    command: Option<CommandV1>,
+}
+
+impl StagedArenaInput {
+    const EMPTY: StagedArenaInput = StagedArenaInput { tick: 0, command: None };
+}
+
+thread_local! {
+    /// Host-owned input, deliberately beside rather than inside authoritative
+    /// world state. `arena_stage_input` replaces one row atomically and a
+    /// `HostSource` reads it only while its tick stamp remains live.
+    static ARENA_INPUT: RefCell<[StagedArenaInput; 2]> =
+        const { RefCell::new([StagedArenaInput::EMPTY; 2]) };
+}
+
+#[cfg(test)]
+thread_local! {
+    /// The commands the arena actually submitted, not the commands its
+    /// controllers merely returned. Tests replay this seam so a skipped
+    /// every-tick submission cannot hide behind an unchanged controller.
+    static ARENA_SUBMISSIONS: RefCell<Vec<(u32, EntityId, CommandV1)>> =
+        const { RefCell::new(Vec::new()) };
+}
+
+#[cfg(test)]
+fn record_arena_submission(tick: u32, id: EntityId, outcome: sim::SubmitOutcome) {
+    if let sim::SubmitOutcome::Stored { command, .. } = outcome {
+        ARENA_SUBMISSIONS.with(|rows| rows.borrow_mut().push((tick, id, command)));
+    }
+}
+
+struct HostSource {
+    side: usize,
+    authority: CommandAuthority,
+}
+
+impl HostSource {
+    fn new(side: usize, arm: LimbSlot) -> HostSource {
+        let mut arms = [false; 2];
+        arms[arm as usize] = true;
+        HostSource {
+            side,
+            authority: CommandAuthority { navigation: true, arms },
+        }
+    }
+}
+
+impl PartialCommandSource for HostSource {
+    fn authority(&self) -> CommandAuthority { self.authority }
+
+    fn contribute(&mut self, obs: &Observation, into: &mut CommandV1) {
+        let staged = ARENA_INPUT.with(|inputs| inputs.borrow()[self.side]);
+        let Some(command) = staged.command else { return };
+        let Some(age) = obs.tick.checked_sub(staged.tick) else { return };
+        if age >= CONTROL_INPUT_MAX_HOLD_TICKS { return; }
+        into.core.move_dir = command.core.move_dir;
+        into.core.body_yaw = command.core.body_yaw;
+        into.core.intent = command.core.intent;
+        // The primary arm is claimed now so composition is total, but session
+        // 06 owns its first input. Leaving it alone preserves the
+        // observation-relative neutral command `ComposedController` seeded;
+        // copying the host buffer's zero placeholder would point a live arm at
+        // an invented target instead.
+    }
+}
+
+struct CadencedEmbodiedSource {
+    inner: Box<dyn Policy>,
+    authority: CommandAuthority,
+    cached: Option<CommandV1>,
+    next_decision: u32,
+    period: u32,
+}
+
+impl CadencedEmbodiedSource {
+    fn new(
+        inner: Box<dyn Policy>,
+        authority: CommandAuthority,
+        period: u32,
+    ) -> CadencedEmbodiedSource {
+        CadencedEmbodiedSource {
+            inner,
+            authority,
+            cached: None,
+            next_decision: 0,
+            period: period.max(1),
+        }
+    }
+}
+
+impl PartialCommandSource for CadencedEmbodiedSource {
+    fn authority(&self) -> CommandAuthority { self.authority }
+
+    fn contribute(&mut self, obs: &Observation, into: &mut CommandV1) {
+        if self.cached.is_none() || obs.tick >= self.next_decision {
+            self.cached = Some(self.inner.decide(obs));
+            self.next_decision = obs.tick.saturating_add(self.period);
+        }
+        let Some(command) = self.cached else { return };
+        for slot in 0..2 {
+            if self.authority.arms[slot] {
+                into.core.arms[slot] = command.core.arms[slot];
+                into.core.grips[slot] = command.core.grips[slot];
+                into.core.releases[slot] = command.core.releases[slot];
+                into.swing_plane[slot] = command.swing_plane[slot];
+            }
+        }
+    }
+
+    fn reset(&mut self) {
+        self.inner.reset();
+        self.cached = None;
+        self.next_decision = 0;
+    }
+}
+
 /// A configured duel, running.
 ///
 /// Installed by [`arena_start`] and by nothing else. That is what makes
@@ -2175,12 +2313,11 @@ struct Arena {
     /// AI fight at one seed would stop being the same fixture and the
     /// comparison the whole arena topic exists to make would be impossible.
     ///
-    /// Every value here is [`ARENA_CONTROL_POLICY`] in this build --
-    /// [`install_arena`] refuses a human side with
-    /// [`ARENA_CONTROL_UNAVAILABLE`] -- and the field exists anyway so that
-    /// [`arena_control`] can be read back beside [`arena_policy`] and a
-    /// recorder can label a fight with what it is actually running.
+    /// Read back beside [`arena_policy`] so a recorder labels the fight with
+    /// what it is actually running rather than what the caller requested.
     controls: [u8; 2],
+    /// The fixed body identity for each human side; policy sides are `None`.
+    driven: [Option<EntityId>; 2],
     /// The Heroes' identities, captured once at install.
     ///
     /// **Routing is on the alive set and not on the observation**, because
@@ -3761,9 +3898,13 @@ impl Sim {
             // increments the counter on its way out. The same reasoning, and the
             // same line, as the loop above.
             let solving_tick = self.world.tick();
+            let driven = live.driven;
             due.clear();
             due.extend_from_slice(self.world.pending_decisions());
             for &id in &due {
+                if driven.contains(&Some(id)) {
+                    continue;
+                }
                 let obs = self.world.observe(id);
                 // Routed on the alive set captured at install, because an
                 // articulated observation has no faction column by design. See
@@ -3779,10 +3920,29 @@ impl Sim {
                 // the fight carries on either way, and the page's channel for
                 // "the world refused something" is [`submit_embodied`]'s packed
                 // word rather than a counter nobody publishes.
-                let _ = self.world.submit(id, command);
+                let outcome = self.world.submit(id, command);
+                #[cfg(test)]
+                record_arena_submission(solving_tick, id, outcome);
+                #[cfg(not(test))]
+                let _ = outcome;
                 if side == Faction::Heroes {
                     self.last_decision_tick = self.world.tick();
                 }
+            }
+            // Human identities bypass the body's reaction gate exactly as the
+            // dungeon hero does. The composed controller still asks its policy
+            // half only on that body's cached cadence; only host input is read
+            // every tick.
+            for (side, id) in driven.iter().enumerate() {
+                let Some(id) = *id else { continue };
+                if !self.world.is_alive(id) { continue; }
+                let obs = self.world.observe(id);
+                let command = live.policies[side].decide(&obs);
+                let outcome = self.world.submit(id, command);
+                #[cfg(test)]
+                record_arena_submission(solving_tick, id, outcome);
+                #[cfg(not(test))]
+                let _ = outcome;
             }
             // The slice is dropped immediately: nothing in it is published under
             // this model, and the harvest below needs the world back.
@@ -6668,11 +6828,10 @@ pub extern "C" fn arena_policy(faction_code: u32) -> u32 {
 /// recorder's read-back since v2-ui-05 for that reason and this is the same
 /// check on the byte beside it.
 ///
-/// **It answers [`ARENA_CONTROL_POLICY`] for every side of every fight this
-/// build can install**, because a human side is refused. That is not a reason
-/// to defer the export: the day arena-05 stops refusing, the read-back exists
-/// and the recorder is already comparing against it, rather than the widening
-/// session having to notice that a header had quietly started lying.
+/// A human-controlled side answers [`ARENA_CONTROL_HUMAN`] and a policy side
+/// answers [`ARENA_CONTROL_POLICY`]. Keeping the read-back beside
+/// [`arena_policy`] lets a recorder label the fight that was installed rather
+/// than the request it meant to install.
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn arena_control(faction_code: u32) -> u32 {
@@ -6701,11 +6860,7 @@ fn install_arena(bytes: &[u8; ARENA_CONFIG_BYTES], seed: u64) -> Result<(), Aren
 
     let (fighter_a, kind_a, policy_a, control_a) = parse_arena_fighter(bytes, 0)?;
     let (fighter_b, kind_b, policy_b, control_b) = parse_arena_fighter(bytes, 1)?;
-    // In fighter index order, after both blocks are understood and before
-    // anything is built, so that a page told "fighter 1 cannot be yours" has
-    // already been told about fighter 0 if both were.
-    arena_control_available(control_a, 0)?;
-    arena_control_available(control_b, 1)?;
+    let primary = [primary_arm_of(&fighter_a), primary_arm_of(&fighter_b)];
     // **The control bytes stop here.** `DuelConfigV1` has no room for one and
     // must not grow one: it is what `Scenario::duel_from` reads and what
     // `arena_fingerprint_*` is taken over, so a control byte inside it would
@@ -6753,10 +6908,33 @@ fn install_arena(bytes: &[u8; ARENA_CONFIG_BYTES], seed: u64) -> Result<(), Aren
     fresh.world.set_objective(Faction::Monsters, Objective::None);
 
     let heroes = fresh.world.alive_ids(Faction::Heroes);
+    let monsters = fresh.world.alive_ids(Faction::Monsters);
+    let ids = [
+        heroes.first().copied().ok_or(ArenaRefusal::whole(ARENA_CONSTRUCTION_REFUSED))?,
+        monsters.first().copied().ok_or(ArenaRefusal::whole(ARENA_CONSTRUCTION_REFUSED))?,
+    ];
+    let periods = ids.map(|id| {
+        u32::from(fresh.world.stats(id).map_or(1, |stats| stats.decision_period()).max(1))
+    });
+    // Composition belongs after the world: its policy half must inherit the
+    // exact reaction period of the body that was actually constructed, not a
+    // second derivation from a browser anatomy code.
+    let policies = [
+        arena_controller(policy_a, control_a, 0, primary[0], periods[0])?,
+        arena_controller(policy_b, control_b, 1, primary[1], periods[1])?,
+    ];
+    let controls = [control_a, control_b];
+    let driven = core::array::from_fn(|side| {
+        (controls[side] == ARENA_CONTROL_HUMAN).then_some(ids[side])
+    });
+    ARENA_INPUT.with(|inputs| *inputs.borrow_mut() = [StagedArenaInput::EMPTY; 2]);
+    #[cfg(test)]
+    ARENA_SUBMISSIONS.with(|rows| rows.borrow_mut().clear());
     fresh.arena = Some(Arena {
-        policies: [policy_a, policy_b],
+        policies,
         kinds: [kind_a, kind_b],
-        controls: [control_a, control_b],
+        controls,
+        driven,
         heroes,
         fingerprint,
         max_ticks,
@@ -6772,26 +6950,98 @@ fn install_arena(bytes: &[u8; ARENA_CONFIG_BYTES], seed: u64) -> Result<(), Aren
     Ok(())
 }
 
-/// Whether this build can honour a control byte, naming the fighter if not.
-///
-/// **The whole of what arena-05 deletes, in one place on purpose.** arena-02
-/// puts "who drives this side" on the screen and in the buffer; arena-05 is
-/// what makes [`Sim::advance_arena`] act on it. Between the two, the honest
-/// answer to a human side is a refusal that says which fighter and why -- not a
-/// fight in which the policy quietly drives the body the reader asked to drive,
-/// which is the shape two consecutive reviews of this repository found ten
-/// instances of.
-///
-/// The offending value is deliberately *not* packed into the slot byte. Bits
-/// 24..31 are read against the reason by every client, `1` is a perfectly good
-/// hand index, and the paragraph above [`ARENA_BOW_GRIP`] records what that
-/// collision already cost once. The fighter byte names the column, which is
-/// what a split-screen picker needs to point at.
-fn arena_control_available(control: u8, index: usize) -> Result<(), ArenaRefusal> {
-    if control == ARENA_CONTROL_HUMAN {
-        return Err(ArenaRefusal::fighter(ARENA_CONTROL_UNAVAILABLE, index));
+fn primary_arm_of(fighter: &sim::DuelFighterV1) -> LimbSlot {
+    let strikes = |slot: usize| fighter.hands[slot].as_ref()
+        .is_some_and(|item| !matches!(item.action, sim::ActionKind::Shield));
+    if strikes(LimbSlot::LeftArm as usize) && !strikes(LimbSlot::RightArm as usize) {
+        LimbSlot::LeftArm
+    } else {
+        LimbSlot::RightArm
     }
-    Ok(())
+}
+
+/// Copies the 61-byte embodied-command scratch into one side's staged input.
+///
+/// Nothing is submitted and no world state changes here. The whole envelope is
+/// copied and validated atomically, then only a human-controlled side receives
+/// it with the world's current tick stamp. The composed host source reads its
+/// navigation fields; session 06 supplies the primary-arm fields it already
+/// owns. Unknown faction and policy-controlled-side refusals share
+/// [`ARENA_INPUT_REFUSED`] but carry distinct detail bytes.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn arena_stage_input(faction_code: u32) -> u32 {
+    let bytes = EMBODIED_COMMAND.with(|buffer| *buffer.borrow());
+    let layout = u16::from_le_bytes([bytes[0], bytes[1]]);
+    if layout != sim::EMBODIED_COMMAND_LAYOUT_VERSION || bytes[2] != 2 || bytes[3] != 0 {
+        return submit_result(0, 1, 0, 0);
+    }
+    let payload: &[u8; sim::EMBODIED_PAYLOAD_BYTES] =
+        bytes[4..EMBODIED_COMMAND_BYTES].try_into().unwrap();
+    if CommandV1::validate_payload_structure(payload).is_err() {
+        return submit_result(0, 1, 0, 0);
+    }
+    let command = match CommandV1::from_payload_bytes(payload) {
+        Ok(command) => command,
+        Err(PayloadError::OutOfRange(field)) => {
+            return submit_result(0, 4, field as u8, 0);
+        }
+        Err(_) => return submit_result(0, 1, 0, 0),
+    };
+    let side = match faction_code {
+        0 => Faction::Heroes.index(),
+        1 => Faction::Monsters.index(),
+        _ => return submit_result(0, ARENA_INPUT_REFUSED, ARENA_INPUT_UNKNOWN_FACTION, 0),
+    };
+    with_sim(
+        submit_result(0, ARENA_INPUT_REFUSED, ARENA_INPUT_NO_ARENA, side as u8),
+        |sim| {
+            let Some(arena) = sim.arena.as_ref() else {
+                return submit_result(0, ARENA_INPUT_REFUSED, ARENA_INPUT_NO_ARENA, side as u8);
+            };
+            if arena.controls[side] != ARENA_CONTROL_HUMAN {
+                return submit_result(
+                    0, ARENA_INPUT_REFUSED, ARENA_INPUT_POLICY_CONTROLLED, side as u8,
+                );
+            }
+            let staged = StagedArenaInput { tick: sim.world.tick(), command: Some(command) };
+            ARENA_INPUT.with(|inputs| inputs.borrow_mut()[side] = staged);
+            submit_result(1, ARENA_OK, 0, side as u8)
+        },
+    )
+}
+
+fn other_arm(arm: LimbSlot) -> LimbSlot {
+    match arm {
+        LimbSlot::LeftArm => LimbSlot::RightArm,
+        LimbSlot::RightArm => LimbSlot::LeftArm,
+    }
+}
+
+fn arena_controller(
+    policy: Box<dyn Policy>,
+    control: u8,
+    side: usize,
+    primary: LimbSlot,
+    period: u32,
+) -> Result<Box<dyn Policy>, ArenaRefusal> {
+    if control == ARENA_CONTROL_POLICY {
+        return Ok(policy);
+    }
+    let sources: Vec<Box<dyn PartialCommandSource>> = vec![
+        Box::new(HostSource::new(side, primary)),
+        Box::new(CadencedEmbodiedSource::new(
+            policy,
+            CommandAuthority::arm(other_arm(primary)),
+            period,
+        )),
+    ];
+    ComposedController::new(sources)
+        .map(|controller| Box::new(controller) as Box<dyn Policy>)
+        // The two authorities above are disjoint and total by construction.
+        // Still return through the export's existing total refusal rather than
+        // letting a future edit poison the wasm instance with an `expect` trap.
+        .map_err(|_| ArenaRefusal::whole(ARENA_CONSTRUCTION_REFUSED))
 }
 
 /// One fighter block: its description, its policy code, an instance of it, and
@@ -8960,7 +9210,7 @@ mod tests {
         // in hand -- which is why the list below is walked out of an exhaustive
         // `match` rather than written down. See [`next_spec_error`].
         let spec_errors = every_spec_error();
-        // The fourteen that are not a spec error stay written out: they answer
+        // The fifteen that are not a spec error stay written out: they answer
         // to no enum, so a list of them is a list of them, and their
         // distinctness is the compile-time half.
         let mut codes = vec![
@@ -8968,7 +9218,7 @@ mod tests {
             ARENA_UNKNOWN_ANATOMY, ARENA_UNKNOWN_ITEM, ARENA_UNKNOWN_POLICY,
             ARENA_POLICY_UNAVAILABLE, ARENA_CONSTRUCTION_REFUSED, ARENA_RESERVATION_REFUSED,
             ARENA_NAME_TOO_LONG, ARENA_NO_CHECKPOINT, ARENA_UNKNOWN_CONTROL,
-            ARENA_CONTROL_UNAVAILABLE,
+            ARENA_CONTROL_UNAVAILABLE, ARENA_INPUT_REFUSED,
         ];
         codes.extend(spec_errors.iter().map(|&error| arena_spec_refusal(error).reason));
         let distinct = codes.iter().copied().collect::<std::collections::BTreeSet<_>>();
@@ -8999,9 +9249,8 @@ mod tests {
     #[test]
     fn an_unknown_control_byte_is_refused_by_name() {
         // **Bounded from both sides, which is what the two accepted values are
-        // worth having a test for at all.** `0` installs a fight, `1` is
-        // refused as the control this build cannot honour rather than as an
-        // unknown one, and `2` -- the first byte past the pair -- is where
+        // worth having a test for at all.** `0` and `1` install fights, and `2`
+        // -- the first byte past the pair -- is where
         // "unknown" starts. A test that only drove `2` would pass just as
         // happily if the parser accepted every byte below it.
         let mut config = sim::DuelConfigV1::shipped();
@@ -9016,11 +9265,8 @@ mod tests {
 
         write_arena_config(&config, kinds);
         poke_arena_config(ARENA_HEADER_BYTES + ARENA_FIGHTER_CONTROL, ARENA_CONTROL_HUMAN);
-        assert_eq!(
-            arena_start(3),
-            ArenaRefusal::fighter(ARENA_CONTROL_UNAVAILABLE, 0).packed(),
-            "the human control byte must be named as unavailable, not as unknown",
-        );
+        assert_eq!(arena_start(3) & 0xff, 1, "the human control byte was refused");
+        assert_eq!(arena_control(0), u32::from(ARENA_CONTROL_HUMAN));
 
         // Every byte that is neither, on both sides, so the boundary is the
         // pair and not the two values the test happened to pick.
@@ -9046,6 +9292,182 @@ mod tests {
         write_arena_config(&config, kinds);
         poke_arena_config(ARENA_HEADER_BYTES + ARENA_FIGHTER_RESERVED, 1);
         assert_eq!(arena_start(3), ArenaRefusal::fighter(ARENA_NONCANONICAL, 0).packed());
+    }
+
+    #[test]
+    fn a_side_that_is_not_human_refuses_a_staged_frame_by_name() {
+        let mut config = sim::DuelConfigV1::shipped();
+        config.max_ticks = 60;
+        write_arena_config(&config, [PolicyKind::Scripted, PolicyKind::Tactical]);
+        assert_eq!(arena_start(7) & 0xff, 1);
+        write_embodied(policy::neutral_command(&Observation::BLANK));
+
+        let policy = arena_stage_input(0);
+        let unknown = arena_stage_input(2);
+        assert_eq!((policy >> 8) as u8, ARENA_INPUT_REFUSED);
+        assert_eq!((policy >> 16) as u8, ARENA_INPUT_POLICY_CONTROLLED);
+        assert_eq!((unknown >> 8) as u8, ARENA_INPUT_REFUSED);
+        assert_eq!((unknown >> 16) as u8, ARENA_INPUT_UNKNOWN_FACTION);
+        assert_ne!(policy, unknown, "two different staging targets share one refusal");
+    }
+
+    #[test]
+    fn a_human_side_is_submitted_on_every_tick_rather_than_on_its_decision_period() {
+        let mut config = sim::DuelConfigV1::shipped();
+        config.max_ticks = 30;
+        write_arena_config(&config, [PolicyKind::Scripted, PolicyKind::Tactical]);
+        poke_arena_config(ARENA_HEADER_BYTES + ARENA_FIGHTER_CONTROL, ARENA_CONTROL_HUMAN);
+        assert_eq!(arena_start(11) & 0xff, 1);
+        let (hero, period, command) = with_sim(None, |sim| {
+            let hero = sim.arena.as_ref()?.driven[0]?;
+            let obs = sim.world.observe(hero);
+            Some((hero, u32::from(sim.world.stats(hero)?.decision_period()),
+                policy::neutral_command(&obs)))
+        }).expect("the human hero was installed");
+        assert!(period > 1, "the fixture cannot distinguish every tick from cadence");
+        write_embodied(command);
+        assert_eq!(arena_stage_input(0) & 0xff, 1);
+        step(8);
+
+        let ticks = ARENA_SUBMISSIONS.with(|rows| rows.borrow().iter()
+            .filter_map(|&(tick, id, _)| (id == hero).then_some(tick)).collect::<Vec<_>>());
+        assert_eq!(ticks, (0..8).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn a_human_driven_arena_fight_replays_from_its_recorded_commands() {
+        let mut config = sim::DuelConfigV1::shipped();
+        config.max_ticks = 20;
+        write_arena_config(&config, [PolicyKind::Scripted, PolicyKind::Tactical]);
+        poke_arena_config(ARENA_HEADER_BYTES + ARENA_FIGHTER_CONTROL, ARENA_CONTROL_HUMAN);
+        let seed = 19;
+        assert_eq!(arena_start(seed) & 0xff, 1);
+        for tick_index in 0..12 {
+            let obs = with_sim(Observation::BLANK, |sim| {
+                let hero = sim.arena.as_ref().and_then(|arena| arena.driven[0])
+                    .unwrap_or(EntityId::NONE);
+                sim.world.observe(hero)
+            });
+            let mut command = policy::neutral_command(&obs);
+            command.core.move_dir = if tick_index % 2 == 0 {
+                Vec2::new(Fx::ONE, Fx::ZERO)
+            } else {
+                Vec2::ZERO
+            };
+            write_embodied(command);
+            assert_eq!(arena_stage_input(0) & 0xff, 1);
+            step(1);
+        }
+        let (live_hash, live_tick) = with_sim((0, 0), |sim| {
+            (sim.world.state_hash(), sim.world.tick())
+        });
+        let rows = ARENA_SUBMISSIONS.with(|rows| rows.borrow().clone());
+        assert!(rows.iter().any(|&(_, id, _)| id != EntityId::NONE));
+
+        let scenario = Scenario::duel_from(&config).expect("the replay duel builds");
+        let mut replay = sim::Replay::new(&scenario, u64::from(seed));
+        let orders = RunConfig::default().orders;
+        replay.record_order(0, Faction::Heroes, orders[0]);
+        replay.record_order(0, Faction::Monsters, orders[1]);
+        replay.record_objective(0, Faction::Heroes, Objective::None);
+        replay.record_objective(0, Faction::Monsters, Objective::None);
+        for (tick, id, command) in rows {
+            replay.record_submitted(tick, id, sim::SubmittedCommand::Embodied(command));
+        }
+        replay.finish(live_tick);
+        assert_eq!(replay.play().state_hash(), live_hash);
+    }
+
+    #[test]
+    fn the_input_hold_is_bounded_from_both_sides() {
+        assert!(CONTROL_INPUT_MAX_HOLD_TICKS > 1, "one missed frame drops input immediately");
+        assert!(CONTROL_INPUT_MAX_HOLD_TICKS < 60, "a hidden page can drive for a second");
+    }
+
+    #[test]
+    fn a_held_input_expires_to_neutral_rather_than_to_its_last_value() {
+        let mut obs = Observation::BLANK;
+        obs.tick = 10;
+        let mut held = policy::neutral_command(&obs);
+        held.core.move_dir = Vec2::new(Fx::ONE, Fx::ZERO);
+        ARENA_INPUT.with(|inputs| inputs.borrow_mut()[0] =
+            StagedArenaInput { tick: 10, command: Some(held) });
+        let mut source = HostSource::new(0, LimbSlot::RightArm);
+
+        let mut live = policy::neutral_command(&obs);
+        source.contribute(&obs, &mut live);
+        assert_eq!(live.core.move_dir, held.core.move_dir);
+        obs.tick = 10 + CONTROL_INPUT_MAX_HOLD_TICKS - 1;
+        let mut last_live = policy::neutral_command(&obs);
+        source.contribute(&obs, &mut last_live);
+        assert_eq!(last_live.core.move_dir, held.core.move_dir);
+        obs.tick += 1;
+        let mut expired = policy::neutral_command(&obs);
+        source.contribute(&obs, &mut expired);
+        assert_eq!(expired.core.move_dir, Vec2::ZERO);
+    }
+
+    #[test]
+    fn the_primary_arm_is_the_only_strike_hand_else_right() {
+        let sword = sim::HandItemV1::shipped(sim::ActionKind::Sword).unwrap();
+        let shield = sim::HandItemV1::shipped(sim::ActionKind::Shield).unwrap();
+        let mut fighter = sim::DuelConfigV1::shipped().fighters[0];
+        fighter.hands = [None, Some(sword)];
+        assert_eq!(primary_arm_of(&fighter), LimbSlot::RightArm);
+        fighter.hands = [Some(sword), None];
+        assert_eq!(primary_arm_of(&fighter), LimbSlot::LeftArm);
+        fighter.hands = [Some(sword), Some(shield)];
+        assert_eq!(primary_arm_of(&fighter), LimbSlot::LeftArm);
+        fighter.hands = [Some(shield), Some(sword)];
+        assert_eq!(primary_arm_of(&fighter), LimbSlot::RightArm);
+        fighter.hands = [Some(sword), Some(sword)];
+        assert_eq!(primary_arm_of(&fighter), LimbSlot::RightArm);
+        fighter.hands = [Some(shield), None];
+        assert_eq!(primary_arm_of(&fighter), LimbSlot::RightArm);
+    }
+
+    #[test]
+    fn a_cadenced_source_asks_its_policy_on_exactly_the_ticks_the_runner_would() {
+        use std::cell::RefCell;
+        use std::rc::Rc;
+        struct CountingPolicy(Rc<RefCell<Vec<u32>>>);
+        impl Policy for CountingPolicy {
+            fn decide(&mut self, obs: &Observation) -> CommandV1 {
+                self.0.borrow_mut().push(obs.tick);
+                policy::neutral_command(obs)
+            }
+        }
+        let calls = Rc::new(RefCell::new(Vec::new()));
+        let mut source = CadencedEmbodiedSource::new(
+            Box::new(CountingPolicy(Rc::clone(&calls))),
+            CommandAuthority::arm(LimbSlot::LeftArm), 3,
+        );
+        for tick in 0..10 {
+            let mut obs = Observation::BLANK;
+            obs.tick = tick;
+            let mut command = policy::neutral_command(&obs);
+            source.contribute(&obs, &mut command);
+        }
+        assert_eq!(&*calls.borrow(), &[0, 3, 6, 9]);
+    }
+
+    #[test]
+    fn the_off_hand_keeps_the_swing_plane_its_policy_asked_for() {
+        struct PlanePolicy;
+        impl Policy for PlanePolicy {
+            fn decide(&mut self, obs: &Observation) -> CommandV1 {
+                let mut command = policy::neutral_command(obs);
+                command.swing_plane = [Angle::QUARTER, Angle::HALF];
+                command
+            }
+        }
+        let mut source = CadencedEmbodiedSource::new(
+            Box::new(PlanePolicy), CommandAuthority::arm(LimbSlot::LeftArm), 4,
+        );
+        let mut command = policy::neutral_command(&Observation::BLANK);
+        source.contribute(&Observation::BLANK, &mut command);
+        assert_eq!(command.swing_plane[0], Angle::QUARTER);
+        assert_eq!(command.swing_plane[1], Angle::ZERO);
     }
 
     #[test]
@@ -9088,14 +9510,9 @@ mod tests {
         // fight and the AI fight at one seed would be two different fixtures
         // and "can I do better than `tactical`?" would stop being answerable.
         //
-        // It cannot be written against `arena_start`, and the reason is worth
-        // stating rather than working around: a human side is refused, a
-        // refusal installs nothing, and `arena_fingerprint()` would answer the
-        // *previous* fight's number -- so the two words would agree for a
-        // reason that has nothing to do with the property. That is exactly the
-        // shape `AGENTS.md` calls a green test asserting something the code
-        // does not do. So the fingerprint is taken the way `install_arena`
-        // takes it, off the parse, with the install left out.
+        // Written through `arena_start`, because the control path now exists:
+        // comparing parse-only scenarios would miss an install-time leak and
+        // could pass while no human fight had ever been constructed.
         let mut config = sim::DuelConfigV1::shipped();
         config.max_ticks = 60;
         let kinds = [PolicyKind::Scripted, PolicyKind::Tactical];
@@ -9108,20 +9525,8 @@ mod tests {
                     control,
                 );
             }
-            let bytes = ARENA_CONFIG.with(|buffer| *buffer.borrow());
-            // `parse_arena_fighter` and not `install_arena`, so the control
-            // byte is taken past the parser and deliberately stopped short of
-            // the world -- which is the boundary this test is about.
-            let (fighter_a, _, _, control_a) =
-                parse_arena_fighter(&bytes, 0).expect("fighter 0 parses");
-            let (fighter_b, _, _, control_b) =
-                parse_arena_fighter(&bytes, 1).expect("fighter 1 parses");
-            let duel = sim::DuelConfigV1 {
-                fighters: [fighter_a, fighter_b],
-                max_ticks: config.max_ticks,
-            };
-            let scenario = Scenario::duel_from(&duel).expect("the duel builds");
-            (scenario.try_fingerprint().expect("the duel names itself"), [control_a, control_b])
+            assert_eq!(arena_start(31) & 0xff, 1, "the control pair was not installable");
+            (arena_fingerprint(), [arena_control(0) as u8, arena_control(1) as u8])
         };
 
         let (both_policy, policy_controls) =
@@ -9211,6 +9616,20 @@ mod tests {
             Some(sim::HandItemV1::shipped(sim::ActionKind::Shield).expect("a shipped shield"));
         write_arena_config(&conflicted, kinds);
         assert_eq!(arena_start(3), ArenaRefusal::whole(ARENA_GRIP_CONFLICT).packed());
+    }
+
+    #[test]
+    fn a_fight_with_no_human_side_takes_the_pending_loop_unchanged() {
+        let mut config = sim::DuelConfigV1::shipped();
+        config.max_ticks = 90;
+        let kinds = [PolicyKind::Scripted, PolicyKind::Tactical];
+        write_arena_config(&config, kinds);
+        assert_eq!(arena_start(37) & 0xff, 1);
+        assert_eq!(arena_control(0), u32::from(ARENA_CONTROL_POLICY));
+        assert_eq!(arena_control(1), u32::from(ARENA_CONTROL_POLICY));
+        step(config.max_ticks);
+        let scenario = Scenario::duel_from(&config).expect("the control duel builds");
+        assert_eq!(arena_state(), the_lab_loop(&scenario, 37, kinds));
     }
 
     #[test]
@@ -9520,22 +9939,7 @@ mod tests {
         poke_arena_config(ARENA_HEADER_BYTES + ARENA_FIGHTER_BYTES + ARENA_FIGHTER_CONTROL, 255);
         assert_eq!(arena_start(9), ArenaRefusal::fighter(ARENA_UNKNOWN_CONTROL, 1).packed());
 
-        // 15. A control byte this build knows and cannot honour, on each side,
-        // which is what arena-02 exists to refuse rather than to run.
-        for index in 0..ARENA_FIGHTERS {
-            write_arena_config(&config, kinds);
-            poke_arena_config(
-                ARENA_HEADER_BYTES + index * ARENA_FIGHTER_BYTES + ARENA_FIGHTER_CONTROL,
-                ARENA_CONTROL_HUMAN,
-            );
-            assert_eq!(
-                arena_start(9),
-                ArenaRefusal::fighter(ARENA_CONTROL_UNAVAILABLE, index).packed(),
-                "a human side was not refused by name",
-            );
-        }
-
-        // Twenty-two refused calls covering fourteen reasons later, the fight
+        // The refused calls later, the fight
         // that was running is still running: not one of them touched `SIM`,
         // republished a frame, or moved a tick.
         //

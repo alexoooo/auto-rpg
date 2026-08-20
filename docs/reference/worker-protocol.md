@@ -27,7 +27,7 @@ guessing which request they belong to. **V1 is accepted for the lifetime of an e
 session, and this document is where that commitment lives.** It was made in
 `articulated-mechanical-gate.md`, which is now a historical record of a gate on a
 deleted combat model -- a promise a live session depends on does not live in one.
-The two V2-only kinds are refused at V1 by name rather than as malformed messages,
+The V2-only kinds are refused at V1 by name rather than as malformed messages,
 because "your session is a V1 session" and "your message is invalid" are different
 instructions.
 
@@ -50,7 +50,8 @@ safe integers. Unknown fields are ignored, but missing, fractional, coerced, or
 out-of-range fields fail closed.
 
 Client requests are `init`, `reset`, `setPaused`, `advance`, `command`,
-`returnSnapshot`, and — at V2 only — `arenaStart` and `arenaCancel`. Commands are
+`returnSnapshot`, and — at V2 only — `arenaStart`, `arenaInput`, `arenaChunkAck`
+and `arenaCancel`. Commands are
 `goto`, `withdraw`, `spawn`, `respawn`, `setControl`, or `setInput`.
 Configured game spawns accept Fighter 0 or Brute 2 with a Sword 2 or Shield 4
 primary; the secondary accepts those codes or Empty 255. Empty primary is refused
@@ -62,13 +63,13 @@ does not echo an unaccepted request. Init/reset release direct Movement ownershi
 and stage an all-zero input before the first snapshot; mouse orders are the default.
 Worker responses are
 `ready`, `pauseChanged`, `advanceAck`, `commandAck`, `snapshot`, `bufferReturned`,
-`error`, `terminated`, and — at V2 only — `arenaOpened`, `arenaChunk`, `arenaFinished`
-and `arenaRejected`. The complete field declarations live in
+`error`, `terminated`, and — at V2 only — `arenaOpened`, `arenaChunk`,
+`arenaInputAck`, `arenaFinished` and `arenaRejected`. The complete field declarations live in
 [`messages.ts`](../../client/src/protocol/messages.ts#L1); runtime decoders validate
 both directions because TypeScript types are not a trust boundary. That is three
 decoders and not two: `decodeClientMessage` for what the worker is told,
 `decodeWorkerMessage` in `sim-client.ts` for what the game client is told, and
-`decodeArenaMessage` in `arena-client.ts` for the four arena kinds. The third was
+`decodeArenaMessage` in `arena-client.ts` for the five arena stream kinds. The third was
 owed rather than optional — this document claimed it while `ArenaClient` was casting
 `raw as FightRecordingMessage`, and the failure a cast lets through here is not a
 `TypeError` but a missing field that makes every index in the chunk decoder answer
@@ -199,7 +200,7 @@ which it does by name through the twenty-seven codes in
 allocating call in that set: it belongs in the same warm-up as `init`,
 before any typed array over the pose buffer exists.
 
-The drive is `step(1)` per tick, because `combat_event_len` is cleared per host
+The spectator drive is `step(1)` per tick, because `combat_event_len` is cleared per host
 **call** rather than per publication, so a per-tick event index requires it. It yields
 to the event loop every `RECORDING_CHUNK_TICKS` ticks: a worker services no message
 while JavaScript is on the stack, so a single uninterrupted 3,600-tick loop would be a
@@ -214,6 +215,42 @@ the drive is between two yields.
 are not taken back and no `arenaFinished` follows**: the frames that crossed are the
 part of the fight the reader watched, and a fight that was stopped has no outcome for a
 finish message to carry.
+
+A controlled fight starts with frame zero, then waits for `arenaInput`. The studio sends
+exactly one freshly sampled tick at a time and drains elapsed backlog only after its
+acknowledgement, so 30, 60, 120 and 144 Hz stage the same yaw sequence. The transport
+still accepts a defensive bounded batch: one sampled
+61-byte embodied command carries a bounded `ticksDue` of at most
+`MAX_CONTROLLED_BATCH_TICKS` (15). The worker stages it once, calls `step(1)`, captures
+and posts once per due tick, and returns the exact stepped count in `arenaInputAck`.
+Only one input batch is in flight. The main-thread 60 Hz clock keeps elapsed time queued
+until that acknowledgement, so worker stalls delay the fight rather than discard time.
+
+Controlled chunks are exact non-transferred structured clones under a fixed three-credit
+in-flight window. `arenaChunkAck` names the adopted chunk's `firstFrame`; only then is a
+credit returned. This acknowledgement is separate from `arenaInputAck`: adopting a buffer and
+committing elapsed clock time are different ownership events. Spectator chunks retain
+their transferred-buffer path. Exhausting all three controlled credits stalls publication
+and simulation until an acknowledgement, so neither path coalesces or allocates without
+bound in flight. Each tick still allocates its durable recording copy; reusable
+transfer-return buffers are a future performance optimization, not a property claimed by
+this protocol.
+
+`ticksDue: 0` is the stage-only stop command: it validates and stages neutral input,
+acknowledges zero stepped ticks, and publishes no frame. Blur, hidden visibility,
+pointer-lock loss and pause send it asynchronously as soon as any previous tick settles,
+without waiting for another animation frame. A newer resume invalidates that stop so a
+late neutral acknowledgement cannot pause fresh input.
+
+Normal completion waits until every outstanding controlled chunk has been acknowledged
+before posting `arenaFinished` and clearing its credit set. Cancellation wakes the same
+wait without turning a late, valid final credit into an `invalidMessage` error.
+
+The protocol tag remains V2 because the main and worker ship in one bundle and the only
+compatibility promise is an exact V1 session. The widened live stream is nevertheless
+self-describing and fail-fast: `arenaOpened` declares `arenaStreamLayoutVersion`,
+`recordingIndexStride`, and the stance layout, stride and capacity before any chunk is
+accepted. A mismatch terminates the arena client by name rather than waiting forever.
 
 <!-- DOC_CONTRACT: worker-recording-transfer -->
 ### The recording, and why it is not the pooled buffer
@@ -230,16 +267,16 @@ not a tidy-up. Everything below it was rewritten instead.
 
 | message | when | carries |
 |---|---|---|
-| `arenaOpened` | after `arena_start` returns and the first publication is read, before the first step | `spectator: true`, `one`, `scenario`, `fingerprint`, `seed`, `heroes`, `monsters`, `checkpoint`, `maxTicks`, `arena`, the four layout versions and strides, the two thresholds, the name lists, and the per-body anatomy and carried blocks |
-| `arenaChunk` | every `ARENA_STREAM_CHUNK_TICKS` | **six** `ArrayBuffer`s holding only that chunk's frames, plus `firstFrame` and `frameCount` |
-| `arenaFinished` | when the drive settles or caps out | `outcome`, `timedOut`, `ticks`, `frameCount`, `recordingTruncated`, and the four drop counters |
+| `arenaOpened` | after `arena_start` returns and the first publication is read, before the first step | `spectator: true`, stream/index and publication layout declarations, `one`, `scenario`, `fingerprint`, `seed`, honest side-driver labels, `checkpoint`, `maxTicks`, `arena`, the two thresholds, the name lists, and the per-body anatomy and carried blocks |
+| `arenaChunk` | every `ARENA_STREAM_CHUNK_TICKS`, or each controlled tick | **seven** `ArrayBuffer`s holding only that chunk's frames, plus `firstFrame` and `frameCount` |
+| `arenaFinished` | when the drive settles or caps out | `outcome`, `timedOut`, `ticks`, `frameCount`, `recordingTruncated`, and the five drop counters |
 
 **`arenaProgress` was deleted rather than kept beside these.** It carried a tick count so
 a page could show a bar while it waited for a fight it could not yet see; a chunk already
 says how far the fight has got, and the page is *drawing* that frame. Two messages
 answering one question is how one of them goes stale.
 
-**The count of buffers in a chunk is six and this table used to say five.** The section
+**The count of buffers in a chunk is seven and this table used to say five.** The section
 it replaced listed `poses`, `regions`, `events`, `index` and `health` and omitted
 `projectiles`, which the code had transferred since the row existed. Count from the list
 below, never from a sentence.
@@ -250,8 +287,14 @@ below, never from a sentence.
 | `regions` | `u32` | region rows, packed, `REGION_STRIDE` words each |
 | `projectiles` | `u32` | articulated-projectile rows, `ARTICULATED_PROJECTILE_STRIDE` words each |
 | `events` | `u32` | combat-event rows, packed, `COMBAT_EVENT_STRIDE` words each |
-| `index` | `u32` | **nine** words a frame: tick, then a start and a count per section |
+| `stances` | `u32` | live embodied-stance rows, joined to poses by full `(index, generation)` identity |
+| `index` | `u32` | **eleven** words a frame: tick, then a start and a count per section |
 | `health` | `i32` | two raw `Fx` a frame: the Heroes' and the Monsters' health fraction |
+
+Stance is optional live presentation data and does not widen `TRACE_SCHEMA` or lab JSON.
+Old trace frames therefore have no `stances` field. A live stance row that matches only
+an index but not its generation is refused; stance length is not assumed to be a fixed
+multiple of pose length.
 
 It does not use the snapshot pool, for three independently sufficient reasons: the pool
 zero-fills a whole buffer on every return and is sized for one publication; it
@@ -425,13 +468,13 @@ weakest of the three rules. Four links in the tree have that shape. An
 anchor is a hint and not a contract; check the symbol is on the line before quoting
 one.
 
-- Protocol declarations and input decoder: [`messages.ts`](../../client/src/protocol/messages.ts#L1), [`decodeClientMessage`](../../client/src/protocol/messages.ts#L403)
+- Protocol declarations and input decoder: [`messages.ts`](../../client/src/protocol/messages.ts#L1), [`decodeClientMessage`](../../client/src/protocol/messages.ts#L426)
 - Fixed buffer pool: [`FixedBufferPool`](../../client/src/runtime/buffer-pool.ts#L22)
 - Pure worker state machine: [`SimWorkerHost`](../../client/src/runtime/sim-worker-host.ts#L55)
 - Main-thread request and lease owner: [`SimClient`](../../client/src/runtime/sim-client.ts#L122)
 - Snapshot validator and disclosure filter: [`SnapshotFilterState`](../../client/src/state/snapshot.ts#L59)
 - Real wasm adapter: [`readPublication`](../../client/src/runtime/sim.worker.ts#L94)
 - Generated offsets and capacities: [`abi.generated.ts`](../../client/src/protocol/abi.generated.ts#L1)
-- The streaming drive and its caps: [`recordArenaFight`](../../client/src/runtime/arena-recorder.ts#L577)
+- The streaming drive and its caps: [`recordArenaFight`](../../client/src/runtime/arena-recorder.ts#L640)
 - The arena's main-thread client and its decoder: [`decodeArenaMessage`](../../client/src/runtime/arena-client.ts#L89)
-- The stream's reader: [`StreamingFightSource`](../../client/src/fight/live.ts#L407)
+- The stream's reader: [`StreamingFightSource`](../../client/src/fight/live.ts#L455)

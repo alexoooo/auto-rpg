@@ -580,6 +580,8 @@ test("the boundary exports everything the client calls", () => {
     "arena_fingerprint_lo",
     "arena_fingerprint_hi",
     "arena_policy",
+    "arena_control",
+    "arena_stage_input",
     // The fetched network, v2-ui-08's eight. Same argument again and sharper
     // than most: `checkpoint_installed()` reading `undefined >>> 0` is `0`,
     // which is "nothing loaded" -- so a renamed export would turn every learned
@@ -2586,6 +2588,9 @@ const ARENA_UNKNOWN_POLICY = 6;
 const ARENA_NO_EQUIPMENT = 24;
 const ARENA_UNKNOWN_CONTROL = 28;
 const ARENA_CONTROL_UNAVAILABLE = 29;
+const ARENA_INPUT_REFUSED = 30;
+const ARENA_INPUT_UNKNOWN_FACTION = 1;
+const ARENA_INPUT_POLICY_CONTROLLED = 2;
 // **Two reason codes are declared, reserved and produced by nothing**, and this
 // file checks the second half of that rather than taking it on trust.
 // `ARENA_POLICY_UNAVAILABLE` was the answer a code `crates/policy` could not
@@ -2718,7 +2723,7 @@ test("a configured duel runs inside the module and refuses by name", () => {
   for (const name of [
     "arena_config_ptr", "arena_config_len", "arena_config_layout_version",
     "arena_start", "arena_fingerprint_lo", "arena_fingerprint_hi", "arena_policy",
-    "arena_control",
+    "arena_control", "arena_stage_input",
   ]) {
     assert.equal(typeof wasm[name], "function", `web.wasm does not export ${name}()`);
   }
@@ -2748,8 +2753,8 @@ test("a configured duel runs inside the module and refuses by name", () => {
   assert.equal(u32(wasm.arena_policy(1)), TACTICAL);
   // The control byte reads back beside the policy byte, which is what lets a
   // recorder label a fight with what it is running rather than with what it
-  // sent. Both sides are `ARENA_CONTROL_POLICY` because a human side is
-  // refused; the refusal is in the sweep below.
+  // sent. Both sides in this fixture are policy-controlled; the human path is
+  // exercised separately below.
   assert.equal(u32(wasm.arena_control(0)), ARENA_CONTROL_POLICY);
   assert.equal(u32(wasm.arena_control(1)), ARENA_CONTROL_POLICY);
   // The legacy registry says it does not know rather than naming a `PolicyKind`
@@ -2830,14 +2835,6 @@ test("a configured duel runs inside the module and refuses by name", () => {
     ["a control byte past the two this build knows", (bytes) => {
       bytes[ARENA_HEADER_BYTES + ARENA_FIGHTER_CONTROL] = 2;
     }, { reason: ARENA_UNKNOWN_CONTROL, fighter: 0, slot: ARENA_WHOLE_CONFIG }],
-    // **The refusal arena-02 exists for.** The configuration can spell "this
-    // side is driven by a person" one session before `advance_arena` can act on
-    // it, so the honest answer is a refusal naming the fighter -- not a fight
-    // in which the policy quietly drives the body the reader asked to drive.
-    // arena-05 deletes it; the number stays spent.
-    ["a human side with no input path in this build", (bytes) => {
-      bytes[ARENA_HEADER_BYTES + ARENA_FIGHTER_BYTES + ARENA_FIGHTER_CONTROL] = ARENA_CONTROL_HUMAN;
-    }, { reason: ARENA_CONTROL_UNAVAILABLE, fighter: 1, slot: ARENA_WHOLE_CONFIG }],
     // Byte 3 did not stop being reserved when byte 2 did, which is the half of
     // a layout bump that is easy to lose: it still answers the *other* refusal.
     ["a reserved byte beside the control byte", (bytes) => {
@@ -2891,6 +2888,43 @@ test("a configured duel runs inside the module and refuses by name", () => {
   wasm.init(1);
   assert.equal(u32(wasm.arena_policy(0)), NO_POLICY);
   assert.equal(u32(wasm.arena_control(0)), NO_CONTROL);
+});
+
+test("arena input is staged only for the named human side", () => {
+  const policyConfig = shippedArena();
+  policyConfig.maxTicks = 20;
+  stageArena(arenaBytes(policyConfig));
+  assert.equal(arenaResult(wasm.arena_start(23)).outcome, 1);
+  const policyFingerprint = arenaFingerprint();
+  new Uint8Array(wasm.memory.buffer, u32(wasm.embodied_command_ptr()),
+                 EMBODIED_COMMAND_BYTES).set(EMBODIED_COMMAND_FIXTURE);
+
+  assert.deepEqual(arenaResult(wasm.arena_stage_input(0)), {
+    outcome: 0, reason: ARENA_INPUT_REFUSED,
+    fighter: ARENA_INPUT_POLICY_CONTROLLED, slot: 0,
+  });
+  assert.deepEqual(arenaResult(wasm.arena_stage_input(2)), {
+    outcome: 0, reason: ARENA_INPUT_REFUSED,
+    fighter: ARENA_INPUT_UNKNOWN_FACTION, slot: 0,
+  });
+
+  const humanConfig = shippedArena();
+  humanConfig.maxTicks = 20;
+  humanConfig.fighters[0].control = ARENA_CONTROL_HUMAN;
+  stageArena(arenaBytes(humanConfig));
+  assert.equal(arenaResult(wasm.arena_start(23)).outcome, 1,
+    "a human-controlled side was refused at construction");
+  assert.equal(u32(wasm.arena_control(0)), ARENA_CONTROL_HUMAN);
+  assert.equal(arenaFingerprint(), policyFingerprint,
+    "the host-control byte reached the scenario fingerprint");
+  new Uint8Array(wasm.memory.buffer, u32(wasm.embodied_command_ptr()),
+                 EMBODIED_COMMAND_BYTES).set(EMBODIED_COMMAND_FIXTURE);
+  assert.deepEqual(arenaResult(wasm.arena_stage_input(0)), {
+    outcome: 1, reason: 0, fighter: 0, slot: 0,
+  });
+  wasm.step(1);
+  assert.equal(u32(wasm.tick()), 1, "the staged human fight did not advance");
+  wasm.init(1);
 });
 
 // The two holes v2-ui-05's review found, both of them first demonstrated

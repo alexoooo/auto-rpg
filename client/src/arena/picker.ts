@@ -116,22 +116,7 @@ export type ControlCode = "policy" | "human";
  * second person, because a dropdown is read by the person it is offering.
  */
 export const HUMAN_CONTROL = "human";
-export const HUMAN_CONTROL_LABEL = "you (keyboard and mouse)";
-
-/**
- * Whether this build has an arena input path for a human side.
- *
- * **`false`, and arena-05 is what deletes it along with the refusal below.**
- * It is a constant rather than a capability read off the wasm module on
- * purpose: the module *does* know -- `arena_start` answers
- * `ARENA_CONTROL_UNAVAILABLE` -- but the picker's whole job is to refuse before
- * the button, and asking the worker would mean instantiating wasm to find out
- * whether a dropdown may be honoured. `review` stays pure; the module's refusal
- * is the second net under it, and `an_unknown_control_byte_is_refused_by_name`
- * and case 15 of `arena_start_refuses_and_installs_nothing` are what say the
- * two agree.
- */
-const CONTROL_AVAILABLE = false;
+export const HUMAN_CONTROL_LABEL = "you (keyboard; hand reserved)";
 
 /** Which arena context is asking for checkpoint and validation copy. */
 export type FightMode = "recording" | "live";
@@ -176,6 +161,13 @@ export interface SideChoice {
    */
   readonly policy: PolicyCode;
   readonly control: ControlCode;
+}
+
+/** The configured strike hand, falling back to Right exactly as the host does. */
+export function humanArmOf(side: SideChoice): "left" | "right" {
+  if (side.right !== "empty" && side.right !== "shield") return "right";
+  if (side.left !== "empty" && side.left !== "shield") return "left";
+  return "right";
 }
 
 export interface Matchup {
@@ -316,37 +308,24 @@ export function review(matchup: Matchup, mode: FightMode): Review {
   if (matchup.a.control === "human" && matchup.b.control === "human") {
     return {
       refusal: "Fighter A and Fighter B are both set to be driven by you, and this page has "
-        + "one keyboard and one pointer. Set one of the two back to a policy.",
+        + "one keyboard and one reserved hand-control channel. Set one of the two back to a policy.",
       notes: [],
     };
   }
 
-  // The pointer aims the right hand, so a human side with an empty one is a
-  // reader holding a mouse that commands nothing. Named as the hand rather than
-  // as "invalid", and it names which hand, because the fix is a dropdown away.
+  // The configured strike hand, else Right, is reserved for direct control in
+  // session 06 -- the same rule `arena_start` uses when it constructs authority.
   for (const [label, side] of sides(matchup)) {
     if (side.control !== "human") continue;
-    if (side.right === "empty") {
+    const arm = humanArmOf(side);
+    if (side[arm] === "empty") {
       return {
-        refusal: `${label} is set to be driven by you, but its right hand is empty and the `
-          + `right hand is the one the pointer aims. Give ${label} a weapon in its right hand, `
+        refusal: `${label} is set to be driven by you, but its ${arm} hand is empty and the `
+          + `${arm} hand is reserved for direct control. Give ${label} a weapon in that hand, `
           + `or hand ${label} back to a policy.`,
         notes: [],
       };
     }
-  }
-
-  // The build that cannot honour it yet. Deleted by arena-05, and it is the
-  // reason this session is allowed to ship the control at all: a choice the
-  // configuration carries and nothing can act on comes back as a named refusal
-  // rather than as a fight the policy quietly drove.
-  if (!CONTROL_AVAILABLE && (matchup.a.control === "human" || matchup.b.control === "human")) {
-    return {
-      refusal: "A side is set to be driven by you, and this build has no input path for the "
-        + "arena yet: arena_start would refuse it with ARENA_CONTROL_UNAVAILABLE. Set both "
-        + "sides to a policy.",
-      notes: [],
-    };
   }
 
   const notes: string[] = [];

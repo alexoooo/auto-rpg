@@ -3,7 +3,7 @@ import {
   MAX_CATCHUP_TICKS, MAX_ELAPSED_MICROS, MAX_FUTURE_TICKS, MAX_QUEUED_COMMANDS,
   LEGACY_WORKER_PROTOCOL_VERSION, TICKS_PER_SECOND, WORKER_PROTOCOL_VERSION,
   decodeClientMessage, isU32,
-  type ArenaRejectReason, type ArenaStartMessage, type ClientMessage,
+  type ArenaInputMessage, type ArenaRejectReason, type ArenaStartMessage, type ClientMessage,
   type CommandAckMessage, type CommandMessage, type ErrorMessage,
   type LegacyClientCommand, type ProtocolErrorCode, type ProtocolVersion,
   type ReturnSnapshotMessage, type SnapshotMessage, type WorkerMessage,
@@ -14,7 +14,7 @@ import { RevisionExhaustedError, SnapshotFilterState, validateLegacyPublication,
 import {
   ARENA_CONFIG_BYTES, ARENA_CONFIG_LAYOUT_VERSION, decodeArenaConfig,
 } from "./arena-config.js";
-import { recordArenaFight, type ArenaWasmAdapter } from "./arena-recorder.js";
+import { ARENA_CONTROLLED_CHUNK_CREDITS, recordArenaFight, type ArenaWasmAdapter } from "./arena-recorder.js";
 
 export interface LegacyWasmAdapter {
   init(seed: number): void;
@@ -71,6 +71,12 @@ export class SimWorkerHost {
   /** An arena recording is in flight for this request id. */
   private arenaRequestId: number | null = null;
   private arenaCancelled = false;
+  private arenaInputWaiter: ((input: ArenaInputMessage | null) => void) | null = null;
+  private arenaQueuedInput: ArenaInputMessage | null = null;
+  private arenaInputBusy = false;
+  private readonly arenaChunksOutstanding = new Set<number>();
+  private readonly arenaChunkWaiters: (() => void)[] = [];
+  private arenaChunksDrainedWaiter: (() => void) | null = null;
   /** An arena session has run here, so this worker is not a game worker. */
   private arenaSession = false;
   /** A game session has been initialized here, so this worker is not an arena. */
@@ -146,11 +152,21 @@ export class SimWorkerHost {
     }
     if (message.kind === "returnSnapshot") return this.returnSnapshot(message);
     if (message.kind === "arenaStart") return this.arenaStart(message);
+    if (message.kind === "arenaInput") return this.arenaInput(message);
+    if (message.kind === "arenaChunkAck") return this.arenaChunkAck(message);
     if (message.kind === "arenaCancel") {
       // Idempotent and unacknowledged when nothing is recording. A reader who
       // pressed [Fight] and then navigated has no recording to stop, and a
       // refusal for that would be a message the page has nowhere to put.
       if (this.arenaRequestId !== null) this.arenaCancelled = true;
+      this.arenaInputWaiter?.(null);
+      this.arenaInputWaiter = null;
+      // A controlled recorder can be parked behind its three unacknowledged
+      // chunk credits rather than behind input. Cancellation must wake that path too;
+      // the recorder observes `cancelled` before it advances another tick.
+      for (const release of this.arenaChunkWaiters.splice(0)) release();
+      this.arenaChunksDrainedWaiter?.();
+      this.arenaChunksDrainedWaiter = null;
       return;
     }
     if (!this.gameSession) {
@@ -253,6 +269,7 @@ export class SimWorkerHost {
     this.arenaSession = true;
     this.arenaRequestId = message.requestId;
     this.arenaCancelled = false;
+    const controlled = config.fighters.some((fighter) => fighter.control === 1);
     try {
       const wasm = this.wasm ?? await this.factory();
       if (this.fatal || this.terminated) return;
@@ -266,22 +283,32 @@ export class SimWorkerHost {
             this.send({ kind: "arenaOpened", version: WORKER_PROTOCOL_VERSION,
               requestId: message.requestId, ...opened });
           },
-          // **Six buffers, transferred, per chunk.** The count is read off this
-          // list and not off a sentence: the reference said five for two
-          // sessions while the code moved six, because `projectiles` was
-          // omitted from a table nobody re-counted.
+          // **Seven buffers per chunk.** Spectator recordings transfer them;
+          // controlled recordings allow three non-transferred exact copies in
+          // flight until the main thread acknowledges adoption. Count from this list: prose has
+          // already omitted a publication once.
           onChunk: (chunk) => {
             if (this.fatal || this.terminated) return;
+            if (controlled) this.arenaChunksOutstanding.add(chunk.firstFrame);
             this.send({ kind: "arenaChunk", version: WORKER_PROTOCOL_VERSION,
               requestId: message.requestId, ...chunk },
-            [chunk.poses, chunk.regions, chunk.projectiles,
-              chunk.events, chunk.index, chunk.health]);
+            controlled ? undefined : [chunk.poses, chunk.regions, chunk.projectiles,
+              chunk.events, chunk.stances, chunk.index, chunk.health]);
           },
           // A macrotask and not a microtask. A worker services no message while
           // JavaScript is on the stack, and a microtask queue drains before the
           // event loop turns -- so `queueMicrotask` here would yield to nothing
           // and cancel would arrive after the fight had already finished.
           yieldToMessages: () => new Promise<void>((resolve) => { setTimeout(resolve, 0); }),
+          ...(controlled ? {
+            nextInput: () => this.nextArenaInput(),
+            beforeChunk: () => this.waitForArenaChunkSlot(),
+          } : {}),
+          onInputSettled: (requestId, steppedTicks) => {
+            this.arenaInputBusy = false;
+            this.send({ kind: "arenaInputAck", version: WORKER_PROTOCOL_VERSION,
+              requestId, arenaRequestId: message.requestId, steppedTicks });
+          },
         },
         () => this.arenaCancelled,
       );
@@ -293,6 +320,10 @@ export class SimWorkerHost {
         // this channel does not invent one.
         return this.arenaRejected(message.requestId, result.reason, result.packed, result.detail);
       }
+      if (controlled && !(await this.waitForArenaChunksDrained())) {
+        return this.arenaRejected(message.requestId, "cancelled", 0,
+          "the controlled fight was cancelled while its final chunk was being adopted");
+      }
       this.send({ kind: "arenaFinished", version: WORKER_PROTOCOL_VERSION,
         requestId: message.requestId, ...result.finished });
     } catch (error) {
@@ -300,6 +331,71 @@ export class SimWorkerHost {
     } finally {
       this.arenaRequestId = null;
       this.arenaCancelled = false;
+      this.arenaQueuedInput = null;
+      this.arenaInputWaiter = null;
+      this.arenaInputBusy = false;
+      this.arenaChunksOutstanding.clear();
+      for (const release of this.arenaChunkWaiters.splice(0)) release();
+      this.arenaChunksDrainedWaiter?.();
+      this.arenaChunksDrainedWaiter = null;
+    }
+  }
+
+  private arenaInput(message: ArenaInputMessage): void {
+    if (this.arenaRequestId === null || message.arenaRequestId !== this.arenaRequestId) {
+      return this.error(message.requestId, "notInitialized", false,
+        `arena input names request ${message.arenaRequestId}, but no such fight is running`);
+    }
+    if (this.arenaInputBusy) {
+      return this.error(message.requestId, "invalidMessage", false,
+        "only one controlled input batch may be in flight");
+    }
+    this.arenaInputBusy = true;
+    const waiter = this.arenaInputWaiter;
+    if (waiter !== null) {
+      this.arenaInputWaiter = null;
+      waiter(message);
+    } else this.arenaQueuedInput = message;
+  }
+
+  private async nextArenaInput(): Promise<import("./arena-recorder.js").ArenaControlInput | null> {
+    if (this.arenaCancelled) return Promise.resolve(null);
+    const queued = this.arenaQueuedInput;
+    if (queued !== null) {
+      this.arenaQueuedInput = null;
+      return { requestId: queued.requestId, faction: queued.faction,
+        ticksDue: queued.ticksDue, bytes: new Uint8Array(queued.bytes) };
+    }
+    const message = await new Promise<ArenaInputMessage | null>((resolve) => {
+      this.arenaInputWaiter = resolve;
+    });
+    return message === null ? null : { requestId: message.requestId, faction: message.faction,
+      ticksDue: message.ticksDue, bytes: new Uint8Array(message.bytes) };
+  }
+
+  private waitForArenaChunkSlot(): Promise<void> {
+    if (this.arenaChunksOutstanding.size < ARENA_CONTROLLED_CHUNK_CREDITS) return Promise.resolve();
+    return new Promise((resolve) => { this.arenaChunkWaiters.push(resolve); });
+  }
+
+  private waitForArenaChunksDrained(): Promise<boolean> {
+    if (this.arenaCancelled) return Promise.resolve(false);
+    if (this.arenaChunksOutstanding.size === 0) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      this.arenaChunksDrainedWaiter = () => { resolve(!this.arenaCancelled); };
+    });
+  }
+
+  private arenaChunkAck(message: Extract<ClientMessage, { kind: "arenaChunkAck" }>): void {
+    if (message.arenaRequestId !== this.arenaRequestId
+      || !this.arenaChunksOutstanding.delete(message.firstFrame)) {
+      return this.error(message.requestId, "invalidMessage", false,
+        `arena chunk ${message.firstFrame} is not outstanding for request ${message.arenaRequestId}`);
+    }
+    this.arenaChunkWaiters.shift()?.();
+    if (this.arenaChunksOutstanding.size === 0) {
+      this.arenaChunksDrainedWaiter?.();
+      this.arenaChunksDrainedWaiter = null;
     }
   }
 

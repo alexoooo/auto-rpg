@@ -12,7 +12,7 @@
 // `SimWorkerHost` refuses the mixture by name in both directions.
 
 import type {
-  ArenaChunkMessage, ArenaFinishedMessage, ArenaOpenedMessage, ArenaRejectedMessage,
+  ArenaChunkMessage, ArenaFinishedMessage, ArenaInputAckMessage, ArenaOpenedMessage, ArenaRejectedMessage,
   ErrorMessage, TerminatedMessage,
 } from "../protocol/messages.js";
 import {
@@ -40,7 +40,7 @@ export class ArenaRefused extends Error {}
 
 /** The six kinds this client answers, and nothing else reaches `#receive`. */
 type ArenaWorkerMessage = ArenaOpenedMessage | ArenaChunkMessage | ArenaFinishedMessage
-  | ArenaRejectedMessage | ErrorMessage | TerminatedMessage;
+  | ArenaInputAckMessage | ArenaRejectedMessage | ErrorMessage | TerminatedMessage;
 
 /**
  * What a decode answered: a message, a named version refusal, or nothing legible.
@@ -54,9 +54,11 @@ type ArenaWorkerMessage = ArenaOpenedMessage | ArenaChunkMessage | ArenaFinished
 type ArenaDecode =
   | { readonly ok: true; readonly message: ArenaWorkerMessage }
   | { readonly ok: false; readonly legacy: true; readonly detail: string }
-  | { readonly ok: false; readonly legacy: false };
+  | { readonly ok: false; readonly legacy: false; readonly malformed: false }
+  | { readonly ok: false; readonly legacy: false; readonly malformed: true;
+      readonly requestId: number; readonly detail: string };
 
-const UNREADABLE: ArenaDecode = { ok: false, legacy: false };
+const UNREADABLE: ArenaDecode = { ok: false, legacy: false, malformed: false };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
@@ -64,6 +66,7 @@ const isString = (value: unknown): value is string => typeof value === "string";
 const isBuffer = (value: unknown): value is ArrayBuffer => value instanceof ArrayBuffer;
 const arenaRejectReasons = new Set([
   "wrongModel", "unknownLayout", "invalidArenaConfig", "arenaBusy", "checkpointRefused", "cancelled",
+  "inputRefused",
 ]);
 const errorCodes = new Set([
   "unknownVersion", "notInitialized", "alreadyInitialized", "invalidMessage",
@@ -71,7 +74,7 @@ const errorCodes = new Set([
   "leaseTokenExhausted", "revisionExhausted", "wasmAbiMismatch", "wasmTrap",
 ]);
 /** The four kinds that exist only at V2, so a V1 one can be named rather than dropped. */
-const V2_ONLY = new Set(["arenaOpened", "arenaChunk", "arenaFinished", "arenaRejected"]);
+const V2_ONLY = new Set(["arenaOpened", "arenaChunk", "arenaFinished", "arenaRejected", "arenaInputAck"]);
 
 /**
  * The arena half of `sim-client.ts`'s `decodeWorkerMessage`, and it is owed for
@@ -115,6 +118,10 @@ function decodeArenaMessage(value: unknown): ArenaDecode {
         return kept(value);
       }
       break;
+    case "arenaInputAck":
+      if (value.version === WORKER_PROTOCOL_VERSION && isU32(value.requestId)
+        && isU32(value.arenaRequestId, true) && isU32(value.steppedTicks)) return kept(value);
+      break;
     case "error":
       if (value.version === WORKER_PROTOCOL_VERSION
         && (value.requestId === null || isU32(value.requestId)) && isU32(value.epoch)
@@ -127,15 +134,23 @@ function decodeArenaMessage(value: unknown): ArenaDecode {
       if (value.version === WORKER_PROTOCOL_VERSION && isU32(value.epoch)) return kept(value);
       break;
   }
+  if (V2_ONLY.has(value.kind) && value.version === WORKER_PROTOCOL_VERSION
+    && isU32(value.requestId)) {
+    return { ok: false, legacy: false, malformed: true, requestId: value.requestId,
+      detail: `the arena worker sent a malformed ${value.kind} response for request ${value.requestId}` };
+  }
   return UNREADABLE;
 }
 
 function isOpened(value: Record<string, unknown>): boolean {
   const counts = [value.one, value.seed, value.maxTicks,
+    value.arenaStreamLayoutVersion, value.recordingIndexStride,
     value.poseLayoutVersion, value.poseStride, value.regionLayoutVersion, value.regionStride,
     value.regionsPerBody, value.articulatedProjectileLayoutVersion,
     value.articulatedProjectileStride, value.combatEventLayoutVersion, value.combatEventStride,
-    value.impactThreshold, value.contactEnergyFloor, value.bodySlot, value.noRegion];
+    value.embodiedStanceLayoutVersion, value.embodiedStanceStride,
+    value.embodiedStanceCapacity, value.impactThreshold, value.contactEnergyFloor,
+    value.bodySlot, value.noRegion];
   const names = [value.regionNames, value.hintNames, value.contactKinds];
   return value.version === WORKER_PROTOCOL_VERSION && isU32(value.requestId)
     // **Not `truthy` and not `!== false`.** The exemption is the whole reason
@@ -154,7 +169,8 @@ function isOpened(value: Record<string, unknown>): boolean {
 
 function isChunk(value: Record<string, unknown>): boolean {
   const buffers = [
-    value.poses, value.regions, value.projectiles, value.events, value.index, value.health,
+    value.poses, value.regions, value.projectiles, value.events, value.stances,
+    value.index, value.health,
   ];
   return value.version === WORKER_PROTOCOL_VERSION && isU32(value.requestId)
     && isU32(value.firstFrame) && isU32(value.frameCount, true)
@@ -163,7 +179,8 @@ function isChunk(value: Record<string, unknown>): boolean {
 
 function isFinished(value: Record<string, unknown>): boolean {
   const counts = [value.ticks, value.frameCount, value.posesDropped, value.regionsDropped,
-    value.articulatedProjectilesDropped, value.combatEventsDropped];
+    value.articulatedProjectilesDropped, value.combatEventsDropped,
+    value.embodiedStancesDropped];
   return value.version === WORKER_PROTOCOL_VERSION && isU32(value.requestId)
     && isString(value.outcome) && typeof value.timedOut === "boolean"
     && typeof value.recordingTruncated === "boolean"
@@ -177,6 +194,9 @@ type Pending = {
   readonly reject: (error: Error) => void;
   /** Built on `arenaOpened`; null until the worker has said what fight this is. */
   source: StreamingFightSource | null;
+  input: { readonly requestId: number; readonly resolve: (ticks: number) => void;
+    readonly reject: (error: Error) => void } | null;
+  readonly controlled: boolean;
 };
 
 export class ArenaClient {
@@ -284,7 +304,8 @@ export class ArenaClient {
       // is copied out rather than aliased from anything the page holds.
       const bytes = new Uint8Array(encodeArenaConfig(config));
       return await new Promise<StreamingFightSource>((resolve, reject) => {
-        this.#pending = { requestId, stream, resolve, reject, source: null };
+        this.#pending = { requestId, stream, resolve, reject, source: null, input: null,
+          controlled: config.fighters.some((fighter) => fighter.control === 1) };
         const transfer: ArrayBuffer[] = [bytes.buffer as ArrayBuffer];
         if (checkpoint !== null) transfer.push(checkpoint);
         worker.postMessage({
@@ -295,6 +316,27 @@ export class ArenaClient {
     } finally {
       release();
     }
+  }
+
+  /** Submit one sampled command batch; its acknowledgement releases backpressure. */
+  input(faction: number, bytes: Uint8Array, ticksDue: number): Promise<number> {
+    const pending = this.#pending;
+    if (this.#disposed) return Promise.reject(new Error("the arena client is disposed"));
+    if (pending === null || pending.source === null || this.#worker === null) {
+      return Promise.reject(new ArenaRefused("no controlled arena fight is open"));
+    }
+    if (!pending.controlled) return Promise.reject(new ArenaRefused("this arena fight is policy-controlled"));
+    if (pending.input !== null) {
+      return Promise.reject(new ArenaRefused("one controlled input batch is already in flight"));
+    }
+    const requestId = this.#nextRequestId++;
+    const payload = Uint8Array.from(bytes);
+    return new Promise<number>((resolve, reject) => {
+      pending.input = { requestId, resolve, reject };
+      this.#worker!.postMessage({ kind: "arenaInput", version: WORKER_PROTOCOL_VERSION,
+        requestId, arenaRequestId: pending.requestId, faction, ticksDue,
+        bytes: payload.buffer }, [payload.buffer]);
+    });
   }
 
   /** Refuse a press a later one has replaced, and a disposed client with it. */
@@ -358,12 +400,29 @@ export class ArenaClient {
       // speaking a version that was never promised these kinds, and a reader
       // told nothing would watch the status line say "producing" forever.
       if (decoded.legacy) {
-        this.#clear();
-        pending.reject(new ArenaRefused(decoded.detail));
+        this.#rejectAndReplaceWorker(pending, new ArenaRefused(decoded.detail));
+      } else if (decoded.malformed && (decoded.requestId === pending.requestId
+        || decoded.requestId === pending.input?.requestId)) {
+        this.#rejectAndReplaceWorker(pending, new ArenaRefused(decoded.detail));
       }
       return;
     }
     const message = decoded.message;
+    if (message.kind === "arenaInputAck") {
+      const input = pending.input;
+      if (message.arenaRequestId !== pending.requestId || input === null
+        || message.requestId !== input.requestId) return;
+      pending.input = null;
+      input.resolve(message.steppedTicks);
+      return;
+    }
+    if (message.kind === "error" && !message.fatal && pending.input !== null
+      && message.requestId === pending.input.requestId) {
+      const input = pending.input;
+      pending.input = null;
+      input.reject(new Error(`${message.code}: ${message.detail}`));
+      return;
+    }
     // **A fatal error and a `terminated` do not have to name this request**, and
     // that is the case worth writing down: `handleUnhandledError` reports a wasm
     // trap with a *null* request id, so a client that matched on the id alone
@@ -381,7 +440,13 @@ export class ArenaClient {
         pending.reject(new ArenaRefused("the worker opened one fight twice"));
         return;
       }
-      pending.source = new StreamingFightSource(opened);
+      try {
+        pending.source = new StreamingFightSource(opened);
+      } catch (error) {
+        this.#rejectAndReplaceWorker(pending,
+          error instanceof Error ? error : new Error(String(error)));
+        return;
+      }
       pending.stream.onOpened(pending.source);
       return;
     }
@@ -400,12 +465,17 @@ export class ArenaClient {
         if (kind === "arenaChunk") {
           source.adopt(body as Omit<ArenaChunkMessage, "kind" | "version" | "requestId">);
           pending.stream.onChunk(source);
+          if (pending.controlled) {
+            this.#worker?.postMessage({ kind: "arenaChunkAck", version: WORKER_PROTOCOL_VERSION,
+              requestId: this.#nextRequestId++, arenaRequestId: pending.requestId,
+              firstFrame: message.firstFrame });
+          }
           return;
         }
         source.finish(body as Omit<ArenaFinishedMessage, "kind" | "version" | "requestId">);
       } catch (error) {
-        this.#clear();
-        pending.reject(error instanceof Error ? error : new Error(String(error)));
+        this.#rejectAndReplaceWorker(pending,
+          error instanceof Error ? error : new Error(String(error)));
         return;
       }
       this.#clear();
@@ -440,6 +510,7 @@ export class ArenaClient {
   // The gate is opened by `run`'s own `finally` and not from here, so the one
   // place that arms it is the one place that releases it.
   #clear(): void {
+    this.#pending?.input?.reject(new ArenaRefused("the controlled fight ended before its input settled"));
     this.#pending = null;
   }
 
@@ -448,5 +519,13 @@ export class ArenaClient {
     if (pending === null) return;
     this.#clear();
     pending.reject(error);
+  }
+
+  /** A malformed live stream poisons this worker, but not the next Fight. */
+  #rejectAndReplaceWorker(pending: Pending, error: Error): void {
+    this.#clear();
+    pending.reject(error);
+    this.#worker?.terminate();
+    this.#worker = null;
   }
 }

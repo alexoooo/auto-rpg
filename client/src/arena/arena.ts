@@ -47,7 +47,7 @@ import {
   bodyColours, contactColour, drawScene, elevationCamera, planCamera, type Options,
 } from "../fight/view.js";
 import { ArenaClient, ArenaRefused } from "../runtime/arena-client.js";
-import { ARENA_STREAM_LEAD_TICKS } from "../protocol/messages.js";
+import { ARENA_STREAM_LEAD_TICKS, TICKS_PER_SECOND } from "../protocol/messages.js";
 import { createSimWorker } from "../runtime/sim-worker.js";
 import {
   arenaConfigOf, checkpointCopy, missingRecording, pickerControls, populatePolicies, readMatchup,
@@ -56,10 +56,10 @@ import {
 // Type-only, and that matters: a value import of `./scene.js` would pull Babylon
 // into this route's first chunk and make the 8 MB recording wait behind it.
 import type { ArenaMode, ArenaStage } from "./scene.js";
+import { ArenaInput } from "./arena-input.js";
+import { ControlledClock } from "./controlled-clock.js";
 
 const ONE = 65536;
-/** The simulation's own clock, for turning a playback rate into frames. */
-const TICKS_PER_SECOND = 60;
 
 function element<T extends HTMLElement>(root: HTMLElement, id: string): T {
   const found = root.querySelector(`#${id}`);
@@ -378,6 +378,11 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
    * pays for a wasm instantiation at all.
    */
   let arena: ArenaClient | null = null;
+  const arenaInput = new ArenaInput();
+  const controlledClock = new ControlledClock(performance.now());
+  let controlledFaction: 0 | 1 | null = null;
+  let controlledStopped = true;
+  let stagingNeutral: Promise<number> | null = null;
   /** One token per [Run selected fight]. Only the newest press may write to the panels. */
   let fightAttempt = 0;
 
@@ -952,6 +957,65 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     }
   }
 
+  let neutralPending = false;
+  let controlledInput: Promise<number> | null = null;
+  let controlGeneration = 0;
+
+  async function stageNeutralAfterStop(generation: number, faction: number): Promise<void> {
+    const previous = controlledInput;
+    if (previous !== null) {
+      try { await previous; } catch { /* The stop still deserves its neutral stage. */ }
+    }
+    if (generation !== controlGeneration || !controlledStopped || !neutralPending
+      || controlledFaction !== faction || arena === null || !producing) return;
+    const request = arena.input(faction, arenaInput.encode(null), 0);
+    stagingNeutral = request;
+    controlledInput = request;
+    try {
+      await request;
+      if (generation === controlGeneration) neutralPending = false;
+    } catch (error) {
+      if (generation === controlGeneration) {
+        status.textContent = `neutral input could not be staged: ${String(error)}`;
+        status.classList.add("error");
+      }
+    } finally {
+      if (controlledInput === request) controlledInput = null;
+      // Request ownership and generation answer different races. This request
+      // always releases its own in-flight latch; only its generation may alter
+      // stop state after an immediate resume or a newer stop.
+      if (stagingNeutral === request) stagingNeutral = null;
+    }
+  }
+
+  function stopControlledFight(now = performance.now(), stageNeutral = true): void {
+    if (controlledFaction === null) return;
+    const faction = controlledFaction;
+    const generation = (controlGeneration += 1);
+    arenaInput.clear();
+    controlledStopped = true;
+    neutralPending = stageNeutral;
+    controlledClock.stop(now);
+    state.playing = false;
+    playButton.textContent = "Play";
+    if (stageNeutral) void stageNeutralAfterStop(generation, faction);
+  }
+
+  function resumeControlledFight(now = performance.now()): void {
+    if (controlledFaction === null) return;
+    controlGeneration += 1;
+    controlledStopped = false;
+    neutralPending = false;
+    controlledClock.resume(now);
+    state.playing = true;
+    playButton.textContent = "Pause";
+  }
+
+  function opponentOf(frame: FightFrame): readonly [number, number] | null {
+    if (controlledFaction === null) return null;
+    return poseOf(frame, controlledFaction === 0 ? 1 : 0)?.id ?? null;
+  }
+
   /**
    * [Fight]: run the fight the picker describes, and watch it as it happens.
    *
@@ -975,6 +1039,12 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
       refreshPicker();
       return;
     }
+    controlledFaction = matchup.a.control === "human" ? 0
+      : matchup.b.control === "human" ? 1 : null;
+    arenaInput.clear();
+    neutralPending = false;
+    controlledStopped = controlledFaction !== null;
+    controlledClock.stop(performance.now());
     // A trace still downloading is a stale answer for these panels; the second
     // [Fight] is cancelled inside `ArenaClient.run`, which waits for the first
     // to answer before posting.
@@ -1023,6 +1093,14 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
             // for a fight that is still being fought.
             state.playing = true;
             playButton.textContent = "Pause";
+            if (controlledFaction !== null) {
+              const opening = streaming.frameAt(0);
+              const human = poseOf(opening, controlledFaction);
+              if (human !== undefined) arenaInput.setYaw(human.yaw);
+              followInput.value = controlledFaction === 0 ? "a" : "b";
+              stage?.follow(controlledFaction);
+              resumeControlledFight(performance.now());
+            }
             return;
           }
           grow();
@@ -1030,6 +1108,9 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
       });
       if (!current()) return;
       producing = false;
+      if (controlledFaction !== null) stopControlledFight(performance.now(), false);
+      controlledFaction = null;
+      neutralPending = false;
       producedMs = Math.round(performance.now() - started);
       // The last chunk and the finish arrive together, so this is the sentence
       // that gains the outcome the header could not carry until now.
@@ -1039,6 +1120,9 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     } catch (error) {
       if (!current()) return;
       producing = false;
+      if (controlledFaction !== null) stopControlledFight(performance.now(), false);
+      controlledFaction = null;
+      neutralPending = false;
       // **A cancelled or failed fight keeps the frames it already delivered.**
       // The chunks that arrived are the part of the fight the reader watched,
       // and throwing them away because the last one never came would be the
@@ -1068,6 +1152,11 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   // ---------------------------------------------------------------- the wiring
 
   playButton.addEventListener("click", () => {
+    if (controlledFaction !== null && producing) {
+      if (state.playing) stopControlledFight();
+      else resumeControlledFight();
+      return;
+    }
     state.playing = !state.playing;
     playButton.textContent = state.playing ? "Pause" : "Play";
   });
@@ -1205,6 +1294,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   // fight to end, and `refreshPicker` already says which fight is on screen and
   // which one the controls now describe.
   changeMatchup.addEventListener("click", () => {
+    stopControlledFight();
     setPhase("select");
     refreshPicker();
   });
@@ -1292,12 +1382,26 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   function onKeydown(event: KeyboardEvent): void {
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return;
     if (event.key === " ") { playButton.click(); event.preventDefault(); }
+    else if (phase === "fight" && producing && controlledFaction !== null && arenaInput.keyDown(event.code)) {
+      if (controlledStopped) resumeControlledFight();
+      event.preventDefault();
+    }
     else if (event.key === "ArrowLeft") go(state.frame - (event.shiftKey ? 10 : 1));
     else if (event.key === "ArrowRight") go(state.frame + (event.shiftKey ? 10 : 1));
     else if (event.key === "[") seekContact(-1, false);
     else if (event.key === "]") seekContact(1, false);
   }
+  function onKeyup(event: KeyboardEvent): void {
+    if (producing && controlledFaction !== null && arenaInput.keyUp(event.code)) event.preventDefault();
+  }
+  const onBlur = (): void => stopControlledFight();
+  const onVisibility = (): void => { if (document.visibilityState === "hidden") stopControlledFight(); };
+  const onPointerLock = (): void => { if (document.pointerLockElement === null) stopControlledFight(); };
   window.addEventListener("keydown", onKeydown);
+  window.addEventListener("keyup", onKeyup);
+  window.addEventListener("blur", onBlur);
+  document.addEventListener("visibilitychange", onVisibility);
+  document.addEventListener("pointerlockchange", onPointerLock);
 
   // Playback advances by wall-clock rather than one frame per animation frame,
   // so 1x is the simulation's own 60 ticks a second on any display.
@@ -1311,9 +1415,45 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   let carry = 0;
   let cameraElapsed = 0;
   let previewFrame = 0;
+
+  /** Drain elapsed control time one freshly sampled authoritative tick at a time. */
+  function drainControlledTicks(): void {
+    if (controlledFaction === null || !producing || loaded === null || arena === null
+      || controlledStopped || stagingNeutral || neutralPending || !controlledClock.beginTick()) return;
+    const latest = loaded.source.frameAt(loaded.source.frameCount() - 1);
+    const bytes = arenaInput.encode(opponentOf(latest));
+    const request = arena.input(controlledFaction, bytes, 1);
+    controlledInput = request;
+    void request.then((stepped) => {
+      if (stepped !== 1) {
+        controlledClock.settleBatch(stepped);
+        stopControlledFight(performance.now(), false);
+        return;
+      }
+      controlledClock.settleTick();
+      // At 30 Hz two ticks normally become due together. The second is sampled
+      // only after the first acknowledgement, so yaw and future arm input have
+      // the same sequence as a 60/120/144 Hz display.
+      drainControlledTicks();
+    }, (error: unknown) => {
+      controlledClock.settleBatch(0);
+      // A user stop may already be waiting to stage neutral behind this
+      // rejection. Do not invalidate that stop's generation on its behalf.
+      if (!controlledStopped) stopControlledFight(performance.now(), false);
+      status.textContent = `arena input was refused: ${String(error)}`;
+      status.classList.add("error");
+    }).finally(() => {
+      if (controlledInput === request) controlledInput = null;
+    });
+  }
+
   function loop(now: number): void {
     const elapsed = now - last;
     last = now;
+    if (controlledFaction !== null && producing && loaded !== null && arena !== null) {
+      controlledClock.advance(now);
+      drainControlledTicks();
+    }
     if (state.playing && loaded !== null) {
       cameraElapsed += elapsed / 1000;
       // **The probe advances one tick a display frame and ignores Speed.** The
@@ -1433,6 +1573,10 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
       window.cancelAnimationFrame(frameRequest);
       observer.disconnect();
       window.removeEventListener("keydown", onKeydown);
+      window.removeEventListener("keyup", onKeyup);
+      window.removeEventListener("blur", onBlur);
+      document.removeEventListener("visibilitychange", onVisibility);
+      document.removeEventListener("pointerlockchange", onPointerLock);
       // The engine, its scene, its meshes and its GPU buffers, which are the
       // largest thing this route holds and the one thing a dropped subtree
       // cannot collect on its own. A build still in flight sees `disposed` and

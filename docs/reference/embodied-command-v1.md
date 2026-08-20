@@ -391,6 +391,25 @@ embodied_command_layout_version() -> u32      // 2
 submit_embodied(entity_index: u32, entity_generation: u32) -> u32
 ```
 
+An arena also reuses this exact scratch and validator through
+`arena_stage_input(faction_code)`. Staging copies the whole envelope, changes no
+authoritative world state, and stamps the accepted command with the world's current
+tick. Only faction codes `0` (Heroes) and `1` (Monsters) are legal, and only a side
+whose arena control byte is Human accepts the command. Reason `30`
+(`ARENA_INPUT_REFUSED`) distinguishes an unknown faction (detail `1`), a valid
+policy-controlled side (detail `2`), and no installed arena (detail `3`). The named
+Rust constants are the authority for those detail bytes.
+
+The host source reads staged navigation on every authoritative tick and holds one
+frame for fewer than six ticks. At age six it contributes nothing, so composition's
+observation-relative neutral command replaces stale movement. It already claims the
+configured primary arm -- the only strike hand, otherwise the right hand -- but does
+not copy that arm from the staging buffer until the pointer-control session defines
+its input. The opposite arm remains policy-driven at the body's exact decision
+period, including its swing plane. Every command that composition produces still
+travels through `World::submit`; replay therefore records the stored whole command,
+not the host's partial request.
+
 The buffer was a second fixed thread-local array rather than a second reader of the
 narrower one, because one shared buffer would have to be as wide as whichever
 payload grew last — and the whole point of the second width is that the two grow

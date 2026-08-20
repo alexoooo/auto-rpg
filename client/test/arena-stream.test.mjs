@@ -105,15 +105,23 @@ class FakeArena {
       projectiles[ABI.ARTICULATED_PROJECTILE_GENERATION] = 7;
       projectiles[ABI.ARTICULATED_PROJECTILE_POSITION_X] = 1234;
     }
+    const stances = new Uint32Array(bodies * RECORDER.EMBODIED_STANCE_STRIDE);
+    for (let body = 0; body < bodies; body += 1) {
+      const at = body * RECORDER.EMBODIED_STANCE_STRIDE;
+      stances[at] = poses[body * ABI.POSE_STRIDE + ABI.POSE_ENTITY_INDEX];
+      stances[at + 1] = poses[body * ABI.POSE_STRIDE + ABI.POSE_ENTITY_GENERATION];
+      stances[at + 2] = this.now;
+    }
     return {
       poseRows: bodies, regionRows: bodies * ABI.REGIONS_PER_BODY,
       projectileRows, eventRows: this.eventsPerTick,
       posesDropped: 0, regionsDropped: 0, projectilesDropped: 0, eventsDropped: 0,
-      poses, regions, projectiles, events,
+      poses, regions, projectiles, events, stances,
       alive: bodies === 1 ? [1, 0] : [1, 1],
       health: bodies === 1 ? [65_536, 0] : [65_536, 32_768],
       maxHealth: [65_536, 65_536],
       arena: [24 * 65_536, 16 * 65_536],
+      stancesDropped: 0,
     };
   }
 }
@@ -272,12 +280,13 @@ test("a_chunk_whose_index_starts_are_not_chunk_relative_is_refused_at_adopt", as
   source.adopt(chunks[0]);
   assert.throws(() => source.adopt(bent), /addresses pose rows/);
 
-  // The other three sections, so the check is over the index and not over one
+  // The other four sections, so the check is over the index and not over one
   // word of it.
   for (const [word, what] of [
     [RECORDER.INDEX_REGION_START, /addresses region rows/],
     [RECORDER.INDEX_PROJECTILE_COUNT, /addresses projectile rows/],
     [RECORDER.INDEX_EVENT_START, /addresses combat-event rows/],
+    [RECORDER.INDEX_STANCE_START, /addresses stance rows/],
   ]) {
     const other = { ...chunks[1], index: chunks[1].index.slice(0) };
     new Uint32Array(other.index)[word] = 100_000;
@@ -330,6 +339,7 @@ function joinChunks(opened, chunks) {
     ["regions", opened.regionStride, RECORDER.INDEX_REGION_START],
     ["projectiles", opened.articulatedProjectileStride, RECORDER.INDEX_PROJECTILE_START],
     ["events", opened.combatEventStride, RECORDER.INDEX_EVENT_START],
+    ["stances", opened.embodiedStanceStride, RECORDER.INDEX_STANCE_START],
   ];
   const parts = new Map(sections.map(([name]) => [name, []]));
   const bases = new Map(sections.map(([name]) => [name, 0]));
@@ -378,14 +388,14 @@ test("the_worker_posts_one_opening_a_run_of_chunks_and_one_finish", async () => 
   assert.equal(posted.filter((kind) => kind === "arenaProgress").length, 0);
   assert.equal(posted.filter((kind) => kind === "fightRecording").length, 0);
 
-  // Six buffers, transferred, per chunk. The count is read off the message
+  // Seven buffers, transferred, per spectator chunk. The count is read off the message
   // rather than written down: the reference said five for two sessions while
   // the code moved six.
   for (const entry of sent.filter((one) => one.message.kind === "arenaChunk")) {
     assert.deepEqual(entry.transfer, [entry.message.poses, entry.message.regions,
-      entry.message.projectiles, entry.message.events, entry.message.index,
+      entry.message.projectiles, entry.message.events, entry.message.stances, entry.message.index,
       entry.message.health]);
-    assert.equal(entry.transfer.length, 6);
+    assert.equal(entry.transfer.length, 7);
   }
   const opened = sent[0].message;
   assert.equal(opened.spectator, true, "the arena's unfiltered ground truth must say so");
@@ -445,13 +455,13 @@ test("an_arena_chunk_is_refused_at_v1_by_name_rather_than_as_malformed", async (
   worker.emit({ kind: "arenaChunk", version: MSG.LEGACY_WORKER_PROTOCOL_VERSION, requestId,
     firstFrame: 0, frameCount: 1,
     poses: new ArrayBuffer(0), regions: new ArrayBuffer(0), projectiles: new ArrayBuffer(0),
-    events: new ArrayBuffer(0), index: new ArrayBuffer(0), health: new ArrayBuffer(0) });
+    events: new ArrayBuffer(0), stances: new ArrayBuffer(0),
+    index: new ArrayBuffer(0), health: new ArrayBuffer(0) });
   await assert.rejects(running, /arenaChunk needs protocol version 2/);
   await assert.rejects(running, /legacy V1/);
 
-  // **And a malformed V2 chunk is still dropped**, which is what makes the
-  // sentence above about the version rather than about the fields. The promise
-  // is still waiting when the honest opening arrives.
+  // **And a correlated malformed V2 chunk is terminal by its own name**, which
+  // is what keeps a known response from leaving the page producing forever.
   const second = new FakeWorker();
   const client2 = new ArenaClient(() => second);
   let opened = 0;
@@ -461,12 +471,10 @@ test("an_arena_chunk_is_refused_at_v1_by_name_rather_than_as_malformed", async (
   second.emit({ kind: "arenaChunk", version: MSG.WORKER_PROTOCOL_VERSION, requestId: id2,
     firstFrame: 0, frameCount: 1, poses: [0], regions: new ArrayBuffer(0),
     projectiles: new ArrayBuffer(0), events: new ArrayBuffer(0),
-    index: new ArrayBuffer(0), health: new ArrayBuffer(0) });
-  await settle();
+    stances: new ArrayBuffer(0), index: new ArrayBuffer(0), health: new ArrayBuffer(0) });
+  await assert.rejects(pending, /malformed arenaChunk response/);
   assert.equal(opened, 0, "a malformed chunk must not open a fight");
-  second.emit({ kind: "arenaRejected", version: MSG.WORKER_PROTOCOL_VERSION, requestId: id2,
-    reason: "cancelled", packed: 0, detail: "stopped" });
-  await assert.rejects(pending, /stopped/);
+  assert.equal(second.terminateCalls, 1);
 });
 
 test("a_stream_that_does_not_declare_itself_spectator_is_refused_at_the_boundary", async () => {
@@ -477,21 +485,28 @@ test("a_stream_that_does_not_declare_itself_spectator_is_refused_at_the_boundary
   const { opened, chunks, result } = await stream(new FakeArena({ ticks: 4 }));
   assert.equal(opened.spectator, true);
 
+  for (const spectator of [undefined, false, 1, "true"]) {
+    const worker = new FakeWorker();
+    const client = new ArenaClient(() => worker);
+    let seen = 0;
+    const running = client.run(arenaConfig(), { onOpened: () => { seen += 1; }, onChunk: () => {} });
+    await settle();
+    const requestId = worker.sent.at(-1).message.requestId;
+    const message = { kind: "arenaOpened", version: MSG.WORKER_PROTOCOL_VERSION, requestId,
+      ...opened, spectator };
+    if (spectator === undefined) delete message.spectator;
+    worker.emit(message);
+    await assert.rejects(running, /malformed arenaOpened response/);
+    assert.equal(seen, 0, `spectator ${String(spectator)} opened a fight`);
+    assert.equal(worker.terminateCalls, 1);
+  }
+
   const worker = new FakeWorker();
   const client = new ArenaClient(() => worker);
   let seen = 0;
   const running = client.run(arenaConfig(), { onOpened: () => { seen += 1; }, onChunk: () => {} });
   await settle();
   const requestId = worker.sent.at(-1).message.requestId;
-  for (const spectator of [undefined, false, 1, "true"]) {
-    const message = { kind: "arenaOpened", version: MSG.WORKER_PROTOCOL_VERSION, requestId,
-      ...opened, spectator };
-    if (spectator === undefined) delete message.spectator;
-    worker.emit(message);
-    await settle();
-    assert.equal(seen, 0, `spectator ${String(spectator)} opened a fight`);
-  }
-  // Not one of the four settled it: the honest opening still arrives and works.
   worker.emit({ kind: "arenaOpened", version: MSG.WORKER_PROTOCOL_VERSION, requestId, ...opened });
   await settle();
   assert.equal(seen, 1);

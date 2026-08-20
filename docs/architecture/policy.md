@@ -496,10 +496,21 @@ produced it. Direct control deliberately asks for a movement direction, an attac
 line, and a cut; swing phases and recovery remain simulation rules rather than
 pointer-controlled pose.
 
-Submitting every tick also advances the world's decision deadline every tick, so the
-browser owns the cadence for whichever half of the hero is still policy-controlled.
-A recorder for browser fights must capture those host submissions; the current lab
-runner only records decisions made through its pending-policy loop. This supersedes
+Submitting the composed command every tick also advances the world's decision
+deadline every tick. The browser boundary therefore wraps the off-hand policy in a
+cadenced source: it refreshes the cached whole command at the body's exact
+`decision_period`, copies only the off hand (including its swing plane), and lets the
+host source contribute navigation each tick. The composition is built only after the
+fresh world has assigned identities and published the body's actual period; deriving
+that period a second time from a browser anatomy code would create two authorities.
+
+The staged host frame is deliberately not authoritative state. It is tick-stamped,
+expires after a bounded hold, and reaches the world only as the whole command returned
+by `ComposedController` and submitted through the ordinary seam. The primary arm is
+claimed now so authority is disjoint and total, but stays at the observation-relative
+neutral target until the pointer-control session defines its input. A recorder for
+browser fights must capture those resulting submissions; the current lab runner only
+records decisions made through its pending-policy loop. This supersedes
 the former `DESIGN.md#the-one-exception-taking-the-controls` discussion while keeping
 its warning about replay completeness.
 

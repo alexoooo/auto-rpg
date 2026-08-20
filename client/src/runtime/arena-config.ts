@@ -137,11 +137,7 @@ export const ARENA_CONTROL_POLICY = 0;
  * `ARENA_CONTROL_HUMAN`: this side's navigation and primary arm come from the
  * host.
  *
- * **`arena_start` refuses it with `ARENA_CONTROL_UNAVAILABLE` until arena-05
- * builds the input path**, and the picker refuses it before the button for the
- * same reason. Encoded anyway rather than withheld: the configuration is what
- * carries the choice, and a page that could not spell it could not be refused
- * by name either.
+ * `arena_start` builds the composed host/off-hand controller for this value.
  */
 export const ARENA_CONTROL_HUMAN = 1;
 
@@ -485,6 +481,7 @@ export const ARENA_REFUSALS: Readonly<Record<number, string>> = {
   27: "a bow must be the sole right-hand item under a two-handed grip",
   28: "unknown control code: a side is neither policy-driven nor human-driven",
   29: "a side is set to be driven by you, and this build has no arena input path",
+  30: "the staged arena input target cannot be driven by the host",
 };
 
 /**
@@ -513,6 +510,10 @@ export const ARENA_POLICY_UNAVAILABLE = 7;
  * down into a gap makes an old artifact say something new.
  */
 export const ARENA_CONTROL_UNAVAILABLE = 29;
+export const ARENA_INPUT_REFUSED = 30;
+export const ARENA_INPUT_UNKNOWN_FACTION = 1;
+export const ARENA_INPUT_POLICY_CONTROLLED = 2;
+export const ARENA_INPUT_NO_ARENA = 3;
 /** `ARENA_UNKNOWN_CONTROL`: a control byte that is neither of the two above. */
 export const ARENA_UNKNOWN_CONTROL = 28;
 /** `ARENA_WHOLE_CONFIG`: the refusal is about the configuration, not a slot. */
@@ -545,12 +546,24 @@ export function decodeArenaRefusal(packed: number): ArenaRefusal {
   const reason = (word >>> 8) & 0xff;
   const fighterByte = (word >>> 16) & 0xff;
   const lastByte = (word >>> 24) & 0xff;
+  const inputFaction = lastByte === 0 ? "Heroes" : lastByte === 1 ? "Monsters" : `faction ${lastByte}`;
+  const inputSentence = reason !== ARENA_INPUT_REFUSED ? null
+    : fighterByte === ARENA_INPUT_UNKNOWN_FACTION
+      ? "arena input names a faction this module does not know"
+      : fighterByte === ARENA_INPUT_POLICY_CONTROLLED
+        ? `arena input names the policy-controlled ${inputFaction} side`
+        : fighterByte === ARENA_INPUT_NO_ARENA
+          ? `arena input for ${inputFaction} was staged before an arena fight was installed`
+          : "arena input was refused with an unknown detail";
   const aboutAPolicy = reason === ARENA_POLICY_UNAVAILABLE || reason === ARENA_NO_CHECKPOINT;
   return {
     reason,
-    sentence: ARENA_REFUSALS[reason] ?? `refusal ${reason}, which this build does not name`,
-    fighter: fighterByte === ARENA_WHOLE_CONFIG ? null : fighterByte,
-    hand: aboutAPolicy || lastByte === ARENA_WHOLE_CONFIG ? null : lastByte,
+    sentence: inputSentence ?? ARENA_REFUSALS[reason] ?? `refusal ${reason}, which this build does not name`,
+    fighter: reason === ARENA_INPUT_REFUSED
+      ? (fighterByte === ARENA_INPUT_POLICY_CONTROLLED || fighterByte === ARENA_INPUT_NO_ARENA)
+        && lastByte < 2 ? lastByte : null
+      : fighterByte === ARENA_WHOLE_CONFIG ? null : fighterByte,
+    hand: reason === ARENA_INPUT_REFUSED || aboutAPolicy || lastByte === ARENA_WHOLE_CONFIG ? null : lastByte,
     policy: aboutAPolicy && lastByte !== ARENA_WHOLE_CONFIG ? lastByte : null,
   };
 }
@@ -568,6 +581,11 @@ export function describeArenaRefusal(packed: number): string {
     : ` (fighter ${refusal.fighter}${refusal.hand === null ? "" : `, hand ${refusal.hand}`}` +
       `${refusal.policy === null ? "" : `, policy code ${refusal.policy}`})`;
   return `arena_start refused: ${refusal.sentence}${where}`;
+}
+
+export function describeArenaInputRefusal(packed: number): string {
+  const refusal = decodeArenaRefusal(packed);
+  return `arena_stage_input refused: ${refusal.sentence}`;
 }
 
 /** `load_checkpoint`'s packed word: installed, the reason, and its detail. */

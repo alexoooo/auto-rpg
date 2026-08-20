@@ -54,8 +54,20 @@ export type FightHeader = Omit<Trace, "frames" | "schema" | "outcome"> & {
   readonly outcome: string | null;
 };
 
+/** One live-only stance row, joined to a pose by the full generational identity. */
+export interface EmbodiedStance {
+  readonly id: readonly [number, number];
+  readonly hipYaw: number;
+  readonly pelvis: number;
+  readonly twist: number;
+  readonly stepLeft: number;
+}
+
 /** One recorded instant: the poses, the contacts resolved into it, and health. */
-export type FightFrame = Frame;
+export type FightFrame = Frame & {
+  /** Absent on the durable JSON trace; live rows are pose-aligned and nullable. */
+  readonly stances?: readonly (EmbodiedStance | null)[];
+};
 
 export interface FightSource {
   readonly header: FightHeader;

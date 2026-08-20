@@ -276,26 +276,34 @@ The promoted camera's basis and a serial changed by orbit,
 effective zoom and promotion are exposed for the relative weapon hand; camera movement
 itself submits no simulation command.
 
-**`#/arena` is a spectator**, and nothing on the page drives a body: the fight is decided
-by two loadouts, two policies and a seed before the first frame, and the panels watch it
-being produced and then scrub it. The two eye-height cameras are there anyway. They exist because
-the design target the off-arm decision was made against is first-person human control of
-a single hero rather than a spectator's camera -- the
-[off-arm correction](../reference/articulated-mechanical-gate.md#correction-2026-08-10-the-off-arm-holds-one-pose)
-carries that argument -- so driving a body from this page is what they are eventually
-for, and it needs an input path that exists in no layer. Widening past two fighters is
+`#/arena` supports both spectator and human-driven sides. A controlled side is sampled
+at a fixed 60 Hz by a transactional main-thread clock; one freshly encoded tick is in flight,
+and the worker stages once then publishes each authoritative tick separately. The page
+maps `W`/`S` to torso forward/back, `Q`/`E` to sidestep, and `A`/`D` to an absolute body
+yaw target. Pointer motion changes no navigation or yaw byte in this session. Blur,
+hidden visibility, pause and pointer-lock loss clear held input, stage neutral, and stop
+the clock until a fresh gesture. The camera follows the Human side by default.
+
+The arena was originally spectator-only: two loadouts, two policies and a seed decided
+the fight before the first frame, and the panels only watched and scrubbed it. The two
+eye-height cameras were built against first-person Human control of a single hero. That
+argument is not absent: its historical record is the
+[off-arm correction](../reference/articulated-mechanical-gate.md#correction-2026-08-10-the-off-arm-holds-one-pose),
+and the host-staged path now gives them that body. Widening past two fighters is
 the cheaper debt of the two: `MAX_POSES` is 64 and nothing below the panels assumes two,
 but the picker, the stage layout and the two first-person viewports all do.
 
-**The configuration can already say who drives a side, and the module refuses it by
-name.** Layout `3` of the 120-byte buffer spends the first of the fighter block's two
+**The configuration says who drives a side and the module now honours it.** Layout `3`
+of the 120-byte buffer spends the first of the fighter block's two
 reserved bytes on a control byte -- `0` policy-driven, `1` human-driven -- and the picker
-offers it as one "driven by" list of the five policies plus `you (keyboard and mouse)`,
-revealing an off-hand policy row when the last is chosen. Until the input path exists
-`arena_start` answers `ARENA_CONTROL_UNAVAILABLE` (`29`) naming the fighter, and the
-picker refuses before the button, because a control that accepts an input it cannot act
-on and says nothing is the defect two consecutive reviews of this repository found ten
-instances of. The control byte is a host fact and never reaches `Scenario`, so
+offers it as one "driven by" list of the five policies plus
+`you (keyboard; hand reserved)`,
+revealing an off-hand policy row when the last is chosen. Both sides cannot be Human,
+and the picker requires a strike hand (right, else left, else the empty Right fallback)
+before starting. `ARENA_CONTROL_UNAVAILABLE` (`29`) remains retired and spent;
+`arena_stage_input` answers `ARENA_INPUT_REFUSED` (`30`) with named details for an
+unknown faction, a policy-controlled side, or no installed arena. The control byte is a
+host fact and never reaches `Scenario`, so
 `arena_fingerprint_*` is the same for one loadout at one seed whoever is driving it --
 which is the property that makes a human fight and an AI fight at that seed comparable
 at all. The layout is written down beside the wire rather than here: the
@@ -489,9 +497,9 @@ intersects the floor, and torch/material treatment remains schematic and repetit
 
 ## Source anchors
 
-- Fixed publication pools: [`thread_local!`](../../crates/web/src/lib.rs#L1838)
-- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L4552)
-- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L5628)
+- Fixed publication pools: [`thread_local!`](../../crates/web/src/lib.rs#L1850)
+- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L4712)
+- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L5788)
 - Worker adapter and atomic scalar phase: [`readPublication`](../../client/src/runtime/sim.worker.ts#L94)
 - Pure protocol host: [`SimWorkerHost`](../../client/src/runtime/sim-worker-host.ts#L55)
 - Main-thread lease owner: [`SimClient`](../../client/src/runtime/sim-client.ts#L122)

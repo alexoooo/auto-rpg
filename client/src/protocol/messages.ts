@@ -25,6 +25,8 @@ export type ProtocolVersion = 1 | 2;
 export const MAX_QUEUED_COMMANDS = 256;
 export const MAX_FUTURE_TICKS = 600;
 export const TICKS_PER_SECOND = 60;
+export const MAX_CONTROL_ELAPSED_MS = 250;
+export const MAX_CONTROLLED_BATCH_TICKS = MAX_CONTROL_ELAPSED_MS * TICKS_PER_SECOND / 1_000;
 export const MAX_ELAPSED_MICROS = 250_000;
 export const MAX_CATCHUP_TICKS = 8;
 
@@ -114,9 +116,18 @@ export type ArenaStartMessage = {
   config: ArrayBuffer; checkpoint: ArrayBuffer | null;
 };
 export type ArenaCancelMessage = { kind: "arenaCancel"; version: 2; requestId: number };
-
+/** One sampled human command, driven for `ticksDue` separately published ticks. */
+export type ArenaInputMessage = {
+  kind: "arenaInput"; version: 2; requestId: number; arenaRequestId: number;
+  faction: number; ticksDue: number; bytes: ArrayBuffer;
+};
+export type ArenaChunkAckMessage = {
+  kind: "arenaChunkAck"; version: 2; requestId: number; arenaRequestId: number;
+  firstFrame: number;
+};
 export type ClientMessage = InitMessage | ResetMessage | SetPausedMessage | AdvanceMessage
-  | CommandMessage | ReturnSnapshotMessage | ArenaStartMessage | ArenaCancelMessage;
+  | CommandMessage | ReturnSnapshotMessage | ArenaStartMessage | ArenaCancelMessage
+  | ArenaInputMessage | ArenaChunkAckMessage;
 
 export type ReadyMessage = {
   kind: "ready"; version: ProtocolVersion; requestId: number; cause: "init" | "reset";
@@ -174,13 +185,18 @@ export type BufferReturnedMessage = {
  * refusal is about. The other three are the worker's own.
  */
 export type ArenaRejectReason = "wrongModel" | "unknownLayout" | "invalidArenaConfig"
-  | "arenaBusy" | "checkpointRefused" | "cancelled";
+  | "arenaBusy" | "checkpointRefused" | "cancelled" | "inputRefused";
 export type ArenaRejectedMessage = {
   kind: "arenaRejected"; version: 2; requestId: number;
   reason: ArenaRejectReason;
   /** `arena_start`'s or `load_checkpoint`'s packed word, or 0 when neither ran. */
   packed: number;
   detail: string;
+};
+/** Backpressure release for one sampled controlled-input batch. */
+export type ArenaInputAckMessage = {
+  kind: "arenaInputAck"; version: 2; requestId: number; arenaRequestId: number;
+  steppedTicks: number;
 };
 /**
  * `arenaProgress` stood here and is deleted rather than kept beside the stream.
@@ -251,11 +267,15 @@ export type ArenaOpenedMessage = {
   checkpoint: string | null;
   maxTicks: number;
   arena: readonly [number, number];
+  /** Stream grammar within protocol V2; main and worker still ship together. */
+  arenaStreamLayoutVersion: number; recordingIndexStride: number;
   /** The three layout versions and strides the buffers are packed with. */
   poseLayoutVersion: number; poseStride: number;
   regionLayoutVersion: number; regionStride: number; regionsPerBody: number;
   articulatedProjectileLayoutVersion: number; articulatedProjectileStride: number;
   combatEventLayoutVersion: number; combatEventStride: number;
+  embodiedStanceLayoutVersion: number; embodiedStanceStride: number;
+  embodiedStanceCapacity: number;
   impactThreshold: number; contactEnergyFloor: number;
   bodySlot: number; noRegion: number;
   regionNames: readonly string[]; hintNames: readonly string[]; contactKinds: readonly string[];
@@ -265,7 +285,7 @@ export type ArenaOpenedMessage = {
 /**
  * One run of frames, transferred as it is produced.
  *
- * **Six buffers and an index, because the index is the point.** `pose_len` is
+ * **Seven buffers and an index, because the index is the point.** `pose_len` is
  * one per *live* articulated body, so a reader computing `tick * 2 * POSE_STRIDE`
  * misaligns from the death onwards -- which is exactly the frame anybody opened
  * the page to look at. Every section is therefore addressed by a start and a
@@ -289,9 +309,11 @@ export type ArenaChunkMessage = {
   firstFrame: number; frameCount: number;
   /** `Uint32Array` words: pose, region, projectile and event rows, packed. */
   poses: ArrayBuffer; regions: ArrayBuffer; projectiles: ArrayBuffer; events: ArrayBuffer;
+  /** Optional on an old trace adapter; always present on a live arena chunk. */
+  stances: ArrayBuffer;
   /**
-   * `Uint32Array`, **nine** words a frame: the tick, then a chunk-relative start
-   * and a count for each of the pose, region, projectile and event sections.
+   * `Uint32Array`, **eleven** words a frame: the tick, then a chunk-relative start
+   * and a count for each pose, region, projectile, event and stance section.
    * `RECORDING_INDEX_STRIDE` owns the number and `INDEX_TICK` owns the word.
    */
   index: ArrayBuffer;
@@ -323,7 +345,7 @@ export type ArenaFinishedMessage = {
   recordingTruncated: boolean;
   /** The module's own saturating drop counters, summed over the whole fight. */
   posesDropped: number; regionsDropped: number; articulatedProjectilesDropped: number;
-  combatEventsDropped: number;
+  combatEventsDropped: number; embodiedStancesDropped: number;
 };
 
 /**
@@ -351,7 +373,8 @@ export type ErrorMessage = {
 export type TerminatedMessage = { kind: "terminated"; version: ProtocolVersion; epoch: number };
 export type WorkerMessage = ReadyMessage | PauseChangedMessage | AdvanceAckMessage | CommandAckMessage
   | SnapshotMessage | BufferReturnedMessage | ErrorMessage | TerminatedMessage
-  | ArenaRejectedMessage | ArenaOpenedMessage | ArenaChunkMessage | ArenaFinishedMessage;
+  | ArenaRejectedMessage | ArenaOpenedMessage | ArenaChunkMessage | ArenaFinishedMessage
+  | ArenaInputAckMessage;
 
 export type DecodeFailure = { ok: false; code: "unknownVersion" | "invalidMessage"; requestId: number | null; detail: string };
 export type DecodeResult = { ok: true; message: ClientMessage } | DecodeFailure;
@@ -460,6 +483,36 @@ export function decodeClientMessage(value: unknown): DecodeResult {
         return { ok: false, code: "unknownVersion", requestId, detail: "arenaCancel needs protocol version 2; this session is legacy V1" };
       }
       return { ok: true, message: { kind: "arenaCancel", version: WORKER_PROTOCOL_VERSION, requestId: value.requestId } };
+    case "arenaInput":
+      if (version !== WORKER_PROTOCOL_VERSION) {
+        return { ok: false, code: "unknownVersion", requestId,
+          detail: "arenaInput needs protocol version 2; this session is legacy V1" };
+      }
+      if (isU32(value.arenaRequestId, true) && (value.faction === 0 || value.faction === 1)
+        && isU32(value.ticksDue) && value.ticksDue > MAX_CONTROLLED_BATCH_TICKS) {
+        return { ok: false, code: "invalidMessage", requestId,
+          detail: `arenaInput ticksDue ${value.ticksDue} exceeds MAX_CONTROLLED_BATCH_TICKS ${MAX_CONTROLLED_BATCH_TICKS}` };
+      }
+      if (isU32(value.arenaRequestId, true) && (value.faction === 0 || value.faction === 1)
+        && isU32(value.ticksDue)
+        && value.bytes instanceof ArrayBuffer
+        && value.bytes.byteLength === 61) {
+        return { ok: true, message: { kind: "arenaInput", version: WORKER_PROTOCOL_VERSION,
+          requestId: value.requestId, arenaRequestId: value.arenaRequestId,
+          faction: value.faction, ticksDue: value.ticksDue, bytes: value.bytes } };
+      }
+      break;
+    case "arenaChunkAck":
+      if (version !== WORKER_PROTOCOL_VERSION) {
+        return { ok: false, code: "unknownVersion", requestId,
+          detail: "arenaChunkAck needs protocol version 2; this session is legacy V1" };
+      }
+      if (isU32(value.arenaRequestId, true) && isU32(value.firstFrame)) {
+        return { ok: true, message: { kind: "arenaChunkAck", version: WORKER_PROTOCOL_VERSION,
+          requestId: value.requestId, arenaRequestId: value.arenaRequestId,
+          firstFrame: value.firstFrame } };
+      }
+      break;
   }
   return { ok: false, code: "invalidMessage", requestId, detail: `invalid ${String(value.kind)} message` };
 }

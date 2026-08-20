@@ -78,9 +78,12 @@ import type { ArenaChunk, ArenaFinished, ArenaOpened } from "../protocol/message
 import {
   INDEX_EVENT_COUNT, INDEX_EVENT_START, INDEX_POSE_COUNT, INDEX_POSE_START,
   INDEX_PROJECTILE_COUNT, INDEX_PROJECTILE_START,
-  INDEX_REGION_COUNT, INDEX_REGION_START, INDEX_TICK, RECORDING_INDEX_STRIDE,
+  INDEX_REGION_COUNT, INDEX_REGION_START, INDEX_STANCE_COUNT, INDEX_STANCE_START,
+  INDEX_TICK, ARENA_STREAM_LAYOUT_VERSION, EMBODIED_STANCE_CAPACITY,
+  EMBODIED_STANCE_LAYOUT_VERSION,
+  EMBODIED_STANCE_STRIDE, RECORDING_INDEX_STRIDE,
 } from "../runtime/arena-recorder.js";
-import type { FightFrame, FightHeader, FightSource } from "./source.js";
+import type { EmbodiedStance, FightFrame, FightHeader, FightSource } from "./source.js";
 import type {
   Arm, Contact, EntityKey, Pose, Projectile, Region, Segment, ShieldFace, V3,
 } from "./trace.js";
@@ -154,6 +157,7 @@ interface Layout {
   readonly regionsPerBody: number;
   readonly eventStride: number;
   readonly projectileStride: number;
+  readonly stanceStride: number;
 }
 
 /**
@@ -171,6 +175,7 @@ class FightChunk {
   readonly #regions: Uint32Array;
   readonly #events: Uint32Array;
   readonly #projectiles: Uint32Array;
+  readonly #stances: Uint32Array;
   readonly #index: Uint32Array;
   readonly #health: Int32Array;
   readonly #layout: Layout;
@@ -185,6 +190,7 @@ class FightChunk {
     this.#regions = new Uint32Array(chunk.regions);
     this.#events = new Uint32Array(chunk.events);
     this.#projectiles = new Uint32Array(chunk.projectiles);
+    this.#stances = new Uint32Array(chunk.stances);
     this.#index = new Uint32Array(chunk.index);
     this.#health = new Int32Array(chunk.health);
     if (!Number.isInteger(this.frameCount) || this.frameCount <= 0
@@ -218,6 +224,7 @@ class FightChunk {
     const regionRows = rows(this.#regions, layout.regionStride, "region");
     const eventRows = rows(this.#events, layout.eventStride, "combat-event");
     const projectileRows = rows(this.#projectiles, layout.projectileStride, "projectile");
+    const stanceRows = rows(this.#stances, layout.stanceStride, "stance");
     if (!Number.isInteger(layout.regionsPerBody) || layout.regionsPerBody <= 0) {
       throw new RangeError("a fight publishes no regions per body");
     }
@@ -229,11 +236,29 @@ class FightChunk {
         [this.#index[at + INDEX_PROJECTILE_START]!, this.#index[at + INDEX_PROJECTILE_COUNT]!,
           projectileRows, "projectile"],
         [this.#index[at + INDEX_EVENT_START]!, this.#index[at + INDEX_EVENT_COUNT]!, eventRows, "combat-event"],
+        [this.#index[at + INDEX_STANCE_START]!, this.#index[at + INDEX_STANCE_COUNT]!,
+          stanceRows, "stance"],
       ];
       for (const [start, count, available, what] of extents) {
         if (start + count > available) {
           throw new RangeError(`frame ${this.firstFrame + frame} addresses ${what} rows ${start} to `
             + `${start + count} of a chunk section holding ${available}`);
+        }
+      }
+      const poseStart = this.#index[at + INDEX_POSE_START]!;
+      const poseCount = this.#index[at + INDEX_POSE_COUNT]!;
+      const stanceStart = this.#index[at + INDEX_STANCE_START]!;
+      const stanceCount = this.#index[at + INDEX_STANCE_COUNT]!;
+      const identities = new Set<string>();
+      for (let row = 0; row < poseCount; row += 1) {
+        const poseAt = (poseStart + row) * layout.poseStride;
+        identities.add(`${this.#poses[poseAt + POSE_ENTITY_INDEX]}:${this.#poses[poseAt + POSE_ENTITY_GENERATION]}`);
+      }
+      for (let row = 0; row < stanceCount; row += 1) {
+        const stanceAt = (stanceStart + row) * layout.stanceStride;
+        const key = `${this.#stances[stanceAt]}:${this.#stances[stanceAt + 1]}`;
+        if (!identities.has(key)) {
+          throw new RangeError(`frame ${this.firstFrame + frame} publishes stance ${key} without its pose`);
         }
       }
     }
@@ -250,6 +275,8 @@ class FightChunk {
     const eventCount = this.#index[at + INDEX_EVENT_COUNT]!;
     const projectileStart = this.#index[at + INDEX_PROJECTILE_START]!;
     const projectileCount = this.#index[at + INDEX_PROJECTILE_COUNT]!;
+    const stanceStart = this.#index[at + INDEX_STANCE_START]!;
+    const stanceCount = this.#index[at + INDEX_STANCE_COUNT]!;
     // Read against the pose count and not assumed, which is the contract
     // `articulated-abi.md` states for the region section: a body the host has no
     // anatomy for is skipped and the rows after it shift, so the comparison is
@@ -268,12 +295,33 @@ class FightChunk {
     for (let row = 0; row < projectileCount; row += 1) {
       projectiles.push(this.#projectileAt(projectileStart + row));
     }
+    const byIdentity = new Map<string, EmbodiedStance>();
+    for (let row = 0; row < stanceCount; row += 1) {
+      const stance = this.#stanceAt(stanceStart + row);
+      const key = `${stance.id[0]}:${stance.id[1]}`;
+      if (byIdentity.has(key)) throw new RangeError(`frame ${this.firstFrame + local} repeats stance ${key}`);
+      byIdentity.set(key, stance);
+    }
+    const poseKeys = new Set(poses.map((pose) => `${pose.id[0]}:${pose.id[1]}`));
+    for (const key of byIdentity.keys()) {
+      if (!poseKeys.has(key)) throw new RangeError(`frame ${this.firstFrame + local} publishes stance ${key} without its pose`);
+    }
     return {
       t: this.#index[at + INDEX_TICK]!,
       poses,
       projectiles,
       contacts,
       health: [this.#health[local * 2]!, this.#health[local * 2 + 1]!],
+      stances: poses.map((pose) => byIdentity.get(`${pose.id[0]}:${pose.id[1]}`) ?? null),
+    };
+  }
+
+  #stanceAt(row: number): EmbodiedStance {
+    const at = row * this.#layout.stanceStride;
+    return {
+      id: [this.#stances[at]!, this.#stances[at + 1]!],
+      hipYaw: this.#stances[at + 2]!, pelvis: raw(this.#stances, at + 3),
+      twist: raw(this.#stances, at + 4), stepLeft: this.#stances[at + 5]!,
     };
   }
 
@@ -424,6 +472,18 @@ export class StreamingFightSource implements FightSource {
       throw new RangeError("a stream that does not declare itself a spectator stream is not "
         + "renderable here: these pose rows crossed no visibility filter");
     }
+    if (opened.arenaStreamLayoutVersion !== ARENA_STREAM_LAYOUT_VERSION
+      || opened.recordingIndexStride !== RECORDING_INDEX_STRIDE) {
+      throw new RangeError(`arena stream layout ${opened.arenaStreamLayoutVersion} with index stride `
+        + `${opened.recordingIndexStride} is not layout ${ARENA_STREAM_LAYOUT_VERSION} `
+        + `with stride ${RECORDING_INDEX_STRIDE}`);
+    }
+    if (opened.embodiedStanceLayoutVersion !== EMBODIED_STANCE_LAYOUT_VERSION
+      || opened.embodiedStanceStride !== EMBODIED_STANCE_STRIDE
+      || opened.embodiedStanceCapacity !== EMBODIED_STANCE_CAPACITY) {
+      throw new RangeError(`embodied stance layout ${opened.embodiedStanceLayoutVersion} `
+        + `with stride ${opened.embodiedStanceStride} is not supported`);
+    }
     this.#header = {
       one: opened.one,
       scenario: opened.scenario,
@@ -457,6 +517,7 @@ export class StreamingFightSource implements FightSource {
       regionsPerBody: opened.regionsPerBody,
       eventStride: opened.combatEventStride,
       projectileStride: opened.articulatedProjectileStride,
+      stanceStride: opened.embodiedStanceStride,
     };
     this.#fittings = fittingsOf(this.#header);
   }
