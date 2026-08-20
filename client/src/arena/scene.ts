@@ -101,15 +101,21 @@ import {
   combatantMeshRole, copyCombatantRigPose, instantiateCombatantDress, type CombatantDress,
 } from "../render/combatant-dress.js";
 import { ArenaEnvironment } from "./environment.js";
+import type { SideChoice } from "./picker.js";
+import { createCombatantPreview, type CombatantPreview } from "./preview.js";
+import {
+  createStageCamera, type StageCamera, type StageCameraBasis, type StageCameraMode,
+} from "./stage-camera.js";
 import {
   ARENA_VIEWPORTS, ARM_REGIONS, FAR_PLANE, FIRST_PERSON_FOV_DEGREES, FIRST_PERSON_PITCH_DEGREES,
   FOREARM_REGIONS,
   NEAR_PLANE, OWN_BODY_HIDDEN_REGIONS, RIG_CLIPS, RIG_REGIONS, THREE_QUARTER_FOV_DEGREES,
   armDrawn, blendPose, bodyAxes, capsuleBetween, capsuleCentre, capsuleParts, directionFrame,
   elbowOf, eyeOf, gaitOf, legsOf, regionDrawn, scenePoint, sceneLength, sceneYaw, segmentFrame,
-  shieldLimb, shieldQuad, shieldSocketFrame, threeQuarterPlacement, weaponSocketFrame, yawFrame,
+  shieldLimb, shieldQuad, shieldSocketFrame, weaponSocketFrame, yawFrame,
   type CapsuleParts, type Frame3, type Gait, type ScenePoint,
 } from "./geometry.js";
+import type { ArenaPromotedView } from "./geometry.js";
 
 /** The one owner name this module publishes counts under. */
 const DEBUG_OWNER = "arena-geometry";
@@ -122,7 +128,7 @@ const DEGREES = Math.PI / 180;
  * else. A mesh renders in a camera when `mesh.layerMask & camera.layerMask` is
  * nonzero, which makes "everything" the union rather than a magic constant.
  */
-const CAMERA_BITS = [0x1, 0x2, 0x4] as const;
+export const CAMERA_BITS = [0x1, 0x2, 0x4] as const;
 const ALL_CAMERAS = CAMERA_BITS[0] | CAMERA_BITS[1] | CAMERA_BITS[2];
 
 /** The page's own background, so the three panels sit on the 2D panels' ground. */
@@ -478,6 +484,8 @@ export type ArenaStageView = Readonly<{
   next: FightFrame;
   /** The playback loop's own sub-tick carry; zero at 1x and on every scrub. */
   alpha: number;
+  /** Positive only from requestAnimationFrame; synchronous redraws pass zero. */
+  cameraDt?: number;
   /** The point the 2D panels are centred on, raw world units. */
   focus: V3;
   /** The world width the 2D panels are showing, raw world units. */
@@ -509,15 +517,18 @@ export class ArenaContent {
   readonly #combatantAbort = new AbortController();
   readonly firstPerson: readonly [FreeCamera, FreeCamera];
   readonly threeQuarter: FreeCamera;
+  readonly stageCamera: StageCamera;
   #floor: LinesMesh | null = null;
   #floorKey = "";
   #mode: ArenaMode = "geometry";
+  #phase: "select" | "fight" = "fight";
   /** Built on the first press of `[Texture]` and kept; null while it is unpressed. */
   #environment: ArenaEnvironment | null = null;
   /** The last instant drawn, so a mode change or a late room can redraw it. */
   #view: ArenaStageView | null = null;
   #combatants: CombatantAsset | null = null;
   #combatantLoad: Promise<void> | null = null;
+  #follow: "both" | 0 | 1 = "both";
 
   constructor(scene: Scene, debug: RendererDebugRegistry) {
     this.#scene = scene;
@@ -537,6 +548,10 @@ export class ArenaContent {
     this.threeQuarter.layerMask = CAMERA_BITS[2];
     this.threeQuarter.viewport = viewportOf("threeQuarter");
     this.threeQuarter.setTarget(Vector3.Zero());
+    this.stageCamera = createStageCamera(
+      this.threeQuarter, this.firstPerson,
+      () => this.#scene.getEngine().getAspectRatio(this.threeQuarter),
+    );
 
     // The order is the order they are drawn in, and Babylon clears the colour
     // buffer once for the first of them and only depth for the rest -- which is
@@ -599,8 +614,25 @@ export class ArenaContent {
 
   /** Draw the last instant again, after something other than the tick moved. */
   redraw(): void {
-    if (this.#view !== null) this.show(this.#view);
+    if (this.#view !== null) this.show({ ...this.#view, cameraDt: 0 });
   }
+
+  cameraMode(): StageCameraMode { return this.stageCamera.mode; }
+  cameraBasis(): StageCameraBasis { return this.stageCamera.basis; }
+  cameraChangeSerial(): number { return this.stageCamera.changeSerial; }
+  containsThreeQuarterPoint(x: number, y: number): boolean {
+    return this.stageCamera.containsThreeQuarterPoint(x, y);
+  }
+  follow(target: "both" | 0 | 1): void {
+    this.#follow = target;
+    if (target === "both") this.stageCamera.refit();
+  }
+  orbit(buttons: number, dx: number, dy: number): boolean {
+    return this.stageCamera.orbit(buttons, dx, dy);
+  }
+  zoom(delta: number): void { this.stageCamera.zoom(delta); }
+  promote(view: ArenaPromotedView): void { this.stageCamera.promote(view); }
+  refit(): void { this.stageCamera.refit(); }
 
   mode(): ArenaMode { return this.#mode; }
 
@@ -621,13 +653,26 @@ export class ArenaContent {
     if (mode === this.#mode) return;
     this.#mode = mode;
     if (mode === "texture") this.#environment ??= new ArenaEnvironment(this.#scene);
-    this.#environment?.setEnabled(mode === "texture");
+    const lit = mode === "texture" && this.#phase === "fight";
+    this.#environment?.setEnabled(lit);
     for (const dress of this.#dresses.values()) {
-      dress.setEnabled(mode === "texture");
+      dress.setEnabled(lit);
       if (mode === "geometry") this.#removeDressShadows(dress);
     }
-    this.#floor?.setEnabled(mode === "geometry");
-    const lit = mode === "texture";
+    this.#floor?.setEnabled(mode === "geometry" && this.#phase === "fight");
+    this.#scene.clearColor = lit ? ROOM_CLEAR_COLOUR : CLEAR_COLOUR;
+    this.#scene.imageProcessingConfiguration.exposure = lit ? ROOM_EXPOSURE : 1;
+    this.#scene.imageProcessingConfiguration.contrast = lit ? ROOM_CONTRAST : 1;
+  }
+
+  /** Park the fight's environment while the same scene draws the picker. */
+  setPhase(phase: "select" | "fight"): void {
+    if (phase === this.#phase) return;
+    this.#phase = phase;
+    const lit = phase === "fight" && this.#mode === "texture";
+    this.#environment?.setEnabled(lit);
+    this.#floor?.setEnabled(phase === "fight" && this.#mode === "geometry");
+    for (const dress of this.#dresses.values()) dress.setEnabled(lit);
     this.#scene.clearColor = lit ? ROOM_CLEAR_COLOUR : CLEAR_COLOUR;
     this.#scene.imageProcessingConfiguration.exposure = lit ? ROOM_EXPOSURE : 1;
     this.#scene.imageProcessingConfiguration.contrast = lit ? ROOM_CONTRAST : 1;
@@ -648,18 +693,23 @@ export class ArenaContent {
    */
   async loadEnvironment(fetcher?: RoomAssetFetcher, combatantFetcher?: CombatantAssetFetcher): Promise<void> {
     if (this.#mode !== "texture") return;
+    await Promise.all([this.#environment?.load(fetcher), this.loadCombatants(combatantFetcher)]);
+  }
+
+  /** The one scene-owned authored asset promise shared by preview and fight. */
+  async loadCombatants(fetcher?: CombatantAssetFetcher): Promise<CombatantAsset | null> {
     this.#combatantLoad ??= (async () => {
       try {
         this.#combatants = await loadCombatantAsset(
-          this.#scene, this.#combatantAbort.signal, combatantFetcher,
+          this.#scene, this.#combatantAbort.signal, fetcher,
         );
       } catch {
-        // The arena's texture dress has the same deliberate procedural
-        // fallback as its room.  Geometry remains the unchanged control.
+        // The arena's texture dress and preview share this deliberate fallback.
         this.#combatants = null;
       }
     })();
-    await Promise.all([this.#environment?.load(fetcher), this.#combatantLoad]);
+    await this.#combatantLoad;
+    return this.#combatants;
   }
 
   /** No fight: the floor and the cameras stay, every body and every rig goes. */
@@ -797,10 +847,11 @@ export class ArenaContent {
     // under a viewport; a perspective camera is not, because Babylon's own
     // `getAspectRatio` multiplies the render size by the camera's viewport. This
     // asks Babylon rather than computing it, so the two cannot drift.
-    const aspect = this.#scene.getEngine().getAspectRatio(this.threeQuarter);
-    const placement = threeQuarterPlacement(view.focus, view.span, aspect, view.azimuth);
-    this.threeQuarter.position.set(...placement.position);
-    this.threeQuarter.setTarget(new Vector3(...placement.target));
+    this.stageCamera.fit(view.focus, view.span, view.azimuth);
+    if (this.#follow !== "both") {
+      const followed = poses.find((candidate) => candidate.id[0] === this.#follow);
+      if (followed !== undefined) this.stageCamera.follow(followed, view.cameraDt ?? 0);
+    }
   }
 
   // ---------------------------------------------------------------- the bodies
@@ -1590,6 +1641,7 @@ export type ArenaStageLifecycle = Readonly<{
     requested: RendererBackendRequest,
     lifecycle: RendererEngineLifecycle<HTMLCanvasElement>,
   ) => Promise<RendererEngineHandle<HTMLCanvasElement, AbstractEngine>>;
+  onPreviewDress?: (side: 0 | 1, description: string) => void;
 }>;
 
 export interface ArenaStage {
@@ -1609,6 +1661,18 @@ export interface ArenaStage {
    */
   setMode(mode: ArenaMode): Promise<void>;
   mode(): ArenaMode;
+  cameraMode(): StageCameraMode;
+  cameraBasis(): StageCameraBasis;
+  cameraChangeSerial(): number;
+  containsThreeQuarterPoint(x: number, y: number): boolean;
+  follow(target: "both" | 0 | 1): void;
+  orbit(buttons: number, dx: number, dy: number): boolean;
+  zoom(delta: number): void;
+  promote(view: ArenaPromotedView): void;
+  refit(): void;
+  showPreview(side: 0 | 1, choice: SideChoice): void;
+  setPhase(phase: "select" | "fight"): void;
+  drawPreview(frame: number): void;
   dispose(): void;
 }
 
@@ -1666,6 +1730,11 @@ export async function createArenaStage(
     throw error;
   }
   const { scene, content } = built;
+  const stageCameras = [content.firstPerson[0], content.firstPerson[1], content.threeQuarter];
+  let preview: CombatantPreview | null = null;
+  const startPreview = (): CombatantPreview => createCombatantPreview(
+    scene, stageCameras, lifecycle.onPreviewDress ?? (() => {}), () => content.loadCombatants(),
+  );
   let disposed = false;
 
   const live = (): boolean => !disposed && !terminal && !handle.terminal;
@@ -1710,6 +1779,56 @@ export async function createArenaStage(
       draw();
     },
     mode(): ArenaMode { return content.mode(); },
+    cameraMode(): StageCameraMode { return content.cameraMode(); },
+    cameraBasis(): StageCameraBasis { return content.cameraBasis(); },
+    cameraChangeSerial(): number { return content.cameraChangeSerial(); },
+    containsThreeQuarterPoint(x: number, y: number): boolean {
+      return live() && content.containsThreeQuarterPoint(x, y);
+    },
+    follow(target: "both" | 0 | 1): void { content.follow(target); },
+    orbit(buttons: number, dx: number, dy: number): boolean {
+      if (!live()) return false;
+      const consumed = content.orbit(buttons, dx, dy);
+      if (consumed) draw();
+      return consumed;
+    },
+    zoom(delta: number): void {
+      if (!live()) return;
+      const before = content.cameraChangeSerial();
+      content.zoom(delta);
+      if (content.cameraChangeSerial() !== before) draw();
+    },
+    promote(view: ArenaPromotedView): void {
+      if (!live()) return;
+      const before = content.cameraChangeSerial();
+      content.promote(view);
+      if (content.cameraChangeSerial() !== before) draw();
+    },
+    refit(): void {
+      if (!live()) return;
+      content.refit();
+      content.redraw();
+      draw();
+    },
+    showPreview(side: 0 | 1, choice: SideChoice): void { preview?.show(side, choice); },
+    setPhase(phase: "select" | "fight"): void {
+      if (!live()) return;
+      content.setPhase(phase);
+      if (phase === "select") {
+        preview ??= startPreview();
+        preview.setActive(true);
+      } else if (preview !== null) {
+        preview.setActive(false);
+        preview.dispose();
+        preview = null;
+      }
+      draw();
+    },
+    drawPreview(frame: number): void {
+      if (!live()) return;
+      preview?.draw(frame);
+      draw();
+    },
     async setMode(mode: ArenaMode): Promise<void> {
       if (!live()) return;
       content.setMode(mode);
@@ -1734,6 +1853,8 @@ export async function createArenaStage(
     dispose(): void {
       if (disposed) return;
       disposed = true;
+      preview?.dispose();
+      preview = null;
       content.dispose();
       scene.dispose();
       handle.dispose();

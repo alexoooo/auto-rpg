@@ -25,9 +25,9 @@ export const GAME_INITIAL_FIXED_ZOOM = 11.5;
 // pans -- and the pan restores exactly the excess, so the camera moves at the
 // hero's own speed once the hero rides the zone edge, which keeps the follow
 // frame-rate independent where a per-frame easing fraction would not be. At
-// 0.35 the hero reaches about a third of the way toward a screen edge before
-// the camera responds: enough to read intent without letting the hero near
-// the edge of the view.
+// The first draft described 0.35 here. The shipped 0.08 replaced it: 0.35 let
+// the hero get too near an edge before the camera responded, while the smaller
+// zone keeps intent readable without making ordinary footwork recenter the room.
 export const FOLLOW_DEAD_ZONE_FRACTION = 0.08;
 export const FOLLOW_DAMPING = 0.22;
 

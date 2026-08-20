@@ -247,11 +247,18 @@
     .picker { display: grid; gap: .4rem; background: #151b23; border: 1px solid #24303d;
       border-radius: .4rem; padding: .5rem .65rem; }
     .picker-sides { display: grid; grid-template-columns: 1fr 1fr; gap: .65rem; }
-    /* One column below 44rem, because two columns of dropdowns at a phone width
-       are two columns of nothing. */
-    @media (max-width: 44rem) { .picker-sides { grid-template-columns: 1fr; } }
-    .picker-side { display: grid; gap: .35rem; align-content: start;
-      background: #11161d; border: 1px solid #202a35; border-radius: .35rem; padding: .5rem; }
+    .picker-sides > #arena-3d { grid-column: 1 / -1; grid-row: 1; align-self: start;
+      aspect-ratio: 4 / 1; }
+    /* The preview canvas is split in two, so the columns stay paired with its
+       viewports at phone width and scroll as one comparison. */
+    @media (max-width: 44rem) {
+      .picker-sides { grid-template-columns: repeat(2, minmax(18rem, 1fr)); overflow-x: auto; }
+    }
+    .picker-side { display: grid; gap: .35rem; align-content: start; grid-row: 1; z-index: 1;
+      background: linear-gradient(180deg, transparent 0, transparent min(17rem, 25vw), rgba(17, 22, 29, .94) min(20rem, 29vw));
+      border: 1px solid #202a35; border-radius: .35rem; padding: min(19rem, 28vw) .5rem .5rem; }
+    .picker-side.hero { grid-column: 1; }
+    .picker-side.monster { grid-column: 2; }
     .picker-side > .side { font-weight: 600; }
     .picker-side.hero > .side { color: #7fb2ff; }
     .picker-side.monster > .side { color: #ff8f7a; }
@@ -260,6 +267,7 @@
     .picker-side label.inline { grid-template-columns: 6.5rem auto; justify-items: start; }
     .picker-side select { min-width: 0; }
     .picker-side label[hidden] { display: none; }
+    .preview-dress { color: #7a8796; font-size: .76rem; min-height: 1.2em; }
     .picker-footer { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center;
       border-top: 1px solid #24303d; padding-top: .45rem; }
     .picker-footer #picker-message { flex: 1 1 18rem; }
@@ -287,6 +295,11 @@
     #label-first-a { left: .5rem; top: .4rem; }
     #label-first-b { left: .5rem; top: calc(50% + .4rem); }
     #label-three-quarter { left: calc(28% + .5rem); top: .4rem; }
+    .stage[data-main-view="firstPersonA"] #label-first-a,
+    .stage[data-main-view="firstPersonB"] #label-first-b { left: calc(28% + .5rem); top: .4rem; }
+    .stage[data-main-view="firstPersonA"] #label-three-quarter { left: .5rem; top: .4rem; }
+    .stage[data-main-view="firstPersonB"] #label-three-quarter {
+      left: .5rem; top: calc(50% + .4rem); }
     .stage-modes { position: absolute; left: calc(28% + .5rem); bottom: .5rem; display: flex; gap: .35rem; }
     .stage-modes button[aria-pressed="true"] { background: #3d6089; border-color: #6d8cb4; }
     .side-panels { display: grid; gap: .6rem; }
@@ -474,6 +487,7 @@
         <div class="picker-sides" id="picker-sides">
           <div class="picker-side hero">
             <span class="side">Fighter A</span>
+            <span class="preview-dress" id="a-preview-dress">authored rest pose loading&hellip;</span>
             <label>anatomy
               <select id="a-anatomy">
                 <option value="fighter" selected>Fighter</option>
@@ -504,6 +518,7 @@
           </div>
           <div class="picker-side monster">
             <span class="side">Fighter B</span>
+            <span class="preview-dress" id="b-preview-dress">authored rest pose loading&hellip;</span>
             <label>anatomy
               <select id="b-anatomy">
                 <option value="fighter">Fighter</option>
@@ -554,7 +569,7 @@
       <div id="status">Loading fight&hellip;</div>
 
       <div class="stage-row">
-        <div class="stage">
+        <div class="stage" id="arena-stage" data-main-view="threeQuarter">
           <canvas id="arena-3d" aria-label="Arena, three viewpoints"></canvas>
           <span class="viewport-label" id="label-first-a">first-person A</span>
           <span class="viewport-label" id="label-first-b">first-person B</span>
@@ -608,9 +623,24 @@
             <option value="16">16x</option>
           </select>
         </label>
-        <label>Span
+        <label>Span <span id="arena-span-owner">(all five panels)</span>
           <input id="span" type="range" min="2" max="26" value="6" step="1" aria-label="World units across">
         </label>
+        <label>Follow
+          <select id="arena-follow">
+            <option value="both" selected>both</option>
+            <option value="a">Fighter A</option>
+            <option value="b">Fighter B</option>
+          </select>
+        </label>
+        <label>View
+          <select id="arena-view">
+            <option value="threeQuarter" selected>3/4</option>
+            <option value="firstPersonA">A's eyes</option>
+            <option value="firstPersonB">B's eyes</option>
+          </select>
+        </label>
+        <button id="arena-refit" type="button">Refit</button>
         <label>Azimuth
           <input id="azimuth" type="range" min="-180" max="180" value="0" step="5" aria-label="Elevation azimuth">
         </label>
@@ -628,8 +658,9 @@
       <p class="legend">
         <span><b>chase</b> is commanded hand minus actual hand, both published.</span>
         <span><b>reach</b> is the arm capsule's own length over the anatomy's arm length.</span>
-        <span><b>Span</b> frames all five panels alike; <b>Azimuth</b> turns the elevation and the
-          3/4 view together, which is how you look behind a body at a contact.</span>
+        <span><b>Span</b> frames all five panels alike until the stage camera is moved; then it
+          keeps framing plan and elevation until <b>Refit</b>. <b>Azimuth</b> turns the elevation
+          and a fitted 3/4 view together.</span>
         <span><b>Space</b> plays, <b>arrows</b> step, <b>[</b> and <b>]</b> jump between contacts.</span>
         <span>Regenerate the recorded fights with <code>npm run trace</code>.</span>
         <span>Watch a <b>learned</b> fight with

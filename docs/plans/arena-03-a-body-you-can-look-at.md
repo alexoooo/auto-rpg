@@ -1,6 +1,6 @@
 # Arena 03 -- a body you can look at
 
-**Status:** ready once session 02 has landed. Blocks nothing; 04 and 05 do not wait on it.
+**Status:** complete on 2026-08-20. Blocks nothing; 04 and 05 do not wait on it.
 
 The selection screen picks an anatomy and two hands and shows the reader six words. This
 session puts the body itself in each column, so that "Brute with a club" is a picture
@@ -130,12 +130,14 @@ comparing the previewed shield node's sign against the arena scene's for the sam
 |---|---|
 | `client/src/arena/preview.ts` | new: the two-viewport preview, the dress, the item geometry, the turntable |
 | `client/src/arena/arena.ts` | mount the preview in the `select` phase, dispose it on leaving, feed it every picker `change`; swap `scene.activeCameras` between the two phases |
+| `client/src/arena/scene.ts` | keep the shared scene's asset promise authoritative and expose the preview phase through the existing stage lifecycle |
+| `client/src/render/figure.ts` | additive `poseFigureRest`: lay out the existing semantic fallback rig without fabricating a publication or importing `#/game`'s mirrored pose |
 | `web/index.html` | the picker columns are laid out over the existing `#arena-3d`; a per-column dress line. **No new canvas** |
 | `client/src/runtime/arena-config.ts` | nothing, if `HAND_ITEMS` is already exported; otherwise export it rather than copying it |
 
-**Nothing under `web/assets3d/` is touched, and nothing in `client/src/render/` changes
-behaviour.** If the preview needs something `combatant-dress.ts` does not expose, it is
-exported, not reimplemented.
+**Nothing under `web/assets3d/` is touched, and existing behaviour in `client/src/render/`
+does not change.** The preview adds one explicit rest-pose consumer of `buildFigure`;
+the published-pose path is unchanged.
 
 ## Tests
 
@@ -154,15 +156,13 @@ contract already lives:
 
 `client/test/studio-shell.test.mjs`:
 
-- `leaving_the_selection_phase_disposes_the_preview_engine_camera_and_observer` -- the
-  neighbour `mounting_and_disposing_the_arena_twice_leaves_no_listener_observer_or_frame_behind`
-  is the model, and this one matters more than usual because the preview holds a Babylon
-  `Scene` and a `ResizeObserver`
 - `the_selection_screen_opens_with_no_wasm_present`
 
-All of these run under `NullEngine`; `createArenaContent(engine, debug)` is already
-exported for exactly that (`client/src/arena/scene.ts:1745`) and the preview follows it
-with an engine-injection seam rather than reaching for a canvas.
+The preview does **not** own an engine, `Scene` or `ResizeObserver`; the earlier test name
+claiming it did contradicted this session's one-engine/one-canvas contract. The corrected
+`leaving_the_selection_phase_disposes_the_preview_cameras_and_owned_meshes` lives in
+`render-contract.test.mjs` under `NullEngine`. The route's existing disposal test remains
+the owner of the single engine, observer and animation frame.
 
 ## What cannot be checked here, and is owed to a person
 

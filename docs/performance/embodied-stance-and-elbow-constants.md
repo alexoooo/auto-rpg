@@ -247,7 +247,7 @@ horizontal plane and then overwrote `hand.z`, so the true shoulder-to-hand dista
 sphere**.
 
 How often that actually bit was measured on the browser side, over recorded fights, and it
-is recorded on [`elbowOf`](../../client/src/arena/geometry.ts#L645): the shoulder-to-hand
+is recorded on [`elbowOf`](../../client/src/arena/geometry.ts#L672): the shoulder-to-hand
 distance is at or past `armLength` on **43% of `fight.json`'s 14,404 arm rows, 68% of
 `fight-windmill.json`'s and 67% of `fight-learned.json`'s**, with medians of 0.95, 1.04 and
 1.07 times `armLength` and a maximum of 1.62. On every one of those rows the client's

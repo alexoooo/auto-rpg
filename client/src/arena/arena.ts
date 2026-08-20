@@ -282,6 +282,9 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   // fill was a one-way door and this session walks through it rather than
   // drawing beside it.
   let stageCanvas = element<HTMLCanvasElement>(container, "arena-3d");
+  const foundStageHost = stageCanvas.parentElement;
+  if (foundStageHost === null) throw new Error("#arena-3d has no stage host");
+  const stageHost: HTMLElement = foundStageHost;
   const stageLabel = element<HTMLElement>(container, "label-three-quarter");
   const planCtx = context(plan);
   const elevationCtx = context(elevation);
@@ -294,6 +297,10 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   const playButton = element<HTMLButtonElement>(container, "play");
   const rateInput = element<HTMLSelectElement>(container, "rate");
   const spanInput = element<HTMLInputElement>(container, "span");
+  const spanOwner = element<HTMLElement>(container, "arena-span-owner");
+  const followInput = element<HTMLSelectElement>(container, "arena-follow");
+  const viewInput = element<HTMLSelectElement>(container, "arena-view");
+  const refitButton = element<HTMLButtonElement>(container, "arena-refit");
   const azimuthInput = element<HTMLInputElement>(container, "azimuth");
   const fightButton = element<HTMLButtonElement>(container, "fight");
   const pickerMessage = element<HTMLElement>(container, "picker-message");
@@ -454,11 +461,24 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
    * start lazily.
    */
   type Phase = "select" | "fight";
+  let phase: Phase = "select";
+
+  function updatePreview(): void {
+    if (stage === null || phase !== "select") return;
+    const matchup = readMatchup(container);
+    stage.showPreview(0, matchup.a);
+    stage.showPreview(1, matchup.b);
+  }
 
   function setPhase(next: Phase): void {
+    phase = next;
     pickerSides.hidden = next === "fight";
     pickerFooter.hidden = next === "fight";
     pickerSummary.hidden = next === "select";
+    if (next === "select") pickerSides.prepend(stageCanvas);
+    else stageHost.prepend(stageCanvas);
+    stage?.setPhase(next);
+    if (next === "select") updatePreview();
   }
 
   // ---------------------------------------------------------------- the panels
@@ -574,12 +594,20 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
         onTerminal: (message) => {
           stageLabel.textContent = `${THREE_QUARTER} -- renderer lost: ${message}`;
         },
+        onPreviewDress: (side, description) => {
+          element<HTMLElement>(container, side === 0 ? "a-preview-dress" : "b-preview-dress").textContent = description;
+        },
       });
       if (disposed) {
         built.dispose();
         return;
       }
       stage = built;
+      built.follow(followInput.value === "a" ? 0 : followInput.value === "b" ? 1 : "both");
+      built.promote(viewInput.value as "threeQuarter" | "firstPersonA" | "firstPersonB");
+      stageHost.dataset.mainView = viewInput.value;
+      built.setPhase(phase);
+      if (phase === "select") updatePreview();
       // **A press that landed while this was building.** The stage always starts
       // in `[Geometry]`, so only the other mode has anything to apply -- and it
       // has to be applied here rather than left to the reader's next press, which
@@ -588,6 +616,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
       // place; `describeStage` below then runs against the mode that is on.
       if (mode !== built.mode()) setMode(mode);
       describeStage();
+      showCameraOwnership();
       if (loaded === null) built.clear();
       else render();
     } catch (error) {
@@ -632,27 +661,27 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
    * `alpha` never reaches 1, so the tick every panel names is always the tick
    * the readout and the two orthographic panels are drawing.
    */
-  function drawStage(alpha: number): void {
+  function drawStage(alpha: number, cameraDt = 0): void {
     if (stage === null || loaded === null) return;
     if (pairedProbe && state.playing && !pairedDraws) return;
     const { source } = loaded;
     const frame = source.frameAt(state.frame);
     const next = source.frameAt(Math.min(source.frameCount() - 1, state.frame + 1));
     stage.show({
-      header: source.header, frame, next, alpha, focus: centre(frame),
+      header: source.header, frame, next, alpha, cameraDt, focus: centre(frame),
       span: state.span, azimuth: state.azimuth, contacts: toggles.showContacts.checked,
     });
     describeStage();
   }
 
-  function render(): void {
+  function render(cameraDt = 0): void {
     if (loaded === null) return;
     const { source, series } = loaded;
     const header = source.header;
     const frame = source.frameAt(state.frame);
     const focus = centre(frame);
     const chosen = options();
-    drawStage(0);
+    drawStage(0, cameraDt);
     const [planWidth, planHeight] = prepare(plan, planCtx);
     const [sideWidth, sideHeight] = prepare(elevation, elevationCtx);
     const [chartWidth, chartHeight] = prepare(chart, chartCtx);
@@ -674,10 +703,10 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     if (scrub.valueAsNumber !== state.frame) scrub.value = String(state.frame);
   }
 
-  function go(frame: number): void {
+  function go(frame: number, cameraDt = 0): void {
     if (loaded === null) return;
     state.frame = Math.min(loaded.source.frameCount() - 1, Math.max(0, frame));
-    render();
+    render(cameraDt);
   }
 
   /** The next frame carrying a contact, so a 3600-tick fight can be skimmed. */
@@ -1048,7 +1077,9 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   // this route was in on a production build: not obviously broken, just inert,
   // and a reader cannot tell those apart. The picker stays live either way --
   // choosing a matchup is the one useful thing left to do here.
-  const transport: (HTMLButtonElement | HTMLInputElement)[] = [playButton, scrub];
+  const transport: (HTMLButtonElement | HTMLInputElement | HTMLSelectElement)[] = [
+    playButton, scrub, followInput, viewInput, refitButton,
+  ];
   for (const [id, action] of [
     ["step-back", () => go(state.frame - 1)],
     ["step-forward", () => go(state.frame + 1)],
@@ -1071,12 +1102,70 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     state.span = Number(spanInput.value) * ONE;
     render();
   });
+  function showCameraOwnership(): void {
+    spanOwner.textContent = stage?.cameraMode() === "fit"
+      ? "(all five panels)" : "(plan + elevation; Refit restores 3/4)";
+  }
+  followInput.addEventListener("change", () => {
+    const target = followInput.value === "a" ? 0 : followInput.value === "b" ? 1 : "both";
+    stage?.follow(target);
+    render();
+    showCameraOwnership();
+  });
+  viewInput.addEventListener("change", () => {
+    const view = viewInput.value as "threeQuarter" | "firstPersonA" | "firstPersonB";
+    stage?.promote(view);
+    stageHost.dataset.mainView = view;
+  });
+  refitButton.addEventListener("click", () => {
+    followInput.value = "both";
+    stage?.follow("both");
+    stage?.refit();
+    render();
+    showCameraOwnership();
+  });
+  const stagePoint = (event: MouseEvent): readonly [number, number] | null => {
+    const rect = stageCanvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    return [(event.clientX - rect.left) / rect.width, (event.clientY - rect.top) / rect.height];
+  };
+  const hitsThreeQuarter = (event: MouseEvent): boolean => {
+    const point = stagePoint(event);
+    return point !== null && stage?.containsThreeQuarterPoint(point[0], point[1]) === true;
+  };
+  let cameraPointer: number | null = null;
+  stageHost.addEventListener("pointerdown", (event) => {
+    if (event.target !== stageCanvas || event.button !== 1 || !hitsThreeQuarter(event)) return;
+    cameraPointer = event.pointerId;
+    stageCanvas.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  });
+  stageHost.addEventListener("pointermove", (event) => {
+    if (event.target !== stageCanvas || event.pointerId !== cameraPointer) return;
+    if (stage?.orbit(event.buttons, event.movementX, event.movementY) !== true) return;
+    showCameraOwnership();
+    event.preventDefault();
+  });
+  const releaseCameraPointer = (event: PointerEvent): void => {
+    if (event.pointerId !== cameraPointer) return;
+    cameraPointer = null;
+    if (stageCanvas.hasPointerCapture(event.pointerId)) stageCanvas.releasePointerCapture(event.pointerId);
+  };
+  stageHost.addEventListener("pointerup", releaseCameraPointer);
+  stageHost.addEventListener("pointercancel", releaseCameraPointer);
+  stageHost.addEventListener("wheel", (event) => {
+    if (event.target !== stageCanvas || stage === null || !hitsThreeQuarter(event)) return;
+    stage.zoom(event.deltaY);
+    showCameraOwnership();
+    // Reaching a clamp does not transfer this wheel gesture to page scrolling.
+    event.preventDefault();
+  }, { passive: false });
   azimuthInput.addEventListener("input", () => {
     state.azimuth = (Number(azimuthInput.value) * Math.PI) / 180;
     render();
   });
   for (const toggle of Object.values(toggles)) {
-    toggle.addEventListener("change", render);
+    toggle.addEventListener("change", () => render());
   }
   chart.addEventListener("click", (event) => {
     if (loaded === null) return;
@@ -1104,7 +1193,10 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   // silently differed from the opening state is a control nobody can trust.
   populatePolicies(container, "tactical", "scripted");
   for (const control of pickerControls(container)) {
-    control.addEventListener("change", refreshPicker);
+    control.addEventListener("change", () => {
+      refreshPicker();
+      updatePreview();
+    });
   }
   fightButton.addEventListener("click", () => { void onFight(); });
   // **Back to the two columns, and it does not stop the fight.** The panels go
@@ -1217,10 +1309,13 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   let frameRequest = 0;
   let last = performance.now();
   let carry = 0;
+  let cameraElapsed = 0;
+  let previewFrame = 0;
   function loop(now: number): void {
     const elapsed = now - last;
     last = now;
     if (state.playing && loaded !== null) {
+      cameraElapsed += elapsed / 1000;
       // **The probe advances one tick a display frame and ignores Speed.** The
       // two populations have to differ in exactly one thing, and a wall-clock
       // carry does not deliver that: at 1x on a 120 Hz display `carry` gains
@@ -1237,7 +1332,8 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
           state.playing = false;
           playButton.textContent = "Play";
         }
-        go(state.frame + 1);
+        go(state.frame + 1, cameraElapsed);
+        if (pairedDraws) cameraElapsed = 0;
         frameRequest = window.requestAnimationFrame(loop);
         return;
       }
@@ -1267,7 +1363,8 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
             state.playing = false;
             playButton.textContent = "Play";
           }
-          go(wanted);
+          go(wanted, cameraElapsed);
+          cameraElapsed = 0;
         }
       } else if (state.rate < 1) {
         // Below 1x a tick spans several display frames, and `carry` is already
@@ -1275,14 +1372,19 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
         // the 3D panels is the whole of the interpolation this page needs: two
         // known ticks and a lerp against a fractional index, with no timeline
         // to guess at an arrival rate that a recorded buffer does not have.
-        drawStage(carry);
+        drawStage(carry, cameraElapsed);
+        cameraElapsed = 0;
       }
-    }
+    } else cameraElapsed = 0;
     // A paused page whose fight is still growing still has a wider chart to
     // draw, and nothing else would ask for it: every other draw hangs off `go`.
     if (!state.playing && grown && loaded !== null) {
       grown = false;
       render();
+    }
+    if (phase === "select") {
+      stage?.drawPreview(previewFrame);
+      previewFrame += 1;
     }
     frameRequest = window.requestAnimationFrame(loop);
   }

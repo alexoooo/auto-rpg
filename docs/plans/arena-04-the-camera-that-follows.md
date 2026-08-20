@@ -1,9 +1,9 @@
 # Arena 04 -- the camera that follows, and the zoom that closes
 
-**Status:** ready once session 01 has landed. Blocks 05.
+**Status:** complete on 2026-08-20. Blocks 05.
 
-The arena's three cameras are placed by a pure function every frame with no easing, no
-tracking and no `attachControl` (`client/src/arena/scene.ts:768-804`). There is no zoom:
+Before this session, the arena's three cameras were placed by a pure function every frame
+with no easing, no tracking and no `attachControl`. There was no zoom:
 the Span slider changes how much world all five panels frame, which is a *framing* control
 and not a camera. This session gives the 3/4 viewport a camera a person owns, and it lands
 before the hands because **a body you are driving that you cannot follow or lean into is
@@ -76,12 +76,20 @@ export type StageCameraMode = "fit" | "follow" | "orbit";
 export interface StageCamera {
   /** Span-derived framing of both bodies. What the arena does today. */
   fit(focus: V3, span: number, azimuth: number): void;
-  /** Damped follow of one body, dead-zoned so small footwork does not swim. */
+  /** Damped follow of one published head centre, dead-zoned so small footwork does not swim. */
   follow(body: Pose, dt: number): void;
   /** Pointer drag; refuses nothing, because a camera commands no simulation. */
-  orbit(dx: number, dy: number): void;
+  orbit(buttons: number, dx: number, dy: number): boolean;
   /** Wheel. Clamped both ends; the near end is a face and the far end is the arena. */
   zoom(delta: number): void;
+  /** Viewport exchange; moves no camera and constructs nothing. */
+  promote(view: "threeQuarter" | "firstPersonA" | "firstPersonB"): void;
+  /** The promoted camera's screen basis, for session 06's relative hand. */
+  readonly basis: StageCameraBasis;
+  /** CSS-normalized hit test against the live 3/4 camera viewport. */
+  containsThreeQuarterPoint(x: number, y: number): boolean;
+  /** Orbit, effective zoom and promotion move this; follow translation does not. */
+  readonly changeSerial: number;
   refit(): void;
 }
 ```
@@ -109,6 +117,12 @@ perspective 3/4 view of two bodies.
 export const ARENA_FOLLOW_DEAD_ZONE_FRACTION = 0.10;
 
 /**
+ * Exponential response in reciprocal seconds. `1 - exp(-rate * dt)` makes two
+ * half-frame advances equal one whole-frame advance.
+ */
+export const ARENA_FOLLOW_DAMPING_PER_SECOND = 12;
+
+/**
  * The nearest the camera may come to the followed body's centre, in world units.
  *
  * **Bounded from both sides.** Below the head capsule's own radius plus
@@ -122,17 +136,40 @@ export const ARENA_CLOSE_UP_RADIUS = 0.9;
 export const ARENA_WIDE_RADIUS = 30;
 ```
 
-`ARENA_CLOSE_UP_RADIUS`'s lower bound is **derived and not chosen**: the session computes
-it from the shipped anatomies' head radius rather than typing a number, and
+`ARENA_CLOSE_UP_RADIUS`'s lower bound is **derived and not chosen**. The client did not
+carry head radius when this plan was written -- `ANATOMIES` mirrored only five scalars,
+while `fighter_anatomy()` and `brute_anatomy()` are Rust-only -- so the session adds the
+sixth camera-local scalar to that existing mirror, keeps it out of `BodyInfo`, and guards the
+exact `1/5` and `1/4` rows beside the mirror's existing arm-length check. The camera
+computes `ARENA_HEAD_CLEARANCE_RADIUS` from those shipped rows plus `NEAR_PLANE`, rather
+than typing a parallel `0.25`, and
 `the_close_up_radius_clears_the_near_plane_and_the_head` asserts it against
 `fighter_anatomy()` and `brute_anatomy()` so that an anatomy change breaks the test rather
 than the picture.
+
+Follow advances on one clock only. The arena's `requestAnimationFrame` loop passes its
+positive elapsed seconds into the stage; scrub, slider, resize, dress and other synchronous
+redraws pass zero. `the_follow_damping_is_frame_partition_independent` compares one whole
+advance with two half advances, and the test is mutation-checked both against a no-op and
+against snapping the subject to the centre.
+
+The follow subject is `eyeOf(pose)`, the centre of the published head capsule. The fixed
+fit still targets `THREE_QUARTER_TARGET_HEIGHT = 1` byte-for-byte as before, but once a
+side is followed the full camera screen-up axis carries that published head toward the
+dead-zone edge. At the close clamp the allowance becomes zero and the head is centred:
+the shipped head is wider than the ordinary near-distance zone, so leaving its centre on
+the zone edge clips the face. A radius that clears a face while aiming below or beside it
+is not a close-up.
 
 ## Who is followed
 
 A `<select>` beside the Span slider: **Fighter A**, **Fighter B**, or **both** -- "both"
 being today's midpoint fit, and the default, so an unattended AI fight looks exactly as it
 looks now.
+
+The DOM names are part of the wiring contract: `arena-follow`, `arena-view`,
+`arena-refit`, and `arena-span-owner`. The last is the sentence beside Span that changes
+from all-five-panel ownership to plan-and-elevation ownership after the camera is taken.
 
 Session 05 adds one more rule and this session leaves room for it rather than guessing at
 it: when a side is driven by a human, the follow target defaults to that side. That is one
@@ -150,6 +187,17 @@ them to the large rectangle and demotes the 3/4 to the small one. **One `Scene`,
 three cameras, the viewports swapped**, on the same rule the arena's `[Texture]`/`[Geometry]`
 pair already follows: the mode is a property of the scene, it moves no camera it does not
 have to and it rebuilds no engine.
+
+The labels move with those rectangles. `.stage[data-main-view]` places the A, B and 3/4
+labels over the viewports selected by `PROMOTED_VIEWPORTS`; swapping camera rectangles
+while leaving the static CSS labels behind is not a promotion that tells the truth.
+
+The canvas-wide input surface does not make every panel the 3/4 camera's control. Middle
+drag is claimed only when it starts inside that camera's live viewport, and wheel is
+claimed only while its point is inside the same rectangle. The hit test converts the
+DOM's top-origin coordinates to Babylon's bottom-origin viewport coordinates and reads
+the live camera rectangle after promotion. A claimed wheel stays consumed at both zoom
+clamps: reaching a bound is not permission for the page underneath to start scrolling.
 
 ## What this session must not change
 
@@ -189,6 +237,8 @@ have to and it rebuilds no engine.
 | `client/src/arena/arena.ts` | wheel, middle drag, follow `<select>`, view `<select>`, **[Refit]**, and the Span label that admits what it no longer drives |
 | `web/index.html` | the three new controls in the arena's control row |
 | `client/src/render/room-review-camera.ts` | the 0.35-versus-0.08 comment repair only |
+| `client/src/runtime/arena-config.ts` | mirror the two shipped head radii beside the five already-consumed anatomy scalars |
+| `client/test/worker-protocol.test.mjs` | exact Fighter/Brute mirror guard; the configuration bytes do not change |
 | `docs/architecture/browser-runtime.md` | "The arena's two dresses" gains what the cameras now do |
 
 ## Tests
@@ -201,9 +251,14 @@ have to and it rebuilds no engine.
 - `a_followed_body_outside_it_is_restored_to_the_edge_and_not_to_the_centre` -- the
   damping claim, and the one most likely to pass while broken, because a camera that
   simply snaps also puts the body inside the dead zone
+- `the_follow_damping_is_frame_partition_independent`
 - `the_wheel_cannot_put_the_camera_inside_the_body_or_behind_the_arena`
 - `promoting_a_first_person_viewport_moves_no_camera_and_builds_no_engine`
 - `a_camera_change_serial_moves_for_orbit_zoom_and_promotion_but_not_for_followed_pose_publication`
+- `only_a_middle_button_delta_orbits_and_reports_itself_consumed`
+- `promoted_viewport_labels_move_with_the_cameras`
+- `camera_gestures_hit_only_the_live_three_quarter_rectangle_after_every_promotion`
+- `a_wheel_over_the_three_quarter_view_stays_consumed_at_both_zoom_clamps`
 
 `client/test/studio-shell.test.mjs`:
 

@@ -158,6 +158,11 @@ class FakeNode {
     const id = selector.startsWith("#") ? selector.slice(1) : "";
     const node = new FakeNode(this.harness, this.owner ?? this, TEMPLATE_TAGS.get(id) ?? "div", id);
     this.lookups.set(selector, node);
+    if (id === "arena-3d") {
+      const parent = this.querySelector("#arena-stage");
+      node.parentElement = parent;
+      parent.children.push(node);
+    }
     return node;
   }
 
@@ -179,7 +184,24 @@ class FakeNode {
   removeEventListener(type, listener) { this.harness.removeListener(this, type, listener); }
   setAttribute(name, value) { this.attributes.set(name, value); }
   getAttribute(name) { return this.attributes.get(name) ?? null; }
-  append(...nodes) { this.children.push(...nodes); }
+  append(...nodes) {
+    for (const node of nodes) {
+      if (node.parentElement !== undefined) {
+        node.parentElement.children = node.parentElement.children.filter((child) => child !== node);
+      }
+      node.parentElement = this;
+      this.children.push(node);
+    }
+  }
+  prepend(...nodes) {
+    for (const node of [...nodes].reverse()) {
+      if (node.parentElement !== undefined) {
+        node.parentElement.children = node.parentElement.children.filter((child) => child !== node);
+      }
+      node.parentElement = this;
+      this.children.unshift(node);
+    }
+  }
   before() { /* placement is not what this harness measures */ }
   replaceChildren(...nodes) { this.children = [...nodes]; }
   click() { for (const entry of this.harness.listenersOn(this, "click")) entry.listener({ target: this }); }
@@ -875,7 +897,8 @@ test("the_arena_configures_a_on_the_left_and_b_on_the_right", () => {
   assert.equal(sides.length, 2, "the picker is not two side columns");
   assert.deepEqual(sides.map((match) => match[1]), ["hero", "monster"],
     "Fighter A is not the left-hand column");
-  const controlsOf = (body) => [...body.matchAll(/\sid="([^"]+)"/g)].map((match) => match[1]);
+  const controlsOf = (body) => [...body.matchAll(/\sid="([^"]+)"/g)]
+    .map((match) => match[1]).filter((id) => !id.endsWith("-preview-dress"));
   const [a, b] = sides.map((match) => controlsOf(match[2]));
   assert.deepEqual(a, ["a-anatomy", "a-left", "a-right", "a-two-handed", "a-control",
     "a-off-hand-row", "a-off-hand"]);
@@ -885,6 +908,16 @@ test("the_arena_configures_a_on_the_left_and_b_on_the_right", () => {
   // column a reader can see.
   assert.match(sides[0][2], /<span class="side">Fighter A<\/span>/);
   assert.match(sides[1][2], /<span class="side">Fighter B<\/span>/);
+});
+
+test("the_preview_cards_are_pinned_to_the_same_columns_as_their_camera_viewports", () => {
+  const hero = /\.picker-side\.hero\s*\{[^}]*grid-column:\s*(\d+)/.exec(SHELL_HTML);
+  const monster = /\.picker-side\.monster\s*\{[^}]*grid-column:\s*(\d+)/.exec(SHELL_HTML);
+  assert.equal(hero?.[1], "1", "Fighter A must overlay the preview's left half");
+  assert.equal(monster?.[1], "2", "Fighter B must overlay the preview's right half");
+  assert.match(SHELL_HTML,
+    /@media \(max-width: 44rem\)[\s\S]*?\.picker-sides\s*\{[^}]*repeat\(2,/,
+    "narrow layout must retain two columns because the canvas retains two horizontal viewports");
 });
 
 test("the_seed_and_the_fight_button_belong_to_the_matchup_and_not_to_side_b", () => {
@@ -1139,6 +1172,27 @@ test("a_plain_arena_opens_without_fetching_a_recording", async () => {
   }
 });
 
+test("the_selection_screen_opens_with_no_wasm_present", async () => {
+  const harness = installDom();
+  try {
+    const { mount } = await import(compiled("client/src/arena/arena.js"));
+    const container = harness.container();
+    const handle = await mount(container, new URLSearchParams());
+    assert.equal(container.querySelector("#picker-sides").hidden, false);
+    assert.equal(container.querySelector("#arena-3d").parentElement.id, "picker-sides");
+    await assertStageIsAbsent(container, "selection without wasm");
+    const urls = harness.fetches.map((request) => String(request.url));
+    assert.equal(urls.some((url) => /(?:web\.wasm|fight(?:-[^/]*)?\.json|recording)/.test(url)), false,
+      `opening the picker requested a wasm or recording URL: ${urls.join(", ")}`);
+    assert.ok(urls.every((url) => /\/assets3d\/combatants\.(?:json|glb)$/.test(url)),
+      `the picker may fetch only its intended combatant asset: ${urls.join(", ")}`);
+    await handle.dispose();
+    harness.dropSubtree(container);
+  } finally {
+    harness.restore();
+  }
+});
+
 test("an_empty_trace_query_is_refused_without_fetching_the_document", async () => {
   const harness = installDom();
   try {
@@ -1195,6 +1249,44 @@ test("checkpoint_copy_distinguishes_live_execution_from_recorded_provenance", ()
   assert.equal(picker.checkpointCopy("recording"),
     "Recorded fight: playback does not run AI; the digest identifies the weights used "
       + "when the recording was made.");
+});
+
+test("the_span_slider_says_when_it_has_stopped_driving_the_stage_camera", () => {
+  assert.equal(TEMPLATE_TAGS.get("arena-follow"), "select");
+  assert.equal(TEMPLATE_TAGS.get("arena-view"), "select");
+  assert.equal(TEMPLATE_TAGS.get("arena-refit"), "button");
+  assert.equal(TEMPLATE_TAGS.get("arena-span-owner"), "span");
+  assert.match(SHELL_HTML,
+    /id="arena-span-owner">\(all five panels\)<\/span>/,
+    "an unattended fight must open with the old all-panel ownership stated");
+
+  const source = fs.readFileSync(path.join(ROOT, "client/src/arena/arena.ts"), "utf8");
+  assert.match(source, /stage\?\.cameraMode\(\) === "fit"/);
+  assert.match(source, /"\(plan \+ elevation; Refit restores 3\/4\)"/);
+  assert.match(source, /stage\?\.orbit\(event\.buttons, event\.movementX, event\.movementY\)/);
+  assert.match(source, /stage\.zoom\(event\.deltaY\)/);
+  assert.match(source, /refitButton\.addEventListener\("click"/);
+});
+
+test("the_camera_controls_pin_their_vocabulary_and_promoted_label_mode", () => {
+  assert.deepEqual(TEMPLATE_VALUES.get("arena-follow"), { value: "both" });
+  assert.deepEqual(TEMPLATE_VALUES.get("arena-view"), { value: "threeQuarter" });
+  assert.match(SHELL_HTML, /class="stage"[^>]*data-main-view="threeQuarter"/);
+  const source = fs.readFileSync(path.join(ROOT, "client/src/arena/arena.ts"), "utf8");
+  assert.match(source, /stageHost\.dataset\.mainView = view/);
+  assert.match(source, /followInput\.value = "both";[\s\S]*?stage\?\.refit\(\)/);
+});
+
+test("a_wheel_over_the_three_quarter_view_stays_consumed_at_both_zoom_clamps", () => {
+  const source = fs.readFileSync(path.join(ROOT, "client/src/arena/arena.ts"), "utf8");
+  const listener = /stageHost\.addEventListener\("wheel", \(event\) => \{([\s\S]*?)\n  \}, \{ passive: false \}\);/.exec(source);
+  assert.ok(listener, "the arena has no non-passive stage wheel owner");
+  assert.match(listener[1], /hitsThreeQuarter\(event\)/,
+    "wheel must hit-test the live 3/4 viewport after promotion");
+  assert.match(listener[1], /stage\.zoom\(event\.deltaY\);[\s\S]*event\.preventDefault\(\);/,
+    "a claimed wheel must stay consumed when zoom cannot move farther");
+  assert.doesNotMatch(listener[1], /cameraChangeSerial/,
+    "a zoom clamp must not transfer the gesture to page scrolling");
 });
 
 test("a_policy_mismatch_names_the_recording_that_is_still_on_screen", () => {

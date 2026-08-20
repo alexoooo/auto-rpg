@@ -44,6 +44,8 @@ const tsc = spawnSync(process.execPath, [
   // `environment.ts` joined it in v2-ui-03, which is where the arena grew a
   // light, a shadow generator and a room to stand in.
   "client/src/arena/geometry.ts", "client/src/arena/scene.ts", "client/src/arena/environment.ts",
+  "client/src/arena/preview.ts", "client/src/arena/stage-camera.ts",
+  "client/src/arena/picker.ts", "client/src/runtime/arena-config.ts",
 ], { cwd: ROOT, encoding: "utf8" });
 assert.equal(tsc.status, 0, `TypeScript test compilation failed:\n${tsc.stdout}\n${tsc.stderr}`);
 
@@ -87,10 +89,14 @@ const combatantAssets = await load("client/src/render/combatant-assets.js");
 const combatantDress = await load("client/src/render/combatant-dress.js");
 const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
 const { Scene } = await import("@babylonjs/core/scene.js");
+const { TransformNode } = await import("@babylonjs/core/Meshes/transformNode.js");
 const { LoadAssetContainerAsync } = await import("@babylonjs/core/Loading/sceneLoader.js");
 const arenaGeometry = await load("client/src/arena/geometry.js");
 const arenaScene = await load("client/src/arena/scene.js");
 const arenaEnvironment = await load("client/src/arena/environment.js");
+const arenaPreview = await load("client/src/arena/preview.js");
+const arenaStageCamera = await load("client/src/arena/stage-camera.js");
+const arenaConfig = await load("client/src/runtime/arena-config.js");
 
 test("the_room_variant_selector_is_repeatable_uses_every_variant_and_avoids_checkerboards", () => {
   const first = [];
@@ -4027,7 +4033,8 @@ const raw = (...values) => values.map((value) => Math.round(value * RAW));
  * not about a convenient fixture.
  */
 function arenaPose(values = {}) {
-  const { index = 0, x = 7, y = 6, yaw = 0, severed = 0, shield = true } = values;
+  const { index = 0, x = 7, y = 6, yaw = 0, severed = 0, shield = true,
+    headHeight = 1.7, headRadius = 0.2 } = values;
   const region = (lower, upper, radius) => ({ lower: raw(...lower), upper: raw(...upper), radius: Math.round(radius * RAW), present: true });
   const left = [x, y + 0.25, 0.9];
   const right = [x, y - 0.25, 0.9];
@@ -4044,7 +4051,7 @@ function arenaPose(values = {}) {
       thickness: Math.round(0.05 * RAW),
     } : null,
     regions: [
-      region([x, y, 1.7], [x, y, 1.7], 0.2),
+      region([x, y, headHeight], [x, y, headHeight], headRadius),
       region([x, y, 0.7], [x, y, 1.5], 0.35),
       region([x, y + 0.25, 1.4], left, 0.15),
       region([x, y - 0.25, 1.4], right, 0.15),
@@ -4082,6 +4089,7 @@ const arenaView = (poses, values = {}) => {
   };
   return {
     header: arenaHeader(), frame, next: values.next ?? frame, alpha: values.alpha ?? 0,
+    cameraDt: values.cameraDt ?? 0,
     focus: values.focus ?? [poses[0].body[0], poses[0].body[1], 0], span: values.span ?? 6 * RAW,
     azimuth: values.azimuth ?? 0, contacts: values.contacts ?? false,
   };
@@ -4102,6 +4110,11 @@ async function arenaStageHarness() {
   const debug = new rendererDebug.RendererDebugRegistry();
   const built = arenaScene.createArenaContent(engine, debug);
   return { engine, debug, ...built };
+}
+
+function arenaCameraTarget(camera) {
+  camera.getViewMatrix(true);
+  return camera.getTarget();
 }
 
 test("the_arena_axis_mapping_is_a_rotation_rather_than_a_mirror_of_the_world", () => {
@@ -4135,6 +4148,273 @@ test("the_arena_axis_mapping_is_a_rotation_rather_than_a_mirror_of_the_world", (
   assert.equal(sceneYaw(RAW / 4), Math.PI / 2);
   const quarter = sceneForward(RAW / 4).map((value) => Math.round(value * 1e6) / 1e6);
   assert.deepEqual(quarter, scenePoint(raw(0, 1, 0)), "a quarter turn must face world +y");
+});
+
+test("a_preview_hangs_the_item_the_configuration_buffer_would_carry", async () => {
+  const engine = new NullEngine();
+  const scene = new Scene(engine);
+  const { Vector3 } = await import("@babylonjs/core/Maths/math.vector.js");
+  const distance = (mesh, from, to) => {
+    const matrix = mesh.computeWorldMatrix(true);
+    return Vector3.Distance(
+      Vector3.TransformCoordinates(from, matrix), Vector3.TransformCoordinates(to, matrix),
+    );
+  };
+  const assertClub = (item) => {
+    const row = arenaConfig.HAND_ITEMS.club;
+    const length = row.a / 65536;
+    const radius = row.b / 65536;
+    assert.ok(Math.abs(distance(item, new Vector3(0, -length / 2, 0), new Vector3(0, length / 2, 0))
+      - length) < 1e-5);
+    assert.ok(Math.abs(distance(item, new Vector3(-radius, 0, 0), new Vector3(radius, 0, 0)) / 2
+      - radius) < 1e-5);
+  };
+  try {
+    // The real fallback hierarchy is presentation-height until the preview
+    // scales it to the configured 2.0-unit Brute. The item must cancel 2/3.2.
+    const sources = rendererFigure.buildFigureSources(scene, "preview-item-fallback", 1);
+    const figure = rendererFigure.buildFigure(scene, sources, "preview-item-fallback", 1);
+    rendererFigure.poseFigureRest(figure, 1);
+    figure.root.scaling.setAll((arenaConfig.ANATOMIES[1].standingHeight / 65536)
+      / rendererFigure.figureBodyHeightRadii(1));
+    figure.root.computeWorldMatrix(true);
+    assert.ok(Math.abs(figure.root.scaling.x - 0.625) < 1e-8);
+    const fallbackSocket = figure.nodes.get("socket_weapon_right");
+    assert.ok(fallbackSocket);
+    const fallbackItem = arenaPreview.buildPreviewItem(scene, 0, 1, "club", fallbackSocket);
+    assert.ok(fallbackItem);
+    assertClub(fallbackItem);
+    fallbackItem.dispose();
+    for (const mesh of figure.parts) mesh.dispose();
+    figure.root.dispose();
+    sources.dispose();
+
+    // And the actual authored hierarchy, whose Brute contract is 2.18 units
+    // before `setStandingHeight(2.0)` applies its different root scale.
+    const asset = await combatantAssets.loadCombatantAsset(scene, new AbortController().signal,
+      (url) => Promise.resolve(combatantResponse(url)));
+    const dress = combatantDress.instantiateCombatantDress(asset, "brute", "preview-item-authored");
+    dress.setStandingHeight(arenaConfig.ANATOMIES[1].standingHeight / 65536);
+    dress.setEnabled(true);
+    const authoredSocket = dress.nodes.get("socket_weapon_right");
+    assert.ok(authoredSocket);
+    const authoredItem = arenaPreview.buildPreviewItem(scene, 1, 1, "club", authoredSocket);
+    assert.ok(authoredItem);
+    assertClub(authoredItem);
+    authoredItem.dispose();
+    dress.dispose();
+    asset.dispose();
+  } finally {
+    scene.dispose();
+    engine.dispose();
+  }
+});
+
+test("the_preview_turntable_is_a_pure_function_of_its_frame", async () => {
+  assert.equal(arenaPreview.previewYaw(0), arenaPreview.previewYaw(480));
+  assert.equal(arenaPreview.previewYaw(120), Math.PI / 2);
+  assert.equal(arenaPreview.previewYaw(121), arenaPreview.previewYaw(121));
+  const engine = new NullEngine();
+  const scene = new Scene(engine);
+  const { FreeCamera } = await import("@babylonjs/core/Cameras/freeCamera.js");
+  const { Vector3 } = await import("@babylonjs/core/Maths/math.vector.js");
+  const stage = [0, 1, 2].map((n) => new FreeCamera(`turntable-stage-${n}`, new Vector3(), scene));
+  const preview = arenaPreview.createCombatantPreview(scene, stage, () => {}, async () => null);
+  preview.show(0, {
+    anatomy: "fighter", left: "shield", right: "sword", twoHanded: false,
+    policy: "tactical", control: "policy",
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  const root = scene.getTransformNodeByName("arena-preview:0:root");
+  assert.ok(root?.rotationQuaternion, "the semantic root must use its quaternion path");
+  const forward = () => {
+    root.computeWorldMatrix(true);
+    return Vector3.TransformNormal(Vector3.RightReadOnly, root.getWorldMatrix()).normalize().asArray();
+  };
+  preview.draw(37);
+  const first = forward();
+  preview.draw(151);
+  assert.notDeepEqual(forward(), first, "a later frame must turn the actual hierarchy");
+  preview.draw(37);
+  assert.deepEqual(forward(), first, "returning to a frame must restore exactly the same hierarchy");
+  preview.dispose();
+  for (const camera of stage) camera.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+test("no_preview_bit_collides_with_a_stage_camera_bit", () => {
+  for (const preview of arenaPreview.PREVIEW_CAMERA_BITS) {
+    for (const stage of arenaScene.CAMERA_BITS) assert.equal(preview & stage, 0);
+  }
+});
+
+test("a_previewed_shield_is_on_the_same_side_as_the_shield_in_the_fight", async () => {
+  const engine = new NullEngine();
+  const debug = new rendererDebug.RendererDebugRegistry();
+  const { scene, content } = arenaScene.createArenaContent(engine, debug);
+  content.show(arenaView([arenaPose({ shield: true })]));
+  const fightRig = content.rig(0);
+  assert.ok(fightRig);
+  const preview = arenaPreview.createCombatantPreview(
+    scene, [content.firstPerson[0], content.firstPerson[1], content.threeQuarter], () => {}, async () => null,
+  );
+  preview.show(0, {
+    anatomy: "fighter", left: "shield", right: "sword", twoHanded: false,
+    policy: "tactical", control: "policy",
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  const shield = scene.getMeshByName("arena-preview:0:0:shield");
+  const previewRoot = scene.getTransformNodeByName("arena-preview:0:root");
+  assert.ok(shield);
+  assert.ok(previewRoot);
+  assert.match(shield.parent?.name ?? "", /socket_weapon_left$/,
+    "the selected left-hand shield must actually hang from the preview's left socket");
+  const previewSocket = shield.parent;
+  previewSocket.computeWorldMatrix(true);
+  previewRoot.computeWorldMatrix(true);
+  const previewSide = Math.sign(previewSocket.getAbsolutePosition().z - previewRoot.getAbsolutePosition().z);
+  const fightShield = fightRig.get("socket_shield");
+  const fightRoot = fightRig.get("root");
+  assert.ok(fightShield);
+  assert.ok(fightRoot);
+  fightShield.computeWorldMatrix(true);
+  fightRoot.computeWorldMatrix(true);
+  const fightSide = Math.sign(fightShield.getAbsolutePosition().z - fightRoot.getAbsolutePosition().z);
+  assert.equal(previewSide, fightSide);
+  assert.equal(previewSide, -1, "arena yaw zero puts anatomical left on scene -z");
+  preview.dispose();
+  content.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+test("a_preview_does_not_pose_the_rig_from_a_publication_it_does_not_have", () => {
+  const source = fs.readFileSync(path.join(ROOT, "client/src/arena/preview.ts"), "utf8");
+  assert.doesNotMatch(source, /copyCombatantRigPose/);
+  assert.doesNotMatch(source, /poseFigure\(/);
+  assert.match(source, /poseFigureRest\(/);
+});
+
+test("a_preview_falls_back_to_primitives_and_says_which_dress_is_on_screen", async () => {
+  const engine = new NullEngine();
+  const scene = new Scene(engine);
+  const { FreeCamera } = await import("@babylonjs/core/Cameras/freeCamera.js");
+  const { Vector3 } = await import("@babylonjs/core/Maths/math.vector.js");
+  const stage = [0, 1, 2].map((n) => new FreeCamera(`stage-${n}`, new Vector3(), scene));
+  const lines = [];
+  const preview = arenaPreview.createCombatantPreview(scene, stage, (side, line) => lines.push([side, line]),
+    async () => null);
+  preview.show(0, {
+    anatomy: "fighter", left: "shield", right: "sword", twoHanded: false,
+    policy: "tactical", control: "policy",
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.ok(lines.some(([side, line]) => side === 0 && /primitive fallback/.test(line)));
+  assert.ok(scene.meshes.some((mesh) => mesh.name.startsWith("arena-preview:0")));
+  const root = scene.getTransformNodeByName("arena-preview:0:root");
+  assert.ok(root);
+  const configuredScale = (arenaConfig.ANATOMIES[0].standingHeight / 65536)
+    / rendererFigure.figureBodyHeightRadii(0);
+  assert.ok(Math.abs(root.scaling.x - configuredScale) < 1e-8,
+    `the Fighter fallback must scale to configured height: ${root.scaling.x} vs ${configuredScale}`);
+  preview.dispose();
+  for (const camera of stage) camera.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+test("an_invalid_authored_preview_falls_back_without_rejecting_the_load_callback", async () => {
+  const engine = new NullEngine();
+  const scene = new Scene(engine);
+  const { FreeCamera } = await import("@babylonjs/core/Cameras/freeCamera.js");
+  const { Vector3 } = await import("@babylonjs/core/Maths/math.vector.js");
+  const stage = [0, 1, 2].map((n) => new FreeCamera(`invalid-stage-${n}`, new Vector3(), scene));
+  const lines = [];
+  // A fulfilled asset promise whose clone contract is invalid. The old path
+  // caught fetch/validation rejection only, so this synchronous clone failure
+  // escaped its `.then` callback and left the column saying "loading".
+  const invalid = { archetypes: new Map(), container: {} };
+  const preview = arenaPreview.createCombatantPreview(scene, stage, (side, line) => lines.push([side, line]),
+    async () => invalid);
+  preview.show(1, {
+    anatomy: "brute", left: "empty", right: "club", twoHanded: false,
+    policy: "scripted", control: "policy",
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.ok(lines.some(([side, line]) => side === 1 && /primitive fallback \(authored dress invalid:/.test(line)));
+  assert.ok(scene.meshes.some((mesh) => mesh.name.startsWith("arena-preview:1")));
+  preview.dispose();
+  for (const camera of stage) camera.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+test("the_preview_and_the_stage_are_never_active_on_the_canvas_at_once", async () => {
+  const engine = new NullEngine();
+  const scene = new Scene(engine);
+  const { FreeCamera } = await import("@babylonjs/core/Cameras/freeCamera.js");
+  const { Vector3 } = await import("@babylonjs/core/Maths/math.vector.js");
+  const stage = [0, 1, 2].map((n) => new FreeCamera(`stage-${n}`, new Vector3(), scene));
+  const preview = arenaPreview.createCombatantPreview(scene, stage, () => {}, async () => null);
+  preview.setActive(true);
+  assert.deepEqual(scene.activeCameras.map(({ name }) => name), ["arena-preview-0", "arena-preview-1"]);
+  preview.setActive(false);
+  assert.deepEqual(scene.activeCameras.map(({ name }) => name), ["stage-0", "stage-1", "stage-2"]);
+  preview.dispose();
+  for (const camera of stage) camera.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+test("a_textured_fight_parks_its_room_and_lights_during_preview_then_restores_them", async () => {
+  const engine = new NullEngine();
+  const debug = new rendererDebug.RendererDebugRegistry();
+  const { scene, content } = arenaScene.createArenaContent(engine, debug);
+  content.setMode("texture");
+  assert.equal(content.mode(), "texture");
+  assert.equal(scene.lights.length, 2);
+  assert.ok(scene.lights.every((light) => light.isEnabled()));
+  content.setPhase("select");
+  assert.equal(content.mode(), "texture", "selection parks rather than forgets the chosen fight mode");
+  assert.ok(scene.lights.every((light) => !light.isEnabled()));
+  assert.equal(scene.imageProcessingConfiguration.exposure, 1);
+  content.setPhase("fight");
+  assert.equal(content.mode(), "texture");
+  assert.ok(scene.lights.every((light) => light.isEnabled()));
+  assert.equal(scene.imageProcessingConfiguration.exposure, 1.34);
+  content.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+test("leaving_the_selection_phase_disposes_the_preview_cameras_and_owned_meshes", async () => {
+  const engine = new NullEngine();
+  const scene = new Scene(engine);
+  const { FreeCamera } = await import("@babylonjs/core/Cameras/freeCamera.js");
+  const { Vector3 } = await import("@babylonjs/core/Maths/math.vector.js");
+  const stage = [0, 1, 2].map((n) => new FreeCamera(`stage-dispose-${n}`, new Vector3(), scene));
+  const preview = arenaPreview.createCombatantPreview(scene, stage, () => {}, async () => null);
+  preview.show(0, {
+    anatomy: "fighter", left: "shield", right: "sword", twoHanded: false,
+    policy: "tactical", control: "policy",
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  const cameras = [...preview.cameras];
+  const owned = scene.meshes.filter((mesh) => mesh.name.startsWith("arena-preview:0"));
+  assert.ok(owned.length > 0);
+  preview.dispose();
+  assert.ok(cameras.every((camera) => camera.isDisposed()));
+  assert.ok(owned.every((mesh) => mesh.isDisposed()));
+  assert.equal(scene.cameras.some(({ name }) => name.startsWith("arena-preview-")), false);
+  for (const camera of stage) camera.dispose();
+  scene.dispose();
+  engine.dispose();
 });
 
 test("the_stage_viewports_match_the_css_that_labels_them", async () => {
@@ -4188,6 +4468,293 @@ test("the_stage_viewports_match_the_css_that_labels_them", async () => {
   assert.deepEqual(rect(content.threeQuarter), threeQuarter);
   assert.deepEqual(scene.activeCameras.map((camera) => camera.name),
     ["arena-first-person-0", "arena-first-person-1", "arena-three-quarter"]);
+  content.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+test("the_follow_dead_zone_is_bounded_from_both_sides", () => {
+  assert.ok(arenaStageCamera.ARENA_FOLLOW_DEAD_ZONE_FRACTION > 0,
+    "zero follows every hip shift and makes the room swim");
+  assert.ok(arenaStageCamera.ARENA_FOLLOW_DEAD_ZONE_FRACTION < 0.25,
+    "a quarter lets the followed body reach its own viewport edge");
+  assert.ok(arenaStageCamera.ARENA_FOLLOW_DAMPING_PER_SECOND > 0);
+  assert.ok(arenaStageCamera.ARENA_FOLLOW_DAMPING_PER_SECOND < 60,
+    "the response must not become a one-frame snap at 60 Hz");
+});
+
+test("the_close_up_radius_clears_the_near_plane_and_the_head", () => {
+  const widest = Math.max(...arenaConfig.ANATOMIES.map(({ headRadius }) => headRadius)) / RAW;
+  assert.equal(arenaStageCamera.ARENA_HEAD_CLEARANCE_RADIUS,
+    widest + arenaGeometry.NEAR_PLANE);
+  assert.ok(arenaStageCamera.ARENA_CLOSE_UP_RADIUS >
+    arenaStageCamera.ARENA_HEAD_CLEARANCE_RADIUS);
+  assert.ok(arenaStageCamera.ARENA_CLOSE_UP_RADIUS <
+    Math.min(...arenaConfig.ANATOMIES.map(({ standingHeight }) => standingHeight)) / RAW,
+  "the near bound must still be a close-up");
+});
+
+test("close_zoom_projects_both_published_anatomy_heads_as_face_close_ups", async () => {
+  const { Matrix, Vector3 } = await import("@babylonjs/core/Maths/math.vector.js");
+  for (const anatomy of [
+    { name: "Fighter", headHeight: 1.7, headRadius: 0.2 },
+    { name: "Brute", headHeight: 1.9, headRadius: 0.25 },
+  ]) {
+    const harness = await arenaStageHarness();
+    const { content, scene, engine } = harness;
+    const pose = arenaPose(anatomy);
+    const focus = raw(7, 6, 0);
+    content.show(arenaView([pose], { focus }));
+    content.follow(0);
+    content.zoom(-1e9);
+    content.show(arenaView([pose], { focus, cameraDt: 2 }));
+
+    const camera = content.threeQuarter;
+    const target = arenaCameraTarget(camera);
+    assert.ok(Math.abs(camera.position.subtract(target).length()
+      - arenaStageCamera.ARENA_CLOSE_UP_RADIUS) < 1e-5, `${anatomy.name} did not reach close zoom`);
+    // Render this camera alone so the scene transform is its view-projection,
+    // not whichever camera happened to finish a three-viewport render last.
+    scene.activeCamera = camera;
+    scene.activeCameras = [camera];
+    scene.render();
+    const viewport = camera.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight());
+    const head = new Vector3(...arenaGeometry.scenePoint(arenaGeometry.eyeOf(pose)));
+    camera.getViewMatrix(true);
+    const project = (point) => Vector3.Project(
+      point, Matrix.IdentityReadOnly, scene.getTransformMatrix(), viewport,
+    );
+    const centre = project(head);
+    const localX = (centre.x - viewport.x) / viewport.width;
+    const localY = (centre.y - viewport.y) / viewport.height;
+    // The dead zone is measured on the target plane. The head is above and
+    // therefore nearer than that plane in this elevated perspective, so its
+    // projected fraction is slightly larger than the target-plane 0.10.
+    assert.ok(Math.abs(localX - 0.5) <= 0.205,
+      `${anatomy.name} head projects horizontally at ${localX}`);
+    assert.ok(Math.abs(localY - 0.5) <= 0.205,
+      `${anatomy.name} head projects vertically at ${localY}`);
+
+    // It is a face close-up, not merely a centre that survived clipping. The
+    // sphere's published radius must occupy a material part of the viewport and
+    // both screen-up edges must remain visible. A fixed target at y=1 fails the
+    // centre assertion above for both shipped anatomies.
+    const screenUp = camera.getDirection(Vector3.Up()).normalize();
+    const edges = [head.add(screenUp.scale(anatomy.headRadius)),
+      head.subtract(screenUp.scale(anatomy.headRadius))].map(project);
+    assert.ok(edges.every(({ y }) => y >= viewport.y && y <= viewport.y + viewport.height),
+      `${anatomy.name} head is clipped at close zoom`);
+    assert.ok(Math.abs(edges[0].y - edges[1].y) / viewport.height > 0.2,
+      `${anatomy.name} head is not a close-up`);
+    content.dispose();
+    scene.dispose();
+    engine.dispose();
+  }
+});
+
+test("an_unattended_fight_frames_both_bodies_exactly_as_it_did_before_camera_ownership", async () => {
+  const harness = await arenaStageHarness();
+  const { content, scene, engine } = harness;
+  const poses = [arenaPose({ index: 0, x: 7 }), arenaPose({ index: 1, x: 12 })];
+  const view = arenaView(poses, { focus: raw(9.5, 6, 0), span: 11 * RAW, azimuth: 0.7 });
+  content.show(view);
+  const aspect = engine.getAspectRatio(content.threeQuarter);
+  const expected = arenaGeometry.threeQuarterPlacement(view.focus, view.span, aspect, view.azimuth);
+  assert.deepEqual(
+    [content.threeQuarter.position.x, content.threeQuarter.position.y,
+      content.threeQuarter.position.z], expected.position,
+  );
+  const actualTarget = arenaCameraTarget(content.threeQuarter);
+  assert.ok(Math.hypot(actualTarget.x - expected.target[0], actualTarget.y - expected.target[1],
+    actualTarget.z - expected.target[2]) < 1e-6,
+    `Babylon's matrix-derived target ${actualTarget.asArray()} differs from ${expected.target}`);
+  content.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+test("a_followed_body_inside_the_dead_zone_does_not_move_the_camera", async () => {
+  const harness = await arenaStageHarness();
+  const { content, scene, engine } = harness;
+  const focus = raw(7, 6, 0);
+  content.show(arenaView([arenaPose()], { focus }));
+  content.follow(0);
+  // First let follow adopt the published head. The old fixture captured the
+  // chest-height fit target, so its supposedly-inside body was already 0.7
+  // units outside the vertical zone before its small horizontal step.
+  content.show(arenaView([arenaPose()], { focus, cameraDt: 100 }));
+  const before = arenaCameraTarget(content.threeQuarter).clone();
+  content.show(arenaView([arenaPose({ x: 7.01 })], { focus, cameraDt: 1 / 60 }));
+  assert.ok(arenaCameraTarget(content.threeQuarter).subtract(before).length() < 1e-12);
+  content.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+test("a_followed_body_outside_it_is_restored_to_the_edge_and_not_to_the_centre", async () => {
+  const harness = await arenaStageHarness();
+  const { content, scene, engine } = harness;
+  const focus = raw(7, 6, 0);
+  const followed = arenaPose({ x: 10 });
+  content.show(arenaView([arenaPose()], { focus }));
+  content.follow(0);
+  const before = arenaCameraTarget(content.threeQuarter).clone();
+  content.show(arenaView([followed], { focus, cameraDt: 2 }));
+  const after = arenaCameraTarget(content.threeQuarter);
+  const subjectX = followed.body[0] / RAW;
+  assert.ok(after.x > before.x, "an outside subject must move the camera");
+  assert.ok(subjectX - after.x > 0.1, "follow must restore the zone edge, not centre the body");
+  assert.ok(subjectX - after.x < 1, "the body must finish inside its old multi-unit offset");
+  content.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+test("the_follow_damping_is_frame_partition_independent", async () => {
+  const one = await arenaStageHarness();
+  const two = await arenaStageHarness();
+  const focus = raw(7, 6, 0);
+  const followed = arenaPose({ x: 10 });
+  for (const { content } of [one, two]) {
+    content.show(arenaView([arenaPose()], { focus }));
+    content.follow(0);
+  }
+  one.content.show(arenaView([followed], { focus, cameraDt: 0.04 }));
+  two.content.show(arenaView([followed], { focus, cameraDt: 0.02 }));
+  two.content.show(arenaView([followed], { focus, cameraDt: 0.02 }));
+  const whole = arenaCameraTarget(one.content.threeQuarter);
+  const halves = arenaCameraTarget(two.content.threeQuarter);
+  assert.ok(whole.subtract(halves).length() < 1e-12,
+    `whole ${whole.asArray()} differs from halves ${halves.asArray()}`);
+  for (const harness of [one, two]) {
+    harness.content.dispose();
+    harness.scene.dispose();
+    harness.engine.dispose();
+  }
+});
+
+test("the_wheel_cannot_put_the_camera_inside_the_body_or_behind_the_arena", async () => {
+  const harness = await arenaStageHarness();
+  const { content, scene, engine } = harness;
+  content.show(arenaView([arenaPose()]));
+  const radius = () => content.threeQuarter.position.subtract(
+    arenaCameraTarget(content.threeQuarter)).length();
+  content.zoom(-1e9);
+  assert.ok(Math.abs(radius() - arenaStageCamera.ARENA_CLOSE_UP_RADIUS) < 1e-5);
+  content.zoom(1e9);
+  assert.ok(Math.abs(radius() - arenaStageCamera.ARENA_WIDE_RADIUS) < 1e-5);
+  content.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+test("refit_returns_the_stage_camera_to_the_current_span_fit", async () => {
+  const harness = await arenaStageHarness();
+  const { content, scene, engine } = harness;
+  const focus = raw(7, 6, 0);
+  content.show(arenaView([arenaPose()], { focus, span: 6 * RAW }));
+  content.zoom(-500);
+  const owned = content.threeQuarter.position.clone();
+  content.show(arenaView([arenaPose()], { focus, span: 12 * RAW }));
+  assert.deepEqual(content.threeQuarter.position.asArray(), owned.asArray(),
+    "Span must leave an owned stage camera where the reader parked it");
+  content.refit();
+  const expected = arenaGeometry.threeQuarterPlacement(
+    focus, 12 * RAW, engine.getAspectRatio(content.threeQuarter), 0,
+  );
+  assert.deepEqual(content.threeQuarter.position.asArray(), expected.position);
+  content.show(arenaView([arenaPose()], { focus, span: 8 * RAW }));
+  const future = arenaGeometry.threeQuarterPlacement(
+    focus, 8 * RAW, engine.getAspectRatio(content.threeQuarter), 0,
+  );
+  assert.deepEqual(content.threeQuarter.position.asArray(), future.position,
+    "Refit must give future Span changes back to the 3/4 camera");
+  content.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+test("promoting_a_first_person_viewport_moves_no_camera_and_builds_no_engine", async () => {
+  const harness = await arenaStageHarness();
+  const { content, scene, engine } = harness;
+  content.show(arenaView([arenaPose({ index: 0 }), arenaPose({ index: 1, x: 11 })]));
+  const cameras = [...content.firstPerson, content.threeQuarter];
+  const transforms = cameras.map((camera) => [camera.position.asArray(), camera.rotation.asArray()]);
+  const sceneCount = engine.scenes.length;
+  content.promote("firstPersonA");
+  assert.deepEqual([...content.firstPerson, content.threeQuarter], cameras);
+  assert.deepEqual(cameras.map((camera) => [camera.position.asArray(), camera.rotation.asArray()]), transforms);
+  assert.equal(engine.scenes.length, sceneCount);
+  const rect = (camera) => ({ x: camera.viewport.x, y: camera.viewport.y,
+    width: camera.viewport.width, height: camera.viewport.height });
+  assert.deepEqual(rect(content.firstPerson[0]), arenaGeometry.ARENA_VIEWPORTS.threeQuarter);
+  assert.deepEqual(rect(content.threeQuarter), arenaGeometry.ARENA_VIEWPORTS.firstPersonA);
+  content.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+test("a_camera_change_serial_moves_for_orbit_zoom_and_promotion_but_not_for_followed_pose_publication", async () => {
+  const harness = await arenaStageHarness();
+  const { content, scene, engine } = harness;
+  const focus = raw(7, 6, 0);
+  content.show(arenaView([arenaPose()], { focus }));
+  content.follow(0);
+  const initial = content.cameraChangeSerial();
+  content.show(arenaView([arenaPose({ x: 10 })], { focus, cameraDt: 1 / 60 }));
+  assert.equal(content.cameraChangeSerial(), initial);
+  assert.equal(content.orbit(4, 2, 1), true);
+  const orbited = content.cameraChangeSerial();
+  assert.ok(orbited > initial);
+  content.zoom(-120);
+  const zoomed = content.cameraChangeSerial();
+  assert.ok(zoomed > orbited);
+  content.promote("firstPersonB");
+  assert.ok(content.cameraChangeSerial() > zoomed);
+  content.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+test("only_a_middle_button_delta_orbits_and_reports_itself_consumed", async () => {
+  const harness = await arenaStageHarness();
+  const { content, scene, engine } = harness;
+  content.show(arenaView([arenaPose()]));
+  const before = content.threeQuarter.position.clone();
+  assert.equal(content.orbit(1, 20, 10), false, "primary belongs to the weapon hand");
+  assert.equal(content.orbit(2, 20, 10), false, "secondary belongs to extension");
+  assert.deepEqual(content.threeQuarter.position.asArray(), before.asArray());
+  assert.equal(content.orbit(4, 20, 10), true);
+  assert.notDeepEqual(content.threeQuarter.position.asArray(), before.asArray());
+  content.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+test("promoted_viewport_labels_move_with_the_cameras", () => {
+  const html = fs.readFileSync(path.join(ROOT, "web", "index.html"), "utf8");
+  assert.match(html, /class="stage"[^>]*data-main-view="threeQuarter"/);
+  assert.match(html, /\.stage\[data-main-view="firstPersonA"\] #label-first-a/);
+  assert.match(html, /\.stage\[data-main-view="firstPersonB"\] #label-first-b/);
+  assert.match(html, /\.stage\[data-main-view="firstPersonA"\] #label-three-quarter/);
+  assert.match(html, /\.stage\[data-main-view="firstPersonB"\] #label-three-quarter/);
+});
+
+test("camera_gestures_hit_only_the_live_three_quarter_rectangle_after_every_promotion", async () => {
+  const harness = await arenaStageHarness();
+  const { content, scene, engine } = harness;
+  for (const promoted of ["threeQuarter", "firstPersonA", "firstPersonB"]) {
+    content.promote(promoted);
+    const rectangles = arenaGeometry.PROMOTED_VIEWPORTS[promoted];
+    for (const [view, rect] of Object.entries(rectangles)) {
+      const x = rect.x + rect.width / 2;
+      const cssY = 1 - (rect.y + rect.height / 2);
+      assert.equal(content.containsThreeQuarterPoint(x, cssY), view === "threeQuarter",
+        `${promoted} promotion gave the ${view} rectangle the 3/4 gesture`);
+    }
+  }
+  assert.equal(content.containsThreeQuarterPoint(Number.NaN, 0.5), false);
+  assert.equal(content.containsThreeQuarterPoint(0.5, Number.POSITIVE_INFINITY), false);
   content.dispose();
   scene.dispose();
   engine.dispose();

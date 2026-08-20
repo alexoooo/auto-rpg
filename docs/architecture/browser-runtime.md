@@ -262,6 +262,20 @@ a real root and a real target and only the bend plane is chosen. The legs are th
 weakest claim on the page: one capsule, no stride, no per-foot contact, so a walk cycle
 driven from body speed desynchronises from a footfall that does not exist.
 
+The 3/4 viewport has one camera owner around the same `FreeCamera` the scene constructed;
+it creates no second camera, scene or engine. Span still frames the plan and elevation and
+seeds the 3/4 fit, but a middle drag or wheel gives that view to the reader until Refit.
+Follow translates the target toward the published head-capsule centre through a dead zone
+under a frame-rate-independent response,
+advanced only by the arena's animation-frame clock; scrubbing and control redraws advance
+it by zero. At the close clamp the dead zone closes so the published head, which is wider
+than that near-distance allowance, is centred rather than clipped. Either eye-height camera can exchange viewports with the 3/4 camera, and the
+labels exchange with them. Middle drag and wheel hit-test the 3/4 camera's live rectangle,
+including after that exchange; a wheel claimed there remains claimed at its zoom bound.
+The promoted camera's basis and a serial changed by orbit,
+effective zoom and promotion are exposed for the relative weapon hand; camera movement
+itself submits no simulation command.
+
 **`#/arena` is a spectator**, and nothing on the page drives a body: the fight is decided
 by two loadouts, two policies and a seed before the first frame, and the panels watch it
 being produced and then scrub it. The two eye-height cameras are there anyway. They exist because
@@ -443,12 +457,16 @@ generation, shadow, pick, effect, audio, debug, reset, and disposal ownership ap
 to either dress. An abort remains terminal because it belongs to renderer teardown,
 not graceful asset degradation.
 
-The arena loads the same combatant container lazily and once, together with its room,
-on the first `[Texture]` request; `[Geometry]` never requests either asset. Authored
-arena meshes follow published region, arm, weapon, shield, contact, health, and gait
-rows, including severance visibility and first-person self-occlusion. A load or clone
-failure keeps the procedural textured proxy. Neither browser path writes animation or
-asset state back into a command, simulation, replay, or hash domain.
+The arena loads the combatant container lazily and once when its selection preview first
+asks for a Fighter or Brute. That scene-owned promise is shared with the fight, so a later
+`[Texture]` request clones the already checked archetype rather than starting a second
+fetch; leaving the picker cannot abort an asset the fight may also be awaiting. The room
+remains independently lazy on the first `[Texture]` request, and `[Geometry]` never asks
+for it. Authored arena meshes follow published region, arm, weapon, shield, contact,
+health, and gait rows, including severance visibility and first-person self-occlusion.
+A load or clone failure keeps the disclosed procedural preview or textured fight proxy.
+Neither browser path writes animation or asset state back into a command, simulation,
+replay, or hash domain.
 
 The current authored assets pass loader and lifecycle contracts. Stable four-sided
 wall identity closes the automated topology defect: disclosure retains existing face

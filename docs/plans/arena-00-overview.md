@@ -1,7 +1,7 @@
 # The arena you can fight in -- overview
 
-**Status:** proposed. The successor topic to the embodied fight, and it does not open
-until that topic's session 07 has closed and its plan files are deleted.
+**Status:** in progress. Sessions 01 through 04 are complete; session 05 is next. The
+topic opened after the embodied fight's session 07 closed and its plan files were deleted.
 
 The goal, in the owner's words on 2026-08-19: **pick two units side by side with a 3D
 view of each, press Fight, watch the fight happen rather than watch a recording of it,

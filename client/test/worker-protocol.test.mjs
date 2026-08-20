@@ -37,6 +37,43 @@ const { ArenaClient } = require(path.join(OUT, "client/src/runtime/arena-client.
 /** Let every already-resolved promise run: a run() awaits a fetch before posting. */
 const settle = async () => { for (let turn = 0; turn < 6; turn += 1) await Promise.resolve(); };
 
+function balancedRustBlock(source, openAt, open, close, label) {
+  assert.equal(source[openAt], open, `${label} does not start with ${open}`);
+  let depth = 0;
+  for (let at = openAt; at < source.length; at += 1) {
+    if (source[at] === open) depth += 1;
+    else if (source[at] === close && --depth === 0) return source.slice(openAt + 1, at);
+  }
+  assert.fail(`${label} has no balanced ${open}${close} block`);
+}
+
+function rustHeadRadiusRaw(source, functionName) {
+  const signature = new RegExp(`\\bpub\\s+fn\\s+${functionName}\\s*\\(\\s*\\)\\s*->\\s*BodyAnatomySpec\\s*\\{`, "g");
+  const matches = [...source.matchAll(signature)];
+  assert.equal(matches.length, 1, `${functionName} must name exactly one shipped anatomy function`);
+  const functionOpen = matches[0].index + matches[0][0].lastIndexOf("{");
+  const body = balancedRustBlock(source, functionOpen, "{", "}", functionName);
+  const regionsField = /\bregions\s*:\s*\[/.exec(body);
+  assert.ok(regionsField, `${functionName} has no regions field`);
+  const regionsOpen = regionsField.index + regionsField[0].lastIndexOf("[");
+  const regions = balancedRustBlock(body, regionsOpen, "[", "]", `${functionName}.regions`);
+  const rows = [];
+  for (const match of regions.matchAll(/\bAnatomyRegionSpec\s*\{/g)) {
+    const openAt = match.index + match[0].lastIndexOf("{");
+    const row = balancedRustBlock(regions, openAt, "{", "}", `${functionName}.regions row`);
+    const region = /\bregion\s*:\s*AnatomyRegion::([A-Za-z]+)\s*(?:,|$)/.exec(row);
+    const radius = /\bradius\s*:\s*r\(\s*(-?\d+)\s*,\s*(-?\d+)\s*\)\s*(?:,|$)/.exec(row);
+    assert.ok(region, `${functionName} has a region row without a keyed region`);
+    assert.ok(radius, `${functionName}.${region[1]} has no keyed r(n,d) radius`);
+    rows.push({ region: region[1], numerator: Number(radius[1]), denominator: Number(radius[2]) });
+  }
+  assert.ok(rows.length > 0, `${functionName}.regions has no AnatomyRegionSpec rows`);
+  const heads = rows.filter(({ region }) => region === "Head");
+  assert.equal(heads.length, 1, `${functionName} must have exactly one Head region`);
+  assert.notEqual(heads[0].denominator, 0, `${functionName}.Head has a zero radius denominator`);
+  return Math.trunc((heads[0].numerator * 65_536) / heads[0].denominator);
+}
+
 const header = () => {
   const frame = new Float32Array(ABI.FRAME_MAX);
   frame[0] = 4; frame[1] = 4;
@@ -1366,6 +1403,15 @@ test("the_shipped_arrangement_carries_the_dimensions_the_spec_document_states", 
   assert.deepEqual(CONFIG.HAND_ITEMS.bow,
     { code: 6, mass: 52_428, balance: 32_768, a: 52_428, b: 2_184, c: 0 });
   assert.deepEqual(CONFIG.ANATOMIES.map((row) => row.armLength), [49_152, 55_705]);
+  // Unlike a trace pose, the live header has no published region radius to
+  // derive these from. Extract the named Rust functions, their balanced regions
+  // arrays and their keyed Head rows: a hard-coded expected pair here passed
+  // when the authoritative table moved, which is the exact mirror failure this
+  // assertion exists to expose.
+  const spec = fs.readFileSync(path.join(ROOT, "crates", "sim", "src", "combat", "spec.rs"), "utf8");
+  assert.deepEqual(CONFIG.ANATOMIES.map((row) => row.headRadius), [
+    rustHeadRadiusRaw(spec, "fighter_anatomy"), rustHeadRadiusRaw(spec, "brute_anatomy"),
+  ]);
   assert.deepEqual(CONFIG.SHIPPED_SPAWNS, [{ x: 458_752, y: 393_216 }, { x: 1_114_112, y: 655_360 }]);
   assert.equal(CONFIG.ARENA_MAX_TICKS, 3_600);
   // A guard yields carrying slot zero, so a sword-and-board fighter carries

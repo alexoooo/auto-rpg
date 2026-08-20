@@ -155,16 +155,17 @@ export const ANATOMY_CODES = { fighter: 0, brute: 1 } as const;
 export type AnatomyName = keyof typeof ANATOMY_CODES;
 
 /**
- * `BodyAnatomySpec`'s five published scalars, per shipped row.
+ * The six `BodyAnatomySpec` scalars the browser consumes, per shipped row.
  *
- * **Carried here because no export answers them and the panels need two.**
+ * **Carried here because no export answers them and the browser needs three.**
  * `scene.ts` draws a hand at `anatomy.handRadius` and `arena.ts` divides the arm
- * capsule's length by `anatomy.armLength` to get the extension ratio; both come
- * off `BodyInfo.anatomy`, which `lab trace` writes out of the spec table. The
- * host holds the table privately (`Sim::anatomy`) and publishes none of it, so
- * a live fight either carries these five numbers or loses two readouts.
+ * capsule's length by `anatomy.armLength` to get the extension ratio; those five
+ * header scalars come off `BodyInfo.anatomy`. The stage camera alone reads the
+ * widest `headRadius` from this local shipped-row mirror. It deliberately does
+ * not enter `BodyInfo`: widening a trace header would move `TRACE_SCHEMA` for a
+ * presentation bound no recorded fight needs.
  *
- * The other twenty-odd fields of the row -- the regional capsules, the integrity
+ * The other twenty-odd fields of the row -- the remaining regional capsules, the integrity
  * maxima, the blood maximum, the surface and the armour -- are deliberately
  * absent: nothing on this side reads them, `AnatomyChoice` does not let a picker
  * move them, and copying a calibration nobody displays is a mirror with no
@@ -174,12 +175,12 @@ export const ANATOMIES = [
   {
     name: "fighter", kind: "Fighter",
     standingHeight: fx(9, 5), shoulderHeight: fx(7, 5), shoulderHalfWidth: fx(1, 4),
-    armLength: fx(3, 4), handRadius: fx(1, 10),
+    armLength: fx(3, 4), handRadius: fx(1, 10), headRadius: fx(1, 5),
   },
   {
     name: "brute", kind: "Brute",
     standingHeight: fx(2, 1), shoulderHeight: fx(3, 2), shoulderHalfWidth: fx(3, 10),
-    armLength: fx(17, 20), handRadius: fx(3, 25),
+    armLength: fx(17, 20), handRadius: fx(3, 25), headRadius: fx(1, 4),
   },
 ] as const;
 

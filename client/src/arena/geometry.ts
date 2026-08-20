@@ -340,6 +340,32 @@ export const ARENA_VIEWPORTS: Readonly<{
   }),
 });
 
+export type ArenaPromotedView = "threeQuarter" | "firstPersonA" | "firstPersonB";
+
+/**
+ * The same three rectangles with one eye-height camera promoted.
+ *
+ * Promotion is a viewport exchange rather than a camera mode: the promoted
+ * camera takes the large rectangle, the 3/4 camera takes the eye panel it
+ * vacated, and the third camera stays put. That is what lets the scene change
+ * the main view without constructing or moving a camera.
+ */
+export const PROMOTED_VIEWPORTS: Readonly<Record<ArenaPromotedView, Readonly<{
+  firstPersonA: ViewportRect; firstPersonB: ViewportRect; threeQuarter: ViewportRect;
+}>>> = Object.freeze({
+  threeQuarter: ARENA_VIEWPORTS,
+  firstPersonA: Object.freeze({
+    firstPersonA: ARENA_VIEWPORTS.threeQuarter,
+    firstPersonB: ARENA_VIEWPORTS.firstPersonB,
+    threeQuarter: ARENA_VIEWPORTS.firstPersonA,
+  }),
+  firstPersonB: Object.freeze({
+    firstPersonA: ARENA_VIEWPORTS.firstPersonA,
+    firstPersonB: ARENA_VIEWPORTS.threeQuarter,
+    threeQuarter: ARENA_VIEWPORTS.firstPersonB,
+  }),
+});
+
 // ------------------------------------------------------------ camera constants
 
 /**
@@ -518,14 +544,15 @@ export const THREE_QUARTER_TARGET_HEIGHT = 1;
  * frame the same width of world and the Span slider moves all of them.
  */
 export function threeQuarterPlacement(
-  focus: V3, spanRaw: number, aspect: number, azimuth: number,
+  focus: V3, spanRaw: number, aspect: number, azimuth: number, radius?: number,
 ): Readonly<{ position: ScenePoint; target: ScenePoint }> {
   const span = Math.max(1, sceneLength(spanRaw));
   const vertical = (THREE_QUARTER_FOV_DEGREES * Math.PI) / 180;
   const horizontal = 2 * Math.atan(Math.tan(vertical / 2) * Math.max(0.1, aspect));
   // Far enough back that the panel covers the same world width the orthographic
   // panels do, measured at the focus.
-  const distance = Math.max(2, span / 2 / Math.tan(horizontal / 2));
+  const fitDistance = Math.max(2, span / 2 / Math.tan(horizontal / 2));
+  const distance = radius === undefined ? fitDistance : radius;
   const elevation = (THREE_QUARTER_ELEVATION_DEGREES * Math.PI) / 180;
   const ground = distance * Math.cos(elevation);
   const target: ScenePoint = [

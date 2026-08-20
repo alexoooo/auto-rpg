@@ -237,6 +237,47 @@ export function setFigureDiagnostics(figure: Figure, enabled: boolean): void {
   for (const mesh of figure.parts) if (mesh.name.includes(":diagnostic:")) mesh.setEnabled(enabled);
 }
 
+/**
+ * Put the procedural fallback in an upright authored-rest equivalent.
+ *
+ * This is not `poseFigure`: no publication exists on a picker, and that
+ * function consumes `#/game`'s mirrored world mapping. This additive seam uses
+ * only root-local arena axes (`+x` forward, `-z` anatomical left).
+ */
+export function poseFigureRest(figure: Figure, kind: number): void {
+  const height = figureBodyHeightRadii(kind);
+  const shoulder = height * SHOULDER_OF_HEIGHT;
+  const node = (semantic: string): TransformNode => {
+    const found = figure.nodes.get(semantic);
+    if (found === undefined) throw new Error(`figure rig has no ${semantic}`);
+    return found;
+  };
+  figure.root.position.set(0, 0, 0);
+  figure.root.rotationQuaternion?.copyFromFloats(0, 0, 0, 1);
+  node("pelvis").position.set(0, shoulder * HIP_OF_SHOULDER, 0);
+  node("torso").position.set(0, shoulder * (1 - HIP_OF_SHOULDER), 0);
+  node("head").position.set(0, height - shoulder, 0);
+  for (const [side, sign] of [["left", -1], ["right", 1]] as const) {
+    node(`arm_${side}`).position.set(0, 0, sign * ARM_SIDE);
+    node(`hand_${side}`).position.set(CARRY_ALONG, -shoulder * CARRY_OF_SHOULDER, 0);
+    node(`socket_weapon_${side}`).position.set(0, 0, 0);
+  }
+  for (const part of figure.parts) {
+    if (part.name.includes(":arm:")) part.scaling.set(0.16, shoulder * 0.5, 0.16);
+    else if (part.name.includes(":hand:")) part.scaling.setAll(0.22);
+    else if (part.name.includes(":leg:")) {
+      part.position.set(0, shoulder * HIP_OF_SHOULDER * 0.5, part.name.endsWith(":left") ? 0.22 : -0.22);
+      part.scaling.set(0.2, shoulder * HIP_OF_SHOULDER, 0.2);
+    } else if (part.name.endsWith(":pelvis")) part.scaling.set(0.7, 0.35, 0.48);
+    else if (part.name.endsWith(":torso")) part.scaling.set(0.85, shoulder * 0.54, 0.58);
+    else if (part.name.endsWith(":head")) part.scaling.setAll(0.42);
+    else if (part.name.endsWith(":crest")) {
+      part.position.set(0, 0.33, 0);
+      part.scaling.set(0.12, 0.3, 0.42);
+    }
+  }
+}
+
 function poseFigureDiagnostics(
   figure: Figure, unit: PresentationUnit, radius: number, rel: number,
 ): void {

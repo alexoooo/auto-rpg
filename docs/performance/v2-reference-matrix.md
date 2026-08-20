@@ -57,11 +57,11 @@ browser choreography. The named render-contract suite passed 29 of 29 tests on
 
 | Contract | Exact automated evidence | Result |
 |---|---|---|
-| Hidden entities and snapshot-local state leave no renderer presence | [`unseen_units_have_no_render_audio_pick_or_debug_presence`](../../client/test/render-contract.test.mjs#L355); [`unseen_shots_events_and_furniture_have_no_persistent_presence`](../../client/test/render-contract.test.mjs#L371) | pass |
-| Remembered geometry remains non-current and unknown geometry remains absent | [`remembered_geometry_uses_seen_not_current_visibility`](../../client/test/render-contract.test.mjs#L392) | pass |
-| Fog boundaries and generational identity cannot leak a frame | [`fog_edge_generation_reuse_creates_no_one_frame_leak`](../../client/test/render-contract.test.mjs#L403); [`persistent_units_retire_every_registry_before_a_generation_is_reused`](../../client/test/render-contract.test.mjs#L802) | pass |
-| WebGPU device loss and WebGL context loss are terminal, without fallback | [`context_or_device_loss_disposes_once_and_never_switches_backend`](../../client/test/render-contract.test.mjs#L654); [`terminal_loss_disposes_renderer_content_before_engine_and_client`](../../client/test/render-contract.test.mjs#L718) | pass |
-| Floor picking and primary-drag pan use the live camera and recover gesture ownership | [`a_primary_click_sends_nothing_while_a_primary_drag_moves_the_live_camera`](../../client/test/render-contract.test.mjs#L2401); [`greybox_input_keeps_one_pointer_owner_and_recovers_after_throwing_host_callbacks`](../../client/test/render-contract.test.mjs#L2706) | pass |
+| Hidden entities and snapshot-local state leave no renderer presence | [`unseen_units_have_no_render_audio_pick_or_debug_presence`](../../client/test/render-contract.test.mjs#L361); [`unseen_shots_events_and_furniture_have_no_persistent_presence`](../../client/test/render-contract.test.mjs#L377) | pass |
+| Remembered geometry remains non-current and unknown geometry remains absent | [`remembered_geometry_uses_seen_not_current_visibility`](../../client/test/render-contract.test.mjs#L398) | pass |
+| Fog boundaries and generational identity cannot leak a frame | [`fog_edge_generation_reuse_creates_no_one_frame_leak`](../../client/test/render-contract.test.mjs#L409); [`persistent_units_retire_every_registry_before_a_generation_is_reused`](../../client/test/render-contract.test.mjs#L808) | pass |
+| WebGPU device loss and WebGL context loss are terminal, without fallback | [`context_or_device_loss_disposes_once_and_never_switches_backend`](../../client/test/render-contract.test.mjs#L660); [`terminal_loss_disposes_renderer_content_before_engine_and_client`](../../client/test/render-contract.test.mjs#L724) | pass |
+| Floor picking and primary-drag pan use the live camera and recover gesture ownership | [`a_primary_click_sends_nothing_while_a_primary_drag_moves_the_live_camera`](../../client/test/render-contract.test.mjs#L2407); [`greybox_input_keeps_one_pointer_owner_and_recovers_after_throwing_host_callbacks`](../../client/test/render-contract.test.mjs#L2712) | pass |
 
 ## Manual correctness matrix
 
