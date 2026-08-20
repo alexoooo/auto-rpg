@@ -4716,6 +4716,38 @@ test("a_camera_change_serial_moves_for_orbit_zoom_and_promotion_but_not_for_foll
   engine.dispose();
 });
 
+test("the_virtual_hand_camera_basis_is_converted_back_to_sim_axes_before_use", async () => {
+  const harness = await arenaStageHarness();
+  const { content, scene, engine } = harness;
+  const { Matrix, Vector3 } = await import("@babylonjs/core/Maths/math.vector.js");
+  content.show(arenaView([arenaPose(), arenaPose({ index: 1, x: 11 })]));
+  content.follow(0);
+  for (const promoted of ["threeQuarter", "firstPersonA", "firstPersonB"]) {
+    content.promote(promoted);
+    scene.render(true, false);
+    const camera = promoted === "firstPersonA" ? content.firstPerson[0]
+      : promoted === "firstPersonB" ? content.firstPerson[1] : content.threeQuarter;
+    camera.getViewMatrix(true);
+    const right = camera.getDirection(Vector3.Right());
+    const up = camera.getDirection(Vector3.Up());
+    assert.deepEqual(content.cameraBasis().right, [right.x, -right.z, right.y]);
+    assert.deepEqual(content.cameraBasis().up, [up.x, -up.z, up.y]);
+    const visibleScenePoint = camera.getTarget();
+    const direct = Vector3.Project(visibleScenePoint, Matrix.Identity(), camera.getTransformationMatrix(),
+      camera.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight()));
+    const projected = content.projectHand([
+      Math.round(visibleScenePoint.x * RAW),
+      Math.round(-visibleScenePoint.z * RAW),
+      Math.round(visibleScenePoint.y * RAW),
+    ]);
+    assert.ok(projected !== null && projected.every(Number.isFinite),
+      `${promoted} failed to project a known visible arena point: ${direct.asArray().join(",")}`);
+  }
+  content.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
 test("only_a_middle_button_delta_orbits_and_reports_itself_consumed", async () => {
   const harness = await arenaStageHarness();
   const { content, scene, engine } = harness;

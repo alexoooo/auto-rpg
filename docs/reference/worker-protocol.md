@@ -267,7 +267,7 @@ not a tidy-up. Everything below it was rewritten instead.
 
 | message | when | carries |
 |---|---|---|
-| `arenaOpened` | after `arena_start` returns and the first publication is read, before the first step | `spectator: true`, stream/index and publication layout declarations, `one`, `scenario`, `fingerprint`, `seed`, honest side-driver labels, `checkpoint`, `maxTicks`, `arena`, the two thresholds, the name lists, and the per-body anatomy and carried blocks |
+| `arenaOpened` | after `arena_start` returns and the first publication is read, before the first step | `spectator: true`, stream/index and publication layout declarations, `one`, `scenario`, `fingerprint`, `seed`, honest side-driver labels, `checkpoint`, `maxTicks`, `arena`, `armMinReach`, the two thresholds, the name lists, and the per-body anatomy and carried blocks |
 | `arenaChunk` | every `ARENA_STREAM_CHUNK_TICKS`, or each controlled tick | **seven** `ArrayBuffer`s holding only that chunk's frames, plus `firstFrame` and `frameCount` |
 | `arenaFinished` | when the drive settles or caps out | `outcome`, `timedOut`, `ticks`, `frameCount`, `recordingTruncated`, and the five drop counters |
 
@@ -357,6 +357,12 @@ claim a result that has not happened, and omitting the field makes every reader 
 and `None` is the undecided fight, so the `null` here is that `Option` rather than a
 sixth name beside `Draw`. `a_fight_in_progress_reports_no_outcome_rather_than_a_default`
 is what holds it.
+
+`armMinReach` is the module's `arm_min_reach_raw()` capability, carried in the opening
+rather than copied as another client-side quarter. It is live-only: `FightSource` exposes
+it optionally for a streaming arena, while trace JSON and `TRACE_SCHEMA` do not widen.
+Malformed or out-of-range capability values reject the correlated opening before a chunk
+can be adopted.
 
 It also carries **`spectator: true`**, and that field is a **gate rather than a
 label**. The arena publishes unfiltered ground truth, which is correct here — both
@@ -475,6 +481,6 @@ one.
 - Snapshot validator and disclosure filter: [`SnapshotFilterState`](../../client/src/state/snapshot.ts#L59)
 - Real wasm adapter: [`readPublication`](../../client/src/runtime/sim.worker.ts#L94)
 - Generated offsets and capacities: [`abi.generated.ts`](../../client/src/protocol/abi.generated.ts#L1)
-- The streaming drive and its caps: [`recordArenaFight`](../../client/src/runtime/arena-recorder.ts#L640)
+- The streaming drive and its caps: [`recordArenaFight`](../../client/src/runtime/arena-recorder.ts#L648)
 - The arena's main-thread client and its decoder: [`decodeArenaMessage`](../../client/src/runtime/arena-client.ts#L89)
 - The stream's reader: [`StreamingFightSource`](../../client/src/fight/live.ts#L455)

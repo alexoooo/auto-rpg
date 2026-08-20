@@ -2,7 +2,7 @@
 
 **Purpose:** Define the exact packed frame consumed by both current browser entries.
 **Status:** current
-**Canonical source:** [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L433) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L170)
+**Canonical source:** [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L433) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L168)
 **Update when:** A frame column, section, code meaning, capacity, or layout version changes.
 
 <!-- DOC_CONTRACT: frame-abi-layout -->

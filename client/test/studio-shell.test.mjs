@@ -51,6 +51,7 @@ fs.writeFileSync(path.join(OUT, "package.json"), '{"type":"module"}\n');
 const compiled = (relative) => pathToFileURL(path.join(OUT, relative)).href;
 const picker = await import(compiled("client/src/arena/picker.js"));
 const CONFIG = await import(compiled("client/src/runtime/arena-config.js"));
+const INPUT = await import(compiled("client/src/arena/arena-input.js"));
 
 const SHELL_HTML = fs.readFileSync(path.join(ROOT, "web", "index.html"), "utf8");
 const ONE = 65536;
@@ -119,9 +120,12 @@ class FakeNode {
     this.width = 0;
     this.height = 0;
     this.children = [];
+    this.style = {};
+    this.hidden = false;
     this.attributes = new Map();
     this.classes = new Set();
     this.context = null;
+    this.capturedPointers = new Set();
     this.lookups = new Map();
     const defaults = TEMPLATE_VALUES.get(id);
     if (defaults !== undefined) {
@@ -203,8 +207,23 @@ class FakeNode {
     }
   }
   before() { /* placement is not what this harness measures */ }
+  remove() {
+    if (this.parentElement !== undefined) {
+      this.parentElement.children = this.parentElement.children.filter((child) => child !== this);
+    }
+  }
   replaceChildren(...nodes) { this.children = [...nodes]; }
   click() { for (const entry of this.harness.listenersOn(this, "click")) entry.listener({ target: this }); }
+  setPointerCapture(id) { this.capturedPointers.add(id); }
+  releasePointerCapture(id) { this.capturedPointers.delete(id); }
+  hasPointerCapture(id) { return this.capturedPointers.has(id); }
+  requestPointerLock() {
+    globalThis.document.pointerLockElement = this;
+    queueMicrotask(() => {
+      for (const entry of this.harness.listenersOn(globalThis.document, "pointerlockchange")) entry.listener({});
+    });
+    return Promise.resolve();
+  }
   cloneNode() { return this; }
   get firstElementChild() { return this.content === undefined ? null : this.content.child; }
 }
@@ -283,6 +302,8 @@ function installDom() {
     return handle;
   };
   fakeWindow.clearInterval = (handle) => { clearInterval(handle); harness.timers.delete(handle); };
+  fakeWindow.setTimeout = (callback, delay) => setTimeout(callback, delay);
+  fakeWindow.clearTimeout = (handle) => clearTimeout(handle);
 
   const fakeDocument = new FakeNode(harness, null, "document", "");
   fakeDocument.getElementById = (id) => {
@@ -293,6 +314,8 @@ function installDom() {
     return node;
   };
   fakeDocument.createElement = (tag) => new FakeNode(harness, null, tag, "");
+  fakeDocument.pointerLockElement = null;
+  fakeDocument.exitPointerLock = async () => { fakeDocument.pointerLockElement = null; };
 
   const anyNode = (predicate) => ({ [Symbol.hasInstance]: (value) => value instanceof FakeNode && predicate(value.tag) });
   const globals = {
@@ -946,9 +969,7 @@ test("the_seed_and_the_fight_button_belong_to_the_matchup_and_not_to_side_b", ()
 
 test("both_sides_driven_by_you_is_refused_by_naming_the_one_keyboard", () => {
   assert.equal(picker.HUMAN_CONTROL_LABEL,
-    "you (W/S move, A/D strafe, Q/E turn; hand reserved)");
-  assert.doesNotMatch(picker.HUMAN_CONTROL_LABEL, /mouse/i,
-    "session 05 claimed the pointer already drives a hand");
+    "you (keys + direct hand)");
   const both = picker.review(matchup({ control: "human" }, { control: "human" }), "live");
   assert.match(both.refusal, /^Fighter A and Fighter B are both set to be driven by you/);
   assert.match(both.refusal, /one keyboard and one reserved hand-control channel/);
@@ -1451,6 +1472,7 @@ function syntheticOpening(requestId) {
     embodiedStanceLayoutVersion: RECORDER.EMBODIED_STANCE_LAYOUT_VERSION,
     embodiedStanceStride: RECORDER.EMBODIED_STANCE_STRIDE,
     embodiedStanceCapacity: RECORDER.EMBODIED_STANCE_CAPACITY,
+    armMinReach: ONE / 4,
     impactThreshold: ONE / 4, contactEnergyFloor: 512,
     bodySlot: 255, noRegion: 4_294_967_295,
     regionNames: trace.regionNames, hintNames: trace.hintNames, contactKinds: trace.contactKinds,
@@ -1459,7 +1481,7 @@ function syntheticOpening(requestId) {
 }
 
 /** One chunk of two-body frames, with chunk-relative index starts. */
-function syntheticChunk(requestId, firstFrame, frameCount, humanYaw = 0) {
+function syntheticChunk(requestId, firstFrame, frameCount, humanYaw = 0, humanSevered = 0) {
   const bodies = 2;
   const poses = new Uint32Array(frameCount * bodies * ABI.POSE_STRIDE);
   const regions = new Uint32Array(frameCount * bodies * ABI.REGIONS_PER_BODY * ABI.REGION_STRIDE);
@@ -1476,6 +1498,18 @@ function syntheticChunk(requestId, firstFrame, frameCount, humanYaw = 0) {
       // azimuth have something real to read.
       poses[at + ABI.POSE_BODY_X] = body === 0 ? tick * 16 : 11 * ONE;
       poses[at + ABI.POSE_BODY_YAW_RAW] = body === 0 ? humanYaw : 0;
+      poses[at + ABI.POSE_SEVERED_MASK] = body === 0 ? humanSevered : 0;
+      const bodyX = poses[at + ABI.POSE_BODY_X];
+      poses[at + ABI.POSE_LEFT_TARGET_X] = bodyX + ONE / 2;
+      poses[at + ABI.POSE_LEFT_TARGET_Z] = ONE;
+      poses[at + ABI.POSE_RIGHT_TARGET_X] = bodyX + ONE / 2;
+      poses[at + ABI.POSE_RIGHT_TARGET_Z] = ONE;
+      for (let region = 0; region < ABI.REGIONS_PER_BODY; region += 1) {
+        const regionAt = ((frame * bodies + body) * ABI.REGIONS_PER_BODY + region) * ABI.REGION_STRIDE;
+        regions[regionAt + ABI.REGION_LOWER_X] = bodyX;
+        regions[regionAt + ABI.REGION_LOWER_Z] = region === 2 || region === 3 ? ONE * 3 / 2 : 0;
+        regions[regionAt + ABI.REGION_PRESENT] = 1;
+      }
       const stanceAt = (frame * bodies + body) * RECORDER.EMBODIED_STANCE_STRIDE;
       stances[stanceAt] = body;
       stances[stanceAt + 1] = 1;
@@ -1531,19 +1565,43 @@ const tickOf = (container) => {
   return shown === null ? null : Number(shown[1]);
 };
 
-async function controlledRoute(harness) {
+async function controlledRoute(harness, captureKind = "mouse", firstChunk = true) {
   const { mount } = await import(compiled("client/src/arena/arena.js"));
   const container = harness.container();
-  const handle = await mount(container, new URLSearchParams([["stage", "off"]]));
+  const fakeStage = {
+    pinchHits: 0,
+    description: () => "test stage", show() {}, clear() {}, resize() {},
+    setMode: async () => {}, mode: () => "geometry", cameraMode: () => "fit",
+    cameraBasis: () => ({ right: [0, 1, 0], up: [0, 0, 1] }),
+    projectHand: () => [0.5, 0.5], cameraChangeSerial: () => 0,
+    containsThreeQuarterPoint: () => true, follow() {}, orbit: () => false, zoom() { this.pinchHits++; },
+    promote() {}, refit() {}, showPreview() {}, setPhase() {}, drawPreview() {}, dispose() {},
+    debug: { counts: () => ({}) },
+  };
+  const handle = await mount(container, new URLSearchParams(), async () => fakeStage);
+  await settle();
   const control = container.querySelector("#a-control");
   control.value = "human";
   for (const entry of harness.listenersOn(control, "change")) entry.listener({ target: control });
-  container.querySelector("#fight").click();
+  if (captureKind === "mouse") container.querySelector("#take-controls").click();
+  else {
+    const take = container.querySelector("#take-controls");
+    for (const entry of harness.listenersOn(take, "pointerdown")) entry.listener({
+      target: take, pointerType: "touch", pointerId: 40, preventDefault() {},
+    });
+    const host = container.querySelector("#arena-stage");
+    const canvas = container.querySelector("#arena-3d");
+    for (const entry of harness.listenersOn(host, "pointerdown")) entry.listener({
+      target: canvas, pointerType: "touch", pointerId: 40, button: 0,
+      clientX: 200, clientY: 180, preventDefault() {},
+    });
+  }
+  await settle();
   await settle();
   const worker = harness.workers.at(-1);
   const start = worker.sent.find((entry) => entry.message.kind === "arenaStart").message;
   worker.emit({ ...syntheticOpening(start.requestId), heroes: "you + tactical off hand" });
-  worker.emit(syntheticChunk(start.requestId, 0, 1));
+  if (firstChunk) worker.emit(syntheticChunk(start.requestId, 0, 1));
   await settle();
   let frame = 0;
   let now = performance.now();
@@ -1569,15 +1627,427 @@ async function controlledRoute(harness) {
     harness.runFrame(now);
     await settle();
   };
-  const acknowledge = async (input, publishedYaw = new DataView(input.bytes).getUint16(12, true)) => {
+  const acknowledge = async (input, publishedYaw = new DataView(input.bytes).getUint16(12, true), severed = 0) => {
     frame += 1;
-    worker.emit(syntheticChunk(start.requestId, frame, 1, publishedYaw));
+    worker.emit(syntheticChunk(start.requestId, frame, 1, publishedYaw, severed));
     worker.emit({ kind: "arenaInputAck", version: 2, requestId: input.requestId,
       arenaRequestId: start.requestId, steppedTicks: 1 });
     await settle();
   };
-  return { container, handle, worker, start, key, release, nextInput, acknowledge, runFrame };
+  return { container, handle, worker, start, key, release, nextInput, acknowledge, runFrame, fakeStage };
 }
+
+function directHandFixture() {
+  const bodyZ = 10 * ONE;
+  const shoulderZ = bodyZ + Math.round(1.2 * ONE); // 0.2 below the static shoulder.
+  const region = (lower = [0, 0, bodyZ]) => ({ lower, upper: lower, radius: ONE / 8, present: true });
+  const target = [ONE / 2, 0, bodyZ + Math.round(0.8 * ONE)]; // half of posed 1.6 height.
+  const arm = { hand: target, vel: [0, 0, 0], target, fatigue: 0 };
+  const pose = {
+    id: [0, 1], body: [0, 0, bodyZ], yaw: 0, vel: [0, 0, 0], arms: [arm, arm],
+    weapons: [null, null], shield: null,
+    regions: [region(), region(), region([-ONE / 4, 0, shoulderZ]), region([0, 0, shoulderZ])],
+    integrity: [], wound: [], blood: ONE, shock: 0, severed: 0, equipmentMask: 0,
+    intent: "hold", target: null, hints: [0, 0],
+  };
+  const input = new INPUT.ArenaInput();
+  input.configureArm(1, {
+    standingHeight: Math.round(1.8 * ONE), shoulderHeight: Math.round(1.4 * ONE),
+    armLength: Math.round(0.75 * ONE),
+  }, 12_345);
+  assert.equal(input.synchronize(pose), true);
+  return { input, pose };
+}
+
+const commandArm = (bytes, limb = 1) => {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const at = limb === 0 ? 23 : 37;
+  return {
+    bearing: view.getUint16(at, true), height: view.getInt32(at + 2, true),
+    reach: view.getInt32(at + 6, true), effort: view.getInt32(at + 10, true),
+    plane: view.getUint16(limb === 0 ? 57 : 59, true),
+  };
+};
+
+test("the_virtual_hand_constants_are_provisional_exact_and_two_sided", () => {
+  assert.deepEqual([
+    INPUT.VIRTUAL_HAND_SENSITIVITY, INPUT.EXTEND_DRAG_SENSITIVITY,
+    INPUT.TOUCH_PINCH_SPREAD_RATIO, INPUT.SWING_DRAG_DEAD_ZONE_PX,
+    INPUT.SWING_DRAG_FULL_EFFORT_PX_S, INPUT.VIRTUAL_HAND_REFERENCE_VIEWPORT_PX,
+  ], [0.006, 0.004, 0.75, 6, 900, 1_000]);
+  assert.ok(INPUT.VIRTUAL_HAND_SENSITIVITY > 0 && INPUT.VIRTUAL_HAND_SENSITIVITY < 0.01);
+  assert.ok(INPUT.SWING_DRAG_DEAD_ZONE_PX > 0 && INPUT.SWING_DRAG_DEAD_ZONE_PX < 100);
+});
+
+test("mouse_motion_changes_the_arm_and_not_the_body", () => {
+  const { input } = directHandFixture();
+  const before = input.encode([9, 2], 7_777);
+  input.moveWeapon(20, -10, 20, 1_000, { right: [0, 1, 0], up: [0, 0, 1] });
+  const after = input.encode([9, 2], 7_777);
+  assert.deepEqual([...after.slice(4, 23)], [...before.slice(4, 23)]);
+  assert.notDeepEqual(commandArm(after), commandArm(before));
+});
+
+test("the_hand_reticle_clamps_marks_clears_and_disposes_without_owning_input", async () => {
+  const harness = installDom();
+  try {
+    const { createHandReticle } = await import(compiled("client/src/arena/hand-reticle.js"));
+    const host = harness.container();
+    const reticle = createHandReticle(host);
+    const marker = host.children.at(-1);
+    assert.equal(marker.hidden, true);
+    reticle.update([1.4, -0.2], true);
+    assert.deepEqual([marker.style.left, marker.style.top], ["100%", "0%"]);
+    assert.equal(marker.classList.contains("captured"), true);
+    assert.equal(marker.classList.contains("offscreen"), true);
+    reticle.update(null, false);
+    assert.deepEqual([marker.style.left, marker.style.top], ["50%", "50%"]);
+    assert.equal(marker.classList.contains("offscreen"), true);
+    reticle.clear();
+    assert.equal(marker.hidden, true);
+    assert.equal(marker.classList.contains("captured"), false);
+    reticle.dispose();
+    assert.equal(host.children.includes(marker), false);
+  } finally { harness.restore(); }
+});
+
+test("height_is_body_relative_uses_the_posed_standing_height_and_is_continuous", () => {
+  const { input } = directHandFixture();
+  assert.equal(commandArm(input.encode(null, 0)).height, ONE / 2,
+    "elevated body or lowered shoulder leaked static/absolute height into the inverse");
+  input.moveWeapon(0, -1, 20, 1_000, { right: [0, 1, 0], up: [0, 0, 1] });
+  const height = commandArm(input.encode(null, 0)).height;
+  assert.ok(height > ONE / 2 && height < ONE / 2 + 1_000,
+    "height snapped to a combat band instead of remaining a continuous raw value");
+});
+
+test("reach_uses_the_exported_physical_minimum_and_not_a_second_quarter", () => {
+  const { input } = directHandFixture();
+  input.buttonTransition("extend", true);
+  input.moveWeapon(0, 100_000, 20, 1_000, { right: [1, 0, 0], up: [0, 0, 1] }, "extend");
+  assert.equal(commandArm(input.encode(null, 0)).reach, 12_345);
+  assert.notEqual(commandArm(input.encode(null, 0)).reach, ONE / 4);
+});
+
+test("a_guard_moves_at_resting_effort_and_fast_powered_paths_order_effort", () => {
+  const slow = directHandFixture().input;
+  slow.moveWeapon(10, 0, 1_000, 1_000, { right: [0, 1, 0], up: [0, 0, 1] });
+  assert.equal(commandArm(slow.encode(null, 0)).effort, ONE / 2);
+  const poweredSlow = directHandFixture().input;
+  poweredSlow.buttonTransition("cut", true);
+  poweredSlow.moveWeapon(10, 0, 1_000, 1_000, { right: [0, 1, 0], up: [0, 0, 1] });
+  const poweredFast = directHandFixture().input;
+  poweredFast.buttonTransition("cut", true);
+  poweredFast.moveWeapon(10, 0, 10, 1_000, { right: [0, 1, 0], up: [0, 0, 1] });
+  const a = commandArm(poweredSlow.encode(null, 0));
+  const b = commandArm(poweredFast.encode(null, 0));
+  assert.deepEqual([a.bearing, a.height, a.reach], [b.bearing, b.height, b.reach]);
+  assert.ok(a.effort >= ONE / 2 && b.effort > a.effort);
+  poweredFast.clear();
+  assert.equal(commandArm(poweredFast.encode(null, 0)).effort, ONE / 2,
+    "focus loss left the parked arm powered");
+});
+
+test("a_secondary_drag_scales_the_shoulder_to_hand_distance_and_holds_its_direction", () => {
+  const { input } = directHandFixture();
+  const before = input.desiredHand();
+  input.buttonTransition("extend", true);
+  input.moveWeapon(50_000, -25, 20, 1_000, { right: [0, 1, 0], up: [0, 0, 1] }, "extend");
+  const after = input.desiredHand();
+  assert.ok(after[0] > before[0]);
+  assert.equal(after[1], before[1]);
+  assert.equal(commandArm(input.encode(null, 0)).bearing, 0, "secondary dx leaked into the cut channel");
+});
+
+test("extension_round_trips_and_clamps_to_the_exported_reach_envelope", () => {
+  const { input } = directHandFixture();
+  const initial = input.desiredHand();
+  input.buttonTransition("extend", true);
+  input.moveWeapon(0, -20, 20, 1_000, { right: [0, 1, 0], up: [0, 0, 1] }, "extend");
+  input.moveWeapon(0, 20, 20, 1_000, { right: [0, 1, 0], up: [0, 0, 1] }, "extend");
+  const roundTrip = input.desiredHand();
+  assert.ok(Math.hypot(...roundTrip.map((value, at) => value - initial[at])) < 2,
+    "equal extension drags did not round-trip shoulder-to-hand distance");
+  input.moveWeapon(0, -1_000_000, 20, 1_000, { right: [0, 1, 0], up: [0, 0, 1] }, "extend");
+  assert.equal(commandArm(input.encode(null, 0)).reach, ONE);
+  input.moveWeapon(0, 1_000_000, 20, 1_000, { right: [0, 1, 0], up: [0, 0, 1] }, "extend");
+  assert.equal(commandArm(input.encode(null, 0)).reach, 12_345);
+});
+
+test("pitched_three_quarter_and_first_person_bases_move_in_sim_camera_axes", () => {
+  for (const [name, basis] of [
+    ["three-quarter", { right: [0, 1, 0], up: [-0.3, 0.4, 0.8660254] }],
+    ["first-person", { right: [0, 1, 0], up: [0.5, 0, 0.8660254] }],
+  ]) {
+    const { input } = directHandFixture();
+    const before = input.desiredHand();
+    input.moveWeapon(0, -20, 20, 1_000, basis);
+    const after = input.desiredHand();
+    const expected = basis.up;
+    assert.ok((after[0] - before[0]) * expected[0] >= 0
+      && (after[1] - before[1]) * expected[1] >= 0
+      && after[2] > before[2], `${name} pitch was mixed in Babylon rather than sim axes`);
+
+    const thrust = directHandFixture().input;
+    const thrustBefore = thrust.desiredHand();
+    thrust.buttonTransition("extend", true);
+    thrust.moveWeapon(400, -20, 20, 1_000, basis, "extend");
+    const thrustAfter = thrust.desiredHand();
+    assert.ok(thrustAfter[0] > thrustBefore[0], `${name} secondary drag did not thrust forward`);
+    assert.equal(thrustAfter[1], thrustBefore[1], `${name} camera right leaked into thrust direction`);
+  }
+});
+
+test("powered_cuts_encode_signed_elbow_planes_and_cross_the_angle_seam_the_short_way", () => {
+  const planeFor = (theta) => {
+    const { input } = directHandFixture();
+    input.buttonTransition("cut", true);
+    input.moveWeapon(10, 0, 10, 1_000,
+      { right: [0, Math.sin(theta), -Math.cos(theta)], up: [0, 0, 1] }, "cut");
+    return commandArm(input.encode(null, 0)).plane;
+  };
+  const positive = planeFor(Math.PI / 2);
+  const negative = planeFor(-Math.PI / 2);
+  assert.ok(positive > 16_000 && positive < 18_000);
+  assert.ok(negative > 47_000 && negative < 50_000);
+  const beforeSeam = planeFor(Math.PI - Math.PI / 180);
+  const afterSeam = planeFor(-Math.PI + Math.PI / 180);
+  const circular = Math.min(Math.abs(afterSeam - beforeSeam), ONE - Math.abs(afterSeam - beforeSeam));
+  assert.ok(circular > 300 && circular < 500,
+    "the encoded plane took the long route across the signed-angle seam");
+
+  const seam = directHandFixture().input;
+  seam.buttonTransition("cut", true);
+  const gesture = (theta) => seam.moveWeapon(10, 0, 10, 1_000,
+    { right: [0, Math.sin(theta), -Math.cos(theta)], up: [0, 0, 1] }, "cut");
+  gesture(Math.PI - Math.PI / 180);
+  const signedBefore = seam.armTarget.plane;
+  gesture(-Math.PI + Math.PI / 180);
+  const signedAfter = seam.armTarget.plane;
+  assert.ok(Math.abs(signedAfter - signedBefore) < 1_000,
+    "nearest-equivalent plane state reversed almost a whole turn at the seam");
+});
+
+test("the_most_recent_powered_button_owns_each_whole_delta_and_new_presses_get_a_new_dead_zone", () => {
+  const { input } = directHandFixture();
+  input.buttonTransition("cut", true);
+  input.moveWeapon(7, 0, 10, 1_000, { right: [0, 1, 0], up: [0, 0, 1] });
+  const cut = commandArm(input.encode(null, 0));
+  input.buttonTransition("extend", true);
+  // Transition-event delta belonged to cut; the next belongs wholly to extend.
+  input.moveWeapon(99, -7, 10, 1_000, { right: [0, 1, 0], up: [0, 0, 1] }, "cut");
+  const transition = commandArm(input.encode(null, 0));
+  input.moveWeapon(99, -7, 10, 1_000, { right: [0, 1, 0], up: [0, 0, 1] });
+  const extended = commandArm(input.encode(null, 0));
+  assert.notEqual(transition.bearing, cut.bearing);
+  assert.equal(extended.bearing, transition.bearing);
+  input.buttonTransition("extend", false); // cut resumes with its accumulated travel.
+  input.buttonTransition("cut", false);
+  input.buttonTransition("cut", true); // genuinely new press resets travel.
+  input.moveWeapon(1, 0, 1, 1_000, { right: [0, 1, 0], up: [0, 0, 1] });
+  assert.equal(commandArm(input.encode(null, 0)).effort, ONE / 2);
+});
+
+test("a_missing_or_severed_primary_arm_is_not_encoded_from_a_stale_target", () => {
+  const { input, pose } = directHandFixture();
+  const broken = { ...pose, severed: 1 << 3 };
+  assert.equal(input.synchronize(broken), false);
+  assert.deepEqual(commandArm(input.encode(null, 0)),
+    { bearing: 0, height: ONE / 2, reach: 0, effort: 0, plane: 0 });
+});
+
+test("two_touch_parallel_motion_is_extension_while_opposed_motion_is_camera_only", async () => {
+  for (const mode of ["parallel", "opposed"]) {
+    const harness = installDom();
+    try {
+      const route = await controlledRoute(harness, "touch");
+      const host = route.container.querySelector("#arena-stage");
+      const canvas = route.container.querySelector("#arena-3d");
+      const baseline = await route.nextInput();
+      const before = Uint8Array.from(new Uint8Array(baseline.bytes));
+      await route.acknowledge(baseline, 0);
+      for (const entry of harness.listenersOn(host, "pointerdown")) entry.listener({
+        target: canvas, pointerType: "touch", pointerId: 41, button: 0,
+        clientX: 240, clientY: 180, preventDefault() {},
+      });
+      const move = (pointerId, clientX, clientY) => {
+        for (const entry of harness.listenersOn(host, "pointermove")) entry.listener({
+          target: canvas, pointerType: "touch", pointerId, clientX, clientY,
+          movementX: 0, movementY: 0, buttons: 1, preventDefault() {},
+        });
+      };
+      if (mode === "parallel") { move(40, 200, 170); move(41, 240, 170); }
+      else { move(40, 190, 180); move(41, 250, 180); }
+      const staged = await route.nextInput();
+      const after = new Uint8Array(staged.bytes);
+      assert.deepEqual([...after.slice(4, 23)], [...before.slice(4, 23)],
+        `${mode} touch changed navigation/intent`);
+      if (mode === "parallel") {
+        assert.equal(route.fakeStage.pinchHits, 0);
+        assert.notDeepEqual(commandArm(after), commandArm(before));
+      } else {
+        assert.equal(route.fakeStage.pinchHits, 1);
+        assert.deepEqual([...after.slice(23)], [...before.slice(23)],
+          "a pinch changed an arm command byte");
+      }
+      await route.handle.dispose(); harness.dropSubtree(route.container);
+    } finally { harness.restore(); }
+  }
+});
+
+test("a_stationary_second_touch_is_classified_after_the_bounded_gesture_window", async () => {
+  const harness = installDom();
+  try {
+    const route = await controlledRoute(harness, "touch");
+    const host = route.container.querySelector("#arena-stage");
+    const canvas = route.container.querySelector("#arena-3d");
+    for (const entry of harness.listenersOn(host, "pointerdown")) entry.listener({
+      target: canvas, pointerType: "touch", pointerId: 41, button: 0,
+      clientX: 240, clientY: 180, timeStamp: 10, preventDefault() {},
+    });
+    const move = (x, timeStamp) => {
+      for (const entry of harness.listenersOn(host, "pointermove")) entry.listener({
+        target: canvas, pointerType: "touch", pointerId: 40,
+        clientX: x, clientY: 180, timeStamp, movementX: 0, movementY: 0,
+        buttons: 1, preventDefault() {},
+      });
+    };
+    move(195, 20); // waits for the other finger or the bounded deadline
+    assert.equal(route.fakeStage.pinchHits, 0);
+    move(190, 60); // the anchored second finger now yields a real pinch
+    assert.equal(route.fakeStage.pinchHits, 1);
+    await route.handle.dispose(); harness.dropSubtree(route.container);
+  } finally { harness.restore(); }
+});
+
+test("lifting_one_of_two_touches_rebaselines_the_remaining_drag", async () => {
+  const harness = installDom();
+  try {
+    const route = await controlledRoute(harness, "touch");
+    const host = route.container.querySelector("#arena-stage");
+    const canvas = route.container.querySelector("#arena-3d");
+    for (const entry of harness.listenersOn(host, "pointerdown")) entry.listener({
+      target: canvas, pointerType: "touch", pointerId: 41, button: 0,
+      clientX: 240, clientY: 180, timeStamp: 10, preventDefault() {},
+    });
+    for (const entry of harness.listenersOn(host, "pointerup")) entry.listener({
+      target: canvas, pointerType: "touch", pointerId: 41, timeStamp: 20,
+    });
+    const baseline = await route.nextInput();
+    const before = commandArm(new Uint8Array(baseline.bytes));
+    await route.acknowledge(baseline);
+    for (const entry of harness.listenersOn(host, "pointermove")) entry.listener({
+      target: canvas, pointerType: "touch", pointerId: 40,
+      clientX: 215, clientY: 180, timeStamp: 30, movementX: 0, movementY: 0,
+      buttons: 1, preventDefault() {},
+    });
+    const after = commandArm(new Uint8Array((await route.nextInput()).bytes));
+    assert.notDeepEqual(after, before, "the remaining finger stopped controlling the parked hand");
+    await route.handle.dispose(); harness.dropSubtree(route.container);
+  } finally { harness.restore(); }
+});
+
+test("a_severed_primary_releases_capture_but_held_body_input_keeps_the_worker_draining", async () => {
+  const harness = installDom();
+  try {
+    const route = await controlledRoute(harness);
+    route.key("KeyW");
+    const beforeLoss = await route.nextInput();
+    await route.acknowledge(beforeLoss, 0, 1 << 3);
+    const afterLoss = await route.nextInput();
+    const view = new DataView(afterLoss.bytes);
+    assert.equal(globalThis.document.pointerLockElement, null);
+    assert.match(route.container.querySelector("#status").textContent, /CONTROL_PRIMARY_ARM_UNAVAILABLE/);
+    assert.equal(view.getInt32(4, true), ONE, "arm loss cleared held body movement");
+    assert.equal(commandArm(new Uint8Array(afterLoss.bytes)).reach, 0);
+    await route.acknowledge(afterLoss);
+    const continued = await route.nextInput();
+    assert.equal(continued.ticksDue, 1, "arm loss stranded the controlled worker");
+    await route.handle.dispose(); harness.dropSubtree(route.container);
+  } finally { harness.restore(); }
+});
+
+test("capture_loss_before_the_first_chunk_does_not_resume_a_human_fight", async () => {
+  const harness = installDom();
+  try {
+    const route = await controlledRoute(harness, "mouse", false);
+    globalThis.document.pointerLockElement = null;
+    for (const entry of harness.listenersOn(globalThis.document, "pointerlockchange")) entry.listener({});
+    route.worker.emit(syntheticChunk(route.start.requestId, 0, 1));
+    await settle();
+    await route.runFrame(40);
+    assert.equal(route.container.querySelector("#play").textContent, "Play");
+    assert.match(route.container.querySelector("#control-status").textContent, /Take controls again/);
+    assert.equal(route.worker.sent.filter((entry) => entry.message.kind === "arenaInput" && entry.message.ticksDue > 0).length, 0,
+      "the first chunk restarted authoritative production after capture loss");
+    await route.handle.dispose(); harness.dropSubtree(route.container);
+  } finally { harness.restore(); }
+});
+
+test("a_pending_pointer_lock_is_bound_to_the_selected_human_matchup", async () => {
+  const harness = installDom();
+  try {
+    const { mount } = await import(compiled("client/src/arena/arena.js"));
+    const container = harness.container();
+    const stage = {
+      description: () => "test stage", show() {}, clear() {}, resize() {}, setMode: async () => {},
+      mode: () => "geometry", cameraMode: () => "fit", cameraBasis: () => ({ right: [0, 1, 0], up: [0, 0, 1] }),
+      projectHand: () => [0.5, 0.5], cameraChangeSerial: () => 0, containsThreeQuarterPoint: () => true,
+      follow() {}, orbit: () => false, zoom() {}, promote() {}, refit() {}, showPreview() {}, setPhase() {},
+      drawPreview() {}, dispose() {}, debug: { counts: () => ({}) },
+    };
+    const handle = await mount(container, new URLSearchParams(), async () => stage);
+    await settle();
+    const control = container.querySelector("#a-control");
+    control.value = "human";
+    for (const entry of harness.listenersOn(control, "change")) entry.listener({ target: control });
+    const canvas = container.querySelector("#arena-3d");
+    let settleLock;
+    canvas.requestPointerLock = () => new Promise((resolve) => { settleLock = resolve; });
+    container.querySelector("#take-controls").click();
+    control.value = "tactical";
+    for (const entry of harness.listenersOn(control, "change")) entry.listener({ target: control });
+    globalThis.document.pointerLockElement = canvas;
+    for (const entry of harness.listenersOn(globalThis.document, "pointerlockchange")) entry.listener({});
+    settleLock();
+    await settle();
+    assert.equal(globalThis.document.pointerLockElement, null);
+    assert.equal(harness.workers.length, 0, "a stale Take attempt started the newly selected policy fight");
+    assert.match(container.querySelector("#control-status").textContent, /selected matchup changed/);
+    await handle.dispose(); harness.dropSubtree(container);
+  } finally { harness.restore(); }
+});
+
+test("a_late_pointer_lock_grant_after_route_disposal_is_released", async () => {
+  const harness = installDom();
+  try {
+    const { mount } = await import(compiled("client/src/arena/arena.js"));
+    const container = harness.container();
+    const stage = {
+      description: () => "test stage", show() {}, clear() {}, resize() {}, setMode: async () => {},
+      mode: () => "geometry", cameraMode: () => "fit", cameraBasis: () => ({ right: [0, 1, 0], up: [0, 0, 1] }),
+      projectHand: () => [0.5, 0.5], cameraChangeSerial: () => 0, containsThreeQuarterPoint: () => true,
+      follow() {}, orbit: () => false, zoom() {}, promote() {}, refit() {}, showPreview() {}, setPhase() {},
+      drawPreview() {}, dispose() {}, debug: { counts: () => ({}) },
+    };
+    const handle = await mount(container, new URLSearchParams(), async () => stage);
+    await settle();
+    const control = container.querySelector("#a-control");
+    control.value = "human";
+    for (const entry of harness.listenersOn(control, "change")) entry.listener({ target: control });
+    const canvas = container.querySelector("#arena-3d");
+    let settleLock;
+    canvas.requestPointerLock = () => new Promise((resolve) => { settleLock = resolve; });
+    container.querySelector("#take-controls").click();
+    await handle.dispose();
+    globalThis.document.pointerLockElement = canvas;
+    settleLock();
+    await settle();
+    assert.equal(globalThis.document.pointerLockElement, null,
+      "a lock granted after listener disposal leaked onto the next route");
+    harness.dropSubtree(container);
+  } finally { harness.restore(); }
+});
 
 test("thirty_sixty_one_hundred_twenty_and_one_hundred_forty_four_hertz_stage_the_same_yaw_sequence", async () => {
   const sequences = [];
@@ -1619,27 +2089,14 @@ test("thirty_sixty_one_hundred_twenty_and_one_hundred_forty_four_hertz_stage_the
 test("key_down_reaches_a_controlled_fight_within_two_ticks_and_follow_defaults_to_the_human", async () => {
   const harness = installDom();
   try {
-    const { mount } = await import(compiled("client/src/arena/arena.js"));
-    const container = harness.container();
-    const handle = await mount(container, new URLSearchParams([["stage", "off"]]));
-    const control = container.querySelector("#a-control");
-    control.value = "human";
-    for (const entry of harness.listenersOn(control, "change")) entry.listener({ target: control });
-    container.querySelector("#fight").click();
-    await settle();
-    const worker = harness.workers.at(-1);
-    const start = worker.sent.find((entry) => entry.message.kind === "arenaStart").message;
-    worker.emit({ ...syntheticOpening(start.requestId), heroes: "you + tactical off hand" });
-    worker.emit(syntheticChunk(start.requestId, 0, 1));
-    await settle();
+    const route = await controlledRoute(harness);
+    const { container, handle, worker } = route;
     assert.equal(container.querySelector("#arena-follow").value, "a");
 
     const keyEvent = { target: globalThis.window, key: "w", code: "KeyW",
       preventDefault() { this.prevented = true; } };
     for (const entry of harness.listenersOn(globalThis.window, "keydown")) entry.listener(keyEvent);
-    harness.runFrame(performance.now() + 20);
-    await settle();
-    const input = worker.sent.find((entry) => entry.message.kind === "arenaInput")?.message;
+    const input = await route.nextInput();
     assert.ok(input, "a held key did not reach the worker within two ticks");
     assert.ok(input.ticksDue >= 1 && input.ticksDue <= 2);
     const view = new DataView(input.bytes);
@@ -1723,6 +2180,86 @@ test("mouse_motion_changes_no_navigation_or_body_yaw_byte", async () => {
   } finally { harness.restore(); }
 });
 
+test("relative_hand_motion_ignores_absolute_client_coordinates", async () => {
+  const commands = [];
+  for (const clientX of [-50_000, 90_000]) {
+    const harness = installDom();
+    try {
+      const route = await controlledRoute(harness);
+      const stage = route.container.querySelector("#arena-stage");
+      const canvas = route.container.querySelector("#arena-3d");
+      for (const entry of harness.listenersOn(stage, "pointermove")) entry.listener({
+        target: canvas, pointerId: 17, clientX, clientY: -clientX,
+        movementX: 24, movementY: -13, buttons: 1, preventDefault() {},
+      });
+      commands.push([...new Uint8Array((await route.nextInput()).bytes)]);
+      await route.handle.dispose(); harness.dropSubtree(route.container);
+    } finally { harness.restore(); }
+  }
+  assert.deepEqual(commands[0], commands[1]);
+});
+
+test("camera_motion_with_a_non_neutral_hand_changes_no_command_byte", async () => {
+  const harness = installDom();
+  try {
+    const route = await controlledRoute(harness);
+    const host = route.container.querySelector("#arena-stage");
+    const canvas = route.container.querySelector("#arena-3d");
+    for (const entry of harness.listenersOn(host, "pointermove")) entry.listener({
+      target: canvas, pointerId: 17, movementX: 30, movementY: -8, buttons: 1, preventDefault() {},
+    });
+    const before = await route.nextInput();
+    await route.acknowledge(before, 0);
+    route.fakeStage.orbit = () => true;
+    for (const entry of harness.listenersOn(host, "pointerdown")) entry.listener({
+      target: canvas, pointerId: 90, pointerType: "mouse", button: 1,
+      clientX: 100, clientY: 100, preventDefault() {},
+    });
+    for (const entry of harness.listenersOn(host, "pointermove")) entry.listener({
+      target: canvas, pointerId: 90, movementX: 80, movementY: 40, buttons: 4, preventDefault() {},
+    });
+    const after = await route.nextInput();
+    assert.deepEqual([...new Uint8Array(after.bytes)], [...new Uint8Array(before.bytes)]);
+    await route.handle.dispose(); harness.dropSubtree(route.container);
+  } finally { harness.restore(); }
+});
+
+test("pointer_lock_rejection_and_timeout_are_named_before_a_fight_starts", async () => {
+  for (const mode of ["reject", "timeout"]) {
+    const harness = installDom();
+    try {
+      const { mount } = await import(compiled("client/src/arena/arena.js"));
+      const container = harness.container();
+      const stage = {
+        description: () => "test stage", show() {}, clear() {}, resize() {}, setMode: async () => {},
+        mode: () => "geometry", cameraMode: () => "fit", cameraBasis: () => ({ right: [0, 1, 0], up: [0, 0, 1] }),
+        projectHand: () => [0.5, 0.5], cameraChangeSerial: () => 0, containsThreeQuarterPoint: () => true,
+        follow() {}, orbit: () => false, zoom() {}, promote() {}, refit() {}, showPreview() {}, setPhase() {},
+        drawPreview() {}, dispose() {}, debug: { counts: () => ({}) },
+      };
+      const handle = await mount(container, new URLSearchParams(), async () => stage);
+      await settle();
+      const control = container.querySelector("#a-control");
+      control.value = "human";
+      for (const entry of harness.listenersOn(control, "change")) entry.listener({ target: control });
+      const canvas = container.querySelector("#arena-3d");
+      let timeout;
+      if (mode === "reject") canvas.requestPointerLock = () => Promise.reject(new Error("denied"));
+      else {
+        canvas.requestPointerLock = () => undefined;
+        globalThis.window.setTimeout = (callback) => { timeout = callback; return 99; };
+        globalThis.window.clearTimeout = () => {};
+      }
+      container.querySelector("#take-controls").click();
+      if (timeout !== undefined) timeout();
+      await settle();
+      assert.match(container.querySelector("#control-status").textContent, /CONTROL_POINTER_LOCK_UNAVAILABLE/);
+      assert.equal(harness.workers.length, 0, `${mode} started a fight without direct controls`);
+      await handle.dispose(); harness.dropSubtree(container);
+    } finally { harness.restore(); }
+  }
+});
+
 test("blur_visibility_pause_and_pointer_lock_loss_clear_every_held_input", async () => {
   for (const stop of ["blur", "hidden", "pause", "pointerlock"]) {
     const harness = installDom();
@@ -1764,7 +2301,7 @@ test("space_pauses_a_fight_that_is_still_being_produced", async () => {
   } finally { harness.restore(); }
 });
 
-test("an_immediate_resume_outlives_the_stale_neutral_ack_and_stages_fresh_input", async () => {
+test("pause_requires_take_controls_again_and_the_new_capture_outlives_the_stale_neutral_ack", async () => {
   const harness = installDom();
   try {
     const route = await controlledRoute(harness);
@@ -1772,6 +2309,12 @@ test("an_immediate_resume_outlives_the_stale_neutral_ack_and_stages_fresh_input"
     const neutral = route.worker.sent.filter((entry) => entry.message.kind === "arenaInput").at(-1).message;
     assert.equal(neutral.ticksDue, 0);
     route.key("Space", " ");
+    assert.equal(route.container.querySelector("#play").textContent, "Play");
+    assert.match(route.container.querySelector("#control-status").textContent, /Take controls again/);
+    await settle();
+    route.container.querySelector("#take-controls").click();
+    await settle();
+    assert.equal(route.container.querySelector("#play").textContent, "Pause");
     route.key("KeyQ");
     route.worker.emit({ kind: "arenaInputAck", version: 2, requestId: neutral.requestId,
       arenaRequestId: route.start.requestId, steppedTicks: 0 });

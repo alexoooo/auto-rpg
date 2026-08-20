@@ -71,6 +71,8 @@ export type FightFrame = Frame & {
 
 export interface FightSource {
   readonly header: FightHeader;
+  /** Live arena capability; absent from durable trace JSON by design. */
+  readonly armMinReach?: number;
   frameCount(): number;
   /**
    * The recorded frame at `index`.

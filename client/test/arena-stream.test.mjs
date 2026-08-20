@@ -74,6 +74,7 @@ class FakeArena {
   // the drive is a claim about the encoder rather than a value compared with
   // itself.
   control(faction) { return this.config[8 + faction * 56 + 2]; }
+  armMinReach() { return 16_384; }
   tick() { return this.now; }
   step() { if (this.now < this.ticks) this.now += 1; }
   bodies() { return this.deathTick !== null && this.now >= this.deathTick ? 1 : 2; }
@@ -399,6 +400,7 @@ test("the_worker_posts_one_opening_a_run_of_chunks_and_one_finish", async () => 
   }
   const opened = sent[0].message;
   assert.equal(opened.spectator, true, "the arena's unfiltered ground truth must say so");
+  assert.equal(opened.armMinReach, 16_384);
   assert.equal(opened.outcome, undefined, "an opening message cannot know the outcome");
   const finished = sent.at(-1).message;
   assert.deepEqual([finished.outcome, finished.timedOut, finished.ticks],

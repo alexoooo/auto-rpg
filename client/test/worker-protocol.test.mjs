@@ -139,6 +139,7 @@ class FakeArena {
   // it, because `arena-recorder.ts` belongs to another session in this wave and
   // the two halves cannot go in one commit.
   control(faction) { return this.config[8 + faction * 56 + 2]; }
+  armMinReach() { return 16_384; }
   tick() { return this.now; }
   step() {
     this.steps += 1;
@@ -2087,6 +2088,7 @@ const openedMessage = (requestId, over = {}) => ({
   embodiedStanceLayoutVersion: RECORDER.EMBODIED_STANCE_LAYOUT_VERSION,
   embodiedStanceStride: RECORDER.EMBODIED_STANCE_STRIDE,
   embodiedStanceCapacity: RECORDER.EMBODIED_STANCE_CAPACITY,
+  armMinReach: 16_384,
   impactThreshold: 3_932, contactEnergyFloor: 144, bodySlot: 255, noRegion: 4_294_967_295,
   regionNames: [], hintNames: [], contactKinds: [], bodies: [],
   ...over,
@@ -2201,6 +2203,7 @@ test("correlated_malformed_v2_arena_messages_reject_and_replace_the_worker", asy
     { arenaStreamLayoutVersion: undefined },
     { embodiedStanceStride: undefined },
     { embodiedStanceCapacity: "64" },
+    { armMinReach: "16384" },
   ]) {
     const running = client.run(arenaConfig(), noStream());
     await settle();
@@ -2210,14 +2213,41 @@ test("correlated_malformed_v2_arena_messages_reject_and_replace_the_worker", asy
     await assert.rejects(running, /malformed arenaOpened response/);
     assert.equal(worker.terminateCalls, 1);
   }
-  assert.equal(workers.length, 3, "a malformed stream worker was reused by the next Fight");
+  assert.equal(workers.length, 4, "a malformed stream worker was reused by the next Fight");
   const healthy = client.run(arenaConfig(), noStream());
   await settle();
   const worker = workers.at(-1);
   const requestId = worker.sent.at(-1).message.requestId;
   emitFight(worker, requestId);
   await healthy;
-  assert.equal(workers.length, 4);
+  assert.equal(workers.length, 5);
+});
+
+test("arm_min_reach_is_required_integer_and_inside_the_physical_command_range", async () => {
+  const workers = [];
+  const client = new ArenaClient(() => {
+    const worker = new FakeWorker(); workers.push(worker); return worker;
+  });
+  for (const [armMinReach, refusal] of [
+    [undefined, /malformed arenaOpened response/],
+    ["16384", /malformed arenaOpened response/],
+    [16_384.5, /malformed arenaOpened response/],
+    [0, /arm minimum reach 0 is outside \(0, 65536\]/],
+    [65_537, /arm minimum reach 65537 is outside \(0, 65536\]/],
+  ]) {
+    const running = client.run(arenaConfig(), noStream());
+    await settle();
+    const worker = workers.at(-1);
+    const requestId = worker.sent.at(-1).message.requestId;
+    worker.emitMessage(openedMessage(requestId, { armMinReach }));
+    // If a range guard is accidentally removed, complete the now-accepted
+    // stream so this assertion fails promptly instead of waiting forever.
+    worker.emitMessage(chunkMessage(requestId));
+    worker.emitMessage(finishedMessage(requestId));
+    await assert.rejects(running, refusal);
+    assert.equal(worker.terminateCalls, 1, `bad armMinReach ${String(armMinReach)} left a worker reusable`);
+  }
+  assert.equal(workers.length, 5);
 });
 
 test("a_nonfatal_input_error_rejects_only_that_input_and_the_fight_remains_available", async () => {

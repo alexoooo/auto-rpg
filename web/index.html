@@ -302,6 +302,18 @@
       left: .5rem; top: calc(50% + .4rem); }
     .stage-modes { position: absolute; left: calc(28% + .5rem); bottom: .5rem; display: flex; gap: .35rem; }
     .stage-modes button[aria-pressed="true"] { background: #3d6089; border-color: #6d8cb4; }
+    .hand-controls { position: absolute; right: .5rem; bottom: .5rem; display: flex;
+      align-items: center; gap: .4rem; font-size: .75rem; }
+    #take-controls[aria-pressed="true"] { background: #713f74; border-color: #be7fc2; }
+    #control-status.error { color: #ff9d9d; }
+    .arena-hand-reticle { position: absolute; width: 1rem; height: 1rem; margin: -.5rem;
+      border: 2px solid #d9a9dc; border-radius: 50%; pointer-events: none; z-index: 3;
+      box-shadow: 0 0 .3rem #000; }
+    .arena-hand-reticle.captured::before, .arena-hand-reticle.captured::after {
+      content: ""; position: absolute; background: #d9a9dc; }
+    .arena-hand-reticle.captured::before { left: 50%; top: -.25rem; width: 1px; height: 1.5rem; }
+    .arena-hand-reticle.captured::after { top: 50%; left: -.25rem; height: 1px; width: 1.5rem; }
+    .arena-hand-reticle.offscreen { border-style: dashed; opacity: .7; }
     .side-panels { display: grid; gap: .6rem; }
     #plan, #elevation { aspect-ratio: 3 / 2; }
     #chart { aspect-ratio: 9 / 1; cursor: crosshair; }
@@ -477,7 +489,7 @@
              with one option is a control that does nothing, so the row went with
              it rather than being left standing. -->
         <!-- **"driven by" is one control and not two**: the five policies plus
-             `you (W/S move, A/D strafe, Q/E turn; hand reserved)`, because a human side still needs a
+             `you (keys + direct hand)`, because a human side still needs a
              policy for its off hand and two controls that must agree are two
              controls that can disagree. Choosing the last entry is what reveals
              the off-hand row beneath it; `showOffHandRows` in `picker.ts` owns
@@ -577,6 +589,10 @@
           <div class="stage-modes">
             <button id="mode-texture" type="button" aria-pressed="false">Texture</button>
             <button id="mode-geometry" type="button" aria-pressed="true">Geometry</button>
+          </div>
+          <div class="hand-controls">
+            <button id="take-controls" type="button" aria-pressed="false" disabled>Take controls</button>
+            <span id="control-status">Controls released</span>
           </div>
         </div>
         <div class="side-panels">

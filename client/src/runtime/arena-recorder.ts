@@ -259,6 +259,8 @@ export interface ArenaWasmAdapter {
   policy(faction: number): number;
   /** `arena_control(faction)`, so the header names the driver the fight is running. */
   control(faction: number): number;
+  /** The actuator's authoritative lower reach clamp. */
+  armMinReach(): number;
   tick(): number;
   /** Exactly one tick, because the event feed is cleared per call. */
   step(): void;
@@ -302,6 +304,7 @@ export interface ArenaExports {
   embodied_stance_ptr: U32Export; embodied_stance_len: U32Export;
   embodied_stance_stride: U32Export; embodied_stance_capacity: U32Export;
   embodied_stances_dropped: U32Export; embodied_stance_layout_version: U32Export;
+  arm_min_reach_raw: U32Export;
 }
 
 /** The names above, for `sim.worker.ts`'s boot check and for `wasm_check.js`. */
@@ -329,6 +332,7 @@ export const ARENA_EXPORTS = [
   "combat_event_capacity", "combat_events_dropped", "combat_event_layout_version",
   "embodied_stance_ptr", "embodied_stance_len", "embodied_stance_stride",
   "embodied_stance_capacity", "embodied_stances_dropped", "embodied_stance_layout_version",
+  "arm_min_reach_raw",
 ] as const;
 
 const HEX = "0123456789abcdef";
@@ -458,6 +462,7 @@ export function createArenaAdapter(wasm: ArenaExports): ArenaWasmAdapter {
     fingerprint() { return hex64(wasm.arena_fingerprint_hi() >>> 0, wasm.arena_fingerprint_lo() >>> 0); },
     policy(faction) { return wasm.arena_policy(faction) >>> 0; },
     control(faction) { return wasm.arena_control(faction) >>> 0; },
+    armMinReach() { return wasm.arm_min_reach_raw() >>> 0; },
     writeEmbodiedCommand(bytes) {
       const length = wasm.embodied_command_len() >>> 0;
       if (bytes.length !== length || (wasm.embodied_command_layout_version() >>> 0) !== 2) {
@@ -861,6 +866,7 @@ export async function recordArenaFight(
     embodiedStanceLayoutVersion: EMBODIED_STANCE_LAYOUT_VERSION,
     embodiedStanceStride: EMBODIED_STANCE_STRIDE,
     embodiedStanceCapacity: EMBODIED_STANCE_CAPACITY,
+    armMinReach: wasm.armMinReach(),
     impactThreshold: IMPACT_THRESHOLD_RAW, contactEnergyFloor: CONTACT_ENERGY_FLOOR,
     // The event row widens `sim::NO_REGION` to a full word so a reader that lost
     // track of the column width cannot mistake it for a region index;

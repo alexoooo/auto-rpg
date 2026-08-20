@@ -30,6 +30,7 @@ longer sample — and do not compare moving scenes as independent runs.
 - [embodied corpus, its pin, and the high-ground measurement, 2026-08-17](embodied-corpus-and-high-ground.md)
 - [embodied stance and elbow constants: what was measured, derived, or judged](embodied-stance-and-elbow-constants.md)
 - [the tactical embodied policy's first outing, 2026-08-18](embodied-tactical-policy.md)
+- [arena human-control diagnostic schema and pending cadence-controlled calibration](arena-human-control.md)
 
 The [v2 renderer reference matrix](v2-reference-matrix.md#measurement-record)
 predeclares the visible-foreground environment, automated and manual correctness

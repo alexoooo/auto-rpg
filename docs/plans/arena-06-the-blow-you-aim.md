@@ -1,6 +1,14 @@
 # Arena 06 -- the blow you aim
 
-**Status:** ready once session 05 has landed. Blocks 07.
+**Status:** complete. The integrated native, exact-law, wasm and client gates are green.
+Visible feel judgement and calibration remain deliberately owed to session 07.
+
+**Implementation correction (2026-08-20).** Direct-hand acquisition precedes a Human
+fight: successful mouse pointer lock or touch capture auto-starts it, and a pause releases
+capture so **Take controls** must succeed again before resume. The actuator minimum crosses
+in live-only `arenaOpened.armMinReach`; trace JSON and `TRACE_SCHEMA` do not widen. Posed
+height is derived from the published body and shoulder, not from static anatomy or world
+zero. Babylon camera vectors are converted back to simulation `[x, z, y]` axes before use.
 
 Session 05 gives the player feet, an independently commanded facing and a primary-arm
 slot updated at 60 Hz. This session gives that slot a relative, camera-readable virtual
@@ -93,7 +101,7 @@ candidate = H + delta
 planar = candidate.xy - S.xy
 bearing_world = atan2(planar.y, planar.x)
 bearing = bearing_world - body_yaw                 # torso command frame
-height = clamp(candidate.z / standing_height, 0, 1)
+height = clamp((candidate.z - body.z) / posed_standing_height, 0, 1)
 reach = clamp(length(planar) / L, min_reach, 1)
 ```
 
@@ -123,7 +131,7 @@ screen's up vector carries `sin(pitch)` of world-forward, about 0.5 and 0.42 of 
 respectively, and a vertical stroke therefore moves reach *and* height together.
 Extension through that leak rides the height axis and dies at its clamp: pulling the
 tucked guard forward in first person also drags it toward head height, where
-`clamp(candidate.z / standing_height, 0, 1)` saturates. A mid-height thrust cannot be
+`clamp((candidate.z - body.z) / posed_standing_height, 0, 1)` saturates. A mid-height thrust cannot be
 aimed by riding a height leak in either view, and a scheme whose only depth control is a
 camera-pitch artifact is not a control scheme.
 
@@ -142,7 +150,8 @@ H' = S + o * s
 
 `s_min` and `s_max` are the scale bounds of the **encodable envelope** along the held
 direction: the largest interval of `s` that keeps `reach = |planar| / L` inside
-`[min_reach, 1]` **and** `height = candidate.z / standing_height` inside `[0, 1]`,
+`[min_reach, 1]` **and** `height = (candidate.z - body.z) / posed_standing_height`
+inside `[0, 1]`,
 whichever bound saturates first. The clamp is on the scale factor and never on the
 re-encoded fields -- clamping bearing, height and reach separately after the fact would
 bend the held direction a little on every delta, and a stored target near the encoding's
@@ -266,8 +275,9 @@ the plan does not misname it as a second hidden swing verb.
 
 ## Feel constants
 
-Every placeholder is measured at a foreground browser in session 07 and carries a
-two-sided bound from the decision it encodes.
+These provisional implementation values make the reducers testable. They are not feel
+measurements: session 07 owns foreground remeasurement and may replace each only with its
+documented two-sided judgement.
 
 ```ts
 /**
@@ -276,7 +286,7 @@ two-sided bound from the decision it encodes.
  * Too low cannot cross the body in one deliberate mouse stroke; too high crosses
  * the whole reachable command space in ordinary hand tremor.
  */
-export const VIRTUAL_HAND_SENSITIVITY = /* measured in 07 */;
+export const VIRTUAL_HAND_SENSITIVITY = 0.006;
 
 /**
  * Arm lengths of shoulder-to-hand distance per relative CSS pixel of secondary
@@ -284,7 +294,7 @@ export const VIRTUAL_HAND_SENSITIVITY = /* measured in 07 */;
  * from the tucked guard needs more than one deliberate push; too high and a
  * probe cannot settle anywhere between the guard and full extension.
  */
-export const EXTEND_DRAG_SENSITIVITY = /* measured in 07 */;
+export const EXTEND_DRAG_SENSITIVITY = 0.004;
 
 /**
  * How much two-pointer spread change, relative to centroid travel over the
@@ -292,7 +302,7 @@ export const EXTEND_DRAG_SENSITIVITY = /* measured in 07 */;
  * instead of an extension drag. Too low and a slightly uneven two-finger push
  * zooms instead of thrusting; too high and a deliberate pinch extends the arm.
  */
-export const TOUCH_PINCH_SPREAD_RATIO = /* measured in 07 */;
+export const TOUCH_PINCH_SPREAD_RATIO = 0.75;
 
 /**
  * Accumulated powered-button travel below which a gesture adds no effort uplift
@@ -300,16 +310,16 @@ export const TOUCH_PINCH_SPREAD_RATIO = /* measured in 07 */;
  * above a tenth of the reference viewport hides a genuine wrist cut. It gates
  * neither target placement nor slow extension.
  */
-export const SWING_DRAG_DEAD_ZONE_PX = /* measured in 07 */;
+export const SWING_DRAG_DEAD_ZONE_PX = 6;
 
 /**
  * Pointer speed that reaches effort one from the resting half. The path already
  * carries speed, so this is tracking authority, not a second velocity command.
  */
-export const SWING_DRAG_FULL_EFFORT_PX_S = /* measured in 07 */;
+export const SWING_DRAG_FULL_EFFORT_PX_S = 900;
 
-/** One arm length of desired-hand travel is one arm length. Derived, not tuned. */
-export const SWING_DRAG_FULL_REACH_ARM_LENGTHS = 1;
+/** Reference CSS height for viewport-normalised gains; a scale, not feel tuning. */
+export const VIRTUAL_HAND_REFERENCE_VIEWPORT_PX = 1_000;
 ```
 
 CSS pixels rather than device pixels are deliberate: changing device pixel ratio cannot
@@ -355,9 +365,14 @@ until it looks like aiming.
 | `client/src/arena/arena-input.ts` | body/weapon/camera reducers, stored hand target, cut and extension channels with the one-owner rule, effort and signed plane |
 | `client/src/arena/arena.ts` | **Take controls**, pointer-lock and touch-capture lifecycle, gesture routing and per-tick sampling |
 | `client/src/arena/stage-camera.ts` | exposes the active camera right/up basis; consumes only its own button gestures |
+| `client/src/arena/scene.ts` | exposes sim-axis camera basis and desired-hand projection through `ArenaStage` |
 | `client/src/arena/hand-reticle.ts` | new: projects the stored desired hand and shows capture/off-screen state; presentation only |
-| `crates/web/src/lib.rs` | `arm_min_reach_raw()` capability export and the historical `drive_hero` comment repair; no submission change |
+| `crates/web/src/lib.rs` | `HostSource` begins copying its claimed primary-arm target, grip/release and plane; `arm_min_reach_raw()` capability export; historical `drive_hero` comment repair |
 | `client/src/runtime/arena-recorder.ts` | `ARENA_EXPORTS` and `ArenaExports` gain `arm_min_reach_raw` |
+| `client/src/protocol/messages.ts`, `client/src/runtime/arena-client.ts` | live opening carries and validates `armMinReach` before chunks |
+| `client/src/fight/source.ts`, `client/src/fight/live.ts` | live-only optional capability, without widening trace JSON |
+| `client/src/arena/picker.ts`, `web/index.html` | honest direct-hand label, Take-controls status, capture and reticle presentation |
+| `client/test/{studio-shell,render-contract,worker-protocol,arena-stream}.test.mjs` | reducer, route, camera-axis, capability and malformed-opening behavior |
 | `tools/wasm_check.js` | native/wasm capability equality and a nonzero staged height/reach/plane fixture |
 | `docs/design/combat.md` | the independent human hand, target path and effort semantics beside "The swing" |
 | `docs/performance/arena-human-control.md` | new: diagnostic schema and the cadence-control recipe; values land in 07 |
@@ -367,30 +382,44 @@ until it looks like aiming.
 `client/test/studio-shell.test.mjs`:
 
 - `mouse_motion_changes_the_arm_and_not_the_body`
-- `body_turning_changes_no_primary_arm_command_field`
-- `a_guard_can_move_at_the_resting_effort_without_becoming_a_cut`
-- `a_moving_hand_never_has_less_effort_than_a_held_guard`
-- `slow_and_fast_paths_produce_ordered_effort_without_changing_their_end_point`
-- `pointer_lock_has_no_viewport_edge`
-- `a_refused_pointer_lock_returns_control_pointer_lock_unavailable`
-- `absolute_pointer_coordinates_never_reach_the_arm_encoder`
-- `camera_orbit_zoom_follow_and_view_promotion_change_no_staged_arm_byte`
-- `a_camera_delta_is_consumed_once_and_never_also_moves_the_hand`
-- `the_same_relative_delta_has_the_documented_direction_in_three_quarter_and_first_person`
-- `height_is_continuous_and_not_quantised_to_three_bands`
+- `the_hand_reticle_clamps_marks_clears_and_disposes_without_owning_input`
+- `height_is_body_relative_uses_the_posed_standing_height_and_is_continuous`
 - `reach_uses_the_exported_physical_minimum_and_not_a_second_quarter`
-- `the_swing_plane_uses_the_drag_tangent_and_not_the_policy`
-- `the_plane_crosses_the_angle_seam_by_the_short_way`
+- `a_guard_moves_at_resting_effort_and_fast_powered_paths_order_effort`
 - `a_secondary_drag_scales_the_shoulder_to_hand_distance_and_holds_its_direction`
-- `the_extension_clamp_is_on_the_scale_factor_and_survives_the_encode_round_trip`
-- `a_thrust_reaches_full_extension_in_first_person_without_footwork`
-- `the_extension_means_the_same_thing_in_three_quarter_and_first_person`
-- `a_delta_with_both_buttons_held_feeds_only_the_most_recently_pressed_channel`
-- `one_and_two_finger_touch_drags_reach_the_cut_and_extension_reducers`
-- `blur_hidden_pause_escape_and_fight_end_release_capture_and_clear_the_powered_level`
+- `extension_round_trips_and_clamps_to_the_exported_reach_envelope`
+- `pitched_three_quarter_and_first_person_bases_move_in_sim_camera_axes`
+- `powered_cuts_encode_signed_elbow_planes_and_cross_the_angle_seam_the_short_way`
+- `the_most_recent_powered_button_owns_each_whole_delta_and_new_presses_get_a_new_dead_zone`
+- `two_touch_parallel_motion_is_extension_while_opposed_motion_is_camera_only`
+- `a_stationary_second_touch_is_classified_after_the_bounded_gesture_window`
+- `lifting_one_of_two_touches_rebaselines_the_remaining_drag`
+- `a_severed_primary_releases_capture_but_held_body_input_keeps_the_worker_draining`
+- `capture_loss_before_the_first_chunk_does_not_resume_a_human_fight`
+- `a_pending_pointer_lock_is_bound_to_the_selected_human_matchup`
+- `a_late_pointer_lock_grant_after_route_disposal_is_released`
+- `relative_hand_motion_ignores_absolute_client_coordinates`
+- `camera_motion_with_a_non_neutral_hand_changes_no_command_byte`
+- `pointer_lock_rejection_and_timeout_are_named_before_a_fight_starts`
+- `blur_visibility_pause_and_pointer_lock_loss_clear_every_held_input`
+
+`client/test/render-contract.test.mjs`:
+
+- `the_virtual_hand_camera_basis_is_converted_back_to_sim_axes_before_use`
+
+`client/test/worker-protocol.test.mjs`:
+
+- `arm_min_reach_is_required_integer_and_inside_the_physical_command_range`
 
 `tools/wasm_check.js` asserts `arm_min_reach_raw()` and a staged command carrying nonzero
 height, reach and plane identically on both targets.
+
+The Rust side also asserts that host authority copies only the configured primary arm,
+leaves the policy-owned off hand byte-for-byte intact, and records the composed nonzero
+arm fields into replay. Session 05 deliberately claimed the arm while leaving its
+observation-relative neutral seed untouched; copying staged arm fields here is the
+completion of that seam and therefore a Human-only submission change, not a mechanic or
+an unattended-policy change.
 
 The most important mutation is the ownership one: temporarily feed weapon `movementX`
 into `body_yaw` and watch `mouse_motion_changes_the_arm_and_not_the_body` fail. A test that

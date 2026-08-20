@@ -139,6 +139,9 @@ const EMBODIED_COMMAND_BYTES = 61;
 // layout version over payloads four bytes apart, which was a coincidence and not
 // a shared number: each moved when its own contract did.
 const EMBODIED_COMMAND_LAYOUT_VERSION = 2;
+// `sim::ARM_MIN_REACH_RAW`, published as a scalar capability rather than
+// repeated by the arena's command mapper as an unguarded typed quarter.
+const ARM_MIN_REACH_RAW = 16_384;
 
 // **`ARTICULATED_COMMAND_FIXTURE` stood here and is gone with the export that
 // could stage it.** It was the same bytes as the fixture below with kind `1` in
@@ -582,6 +585,7 @@ test("the boundary exports everything the client calls", () => {
     "arena_policy",
     "arena_control",
     "arena_stage_input",
+    "arm_min_reach_raw",
     // The fetched network, v2-ui-08's eight. Same argument again and sharper
     // than most: `checkpoint_installed()` reading `undefined >>> 0` is `0`,
     // which is "nothing loaded" -- so a renamed export would turn every learned
@@ -1335,7 +1339,11 @@ function heroArmTarget(limb) {
   assert.ok(row, "the hero published no pose row");
   const raw = (word) => (word | 0) / 65_536;
   const base = limb === 0 ? POSE_LEFT_TARGET_X : POSE_RIGHT_TARGET_X;
-  return [raw(row[base]) - raw(row[POSE_BODY_X]), raw(row[base + 1]) - raw(row[POSE_BODY_X + 1])];
+  return [
+    raw(row[base]) - raw(row[POSE_BODY_X]),
+    raw(row[base + 1]) - raw(row[POSE_BODY_X + 1]),
+    raw(row[base + 2]) - raw(row[POSE_BODY_X + 2]),
+  ];
 }
 
 // The live region rows, likewise. Five to a body and in the pose rows' order,
@@ -2723,13 +2731,15 @@ test("a configured duel runs inside the module and refuses by name", () => {
   for (const name of [
     "arena_config_ptr", "arena_config_len", "arena_config_layout_version",
     "arena_start", "arena_fingerprint_lo", "arena_fingerprint_hi", "arena_policy",
-    "arena_control", "arena_stage_input",
+    "arena_control", "arena_stage_input", "arm_min_reach_raw",
   ]) {
     assert.equal(typeof wasm[name], "function", `web.wasm does not export ${name}()`);
   }
   assert.equal(u32(wasm.arena_config_len()), ARENA_CONFIG_BYTES, "arena_config_len");
   assert.equal(u32(wasm.arena_config_layout_version()), ARENA_CONFIG_LAYOUT_VERSION,
     "arena_config_layout_version");
+  assert.equal(u32(wasm.arm_min_reach_raw()), ARM_MIN_REACH_RAW,
+    "arm_min_reach_raw differs from the native actuator capability");
   assert.ok(u32(wasm.arena_config_ptr()) > 0, "the arena buffer is at address zero");
 
   // A legacy world knows nothing about any of this, which is the half of the
@@ -2919,13 +2929,33 @@ test("arena input is staged only for the named human side", () => {
   assert.equal(u32(wasm.arena_control(0)), ARENA_CONTROL_HUMAN);
   assert.equal(arenaFingerprint(), policyFingerprint,
     "the host-control byte reached the scenario fingerprint");
-  new Uint8Array(wasm.memory.buffer, u32(wasm.embodied_command_ptr()),
-                 EMBODIED_COMMAND_BYTES).set(EMBODIED_COMMAND_FIXTURE);
-  assert.deepEqual(arenaResult(wasm.arena_stage_input(0)), {
-    outcome: 1, reason: 0, fighter: 0, slot: 0,
-  });
-  wasm.step(1);
-  assert.equal(u32(wasm.tick()), 1, "the staged human fight did not advance");
+  const armFixture = Uint8Array.from(EMBODIED_COMMAND_FIXTURE);
+  const armWords = new DataView(armFixture.buffer);
+  // Envelope 4 + right-arm payload offset 33 + reach offset 6. Height is the
+  // fixture's existing nonzero 49,152 and its right plane is 0x89ab; replacing
+  // reach 5 with 49,152 keeps all three fields clear of their neutral values.
+  armWords.setInt32(4 + 33 + 6, 49_152, true);
+  assert.equal(armWords.getInt32(4 + 33 + 2, true), 49_152, "right height fixture");
+  assert.equal(armWords.getInt32(4 + 33 + 6, true), 49_152, "right reach fixture");
+  assert.equal(armWords.getUint16(4 + 55, true), 0x89ab, "right plane fixture");
+  const beforeArm = heroArmTarget(1);
+  for (let tick = 0; tick < 8; tick += 1) {
+    new Uint8Array(wasm.memory.buffer, u32(wasm.embodied_command_ptr()),
+                   EMBODIED_COMMAND_BYTES).set(armFixture);
+    assert.deepEqual(arenaResult(wasm.arena_stage_input(0)), {
+      outcome: 1, reason: 0, fighter: 0, slot: 0,
+    });
+    wasm.step(1);
+  }
+  assert.equal(u32(wasm.tick()), 8, "the staged human fight did not advance");
+  const withPlaneTarget = heroArmTarget(1);
+  assert.notDeepEqual(withPlaneTarget, beforeArm,
+    "nonzero staged height and reach left the primary target neutral");
+  // Swing plane is rotation around the shoulder-to-hand axis and therefore
+  // cannot be inferred from this target publication. The paired native
+  // HostSource/replay assertions inspect the composed CommandV1 itself and
+  // require this exact nonzero plane; this side proves the same whole envelope
+  // is accepted by the wasm artifact while height and reach reach publication.
   wasm.init(1);
 });
 

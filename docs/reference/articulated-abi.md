@@ -268,8 +268,14 @@ init(seed:u32) -> void
 embodied_command_ptr() -> u32
 embodied_command_len() -> u32                // 61: a 4-byte envelope and a 57-byte payload
 embodied_command_layout_version() -> u32     // 2
+arm_min_reach_raw() -> u32                   // 16,384 signed-16.16 raw units
 submit_embodied(index:u32, generation:u32) -> u32
 ```
+
+`arm_min_reach_raw` is an additive scalar capability, read from the actuator's
+authoritative `ARM_MIN_REACH_RAW` rather than repeated by a host command mapper. It
+adds no byte or word to any publication or command, so no stride, layout version,
+frame version, digest grammar, or pinned value moves with it.
 
 **There is one `init` and there used to be three, and the collapse is the same
 argument running backwards rather than a change of mind.** `init` opened a Legacy

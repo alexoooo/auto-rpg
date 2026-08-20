@@ -1,5 +1,5 @@
 import type { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Matrix, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { Viewport } from "@babylonjs/core/Maths/math.viewport.js";
 
 import type { Pose, V3 } from "../fight/trace.js";
@@ -65,6 +65,8 @@ export interface StageCamera {
   readonly changeSerial: number;
   /** The promoted view's basis, which is the basis a virtual hand sees. */
   readonly basis: StageCameraBasis;
+  /** Project a sim-space point into normalized canvas coordinates. */
+  project(point: V3): readonly [number, number] | null;
   /** Hit-test the live 3/4 rectangle from CSS-normalized canvas coordinates. */
   containsThreeQuarterPoint(x: number, y: number): boolean;
   fit(focus: V3, span: number, azimuth: number): void;
@@ -145,9 +147,24 @@ export function createStageCamera(
       const right = camera.getDirection(Vector3.Right());
       const up = camera.getDirection(Vector3.Up());
       return Object.freeze({
-        right: Object.freeze([right.x, right.y, right.z] as const),
-        up: Object.freeze([up.x, up.y, up.z] as const),
+        // Babylon is [sim x, sim z, -sim y]. Undo that presentation rotation
+        // before a camera vector is mixed with authoritative pose points.
+        right: Object.freeze([right.x, -right.z, right.y] as const),
+        up: Object.freeze([up.x, -up.z, up.y] as const),
       });
+    },
+    project(point: V3): readonly [number, number] | null {
+      const camera = active();
+      const engine = camera.getEngine();
+      const width = engine.getRenderWidth();
+      const height = engine.getRenderHeight();
+      if (width <= 0 || height <= 0) return null;
+      const projected = Vector3.Project(
+        new Vector3(...scenePoint(point)), Matrix.Identity(), camera.getTransformationMatrix(),
+        camera.viewport.toGlobal(width, height),
+      );
+      if (![projected.x, projected.y, projected.z].every(finite) || projected.z < 0 || projected.z > 1) return null;
+      return Object.freeze([projected.x / width, projected.y / height] as const);
     },
     containsThreeQuarterPoint(x: number, y: number): boolean {
       if (!finite(x) || !finite(y)) return false;

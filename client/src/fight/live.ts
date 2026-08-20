@@ -453,6 +453,7 @@ type GrowingHeader = { -readonly [K in keyof FightHeader]: FightHeader[K] };
  * constructor took a message that could only be built once the last tick existed.
  */
 export class StreamingFightSource implements FightSource {
+  readonly armMinReach: number;
   readonly #header: GrowingHeader;
   readonly #layout: Layout;
   readonly #fittings: readonly Fittings[];
@@ -484,6 +485,11 @@ export class StreamingFightSource implements FightSource {
       throw new RangeError(`embodied stance layout ${opened.embodiedStanceLayoutVersion} `
         + `with stride ${opened.embodiedStanceStride} is not supported`);
     }
+    if (!Number.isInteger(opened.armMinReach) || opened.armMinReach <= 0
+      || opened.armMinReach > opened.one) {
+      throw new RangeError(`arm minimum reach ${opened.armMinReach} is outside (0, ${opened.one}]`);
+    }
+    this.armMinReach = opened.armMinReach;
     this.#header = {
       one: opened.one,
       scenario: opened.scenario,

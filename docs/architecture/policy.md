@@ -506,11 +506,11 @@ that period a second time from a browser anatomy code would create two authoriti
 
 The staged host frame is deliberately not authoritative state. It is tick-stamped,
 expires after a bounded hold, and reaches the world only as the whole command returned
-by `ComposedController` and submitted through the ordinary seam. The primary arm is
-claimed now so authority is disjoint and total, but stays at the observation-relative
-neutral target until the pointer-control session defines its input. A recorder for
-browser fights must capture those resulting submissions; the current lab runner only
-records decisions made through its pending-policy loop. This supersedes
+by `ComposedController` and submitted through the ordinary seam. The host source copies
+navigation and the configured primary arm, including its grip, release and swing plane;
+the cadenced policy source owns the other arm. A recorder for browser fights captures
+that resulting whole command rather than the host's partial request; the current lab
+runner only records decisions made through its pending-policy loop. This supersedes
 the former `DESIGN.md#the-one-exception-taking-the-controls` discussion while keeping
 its warning about replay completeness.
 

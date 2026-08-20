@@ -2217,11 +2217,14 @@ impl PartialCommandSource for HostSource {
         into.core.move_dir = command.core.move_dir;
         into.core.body_yaw = command.core.body_yaw;
         into.core.intent = command.core.intent;
-        // The primary arm is claimed now so composition is total, but session
-        // 06 owns its first input. Leaving it alone preserves the
-        // observation-relative neutral command `ComposedController` seeded;
-        // copying the host buffer's zero placeholder would point a live arm at
-        // an invented target instead.
+        for slot in 0..2 {
+            if self.authority.arms[slot] {
+                into.core.arms[slot] = command.core.arms[slot];
+                into.core.grips[slot] = command.core.grips[slot];
+                into.core.releases[slot] = command.core.releases[slot];
+                into.swing_plane[slot] = command.swing_plane[slot];
+            }
+        }
     }
 }
 
@@ -4245,9 +4248,10 @@ impl Sim {
                 // this column: the pointer is a world bearing, and zero here
                 // means "straight ahead" at every yaw.
                 bearing: self.input_aim - facing,
-                // `MID` at every bearing. The pointer is two-dimensional and a
-                // height read off it would be an invention; see the note above
-                // on the arm this session is not building.
+                // `MID` at every bearing. This historical dungeon controller
+                // receives only the old two-dimensional pointer bearing; the
+                // arena does not pass through `drive_hero` and stages its full
+                // three-dimensional target through `HostSource` instead.
                 height: CombatHeight::MID,
                 // The pointer is the line and the button is the cut, exactly as
                 // before. A strike drives the hand out to full extension because
@@ -6360,6 +6364,18 @@ pub const extern "C" fn embodied_command_len() -> u32 { EMBODIED_COMMAND_BYTES a
 #[no_mangle]
 pub const extern "C" fn embodied_command_layout_version() -> u32 {
     sim::EMBODIED_COMMAND_LAYOUT_VERSION as u32
+}
+
+/// The actuator's physical minimum desired reach, as signed 16.16 raw units.
+///
+/// A host clamps the virtual hand to this value before it encodes a command.
+/// Publishing the simulator's owner keeps that clamp from becoming a second
+/// typed quarter on the other side of the boundary. This is a scalar
+/// capability and changes neither the command width nor its layout version.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub const extern "C" fn arm_min_reach_raw() -> u32 {
+    sim::ARM_MIN_REACH_RAW as u32
 }
 
 #[allow(unsafe_code)]
@@ -9393,6 +9409,13 @@ mod tests {
             } else {
                 Vec2::ZERO
             };
+            command.core.arms[LimbSlot::RightArm as usize] = ArmTarget {
+                bearing: Angle::from_raw(0x3456),
+                height: CombatHeight::HIGH,
+                reach: Fx::from_raw(49_152),
+                effort: Fx::ONE,
+            };
+            command.swing_plane[LimbSlot::RightArm as usize] = Angle::from_raw(0x89ab);
             write_embodied(command);
             assert_eq!(arena_stage_input(0) & 0xff, 1);
             step(1);
@@ -9402,6 +9425,12 @@ mod tests {
         });
         let rows = ARENA_SUBMISSIONS.with(|rows| rows.borrow().clone());
         assert!(rows.iter().any(|&(_, id, _)| id != EntityId::NONE));
+        assert!(rows.iter().any(|&(_, _, command)| {
+            let arm = command.core.arms[LimbSlot::RightArm as usize];
+            arm.height == CombatHeight::HIGH
+                && arm.reach == Fx::from_raw(49_152)
+                && command.swing_plane[LimbSlot::RightArm as usize] == Angle::from_raw(0x89ab)
+        }), "the staged primary arm did not reach the replay stream");
 
         let scenario = Scenario::duel_from(&config).expect("the replay duel builds");
         let mut replay = sim::Replay::new(&scenario, u64::from(seed));
@@ -9429,6 +9458,13 @@ mod tests {
         obs.tick = 10;
         let mut held = policy::neutral_command(&obs);
         held.core.move_dir = Vec2::new(Fx::ONE, Fx::ZERO);
+        held.core.arms[LimbSlot::RightArm as usize] = ArmTarget {
+            bearing: Angle::from_raw(0x3456),
+            height: CombatHeight::HIGH,
+            reach: Fx::from_raw(49_152),
+            effort: Fx::ONE,
+        };
+        held.swing_plane[LimbSlot::RightArm as usize] = Angle::from_raw(0x89ab);
         ARENA_INPUT.with(|inputs| inputs.borrow_mut()[0] =
             StagedArenaInput { tick: 10, command: Some(held) });
         let mut source = HostSource::new(0, LimbSlot::RightArm);
@@ -9436,14 +9472,63 @@ mod tests {
         let mut live = policy::neutral_command(&obs);
         source.contribute(&obs, &mut live);
         assert_eq!(live.core.move_dir, held.core.move_dir);
+        assert_eq!(live.core.arms[1], held.core.arms[1]);
+        assert_eq!(live.swing_plane[1], held.swing_plane[1]);
         obs.tick = 10 + CONTROL_INPUT_MAX_HOLD_TICKS - 1;
         let mut last_live = policy::neutral_command(&obs);
         source.contribute(&obs, &mut last_live);
         assert_eq!(last_live.core.move_dir, held.core.move_dir);
+        assert_eq!(last_live.core.arms[1], held.core.arms[1]);
+        assert_eq!(last_live.swing_plane[1], held.swing_plane[1]);
         obs.tick += 1;
         let mut expired = policy::neutral_command(&obs);
         source.contribute(&obs, &mut expired);
         assert_eq!(expired.core.move_dir, Vec2::ZERO);
+        assert_eq!(expired.core.arms[1], policy::neutral_command(&obs).core.arms[1]);
+        assert_eq!(expired.swing_plane[1], Angle::ZERO);
+    }
+
+    #[test]
+    fn a_host_source_copies_only_its_primary_arm() {
+        let obs = Observation::BLANK;
+        let mut staged = policy::neutral_command(&obs);
+        staged.core.arms[0] = ArmTarget {
+            bearing: Angle::from_raw(0x1111),
+            height: CombatHeight::LOW,
+            reach: Fx::HALF,
+            effort: Fx::HALF,
+        };
+        staged.core.arms[1] = ArmTarget {
+            bearing: Angle::from_raw(0x3456),
+            height: CombatHeight::HIGH,
+            reach: Fx::from_raw(49_152),
+            effort: Fx::ONE,
+        };
+        staged.core.grips[1] = sim::GripRequest::Release;
+        staged.core.releases[1] = sim::ReleaseRequest::Loose;
+        staged.swing_plane = [Angle::from_raw(0x2222), Angle::from_raw(0x89ab)];
+        ARENA_INPUT.with(|inputs| inputs.borrow_mut()[0] =
+            StagedArenaInput { tick: 0, command: Some(staged) });
+
+        let mut composed = policy::neutral_command(&obs);
+        let policy_off_hand = ArmTarget {
+            bearing: Angle::from_raw(0x7777),
+            height: CombatHeight::MID,
+            reach: Fx::from_raw(40_000),
+            effort: Fx::HALF,
+        };
+        composed.core.arms[0] = policy_off_hand;
+        composed.swing_plane[0] = Angle::from_raw(0x6666);
+        HostSource::new(0, LimbSlot::RightArm).contribute(&obs, &mut composed);
+
+        assert_eq!(composed.core.arms[1], staged.core.arms[1]);
+        assert_eq!(composed.core.grips[1], staged.core.grips[1]);
+        assert_eq!(composed.core.releases[1], staged.core.releases[1]);
+        assert_eq!(composed.swing_plane[1], staged.swing_plane[1]);
+        assert_eq!(composed.core.arms[0], policy_off_hand,
+            "the host overwrote the policy-owned off hand");
+        assert_eq!(composed.swing_plane[0], Angle::from_raw(0x6666),
+            "the host overwrote the off-hand plane");
     }
 
     #[test]
@@ -16659,6 +16744,13 @@ mod tests {
         // truncated the payload back to the articulated width.
         command.swing_plane = [Angle::from_raw(0x4567), Angle::from_raw(0x89ab)];
         command
+    }
+
+    #[test]
+    fn the_arm_minimum_reach_capability_is_the_actuators_owner() {
+        assert_eq!(arm_min_reach_raw(), sim::ARM_MIN_REACH_RAW as u32);
+        assert_eq!(arm_min_reach_raw(), 16_384,
+            "the exported capability stopped being the shipped physical quarter");
     }
 
     fn digest() -> u64 {

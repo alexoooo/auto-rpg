@@ -283,9 +283,12 @@ maps `W`/`S` to torso forward/back, `A`/`D` to sidestep, and `Q`/`E` to an absol
 yaw target. Every freshly sampled authoritative tick rebases that target on the latest
 published Human torso yaw. Held `Q`/`E` adds or subtracts the provisional 8,192-raw
 `PLAYER_TURN_LEAD_RAW`; with neither held, the target is the published yaw itself, so a
-released turn leaves no stale heading for forward or strafe input to chase. Pointer
-motion changes no navigation or yaw byte in this session. Blur,
-hidden visibility, pause and pointer-lock loss clear held input, stage neutral, and stop
+released turn leaves no stale heading for forward or strafe input to chase. Relative
+pointer or touch motion owns the configured strike hand: cut moves its stored desired
+point in the active camera plane, extension scales the shoulder-to-hand line, and neither
+changes navigation or yaw. The Babylon camera basis is converted back to simulation axes
+before it touches published pose points. Blur, hidden visibility, pause, pointer-lock loss
+and touch-capture loss clear powered levels, stage neutral, release capture, and stop
 the clock until a fresh gesture. The camera follows the Human side by default.
 
 The arena was originally spectator-only: two loadouts, two policies and a seed decided
@@ -301,7 +304,7 @@ but the picker, the stage layout and the two first-person viewports all do.
 of the 120-byte buffer spends the first of the fighter block's two
 reserved bytes on a control byte -- `0` policy-driven, `1` human-driven -- and the picker
 offers it as one "driven by" list of the five policies plus
-`you (W/S move, A/D strafe, Q/E turn; hand reserved)`,
+`you (keys + direct hand)`,
 revealing an off-hand policy row when the last is chosen. Both sides cannot be Human,
 and the picker requires a strike hand (right, else left, else the empty Right fallback)
 before starting. `ARENA_CONTROL_UNAVAILABLE` (`29`) remains retired and spent;
@@ -502,8 +505,8 @@ intersects the floor, and torch/material treatment remains schematic and repetit
 ## Source anchors
 
 - Fixed publication pools: [`thread_local!`](../../crates/web/src/lib.rs#L1850)
-- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L4712)
-- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L5788)
+- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L4716)
+- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L5792)
 - Worker adapter and atomic scalar phase: [`readPublication`](../../client/src/runtime/sim.worker.ts#L94)
 - Pure protocol host: [`SimWorkerHost`](../../client/src/runtime/sim-worker-host.ts#L55)
 - Main-thread lease owner: [`SimClient`](../../client/src/runtime/sim-client.ts#L122)

@@ -276,6 +276,8 @@ export type ArenaOpenedMessage = {
   combatEventLayoutVersion: number; combatEventStride: number;
   embodiedStanceLayoutVersion: number; embodiedStanceStride: number;
   embodiedStanceCapacity: number;
+  /** Authoritative `combat::ARM_MIN_REACH_RAW`, for direct hand-control clamps. */
+  armMinReach: number;
   impactThreshold: number; contactEnergyFloor: number;
   bodySlot: number; noRegion: number;
   regionNames: readonly string[]; hintNames: readonly string[]; contactKinds: readonly string[];

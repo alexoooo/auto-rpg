@@ -149,7 +149,7 @@ function isOpened(value: Record<string, unknown>): boolean {
     value.regionsPerBody, value.articulatedProjectileLayoutVersion,
     value.articulatedProjectileStride, value.combatEventLayoutVersion, value.combatEventStride,
     value.embodiedStanceLayoutVersion, value.embodiedStanceStride,
-    value.embodiedStanceCapacity, value.impactThreshold, value.contactEnergyFloor,
+    value.embodiedStanceCapacity, value.armMinReach, value.impactThreshold, value.contactEnergyFloor,
     value.bodySlot, value.noRegion];
   const names = [value.regionNames, value.hintNames, value.contactKinds];
   return value.version === WORKER_PROTOCOL_VERSION && isU32(value.requestId)

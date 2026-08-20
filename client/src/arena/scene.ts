@@ -619,6 +619,7 @@ export class ArenaContent {
 
   cameraMode(): StageCameraMode { return this.stageCamera.mode; }
   cameraBasis(): StageCameraBasis { return this.stageCamera.basis; }
+  projectHand(point: V3): readonly [number, number] | null { return this.stageCamera.project(point); }
   cameraChangeSerial(): number { return this.stageCamera.changeSerial; }
   containsThreeQuarterPoint(x: number, y: number): boolean {
     return this.stageCamera.containsThreeQuarterPoint(x, y);
@@ -1663,6 +1664,7 @@ export interface ArenaStage {
   mode(): ArenaMode;
   cameraMode(): StageCameraMode;
   cameraBasis(): StageCameraBasis;
+  projectHand(point: V3): readonly [number, number] | null;
   cameraChangeSerial(): number;
   containsThreeQuarterPoint(x: number, y: number): boolean;
   follow(target: "both" | 0 | 1): void;
@@ -1781,6 +1783,7 @@ export async function createArenaStage(
     mode(): ArenaMode { return content.mode(); },
     cameraMode(): StageCameraMode { return content.cameraMode(); },
     cameraBasis(): StageCameraBasis { return content.cameraBasis(); },
+    projectHand(point: V3): readonly [number, number] | null { return content.projectHand(point); },
     cameraChangeSerial(): number { return content.cameraChangeSerial(); },
     containsThreeQuarterPoint(x: number, y: number): boolean {
       return live() && content.containsThreeQuarterPoint(x, y);

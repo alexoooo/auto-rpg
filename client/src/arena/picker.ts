@@ -116,7 +116,7 @@ export type ControlCode = "policy" | "human";
  * second person, because a dropdown is read by the person it is offering.
  */
 export const HUMAN_CONTROL = "human";
-export const HUMAN_CONTROL_LABEL = "you (W/S move, A/D strafe, Q/E turn; hand reserved)";
+export const HUMAN_CONTROL_LABEL = "you (keys + direct hand)";
 
 /** Which arena context is asking for checkpoint and validation copy. */
 export type FightMode = "recording" | "live";

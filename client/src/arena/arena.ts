@@ -47,17 +47,19 @@ import {
   bodyColours, contactColour, drawScene, elevationCamera, planCamera, type Options,
 } from "../fight/view.js";
 import { ArenaClient, ArenaRefused } from "../runtime/arena-client.js";
+import { ANATOMIES } from "../runtime/arena-config.js";
 import { ARENA_STREAM_LEAD_TICKS, TICKS_PER_SECOND } from "../protocol/messages.js";
 import { createSimWorker } from "../runtime/sim-worker.js";
 import {
   arenaConfigOf, checkpointCopy, missingRecording, pickerControls, populatePolicies, readMatchup,
-  recordingMismatch, resolveRecording, review, showOffHandRows, showPolicies, summariseMatchup,
+  humanArmOf, recordingMismatch, resolveRecording, review, showOffHandRows, showPolicies, summariseMatchup,
 } from "./picker.js";
 // Type-only, and that matters: a value import of `./scene.js` would pull Babylon
 // into this route's first chunk and make the 8 MB recording wait behind it.
 import type { ArenaMode, ArenaStage } from "./scene.js";
-import { ArenaInput } from "./arena-input.js";
+import { ArenaInput, TOUCH_PINCH_SPREAD_RATIO } from "./arena-input.js";
 import { ControlledClock } from "./controlled-clock.js";
+import { createHandReticle } from "./hand-reticle.js";
 
 const ONE = 65536;
 
@@ -271,7 +273,8 @@ interface Loaded {
   series: Series;
 }
 
-export async function mount(container: HTMLElement, params: URLSearchParams): Promise<RouteHandle> {
+export async function mount(container: HTMLElement, params: URLSearchParams,
+  testStage?: () => Promise<ArenaStage>): Promise<RouteHandle> {
   const status = element<HTMLElement>(container, "status");
 
   const plan = element<HTMLCanvasElement>(container, "plan");
@@ -311,6 +314,8 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   const changeMatchup = element<HTMLButtonElement>(container, "change-matchup");
   const modeTexture = element<HTMLButtonElement>(container, "mode-texture");
   const modeGeometry = element<HTMLButtonElement>(container, "mode-geometry");
+  const takeControls = element<HTMLButtonElement>(container, "take-controls");
+  const controlStatus = element<HTMLElement>(container, "control-status");
 
   const toggles = {
     showRegions: element<HTMLInputElement>(container, "show-regions"),
@@ -379,6 +384,20 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
    */
   let arena: ArenaClient | null = null;
   const arenaInput = new ArenaInput();
+  const handReticle = createHandReticle(stageHost);
+  let capture: "none" | "pending" | "mouse" | "touch" = "none";
+  let pendingCapture: "mouse" | "touch" | null = null;
+  let pendingMatchup: string | null = null;
+  let captureRequest = 0;
+  let primaryArmLost = false;
+  let pointerLockTimer: number | null = null;
+  const touchPoints = new Map<number, readonly [number, number]>();
+  let touchCentroid: readonly [number, number] | null = null;
+  let touchSpread = 0;
+  let touchMode: "cut" | "extend" | "pinch" | null = null;
+  let touchPinchEligible = false;
+  const touchContributors = new Set<number>();
+  let touchWindowStarted = 0;
   const controlledClock = new ControlledClock(performance.now());
   let controlledFaction: 0 | 1 | null = null;
   let controlledStopped = true;
@@ -560,6 +579,16 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
    * for neither.
    */
   async function startStage(): Promise<void> {
+    if (testStage !== undefined) {
+      const built = await testStage();
+      if (disposed) { built.dispose(); return; }
+      stage = built;
+      built.follow(followInput.value === "a" ? 0 : followInput.value === "b" ? 1 : "both");
+      built.promote(viewInput.value as "threeQuarter" | "firstPersonA" | "firstPersonB");
+      built.setPhase(phase);
+      refreshPicker();
+      return;
+    }
     // **`?stage=off` is the baseline for the frame-time measurement**, and it is
     // here rather than in a console snippet because the probe method is specific
     // about
@@ -598,6 +627,13 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
         },
         onTerminal: (message) => {
           stageLabel.textContent = `${THREE_QUARTER} -- renderer lost: ${message}`;
+          // Renderer loss removes the camera basis that direct-hand input is
+          // defined in. It is a terminal capability loss, not merely a reason
+          // to hide the reticle: park the authoritative producer as well and
+          // make a later picker refresh unable to advertise the dead stage.
+          stage = null;
+          stopControlledFight(performance.now());
+          takeControls.disabled = true;
         },
         onPreviewDress: (side, description) => {
           element<HTMLElement>(container, side === 0 ? "a-preview-dress" : "b-preview-dress").textContent = description;
@@ -608,6 +644,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
         return;
       }
       stage = built;
+      refreshPicker();
       built.follow(followInput.value === "a" ? 0 : followInput.value === "b" ? 1 : "both");
       built.promote(viewInput.value as "threeQuarter" | "firstPersonA" | "firstPersonB");
       stageHost.dataset.mainView = viewInput.value;
@@ -757,15 +794,24 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     // Its validation and checkpoint note therefore stay live independently of
     // the provenance of the fight already on screen.
     const verdict = review(matchup, "live");
+    const hasHuman = matchup.a.control === "human" || matchup.b.control === "human";
+    takeControls.disabled = stage === null || !hasHuman || (producing && !controlledStopped);
     // **Live while a recording runs**, so a second press cancels the first
     // rather than being swallowed. `ArenaClient.run` cancels and waits, and the
     // worker refuses a concurrent start by name -- a button that greyed itself
     // out for four tenths of a second would make the cancel path unreachable
     // from the page, which is how a tested path becomes a dead one.
-    fightButton.disabled = verdict.refusal !== null;
+    const needsCapture = hasHuman && capture !== "mouse" && capture !== "touch";
+    fightButton.disabled = verdict.refusal !== null || needsCapture;
     pickerMessage.classList.toggle("refused", verdict.refusal !== null);
     if (verdict.refusal !== null) {
       pickerMessage.textContent = verdict.refusal;
+      return;
+    }
+    if (needsCapture) {
+      pickerMessage.textContent = stage === null
+        ? "Direct hand control needs the 3D stage; wait for it to become ready."
+        : "Press Take controls before starting this Human fight.";
       return;
     }
     // **Every sentence here is recomputed from the live controls**, and none of
@@ -970,6 +1016,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
       || controlledFaction !== faction || arena === null || !producing) return;
     const human = latestHumanPose();
     if (human === undefined) return;
+    arenaInput.synchronize(human);
     const request = arena.input(faction, arenaInput.encode(null, human.yaw), 0);
     stagingNeutral = request;
     controlledInput = request;
@@ -990,11 +1037,50 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     }
   }
 
+  function releaseDirectControls(): void {
+    captureRequest += 1;
+    if (pointerLockTimer !== null) window.clearTimeout(pointerLockTimer);
+    pointerLockTimer = null;
+    const previous = capture;
+    capture = "none";
+    pendingCapture = null;
+    pendingMatchup = null;
+    for (const pointerId of [...touchPoints.keys()]) {
+      if (stageCanvas.hasPointerCapture(pointerId)) stageCanvas.releasePointerCapture(pointerId);
+    }
+    touchPoints.clear();
+    touchCentroid = null;
+    touchMode = null;
+    touchPinchEligible = false;
+    touchContributors.clear();
+    touchWindowStarted = 0;
+    arenaInput.buttonTransition("cut", false);
+    arenaInput.buttonTransition("extend", false);
+    takeControls.setAttribute("aria-pressed", "false");
+    controlStatus.textContent = "Controls released";
+    handReticle.clear();
+    if (previous === "mouse" && document.pointerLockElement === stageCanvas) {
+      void document.exitPointerLock?.();
+    }
+    if (!disposed) refreshPicker();
+  }
+
+  function losePrimaryArm(): void {
+    if (primaryArmLost) return;
+    primaryArmLost = true;
+    releaseDirectControls();
+    arenaInput.releaseArm();
+    status.textContent = "CONTROL_PRIMARY_ARM_UNAVAILABLE: the controlled hand is severed or absent; body control continues";
+    status.classList.add("error");
+  }
+
   function stopControlledFight(now = performance.now(), stageNeutral = true): void {
+    releaseDirectControls();
     if (controlledFaction === null) return;
     const faction = controlledFaction;
     const generation = (controlGeneration += 1);
     arenaInput.clear();
+    primaryArmLost = false;
     controlledStopped = true;
     neutralPending = stageNeutral;
     controlledClock.stop(now);
@@ -1050,8 +1136,15 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
       refreshPicker();
       return;
     }
+    const hasHuman = matchup.a.control === "human" || matchup.b.control === "human";
+    if (hasHuman && capture !== "mouse" && capture !== "touch") {
+      pickerMessage.textContent = "CONTROL_POINTER_LOCK_UNAVAILABLE: Take controls before starting a Human fight.";
+      pickerMessage.classList.add("refused");
+      return;
+    }
     controlledFaction = matchup.a.control === "human" ? 0
       : matchup.b.control === "human" ? 1 : null;
+    takeControls.disabled = true;
     arenaInput.clear();
     neutralPending = false;
     controlledStopped = controlledFaction !== null;
@@ -1079,12 +1172,27 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     producing = true;
     try {
       const config = arenaConfigOf(matchup);
+      if (controlledFaction !== null) {
+        const side = controlledFaction === 0 ? matchup.a : matchup.b;
+        const limb = humanArmOf(side) === "left" ? 0 : 1;
+        const anatomy = ANATOMIES[config.fighters[controlledFaction].anatomy];
+        if (anatomy === undefined) throw new RangeError("CONTROL_PRIMARY_ARM_UNAVAILABLE: anatomy is not shipped");
+        // The minimum arrives with `arenaOpened`; initialize at the old safe
+        // floor and replace it before the first controlled tick below.
+        arenaInput.configureArm(limb, anatomy, ONE / 4);
+      }
       const source = await arena.run(config, {
         // Before a single frame exists: there is nothing to draw and everything
         // to say, so the line that names the fight replaces the line that named
         // the wait.
         onOpened: (streaming) => {
           if (!current()) return;
+          if (controlledFaction !== null && streaming.armMinReach !== undefined) {
+            const side = controlledFaction === 0 ? matchup.a : matchup.b;
+            const limb = humanArmOf(side) === "left" ? 0 : 1;
+            const anatomy = ANATOMIES[config.fighters[controlledFaction].anatomy];
+            if (anatomy !== undefined) arenaInput.configureArm(limb, anatomy, streaming.armMinReach);
+          }
           // The fight on screen is the *last* one until this one has a frame, so
           // it is dropped here rather than left to be replaced: a transport that
           // stayed enabled over no fight answers a click with nothing at all,
@@ -1107,7 +1215,15 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
             if (controlledFaction !== null) {
               followInput.value = controlledFaction === 0 ? "a" : "b";
               stage?.follow(controlledFaction);
-              resumeControlledFight(performance.now());
+              if (capture === "mouse" || capture === "touch") {
+                resumeControlledFight(performance.now());
+              } else {
+                controlledStopped = true;
+                state.playing = false;
+                playButton.textContent = "Play";
+                controlStatus.textContent = "Take controls again before body input resumes";
+                refreshPicker();
+              }
             }
             return;
           }
@@ -1118,6 +1234,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
       producing = false;
       if (controlledFaction !== null) stopControlledFight(performance.now(), false);
       controlledFaction = null;
+      takeControls.disabled = true;
       neutralPending = false;
       producedMs = Math.round(performance.now() - started);
       // The last chunk and the finish arrive together, so this is the sentence
@@ -1130,6 +1247,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
       producing = false;
       if (controlledFaction !== null) stopControlledFight(performance.now(), false);
       controlledFaction = null;
+      takeControls.disabled = true;
       neutralPending = false;
       // **A cancelled or failed fight keeps the frames it already delivered.**
       // The chunks that arrived are the part of the fight the reader watched,
@@ -1162,7 +1280,11 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   playButton.addEventListener("click", () => {
     if (controlledFaction !== null && producing) {
       if (state.playing) stopControlledFight();
-      else resumeControlledFight();
+      else if (capture === "mouse" || capture === "touch") resumeControlledFight();
+      else {
+        takeControls.disabled = stage === null;
+        controlStatus.textContent = "Take controls again to resume the Human fight";
+      }
       return;
     }
     state.playing = !state.playing;
@@ -1232,15 +1354,143 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   };
   let cameraPointer: number | null = null;
   stageHost.addEventListener("pointerdown", (event) => {
-    if (event.target !== stageCanvas || event.button !== 1 || !hitsThreeQuarter(event)) return;
-    cameraPointer = event.pointerId;
-    stageCanvas.setPointerCapture(event.pointerId);
-    event.preventDefault();
+    if (event.target !== stageCanvas) return;
+    if (capture === "touch" && event.pointerType !== "touch" && (event.button === 0 || event.button === 2)) {
+      controlStatus.textContent = "CONTROL_POINTER_LOCK_UNAVAILABLE: mouse input cannot enter a touch-owned capture";
+      controlStatus.classList.add("error");
+      stopControlledFight();
+      return;
+    }
+    if (event.pointerType === "touch" && (capture === "touch"
+      || (capture === "pending" && pendingCapture === "touch"))) {
+      if (capture === "pending" && pendingMatchup !== summariseMatchup(readMatchup(container))) {
+        refuseCapture("the selected matchup changed while touch controls were pending");
+        return;
+      }
+      capture = "touch";
+      pendingCapture = null;
+      pendingMatchup = null;
+      takeControls.setAttribute("aria-pressed", "true");
+      controlStatus.textContent = "Touch hand controls active";
+      refreshPicker();
+      touchPoints.set(event.pointerId, [event.clientX, event.clientY]);
+      const downPoints = [...touchPoints.values()];
+      touchCentroid = [
+        downPoints.reduce((sum, point) => sum + point[0], 0) / downPoints.length,
+        downPoints.reduce((sum, point) => sum + point[1], 0) / downPoints.length,
+      ];
+      touchSpread = downPoints.length < 2 ? 0
+        : Math.hypot(downPoints[0]![0] - downPoints[1]![0], downPoints[0]![1] - downPoints[1]![1]);
+      touchMode = null;
+      touchContributors.clear();
+      touchWindowStarted = Number.isFinite(event.timeStamp) ? event.timeStamp : performance.now();
+      lastWeaponAt = performance.now();
+      if (touchPoints.size === 2 && stage !== null) {
+        const points = [...touchPoints.values()];
+        const rect = stageCanvas.getBoundingClientRect();
+        const x = ((points[0]![0] + points[1]![0]) / 2 - rect.left) / Math.max(1, rect.width);
+        const y = ((points[0]![1] + points[1]![1]) / 2 - rect.top) / Math.max(1, rect.height);
+        touchPinchEligible = stage.containsThreeQuarterPoint(x, y);
+      } else touchPinchEligible = false;
+      stageCanvas.setPointerCapture(event.pointerId);
+      arenaInput.buttonTransition("cut", false);
+      arenaInput.buttonTransition("extend", false);
+      event.preventDefault();
+      if (producing && controlledStopped) resumeControlledFight();
+      else if (!producing) void onFight();
+      return;
+    }
+    if (event.button === 1 && hitsThreeQuarter(event)) {
+      cameraPointer = event.pointerId;
+      stageCanvas.setPointerCapture(event.pointerId);
+      event.preventDefault();
+      return;
+    }
+    if (capture === "mouse" && (event.button === 0 || event.button === 2)) {
+      arenaInput.buttonTransition(event.button === 0 ? "cut" : "extend", true);
+      event.preventDefault();
+    }
   });
+  let lastWeaponAt = performance.now();
   stageHost.addEventListener("pointermove", (event) => {
-    if (event.target !== stageCanvas || event.pointerId !== cameraPointer) return;
-    if (stage?.orbit(event.buttons, event.movementX, event.movementY) !== true) return;
-    showCameraOwnership();
+    if (event.target !== stageCanvas) return;
+    if (capture === "touch" && touchPoints.has(event.pointerId) && stage !== null) {
+      touchPoints.set(event.pointerId, [event.clientX, event.clientY]);
+      touchContributors.add(event.pointerId);
+      const eventAt = Number.isFinite(event.timeStamp) ? event.timeStamp : performance.now();
+      if (touchWindowStarted === 0) touchWindowStarted = eventAt;
+      const points = [...touchPoints.values()];
+      const centroid: readonly [number, number] = [
+        points.reduce((sum, point) => sum + point[0], 0) / points.length,
+        points.reduce((sum, point) => sum + point[1], 0) / points.length,
+      ];
+      const spread = points.length < 2 ? 0
+        : Math.hypot(points[0]![0] - points[1]![0], points[0]![1] - points[1]![1]);
+      // Waiting briefly lets the second event of a parallel two-finger drag
+      // arrive, while the bounded deadline still classifies a gesture whose
+      // other finger is deliberately anchored.
+      const gestureReady = points.length === 1 || touchContributors.size === 2
+        || eventAt - touchWindowStarted >= 40;
+      if (touchCentroid !== null && gestureReady) {
+        const dx = centroid[0] - touchCentroid[0];
+        const dy = centroid[1] - touchCentroid[1];
+        const spreadDelta = spread - touchSpread;
+        const travel = Math.hypot(dx, dy);
+        const pose = latestHumanPose();
+        if (pose === undefined) return;
+        if (!arenaInput.synchronize(pose)) {
+          losePrimaryArm();
+          return;
+        }
+        if (touchMode === null) {
+          touchMode = points.length === 1 ? "cut"
+            : Math.abs(spreadDelta) > travel * TOUCH_PINCH_SPREAD_RATIO ? "pinch" : "extend";
+          arenaInput.buttonTransition("cut", touchMode === "cut");
+          arenaInput.buttonTransition("extend", touchMode === "extend");
+        }
+        if (touchMode === "pinch") {
+          lastWeaponAt = performance.now();
+          if (touchPinchEligible) stage.zoom(-spreadDelta * 10);
+          else controlStatus.textContent = "CONTROL_TOUCH_PINCH_CAMERA_UNAVAILABLE: pinch began outside the 3/4 view";
+        } else {
+          const now = performance.now();
+          arenaInput.moveWeapon(dx, dy, now - lastWeaponAt,
+            stageCanvas.getBoundingClientRect().height, stage.cameraBasis(),
+            touchMode);
+          lastWeaponAt = now;
+        }
+        const desired = arenaInput.desiredHand();
+        if (desired !== null) handReticle.update(stage.projectHand(desired), true);
+        touchCentroid = centroid;
+        touchSpread = spread;
+        touchWindowStarted = eventAt;
+      }
+      event.preventDefault();
+      return;
+    }
+    if (event.pointerId === cameraPointer) {
+      if (stage?.orbit(event.buttons, event.movementX, event.movementY) !== true) return;
+      showCameraOwnership();
+      event.preventDefault();
+      return;
+    }
+    if (capture !== "mouse" || document.pointerLockElement !== stageCanvas || stage === null) return;
+    const pose = latestHumanPose();
+    if (pose === undefined) return;
+    if (!arenaInput.synchronize(pose)) {
+      losePrimaryArm();
+      return;
+    }
+    const now = performance.now();
+    arenaInput.moveWeapon(event.movementX, event.movementY, now - lastWeaponAt,
+      stageCanvas.getBoundingClientRect().height, stage.cameraBasis());
+    lastWeaponAt = now;
+    // The transition belongs to the next delta. This event was consumed by
+    // the owner that existed when it arrived.
+    arenaInput.buttonTransition("cut", (event.buttons & 1) !== 0);
+    arenaInput.buttonTransition("extend", (event.buttons & 2) !== 0);
+    const desired = arenaInput.desiredHand();
+    if (desired !== null) handReticle.update(stage.projectHand(desired), true);
     event.preventDefault();
   });
   const releaseCameraPointer = (event: PointerEvent): void => {
@@ -1248,8 +1498,41 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     cameraPointer = null;
     if (stageCanvas.hasPointerCapture(event.pointerId)) stageCanvas.releasePointerCapture(event.pointerId);
   };
+  const releaseTouchPointer = (event: PointerEvent): void => {
+    if (!touchPoints.delete(event.pointerId)) return;
+    if (stageCanvas.hasPointerCapture(event.pointerId)) stageCanvas.releasePointerCapture(event.pointerId);
+    const remaining = [...touchPoints.values()];
+    touchCentroid = remaining.length === 0 ? null : [
+      remaining.reduce((sum, point) => sum + point[0], 0) / remaining.length,
+      remaining.reduce((sum, point) => sum + point[1], 0) / remaining.length,
+    ];
+    touchSpread = remaining.length < 2 ? 0
+      : Math.hypot(remaining[0]![0] - remaining[1]![0], remaining[0]![1] - remaining[1]![1]);
+    touchMode = null;
+    touchPinchEligible = false;
+    touchContributors.clear();
+    touchWindowStarted = Number.isFinite(event.timeStamp) ? event.timeStamp : performance.now();
+    arenaInput.buttonTransition("cut", false);
+    arenaInput.buttonTransition("extend", false);
+  };
   stageHost.addEventListener("pointerup", releaseCameraPointer);
   stageHost.addEventListener("pointercancel", releaseCameraPointer);
+  stageHost.addEventListener("pointerup", releaseTouchPointer);
+  stageHost.addEventListener("pointercancel", releaseTouchPointer);
+  stageHost.addEventListener("lostpointercapture", (event) => {
+    if (capture === "touch" && touchPoints.has(event.pointerId)) {
+      touchPoints.delete(event.pointerId);
+      stopControlledFight();
+    }
+  });
+  stageHost.addEventListener("pointerup", (event) => {
+    if (capture !== "mouse") return;
+    if (event.button === 0) arenaInput.buttonTransition("cut", false);
+    if (event.button === 2) arenaInput.buttonTransition("extend", false);
+  });
+  stageHost.addEventListener("contextmenu", (event) => {
+    if (capture === "mouse" && event.target === stageCanvas) event.preventDefault();
+  });
   stageHost.addEventListener("wheel", (event) => {
     if (event.target !== stageCanvas || stage === null || !hitsThreeQuarter(event)) return;
     stage.zoom(event.deltaY);
@@ -1367,6 +1650,71 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   modeGeometry.addEventListener("click", () => setMode("geometry"));
   setMode("geometry");
 
+  function refuseCapture(detail: string): void {
+    releaseDirectControls();
+    controlStatus.textContent = `CONTROL_POINTER_LOCK_UNAVAILABLE: ${detail}`;
+    controlStatus.classList.add("error");
+  }
+  let touchActivation = false;
+  takeControls.addEventListener("pointerdown", (event) => {
+    if (event.pointerType !== "touch") return;
+    const matchup = readMatchup(container);
+    if (stage === null || (producing && !controlledStopped)
+      || (matchup.a.control !== "human" && matchup.b.control !== "human")) {
+      refuseCapture("a ready stage and selected Human side are required");
+      return;
+    }
+    touchActivation = true;
+    captureRequest += 1;
+    capture = "pending";
+    pendingCapture = "touch";
+    pendingMatchup = summariseMatchup(matchup);
+    controlStatus.classList.remove("error");
+    controlStatus.textContent = "Touch the fight view to take hand controls";
+    event.preventDefault();
+  });
+  takeControls.addEventListener("click", () => {
+    if (touchActivation) { touchActivation = false; return; }
+    const matchup = readMatchup(container);
+    if (stage === null || (producing && !controlledStopped)
+      || (matchup.a.control !== "human" && matchup.b.control !== "human")) {
+      refuseCapture("a ready stage and selected Human side are required");
+      return;
+    }
+    const requestPointerLock = stageCanvas.requestPointerLock;
+    if (typeof requestPointerLock !== "function") {
+      refuseCapture("this browser has no relative pointer-lock API");
+      return;
+    }
+    const token = (captureRequest += 1);
+    capture = "pending";
+    pendingCapture = "mouse";
+    pendingMatchup = summariseMatchup(matchup);
+    controlStatus.classList.remove("error");
+    controlStatus.textContent = "Taking controls...";
+    // This call stays synchronously inside the activation handler. Its promise
+    // is not acquisition; pointerlockchange owns that answer.
+    try {
+      const requested = requestPointerLock.call(stageCanvas);
+      pointerLockTimer = window.setTimeout(() => {
+        if (token === captureRequest && capture === "pending" && pendingCapture === "mouse") {
+          refuseCapture("no pointer-lock change arrived after activation");
+        }
+      }, 1_000);
+      if (requested !== undefined) void requested.catch((error: unknown) => {
+        if (token === captureRequest && capture === "pending" && pendingCapture === "mouse") {
+          refuseCapture(String(error));
+        }
+      }).finally(() => {
+        if ((disposed || token !== captureRequest) && document.pointerLockElement === stageCanvas) {
+          void document.exitPointerLock?.();
+        }
+      });
+    } catch (error) {
+      if (token === captureRequest) refuseCapture(String(error));
+    }
+  });
+
   // A `ResizeObserver` and not a window `resize` listener. The first layout this
   // route gets is not its last -- a scrollbar arriving, a font settling, the
   // readout growing under the panels all move the canvas boxes without the
@@ -1391,7 +1739,8 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return;
     if (event.key === " ") { playButton.click(); event.preventDefault(); }
     else if (phase === "fight" && producing && controlledFaction !== null && arenaInput.keyDown(event.code)) {
-      if (controlledStopped) resumeControlledFight();
+      if (controlledStopped && (capture === "mouse" || capture === "touch")) resumeControlledFight();
+      else if (controlledStopped) controlStatus.textContent = "Take controls again before body input resumes";
       event.preventDefault();
     }
     else if (event.key === "ArrowLeft") go(state.frame - (event.shiftKey ? 10 : 1));
@@ -1404,12 +1753,45 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   }
   const onBlur = (): void => stopControlledFight();
   const onVisibility = (): void => { if (document.visibilityState === "hidden") stopControlledFight(); };
-  const onPointerLock = (): void => { if (document.pointerLockElement === null) stopControlledFight(); };
+  const onPointerLock = (): void => {
+    if (document.pointerLockElement === stageCanvas && capture === "pending" && pendingCapture === "mouse") {
+      if (pendingMatchup !== summariseMatchup(readMatchup(container))) {
+        refuseCapture("the selected matchup changed while pointer lock was pending");
+        return;
+      }
+      if (pointerLockTimer !== null) window.clearTimeout(pointerLockTimer);
+      pointerLockTimer = null;
+      capture = "mouse";
+      pendingCapture = null;
+      pendingMatchup = null;
+      takeControls.setAttribute("aria-pressed", "true");
+      controlStatus.classList.remove("error");
+      controlStatus.textContent = "Relative hand controls active";
+      refreshPicker();
+      lastWeaponAt = performance.now();
+      if (producing && controlledStopped) resumeControlledFight();
+      else if (!producing) void onFight();
+      return;
+    }
+    if (document.pointerLockElement === stageCanvas && capture !== "mouse") {
+      void document.exitPointerLock?.();
+      return;
+    }
+    // A different component may own pointer lock. Only loss of this route's
+    // acquired lock is a stop; unrelated lock changes are ignored.
+    if (capture === "mouse" && document.pointerLockElement !== stageCanvas) stopControlledFight();
+  };
+  const onPointerLockError = (): void => {
+    if (capture === "pending" && pendingCapture === "mouse") {
+      refuseCapture("the browser refused this activation");
+    }
+  };
   window.addEventListener("keydown", onKeydown);
   window.addEventListener("keyup", onKeyup);
   window.addEventListener("blur", onBlur);
   document.addEventListener("visibilitychange", onVisibility);
   document.addEventListener("pointerlockchange", onPointerLock);
+  document.addEventListener("pointerlockerror", onPointerLockError);
 
   // Playback advances by wall-clock rather than one frame per animation frame,
   // so 1x is the simulation's own 60 ticks a second on any display.
@@ -1434,6 +1816,9 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
       controlledClock.settleBatch(0);
       stopControlledFight(performance.now(), false);
       return;
+    }
+    if (!arenaInput.synchronize(human)) {
+      losePrimaryArm();
     }
     const bytes = arenaInput.encode(opponentOf(latest), human.yaw);
     const request = arena.input(controlledFaction, bytes, 1);
@@ -1540,6 +1925,10 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
       stage?.drawPreview(previewFrame);
       previewFrame += 1;
     }
+    if ((capture === "mouse" || capture === "touch") && stage !== null) {
+      const desired = arenaInput.desiredHand();
+      if (desired !== null) handReticle.update(stage.projectHand(desired), true);
+    }
     frameRequest = window.requestAnimationFrame(loop);
   }
 
@@ -1582,6 +1971,8 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
       // Idempotent, because the shell disposes on navigation *and* on
       // `pagehide`, and a back/forward-cached page can be handed both.
       if (disposed) return;
+      releaseDirectControls();
+      handReticle.dispose();
       disposed = true;
       inFlight?.abort();
       window.cancelAnimationFrame(frameRequest);
@@ -1591,6 +1982,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
       window.removeEventListener("blur", onBlur);
       document.removeEventListener("visibilitychange", onVisibility);
       document.removeEventListener("pointerlockchange", onPointerLock);
+      document.removeEventListener("pointerlockerror", onPointerLockError);
       // The engine, its scene, its meshes and its GPU buffers, which are the
       // largest thing this route holds and the one thing a dropped subtree
       // cannot collect on its own. A build still in flight sees `disposed` and

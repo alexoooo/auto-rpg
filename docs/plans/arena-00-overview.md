@@ -1,6 +1,6 @@
 # The arena you can fight in -- overview
 
-**Status:** in progress. Sessions 01 through 05 are complete; session 06 is next. The
+**Status:** in progress. Sessions 01 through 06 are complete; session 07 is next. The
 topic opened after the embodied fight's session 07 closed and its plan files were deleted.
 
 The goal, in the owner's words on 2026-08-19: **pick two units side by side with a 3D
@@ -254,24 +254,26 @@ BODY_TURN_INPUT_LEAD_RAW       8192  05/07; provisional absolute-yaw lead, mirro
 HUMAN_ARM_RESTING_EFFORT        1/2  06; the existing held-guard effort and the floor for
                                      every moving human hand, not a value drag speed may
                                      lower toward zero
-VIRTUAL_HAND_SENSITIVITY        --   06; arm lengths of virtual-hand travel per CSS pixel
-                                     at the reference viewport; measured with pointer
-                                     lock, so a screen edge is not part of the range
-EXTEND_DRAG_SENSITIVITY         --   06; arm lengths of shoulder-to-hand distance per CSS
+VIRTUAL_HAND_SENSITIVITY      0.006  06/07; provisional arm lengths of virtual-hand travel
+                                     per CSS pixel at the reference viewport. Session 07
+                                     owns visible-browser calibration
+EXTEND_DRAG_SENSITIVITY       0.004  06/07; provisional arm lengths of shoulder-to-hand distance per CSS
                                      pixel of secondary vertical travel -- the source
                                      material's extend verb. The screen plane's only depth
                                      is a height-coupled leak through the cameras' pitch,
                                      so this is the axis a thrust is aimed with
-TOUCH_PINCH_SPREAD_RATIO        --   06; how much two-pointer spread change, relative to
+TOUCH_PINCH_SPREAD_RATIO      0.75   06/07; provisional spread-to-centroid classifier ratio;
                                      centroid travel, makes a two-finger touch gesture a
                                      pinch for the camera instead of an extension drag
-SWING_DRAG_DEAD_ZONE_PX         --   06; below this a primary press places or holds a
+SWING_DRAG_DEAD_ZONE_PX          6   06/07; provisional; below this a primary press places or holds a
                                      guard and does not add swing effort
-SWING_DRAG_FULL_EFFORT_PX_S     --   06; the drag speed that maps the moving effort from
+SWING_DRAG_FULL_EFFORT_PX_S    900   06/07; provisional drag speed that maps moving effort from
                                      the resting half to 1.0 -- never from zero
 SWING_DRAG_FULL_REACH_ARM_LENGTHS 1  06; derived: the virtual hand's unit disc, with the
                                      physical minimum reach at its centre and full reach
                                      at its rim
+VIRTUAL_HAND_REFERENCE_VIEWPORT_PX 1000 06; CSS-height normalization reference; session 07
+                                     remeasures both promoted views rather than assuming equality
 ARENA_CLOSE_UP_RADIUS           --   04; the nearest the 3/4 camera may come to a body,
                                      bounded below by NEAR_PLANE and the head capsule
 ```
@@ -353,12 +355,9 @@ green even if one side still draws.
   wasm surface. Every export sessions 05 and 06 add is listed there, or it is not
   reachable. It lists pose, region, projectile and combat-event names and **no stance
   name**, which is why the twist fraction is not free to put on a HUD -- see session 05.
-  Session 06 *adds* `arm_min_reach_raw` to it, and the export **does not exist yet** --
-  `grep -rn arm_min_reach crates/web` is empty today, which is this plan and not a gap you
-  have found. What exists is the constant it will publish, `sim::ARM_MIN_REACH_RAW =
-  16_384` at `crates/sim/src/combat/actuator.rs:137`; session 06 states the export as its
-  own new work. The virtual hand reads that capability rather than owning a second literal
-  quarter.
+  Session 06 added `arm_min_reach_raw`, publishing the existing
+  `sim::ARM_MIN_REACH_RAW = 16_384` capability. The virtual hand reads that capability
+  rather than owning a second literal quarter.
 
 - **Three gated `#L` source anchors sit above the lines these sessions edit.**
   `docs/architecture/browser-runtime.md:447-449` point at

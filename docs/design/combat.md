@@ -13,18 +13,55 @@ for numeric tuning.
 
 ## The swing
 
-A current character has one active limb and a loadout of at most two actions.
+The next two paragraphs preserve the deleted active-limb model's rationale; they are not
+the interface the current embodied body or arena uses. The current direct-hand semantics
+begin at [The human hand is a target path](#the-human-hand-is-a-target-path-not-an-attack-button),
+and the later state-machine section records why the older code remains useful history.
+
+A character in that model had one active limb and a loadout of at most two actions.
 It used to have a sword hand and a shield hand simultaneously. That gave defence
 no opportunity cost: every policy held a shield out while attacking, so blocking
 was not an alternative to pressure. Making the hand singular turned equipment
 choice into tempo. A fighter can attack or have a guard live, and changing which
 one is held costs time.
 
-A guard follows a bearing and extension under a torque cap. A strike follows a
-declared line through a state machine: it rests in guard, visibly winds up,
-commits through a live strike, and recovers before it can act again. A loadout
-change has its own inactive swap phase. The normative state and command shapes
-are in [Commands](../reference/commands.md#actions-and-loadouts).
+A guard followed a bearing and extension under a torque cap. A strike followed a
+declared line through a state machine: it rested in guard, visibly wound up,
+committed through a live strike, and recovered before it could act again. A loadout
+change had its own inactive swap phase. The historical state and command shapes are
+recorded in [Commands](../reference/commands.md#actions-and-loadouts).
+
+### The human hand is a target path, not an attack button
+
+The arena's direct control enters through the same embodied `CommandV1` as a policy or
+replay. It owns navigation and one configured primary arm; the selected policy retains
+the other arm at the body's decision cadence. These authorities are disjoint. Keyboard
+turning may carry the shoulder and weapon because the body physically turned, but a
+pointer movement never writes body yaw or movement. Camera orbit and zoom write neither.
+
+The host stores an `ArmTarget`, not a screen cursor. Relative pointer motion reconstructs
+the desired hand in world space, moves it in the active camera's right/up plane, then
+encodes the result back as torso-relative bearing, continuous height, and reach. A
+separate extension gesture scales the shoulder-to-hand vector along itself, bounded by
+the command envelope; it does not steal a depth estimate from camera pitch. Sampling the
+camera basis only when a weapon delta arrives means a stationary pointer survives orbit,
+follow, zoom, and view promotion without rebasing the command. Pointer lock supplies an
+unbounded delta stream rather than making the canvas edge the limit of a cut.
+
+The path itself asks for speed. Effort is tracking authority, not a second host-authored
+velocity or damage scalar: an unpowered placement holds the script's resting half, and a
+powered cut or extension rises from that floor with pointer speed. The simulator still
+decides how quickly the achieved hand can chase the target, and damage still comes from
+achieved weapon motion at contact. The powered dead zone gates only the effort uplift
+and, for a cut, the signed elbow-plane update; it never freezes fine target placement or
+a slow extension. Releasing a button parks the last target instead of snapping the arm
+to a canned guard.
+
+This defines the control semantics, not their final feel. Pointer sensitivity, extension
+gain, gesture classification, powered dead zone, and full-effort speed require the
+foreground calibration recorded in
+[arena human control](../performance/arena-human-control.md); no value or comfort claim
+is implied here before that session is run.
 
 ## Actions and loadouts
 
