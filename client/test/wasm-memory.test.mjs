@@ -236,11 +236,10 @@ function exercise(wasm, abi, seed, guard = null, expectedInitialRevisions = null
 // `CLINCH_*` block; the reasoning is not repeated here.
 //
 // **It was an articulated drive on `init_articulated_test` and is an embodied
-// one on `init_embodied_test`.** Under `CommandFrame::Torso` the walk vector is
-// read in the body frame and an arm bearing is measured from the torso, so the
-// per-row world vector became one forward magnitude and the arm bearings became
-// offsets from zero. `body_yaw` is a world angle under both frames and did not
-// move.
+// one on `init_embodied_test`.** The embodied grammar reads the walk vector in
+// the body frame and measures an arm bearing from the torso, so the per-row
+// world vector became one forward magnitude and the arm bearings became offsets
+// from zero. `body_yaw` was a world angle under both frames and did not move.
 const CLINCH_YAW = [0x0f74, 0x8f74];
 // Straight ahead. It was `[[58_976, 23_506], [-58_976, -23_506]]` -- the same
 // magnitude resolved along each row's own `CLINCH_YAW`.
@@ -288,8 +287,8 @@ function clinchPayload(row, tick) {
   // zero: `Hold`, nobody, `Keep`, `Keep`, and the neutral plane.
   // The sweep is the weapon arm's; the guard arm holds the torso bearing, which
   // is zero rather than the body yaw -- `World::world_arm_target` adds the yaw
-  // back on under `CommandFrame::Torso`, so writing it here would ask for twice
-  // it. It swept both until 2026-08-16, when the shield normal began following
+  // back on, an arm bearing being measured from the torso, so writing it here
+  // would ask for twice it. It swept both until 2026-08-16, when the shield normal began following
   // the arm that carries it. Mirrors `clinch_payload` in crates/web/src/lib.rs,
   // which argues both at length.
   for (const arm of [23, 37]) {
@@ -1512,7 +1511,7 @@ test("the_index_survives_a_death", async () => {
 //
 // Same configuration, same seed, field for field. `lab trace` and this recording
 // are the same fixed-point words out of the same simulation -- the configured
-// duel reproduces `articulated_duel()` row for row and id for id, differing in
+// duel reproduces `embodied_duel()` row for row and id for id, differing in
 // the scenario *name* alone -- so every column both sources carry has to agree
 // exactly, and the ones they do not carry are named rather than skipped
 // silently.

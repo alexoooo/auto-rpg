@@ -28,8 +28,9 @@ use sim::{
 /// the file stays inside a second. `tests/embodied_script.rs`'s number.
 const TICKS: u32 = 1_800;
 
-/// The forward rotation `World::world_move_dir` applies under
-/// `CommandFrame::Torso`, at `crates/sim/src/world/mod.rs:1857`.
+/// The forward rotation `World::world_move_dir` applies, reading a walk vector
+/// in the body frame -- `crates/sim/src/world/mod.rs`, named rather than line
+/// anchored because session 05 moved every line in that file.
 ///
 /// **Written out here because the claim under test is that `into_torso` is its
 /// inverse, and an inverse needs both halves in the room.** A test that called

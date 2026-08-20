@@ -199,15 +199,17 @@ impl Replay {
             if world.tick() >= ticks {
                 break;
             }
-            while self.scenario.combat_model.has_articulated_columns()
-                && next_submitted < self.submitted_entries.len()
+            // **The model guard that opened this loop is gone and the drain is
+            // not.** It read `has_articulated_columns`, which answered `true`
+            // for every model that could reach here and `false` only for the
+            // Legacy scenarios that had no submitted stream at all; deleting the
+            // predicate must not delete the loop, because this is where a replay
+            // feeds the recorded commands back to the sim.
+            while next_submitted < self.submitted_entries.len()
                 && self.submitted_entries[next_submitted].tick <= world.tick()
             {
                 let entry = self.submitted_entries[next_submitted];
                 match entry.command {
-                    SubmittedCommand::Articulated(command) => {
-                        let _ = world.submit_articulated_v1(entry.entity, command);
-                    }
                     SubmittedCommand::Embodied(command) => {
                         let _ = world.submit_embodied_v1(entry.entity, command);
                     }
@@ -243,7 +245,9 @@ mod tests {
     // `play_until` it was written against is production code and outlives it,
     // with nothing left to select between. What survives of the claim -- that
     // playback feeds the sim the recorded commands and nothing beside them --
-    // is `embodied_replays_reproduce_every_pose` below, over 180 ticks.
+    // is `embodied_replays_reproduce_every_pose` below, over 180 ticks. Both
+    // halves of that sentence have now happened: the variant and the submission
+    // path went with the model, and the drain in `play_until` stayed.
 
     /// The shared six fields every fixture below drives, with the neutral swing
     /// plane supplied at the submission by [`EmbodiedCommandV1::new`].
@@ -403,8 +407,8 @@ mod tests {
         // to replay bit for bit from the recorded command rather than from the
         // pose the solver happened to leave.
         //
-        // **Every bearing below is a torso offset**, which is what
-        // `CombatModel::Embodied` means by `CommandFrame::Torso`. The
+        // **Every bearing below is a torso offset**, which is the frame the
+        // surviving command grammar is read in. The
         // articulated fixture this was reseated from wrote world bearings, and
         // the transform is `torso = world - body_yaw`: the fighter faces east
         // at yaw zero so its column is unchanged, and the brute faces west at

@@ -124,18 +124,21 @@ impl RunResult {
 /// Drives an embodied scenario to a conclusion. **The loop**, singular, since
 /// session 05.
 ///
-/// **The difference that mattered between it and its deleted twins is not
-/// visible to the type checker, which is
-/// why this loop is worth having rather than being a copy.**
-/// [`World::submit_embodied_v1`] compiles against any world and answers
-/// [`CommandReject::WrongModel`] when the scenario's grammar disagrees -- the
-/// refusal is a runtime value, not a compile error. So a harness wired to the
-/// wrong entry builds, runs its whole clock, refuses every submission and exits
-/// zero, with a recording of two bodies standing still. Nothing about that shape
-/// looks broken from the outside, which is why
+/// **The difference that mattered between it and its deleted twins was never
+/// visible to the type checker, and that is why the assertion below is shaped
+/// the way it is.** [`World::submit_embodied_v1`] compiled against any world and
+/// answered [`CommandReject::WrongModel`] when the scenario's grammar disagreed
+/// -- the refusal was a runtime value, not a compile error. So a harness wired
+/// to the wrong entry built, ran its whole clock, refused every submission and
+/// exited zero, with a recording of two bodies standing still. Nothing about
+/// that shape looks broken from the outside, which is why
 /// `an_embodied_run_stores_every_command_it_decides` asserts a *stored* command
 /// per decision rather than the absence of a rejection: zero rejections is a
 /// claim a loop that submitted nothing also satisfies.
+///
+/// **One grammar is left, so no scenario can disagree with this entry any
+/// more.** The assertion stays as it is: what it rules out is a loop that
+/// stopped submitting, and that needs no second grammar to happen.
 ///
 /// **What gets recorded is what the world *stored*, not what the policy
 /// offered.** [`SubmitEmbodiedOutcome::Stored`] may carry a command that is not
@@ -498,9 +501,13 @@ mod tests {
         assert_eq!(replay.submitted_entries.len(), result.decisions as usize);
         assert_eq!(policy.seen.len(), result.decisions as usize);
         for (record, shown) in replay.submitted_entries.iter().zip(&policy.seen) {
-            let SubmittedCommand::Embodied(recorded) = record.command else {
-                panic!("an embodied run must record embodied commands");
-            };
+            // Irrefutable since session 05 left one variant, and deliberately
+            // written as a pattern rather than a field access: appending a
+            // second grammar breaks this line, which is where somebody has to
+            // decide what an embodied harness does when it meets one. The
+            // `panic!` that stood here said the same thing at run time and could
+            // no longer fire.
+            let SubmittedCommand::Embodied(recorded) = record.command;
             // Note what this deliberately does *not* rest on. Replay equality
             // would pass either way today: playback runs the same validator, so
             // recording the offered command would have it refused a second time
@@ -510,10 +517,10 @@ mod tests {
             //
             // **`neutral_embodied_command` and not `neutral_articulated_command`,
             // and the difference is one column.** The world substitutes an arm
-            // bearing of `Angle::ZERO` under `CommandFrame::Torso`, because zero
-            // is "straight ahead" there; the articulated neutral writes the
-            // body's yaw, which under this frame would mean a whole turn off the
-            // centre line.
+            // bearing of `Angle::ZERO`, because an embodied bearing is measured
+            // from the torso and zero is "straight ahead" there; the articulated
+            // neutral writes the body's yaw, which in this frame would mean a
+            // whole turn off the centre line.
             assert_eq!(recorded.payload_bytes(), neutral_embodied_command(shown).payload_bytes());
             assert!(recorded.articulated.arms[0].reach <= Fx::ONE);
         }
@@ -521,46 +528,26 @@ mod tests {
         assert_eq!(played.state_hash(), result.state_hash);
     }
 
-    #[test]
-    fn a_wrong_model_submission_is_counted_and_never_recorded() {
-        // The other rejection shape: nothing is stored at all, so there is
-        // nothing for a replay to carry, and a harness that recorded a row here
-        // would hand playback a submission the run never made.
-        //
-        // **Named for the rejection it actually produces.** `StaleEntity` is the
-        // other reason the `NotStored` arm can carry and it is unreachable from
-        // this loop: `World::pending_decisions` is rebuilt from the alive set
-        // and yields only live handles, nothing between it and
-        // `submit_embodied_v1` kills anybody -- only `World::step` does, and
-        // that is past the decision loop. The arm is worth covering regardless,
-        // because what is being checked is the arm's *behaviour* and not which
-        // reason walked into it.
-        //
-        // **This test outlives its own reachability by one session.** It needs a
-        // scenario of the *other* grammar to reach `WrongModel` at all, and the
-        // articulated fixture is deleted in the step after this one. When the
-        // second grammar goes, so does this test, and the fact that the harness
-        // can no longer be pointed at the wrong world is what replaces it.
-        struct Neutral;
-        impl EmbodiedPolicy for Neutral {
-            fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
-                neutral_embodied_command(obs)
-            }
-        }
-
-        let scenario = Scenario::articulated_duel();
-        let config = RunConfig {
-            max_ticks: Some(30),
-            record: true,
-            ..RunConfig::default()
-        };
-        let result = run_embodied(&scenario, 3, Neutral, &config);
-        assert!(result.decisions > 0);
-        assert_eq!(result.rejected, result.decisions as u32);
-        assert_eq!(result.first_rejection, Some(CommandReject::WrongModel));
-        let replay = result.replay.as_ref().expect("recording was requested");
-        assert!(replay.submitted_entries.is_empty());
-    }
+    // **`a_wrong_model_submission_is_counted_and_never_recorded` stood here and
+    // was deleted rather than reseated in session 05, on its own instruction.**
+    // It covered the other rejection shape -- `NotStored`, where nothing is
+    // stored at all, so there is nothing for a replay to carry and a harness
+    // that recorded a row would hand playback a submission the run never made.
+    // Reaching that arm took a scenario of the *other* grammar, and there is no
+    // second grammar left: `StaleEntity` is the arm's only other reason and is
+    // unreachable from this loop, because `World::pending_decisions` is rebuilt
+    // from the alive set and nothing between it and `submit_embodied_v1` kills
+    // anybody. So the test did not become untested, it became vacuous, and a
+    // reseat onto the surviving fixture would have been a green assertion about
+    // a refusal no world can now produce -- the exact shape `AGENTS.md` calls
+    // the worst defect this repository makes.
+    //
+    // What replaces it is structural: the harness can no longer be pointed at a
+    // world that refuses it. What is *not* replaced is the `NotStored` arm's
+    // own behaviour, which `run_embodied` still spells out rather than
+    // collapsing into a wildcard, for the reason the event counters are spelled
+    // out above -- the next reason that arm can carry has to be thought about
+    // here.
 
     #[test]
     fn an_embodied_run_stops_on_a_death_and_not_only_on_the_clock() {

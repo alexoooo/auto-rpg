@@ -257,9 +257,11 @@ fn training_types_cannot_enter_authoritative_state() {
     let replay = result.replay.as_ref().expect("recording was requested");
     assert!(!replay.submitted_entries.is_empty());
     for record in &replay.submitted_entries {
-        let SubmittedCommand::Embodied(command) = record.command else {
-            panic!("a learned run must record embodied commands");
-        };
+        // Irrefutable since session 05 left one variant. Kept as a pattern so
+        // that appending a second grammar breaks this line rather than letting
+        // a learned run record one nothing here would look at; the `panic!` it
+        // replaces said that at run time and could no longer fire.
+        let SubmittedCommand::Embodied(command) = record.command;
         let payload = command.payload_bytes();
         assert_eq!(EmbodiedCommandV1::from_payload_bytes(&payload), Ok(command));
     }

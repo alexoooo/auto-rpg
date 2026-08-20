@@ -221,8 +221,8 @@ const REST_REACH: Fx = Fx::from_raw(ARM_MIN_REACH_RAW);
 /// normal comes off the carrying arm's bearing, so this arc is how far the plate
 /// may turn away from the direction the body faces. A quarter would put it
 /// edge-on to a frontal attack and past a quarter it would face behind the body.
-/// Centred on zero because under `CommandFrame::Torso` zero *is* the body's
-/// facing.
+/// Centred on zero because an embodied arm bearing is measured from the torso,
+/// where zero *is* the body's facing.
 ///
 /// `the_guard_arc_is_an_eighth_turn_and_is_pinned_from_both_sides` holds it
 /// through [`clamp_arc`] and against *literal* angles rather than against this

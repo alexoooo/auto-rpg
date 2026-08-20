@@ -1972,10 +1972,11 @@ mod tests {
         // the test.
         //
         // **On `embodied-duel-v1` since session 05, which is the fixture the
-        // probe now runs.** It is `articulated_duel` with a different name and a
-        // different `combat_model`, so the two bodies and the one plate between
-        // them are the same; what changes is that the commands are submitted
-        // through the entry a surviving body accepts. That matters more than it
+        // probe now runs.** It was `articulated_duel` under a different name and
+        // a different model word until the same session inlined the one into the
+        // other, so the two bodies and the one plate between them are unchanged;
+        // what changed is that the commands are submitted through the entry a
+        // surviving body accepts. That matters more than it
         // reads: `submit_embodied_v1` answers `WrongModel` rather than panicking
         // when the grammar disagrees, so a fixture on the wrong entry would run
         // its whole clock, store nothing, and assert forty columns of zero about

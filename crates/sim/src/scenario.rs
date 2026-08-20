@@ -23,178 +23,36 @@ pub struct UnitSpec {
     pub spawn: Vec2,
 }
 
-/// Which mechanics grammar interprets a scenario's immutable inputs.
-#[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum CombatModel {
-    Articulated = 1,
-    /// The *Die by the Sword* body: an articulated one whose arms are driven
-    /// relative to the torso, whose hips constrain the torso, and whose floor
-    /// has a height. It starts as an exact copy of [`CombatModel::Articulated`]
-    /// so that every later mechanic lands as a measurable difference from a
-    /// control rather than as a new fight nobody can compare.
-    Embodied = 2,
-}
-
-/// Which submitted-command grammar a model accepts.
+/// The identity word [`Scenario::try_fingerprint`] writes to say which body
+/// model a scenario is.
 ///
-/// Kept distinct from `CombatModel` because the guards that ask this question
-/// are asking about the *command surface* and not about the body: `set_loadout`
-/// refuses an articulated world for the same reason `submit` does, and neither
-/// is asking whether contact runs.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub(crate) enum CommandGrammar {
-    /// `ArticulatedCommandV1`.
-    Articulated,
-    /// `EmbodiedCommandV1`. A separate payload from the articulated one, and
-    /// separate on purpose: three pinned digests read `ARTICULATED_PAYLOAD_BYTES`
-    /// and have moved together twice, so a stance model that widened *that*
-    /// payload would re-record all three plus their wasm mirrors.
-    Embodied,
-}
-
-impl CombatModel {
-    /// Whether this model owns the articulated pose columns: body yaw, arms,
-    /// grips, shield pose, the three authority factors, anatomy, and the
-    /// contact runtime.
-    ///
-    /// A model answering `false` leaves those columns empty, so every read of
-    /// them is guarded by this rather than by a `== Articulated` that a third
-    /// variant would have to be pattern-matched into one site at a time.
-    pub(crate) const fn has_articulated_columns(self) -> bool {
-        match self {
-            CombatModel::Articulated | CombatModel::Embodied => true,
-        }
-    }
-
-    /// Whether this model resolves contact through the swept XYZ solver.
-    ///
-    /// Separate from [`CombatModel::has_articulated_columns`] even though the
-    /// two agree today, because they are different questions. Flattening them
-    /// is how a model that has a pose but no contact phase would start indexing
-    /// a `ContactRuntime` that is `None`.
-    pub(crate) const fn uses_contact_solver(self) -> bool {
-        match self {
-            CombatModel::Articulated | CombatModel::Embodied => true,
-        }
-    }
-
-    /// The word `Scenario::try_fingerprint` writes to say which model a
-    /// scenario is.
-    ///
-    /// One function rather than two copies of a `match`, because the replay
-    /// codec recomputes the same fingerprint from the decoded bytes and the two
-    /// have to agree exactly. They did not, for the length of one session: the
-    /// codec's copy answered `2` for every non-legacy model, so an embodied
-    /// replay decoded to a fingerprint its own scenario did not have.
-    ///
-    /// **Not `self as u16`.** The wire discriminants are 0/1/2 and these words
-    /// are 1/2/3; they are two numbering schemes over the same enum and
-    /// collapsing them would silently renumber a frozen identity.
-    pub(crate) const fn identity_word(self) -> u16 {
-        match self {
-            CombatModel::Articulated => 2,
-            CombatModel::Embodied => 3,
-        }
-    }
-
-    /// Whether this model's torso is turned by its hips rather than freely.
-    ///
-    /// Separate from [`CombatModel::command_frame`] even though the two agree
-    /// today, and for the reason the pair above already gives: they are
-    /// different questions. A model could read a torso-relative bearing without
-    /// having legs to constrain it, and flattening the two is how such a model
-    /// would start indexing a stance column it never allocated.
-    pub(crate) const fn has_stance(self) -> bool {
-        match self {
-            CombatModel::Articulated => false,
-            CombatModel::Embodied => true,
-        }
-    }
-
-    /// Whether this model's arms carry a commanded elbow plane.
-    ///
-    /// A third predicate that agrees with the two above on every member today,
-    /// and a third one for their reason rather than in spite of it: this one is
-    /// a question about the **command surface** -- the plane arrives in
-    /// `EmbodiedCommandV1` and nowhere else -- while `has_stance` is about the
-    /// legs. Answering the plane's question with the legs' predicate is how a
-    /// future model with a commanded plane and no hips would start indexing a
-    /// stance column it never allocated, or the reverse.
-    pub(crate) const fn has_swing_plane(self) -> bool {
-        match self {
-            CombatModel::Articulated => false,
-            CombatModel::Embodied => true,
-        }
-    }
-
-    /// Whether this model's arms are two links and present a forearm to the
-    /// contact solver.
-    ///
-    /// The fourth predicate, agreeing with the three above on every member
-    /// today, and split from them on the same principle: this one is a question
-    /// about **geometry** -- how many capsules a body hands the sweep -- while
-    /// `has_swing_plane` is about the command surface and `has_stance` is about
-    /// the legs. They come apart in both directions. A model could command a
-    /// plane and still collide as one capsule, which is exactly what this
-    /// session's predecessor shipped for a day; and a model could split its arm
-    /// at a fixed elbow with no plane to steer it, which is what a cheaper
-    /// version of this session would have been.
-    ///
-    /// **Session 10 collapses all four**, when `Legacy` and `Articulated` go and
-    /// the question stops having two answers. Until then, four predicates is the
-    /// cost of being able to say which property a future model is opting into.
-    pub(crate) const fn has_jointed_arms(self) -> bool {
-        match self {
-            CombatModel::Articulated => false,
-            CombatModel::Embodied => true,
-        }
-    }
-
-    /// Which frame a submitted arm bearing and movement vector are measured in.
-    ///
-    /// This is the whole of what separates an embodied body from an articulated
-    /// one in the arm driver and the movement phase, and it is a predicate
-    /// rather than two `== Embodied` comparisons because it is one question
-    /// asked in two places.
-    pub(crate) const fn command_frame(self) -> CommandFrame {
-        match self {
-            CombatModel::Articulated => CommandFrame::World,
-            CombatModel::Embodied => CommandFrame::Torso,
-        }
-    }
-
-    /// Which submitted-command grammar this model accepts.
-    pub(crate) const fn command_grammar(self) -> CommandGrammar {
-        match self {
-            CombatModel::Articulated => CommandGrammar::Articulated,
-            CombatModel::Embodied => CommandGrammar::Embodied,
-        }
-    }
-}
-
-/// Whether a submitted bearing and movement vector are absolute or torso-relative.
+/// **A wire value rather than a discriminant, and frozen.** It was
+/// `CombatModel::Embodied`'s `identity_word()` until the enum was deleted, and
+/// it is `3` rather than `2` because the retired articulated model held `2` and
+/// the retired legacy model held `1` -- two numbering schemes over the same
+/// enum, which is exactly why the word was never `self as u16`. Four registry
+/// rows fold it, `embodied-duel-v1`'s `0x1a1e8e74eecd55d5` among them, so
+/// renumbering it to "match" [`SCENARIO_MODEL_TAG`] below would silently
+/// re-record every pinned corpus that names an embodied fixture.
 ///
-/// The articulated contract is explicit that a bearing is absolute: *body yaw
-/// moves the shoulders, it does not silently rewrite an absolute arm target.*
-/// That was a deliberate choice and it has a cost the source material does not
-/// pay -- **turning the body does not carry the sword**, so footwork and swing
-/// are two independent subsystems that happen to share a shoulder.
+/// `codec.rs` recomputes the same fingerprint from the decoded bytes and reads
+/// this same constant to do it. That is the whole reason it is a constant and
+/// not two literals: the two copies disagreed once already, for the length of
+/// one session, and an embodied replay decoded to a fingerprint its own
+/// scenario did not have.
+pub(crate) const SCENARIO_IDENTITY_WORD: u16 = 3;
+
+/// The model tag [`scenario_v1_fields_into`] writes as the first byte of the
+/// ScenarioV1 record, **which is also the replay record's model tag** because
+/// `codec.rs` uses that function as its scenario-record writer.
 ///
-/// `Torso` couples them. Turning the hips swings the weapon; reaching across
-/// the body costs bearing travel the torso could have supplied for free; and a
-/// body that must turn to bring its weapon round is a body whose stance can
-/// constrain its attack. The two readings are not interchangeable and both are
-/// useful: an absolute bearing is stable under yaw, a relative one is stable
-/// under the body.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub(crate) enum CommandFrame {
-    /// Absolute world bearings, and a world-space movement vector.
-    World,
-    /// Measured from the torso: `+x` is forward, `+y` is body-left, and a zero
-    /// bearing holds the arm directly ahead at every yaw.
-    Torso,
-}
+/// A wire value rather than a discriminant, on [`SCENARIO_IDENTITY_WORD`]'s
+/// terms and frozen for the same reason: it was `CombatModel::Embodied as u8`
+/// while the enum existed, `#[repr(u8)]` pinned it at `2`, and every replay
+/// anybody has kept carries that byte. `0` was Legacy and `1` was Articulated;
+/// both are retired rather than reusable, and `codec.rs` goes on refusing them
+/// by number -- see `RETIRED_ARTICULATED_MODEL_TAG` there.
+pub(crate) const SCENARIO_MODEL_TAG: u8 = 2;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ScenarioFingerprintError {
@@ -287,7 +145,6 @@ const ROSTER_STREAM: u64 = 1 << 61;
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Scenario {
     pub name: String,
-    pub combat_model: CombatModel,
     pub combat_specs: Option<CombatSpecTableV1>,
     /// Which ground exists. The playable area is `(0,0)..dungeon.extent()`, and
     /// on a [`Dungeon::open`] floor plan that is the whole rectangle -- which is
@@ -443,7 +300,6 @@ impl Scenario {
             // model, and re-dressing is now this function's job, so the name is
             // too.
             name: format!("embodied-dungeon-{depth}"),
-            combat_model: CombatModel::Embodied,
             combat_specs: Some(CombatSpecTableV1::fixtures()),
             dungeon: level.dungeon,
             portal: Some(level.portal),
@@ -463,7 +319,6 @@ impl Scenario {
     /// The checked identity entry point used at persistence boundaries.
     pub fn try_fingerprint(&self) -> Result<u64, ScenarioFingerprintError> {
         crate::combat::spec::validate_construction(
-            self.combat_model,
             self.combat_specs.as_ref(),
             &self.units,
         ).map_err(ScenarioFingerprintError::InvalidCombatSpecs)?;
@@ -473,38 +328,42 @@ impl Scenario {
         let mut h = Hash64::new();
         h.write_bytes(b"ARPG-SCENARIO");
         // **The model *is* in the fingerprint**, contrary to what the embodied
-        // plan asserted before this session measured it. That does not make a
-        // new variant move an old pin: every shipped fixture keeps the value it
-        // wrote, and only a scenario that asks for `Embodied` writes the third
-        // one. The word is the reason `embodied-duel-v1` differs from
-        // `articulated-duel-v1` by more than its name bytes.
-        h.write_u16(self.combat_model.identity_word());
+        // plan asserted before this session measured it. It is written as a
+        // frozen constant rather than read off the scenario because there is one
+        // model left to ask about -- see [`SCENARIO_IDENTITY_WORD`], which
+        // carries the argument for the number.
+        h.write_u16(SCENARIO_IDENTITY_WORD);
         scenario_v1_fields_into(self, name_len, &mut h);
-        if self.combat_model.has_articulated_columns() {
-            combat_specs_into(self.combat_specs.as_ref(), &self.units, &mut h);
-        }
+        // Unconditional now. The guard here was `has_articulated_columns`, and
+        // it was never about a choice this fixture makes: the spec table is part
+        // of a scenario's identity for every model that has one, and the only
+        // model that did not was Legacy, whose scenarios cannot be built.
+        combat_specs_into(self.combat_specs.as_ref(), &self.units, &mut h);
         Ok(h.finish())
     }
 
-    /// The only shipped articulated construction fixture before v2-18.
+    /// The embodied control, and the fixture every other one here is built from.
     ///
-    /// **Written out rather than built from `Scenario::duel`**, which it was
-    /// until embodied session 10 deleted that Legacy constructor. Every field
-    /// here is the one it inherited, and it has to be: `embodied-duel-v1` is
-    /// this fixture under another name and another model word, its fingerprint
-    /// is `0x1a1e8e74eecd55d5`, and that number is folded into
-    /// `EMBODIED_CORPUS_DIGEST`. The `24x16` floor, the sixty-second clock, both
-    /// bodies' kinds and stat sheets, and the fighter's default loadout are
-    /// therefore not free choices -- they are the shape of a pinned corpus.
-    /// `embodied_duel_v1_has_the_frozen_identity_and_placement` is what would
-    /// notice a slip, and it now writes that arrangement out itself rather than
-    /// reading it back off this function: nothing in `crates/sim` builds an
-    /// articulated fixture any more, and this one is waiting to be inlined into
-    /// `embodied_duel` and deleted.
-    pub fn articulated_duel() -> Scenario {
+    /// **Every field is inherited rather than chosen, and that is the whole of
+    /// what this comment is for.** This body was `Scenario::articulated_duel`,
+    /// which was itself written out rather than built from `Scenario::duel`
+    /// after embodied session 10 deleted that Legacy constructor; `embodied_duel`
+    /// then overwrote the name and the model word and changed nothing else. Both
+    /// ancestors are gone and the arrangement is theirs: the `24x16` floor, the
+    /// sixty-second clock, both bodies' kinds and stat sheets, both spawns and
+    /// the fighter's default loadout are not free choices. Its fingerprint is
+    /// `0x1a1e8e74eecd55d5` and that number is folded into
+    /// `EMBODIED_CORPUS_DIGEST`, so the shape of this function is the shape of a
+    /// pinned corpus, and a field edited here for looking tidier is a corpus no
+    /// longer measuring the fight it was recorded against.
+    ///
+    /// `embodied_duel_v1_has_the_frozen_identity_and_placement` is what notices
+    /// a slip. It writes the arrangement out itself rather than reading it back
+    /// off this function, because a test that compares a fixture with itself is
+    /// worse than no test.
+    pub fn embodied_duel() -> Scenario {
         Scenario {
-            name: "articulated-duel-v1".to_string(),
-            combat_model: CombatModel::Articulated,
+            name: "embodied-duel-v1".to_string(),
             combat_specs: Some(CombatSpecTableV1::fixtures()),
             dungeon: Dungeon::open(24, 16),
             portal: None,
@@ -535,25 +394,6 @@ impl Scenario {
                 },
             ],
         }
-    }
-
-    /// The embodied control: `articulated_duel` under a different name and a
-    /// different model, and identical in every other field.
-    ///
-    /// Built *from* the articulated fixture rather than beside it, so the two
-    /// cannot drift apart. That is the whole design of the embodied plan: every
-    /// mechanic from session 04 onward is measured as a difference from this
-    /// pair, and a difference is only readable if the control is the same fight.
-    ///
-    /// Its fingerprint is a new number and differs from `articulated-duel-v1`
-    /// by exactly two things -- the name bytes and the model word -- which is
-    /// worth stating because the plan that proposed this session claimed
-    /// `Scenario::fingerprint` did not write the model. It does.
-    pub fn embodied_duel() -> Scenario {
-        let mut scenario = Scenario::articulated_duel();
-        scenario.name = "embodied-duel-v1".to_string();
-        scenario.combat_model = CombatModel::Embodied;
-        scenario
     }
 
     /// The embodied control with a hill in the middle of it.
@@ -744,7 +584,11 @@ pub(crate) fn scenario_v1_fields_into<S: ScenarioByteSink>(
     name_len: u16,
     sink: &mut S,
 ) {
-    sink.write_u8(scenario.combat_model as u8);
+    // **The model tag, and it is frozen.** See [`SCENARIO_MODEL_TAG`]: this
+    // writer is also the replay encoder's scenario-record writer, so the byte
+    // written here is simultaneously the replay record's model tag and is folded
+    // into every pinned scenario fingerprint.
+    sink.write_u8(SCENARIO_MODEL_TAG);
     sink.write_u16(name_len);
     sink.write_bytes(scenario.name.as_bytes());
     sink.write_u16(scenario.dungeon.cols());
@@ -925,15 +769,13 @@ mod tests {
     /// measuring the fight it was recorded against.
     ///
     /// The fingerprint is hand-pinned rather than recomputed because **the model
-    /// is in it**: `CombatModel::identity_word` writes `3` for Embodied and
-    /// `Scenario::fingerprint` writes that word before the name bytes. The
-    /// embodied plan asserted the model was not in the fingerprint; measuring it
-    /// is what found otherwise.
+    /// is in it**: [`SCENARIO_IDENTITY_WORD`] is `3` and `Scenario::fingerprint`
+    /// writes it before the name bytes. The embodied plan asserted the model was
+    /// not in the fingerprint; measuring it is what found otherwise.
     #[test]
     fn embodied_duel_v1_has_the_frozen_identity_and_placement() {
         let scenario = Scenario::embodied_duel();
         assert_eq!(scenario.name, "embodied-duel-v1");
-        assert_eq!(scenario.combat_model, CombatModel::Embodied);
         assert_eq!((scenario.dungeon.cols(), scenario.dungeon.rows()), (24, 16));
         assert_eq!(scenario.max_ticks, 60 * 60);
         assert_eq!(scenario.combat_specs, Some(CombatSpecTableV1::fixtures()));
@@ -973,7 +815,6 @@ mod tests {
         assert!(slope.dungeon.sculpted(), "the sculpted fixture is flat");
         assert!(!flat.dungeon.sculpted(), "the control stopped being flat");
         assert_eq!(slope.units, flat.units, "the hill moved a body");
-        assert_eq!(slope.combat_model, flat.combat_model);
 
         let (cols, rows) = (slope.dungeon.cols() as i32, slope.dungeon.rows() as i32);
         let at = |x: i32, y: i32| slope.dungeon.height_at(

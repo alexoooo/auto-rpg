@@ -14,7 +14,7 @@
 
 use crate::command::{
     validate_articulated, ArmTarget, ArticulatedCommandV1, CommandReject, GripRequest,
-    Intent, LimbSlot, Objective, Order, ReleaseRequest, SubmitArticulatedOutcome,
+    Intent, LimbSlot, Objective, Order, ReleaseRequest,
 };
 use crate::action::{ActionKind, ActionSpec};
 use crate::dungeon::{Door, Dungeon};
@@ -27,7 +27,7 @@ use crate::obs::{ArticulatedObservation, ObservedArm, ObservedOpponent,
                  MAX_ARTICULATED_OPPONENTS};
 use crate::pose::{AnimationHint, ArticulatedPose, PosedArm};
 use crate::rules::{self, Stats, MAX_CONTACTS};
-use crate::scenario::{CommandFrame, CommandGrammar, Scenario, UnitSpec};
+use crate::scenario::{Scenario, UnitSpec};
 use crate::anatomy::{self, AnatomyState, BodyPart};
 use crate::combat::spec::{ArticulatedUnitSpecV1, BodyAnatomySpec, CombatSpecError,
                           CombatSpecTableV1, resolved_equipment, volume_region,
@@ -144,7 +144,6 @@ impl Outcome {
 #[derive(Clone)]
 pub struct World {
     seed: u64,
-    combat_model: crate::CombatModel,
     combat_specs: Option<CombatSpecTableV1>,
     combat_units: Vec<ArticulatedUnitSpecV1>,
     tick: u32,
@@ -223,15 +222,17 @@ pub struct World {
     articulated_carried: Vec<[Option<u16>; 2]>,
     articulated_equipment: Vec<[Option<u16>; 2]>,
     body_yaw: Vec<BodyYawState>,
-    /// The legs, for the one model that has them. Empty otherwise, on the same
-    /// terms as every other articulated column: a model that answers `false` to
-    /// [`crate::CombatModel::has_stance`] allocates none of it, so a `Legacy` or
-    /// `Articulated` world cannot pay for a mechanic it does not have.
+    /// The legs.
+    ///
+    /// One row per allocated slot, allocated unconditionally now that there is
+    /// one body model. It was empty for the two models without hips, and the
+    /// guard that emptied it is gone with them -- what the guard bought was that
+    /// a model could not pay for a mechanic it did not have, and there is no
+    /// longer a model that does not have this one.
     stance: Vec<StanceState>,
-    /// The commanded and held elbow plane, per arm, for the one model whose
-    /// command grammar carries one. Empty otherwise, on
-    /// [`World::stance`]'s terms: a model answering `false` to
-    /// [`crate::CombatModel::has_swing_plane`] allocates none of it.
+    /// The commanded and held elbow plane, per arm.
+    ///
+    /// Allocated on [`World::stance`]'s terms and for its reason.
     ///
     /// **This is the column the embodied command was always going to need**, and
     /// it is one column rather than two because commanded and held are the same
@@ -966,8 +967,9 @@ fn check_contact_envelope(
 /// spawn, or subsequent floor. A candidate has a complete open 3x3
 /// neighbourhood, so a blocking prop always has a route around it.
 fn generate_dungeon_props(scenario: &Scenario, seed: u64) -> Vec<DungeonPropState> {
-    // The one `CombatModel` question in this crate that none of the three
-    // predicates answers: dressing was part of the legacy dungeon feature set.
+    // Dressing was part of the legacy dungeon feature set, and this was the one
+    // model question in the crate that none of the predicates answered. The
+    // predicates are gone; the question was never theirs, so it is still here.
     //
     // **Nothing is dressed now, and that is a measured gap rather than a
     // decision.** Of the three things a prop does, one dies with the legacy
@@ -1184,88 +1186,49 @@ const EPILOGUE: &[Phase] = &[
     ("pending",        |w, _| w.refresh_pending()),
 ];
 
-// The rows the two body schedules share, each written **once** and listed twice
-// below. Two hand-typed tables would recreate exactly the hazard the table
-// removed -- a second place to forget `press_doors` -- while a single aliased
-// table cannot express the one row that genuinely differs. Naming the rows is
-// what buys both: a divergence is a substituted name in a list, and an omission
-// is a missing name rather than a missing closure.
-//
-// **Two schedules for one model, and that is the shape session 10 left rather
-// than an oversight.** `ARTICULATED_PHASES` and `EMBODIED_PHASES` differ in
-// exactly one row -- `stance` where `body yaw` stands -- and the articulated one
-// survives only as long as `CombatModel::Articulated` does. When that goes the
-// two collapse and every `P_` alias below becomes a plain row in one list.
-const P_RETAIN_CONTACT: Phase = ("retain contact entry", |w, _| w.retain_contact_entry());
-const P_MOVEMENT: Phase = ("apply articulated movement", |w, _| w.apply_articulated_movement());
-const P_LOCOMOTION: Phase = ("record contact locomotion", |w, _| w.record_contact_locomotion());
-const P_SEPARATE: Phase = ("separate", |w, _| w.separate());
-const P_BODY_YAW: Phase = ("body yaw", |w, _| w.drive_body_yaw());
-const P_STANCE: Phase = ("stance", |w, _| w.drive_stance());
-const P_GRIPS: Phase = ("grips", |w, _| w.apply_articulated_grips());
-const P_ARMS: Phase = ("arms", |w, r| {
-    w.drive_articulated_arms(r.bearing_max_speed_raw, r.bearing_accel_raw)
-});
-const P_GEOMETRY: Phase = ("geometry", |w, _| w.derive_articulated_geometry());
-const P_LOOSE: Phase = ("loose projectiles", |w, _| w.loose_articulated_projectiles());
-const P_CONTACT: Phase = ("contact", |w, _| w.resolve_contact());
-const P_RESOLVE_PROJECTILES: Phase = ("resolve projectiles", |w, _| w.resolve_articulated_projectiles());
-const P_ANATOMY: Phase = ("anatomy", |w, _| w.settle_anatomy());
-const P_DOORS: Phase = ("doors", |w, _| w.press_doors());
-const P_REAP_ARTICULATED: Phase = ("reap", |w, _| w.reap_dead_articulated());
-
+/// The body of the tick, in order.
+///
+/// **This was two tables assembled out of fifteen named `P_` aliases, and the
+/// aliases were the price of having two.** `ARTICULATED_PHASES` and
+/// `EMBODIED_PHASES` differed in exactly one row -- `stance` where `body yaw`
+/// stood -- so the rows were written once and listed twice: a divergence was
+/// then a substituted name in a list and an omission a missing name rather than
+/// a missing closure. With one model there is nothing to substitute and nothing
+/// to diverge from, so the rows are written out once, here, which is what the
+/// comment that stood here said would happen.
+///
+/// `stance` sits where `body yaw` sat, and the slot is not free: everything
+/// after it -- grips, arms, geometry, contact -- reads a settled torso, and
+/// moving the row would change what those four see rather than what the hips do.
+/// `drive_stance` turns the hips and the torso in the order they constrain each
+/// other.
+///
 /// Traced like the legacy arm, and for one specific reason: the contract freezes
 /// where contact sits relative to geometry and doors, and a trace is the only
-/// way to prove an ordering rather than argue it from a reading order.
-const ARTICULATED_PHASES: &[Phase] = &[
-    P_RETAIN_CONTACT,
-    P_MOVEMENT,
-    P_LOCOMOTION,
-    P_SEPARATE,
-    P_BODY_YAW,
-    P_GRIPS,
-    P_ARMS,
-    P_GEOMETRY,
-    P_LOOSE,
-    P_CONTACT,
-    P_RESOLVE_PROJECTILES,
-    P_ANATOMY,
-    P_DOORS,
-    P_REAP_ARTICULATED,
-];
-
-/// The same tick with **one row substituted**: an embodied body's torso is
-/// turned by its hips rather than freely, so `stance` stands where `body yaw`
-/// stands and does both jobs in the order they constrain each other.
-///
-/// It sits in the same slot deliberately. Everything after it -- grips, arms,
-/// geometry, contact -- reads a settled torso, and moving the row would change
-/// what those four see rather than what the hips do.
+/// way to prove an ordering rather than argue it from a reading order. Naming
+/// each row here is what makes a phase without a trace entry unwritable -- the
+/// loop dispatches on the same string it records -- and
+/// `contact_runs_after_geometry_and_before_doors` spells every name below out as
+/// a literal, which is the assertion that would have caught a row lost in the
+/// collapse.
 const EMBODIED_PHASES: &[Phase] = &[
-    P_RETAIN_CONTACT,
-    P_MOVEMENT,
-    P_LOCOMOTION,
-    P_SEPARATE,
-    P_STANCE,
-    P_GRIPS,
-    P_ARMS,
-    P_GEOMETRY,
-    P_LOOSE,
-    P_CONTACT,
-    P_RESOLVE_PROJECTILES,
-    P_ANATOMY,
-    P_DOORS,
-    P_REAP_ARTICULATED,
+    ("retain contact entry", |w, _| w.retain_contact_entry()),
+    ("apply articulated movement", |w, _| w.apply_articulated_movement()),
+    ("record contact locomotion", |w, _| w.record_contact_locomotion()),
+    ("separate", |w, _| w.separate()),
+    ("stance", |w, _| w.drive_stance()),
+    ("grips", |w, _| w.apply_articulated_grips()),
+    ("arms", |w, r| {
+        w.drive_articulated_arms(r.bearing_max_speed_raw, r.bearing_accel_raw)
+    }),
+    ("geometry", |w, _| w.derive_articulated_geometry()),
+    ("loose projectiles", |w, _| w.loose_articulated_projectiles()),
+    ("contact", |w, _| w.resolve_contact()),
+    ("resolve projectiles", |w, _| w.resolve_articulated_projectiles()),
+    ("anatomy", |w, _| w.settle_anatomy()),
+    ("doors", |w, _| w.press_doors()),
+    ("reap", |w, _| w.reap_dead_articulated()),
 ];
-
-/// A free function rather than a method so the schedule borrows nothing: the
-/// loop in [`World::step_with_arm_rates`] has to hand `&mut self` to each body.
-const fn model_phases(model: crate::CombatModel) -> &'static [Phase] {
-    match model {
-        crate::CombatModel::Articulated => ARTICULATED_PHASES,
-        crate::CombatModel::Embodied => EMBODIED_PHASES,
-    }
-}
 
 impl World {
     /// Panicking constructor, kept source-compatible. It validates through the
@@ -1278,33 +1241,29 @@ impl World {
     /// envelope, and every contact count before a single world column exists.
     pub fn try_new(scenario: &Scenario, seed: u64) -> Result<World, WorldBuildError> {
         crate::combat::spec::validate_construction(
-            scenario.combat_model,
             scenario.combat_specs.as_ref(),
             &scenario.units,
         ).map_err(WorldBuildError::CombatSpec)?;
         let n = scenario.units.len();
-        if scenario.combat_model.has_articulated_columns() {
-            // `validate_construction` has already proved the table and every
-            // row present, so these two lookups cannot fail; they are written
-            // as `?` rather than `expect` because the envelope check below is
-            // the one place a malformed reference would be caught silently.
-            let table = scenario.combat_specs.as_ref()
-                .ok_or(WorldBuildError::CombatSpec(CombatSpecError::MissingTable))?;
-            let arena = scenario.arena();
-            for unit in &scenario.units {
-                let row = unit.articulated
-                    .ok_or(WorldBuildError::CombatSpec(CombatSpecError::UnitPresence))?;
-                check_contact_envelope(arena, unit.spawn, table, row)
-                    .map_err(WorldBuildError::Contact)?;
-                #[cfg(feature = "cartesian-recoil")]
-                exact_lattice_for_unit(unit.kind.mass().raw(), table, row)
-                    .map_err(WorldBuildError::ExactLattice)?;
-            }
-            contact_bounds(n).map_err(WorldBuildError::Contact)?;
+        // `validate_construction` has already proved the table and every row
+        // present, so these two lookups cannot fail; they are written as `?`
+        // rather than `expect` because the envelope check below is the one place
+        // a malformed reference would be caught silently.
+        let table = scenario.combat_specs.as_ref()
+            .ok_or(WorldBuildError::CombatSpec(CombatSpecError::MissingTable))?;
+        let arena = scenario.arena();
+        for unit in &scenario.units {
+            let row = unit.articulated
+                .ok_or(WorldBuildError::CombatSpec(CombatSpecError::UnitPresence))?;
+            check_contact_envelope(arena, unit.spawn, table, row)
+                .map_err(WorldBuildError::Contact)?;
+            #[cfg(feature = "cartesian-recoil")]
+            exact_lattice_for_unit(unit.kind.mass().raw(), table, row)
+                .map_err(WorldBuildError::ExactLattice)?;
         }
+        contact_bounds(n).map_err(WorldBuildError::Contact)?;
         let mut world = World {
             seed,
-            combat_model: scenario.combat_model,
             combat_specs: scenario.combat_specs.clone(),
             combat_units: scenario.units.iter().filter_map(|unit| unit.articulated).collect(),
             tick: 0,
@@ -1338,21 +1297,16 @@ impl World {
             grips: Vec::with_capacity(n),
             articulated_release_was: Vec::with_capacity(n),
             #[cfg(feature = "cartesian-recoil")]
-            exact_owners: if scenario.combat_model.has_articulated_columns() {
-                Vec::with_capacity(n)
-            } else {
-                Vec::new()
-            },
+            exact_owners: Vec::with_capacity(n),
             shield_pose: Vec::with_capacity(n),
             move_authority: Vec::with_capacity(n),
             turn_authority: Vec::with_capacity(n),
             arm_authority: Vec::with_capacity(n),
             wounds: Vec::with_capacity(n),
-            contact: if scenario.combat_model.uses_contact_solver() {
-                Some(ContactRuntime::default())
-            } else {
-                None
-            },
+            // `Option` rather than a bare runtime, because `resolve_contact`
+            // takes the runtime out of the world for the duration of the phase
+            // and puts it back -- the empty slot is a borrow, not a model.
+            contact: Some(ContactRuntime::default()),
             #[cfg(test)]
             phase_trace_enabled: false,
             #[cfg(test)]
@@ -1520,26 +1474,25 @@ impl World {
                 self.articulated_anatomy.push(None);
                 self.articulated_carried.push([None; 2]);
                 self.articulated_equipment.push([None; 2]);
-                if self.combat_model.has_articulated_columns() {
-                    let arm = actuator::tucked_arm(Vec3::ZERO);
-                    self.body_yaw.push(BodyYawState { angle: Angle::ZERO, speed_turns: Fx::ZERO, authority_residue: Fx::ZERO });
-                    if self.combat_model.has_stance() {
-                        self.stance.push(StanceState::squared(Angle::ZERO));
-                    }
-                    if self.combat_model.has_swing_plane() {
-                        self.elbow_plane.push([ElbowPlaneState::NEUTRAL; 2]);
-                    }
-                    self.arms.push([arm; 2]);
-                    self.grips.push([GripState { equipment_slot: None }; 2]);
-                    self.articulated_release_was.push([ReleaseRequest::Keep; 2]);
-                    #[cfg(feature = "cartesian-recoil")]
-                    self.exact_owners.push(None);
-                    self.shield_pose.push(None);
-                    self.move_authority.push(Fx::ONE);
-                    self.turn_authority.push(Fx::ONE);
-                    self.arm_authority.push([Fx::ONE; 2]);
-                    self.wounds.push(AnatomyState::EMPTY);
-                }
+                // Three nested model guards stood here -- articulated columns,
+                // then legs, then the elbow plane -- and every one of them now
+                // answers the same way for every world that can be built. They
+                // are gone rather than left as always-true tests: a guard that
+                // cannot be false reads as a column somebody might not have.
+                let arm = actuator::tucked_arm(Vec3::ZERO);
+                self.body_yaw.push(BodyYawState { angle: Angle::ZERO, speed_turns: Fx::ZERO, authority_residue: Fx::ZERO });
+                self.stance.push(StanceState::squared(Angle::ZERO));
+                self.elbow_plane.push([ElbowPlaneState::NEUTRAL; 2]);
+                self.arms.push([arm; 2]);
+                self.grips.push([GripState { equipment_slot: None }; 2]);
+                self.articulated_release_was.push([ReleaseRequest::Keep; 2]);
+                #[cfg(feature = "cartesian-recoil")]
+                self.exact_owners.push(None);
+                self.shield_pose.push(None);
+                self.move_authority.push(Fx::ONE);
+                self.turn_authority.push(Fx::ONE);
+                self.arm_authority.push([Fx::ONE; 2]);
+                self.wounds.push(AnatomyState::EMPTY);
                 self.last_attacker.push(EntityId::NONE);
                 self.last_combat.push(0);
                 self.regen_left.push(Fx::ZERO);
@@ -1582,12 +1535,10 @@ impl World {
             (Some(table), Some(row)) => resolved_equipment(table, row).expect("validated combat construction"),
             _ => [None; 2],
         };
-        if self.combat_model.has_articulated_columns() {
-            self.initialize_articulated_pose(i);
-            #[cfg(feature = "cartesian-recoil")]
-            {
-                self.exact_owners[i] = Some(self.initial_exact_owner(i, exact_scale));
-            }
+        self.initialize_articulated_pose(i);
+        #[cfg(feature = "cartesian-recoil")]
+        {
+            self.exact_owners[i] = Some(self.initial_exact_owner(i, exact_scale));
         }
         self.last_attacker[i] = EntityId::NONE;
         self.last_combat[i] = self.tick;
@@ -1634,10 +1585,6 @@ impl World {
     /// currently reads. See [`Objective`] and the note above.
     pub fn set_objective(&mut self, faction: Faction, objective: Objective) {
         self.objectives[faction.index()] = objective;
-    }
-
-    pub const fn combat_model(&self) -> crate::CombatModel {
-        self.combat_model
     }
 
     /// Rewrites `id`'s attributes.
@@ -1726,10 +1673,11 @@ impl World {
         &mut self, bearing_max_speed_raw: i32, bearing_accel_raw: i32,
     ) -> &[Event] {
         let rates = ArmRates { bearing_max_speed_raw, bearing_accel_raw };
-        // Read the model out before the loop so the iterator borrows nothing but
-        // `&'static` tables and the body is free to take `&mut self`.
-        let model = self.combat_model;
-        for &(name, body) in PROLOGUE.iter().chain(model_phases(model)).chain(EPILOGUE) {
+        // The iterator borrows nothing but `&'static` tables, so the body is
+        // free to take `&mut self`. It chose the middle table off the world's
+        // model until there was one; the property that made that safe is why the
+        // schedule is still three `&'static` slices rather than a method.
+        for &(name, body) in PROLOGUE.iter().chain(EMBODIED_PHASES).chain(EPILOGUE) {
             #[cfg(test)]
             if self.phase_trace_enabled { self.phase_trace.push(name); }
             #[cfg(not(test))]
@@ -1739,56 +1687,26 @@ impl World {
         &self.events
     }
 
-    /// Stores one version-1 articulated command without partially accepting a
-    /// malformed request. Grip changes remain pending until the next step.
-    pub fn submit_articulated_v1(
-        &mut self,
-        id: EntityId,
-        command: ArticulatedCommandV1,
-    ) -> SubmitArticulatedOutcome {
-        if self.combat_model.command_grammar() != CommandGrammar::Articulated {
-            return SubmitArticulatedOutcome::NotStored(CommandReject::WrongModel);
-        }
-        let i = match self.resolve(id) {
-            Some(i) => i,
-            None => return SubmitArticulatedOutcome::NotStored(CommandReject::StaleEntity),
-        };
-        let rejection = validate_articulated(command)
-            .err()
-            .map(CommandReject::OutOfRange)
-            .or_else(|| self.resulting_grips(i, command.grips).err());
-        let stored = match rejection {
-            None => command,
-            Some(_) => self.neutral_articulated(i),
-        };
-        self.articulated_command[i] = Some(stored);
-        self.next_decision[i] = self.tick + self.stats[i].decision_period() as u32;
-        SubmitArticulatedOutcome::Stored { command: stored, rejection }
-    }
-
     /// The arm target the actuator integrates towards, as a **world** bearing.
     ///
-    /// The two models read `ArmTarget::bearing` in different frames and this is
-    /// the one place in the tick where that difference exists. The stored
-    /// `ArmState` keeps a world bearing under both, because that is what the
-    /// geometry, the contact phase and the pose publication all read; storing a
-    /// relative angle would make the published hand depend on a yaw every
-    /// reader had to re-apply.
+    /// A submitted `ArmTarget::bearing` is measured from the torso and this is
+    /// one of the two places in the tick that knows it -- `world_move_dir` below
+    /// is the other. The stored `ArmState` keeps a world bearing, because that
+    /// is what the geometry, the contact phase and the pose publication all
+    /// read; storing a relative angle would make the published hand depend on a
+    /// yaw every reader had to re-apply.
     ///
     /// The command is relative, the state is absolute, and the conversion
     /// happens once on the way in -- the same shape as the pose module's
-    /// world-space conversion on the way out, and for the same reason.
+    /// world-space conversion on the way out, and for the same reason. The
+    /// retired model read the bearing absolutely and took neither branch;
+    /// [`crate::EmbodiedCommandV1`] carries what that choice cost and bought.
     fn world_arm_target(&self, i: usize, limb: usize, target: ArmTarget) -> ArmTarget {
-        match self.combat_model.command_frame() {
-            CommandFrame::World => target,
-            CommandFrame::Torso => {
-                let turned = ArmTarget {
-                    bearing: self.body_yaw[i].angle + target.bearing,
-                    ..target
-                };
-                self.reachable_arm_target(i, limb, turned)
-            }
-        }
+        let turned = ArmTarget {
+            bearing: self.body_yaw[i].angle + target.bearing,
+            ..target
+        };
+        self.reachable_arm_target(i, limb, turned)
     }
 
     /// The nearest target the arm can actually hold.
@@ -1833,22 +1751,17 @@ impl World {
 
     /// The requested movement direction, in world space.
     ///
-    /// Under [`CommandFrame::Torso`] the vector is read in the body frame, so
-    /// `W` is `(1, 0)` at every yaw and the client stops needing to know which
-    /// way the body faces in order to drive it. The rotation is the ordinary
-    /// one: forward is `(cos yaw, sin yaw)` and left is `(-sin yaw, cos yaw)`.
+    /// The vector arrives in the body frame, so `W` is `(1, 0)` at every yaw and
+    /// the client stops needing to know which way the body faces in order to
+    /// drive it. The rotation is the ordinary one: forward is
+    /// `(cos yaw, sin yaw)` and left is `(-sin yaw, cos yaw)`.
     fn world_move_dir(&self, i: usize, requested: Vec2) -> Vec2 {
-        match self.combat_model.command_frame() {
-            CommandFrame::World => requested,
-            CommandFrame::Torso => {
-                let yaw = self.body_yaw[i].angle;
-                let (cos, sin) = (yaw.cos(), yaw.sin());
-                Vec2::new(
-                    requested.x * cos - requested.y * sin,
-                    requested.x * sin + requested.y * cos,
-                )
-            }
-        }
+        let yaw = self.body_yaw[i].angle;
+        let (cos, sin) = (yaw.cos(), yaw.sin());
+        Vec2::new(
+            requested.x * cos - requested.y * sin,
+            requested.x * sin + requested.y * cos,
+        )
     }
 
     /// Stores one version-1 embodied command, on the same terms.
@@ -1873,9 +1786,6 @@ impl World {
         command: crate::EmbodiedCommandV1,
     ) -> crate::SubmitEmbodiedOutcome {
         use crate::{EmbodiedCommandV1, SubmitEmbodiedOutcome};
-        if self.combat_model.command_grammar() != CommandGrammar::Embodied {
-            return SubmitEmbodiedOutcome::NotStored(CommandReject::WrongModel);
-        }
         let i = match self.resolve(id) {
             Some(i) => i,
             None => return SubmitEmbodiedOutcome::NotStored(CommandReject::StaleEntity),
@@ -1908,9 +1818,6 @@ impl World {
         field: crate::CommandField,
     ) -> crate::SubmitEmbodiedOutcome {
         use crate::{EmbodiedCommandV1, SubmitEmbodiedOutcome};
-        if self.combat_model.command_grammar() != CommandGrammar::Embodied {
-            return SubmitEmbodiedOutcome::NotStored(CommandReject::WrongModel);
-        }
         let i = match self.resolve(id) {
             Some(i) => i,
             None => return SubmitEmbodiedOutcome::NotStored(CommandReject::StaleEntity),
@@ -1927,69 +1834,45 @@ impl World {
         SubmitEmbodiedOutcome::Stored { command: stored, rejection: Some(rejection) }
     }
 
-    /// Byte-boundary companion for a payload whose raw range validation failed
-    /// before an `ArticulatedCommandV1` could be constructed.
-    pub fn submit_articulated_fallback_v1(
-        &mut self,
-        id: EntityId,
-        field: crate::CommandField,
-    ) -> SubmitArticulatedOutcome {
-        if self.combat_model.command_grammar() != CommandGrammar::Articulated {
-            return SubmitArticulatedOutcome::NotStored(CommandReject::WrongModel);
-        }
-        let i = match self.resolve(id) {
-            Some(i) => i,
-            None => return SubmitArticulatedOutcome::NotStored(CommandReject::StaleEntity),
-        };
-        let rejection = CommandReject::OutOfRange(field);
-        let stored = self.neutral_articulated(i);
-        self.articulated_command[i] = Some(stored);
-        self.next_decision[i] = self.tick + self.stats[i].decision_period() as u32;
-        SubmitArticulatedOutcome::Stored { command: stored, rejection: Some(rejection) }
-    }
-
     // ---------------------------------------------------------------- internals
 
     /// Records what each arm asked its elbow plane to be, leaving `held` alone.
     ///
-    /// Guarded on the column rather than on the model, because the guard's job
-    /// is to keep an unallocated column unindexed and `elbow_plane` is empty for
-    /// exactly the models that do not have one. Both submission paths go through
-    /// here so there is one place the request lands.
+    /// Both submission paths go through here so there is one place the request
+    /// lands. It was guarded against a model with no plane column; every world
+    /// that can be built now allocates one, so the guard is gone rather than
+    /// left as a test that cannot fail.
     fn write_commanded_plane(&mut self, i: usize, plane: [Angle; 2]) {
-        if !self.combat_model.has_swing_plane() { return; }
         for slot in 0..2 {
             self.elbow_plane[i][slot].commanded = plane[slot];
         }
     }
 
+    /// The command a slot falls back to: no step, no reach, no effort, and the
+    /// torso where it already is.
+    ///
+    /// **"Ahead" is not one number, and this wrote the wrong one.** An arm
+    /// bearing is measured *from* the torso and `World::world_arm_target` adds
+    /// the yaw back on the way in, so storing `body_yaw` in the bearing asked a
+    /// neutral arm for twice it. It was inert, because a neutral command carries
+    /// zero effort and the actuator moves nothing without authority, and it was
+    /// not invisible: `articulated_targets` publishes the pose this command
+    /// names, and a slot nobody had commanded published a target hand a whole
+    /// turn off. The retired absolute frame is where the yaw belonged, and it
+    /// went with the frame.
     fn neutral_articulated(&self, i: usize) -> ArticulatedCommandV1 {
         let yaw = self.body_yaw[i].angle;
-        // **"Ahead" is not one number, and this wrote the wrong one under one of
-        // the two frames.** An arm bearing is absolute under
-        // `CommandFrame::World`, so `body_yaw` is the way the body is already
-        // facing; it is measured *from* the torso under `Torso`, where
-        // `World::world_arm_target` adds the yaw back on the way in -- so
-        // storing the yaw here asked a neutral embodied arm for twice it. It
-        // was inert, because a neutral command carries zero effort and the
-        // actuator moves nothing without authority, and it was not invisible:
-        // `articulated_targets` publishes the pose this command names, and a
-        // slot nobody had commanded published a target hand a whole turn off.
-        let bearing = match self.combat_model.command_frame() {
-            CommandFrame::World => yaw,
-            CommandFrame::Torso => Angle::ZERO,
-        };
         let arm = ArmTarget {
-            bearing,
+            bearing: Angle::ZERO,
             height: crate::CombatHeight::MID,
             reach: Fx::ZERO,
             effort: Fx::ZERO,
         };
         ArticulatedCommandV1 {
             move_dir: Vec2::ZERO,
-            // The torso's own world yaw under both frames -- a torso measured
-            // relative to itself would say nothing -- so this one keeps the yaw
-            // where the arm bearing above stopped taking it.
+            // The torso's own world yaw -- a torso measured relative to itself
+            // would say nothing -- so this one keeps the yaw where the arm
+            // bearing above stopped taking it.
             body_yaw: yaw,
             intent: Intent::Hold,
             arms: [arm; 2],
@@ -2455,7 +2338,7 @@ mod tests {
         scenario.combat_specs.as_mut().unwrap().equipment.push(shield);
         scenario.units[1].articulated.as_mut().unwrap().equipment = [Some(4), None];
         assert_eq!(crate::combat::spec::validate_construction(
-            scenario.combat_model, scenario.combat_specs.as_ref(), &scenario.units,
+            scenario.combat_specs.as_ref(), &scenario.units,
         ), Err(crate::CombatSpecError::GripConflict));
 
         let mut scenario = Scenario::embodied_duel();
@@ -2470,7 +2353,7 @@ mod tests {
         scenario.units[0].articulated.as_mut().unwrap().equipment = [Some(4), Some(5)];
         scenario.units[0].loadout = Loadout::pair(ActionKind::Sword, ActionKind::Club);
         assert_eq!(crate::combat::spec::validate_construction(
-            scenario.combat_model, scenario.combat_specs.as_ref(), &scenario.units,
+            scenario.combat_specs.as_ref(), &scenario.units,
         ), Err(crate::CombatSpecError::GripConflict));
     }
 
@@ -3004,7 +2887,7 @@ mod tests {
         let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let expected: Vec<&'static str> = PROLOGUE.iter()
-            .chain(model_phases(world.combat_model))
+            .chain(EMBODIED_PHASES)
             .chain(EPILOGUE)
             .map(|&(name, _)| name)
             .collect();

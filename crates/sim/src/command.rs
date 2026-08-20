@@ -129,13 +129,31 @@ pub const EMBODIED_COMMAND_LAYOUT_VERSION: u16 = 2;
 /// structs happening to agree. Session 06's stance stayed derived, so it never
 /// arrived here at all.
 ///
-/// **The coordinate frame already differs, and no byte moved to do it.**
-/// `arms[..].bearing` and `move_dir` are read *relative to the torso* here and
-/// absolutely in `ArticulatedCommandV1`: `+x` is forward, `+y` is body-left, and
-/// a zero bearing holds the arm directly ahead at every yaw. Two contracts with
-/// identical offsets can still mean different things, which is the trap for a
-/// reader who diffs the byte tables and concludes they are the same.
-/// `CombatModel::command_frame` is where the difference lives.
+/// **The coordinate frame is the torso's, and no byte moved to make it so.**
+/// `arms[..].bearing` and `move_dir` are read *relative to the torso*: `+x` is
+/// forward, `+y` is body-left, and a zero bearing holds the arm directly ahead
+/// at every yaw. Identical offsets can still mean different things, which is the
+/// trap for a reader who diffs this byte table against
+/// [`ArticulatedCommandV1`]'s and concludes the two are the same contract.
+/// [`World::world_arm_target`] and [`World::world_move_dir`] are where the frame
+/// is applied, and they are the only two places in the tick that know about it.
+///
+/// **That frame is a mechanic rather than a convention, and the argument is kept
+/// here because the enum that carried it is gone.** The retired articulated
+/// contract read a bearing absolutely -- *body yaw moves the shoulders, it does
+/// not silently rewrite an absolute arm target* -- which was deliberate and had
+/// a cost the source material does not pay: **turning the body did not carry the
+/// sword**, so footwork and swing were two independent subsystems that happened
+/// to share a shoulder. Reading from the torso couples them. Turning the hips
+/// swings the weapon; reaching across the body costs bearing travel the torso
+/// could have supplied for free; and a body that must turn to bring its weapon
+/// round is a body whose stance can constrain its attack. Neither reading is
+/// wrong -- an absolute bearing is stable under yaw and a relative one is stable
+/// under the body -- which is why the choice is worth writing down rather than
+/// inferring from the offsets.
+///
+/// [`World::world_arm_target`]: crate::World
+/// [`World::world_move_dir`]: crate::World
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct EmbodiedCommandV1 {
     pub articulated: ArticulatedCommandV1,
@@ -201,14 +219,19 @@ impl EmbodiedCommandV1 {
 
 /// What a submitted command is, tagged by the grammar that produced it.
 ///
-/// The tag is the wire discriminant a replay stores: `1` articulated, `2`
-/// embodied. It is frozen, so a variant is appended and never renumbered --
-/// **including the one that is gone.** `0` was legacy and is not reused: a
-/// decoder that met it would otherwise read an old record as a new grammar, so
-/// the number stays retired and the codec refuses it by name.
+/// The tag is the wire discriminant a replay stores: `2` embodied. It is frozen,
+/// so a variant is appended and never renumbered -- **including the two that are
+/// gone.** `0` was legacy and `1` was articulated, and neither is reused: a
+/// decoder that met one would otherwise read an old record as a new grammar, so
+/// both numbers stay retired and `codec.rs` refuses them by number in
+/// `read_submitted_command`.
+///
+/// One variant, and it stays an enum for that reason. The tag is a wire fact
+/// this type is the in-memory shape of; flattening it to the payload would put
+/// the surviving number nowhere and leave the two retired ones with nothing to
+/// be retired *from*.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum SubmittedCommand {
-    Articulated(ArticulatedCommandV1),
     Embodied(EmbodiedCommandV1),
 }
 
@@ -228,6 +251,13 @@ pub enum CommandField {
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum CommandReject {
+    /// **Unproducible inside `sim` since the second body model was deleted**,
+    /// and kept anyway because it is a wire failure code: `crates/web` maps it
+    /// onto submission result `2` across the ABI, so removing the variant
+    /// would renumber a published contract to delete an arm no caller can
+    /// reach. Every submission path answered it when the world's grammar
+    /// disagreed with the payload; there is one grammar now, so nothing
+    /// disagrees.
     WrongModel,
     StaleEntity,
     MissingEquipment { arm: LimbSlot, slot: u8 },
@@ -235,11 +265,6 @@ pub enum CommandReject {
     UnknownLayout(u16),
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub enum SubmitArticulatedOutcome {
-    Stored { command: ArticulatedCommandV1, rejection: Option<CommandReject> },
-    NotStored(CommandReject),
-}
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ArticulatedPayloadError {

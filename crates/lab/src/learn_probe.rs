@@ -1009,7 +1009,7 @@ fn score_condition(
 ///
 /// And the playback is the value-level half of "a replay never loads the
 /// checkpoint": `Replay::play` takes a world and a recorded
-/// `SubmittedCommand::Articulated` stream and consults no policy of any kind.
+/// `SubmittedCommand::Embodied` stream and consults no policy of any kind.
 fn trial_of(result: &Rollout, replay: Option<&Replay>) -> Trial {
     Trial {
         shaped: learn::shaped_return(result),

@@ -120,7 +120,7 @@ pub(super) fn smart_60_entry(reflected: bool) -> Smart60Entry {
         (local_height / shown.standing_height).clamp(Fx::ZERO, Fx::ONE).raw())
         .expect("the observed legs centre is a legal height");
     // **The bearings go in unrotated, and that is a measurement rather than an
-    // oversight.** `CommandFrame::Torso` reads `ArmTarget::bearing` as an offset
+    // oversight.** The torso frame reads `ArmTarget::bearing` as an offset
     // from the yaw the body holds at submission, so a world bearing normally has
     // to have that yaw taken off it -- but every command here is built on
     // `neutral_articulated`, which asks for the yaw the body already has, and
@@ -274,7 +274,7 @@ pub(super) fn clinch_world() -> World {
 /// Face `yaw` and reach along it.
 ///
 /// **`yaw` is a world angle for the torso and no longer one for the arms**, and
-/// the difference matters on the first few ticks. Under `CommandFrame::Torso` an
+/// the difference matters on the first few ticks. Read from the torso an
 /// `ArmTarget::bearing` is an offset from the yaw the body is holding *at
 /// submission* -- not the yaw the same command asks for -- so writing `yaw` into
 /// both fields aimed the arm at twice it and swung the reaching hand away from
@@ -381,7 +381,7 @@ pub(super) fn step_into_contact(world: &mut World) -> u32 {
 ///
 /// Those words are now `(-19_151, 19_151)` and `436_667`. They read
 /// `(-14_040, 14_040)` and `441_359` while this fixture was seated on
-/// `CombatModel::Articulated`, and **what moved them is `reachable_extent`,
+/// the retired articulated model, and **what moved them is `reachable_extent`,
 /// not the frame.** An embodied arm may not be commanded past the annulus
 /// its two links span, and this target is outside it: the commanded
 /// `(bearing 13_013, height 14_563, reach 32_768)` is held as
@@ -535,8 +535,8 @@ pub(super) fn door_world(body: Body) -> World {
 /// the phase reads through `World::world_move_dir`.
 ///
 /// **`dir` is a world vector only because the yaw written below is zero.**
-/// `world_move_dir` rotates a requested direction by the body's yaw under
-/// `CommandFrame::Torso`, so the two agree exactly while `body_yaw` stays at
+/// `world_move_dir` rotates a requested direction by the body's yaw, because
+/// the vector arrives in the torso frame, so the two agree while `body_yaw` is
 /// `Angle::ZERO` -- which this command asks for on every call, and which the
 /// door fixtures never override. A fixture that turns a body and then leans
 /// would get its lean turned with it.

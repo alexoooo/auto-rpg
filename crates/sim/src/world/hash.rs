@@ -61,6 +61,26 @@ fn hash_exact_external_energy(h: &mut Hash64, rows: &[ExactExternalEnergyRow]) {
     }
 }
 
+/// The model byte [`World::articulated_state_digest`] writes into its prefix.
+///
+/// **A wire value rather than a discriminant, and frozen.** It was
+/// `CombatModel::Embodied as u8` until the enum was deleted. `EMBODIED_CORPUS_DIGEST`,
+/// `EMBODIED_GOLDEN_DIGEST`, `ARTICULATED_COMMAND_HASH` and both exact-law
+/// digests fold this stream, so the number is not free to be tidied to `0` or
+/// `1` on the grounds that there is only one model to name: five pins would move
+/// for a reason nobody predicted.
+const STATE_DIGEST_MODEL_TAG: u8 = 2;
+
+/// The byte the same stream writes ahead of each stored command's payload, to
+/// say which payload contract that command arrived under.
+///
+/// Frozen on [`STATE_DIGEST_MODEL_TAG`]'s terms and folded by the same five
+/// pins. It is a *separate* number from the model tag and happens to share its
+/// value: the model byte says which body is being hashed and this one says how
+/// wide the bytes after it are, and a session that gave the embodied body a
+/// third payload width would move this one alone.
+const STATE_DIGEST_PAYLOAD_TAG: u8 = 2;
+
 #[cfg(feature = "cartesian-recoil")]
 fn post_contact_hash_bytes(arm: ArmState) -> [u8; 13] {
     let mut bytes = [0u8; 13];
@@ -239,17 +259,10 @@ impl World {
 
     /// A state fingerprint carrying the byte grammar needed to compare it.
     pub fn state_digest(&self) -> crate::StateDigest {
-        match self.combat_model {
-            crate::CombatModel::Articulated => crate::StateDigest {
-                domain: crate::HashDomain::ArticulatedV1,
-                schema: 1,
-                value: self.articulated_state_digest(crate::CombatModel::Articulated, 1),
-            },
-            crate::CombatModel::Embodied => crate::StateDigest {
-                domain: crate::HashDomain::EmbodiedV1,
-                schema: 1,
-                value: self.articulated_state_digest(crate::CombatModel::Embodied, 2),
-            },
+        crate::StateDigest {
+            domain: crate::HashDomain::EmbodiedV1,
+            schema: 1,
+            value: self.articulated_state_digest(),
         }
     }
 
@@ -258,28 +271,29 @@ impl World {
     /// One implementation for two models rather than a second copy of a
     /// hundred-line byte grammar, because an embodied body is an articulated one
     /// plus a tail, and a copy is a second place for a column to be forgotten.
-    /// Two bytes differ before that tail, and both are tags rather than state:
-    /// the model byte in the prefix, and `payload_tag`, which says which payload
-    /// contract each stored command arrived under.
+    /// Two bytes differed before that tail, and both were tags rather than
+    /// state: the model byte in the prefix and the payload byte ahead of each
+    /// stored command. Both are now frozen constants -- see
+    /// [`STATE_DIGEST_MODEL_TAG`] and [`STATE_DIGEST_PAYLOAD_TAG`] -- rather than
+    /// parameters, because there is one model left to pass.
     ///
     /// **It stayed shared when the embodied body grew columns of its own, and
     /// the shape of the tail is why.** This comment used to say the first such
     /// column would end the sharing; what actually happened is that the floor,
     /// the legs and now the elbow plane all went *behind the model guard at the
-    /// end*, after every byte the articulated grammar writes. That keeps the
-    /// property the warning was protecting -- an articulated digest answers
-    /// exactly what it answered before any of them existed -- without a second
-    /// copy of the hundred lines above, and it is checked rather than asserted:
-    /// `an_embodied_only_column_cannot_move_an_articulated_digest` mutates each
-    /// one and watches only `EmbodiedV1` move.
-    ///
-    /// A `Legacy` world never reaches here; its digest is
-    /// [`World::legacy_core_hash`] and it allocates none of the columns below.
-    fn articulated_state_digest(&self, model: crate::CombatModel, payload_tag: u8) -> u64 {
+    /// end*, after every byte the articulated grammar writes. The guard is gone
+    /// with the model, but the ordering it produced is not a free choice: every
+    /// one of those columns is still appended after the shared prefix, because
+    /// the pinned digests were recorded against that order and weaving one of
+    /// them in would move five of them. It is checked rather than asserted:
+    /// `every_embodied_only_column_moves_its_own_digest_and_not_the_legacy_core`
+    /// mutates each one and watches the digest move while `legacy_core_hash`
+    /// stands still.
+    fn articulated_state_digest(&self) -> u64 {
         let mut h = Hash64::new();
         h.write_bytes(b"ARPG-STATE");
         h.write_u16(1);
-        h.write_u8(model as u8);
+        h.write_u8(STATE_DIGEST_MODEL_TAG);
         // Reserved now so v2-11 can activate the submitted-command
         // grammar without changing the prefix that declares it.
         h.write_u16(1);
@@ -290,7 +304,7 @@ impl World {
                 None => h.write_u8(0),
                 Some(command) => {
                     h.write_u8(1);
-                    h.write_u8(payload_tag);
+                    h.write_u8(STATE_DIGEST_PAYLOAD_TAG);
                     h.write_bytes(&command.payload_bytes());
                 }
             }
@@ -396,43 +410,42 @@ impl World {
             hash_exact_owners(&mut h, &self.exact_owners);
             hash_exact_external_energy(&mut h, self.exact_external_energy());
         }
-        // The floor each body is standing on, and **only for the model that has
-        // one**. This is the first byte the two grammars do not share, so it is
-        // appended last and behind the model rather than woven in: an
-        // articulated digest must answer exactly what it answered before terrain
-        // existed, and the guard is what makes that a property rather than a
-        // hope. `ground_z` is derived from position, so hashing it cannot make a
+        // The floor each body is standing on. This was the first byte the two
+        // grammars did not share, so it is appended last rather than woven in:
+        // the guard that made it conditional is gone with the second model, and
+        // the *position* it bought is not -- every pinned digest was recorded
+        // with these columns at the end, so moving one of them up into the
+        // shared prefix would re-record five pins for a tidier reading order.
+        // `ground_z` is derived from position, so hashing it cannot make a
         // digest disagree with the state -- it can only catch the column
         // drifting away from the position it is supposed to follow.
-        if matches!(model, crate::CombatModel::Embodied) {
-            for z in &self.ground_z {
-                h.write_i32(z.raw());
-            }
-            // The legs, after the floor they stand on and in declaration order.
-            // **Twist is absent on purpose**: it is `body_yaw.delta(hip_yaw)`,
-            // and both are already in this stream, so hashing it would be
-            // hashing the same fact twice and would let a future derivation
-            // change disagree with itself.
-            for stance in &self.stance {
-                h.write_u16(stance.hip_yaw.raw());
-                h.write_i32(stance.hip_yaw_speed_turns.raw());
-                h.write_i32(stance.hip_authority_residue.raw());
-                h.write_i32(stance.pelvis.raw());
-                h.write_u8(stance.step_left);
-            }
-            // The elbow planes, after the legs and in declaration order.
-            // **Both halves**, unlike `twist` above, because neither is derived
-            // from the other: `commanded` is what the last accepted command
-            // asked for and survives until the next decision, `held` is where
-            // the chase has got to, and a replay that reproduced only one of
-            // them would either forget the request between ticks or resume the
-            // chase from the wrong place. They are only equal once the arm has
-            // arrived.
-            for planes in &self.elbow_plane {
-                for plane in planes {
-                    h.write_u16(plane.commanded.raw());
-                    h.write_u16(plane.held.raw());
-                }
+        for z in &self.ground_z {
+            h.write_i32(z.raw());
+        }
+        // The legs, after the floor they stand on and in declaration order.
+        // **Twist is absent on purpose**: it is `body_yaw.delta(hip_yaw)`,
+        // and both are already in this stream, so hashing it would be
+        // hashing the same fact twice and would let a future derivation
+        // change disagree with itself.
+        for stance in &self.stance {
+            h.write_u16(stance.hip_yaw.raw());
+            h.write_i32(stance.hip_yaw_speed_turns.raw());
+            h.write_i32(stance.hip_authority_residue.raw());
+            h.write_i32(stance.pelvis.raw());
+            h.write_u8(stance.step_left);
+        }
+        // The elbow planes, after the legs and in declaration order.
+        // **Both halves**, unlike `twist` above, because neither is derived
+        // from the other: `commanded` is what the last accepted command
+        // asked for and survives until the next decision, `held` is where
+        // the chase has got to, and a replay that reproduced only one of
+        // them would either forget the request between ticks or resume the
+        // chase from the wrong place. They are only equal once the arm has
+        // arrived.
+        for planes in &self.elbow_plane {
+            for plane in planes {
+                h.write_u16(plane.commanded.raw());
+                h.write_u16(plane.held.raw());
             }
         }
         h.finish()

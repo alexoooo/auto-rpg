@@ -3805,7 +3805,8 @@ mod tests {
     ///
     /// **The subject of those tests is the contact solver, which is
     /// model-independent**: `resolve_contact` sits in `EMBODIED_PHASES` exactly
-    /// where it sat in `ARTICULATED_PHASES`. What the model decides is only
+    /// where it sat in the retired articulated schedule. What the model decided
+    /// was only
     /// which configuration gets frozen -- one particular strike, at one
     /// particular tick -- which is why the session that deleted the articulated
     /// fixture reseated this and re-recorded its words rather than deleting it.
@@ -3919,7 +3920,15 @@ mod tests {
         let mut world = before.expect("captured strike lost contact");
         world.events.clear(); world.expire_unanswered_decisions(); world.retain_contact_entry();
         world.apply_articulated_movement(); world.record_contact_locomotion(); world.separate();
-        world.drive_body_yaw(); world.apply_articulated_grips();
+        // **`drive_stance` and not `drive_body_yaw`, which is what stood here.**
+        // The reconstruction has to be the schedule this world actually runs or
+        // it is a different tick reporting the twenty-two assertions below. The
+        // articulated phase was the identity for this fixture -- neither body
+        // turns and neither steps -- which is why the wrong row stood and why
+        // swapping it moves no recorded word here; on a fixture that turns it
+        // would not be, and the row would have been a silent divergence rather
+        // than a visible one.
+        world.drive_stance(); world.apply_articulated_grips();
         world.drive_articulated_arms(max_speed, accel);
         world.derive_articulated_geometry(); world.clamp_contact_entry();
         let contact = world.contact.take().unwrap();

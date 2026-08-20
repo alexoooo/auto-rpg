@@ -966,13 +966,14 @@ pub const ARTICULATED_PROJECTILE_REMAINING_RANGE: usize = 11;
 
 // -------------------------------------------------------- the embodied stance
 //
-// What the legs are doing, for the one combat model that has any. A fifth
-// publication and not six more pose columns, on the region section's argument
-// exactly: a pose row is written for every articulated body and a stance exists
-// only under `CombatModel::Embodied`, so folding these in would widen every row
-// of every fight to carry words most of them do not have -- and it would move
-// [`POSE_LAYOUT_VERSION`], which is a version about pose columns and has nothing
-// to say about hips.
+// What the legs are doing. A fifth publication and not six more pose columns,
+// on the region section's argument exactly: a pose row is written for every
+// articulated body and a stance existed only under the embodied model, so
+// folding these in would have widened every row of every fight to carry words
+// most of them did not have -- and it would still move [`POSE_LAYOUT_VERSION`],
+// which is a version about pose columns and has nothing to say about hips. One
+// model is left and every body in it has legs, which retires the first half of
+// that argument and not the second.
 //
 // The row is [`sim::StanceView`] word for word, and the host derives none of it.
 // `twist_raw` in particular is the sim's own derived word: `StanceState` refuses
@@ -1292,8 +1293,8 @@ const ARENA_FIGHTERS: usize = 2;
 //
 // It went for two reasons and not one. The schedule wrote **world** bearings --
 // `robust_strike_schedule_command` derived them from a declared spawn offset --
-// and this arena is `CombatModel::Embodied`, where a bearing is read from the
-// torso; the same numbers are a different swing, so the pinned ledger would have
+// and this arena reads a bearing from the torso; the same numbers are a
+// different swing, so the pinned ledger would have
 // had to be re-recorded to say anything, and a re-recorded pin proves nothing
 // about the session that moved it. And the preset lived in
 // `crates/policy/src/articulated_tactics.rs`, **which has since been deleted
@@ -1831,11 +1832,13 @@ thread_local! {
     /// the same slot order `POSES` is written in. A fixed array for the sixth
     /// time and for the sixth time the same reason.
     ///
-    /// **A zero-length section is the ordinary case, not the failure case.**
-    /// Only `CombatModel::Embodied` has legs, so a Legacy or Articulated world
-    /// publishes nothing here on every tick of every fight -- which is a
-    /// different fact from publishing no section at all, and the length word is
-    /// what carries the difference.
+    /// **A zero-length section is an ordinary answer, not the failure case.**
+    /// It was the *usual* answer while models without legs existed: such a world
+    /// published nothing here on every tick of every fight. Only one model is
+    /// left and it has legs, so the length word now reads zero when there is no
+    /// world rather than when there are no legs -- which is still a different
+    /// fact from publishing no section at all, and the length word is still what
+    /// carries the difference.
     static EMBODIED_STANCES: RefCell<[u32; MAX_EMBODIED_STANCE * EMBODIED_STANCE_STRIDE]> =
         const { RefCell::new([0; MAX_EMBODIED_STANCE * EMBODIED_STANCE_STRIDE]) };
     /// How many *rows* of `EMBODIED_STANCES` are live, not how many words.
@@ -3166,8 +3169,10 @@ impl Sim {
                 };
                 // There is no `observe_embodied`, and the absence is the point:
                 // an embodied body produces an `ArticulatedObservation` exactly
-                // as an articulated one does, because
-                // `CombatModel::has_articulated_columns` answers true for both.
+                // as an articulated one did. The observation was never per model
+                // -- the columns it reads were owned by a predicate both models
+                // answered true -- which is why deleting the second one took
+                // nothing out of this line.
                 let obs = self.world.observe_articulated(id);
                 let command = self.policies[faction.index()].decide(&obs);
                 // The outcome is discarded here where the runner counts it, on
@@ -3553,14 +3558,14 @@ impl Sim {
     /// arena *is* rather than from taste. **Until v2-ui-08 the first of them was
     /// the model**: this loop submitted `ArticulatedCommandV1` and the loop above
     /// submitted `EmbodiedCommandV1`, over two policy registries and two
-    /// vocabularies. `Scenario::duel_from` builds `CombatModel::Embodied` now,
+    /// vocabularies. `Scenario::duel_from` has built the surviving model since,
     /// so both loops speak one grammar and what is left below is about roster,
     /// stopping and publication.
     ///
-    /// **The observation is the articulated one under both grammars**, which is
-    /// not a leftover: `EmbodiedPolicy::decide` takes an
-    /// `ArticulatedObservation` too. A body's *view* did not change when its
-    /// command frame did.
+    /// **The observation is still the articulated one**, which is not a
+    /// leftover: `EmbodiedPolicy::decide` takes an `ArticulatedObservation` too,
+    /// and it did under the deleted seam as well. A body's *view* did not change
+    /// when its command frame did.
     ///
     /// **The legacy event feed is cleared and never filled.** The articulated
     /// arm of `World::step` emits exactly one `Event` variant, `Event::Death`,
@@ -3624,7 +3629,7 @@ impl Sim {
                 // The outcome is deliberately discarded here where the runner
                 // counts it: a refusal stores the neutral command atomically, so
                 // the fight carries on either way, and the page's channel for
-                // "the world refused something" is `submit_articulated`'s packed
+                // "the world refused something" is [`submit_embodied`]'s packed
                 // word rather than a counter nobody publishes.
                 let _ = self.world.submit_embodied_v1(id, command);
                 if side == Faction::Heroes {
@@ -3872,8 +3877,8 @@ impl Sim {
     /// an analogue stick still steers proportionally: half deflection is half
     /// the error and therefore a slower turn.
     ///
-    /// **The movement pair needs no rotation at all.** Under
-    /// `CommandFrame::Torso` it is read in the body frame, `+x` forward and `+y`
+    /// **The movement pair needs no rotation at all.** An embodied command's
+    /// walk vector is read in the body frame, `+x` forward and `+y`
     /// body-left, and `World::world_move_dir` performs exactly the mix the three
     /// lines that used to be here performed by hand. The two now agree by
     /// construction rather than by both having been written correctly.
@@ -5290,12 +5295,14 @@ fn write_articulated_projectile_buffer(
 /// Fills the stance buffer from every live embodied body, in the slot order
 /// [`write_pose_buffer`] walks, and answers `(rows, dropped)`.
 ///
-/// **It does not ask which combat model is installed, and that is the point.**
-/// `World::stances` answers nothing at all for a model with no legs, so a Legacy
-/// or Articulated world writes its zero rows through the same code an embodied
-/// one writes its roster through. A host that branched on `has_stance` first
-/// would have two paths where the sim has one, and the second path is the one
-/// nothing ever runs.
+/// **It never asked which combat model was installed, and that was the point.**
+/// `World::stances` answered nothing at all for a model with no legs, so such a
+/// world wrote its zero rows through the same code an embodied one writes its
+/// roster through. A host that had branched on a `has_stance` predicate first
+/// would have had two paths where the sim has one, and the second path is the
+/// one nothing ever ran. The predicate is gone with the models that made it
+/// answer twice; the shape of this function is the part worth keeping, because
+/// it is what made the deletion cost nothing here.
 fn write_embodied_stance_buffer(
     sim: &Sim,
     out: &mut [u32; MAX_EMBODIED_STANCE * EMBODIED_STANCE_STRIDE],
@@ -5529,9 +5536,8 @@ pub extern "C" fn init(seed: u32) {
 /// `Scenario::articulated_duel`, and the argument against reseating it was that
 /// the boundary clinch -- `CLINCH_YAW`, `CLINCH_WALK`, `CLINCH_SWEEP` and the
 /// `CLINCH_CAP_TICK` that `client/test/wasm-memory.test.mjs` mirrors -- is a
-/// hand-written byte table of **world-frame** bearings, which
-/// `CombatModel::command_frame` reads relative to the torso under the embodied
-/// grammar. That much is true and still measures: the identical table on this
+/// hand-written byte table of **world-frame** bearings, which the surviving
+/// grammar reads relative to the torso. That much is true and still measures: the identical table on this
 /// duel resolves **zero** contacts in 400 ticks. What was wrong was the
 /// conclusion drawn from it. The translation that was tried held the arms
 /// still, which is the drive's own *control* condition -- `CLINCH_SWEEP`'s
@@ -6065,13 +6071,16 @@ pub extern "C" fn submit_embodied(entity_index: u32, entity_generation: u32) -> 
         bytes[4..EMBODIED_COMMAND_BYTES].try_into().unwrap();
     let id = EntityId::new(entity_index, entity_generation);
     with_sim(submit_result(0, 3, 0, 0), |sim| {
-        // Ahead of the structural check and not after it, which is what makes
-        // the refusal name the model rather than the bytes: a module that
-        // cannot act on an embodied command at all owes that answer even when
-        // the command it was handed is also malformed.
-        if sim.world.combat_model() != sim::CombatModel::Embodied {
-            return submit_result(0, 2, 0, 0);
-        }
+        // **A model check stood here, ahead of the structural one, and it went
+        // with the second model.** Its ordering was the whole of it: a module
+        // that could not act on an embodied command at all owed that answer even
+        // when the command it was handed was also malformed, so a boundary that
+        // read the bytes first would have answered `1` and named the payload for
+        // what was a model mismatch. The ordering is written down rather than
+        // deleted because it is what a *third* model would have to decide again.
+        // The reason byte is not reused either: `2` still means "wrong model" in
+        // the packed word, and the `WrongModel` arm below still answers it for a
+        // rejection `sim` can still spell.
         if sim.world.view(id).is_none() {
             return submit_result(0, 3, 0, 0);
         }
@@ -8090,10 +8099,11 @@ const STREAM_DIGEST_TICKS: u32 = 20;
 ///
 /// **It was `Scenario::articulated_duel` and the two spawn edits are unchanged
 /// across the move**, which is what makes the digest's move readable as one
-/// cause. Both scenarios are the same fighter, the same brute, the same open
-/// `24x16` floor and the same spec table -- `embodied_duel` is built *from*
-/// `articulated_duel` and overwrites the name and the model word -- so the only
-/// difference the stream can see is the model.
+/// cause. Both scenarios were the same fighter, the same brute, the same open
+/// `24x16` floor and the same spec table -- `embodied_duel` was built *from*
+/// `articulated_duel`, overwriting the name and the model word, until session 05
+/// inlined the one into the other -- so the only difference the stream could see
+/// was the model.
 ///
 /// **The fighter stands east of the brute, which is the point of the swap.**
 /// Every body spawns facing east, and both the body yaw and the arm bearings
@@ -8361,10 +8371,10 @@ fn drive_stream_digest_script(mut feed: impl FnMut(StreamPublication)) {
     // the fighter walks west onto it.
     //
     // **The zero means something else than it did, and the byte did not move.**
-    // `CombatModel::command_frame` reads `move_dir` and every arm bearing
-    // relative to the torso under the embodied grammar and absolutely under the
-    // articulated one, so `Angle::ZERO` was world east here and is now straight
-    // ahead, and `west` is a torso-relative axis rather than a compass point.
+    // The embodied grammar reads `move_dir` and every arm bearing relative to
+    // the torso where the retired articulated one read them absolutely, so
+    // `Angle::ZERO` was world east here and is now straight ahead, and `west` is
+    // a torso-relative axis rather than a compass point.
     // The script asks for no rotation either way and still gets its contact out
     // of the placement, but it is not the same fight -- which is one of the four
     // routes the `ARTICULATED_STREAM_DIGEST` re-record names, and the reason a
@@ -8591,10 +8601,11 @@ mod tests {
     ///
     /// **The arm bearings are torso-relative and the body yaws are not**, which
     /// is the whole of what porting this corpus off the articulated grammar
-    /// took: `World::world_arm_target` adds the body's own yaw back on under
-    /// `CommandFrame::Torso`, so the westward half of each pair asked for a
-    /// full turn away from its opponent when it kept `Angle::HALF` in both
-    /// fields. `body_yaw` stays a world angle under both frames.
+    /// took: `World::world_arm_target` adds the body's own yaw back on, an arm
+    /// bearing being measured from the torso, so the westward half of each pair
+    /// asked for a full turn away from its opponent when it kept `Angle::HALF`
+    /// in both fields. `body_yaw` was a world angle under both frames and still
+    /// is one.
     fn write_high_water_command(
         yaw: Angle,
         height: sim::CombatHeight,
@@ -9854,12 +9865,12 @@ mod tests {
     //
     // **It was an articulated drive on `init_articulated_test` and is an
     // embodied one on [`init_embodied_test`], and the translation is two
-    // fields.** Under `CommandFrame::Torso` the walk vector is read in the body
-    // frame and an arm bearing is measured from the torso, so `CLINCH_WALK`'s
-    // per-row world vector becomes one torso-forward magnitude for both rows and
-    // the arm bearings become offsets from zero. `body_yaw` is unchanged: a
-    // torso measured relative to itself would say nothing, so it is a world
-    // angle under both frames.
+    // fields.** The embodied grammar reads the walk vector in the body frame and
+    // measures an arm bearing from the torso, so `CLINCH_WALK`'s per-row world
+    // vector becomes one torso-forward magnitude for both rows and the arm
+    // bearings become offsets from zero. `body_yaw` is unchanged: a torso
+    // measured relative to itself would say nothing, so it was a world angle
+    // under both frames.
 
     /// Tick-zero bearing from each duel row to the other, as
     /// `Angle::raw`. The duel spawns at `(7,6)` and `(17,10)`, so
@@ -10009,10 +10020,10 @@ mod tests {
             //
             // Zero rather than `CLINCH_YAW[row]`, and that is the frame rather
             // than a neutral value: `World::world_arm_target` adds the body's
-            // own yaw back on under `CommandFrame::Torso`, so a bearing of the
-            // body yaw here would ask for twice it -- the identical mistake
-            // `World::neutral_articulated` records having made in the other
-            // direction.
+            // own yaw back on, an arm bearing being measured from the torso, so
+            // a bearing of the body yaw here would ask for twice it -- the
+            // identical mistake the world's own neutral command records having
+            // made in the other direction.
             let arm_bearing = if arm == 23 { 0 } else { offset as u16 };
             bytes[arm..arm + 2].copy_from_slice(&arm_bearing.to_le_bytes());
             bytes[arm + 2..arm + 6].copy_from_slice(&Fx::HALF.raw().to_le_bytes());
@@ -10252,9 +10263,10 @@ mod tests {
             effort: Fx::ZERO,
         };
         // **Through the embodied envelope since v2-ui-08**, because
-        // `Scenario::duel_from` builds `CombatModel::Embodied` and an arena
-        // world answers `WrongModel` to an articulated payload. The bearing is
-        // `Angle::ZERO` under both frames here only because `reach` is zero and
+        // `Scenario::duel_from` moved onto the embodied model and an arena world
+        // answered `WrongModel` to an articulated payload from that day on. The
+        // bearing is `Angle::ZERO` under both frames here only because `reach`
+        // is zero and
         // the arm is not being aimed: what this edge is about is the release
         // verb, which `EmbodiedCommandV1` carries through unchanged.
         write_embodied(sim::EmbodiedCommandV1::new(sim::ArticulatedCommandV1 {
@@ -10613,9 +10625,9 @@ mod tests {
         // artifact built before the section existed.
         //
         // **It was `an_articulated_module_publishes_a_zero_length_stance_section_and_not_no_section`
-        // and it has lost the world it asked, not the question.** Only
-        // `CombatModel::Embodied` has legs, so a legless world published an
-        // empty section -- and there is no legless world left to install. The
+        // and it has lost the world it asked, not the question.** Only the
+        // embodied model had legs, so a legless world published an empty section
+        // -- and there is no legless world left to install. The
         // remaining producer of an empty section is the arm of [`publish`]
         // written for exactly this: a refused install leaves no `Sim` at all,
         // and that arm zeroes every length and wipes every row rather than
@@ -12490,7 +12502,7 @@ mod tests {
     /// wire and the digest's rule is every published word of every publication,
     /// so a section reaches it whether or not the fixture has a row for it. This
     /// fixture had none at the time -- it was `Scenario::articulated_duel` and
-    /// only `CombatModel::Embodied` has legs -- so the new tail was a zero length
+    /// only the embodied model had legs -- so the new tail was a zero length
     /// and a zero drop count on each of the twenty ticks, and **their presence
     /// was the change**. The shape printer below reports the same counts it did
     /// before: two poses and ten regions every tick, one event row on ticks 3
@@ -12555,8 +12567,8 @@ mod tests {
     ///    forearm collider added were published empty on every row of every tick
     ///    of the old script.
     /// 3. `ground_z` and the elbow planes reach the pose words.
-    /// 4. **The fight itself is different**, because `Angle::ZERO` is world east
-    ///    under `CommandFrame::World` and straight ahead under `Torso`. The
+    /// 4. **The fight itself is different**, because `Angle::ZERO` was world
+    ///    east under the articulated frame and is straight ahead in this one. The
     ///    default build's contact ticks go from 3 and 5 to 0, 3, 4, 5 and 6.
     ///
     /// Nothing in `crates/sim` changed and nothing in `crates/policy` can reach
@@ -13605,17 +13617,19 @@ mod tests {
     fn init_carved(cols: u16, rows: u16, tiles: Vec<u8>, mut units: Vec<UnitSpec>) {
         // Dressed like every other body on every floor this module opens.
         //
-        // **There is no model parameter here and there deliberately is not one.**
-        // A Legacy world is completely inert under this host: `Sim::advance`
-        // submits through `World::submit_embodied_v1`, which refuses anything
-        // that is not embodied, so nobody would think, move or fight on one. A
-        // fixture that opened one would be a floor plan with statues on it.
+        // **There was no model parameter here and there deliberately was not
+        // one; session 05 then deleted the field the argument was about.** A
+        // world of any other model was completely inert under this host --
+        // `Sim::advance` submits through `World::submit_embodied_v1`, which
+        // refused anything that was not embodied, so nobody would think, move or
+        // fight on one and a fixture that opened one would have been a floor
+        // plan with statues. Kept because it is the answer a second model would
+        // have to earn again before this helper grew that parameter.
         for unit in &mut units {
             equip_articulated(unit);
         }
         let scenario = Scenario {
             name: "carved".to_string(),
-            combat_model: sim::CombatModel::Embodied,
             combat_specs: Some(sim::CombatSpecTableV1::fixtures()),
             dungeon: Dungeon::from_tiles(cols, rows, tiles),
             units,
@@ -14109,11 +14123,15 @@ mod tests {
     /// its own identity domain.
     ///
     /// **The prop third of it is empty on this floor, and that is `crates/sim`'s
-    /// decision rather than this host's.** `World::try_new` builds barrels,
-    /// pottery, webs and water only for `CombatModel::Legacy` -- written there
-    /// as an exhaustive match so that a third model had to decide rather than
-    /// inherit an answer -- and the model `init` opens decided no. So the whole
-    /// prop layer is absent from the browser game until that decision is
+    /// decision rather than this host's.** `generate_dungeon_props` builds
+    /// barrels, pottery, webs and water behind a `dressed` flag that is `false`,
+    /// and its own comment carries the argument: breaking a prop died with the
+    /// legacy blade, while prop collision and web-and-water slowing both still
+    /// work for any body, so dressing the floor today would stand unbreakable
+    /// furniture on it. **This paragraph said the gate was a match on
+    /// `CombatModel::Legacy`, and it was wrong** -- the model dropped out of that
+    /// decision when the legacy one was deleted and the flag stayed behind. So
+    /// the whole prop layer is absent from the browser game until the flag is
     /// revisited, and this test says so in place rather than quietly asserting
     /// two thirds of its own name.
     #[test]
@@ -15747,15 +15765,15 @@ mod tests {
     // bytes first would answer `1` and name the payload for what is a model
     // mismatch.
     //
-    // The check it guarded is still in [`submit_embodied`] and still ahead of
-    // the structural one, and the argument for that ordering is written where
-    // the code is. What is gone is any world that can reach it: every scenario
-    // this module can install answers the same grammar, so the wrong-model arm
-    // is unreachable from the boundary and a test asserting it would have to
-    // construct a world no export opens. That is a refusal the page can no
-    // longer provoke, not a guard that stopped being run -- and it is the same
-    // shape as the `WRONG_MODEL` assertion `tools/wasm_check.js` lost when
-    // `submit_articulated` went.
+    // **The check it guarded has since gone as well, and the ordering argument
+    // is what outlived both.** That argument is recorded where the check stood,
+    // in [`submit_embodied`], because it is the thing a third model would have
+    // to decide again: name the model before reading the bytes, or a mismatch
+    // gets reported as a malformed payload. What is gone is any world that could
+    // reach it -- every scenario this module can install answers one grammar --
+    // so this was a refusal the page can no longer provoke rather than a guard
+    // that stopped being run, and it is the same shape as the `WRONG_MODEL`
+    // assertion `tools/wasm_check.js` lost when `submit_articulated` went.
 
     /// The whole of the submission ladder, now that there is one submission.
     ///

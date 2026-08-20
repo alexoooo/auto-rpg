@@ -10,7 +10,7 @@ pub const BODY_YAW_ACCEL_RAW: i32 = 91;
 
 // ---------------------------------------------------------------- stance
 //
-// The legs' constraint on the torso, for `CombatModel::Embodied`. Legs are
+// The legs' constraint on the torso. Legs are
 // automatically controlled and there is no leg command; what these five
 // constants buy is the *cost* the legs impose, which is the whole of what the
 // source material's footwork is.

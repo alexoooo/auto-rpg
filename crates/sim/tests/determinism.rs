@@ -307,11 +307,10 @@ mod embodied {
     /// and until this script existed nothing in `crates/sim` had ever driven an
     /// embodied body into a blow.
     ///
-    /// Both directions here are read in the torso frame -- that is what
-    /// `CombatModel::Embodied` means by `CommandFrame::Torso` -- so forward is
-    /// `(1, 0)` at every yaw and the arms swing about the body's own line.
-    /// `heading` therefore only has to reach `body_yaw`, which is world space
-    /// under both frames.
+    /// Both directions here are read in the torso frame -- the one frame the
+    /// surviving command grammar has -- so forward is `(1, 0)` at every yaw and
+    /// the arms swing about the body's own line. `heading` therefore only has
+    /// to reach `body_yaw`, which is world space either way.
     fn closing(tick: u32, heading: Vec2) -> EmbodiedCommandV1 {
         let side = if (tick / SWING_PERIOD) % 2 == 0 { SWING_RAW } else { -SWING_RAW };
         let arm = ArmTarget {

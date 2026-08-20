@@ -347,12 +347,18 @@ pub(crate) fn combat_specs_into<S: ScenarioByteSink>(
     }
 }
 
+/// Every construction check a scenario owes before a world exists.
+///
+/// **It took the combat model as its first argument and ignored it** -- the body
+/// was `let _ = model;` for as long as two models both had articulated columns,
+/// which is to say for the whole life of the parameter. It is dropped rather
+/// than kept as a marker: a parameter no callee reads is a parameter six call
+/// sites have to invent a value for, and the invented value is what makes a
+/// later reader think the check is model-dependent.
 pub fn validate_construction(
-    model: crate::CombatModel,
     table: Option<&CombatSpecTableV1>,
     units: &[crate::UnitSpec],
 ) -> Result<(), CombatSpecError> {
-    let _ = model;
     let table = table.ok_or(CombatSpecError::MissingTable)?;
     if units.iter().any(|unit| unit.articulated.is_none()) { return Err(CombatSpecError::UnitPresence); }
     let rows = units.iter().map(|unit| unit.articulated.unwrap()).collect::<Vec<_>>();
@@ -923,19 +929,19 @@ mod tests {
     #[test]
     fn unknown_duplicate_missing_and_mismatched_specs_fail_closed() {
         let scenario = crate::Scenario::embodied_duel();
-        assert_eq!(validate_construction(scenario.combat_model, scenario.combat_specs.as_ref(), &scenario.units), Ok(()));
+        assert_eq!(validate_construction(scenario.combat_specs.as_ref(), &scenario.units), Ok(()));
         let mut changed = scenario.clone();
         changed.combat_specs.as_mut().unwrap().anatomies[0].schema = 2;
-        assert_eq!(validate_construction(changed.combat_model, changed.combat_specs.as_ref(), &changed.units), Err(CombatSpecError::UnknownSchema));
+        assert_eq!(validate_construction(changed.combat_specs.as_ref(), &changed.units), Err(CombatSpecError::UnknownSchema));
         let mut changed = scenario.clone();
         changed.combat_specs.as_mut().unwrap().equipment[1].id = 1;
-        assert_eq!(validate_construction(changed.combat_model, changed.combat_specs.as_ref(), &changed.units), Err(CombatSpecError::IdOrder));
+        assert_eq!(validate_construction(changed.combat_specs.as_ref(), &changed.units), Err(CombatSpecError::IdOrder));
         let mut changed = scenario.clone();
         changed.units[0].articulated.as_mut().unwrap().anatomy = 99;
-        assert_eq!(validate_construction(changed.combat_model, changed.combat_specs.as_ref(), &changed.units), Err(CombatSpecError::MissingReference));
+        assert_eq!(validate_construction(changed.combat_specs.as_ref(), &changed.units), Err(CombatSpecError::MissingReference));
         let mut changed = scenario.clone();
         changed.combat_specs.as_mut().unwrap().equipment[0].action = ActionKind::Club;
-        assert_eq!(validate_construction(changed.combat_model, changed.combat_specs.as_ref(), &changed.units), Err(CombatSpecError::LoadoutMismatch));
+        assert_eq!(validate_construction(changed.combat_specs.as_ref(), &changed.units), Err(CombatSpecError::LoadoutMismatch));
     }
 
     #[test]

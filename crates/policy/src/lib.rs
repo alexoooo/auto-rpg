@@ -11,8 +11,8 @@
 //! is the general one: everything downstream of this crate -- a neural policy,
 //! an evolved controller, a scripted test dummy, a human's mouse -- is the same
 //! signature, and the simulation cannot tell them apart and does not try to.
-//! [`sim::CombatModel::Legacy`]'s seam was `fn decide(&Observation) -> Command`,
-//! and it went with the model: a legacy contact was a disc with a blade angle
+//! The legacy model's seam was `fn decide(&Observation) -> Command`, and it
+//! went with the model: a legacy contact was a disc with a blade angle
 //! and the decision was where to stand, where a jointed opponent is a set of
 //! swept volumes and two blades and the decision is which of them to put steel
 //! into. Different question, different observation, different command, different
@@ -28,12 +28,16 @@
 //! The tempting single seam is `fn decide(&mut self, obs: &Obs) -> SubmittedCommand`,
 //! and it was rejected on three counts. It would make every policy in this crate
 //! carry a match arm for a model it will never run under. It would turn "wrong
-//! model" into a runtime error, which is exactly the error
-//! [`sim::World::submit_embodied_v1`] already refuses at the boundary -- a
-//! second refusal one layer up buys nothing. And the model is chosen once, by
-//! the [`sim::Scenario`], and never mixes inside a world, so a mismatch is
-//! static information: put it in the type and it is a compile error instead of
-//! a silent run of bodies standing still.
+//! model" into a runtime error, which was exactly the error
+//! [`sim::World::submit_embodied_v1`] refused at the boundary while there was a
+//! second grammar to be wrong about -- a second refusal one layer up bought
+//! nothing then and would buy nothing again. And a model was chosen once, by the
+//! [`sim::Scenario`], and never mixed inside a world, so a mismatch was static
+//! information: put it in the type and it is a compile error instead of a silent
+//! run of bodies standing still. Session 05 deleted the second model and with it
+//! the field that carried the choice, which is why every clause above is in the
+//! past tense and none of it is deleted -- it is the reasoning the day a model
+//! is added back, and by then nobody will remember it was ever settled.
 //!
 //! What that cost, while there were two families, is that they did not compose
 //! -- there was no team wrapper running one policy per side. **That cost was

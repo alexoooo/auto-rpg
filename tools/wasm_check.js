@@ -160,10 +160,6 @@ const EMBODIED_COMMAND_FIXTURE = Object.freeze([
   0x05,0x00,0x00,0x00, 0x06,0x00,0x00,0x00, 0x02,0x01,0x01,0x00,
   0x00,0x01, 0x67,0x45, 0xab,0x89,
 ]);
-// `web::SUBMIT_WRONG_MODEL`, in the packed word's reason byte: the boundary was
-// handed a command for a model this world is not running.
-const WRONG_MODEL = 2 << 8;
-
 // The frame header, as the client reads it.
 const HEADER_LEN = 15;
 const UNIT_STRIDE = 33;
@@ -844,14 +840,19 @@ test("the embodied command scratch matches Rust and stores atomically", () => {
 
 // **`an articulated module refuses submit_embodied by name` stood here and has
 // lost its subject.** It opened `init_articulated_test`'s duel, offered
-// `submit_embodied` a well-formed embodied command and required `WRONG_MODEL`,
-// then corrupted the intent tag and required the same answer again -- because
-// that second rung is the only input that separates the boundary's own model
-// check from `World::submit_embodied_v1`'s. Every world this module can install
-// answers the same grammar now, so the refusal is unreachable from here rather
-// than unchecked: a page cannot offer the wrong model to a boundary that has
-// only one. The scratch width and layout version it also asserted have moved
-// down into the test below, which is now the only reader of them.
+// `submit_embodied` a well-formed embodied command and required the packed
+// word's reason byte `2` -- refused by *name* -- then corrupted the intent tag
+// and required the same answer again, because that second rung was the only
+// input that separated the boundary's own model check from
+// `World::submit_embodied_v1`'s. Every world this module can install answers the
+// same grammar now, so the refusal is unreachable from here rather than
+// unchecked: a page cannot offer the wrong model to a boundary that has only
+// one. Both of those checks have since gone with the model, and the `2` is not
+// reused: `crates/web` still answers it for `CommandReject::WrongModel`, which
+// `crates/sim` still spells. The `WRONG_MODEL` constant this file kept for the
+// assertion went with the last reader of it. The scratch width and layout
+// version the test also asserted have moved down into the test below, which is
+// now the only reader of them.
 
 test("the embodied floor takes an embodied command", () => {
   // The direction that had no caller until `init` started opening an embodied
@@ -888,7 +889,7 @@ test("the embodied floor takes an embodied command", () => {
 
   // **The last three lines of this test refused an articulated command by name
   // and are gone.** They staged 57 bytes into `submitted_command_ptr()`, called
-  // `submit_articulated(0, 0)` on this embodied floor, required `WRONG_MODEL`,
+  // `submit_articulated(0, 0)` on this embodied floor, required reason byte `2`,
   // and required the refusal to leave the digest where it was. Nothing replaces
   // them, and nothing should: the export they called does not exist, so the page
   // can no longer make the mistake they guarded against. `web.wasm` refusing to
@@ -1134,9 +1135,11 @@ const ARTICULATED_PROJECTILE_STRIDE = 12;
 const MAX_ARTICULATED_PROJECTILES = 32;
 // The stance section: six words a body -- a full identity, the hip bearing, the
 // pelvis fraction and the signed twist, plus the ticks left in a forced step --
-// for every live body under `CombatModel::Embodied`, and none at all under the
-// other two. The capacity is the pose capacity because a body with legs is a
-// body that also publishes a pose.
+// for every live body. It was written for every live body under the embodied
+// model and none at all under the other two, and the section kept its own
+// length word rather than being folded into the pose row for that reason. The
+// capacity is the pose capacity because a body with legs is a body that also
+// publishes a pose.
 const EMBODIED_STANCE_LAYOUT_VERSION = 1;
 const EMBODIED_STANCE_STRIDE = 6;
 const MAX_EMBODIED_STANCE = MAX_POSES;
@@ -1256,7 +1259,7 @@ const SEVERED_MASK_BITS = 5;
 // A fifth publication went on the wire -- one row per live embodied body -- and
 // the digest is every published word of every publication, so it reaches this
 // number whether or not the fixture has a row. It has none: the script is
-// `Scenario::articulated_duel` and only `CombatModel::Embodied` has legs, so the
+// `Scenario::articulated_duel` and only the embodied model had legs, so the
 // appended tail is a zero length and a zero drop count on each of the twenty
 // ticks, and their presence is the whole of the move. Every per-tick count above
 // is unchanged.
@@ -1285,8 +1288,8 @@ const SEVERED_MASK_BITS = 5;
 // from a zero length to two real rows, both forearm rows go from absent to
 // present (`World::arm_elbows` returns `[None; 2]` without jointed arms),
 // `ground_z` and the elbow planes reach the pose words, and **the fight itself is
-// different** because `Angle::ZERO` is world east under `CommandFrame::World` and
-// straight ahead under `Torso`. The last one is visible in the shape: the default
+// different** because `Angle::ZERO` was world east under the retired articulated
+// frame and is straight ahead in the embodied one. The last one is visible in the shape: the default
 // build's contact ticks go from 3 and 5 to 0, 3, 4, 5 and 6.
 //
 // `0xc6482a30f399d2cb` above is the prefix witness and it died with the

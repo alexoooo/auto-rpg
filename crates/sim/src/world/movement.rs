@@ -274,7 +274,7 @@ mod tests {
         let mut command = articulated_command();
         command.move_dir = Vec2::X;
         // **The yaw the body already holds, which is what keeps `move_dir` a
-        // world vector.** `CommandFrame::Torso` reads it in the body frame, so
+        // world vector.** The torso frame reads it in the body frame, so
         // `Vec2::X` is "forward" rather than "east" and a body that is turning is
         // a body whose world request rotates under it. The shared fixture asks
         // for `Angle::QUARTER` and the fighter spawns at `Angle::ZERO`, so the
@@ -364,7 +364,7 @@ mod tests {
         //
         // **Seventy ticks rather than thirty-five, and the settled heading is
         // the request turned a quarter, because `move_dir` is read in the body
-        // frame now.** Under `CommandFrame::Torso` a body that is still turning
+        // frame now.** In the torso frame a body that is still turning
         // is a body whose *world* request rotates under it -- and the impaired
         // body turns at half the rate, so at thirty-five ticks the two were
         // chasing different world directions and this equality measured the yaw

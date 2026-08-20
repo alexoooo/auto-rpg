@@ -27,7 +27,7 @@ policy = { path = "../policy" }
 # It is the one dependency here that uses floating point. The premise that makes
 # that affordable is unchanged and is the reason it is affordable at all: what
 # crosses out of it is five head indices from an argmax, and
-# `World::submit_articulated_v1` cannot be handed anything else.
+# `World::submit_embodied_v1` cannot be handed anything else.
 # `LEARNED_INFERENCE_DIGEST` is what keeps the crossing honest between this
 # target and the native one.
 learn-core = { path = "../learn-core" }

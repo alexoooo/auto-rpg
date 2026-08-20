@@ -75,7 +75,7 @@ pub use codec::{
 pub use command::{
     ArmTarget, ArticulatedCommandV1, ArticulatedPayloadError, CombatHeight, Command,
     CommandField, CommandReject, EmbodiedCommandV1, GripRequest, Intent, LimbCommand, LimbSlot,
-    Objective, Order, ReleaseRequest, Strike, SubmitArticulatedOutcome, SubmitEmbodiedOutcome,
+    Objective, Order, ReleaseRequest, Strike, SubmitEmbodiedOutcome,
     SubmittedCommand, ARTICULATED_PAYLOAD_BYTES, EMBODIED_COMMAND_LAYOUT_VERSION,
     EMBODIED_PAYLOAD_BYTES, SUBMITTED_COMMAND_LAYOUT_VERSION,
 };
@@ -159,8 +159,7 @@ pub use combat::geometry::{body_region_volumes, jointed_body_region_volumes,
 pub use dungeon::{Cardinal, Door, Dungeon, Level, Rect, Torch, CORRIDOR, DOOR, OPEN, WALL};
 pub use entity::{EntityId, Faction, Body};
 #[cfg(feature = "cartesian-recoil")]
-pub use exact_diagnostics::{exact_trajectory_state_digest, lifted_coulomb_command_receipt,
-                            lifted_coulomb_solver_digest};
+pub use exact_diagnostics::{exact_trajectory_state_digest, lifted_coulomb_solver_digest};
 pub use event::Event;
 pub use hand::{Hand, Swing};
 pub use hash_domain::{DigestCompareError, HashDomain, StateDigest};
@@ -195,7 +194,7 @@ pub use rules::{
     WHIFF_RECOVERY, WINDUP_ARC,
 };
 pub use scenario::{
-    equip_fixture_body, CombatModel, Scenario, ScenarioFingerprintError, UnitSpec, DUNGEON_COLS,
+    equip_fixture_body, Scenario, ScenarioFingerprintError, UnitSpec, DUNGEON_COLS,
     DUNGEON_ROWS,
 };
 pub use world::{ArticulatedProjectileView, DungeonObjectKind, DungeonObjectView, Outcome,

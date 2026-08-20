@@ -151,7 +151,6 @@ impl World {
     /// equal to the slot index is what removes the need for a second mapping --
     /// and [`World::posed_anatomy`] panics on a slot that has none.
     pub(super) fn arm_elbows(&self, i: usize) -> [Option<Vec3>; 2] {
-        if !self.combat_model.has_jointed_arms() { return [None; 2]; }
         if self.anatomy_spec(i).is_none() { return [None; 2]; }
         // The *posed* anatomy, so a crouched body's elbow is solved against the
         // shoulder the collider builder and the sweep will use. Reading the
@@ -169,7 +168,6 @@ impl World {
     }
 
     fn stance_anatomy(&self, i: usize, anatomy: &BodyAnatomySpec) -> BodyAnatomySpec {
-        if !self.combat_model.has_stance() { return anatomy.clone(); }
         let standing = Fx::from_raw(actuator::PELVIS_HEIGHT_RAW);
         let drop = ((standing - self.stance[i].pelvis).max(Fx::ZERO)) * anatomy.standing_height;
         let mut lowered = anatomy.clone();
@@ -178,13 +176,6 @@ impl World {
         lowered
     }
 
-    pub(super) fn drive_body_yaw(&mut self) {
-        for i in 0..self.alive.len() {
-            if !self.alive[i] { continue; }
-            let target = self.articulated_command[i].map_or(self.body_yaw[i].angle, |command| command.body_yaw);
-            actuator::integrate_yaw(&mut self.body_yaw[i], target, self.turn_authority[i]);
-        }
-    }
 
     pub(super) fn initialize_articulated_pose(&mut self, i: usize) {
         let table = self.combat_specs.as_ref().expect("articulated combat specs");
@@ -194,15 +185,11 @@ impl World {
         self.body_yaw[i] = BodyYawState { angle: yaw, speed_turns: Fx::ZERO, authority_residue: Fx::ZERO };
         // Feet under the torso, square: a body starts settled, so the twist
         // begins at zero and the first step it takes is one it chose.
-        if self.combat_model.has_stance() {
-            self.stance[i] = StanceState::squared(yaw);
-        }
+        self.stance[i] = StanceState::squared(yaw);
         // Both halves, because a reused slot must not inherit the last
         // occupant's elbow: a fresh body is one nobody has commanded, and the
         // neutral plane is the one the elbow hung in before the field existed.
-        if self.combat_model.has_swing_plane() {
-            self.elbow_plane[i] = [ElbowPlaneState::NEUTRAL; 2];
-        }
+        self.elbow_plane[i] = [ElbowPlaneState::NEUTRAL; 2];
         let mut arms = [actuator::tucked_arm(Vec3::ZERO); 2];
         let mut grips = [GripState { equipment_slot: None }; 2];
         for limb in 0..2 {
@@ -513,10 +500,8 @@ impl World {
             // runs here, at the head of the arms phase, because the plane is
             // part of where the arm *is* and everything downstream of this phase
             // reads the pose.
-            if self.combat_model.has_swing_plane() {
-                for slot in 0..2 {
-                    self.elbow_plane[i][slot] = self.elbow_plane[i][slot].chase();
-                }
+            for slot in 0..2 {
+                self.elbow_plane[i][slot] = self.elbow_plane[i][slot].chase();
             }
             // The one frame conversion in the arm driver. Everything below reads
             // `targets` and never `command.arms`, so an embodied bearing cannot

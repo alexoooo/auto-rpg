@@ -5,7 +5,7 @@
 //! the evidence rows needed to review why that authority moved.
 
 use crate::{AnatomyChoice, AnatomyState, ArmTarget, ArticulatedCommandV1, Body, BodyPart,
-            CombatHeight, CombatModel, ContactKind, ContactResolution, DuelConfigV1,
+            CombatHeight, ContactKind, ContactResolution, DuelConfigV1,
             EmbodiedCommandV1, EntityId, EquipmentGeometry, GripRequest, HashDomain, Intent,
             LimbSlot, RecoilExternalEnergy, ReleaseRequest, Replay, ResolutionError, Scenario,
             SubmitEmbodiedOutcome, SubmittedCommand, World,
@@ -14,20 +14,20 @@ use fx::{Angle, Fx, Hash64, Vec2, Vec3};
 
 const TICKS: u32 = 56;
 
-/// [`Scenario::duel_from`] under the model these fixtures now drive.
+/// [`Scenario::duel_from`], and the second reseat this function was written to
+/// make provable.
 ///
-/// **The model is named here rather than inherited**, and that is the whole
-/// reason this function exists. `duel_from` is an articulated constructor at the
-/// moment this was written and a later step of the same session reseats it; a
-/// fixture that waited for that would have changed model twice -- once when it
-/// was ported and once when the constructor moved under it -- and both pins
-/// below would have moved twice with one registry sentence to explain it.
-/// Writing the word here means each pin moves exactly once, for exactly this
-/// reason, and the second reseat is a no-op it can prove.
+/// **It named the model rather than inheriting it**, which was the whole reason
+/// it existed: `duel_from` built the articulated model when this was written and
+/// a later step of the same session reseated it, so a fixture that waited would
+/// have changed model twice -- once when it was ported and once when the
+/// constructor moved under it -- and both pins below would have moved twice with
+/// one registry sentence to explain it. Writing the word here meant each pin
+/// moved exactly once. The word is gone with the enum and neither pin moved,
+/// which is the no-op the plan predicted; the wrapper stays because five call
+/// sites read it and collapsing it into them would say nothing.
 fn embodied_duel_from(config: &DuelConfigV1) -> Option<Scenario> {
-    let mut scenario = Scenario::duel_from(config).ok()?;
-    scenario.combat_model = CombatModel::Embodied;
-    Some(scenario)
+    Scenario::duel_from(config).ok()
 }
 
 /// Whether both bodies are still standing exactly as they spawned.
@@ -89,14 +89,22 @@ fn legs_are_inert(world: &World, ids: [EntityId; 2], hips: [Angle; 2]) -> bool {
 /// grammar, the stored-command layout or the fixed-point arithmetic under them,
 /// which is what they exist to catch.
 ///
-/// **`raw_lifted_command_receipt` is pinned with them, and that is deliberate
-/// rather than incidental.** It is the exported half of a cross-check against
-/// Lab's policy-owned source-41 schedule, and its whole claim is that the two
-/// build the *same* schedule byte for byte. Pinning the digest's constructor
-/// and leaving the exported receipt on the production pair would have left that
-/// comparison green while it compared two different schedules -- the shape of
-/// guard this repository has shipped three times. Lab's side has the
-/// `lab-calibration` seam for exactly this and must pin to match.
+/// **The cross-check this paragraph used to describe has no second half, and the
+/// paragraph is corrected rather than deleted because the shape it warns about
+/// is the point.** It read: `raw_lifted_command_receipt` is pinned with these
+/// rates deliberately, because it is the exported half of a comparison against
+/// Lab's policy-owned source-41 schedule whose whole claim is that the two build
+/// the *same* schedule byte for byte -- and pinning the digest's constructor
+/// while leaving the exported receipt on the production pair would have left
+/// that comparison green while it compared two different schedules. That
+/// argument was right. Its counterpart, `policy::robust_strike_schedule_command`,
+/// went with the articulated policies; the `lab-calibration` seam it pointed at
+/// had already gone; and the exported receipt itself had no caller in the
+/// workspace, so it went too rather than stand as a `pub` function documented as
+/// half of a guarantee nobody performed. What is still folded into
+/// `LIFTED_COULOMB_SOLVER_DIGEST` is `command_receipt`, over the schedule
+/// `lifted_case_with_provenance` actually submits, and it is pinned to this pair
+/// for the reason the paragraphs above give.
 pub(crate) const CAPTURED_ARM_RATES: (i32, i32) = (1_092, 182);
 
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
@@ -380,7 +388,10 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
             hash.write_u8(1);
             hash.write_u8(0);
             hash.write_u16(ARTICULATED_PAYLOAD_BYTES as u16);
-            let SubmittedCommand::Embodied(command) = row.command else { return None };
+            // Irrefutable now: the retired grammar is out of the enum, so the
+            // `else { return None }` that stood here was an unreachable arm
+            // rather than a refusal a caller could see.
+            let SubmittedCommand::Embodied(command) = row.command;
             let mut payload = command.articulated.payload_bytes();
             if mutation.command_byte && !changed_command {
                 payload[0] ^= 1;
@@ -565,7 +576,7 @@ fn lifted_config(strike_delta: i32, reach_delta: i32, mirrored: bool) -> Option<
 }
 
 fn neutral_command(obs: &crate::ArticulatedObservation) -> ArticulatedCommandV1 {
-    // Zero is "along the torso" under `CommandFrame::Torso`, which is what an
+    // Zero is "along the torso", which is what an
     // idle arm means; the world adds `obs.body_yaw` back in `world_arm_target`.
     let arm = ArmTarget { bearing: Angle::ZERO, height: CombatHeight::MID,
                           reach: Fx::ZERO, effort: Fx::ZERO };
@@ -619,37 +630,12 @@ fn command_receipt(fingerprint: u64, records: &[crate::SubmittedCommandRecord]) 
         hash.write_u32(record.tick); write_entity(&mut hash, record.entity);
         hash.write_u16(SUBMITTED_COMMAND_LAYOUT_VERSION);
         hash.write_u8(1); hash.write_u8(0); hash.write_u16(ARTICULATED_PAYLOAD_BYTES as u16);
-        let SubmittedCommand::Embodied(command) = record.command else { return None };
+        let SubmittedCommand::Embodied(command) = record.command;
         hash.write_bytes(&command.articulated.payload_bytes());
     }
     Some(hash.finish())
 }
 
-fn raw_lifted_command_receipt(strike_delta: i32, reach_delta: i32, mirrored: bool) -> Option<u64> {
-    let config = lifted_config(strike_delta, reach_delta, mirrored)?;
-    let scenario = embodied_duel_from(&config)?;
-    let mut world = World::new(&scenario, 0);
-    let mut replay = Replay::new(&scenario, 0);
-    let (attacker, defender) = (EntityId::new(0, 0), EntityId::new(1, 0));
-    for tick in 0..config.max_ticks {
-        for id in world.pending_decisions().to_vec() {
-            let requested = lifted_command(&world, id, attacker, defender, tick,
-                                           reach_delta, mirrored);
-            let stored = match world.submit_embodied_v1(id, EmbodiedCommandV1::new(requested)) {
-                SubmitEmbodiedOutcome::Stored { command, rejection: None } => command,
-                _ => return None,
-            };
-            replay.record_submitted(tick, id, SubmittedCommand::Embodied(stored));
-        }
-        world.step_with_arm_rates(CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
-        let limb = if mirrored { LimbSlot::LeftArm } else { LimbSlot::RightArm };
-        if world.contact_resolutions().iter().any(|row| row.fact.key.kind == ContactKind::WeaponBody
-            && row.fact.key.a == attacker && row.fact.key.a_slot == limb as u8
-            && row.fact.key.b == defender && row.fact.key.b_slot == crate::BODY_SLOT
-            && row.fact.volume == BodyPart::Torso as u8) { break; }
-    }
-    command_receipt(scenario.fingerprint(), &replay.submitted_entries)
-}
 
 fn state_words(world: &World) -> (HashDomain, u16, u64) {
     let row = world.state_digest(); (row.domain, row.schema, row.value)
@@ -975,13 +961,6 @@ fn hash_lifted(rows: &[LiftedReceipt], mutation: LiftedMutation) -> u64 {
     hash.finish()
 }
 
-/// The stored-command receipt used to prove that the diagnostic constructor is
-/// byte-identical to the policy-owned source-41 schedule.
-#[doc(hidden)]
-pub fn lifted_coulomb_command_receipt(strike_delta: i32, reach_delta: i32,
-                                      mirrored: bool) -> u64 {
-    raw_lifted_command_receipt(strike_delta, reach_delta, mirrored).unwrap_or(0)
-}
 
 /// Portable digest of source-41 ordinal 3144's lifted solver neighbourhood.
 pub fn lifted_coulomb_solver_digest() -> u64 {

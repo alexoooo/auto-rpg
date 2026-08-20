@@ -786,9 +786,14 @@ fn embodied_script_digest(records: &[SubmittedCommandRecord]) -> u64 {
     h.write_bytes(EMBODIED_SCRIPT_DIGEST_DOMAIN);
     let mut counted = 0u32;
     for record in records {
-        let SubmittedCommand::Embodied(command) = record.command else {
-            continue;
-        };
+        // **No filter arm here, and that is exactly what the paragraph above is
+        // warning about.** `SubmittedCommand` has had one variant since session
+        // 05, so this destructures irrefutably rather than skipping a record it
+        // cannot read. The day a second variant is appended this line stops
+        // compiling, and whoever appends it has to say what the digest does with
+        // it -- which is the review the retired `script_digest` never got,
+        // because its skip arm was a `continue` that could not fail.
+        let SubmittedCommand::Embodied(command) = record.command;
         h.write_u32(record.tick);
         h.write_u32(record.entity.index);
         h.write_u32(record.entity.generation);

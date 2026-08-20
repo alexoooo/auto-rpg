@@ -14,16 +14,22 @@
 //! observed weapon by a candidate hand displacement, and asks
 //! `fx::swept_segment_segment` whether that capsule crosses a named `BodyPart`.
 //! Every quantity in that computation is a world quantity measured off the
-//! observation, and the observation is the *same type* on both seams:
-//! [`crate::EmbodiedPolicy::decide`] and [`crate::ArticulatedPolicy::decide`]
-//! both take `&ArticulatedObservation`. Nothing in the planning knows or cares
-//! which model published it.
+//! observation, and **no frame enters the planning at all**: a plan is a hand
+//! displacement and a named `BodyPart`, and neither is measured from anything a
+//! command grammar has an opinion about. That is why this planner could be
+//! shared where a bearing-writing script could not, and it is the half of the
+//! argument that outlived the second seam. Session 05 deleted the articulated
+//! policies and took nothing out of the paragraph above, because there was
+//! never a frame in the planning to take out.
 //!
 //! What is frame-bound is the command assembly downstream of the plan -- the
-//! functions that write `ArmTarget::bearing` and `move_dir` as *world*
-//! quantities because that is what `CombatModel::command_frame` says
-//! `CommandFrame::World` means. So the frame enters this file exactly once, in
-//! [`into_torso_frame`], where it is four lines and can be tested directly.
+//! builders below write `ArmTarget::bearing` and `move_dir` as *world*
+//! quantities, because world is the frame the geometry above is measured in and
+//! writing them anywhere else would mean rotating the observation and then
+//! rotating the answer back. An embodied body reads both from its own torso, so
+//! exactly one conversion is owed; the frame therefore enters this file exactly
+//! once, in [`into_torso_frame`], where it is four lines and can be tested
+//! directly.
 //!
 //! The swing plane is left neutral on both arms, deliberately and not by
 //! omission: the neutral plane puts the elbow below the shoulder-to-hand line

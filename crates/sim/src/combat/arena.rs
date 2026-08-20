@@ -34,7 +34,7 @@ use crate::combat::spec::{
 };
 use crate::dungeon::Dungeon;
 use crate::entity::{Body, Faction};
-use crate::scenario::{CombatModel, Scenario, UnitSpec};
+use crate::scenario::{Scenario, UnitSpec};
 use crate::{ActionKind, LimbSlot, Loadout, Role};
 use fx::{Fx, Vec2};
 
@@ -418,7 +418,6 @@ impl Scenario {
 
         let scenario = Scenario {
             name: "configured-duel-v1".to_string(),
-            combat_model: CombatModel::Embodied,
             combat_specs: Some(CombatSpecTableV1 { anatomies, equipment }),
             // The same 24x16 rectangle every hand-placed duel in the repository
             // stands on. Not a knob: the extent is the one thing here that would
@@ -458,7 +457,6 @@ impl Scenario {
         // `CombatSpecError` variant for a contact failure, and the error set is
         // mapped onto wasm failure codes one crate away.
         validate_construction(
-            scenario.combat_model,
             scenario.combat_specs.as_ref(),
             &scenario.units,
         )?;
@@ -567,7 +565,7 @@ mod tests {
         // claim more than the assertions did.** It said "everything except the
         // name" while comparing the spec table and a five-column tuple per unit,
         // which left `stats`, `dungeon`, `portal`, `torches`, `max_ticks` and
-        // `combat_model` unchecked. All six were already equal -- the claim was
+        // the combat model unchecked. All six were already equal -- the claim was
         // true and nothing was measuring it. The wide form is also what
         // `a_configured_duel_is_never_the_pinned_fixture` needs: substituting one
         // field and getting equality is the proof that the name is the *only*

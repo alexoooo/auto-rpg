@@ -283,9 +283,6 @@ impl World {
     ///
     /// [`Stats::tracked_contacts`]: crate::Stats::tracked_contacts
     pub fn observe_articulated(&self, id: EntityId) -> ArticulatedObservation {
-        if !self.combat_model.has_articulated_columns() {
-            return ArticulatedObservation::BLANK;
-        }
         let Some(i) = self.resolve(id) else { return ArticulatedObservation::BLANK };
         let Some(state) = self.wounds.get(i).copied() else { return ArticulatedObservation::BLANK };
         if state.is_dead() { return ArticulatedObservation::BLANK; }
@@ -441,13 +438,14 @@ impl World {
     /// ratio is the half that carries the meaning and this is the only place it
     /// can be taken.
     ///
-    /// Guarded on the model rather than on the column's length, so a Legacy or
-    /// Articulated world pays nothing at all -- not the two `posed_anatomy`
-    /// clones below, and not the pair of `reachable_extent` calls inside
-    /// `reach_headroom`. The articulated observation is already measured at 6%
-    /// of `lab bench`, and a model with no legs should not be paying for legs.
+    /// The `get` below is the whole guard now. A model guard stood in front of
+    /// it so that a legless world paid nothing at all -- not the two
+    /// `posed_anatomy` clones below, and not the pair of `reachable_extent`
+    /// calls inside `reach_headroom` -- and every world has legs now, so the
+    /// only slot that can still miss is one with no row, which the `get`
+    /// answers. The articulated observation is measured at 6% of `lab bench`, so
+    /// the cost is real; there is simply nobody left who is not paying it.
     fn observed_stance(&self, i: usize) -> ObservedStance {
-        if !self.combat_model.has_stance() { return ObservedStance::BLANK; }
         let Some(stance) = self.stance.get(i).copied() else { return ObservedStance::BLANK };
         let yaw = self.body_yaw[i].angle;
         // The posed anatomy, so the shoulder the elbow is measured from is the
@@ -505,7 +503,6 @@ impl World {
     /// body faces can read that it is wound up. See [`ObservedOpponentStance`]
     /// for what that concedes and why it is the right concession.
     fn observed_opponent_stance(&self, j: usize) -> ObservedOpponentStance {
-        if !self.combat_model.has_stance() { return ObservedOpponentStance::BLANK; }
         let Some(stance) = self.stance.get(j).copied() else { return ObservedOpponentStance::BLANK };
         ObservedOpponentStance {
             present: true,
@@ -705,15 +702,14 @@ impl World {
     /// `combat::geometry` exists to make impossible. Here the conversion
     /// happens once, on the way out, and [`ArticulatedPose`] states the frame.
     ///
-    /// `None` for a stale identity, a dead body, or a Legacy world; total for
-    /// everything else. Deadness is checked here rather than left to the reap
+    /// `None` for a stale identity or a dead body; total for everything else.
+    /// Deadness is checked here rather than left to the reap
     /// phase catching up, because "no pose for a corpse" should be a property
     /// of the query and not a property of when it happened to be called.
     ///
     /// Ground truth, with no perception noise and no visibility filtering. It
     /// is the host's job to decide who may see which row.
     pub fn articulated_pose(&self, id: EntityId) -> Option<ArticulatedPose> {
-        if !self.combat_model.has_articulated_columns() { return None; }
         let i = self.resolve(id)?;
         let state = *self.wounds.get(i)?;
         if state.is_dead() { return None; }
@@ -794,8 +790,7 @@ impl World {
     /// An iterator and deliberately not a `Vec`: the only caller is the
     /// publication path in `crates/web`, where an allocation grows linear
     /// memory and growing linear memory detaches every typed array the page is
-    /// holding. Empty on a Legacy world, where [`World::articulated_pose`]
-    /// answers `None` for everything.
+    /// holding.
     /// One embodied body's stance, in the shape a publication reads it.
     ///
     /// A view rather than the `StanceState` column, for the reason
@@ -805,7 +800,6 @@ impl World {
     /// cannot be handed a twist that disagrees with the two angles it is a
     /// function of.
     pub fn stance(&self, id: EntityId) -> Option<StanceView> {
-        if !self.combat_model.has_stance() { return None; }
         let i = self.resolve(id)?;
         if !self.alive[i] { return None; }
         let stance = *self.stance.get(i)?;
@@ -862,11 +856,11 @@ impl World {
             // **Through the same door the arm driver goes through, and it was
             // not.** `world_arm_target` is where a torso-relative bearing
             // becomes a world one and where the annulus clamp bites; this read
-            // `command.arms[limb]` raw. Under `CommandFrame::World` the two are
-            // the same value and nothing moved, which is why it stood -- but
-            // under `Torso` the published target was a whole body yaw off the
-            // pose the integrator was actually chasing, and the field's own doc
-            // says the two "agree by construction". They did not.
+            // `command.arms[limb]` raw. Under the retired world frame the two
+            // were the same value and nothing moved, which is why it stood --
+            // but read from the torso the published target was a whole body yaw
+            // off the pose the integrator was actually chasing, and the field's
+            // own doc says the two "agree by construction". They did not.
             let arm = self.world_arm_target(i, limb, command.arms[limb]);
             let reach = arm.reach.clamp(Fx::from_raw(actuator::ARM_MIN_REACH_RAW), Fx::ONE);
             targets[limb] = actuator::hand_position(spec, yaw, limb, arm.bearing, arm.height, reach);
@@ -912,7 +906,6 @@ impl World {
     #[cfg(test)]
     pub(crate) fn articulated_pose_test_view(&self, id: EntityId) -> Option<ArticulatedPoseTestView> {
         let i = self.resolve(id)?;
-        if !self.combat_model.has_articulated_columns() { return None; }
         Some(ArticulatedPoseTestView {
             body_yaw: self.body_yaw[i],
             arms: self.arms[i],
@@ -1458,15 +1451,15 @@ mod tests {
         }
     }
 
-    /// The published target is the pose the arm is chasing under **both** frames,
-    /// which it was not under one of them.
+    /// The published target is the pose the arm is chasing, which it was not
+    /// once a bearing stopped being absolute.
     ///
     /// `articulated_targets` read `command.arms[limb]` raw while the arm driver
-    /// reads it through `World::world_arm_target`. Those are the same value
-    /// under `CommandFrame::World`, which is why the sibling test above passed
-    /// throughout and why nothing caught this: the two frames agree everywhere
-    /// the articulated fixtures look. Under `Torso` a bearing is measured from
-    /// the torso and the yaw is added on the way in, so a published target was a
+    /// reads it through `World::world_arm_target`. Those were the same value in
+    /// the retired world frame, which is why the sibling test above passed
+    /// throughout and why nothing caught this: the two frames agreed everywhere
+    /// the articulated fixtures looked. Read from the torso a bearing is an
+    /// offset and the yaw is added on the way in, so a published target was a
     /// whole body yaw off the pose the integrator converged to.
     ///
     /// Driven at a **non-zero** yaw on purpose. At yaw zero the two frames are
@@ -1487,7 +1480,7 @@ mod tests {
         assert_ne!(yaw, Angle::ZERO, "the body never turned, so the frames still agree");
 
         // A relative bearing of zero is directly ahead of the torso at every
-        // yaw, which is the whole of what `CommandFrame::Torso` means.
+        // yaw, which is the whole of what the torso frame means.
         let mut ahead = crate::EmbodiedCommandV1::new(world.neutral_articulated(0));
         for limb in 0..2 {
             ahead.articulated.arms[limb] = crate::ArmTarget {
@@ -1519,9 +1512,9 @@ mod tests {
     /// A neutral embodied arm is asked for "ahead", and "ahead" is zero in the
     /// frame it will be read in.
     ///
-    /// `neutral_articulated` wrote `body_yaw` into the arm bearing, which is
-    /// right under `CommandFrame::World` and asks for twice the yaw under
-    /// `Torso`. It was inert -- a neutral command carries zero effort and the
+    /// `neutral_articulated` wrote `body_yaw` into the arm bearing, which was
+    /// right in the retired world frame and asks for twice the yaw when the
+    /// bearing is read from the torso. It was inert -- a neutral command carries zero effort and the
     /// actuator moves nothing without authority -- and it still reached the
     /// published target of every slot nobody had commanded.
     ///

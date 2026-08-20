@@ -423,7 +423,7 @@ fn a_chambered_cut_is_not_overwritten_by_a_guard() {
 /// A subject armed in the right hand with **nothing in the left**: the fixture's
 /// Brute, which is half of every body in the corpus.
 ///
-/// `Scenario::articulated_duel` gives it `equipment: [Some(3), None]`, so its
+/// `Scenario::embodied_duel` gives it `equipment: [Some(3), None]`, so its
 /// guard arm is the empty hand and takes `REST_REACH`'s branch. Nothing
 /// exercised that branch before 2026-08-18 -- every fixture in this file carried
 /// a plate -- which is why the constant could be mutated with the whole
@@ -457,7 +457,7 @@ fn bare_guard_hand(gap: Fx) -> ArticulatedObservation {
 fn an_empty_guard_hand_is_held_at_the_joints_own_floor() {
     // The fixture this is about, read off the scenario rather than described:
     // the Brute really does walk in with one hand empty.
-    let duel = Scenario::articulated_duel();
+    let duel = Scenario::embodied_duel();
     let brute = duel.units[1].articulated.expect("the brute is an articulated unit");
     assert_eq!(brute.equipment, [Some(3), None], "the fixture's Brute now carries two things");
 

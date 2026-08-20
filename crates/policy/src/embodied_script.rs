@@ -4,10 +4,9 @@
 //! it**, for the reason the plan gave and the compiler could not: the two files
 //! read the same struct field in different frames. `ArmTarget::bearing` and
 //! `move_dir` were *world* quantities in that file and are *torso-relative* ones
-//! here --
-//! `CombatModel::command_frame` is where the difference lives, `+x` is forward,
-//! `+y` is body-left, and a zero bearing holds the arm directly ahead at every
-//! yaw. A single file with a frame flag would have made "which frame is this
+//! here -- the retired `CombatModel::command_frame` was where that difference
+//! lived, and with one model left there is one frame: `+x` is forward, `+y` is
+//! body-left, and a zero bearing holds the arm directly ahead at every yaw. A single file with a frame flag would have made "which frame is this
 //! bearing" a runtime question in the one place where getting it wrong produces
 //! a fighter that swings at the map's north instead of at its opponent, and
 //! nothing would refuse the command. Session 05 deleted the articulated script
@@ -416,9 +415,9 @@ impl EmbodiedPhase {
 ///
 /// **The arm bearing is `Angle::ZERO` and not the body's yaw**, which is the one
 /// place this differs from [`crate::neutral_articulated_command`] and the whole
-/// difference is the frame. Zero means "directly ahead" under
-/// `CommandFrame::Torso`; the body's own yaw, read as a torso-relative offset,
-/// would mean "an entire yaw off the centre line". Nothing observable moves
+/// difference is the frame. An embodied arm bearing is measured from the torso,
+/// so zero means "directly ahead"; the body's own yaw, read as a torso-relative
+/// offset, would mean "an entire yaw off the centre line". Nothing observable moves
 /// either way, because a zero-effort arm does not chase its target at all -- but
 /// a neutral command that only happens to be harmless is not a neutral command.
 pub fn neutral_embodied_command(obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
@@ -839,10 +838,14 @@ impl EmbodiedPolicy for ScriptedEmbodiedPolicy {
 /// A separate type from the deleted `NeutralArticulatedPolicy` rather than an
 /// adapter over it, for [`neutral_embodied_command`]'s reason: the neutral arm
 /// bearing is not the same number in the two frames, and an adapter would have
-/// had to convert one it cannot see the yaw for. The two *commands* are still
-/// both here and still differ in that one column --
-/// [`crate::neutral_articulated_command`] is what the world substitutes under
-/// `CommandFrame::World` -- so the argument is live rather than historical.
+/// had to convert one it cannot see the yaw for. The world frame went with the
+/// articulated model in session 05, so the world substitutes *this* one now --
+/// but the two *commands* are still both here and still differ in that one
+/// column, because [`crate::neutral_articulated_command`] is the world-frame
+/// base every composed command starts from before [`crate::into_torso_frame`].
+/// The argument is therefore still live rather than only historical, and
+/// `the_neutral_articulated_command_converts_to_the_neutral_embodied_command_exactly`
+/// is what holds the one column to the one conversion.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct NeutralEmbodiedPolicy;
 
