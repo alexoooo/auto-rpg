@@ -1325,9 +1325,11 @@ Exports are `embodied_stance_ptr`, `embodied_stance_len`, `embodied_stance_strid
 `embodied_stance_layout_version`. `embodied_stance_len` counts rows, not words. The
 section is filled at publication from end-of-call state, in the slot order the pose rows
 are written in. The buffer is authoritative and unfiltered exactly as the pose buffer
-is: a hip bearing is which way a body is *about* to be able to move and a forced step is
-how long it cannot change its mind for, both for bodies the viewer may have no way of
-seeing, so the worker filters this beside the pose rows it belongs to. It costs 1,536
+is: a hip bearing is the feet and pelvis facing achieved by the stance actuator;
+forward, reverse and strafe remain independent translation requests. A forced step is
+how long the body cannot change its stance mind for. Both are published for bodies the
+viewer may have no way of seeing, so the worker filters this beside the pose rows it
+belongs to. It costs 1,536
 fixed bytes — half a percent on top of the 290,816 the four publications before it cost
 — and it is charged whether the installed world has legs or not, which is what a fixed
 array buys and a lazily allocated one would give away: a buffer that appeared when an
@@ -1519,12 +1521,14 @@ acceptance rule sizes against the busiest measurement taken, not the most recent
 and 556 is still that measurement; re-cutting the buffer to fit 354 would only queue
 up the next rejection.
 
-**Four more moves since, and the current mark is 344 rows.** 354 to 346 by v2-20's
+**Five more moves since, and the current mark is 371 rows.** 354 to 346 by v2-20's
 shield dimensions, 346 to 301 by Smart51's reflection-safe hand and sweep geometry
 (a plate at 36% of its old face area catches fewer swings and does not hand all of
 them back as body rows, because a blade that misses a smaller shield can also miss
 what is behind it), 301 to 249 by Smart134 doubling the arm bearing rates, and 249
-back **up** to 344 by the port off the articulated model. `crates/web` carries the
+back **up** to 344 by the port off the articulated model, then 344 to 371 when the
+stance-authority correction made hips chase achieved torso yaw rather than translating
+movement direction. `crates/web` carries the
 per-move reasoning on `HIGH_WATER_EVENT_ROWS` and is the copy to read; what belongs
 here is the shape of the record rather than a second copy of it. Two things in it are
 worth carrying:
@@ -1534,12 +1538,15 @@ worth carrying:
   corpus has now contradicted it three times, always by the same mechanism: a larger
   proposed impulse pushes a pair apart harder, and a pair pushed apart stops
   re-resolving the same key on consecutive ticks.
-- **The one move that went up is the one that changed the fight rather than the
-  forces.** The port off the articulated model gave each body seven swept volumes
+- **The two moves that went up changed the fight rather than the force law.** The
+  first port off the articulated model gave each body seven swept volumes
   instead of five, made arm bearings torso-relative so both halves of each pair reach
   across the gap instead of one of them reaching away, and let `Sim::advance` answer
   the tick-zero decision with a policy command this grammar stores where the other
-  refused it.
+  refused it. The later stance move keeps that fixture and grammar but changes the
+  trajectory the same translating commands produce. The default boundary clinch
+  remains at cap tick 109; the exact arm remains first publication tick 113, two rows,
+  with no refusal.
 
 **The capacity is still 2048 against 556**, which is the whole point of sizing to the
 busiest measurement ever taken rather than to the newest one: six re-measurements have
@@ -1801,6 +1808,16 @@ section is. The stance section is driven through its writer for a stronger reaso
 that it has rows: what crosses is the same six words per body `publish` hands the page,
 produced by the same function rather than by a second one that agrees with it today.
 The pin is registered in [`hashes.md`](hashes.md#golden-registry).
+
+**The stance-authority correction is a values-only move of this stream.** Body-relative
+movement now controls translation only; hips chase achieved torso yaw directly instead
+of recovering a second yaw from the world-space movement vector. The latter recovery was
+lossy even for straight ahead -- achieved yaw 91 became angle 94 after fixed-point sine
+and cosine -- so this fixture reaches the correction despite requesting no turn. No row,
+section, stride, offset, count grammar or ABI version moved. Native MSVC and fresh wasm
+artifacts independently measured `0x63bf8b26809d43c4` by default and
+`0x8c8a5e4350230df6` under `cartesian-recoil`, replacing
+`0x96e4e51de0c00d62` and `0x4bf34984d56d2795` respectively.
 
 **The JavaScript half pins the number and does not rebuild the bytes, and that is
 worth stating because the sibling corpus does the opposite.** `tools/wasm_check.js`

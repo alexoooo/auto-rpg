@@ -34,9 +34,9 @@
 //!   command can say without re-deriving the pose every time the body turns.
 //! * **Step to unwind a saturated twist.** [`ObservedStance::twist_fraction`] at
 //!   the limit means the torso cannot turn any further until the feet move, and
-//!   the hips chase `move_dir` at twice the rate while the body translates. So a
-//!   wound body steps, and it steps *forward*, which in this frame is the hips'
-//!   own target written out.
+//!   translating lets the hips chase the achieved torso at twice the planted
+//!   rate. So a wound body steps, and it steps *forward* rather than paying that
+//!   ground cost sideways or backward.
 //! * **Use elevation.** [`GroundSense`] is the term, and it is switchable off
 //!   because the next session measures this policy against itself with it
 //!   disabled on a sculpted corpus. **The term exists to be measured, not
@@ -591,11 +591,11 @@ pub fn scripted_command_with(
         (Some(_), ScriptPhase::Chamber) | (Some(_), ScriptPhase::Commit) => forward(approach),
     };
     // **The unwind, applied last and over everything.** A torso at its twist
-    // budget cannot turn any further until the hips come round, and the hips
-    // chase `move_dir` at twice the standing rate while the body translates --
+    // budget cannot turn any further until the hips come round, and translation
+    // lets the hips chase the achieved torso at twice the standing rate --
     // so a wound body that wants to keep facing this way has to put a foot down.
-    // Forward, because in this frame `(1, 0)` *is* the hips' target: the torso's
-    // own facing, which is exactly the angle the twist has to be spent closing.
+    // Forward, because unwinding costs ground and this spends it toward the foe
+    // rather than sideways or backward.
     //
     // The commanded yaw below is deliberately left asking for the full turn. The
     // stance phase clamps the target itself and re-arms the step for as long as
@@ -1024,9 +1024,10 @@ mod tests {
     }
 
     /// **3 of 4: step to unwind a saturated twist.** The paired observation
-    /// differs in exactly one column, and the baseline is a phase whose feet are
-    /// otherwise lateral: a wound body stops circling and puts a foot forward,
-    /// which is the direction that brings the hips under the shoulders.
+    /// differs in exactly one column, and the baseline is a phase whose movement
+    /// is otherwise lateral: a wound body stops circling and puts a foot forward.
+    /// Translation activates the faster hip rate, but achieved torso yaw remains
+    /// the hip target; movement direction is not a second steering authority.
     #[test]
     fn a_body_wound_to_its_limit_steps_instead_of_circling() {
         let settled = at_tick(&situation(NEAR, Angle::ZERO, Fx::ZERO), tick_of(ScriptPhase::Guard));

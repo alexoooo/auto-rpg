@@ -503,13 +503,23 @@ registered policy code installs, reads back and moves one.
 
 ## Hash expectations
 
-**Nothing moves.** `crates/web` is the host boundary; `EMBODIED_CORPUS_DIGEST` and
-`EMBODIED_GOLDEN_DIGEST` are folded by `lab` and `sim` over fights with no host in them,
-and `ARTICULATED_STREAM_DIGEST` is published pose bytes from a fixture this session does
-not touch. `arena_fingerprint_*` must not move and has a test.
+**The host-boundary implementation moved no pin.** The later direct-control diagnosis did
+find a global simulator defect in the same session: `drive_stance` treated body-relative
+movement as a second hip-yaw authority. Correcting hips to chase achieved torso yaw moves
+three pin families, in both feature sets, while leaving every ABI/layout version and both
+arena fingerprints unchanged:
 
-**If a pin moves, the composition reached submission.** That is the one way this session
-can break the rule, and it is a revert rather than a re-record.
+- `ARTICULATED_STREAM_DIGEST`: `0x63bf8b26809d43c4` default,
+  `0x8c8a5e4350230df6` exact;
+- `EMBODIED_CORPUS_DIGEST`: `0xfa4ebbfbdde42fd1` default,
+  `0x93384862586e6027` exact;
+- `EMBODIED_GOLDEN_DIGEST`: `0x029fcc4140715db3` default,
+  `0x5812adb7a1d6a354` exact.
+
+The golden fixture first diverges on tick 1: achieved yaw 91 round-trips through the old
+fixed-point movement vector as angle 94. That measured route, plus the W/S/A/D mutation
+test, is why these are mechanics re-records rather than host composition leaking into an
+unattended fight.
 
 ## Verification
 

@@ -642,9 +642,10 @@ mod embodied {
     /// **Two values, selected by feature, and the second is not merely the
     /// first through a wider hash.** `cartesian-recoil` does write extra bytes
     /// into the stream -- `post_contact_hash_bytes` per arm per allocated slot
-    /// -- but it also changes the fight: measured, this one resolves on tick 322
-    /// as a `HeroesWin` through 242 contact resolutions by default, and on tick
-    /// 183 as a `MonstersWin` through 8 of them under the feature. So the two
+    /// -- but it also changes the fight: measured after the stance-authority
+    /// correction, this one resolves on tick 395 as a `HeroesWin` through 329
+    /// contact resolutions by default, while the feature build reaches tick 600
+    /// with no outcome through 6 rows. So the two
     /// numbers are two fights as well as two grammars, which is worth stating
     /// because `EMBODIED_CORPUS_DIGEST`'s row calls its own pair "the same
     /// fights" and, on this fixture at least, that is not what the feature does.
@@ -662,20 +663,32 @@ mod embodied {
     /// digest it produces, and that function lost `hp`, `max_hp`, the submitted
     /// `command` word and the whole nine-column projectile block, so every
     /// embodied digest in the repository moved by construction. What says the
-    /// fight did not is that everything else this test prints is unchanged: the
-    /// default build still resolves on tick 322 as a `HeroesWin` through 242
-    /// contact resolutions and the feature build on tick 183 as a `MonstersWin`
-    /// through 8, and `deleting_the_legacy_columns_left_the_wounds_where_they_were`
-    /// below holds the per-region integrity and wound fractions recorded before
-    /// the deletion without one of its numbers being edited. Previously
+    /// fight did not is that everything else this test printed **at that move**
+    /// was unchanged: the default build resolved on tick 322 as a `HeroesWin`
+    /// through 242 contact resolutions and the feature build on tick 183 as a
+    /// `MonstersWin` through 8. The later stance-authority correction deliberately
+    /// supersedes those outcomes. At the deletion,
+    /// `deleting_the_legacy_columns_left_the_wounds_where_they_were` below held
+    /// the per-region integrity and wound fractions without one number being
+    /// edited; its exact-law vector later moved with that mechanics correction,
+    /// as its own provenance records. Previously
     /// `0x5527190dea6be0c2` by default and `0x81e51e499a5d01fd` under the
     /// feature.
+    ///
+    /// **The stance-authority correction moved the fight itself.** On tick 1,
+    /// achieved yaw 91 reconstructed through fixed-point `cos`, `sin` and
+    /// `Vec2::angle` as 94. The old law fed that three-raw round-trip error back
+    /// into the hips even for straight-ahead movement; the corrected law uses
+    /// achieved yaw directly. The state stream diverges on that tick, stance is
+    /// visibly different on tick 2, and the two contact solvers amplify the new
+    /// trajectory differently. Previously `0x49d412eb61020365` by default and
+    /// `0xc8a745fdf3897645` under the feature.
     #[cfg(not(feature = "cartesian-recoil"))]
-    const EMBODIED_GOLDEN_DIGEST: u64 = 0x49d4_12eb_6102_0365;
+    const EMBODIED_GOLDEN_DIGEST: u64 = 0x029f_cc41_4071_5db3;
 
     /// The same fight under the wider hash stream; see above.
     #[cfg(feature = "cartesian-recoil")]
-    const EMBODIED_GOLDEN_DIGEST: u64 = 0xc8a7_45fd_f389_7645;
+    const EMBODIED_GOLDEN_DIGEST: u64 = 0x5812_adb7_a1d6_a354;
 
     /// The wounds the legacy columns would have shadowed, recorded **before**
     /// they were deleted.
@@ -696,17 +709,16 @@ mod embodied {
     /// deliberate change to embodied mechanics, and never to make this test
     /// agree with a deletion.
     ///
-    /// **Two constants, selected by feature, and the second was recorded the
-    /// same way and for the same reason.** `cartesian-recoil` is a different
-    /// contact solver, so this fixture resolves before tick 600 under it and
-    /// only one body is left to read -- which made a single twenty-value
-    /// constant fail the feature build from the day it was written, the exact
-    /// shape of red gate `EMBODIED_CORPUS_DIGEST`'s row records session 09
-    /// shipping. Both arrays were measured on the commit *before* the deletion,
-    /// the feature one by injecting this test into a worktree at that commit,
-    /// and both are unchanged after it. That makes the exact-law build a second
-    /// independent witness that the fight did not move rather than a build with
-    /// no witness at all.
+    /// **Two constants, selected by feature, and the second was originally
+    /// recorded the same way and for the same reason.** At the legacy deletion,
+    /// `cartesian-recoil` resolved this fixture before tick 600 and left one body
+    /// to read; injecting the assertion into the parent commit proved that
+    /// ten-word vector had not moved. The later stance-authority correction is
+    /// deliberately a fight move rather than a deletion: under the corrected
+    /// law both bodies survive, and the exact vector below is therefore twenty
+    /// words. Its old-law mutation still produces the former one-survivor length,
+    /// so the feature build remains an independent witness instead of a skipped
+    /// branch.
     #[test]
     fn deleting_the_legacy_columns_left_the_wounds_where_they_were() {
         // Fighter integrity, Fighter wounds, Brute integrity, Brute wounds --
@@ -719,12 +731,18 @@ mod embodied {
             65536, 65536, 61504, 65536, 65536, 0, 0, 0, 0, 0,
             65536, 44416, 30688, 65536, 65536, 0, 6304, 34848, 0, 0,
         ];
-        // The survivor's five regions and five wounds, under the other solver.
-        // One body and not two: the loser is dead and off `alive_ids` by tick
-        // 600, and a torso at 61600 with a wound of 96 is a body that was in a
-        // fight rather than one that stood still.
+        // Both survivors' five regions and five wounds, under the other solver.
+        // The stance-authority correction keeps both bodies live through tick
+        // 600 where the retired movement-derived hip target killed one. This is
+        // still a wound fixture rather than a liveness proxy: the second torso
+        // is at 61600 with a wound of 96, and both of its arms carry 48115 open
+        // wound. Restoring the retired hip target removes that whole row and
+        // fails the length before a stale survivor can look like agreement.
         #[cfg(feature = "cartesian-recoil")]
-        const WOUNDS: [i32; 10] = [65536, 61600, 65536, 65536, 65536, 0, 96, 0, 0, 0];
+        const WOUNDS: [i32; 20] = [
+            65536, 65536, 65536, 65536, 65536, 0, 0, 0, 0, 0,
+            65536, 61600, 0, 0, 65536, 0, 96, 48115, 48115, 0,
+        ];
         let mut world = World::new(&Scenario::embodied_duel(), 31);
         let mut live = Vec::new();
         for _ in 0..600 {
@@ -748,7 +766,7 @@ mod embodied {
             }
         }
         println!("wounds after 600 ticks: {measured:?}");
-        assert_eq!(measured.len(), WOUNDS.len(), "the fixture stopped being two live bodies");
+        assert_eq!(measured.len(), WOUNDS.len(), "the fixture changed its live-body count");
         assert_eq!(measured, WOUNDS.to_vec(), "the deleted columns were feeding the wounds");
     }
 

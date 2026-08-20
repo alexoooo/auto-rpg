@@ -285,17 +285,22 @@ number somebody quotes.
 
 State these before editing; a moved hash is normally a bug.
 
-**No golden hash moves anywhere in this topic. Not one, in any session.** The argument is
-structural rather than hopeful: nothing here edits `crates/fx`, `crates/sim`, or
-`crates/policy`'s decision code. Sessions 01 through 04, 07 and 08 are TypeScript,
-HTML and Markdown.
-Session 05 adds a `PartialCommandSource` and its exports inside `crates/web`; session 06
-adds one read-only export of the existing minimum arm reach. Both are host boundary work
-and reach no pinned fixture: `EMBODIED_CORPUS_DIGEST` and `EMBODIED_GOLDEN_DIGEST` are
-folded by `lab` and `sim` over fights with no host in them.
+**The planned host and client work moves no golden hash.** Sessions 01 through 04, 07 and
+08 are TypeScript, HTML and Markdown; session 05's `PartialCommandSource` and session
+06's read-only reach export do not reach unattended fixtures.
 
-**A pin that moves is therefore a failed session and not a number to re-record**, and the
-two likeliest ways to move one are worth naming in advance:
+**A direct-control diagnosis added one deliberate simulator correction to session 05.**
+Body-relative movement had become a second hip-yaw authority, so reverse and strafe
+steered a supposedly held heading and even forward fed fixed-point angle round-trip error
+back into the stance. Hips now chase achieved torso yaw. This values-only mechanics move
+re-records `ARTICULATED_STREAM_DIGEST`, `EMBODIED_CORPUS_DIGEST` and
+`EMBODIED_GOLDEN_DIGEST` in both feature sets; the exact values and first divergent tick
+are recorded in session 05 and the golden registry. No ABI/layout version, scenario
+fingerprint, command hash, geometry pin or exact-diagnostic pin moves.
+
+**Outside that explicitly measured stance-authority correction, a pin that moves is a
+failed session and not a number to re-record**, and the two likeliest ways to move one
+are worth naming in advance:
 
 - **Touching `World::submit`'s validation or its neutral substitute** to make a
   partial command convenient. Composition happens *before* submission precisely so that

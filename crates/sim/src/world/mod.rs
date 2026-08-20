@@ -2552,13 +2552,10 @@ mod tests {
     /// The asymmetry that makes footwork a decision, raced against **the same
     /// target**.
     ///
-    /// The obvious form of this test does not work and the reason is worth
-    /// keeping: `move_dir` is torso-relative, so "walk forward" names a
-    /// direction that turns with the body, and a walking body's hips chase a
-    /// moving target while a planted one's chase a fixed one. Comparing the two
-    /// measures the target, not the rate. So both bodies here are given the same
-    /// hip target -- an eighth of a turn, comfortably inside the budget -- and
-    /// the only difference is whether they are translating.
+    /// Translation selects the moving hip rate and never a second target. Both
+    /// bodies therefore chase the same achieved torso yaw -- an eighth of a
+    /// turn, comfortably inside the budget -- and the only difference is
+    /// whether they are translating.
     ///
     /// Bounded from **both** sides: the moving body must turn strictly further,
     /// and the standing one must turn at all. A standing rate of zero would
@@ -2570,9 +2567,8 @@ mod tests {
             let mut world = World::new(&Scenario::embodied_duel(), 1);
             let id = world.alive_ids(Faction::Heroes)[0];
             // Torso already where it is going, hips an eighth behind it, so the
-            // hip target is `eighth` in both runs: for the planted body because
-            // the hips chase the torso, and for the walking one because
-            // body-forward at a yaw of `eighth` *is* `eighth` in world space.
+            // hip target is `eighth` in both runs. Translation changes only the
+            // actuator rate below; direction cannot steer this race.
             world.body_yaw[0].angle = eighth;
             world.stance[0] = StanceState::squared(Angle::ZERO);
             let command = CommandCoreV1 {

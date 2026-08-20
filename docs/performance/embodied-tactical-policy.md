@@ -1,9 +1,17 @@
 # The tactical embodied policy
 
 **Purpose:** Record what the strike planner scored the day it was first put behind the embodied seam, what reading the incoming blade did to it, and what tuning its feet did — so that no session in this topic tunes against a memory, and so that the one that deletes `articulated_tactics.rs` does not delete a measurement with it. Three sessions, in the order they landed; the sections are not merged, because each is the control the next is measured against.
-**Status:** current
+**Status:** historical
 **Canonical source:** this record, [`crates/policy/src/tactics.rs`](../../crates/policy/src/tactics.rs), [`crates/policy/src/guard.rs`](../../crates/policy/src/guard.rs), [`crates/policy/src/footwork.rs`](../../crates/policy/src/footwork.rs), and [architecture: policy](../architecture/policy.md#the-registry-and-why-its-build-cannot-fail)
 **Update when:** `TacticalPolicy`, `GuardRead`, `StrikePlanner`, `Footwork`, `embodied-duel-v1`, or the corpus shape changes.
+
+> **Historical mechanics baseline.** Every outcome, contact, refusal and tuning table
+> in this record predates the 2026-08-20 stance-authority correction and must not be
+> read as a current reproduction target. Translation direction no longer steers hip
+> yaw; that deliberate simulator change moved the stance-reachable pins and removed
+> the late `EnergyNumerator` refusals printed in these transcripts. The experiments
+> remain the durable record of the policy decisions they bought. The pin transcript
+> and Pins section below name the current default digest.
 
 # Session 02: the first outing
 
@@ -629,8 +637,8 @@ fixture   0x1a1e8e74eecd55d5  embodied-duel-v1 canonical
 fixture   0x95b6b5f9bc80865d  embodied-duel-v1 mirrored across y=8.0000
 fixture   0xf49de9a61f939163  embodied-slope-v1 canonical
 fixture   0x7f09908444ffa113  embodied-slope-v1 mirrored across y=8.0000
-digest    0x00e08317d7a31c7c
-pinned    0x00e08317d7a31c7c  agrees
+digest    0xfa4ebbfbdde42fd1
+pinned    0xfa4ebbfbdde42fd1  agrees
           0.12s wall
 ```
 
@@ -1264,7 +1272,9 @@ and the slope table above is what it scores without one.
 
 ## Pins
 
-`EMBODIED_CORPUS_DIGEST` reads `0x00e08317d7a31c7c` and agrees with the registry.
+`EMBODIED_CORPUS_DIGEST` now reads `0xfa4ebbfbdde42fd1` by default and agrees with
+the registry. The mechanics tables above are the superseded measurements that led to
+the policy, not a transcript expected to reproduce that pin today.
 Nothing else moved, and the claim that matters most is the one the
 parameterisation could have broken silently: **`StrikePlanner` now takes its
 measure numbers as configuration, and the articulated policy that `#/arena` runs

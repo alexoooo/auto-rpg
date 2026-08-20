@@ -341,9 +341,8 @@ pub struct Footwork {
     /// writes can reach that flag. What a non-zero `move_dir` does reach is
     /// `translating`, which takes the hips from
     /// `STANCE_HIP_STANDING_SPEED_RAW` to `STANCE_HIP_MOVING_SPEED_RAW`, twice
-    /// the rate. And `hip_target` does not move either: it is `move_dir.angle()`
-    /// while translating and `body_yaw` while planted, and the vector written is
-    /// along `body_yaw`, so the hips chase the same angle faster. The planner's
+    /// the rate. `hip_target` is the achieved body yaw in both cases, so the
+    /// movement vector changes only how quickly the hips chase it. The planner's
     /// answer to a saturated twist is therefore *walking while it unwinds*, not
     /// a smaller ask -- which is also why it costs ground and is spent on the
     /// chamber alone.

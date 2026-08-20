@@ -105,7 +105,18 @@ asserts the strict inequality through actual driven ticks, the other the range â
 driving one carries a correction worth keeping. Its first draft raced a walking body
 against a planted one, and `move_dir` is torso-relative, so "walk forward" names a target
 that turns with the body: the test measured the target rather than the rate. Both bodies
-are now given the same hip target.
+were then given the same hip target.
+
+**The movement vector no longer supplies that target at all.** It names translation in
+the torso frame; the hips chase the achieved torso yaw, at the moving rate while the body
+translates and the standing rate while planted. The earlier law transformed the vector
+to world space and recovered its angle, which made reverse and strafe turn the pelvis and
+also fed fixed-point `yaw -> (cos,sin) -> angle` round-trip error back into a nominally
+forward stance. `isolated_w_s_a_and_d_paths_do_not_steer_a_fixed_heading` guards all four
+directions; `translation_and_turning_do_not_share_effort` pre-arms the same forced step in
+two worlds and proves translation changes velocity but not the yaw/hip actuator subset.
+The moving pelvis still sits lower by the documented speed drop, so full `StanceState`
+equality would assert the opposite of the law this record gives it.
 
 Neither rate bottoms out in a measurement. `BODY_YAW_MAX_SPEED_RAW` is
 `floor(65_536 / 120)` and `BODY_YAW_ACCEL_RAW` is `floor(65_536 / 720)` â€” a turn in two

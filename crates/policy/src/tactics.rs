@@ -1021,10 +1021,9 @@ fn strike_command(
     // **Two things it does not do**, both of which an earlier draft of this
     // comment claimed. It does not *arm* a step: `drive_stance` arms one from
     // `want != held` alone -- a turn the budget refused -- and a planner cannot
-    // reach that flag from here. And it does not move `hip_target`: that is
-    // `move_dir.angle()` while translating and `body_yaw` while planted, and the
-    // vector written below is along `body_yaw`, so the hips are already
-    // chasing exactly this angle. Direction is not what changes; rate is.
+    // reach that flag from here. And it does not move `hip_target`: that is the
+    // achieved body yaw whether translating or planted. Direction is not what
+    // changes; rate is.
     //
     // `command.body_yaw` above is deliberately left asking for the whole turn.
     // `drive_stance` re-arms its step for as long as the request exceeds the

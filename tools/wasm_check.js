@@ -1306,8 +1306,8 @@ const SEVERED_MASK_BITS = 5;
 // digests are unmoved. Native MSVC measured both values below before either wasm
 // owner was edited, and a fresh artifact of each build then answered both.
 const ARTICULATED_STREAM_DIGEST = CARTESIAN_RECOIL
-  ? 0x4bf34984d56d2795n
-  : 0x96e4e51de0c00d62n;
+  ? 0x8c8a5e4350230df6n
+  : 0x63bf8b26809d43c4n;
 
 // The live pose rows, copied out. Words and not floats: every published column
 // is a `u32`, and the signed ones are two's-complement raw bits.
@@ -2768,17 +2768,19 @@ test("a configured duel runs inside the module and refuses by name", () => {
   // itself -- on the configuration's tick limit, or earlier on a decision -- so
   // the overshoot has to be inert either way.
   //
-  // **The two builds stop for different reasons and that is the point.** The
-  // default reaches the configured limit; exact decides at 263. The former
-  // exact expectation of 164 came from running `DuelConfigV1::shipped()`
+  // **Both builds now reach the configured limit.** The former exact stop at
+  // 263 reached the corrected stance law before contact: on tick 25 the
+  // scripted fighter has achieved yaw 91 while translating, and the retired
+  // movement-derived hip target is 94 after the fixed-point angle round trip.
+  // The still earlier exact expectation of 164 came from running `DuelConfigV1::shipped()`
   // natively, whose weapon dimensions are not the round legal values above; the
   // one before this was 278, and it moved because v2-ui-08 made this fight
   // embodied and staged `scripted` against `tactical` where it staged the
   // articulated `composed` against `windmill`.
   // `exact_wasm_check_fights_match_the_same_native_configuration` asserts these
-  // raw words and 263 together. A `<= maxTicks` bound would defend none of the
+  // raw words and 300 together. A `<= maxTicks` bound would defend none of the
   // configuration identity, the early decision, or the limit clamp.
-  const STOPS_AT = CARTESIAN_RECOIL ? 263 : config.maxTicks;
+  const STOPS_AT = config.maxTicks;
   wasm.step(3_600);
   assert.equal(u32(wasm.tick()), STOPS_AT, "the arena did not stop where it should");
   assert.ok(u32(wasm.combat_event_len()) > 0, "the whole fight resolved no contact");
@@ -3376,10 +3378,9 @@ test("every arena policy byte either fights or is refused by name", () => {
   // whether that shows depends on how long the fight lasts. Measured on
   // 2026-08-19: under the default law the two separate between tick 300 and tick
   // 600 and end apart, so four fights are distinct. **Under `cartesian-recoil`
-  // the fight is over at tick 255 with one body standing** and the guard has had
-  // nothing to not-read, so they are byte for byte the same and three are. That
-  // is a fact about how fast the exact law kills rather than about the guard --
-  // the same pair separates under the default law on the same seed -- and it is
+  // the corrected stance carries both to the 300-tick bound byte for byte the
+  // same**, so three are distinct. The same pair separates under the default
+  // law on the same seed, and the exact equality is
   // pinned from both sides rather than relaxed into "at least three", because a
   // count that tolerated both would tolerate the two collapsing for a real
   // reason.

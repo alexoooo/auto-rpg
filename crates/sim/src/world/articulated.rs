@@ -22,11 +22,12 @@ impl World {
     ///
     /// The four rules, in the order they are applied:
     ///
-    /// 1. **Hips chase, and what they chase depends on whether the body is
-    ///    moving.** A translating body turns its hips toward `move_dir`; a
-    ///    stationary one turns them toward the torso, more slowly. That
-    ///    asymmetry is the mechanic -- a body already committing its feet
-    ///    reorients for free, and a planted one pays.
+    /// 1. **Hips chase the achieved torso, and movement changes only their
+    ///    speed.** A body-relative movement vector says where to translate,
+    ///    not where the pelvis should face: reverse and strafe must not turn a
+    ///    held torso until the command's yaw follows them. A translating body
+    ///    catches the torso at the moving rate; a planted one pays the slower
+    ///    rate.
     /// 2. **The torso's target is clamped into the twist budget**, around the
     ///    hips as they now are. Clamping the *target* rather than the step is
     ///    what stops the torso saturating and sitting at the limit with a
@@ -52,8 +53,10 @@ impl World {
 
             let stepping = self.stance[i].step_left > 0;
             let translating = !move_dir.is_zero();
-            // 1. Where the feet want to point, and how fast they may.
-            let hip_target = if translating { move_dir.angle() } else { self.body_yaw[i].angle };
+            // 1. Where the feet want to point, and how fast they may. The
+            // achieved yaw, not `requested_yaw`: hips trail a turn rather than
+            // anticipating a torso that has not reached it yet.
+        let hip_target = self.body_yaw[i].angle;
             let hip_speed = if translating || stepping {
                 actuator::STANCE_HIP_MOVING_SPEED_RAW
             } else {
@@ -755,31 +758,12 @@ mod tests {
         assert_eq!((world.body_yaw[0].angle.raw(), world.body_yaw[0].speed_turns.raw()), (100, 0));
     }
 
-    /// **The embodied stance ties the feet to the turn, and the turn still does
-    /// not spend the legs' effort.** That is a stronger claim than the one this
-    /// test made under the articulated model, where nothing about moving could
-    /// have reached the yaw at all; the hip assertion at the end is what keeps
-    /// it from being an empty one, because without a divergence to survive the
-    /// equality in the loop is satisfied by two identical worlds.
-    ///
-    /// The two worlds do diverge, and **not for the reason the constants
-    /// advertise** -- this was measured rather than argued. Both have a forced
-    /// step armed for the whole window, because a quarter turn is outside the
-    /// twist budget and re-arms it every tick, so both sets of hips turn at the
-    /// *moving* rate and the standing/moving asymmetry never gets to bite. What
-    /// differs is what they chase. A standing body chases its own torso angle
-    /// and lands on it exactly, which zeroes its hip speed every tick; a
-    /// translating one chases `move_dir`, and "straight ahead" pushed through
-    /// `world_move_dir`'s rotation and back out through `Vec2::angle` comes back
-    /// a few raw units past the torso -- 94 against 91 on tick 2, 280 against
-    /// 273 on tick 3 -- so those hips never arrive, never reset, and run one
-    /// acceleration step ahead from there on.
-    ///
-    /// The torso is what survives it, and that is the test's subject. Its target
-    /// is the hips plus the twist budget, and while the budget is saturated the
-    /// torso is against its own speed ceiling in both worlds, so where the hips
-    /// have got to cannot move it. Over the first 40 ticks of this fixture the
-    /// two yaws agree on every one of them, and the hips part company on tick 3.
+    /// Translation changes velocity, not the yaw or stance state produced by
+    /// the same forced turn. Both bodies begin mid-step so both select the
+    /// moving hip rate; that isolates the movement vector from the actuator
+    /// state instead of accidentally comparing the two documented rates. The
+    /// pelvis is excluded from equality because its documented speed drop makes
+    /// translation itself an input to that derived height.
     #[test]
     fn translation_and_turning_do_not_share_effort() {
         let scenario = Scenario::embodied_duel();
@@ -788,6 +772,8 @@ mod tests {
         let fighter = EntityId::new(0, 0);
         let mut turn = command_core();
         turn.body_yaw = Angle::QUARTER;
+        stationary.stance[0].step_left = actuator::STANCE_STEP_TICKS;
+        moving.stance[0].step_left = actuator::STANCE_STEP_TICKS;
         submit(&mut stationary, fighter, turn);
         // World `+x` under the articulated model and "straight ahead" under the
         // embodied one; the body spawns facing `Angle::ZERO`, so it is the same
@@ -798,11 +784,49 @@ mod tests {
             stationary.step();
             moving.step();
             assert_eq!(stationary.body_yaw[0], moving.body_yaw[0]);
+            assert_eq!(stationary.stance[0].hip_yaw, moving.stance[0].hip_yaw);
+            assert_eq!(stationary.stance[0].hip_yaw_speed_turns,
+                       moving.stance[0].hip_yaw_speed_turns);
+            assert_eq!(stationary.stance[0].hip_authority_residue,
+                       moving.stance[0].hip_authority_residue);
+            assert_eq!(stationary.stance[0].step_left, moving.stance[0].step_left);
+            assert_eq!(stationary.stance[0].twist(stationary.body_yaw[0].angle),
+                       moving.stance[0].twist(moving.body_yaw[0].angle));
+            assert!(moving.stance[0].pelvis < stationary.stance[0].pelvis,
+                    "translation did not reach the pelvis speed drop");
         }
         assert_eq!(stationary.vel[0], Vec2::ZERO);
         assert!(!moving.vel[0].is_zero());
-        assert_ne!(stationary.stance[0].hip_yaw, moving.stance[0].hip_yaw,
-                   "the legs never diverged, so the yaws agreed about nothing");
+    }
+
+    #[test]
+    fn isolated_w_s_a_and_d_paths_do_not_steer_a_fixed_heading() {
+        let scenario = Scenario::embodied_duel();
+        for (name, direction) in [
+            ("W", Vec2::new(Fx::ONE, Fx::ZERO)),
+            ("S", Vec2::new(-Fx::ONE, Fx::ZERO)),
+            ("A", Vec2::new(Fx::ZERO, Fx::ONE)),
+            ("D", Vec2::new(Fx::ZERO, -Fx::ONE)),
+        ] {
+            let mut world = World::new(&scenario, 1);
+            let fighter = EntityId::new(0, 0);
+            let start = world.pos[0];
+            let mut command = command_core();
+            command.move_dir = direction;
+            command.body_yaw = Angle::ZERO;
+            submit(&mut world, fighter, command);
+            for _ in 0..120 { world.step(); }
+
+            let delta = world.pos[0] - start;
+            let along = delta.dot(direction);
+            let across = delta.x * -direction.y + delta.y * direction.x;
+            assert!(along > Fx::ZERO, "{name} did not move along its requested path");
+            assert_eq!(across, Fx::ZERO, "{name} curved off its requested path");
+            assert_eq!(world.body_yaw[0].angle, Angle::ZERO, "{name} steered the torso");
+            assert_eq!(world.stance[0].hip_yaw, Angle::ZERO, "{name} steered the hips");
+            assert_eq!(world.stance[0].twist(world.body_yaw[0].angle), 0,
+                       "{name} wound the stance while holding a fixed heading");
+        }
     }
 
     #[test]

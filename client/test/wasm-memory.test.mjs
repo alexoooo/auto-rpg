@@ -1232,6 +1232,7 @@ const tsc = spawnSync(process.execPath, [
   "--ignoreDeprecations", "6.0",
   "--strict", "--skipLibCheck", "--outDir", OUT, "--rootDir", root,
   "client/src/runtime/arena-config.ts", "client/src/runtime/arena-recorder.ts",
+  "client/src/arena/arena-input.ts",
   "client/src/fight/live.ts", "client/src/protocol/messages.ts",
 ], { cwd: root, encoding: "utf8" });
 assert.equal(tsc.status, 0, `TypeScript test compilation failed:\n${tsc.stdout}\n${tsc.stderr}`);
@@ -1239,6 +1240,7 @@ assert.equal(tsc.status, 0, `TypeScript test compilation failed:\n${tsc.stdout}\
 const require = createRequire(import.meta.url);
 const CONFIG = require(path.join(OUT, "client/src/runtime/arena-config.js"));
 const RECORDER = require(path.join(OUT, "client/src/runtime/arena-recorder.js"));
+const ARENA_INPUT = require(path.join(OUT, "client/src/arena/arena-input.js"));
 const LIVE = require(path.join(OUT, "client/src/fight/live.js"));
 const MSG = require(path.join(OUT, "client/src/protocol/messages.js"));
 
@@ -1394,6 +1396,112 @@ function copyOf(chunk) {
   }
   return out;
 }
+
+test("real_wasm_human_forward_back_and_strafe_rebase_yaw_and_do_not_circle", () => {
+  const abi = generatedConstants();
+  const wasm = instantiate();
+  const adapter = RECORDER.createArenaAdapter(wasm);
+  const base = liveConfig({ heroes: "neutral", monsters: "neutral",
+    hands: [["shield", "sword"], ["empty", "club"]] });
+  const config = {
+    ...base,
+    maxTicks: 240,
+    fighters: base.fighters.map((fighter, faction) => ({
+      ...fighter,
+      control: faction === 0 ? CONFIG.ARENA_CONTROL_HUMAN : CONFIG.ARENA_CONTROL_POLICY,
+    })),
+  };
+
+  const pose = (publication, entityIndex) => {
+    for (let row = 0; row < publication.poseRows; row += 1) {
+      const at = row * abi.POSE_STRIDE;
+      if (publication.poses[at + abi.POSE_ENTITY_INDEX] !== entityIndex) continue;
+      return {
+        id: [publication.poses[at + abi.POSE_ENTITY_INDEX],
+          publication.poses[at + abi.POSE_ENTITY_GENERATION]],
+        x: publication.poses[at + abi.POSE_BODY_X] | 0,
+        y: publication.poses[at + abi.POSE_BODY_Y] | 0,
+        yaw: publication.poses[at + abi.POSE_BODY_YAW_RAW] & 0xffff,
+      };
+    }
+    assert.fail(`the real wasm publication has no entity ${entityIndex}`);
+  };
+
+  for (const [code, expectedX, expectedY] of [
+    ["KeyW", CONFIG.ONE_RAW, 0], ["KeyS", -CONFIG.ONE_RAW, 0],
+    ["KeyA", 0, CONFIG.ONE_RAW], ["KeyD", 0, -CONFIG.ONE_RAW],
+  ]) {
+    adapter.warmUp(config.seed, null);
+    adapter.writeConfig(CONFIG.encodeArenaConfig(config));
+    const started = adapter.start(config.seed);
+    assert.ok(CONFIG.arenaStarted(started), CONFIG.describeArenaRefusal(started));
+    assert.equal(adapter.control(0), CONFIG.ARENA_CONTROL_HUMAN);
+    assert.equal(adapter.control(1), CONFIG.ARENA_CONTROL_POLICY);
+
+    let publication = adapter.read();
+    const opponent = pose(publication, 1).id;
+    const turn = new ARENA_INPUT.ArenaInput();
+    turn.keyDown("KeyQ");
+    let turned = pose(publication, 0);
+    for (let tick = 0; tick < 60; tick += 1) {
+      const bytes = turn.encode(opponent, turned.yaw);
+      const command = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      assert.equal(command.getUint16(12, true), (turned.yaw + 8_192) & 0xffff,
+        `the real-wasm turn did not rebase on tick ${tick}`);
+      adapter.writeEmbodiedCommand(Uint8Array.from(bytes));
+      const staged = adapter.stageInput(0);
+      assert.ok(CONFIG.arenaStarted(staged), CONFIG.describeArenaRefusal(staged));
+      adapter.step();
+      publication = adapter.read();
+      turned = pose(publication, 0);
+      const cardinalDistance = Math.min(...[0, 16_384, 32_768, 49_152, 65_536]
+        .map((cardinal) => Math.abs(turned.yaw - cardinal)));
+      if (cardinalDistance >= 2_048) break;
+    }
+    const opening = pose(publication, 0);
+    const cardinalDistance = Math.min(...[0, 16_384, 32_768, 49_152, 65_536]
+      .map((cardinal) => Math.abs(opening.yaw - cardinal)));
+    assert.ok(cardinalDistance >= 2_048,
+      `${code} began from cardinal or near-cardinal yaw ${opening.yaw}`);
+
+    const input = new ARENA_INPUT.ArenaInput();
+    input.keyDown(code);
+    const path = [];
+    for (let tick = 0; tick < 120; tick += 1) {
+      const before = pose(publication, 0);
+      const bytes = input.encode(opponent, before.yaw);
+      const command = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      assert.deepEqual([command.getInt32(4, true), command.getInt32(8, true)],
+        [expectedX, expectedY], `${code} staged the wrong local movement at tick ${tick}`);
+      assert.equal(command.getUint16(12, true), before.yaw,
+        `${code} staged yaw from somewhere other than the latest real publication at tick ${tick}`);
+      adapter.writeEmbodiedCommand(Uint8Array.from(bytes));
+      const staged = adapter.stageInput(0);
+      assert.ok(CONFIG.arenaStarted(staged), CONFIG.describeArenaRefusal(staged));
+      adapter.step();
+      publication = adapter.read();
+      const after = pose(publication, 0);
+      assert.equal(after.yaw, opening.yaw, `${code} spun the real Human body at tick ${tick + 1}`);
+      path.push([after.x - opening.x, after.y - opening.y]);
+    }
+
+    const final = path.at(-1);
+    const referenceLength = Math.hypot(final[0], final[1]);
+    assert.ok(referenceLength >= CONFIG.ONE_RAW,
+      `${code} did not move one world unit in 120 real ticks`);
+    let maxCrossTrackRaw = 0;
+    for (const [x, y] of path) {
+      const crossTrackRaw = Math.abs(final[0] * y - final[1] * x) / referenceLength;
+      maxCrossTrackRaw = Math.max(maxCrossTrackRaw, crossTrackRaw);
+    }
+    // The turned stance is still settling when translation begins. The real
+    // D drive measured 5,601 raw units of transient cross-track on 2026-08-20;
+    // one eighth of a world unit bounds that settling while remaining far
+    // below the sustained circular path this regression is about.
+    assert.ok(maxCrossTrackRaw <= CONFIG.ONE_RAW / 8,
+      `${code} curved ${maxCrossTrackRaw} raw units off its initial real-wasm path`);
+  }
+});
 
 test("arena_start_allocates_within_the_warm_set", async () => {
   const abi = generatedConstants();
@@ -1571,7 +1679,7 @@ test("the_index_survives_a_death", async () => {
   //
   // That an embodied duel between two competent policies runs its clock 97% of
   // the time is worth recording here rather than only in a plan.
-  const deathTick = 2_900;
+  const deathTick = 2_923;
   const config = liveConfig({ heroes: "scripted", monsters: "scripted", seed: 14 });
   const { source, finished, opened, chunks, whole } = await recordLive(wasm, config);
 
@@ -1584,8 +1692,8 @@ test("the_index_survives_a_death", async () => {
 
   // **The fight arrives in chunks and the count is arithmetic rather than a
   // literal**, so the cadence constant can move without this fixture lying about
-  // what it proved. 2,901 frames at 30 a chunk is 97 messages, the last of which
-  // is the twenty-one-frame tail.
+  // what it proved. 2,924 frames at 30 a chunk is 98 messages, the last of which
+  // is the fourteen-frame tail.
   const chunkTicks = MSG.ARENA_STREAM_CHUNK_TICKS;
   assert.equal(chunks.length, Math.ceil((deathTick + 1) / chunkTicks));
   assert.deepEqual(chunks.map((chunk) => chunk.frameCount).slice(0, -1),
@@ -1604,11 +1712,11 @@ test("the_index_survives_a_death", async () => {
   assert.equal(source.frameAt(deathTick).poses.length, 1);
   assert.equal(source.frameAt(deathTick).poses[0].id[0], 0, "the Fighter is the survivor");
   // The survivor is not untouched, which is what makes this a health assertion
-  // rather than a liveness one: 48_581 of 65_536 is 74.1%, so the Fighter won a
-  // fight it was losing a quarter of. Re-recorded with the fixture above; the
+  // rather than a liveness one: 64_520 of 65_536 is 98.4%, so the Fighter took
+  // real damage before winning. Re-recorded with the fixture above; the
   // series under the articulated `windmill` control was 65_536, 65_408, 64_240,
   // 53_072, and this is a different fight rather than the next term in it.
-  assert.deepEqual(source.frameAt(deathTick).health, [48_581, 0]);
+  assert.deepEqual(source.frameAt(deathTick).health, [64_520, 0]);
 
   // **The index, as an assertion rather than as a comment.** This is the
   // arithmetic a reader without one would do; after the kill it lands on a row

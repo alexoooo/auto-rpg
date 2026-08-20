@@ -1,11 +1,18 @@
 # Embodied corpus and the high-ground measurement
 
 **Purpose:** Record the embodied corpus, its registered pin, and the measured result of the elevation term — including that the term lost.
-**Status:** current
-**Canonical source:** this record, [`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1659), and the `EMBODIED_CORPUS_DIGEST` row in the [golden registry](../reference/hashes.md#golden-registry)
+**Status:** historical
+**Canonical source:** this record, [`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1588), and the `EMBODIED_CORPUS_DIGEST` row in the [golden registry](../reference/hashes.md#golden-registry)
 **Update when:** An embodied fixture, the embodied script, the corpus shape, the pin, or the high-ground result changes.
 
 **Host:** MSVC x86-64, Windows 10, AMD Ryzen 9 3950X, 32 logical cores. **Date:** 2026-08-17.
+
+> **Historical mechanics baseline.** The outcome, contact and refusal tables below
+> predate the 2026-08-20 stance-authority correction and are not current corpus
+> measurements. That correction made translation direction independent of hip yaw,
+> moved all three stance-reachable pin families, and removed the late solver refusals
+> recorded here. The fixture fingerprints and measurement design remain authoritative;
+> the registered-pin transcript below has been updated to the current default value.
 
 Reproduce with:
 
@@ -80,8 +87,8 @@ the policy at once, since no embodied fixture can be driven by an articulated sc
 
 ## The registered pin
 
-`EMBODIED_CORPUS_DIGEST = 0x00e08317d7a31c7c`, defined at
-[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1346) and asserted by
+`EMBODIED_CORPUS_DIGEST = 0xfa4ebbfbdde42fd1`, defined at
+[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1493) and asserted by
 `the_embodied_corpus_digest_is_the_pinned_one`.
 
 ```text
@@ -90,8 +97,8 @@ fixture   0x1a1e8e74eecd55d5  embodied-duel-v1 canonical
 fixture   0x95b6b5f9bc80865d  embodied-duel-v1 mirrored across y=8.0000
 fixture   0xf49de9a61f939163  embodied-slope-v1 canonical
 fixture   0x7f09908444ffa113  embodied-slope-v1 mirrored across y=8.0000
-digest    0x00e08317d7a31c7c
-pinned    0x00e08317d7a31c7c  agrees
+digest    0xfa4ebbfbdde42fd1
+pinned    0xfa4ebbfbdde42fd1  agrees
 ```
 
 **It was `0x14882fb0e0f851e5` until 2026-08-18, and the four arena fingerprints
@@ -167,7 +174,7 @@ at the pair.
 ## The high-ground measurement
 
 `lab embodied --high-ground`, at
-[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1765). The subject is
+[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1773). The subject is
 `ScriptConfig::SEEKING` and the control is
 [`ScriptConfig`](../../crates/policy/src/script.rs#L272)`::LEVEL`,
 which is the same script with the elevation term switched off so completely that the

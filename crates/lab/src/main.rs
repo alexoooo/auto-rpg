@@ -489,8 +489,12 @@ struct Trial {
     /// and the one signal that can actually fail -- which, the first time it
     /// was measured, it did: 6.5% of the composed corpus. It reads zero on all
     /// three corpora since checkpoint B stopped the contact projector
-    /// re-deriving an unmoved hand, so the excess above finally audits the
-    /// whole fight rather than the part of it that survived.
+    /// re-deriving an unmoved hand. Two late `EnergyNumerator` refusals then
+    /// survived in the embodied evidence until the stance-authority correction
+    /// removed the movement-direction hip chase that produced their contact
+    /// groups. The full-clock regression below keeps this field at zero, so the
+    /// excess above finally audits the whole fight rather than the part of it
+    /// that survived.
     solver_rejections: u32,
     first_rejection: Option<sim::ResolutionError>,
     /// Resolution rows that took a region off, and the largest weapon-body
@@ -1452,11 +1456,11 @@ const EMBODIED_CORPUS_TICKS: u32 = 600;
 /// `post_contact_hash_bytes` all join the stream under it -- *and* it changes
 /// the fights being hashed, because it is a different contact solver. The first
 /// draft of this comment claimed only the first half and called the two corpora
-/// "the same fights"; they are not. Measured on `embodied-slope-v1` at seed 31
-/// by `crates/sim/tests/determinism.rs`, the same script resolves at tick 322
-/// with 242 contact rows and a hero win by default, and at tick 183 with 8 rows
-/// and a monster win under the feature. Two pins here are not two spellings of
-/// one measurement; they are two measurements.
+/// "the same fights"; they are not. A later example quoted the slope seed-31
+/// outcomes from `crates/sim/tests/determinism.rs`, but that module drives its
+/// own `closing` script, not this corpus's `PolicyKind::Scripted`; the numbers
+/// were removed rather than re-recorded against the wrong fixture. Two pins here
+/// are not two spellings of one measurement; they are two measurements.
 ///
 /// Session 09 shipped one constant and only ever measured the default build, so
 /// `cargo test -p lab --features cartesian-recoil` failed this assertion from
@@ -1481,13 +1485,17 @@ const EMBODIED_CORPUS_TICKS: u32 = 600;
 /// clock, sides, fights, health, contacts, blocked, guard, blows and commands --
 /// is byte-identical; only the digest column moved. Previously
 /// `0x14882fb0e0f851e5` by default and `0x09ca917b5b5283cf` under the feature.
+/// **The stance-authority correction moved both values again**, because the
+/// scripted corpus deliberately strafes and circles: body-relative movement
+/// now changes translation only, while the hips chase achieved torso yaw.
+/// Previously `0x00e08317d7a31c7c` and `0x5f972ba975775ee2`.
 #[cfg(not(feature = "cartesian-recoil"))]
-const EMBODIED_CORPUS_DIGEST: u64 = 0x00e0_8317_d7a3_1c7c;
+const EMBODIED_CORPUS_DIGEST: u64 = 0xfa4e_bbfb_dde4_2fd1;
 
 /// The same fold over the same *fixtures* under the other solver; see above for
 /// why "the same corpus" would be the wrong phrase for it.
 #[cfg(feature = "cartesian-recoil")]
-const EMBODIED_CORPUS_DIGEST: u64 = 0x5f97_2ba9_7577_5ee2;
+const EMBODIED_CORPUS_DIGEST: u64 = 0x9338_4862_586e_6027;
 
 /// The four arenas of the pin corpus, in the order the fold writes them.
 ///
@@ -3088,7 +3096,7 @@ mod tests {
 
     #[cfg(not(feature = "cartesian-recoil"))]
     #[test]
-    fn zero_created_energy_excess_and_intentional_refusals_are_separate_evidence() {
+    fn zero_created_energy_excess_and_zero_solver_refusals_are_separate_evidence() {
         // **The correction this command exists to record, and it is not
         // hypothetical.** `max_energy_excess` is computed over published rows;
         // a group that creates energy is precisely a group whose rows
@@ -3107,44 +3115,26 @@ mod tests {
         // re-derived every equipment row through the joint's inexact inverse map
         // at every alpha including zero, and the drift read as created energy --
         // and this assertion is its gate, inverted rather than deleted. Smart102
-        // then separated that law from one *intentional* `EnergyNumerator`
-        // refusal, whose two-contact group loses a raw unit while both
-        // allocation weights are zero: refusing is the only honest result there,
-        // and an assertion that counted it as a violation would be pinning a bug
-        // report against correct code.
+        // then separated that law from one `EnergyNumerator` refusal, whose
+        // two-contact group loses a raw unit while both allocation weights are
+        // zero: refusing was the only honest answer for that group.
         //
         // **Session 05 moved it from the three articulated scripts onto the
-        // registry, and the law came with it unchanged.** It is the same
-        // `EnergyNumerator`, the same count of one, on the embodied fixtures --
-        // which is worth saying plainly, because it means the boundary Smart102
-        // described is a property of the solver and was never a property of the
-        // windmill. The four cells below are seed 1 at the fixtures' own clock
-        // rather than a bounded run: the refusal arrives once in 3,600 ticks and
-        // a 300-tick bound does not reach it, so bounding this test would leave
-        // the retained-refusal half asserting the absence of the thing it exists
-        // to hold.
+        // registry, and the law came with it unchanged.** The stance-authority
+        // correction then proved those retained groups were not fixture facts.
+        // Under the retired movement-direction hip target, tactical/duel first
+        // reaches that law on tick 24 and refuses after tick 356; scripted/slope
+        // reaches it on tick 84 and refuses after tick 2998. With hips chasing
+        // achieved body yaw, both run their whole 3,600-tick clocks with contacts
+        // and no refusal. Restoring the retired target makes this test fail on
+        // exactly those two cells.
         //
-        // Two halves, and they are different claims. The ordinary cells say the
-        // ordinary case refuses nothing. The refusing cells keep an actual
-        // refusal under the assertion, and keeping one is the point: the
-        // inverted gate is only meaningful while some fixture still exercises a
-        // refusal it could get wrong.
+        // All four cells remain separate because they reach different footwork
+        // and floor paths. The full clock is load-bearing: a 300-tick bound would
+        // miss one old refusal entirely and stop just before the other.
         for (kind, arena) in [
             (PolicyKind::Scripted, Scenario::embodied_duel()),
             (PolicyKind::TacticalFixedGuard, Scenario::embodied_duel()),
-        ] {
-            let trial = measure_embodied(&arena, 1, kind, None);
-            assert!(trial.contacts > 0, "{}/{}: nothing touched", arena.name, kind.name());
-            assert_eq!(trial.max_energy_excess, 0, "{}/{}", arena.name, kind.name());
-            assert_eq!(
-                (trial.solver_rejections, trial.first_rejection), (0, None),
-                "{}/{}: the refusal count and its law changed independently",
-                arena.name, kind.name(),
-            );
-        }
-        // Both fixtures, because a retained refusal on one arena only would be a
-        // claim about that arena's floor rather than about the solver.
-        for (kind, arena) in [
             (PolicyKind::Tactical, Scenario::embodied_duel()),
             (PolicyKind::Scripted, Scenario::embodied_slope()),
         ] {
@@ -3153,15 +3143,14 @@ mod tests {
             assert_eq!(trial.max_energy_excess, 0, "{}/{}", arena.name, kind.name());
             assert_eq!(
                 (trial.solver_rejections, trial.first_rejection),
-                (1, Some(sim::ResolutionError::EnergyNumerator)),
-                "{}/{}: the intentional refusal changed count or law",
+                (0, None),
+                "{}/{}: a contact group disappeared from the evidence",
                 arena.name, kind.name(),
             );
         }
     }
 
-    /// The bound the embodied tests in this module run under, with one stated
-    /// exception.
+    /// The bound the ordinary embodied tests in this module run under.
     ///
     /// A fixture fight is 3,600 ticks and reaches its clock, so a debug build
     /// pays for the whole of it to learn something the first few hundred ticks
@@ -3169,10 +3158,9 @@ mod tests {
     /// the same reason, and it is past the approach on both fixtures -- which is
     /// what these tests are about.
     ///
-    /// `zero_created_energy_excess_and_intentional_refusals_are_separate_evidence`
-    /// runs unbounded and says why in place: the one intentional solver refusal
-    /// on either fixture arrives once in 3,600 ticks, and a bounded run would
-    /// assert the absence of the thing that test exists to hold.
+    /// `zero_created_energy_excess_and_zero_solver_refusals_are_separate_evidence`
+    /// runs unbounded and says why in place: it guards the absence of two
+    /// formerly late refusals, and a bounded run would not reach either path.
     const TEST_TICKS: Option<u32> = Some(300);
 
     #[test]
@@ -3214,17 +3202,44 @@ mod tests {
         // with, whose commands are a function of the observation -- and the
         // sculpted fixture, whose floor is the only thing in the repository that
         // reaches a state hash through `Dungeon::digest`'s `sculpted` arm.
-        for scenario in embodied_corpus_arenas() {
+        #[cfg(not(feature = "cartesian-recoil"))]
+        let expected = [
+            (0x1a1e_8e74_eecd_55d5, 300, Outcome::Decision(Faction::Heroes)),
+            (0x95b6_b5f9_bc80_865d, 300, Outcome::Decision(Faction::Heroes)),
+            (0xf49d_e9a6_1f93_9163, 300, Outcome::Decision(Faction::Heroes)),
+            (0x7f09_9084_44ff_a113, 300, Outcome::Decision(Faction::Heroes)),
+        ];
+        #[cfg(feature = "cartesian-recoil")]
+        let expected = [
+            (0x1a1e_8e74_eecd_55d5, 300, Outcome::Decision(Faction::Heroes)),
+            (0x95b6_b5f9_bc80_865d, 300, Outcome::Draw),
+            (0xf49d_e9a6_1f93_9163, 300, Outcome::Draw),
+            (0x7f09_9084_44ff_a113, 281, Outcome::HeroesWin),
+        ];
+
+        // The exact vector moved with the stance-authority correction rather
+        // than with replay. All four scripts first reach the retired lossy hip
+        // target: ticks 36/36 on the flat pair and 84/84 on the sculpted pair,
+        // with reconstructed movement bearings 14 or 15 raw angle units off
+        // achieved yaw. Only the mirrored sculpted fight now resolves inside
+        // this bound. Restoring movement direction as hip authority makes this
+        // vector fail while the three-pass equality remains independently live.
+        for (scenario, &(fingerprint, expected_ticks, expected_outcome)) in
+            embodied_corpus_arenas().into_iter().zip(&expected)
+        {
+            assert_eq!(scenario.fingerprint(), fingerprint,
+                "the expected replay cell names a different fixture");
             let verdict = verify_one_embodied(
                 &scenario,
                 3,
                 EmbodiedMatchup::symmetric(PolicyKind::Scripted),
                 TEST_TICKS,
             );
-            let (ticks, _, state) = verdict.unwrap_or_else(|sentence| {
+            let (ticks, outcome, state) = verdict.unwrap_or_else(|sentence| {
                 panic!("{}: {sentence}", scenario.name);
             });
-            assert_eq!(ticks, 300, "{}", scenario.name);
+            assert_eq!((ticks, outcome), (expected_ticks, expected_outcome),
+                "{} / {fingerprint:#018x}", scenario.name);
             assert_eq!(state.domain, sim::HashDomain::EmbodiedV1, "{}", scenario.name);
         }
     }
@@ -3580,4 +3595,3 @@ mod tests {
         assert_eq!(one, many);
     }
 }
-

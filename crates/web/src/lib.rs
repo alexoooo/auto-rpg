@@ -7404,9 +7404,11 @@ pub const extern "C" fn articulated_projectile_layout_version() -> u32 {
 /// [`pose_ptr`]'s terms exactly.
 ///
 /// **Authoritative and unfiltered, exactly as [`pose_ptr`] is.** A hip bearing
-/// is which way a body is *about* to be able to move and a forced step is how
-/// long it cannot change its mind for, both for bodies the viewer may have no
-/// way of seeing. The worker filters this beside the pose rows it belongs to.
+/// is the feet and pelvis facing achieved by the stance actuator; forward,
+/// reverse and strafe remain independent translation requests. A forced step is
+/// how long the body cannot change its stance mind for. Both are published for
+/// bodies the viewer may have no way of seeing, so the worker filters this
+/// beside the pose rows it belongs to.
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn embodied_stance_ptr() -> u32 {
@@ -10502,11 +10504,13 @@ mod tests {
         ], "the native twin no longer stages wasm_check's equipment words");
         assert_eq!(arena_start(3) & 0xff, 1, "the scripted fixture was refused");
         step(3_600);
-        // **263 and not 278**, which moved because v2-ui-08 made this fight
-        // embodied and staged `scripted` against `tactical` where it staged the
-        // articulated `composed` against `windmill`. The wasm side pins the same
-        // number against the same staged words.
-        assert_eq!(tick(), 263, "the exact scripted fixture's stopping tick moved");
+        // **The corrected stance reaches the configured limit, not the former
+        // exact-law decision on tick 263.** This fixture reaches the changed law
+        // before contact: on tick 25 the scripted fighter has achieved yaw 91
+        // while translating, and the retired movement-derived hip target is 94
+        // after the fixed-point angle round trip. The wasm side pins the same
+        // limit against the same staged words.
+        assert_eq!(tick(), 300, "the exact scripted fixture's stopping tick moved");
 
         // **The second fixture was `learned` against `windmill` and is now
         // `tactical` against `tactical-fixed-guard`.** The point of a second one
@@ -10514,15 +10518,15 @@ mod tests {
         // a stopping tick that moved for a *policy* reason is told apart from one
         // that moved for a geometry reason -- and the pair it uses had to change
         // because no arena policy code names a network any more. It is also the
-        // pair `tools/wasm_check.js` finds byte-identical under this law, and the
-        // 255 below is what says so from the native side: they die on the same
-        // tick because the fight is over before a guard read matters.
+        // pair `tools/wasm_check.js` finds byte-identical under this law. After
+        // the stance-authority correction both reach the configured bound; the
+        // exact-law pair still agrees byte for byte there.
         assert_eq!(load_checkpoint(stage_shipped_checkpoint()) & 0xff, 1);
         write_arena_config(&config,
             [PolicyKind::Tactical, PolicyKind::TacticalFixedGuard]);
         assert_eq!(arena_start(3) & 0xff, 1, "the second fixture was refused");
         step(3_600);
-        assert_eq!(tick(), 255, "the exact tactical fixture's stopping tick moved");
+        assert_eq!(tick(), 300, "the exact tactical fixture's stopping tick moved");
     }
 
     // **`an_installed_arena_refuses_every_order_export` went with the exports it
@@ -13076,9 +13080,18 @@ mod tests {
     /// instead of one of them reaching away. And [`Sim::advance`] answers each
     /// body's tick-zero decision with its policy command before the step, which
     /// on the articulated fixture was refused and discarded and here is not, so
-    /// the corpus is one tick of neutral and then the commanded pose. 344
-    /// doubles to 688, still comfortably inside the 2,048 the capacity was sized
-    /// to against the all-time busiest 556.
+    /// the corpus is one tick of neutral and then the commanded pose.
+    ///
+    /// **The stance-authority correction moved it again, 344 to 371.** The row
+    /// grammar, capacity and fixture are unchanged. Translating bodies used to
+    /// chase movement direction with their hips; they now chase achieved torso
+    /// yaw, so the same stored commands produce different stance and collider
+    /// trajectories after the policy-owned first tick. This is a values move in
+    /// the contact stream, not an ABI move. Re-measured beside it: the default
+    /// boundary clinch still exhausts the ordinal on tick 109, and the exact
+    /// high-water arm still first publishes on tick 113 with two rows and no
+    /// refusal. 371 doubles to 742, still comfortably inside the 2,048 the
+    /// capacity was sized to against the all-time busiest 556.
     ///
     /// Provenance is the whole of its meaning: **this fixture, this seed, this
     /// batch.** Seed `0x4152504741424931`, an open 24x16 room, 64 bodies as 32
@@ -13087,7 +13100,7 @@ mod tests {
     /// and eight `step(1)`s measure the busiest tick rather than what one host
     /// call accumulates -- which is the thing being sized, because the feed is
     /// cleared per call.
-    const HIGH_WATER_EVENT_ROWS: u32 = 344;
+    const HIGH_WATER_EVENT_ROWS: u32 = 371;
 
     /// And the pose half, which sits exactly on its capacity by construction:
     /// 64 bodies is `MAX_ENTITIES` and `MAX_POSES` is the same
@@ -13475,16 +13488,19 @@ mod tests {
     ///    east under the articulated frame and is straight ahead in this one. The
     ///    default build's contact ticks go from 3 and 5 to 0, 3, 4, 5 and 6.
     ///
-    /// Nothing in `crates/sim` changed and nothing in `crates/policy` can reach
-    /// this pin -- `stream_digest_command` is one hand-written command per body,
+    /// Nothing in `crates/policy` can reach this pin -- `stream_digest_command`
+    /// is one hand-written command per body,
     /// submitted once on tick zero, and it never calls a script. `ARTICULATED_COMMAND_HASH`
     /// moved beside it, for its own fixture's own reseat rather than for this
     /// one; `CONTACT_BEHAVIOR_DIGEST`, `COMBAT_GEOMETRY_HASH`,
     /// `LEARNED_INFERENCE_DIGEST` and both exact-law digests answer what they
-    /// answered. Native MSVC measured the value below and the exact build's
-    /// `0x4bf34984d56d2795` before either wasm owner was edited, and a fresh
-    /// wasm artifact of each build then answered both.
-    const ARTICULATED_STREAM_DIGEST: u64 = 0x96e4_e51d_e0c0_0d62;
+    /// answered. **The stance-authority correction moved it again, values only,
+    /// from `0x96e4e51de0c00d62` default and `0x4bf34984d56d2795`
+    /// exact.** Body-relative movement no longer becomes a second hip-yaw
+    /// request through a lossy fixed-point angle round trip. Native MSVC
+    /// measured the value below and exact `0x8c8a5e4350230df6`; fresh wasm
+    /// artifacts then answered the same pair. No layout or ABI version moved.
+    const ARTICULATED_STREAM_DIGEST: u64 = 0x63bf_8b26_809d_43c4;
 
     /// The north-wall stored-command lifecycle, paired with the feature-only
     /// wasm exports and registered in `docs/reference/hashes.md`.
@@ -15550,18 +15566,18 @@ mod tests {
     }
 
     /// The seeds a fixture opens on when what it needs from the room is a
-    /// **death**.
+    /// **death** under the explicit death rig below.
     ///
-    /// **They were all `1`, and `1` does not kill any more.** `Sim::try_on`
-    /// opens both sides on `PolicyKind::Tactical` rather than on
-    /// `Scripted`, and a Fighter that reads the blade coming at it outlasts
-    /// twelve Brutes for longer than any budget in this file: seed 1 reaches the
-    /// end of eighteen thousand ticks with 10.2 of its 12 health still on it.
-    /// That is a *fixture coordinate* that moved with a default and not a rule
-    /// that changed -- twelve Brutes still kill a Fighter, and the floor plans
-    /// they do it on are now the exception rather than the majority.
+    /// **They were all `1`, and `1` stopped killing when the dungeon default
+    /// moved.** The old sweep below was tactical against tactical and is kept as
+    /// history; death is a semantic prerequisite for these host tests, not a
+    /// balance claim about whichever policy the page happens to open on. The rig
+    /// now names Neutral Heroes and Scripted Monsters before it spawns anybody,
+    /// so a registry default or tactical mechanics change cannot silently turn
+    /// every replacement test into a fight-balance test.
     ///
-    /// Measured rather than hunted by hand, twice. Seeds 1 through 24, twelve
+    /// Historical tactical/tactical sweep, measured rather than hunted by hand:
+    /// seeds 1 through 24, twelve
     /// Brutes, eighteen thousand ticks: nine reach a death and fifteen do not.
     /// Then those nine again one tick at a time, which is the tick each
     /// character fell on:
@@ -15571,74 +15587,73 @@ mod tests {
     /// fell 11517 12985 16635 13778 11403 16782  7221  3512 17667
     /// ```
     ///
-    /// The four below are the cheapest of the nine, fastest first, and **cost is
-    /// a correctness argument here rather than a preference**: three of these
-    /// fixtures run a fall one tick at a time, and the difference between 3,512
-    /// ticks and 17,667 is the difference between a suite somebody runs and one
-    /// they skip. Four is also the width
+    /// The four below were retained across the isolation so the replacement
+    /// placement sweep still crosses the same four floor plans. Re-measured
+    /// under Neutral/Scripted with twelve Brutes and the same 18,000-tick bound,
+    /// in fastest-first order: seed 15 falls at 2,970, seed 2 at 3,210, seed 9
+    /// at 4,260 and seed 16 at 13,680. Cost is a correctness argument here:
+    /// three fixtures run a fall one tick at a time. Four is also the width
     /// `a_replacement_lands_where_the_last_one_fell` needs, because where a body
     /// falls is a fact about the floor plan it was chased across.
     ///
-    /// Seed 16 leads for two reasons beyond being fastest. It is one of only two
-    /// of the nine that still kills after the sixty-tick warmup
-    /// `a_replacement_takes_no_credit_for_the_last_ones_thinking` opens with --
-    /// sixty ticks of standing about moves the fight enough to lose the other
-    /// seven, which is worth knowing before adding a warmup to any of these. And
-    /// it reaches its death with all twelve Brutes still up, which
-    /// `dead_monsters_stop_holding_a_place_in_the_roster` counts: seeds 3, 5, 9
-    /// and 24 lose between one and three of them on the way.
-    const FATAL_SEEDS: [u32; 4] = [16, 15, 9, 2];
+    /// The policy assignments happen after any warmup and before the attackers
+    /// spawn, so a warmup can no longer turn the prerequisite into another
+    /// matchup.
+    const FATAL_SEEDS: [u32; 4] = [15, 2, 9, 16];
 
     /// The one of [`FATAL_SEEDS`] a fixture takes when it needs a single death
     /// and does not care which floor it happens on.
     const FATAL_SEED: u32 = FATAL_SEEDS[0];
 
     /// The seed the two fixtures that **edit the sheet before the death** open
-    /// on, because an edited sheet is a different fight.
+    /// on.
     ///
-    /// **This is the finding, and it is worth more than the number.** The mind
-    /// in the room reads the sheet: perception is sight range -- `6.0 + 0.6 *
-    /// perception`, so the 14 those two fixtures dial in is 14.4 units against a
-    /// stock Fighter's 9.6 -- and intellect is ticks between decisions. A
-    /// tactical Fighter acts on both, so raising them before the Brutes arrive
-    /// produces a fight [`FATAL_SEED`] was not measured on, and it does not
-    /// survive: seed 16 with perception 14 ends eighteen thousand ticks with the
-    /// character still up.
+    /// **This used to differ from [`FATAL_SEED`] and no longer may.** A tactical
+    /// Fighter reads perception and intellect, so editing the sheet changed the
+    /// old death fight and needed a separately swept seed. The explicit rig puts
+    /// Neutral on the Hero side: the sheet remains the state under test, but it
+    /// cannot tune the prerequisite that removes the body wearing it. Keeping a
+    /// second value would preserve a distinction the fixture deliberately
+    /// removed.
     ///
-    /// Swept the same way, seeds 1 through 24, twelve Brutes, eighteen thousand
-    /// ticks. With perception alone at 14, five seeds kill -- 7, 8, 12, 18 and
-    /// 21. With intellect 17 beside it, three do -- 4, 8 and 24.
-    /// **Seed 8 is the only one in both**, which is what makes one constant
-    /// honest here rather than two: it falls at 10,140 ticks with the sheet
-    /// `changing_the_body_rebuilds_the_sheet_it_is_a_sheet_for` writes and at
-    /// 4,380 with the one `a_stat_sheet_outlives_the_character_wearing_it`
-    /// writes.
+    /// The retired tactical/tactical sweep needed seed 8: it was the only seed
+    /// among 1 through 24 that killed under both sheet edits. That result is
+    /// historical provenance for why this constant once existed, not a second
+    /// current death coordinate.
+    const SHEETED_FATAL_SEED: u32 = FATAL_SEED;
+
+    /// Installs the one matchup every death-dependent host fixture owns and
+    /// spawns its attackers.
     ///
-    /// A fixture that dials in a *third* sheet cannot assume this seed. Sweep
-    /// it, the way both of these were.
-    const SHEETED_FATAL_SEED: u32 = 8;
+    /// Neutral against Scripted is deliberately asymmetric. The subject does
+    /// not defend, while the attackers exercise the real embodied command path;
+    /// a test cannot pass because twelve inert bodies happened to overlap. Both
+    /// assignments are asserted through the exports the page uses, so deleting
+    /// either line fails before a long loop can hide which default leaked in.
+    fn arm_death_rig() {
+        assert_eq!(set_policy(0, PolicyKind::Neutral.code()), 1,
+            "the death rig could not make the Hero neutral");
+        assert_eq!(set_policy(1, PolicyKind::Scripted.code()), 1,
+            "the death rig could not give the Monsters their script");
+        assert_eq!(policy_kind(0), PolicyKind::Neutral.code(),
+            "the death rig inherited the Hero default");
+        assert_eq!(policy_kind(1), PolicyKind::Scripted.code(),
+            "the death rig inherited the Monster default");
+        for _ in 0..12 {
+            spawn_monster(BRUTE, SLOT_EMPTY, SLOT_EMPTY);
+        }
+    }
 
     /// Kills whoever is standing on the hero's side, and answers whether it
     /// worked. Twelve brutes is not subtle, and it should not be.
     ///
-    /// **It was six, and the number is a measurement of the model rather than a
-    /// preference.** Under the legacy damage rules six brutes finished a Fighter
-    /// well inside twelve thousand ticks. An embodied body takes an order of
-    /// magnitude more punishment -- `lab embodied` decides 7.8% of its
-    /// 3,600-tick duels by a body at all -- and six took up to sixteen thousand
-    /// across seeds 1..6, which is a fixture that fails on the seed rather than
-    /// on the rule. Twelve brings the worst of those to 8,909 and the budget
-    /// below covers it with margin.
-    ///
-    /// **Twelve is no longer enough on its own**, which is what [`FATAL_SEEDS`]
-    /// is for: against a tactical Fighter twelve of them decide fewer than half
-    /// the floor plans inside this budget, so the caller has to open on a seed
-    /// where they do. Widening the budget instead would buy a suite that takes
-    /// minutes and still fails on the seed.
+    /// Twelve and 18,000 remain measured inputs rather than a widened escape
+    /// hatch. All four [`FATAL_SEEDS`] die under the explicit rig at ticks 2,970,
+    /// 3,210, 4,260 and 13,680 with a thirty-tick sampler; the slowest still has
+    /// 4,320 ticks of margin. The bound did not move when the policy dependency
+    /// was removed.
     fn kill_the_hero() -> bool {
-        for _ in 0..12 {
-            spawn_monster(BRUTE, SLOT_EMPTY, SLOT_EMPTY);
-        }
+        arm_death_rig();
         for _ in 0..300 {
             step(60);
             if hero_row().is_none() {
@@ -15654,9 +15669,8 @@ mod tests {
     /// `Body::base_stats()`, so every dial went back to the archetype default.
     #[test]
     fn a_stat_sheet_outlives_the_character_wearing_it() {
-        // [`SHEETED_FATAL_SEED`] rather than [`FATAL_SEED`], and the two lines
-        // below are why: the mind reads the sheet, so raising it changes the
-        // fight the Brutes have to win.
+        // The alias is asserted in its declaration: sheet edits are the subject
+        // here, while the Neutral Hero keeps them out of the death prerequisite.
         init_quiet(SHEETED_FATAL_SEED);
         assert_eq!(set_hero_stat(3, 14), 1, "perception would not move");
         assert_eq!(set_hero_stat(2, 17), 1, "intellect would not move");
@@ -15698,9 +15712,7 @@ mod tests {
     /// was testing is the same rule and it is still `Sim::swap_in_hero`'s.
     #[test]
     fn changing_the_body_rebuilds_the_sheet_it_is_a_sheet_for() {
-        // [`SHEETED_FATAL_SEED`], for the reason
-        // `a_stat_sheet_outlives_the_character_wearing_it` gives: a sheet the
-        // mind reads is an input to the fight below it.
+        // The same isolated death coordinate as the sibling sheet test.
         init_quiet(SHEETED_FATAL_SEED);
         set_hero_stat(3, 14);
         assert!(kill_the_hero(), "twelve brutes could not kill one fighter");
@@ -15797,9 +15809,7 @@ mod tests {
     /// Six brutes and however long it takes. Answers the tick the character
     /// fell on, which is the state every test below starts from.
     fn fall_to_brutes() -> u32 {
-        for _ in 0..12 {
-            spawn_monster(BRUTE, SLOT_EMPTY, SLOT_EMPTY);
-        }
+        arm_death_rig();
         // Twelve and eighteen thousand ticks: see [`kill_the_hero`] for the
         // measurement that moved both.
         for _ in 0..600 {
@@ -15819,9 +15829,7 @@ mod tests {
     /// thirty ticks of a brute leaning on a body is a couple of body lengths,
     /// and *where* it died is exactly what the caller is checking.
     fn fall_to_brutes_watching() -> (f32, f32) {
-        for _ in 0..12 {
-            spawn_monster(BRUTE, SLOT_EMPTY, SLOT_EMPTY);
-        }
+        arm_death_rig();
         let mut last = hero();
         // Twelve and eighteen thousand for [`kill_the_hero`]'s reason, measured
         // the same way.
@@ -16205,9 +16213,7 @@ mod tests {
         // Fighter and a Fighter will not finish one Skitterer. See
         // `kill_the_hero`.
         init_quiet(FATAL_SEED);
-        for _ in 0..12 {
-            spawn_monster(BRUTE, SLOT_EMPTY, SLOT_EMPTY);
-        }
+        arm_death_rig();
         assert!(
             pump(18_000, || hero_row().is_none(), &mut feed),
             "twelve brutes could not kill one fighter, so this feed has no death in it"
