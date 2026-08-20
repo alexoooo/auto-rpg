@@ -61,7 +61,7 @@ uses the pure clock the test exercised.
 
 ## The drills, preregistered before tuning
 
-Each drill starts from **Reset drill**. Record view, both sensitivities, body-turn rate,
+Each drill starts from **Reset drill**. Record view, both sensitivities, body-turn lead,
 dead zone, full-effort speed and the commanded/achieved trace. The first pass uses the session-06
 placeholders; changes stay within this session and each recorded value keeps the before and
 after sample that justified it.
@@ -100,7 +100,7 @@ the actuator rather than a reason to exaggerate mouse sensitivity.
 
 ### 4. Body and hand remain independent
 
-Park a centre guard, then turn left and right with `A`/`D`, sidestep with `Q`/`E`, advance
+Park a centre guard, then turn left and right with `Q`/`E`, sidestep with `A`/`D`, advance
 and retreat with `W`/`S`. The shoulder and world weapon move because the body carries them;
 the stored arm target fields do not change. Then throw the same horizontal cut while
 advancing and retreating. The body may add physical contact velocity, but the mouse trace
@@ -131,7 +131,7 @@ diagnostics and not from frustration mid-drill.
 
 Only host feel constants may move:
 
-- `BODY_TURN_INPUT_TURNS_PER_SECOND`;
+- `BODY_TURN_INPUT_LEAD_RAW`, mirrored with Rust's `PLAYER_TURN_LEAD_RAW`;
 - `VIRTUAL_HAND_SENSITIVITY`;
 - `EXTEND_DRAG_SENSITIVITY`;
 - `TOUCH_PINCH_SPREAD_RATIO`, where a touch surface is available to sample;

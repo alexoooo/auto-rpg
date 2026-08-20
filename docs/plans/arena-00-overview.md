@@ -247,10 +247,10 @@ CONTROL_INPUT_MAX_HOLD_TICKS     6   05; how long a staged input frame is re-use
 HUMAN_ARM_SLOT       strike/right   05; the configured strike hand, falling back to Right
                                      when neither hand strikes. Authority is fixed at
                                      construction and does not move after an amputation
-BODY_TURN_INPUT_TURNS_PER_SECOND 0.5 05/07; provisional keyboard yaw-target rate. Session
-                                     07 measures and may replace it in the control lab,
-                                     bounded below by a useful half-turn and above by an
-                                     accidental one-tick forced step
+BODY_TURN_INPUT_LEAD_RAW       8192  05/07; provisional absolute-yaw lead, mirrored from
+                                     Rust's measured `PLAYER_TURN_LEAD_RAW`. Session 07
+                                     measures and may replace the shared value in the
+                                     control lab; released Q/E rebases to published yaw
 HUMAN_ARM_RESTING_EFFORT        1/2  06; the existing held-guard effort and the floor for
                                      every moving human hand, not a value drag speed may
                                      lower toward zero

@@ -1302,29 +1302,40 @@ test("a_hidden_interval_is_cleared_and_not_replayed_as_catch_up", () => {
   assert.equal(clock.advance(50_000 + 1_000 / 60), 1);
 });
 
-test("keyboard_navigation_uses_torso_axes_and_an_exact_in_range_diagonal", () => {
+test("keyboard_navigation_uses_standard_torso_axes_and_an_exact_in_range_diagonal", () => {
   const input = new ARENA_INPUT.ArenaInput();
   const words = (bytes) => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   input.keyDown("KeyW");
-  let view = words(input.encode([7, 9]));
+  let view = words(input.encode([7, 9], 1_000));
   assert.deepEqual([view.getInt32(4, true), view.getInt32(8, true)], [65_536, 0]);
-  input.keyDown("KeyQ");
-  view = words(input.encode([7, 9]));
+  assert.equal(view.getUint16(12, true), 1_000, "a released turn did not rebase on published yaw");
+  input.keyDown("KeyA");
+  view = words(input.encode([7, 9], 1_000));
   assert.deepEqual([view.getInt32(4, true), view.getInt32(8, true)], [46_340, 46_340]);
   assert.ok(46_340 ** 2 * 2 <= 65_536 ** 2);
   input.keyDown("KeyS");
-  input.keyDown("KeyE");
-  view = words(input.encode([7, 9]));
+  input.keyDown("KeyD");
+  view = words(input.encode([7, 9], 1_000));
   assert.deepEqual([view.getInt32(4, true), view.getInt32(8, true)], [0, 0],
     "opposite keys did not cancel");
   input.clear();
-  input.setYaw(1_000);
-  input.keyDown("KeyA");
-  view = words(input.encode([7, 9]));
-  assert.equal(view.getUint16(12, true), 1_546);
-  input.keyUp("KeyA"); input.keyDown("KeyD");
-  view = words(input.encode([7, 9]));
+  input.keyDown("KeyQ");
+  view = words(input.encode([7, 9], 1_000));
+  assert.equal(view.getUint16(12, true), 9_192);
+  input.keyUp("KeyQ"); input.keyDown("KeyE");
+  view = words(input.encode([7, 9], 9_192));
   assert.equal(view.getUint16(12, true), 1_000);
+  input.keyUp("KeyE");
+  view = words(input.encode([7, 9], 1_234));
+  assert.equal(view.getUint16(12, true), 1_234,
+    "released Q/E retained a stale private target instead of published feedback");
+});
+
+test("the_client_body_turn_lead_mirrors_the_authoritative_rust_host_lead", () => {
+  const rust = fs.readFileSync(path.join(ROOT, "crates/web/src/lib.rs"), "utf8");
+  const match = /const PLAYER_TURN_LEAD_RAW: i32 = ([\d_]+);/.exec(rust);
+  assert.ok(match, "the Rust host turn lead was not found by symbol");
+  assert.equal(ARENA_INPUT.BODY_TURN_INPUT_LEAD_RAW, Number(match[1].replaceAll("_", "")));
 });
 
 test("an_arena_input_is_refused_at_v1_by_name_and_batch_size_is_bounded", () => {
@@ -1675,7 +1686,7 @@ test("the_controlled_drive_stalls_at_three_credits_and_resumes_on_chunk_ack", as
   const heldInput = new ARENA_INPUT.ArenaInput();
   heldInput.keyDown("KeyW");
   await host.handle({ kind: "arenaInput", version: 2, requestId: 3, arenaRequestId: 1,
-    faction: 0, ticksDue: 7, bytes: heldInput.encode([1, 1]).buffer });
+    faction: 0, ticksDue: 7, bytes: heldInput.encode([1, 1], 0).buffer });
   await settle();
   assert.equal(messages(sent, "arenaChunk").length, 4,
     "more than three unacknowledged controlled chunks crossed the credit window");
@@ -1759,7 +1770,7 @@ test("a_missed_input_frame_holds_and_then_expires", async () => {
   const result = await RECORDER.recordArenaFight(arena, config, CONFIG.encodeArenaConfig(config),
     null, { onOpened() {}, onChunk: (chunk) => chunks.push(chunk), async yieldToMessages() {},
       nextInput: async () => next++ === 0
-        ? { requestId: 4, faction: 0, ticksDue: 7, bytes: held.encode([1, 1]) } : null },
+        ? { requestId: 4, faction: 0, ticksDue: 7, bytes: held.encode([1, 1], 0) } : null },
     () => false);
   assert.equal(result.ok, false);
   assert.equal(arena.staged.length, 1);

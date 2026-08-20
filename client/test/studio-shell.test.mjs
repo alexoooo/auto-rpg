@@ -945,7 +945,8 @@ test("the_seed_and_the_fight_button_belong_to_the_matchup_and_not_to_side_b", ()
 });
 
 test("both_sides_driven_by_you_is_refused_by_naming_the_one_keyboard", () => {
-  assert.equal(picker.HUMAN_CONTROL_LABEL, "you (keyboard; hand reserved)");
+  assert.equal(picker.HUMAN_CONTROL_LABEL,
+    "you (W/S move, A/D strafe, Q/E turn; hand reserved)");
   assert.doesNotMatch(picker.HUMAN_CONTROL_LABEL, /mouse/i,
     "session 05 claimed the pointer already drives a hand");
   const both = picker.review(matchup({ control: "human" }, { control: "human" }), "live");
@@ -1458,7 +1459,7 @@ function syntheticOpening(requestId) {
 }
 
 /** One chunk of two-body frames, with chunk-relative index starts. */
-function syntheticChunk(requestId, firstFrame, frameCount) {
+function syntheticChunk(requestId, firstFrame, frameCount, humanYaw = 0) {
   const bodies = 2;
   const poses = new Uint32Array(frameCount * bodies * ABI.POSE_STRIDE);
   const regions = new Uint32Array(frameCount * bodies * ABI.REGIONS_PER_BODY * ABI.REGION_STRIDE);
@@ -1474,6 +1475,7 @@ function syntheticChunk(requestId, firstFrame, frameCount) {
       // Bodies eleven units apart and closing, so `adopt`'s default span and
       // azimuth have something real to read.
       poses[at + ABI.POSE_BODY_X] = body === 0 ? tick * 16 : 11 * ONE;
+      poses[at + ABI.POSE_BODY_YAW_RAW] = body === 0 ? humanYaw : 0;
       const stanceAt = (frame * bodies + body) * RECORDER.EMBODIED_STANCE_STRIDE;
       stances[stanceAt] = body;
       stances[stanceAt + 1] = 1;
@@ -1549,6 +1551,10 @@ async function controlledRoute(harness) {
     const event = { target: globalThis.window, key, code, preventDefault() {} };
     for (const entry of harness.listenersOn(globalThis.window, "keydown")) entry.listener(event);
   };
+  const release = (code, key = code) => {
+    const event = { target: globalThis.window, key, code, preventDefault() {} };
+    for (const entry of harness.listenersOn(globalThis.window, "keyup")) entry.listener(event);
+  };
   const nextInput = async () => {
     const before = worker.sent.filter((entry) => entry.message.kind === "arenaInput").length;
     now += 20;
@@ -1563,14 +1569,14 @@ async function controlledRoute(harness) {
     harness.runFrame(now);
     await settle();
   };
-  const acknowledge = async (input) => {
+  const acknowledge = async (input, publishedYaw = new DataView(input.bytes).getUint16(12, true)) => {
     frame += 1;
-    worker.emit(syntheticChunk(start.requestId, frame, 1));
+    worker.emit(syntheticChunk(start.requestId, frame, 1, publishedYaw));
     worker.emit({ kind: "arenaInputAck", version: 2, requestId: input.requestId,
       arenaRequestId: start.requestId, steppedTicks: 1 });
     await settle();
   };
-  return { container, handle, worker, start, key, nextInput, acknowledge, runFrame };
+  return { container, handle, worker, start, key, release, nextInput, acknowledge, runFrame };
 }
 
 test("thirty_sixty_one_hundred_twenty_and_one_hundred_forty_four_hertz_stage_the_same_yaw_sequence", async () => {
@@ -1579,9 +1585,10 @@ test("thirty_sixty_one_hundred_twenty_and_one_hundred_forty_four_hertz_stage_the
     const harness = installDom();
     try {
       const route = await controlledRoute(harness);
-      route.key("KeyA");
+      route.key("KeyQ");
       const yaws = [];
       let acknowledged = 0;
+      let publishedYaw = 0;
       for (let display = 0; display < hz; display += 1) {
         await route.runFrame(1_000 / hz);
         for (;;) {
@@ -1589,8 +1596,15 @@ test("thirty_sixty_one_hundred_twenty_and_one_hundred_forty_four_hertz_stage_the
           if (acknowledged >= inputs.length) break;
           const input = inputs[acknowledged++].message;
           assert.equal(input.ticksDue, 1, `${hz} Hz batched distinct yaw ticks`);
-          yaws.push(new DataView(input.bytes).getUint16(12, true));
-          await route.acknowledge(input);
+          const commandedYaw = new DataView(input.bytes).getUint16(12, true);
+          assert.equal(commandedYaw, (publishedYaw + 8_192) & 0xffff,
+            `${hz} Hz integrated an old command instead of rebasing on published yaw`);
+          yaws.push(commandedYaw);
+          // The achieved body deliberately trails the target by a non-divisor
+          // of the lead. Echoing the command here would let an open-loop
+          // integrator pass while Q remained held.
+          publishedYaw = (publishedYaw + 997) & 0xffff;
+          await route.acknowledge(input, publishedYaw);
         }
       }
       assert.equal(yaws.length, 60, `${hz} Hz did not drain exactly sixty sampled ticks`);
@@ -1599,7 +1613,7 @@ test("thirty_sixty_one_hundred_twenty_and_one_hundred_forty_four_hertz_stage_the
     } finally { harness.restore(); }
   }
   for (const sequence of sequences.slice(1)) assert.deepEqual(sequence, sequences[0]);
-  assert.deepEqual(sequences[0].slice(0, 3), [546, 1_092, 1_638]);
+  assert.deepEqual(sequences[0].slice(0, 3), [8_192, 9_189, 10_186]);
 });
 
 test("key_down_reaches_a_controlled_fight_within_two_ticks_and_follow_defaults_to_the_human", async () => {
@@ -1652,10 +1666,10 @@ test("w_and_s_move_in_the_torsos_forward_axis", async () => {
   }
 });
 
-test("a_and_d_turn_the_body_while_q_and_e_sidestep", async () => {
+test("a_and_d_strafe_while_q_and_e_turn_the_body", async () => {
   for (const [code, yaw, side] of [
-    ["KeyA", 546, 0], ["KeyD", 65_536 - 546, 0],
-    ["KeyQ", 0, ONE], ["KeyE", 0, -ONE],
+    ["KeyA", 0, ONE], ["KeyD", 0, -ONE],
+    ["KeyQ", 8_192, 0], ["KeyE", 65_536 - 8_192, 0],
   ]) {
     const harness = installDom();
     try {
@@ -1665,6 +1679,27 @@ test("a_and_d_turn_the_body_while_q_and_e_sidestep", async () => {
       const view = new DataView(input.bytes);
       assert.equal(view.getUint16(12, true), yaw, `${code} wrote the wrong yaw`);
       assert.equal(view.getInt32(8, true), side, `${code} wrote the wrong sidestep`);
+      await route.handle.dispose(); harness.dropSubtree(route.container);
+    } finally { harness.restore(); }
+  }
+});
+
+test("released_turn_rebases_w_and_a_only_commands_on_the_latest_published_yaw", async () => {
+  for (const movement of ["KeyW", "KeyA"]) {
+    const harness = installDom();
+    try {
+      const route = await controlledRoute(harness);
+      route.key("KeyQ");
+      const turning = await route.nextInput();
+      assert.equal(new DataView(turning.bytes).getUint16(12, true), 8_192);
+      await route.acknowledge(turning, 1_337); // The body has not reached its commanded lead.
+      route.release("KeyQ");
+      route.key(movement);
+      const moving = await route.nextInput();
+      const view = new DataView(moving.bytes);
+      assert.equal(view.getUint16(12, true), 1_337,
+        `${movement} retained the stale turn target instead of published body yaw`);
+      assert.notEqual(view.getUint16(12, true), 8_192);
       await route.handle.dispose(); harness.dropSubtree(route.container);
     } finally { harness.restore(); }
   }
@@ -1737,7 +1772,7 @@ test("an_immediate_resume_outlives_the_stale_neutral_ack_and_stages_fresh_input"
     const neutral = route.worker.sent.filter((entry) => entry.message.kind === "arenaInput").at(-1).message;
     assert.equal(neutral.ticksDue, 0);
     route.key("Space", " ");
-    route.key("KeyA");
+    route.key("KeyQ");
     route.worker.emit({ kind: "arenaInputAck", version: 2, requestId: neutral.requestId,
       arenaRequestId: route.start.requestId, steppedTicks: 0 });
     await settle();
@@ -1745,7 +1780,7 @@ test("an_immediate_resume_outlives_the_stale_neutral_ack_and_stages_fresh_input"
     const fresh = route.worker.sent.filter((entry) => entry.message.kind === "arenaInput").at(-1).message;
     assert.notEqual(fresh.requestId, neutral.requestId);
     assert.equal(fresh.ticksDue, 1);
-    assert.equal(new DataView(fresh.bytes).getUint16(12, true), 546);
+    assert.equal(new DataView(fresh.bytes).getUint16(12, true), 8_192);
     await route.handle.dispose(); harness.dropSubtree(route.container);
   } finally { harness.restore(); }
 });

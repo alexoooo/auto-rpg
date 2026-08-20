@@ -279,8 +279,12 @@ itself submits no simulation command.
 `#/arena` supports both spectator and human-driven sides. A controlled side is sampled
 at a fixed 60 Hz by a transactional main-thread clock; one freshly encoded tick is in flight,
 and the worker stages once then publishes each authoritative tick separately. The page
-maps `W`/`S` to torso forward/back, `Q`/`E` to sidestep, and `A`/`D` to an absolute body
-yaw target. Pointer motion changes no navigation or yaw byte in this session. Blur,
+maps `W`/`S` to torso forward/back, `A`/`D` to sidestep, and `Q`/`E` to an absolute body
+yaw target. Every freshly sampled authoritative tick rebases that target on the latest
+published Human torso yaw. Held `Q`/`E` adds or subtracts the provisional 8,192-raw
+`PLAYER_TURN_LEAD_RAW`; with neither held, the target is the published yaw itself, so a
+released turn leaves no stale heading for forward or strafe input to chase. Pointer
+motion changes no navigation or yaw byte in this session. Blur,
 hidden visibility, pause and pointer-lock loss clear held input, stage neutral, and stop
 the clock until a fresh gesture. The camera follows the Human side by default.
 
@@ -297,7 +301,7 @@ but the picker, the stage layout and the two first-person viewports all do.
 of the 120-byte buffer spends the first of the fighter block's two
 reserved bytes on a control byte -- `0` policy-driven, `1` human-driven -- and the picker
 offers it as one "driven by" list of the five policies plus
-`you (keyboard; hand reserved)`,
+`you (W/S move, A/D strafe, Q/E turn; hand reserved)`,
 revealing an off-hand policy row when the last is chosen. Both sides cannot be Human,
 and the picker requires a strike hand (right, else left, else the empty Right fallback)
 before starting. `ARENA_CONTROL_UNAVAILABLE` (`29`) remains retired and spent;

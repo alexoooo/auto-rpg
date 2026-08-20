@@ -19,7 +19,7 @@ source claiming navigation and one arm and the configured policy claiming the ot
 what `Arena::policies` holds (`crates/web/src/lib.rs:2303`), so the slot accepts it as-is.
 
 **Navigation authority is not permission to infer navigation from the weapon.** This
-session stages `W`/`S` as forward/back, `A`/`D` as body turn and `Q`/`E` as sidestep.
+session stages `W`/`S` as forward/back, `A`/`D` as sidestep and `Q`/`E` as body turn.
 Session 06 stages the primary arm from relative mouse motion. The two meet in the same
 whole command only because atomic submission requires it; neither mapping reads the
 other's input. This is the control contract the original draft violated when one pointer
@@ -354,18 +354,20 @@ decision.
 | input | field | frame |
 |---|---|---|
 | `W`/`S` | `move_dir.x` | torso: `+x` is forward at every yaw |
-| `Q`/`E` | `move_dir.y` | torso: `+y` is body-left; these are sidesteps, not turns |
-| `A`/`D` | `body_yaw` | a held turn target integrated from the last submitted yaw |
+| `A`/`D` | `move_dir.y` | torso: `+y` is body-left; these are sidesteps, not turns |
+| `Q`/`E` | `body_yaw` | latest published torso yaw plus or minus a bounded lead |
 | relative pointer motion | **none in this session** | reserved exclusively for the primary arm in 06 |
 | the opponent, while any body or arm input is live | `intent` | `Attack(id)`; `Hold` otherwise |
 
-`A`/`D` command a yaw target at a bounded host turn rate; they do not write angular speed
-into the simulator, because no such command exists. The rate is a feel constant measured
-in session 07, named `BODY_TURN_INPUT_TURNS_PER_SECOND`, and converted to an absolute
-world-yaw target using the fixed 60 Hz control clock. Session 05 installs the explicitly
-uncalibrated baseline `0.5` turns per second: three degrees per control tick and a held
-half-turn in one second. Its tests prove deterministic 60 Hz integration and A/D
-separation; session 07 owns the visible-browser feel bounds.
+`Q`/`E` command a yaw target; they do not write angular speed into the simulator, because
+no such command exists. Every freshly sampled authoritative tick starts from the latest
+published Human torso yaw. A held key offsets that achieved heading by the provisional
+`BODY_TURN_INPUT_LEAD_RAW = 8_192`, mirrored from Rust's measured standing
+`PLAYER_TURN_LEAD_RAW`; with neither held, the target is the published yaw exactly. This
+closed loop prevents a released turn target from continuing to steer W/A movement while
+the torso catches up. Session 07 owns visible-browser calibration of the shared lead and
+its feel; session 05 proves deterministic feedback and Q/E separation across refresh
+schedules.
 
 An embodied torso may only turn `STANCE_TWIST_LIMIT_RAW` -- a sixth of a turn -- away from
 its hips before the legs are forced to move, and a forced step costs
@@ -374,10 +376,9 @@ mechanic remains visible: turning the body carries the shoulder and eventually s
 feet. What is removed is the hidden second author of that turn. A left-to-right weapon
 gesture changes no navigation byte and no yaw byte.
 
-This is deliberately the original control split rather than the greybox split: forward,
-back and body turn on `WASD`, sidestep on `Q`/`E`, weapon arm on the mouse. If a later
-session wants modern strafe-on-`A`/`D`, it adds an explicit alternate layout whose label
-names the trade, rather than letting the same mouse delta steer both torso and sword.
+This is the standard movement split: forward/back on `W`/`S`, strafe on `A`/`D`, body
+turn on `Q`/`E`, and the weapon arm reserved for the mouse. The separation still matters:
+the same mouse delta never steers both torso and sword.
 
 ## Replay, which is the acceptance
 
@@ -452,6 +453,9 @@ it.
 - `the_off_hand_keeps_the_swing_plane_its_policy_asked_for`
 - `the_input_hold_is_bounded_from_both_sides`
 - `a_held_input_expires_to_neutral_rather_than_to_its_last_value`
+- `forward_input_without_turn_holds_heading_and_does_not_swerve` -- 120 Human
+  host-source ticks with tactical off hand retain the exact initial heading and zero
+  cross-track displacement
 - `the_arena_fingerprint_does_not_change_when_a_side_is_handed_to_a_human`
 
 `tools/wasm_check.js`: `arena_stage_input` must answer identically on both targets, and a
@@ -465,13 +469,15 @@ registered policy code installs, reads back and moves one.
 - `sixty_one_hundred_twenty_and_one_hundred_forty_four_hertz_each_advance_sixty_ticks_in_one_second`
 - `a_hidden_interval_is_cleared_and_not_replayed_as_catch_up`
 - `only_one_controlled_tick_is_in_flight`
+- `the_client_body_turn_lead_mirrors_the_authoritative_rust_host_lead`
 - `a_stance_is_joined_by_full_generational_identity`
 - `an_unknown_arena_stream_layout_is_refused_before_a_chunk`
 
 `client/test/studio-shell.test.mjs`:
 - `key_down_reaches_the_simulation_within_two_ticks`
 - `w_and_s_move_in_the_torsos_forward_axis`
-- `a_and_d_turn_the_body_while_q_and_e_sidestep`
+- `a_and_d_strafe_while_q_and_e_turn_the_body`
+- `released_turn_rebases_w_and_a_only_commands_on_the_latest_published_yaw`
 - `mouse_motion_changes_no_navigation_or_body_yaw_byte`
 - `blur_visibility_pause_and_pointer_lock_loss_clear_every_held_input`
 - `space_pauses_a_fight_that_is_still_being_produced`
@@ -485,11 +491,15 @@ registered policy code installs, reads back and moves one.
 2. Key-down reaches the simulation within two ticks.
 3. Display schedules at 60, 120 and 144 Hz each produce exactly sixty simulation ticks
    over one visible second; hidden time produces none and is not caught up.
-4. Mouse motion alone changes neither `move_dir` nor `body_yaw`; `A`/`D` turn and `Q`/`E`
-   sidestep by distinct tests.
+4. Mouse motion alone changes neither `move_dir` nor `body_yaw`; `A`/`D` sidestep and
+   `Q`/`E` turn by distinct tests.
 5. A human-driven fight replays from its recorded commands to the same `state_digest`.
 6. Every staged frame either takes effect or is refused by name.
 7. The unattended AI fight is unchanged, and still matches `lab trace`.
+8. Forward input without turn holds exact heading and zero cross-track displacement for
+   120 ticks even while the tactical off hand is active.
+9. After a lagging achieved turn is published, releasing `Q`/`E` and holding either
+   forward or strafe submits that achieved yaw, never the stale commanded lead.
 
 ## Hash expectations
 

@@ -9335,6 +9335,43 @@ mod tests {
     }
 
     #[test]
+    fn forward_input_without_turn_holds_heading_and_does_not_swerve() {
+        let mut config = sim::DuelConfigV1::shipped();
+        config.max_ticks = 120;
+        config.fighters[0].spawn = Vec2::new(Fx::from_int(4), Fx::from_int(8));
+        config.fighters[1].spawn = Vec2::new(Fx::from_int(20), Fx::from_int(8));
+        write_arena_config(&config, [PolicyKind::Tactical, PolicyKind::Neutral]);
+        poke_arena_config(ARENA_HEADER_BYTES + ARENA_FIGHTER_CONTROL, ARENA_CONTROL_HUMAN);
+        assert_eq!(arena_start(41) & 0xff, 1);
+        let (hero, start) = with_sim(None, |sim| {
+            let hero = sim.arena.as_ref()?.driven[0]?;
+            Some((hero, sim.world.observe(hero)))
+        }).expect("the human hero was installed");
+        let heading = start.body_yaw;
+
+        for _ in 0..120 {
+            let obs = with_sim(Observation::BLANK, |sim| sim.world.observe(hero));
+            let mut command = policy::neutral_command(&obs);
+            command.core.move_dir = Vec2::new(Fx::ONE, Fx::ZERO);
+            command.core.body_yaw = heading;
+            write_embodied(command);
+            assert_eq!(arena_stage_input(0) & 0xff, 1);
+            step(1);
+        }
+
+        let end = with_sim(Observation::BLANK, |sim| sim.world.observe(hero));
+        let delta = Vec2::new(
+            end.body_position.x - start.body_position.x,
+            end.body_position.y - start.body_position.y,
+        );
+        let along = delta.x * heading.cos() + delta.y * heading.sin();
+        let across = -delta.x * heading.sin() + delta.y * heading.cos();
+        assert_eq!(end.body_yaw, heading, "the policy-owned off hand turned the torso");
+        assert!(along > Fx::ZERO, "held forward input did not move the body forward");
+        assert_eq!(across, Fx::ZERO, "held forward input acquired cross-track drift");
+    }
+
+    #[test]
     fn a_human_driven_arena_fight_replays_from_its_recorded_commands() {
         let mut config = sim::DuelConfigV1::shipped();
         config.max_ticks = 20;

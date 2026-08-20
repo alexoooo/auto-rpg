@@ -968,7 +968,9 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     }
     if (generation !== controlGeneration || !controlledStopped || !neutralPending
       || controlledFaction !== faction || arena === null || !producing) return;
-    const request = arena.input(faction, arenaInput.encode(null), 0);
+    const human = latestHumanPose();
+    if (human === undefined) return;
+    const request = arena.input(faction, arenaInput.encode(null, human.yaw), 0);
     stagingNeutral = request;
     controlledInput = request;
     try {
@@ -1014,6 +1016,15 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   function opponentOf(frame: FightFrame): readonly [number, number] | null {
     if (controlledFaction === null) return null;
     return poseOf(frame, controlledFaction === 0 ? 1 : 0)?.id ?? null;
+  }
+
+  function humanPoseOf(frame: FightFrame) {
+    return controlledFaction === null ? undefined : poseOf(frame, controlledFaction);
+  }
+
+  function latestHumanPose() {
+    if (loaded === null || loaded.source.frameCount() === 0) return undefined;
+    return humanPoseOf(loaded.source.frameAt(loaded.source.frameCount() - 1));
   }
 
   /**
@@ -1094,9 +1105,6 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
             state.playing = true;
             playButton.textContent = "Pause";
             if (controlledFaction !== null) {
-              const opening = streaming.frameAt(0);
-              const human = poseOf(opening, controlledFaction);
-              if (human !== undefined) arenaInput.setYaw(human.yaw);
               followInput.value = controlledFaction === 0 ? "a" : "b";
               stage?.follow(controlledFaction);
               resumeControlledFight(performance.now());
@@ -1421,7 +1429,13 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     if (controlledFaction === null || !producing || loaded === null || arena === null
       || controlledStopped || stagingNeutral || neutralPending || !controlledClock.beginTick()) return;
     const latest = loaded.source.frameAt(loaded.source.frameCount() - 1);
-    const bytes = arenaInput.encode(opponentOf(latest));
+    const human = humanPoseOf(latest);
+    if (human === undefined) {
+      controlledClock.settleBatch(0);
+      stopControlledFight(performance.now(), false);
+      return;
+    }
+    const bytes = arenaInput.encode(opponentOf(latest), human.yaw);
     const request = arena.input(controlledFaction, bytes, 1);
     controlledInput = request;
     void request.then((stepped) => {
