@@ -31,6 +31,9 @@ import type { SideChoice } from "./picker.js";
 const ONE = 65536;
 const PREVIEW_TURN_TICKS = 480;
 const PREVIEW_FOV = Math.PI / 4;
+export const PREVIEW_ORBIT_LIMIT_DEGREES = 80;
+export const PREVIEW_MIN_RADIUS_HEIGHTS = 1.1;
+export const PREVIEW_MAX_RADIUS_HEIGHTS = 2.5;
 
 export const PREVIEW_VIEWPORTS = [
   new Viewport(0, 0, 0.5, 1),
@@ -60,6 +63,9 @@ export interface CombatantPreview {
   show(side: 0 | 1, choice: SideChoice): void;
   draw(frame: number): void;
   setActive(active: boolean): void;
+  orbit(side: 0 | 1, dx: number, dy: number): boolean;
+  zoom(side: 0 | 1, delta: number): boolean;
+  reset(side?: 0 | 1): void;
   dispose(): void;
 }
 
@@ -114,8 +120,24 @@ export function createCombatantPreview(
   light.groundColor = new Color3(0.18, 0.2, 0.25);
   const bodies: [PreviewBody | null, PreviewBody | null] = [null, null];
   const generations = [0, 0];
+  const initialCamera = cameras.map((camera) => ({
+    position: camera.position.clone(), target: camera.getTarget().clone(),
+  }));
+  const inspection = [0, 1].map(() => ({ azimuth: 0, elevation: 0, manual: false }));
   let disposed = false;
   let active = false;
+
+  const placeCamera = (side: 0 | 1): void => {
+    const camera = cameras[side];
+    const state = inspection[side]!;
+    const target = camera.getTarget();
+    const radius = Vector3.Distance(camera.position, target);
+    const ground = radius * Math.cos(state.elevation);
+    camera.position.set(target.x + Math.cos(state.azimuth) * ground,
+      target.y + Math.sin(state.elevation) * radius,
+      target.z + Math.sin(state.azimuth) * ground);
+    camera.setTarget(target);
+  };
 
   const retire = (side: 0 | 1): void => {
     bodies[side]?.dispose();
@@ -225,10 +247,12 @@ export function createCombatantPreview(
       const yaw = previewYaw(frame);
       const renderHeight = scene.getEngine().getRenderHeight();
       for (const [side, body] of bodies.entries()) if (body !== null) {
-        body.root.rotationQuaternion ??= Quaternion.Identity();
-        Quaternion.RotationAxis(Vector3.UpReadOnly, yaw).multiplyToRef(
-          body.restRotation, body.root.rotationQuaternion,
-        );
+        if (!inspection[side]!.manual) {
+          body.root.rotationQuaternion ??= Quaternion.Identity();
+          Quaternion.RotationAxis(Vector3.UpReadOnly, yaw).multiplyToRef(
+            body.restRotation, body.root.rotationQuaternion,
+          );
+        }
         const projected = Math.round(
           renderHeight * body.standingHeight / (2 * 3.4 * Math.tan(PREVIEW_FOV / 2)),
         );
@@ -245,6 +269,40 @@ export function createCombatantPreview(
       for (const body of bodies) body?.root.setEnabled(next);
       scene.activeCameras = next ? cameras : [...stageCameras];
       scene.activeCamera = next ? cameras[0] : stageCameras[stageCameras.length - 1] ?? null;
+    },
+    orbit(side, dx, dy): boolean {
+      if (!Number.isFinite(dx) || !Number.isFinite(dy) || (dx === 0 && dy === 0)) return false;
+      const state = inspection[side]!;
+      state.manual = true;
+      state.azimuth += dx * 0.006;
+      const limit = PREVIEW_ORBIT_LIMIT_DEGREES * Math.PI / 180;
+      state.elevation = Math.min(limit, Math.max(-limit, state.elevation + dy * 0.006));
+      placeCamera(side);
+      return true;
+    },
+    zoom(side, delta): boolean {
+      if (!Number.isFinite(delta) || delta === 0) return false;
+      const camera = cameras[side];
+      const target = camera.getTarget();
+      const height = bodies[side]?.standingHeight ?? 1.8;
+      const before = Vector3.Distance(camera.position, target);
+      const next = Math.min(height * PREVIEW_MAX_RADIUS_HEIGHTS,
+        Math.max(height * PREVIEW_MIN_RADIUS_HEIGHTS, before * Math.exp(delta * 0.001)));
+      if (next === before) return true;
+      camera.position = target.add(camera.position.subtract(target).normalize().scale(next));
+      camera.setTarget(target);
+      inspection[side]!.manual = true;
+      return true;
+    },
+    reset(side): void {
+      for (const at of side === undefined ? [0, 1] as const : [side]) {
+        const camera = cameras[at];
+        camera.position.copyFrom(initialCamera[at]!.position);
+        camera.setTarget(initialCamera[at]!.target);
+        inspection[at]!.azimuth = 0;
+        inspection[at]!.elevation = 0;
+        inspection[at]!.manual = false;
+      }
     },
     dispose(): void {
       if (disposed) return;

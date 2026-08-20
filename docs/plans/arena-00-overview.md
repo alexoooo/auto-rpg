@@ -1,6 +1,6 @@
 # The arena you can fight in -- overview
 
-**Status:** in progress. Sessions 01 through 06 are complete; session 07 is next. The
+**Status:** in progress. Sessions 01 through 07 are complete; session 08 is next. The
 topic opened after the embodied fight's session 07 closed and its plan files were deleted.
 
 The goal, in the owner's words on 2026-08-19: **pick two units side by side with a 3D
@@ -185,7 +185,7 @@ tick and a policy every `decision_period`, so a human hand feels sharper than a 
 half a second of reaction time before any skill is involved.
 
 The plan's position: **keep it, and write it down.** A hand at 60 Hz that only registers
-every thirtieth tick is not a control scheme, it is a complaint. But session 07 records
+every thirtieth tick is not a control scheme, it is a complaint. But session 09 records
 the asymmetry beside its result, because "the human beat `tactical`" is not evidence about
 aiming if the human decided thirty times as often. The honest control is the same recorded
 input replayed against the same policy, which session 05's replay makes free.
@@ -200,8 +200,10 @@ input replayed against the same policy, which session 05's replay makes free.
 | [04](arena-04-the-camera-that-follows.md) | the arena gets a camera a person owns: follow, orbit, and a zoom that closes to a face | 01 |
 | [05](arena-05-the-hands-on-the-body.md) | the input path that exists in no layer: `ComposedController`, every-tick human submission on a fixed 60 Hz clock, independent keyboard body control, focus safety, and a replay that reproduces a human fight | 01, 02, 04 |
 | [06](arena-06-the-blow-you-aim.md) | relative pointer motion owns a virtual weapon hand: a stable guard, primary-drag cuts, a secondary-drag extension that makes the thrust reachable in first person, explicit height/reach/elbow-plane mapping and effort with a nonzero moving floor | 05 |
-| [07](arena-07-the-hand-is-yours.md) | the control lab: reticle and commanded-versus-achieved feedback, repeatable guards and named cuts against `neutral`, refresh-rate equivalence, and the owner's first tuning pass | 06 |
-| [08](arena-08-the-feel-and-the-close.md) | the full fight against `tactical`, the owner's judgement at a foreground browser, the durable documents, and this plan set deleted | 07 |
+| [07](arena-07-the-game-screen.md) | a fixed game screen: inspectable previews, drawer-owned secondary views, compact transport/details, life bars, pan, cursor-centred zoom, hover, Relative chase and a selectable pre-fight limit | 06 |
+| [08](arena-08-the-cursor-is-the-hand.md) | the unlocked viewport-saturating cursor and world-space desired-hand guide replace pointer lock before feel is measured | 07 |
+| [09](arena-09-the-hand-is-yours.md) | the control lab: reticle and commanded-versus-achieved feedback, repeatable guards and named cuts against `neutral`, refresh-rate equivalence, and the owner's first tuning pass | 08 |
+| [10](arena-10-the-feel-and-the-close.md) | the full fight against `tactical`, the owner's judgement at a foreground browser, the durable documents, and this plan set deleted | 09 |
 
 Sessions 01 and 02 are independent and either may go first. 03 needs 02's per-side model;
 04 needs 01's live source to have something to follow. Everything from 05 on is serial.
@@ -223,6 +225,18 @@ ARENA_STREAM_LEAD_TICKS         15   01; how far production must lead the displa
                                      before playback starts or resumes. At 0 playback
                                      stalls at every chunk boundary; at a whole chunk it
                                      is the old wait in smaller units
+ARENA_DEFAULT_TICKS           3600   07; the shipped one-minute default, split from the
+                                     browser maximum so existing fingerprints stay put
+ARENA_MAX_TICKS              36000   07; ten-minute selectable/recordable browser limit;
+                                     zero and larger values are named refusals
+PREVIEW_ORBIT_LIMIT_DEGREES     80   07; either elevation pole remains visible and cannot
+                                     flip through the model
+PREVIEW_MIN_RADIUS_HEIGHTS     1.1   07; nearest preview radius in standing heights
+PREVIEW_MAX_RADIUS_HEIGHTS     2.5   07; farthest preview radius in standing heights
+CHASE_BACK_HEIGHTS             1.5   07; Relative camera distance behind published hip yaw
+CHASE_UP_HEIGHTS               1.0   07; Relative camera height above the body origin
+CHASE_LOOK_AHEAD_HEIGHTS       1.0   07; Relative target distance along published hip yaw
+CHASE_TARGET_UP_HEIGHTS       0.55   07; Relative target height above the body origin
 ARENA_CONTROLLED_CHUNK_CREDITS   3   05; controlled chunks allowed in flight. Exact chunk
                                      copies are allocated per tick and retained by the
                                      recording; credits add lossless backpressure without
@@ -247,32 +261,35 @@ CONTROL_INPUT_MAX_HOLD_TICKS     6   05; how long a staged input frame is re-use
 HUMAN_ARM_SLOT       strike/right   05; the configured strike hand, falling back to Right
                                      when neither hand strikes. Authority is fixed at
                                      construction and does not move after an amputation
-BODY_TURN_INPUT_LEAD_RAW       8192  05/07; provisional absolute-yaw lead, mirrored from
-                                     Rust's measured `PLAYER_TURN_LEAD_RAW`. Session 07
+BODY_TURN_INPUT_LEAD_RAW       8192  05/09; provisional absolute-yaw lead, mirrored from
+                                     Rust's measured `PLAYER_TURN_LEAD_RAW`. Session 09
                                      measures and may replace the shared value in the
                                      control lab; released Q/E rebases to published yaw
 HUMAN_ARM_RESTING_EFFORT        1/2  06; the existing held-guard effort and the floor for
                                      every moving human hand, not a value drag speed may
                                      lower toward zero
-VIRTUAL_HAND_SENSITIVITY      0.006  06/07; provisional arm lengths of virtual-hand travel
-                                     per CSS pixel at the reference viewport. Session 07
+VIRTUAL_HAND_SENSITIVITY      0.006  06/09; provisional arm lengths of virtual-hand travel
+                                     per CSS pixel at the reference viewport. Session 09
                                      owns visible-browser calibration
-EXTEND_DRAG_SENSITIVITY       0.004  06/07; provisional arm lengths of shoulder-to-hand distance per CSS
+CURSOR_HAND_SPAN_ARM_LENGTHS    1.0  08/09; desktop cursor centre-to-edge offset around
+                                     the synchronized rest anchor; touch retains 06's
+                                     relative sensitivity
+EXTEND_DRAG_SENSITIVITY       0.004  06/09; provisional arm lengths of shoulder-to-hand distance per CSS
                                      pixel of secondary vertical travel -- the source
                                      material's extend verb. The screen plane's only depth
                                      is a height-coupled leak through the cameras' pitch,
                                      so this is the axis a thrust is aimed with
-TOUCH_PINCH_SPREAD_RATIO      0.75   06/07; provisional spread-to-centroid classifier ratio;
+TOUCH_PINCH_SPREAD_RATIO      0.75   06/09; provisional spread-to-centroid classifier ratio;
                                      centroid travel, makes a two-finger touch gesture a
                                      pinch for the camera instead of an extension drag
-SWING_DRAG_DEAD_ZONE_PX          6   06/07; provisional; below this a primary press places or holds a
+SWING_DRAG_DEAD_ZONE_PX          6   06/09; provisional; below this a primary press places or holds a
                                      guard and does not add swing effort
-SWING_DRAG_FULL_EFFORT_PX_S    900   06/07; provisional drag speed that maps moving effort from
+SWING_DRAG_FULL_EFFORT_PX_S    900   06/09; provisional drag speed that maps moving effort from
                                      the resting half to 1.0 -- never from zero
 SWING_DRAG_FULL_REACH_ARM_LENGTHS 1  06; derived: the virtual hand's unit disc, with the
                                      physical minimum reach at its centre and full reach
                                      at its rim
-VIRTUAL_HAND_REFERENCE_VIEWPORT_PX 1000 06; CSS-height normalization reference; session 07
+VIRTUAL_HAND_REFERENCE_VIEWPORT_PX 1000 06; CSS-height normalization reference; session 09
                                      remeasures both promoted views rather than assuming equality
 ARENA_CLOSE_UP_RADIUS           --   04; the nearest the 3/4 camera may come to a body,
                                      bounded below by NEAR_PLANE and the head capsule
@@ -280,15 +297,15 @@ ARENA_CLOSE_UP_RADIUS           --   04; the nearest the 3/4 camera may come to 
 
 Seven are deliberately left `--`. Six are the control lab's feel constants; the seventh,
 `ARENA_CLOSE_UP_RADIUS`, is session 04's camera bound, written there as a placeholder 0.9
-and judged at the owner's browser in session 08. A placeholder number in this table is a
+and judged at the owner's browser in session 10. A placeholder number in this table is a
 number somebody quotes.
 
 ## Hash expectations
 
 State these before editing; a moved hash is normally a bug.
 
-**The planned host and client work moves no golden hash.** Sessions 01 through 04, 07 and
-08 are TypeScript, HTML and Markdown; session 05's `PartialCommandSource` and session
+**The planned host and client work moves no golden hash.** Sessions 01 through 04 and 07
+through 10 are TypeScript, HTML and Markdown; session 05's `PartialCommandSource` and session
 06's read-only reach export do not reach unattended fixtures.
 
 **A direct-control diagnosis added one deliberate simulator correction to session 05.**
@@ -371,7 +388,7 @@ green even if one side still draws.
 
 ## What "controls well" is, declared before it is measured
 
-Preregistered here so that sessions 06 and 07 cannot choose their success criteria after
+Preregistered here so that sessions 06 and 09 cannot choose their success criteria after
 feeling the result.
 
 | quantity | today | acceptance | owned by |
@@ -382,14 +399,14 @@ feeling the result.
 | elapsed time to simulated ticks at 60, 120 and 144 Hz display schedules | -- | **the same 60 ticks after one visible second**, with no hidden-tab catch-up | 05 |
 | mouse motion with no body key held | -- | **changes no navigation or body-yaw command byte** | 05, 06 |
 | camera orbit, zoom or view promotion with no arm motion | -- | **changes no staged arm target** | 04, 06 |
-| deliberately parked high-left, high-right, centre, low-left and low-right guards | -- | **at least 4 of 5 distinct on the first attempt**, with no forced step from weapon input | 07 |
-| five attempts in each named cut family | -- | **at least 4 of 5 desired-hand traces classify as named before contact is considered** | 07 |
-| paired slow and fast cuts to one endpoint | -- | **ordered target speed and nondecreasing effort**, with achieved speed reported separately | 07 |
-| a straight thrust from the tucked guard to full extension, first person, no footwork | -- | **reachable with the secondary gesture alone**, and the same gesture in the 3/4 view | 06, 07 |
+| deliberately parked high-left, high-right, centre, low-left and low-right guards | -- | **at least 4 of 5 distinct on the first attempt**, with no forced step from weapon input | 09 |
+| five attempts in each named cut family | -- | **at least 4 of 5 desired-hand traces classify as named before contact is considered** | 09 |
+| paired slow and fast cuts to one endpoint | -- | **ordered target speed and nondecreasing effort**, with achieved speed reported separately | 09 |
+| a straight thrust from the tucked guard to full extension, first person, no footwork | -- | **reachable with the secondary gesture alone**, and the same gesture in the 3/4 view | 06, 09 |
 | a human-driven fight replayed from its recorded commands | -- | **the same `state_digest`**, with neither the human nor the policy in the room | 05 |
 | every policy and control the picker can send | -- | **takes effect, or comes back as a named refusal a test can assert** | 02, 05 |
 
-**The row that closes the topic is not in that table.** Session 08 puts the owner at a
+**The row that closes the topic is not in that table.** Session 10 puts the owner at a
 foreground browser with their hands on it, and only their answer to *"does it control
 well?"* finishes this. A green suite is evidence that it runs, not evidence that it is
 worth playing, and those are different claims -- the same distinction the embodied fight
@@ -403,6 +420,11 @@ a lowered bar.
   anatomy, not a spec row, not a policy's decisions. If the fight is unplayable without a
   mechanical change, that is a finding, recorded as one, and a different topic with a
   different measurement -- it would move every pin in the registry.
+- **It does not switch Human authority during a live fight or invent browser-only body
+  collision.** Takeover/release, the behind-torso arm envelope and swept own-body/weapon
+  constraints are specified separately in
+  [combat control extensions](combat-control-extensions-00-overview.md), where their host
+  transition and authoritative mechanics risks can be tested independently.
 - **It does not call coupled mouse yaw "close enough."** If keyboard turning proves
   awkward, that is tuned as keyboard turning or offered as an explicit alternate mode.
   Mouse sword motion is never silently allowed to rotate the body, because then the
@@ -419,7 +441,9 @@ a lowered bar.
 - **It does not widen past two fighters.** `MAX_POSES` is 64 and nothing below the panels
   assumes two, but the picker, the stage layout and both first-person viewports do, and
   that is the cheaper debt to leave standing.
-- **It does not move the spawns or `max_ticks`.** Both reach `Scenario::fingerprint`.
+- **It does not move the spawns or edit `max_ticks` after a fight begins.** Session 07
+  exposes a bounded pre-fight limit through the existing fingerprinted config; the
+  shipped one-minute default remains unchanged.
 - **It does not train anything.** There is still no `learned` entry in the arena's policy
   list and this topic does not add one: a checkpoint is 15 KB of weights and a policy byte
   has nowhere to put one.

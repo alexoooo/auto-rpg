@@ -50,8 +50,12 @@ export const ARENA_CLOSE_UP_RADIUS = 0.9;
 
 /** The farthest, so a wheel cannot lose the fight off the back of the arena. */
 export const ARENA_WIDE_RADIUS = 30;
+export const CHASE_BACK_HEIGHTS = 1.5;
+export const CHASE_UP_HEIGHTS = 1.0;
+export const CHASE_LOOK_AHEAD_HEIGHTS = 1.0;
+export const CHASE_TARGET_UP_HEIGHTS = 0.55;
 
-export type StageCameraMode = "fit" | "follow" | "orbit";
+export type StageCameraMode = "fit" | "follow" | "orbit" | "relative";
 
 export type StageCameraBasis = Readonly<{
   right: readonly [number, number, number];
@@ -73,7 +77,10 @@ export interface StageCamera {
   follow(body: Pose, dt: number): void;
   /** The `buttons` bit field makes the one-owner gesture rule directly testable. */
   orbit(buttons: number, dx: number, dy: number): boolean;
-  zoom(delta: number): void;
+  pan(dx: number, dy: number, viewportHeight: number): boolean;
+  zoom(delta: number, cursor?: readonly [number, number]): void;
+  setEyes(open: boolean): void;
+  relative(body: Pose, hipYaw: number, standingHeight: number, dt: number): void;
   promote(view: ArenaPromotedView): void;
   refit(): void;
 }
@@ -110,6 +117,7 @@ export function createStageCamera(
   let azimuth = 0;
   let elevation = THREE_QUARTER_ELEVATION_DEGREES * DEGREES;
   let radius = ARENA_WIDE_RADIUS;
+  let eyesOpen = true;
 
   const place = (): void => {
     const ground = radius * Math.cos(elevation);
@@ -235,24 +243,96 @@ export function createStageCamera(
       place();
       return true;
     },
-    zoom(delta: number): void {
+    pan(dx: number, dy: number, viewportHeight: number): boolean {
+      if (!finite(dx) || !finite(dy) || !finite(viewportHeight) || viewportHeight <= 0
+        || (dx === 0 && dy === 0)) return false;
+      const vertical = 2 * radius * Math.tan(threeQuarter.fov / 2);
+      const units = vertical / viewportHeight;
+      const right = threeQuarter.getDirection(Vector3.Right()).normalize();
+      const up = threeQuarter.getDirection(Vector3.Up()).normalize();
+      const shift = right.scale(-dx * units).add(up.scale(dy * units));
+      target.addInPlace(shift);
+      threeQuarter.position.addInPlace(shift);
+      threeQuarter.setTarget(target);
+      mode = "orbit";
+      changeSerial += 1;
+      return true;
+    },
+    zoom(delta: number, cursor?: readonly [number, number]): void {
       if (!finite(delta) || delta === 0) return;
       const next = clamp(radius * Math.exp(delta * ZOOM_PER_WHEEL_UNIT),
         ARENA_CLOSE_UP_RADIUS, ARENA_WIDE_RADIUS);
       if (next === radius) return;
       if (mode === "fit") mode = "orbit";
+      const camera = active();
+      let anchor: Vector3 | null = null;
+      if (cursor !== undefined && cursor.every(finite)) {
+        const engine = camera.getEngine();
+        const ray = camera.getScene().createPickingRay(
+          cursor[0] * engine.getRenderWidth(), cursor[1] * engine.getRenderHeight(),
+          Matrix.Identity(), camera,
+        );
+        const hit = camera.getScene().pickWithRay(ray, (mesh) => mesh.isPickable);
+        anchor = hit?.pickedPoint ?? null;
+        if (anchor === null && Math.abs(ray.direction.y) > 1e-9) {
+          const distance = -ray.origin.y / ray.direction.y;
+          if (distance >= 0) anchor = ray.origin.add(ray.direction.scale(distance));
+        }
+      }
+      const ratio = next / radius;
+      if (anchor !== null) {
+        target = anchor.add(target.subtract(anchor).scale(ratio));
+        threeQuarter.position.copyFrom(anchor.add(threeQuarter.position.subtract(anchor).scale(ratio)));
+        threeQuarter.setTarget(target);
+      }
       radius = next;
       changeSerial += 1;
-      place();
+      if (anchor === null) place();
     },
     promote(view: ArenaPromotedView): void {
       if (view === promoted) return;
       promoted = view;
-      const viewports = PROMOTED_VIEWPORTS[view];
-      firstPerson[0].viewport = viewportOf(viewports.firstPersonA);
-      firstPerson[1].viewport = viewportOf(viewports.firstPersonB);
-      threeQuarter.viewport = viewportOf(viewports.threeQuarter);
+      if (eyesOpen) {
+        const viewports = PROMOTED_VIEWPORTS[view];
+        firstPerson[0].viewport = viewportOf(viewports.firstPersonA);
+        firstPerson[1].viewport = viewportOf(viewports.firstPersonB);
+        threeQuarter.viewport = viewportOf(viewports.threeQuarter);
+      }
       changeSerial += 1;
+    },
+    setEyes(open: boolean): void {
+      if (open === eyesOpen) return;
+      eyesOpen = open;
+      if (open) {
+        const viewports = PROMOTED_VIEWPORTS[promoted];
+        firstPerson[0].viewport = viewportOf(viewports.firstPersonA);
+        firstPerson[1].viewport = viewportOf(viewports.firstPersonB);
+        threeQuarter.viewport = viewportOf(viewports.threeQuarter);
+      } else threeQuarter.viewport = new Viewport(0, 0, 1, 1);
+      changeSerial += 1;
+    },
+    relative(body: Pose, hipYaw: number, standingHeight: number, dt: number): void {
+      if (!finite(hipYaw) || !finite(standingHeight) || standingHeight <= 0 || !finite(dt) || dt < 0) return;
+      const yaw = hipYaw * Math.PI * 2 / ONE_RAW;
+      const h = standingHeight;
+      const forward: V3 = [Math.cos(yaw), Math.sin(yaw), 0];
+      const desiredTarget: V3 = [
+        body.body[0] + forward[0] * h * CHASE_LOOK_AHEAD_HEIGHTS,
+        body.body[1] + forward[1] * h * CHASE_LOOK_AHEAD_HEIGHTS,
+        body.body[2] + h * CHASE_TARGET_UP_HEIGHTS,
+      ];
+      const desiredPosition: V3 = [
+        body.body[0] - forward[0] * h * CHASE_BACK_HEIGHTS,
+        body.body[1] - forward[1] * h * CHASE_BACK_HEIGHTS,
+        body.body[2] + h * CHASE_UP_HEIGHTS,
+      ];
+      const response = dt === 0 ? 1 : 1 - Math.exp(-ARENA_FOLLOW_DAMPING_PER_SECOND * dt);
+      const nextTarget = new Vector3(...scenePoint(desiredTarget));
+      const nextPosition = new Vector3(...scenePoint(desiredPosition));
+      target = Vector3.Lerp(target, nextTarget, response);
+      threeQuarter.position.copyFrom(Vector3.Lerp(threeQuarter.position, nextPosition, response));
+      threeQuarter.setTarget(target);
+      mode = "relative";
     },
     refit(): void {
       const beforePosition = threeQuarter.position.clone();

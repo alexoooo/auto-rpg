@@ -1531,7 +1531,8 @@ test("the_shipped_arrangement_carries_the_dimensions_the_spec_document_states", 
     rustHeadRadiusRaw(spec, "fighter_anatomy"), rustHeadRadiusRaw(spec, "brute_anatomy"),
   ]);
   assert.deepEqual(CONFIG.SHIPPED_SPAWNS, [{ x: 458_752, y: 393_216 }, { x: 1_114_112, y: 655_360 }]);
-  assert.equal(CONFIG.ARENA_MAX_TICKS, 3_600);
+  assert.equal(CONFIG.ARENA_DEFAULT_TICKS, 3_600);
+  assert.equal(CONFIG.ARENA_MAX_TICKS, 36_000);
   // A guard yields carrying slot zero, so a sword-and-board fighter carries
   // [sword, shield] -- the shipped fixture's own arrangement, and the order
   // `lab trace` writes.
@@ -1844,29 +1845,19 @@ test("a_projectile_row_uses_its_own_index_extent_and_stable_identity", async () 
   assert.equal(index[2 * RECORDER.RECORDING_INDEX_STRIDE + RECORDER.INDEX_PROJECTILE_COUNT], 1);
 });
 
-test("a_truncated_recording_says_so", async () => {
-  // A hundred rows a tick over four hundred ticks is 40,100 rows, so the
-  // recording stops short and has to say why. The feed is asserted against the
-  // constant rather than against the number it happened to be, because this cap
-  // has already moved once -- from 16,384 to 32,768, when its corpus was
-  // re-recorded over picker-reachable loadouts.
-  const arena = new FakeArena({ ticks: 400, eventsPerTick: 100 });
-  assert.ok(400 * 100 > RECORDER.RECORDING_EVENT_ROW_CAP,
-    "the scripted feed no longer overruns the cap, so this test proves nothing");
-  const recorded = await record(arena, arenaConfig({ maxTicks: 400 }));
+test("a_long_event_history_is_retained_through_chunks_not_whole_fight_scratch", async () => {
+  // A hundred rows a tick over four hundred ticks is much larger than one
+  // recorder scratch chunk. It must nevertheless survive because adopted
+  // chunks, not a whole-fight typed array in the worker, own replay history.
+  const arena = new FakeArena({ ticks: 700, eventsPerTick: 100 });
+  assert.ok(700 * 100 > RECORDER.RECORDING_CHUNK_EVENT_ROW_CAP,
+    "the scripted feed no longer exceeds one scratch chunk, so this test proves nothing");
+  const recorded = await record(arena, arenaConfig({ maxTicks: 700 }));
   const { finished } = recorded;
-  assert.equal(finished.recordingTruncated, true);
-  assert.ok(finished.frameCount < 401, "a truncated recording holds fewer frames than the fight has ticks");
-  // **The cap is still a whole-fight cap and not a per-chunk one**, which is why
-  // the rows are counted over the reassembled fight: splitting it per chunk would
-  // need a second measured corpus, and `recordingTruncated` would stop meaning
-  // what it means.
-  assert.ok(recorded.whole().events.length / ABI.COMBAT_EVENT_STRIDE
-    <= RECORDER.RECORDING_EVENT_ROW_CAP, "the event cap was exceeded");
-  // A recording that stopped early has not watched the fight end, so it must
-  // not claim an outcome it did not see.
-  assert.match(finished.outcome, /truncated/);
-  assert.equal(finished.timedOut, false);
+  assert.equal(finished.recordingTruncated, false);
+  assert.equal(finished.frameCount, 701);
+  assert.equal(recorded.whole().events.length / ABI.COMBAT_EVENT_STRIDE, 70_100);
+  assert.equal(finished.timedOut, true);
   const source = recorded.source();
   assert.equal(source.frameCount(), finished.frameCount);
   assert.equal(source.frameAt(source.frameCount() - 1).contacts.length, 100);

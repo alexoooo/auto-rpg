@@ -1,8 +1,8 @@
-# Arena 08 -- the fight, the documents, and the close
+# Arena 10 -- the fight, the documents, and the close
 
-**Status:** ready once session 07 has passed every control drill. Closes the topic.
+**Status:** ready once session 09 has passed every control drill. Closes the topic.
 
-Sessions 05 and 06 prove that input reaches an independently controlled hand. Session 07
+Sessions 05 and 06 prove that input reaches an independently controlled hand. Session 09
 proves that the owner can deliberately place guards and name repeatable cuts against a
 neutral body. This session asks the harder question in the owner's original words: **does
 it control well in a fight?** It then moves the plan's knowledge into durable documents
@@ -10,7 +10,7 @@ and deletes the plan set.
 
 ## The controlled body remains legible
 
-The diagnostic shell built in 07 remains available during a fight and answers:
+The diagnostic shell built in 09 remains available during a fight and answers:
 
 1. **Whose body am I?** The controlled side and primary/off-hand authority are named.
 2. **What did I ask for, and what did the body achieve?** Desired and achieved hand
@@ -37,7 +37,8 @@ own its cleanup, and record the answers rather than a screenshot.
 3. Follow A. Zoom to the helmet, orbit, promote each eye camera and **Refit**. None may
    stage an arm command or lose the fight.
 4. Return to selection. Set the left side to **you**, off hand `tactical`, right side
-   `tactical`. Press **Take controls** and fight to an outcome twice in 3/4 view.
+   `tactical`. Press **Fight** and fight to an outcome twice in 3/4 view with the unlocked
+   cursor and desired-hand guide.
 5. Repeat once with the controlled eye camera promoted.
 6. During those fights deliberately perform, rather than merely observe:
    - a parked high or lateral guard that intercepts an incoming weapon physically;
@@ -72,13 +73,13 @@ appropriate hash moves before code is edited.
 
 ## The durable documents
 
-Seven implementation sessions changed the browser's shape. Each result has one durable
+Nine implementation sessions changed the browser's shape. Each result has one durable
 home:
 
 | what | where |
 |---|---|
 | streaming transport, fixed-time controlled drive, input messages and chunk-relative indices | `docs/reference/worker-protocol.md` |
-| the arena's selection/fight phases, owned camera, pointer-lock lifecycle and three disjoint input claims | `docs/architecture/browser-runtime.md` |
+| the arena's selection/fight phases, game-shell drawers, owned cameras, unlocked cursor lifecycle and three disjoint input claims | `docs/architecture/browser-runtime.md` |
 | human body/arm composition and the browser replay recorder still owed | `docs/architecture/policy.md` |
 | the arena config at layout 3 and its refusal table | `docs/reference/articulated-abi.md` |
 | what a human hand may ask for, relative-delta conversion, the extension channel and its encodable envelope, physical minimum reach and signed elbow plane | `docs/reference/embodied-command-v1.md` and `docs/design/combat.md` |
@@ -130,7 +131,7 @@ five commits. This close verifies no durable document restores a superseded name
    to mapping, actuator, camera, footwork, feedback or cadence.
 3. `rg` for the two rejected contracts: pointer-derived body yaw and one-tick-per-rAF.
    Only the historical correction paragraphs may remain.
-4. Delete `docs/plans/arena-*.md` -- the overview plus sessions 01 through 08, nine files.
+4. Delete `docs/plans/arena-*.md` -- the overview plus sessions 01 through 10, eleven files.
 5. Repoint the roadmap links in `AGENTS.md`, `README.md`, `DESIGN.md` and `docs/README.md`
    at the next live topic, respecting `checkDurablePlanAuthority`.
 6. Say in the commit message which knowledge moved into which durable document.
@@ -146,12 +147,12 @@ five commits. This close verifies no durable document restores a superseded name
    the diagnostic overlay on, and the fight remains playable with it off.
 4. `node tools/check_docs.js` is green, with no durable document describing the rejected
    coupled-yaw or refresh-rate-dependent contracts as current behavior.
-5. All nine `docs/plans/arena-*.md` files are deleted and the four roadmap links repointed.
+5. All eleven `docs/plans/arena-*.md` files are deleted and the four roadmap links repointed.
 
 ## Hash expectations
 
 **Nothing moves.** A final play pass, prose and plan deletions do not reach authoritative
-state. If a mechanics session was inserted because 07 or 08 found one necessary, that
+state. If a mechanics session was inserted because session 09 found one necessary, that
 session owns and predicts its own hash movement before this close resumes.
 
 The browser goldens that once caught accidental authoritative changes are retired, so the

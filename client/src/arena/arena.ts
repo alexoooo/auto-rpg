@@ -316,6 +316,19 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
   const modeGeometry = element<HTMLButtonElement>(container, "mode-geometry");
   const takeControls = element<HTMLButtonElement>(container, "take-controls");
   const controlStatus = element<HTMLElement>(container, "control-status");
+  const eyesButton = element<HTMLButtonElement>(container, "arena-eyes");
+  const plansButton = element<HTMLButtonElement>(container, "arena-plans");
+  const replayButton = element<HTMLButtonElement>(container, "arena-replay");
+  const detailsButton = element<HTMLButtonElement>(container, "arena-details");
+  const plansPanel = element<HTMLElement>(container, "arena-plans-panel");
+  const replayPanel = element<HTMLElement>(container, "arena-replay-panel");
+  const replayControls = element<HTMLElement>(container, "arena-replay-controls");
+  const detailsPanel = element<HTMLElement>(container, "arena-details-panel");
+  const healthA = element<HTMLProgressElement>(container, "arena-health-a");
+  const healthB = element<HTMLProgressElement>(container, "arena-health-b");
+  const cameraModeInput = element<HTMLSelectElement>(container, "arena-camera-mode");
+  const timeLimitInput = element<HTMLSelectElement>(container, "arena-time-limit");
+  const resetPreviewButton = element<HTMLButtonElement>(container, "arena-reset-preview");
 
   const toggles = {
     showRegions: element<HTMLInputElement>(container, "show-regions"),
@@ -455,6 +468,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     setPickerValue("b-left", "empty");
     setPickerValue("b-right", "club");
     setPickerValue("arena-seed", "3");
+    setPickerValue("arena-time-limit", "3600");
     clearTwoHanded();
     populatePolicies(container, "tactical", "scripted");
     setPickerValue("a-control", "tactical");
@@ -486,6 +500,10 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
    */
   type Phase = "select" | "fight";
   let phase: Phase = "select";
+  let eyesOpen = false;
+  let plansOpen = false;
+  let replayOpen = false;
+  let detailsOpen = false;
 
   function updatePreview(): void {
     if (stage === null || phase !== "select") return;
@@ -496,14 +514,50 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
 
   function setPhase(next: Phase): void {
     phase = next;
+    container.setAttribute("data-phase", next);
+    timeLimitInput.disabled = next === "fight";
     pickerSides.hidden = next === "fight";
     pickerFooter.hidden = next === "fight";
     pickerSummary.hidden = next === "select";
     if (next === "select") pickerSides.prepend(stageCanvas);
     else stageHost.prepend(stageCanvas);
     stage?.setPhase(next);
+    if (next === "fight") {
+      eyesOpen = plansOpen = replayOpen = detailsOpen = false;
+      stage?.setEyes?.(false);
+      for (const [button, panel] of [[plansButton, plansPanel], [detailsButton, detailsPanel]] as const) {
+        button.setAttribute("aria-expanded", "false"); panel.hidden = true;
+      }
+      eyesButton.setAttribute("aria-expanded", "false");
+      replayButton.setAttribute("aria-expanded", "false");
+      replayPanel.hidden = replayControls.hidden = true;
+    }
     if (next === "select") updatePreview();
   }
+
+  const toggleDrawer = (button: HTMLButtonElement, panel: HTMLElement,
+    read: () => boolean, write: (open: boolean) => void): void => {
+    const open = !read();
+    write(open); panel.hidden = !open; button.setAttribute("aria-expanded", String(open));
+    if (open) render();
+  };
+  eyesButton.addEventListener("click", () => {
+    eyesOpen = !eyesOpen;
+    eyesButton.setAttribute("aria-expanded", String(eyesOpen));
+    stage?.setEyes?.(eyesOpen);
+    render();
+  });
+  plansButton.addEventListener("click", () => toggleDrawer(plansButton, plansPanel,
+    () => plansOpen, (open) => { plansOpen = open; }));
+  replayButton.addEventListener("click", () => {
+    replayOpen = !replayOpen;
+    replayButton.setAttribute("aria-expanded", String(replayOpen));
+    replayPanel.hidden = replayControls.hidden = !replayOpen;
+    if (replayOpen) render();
+  });
+  detailsButton.addEventListener("click", () => toggleDrawer(detailsButton, detailsPanel,
+    () => detailsOpen, (open) => { detailsOpen = open; }));
+  resetPreviewButton.addEventListener("click", () => stage?.resetPreview());
 
   // ---------------------------------------------------------------- the panels
 
@@ -585,6 +639,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
       stage = built;
       built.follow(followInput.value === "a" ? 0 : followInput.value === "b" ? 1 : "both");
       built.promote(viewInput.value as "threeQuarter" | "firstPersonA" | "firstPersonB");
+      built.setEyes?.(eyesOpen);
       built.setPhase(phase);
       refreshPicker();
       return;
@@ -647,6 +702,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
       refreshPicker();
       built.follow(followInput.value === "a" ? 0 : followInput.value === "b" ? 1 : "both");
       built.promote(viewInput.value as "threeQuarter" | "firstPersonA" | "firstPersonB");
+      built.setEyes?.(eyesOpen);
       stageHost.dataset.mainView = viewInput.value;
       built.setPhase(phase);
       if (phase === "select") updatePreview();
@@ -724,24 +780,30 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     const focus = centre(frame);
     const chosen = options();
     drawStage(0, cameraDt);
-    const [planWidth, planHeight] = prepare(plan, planCtx);
-    const [sideWidth, sideHeight] = prepare(elevation, elevationCtx);
-    const [chartWidth, chartHeight] = prepare(chart, chartCtx);
-    drawScene(planCtx, planCamera(planWidth, planHeight, focus, state.span), header, frame, chosen);
-    drawScene(
-      elevationCtx,
-      elevationCamera(sideWidth, sideHeight, focus, state.span, state.azimuth),
-      header, frame, chosen,
-    );
-    drawChart(chartCtx, header, series, state.frame, chartWidth, chartHeight);
+    if (phase !== "fight" || plansOpen) {
+      const [planWidth, planHeight] = prepare(plan, planCtx);
+      const [sideWidth, sideHeight] = prepare(elevation, elevationCtx);
+      drawScene(planCtx, planCamera(planWidth, planHeight, focus, state.span), header, frame, chosen);
+      drawScene(elevationCtx,
+        elevationCamera(sideWidth, sideHeight, focus, state.span, state.azimuth),
+        header, frame, chosen);
+    }
+    if (phase !== "fight" || replayOpen) {
+      const [chartWidth, chartHeight] = prepare(chart, chartCtx);
+      drawChart(chartCtx, header, series, state.frame, chartWidth, chartHeight);
+    }
+    healthA.value = Math.max(0, frame.health[0] ?? 0);
+    healthB.value = Math.max(0, frame.health[1] ?? 0);
 
     tickLabel.textContent = `tick ${frame.t} / ${header.ticks}`;
-    readout.innerHTML = header.bodies
-      .map((_, index) => describeBody(header, frame, index))
-      .join("\n\n");
-    contactList.innerHTML = frame.contacts.length === 0
-      ? '<span class="muted">no contact this tick</span>'
-      : frame.contacts.map((contact) => describeContact(header, contact)).join("<br>");
+    if (phase !== "fight" || detailsOpen) {
+      readout.innerHTML = header.bodies
+        .map((_, index) => describeBody(header, frame, index))
+        .join("\n\n");
+      contactList.innerHTML = frame.contacts.length === 0
+        ? '<span class="muted">no contact this tick</span>'
+        : frame.contacts.map((contact) => describeContact(header, contact)).join("<br>");
+    }
     if (scrub.valueAsNumber !== state.frame) scrub.value = String(state.frame);
   }
 
@@ -1331,6 +1393,14 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     render();
     showCameraOwnership();
   });
+  cameraModeInput.addEventListener("change", () => {
+    const refusal = stage?.setRelative(cameraModeInput.value === "relative") ?? null;
+    if (refusal !== null) {
+      cameraModeInput.value = "fixed";
+      status.textContent = refusal;
+      status.classList.add("error");
+    } else render();
+  });
   viewInput.addEventListener("change", () => {
     const view = viewInput.value as "threeQuarter" | "firstPersonA" | "firstPersonB";
     stage?.promote(view);
@@ -1352,7 +1422,36 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     const point = stagePoint(event);
     return point !== null && stage?.containsThreeQuarterPoint(point[0], point[1]) === true;
   };
+  let previewPointer: { id: number; side: 0 | 1 } | null = null;
+  pickerSides.addEventListener("pointerdown", (event) => {
+    if (phase !== "select" || event.target !== stageCanvas || event.button !== 0) return;
+    const point = stagePoint(event);
+    if (point === null) return;
+    previewPointer = { id: event.pointerId, side: point[0] < 0.5 ? 0 : 1 };
+    stageCanvas.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  });
+  pickerSides.addEventListener("pointermove", (event) => {
+    if (previewPointer?.id !== event.pointerId || phase !== "select") return;
+    stage?.orbitPreview(previewPointer.side, event.movementX, event.movementY);
+    event.preventDefault();
+  });
+  const releasePreview = (event: PointerEvent): void => {
+    if (previewPointer?.id !== event.pointerId) return;
+    if (stageCanvas.hasPointerCapture(event.pointerId)) stageCanvas.releasePointerCapture(event.pointerId);
+    previewPointer = null;
+  };
+  pickerSides.addEventListener("pointerup", releasePreview);
+  pickerSides.addEventListener("pointercancel", releasePreview);
+  pickerSides.addEventListener("wheel", (event) => {
+    if (phase !== "select" || event.target !== stageCanvas) return;
+    const point = stagePoint(event);
+    if (point === null) return;
+    stage?.zoomPreview(point[0] < 0.5 ? 0 : 1, event.deltaY);
+    event.preventDefault();
+  });
   let cameraPointer: number | null = null;
+  let cameraGesture: "orbit" | "pan" | null = null;
   stageHost.addEventListener("pointerdown", (event) => {
     if (event.target !== stageCanvas) return;
     if (capture === "touch" && event.pointerType !== "touch" && (event.button === 0 || event.button === 2)) {
@@ -1402,6 +1501,14 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     }
     if (event.button === 1 && hitsThreeQuarter(event)) {
       cameraPointer = event.pointerId;
+      cameraGesture = event.shiftKey ? "pan" : "orbit";
+      stageCanvas.setPointerCapture(event.pointerId);
+      event.preventDefault();
+      return;
+    }
+    if (event.button === 0 && controlledFaction === null && loaded !== null && hitsThreeQuarter(event)) {
+      cameraPointer = event.pointerId;
+      cameraGesture = "pan";
       stageCanvas.setPointerCapture(event.pointerId);
       event.preventDefault();
       return;
@@ -1414,6 +1521,13 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
   let lastWeaponAt = performance.now();
   stageHost.addEventListener("pointermove", (event) => {
     if (event.target !== stageCanvas) return;
+    if (event.pointerType !== "touch" && event.buttons === 0 && capture !== "mouse" && stage !== null) {
+      const bounds = stageCanvas.getBoundingClientRect();
+      stage.hover?.([
+        (event.clientX - bounds.left) / Math.max(1, bounds.width),
+        (event.clientY - bounds.top) / Math.max(1, bounds.height),
+      ]);
+    }
     if (capture === "touch" && touchPoints.has(event.pointerId) && stage !== null) {
       touchPoints.set(event.pointerId, [event.clientX, event.clientY]);
       touchContributors.add(event.pointerId);
@@ -1469,7 +1583,10 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
       return;
     }
     if (event.pointerId === cameraPointer) {
-      if (stage?.orbit(event.buttons, event.movementX, event.movementY) !== true) return;
+      const consumed = cameraGesture === "pan"
+        ? stage?.pan(event.movementX, event.movementY, stageCanvas.getBoundingClientRect().height)
+        : stage?.orbit(event.buttons, event.movementX, event.movementY);
+      if (consumed !== true) return;
       showCameraOwnership();
       event.preventDefault();
       return;
@@ -1496,6 +1613,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
   const releaseCameraPointer = (event: PointerEvent): void => {
     if (event.pointerId !== cameraPointer) return;
     cameraPointer = null;
+    cameraGesture = null;
     if (stageCanvas.hasPointerCapture(event.pointerId)) stageCanvas.releasePointerCapture(event.pointerId);
   };
   const releaseTouchPointer = (event: PointerEvent): void => {
@@ -1533,9 +1651,16 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
   stageHost.addEventListener("contextmenu", (event) => {
     if (capture === "mouse" && event.target === stageCanvas) event.preventDefault();
   });
+  stageHost.addEventListener("pointerleave", (event) => {
+    if (event.target === stageCanvas) stage?.clearHover?.();
+  });
   stageHost.addEventListener("wheel", (event) => {
     if (event.target !== stageCanvas || stage === null || !hitsThreeQuarter(event)) return;
-    stage.zoom(event.deltaY);
+    const bounds = stageCanvas.getBoundingClientRect();
+    stage.zoom(event.deltaY, [
+      (event.clientX - bounds.left) / Math.max(1, bounds.width),
+      (event.clientY - bounds.top) / Math.max(1, bounds.height),
+    ]);
     showCameraOwnership();
     // Reaching a clamp does not transfer this wheel gesture to page scrolling.
     event.preventDefault();

@@ -4085,7 +4085,7 @@ const arenaHeader = () => ({
 const arenaView = (poses, values = {}) => {
   const frame = {
     t: values.t ?? 0, poses, projectiles: values.projectiles ?? [],
-    contacts: values.rows ?? [], health: [RAW, RAW],
+    contacts: values.rows ?? [], health: [RAW, RAW], stances: values.stances,
   };
   return {
     header: arenaHeader(), frame, next: values.next ?? frame, alpha: values.alpha ?? 0,
@@ -4471,6 +4471,90 @@ test("the_stage_viewports_match_the_css_that_labels_them", async () => {
   content.dispose();
   scene.dispose();
   engine.dispose();
+});
+
+test("closing_eyes_removes_both_first_person_cameras_and_expands_three_quarter", async () => {
+  const { content, scene, engine } = await arenaStageHarness();
+  content.setEyes(false);
+  assert.deepEqual(scene.activeCameras.map(({ name }) => name), ["arena-three-quarter"]);
+  assert.deepEqual([content.threeQuarter.viewport.x, content.threeQuarter.viewport.y,
+    content.threeQuarter.viewport.width, content.threeQuarter.viewport.height], [0, 0, 1, 1]);
+  content.promote("firstPersonA");
+  assert.deepEqual([content.threeQuarter.viewport.x, content.threeQuarter.viewport.y,
+    content.threeQuarter.viewport.width, content.threeQuarter.viewport.height], [0, 0, 1, 1],
+  "promotion while Eyes is closed must not narrow the only live camera");
+  content.setEyes(true);
+  assert.deepEqual(scene.activeCameras.map(({ name }) => name),
+    ["arena-first-person-0", "arena-first-person-1", "arena-three-quarter"]);
+  assert.deepEqual([content.firstPerson[0].viewport.x, content.firstPerson[0].viewport.width],
+    [arenaGeometry.ARENA_VIEWPORTS.threeQuarter.x, arenaGeometry.ARENA_VIEWPORTS.threeQuarter.width]);
+  content.dispose(); scene.dispose(); engine.dispose();
+});
+
+test("preview_drag_orbits_only_the_hit_side_and_reset_restores_the_initial_camera", async () => {
+  const engine = new NullEngine();
+  const scene = new Scene(engine);
+  const { FreeCamera } = await import("@babylonjs/core/Cameras/freeCamera.js");
+  const { Vector3 } = await import("@babylonjs/core/Maths/math.vector.js");
+  const stage = [0, 1, 2].map((n) => new FreeCamera(`stage-preview-${n}`, new Vector3(), scene));
+  const preview = arenaPreview.createCombatantPreview(scene, stage, () => {}, async () => null);
+  const initial = preview.cameras.map((camera) => camera.position.asArray());
+  assert.equal(preview.orbit(0, 30, 12), true);
+  assert.notDeepEqual(preview.cameras[0].position.asArray(), initial[0]);
+  assert.deepEqual(preview.cameras[1].position.asArray(), initial[1]);
+  preview.draw(120);
+  const parked = preview.cameras[0].position.asArray();
+  preview.draw(240);
+  assert.deepEqual(preview.cameras[0].position.asArray(), parked, "manual inspection pauses turntable");
+  preview.reset(0);
+  assert.deepEqual(preview.cameras[0].position.asArray(), initial[0]);
+  assert.equal(arenaPreview.PREVIEW_ORBIT_LIMIT_DEGREES, 80);
+  assert.equal(arenaPreview.PREVIEW_MIN_RADIUS_HEIGHTS, 1.1);
+  assert.equal(arenaPreview.PREVIEW_MAX_RADIUS_HEIGHTS, 2.5);
+  preview.dispose(); for (const camera of stage) camera.dispose(); scene.dispose(); engine.dispose();
+});
+
+test("pan_translates_focus_in_the_active_camera_plane_without_orbiting", async () => {
+  const { content, scene, engine } = await arenaStageHarness();
+  content.show(arenaView([arenaPose()]));
+  const beforePosition = content.threeQuarter.position.clone();
+  const beforeTarget = arenaCameraTarget(content.threeQuarter).clone();
+  const radius = beforePosition.subtract(beforeTarget).length();
+  assert.equal(content.pan(24, -11, 720), true);
+  const positionDelta = content.threeQuarter.position.subtract(beforePosition);
+  const targetDelta = arenaCameraTarget(content.threeQuarter).subtract(beforeTarget);
+  assert.ok(positionDelta.subtract(targetDelta).length() < 1e-12);
+  assert.ok(Math.abs(content.threeQuarter.position.subtract(arenaCameraTarget(content.threeQuarter)).length()
+    - radius) < 1e-12);
+  content.dispose(); scene.dispose(); engine.dispose();
+});
+
+test("relative_chase_joins_stance_identity_and_crosses_the_turn_seam_short_way", async () => {
+  const { content, scene, engine } = await arenaStageHarness();
+  const pose = arenaPose({ index: 0, x: 7, yaw: RAW / 4 });
+  const nextPose = arenaPose({ index: 0, x: 9, yaw: RAW / 4 });
+  const stance = { id: [0, 0], hipYaw: 65000, pelvis: 0, twist: 0, stepLeft: 0 };
+  const nextStance = { ...stance, hipYaw: 536 };
+  content.show(arenaView([pose], { stances: [stance] }));
+  content.follow(0);
+  assert.equal(content.setRelative(true), null);
+  content.show(arenaView([pose], {
+    stances: [stance], next: { ...arenaView([nextPose], { stances: [nextStance] }).frame },
+    alpha: 0.5, cameraDt: 0,
+  }));
+  assert.equal(content.cameraMode(), "relative");
+  const target = arenaCameraTarget(content.threeQuarter);
+  assert.ok(Math.abs(target.x - (8 + 1.8)) < 1e-4,
+    `seam chose the long path: target ${target.asArray()} position ${content.threeQuarter.position.asArray()}`);
+  assert.ok(Math.abs(target.y - (1.8 * arenaStageCamera.CHASE_TARGET_UP_HEIGHTS)) < 1e-4);
+  assert.equal(arenaStageCamera.CHASE_BACK_HEIGHTS, 1.5);
+  assert.equal(arenaStageCamera.CHASE_UP_HEIGHTS, 1);
+  assert.equal(arenaStageCamera.CHASE_LOOK_AHEAD_HEIGHTS, 1);
+  assert.equal(arenaStageCamera.CHASE_TARGET_UP_HEIGHTS, 0.55);
+  content.setRelative(false);
+  content.show(arenaView([pose], { stances: [{ ...stance, id: [0, 1] }] }));
+  assert.equal(content.setRelative(true), "RELATIVE_CAMERA_NEEDS_STANCE");
+  content.dispose(); scene.dispose(); engine.dispose();
 });
 
 test("the_follow_dead_zone_is_bounded_from_both_sides", () => {

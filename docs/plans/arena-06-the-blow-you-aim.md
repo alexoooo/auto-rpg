@@ -1,7 +1,7 @@
 # Arena 06 -- the blow you aim
 
 **Status:** complete. The integrated native, exact-law, wasm and client gates are green.
-Visible feel judgement and calibration remain deliberately owed to session 07.
+Visible feel judgement and calibration remain deliberately owed to session 09.
 
 **Implementation correction (2026-08-20).** Direct-hand acquisition precedes a Human
 fight: successful mouse pointer lock or touch capture auto-starts it, and a pause releases
@@ -113,7 +113,7 @@ export, not a command-layout change; no layout version moves.
 
 The mapping deliberately reconstructs and stores a command target rather than pretending
 the two-dimensional mouse names an unconstrained Cartesian joint. The simulator remains
-the authority on exact reachability. Session 07 displays commanded and achieved hand
+the authority on exact reachability. Session 09 displays commanded and achieved hand
 points together so its clamp is visible instead of misdiagnosed as pointer lag.
 
 ## The third axis cannot be projected, so it gets its own gesture
@@ -163,7 +163,7 @@ Pushing the mouse away extends; pulling it back retracts. The direction from sho
 hand is held exactly at every stop, and every stop survives the encode round trip, so a
 fast secondary push with the point already on line **is** the thrust. "Full extension"
 means the envelope boundary along the held direction -- the arm's length at shoulder-level
-directions, the height ceiling at steep ones -- and session 07's drill measures against
+directions, the height ceiling at steep ones -- and session 09's drill measures against
 that envelope rather than against a sphere the encoding cannot store. `dx` is
 deliberately dead in this channel: a gesture that swung and extended at
 once would reintroduce the coupling the two channels exist to remove, and a player who
@@ -188,7 +188,7 @@ cuts.
 **If two channels prove too stiff in the control lab**, the recorded fallback is not a
 third gesture but the composition seam the arena already owns: a per-action weapon assist,
 where the human keeps the fields they steer well and a chosen policy fills the rest --
-the off hand already demonstrates the shape. Session 07 makes that call from its
+the off hand already demonstrates the shape. Session 09 makes that call from its
 diagnostics; this session does not make it in advance.
 
 ## Why camera motion cannot move the weapon
@@ -276,7 +276,7 @@ the plan does not misname it as a second hidden swing verb.
 ## Feel constants
 
 These provisional implementation values make the reducers testable. They are not feel
-measurements: session 07 owns foreground remeasurement and may replace each only with its
+measurements: session 09 owns foreground remeasurement and may replace each only with its
 documented two-sided judgement.
 
 ```ts
@@ -325,7 +325,7 @@ export const VIRTUAL_HAND_REFERENCE_VIEWPORT_PX = 1_000;
 CSS pixels rather than device pixels are deliberate: changing device pixel ratio cannot
 change the same physical browser gesture. Viewport-height normalization prevents a small
 promoted first-person viewport and the large 3/4 viewport from having unrelated gains.
-Session 07 samples both rather than assuming the normalization feels equal.
+Session 09 samples both rather than assuming the normalization feels equal.
 
 ## What can be measured before the final fight
 

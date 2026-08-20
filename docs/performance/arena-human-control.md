@@ -8,7 +8,7 @@
 This is a measurement protocol, not a result. The arena has provisional source values
 for its pointer sensitivity, extension gain, touch classifier, powered dead zone, and
 full-effort speed so the control can be exercised. None has yet been accepted by the
-foreground calibration this record requires. Session 07 owns those values and the
+foreground calibration this record requires. Session 09 owns those values and the
 owner's visible-browser judgement; leaving the result blank here is deliberate.
 
 The design being measured is in [Combat design](../design/combat.md#the-human-hand-is-a-target-path-not-an-attack-button).
@@ -79,7 +79,7 @@ effort distribution: minimum, median, p90, maximum, and fractions at the resting
 and at full effort. Quote target-error median and p90 by gesture channel. A single mean
 can hide both a mapper pinned at full effort and a slow cut that never leaves rest.
 
-## Foreground calibration owed in session 07
+## Foreground calibration owed in session 09
 
 Run at least one matched pass in each arena view. In each pass:
 
@@ -100,7 +100,7 @@ slow path below maximum while allowing a deliberate fast path to reach it.
 
 No accepted values or judgements are recorded yet:
 
-| item | session 07 evidence |
+| item | session 09 evidence |
 |---|---|
 | `VIRTUAL_HAND_SENSITIVITY` | owed |
 | `EXTEND_DRAG_SENSITIVITY` | owed |
@@ -144,5 +144,5 @@ like aiming.
 
 ## Result
 
-Pending session 07. No pass, calibration value, win-rate claim, or comfort judgement has
+Pending session 09. No pass, calibration value, win-rate claim, or comfort judgement has
 been recorded.

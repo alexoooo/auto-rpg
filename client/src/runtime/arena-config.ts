@@ -82,7 +82,8 @@ const HAND_BLOCK_BYTES = 22;
  * other limit is a different configuration from the one `lab trace` records and
  * the differential oracle would be comparing two fights.
  */
-export const ARENA_MAX_TICKS = 60 * 60;
+export const ARENA_DEFAULT_TICKS = 60 * 60;
+export const ARENA_MAX_TICKS = 60 * 60 * 10;
 
 /**
  * `PolicyKind`, by code.

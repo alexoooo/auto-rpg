@@ -452,7 +452,9 @@ function syntheticTrace() {
 }
 
 const side = (overrides = {}) => ({ anatomy: "fighter", left: "shield", right: "sword", twoHanded: false, policy: "scripted", control: "policy", ...overrides });
-const matchup = (a = {}, b = {}, seed = 3) => ({ a: side(a), b: side(b), seed });
+const matchup = (a = {}, b = {}, seed = 3, maxTicks = 3_600) => ({
+  a: side(a), b: side(b), seed, maxTicks,
+});
 
 // ----------------------------------------------------------------- the shell's routing
 
@@ -943,6 +945,24 @@ test("the_preview_cards_are_pinned_to_the_same_columns_as_their_camera_viewports
     "narrow layout must retain two columns because the canvas retains two horizontal viewports");
 });
 
+test("selection_and_fight_share_one_fixed_shell_with_closed_drawers_and_bounded_timeouts", () => {
+  assert.match(SHELL_HTML, /\.route-arena\s*\{[^}]*position:\s*fixed;[^}]*inset:\s*0;[^}]*height:\s*100svh/,
+    "the arena must own one route-local viewport rather than document scroll");
+  for (const id of ["arena-plans-panel", "arena-replay-panel", "arena-details-panel"]) {
+    assert.match(SHELL_HTML, new RegExp(`id="${id}" hidden`), `${id} must open closed`);
+  }
+  for (const id of ["arena-eyes", "arena-plans", "arena-replay", "arena-details"]) {
+    assert.equal(TEMPLATE_TAGS.get(id), "button", `${id} must be an edge control`);
+  }
+  assert.deepEqual([...SHELL_HTML.matchAll(/<option value="(3600|10800|18000|36000)"/g)]
+    .map((match) => Number(match[1])), [3_600, 10_800, 18_000, 36_000]);
+  assert.equal(TEMPLATE_VALUES.get("arena-time-limit").value, "3600");
+  assert.equal(picker.arenaConfigOf(matchup({}, {}, 9, 36_000)).maxTicks, 36_000);
+  assert.match(picker.summariseMatchup(matchup({}, {}, 9, 10_800)), /180 second limit/);
+  assert.match(SHELL_HTML, /id="arena-health-a"[^>]*max="65536"[^>]*value="65536"/);
+  assert.match(SHELL_HTML, /id="arena-health-b"[^>]*max="65536"[^>]*value="65536"/);
+});
+
 test("the_seed_and_the_fight_button_belong_to_the_matchup_and_not_to_side_b", () => {
   // They were jammed into the end of Fighter B's row when the picker was two
   // stacked rows, which read as an accident of the layout the moment the layout
@@ -1273,7 +1293,7 @@ test("the_span_slider_says_when_it_has_stopped_driving_the_stage_camera", () => 
   assert.match(source, /stage\?\.cameraMode\(\) === "fit"/);
   assert.match(source, /"\(plan \+ elevation; Refit restores 3\/4\)"/);
   assert.match(source, /stage\?\.orbit\(event\.buttons, event\.movementX, event\.movementY\)/);
-  assert.match(source, /stage\.zoom\(event\.deltaY\)/);
+  assert.match(source, /stage\.zoom\(event\.deltaY, \[/);
   assert.match(source, /refitButton\.addEventListener\("click"/);
 });
 
@@ -1292,7 +1312,7 @@ test("a_wheel_over_the_three_quarter_view_stays_consumed_at_both_zoom_clamps", (
   assert.ok(listener, "the arena has no non-passive stage wheel owner");
   assert.match(listener[1], /hitsThreeQuarter\(event\)/,
     "wheel must hit-test the live 3/4 viewport after promotion");
-  assert.match(listener[1], /stage\.zoom\(event\.deltaY\);[\s\S]*event\.preventDefault\(\);/,
+  assert.match(listener[1], /stage\.zoom\(event\.deltaY, \[[\s\S]*event\.preventDefault\(\);/,
     "a claimed wheel must stay consumed when zoom cannot move farther");
   assert.doesNotMatch(listener[1], /cameraChangeSerial/,
     "a zoom clamp must not transfer the gesture to page scrolling");

@@ -320,6 +320,32 @@
     #scrub { flex: 1 1 18rem; min-width: 10rem; }
     #tick { font-variant-numeric: tabular-nums; min-width: 10rem; }
     .panels { display: grid; grid-template-columns: 3fr 2fr; gap: .6rem; align-items: start; }
+    .route-arena { position: fixed; inset: 0; height: 100svh; overflow: hidden;
+      background: #05070a; z-index: 20; display: grid; grid-template-rows: auto 1fr; }
+    .route-arena[data-phase="select"] { overflow: auto; }
+    .route-arena[data-phase="fight"] > h1,
+    .route-arena[data-phase="fight"] > .picker,
+    .route-arena[data-phase="fight"] > #status { position: absolute; left: -10000px; }
+    .route-arena[data-phase="fight"] .stage-row { display: block; min-height: 0; height: 100%; }
+    .route-arena[data-phase="fight"] .stage { width: 100%; height: 100%; }
+    .route-arena[data-phase="fight"] #arena-3d { width: 100%; height: 100%; aspect-ratio: auto; }
+    .arena-edge-tabs { position: absolute; inset: .5rem .5rem auto; z-index: 5; display: flex;
+      justify-content: space-between; pointer-events: none; }
+    .arena-edge-tabs button { pointer-events: auto; background: rgba(12,18,25,.82); }
+    .arena-life-bars { position: absolute; z-index: 4; top: 2.8rem; left: 10%; right: 10%;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12%; pointer-events: none; }
+    .arena-life-bars progress { width: 100%; accent-color: #7fb2ff; }
+    .arena-life-bars progress:last-child { accent-color: #ff6e5b; direction: rtl; }
+    .route-arena[data-phase="select"] .arena-edge-tabs,
+    .route-arena[data-phase="select"] .arena-life-bars { display: none; }
+    #arena-plans-panel, #arena-replay-panel, #arena-details-panel { position: absolute; z-index: 6;
+      background: rgba(13,19,27,.92); overflow: auto; max-height: calc(100svh - 4rem); }
+    #arena-plans-panel { right: .5rem; top: 3.5rem; width: min(34rem, 44vw); }
+    #arena-replay-panel { left: 8%; right: 8%; bottom: .5rem; }
+    #arena-details-panel { right: .5rem; top: 3.5rem; width: min(32rem, 42vw); }
+    @media (prefers-reduced-motion: no-preference) {
+      #arena-plans-panel, #arena-replay-panel, #arena-details-panel { transition: opacity .15s ease; }
+    }
   </style>
 </head>
 <body>
@@ -564,6 +590,15 @@
              and not to Fighter B, whose column they used to sit at the end of. -->
         <div class="picker-footer" id="picker-footer">
           <label>seed <input id="arena-seed" type="number" min="0" max="4294967295" value="3"></label>
+          <label>Time limit
+              <select id="arena-time-limit" value="3600">
+              <option value="3600" selected>1 minute</option>
+              <option value="10800">3 minutes</option>
+              <option value="18000">5 minutes</option>
+              <option value="36000">10 minutes</option>
+            </select>
+          </label>
+          <button id="arena-reset-preview" type="button">Reset view</button>
           <div id="picker-message"></div>
           <button id="fight" type="button">Run selected fight</button>
         </div>
@@ -586,6 +621,16 @@
           <span class="viewport-label" id="label-first-a">first-person A</span>
           <span class="viewport-label" id="label-first-b">first-person B</span>
           <span class="viewport-label" id="label-three-quarter">3/4 view</span>
+          <div class="arena-edge-tabs">
+            <span><button id="arena-eyes" type="button" aria-expanded="false">Eyes</button>
+              <button id="arena-plans" type="button" aria-expanded="false">Plans</button></span>
+            <span><button id="arena-replay" type="button" aria-expanded="false">Replay</button>
+              <button id="arena-details" type="button" aria-expanded="false">Details</button></span>
+          </div>
+          <div class="arena-life-bars" aria-label="Faction health">
+            <progress id="arena-health-a" max="65536" value="65536" aria-label="Heroes health"></progress>
+            <progress id="arena-health-b" max="65536" value="65536" aria-label="Monsters health"></progress>
+          </div>
           <div class="stage-modes">
             <button id="mode-texture" type="button" aria-pressed="false">Texture</button>
             <button id="mode-geometry" type="button" aria-pressed="true">Geometry</button>
@@ -595,7 +640,7 @@
             <span id="control-status">Controls released</span>
           </div>
         </div>
-        <div class="side-panels">
+        <div class="side-panels" id="arena-plans-panel" hidden>
           <figure>
             <canvas id="plan" width="900" height="620"></canvas>
             <figcaption>Plan &mdash; a bird's eye: x right, <b>y up</b>, so a body's left hand
@@ -609,7 +654,7 @@
         </div>
       </div>
 
-      <figure>
+      <figure id="arena-replay-panel" hidden>
         <canvas id="chart" width="1800" height="220"></canvas>
         <figcaption>Click to scrub. Upper band: blade tip travel per tick against
           <code>IMPACT_THRESHOLD</code> &mdash; world-space, so a walking fighter's feet count,
@@ -620,7 +665,7 @@
           owns them.</figcaption>
       </figure>
 
-      <div class="controls">
+      <div class="controls" id="arena-replay-controls" hidden>
         <button id="play" type="button">Play</button>
         <button id="step-back" type="button" title="Left arrow; shift for ten">&minus;1</button>
         <button id="step-forward" type="button" title="Right arrow; shift for ten">+1</button>
@@ -656,6 +701,12 @@
             <option value="firstPersonB">B's eyes</option>
           </select>
         </label>
+        <label>Camera
+          <select id="arena-camera-mode">
+            <option value="fixed" selected>Fixed</option>
+            <option value="relative">Relative</option>
+          </select>
+        </label>
         <button id="arena-refit" type="button">Refit</button>
         <label>Azimuth
           <input id="azimuth" type="range" min="-180" max="180" value="0" step="5" aria-label="Elevation azimuth">
@@ -666,7 +717,7 @@
         <label><input id="show-contacts" type="checkbox" checked> contacts</label>
       </div>
 
-      <div class="panels">
+      <div class="panels" id="arena-details-panel" hidden>
         <pre id="readout">&hellip;</pre>
         <div id="contacts" class="muted">&hellip;</div>
       </div>

@@ -272,7 +272,7 @@ clamps: reaching a bound is not permission for the page underneath to start scro
 person, and rendering behaviour cannot be measured from an automated browser tab -- always
 `visibilityState: "hidden"`, a stop rather than a throttle, rasterising in software. Four
 confident wrong hypotheses in a row came out of ignoring that. The numbers above are
-placeholders with two-sided tests; **session 08 is where a person says whether 0.10 and
+placeholders with two-sided tests; **session 10 is where a person says whether 0.10 and
 0.9 are the right two numbers**, and if they are not, they move with the measurement
 written down beside them.
 

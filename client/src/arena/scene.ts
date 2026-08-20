@@ -529,6 +529,9 @@ export class ArenaContent {
   #combatants: CombatantAsset | null = null;
   #combatantLoad: Promise<void> | null = null;
   #follow: "both" | 0 | 1 = "both";
+  #relative = false;
+  #eyesOpen = false;
+  #hovered: AbstractMesh | null = null;
 
   constructor(scene: Scene, debug: RendererDebugRegistry) {
     this.#scene = scene;
@@ -579,7 +582,7 @@ export class ArenaContent {
     // from a differently interpolated pose than the body it belongs to would
     // put a fighter's eye outside its own head at every sub-tick.
     const poses = view.frame.poses.map((raw) => {
-      const next = view.next.poses.find((other) => other.id[0] === raw.id[0]);
+      const next = view.next.poses.find((other) => other.id[0] === raw.id[0] && other.id[1] === raw.id[1]);
       return next === undefined ? raw : blendPose(raw, next, view.alpha);
     });
     const live = new Set<string>();
@@ -631,8 +634,51 @@ export class ArenaContent {
   orbit(buttons: number, dx: number, dy: number): boolean {
     return this.stageCamera.orbit(buttons, dx, dy);
   }
-  zoom(delta: number): void { this.stageCamera.zoom(delta); }
+  pan(dx: number, dy: number, viewportHeight: number): boolean {
+    return this.stageCamera.pan(dx, dy, viewportHeight);
+  }
+  zoom(delta: number, cursor?: readonly [number, number]): void { this.stageCamera.zoom(delta, cursor); }
+  hover(cursor: readonly [number, number]): number | null {
+    this.clearHover();
+    if (!cursor.every(Number.isFinite)) return null;
+    const engine = this.#scene.getEngine();
+    const hit = this.#scene.pick(
+      cursor[0] * engine.getRenderWidth(), cursor[1] * engine.getRenderHeight(),
+      (mesh) => typeof mesh.metadata?.arenaBody === "number", false,
+      this.#scene.activeCamera ?? this.threeQuarter,
+    );
+    const mesh = hit?.pickedMesh ?? null;
+    if (mesh === null || typeof mesh.metadata?.arenaBody !== "number") return null;
+    mesh.renderOutline = true;
+    mesh.outlineColor = mesh.metadata.arenaBody === 0
+      ? Color3.FromHexString("#5aa9ff") : Color3.FromHexString("#ff6b6b");
+    mesh.outlineWidth = 0.03;
+    this.#hovered = mesh;
+    return mesh.metadata.arenaBody as number;
+  }
+  clearHover(): void {
+    if (this.#hovered !== null) this.#hovered.renderOutline = false;
+    this.#hovered = null;
+  }
   promote(view: ArenaPromotedView): void { this.stageCamera.promote(view); }
+  setEyes(open: boolean): void {
+    this.#eyesOpen = open;
+    this.stageCamera.setEyes(open);
+    this.#scene.activeCameras = open
+      ? [this.firstPerson[0], this.firstPerson[1], this.threeQuarter] : [this.threeQuarter];
+    this.#scene.activeCamera = this.threeQuarter;
+  }
+  setRelative(enabled: boolean): string | null {
+    if (!enabled) { this.#relative = false; this.stageCamera.refit(); return null; }
+    if (this.#follow === "both") return "RELATIVE_CAMERA_NEEDS_ONE_BODY";
+    const view = this.#view;
+    const pose = view?.frame.poses.find((candidate) => candidate.id[0] === this.#follow);
+    const stance = pose === undefined ? null : view?.frame.stances?.find((candidate) =>
+      candidate?.id[0] === pose.id[0] && candidate.id[1] === pose.id[1]) ?? null;
+    if (stance === null) return "RELATIVE_CAMERA_NEEDS_STANCE";
+    this.#relative = true;
+    return null;
+  }
   refit(): void { this.stageCamera.refit(); }
 
   mode(): ArenaMode { return this.#mode; }
@@ -670,6 +716,7 @@ export class ArenaContent {
   setPhase(phase: "select" | "fight"): void {
     if (phase === this.#phase) return;
     this.#phase = phase;
+    this.clearHover();
     const lit = phase === "fight" && this.#mode === "texture";
     this.#environment?.setEnabled(lit);
     this.#floor?.setEnabled(phase === "fight" && this.#mode === "geometry");
@@ -715,6 +762,7 @@ export class ArenaContent {
 
   /** No fight: the floor and the cameras stay, every body and every rig goes. */
   clear(): void {
+    this.clearHover();
     for (const node of [...this.#nodes.values()]) this.#retire(node);
     for (const rig of [...this.#rigs.values()]) this.#retireRig(rig);
     for (const [body, dress] of [...this.#dresses]) this.#retireDress(body, dress);
@@ -851,7 +899,23 @@ export class ArenaContent {
     this.stageCamera.fit(view.focus, view.span, view.azimuth);
     if (this.#follow !== "both") {
       const followed = poses.find((candidate) => candidate.id[0] === this.#follow);
-      if (followed !== undefined) this.stageCamera.follow(followed, view.cameraDt ?? 0);
+      if (followed !== undefined && this.#relative) {
+        const stance = view.frame.stances?.find((candidate) => candidate?.id[0] === followed.id[0]
+          && candidate.id[1] === followed.id[1]) ?? null;
+        const nextPose = view.next.poses.find((candidate) => candidate.id[0] === followed.id[0]
+          && candidate.id[1] === followed.id[1]);
+        const nextStance = view.next.stances?.find((candidate) => candidate?.id[0] === followed.id[0]
+          && candidate.id[1] === followed.id[1]) ?? null;
+        const standing = view.header.bodies[followed.id[0]]?.anatomy.standingHeight;
+        if (stance !== null && nextPose !== undefined && nextStance !== null && standing !== undefined) {
+          const delta = ((nextStance.hipYaw - stance.hipYaw + 32768) & 0xffff) - 32768;
+          const hipYaw = (stance.hipYaw + Math.round(delta * view.alpha)) & 0xffff;
+          this.stageCamera.relative(followed, hipYaw, standing, view.cameraDt ?? 0);
+        } else {
+          this.#relative = false;
+          this.stageCamera.refit();
+        }
+      } else if (followed !== undefined) this.stageCamera.follow(followed, view.cameraDt ?? 0);
     }
   }
 
@@ -1190,7 +1254,8 @@ export class ArenaContent {
             armDrawn(pose, shieldLimb(pose, pose.shield) ?? 0));
       dress.setSemanticEnabled(semantic, visible);
       mesh.isVisible = visible;
-      mesh.isPickable = false;
+      mesh.isPickable = visible;
+      mesh.metadata = { ...(mesh.metadata ?? {}), arenaBody: body };
       mesh.layerMask = (role === "head" || role === "torso") ? ALL_CAMERAS & ~ownCamera : ALL_CAMERAS;
       if (visible && !this.#dressCasters.has(mesh)) {
         this.#environment?.addShadowCaster(mesh);
@@ -1442,7 +1507,9 @@ export class ArenaContent {
       this.#retire(existing);
     }
     const mesh = source.createInstance(`arena:${key}`);
-    mesh.isPickable = false;
+    const body = /^(\d+):/.exec(key)?.[1];
+    mesh.isPickable = body !== undefined;
+    if (body !== undefined) mesh.metadata = { arenaBody: Number(body) };
     if (parent !== null) mesh.parent = parent;
     // **Casters are added and removed rather than toggled**, which is the rule
     // `ActorPresentation` follows and the reason a shadow-caster count means
@@ -1568,6 +1635,7 @@ export class ArenaContent {
     // Off the caster list before the mesh goes. A disposed instance left in the
     // shadow generator's render list is walked by every shadow pass afterwards,
     // and the symptom is a frame time rather than a picture.
+    if (this.#hovered === node.mesh) this.clearHover();
     if (node.caster) this.#environment?.removeShadowCaster(node.mesh);
     node.mesh.dispose();
     this.#nodes.delete(node.key);
@@ -1592,6 +1660,9 @@ export class ArenaContent {
   }
 
   #retireDress(body: number, dress: CombatantDress): void {
+    if (this.#hovered !== null && [...dress.meshes.values()].some((mesh) => mesh === this.#hovered)) {
+      this.clearHover();
+    }
     this.#removeDressShadows(dress);
     dress.dispose();
     this.#dresses.delete(body);
@@ -1669,10 +1740,18 @@ export interface ArenaStage {
   containsThreeQuarterPoint(x: number, y: number): boolean;
   follow(target: "both" | 0 | 1): void;
   orbit(buttons: number, dx: number, dy: number): boolean;
-  zoom(delta: number): void;
+  pan(dx: number, dy: number, viewportHeight: number): boolean;
+  zoom(delta: number, cursor?: readonly [number, number]): void;
+  hover(cursor: readonly [number, number]): number | null;
+  clearHover(): void;
   promote(view: ArenaPromotedView): void;
+  setEyes(open: boolean): void;
+  setRelative(enabled: boolean): string | null;
   refit(): void;
   showPreview(side: 0 | 1, choice: SideChoice): void;
+  orbitPreview(side: 0 | 1, dx: number, dy: number): boolean;
+  zoomPreview(side: 0 | 1, delta: number): boolean;
+  resetPreview(side?: 0 | 1): void;
   setPhase(phase: "select" | "fight"): void;
   drawPreview(frame: number): void;
   dispose(): void;
@@ -1795,11 +1874,23 @@ export async function createArenaStage(
       if (consumed) draw();
       return consumed;
     },
-    zoom(delta: number): void {
+    pan(dx, dy, viewportHeight): boolean { return content.pan(dx, dy, viewportHeight); },
+    zoom(delta: number, cursor?: readonly [number, number]): void {
       if (!live()) return;
       const before = content.cameraChangeSerial();
-      content.zoom(delta);
+      content.zoom(delta, cursor);
       if (content.cameraChangeSerial() !== before) draw();
+    },
+    hover(cursor): number | null {
+      if (!live()) return null;
+      const body = content.hover(cursor);
+      draw();
+      return body;
+    },
+    clearHover(): void {
+      if (!live()) return;
+      content.clearHover();
+      draw();
     },
     promote(view: ArenaPromotedView): void {
       if (!live()) return;
@@ -1807,6 +1898,8 @@ export async function createArenaStage(
       content.promote(view);
       if (content.cameraChangeSerial() !== before) draw();
     },
+    setEyes(open): void { content.setEyes(open); },
+    setRelative(enabled): string | null { return content.setRelative(enabled); },
     refit(): void {
       if (!live()) return;
       content.refit();
@@ -1814,6 +1907,9 @@ export async function createArenaStage(
       draw();
     },
     showPreview(side: 0 | 1, choice: SideChoice): void { preview?.show(side, choice); },
+    orbitPreview(side, dx, dy): boolean { return preview?.orbit(side, dx, dy) ?? false; },
+    zoomPreview(side, delta): boolean { return preview?.zoom(side, delta) ?? false; },
+    resetPreview(side): void { preview?.reset(side); },
     setPhase(phase: "select" | "fight"): void {
       if (!live()) return;
       content.setPhase(phase);

@@ -40,7 +40,7 @@
 import type { FightHeader } from "../fight/source.js";
 import type { BodyInfo } from "../fight/trace.js";
 import {
-  ANATOMY_CODES, ARENA_MAX_TICKS, HAND_ITEMS, SHIPPED_SPAWNS, controlCodeOf, policyCodeOf,
+  ANATOMY_CODES, ARENA_DEFAULT_TICKS, ARENA_MAX_TICKS, HAND_ITEMS, SHIPPED_SPAWNS, controlCodeOf, policyCodeOf,
   type ArenaConfig,
 } from "../runtime/arena-config.js";
 
@@ -174,6 +174,7 @@ export interface Matchup {
   readonly a: SideChoice;
   readonly b: SideChoice;
   readonly seed: number;
+  readonly maxTicks: number;
 }
 
 /**
@@ -198,7 +199,7 @@ export function summariseMatchup(matchup: Matchup): string {
     return `${side.anatomy}, ${hands}, driven by ${driver}`;
   };
   return `Fighter A: ${describe(matchup.a)}. Fighter B: ${describe(matchup.b)}. `
-    + `Seed ${matchup.seed}.`;
+    + `Seed ${matchup.seed}; ${matchup.maxTicks / 60} second limit.`;
 }
 
 /** The two rows as the template labels them, so a refusal names a control. */
@@ -446,7 +447,7 @@ export function arenaConfigOf(matchup: Matchup): ArenaConfig {
   };
   return {
     fighters: [fighter(matchup.a, 0), fighter(matchup.b, 1)],
-    maxTicks: ARENA_MAX_TICKS,
+    maxTicks: matchup.maxTicks,
     seed: matchup.seed,
   };
 }
@@ -747,7 +748,14 @@ export function readMatchup(root: HTMLElement): Matchup {
   };
   const seedInput = root.querySelector("#arena-seed");
   if (!(seedInput instanceof HTMLInputElement)) throw new Error("#arena-seed is missing from the picker");
-  return { a: side("a"), b: side("b"), seed: seedInput.valueAsNumber || 0 };
+  const time = root.querySelector("#arena-time-limit");
+  if (!(time instanceof HTMLSelectElement)) throw new Error("#arena-time-limit is missing from the picker");
+  const maxTicks = Number(time.value);
+  if (!Number.isInteger(maxTicks) || maxTicks <= 0 || maxTicks > ARENA_MAX_TICKS) {
+    throw new RangeError(`ARENA_TIME_LIMIT_INVALID: ${time.value} is outside 1..${ARENA_MAX_TICKS} ticks`);
+  }
+  return { a: side("a"), b: side("b"), seed: seedInput.valueAsNumber || 0,
+    maxTicks: maxTicks || ARENA_DEFAULT_TICKS };
 }
 
 /** Every control the picker owns, for one `addEventListener` sweep. */
@@ -755,7 +763,7 @@ export function pickerControls(root: HTMLElement): readonly HTMLElement[] {
   const ids = [
     "a-anatomy", "a-left", "a-right", "a-two-handed", "a-control", "a-off-hand",
     "b-anatomy", "b-left", "b-right", "b-two-handed", "b-control", "b-off-hand",
-    "arena-seed",
+    "arena-seed", "arena-time-limit",
   ];
   return ids.map((id) => {
     const found = root.querySelector(`#${id}`);

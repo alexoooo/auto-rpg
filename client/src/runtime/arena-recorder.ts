@@ -70,7 +70,7 @@ import {
  * assumption: a configuration asking for more records its first 3,600 ticks and
  * says `recordingTruncated`, rather than allocating whatever it was asked for.
  */
-export const RECORDING_TICK_CAP = 60 * 60;
+export const RECORDING_TICK_CAP = 60 * 60 * 10;
 
 /**
  * How many combat-event rows one recording may hold, and the corpus that sized it.
@@ -116,7 +116,7 @@ export const RECORDING_TICK_CAP = 60 * 60;
  * `MAX_COMBAT_EVENTS` is 2,048 rows in a *single* publication, so a fight busy
  * enough to fill this is arithmetically possible.
  */
-export const RECORDING_EVENT_ROW_CAP = 32_768;
+export const RECORDING_CHUNK_EVENT_ROW_CAP = (ARENA_STREAM_CHUNK_TICKS + 1) * MAX_COMBAT_EVENTS;
 
 /**
  * Ticks driven between yields. **The cancel window, and no longer the delivery
@@ -631,15 +631,10 @@ function driverName(fighter: ArenaConfig["fighters"][number]): string {
 /**
  * Drive one configured duel, posting the fight as it is produced.
  *
- * **The staging buffers are still allocated whole before the first step, and the
- * chunks are copied out of them.** Two properties are worth more than the
- * allocation they cost. No tick of the drive can allocate, which is what the
- * per-tick view discipline above depends on. And `RECORDING_EVENT_ROW_CAP` stays
- * a **whole-fight** cap with a whole-fight corpus behind it: splitting it per
- * chunk would need a second measurement and a second constant to carry its
- * provenance, and `recordingTruncated` would stop meaning what it means today.
- * What crosses per chunk is that chunk's rows and nothing else, so the transport
- * is streamed even though the ledger it is copied out of is not.
+ * Scratch is bounded to one transport chunk. The main-thread
+ * `StreamingFightSource` owns history after adopting each exact slice; the
+ * worker must not reserve ten minutes of maximum publication rows merely
+ * because the picker permits a ten-minute clock.
  *
  * The pose and region extents are exact -- an arena is two fighters by
  * construction, which is what `ARENA_FIGHTERS` means -- and the event extent is
@@ -681,17 +676,19 @@ export async function recordArenaFight(
   // `FightTrace::record` is called: frame `t` is the world as tick `t` left it,
   // and frame 0 is the fixture as it spawned.
   const frameCap = tickCap + 1;
-  const poses = new Uint32Array(frameCap * ARENA_FIGHTERS * POSE_STRIDE);
-  const regions = new Uint32Array(frameCap * ARENA_FIGHTERS * REGIONS_PER_BODY * REGION_STRIDE);
+  const scratchFrames = ARENA_STREAM_CHUNK_TICKS + 1;
+  const poses = new Uint32Array(scratchFrames * MAX_POSES * POSE_STRIDE);
+  const regions = new Uint32Array(scratchFrames * MAX_REGIONS * REGION_STRIDE);
   const projectiles = new Uint32Array(
-    frameCap * MAX_ARTICULATED_PROJECTILES * ARTICULATED_PROJECTILE_STRIDE,
+    scratchFrames * MAX_ARTICULATED_PROJECTILES * ARTICULATED_PROJECTILE_STRIDE,
   );
-  const events = new Uint32Array(RECORDING_EVENT_ROW_CAP * COMBAT_EVENT_STRIDE);
-  const stances = new Uint32Array(frameCap * ARENA_FIGHTERS * EMBODIED_STANCE_STRIDE);
-  const index = new Uint32Array(frameCap * RECORDING_INDEX_STRIDE);
-  const health = new Int32Array(frameCap * 2);
+  const events = new Uint32Array(RECORDING_CHUNK_EVENT_ROW_CAP * COMBAT_EVENT_STRIDE);
+  const stances = new Uint32Array(scratchFrames * EMBODIED_STANCE_CAPACITY * EMBODIED_STANCE_STRIDE);
+  const index = new Uint32Array(scratchFrames * RECORDING_INDEX_STRIDE);
+  const health = new Int32Array(scratchFrames * 2);
 
   let frames = 0;
+  let chunkFrames = 0;
   let poseRows = 0;
   let regionRows = 0;
   let projectileRows = 0;
@@ -716,11 +713,13 @@ export async function recordArenaFight(
     // first.
     const tick = wasm.tick();
     const published = wasm.read();
-    if (frames >= frameCap
-      || poseRows + published.poseRows > frameCap * ARENA_FIGHTERS
-      || projectileRows + published.projectileRows > frameCap * MAX_ARTICULATED_PROJECTILES
-      || stanceRows + published.stances.length / EMBODIED_STANCE_STRIDE > frameCap * ARENA_FIGHTERS
-      || eventRows + published.eventRows > RECORDING_EVENT_ROW_CAP) {
+    if (frames >= frameCap || chunkFrames >= scratchFrames
+      || poseRows + published.poseRows > scratchFrames * MAX_POSES
+      || regionRows + published.regionRows > scratchFrames * MAX_REGIONS
+      || projectileRows + published.projectileRows > scratchFrames * MAX_ARTICULATED_PROJECTILES
+      || stanceRows + published.stances.length / EMBODIED_STANCE_STRIDE
+        > scratchFrames * EMBODIED_STANCE_CAPACITY
+      || eventRows + published.eventRows > RECORDING_CHUNK_EVENT_ROW_CAP) {
       return false;
     }
     poses.set(published.poses, poseRows * POSE_STRIDE);
@@ -728,7 +727,7 @@ export async function recordArenaFight(
     projectiles.set(published.projectiles, projectileRows * ARTICULATED_PROJECTILE_STRIDE);
     events.set(published.events, eventRows * COMBAT_EVENT_STRIDE);
     stances.set(published.stances, stanceRows * EMBODIED_STANCE_STRIDE);
-    const at = frames * RECORDING_INDEX_STRIDE;
+    const at = chunkFrames * RECORDING_INDEX_STRIDE;
     index[at + INDEX_TICK] = tick;
     index[at + INDEX_POSE_START] = poseRows;
     index[at + INDEX_POSE_COUNT] = published.poseRows;
@@ -754,8 +753,8 @@ export async function recordArenaFight(
       healthFraction(published.health[0], maxHealth[0]),
       healthFraction(published.health[1], maxHealth[1]),
     ];
-    health[frames * 2] = lastHealth[0];
-    health[frames * 2 + 1] = lastHealth[1];
+    health[chunkFrames * 2] = lastHealth[0];
+    health[chunkFrames * 2 + 1] = lastHealth[1];
     alive = published.alive;
     arena = published.arena;
     posesDropped += published.posesDropped;
@@ -764,17 +763,11 @@ export async function recordArenaFight(
     eventsDropped += published.eventsDropped;
     stancesDropped += published.stancesDropped;
     frames += 1;
+    chunkFrames += 1;
     return true;
   };
 
-  // Where the chunk being filled began, in each of the five ledgers it addresses.
-  // These are what the index words are rebased against.
   let chunkFirstFrame = 0;
-  let chunkPoseBase = 0;
-  let chunkRegionBase = 0;
-  let chunkProjectileBase = 0;
-  let chunkEventBase = 0;
-  let chunkStanceBase = 0;
 
   /**
    * Post everything captured since the last chunk, rebased onto its own buffers.
@@ -789,53 +782,43 @@ export async function recordArenaFight(
    * proves the check by handing it the offsets this loop subtracts.
    */
   const postChunk = async (): Promise<void> => {
-    const span = frames - chunkFirstFrame;
+    const span = chunkFrames;
     if (span === 0) return;
     await hooks.beforeChunk?.();
     const chunkIndex = new Uint32Array(span * RECORDING_INDEX_STRIDE);
     for (let frame = 0; frame < span; frame += 1) {
-      const from = (chunkFirstFrame + frame) * RECORDING_INDEX_STRIDE;
+      const from = frame * RECORDING_INDEX_STRIDE;
       const to = frame * RECORDING_INDEX_STRIDE;
       chunkIndex[to + INDEX_TICK] = index[from + INDEX_TICK]!;
-      chunkIndex[to + INDEX_POSE_START] = index[from + INDEX_POSE_START]! - chunkPoseBase;
+      chunkIndex[to + INDEX_POSE_START] = index[from + INDEX_POSE_START]!;
       chunkIndex[to + INDEX_POSE_COUNT] = index[from + INDEX_POSE_COUNT]!;
-      chunkIndex[to + INDEX_REGION_START] = index[from + INDEX_REGION_START]! - chunkRegionBase;
+      chunkIndex[to + INDEX_REGION_START] = index[from + INDEX_REGION_START]!;
       chunkIndex[to + INDEX_REGION_COUNT] = index[from + INDEX_REGION_COUNT]!;
-      chunkIndex[to + INDEX_PROJECTILE_START] =
-        index[from + INDEX_PROJECTILE_START]! - chunkProjectileBase;
+      chunkIndex[to + INDEX_PROJECTILE_START] = index[from + INDEX_PROJECTILE_START]!;
       chunkIndex[to + INDEX_PROJECTILE_COUNT] = index[from + INDEX_PROJECTILE_COUNT]!;
-      chunkIndex[to + INDEX_EVENT_START] = index[from + INDEX_EVENT_START]! - chunkEventBase;
+      chunkIndex[to + INDEX_EVENT_START] = index[from + INDEX_EVENT_START]!;
       chunkIndex[to + INDEX_EVENT_COUNT] = index[from + INDEX_EVENT_COUNT]!;
-      chunkIndex[to + INDEX_STANCE_START] =
-        index[from + INDEX_STANCE_START]! - chunkStanceBase;
+      chunkIndex[to + INDEX_STANCE_START] = index[from + INDEX_STANCE_START]!;
       chunkIndex[to + INDEX_STANCE_COUNT] = index[from + INDEX_STANCE_COUNT]!;
     }
     hooks.onChunk({
       firstFrame: chunkFirstFrame,
       frameCount: span,
-      poses: poses.buffer.slice(chunkPoseBase * POSE_STRIDE * 4, poseRows * POSE_STRIDE * 4),
-      regions: regions.buffer.slice(
-        chunkRegionBase * REGION_STRIDE * 4, regionRows * REGION_STRIDE * 4,
-      ),
-      projectiles: projectiles.buffer.slice(
-        chunkProjectileBase * ARTICULATED_PROJECTILE_STRIDE * 4,
-        projectileRows * ARTICULATED_PROJECTILE_STRIDE * 4,
-      ),
-      events: events.buffer.slice(
-        chunkEventBase * COMBAT_EVENT_STRIDE * 4, eventRows * COMBAT_EVENT_STRIDE * 4,
-      ),
-      stances: stances.buffer.slice(
-        chunkStanceBase * EMBODIED_STANCE_STRIDE * 4, stanceRows * EMBODIED_STANCE_STRIDE * 4,
-      ),
+      poses: poses.buffer.slice(0, poseRows * POSE_STRIDE * 4),
+      regions: regions.buffer.slice(0, regionRows * REGION_STRIDE * 4),
+      projectiles: projectiles.buffer.slice(0, projectileRows * ARTICULATED_PROJECTILE_STRIDE * 4),
+      events: events.buffer.slice(0, eventRows * COMBAT_EVENT_STRIDE * 4),
+      stances: stances.buffer.slice(0, stanceRows * EMBODIED_STANCE_STRIDE * 4),
       index: chunkIndex.buffer,
-      health: health.buffer.slice(chunkFirstFrame * 2 * 4, frames * 2 * 4),
+      health: health.buffer.slice(0, chunkFrames * 2 * 4),
     });
     chunkFirstFrame = frames;
-    chunkPoseBase = poseRows;
-    chunkRegionBase = regionRows;
-    chunkProjectileBase = projectileRows;
-    chunkEventBase = eventRows;
-    chunkStanceBase = stanceRows;
+    chunkFrames = 0;
+    poseRows = 0;
+    regionRows = 0;
+    projectileRows = 0;
+    eventRows = 0;
+    stanceRows = 0;
   };
 
   if (!capture()) truncated = true;

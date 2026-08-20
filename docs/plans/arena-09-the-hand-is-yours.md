@@ -1,6 +1,6 @@
-# Arena 07 -- prove the hand is yours
+# Arena 09 -- prove the hand is yours
 
-**Status:** ready once session 06 has landed. Blocks 08.
+**Status:** ready once sessions 07 and 08 have landed. Blocks 10.
 
 A tactical opponent is a bad calibration instrument. It advances, strikes, blocks, moves
 the camera's subject and can end the trial before a player knows whether a failed cut was
@@ -18,7 +18,8 @@ a diagnostic overlay and a protocol for playing it.
 - left: Fighter, sword and shield, control **you**, off hand `tactical`;
 - right: Brute, club, `neutral`;
 - the ordinary arena seed, spawn and `max_ticks`; and
-- 3/4 follow on the human side, with **Reset drill** rebuilding that same configuration.
+- 3/4 **Fixed** follow on the human side, with **Reset drill** rebuilding that same
+  configuration and camera/drawer state.
 
 `neutral` already exists in the arena policy registry and the picker already describes it
 as standing still. The preset writes only values the ordinary form can write. It does not
@@ -30,8 +31,9 @@ fight.
 
 The diagnostic shell answers four questions without turning into final art:
 
-1. **Where did I ask the hand to go?** Session 06's desired-hand reticle, projected from
-   the stored command target, not from an OS cursor.
+1. **Where did I ask the hand to go?** Session 08's desired-hand reticle and world guide,
+   projected from the stored command target rather than assuming the OS cursor is itself
+   reachable.
 2. **Where is the hand?** A second marker from the published achieved hand. A line between
    them is target-to-achieved error, coloured only by magnitude; it does not invent a
    success threshold.
@@ -61,8 +63,9 @@ uses the pure clock the test exercised.
 
 ## The drills, preregistered before tuning
 
-Each drill starts from **Reset drill**. Record view, both sensitivities, body-turn lead,
-dead zone, full-effort speed and the commanded/achieved trace. The first pass uses the session-06
+Each drill starts from **Reset drill**. Record view, cursor span, touch/cut and extension
+sensitivities, body-turn lead, dead zone, full-effort speed and the commanded/achieved
+trace. The first pass uses the session-06
 placeholders; changes stay within this session and each recorded value keeps the before and
 after sample that justified it.
 
@@ -108,9 +111,10 @@ must classify as the same named cut.
 
 ### 5. Camera and hand remain independent
 
-Park a guard, orbit with middle, zoom, promote first person and return to 3/4 without
-moving the weapon. Every staged arm byte remains equal. Then throw one horizontal and one
-vertical cut in each view. Direction follows the visible camera basis on new mouse input,
+Park a guard, orbit, pan, cursor-zoom, open and close every view drawer, switch Fixed to
+Relative, promote first person and return to 3/4 without moving the weapon. Every staged
+arm byte remains equal. Then throw one horizontal and one vertical cut in Fixed, Relative
+and promoted first person. Direction follows the visible camera basis on new cursor input,
 but changing the view itself never stages a command.
 
 ### 6. Reach the useful volume, and thrust
@@ -133,6 +137,7 @@ Only host feel constants may move:
 
 - `BODY_TURN_INPUT_LEAD_RAW`, mirrored with Rust's `PLAYER_TURN_LEAD_RAW`;
 - `VIRTUAL_HAND_SENSITIVITY`;
+- `CURSOR_HAND_SPAN_ARM_LENGTHS`;
 - `EXTEND_DRAG_SENSITIVITY`;
 - `TOUCH_PINCH_SPREAD_RATIO`, where a touch surface is available to sample;
 - `SWING_DRAG_DEAD_ZONE_PX`; and
@@ -145,7 +150,7 @@ wide range that any plausible value passes.
 
 No actuator speed, acceleration, stance limit, anatomy or weapon value moves here. If the
 desired hand is correct and the achieved hand is consistently too slow, record the error
-trace and insert a mechanics session before 08. If the desired hand is wrong, fix the host
+trace and insert a mechanics session before 10. If the desired hand is wrong, fix the host
 mapping here and repeat every drill. The plan does not close by relabelling one as the
 other.
 
@@ -168,6 +173,7 @@ it.
 | file | change |
 |---|---|
 | `client/src/arena/control-lab.ts` | new: preset, pure trace classifier, drill recorder and report rows |
+| `client/src/arena/arena-hand-cursor.ts` | measured absolute-cursor values replace session-08 provisional mapping values |
 | `client/src/arena/hand-reticle.ts` | desired and achieved markers plus error line |
 | `client/src/arena/arena.ts` | Practice hand, Reset drill, Control HUD and the live tick counter |
 | `web/index.html` | the restrained practice/HUD controls |
@@ -181,7 +187,7 @@ it.
 - `practice_hand_is_an_ordinary_human_versus_neutral_configuration`
 - `reset_drill_rebuilds_the_same_config_and_seed`
 - `desired_and_achieved_markers_read_different_sources`
-- `a_stationary_guard_survives_follow_zoom_orbit_and_view_promotion`
+- `a_stationary_guard_survives_fixed_relative_pan_zoom_drawers_and_view_promotion`
 - `five_named_cut_fixtures_are_classified_in_their_declared_directions`
 - `a_fast_cut_has_no_less_effort_than_its_slow_twin`
 - `body_inputs_carry_the_body_without_rewriting_the_arm_target`
