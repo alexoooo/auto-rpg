@@ -35,28 +35,37 @@ moving the weapon may never submit a body turn.
 ## What already exists, measured before this plan was written
 
 **This topic is mostly wiring, and saying so up front is what keeps it from being planned
-as though it were invention.** Five facts, each checked in the tree at `b0fc80a`:
+as though it were invention.** Five facts, each checked in the tree at `b0fc80a` and
+re-checked with every path, line and name in this plan set at `81bdf6f`:
 
 - **The composition seam is built, tested, and proven replayable.**
   `crates/policy/src/composition.rs` opens with the sentence *"One hand human, one hand
   AI, merged **before** submission."* It carries
-  `CommandAuthority { navigation, arms: [bool; 2] }`, a `PartialEmbodiedSource` trait, and
+  `CommandAuthority { navigation, arms: [bool; 2] }`, a `PartialCommandSource` trait, and
   a `ComposedController` that **refuses overlapping or missing authority by name at
-  construction** and satisfies `EmbodiedPolicy`, which is exactly the type
-  `Arena::policies` holds (`crates/web/src/lib.rs:2028`).
+  construction** and satisfies `Policy`, which is exactly the type
+  `Arena::policies` holds (`crates/web/src/lib.rs:2034`).
   `crates/policy/tests/composition.rs` proves the property this whole topic depends on --
   `a_replay_of_a_composed_fight_needs_neither_the_human_nor_the_policy` -- and its
   stand-in for browser input is a struct called `HandOnTheControls` claiming
   `{ navigation: true, arms: [false, true] }`. **Nothing in `crates/web` constructs one.**
 
-  **One piece of that seam does *not* fit and it is worth knowing before session 05
-  opens.** `PolicySource` -- the wrapper that turns a whole policy into a partial source
-  -- is `impl<P: ArticulatedPolicy>` (`composition.rs:211`), and an arena policy is a
-  `Box<dyn EmbodiedPolicy>`. The two traits are disjoint with no blanket impl, so the
-  off-hand wrapper is one the browser crate writes rather than one it imports. Its
-  `swing_plane[slot] = Angle::ZERO` is a consequence of the same bound -- an
-  `ArticulatedPolicy`'s command type has no plane to give -- and an embodied off hand
-  **does** have one, so the wrapper copies it rather than zeroing it.
+  **One piece of that seam is not missing but deleted, and it is worth knowing before
+  session 05 opens.** `PolicySource` -- the wrapper that turned a whole policy into a
+  partial source -- went with the `ArticulatedPolicy` trait it was generic over.
+  `composition.rs:191-207` is the tombstone, and it does more than record the deletion:
+  it **pre-rejects reseating the wrapper onto the surviving `Policy` trait**, on the
+  grounds that *"a source that returns a `CommandV1` and then has most of it thrown away
+  is a policy driven for one arm's worth of its answer."* So the off-hand wrapper is one
+  the browser crate writes rather than one it imports -- the same conclusion this plan
+  reached when the obstacle was two disjoint traits, now reached for a stronger reason:
+  there is nothing to import, and `crates/policy` has already argued in-tree against
+  putting one back. What to copy is `GuardTheOffHand`, the documented four-line
+  replacement at `crates/policy/tests/composition.rs:75-110`. **Copy its shape and not
+  its plane**: it writes `swing_plane[slot] = Angle::ZERO`
+  (`crates/policy/tests/composition.rs:106`) because the arm's owner has to claim the
+  plane explicitly and the articulated command it stood in for had none to give -- and an
+  embodied off hand **does** have one, so the wrapper copies it rather than zeroing it.
 - **The command already has the vocabulary a drag needs, but that does not choose the
   mapping.**
   `ArmTarget { bearing, height, reach, effort }` per arm, plus `swing_plane: [Angle; 2]`
@@ -71,17 +80,17 @@ as though it were invention.** Five facts, each checked in the tree at `b0fc80a`
 - **The byte boundary exists and no client module touches it.** `embodied_command_ptr()`,
   `embodied_command_len()` -- 61, a four-byte envelope over the 57-byte payload --
   `embodied_command_layout_version()` (2) and
-  `submit_embodied(entity_index, entity_generation)` at `crates/web/src/lib.rs:6052-6132`,
+  `submit_embodied(entity_index, entity_generation)` at `crates/web/src/lib.rs:6033-6117`,
   already validating and already refusing by name. `grep -rn "embodied" client/src/`
   returns comments and a policy-name mirror, and no call.
 - **A human already drives a body on the other route, badly.** `Sim::drive_hero` at
-  `crates/web/src/lib.rs:3882` overwrites `body_yaw`, `move_dir` and one `ArmTarget` on
+  `crates/web/src/lib.rs:3891` overwrites `body_yaw`, `move_dir` and one `ArmTarget` on
   top of a cached policy command. It is the shape of the thing rather than the thing: the
   combat **height is hard-wired to `MID` at every bearing**, the **swing plane stays the
-  policy's**, `effort` is two constants borrowed from `ScriptedEmbodiedPolicy` -- a half
+  policy's**, `effort` is two constants borrowed from `ScriptedPolicy` -- a half
   guarding and a whole striking -- and `Strike::Widdershins`/`Sunwise` are inert because
   an embodied arm has no swing-side verb. `reach` is the only one of the four that is
-  already host input, and only while guarding (`lib.rs:3939`). Those omissions are
+  already host input, and only while guarding (`lib.rs:3948`). Those omissions are
   session 06's subject.
 - **`#/arena` is a spectator by construction, and the architecture document already names
   what is missing.** From
@@ -158,7 +167,7 @@ Two more, each with a named failure mode already on record here:
 ## The throttle that has to be removed before a hand can be felt
 
 **`advance_arena` asks a policy only for the bodies in `pending_decisions()`**
-(`crates/web/src/lib.rs:3606-3617`), and `World::submit_embodied_v1` pushes
+(`crates/web/src/lib.rs:3615-3626`), and `World::submit` pushes
 `next_decision[i]` forward by `Stats::decision_period()`, which reaches **30 ticks** at
 intellect 0 (`crates/sim/src/rules.rs:1071`). So a `ComposedController` dropped into the
 arena's ordinary policy slot **is consulted twice a second**, and a player's key press
@@ -166,7 +175,7 @@ waits up to half a second for a slot it does not own.
 
 This is the correction that matters most in the whole plan, and it was got wrong once
 already: the every-tick submission is a property of **`drive_hero`**, which the dungeon
-branch calls *outside* the pending loop (`lib.rs:3186-3190`, `:3953`) precisely so that
+branch calls *outside* the pending loop (`lib.rs:3195-3199`, `:3962`) precisely so that
 `next_decision` stays permanently ahead of `tick`. The arena has no such call. **Session
 05 has to build one**, or the preregistered two-tick latency below is unreachable by
 construction rather than by tuning.
@@ -276,7 +285,7 @@ State these before editing; a moved hash is normally a bug.
 structural rather than hopeful: nothing here edits `crates/fx`, `crates/sim`, or
 `crates/policy`'s decision code. Sessions 01 through 04, 07 and 08 are TypeScript,
 HTML and Markdown.
-Session 05 adds a `PartialEmbodiedSource` and its exports inside `crates/web`; session 06
+Session 05 adds a `PartialCommandSource` and its exports inside `crates/web`; session 06
 adds one read-only export of the existing minimum arm reach. Both are host boundary work
 and reach no pinned fixture: `EMBODIED_CORPUS_DIGEST` and `EMBODIED_GOLDEN_DIGEST` are
 folded by `lab` and `sim` over fights with no host in them.
@@ -284,7 +293,7 @@ folded by `lab` and `sim` over fights with no host in them.
 **A pin that moves is therefore a failed session and not a number to re-record**, and the
 two likeliest ways to move one are worth naming in advance:
 
-- **Touching `submit_embodied_v1`'s validation or its neutral substitute** to make a
+- **Touching `World::submit`'s validation or its neutral substitute** to make a
   partial command convenient. Composition happens *before* submission precisely so that
   validation can stay atomic; a half-command at that boundary is what `composition.rs`'s
   header refuses in its first paragraph.
@@ -302,18 +311,24 @@ green even if one side still draws.
   from the list rather than from this sentence:
   1. the Rust layout constants, the decoder and `arena_config_layout_version()` in
      `crates/web/src/lib.rs`;
-  2. `ARENA_REASONS`, the hand-maintained `[u8; 28]` at `crates/web/src/lib.rs:1528` whose
-     only job is the distinctness assert at `:1557` -- **a new refusal code compiles
+  2. `ARENA_REASONS`, the hand-maintained `[u8; 28]` at `crates/web/src/lib.rs:1531` whose
+     only job is the distinctness assert at `:1560` -- **a new refusal code compiles
      without touching it and is then never checked for distinctness**, which is the
      fails-open shape the array's own doc comment claims to close;
   3. `client/src/runtime/arena-config.ts`'s encoder, decoder and `ARENA_REFUSALS`;
   4. `client/test/worker-protocol.test.mjs:1311`, which asserts the refusal count is
      **28** as a literal;
-  5. `tools/wasm_check.js:2574`, which carries its own
-     `const ARENA_CONFIG_LAYOUT_VERSION = 2`, writes it into the staged buffer at `:2651`
-     and asserts the export answers it at `:2720`;
-  6. `client/src/runtime/arena-recorder.ts:539`, the read-back check;
-  7. `docs/reference/articulated-abi.md:614` and `:667`, which write the layout version
+  5. `tools/wasm_check.js:2566`, which carries its own
+     `const ARENA_CONFIG_LAYOUT_VERSION = 2`, writes it into the staged buffer at `:2643`
+     and asserts the export answers it at `:2712`;
+  6. `client/src/runtime/arena-recorder.ts:539`, the read-back check -- it compares
+     `arena_policy(faction)` against the byte sent, and the control byte is read back the
+     same way, which is a comparison somebody has to write. **`createArenaAdapter`'s
+     `checkLayout()` at `:336-337` reads like a second place in the same file and is
+     not one**: it *imports* `ARENA_CONFIG_LAYOUT_VERSION` from place 3, so it moves for
+     free and needs no edit. It is the guard that throws when places 1 and 3 disagree,
+     which is what makes a partial bump loud rather than silent;
+  7. `docs/reference/articulated-abi.md:624` and `:677`, which write the layout version
      down in a table and beside the export.
 - **The worker protocol's V2-only kinds** (sessions 01 and 05): every new kind is declared
   in `client/src/protocol/messages.ts`, decoded in `decodeClientMessage`, decoded again in
@@ -329,16 +344,20 @@ green even if one side still draws.
   wasm surface. Every export sessions 05 and 06 add is listed there, or it is not
   reachable. It lists pose, region, projectile and combat-event names and **no stance
   name**, which is why the twist fraction is not free to put on a HUD -- see session 05.
-  Session 06 also lists `arm_min_reach_raw`; the virtual hand reads that capability rather
-  than owning a second literal quarter.
+  Session 06 *adds* `arm_min_reach_raw` to it, and the export **does not exist yet** --
+  `grep -rn arm_min_reach crates/web` is empty today, which is this plan and not a gap you
+  have found. What exists is the constant it will publish, `sim::ARM_MIN_REACH_RAW =
+  16_384` at `crates/sim/src/combat/actuator.rs:137`; session 06 states the export as its
+  own new work. The virtual hand reads that capability rather than owning a second literal
+  quarter.
 
 - **Three gated `#L` source anchors sit above the lines these sessions edit.**
   `docs/architecture/browser-runtime.md:447-449` point at
-  `crates/web/src/lib.rs#L1702` (`thread_local!`), `#L4395` (`Sim::write_frame`) and
-  `#L5469` (`init`), and `tools/check_docs.js` checks each against a **plus or minus two
+  `crates/web/src/lib.rs#L1707` (`thread_local!`), `#L4404` (`Sim::write_frame`) and
+  `#L5480` (`init`), and `tools/check_docs.js` checks each against a **plus or minus two
   line** window around the named symbol. Session 02 inserts layout and refusal constants
   at roughly 1240 and 1520; session 05 inserts a source, a wrapper and an export. **Every
-  insertion above 1702 shifts all three past the window**, `node tools/check_docs.js` is
+  insertion above 1707 shifts all three past the window**, `node tools/check_docs.js` is
   in every session's verification block, and this is the exact rot the anchor gate was
   written to catch. Re-anchor them in the same change that moves them.
 

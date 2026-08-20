@@ -89,9 +89,13 @@ Specific corrections that must not be missed:
 - `docs/architecture/browser-runtime.md`'s sentence that the arena "needs an input path
   that exists in no layer" became past tense in 05. Rewrite it rather than deleting the
   history of why the path exists.
-- The inward-buffer paragraph must distinguish the articulated and embodied command
-  buffers that actually survive when this topic opens; do not describe a deleted model in
-  the present tense.
+- **There is one inward command buffer, not two**: `embodied_command_ptr` at
+  `crates/web/src/lib.rs:6033`. The articulated one went with its model, so an instruction
+  to tell the two apart is an instruction to look for something that is not there. The
+  inward-buffer paragraph names that single buffer and **keeps it documented distinctly
+  from the outward frame publication**, which is the distinction the paragraph exists for;
+  losing the inward/outward split along with the plurality would be the wrong repair. Do
+  not describe a deleted model in the present tense.
 - The control document must say keyboard body, a primary-drag cut and a secondary-drag
   extension on the relative mouse hand, and camera-only middle/wheel. A sentence saying
   "the pointer aims the body" -- or one still giving the camera the secondary button --
@@ -106,9 +110,17 @@ Specific corrections that must not be missed:
 
 The embodied fight's session 06 drops `Articulated` out of every surviving name and
 collapses `CommandGrammar`. Every identifier in this plan set was first surveyed at
-`b0fc80a`, before that rename landed. Session 01 re-anchors all names against the tree it
-actually opens on before writing code; this close verifies no durable document restores a
-superseded name.
+`b0fc80a`, before that rename landed -- **and the whole set was trued up against the tree
+at `81bdf6f`**, which is when the rename and the deletions it rode in with had landed:
+every path, line and symbol re-checked, thirty-five moved line numbers corrected, two
+citations rewritten around types that no longer exist, and the stale spellings replaced.
+So a session does not owe the bulk of that work again, and `81bdf6f` is the commit to diff
+against when asking how stale these files have become since.
+
+**The discipline survives the pass that discharged it, which is why this section stays.**
+Re-anchor names and line numbers against the tree you actually open on, and do not trust a
+citation because it is written down: these were accurate when written and wrong within
+five commits. This close verifies no durable document restores a superseded name.
 
 ## The close
 

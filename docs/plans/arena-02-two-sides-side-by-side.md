@@ -126,7 +126,7 @@ neutral against neutral.
 comment says what they are for -- alignment, and room a policy or anatomy registry past
 256 entries would grow into. **One of them stops being reserved, which is a layout change
 and not a free bit**, and that sentence is already written in this file at
-`crates/web/src/lib.rs:1204-1210` about the last byte that did this. Follow it: bump the
+`crates/web/src/lib.rs:1206-1212` about the last byte that did this. Follow it: bump the
 version, rewrite the comment, keep the second byte reserved.
 
 ```rust
@@ -173,14 +173,34 @@ A partial mirror update is not green even if the page still draws. **This list r
 "five" until it was checked against the tree, which is the same undercount this repository
 has already shipped twice -- count from the list, never from the heading.**
 
+**The list has since been pushed the other way too, and that half of the lesson is worth
+as much.** On 2026-08-19 a coordinator read a survey saying `arena-recorder.ts:336-337`
+was a missing eighth place and ruled it be added, on the reasoning that these lists come
+in undercounted. It is not a place. `checkLayout()` compares against
+`ARENA_CONFIG_LAYOUT_VERSION` **imported** from `arena-config.ts:64`, which is already
+place 3, so bumping place 3 moves it for free and a 2->3 bump edits nothing there. The
+agent holding the tree refused the ruling with the import chain, and was right. So: a
+symbolic reference reads exactly like a place and is not one, an over-count costs a
+session real edits looking for work that does not exist, and **the test for membership is
+whether a 2->3 bump requires an edit at that line -- not whether the constant appears
+there.** Two other spellings in this repository pass the same test and are correctly
+absent: `sim-worker-host.ts:248` and `worker-protocol.test.mjs:1218`.
+
+**`arena-00`'s version of this handshake also lists seven, and neither list contains the
+other.** They decompose the same change differently: this one carries
+`client/src/arena/picker.ts`, which `arena-00` does not, and leaves
+`docs/reference/articulated-abi.md` to the documentation table below, which `arena-00`
+carries as its own seventh place. **A session bumping the layout reads both lists**, and
+an item present in one and absent from the other is not evidence that either is wrong.
+
 1. `crates/web/src/lib.rs` -- the layout constants, `arena_config_layout_version()`, the
    decoder's control-byte branch, and the two new refusal codes with the doc comment each
    refusal carries.
-2. **`ARENA_REASONS`, `crates/web/src/lib.rs:1528`** -- a hand-maintained `[u8; 28]` whose
-   only consumer is the distinctness assert at `:1557`. **A new refusal code compiles
+2. **`ARENA_REASONS`, `crates/web/src/lib.rs:1531`** -- a hand-maintained `[u8; 28]` whose
+   only consumer is the distinctness assert at `:1560`. **A new refusal code compiles
    without touching it**, and is then never checked for distinctness against the
    twenty-eight that are. That is precisely the fails-open shape the array's own doc
-   comment at `:1520-1527` claims to close, and it is the easiest thing on this list to
+   comment at `:1522-1530` claims to close, and it is the easiest thing on this list to
    miss.
 3. `client/src/runtime/arena-config.ts` -- `ARENA_CONFIG_LAYOUT_VERSION`, the
    `encodeArenaConfig` write, the `decodeArenaConfig` read, and `ARENA_REFUSALS` gaining
@@ -189,20 +209,33 @@ has already shipped twice -- count from the list, never from the heading.**
    `assert.equal(Object.keys(CONFIG.ARENA_REFUSALS).length, 28)`, a literal. Two new
    refusals make it 30.
 5. **`tools/wasm_check.js`** -- it carries its own `const ARENA_CONFIG_LAYOUT_VERSION = 2`
-   at `:2574`, writes it into the staged buffer at `:2651`, and asserts the export answers
-   it at `:2720`. This session's own verification block runs it.
+   at `:2566`, writes it into the staged buffer at `:2643`, and asserts the export answers
+   it at `:2712`. This session's own verification block runs it.
 6. `client/src/arena/picker.ts` -- `ControlCode`, the three refusals, `arenaConfigOf`.
 7. `client/src/runtime/arena-recorder.ts:539` -- the read-back check. It verifies
    `arena_policy(faction)` against the byte sent; it gains the control byte the same way,
    or the header labels a fight with a control it is not running.
 
+**There is an eighth place-shaped thing in item 7's file, and it is deliberately not on
+the list.** `createArenaAdapter`'s `checkLayout()` compares
+`wasm.arena_config_layout_version()` against `ARENA_CONFIG_LAYOUT_VERSION` at
+`client/src/runtime/arena-recorder.ts:336-337`, which reads like a place that moves and is
+not one: it **imports** the constant from place 3 (`arena-config.ts:64`), so bumping place
+3 moves it for free. It needs no edit, and the same is true of
+`client/src/runtime/sim-worker-host.ts:248` and
+`client/test/worker-protocol.test.mjs:1218`.
+**What it is instead is the guard that makes a partial bump loud**: bump place 3 without
+place 1 and it throws *"wasm arena layout disagrees with the generated ABI"* at warm-up,
+before a fight starts. Item 7 is the hand edit in that file, because reading the new
+control byte back is a comparison somebody has to write.
+
 `ARENA_CONFIG_BYTES` stays 120: this change spends a reserved byte and adds none. What
-guards that is the const assert at `crates/web/src/lib.rs:1330` and the width checks in
-`tools/wasm_check.js:2571` and `:2719` -- **there is no test named for the number**, so do
+guards that is the const assert at `crates/web/src/lib.rs:1333` and the width checks in
+`tools/wasm_check.js:2563` and `:2711` -- **there is no test named for the number**, so do
 not go looking for one.
 
 **Byte 2 is validated as zero today**, which is what makes the layout-version argument
-above correct rather than decorative: `crates/web/src/lib.rs:6610` refuses a nonzero
+above correct rather than decorative: `crates/web/src/lib.rs:6595` refuses a nonzero
 reserved byte with `ARENA_NONCANONICAL`, so a layout-2 writer's promise about it is real
 and breaking it is a version bump.
 
@@ -217,15 +250,15 @@ and breaking it is a version bump.
 | `client/src/runtime/arena-recorder.ts` | the read-back check |
 | `crates/web/src/lib.rs` | layout 3, the control byte, `ARENA_UNKNOWN_CONTROL`, `ARENA_CONTROL_UNAVAILABLE`, and `ARENA_REASONS` |
 | `client/test/worker-protocol.test.mjs` | the literal refusal count at `:1311` |
-| `tools/wasm_check.js` | its own copy of the layout version at `:2574` |
-| `docs/reference/articulated-abi.md` | the refusal-by-name table gains two rows, **and** the layout version written down at `:614` and `:667` |
+| `tools/wasm_check.js` | its own copy of the layout version at `:2566` |
+| `docs/reference/articulated-abi.md` | the refusal-by-name table gains two rows, **and** the layout version written down at `:624` and `:677` |
 | `docs/architecture/browser-runtime.md` | the arena's configuration paragraph, **and the three `#L` anchors at `:447-449`** |
 
 **The anchors are not optional and they are easy to forget.**
-`docs/architecture/browser-runtime.md:447-449` point at `crates/web/src/lib.rs#L1702`,
-`#L4395` and `#L5469`, and `tools/check_docs.js` holds each to a plus-or-minus-two-line
+`docs/architecture/browser-runtime.md:447-449` point at `crates/web/src/lib.rs#L1707`,
+`#L4404` and `#L5480`, and `tools/check_docs.js` holds each to a plus-or-minus-two-line
 window around the symbol it names. This session inserts layout constants near 1240 and
-refusal constants near 1520 -- both above 1702 -- so all three shift and all three are
+refusal constants near 1520 -- both above 1707 -- so all three shift and all three are
 re-anchored in the same change. `node tools/check_docs.js` is in the verification block
 below and will say so.
 

@@ -220,13 +220,13 @@ slowest pairing -- is still the reason the cancel window is the size it is.
 | `client/src/fight/source.ts` | `FightHeader.outcome` becomes `string \| null` |
 | `client/src/arena/arena.ts` | the lead check in `loop()`; a status line that says the fight is being produced; transport enabled at the first chunk instead of at the end |
 | `docs/reference/worker-protocol.md` | the recording channel rewritten for three messages; see the heading warning below |
-| `docs/README.md` and `docs/reference/articulated-abi.md:1435` | both link `worker-protocol.md#the-recording-and-why-it-is-not-the-pooled-buffer`; **a renamed heading breaks both and the marker with them** |
+| `docs/README.md` and `docs/reference/articulated-abi.md:1545` | both link `worker-protocol.md#the-recording-and-why-it-is-not-the-pooled-buffer`; **a renamed heading breaks both and the marker with them** |
 | `docs/architecture/browser-runtime.md` | "The trace file is a two-file contract" and the arena flow paragraph |
 
 **Two traps in that documentation row, and both are gate failures rather than untidiness.**
 
 The `DOC_CONTRACT: worker-recording-transfer` marker at
-`docs/reference/worker-protocol.md:195` binds to the heading *"The recording, and why it
+`docs/reference/worker-protocol.md:200` binds to the heading *"The recording, and why it
 is not the pooled buffer"*, and `tools/check_docs.js` enforces two things about it: a
 local link naming a missing anchor is an error, and **a `DOC_CONTRACT` heading must have
 an inbound Markdown link from another file**. Two files link that exact anchor. So the
@@ -271,7 +271,7 @@ that posts chunk 0, is checked, and only then posts the rest.
    check is `a_live_fight_matches_the_traced_fight` still passing against `lab trace` for
    every tick of two whole fights, one of which ends in a kill -- it is the existing test
    and it is the acceptance, because a streamed fight that decodes differently is a
-   different fight. **It lives in `client/test/wasm-memory.test.mjs:1549`, not in the
+   different fight. **It lives in `client/test/wasm-memory.test.mjs:1566`, not in the
    worker or studio suites, and it instantiates a real `web.wasm`** -- so the verification
    block below builds the wasm before running the client suites, or this acceptance is
    checked by a test that skipped.

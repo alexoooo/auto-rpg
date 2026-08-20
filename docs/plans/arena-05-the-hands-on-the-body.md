@@ -15,8 +15,8 @@ construction, and has a test proving the result replays with neither party in th
 `crates/web` already has a validated 61-byte inward command buffer nobody calls. So a
 human side is a `ComposedController` in the arena's ordinary policy slot, with a host-fed
 source claiming navigation and one arm and the configured policy claiming the other.
-`ComposedController` satisfies `EmbodiedPolicy` (`composition.rs:181`), which is exactly
-what `Arena::policies` holds (`crates/web/src/lib.rs:2028`), so the slot accepts it as-is.
+`ComposedController` satisfies `Policy` (`composition.rs:181`), which is exactly
+what `Arena::policies` holds (`crates/web/src/lib.rs:2034`), so the slot accepts it as-is.
 
 **Navigation authority is not permission to infer navigation from the weapon.** This
 session stages `W`/`S` as forward/back, `A`/`D` as body turn and `Q`/`E` as sidestep.
@@ -33,21 +33,21 @@ around.** See the next section before writing any of it.
 `advance_arena` asks a policy **only for the bodies in `pending_decisions()`**:
 
 ```rust
-// crates/web/src/lib.rs:3606-3617
+// crates/web/src/lib.rs:3615-3626
 due.clear();
 due.extend_from_slice(self.world.pending_decisions());
 for &id in &due {
-    let obs = self.world.observe_articulated(id);
+    let obs = self.world.observe(id);
     let side = if live.heroes.contains(&id) { Faction::Heroes } else { Faction::Monsters };
     let command = live.policies[side.index()].decide(&obs);
-    let _ = self.world.submit_embodied_v1(id, command);
+    let _ = self.world.submit(id, command);
 }
 ```
 
 `pending_decisions` is gated on `next_decision[i] <= tick`
-(`crates/sim/src/world/navigation.rs:39`), and `submit_embodied_v1` pushes
+(`crates/sim/src/world/navigation.rs:39`), and `World::submit` pushes
 `next_decision[i]` forward by `Stats::decision_period()`
-(`crates/sim/src/world/mod.rs:1899`), which reaches **30 ticks** at intellect 0
+(`crates/sim/src/world/mod.rs:1809`), which reaches **30 ticks** at intellect 0
 (`crates/sim/src/rules.rs:1071`). **A `ComposedController` in that slot is therefore
 consulted twice a second, and a key press waits up to half a second.** The preregistered
 two-tick latency is unreachable by construction, not by tuning.
@@ -55,7 +55,7 @@ two-tick latency is unreachable by construction, not by tuning.
 The every-tick submission is a property of `drive_hero`, and it comes from *where it is
 called* rather than from anything inside it: the dungeon branch excludes the driven body
 from the pending loop and calls it unconditionally afterwards
-(`crates/web/src/lib.rs:3142-3146`, `:3186-3190`). `advance_arena` has no such call.
+(`crates/web/src/lib.rs:3149-3153`, `:3195-3199`). `advance_arena` has no such call.
 
 So the first change in this session is the seam, not the composition:
 
@@ -70,9 +70,9 @@ for &id in &due {
 }
 // Every tick, outside the gate, exactly as the dungeon branch drives its hero.
 for (side, id) in driven.iter().enumerate().filter_map(|(s, id)| id.map(|i| (s, i))) {
-    let obs = self.world.observe_articulated(id);
+    let obs = self.world.observe(id);
     let command = live.policies[side].decide(&obs);
-    let _ = self.world.submit_embodied_v1(id, command);
+    let _ = self.world.submit(id, command);
 }
 ```
 
@@ -87,7 +87,7 @@ copying, the bit-masked in-place overwrite is not.
 
 ## What `drive_hero` does and why it is not the model
 
-`crates/web/src/lib.rs:3882-3954`, the dungeon route's human path: cache the policy's whole
+`crates/web/src/lib.rs:3891-3963`, the dungeon route's human path: cache the policy's whole
 command, refresh it on the body's `decision_period`, then overwrite `body_yaw` and
 `move_dir` under `CONTROL_FEET` and one `ArmTarget` under `CONTROL_LIMB`, and submit every
 tick. It expresses with three bit-masks and an in-place overwrite exactly what
@@ -102,11 +102,15 @@ composed controller is asked every tick and so is everything inside it -- and a 
 policy asked thirty times as often is a *behaviour* change, not a performance one, because
 those policies read `obs.tick` and count commit windows.
 
-**`PolicySource` cannot be used here, and the reason is a trait bound rather than the
-cadence.** It is `impl<P: crate::ArticulatedPolicy> PartialEmbodiedSource for PolicySource<P>`
-(`crates/policy/src/composition.rs:211`); an arena policy is a `Box<dyn EmbodiedPolicy>`;
-the two traits are disjoint and there is no blanket impl. So the off-hand wrapper is one
-this session writes, for two independent reasons, and either alone would be enough:
+**`PolicySource` cannot be used here, and the reason is now its absence rather than a
+trait bound.** It was generic over `ArticulatedPolicy`, and the embodied topic deleted it
+together with that trait. What stands in its place is a tombstone at
+`crates/policy/src/composition.rs:191-207`, and the tombstone **pre-rejects reseating it
+onto the surviving `Policy` trait** rather than merely recording the removal: *"a source
+that returns a `CommandV1` and then has most of it thrown away is a policy driven for one
+arm's worth of its answer."* So there is nothing to import and nothing to ask
+`crates/policy` to put back, and the off-hand wrapper is one this session writes, for two
+independent reasons, and either alone would be enough:
 
 ```rust
 // crates/web/src/lib.rs -- host-side, deliberately not in crates/policy.
@@ -117,22 +121,26 @@ this session writes, for two independent reasons, and either alone would be enou
 // keeps that promise and keeps the pin argument simple: nothing `lab` or `sim`
 // folds can reach a type the browser crate defines.
 struct CadencedEmbodiedSource {
-    inner: Box<dyn EmbodiedPolicy>,
+    inner: Box<dyn Policy>,
     authority: CommandAuthority,
     /// The last whole command the policy produced, re-read on the ticks between
     /// its decisions. `drive_hero` caches for this reason and it is the reason.
-    cached: Option<EmbodiedCommandV1>,
+    cached: Option<CommandV1>,
     next_decision: u32,
 }
 ```
 
 **It copies the off arm's `swing_plane` rather than zeroing it**, and that is the one place
-it must *not* follow `PolicySource`. `PolicySource` writes `Angle::ZERO`
-(`composition.rs:239`) and its own comment says why: *"an `ArticulatedPolicy` has none to
-give -- its command type has no such field."* An `EmbodiedCommandV1` has the field and an
-embodied off hand fills it, so zeroing here would silently flatten the off hand's elbow.
-`the_off_hand_keeps_the_swing_plane_its_policy_asked_for` is what says so, and it fails
-against a wrapper that copied `PolicySource` line for line.
+it must *not* follow the adapter it is otherwise modelled on. What `PolicySource` did
+survives as `GuardTheOffHand`, the documented four-line replacement at
+`crates/policy/tests/composition.rs:75-110` -- *"this was `policy::PolicySource`, and it is
+four lines here instead"* -- and it writes `into.swing_plane[slot] = Angle::ZERO;` at
+`crates/policy/tests/composition.rs:106`. Its comment says why: the plane is the one field
+`CommandAuthority` does not divide, so the arm's owner has to claim it explicitly, and the
+articulated command that adapter narrowed had no plane to give. A `CommandV1` has the
+field and an embodied off hand fills it, so zeroing here would silently flatten the off
+hand's elbow. `the_off_hand_keeps_the_swing_plane_its_policy_asked_for` is what says so,
+and it fails against a wrapper that copied `GuardTheOffHand` line for line.
 
 ## The composition, assembled at `arena_start`
 
@@ -142,7 +150,7 @@ Authority is a property of the **configuration**, not of the frame, which is wha
 ```rust
 // crates/web/src/lib.rs, inside arena_start's construction of `Arena::policies`
 let policy = kind.build();
-let controller: Box<dyn EmbodiedPolicy> = match control {
+let controller: Box<dyn Policy> = match control {
     ARENA_CONTROL_POLICY => policy,
     ARENA_CONTROL_HUMAN => {
         // Which arm the hand at the keyboard owns is decided here, from the
@@ -168,7 +176,7 @@ let controller: Box<dyn EmbodiedPolicy> = match control {
         // configuration this page can produce. A refusal code with no reachable
         // producer is what `ARENA_POLICY_UNAVAILABLE` and `ARENA_NO_CHECKPOINT`
         // were retired for. The sentence still travels, in the panic message, and
-        // it is the same shape `crates/policy/tests/composition.rs:82` uses.
+        // it is the same shape `crates/policy/tests/composition.rs:119` uses.
         //
         // If a later control mode makes it reachable -- two humans, or an arm
         // handed over mid-fight -- that is the session that adds the code.
@@ -186,9 +194,9 @@ say something new. **No new refusal code is added**, so `ARENA_REASONS`,
 session; they moved in 02 and that is the only place they move.
 
 **Nothing but four bytes crosses this boundary.** `submit_result(outcome, reason, detail,
-slot)` (`crates/web/src/lib.rs:6134`) packs four `u8`s into a `u32`, and `install_arena`
+slot)` (`crates/web/src/lib.rs:6119`) packs four `u8`s into a `u32`, and `install_arena`
 returns `Result<(), ArenaRefusal>` where `ArenaRefusal` is `{ reason, fighter, slot }`
-(`:6764`). The client renders every sentence itself from its mirrored `ARENA_REFUSALS`
+(`:6749`). The client renders every sentence itself from its mirrored `ARENA_REFUSALS`
 table. So a plan that says a refusal "carries the message verbatim" is describing a
 channel that does not exist -- if a future refusal needs to distinguish six causes, the
 free `detail` byte carries the discriminant and the client mirrors six sentences.
@@ -299,7 +307,7 @@ message is dispatched into a re-entrant `handle()` while the outer one is suspen
 
 ## The stance the HUD needs comes across here, not in 07
 
-`embodied_stance_ptr`/`_len` (`crates/web/src/lib.rs:6946-6981`) publishes the twist,
+`embodied_stance_ptr`/`_len` (`crates/web/src/lib.rs:6931-6966`) publishes the twist,
 pelvis and step fractions and **no client module reads it**. The twist fraction is what
 says *"you are about to be forced to step"*. Keyboard turning and a weapon physically
 carried by the shoulder make that something the player feels, so it belongs on their HUD,
@@ -351,7 +359,7 @@ names the trade, rather than letting the same mouse delta steer both torso and s
 ## Replay, which is the acceptance
 
 ADR 0002 records submitted decisions rather than re-running inference, and
-`crates/policy/tests/composition.rs:89` already proves a composed fight replays. This
+`crates/policy/tests/composition.rs:125` already proves a composed fight replays. This
 session earns the same claim through the browser crate's own path:
 
 ```rust
@@ -366,13 +374,13 @@ fn a_human_driven_arena_fight_replays_from_its_recorded_commands() {
 
 **A browser-side replay recorder is not in this session, and that is a scope decision
 rather than an oversight.** It needs an export, a codec write path and somewhere to put
-the bytes, and `docs/architecture/policy.md:494` already records that a recorder for
+the bytes, and `docs/architecture/policy.md:501` already records that a recorder for
 browser fights is owed. What this session owes is the *property*, and a Rust test carries
 it.
 
 ## What this session must not change
 
-- **`submit_embodied_v1`'s validation, or its neutral substitute.** Atomic on purpose.
+- **`World::submit`'s validation, or its neutral substitute.** Atomic on purpose.
 - **Any policy's decisions.** `CadencedEmbodiedSource` changes when a policy is asked and
   nothing about what it answers; `a_cadenced_source_asks_its_policy_on_exactly_the_ticks_the_runner_would`
   is what says so.
@@ -387,7 +395,7 @@ it.
 
 | file | change |
 |---|---|
-| `crates/web/src/lib.rs` | the `driven` seam in `advance_arena`; `HostSource`, `CadencedEmbodiedSource`, the staged-input slot, `arena_stage_input`, `arena_start`'s composition branch. **Re-anchor `browser-runtime.md:447-449` in the same change** -- inserting anything above `lib.rs:1702` shifts all three |
+| `crates/web/src/lib.rs` | the `driven` seam in `advance_arena`; `HostSource`, `CadencedEmbodiedSource`, the staged-input slot, `arena_stage_input`, `arena_start`'s composition branch. **Re-anchor `browser-runtime.md:447-449` in the same change** -- inserting anything above `lib.rs:1707` shifts all three |
 | `client/src/protocol/messages.ts` | `ArenaInputMessage` and its V1 refusal sentence |
 | `client/src/runtime/sim-worker-host.ts` | **the dispatch, and it is not optional.** `arenaStart` and `arenaCancel` are matched *above* the session guard at `:148-155`; anything else reaching an arena session is answered `alreadyInitialized`. `arenaInput` goes above that line or it is refused. `arenaStart` also awaits `recordArenaFight` to completion and clears `arenaRequestId` in a `finally` at `:289`, so a drive that steps inside the input handler restructures that lifetime |
 | `client/src/runtime/arena-recorder.ts` | the controlled drive; the stance section below; `ARENA_EXPORTS` gains `arena_stage_input`, `embodied_command_ptr`, `embodied_command_len`, `embodied_command_layout_version`, `embodied_stance_ptr`, `embodied_stance_len` |
