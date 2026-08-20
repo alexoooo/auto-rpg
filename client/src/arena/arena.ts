@@ -39,7 +39,6 @@
 import type { RouteHandle } from "../studio.js";
 import { buildSeries, drawChart, frameAt as frameAtClick, type Series } from "../fight/chart.js";
 import { loadTraceSource, type FightFrame, type FightHeader, type FightSource } from "../fight/source.js";
-import { LiveFightSource } from "../fight/live.js";
 import {
   at, closureSpeed, length, share, sub, TraceSchemaMismatch, TraceUnavailable,
   type Contact, type Pose, type V3,
@@ -48,10 +47,11 @@ import {
   bodyColours, contactColour, drawScene, elevationCamera, planCamera, type Options,
 } from "../fight/view.js";
 import { ArenaClient, ArenaRefused } from "../runtime/arena-client.js";
+import { ARENA_STREAM_LEAD_TICKS } from "../protocol/messages.js";
 import { createSimWorker } from "../runtime/sim-worker.js";
 import {
   arenaConfigOf, checkpointCopy, missingRecording, pickerControls, populatePolicies, readMatchup,
-  recordingMismatch, resolveRecording, review, showPolicies,
+  recordingMismatch, resolveRecording, review, showOffHandRows, showPolicies, summariseMatchup,
 } from "./picker.js";
 // Type-only, and that matters: a value import of `./scene.js` would pull Babylon
 // into this route's first chunk and make the 8 MB recording wait behind it.
@@ -233,8 +233,19 @@ function describeFight(fight: FightHeader): string {
     `<b>${escapeHtml(fight.scenario)}</b> seed ${fight.seed}, ${sides}`,
     fight.checkpoint === null ? "" : `checkpoint ${escapeHtml(fight.checkpoint.slice(0, 12))}`,
     fight.mirrored ? "mirrored" : `fingerprint ${escapeHtml(fight.fingerprint ?? "none")}`,
-    `${escapeHtml(fight.outcome)} at tick ${fight.ticks}`,
-    fight.timedOut ? "<b>the clock decided it</b>" : "a body decided it",
+    // **A fight in progress reports no outcome rather than inventing one.**
+    // `header.outcome` is `null` until the producer says the fight stopped, and
+    // the two dishonest alternatives are both worse: a default string claims a
+    // result that has not happened, and printing the absent field puts the word
+    // `undefined` in front of a reader. `sim` has no word for an undecided
+    // fight either -- `World::outcome` answers `None` -- so this sentence is
+    // the studio's own and does not pretend to be an `Outcome`.
+    fight.outcome === null
+      ? `still fighting at tick ${fight.ticks}`
+      : `${escapeHtml(fight.outcome)} at tick ${fight.ticks}`,
+    fight.outcome === null
+      ? ""
+      : (fight.timedOut ? "<b>the clock decided it</b>" : "a body decided it"),
     fight.truncated ? `<b>recording truncated to ${fight.frameCount} frames</b>` : "",
   ].filter((part) => part !== "").join(" &middot; ");
 }
@@ -250,7 +261,14 @@ interface State {
 /** A fight and the two time series built over it, which change together. */
 interface Loaded {
   readonly source: FightSource;
-  readonly series: Series;
+  /**
+   * Extended rather than replaced as a streamed fight grows.
+   *
+   * Mutable because `buildSeries` appends to the object it is given: rebuilding
+   * from frame 0 once a chunk is what makes the chart quadratic in the number of
+   * chunks, which at `ARENA_STREAM_CHUNK_TICKS` is 121 of them a duel.
+   */
+  series: Series;
 }
 
 export async function mount(container: HTMLElement, params: URLSearchParams): Promise<RouteHandle> {
@@ -279,6 +297,11 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   const azimuthInput = element<HTMLInputElement>(container, "azimuth");
   const fightButton = element<HTMLButtonElement>(container, "fight");
   const pickerMessage = element<HTMLElement>(container, "picker-message");
+  const pickerSides = element<HTMLElement>(container, "picker-sides");
+  const pickerFooter = element<HTMLElement>(container, "picker-footer");
+  const pickerSummary = element<HTMLElement>(container, "picker-summary");
+  const matchupSummary = element<HTMLElement>(container, "matchup-summary");
+  const changeMatchup = element<HTMLButtonElement>(container, "change-matchup");
   const modeTexture = element<HTMLButtonElement>(container, "mode-texture");
   const modeGeometry = element<HTMLButtonElement>(container, "mode-geometry");
 
@@ -291,6 +314,29 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
 
   const state: State = { frame: 0, playing: false, rate: 1, span: 6 * ONE, azimuth: 0 };
   let loaded: Loaded | null = null;
+  /**
+   * The worker is still making frames for the fight on screen.
+   *
+   * A page-level flag rather than `source.finished`, and the difference is a
+   * cancel: a stopped fight never receives an `arenaFinished`, so a playhead
+   * that waited on the source alone would say "being produced" for as long as
+   * the route stayed open. This is false the moment `run` settles, however it
+   * settled.
+   */
+  let producing = false;
+  /**
+   * Production is behind the playhead, and the page says so rather than
+   * stuttering.
+   *
+   * A page that silently stops advancing is indistinguishable from one that
+   * crashed, which is why this is shown and not hidden.
+   */
+  let starving = false;
+  /** A chunk has landed since the last draw, so a paused chart is stale. */
+  let grown = false;
+  /** Milliseconds from the press to the first drawn frame, and to the last. */
+  let firstFrameMs: number | null = null;
+  let producedMs: number | null = null;
   /** The 3D panels, once their engine exists. Null while it is being built. */
   let stage: ArenaStage | null = null;
   /**
@@ -370,6 +416,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
    * re-enabling loop below is gone for the same reason: nothing disables them.
    */
   function selectCustomFight(): void {
+    setPhase("select");
     setPickerValue("a-anatomy", "fighter");
     setPickerValue("a-left", "shield");
     setPickerValue("a-right", "sword");
@@ -379,8 +426,39 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     setPickerValue("arena-seed", "3");
     clearTwoHanded();
     populatePolicies(container, "tactical", "scripted");
-    setPickerValue("a-policy", "tactical");
-    setPickerValue("b-policy", "scripted");
+    setPickerValue("a-control", "tactical");
+    setPickerValue("b-control", "scripted");
+    showOffHandRows(container);
+  }
+
+  /**
+   * Which half of `#/arena` the reader is looking at.
+   *
+   * **Two phases of one route and not two routes.** The route already owns the
+   * Babylon stage, the lazily built Worker, the `ResizeObserver`s over four
+   * canvases and the window keydown handler; a second route would need a second
+   * copy of the mount and dispose discipline that
+   * `every_registration_that_outlives_the_route_subtree_is_released_in_the_same_file`
+   * exists to hold, for a screen that is the same screen with different things
+   * shown.
+   *
+   * **The stage is deliberately *not* hidden in `select`, and that departs from
+   * the plan's sketch on purpose.** `startStage` builds a Babylon engine over
+   * `#arena-3d` at mount, and an engine constructed over a `display: none`
+   * canvas is a 0x0 drawing buffer, a `ResizeObserver` whose first callback
+   * renders into nothing, and a WebGPU-to-WebGL2 fallback that swaps a canvas
+   * that is not laid out -- three failures that no test in this repository can
+   * see and that only show up at a browser. arena-03 puts a per-side 3D preview
+   * in these two columns and has to touch the stage lifecycle anyway; hiding
+   * the arena stage belongs in that change, beside the engine it would have to
+   * start lazily.
+   */
+  type Phase = "select" | "fight";
+
+  function setPhase(next: Phase): void {
+    pickerSides.hidden = next === "fight";
+    pickerFooter.hidden = next === "fight";
+    pickerSummary.hidden = next === "select";
   }
 
   // ---------------------------------------------------------------- the panels
@@ -632,6 +710,15 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
 
   function refreshPicker(): void {
     const matchup = readMatchup(container);
+    // Before anything reads the matchup back: a side handed to a keyboard
+    // reveals its off-hand row, and a side handed back to a policy hides it and
+    // disables it, so the disabled control cannot answer a question nobody
+    // asked it.
+    showOffHandRows(container);
+    // The collapsed line the `fight` phase shows instead of the two columns.
+    // Written from the same read as everything else here, so it cannot become a
+    // memory of a matchup nobody has selected.
+    matchupSummary.textContent = summariseMatchup(matchup);
     // The button always runs the controls, even while the panels play a trace.
     // Its validation and checkpoint note therefore stay live independently of
     // the provenance of the fight already on screen.
@@ -676,11 +763,70 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     pickerMessage.textContent = parts.join(" ");
   }
 
+  /**
+   * The one line that says what is on screen, from the header and the clock.
+   *
+   * **One writer, because two would fight over the same element.** The sentence
+   * gains a phrase as the fight goes: the header while it is being produced, a
+   * note when the playhead has caught the producer, and the two timings that are
+   * this session's own measurements. Appending to `status.innerHTML` from three
+   * places is how the line ended up describing a fight that was no longer on
+   * screen the last time this page had a memory in it.
+   */
+  /**
+   * Say the playhead has caught the producer, or stop saying it.
+   *
+   * Written through one function because it rewrites `#status`, and rewriting it
+   * on every animation frame would be a hundred string builds a second for a
+   * sentence that changes twice a chunk at most.
+   */
+  function setStarving(next: boolean): void {
+    if (starving === next) return;
+    starving = next;
+    showStatus();
+  }
+
+  function showStatus(): void {
+    if (loaded === null) return;
+    const parts = [describeFight(loaded.source.header)];
+    if (producing) {
+      parts.push(starving
+        ? "<b>waiting for the fight to be produced</b>"
+        : '<span class="muted">still being produced</span>');
+    }
+    if (firstFrameMs !== null) {
+      parts.push(`<span class="muted">first frame in ${firstFrameMs} ms</span>`);
+    }
+    if (!producing && producedMs !== null) {
+      parts.push(`<span class="muted">produced in ${producedMs} ms</span>`);
+    }
+    status.innerHTML = parts.join(" &middot; ");
+  }
+
+  /**
+   * A chunk landed on a fight already on screen.
+   *
+   * The series is extended rather than rebuilt and the panels are left to the
+   * animation frame: redrawing here would draw 121 times over a fight the reader
+   * is watching at sixty frames a second anyway, and `grown` is what tells a
+   * *paused* page that its chart has more to show.
+   */
+  function grow(): void {
+    if (loaded === null) return;
+    loaded.series = buildSeries(loaded.source, loaded.series);
+    scrub.max = String(Math.max(0, loaded.source.frameCount() - 1));
+    grown = true;
+    showStatus();
+  }
+
   function adopt(source: FightSource): void {
     const header = source.header;
     loaded = { source, series: buildSeries(source) };
+    // There is a fight to watch, so the two columns collapse to the one line
+    // that names what is being watched. [Change] is what brings them back.
+    setPhase("fight");
     showTransport();
-    status.innerHTML = describeFight(header);
+    showStatus();
     status.classList.remove("error");
     scrub.max = String(source.frameCount() - 1);
     state.frame = 0;
@@ -741,6 +887,13 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     const attempt = new AbortController();
     inFlight = attempt;
     showingTrace = true;
+    // A file is finished by definition, so nothing about it is waited on: the
+    // lead check below must not hold a playhead against a producer there is not
+    // one of.
+    producing = false;
+    starving = false;
+    firstFrameMs = null;
+    producedMs = null;
     status.textContent = `Loading ${url}...`;
     status.classList.remove("error");
     fightButton.disabled = true;
@@ -771,17 +924,19 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   }
 
   /**
-   * [Run selected fight]: run the fight the picker describes, and scrub it.
+   * [Fight]: run the fight the picker describes, and watch it as it happens.
    *
    * **The whole series was for this one interaction.** 120 bytes of
-   * configuration, one `arena_start`, one uninterrupted worker-side drive, and
-   * one message transferring the buffers -- about four tenths of a second for a
-   * fight that runs its whole 3,600 ticks, against eight megabytes of JSON and a
-   * command line.
+   * configuration, one `arena_start`, and the fight posted in chunks as it is
+   * produced -- the first frame is on screen inside a hundredth of a second,
+   * against eight megabytes of JSON and a command line.
    *
-   * The elapsed time is printed beside the fight rather than logged, because it
-   * is the number this session is judged on and a reader should not need a
-   * console to see it.
+   * **What was here before was a wait.** The worker drove the whole duel and
+   * transferred it once, so this function set the status line to "Recording..."
+   * and nothing was drawn for 0.67 to 0.94 s on the pairing the picker opens on.
+   * Two numbers are printed beside the fight rather than logged, because they are
+   * what this session is judged on and a reader should not need a console: how
+   * long until something was drawn, and how long the whole fight took.
    */
   async function onFight(): Promise<void> {
     const matchup = readMatchup(container);
@@ -792,7 +947,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
       return;
     }
     // A trace still downloading is a stale answer for these panels; the second
-    // [Run selected fight] is cancelled inside `ArenaClient.run`, which waits for the first
+    // [Fight] is cancelled inside `ArenaClient.run`, which waits for the first
     // to answer before posting.
     inFlight?.abort();
     arena ??= new ArenaClient(createSimWorker);
@@ -800,38 +955,82 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     // attempt still settles -- with the worker's `cancelled` refusal -- and it
     // must say nothing at all, or it would overwrite the status of the press
     // that cancelled it. This is `inFlight`'s abort check in the other shape:
-    // the reason is the same and the mechanism cannot be, because a recording is
+    // the reason is the same and the mechanism cannot be, because a fight is
     // not a `fetch`.
     const attempt = (fightAttempt += 1);
     const current = (): boolean => !disposed && attempt === fightAttempt;
     showingTrace = false;
     status.classList.remove("error");
-    status.textContent = "Recording...";
+    status.textContent = "Starting the fight...";
     const started = performance.now();
+    firstFrameMs = null;
+    producedMs = null;
+    starving = false;
+    producing = true;
     try {
       const config = arenaConfigOf(matchup);
-      const fight = await arena.run(config, (ticksDone, ticksTotal) => {
-        if (!current()) return;
-        status.textContent = `Recording... tick ${ticksDone} of ${ticksTotal}`;
+      const source = await arena.run(config, {
+        // Before a single frame exists: there is nothing to draw and everything
+        // to say, so the line that names the fight replaces the line that named
+        // the wait.
+        onOpened: (streaming) => {
+          if (!current()) return;
+          // The fight on screen is the *last* one until this one has a frame, so
+          // it is dropped here rather than left to be replaced: a transport that
+          // stayed enabled over no fight answers a click with nothing at all,
+          // which is the state this route was in on a production build.
+          loaded = null;
+          showTransport();
+          status.innerHTML = describeFight(streaming.header);
+        },
+        onChunk: (streaming) => {
+          if (!current()) return;
+          if (loaded === null) {
+            firstFrameMs = Math.round(performance.now() - started);
+            adopt(streaming);
+            // **Playing, and that is what "watch the fight happen" means.** The
+            // old page adopted a finished recording and waited to be told to
+            // play it, which is the right default for a file and the wrong one
+            // for a fight that is still being fought.
+            state.playing = true;
+            playButton.textContent = "Pause";
+            return;
+          }
+          grow();
+        },
       });
       if (!current()) return;
-      adopt(new LiveFightSource(fight));
-      // Appended to what `adopt` already wrote, so the sentence that names the
-      // fight and the number that says what it cost stay one line.
-      const elapsed = Math.round(performance.now() - started);
-      status.innerHTML += ` &middot; <span class="muted">recorded in ${elapsed} ms</span>`;
+      producing = false;
+      producedMs = Math.round(performance.now() - started);
+      // The last chunk and the finish arrive together, so this is the sentence
+      // that gains the outcome the header could not carry until now.
+      if (loaded !== null) grow();
+      else adopt(source);
+      showStatus();
     } catch (error) {
       if (!current()) return;
-      // A refusal names a fighter, a hand or a policy code, and a failure names
-      // the worker. Both are sentences a reader can act on, which is what the
-      // module's twenty-seven refusal codes exist to make possible.
-      status.textContent = error instanceof ArenaRefused
+      producing = false;
+      // **A cancelled or failed fight keeps the frames it already delivered.**
+      // The chunks that arrived are the part of the fight the reader watched,
+      // and throwing them away because the last one never came would be the
+      // page forgetting something it had already shown.
+      const sentence = error instanceof ArenaRefused
+        // A refusal names a fighter, a hand or a policy code, and a failure
+        // names the worker. Both are sentences a reader can act on, which is
+        // what the module's twenty-seven refusal codes exist to make possible.
         ? String(error.message)
-        : `the fight could not be recorded: ${String(error)}`;
-      status.classList.add("error");
-      loaded = null;
-      stage?.clear();
-      showTransport();
+        : `the fight could not be produced: ${String(error)}`;
+      if (loaded === null) {
+        status.textContent = sentence;
+        status.classList.add("error");
+        stage?.clear();
+        showTransport();
+      } else {
+        state.playing = false;
+        playButton.textContent = "Play";
+        showStatus();
+        status.innerHTML += ` &middot; <b>${escapeHtml(sentence)}</b>`;
+      }
     } finally {
       if (current()) refreshPicker();
     }
@@ -908,6 +1107,15 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     control.addEventListener("change", refreshPicker);
   }
   fightButton.addEventListener("click", () => { void onFight(); });
+  // **Back to the two columns, and it does not stop the fight.** The panels go
+  // on holding whatever they were holding: a reader who opens the picker to
+  // compare a dropdown against the fight in front of them has not asked for the
+  // fight to end, and `refreshPicker` already says which fight is on screen and
+  // which one the controls now describe.
+  changeMatchup.addEventListener("click", () => {
+    setPhase("select");
+    refreshPicker();
+  });
 
   /**
    * `[Texture]` against `[Geometry]`, pressed one at a time.
@@ -1037,11 +1245,30 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
       const steps = Math.floor(carry);
       if (steps > 0) {
         carry -= steps;
-        if (state.frame + steps >= loaded.source.frameCount() - 1) {
-          state.playing = false;
-          playButton.textContent = "Play";
+        const produced = loaded.source.frameCount();
+        const wanted = state.frame + steps;
+        if (producing && wanted + ARENA_STREAM_LEAD_TICKS > produced) {
+          // **Production is behind the display. Hold the frame rather than
+          // clamping to it.** Clamping runs the playhead up against the producer
+          // and stutters one frame at a time, which reads as a broken renderer
+          // rather than as a slow fight -- and it would do so at every chunk
+          // boundary, 121 times a duel, which is what the lead exists to stop.
+          //
+          // The carry is spent rather than banked: a fight is watched at 1x, so
+          // a stall that lasted a second must not be paid off by running the
+          // next second at 2x.
+          setStarving(true);
+        } else {
+          setStarving(false);
+          // Only once nothing more is coming. While the worker is still
+          // producing, the end of the buffer is not the end of the fight, and
+          // stopping there would pause playback at the first chunk boundary.
+          if (!producing && wanted >= produced - 1) {
+            state.playing = false;
+            playButton.textContent = "Play";
+          }
+          go(wanted);
         }
-        go(state.frame + steps);
       } else if (state.rate < 1) {
         // Below 1x a tick spans several display frames, and `carry` is already
         // exactly how far into it playback has got. Handing that fraction to
@@ -1051,10 +1278,17 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
         drawStage(carry);
       }
     }
+    // A paused page whose fight is still growing still has a wider chart to
+    // draw, and nothing else would ask for it: every other draw hangs off `go`.
+    if (!state.playing && grown && loaded !== null) {
+      grown = false;
+      render();
+    }
     frameRequest = window.requestAnimationFrame(loop);
   }
 
   describeStage();
+  setPhase("select");
   refreshPicker();
   showTransport();
   frameRequest = window.requestAnimationFrame(loop);

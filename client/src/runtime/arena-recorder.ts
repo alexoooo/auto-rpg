@@ -1,14 +1,30 @@
-// Recording one configured duel: the wasm facet, and the chunked drive over it.
+// Recording one configured duel: the wasm facet, and the streaming drive over it.
 //
-// **Record the whole fight, then transfer once.** The viewer scrubs, so random
-// access over 3,600 ticks is the requirement, and it decides the model. Streaming
-// tick by tick was considered and rejected for three reasons, the last decisive:
-// the main thread would reassemble 3,600 messages into the same arrays anyway; one
-// uninterrupted worker-side run is reproducible from `(config, seed)` by
-// inspection while a run interleaved with other messages is not; and
-// `combat_event_len` is cleared per `step` call rather than per publication, so a
-// per-tick event index *requires* `step(1)`. That is a recording loop by
-// construction, not a play loop with recording bolted on.
+// **This file used to argue against streaming, and the argument is kept because
+// two thirds of it were right.** It read: *"Record the whole fight, then transfer
+// once. The viewer scrubs, so random access over 3,600 ticks is the requirement,
+// and it decides the model. Streaming tick by tick was considered and rejected for
+// three reasons, the last decisive: the main thread would reassemble 3,600
+// messages into the same arrays anyway; one uninterrupted worker-side run is
+// reproducible from `(config, seed)` by inspection while a run interleaved with
+// other messages is not; and `combat_event_len` is cleared per `step` call rather
+// than per publication, so a per-tick event index requires `step(1)`."*
+//
+// The third reason still holds and is why the drive is still `step(1)` per tick.
+// The second still holds and is why nothing but the *transport* changed: the drive
+// is uninterrupted between yields exactly as it was, and the fight it produces is
+// the same fight -- `a_live_fight_matches_the_traced_fight` compares it against
+// `lab trace` frame for frame and is this session's acceptance for saying so.
+//
+// **The first reason was answered by measuring what it cost the reader.** Nothing
+// was drawn until the last tick existed, which on the pairing the picker opens on
+// is 0.67 to 0.94 s of staring at a status line. And the deeper cost was never the
+// wait: a message shaped like a finished recording *cannot* carry a fight that has
+// not finished, so a hand on the controls was unreachable underneath it. Streaming
+// per **chunk** rather than per tick keeps the reassembly cheap -- 121 messages a
+// duel at `ARENA_STREAM_CHUNK_TICKS`, not 3,600 -- and the main thread does not
+// reassemble anything at all: `StreamingFightSource` keeps the chunks and finds
+// the one a frame is in.
 //
 // **Not the pooled snapshot buffer**, and three independently sufficient reasons.
 // `SimWorkerHost.returnSnapshot` zero-fills the whole buffer on every return and
@@ -19,11 +35,13 @@
 // recording is allocated once per fight and owned by the main thread for the whole
 // scrubbing session.
 //
-// **The drive yields between chunks and that is what makes cancel possible.** A
-// worker services no message while JavaScript is on the stack, so a single
-// uninterrupted 3,600-tick loop would be a recording nobody could stop. Between
-// chunks the loop awaits a macrotask, which is the only yield that lets a
-// `postMessage` in.
+// **The drive yields every `RECORDING_CHUNK_TICKS` and that is what makes cancel
+// possible.** A worker services no message while JavaScript is on the stack, so a
+// single uninterrupted 3,600-tick loop would be a recording nobody could stop.
+// Between windows the loop awaits a macrotask, which is the only yield that lets
+// a `postMessage` in. **That window is not the chunk cadence and the two used to
+// be one number**: posting a chunk needs no yield at all, because `postMessage`
+// enqueues onto the main thread's task queue rather than this one's.
 
 import {
   ARTICULATED_PROJECTILE_LAYOUT_VERSION, ARTICULATED_PROJECTILE_STRIDE,
@@ -32,7 +50,11 @@ import {
   MAX_ARTICULATED_PROJECTILES, MAX_POSES, MAX_REGIONS, POSE_LAYOUT_VERSION, POSE_STRIDE, REGION_LAYOUT_VERSION,
   REGION_STRIDE, REGIONS_PER_BODY, UNIT_FACTION, UNIT_HP, UNIT_MAX_HP, UNIT_STRIDE,
 } from "../protocol/abi.generated.js";
-import type { FightRecordingMessage, RecordedBody, RecordedItem } from "../protocol/messages.js";
+import {
+  ARENA_STREAM_CHUNK_TICKS,
+  type ArenaChunk, type ArenaFinished, type ArenaOpened,
+  type RecordedBody, type RecordedItem,
+} from "../protocol/messages.js";
 import {
   ACTION_NAMES, ANATOMIES, ARENA_CONFIG_BYTES, ARENA_CONFIG_LAYOUT_VERSION, ARENA_FIGHTERS,
   ARENA_POLICY_NAMES, ONE_RAW, arenaStarted, carriedOf, describeArenaRefusal, isGuardAction,
@@ -96,11 +118,13 @@ export const RECORDING_TICK_CAP = 60 * 60;
 export const RECORDING_EVENT_ROW_CAP = 32_768;
 
 /**
- * Ticks driven between yields.
+ * Ticks driven between yields. **The cancel window, and no longer the delivery
+ * cadence** -- those two stopped being the same number when the drive started
+ * streaming, and `ARENA_STREAM_CHUNK_TICKS` is the other one.
  *
- * Two costs pull against each other and neither is free. A chunk that is too
+ * Two costs pull against each other and neither is free. A window that is too
  * large is cancel latency -- nothing is serviced while the loop is on the stack --
- * and one that is too small pays a macrotask per chunk, which browsers clamp to
+ * and one that is too small pays a macrotask per window, which browsers clamp to
  * about 4 ms once the nesting level passes five. At the measured 9,000 to 10,000
  * ticks a second, 300 ticks is about 32 ms of work and twelve yields over a whole
  * fight: roughly 5% of the drive spent waiting, and a cancel that lands within a
@@ -114,6 +138,12 @@ export const RECORDING_EVENT_ROW_CAP = 32_768;
  * five. The yield count is unchanged, being ticks over ticks: still twelve for a
  * 3,600-tick fight, and still about 5% of a drive that is simply longer. The
  * four-pairing table is in `articulated-abi.md`, under "What recording costs".
+ *
+ * **A chunk is posted without waiting for this window and that is not a
+ * contradiction.** `postMessage` enqueues onto the *main* thread's task queue, so
+ * a worker holding its own stack for 300 ticks does not hold the page's: ten
+ * chunks are drawn while this loop is between two yields. The window is what lets
+ * a message reach *this* thread, and the only message that does is `arenaCancel`.
  */
 export const RECORDING_CHUNK_TICKS = 300;
 
@@ -213,6 +243,8 @@ export interface ArenaWasmAdapter {
   fingerprint(): string;
   /** `arena_policy(faction)`, so the fight running can be checked against the bytes sent. */
   policy(faction: number): number;
+  /** `arena_control(faction)`, so the header names the driver the fight is running. */
+  control(faction: number): number;
   tick(): number;
   /** Exactly one tick, because the event feed is cleared per call. */
   step(): void;
@@ -229,6 +261,7 @@ export interface ArenaExports {
   arena_start(seed: number): number;
   arena_fingerprint_lo: U32Export; arena_fingerprint_hi: U32Export;
   arena_policy(faction: number): number;
+  arena_control(faction: number): number;
   checkpoint_ptr: U32Export; checkpoint_capacity: U32Export; checkpoint_installed: U32Export;
   checkpoint_digest_ptr: U32Export; checkpoint_digest_len: U32Export;
   load_checkpoint(len: number): number;
@@ -256,6 +289,7 @@ export const ARENA_EXPORTS = [
   "init",
   "arena_config_ptr", "arena_config_len", "arena_config_layout_version",
   "arena_start", "arena_fingerprint_lo", "arena_fingerprint_hi", "arena_policy",
+  "arena_control",
   "checkpoint_ptr", "checkpoint_capacity", "checkpoint_installed",
   "checkpoint_digest_ptr", "checkpoint_digest_len", "load_checkpoint",
   "pose_ptr", "pose_len", "pose_stride", "pose_capacity", "poses_dropped",
@@ -390,6 +424,7 @@ export function createArenaAdapter(wasm: ArenaExports): ArenaWasmAdapter {
     start(seed) { return wasm.arena_start(seed) >>> 0; },
     fingerprint() { return hex64(wasm.arena_fingerprint_hi() >>> 0, wasm.arena_fingerprint_lo() >>> 0); },
     policy(faction) { return wasm.arena_policy(faction) >>> 0; },
+    control(faction) { return wasm.arena_control(faction) >>> 0; },
     tick() { return wasm.tick() >>> 0; },
     step() { wasm.step(1); },
     read() {
@@ -440,16 +475,24 @@ export function createArenaAdapter(wasm: ArenaExports): ArenaWasmAdapter {
   };
 }
 
-/** What the recorder answers: a whole fight, or the reason there is not one. */
+/** What the recorder answers once the fight stops, or the reason there is not one. */
 export type RecordingResult =
-  | { readonly ok: true; readonly recording: Omit<FightRecordingMessage, "kind" | "version" | "requestId"> }
+  | { readonly ok: true; readonly finished: ArenaFinished }
   | { readonly ok: false; readonly reason: "invalidArenaConfig" | "checkpointRefused" | "cancelled";
       readonly packed: number; readonly detail: string };
 
 export interface RecorderHooks {
-  /** Called once a chunk, so a page can show a bar rather than a frozen button. */
-  readonly onProgress: (ticksDone: number, ticksTotal: number) => void;
-  /** The yield between chunks. A macrotask, so the worker services messages. */
+  /**
+   * Everything `arena_start` already decided, before the first tick is stepped.
+   *
+   * Called once and never again, which is what makes it the message a reader can
+   * be shown a fight from: the configuration, the fingerprint, the layout the
+   * chunks are packed with, and the anatomy every pose row is drawn against.
+   */
+  readonly onOpened: (opened: ArenaOpened) => void;
+  /** One run of frames, transferred. Called every `ARENA_STREAM_CHUNK_TICKS`. */
+  readonly onChunk: (chunk: ArenaChunk) => void;
+  /** The yield between cancel windows. A macrotask, so the worker services messages. */
   readonly yieldToMessages: () => Promise<void>;
 }
 
@@ -515,12 +558,21 @@ function bodiesOf(config: ArenaConfig): readonly RecordedBody[] {
 }
 
 /**
- * Drive one configured duel to its end, copying every published row out as it goes.
+ * Drive one configured duel, posting the fight as it is produced.
  *
- * The buffers are allocated whole before the first step and never resized, so no
- * tick of the drive can allocate: the pose and region extents are exact -- an
- * arena is two fighters by construction, which is what `ARENA_FIGHTERS` means --
- * and the event extent is the measured cap above.
+ * **The staging buffers are still allocated whole before the first step, and the
+ * chunks are copied out of them.** Two properties are worth more than the
+ * allocation they cost. No tick of the drive can allocate, which is what the
+ * per-tick view discipline above depends on. And `RECORDING_EVENT_ROW_CAP` stays
+ * a **whole-fight** cap with a whole-fight corpus behind it: splitting it per
+ * chunk would need a second measurement and a second constant to carry its
+ * provenance, and `recordingTruncated` would stop meaning what it means today.
+ * What crosses per chunk is that chunk's rows and nothing else, so the transport
+ * is streamed even though the ledger it is copied out of is not.
+ *
+ * The pose and region extents are exact -- an arena is two fighters by
+ * construction, which is what `ARENA_FIGHTERS` means -- and the event extent is
+ * the measured cap above.
  */
 export async function recordArenaFight(
   wasm: ArenaWasmAdapter, config: ArenaConfig, configBytes: Uint8Array,
@@ -542,6 +594,14 @@ export async function recordArenaFight(
       // labelled with; if the two disagreed the header would name a policy that
       // is not fighting.
       throw new RangeError(`arena_policy(${faction}) is not the code the configuration carried`);
+    }
+    if (wasm.control(faction) !== fighter.control) {
+      // The same check on the byte beside it, and it is not redundant with the
+      // refusal: `arena_start` refuses `ARENA_CONTROL_HUMAN` today, so anything
+      // that got past it and read back as human would mean the refusal had
+      // stopped working -- and once arena-05 deletes that refusal this is what
+      // stops a recording being labelled with a driver it is not running.
+      throw new RangeError(`arena_control(${faction}) is not the code the configuration carried`);
     }
   }
 
@@ -627,11 +687,112 @@ export async function recordArenaFight(
     return true;
   };
 
+  // Where the chunk being filled began, in each of the five ledgers it addresses.
+  // These are what the index words are rebased against.
+  let chunkFirstFrame = 0;
+  let chunkPoseBase = 0;
+  let chunkRegionBase = 0;
+  let chunkProjectileBase = 0;
+  let chunkEventBase = 0;
+
+  /**
+   * Post everything captured since the last chunk, rebased onto its own buffers.
+   *
+   * **The rebase is the whole of what a chunk boundary means.** A start word is
+   * an offset into the section it addresses, and the section a chunk carries
+   * begins where the chunk does -- so a start left at its whole-fight value would
+   * run off the end of a buffer holding thirty frames' rows. `subarray` clamps
+   * rather than throwing, so the reader would draw `NaN` rather than refuse;
+   * `FightChunk` therefore checks every extent against the chunk it arrived in,
+   * and `a_chunk_whose_index_starts_are_not_chunk_relative_is_refused_at_adopt`
+   * proves the check by handing it the offsets this loop subtracts.
+   */
+  const postChunk = (): void => {
+    const span = frames - chunkFirstFrame;
+    if (span === 0) return;
+    const chunkIndex = new Uint32Array(span * RECORDING_INDEX_STRIDE);
+    for (let frame = 0; frame < span; frame += 1) {
+      const from = (chunkFirstFrame + frame) * RECORDING_INDEX_STRIDE;
+      const to = frame * RECORDING_INDEX_STRIDE;
+      chunkIndex[to + INDEX_TICK] = index[from + INDEX_TICK]!;
+      chunkIndex[to + INDEX_POSE_START] = index[from + INDEX_POSE_START]! - chunkPoseBase;
+      chunkIndex[to + INDEX_POSE_COUNT] = index[from + INDEX_POSE_COUNT]!;
+      chunkIndex[to + INDEX_REGION_START] = index[from + INDEX_REGION_START]! - chunkRegionBase;
+      chunkIndex[to + INDEX_REGION_COUNT] = index[from + INDEX_REGION_COUNT]!;
+      chunkIndex[to + INDEX_PROJECTILE_START] =
+        index[from + INDEX_PROJECTILE_START]! - chunkProjectileBase;
+      chunkIndex[to + INDEX_PROJECTILE_COUNT] = index[from + INDEX_PROJECTILE_COUNT]!;
+      chunkIndex[to + INDEX_EVENT_START] = index[from + INDEX_EVENT_START]! - chunkEventBase;
+      chunkIndex[to + INDEX_EVENT_COUNT] = index[from + INDEX_EVENT_COUNT]!;
+    }
+    hooks.onChunk({
+      firstFrame: chunkFirstFrame,
+      frameCount: span,
+      poses: poses.buffer.slice(chunkPoseBase * POSE_STRIDE * 4, poseRows * POSE_STRIDE * 4),
+      regions: regions.buffer.slice(
+        chunkRegionBase * REGION_STRIDE * 4, regionRows * REGION_STRIDE * 4,
+      ),
+      projectiles: projectiles.buffer.slice(
+        chunkProjectileBase * ARTICULATED_PROJECTILE_STRIDE * 4,
+        projectileRows * ARTICULATED_PROJECTILE_STRIDE * 4,
+      ),
+      events: events.buffer.slice(
+        chunkEventBase * COMBAT_EVENT_STRIDE * 4, eventRows * COMBAT_EVENT_STRIDE * 4,
+      ),
+      index: chunkIndex.buffer,
+      health: health.buffer.slice(chunkFirstFrame * 2 * 4, frames * 2 * 4),
+    });
+    chunkFirstFrame = frames;
+    chunkPoseBase = poseRows;
+    chunkRegionBase = regionRows;
+    chunkProjectileBase = projectileRows;
+    chunkEventBase = eventRows;
+  };
+
   if (!capture()) truncated = true;
+  // **After the first capture and before the first step.** `Scenario::arena` is
+  // read off the published frame, so the opening message needs one publication to
+  // exist -- and frame 0 is that publication, the fixture as it spawned.
+  hooks.onOpened({
+    spectator: true,
+    one: ONE_RAW,
+    scenario: "configured-duel-v1",
+    mirrored: false,
+    fingerprint: wasm.fingerprint(),
+    seed: config.seed,
+    heroes: ARENA_POLICY_NAMES[config.fighters[0].policy] ?? `policy ${config.fighters[0].policy}`,
+    monsters: ARENA_POLICY_NAMES[config.fighters[1].policy] ?? `policy ${config.fighters[1].policy}`,
+    checkpoint: wasm.checkpointDigest(),
+    maxTicks: config.maxTicks,
+    arena,
+    poseLayoutVersion: POSE_LAYOUT_VERSION, poseStride: POSE_STRIDE,
+    regionLayoutVersion: REGION_LAYOUT_VERSION, regionStride: REGION_STRIDE,
+    regionsPerBody: REGIONS_PER_BODY,
+    articulatedProjectileLayoutVersion: ARTICULATED_PROJECTILE_LAYOUT_VERSION,
+    articulatedProjectileStride: ARTICULATED_PROJECTILE_STRIDE,
+    combatEventLayoutVersion: COMBAT_EVENT_LAYOUT_VERSION,
+    combatEventStride: COMBAT_EVENT_STRIDE,
+    impactThreshold: IMPACT_THRESHOLD_RAW, contactEnergyFloor: CONTACT_ENERGY_FLOOR,
+    // The event row widens `sim::NO_REGION` to a full word so a reader that lost
+    // track of the column width cannot mistake it for a region index;
+    // `BODY_SLOT` crosses as the sim's own byte. Both come off the generated ABI
+    // rather than being written down again here.
+    bodySlot: COMBAT_EVENT_BODY_SLOT, noRegion: COMBAT_EVENT_NO_BODY_PART,
+    regionNames: REGION_NAMES, hintNames: HINT_NAMES, contactKinds: CONTACT_KINDS,
+    bodies: bodiesOf(config),
+  });
+
   let ticks = wasm.tick();
-  while (!truncated) {
-    if (cancelled()) return { ok: false, reason: "cancelled", packed: 0, detail: "the recording was cancelled" };
-    let settled = false;
+  let settled = false;
+  while (!truncated && !settled) {
+    if (cancelled()) {
+      // **The chunks already posted are not taken back**, which is what leaves a
+      // reader with the part of the fight they watched rather than an empty page.
+      // The *request* still settles as a refusal, by name, because a cancelled
+      // fight has no outcome and an `arenaFinished` would have to invent one --
+      // which is the thing this whole session is about not doing.
+      return { ok: false, reason: "cancelled", packed: 0, detail: "the recording was cancelled" };
+    }
     for (let step = 0; step < RECORDING_CHUNK_TICKS; step += 1) {
       const before = wasm.tick();
       wasm.step();
@@ -644,64 +805,28 @@ export async function recordArenaFight(
       if (after === before) { settled = true; break; }
       ticks = after;
       if (!capture()) { truncated = true; break; }
+      if (frames - chunkFirstFrame >= ARENA_STREAM_CHUNK_TICKS) postChunk();
     }
-    if (settled) break;
-    hooks.onProgress(ticks, tickCap);
-    if (!truncated) await hooks.yieldToMessages();
+    if (!settled && !truncated) await hooks.yieldToMessages();
   }
+  // The tail, which is every chunk shorter than a whole one. A fight that ends
+  // mid-chunk still owes the page the frames it produced.
+  postChunk();
 
-  const settled = outcomeOf(alive, lastHealth);
+  const decided = outcomeOf(alive, lastHealth);
   return {
     ok: true,
-    recording: {
-      spectator: true,
-      one: ONE_RAW,
-      scenario: "configured-duel-v1",
-      mirrored: false,
-      fingerprint: wasm.fingerprint(),
-      seed: config.seed,
-      heroes: ARENA_POLICY_NAMES[config.fighters[0].policy] ?? `policy ${config.fighters[0].policy}`,
-      monsters: ARENA_POLICY_NAMES[config.fighters[1].policy] ?? `policy ${config.fighters[1].policy}`,
-      checkpoint: wasm.checkpointDigest(),
+    finished: {
       // A truncated recording has not watched the fight end, so it must not
       // claim an outcome it did not see. The trace's own header makes the same
       // distinction with its `truncated` field, and the studio prints both.
-      outcome: truncated ? "recording truncated before the fight ended" : settled.outcome,
-      timedOut: truncated ? false : settled.timedOut,
+      outcome: truncated ? "recording truncated before the fight ended" : decided.outcome,
+      timedOut: truncated ? false : decided.timedOut,
       ticks,
-      maxTicks: config.maxTicks,
       frameCount: frames,
       recordingTruncated: truncated,
-      arena,
-      poseLayoutVersion: POSE_LAYOUT_VERSION, poseStride: POSE_STRIDE,
-      regionLayoutVersion: REGION_LAYOUT_VERSION, regionStride: REGION_STRIDE,
-      regionsPerBody: REGIONS_PER_BODY,
-      articulatedProjectileLayoutVersion: ARTICULATED_PROJECTILE_LAYOUT_VERSION,
-      articulatedProjectileStride: ARTICULATED_PROJECTILE_STRIDE,
-      combatEventLayoutVersion: COMBAT_EVENT_LAYOUT_VERSION,
-      combatEventStride: COMBAT_EVENT_STRIDE,
       posesDropped, regionsDropped, articulatedProjectilesDropped: projectilesDropped,
       combatEventsDropped: eventsDropped,
-      impactThreshold: IMPACT_THRESHOLD_RAW, contactEnergyFloor: CONTACT_ENERGY_FLOOR,
-      // The event row widens `sim::NO_REGION` to a full word so a reader that
-      // lost track of the column width cannot mistake it for a region index;
-      // `BODY_SLOT` crosses as the sim's own byte. Both come off the generated
-      // ABI rather than being written down again here.
-      bodySlot: COMBAT_EVENT_BODY_SLOT, noRegion: COMBAT_EVENT_NO_BODY_PART,
-      regionNames: REGION_NAMES, hintNames: HINT_NAMES, contactKinds: CONTACT_KINDS,
-      bodies: bodiesOf(config),
-      poses: poses.buffer.slice(0, poseRows * POSE_STRIDE * 4),
-      regions: regions.buffer.slice(0, regionRows * REGION_STRIDE * 4),
-      projectiles: projectiles.buffer.slice(
-        0, projectileRows * ARTICULATED_PROJECTILE_STRIDE * 4,
-      ),
-      // Sliced for the same reason the two above are, and it is the one where it
-      // matters: the event extent is a measured cap and a shipped fight fills
-      // about a tenth of it, so transferring it whole would hand the main thread
-      // nearly two megabytes of zeroes to hold for the scrubbing session.
-      events: events.buffer.slice(0, eventRows * COMBAT_EVENT_STRIDE * 4),
-      index: index.buffer.slice(0, frames * RECORDING_INDEX_STRIDE * 4),
-      health: health.buffer.slice(0, frames * 2 * 4),
     },
   };
 }

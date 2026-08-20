@@ -67,7 +67,7 @@ ARPG_CARTESIAN_RECOIL=1 node --test tools/wasm_check.js
 cargo run --release -p lab -- embodied --corpus-digest   # exits 1 on a moved pin
 cargo run --release -p lab -- verify --seeds 200      # run, re-run, replay agree
 
-node --test "client/test/*.test.mjs"              # the four client suites, 234 tests
+node --test "client/test/*.test.mjs"              # the five client suites, 254 tests
 npm run check:abi                                 # generated TypeScript vs its generator
 node tools/check_docs.js                          # documentation links, anchors, authority
 node tools/check_deps.js                          # no crate may reach a registry or git source
@@ -84,7 +84,29 @@ Four notes on the gate itself, each of which has cost time:
   2026-08-18; the verification pass that shipped the `CombatModel::Legacy`
   deletion omitted them, and they caught a real regression the moment they were
   run. The bare directory form `node --test client/test/` fails on this platform
-  — quote the glob.
+  — quote the glob. **It was four suites and 234 tests until 2026-08-20**, when
+  arena-01 added `arena-stream.test.mjs`; re-measure rather than quoting the
+  number, because a suite is cheap to add and a count in prose goes stale
+  silently.
+- **Two agents cannot run the same client suite at once, and the failure is a
+  silent hang rather than an error.** Each suite compiles with `tsc --outDir`
+  into its **own** directory and then `require()`s out of it -- `.tools/client-test`
+  for `worker-protocol`, `.tools/render-test`, `.tools/studio-test`,
+  `.tools/wasm-memory-test`, `.tools/arena-stream-test` for the rest. A second run
+  of the same suite rewrites those files while the first process is reading them,
+  and both sit at about **1.4 seconds of CPU indefinitely** against a clean-run
+  baseline of **43 seconds**. Measured 2026-08-20 with two agents in one worktree:
+  a full-glob run and a bare `worker-protocol` run overlapped on exactly one
+  directory and both hung; one stopped at 183 of 248 tests. **The per-suite
+  directories are not the fix -- they are the granularity of the lock**, so two
+  concurrent globs collide on all five and "run a different suite" is only safe if
+  the two runs share no suite. It is not a port conflict:
+  `vite_dev_serves_the_studio_shell...` binds `port: 0`. **There is a second shared
+  resource**: a private-`outDir` copy of a suite also hung while another Vite server
+  was up, leaving `node_modules/.vite/deps_temp_*` behind, so Vite's dependency
+  optimizer cache is contended too. If you are one of several agents, get the suite
+  serialized by whoever is coordinating rather than checking whether anyone else is
+  running -- that check is itself a race, and it produced this one.
 - **`tools/check_deps.js` has a fixture and `cargo test` does not run it.** The
   session that widened the audited set edited the exact constant
   `tools/check_deps.test.js` covers and left it red at 13 pass, 2 fail, because

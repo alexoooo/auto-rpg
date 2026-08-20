@@ -196,6 +196,8 @@ function installDom() {
     frames: new Map(),
     timers: new Set(),
     fetches: [],
+    /** Every `new Worker` the route constructed, newest last. */
+    workers: [],
     nextFrame: 1,
 
     addListener(target, type, listener) { this.listeners.push({ target, type, listener }); },
@@ -292,6 +294,32 @@ function installDom() {
     },
     requestAnimationFrame: (callback) => fakeWindow.requestAnimationFrame(callback),
     cancelAnimationFrame: (id) => fakeWindow.cancelAnimationFrame(id),
+    /**
+     * A `Worker` that records rather than runs.
+     *
+     * **`createSimWorker` is reached and not stubbed around**, which is the
+     * point: the lazy-worker rule this file already enforces says the module is
+     * imported statically and the `Worker` is constructed only on [Fight], and a
+     * test that replaced the factory would prove that about its own stub. What
+     * is faked is the browser primitive, one level below the rule.
+     */
+    Worker: class {
+      constructor(url) {
+        this.url = String(url);
+        this.sent = [];
+        this.listeners = new Map();
+        this.terminated = false;
+        harness.workers.push(this);
+      }
+      addEventListener(kind, listener) {
+        const held = this.listeners.get(kind) ?? [];
+        held.push(listener);
+        this.listeners.set(kind, held);
+      }
+      postMessage(message, transfer = []) { this.sent.push({ message, transfer }); }
+      terminate() { this.terminated = true; }
+      emit(data) { for (const listener of this.listeners.get("message") ?? []) listener({ data }); }
+    },
     fetch: (url, init = {}) => {
       const pending = { url, signal: init.signal ?? null, settle: null, reject: null };
       const promise = new Promise((resolve, reject) => {
@@ -378,7 +406,7 @@ function syntheticTrace() {
   };
 }
 
-const side = (overrides = {}) => ({ anatomy: "fighter", left: "shield", right: "sword", twoHanded: false, policy: "scripted", ...overrides });
+const side = (overrides = {}) => ({ anatomy: "fighter", left: "shield", right: "sword", twoHanded: false, policy: "scripted", control: "policy", ...overrides });
 const matchup = (a = {}, b = {}, seed = 3) => ({ a: side(a), b: side(b), seed });
 
 // ----------------------------------------------------------------- the shell's routing
@@ -835,6 +863,205 @@ test("the_picker_and_the_config_agree_on_every_policy_code", () => {
 // both tests went with it. `the_arena_opens_on_a_pairing_that_fights` below is
 // what covers the defaults the second of them also happened to assert.
 
+// ------------------------------------------------- the split screen and its control
+
+test("the_arena_configures_a_on_the_left_and_b_on_the_right", () => {
+  // Read off the shipped template, because the claim is about the *screen*: two
+  // columns, A first, and both carrying the same controls in the same order. A
+  // comparison whose two halves are laid out differently is one a reader has to
+  // translate before they can make it.
+  const sides = [...SHELL_HTML.matchAll(
+    /<div class="picker-side (hero|monster)">([\s\S]*?)<\/div>\s*(?=<div class="picker-side|<\/div>)/g)];
+  assert.equal(sides.length, 2, "the picker is not two side columns");
+  assert.deepEqual(sides.map((match) => match[1]), ["hero", "monster"],
+    "Fighter A is not the left-hand column");
+  const controlsOf = (body) => [...body.matchAll(/\sid="([^"]+)"/g)].map((match) => match[1]);
+  const [a, b] = sides.map((match) => controlsOf(match[2]));
+  assert.deepEqual(a, ["a-anatomy", "a-left", "a-right", "a-two-handed", "a-control",
+    "a-off-hand-row", "a-off-hand"]);
+  assert.deepEqual(b.map((id) => id.replace(/^b-/, "a-")), a,
+    "the two columns do not carry the same controls in the same order");
+  // The labels a refusal names, so a sentence saying "Fighter A" points at a
+  // column a reader can see.
+  assert.match(sides[0][2], /<span class="side">Fighter A<\/span>/);
+  assert.match(sides[1][2], /<span class="side">Fighter B<\/span>/);
+});
+
+test("the_seed_and_the_fight_button_belong_to_the_matchup_and_not_to_side_b", () => {
+  // They were jammed into the end of Fighter B's row when the picker was two
+  // stacked rows, which read as an accident of the layout the moment the layout
+  // became two columns: a seed and a [Fight] belong to the pair, and a matchup
+  // has no side. Asserted from both directions -- in the footer, and out of
+  // both columns -- because "present in the footer" would pass over a copy.
+  const footer = /<div class="picker-footer" id="picker-footer">([\s\S]*?)<\/div>\s*<!--/
+    .exec(SHELL_HTML)?.[1];
+  assert.ok(footer !== undefined, "the picker has no matchup footer");
+  assert.match(footer, /id="arena-seed"/);
+  assert.match(footer, /id="fight"/);
+  assert.match(footer, /id="picker-message"/);
+  const columns = [...SHELL_HTML.matchAll(
+    /<div class="picker-side (?:hero|monster)">([\s\S]*?)<\/div>\s*(?=<div class="picker-side|<\/div>)/g)];
+  for (const [, body] of columns) {
+    assert.doesNotMatch(body, /id="arena-seed"/, "the seed is still inside a fighter column");
+    assert.doesNotMatch(body, /id="fight"/, "the button is still inside a fighter column");
+  }
+  // And exactly one of each in the whole template, so the assertions above are
+  // about the only copy there is.
+  assert.equal(SHELL_HTML.match(/id="arena-seed"/g).length, 1);
+  assert.equal(SHELL_HTML.match(/id="fight"/g).length, 1);
+});
+
+test("both_sides_driven_by_you_is_refused_by_naming_the_one_keyboard", () => {
+  const both = picker.review(matchup({ control: "human" }, { control: "human" }), "live");
+  assert.match(both.refusal, /^Fighter A and Fighter B are both set to be driven by you/);
+  assert.match(both.refusal, /one keyboard and one pointer/);
+  assert.match(both.refusal, /Set one of the two back to a policy/);
+  assert.deepEqual(both.notes, []);
+  // The word the plan singled out as the useless one, absent here as it is from
+  // every other refusal this module writes.
+  assert.doesNotMatch(both.refusal, /invalid/i);
+  // **Bounded from the other side.** One human side is refused by a *different*
+  // sentence -- the build's, below -- so this refusal has to be about the pair
+  // rather than about the presence of a human at all.
+  for (const one of [matchup({ control: "human" }), matchup({}, { control: "human" })]) {
+    assert.doesNotMatch(picker.review(one, "live").refusal,
+      /both set to be driven by you/, "one human side answered the two-keyboards refusal");
+  }
+});
+
+test("a_human_side_with_an_empty_right_hand_is_refused_by_naming_the_hand", () => {
+  // The pointer aims the right hand, so a human side with an empty one is a
+  // reader holding a mouse that commands nothing. The left hand is deliberately
+  // full, so the earlier both-hands-empty refusal cannot be what answers.
+  for (const [label, chosen] of [
+    ["Fighter A", matchup({ control: "human", left: "shield", right: "empty" })],
+    ["Fighter B", matchup({}, { control: "human", left: "shield", right: "empty" })],
+  ]) {
+    const verdict = picker.review(chosen, "live");
+    assert.match(verdict.refusal, new RegExp(`^${label} is set to be driven by you`));
+    assert.match(verdict.refusal, /right hand is empty and the right hand is the one the pointer aims/);
+    assert.match(verdict.refusal, new RegExp(`Give ${label} a weapon in its right hand`));
+    assert.deepEqual(verdict.notes, []);
+  }
+  // Bounded from both sides: a *policy* side with an empty right hand is fine
+  // -- it is a shield-carrying fighter -- and a human side with a full right
+  // hand gets the build's refusal instead of this one.
+  assert.equal(picker.review(matchup({ left: "shield", right: "empty" }), "live").refusal, null);
+  assert.doesNotMatch(
+    picker.review(matchup({ control: "human", left: "empty", right: "sword" }), "live").refusal,
+    /right hand is empty/);
+});
+
+test("a_human_side_is_refused_by_name_until_the_input_path_exists", () => {
+  // **The refusal this session exists for.** The configuration can spell "this
+  // side is driven by a person" one session before `advance_arena` can act on
+  // it, and the honest answer is a sentence naming what would happen at the
+  // wire -- not a fight in which the policy quietly drove the body.
+  for (const chosen of [matchup({ control: "human" }), matchup({}, { control: "human" })]) {
+    const verdict = picker.review(chosen, "live");
+    assert.match(verdict.refusal, /^A side is set to be driven by you/);
+    assert.match(verdict.refusal, /this build has no input path for the arena yet/);
+    // The refusal names the code the module would answer, so a reader who sees
+    // it in a console and a reader who sees it on the page are reading the same
+    // word. `ARENA_CONTROL_UNAVAILABLE` is 29 in `crates/web` and here.
+    assert.match(verdict.refusal, /ARENA_CONTROL_UNAVAILABLE/);
+    assert.equal(CONFIG.ARENA_CONTROL_UNAVAILABLE, 29);
+    assert.match(CONFIG.ARENA_REFUSALS[CONFIG.ARENA_CONTROL_UNAVAILABLE], /no arena input path/);
+    assert.deepEqual(verdict.notes, []);
+  }
+  // Bounded from the other side, which is the half that will start failing when
+  // arena-05 lands and is supposed to: two policy sides are not refused.
+  assert.equal(picker.review(matchup(), "live").refusal, null);
+  // And the choice still reaches the buffer, refused or not: the picker refuses
+  // before the button, and the encoder is what the module refuses. If
+  // `arenaConfigOf` quietly wrote a policy byte here there would be nothing for
+  // `arena_start` to refuse and the second net would be gone.
+  const config = picker.arenaConfigOf(matchup({ control: "human" }));
+  assert.equal(config.fighters[0].control, CONFIG.ARENA_CONTROL_HUMAN);
+  assert.equal(config.fighters[1].control, CONFIG.ARENA_CONTROL_POLICY);
+  assert.equal(CONFIG.encodeArenaConfig(config)[8 + 2], CONFIG.ARENA_CONTROL_HUMAN);
+});
+
+test("the_picker_and_the_config_agree_on_every_control_code", () => {
+  // **Driven from the encoder's list and checked against the picker**, which is
+  // the shape `the_picker_and_the_config_agree_on_every_policy_code` next door
+  // uses and the reason it is worth copying: a test that iterated a list it
+  // also defined would agree with itself over any two vocabularies.
+  assert.deepEqual([...CONFIG.ARENA_CONTROL_NAMES], ["policy", "human"]);
+  CONFIG.ARENA_CONTROL_NAMES.forEach((name, code) => {
+    assert.equal(CONFIG.controlCodeOf(name), code, `${name} does not round-trip to ${code}`);
+    assert.equal(picker.arenaConfigOf(matchup({ control: name })).fighters[0].control, code,
+      `${name} did not reach the buffer as ${code}`);
+    // And out the other end of the 120 bytes, per side, so a control written
+    // into one fighter block cannot be read out of the other.
+    const config = picker.arenaConfigOf(matchup({}, { control: name }));
+    const decoded = CONFIG.decodeArenaConfig(CONFIG.encodeArenaConfig(config), config.seed);
+    assert.equal(decoded.fighters[1].control, code);
+    assert.equal(decoded.fighters[0].control, CONFIG.ARENA_CONTROL_POLICY);
+  });
+  // The two named constants are the array's own indices, so a reordering that
+  // kept both sides agreeing is still caught.
+  assert.equal(CONFIG.ARENA_CONTROL_POLICY, 0);
+  assert.equal(CONFIG.ARENA_CONTROL_HUMAN, 1);
+  assert.equal(CONFIG.controlCodeOf("keyboard"), null, "an unknown control answered a code");
+  // The "driven by" select offers the five policies and exactly one entry that
+  // is not one, which is what makes it one control rather than two.
+  const harness = installDom();
+  try {
+    const container = harness.container();
+    picker.populatePolicies(container, "tactical", "scripted");
+    for (const id of ["#a-control", "#b-control"]) {
+      const offered = container.querySelector(id).children.map((node) => node.value);
+      assert.deepEqual(offered,
+        [...picker.POLICIES.map((option) => option.code), picker.HUMAN_CONTROL],
+        `${id} is not the policy list plus one entry`);
+    }
+    for (const id of ["#a-off-hand", "#b-off-hand"]) {
+      assert.deepEqual(container.querySelector(id).children.map((node) => node.value),
+        picker.POLICIES.map((option) => option.code),
+        `${id} offers something that is not a policy`);
+    }
+  } finally {
+    harness.restore();
+  }
+});
+
+test("the_off_hand_policy_is_hidden_and_disabled_while_a_side_is_driven_by_a_policy", async () => {
+  const harness = installDom();
+  try {
+    const { mount } = await import(compiled("client/src/arena/arena.js"));
+    const container = harness.container();
+    const handle = await mount(container, new URLSearchParams());
+    const row = container.querySelector("#a-off-hand-row");
+    const offHand = container.querySelector("#a-off-hand");
+    assert.equal(row.hidden, true, "the off-hand row opened visible over a policy-driven side");
+    assert.equal(offHand.disabled, true, "the off-hand select opened enabled");
+    // **Disabled and not read**, which is the half that matters: a stale value
+    // left in a hidden control must not reach the buffer. The side is
+    // policy-driven, so `policy` is the driven-by select's own value.
+    offHand.value = "neutral";
+    assert.equal(picker.readMatchup(container).a.policy, "tactical");
+
+    // Hand the side to a keyboard and the row is the one thing left to choose.
+    container.querySelector("#a-control").value = picker.HUMAN_CONTROL;
+    for (const entry of harness.listenersOn(container.querySelector("#a-control"), "change")) {
+      entry.listener({ target: container.querySelector("#a-control") });
+    }
+    assert.equal(row.hidden, false, "the off-hand row stayed hidden over a human side");
+    assert.equal(offHand.disabled, false, "the off-hand select stayed disabled over a human side");
+    const chosen = picker.readMatchup(container).a;
+    assert.deepEqual([chosen.control, chosen.policy], ["human", "neutral"],
+      "a human side did not take its policy from the off-hand row");
+    // Fighter B is untouched, so the two columns are independent.
+    assert.equal(container.querySelector("#b-off-hand-row").hidden, true);
+    assert.equal(picker.readMatchup(container).b.control, "policy");
+    await handle.dispose();
+    harness.dropSubtree(container);
+  } finally {
+    harness.restore();
+  }
+});
+
 test("the_arena_opens_on_a_pairing_that_fights", async () => {
   // The half of the deleted preset test that was about something else: the
   // controls the page opens with. **`tactical` against `scripted`**, where it
@@ -857,14 +1084,28 @@ test("the_arena_opens_on_a_pairing_that_fights", async () => {
     const { mount } = await import(compiled("client/src/arena/arena.js"));
     const container = harness.container();
     const handle = await mount(container, new URLSearchParams());
-    assert.deepEqual([container.querySelector("#a-policy").value,
-      container.querySelector("#b-policy").value], ["tactical", "scripted"]);
+    assert.deepEqual([container.querySelector("#a-control").value,
+      container.querySelector("#b-control").value], ["tactical", "scripted"]);
+    // Both sides open policy-driven, which is the only pairing this build can
+    // install: a human side is refused by name until arena-05.
+    assert.deepEqual([picker.readMatchup(container).a.control,
+      picker.readMatchup(container).b.control], ["policy", "policy"]);
     assert.equal(container.querySelector("#arena-seed").value, "3");
-    // Nothing disables the controls any more: the only thing that ever did was
-    // the preset, and a control left disabled by a dropdown that no longer
-    // exists would be unreachable rather than merely unused.
+    // Nothing disables the controls any more *except the two off-hand rows*,
+    // and the exception is the point rather than a leftover: the only thing
+    // that ever disabled a control here was the deleted preset, and a control
+    // left disabled by a dropdown that no longer exists would be unreachable
+    // rather than merely unused. An off-hand policy over a policy-driven side
+    // is a different case -- the side's own policy byte is already answering
+    // that question -- and
+    // `the_off_hand_policy_is_hidden_and_disabled_while_a_side_is_driven_by_a_policy`
+    // is what says it becomes reachable the moment the side is handed to a
+    // keyboard. Named one by one so that a *third* disabled control is a
+    // failure here rather than a widened filter.
+    const offHand = ["a-off-hand", "b-off-hand"];
     for (const control of picker.pickerControls(container)) {
-      assert.equal(control.disabled, false, `${control.id} opened disabled`);
+      assert.equal(control.disabled, offHand.includes(control.id),
+        `${control.id} opened ${control.disabled ? "disabled" : "enabled"}`);
     }
     // And the `demo` dropdown is gone from the markup rather than left showing
     // one option.
@@ -931,9 +1172,9 @@ test("the_picker_names_the_loaded_fight_separately_from_the_next_matchup", async
       ...syntheticTrace(), heroes: "learned", monsters: "scripted", checkpoint: "0123456789abcdef",
     });
     await settle();
-    container.querySelector("#b-policy").value = "neutral";
-    for (const entry of harness.listenersOn(container.querySelector("#b-policy"), "change")) {
-      entry.listener({ target: container.querySelector("#b-policy") });
+    container.querySelector("#b-control").value = "neutral";
+    for (const entry of harness.listenersOn(container.querySelector("#b-control"), "change")) {
+      entry.listener({ target: container.querySelector("#b-control") });
     }
     const copy = container.querySelector("#picker-message").textContent;
     assert.match(copy, /Viewing recording: learned vs scripted, seed 3/);
@@ -1092,6 +1333,276 @@ test("a_truncated_recording_says_so_where_a_reader_can_see_it", async () => {
     assert.doesNotMatch(second.querySelector("#status").innerHTML, /truncated/);
     await secondHandle.dispose();
     harness.dropSubtree(second);
+  } finally {
+    harness.restore();
+  }
+});
+
+// ------------------------------------------------------------ the streamed fight
+//
+// The worker's half of `#/arena`, as three messages rather than one. What these
+// tests are about is the *order* they arrive in: the old channel could only post
+// a fight that had finished, so a page written against a fake that posts
+// everything at once would assert nothing at all about the thing this session
+// changed. Every fake below posts an opening, is checked, posts a chunk, is
+// checked again, and only then finishes.
+
+const ABI = await import(compiled("client/src/protocol/abi.generated.js"));
+const PROTOCOL = await import(compiled("client/src/protocol/messages.js"));
+const RECORDER = await import(compiled("client/src/runtime/arena-recorder.js"));
+
+/** The opening message, with the synthetic trace's own bodies inside it. */
+function syntheticOpening(requestId) {
+  const trace = syntheticTrace();
+  return {
+    kind: "arenaOpened", version: PROTOCOL.WORKER_PROTOCOL_VERSION, requestId,
+    spectator: true, one: ONE, scenario: "configured-duel-v1", mirrored: false,
+    fingerprint: "0x00000000deadbeef", seed: 3, heroes: "scripted", monsters: "scripted",
+    checkpoint: null, maxTicks: 3_600, arena: [48 * ONE, 32 * ONE],
+    poseLayoutVersion: ABI.POSE_LAYOUT_VERSION, poseStride: ABI.POSE_STRIDE,
+    regionLayoutVersion: ABI.REGION_LAYOUT_VERSION, regionStride: ABI.REGION_STRIDE,
+    regionsPerBody: ABI.REGIONS_PER_BODY,
+    articulatedProjectileLayoutVersion: ABI.ARTICULATED_PROJECTILE_LAYOUT_VERSION,
+    articulatedProjectileStride: ABI.ARTICULATED_PROJECTILE_STRIDE,
+    combatEventLayoutVersion: ABI.COMBAT_EVENT_LAYOUT_VERSION,
+    combatEventStride: ABI.COMBAT_EVENT_STRIDE,
+    impactThreshold: ONE / 4, contactEnergyFloor: 512,
+    bodySlot: 255, noRegion: 4_294_967_295,
+    regionNames: trace.regionNames, hintNames: trace.hintNames, contactKinds: trace.contactKinds,
+    bodies: trace.bodies,
+  };
+}
+
+/** One chunk of two-body frames, with chunk-relative index starts. */
+function syntheticChunk(requestId, firstFrame, frameCount) {
+  const bodies = 2;
+  const poses = new Uint32Array(frameCount * bodies * ABI.POSE_STRIDE);
+  const regions = new Uint32Array(frameCount * bodies * ABI.REGIONS_PER_BODY * ABI.REGION_STRIDE);
+  const index = new Uint32Array(frameCount * RECORDER.RECORDING_INDEX_STRIDE);
+  const health = new Int32Array(frameCount * 2);
+  for (let frame = 0; frame < frameCount; frame += 1) {
+    const tick = firstFrame + frame;
+    for (let body = 0; body < bodies; body += 1) {
+      const at = (frame * bodies + body) * ABI.POSE_STRIDE;
+      poses[at + ABI.POSE_ENTITY_INDEX] = body;
+      poses[at + ABI.POSE_ENTITY_GENERATION] = 1;
+      // Bodies eleven units apart and closing, so `adopt`'s default span and
+      // azimuth have something real to read.
+      poses[at + ABI.POSE_BODY_X] = body === 0 ? tick * 16 : 11 * ONE;
+    }
+    const at = frame * RECORDER.RECORDING_INDEX_STRIDE;
+    index[at + RECORDER.INDEX_TICK] = tick;
+    index[at + RECORDER.INDEX_POSE_START] = frame * bodies;
+    index[at + RECORDER.INDEX_POSE_COUNT] = bodies;
+    index[at + RECORDER.INDEX_REGION_START] = frame * bodies * ABI.REGIONS_PER_BODY;
+    index[at + RECORDER.INDEX_REGION_COUNT] = bodies * ABI.REGIONS_PER_BODY;
+    health[frame * 2] = ONE;
+    health[frame * 2 + 1] = ONE;
+  }
+  return {
+    kind: "arenaChunk", version: PROTOCOL.WORKER_PROTOCOL_VERSION, requestId,
+    firstFrame, frameCount,
+    poses: poses.buffer, regions: regions.buffer,
+    projectiles: new ArrayBuffer(0), events: new ArrayBuffer(0),
+    index: index.buffer, health: health.buffer,
+  };
+}
+
+function syntheticFinish(requestId, frameCount) {
+  return {
+    kind: "arenaFinished", version: PROTOCOL.WORKER_PROTOCOL_VERSION, requestId,
+    outcome: "Decision(Heroes)", timedOut: true, ticks: frameCount - 1, frameCount,
+    recordingTruncated: false,
+    posesDropped: 0, regionsDropped: 0, articulatedProjectilesDropped: 0, combatEventsDropped: 0,
+  };
+}
+
+/** Mount `#/arena`, press [Fight], and hand back the worker it built. */
+async function pressFight(harness) {
+  const { mount } = await import(compiled("client/src/arena/arena.js"));
+  const container = harness.container();
+  const handle = await mount(container, new URLSearchParams());
+  assert.equal(harness.workers.length, 0,
+    "the worker must not exist before Fight is pressed");
+  container.querySelector("#fight").click();
+  await settle();
+  const worker = harness.workers.at(-1);
+  assert.ok(worker !== undefined, "pressing Fight did not construct a worker");
+  const start = worker.sent.at(-1).message;
+  assert.equal(start.kind, "arenaStart");
+  return { container, handle, worker, requestId: start.requestId };
+}
+
+const tickOf = (container) => {
+  const shown = /tick (\d+)/.exec(container.querySelector("#tick").textContent);
+  return shown === null ? null : Number(shown[1]);
+};
+
+test("the_arena_draws_a_frame_before_the_fight_has_finished", async () => {
+  const harness = installDom();
+  try {
+    const { container, handle, worker, requestId } = await pressFight(harness);
+    // Nothing drawn yet, and the transport says so: the fight has been asked
+    // for and no frame of it exists.
+    assert.equal(tickOf(container), null);
+    assert.equal(container.querySelector("#scrub").disabled, true);
+
+    worker.emit(syntheticOpening(requestId));
+    await settle();
+    // **The opening draws no frame and names the fight**, which is the whole of
+    // what "knowable when" buys: there is nothing to draw and everything to say.
+    assert.equal(tickOf(container), null, "an opening message carries no frames");
+    assert.match(container.querySelector("#status").innerHTML, /scripted/);
+
+    worker.emit(syntheticChunk(requestId, 0, PROTOCOL.ARENA_STREAM_CHUNK_TICKS));
+    await settle();
+    // **This is the assertion the session exists for.** A frame is on screen and
+    // the fight has not finished: no `arenaFinished` has been posted, and the
+    // worker is by construction still producing.
+    assert.equal(tickOf(container), 0, "frame 0 must be drawn before the fight ends");
+    assert.equal(container.querySelector("#scrub").disabled, false,
+      "the transport must be usable on a fight that is still being produced");
+    assert.equal(container.querySelector("#scrub").max,
+      String(PROTOCOL.ARENA_STREAM_CHUNK_TICKS - 1),
+      "the scrub covers what has been produced, not what was asked for");
+    assert.equal(worker.sent.filter((one) => one.message.kind === "arenaFinished").length, 0);
+
+    // And the rest of the fight afterwards, so the check above is about the
+    // ordering rather than about a fake that posted everything at once.
+    const frames = PROTOCOL.ARENA_STREAM_CHUNK_TICKS * 3;
+    for (let first = PROTOCOL.ARENA_STREAM_CHUNK_TICKS; first < frames;
+      first += PROTOCOL.ARENA_STREAM_CHUNK_TICKS) {
+      worker.emit(syntheticChunk(requestId, first, PROTOCOL.ARENA_STREAM_CHUNK_TICKS));
+    }
+    worker.emit(syntheticFinish(requestId, frames));
+    await settle();
+    assert.equal(container.querySelector("#scrub").max, String(frames - 1));
+    assert.match(container.querySelector("#status").innerHTML, /Decision\(Heroes\)/);
+
+    await handle.dispose();
+    harness.dropSubtree(container);
+  } finally {
+    harness.restore();
+  }
+});
+
+test("a_fight_in_progress_reports_no_outcome_rather_than_a_default", async () => {
+  const harness = installDom();
+  try {
+    const { container, handle, worker, requestId } = await pressFight(harness);
+    worker.emit(syntheticOpening(requestId));
+    worker.emit(syntheticChunk(requestId, 0, PROTOCOL.ARENA_STREAM_CHUNK_TICKS));
+    await settle();
+    const during = container.querySelector("#status").innerHTML;
+    // **The three dishonest answers, each refused by name.** A default string
+    // claims a result that has not happened; an absent field prints as
+    // `undefined`; and `null` printed raw is the same thing wearing a type.
+    assert.doesNotMatch(during, /undefined/, "an unfinished fight printed undefined");
+    assert.doesNotMatch(during, /null/, "an unfinished fight printed its own null");
+    assert.doesNotMatch(during, /Decision|Draw|HeroesWin|MonstersWin|MutualDestruction/,
+      "an unfinished fight claimed an Outcome");
+    assert.doesNotMatch(during, /decided it/,
+      "an unfinished fight said what decided it");
+    assert.match(during, /still fighting at tick/);
+    assert.match(during, /still being produced/);
+
+    worker.emit(syntheticFinish(requestId, PROTOCOL.ARENA_STREAM_CHUNK_TICKS));
+    await settle();
+    const after = container.querySelector("#status").innerHTML;
+    assert.match(after, /Decision\(Heroes\)/);
+    assert.match(after, /the clock decided it/);
+    assert.doesNotMatch(after, /still fighting/);
+
+    await handle.dispose();
+    harness.dropSubtree(container);
+  } finally {
+    harness.restore();
+  }
+});
+
+test("a_starving_playhead_says_so_instead_of_stalling_silently", async () => {
+  const harness = installDom();
+  try {
+    const { container, handle, worker, requestId } = await pressFight(harness);
+    const chunk = PROTOCOL.ARENA_STREAM_CHUNK_TICKS;
+    worker.emit(syntheticOpening(requestId));
+    worker.emit(syntheticChunk(requestId, 0, chunk));
+    await settle();
+    // [Fight] plays: watching the fight happen is what the button now means.
+    assert.equal(container.querySelector("#play").textContent, "Pause");
+
+    // Run the playhead into the end of what has been produced, a display frame
+    // at a time: 17 ms is one simulation tick at 1x, so where it stops is the
+    // lead rather than the granularity of the step it took to get there.
+    let now = performance.now();
+    harness.runFrame(now);
+    for (let n = 0; n < 2 * chunk; n += 1) { now += 17; harness.runFrame(now); }
+    const held = tickOf(container);
+    // **Held rather than clamped, and said rather than hidden.** Clamping would
+    // stutter one frame at a time against the producer, which reads as a broken
+    // renderer; a page that silently stops advancing is indistinguishable from
+    // one that crashed.
+    //
+    // Where it stops is `produced - lead` exactly, which is what the lead *is*:
+    // the number of frames the playhead keeps in hand so that one late chunk is
+    // survivable. It is neither the last produced frame (that is the clamp this
+    // replaced) nor the first (that would be no playback at all).
+    assert.equal(held, chunk - PROTOCOL.ARENA_STREAM_LEAD_TICKS);
+    assert.ok(held < chunk - 1, "the playhead ran up against the producer");
+    assert.ok(held > 0, "the playhead never started");
+    assert.match(container.querySelector("#status").innerHTML,
+      /waiting for the fight to be produced/);
+
+    // And it resumes when production catches up, which is what makes the
+    // sentence above a state rather than a dead end.
+    worker.emit(syntheticChunk(requestId, chunk, chunk));
+    await settle();
+    for (let n = 0; n < 4; n += 1) { now += 17; harness.runFrame(now); }
+    assert.ok(tickOf(container) > held, "the playhead did not resume when frames arrived");
+    assert.doesNotMatch(container.querySelector("#status").innerHTML,
+      /waiting for the fight to be produced/);
+
+    await handle.dispose();
+    harness.dropSubtree(container);
+  } finally {
+    harness.restore();
+  }
+});
+
+test("a_cancelled_stream_keeps_the_frames_it_already_delivered", async () => {
+  const harness = installDom();
+  try {
+    const { container, handle, worker, requestId } = await pressFight(harness);
+    const chunk = PROTOCOL.ARENA_STREAM_CHUNK_TICKS;
+    worker.emit(syntheticOpening(requestId));
+    worker.emit(syntheticChunk(requestId, 0, chunk));
+    worker.emit(syntheticChunk(requestId, chunk, chunk));
+    await settle();
+    assert.equal(container.querySelector("#scrub").max, String(chunk * 2 - 1));
+
+    // The worker's own cancel refusal, which is what settles the *start*
+    // request. No `arenaFinished` follows it: a fight that was stopped has no
+    // outcome, and this channel does not invent one.
+    worker.emit({ kind: "arenaRejected", version: PROTOCOL.WORKER_PROTOCOL_VERSION, requestId,
+      reason: "cancelled", packed: 0, detail: "the recording was cancelled" });
+    await settle();
+
+    // **The frames survive the refusal.** They are the part of the fight the
+    // reader watched, and throwing them away because the last chunk never came
+    // would be the page forgetting something it had already shown.
+    assert.equal(tickOf(container) !== null, true, "a cancelled fight left no frame on screen");
+    assert.equal(container.querySelector("#scrub").disabled, false);
+    assert.equal(container.querySelector("#scrub").max, String(chunk * 2 - 1));
+    const status = container.querySelector("#status").innerHTML;
+    assert.match(status, /still fighting at tick/, "the fight it kept is still named");
+    assert.match(status, /cancelled/, "the refusal is not shown");
+    assert.doesNotMatch(status, /still being produced/,
+      "a stopped fight must stop claiming it is being produced");
+    // And the playhead stops waiting for a producer that has gone.
+    assert.equal(container.querySelector("#play").textContent, "Play");
+
+    await handle.dispose();
+    harness.dropSubtree(container);
   } finally {
     harness.restore();
   }

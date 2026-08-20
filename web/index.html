@@ -231,14 +231,40 @@
     .route-arena .legend { font-size: .8rem; color: #7a8796; display: flex; flex-wrap: wrap; gap: .9rem; }
     .route-arena .legend b { font-weight: 600; }
 
-    /* The loadout picker. One row a fighter, so the two rows read as a matchup
-       rather than as a form. */
+    /* The loadout picker: the page splits in half, A on the left and B on the
+       right, with the seed and [Fight] in a footer under both.
+
+       **The seed and the button are not side B's.** They were jammed into the
+       end of B's row when the picker was two stacked rows, which read as an
+       accident of the layout the moment the layout became two columns: they
+       belong to the matchup and a matchup has no side. `grid-column: 1 / -1`
+       is what says so in one line.
+
+       Both columns carry the same controls in the same order, deliberately,
+       because the whole subject of this screen is a comparison and a comparison
+       whose two halves are laid out differently is one a reader has to
+       translate. */
     .picker { display: grid; gap: .4rem; background: #151b23; border: 1px solid #24303d;
       border-radius: .4rem; padding: .5rem .65rem; }
-    .picker-row { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
-    .picker-row > .side { min-width: 5.5rem; font-weight: 600; }
-    .picker-row.hero > .side { color: #7fb2ff; }
-    .picker-row.monster > .side { color: #ff8f7a; }
+    .picker-sides { display: grid; grid-template-columns: 1fr 1fr; gap: .65rem; }
+    /* One column below 44rem, because two columns of dropdowns at a phone width
+       are two columns of nothing. */
+    @media (max-width: 44rem) { .picker-sides { grid-template-columns: 1fr; } }
+    .picker-side { display: grid; gap: .35rem; align-content: start;
+      background: #11161d; border: 1px solid #202a35; border-radius: .35rem; padding: .5rem; }
+    .picker-side > .side { font-weight: 600; }
+    .picker-side.hero > .side { color: #7fb2ff; }
+    .picker-side.monster > .side { color: #ff8f7a; }
+    .picker-side label { display: grid; grid-template-columns: 6.5rem 1fr; gap: .4rem;
+      align-items: center; }
+    .picker-side label.inline { grid-template-columns: 6.5rem auto; justify-items: start; }
+    .picker-side select { min-width: 0; }
+    .picker-side label[hidden] { display: none; }
+    .picker-footer { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center;
+      border-top: 1px solid #24303d; padding-top: .45rem; }
+    .picker-footer #picker-message { flex: 1 1 18rem; }
+    .picker-summary { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+    .picker-summary > span { flex: 1 1 18rem; color: #9fb0c2; font-size: .9rem; }
     #picker-message { font-size: .85rem; min-height: 1.4em; color: #d8b46a; }
     #picker-message.refused { color: #ff9d9d; }
 
@@ -437,67 +463,92 @@
              the 120-byte preset in `crates/web` that recognised it. A select
              with one option is a control that does nothing, so the row went with
              it rather than being left standing. -->
-        <div class="picker-row hero">
-          <span class="side">Fighter A</span>
-          <label>anatomy
-            <select id="a-anatomy">
-              <option value="fighter" selected>Fighter</option>
-              <option value="brute">Brute</option>
-            </select>
-          </label>
-          <label>left hand
-            <select id="a-left">
-              <option value="empty">empty</option>
-              <option value="sword">Sword</option>
-              <option value="shield" selected>Shield</option>
-              <option value="club">Club</option>
-              <option value="bow">Bow</option>
-            </select>
-          </label>
-          <label>right hand
-            <select id="a-right">
-              <option value="empty">empty</option>
-              <option value="sword" selected>Sword</option>
-              <option value="shield">Shield</option>
-              <option value="club">Club</option>
-              <option value="bow">Bow</option>
-            </select>
-          </label>
-          <label>two-handed <input id="a-two-handed" type="checkbox"></label>
-          <label>policy <select id="a-policy"></select></label>
+        <!-- **"driven by" is one control and not two**: the five policies plus
+             `you (keyboard and mouse)`, because a human side still needs a
+             policy for its off hand and two controls that must agree are two
+             controls that can disagree. Choosing the last entry is what reveals
+             the off-hand row beneath it; `showOffHandRows` in `picker.ts` owns
+             that, and `readMatchup` does not read a hidden one. The two lists
+             are filled by `populatePolicies` rather than written here, so the
+             template cannot drift from `PolicyKind`. -->
+        <div class="picker-sides" id="picker-sides">
+          <div class="picker-side hero">
+            <span class="side">Fighter A</span>
+            <label>anatomy
+              <select id="a-anatomy">
+                <option value="fighter" selected>Fighter</option>
+                <option value="brute">Brute</option>
+              </select>
+            </label>
+            <label>left hand
+              <select id="a-left">
+                <option value="empty">empty</option>
+                <option value="sword">Sword</option>
+                <option value="shield" selected>Shield</option>
+                <option value="club">Club</option>
+                <option value="bow">Bow</option>
+              </select>
+            </label>
+            <label>right hand
+              <select id="a-right">
+                <option value="empty">empty</option>
+                <option value="sword" selected>Sword</option>
+                <option value="shield">Shield</option>
+                <option value="club">Club</option>
+                <option value="bow">Bow</option>
+              </select>
+            </label>
+            <label class="inline">two-handed <input id="a-two-handed" type="checkbox"></label>
+            <label>driven by <select id="a-control"></select></label>
+            <label id="a-off-hand-row" hidden>off hand <select id="a-off-hand" disabled></select></label>
+          </div>
+          <div class="picker-side monster">
+            <span class="side">Fighter B</span>
+            <label>anatomy
+              <select id="b-anatomy">
+                <option value="fighter">Fighter</option>
+                <option value="brute" selected>Brute</option>
+              </select>
+            </label>
+            <label>left hand
+              <select id="b-left">
+                <option value="empty" selected>empty</option>
+                <option value="sword">Sword</option>
+                <option value="shield">Shield</option>
+                <option value="club">Club</option>
+                <option value="bow">Bow</option>
+              </select>
+            </label>
+            <label>right hand
+              <select id="b-right">
+                <option value="empty">empty</option>
+                <option value="sword">Sword</option>
+                <option value="shield">Shield</option>
+                <option value="club" selected>Club</option>
+                <option value="bow">Bow</option>
+              </select>
+            </label>
+            <label class="inline">two-handed <input id="b-two-handed" type="checkbox"></label>
+            <label>driven by <select id="b-control"></select></label>
+            <label id="b-off-hand-row" hidden>off hand <select id="b-off-hand" disabled></select></label>
+          </div>
         </div>
-        <div class="picker-row monster">
-          <span class="side">Fighter B</span>
-          <label>anatomy
-            <select id="b-anatomy">
-              <option value="fighter">Fighter</option>
-              <option value="brute" selected>Brute</option>
-            </select>
-          </label>
-          <label>left hand
-            <select id="b-left">
-              <option value="empty" selected>empty</option>
-              <option value="sword">Sword</option>
-              <option value="shield">Shield</option>
-              <option value="club">Club</option>
-              <option value="bow">Bow</option>
-            </select>
-          </label>
-          <label>right hand
-            <select id="b-right">
-              <option value="empty">empty</option>
-              <option value="sword">Sword</option>
-              <option value="shield">Shield</option>
-              <option value="club" selected>Club</option>
-              <option value="bow">Bow</option>
-            </select>
-          </label>
-          <label>two-handed <input id="b-two-handed" type="checkbox"></label>
-          <label>policy <select id="b-policy"></select></label>
+        <!-- The matchup's own row. The seed and the button belong to the pair
+             and not to Fighter B, whose column they used to sit at the end of. -->
+        <div class="picker-footer" id="picker-footer">
           <label>seed <input id="arena-seed" type="number" min="0" max="4294967295" value="3"></label>
+          <div id="picker-message"></div>
           <button id="fight" type="button">Run selected fight</button>
         </div>
-        <div id="picker-message"></div>
+        <!-- The `fight` phase's one line, in place of the two columns: the same
+             route, with the selection collapsed rather than a second route
+             carrying a second copy of the mount and dispose discipline that
+             `every_registration_that_outlives_the_route_subtree_is_released_in_the_same_file`
+             exists to hold. -->
+        <div class="picker-summary" id="picker-summary" hidden>
+          <span id="matchup-summary"></span>
+          <button id="change-matchup" type="button">Change</button>
+        </div>
       </div>
 
       <div id="status">Loading fight&hellip;</div>

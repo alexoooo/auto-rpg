@@ -217,7 +217,10 @@ export class SimWorkerHost {
   }
 
   /**
-   * Record one configured duel and post it back whole.
+   * Drive one configured duel and post it as it is produced.
+   *
+   * One `arenaOpened`, a run of `arenaChunk`s, one `arenaFinished` -- or, where
+   * the fight was stopped or refused, an `arenaRejected` in place of the last.
    *
    * **Refused rather than queued when a game session owns this worker.**
    * `arena_start` installs a world over `SIM`, so a recording started inside a
@@ -258,10 +261,21 @@ export class SimWorkerHost {
       const result = await recordArenaFight(
         wasm.arena, config, bytes, checkpoint,
         {
-          onProgress: (ticksDone, ticksTotal) => {
+          onOpened: (opened) => {
             if (this.fatal || this.terminated) return;
-            this.send({ kind: "arenaProgress", version: WORKER_PROTOCOL_VERSION,
-              requestId: message.requestId, ticksDone, ticksTotal });
+            this.send({ kind: "arenaOpened", version: WORKER_PROTOCOL_VERSION,
+              requestId: message.requestId, ...opened });
+          },
+          // **Six buffers, transferred, per chunk.** The count is read off this
+          // list and not off a sentence: the reference said five for two
+          // sessions while the code moved six, because `projectiles` was
+          // omitted from a table nobody re-counted.
+          onChunk: (chunk) => {
+            if (this.fatal || this.terminated) return;
+            this.send({ kind: "arenaChunk", version: WORKER_PROTOCOL_VERSION,
+              requestId: message.requestId, ...chunk },
+            [chunk.poses, chunk.regions, chunk.projectiles,
+              chunk.events, chunk.index, chunk.health]);
           },
           // A macrotask and not a microtask. A worker services no message while
           // JavaScript is on the stack, and a microtask queue drains before the
@@ -273,16 +287,14 @@ export class SimWorkerHost {
       );
       if (this.fatal || this.terminated) return;
       if (!result.ok) {
+        // **A cancel settles the start request and keeps the chunks already
+        // posted.** The page owns what it has drawn; what it does not get is an
+        // `arenaFinished`, because a fight that was stopped has no outcome and
+        // this channel does not invent one.
         return this.arenaRejected(message.requestId, result.reason, result.packed, result.detail);
       }
-      const recording = {
-        kind: "fightRecording" as const, version: WORKER_PROTOCOL_VERSION,
-        requestId: message.requestId, ...result.recording,
-      };
-      this.send(recording, [
-        recording.poses, recording.regions, recording.projectiles,
-        recording.events, recording.index, recording.health,
-      ]);
+      this.send({ kind: "arenaFinished", version: WORKER_PROTOCOL_VERSION,
+        requestId: message.requestId, ...result.finished });
     } catch (error) {
       if (!this.fatal && !this.terminated) this.error(message.requestId, this.fatalCode(error), true, String(error));
     } finally {

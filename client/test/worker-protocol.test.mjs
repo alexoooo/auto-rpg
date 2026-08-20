@@ -31,7 +31,7 @@ const { SimClient } = require(path.join(OUT, "client/src/runtime/sim-client.js")
 const { parseSnapshot, MAP_UNKNOWN } = require(path.join(OUT, "client/src/state/snapshot.js"));
 const CONFIG = require(path.join(OUT, "client/src/runtime/arena-config.js"));
 const RECORDER = require(path.join(OUT, "client/src/runtime/arena-recorder.js"));
-const { LiveFightSource } = require(path.join(OUT, "client/src/fight/live.js"));
+const { StreamingFightSource } = require(path.join(OUT, "client/src/fight/live.js"));
 const { ArenaClient } = require(path.join(OUT, "client/src/runtime/arena-client.js"));
 
 /** Let every already-resolved promise run: a run() awaits a fetch before posting. */
@@ -80,6 +80,15 @@ class FakeArena {
   }
   fingerprint() { return "0x00000000deadbeef"; }
   policy(faction) { return this.config[8 + faction * 56 + 1]; }
+  // **Read out of the staged bytes, exactly as `policy` is, and not out of a
+  // field the test set.** A fake that answered what it was told would make the
+  // recorder's read-back a comparison of a value with itself; reading byte 2 of
+  // the fighter block makes it a claim about the encoder and the offset.
+  //
+  // Landed in arena-02 ahead of the `recordArenaFight` read-back that consumes
+  // it, because `arena-recorder.ts` belongs to another session in this wave and
+  // the two halves cannot go in one commit.
+  control(faction) { return this.config[8 + faction * 56 + 2]; }
   tick() { return this.now; }
   step() {
     this.steps += 1;
@@ -1174,10 +1183,16 @@ test("vite_dev_serves_the_studio_shell_its_game_route_and_the_wasm_from_the_web_
 const arenaConfig = ({
   policies = [1, 2], hands = [["shield", "sword"], ["empty", "club"]],
   twoHanded = [false, false], anatomies = [0, 1], seed = 3, maxTicks = 16,
+  // `ARENA_CONTROL_POLICY` on both sides, which is every fight this build can
+  // install: `arena_start` refuses `ARENA_CONTROL_HUMAN` with
+  // `ARENA_CONTROL_UNAVAILABLE` until arena-05. Overridable so the encoder and
+  // decoder can be driven over both values without waiting for that session.
+  controls = [0, 0],
 } = {}) => ({
   fighters: [0, 1].map((side) => ({
     anatomy: anatomies[side],
     policy: policies[side],
+    control: controls[side],
     spawn: CONFIG.SHIPPED_SPAWNS[side],
     hands: [CONFIG.HAND_ITEMS[hands[side][0]], CONFIG.HAND_ITEMS[hands[side][1]]],
     twoHanded: twoHanded[side],
@@ -1201,10 +1216,74 @@ function arenaHost(arena) {
   return { host, sent };
 }
 
+/**
+ * Drive one fight through the host and keep everything it posted.
+ *
+ * **Three messages rather than one, and `last` is still the last of them** -- an
+ * `arenaFinished` where the fight ran and an `arenaRejected` where it did not, so
+ * the refusal tests below read `last` exactly as they did. The tests about the
+ * fight itself read the stream.
+ */
 async function record(arena, config, checkpoint = null) {
   const { host, sent } = arenaHost(arena);
   await host.handle(arenaStartMessage(config, 1, checkpoint));
-  return { host, sent, last: sent.at(-1).message };
+  const of = (kind) => messages(sent, kind);
+  const opened = of("arenaOpened")[0] ?? null;
+  const chunks = of("arenaChunk");
+  const finished = of("arenaFinished")[0] ?? null;
+  return {
+    host, sent, last: sent.at(-1).message, opened, chunks, finished,
+    /** The source a page would hold, built the way `ArenaClient` builds one. */
+    source: () => {
+      const source = new StreamingFightSource(opened);
+      for (const chunk of chunks) source.adopt(chunk);
+      if (finished !== null) source.finish(finished);
+      return source;
+    },
+    whole: () => wholeFight(opened, chunks),
+  };
+}
+
+/**
+ * Every chunk's rows in one whole-fight recording, with the starts rebased back.
+ *
+ * **A check as much as a convenience.** The chunks have to tile the fight --
+ * contiguous frames, contiguous rows, and index starts that invert the rebase the
+ * drive applied -- and a producer that overlapped or skipped a row would still
+ * decode frame by frame while failing here.
+ */
+function wholeFight(opened, chunks) {
+  const sections = [
+    ["poses", opened.poseStride, RECORDER.INDEX_POSE_START],
+    ["regions", opened.regionStride, RECORDER.INDEX_REGION_START],
+    ["projectiles", opened.articulatedProjectileStride, RECORDER.INDEX_PROJECTILE_START],
+    ["events", opened.combatEventStride, RECORDER.INDEX_EVENT_START],
+  ];
+  const parts = new Map(sections.map(([name]) => [name, []]));
+  const bases = new Map(sections.map(([name]) => [name, 0]));
+  const index = [];
+  const health = [];
+  let frames = 0;
+  for (const chunk of chunks) {
+    assert.equal(chunk.firstFrame, frames, "the chunks do not tile the fight");
+    const words = new Uint32Array(chunk.index);
+    for (let frame = 0; frame < chunk.frameCount; frame += 1) {
+      const at = frame * RECORDER.RECORDING_INDEX_STRIDE;
+      const row = words.slice(at, at + RECORDER.RECORDING_INDEX_STRIDE);
+      for (const [name, , start] of sections) row[start] += bases.get(name);
+      index.push(...row);
+    }
+    for (const [name, stride] of sections) {
+      const rows = new Uint32Array(chunk[name]);
+      parts.get(name).push(...rows);
+      bases.set(name, bases.get(name) + rows.length / stride);
+    }
+    health.push(...new Int32Array(chunk.health));
+    frames += chunk.frameCount;
+  }
+  const out = { frameCount: frames, index: Uint32Array.from(index), health: Int32Array.from(health) };
+  for (const [name] of sections) out[name] = Uint32Array.from(parts.get(name));
+  return out;
 }
 
 test("the_arena_configuration_round_trips_through_its_own_bytes", () => {
@@ -1225,12 +1304,43 @@ test("the_arena_configuration_round_trips_through_its_own_bytes", () => {
   assert.equal(emptyHand[0], CONFIG.EMPTY_HAND_CODE);
   assert.deepEqual([...emptyHand.subarray(1)], new Array(21).fill(0));
   // A length or a layout this build does not know is refused rather than read.
-  // `1` is the retired layout whose hand byte was reserved-zero, and reading it
-  // under today's rules would misread that byte as a grip.
+  // `1` is the retired layout whose hand byte was reserved-zero and `2` is the
+  // one whose *fighter* byte 2 was, and reading either under today's rules
+  // would misread a byte the writer promised was nothing: `1`'s as a grip and
+  // `2`'s as a control. Both refused, and `3` accepted beside them, so
+  // "everything is refused" cannot pass for this.
   assert.equal(CONFIG.decodeArenaConfig(bytes.subarray(0, 119), 3), null);
-  const wrongLayout = Uint8Array.from(bytes);
-  new DataView(wrongLayout.buffer).setUint16(0, 1, true);
-  assert.equal(CONFIG.decodeArenaConfig(wrongLayout, 3), null);
+  for (const layout of [0, 1, 2, 4]) {
+    const wrongLayout = Uint8Array.from(bytes);
+    new DataView(wrongLayout.buffer).setUint16(0, layout, true);
+    assert.equal(CONFIG.decodeArenaConfig(wrongLayout, 3), null,
+      `layout ${layout} was read rather than refused`);
+  }
+  // **The version itself is deliberately not written down here as a literal.**
+  // It would read as diligence and would be an eighth place a 3-to-4 bump has to
+  // edit, for no claim the round-trip above does not already make: the encoder
+  // writes this constant, the decoder refuses anything else, and `checkLayout`
+  // in `arena-recorder.ts` compares it against `arena_config_layout_version()`
+  // at warm-up, so a one-sided bump throws before a fight starts. The literal
+  // that does exist is `tools/wasm_check.js`'s, which is a *mirror* rather than
+  // an importer and has nothing else to compare against.
+
+  // The control byte round-trips through byte 2 of each fighter block, on both
+  // values and independently per side. Written even when it is zero, which is
+  // the one place this encoder differs from its rule about reserved zeroes: a
+  // zero here means `ARENA_CONTROL_POLICY` and a zero in byte 3 means nothing
+  // at all, and the buffer cannot tell a reader which is which.
+  const driven = arenaConfig({ controls: [CONFIG.ARENA_CONTROL_HUMAN, CONFIG.ARENA_CONTROL_POLICY] });
+  const drivenBytes = CONFIG.encodeArenaConfig(driven);
+  assert.equal(drivenBytes[8 + 2], CONFIG.ARENA_CONTROL_HUMAN);
+  assert.equal(drivenBytes[8 + 56 + 2], CONFIG.ARENA_CONTROL_POLICY);
+  assert.equal(drivenBytes[8 + 3], 0, "the fighter block's reserved byte is still byte 3");
+  assert.equal(drivenBytes[8 + 56 + 3], 0);
+  assert.deepEqual(CONFIG.decodeArenaConfig(drivenBytes, driven.seed), driven);
+  // And the default is the policy control on both sides, so every other test in
+  // this file is describing a fight `arena_start` will actually install.
+  assert.deepEqual(bytes[8 + 2], CONFIG.ARENA_CONTROL_POLICY);
+  assert.deepEqual(bytes[8 + 56 + 2], CONFIG.ARENA_CONTROL_POLICY);
 
   // The grip round-trips beside everything else: byte 1 of the right hand
   // block, and only on the side that asked for it.
@@ -1305,30 +1415,59 @@ test("an_arena_refusal_reads_its_policy_code_and_not_a_hand_index", () => {
   const whole = CONFIG.decodeArenaRefusal(packed(1, 255, 255));
   assert.deepEqual([whole.fighter, whole.hand, whole.policy], [null, null, null]);
   // Every declared reason has a sentence of its own, which is the whole reason
-  // the module answers twenty-seven codes rather than one opaque zero.
+  // the module answers a code a reader can act on rather than one opaque zero.
+  //
+  // **The count is derived and not spelled**, and that is a correction: the
+  // sentence here read "twenty-seven codes" while the assertion below said 28,
+  // so the prose was already wrong by one before arena-02 took it to 30. That
+  // is the same defect `picker.ts` shipped three times -- a refusal sentence
+  // reading "the six articulated policy codes" over a table of seven rows and
+  // then five -- and the fix is the same one: build the number from the table
+  // rather than writing it down twice.
+  const reasons = Object.keys(CONFIG.ARENA_REFUSALS).map(Number);
   const sentences = new Set(Object.values(CONFIG.ARENA_REFUSALS));
-  assert.equal(sentences.size, Object.keys(CONFIG.ARENA_REFUSALS).length);
-  assert.equal(Object.keys(CONFIG.ARENA_REFUSALS).length, 28);
+  assert.equal(sentences.size, reasons.length);
+  // The table is `0..N` with no gaps, which is what `reasons_are_dense` asserts
+  // on the other side of the wall -- so a code added to one and not the other
+  // is a hole here rather than a number nobody compares.
+  assert.deepEqual(reasons, reasons.map((_, index) => index));
+  // The two the layout bump added, at the top of a dense table, so the highest
+  // index is the newest code and the assertion below it still points at Bow.
+  assert.equal(reasons.length, 30);
+  assert.equal(reasons.at(-1), CONFIG.ARENA_CONTROL_UNAVAILABLE);
+  assert.match(CONFIG.ARENA_REFUSALS[CONFIG.ARENA_UNKNOWN_CONTROL], /control code/i);
+  assert.match(CONFIG.ARENA_REFUSALS[CONFIG.ARENA_CONTROL_UNAVAILABLE], /driven by you.*input path/i);
   assert.match(CONFIG.ARENA_REFUSALS[27], /bow.*right-hand.*two-handed/i);
 });
 
 test("a_recorded_fight_transfers_its_buffers_and_its_index", async () => {
   const arena = new FakeArena({ ticks: 16 });
-  const { sent, last } = await record(arena, arenaConfig());
-  assert.equal(last.kind, "fightRecording");
-  assert.equal(last.spectator, true, "the arena's unfiltered ground truth must say so in the message");
-  assert.equal(last.ticks, 16);
-  assert.equal(last.frameCount, 17, "one frame before the first step and one after every step");
-  assert.equal(last.recordingTruncated, false);
-  assert.equal(last.heroes, "scripted");
-  assert.equal(last.monsters, "scripted-level");
-  assert.equal(last.fingerprint, "0x00000000deadbeef");
-  assert.equal(last.checkpoint, null);
+  const { sent, opened, chunks, finished } = await record(arena, arenaConfig());
+  // **One opening, a run of chunks, one finish**, and the split is along what is
+  // knowable when: the opening names the fight before a frame of it exists and
+  // the finish carries only what could not be known until it stopped.
+  assert.deepEqual(sent.map((entry) => entry.message.kind),
+    ["arenaOpened", ...chunks.map(() => "arenaChunk"), "arenaFinished"]);
+  assert.equal(opened.spectator, true, "the arena's unfiltered ground truth must say so in the message");
+  assert.equal(opened.outcome, undefined, "an opening message cannot know the outcome");
+  assert.equal(finished.ticks, 16);
+  assert.equal(finished.frameCount, 17, "one frame before the first step and one after every step");
+  assert.equal(finished.recordingTruncated, false);
+  assert.equal(opened.heroes, "scripted");
+  assert.equal(opened.monsters, "scripted-level");
+  assert.equal(opened.fingerprint, "0x00000000deadbeef");
+  assert.equal(opened.checkpoint, null);
   assert.equal(arena.warmed, 1, "the allocating calls run once, before any buffer exists");
-  // Every buffer is transferred rather than copied: six of them, in order.
-  assert.deepEqual(sent.at(-1).transfer,
-    [last.poses, last.regions, last.projectiles, last.events, last.index, last.health]);
-  const source = new LiveFightSource(last);
+  assert.equal(chunks.length, Math.ceil(17 / MSG.ARENA_STREAM_CHUNK_TICKS));
+  // Every buffer is transferred rather than copied: six of them, in order, on
+  // every chunk. The count is read off the message and not off a sentence --
+  // `worker-protocol.md` said five for two sessions while the code moved six.
+  for (const entry of sent.filter((one) => one.message.kind === "arenaChunk")) {
+    const chunk = entry.message;
+    assert.deepEqual(entry.transfer,
+      [chunk.poses, chunk.regions, chunk.projectiles, chunk.events, chunk.index, chunk.health]);
+  }
+  const source = (await record(arena, arenaConfig())).source();
   assert.equal(source.frameCount(), 17);
   for (let frame = 0; frame < source.frameCount(); frame += 1) {
     assert.equal(source.frameAt(frame).t, frame, "the index carries its own tick word");
@@ -1337,6 +1476,7 @@ test("a_recorded_fight_transfers_its_buffers_and_its_index", async () => {
     assert.equal(source.frameAt(frame).poses[0].regions.length, ABI.REGIONS_PER_BODY);
   }
   assert.throws(() => source.frameAt(17), /out of range/);
+  assert.equal(source.header.outcome, "Decision(Heroes)", "the finish fills the header in");
   // The five columns the event row does not carry are null and not zero: a zero
   // closing speed is a measurement and a reader cannot tell it from an absence.
   const contact = source.frameAt(3).contacts[0];
@@ -1348,8 +1488,8 @@ test("the_index_survives_a_death", async () => {
   // kill looks like from this side: pose_len is one per **live** articulated
   // body.
   const arena = new FakeArena({ ticks: 20, deathTick: 9 });
-  const { last } = await record(arena, arenaConfig({ maxTicks: 20 }));
-  const source = new LiveFightSource(last);
+  const recorded = await record(arena, arenaConfig({ maxTicks: 20 }));
+  const source = recorded.source();
   assert.equal(source.frameAt(8).poses.length, 2);
   assert.equal(source.frameAt(9).poses.length, 1);
   assert.equal(source.frameAt(20).poses.length, 1);
@@ -1362,9 +1502,13 @@ test("the_index_survives_a_death", async () => {
   // the arithmetic a reader without an index would do, and after the death it
   // lands on a different row of the same buffer -- so deleting the index cannot
   // leave this test passing.
-  const poses = new Uint32Array(last.poses);
+  // The whole fight, put back together out of the chunks -- which is only
+  // possible because the drive's rebase is invertible, and is itself the check
+  // that the chunks tile the fight rather than overlapping or skipping.
+  const whole = recorded.whole();
+  const poses = whole.poses;
   const strided = 20 * 2 * ABI.POSE_STRIDE + ABI.POSE_BODY_X;
-  const indexed = new Uint32Array(last.index);
+  const indexed = whole.index;
   const start = indexed[20 * RECORDER.RECORDING_INDEX_STRIDE + RECORDER.INDEX_POSE_START];
   assert.notEqual(start, 20 * 2, "the recording must actually have gone short of two rows a tick");
   assert.notEqual(poses[strided], poses[start * ABI.POSE_STRIDE + ABI.POSE_BODY_X]);
@@ -1375,14 +1519,14 @@ test("the_index_survives_a_death", async () => {
   assert.equal(indexed[20 * RECORDER.RECORDING_INDEX_STRIDE + RECORDER.INDEX_REGION_COUNT],
     ABI.REGIONS_PER_BODY);
   // The outcome the module would have answered, from the alive counts alone.
-  assert.deepEqual([last.outcome, last.timedOut], ["HeroesWin", false]);
+  assert.deepEqual([recorded.finished.outcome, recorded.finished.timedOut], ["HeroesWin", false]);
 });
 
 test("a_projectile_row_uses_its_own_index_extent_and_stable_identity", async () => {
-  const { last } = await record(
+  const recorded = await record(
     new FakeArena({ ticks: 3, projectileAt: 2 }), arenaConfig({ maxTicks: 3 }),
   );
-  const source = new LiveFightSource(last);
+  const source = recorded.source();
   assert.equal(source.frameAt(1).projectiles.length, 0);
   assert.deepEqual(source.frameAt(2).projectiles, [{
     id: [4, 7], owner: [0, 1], position: [1234, 0, 0], velocity: [5678, 0, 0],
@@ -1390,7 +1534,7 @@ test("a_projectile_row_uses_its_own_index_extent_and_stable_identity", async () 
   }]);
   assert.equal(source.frameAt(3).projectiles.length, 0,
     "a reaped projectile is retired rather than repeated from the preceding extent");
-  const index = new Uint32Array(last.index);
+  const index = recorded.whole().index;
   assert.equal(index[2 * RECORDER.RECORDING_INDEX_STRIDE + RECORDER.INDEX_PROJECTILE_COUNT], 1);
 });
 
@@ -1403,17 +1547,22 @@ test("a_truncated_recording_says_so", async () => {
   const arena = new FakeArena({ ticks: 400, eventsPerTick: 100 });
   assert.ok(400 * 100 > RECORDER.RECORDING_EVENT_ROW_CAP,
     "the scripted feed no longer overruns the cap, so this test proves nothing");
-  const { last } = await record(arena, arenaConfig({ maxTicks: 400 }));
-  assert.equal(last.recordingTruncated, true);
-  assert.ok(last.frameCount < 401, "a truncated recording holds fewer frames than the fight has ticks");
-  assert.ok(new Uint32Array(last.events).length / ABI.COMBAT_EVENT_STRIDE
+  const recorded = await record(arena, arenaConfig({ maxTicks: 400 }));
+  const { finished } = recorded;
+  assert.equal(finished.recordingTruncated, true);
+  assert.ok(finished.frameCount < 401, "a truncated recording holds fewer frames than the fight has ticks");
+  // **The cap is still a whole-fight cap and not a per-chunk one**, which is why
+  // the rows are counted over the reassembled fight: splitting it per chunk would
+  // need a second measured corpus, and `recordingTruncated` would stop meaning
+  // what it means.
+  assert.ok(recorded.whole().events.length / ABI.COMBAT_EVENT_STRIDE
     <= RECORDER.RECORDING_EVENT_ROW_CAP, "the event cap was exceeded");
   // A recording that stopped early has not watched the fight end, so it must
   // not claim an outcome it did not see.
-  assert.match(last.outcome, /truncated/);
-  assert.equal(last.timedOut, false);
-  const source = new LiveFightSource(last);
-  assert.equal(source.frameCount(), last.frameCount);
+  assert.match(finished.outcome, /truncated/);
+  assert.equal(finished.timedOut, false);
+  const source = recorded.source();
+  assert.equal(source.frameCount(), finished.frameCount);
   assert.equal(source.frameAt(source.frameCount() - 1).contacts.length, 100);
 });
 
@@ -1429,16 +1578,23 @@ test("a_cancelled_recording_leaves_the_worker_able_to_start_another_fight", asyn
   await running;
   const rejected = messages(sent, "arenaRejected").at(-1);
   assert.deepEqual([rejected.reason, rejected.requestId], ["cancelled", 1]);
-  assert.equal(messages(sent, "fightRecording").length, 0);
-  assert.ok(messages(sent, "arenaProgress").length > 0, "a chunked drive reports its progress");
+  // **No `arenaFinished`, and the chunks already posted are not taken back.** A
+  // fight that was stopped has no outcome for a finish message to carry, and the
+  // frames that crossed are the part of it the reader watched.
+  assert.equal(messages(sent, "arenaFinished").length, 0);
+  const delivered = messages(sent, "arenaChunk");
+  assert.ok(delivered.length >= Math.floor(RECORDER.RECORDING_CHUNK_TICKS / MSG.ARENA_STREAM_CHUNK_TICKS),
+    `a cancel after one window delivered only ${delivered.length} chunks`);
+  assert.equal(messages(sent, "arenaProgress").length, 0,
+    "arenaProgress is deleted: a chunk already says how far the fight has got");
 
   // **Started again, for real.** A trap behind a `pub extern "C"` export poisons
   // the instance for the life of the page, so "cancel left it usable" is only
   // demonstrated by using it.
   arena.ticks = 12;
   await host.handle(arenaStartMessage(arenaConfig({ maxTicks: 12 }), 3));
-  const recording = messages(sent, "fightRecording").at(-1);
-  assert.deepEqual([recording.requestId, recording.ticks], [3, 12]);
+  const second = messages(sent, "arenaFinished").at(-1);
+  assert.deepEqual([second.requestId, second.ticks], [3, 12]);
   assert.deepEqual([arena.starts, arena.warmed], [2, 2]);
 });
 
@@ -1451,7 +1607,7 @@ test("a_second_recording_while_one_runs_is_refused_as_busy", async () => {
   const refused = messages(sent, "arenaRejected").at(-1);
   assert.deepEqual([refused.requestId, refused.reason], [2, "arenaBusy"]);
   await running;
-  assert.equal(messages(sent, "fightRecording").length, 1);
+  assert.equal(messages(sent, "arenaFinished").length, 1);
   assert.equal(arena.starts, 1);
 });
 
@@ -1467,7 +1623,7 @@ test("a_game_session_and_an_arena_recording_refuse_to_share_one_worker", async (
   const arena = new FakeArena({ ticks: 4 });
   const { host: second, sent: secondSent } = arenaHost(arena);
   await second.handle(arenaStartMessage(arenaConfig({ maxTicks: 4 }), 1));
-  assert.equal(messages(secondSent, "fightRecording").length, 1);
+  assert.equal(messages(secondSent, "arenaFinished").length, 1);
   await second.handle({ ...initMessage(2), version: MSG.WORKER_PROTOCOL_VERSION });
   assert.equal(messages(secondSent, "error").at(-1).code, "alreadyInitialized");
   assert.equal(second.diagnostics().initialized, false);
@@ -1524,11 +1680,11 @@ test("an_installed_checkpoint_is_named_in_the_recording", async () => {
   // now, and `4` is `tactical-fixed-guard` where it was `learned`.
   const digest = "7a05fc8c76ad47858ac69f770d595fa556b1bfb81dbf7d62ced831e751e26b6c";
   const arena = new FakeArena({ ticks: 4, digest });
-  const { last } = await record(arena, arenaConfig({ policies: [4, 2] }), new ArrayBuffer(15_580));
-  assert.equal(last.kind, "fightRecording");
-  assert.equal(last.checkpoint, digest);
-  assert.equal(last.heroes, "tactical-fixed-guard");
-  assert.equal(last.monsters, "scripted-level");
+  const { opened } = await record(arena, arenaConfig({ policies: [4, 2] }), new ArrayBuffer(15_580));
+  assert.equal(opened.kind, "arenaOpened");
+  assert.equal(opened.checkpoint, digest);
+  assert.equal(opened.heroes, "tactical-fixed-guard");
+  assert.equal(opened.monsters, "scripted-level");
 });
 
 test("a_legacy_v1_session_is_accepted_and_refused_the_arena_kinds", async () => {
@@ -1604,31 +1760,65 @@ function arenaClientHarness() {
   return { worker, client };
 }
 
-const recordingMessage = (requestId, over) => ({
-  kind: "fightRecording", version: MSG.WORKER_PROTOCOL_VERSION, requestId,
+/** A stream for a test about correlation rather than about frames. */
+const noStream = () => ({ onOpened: () => {}, onChunk: () => {} });
+
+// **`recordingMessage` stood here and is three messages now.** The channel posts
+// an opening, a run of chunks and a finish; a fixture that was one object could
+// only stand in for a fight that had already ended, which is exactly what the
+// page could not draw.
+const openedMessage = (requestId, over = {}) => ({
+  kind: "arenaOpened", version: MSG.WORKER_PROTOCOL_VERSION, requestId,
   spectator: true, one: 65_536, scenario: "configured-duel-v1", mirrored: false,
   fingerprint: "0x00000000deadbeef", seed: 3, heroes: "scripted", monsters: "tactical",
-  checkpoint: null, outcome: "Draw", timedOut: true, ticks: 2, maxTicks: 3_600,
-  frameCount: 3, recordingTruncated: false, arena: [0, 0],
+  checkpoint: null, maxTicks: 3_600, arena: [0, 0],
   poseLayoutVersion: 1, poseStride: ABI.POSE_STRIDE,
   regionLayoutVersion: 1, regionStride: ABI.REGION_STRIDE, regionsPerBody: ABI.REGIONS_PER_BODY,
   articulatedProjectileLayoutVersion: 1,
   articulatedProjectileStride: ABI.ARTICULATED_PROJECTILE_STRIDE,
   combatEventLayoutVersion: 1, combatEventStride: ABI.COMBAT_EVENT_STRIDE,
-  posesDropped: 0, regionsDropped: 0, articulatedProjectilesDropped: 0,
-  combatEventsDropped: 0,
   impactThreshold: 3_932, contactEnergyFloor: 144, bodySlot: 255, noRegion: 4_294_967_295,
   regionNames: [], hintNames: [], contactKinds: [], bodies: [],
-  poses: new ArrayBuffer(0), regions: new ArrayBuffer(0), projectiles: new ArrayBuffer(0),
-  events: new ArrayBuffer(0),
-  index: new ArrayBuffer(0), health: new ArrayBuffer(0),
   ...over,
 });
 
-test("the_arena_client_transfers_its_configuration_and_reports_progress", async () => {
+/** One frame with no bodies in it: enough to be a chunk, and nothing to draw. */
+const chunkMessage = (requestId, over = {}) => ({
+  kind: "arenaChunk", version: MSG.WORKER_PROTOCOL_VERSION, requestId,
+  firstFrame: 0, frameCount: 1,
+  poses: new ArrayBuffer(0), regions: new ArrayBuffer(0), projectiles: new ArrayBuffer(0),
+  events: new ArrayBuffer(0),
+  index: new Uint32Array(RECORDER.RECORDING_INDEX_STRIDE).buffer,
+  health: new Int32Array(2).buffer,
+  ...over,
+});
+
+const finishedMessage = (requestId, over = {}) => ({
+  kind: "arenaFinished", version: MSG.WORKER_PROTOCOL_VERSION, requestId,
+  outcome: "Draw", timedOut: true, ticks: 0, frameCount: 1, recordingTruncated: false,
+  posesDropped: 0, regionsDropped: 0, articulatedProjectilesDropped: 0,
+  combatEventsDropped: 0,
+  ...over,
+});
+
+/** The whole channel for one request, in the order a worker posts it. */
+const emitFight = (worker, requestId, over = {}) => {
+  worker.emitMessage(openedMessage(requestId, over));
+  worker.emitMessage(chunkMessage(requestId));
+  worker.emitMessage(finishedMessage(requestId));
+};
+
+test("the_arena_client_transfers_its_configuration_and_streams_the_fight", async () => {
+  // **Renamed rather than kept.** It was `..._and_reports_progress`, and the
+  // progress message is deleted: a chunk already says how far the fight has got,
+  // and the page is drawing that frame. A test whose name outlives the behaviour
+  // it named is the next reader's wrong turn.
   const { worker, client } = arenaClientHarness();
   const seen = [];
-  const running = client.run(arenaConfig(), (done, total) => seen.push([done, total]));
+  const running = client.run(arenaConfig(), {
+    onOpened: (source) => seen.push(["opened", source.frameCount()]),
+    onChunk: (source) => seen.push(["chunk", source.frameCount()]),
+  });
   await settle();
   const posted = worker.sent.at(-1);
   assert.equal(posted.message.kind, "arenaStart");
@@ -1640,16 +1830,20 @@ test("the_arena_client_transfers_its_configuration_and_reports_progress", async 
   assert.deepEqual(posted.transfer, [posted.message.config]);
   const requestId = posted.message.requestId;
 
-  // A progress message for another request is not this one's, and the whole
-  // point of a request id is that it says so.
-  worker.emitMessage({ kind: "arenaProgress", version: MSG.WORKER_PROTOCOL_VERSION,
-    requestId: requestId + 99, ticksDone: 1, ticksTotal: 2 });
-  worker.emitMessage({ kind: "arenaProgress", version: MSG.WORKER_PROTOCOL_VERSION,
-    requestId, ticksDone: 300, ticksTotal: 3_600 });
-  worker.emitMessage(recordingMessage(requestId));
+  // A message for another request is not this one's, and the whole point of a
+  // request id is that it says so.
+  worker.emitMessage(openedMessage(requestId + 99));
+  worker.emitMessage(openedMessage(requestId));
+  worker.emitMessage(chunkMessage(requestId + 99));
+  worker.emitMessage(chunkMessage(requestId));
+  worker.emitMessage(finishedMessage(requestId));
   const fight = await running;
-  assert.deepEqual(seen, [[300, 3_600]]);
-  assert.equal(fight.spectator, true);
+  // **The source grows and is not replaced.** The object handed to `onOpened`
+  // before a frame existed is the one the promise answers with, which is what
+  // lets a page draw frame 0 and go on looking at the same fight.
+  assert.deepEqual(seen, [["opened", 0], ["chunk", 1]]);
+  assert.equal(fight.header.scenario, "configured-duel-v1");
+  assert.equal(fight.header.outcome, "Draw");
   assert.equal(fight.kind, undefined, "the protocol envelope must not reach the source");
   assert.equal(fight.requestId, undefined);
 });
@@ -1659,7 +1853,7 @@ test("a_fatal_worker_error_settles_a_recording_it_does_not_name", async () => {
   // client correlating on the id alone would leave the promise pending forever
   // and the page saying "Recording..." with nothing recording.
   const { worker, client } = arenaClientHarness();
-  const running = client.run(arenaConfig(), () => {});
+  const running = client.run(arenaConfig(), noStream());
   await settle();
   worker.emitMessage({ kind: "error", version: MSG.WORKER_PROTOCOL_VERSION, requestId: null,
     epoch: 1, code: "wasmTrap", fatal: true, detail: "deliberate trap" });
@@ -1668,7 +1862,7 @@ test("a_fatal_worker_error_settles_a_recording_it_does_not_name", async () => {
 
   // And a `terminated`, which is likewise unsolicited.
   const second = arenaClientHarness();
-  const pending = second.client.run(arenaConfig(), () => {});
+  const pending = second.client.run(arenaConfig(), noStream());
   await settle();
   second.worker.emitMessage({ kind: "terminated", version: MSG.WORKER_PROTOCOL_VERSION, epoch: 1 });
   await assert.rejects(pending, /terminated/);
@@ -1676,12 +1870,12 @@ test("a_fatal_worker_error_settles_a_recording_it_does_not_name", async () => {
 
 test("a_second_fight_cancels_the_first_and_waits_for_its_refusal", async () => {
   const { worker, client } = arenaClientHarness();
-  const first = client.run(arenaConfig(), () => {});
+  const first = client.run(arenaConfig(), noStream());
   await settle();
   const firstId = worker.sent.at(-1).message.requestId;
   const rejected = assert.rejects(first, /cancelled/);
 
-  const second = client.run(arenaConfig({ seed: 11 }), () => {});
+  const second = client.run(arenaConfig({ seed: 11 }), noStream());
   await settle();
   // **Nothing is posted yet.** The worker refuses a concurrent `arenaStart` by
   // name, so the second start waits for the first to answer rather than racing
@@ -1695,8 +1889,8 @@ test("a_second_fight_cancels_the_first_and_waits_for_its_refusal", async () => {
   assert.equal(posted.kind, "arenaStart");
   assert.equal(posted.seed, 11);
   assert.notEqual(posted.requestId, firstId, "request ids are never reused");
-  worker.emitMessage(recordingMessage(posted.requestId, { seed: 11 }));
-  assert.equal((await second).seed, 11);
+  emitFight(worker, posted.requestId, { seed: 11 });
+  assert.equal((await second).header.seed, 11);
   assert.equal(worker.terminateCalls, 0, "a cancel must leave the worker usable");
 
   // **Three presses inside one turn, which the interleaving above cannot reach.**
@@ -1710,11 +1904,11 @@ test("a_second_fight_cancels_the_first_and_waits_for_its_refusal", async () => {
   // after 20000ms`, because an unsettled promise is exactly what the page showed
   // as "Recording..." forever.
   const rapid = arenaClientHarness();
-  const first3 = rapid.client.run(arenaConfig({ seed: 3 }), () => {});
+  const first3 = rapid.client.run(arenaConfig({ seed: 3 }), noStream());
   await settle();
   const first3Id = rapid.worker.sent.at(-1).message.requestId;
-  const second3 = rapid.client.run(arenaConfig({ seed: 5 }), () => {});
-  const third3 = rapid.client.run(arenaConfig({ seed: 7 }), () => {});
+  const second3 = rapid.client.run(arenaConfig({ seed: 5 }), noStream());
+  const third3 = rapid.client.run(arenaConfig({ seed: 7 }), noStream());
   const settled3 = [assert.rejects(first3, /cancelled/), assert.rejects(second3, /cancelled/)];
   await settle();
   rapid.worker.emitMessage({ kind: "arenaRejected", version: MSG.WORKER_PROTOCOL_VERSION,
@@ -1726,8 +1920,8 @@ test("a_second_fight_cancels_the_first_and_waits_for_its_refusal", async () => {
     "three presses post one start, one cancel each for the two that found one running, and one start");
   const newest = rapid.worker.sent.at(-1).message;
   assert.equal(newest.seed, 7, "the newest press is the one that runs");
-  rapid.worker.emitMessage(recordingMessage(newest.requestId, { seed: 7 }));
-  assert.equal((await third3).seed, 7);
+  emitFight(rapid.worker, newest.requestId, { seed: 7 });
+  assert.equal((await third3).header.seed, 7);
 
   // **Two presses with `learned`, which is the shape that reached the browser.**
   // `run` awaits before it writes `#pending`, and the old guard tested that slot
@@ -1743,8 +1937,8 @@ test("a_second_fight_cancels_the_first_and_waits_for_its_refusal", async () => {
   // the longest await -- and this test is the record that the shorter one is
   // enough.
   const pressed = arenaClientHarness();
-  const early = pressed.client.run(arenaConfig({ policies: [1, 2], seed: 3 }), () => {});
-  const late = pressed.client.run(arenaConfig({ policies: [1, 2], seed: 11 }), () => {});
+  const early = pressed.client.run(arenaConfig({ policies: [1, 2], seed: 3 }), noStream());
+  const late = pressed.client.run(arenaConfig({ policies: [1, 2], seed: 11 }), noStream());
   const earlyRejected = assert.rejects(early, /cancelled/);
   await settle();
   await settle();
@@ -1754,8 +1948,8 @@ test("a_second_fight_cancels_the_first_and_waits_for_its_refusal", async () => {
   const only = pressed.worker.sent.at(-1).message;
   assert.equal(only.seed, 11, "the newest press is the one that runs");
   assert.equal(only.checkpoint, null, "a press carried a network nothing asked for");
-  pressed.worker.emitMessage(recordingMessage(only.requestId, { seed: 11 }));
-  assert.equal((await late).seed, 11);
+  emitFight(pressed.worker, only.requestId, { seed: 11 });
+  assert.equal((await late).header.seed, 11);
 });
 
 test("a_recording_is_decoded_rather_than_cast_and_an_unfiltered_stream_must_declare_itself", async () => {
@@ -1763,10 +1957,11 @@ test("a_recording_is_decoded_rather_than_cast_and_an_unfiltered_stream_must_decl
   // trust boundary.** `SimClient` has had `decodeWorkerMessage` since v2-ui-02
   // and this channel had three `as` casts instead, which is the same gap the
   // snapshot path already refuses: a missing `frameCount` does not throw, it
-  // makes every `!` in `LiveFightSource` answer `undefined` and draws a body out
+  // makes every `!` in the chunk decoder answer `undefined` and draws a body out
   // of `NaN`.
   const { worker, client } = arenaClientHarness();
-  const running = client.run(arenaConfig(), () => {});
+  let opened = 0;
+  const running = client.run(arenaConfig(), { onOpened: () => { opened += 1; }, onChunk: () => {} });
   await settle();
   const requestId = worker.sent.at(-1).message.requestId;
 
@@ -1774,26 +1969,42 @@ test("a_recording_is_decoded_rather_than_cast_and_an_unfiltered_stream_must_decl
     ["spectator is absent", (over) => { delete over.spectator; }],
     ["spectator is false", (over) => { over.spectator = false; }],
     ["spectator is merely truthy", (over) => { over.spectator = 1; }],
-    ["frameCount is missing", (over) => { delete over.frameCount; }],
-    ["a buffer is not an ArrayBuffer", (over) => { over.index = [0, 0, 0]; }],
+    ["maxTicks is missing", (over) => { delete over.maxTicks; }],
     ["a stride is fractional", (over) => { over.poseStride = 66.5; }],
     ["the fingerprint is not a string", (over) => { over.fingerprint = 0xdeadbeef; }],
   ];
   for (const [what, break_] of malformed) {
-    const message = recordingMessage(requestId);
+    const message = openedMessage(requestId);
     break_(message);
     worker.emitMessage(message);
     await settle();
+    assert.equal(opened, 0, `${what}: a fight was opened`);
     assert.equal(worker.sent.length, 1, `${what}: nothing more is posted`);
   }
-  // Not one of the seven settled the promise: a message this client cannot read
-  // is dropped, and the recording it is still waiting for arrives afterwards.
-  worker.emitMessage(recordingMessage(requestId, { seed: 3 }));
-  assert.equal((await running).seed, 3);
+  // Not one of the six settled the promise: a message this client cannot read is
+  // dropped, and the fight it is still waiting for arrives afterwards.
+  emitFight(worker, requestId, { seed: 3 });
+  assert.equal((await running).header.seed, 3);
 
-  // The same gate on the consuming side, because `LiveFightSource` is also
-  // constructed straight from a `Recording` in this file and in the studio.
-  assert.throws(() => new LiveFightSource({ ...recordingMessage(1), spectator: false }),
+  // A chunk whose buffers are not buffers is refused the same way, and by the
+  // same rule: the fields a decoder cannot check are the ones that draw `NaN`.
+  const late = arenaClientHarness();
+  let chunks = 0;
+  const pending = late.client.run(arenaConfig(), { onOpened: () => {}, onChunk: () => { chunks += 1; } });
+  await settle();
+  const lateId = late.worker.sent.at(-1).message.requestId;
+  late.worker.emitMessage(openedMessage(lateId));
+  late.worker.emitMessage(chunkMessage(lateId, { index: [0, 0, 0] }));
+  late.worker.emitMessage(chunkMessage(lateId, { frameCount: 0 }));
+  await settle();
+  assert.equal(chunks, 0, "a malformed chunk was adopted");
+  late.worker.emitMessage(chunkMessage(lateId));
+  late.worker.emitMessage(finishedMessage(lateId));
+  assert.equal((await pending).frameCount(), 1);
+
+  // The same gate on the consuming side, because `StreamingFightSource` is also
+  // constructed straight from an opening in this file and in the studio.
+  assert.throws(() => new StreamingFightSource({ ...openedMessage(1), spectator: false }),
     /does not declare itself a spectator stream/);
 });
 
@@ -1804,23 +2015,25 @@ test("a_recorded_index_that_points_past_its_own_buffers_is_refused_rather_than_c
   // garbage rather than throwing. Checked once at construction, so the failure
   // lands at adopt time and not at whatever scrub position somebody dragged to.
   const arena = new FakeArena({ ticks: 8 });
-  const { last } = await record(arena, arenaConfig({ maxTicks: 8 }));
-  assert.ok(new LiveFightSource(last) instanceof LiveFightSource, "the honest recording is readable");
+  const recorded = await record(arena, arenaConfig({ maxTicks: 8 }));
+  assert.equal(recorded.source().frameCount(), 9, "the honest fight is readable");
 
   const bend = (word, to) => {
-    const index = new Uint32Array(new Uint32Array(last.index));
-    index[4 * RECORDER.RECORDING_INDEX_STRIDE + word] = to;
-    return { ...last, index: index.buffer };
+    const chunk = { ...recorded.chunks[0], index: recorded.chunks[0].index.slice(0) };
+    new Uint32Array(chunk.index)[4 * RECORDER.RECORDING_INDEX_STRIDE + word] = to;
+    const source = new StreamingFightSource(recorded.opened);
+    return () => source.adopt(chunk);
   };
-  assert.throws(() => new LiveFightSource(bend(RECORDER.INDEX_POSE_START, 10_000)),
-    /addresses pose rows/);
-  assert.throws(() => new LiveFightSource(bend(RECORDER.INDEX_REGION_START, 10_000)),
-    /addresses region rows/);
-  assert.throws(() => new LiveFightSource(bend(RECORDER.INDEX_EVENT_COUNT, 10_000)),
-    /addresses combat-event rows/);
-  // And a section that is not a whole number of rows at all.
-  assert.throws(() => new LiveFightSource({ ...last, poseStride: ABI.POSE_STRIDE + 1 }),
-    /not a whole number of rows/);
+  assert.throws(bend(RECORDER.INDEX_POSE_START, 10_000), /addresses pose rows/);
+  assert.throws(bend(RECORDER.INDEX_REGION_START, 10_000), /addresses region rows/);
+  assert.throws(bend(RECORDER.INDEX_EVENT_COUNT, 10_000), /addresses combat-event rows/);
+  // And a section that is not a whole number of rows at all, which is a layout
+  // fact rather than an index one and therefore lives on the opening.
+  assert.throws(() => {
+    const source = new StreamingFightSource(
+      { ...recorded.opened, poseStride: ABI.POSE_STRIDE + 1 });
+    source.adopt(recorded.chunks[0]);
+  }, /not a whole number of rows/);
 });
 
 test("the_arena_client_fetches_nothing_and_posts_no_network", async () => {
@@ -1849,7 +2062,7 @@ test("the_arena_client_fetches_nothing_and_posts_no_network", async () => {
     };
     for (const policies of [[0, 0], [1, 2], [3, 4], [4, 4]]) {
       const { worker, client } = arenaClientHarness();
-      const running = client.run(arenaConfig({ policies }), () => {});
+      const running = client.run(arenaConfig({ policies }), noStream());
       await settle();
       const posted = worker.sent.at(-1);
       assert.equal(posted.message.kind, "arenaStart");
@@ -1857,10 +2070,10 @@ test("the_arena_client_fetches_nothing_and_posts_no_network", async () => {
         `policies ${policies} posted a network`);
       assert.equal(posted.transfer.length, 1,
         "only the configuration buffer travels transferred");
-      worker.emitMessage(recordingMessage(posted.message.requestId));
-      const recording = await running;
-      assert.equal(recording.checkpoint, null,
-        "a recording named a checkpoint nothing installed");
+      emitFight(worker, posted.message.requestId);
+      const source = await running;
+      assert.equal(source.header.checkpoint, null,
+        "a fight named a checkpoint nothing installed");
     }
     assert.equal(fetches, 0, "the arena client fetched something");
   } finally {

@@ -263,8 +263,8 @@ weakest claim on the page: one capsule, no stride, no per-foot contact, so a wal
 driven from body speed desynchronises from a footfall that does not exist.
 
 **`#/arena` is a spectator**, and nothing on the page drives a body: the fight is decided
-by two loadouts, two policies and a seed before the first frame, and the panels only
-scrub what was recorded. The two eye-height cameras are there anyway. They exist because
+by two loadouts, two policies and a seed before the first frame, and the panels watch it
+being produced and then scrub it. The two eye-height cameras are there anyway. They exist because
 the design target the off-arm decision was made against is first-person human control of
 a single hero rather than a spectator's camera -- the
 [off-arm correction](../reference/articulated-mechanical-gate.md#correction-2026-08-10-the-off-arm-holds-one-pose)
@@ -273,14 +273,41 @@ for, and it needs an input path that exists in no layer. Widening past two fight
 the cheaper debt of the two: `MAX_POSES` is 64 and nothing below the panels assumes two,
 but the picker, the stage layout and the two first-person viewports all do.
 
+**The configuration can already say who drives a side, and the module refuses it by
+name.** Layout `3` of the 120-byte buffer spends the first of the fighter block's two
+reserved bytes on a control byte -- `0` policy-driven, `1` human-driven -- and the picker
+offers it as one "driven by" list of the five policies plus `you (keyboard and mouse)`,
+revealing an off-hand policy row when the last is chosen. Until the input path exists
+`arena_start` answers `ARENA_CONTROL_UNAVAILABLE` (`29`) naming the fighter, and the
+picker refuses before the button, because a control that accepts an input it cannot act
+on and says nothing is the defect two consecutive reviews of this repository found ten
+instances of. The control byte is a host fact and never reaches `Scenario`, so
+`arena_fingerprint_*` is the same for one loadout at one seed whoever is driving it --
+which is the property that makes a human fight and an AI fight at that seed comparable
+at all. The layout is written down beside the wire rather than here: the
+[configuration buffer](../reference/articulated-abi.md#the-120-byte-configuration-buffer)
+owns it, its exports and its refusal table.
+
 ## The trace file is a two-file contract
 
-`#/arena` runs its own fight -- it writes a configuration, a Worker of its own records
-the duel in wasm, and the transferred pose, region, projectile and combat-event buffers
-are what the page scrubs -- but it still plays a recorded `lab trace` file through the
+`#/arena` runs its own fight -- it writes a configuration, a Worker of its own drives
+the duel in wasm, and the transferred pose, region, projectile and combat-event rows
+are what the page draws -- but it still plays a recorded `lab trace` file through the
 same `FightSource` seam when one is named by `?trace=`. `npm run view`, which is Vite
 with no wasm build, is enough to *open* the route, because the Worker is constructed
 lazily on the first **[Fight]**, and is not enough to press it.
+
+**The fight is watched while it happens, and `TRACE_SCHEMA` did not move for it.**
+The worker posts the duel in chunks as it produces them rather than transferring a
+finished recording, so the first frame is drawn about **5 ms** after **[Fight]** against
+the **0.65 to 0.75 s** the whole fight takes on the pairings the picker opens on. That is
+a transport change strictly below `FightSource`: a session that finds itself editing
+`crates/lab/src/trace.rs` and `client/src/fight/trace.ts` together to make a fight
+streamable has put the change in the wrong layer. What proves it is a transport change
+rather than a claim about one is `a_live_fight_matches_the_traced_fight`, which compares
+the streamed fight against `lab trace`'s file for every tick of two whole fights --
+3,601 frames each, field for field. The channel is
+[worker protocol](../reference/worker-protocol.md#the-recording-and-why-it-is-not-the-pooled-buffer).
 
 **The trace format is written in one file and refused in another, on purpose.**
 [`crates/lab/src/trace.rs`](../../crates/lab/src/trace.rs) writes it and
@@ -444,9 +471,9 @@ intersects the floor, and torch/material treatment remains schematic and repetit
 
 ## Source anchors
 
-- Fixed publication pools: [`thread_local!`](../../crates/web/src/lib.rs#L1707)
-- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L4404)
-- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L5480)
+- Fixed publication pools: [`thread_local!`](../../crates/web/src/lib.rs#L1838)
+- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L4552)
+- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L5628)
 - Worker adapter and atomic scalar phase: [`readPublication`](../../client/src/runtime/sim.worker.ts#L94)
 - Pure protocol host: [`SimWorkerHost`](../../client/src/runtime/sim-worker-host.ts#L55)
 - Main-thread lease owner: [`SimClient`](../../client/src/runtime/sim-client.ts#L122)

@@ -1232,14 +1232,15 @@ const tsc = spawnSync(process.execPath, [
   "--ignoreDeprecations", "6.0",
   "--strict", "--skipLibCheck", "--outDir", OUT, "--rootDir", root,
   "client/src/runtime/arena-config.ts", "client/src/runtime/arena-recorder.ts",
-  "client/src/fight/live.ts",
+  "client/src/fight/live.ts", "client/src/protocol/messages.ts",
 ], { cwd: root, encoding: "utf8" });
 assert.equal(tsc.status, 0, `TypeScript test compilation failed:\n${tsc.stdout}\n${tsc.stderr}`);
 
 const require = createRequire(import.meta.url);
 const CONFIG = require(path.join(OUT, "client/src/runtime/arena-config.js"));
 const RECORDER = require(path.join(OUT, "client/src/runtime/arena-recorder.js"));
-const { LiveFightSource } = require(path.join(OUT, "client/src/fight/live.js"));
+const LIVE = require(path.join(OUT, "client/src/fight/live.js"));
+const MSG = require(path.join(OUT, "client/src/protocol/messages.js"));
 
 const CHECKPOINT = path.join(root, "checkpoints", "v2-probe.ckpt");
 
@@ -1256,6 +1257,7 @@ function liveConfig({ heroes = "scripted", monsters = "scripted", seed = 3,
     fighters: [heroes, monsters].map((name, side) => ({
       anatomy: anatomies[side],
       policy: policy(name),
+      control: CONFIG.ARENA_CONTROL_POLICY,
       spawn: CONFIG.SHIPPED_SPAWNS[side],
       hands: [CONFIG.HAND_ITEMS[hands[side][0]], CONFIG.HAND_ITEMS[hands[side][1]]],
       twoHanded: twoHanded[side],
@@ -1265,17 +1267,132 @@ function liveConfig({ heroes = "scripted", monsters = "scripted", seed = 3,
   };
 }
 
-/** The recorder's own hooks, with no yielding: a Node test has nothing to yield to. */
-const straightThrough = { onProgress: () => {}, yieldToMessages: async () => {} };
+/**
+ * The recorder's own hooks, with no yielding: a Node test has nothing to yield
+ * to, and the chunks are collected in the order the drive posts them.
+ */
+function collector() {
+  const chunks = [];
+  let opened = null;
+  return {
+    chunks,
+    opened: () => opened,
+    hooks: {
+      onOpened: (message) => {
+        assert.equal(opened, null, "a drive opened one fight twice");
+        opened = message;
+      },
+      onChunk: (chunk) => { chunks.push(chunk); },
+      yieldToMessages: async () => {},
+    },
+  };
+}
 
-async function recordLive(wasm, config, { checkpoint = null } = {}) {
+/**
+ * Put the streamed chunks back together as one whole-fight recording.
+ *
+ * **This is a check and not only a convenience.** The chunks have to tile the
+ * fight exactly -- contiguous frames, contiguous rows, and index starts that
+ * rebase back to the whole-fight offsets the drive subtracted -- and every one of
+ * those is an assertion here. A chunk that overlapped or skipped would still
+ * decode frame by frame and would fail this.
+ */
+function reassemble(opened, chunks) {
+  const sections = [
+    ["poses", opened.poseStride, RECORDER.INDEX_POSE_START, RECORDER.INDEX_POSE_COUNT],
+    ["regions", opened.regionStride, RECORDER.INDEX_REGION_START, RECORDER.INDEX_REGION_COUNT],
+    ["projectiles", opened.articulatedProjectileStride,
+      RECORDER.INDEX_PROJECTILE_START, RECORDER.INDEX_PROJECTILE_COUNT],
+    ["events", opened.combatEventStride,
+      RECORDER.INDEX_EVENT_START, RECORDER.INDEX_EVENT_COUNT],
+  ];
+  const words = new Map(sections.map(([name]) => [name, []]));
+  const index = [];
+  const health = [];
+  const bases = new Map(sections.map(([name]) => [name, 0]));
+  let frames = 0;
+  for (const chunk of chunks) {
+    assert.equal(chunk.firstFrame, frames, "the chunks do not tile the fight");
+    const chunkIndex = new Uint32Array(chunk.index);
+    assert.equal(chunkIndex.length, chunk.frameCount * RECORDER.RECORDING_INDEX_STRIDE);
+    for (let frame = 0; frame < chunk.frameCount; frame += 1) {
+      const at = frame * RECORDER.RECORDING_INDEX_STRIDE;
+      const row = new Uint32Array(RECORDER.RECORDING_INDEX_STRIDE);
+      row[RECORDER.INDEX_TICK] = chunkIndex[at + RECORDER.INDEX_TICK];
+      for (const [name, , start, count] of sections) {
+        // The rebase, inverted. A start left whole-fight would land past the
+        // section it addresses here, which is the same failure `FightChunk`
+        // refuses at adopt.
+        row[start] = chunkIndex[at + start] + bases.get(name);
+        row[count] = chunkIndex[at + count];
+      }
+      index.push(...row);
+    }
+    for (const [name, stride] of sections) {
+      const section = new Uint32Array(chunk[name]);
+      assert.equal(section.length % stride, 0, `${name} is not a whole number of rows`);
+      words.get(name).push(...section);
+      bases.set(name, bases.get(name) + section.length / stride);
+    }
+    health.push(...new Int32Array(chunk.health));
+    frames += chunk.frameCount;
+  }
+  const out = { frameCount: frames, index: Uint32Array.from(index), health: Int32Array.from(health) };
+  for (const [name] of sections) out[name] = Uint32Array.from(words.get(name));
+  return out;
+}
+
+/**
+ * Drive one fight and adopt every chunk, exactly as the page does.
+ *
+ * The source is built from the opening message and grown chunk by chunk, so what
+ * the assertions below read is what a reader would have been shown -- not a
+ * whole-fight object assembled for the test's convenience.
+ */
+async function recordLive(wasm, config, { checkpoint = null, cancelAfter = null } = {}) {
   const adapter = RECORDER.createArenaAdapter(wasm);
   const bytes = CONFIG.encodeArenaConfig(config);
+  const collected = collector();
+  let source = null;
+  const hooks = {
+    ...collected.hooks,
+    onOpened: (message) => {
+      collected.hooks.onOpened(message);
+      source = new LIVE.StreamingFightSource(message);
+    },
+    onChunk: (chunk) => {
+      collected.hooks.onChunk(chunk);
+      // Adopted from a copy, because `adopt` takes the buffers over and the
+      // reassembly above reads them again. In the browser they are transferred
+      // and there is only ever one reader.
+      source.adopt({ ...chunk, ...copyOf(chunk) });
+    },
+  };
+  const cancelled = cancelAfter === null
+    ? () => false
+    : () => collected.chunks.length >= cancelAfter;
   const result = await RECORDER.recordArenaFight(
-    adapter, config, bytes, checkpoint, straightThrough, () => false,
+    adapter, config, bytes, checkpoint, hooks, cancelled,
   );
+  if (cancelAfter !== null) return { source, result, ...collected, opened: collected.opened() };
   assert.equal(result.ok, true, result.ok ? "" : `${result.reason}: ${result.detail}`);
-  return result.recording;
+  source.finish(result.finished);
+  return {
+    source,
+    finished: result.finished,
+    chunks: collected.chunks,
+    opened: collected.opened(),
+    whole: () => reassemble(collected.opened(), collected.chunks),
+  };
+}
+
+/** The six buffers, copied, so one set can be adopted and the other inspected. */
+function copyOf(chunk) {
+  const out = {};
+  for (const name of ["poses", "regions", "projectiles", "events", "index", "health"]) {
+    out[name] = chunk[name].slice(0);
+  }
+  return out;
 }
 
 test("arena_start_allocates_within_the_warm_set", async () => {
@@ -1456,16 +1573,30 @@ test("the_index_survives_a_death", async () => {
   // the time is worth recording here rather than only in a plan.
   const deathTick = 2_900;
   const config = liveConfig({ heroes: "scripted", monsters: "scripted", seed: 14 });
-  const recording = await recordLive(wasm, config);
+  const { source, finished, opened, chunks, whole } = await recordLive(wasm, config);
 
-  assert.equal(recording.ticks, deathTick, "the embodied kill fixture's tick moved");
-  assert.equal(recording.outcome, "HeroesWin");
-  assert.equal(recording.timedOut, false);
-  assert.equal(recording.recordingTruncated, false);
-  assert.equal(recording.frameCount, deathTick + 1);
-  assert.equal(recording.checkpoint, null);
+  assert.equal(source.header.ticks, deathTick, "the embodied kill fixture's tick moved");
+  assert.equal(source.header.outcome, "HeroesWin");
+  assert.equal(source.header.timedOut, false);
+  assert.equal(finished.recordingTruncated, false);
+  assert.equal(finished.frameCount, deathTick + 1);
+  assert.equal(source.header.checkpoint, null);
 
-  const source = new LiveFightSource(recording);
+  // **The fight arrives in chunks and the count is arithmetic rather than a
+  // literal**, so the cadence constant can move without this fixture lying about
+  // what it proved. 2,901 frames at 30 a chunk is 97 messages, the last of which
+  // is the twenty-one-frame tail.
+  const chunkTicks = MSG.ARENA_STREAM_CHUNK_TICKS;
+  assert.equal(chunks.length, Math.ceil((deathTick + 1) / chunkTicks));
+  assert.deepEqual(chunks.map((chunk) => chunk.frameCount).slice(0, -1),
+    new Array(chunks.length - 1).fill(chunkTicks));
+  assert.equal(chunks.at(-1).frameCount, (deathTick + 1) - (chunks.length - 1) * chunkTicks);
+
+  // The whole fight, put back together out of the chunks the page was handed.
+  // The reassembly is itself the check that they tile it: contiguous frames,
+  // contiguous rows, and starts that rebase back to what the drive subtracted.
+  const recording = { ...whole(), poseStride: opened.poseStride,
+    regionsPerBody: opened.regionsPerBody };
   assert.equal(source.frameCount(), deathTick + 1);
   // Two bodies until the kill and one after it, which is what `pose_len` means:
   // one per **live** articulated body.
@@ -1483,10 +1614,10 @@ test("the_index_survives_a_death", async () => {
   // arithmetic a reader without one would do; after the kill it lands on a row
   // that belongs to a different tick entirely, so deleting the index cannot
   // leave this test passing.
-  const index = new Uint32Array(recording.index);
+  const index = recording.index;
   const start = index[deathTick * RECORDER.RECORDING_INDEX_STRIDE + RECORDER.INDEX_POSE_START];
   assert.equal(start, deathTick * 2, "the death is the first frame to go short of two rows");
-  const poses = new Uint32Array(recording.poses);
+  const poses = recording.poses;
   assert.equal(poses.length / recording.poseStride, deathTick * 2 + 1,
     "a whole fight's pose rows are two a tick until the kill and one on it");
   assert.equal(index[deathTick * RECORDER.RECORDING_INDEX_STRIDE + RECORDER.INDEX_POSE_COUNT], 1);
@@ -1524,7 +1655,7 @@ test("the_index_survives_a_death", async () => {
 //
 // **Two columns it does not reach, named because a silent gap in a gate this
 // strong is worse than a stated one.** The left-weapon block
-// (`POSE_LEFT_WEAPON_*`) is decoded by `LiveFightSource` and never compared
+// (`POSE_LEFT_WEAPON_*`) is decoded by `FightChunk` and never compared
 // here: both fixtures put a shield or nothing in a left hand, so no row ever
 // fills it. A blade in the left hand is picker-reachable and `GripBinding`
 // makes it expressible, so the fixture that would close this is cheap. And
@@ -1581,13 +1712,12 @@ test("a_live_fight_matches_the_traced_fight", async (t) => {
     const config = liveConfig({
       heroes: trace.heroes, monsters: trace.monsters, seed: trace.seed,
     });
-    const recording = await recordLive(wasm, config,
+    const { source: live } = await recordLive(wasm, config,
       { checkpoint: trace.checkpoint === null ? null : checkpoint });
-    const live = new LiveFightSource(recording);
     const where = `${fixture.file}: `;
 
     // ---- the header.
-    assert.equal(recording.checkpoint, trace.checkpoint, `${where}checkpoint`);
+    assert.equal(live.header.checkpoint, trace.checkpoint, `${where}checkpoint`);
     for (const field of ["one", "seed", "heroes", "monsters", "outcome", "timedOut",
       "ticks", "maxTicks", "impactThreshold", "contactEnergyFloor", "bodySlot"]) {
       assert.deepEqual(live.header[field], trace[field], `${where}header.${field}`);
@@ -1638,7 +1768,7 @@ test("a_live_fight_matches_the_traced_fight", async (t) => {
         const expected = recorded.contacts[row];
         const actual = played.contacts[row];
         // The five columns the event row does not carry are null on the live
-        // side, which `LiveFightSource`'s header states and this asserts.
+        // side, which `live.ts`'s header states and this asserts.
         assert.deepEqual([actual.velocityA, actual.velocityB, actual.impulseA,
           actual.impulseB, actual.alpha], [null, null, null, null, null], `${at}: contact ${row} absences`);
         const { velocityA, velocityB, impulseA, impulseB, alpha, region: tracedRegion, ...shared } = expected;

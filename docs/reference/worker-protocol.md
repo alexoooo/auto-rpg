@@ -62,17 +62,27 @@ does not echo an unaccepted request. Init/reset release direct Movement ownershi
 and stage an all-zero input before the first snapshot; mouse orders are the default.
 Worker responses are
 `ready`, `pauseChanged`, `advanceAck`, `commandAck`, `snapshot`, `bufferReturned`,
-`error`, `terminated`, and — at V2 only — `arenaProgress`, `arenaRejected`, and
-`fightRecording`. The complete field declarations live in
+`error`, `terminated`, and — at V2 only — `arenaOpened`, `arenaChunk`, `arenaFinished`
+and `arenaRejected`. The complete field declarations live in
 [`messages.ts`](../../client/src/protocol/messages.ts#L1); runtime decoders validate
 both directions because TypeScript types are not a trust boundary. That is three
 decoders and not two: `decodeClientMessage` for what the worker is told,
 `decodeWorkerMessage` in `sim-client.ts` for what the game client is told, and
-`decodeArenaMessage` in `arena-client.ts` for the three arena kinds. The third was
+`decodeArenaMessage` in `arena-client.ts` for the four arena kinds. The third was
 owed rather than optional — this document claimed it while `ArenaClient` was casting
 `raw as FightRecordingMessage`, and the failure a cast lets through here is not a
-`TypeError` but a missing field that makes every index in `LiveFightSource` answer
+`TypeError` but a missing field that makes every index in the chunk decoder answer
 `undefined` and a body decode as garbage.
+
+**A V1-versioned arena response is refused by name and not dropped**, which is the
+outbound half of the rule two paragraphs up. `decodeArenaMessage` answers three things
+rather than two — the message, a named version refusal, or nothing legible — because a
+worker speaking a version that was never promised these kinds is a different fact from a
+malformed message, and a page told neither would sit saying a fight was still being
+produced forever. The three V2-only *response* kinds are deliberately **not** taught to
+`decodeClientMessage`: they travel worker to main and never the other way, so telling a
+client that `arenaChunk` "needs protocol version 2" would imply that at version 2 it may
+send one.
 
 **`ArenaRejectReason` is a separate union from `RejectReason` and not four more
 members of it.** That one is a command acknowledgement's field and every value in it
@@ -191,30 +201,64 @@ before any typed array over the pose buffer exists.
 
 The drive is `step(1)` per tick, because `combat_event_len` is cleared per host
 **call** rather than per publication, so a per-tick event index requires it. It yields
-to the event loop every `RECORDING_CHUNK_TICKS` ticks and posts `arenaProgress`: a
-worker services no message while JavaScript is on the stack, so a single
-uninterrupted 3,600-tick loop would be a recording nobody could cancel. `arenaCancel`
-is idempotent and unacknowledged when nothing is recording, and the *start* request
-is what settles, with reason `cancelled`.
+to the event loop every `RECORDING_CHUNK_TICKS` ticks: a worker services no message
+while JavaScript is on the stack, so a single uninterrupted 3,600-tick loop would be a
+fight nobody could cancel. **That window is the cancel window and not the delivery
+cadence, and the two used to be one number.** A chunk is posted every
+`ARENA_STREAM_CHUNK_TICKS` without waiting for a yield, because `postMessage` enqueues
+onto the *main* thread's task queue rather than this one's — ten chunks are drawn while
+the drive is between two yields.
+
+`arenaCancel` is idempotent and unacknowledged when nothing is recording, and the
+*start* request is what settles, with reason `cancelled`. **The chunks already posted
+are not taken back and no `arenaFinished` follows**: the frames that crossed are the
+part of the fight the reader watched, and a fight that was stopped has no outcome for a
+finish message to carry.
 
 <!-- DOC_CONTRACT: worker-recording-transfer -->
 ### The recording, and why it is not the pooled buffer
 
-`fightRecording` transfers **five** `ArrayBuffer`s and a header. It does not use the
-snapshot pool, for three independently sufficient reasons: the pool zero-fills a whole
-buffer on every return and is sized for one publication; it **coalesces**, dropping a
-publication when no buffer is free, which is correct for a live 60 Hz game and silent
-data loss for a recording; and the lifetimes differ, since a pooled buffer is borrowed
-for a frame while a recording is allocated once per fight and owned by the main thread
-for the whole scrubbing session.
+**The heading says "the recording" and the channel now streams one; the heading is kept
+verbatim on purpose.** It is a `DOC_CONTRACT` anchor with two inbound links —
+[`docs/README.md`](../README.md) and
+[`articulated-abi.md`](articulated-abi.md#the-120-byte-configuration-buffer) — and
+`check_docs.js` errors on a local link naming a missing anchor as well as on a
+`DOC_CONTRACT` heading with no inbound link, so renaming it is a three-file change and
+not a tidy-up. Everything below it was rewritten instead.
+
+**One message became three, and the split is along "what is knowable when".**
+
+| message | when | carries |
+|---|---|---|
+| `arenaOpened` | after `arena_start` returns and the first publication is read, before the first step | `spectator: true`, `one`, `scenario`, `fingerprint`, `seed`, `heroes`, `monsters`, `checkpoint`, `maxTicks`, `arena`, the four layout versions and strides, the two thresholds, the name lists, and the per-body anatomy and carried blocks |
+| `arenaChunk` | every `ARENA_STREAM_CHUNK_TICKS` | **six** `ArrayBuffer`s holding only that chunk's frames, plus `firstFrame` and `frameCount` |
+| `arenaFinished` | when the drive settles or caps out | `outcome`, `timedOut`, `ticks`, `frameCount`, `recordingTruncated`, and the four drop counters |
+
+**`arenaProgress` was deleted rather than kept beside these.** It carried a tick count so
+a page could show a bar while it waited for a fight it could not yet see; a chunk already
+says how far the fight has got, and the page is *drawing* that frame. Two messages
+answering one question is how one of them goes stale.
+
+**The count of buffers in a chunk is six and this table used to say five.** The section
+it replaced listed `poses`, `regions`, `events`, `index` and `health` and omitted
+`projectiles`, which the code had transferred since the row existed. Count from the list
+below, never from a sentence.
 
 | buffer | element | contents |
 |---|---|---|
 | `poses` | `u32` | pose rows, packed, `POSE_STRIDE` words each |
 | `regions` | `u32` | region rows, packed, `REGION_STRIDE` words each |
+| `projectiles` | `u32` | articulated-projectile rows, `ARTICULATED_PROJECTILE_STRIDE` words each |
 | `events` | `u32` | combat-event rows, packed, `COMBAT_EVENT_STRIDE` words each |
-| `index` | `u32` | seven words a frame: tick, then a start and a count per section |
+| `index` | `u32` | **nine** words a frame: tick, then a start and a count per section |
 | `health` | `i32` | two raw `Fx` a frame: the Heroes' and the Monsters' health fraction |
+
+It does not use the snapshot pool, for three independently sufficient reasons: the pool
+zero-fills a whole buffer on every return and is sized for one publication; it
+**coalesces**, dropping a publication when no buffer is free, which is correct for a live
+60 Hz game and silent data loss for a fight; and the lifetimes differ, since a pooled
+buffer is borrowed for a frame while these are owned by the main thread for the whole
+scrubbing session.
 
 **The index is mandatory and is the point.** `pose_len` is one per *live*
 body, so a fighter dying takes it from 2 to 1 — measured on the articulated windmill
@@ -226,33 +270,50 @@ silently misaligns from exactly the frame anybody opened the page to look at. Th
 region section is read against the pose count for the same reason: a skipped body
 shifts every row after it.
 
-**Every extent in the index is bounds-checked against the buffer it addresses, once,
-when the reader is constructed.** `TypedArray.prototype.subarray` clamps rather than
-throwing, so a start past the end of a section is not an exception anybody sees — it
-is a zero-length view whose every read answers `undefined` and a body drawn from
-`NaN`. That is the one failure on this path a picture cannot diagnose, so it is
-refused at adopt time rather than met at whatever scrub position a reader happened to
-drag to.
+**Every start in a chunk's index is relative to that chunk's own buffers**, and that is
+the one arithmetic the split introduced. A start left at its whole-fight value runs off
+the end of a buffer holding thirty frames' rows, and `TypedArray.prototype.subarray`
+clamps rather than throwing — so the failure is not an exception anybody sees but a
+zero-length view whose every read answers `undefined` and a body drawn from `NaN`. The
+drive rebases as it copies and `FightChunk` checks every extent against the chunk it
+arrived in, so whichever end got it wrong is named at adopt time:
+`a_chunk_whose_index_starts_are_not_chunk_relative_is_refused_at_adopt` proves the check
+by handing the reader the offsets the drive subtracted. Chunks must also be
+**contiguous** — a chunk that does not begin where the last one ended is refused, because
+a hole would decode as somebody else's tick with only the index's own tick word as
+evidence.
 
-Both row sections have caps and hitting one sets `recordingTruncated`, which the
-header carries and the studio displays — asserted end to end by
+Both row sections have caps and hitting one sets `recordingTruncated`, which
+`arenaFinished` carries and the studio displays — asserted end to end by
 `a_truncated_recording_says_so_where_a_reader_can_see_it`, because a flag nothing
-shows is not honesty. The pose and region extents are exact by construction — an arena
-is two fighters, which is what `ARENA_FIGHTERS` means — so only the event cap can be
-reached; it is `RECORDING_EVENT_ROW_CAP`, sized by the repository's own rule from a
-measured corpus recorded beside the constant. **The corpus a cap like this needs is
-one of picker-reachable configurations**, which the first one was not: it moved the
-spawns, and a reader cannot, since `SHIPPED_SPAWNS` reaches `Scenario::fingerprint`.
-Re-recorded at the shipped spawns the busiest reachable fight is 10,130 rows against
-the 4,948 first measured, and the cap is 32,768. A truncated recording reports no
-outcome, because it did not watch the fight end.
+shows is not honesty. **The caps are whole-fight caps and stayed that way when the
+transport was chunked**, which is why the drive still stages the fight in buffers
+allocated before the first step and copies each chunk out of them: splitting
+`RECORDING_EVENT_ROW_CAP` per chunk would need a second measured corpus to carry its
+provenance, and `recordingTruncated` would stop meaning what it means. The pose and
+region extents are exact by construction — an arena is two fighters, which is what
+`ARENA_FIGHTERS` means — so only the event cap can be reached; it is
+`RECORDING_EVENT_ROW_CAP`, sized by the repository's own rule from a measured corpus
+recorded beside the constant. **The corpus a cap like this needs is one of
+picker-reachable configurations**, which the first one was not: it moved the spawns, and
+a reader cannot, since `SHIPPED_SPAWNS` reaches `Scenario::fingerprint`. Re-recorded at
+the shipped spawns the busiest reachable fight is 10,130 rows against the 4,948 first
+measured, and the cap is 32,768. A truncated fight reports no outcome, because it did not
+watch the fight end.
 
-The header carries what the buffers cannot: the three layout versions and strides, the
-drop counters, the tick count and frame count, the outcome and `timedOut`, the arena
-fingerprint, the seed, both side labels, the installed checkpoint's SHA-256, and a
-per-body block with the anatomy scalars and every carried item — **including a
-shield's `thickness`**, which the pose row deliberately omits and `shieldCorners()`
-needs.
+`arenaOpened` carries what the buffers cannot: the layout versions and strides, the tick
+ceiling, the arena fingerprint, the seed, both side labels, the installed checkpoint's
+SHA-256, and a per-body block with the anatomy scalars and every carried item —
+**including a shield's `thickness`**, which the pose row deliberately omits and
+`shieldCorners()` needs. **What it deliberately does not carry is the outcome**, and
+nothing else does either until `arenaFinished` arrives: `FightHeader.outcome` is
+`string | null` and reads `null` while the fight is being produced. The two dishonest
+alternatives were both considered and are worse — a default string makes the readout
+claim a result that has not happened, and omitting the field makes every reader print
+`undefined`. `sim` has no word for it either: `World::outcome` answers `Option<Outcome>`
+and `None` is the undecided fight, so the `null` here is that `Option` rather than a
+sixth name beside `Draw`. `a_fight_in_progress_reports_no_outcome_rather_than_a_default`
+is what holds it.
 
 It also carries **`spectator: true`**, and that field is a **gate rather than a
 label**. The arena publishes unfiltered ground truth, which is correct here — both
@@ -265,7 +326,7 @@ It was declared, typed and asserted and **read by nothing** when v2-ui-07 landed
 recording claiming `spectator: false` was accepted and rendered identically, so the
 reason travelled with the data and was never consulted. Two consumers now refuse a
 stream that does not declare itself — `decodeArenaMessage` at the protocol boundary,
-and `LiveFightSource`'s constructor, which is the thing that would otherwise have
+and `StreamingFightSource`'s constructor, which is the thing that would otherwise have
 drawn it. The value must be exactly `true`; truthy is not enough, because the point
 of the field is that the exemption was taken deliberately.
 
@@ -278,7 +339,47 @@ the maxima of every unit alive or dead and a dead body has no row. The **outcome
 `World::timeout`'s comparison of the two health fractions. Neither is exported. What
 holds them honest is `a_live_fight_matches_the_traced_fight`, which compares both
 against `lab trace`'s output for every tick of two whole fights, one of which ends in
-a kill.
+a kill — 3,601 frames each, field for field, decoded out of the chunks the page would
+have been handed. **That comparison is what makes "streaming is a transport change"
+checkable rather than asserted**: a streamed fight that decoded differently would be a
+different fight.
+
+### What the split bought, measured
+
+Measured on 2026-08-20 against the release wasm under Node, five rounds a pairing,
+median with the range beside it. The before and the after come out of **one run on
+identical input**, which is what makes them comparable without bracketing: the old
+channel posted nothing at all until the drive returned, so "the whole fight" is
+literally the old wait.
+
+| pairing | `arenaStart` to frame 0 decoded | the whole fight | drive rate |
+|---|---:|---:|---:|
+| `tactical` vs `scripted` | **4.6 ms** (4.0 to 19.2) | 703 ms (702 to 738) | 5,124 ticks/s |
+| `scripted` vs `scripted` | **3.9 ms** (3.7 to 5.1) | 651 ms (650 to 653) | 5,530 ticks/s |
+| `tactical` vs `tactical` | **3.5 ms** (3.4 to 4.7) | 749 ms (745 to 769) | 4,807 ticks/s |
+| `tactical-fixed-guard` vs `scripted-level` | **3.7 ms** (3.7 to 5.5) | 710 ms (709 to 739) | 5,073 ticks/s |
+| `neutral` vs `neutral` | **2.3 ms** (2.2 to 3.6) | 170 ms (169 to 172) | 21,163 ticks/s |
+
+Instantiating `web.wasm` is 0.5 to 1.2 ms on top, paid once per route rather than once
+per press because the Worker is reused. The numbers are the worker's own timestamps and
+not a browser tab's: a Claude-in-Chrome tab is always `visibilityState: "hidden"`, which
+is a stop and not a throttle, so a number taken there is not a number.
+
+**Two constants, each bounded from both sides.**
+
+`ARENA_STREAM_CHUNK_TICKS` is `30`. Below, the cost is one `postMessage` and six buffer
+allocations per chunk — 3,601 of each at a chunk of one — and the bound is at most 200
+messages a duel, which admits nothing under 19. Above, the cost is production time before
+the page has anything to draw, and the bound is at most 10 ms of fight per chunk at the
+slowest measured pairing's 3,816 ticks a second, which admits nothing over 38. The pair
+brackets `[19, 38]` around 30, and `the_stream_chunk_is_bounded_from_both_sides` asserts
+both ends and demonstrates that 1, 18, 39 and `RECORDING_CHUNK_TICKS` each fail exactly
+one of them.
+
+`ARENA_STREAM_LEAD_TICKS` is half of it. At 0 the playhead meets the producer at every
+chunk boundary and the fight stutters 121 times a duel; at a whole chunk the page waits
+out one chunk's production before every chunk it plays, which is the old wait in smaller
+units. Half is the smallest lead that survives one late chunk.
 
 <!-- DOC_CONTRACT: worker-visibility-filter -->
 ## Visibility filtering
@@ -324,13 +425,13 @@ weakest of the three rules. Four links in the tree have that shape. An
 anchor is a hint and not a contract; check the symbol is on the line before quoting
 one.
 
-- Protocol declarations and input decoder: [`messages.ts`](../../client/src/protocol/messages.ts#L1), [`decodeClientMessage`](../../client/src/protocol/messages.ts#L314)
+- Protocol declarations and input decoder: [`messages.ts`](../../client/src/protocol/messages.ts#L1), [`decodeClientMessage`](../../client/src/protocol/messages.ts#L403)
 - Fixed buffer pool: [`FixedBufferPool`](../../client/src/runtime/buffer-pool.ts#L22)
 - Pure worker state machine: [`SimWorkerHost`](../../client/src/runtime/sim-worker-host.ts#L55)
 - Main-thread request and lease owner: [`SimClient`](../../client/src/runtime/sim-client.ts#L122)
 - Snapshot validator and disclosure filter: [`SnapshotFilterState`](../../client/src/state/snapshot.ts#L59)
 - Real wasm adapter: [`readPublication`](../../client/src/runtime/sim.worker.ts#L94)
 - Generated offsets and capacities: [`abi.generated.ts`](../../client/src/protocol/abi.generated.ts#L1)
-- The recording drive and its caps: [`recordArenaFight`](../../client/src/runtime/arena-recorder.ts#L521)
-- The arena's main-thread client and its decoder: [`decodeArenaMessage`](../../client/src/runtime/arena-client.ts#L59)
-- The recording's reader: [`LiveFightSource`](../../client/src/fight/live.ts#L143)
+- The streaming drive and its caps: [`recordArenaFight`](../../client/src/runtime/arena-recorder.ts#L577)
+- The arena's main-thread client and its decoder: [`decodeArenaMessage`](../../client/src/runtime/arena-client.ts#L89)
+- The stream's reader: [`StreamingFightSource`](../../client/src/fight/live.ts#L407)

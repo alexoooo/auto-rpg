@@ -1,9 +1,11 @@
-// A `FightSource` over the buffers the worker transferred.
+// A `FightSource` over the chunks the worker streams as it produces them.
 //
 // **The panels do not know which side of this file they are looking at**, which
 // is what `v2-ui-01`'s seam was for: `frameAt(i)` and `frameCount()` are the only
 // two questions the arena asks about time, and this answers them by decoding
-// packed rows instead of indexing a parsed JSON array.
+// packed rows instead of indexing a parsed JSON array. The arena session added a
+// third thing they do not know: whether the fight they are drawing has finished.
+// `frameCount()` grows while it has not.
 //
 // **Decoded on demand and not up front.** A 3,600-tick fight is 7,200 pose rows
 // and about two thousand contacts; materialising every `Frame` at adopt time is
@@ -17,8 +19,17 @@
 // materialised. What is not free and is paid once per worker is the warm-up --
 // `init` plus `load_checkpoint`, 4.4 to 17.2 ms. Neither figure
 // covers worker startup, the `/web.wasm` fetch and instantiate, the checkpoint
-// fetch or the `postMessage`; the page prints its own `recorded in N ms` so a
-// reader gets the browser's number rather than this one.
+// fetch or the `postMessage`; the page prints its own number so a reader gets
+// the browser's rather than this one.
+//
+// **A chunk's index words are relative to that chunk's own buffers.** This is
+// the one arithmetic trap the split introduced and it is worth its own
+// paragraph: `INDEX_POSE_START` used to be an offset into a whole-fight section,
+// and a chunk carrying one of those into its own short buffer would not throw.
+// `TypedArray.prototype.subarray` clamps, so the result is a zero-length view
+// whose every read answers `undefined` and a body drawn from `NaN` -- the one
+// failure on this path a picture cannot diagnose. `FightChunk` checks every
+// extent against the chunk it belongs to, once, at adopt.
 //
 // Four places this cannot match `TraceFightSource`, all of them a column the
 // published rows do not carry, and every one of them visible in the UI rather
@@ -63,7 +74,7 @@ import {
   POSE_SHIELD_HALF_HEIGHT, POSE_SHIELD_HALF_WIDTH, POSE_SHIELD_NORMAL_X, POSE_SHOCK,
   POSE_WOUND_FIRST, REGION_LOWER_X, REGION_PRESENT, REGION_RADIUS, REGION_UPPER_X,
 } from "../protocol/abi.generated.js";
-import type { FightRecordingMessage } from "../protocol/messages.js";
+import type { ArenaChunk, ArenaFinished, ArenaOpened } from "../protocol/messages.js";
 import {
   INDEX_EVENT_COUNT, INDEX_EVENT_START, INDEX_POSE_COUNT, INDEX_POSE_START,
   INDEX_PROJECTILE_COUNT, INDEX_PROJECTILE_START,
@@ -73,9 +84,6 @@ import type { FightFrame, FightHeader, FightSource } from "./source.js";
 import type {
   Arm, Contact, EntityKey, Pose, Projectile, Region, Segment, ShieldFace, V3,
 } from "./trace.js";
-
-/** The transferred recording, minus the protocol envelope. */
-export type Recording = Omit<FightRecordingMessage, "kind" | "version" | "requestId">;
 
 /** `Intent`'s discriminants, in `intent_code`'s order. */
 const INTENTS = ["hold", "attack", "flee"] as const;
@@ -139,102 +147,81 @@ function fittingsOf(header: FightHeader): readonly Fittings[] {
   });
 }
 
-/** A `FightSource` over one recording the worker transferred. */
-export class LiveFightSource implements FightSource {
-  readonly header: FightHeader;
+/** The strides and counts every chunk of one fight is packed with. */
+interface Layout {
+  readonly poseStride: number;
+  readonly regionStride: number;
+  readonly regionsPerBody: number;
+  readonly eventStride: number;
+  readonly projectileStride: number;
+}
+
+/**
+ * One transferred chunk, with every extent checked once, at adopt.
+ *
+ * **The row decoder lives here and nowhere else.** A whole finished fight is one
+ * chunk's worth of the same words, so a second decoder for the finished case
+ * would be a second answer to what a pose row means -- and the two would agree
+ * right up to the day a column moved.
+ */
+class FightChunk {
+  readonly firstFrame: number;
+  readonly frameCount: number;
   readonly #poses: Uint32Array;
   readonly #regions: Uint32Array;
   readonly #events: Uint32Array;
   readonly #projectiles: Uint32Array;
   readonly #index: Uint32Array;
   readonly #health: Int32Array;
-  readonly #frames: number;
-  readonly #poseStride: number;
-  readonly #regionStride: number;
-  readonly #regionsPerBody: number;
-  readonly #eventStride: number;
-  readonly #projectileStride: number;
+  readonly #layout: Layout;
   readonly #fittings: readonly Fittings[];
 
-  constructor(recording: Recording) {
-    this.header = {
-      one: recording.one,
-      scenario: recording.scenario,
-      mirrored: recording.mirrored,
-      fingerprint: recording.fingerprint,
-      seed: recording.seed,
-      heroes: recording.heroes,
-      monsters: recording.monsters,
-      checkpoint: recording.checkpoint,
-      outcome: recording.outcome,
-      timedOut: recording.timedOut,
-      ticks: recording.ticks,
-      maxTicks: recording.maxTicks,
-      arena: recording.arena,
-      frameCount: recording.frameCount,
-      truncated: recording.recordingTruncated,
-      impactThreshold: recording.impactThreshold,
-      contactEnergyFloor: recording.contactEnergyFloor,
-      regionNames: recording.regionNames,
-      hintNames: recording.hintNames,
-      contactKinds: recording.contactKinds,
-      bodySlot: recording.bodySlot,
-      noRegion: recording.noRegion,
-      bodies: recording.bodies,
-    };
-    this.#poses = new Uint32Array(recording.poses);
-    this.#regions = new Uint32Array(recording.regions);
-    this.#events = new Uint32Array(recording.events);
-    this.#projectiles = new Uint32Array(recording.projectiles);
-    this.#index = new Uint32Array(recording.index);
-    this.#health = new Int32Array(recording.health);
-    this.#poseStride = recording.poseStride;
-    this.#regionStride = recording.regionStride;
-    this.#regionsPerBody = recording.regionsPerBody;
-    this.#eventStride = recording.combatEventStride;
-    this.#projectileStride = recording.articulatedProjectileStride;
-    this.#fittings = fittingsOf(this.header);
-    // **The exemption is checked and not merely declared.** The arena publishes
-    // unfiltered ground truth -- both fighters are the subject, there is no fog,
-    // and `SnapshotFilterState` never sees these words -- which is correct here
-    // and a leak the moment this path is copied into the game path. A field that
-    // nothing reads would be a comment with a type on it, so the consumer of the
-    // stream is where the refusal goes: a producer that does not *say* it is a
-    // spectator stream does not get rendered as one.
-    if (recording.spectator !== true) {
-      throw new RangeError("a recording that does not declare itself a spectator stream is not "
-        + "renderable here: these pose rows crossed no visibility filter");
+  constructor(chunk: ArenaChunk, layout: Layout, fittings: readonly Fittings[]) {
+    this.firstFrame = chunk.firstFrame;
+    this.frameCount = chunk.frameCount;
+    this.#layout = layout;
+    this.#fittings = fittings;
+    this.#poses = new Uint32Array(chunk.poses);
+    this.#regions = new Uint32Array(chunk.regions);
+    this.#events = new Uint32Array(chunk.events);
+    this.#projectiles = new Uint32Array(chunk.projectiles);
+    this.#index = new Uint32Array(chunk.index);
+    this.#health = new Int32Array(chunk.health);
+    if (!Number.isInteger(this.frameCount) || this.frameCount <= 0
+      || !Number.isInteger(this.firstFrame) || this.firstFrame < 0) {
+      throw new RangeError(`a chunk claims ${this.frameCount} frames from ${this.firstFrame}`);
     }
     // The index is the width check, and it is the one that matters: every other
     // length is read *through* the index, so an index the wrong width would
     // silently read a start word as a count and hand a panel a plausible frame
     // from the wrong tick.
-    this.#frames = this.#index.length / RECORDING_INDEX_STRIDE;
-    if (!Number.isInteger(this.#frames) || this.#frames !== recording.frameCount
-      || this.#health.length !== recording.frameCount * 2) {
-      throw new RangeError("a recording's index does not describe its own frame count");
+    if (this.#index.length !== this.frameCount * RECORDING_INDEX_STRIDE
+      || this.#health.length !== this.frameCount * 2) {
+      throw new RangeError("a chunk's index does not describe its own frame count");
     }
-    // **And every extent is checked against the buffer it addresses, once, here.**
-    // `subarray` clamps rather than throwing, so a start past the end of a buffer
-    // is not an exception a reader would see -- it is a zero-length view whose
-    // every `!` answers `undefined` and a body drawn from `NaN` coordinates. That
-    // is the one failure mode on this path a picture cannot diagnose, which is
-    // why it is refused at adopt time rather than discovered at a scrub position
-    // somebody happened to drag to.
+    // **And every extent is checked against the buffer it addresses, once,
+    // here.** `subarray` clamps rather than throwing, so a start past the end of
+    // a buffer is not an exception a reader would see -- it is a zero-length view
+    // whose every `!` answers `undefined` and a body drawn from `NaN`
+    // coordinates. That is the one failure mode on this path a picture cannot
+    // diagnose, which is why it is refused at adopt time rather than discovered
+    // at a scrub position somebody happened to drag to. **A chunk whose starts
+    // were left whole-fight rather than chunk-relative fails exactly here**,
+    // which is what makes the rebase a checked claim rather than an intention.
     const rows = (words: Uint32Array, stride: number, what: string): number => {
       if (!Number.isInteger(stride) || stride <= 0 || words.length % stride !== 0) {
-        throw new RangeError(`a recording's ${what} section is not a whole number of rows`);
+        throw new RangeError(`a chunk's ${what} section is not a whole number of rows`);
       }
       return words.length / stride;
     };
-    const poseRows = rows(this.#poses, this.#poseStride, "pose");
-    const regionRows = rows(this.#regions, this.#regionStride, "region");
-    const eventRows = rows(this.#events, this.#eventStride, "combat-event");
-    const projectileRows = rows(this.#projectiles, this.#projectileStride, "projectile");
-    if (!Number.isInteger(this.#regionsPerBody) || this.#regionsPerBody <= 0) {
-      throw new RangeError("a recording publishes no regions per body");
+    const poseRows = rows(this.#poses, layout.poseStride, "pose");
+    const regionRows = rows(this.#regions, layout.regionStride, "region");
+    const eventRows = rows(this.#events, layout.eventStride, "combat-event");
+    const projectileRows = rows(this.#projectiles, layout.projectileStride, "projectile");
+    if (!Number.isInteger(layout.regionsPerBody) || layout.regionsPerBody <= 0) {
+      throw new RangeError("a fight publishes no regions per body");
     }
-    for (let frame = 0; frame < this.#frames; frame += 1) {
+    for (let frame = 0; frame < this.frameCount; frame += 1) {
       const at = frame * RECORDING_INDEX_STRIDE;
       const extents: readonly (readonly [number, number, number, string])[] = [
         [this.#index[at + INDEX_POSE_START]!, this.#index[at + INDEX_POSE_COUNT]!, poseRows, "pose"],
@@ -245,22 +232,16 @@ export class LiveFightSource implements FightSource {
       ];
       for (const [start, count, available, what] of extents) {
         if (start + count > available) {
-          throw new RangeError(`frame ${frame} addresses ${what} rows ${start} to ${start + count} `
-            + `of a section holding ${available}`);
+          throw new RangeError(`frame ${this.firstFrame + frame} addresses ${what} rows ${start} to `
+            + `${start + count} of a chunk section holding ${available}`);
         }
       }
     }
   }
 
-  frameCount(): number {
-    return this.#frames;
-  }
-
-  frameAt(index: number): FightFrame {
-    if (!Number.isInteger(index) || index < 0 || index >= this.#frames) {
-      throw new Error(`recorded frame ${index} is out of range`);
-    }
-    const at = index * RECORDING_INDEX_STRIDE;
+  /** The frame at `local`, which is `index - firstFrame`. */
+  frameAt(local: number): FightFrame {
+    const at = local * RECORDING_INDEX_STRIDE;
     const poseStart = this.#index[at + INDEX_POSE_START]!;
     const poseCount = this.#index[at + INDEX_POSE_COUNT]!;
     const regionStart = this.#index[at + INDEX_REGION_START]!;
@@ -273,12 +254,13 @@ export class LiveFightSource implements FightSource {
     // `articulated-abi.md` states for the region section: a body the host has no
     // anatomy for is skipped and the rows after it shift, so the comparison is
     // the reader's protection rather than a nicety.
-    if (regionCount !== poseCount * this.#regionsPerBody) {
-      throw new RangeError(`frame ${index} publishes ${regionCount} region rows for ${poseCount} bodies`);
+    if (regionCount !== poseCount * this.#layout.regionsPerBody) {
+      throw new RangeError(`frame ${this.firstFrame + local} publishes ${regionCount} region rows `
+        + `for ${poseCount} bodies`);
     }
     const poses: Pose[] = [];
     for (let row = 0; row < poseCount; row += 1) {
-      poses.push(this.#poseAt(poseStart + row, regionStart + row * this.#regionsPerBody));
+      poses.push(this.#poseAt(poseStart + row, regionStart + row * this.#layout.regionsPerBody));
     }
     const contacts: Contact[] = [];
     for (let row = 0; row < eventCount; row += 1) contacts.push(this.#contactAt(eventStart + row));
@@ -291,12 +273,12 @@ export class LiveFightSource implements FightSource {
       poses,
       projectiles,
       contacts,
-      health: [this.#health[index * 2]!, this.#health[index * 2 + 1]!],
+      health: [this.#health[local * 2]!, this.#health[local * 2 + 1]!],
     };
   }
 
   #projectileAt(row: number): Projectile {
-    const at = row * this.#projectileStride;
+    const at = row * this.#layout.projectileStride;
     const words = this.#projectiles;
     return {
       id: [words[at + ARTICULATED_PROJECTILE_SLOT]!,
@@ -311,7 +293,8 @@ export class LiveFightSource implements FightSource {
   }
 
   #poseAt(row: number, regionRow: number): Pose {
-    const words = this.#poses.subarray(row * this.#poseStride, (row + 1) * this.#poseStride);
+    const stride = this.#layout.poseStride;
+    const words = this.#poses.subarray(row * stride, (row + 1) * stride);
     const body = words[POSE_ENTITY_INDEX]!;
     const fittings = this.#fittings[body];
     const mask = words[POSE_EQUIPMENT_MASK]!;
@@ -338,8 +321,8 @@ export class LiveFightSource implements FightSource {
       thickness: fittings?.thickness ?? 0,
     };
     const regions: Region[] = [];
-    for (let part = 0; part < this.#regionsPerBody; part += 1) {
-      const at = (regionRow + part) * this.#regionStride;
+    for (let part = 0; part < this.#layout.regionsPerBody; part += 1) {
+      const at = (regionRow + part) * this.#layout.regionStride;
       regions.push({
         lower: v3(this.#regions, at + REGION_LOWER_X),
         upper: v3(this.#regions, at + REGION_UPPER_X),
@@ -379,7 +362,7 @@ export class LiveFightSource implements FightSource {
   }
 
   #contactAt(row: number): Contact {
-    const at = row * this.#eventStride;
+    const at = row * this.#layout.eventStride;
     const words = this.#events;
     return {
       a: [words[at + COMBAT_EVENT_A_INDEX]!, words[at + COMBAT_EVENT_A_GENERATION]!],
@@ -406,5 +389,145 @@ export class LiveFightSource implements FightSource {
       deflected: u64(words, at + COMBAT_EVENT_DEFLECTED_LO),
       severed: words[at + COMBAT_EVENT_SEVERED] !== 0,
     };
+  }
+}
+
+/** A header whose end-of-fight fields are filled in when the fight supplies them. */
+type GrowingHeader = { -readonly [K in keyof FightHeader]: FightHeader[K] };
+
+/**
+ * A `FightSource` over a fight that may still be being produced.
+ *
+ * **A finished recording is this with one chunk in it**, which is why there is no
+ * second class for the finished case: the difference between a fight in progress
+ * and a fight that is over is a `finish` call, not a different reader. That is
+ * what `LiveFightSource` -- which this replaces -- could not be, because its
+ * constructor took a message that could only be built once the last tick existed.
+ */
+export class StreamingFightSource implements FightSource {
+  readonly #header: GrowingHeader;
+  readonly #layout: Layout;
+  readonly #fittings: readonly Fittings[];
+  readonly #chunks: FightChunk[] = [];
+  #frames = 0;
+  #finished = false;
+
+  constructor(opened: ArenaOpened) {
+    // **The exemption is checked and not merely declared.** The arena publishes
+    // unfiltered ground truth -- both fighters are the subject, there is no fog,
+    // and `SnapshotFilterState` never sees these words -- which is correct here
+    // and a leak the moment this path is copied into the game path. A field that
+    // nothing reads would be a comment with a type on it, so the consumer of the
+    // stream is where the refusal goes: a producer that does not *say* it is a
+    // spectator stream does not get rendered as one.
+    if (opened.spectator !== true) {
+      throw new RangeError("a stream that does not declare itself a spectator stream is not "
+        + "renderable here: these pose rows crossed no visibility filter");
+    }
+    this.#header = {
+      one: opened.one,
+      scenario: opened.scenario,
+      mirrored: opened.mirrored,
+      fingerprint: opened.fingerprint,
+      seed: opened.seed,
+      heroes: opened.heroes,
+      monsters: opened.monsters,
+      checkpoint: opened.checkpoint,
+      // Null and not a default string: nobody knows yet, and this is the field
+      // that says so rather than the field that guesses.
+      outcome: null,
+      timedOut: false,
+      ticks: 0,
+      maxTicks: opened.maxTicks,
+      arena: opened.arena,
+      frameCount: 0,
+      truncated: false,
+      impactThreshold: opened.impactThreshold,
+      contactEnergyFloor: opened.contactEnergyFloor,
+      regionNames: opened.regionNames,
+      hintNames: opened.hintNames,
+      contactKinds: opened.contactKinds,
+      bodySlot: opened.bodySlot,
+      noRegion: opened.noRegion,
+      bodies: opened.bodies,
+    };
+    this.#layout = {
+      poseStride: opened.poseStride,
+      regionStride: opened.regionStride,
+      regionsPerBody: opened.regionsPerBody,
+      eventStride: opened.combatEventStride,
+      projectileStride: opened.articulatedProjectileStride,
+    };
+    this.#fittings = fittingsOf(this.#header);
+  }
+
+  get header(): FightHeader {
+    return this.#header;
+  }
+
+  /** Whether the producer has said the fight stopped. */
+  get finished(): boolean {
+    return this.#finished;
+  }
+
+  /**
+   * Take one chunk, checking it against the fight it claims to continue.
+   *
+   * **Contiguity is checked and not assumed.** A chunk that does not start where
+   * the last one ended is either a message that arrived out of order or a
+   * producer that lost count, and both draw a fight with a hole in it that
+   * nothing else would notice: `frameAt` would answer the wrong tick's rows, and
+   * the tick word inside them would be the only evidence.
+   */
+  adopt(chunk: ArenaChunk): void {
+    if (this.#finished) throw new RangeError("a finished fight cannot take another chunk");
+    if (chunk.firstFrame !== this.#frames) {
+      throw new RangeError(`a chunk starting at frame ${chunk.firstFrame} does not continue a fight `
+        + `holding ${this.#frames}`);
+    }
+    const adopted = new FightChunk(chunk, this.#layout, this.#fittings);
+    this.#chunks.push(adopted);
+    this.#frames += adopted.frameCount;
+    this.#header.frameCount = this.#frames;
+    // What the fight has got to, read off the last frame's own tick word rather
+    // than derived from the frame count: the two coincide for a drive that keeps
+    // every tick, and "happens to equal" is exactly the arithmetic the index
+    // exists to stop a reader doing.
+    this.#header.ticks = adopted.frameAt(adopted.frameCount - 1).t;
+  }
+
+  /** The producer stopped. Everything that could not be known until now. */
+  finish(tail: ArenaFinished): void {
+    if (tail.frameCount !== this.#frames) {
+      throw new RangeError(`a fight that delivered ${this.#frames} frames finished claiming `
+        + `${tail.frameCount}`);
+    }
+    this.#header.outcome = tail.outcome;
+    this.#header.timedOut = tail.timedOut;
+    this.#header.ticks = tail.ticks;
+    this.#header.truncated = tail.recordingTruncated;
+    this.#finished = true;
+  }
+
+  frameCount(): number {
+    return this.#frames;
+  }
+
+  frameAt(index: number): FightFrame {
+    if (!Number.isInteger(index) || index < 0 || index >= this.#frames) {
+      throw new Error(`recorded frame ${index} is out of range`);
+    }
+    // Binary search over the chunks rather than a scan. A 3,600-tick fight is
+    // 121 chunks at `ARENA_STREAM_CHUNK_TICKS`, and `buildSeries` alone calls
+    // `frameAt` four times a frame.
+    let low = 0;
+    let high = this.#chunks.length - 1;
+    while (low < high) {
+      const middle = (low + high + 1) >> 1;
+      if (this.#chunks[middle]!.firstFrame <= index) low = middle;
+      else high = middle - 1;
+    }
+    const chunk = this.#chunks[low]!;
+    return chunk.frameAt(index - chunk.firstFrame);
   }
 }

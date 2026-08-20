@@ -12,25 +12,56 @@
 // `SimWorkerHost` refuses the mixture by name in both directions.
 
 import type {
-  ArenaProgressMessage, ArenaRejectedMessage, ErrorMessage, FightRecordingMessage,
-  TerminatedMessage,
+  ArenaChunkMessage, ArenaFinishedMessage, ArenaOpenedMessage, ArenaRejectedMessage,
+  ErrorMessage, TerminatedMessage,
 } from "../protocol/messages.js";
-import { WORKER_PROTOCOL_VERSION, isU32 } from "../protocol/messages.js";
+import {
+  LEGACY_WORKER_PROTOCOL_VERSION, WORKER_PROTOCOL_VERSION, isU32,
+} from "../protocol/messages.js";
 import { encodeArenaConfig, type ArenaConfig } from "./arena-config.js";
-import type { Recording } from "../fight/live.js";
+import { StreamingFightSource } from "../fight/live.js";
 
-export type ArenaProgress = (ticksDone: number, ticksTotal: number) => void;
+/**
+ * What a page does with a fight while it is still being produced.
+ *
+ * `onOpened` hands over the source before it holds a single frame -- there is
+ * nothing to draw yet and everything to *say*, which is what makes the status
+ * line able to name the fight instead of the wait. `onChunk` fires once per
+ * delivered chunk, and the first of those is the frame the reader has been
+ * waiting for.
+ */
+export interface ArenaStream {
+  readonly onOpened: (source: StreamingFightSource) => void;
+  readonly onChunk: (source: StreamingFightSource) => void;
+}
 
 /** A fight this build cannot run, with the sentence a reader can act on. */
 export class ArenaRefused extends Error {}
 
-/** The five kinds this client answers, and nothing else reaches `#receive`. */
-type ArenaWorkerMessage = FightRecordingMessage | ArenaProgressMessage | ArenaRejectedMessage
-  | ErrorMessage | TerminatedMessage;
+/** The six kinds this client answers, and nothing else reaches `#receive`. */
+type ArenaWorkerMessage = ArenaOpenedMessage | ArenaChunkMessage | ArenaFinishedMessage
+  | ArenaRejectedMessage | ErrorMessage | TerminatedMessage;
+
+/**
+ * What a decode answered: a message, a named version refusal, or nothing legible.
+ *
+ * **Three answers and not two, because "your session is a V1 session" and "your
+ * message is invalid" are different instructions.** A V1-versioned arena message
+ * used to fall into the same `null` as a malformed one and be dropped in silence,
+ * which is the shape of failure this repository has paid for repeatedly: a
+ * request a control cannot honour must be refused by name.
+ */
+type ArenaDecode =
+  | { readonly ok: true; readonly message: ArenaWorkerMessage }
+  | { readonly ok: false; readonly legacy: true; readonly detail: string }
+  | { readonly ok: false; readonly legacy: false };
+
+const UNREADABLE: ArenaDecode = { ok: false, legacy: false };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 const isString = (value: unknown): value is string => typeof value === "string";
+const isBuffer = (value: unknown): value is ArrayBuffer => value instanceof ArrayBuffer;
 const arenaRejectReasons = new Set([
   "wrongModel", "unknownLayout", "invalidArenaConfig", "arenaBusy", "checkpointRefused", "cancelled",
 ]);
@@ -39,66 +70,71 @@ const errorCodes = new Set([
   "invalidBufferId", "invalidLeaseToken", "invalidBufferCapacity", "epochExhausted",
   "leaseTokenExhausted", "revisionExhausted", "wasmAbiMismatch", "wasmTrap",
 ]);
+/** The four kinds that exist only at V2, so a V1 one can be named rather than dropped. */
+const V2_ONLY = new Set(["arenaOpened", "arenaChunk", "arenaFinished", "arenaRejected"]);
 
 /**
  * The arena half of `sim-client.ts`'s `decodeWorkerMessage`, and it is owed for
  * the same reason: **a TypeScript type is not a trust boundary.** A `postMessage`
  * from a worker is structured-cloned data and the `as` casts this file used to
  * make were assertions about a message nobody had read. The failure mode is not
- * a thrown `TypeError` either -- a missing `frameCount` makes every `!` in
- * `LiveFightSource` answer `undefined` and a body decodes as garbage, which is
- * the shape of failure a reader cannot diagnose from the picture.
+ * a thrown `TypeError` either -- a missing `frameCount` makes every `!` in the
+ * chunk decoder answer `undefined` and a body decodes as garbage, which is the
+ * shape of failure a reader cannot diagnose from the picture.
  *
  * `spectator` is checked here rather than trusted, which is what makes the field
  * a gate instead of documentation: the arena publishes unfiltered ground truth,
  * and a producer that does not *say* so is refused rather than rendered.
  */
-function decodeArenaMessage(value: unknown): ArenaWorkerMessage | null {
-  if (!isRecord(value) || !isString(value.kind)) return null;
+function decodeArenaMessage(value: unknown): ArenaDecode {
+  if (!isRecord(value) || !isString(value.kind)) return UNREADABLE;
+  // **Ahead of every field check, and only for the kinds the version decides.**
+  // A legacy-versioned arena message is not a malformed message; it is a message
+  // from a session that was never promised these kinds, and it is told so in the
+  // shape `arenaStart` already uses on the way in.
+  if (V2_ONLY.has(value.kind) && value.version === LEGACY_WORKER_PROTOCOL_VERSION) {
+    return { ok: false, legacy: true,
+      detail: `${value.kind} needs protocol version 2; this session is legacy V1` };
+  }
+  const kept = (message: unknown): ArenaDecode =>
+    ({ ok: true, message: message as ArenaWorkerMessage });
   switch (value.kind) {
-    case "arenaProgress":
-      if (value.version === WORKER_PROTOCOL_VERSION && isU32(value.requestId)
-        && isU32(value.ticksDone) && isU32(value.ticksTotal)) {
-        return value as unknown as ArenaProgressMessage;
-      }
+    case "arenaOpened":
+      if (isOpened(value)) return kept(value);
+      break;
+    case "arenaChunk":
+      if (isChunk(value)) return kept(value);
+      break;
+    case "arenaFinished":
+      if (isFinished(value)) return kept(value);
       break;
     case "arenaRejected":
       if (value.version === WORKER_PROTOCOL_VERSION && isU32(value.requestId)
         && isString(value.reason) && arenaRejectReasons.has(value.reason)
         && isU32(value.packed) && isString(value.detail)) {
-        return value as unknown as ArenaRejectedMessage;
+        return kept(value);
       }
-      break;
-    case "fightRecording":
-      if (isRecording(value)) return value as unknown as FightRecordingMessage;
       break;
     case "error":
       if (value.version === WORKER_PROTOCOL_VERSION
         && (value.requestId === null || isU32(value.requestId)) && isU32(value.epoch)
         && isString(value.code) && errorCodes.has(value.code)
         && typeof value.fatal === "boolean" && isString(value.detail)) {
-        return value as unknown as ErrorMessage;
+        return kept(value);
       }
       break;
     case "terminated":
-      if (value.version === WORKER_PROTOCOL_VERSION && isU32(value.epoch)) {
-        return value as unknown as TerminatedMessage;
-      }
+      if (value.version === WORKER_PROTOCOL_VERSION && isU32(value.epoch)) return kept(value);
       break;
   }
-  return null;
+  return UNREADABLE;
 }
 
-function isRecording(value: Record<string, unknown>): boolean {
-  const buffers = [
-    value.poses, value.regions, value.projectiles, value.events, value.index, value.health,
-  ];
-  const counts = [value.one, value.seed, value.ticks, value.maxTicks, value.frameCount,
+function isOpened(value: Record<string, unknown>): boolean {
+  const counts = [value.one, value.seed, value.maxTicks,
     value.poseLayoutVersion, value.poseStride, value.regionLayoutVersion, value.regionStride,
     value.regionsPerBody, value.articulatedProjectileLayoutVersion,
     value.articulatedProjectileStride, value.combatEventLayoutVersion, value.combatEventStride,
-    value.posesDropped, value.regionsDropped, value.articulatedProjectilesDropped,
-    value.combatEventsDropped,
     value.impactThreshold, value.contactEnergyFloor, value.bodySlot, value.noRegion];
   const names = [value.regionNames, value.hintNames, value.contactKinds];
   return value.version === WORKER_PROTOCOL_VERSION && isU32(value.requestId)
@@ -106,24 +142,41 @@ function isRecording(value: Record<string, unknown>): boolean {
     // this field exists, so the only value that passes is the one the recorder
     // is documented to write.
     && value.spectator === true
-    && buffers.every((buffer) => buffer instanceof ArrayBuffer)
     && counts.every((count) => isU32(count))
     && names.every((list) => Array.isArray(list) && list.every(isString))
     && isString(value.scenario) && value.mirrored === false && isString(value.fingerprint)
     && isString(value.heroes) && isString(value.monsters)
     && (value.checkpoint === null || isString(value.checkpoint))
-    && isString(value.outcome) && typeof value.timedOut === "boolean"
-    && typeof value.recordingTruncated === "boolean"
     && Array.isArray(value.arena) && value.arena.length === 2
     && value.arena.every((word) => isU32(word))
     && Array.isArray(value.bodies) && value.bodies.every(isRecord);
 }
 
+function isChunk(value: Record<string, unknown>): boolean {
+  const buffers = [
+    value.poses, value.regions, value.projectiles, value.events, value.index, value.health,
+  ];
+  return value.version === WORKER_PROTOCOL_VERSION && isU32(value.requestId)
+    && isU32(value.firstFrame) && isU32(value.frameCount, true)
+    && buffers.every(isBuffer);
+}
+
+function isFinished(value: Record<string, unknown>): boolean {
+  const counts = [value.ticks, value.frameCount, value.posesDropped, value.regionsDropped,
+    value.articulatedProjectilesDropped, value.combatEventsDropped];
+  return value.version === WORKER_PROTOCOL_VERSION && isU32(value.requestId)
+    && isString(value.outcome) && typeof value.timedOut === "boolean"
+    && typeof value.recordingTruncated === "boolean"
+    && counts.every((count) => isU32(count));
+}
+
 type Pending = {
   readonly requestId: number;
-  readonly onProgress: ArenaProgress;
-  readonly resolve: (recording: Recording) => void;
+  readonly stream: ArenaStream;
+  readonly resolve: (source: StreamingFightSource) => void;
   readonly reject: (error: Error) => void;
+  /** Built on `arenaOpened`; null until the worker has said what fight this is. */
+  source: StreamingFightSource | null;
 };
 
 export class ArenaClient {
@@ -164,7 +217,13 @@ export class ArenaClient {
   }
 
   /**
-   * Record one configured duel.
+   * Drive one configured duel, and hand the fight over as it arrives.
+   *
+   * **Resolves on `arenaFinished` and streams before it.** The source the
+   * promise answers with is the same object `stream.onOpened` was handed at the
+   * top of the fight -- it has grown, not been replaced -- so a page that drew
+   * frame 0 half a second earlier is looking at the same fight it now knows the
+   * outcome of.
    *
    * **A second call cancels the first rather than racing it.** [Fight] pressed
    * twice is the same problem a navigation is: two recordings landing in either
@@ -195,7 +254,7 @@ export class ArenaClient {
    * an `await` inside a `try` that already has to explain a refusal to a reader:
    * two shapes of failure would mean two places that could forget one.
    */
-  async run(config: ArenaConfig, onProgress: ArenaProgress): Promise<Recording> {
+  async run(config: ArenaConfig, stream: ArenaStream): Promise<StreamingFightSource> {
     if (this.#disposed) throw new Error("the arena client is disposed");
     const claim = (this.#claim += 1);
     const previous = this.#idle;
@@ -224,8 +283,8 @@ export class ArenaClient {
       // `ArrayBuffer` this call owns outright and may transfer -- which is why it
       // is copied out rather than aliased from anything the page holds.
       const bytes = new Uint8Array(encodeArenaConfig(config));
-      return await new Promise<Recording>((resolve, reject) => {
-        this.#pending = { requestId, onProgress, resolve, reject };
+      return await new Promise<StreamingFightSource>((resolve, reject) => {
+        this.#pending = { requestId, stream, resolve, reject, source: null };
         const transfer: ArrayBuffer[] = [bytes.buffer as ArrayBuffer];
         if (checkpoint !== null) transfer.push(checkpoint);
         worker.postMessage({
@@ -288,28 +347,69 @@ export class ArenaClient {
   #receive(raw: unknown): void {
     const pending = this.#pending;
     if (pending === null) return;
-    const message = decodeArenaMessage(raw);
-    // A message this client cannot read is not a message it may act on. It is
-    // dropped rather than made fatal for the same reason a stray request id is:
-    // the worker is a module this page built, so a kind it does not answer is a
-    // version skew, and the recording in flight is still the one being waited on.
-    if (message === null) return;
+    const decoded = decodeArenaMessage(raw);
+    if (!decoded.ok) {
+      // A message this client cannot read is not a message it may act on. It is
+      // dropped rather than made fatal for the same reason a stray request id
+      // is: the worker is a module this page built, so a kind it does not answer
+      // is a version skew, and the fight in flight is still the one being waited
+      // on. **A legacy-versioned arena message is the exception and settles by
+      // name**, because that is not an unreadable message -- it is a worker
+      // speaking a version that was never promised these kinds, and a reader
+      // told nothing would watch the status line say "producing" forever.
+      if (decoded.legacy) {
+        this.#clear();
+        pending.reject(new ArenaRefused(decoded.detail));
+      }
+      return;
+    }
+    const message = decoded.message;
     // **A fatal error and a `terminated` do not have to name this request**, and
     // that is the case worth writing down: `handleUnhandledError` reports a wasm
     // trap with a *null* request id, so a client that matched on the id alone
-    // would leave the promise pending forever and the page saying "Recording..."
-    // with nothing recording. Everything else must correlate exactly.
+    // would leave the promise pending forever and the page saying "Producing..."
+    // with nothing producing. Everything else must correlate exactly.
     const terminal = message.kind === "terminated"
       || (message.kind === "error" && message.fatal);
     if (!terminal && message.requestId !== pending.requestId) return;
-    if (message.kind === "arenaProgress") {
-      pending.onProgress(message.ticksDone, message.ticksTotal);
+    if (message.kind === "arenaOpened") {
+      const { kind: _kind, version: _version, requestId: _requestId, ...opened } = message;
+      // A second `arenaOpened` for one request would silently replace the fight
+      // the page is already drawing, so it is refused rather than obeyed.
+      if (pending.source !== null) {
+        this.#clear();
+        pending.reject(new ArenaRefused("the worker opened one fight twice"));
+        return;
+      }
+      pending.source = new StreamingFightSource(opened);
+      pending.stream.onOpened(pending.source);
       return;
     }
-    if (message.kind === "fightRecording") {
-      const { kind: _kind, version: _version, requestId: _requestId, ...recording } = message;
+    if (message.kind === "arenaChunk" || message.kind === "arenaFinished") {
+      const source = pending.source;
+      // A chunk before an opening has no layout to be read against, and reading
+      // it against a guess is the `NaN` body this channel refuses everywhere
+      // else. The fight is abandoned rather than half-drawn.
+      if (source === null) {
+        this.#clear();
+        pending.reject(new ArenaRefused(`a ${message.kind} arrived before the fight was opened`));
+        return;
+      }
+      const { kind, version: _version, requestId: _requestId, ...body } = message;
+      try {
+        if (kind === "arenaChunk") {
+          source.adopt(body as Omit<ArenaChunkMessage, "kind" | "version" | "requestId">);
+          pending.stream.onChunk(source);
+          return;
+        }
+        source.finish(body as Omit<ArenaFinishedMessage, "kind" | "version" | "requestId">);
+      } catch (error) {
+        this.#clear();
+        pending.reject(error instanceof Error ? error : new Error(String(error)));
+        return;
+      }
       this.#clear();
-      pending.resolve(recording);
+      pending.resolve(source);
       return;
     }
     if (message.kind === "arenaRejected") {

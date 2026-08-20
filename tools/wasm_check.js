@@ -2561,9 +2561,17 @@ test("the shot section is empty and says so", () => {
 // `crates/web`'s ARENA_* offsets, mirrored. The module asserts its own
 // arithmetic with `const _`; these are what a page computes from the reference.
 const ARENA_CONFIG_BYTES = 120;
-// `2` since combat-arms-01 claimed the hand block's byte 1 for the two-handed
-// grip; layout `1` promised that byte was zero.
-const ARENA_CONFIG_LAYOUT_VERSION = 2;
+// `3` since arena-02 claimed the fighter block's byte 2 for the control byte;
+// layout `2` promised that byte was zero and refused it otherwise, which is
+// what made spending it a version bump rather than a free bit. `2` was
+// combat-arms-01's claim on the hand block's byte 1 for the two-handed grip.
+const ARENA_CONFIG_LAYOUT_VERSION = 3;
+// The two control bytes, and the offset inside a fighter block that carries
+// one. Mirrored from `crates/web`, like every other number in this block.
+const ARENA_FIGHTER_CONTROL = 2;
+const ARENA_CONTROL_POLICY = 0;
+const ARENA_CONTROL_HUMAN = 1;
+const NO_CONTROL = 0xffff_ffff;
 const ARENA_HEADER_BYTES = 8;
 const ARENA_FIGHTER_BYTES = 56;
 const ARENA_HAND_BYTES = 22;
@@ -2576,6 +2584,8 @@ const ARENA_NONCANONICAL = 3;
 const ARENA_UNKNOWN_ANATOMY = 4;
 const ARENA_UNKNOWN_POLICY = 6;
 const ARENA_NO_EQUIPMENT = 24;
+const ARENA_UNKNOWN_CONTROL = 28;
+const ARENA_CONTROL_UNAVAILABLE = 29;
 // **Two reason codes are declared, reserved and produced by nothing**, and this
 // file checks the second half of that rather than taking it on trust.
 // `ARENA_POLICY_UNAVAILABLE` was the answer a code `crates/policy` could not
@@ -2647,6 +2657,9 @@ function arenaBytes(config) {
     const base = ARENA_HEADER_BYTES + index * ARENA_FIGHTER_BYTES;
     bytes[base] = fighter.anatomy;
     bytes[base + 1] = fighter.policy;
+    // Written even when it is zero: a zero here is `ARENA_CONTROL_POLICY` and
+    // means something, where byte 3 beside it is reserved and means nothing.
+    bytes[base + ARENA_FIGHTER_CONTROL] = fighter.control ?? ARENA_CONTROL_POLICY;
     words.setInt32(base + 4, fighter.spawn[0], true);
     words.setInt32(base + 8, fighter.spawn[1], true);
     fighter.hands.forEach((hand, slot) => {
@@ -2705,6 +2718,7 @@ test("a configured duel runs inside the module and refuses by name", () => {
   for (const name of [
     "arena_config_ptr", "arena_config_len", "arena_config_layout_version",
     "arena_start", "arena_fingerprint_lo", "arena_fingerprint_hi", "arena_policy",
+    "arena_control",
   ]) {
     assert.equal(typeof wasm[name], "function", `web.wasm does not export ${name}()`);
   }
@@ -2717,6 +2731,10 @@ test("a configured duel runs inside the module and refuses by name", () => {
   // read-back that is not vacuous.
   wasm.init(1);
   assert.equal(u32(wasm.arena_policy(0)), NO_POLICY, "a legacy world named an arena policy");
+  // `0xffff_ffff` and not `0`, because `0` is `ARENA_CONTROL_POLICY` and the
+  // answer for every side of every fight this build installs -- so a zero here
+  // would be indistinguishable from the commonest real answer there is.
+  assert.equal(u32(wasm.arena_control(0)), NO_CONTROL, "a legacy world named a control");
   assert.equal(arenaFingerprint(), 0n, "a legacy world named a configuration");
 
   const config = shippedArena();
@@ -2728,6 +2746,12 @@ test("a configured duel runs inside the module and refuses by name", () => {
   );
   assert.equal(u32(wasm.arena_policy(0)), SCRIPTED);
   assert.equal(u32(wasm.arena_policy(1)), TACTICAL);
+  // The control byte reads back beside the policy byte, which is what lets a
+  // recorder label a fight with what it is running rather than with what it
+  // sent. Both sides are `ARENA_CONTROL_POLICY` because a human side is
+  // refused; the refusal is in the sweep below.
+  assert.equal(u32(wasm.arena_control(0)), ARENA_CONTROL_POLICY);
+  assert.equal(u32(wasm.arena_control(1)), ARENA_CONTROL_POLICY);
   // The legacy registry says it does not know rather than naming a `PolicyKind`
   // nothing in an arena consults.
   assert.equal(u32(wasm.policy_kind(0)), NO_POLICY, "an arena answered a legacy policy code");
@@ -2800,6 +2824,25 @@ test("a configured duel runs inside the module and refuses by name", () => {
     ["a two-handed marker on the left hand", (bytes) => {
       bytes[ARENA_HEADER_BYTES + 12 + 1] = 1;
     }, { reason: ARENA_NONCANONICAL, fighter: 0, slot: 0 }],
+    // arena-02's two, and both targets have to agree about them or a page that
+    // refuses in the browser installs a fight in Node. `2` is the first byte
+    // past the pair the layout knows.
+    ["a control byte past the two this build knows", (bytes) => {
+      bytes[ARENA_HEADER_BYTES + ARENA_FIGHTER_CONTROL] = 2;
+    }, { reason: ARENA_UNKNOWN_CONTROL, fighter: 0, slot: ARENA_WHOLE_CONFIG }],
+    // **The refusal arena-02 exists for.** The configuration can spell "this
+    // side is driven by a person" one session before `advance_arena` can act on
+    // it, so the honest answer is a refusal naming the fighter -- not a fight
+    // in which the policy quietly drives the body the reader asked to drive.
+    // arena-05 deletes it; the number stays spent.
+    ["a human side with no input path in this build", (bytes) => {
+      bytes[ARENA_HEADER_BYTES + ARENA_FIGHTER_BYTES + ARENA_FIGHTER_CONTROL] = ARENA_CONTROL_HUMAN;
+    }, { reason: ARENA_CONTROL_UNAVAILABLE, fighter: 1, slot: ARENA_WHOLE_CONFIG }],
+    // Byte 3 did not stop being reserved when byte 2 did, which is the half of
+    // a layout bump that is easy to lose: it still answers the *other* refusal.
+    ["a reserved byte beside the control byte", (bytes) => {
+      bytes[ARENA_HEADER_BYTES + ARENA_FIGHTER_CONTROL + 1] = 1;
+    }, { reason: ARENA_NONCANONICAL, fighter: 0, slot: ARENA_WHOLE_CONFIG }],
   ];
   for (const [what, edit, expected] of refusals) {
     const bytes = arenaBytes(swapped);
@@ -2820,7 +2863,7 @@ test("a configured duel runs inside the module and refuses by name", () => {
   wasm.step(1);
   assert.equal(u32(wasm.tick()), standing.tick, "a settled arena stepped past its limit");
 
-  // Still usable after six refusals, which is what the fail-closed shape exists
+  // Still usable after nine refusals, which is what the fail-closed shape exists
   // for: a bad slider value is a message rather than a reload.
   const shorter = shippedArena();
   shorter.maxTicks = 30;
@@ -2847,6 +2890,7 @@ test("a configured duel runs inside the module and refuses by name", () => {
   // And back to a legacy world, so nothing after this inherits an arena.
   wasm.init(1);
   assert.equal(u32(wasm.arena_policy(0)), NO_POLICY);
+  assert.equal(u32(wasm.arena_control(0)), NO_CONTROL);
 });
 
 // The two holes v2-ui-05's review found, both of them first demonstrated
@@ -2868,6 +2912,8 @@ test("descending out of an arena returns an ordinary floor", () => {
   // the duel standing on top of the new floor.
   assert.equal(u32(wasm.arena_policy(0)), NO_POLICY, "the floor below is still an arena");
   assert.equal(u32(wasm.arena_policy(1)), NO_POLICY);
+  assert.equal(u32(wasm.arena_control(0)), NO_CONTROL, "the floor below still names a driver");
+  assert.equal(u32(wasm.arena_control(1)), NO_CONTROL);
   assert.equal(arenaFingerprint(), 0n, "a generated floor is named by a duel's configuration");
   assert.notEqual(u32(wasm.policy_kind(0)), NO_POLICY, "an ordinary floor cannot name its policy");
   // 2 is `PolicyKind::ScriptedLevel`, from the registry this export

@@ -6,12 +6,13 @@
 // fight" and "the JSON file a fight happened to be recorded into", so a later
 // session can replace the feed without touching a panel.
 //
-// Two adapters are planned and only the first exists today:
+// Two adapters, and both exist:
 //
-// | adapter             | drives                                            |
-// |---------------------|---------------------------------------------------|
-// | `TraceFightSource`  | `loadTrace(url)` over an 8-9 MB JSON              |
-// | `LiveFightSource`   | transferred pose/event/region/projectile buffers  |
+// | adapter                 | drives                                        |
+// |-------------------------|-----------------------------------------------|
+// | `TraceFightSource`      | `loadTrace(url)` over an 8-9 MB JSON          |
+// | `StreamingFightSource`  | chunks of pose/event/region/projectile rows,  |
+// |                         | adopted as the worker produces them           |
 //
 // Three places the two cannot agree, recorded here so the arena is built
 // knowing about them rather than discovering them:
@@ -35,7 +36,23 @@ import { at, loadTrace, type Frame, type Trace } from "./trace.js";
  * was written in, and a live recording has no such thing. A source that had to
  * invent one would be claiming a contract it does not participate in.
  */
-export type FightHeader = Omit<Trace, "frames" | "schema">;
+export type FightHeader = Omit<Trace, "frames" | "schema" | "outcome"> & {
+  /**
+   * `null` while the fight is still being produced.
+   *
+   * A streamed fight has no outcome until it stops, and the two dishonest
+   * options are both worse than a null: a default string makes the readout
+   * claim a result that has not happened, and omitting the field makes every
+   * reader's `header.outcome` read `undefined` and print it.
+   *
+   * **`sim` was checked for a word before this was invented, and it has none.**
+   * `World::outcome` answers `Option<Outcome>` and `None` is the undecided
+   * fight -- an absence rather than a sixth variant beside `Draw` -- so `null`
+   * here is that `Option` and not a new vocabulary. The studio renders the
+   * absence as a sentence; `Outcome`'s own five names stay what they are.
+   */
+  readonly outcome: string | null;
+};
 
 /** One recorded instant: the poses, the contacts resolved into it, and health. */
 export type FightFrame = Frame;
@@ -61,7 +78,7 @@ export class TraceFightSource implements FightSource {
 
   constructor(trace: Trace) {
     // `schema` is dropped from the object and not only from the type. A
-    // `LiveFightSource` will build its header field by field and will have no
+    // `StreamingFightSource` builds its header field by field and has no
     // `schema` to put in it, so a trace-backed header that still carried one at
     // runtime would make the two adapters structurally different behind an
     // `Omit` that says they are not -- and the first thing to notice would be

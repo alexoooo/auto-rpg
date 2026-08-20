@@ -3,10 +3,11 @@
  *
  * **What the bump is for.** V1 is the `#/game` diagnostic: a legacy world, three
  * pooled snapshot buffers, epochs, leases and a command queue. V2 adds a second
- * kind of session on the same worker module -- an arena *recording*, which runs
- * a configured duel to its end and posts one message transferring the buffers.
- * The two share the wasm instance and nothing else, which is why a worker is one
- * or the other for its whole life and never both.
+ * kind of session on the same worker module -- an arena *stream*, which drives a
+ * configured duel and posts the fight as it produces it: one `arenaOpened`, a
+ * run of `arenaChunk`s, and one `arenaFinished`. The two share the wasm instance
+ * and nothing else, which is why a worker is one or the other for its whole life
+ * and never both.
  *
  * **V1 is still accepted, and that is a commitment rather than politeness.**
  * `articulated-mechanical-gate.md` already commits v2 to accepting exact V1
@@ -26,6 +27,37 @@ export const MAX_FUTURE_TICKS = 600;
 export const TICKS_PER_SECOND = 60;
 export const MAX_ELAPSED_MICROS = 250_000;
 export const MAX_CATCHUP_TICKS = 8;
+
+/**
+ * Ticks per streamed chunk on the spectator drive.
+ *
+ * **Bounded from both sides, and the two sides are different costs.** At 1 the
+ * fight pays a `postMessage` and six buffer allocations per tick -- 3,600 of
+ * each for one duel, against 121 at this value. At `RECORDING_CHUNK_TICKS`' 300
+ * the first frame is five seconds of fight late at 1x, which is the wait this
+ * value exists to remove: 30 ticks is half a second of fight, and on the slowest
+ * pairing the picker can open on -- 3,816 to 5,349 ticks a second, measured on
+ * `arena-recorder.ts` -- it is 5.6 to 7.9 ms of production before the page has
+ * something to draw.
+ *
+ * It lives here rather than beside the drive because both ends of the channel
+ * need it: the worker paces by it and `#/arena` sizes its lead against it, and a
+ * page that carried its own copy would be a second answer to how long the wait
+ * is. `the_stream_chunk_is_bounded_from_both_sides` asserts both ends.
+ */
+export const ARENA_STREAM_CHUNK_TICKS = 30;
+
+/**
+ * How far production must lead the playhead before playback starts or resumes.
+ *
+ * At 0 the playhead meets the producer at every chunk boundary and the fight
+ * stutters once per chunk. At a whole chunk it is the old wait in smaller units
+ * -- the page would sit out one chunk's production before every chunk it plays.
+ * Half a chunk is the smallest lead that survives one late chunk, which is the
+ * bound in the other direction, and `the_stream_lead_is_bounded_from_both_sides`
+ * asserts both.
+ */
+export const ARENA_STREAM_LEAD_TICKS = ARENA_STREAM_CHUNK_TICKS / 2;
 
 export type BufferId = 0 | 1 | 2;
 
@@ -150,10 +182,15 @@ export type ArenaRejectedMessage = {
   packed: number;
   detail: string;
 };
-export type ArenaProgressMessage = {
-  kind: "arenaProgress"; version: 2; requestId: number;
-  ticksDone: number; ticksTotal: number;
-};
+/**
+ * `arenaProgress` stood here and is deleted rather than kept beside the stream.
+ *
+ * It carried `ticksDone`/`ticksTotal` so a page could show a bar while it waited
+ * for a fight it could not yet see. A chunk already says how far the fight has
+ * got -- its own last frame is the answer, and the page is *drawing* that frame
+ * -- so keeping both would be two messages answering one question, which is how
+ * one of them goes stale. The bar it fed is now the fight itself.
+ */
 
 /** One carried item, as `lab trace` writes a `BodyInfo.carried` entry. */
 export type RecordedItem = {
@@ -172,13 +209,15 @@ export type RecordedBody = {
 };
 
 /**
- * One whole recorded fight, transferred.
+ * The fight is opening: everything knowable before the first tick is stepped.
  *
- * **Five buffers and an index, because the index is the point.** `pose_len` is
- * one per *live* articulated body, so a reader computing `tick * 2 * POSE_STRIDE`
- * misaligns from the death onwards -- which is exactly the frame anybody opened
- * the page to look at. Every section is therefore addressed by a start and a
- * count the recorder wrote down as it copied.
+ * **One message becomes three, and the split is along "what is knowable when".**
+ * A worker that posted a finished recording had to know the outcome, the tick
+ * count and the frame count before it could say anything at all, so nothing was
+ * drawn until the last tick existed. This message carries the whole of what
+ * `arena_start` already decided -- the configuration, the fingerprint, the
+ * layout versions and strides, and the per-body anatomy and carried blocks --
+ * and says nothing about how the fight ends, because nobody knows yet.
  *
  * **`spectator` travels in the message and not in a comment, and it is a gate
  * rather than a label.** The arena publishes unfiltered ground truth: both
@@ -191,14 +230,15 @@ export type RecordedBody = {
  * It was declared, typed and asserted and **read by nothing** until a review
  * pointed out that a recording claiming `spectator: false` was accepted and
  * rendered identically -- which is a field that travels and is not checked, and
- * so is documentation with a type on it. Two consumers now refuse a stream that
- * does not declare itself: `decodeArenaMessage` in
- * [`arena-client.ts`](../runtime/arena-client.ts#L59), at the protocol boundary,
- * and `LiveFightSource`'s constructor, which is the thing that would have drawn
- * it.
+ * so is documentation with a type on it. Two consumers refuse a stream that does
+ * not declare itself, and the field moved to this message rather than being
+ * dropped when the recording was split: `decodeArenaMessage` in
+ * [`arena-client.ts`](../runtime/arena-client.ts#L89), at the protocol boundary,
+ * and `StreamingFightSource`'s constructor, which is the thing that would have
+ * drawn it.
  */
-export type FightRecordingMessage = {
-  kind: "fightRecording"; version: 2; requestId: number;
+export type ArenaOpenedMessage = {
+  kind: "arenaOpened"; version: 2; requestId: number;
   spectator: true;
   /** Raw units in one world unit. Carried rather than assumed, as the trace does. */
   one: number;
@@ -209,46 +249,95 @@ export type FightRecordingMessage = {
   heroes: string; monsters: string;
   /** SHA-256 of the installed checkpoint, or null when none was loaded. */
   checkpoint: string | null;
-  outcome: string; timedOut: boolean;
-  /** The tick the fight stopped at. */
-  ticks: number; maxTicks: number;
-  /**
-   * How many frames the recording holds, which is **`ticks + 1`** and not `ticks`.
-   *
-   * The drive captures once before it steps at all -- tick 0 is a frame, and it is
-   * the one a viewer opens on -- and then once per tick that advanced. So the
-   * learned fight that ends at tick 3,339 holds 3,340 frames, which is what
-   * `the_index_survives_a_death` asserts. This comment used to say the two were
-   * equal "unless a cap was hit"; it is exactly backwards, since hitting a cap is
-   * the one case where `frameCount` is *less* than `ticks + 1`.
-   */
-  frameCount: number;
-  /** A cap was reached and rows were not recorded. The studio must say so. */
-  recordingTruncated: boolean;
+  maxTicks: number;
   arena: readonly [number, number];
-  /** The three layout versions and strides the buffers were packed with. */
+  /** The three layout versions and strides the buffers are packed with. */
   poseLayoutVersion: number; poseStride: number;
   regionLayoutVersion: number; regionStride: number; regionsPerBody: number;
   articulatedProjectileLayoutVersion: number; articulatedProjectileStride: number;
   combatEventLayoutVersion: number; combatEventStride: number;
-  /** The module's own saturating drop counters, summed over the recording. */
-  posesDropped: number; regionsDropped: number; articulatedProjectilesDropped: number;
-  combatEventsDropped: number;
   impactThreshold: number; contactEnergyFloor: number;
   bodySlot: number; noRegion: number;
   regionNames: readonly string[]; hintNames: readonly string[]; contactKinds: readonly string[];
   bodies: readonly RecordedBody[];
+};
+
+/**
+ * One run of frames, transferred as it is produced.
+ *
+ * **Six buffers and an index, because the index is the point.** `pose_len` is
+ * one per *live* articulated body, so a reader computing `tick * 2 * POSE_STRIDE`
+ * misaligns from the death onwards -- which is exactly the frame anybody opened
+ * the page to look at. Every section is therefore addressed by a start and a
+ * count the recorder wrote down as it copied. The count in the section heading
+ * was **five** in this repository's own reference until 2026-08-19, which is the
+ * argument for counting from the list: `projectiles` was omitted.
+ *
+ * **Every start in `index` is relative to this chunk's own buffers, not to the
+ * fight.** That is the trap this shape exists to avoid rather than a convenience:
+ * `TypedArray.prototype.subarray` clamps rather than throwing, so a whole-fight
+ * offset into a chunk's short buffer is not an exception anybody sees -- it is a
+ * zero-length view whose every read answers `undefined` and a body drawn from
+ * `NaN`. The recorder rebases as it copies and `FightChunk` refuses a chunk whose
+ * extents do not fit, so whichever end got it wrong is named at adopt time.
+ *
+ * `firstFrame` is the whole-fight index of the first frame here, and it is what
+ * makes a chunk placeable without trusting the order it arrived in.
+ */
+export type ArenaChunkMessage = {
+  kind: "arenaChunk"; version: 2; requestId: number;
+  firstFrame: number; frameCount: number;
   /** `Uint32Array` words: pose, region, projectile and event rows, packed. */
   poses: ArrayBuffer; regions: ArrayBuffer; projectiles: ArrayBuffer; events: ArrayBuffer;
   /**
-   * `Uint32Array`, **nine** words a frame: the tick, then a start and a count
-   * for each of the pose, region, projectile and event sections. `RECORDING_INDEX_STRIDE`
-   * owns the number and `INDEX_TICK` owns the word this comment used to omit.
+   * `Uint32Array`, **nine** words a frame: the tick, then a chunk-relative start
+   * and a count for each of the pose, region, projectile and event sections.
+   * `RECORDING_INDEX_STRIDE` owns the number and `INDEX_TICK` owns the word.
    */
   index: ArrayBuffer;
   /** `Int32Array`, two raw `Fx` a frame: the Heroes' and the Monsters' health fraction. */
   health: ArrayBuffer;
 };
+
+/**
+ * The fight stopped, and this is everything that could not be known until it did.
+ *
+ * `outcome` is a string here and `null` on a header that has not received this
+ * message, and the difference is the whole reason the split is worth making: a
+ * fight in progress has no outcome, and the two dishonest options -- a default
+ * string, or an absent field every reader prints as `undefined` -- are both
+ * worse than saying so.
+ *
+ * `frameCount` is **`ticks + 1`** and not `ticks`. The drive captures once before
+ * it steps at all -- tick 0 is a frame, and it is the one a viewer opens on --
+ * and then once per tick that advanced. Hitting a cap is the one case where it is
+ * *less*, which is what `recordingTruncated` says.
+ */
+export type ArenaFinishedMessage = {
+  kind: "arenaFinished"; version: 2; requestId: number;
+  outcome: string; timedOut: boolean;
+  /** The tick the fight stopped at. */
+  ticks: number;
+  frameCount: number;
+  /** A cap was reached and rows were not recorded. The studio must say so. */
+  recordingTruncated: boolean;
+  /** The module's own saturating drop counters, summed over the whole fight. */
+  posesDropped: number; regionsDropped: number; articulatedProjectilesDropped: number;
+  combatEventsDropped: number;
+};
+
+/**
+ * The three streamed bodies, minus the protocol envelope.
+ *
+ * Declared here rather than beside either consumer because both ends need the
+ * same three shapes and neither may import the other: `live.ts` reads a chunk
+ * and `arena-recorder.ts` writes one, and the recorder is what `live.ts` already
+ * takes its index words from. A second `Omit` on either side would be a second
+ * answer to what crosses the channel.
+ */
+export type ArenaOpened = Omit<ArenaOpenedMessage, "kind" | "version" | "requestId">;
+export type ArenaChunk = Omit<ArenaChunkMessage, "kind" | "version" | "requestId">;
+export type ArenaFinished = Omit<ArenaFinishedMessage, "kind" | "version" | "requestId">;
 
 export type ProtocolErrorCode =
   | "unknownVersion" | "notInitialized" | "alreadyInitialized"
@@ -262,7 +351,7 @@ export type ErrorMessage = {
 export type TerminatedMessage = { kind: "terminated"; version: ProtocolVersion; epoch: number };
 export type WorkerMessage = ReadyMessage | PauseChangedMessage | AdvanceAckMessage | CommandAckMessage
   | SnapshotMessage | BufferReturnedMessage | ErrorMessage | TerminatedMessage
-  | ArenaRejectedMessage | ArenaProgressMessage | FightRecordingMessage;
+  | ArenaRejectedMessage | ArenaOpenedMessage | ArenaChunkMessage | ArenaFinishedMessage;
 
 export type DecodeFailure = { ok: false; code: "unknownVersion" | "invalidMessage"; requestId: number | null; detail: string };
 export type DecodeResult = { ok: true; message: ClientMessage } | DecodeFailure;
@@ -344,10 +433,19 @@ export function decodeClientMessage(value: unknown): DecodeResult {
         return { ok: true, message: { kind: "returnSnapshot", version, requestId: value.requestId, epoch: value.epoch as number, bufferId: value.bufferId, leaseToken: value.leaseToken, buffer: value.buffer } };
       }
       break;
-    // The two V2-only kinds. Refused by name at V1 rather than falling through
-    // to "invalid arenaStart message", because the difference between "your
-    // message is malformed" and "your session is a V1 session" is the whole
-    // content of the legacy-only commitment.
+    // The two V2-only kinds a *client* may send. Refused by name at V1 rather
+    // than falling through to "invalid arenaStart message", because the
+    // difference between "your message is malformed" and "your session is a V1
+    // session" is the whole content of the legacy-only commitment.
+    //
+    // **`arenaOpened`, `arenaChunk` and `arenaFinished` are deliberately not
+    // here, and the omission is the honest form of the same rule.** They travel
+    // worker to main and never the other way, so telling a client that one of
+    // them "needs protocol version 2" would say that at version 2 it may send
+    // one -- which is false, and a nearly-right refusal is the failure mode two
+    // reviews here found ten instances of. Their V1 refusal by name lives at the
+    // boundary they actually cross, `decodeArenaMessage` in `arena-client.ts`,
+    // where a legacy-versioned chunk is named rather than dropped as unreadable.
     case "arenaStart":
       if (version !== WORKER_PROTOCOL_VERSION) {
         return { ok: false, code: "unknownVersion", requestId, detail: "arenaStart needs protocol version 2; this session is legacy V1" };

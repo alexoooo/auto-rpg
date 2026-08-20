@@ -55,20 +55,50 @@ function tipOf(source: FightSource, frame: number, body: number): readonly [numb
   return null;
 }
 
+/** The same arrays, still being written to as a streamed fight grows. */
+interface GrowingSeries {
+  readonly tipSpeed: number[][];
+  readonly energy: number[];
+  readonly loudest: number[];
+  readonly wounding: boolean[];
+  peakSpeed: number;
+  peakEnergy: number;
+}
+
 // **The one function here that is handed the whole source rather than the
 // header.** Two rates over every frame of the fight cannot be built from one
 // frame, so widening this is not an abstraction leak -- it is what the series is.
 // Everything downstream then works off the series and never reaches back.
-export function buildSeries(source: FightSource): Series {
+//
+// **Extended in place rather than rebuilt, and that is a cost and not a taste.**
+// A streamed fight delivers 121 chunks and every one of them adds frames to
+// plot. Rebuilding from frame 0 each time is quadratic -- about 1.7 million
+// `frameAt` calls over one 3,600-tick duel, against 14,400 done once -- and the
+// page would spend more time drawing the chart than the worker spends producing
+// the fight. So the series is a growing object and `buildSeries` appends to the
+// one it is given.
+export function buildSeries(source: FightSource, previous?: Series): Series {
   const count = source.frameCount();
-  const tipSpeed = source.header.bodies.map(() => new Array<number>(count).fill(0));
-  const energy = new Array<number>(count).fill(0);
-  const loudest = new Array<number>(count).fill(-1);
-  const wounding = new Array<boolean>(count).fill(false);
-  let peakSpeed = 0;
-  let peakEnergy = 0;
+  const series: GrowingSeries = previous === undefined
+    ? {
+      tipSpeed: source.header.bodies.map(() => []),
+      energy: [], loudest: [], wounding: [], peakSpeed: 0, peakEnergy: 0,
+    }
+    // The arrays behind a `Series` are the ones this function wrote, so the cast
+    // is over its own output rather than over a caller's. A `Series` handed in
+    // from anywhere else would be a claim this cannot check -- and there is
+    // nowhere else, because nothing but this function constructs one.
+    : (previous as unknown as GrowingSeries);
+  const { tipSpeed, energy, loudest, wounding } = series;
+  const from = energy.length;
+  for (let b = 0; b < tipSpeed.length; b += 1) at(tipSpeed, b).length = count;
+  energy.length = count;
+  loudest.length = count;
+  wounding.length = count;
+  let peakSpeed = series.peakSpeed;
+  let peakEnergy = series.peakEnergy;
 
-  for (let f = 0; f < count; f += 1) {
+  for (let f = from; f < count; f += 1) {
     for (let b = 0; b < source.header.bodies.length; b += 1) {
       const now = tipOf(source, f, b);
       const before = f > 0 ? tipOf(source, f - 1, b) : null;
@@ -94,7 +124,9 @@ export function buildSeries(source: FightSource): Series {
     peakEnergy = Math.max(peakEnergy, peak);
   }
 
-  return { tipSpeed, energy, loudest, wounding, peakSpeed, peakEnergy };
+  series.peakSpeed = peakSpeed;
+  series.peakEnergy = peakEnergy;
+  return series;
 }
 
 interface Band {

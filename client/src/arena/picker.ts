@@ -40,7 +40,7 @@
 import type { FightHeader } from "../fight/source.js";
 import type { BodyInfo } from "../fight/trace.js";
 import {
-  ANATOMY_CODES, ARENA_MAX_TICKS, HAND_ITEMS, SHIPPED_SPAWNS, policyCodeOf,
+  ANATOMY_CODES, ARENA_MAX_TICKS, HAND_ITEMS, SHIPPED_SPAWNS, controlCodeOf, policyCodeOf,
   type ArenaConfig,
 } from "../runtime/arena-config.js";
 
@@ -99,6 +99,40 @@ export const POLICIES: readonly PolicyOption[] = [
 
 export type PolicyCode = string;
 
+/** Who fills this side's navigation and primary arm. */
+export type ControlCode = "policy" | "human";
+
+/**
+ * The one entry in the "driven by" list that is not a policy.
+ *
+ * **One control with the policy list plus one entry, and not a policy select
+ * beside a "human" checkbox.** The two are not independent -- a human side
+ * still needs a policy for its off hand -- and two controls that must agree are
+ * two controls that can disagree. So the list is the five policies and this,
+ * and choosing this is what reveals the off-hand row.
+ *
+ * The value is `"human"` and not `"you"`: it is the `ControlCode` above, so the
+ * select's value and the model's field are one vocabulary. The *label* is the
+ * second person, because a dropdown is read by the person it is offering.
+ */
+export const HUMAN_CONTROL = "human";
+export const HUMAN_CONTROL_LABEL = "you (keyboard and mouse)";
+
+/**
+ * Whether this build has an arena input path for a human side.
+ *
+ * **`false`, and arena-05 is what deletes it along with the refusal below.**
+ * It is a constant rather than a capability read off the wasm module on
+ * purpose: the module *does* know -- `arena_start` answers
+ * `ARENA_CONTROL_UNAVAILABLE` -- but the picker's whole job is to refuse before
+ * the button, and asking the worker would mean instantiating wasm to find out
+ * whether a dropdown may be honoured. `review` stays pure; the module's refusal
+ * is the second net under it, and `an_unknown_control_byte_is_refused_by_name`
+ * and case 15 of `arena_start_refuses_and_installs_nothing` are what say the
+ * two agree.
+ */
+const CONTROL_AVAILABLE = false;
+
 /** Which arena context is asking for checkpoint and validation copy. */
 export type FightMode = "recording" | "live";
 
@@ -131,13 +165,48 @@ export interface SideChoice {
    * left one, and never a shield.
    */
   readonly twoHanded: boolean;
+  /**
+   * The policy that decides this side, or -- when `control` is `"human"` -- the
+   * policy that decides everything the hand at the keyboard does not claim.
+   *
+   * **One byte, two meanings, and the meaning is the control byte's job to
+   * pick.** The alternative was a second `offHandPolicy` field that is ignored
+   * whenever `control` is `"policy"`, which is a field that is wrong half the
+   * time and a second place for the two to disagree.
+   */
   readonly policy: PolicyCode;
+  readonly control: ControlCode;
 }
 
 export interface Matchup {
   readonly a: SideChoice;
   readonly b: SideChoice;
   readonly seed: number;
+}
+
+/**
+ * The matchup in one line, for the fight phase's collapsed summary.
+ *
+ * Pure, and here rather than in `arena.ts`, on this file's own rule: everything
+ * that decides what the screen says about a matchup is a function of the
+ * matchup, so a test can call it with no DOM. It names every control the
+ * collapsed picker has hidden -- both anatomies, all four hands, the grip, both
+ * drivers and the seed -- because a summary that omits one is a summary a
+ * reader has to expand the picker to check, which is the whole thing the
+ * summary exists to avoid.
+ */
+export function summariseMatchup(matchup: Matchup): string {
+  const describe = (side: SideChoice): string => {
+    const hands = side.twoHanded
+      ? `${side.right} in both hands`
+      : `${side.left} left, ${side.right} right`;
+    const driver = side.control === "human"
+      ? `you, off hand ${side.policy}`
+      : side.policy;
+    return `${side.anatomy}, ${hands}, driven by ${driver}`;
+  };
+  return `Fighter A: ${describe(matchup.a)}. Fighter B: ${describe(matchup.b)}. `
+    + `Seed ${matchup.seed}.`;
 }
 
 /** The two rows as the template labels them, so a refusal names a control. */
@@ -238,6 +307,48 @@ export function review(matchup: Matchup, mode: FightMode): Review {
     }
   }
 
+  // **Three refusals about who is driving, and the order between them is the
+  // decision.** The build-wide one is last even though it is the one that fires
+  // today, because putting it first would make the two specific refusals
+  // unreachable and therefore untestable until arena-05 -- and a refusal nobody
+  // can provoke is a sentence nobody has read. arena-05 deletes the last one
+  // and the first two keep working.
+  if (matchup.a.control === "human" && matchup.b.control === "human") {
+    return {
+      refusal: "Fighter A and Fighter B are both set to be driven by you, and this page has "
+        + "one keyboard and one pointer. Set one of the two back to a policy.",
+      notes: [],
+    };
+  }
+
+  // The pointer aims the right hand, so a human side with an empty one is a
+  // reader holding a mouse that commands nothing. Named as the hand rather than
+  // as "invalid", and it names which hand, because the fix is a dropdown away.
+  for (const [label, side] of sides(matchup)) {
+    if (side.control !== "human") continue;
+    if (side.right === "empty") {
+      return {
+        refusal: `${label} is set to be driven by you, but its right hand is empty and the `
+          + `right hand is the one the pointer aims. Give ${label} a weapon in its right hand, `
+          + `or hand ${label} back to a policy.`,
+        notes: [],
+      };
+    }
+  }
+
+  // The build that cannot honour it yet. Deleted by arena-05, and it is the
+  // reason this session is allowed to ship the control at all: a choice the
+  // configuration carries and nothing can act on comes back as a named refusal
+  // rather than as a fight the policy quietly drove.
+  if (!CONTROL_AVAILABLE && (matchup.a.control === "human" || matchup.b.control === "human")) {
+    return {
+      refusal: "A side is set to be driven by you, and this build has no input path for the "
+        + "arena yet: arena_start would refuse it with ARENA_CONTROL_UNAVAILABLE. Set both "
+        + "sides to a policy.",
+      notes: [],
+    };
+  }
+
   const notes: string[] = [];
   for (const [label, side] of sides(matchup)) {
     const policy = POLICIES.find((option) => option.code === side.policy);
@@ -274,6 +385,22 @@ export function review(matchup: Matchup, mode: FightMode): Review {
     if (policy.fetches !== undefined && notes.length === 0 && mode === "recording") {
       notes.push(checkpointCopy("recording"));
     }
+  }
+
+  // **A human side against `neutral` is the same finding as the two notes
+  // below, said to the one reader who can act on it.** The opponent stands
+  // there with its arms slack, so whatever the hand at the keyboard does is
+  // unopposed and the fight measures nothing about control. Unreachable until
+  // arena-05 stops refusing a human side, and written now because it belongs
+  // beside those notes rather than in the session that deletes the refusal
+  // above it.
+  for (const [label, side] of sides(matchup)) {
+    const other = side === matchup.a ? matchup.b : matchup.a;
+    if (side.control !== "human" || other.control === "human") continue;
+    if (other.policy !== "neutral") continue;
+    notes.push(`${label} is yours and the other side is neutral, which stands still with its `
+      + `arms slack: nothing it does is a response to you, so the fight is a test of the `
+      + `controls rather than of the fighting. Give the other side a policy to be fought by.`);
   }
 
   // **Two notes about what this arena cannot show, and both were measured
@@ -319,6 +446,12 @@ export function review(matchup: Matchup, mode: FightMode): Review {
 export function arenaConfigOf(matchup: Matchup): ArenaConfig {
   const fighter = (side: SideChoice, index: 0 | 1) => {
     const policy = policyCodeOf(side.policy);
+    const control = controlCodeOf(side.control);
+    // Same argument as the policy line below: `review` refuses an unrecognised
+    // control before the button, so this throws rather than defaulting. A
+    // silent `0` would hand a fight the reader asked to drive to a policy and
+    // label it correctly, which is the failure the whole refusal exists for.
+    if (control === null) throw new Error(`${side.control} is not an arena control code`);
     // `review` refuses an unknown policy before [Run selected fight] is enabled, so this is
     // unreachable from the controls -- and it throws rather than defaulting,
     // because a silent `0` would run `neutral` under another name's label.
@@ -326,6 +459,7 @@ export function arenaConfigOf(matchup: Matchup): ArenaConfig {
     return {
       anatomy: ANATOMY_CODES[side.anatomy],
       policy,
+      control,
       spawn: SHIPPED_SPAWNS[index],
       hands: [HAND_ITEMS[side.left], HAND_ITEMS[side.right]] as const,
       twoHanded: side.twoHanded,
@@ -533,9 +667,18 @@ function checkbox(root: HTMLElement, id: string): HTMLInputElement {
   return found;
 }
 
-/** Fill `#a-policy` and `#b-policy`, since the template deliberately leaves them empty. */
+/**
+ * Fill the four policy selects, since the template deliberately leaves them empty.
+ *
+ * **`#a-control` and `#b-control` are the "driven by" selects and carry one
+ * entry more than the off-hand ones**: the five policies, then
+ * `HUMAN_CONTROL`. It was `#a-policy`/`#b-policy` until arena-02 made the two
+ * questions one control, and the rename is deliberate rather than cosmetic --
+ * the id names what the control decides, and what it decides now includes
+ * whether a policy decides anything.
+ */
 export function populatePolicies(root: HTMLElement, heroes: string, monsters: string): void {
-  for (const [id, chosen] of [["a-policy", heroes], ["b-policy", monsters]] as const) {
+  const fill = (id: string, chosen: string, offerHuman: boolean): void => {
     const target = select(root, id);
     target.replaceChildren();
     for (const option of POLICIES) {
@@ -545,34 +688,84 @@ export function populatePolicies(root: HTMLElement, heroes: string, monsters: st
       node.selected = option.code === chosen;
       target.append(node);
     }
+    if (offerHuman) {
+      const human = document.createElement("option");
+      human.value = HUMAN_CONTROL;
+      human.textContent = HUMAN_CONTROL_LABEL;
+      human.selected = chosen === HUMAN_CONTROL;
+      target.append(human);
+    }
     // **And the select's own value, which `selected` alone does not reliably
     // set.** In a browser the two are the same thing; `HTMLSelectElement.value`
     // is the property every reader here goes through -- `readMatchup`,
     // `setPickerValue`, the picker's own tests -- and leaving it to be derived
-    // meant the route opened with `a-policy` reading the empty string under any
+    // meant the route opened with `a-control` reading the empty string under any
     // DOM that does not model the derivation. Written after the loop so it
     // cannot be undone by a later `selected`.
     target.value = chosen;
-  }
+  };
+  fill("a-control", heroes, true);
+  fill("b-control", monsters, true);
+  // The off-hand rows open on the same policy as their own side's driver, so
+  // that handing a side to a keyboard does not also silently change what its
+  // off hand is doing.
+  fill("a-off-hand", heroes, false);
+  fill("b-off-hand", monsters, false);
 }
 
-/** Point every policy select at what the loaded recording says drove that side. */
+/**
+ * Point every "driven by" select at what the loaded recording says drove that side.
+ *
+ * A recording has no control byte -- nothing recorded before arena-05 can have
+ * been driven by a person -- so this moves the policy half only, and a header
+ * naming a policy this build does not have (`learned`) moves nothing, exactly
+ * as it did before.
+ */
 export function showPolicies(root: HTMLElement, heroes: string, monsters: string): void {
-  for (const [id, chosen] of [["a-policy", heroes], ["b-policy", monsters]] as const) {
+  for (const [id, chosen] of [["a-control", heroes], ["b-control", monsters]] as const) {
     const target = select(root, id);
     if (POLICIES.some((option) => option.code === chosen)) target.value = chosen;
   }
 }
 
+/**
+ * Show and enable an off-hand row only for a side that is driven by a person.
+ *
+ * **A disabled control that still shows a value is a control that lies.** The
+ * off-hand policy is meaningless while the whole side is a policy -- the same
+ * byte is already answering the question -- so the row reads `--` and takes no
+ * input until the side is handed to a keyboard, at which point it becomes the
+ * one thing the reader still has to choose.
+ */
+export function showOffHandRows(root: HTMLElement): void {
+  for (const prefix of ["a", "b"] as const) {
+    const driven = select(root, `${prefix}-control`).value === HUMAN_CONTROL;
+    const offHand = select(root, `${prefix}-off-hand`);
+    offHand.disabled = !driven;
+    const row = root.querySelector(`#${prefix}-off-hand-row`);
+    if (row instanceof HTMLElement) row.hidden = !driven;
+  }
+}
+
 /** The matchup the controls currently describe. */
 export function readMatchup(root: HTMLElement): Matchup {
-  const side = (prefix: string): SideChoice => ({
-    anatomy: code(ANATOMIES, select(root, `${prefix}-anatomy`).value, `${prefix}-anatomy`),
-    left: code(HANDS, select(root, `${prefix}-left`).value, `${prefix}-left`),
-    right: code(HANDS, select(root, `${prefix}-right`).value, `${prefix}-right`),
-    twoHanded: checkbox(root, `${prefix}-two-handed`).checked,
-    policy: select(root, `${prefix}-policy`).value,
-  });
+  const side = (prefix: string): SideChoice => {
+    // One select answers both fields. `HUMAN_CONTROL` says the host drives the
+    // body and the off-hand select says what drives the rest of it; anything
+    // else is a policy driving the whole side, and the off-hand select is
+    // disabled and not read at all -- so a stale value left in it while the
+    // reader was experimenting cannot reach the buffer.
+    const driven = select(root, `${prefix}-control`).value;
+    const human = driven === HUMAN_CONTROL;
+    return {
+      anatomy: code(ANATOMIES, select(root, `${prefix}-anatomy`).value, `${prefix}-anatomy`),
+      left: code(HANDS, select(root, `${prefix}-left`).value, `${prefix}-left`),
+      right: code(HANDS, select(root, `${prefix}-right`).value, `${prefix}-right`),
+      twoHanded: checkbox(root, `${prefix}-two-handed`).checked,
+      policy: human ? select(root, `${prefix}-off-hand`).value : driven,
+      control: human ? "human" : "policy",
+    };
+  };
   const seedInput = root.querySelector("#arena-seed");
   if (!(seedInput instanceof HTMLInputElement)) throw new Error("#arena-seed is missing from the picker");
   return { a: side("a"), b: side("b"), seed: seedInput.valueAsNumber || 0 };
@@ -581,8 +774,9 @@ export function readMatchup(root: HTMLElement): Matchup {
 /** Every control the picker owns, for one `addEventListener` sweep. */
 export function pickerControls(root: HTMLElement): readonly HTMLElement[] {
   const ids = [
-    "a-anatomy", "a-left", "a-right", "a-two-handed", "a-policy",
-    "b-anatomy", "b-left", "b-right", "b-two-handed", "b-policy", "arena-seed",
+    "a-anatomy", "a-left", "a-right", "a-two-handed", "a-control", "a-off-hand",
+    "b-anatomy", "b-left", "b-right", "b-two-handed", "b-control", "b-off-hand",
+    "arena-seed",
   ];
   return ids.map((id) => {
     const found = root.querySelector(`#${id}`);

@@ -1194,7 +1194,7 @@ const _: () = assert!(
 // ```text
 //     header    [0..2] layout version, [2] fighter count, [3] reserved,
 //               [4..8] max_ticks
-//     fighter   [0] anatomy, [1] policy, [2..4] reserved,
+//     fighter   [0] anatomy, [1] policy, [2] control, [3] reserved,
 //               [4..8] spawn x, [8..12] spawn y, then two hand blocks
 //     hand      [0] item, [1] two-handed grip (right hand only), then mass,
 //               balance and three dimension words
@@ -1205,11 +1205,18 @@ const _: () = assert!(
 
 /// Bytes `0..2` of [`ARENA_CONFIG`], and its sole layout field.
 ///
-/// `2` since combat-arms-01: layout `1` required every hand block's byte `1` to
-/// be zero, and that byte now carries the two-handed grip on the right hand --
-/// a byte that stops being reserved is a layout change, not a free bit, because
-/// a version-1 writer's promise about it no longer holds.
-pub const ARENA_CONFIG_LAYOUT_VERSION: u16 = 2;
+/// `3` since arena-02: layout `2` required byte `2` of every fighter block to be
+/// zero, and that byte now carries [`ARENA_CONTROL_POLICY`] or
+/// [`ARENA_CONTROL_HUMAN`]. A byte that stops being reserved is a layout change,
+/// not a free bit, because a version-2 writer's promise about it no longer
+/// holds -- and the promise was real rather than notional: layout `2` refused a
+/// nonzero byte `2` with [`ARENA_NONCANONICAL`], so a version-2 buffer carrying
+/// a `1` there was a refusal and would now be a human side.
+///
+/// `2` was combat-arms-01's, for the same reason one layout down: layout `1`
+/// required every hand block's byte `1` to be zero, and that byte now carries
+/// the two-handed grip on the right hand.
+pub const ARENA_CONFIG_LAYOUT_VERSION: u16 = 3;
 
 /// An item code, the two-handed grip byte, and five 16.16 words: mass, balance,
 /// and three dimensions.
@@ -1220,7 +1227,8 @@ pub const ARENA_CONFIG_LAYOUT_VERSION: u16 = 2;
 /// third must be zero; see [`ARENA_NONCANONICAL`].
 pub const ARENA_HAND_BYTES: usize = 22;
 
-/// Anatomy, policy, two reserved bytes, two spawn words, and two hand blocks.
+/// Anatomy, policy, control, one reserved byte, two spawn words, and two hand
+/// blocks.
 pub const ARENA_FIGHTER_BYTES: usize = 56;
 
 /// The header plus one fighter block per side.
@@ -1237,11 +1245,20 @@ const ARENA_HEADER_BYTES: usize = 8;
 
 const ARENA_FIGHTER_ANATOMY: usize = 0;
 const ARENA_FIGHTER_POLICY: usize = 1;
-/// Two bytes, and their job is the alignment: without them `spawn x` would start
-/// at an odd offset inside the block. They are also the room a policy or anatomy
-/// registry past 256 entries would grow into, which is cheaper to reserve now
-/// than to version later.
-const ARENA_FIGHTER_RESERVED: usize = 2;
+/// Who fills this side's navigation and primary arm: [`ARENA_CONTROL_POLICY`]
+/// or [`ARENA_CONTROL_HUMAN`].
+///
+/// **The first of the two bytes [`ARENA_FIGHTER_RESERVED`] used to hold**, and
+/// spending it is what took the layout from `2` to `3`. It is deliberately the
+/// *low* one rather than the spare: the block reads anatomy, policy, control,
+/// which is the order a reader picks them in, and the reserved byte stays where
+/// a reader stops caring.
+const ARENA_FIGHTER_CONTROL: usize = 2;
+/// One byte, still reserved, and still doing both of the jobs the two did:
+/// the alignment -- without it `spawn x` would start at an odd offset inside the
+/// block -- and the room a policy or anatomy registry past 256 entries would
+/// grow into, which is cheaper to reserve now than to version later.
+const ARENA_FIGHTER_RESERVED: usize = 3;
 const ARENA_FIGHTER_SPAWN_X: usize = 4;
 const ARENA_FIGHTER_SPAWN_Y: usize = 8;
 const ARENA_FIGHTER_HANDS: usize = 12;
@@ -1263,6 +1280,28 @@ const ARENA_HAND_DIMENSION_0: usize = 10;
 const ARENA_HAND_DIMENSION_1: usize = 14;
 /// A shield's thickness. Zero for a segment.
 const ARENA_HAND_DIMENSION_2: usize = 18;
+
+/// [`ARENA_FIGHTER_CONTROL`]: this side is decided entirely by its policy byte.
+///
+/// **Zero because that is what every layout-2 configuration meant.** The byte
+/// was reserved-zero, so the one value a version-2 writer could legally put
+/// there is the one value that has to keep meaning what it meant, or the bump
+/// would be a reinterpretation dressed as an extension.
+pub const ARENA_CONTROL_POLICY: u8 = 0;
+/// [`ARENA_FIGHTER_CONTROL`]: this side's navigation and primary arm come from
+/// the host.
+///
+/// Its policy byte still builds the mind that drives the off hand, which is why
+/// there is one byte here and not a second policy slot: a human side needs a
+/// policy either way, and two fields that must agree are two fields that can
+/// disagree.
+///
+/// **Refused with [`ARENA_CONTROL_UNAVAILABLE`] until arena-05 builds the input
+/// path.** The configuration carries the choice one session before anything can
+/// act on it, deliberately, so that the picker and the wire land together --
+/// and the refusal is what keeps that from being a control that accepts an
+/// input it cannot honour and says nothing.
+pub const ARENA_CONTROL_HUMAN: u8 = 1;
 
 /// What [`ARENA_HAND_ITEM`] holds for an empty hand.
 ///
@@ -1316,7 +1355,19 @@ const ARENA_FIGHTERS: usize = 2;
 
 // The arithmetic, asserted rather than commented, so that moving one offset is a
 // failed build here instead of a wrong sentence three files away. The three
-// shapes the reference states are 1+1+2+4+4+2*22 = 56 and 8 + 2*56 = 120.
+// shapes the reference states are 1+1+1+1+4+4+2*22 = 56 and 8 + 2*56 = 120.
+//
+// **The control byte is pinned from both sides and not just placed**, because
+// "byte 2" is now a claim two mirrors and a document repeat: it must sit
+// immediately after the policy byte and immediately before the byte that is
+// still reserved. Either half alone would let it slide one place and keep the
+// block 56 bytes wide.
+const _: () = assert!(
+    ARENA_FIGHTER_POLICY + 1 == ARENA_FIGHTER_CONTROL
+        && ARENA_FIGHTER_CONTROL + 1 == ARENA_FIGHTER_RESERVED
+        && ARENA_FIGHTER_RESERVED + 1 == ARENA_FIGHTER_SPAWN_X,
+    "a fighter block is anatomy, policy, control and one reserved byte before its spawn",
+);
 const _: () = assert!(
     ARENA_HAND_DIMENSION_2 + 4 == ARENA_HAND_BYTES,
     "a hand block is an item code, a reserved byte and five 16.16 words",
@@ -1348,8 +1399,11 @@ const _: () = assert!(
 // to that enum has to be thought about here rather than collapsing into
 // whichever arm was convenient.
 //
-// **Thirteen of these are reachable from a control and the rest are not, and the
-// split is not the one v2-ui-05 predicted.** The plan named `Fraction`,
+// **Fourteen of these are reachable from a control and the rest are not, and
+// the split is not the one v2-ui-05 predicted.** This sentence read "thirteen"
+// over a list of twelve until arena-02 counted it, which is the defect the list
+// below exists to prevent and which the heading had quietly acquired anyway:
+// count from the list, never from the sentence. The plan named `Fraction`,
 // `Maximum`, `IdOrder`, `MissingReference`, `LoadoutMismatch`,
 // `TooManyAnatomies` and `TooManyEquipment` as slider-reachable. They are not,
 // and `Scenario::duel_from`'s own doc comment says why in as many words:
@@ -1365,8 +1419,9 @@ const _: () = assert!(
 //
 // Reachable today: unknown layout, wrong fighter count, noncanonical bytes,
 // unknown anatomy, unknown item, unknown policy, a refused construction,
-// `Dimension`, `GripConflict`, `NoEquipment`, `UnknownAction` and the Bow's one
-// canonical grip. Twelve.
+// `Dimension`, `GripConflict`, `NoEquipment`, `UnknownAction`, the Bow's one
+// canonical grip, and arena-02's two control refusals -- an unknown control
+// byte and a human side this build has no input path for. Fourteen.
 //
 // **Two of these are retired rather than merely unreachable, and the difference
 // matters.** The seven spec errors above are refusals `crates/sim` can still
@@ -1519,6 +1574,31 @@ pub const ARENA_NO_CHECKPOINT: u8 = 26;
 /// not move when the sim inserts a more precise enum variant.
 pub const ARENA_BOW_GRIP: u8 = 27;
 
+/// A fighter's control byte is neither [`ARENA_CONTROL_POLICY`] nor
+/// [`ARENA_CONTROL_HUMAN`].
+///
+/// Distinct from [`ARENA_NONCANONICAL`], which is what byte `2` answered while
+/// it was reserved, and the two say different things to a reader: noncanonical
+/// means "this field has no meaning and you wrote in it", unknown control means
+/// "this field has a meaning and yours is not one of them". A layout-2 page
+/// bumped to layout 3 without learning the byte writes a zero and gets a fight;
+/// a layout-4 page writing a control this build has not heard of gets named.
+pub const ARENA_UNKNOWN_CONTROL: u8 = 28;
+/// A human side was configured and this build has no arena input path.
+///
+/// **Retired by arena-05 rather than renumbered.** The code stays spent, on the
+/// rule [`ARENA_POLICY_UNAVAILABLE`] and [`ARENA_NO_CHECKPOINT`] already
+/// established: a URL or a saved configuration can carry a refusal code, so
+/// renumbering one down into a gap makes an old artifact say something new.
+///
+/// **It is the point of arena-02 and not a leftover.** The configuration learns
+/// who drives a side one session before `advance_arena` can consult it, and the
+/// alternative to refusing was a control that took "you" and ran the policy --
+/// which is the shape two consecutive reviews of this repository found ten
+/// instances of. It names the fighter it is about, so a split-screen picker can
+/// point at the column that has to change.
+pub const ARENA_CONTROL_UNAVAILABLE: u8 = 29;
+
 /// Every reason byte declared above, in one array, so that the claim "every
 /// refusal has its own number" is a failed build rather than a failing test.
 ///
@@ -1528,7 +1608,25 @@ pub const ARENA_BOW_GRIP: u8 = 27;
 /// already in use is the other way the mapping stops being injective. This
 /// covers that half at compile time; `the_arena_configuration_buffer_is_the_documented_layout`
 /// covers the half that needs the enum walked.
-const ARENA_REASONS: [u8; 28] = [
+///
+/// **The array is hand-maintained, and that is a fails-open shape the doc
+/// comment above used to claim it had closed.** A refusal declared beside the
+/// others and left off this list compiles, is compared with nothing, and the
+/// assert below goes on passing about the twenty-eight it does know -- so the
+/// array's guarantee has always been "every code *in this array* is distinct"
+/// rather than "every declared code is". Nothing in the language closes the
+/// gap: there is no reflection over a module's consts.
+///
+/// What narrows it is [`reasons_are_dense`] beside the distinctness assert.
+/// This list is `0..30` exactly -- ascending, no gaps -- so a code appended
+/// above the last one and left out of it makes the *next* appended code collide
+/// rather than slipping past forever, and an insertion into a gap is a failed
+/// build immediately. **It does not catch the first omission**, and saying so
+/// here is cheaper than the next reader deducing it: what catches that is
+/// adding the row in the edit that adds the code, which arena-02 did for `28`
+/// and `29` and verified by giving one of them `27` on purpose and watching the
+/// build fail.
+const ARENA_REASONS: [u8; 30] = [
     ARENA_OK, ARENA_UNKNOWN_LAYOUT, ARENA_WRONG_FIGHTER_COUNT, ARENA_NONCANONICAL,
     ARENA_UNKNOWN_ANATOMY, ARENA_UNKNOWN_ITEM, ARENA_UNKNOWN_POLICY, ARENA_POLICY_UNAVAILABLE,
     ARENA_CONSTRUCTION_REFUSED, ARENA_RESERVATION_REFUSED, ARENA_NAME_TOO_LONG,
@@ -1536,11 +1634,11 @@ const ARENA_REASONS: [u8; 28] = [
     ARENA_TOO_MANY_EQUIPMENT, ARENA_ID_ORDER, ARENA_UNKNOWN_SCHEMA, ARENA_DIMENSION,
     ARENA_FRACTION, ARENA_MAXIMUM, ARENA_MISSING_REFERENCE, ARENA_LOADOUT_MISMATCH,
     ARENA_GRIP_CONFLICT, ARENA_NO_EQUIPMENT, ARENA_UNKNOWN_ACTION, ARENA_NO_CHECKPOINT,
-    ARENA_BOW_GRIP,
+    ARENA_BOW_GRIP, ARENA_UNKNOWN_CONTROL, ARENA_CONTROL_UNAVAILABLE,
 ];
 
-/// Pairwise, because twenty-six is small and a sort needs an allocation no
-/// `const` context has.
+/// Pairwise, because thirty is small and a sort needs an allocation no `const`
+/// context has.
 const fn reasons_are_distinct(reasons: &[u8]) -> bool {
     let mut i = 0;
     while i < reasons.len() {
@@ -1561,6 +1659,31 @@ const _: () = assert!(
     "two arena refusals were declared with the same reason byte",
 );
 
+/// Whether [`ARENA_REASONS`] is `0..len` in ascending order.
+///
+/// **Distinctness is the property the array was written for and density is the
+/// property that makes an omission expensive**, which is a different claim and
+/// worth its own function. The numbering has been append-only since v2-ui-05
+/// and two of the codes are retired rather than deleted precisely so that it
+/// stays that way; asserting it means a code appended above the end and left
+/// out of the array leaves a hole the *next* appended code falls into, instead
+/// of an unchecked number nobody trips over.
+const fn reasons_are_dense(reasons: &[u8]) -> bool {
+    let mut i = 0;
+    while i < reasons.len() {
+        if reasons[i] as usize != i {
+            return false;
+        }
+        i += 1;
+    }
+    true
+}
+
+const _: () = assert!(
+    reasons_are_dense(&ARENA_REASONS),
+    "the arena reason bytes are not 0..N in order: one was inserted into a gap or skipped one",
+);
+
 /// What the fighter or hand byte of a refusal holds when the refusal is about
 /// the configuration as a whole. [`SLOT_EMPTY`] narrowed, exactly as
 /// [`ARENA_HAND_EMPTY`] is.
@@ -1575,6 +1698,14 @@ pub const POLICY_KIND_UNKNOWN: u32 = u32::MAX;
 /// A sentinel and not a zero, because `0` is `neutral` and an ordinary answer.
 /// The same shape [`POLICY_KIND_UNKNOWN`] takes, and for the same reason.
 pub const ARENA_NO_POLICY: u32 = u32::MAX;
+
+/// What [`arena_control`] answers on a world that is not an arena.
+///
+/// [`ARENA_NO_POLICY`]'s shape and its reason, which applies here twice as
+/// hard: `0` is [`ARENA_CONTROL_POLICY`], the answer for every side of every
+/// fight this build can install, so a zero for "there is no fight" would be
+/// indistinguishable from the commonest real answer there is.
+pub const ARENA_NO_CONTROL: u32 = u32::MAX;
 
 // ------------------------------------------------------ the loaded checkpoint
 //
@@ -2033,6 +2164,23 @@ struct Arena {
     /// by [`Sim::advance`], not because the vocabularies differ.
     policies: [Box<dyn Policy>; 2],
     kinds: [PolicyKind; 2],
+    /// Who drives each side, as [`ARENA_CONTROL_POLICY`] or
+    /// [`ARENA_CONTROL_HUMAN`], indexed by [`Faction::index`].
+    ///
+    /// **Held here and nowhere below**, which is the whole placement decision.
+    /// A control byte is a fact about the host, not about the fight: it is not
+    /// in [`sim::DuelConfigV1`], it never reaches `Scenario::duel_from`, and
+    /// `the_arena_fingerprint_does_not_change_when_a_side_is_handed_to_a_human`
+    /// is what says so. If it reached the fingerprint, the human fight and the
+    /// AI fight at one seed would stop being the same fixture and the
+    /// comparison the whole arena topic exists to make would be impossible.
+    ///
+    /// Every value here is [`ARENA_CONTROL_POLICY`] in this build --
+    /// [`install_arena`] refuses a human side with
+    /// [`ARENA_CONTROL_UNAVAILABLE`] -- and the field exists anyway so that
+    /// [`arena_control`] can be read back beside [`arena_policy`] and a
+    /// recorder can label a fight with what it is actually running.
+    controls: [u8; 2],
     /// The Heroes' identities, captured once at install.
     ///
     /// **Routing is on the alive set and not on the observation**, because
@@ -6427,13 +6575,18 @@ pub const extern "C" fn arena_config_layout_version() -> u32 {
 ///
 /// 1. the layout version and the header's reserved byte;
 /// 2. the fighter count;
-/// 3. each fighter in index order -- its reserved bytes, its anatomy, its policy
-///    code, whether that policy can be built, then hand `0` and hand `1`;
-/// 4. `Scenario::duel_from`, which is where every [`sim::CombatSpecError`] a
+/// 3. each fighter in index order -- its reserved byte, its control byte, its
+///    anatomy, its policy code, whether that policy can be built, then hand
+///    `0` and hand `1`;
+/// 4. whether this build can honour each control byte, in fighter index order.
+///    A step of its own rather than part of step 3, because it is the only one
+///    that is a fact about the *build* rather than about the buffer -- and it
+///    is the step arena-05 deletes whole;
+/// 5. `Scenario::duel_from`, which is where every [`sim::CombatSpecError`] a
 ///    control can reach comes from;
-/// 5. the scenario fingerprint;
-/// 6. the world construction;
-/// 7. the contact reservation.
+/// 6. the scenario fingerprint;
+/// 7. the world construction;
+/// 8. the contact reservation.
 ///
 /// # It installs nothing on any failure
 ///
@@ -6505,6 +6658,30 @@ pub extern "C" fn arena_policy(faction_code: u32) -> u32 {
     })
 }
 
+/// Who is driving a side -- [`ARENA_CONTROL_POLICY`] or [`ARENA_CONTROL_HUMAN`]
+/// -- or [`ARENA_NO_CONTROL`] when this world is not an arena.
+///
+/// **A read-back and not a report.** [`arena_start`] is the only thing that
+/// installs a duel and the control byte it took is the byte that fight is
+/// running, so a recorder that labels a recording with what it *sent* is
+/// labelling it with an intention. `arena_policy` next door has been the
+/// recorder's read-back since v2-ui-05 for that reason and this is the same
+/// check on the byte beside it.
+///
+/// **It answers [`ARENA_CONTROL_POLICY`] for every side of every fight this
+/// build can install**, because a human side is refused. That is not a reason
+/// to defer the export: the day arena-05 stops refusing, the read-back exists
+/// and the recorder is already comparing against it, rather than the widening
+/// session having to notice that a header had quietly started lying.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn arena_control(faction_code: u32) -> u32 {
+    with_sim(ARENA_NO_CONTROL, |sim| match sim.arena.as_ref() {
+        Some(arena) => u32::from(arena.controls[faction_from_code(faction_code).index()]),
+        None => ARENA_NO_CONTROL,
+    })
+}
+
 /// The whole of [`arena_start`] except the packing, so that every exit is a
 /// `?` and no path can install half a world.
 fn install_arena(bytes: &[u8; ARENA_CONFIG_BYTES], seed: u64) -> Result<(), ArenaRefusal> {
@@ -6522,8 +6699,18 @@ fn install_arena(bytes: &[u8; ARENA_CONFIG_BYTES], seed: u64) -> Result<(), Aren
     let max_ticks =
         u32::from_le_bytes(bytes[ARENA_HEADER_MAX_TICKS..][..4].try_into().unwrap());
 
-    let (fighter_a, kind_a, policy_a) = parse_arena_fighter(bytes, 0)?;
-    let (fighter_b, kind_b, policy_b) = parse_arena_fighter(bytes, 1)?;
+    let (fighter_a, kind_a, policy_a, control_a) = parse_arena_fighter(bytes, 0)?;
+    let (fighter_b, kind_b, policy_b, control_b) = parse_arena_fighter(bytes, 1)?;
+    // In fighter index order, after both blocks are understood and before
+    // anything is built, so that a page told "fighter 1 cannot be yours" has
+    // already been told about fighter 0 if both were.
+    arena_control_available(control_a, 0)?;
+    arena_control_available(control_b, 1)?;
+    // **The control bytes stop here.** `DuelConfigV1` has no room for one and
+    // must not grow one: it is what `Scenario::duel_from` reads and what
+    // `arena_fingerprint_*` is taken over, so a control byte inside it would
+    // make the same loadout at the same seed two different fixtures depending
+    // on who was holding the keyboard.
     let config = sim::DuelConfigV1 { fighters: [fighter_a, fighter_b], max_ticks };
 
     let scenario = Scenario::duel_from(&config).map_err(arena_spec_refusal)?;
@@ -6569,6 +6756,7 @@ fn install_arena(bytes: &[u8; ARENA_CONFIG_BYTES], seed: u64) -> Result<(), Aren
     fresh.arena = Some(Arena {
         policies: [policy_a, policy_b],
         kinds: [kind_a, kind_b],
+        controls: [control_a, control_b],
         heroes,
         fingerprint,
         max_ticks,
@@ -6584,17 +6772,60 @@ fn install_arena(bytes: &[u8; ARENA_CONFIG_BYTES], seed: u64) -> Result<(), Aren
     Ok(())
 }
 
-/// One fighter block: its description, its policy code, and an instance of it.
+/// Whether this build can honour a control byte, naming the fighter if not.
+///
+/// **The whole of what arena-05 deletes, in one place on purpose.** arena-02
+/// puts "who drives this side" on the screen and in the buffer; arena-05 is
+/// what makes [`Sim::advance_arena`] act on it. Between the two, the honest
+/// answer to a human side is a refusal that says which fighter and why -- not a
+/// fight in which the policy quietly drives the body the reader asked to drive,
+/// which is the shape two consecutive reviews of this repository found ten
+/// instances of.
+///
+/// The offending value is deliberately *not* packed into the slot byte. Bits
+/// 24..31 are read against the reason by every client, `1` is a perfectly good
+/// hand index, and the paragraph above [`ARENA_BOW_GRIP`] records what that
+/// collision already cost once. The fighter byte names the column, which is
+/// what a split-screen picker needs to point at.
+fn arena_control_available(control: u8, index: usize) -> Result<(), ArenaRefusal> {
+    if control == ARENA_CONTROL_HUMAN {
+        return Err(ArenaRefusal::fighter(ARENA_CONTROL_UNAVAILABLE, index));
+    }
+    Ok(())
+}
+
+/// One fighter block: its description, its policy code, an instance of it, and
+/// the control byte that says who drives it.
+///
+/// **The control byte comes back rather than being consumed here**, because it
+/// is the one field of the block that is not a fact about the fight. Everything
+/// else this returns feeds `Scenario::duel_from`; this rides beside them to
+/// [`Arena::controls`] and reaches no simulation state at all.
 fn parse_arena_fighter(
     bytes: &[u8; ARENA_CONFIG_BYTES],
     index: usize,
-) -> Result<(sim::DuelFighterV1, PolicyKind, Box<dyn Policy>), ArenaRefusal> {
+) -> Result<(sim::DuelFighterV1, PolicyKind, Box<dyn Policy>, u8), ArenaRefusal> {
     let base = ARENA_HEADER_BYTES + index * ARENA_FIGHTER_BYTES;
     let at = |offset: usize| i32::from_le_bytes(bytes[base + offset..][..4].try_into().unwrap());
 
-    if bytes[base + ARENA_FIGHTER_RESERVED] != 0 || bytes[base + ARENA_FIGHTER_RESERVED + 1] != 0 {
+    if bytes[base + ARENA_FIGHTER_RESERVED] != 0 {
         return Err(ArenaRefusal::fighter(ARENA_NONCANONICAL, index));
     }
+    // Byte `2`, which was the other half of that reserved pair until layout 3.
+    //
+    // **Read here and judged in [`arena_control_available`], which is a split
+    // rather than a scattering.** This function turns bytes into meaning; the
+    // question of whether *this build* can honour a meaning it understood is a
+    // fact about the build, and it changes in arena-05 while nothing here does.
+    // Keeping the two apart is also what lets
+    // `the_arena_fingerprint_does_not_change_when_a_side_is_handed_to_a_human`
+    // build a human configuration at all: it needs the parse of a control this
+    // build refuses to run.
+    let control = match bytes[base + ARENA_FIGHTER_CONTROL] {
+        ARENA_CONTROL_POLICY => ARENA_CONTROL_POLICY,
+        ARENA_CONTROL_HUMAN => ARENA_CONTROL_HUMAN,
+        _ => return Err(ArenaRefusal::fighter(ARENA_UNKNOWN_CONTROL, index)),
+    };
     let anatomy = match bytes[base + ARENA_FIGHTER_ANATOMY] {
         0 => sim::AnatomyChoice::Fighter,
         1 => sim::AnatomyChoice::Brute,
@@ -6639,7 +6870,7 @@ fn parse_arena_fighter(
             Fx::from_raw(at(ARENA_FIGHTER_SPAWN_Y)),
         ),
     };
-    Ok((fighter, kind, policy))
+    Ok((fighter, kind, policy, control))
 }
 
 /// One hand block -- the item, or `None` for an empty hand, and whether it is
@@ -8689,9 +8920,21 @@ mod tests {
         // writes down are the numbers a caller would compute.
         assert_ne!(arena_config_ptr(), 0);
         assert_eq!(arena_config_len(), 120);
-        // `2` since combat-arms-01 claimed the hand block's byte 1 for the
-        // two-handed grip; layout 1 promised that byte was zero.
-        assert_eq!(arena_config_layout_version(), 2);
+        // `3` since arena-02 claimed the fighter block's byte 2 for the control
+        // byte; layout 2 promised that byte was zero, and refused it otherwise
+        // with `ARENA_NONCANONICAL`, which is what made the promise real.
+        assert_eq!(arena_config_layout_version(), 3);
+        // The fighter block's four header bytes, in the order the reference
+        // writes them. Asserted as literals here and as an ordering `const _`
+        // beside the offsets: the numbers a page computes, and the arithmetic
+        // that stops one of them sliding.
+        assert_eq!(
+            [
+                ARENA_FIGHTER_ANATOMY, ARENA_FIGHTER_POLICY, ARENA_FIGHTER_CONTROL,
+                ARENA_FIGHTER_RESERVED,
+            ],
+            [0, 1, 2, 3],
+        );
         assert_eq!(ARENA_HEADER_BYTES, 8);
         assert_eq!(ARENA_FIGHTER_BYTES, 56);
         assert_eq!(ARENA_HAND_BYTES, 22);
@@ -8717,23 +8960,207 @@ mod tests {
         // in hand -- which is why the list below is walked out of an exhaustive
         // `match` rather than written down. See [`next_spec_error`].
         let spec_errors = every_spec_error();
-        // The twelve that are not a spec error stay written out: they answer to
-        // no enum, so a list of them is a list of them, and their distinctness
-        // is the compile-time half.
+        // The fourteen that are not a spec error stay written out: they answer
+        // to no enum, so a list of them is a list of them, and their
+        // distinctness is the compile-time half.
         let mut codes = vec![
             ARENA_OK, ARENA_UNKNOWN_LAYOUT, ARENA_WRONG_FIGHTER_COUNT, ARENA_NONCANONICAL,
             ARENA_UNKNOWN_ANATOMY, ARENA_UNKNOWN_ITEM, ARENA_UNKNOWN_POLICY,
             ARENA_POLICY_UNAVAILABLE, ARENA_CONSTRUCTION_REFUSED, ARENA_RESERVATION_REFUSED,
-            ARENA_NAME_TOO_LONG, ARENA_NO_CHECKPOINT,
+            ARENA_NAME_TOO_LONG, ARENA_NO_CHECKPOINT, ARENA_UNKNOWN_CONTROL,
+            ARENA_CONTROL_UNAVAILABLE,
         ];
         codes.extend(spec_errors.iter().map(|&error| arena_spec_refusal(error).reason));
         let distinct = codes.iter().copied().collect::<std::collections::BTreeSet<_>>();
         assert_eq!(distinct.len(), codes.len(), "two refusals share a reason code");
         assert_eq!(codes.len(), ARENA_REASONS.len(), "a refusal is missing from ARENA_REASONS");
+        // **This is the line that covers a new refusal, and arena-02 found it
+        // covers it only because the list above was widened by hand.** The
+        // compile-time assert beside `ARENA_REASONS` compares that array with
+        // itself, so a code declared and never listed is distinct from nothing
+        // and missing from no count. What that array is *for* is this
+        // comparison: every code a reader can name, gathered two independent
+        // ways -- the enum walk and the written list -- against the array's own
+        // length. Adding `28` and `29` to the array and not to this list is a
+        // failure here; adding them here and not to the array is the same
+        // failure from the other side.
+        for reason in &codes {
+            assert!(
+                ARENA_REASONS.contains(reason),
+                "reason {reason} is declared and is not in ARENA_REASONS, so nothing has                  ever checked it for distinctness",
+            );
+        }
         // Not the guard -- the two lines above are -- but the tripwire that says
         // a variant arrived, now that a variant cannot arrive without the walk
         // finding it. Whoever bumps it owes the reference's reason table a row.
         assert_eq!(spec_errors.len(), 16, "a CombatSpecError variant was added");
+    }
+
+    #[test]
+    fn an_unknown_control_byte_is_refused_by_name() {
+        // **Bounded from both sides, which is what the two accepted values are
+        // worth having a test for at all.** `0` installs a fight, `1` is
+        // refused as the control this build cannot honour rather than as an
+        // unknown one, and `2` -- the first byte past the pair -- is where
+        // "unknown" starts. A test that only drove `2` would pass just as
+        // happily if the parser accepted every byte below it.
+        let mut config = sim::DuelConfigV1::shipped();
+        config.max_ticks = 60;
+        let kinds = [PolicyKind::Scripted, PolicyKind::Tactical];
+
+        write_arena_config(&config, kinds);
+        poke_arena_config(ARENA_HEADER_BYTES + ARENA_FIGHTER_CONTROL, ARENA_CONTROL_POLICY);
+        assert_eq!(arena_start(3) & 0xff, 1, "the policy control byte was refused");
+        assert_eq!(arena_control(0), u32::from(ARENA_CONTROL_POLICY));
+        assert_eq!(arena_control(1), u32::from(ARENA_CONTROL_POLICY));
+
+        write_arena_config(&config, kinds);
+        poke_arena_config(ARENA_HEADER_BYTES + ARENA_FIGHTER_CONTROL, ARENA_CONTROL_HUMAN);
+        assert_eq!(
+            arena_start(3),
+            ArenaRefusal::fighter(ARENA_CONTROL_UNAVAILABLE, 0).packed(),
+            "the human control byte must be named as unavailable, not as unknown",
+        );
+
+        // Every byte that is neither, on both sides, so the boundary is the
+        // pair and not the two values the test happened to pick.
+        for byte in 2u8..=255 {
+            for index in 0..ARENA_FIGHTERS {
+                write_arena_config(&config, kinds);
+                poke_arena_config(
+                    ARENA_HEADER_BYTES + index * ARENA_FIGHTER_BYTES + ARENA_FIGHTER_CONTROL,
+                    byte,
+                );
+                assert_eq!(
+                    arena_start(3),
+                    ArenaRefusal::fighter(ARENA_UNKNOWN_CONTROL, index).packed(),
+                    "control byte {byte} on fighter {index} was not refused by name",
+                );
+            }
+        }
+
+        // And the reserved byte beside it still answers the *other* refusal,
+        // which is the half of the layout bump that is easy to lose: byte 3 did
+        // not stop being reserved and must not have quietly joined the control
+        // field.
+        write_arena_config(&config, kinds);
+        poke_arena_config(ARENA_HEADER_BYTES + ARENA_FIGHTER_RESERVED, 1);
+        assert_eq!(arena_start(3), ArenaRefusal::fighter(ARENA_NONCANONICAL, 0).packed());
+    }
+
+    #[test]
+    fn a_layout_two_configuration_is_refused_rather_than_read_as_layout_three() {
+        // A version-2 buffer is a buffer whose byte 2 of each fighter block
+        // means "reserved, and I promise it is zero". Reading one under layout
+        // 3's rules would be harmless *today* -- a zero is
+        // `ARENA_CONTROL_POLICY` -- and that is precisely the trap: it would
+        // work until the day a writer that never heard of the control byte put
+        // something else there, and then a stale page would silently hand a
+        // body to a keyboard that is not attached.
+        let mut config = sim::DuelConfigV1::shipped();
+        config.max_ticks = 60;
+        let kinds = [PolicyKind::Scripted, PolicyKind::Tactical];
+
+        for version in [0u16, 1, 2, 4, u16::MAX] {
+            write_arena_config(&config, kinds);
+            ARENA_CONFIG.with(|buffer| {
+                buffer.borrow_mut()[ARENA_HEADER_LAYOUT..][..2]
+                    .copy_from_slice(&version.to_le_bytes());
+            });
+            assert_eq!(
+                arena_start(3),
+                ArenaRefusal::whole(ARENA_UNKNOWN_LAYOUT).packed(),
+                "layout {version} was read rather than refused",
+            );
+        }
+
+        // Bounded from the other side by the version that is not refused, so
+        // that "everything is refused" cannot pass for this.
+        write_arena_config(&config, kinds);
+        assert_eq!(arena_start(3) & 0xff, 1, "layout 3 was refused");
+        assert_eq!(arena_config_layout_version(), u32::from(ARENA_CONFIG_LAYOUT_VERSION));
+    }
+
+    #[test]
+    fn the_arena_fingerprint_does_not_change_when_a_side_is_handed_to_a_human() {
+        // **The claim the whole arena topic rests on.** `arena_fingerprint_*`
+        // names the fight, so if the control byte reached `Scenario` the human
+        // fight and the AI fight at one seed would be two different fixtures
+        // and "can I do better than `tactical`?" would stop being answerable.
+        //
+        // It cannot be written against `arena_start`, and the reason is worth
+        // stating rather than working around: a human side is refused, a
+        // refusal installs nothing, and `arena_fingerprint()` would answer the
+        // *previous* fight's number -- so the two words would agree for a
+        // reason that has nothing to do with the property. That is exactly the
+        // shape `AGENTS.md` calls a green test asserting something the code
+        // does not do. So the fingerprint is taken the way `install_arena`
+        // takes it, off the parse, with the install left out.
+        let mut config = sim::DuelConfigV1::shipped();
+        config.max_ticks = 60;
+        let kinds = [PolicyKind::Scripted, PolicyKind::Tactical];
+
+        let fingerprint_of = |controls: [u8; 2]| -> (u64, [u8; 2]) {
+            write_arena_config(&config, kinds);
+            for (index, &control) in controls.iter().enumerate() {
+                poke_arena_config(
+                    ARENA_HEADER_BYTES + index * ARENA_FIGHTER_BYTES + ARENA_FIGHTER_CONTROL,
+                    control,
+                );
+            }
+            let bytes = ARENA_CONFIG.with(|buffer| *buffer.borrow());
+            // `parse_arena_fighter` and not `install_arena`, so the control
+            // byte is taken past the parser and deliberately stopped short of
+            // the world -- which is the boundary this test is about.
+            let (fighter_a, _, _, control_a) =
+                parse_arena_fighter(&bytes, 0).expect("fighter 0 parses");
+            let (fighter_b, _, _, control_b) =
+                parse_arena_fighter(&bytes, 1).expect("fighter 1 parses");
+            let duel = sim::DuelConfigV1 {
+                fighters: [fighter_a, fighter_b],
+                max_ticks: config.max_ticks,
+            };
+            let scenario = Scenario::duel_from(&duel).expect("the duel builds");
+            (scenario.try_fingerprint().expect("the duel names itself"), [control_a, control_b])
+        };
+
+        let (both_policy, policy_controls) =
+            fingerprint_of([ARENA_CONTROL_POLICY, ARENA_CONTROL_POLICY]);
+        let (a_human, a_controls) = fingerprint_of([ARENA_CONTROL_HUMAN, ARENA_CONTROL_POLICY]);
+        let (b_human, b_controls) = fingerprint_of([ARENA_CONTROL_POLICY, ARENA_CONTROL_HUMAN]);
+        let (both_human, both_controls) =
+            fingerprint_of([ARENA_CONTROL_HUMAN, ARENA_CONTROL_HUMAN]);
+
+        // **The setup is asserted before the property is**, because the way
+        // this test goes green while broken is by building one configuration
+        // four times: four equal fingerprints over four identical buffers is
+        // not evidence of anything.
+        assert_eq!(
+            [policy_controls, a_controls, b_controls, both_controls],
+            [
+                [ARENA_CONTROL_POLICY, ARENA_CONTROL_POLICY],
+                [ARENA_CONTROL_HUMAN, ARENA_CONTROL_POLICY],
+                [ARENA_CONTROL_POLICY, ARENA_CONTROL_HUMAN],
+                [ARENA_CONTROL_HUMAN, ARENA_CONTROL_HUMAN],
+            ],
+            "the four configurations are not four different configurations",
+        );
+        assert_eq!(
+            [a_human, b_human, both_human],
+            [both_policy; 3],
+            "the control byte reached Scenario::fingerprint",
+        );
+        assert_ne!(both_policy, 0, "the fingerprint is a zero the comparison cannot fail on");
+
+        // The other side of the bound: a field that *is* supposed to reach the
+        // fingerprint still does, so "nothing reaches it" cannot pass for this.
+        let mut gripped = config;
+        gripped.fighters[1].two_handed = true;
+        let other = Scenario::duel_from(&gripped)
+            .expect("the gripped duel builds")
+            .try_fingerprint()
+            .expect("the gripped duel names itself");
+        assert_ne!(other, both_policy, "the grip stopped reaching the fingerprint");
     }
 
     #[test]
@@ -8977,9 +9404,12 @@ mod tests {
         poke_arena_config(ARENA_HEADER_FIGHTERS, 3);
         assert_eq!(arena_start(9), ArenaRefusal::whole(ARENA_WRONG_FIGHTER_COUNT).packed());
 
-        // 3. Noncanonical bytes, in each of the four places one can be.
+        // 3. Noncanonical bytes, in each of the four places one can be. The
+        // fighter block's reserved byte is `3` alone since layout 3; byte `2`
+        // beside it is the control byte and answers `ARENA_UNKNOWN_CONTROL`,
+        // which case 9 below covers and which is the difference the bump made.
         write_arena_config(&config, kinds);
-        poke_arena_config(ARENA_HEADER_BYTES + ARENA_FIGHTER_RESERVED + 1, 1);
+        poke_arena_config(ARENA_HEADER_BYTES + ARENA_FIGHTER_RESERVED, 1);
         assert_eq!(arena_start(9), ArenaRefusal::fighter(ARENA_NONCANONICAL, 0).packed());
         // A two-handed marker where it describes nothing: on the left hand,
         // and above `1` on the right. `1` on the Brute's full right hand is
@@ -9080,9 +9510,42 @@ mod tests {
         write_arena_config(&a_knife, kinds);
         assert_eq!(arena_start(9), ArenaRefusal::whole(ARENA_UNKNOWN_ACTION).packed());
 
-        // Seventeen refused calls covering thirteen reasons later, the fight that
-        // was running is still running: not one of them touched `SIM`,
+        // 14. A control byte that is neither of the two this build knows. `2` is
+        // the first one past the pair, which is the value a layout-4 page would
+        // write and the value a saved layout-3 configuration cannot hold.
+        write_arena_config(&config, kinds);
+        poke_arena_config(ARENA_HEADER_BYTES + ARENA_FIGHTER_CONTROL, 2);
+        assert_eq!(arena_start(9), ArenaRefusal::fighter(ARENA_UNKNOWN_CONTROL, 0).packed());
+        write_arena_config(&config, kinds);
+        poke_arena_config(ARENA_HEADER_BYTES + ARENA_FIGHTER_BYTES + ARENA_FIGHTER_CONTROL, 255);
+        assert_eq!(arena_start(9), ArenaRefusal::fighter(ARENA_UNKNOWN_CONTROL, 1).packed());
+
+        // 15. A control byte this build knows and cannot honour, on each side,
+        // which is what arena-02 exists to refuse rather than to run.
+        for index in 0..ARENA_FIGHTERS {
+            write_arena_config(&config, kinds);
+            poke_arena_config(
+                ARENA_HEADER_BYTES + index * ARENA_FIGHTER_BYTES + ARENA_FIGHTER_CONTROL,
+                ARENA_CONTROL_HUMAN,
+            );
+            assert_eq!(
+                arena_start(9),
+                ArenaRefusal::fighter(ARENA_CONTROL_UNAVAILABLE, index).packed(),
+                "a human side was not refused by name",
+            );
+        }
+
+        // Twenty-two refused calls covering fourteen reasons later, the fight
+        // that was running is still running: not one of them touched `SIM`,
         // republished a frame, or moved a tick.
+        //
+        // **This sentence read "seventeen refused calls covering thirteen
+        // reasons" and both halves were wrong**, which arena-02 found by
+        // counting the call sites instead of trusting them: there were eighteen
+        // and twelve. A number in prose beside the code it describes goes stale
+        // in exactly this direction, and the fix is to count it at the moment
+        // you need it -- which is the same instruction `AGENTS.md` gives about
+        // the rustfmt divergence count.
         assert_eq!(
             (hash(), arena_fingerprint(), tick(), arena_policy(0), arena_policy(1)),
             standing,

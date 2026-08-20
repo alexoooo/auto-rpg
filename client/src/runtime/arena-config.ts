@@ -58,10 +58,17 @@ export const ONE_RAW = 1 << 16;
 
 export const ARENA_CONFIG_BYTES = 120;
 /**
- * `2` since combat-arms-01: layout `1` required every hand block's byte 1 to be
- * zero, and that byte now carries the two-handed grip on the right hand.
+ * `3` since arena-02: layout `2` required byte 2 of every fighter block to be
+ * zero, and that byte now carries `ARENA_CONTROL_POLICY` or
+ * `ARENA_CONTROL_HUMAN`. A byte that stops being reserved is a layout change
+ * and not a free bit -- layout 2 refused a nonzero one with `ARENA_NONCANONICAL`,
+ * so the promise it made about that byte was real.
+ *
+ * `2` was combat-arms-01's, one layout down and for the same reason: layout
+ * `1` required every hand block's byte 1 to be zero, and that byte now carries
+ * the two-handed grip on the right hand.
  */
-export const ARENA_CONFIG_LAYOUT_VERSION = 2;
+export const ARENA_CONFIG_LAYOUT_VERSION = 3;
 /** `ARENA_FIGHTERS`. The buffer refuses any other count, and so does this file. */
 export const ARENA_FIGHTERS = 2;
 const FIGHTER_BLOCK_BYTES = 56;
@@ -105,6 +112,41 @@ export type ArenaPolicyName = (typeof ARENA_POLICY_NAMES)[number];
 
 export function policyCodeOf(name: string): number | null {
   const code = ARENA_POLICY_NAMES.indexOf(name as ArenaPolicyName);
+  return code < 0 ? null : code;
+}
+
+/**
+ * Who fills a side's navigation and primary arm, by the code the buffer carries.
+ *
+ * **One byte with two meanings and not two fields.** A human side still needs a
+ * policy -- it drives the off hand -- so the policy byte is read either way, and
+ * what the control byte decides is *what the policy byte means*: the whole mind,
+ * or everything the hand at the keyboard does not claim. The alternative was a
+ * second `offHandPolicy` that is ignored half the time, which is a field that is
+ * wrong half the time and a second place for the two to disagree.
+ *
+ * Index is the code, so the array position is load-bearing, exactly as
+ * `ARENA_POLICY_NAMES` is.
+ */
+export const ARENA_CONTROL_NAMES = ["policy", "human"] as const;
+export type ArenaControlName = (typeof ARENA_CONTROL_NAMES)[number];
+
+/** `ARENA_CONTROL_POLICY`: this side is decided entirely by its policy byte. */
+export const ARENA_CONTROL_POLICY = 0;
+/**
+ * `ARENA_CONTROL_HUMAN`: this side's navigation and primary arm come from the
+ * host.
+ *
+ * **`arena_start` refuses it with `ARENA_CONTROL_UNAVAILABLE` until arena-05
+ * builds the input path**, and the picker refuses it before the button for the
+ * same reason. Encoded anyway rather than withheld: the configuration is what
+ * carries the choice, and a page that could not spell it could not be refused
+ * by name either.
+ */
+export const ARENA_CONTROL_HUMAN = 1;
+
+export function controlCodeOf(name: string): number | null {
+  const code = ARENA_CONTROL_NAMES.indexOf(name as ArenaControlName);
   return code < 0 ? null : code;
 }
 
@@ -222,6 +264,18 @@ export interface ArenaFighterConfig {
    */
   readonly twoHanded: boolean;
   readonly policy: number;
+  /**
+   * `ARENA_CONTROL_POLICY` or `ARENA_CONTROL_HUMAN`, and never anything else:
+   * the module refuses a third value with `ARENA_UNKNOWN_CONTROL`.
+   *
+   * **It does not reach `Scenario`, which is the point of it being here rather
+   * than beside the spawn.** `duel_from` reads anatomy, hands, spawn and
+   * `max_ticks`; the control byte is read by `arena_start` and kept on the host
+   * side of that line, so the same loadout at the same seed has one fingerprint
+   * whoever is driving it. `the_arena_fingerprint_does_not_change_when_a_side_is_handed_to_a_human`
+   * in `crates/web` is what says so.
+   */
+  readonly control: number;
   readonly spawn: { readonly x: number; readonly y: number };
 }
 
@@ -291,6 +345,13 @@ export function encodeArenaConfig(config: ArenaConfig): Uint8Array {
     const base = 8 + index * FIGHTER_BLOCK_BYTES;
     view.setUint8(base, fighter.anatomy);
     view.setUint8(base + 1, fighter.policy);
+    // Byte 2, the control byte, and written even when it is zero -- the one
+    // place this encoder departs from its own rule about reserved zeroes, which
+    // the header comment above and the grip marker below both follow. A zero
+    // here is `ARENA_CONTROL_POLICY` and means something; a zero in byte 3
+    // beside it means the field has no meaning at all. The two are the same
+    // byte value in the buffer and must not be the same line here.
+    view.setUint8(base + 2, fighter.control);
     view.setInt32(base + 4, fighter.spawn.x, true);
     view.setInt32(base + 8, fighter.spawn.y, true);
     writeHand(view, base + 12, fighter.hands[0]);
@@ -328,6 +389,7 @@ export function decodeArenaConfig(bytes: Uint8Array, seed: number): ArenaConfig 
     return {
       anatomy: view.getUint8(base),
       policy: view.getUint8(base + 1),
+      control: view.getUint8(base + 2),
       spawn: { x: view.getInt32(base + 4, true), y: view.getInt32(base + 8, true) },
       hands: [readHand(view, base + 12), readHand(view, base + 12 + HAND_BLOCK_BYTES)],
       twoHanded: view.getUint8(base + 12 + HAND_BLOCK_BYTES + 1) === 1,
@@ -420,6 +482,8 @@ export const ARENA_REFUSALS: Readonly<Record<number, string>> = {
   25: "that action has no equipment row to copy",
   26: "no checkpoint is installed, so the learned policy has no weights",
   27: "a bow must be the sole right-hand item under a two-handed grip",
+  28: "unknown control code: a side is neither policy-driven nor human-driven",
+  29: "a side is set to be driven by you, and this build has no arena input path",
 };
 
 /**
@@ -437,6 +501,19 @@ export const ARENA_REFUSALS: Readonly<Record<number, string>> = {
  */
 export const ARENA_NO_CHECKPOINT = 26;
 export const ARENA_POLICY_UNAVAILABLE = 7;
+/**
+ * `ARENA_CONTROL_UNAVAILABLE`: **the third retired-on-arrival number, and the
+ * only one that is retired on a date rather than on an argument.**
+ *
+ * `7` and `26` lost their producers and can never get them back; this one has a
+ * producer today and loses it in arena-05, when the input path exists and the
+ * refusal is deleted. The number stays spent either way, on the same rule: a
+ * saved configuration or a URL can carry a refusal code, so renumbering one
+ * down into a gap makes an old artifact say something new.
+ */
+export const ARENA_CONTROL_UNAVAILABLE = 29;
+/** `ARENA_UNKNOWN_CONTROL`: a control byte that is neither of the two above. */
+export const ARENA_UNKNOWN_CONTROL = 28;
 /** `ARENA_WHOLE_CONFIG`: the refusal is about the configuration, not a slot. */
 const ARENA_WHOLE_CONFIG = 255;
 

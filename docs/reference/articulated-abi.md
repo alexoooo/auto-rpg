@@ -621,7 +621,7 @@ grammar and not a second one.
 
 | Buffer offset | Width | Field |
 |---:|---:|---|
-| 0 | 2 | layout version `2` |
+| 0 | 2 | layout version `3` |
 | 2 | 1 | fighter count, must be `2` |
 | 3 | 1 | reserved, must be zero |
 | 4 | 4 | `max_ticks` `u32` |
@@ -634,7 +634,8 @@ Each 56-byte fighter block:
 |---:|---:|---|
 | 0 | 1 | anatomy: Fighter `0`, Brute `1` |
 | 1 | 1 | policy code, from the table above |
-| 2 | 2 | reserved, must be zero |
+| 2 | 1 | control: policy `0`, human `1` |
+| 3 | 1 | reserved, must be zero |
 | 4 | 4 | spawn x raw |
 | 8 | 4 | spawn y raw |
 | 12 | 22 | hand 0, `LimbSlot::LeftArm` |
@@ -652,15 +653,36 @@ Each 22-byte hand block:
 | 14 | 4 | segment radius, or shield half-height |
 | 18 | 4 | shield thickness; zero for a segment |
 
-`1+1+2+4+4+2*22 = 56` and `8 + 2*56 = 120`, asserted with `const _` beside the
-offsets. The hand index sets the item's `GripBinding`, which is the whole
+`1+1+1+1+4+4+2*22 = 56` and `8 + 2*56 = 120`, asserted with `const _` beside the
+offsets, which also pin the control byte between the policy byte and the
+reserved one so it cannot slide a place and keep the block 56 bytes wide. The hand index sets the item's `GripBinding`, which is the whole
 mechanism that makes a blade in the left hand expressible; the discriminants are
 pinned by `left_and_right_limb_slots_have_stable_discriminants`. The two-handed
 byte turns the right hand's `Right` into `Both` -- the right arm owns the grip
 and the left arm mirrors, which is why the marker is refused on the left block,
 on an empty hand and above `1`. Layout `1` reserved that byte as zero, and
-claiming it is what bumped the version: a version-1 writer's promise about the
-byte no longer holds, so version-1 buffers are refused rather than reread. The
+claiming it is what bumped the version to `2`: a version-1 writer's promise about
+the byte no longer holds, so version-1 buffers are refused rather than reread.
+
+**Layout `3` is the same move one field along.** The fighter block's byte `2` was
+the first of two reserved bytes and now carries the **control** byte: `0` is
+`ARENA_CONTROL_POLICY`, this side decided entirely by its policy code, and `1` is
+`ARENA_CONTROL_HUMAN`, this side's navigation and primary arm coming from the
+host with its policy code still driving the off hand. One byte with two meanings
+rather than a second policy field, because a human side needs a policy either way
+and two fields that must agree are two fields that can disagree. Byte `3` is
+still reserved and still refused nonzero, so the two are told apart: byte `2`
+answers `28` for a value that is neither, and byte `3` answers `3`.
+
+**The control byte is a host fact and does not reach `Scenario`.**
+`Scenario::duel_from` reads anatomy, hands, spawn and `max_ticks` and nothing
+else, so `arena_fingerprint_*` is identical for one loadout at one seed whoever
+is driving it -- which is what makes a human fight and an AI fight at that seed
+comparable at all.
+`the_arena_fingerprint_does_not_change_when_a_side_is_handed_to_a_human` in
+`crates/web` builds four configurations differing only in their control bytes and
+compares the four fingerprints, having first asserted that the four buffers
+really do differ. The
 geometry *kind* is derived from the action rather than carried, so the block is
 22 bytes and not 23. **Noncanonical ignored payloads are rejected**, which is
 the submitted command's rule applied to the wider buffer: reserved bytes, a
@@ -674,12 +696,20 @@ Exports are:
 ```text
 arena_config_ptr() -> u32
 arena_config_len() -> u32               // 120
-arena_config_layout_version() -> u32    // 2
+arena_config_layout_version() -> u32    // 3
 arena_start(seed:u32) -> u32
 arena_fingerprint_lo() -> u32
 arena_fingerprint_hi() -> u32
 arena_policy(faction_code:u32) -> u32   // PolicyKind::code, or 0xffff_ffff
+arena_control(faction_code:u32) -> u32  // 0 policy, 1 human, or 0xffff_ffff
 ```
+
+`arena_control` is a **read-back** and not a report: `arena_start` is the only
+thing that installs a duel, so the byte it took is the byte the fight is running
+and a recorder that labelled a recording with what it *sent* would be labelling
+it with an intention. Its absent value is `0xffff_ffff` and not `0`, because `0`
+is the answer for every side of every fight this build installs -- a human side
+is refused with `29` below, so nothing else can come back today.
 
 `arena_fingerprint_*` is `Scenario::try_fingerprint` of the installed
 configuration, `0` when none is installed. It is what a recorded fight is named
@@ -722,12 +752,30 @@ declaration order: `11` MissingTable, `12` UnexpectedTable, `13` UnitPresence,
 LoadoutMismatch, `23` GripConflict, `24` NoEquipment, `25` UnknownAction, and
 since v2-ui-08 `26` no checkpoint installed. Articulated Bow appends `27`
 BowGrip -- sole right-hand item under a two-handed grip -- rather than inserting
-it beside `NoEquipment` and changing an already-shipped meaning. One
-opaque zero would make a studio say "invalid" for a typo, for an impossibility
-and for a session that has not landed yet.
+it beside `NoEquipment` and changing an already-shipped meaning, and arena-02
+appends `28` unknown control byte and `29` control unavailable for the same
+reason. One opaque zero would make a studio say "invalid" for a typo, for an
+impossibility and for a session that has not landed yet.
 
-**Twelve are reachable from a control and the rest are not**, and the split is
-not the one the plan predicted.
+| reason | when | retires |
+|---:|---|---|
+| `28` | a fighter's control byte is neither `0` nor `1` | never |
+| `29` | a side asked to be driven by a person and this build has no arena input path | arena-05 |
+
+**`29` is a refusal by design and not a gap.** The configuration learns who drives
+a side one session before `Sim::advance_arena` can consult it, and the honest
+answer in between is a named refusal rather than a fight the policy quietly
+drove -- the rule `ARENA_POLICY_UNAVAILABLE` was written for. When arena-05
+builds the input path the refusal is deleted and **the number stays spent**, on
+the retired-schema rule below: a saved configuration or a URL can carry a reason
+byte, so renumbering one down into a gap makes an old artifact say something new.
+The reason names the *fighter* and leaves `255` in bits 24..31, deliberately:
+`1` is a perfectly good hand index and the paragraph above records what that
+collision cost once.
+
+**Fourteen are reachable from a control and the rest are not**, and the split is
+not the one the plan predicted. That sentence read "twelve" over a list of
+twelve, and both numbers moved when arena-02 added the two control refusals.
 
 **Two of the unreachable ones are *retired* rather than merely unreachable, and
 the difference matters.** `7` (policy unavailable) needed a registry entry the
