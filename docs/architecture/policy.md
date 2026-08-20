@@ -44,7 +44,7 @@ no successor is a property of the *observation* rather than an omission:
 other side" appears in it only as `opponents`, already selected. Per-side routing
 therefore belongs to whoever drives the run, which does know both factions. The
 crate's module header carries that argument in full, and
-[`EmbodiedPolicy`](../../crates/policy/src/lib.rs#L235) carries the doctest pair
+[`EmbodiedPolicy`](../../crates/policy/src/lib.rs#L239) carries the doctest pair
 showing that no policy can be handed a `&World`.
 
 ## Observation to command
@@ -324,7 +324,7 @@ per side.
 because every quantity it reads is a world quantity measured off an observation whose
 type is the same on both seams, so the port shares the planner and forks only the
 command assembly. The frame enters in one four-line function,
-[`into_torso_frame`](../../crates/policy/src/embodied_tactics.rs#L93), which subtracts
+[`into_torso_frame`](../../crates/policy/src/embodied_tactics.rs#L99), which subtracts
 the *observed* yaw and not the commanded one -- the world re-adds
 `World::body_yaw[i].angle`, and the commanded yaw is a request the actuator chases at a
 bounded rate. Its first measured outing is
@@ -362,7 +362,7 @@ first, so the row is now configuration with one live reader -- **kept rather tha
 folded back into constants**, because it is what makes the sweeps below reproducible
 from a shipped command instead of from an edit and a rebuild. `Footwork::ARTICULATED`
 is therefore the planner's own pre-session-04 numbers,
-[`StrikePlanner::footwork`](../../crates/policy/src/embodied_tactics.rs#L410) is the
+[`StrikePlanner::footwork`](../../crates/policy/src/embodied_tactics.rs#L416) is the
 constructor that takes a row, and `StrikePlanner::default()` still answers the
 articulated one -- which is why `TacticalEmbodiedPolicy` has a hand-written `Default`
 rather than a derived one.
@@ -543,7 +543,7 @@ such demonstration exists. Any successor needs a separately approved causal ques
 
 ## Source anchors
 
-- The seam: [`EmbodiedPolicy`](../../crates/policy/src/lib.rs#L235)
+- The seam: [`EmbodiedPolicy`](../../crates/policy/src/lib.rs#L239)
 - The seam's registry: [`EmbodiedPolicyKind`](../../crates/policy/src/lib.rs#L388)
 - The scripted embodied policy: [`crates/policy/src/embodied_script.rs`](../../crates/policy/src/embodied_script.rs)
 - The tactical embodied policy: [`crates/policy/src/embodied_tactics.rs`](../../crates/policy/src/embodied_tactics.rs)

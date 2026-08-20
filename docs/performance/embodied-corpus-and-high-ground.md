@@ -2,7 +2,7 @@
 
 **Purpose:** Record the embodied corpus, its registered pin, and the measured result of the elevation term — including that the term lost.
 **Status:** current
-**Canonical source:** this record, [`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1655), and the `EMBODIED_CORPUS_DIGEST` row in the [golden registry](../reference/hashes.md#golden-registry)
+**Canonical source:** this record, [`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1660), and the `EMBODIED_CORPUS_DIGEST` row in the [golden registry](../reference/hashes.md#golden-registry)
 **Update when:** An embodied fixture, the embodied script, the corpus shape, the pin, or the high-ground result changes.
 
 **Host:** MSVC x86-64, Windows 10, AMD Ryzen 9 3950X, 32 logical cores. **Date:** 2026-08-17.
@@ -25,7 +25,7 @@ range — see [the measurement design](#why-this-is-mirrored-and-swapped-and-not
 ## The corpus
 
 Two shipped fixtures, each in its canonical orientation and in the reflection across
-`y = 8` that [`lab articulated`](../../crates/lab/src/main.rs#L1655) has always run for
+`y = 8` that [`lab articulated`](../../crates/lab/src/main.rs#L1660) has always run for
 its second orientation.
 
 | fixture | canonical | mirrored |
@@ -81,7 +81,7 @@ the policy at once, since no embodied fixture can be driven by an articulated sc
 ## The registered pin
 
 `EMBODIED_CORPUS_DIGEST = 0x00e08317d7a31c7c`, defined at
-[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1350) and asserted by
+[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1356) and asserted by
 `the_embodied_corpus_digest_is_the_pinned_one`.
 
 ```text
@@ -165,7 +165,7 @@ which actually plays gets measured against, and the forward work that does so is
 ## The high-ground measurement
 
 `lab embodied --high-ground`, at
-[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1770). The subject is
+[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1775). The subject is
 `EmbodiedScriptConfig::SEEKING` and the control is
 [`EmbodiedScriptConfig`](../../crates/policy/src/embodied_script.rs#L272)`::LEVEL`,
 which is the same script with the elevation term switched off so completely that the

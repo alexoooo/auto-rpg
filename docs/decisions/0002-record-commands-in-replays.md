@@ -61,5 +61,5 @@ normative size or throughput guarantee.
 
 - Replay rationale and current record vectors: [`Replay`](../../crates/sim/src/replay.rs#L61)
 - Playback without policy execution: [`Replay::play_until`](../../crates/sim/src/replay.rs#L141)
-- Current single-limb command: [`Command`](../../crates/sim/src/command.rs#L545)
+- Current single-limb command: [`Command`](../../crates/sim/src/command.rs#L569)
 - Headless recording path: [`run`](../../crates/policy/src/runner.rs#L97)

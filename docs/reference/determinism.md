@@ -74,5 +74,5 @@ This section supersedes the former `DESIGN.md#what-is-not-covered` entry.
 - Fixed-point contract and authority boundary: [`fx` crate documentation](../../crates/fx/src/lib.rs#L1)
 - Saturating numeric representation: [`Fx`](../../crates/fx/src/fixed.rs#L14)
 - Deterministic stream derivation: [`Rng::from_stream`](../../crates/fx/src/rng.rs#L54)
-- World comparison function: [`World::state_hash`](../../crates/sim/src/world/hash.rs#L83)
+- World comparison function: [`World::state_hash`](../../crates/sim/src/world/hash.rs#L103)
 - Cross-thread, rerun, and replay assertions: [`determinism.rs`](../../crates/sim/tests/determinism.rs#L1)

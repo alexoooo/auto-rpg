@@ -81,7 +81,7 @@ and a club. That is the whole set of things a body can currently hold, and it is
 - Subject-scoped observation: [`ArticulatedObservation`](../../crates/sim/src/obs.rs#L353), [`World::observe_articulated`](../../crates/sim/src/world/query.rs#L285)
 - Action roles and append-only registry: [`Role`](../../crates/sim/src/action.rs#L28), [`ActionKind`](../../crates/sim/src/action.rs#L116)
 - Loadout shape: [`Loadout`](../../crates/sim/src/loadout.rs#L18)
-- Standing inputs: [`Order`](../../crates/sim/src/command.rs#L666), [`Objective`](../../crates/sim/src/command.rs#L773)
+- Standing inputs: [`Order`](../../crates/sim/src/command.rs#L670), [`Objective`](../../crates/sim/src/command.rs#L773)
 
 ## Superseded DESIGN sections
 

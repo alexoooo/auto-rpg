@@ -172,6 +172,6 @@ own.
 
 - Storage and construction: [`World` fields and `World::new`](../../crates/sim/src/world/mod.rs)
 - Decision seam: [`World::pending_decisions` and `World::observe`](../../crates/sim/src/world/query.rs), and [`World::submit`](../../crates/sim/src/world/mod.rs)
-- Tick phase order: [`World::step`](../../crates/sim/src/world/mod.rs#L1714)
+- Tick phase order: [`World::step`](../../crates/sim/src/world/mod.rs#L1661)
 - Observation shape and feature projection: [`obs.rs`](../../crates/sim/src/obs.rs)
 - Command, order, and objective inputs: [`command.rs`](../../crates/sim/src/command.rs)

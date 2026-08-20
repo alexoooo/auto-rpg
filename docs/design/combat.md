@@ -2,7 +2,7 @@
 
 **Purpose:** Preserve the rationale, measured corrections, and trade-offs behind the current combat model.
 **Status:** current
-**Canonical source:** [`World` combat phases](../../crates/sim/src/world/mod.rs#L1714), [`Hand`](../../crates/sim/src/hand.rs#L182), and [`rules`](../../crates/sim/src/rules.rs#L1)
+**Canonical source:** [`World` combat phases](../../crates/sim/src/world/mod.rs#L1661), [`Hand`](../../crates/sim/src/hand.rs#L182), and [`rules`](../../crates/sim/src/rules.rs#L1)
 **Update when:** Limb state, action roles, collision, damage, recoil, perception, recovery, regeneration, or timeout design changes.
 
 This document explains why the mechanics have their current shape. Exact enum
@@ -429,4 +429,4 @@ anchors whose wording did not become standalone headings here:
   [`embodied_script.rs`](../../crates/policy/src/embodied_script.rs), which decides
   where to stand from the ground under its feet rather than from a stance, so it is
   a successor in position and not in kind.
-- Termination outcome: [`World::timeout`](../../crates/sim/src/world/query.rs#L1153)
+- Termination outcome: [`World::timeout`](../../crates/sim/src/world/query.rs#L1144)
