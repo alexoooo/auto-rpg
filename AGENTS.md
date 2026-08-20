@@ -281,7 +281,9 @@ not in this file.
 
 The live roadmap is [the embodied fight](docs/plans/fight-00-overview.md). The
 visual work owed after the 2026-08-17 production pass is
-[its own topic](docs/plans/concept-production-00-overview.md).
+[its own topic](docs/plans/concept-production-00-overview.md). The proposed
+successor, which opens once the embodied fight closes, is
+[the arena you can fight in](docs/plans/arena-00-overview.md).
 
 ## Gotchas that have already cost time
 
