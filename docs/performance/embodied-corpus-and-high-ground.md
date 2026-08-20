@@ -2,7 +2,7 @@
 
 **Purpose:** Record the embodied corpus, its registered pin, and the measured result of the elevation term — including that the term lost.
 **Status:** current
-**Canonical source:** this record, [`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1660), and the `EMBODIED_CORPUS_DIGEST` row in the [golden registry](../reference/hashes.md#golden-registry)
+**Canonical source:** this record, [`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1659), and the `EMBODIED_CORPUS_DIGEST` row in the [golden registry](../reference/hashes.md#golden-registry)
 **Update when:** An embodied fixture, the embodied script, the corpus shape, the pin, or the high-ground result changes.
 
 **Host:** MSVC x86-64, Windows 10, AMD Ryzen 9 3950X, 32 logical cores. **Date:** 2026-08-17.
@@ -25,7 +25,7 @@ range — see [the measurement design](#why-this-is-mirrored-and-swapped-and-not
 ## The corpus
 
 Two shipped fixtures, each in its canonical orientation and in the reflection across
-`y = 8` that [`lab articulated`](../../crates/lab/src/main.rs#L1660) has always run for
+`y = 8` that [`lab articulated`](../../crates/lab/src/main.rs#L1659) has always run for
 its second orientation.
 
 | fixture | canonical | mirrored |
@@ -38,7 +38,7 @@ must never be offered as one**: a mirror keeps the fixture's name and therefore 
 fingerprint, so a run of the reflection is a run of a different scenario.
 
 `lab embodied --seeds 400 --mirrored`, 800 trials of `embodied-duel-v1` under
-`EmbodiedPolicyKind::Scripted` on both sides:
+`PolicyKind::Scripted` on both sides:
 
 ```text
 outcomes  59 fighter kills, 3 brute kills, 0 mutual, 738 on points, 0 drawn
@@ -81,7 +81,7 @@ the policy at once, since no embodied fixture can be driven by an articulated sc
 ## The registered pin
 
 `EMBODIED_CORPUS_DIGEST = 0x00e08317d7a31c7c`, defined at
-[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1356) and asserted by
+[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1346) and asserted by
 `the_embodied_corpus_digest_is_the_pinned_one`.
 
 ```text
@@ -154,20 +154,22 @@ The `guard` row is the second half and is the one most likely to be misread. 52.
 diagonal against a 33% floor looks like a defence that works. It is not: the guard height
 is a clock, `HEIGHTS[((tick + GUARD_LEAD_TICKS) / HEIGHT_TICKS) % 3]`, which never reads
 the incoming blow, and three of the nine cells in the table are structurally unreachable --
-`GUARD_LEAD_TICKS` in `embodied_script.rs` carries that arithmetic and says so.
+`GUARD_LEAD_TICKS` in `script.rs` carries that arithmetic and says so.
 
-None of this contradicts the corpus's purpose. `embodied_script.rs` states in its own
+None of this contradicts the corpus's purpose. `script.rs` states in its own
 header that it does not tune, because no embodied corpus existed to tune against when it
 was written; it existed to make one possible. This section is the baseline that a policy
-which actually plays gets measured against, and the forward work that does so is
-[the embodied fight plan](../plans/fight-00-overview.md).
+which actually plays gets measured against. The topic that did so — the embodied fight —
+has closed, and [the tactical policy record](embodied-tactical-policy.md) holds the
+answer: the policy it tuned lost to the baseline above on every harness that was pointed
+at the pair.
 
 ## The high-ground measurement
 
 `lab embodied --high-ground`, at
-[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1775). The subject is
-`EmbodiedScriptConfig::SEEKING` and the control is
-[`EmbodiedScriptConfig`](../../crates/policy/src/embodied_script.rs#L272)`::LEVEL`,
+[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1765). The subject is
+`ScriptConfig::SEEKING` and the control is
+[`ScriptConfig`](../../crates/policy/src/script.rs#L272)`::LEVEL`,
 which is the same script with the elevation term switched off so completely that the
 body never stores a floor height.
 
@@ -260,7 +262,7 @@ all.
 So this measurement did not test the criterion. It tested a policy that pays a tactical
 price — walking somewhere other than at its opponent — and buys essentially no
 elevation with it, which is a finding about
-[`EmbodiedScriptConfig`](../../crates/policy/src/embodied_script.rs#L272)`::SEEKING`
+[`ScriptConfig`](../../crates/policy/src/script.rs#L272)`::SEEKING`
 rather than about whether height helps.
 
 **The likeliest reason is the fixture, and it is visible in the same three lines.**
@@ -379,7 +381,7 @@ the same policy with that term disabled*. It is **not met**, on either sculpted 
 But the criterion was a proxy for the question that mattered — was elevation worth
 building? — and it is a poor one, because it fails identically whether height is
 worthless or whether the policy is simply bad at seeking it. Measured directly, height
-is worth about three points and `ScriptedEmbodiedPolicy`'s elevation term captures
+is worth about three points and `ScriptedPolicy`'s elevation term captures
 essentially none of it. The mechanic is sound; the term is not.
 
 What is deliberately **not** done here is tuning the term until the number comes out.
@@ -392,7 +394,7 @@ would be this record's ability to say anything.
   named here by fingerprint; a moved fingerprint means the corpus above is a corpus of
   something else. The hill's radius bands and its centre tile are the sensitive part —
   a hill moved off `(12, 8)` breaks the equidistance the mirror control depends on.
-- **Any edit to `ScriptedEmbodiedPolicy` or `GroundSense`.** The subject and the
+- **Any edit to `ScriptedPolicy` or `GroundSense`.** The subject and the
   control are one type with one flag, so a change to either reaches both arms and the
   whole comparison at once.
 - **Any change to embodied mechanics in `crates/sim`** — stance, terrain sampling, the
@@ -428,7 +430,7 @@ that looks like a fingerprint and is a constant is invisible until something is
 written against it.
 
 The embodied corpus therefore digests its own stream under its own domain,
-`ARPG-EMBODIED-SCRIPT-V1`, over `EmbodiedCommandV1::payload_bytes` and otherwise byte
+`ARPG-EMBODIED-SCRIPT-V1`, over `CommandV1::payload_bytes` and otherwise byte
 for byte the same grammar. **The repair belongs in `crates/policy`** — teaching the
 existing function its third arm — and was deliberately not taken in the session that
 registered the pins above, whose whole job was to record numbers that hold still.

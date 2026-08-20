@@ -12,7 +12,7 @@
 //! `learn` and `learn-core` are `#![forbid(unsafe_code)]` too, and since
 //! v2-ui-08 the code under measurement here lives in the second of them --
 //! which is also the one that ships inside `web.wasm`, so an allocation on this
-//! path would be a `LearnedArticulatedPolicy` growing linear memory mid-frame
+//! path would be a `LearnedCorePolicy` growing linear memory mid-frame
 //! and detaching every typed array a page holds. The claim got sharper; the
 //! test did not have to change, because it drives the `learn` re-export.
 //! This file is not the library; it
@@ -33,9 +33,9 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 
 use fx::{Fx, Rng, Vec3};
-use learn::{LearnedArticulatedPolicy, Model};
-use policy::EmbodiedPolicy;
-use sim::{ArticulatedObservation, EntityId, SegmentPose};
+use learn::{LearnedCorePolicy, Model};
+use policy::Policy;
+use sim::{Observation, EntityId, SegmentPose};
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 
@@ -124,18 +124,18 @@ fn allocations_during<R>(body: impl FnOnce() -> R) -> (R, usize) {
 ///
 /// Built once, outside the measured region, and varied only by tick -- so the
 /// measurement is of `decide` and not of whatever building an observation
-/// costs. `ArticulatedObservation` is `Copy` and allocates nothing anyway,
+/// costs. `Observation` is `Copy` and allocates nothing anyway,
 /// which is what makes that possible.
-fn facing(tick: u32) -> ArticulatedObservation {
-    let mut obs = ArticulatedObservation::BLANK;
+fn facing(tick: u32) -> Observation {
+    let mut obs = Observation::BLANK;
     obs.tick = tick;
     obs.subject = EntityId::new(0, 0);
-    obs.capabilities = ArticulatedObservation::MOVEMENT
-        | ArticulatedObservation::TURNING
-        | ArticulatedObservation::LEFT_GRIP
-        | ArticulatedObservation::RIGHT_GRIP
-        | ArticulatedObservation::RIGHT_WEAPON
-        | ArticulatedObservation::SHIELD;
+    obs.capabilities = Observation::MOVEMENT
+        | Observation::TURNING
+        | Observation::LEFT_GRIP
+        | Observation::RIGHT_GRIP
+        | Observation::RIGHT_WEAPON
+        | Observation::SHIELD;
     obs.arms[0].equipment = Some(2);
     obs.arms[1].equipment = Some(1);
     obs.opponent_count = 1;
@@ -154,7 +154,7 @@ fn facing(tick: u32) -> ArticulatedObservation {
 #[test]
 fn frozen_inference_allocates_nothing_after_warmup() {
     let mut rng = Rng::new(2026);
-    let mut policy = LearnedArticulatedPolicy::new(Model::random(&mut rng));
+    let mut policy = LearnedCorePolicy::new(Model::random(&mut rng));
 
     // Warmup is one decision, and it is a real warmup rather than a courtesy:
     // the first call is where `FeatureMemory` goes from empty to primed, so it
@@ -162,7 +162,7 @@ fn frozen_inference_allocates_nothing_after_warmup() {
     // was allocated by `new` above, which is outside the region below.
     policy.decide(&facing(0));
 
-    let observations: Vec<ArticulatedObservation> = (1..=2_000).map(facing).collect();
+    let observations: Vec<Observation> = (1..=2_000).map(facing).collect();
     let (last, allocations) = allocations_during(|| {
         let mut last = None;
         for obs in &observations {
@@ -185,13 +185,13 @@ fn frozen_inference_allocates_nothing_after_warmup() {
     // **And the same claim through the frame adapter, which is what every
     // corpus in this repository actually drives.** Since session 05 the training
     // loop, the held-out evaluation and `lab learn-probe` all hold a
-    // `LearnedEmbodiedPolicy`, so a `Vec` added inside `into_torso_frame` or
+    // `LearnedPolicy`, so a `Vec` added inside `into_torso_frame` or
     // inside the adapter would be paid for once per decision by every one of
     // them and the measurement above would not see it. The adapter is four lines
     // of `Fx` arithmetic on `Copy` values today, and "today" is the qualifier a
     // counter removes.
     let mut rng = Rng::new(2026);
-    let mut embodied = learn::LearnedEmbodiedPolicy::new(Model::random(&mut rng));
+    let mut embodied = learn::LearnedPolicy::new(Model::random(&mut rng));
     embodied.decide(&facing(0));
     let (last, allocations) = allocations_during(|| {
         let mut last = None;
@@ -210,9 +210,9 @@ fn frozen_inference_allocates_nothing_after_warmup() {
 #[test]
 fn frozen_tactical_inference_allocates_nothing_after_warmup() {
     let mut rng = Rng::new(2028);
-    let mut policy = learn::LearnedTacticalPolicyV2::new(learn::ModelV2::random(&mut rng));
+    let mut policy = learn::LearnedTacticalCorePolicyV2::new(learn::ModelV2::random(&mut rng));
     policy.decide(&facing(0));
-    let observations: Vec<ArticulatedObservation> = (1..=2_000).map(facing).collect();
+    let observations: Vec<Observation> = (1..=2_000).map(facing).collect();
     let (last, allocations) = allocations_during(|| {
         let mut last = None;
         for obs in &observations { last = Some(policy.decide(obs)); }
@@ -235,7 +235,7 @@ fn the_cross_target_digest_allocates_nothing() {
     // measured before and sized three fixed arrays around.
     //
     // It is not obviously true from the source, either: the function builds
-    // sixty-four whole `ArticulatedObservation`s. They are `Copy` and land on
+    // sixty-four whole `Observation`s. They are `Copy` and land on
     // the stack today, and "today" is exactly the qualifier a counter removes.
     let mut rng = Rng::new(2027);
     let model = Model::random(&mut rng);

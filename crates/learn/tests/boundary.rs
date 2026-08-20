@@ -12,12 +12,12 @@
 
 use fx::{Angle, Fx, Rng, Vec2};
 use learn::{
-    compose, LearnedActionV1, LearnedEmbodiedPolicy, Model, FOOTWORK_COUNT, GUARD_HEIGHT_COUNT,
+    compose, LearnedActionV1, LearnedPolicy, Model, FOOTWORK_COUNT, GUARD_HEIGHT_COUNT,
     POSTURE_COUNT, WEAPON_BEARING_COUNT, WEAPON_HEIGHT_COUNT,
 };
-use policy::{into_torso_frame, run_embodied, EmbodiedPolicy, RunConfig};
+use policy::{into_torso_frame, run, Policy, RunConfig};
 use sim::{
-    ArticulatedObservation, CombatHeight, EmbodiedCommandV1, GripRequest, Scenario,
+    Observation, CombatHeight, CommandV1, GripRequest, Scenario,
     SubmittedCommand,
 };
 
@@ -43,13 +43,13 @@ fn duel_in_sight() -> Scenario {
 /// on the near side of `into_torso_frame` would prove the table's reach and
 /// effort survived while saying nothing about the bearings.
 struct Tapped {
-    inner: LearnedEmbodiedPolicy,
-    seen: Vec<ArticulatedObservation>,
-    issued: Vec<EmbodiedCommandV1>,
+    inner: LearnedPolicy,
+    seen: Vec<Observation>,
+    issued: Vec<CommandV1>,
 }
 
-impl EmbodiedPolicy for Tapped {
-    fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
+impl Policy for Tapped {
+    fn decide(&mut self, obs: &Observation) -> CommandV1 {
         let command = self.inner.decide(obs);
         self.seen.push(*obs);
         self.issued.push(command);
@@ -66,7 +66,7 @@ impl EmbodiedPolicy for Tapped {
 fn tapped(seed: u64) -> Tapped {
     let mut rng = Rng::new(seed);
     Tapped {
-        inner: LearnedEmbodiedPolicy::new(Model::random(&mut rng)),
+        inner: LearnedPolicy::new(Model::random(&mut rng)),
         seen: Vec::new(),
         issued: Vec::new(),
     }
@@ -114,7 +114,7 @@ fn learned_output_uses_only_the_versioned_action_table() {
     // world was handed, on the far side of `into_torso_frame`, so the search
     // has to put the candidate row through the same function to compare at all.
     //
-    // What it buys: the right-hand side is produced by `LearnedEmbodiedPolicy`
+    // What it buys: the right-hand side is produced by `LearnedPolicy`
     // and not by this test, so a `decide` that did anything after composing --
     // a reach scaled by a logit, a bearing interpolated between two rows -- has
     // no row to land on and the search fails. That is the fence, and it is the
@@ -136,7 +136,7 @@ fn learned_output_uses_only_the_versioned_action_table() {
     // **And there is no version of this search that checks both**, which is why
     // the fix is this paragraph rather than a rewrite. Comparing `compose`'s
     // output against a world-frame recording sounds stronger and is strictly
-    // weaker: `LearnedArticulatedPolicy::decide` *is* `compose(obs, action)`, so
+    // weaker: `LearnedCorePolicy::decide` *is* `compose(obs, action)`, so
     // both sides of that comparison would be this test's own call to `compose`
     // and the row search would succeed for any implementation of it. The
     // conversion cancels because the recording is on its far side, and the
@@ -151,7 +151,7 @@ fn learned_output_uses_only_the_versioned_action_table() {
             max_ticks: Some(600),
             ..RunConfig::default()
         };
-        let result = run_embodied(&duel_in_sight(), seed, &mut policy, &config);
+        let result = run(&duel_in_sight(), seed, &mut policy, &config);
         // A refused command is stored as the *neutral* one, and a neutral
         // command is not in this table -- so a run with rejections would be
         // asserting about a fight the policy did not drive.
@@ -176,13 +176,13 @@ fn learned_output_uses_only_the_versioned_action_table() {
 
             // And the same claim read off the command directly, so that a
             // failure says which column left the table rather than only that
-            // some column did. Through `.articulated`, which is where all four
+            // some column did. Through `.core`, which is where all four
             // of these columns live: the embodied command adds a swing plane per
             // arm and nothing else, and the plane is asserted one block down
             // because the action table has no head for it.
             assert_eq!(command.swing_plane, [Angle::ZERO; 2]);
-            assert_eq!(command.articulated.grips, [GripRequest::Keep; 2]);
-            for arm in command.articulated.arms {
+            assert_eq!(command.core.grips, [GripRequest::Keep; 2]);
+            for arm in command.core.arms {
                 assert!(
                     [CombatHeight::LOW, CombatHeight::MID, CombatHeight::HIGH]
                         .contains(&arm.height),
@@ -205,7 +205,7 @@ fn learned_output_uses_only_the_versioned_action_table() {
             // three magnitudes are 0, 1/2 and 15/16, which are 32,768 and 28,672
             // raw apart, so a step that had been *scaled* by a logit would miss
             // by four orders of magnitude more than this admits.
-            let speed = command.articulated.move_dir.length();
+            let speed = command.core.move_dir.length();
             assert!(
                 speed == Fx::ZERO
                     || (speed - Fx::from_ratio(15, 16)).abs() <= Fx::from_raw(4)
@@ -250,8 +250,8 @@ fn training_types_cannot_enter_authoritative_state() {
         ..RunConfig::default()
     };
     let mut rng = Rng::new(4242);
-    let mut policy = LearnedEmbodiedPolicy::new(Model::random(&mut rng));
-    let result = run_embodied(&scenario, 11, &mut policy, &config);
+    let mut policy = LearnedPolicy::new(Model::random(&mut rng));
+    let result = run(&scenario, 11, &mut policy, &config);
     assert_eq!(result.rejected, 0);
 
     let replay = result.replay.as_ref().expect("recording was requested");
@@ -263,7 +263,7 @@ fn training_types_cannot_enter_authoritative_state() {
         // replaces said that at run time and could no longer fire.
         let SubmittedCommand::Embodied(command) = record.command;
         let payload = command.payload_bytes();
-        assert_eq!(EmbodiedCommandV1::from_payload_bytes(&payload), Ok(command));
+        assert_eq!(CommandV1::from_payload_bytes(&payload), Ok(command));
     }
 
     let played = replay.play();
@@ -280,21 +280,21 @@ fn a_zeroed_network_is_a_fighter_and_not_a_statue() {
     // action were a degenerate one, generation zero of every training run would
     // be a population of statues and the first few generations would be
     // measuring nothing.
-    let mut policy = LearnedEmbodiedPolicy::new(Model::zeros());
-    let blank = ArticulatedObservation {
+    let mut policy = LearnedPolicy::new(Model::zeros());
+    let blank = Observation {
         body_yaw: Angle::from_degrees(45),
-        ..ArticulatedObservation::BLANK
+        ..Observation::BLANK
     };
     let command = policy.decide(&blank);
     assert_eq!(command, into_torso_frame(&blank, compose(&blank, LearnedActionV1::default())));
-    assert_ne!(command.articulated.move_dir, Vec2::ZERO);
+    assert_ne!(command.core.move_dir, Vec2::ZERO);
     // **The 45-degree yaw is doing work and is not decoration.** The adapter
     // subtracts `obs.body_yaw` from every bearing and rotates the step into the
     // torso frame, so a fixture facing due east would satisfy the line above
     // with a conversion that did nothing at all. Off-axis, the two commands are
     // different values and the equality is a claim about the rotation.
     assert_ne!(
-        command.articulated.move_dir,
+        command.core.move_dir,
         compose(&blank, LearnedActionV1::default()).move_dir,
         "the torso conversion was the identity, so nothing above tested it",
     );
@@ -303,7 +303,7 @@ fn a_zeroed_network_is_a_fighter_and_not_a_statue() {
         max_ticks: Some(600),
         ..RunConfig::default()
     };
-    let result = run_embodied(&Scenario::embodied_duel(), 1, &mut policy, &config);
+    let result = run(&Scenario::embodied_duel(), 1, &mut policy, &config);
     assert_eq!(result.rejected, 0);
     // **"Not a statue" is the claim, and both laws now answer it the same way:
     // the fight runs its 600-tick clock.**

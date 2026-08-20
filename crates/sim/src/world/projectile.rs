@@ -2,7 +2,7 @@
 //!
 //! An articulated arrow is not an entity. It occupies a slot in a fixed table
 //! and borrows an entity id from a reserved index range, which is what keeps
-//! `MAX_ARTICULATED_ENTITIES` a bound on bodies rather than on everything in
+//! `MAX_ENTITIES` a bound on bodies rather than on everything in
 //! the air.
 
 use super::*;
@@ -16,52 +16,52 @@ const ARTICULATED_PROJECTILE_INDEX_BASE: u32 = u32::MAX - rules::MAX_SHOTS as u3
 pub(super) const ARTICULATED_PROJECTILE_SLOT: u8 = 0x80;
 
 impl World {
-    fn free_articulated_projectile(&mut self) -> Option<usize> {
-        if let Some(slot) = self.articulated_projectile_free.pop() {
+    fn free_projectile(&mut self) -> Option<usize> {
+        if let Some(slot) = self.projectile_free.pop() {
             let slot = slot as usize;
-            self.articulated_projectile_generation[slot] =
-                self.articulated_projectile_generation[slot].wrapping_add(1);
+            self.projectile_generation[slot] =
+                self.projectile_generation[slot].wrapping_add(1);
             return Some(slot);
         }
-        if self.articulated_projectile_alive.len() >= rules::MAX_SHOTS { return None; }
-        self.articulated_projectile_alive.push(false);
-        self.articulated_projectile_generation.push(0);
-        self.articulated_projectile_pos.push(Vec3::ZERO);
-        self.articulated_projectile_vel.push(Vec3::ZERO);
-        self.articulated_projectile_range.push(Fx::ZERO);
-        self.articulated_projectile_radius.push(Fx::ZERO);
-        self.articulated_projectile_mass.push(Fx::ZERO);
-        self.articulated_projectile_owner.push(EntityId::NONE);
-        self.articulated_projectile_faction.push(Faction::Heroes);
-        Some(self.articulated_projectile_alive.len() - 1)
+        if self.projectile_alive.len() >= rules::MAX_SHOTS { return None; }
+        self.projectile_alive.push(false);
+        self.projectile_generation.push(0);
+        self.projectile_pos.push(Vec3::ZERO);
+        self.projectile_vel.push(Vec3::ZERO);
+        self.projectile_range.push(Fx::ZERO);
+        self.projectile_radius.push(Fx::ZERO);
+        self.projectile_mass.push(Fx::ZERO);
+        self.projectile_owner.push(EntityId::NONE);
+        self.projectile_faction.push(Faction::Heroes);
+        Some(self.projectile_alive.len() - 1)
     }
 
     /// Projectile solver identities occupy the 32 indices immediately below
     /// EntityId::NONE. Articulated bodies are bounded to 64 allocated slots,
     /// so the namespaces cannot alias; generation still changes on slot reuse.
-    pub(super) fn articulated_projectile_id(&self, slot: usize) -> EntityId {
+    pub(super) fn projectile_id(&self, slot: usize) -> EntityId {
         EntityId::new(ARTICULATED_PROJECTILE_INDEX_BASE + slot as u32,
-                      self.articulated_projectile_generation[slot])
+                      self.projectile_generation[slot])
     }
 
-    pub(super) fn articulated_projectile_slot(&self, entity: EntityId) -> Option<usize> {
+    pub(super) fn projectile_slot_of(&self, entity: EntityId) -> Option<usize> {
         let slot = entity.index.checked_sub(ARTICULATED_PROJECTILE_INDEX_BASE)? as usize;
-        (slot < self.articulated_projectile_alive.len()
-            && self.articulated_projectile_alive[slot]
-            && self.articulated_projectile_generation[slot] == entity.generation)
+        (slot < self.projectile_alive.len()
+            && self.projectile_alive[slot]
+            && self.projectile_generation[slot] == entity.generation)
             .then_some(slot)
     }
 
-    pub(super) fn articulated_projectile_requested(&self, slot: usize) -> (Vec3, bool, EntityId) {
-        let previous = self.articulated_projectile_pos[slot];
-        let requested = previous + self.articulated_projectile_vel[slot];
-        let radius = self.articulated_projectile_radius[slot];
+    pub(super) fn projectile_requested(&self, slot: usize) -> (Vec3, bool, EntityId) {
+        let previous = self.projectile_pos[slot];
+        let requested = previous + self.projectile_vel[slot];
+        let radius = self.projectile_radius[slot];
         let mut block = self.dungeon.raycast(
             Vec2::new(previous.x, previous.y), Vec2::new(requested.x, requested.y),
         ).map(|time| (time.raw().max(0) as u32, EntityId::NONE));
         for target in 0..self.alive.len() {
             if !self.alive[target]
-                || self.faction[target] == self.articulated_projectile_faction[slot] {
+                || self.faction[target] == self.projectile_faction[slot] {
                 continue;
             }
             let Some(pose) = self.shield_pose[target] else { continue };
@@ -87,16 +87,16 @@ impl World {
         (Vec3::lerp(previous, requested, before), true, shielded_body)
     }
 
-    fn reap_articulated_projectile(&mut self, slot: usize) {
-        if !self.articulated_projectile_alive[slot] { return; }
-        self.articulated_projectile_alive[slot] = false;
-        self.articulated_projectile_free.push(slot as u32);
+    fn reap_projectile(&mut self, slot: usize) {
+        if !self.projectile_alive[slot] { return; }
+        self.projectile_alive[slot] = false;
+        self.projectile_free.push(slot as u32);
     }
 
-    pub(super) fn loose_articulated_projectiles(&mut self) {
+    pub(super) fn loose_projectiles(&mut self) {
         for i in 0..self.alive.len() {
             if !self.alive[i] { continue; }
-            let command = self.articulated_command[i].unwrap_or_else(|| self.neutral_articulated(i));
+            let command = self.command_core[i].unwrap_or_else(|| self.neutral_core(i));
             let previous = self.articulated_release_was[i];
             self.articulated_release_was[i] = command.releases;
             if !ReleaseRequest::looses(previous[1], command.releases[1]) { continue; }
@@ -107,18 +107,18 @@ impl World {
             if !both { continue; }
             let direction = self.arms[i][1].hand.normalized_or_zero();
             if direction == Vec3::ZERO { continue; }
-            let Some(slot) = self.free_articulated_projectile() else { continue };
+            let Some(slot) = self.free_projectile() else { continue };
             let arm = rules::Arm::resolve(ActionKind::Bow.spec(), self.stats[i], self.radius[i]);
             let origin =
                 Vec3::new(self.pos[i].x, self.pos[i].y, self.ground_z[i]) + self.arms[i][1].hand;
-            self.articulated_projectile_alive[slot] = true;
-            self.articulated_projectile_pos[slot] = origin;
-            self.articulated_projectile_vel[slot] = direction * rules::shot_speed(arm);
-            self.articulated_projectile_range[slot] = self.stats[i].sight_range();
-            self.articulated_projectile_radius[slot] = ARTICULATED_ARROW_RADIUS;
-            self.articulated_projectile_mass[slot] = ActionKind::Bow.spec().mass;
-            self.articulated_projectile_owner[slot] = self.id_of(i);
-            self.articulated_projectile_faction[slot] = self.faction[i];
+            self.projectile_alive[slot] = true;
+            self.projectile_pos[slot] = origin;
+            self.projectile_vel[slot] = direction * rules::shot_speed(arm);
+            self.projectile_range[slot] = self.stats[i].sight_range();
+            self.projectile_radius[slot] = ARTICULATED_ARROW_RADIUS;
+            self.projectile_mass[slot] = ActionKind::Bow.spec().mass;
+            self.projectile_owner[slot] = self.id_of(i);
+            self.projectile_faction[slot] = self.faction[i];
             self.events.push(Event::Loose {
                 source: self.id_of(i), at: Vec2::new(origin.x, origin.y),
                 line: Vec2::new(direction.x, direction.y).angle(),
@@ -126,28 +126,28 @@ impl World {
         }
     }
 
-    pub(super) fn resolve_articulated_projectiles(&mut self) {
-        for slot in 0..self.articulated_projectile_alive.len() {
-            if !self.articulated_projectile_alive[slot] { continue; }
-            let entity = self.articulated_projectile_id(slot);
+    pub(super) fn resolve_projectiles(&mut self) {
+        for slot in 0..self.projectile_alive.len() {
+            if !self.projectile_alive[slot] { continue; }
+            let entity = self.projectile_id(slot);
             let hit = self.contact.as_ref().is_some_and(|contact| contact.resolutions.iter()
                 .any(|row| row.fact.key.kind == ContactKind::ProjectileBody
                     && row.fact.key.a == entity));
             if hit {
-                self.reap_articulated_projectile(slot);
+                self.reap_projectile(slot);
                 continue;
             }
-            let step = self.articulated_projectile_vel[slot];
-            let (now, blocked, _) = self.articulated_projectile_requested(slot);
+            let step = self.projectile_vel[slot];
+            let (now, blocked, _) = self.projectile_requested(slot);
             if blocked {
-                self.reap_articulated_projectile(slot);
+                self.reap_projectile(slot);
                 continue;
             }
-            self.articulated_projectile_range[slot] -= step.length();
-            if !self.articulated_projectile_range[slot].is_positive() {
-                self.reap_articulated_projectile(slot);
+            self.projectile_range[slot] -= step.length();
+            if !self.projectile_range[slot].is_positive() {
+                self.reap_projectile(slot);
             } else {
-                self.articulated_projectile_pos[slot] = now;
+                self.projectile_pos[slot] = now;
             }
         }
     }
@@ -166,15 +166,15 @@ mod articulated_projectile_tests {
     }
 
     fn seed_arrow(world: &mut World, owner: usize, position: Vec3, velocity: Vec3) -> usize {
-        let slot = world.free_articulated_projectile().unwrap();
-        world.articulated_projectile_alive[slot] = true;
-        world.articulated_projectile_pos[slot] = position;
-        world.articulated_projectile_vel[slot] = velocity;
-        world.articulated_projectile_range[slot] = Fx::from_int(20);
-        world.articulated_projectile_radius[slot] = ARTICULATED_ARROW_RADIUS;
-        world.articulated_projectile_mass[slot] = ActionKind::Bow.spec().mass;
-        world.articulated_projectile_owner[slot] = world.id_of(owner);
-        world.articulated_projectile_faction[slot] = world.faction[owner];
+        let slot = world.free_projectile().unwrap();
+        world.projectile_alive[slot] = true;
+        world.projectile_pos[slot] = position;
+        world.projectile_vel[slot] = velocity;
+        world.projectile_range[slot] = Fx::from_int(20);
+        world.projectile_radius[slot] = ARTICULATED_ARROW_RADIUS;
+        world.projectile_mass[slot] = ActionKind::Bow.spec().mass;
+        world.projectile_owner[slot] = world.id_of(owner);
+        world.projectile_faction[slot] = world.faction[owner];
         slot
     }
 
@@ -183,25 +183,25 @@ mod articulated_projectile_tests {
         let mut world = bow_world();
         let legacy = world.state_hash();
         let articulated = world.state_digest().value;
-        let mut command = world.neutral_articulated(0);
+        let mut command = world.neutral_core(0);
         command.releases[1] = ReleaseRequest::Loose;
-        world.articulated_command[0] = Some(command);
-        world.loose_articulated_projectiles();
-        assert_eq!(world.articulated_projectiles().count(), 1);
-        let first = world.articulated_projectiles().next().unwrap();
+        world.command_core[0] = Some(command);
+        world.loose_projectiles();
+        assert_eq!(world.projectiles().count(), 1);
+        let first = world.projectiles().next().unwrap();
         assert!(first.velocity.z.is_positive());
         assert_eq!(world.state_hash(), legacy);
         assert_ne!(world.state_digest().value, articulated);
 
-        world.loose_articulated_projectiles();
-        assert_eq!(world.articulated_projectiles().count(), 1);
+        world.loose_projectiles();
+        assert_eq!(world.projectiles().count(), 1);
         command.releases[1] = ReleaseRequest::Keep;
-        world.articulated_command[0] = Some(command);
-        world.loose_articulated_projectiles();
+        world.command_core[0] = Some(command);
+        world.loose_projectiles();
         command.releases[1] = ReleaseRequest::Loose;
-        world.articulated_command[0] = Some(command);
-        world.loose_articulated_projectiles();
-        assert_eq!(world.articulated_projectiles().count(), 2);
+        world.command_core[0] = Some(command);
+        world.loose_projectiles();
+        assert_eq!(world.projectiles().count(), 2);
     }
 
     #[test]
@@ -217,13 +217,13 @@ mod articulated_projectile_tests {
                 Vec3::new(Fx::from_int(2), Fx::ZERO, Fx::ZERO));
             world.retain_contact_entry();
             world.resolve_contact();
-            world.resolve_articulated_projectiles();
+            world.resolve_projectiles();
             let row = world.contact_resolutions().iter()
                 .find(|row| row.fact.key.kind == ContactKind::ProjectileBody)
                 .expect("shared solver omitted projectile/body fact");
             assert_eq!(row.fact.volume as usize, part);
             assert!(world.wounds[target].parts[part].integrity < before);
-            assert_eq!(world.articulated_projectiles().count(), 0);
+            assert_eq!(world.projectiles().count(), 0);
         }
     }
 
@@ -247,11 +247,11 @@ mod articulated_projectile_tests {
         let slot = seed_arrow(&mut world, owner,
             face_centre + face.normal * Fx::from_int(2),
             -face.normal * Fx::from_int(4));
-        assert!(world.articulated_projectile_requested(slot).1,
+        assert!(world.projectile_requested(slot).1,
             "front-to-back shield sweep was not blocked: face={:?}", face);
         world.retain_contact_entry();
         world.resolve_contact();
-        world.resolve_articulated_projectiles();
+        world.resolve_projectiles();
         assert_eq!(world.wounds[target], before);
         assert!(world.contact_resolutions().iter()
             .all(|row| row.fact.key.kind != ContactKind::ProjectileBody));
@@ -271,26 +271,26 @@ mod articulated_projectile_tests {
 
         world.wounds[owner].parts[BodyPart::Head as usize].integrity = Fx::ZERO;
         world.wounds[owner].parts[BodyPart::Head as usize].severed = true;
-        world.reap_dead_articulated();
+        world.reap_dead_bodies();
         assert_eq!(world.resolve(stale_owner), None);
 
         world.retain_contact_entry();
         world.resolve_contact();
-        world.resolve_articulated_projectiles();
+        world.resolve_projectiles();
         assert!(world.contact_resolutions().iter()
             .any(|row| row.fact.key.kind == ContactKind::ProjectileBody));
         assert!(world.wounds[target].parts[BodyPart::Head as usize].integrity < before);
         assert_eq!(world.wounds[target].last_attacker, stale_owner);
         assert_eq!(world.damage_dealt[owner], Fx::ZERO);
-        assert_eq!(world.articulated_projectiles().count(), 0);
+        assert_eq!(world.projectiles().count(), 0);
     }
 
     #[test]
     fn projectile_identity_is_disjoint_and_generation_stable_across_slot_reuse() {
         let mut world = bow_world();
         let first_slot = seed_arrow(&mut world, 0, Vec3::from_ints(8, 8, 1), Vec3::X);
-        let first_id = world.articulated_projectile_id(first_slot);
-        let first_view = world.articulated_projectiles().next().unwrap();
+        let first_id = world.projectile_id(first_slot);
+        let first_view = world.projectiles().next().unwrap();
         assert_eq!(first_view.slot, first_slot as u32);
         assert_eq!(first_view.generation, first_id.generation);
         assert!(world.alive_ids(Faction::Heroes).into_iter()
@@ -299,15 +299,15 @@ mod articulated_projectile_tests {
         assert!(first_id.index >= ARTICULATED_PROJECTILE_INDEX_BASE);
         assert!(first_id.index < EntityId::NONE.index);
 
-        world.reap_articulated_projectile(first_slot);
+        world.reap_projectile(first_slot);
         let reused_slot = seed_arrow(&mut world, 0, Vec3::from_ints(9, 8, 1), Vec3::X);
-        let reused_id = world.articulated_projectile_id(reused_slot);
-        let reused_view = world.articulated_projectiles().next().unwrap();
+        let reused_id = world.projectile_id(reused_slot);
+        let reused_view = world.projectiles().next().unwrap();
         assert_eq!(reused_slot, first_slot);
         assert_eq!(reused_id.index, first_id.index);
         assert_ne!(reused_id.generation, first_id.generation);
-        assert_eq!(world.articulated_projectile_slot(first_id), None);
-        assert_eq!(world.articulated_projectile_slot(reused_id), Some(reused_slot));
+        assert_eq!(world.projectile_slot_of(first_id), None);
+        assert_eq!(world.projectile_slot_of(reused_id), Some(reused_slot));
         assert_eq!(reused_view.generation, reused_id.generation);
     }
 
@@ -318,7 +318,7 @@ mod articulated_projectile_tests {
             faction: Faction::Heroes,
             stats: Body::Fighter.base_stats(),
             loadout: Body::Fighter.default_loadout(),
-            articulated: None,
+            combat_spec: None,
             spawn: Vec2::ZERO,
         });
         let a = World::new(&scenario, 17);

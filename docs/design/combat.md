@@ -426,7 +426,7 @@ anchors whose wording did not become standalone headings here:
   `duelist.rs` was deleted with the legacy seam in embodied session 10, and its
   stance machine -- block, evade, circle, punish, feint -- was written against a
   body that was a disc with one blade angle. The nearest surviving thing is
-  [`embodied_script.rs`](../../crates/policy/src/embodied_script.rs), which decides
+  [`script.rs`](../../crates/policy/src/script.rs), which decides
   where to stand from the ground under its feet rather than from a stance, so it is
   a successor in position and not in kind.
 - Termination outcome: [`World::timeout`](../../crates/sim/src/world/query.rs#L1144)

@@ -378,8 +378,12 @@ and then reverted, because `Posture::Chamber` in `learn-core`'s model is *define
 heads. Raising it either moves `LEARNED_INFERENCE_DIGEST` and owes a re-score, or
 collapses `Chamber` and `Commit` into the same `(reach, effort, attack)` triple and
 leaves the model two actions it cannot tell apart.
-`the_action_table_is_the_scripts_own_vocabulary` is what caught it, which is what that
-test exists for.
+`the_action_table_is_frozen_by_hand` is what caught it, which is what that
+test exists for. **It was `the_action_table_is_the_scripts_own_vocabulary` until session
+06**, and the rename is not cosmetic: the script that supplied the other half of the pin
+was deleted, so the four constants this table is frozen against are now frozen *by hand*
+rather than against anything. `crates/learn-core/src/model.rs` keeps the old spelling in
+the new test's own body, so a reader arriving from an older record can still find it.
 
 So the two levers are coupled by two different routes -- phase length through
 `CYCLE_TICKS`'s clock feature, chamber reach through the posture action head -- and

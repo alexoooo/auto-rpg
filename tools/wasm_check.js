@@ -469,7 +469,7 @@ test("the boundary exports everything the client calls", () => {
     "init_embodied_test",
     // **`set_goto`, `set_focus`, `clear_order`, the three route names and the
     // two focus readers stood here and are gone.** Not a rename to chase: an
-    // `ArticulatedObservation` has no order column and no nav column, so the
+    // `Observation` has no order column and no nav column, so the
     // click was moving the state hash and the frame header while moving nobody.
     // Their absence is checked below rather than only assumed.
     "spawn_monster",
@@ -613,7 +613,7 @@ test("the boundary exports everything the client calls", () => {
     "set_policy",
     "policy_kind",
     // **The five gene exports stood here and are gone.** A legacy policy was a
-    // kind plus a genome; an `EmbodiedPolicyKind` is a kind and nothing else, so
+    // kind plus a genome; a `PolicyKind` is a kind and nothing else, so
     // `policy_weight_count`, `policy_gene`, `policy_weight`, `set_policy_gene`
     // and `reset_policy_genes` were deleted rather than made to answer zero. The
     // two label exports survive re-based: index 0 is the policy's own name.
@@ -844,7 +844,7 @@ test("the embodied command scratch matches Rust and stores atomically", () => {
 // word's reason byte `2` -- refused by *name* -- then corrupted the intent tag
 // and required the same answer again, because that second rung was the only
 // input that separated the boundary's own model check from
-// `World::submit_embodied_v1`'s. Every world this module can install answers the
+// `World::submit`'s. Every world this module can install answers the
 // same grammar now, so the refusal is unreachable from here rather than
 // unchecked: a page cannot offer the wrong model to a boundary that has only
 // one. Both of those checks have since gone with the model, and the `2` is not
@@ -1092,7 +1092,7 @@ test("the behavioral contact corpus is the bytes the reference specifies", () =>
 // construction.
 const POSE_LAYOUT_VERSION = 1;
 const POSE_STRIDE = 66;
-// `MAX_POSES` is the sim's own `MAX_ARTICULATED_ENTITIES`, so no world this
+// `MAX_POSES` is the sim's own `MAX_ENTITIES`, so no world this
 // module can build could overflow the pose buffer -- which is why the drop
 // field is asserted rather than assumed below. It is the only witness that the
 // defensive prefix rule is wired up at all, and a defensive rule nobody reads
@@ -1842,7 +1842,7 @@ test("the walk cycle's columns describe the walk", () => {
   // **Nobody is told where to go any more and the walk still happens**, which is
   // the whole point of the channel that survived: the hero's own policy closes
   // on the opposition `init` spawns. The `set_goto` this fixture opened with was
-  // never what made it walk -- it was the destination an `ArticulatedObservation`
+  // never what made it walk -- it was the destination an `Observation`
   // cannot see -- so removing the line changes which route is taken and nothing
   // about what is being claimed.
   wasm.init(1);
@@ -1979,7 +1979,7 @@ test("a policy can be chosen across the boundary", () => {
   // **"and tuned" was in this test's name and the genome is gone.** A legacy
   // policy was a kind plus a weight vector, and five exports read and wrote the
   // genes as thousandths so that no float crossed the wall inward; an
-  // `EmbodiedPolicyKind` is a kind and nothing else. What is left is the
+  // `PolicyKind` is a kind and nothing else. What is left is the
   // dropdown, which is the half that was doing the convincing.
   //
   // **The codes are a different registry from the one this used to check**, and
@@ -2580,7 +2580,7 @@ const ARENA_NO_EQUIPMENT = 24;
 // file checks the second half of that rather than taking it on trust.
 // `ARENA_POLICY_UNAVAILABLE` was the answer a code `crates/policy` could not
 // build got, and `ARENA_NO_CHECKPOINT` was the answer a `learned` fighter with
-// no weights got. v2-ui-08 moved the arena onto `EmbodiedPolicyKind`, whose
+// no weights got. v2-ui-08 moved the arena onto `PolicyKind`, whose
 // `build` returns a policy and never an `Option` and which has no `learned`
 // entry, so both lost their producers in one move. The numbers stay put on the
 // codec's retired-schema rule -- these bytes cross a worker boundary and outlive
@@ -2592,7 +2592,7 @@ const ARENA_NO_CHECKPOINT = 26;
 const SWORD = 2;
 const CLUB = 3;
 const SHIELD = 4;
-// `policy::EmbodiedPolicyKind::code`. The registry is 0..5 and append-only;
+// `policy::PolicyKind::code`. The registry is 0..5 and append-only;
 // `5`, `6` and `7` were `tactical`, `openings` and free on the articulated one
 // this replaced, and all three are refused here.
 const NEUTRAL = 0;
@@ -2870,7 +2870,7 @@ test("descending out of an arena returns an ordinary floor", () => {
   assert.equal(u32(wasm.arena_policy(1)), NO_POLICY);
   assert.equal(arenaFingerprint(), 0n, "a generated floor is named by a duel's configuration");
   assert.notEqual(u32(wasm.policy_kind(0)), NO_POLICY, "an ordinary floor cannot name its policy");
-  // 2 is `EmbodiedPolicyKind::ScriptedLevel`, from the registry this export
+  // 2 is `PolicyKind::ScriptedLevel`, from the registry this export
   // takes now. It was `PolicyKind`'s `idle` when this line was written, and the
   // two code spaces were never the same one -- which is exactly why the number
   // is spelled out with its meaning rather than carried over.
@@ -2935,7 +2935,7 @@ test("an installed arena refuses the exports that would rewrite its fight", () =
     // reported success would leave a page showing a control that had done
     // nothing. **The reason used to be that the two were different registries**
     // -- an arena ran `ArticulatedPolicyKind` and this export takes
-    // `EmbodiedPolicyKind` -- and v2-ui-08 made them one. The refusal stands on
+    // `PolicyKind` -- and v2-ui-08 made them one. The refusal stands on
     // the narrower reason it always also had: an arena's pair is written once,
     // by `arena_start`, as half of a configuration whose fingerprint names the
     // fight, and a dropdown that swapped one side mid-run would leave
@@ -3203,7 +3203,7 @@ test("a refused checkpoint does not grow linear memory", () => {
 // checkpoint, staged code 4, and checked that the module took it, ran a fight
 // rather than standing still, fought the same fight twice from the same bytes,
 // and fought a *different* one from the script. `#/arena` reads
-// `EmbodiedPolicyKind` now and that registry has no `learned` entry, so there is
+// `PolicyKind` now and that registry has no `learned` entry, so there is
 // no configuration left to stage. `LEARNED_INFERENCE_DIGEST` above is untouched
 // and is the whole of the cross-target claim about the network; what is gone is
 // a learned *fight* through this ABI, and `crates/learn`'s own rollouts are

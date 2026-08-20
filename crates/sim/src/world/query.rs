@@ -1,13 +1,13 @@
 //! What a reader may ask a `World`, and nothing that changes one.
 //!
-//! Perception lives here too -- `observe`, `observe_articulated` and the
+//! Perception lives here too -- `observe`, `observe` and the
 //! `Contact` builder -- because an observation is a read of authoritative state
 //! and not a phase of the tick. The one thing in this file that takes `&mut` is
 //! a `#[cfg(test)]` mutator that exists to prove a hash covers a column.
 
 use super::*;
 
-/// The perception-noise stream domain for [`World::observe_articulated`]:
+/// The perception-noise stream domain for [`World::observe`]:
 /// ASCII `ARTOBS1`, frozen by the articulated ABI.
 ///
 /// It is folded into `Rng::from_stream`'s *seed* argument rather than into one
@@ -255,25 +255,26 @@ impl World {
     ///
     /// The subject-scoped twin of [`World::observe`], and total in exactly the
     /// same way: a stale identity, a corpse, or a Legacy world answers
-    /// [`ArticulatedObservation::BLANK`] rather than panicking, because callers
+    /// [`Observation::BLANK`] rather than panicking, because callers
     /// driving a replay may name the dead. Deadness is the query's own answer
     /// and not a consequence of when it was asked, for the reason
-    /// [`World::articulated_pose`] gives.
+    /// [`World::pose`] gives.
     ///
-    /// It is called once per [`World::observe`] and lands in
-    /// [`Observation::articulated`], where it returns on the model check before
-    /// touching a column. That is not free to a Legacy world: `Observation`
-    /// carries the 2032-byte block by value, so every observation copies it
-    /// twice and zero-fills a vector twice as wide. Measured at 6% of `lab
-    /// bench`; guarding this call on the model does not recover it, because the
-    /// cost is the embedding rather than the call. The separate entry point
+    /// It is called once per [`World::observe`] and used to land in the legacy
+    /// observation's `articulated` field, where it returned on the model check
+    /// before touching a column. That was not free to a Legacy world: the legacy
+    /// observation carried the 2032-byte block by value, so every observation
+    /// copied it twice and zero-filled a vector twice as wide. Measured at 6% of
+    /// `lab bench`; guarding the call on the model did not recover it, because
+    /// the cost was the embedding rather than the call -- and the embedding is
+    /// what went away. The separate entry point
     /// exists for the articulated policy seam, which wants the subject picture
     /// without the legacy one.
     ///
     /// **Selection is on ground truth**, exactly as the legacy contact list is:
     /// you notice what is genuinely nearest, and noise is applied afterwards to
     /// what was noticed. What differs from the legacy path is the cap --
-    /// [`MAX_ARTICULATED_OPPONENTS`], not [`Stats::tracked_contacts`] -- because
+    /// [`MAX_OPPONENTS`], not [`Stats::tracked_contacts`] -- because
     /// this block's width is a fixed wasm row stride before it is a percept, and
     /// a dim character's rows are blurred rather than fewer.
     ///
@@ -282,15 +283,15 @@ impl World {
     /// selection change.
     ///
     /// [`Stats::tracked_contacts`]: crate::Stats::tracked_contacts
-    pub fn observe_articulated(&self, id: EntityId) -> ArticulatedObservation {
-        let Some(i) = self.resolve(id) else { return ArticulatedObservation::BLANK };
-        let Some(state) = self.wounds.get(i).copied() else { return ArticulatedObservation::BLANK };
-        if state.is_dead() { return ArticulatedObservation::BLANK; }
-        let Some(spec) = self.anatomy_spec(i) else { return ArticulatedObservation::BLANK };
+    pub fn observe(&self, id: EntityId) -> Observation {
+        let Some(i) = self.resolve(id) else { return Observation::BLANK };
+        let Some(state) = self.wounds.get(i).copied() else { return Observation::BLANK };
+        if state.is_dead() { return Observation::BLANK; }
+        let Some(spec) = self.anatomy_spec(i) else { return Observation::BLANK };
 
         let me = self.pos[i];
         // **The floor the body is standing on, exactly as
-        // [`World::articulated_pose`] reads it**, and it used to be `Fx::ZERO`
+        // [`World::pose`] reads it**, and it used to be `Fx::ZERO`
         // here while the pose row used `ground_z`. The observation and the pose
         // disagreed about where a body was, which on a sculpted floor plan puts
         // every column of this block a hill's height away from the geometry the
@@ -311,10 +312,11 @@ impl World {
         // reads commands derived from this block, so a change on a flat world
         // would land in its `script` digest.
         let body = Vec3::new(me.x, me.y, self.ground_z[i]);
-        let command = self.articulated_command[i].unwrap_or_else(|| self.neutral_articulated(i));
-        let targets = self.articulated_targets(i, spec, &command);
+        let command = self.command_core[i].unwrap_or_else(|| self.neutral_core(i));
+        let targets = self.commanded_targets(i, spec, &command);
         // Proprioception is free, so every column below is ground truth. The
-        // rule is [`Observation::position`]'s and it does not weaken because
+        // rule is the legacy observation's `position` column's and it does not
+        // weaken because
         // the body grew joints: a fighter knows where its own hand is however
         // dim it is.
         let arms = core::array::from_fn(|limb| {
@@ -340,7 +342,7 @@ impl World {
                 // owns the collider". A reader wanting the owner asks the
                 // weapon bit; a reader wanting the hand asks this.
                 equipment: self.grips[i][limb].equipment_slot.and_then(|slot| {
-                    self.articulated_carried[i].get(slot as usize).copied().flatten()
+                    self.body_carried[i].get(slot as usize).copied().flatten()
                 }),
             }
         });
@@ -355,7 +357,7 @@ impl World {
 
         let stats = self.stats[i];
         let sight = stats.sight_range();
-        let mut seen = Nearest::new(MAX_ARTICULATED_OPPONENTS);
+        let mut seen = Nearest::new(MAX_OPPONENTS);
         for j in 0..self.alive.len() {
             if j == i || !self.alive[j] { continue; }
             if self.faction[j] == self.faction[i] { continue; }
@@ -391,15 +393,15 @@ impl World {
             ((i as u64) << 32) | self.generation[i] as u64,
         );
         let noise = stats.perception_noise();
-        let mut opponents = [ObservedOpponent::BLANK; MAX_ARTICULATED_OPPONENTS];
+        let mut opponents = [ObservedOpponent::BLANK; MAX_OPPONENTS];
         for (slot, &(_, j)) in seen.items().iter().enumerate() {
             opponents[slot] = self.observed_opponent(i, j, noise, &mut rng);
         }
 
-        ArticulatedObservation {
+        Observation {
             tick: self.tick,
             subject: id,
-            capabilities: self.articulated_capabilities(i, &state),
+            capabilities: self.body_capabilities(i, &state),
             body_position: body,
             body_yaw: self.body_yaw[i].angle,
             body_velocity: Vec3::new(self.vel[i].x, self.vel[i].y, Fx::ZERO),
@@ -519,13 +521,13 @@ impl World {
     /// and noise-free and a bit derived from `arm_authority` would flicker as
     /// shock crossed a boundary. Each constant's doc argues its own rule and
     /// names what was rejected.
-    fn articulated_capabilities(&self, i: usize, state: &AnatomyState) -> u32 {
+    fn body_capabilities(&self, i: usize, state: &AnatomyState) -> u32 {
         let mut bits = 0u32;
         if state.present(BodyPart::Legs) {
-            bits |= ArticulatedObservation::MOVEMENT | ArticulatedObservation::TURNING;
+            bits |= Observation::MOVEMENT | Observation::TURNING;
         }
-        let grip = [ArticulatedObservation::LEFT_GRIP, ArticulatedObservation::RIGHT_GRIP];
-        let weapon = [ArticulatedObservation::LEFT_WEAPON, ArticulatedObservation::RIGHT_WEAPON];
+        let grip = [Observation::LEFT_GRIP, Observation::RIGHT_GRIP];
+        let weapon = [Observation::LEFT_WEAPON, Observation::RIGHT_WEAPON];
         for limb in 0..2 {
             if self.grips[i][limb].equipment_slot.is_some() { bits |= grip[limb]; }
             let Some(item) = self.equipment_in_grip(i, limb) else { continue };
@@ -539,8 +541,8 @@ impl World {
         }
         // Read off the derived pose rather than off the grips, so one face is
         // one bit however many hands are on it.
-        if self.shield_pose[i].is_some() { bits |= ArticulatedObservation::SHIELD; }
-        if self.two_handed(i) { bits |= ArticulatedObservation::TWO_HANDED; }
+        if self.shield_pose[i].is_some() { bits |= Observation::SHIELD; }
+        if self.two_handed(i) { bits |= Observation::TWO_HANDED; }
         bits
     }
 
@@ -576,7 +578,7 @@ impl World {
         // The perceived body origin, on the floor it is standing on. The Z term
         // used to be the noise alone, which said every opponent stands at z = 0
         // however far up or down the plan it is -- the same disagreement with
-        // [`World::articulated_pose`] the subject's own origin carried, and it
+        // [`World::pose`] the subject's own origin carried, and it
         // has to be corrected in both places or a fighter on a hill would see
         // itself raised and everybody else level.
         let measured = Vec3::new(
@@ -700,7 +702,7 @@ impl World {
     /// free to mix the body-relative frame the actuator works in with the
     /// absolute frame the geometry lives in, which is precisely the mistake
     /// `combat::geometry` exists to make impossible. Here the conversion
-    /// happens once, on the way out, and [`ArticulatedPose`] states the frame.
+    /// happens once, on the way out, and [`Pose`] states the frame.
     ///
     /// `None` for a stale identity or a dead body; total for everything else.
     /// Deadness is checked here rather than left to the reap
@@ -709,7 +711,7 @@ impl World {
     ///
     /// Ground truth, with no perception noise and no visibility filtering. It
     /// is the host's job to decide who may see which row.
-    pub fn articulated_pose(&self, id: EntityId) -> Option<ArticulatedPose> {
+    pub fn pose(&self, id: EntityId) -> Option<Pose> {
         let i = self.resolve(id)?;
         let state = *self.wounds.get(i)?;
         if state.is_dead() { return None; }
@@ -719,12 +721,12 @@ impl World {
         // words 2..4 have published body XYZ since the layout was frozen.
         let body = Vec3::new(self.pos[i].x, self.pos[i].y, self.ground_z[i]);
         let yaw = self.body_yaw[i].angle;
-        // The same substitution `drive_articulated_arms` makes, so the target
+        // The same substitution `drive_arms` makes, so the target
         // published is the one the arm is actually being driven toward. A slot
         // that never had a command is holding its neutral pose, not chasing
         // nothing, and a zero here would draw a reach line to the map origin.
-        let command = self.articulated_command[i].unwrap_or_else(|| self.neutral_articulated(i));
-        let targets = self.articulated_targets(i, spec, &command);
+        let command = self.command_core[i].unwrap_or_else(|| self.neutral_core(i));
+        let targets = self.commanded_targets(i, spec, &command);
 
         // Solved once for the pair, because `arm_elbows` clones a posed anatomy
         // and derives both link lengths from it; asking per limb inside the
@@ -756,7 +758,7 @@ impl World {
         let shield = self.shield_pose[i]
             .map(|pose| ShieldPose { centre: body + pose.centre, ..pose });
         let severed_mask = severed_mask_of(&state);
-        Some(ArticulatedPose {
+        Some(Pose {
             id,
             body,
             body_yaw: yaw,
@@ -794,7 +796,7 @@ impl World {
     /// One embodied body's stance, in the shape a publication reads it.
     ///
     /// A view rather than the `StanceState` column, for the reason
-    /// [`ArticulatedPose`] is a view rather than the arm columns: what crosses
+    /// [`Pose`] is a view rather than the arm columns: what crosses
     /// this boundary is what a reader needs, and the integrator's residues are
     /// not that. `twist_raw` is derived here rather than stored, so a consumer
     /// cannot be handed a twist that disagrees with the two angles it is a
@@ -824,19 +826,19 @@ impl World {
         })
     }
 
-    pub fn articulated_poses(&self) -> impl Iterator<Item = ArticulatedPose> + '_ {
+    pub fn poses(&self) -> impl Iterator<Item = Pose> + '_ {
         let slots = self.alive.len();
         (0..slots).filter_map(|i| {
             if !self.alive[i] { return None; }
-            self.articulated_pose(self.id_of(i))
+            self.pose(self.id_of(i))
         })
     }
 
     /// Where the actuator is driving each hand, in the **body-relative** frame
     /// the joint works in.
     ///
-    /// Extracted so [`World::articulated_pose`] and
-    /// [`World::observe_articulated`] cannot answer differently: a renderer
+    /// Extracted so [`World::pose`] and
+    /// [`World::observe`] cannot answer differently: a renderer
     /// drawing a reach line and a policy reading where its own hand is going
     /// are asking one question, and a second copy of this is a second thing to
     /// keep in step with the integrator.
@@ -844,11 +846,11 @@ impl World {
     /// It repeats `integrate_arm`'s own reach clamp rather than trusting it.
     /// A published target the joint would refuse is a point the hand never
     /// reaches, so the arm reads as though it never arrived.
-    fn articulated_targets(
+    fn commanded_targets(
         &self,
         i: usize,
         spec: &BodyAnatomySpec,
-        command: &ArticulatedCommandV1,
+        command: &CommandCoreV1,
     ) -> [Vec3; 2] {
         let yaw = self.body_yaw[i].angle;
         let mut targets = [Vec3::ZERO; 2];
@@ -904,9 +906,9 @@ impl World {
     }
 
     #[cfg(test)]
-    pub(crate) fn articulated_pose_test_view(&self, id: EntityId) -> Option<ArticulatedPoseTestView> {
+    pub(crate) fn pose_test_view(&self, id: EntityId) -> Option<PoseTestView> {
         let i = self.resolve(id)?;
-        Some(ArticulatedPoseTestView {
+        Some(PoseTestView {
             body_yaw: self.body_yaw[i],
             arms: self.arms[i],
             grips: self.grips[i],
@@ -1218,17 +1220,17 @@ impl World {
     }
 
     /// Live articulated arrows in stable slot order.
-    pub fn articulated_projectiles(&self) -> impl Iterator<Item = ArticulatedProjectileView> + '_ {
-        (0..self.articulated_projectile_alive.len())
-            .filter(move |&slot| self.articulated_projectile_alive[slot])
-            .map(move |slot| ArticulatedProjectileView {
+    pub fn projectiles(&self) -> impl Iterator<Item = ProjectileView> + '_ {
+        (0..self.projectile_alive.len())
+            .filter(move |&slot| self.projectile_alive[slot])
+            .map(move |slot| ProjectileView {
                 slot: slot as u32,
-                generation: self.articulated_projectile_generation[slot],
-                owner: self.articulated_projectile_owner[slot],
-                position: self.articulated_projectile_pos[slot],
-                velocity: self.articulated_projectile_vel[slot],
-                radius: self.articulated_projectile_radius[slot],
-                remaining_range: self.articulated_projectile_range[slot],
+                generation: self.projectile_generation[slot],
+                owner: self.projectile_owner[slot],
+                position: self.projectile_pos[slot],
+                velocity: self.projectile_vel[slot],
+                radius: self.projectile_radius[slot],
+                remaining_range: self.projectile_range[slot],
             })
     }
 
@@ -1252,7 +1254,7 @@ impl World {
             // every fight while the pose row carried what the body was actually
             // trying to do, so two published words that name the same thing
             // disagreed by construction. The column is gone and they agree.
-            intent: self.articulated_command[i].map_or(Intent::Hold, |command| command.intent),
+            intent: self.command_core[i].map_or(Intent::Hold, |command| command.intent),
             limb: self.limb[i],
             action: self.action_of(i),
             spec: self.action_of(i).spec(),
@@ -1286,7 +1288,7 @@ mod tests {
         world.record_contact_locomotion();
         world.resolve_contact();
         world.settle_anatomy();
-        world.reap_dead_articulated();
+        world.reap_dead_bodies();
     }
 
     /// [`World::swept_weapon`] and [`World::swept_regions`] publish the question
@@ -1343,18 +1345,18 @@ mod tests {
 
         let mut world = World::new(&Scenario::embodied_duel(), 1);
         let fighter = EntityId::new(0, 0);
-        assert!(world.articulated_pose(fighter).is_some(), "the fixture has no live fighter");
-        assert_eq!(world.articulated_pose(EntityId::new(0, 1)), None, "a stale generation resolved");
-        assert_eq!(world.articulated_pose(EntityId::new(9, 0)), None, "an unallocated slot resolved");
+        assert!(world.pose(fighter).is_some(), "the fixture has no live fighter");
+        assert_eq!(world.pose(EntityId::new(0, 1)), None, "a stale generation resolved");
+        assert_eq!(world.pose(EntityId::new(9, 0)), None, "an unallocated slot resolved");
 
         // Deadness is the query's own answer and not a consequence of when it
         // was asked: a body that has bled out is a corpse on the tick it
         // happens, several phases before the reap that clears `alive`.
         world.wounds[0].blood = Fx::ZERO;
         assert!(world.wounds[0].is_dead());
-        assert_eq!(world.articulated_pose(fighter), None, "an unreaped corpse published a pose");
+        assert_eq!(world.pose(fighter), None, "an unreaped corpse published a pose");
         world.step();
-        assert_eq!(world.articulated_pose(fighter), None, "a reaped slot published a pose");
+        assert_eq!(world.pose(fighter), None, "a reaped slot published a pose");
     }
 
     #[test]
@@ -1364,7 +1366,7 @@ mod tests {
         // on a zero component.
         world.pos[0] = Vec2::new(Fx::from_ratio(37, 4), Fx::from_ratio(13, 8));
         let body = Vec3::new(world.pos[0].x, world.pos[0].y, Fx::ZERO);
-        let pose = world.articulated_pose(EntityId::new(0, 0)).expect("a live fighter");
+        let pose = world.pose(EntityId::new(0, 0)).expect("a live fighter");
         assert_eq!((pose.id, pose.body, pose.body_yaw), (EntityId::new(0, 0), body, Angle::ZERO));
 
         for limb in 0..2 {
@@ -1402,8 +1404,8 @@ mod tests {
         // No command has ever been accepted. The answer is the neutral command
         // the arm driver substitutes -- not a zero, which would draw a reach
         // line to the map origin, and not the current hand either.
-        let neutral = world.neutral_articulated(0);
-        let pose = world.articulated_pose(fighter).expect("a live fighter");
+        let neutral = world.neutral_core(0);
+        let pose = world.pose(fighter).expect("a live fighter");
         assert_eq!(pose.intent, Intent::Hold);
         for limb in 0..2 {
             // The neutral reach is zero and comes back at the joint minimum,
@@ -1426,14 +1428,14 @@ mod tests {
         // applies -- rather than written down, because a fitted pair would have
         // to be re-fitted every time the anatomy moved and would by then be
         // saying nothing about the frame.
-        let command = articulated_command();
+        let command = command_core();
         assert!(matches!(
-            world.submit_embodied_v1(fighter, crate::EmbodiedCommandV1::new(command)),
-            crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }),
+            world.submit(fighter, crate::CommandV1::new(command)),
+            crate::SubmitOutcome::Stored { rejection: None, .. }),
             "the command was refused, so the pose below is the neutral one");
         for _ in 0..3 { world.step(); }
         let body = Vec3::new(world.pos[0].x, world.pos[0].y, Fx::ZERO);
-        let pose = world.articulated_pose(fighter).expect("a live fighter");
+        let pose = world.pose(fighter).expect("a live fighter");
         assert_eq!(pose.intent, command.intent);
         let anatomy = world.posed_anatomy(0);
         let elbow = crate::combat::limb::Elbow::of(&anatomy);
@@ -1454,7 +1456,7 @@ mod tests {
     /// The published target is the pose the arm is chasing, which it was not
     /// once a bearing stopped being absolute.
     ///
-    /// `articulated_targets` read `command.arms[limb]` raw while the arm driver
+    /// `commanded_targets` read `command.arms[limb]` raw while the arm driver
     /// reads it through `World::world_arm_target`. Those were the same value in
     /// the retired world frame, which is why the sibling test above passed
     /// throughout and why nothing caught this: the two frames agreed everywhere
@@ -1472,29 +1474,29 @@ mod tests {
         let spec = world.anatomy_spec(0).cloned().expect("embodied anatomy");
 
         // Turn the body first, so the frame conversion has something to do.
-        let mut turn = crate::EmbodiedCommandV1::new(world.neutral_articulated(0));
-        turn.articulated.body_yaw = Angle::from_raw(16_384);
-        world.submit_embodied_v1(fighter, turn);
+        let mut turn = crate::CommandV1::new(world.neutral_core(0));
+        turn.core.body_yaw = Angle::from_raw(16_384);
+        world.submit(fighter, turn);
         for _ in 0..200 { world.step(); }
         let yaw = world.body_yaw[0].angle;
         assert_ne!(yaw, Angle::ZERO, "the body never turned, so the frames still agree");
 
         // A relative bearing of zero is directly ahead of the torso at every
         // yaw, which is the whole of what the torso frame means.
-        let mut ahead = crate::EmbodiedCommandV1::new(world.neutral_articulated(0));
+        let mut ahead = crate::CommandV1::new(world.neutral_core(0));
         for limb in 0..2 {
-            ahead.articulated.arms[limb] = crate::ArmTarget {
+            ahead.core.arms[limb] = crate::ArmTarget {
                 bearing: Angle::ZERO,
                 height: crate::CombatHeight::MID,
                 reach: Fx::HALF,
                 effort: Fx::ONE,
             };
         }
-        world.submit_embodied_v1(fighter, ahead);
+        world.submit(fighter, ahead);
         world.step();
         let yaw = world.body_yaw[0].angle;
         let body = Vec3::new(world.pos[0].x, world.pos[0].y, world.ground_z[0]);
-        let pose = world.articulated_pose(fighter).expect("a live fighter");
+        let pose = world.pose(fighter).expect("a live fighter");
         for limb in 0..2 {
             let expected = actuator::hand_position(
                 &spec, yaw, limb, yaw, crate::CombatHeight::MID, Fx::HALF);
@@ -1512,7 +1514,7 @@ mod tests {
     /// A neutral embodied arm is asked for "ahead", and "ahead" is zero in the
     /// frame it will be read in.
     ///
-    /// `neutral_articulated` wrote `body_yaw` into the arm bearing, which was
+    /// `neutral_core` wrote `body_yaw` into the arm bearing, which was
     /// right in the retired world frame and asks for twice the yaw when the
     /// bearing is read from the torso. It was inert -- a neutral command carries zero effort and the
     /// actuator moves nothing without authority -- and it still reached the
@@ -1527,14 +1529,14 @@ mod tests {
     fn a_neutral_embodied_command_points_the_arm_ahead_and_not_twice_the_yaw() {
         let mut world = World::new(&Scenario::embodied_duel(), 1);
         let fighter = EntityId::new(0, 0);
-        let mut turn = crate::EmbodiedCommandV1::new(world.neutral_articulated(0));
-        turn.articulated.body_yaw = Angle::from_raw(16_384);
-        world.submit_embodied_v1(fighter, turn);
+        let mut turn = crate::CommandV1::new(world.neutral_core(0));
+        turn.core.body_yaw = Angle::from_raw(16_384);
+        world.submit(fighter, turn);
         for _ in 0..200 { world.step(); }
         let yaw = world.body_yaw[0].angle;
         assert_ne!(yaw, Angle::ZERO);
 
-        let neutral = world.neutral_articulated(0);
+        let neutral = world.neutral_core(0);
         assert_eq!(neutral.arms[0].bearing, Angle::ZERO,
                    "a neutral embodied arm is not asked for straight ahead");
         assert_eq!(neutral.body_yaw, yaw, "a torso is measured relative to itself");
@@ -1545,13 +1547,13 @@ mod tests {
         let mut world = World::new(&both_scenario(), 1);
         assert!(world.two_handed(1), "the brute is not holding the club in both hands");
         assert!(matches!(
-            world.submit_embodied_v1(EntityId::new(1, 0),
-                crate::EmbodiedCommandV1::new(reaching_command(Angle::HALF, Fx::ONE))),
-            crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }),
+            world.submit(EntityId::new(1, 0),
+                crate::CommandV1::new(reaching_command(Angle::HALF, Fx::ONE))),
+            crate::SubmitOutcome::Stored { rejection: None, .. }),
             "the brute's reaching command was refused, so nothing below is its pose");
         world.step();
 
-        let pose = world.articulated_pose(EntityId::new(1, 0)).expect("a live brute");
+        let pose = world.pose(EntityId::new(1, 0)).expect("a live brute");
         assert_eq!(pose.weapons[0], None, "one club was drawn from both hands");
         assert!(pose.weapons[1].is_some(), "the owning arm published no club");
         assert_eq!(pose.equipment_mask, 0b010, "the mask disagreed with the drawn geometry");
@@ -1568,14 +1570,14 @@ mod tests {
 
         // And a one-handed pair is not mirrored: the fighter in the same world
         // answers each arm's own command.
-        let command = articulated_command();
+        let command = command_core();
         assert!(matches!(
-            world.submit_embodied_v1(EntityId::new(0, 0),
-                crate::EmbodiedCommandV1::new(command)),
-            crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }),
+            world.submit(EntityId::new(0, 0),
+                crate::CommandV1::new(command)),
+            crate::SubmitOutcome::Stored { rejection: None, .. }),
             "the fighter's command was refused, so the pose below is the neutral one");
         world.step();
-        let fighter = world.articulated_pose(EntityId::new(0, 0)).expect("a live fighter");
+        let fighter = world.pose(EntityId::new(0, 0)).expect("a live fighter");
         let spec = world.anatomy_spec(0).cloned().expect("articulated anatomy");
         let body = Vec3::new(world.pos[0].x, world.pos[0].y, Fx::ZERO);
         // The torso-relative bearing and the elbow's annulus, the same pair the
@@ -1594,9 +1596,9 @@ mod tests {
     fn the_severed_and_equipment_masks_name_their_own_bits() {
         let mut world = World::new(&fragile_scenario(&[]), 1);
         let fighter = EntityId::new(0, 0);
-        assert_eq!(world.articulated_pose(fighter).unwrap().equipment_mask, 0b110,
+        assert_eq!(world.pose(fighter).unwrap().equipment_mask, 0b110,
                    "a right-hand sword and a left-hand shield are not bits 1 and 2");
-        assert_eq!(world.articulated_pose(fighter).unwrap().severed_mask, 0);
+        assert_eq!(world.pose(fighter).unwrap().severed_mask, 0);
 
         // The three rigid regions, marked without emptying them: severing a head
         // or a torso outright is death, and a corpse publishes no row to read
@@ -1604,17 +1606,17 @@ mod tests {
         for part in [BodyPart::Head, BodyPart::Torso, BodyPart::Legs] {
             let mut marked = world.clone();
             marked.wounds[0].parts[part as usize].severed = true;
-            assert_eq!(marked.articulated_pose(fighter).unwrap().severed_mask, 1 << part as u8);
+            assert_eq!(marked.pose(fighter).unwrap().severed_mask, 1 << part as u8);
         }
 
         // The arms are the case that moves both masks at once, because the grip
         // phase drops what a severed arm was holding.
         sever_arm(&mut world, 0, BodyPart::LeftArm);
-        let pose = world.articulated_pose(fighter).unwrap();
+        let pose = world.pose(fighter).unwrap();
         assert_eq!(pose.severed_mask, 1 << BodyPart::LeftArm as u8);
         assert_eq!(pose.equipment_mask, 0b010, "a severed shield arm kept its shield bit");
         sever_arm(&mut world, 0, BodyPart::RightArm);
-        let pose = world.articulated_pose(fighter).unwrap();
+        let pose = world.pose(fighter).unwrap();
         assert_eq!(pose.severed_mask,
                    (1 << BodyPart::LeftArm as u8) | (1 << BodyPart::RightArm as u8));
         assert_eq!(pose.equipment_mask, 0, "an armless body kept a weapon bit");
@@ -1625,16 +1627,16 @@ mod tests {
         // Idle and Braced. At construction every joint has arrived, so the only
         // thing separating the fighter's two arms is what they hold.
         let still = World::new(&Scenario::embodied_duel(), 1);
-        assert_eq!(still.articulated_pose(EntityId::new(0, 0)).unwrap().hints,
+        assert_eq!(still.pose(EntityId::new(0, 0)).unwrap().hints,
                    [AnimationHint::Braced, AnimationHint::Idle]);
-        assert_eq!(still.articulated_pose(EntityId::new(1, 0)).unwrap().hints,
+        assert_eq!(still.pose(EntityId::new(1, 0)).unwrap().hints,
                    [AnimationHint::Idle; 2], "the brute has no shield to brace behind");
 
         // Chasing outranks Braced: a shield arm in motion is not holding still.
         let mut chasing = World::new(&Scenario::embodied_duel(), 1);
-        chasing.submit_embodied_v1(EntityId::new(0, 0), embodied_command());
+        chasing.submit(EntityId::new(0, 0), embodied_command());
         chasing.step();
-        assert_eq!(chasing.articulated_pose(EntityId::new(0, 0)).unwrap().hints,
+        assert_eq!(chasing.pose(EntityId::new(0, 0)).unwrap().hints,
                    [AnimationHint::Chasing; 2]);
 
         // Contact without Recoiling, which is the pair's whole distinction: a
@@ -1646,20 +1648,20 @@ mod tests {
         assert!(resting.contact_resolutions().iter().any(|row|
             row.fact.key.a == EntityId::new(0, 0) && row.fact.key.a_slot == 1),
             "the resting fixture keyed nothing against the sword arm");
-        assert_eq!(resting.articulated_pose(EntityId::new(0, 0)).unwrap().hints,
+        assert_eq!(resting.pose(EntityId::new(0, 0)).unwrap().hints,
                    [AnimationHint::Braced, AnimationHint::Contact]);
 
         // Recoiling: the same two bodies actually closing, where the solve
         // hauls the hand and the commit writes it back.
         let mut clinch = clinch_world();
         step_into_contact(&mut clinch);
-        assert_eq!(clinch.articulated_pose(EntityId::new(0, 0)).unwrap().hints[1],
+        assert_eq!(clinch.pose(EntityId::new(0, 0)).unwrap().hints[1],
                    AnimationHint::Recoiling);
 
         // Severed outranks everything, on the arm that is gone and on no other.
         let mut cut = World::new(&fragile_scenario(&[]), 1);
         sever_arm(&mut cut, 0, BodyPart::RightArm);
-        assert_eq!(cut.articulated_pose(EntityId::new(0, 0)).unwrap().hints,
+        assert_eq!(cut.pose(EntityId::new(0, 0)).unwrap().hints,
                    [AnimationHint::Braced, AnimationHint::Severed]);
     }
 
@@ -1680,7 +1682,7 @@ mod tests {
 
     #[test]
     fn an_articulated_observation_is_blank_for_a_stale_identity_and_a_corpse() {
-        // The same four refusals `articulated_pose` answers `None` to, and they
+        // The same four refusals `pose` answers `None` to, and they
         // have to be the same four: an observation is a pose with an eye in
         // front of it, and a corpse that published nothing to draw must not
         // publish something to fight.
@@ -1694,13 +1696,13 @@ mod tests {
 
         let mut world = World::new(&Scenario::embodied_duel(), 1);
         let fighter = EntityId::new(0, 0);
-        assert!(world.observe_articulated(fighter).present(), "the fixture has no live fighter");
-        assert_eq!(world.observe_articulated(EntityId::new(0, 1)), ArticulatedObservation::BLANK);
-        assert_eq!(world.observe_articulated(EntityId::new(9, 0)), ArticulatedObservation::BLANK);
+        assert!(world.observe(fighter).present(), "the fixture has no live fighter");
+        assert_eq!(world.observe(EntityId::new(0, 1)), Observation::BLANK);
+        assert_eq!(world.observe(EntityId::new(9, 0)), Observation::BLANK);
 
         world.wounds[0].blood = Fx::ZERO;
         assert!(world.wounds[0].is_dead());
-        assert_eq!(world.observe_articulated(fighter), ArticulatedObservation::BLANK,
+        assert_eq!(world.observe(fighter), Observation::BLANK,
                    "an unreaped corpse observed itself");
     }
 
@@ -1715,15 +1717,15 @@ mod tests {
         world.stats[0].perception = 0;
         let fighter = EntityId::new(0, 0);
         let body = Vec3::new(world.pos[0].x, world.pos[0].y, Fx::ZERO);
-        let obs = world.observe_articulated(fighter);
+        let obs = world.observe(fighter);
 
         assert_eq!((obs.tick, obs.subject, obs.body_position), (world.tick, fighter, body));
         assert_eq!(obs.body_yaw, world.body_yaw[0].angle);
         assert_eq!(obs.body_velocity, Vec3::new(world.vel[0].x, world.vel[0].y, Fx::ZERO));
 
         let spec = world.anatomy_spec(0).cloned().expect("articulated anatomy");
-        let command = world.neutral_articulated(0);
-        let targets = world.articulated_targets(0, &spec, &command);
+        let command = world.neutral_core(0);
+        let targets = world.commanded_targets(0, &spec, &command);
         for limb in 0..2 {
             let arm = obs.arms[limb];
             assert_eq!(arm.hand, body + world.arms[0][limb].hand);
@@ -1772,9 +1774,9 @@ mod tests {
         let mut world = World::new(&Scenario::embodied_duel(), 1);
         world.pos[0] = Vec2::new(Fx::from_ratio(37, 4), Fx::from_ratio(13, 8));
         let fighter = EntityId::new(0, 0);
-        let obs = world.observe_articulated(fighter);
+        let obs = world.observe(fighter);
         let spec = world.anatomy_spec(0).expect("the fighter has anatomy");
-        let pose = world.articulated_pose(fighter).expect("the fighter has a pose");
+        let pose = world.pose(fighter).expect("the fighter has a pose");
 
         assert_eq!(
             (obs.standing_height, obs.arm_length, obs.hand_radius),
@@ -1793,16 +1795,16 @@ mod tests {
     fn observing_weapon_geometry_does_not_change_the_world_hash() {
         let world = World::new(&Scenario::embodied_duel(), 17);
         let before = world.state_hash();
-        let first = world.observe_articulated(EntityId::new(0, 0));
-        let second = world.observe_articulated(EntityId::new(0, 0));
+        let first = world.observe(EntityId::new(0, 0));
+        let second = world.observe(EntityId::new(0, 0));
         assert_eq!(first.weapons, second.weapons);
         assert_eq!(world.state_hash(), before);
     }
 
     #[test]
     fn every_capability_bit_names_a_presence_fact() {
-        use ArticulatedObservation as A;
-        let capable = |world: &World, i: usize| world.observe_articulated(world.id_of(i)).capabilities;
+        use Observation as A;
+        let capable = |world: &World, i: usize| world.observe(world.id_of(i)).capabilities;
 
         // A shield in the left hand and a sword in the right. Both grips are
         // occupied, only the sword is a weapon, and nothing binds two hands.
@@ -1830,11 +1832,11 @@ mod tests {
         // Released grips, with both arms intact: the four equipment bits are
         // about what is held and the movement pair is not.
         let mut empty = world.clone();
-        let mut release = empty.neutral_articulated(0);
+        let mut release = empty.neutral_core(0);
         release.grips = [GripRequest::Release; 2];
         assert!(matches!(
-            empty.submit_embodied_v1(EntityId::new(0, 0), crate::EmbodiedCommandV1::new(release)),
-            crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }),
+            empty.submit(EntityId::new(0, 0), crate::CommandV1::new(release)),
+            crate::SubmitOutcome::Stored { rejection: None, .. }),
             "the release was refused, so the grips below are the ones it started with");
         empty.step();
         assert_eq!(capable(&empty, 0), A::MOVEMENT | A::TURNING);
@@ -1850,7 +1852,7 @@ mod tests {
         // follow that ownership rule: both hands are on the haft, so both arms
         // report the item. Asserted here because it is the only place the grip
         // view and the collider view of the same club disagree on purpose.
-        let held = both.observe_articulated(EntityId::new(1, 0));
+        let held = both.observe(EntityId::new(1, 0));
         assert_eq!([held.arms[0].equipment, held.arms[1].equipment], [Some(4), Some(4)]);
 
         // And a left-hand weapon, which nothing above reaches: the fighter's
@@ -1867,7 +1869,7 @@ mod tests {
         assert_eq!(bits, core::array::from_fn(|bit| 1u32 << bit));
         for world in [&world, &both, &empty, &armless, &legless] {
             for i in 0..world.alive.len() {
-                assert_eq!(world.observe_articulated(world.id_of(i)).capabilities & !0xff, 0);
+                assert_eq!(world.observe(world.id_of(i)).capabilities & !0xff, 0);
             }
         }
     }
@@ -1879,8 +1881,8 @@ mod tests {
         // Far-sighted, so all seven enemies are in view and the cap is the only
         // thing that can drop one.
         world.stats[0].perception = 15;
-        let obs = world.observe_articulated(hero);
-        assert_eq!(obs.opponent_count as usize, MAX_ARTICULATED_OPPONENTS);
+        let obs = world.observe(hero);
+        assert_eq!(obs.opponent_count as usize, MAX_OPPONENTS);
         assert_eq!(
             obs.opponents().iter().map(|foe| foe.id).collect::<Vec<_>>(),
             (1..=6).map(|i| EntityId::new(i, 0)).collect::<Vec<_>>(),
@@ -1902,9 +1904,9 @@ mod tests {
         // on its own terms.
         world.stats[0].perception = 3;
         assert_eq!(world.stats[0].tracked_contacts(), 3, "a dim eye stopped being dim");
-        let dim = world.observe_articulated(hero);
+        let dim = world.observe(hero);
         assert_eq!(dim.opponent_count, 5, "five enemies inside a 7.8 unit sight range");
-        for slot in dim.opponent_count as usize..MAX_ARTICULATED_OPPONENTS {
+        for slot in dim.opponent_count as usize..MAX_OPPONENTS {
             assert_eq!(dim.opponents[slot], ObservedOpponent::BLANK,
                        "an unused row carried something");
         }
@@ -1932,7 +1934,7 @@ mod tests {
     /// to pay it rather than discover it.** Two claims `by_distance_alone`
     /// checked end to end have no successor:
     ///
-    /// - **Ties broken on the entity index, through `observe_articulated`.**
+    /// - **Ties broken on the entity index, through `observe`.**
     ///   `nearest_keeps_the_closest_in_order` asserts the rule of `Nearest` in
     ///   isolation, and no fixture in this file stands two enemies at equal
     ///   distance -- `crowded_scenario` spaces its seven strictly apart. So a
@@ -1947,8 +1949,8 @@ mod tests {
     /// there is no ally block in the articulated ABI at all, so
     /// `occlusion_applies_to_allies_too` has nothing to be the successor to;
     /// and `Stats::tracked_contacts` no longer narrows this list, because
-    /// `MAX_ARTICULATED_OPPONENTS` is a fixed wasm row stride before it is a
-    /// percept. `World::observe_articulated`'s own doc owns the first and
+    /// `MAX_OPPONENTS` is a fixed wasm row stride before it is a
+    /// percept. `World::observe`'s own doc owns the first and
     /// `the_articulated_opponent_list_is_the_nearest_six_enemies_in_sight`
     /// carries the second.
     #[test]
@@ -1963,7 +1965,7 @@ mod tests {
         scenario.units[0].spawn = Vec2::new(Fx::from_ratio(255, 100), Fx::from_ratio(15, 10));
         scenario.units[1].spawn = Vec2::new(Fx::from_ratio(475, 100), Fx::from_ratio(15, 10));
         let blocked = World::new(&scenario, 1);
-        assert_eq!(blocked.observe_articulated(EntityId::new(0, 0)).opponent_count, 0,
+        assert_eq!(blocked.observe(EntityId::new(0, 0)).opponent_count, 0,
                    "an enemy behind a pillar entered the articulated list");
 
         // The control, on the same span of floor with the pillar removed: a
@@ -1971,7 +1973,7 @@ mod tests {
         scenario.units[0].spawn = Vec2::new(Fx::from_ratio(255, 100), Fx::from_ratio(25, 10));
         scenario.units[1].spawn = Vec2::new(Fx::from_ratio(475, 100), Fx::from_ratio(25, 10));
         let open = World::new(&scenario, 1);
-        assert_eq!(open.observe_articulated(EntityId::new(0, 0)).opponent_count, 1);
+        assert_eq!(open.observe(EntityId::new(0, 0)).opponent_count, 1);
     }
 
     #[test]
@@ -1995,8 +1997,8 @@ mod tests {
         assert!(dim.stats[1].perception_noise() > Fx::ONE, "the dim eye is not blurred");
 
         let brute = EntityId::new(1, 0);
-        let clean = sharp.observe_articulated(brute);
-        let blurred = dim.observe_articulated(brute);
+        let clean = sharp.observe(brute);
+        let blurred = dim.observe(brute);
         let (clean, blurred) = (clean.opponents[0], blurred.opponents[0]);
 
         // The sharp eye is ground truth, which is what makes every difference
@@ -2043,8 +2045,8 @@ mod tests {
             sharp.seed = seed;
             let mut dim = sharp.clone();
             dim.stats[1].perception = 0;
-            let clean = sharp.observe_articulated(brute).opponents[0];
-            let blurred = dim.observe_articulated(brute).opponents[0];
+            let clean = sharp.observe(brute).opponents[0];
+            let blurred = dim.observe(brute).opponents[0];
             assert_eq!(clean.contact_timing, Fx::ONE, "the saturated fixture is not saturated");
             for (a, b) in [
                 (clean.body_position.x, blurred.body_position.x),
@@ -2093,8 +2095,8 @@ mod tests {
 
         // And the subject's own half of the observation, which is exact whatever
         // the eye is: proprioception is free.
-        let clean = sharp.observe_articulated(brute);
-        let blurred = dim.observe_articulated(brute);
+        let clean = sharp.observe(brute);
+        let blurred = dim.observe(brute);
         assert_eq!(clean.capabilities, blurred.capabilities);
         assert_eq!(clean.arms, blurred.arms);
         assert_eq!(clean.body_position, blurred.body_position);
@@ -2109,8 +2111,8 @@ mod tests {
         let mut dim = sharp.clone();
         dim.stats[1].perception = 0;
         let brute = EntityId::new(1, 0);
-        let clean = sharp.observe_articulated(brute).opponents[0];
-        let blurred = dim.observe_articulated(brute).opponents[0];
+        let clean = sharp.observe(brute).opponents[0];
+        let blurred = dim.observe(brute).opponents[0];
 
         let delta = blurred.body_position - clean.body_position;
         assert_ne!(delta, Vec3::ZERO, "the dim eye measured the body exactly");
@@ -2149,8 +2151,8 @@ mod tests {
         disarmed.shield_pose[1] = None;
 
         let hero = EntityId::new(0, 0);
-        let armed = world.observe_articulated(hero);
-        let bare = disarmed.observe_articulated(hero);
+        let armed = world.observe(hero);
+        let bare = disarmed.observe(hero);
         assert_eq!(armed.opponent_count, bare.opponent_count);
         assert!(armed.opponent_count >= 2, "one row proves nothing about the row after it");
 
@@ -2179,7 +2181,7 @@ mod tests {
         world.stats[0].perception = 0;
         let subject = 0usize;
         let noise = world.stats[subject].perception_noise();
-        let obs = world.observe_articulated(EntityId::new(0, 0));
+        let obs = world.observe(EntityId::new(0, 0));
         assert!(obs.opponent_count >= 2, "one row cannot show where the next row starts");
 
         let mut rng = Rng::from_stream(
@@ -2228,7 +2230,7 @@ mod tests {
         // stat-driven charge would be testing the actuator.
         let mut world = eyed_world(0, 15);
         let hero = EntityId::new(0, 0);
-        let timing = |world: &World| world.observe_articulated(hero).opponents[0].contact_timing;
+        let timing = |world: &World| world.observe(hero).opponents[0].contact_timing;
 
         // Standing still: nothing is closing, so exactly one.
         assert_eq!(timing(&world), Fx::ONE);
@@ -2261,8 +2263,8 @@ mod tests {
 
     /// A held command that turns an embodied body across its whole yaw range,
     /// so its hips have to chase and its twist saturates.
-    fn turning_embodied_command(yaw: Angle) -> crate::EmbodiedCommandV1 {
-        crate::EmbodiedCommandV1::new(ArticulatedCommandV1 {
+    fn turning_embodied_command(yaw: Angle) -> crate::CommandV1 {
+        crate::CommandV1::new(CommandCoreV1 {
             move_dir: Vec2::ZERO,
             body_yaw: yaw,
             intent: Intent::Hold,
@@ -2303,7 +2305,7 @@ mod tests {
         let hero = world.alive_ids(Faction::Heroes)[0];
         let brute = world.alive_ids(Faction::Monsters)[0];
         let watched = |world: &World| {
-            let obs = world.observe_articulated(brute);
+            let obs = world.observe(brute);
             let slot = obs.opponents().iter().position(|foe| foe.id == hero)
                 .expect("the brute cannot see the hero it is standing in front of");
             (slot, obs.opponents[slot].stance)
@@ -2315,7 +2317,7 @@ mod tests {
 
         // Half a turn is four and a half budgets away, so the request is refused
         // on the first tick and arms a step.
-        world.submit_embodied_v1(hero, turning_embodied_command(Angle::HALF));
+        world.submit(hero, turning_embodied_command(Angle::HALF));
         world.step();
         let i = world.resolve(hero).expect("a live hero");
         assert!(world.stance[i].step_left > 0, "the fixture armed no step");
@@ -2326,7 +2328,7 @@ mod tests {
         // Their twist, as a perception, is the same signed fraction the body
         // itself reads -- exact, because a twist is a silhouette.
         assert_eq!(stepping.twist_fraction,
-                   world.observe_articulated(hero).stance.twist_fraction,
+                   world.observe(hero).stance.twist_fraction,
                    "the perceived twist is not the twist");
 
         // **The vector half of this test is gone.** It went on to assert that the
@@ -2341,8 +2343,8 @@ mod tests {
     /// and everybody else's.
     ///
     /// **The correction this session made, asserted where it can be seen.**
-    /// `observe_articulated` built the body origin as `(x, y, 0)` while
-    /// `articulated_pose` used `ground_z`, so on a sculpted plan the observation
+    /// `observe` built the body origin as `(x, y, 0)` while
+    /// `pose` used `ground_z`, so on a sculpted plan the observation
     /// and the pose disagreed about where a body was -- and *every* spatial
     /// column of the articulated block hangs off that origin, so a fighter on a
     /// hill read its own hands, its shield, and every opponent's capsule a
@@ -2368,13 +2370,13 @@ mod tests {
             for (at, id) in ids.iter().enumerate() {
                 let toward = if at == 0 { Fx::ONE } else { -Fx::ONE };
                 let mut command = turning_embodied_command(Angle::ZERO);
-                command.articulated.move_dir = Vec2::new(toward, Fx::ZERO);
-                world.submit_embodied_v1(*id, command);
+                command.core.move_dir = Vec2::new(toward, Fx::ZERO);
+                world.submit(*id, command);
             }
             world.step();
             for id in ids {
-                let pose = world.articulated_pose(id).expect("a live body has a pose");
-                let obs = world.observe_articulated(id);
+                let pose = world.pose(id).expect("a live body has a pose");
+                let obs = world.observe(id);
                 assert_eq!(obs.body_position, pose.body,
                            "the observed origin is not the posed one");
                 highest = highest.max(pose.body.z);
@@ -2387,7 +2389,7 @@ mod tests {
                 let noise = world.stats[world.resolve(id).expect("a live body")]
                     .perception_noise();
                 for foe in obs.opponents() {
-                    let theirs = world.articulated_pose(foe.id).expect("a live opponent");
+                    let theirs = world.pose(foe.id).expect("a live opponent");
                     assert!((foe.body_position.z - theirs.body.z).abs() <= noise,
                             "a perceived body is {:?} off the floor it stands on, \
                              against {noise:?} of noise",
@@ -2443,9 +2445,9 @@ mod tests {
         // of those is a claim about a fixture rather than about a fight.
         let mut moved = 0;
         for _ in 0..40 {
-            world.submit_embodied_v1(hero, turning_embodied_command(Angle::HALF));
+            world.submit(hero, turning_embodied_command(Angle::HALF));
             world.step();
-            let stance = world.observe_articulated(hero).stance;
+            let stance = world.observe(hero).stance;
             // The torso measured from the hips, read out of the published
             // angle, against the same quantity read out of the published
             // fraction. One raw unit of angle: the fraction is a truncating
@@ -2462,7 +2464,7 @@ mod tests {
         for turn in [1, -1] {
             let wound = Angle::from_raw((turn * budget) as u16);
             world.stance[i].hip_yaw = world.body_yaw[i].angle - wound;
-            let stance = world.observe_articulated(hero).stance;
+            let stance = world.observe(hero).stance;
             assert_eq!(stance.twist_fraction, Fx::from_int(turn),
                        "a body wound to its budget does not read as its budget");
             assert_eq!(Angle::ZERO.delta(stance.hip_yaw), turn * budget,
@@ -2470,7 +2472,7 @@ mod tests {
             // Past the budget, which no driver produces and a hand-built world
             // can: the column saturates rather than leaving the interval.
             world.stance[i].hip_yaw = world.body_yaw[i].angle - wound - wound;
-            assert_eq!(world.observe_articulated(hero).stance.twist_fraction,
+            assert_eq!(world.observe(hero).stance.twist_fraction,
                        Fx::from_int(turn), "twice the budget left the interval");
         }
     }
@@ -2488,16 +2490,16 @@ mod tests {
     fn a_settled_pelvis_and_a_fresh_step_are_published_as_whole_ones() {
         let mut world = World::new(&embodied_within_sight(), 7);
         let hero = world.alive_ids(Faction::Heroes)[0];
-        let fresh = world.observe_articulated(hero).stance;
+        let fresh = world.observe(hero).stance;
         assert_eq!(fresh.pelvis_fraction, Fx::ONE,
                    "a body standing square is not published at full height");
         assert_eq!(fresh.step_fraction, Fx::ZERO, "a settled body has a step running");
 
         // One tick of a request four and a half budgets away: refused, so a step
         // arms at its full duration.
-        world.submit_embodied_v1(hero, turning_embodied_command(Angle::HALF));
+        world.submit(hero, turning_embodied_command(Angle::HALF));
         world.step();
-        let armed = world.observe_articulated(hero).stance;
+        let armed = world.observe(hero).stance;
         assert_eq!(armed.step_fraction, Fx::ONE, "a freshly armed step is not a whole step");
         assert!(armed.pelvis_fraction < Fx::ONE, "a wound torso cost the pelvis nothing");
 
@@ -2508,9 +2510,9 @@ mod tests {
         let ticks = u32::from(actuator::STANCE_STEP_TICKS);
         for tick in 0..ticks {
             // A yaw the budget can already hold, so nothing re-arms.
-            world.submit_embodied_v1(hero, turning_embodied_command(world.body_yaw[i].angle));
+            world.submit(hero, turning_embodied_command(world.body_yaw[i].angle));
             world.step();
-            let running = world.observe_articulated(hero).stance;
+            let running = world.observe(hero).stance;
             assert_eq!(running.step_fraction.is_zero(), tick + 1 >= ticks,
                        "the step is {:?} of the way through on tick {tick} of {ticks}",
                        running.step_fraction);
@@ -2538,10 +2540,10 @@ mod tests {
         let upper = Fx::from_raw(crate::combat::limb::UPPER_ARM_FRACTION_RAW);
         let mut worst = 0i32;
         for tick in 0..60 {
-            for id in ids { world.submit_embodied_v1(id, turning_embodied_command(Angle::HALF)); }
+            for id in ids { world.submit(id, turning_embodied_command(Angle::HALF)); }
             world.step();
             for id in ids {
-                let stance = world.observe_articulated(id).stance;
+                let stance = world.observe(id).stance;
                 assert!(stance.present, "a body lost its legs at tick {tick}");
                 for limb in 0..2 {
                     let span = stance.elbow[limb].length();

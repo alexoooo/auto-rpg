@@ -38,8 +38,8 @@ export type AdvanceMessage = { kind: "advance"; version: ProtocolVersion; reques
  *
  * **`goto` and `withdraw` were members here and they are gone, because the
  * channel under them is.** They dispatched to `set_goto` and `clear_order`, and
- * a standing order is a column of the legacy `Observation` that an
- * `ArticulatedObservation` does not have -- so on the embodied floor a click
+ * a standing order is a column of the legacy observation that an
+ * `Observation` does not have -- so on the embodied floor a click
  * moved the state hash, painted a destination pip in the frame header and
  * changed nothing about where anybody walked. A command a worker accepts and
  * cannot act on is the exact refusal this repository has paid for repeatedly;

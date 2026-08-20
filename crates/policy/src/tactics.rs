@@ -1,7 +1,7 @@
 //! The strike planner, driving a body whose arms are read from its own torso.
 //!
 //! **A shared planner and a forked assembly**, which looks like it contradicts
-//! the decision `embodied_script.rs` records in its own header -- that the
+//! the decision `script.rs` records in its own header -- that the
 //! embodied script is a *sibling* of the articulated one and deliberately not a
 //! mode of it -- and does not.
 //!
@@ -34,7 +34,7 @@
 //! The swing plane is left neutral on both arms, deliberately and not by
 //! omission: the neutral plane puts the elbow below the shoulder-to-hand line
 //! and the forearm under the blade rather than leading it into the target, which
-//! is the reading `embodied_script.rs` already argued for the weapon arm. The
+//! is the reading `script.rs` already argued for the weapon arm. The
 //! guard arm's plane is a *decision* rather than a default and belongs to the
 //! session that makes it.
 //!
@@ -52,15 +52,15 @@
 //! enters, and the move was a move rather than a rewrite -- which is what the
 //! planner's own tests, carried across unedited, are here to say.
 
-use crate::{neutral_articulated_command, ArmRoles, EmbodiedPolicy, Footwork, GuardRead, EIGHTH_TURN};
+use crate::{neutral_world_command, ArmRoles, Policy, Footwork, GuardRead, EIGHTH_TURN};
 use fx::{swept_segment_segment, Angle, Fx, Vec2, Vec3};
 use sim::{
-    ArmTarget, ArticulatedCommandV1, ArticulatedObservation, BodyPart, CombatHeight,
-    EmbodiedCommandV1, EntityId, Intent, LimbSlot, ObservedOpponent, RegionVolume, SegmentPose,
+    ArmTarget, CommandCoreV1, Observation, BodyPart, CombatHeight,
+    CommandV1, EntityId, Intent, LimbSlot, ObservedOpponent, RegionVolume, SegmentPose,
 };
 
 /// The registry code. Append-only after `scripted-level`.
-pub const TACTICAL_EMBODIED_POLICY_CODE: u32 = 3;
+pub const TACTICAL_POLICY_CODE: u32 = 3;
 
 /// Rotates a world vector into the frame of a body holding `yaw`.
 ///
@@ -69,8 +69,8 @@ pub const TACTICAL_EMBODIED_POLICY_CODE: u32 = 3;
 /// one sign. A command that survives a round trip through both is the property
 /// `a_world_vector_survives_the_round_trip` asserts.
 ///
-/// Public because that test lives in `crates/policy/tests/embodied_tactics.rs`
-/// and the round trip is not observable from [`TacticalEmbodiedPolicy::decide`]:
+/// Public because that test lives in `crates/policy/tests/tactics.rs`
+/// and the round trip is not observable from [`TacticalPolicy::decide`]:
 /// by the time a command leaves `decide` the world quantity it was rotated from
 /// is gone, and a test that re-derived it would be testing its own arithmetic.
 pub fn into_torso(v: Vec2, yaw: Angle) -> Vec2 {
@@ -85,10 +85,10 @@ pub fn into_torso(v: Vec2, yaw: Angle) -> Vec2 {
 /// This is the sign the adapter exists to get right, and the tempting answer is
 /// the wrong one. `World::world_arm_target` adds `self.body_yaw[i].angle` -- the
 /// yaw the body *is holding at submission* -- and `World::world_move_dir` mixes
-/// with the same field. `ArticulatedObservation::body_yaw` is built from that
+/// with the same field. `Observation::body_yaw` is built from that
 /// field, so subtracting it is the exact inverse of what the world will re-add,
 /// and the round trip is an identity. Subtracting the *commanded* yaw is not:
-/// `ArticulatedCommandV1::body_yaw` is a request the actuator chases at a
+/// `CommandCoreV1::body_yaw` is a request the actuator chases at a
 /// bounded rate, so on any tick that asks for a turn the body does not arrive
 /// there, and every arm bearing lands short by the whole turn angle -- including
 /// the guard arm the planner never touched.
@@ -97,24 +97,24 @@ pub fn into_torso(v: Vec2, yaw: Angle) -> Vec2 {
 /// that is absolute under both frames: it is what the actuator chases, not
 /// something read relative to where the chase has got to.
 pub fn into_torso_frame(
-    obs: &ArticulatedObservation,
-    world: ArticulatedCommandV1,
-) -> EmbodiedCommandV1 {
+    obs: &Observation,
+    world: CommandCoreV1,
+) -> CommandV1 {
     let facing = obs.body_yaw;
     let mut out = world;
     out.move_dir = into_torso(world.move_dir, facing);
     for arm in 0..2 {
         out.arms[arm].bearing = world.arms[arm].bearing - facing;
     }
-    EmbodiedCommandV1::new(out)
+    CommandV1::new(out)
 }
 
 /// The registry code for the fixed-guard control. Append-only after `tactical`.
-pub const FIXED_GUARD_EMBODIED_POLICY_CODE: u32 = 4;
+pub const FIXED_GUARD_POLICY_CODE: u32 = 4;
 
 /// Whether the guard arm reads the incoming blade.
 ///
-/// **A parameter and not a global**, on `EmbodiedScriptConfig`'s argument
+/// **A parameter and not a global**, on `ScriptConfig`'s argument
 /// exactly: the measurement runs this policy against itself with the term
 /// disabled, and two builds of one library that differ by a `static` cannot be
 /// run against each other in one process at all. It is a struct with one field
@@ -165,7 +165,7 @@ impl Default for TacticalConfig {
 /// would subtract the yaw twice and point the plate a whole facing off the line
 /// it was aimed at.
 #[derive(Clone, Copy, Debug)]
-pub struct TacticalEmbodiedPolicy {
+pub struct TacticalPolicy {
     planner: StrikePlanner,
     guard: GuardRead,
 }
@@ -177,15 +177,15 @@ pub struct TacticalEmbodiedPolicy {
 /// `Default` here would have silently handed the embodied policy that row, in
 /// the twenty-odd tests that construct it that way and nowhere a reader would
 /// look. It is `new(TacticalConfig::default())` and nothing else.
-impl Default for TacticalEmbodiedPolicy {
-    fn default() -> TacticalEmbodiedPolicy {
-        TacticalEmbodiedPolicy::new(TacticalConfig::default())
+impl Default for TacticalPolicy {
+    fn default() -> TacticalPolicy {
+        TacticalPolicy::new(TacticalConfig::default())
     }
 }
 
-impl TacticalEmbodiedPolicy {
-    pub fn new(config: TacticalConfig) -> TacticalEmbodiedPolicy {
-        TacticalEmbodiedPolicy::with_footwork(config, Footwork::EMBODIED)
+impl TacticalPolicy {
+    pub fn new(config: TacticalConfig) -> TacticalPolicy {
+        TacticalPolicy::with_footwork(config, Footwork::EMBODIED)
     }
 
     /// The same policy with its planner's feet told a row of somebody's
@@ -200,12 +200,12 @@ impl TacticalEmbodiedPolicy {
     /// without doing the same. `lab embodied --footwork` reaches this.
     ///
     /// It is not a default worth taking: [`Footwork::EMBODIED`] is the shipped
-    /// row and [`TacticalEmbodiedPolicy::new`] is what the registry builds.
+    /// row and [`TacticalPolicy::new`] is what the registry builds.
     pub fn with_footwork(
         config: TacticalConfig,
         footwork: Footwork,
-    ) -> TacticalEmbodiedPolicy {
-        TacticalEmbodiedPolicy {
+    ) -> TacticalPolicy {
+        TacticalPolicy {
             planner: StrikePlanner::footwork(footwork),
             guard: GuardRead::new(config.read_guard),
         }
@@ -222,11 +222,11 @@ impl TacticalEmbodiedPolicy {
     }
 }
 
-impl EmbodiedPolicy for TacticalEmbodiedPolicy {
-    fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
+impl Policy for TacticalPolicy {
+    fn decide(&mut self, obs: &Observation) -> CommandV1 {
         let mut command = into_torso_frame(obs, self.planner.decide(obs));
         if let Some(guard) = self.guard.decide(obs, &self.planner) {
-            command.articulated.arms[guard.arm] = guard.target;
+            command.core.arms[guard.arm] = guard.target;
         }
         command
     }
@@ -255,7 +255,7 @@ impl EmbodiedPolicy for TacticalEmbodiedPolicy {
 // and the intercept model `predicted_plate_centre` existed to answer the first.
 // Every caller of all four was an articulated policy *deciding for itself* what
 // to do about a threat. The embodied seam is handed its intent from outside --
-// by `learn_core::LearnedTacticalPolicyV2` or by a corpus naming one -- so
+// by `learn_core::LearnedTacticalCorePolicyV2` or by a corpus naming one -- so
 // `decide_with_intent` receives `Guard`, `EvadeLeft` or `EvadeRight` rather than
 // choosing between them, and `intent_command` still answers all three. What died
 // is the chooser, not the vocabulary: `TACTICAL_INTENT_COUNT` is unchanged at
@@ -449,7 +449,7 @@ impl StrikePlanner {
     /// and tick is a no-op, so inference can inspect and then call
     /// [`StrikePlanner::decide_with_intent`] without manufacturing a zero-speed
     /// second sample.
-    pub fn observe(&mut self, obs: &ArticulatedObservation) -> TacticalContextV1 {
+    pub fn observe(&mut self, obs: &Observation) -> TacticalContextV1 {
         if self.observed_tick == Some((obs.subject, obs.tick)) {
             return self.context();
         }
@@ -493,25 +493,25 @@ impl StrikePlanner {
         *self = Self { scoring: self.scoring, footwork: self.footwork, ..Self::default() };
     }
 
-    pub fn decide(&mut self, obs: &ArticulatedObservation) -> ArticulatedCommandV1 {
+    pub fn decide(&mut self, obs: &Observation) -> CommandCoreV1 {
         self.decide_with_intent(obs, TacticalIntentV1::StrikeBest)
     }
 
     pub fn decide_with_intent(
         &mut self,
-        obs: &ArticulatedObservation,
+        obs: &Observation,
         requested: TacticalIntentV1,
-    ) -> ArticulatedCommandV1 {
+    ) -> CommandCoreV1 {
         self.observe(obs);
         if !obs.present() {
             self.reset();
-            return neutral_articulated_command(obs);
+            return neutral_world_command(obs);
         }
         if obs.opponents().is_empty() {
             self.phase = TacticalPhase::Seek;
             self.plan = None;
             self.intent = Some(TacticalIntentV1::Close);
-            let mut command = neutral_articulated_command(obs);
+            let mut command = neutral_world_command(obs);
             command.move_dir = Vec2::new(obs.body_yaw.cos(), obs.body_yaw.sin()) * APPROACH_SPEED;
             command.body_yaw = obs.body_yaw;
             return command;
@@ -545,7 +545,7 @@ impl StrikePlanner {
             }
         }
 
-        let Some(plan) = self.plan else { return neutral_articulated_command(obs) };
+        let Some(plan) = self.plan else { return neutral_world_command(obs) };
         let elapsed = obs.tick.saturating_sub(self.phase_started);
         match self.phase {
             TacticalPhase::Chamber if elapsed >= CHAMBER_TICKS => {
@@ -561,7 +561,7 @@ impl StrikePlanner {
                 self.phase_started = obs.tick;
                 self.plan = None;
                 self.intent = None;
-                return neutral_articulated_command(obs);
+                return neutral_world_command(obs);
             }
             _ => {}
         }
@@ -573,13 +573,13 @@ impl StrikePlanner {
 /// Whether the torso has spent its twist budget and needs a foot down.
 ///
 /// **Gated on `ObservedStance::present`, which is the whole of the degradation
-/// onto a model without legs** -- `embodied_script.rs` spends the same line for
+/// onto a model without legs** -- `script.rs` spends the same line for
 /// the same reason, and names the trap: a `twist_fraction` of zero is the one
 /// value that means nothing is wrong, so an ungated read is indistinguishable
 /// from a squared, standing body and would never fire. On an articulated world
 /// the column is absent and this is always false, which is why
 /// `Footwork::ARTICULATED` carries an unwind threshold it can never reach.
-fn unwinding(obs: &ArticulatedObservation, footwork: Footwork) -> bool {
+fn unwinding(obs: &Observation, footwork: Footwork) -> bool {
     obs.stance.present && obs.stance.twist_fraction.abs() >= footwork.unwind_twist
 }
 
@@ -604,7 +604,7 @@ fn weapon_is_withdrawing(
 }
 
 fn assess_threat(
-    obs: &ArticulatedObservation,
+    obs: &Observation,
     foe: &ObservedOpponent,
     previous: PreviousOpponent,
     elapsed: Fx,
@@ -667,7 +667,7 @@ fn assess_threat(
 }
 
 fn matching_opponent<'a>(
-    obs: &'a ArticulatedObservation,
+    obs: &'a Observation,
     plan: Option<StrikePlan>,
 ) -> Option<&'a ObservedOpponent> {
     let id = plan?.opponent;
@@ -685,7 +685,7 @@ fn centre(region: RegionVolume) -> Vec3 {
 }
 
 fn height_for(
-    obs: &ArticulatedObservation,
+    obs: &Observation,
     foe: &ObservedOpponent,
     region: RegionVolume,
 ) -> Option<CombatHeight> {
@@ -700,7 +700,7 @@ fn height_for(
 }
 
 fn predicted_segment(
-    obs: &ArticulatedObservation,
+    obs: &Observation,
     _hand: usize,
     current: SegmentPose,
     bearing: Angle,
@@ -729,7 +729,7 @@ fn predicted_segment(
 }
 
 fn candidate_crosses(
-    obs: &ArticulatedObservation,
+    obs: &Observation,
     hand: usize,
     weapon: SegmentPose,
     region: RegionVolume,
@@ -745,7 +745,7 @@ fn candidate_crosses(
 }
 
 fn predicted_strike(
-    obs: &ArticulatedObservation,
+    obs: &Observation,
     hand: usize,
     weapon: SegmentPose,
     chamber: Angle,
@@ -860,7 +860,7 @@ fn shield_capsule(shield: sim::ObservedShield, margin: Fx) -> SegmentPose {
 /// that will actually answer it during the contact phase, rather than by an angle
 /// heuristic that would drift from the solver.
 fn candidate_covered(
-    obs: &ArticulatedObservation,
+    obs: &Observation,
     foe: &ObservedOpponent,
     hand: usize,
     weapon: SegmentPose,
@@ -878,7 +878,7 @@ fn candidate_covered(
 }
 
 fn choose_plan(
-    obs: &ArticulatedObservation,
+    obs: &Observation,
     foe: &ObservedOpponent,
     intent: TacticalIntentV1,
     scoring: PlanScoring,
@@ -922,7 +922,7 @@ fn choose_plan(
 }
 
 fn in_measure(
-    obs: &ArticulatedObservation,
+    obs: &Observation,
     foe: &ObservedOpponent,
     hand: LimbSlot,
     footwork: Footwork,
@@ -935,12 +935,12 @@ fn in_measure(
 }
 
 fn measure_command(
-    obs: &ArticulatedObservation,
+    obs: &Observation,
     foe: &ObservedOpponent,
     toward: Angle,
     hand: LimbSlot,
     footwork: Footwork,
-) -> ArticulatedCommandV1 {
+) -> CommandCoreV1 {
     let Some(weapon) = obs.weapons[hand as usize] else {
         return feet_command(obs, foe, toward, APPROACH_SPEED);
     };
@@ -954,12 +954,12 @@ fn measure_command(
 }
 
 fn feet_command(
-    obs: &ArticulatedObservation,
+    obs: &Observation,
     foe: &ObservedOpponent,
     toward: Angle,
     speed: Fx,
-) -> ArticulatedCommandV1 {
-    let mut command = neutral_articulated_command(obs);
+) -> CommandCoreV1 {
+    let mut command = neutral_world_command(obs);
     command.move_dir = Vec2::new(toward.cos() * speed, toward.sin() * speed);
     command.body_yaw = toward;
     command.intent = Intent::Attack(foe.id);
@@ -967,10 +967,10 @@ fn feet_command(
 }
 
 fn intent_command(
-    obs: &ArticulatedObservation,
+    obs: &Observation,
     foe: &ObservedOpponent,
     intent: TacticalIntentV1,
-) -> ArticulatedCommandV1 {
+) -> CommandCoreV1 {
     let toward = planar(foe.body_position - obs.body_position).angle();
     match intent {
         TacticalIntentV1::Close => feet_command(obs, foe, toward, APPROACH_SPEED),
@@ -978,7 +978,7 @@ fn intent_command(
         TacticalIntentV1::EvadeLeft => feet_command(obs, foe, toward + Angle::QUARTER, APPROACH_SPEED),
         TacticalIntentV1::EvadeRight => feet_command(obs, foe, toward - Angle::QUARTER, APPROACH_SPEED),
         TacticalIntentV1::Guard => {
-            let mut command = neutral_articulated_command(obs);
+            let mut command = neutral_world_command(obs);
             command.body_yaw = toward;
             let guard = ArmRoles::of(obs).guard;
             let height = obs.standing_height.is_positive()
@@ -997,14 +997,14 @@ fn intent_command(
 }
 
 fn strike_command(
-    obs: &ArticulatedObservation,
+    obs: &Observation,
     foe: &ObservedOpponent,
     plan: StrikePlan,
     phase: TacticalPhase,
     footwork: Footwork,
     unwinding: bool,
-) -> ArticulatedCommandV1 {
-    let mut command = neutral_articulated_command(obs);
+) -> CommandCoreV1 {
+    let mut command = neutral_world_command(obs);
     let toward = planar(foe.body_position - obs.body_position).angle();
     command.body_yaw = toward;
     // **The twist budget, spent rather than waited out**, and what this line
@@ -1046,7 +1046,7 @@ fn strike_command(
     // 1,566 worthless facts into a handful of expensive ones."* Crossing measure
     // is something the feet do. Until this line the planner planted them for all
     // 80 ticks of chamber, commit and recovery, so its blade carried the arm's
-    // sweep and nothing else -- and `embodied_script.rs` records the same
+    // sweep and nothing else -- and `script.rs` records the same
     // correction, made the same way and paid for by the articulated corpus:
     // "`AttackFootwork::Planted` ... a body decays to a standstill in about
     // fourteen ticks with `move_dir` zero, and the arm term alone could not
@@ -1093,7 +1093,7 @@ mod tests {
     use super::*;
     use sim::{
         ARM_MIN_REACH_RAW, DuelConfigV1, EquipmentGeometry, Faction, Scenario,
-        SubmitEmbodiedOutcome, World,
+        SubmitOutcome, World,
     };
 
     /// Submits a command and insists the world took it.
@@ -1120,7 +1120,7 @@ mod tests {
     /// planner returned.** `StrikePlanner::decide` answers a *world*-frame
     /// command -- that is this module's own header, and the frame enters exactly
     /// once, in [`into_torso_frame`]. So the honest way to drive an embodied
-    /// world from a plan is the way `TacticalEmbodiedPolicy::decide` does it,
+    /// world from a plan is the way `TacticalPolicy::decide` does it,
     /// through that one adapter, and these four tests now do rather than pinning
     /// the fixture back to a model no shipped policy submits into. All four were
     /// green under the reseat on 2026-08-19 without an assertion moving, which is
@@ -1128,18 +1128,18 @@ mod tests {
     fn submit(
         world: &mut World,
         id: EntityId,
-        obs: &ArticulatedObservation,
-        command: ArticulatedCommandV1,
+        obs: &Observation,
+        command: CommandCoreV1,
     ) {
         let offered = into_torso_frame(obs, command);
-        match world.submit_embodied_v1(id, offered) {
-            SubmitEmbodiedOutcome::Stored { command: stored, rejection: None } => {
+        match world.submit(id, offered) {
+            SubmitOutcome::Stored { command: stored, rejection: None } => {
                 assert_eq!(stored, offered, "the world stored a command nobody offered");
             }
-            SubmitEmbodiedOutcome::Stored { rejection: Some(reject), .. } => {
+            SubmitOutcome::Stored { rejection: Some(reject), .. } => {
                 panic!("{id:?} had its command replaced by the neutral one: {reject:?}")
             }
-            SubmitEmbodiedOutcome::NotStored(reject) => {
+            SubmitOutcome::NotStored(reject) => {
                 panic!("{id:?} could not submit at all: {reject:?}")
             }
         }
@@ -1152,11 +1152,11 @@ mod tests {
         Scenario::duel_from(&config).unwrap()
     }
 
-    fn threat_pair(step: Fx, lateral: Fx) -> (ArticulatedObservation, ArticulatedObservation) {
+    fn threat_pair(step: Fx, lateral: Fx) -> (Observation, Observation) {
         let scenario = close_duel();
         let world = World::new(&scenario, 17);
         let attacker = world.alive_ids(Faction::Heroes)[0];
-        let mut now = world.observe_articulated(attacker);
+        let mut now = world.observe(attacker);
         let z = now.body_position.z + now.standing_height * Fx::HALF;
         let x = now.body_position.x + Fx::from_int(3);
         let segment = SegmentPose {
@@ -1180,8 +1180,8 @@ mod tests {
     fn drive_until_commit(planner: &mut StrikePlanner, world: &mut World, attacker: EntityId) -> StrikePlan {
         for _ in 0..600 {
             for id in world.pending_decisions().to_vec() {
-                let obs = world.observe_articulated(id);
-                let command = if id == attacker { planner.decide(&obs) } else { neutral_articulated_command(&obs) };
+                let obs = world.observe(id);
+                let command = if id == attacker { planner.decide(&obs) } else { neutral_world_command(&obs) };
                 submit(world, id, &obs, command);
             }
             let _ = world.step();
@@ -1199,7 +1199,7 @@ mod tests {
         let mut committed = None;
         for _ in 0..600 {
             for id in world.pending_decisions().to_vec() {
-                let obs = world.observe_articulated(id);
+                let obs = world.observe(id);
                 let command = if id == attacker {
                     let command = planner.decide(&obs);
                     if committed.is_none() {
@@ -1210,7 +1210,7 @@ mod tests {
                         }
                     }
                     command
-                } else { neutral_articulated_command(&obs) };
+                } else { neutral_world_command(&obs) };
                 submit(&mut world, id, &obs, command);
             }
             let _ = world.step();
@@ -1237,7 +1237,7 @@ mod tests {
         let scenario = Scenario::duel_from(&config).unwrap();
         let world = World::new(&scenario, 0);
         let attacker = world.alive_ids(Faction::Heroes)[0];
-        let obs = world.observe_articulated(attacker);
+        let obs = world.observe(attacker);
         let foe = obs.opponents()[0];
         let region = foe.regions[BodyPart::Legs as usize];
         let region_centre = centre(region).z;
@@ -1270,7 +1270,7 @@ mod tests {
         let scenario = close_duel();
         let world = World::new(&scenario, 3);
         let attacker = world.alive_ids(Faction::Heroes)[0];
-        let obs = world.observe_articulated(attacker);
+        let obs = world.observe(attacker);
         let foe = obs.opponents()[0];
         let hand = ArmRoles::of(&obs).weapon;
         let toward = planar(foe.body_position - obs.body_position).angle();
@@ -1299,7 +1299,7 @@ mod tests {
         let scenario = close_duel();
         let world = World::new(&scenario, 4);
         let id = world.alive_ids(Faction::Heroes)[0];
-        let obs = world.observe_articulated(id);
+        let obs = world.observe(id);
         let foe = obs.opponents()[0];
         let command = intent_command(&obs, &foe, TacticalIntentV1::Guard);
         assert_eq!(command.arms[ArmRoles::of(&obs).guard].reach.raw(), 49_152);
@@ -1329,7 +1329,7 @@ mod tests {
         let scenario = close_duel();
         let world = World::new(&scenario, 8);
         let attacker = world.alive_ids(Faction::Heroes)[0];
-        let mut obs = world.observe_articulated(attacker);
+        let mut obs = world.observe(attacker);
         let foe = obs.opponents()[0];
         let toward = planar(foe.body_position - obs.body_position).angle();
         let hand = ArmRoles::of(&obs).weapon;
@@ -1361,7 +1361,7 @@ mod tests {
         let scenario = close_duel();
         let world = World::new(&scenario, 9);
         let id = world.alive_ids(Faction::Heroes)[0];
-        let mut obs = world.observe_articulated(id);
+        let mut obs = world.observe(id);
         let foe = obs.opponents()[0];
         obs.weapons = [None, None];
         let mut planner = StrikePlanner::default();
@@ -1382,7 +1382,7 @@ mod tests {
         let mut planner = StrikePlanner::default();
         let locked = drive_until_commit(&mut planner, &mut world, attacker);
         for tick in 0..10 {
-            let mut obs = world.observe_articulated(attacker);
+            let mut obs = world.observe(attacker);
             obs.tick += tick;
             obs.opponents[0].regions[locked.region as usize].present = false;
             let _ = planner.decide(&obs);
@@ -1440,14 +1440,14 @@ mod tests {
         let attacker = world.alive_ids(Faction::Heroes)[0];
         let mut planner = StrikePlanner::default();
         let (obs, plan) = loop {
-            let obs = world.observe_articulated(attacker);
+            let obs = world.observe(attacker);
             if let Some(plan) = choose_plan(&obs, &obs.opponents()[0], TacticalIntentV1::StrikeBest,
                 PlanScoring::NearestRegion) {
                 break (obs, plan);
             }
             for id in world.pending_decisions().to_vec() {
-                let row = world.observe_articulated(id);
-                let command = if id == attacker { planner.decide(&row) } else { neutral_articulated_command(&row) };
+                let row = world.observe(id);
+                let command = if id == attacker { planner.decide(&row) } else { neutral_world_command(&row) };
                 submit(&mut world, id, &row, command);
             }
             let _ = world.step();
@@ -1488,7 +1488,7 @@ mod tests {
         let scenario = close_duel();
         let world = World::new(&scenario, 6);
         let attacker = world.alive_ids(Faction::Heroes)[0];
-        let mut obs = world.observe_articulated(attacker);
+        let mut obs = world.observe(attacker);
         for part in BodyPart::ALL { obs.opponents[0].regions[part as usize].present = part == BodyPart::Head; }
         obs.opponents[0].regions[BodyPart::Head as usize].lower.z = Fx::from_int(20);
         obs.opponents[0].regions[BodyPart::Head as usize].upper.z = Fx::from_int(20);
@@ -1513,9 +1513,9 @@ mod tests {
         let scenario = close_duel();
         let world = World::new(&scenario, 29);
         let id = world.alive_ids(Faction::Heroes)[0];
-        let mut obs = world.observe_articulated(id);
+        let mut obs = world.observe(id);
         obs.opponent_count = 0;
-        obs.opponents = [ObservedOpponent::BLANK; sim::MAX_ARTICULATED_OPPONENTS];
+        obs.opponents = [ObservedOpponent::BLANK; sim::MAX_OPPONENTS];
         let mut planner = StrikePlanner::default();
         let command = planner.decide(&obs);
         assert_eq!(planner.phase(), TacticalPhase::Seek);
@@ -1532,7 +1532,7 @@ mod tests {
     /// The plate is placed **on** the region centre it is meant to cover, at the
     /// shipped quarter-by-quarter extents, so the sweep that reaches that region
     /// cannot avoid it.
-    fn plated_at(part: BodyPart) -> (ArticulatedObservation, ObservedOpponent) {
+    fn plated_at(part: BodyPart) -> (Observation, ObservedOpponent) {
         // Inside measure, unlike `close_duel`: at two tiles apart no candidate
         // crosses anything at all, so every plate question would be answered
         // vacuously. `zz`-free proof that this matters is the fixture assertion
@@ -1543,7 +1543,7 @@ mod tests {
         let scenario = Scenario::duel_from(&config).unwrap();
         let world = World::new(&scenario, 5);
         let attacker = world.alive_ids(Faction::Heroes)[0];
-        let obs = world.observe_articulated(attacker);
+        let obs = world.observe(attacker);
         let mut foe = obs.opponents()[0];
         foe.shield.present = true;
         foe.shield.centre = centre(foe.regions[part as usize]);
@@ -1607,7 +1607,7 @@ mod tests {
     /// question the fixture assertion above needs and `choose_plan` asks per
     /// candidate.
     fn candidate_covered_anywhere(
-        obs: &ArticulatedObservation,
+        obs: &Observation,
         foe: &ObservedOpponent,
         part: BodyPart,
     ) -> bool {
@@ -1653,7 +1653,7 @@ mod tests {
     /// arm or a blade would move the admitted band, and a test carrying its own
     /// copy of 1.70 and 2.30 would go on passing while the constants stopped
     /// meaning what their doc comments say.
-    fn embodied_bodies() -> Vec<(ArticulatedObservation, Fx)> {
+    fn embodied_bodies() -> Vec<(Observation, Fx)> {
         let scenario = Scenario::embodied_duel();
         let world = World::new(&scenario, 0);
         let mut rows = Vec::new();
@@ -1662,7 +1662,7 @@ mod tests {
             assert_eq!(ids.len(), 1, "the duel fixture fields one body a side");
             let unit = scenario.units.iter().find(|unit| unit.faction == faction)
                 .expect("a side with a body on it has a unit spec");
-            rows.push((world.observe_articulated(ids[0]), unit.stats.move_speed()));
+            rows.push((world.observe(ids[0]), unit.stats.move_speed()));
         }
         rows
     }
@@ -1670,11 +1670,11 @@ mod tests {
     /// The weapon hand as the slot `in_measure` and `StrikePlan` speak in.
     /// `ArmRoles::of` answers an index into `arms`, and the two are the same
     /// number in two types.
-    fn weapon_slot(obs: &ArticulatedObservation) -> LimbSlot {
+    fn weapon_slot(obs: &Observation) -> LimbSlot {
         if ArmRoles::of(obs).weapon == 0 { LimbSlot::LeftArm } else { LimbSlot::RightArm }
     }
 
-    fn blade_length(obs: &ArticulatedObservation) -> Fx {
+    fn blade_length(obs: &Observation) -> Fx {
         let hand = ArmRoles::of(obs).weapon;
         let blade = obs.weapons[hand].expect("both fixture bodies carry a weapon");
         blade.tip.distance(blade.hilt)
@@ -1682,7 +1682,7 @@ mod tests {
 
     /// `arm_length + blade`: a body's own origin to a fully extended tip, which
     /// is what every number in [`Footwork`] is a fraction or an offset of.
-    fn strike_reach(obs: &ArticulatedObservation) -> Fx {
+    fn strike_reach(obs: &Observation) -> Fx {
         obs.arm_length + blade_length(obs)
     }
 
@@ -1692,7 +1692,7 @@ mod tests {
     }
 
     /// How wide the band `in_measure` admits is, from its two ends.
-    fn measure_band(obs: &ArticulatedObservation, footwork: Footwork) -> Fx {
+    fn measure_band(obs: &Observation, footwork: Footwork) -> Fx {
         strike_reach(obs) * (Fx::ONE - footwork.min_fraction) + footwork.margin
     }
 
@@ -1700,7 +1700,7 @@ mod tests {
     /// else. `in_measure` reads one field of an opponent and this is it, so a
     /// blank body with a position is the whole of the input rather than a
     /// fixture whose spawn a later session could move.
-    fn foe_at(obs: &ArticulatedObservation, distance: Fx) -> ObservedOpponent {
+    fn foe_at(obs: &Observation, distance: Fx) -> ObservedOpponent {
         let mut foe = ObservedOpponent::BLANK;
         foe.body_position = obs.body_position + Vec3::new(distance, Fx::ZERO, Fx::ZERO);
         assert_eq!(planar(foe.body_position - obs.body_position).length(), distance,
@@ -1798,7 +1798,7 @@ mod tests {
         let mut committed_worst = Fx::ONE;
         for (obs, _) in embodied_bodies() {
             let reach = strike_reach(&obs);
-            // `neutral_articulated_command` asks for `reach: Fx::ZERO` and the
+            // `neutral_world_command` asks for `reach: Fx::ZERO` and the
             // actuator clamps it up to `ARM_MIN_REACH_RAW`, so a body doing
             // nothing at all still holds its tip this far out.
             let resting = (obs.arm_length * Fx::from_raw(ARM_MIN_REACH_RAW)
@@ -1912,7 +1912,7 @@ mod tests {
     /// articulated row as well.
     ///
     /// **The threshold admits `(0.5, 1.0)` and seven eighths sits inside it**,
-    /// which is `embodied_script.rs`'s own argument for its own copy, unchanged:
+    /// which is `script.rs`'s own argument for its own copy, unchanged:
     /// below about a half an ordinary guard change would step, so footwork would
     /// become a tax on aiming; at one the step would only begin after the torso
     /// had already stopped turning, so the policy would be reacting to the
@@ -1973,7 +1973,7 @@ mod tests {
     /// can produce. [`foe_at`] is the blank-row version and answers a different
     /// question: it probes `in_measure` alone, which reads one field.
     fn foe_moved_to(
-        obs: &ArticulatedObservation,
+        obs: &Observation,
         foe: &ObservedOpponent,
         distance: Fx,
     ) -> ObservedOpponent {
@@ -2028,7 +2028,7 @@ mod tests {
         let scenario = close_duel();
         let world = World::new(&scenario, 0);
         let hero = world.alive_ids(Faction::Heroes)[0];
-        let mut obs = world.observe_articulated(hero);
+        let mut obs = world.observe(hero);
         let reach = strike_reach(&obs);
         // Between the two floors and inside both margins: three fifths of reach
         // is the articulated floor and four fifths the embodied one.

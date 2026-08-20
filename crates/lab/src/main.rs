@@ -19,10 +19,10 @@ mod trace;
 use args::Args;
 use trace::{FightTrace, TraceRun};
 use fx::{Fx, Hash64, Vec2};
-use policy::{ArmRoles, EmbodiedPolicy, EmbodiedPolicyKind, Footwork, RunConfig};
+use policy::{ArmRoles, Policy, PolicyKind, Footwork, RunConfig};
 use sim::{
     AnatomyChoice, CombatHeight, ContactKind, DuelConfigV1, EntityId, Faction, Intent,
-    Outcome, Replay, Scenario, StateDigest, SubmitEmbodiedOutcome,
+    Outcome, Replay, Scenario, StateDigest, SubmitOutcome,
     SubmittedCommand, SubmittedCommandRecord, World,
 };
 use std::time::Instant;
@@ -110,7 +110,7 @@ fn usage() {
           Arena at /#/arena, and the page's own fight is the same model this
           writes -- which is the whole reason a browser can be checked against
           this file at all.
-          <embodied policy> is `EmbodiedPolicyKind`'s vocabulary, exactly as
+          <embodied policy> is `PolicyKind`'s vocabulary, exactly as
           `embodied` reads it: neutral, scripted, scripted-level, tactical,
           tactical-fixed-guard. It had a second vocabulary of its own until
           v2-ui-08 and now has none.
@@ -148,7 +148,7 @@ fn usage() {
                        [--action-layout tactical-v2]
                        --opponent <embodied policy> --frozen-only --no-replay
           v2-19's learning probe, embodied since session 05. --opponent takes an
-          EmbodiedPolicyKind name (as `embodied --policy` does), defaulting to
+          PolicyKind name (as `embodied --policy` does), defaulting to
           `scripted` and not the registry's `neutral`. `train` evolves one
           network against it and writes the checkpoint atomically. `evaluate`
           scores five conditions -- a constant network, the scripted body, the
@@ -417,7 +417,7 @@ fn height_index(height: CombatHeight) -> Option<usize> {
 ///
 /// A sibling of `policy::RunResult` rather than an extension of it, and the
 /// reason is the same one that keeps [`measure_embodied_matchup`] from simply
-/// calling `policy::run_embodied`: three of the numbers a mechanical
+/// calling `policy::run`: three of the numbers a mechanical
 /// measurement turns on -- how many contacts resolved, `contact_cap_hits`, and
 /// the worst per-tick energy-ledger excess -- are read off the **world**
 /// immediately after each step, and `RunResult` deliberately carries none of
@@ -426,8 +426,18 @@ fn height_index(height: CombatHeight) -> Option<usize> {
 /// that must not move. Two copies of a loop is a thing that drifts, so
 /// `the_measured_run_is_the_run_the_harness_would_have_driven` pins this one
 /// against the runner's.
+/// **One corpus's row, and it was two.** It was `Trial`, aliased as
+/// `Trial` so the embodied corpus could name its own row without a
+/// second struct carrying the same twenty columns -- the two reports were meant
+/// to be read side by side, and a column that drifted apart would have been
+/// worse than no column. Session 06 collapsed both names into this one, because
+/// not one of these columns was ever articulated-only: every one is read off
+/// the `World` immediately after a step, and what names the model is the
+/// `domain` word inside `state`, which is why [`sim::StateDigest`] carries a
+/// domain instead of being a bare `u64` -- a digest from one corpus offered as
+/// another's is a type error rather than two numbers that differ.
 #[derive(Clone, Debug)]
-struct ArticulatedTrial {
+struct Trial {
     seed: u64,
     outcome: Outcome,
     /// Whether the clock and not a body decided this fight. Carried separately
@@ -567,17 +577,17 @@ impl std::fmt::Display for Summary {
 /// which is what the `sides` percentage is a fraction of; `reflected` is empty
 /// when no mirror was run.
 fn report_trials(
-    canonical: &[ArticulatedTrial],
-    reflected: &[ArticulatedTrial],
+    canonical: &[Trial],
+    reflected: &[Trial],
     mirrored: bool,
     scenario: &Scenario,
     elapsed: std::time::Duration,
 ) {
     let seeds = canonical.len();
     let original = scenario;
-    let all: Vec<&ArticulatedTrial> = canonical.iter().chain(reflected.iter()).collect();
+    let all: Vec<&Trial> = canonical.iter().chain(reflected.iter()).collect();
     let trials = all.len().max(1);
-    let fighter_wins = |set: &[ArticulatedTrial]| {
+    let fighter_wins = |set: &[Trial]| {
         set.iter()
             .filter(|t| t.outcome.winner() == Some(Faction::Heroes))
             .count()
@@ -722,27 +732,7 @@ fn report_trials(
     println!("          {:.2}s wall", elapsed.as_secs_f64());
 }
 
-// ---- the embodied corpus
-
-/// The embodied corpus's row, which **is** [`ArticulatedTrial`] rather than a
-/// copy of it.
-///
-/// Every column that struct carries is read off the `World` immediately after a
-/// step -- resolutions by kind, cap hits, the energy-ledger excess, severances,
-/// health -- and not one of them is articulated-only. What names the model is
-/// the `domain` word inside `state`, which an embodied run answers
-/// `HashDomain::EmbodiedV1` to and an articulated one `ArticulatedV1`; that is
-/// exactly why `StateDigest` carries a domain instead of being a bare `u64`, and
-/// it makes a digest from one corpus offered as the other's a type error rather
-/// than two numbers that differ.
-///
-/// A second struct with the same twenty fields would be a second thing to keep
-/// in step with the summariser below, and the summariser is the whole reason
-/// either of them exists: the two reports were meant to be read side by side, so
-/// a column that drifted apart would have been worse than no column. The
-/// articulated corpus is gone and the alias is not, because the row is still
-/// what `lab trace` measures a fight into.
-type EmbodiedTrial = ArticulatedTrial;
+// ---- the corpus
 
 /// The ASCII domain prefix of [`embodied_script_digest`], on the retired
 /// `ARPG-SCRIPT-V1`'s own precedent: a bare FNV of a byte stream is a number any
@@ -778,7 +768,7 @@ const EMBODIED_SCRIPT_DIGEST_DOMAIN: &[u8] = b"ARPG-EMBODIED-SCRIPT-V1";
 /// now the only command-stream digest in the binary rather than the second one.
 ///
 /// The grammar is the retired digest's, byte for byte, over
-/// `EmbodiedCommandV1::payload_bytes` instead of the articulated 53: the tick,
+/// `CommandV1::payload_bytes` instead of the articulated 53: the tick,
 /// the subject's full identity, the payload, and the record count last so that a
 /// stream cannot be extended by a record whose bytes happen to be zero.
 fn embodied_script_digest(records: &[SubmittedCommandRecord]) -> u64 {
@@ -807,19 +797,19 @@ fn embodied_script_digest(records: &[SubmittedCommandRecord]) -> u64 {
 /// The sentence fragment naming an embodied policy in a report headline, in the
 /// terms the retired articulated corpus printed.
 ///
-/// Separate from [`EmbodiedPolicyKind::name`] because the two answer different
+/// Separate from [`PolicyKind::name`] because the two answer different
 /// questions: that one is the identifier a command line and a trace header
 /// spell, this one is English. The vocabulary itself is *not* duplicated --
-/// `--policy` parses through `EmbodiedPolicyKind::from_name`, so there is one
+/// `--policy` parses through `PolicyKind::from_name`, so there is one
 /// list of embodied policy names in the repository and this function does not
 /// add a second.
-fn embodied_name(kind: EmbodiedPolicyKind) -> &'static str {
+fn embodied_name(kind: PolicyKind) -> &'static str {
     match kind {
-        EmbodiedPolicyKind::Neutral => "the neutral control",
-        EmbodiedPolicyKind::Scripted => "the embodied script",
-        EmbodiedPolicyKind::ScriptedLevel => "the embodied script with the ground term off (control)",
-        EmbodiedPolicyKind::Tactical => "the tactical embodied policy",
-        EmbodiedPolicyKind::TacticalFixedGuard =>
+        PolicyKind::Neutral => "the neutral control",
+        PolicyKind::Scripted => "the embodied script",
+        PolicyKind::ScriptedLevel => "the embodied script with the ground term off (control)",
+        PolicyKind::Tactical => "the tactical embodied policy",
+        PolicyKind::TacticalFixedGuard =>
             "the tactical embodied policy with the guard read off (control)",
     }
 }
@@ -832,14 +822,14 @@ fn embodied_name(kind: EmbodiedPolicyKind) -> &'static str {
 /// have made "which model is this fight" a question answered at the submission
 /// call rather than at the type. **The argument outlived the sibling and is
 /// worth keeping, because the submission entries did not become type-safe when
-/// the second model went away.** `World::submit_embodied_v1` compiles against an
+/// the second model went away.** `World::submit` compiles against an
 /// articulated world and answers `CommandReject::WrongModel` at runtime, so the
 /// only thing that has ever stopped a harness from measuring a corpus of
 /// refusals is that the wrong grammar is unspellable here.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 struct EmbodiedMatchup {
-    heroes: EmbodiedPolicyKind,
-    monsters: EmbodiedPolicyKind,
+    heroes: PolicyKind,
+    monsters: PolicyKind,
     /// The footwork row `--footwork` named, or `None` for the row each entry
     /// ships with.
     ///
@@ -854,14 +844,14 @@ struct EmbodiedMatchup {
 
 /// A bare kind *is* the symmetric matchup, which is what lets every call site
 /// that names one policy stay a call site that names one policy.
-impl From<EmbodiedPolicyKind> for EmbodiedMatchup {
-    fn from(kind: EmbodiedPolicyKind) -> EmbodiedMatchup {
+impl From<PolicyKind> for EmbodiedMatchup {
+    fn from(kind: PolicyKind) -> EmbodiedMatchup {
         EmbodiedMatchup::symmetric(kind)
     }
 }
 
 impl EmbodiedMatchup {
-    fn symmetric(kind: EmbodiedPolicyKind) -> EmbodiedMatchup {
+    fn symmetric(kind: PolicyKind) -> EmbodiedMatchup {
         EmbodiedMatchup { heroes: kind, monsters: kind, footwork: None }
     }
 
@@ -876,7 +866,7 @@ impl EmbodiedMatchup {
     /// with `None` means the other side took it. Only an entry driving a
     /// [`policy::StrikePlanner`] has feet to configure, and that is a property
     /// of the entry rather than of the flag.
-    fn build(self, kind: EmbodiedPolicyKind) -> Box<dyn EmbodiedPolicy> {
+    fn build(self, kind: PolicyKind) -> Box<dyn Policy> {
         match self.footwork {
             Some(row) => kind.build_with_footwork(row).unwrap_or_else(|| kind.build()),
             None => kind.build(),
@@ -976,18 +966,18 @@ fn footwork_term(term: &str) -> Option<Fx> {
 /// and through [`matchup_key_refusal`]'s two shared traps -- a key that cannot be
 /// honoured has to stop the run rather than be dropped from it, and a test can
 /// only assert a refusal it can hold. The vocabulary is
-/// `EmbodiedPolicyKind`'s own and is not written down a second time here: an
+/// `PolicyKind`'s own and is not written down a second time here: an
 /// embodied fight named `scripted-level` in the studio, in a report and on a
 /// command line is one word everywhere.
 fn embodied_matchup_from(args: &Args) -> Result<EmbodiedMatchup, String> {
     if let Some(sentence) = matchup_key_refusal(args) {
         return Err(sentence);
     }
-    let read = |key: &str| -> Result<Option<EmbodiedPolicyKind>, String> {
+    let read = |key: &str| -> Result<Option<PolicyKind>, String> {
         let Some(name) = args.text(key) else { return Ok(None) };
-        EmbodiedPolicyKind::from_name(name).map(Some).ok_or_else(|| {
+        PolicyKind::from_name(name).map(Some).ok_or_else(|| {
             let vocabulary: Vec<&str> =
-                EmbodiedPolicyKind::ALL.iter().map(|kind| kind.name()).collect();
+                PolicyKind::ALL.iter().map(|kind| kind.name()).collect();
             format!(
                 "--{key} does not know the policy \"{name}\": it takes {}",
                 vocabulary.join(", ")
@@ -1007,7 +997,7 @@ fn embodied_matchup_from(args: &Args) -> Result<EmbodiedMatchup, String> {
                 .to_string(),
         );
     }
-    let base = read("policy")?.unwrap_or(EmbodiedPolicyKind::Scripted);
+    let base = read("policy")?.unwrap_or(PolicyKind::Scripted);
     let mut matchup = EmbodiedMatchup::symmetric(base);
     if let Some(kind) = read("hero-policy")? {
         matchup.heroes = kind;
@@ -1030,7 +1020,7 @@ fn embodied_matchup_from(args: &Args) -> Result<EmbodiedMatchup, String> {
              name a side with {}",
             matchup.heroes.name(),
             matchup.monsters.name(),
-            EmbodiedPolicyKind::ALL
+            PolicyKind::ALL
                 .iter()
                 .filter(|kind| kind.reads_footwork())
                 .map(|kind| kind.name())
@@ -1098,7 +1088,7 @@ fn embodied_fixture(args: &Args) -> Scenario {
 /// second thing to drift, and an observer that returns nothing to the world
 /// cannot change the fight it is watching.
 ///
-/// It reads `articulated_pose(..).body.z`, which is the floor the body is
+/// It reads `pose(..).body.z`, which is the floor the body is
 /// standing on -- `a_body_on_the_hill_stands_on_the_hill` in the determinism
 /// suite is what says that column is the terrain and not a number of its own.
 #[derive(Clone, Copy, Default, Debug)]
@@ -1155,17 +1145,17 @@ impl ElevationProbe {
 /// Drives one seed of an embodied fixture to its stop and records what the
 /// mechanics did.
 ///
-/// A second copy of `policy::run_embodied`'s decision loop and **not** a call to
-/// it, for the reason [`ArticulatedTrial`] gives: three of the columns below are
+/// A second copy of `policy::run`'s decision loop and **not** a call to
+/// it, for the reason [`Trial`] gives: three of the columns below are
 /// read off the **world** immediately after each step and `RunResult` carries
 /// none of them. Two copies of a loop drift, so
 /// `the_measured_run_is_the_run_the_harness_would_have_driven` pins this one
 /// against the runner's, column by column and down to the command stream.
 ///
-/// **The two sides are separate parameters** because `run_embodied` drives one
+/// **The two sides are separate parameters** because `run` drives one
 /// policy instance across both factions and a corpus of two different policies
 /// cannot. That is not cosmetic here the way it was under the articulated
-/// scripts: `ScriptedEmbodiedPolicy` carries per-run ground memory, so one
+/// scripts: `ScriptedPolicy` carries per-run ground memory, so one
 /// instance across both bodies is a different fight from two wherever the floor
 /// is not flat.
 ///
@@ -1185,16 +1175,16 @@ impl ElevationProbe {
 fn measure_embodied_matchup(
     scenario: &Scenario,
     seed: u64,
-    hero_policy: &mut dyn EmbodiedPolicy,
-    monster_policy: &mut dyn EmbodiedPolicy,
+    hero_policy: &mut dyn Policy,
+    monster_policy: &mut dyn Policy,
     limit: Option<u32>,
     mut replay: Option<&mut Replay>,
     mut elevation: Option<&mut ElevationProbe>,
     mut recorder: Option<&mut FightTrace>,
-) -> EmbodiedTrial {
+) -> Trial {
     let config = RunConfig::default();
     let mut world = World::new(scenario, seed);
-    // Set *and recorded*, on `run_embodied`'s reasoning exactly: no embodied
+    // Set *and recorded*, on `run`'s reasoning exactly: no embodied
     // observation has an order column, so nothing reads these, and they reach
     // the state hash anyway. A replay that recorded only the inputs somebody
     // currently reads would stop reproducing its run the day the embodied model
@@ -1210,13 +1200,13 @@ fn measure_embodied_matchup(
     }
 
     let heroes = world.alive_ids(Faction::Heroes);
-    // Both rosters read once, before anybody has died. `articulated_pose`
+    // Both rosters read once, before anybody has died. `pose`
     // answers `None` for a slot that is no longer live, which is what keeps a
     // stale handle out of the probe's mean rather than a second liveness query
     // per tick.
     let monsters = world.alive_ids(Faction::Monsters);
     // **`reset` is load-bearing here in a way it was not under the articulated
-    // scripts.** `ScriptedEmbodiedPolicy` carries `GroundSense`, which is a row
+    // scripts.** `ScriptedPolicy` carries `GroundSense`, which is a row
     // of per-run memory: the floor it started on and the highest it has
     // reached -- where the three articulated scripts were stateless and could
     // not tell a fresh instance from a reused one. A
@@ -1251,7 +1241,7 @@ fn measure_embodied_matchup(
         due.extend_from_slice(world.pending_decisions());
         commanded.clear();
         for &id in &due {
-            let obs = world.observe_articulated(id);
+            let obs = world.observe(id);
             let command = if heroes.contains(&id) {
                 hero_policy.decide(&obs)
             } else {
@@ -1259,12 +1249,12 @@ fn measure_embodied_matchup(
             };
             let roles = ArmRoles::of(&obs);
             commanded.push((
-                matches!(command.articulated.intent, Intent::Attack(_)),
-                height_index(command.articulated.arms[roles.weapon].height),
-                height_index(command.articulated.arms[1 - roles.weapon].height),
+                matches!(command.core.intent, Intent::Attack(_)),
+                height_index(command.core.arms[roles.weapon].height),
+                height_index(command.core.arms[1 - roles.weapon].height),
             ));
-            match world.submit_embodied_v1(id, command) {
-                SubmitEmbodiedOutcome::Stored { command, rejection } => {
+            match world.submit(id, command) {
+                SubmitOutcome::Stored { command, rejection } => {
                     if rejection.is_some() {
                         rejected += 1;
                     }
@@ -1283,7 +1273,7 @@ fn measure_embodied_matchup(
                     }
                     stream.push(record);
                 }
-                SubmitEmbodiedOutcome::NotStored(_) => rejected += 1,
+                SubmitOutcome::NotStored(_) => rejected += 1,
             }
         }
         for (attacker, &(attacking, weapon, _)) in commanded.iter().enumerate() {
@@ -1312,7 +1302,7 @@ fn measure_embodied_matchup(
         if let Some(probe) = elevation.as_deref_mut() {
             for (at, roster) in [&heroes, &monsters].into_iter().enumerate() {
                 for &id in roster {
-                    let Some(pose) = world.articulated_pose(id) else { continue };
+                    let Some(pose) = world.pose(id) else { continue };
                     probe.sum_raw[at] += i64::from(pose.body.z.raw());
                     probe.samples[at] += 1;
                     probe.peak[at] = probe.peak[at].max(pose.body.z);
@@ -1329,7 +1319,7 @@ fn measure_embodied_matchup(
         replay.finish(world.tick());
     }
     let settled = world.outcome();
-    EmbodiedTrial {
+    Trial {
         seed,
         outcome: settled.unwrap_or_else(|| world.timeout()),
         timed_out: settled.is_none(),
@@ -1358,7 +1348,7 @@ fn measure_embodied(
     seed: u64,
     matchup: impl Into<EmbodiedMatchup>,
     limit: Option<u32>,
-) -> EmbodiedTrial {
+) -> Trial {
     let matchup = matchup.into();
     let mut heroes = matchup.build(matchup.heroes);
     let mut monsters = matchup.build(matchup.monsters);
@@ -1383,9 +1373,9 @@ fn embodied_trials(
     threads: usize,
     matchup: impl Into<EmbodiedMatchup>,
     limit: Option<u32>,
-) -> Vec<EmbodiedTrial> {
+) -> Vec<Trial> {
     let matchup = matchup.into();
-    let mut slots: Vec<Option<EmbodiedTrial>> = vec![None; seeds.len()];
+    let mut slots: Vec<Option<Trial>> = vec![None; seeds.len()];
     if seeds.is_empty() {
         return Vec::new();
     }
@@ -1478,7 +1468,7 @@ const EMBODIED_CORPUS_TICKS: u32 = 600;
 ///
 /// **Both values moved once, on the day the legacy columns were deleted, and
 /// the move is a grammar move rather than a fight move.** Every cell of this
-/// fold is a `World::state_digest`, and `articulated_state_digest` folds
+/// fold is a `World::state_digest`, and `state_digest_value` folds
 /// `legacy_core_hash` into each one; that function lost `hp`, `max_hp`, the
 /// submitted `command` word and the whole nine-column projectile block, so this
 /// number could not have stayed still. **The rule this row was missing, worth
@@ -1541,7 +1531,7 @@ fn embodied_corpus_digest() -> u64 {
                         measure_embodied(
                             arena,
                             seed,
-                            EmbodiedPolicyKind::Scripted,
+                            PolicyKind::Scripted,
                             Some(EMBODIED_CORPUS_TICKS),
                         )
                         .state,
@@ -1702,7 +1692,7 @@ struct HighGroundArm {
     /// The faction carrying the seeking configuration, or `None` when both
     /// sides carry the same one.
     seeking: Option<Faction>,
-    trials: Vec<EmbodiedTrial>,
+    trials: Vec<Trial>,
 }
 
 impl HighGroundArm {
@@ -1886,7 +1876,7 @@ impl SideMargin {
 fn west_east_margin(scenario: &Scenario) -> SideMargin {
     let seeds: Vec<u64> = (0..HIGH_GROUND_SEEDS).collect();
     let threads = default_threads();
-    let both = EmbodiedMatchup::symmetric(EmbodiedPolicyKind::Scripted);
+    let both = EmbodiedMatchup::symmetric(PolicyKind::Scripted);
     let mut out = SideMargin { west: 0, east: 0, trials: 0, halves: [0; 2] };
     for arrangement in [scenario.clone(), swapped_embodied(scenario)] {
         for arena in [arrangement.clone(), mirrored_embodied(&arrangement)] {
@@ -1946,8 +1936,8 @@ fn high_ground_on(scenario: &Scenario, summit: Vec2) {
             "fighter seeks",
             Some(Faction::Heroes),
             EmbodiedMatchup {
-                heroes: EmbodiedPolicyKind::Scripted,
-                monsters: EmbodiedPolicyKind::ScriptedLevel,
+                heroes: PolicyKind::Scripted,
+                monsters: PolicyKind::ScriptedLevel,
                 footwork: None,
             },
         ),
@@ -1955,15 +1945,15 @@ fn high_ground_on(scenario: &Scenario, summit: Vec2) {
             "brute seeks",
             Some(Faction::Monsters),
             EmbodiedMatchup {
-                heroes: EmbodiedPolicyKind::ScriptedLevel,
-                monsters: EmbodiedPolicyKind::Scripted,
+                heroes: PolicyKind::ScriptedLevel,
+                monsters: PolicyKind::Scripted,
                 footwork: None,
             },
         ),
         (
             "both seek",
             None,
-            EmbodiedMatchup::symmetric(EmbodiedPolicyKind::Scripted),
+            EmbodiedMatchup::symmetric(PolicyKind::Scripted),
         ),
     ]
     .into_iter()
@@ -2115,11 +2105,11 @@ fn high_ground_on(scenario: &Scenario, summit: Vec2) {
 fn flat_control_agreement(flat: &Scenario, threads: usize) -> (usize, usize) {
     let seeds: Vec<u64> = (0..HIGH_GROUND_PROBE_SEEDS).collect();
     let asymmetric = EmbodiedMatchup {
-        heroes: EmbodiedPolicyKind::Scripted,
-        monsters: EmbodiedPolicyKind::ScriptedLevel,
+        heroes: PolicyKind::Scripted,
+        monsters: PolicyKind::ScriptedLevel,
         footwork: None,
     };
-    let symmetric = EmbodiedMatchup::symmetric(EmbodiedPolicyKind::Scripted);
+    let symmetric = EmbodiedMatchup::symmetric(PolicyKind::Scripted);
     let (mut identical, mut compared) = (0usize, 0usize);
     for arena in [flat.clone(), mirrored_embodied(flat)] {
         let with = embodied_trials(&arena, &seeds, threads, asymmetric, None);
@@ -2159,16 +2149,16 @@ fn high_ground_elevation(scenario: &Scenario, mirror: &Scenario) -> ElevationPro
         (
             Faction::Heroes,
             EmbodiedMatchup {
-                heroes: EmbodiedPolicyKind::Scripted,
-                monsters: EmbodiedPolicyKind::ScriptedLevel,
+                heroes: PolicyKind::Scripted,
+                monsters: PolicyKind::ScriptedLevel,
                 footwork: None,
             },
         ),
         (
             Faction::Monsters,
             EmbodiedMatchup {
-                heroes: EmbodiedPolicyKind::ScriptedLevel,
-                monsters: EmbodiedPolicyKind::Scripted,
+                heroes: PolicyKind::ScriptedLevel,
+                monsters: PolicyKind::Scripted,
                 footwork: None,
             },
         ),
@@ -2414,7 +2404,7 @@ fn refuse_duel(error: sim::CombatSpecError) -> ! {
 /// **The reason changed in v2-ui-08 and so did the sentence**, because the old
 /// one stopped being true the moment `trace` became embodied. It read "this
 /// command is still articulated under every --policy", which was the whole of
-/// why `learn::PhaseShiftedScript` -- an `EmbodiedPolicy` wrapper since session
+/// why `learn::PhaseShiftedScript` -- a `Policy` wrapper since session
 /// 05 -- had nothing here to wrap. It has something to wrap now. What it still
 /// does not have is a fight anybody could read the result against: a trace
 /// exists to be *compared* -- against the corpus row `lab embodied` measured,
@@ -2483,15 +2473,15 @@ fn trace_fight(args: &Args) {
     // **`learned` is an arm of `--policy` and not a flag beside it**: it is one
     // choice of what drives the Fighter, and a flag would let
     // `--policy scripted --checkpoint x` look like a thing it is not. It is the
-    // one word `--policy` accepts that `EmbodiedPolicyKind` does not have,
+    // one word `--policy` accepts that `PolicyKind` does not have,
     // because a trained fighter is a kind *plus fifteen kilobytes of weights*
-    // and `EmbodiedPolicyKind::build` -- which returns a policy rather than an
+    // and `PolicyKind::build` -- which returns a policy rather than an
     // `Option` -- has nowhere to put a checkpoint. That argument is written out
     // on the enum itself.
     let learned = args.text("policy") == Some("learned");
     let (mut hero_policy, mut monster_policy, hero_token, monster_token, digest, headline);
     if learned {
-        // `--opponent` names an `EmbodiedPolicyKind`, which is the same
+        // `--opponent` names a `PolicyKind`, which is the same
         // vocabulary `--policy`, `--hero-policy` and `--monster-policy` read
         // through `embodied_matchup_from`. **This was the last reader in the
         // binary with a vocabulary of its own**, and the whole value of closing
@@ -2499,7 +2489,7 @@ fn trace_fight(args: &Args) {
         // in the studio picker is now one word in one list.
         //
         // Every entry is offered rather than a chosen few, because
-        // `EmbodiedPolicyKind::build` cannot refuse: no arm of it answers
+        // `PolicyKind::build` cannot refuse: no arm of it answers
         // `None`, so a subset would be a shorter list with no reason behind it.
         //
         // What this arm does not have is `--phase-random`, and the refusal is
@@ -2508,9 +2498,9 @@ fn trace_fight(args: &Args) {
         // before this branch rather than inside it, and for where the shifted
         // control still lives.
         let named = args.text("opponent").unwrap_or("scripted");
-        let Some(opponent) = EmbodiedPolicyKind::from_name(named) else {
+        let Some(opponent) = PolicyKind::from_name(named) else {
             let vocabulary: Vec<&str> =
-                EmbodiedPolicyKind::ALL.iter().map(|kind| kind.name()).collect();
+                PolicyKind::ALL.iter().map(|kind| kind.name()).collect();
             eprintln!(
                 "--opponent does not know the policy \"{named}\": it takes {}",
                 vocabulary.join(", ")
@@ -2518,8 +2508,8 @@ fn trace_fight(args: &Args) {
             std::process::exit(2);
         };
         let checkpoint = learn_probe::load_checkpoint(args);
-        hero_policy = Box::new(learn::LearnedEmbodiedPolicy::new(checkpoint.model.clone()))
-            as Box<dyn EmbodiedPolicy>;
+        hero_policy = Box::new(learn::LearnedPolicy::new(checkpoint.model.clone()))
+            as Box<dyn Policy>;
         monster_policy = opponent.build();
         hero_token = "learned".to_string();
         monster_token = opponent.name().to_string();
@@ -2634,7 +2624,7 @@ mod tests {
         seed: u64,
         matchup: impl Into<EmbodiedMatchup>,
         recorder: Option<&mut FightTrace>,
-    ) -> EmbodiedTrial {
+    ) -> Trial {
         let matchup = matchup.into();
         let mut heroes = matchup.build(matchup.heroes);
         let mut monsters = matchup.build(matchup.monsters);
@@ -2698,7 +2688,7 @@ mod tests {
         // to `measure_embodied_matchup`, by the same two edits: the digest half
         // failed with `Ok(false)`, the frame half with 600 against 601.
         let scenario = Scenario::embodied_duel();
-        let matchup = EmbodiedPolicyKind::Scripted;
+        let matchup = PolicyKind::Scripted;
         let mut recorder = FightTrace::new(&scenario, u32::MAX);
         let traced = measure_embodied_traced(&scenario, 3, matchup, Some(&mut recorder));
         let plain = measure_embodied(&scenario, 3, matchup, None);
@@ -2922,7 +2912,7 @@ mod tests {
         let mut scenario = Scenario::duel_from(&config).expect("a legal duel");
         mirror_spawns(&mut scenario);
         let mut recorder = FightTrace::new(&scenario, 1);
-        let matchup = EmbodiedPolicyKind::Scripted;
+        let matchup = PolicyKind::Scripted;
         let trial = measure_embodied_traced(&scenario, 3, matchup, Some(&mut recorder));
         let json = recorder.finish(&TraceRun {
             scenario: &scenario, seed: 3, heroes: matchup.name(),
@@ -2952,8 +2942,8 @@ mod tests {
         let fixture = Scenario::embodied_duel();
         assert_ne!(described.fingerprint(), fixture.fingerprint(), "a runtime duel wore the pin");
 
-        let a = measure_embodied(&described, 3, EmbodiedPolicyKind::Scripted, None);
-        let b = measure_embodied(&fixture, 3, EmbodiedPolicyKind::Scripted, None);
+        let a = measure_embodied(&described, 3, PolicyKind::Scripted, None);
+        let b = measure_embodied(&fixture, 3, PolicyKind::Scripted, None);
         assert_eq!(a.state.compare(b.state), Ok(true));
         assert_eq!((a.ticks, a.outcome, a.contacts, a.severances), (b.ticks, b.outcome, b.contacts, b.severances));
         assert_eq!(a.digest, b.digest);
@@ -2999,7 +2989,7 @@ mod tests {
         // what a viewer is showing is a prefix. Getting this backwards would put
         // a fight that "ended at tick 60" on the screen.
         let scenario = Scenario::embodied_duel();
-        let matchup = EmbodiedPolicyKind::Scripted;
+        let matchup = PolicyKind::Scripted;
         let mut recorder = FightTrace::new(&scenario, 60);
         let trial = measure_embodied_traced(&scenario, 3, matchup, Some(&mut recorder));
         let unbounded = measure_embodied(&scenario, 3, matchup, None);
@@ -3017,7 +3007,7 @@ mod tests {
 
     #[test]
     fn the_measured_run_is_the_run_the_harness_would_have_driven() {
-        // [`measure_embodied_matchup`] is a second copy of `policy::run_embodied`'s
+        // [`measure_embodied_matchup`] is a second copy of `policy::run`'s
         // decision loop, carrying the contact evidence `RunResult` does not. Two
         // copies of a loop drift, and the way this one would drift is silent: a
         // different order, a decision taken a tick late, a command recorded
@@ -3034,7 +3024,7 @@ mod tests {
         // **What it cannot catch, stated so nobody trusts it further than it
         // goes.** The two loops differ in two places this fixture hides. The
         // runner drives one policy instance across both factions and this loop
-        // builds one per side; `ScriptedEmbodiedPolicy` carries per-run ground
+        // builds one per side; `ScriptedPolicy` carries per-run ground
         // memory, so that is a genuinely different fight the moment the floor is
         // not flat -- on `embodied-slope-v1` these two harnesses are not
         // comparable at all, and the fixture below is the flat one for that
@@ -3042,10 +3032,10 @@ mod tests {
         // `RunConfig` here and from the parameter there, which is the same
         // number only while both are told the same one.
         let scenario = Scenario::embodied_duel();
-        let trial = measure_embodied(&scenario, 3, EmbodiedPolicyKind::Scripted, TEST_TICKS);
+        let trial = measure_embodied(&scenario, 3, PolicyKind::Scripted, TEST_TICKS);
         // **Every assertion below is satisfied by two harnesses that both
         // measured nothing**, and that is not a hypothetical shape:
-        // `submit_embodied_v1` compiles against an articulated world and refuses
+        // `submit` compiles against an articulated world and refuses
         // it at *runtime*, so a pair of loops wired to the wrong entry would
         // agree perfectly about a fight in which nobody moved. A contact count
         // is the cheapest number a refused corpus cannot produce.
@@ -3058,7 +3048,7 @@ mod tests {
             ..RunConfig::default()
         };
         let harness =
-            policy::run_embodied(&scenario, 3, EmbodiedPolicyKind::Scripted.build(), &config);
+            policy::run(&scenario, 3, PolicyKind::Scripted.build(), &config);
         assert_eq!(trial.ticks, harness.ticks);
         assert_eq!(trial.outcome, harness.outcome);
         assert_eq!(trial.hero_health, harness.hero_health);
@@ -3140,8 +3130,8 @@ mod tests {
         // inverted gate is only meaningful while some fixture still exercises a
         // refusal it could get wrong.
         for (kind, arena) in [
-            (EmbodiedPolicyKind::Scripted, Scenario::embodied_duel()),
-            (EmbodiedPolicyKind::TacticalFixedGuard, Scenario::embodied_duel()),
+            (PolicyKind::Scripted, Scenario::embodied_duel()),
+            (PolicyKind::TacticalFixedGuard, Scenario::embodied_duel()),
         ] {
             let trial = measure_embodied(&arena, 1, kind, None);
             assert!(trial.contacts > 0, "{}/{}: nothing touched", arena.name, kind.name());
@@ -3155,8 +3145,8 @@ mod tests {
         // Both fixtures, because a retained refusal on one arena only would be a
         // claim about that arena's floor rather than about the solver.
         for (kind, arena) in [
-            (EmbodiedPolicyKind::Tactical, Scenario::embodied_duel()),
-            (EmbodiedPolicyKind::Scripted, Scenario::embodied_slope()),
+            (PolicyKind::Tactical, Scenario::embodied_duel()),
+            (PolicyKind::Scripted, Scenario::embodied_slope()),
         ] {
             let trial = measure_embodied(&arena, 1, kind, None);
             assert!(trial.contacts > 0, "{}/{}: nothing touched", arena.name, kind.name());
@@ -3228,7 +3218,7 @@ mod tests {
             let verdict = verify_one_embodied(
                 &scenario,
                 3,
-                EmbodiedMatchup::symmetric(EmbodiedPolicyKind::Scripted),
+                EmbodiedMatchup::symmetric(PolicyKind::Scripted),
                 TEST_TICKS,
             );
             let (ticks, _, state) = verdict.unwrap_or_else(|sentence| {
@@ -3249,8 +3239,8 @@ mod tests {
         // against the observation; this asserts it through the corpus loop the
         // measurement actually runs, which is where a difference would have to
         // appear to matter.
-        let seeking = EmbodiedMatchup::symmetric(EmbodiedPolicyKind::Scripted);
-        let level = EmbodiedMatchup::symmetric(EmbodiedPolicyKind::ScriptedLevel);
+        let seeking = EmbodiedMatchup::symmetric(PolicyKind::Scripted);
+        let level = EmbodiedMatchup::symmetric(PolicyKind::ScriptedLevel);
 
         let flat = Scenario::embodied_duel();
         let a = measure_embodied(&flat, 3, seeking, TEST_TICKS);
@@ -3272,6 +3262,71 @@ mod tests {
     }
 
     #[test]
+    fn the_two_tactical_entries_are_two_different_fights() {
+        // **Nothing asserted this until session 06, and one exhaustive `match`
+        // was the whole of what stood between the two entries.**
+        // `PolicyKind::reads_the_clock` fails to compile until an appended entry
+        // answers it, which is what would notice a *new* row merging into an old
+        // one -- but it says nothing about two rows that already exist quietly
+        // resolving to the same fighter. `build` hands `Tactical` a
+        // `TacticalConfig::READING` and `TacticalFixedGuard` a
+        // `TacticalConfig::FIXED_GUARD`; if those two constants were ever made
+        // equal, or the second arm were edited to the first, every measurement
+        // that compares the read guard against its control would silently become
+        // a policy compared with itself and would report a 50% diagonal as
+        // evidence of nothing. Session 03 measured that diagonal at 65.86%, so
+        // the difference is real and it was unguarded.
+        //
+        // The nearest analogue was about the articulated controls and was
+        // deleted in step G of session 05; this is deliberately not that test
+        // reseated, because the articulated one compared two *scripts* and this
+        // compares one policy against itself with a term switched off -- the
+        // shape `the_ground_term_is_inert_on_the_flat_fixture_and_not_on_the_
+        // sculpted_one` above already uses for the scripted pair.
+        //
+        // **Both digests, and the ordering between them is the point.** The
+        // command stream is the *decision*: a guard that reads and a guard that
+        // does not ask different things of the arm on the tick they diverge. The
+        // state digest is the *fight*: a decision that never reached the world
+        // would move the first and not the second, and a difference nobody can
+        // observe is not a difference worth a registry entry.
+        //
+        // Measured on 2026-08-19 at `TEST_TICKS`, both fixtures, seeds 1..=4:
+        // all eight cells differ in both digests, and the contact counts differ
+        // too (8 against 28 on `embodied-duel-v1` seed 1, 91 against 101 on
+        // `embodied-slope-v1` seed 1). The seeds are bounded rather than swept
+        // because this is a structural claim -- the two entries are not the same
+        // fighter -- and not a win rate; the win rate lives in
+        // `docs/performance/`.
+        for arena in [Scenario::embodied_duel(), Scenario::embodied_slope()] {
+            for seed in 1..=4u64 {
+                let read = measure_embodied(&arena, seed, PolicyKind::Tactical, TEST_TICKS);
+                let fixed =
+                    measure_embodied(&arena, seed, PolicyKind::TacticalFixedGuard, TEST_TICKS);
+                // Both fought. Without this the assertions below are satisfied
+                // by two bodies that never met, which is the failure mode a
+                // bounded run invites.
+                assert!(
+                    read.contacts > 0 && fixed.contacts > 0,
+                    "{}/{}: one of the two entries touched nothing, so the rest proves nothing",
+                    arena.name, seed,
+                );
+                assert_ne!(
+                    read.digest, fixed.digest,
+                    "{}/{}: the read guard and the fixed guard commanded the same stream",
+                    arena.name, seed,
+                );
+                assert_eq!(
+                    read.state.compare(fixed.state),
+                    Ok(false),
+                    "{}/{}: the read guard and the fixed guard reached the same world",
+                    arena.name, seed,
+                );
+            }
+        }
+    }
+
+    #[test]
     fn an_asymmetric_embodied_matchup_runs_a_different_policy_on_each_side() {
         // The claim is about the fight and not about the parse, on
         // `an_asymmetric_matchup_runs_a_different_policy_on_each_side`'s
@@ -3282,8 +3337,8 @@ mod tests {
             "embodied --hero-policy scripted --monster-policy scripted-level",
         ))
         .expect("a legal matchup");
-        assert_eq!(matchup.heroes, EmbodiedPolicyKind::Scripted);
-        assert_eq!(matchup.monsters, EmbodiedPolicyKind::ScriptedLevel);
+        assert_eq!(matchup.heroes, PolicyKind::Scripted);
+        assert_eq!(matchup.monsters, PolicyKind::ScriptedLevel);
         assert!(!matchup.is_symmetric());
 
         // On the sculpted fixture, because that is the only place the two
@@ -3291,7 +3346,7 @@ mod tests {
         // assertion would be false and the feature would still work.
         let slope = Scenario::embodied_slope();
         let asymmetric = measure_embodied(&slope, 3, matchup, TEST_TICKS);
-        let symmetric = measure_embodied(&slope, 3, EmbodiedPolicyKind::Scripted, TEST_TICKS);
+        let symmetric = measure_embodied(&slope, 3, PolicyKind::Scripted, TEST_TICKS);
         assert_ne!(
             asymmetric.digest, symmetric.digest,
             "the asymmetric matchup produced the same command stream as one policy on both sides",
@@ -3302,7 +3357,7 @@ mod tests {
         let unflagged = embodied_matchup_from(&traced_args("embodied --seeds 4"))
             .expect("a legal line");
         assert!(unflagged.is_symmetric());
-        assert_eq!(unflagged.heroes, EmbodiedPolicyKind::Scripted);
+        assert_eq!(unflagged.heroes, PolicyKind::Scripted);
 
         // **And `trace` reads the same words as `embodied`.** v2-ui-08 deleted
         // `an_asymmetric_matchup_runs_a_different_policy_on_each_side`, whose
@@ -3355,7 +3410,7 @@ mod tests {
         // different command stream from the shipped one.
         let flat = Scenario::embodied_duel();
         let shipped = measure_embodied(
-            &flat, 3, EmbodiedMatchup::symmetric(EmbodiedPolicyKind::Tactical), TEST_TICKS);
+            &flat, 3, EmbodiedMatchup::symmetric(PolicyKind::Tactical), TEST_TICKS);
         let overridden = measure_embodied(&flat, 3, swept, TEST_TICKS);
         assert_ne!(shipped.digest, overridden.digest,
                    "the footwork row never reached the policy that was built");
@@ -3376,7 +3431,7 @@ mod tests {
         // every report recorded before this flag existed still reads back.
         assert!(restated.name().contains("footwork 0.5000/0.7999/0.5000/0.8750"),
                 "the header does not say which row ran: {}", restated.name());
-        assert_eq!(EmbodiedMatchup::symmetric(EmbodiedPolicyKind::Tactical).name(),
+        assert_eq!(EmbodiedMatchup::symmetric(PolicyKind::Tactical).name(),
                    "the tactical embodied policy");
 
         // The refusal: a matchup with no planner on either side cannot spend a
@@ -3447,12 +3502,12 @@ mod tests {
         }
 
         // A well-formed value naming no policy, refused with the vocabulary --
-        // and the vocabulary is `EmbodiedPolicyKind`'s own, so a policy added
+        // and the vocabulary is `PolicyKind`'s own, so a policy added
         // there appears here without this file being edited.
         let unknown = embodied_matchup_from(&traced_args("embodied --policy composed"))
             .expect_err("composed was an articulated script and is no policy name at all");
         assert!(unknown.contains("composed"), "{unknown}");
-        for kind in EmbodiedPolicyKind::ALL {
+        for kind in PolicyKind::ALL {
             assert!(unknown.contains(kind.name()), "the refusal must list {}: {unknown}", kind.name());
         }
 
@@ -3465,7 +3520,7 @@ mod tests {
         assert!(matchup.contains("--hero-policy"), "{matchup}");
 
         // And the control: every legal spelling still resolves.
-        for kind in EmbodiedPolicyKind::ALL {
+        for kind in PolicyKind::ALL {
             let line = format!("embodied --policy {}", kind.name());
             assert_eq!(
                 embodied_matchup_from(&traced_args(&line)),
@@ -3506,22 +3561,23 @@ mod tests {
     fn embodied_results_do_not_depend_on_the_thread_that_computed_them() {
         // The claim the retired articulated corpus made about its own fan-out,
         // and it is worth making here rather than inherited:
-        // `ScriptedEmbodiedPolicy` carries a row of
+        // `ScriptedPolicy` carries a row of
         // per-run ground memory, so a chunking that reused an instance across
         // seeds would carry one seed's hill into the next -- and the symptom
         // would be a corpus that depended on the thread count.
         let scenario = Scenario::embodied_slope();
         let seeds: Vec<u64> = (0..4).collect();
         let one: Vec<u64> =
-            embodied_trials(&scenario, &seeds, 1, EmbodiedPolicyKind::Scripted, TEST_TICKS)
+            embodied_trials(&scenario, &seeds, 1, PolicyKind::Scripted, TEST_TICKS)
                 .iter()
                 .map(|t| t.digest)
                 .collect();
         let many: Vec<u64> =
-            embodied_trials(&scenario, &seeds, 4, EmbodiedPolicyKind::Scripted, TEST_TICKS)
+            embodied_trials(&scenario, &seeds, 4, PolicyKind::Scripted, TEST_TICKS)
                 .iter()
                 .map(|t| t.digest)
                 .collect();
         assert_eq!(one, many);
     }
 }
+

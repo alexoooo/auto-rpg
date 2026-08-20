@@ -1,12 +1,12 @@
 use crate::command::{
-    ArticulatedCommandV1, ArticulatedPayloadError, GripRequest, Objective, Order,
+    CommandCoreV1, PayloadError, GripRequest, Objective, Order,
     SubmittedCommand, SUBMITTED_COMMAND_LAYOUT_VERSION,
 };
 #[cfg(test)]
 use crate::command::{Intent, ReleaseRequest};
 use crate::combat::spec::{
     combat_specs_into, validate_construction, AnatomyRegion, AnatomyRegionSpec, ArmorSpec,
-    ArticulatedUnitSpecV1, BodyAnatomySpec, CombatSpecError, CombatSpecTableV1,
+    UnitSpecV1, BodyAnatomySpec, CombatSpecError, CombatSpecTableV1,
     EquipmentGeometry, EquipmentSpec, GripBinding, Material, SurfaceSpec,
     BODY_ANATOMY_SPEC_V1_BYTES, COMBAT_SPEC_SCHEMA_V1, MAX_ANATOMY_SPECS,
     MAX_EQUIPMENT_SPECS, SEGMENT_EQUIPMENT_SPEC_V1_BYTES, SHIELD_EQUIPMENT_SPEC_V1_BYTES,
@@ -148,12 +148,12 @@ pub enum ReplayField {
     CombatSpecSchema,
     AnatomySpec,
     EquipmentSpec,
-    ArticulatedUnitSpec,
+    UnitSpec,
     CommandSubject,
     CommandIntent,
     CommandIntentTarget,
     SubmittedCommandKind,
-    ArticulatedCommand,
+    CommandPayload,
     CommandGrip,
     OrderFaction,
     OrderKind,
@@ -435,7 +435,7 @@ fn codec_version_for() -> u16 {
 ///
 /// `MAX_SCENARIO_UNITS` bounds the *field*; how many units a model can actually
 /// simulate is a separate question, and the contact solver answers it --
-/// `MAX_ARTICULATED_ENTITIES` is its authoritative entity capacity, not a
+/// `MAX_ENTITIES` is its authoritative entity capacity, not a
 /// browser publication limit, so row 65 can never be honoured however it
 /// arrives. A version-1 record keeps 4,096 exactly: same bytes, same offsets,
 /// same error, because those are pinned by fixture.
@@ -446,7 +446,7 @@ fn codec_version_for() -> u16 {
 /// and now nothing: the ceiling was never a property of a model, it is a
 /// property of the solver, and the solver owns it unconditionally.
 /// `contact_bounds` answers `ContactCapacityError::EntityLimit` above
-/// `MAX_ARTICULATED_ENTITIES` for every world that reaches it. While the test
+/// `MAX_ENTITIES` for every world that reaches it. While the test
 /// named a model, an embodied replay carrying 65 units encoded cleanly, decoded
 /// cleanly and then could not be stepped -- a file the format accepted and the
 /// simulator could not run. Measured on the way in: with the model spelling
@@ -467,7 +467,7 @@ fn codec_version_for() -> u16 {
 /// for no gain, and the 4,096 above is pinned by fixture.
 fn scenario_unit_ceiling(codec_version: u16) -> usize {
     if codec_version == REPLAY_CODEC_VERSION {
-        crate::combat::contact::MAX_ARTICULATED_ENTITIES
+        crate::combat::contact::MAX_ENTITIES
     } else {
         MAX_SCENARIO_UNITS
     }
@@ -506,7 +506,7 @@ fn validate_envelope(envelope: &ReplayEnvelope) -> Result<(), ReplayValidationEr
     let computed = envelope.replay.scenario.try_fingerprint().map_err(|error| match error {
         crate::ScenarioFingerprintError::NameTooLong { .. } => ReplayValidationError::LimitExceeded(ReplayLimit::ScenarioNameBytes),
         crate::ScenarioFingerprintError::InvalidCombatSpecs(CombatSpecError::MissingTable) => ReplayValidationError::MissingCombatSpecs,
-        crate::ScenarioFingerprintError::InvalidCombatSpecs(_) => ReplayValidationError::InvalidField(ReplayField::ArticulatedUnitSpec),
+        crate::ScenarioFingerprintError::InvalidCombatSpecs(_) => ReplayValidationError::InvalidField(ReplayField::UnitSpec),
     })?;
     if envelope.replay.scenario_fingerprint != computed {
         return Err(ReplayValidationError::ScenarioFingerprintMismatch {
@@ -536,7 +536,7 @@ fn validate_scenario(scenario: &Scenario, tick_limit: u32) -> Result<(), ReplayV
             CombatSpecError::TooManyAnatomies => ReplayValidationError::LimitExceeded(ReplayLimit::AnatomySpecs),
             CombatSpecError::TooManyEquipment => ReplayValidationError::LimitExceeded(ReplayLimit::EquipmentSpecs),
             CombatSpecError::MissingTable => ReplayValidationError::MissingCombatSpecs,
-            _ => ReplayValidationError::InvalidField(ReplayField::ArticulatedUnitSpec),
+            _ => ReplayValidationError::InvalidField(ReplayField::UnitSpec),
         })?;
     if scenario.name.len() > MAX_SCENARIO_NAME_BYTES {
         return Err(ReplayValidationError::LimitExceeded(ReplayLimit::ScenarioNameBytes));
@@ -603,10 +603,10 @@ fn validate_records(replay: &Replay, tick_limit: u32) -> Result<(), ReplayValida
         // wire: `read_submitted_command` checks the record tag against the one
         // the surviving grammar writes and refuses `0` and `1` by number.
         let SubmittedCommand::Embodied(command) = record.command;
-        let command = command.articulated;
+        let command = command.core;
         command.payload_bytes();
-        crate::command::validate_articulated(command)
-            .map_err(|_| ReplayValidationError::InvalidField(ReplayField::ArticulatedCommand))?;
+        crate::command::validate_core(command)
+            .map_err(|_| ReplayValidationError::InvalidField(ReplayField::CommandPayload))?;
         let unit = &replay.scenario.units[record.entity.index as usize];
         validate_grips(command, replay.scenario.combat_specs.as_ref(), unit)?;
     }
@@ -640,10 +640,10 @@ fn validate_count(
     }
 }
 
-fn validate_grips(command: ArticulatedCommandV1, table: Option<&CombatSpecTableV1>, unit: &UnitSpec)
+fn validate_grips(command: CommandCoreV1, table: Option<&CombatSpecTableV1>, unit: &UnitSpec)
     -> Result<(), ReplayValidationError>
 {
-    if let (Some(table), Some(row)) = (table, unit.articulated) {
+    if let (Some(table), Some(row)) = (table, unit.combat_spec) {
         if crate::combat::spec::grips_valid(table, row, command.grips) { return Ok(()); }
         return Err(ReplayValidationError::InvalidField(ReplayField::CommandGrip));
     }
@@ -700,7 +700,7 @@ fn scenario_record_len(scenario: &Scenario) -> Option<usize> {
     }
     len = len.checked_add(2)?;
     for unit in &scenario.units {
-        let row = unit.articulated?;
+        let row = unit.combat_spec?;
         len = len.checked_add(4 + row.equipment.iter().flatten().count().checked_mul(2)?)?;
     }
     Some(len)
@@ -829,7 +829,7 @@ fn read_combat_extension(
     reader: &mut ByteReader<'_>,
     codec_version: u16,
     loadouts: &[Loadout],
-) -> Result<Option<(CombatSpecTableV1, Vec<ArticulatedUnitSpecV1>)>, ReplayDecodeError> {
+) -> Result<Option<(CombatSpecTableV1, Vec<UnitSpecV1>)>, ReplayDecodeError> {
     // A version-1 record has no extension section and every model that can carry
     // one needs it, so the model half of this test answered the same way for
     // everything that reached it.
@@ -869,7 +869,7 @@ fn read_combat_extension(
     for _ in 0..equipment_count { equipment.push(read_equipment_spec(reader)?); }
     let unit_count = reader.u16()? as usize;
     if unit_count != loadouts.len() {
-        return Err(ReplayDecodeError::InvalidField(ReplayField::ArticulatedUnitSpec));
+        return Err(ReplayDecodeError::InvalidField(ReplayField::UnitSpec));
     }
     let mut rows = Vec::with_capacity(unit_count);
     for _ in 0..unit_count {
@@ -880,12 +880,12 @@ fn read_combat_extension(
                 0 => None,
                 1 => Some(reader.u16()?),
                 value => return Err(ReplayDecodeError::UnknownDiscriminant {
-                    field: ReplayField::ArticulatedUnitSpec,
+                    field: ReplayField::UnitSpec,
                     value: value as u32,
                 }),
             };
         }
-        rows.push(ArticulatedUnitSpecV1 { anatomy, equipment: carried });
+        rows.push(UnitSpecV1 { anatomy, equipment: carried });
     }
     let table = CombatSpecTableV1 { anatomies, equipment };
     crate::combat::spec::validate_rows(&table, &rows, loadouts)
@@ -925,14 +925,14 @@ fn scan_combat_extension(
         if previous.map_or(false, |id| row.id <= id) { return Err(ReplayDecodeError::InvalidField(ReplayField::EquipmentSpec)); }
         previous = Some(row.id);
     }
-    if reader.u16()? as usize != unit_count { return Err(ReplayDecodeError::InvalidField(ReplayField::ArticulatedUnitSpec)); }
+    if reader.u16()? as usize != unit_count { return Err(ReplayDecodeError::InvalidField(ReplayField::UnitSpec)); }
     for _ in 0..unit_count {
         reader.u16()?;
         for _ in 0..2 {
             match reader.u8()? {
                 0 => {}
                 1 => { reader.u16()?; }
-                value => return Err(ReplayDecodeError::UnknownDiscriminant { field: ReplayField::ArticulatedUnitSpec, value: value as u32 }),
+                value => return Err(ReplayDecodeError::UnknownDiscriminant { field: ReplayField::UnitSpec, value: value as u32 }),
             }
         }
     }
@@ -1063,7 +1063,7 @@ fn map_combat_decode_error(error: CombatSpecError) -> ReplayDecodeError {
         CombatSpecError::TooManyEquipment => ReplayDecodeError::LimitExceeded(ReplayLimit::EquipmentSpecs),
         CombatSpecError::MissingTable => ReplayDecodeError::MissingCombatSpecs,
         CombatSpecError::UnknownSchema => ReplayDecodeError::UnknownDiscriminant { field: ReplayField::CombatSpecSchema, value: 0 },
-        _ => ReplayDecodeError::InvalidField(ReplayField::ArticulatedUnitSpec),
+        _ => ReplayDecodeError::InvalidField(ReplayField::UnitSpec),
     }
 }
 
@@ -1284,7 +1284,7 @@ fn build_scenario(bytes: &[u8], codec_version: u16) -> Result<Scenario, ReplayDe
             faction,
             stats,
             loadout: Loadout { primary, secondary },
-            articulated: None,
+            combat_spec: None,
             spawn,
         });
     }
@@ -1311,7 +1311,7 @@ fn build_scenario(bytes: &[u8], codec_version: u16) -> Result<Scenario, ReplayDe
     let loadouts = units.iter().map(|unit| unit.loadout).collect::<Vec<_>>();
     let extension = read_combat_extension(&mut reader, codec_version, &loadouts)?;
     if let Some((_, rows)) = &extension {
-        for (unit, row) in units.iter_mut().zip(rows) { unit.articulated = Some(*row); }
+        for (unit, row) in units.iter_mut().zip(rows) { unit.combat_spec = Some(*row); }
     }
     if !reader.is_empty() {
         return Err(ReplayDecodeError::TrailingBytes);
@@ -1386,17 +1386,17 @@ fn read_submitted_command(
     // why `an_embodied_envelope_round_trips_through_its_own_schema` failed as
     // `LimitExceeded(OrderRecords)` rather than as a mismatched field.
     let payload = reader.take(crate::command::EMBODIED_PAYLOAD_BYTES)?;
-    // Its own reader, and not `ArticulatedCommandV1::from_payload_bytes` plus a
+    // Its own reader, and not `CommandCoreV1::from_payload_bytes` plus a
     // wrapper: the wrapper could only supply a neutral plane, which is a silent
     // way of dropping a field a replay is required to reproduce verbatim.
     let payload: &[u8; crate::command::EMBODIED_PAYLOAD_BYTES] =
         payload.try_into().unwrap();
     let command = SubmittedCommand::Embodied(
-        crate::command::EmbodiedCommandV1::from_payload_bytes(payload)
+        crate::command::CommandV1::from_payload_bytes(payload)
             .map_err(payload_decode_error)?);
     // The grip check below is over the shared half.
     let articulated = match command {
-        SubmittedCommand::Embodied(embodied) => embodied.articulated,
+        SubmittedCommand::Embodied(embodied) => embodied.core,
     };
     for grip in articulated.grips {
         if let GripRequest::EquipSlot(slot) = grip {
@@ -1405,7 +1405,7 @@ fn read_submitted_command(
             }
             if let Some(scenario) = scenario {
                 let unit = &scenario.units[entity.index as usize];
-                let valid = match (scenario.combat_specs.as_ref(), unit.articulated) {
+                let valid = match (scenario.combat_specs.as_ref(), unit.combat_spec) {
                     (Some(table), Some(row)) =>
                         crate::combat::spec::grips_valid(table, row, articulated.grips),
                     _ => unit.loadout.holds(slot as usize),
@@ -1419,26 +1419,26 @@ fn read_submitted_command(
     Ok(SubmittedCommandRecord { tick, entity, command })
 }
 
-fn payload_decode_error(error: ArticulatedPayloadError) -> ReplayDecodeError {
+fn payload_decode_error(error: PayloadError) -> ReplayDecodeError {
     match error {
-        ArticulatedPayloadError::UnknownIntent(value) => ReplayDecodeError::UnknownDiscriminant {
+        PayloadError::UnknownIntent(value) => ReplayDecodeError::UnknownDiscriminant {
             field: ReplayField::CommandIntent,
             value: value as u32,
         },
-        ArticulatedPayloadError::UnknownGrip { value, .. } => ReplayDecodeError::UnknownDiscriminant {
+        PayloadError::UnknownGrip { value, .. } => ReplayDecodeError::UnknownDiscriminant {
             field: ReplayField::CommandGrip,
             value: value as u32,
         },
-        ArticulatedPayloadError::NonCanonicalIntent =>
+        PayloadError::NonCanonicalIntent =>
             ReplayDecodeError::NonCanonicalField(ReplayField::CommandIntentTarget),
-        ArticulatedPayloadError::NonCanonicalGrip(_) =>
+        PayloadError::NonCanonicalGrip(_) =>
             ReplayDecodeError::NonCanonicalField(ReplayField::CommandGrip),
-        ArticulatedPayloadError::UnknownRelease { value, .. } => ReplayDecodeError::UnknownDiscriminant {
+        PayloadError::UnknownRelease { value, .. } => ReplayDecodeError::UnknownDiscriminant {
             field: ReplayField::CommandRelease,
             value: value as u32,
         },
-        ArticulatedPayloadError::OutOfRange(_) =>
-            ReplayDecodeError::InvalidField(ReplayField::ArticulatedCommand),
+        PayloadError::OutOfRange(_) =>
+            ReplayDecodeError::InvalidField(ReplayField::CommandPayload),
     }
 }
 
@@ -1608,7 +1608,7 @@ impl<'a> ByteReader<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::combat::contact::MAX_ARTICULATED_ENTITIES;
+    use crate::combat::contact::MAX_ENTITIES;
     use crate::{ActionKind, ArmTarget, CombatHeight};
 
     // **`replay_codec_v1_matches_the_documented_offset_fixture` is gone, and it is
@@ -1640,7 +1640,7 @@ mod tests {
             faction: Faction::Heroes,
             stats: Body::Fighter.base_stats(),
             loadout: Body::Fighter.default_loadout(),
-            articulated: None,
+            combat_spec: None,
             spawn: Vec2::ZERO,
         };
         crate::scenario::equip_fixture_body(&mut hero);
@@ -1707,7 +1707,7 @@ mod tests {
     ///
     /// Two failures live here and the equality above would report either of them
     /// as one mismatch, so they are separated: a reader that reconstructs the
-    /// record through `EmbodiedCommandV1::new` loses the plane while consuming
+    /// record through `CommandV1::new` loses the plane while consuming
     /// the right number of bytes, and a reader that consumes
     /// `ARTICULATED_PAYLOAD_BYTES` desynchronises the stream so that everything
     /// after this record is read from four bytes too early. The stream is one
@@ -1836,7 +1836,7 @@ mod tests {
             reach: Fx::HALF,
             effort: Fx::ONE,
         };
-        let mut command = crate::command::EmbodiedCommandV1::new(ArticulatedCommandV1 {
+        let mut command = crate::command::CommandV1::new(CommandCoreV1 {
             move_dir: Vec2::ZERO,
             body_yaw: Angle::QUARTER,
             intent: Intent::Hold,
@@ -1911,13 +1911,13 @@ mod tests {
             let mut envelope = embodied_envelope();
             let SubmittedCommand::Embodied(mut command) =
                 envelope.replay.submitted_entries[0].command;
-            command.articulated.releases = releases;
+            command.core.releases = releases;
             envelope.replay.submitted_entries[0].command = SubmittedCommand::Embodied(command);
             let bytes = envelope.encode().unwrap();
             let decoded = ReplayEnvelope::decode(&bytes).unwrap();
             let SubmittedCommand::Embodied(back) =
                 decoded.replay.submitted_entries[0].command;
-            assert_eq!(back.articulated.releases, releases, "the replay lost the release verbs");
+            assert_eq!(back.core.releases, releases, "the replay lost the release verbs");
             assert_eq!(back, command, "the replay changed something else too");
         }
     }
@@ -2005,8 +2005,8 @@ mod tests {
             (ext + 410, &[9], ReplayDecodeError::UnknownDiscriminant { field: ReplayField::EquipmentSpec, value: 9 }),
             (ext + 419, &[9], ReplayDecodeError::UnknownDiscriminant { field: ReplayField::EquipmentSpec, value: 9 }),
             (ext + 436, &[9], ReplayDecodeError::UnknownDiscriminant { field: ReplayField::EquipmentSpec, value: 9 }),
-            (ext + 521, &1u16.to_le_bytes(), ReplayDecodeError::InvalidField(ReplayField::ArticulatedUnitSpec)),
-            (ext + 525, &[9], ReplayDecodeError::UnknownDiscriminant { field: ReplayField::ArticulatedUnitSpec, value: 9 }),
+            (ext + 521, &1u16.to_le_bytes(), ReplayDecodeError::InvalidField(ReplayField::UnitSpec)),
+            (ext + 525, &[9], ReplayDecodeError::UnknownDiscriminant { field: ReplayField::UnitSpec, value: 9 }),
         ];
         for (at, replacement, expected) in cases {
             let mut bad = base.clone();
@@ -2020,29 +2020,29 @@ mod tests {
         ] {
             let mut bad = base.clone();
             bad[at..at + 4].copy_from_slice(&raw.to_le_bytes());
-            assert_eq!(decode_error(&bad), ReplayDecodeError::InvalidField(ReplayField::ArticulatedUnitSpec));
+            assert_eq!(decode_error(&bad), ReplayDecodeError::InvalidField(ReplayField::UnitSpec));
         }
         let mut missing = base.clone();
         missing[ext + 523..ext + 525].copy_from_slice(&99u16.to_le_bytes());
-        assert_eq!(decode_error(&missing), ReplayDecodeError::InvalidField(ReplayField::ArticulatedUnitSpec));
+        assert_eq!(decode_error(&missing), ReplayDecodeError::InvalidField(ReplayField::UnitSpec));
         let mut mismatch = base.clone();
         mismatch[ext + 401] = ActionKind::Club.code() as u8;
-        assert_eq!(decode_error(&mismatch), ReplayDecodeError::InvalidField(ReplayField::ArticulatedUnitSpec));
+        assert_eq!(decode_error(&mismatch), ReplayDecodeError::InvalidField(ReplayField::UnitSpec));
         let mut conflict = base.clone();
         conflict[ext + 463] = GripBinding::Right as u8;
-        assert_eq!(decode_error(&conflict), ReplayDecodeError::InvalidField(ReplayField::ArticulatedUnitSpec));
+        assert_eq!(decode_error(&conflict), ReplayDecodeError::InvalidField(ReplayField::UnitSpec));
 
         let mut geometry_shield_both = base.clone();
         geometry_shield_both[ext + 441] = ActionKind::Club.code() as u8;
         geometry_shield_both[ext + 463] = GripBinding::Both as u8;
         assert_eq!(decode_error(&geometry_shield_both),
-            ReplayDecodeError::InvalidField(ReplayField::ArticulatedUnitSpec));
+            ReplayDecodeError::InvalidField(ReplayField::UnitSpec));
 
         let mut two_geometry_shields = embodied_envelope();
         let table = two_geometry_shields.replay.scenario.combat_specs.as_mut().unwrap();
         table.equipment[0].geometry = table.equipment[1].geometry;
         assert_eq!(two_geometry_shields.encode(), Err(ReplayEncodeError::Invalid(
-            ReplayValidationError::InvalidField(ReplayField::ArticulatedUnitSpec),
+            ReplayValidationError::InvalidField(ReplayField::UnitSpec),
         )));
     }
 
@@ -2083,7 +2083,7 @@ mod tests {
             bad[record + 13 + payload_offset..record + 17 + payload_offset]
                 .copy_from_slice(&(Fx::ONE.raw() + 1).to_le_bytes());
             assert_eq!(decode_error(&bad), ReplayDecodeError::InvalidField(
-                ReplayField::ArticulatedCommand,
+                ReplayField::CommandPayload,
             ));
         }
         let mut bad = base.clone();
@@ -2124,12 +2124,12 @@ mod tests {
     /// than twice. This is that step, and the section is gone.
     fn hold(replay: &mut Replay, tick: u32, entity: EntityId) {
         replay.record_submitted(tick, entity, SubmittedCommand::Embodied(
-            crate::command::EmbodiedCommandV1::new(neutral_command())));
+            crate::command::CommandV1::new(neutral_command())));
     }
 
     /// A command every field of which is the quiet value.
-    fn neutral_command() -> ArticulatedCommandV1 {
-        ArticulatedCommandV1 {
+    fn neutral_command() -> CommandCoreV1 {
+        CommandCoreV1 {
             move_dir: Vec2::ZERO,
             body_yaw: Angle::ZERO,
             intent: Intent::Hold,
@@ -2286,7 +2286,7 @@ mod tests {
     /// Every added row carries its own binding on purpose. `try_fingerprint`
     /// runs `validate_construction` before any scenario bound is looked at, so a
     /// roster padded with bare `UnitSpec`s reports
-    /// `InvalidField(ArticulatedUnitSpec)` and proves nothing about the ceiling.
+    /// `InvalidField(UnitSpec)` and proves nothing about the ceiling.
     ///
     /// **It was an articulated roster, and the ceiling followed it here rather
     /// than the other way round.** `scenario_unit_ceiling` asked whether the
@@ -2318,14 +2318,14 @@ mod tests {
 
     #[test]
     fn codec_v2_rejects_unit_row_65_before_unit_allocation() {
-        let full = embodied_envelope_for(unit_roster(MAX_ARTICULATED_ENTITIES));
+        let full = embodied_envelope_for(unit_roster(MAX_ENTITIES));
         let bytes = full.encode().unwrap();
         let decoded = ReplayEnvelope::decode(&bytes).unwrap();
-        assert_eq!(decoded.replay.scenario.units.len(), MAX_ARTICULATED_ENTITIES);
+        assert_eq!(decoded.replay.scenario.units.len(), MAX_ENTITIES);
         assert_eq!(decoded.replay.scenario, full.replay.scenario);
         assert_eq!(decoded.encode().unwrap(), bytes);
 
-        let over = embodied_envelope_for(unit_roster(MAX_ARTICULATED_ENTITIES + 1));
+        let over = embodied_envelope_for(unit_roster(MAX_ENTITIES + 1));
         let expected = ReplayValidationError::LimitExceeded(ReplayLimit::ScenarioUnits);
         assert_eq!(over.encode(), Err(ReplayEncodeError::Invalid(expected)));
         assert_eq!(play_error(&over), ReplayPlayError::Invalid(expected));
@@ -2333,10 +2333,10 @@ mod tests {
         let at = unit_count_at(&full.replay.scenario);
         assert_eq!(
             u32::from_le_bytes(bytes[at..at + 4].try_into().unwrap()),
-            MAX_ARTICULATED_ENTITIES as u32,
+            MAX_ENTITIES as u32,
         );
         let mut row_65 = bytes.clone();
-        put_u32(&mut row_65, at, MAX_ARTICULATED_ENTITIES as u32 + 1);
+        put_u32(&mut row_65, at, MAX_ENTITIES as u32 + 1);
         assert_eq!(
             decode_error(&row_65),
             ReplayDecodeError::LimitExceeded(ReplayLimit::ScenarioUnits),
@@ -2498,7 +2498,7 @@ mod tests {
         let mut command = neutral_command();
         command.intent = Intent::Flee;
         flee.replay.record_submitted(0, EntityId::new(0, 0), SubmittedCommand::Embodied(
-            crate::command::EmbodiedCommandV1::new(command)));
+            crate::command::CommandV1::new(command)));
         let mut bad = flee.encode().unwrap();
         // The record count (4), the record header (tick, index, generation and the
         // grammar tag = 13), then the payload's own intent-target offset (11).

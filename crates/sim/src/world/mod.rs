@@ -13,7 +13,7 @@
 //! the wrong file.
 
 use crate::command::{
-    validate_articulated, ArmTarget, ArticulatedCommandV1, CommandReject, GripRequest,
+    validate_core, ArmTarget, CommandCoreV1, CommandReject, GripRequest,
     Intent, LimbSlot, Objective, Order, ReleaseRequest,
 };
 use crate::action::{ActionKind, ActionSpec};
@@ -22,14 +22,14 @@ use crate::loadout::Loadout;
 use crate::entity::{EntityId, Faction, Body};
 use crate::event::Event;
 use crate::hand::Hand;
-use crate::obs::{ArticulatedObservation, ObservedArm, ObservedOpponent,
+use crate::obs::{Observation, ObservedArm, ObservedOpponent,
                  ObservedOpponentStance, ObservedShield, ObservedStance,
-                 MAX_ARTICULATED_OPPONENTS};
-use crate::pose::{AnimationHint, ArticulatedPose, PosedArm};
+                 MAX_OPPONENTS};
+use crate::pose::{AnimationHint, Pose, PosedArm};
 use crate::rules::{self, Stats, MAX_CONTACTS};
 use crate::scenario::{Scenario, UnitSpec};
 use crate::anatomy::{self, AnatomyState, BodyPart};
-use crate::combat::spec::{ArticulatedUnitSpecV1, BodyAnatomySpec, CombatSpecError,
+use crate::combat::spec::{UnitSpecV1, BodyAnatomySpec, CombatSpecError,
                           CombatSpecTableV1, resolved_equipment, volume_region,
                           BODY_VOLUME_COUNT};
 use crate::combat::actuator::{self, ArmState, BodyYawState, ElbowPlaneState, GripState,
@@ -145,7 +145,7 @@ impl Outcome {
 pub struct World {
     seed: u64,
     combat_specs: Option<CombatSpecTableV1>,
-    combat_units: Vec<ArticulatedUnitSpecV1>,
+    combat_units: Vec<UnitSpecV1>,
     tick: u32,
     /// Which ground exists. A level change is a new [`World`] and not an edit to
     /// this one; the single edit that *is* allowed is a door opening
@@ -216,11 +216,11 @@ pub struct World {
     ///
     /// It carries the articulated *half* of an embodied command too; the
     /// embodied-only half lives in [`World::elbow_plane`]. See
-    /// [`World::submit_embodied_v1`] for why the split happened where it did.
-    articulated_command: Vec<Option<ArticulatedCommandV1>>,
-    articulated_anatomy: Vec<Option<u16>>,
-    articulated_carried: Vec<[Option<u16>; 2]>,
-    articulated_equipment: Vec<[Option<u16>; 2]>,
+    /// [`World::submit`] for why the split happened where it did.
+    command_core: Vec<Option<CommandCoreV1>>,
+    body_anatomy: Vec<Option<u16>>,
+    body_carried: Vec<[Option<u16>; 2]>,
+    body_equipment: Vec<[Option<u16>; 2]>,
     body_yaw: Vec<BodyYawState>,
     /// The legs.
     ///
@@ -300,16 +300,16 @@ pub struct World {
     // them. They are gone; the store below, which is what an
     // `ARTICULATED_PROJECTILE` row publishes from, is the one that has been
     // carrying the arrows.
-    articulated_projectile_alive: Vec<bool>,
-    articulated_projectile_generation: Vec<u32>,
-    articulated_projectile_pos: Vec<Vec3>,
-    articulated_projectile_vel: Vec<Vec3>,
-    articulated_projectile_range: Vec<Fx>,
-    articulated_projectile_radius: Vec<Fx>,
-    articulated_projectile_mass: Vec<Fx>,
-    articulated_projectile_owner: Vec<EntityId>,
-    articulated_projectile_faction: Vec<Faction>,
-    articulated_projectile_free: Vec<u32>,
+    projectile_alive: Vec<bool>,
+    projectile_generation: Vec<u32>,
+    projectile_pos: Vec<Vec3>,
+    projectile_vel: Vec<Vec3>,
+    projectile_range: Vec<Fx>,
+    projectile_radius: Vec<Fx>,
+    projectile_mass: Vec<Fx>,
+    projectile_owner: Vec<EntityId>,
+    projectile_faction: Vec<Faction>,
+    projectile_free: Vec<u32>,
 
     free: Vec<u32>,
     events: Vec<Event>,
@@ -335,7 +335,7 @@ pub struct World {
     // every tick of every fight. Its four readers -- `nav_arm`,
     // `reachable_point`, `nav_goal_point` and `nav_step` -- had no production
     // caller: the two policy adapters that consumed a heading went with the
-    // legacy seam, `ArticulatedObservation` has no navigation column, and
+    // legacy seam, `Observation` has no navigation column, and
     // `crates/web`'s `set_goto`, `set_focus` and `clear_order` exports were
     // already deleted, so nothing left in the repository could ask for a route.
     // It cost a full breadth-first search over the floor, per faction, per tick,
@@ -374,7 +374,7 @@ pub struct World {
 
 #[cfg(test)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub(crate) struct ArticulatedPoseTestView {
+pub(crate) struct PoseTestView {
     pub body_yaw: BodyYawState,
     pub arms: [ArmState; 2],
     pub grips: [GripState; 2],
@@ -710,7 +710,7 @@ struct TickEntry {
     /// Whether the commit wrote that limb's joint pose -- the solve moved the
     /// hand, the entry clamp did, or the group cap zeroed it.
     ///
-    /// Evidence for [`World::articulated_pose`]'s `Recoiling` hint and nothing
+    /// Evidence for [`World::pose`]'s `Recoiling` hint and nothing
     /// else. It is **not** `clamped` above, which is the velocity-envelope
     /// tripwire alone and is close to unreachable in specified play; the
     /// question an animation asks is whether the arm ended the tick somewhere
@@ -869,7 +869,7 @@ fn canonical_grip_pair(
 
 #[cfg(feature = "cartesian-recoil")]
 fn exact_lattice_for_unit(
-    body_mass_raw: i32, table: &CombatSpecTableV1, unit: ArticulatedUnitSpecV1,
+    body_mass_raw: i32, table: &CombatSpecTableV1, unit: UnitSpecV1,
 ) -> Result<ExactLattice, ExactLatticeEnvelope> {
     let choices = [None, Some(0), Some(1)];
     let mut common = [0; 9]; let mut common_len = 0;
@@ -905,7 +905,7 @@ const CONTACT_COORDINATE_LIMIT: Fx = Fx::from_int(256);
 /// in the other reach differently and only the further one bounds anything.
 fn construction_reach(
     table: &CombatSpecTableV1,
-    row: ArticulatedUnitSpecV1,
+    row: UnitSpecV1,
 ) -> Result<(Fx, Fx), ContactCapacityError> {
     let anatomy = table.anatomy(row.anatomy).ok_or(ContactCapacityError::GeometryEnvelope)?;
     let mut held = Fx::ZERO;
@@ -946,7 +946,7 @@ fn check_contact_envelope(
     arena: Vec2,
     spawn: Vec2,
     table: &CombatSpecTableV1,
-    row: ArticulatedUnitSpecV1,
+    row: UnitSpecV1,
 ) -> Result<(), ContactCapacityError> {
     let (horizontal, vertical) = construction_reach(table, row)?;
     let limit = CONTACT_COORDINATE_LIMIT;
@@ -1070,7 +1070,7 @@ pub struct Snapshot {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct ArticulatedProjectileView {
+pub struct ProjectileView {
     pub slot: u32,
     pub generation: u32,
     pub owner: EntityId,
@@ -1213,21 +1213,21 @@ const EPILOGUE: &[Phase] = &[
 /// collapse.
 const EMBODIED_PHASES: &[Phase] = &[
     ("retain contact entry", |w, _| w.retain_contact_entry()),
-    ("apply articulated movement", |w, _| w.apply_articulated_movement()),
+    ("apply articulated movement", |w, _| w.apply_movement()),
     ("record contact locomotion", |w, _| w.record_contact_locomotion()),
     ("separate", |w, _| w.separate()),
     ("stance", |w, _| w.drive_stance()),
-    ("grips", |w, _| w.apply_articulated_grips()),
+    ("grips", |w, _| w.apply_grips()),
     ("arms", |w, r| {
-        w.drive_articulated_arms(r.bearing_max_speed_raw, r.bearing_accel_raw)
+        w.drive_arms(r.bearing_max_speed_raw, r.bearing_accel_raw)
     }),
-    ("geometry", |w, _| w.derive_articulated_geometry()),
-    ("loose projectiles", |w, _| w.loose_articulated_projectiles()),
+    ("geometry", |w, _| w.derive_geometry()),
+    ("loose projectiles", |w, _| w.loose_projectiles()),
     ("contact", |w, _| w.resolve_contact()),
-    ("resolve projectiles", |w, _| w.resolve_articulated_projectiles()),
+    ("resolve projectiles", |w, _| w.resolve_projectiles()),
     ("anatomy", |w, _| w.settle_anatomy()),
     ("doors", |w, _| w.press_doors()),
-    ("reap", |w, _| w.reap_dead_articulated()),
+    ("reap", |w, _| w.reap_dead_bodies()),
 ];
 
 impl World {
@@ -1253,7 +1253,7 @@ impl World {
             .ok_or(WorldBuildError::CombatSpec(CombatSpecError::MissingTable))?;
         let arena = scenario.arena();
         for unit in &scenario.units {
-            let row = unit.articulated
+            let row = unit.combat_spec
                 .ok_or(WorldBuildError::CombatSpec(CombatSpecError::UnitPresence))?;
             check_contact_envelope(arena, unit.spawn, table, row)
                 .map_err(WorldBuildError::Contact)?;
@@ -1265,7 +1265,7 @@ impl World {
         let mut world = World {
             seed,
             combat_specs: scenario.combat_specs.clone(),
-            combat_units: scenario.units.iter().filter_map(|unit| unit.articulated).collect(),
+            combat_units: scenario.units.iter().filter_map(|unit| unit.combat_spec).collect(),
             tick: 0,
             arena: scenario.arena(),
             dungeon: scenario.dungeon.clone(),
@@ -1286,10 +1286,10 @@ impl World {
             loadout: Vec::with_capacity(n),
             slot: Vec::with_capacity(n),
             next_decision: Vec::with_capacity(n),
-            articulated_command: Vec::with_capacity(n),
-            articulated_anatomy: Vec::with_capacity(n),
-            articulated_carried: Vec::with_capacity(n),
-            articulated_equipment: Vec::with_capacity(n),
+            command_core: Vec::with_capacity(n),
+            body_anatomy: Vec::with_capacity(n),
+            body_carried: Vec::with_capacity(n),
+            body_equipment: Vec::with_capacity(n),
             body_yaw: Vec::with_capacity(n),
             stance: Vec::with_capacity(n),
             elbow_plane: Vec::with_capacity(n),
@@ -1315,16 +1315,16 @@ impl World {
             last_combat: Vec::with_capacity(n),
             regen_left: Vec::with_capacity(n),
             damage_dealt: Vec::with_capacity(n),
-            articulated_projectile_alive: Vec::with_capacity(rules::MAX_SHOTS),
-            articulated_projectile_generation: Vec::with_capacity(rules::MAX_SHOTS),
-            articulated_projectile_pos: Vec::with_capacity(rules::MAX_SHOTS),
-            articulated_projectile_vel: Vec::with_capacity(rules::MAX_SHOTS),
-            articulated_projectile_range: Vec::with_capacity(rules::MAX_SHOTS),
-            articulated_projectile_radius: Vec::with_capacity(rules::MAX_SHOTS),
-            articulated_projectile_mass: Vec::with_capacity(rules::MAX_SHOTS),
-            articulated_projectile_owner: Vec::with_capacity(rules::MAX_SHOTS),
-            articulated_projectile_faction: Vec::with_capacity(rules::MAX_SHOTS),
-            articulated_projectile_free: Vec::with_capacity(rules::MAX_SHOTS),
+            projectile_alive: Vec::with_capacity(rules::MAX_SHOTS),
+            projectile_generation: Vec::with_capacity(rules::MAX_SHOTS),
+            projectile_pos: Vec::with_capacity(rules::MAX_SHOTS),
+            projectile_vel: Vec::with_capacity(rules::MAX_SHOTS),
+            projectile_range: Vec::with_capacity(rules::MAX_SHOTS),
+            projectile_radius: Vec::with_capacity(rules::MAX_SHOTS),
+            projectile_mass: Vec::with_capacity(rules::MAX_SHOTS),
+            projectile_owner: Vec::with_capacity(rules::MAX_SHOTS),
+            projectile_faction: Vec::with_capacity(rules::MAX_SHOTS),
+            projectile_free: Vec::with_capacity(rules::MAX_SHOTS),
             free: Vec::new(),
             events: Vec::new(),
             pending: Vec::with_capacity(n),
@@ -1376,7 +1376,7 @@ impl World {
         let mut exact_scale = 0i128;
         {
             {
-                let row = spec.articulated
+                let row = spec.combat_spec
                     .ok_or(SpawnError::CombatSpec(CombatSpecError::UnitPresence))?;
                 let table = self.combat_specs.as_ref()
                     .ok_or(SpawnError::CombatSpec(CombatSpecError::MissingTable))?;
@@ -1470,10 +1470,10 @@ impl World {
                 self.loadout.push(Loadout::single(ActionKind::Punch));
                 self.slot.push(0);
                 self.next_decision.push(0);
-                self.articulated_command.push(None);
-                self.articulated_anatomy.push(None);
-                self.articulated_carried.push([None; 2]);
-                self.articulated_equipment.push([None; 2]);
+                self.command_core.push(None);
+                self.body_anatomy.push(None);
+                self.body_carried.push([None; 2]);
+                self.body_equipment.push([None; 2]);
                 // Three nested model guards stood here -- articulated columns,
                 // then legs, then the elbow plane -- and every one of them now
                 // answers the same way for every world that can be built. They
@@ -1528,14 +1528,14 @@ impl World {
         self.radius[i] = spec.kind.radius();
         self.mass[i] = spec.kind.mass();
         self.next_decision[i] = self.tick;
-        self.articulated_command[i] = None;
-        self.articulated_anatomy[i] = spec.articulated.map(|row| row.anatomy);
-        self.articulated_carried[i] = spec.articulated.map_or([None; 2], |row| row.equipment);
-        self.articulated_equipment[i] = match (self.combat_specs.as_ref(), spec.articulated) {
+        self.command_core[i] = None;
+        self.body_anatomy[i] = spec.combat_spec.map(|row| row.anatomy);
+        self.body_carried[i] = spec.combat_spec.map_or([None; 2], |row| row.equipment);
+        self.body_equipment[i] = match (self.combat_specs.as_ref(), spec.combat_spec) {
             (Some(table), Some(row)) => resolved_equipment(table, row).expect("validated combat construction"),
             _ => [None; 2],
         };
-        self.initialize_articulated_pose(i);
+        self.initialize_pose(i);
         #[cfg(feature = "cartesian-recoil")]
         {
             self.exact_owners[i] = Some(self.initial_exact_owner(i, exact_scale));
@@ -1554,7 +1554,7 @@ impl World {
     /// **Ordered movement is not implemented for the surviving model, and this
     /// is the door that says so.** The order lands in `World::orders`, it is
     /// hashed as an input, and it is recorded in a replay -- and then nothing
-    /// consumes it. Two things used to: the legacy `Observation` carried
+    /// consumes it. Two things used to: the legacy observation carried
     /// `nav_dir` and `nav_distance`, and `World::refresh_nav` built the flow
     /// field those two were read off. The observation went with
     /// `CombatModel::Legacy`; the flow field went in this session, because it
@@ -1564,7 +1564,7 @@ impl World {
     /// So this is an input the simulation carries and no body can perceive, and
     /// it is a capability loss rather than a tidy-up. Giving it a reader again
     /// takes three things, in this order: a navigation column on
-    /// [`ArticulatedObservation`] (which is a mechanic -- somebody has to decide
+    /// [`Observation`] (which is a mechanic -- somebody has to decide
     /// what a jointed body *knows* about a route it has not walked); a route
     /// source to fill it, which means restoring a flow field or replacing it
     /// with something that answers the same question; and a policy that steers
@@ -1700,7 +1700,7 @@ impl World {
     /// happens once on the way in -- the same shape as the pose module's
     /// world-space conversion on the way out, and for the same reason. The
     /// retired model read the bearing absolutely and took neither branch;
-    /// [`crate::EmbodiedCommandV1`] carries what that choice cost and bought.
+    /// [`crate::CommandV1`] carries what that choice cost and bought.
     fn world_arm_target(&self, i: usize, limb: usize, target: ArmTarget) -> ArmTarget {
         let turned = ArmTarget {
             bearing: self.body_yaw[i].angle + target.bearing,
@@ -1768,7 +1768,7 @@ impl World {
     ///
     /// **The column is split, and this is the session that split it.** The doc
     /// comment that stood here predicted the shape of the day exactly: the six
-    /// articulated fields still go into [`World::articulated_command`], because
+    /// articulated fields still go into [`World::command_core`], because
     /// they are the same six fields the same phases read and a second copy of
     /// them would be a second thing to keep in step; the swing plane -- the first
     /// field an embodied command carries that an articulated one has no offsets
@@ -1780,20 +1780,20 @@ impl World {
     /// Only `commanded` is written here. `held` is the actuator's, chased toward
     /// this at a bounded rate in the arms phase, so a submission is a request and
     /// never a teleport.
-    pub fn submit_embodied_v1(
+    pub fn submit(
         &mut self,
         id: EntityId,
-        command: crate::EmbodiedCommandV1,
-    ) -> crate::SubmitEmbodiedOutcome {
-        use crate::{EmbodiedCommandV1, SubmitEmbodiedOutcome};
+        command: crate::CommandV1,
+    ) -> crate::SubmitOutcome {
+        use crate::{CommandV1, SubmitOutcome};
         let i = match self.resolve(id) {
             Some(i) => i,
-            None => return SubmitEmbodiedOutcome::NotStored(CommandReject::StaleEntity),
+            None => return SubmitOutcome::NotStored(CommandReject::StaleEntity),
         };
-        let rejection = validate_articulated(command.articulated)
+        let rejection = validate_core(command.core)
             .err()
             .map(CommandReject::OutOfRange)
-            .or_else(|| self.resulting_grips(i, command.articulated.grips).err());
+            .or_else(|| self.resulting_grips(i, command.core.grips).err());
         let stored = match rejection {
             // `new` gives the neutral plane, which is `Angle::ZERO` -- the plane
             // `elbow_point` already defaults to. So a refusal parks the elbow
@@ -1802,36 +1802,36 @@ impl World {
             // field of a rejected request survives, and none of the substitute
             // moves the body either.
             None => command,
-            Some(_) => EmbodiedCommandV1::new(self.neutral_articulated(i)),
+            Some(_) => CommandV1::new(self.neutral_core(i)),
         };
-        self.articulated_command[i] = Some(stored.articulated);
+        self.command_core[i] = Some(stored.core);
         self.write_commanded_plane(i, stored.swing_plane);
         self.next_decision[i] = self.tick + self.stats[i].decision_period() as u32;
-        SubmitEmbodiedOutcome::Stored { command: stored, rejection }
+        SubmitOutcome::Stored { command: stored, rejection }
     }
 
     /// Byte-boundary companion for a payload whose raw range validation failed
-    /// before an `EmbodiedCommandV1` could be constructed.
-    pub fn submit_embodied_fallback_v1(
+    /// before an `CommandV1` could be constructed.
+    pub fn submit_fallback(
         &mut self,
         id: EntityId,
         field: crate::CommandField,
-    ) -> crate::SubmitEmbodiedOutcome {
-        use crate::{EmbodiedCommandV1, SubmitEmbodiedOutcome};
+    ) -> crate::SubmitOutcome {
+        use crate::{CommandV1, SubmitOutcome};
         let i = match self.resolve(id) {
             Some(i) => i,
-            None => return SubmitEmbodiedOutcome::NotStored(CommandReject::StaleEntity),
+            None => return SubmitOutcome::NotStored(CommandReject::StaleEntity),
         };
         let rejection = CommandReject::OutOfRange(field);
-        let stored = EmbodiedCommandV1::new(self.neutral_articulated(i));
-        self.articulated_command[i] = Some(stored.articulated);
+        let stored = CommandV1::new(self.neutral_core(i));
+        self.command_core[i] = Some(stored.core);
         // The neutral plane too, and through the same writer: a fallback that
         // wrote the articulated half and left the plane alone would let a
         // refused command's *previous* plane keep steering the elbow, which is
         // exactly the partial acceptance this path exists to prevent.
         self.write_commanded_plane(i, stored.swing_plane);
         self.next_decision[i] = self.tick + self.stats[i].decision_period() as u32;
-        SubmitEmbodiedOutcome::Stored { command: stored, rejection: Some(rejection) }
+        SubmitOutcome::Stored { command: stored, rejection: Some(rejection) }
     }
 
     // ---------------------------------------------------------------- internals
@@ -1856,11 +1856,11 @@ impl World {
     /// the yaw back on the way in, so storing `body_yaw` in the bearing asked a
     /// neutral arm for twice it. It was inert, because a neutral command carries
     /// zero effort and the actuator moves nothing without authority, and it was
-    /// not invisible: `articulated_targets` publishes the pose this command
+    /// not invisible: `commanded_targets` publishes the pose this command
     /// names, and a slot nobody had commanded published a target hand a whole
     /// turn off. The retired absolute frame is where the yaw belonged, and it
     /// went with the frame.
-    fn neutral_articulated(&self, i: usize) -> ArticulatedCommandV1 {
+    fn neutral_core(&self, i: usize) -> CommandCoreV1 {
         let yaw = self.body_yaw[i].angle;
         let arm = ArmTarget {
             bearing: Angle::ZERO,
@@ -1868,7 +1868,7 @@ impl World {
             reach: Fx::ZERO,
             effort: Fx::ZERO,
         };
-        ArticulatedCommandV1 {
+        CommandCoreV1 {
             move_dir: Vec2::ZERO,
             // The torso's own world yaw -- a torso measured relative to itself
             // would say nothing -- so this one keeps the yaw where the arm
@@ -1892,7 +1892,7 @@ impl World {
     /// produce, and [`World::health_of`]'s standing `debug_assert!` is what
     /// says so.
     fn anatomy_spec(&self, i: usize) -> Option<&BodyAnatomySpec> {
-        self.combat_specs.as_ref()?.anatomy((*self.articulated_anatomy.get(i)?)?)
+        self.combat_specs.as_ref()?.anatomy((*self.body_anatomy.get(i)?)?)
     }
 
     /// The same row, by handle, for a host that keeps its own copy.
@@ -1968,7 +1968,7 @@ impl World {
 
     fn equipment_in_grip(&self, i: usize, limb: usize) -> Option<crate::EquipmentSpec> {
         let slot = self.grips[i][limb].equipment_slot?;
-        let id = self.articulated_carried[i].get(slot as usize).copied().flatten()?;
+        let id = self.body_carried[i].get(slot as usize).copied().flatten()?;
         self.combat_specs.as_ref()?.equipment(id).copied()
     }
 
@@ -2104,7 +2104,7 @@ mod tests {
         world.elbow_plane[2] =
             [ElbowPlaneState { commanded: Angle::QUARTER, held: Angle::QUARTER }; 2];
         world.wounds[2].blood = Fx::ZERO;
-        world.reap_dead_articulated();
+        world.reap_dead_bodies();
         let replacement = world.spawn(&scenario.units[1]);
         assert_eq!(replacement, EntityId::new(2, 1));
         assert_lengths(&world, 3);
@@ -2128,8 +2128,8 @@ mod tests {
                            (false, Vec3::ZERO), "fresh Cartesian recoil was not canonical");
             }
         }
-        assert_eq!(world.articulated_pose_test_view(replacement).unwrap(),
-            fresh.articulated_pose_test_view(EntityId::new(1, 0)).unwrap());
+        assert_eq!(world.pose_test_view(replacement).unwrap(),
+            fresh.pose_test_view(EntityId::new(1, 0)).unwrap());
     }
 
     #[test]
@@ -2137,8 +2137,8 @@ mod tests {
         let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let fighter = EntityId::new(0, 0);
-        let construction = (world.kind[0], world.loadout[0], world.articulated_anatomy[0],
-            world.articulated_carried[0], world.articulated_equipment[0], world.grips[0]);
+        let construction = (world.kind[0], world.loadout[0], world.body_anatomy[0],
+            world.body_carried[0], world.body_equipment[0], world.grips[0]);
         // **Two of the three refusals this checked are now absences.**
         // `World::set_body` and `World::set_loadout` returned `false` on a world
         // with articulated columns, because a jointed body's kit and frame are
@@ -2153,8 +2153,8 @@ mod tests {
         assert!(world.set_stats(fighter, changed_stats));
         assert_eq!(world.stats[0], changed_stats);
         assert_ne!(world.state_digest().value, before);
-        assert_eq!((world.kind[0], world.loadout[0], world.articulated_anatomy[0],
-            world.articulated_carried[0], world.articulated_equipment[0], world.grips[0]), construction);
+        assert_eq!((world.kind[0], world.loadout[0], world.body_anatomy[0],
+            world.body_carried[0], world.body_equipment[0], world.grips[0]), construction);
     }
 
     #[test]
@@ -2162,15 +2162,15 @@ mod tests {
         let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let fighter = EntityId::new(0, 0);
-        let mut command = articulated_command();
+        let mut command = command_core();
         command.body_yaw = Angle::QUARTER;
-        let _ = world.submit_embodied_v1(fighter, crate::EmbodiedCommandV1::new(command));
+        let _ = world.submit(fighter, crate::CommandV1::new(command));
         world.step();
         assert_eq!(world.facing[0], Angle::ZERO);
         assert_eq!(world.body_yaw[0].angle, Angle::from_raw(91));
-        let outcome = world.submit_embodied_fallback_v1(fighter, crate::CommandField::LeftReach);
+        let outcome = world.submit_fallback(fighter, crate::CommandField::LeftReach);
         let stored = match outcome {
-            crate::SubmitEmbodiedOutcome::Stored {
+            crate::SubmitOutcome::Stored {
                 command, rejection: Some(CommandReject::OutOfRange(_)),
             } => command,
             other => panic!("unexpected fallback outcome: {other:?}"),
@@ -2178,14 +2178,14 @@ mod tests {
         // The divergence is the whole test: `facing` is still zero and the
         // authoritative yaw is not, so a fallback reading the wrong column
         // stores the wrong number rather than nothing.
-        assert_eq!(stored.articulated.body_yaw, Angle::from_raw(91));
+        assert_eq!(stored.core.body_yaw, Angle::from_raw(91));
         // **The arms read zero and that is the same claim, not a weaker one.**
         // An embodied bearing is measured from the torso, so "ahead" is the
         // offset zero; `World::world_arm_target` adds the body yaw back on the
         // way in, and storing the yaw here would ask a neutral arm for twice it.
-        // `World::neutral_articulated` records that correction in full.
-        assert_eq!(stored.articulated.arms[0].bearing, Angle::ZERO);
-        assert_eq!(stored.articulated.arms[1].bearing, Angle::ZERO);
+        // `World::neutral_core` records that correction in full.
+        assert_eq!(stored.core.arms[0].bearing, Angle::ZERO);
+        assert_eq!(stored.core.arms[1].bearing, Angle::ZERO);
         // And the plane the fallback substitutes is the neutral one rather than
         // whatever the refused command's predecessor left behind.
         assert_eq!(stored.swing_plane, [Angle::ZERO; 2]);
@@ -2223,7 +2223,7 @@ mod tests {
         );
         // One collider and one segment: the left arm carries neither, exactly
         // as the geometry phase's `Both` skip promises.
-        let carried = scenario.units[1].articulated.expect("an articulated row").equipment;
+        let carried = scenario.units[1].combat_spec.expect("an articulated row").equipment;
         let colliders = geometry::held_segment_colliders(
             Vec3::ZERO, Vec3::ZERO, world.arms[1], world.arms[1], world.grips[1], carried,
             |id| table.equipment(id).copied(),
@@ -2239,9 +2239,9 @@ mod tests {
         let scenario = Scenario::embodied_duel();
         let table = scenario.combat_specs.as_ref().unwrap();
         let hero = exact_lattice_for_unit(scenario.units[0].kind.mass().raw(), table,
-            scenario.units[0].articulated.unwrap()).unwrap();
+            scenario.units[0].combat_spec.unwrap()).unwrap();
         let brute = exact_lattice_for_unit(scenario.units[1].kind.mass().raw(), table,
-            scenario.units[1].articulated.unwrap()).unwrap();
+            scenario.units[1].combat_spec.unwrap()).unwrap();
         assert_eq!((hero.common_scale, hero.endpoint_denominator_bits),
                    (1_283_938_665_662_054_400, 92));
         assert_eq!((brute.common_scale, brute.endpoint_denominator_bits),
@@ -2274,7 +2274,7 @@ mod tests {
         table.equipment.push(left); table.equipment.push(right);
         let mut world = World::try_new(&scenario, 1).unwrap();
         let mut spec = scenario.units[0].clone();
-        spec.articulated.as_mut().unwrap().equipment = [Some(left.id), Some(right.id)];
+        spec.combat_spec.as_mut().unwrap().equipment = [Some(left.id), Some(right.id)];
         spec.loadout = Loadout::pair(left.action, right.action);
         let before_capacities = world.contact_capacities();
         let before = world.clone();
@@ -2291,7 +2291,7 @@ mod tests {
     #[test]
     fn contact_runtime_clone_rereserves_empty_exact_work_before_early_return() {
         let mut runtime = ContactRuntime::default();
-        runtime.reserve(crate::combat::contact::MAX_ARTICULATED_ENTITIES).unwrap();
+        runtime.reserve(crate::combat::contact::MAX_ENTITIES).unwrap();
         let source_caps = (runtime.exact_owner_entry.capacity(),
             runtime.exact_trajectory_entry.capacity(), runtime.exact_owners.capacity(),
             runtime.exact_trajectories.capacity(), runtime.scratch.capacities());
@@ -2308,20 +2308,20 @@ mod tests {
         let mut world = World::new(&scenario, 1);
         let fighter = EntityId::new(0, 0);
         let initial = world.grips[0];
-        let mut invalid = world.neutral_articulated(0);
+        let mut invalid = world.neutral_core(0);
         invalid.grips = [GripRequest::Release, GripRequest::EquipSlot(1)];
-        assert!(matches!(world.submit_embodied_v1(fighter, crate::EmbodiedCommandV1::new(invalid)),
-            crate::SubmitEmbodiedOutcome::Stored { command, rejection: Some(CommandReject::MissingEquipment { .. }) }
-                if command.articulated.grips == [GripRequest::Keep; 2]));
+        assert!(matches!(world.submit(fighter, crate::CommandV1::new(invalid)),
+            crate::SubmitOutcome::Stored { command, rejection: Some(CommandReject::MissingEquipment { .. }) }
+                if command.core.grips == [GripRequest::Keep; 2]));
         assert_eq!(world.grips[0], initial, "submission changed one arm before the step");
         world.step();
         assert_eq!(world.grips[0], initial, "fallback did not preserve the complete pair");
 
-        let mut release = world.neutral_articulated(0);
+        let mut release = world.neutral_core(0);
         release.grips = [GripRequest::Release; 2];
         assert!(matches!(
-            world.submit_embodied_v1(fighter, crate::EmbodiedCommandV1::new(release)),
-            crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }),
+            world.submit(fighter, crate::CommandV1::new(release)),
+            crate::SubmitOutcome::Stored { rejection: None, .. }),
             "the release transaction was refused, so the step below proves nothing");
         assert_eq!(world.grips[0], initial, "accepted transaction applied before step");
         world.step();
@@ -2336,7 +2336,7 @@ mod tests {
         shield.action = ActionKind::Club;
         shield.binding = crate::GripBinding::Both;
         scenario.combat_specs.as_mut().unwrap().equipment.push(shield);
-        scenario.units[1].articulated.as_mut().unwrap().equipment = [Some(4), None];
+        scenario.units[1].combat_spec.as_mut().unwrap().equipment = [Some(4), None];
         assert_eq!(crate::combat::spec::validate_construction(
             scenario.combat_specs.as_ref(), &scenario.units,
         ), Err(crate::CombatSpecError::GripConflict));
@@ -2350,7 +2350,7 @@ mod tests {
         right.action = ActionKind::Club;
         right.binding = crate::GripBinding::Right;
         scenario.combat_specs.as_mut().unwrap().equipment.extend([left, right]);
-        scenario.units[0].articulated.as_mut().unwrap().equipment = [Some(4), Some(5)];
+        scenario.units[0].combat_spec.as_mut().unwrap().equipment = [Some(4), Some(5)];
         scenario.units[0].loadout = Loadout::pair(ActionKind::Sword, ActionKind::Club);
         assert_eq!(crate::combat::spec::validate_construction(
             scenario.combat_specs.as_ref(), &scenario.units,
@@ -2374,14 +2374,14 @@ mod tests {
         world.wounds[1].blood -= Fx::TWO;
         let wounds = world.wounds.clone();
         let limbs = world.limb.clone();
-        let mut command = world.neutral_articulated(0);
+        let mut command = world.neutral_core(0);
         command.arms[0] = ArmTarget { bearing: Angle::HALF, height: crate::CombatHeight::HIGH,
             reach: Fx::ONE, effort: Fx::ONE };
         command.arms[1] = command.arms[0];
         for id in [fighter, brute] {
             assert!(matches!(
-                world.submit_embodied_v1(id, crate::EmbodiedCommandV1::new(command)),
-                crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }),
+                world.submit(id, crate::CommandV1::new(command)),
+                crate::SubmitOutcome::Stored { rejection: None, .. }),
                 "a refused command would leave both bodies standing still");
         }
         for _ in 0..180 {
@@ -2390,7 +2390,7 @@ mod tests {
         assert_eq!(world.wounds, wounds);
         assert_eq!(world.alive, [true, true]);
         assert_eq!(world.limb, limbs);
-        assert!(world.articulated_projectile_alive.is_empty());
+        assert!(world.projectile_alive.is_empty());
     }
 
     // The literal below gained `prop swings`, `loose projectiles` and
@@ -2439,7 +2439,7 @@ mod tests {
     fn stanced(yaw: Angle, move_dir: Vec2, ticks: u32) -> World {
         let mut world = World::new(&Scenario::embodied_duel(), 1);
         let id = world.alive_ids(Faction::Heroes)[0];
-        let command = ArticulatedCommandV1 {
+        let command = CommandCoreV1 {
             move_dir,
             body_yaw: yaw,
             intent: Intent::Hold,
@@ -2453,7 +2453,7 @@ mod tests {
             releases: [ReleaseRequest::Keep; 2],
         };
         for _ in 0..ticks {
-            world.submit_embodied_v1(id, crate::EmbodiedCommandV1::new(command));
+            world.submit(id, crate::CommandV1::new(command));
             world.step();
         }
         world
@@ -2575,7 +2575,7 @@ mod tests {
             // body-forward at a yaw of `eighth` *is* `eighth` in world space.
             world.body_yaw[0].angle = eighth;
             world.stance[0] = StanceState::squared(Angle::ZERO);
-            let command = ArticulatedCommandV1 {
+            let command = CommandCoreV1 {
                 move_dir,
                 body_yaw: eighth,
                 intent: Intent::Hold,
@@ -2589,7 +2589,7 @@ mod tests {
                 releases: [ReleaseRequest::Keep; 2],
             };
             for _ in 0..8 {
-                world.submit_embodied_v1(id, crate::EmbodiedCommandV1::new(command));
+                world.submit(id, crate::CommandV1::new(command));
                 world.step();
             }
             world.stance[0].hip_yaw.delta(Angle::ZERO).abs()
@@ -2613,7 +2613,7 @@ mod tests {
         let wound = stanced(Angle::HALF, Vec2::ZERO, 3);
         assert!(wound.stance[0].pelvis < base, "twist did not lower the pelvis");
 
-        // Never commanded: no field of `EmbodiedCommandV1` names it, and the
+        // Never commanded: no field of `CommandV1` names it, and the
         // proof is that two commands differing in every field a policy *can*
         // set leave the same pelvis when speed and twist agree.
         assert_eq!(still.stance[1].pelvis, base);
@@ -2817,7 +2817,7 @@ mod tests {
         };
         let mut world = World::new(&Scenario::embodied_duel(), 1);
         let id = world.alive_ids(Faction::Heroes)[0];
-        let command = crate::EmbodiedCommandV1::new(ArticulatedCommandV1 {
+        let command = crate::CommandV1::new(CommandCoreV1 {
             move_dir: Vec2::ZERO,
             body_yaw: Angle::QUARTER,
             intent: Intent::Hold,
@@ -2826,8 +2826,8 @@ mod tests {
             releases: [ReleaseRequest::Keep; 2],
         });
         for _ in 0..400 {
-            assert!(matches!(world.submit_embodied_v1(id, command),
-                crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }),
+            assert!(matches!(world.submit(id, command),
+                crate::SubmitOutcome::Stored { rejection: None, .. }),
                 "a refused command would leave the body facing where it started");
             world.step();
         }
@@ -2847,7 +2847,7 @@ mod tests {
     fn the_shield_normal_still_follows_the_arm_that_carries_it() {
         let mut world = World::new(&Scenario::embodied_duel(), 1);
         let id = world.alive_ids(Faction::Heroes)[0];
-        let command = crate::EmbodiedCommandV1::new(ArticulatedCommandV1 {
+        let command = crate::CommandV1::new(CommandCoreV1 {
             move_dir: Vec2::ZERO,
             body_yaw: Angle::QUARTER,
             intent: Intent::Hold,
@@ -2861,8 +2861,8 @@ mod tests {
             releases: [ReleaseRequest::Keep; 2],
         });
         for _ in 0..120 {
-            assert!(matches!(world.submit_embodied_v1(id, command),
-                crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }));
+            assert!(matches!(world.submit(id, command),
+                crate::SubmitOutcome::Stored { rejection: None, .. }));
             world.step();
         }
         // `expect` rather than the `else { continue }` this had while it looped
@@ -2913,12 +2913,12 @@ mod tests {
         world.arms[0][1].post_contact_com_velocity = Vec3::new(
             Fx::from_raw(2), Fx::from_raw(-1), Fx::from_raw(3));
         let before = world.arms[0]; let grips = world.grips[0];
-        let mut invalid = world.neutral_articulated(0);
+        let mut invalid = world.neutral_core(0);
         invalid.grips = [GripRequest::Release, GripRequest::EquipSlot(1)];
         assert!(matches!(
-            world.submit_embodied_v1(world.id_of(0), crate::EmbodiedCommandV1::new(invalid)),
-            crate::SubmitEmbodiedOutcome::Stored { rejection: Some(_), .. }));
-        world.apply_articulated_grips();
+            world.submit(world.id_of(0), crate::CommandV1::new(invalid)),
+            crate::SubmitOutcome::Stored { rejection: Some(_), .. }));
+        world.apply_grips();
         assert_eq!((world.arms[0], world.grips[0]), (before, grips));
     }
 
@@ -2953,10 +2953,10 @@ mod tests {
         let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let row = scenario.units[1];
-        for _ in world.alive.len()..crate::MAX_ARTICULATED_ENTITIES {
+        for _ in world.alive.len()..crate::MAX_ENTITIES {
             world.try_spawn(&row).expect("a row inside the ceiling");
         }
-        assert_eq!(world.alive.len(), crate::MAX_ARTICULATED_ENTITIES);
+        assert_eq!(world.alive.len(), crate::MAX_ENTITIES);
 
         let digest = world.state_digest().value;
         let capacities = world.contact_capacities();
@@ -2967,7 +2967,7 @@ mod tests {
         // reservation sequence is not atomic and the contract says so -- but
         // here the refusal happens before any reserve, so it did not move
         // either.
-        assert_eq!(world.alive.len(), crate::MAX_ARTICULATED_ENTITIES);
+        assert_eq!(world.alive.len(), crate::MAX_ENTITIES);
         assert_eq!(world.state_digest().value, digest);
         assert_eq!(world.contact_capacities(), capacities);
         assert_eq!(world.contact_resolutions().len(), resolutions);
@@ -3016,8 +3016,8 @@ mod tests {
         let mut world = World::new(&scenario, 1);
         let before = world.state_digest().value;
         assert_eq!(
-            world.submit_embodied_v1(EntityId::new(0, 9), embodied_command()),
-            crate::SubmitEmbodiedOutcome::NotStored(CommandReject::StaleEntity)
+            world.submit(EntityId::new(0, 9), embodied_command()),
+            crate::SubmitOutcome::NotStored(CommandReject::StaleEntity)
         );
         assert_eq!(world.state_digest().value, before);
 
@@ -3025,8 +3025,8 @@ mod tests {
         // path that refused *everything* would also satisfy -- which is the
         // exact failure this session's reseats are guarding against.
         assert!(matches!(
-            world.submit_embodied_v1(EntityId::new(0, 0), embodied_command()),
-            crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }
+            world.submit(EntityId::new(0, 0), embodied_command()),
+            crate::SubmitOutcome::Stored { rejection: None, .. }
         ));
         assert_ne!(world.state_digest().value, before);
     }
@@ -3036,12 +3036,12 @@ mod tests {
         let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let hero = EntityId::new(0, 0);
-        let mut bad = articulated_command();
+        let mut bad = command_core();
         bad.arms[0].reach = Fx::from_raw(Fx::ONE.raw() + 1);
-        match world.submit_embodied_v1(hero, crate::EmbodiedCommandV1::new(bad)) {
-            crate::SubmitEmbodiedOutcome::Stored { command, rejection } => {
+        match world.submit(hero, crate::CommandV1::new(bad)) {
+            crate::SubmitOutcome::Stored { command, rejection } => {
                 assert_eq!(rejection, Some(CommandReject::OutOfRange(crate::CommandField::LeftReach)));
-                assert_eq!(command.articulated, world.neutral_articulated(0));
+                assert_eq!(command.core, world.neutral_core(0));
                 // The plane is part of "the whole command": a substitute that
                 // kept the refused request's plane would be a partial accept.
                 assert_eq!(command.swing_plane, [Angle::ZERO; 2]);
@@ -3049,27 +3049,27 @@ mod tests {
             other => panic!("invalid live command was not replaced: {other:?}"),
         }
 
-        let mut equip = articulated_command();
+        let mut equip = command_core();
         equip.grips = [GripRequest::EquipSlot(1), GripRequest::Keep];
         assert!(matches!(
-            world.submit_embodied_v1(hero, crate::EmbodiedCommandV1::new(equip)),
-            crate::SubmitEmbodiedOutcome::Stored { command, rejection: None }
-                if command.articulated == equip
+            world.submit(hero, crate::CommandV1::new(equip)),
+            crate::SubmitOutcome::Stored { command, rejection: None }
+                if command.core == equip
         ));
 
-        let mut twice_bad = articulated_command();
+        let mut twice_bad = command_core();
         twice_bad.move_dir.x = Fx::from_raw(Fx::ONE.raw() + 1);
         twice_bad.arms[0].reach = Fx::from_raw(Fx::ONE.raw() + 1);
         assert!(matches!(
-            world.submit_embodied_v1(hero, crate::EmbodiedCommandV1::new(twice_bad)),
-            crate::SubmitEmbodiedOutcome::Stored {
+            world.submit(hero, crate::CommandV1::new(twice_bad)),
+            crate::SubmitOutcome::Stored {
                 rejection: Some(CommandReject::OutOfRange(crate::CommandField::MoveX)), ..
             }
         ));
         equip.grips[0] = GripRequest::EquipSlot(7);
         assert!(matches!(
-            world.submit_embodied_v1(hero, crate::EmbodiedCommandV1::new(equip)),
-            crate::SubmitEmbodiedOutcome::Stored {
+            world.submit(hero, crate::CommandV1::new(equip)),
+            crate::SubmitOutcome::Stored {
                 rejection: Some(CommandReject::MissingEquipment { arm: LimbSlot::LeftArm, slot: 7 }), ..
             }
         ));
@@ -3086,26 +3086,26 @@ mod tests {
             (fighter, [GripRequest::EquipSlot(1), GripRequest::Keep]),
             (brute, [GripRequest::Keep, GripRequest::EquipSlot(0)]),
         ] {
-            let mut command = articulated_command();
+            let mut command = command_core();
             command.grips = grips;
             assert!(matches!(
-                world.submit_embodied_v1(id, crate::EmbodiedCommandV1::new(command)),
-                crate::SubmitEmbodiedOutcome::Stored { command: stored, rejection: None }
-                    if stored.articulated == command));
+                world.submit(id, crate::CommandV1::new(command)),
+                crate::SubmitOutcome::Stored { command: stored, rejection: None }
+                    if stored.core == command));
         }
         for (id, grips, arm, slot) in [
             (fighter, [GripRequest::EquipSlot(0), GripRequest::Keep], LimbSlot::LeftArm, 0),
             (fighter, [GripRequest::Keep, GripRequest::EquipSlot(1)], LimbSlot::LeftArm, 1),
             (brute, [GripRequest::EquipSlot(0), GripRequest::Keep], LimbSlot::LeftArm, 0),
         ] {
-            let mut command = articulated_command();
+            let mut command = command_core();
             command.grips = grips;
             assert!(matches!(
-                world.submit_embodied_v1(id, crate::EmbodiedCommandV1::new(command)),
-                crate::SubmitEmbodiedOutcome::Stored {
+                world.submit(id, crate::CommandV1::new(command)),
+                crate::SubmitOutcome::Stored {
                     command: stored,
                     rejection: Some(CommandReject::MissingEquipment { arm: rejected_arm, slot: rejected_slot }),
-                } if stored.articulated == world.neutral_articulated(id.index as usize)
+                } if stored.core == world.neutral_core(id.index as usize)
                     && rejected_arm == arm && rejected_slot == slot));
         }
     }
@@ -3117,18 +3117,18 @@ mod tests {
         both.id = 4;
         both.binding = crate::GripBinding::Both;
         scenario.combat_specs.as_mut().unwrap().equipment.push(both);
-        scenario.units[1].articulated.as_mut().unwrap().equipment = [Some(4), None];
+        scenario.units[1].combat_spec.as_mut().unwrap().equipment = [Some(4), None];
         let mut world = World::new(&scenario, 1);
         let brute = EntityId::new(1, 0);
-        let mut command = articulated_command();
+        let mut command = command_core();
         command.grips = [GripRequest::EquipSlot(0); 2];
         assert!(matches!(
-            world.submit_embodied_v1(brute, crate::EmbodiedCommandV1::new(command)),
-            crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }));
+            world.submit(brute, crate::CommandV1::new(command)),
+            crate::SubmitOutcome::Stored { rejection: None, .. }));
         command.grips = [GripRequest::Release, GripRequest::Keep];
         assert!(matches!(
-            world.submit_embodied_v1(brute, crate::EmbodiedCommandV1::new(command)),
-            crate::SubmitEmbodiedOutcome::Stored {
+            world.submit(brute, crate::CommandV1::new(command)),
+            crate::SubmitOutcome::Stored {
                 rejection: Some(CommandReject::MissingEquipment { arm: LimbSlot::RightArm, slot: 0 }), ..
             }));
     }
@@ -3140,8 +3140,8 @@ mod tests {
         let command = embodied_command();
         let before = world.state_digest().value;
         assert!(matches!(
-            world.submit_embodied_v1(EntityId::new(0, 0), command),
-            crate::SubmitEmbodiedOutcome::Stored { command: stored, rejection: None } if stored == command
+            world.submit(EntityId::new(0, 0), command),
+            crate::SubmitOutcome::Stored { command: stored, rejection: None } if stored == command
         ));
         assert_ne!(world.state_digest().value, before);
         assert_eq!(world.view(EntityId::new(0, 0)).unwrap().facing, Angle::ZERO);
@@ -3151,22 +3151,22 @@ mod tests {
     fn dead_allocated_slots_retain_their_articulated_command() {
         let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
-        let command = articulated_command();
+        let command = command_core();
         assert!(matches!(
-            world.submit_embodied_v1(EntityId::new(0, 0), crate::EmbodiedCommandV1::new(command)),
-            crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }),
+            world.submit(EntityId::new(0, 0), crate::CommandV1::new(command)),
+            crate::SubmitOutcome::Stored { rejection: None, .. }),
             "nothing was stored, so the retention below would be vacuous");
         world.wounds[0].blood = Fx::ZERO;
-        world.reap_dead_articulated();
+        world.reap_dead_bodies();
         assert!(!world.alive[0]);
-        assert_eq!(world.articulated_command[0], Some(command));
+        assert_eq!(world.command_core[0], Some(command));
         let retained = world.state_digest().value;
-        world.articulated_command[0] = None;
+        world.command_core[0] = None;
         assert_ne!(world.state_digest().value, retained, "a dead slot's retained bytes were not hashed");
-        world.articulated_command[0] = Some(command);
+        world.command_core[0] = Some(command);
         let replacement = world.spawn(&scenario.units[0]);
         assert_eq!(replacement, EntityId::new(0, 1));
-        assert_eq!(world.articulated_command[0], None);
+        assert_eq!(world.command_core[0], None);
     }
 
     #[test]
@@ -3203,7 +3203,7 @@ mod tests {
         assert_eq!((w.health_of(h), w.max_health_of(h)), (health, maximum));
         assert!(w.is_alive(hero), "lowering vitality killed a fighter");
 
-        // The decision clock is left where it was; `submit_embodied_v1`
+        // The decision clock is left where it was; `submit`
         // re-derives it from the new period on the next decision, and that one
         // beat of lag is the point rather than an oversight.
         stats.intellect = 19;

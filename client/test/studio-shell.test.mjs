@@ -618,7 +618,7 @@ test("the_picker_says_when_a_choice_it_honours_shows_the_reader_nothing", () => 
   // **`learned_runs_live_and_is_noted_once_because_it_is_the_one_policy_that_
   // fetches` stood here and its subject is gone.** `learned` had no browser
   // inference path, then had one, and then stopped being a picker policy at all
-  // when v2-ui-08 moved `#/arena` onto `EmbodiedPolicyKind` -- a registry with
+  // when v2-ui-08 moved `#/arena` onto `PolicyKind` -- a registry with
   // no `learned` entry, because a trained fighter is a kind plus fifteen
   // kilobytes of weights and a policy byte has nowhere to put a checkpoint.
   //
@@ -669,7 +669,7 @@ test("the_picker_says_when_a_choice_it_honours_shows_the_reader_nothing", () => 
   // third instance of that trap recorded in this repository.
   const unknown = picker.review(matchup({ policy: "telepathy" }), "live").refusal;
   assert.match(unknown, new RegExp(`not one of the ${picker.POLICIES.length} embodied policy codes`));
-  assert.match(unknown, /EmbodiedPolicyKind/);
+  assert.match(unknown, /PolicyKind/);
   // And the retired names are refused by name, which is what a saved matchup
   // from before v2-ui-08 arrives as.
   for (const gone of ["composed", "windmill", "attack-moves", "openings", "learned"]) {
@@ -703,7 +703,7 @@ test("a_recording_command_exists_only_where_lab_trace_could_actually_produce_one
   // of what that step did here: `lab trace` had a `Script` vocabulary of its own
   // -- composed, windmill, attack-moves, tactical, openings -- and `--policy`,
   // `--hero-policy` and `--monster-policy` now read
-  // `EmbodiedPolicyKind::from_name`, the same registry this table is. So the
+  // `PolicyKind::from_name`, the same registry this table is. So the
   // list is derived rather than restated, and this loop is what says the
   // derivation holds for every row rather than for the two somebody typed out.
   for (const option of picker.POLICIES) {
@@ -801,7 +801,7 @@ test("a_recording_mismatch_describes_what_is_on_screen_rather_than_what_was_pick
 test("the_picker_and_the_config_agree_on_every_policy_code", () => {
   // **Was `tactical_is_policy_code_five_in_rust_config_and_the_picker`**, which
   // pinned one row and one number. v2-ui-08 moved both halves onto
-  // `EmbodiedPolicyKind`, where `tactical` is `3` and not `5` -- so a test
+  // `PolicyKind`, where `tactical` is `3` and not `5` -- so a test
   // written around one row would have to be re-recorded every time the registry
   // grows, and a test written around one row is also the shape that let
   // `POLICIES` and `ARENA_POLICY_NAMES` drift apart in the first place. Every
@@ -817,7 +817,7 @@ test("the_picker_and_the_config_agree_on_every_policy_code", () => {
       `${option.code} did not reach the buffer as ${code}`);
   });
   // The registry itself, so a *reordering* that kept both sides agreeing is
-  // still caught. These are `EmbodiedPolicyKind::code`'s own numbers and the
+  // still caught. These are `PolicyKind::code`'s own numbers and the
   // enum is append-only.
   assert.deepEqual([...CONFIG.ARENA_POLICY_NAMES],
     ["neutral", "scripted", "scripted-level", "tactical", "tactical-fixed-guard"]);

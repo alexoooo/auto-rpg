@@ -8,9 +8,9 @@
 //! time, which is exactly the coupling the ADR refuses.
 
 use fx::{Angle, Fx, Vec2};
-use policy::{CommandAuthority, ComposedController, PartialEmbodiedSource};
+use policy::{CommandAuthority, ComposedController, PartialCommandSource};
 use sim::{
-    ArmTarget, ArticulatedCommandV1, ArticulatedObservation, CombatHeight, EmbodiedCommandV1,
+    ArmTarget, CommandCoreV1, Observation, CombatHeight, CommandV1,
     Faction, LimbSlot, Replay, Scenario, SubmittedCommand, World,
 };
 
@@ -20,18 +20,18 @@ struct HandOnTheControls {
     tick: u32,
 }
 
-impl PartialEmbodiedSource for HandOnTheControls {
+impl PartialCommandSource for HandOnTheControls {
     fn authority(&self) -> CommandAuthority {
         CommandAuthority { navigation: true, arms: [false, true] }
     }
 
-    fn contribute(&mut self, _obs: &ArticulatedObservation, into: &mut EmbodiedCommandV1) {
+    fn contribute(&mut self, _obs: &Observation, into: &mut CommandV1) {
         // WASD, in the body frame session 05 gave it: `+x` is forward whatever
         // the body is facing, which is why this needs no yaw of its own.
         let forward = if self.tick % 64 < 32 { Fx::ONE } else { -Fx::ONE };
-        into.articulated.move_dir = Vec2::new(forward, Fx::ZERO);
-        into.articulated.body_yaw = Angle::from_raw(self.tick.wrapping_mul(211) as u16);
-        into.articulated.arms[LimbSlot::RightArm as usize] = ArmTarget {
+        into.core.move_dir = Vec2::new(forward, Fx::ZERO);
+        into.core.body_yaw = Angle::from_raw(self.tick.wrapping_mul(211) as u16);
+        into.core.arms[LimbSlot::RightArm as usize] = ArmTarget {
             bearing: Angle::from_raw(self.tick.wrapping_mul(613) as u16),
             height: CombatHeight::MID,
             reach: Fx::from_raw((self.tick as i32 * 97) % 65_537),
@@ -59,8 +59,8 @@ impl PartialEmbodiedSource for HandOnTheControls {
 /// below can submit it *directly* and compare -- which is the only way to state
 /// "the composed path can replace the direct one" as a claim about a fight
 /// rather than about a struct.
-fn guard_the_off_hand(obs: &ArticulatedObservation) -> ArticulatedCommandV1 {
-    let mut command = policy::neutral_articulated_command(obs);
+fn guard_the_off_hand(obs: &Observation) -> CommandCoreV1 {
+    let mut command = policy::neutral_world_command(obs);
     command.arms[LimbSlot::LeftArm as usize] = ArmTarget {
         // Across the body, in the torso frame: a guard that stays where the
         // fighter put it however the fighter turns.
@@ -86,23 +86,23 @@ struct GuardTheOffHand {
     authority: CommandAuthority,
 }
 
-impl PartialEmbodiedSource for GuardTheOffHand {
+impl PartialCommandSource for GuardTheOffHand {
     fn authority(&self) -> CommandAuthority {
         self.authority
     }
 
-    fn contribute(&mut self, obs: &ArticulatedObservation, into: &mut EmbodiedCommandV1) {
+    fn contribute(&mut self, obs: &Observation, into: &mut CommandV1) {
         let whole = guard_the_off_hand(obs);
         if self.authority.navigation {
-            into.articulated.move_dir = whole.move_dir;
-            into.articulated.body_yaw = whole.body_yaw;
-            into.articulated.intent = whole.intent;
+            into.core.move_dir = whole.move_dir;
+            into.core.body_yaw = whole.body_yaw;
+            into.core.intent = whole.intent;
         }
         for slot in 0..2 {
             if self.authority.arms[slot] {
-                into.articulated.arms[slot] = whole.arms[slot];
-                into.articulated.grips[slot] = whole.grips[slot];
-                into.articulated.releases[slot] = whole.releases[slot];
+                into.core.arms[slot] = whole.arms[slot];
+                into.core.grips[slot] = whole.grips[slot];
+                into.core.releases[slot] = whole.releases[slot];
                 into.swing_plane[slot] = Angle::ZERO;
             }
         }
@@ -130,9 +130,9 @@ fn a_replay_of_a_composed_fight_needs_neither_the_human_nor_the_policy() {
 
     let subject = live.alive_ids(Faction::Heroes)[0];
     for tick in 0..TICKS {
-        let command = composed.decide(&live.observe_articulated(subject));
+        let command = composed.decide(&live.observe(subject));
         replay.record_submitted(tick, subject, SubmittedCommand::Embodied(command));
-        live.submit_embodied_v1(subject, command);
+        live.submit(subject, command);
         live.step();
     }
     replay.finish(TICKS);
@@ -147,8 +147,8 @@ fn a_replay_of_a_composed_fight_needs_neither_the_human_nor_the_policy() {
         "a composed fight did not reproduce from its own record",
     );
     assert_eq!(
-        replayed.articulated_poses().collect::<Vec<_>>(),
-        live.articulated_poses().collect::<Vec<_>>(),
+        replayed.poses().collect::<Vec<_>>(),
+        live.poses().collect::<Vec<_>>(),
     );
 }
 
@@ -166,11 +166,11 @@ fn the_two_hands_of_a_composed_fight_are_visibly_driven_by_different_things() {
     let mut right_bearings = Vec::new();
     let mut planes = Vec::new();
     for _ in 0..TICKS {
-        let command = composed.decide(&world.observe_articulated(subject));
-        left_bearings.push(command.articulated.arms[0].bearing);
-        right_bearings.push(command.articulated.arms[1].bearing);
+        let command = composed.decide(&world.observe(subject));
+        left_bearings.push(command.core.arms[0].bearing);
+        right_bearings.push(command.core.arms[1].bearing);
         planes.push(command.swing_plane);
-        world.submit_embodied_v1(subject, command);
+        world.submit(subject, command);
         world.step();
     }
 
@@ -200,8 +200,8 @@ fn a_controller_claiming_everything_drives_the_fight_its_policy_would_have() {
     let mut direct = World::new(&scenario, 5);
     let subject = subject_of(&direct);
     for _ in 0..TICKS {
-        let command = guard_the_off_hand(&direct.observe_articulated(subject));
-        direct.submit_embodied_v1(subject, EmbodiedCommandV1::new(command));
+        let command = guard_the_off_hand(&direct.observe(subject));
+        direct.submit(subject, CommandV1::new(command));
         direct.step();
     }
 
@@ -211,8 +211,8 @@ fn a_controller_claiming_everything_drives_the_fight_its_policy_would_have() {
     })])
     .expect("total authority");
     for _ in 0..TICKS {
-        let command = composed.decide(&wrapped.observe_articulated(subject));
-        wrapped.submit_embodied_v1(subject, command);
+        let command = composed.decide(&wrapped.observe(subject));
+        wrapped.submit(subject, command);
         wrapped.step();
     }
 

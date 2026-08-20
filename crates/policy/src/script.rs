@@ -48,7 +48,7 @@
 //! Everything but [`GroundSense`] is a pure function of one observation: the
 //! phase is `tick % 120`, the heights are two clocks, and every mode is a
 //! deadbanded read of a published column. That is the property
-//! [`scripted_embodied_command`] exists to expose -- a test that wants to know
+//! [`scripted_command`] exists to expose -- a test that wants to know
 //! what the script says at tick 137 should not have to build a policy and drive
 //! a world -- and it is why the modes are separated by *deadbands* rather than
 //! by hysteresis: a deadband needs no memory, makes "neither" a real state, and
@@ -67,11 +67,11 @@
 //! is what makes one possible, and a policy tuned against a corpus that does not
 //! exist would be measuring its own tuning.
 
-use crate::{ArmRoles, EmbodiedPolicy};
+use crate::{ArmRoles, Policy};
 use fx::{Angle, Fx, Vec2};
 use sim::{
-    ArmTarget, ArticulatedCommandV1, ArticulatedObservation, BodyPart, CombatHeight,
-    EmbodiedCommandV1, GripRequest, Intent, ObservedOpponent, ReleaseRequest, ARM_MIN_REACH_RAW,
+    ArmTarget, CommandCoreV1, Observation, BodyPart, CombatHeight,
+    CommandV1, GripRequest, Intent, ObservedOpponent, ReleaseRequest, ARM_MIN_REACH_RAW,
 };
 
 /// Ticks in one phase of the cycle.
@@ -85,7 +85,7 @@ use sim::{
 /// this policy's tempo a casualty of that deletion rather than a decision.
 /// **Session 05 deleted it and this number did not move**, which is the copy
 /// doing exactly the job it was made for.
-pub const EMBODIED_PHASE_TICKS: u32 = 30;
+pub const SCRIPT_PHASE_TICKS: u32 = 30;
 
 /// Ticks in the full cycle: guard, chamber, commit, recover.
 ///
@@ -94,10 +94,10 @@ pub const EMBODIED_PHASE_TICKS: u32 = 30;
 /// owes nothing to that document: what a body needs in order to be *driven* is a
 /// windup, a commit and a place to stand between them, and every phase beyond
 /// those is a decision the observation should be making instead of the clock.
-pub const EMBODIED_CYCLE_TICKS: u32 = EMBODIED_PHASE_TICKS * 4;
+pub const SCRIPT_CYCLE_TICKS: u32 = SCRIPT_PHASE_TICKS * 4;
 
 /// Ticks a commanded height holds before its clock steps it.
-pub const EMBODIED_HEIGHT_TICKS: u32 = 90;
+pub const SCRIPT_HEIGHT_TICKS: u32 = 90;
 
 /// How far ahead of the striking height's clock the guard's clock runs.
 ///
@@ -125,9 +125,9 @@ pub const EMBODIED_HEIGHT_TICKS: u32 = 90;
 /// decide when its arm has had long enough to arrive. Here the tick *is* the
 /// answer. This policy is frozen as
 /// the measurement's control, so the clock stays exactly as it is -- a reader
-/// who finds it first should not have to discover `embodied_guard.rs` to learn
+/// who finds it first should not have to discover `guard.rs` to learn
 /// that it is the baseline rather than the design.
-const GUARD_LEAD_TICKS: u32 = EMBODIED_HEIGHT_TICKS / 2;
+const GUARD_LEAD_TICKS: u32 = SCRIPT_HEIGHT_TICKS / 2;
 
 /// An eighth of a turn: the chamber and commit offsets, and the guard arc.
 const EIGHTH_TURN: Angle = Angle::from_raw(8_192);
@@ -177,7 +177,7 @@ const REST_REACH: Fx = Fx::from_raw(ARM_MIN_REACH_RAW);
 ///
 /// **Fifteen sixteenths and not one.** [`Vec2::with_length`] normalises by
 /// dividing and then multiplying, so a unit answer can land a raw tick over the
-/// magnitude `World::submit_embodied_v1` validates -- and a refused command is
+/// magnitude `World::submit` validates -- and a refused command is
 /// not a slow fighter, it is the *neutral* command stored in place of the one
 /// the policy asked for. The whole run silently becomes a different run.
 /// `the_script_never_submits_a_command_the_world_refuses` is what keeps this
@@ -268,7 +268,7 @@ const DEFAULT_CIRCLE_SIDE: i32 = 1;
 /// second term needs the same treatment, the call sites do not change shape and
 /// nobody has to remember which of two positional booleans is which.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct EmbodiedScriptConfig {
+pub struct ScriptConfig {
     /// Whether the body reads the floor it is standing on at all. With this
     /// `false` the policy never so much as *stores* an elevation, which is what
     /// makes the control a policy that cannot see the ground rather than one
@@ -276,20 +276,20 @@ pub struct EmbodiedScriptConfig {
     pub high_ground: bool,
 }
 
-impl EmbodiedScriptConfig {
+impl ScriptConfig {
     /// The shipped script: it reads the floor.
-    pub const SEEKING: EmbodiedScriptConfig = EmbodiedScriptConfig { high_ground: true };
+    pub const SEEKING: ScriptConfig = ScriptConfig { high_ground: true };
 
     /// The control: every floor is level. On a flat fixture this is byte for
     /// byte the same policy, which `the_two_configurations_agree_on_flat_ground`
     /// asserts -- so a difference measured on a sculpted corpus is the term and
     /// cannot be anything else.
-    pub const LEVEL: EmbodiedScriptConfig = EmbodiedScriptConfig { high_ground: false };
+    pub const LEVEL: ScriptConfig = ScriptConfig { high_ground: false };
 }
 
-impl Default for EmbodiedScriptConfig {
-    fn default() -> EmbodiedScriptConfig {
-        EmbodiedScriptConfig::SEEKING
+impl Default for ScriptConfig {
+    fn default() -> ScriptConfig {
+        ScriptConfig::SEEKING
     }
 }
 
@@ -383,7 +383,7 @@ impl GroundSense {
 /// fact about the script, and a lab that re-derived it from `tick % 120` would be
 /// a second copy of the rule below, free to drift from it.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum EmbodiedPhase {
+pub enum ScriptPhase {
     /// Blade and guard up, feet circling. The phase that holds a guard.
     Guard,
     /// The blade goes to the far side of the line, because a cut has to start
@@ -396,38 +396,38 @@ pub enum EmbodiedPhase {
     Recover,
 }
 
-impl EmbodiedPhase {
-    pub fn of(tick: u32) -> EmbodiedPhase {
-        match (tick % EMBODIED_CYCLE_TICKS) / EMBODIED_PHASE_TICKS {
-            0 => EmbodiedPhase::Guard,
-            1 => EmbodiedPhase::Chamber,
-            2 => EmbodiedPhase::Commit,
-            _ => EmbodiedPhase::Recover,
+impl ScriptPhase {
+    pub fn of(tick: u32) -> ScriptPhase {
+        match (tick % SCRIPT_CYCLE_TICKS) / SCRIPT_PHASE_TICKS {
+            0 => ScriptPhase::Guard,
+            1 => ScriptPhase::Chamber,
+            2 => ScriptPhase::Commit,
+            _ => ScriptPhase::Recover,
         }
     }
 
     fn attacking(self) -> bool {
-        matches!(self, EmbodiedPhase::Chamber | EmbodiedPhase::Commit)
+        matches!(self, ScriptPhase::Chamber | ScriptPhase::Commit)
     }
 }
 
 /// A command that asks for nothing: what a blank observation answers.
 ///
 /// **The arm bearing is `Angle::ZERO` and not the body's yaw**, which is the one
-/// place this differs from [`crate::neutral_articulated_command`] and the whole
+/// place this differs from [`crate::neutral_world_command`] and the whole
 /// difference is the frame. An embodied arm bearing is measured from the torso,
 /// so zero means "directly ahead"; the body's own yaw, read as a torso-relative
 /// offset, would mean "an entire yaw off the centre line". Nothing observable moves
 /// either way, because a zero-effort arm does not chase its target at all -- but
 /// a neutral command that only happens to be harmless is not a neutral command.
-pub fn neutral_embodied_command(obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
+pub fn neutral_command(obs: &Observation) -> CommandV1 {
     let arm = ArmTarget {
         bearing: Angle::ZERO,
         height: CombatHeight::MID,
         reach: Fx::ZERO,
         effort: Fx::ZERO,
     };
-    EmbodiedCommandV1::new(ArticulatedCommandV1 {
+    CommandV1::new(CommandCoreV1 {
         move_dir: Vec2::ZERO,
         body_yaw: obs.body_yaw,
         intent: Intent::Hold,
@@ -445,8 +445,8 @@ pub fn neutral_embodied_command(obs: &ArticulatedObservation) -> EmbodiedCommand
 /// script says at tick 137 should not have to build a policy and drive a world to
 /// find out. Everything except the elevation term is a pure function of the
 /// observation, so on a flat fixture this *is* the whole policy.
-pub fn scripted_embodied_command(obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
-    scripted_embodied_command_with(obs, EmbodiedScriptConfig::SEEKING, &mut GroundSense::default())
+pub fn scripted_command(obs: &Observation) -> CommandV1 {
+    scripted_command_with(obs, ScriptConfig::SEEKING, &mut GroundSense::default())
 }
 
 /// The script, with the elevation term and its memory supplied by the caller.
@@ -455,15 +455,15 @@ pub fn scripted_embodied_command(obs: &ArticulatedObservation) -> EmbodiedComman
 /// free function keeps working: a caller that has no ground to remember passes a
 /// fresh one and gets the flat-fixture answer, and a caller driving a fight
 /// passes the same one every tick.
-pub fn scripted_embodied_command_with(
-    obs: &ArticulatedObservation,
-    config: EmbodiedScriptConfig,
+pub fn scripted_command_with(
+    obs: &Observation,
+    config: ScriptConfig,
     ground: &mut GroundSense,
-) -> EmbodiedCommandV1 {
+) -> CommandV1 {
     // A stale identity, a corpse and a Legacy world all answer the blank
     // observation, so every policy has to survive one: nothing in sight, hold.
     if !obs.present() {
-        return neutral_embodied_command(obs);
+        return neutral_command(obs);
     }
     // Read the floor **only** when the term that uses it is on. The control does
     // not store an elevation it has decided not to act on: a policy that keeps a
@@ -511,17 +511,17 @@ pub fn scripted_embodied_command_with(
     // the twist below is a *direction* read; neither is available without legs,
     // and both degrade to the plain clock when the block is blank.
     let foe_stepping = foe.is_some_and(|f| f.stance.present && f.stance.stepping);
-    let phase = match EmbodiedPhase::of(obs.tick) {
-        _ if !in_measure => EmbodiedPhase::Guard,
-        EmbodiedPhase::Guard if foe_stepping => EmbodiedPhase::Chamber,
+    let phase = match ScriptPhase::of(obs.tick) {
+        _ if !in_measure => ScriptPhase::Guard,
+        ScriptPhase::Guard if foe_stepping => ScriptPhase::Chamber,
         other => other,
     };
 
     // Two clocks, half a step apart. See `GUARD_LEAD_TICKS` for the measurement
     // that made one clock unacceptable.
-    let base = ((obs.tick / EMBODIED_HEIGHT_TICKS) % 3) as i32;
+    let base = ((obs.tick / SCRIPT_HEIGHT_TICKS) % 3) as i32;
     let guard_height =
-        HEIGHTS[(((obs.tick + GUARD_LEAD_TICKS) / EMBODIED_HEIGHT_TICKS) % 3) as usize];
+        HEIGHTS[(((obs.tick + GUARD_LEAD_TICKS) / SCRIPT_HEIGHT_TICKS) % 3) as usize];
     // **The elevation term's second half: strike down from ground you climbed
     // to.** A step and not a replacement, so the height clock still walks all
     // three settings and the corpus still sees more than one cell of the (attack,
@@ -541,7 +541,7 @@ pub fn scripted_embodied_command_with(
 
     // Even cycles cut one way, odd cycles the other, and the chamber is on the
     // far side of the line from the commit.
-    let left_cut = (obs.tick / EMBODIED_CYCLE_TICKS) % 2 == 0;
+    let left_cut = (obs.tick / SCRIPT_CYCLE_TICKS) % 2 == 0;
     let chamber = if left_cut { toward - EIGHTH_TURN } else { toward + EIGHTH_TURN };
     let commit = if left_cut { toward + EIGHTH_TURN } else { toward - EIGHTH_TURN };
 
@@ -575,9 +575,9 @@ pub fn scripted_embodied_command_with(
         // the feet. With headroom to spare the feet circle and the arm extends
         // instead, which is the other half of the same choice and is made below,
         // at `commit_reach`.
-        (Some(_), EmbodiedPhase::Guard) if locked_out => forward(approach),
+        (Some(_), ScriptPhase::Guard) if locked_out => forward(approach),
         // In measure and comfortable: hold the guard and circle.
-        (Some(_), EmbodiedPhase::Guard) | (Some(_), EmbodiedPhase::Recover) => {
+        (Some(_), ScriptPhase::Guard) | (Some(_), ScriptPhase::Recover) => {
             strafe(side, CIRCLE_SPEED)
         }
         // **The attack closes rather than plants, and that is a correction the
@@ -588,7 +588,7 @@ pub fn scripted_embodied_command_with(
         // `CONTACT_ENERGY_FLOOR`, so 800/800 trials reached the tick limit and
         // measured the resolution instead of the physics. This script owes that
         // document nothing, so it takes the reading that can bill damage.
-        (Some(_), EmbodiedPhase::Chamber) | (Some(_), EmbodiedPhase::Commit) => forward(approach),
+        (Some(_), ScriptPhase::Chamber) | (Some(_), ScriptPhase::Commit) => forward(approach),
     };
     // **The unwind, applied last and over everything.** A torso at its twist
     // budget cannot turn any further until the hips come round, and the hips
@@ -636,10 +636,10 @@ pub fn scripted_embodied_command_with(
         // nobody is visible, so the phase above is already `Guard` and the three
         // arms that aim at somebody are unreachable without somebody to aim at.
         // The blade stands where the guard stands, at the striking height.
-        EmbodiedPhase::Guard => ArmTarget { height: strike_height, ..guard },
-        EmbodiedPhase::Chamber => strike(chamber, CHAMBER_REACH),
-        EmbodiedPhase::Commit => strike(commit, commit_reach),
-        EmbodiedPhase::Recover => ArmTarget {
+        ScriptPhase::Guard => ArmTarget { height: strike_height, ..guard },
+        ScriptPhase::Chamber => strike(chamber, CHAMBER_REACH),
+        ScriptPhase::Commit => strike(commit, commit_reach),
+        ScriptPhase::Recover => ArmTarget {
             bearing: toward,
             height: strike_height,
             reach: REST_REACH,
@@ -684,8 +684,8 @@ pub fn scripted_embodied_command_with(
     let mut swing_plane = [Angle::ZERO; 2];
     swing_plane[off] = inward_plane(off);
 
-    EmbodiedCommandV1 {
-        articulated: ArticulatedCommandV1 {
+    CommandV1 {
+        core: CommandCoreV1 {
             move_dir,
             // The one absolute column an embodied command still carries, and it
             // has to be: `drive_stance` compares this with the *hips*, which are
@@ -721,7 +721,7 @@ pub fn scripted_embodied_command_with(
 fn circle_side(
     foe: Option<&ObservedOpponent>,
     ground: &GroundSense,
-    config: EmbodiedScriptConfig,
+    config: ScriptConfig,
 ) -> i32 {
     let opening = foe
         .map(|f| f.stance)
@@ -737,7 +737,7 @@ fn circle_side(
 /// `CombatHeight`. Two bodies at exactly one point answer "straight ahead",
 /// which keeps the commanded yaw equal to the held one instead of asking for a
 /// turn derived from a zero vector.
-fn relative_bearing(obs: &ArticulatedObservation, foe: &ObservedOpponent) -> Angle {
+fn relative_bearing(obs: &Observation, foe: &ObservedOpponent) -> Angle {
     let delta = Vec2::new(
         foe.body_position.x - obs.body_position.x,
         foe.body_position.y - obs.body_position.y,
@@ -745,7 +745,7 @@ fn relative_bearing(obs: &ArticulatedObservation, foe: &ObservedOpponent) -> Ang
     if delta.is_zero() { Angle::ZERO } else { delta.angle() - obs.body_yaw }
 }
 
-fn planar_gap(obs: &ArticulatedObservation, foe: &ObservedOpponent) -> Fx {
+fn planar_gap(obs: &Observation, foe: &ObservedOpponent) -> Fx {
     Vec2::new(
         foe.body_position.x - obs.body_position.x,
         foe.body_position.y - obs.body_position.y,
@@ -760,7 +760,7 @@ fn planar_gap(obs: &ArticulatedObservation, foe: &ObservedOpponent) -> Fx {
 /// shape, which perception noise does not touch -- the noise displaces a
 /// perceived body rigidly and leaves its dimensions alone -- so the only noisy
 /// term in the comparison is the gap itself.
-fn strike_range(obs: &ArticulatedObservation, foe: &ObservedOpponent, weapon: usize) -> Fx {
+fn strike_range(obs: &Observation, foe: &ObservedOpponent, weapon: usize) -> Fx {
     let blade = obs.weapons[weapon].map_or(Fx::ZERO, |held| (held.tip - held.hilt).length());
     obs.arm_length + blade + foe.regions[BodyPart::Torso as usize].radius
 }
@@ -792,7 +792,7 @@ fn inward_plane(limb: usize) -> Angle {
     if limb == 0 { Angle::ZERO - Angle::QUARTER } else { Angle::QUARTER }
 }
 
-/// The script, as an [`EmbodiedPolicy`].
+/// The script, as a [`Policy`].
 ///
 /// It holds the configuration and the one row of ground memory; everything else
 /// is in the free function above. `reset` clears the memory and keeps the
@@ -802,17 +802,17 @@ fn inward_plane(limb: usize) -> Angle {
 /// selected -- and here that policy would be the *subject* standing in for the
 /// control, which is the one substitution the measurement cannot survive.
 #[derive(Clone, Copy, Debug, Default)]
-pub struct ScriptedEmbodiedPolicy {
-    config: EmbodiedScriptConfig,
+pub struct ScriptedPolicy {
+    config: ScriptConfig,
     ground: GroundSense,
 }
 
-impl ScriptedEmbodiedPolicy {
-    pub fn new(config: EmbodiedScriptConfig) -> ScriptedEmbodiedPolicy {
-        ScriptedEmbodiedPolicy { config, ground: GroundSense::default() }
+impl ScriptedPolicy {
+    pub fn new(config: ScriptConfig) -> ScriptedPolicy {
+        ScriptedPolicy { config, ground: GroundSense::default() }
     }
 
-    pub fn config(&self) -> EmbodiedScriptConfig {
+    pub fn config(&self) -> ScriptConfig {
         self.config
     }
 
@@ -823,9 +823,9 @@ impl ScriptedEmbodiedPolicy {
     }
 }
 
-impl EmbodiedPolicy for ScriptedEmbodiedPolicy {
-    fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
-        scripted_embodied_command_with(obs, self.config, &mut self.ground)
+impl Policy for ScriptedPolicy {
+    fn decide(&mut self, obs: &Observation) -> CommandV1 {
+        scripted_command_with(obs, self.config, &mut self.ground)
     }
 
     fn reset(&mut self) {
@@ -836,22 +836,22 @@ impl EmbodiedPolicy for ScriptedEmbodiedPolicy {
 /// Stands there, arms slack, in the embodied frame. The control condition.
 ///
 /// A separate type from the deleted `NeutralArticulatedPolicy` rather than an
-/// adapter over it, for [`neutral_embodied_command`]'s reason: the neutral arm
+/// adapter over it, for [`neutral_command`]'s reason: the neutral arm
 /// bearing is not the same number in the two frames, and an adapter would have
 /// had to convert one it cannot see the yaw for. The world frame went with the
 /// articulated model in session 05, so the world substitutes *this* one now --
 /// but the two *commands* are still both here and still differ in that one
-/// column, because [`crate::neutral_articulated_command`] is the world-frame
+/// column, because [`crate::neutral_world_command`] is the world-frame
 /// base every composed command starts from before [`crate::into_torso_frame`].
 /// The argument is therefore still live rather than only historical, and
 /// `the_neutral_articulated_command_converts_to_the_neutral_embodied_command_exactly`
 /// is what holds the one column to the one conversion.
 #[derive(Clone, Copy, Debug, Default)]
-pub struct NeutralEmbodiedPolicy;
+pub struct NeutralPolicy;
 
-impl EmbodiedPolicy for NeutralEmbodiedPolicy {
-    fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
-        neutral_embodied_command(obs)
+impl Policy for NeutralPolicy {
+    fn decide(&mut self, obs: &Observation) -> CommandV1 {
+        neutral_command(obs)
     }
 }
 
@@ -878,13 +878,13 @@ mod tests {
     /// the point of a pure function is that a test can state the situation
     /// exactly, and a fixture driven through `World` would be asserting about the
     /// simulation as well.
-    fn situation(gap: Fx, at: Angle, z: Fx) -> ArticulatedObservation {
-        let mut obs = ArticulatedObservation::BLANK;
+    fn situation(gap: Fx, at: Angle, z: Fx) -> Observation {
+        let mut obs = Observation::BLANK;
         obs.subject = EntityId::new(0, 0);
-        obs.capabilities = ArticulatedObservation::RIGHT_WEAPON
-            | ArticulatedObservation::RIGHT_GRIP
-            | ArticulatedObservation::LEFT_GRIP
-            | ArticulatedObservation::SHIELD;
+        obs.capabilities = Observation::RIGHT_WEAPON
+            | Observation::RIGHT_GRIP
+            | Observation::LEFT_GRIP
+            | Observation::SHIELD;
         obs.body_position = Vec3::new(Fx::from_int(4), Fx::from_int(3), z);
         obs.body_yaw = Angle::ZERO;
         obs.arm_length = ARM;
@@ -917,12 +917,12 @@ mod tests {
         foe
     }
 
-    fn at_tick(obs: &ArticulatedObservation, tick: u32) -> ArticulatedObservation {
-        ArticulatedObservation { tick, ..*obs }
+    fn at_tick(obs: &Observation, tick: u32) -> Observation {
+        Observation { tick, ..*obs }
     }
 
-    fn tick_of(phase: EmbodiedPhase) -> u32 {
-        (0..EMBODIED_CYCLE_TICKS).find(|&t| EmbodiedPhase::of(t) == phase).expect("every phase")
+    fn tick_of(phase: ScriptPhase) -> u32 {
+        (0..SCRIPT_CYCLE_TICKS).find(|&t| ScriptPhase::of(t) == phase).expect("every phase")
     }
 
     /// The first tick that is in `phase` **and** whose height clock has selected
@@ -935,11 +935,11 @@ mod tests {
     /// `a_body_that_has_taken_a_terrace_strikes_one_notch_lower` asserted about
     /// before it was corrected, and the failure read as a broken term rather than
     /// as a badly chosen tick.
-    fn tick_of_height(phase: EmbodiedPhase, height: CombatHeight) -> u32 {
-        (0..EMBODIED_CYCLE_TICKS * EMBODIED_HEIGHT_TICKS)
+    fn tick_of_height(phase: ScriptPhase, height: CombatHeight) -> u32 {
+        (0..SCRIPT_CYCLE_TICKS * SCRIPT_HEIGHT_TICKS)
             .find(|&t| {
-                EmbodiedPhase::of(t) == phase
-                    && HEIGHTS[((t / EMBODIED_HEIGHT_TICKS) % 3) as usize] == height
+                ScriptPhase::of(t) == phase
+                    && HEIGHTS[((t / SCRIPT_HEIGHT_TICKS) % 3) as usize] == height
             })
             .expect("the two clocks are coprime enough to meet")
     }
@@ -952,24 +952,24 @@ mod tests {
     #[test]
     fn a_body_out_of_measure_closes_and_one_in_measure_strikes() {
         let weapon = 1;
-        let far = at_tick(&situation(FAR, Angle::ZERO, Fx::ZERO), tick_of(EmbodiedPhase::Commit));
-        let closing = scripted_embodied_command(&far);
-        assert!(closing.articulated.move_dir.x.is_positive(), "a body out of measure stood still");
-        assert_eq!(closing.articulated.move_dir.y, Fx::ZERO, "closing is not a strafe");
+        let far = at_tick(&situation(FAR, Angle::ZERO, Fx::ZERO), tick_of(ScriptPhase::Commit));
+        let closing = scripted_command(&far);
+        assert!(closing.core.move_dir.x.is_positive(), "a body out of measure stood still");
+        assert_eq!(closing.core.move_dir.y, Fx::ZERO, "closing is not a strafe");
 
-        let near = at_tick(&situation(NEAR, Angle::ZERO, Fx::ZERO), tick_of(EmbodiedPhase::Commit));
-        let striking = scripted_embodied_command(&near);
-        assert_eq!(striking.articulated.intent, Intent::Attack(EntityId::new(1, 0)));
-        assert_eq!(striking.articulated.arms[weapon].effort, Fx::ONE);
-        assert_eq!(striking.articulated.arms[weapon].reach, Fx::ONE);
+        let near = at_tick(&situation(NEAR, Angle::ZERO, Fx::ZERO), tick_of(ScriptPhase::Commit));
+        let striking = scripted_command(&near);
+        assert_eq!(striking.core.intent, Intent::Attack(EntityId::new(1, 0)));
+        assert_eq!(striking.core.arms[weapon].effort, Fx::ONE);
+        assert_eq!(striking.core.arms[weapon].reach, Fx::ONE);
         // And the blade is off the line, because a cut that starts on the line
         // has nowhere to accelerate from.
-        assert_ne!(striking.articulated.arms[weapon].bearing, Angle::ZERO);
+        assert_ne!(striking.core.arms[weapon].bearing, Angle::ZERO);
 
         // The far body is not merely walking: it is walking *and not swinging*,
         // which is the half of "close and strike" that a move column cannot show.
-        assert_eq!(closing.articulated.intent, Intent::Hold);
-        assert!(closing.articulated.arms[weapon].effort < Fx::ONE);
+        assert_eq!(closing.core.intent, Intent::Hold);
+        assert!(closing.core.arms[weapon].effort < Fx::ONE);
     }
 
     /// Nothing in sight walks the way the body faces, and this is not a detail:
@@ -982,15 +982,15 @@ mod tests {
     fn nothing_in_sight_walks_the_way_the_body_faces() {
         let mut alone = situation(FAR, Angle::ZERO, Fx::ZERO);
         alone.opponent_count = 0;
-        alone.tick = tick_of(EmbodiedPhase::Commit);
+        alone.tick = tick_of(ScriptPhase::Commit);
 
-        let command = scripted_embodied_command(&alone);
-        assert!(command.articulated.move_dir.x.is_positive());
-        assert_eq!(command.articulated.move_dir.y, Fx::ZERO);
-        assert_eq!(command.articulated.intent, Intent::Hold);
-        assert!(command.articulated.arms[1].effort < Fx::ONE, "it swung at nobody");
+        let command = scripted_command(&alone);
+        assert!(command.core.move_dir.x.is_positive());
+        assert_eq!(command.core.move_dir.y, Fx::ZERO);
+        assert_eq!(command.core.intent, Intent::Hold);
+        assert!(command.core.arms[1].effort < Fx::ONE, "it swung at nobody");
         assert_eq!(
-            command.articulated.body_yaw, alone.body_yaw,
+            command.core.body_yaw, alone.body_yaw,
             "a body with nobody to face asked for a turn",
         );
     }
@@ -1003,23 +1003,23 @@ mod tests {
     fn a_body_in_measure_holds_its_guard_while_it_circles() {
         let off = 0;
         let base = situation(NEAR, Angle::ZERO, Fx::ZERO);
-        let guard = tick_of(EmbodiedPhase::Guard);
-        let first = scripted_embodied_command(&at_tick(&base, guard));
+        let guard = tick_of(ScriptPhase::Guard);
+        let first = scripted_command(&at_tick(&base, guard));
 
-        assert!(first.articulated.move_dir.y.abs().is_positive(), "the body did not circle");
-        assert_eq!(first.articulated.move_dir.x, Fx::ZERO, "circling is not an approach");
-        assert!(first.articulated.arms[off].effort.is_positive(), "the guard went slack");
+        assert!(first.core.move_dir.y.abs().is_positive(), "the body did not circle");
+        assert_eq!(first.core.move_dir.x, Fx::ZERO, "circling is not an approach");
+        assert!(first.core.arms[off].effort.is_positive(), "the guard went slack");
 
         // Held, tick by tick, for the whole phase. The window is inside one block
         // of both height clocks on purpose: a guard that changed height here
         // would be the clock doing its job and not the guard failing to hold.
-        for tick in guard..guard + EMBODIED_PHASE_TICKS {
-            let command = scripted_embodied_command(&at_tick(&base, tick));
+        for tick in guard..guard + SCRIPT_PHASE_TICKS {
+            let command = scripted_command(&at_tick(&base, tick));
             assert_eq!(
-                command.articulated.arms[off], first.articulated.arms[off],
+                command.core.arms[off], first.core.arms[off],
                 "the guard moved at tick {tick}",
             );
-            assert_eq!(command.articulated.move_dir, first.articulated.move_dir);
+            assert_eq!(command.core.move_dir, first.core.move_dir);
         }
     }
 
@@ -1029,12 +1029,12 @@ mod tests {
     /// which is the direction that brings the hips under the shoulders.
     #[test]
     fn a_body_wound_to_its_limit_steps_instead_of_circling() {
-        let settled = at_tick(&situation(NEAR, Angle::ZERO, Fx::ZERO), tick_of(EmbodiedPhase::Guard));
+        let settled = at_tick(&situation(NEAR, Angle::ZERO, Fx::ZERO), tick_of(ScriptPhase::Guard));
         let mut wound = settled;
         wound.stance.twist_fraction = Fx::from_ratio(19, 20);
 
-        let circling = scripted_embodied_command(&settled).articulated.move_dir;
-        let stepping = scripted_embodied_command(&wound).articulated.move_dir;
+        let circling = scripted_command(&settled).core.move_dir;
+        let stepping = scripted_command(&wound).core.move_dir;
 
         assert_eq!(circling.x, Fx::ZERO, "the settled body did not circle");
         assert!(stepping.x.is_positive(), "the wound body did not step");
@@ -1044,13 +1044,13 @@ mod tests {
         // problem and the same answer -- the step is not a turn.
         let mut other = settled;
         other.stance.twist_fraction = -Fx::from_ratio(19, 20);
-        assert_eq!(scripted_embodied_command(&other).articulated.move_dir, stepping);
+        assert_eq!(scripted_command(&other).core.move_dir, stepping);
 
         // And the yaw request is left asking for the whole turn, because backing
         // it off is what would end the step early.
         assert_eq!(
-            scripted_embodied_command(&wound).articulated.body_yaw,
-            scripted_embodied_command(&settled).articulated.body_yaw,
+            scripted_command(&wound).core.body_yaw,
+            scripted_command(&settled).core.body_yaw,
         );
     }
 
@@ -1062,24 +1062,24 @@ mod tests {
         let weapon = 1;
         // A commit whose height clock has selected MID, so a step down has
         // somewhere to go.
-        let commit = tick_of_height(EmbodiedPhase::Commit, CombatHeight::MID);
+        let commit = tick_of_height(ScriptPhase::Commit, CombatHeight::MID);
         let flat = at_tick(&situation(NEAR, Angle::ZERO, Fx::ZERO), commit);
         let up = at_tick(&situation(NEAR, Angle::ZERO, Fx::HALF), commit);
 
         let mut ground = GroundSense::default();
-        let level = scripted_embodied_command_with(&flat, EmbodiedScriptConfig::SEEKING, &mut ground);
+        let level = scripted_command_with(&flat, ScriptConfig::SEEKING, &mut ground);
         // The same memory, now told the body is standing half a unit higher than
         // it started: two terraces up the sculpted hill.
-        let climbed = scripted_embodied_command_with(&up, EmbodiedScriptConfig::SEEKING, &mut ground);
+        let climbed = scripted_command_with(&up, ScriptConfig::SEEKING, &mut ground);
 
-        assert_eq!(level.articulated.arms[weapon].height, CombatHeight::MID);
-        assert_eq!(climbed.articulated.arms[weapon].height, CombatHeight::LOW);
+        assert_eq!(level.core.arms[weapon].height, CombatHeight::MID);
+        assert_eq!(climbed.core.arms[weapon].height, CombatHeight::LOW);
         assert_eq!(
-            climbed.articulated.arms[0].height, level.articulated.arms[0].height,
+            climbed.core.arms[0].height, level.core.arms[0].height,
             "the elevation term moved the guard clock",
         );
         // And it slows: the ground is taken, so there is nothing to hurry for.
-        assert!(climbed.articulated.move_dir.x < level.articulated.move_dir.x);
+        assert!(climbed.core.move_dir.x < level.core.move_dir.x);
     }
 
     /// **4 of 4b: losing ground turns the circle the other way.** The seek half
@@ -1087,24 +1087,24 @@ mod tests {
     /// exact floor.
     #[test]
     fn losing_a_height_step_turns_the_circle_the_other_way() {
-        let guard = tick_of(EmbodiedPhase::Guard);
+        let guard = tick_of(ScriptPhase::Guard);
         let level = at_tick(&situation(NEAR, Angle::ZERO, Fx::ZERO), guard);
         let lower = at_tick(&situation(NEAR, Angle::ZERO, -Fx::from_ratio(1, 4)), guard);
 
         let mut ground = GroundSense::default();
-        let before = scripted_embodied_command_with(&level, EmbodiedScriptConfig::SEEKING, &mut ground);
+        let before = scripted_command_with(&level, ScriptConfig::SEEKING, &mut ground);
         assert_eq!(ground.drift, 0, "flat ground set a drift");
-        let after = scripted_embodied_command_with(&lower, EmbodiedScriptConfig::SEEKING, &mut ground);
+        let after = scripted_command_with(&lower, ScriptConfig::SEEKING, &mut ground);
         assert_eq!(ground.drift, DEFAULT_CIRCLE_SIDE);
         // The first loss only *starts* the drift, which is already the default
         // side, so the turn is visible on the second loss.
         let lower_still = at_tick(&situation(NEAR, Angle::ZERO, -Fx::HALF), guard);
         let turned =
-            scripted_embodied_command_with(&lower_still, EmbodiedScriptConfig::SEEKING, &mut ground);
+            scripted_command_with(&lower_still, ScriptConfig::SEEKING, &mut ground);
         assert_eq!(ground.drift, -DEFAULT_CIRCLE_SIDE);
-        assert_eq!(before.articulated.move_dir, after.articulated.move_dir);
-        assert_eq!(turned.articulated.move_dir.y, -after.articulated.move_dir.y);
-        assert!(turned.articulated.move_dir.y.abs().is_positive());
+        assert_eq!(before.core.move_dir, after.core.move_dir);
+        assert_eq!(turned.core.move_dir.y, -after.core.move_dir.y);
+        assert!(turned.core.move_dir.y.abs().is_positive());
     }
 
     /// The control does not read the floor at all, which is what makes a measured
@@ -1112,13 +1112,13 @@ mod tests {
     /// else. Driven over the same descent the test above turns on.
     #[test]
     fn the_level_configuration_cannot_see_elevation_at_all() {
-        let guard = tick_of(EmbodiedPhase::Guard);
+        let guard = tick_of(ScriptPhase::Guard);
         let mut ground = GroundSense::default();
         let mut commands = Vec::new();
         for z in [Fx::ZERO, -Fx::from_ratio(1, 4), -Fx::HALF, Fx::HALF] {
             let obs = at_tick(&situation(NEAR, Angle::ZERO, z), guard);
             commands.push(
-                scripted_embodied_command_with(&obs, EmbodiedScriptConfig::LEVEL, &mut ground)
+                scripted_command_with(&obs, ScriptConfig::LEVEL, &mut ground)
                     .payload_bytes(),
             );
         }
@@ -1136,25 +1136,25 @@ mod tests {
     #[test]
     fn a_locked_out_arm_steps_in_where_a_comfortable_one_reaches() {
         let weapon = 1;
-        let commit = tick_of(EmbodiedPhase::Commit);
-        let guard = tick_of(EmbodiedPhase::Guard);
+        let commit = tick_of(ScriptPhase::Commit);
+        let guard = tick_of(ScriptPhase::Guard);
         let comfortable = situation(NEAR, Angle::ZERO, Fx::ZERO);
         let mut locked = comfortable;
         locked.stance.reach_headroom[weapon] = Fx::ZERO;
 
         // The arm: reach further when there is room to.
         assert_eq!(
-            scripted_embodied_command(&at_tick(&comfortable, commit)).articulated.arms[weapon].reach,
+            scripted_command(&at_tick(&comfortable, commit)).core.arms[weapon].reach,
             Fx::ONE,
         );
         assert_eq!(
-            scripted_embodied_command(&at_tick(&locked, commit)).articulated.arms[weapon].reach,
+            scripted_command(&at_tick(&locked, commit)).core.arms[weapon].reach,
             GUARD_REACH,
         );
 
         // The feet: step in when there is not.
-        let circling = scripted_embodied_command(&at_tick(&comfortable, guard)).articulated.move_dir;
-        let stepping = scripted_embodied_command(&at_tick(&locked, guard)).articulated.move_dir;
+        let circling = scripted_command(&at_tick(&comfortable, guard)).core.move_dir;
+        let stepping = scripted_command(&at_tick(&locked, guard)).core.move_dir;
         assert_eq!(circling.x, Fx::ZERO);
         assert!(stepping.x.is_positive(), "a locked-out arm did not step in");
         assert_eq!(stepping.y, Fx::ZERO);
@@ -1165,16 +1165,16 @@ mod tests {
     /// guard's lies across the line".
     #[test]
     fn the_guard_arm_folds_its_elbow_inward_and_the_weapon_arm_does_not() {
-        let command = scripted_embodied_command(&situation(NEAR, Angle::ZERO, Fx::ZERO));
+        let command = scripted_command(&situation(NEAR, Angle::ZERO, Fx::ZERO));
         assert_eq!(command.swing_plane[1], Angle::ZERO, "the weapon arm left the neutral plane");
         assert_eq!(command.swing_plane[0], Angle::ZERO - Angle::QUARTER);
         // And the sign follows the shoulder rather than being written down twice:
         // a body whose weapon is its left hand folds the other elbow the other
         // way.
         let mut left_handed = situation(NEAR, Angle::ZERO, Fx::ZERO);
-        left_handed.capabilities = ArticulatedObservation::LEFT_WEAPON;
+        left_handed.capabilities = Observation::LEFT_WEAPON;
         left_handed.arms[1].severed = true;
-        let mirrored = scripted_embodied_command(&left_handed);
+        let mirrored = scripted_command(&left_handed);
         assert_eq!(mirrored.swing_plane[1], Angle::QUARTER);
         assert_eq!(mirrored.swing_plane[0], Angle::ZERO);
     }
@@ -1183,13 +1183,13 @@ mod tests {
     /// feet are committed cannot answer, so the guard phase becomes a chamber.
     #[test]
     fn an_opponent_mid_step_is_attacked_a_phase_early() {
-        let settled = at_tick(&situation(NEAR, Angle::ZERO, Fx::ZERO), tick_of(EmbodiedPhase::Guard));
+        let settled = at_tick(&situation(NEAR, Angle::ZERO, Fx::ZERO), tick_of(ScriptPhase::Guard));
         let mut committed = settled;
         committed.opponents[0].stance.stepping = true;
 
-        assert_eq!(scripted_embodied_command(&settled).articulated.intent, Intent::Hold);
+        assert_eq!(scripted_command(&settled).core.intent, Intent::Hold);
         assert_eq!(
-            scripted_embodied_command(&committed).articulated.intent,
+            scripted_command(&committed).core.intent,
             Intent::Attack(EntityId::new(1, 0)),
         );
     }
@@ -1199,14 +1199,14 @@ mod tests {
     /// further counter-clockwise, so you go the other way round it.
     #[test]
     fn a_wound_opponent_is_circled_toward_the_side_they_cannot_follow() {
-        let base = at_tick(&situation(NEAR, Angle::ZERO, Fx::ZERO), tick_of(EmbodiedPhase::Guard));
+        let base = at_tick(&situation(NEAR, Angle::ZERO, Fx::ZERO), tick_of(ScriptPhase::Guard));
         let mut wound_positive = base;
         wound_positive.opponents[0].stance.twist_fraction = Fx::from_ratio(19, 20);
         let mut wound_negative = base;
         wound_negative.opponents[0].stance.twist_fraction = -Fx::from_ratio(19, 20);
 
-        let positive = scripted_embodied_command(&wound_positive).articulated.move_dir;
-        let negative = scripted_embodied_command(&wound_negative).articulated.move_dir;
+        let positive = scripted_command(&wound_positive).core.move_dir;
+        let negative = scripted_command(&wound_negative).core.move_dir;
         assert!(positive.y.raw() < 0, "a positively wound opponent was circled the wrong way");
         assert!(negative.y.raw() > 0);
         assert_eq!(positive.y, -negative.y);
@@ -1243,15 +1243,15 @@ mod tests {
         turned.opponents[0].body_position = rotated;
         turned.opponents[0].regions[BodyPart::Torso as usize].radius = TORSO_RADIUS;
 
-        let a = scripted_embodied_command(&straight);
-        let b = scripted_embodied_command(&turned);
-        assert_eq!(a.articulated.move_dir, b.articulated.move_dir);
-        assert_eq!(a.articulated.arms, b.articulated.arms);
+        let a = scripted_command(&straight);
+        let b = scripted_command(&turned);
+        assert_eq!(a.core.move_dir, b.core.move_dir);
+        assert_eq!(a.core.arms, b.core.arms);
         assert_eq!(a.swing_plane, b.swing_plane);
-        assert_eq!(a.articulated.intent, b.articulated.intent);
+        assert_eq!(a.core.intent, b.core.intent);
         assert_eq!(
-            b.articulated.body_yaw,
-            a.articulated.body_yaw + Angle::QUARTER,
+            b.core.body_yaw,
+            a.core.body_yaw + Angle::QUARTER,
             "the one absolute column did not follow the rotation",
         );
     }
@@ -1262,11 +1262,11 @@ mod tests {
     /// arms slack at the neutral plane.
     #[test]
     fn a_blank_observation_holds_rather_than_panicking() {
-        let command = scripted_embodied_command(&ArticulatedObservation::BLANK);
+        let command = scripted_command(&Observation::BLANK);
         assert_eq!(command.payload_bytes(),
-                   neutral_embodied_command(&ArticulatedObservation::BLANK).payload_bytes());
-        assert_eq!(command.articulated.move_dir, Vec2::ZERO);
-        assert_eq!(command.articulated.intent, Intent::Hold);
+                   neutral_command(&Observation::BLANK).payload_bytes());
+        assert_eq!(command.core.move_dir, Vec2::ZERO);
+        assert_eq!(command.core.intent, Intent::Hold);
     }
 
     /// A *present* body with no legs -- what an Articulated world publishes --
@@ -1275,19 +1275,19 @@ mod tests {
     /// one a settled, comfortable body would have produced.
     #[test]
     fn a_body_with_no_stance_block_is_driven_as_a_settled_one() {
-        let legged = at_tick(&situation(NEAR, Angle::ZERO, Fx::ZERO), tick_of(EmbodiedPhase::Guard));
+        let legged = at_tick(&situation(NEAR, Angle::ZERO, Fx::ZERO), tick_of(ScriptPhase::Guard));
         let mut legless = legged;
         legless.stance = ObservedStance::BLANK;
         legless.opponents[0].stance = ObservedOpponentStance::BLANK;
 
         assert_eq!(
-            scripted_embodied_command(&legless).payload_bytes(),
-            scripted_embodied_command(&legged).payload_bytes(),
+            scripted_command(&legless).payload_bytes(),
+            scripted_command(&legged).payload_bytes(),
             "a body with no legs was driven as a locked-out or wound one",
         );
         // Specifically: it circles rather than stepping in on a zero headroom it
         // does not have.
-        assert_eq!(scripted_embodied_command(&legless).articulated.move_dir.x, Fx::ZERO);
+        assert_eq!(scripted_command(&legless).core.move_dir.x, Fx::ZERO);
     }
 
     /// Determinism, and the shape of the memory. The same observation twice is
@@ -1296,7 +1296,7 @@ mod tests {
     #[test]
     fn one_observation_gives_one_command_and_reset_clears_the_ground() {
         let obs = at_tick(&situation(NEAR, Angle::ZERO, Fx::ZERO), 41);
-        let mut policy = ScriptedEmbodiedPolicy::default();
+        let mut policy = ScriptedPolicy::default();
         assert_eq!(policy.decide(&obs).payload_bytes(), policy.decide(&obs).payload_bytes());
 
         // Walk it down a hill so the memory has something in it.
@@ -1307,7 +1307,7 @@ mod tests {
         policy.reset();
         assert_eq!(policy.ground(), GroundSense::default());
 
-        let mut fresh = ScriptedEmbodiedPolicy::default();
+        let mut fresh = ScriptedPolicy::default();
         assert_eq!(policy.decide(&obs).payload_bytes(), fresh.decide(&obs).payload_bytes());
     }
 
@@ -1316,10 +1316,10 @@ mod tests {
     /// and the failure would look like the term simply not working.
     #[test]
     fn a_reset_clears_the_memory_and_keeps_the_configuration() {
-        let mut policy = ScriptedEmbodiedPolicy::new(EmbodiedScriptConfig::LEVEL);
+        let mut policy = ScriptedPolicy::new(ScriptConfig::LEVEL);
         policy.decide(&situation(NEAR, Angle::ZERO, Fx::ONE));
         policy.reset();
-        assert_eq!(policy.config(), EmbodiedScriptConfig::LEVEL);
+        assert_eq!(policy.config(), ScriptConfig::LEVEL);
     }
 
     // ------------------------------------------------------ constants and bounds
@@ -1365,16 +1365,16 @@ mod tests {
     #[test]
     fn every_tick_of_the_cycle_falls_in_exactly_one_phase() {
         let mut seen = [0u32; 4];
-        for tick in 0..EMBODIED_CYCLE_TICKS {
-            seen[match EmbodiedPhase::of(tick) {
-                EmbodiedPhase::Guard => 0,
-                EmbodiedPhase::Chamber => 1,
-                EmbodiedPhase::Commit => 2,
-                EmbodiedPhase::Recover => 3,
+        for tick in 0..SCRIPT_CYCLE_TICKS {
+            seen[match ScriptPhase::of(tick) {
+                ScriptPhase::Guard => 0,
+                ScriptPhase::Chamber => 1,
+                ScriptPhase::Commit => 2,
+                ScriptPhase::Recover => 3,
             }] += 1;
         }
-        assert_eq!(seen, [EMBODIED_PHASE_TICKS; 4]);
-        assert_eq!(EmbodiedPhase::of(EMBODIED_CYCLE_TICKS), EmbodiedPhase::of(0));
+        assert_eq!(seen, [SCRIPT_PHASE_TICKS; 4]);
+        assert_eq!(ScriptPhase::of(SCRIPT_CYCLE_TICKS), ScriptPhase::of(0));
     }
 
     /// Every move vector this script can produce is one the world will accept.

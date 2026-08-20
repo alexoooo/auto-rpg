@@ -209,7 +209,7 @@ export class ArenaClient {
       this.#requireNewest(claim);
       // **No policy code asks for a network since v2-ui-08**, so this is always
       // `null` and the fetch that used to stand here is gone. `#/arena` reads
-      // `EmbodiedPolicyKind`, which has no `learned` entry; `arena-config.ts`
+      // `PolicyKind`, which has no `learned` entry; `arena-config.ts`
       // carries the reason. The *field* survives because the worker's
       // `warmUp(seed, checkpoint)` and its `checkpointRefused` refusal are the
       // browser's only path for installing a network at all, and retiring a

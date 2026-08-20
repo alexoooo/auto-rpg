@@ -69,8 +69,8 @@ The premise that lets these two crates use floating point is that **nothing they
 compute reaches authoritative state**, and it is enforced three ways rather than
 promised:
 
-- **A type fence.** `learn_core::LearnedActionV1` is a different type from
-  `sim::ArticulatedCommandV1`, and `World::submit_articulated_v1` cannot be handed one.
+- **A type fence.** `learn_core::LearnedActionV1` is a different type from the
+  submitted command, and the world's submission cannot be handed one.
   What crosses from the float side to the integer side is **five head indices**, chosen
   by an argmax, which then index a fixed table of `Fx` constants.
 - **A direction fence.** `the_learned_policy_is_unreachable_from_sim` in
@@ -95,13 +95,20 @@ only host is `lab`, through `lab learn-probe` and `lab trace --policy learned`.
   agree on it. Its registry row in [`hashes.md`](../reference/hashes.md#golden-registry)
   names the `-C target-cpu=native` hole that bounds it.
 
-`crates/policy` deliberately did **not** gain the dependency.
-`ArticulatedPolicyKind::Learned` is code 4 in the registry and its `build()` still
-answers `None`, because a trained fighter is a kind *plus fifteen kilobytes of weights*
-and an integer registry has nowhere to put them. The dispatch lives in `crates/web`'s
-`build_articulated_policy`, beside the buffer holding the weights, and a fighter that
-asks for code 4 with nothing loaded is refused by name with `ARENA_NO_CHECKPOINT`. The
-ABI for fetching and installing one is in
+`crates/policy` deliberately did **not** gain the dependency, and the reason outlived
+the registry entry that used to demonstrate it. The articulated registry had a
+`learned` code whose `build()` answered `None`, because a trained fighter is a kind
+*plus fifteen kilobytes of weights* and an integer registry has nowhere to put them;
+the dispatch lived in `crates/web`, beside the buffer holding the weights, and a
+fighter asking for that code with nothing loaded was refused by name.
+
+**The surviving registry has no `learned` entry at all**, so `PolicyKind::build`
+returns a policy rather than an `Option` -- the shape the argument above always
+implied, arrived at by deletion rather than by design. Adding the code back is a
+decision and not an omission: it needs the network widening that was measured and
+deferred, and until then nothing in this workspace builds a fighter from a checkpoint.
+The checkpoint staging buffer is untouched and `LEARNED_INFERENCE_DIGEST` is still
+taken over whatever it installs; the ABI for fetching and installing one is in
 [`articulated-abi.md`](../reference/articulated-abi.md#the-checkpoint-staging-buffer).
 
 **Neither crate carries a crates.io dependency, and neither does anything else.**
@@ -139,7 +146,7 @@ the trained network is on the *articulated* seam and no legacy code names it.
 
 `Observation::write_features` remains the versioned fixed-width legacy vector. The
 network does not read it -- `learn_core::write_features` writes a separate 41-column
-slice off `ArticulatedObservation`, and the layouts are versioned separately.
+slice off `Observation`, and the layouts are versioned separately.
 
 ## What `lab evolve` did, and why it is not this
 
@@ -159,7 +166,7 @@ say.** `evolve` changed constants consumed by code somebody wrote; it did not ch
 observation-to-command function. `learn-probe` optimizes the function itself.
 
 It was deleted rather than ported because **the embodied script is not a genome.** Its
-subject was `UtilityWeights` through `PolicySpec`, and `ScriptedEmbodiedPolicy` has no
+subject was `UtilityWeights` through `PolicySpec`, and `ScriptedPolicy` has no
 named weights at all; porting the search would have meant inventing a subject for it.
 That leaves this repository with no weight search at all, which is a real loss and is
 recorded here rather than in a commit message: anyone who wants one back is writing it

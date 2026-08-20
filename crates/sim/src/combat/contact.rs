@@ -45,7 +45,7 @@ const EXACT_NUMERATOR_LIMIT: u128 = 1u128 << 94;
 const EXACT_DENOMINATOR_LIMIT: i128 = 1i128 << 64;
 
 pub const MAX_CONTACT_GROUPS_PER_TICK: u8 = 8;
-pub const MAX_ARTICULATED_ENTITIES: usize = 64;
+pub const MAX_ENTITIES: usize = 64;
 pub const MAX_CONTACT_FACTS_PER_GROUP: usize = 512;
 pub const MAX_CONTACT_RESOLUTIONS_PER_TICK: usize = 4_096;
 pub const BODY_SLOT: u8 = 0xff;
@@ -1360,7 +1360,7 @@ pub struct ContactBounds {
 /// memory, and because the ceiling is a constant somebody will eventually
 /// raise.
 pub fn contact_bounds(high_water: usize) -> Result<ContactBounds, ContactCapacityError> {
-    if high_water > MAX_ARTICULATED_ENTITIES { return Err(ContactCapacityError::EntityLimit); }
+    if high_water > MAX_ENTITIES { return Err(ContactCapacityError::EntityLimit); }
     let pairs = match high_water {
         0 | 1 => 0,
         n => n.checked_mul(n - 1).ok_or(ContactCapacityError::PairCount)? / 2,
@@ -8086,7 +8086,7 @@ mod tests {
         let denominator = 1i128 << 96;
         let term = WideRational4096::new(1, denominator).unwrap();
         let mut total = WideRational4096::zero();
-        let terms = MAX_ARTICULATED_ENTITIES * BODY_VOLUME_COUNT * 4 - 1;
+        let terms = MAX_ENTITIES * BODY_VOLUME_COUNT * 4 - 1;
         for _ in 0..terms {
             total = wide_add(total, term).unwrap();
         }
@@ -8661,7 +8661,7 @@ mod tests {
         let mut rows = Vec::new();
         rows.push(segment(0, Faction::Heroes, Vec3::ZERO, Vec3::ZERO, Vec3::ZERO));
         rows.push(segment(1, Faction::Monsters, Vec3::ZERO, Vec3::ZERO, Vec3::ZERO));
-        for entity in 2..MAX_ARTICULATED_ENTITIES as u32 {
+        for entity in 2..MAX_ENTITIES as u32 {
             let at = Vec3::from_ints(100 + entity as i32 * 100,
                                      if entity % 2 == 0 { 100 } else { -100 }, 0);
             rows.push(segment(entity,
@@ -8673,7 +8673,7 @@ mod tests {
             owner.common_response.momentum[0].velocity_raw = 1;
         }
         let mut scratch = ContactCollectionScratch::default();
-        scratch.try_reserve(contact_bounds(MAX_ARTICULATED_ENTITIES).unwrap().candidate_bound)
+        scratch.try_reserve(contact_bounds(MAX_ENTITIES).unwrap().candidate_bound)
             .unwrap();
         scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows,
                                    &mut scratch).unwrap();

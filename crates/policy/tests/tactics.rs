@@ -7,7 +7,7 @@
 //! world re-adds what this subtracted and lands back on the plan", never "the
 //! two commands differ", which is true of the wrong version too.
 //!
-//! The remaining four are `tests/embodied_script.rs`'s claims made again for
+//! The remaining four are `tests/script.rs`'s claims made again for
 //! this policy, and they are made again rather than shared because they are
 //! claims about *this* mind: a refused submission stores the neutral command, so
 //! a policy whose torso frame were wrong would produce a clean, reproducible run
@@ -15,17 +15,17 @@
 
 use fx::{Angle, Fx, Vec2};
 use policy::{
-    into_torso, into_torso_frame, neutral_articulated_command, neutral_embodied_command,
-    EmbodiedPolicy, TacticalEmbodiedPolicy,
+    into_torso, into_torso_frame, neutral_world_command, neutral_command,
+    Policy, TacticalPolicy,
 };
 use sim::{
-    ArmTarget, ArticulatedCommandV1, ArticulatedObservation, CombatHeight, EntityId, Faction,
-    GripRequest, Intent, ReleaseRequest, Replay, Scenario, SubmitEmbodiedOutcome,
+    ArmTarget, CommandCoreV1, Observation, CombatHeight, EntityId, Faction,
+    GripRequest, Intent, ReleaseRequest, Replay, Scenario, SubmitOutcome,
     SubmittedCommand, World,
 };
 
 /// Long enough for both bodies to cross the gap and fight, and short enough that
-/// the file stays inside a second. `tests/embodied_script.rs`'s number.
+/// the file stays inside a second. `tests/script.rs`'s number.
 const TICKS: u32 = 1_800;
 
 /// The forward rotation `World::world_move_dir` applies, reading a walk vector
@@ -49,10 +49,10 @@ fn into_world(v: Vec2, yaw: Angle) -> Vec2 {
 /// the observation is left as the world published it rather than blanked,
 /// because a blank one has `body_yaw == Angle::ZERO` and zero is the yaw at
 /// which every wrong sign is right.
-fn observation_at(yaw: Angle) -> ArticulatedObservation {
+fn observation_at(yaw: Angle) -> Observation {
     let scenario = Scenario::embodied_duel();
     let world = World::new(&scenario, 11);
-    let mut obs = world.observe_articulated(world.alive_ids(Faction::Heroes)[0]);
+    let mut obs = world.observe(world.alive_ids(Faction::Heroes)[0]);
     assert!(obs.present(), "the fixture must publish a live body to read a yaw off");
     obs.body_yaw = yaw;
     obs
@@ -63,8 +63,8 @@ fn observation_at(yaw: Angle) -> ArticulatedObservation {
 /// Every column is distinct from every other, and no bearing is zero, a quarter
 /// or a half turn: a plan built out of round angles is one a sign error can land
 /// on by accident.
-fn world_plan() -> ArticulatedCommandV1 {
-    ArticulatedCommandV1 {
+fn world_plan() -> CommandCoreV1 {
+    CommandCoreV1 {
         move_dir: Vec2::new(Fx::from_ratio(3, 5), Fx::from_ratio(-1, 4)),
         body_yaw: Angle::from_degrees(211),
         intent: Intent::Hold,
@@ -136,14 +136,14 @@ fn a_world_vector_survives_the_round_trip() {
     }
 }
 
-/// The cheapest check on the sign: `neutral_articulated_command` writes
-/// `bearing: obs.body_yaw` and `neutral_embodied_command` writes `Angle::ZERO`,
+/// The cheapest check on the sign: `neutral_world_command` writes
+/// `bearing: obs.body_yaw` and `neutral_command` writes `Angle::ZERO`,
 /// so subtracting `obs.body_yaw` maps one onto the other to the bit.
 ///
 /// **This test passes under the wrong subtrahend, and that is why the next one
 /// has to exist.** The wrong version of the adapter reads
-/// `ArticulatedCommandV1::body_yaw` -- the yaw the command *requests* -- instead
-/// of `ArticulatedObservation::body_yaw`, the yaw the body is holding when the
+/// `CommandCoreV1::body_yaw` -- the yaw the command *requests* -- instead
+/// of `Observation::body_yaw`, the yaw the body is holding when the
 /// world re-adds it. A neutral command sets `body_yaw: obs.body_yaw`, so the two
 /// subtrahends are the same number here and no fixture built out of neutral
 /// commands can ever separate them. What separates them is a command that asks
@@ -160,8 +160,8 @@ fn the_neutral_articulated_command_converts_to_the_neutral_embodied_command_exac
     for degrees in [0, 7, 90, 211, 359] {
         let obs = observation_at(Angle::from_degrees(degrees));
         assert_eq!(
-            into_torso_frame(&obs, neutral_articulated_command(&obs)).payload_bytes(),
-            neutral_embodied_command(&obs).payload_bytes(),
+            into_torso_frame(&obs, neutral_world_command(&obs)).payload_bytes(),
+            neutral_command(&obs).payload_bytes(),
             "the neutral round trip is not exact at {degrees}deg",
         );
     }
@@ -193,8 +193,8 @@ fn the_same_plan_at_two_yaws_produces_two_torso_commands_that_point_one_way() {
     assert_ne!(a.body_yaw, plan.body_yaw, "the plan must be asking for a turn");
     assert_ne!(b.body_yaw, plan.body_yaw, "the plan must be asking for a turn");
 
-    let ta = into_torso_frame(&a, plan).articulated;
-    let tb = into_torso_frame(&b, plan).articulated;
+    let ta = into_torso_frame(&a, plan).core;
+    let tb = into_torso_frame(&b, plan).core;
 
     for arm in 0..2 {
         assert_ne!(
@@ -247,11 +247,11 @@ struct Driven {
 /// [`StrikePlanner`]: policy::StrikePlanner
 fn drive(scenario: &Scenario, seed: u64) -> Driven {
     let mut world = World::new(scenario, seed);
-    let mut minds: Vec<(EntityId, TacticalEmbodiedPolicy)> = world
+    let mut minds: Vec<(EntityId, TacticalPolicy)> = world
         .alive_ids(Faction::Heroes)
         .into_iter()
         .chain(world.alive_ids(Faction::Monsters))
-        .map(|id| (id, TacticalEmbodiedPolicy::default()))
+        .map(|id| (id, TacticalPolicy::default()))
         .collect();
     let mut refused = 0u32;
     let mut resolutions = 0u64;
@@ -261,11 +261,11 @@ fn drive(scenario: &Scenario, seed: u64) -> Driven {
         due.clear();
         due.extend_from_slice(world.pending_decisions());
         for &id in &due {
-            let observation = world.observe_articulated(id);
+            let observation = world.observe(id);
             let Some(mind) = minds.iter_mut().find(|(who, _)| *who == id) else { continue };
             let command = mind.1.decide(&observation);
-            match world.submit_embodied_v1(id, command) {
-                SubmitEmbodiedOutcome::Stored { rejection: None, .. } => {}
+            match world.submit(id, command) {
+                SubmitOutcome::Stored { rejection: None, .. } => {}
                 _ => refused += 1,
             }
         }
@@ -305,11 +305,11 @@ fn a_tactical_embodied_fight_replays_exactly() {
     let scenario = Scenario::embodied_slope();
     let mut world = World::new(&scenario, 11);
     let mut replay = Replay::new(&scenario, 11);
-    let mut minds: Vec<(EntityId, TacticalEmbodiedPolicy)> = world
+    let mut minds: Vec<(EntityId, TacticalPolicy)> = world
         .alive_ids(Faction::Heroes)
         .into_iter()
         .chain(world.alive_ids(Faction::Monsters))
-        .map(|id| (id, TacticalEmbodiedPolicy::default()))
+        .map(|id| (id, TacticalPolicy::default()))
         .collect();
     let mut due: Vec<EntityId> = Vec::new();
 
@@ -317,13 +317,13 @@ fn a_tactical_embodied_fight_replays_exactly() {
         due.clear();
         due.extend_from_slice(world.pending_decisions());
         for &id in &due {
-            let observation = world.observe_articulated(id);
+            let observation = world.observe(id);
             let Some(mind) = minds.iter_mut().find(|(who, _)| *who == id) else { continue };
             let command = mind.1.decide(&observation);
             // Recorded before submission and at the tick it was made on, which
             // is the contract `Replay::record_submitted` reads.
             replay.record_submitted(world.tick(), id, SubmittedCommand::Embodied(command));
-            world.submit_embodied_v1(id, command);
+            world.submit(id, command);
         }
         world.step();
     }
@@ -367,7 +367,7 @@ fn two_tactical_bodies_reach_each_other_and_make_contact() {
 #[test]
 fn a_policy_reused_across_runs_drives_the_same_fight_twice() {
     let scenario = Scenario::embodied_slope();
-    let run = |mind: &mut TacticalEmbodiedPolicy, other: &mut TacticalEmbodiedPolicy| {
+    let run = |mind: &mut TacticalPolicy, other: &mut TacticalPolicy| {
         mind.reset();
         other.reset();
         let mut world = World::new(&scenario, 11);
@@ -377,21 +377,21 @@ fn a_policy_reused_across_runs_drives_the_same_fight_twice() {
             due.clear();
             due.extend_from_slice(world.pending_decisions());
             for &id in &due {
-                let observation = world.observe_articulated(id);
+                let observation = world.observe(id);
                 let command = if heroes.contains(&id) {
                     mind.decide(&observation)
                 } else {
                     other.decide(&observation)
                 };
-                world.submit_embodied_v1(id, command);
+                world.submit(id, command);
             }
             world.step();
         }
         world.state_digest().value
     };
 
-    let mut hero = TacticalEmbodiedPolicy::default();
-    let mut monster = TacticalEmbodiedPolicy::default();
+    let mut hero = TacticalPolicy::default();
+    let mut monster = TacticalPolicy::default();
     let first = run(&mut hero, &mut monster);
     let second = run(&mut hero, &mut monster);
     assert_eq!(first, second, "a reused planner carried one fight into the next");

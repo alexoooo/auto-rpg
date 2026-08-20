@@ -18,7 +18,7 @@ with it, and a reader should know which before quoting any number below.
   (`0x1a1e8e74eecd55d5` canonical, `0x95b6b5f9bc80865d` mirrored), which is a
   different fight between the same two anatomies under a different command grammar.
 - **Two of the five conditions.** `windmill` and `attack-moves` were articulated
-  scripts. `policy::EmbodiedPolicyKind` has no windmill and no closing-attack entry,
+  scripts. `policy::PolicyKind` has no windmill and no closing-attack entry,
   and inventing one would be shipping a policy out of a deletion session. The
   conditions `lab learn-probe evaluate` runs now are `constant`, `scripted`,
   `tactical`, `tactical-fixed-guard` and `learned`.

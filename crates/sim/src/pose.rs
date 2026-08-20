@@ -86,7 +86,7 @@ pub struct PosedArm {
     pub elbow: Option<Vec3>,
     /// The hand's velocity **relative to the body origin**, in world units per
     /// tick -- the column the actuator integrates, unconverted. The absolute
-    /// velocity is [`ArticulatedPose::body_velocity`] plus this, which is the
+    /// velocity is [`Pose::body_velocity`] plus this, which is the
     /// same sum the contact entry clamp forms; publishing the sum instead would
     /// throw away the only term a consumer cannot recover, since a body's own
     /// motion is already a separate field and the arm's is not.
@@ -112,7 +112,7 @@ pub struct PosedArm {
 /// renderer unfiltered -- the host boundary owes it the same identity filtering
 /// the worker protocol already applies to the legacy frame.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct ArticulatedPose {
+pub struct Pose {
     pub id: EntityId,
     /// The body origin, world space.
     ///

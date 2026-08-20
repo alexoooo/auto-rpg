@@ -1,21 +1,45 @@
 # Articulated observation and stream ABI
 
-**Purpose:** Freeze subject observations, feature widths, host word layouts, exports, capacities, and stream digests for v2-16, plus the configured duel's input buffer and refusal codes and the checkpoint staging buffer behind its fifth policy code.
+**Purpose:** Freeze subject observations, host word layouts, exports, capacities, and stream digests for v2-16, plus the configured duel's input buffer and refusal codes and the checkpoint staging buffer behind its fifth policy code.
 **Status:** current
 **Canonical source:** `crates/sim/src/obs.rs`, `crates/policy/src/lib.rs`, `crates/learn-core/src/digest.rs`, and `crates/web/src/lib.rs`
-**Update when:** An observation field, feature offset, word offset, export, capacity, ownership rule, or digest byte changes.
+**Update when:** An observation field, word offset, export, capacity, ownership rule, or digest byte changes.
 
-This document owns the subject-scoped observation, appended feature width, wasm word
-layouts, capacities, exports, and portable stream digest. The legacy frame remains
-the contract in [`frame-abi.md`](frame-abi.md).
+This document owns the subject-scoped observation, the wasm word layouts, capacities,
+exports, and portable stream digest. The packed `f32` frame beside them remains the
+contract in [`frame-abi.md`](frame-abi.md).
+
+**`ARTICULATED_` names a section of the publication and not a combat model.** One
+model ships and it is the embodied one: the legacy model went in embodied session 10
+and the articulated model in the embodied fight's session 05. The prefix stays on
+`ARTICULATED_PROJECTILE_STRIDE`, `MAX_ARTICULATED_PROJECTILES`, the
+`articulated_projectile_*` and `articulated_stream_digest_*` exports,
+`ARTICULATED_PAYLOAD_BYTES`, `HashDomain::ArticulatedV1` and the pins
+`ARTICULATED_STREAM_DIGEST` and `ARTICULATED_COMMAND_HASH` -- and it is historical in
+exactly the way a file format's magic bytes are historical. A published name outlives
+the thing that named it, because something outside this repository is holding it: a
+saved page, a recorded trace, a `.ckpt` header, another build's decoder.
+
+**Renaming one is not a rename.** The frame ABI is a handshake across five files, one
+of which `tools/check_abi.js` byte-compares against the generator that emits it, and
+`AGENTS.md`'s rule for it is that **a partial mirror update is not green even if one
+side still draws**. So a cosmetic sweep over these identifiers would cost a layout
+version, five coordinated edits and a re-recorded pin, to buy a word -- and it would
+buy a *worse* word, because the reader who most needs help here is the one holding an
+artifact from before the deletions, and that reader is looking up the old spelling.
+Read the prefix as "the publication the articulated model introduced", which is what
+it always meant and is now the only thing it can mean. The two payload widths are the
+clearest case: `ARTICULATED_PAYLOAD_BYTES` (53) is kept beside
+`EMBODIED_PAYLOAD_BYTES` (57) deliberately, because the pair of names is the only
+surviving record of why there are two widths at all.
 
 ## Subject-scoped observation
 
-`MAX_ARTICULATED_OPPONENTS = MAX_CONTACTS = 6`. `World::observe_articulated(id)`
-returns a blank observation for a stale identity. A nonblank observation contains:
+`MAX_OPPONENTS = MAX_CONTACTS = 6`. `World::observe(id)` returns a blank observation
+for a stale identity. A nonblank observation contains:
 
 ```rust
-pub struct ArticulatedObservation {
+pub struct Observation {
     pub tick: u32,
     pub subject: EntityId,
     pub capabilities: u32,
@@ -35,8 +59,14 @@ pub struct ArticulatedObservation {
     pub arm_length: Fx,
     pub hand_radius: Fx,
     pub weapons: [Option<SegmentPose>; 2],
+    pub stance: ObservedStance,
 }
 ```
+
+**`stance` is last and stays last.** It is the legs, the hips and the twist -- the
+half of a body that only the embodied model has -- and it was appended after every
+column above it rather than woven in beside the arms, on the append-only rule the
+whole of this document runs on.
 
 Capability bits are: movement `0`, turning `1`, left grip `2`, right grip `3`, left
 weapon `4`, right weapon `5`, shield `6`, and two-handed binding `7`; higher bits are
@@ -47,10 +77,9 @@ unit normal, and two half-extents.
 The three self dimensions and two self weapon poses are structured-observation
 views only. They expose the immutable anatomy row and the same current segment pose
 the renderer receives, so a policy can predict whether its own committed sweep is
-reachable. They are not serialized, hashed, or appended to `write_features`; the
-feature layout below is version 13 and 954 columns, and none of it is theirs.
-Subject weapon ownership is the pose rule: a two-handed segment occupies the right
-slot once.
+reachable. They are neither serialized nor hashed, and the shipped learning slice
+does not read them. Subject weapon ownership is the pose rule: a two-handed segment
+occupies the right slot once.
 
 **Every position in these structs is world space**, including hands, target hands,
 weapon endpoints, region endpoints, and shield centres. This is the rule
@@ -101,7 +130,7 @@ Select opponents from the **opposing faction** on ground-truth sight and masonry
 visibility -- the same `Stats::sight_range` and `Dungeon::sees` predicate the legacy
 contact list uses -- sort by
 `(delta_xy.length_sq(), EntityId.index, EntityId.generation)`, and retain six. The cap
-is `MAX_ARTICULATED_OPPONENTS` and deliberately **not** the per-observer
+is `MAX_OPPONENTS` and deliberately **not** the per-observer
 `Stats::tracked_contacts` the legacy list narrows to: this block's width is a fixed row
 stride before it is a percept, so a dim character's rows are blurred rather than fewer.
 There is no ally block. No hidden identity or geometry enters an unused row: an empty
@@ -129,250 +158,219 @@ region/equipment geometry keeps its exact local shape and is translated by
 measured-minus-true body position, so one noisy body does not shear into disconnected
 parts.
 
-## Appended feature blocks
+## The appended feature blocks, retired
 
-V2-16 set `FEATURE_LAYOUT_VERSION = 12`, `ARTICULATED_FEATURE_COUNT = 472` and
-`FEATURE_COUNT = 922`; embodied session 09 appended a second block and took the
-version to **13** and the width to **954**. Existing indices `0..450` remain
-byte-identical under both, which is what the `legacy feature prefix` pin exists to
-refuse a change to. A Legacy observation appends 472 zeroes and then 32 more; an
-articulated one fills the first block and zeroes the second.
+**This section specified a vector that no longer exists, and it is kept as history
+rather than deleted.** It froze `FEATURE_LAYOUT_VERSION` 13 and a 954-column `Fx`
+vector: a 450-column legacy prefix, a 472-column articulated block appended at index
+450, and a 32-column embodied block appended at 922. Every column table, every offset
+and every width it published is gone from the tree. `ARTICULATED_FEATURE_COUNT`,
+`sim::FEATURE_COUNT` and `sim::FEATURE_LAYOUT_VERSION` have **no references at all**
+in any `.rs`, `.ts`, `.js` or `.mjs` file.
 
-The articulated block is 64 self features followed by six 68-feature opponent rows.
-Self order is: present; eight capability bits; yaw cosine/sine; body velocity XYZ;
-for each left/right arm, hand position relative to body XYZ, target-hand position
-relative to body XYZ, velocity XYZ, fatigue,
-integrity fraction, severed; shield present, relative center XYZ, normal XYZ, two
-extents; blood fraction, shock; five integrity fractions, five wound fractions, five
-severed bits. Opponent order is: present; relative body position XYZ, world-frame
-velocity XYZ, yaw cosine/sine; head relative center XYZ/radius; torso relative
-endpoints XYZ/XYZ/radius; left then right arm relative endpoints XYZ/XYZ/radius; leg
-relative endpoints XYZ/XYZ/radius; left then right weapon relative endpoints
-XYZ/XYZ; shield present/relative center XYZ/normal XYZ/two extents; five severed
-bits; contact timing. Empty rows are all zero, and so is an absent region or an absent
-weapon inside a filled row -- a severed arm's last capsule is geometry the observer
-cannot see. Identity remains exact in the structured observation and is deliberately
-not coerced into an `Fx` feature.
+**Why it went, because the reason is not "the articulated model was deleted".** The
+blocks were *methods on the legacy observation*. The articulated and embodied blocks
+were written from a legacy `Observation` that embedded the articulated one as a field,
+so the surviving blocks were reachable only through the type being deleted -- and
+nothing in the workspace read any of them. Embodied session 10 took the whole
+publication out with that type. `crates/sim/src/lib.rs` carries the record on the
+`pub use` it guards, which is the right place for it: a reader who goes looking for a
+feature vector goes looking at the observation.
 
-The same order as offsets. Self block, 64 wide, at index 450:
+**The live learning interface is `learn_core::write_features`, and it is a different
+layout rather than a later version of this one.** It builds its own columns out of
+named observation fields instead of off an index: 41 columns (`LEARN_FEATURE_COUNT`),
+appended to 59 by the tactical model (`LEARN_V2_FEATURE_COUNT`), versioned by
+`LEARN_FEATURE_LAYOUT_VERSION` and `LEARN_V2_FEATURE_LAYOUT_VERSION`, and pinned
+across native and wasm by `LEARNED_INFERENCE_DIGEST` in
+[`hashes.md`](hashes.md#golden-registry). **59 is not a descendant of 954.** The two
+were never the same layout, they never shared a version number, and reading this
+section as the history of that one is the specific mistake it is kept here to prevent.
+The retired `legacy feature prefix` pin, which existed to refuse a change to columns
+`0..450`, is in the retired table of the same document.
 
-| offsets | width | contents |
-|---:|---:|---|
-| 0 | 1 | present |
-| 1..8 | 8 | capability bits 0..7, in the bit order above |
-| 9,10 | 2 | body yaw cosine, sine |
-| 11..13 | 3 | body velocity XYZ |
-| 14..25 | 12 | left arm: hand relative XYZ, target-hand relative XYZ, velocity XYZ, fatigue, integrity fraction, severed |
-| 26..37 | 12 | right arm, the same twelve in the same order |
-| 38..46 | 9 | shield present, relative centre XYZ, normal XYZ, half-width, half-height |
-| 47,48 | 2 | blood fraction, shock |
-| 49..53 | 5 | integrity fraction, `BodyPart` order |
-| 54..58 | 5 | wound fraction, `BodyPart` order |
-| 59..63 | 5 | severed bits, `BodyPart` order |
+**The composition arithmetic is kept, because it is the only surviving record of how a
+per-model layout was put together.** The articulated block was 64 self features
+followed by six 68-wide opponent rows -- `64 + 6*68 = 472`, and `450 + 472 = 922`
+behind the legacy prefix. The embodied block was 14 self columns followed by three
+columns for each of six opponents -- `14 + 6*3 = 32`, and `922 + 32 = 954`. Blocks were
+**appended and never interleaved**, and indices `0..450` stayed byte-identical when the
+append took the version from 12 to 13. That rule is the one thing here worth
+re-deriving: it is the same rule the [pose](#pose-rows), [region](#region-rows),
+[projectile](#articulated-projectile-rows), [stance](#stance-rows) and
+[combat-event](#combat-event-rows) sections below still run on, and it is why the
+[stream digest](#portable-stream-digest) can distinguish an extension from a layout
+move.
 
-Each opponent row, 68 wide, six of them starting at block offset 64:
+**Four rules outlived the vector, because they were arguments and not offsets.**
 
-| offsets | width | contents |
-|---:|---:|---|
-| 0 | 1 | present |
-| 1..3 | 3 | relative body position XYZ |
-| 4..6 | 3 | body velocity XYZ, world frame like the self row's |
-| 7,8 | 2 | body yaw cosine, sine |
-| 9..12 | 4 | head relative centre XYZ, radius (the degenerate volume's single point) |
-| 13..19 | 7 | torso: relative lower XYZ, relative upper XYZ, radius |
-| 20..26 | 7 | left arm, the same seven |
-| 27..33 | 7 | right arm, the same seven |
-| 34..40 | 7 | legs, the same seven |
-| 41..46 | 6 | left weapon: relative hilt XYZ, relative tip XYZ |
-| 47..52 | 6 | right weapon, the same six |
-| 53..61 | 9 | shield present, relative centre XYZ, normal XYZ, half-width, half-height |
-| 62..66 | 5 | severed bits, `BodyPart` order |
-| 67 | 1 | contact timing |
+- **One frame for a whole block, and it was the subject's body position.** Every
+  position in it -- the subject's own hands and shield, every opponent's body, and every
+  capsule, hilt, tip and shield centre those opponents carried -- had that one point
+  subtracted off. A per-body frame that put an opponent's arm relative to its own torso
+  reads more natural and is useless: the question a fighter asks is "is my blade near
+  their head", which is a subtraction of two columns and is only meaningful if the two
+  share an origin. The [structured observation](#subject-scoped-observation) states the
+  same rule from the other side and states it in **world** space, and the two are
+  consistent rather than in tension: a struct's reader is handed the body origin in the
+  same struct, and a flat vector's reader is handed nothing.
+- **The shared origin was scoped to positions; velocities stayed in the world frame.**
+  A closing rate is the difference of two published columns, while recovering an
+  absolute velocity from a closing one is not possible at all -- and an opponent's
+  actual motion is what makes a moving enemy hittable. The two arm-velocity triples
+  were the one family that was body-relative rather than subject-relative, which is the
+  same exception the [pose row](#pose-rows) still makes for the same reason.
+- **One length divisor and one velocity divisor, shared across the whole block.**
+  Lengths divided by `Stats::sight_range` -- right by construction, because an opponent
+  further away than sight range is not in the observation at all -- and sharing it
+  across positions, capsule radii and shield extents is what made "how wide is that
+  torso" and "how far is it from my hand" comparable. Two divisors would make the same
+  displacement two different numbers depending on which slot it landed in. Velocities
+  divided by a `SPEED_SCALE` of 0.25 world units per tick, which mattered because an
+  absolute hand velocity is the body velocity plus the arm's and that sum is only a sum
+  if both terms are on one scale. `learn_core` keeps a `SPEED_SCALE` of its own at the
+  same value; it is a second constant that agrees, not this one surviving.
+- **Every embodied column was a fraction and none was a raw quantity.**
+  `STANCE_TWIST_LIMIT_RAW`, `STANCE_STEP_TICKS` and `PELVIS_HEIGHT_RAW` are `pub`
+  inside `crates/sim`'s actuator module and are deliberately not re-exported, so a
+  consumer cannot reach the divisor -- and the divisor is the half that carries the
+  meaning. Publishing the ratio is the only shape of those facts that crosses the
+  boundary at all. That rule is **live**, in the [stance rows](#stance-rows), which
+  publish pelvis height as a fraction of standing height for exactly this reason.
 
-`64 + 6*68 = 472`, and `450 + 472 = 922`.
-
-### The embodied block, indices 922..954
-
-Written only by a body that has legs and an elbow; `CombatModel::Embodied` is the
-only model that does, so a Legacy or Articulated observation leaves all 32 columns
-zero.
-
-| index | width | contents |
-|---|---:|---|
-| 0 | 1 | present |
-| 1..2 | 2 | hip yaw relative to torso yaw, cosine and sine |
-| 3 | 1 | twist as a signed fraction of the stance budget |
-| 4 | 1 | pelvis as a fraction of standing pelvis height |
-| 5 | 1 | step remaining as a fraction of a step's duration |
-| 6..9 | 4 | left arm: elbow relative to its own shoulder XYZ over arm length, reach headroom |
-| 10..13 | 4 | right arm, the same four |
-| 14..16 | 3 | opponent 0: present, twist fraction, mid-step |
-| ... | 3 each | opponents 1 through 5 |
-
-`14 + 6*3 = 32`, and `922 + 32 = 954`.
-
-**Each half carries its own `present`, which the articulated block above does not
-need.** There, a blank row is zeros and nothing else, and no live body writes an
-all-zero row. Here one can: a body squared, level and standing still has zero twist,
-zero hip offset and no step running, so "nothing to report" and "nothing is
-happening" would be the same bytes. The hips go in as cosine and sine for the same
-shape of reason.
-
-**Every embodied value is a fraction and none is a raw quantity.**
-`STANCE_TWIST_LIMIT_RAW`, `STANCE_STEP_TICKS` and `PELVIS_HEIGHT_RAW` are `pub`
-inside `crates/sim`'s actuator module and are deliberately not re-exported, so a
-consumer cannot reach the divisor -- and the divisor is the half that carries the
-meaning. Publishing the ratio is the only shape of these facts that crosses the
-boundary at all. The elbow is relative to its own shoulder over arm length for the
-same reason: no shoulder is published anywhere.
-
-**Reach headroom is the column the block exists for.** After the elbow session an
-arm can be commanded to a pose it cannot hold, and the clamp in front of the
-integrator silently takes the difference. A fighter that reads only where its hand is
-cannot tell a comfortable guard from a locked-out one.
-
-**One frame for the whole block, and it is the subject's body position.** Every
-position in the block -- the subject's own hands and shield, every opponent's body, and
-every capsule, hilt, tip and shield centre those opponents carry -- has that one point
-subtracted off. A per-body frame that put an opponent's arm relative to its own torso
-reads more natural and is useless: the question an articulated fighter asks is "is my
-blade near their head", which is a subtraction of two features and is only meaningful
-if the two share an origin.
-
-**The shared origin is scoped to positions. Velocities stay in the world frame**, on
-both the self row and every opponent row -- the columns are the observation's own
-`body_velocity` over `SPEED_SCALE` and nothing is subtracted. This is the legacy
-block's rule and the rule for the same reason `Contact::velocity` gives in place: the
-subject's own velocity is right there at self offsets 11..13, so a closing rate is the
-difference of two published columns, while recovering an absolute velocity from a
-closing one is not possible at all. Publishing rates would cost the policy the
-opponent's actual motion, which is what makes a moving enemy hittable. The two arm
-velocity triples are the one column family that is *not* world-frame, and they are
-body-relative rather than subject-relative -- the same exception the
-[pose row](#pose-rows) makes, for the same reason. What pins the scope is
-`every_articulated_feature_lands_on_its_documented_index`: nudging the subject's
-velocity is required to move exactly the three self columns, and a subject-relative
-opponent velocity would move twenty-one.
-
-**Normalisation.** Every length in the block -- positions, capsule radii, shield
-extents -- divides by `Stats::sight_range` (`6.0 + 0.6 * perception` world units), the
-divisor the legacy block already uses for contact range and wall clearance. It is the
-right bound by construction, because an opponent further away than sight range is not
-in the observation, and sharing it across positions and radii is what makes "how wide
-is that torso" and "how far is it from my hand" comparable. Every velocity divides by
-the legacy `SPEED_SCALE` of `0.25` world units per tick, which matters more here than
-in the legacy block: the absolute hand velocity is the body velocity plus the arm's,
-and that sum is only a sum if both terms are on one scale. Fractions, one-hot bits and
-`contact_timing` enter directly. So do the two **direction** columns, which are neither
-scaled nor clamped because they are already unit: a shield normal's XYZ, and the yaw
-cosine/sine pair -- which is a pair rather than an angle for the reason every bearing
-in the legacy vector is, that a raw angle is discontinuous at the wrap. Every quotient
-is clamped to `-1..=1`, which keeps the
-block inside the vector's invariant even when perception noise pushes a measured body
-past the sight range that admitted it. The cost of one shared length divisor is that
-the subject's own geometry is small -- an arm reaches about half a unit and the dimmest
-eye sees six -- which a linear layer absorbs and which still leaves eleven fractional
-bits in `Fx`. Two divisors would make the same displacement two different numbers
-depending on which slot it landed in.
+**One column is worth naming on its own: reach headroom.** After the elbow session an
+arm can be commanded to a pose it cannot hold, and the clamp in front of the integrator
+silently takes the difference -- so a fighter that reads only where its hand is cannot
+tell a comfortable guard from a locked-out one. Nothing publishes that column today. A
+policy that wants it computes it from `arm_length` and the hand position, both of which
+the [observation](#subject-scoped-observation) carries; the argument for the column is
+recorded here so that whoever adds it back does not have to rediscover why it earns its
+width.
 
 ## Word representation and submitted command
 
-Every new pose/event wasm buffer is `[u32]`. The submitted-command scratch is the
-exact `[u8; 57]` owned by v2-11, not a word buffer. Unsigned stream values are direct. `Fx` and signed values
+Every new pose/event wasm buffer is `[u32]`. The submitted-command scratch is a
+`[u8; 61]` byte array, not a word buffer. Unsigned stream values are direct. `Fx` and signed values
 are their two's-complement raw `i32` bits reinterpreted as `u32`; `Angle` and TOI raw
 values are widened to `u32`. Booleans are zero or one. Entity identity is always two
 words: index then generation. Lengths and capacities below count rows, strides count
 32-bit words.
 
-Submitted commands reuse the exact 57-byte buffer, byte offsets, canonical payload,
+Submitted commands reuse the exact buffer, byte offsets, canonical payload,
 validation, and rejection behavior in
-[`articulated-command-v1.md`](articulated-command-v1.md#fifty-seven-byte-wasm-action-buffer).
-V2-16 does not introduce a second command encoding. The buffer was 55 bytes until the
-release verb appended one byte per arm to the payload.
+[`embodied-command-v1.md`](embodied-command-v1.md#sixty-one-byte-wasm-action-buffer).
+V2-16 does not introduce a second command encoding.
 
 Exports are:
 
 ```text
-init_articulated(seed:u32) -> void
-init_embodied(seed:u32) -> void
-submitted_command_ptr() -> u32
-submitted_command_len() -> u32              // 57 bytes
-submitted_command_layout_version() -> u32   // 2
-submit_articulated(index:u32, generation:u32) -> u32
+init(seed:u32) -> void
+embodied_command_ptr() -> u32
+embodied_command_len() -> u32                // 61: a 4-byte envelope and a 57-byte payload
+embodied_command_layout_version() -> u32     // 2
+submit_embodied(index:u32, generation:u32) -> u32
 ```
 
-`init_articulated` uses the same room/hero fixture as `init` with
-`CombatModel::Articulated`; it does not alter `init`. `init_embodied` opens that
-same room under `CombatModel::Embodied` and is a third export rather than a
-parameter for the reason `init` and `init_articulated` are two: the export's name
-is the whole of what a page selects a model with, and a page passing an integer
-could pass a wrong one. It publishes one stance row per body where the other two
-publish none, which is what makes the zero-length stance section on an articulated
-world a distinction rather than a section nothing ever fills.
+**There is one `init` and there used to be three, and the collapse is the same
+argument running backwards rather than a change of mind.** `init` opened a Legacy
+floor and `init_articulated` and `init_embodied` opened the same floor plan under the
+other two models — three exports rather than one export with a model argument, because
+an export's *name* was the whole of what a page selected a model with and a page
+passing an integer could pass a wrong integer. With one model left there is nothing to
+select, so the argument that made them three is what collapses them back to one.
+`init_articulated`, `init_embodied`, `init_articulated_test`, `submit_articulated` and
+the three `submitted_command_*` accessors are gone, and `tools/wasm_check.js` asserts
+their absence by name beside the nineteen the Legacy deletion took. That list is not
+bookkeeping: an export that has quietly become `undefined` reads as `0` through
+`>>> 0`, and a packed word of zero is exactly what a refusal looks like.
 
-**The model word was not reaching the scenario, and `init_embodied` is what
-found it.** `dungeon_scenario` took a `CombatModel` from the start and used it
-only to decide whether to return the plain Legacy scenario; the two lines after
-that wrote `Articulated` whatever it had been given. One caller passing one value
-made that invisible. Since `Scenario::fingerprint` writes the combat model's
-identity word, the fixture would have carried the articulated identity under an
-embodied name and nothing would have said so. Submit returns the exact packed
-outcome/reason/detail word already specified by v2-11; v2-16 neither remaps it nor
-calls a second decoder. Rejection and fallback semantics therefore remain identical
-across the direct wasm and worker paths.
+**A submitted command is offered to one grammar now, and the pair of fixtures that
+made the *refusal* reachable went with the second grammar.** `init_embodied_test` is
+the surviving boundary fixture — two bodies on an open floor with no room around them
+— and `ARTICULATED_COMMAND_HASH` is taken over it, because a paired golden can only be
+taken over a world both targets can open and `init`'s generated floor is not a fixture
+any native test shares. `init_articulated_test` stood beside it so that a command of
+each grammar could be offered to a world of the other, in both directions; with one
+grammar left there is no wrong model to offer, and both of those tests went with the
+fixture. Submit still returns the exact packed outcome/reason/detail word v2-11
+specified, and neither remaps it nor calls a second decoder, so rejection and fallback
+semantics remain identical across the direct wasm and worker paths.
 
 **Correction, recorded because "the same fixture" turned out not to be reachable in
-full.** The floor plan, the portal, the torches, every spawn point and the hero are
-`init`'s exactly. The *monsters* are re-equipped, and no choice was available:
-`CombatSpecTableV1::fixtures()` ships one sword, one shield and one club, an
-articulated unit's loadout must name the equipment it is given slot for slot, and the
-generated roster walks in holding `Knife` and `Punch` — neither of which has an
-equipment row. So the host maps the roster onto the three items that exist: a Brute
-keeps its club, every other body takes the sword, and the off hand is empty because a
-fist is not an item. The hero needs no mapping at all, because a Fighter's sword and
-shield *are* rows 1 and 2 of the table. Inventing spec rows for a knife and a fist
-would have meant inventing collision geometry, mass and surface constants nobody
-measured; when the fixtures table grows those rows, this mapping should shrink to
-nothing. `the_articulated_room_is_inits_room_and_inits_hero` pins the half that is
-identical.
+full, and kept because the mapping it describes is still running.** The floor plan,
+the portal, the torches, every spawn point and the hero are the generated floor's
+exactly. The *monsters* are re-equipped, and no choice was available:
+`CombatSpecTableV1::fixtures()` ships one sword, one shield and one club, a unit's
+loadout must name the equipment it is given slot for slot, and the generated roster
+walks in holding `Knife` and `Punch` — neither of which has an equipment row. So the
+roster is mapped onto the three items that exist: a Brute keeps its club, every other
+body takes the sword, and the off hand is empty because a fist is not an item. The
+hero needs no mapping at all, because a Fighter's sword and shield *are* rows 1 and 2
+of the table. Inventing spec rows for a knife and a fist would have meant inventing
+collision geometry, mass and surface constants nobody measured; when the fixtures
+table grows those rows, this mapping should shrink to nothing.
 
-`init_articulated` and `init_embodied` fail closed on a refused construction and on
-a refused contact reservation alike: it installs no world at all rather than one whose next spawn could
+**The mapping moved into `crates/sim` and the host's copy is a pass-through.**
+`Scenario::dungeon` dresses the floor itself now, so the generated roster and the
+spawn path can no longer dress a body two different ways; `crates/web`'s
+`dungeon_scenario` is one call kept for its name.
+`inits_floor_is_the_generated_floor_with_everybody_equipped` pins the half that is
+identical, and it is worth reading for what it no longer asserts. It used to be "the
+articulated room is `init`'s room", a comparison between two `init` exports drawn when
+the question was whether the second had quietly become a different level. With one
+export left the same bytes answer the question from the other side: whether the
+dresser is a dresser and not a second generator.
+
+`init` fails closed on a refused construction and on a refused contact reservation
+alike: it installs no world at all rather than one whose next spawn could
 grow linear memory under a live typed array, and never traps. Because the shipped
 fixture is valid by construction, the closed path is exercised through a
-deliberately broken scenario in `init_articulated_fails_closed_and_installs_nothing`.
+deliberately broken scenario in `init_fails_closed_and_installs_nothing`.
 
-`Sim::descend` builds the next floor through the same model-aware builder and
-re-reserves the new world's contact vectors. It has to: the descending hero carries an
-articulated row, and handing that row to a plain Legacy `Scenario::dungeon` is a
-construction `World::new` refuses by panicking — one call inside a `pub extern "C"`
+`Sim::descend` builds the next floor through the same builder and re-reserves the new
+world's contact vectors. It has to: the descending hero carries an anatomy row, and
+handing that row to a scenario built without one is a construction `World::new`
+refuses by panicking — one call inside a `pub extern "C"`
 export, which poisons the instance for the life of the page.
 
 ## The configured duel
 
 V2-ui-05 adds the decision loop the exports above had no counterpart for. Until
-it landed, `World::submit` returned without storing on any world that is not
-Legacy, so every command `Sim::advance` produced under this model was dropped on
-the floor and `init_articulated` opened a room whose bodies chased their
-tick-zero command forever.
+it landed, the legacy submission returned without storing on any world that was not
+Legacy, so every command `Sim::advance` produced under the articulated model was
+dropped on the floor — silently, with no refusal to read and no counter to publish —
+and the room it opened had bodies chasing their tick-zero command forever.
 
-`Sim::advance` gains a **second branch**, taken on the first line, and the
+`Sim::advance` has a **second branch**, taken on the first line, and the
 condition is not the combat model: it is whether a configured duel is installed.
-Narrower on purpose. Branching on the model would also divert
-`init_articulated`'s room, whose behaviour under the legacy loop is what
-`published_views_survive_articulated_stress_without_memory_growth` settles its
-page count on and what
-`the_high_water_corpus_fills_at_most_half_the_event_buffer` counts its rows
-through. That room's commands are therefore still dropped; what the session buys
-is that it is no longer the only such world. `ROOM_HASH`, `BATTLE_HASH`,
-`SWAP_HASH` and `BOW_HASH` are all produced by `Sim::advance`, and a branch the
-legacy path cannot enter is the only obviously-safe shape there.
+It was narrower than v2-ui-05 asked for and it is now the only shape available.
+When the floor was still legacy, branching on the model would have diverted the
+articulated room whose behaviour those page-count and event-row fixtures were settled
+against; **today it would divert every world this module installs**, into a loop that
+has no route, no portal and no descent in it. What separates the two is that a duel is
+a fight on a clock between a fixed roster and a floor is a game, which is exactly what
+the field it branches on records.
 
-The loop ported is `lab`'s `measure_embodied_matchup` and **not**
-`policy::run_embodied`, which takes one `impl EmbodiedPolicy` and installs
-it on both sides — right for a control condition and useless for an arena.
-Routing is on the alive set captured at install, because
-[`ArticulatedObservation`](#subject-scoped-observation) has no faction column.
+**The floor's own commands are no longer dropped, and that changed under this
+paragraph rather than in it.** `init` opens an embodied world and the loop drives the
+embodied submission, so a policy command produced on the floor is stored and acted on.
+The four browser goldens that used to make a change here loud — `ROOM_HASH`,
+`BATTLE_HASH`, `SWAP_HASH` and `BOW_HASH`, all produced by `Sim::advance` — were
+Legacy fixtures and are in the retired half of the [golden
+registry](hashes.md#golden-registry). The automated cover for a `crates/web` default is
+now the client suites and `tools/wasm_check.js` and nothing else, which is worth
+knowing rather than discovering: **a page default has already reached a pinned digest
+once.** When the room's opening fighter changed, `ARTICULATED_STREAM_DIGEST` moved to
+`0xfb1d4456a7ef82d1`, because `drive_stream_digest_script` and
+`assert_documented_event_order` both built their fixture through `Sim::try_on` and
+inherited whatever the room opened on. Both name their policies explicitly now and the
+pin is back at its registered value. Grep for fixtures built through a shared helper
+before changing a default.
+
+The loop ported is `lab`'s `measure_embodied_matchup` and **not** the runner's
+one-policy harness, which installs the same mind on both sides — right for a control
+condition and useless for an arena. Routing is on the alive set captured at install,
+because the [observation](#subject-scoped-observation) has no faction column.
 The duel is built with the runner's `Order::Advance(±X)` and with both
 objectives at `Objective::None`, so the same configuration and seed produce the
 same state hash here as in `lab`; both are hashed, so a driver that skipped
@@ -380,29 +378,31 @@ either would fingerprint a different world. `a_scripted_arena_fight_in_wasm_matc
 is what says the two agree, against a second spelling of the loop rather than
 against a pinned number.
 
-Policies are named by `policy::EmbodiedPolicyKind`, which is also the registry
+Policies are named by `policy::PolicyKind`, which is also the registry
 `set_policy` takes on an ordinary floor:
 
 | code | policy | source |
 |---:|---|---|
-| 0 | `neutral` | `NeutralEmbodiedPolicy` |
-| 1 | `scripted` | `ScriptedEmbodiedPolicy`, `EmbodiedScriptConfig::SEEKING` |
-| 2 | `scripted-level` | `ScriptedEmbodiedPolicy`, `EmbodiedScriptConfig::LEVEL` |
-| 3 | `tactical` | `TacticalEmbodiedPolicy`, `TacticalConfig::READING` |
-| 4 | `tactical-fixed-guard` | `TacticalEmbodiedPolicy`, `TacticalConfig::FIXED_GUARD` |
+| 0 | `neutral` | the control that stands there |
+| 1 | `scripted` | the frozen script, `SEEKING` |
+| 2 | `scripted-level` | the frozen script, `LEVEL` |
+| 3 | `tactical` | the tactical fighter, `TacticalConfig::READING` |
+| 4 | `tactical-fixed-guard` | the tactical fighter, `TacticalConfig::FIXED_GUARD` |
 
 **This table replaced a different one in v2-ui-08 and the codes are not a
-superset.** `Scenario::duel_from` builds `CombatModel::Embodied` since that
-session, so `#/arena` reads the embodied registry where it read
-`ArticulatedPolicyKind`'s seven entries — `neutral`, `composed`, `windmill`,
+superset.** `Scenario::duel_from` builds an embodied duel since that
+session, so `#/arena` reads this registry where it read the articulated one's seven
+entries — `neutral`, `composed`, `windmill`,
 `attack-moves`, `learned`, `tactical`, `openings`, in that code order. A page
 holding a saved `4` now selects `tactical-fixed-guard` where it selected
 `learned`; `5` and `6` were `tactical` and `openings` and are refused with
 [`ARENA_UNKNOWN_POLICY`](#refusing-by-name). The registry is append-only from
-here.
+here. **The articulated registry is gone as code and is written out here on
+purpose**: a page can still be holding one of those seven saved integers, and the
+refusal a reader has to understand is a refusal of *that* number.
 
 **There is no `learned` code and adding one is a decision, not an omission.**
-`EmbodiedPolicyKind::build` returns a policy rather than an `Option` precisely
+`PolicyKind::build` returns a policy rather than an `Option` precisely
 because nothing in it is a checkpoint: a trained fighter is a kind *plus fifteen
 kilobytes of weights*, which a registry keyed by an integer has nowhere to put,
 and session 09 measured the learning boundary and deferred the network widening
@@ -463,7 +463,7 @@ v2-ui-07 is the session that wrote the client.**
    is the **only allocating call in the set** -- `Checkpoint::from_bytes` builds
    the seed list and the weight vector, which for `ModelShape::CURRENT` is 32
    seeds and 3,858 `f32`, about 15 KB -- so it belongs in a caller's warm-up
-   beside `init_articulated`, not mid-frame while a typed array over the pose
+   beside `init`, not mid-frame while a typed array over the pose
    buffer is being held.
 
    **The refusal path used to be the expensive one, and that is worth saying
@@ -491,7 +491,7 @@ v2-ui-07 is the session that wrote the client.**
 5. **Step five was "only then may a fighter carry policy code `4`", and there is
    no step five.** `arena_start` refused code 4 with `ARENA_NO_CHECKPOINT`
    otherwise and installed nothing; v2-ui-08 moved the arena onto
-   `EmbodiedPolicyKind`, which has no `learned` entry, so no policy byte asks for
+   `PolicyKind`, which has no `learned` entry, so no policy byte asks for
    a network. The four steps above are unchanged and still hold the digest, which
    is what the handshake is for now: `learned_inference_digest_lo` is taken over
    the checkpoint that was *installed*, so the sequence that installs it is the
@@ -563,16 +563,26 @@ and the `-C target-cpu=native` caveat that bounds it are in
 [`hashes.md`](hashes.md#golden-registry).
 
 `policy_kind(faction)` answers `0xffff_ffff` on a configured duel and
-`set_policy` refuses it, because those four codes are the legacy seam's and
-nothing in this loop consults `Sim::policies`. `init_articulated`'s room is
-deliberately unaffected: its legacy policies are installed and consulted every
-tick, so a legacy code is the true answer there.
+`set_policy` refuses it. **The reason is no longer that the two are different
+registries.** Until v2-ui-08 an arena's fighters ran the articulated registry while
+these two exports took the embodied one, and answering would have installed a code
+from one vocabulary into a slot read by the other. There is one registry now and the
+refusal stands anyway, for the narrower reason it always also had: an arena's pair is
+written once, by `arena_start`, as half of a 120-byte configuration whose fingerprint
+names the fight, and a dropdown that swapped one side mid-run would leave
+`arena_policy` and `arena_fingerprint_lo` describing a fight that is not being fought.
+`Sim::advance_arena` drives the arena's own policies and never consults
+`Sim::policies`, so a call that reported success would leave a page showing a dropdown
+that had done nothing. The page changes an arena's policy the way it changes its
+swords: by writing a configuration and calling `arena_start` again. An ordinary floor
+is unaffected -- its policies are installed and consulted every tick, so a code is the
+true answer there.
 
 **A configured duel refuses every export that would set an order**, which is
 `set_goto`, `set_focus`, `clear_order` and `route_push` — the last through the
 route queue's first leg. `arena_start` installs the runner's `Order::Advance` on
 each side *because* an order reaches `World::state_hash`, and that is the same
-sentence read the other way: an `ArticulatedObservation` has no order column, so
+sentence read the other way: the observation has no order column, so
 no fighter can perceive one, and a later order is therefore invisible to the
 fight's logic and visible to its identity. `arena_fingerprint_*` would not
 notice — it names the *configuration* and deliberately nothing else, since that
@@ -606,7 +616,7 @@ detachable view for no gain", and the distinction is the cross-field rule: a
 route is two scalars with none, a loadout is forty with seven.
 
 Little-endian throughout; every dimension is an `i32` raw 16.16, which is the
-[submitted command](articulated-command-v1.md#fifty-seven-byte-wasm-action-buffer)'s
+[submitted command](embodied-command-v1.md#sixty-one-byte-wasm-action-buffer)'s
 grammar and not a second one.
 
 | Buffer offset | Width | Field |
@@ -668,13 +678,18 @@ arena_config_layout_version() -> u32    // 2
 arena_start(seed:u32) -> u32
 arena_fingerprint_lo() -> u32
 arena_fingerprint_hi() -> u32
-arena_policy(faction_code:u32) -> u32   // EmbodiedPolicyKind::code, or 0xffff_ffff
+arena_policy(faction_code:u32) -> u32   // PolicyKind::code, or 0xffff_ffff
 ```
 
 `arena_fingerprint_*` is `Scenario::try_fingerprint` of the installed
 configuration, `0` when none is installed. It is what a recorded fight is named
-by, and it can never be the `articulated-duel-v1` pin: a runtime scenario is
-named `configured-duel-v1` precisely so the two cannot be confused.
+by, and it could never be the `articulated-duel-v1` pin: a runtime scenario is
+named `configured-duel-v1` precisely so the two could not be confused. That pin is
+itself retired now -- its fixture was deleted with the articulated model, and the
+[golden registry](hashes.md#golden-registry) records both its last value and the
+one-for-one successor it has -- so the separation is a fact about old recordings
+rather than a live collision. A recording is still named by the configuration it was
+run from, which is the half of this that never depended on which models existed.
 
 ### Refusing by name
 
@@ -717,7 +732,7 @@ not the one the plan predicted.
 **Two of the unreachable ones are *retired* rather than merely unreachable, and
 the difference matters.** `7` (policy unavailable) needed a registry entry the
 boundary could not build and `26` (no checkpoint) needed a fighter that wants a
-network; `EmbodiedPolicyKind::build` returns a policy and never an `Option`, and
+network; `PolicyKind::build` returns a policy and never an `Option`, and
 that registry has no `learned` entry, so neither has a producer or a path back to
 one. The seven spec errors below are not like that: `crates/sim` can still answer
 every one of them and a widened control brings them back without a byte moving.
@@ -735,12 +750,12 @@ picker cannot touch, and builds at most two anatomies and four equipment rows
 against caps of 64 and 128. They keep distinct codes anyway, because a host that
 maps five refusals onto one number on the grounds that they cannot happen is a
 host that says "invalid" on the day one does. The reservation refusal is the
-other unreachable one and for `init_articulated`'s reason: the request is
+other unreachable one and for `init`'s reason: the request is
 `MAX_UNITS` and the entity limit is the same number.
 
-It **installs nothing on any failure**, exactly as `init_articulated` does, and
+It **installs nothing on any failure**, exactly as `init` does, and
 it leaves the previous world standing and does not republish — the difference
-being that `init_articulated` is a call that says "start over" and owes an empty
+being that `init` is a call that says "start over" and owes an empty
 room when it cannot, while this one says "start this fight". Two hard reasons
 beyond taste: `Scenario::fingerprint` panics on an invalid construction, so
 `try_fingerprint` is mandatory; and a trap behind `pub extern "C"` poisons the
@@ -749,8 +764,23 @@ instance for the life of the page, turning a bad slider value into a reload.
 ### What recording costs
 
 **Measured in wasm under Node on 2026-08-11, re-measured the same day after
-review, and only one of the three original figures survived.** The fixture is a
-3,600-tick configured duel — the shipped arrangement, the articulated `composed`
+review, and only one of the three original figures survived.** **Every pairing named
+in this section is an articulated policy and none of them exists any more** —
+`composed`, `windmill`, `learned` and the articulated `neutral` went with the model in
+session 05, so nothing below can be re-run as written and every figure here is a
+record rather than a reproducible measurement. It is kept because what it establishes
+is a *bound on the harness* rather than a fact about those fighters: a 3,600-tick
+fight records in 0.3 to 0.4 seconds, `publish()` does not dominate it, and the
+per-frame copy-out is inside that number rather than beside it. Those three claims are
+about `step`, `publish` and the buffer copy, none of which the policy deletion
+touched. Re-measuring against embodied pairings would produce different absolutes and
+would not change any of the three; whoever does it should quote the new pairing by
+name, because **the pairing moves the drive further than anything the recorder does**,
+which is the finding two tables down.
+
+The fixture is a
+3,600-tick configured duel — the shipped arrangement at the time, the articulated
+`composed`
 script against `windmill`, seed 3, in contact from the first clinch to the tick
 limit — driven
 three ways: as 3,600 `step(1)` calls, as 450 `step(8)` calls, and as one
@@ -847,8 +877,8 @@ sizes as "about 4%, roughly 4 microseconds a call". It is not a measurement of
 anything: across the six pinned runs the `step(1)`-versus-`step(3600)` difference
 spans **−1.2% to +7.8%** on the contact pairing and **−12.9% to +10.7%** on the
 quiet one. It straddles zero in both — 3,600 separate publications are repeatedly
-*faster* than one — so 3,599 extra rebuilds of the legacy frame and both
-articulated buffers are not separable from run-to-run variation. What is
+*faster* than one — so 3,599 extra rebuilds of the packed frame and both
+publication buffers are not separable from run-to-run variation. What is
 defensible is a bound and not a value: under 8% of a drive that is already under
 0.4 seconds. **The conclusion is unchanged and now rests on the bound rather than
 on a figure: `publish()` does not dominate, and no `arena_record_step` is owed.**
@@ -938,10 +968,9 @@ inference on one side, not the latency of one fight on one thread.
 ## Pose rows
 
 `POSE_LAYOUT_VERSION=1`, `MAX_POSES=64`, `POSE_STRIDE=66`. `MAX_POSES` equals the
-authoritative v2-14 `MAX_ARTICULATED_ENTITIES`; exact Legacy world limits remain
-unchanged. Rows are ascending full identity, one per live articulated body at the end
-of the most recent host call. Prefix/drop handling remains defensive for malformed
-or future-version producers rather than permission to exceed the sim cap.
+authoritative v2-14 entity cap. Rows are ascending full identity, one per live body at
+the end of the most recent host call. Prefix/drop handling remains defensive for
+malformed or future-version producers rather than permission to exceed the sim cap.
 
 | words | field |
 |---:|---|
@@ -983,7 +1012,7 @@ columns are always the pose the actuator is actually converging on.
 
 `ShieldPose::thickness` is deliberately absent: it is a collision depth the contact
 phase carries, a renderer draws the face, and the columns are append-only so adding it
-later costs nothing. The row is otherwise the sim's own `ArticulatedPose` word for
+later costs nothing. The row is otherwise the sim's own `Pose` word for
 word — nothing is re-derived on the host side, because a second derivation is a second
 answer to a question the sim has already answered.
 
@@ -998,7 +1027,7 @@ that runs after every mutating export.
 
 `REGION_LAYOUT_VERSION=2`, `REGIONS_PER_BODY=7`, `REGION_STRIDE=8`, and
 `MAX_REGIONS = MAX_POSES * REGIONS_PER_BODY = 448`. One row per **swept volume**
-of every live articulated body, in `sim::BODY_VOLUME_COUNT` order inside a body
+of every live body, in `sim::BODY_VOLUME_COUNT` order inside a body
 and in the [pose rows](#pose-rows)' order across bodies. The row is
 `sim::RegionVolume` word for word.
 
@@ -1008,7 +1037,11 @@ their own discriminant order and keep those indices exactly; rows 5 and 6 are th
 left and right **forearm**, which exist only on a body whose arms have an elbow
 to split them at. A single-link body publishes them absent — `present` zero,
 endpoints at the body origin, radius zero — so the section is one shape for every
-combat model and a reader never branches on which kind of body it is holding.
+kind of body and a reader never branches on which kind it is holding. **Every body
+the boundary can build today has an elbow**, so the absent case is unreachable from
+this module; it is specified anyway, because `sim::jointed_body_region_volumes` still
+answers it and a shape that is one shape is only worth having if the empty case is
+written down.
 
 The forearms are appended rather than interleaved beside each arm because the
 five leading indices are read positionally by three consumers at once:
@@ -1043,7 +1076,7 @@ miniature: there is no state in which a forearm is severed and its arm is not, s
 the mask has nothing to say about rows 5 and 6 and the constructor derives them
 from the arm's bit and the elbow together. That is the section's whole reason to exist, and it
 is the same rule the pose row states as "the row is otherwise the sim's own
-`ArticulatedPose` word for word".
+`Pose` word for word".
 
 **The alternative is rejected on the record, so it is not rediscovered as an
 idea.** Publishing the anatomy once and porting `body_region_volumes` to
@@ -1111,8 +1144,8 @@ The host holds the anatomy it needs in a fixed `MAX_POSES`-wide array on its own
 `Sim`, resolved once per world install from the scenario's spec table, because
 `World` resolves its own privately and there is no way to ask. `crates/lab`'s
 trace keeps the same table for the same reason and on the same assumption:
-`World::try_new` spawns `scenario.units` in order and no export walks an
-articulated body into a world afterwards, so a slot indexes the unit that spawned
+`World::try_new` spawns `scenario.units` in order and no export walks a
+body into a world afterwards, so a slot indexes the unit that spawned
 into it. It is a fixed array and not a `Vec` because it is written on a path that
 holds two whole worlds at once; see the memory note below.
 
@@ -1121,8 +1154,9 @@ holds two whole worlds at once; see the memory note below.
 `ARTICULATED_PROJECTILE_LAYOUT_VERSION=1`,
 `ARTICULATED_PROJECTILE_STRIDE=12`, and
 `MAX_ARTICULATED_PROJECTILES=MAX_SHOTS=32`. This is a fourth publication, not an
-extension of the legacy frame's four-word `shot` rows: legacy shots are 2D and
-belong to the Legacy model, while these are the articulated runtime's 3D arrows.
+extension of the packed frame's four-word `shot` rows: those are 2D and belong to the
+frame, while these are the 3D arrows. The `ARTICULATED_` on all three constants and on
+all six exports is a section name and not a model name; see the top of this document.
 
 | words | field |
 |---:|---|
@@ -1192,22 +1226,28 @@ state want opposite things from a derived column — the reader wants it compute
 the owner; the digest wants it not counted twice — and this column is in both, on both
 rules.
 
-**The section is published for every model, and a zero length is an answer rather than a
-silence.** `publish` drives off `World::stances()` with no `has_stance` branch of its
-own, so a Legacy or Articulated world writes its zero rows through the same code an
-embodied one writes its roster through; a host that branched first would have two paths
-where the sim has one, and the second path is the one nothing ever runs. Every world
-this module can currently open takes that path, because no export installs an embodied
-one — which makes the distinction load-bearing rather than decorative. "Nothing, and I
-am telling you so" is a different answer from "this module has never heard of stances",
-and the length word is the only thing carrying the difference: a reader that took a
-zero-length section for a missing one could not tell an articulated fight from an
+**The section is published unconditionally, and a zero length is an answer rather than
+a silence.** `publish` drives off `World::stances()` with no branch of its
+own, so a world with no legs writes its zero rows through the same code a world with
+legs writes its roster through; a host that branched first would have two paths
+where the sim has one, and the second path is the one nothing ever runs.
+
+**Every world this module can open now has legs, and the distinction is worth keeping
+anyway.** The claim here used to be the opposite — no export installed an embodied
+world, so a zero was the correct answer everywhere — and `init` opening an embodied
+floor turned it over. "Nothing, and I
+am telling you so" is still a different answer from "this module has never heard of
+stances", and the length word is still the only thing carrying the difference: a reader
+that took a zero-length section for a missing one could not tell a legless fight from an
 artifact built before the publication existed. That is the distinction the boot
 handshake's layout version exists to make, and this length is what makes it per tick.
+What has changed is that no fixture *demonstrates* it any more; see the closing note on
+[the stream digest](#portable-stream-digest), where the witness that did is recorded as
+lost.
 
 **A fifth publication and not six more pose columns**, on the region section's argument
-exactly. A pose row is written for every articulated body and a stance exists only under
-`CombatModel::Embodied`, so folding these words in would widen every row of every fight
+exactly. A pose row is written for every body and a stance exists only on a body with
+legs, so folding these words in would widen every row of every fight
 to carry six most of them do not have — and it would move `POSE_LAYOUT_VERSION`, which
 is a version about pose columns and has nothing to say about hips. The layout version
 here is its own number for `REGION_LAYOUT_VERSION`'s reason: this section adds no pose
@@ -1216,10 +1256,14 @@ column, and a pose column moving says nothing about these six words.
 **The row carries a full identity where a region row does not**, because the stance
 section is not a fixed multiple of the pose section. Region row `n` belongs to pose row
 `n / REGIONS_PER_BODY` and needs no identity of its own; no such arithmetic exists here,
-since the ordinary case today is a full pose buffer beside an empty stance one.
-`embodied_stance_len() == pose_len()` holds on an embodied world and is asserted there
-rather than stated as a law of this ABI. Identity is the join, and it is both words of
-one: an index alone would answer just as happily for the body that took the slot next.
+and the ordinary case *was* a full pose buffer beside an empty stance one when this
+section landed. It is now a full one beside a full one:
+`embodied_stance_len() == pose_len()` holds on every world this module opens, and is
+asserted there rather than stated as a law of this ABI — the two counts agreeing on
+every fixture that exists is not the same claim as a fixed multiple, and writing the
+weaker one down is what leaves room for a body without legs to come back. Identity is
+the join, and it is both words of one: an index alone would answer just as happily for
+the body that took the slot next.
 
 `MAX_EMBODIED_STANCE` is written as `MAX_POSES` and never as a second literal 64. A body
 with legs is a body that also publishes a pose, so a stance cap that could fill first
@@ -1324,14 +1368,14 @@ authoritative counter beside `contact_cap_hits`, not a wider meaning for this on
 
 The accumulated feed is cleared per host *call* rather than per tick — one animation
 frame is up to eight ticks of catch-up and all eight ticks' contacts happened — and in
-two further places, both of which the legacy event feed already needed: `Sim::descend`
+two further places, both of which the frame's event feed already needed: `Sim::descend`
 itself, and `Sim::advance`'s early return when the hero walks out of the level. The
 second is not optional. A contact row names two full identities, and the level the
 descent builds hands those slots to new bodies, so a row that survived the return
 would be published against a world where it names somebody else.
 
-**Per `step` call, not per publication**, which the legacy event feed has always meant
-by the same words and which a consumer has to read carefully. Every mutating export
+**Per `step` call, not per publication**, which the frame's own event feed has always
+meant by the same words and which a consumer has to read carefully. Every mutating export
 rebuilds the frame, so a click, a spawn or a slider between two `step`s republishes the
 previous batch's rows unchanged. A consumer that accumulates from the feed — a damage
 ledger, one impact sound per row — must key on the call that stepped rather than on the
@@ -1341,8 +1385,8 @@ the feed, which is the same rule seen from the other end.
 The four static arrays cost 16,896, 262,144, 14,336 and 1,536 bytes respectively,
 for 294,912 bytes excluding thread-local wrapper bookkeeping. (The region term was
 10,240 and the total 290,816 until the forearm collider took the section from five
-rows a body to seven.) The 57-byte command buffer
-belongs to v2-11 and is not charged again, and neither are the 120-byte
+rows a body to seven.) The 61-byte command buffer
+is charged where it is declared and not again here, and neither are the 120-byte
 configuration buffer or v2-ui-08's 32,768-byte checkpoint staging buffer and its
 32-byte digest — those are *input* and are charged where they are declared. The
 checkpoint buffer is the one of the five large enough to notice: it is what took
@@ -1357,19 +1401,39 @@ The event half of that was 32,768 bytes while the capacity was the provisional 2
 the further 128 KB are what those decisions cost — worth writing down beside the
 capacity rather than leaving as arithmetic a reader has to redo.
 
-The mandatory event high-water corpus is one hand-built articulated scenario named
-`abi-high-water`, world seed `0x4152504741424931`, open `24x16` room, and 64 units.
+The mandatory event high-water corpus is one hand-built scenario named
+`abi-high-water`, built from the shipped embodied duel with its name and its roster
+replaced: world seed `0x4152504741424931`, open `24x16` room, and 64 units.
 For `i=0..31`, Fighter `2*i` is Heroes at `(4+i/4, 2+(i%4)*3)` and Brute
 `2*i+1` is Monsters exactly `3/2` units east. Stats and immutable equipment are the
-v2-12 fixtures. At target tick zero every Fighter submits yaw/bearing zero, height
-cycling LOW/MID/HIGH by `i%3`, reach/effort one, Keep grips, Attack its paired Brute;
-every Brute submits half-turn yaw/bearing, the same height cycle, reach/effort one,
-Keep grips, Attack its paired Fighter. No later commands are submitted. One host
+v2-12 fixtures. At target tick zero every Fighter submits body yaw zero, arm bearing
+zero, height cycling LOW/MID/HIGH by `i%3`, reach/effort one, Keep grips and releases,
+zero swing planes, no movement, Attack its paired Brute; every Brute submits the same
+command with a half-turn body yaw, Attacking its paired Fighter. Commands go in
+through the 61-byte scratch and the export rather than through the world's own
+submission, because a measurement that skipped the boundary would not be measuring
+what the page produces. No later commands are submitted. One host
 call executes `step(8)` and the high-water mark is the number of combat-event rows
 accumulated across that exact eight-tick batch. Repeat seeds are not samples: the
 single seed is part of the fixture, and eight separate `step(1)` publications measure
 the busiest tick rather than what one host call accumulates — which is the thing being
 sized, because the feed is cleared per call.
+
+**Both arm bearings are zero and that means "straight ahead", not "due east".** The
+command frame is torso-relative, so the pair reaches across the gap at each other
+whichever way the two bodies are turned — where the same two bytes under the
+articulated model pointed both bodies' arms the same way in the world and had one of
+them reaching away. Reading this paragraph against a pre-2026-08-19 recording of the
+same corpus is the specific mistake worth avoiding: the bytes are unchanged and the
+fixture is a different fight.
+
+**The `cartesian-recoil` arm is a different fixture and says so.** Bounded lifted
+resolution refuses 32 simultaneous close pairs by name, so it cannot measure the exact
+publication buffer at all; that arm keeps the 64-body reservation surface but gives
+its row producer one shipped duel and 62 same-faction spectators parked outside the
+lane, and drives `step(128)`. Same-faction equipment is not a contact pair, so every
+published row belongs to the declared duel. Two fixtures under one name is worth
+stating rather than discovering from a `#[cfg]`.
 
 **Measured on 2026-08-10, and it rejected 256.** The corpus accumulated **446 rows**
 in that one batch, so a 256-row buffer published the canonical 256 and counted 190
@@ -1407,6 +1471,32 @@ acceptance rule sizes against the busiest measurement taken, not the most recent
 and 556 is still that measurement; re-cutting the buffer to fit 354 would only queue
 up the next rejection.
 
+**Four more moves since, and the current mark is 344 rows.** 354 to 346 by v2-20's
+shield dimensions, 346 to 301 by Smart51's reflection-safe hand and sweep geometry
+(a plate at 36% of its old face area catches fewer swings and does not hand all of
+them back as body rows, because a blade that misses a smaller shield can also miss
+what is behind it), 301 to 249 by Smart134 doubling the arm bearing rates, and 249
+back **up** to 344 by the port off the articulated model. `crates/web` carries the
+per-move reasoning on `HIGH_WATER_EVENT_ROWS` and is the copy to read; what belongs
+here is the shape of the record rather than a second copy of it. Two things in it are
+worth carrying:
+
+- **Down is the direction this corpus keeps moving and the intuition runs the other
+  way.** "Faster arms, busier fight, more rows" is what a reader predicts, and the
+  corpus has now contradicted it three times, always by the same mechanism: a larger
+  proposed impulse pushes a pair apart harder, and a pair pushed apart stops
+  re-resolving the same key on consecutive ticks.
+- **The one move that went up is the one that changed the fight rather than the
+  forces.** The port off the articulated model gave each body seven swept volumes
+  instead of five, made arm bearings torso-relative so both halves of each pair reach
+  across the gap instead of one of them reaching away, and let `Sim::advance` answer
+  the tick-zero decision with a policy command this grammar stores where the other
+  refused it.
+
+**The capacity is still 2048 against 556**, which is the whole point of sizing to the
+busiest measurement ever taken rather than to the newest one: six re-measurements have
+now passed under it without a re-cut.
+
 ## Ownership, visibility, and memory
 
 The raw arrays are authoritative-host views owned by the wasm worker. They must not
@@ -1415,67 +1505,94 @@ currently visible identities in canonical order, filters events whose geometry w
 reveal an absent identity, and writes a complete snapshot buffer. Pose, event, region
 and projectile pointer stability lasts for the module lifetime.
 
-**The snapshot buffer does not reserve the four articulated publications for that
+**The snapshot buffer does not reserve the four publications for that
 filtered copy yet, and the omission is a decision.** `emit_abi` emits all four layout
 versions, all four strides, all four capacities and all 66 + 32 + 8 + 12 column
 offsets, because those are the ABI and
 the copy is written against them — but `SNAPSHOT_BUFFER_BYTES` still ends at the
 furniture block at 27,452 bytes and four snapshot regions. Reserving the four
-articulated blocks takes it to 318,268 — 290,816 bytes on each of the three pooled
+publication blocks takes it to 318,268 — 290,816 bytes on each of the three pooled
 buffers, and an 11.6x wider zero-fill on a buffer `client/src/state/snapshot.ts` clears
 whole once per *filtered publication* — while nothing on the far side writes or reads a
 word of them: the filtered copy is v2-ui-07's — **superseded two sentences below: it is
 not v2-ui-07's, and no session owns it.** A per-publication memset does not get
 11.6x wider ahead of the consumer that justifies it and the measurement that sizes it.
-The formula and the numbers the blocks will generate are held in
-[`articulated-mechanical-gate.md`](articulated-mechanical-gate.md#worker-integration)
-until then. **v2-ui-07 was named as this reservation's owner and is not.** It built
+
+**The formula, held here because this document owns the publications it is arithmetic
+about.** It was derived in `articulated-mechanical-gate.md`, which is now a historical
+record; a live obligation does not live in one. With `align4(n)=(n+3)&!3`:
+
+```text
+POSE_OFFSET         = align4(FURNITURE_OFFSET + FURNITURE_MAX*FURNITURE_STRIDE)
+COMBAT_EVENT_OFFSET = POSE_OFFSET + MAX_POSES*POSE_STRIDE*4
+REGION_OFFSET       = COMBAT_EVENT_OFFSET + MAX_COMBAT_EVENTS*COMBAT_EVENT_STRIDE*4
+SNAPSHOT_BUFFER_BYTES = REGION_OFFSET + MAX_REGIONS*REGION_STRIDE*4
+```
+
+Against the V1 base ABI (`FURNITURE_OFFSET=25_404`, `FURNITURE_MAX=512`,
+`FURNITURE_STRIDE=4` bytes) the first two evaluate to `POSE_OFFSET=27_452` and
+`COMBAT_EVENT_OFFSET=44_348`. The chain grew a block each time a publication landed:
+`SNAPSHOT_BUFFER_BYTES` was `77_116` while `MAX_COMBAT_EVENTS` was the provisional 256,
+`175_420` at 1024, and reserving all four blocks at today's capacities reaches
+`318_268`. Generation asserts the formula and the base constants together, so a change
+to the frame's own layout updates this reference rather than silently retaining a stale
+offset. **None of it is generated**: the snapshot chain still ends at the furniture
+block and each buffer still has four regions.
+
+**v2-ui-07 was named as this reservation's owner and is not.** It built
 the recording as its own transferred channel precisely because the pool zero-fills,
 coalesces and has the wrong lifetime — see
 [`worker-protocol.md`](worker-protocol.md#the-recording-and-why-it-is-not-the-pooled-buffer)
 — so it never wanted a snapshot region and never reserved one. The blocks are still
 unreserved, the argument for leaving them unreserved is unchanged, and the consumer
-that would justify them is the **game** path's filtered articulated copy, which no
-session yet owns.
+that would justify them is the **game** path's filtered copy of these publications,
+which no session yet owns.
 `snapshot_offsets_are_aligned_non_overlapping_and_cover_every_fixed_buffer` in
 `crates/web/src/bin/emit_abi.rs` is what refuses a reservation that arrives before
 one. ("Region" carries two meanings across these files: a *snapshot* region is
 one of the four pooled blocks, an *anatomy* region is one of the five capsules above.)
 
 After warm-up, maximum pose, contact, event, spawn, reset, and route paths may not
-increase `wasm.memory.buffer.byteLength` while a legacy frame view is held. The Node
+increase `wasm.memory.buffer.byteLength` while the frame view is held. The Node
 test also proves the original frame, pose, and event typed arrays remain attached.
 `published_views_survive_articulated_stress_without_memory_growth` in
-`client/test/wasm-memory.test.mjs` is that test. It holds the legacy frame view and
-`Uint32Array`s over the *whole* 16,896-byte pose array and 262,144-byte event array
-(the 10,240-byte region array joins them with the filtered copy that reads it) —
-the reserved extent, not the live prefix, because that is the view a worker keeps for
-the life of the module — and drives `init_articulated`, sixty-five refused spawns,
-four descents, the clinch to its contact cap, sixteen batched `step(8)` calls, the
-stream digest and a reset, across three seeds. It settles at **242 pages** from the
-end of the first warm round and holds there through a measured sixth round and a
-measured sixth guarded cycle — 237 while the event capacity was 1024, and **241
-until v2-ui-08 added the 32 KiB checkpoint staging buffer**, which is half a page
-of static data that happened to fall across a page boundary. Most of the total is
-the articulated *room* rather than these arrays, which are 5 pages between them.
-The test asserts no growth against a baseline it measures for itself, so the
-number is a record and not an assertion; `client/test/wasm-memory.test.mjs` still
-writes 241 down in a comment beside it and that comment is stale.
+`client/test/wasm-memory.test.mjs` is that test. It holds the frame view and
+`Uint32Array`s over the *whole* pose, event and projectile arrays — the reserved
+extent, not the live prefix, because that is the view a worker keeps for
+the life of the module — and drives `init`, spawns, descents, the clinch to its
+contact cap, batched `step(8)` calls, the stream digest and a reset, across three
+seeds. It asserts no growth against a baseline it measures for itself.
+
+**The page counts live in that test and are deliberately not copied here.** This
+section carried them for four sessions and was wrong about every one by the end: it
+said 242 pages while the fixture settled at 309, and it said the comment beside the
+test was stale while that comment had become the fullest record in the repository —
+a per-session trace of the plateau, the settling round and the warm-up count, with
+the reasoning for each move. **Two copies of a measured number is the drift this
+repository has a house rule against**, and the copy to keep is the one beside the
+assertion. What this document owes instead is the shape of the finding, which has now
+survived six re-tracings: **the plateau tracks dlmalloc's size classes and allocation
+order rather than what a `Sim` weighs.** Deleting the navigation flow field moved it
+*up* eighteen pages and pushed the settling round from 4 to 15; replacing the spawn
+refusal with a filled roster, which took the fixture from seven bodies to sixty-four,
+moved it *down* fourteen. Predict nothing here from the size of a struct.
 
 **What the Node test cannot reach, recorded so nobody looks for it there.** Its pose
-ceiling is 11 rows and its busiest single publication is 16 event rows, because no
-export spawns an articulated body — `spawn_monster` refuses an articulated world by
-design — so the roster is whatever the floor generator placed (7 rows at depth 0,
-rising to 11 from depth 4) and a fight is two bodies. The 64-row pose maximum and the
-event maxima above belong to the `abi-high-water` corpus, which is a hand-built
-`crates/web` scenario.
-That is not a gap in the proof: both arrays are fixed and reserved whole at
-construction, so how full they are is not what the byte length depends on.
+and event ceilings are whatever the generated floor and its fight produce, not the
+maxima these arrays are sized for; the 64-row pose maximum and the event maxima above
+belong to the `abi-high-water` corpus, which is a hand-built `crates/web` scenario and
+not reachable from the browser at all. **This paragraph used to give a stronger reason
+than the true one** — that no export could spawn a body onto such a world, because
+`spawn_monster` refused it — and that stopped being true when spawning was repaired,
+which is the change that took the fixture from seven bodies to sixty-four. The
+conclusion is unchanged either way, and it never depended on the reason: both arrays
+are fixed and reserved whole at construction, so how full they are is not what the
+byte length depends on.
 
 **Two calls belong in the warm-up rather than after it, and both were measured.**
-`init_articulated` reserves 64 rows of contact vectors a Legacy heap has never held, so
-the first one after a Legacy run grows linear memory once — exactly as
-`init_articulated_test` does, and that growth is what buys every later spawn, step and
+`init` reserves 64 rows of contact vectors before the world is reachable, so
+the first one on a fresh module grows linear memory once — exactly as
+`init_embodied_test` does, and that growth is what buys every later spawn, step and
 contact on that world. `articulated_stream_digest_lo`/`_hi` builds a whole `Sim` to
 drive its script, which is heap traffic of the same kind; it is cached on first touch
 so it can only ever do that once, on the pattern `contact_behavior_digest_lo` already
@@ -1486,15 +1603,15 @@ views detach.
 **The host's anatomy table is a fixed array for this reason and it was measured.**
 The region section needs the anatomy each slot was built with, and the obvious
 shape is a roster-sized `Vec` filled at install. That is one more heap allocation
-on a path that holds two whole worlds at once — every `init_articulated_test`
+on a path that holds two whole worlds at once — every `init_embodied_test`
 builds the replacement before dropping the installed one — and it moved the peak:
-`the_browser_contact_warmup_does_not_grow_wasm_memory` settles at 221 pages after
+`the_browser_contact_warmup_does_not_grow_wasm_memory` settled at 221 pages after
 one warm round, and with the `Vec` it stayed at 221 through round ten and stepped
-to 245 on round eleven, past the nine that fixture warms. A fixed
-`MAX_POSES`-wide array reserved with the rest of the `Sim` settles it back at 221
-and needed no round bumped. The 10,240-byte static region array itself moved
-neither that number nor the articulated stress fixture's, which was 241 then and
-is 242 since the checkpoint buffer.
+to 245 on round eleven, past the nine that fixture warmed. A fixed
+`MAX_POSES`-wide array reserved with the rest of the `Sim` settled it back at 221
+and needed no round bumped. That measurement is the *reason* the array is fixed and
+is kept for it; the plateau has moved several times since and the current figure is
+in the test, not here.
 
 **A reset belongs in the warm set too, and one per floor the proof will later drive.**
 `init` builds the replacement `Sim` before it drops the installed one, so every reset
@@ -1506,29 +1623,34 @@ driven across three watched its first `init` grow linear memory. Warming the sam
 twice does not fix it: the peak is per *floor*, because a generated room's fog is most
 of a `Sim` and every seed generates a different room. **It said "nav fields and fog"
 until 2026-08-18**, when the navigation flow field was deleted for having no reader --
-which moved the articulated fixture's plateau from 291 pages to 309 and its settling
+which moved the stress fixture's plateau from 291 pages to 309 and its settling
 round from 4 to 15, the fifth reading in a row saying the plateau tracks dlmalloc's
 allocation order rather than what a `Sim` weighs.
 `published_legacy_views_survive_every_warm_path_without_memory_growth` is the test
 that says so. At 1024 it warmed every seed once and settled at 30 pages; at 2048 that
 stopped being enough and the guarded phase grew on its second visit to a seed, so it
-now warms every seed **twice, nested the way the guarded phase nests them**, and
-settles at 38 pages. Two rounds over the seed list rather than per seed — the same six
+now warms every seed **twice, nested the way the guarded phase nests them**. Two rounds
+over the seed list rather than per seed — the same six
 calls in the other order — does not settle it, which says the peak follows the
-floor-to-floor transition and not the number of rounds.
+floor-to-floor transition and not the number of rounds. Its settling figure is in the
+test with the rest of them.
 
-The arena path has its own warm set and its own number:
-`arena_start_allocates_within_the_warm_set` drives `init_articulated`,
+The arena path has its own warm set:
+`arena_start_allocates_within_the_warm_set` drives `init`,
 `load_checkpoint`, `arena_start` and 128 ticks over **three differently-shaped
 arrangements** — because `arena_start` builds a `Scenario` whose spec table is a
 function of the loadout, so a warm-up that only ever saw the shipped one leaves the
-first differently-shaped fight to grow the heap under the guard — and settles at
-**223 pages** through three guarded cycles with every published view retained but one.
+first differently-shaped fight to grow the heap under the guard — through three
+guarded cycles with every published view retained but one.
 **FURNITURE is deliberately not retained there**, on the same argument that puts a
-legacy `init` first: a configured duel has no furniture at all, so a view over an arena
-publication's furniture block is zero-length — and a detached view reads a `byteLength`
-of zero too, so it could witness nothing either way. Its *pointer* is checked with the
-rest, which is the half an empty view can carry.
+generated floor first: a configured duel has no furniture at all, so a view over an
+arena publication's furniture block is zero-length — and a detached view reads a
+`byteLength` of zero too, so it could witness nothing either way. Its *pointer* is
+checked with the rest, which is the half an empty view can carry. This is the fixture
+whose plateau has moved least across four sessions, and it is also the one that drives
+the fewest generated floors — which is the clearest single piece of evidence that these
+page counts are dominated by the *rooms* a warm-up builds rather than by the static
+publication arrays a session widens.
 
 ## Portable stream digest
 
@@ -1553,7 +1675,7 @@ v2-ui-06's move can be read as the extension it is — and so can every move sin
 
 **A section reaches this digest whether or not the fixture has a row for it**, which is
 what the [stance rows](#stance-rows) made visible. The script below was
-`Scenario::articulated_duel` when that section landed, and only `CombatModel::Embodied`
+`Scenario::articulated_duel` when that section landed, and only an embodied body
 has legs, so the fifth section contributed a zero length and a zero drop count on each
 of the twenty ticks and nothing else — and **their presence was the whole of the move**,
 from `0x3b0d5c93d5560dd9` to `0x686ecf8a2f5dd479` in the default build and from
@@ -1604,8 +1726,9 @@ no rotation at all and gets its contact out of the placement instead.
 edits are unchanged across that move**, which is what makes the pin's move readable as
 one cause: `embodied_duel` is built from `articulated_duel` and overwrites the name and
 the model word, so the only thing the stream can see is the model. What it sees is not
-small. `Angle::ZERO` is world east under `CommandFrame::World` and straight ahead under
-`Torso`, so **the fight is a different fight** even though neither the command builder
+small. A zero angle was world east under the articulated model's absolute command frame
+and is straight ahead under the embodied model's torso-relative one, so **the fight is a
+different fight** even though neither the command builder
 nor the spawns changed a byte. The clearest reading of that is the walk: `(-1, 0)` was
 due west and is now *backwards*, which happens to still be west while the fighter's
 commanded yaw is zero — the same displacement arrived at through a different sentence,
@@ -1654,21 +1777,31 @@ published as a degenerate capsule that is nonetheless present, which is the one 
 in this section a reader could plausibly get backwards.
 
 **The stance section has no row grammar beside it there and still does not**, and the
-reason has changed twice, which is worth recording rather than leaving to be discovered.
-It read *"no export installs an embodied world, so every world the JavaScript check can
-open publishes zero rows"* — true when it was written and false in two stages since.
-`init` opens an embodied floor, and `init_embodied_test` now opens the embodied duel; so
-the check has two embodied worlds and one legless one (`init_articulated_test`), and the
-zero it asserts is a reading of *that* fixture rather than of everything the boundary
-can build.
+reason has now changed three times, which is worth recording rather than leaving to be
+discovered.
 
-What crosses the wall for the legless world is the section's layout version, stride,
+It read *"no export installs an embodied world, so every world the JavaScript check can
+open publishes zero rows"* — true when it was written. Then `init` opened an embodied
+floor and `init_embodied_test` opened the embodied duel, leaving two embodied worlds and
+one legless one, so the zero the check asserted became a reading of *that one fixture*
+rather than of everything the boundary could build.
+
+**The third change is a coverage loss and it was predicted here in writing.** What
+crossed the wall for the legless world was the section's layout version, stride,
 capacity, a distinct aligned pointer inside linear memory, and the zero itself paired
-with a zero drop count — which is the whole of what an empty publication has to say and
-exactly the pair that distinguishes it from an absent one. That witness is
-`init_articulated_test`'s and it dies with `Scenario::articulated_duel`: the boundary
-will then have no way to be *asked* for a legless world, and "empty because this model
-has no legs" will stop being a distinction any export can draw. The row grammar is
+with a zero drop count — the whole of what an empty publication has to say, and exactly
+the pair that distinguishes it from an absent one. That witness was
+`init_articulated_test`'s, this document said it would die with
+`Scenario::articulated_duel`, and it did: session 05 deleted both, and **the boundary now
+has no way to be asked for a legless world at all.** "Empty because this body has no
+legs" is no longer a distinction any export can draw, so the paragraph in [stance
+rows](#stance-rows) that says a zero length is an answer rather than a silence is now
+argued rather than demonstrated. Restoring the demonstration means a legless fixture,
+which nothing else needs; the honest thing is that it is recorded as owed rather than
+quietly dropped, because a reader of the stance section would otherwise assume the
+distinction is tested somewhere.
+
+The row grammar is
 checked natively instead, by `an_embodied_bodys_stance_row_round_trips`, which reads
 every published row back against `World::stance` column by column and then submits a
 quarter-turn order to prove the columns move — two bodies standing still satisfy a round

@@ -7,7 +7,7 @@
 //! other path in the repository damages a prop; it went with the legacy model in
 //! embodied session 10. Slowing was `World::dungeon_slow_at`, a factor of 0.65
 //! through a web and 0.80 through water, and **the only caller it ever had was
-//! `apply_movement`**: `apply_articulated_movement` never asked it anything, so
+//! `apply_movement`**: `apply_movement` never asked it anything, so
 //! from the tick a body became jointed a web slowed nothing. It went with that
 //! phase and the legacy command column the phase read.
 //!
@@ -52,7 +52,7 @@ impl World {
             // question about where the body is pushing in the world, and reading
             // the raw column would have a body facing south open the door to its
             // east.
-            let requested = self.articulated_command[i].map_or(Vec2::ZERO, |c| c.move_dir);
+            let requested = self.command_core[i].map_or(Vec2::ZERO, |c| c.move_dir);
             let dir = self.world_move_dir(i, requested).clamp_length(Fx::ONE);
             if dir.is_zero() {
                 continue;

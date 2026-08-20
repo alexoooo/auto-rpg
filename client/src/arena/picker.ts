@@ -20,7 +20,7 @@
 //     briefly had one -- v2-ui-08's first half split an inference-only
 //     `learn-core`, landed policy code 4 and shipped `checkpoints/v2-probe.ckpt`
 //     at a URL -- and then lost it again in the same session's second half,
-//     because moving `#/arena` onto `EmbodiedPolicyKind` moved it onto a
+//     because moving `#/arena` onto `PolicyKind` moved it onto a
 //     registry with no `learned` entry and no room for a checkpoint in a policy
 //     byte. So `learned` is not a picker policy at all now, live or recorded.
 //     `lab trace --policy learned` still writes one, and a *trace* loaded
@@ -53,7 +53,7 @@ const HANDS = ["empty", "sword", "shield", "club", "bow"] as const;
 export type HandCode = (typeof HANDS)[number];
 
 export interface PolicyOption {
-  /** An `EmbodiedPolicyKind::name`, and the token `lab trace` writes into a header. */
+  /** A `PolicyKind::name`, and the token `lab trace` writes into a header. */
   readonly code: string;
   readonly label: string;
   /**
@@ -71,7 +71,7 @@ export interface PolicyOption {
    * Whether running it live needs a file this build has to fetch first.
    *
    * **Nothing sets it since v2-ui-08.** It was `learned`'s and only `learned`'s,
-   * and `learned` is not an `EmbodiedPolicyKind`. It is kept for `live`'s reason
+   * and `learned` is not a `PolicyKind`. It is kept for `live`'s reason
    * one field up: the day a policy needs an asset, the note belongs here rather
    * than in a new mechanism, and `review` already says the sentence.
    */
@@ -79,7 +79,7 @@ export interface PolicyOption {
 }
 
 /**
- * The five policies, in `EmbodiedPolicyKind` code order.
+ * The five policies, in `PolicyKind` code order.
  *
  * The labels carry the constraint rather than a tooltip carrying it, because a
  * disabled-looking option a reader has to hover to understand is an option they
@@ -106,7 +106,7 @@ export type FightMode = "recording" | "live";
  * Why a checkpoint matters in each of the arena's two independent contexts.
  *
  * **Only the recording arm has a caller since v2-ui-08.** `learned` left the
- * picker with the arena's move to `EmbodiedPolicyKind`, so no live fight loads
+ * picker with the arena's move to `PolicyKind`, so no live fight loads
  * weights; `arena.ts` still reaches the recording arm, driven by a *loaded trace
  * header* saying "learned", which `lab trace --policy learned` still writes. The
  * live sentence is kept beside it because the two are one decision -- what a
@@ -251,7 +251,7 @@ export function review(matchup: Matchup, mode: FightMode): Review {
         refusal: `${label} is set to ${side.policy}, which is not one of the `
           + `${POLICIES.length} embodied policy codes `
           + `(${POLICIES.map((option) => option.code).join(", ")}). The picker and `
-          + `EmbodiedPolicyKind are two halves of one vocabulary, so this means one of `
+          + `PolicyKind are two halves of one vocabulary, so this means one of `
           + `them moved.`,
         notes: [],
       };
@@ -384,7 +384,7 @@ export function resolveRecording(matchup: Matchup): Recording | null {
  * vocabulary, with `neutral` deliberately absent because the browser could
  * select it and `lab` could not spell it, so a command naming it would exit 2.
  * That step deleted `Script` and put `lab trace --policy`,
- * `--hero-policy`/`--monster-policy` on `EmbodiedPolicyKind::from_name`, which
+ * `--hero-policy`/`--monster-policy` on `PolicyKind::from_name`, which
  * is the same registry this picker reads. So the two halves cannot disagree,
  * and deriving the list is what keeps that true when a policy is appended
  * rather than restating it and hoping.

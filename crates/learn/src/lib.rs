@@ -10,7 +10,7 @@
 //!   `crates/sim` or the deterministic parts of `crates/policy` may. That is
 //!   affordable for exactly one reason: no learned type reaches [`sim::World`],
 //!   [`sim::Scenario`], [`sim::SubmittedCommand`], a replay, or a hash. What
-//!   reaches the world is an [`sim::EmbodiedCommandV1`] built out of a fixed
+//!   reaches the world is an [`sim::CommandV1`] built out of a fixed
 //!   table of `Fx` constants, chosen by an argmax and then rotated into the
 //!   torso frame by `policy::into_torso_frame`. The `f32` stops at the argmax --
 //!   the rotation is `Fx` arithmetic on a table entry, which is why the frame
@@ -72,8 +72,8 @@ pub use learn_core::{checkpoint, digest, model};
 pub use learn_core::{
     compose, hex, learned_inference_case, learned_inference_digest, sha256, write_features,
     write_features_v2, Checkpoint, CheckpointError, CheckpointV2, CheckpointV2Error,
-    FeatureMemory, Footwork, LearnedActionV1, LearnedActionV2, LearnedArticulatedPolicy,
-    LearnedEmbodiedPolicy, LearnedTacticalEmbodiedPolicyV2, LearnedTacticalPolicyV2, Model,
+    FeatureMemory, Footwork, LearnedActionV1, LearnedActionV2, LearnedCorePolicy,
+    LearnedPolicy, LearnedTacticalPolicyV2, LearnedTacticalCorePolicyV2, Model,
     ModelShape, ModelShapeV2, ModelV2, Posture, Sha256,
     TrainingRecord,
     CHECKPOINT_FORMAT_VERSION, CHECKPOINT_MAGIC, CYCLE_TICKS, FOOTWORK_COUNT, GUARD_HEIGHT_COUNT,

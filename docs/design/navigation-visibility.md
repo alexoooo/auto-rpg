@@ -88,7 +88,7 @@ bounded route distance; without the bound a whole floor converges into one openi
 brawl.
 
 **What a restoration owes, in order.** A navigation column on
-`ArticulatedObservation` — a mechanic, since somebody has to decide what a jointed body
+`Observation` — a mechanic, since somebody has to decide what a jointed body
 *knows* about a route it has not walked. Then a route source to fill it. Then a policy
 that steers on it. `World::set_order` carries the same list at the door a host actually
 calls.
@@ -149,12 +149,14 @@ quieter than a quarter of the positional noise, a longer baseline than one tick 
 integrating observed range over many ticks, which costs the memory a deadband design
 exists to avoid — or a published closing scalar that is not re-blurred on the way out.
 
-**No session of [the embodied fight](../plans/fight-00-overview.md) may add one**, and
-that is a roadmap constraint rather than a claim about shipped code: the plan states
-outright that it does not add a perception channel, and names its footwork session as the
-one most likely to want one. Footwork and measure discipline are exactly the decisions
-that want a closing judgement, so that session has to hold measure off range and stance
-instead -- the shipped guard already does, and
+**A policy session may not add one.** That rule was written into the embodied fight's plan
+set; the topic honoured it — no perception channel landed — and it outlives the plan set's
+deletion, so it is stated here rather than cited. It is a rule and not a preference
+because all three fixes above are observation-model changes: a policy that wants a closing
+judgement is asking for a new published column, and a new published column is a
+measurement job rather than a line in whatever policy session wants it first. Footwork and
+measure discipline are exactly the decisions that want one, so a footwork session holds
+measure off range and stance instead — the shipped guard already does, and
 [the tactical policy record](../performance/embodied-tactical-policy.md#nothing-published-can-tell-an-approach-from-a-retreat)
 is what it is measured against. Giving the channel a reader is a separate topic with its
 own measurement, and it belongs here beside the other two.
@@ -233,9 +235,10 @@ the page because one animation frame may hand the host up to eight catch-up tick
 page-side arrival test would overshoot each waypoint by that many ticks on a stutter.
 
 **Embodied session 10 deleted all of it, and the reason is worth keeping.** A standing
-order reaches a body only through `Observation::nav_dir` and `nav_distance`, which are
-columns of the *legacy* observation. `ArticulatedObservation` — what an articulated or
-embodied body perceives — has no order column and no navigation column at all. So once
+order reaches a body only through `nav_dir` and `nav_distance`, which were
+columns of the *legacy* observation. The subject-scoped observation that replaced it —
+what a jointed body perceives, and the one type that survived both model deletions —
+has no order column and no navigation column at all. So once
 the browser opened an embodied floor, `set_goto` mutated the orders array (which is
 hashed, so it moved the state hash), rebuilt a flow field nobody read, and published a
 destination marker the renderer drew and the body ignored. The queue's own stall timer

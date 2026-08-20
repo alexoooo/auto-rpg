@@ -5,6 +5,15 @@ pub const SUBMITTED_COMMAND_LAYOUT_VERSION: u16 = 2;
 /// Was 51 through layout 1. The two bytes appended are one [`ReleaseRequest`]
 /// per arm; the payload was already fully packed, so a verb costs a byte and a
 /// layout version and there was never a spare bit to put it in.
+///
+/// **It keeps a retired model's name on purpose, and it is one of exactly two
+/// things in this crate that do.** Session 06 took the `Articulated` and
+/// `Embodied` qualifiers off every type and method here, because a qualifier
+/// that distinguishes nothing is noise. These two constants distinguish
+/// something: this is 53 and [`EMBODIED_PAYLOAD_BYTES`] is 57, and the pair of
+/// names is the only surviving record of *why* there are two widths. Renaming
+/// either would leave a registry row and a reference paragraph disagreeing with
+/// the source about which number is which.
 pub const ARTICULATED_PAYLOAD_BYTES: usize = 53;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -86,7 +95,7 @@ impl ReleaseRequest {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub struct ArticulatedCommandV1 {
+pub struct CommandCoreV1 {
     pub move_dir: Vec2,
     pub body_yaw: Angle,
     pub intent: Intent,
@@ -112,29 +121,54 @@ pub struct ArticulatedCommandV1 {
 /// three have already moved together twice because a session appended one field
 /// to that payload. Session 07 appended a swing plane per arm here and moved
 /// none of them, because the two widths were never one constant.
+///
+/// Keeps its qualifier for [`ARTICULATED_PAYLOAD_BYTES`]'s reason, stated
+/// there: the two names are a matched pair, and half a pair is worse than
+/// neither half.
 pub const EMBODIED_PAYLOAD_BYTES: usize = 57;
 
 /// Layout 2: the swing plane. Layout 1 was the fifty-three bytes the articulated
 /// payload still is.
 pub const EMBODIED_COMMAND_LAYOUT_VERSION: u16 = 2;
 
-/// The embodied submission contract.
+/// The submission contract: one body's whole request for one decision.
 ///
-/// The `articulated` field is named rather than flattened so the fields sessions
-/// 06 and 07 add sit *beside* the frozen grammar instead of inside a copy of it.
-/// Session 07 is the one that cashed that in: [`EmbodiedCommandV1::swing_plane`]
-/// sits next to `articulated` and the fifty-three bytes below it are still
-/// written by the shared [`write_payload`], so "the first fifty-three bytes are
-/// the articulated payload" stays true by construction rather than by two
-/// structs happening to agree. Session 06's stance stayed derived, so it never
-/// arrived here at all.
+/// The `core` field is named rather than flattened so the fields later sessions
+/// add sit *beside* the frozen grammar instead of inside a copy of it. Session 07
+/// is the one that cashed that in: [`CommandV1::swing_plane`] sits next to `core`
+/// and the fifty-three bytes below it are still written by the shared
+/// [`write_payload`], so "the first fifty-three bytes are
+/// `ARTICULATED_PAYLOAD_BYTES` exactly" stays true by construction rather than by
+/// two structs happening to agree. Session 06's stance stayed derived, so it
+/// never arrived here at all.
+///
+/// **Session 06 was told to flatten the two into one struct and declined, and
+/// the reason is the world's storage rather than the wire.** The recommendation
+/// was sound about the payload -- a flattened `payload_bytes` writes the same
+/// fifty-seven bytes -- but [`World::submit`] splits this value in two on the way
+/// in: the six fields below go into `World::command_core` and the plane goes into
+/// `World::elbow_plane`, because the plane is chased by the actuator and is
+/// stored beside the `held` angle it is chasing. Those two halves are hashed at
+/// two different places in the state digest -- the six fields as
+/// `ARTICULATED_PAYLOAD_BYTES` of payload inside the shared prefix, the plane in
+/// the appended embodied tail -- and both offsets are pinned. A flattened struct
+/// in `World::command_core` would therefore carry a `swing_plane` that nothing
+/// hashes and nothing reads, sitting beside the live copy in `elbow_plane`: dead
+/// state that looks authoritative, which three tests that assign
+/// `world.command_core[0]` directly could set without moving the elbow. Worse,
+/// the digest would have to ask a fifty-seven-byte value for fifty-three of its
+/// bytes by calling a second, narrower writer -- and the day somebody writes
+/// `payload_bytes()` there instead, every pin in the registry moves at once.
+/// [`CommandCoreV1`] having only the narrow writer is what makes that
+/// unwriteable, and a type that cannot express the wrong byte stream is worth
+/// more than a struct with one less level of nesting.
 ///
 /// **The coordinate frame is the torso's, and no byte moved to make it so.**
 /// `arms[..].bearing` and `move_dir` are read *relative to the torso*: `+x` is
 /// forward, `+y` is body-left, and a zero bearing holds the arm directly ahead
 /// at every yaw. Identical offsets can still mean different things, which is the
 /// trap for a reader who diffs this byte table against
-/// [`ArticulatedCommandV1`]'s and concludes the two are the same contract.
+/// [`CommandCoreV1`]'s and concludes the two are the same contract.
 /// [`World::world_arm_target`] and [`World::world_move_dir`] are where the frame
 /// is applied, and they are the only two places in the tick that know about it.
 ///
@@ -155,8 +189,8 @@ pub const EMBODIED_COMMAND_LAYOUT_VERSION: u16 = 2;
 /// [`World::world_arm_target`]: crate::World
 /// [`World::world_move_dir`]: crate::World
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub struct EmbodiedCommandV1 {
-    pub articulated: ArticulatedCommandV1,
+pub struct CommandV1 {
+    pub core: CommandCoreV1,
     /// Which plane each arm folds its elbow into, about the shoulder-to-hand
     /// axis. Zero is the plane the elbow hung in before this field existed --
     /// below the line from shoulder to hand -- so a command that says nothing
@@ -164,16 +198,15 @@ pub struct EmbodiedCommandV1 {
     pub swing_plane: [Angle; 2],
 }
 
-impl EmbodiedCommandV1 {
-    /// An articulated command with the **neutral** plane on both arms.
+impl CommandV1 {
+    /// A core command with the **neutral** plane on both arms.
     ///
     /// Kept as a one-argument constructor rather than widened to take the plane,
-    /// because most of its callers are adapters wrapping an
-    /// `ArticulatedCommandV1` that has no plane to give -- and an adapter forced
-    /// to invent one would be inventing state. A caller that means a plane
-    /// writes the field.
-    pub const fn new(articulated: ArticulatedCommandV1) -> EmbodiedCommandV1 {
-        EmbodiedCommandV1 { articulated, swing_plane: [Angle::ZERO; 2] }
+    /// because most of its callers are adapters wrapping a [`CommandCoreV1`]
+    /// that has no plane to give -- and an adapter forced to invent one would be
+    /// inventing state. A caller that means a plane writes the field.
+    pub const fn new(core: CommandCoreV1) -> CommandV1 {
+        CommandV1 { core, swing_plane: [Angle::ZERO; 2] }
     }
 
     /// The fifty-three shared bytes, then the two planes.
@@ -184,18 +217,18 @@ impl EmbodiedCommandV1 {
     /// them to drift.
     pub fn payload_bytes(self) -> [u8; EMBODIED_PAYLOAD_BYTES] {
         let mut out = [0u8; EMBODIED_PAYLOAD_BYTES];
-        write_payload(&mut out, self.articulated);
+        write_payload(&mut out, self.core);
         put_u16(&mut out, 53, self.swing_plane[0].raw());
         put_u16(&mut out, 55, self.swing_plane[1].raw());
         out
     }
 
     pub fn from_payload_bytes(bytes: &[u8; EMBODIED_PAYLOAD_BYTES])
-        -> Result<EmbodiedCommandV1, ArticulatedPayloadError>
+        -> Result<CommandV1, PayloadError>
     {
         Self::validate_payload_structure(bytes)?;
-        Ok(EmbodiedCommandV1 {
-            articulated: read_payload(bytes)?,
+        Ok(CommandV1 {
+            core: read_payload(bytes)?,
             swing_plane: [
                 Angle::from_raw(get_u16(bytes, 53)),
                 Angle::from_raw(get_u16(bytes, 55)),
@@ -211,7 +244,7 @@ impl EmbodiedCommandV1 {
     /// the 65,536 bit patterns is a legal bearing -- so there is nothing here to
     /// refuse, and inventing a range would refuse a plane the actuator can hold.
     pub fn validate_payload_structure(bytes: &[u8; EMBODIED_PAYLOAD_BYTES])
-        -> Result<(), ArticulatedPayloadError>
+        -> Result<(), PayloadError>
     {
         validate_payload_structure(bytes)
     }
@@ -232,12 +265,12 @@ impl EmbodiedCommandV1 {
 /// be retired *from*.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum SubmittedCommand {
-    Embodied(EmbodiedCommandV1),
+    Embodied(CommandV1),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub enum SubmitEmbodiedOutcome {
-    Stored { command: EmbodiedCommandV1, rejection: Option<CommandReject> },
+pub enum SubmitOutcome {
+    Stored { command: CommandV1, rejection: Option<CommandReject> },
     NotStored(CommandReject),
 }
 
@@ -267,20 +300,20 @@ pub enum CommandReject {
 
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum ArticulatedPayloadError {
+pub enum PayloadError {
     UnknownIntent(u8),
     UnknownGrip { arm: LimbSlot, value: u8 },
     NonCanonicalIntent,
     NonCanonicalGrip(LimbSlot),
     /// A release byte that is neither `Keep` nor `Loose`. Names the arm and the
-    /// value, like [`ArticulatedPayloadError::UnknownGrip`], because a refusal
+    /// value, like [`PayloadError::UnknownGrip`], because a refusal
     /// that says only "invalid" leaves the caller guessing which of two arms it
     /// got wrong.
     UnknownRelease { arm: LimbSlot, value: u8 },
     OutOfRange(CommandField),
 }
 
-impl ArticulatedCommandV1 {
+impl CommandCoreV1 {
     pub fn payload_bytes(self) -> [u8; ARTICULATED_PAYLOAD_BYTES] {
         let mut out = [0u8; ARTICULATED_PAYLOAD_BYTES];
         write_payload(&mut out, self);
@@ -288,14 +321,14 @@ impl ArticulatedCommandV1 {
     }
 
     pub fn from_payload_bytes(bytes: &[u8; ARTICULATED_PAYLOAD_BYTES])
-        -> Result<ArticulatedCommandV1, ArticulatedPayloadError>
+        -> Result<CommandCoreV1, PayloadError>
     {
         Self::validate_payload_structure(bytes)?;
         read_payload(bytes)
     }
 
     pub fn validate_payload_structure(bytes: &[u8; ARTICULATED_PAYLOAD_BYTES])
-        -> Result<(), ArticulatedPayloadError>
+        -> Result<(), PayloadError>
     {
         validate_payload_structure(bytes)
     }
@@ -314,8 +347,8 @@ impl ArticulatedCommandV1 {
 /// reason and no other: the embodied writer hands it the first fifty-three bytes
 /// of a fifty-seven-byte buffer, and a fixed-width signature here would have
 /// forced a copy or a second grammar.
-fn write_payload(out: &mut [u8], command: ArticulatedCommandV1) {
-    let ArticulatedCommandV1 { move_dir, body_yaw, intent, arms, grips, releases } = command;
+fn write_payload(out: &mut [u8], command: CommandCoreV1) {
+    let CommandCoreV1 { move_dir, body_yaw, intent, arms, grips, releases } = command;
     put_i32(out, 0, move_dir.x.raw());
     put_i32(out, 4, move_dir.y.raw());
     put_u16(out, 8, body_yaw.raw());
@@ -339,7 +372,7 @@ fn write_payload(out: &mut [u8], command: ArticulatedCommandV1) {
     out[52] = releases[1].wire();
 }
 
-fn read_payload(bytes: &[u8]) -> Result<ArticulatedCommandV1, ArticulatedPayloadError> {
+fn read_payload(bytes: &[u8]) -> Result<CommandCoreV1, PayloadError> {
     let move_dir = Vec2::new(Fx::from_raw(get_i32(bytes, 0)), Fx::from_raw(get_i32(bytes, 4)));
     validate_move(move_dir)?;
     let target = EntityId::new(get_u32(bytes, 11), get_u32(bytes, 15));
@@ -347,9 +380,9 @@ fn read_payload(bytes: &[u8]) -> Result<ArticulatedCommandV1, ArticulatedPayload
         0 => Intent::Hold,
         1 => Intent::Attack(target),
         2 => Intent::Flee,
-        value => return Err(ArticulatedPayloadError::UnknownIntent(value)),
+        value => return Err(PayloadError::UnknownIntent(value)),
     };
-    Ok(ArticulatedCommandV1 {
+    Ok(CommandCoreV1 {
         move_dir,
         body_yaw: Angle::from_raw(get_u16(bytes, 8)),
         intent,
@@ -360,12 +393,12 @@ fn read_payload(bytes: &[u8]) -> Result<ArticulatedCommandV1, ArticulatedPayload
     })
 }
 
-fn validate_payload_structure(bytes: &[u8]) -> Result<(), ArticulatedPayloadError> {
+fn validate_payload_structure(bytes: &[u8]) -> Result<(), PayloadError> {
     let target_zero = bytes[11..19].iter().all(|byte| *byte == 0);
     match bytes[10] {
-        0 | 2 if !target_zero => return Err(ArticulatedPayloadError::NonCanonicalIntent),
+        0 | 2 if !target_zero => return Err(PayloadError::NonCanonicalIntent),
         0..=2 => {}
-        value => return Err(ArticulatedPayloadError::UnknownIntent(value)),
+        value => return Err(PayloadError::UnknownIntent(value)),
     }
     let _ = read_grip(bytes, 47, LimbSlot::LeftArm)?;
     let _ = read_grip(bytes, 49, LimbSlot::RightArm)?;
@@ -378,8 +411,8 @@ fn validate_payload_structure(bytes: &[u8]) -> Result<(), ArticulatedPayloadErro
     Ok(())
 }
 
-pub(crate) fn validate_articulated(command: ArticulatedCommandV1) -> Result<(), CommandField> {
-    validate_move(command.move_dir).map_err(|e| match e { ArticulatedPayloadError::OutOfRange(f) => f, _ => unreachable!() })?;
+pub(crate) fn validate_core(command: CommandCoreV1) -> Result<(), CommandField> {
+    validate_move(command.move_dir).map_err(|e| match e { PayloadError::OutOfRange(f) => f, _ => unreachable!() })?;
     for (arm, fields) in command.arms.into_iter().zip([
         [CommandField::LeftHeight, CommandField::LeftReach, CommandField::LeftEffort],
         [CommandField::RightHeight, CommandField::RightReach, CommandField::RightEffort],
@@ -391,14 +424,14 @@ pub(crate) fn validate_articulated(command: ArticulatedCommandV1) -> Result<(), 
     Ok(())
 }
 
-fn validate_move(move_dir: Vec2) -> Result<(), ArticulatedPayloadError> {
+fn validate_move(move_dir: Vec2) -> Result<(), PayloadError> {
     let x = move_dir.x.raw();
     let y = move_dir.y.raw();
-    if !(-65_536..=65_536).contains(&x) { return Err(ArticulatedPayloadError::OutOfRange(CommandField::MoveX)); }
-    if !(-65_536..=65_536).contains(&y) { return Err(ArticulatedPayloadError::OutOfRange(CommandField::MoveY)); }
+    if !(-65_536..=65_536).contains(&x) { return Err(PayloadError::OutOfRange(CommandField::MoveX)); }
+    if !(-65_536..=65_536).contains(&y) { return Err(PayloadError::OutOfRange(CommandField::MoveY)); }
     let xx = i64::from(x) * i64::from(x);
     let yy = i64::from(y) * i64::from(y);
-    if xx + yy > 65_536i64 * 65_536i64 { return Err(ArticulatedPayloadError::OutOfRange(CommandField::MoveMagnitude)); }
+    if xx + yy > 65_536i64 * 65_536i64 { return Err(PayloadError::OutOfRange(CommandField::MoveMagnitude)); }
     Ok(())
 }
 
@@ -406,28 +439,28 @@ fn write_arm(out: &mut [u8], at: usize, arm: ArmTarget) {
     put_u16(out, at, arm.bearing.raw()); put_i32(out, at + 2, arm.height.raw());
     put_i32(out, at + 6, arm.reach.raw()); put_i32(out, at + 10, arm.effort.raw());
 }
-fn read_arm(bytes: &[u8], at: usize, left: bool) -> Result<ArmTarget, ArticulatedPayloadError> {
+fn read_arm(bytes: &[u8], at: usize, left: bool) -> Result<ArmTarget, PayloadError> {
     let fields = if left { [CommandField::LeftHeight, CommandField::LeftReach, CommandField::LeftEffort] }
         else { [CommandField::RightHeight, CommandField::RightReach, CommandField::RightEffort] };
     let height_raw = get_i32(bytes, at + 2);
-    let height = CombatHeight::try_from_raw(height_raw).ok_or(ArticulatedPayloadError::OutOfRange(fields[0]))?;
+    let height = CombatHeight::try_from_raw(height_raw).ok_or(PayloadError::OutOfRange(fields[0]))?;
     let reach = Fx::from_raw(get_i32(bytes, at + 6));
-    if !(0..=Fx::ONE.raw()).contains(&reach.raw()) { return Err(ArticulatedPayloadError::OutOfRange(fields[1])); }
+    if !(0..=Fx::ONE.raw()).contains(&reach.raw()) { return Err(PayloadError::OutOfRange(fields[1])); }
     let effort = Fx::from_raw(get_i32(bytes, at + 10));
-    if !(0..=Fx::ONE.raw()).contains(&effort.raw()) { return Err(ArticulatedPayloadError::OutOfRange(fields[2])); }
+    if !(0..=Fx::ONE.raw()).contains(&effort.raw()) { return Err(PayloadError::OutOfRange(fields[2])); }
     Ok(ArmTarget { bearing: Angle::from_raw(get_u16(bytes, at)), height, reach, effort })
 }
 fn write_grip(out: &mut [u8], at: usize, grip: GripRequest) {
     match grip { GripRequest::Keep => { out[at] = 0; out[at+1] = 0; }, GripRequest::Release => { out[at] = 1; out[at+1] = 0; }, GripRequest::EquipSlot(slot) => { out[at] = 2; out[at+1] = slot; } }
 }
-fn read_grip(bytes: &[u8], at: usize, arm: LimbSlot) -> Result<GripRequest, ArticulatedPayloadError> {
-    match bytes[at] { 0 if bytes[at+1] == 0 => Ok(GripRequest::Keep), 1 if bytes[at+1] == 0 => Ok(GripRequest::Release), 2 => Ok(GripRequest::EquipSlot(bytes[at+1])), 0 | 1 => Err(ArticulatedPayloadError::NonCanonicalGrip(arm)), value => Err(ArticulatedPayloadError::UnknownGrip { arm, value }) }
+fn read_grip(bytes: &[u8], at: usize, arm: LimbSlot) -> Result<GripRequest, PayloadError> {
+    match bytes[at] { 0 if bytes[at+1] == 0 => Ok(GripRequest::Keep), 1 if bytes[at+1] == 0 => Ok(GripRequest::Release), 2 => Ok(GripRequest::EquipSlot(bytes[at+1])), 0 | 1 => Err(PayloadError::NonCanonicalGrip(arm)), value => Err(PayloadError::UnknownGrip { arm, value }) }
 }
-fn read_release(bytes: &[u8], at: usize, arm: LimbSlot) -> Result<ReleaseRequest, ArticulatedPayloadError> {
+fn read_release(bytes: &[u8], at: usize, arm: LimbSlot) -> Result<ReleaseRequest, PayloadError> {
     match bytes[at] {
         0 => Ok(ReleaseRequest::Keep),
         1 => Ok(ReleaseRequest::Loose),
-        value => Err(ArticulatedPayloadError::UnknownRelease { arm, value }),
+        value => Err(PayloadError::UnknownRelease { arm, value }),
     }
 }
 fn put_u16(out: &mut [u8], at: usize, value: u16) { out[at..at+2].copy_from_slice(&value.to_le_bytes()); }
@@ -765,7 +798,7 @@ impl Order {
 /// by whoever is driving the sim, carried without interpretation, hashed beside
 /// the orders, recorded in a replay. What it buys is a route -- the sim owns the
 /// floor plan, so it is the only thing that can answer "which way round the
-/// wall", and `Observation::nav_dir` is that answer.
+/// wall", and the legacy observation's `nav_dir` column was that answer.
 ///
 /// **It is an input and not an inference, and that is the whole point.** The
 /// obvious design is for the sim to notice that monsters want to reach heroes
@@ -808,8 +841,8 @@ mod tests {
     use super::*;
     use fx::Fx;
 
-    fn articulated_fixture() -> ArticulatedCommandV1 {
-        ArticulatedCommandV1 {
+    fn core_fixture() -> CommandCoreV1 {
+        CommandCoreV1 {
             move_dir: Vec2::new(Fx::from_raw(1), Fx::from_raw(-2)),
             body_yaw: Angle::from_raw(0x1234),
             intent: Intent::Attack(EntityId::new(0x1122_3344, 0x5566_7788)),
@@ -829,9 +862,9 @@ mod tests {
     /// one arm -- or a reader that read offset 53 twice -- cannot agree with
     /// itself by accident. Neither is a multiple of the other either, which is
     /// what stops a swapped pair passing.
-    fn embodied_fixture() -> EmbodiedCommandV1 {
-        EmbodiedCommandV1 {
-            articulated: articulated_fixture(),
+    fn embodied_fixture() -> CommandV1 {
+        CommandV1 {
+            core: core_fixture(),
             swing_plane: [Angle::from_raw(0x4567), Angle::from_raw(0x89ab)],
         }
     }
@@ -848,7 +881,7 @@ mod tests {
     /// agree by accident.
     #[test]
     fn the_two_payload_contracts_share_a_prefix_and_diverge_after_byte_52() {
-        let articulated = articulated_fixture();
+        let articulated = core_fixture();
         let embodied = embodied_fixture();
         assert_eq!(EMBODIED_PAYLOAD_BYTES, ARTICULATED_PAYLOAD_BYTES + 4);
         let bytes = embodied.payload_bytes();
@@ -860,11 +893,11 @@ mod tests {
     fn an_embodied_payload_round_trips_through_its_own_reader() {
         let embodied = embodied_fixture();
         let bytes = embodied.payload_bytes();
-        assert_eq!(EmbodiedCommandV1::from_payload_bytes(&bytes).unwrap(), embodied);
+        assert_eq!(CommandV1::from_payload_bytes(&bytes).unwrap(), embodied);
         // And the plane is not merely carried past the reader: a payload whose
         // planes were dropped would round-trip to `new`'s neutral pair, which
         // this fixture is chosen not to be.
-        assert_ne!(embodied, EmbodiedCommandV1::new(articulated_fixture()));
+        assert_ne!(embodied, CommandV1::new(core_fixture()));
     }
 
     /// A raw `Angle` has no illegal value, so **every** plane is accepted -- and
@@ -877,8 +910,8 @@ mod tests {
         for raw in [0u16, 1, 0x7fff, 0x8000, 0xffff] {
             bytes[53..55].copy_from_slice(&raw.to_le_bytes());
             bytes[55..57].copy_from_slice(&raw.rotate_left(3).to_le_bytes());
-            assert_eq!(EmbodiedCommandV1::validate_payload_structure(&bytes), Ok(()));
-            let read = EmbodiedCommandV1::from_payload_bytes(&bytes).expect("a legal plane");
+            assert_eq!(CommandV1::validate_payload_structure(&bytes), Ok(()));
+            let read = CommandV1::from_payload_bytes(&bytes).expect("a legal plane");
             assert_eq!(read.swing_plane[0], Angle::from_raw(raw));
             assert_eq!(read.swing_plane[1], Angle::from_raw(raw.rotate_left(3)));
         }
@@ -892,16 +925,16 @@ mod tests {
     /// the divergence is entirely after it.
     #[test]
     fn both_payload_contracts_refuse_the_same_malformed_release_byte() {
-        let mut narrow = articulated_fixture().payload_bytes();
+        let mut narrow = core_fixture().payload_bytes();
         let mut wide = embodied_fixture().payload_bytes();
         narrow[52] = 7;
         wide[52] = 7;
-        let articulated = ArticulatedCommandV1::validate_payload_structure(&narrow);
-        let embodied = EmbodiedCommandV1::validate_payload_structure(&wide);
+        let articulated = CommandCoreV1::validate_payload_structure(&narrow);
+        let embodied = CommandV1::validate_payload_structure(&wide);
         assert_eq!(articulated, embodied);
         assert_eq!(
             articulated,
-            Err(ArticulatedPayloadError::UnknownRelease { arm: LimbSlot::RightArm, value: 7 }),
+            Err(PayloadError::UnknownRelease { arm: LimbSlot::RightArm, value: 7 }),
         );
     }
 
@@ -922,7 +955,7 @@ mod tests {
         // longer than layout 1's fifty-five, and the two are the release verbs
         // at the end; every other offset is where it was, which is what makes
         // this diff checkable by eye against the reference table.
-        let payload = articulated_fixture().payload_bytes();
+        let payload = core_fixture().payload_bytes();
         let mut actual = [0u8; 57];
         actual[0..2].copy_from_slice(&SUBMITTED_COMMAND_LAYOUT_VERSION.to_le_bytes());
         actual[2] = 1;
@@ -936,7 +969,7 @@ mod tests {
             0x00,0x01,
         ];
         assert_eq!(actual, expected);
-        assert_eq!(ArticulatedCommandV1::from_payload_bytes(&payload), Ok(articulated_fixture()));
+        assert_eq!(CommandCoreV1::from_payload_bytes(&payload), Ok(core_fixture()));
     }
 
     #[test]
@@ -945,14 +978,14 @@ mod tests {
         // two arms wrong is told which. Both arms are driven, because a decoder
         // that read byte 51 twice would refuse the left arm's value while
         // reporting the right arm's slot.
-        let base = articulated_fixture().payload_bytes();
+        let base = core_fixture().payload_bytes();
         for (at, arm) in [(51, LimbSlot::LeftArm), (52, LimbSlot::RightArm)] {
             let mut bad = base;
             bad[at] = 9;
-            let expected = ArticulatedPayloadError::UnknownRelease { arm, value: 9 };
-            assert_eq!(ArticulatedCommandV1::validate_payload_structure(&bad), Err(expected),
+            let expected = PayloadError::UnknownRelease { arm, value: 9 };
+            assert_eq!(CommandCoreV1::validate_payload_structure(&bad), Err(expected),
                        "byte {at} was not refused as {arm:?}'s release");
-            assert_eq!(ArticulatedCommandV1::from_payload_bytes(&bad), Err(expected));
+            assert_eq!(CommandCoreV1::from_payload_bytes(&bad), Err(expected));
         }
         // And the two legal values are not refused, or the assertion above
         // would pass on a decoder that refused everything.
@@ -960,7 +993,7 @@ mod tests {
             let mut fine = base;
             fine[51] = value;
             fine[52] = value;
-            assert!(ArticulatedCommandV1::validate_payload_structure(&fine).is_ok(),
+            assert!(CommandCoreV1::validate_payload_structure(&fine).is_ok(),
                     "release verb {value} was refused");
         }
     }
@@ -991,33 +1024,33 @@ mod tests {
 
     #[test]
     fn unknown_tags_noncanonical_padding_and_ranges_are_distinct() {
-        let base = articulated_fixture().payload_bytes();
+        let base = core_fixture().payload_bytes();
         let mut bad = base;
         bad[10] = 9;
         bad[0..4].copy_from_slice(&(Fx::ONE.raw() + 1).to_le_bytes());
         assert_eq!(
-            ArticulatedCommandV1::validate_payload_structure(&bad),
-            Err(ArticulatedPayloadError::UnknownIntent(9))
+            CommandCoreV1::validate_payload_structure(&bad),
+            Err(PayloadError::UnknownIntent(9))
         );
         let mut bad = base;
         bad[47] = 0;
         bad[48] = 1;
         assert_eq!(
-            ArticulatedCommandV1::validate_payload_structure(&bad),
-            Err(ArticulatedPayloadError::NonCanonicalGrip(LimbSlot::LeftArm))
+            CommandCoreV1::validate_payload_structure(&bad),
+            Err(PayloadError::NonCanonicalGrip(LimbSlot::LeftArm))
         );
         let mut bad = base;
         bad[49] = 9;
         assert_eq!(
-            ArticulatedCommandV1::validate_payload_structure(&bad),
-            Err(ArticulatedPayloadError::UnknownGrip { arm: LimbSlot::RightArm, value: 9 })
+            CommandCoreV1::validate_payload_structure(&bad),
+            Err(PayloadError::UnknownGrip { arm: LimbSlot::RightArm, value: 9 })
         );
         let mut bad = base;
         bad[0..4].copy_from_slice(&(Fx::ONE.raw() + 1).to_le_bytes());
         bad[25..29].copy_from_slice(&(Fx::ONE.raw() + 1).to_le_bytes());
         assert_eq!(
-            ArticulatedCommandV1::from_payload_bytes(&bad),
-            Err(ArticulatedPayloadError::OutOfRange(CommandField::MoveX))
+            CommandCoreV1::from_payload_bytes(&bad),
+            Err(PayloadError::OutOfRange(CommandField::MoveX))
         );
     }
 

@@ -1,6 +1,6 @@
 //! Where a body ends the tick.
 //!
-//! One door in -- `apply_articulated_movement` -- and then `separate`,
+//! One door in -- `apply_movement` -- and then `separate`,
 //! `move_body` and the tile and prop collision beneath it. There were two:
 //! `apply_movement` steered a body from the legacy `command` column, and it
 //! left with that column, taking `dungeon_slow_at` with it because nothing
@@ -89,7 +89,7 @@ impl World {
         }
     }
 
-    pub(super) fn apply_articulated_movement(&mut self) {
+    pub(super) fn apply_movement(&mut self) {
         for i in 0..self.alive.len() {
             if !self.alive[i] {
                 self.vel[i] = Vec2::ZERO;
@@ -100,7 +100,7 @@ impl World {
             // preserves length exactly in real arithmetic and only to within a
             // raw unit in `Fx`, so clamping first would let a rounded-up vector
             // out at 65_537 raw.
-            let requested = self.articulated_command[i].map_or(Vec2::ZERO, |command| command.move_dir);
+            let requested = self.command_core[i].map_or(Vec2::ZERO, |command| command.move_dir);
             let dir = self.world_move_dir(i, requested).clamp_length(Fx::ONE);
             let want = dir * self.stats[i].move_speed() * self.action_of(i).spec().move_bonus;
             let traction = actuator::movement_traction(self.stats[i], self.moving_authority(i));
@@ -271,7 +271,7 @@ mod tests {
         let mut impaired = full.clone();
         impaired.move_authority[0] = Fx::HALF;
         let fighter = EntityId::new(0, 0);
-        let mut command = articulated_command();
+        let mut command = command_core();
         command.move_dir = Vec2::X;
         // **The yaw the body already holds, which is what keeps `move_dir` a
         // world vector.** The torso frame reads it in the body frame, so
@@ -290,8 +290,8 @@ mod tests {
         // agreeing, which is the shape this reseat has to be proof against.
         for world in [&mut full, &mut impaired] {
             assert!(matches!(
-                world.submit_embodied_v1(fighter, crate::EmbodiedCommandV1::new(command)),
-                crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }));
+                world.submit(fighter, crate::CommandV1::new(command)),
+                crate::SubmitOutcome::Stored { rejection: None, .. }));
         }
         let requested = full.stats[0].move_speed() * full.action_of(0).spec().move_bonus;
         full.step();
@@ -323,7 +323,7 @@ mod tests {
         assert_eq!(hurt.move_authority[0], Fx::HALF);
         assert_eq!(hurt.turn_authority[0], Fx::HALF);
 
-        let command = |dir| ArticulatedCommandV1 {
+        let command = |dir| CommandCoreV1 {
             move_dir: dir, body_yaw: Angle::QUARTER, intent: Intent::Hold,
             arms: [ArmTarget { bearing: Angle::ZERO, height: crate::CombatHeight::MID,
                                reach: Fx::from_ratio(1, 4), effort: Fx::ZERO }; 2],
@@ -336,13 +336,13 @@ mod tests {
         // exactly half the acceleration, and the acceleration is the only thing
         // it touches.
         for world in [&mut hurt, &mut sound] {
-            // Asserted rather than discarded: `submit_embodied_v1` refuses by
+            // Asserted rather than discarded: `submit` refuses by
             // returning, so a fixture that ignores the outcome measures two
             // bodies standing still and calls it a locomotion law.
             assert!(matches!(
-                world.submit_embodied_v1(EntityId::new(0, 0),
-                                         crate::EmbodiedCommandV1::new(command(Vec2::X))),
-                crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }));
+                world.submit(EntityId::new(0, 0),
+                                         crate::CommandV1::new(command(Vec2::X))),
+                crate::SubmitOutcome::Stored { rejection: None, .. }));
             world.step();
             assert!(world.contact_resolutions().is_empty());
             assert_eq!(world.contact_solver_rejections(), 0);
@@ -378,9 +378,9 @@ mod tests {
         for _ in 0..70 {
             for world in [&mut hurt, &mut sound] {
                 assert!(matches!(
-                    world.submit_embodied_v1(EntityId::new(0, 0),
-                                             crate::EmbodiedCommandV1::new(diagonal)),
-                    crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }));
+                    world.submit(EntityId::new(0, 0),
+                                             crate::CommandV1::new(diagonal)),
+                    crate::SubmitOutcome::Stored { rejection: None, .. }));
                 world.step();
                 assert!(world.contact_resolutions().is_empty());
                 assert_eq!(world.contact_solver_rejections(), 0);
@@ -683,7 +683,7 @@ mod tests {
     // The test measured what `Run` buys -- `move_bonus` is 1.35 against a
     // sword's 1.0 -- through a live world rather than off the registry, because a
     // multiply by one proves nothing about a multiply by 1.35. `move_bonus` is
-    // still read by `apply_articulated_movement`, so the *mechanic* survives.
+    // still read by `apply_movement`, so the *mechanic* survives.
     // What does not survive is any way to put `Run` in a hand: construction ties
     // every loadout slot to an equipment row (`validate_rows`, `LoadoutMismatch`),
     // and the shipped spec table has three items -- a sword, a shield and a club

@@ -8,7 +8,7 @@
 //! half of it: the sim's own closing term is a signed projection with no
 //! saturating boundary, and recomputing it in a policy from
 //! `ObservedOpponent::body_position` and `ObservedOpponent::body_velocity` is a
-//! supported operation that `World::observe_articulated`'s own comment invites.
+//! supported operation that `World::observe`'s own comment invites.
 //!
 //! It still cannot be read, because the velocity column is blurred by
 //! `jitter[3..5] * noise / 4` before the sim ever projects it. At the shipped
@@ -17,7 +17,7 @@
 //! `move_speed(6) + move_speed(2) = 0.0994`. The signal sits two to three times
 //! under its own noise floor.
 //!
-//! `embodied_guard.rs`'s
+//! `guard.rs`'s
 //! `the_closing_judgement_rule_1_asks_for_is_under_the_noise_it_would_read`
 //! holds that ratio against `sim`'s published stats and costs nothing. This file
 //! is the other half: what the ratio does to a real fight, driven, over the
@@ -35,7 +35,7 @@
 //! points.
 
 use fx::{Fx, Vec2, Vec3};
-use policy::{EmbodiedPolicy, TacticalConfig, TacticalEmbodiedPolicy};
+use policy::{Policy, TacticalConfig, TacticalPolicy};
 use sim::{EntityId, Faction, Scenario, World};
 
 /// How many seeds of the fixture to drive. Twenty is enough that the counts
@@ -102,7 +102,7 @@ fn bp(part: u64, whole: u64) -> u64 {
 ///
 /// The observed side uses exactly what a policy has: the subject's own exact
 /// `body_position` and `body_velocity`, and the opponent's measured ones. The
-/// true side reads `World::articulated_pose`, which is documented as ground
+/// true side reads `World::pose`, which is documented as ground
 /// truth with no perception noise and no visibility filtering, for both bodies.
 /// The two differ in the noise and in nothing else.
 fn drive() -> Tally {
@@ -111,21 +111,21 @@ fn drive() -> Tally {
     let mut tally = Tally::default();
     for seed in 0..SEEDS {
         let mut world = World::new(&scenario, seed);
-        let mut hero = TacticalEmbodiedPolicy::new(TacticalConfig::READING);
-        let mut monster = TacticalEmbodiedPolicy::new(TacticalConfig::READING);
+        let mut hero = TacticalPolicy::new(TacticalConfig::READING);
+        let mut monster = TacticalPolicy::new(TacticalConfig::READING);
         let heroes = world.alive_ids(Faction::Heroes);
         let mut due: Vec<EntityId> = Vec::new();
         while world.outcome().is_none() && world.tick() < scenario.max_ticks {
             due.clear();
             due.extend_from_slice(world.pending_decisions());
             for &id in &due {
-                let obs = world.observe_articulated(id);
+                let obs = world.observe(id);
                 if obs.opponent_count > 0 {
                     let foe = obs.opponents[0];
                     // Both poses, or neither: a body that has just died has no
                     // pose and there is nothing to compare.
                     if let (Some(me), Some(them)) =
-                        (world.articulated_pose(id), world.articulated_pose(foe.id))
+                        (world.pose(id), world.pose(foe.id))
                     {
                         let truth = planar(me.body_velocity - them.body_velocity)
                             .dot(planar(them.body - me.body).normalize());
@@ -141,7 +141,7 @@ fn drive() -> Tally {
                 } else {
                     monster.decide(&obs)
                 };
-                world.submit_embodied_v1(id, command);
+                world.submit(id, command);
             }
             let _ = world.step();
         }

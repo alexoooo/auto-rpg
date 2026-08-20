@@ -29,7 +29,7 @@
 
 use crate::combat::spec::{
     brute_anatomy, club, fighter_anatomy, shield, sword, validate_construction, AnatomySpecId,
-    ArticulatedUnitSpecV1, BodyAnatomySpec, CombatSpecError, CombatSpecTableV1, EquipmentGeometry,
+    UnitSpecV1, BodyAnatomySpec, CombatSpecError, CombatSpecTableV1, EquipmentGeometry,
     EquipmentSpec, EquipmentSpecId, GripBinding, Material, SurfaceSpec, COMBAT_SPEC_SCHEMA_V1,
 };
 use crate::dungeon::Dungeon;
@@ -411,7 +411,7 @@ impl Scenario {
                 faction: if index == 0 { Faction::Heroes } else { Faction::Monsters },
                 stats: body.base_stats(),
                 loadout,
-                articulated: Some(ArticulatedUnitSpecV1 { anatomy: anatomy_id, equipment: carried }),
+                combat_spec: Some(UnitSpecV1 { anatomy: anatomy_id, equipment: carried }),
                 spawn: fighter.spawn,
             });
         }
@@ -531,8 +531,8 @@ mod tests {
         let mut digest = fx::Hash64::new();
         table.rows_into(
             &[
-                ArticulatedUnitSpecV1 { anatomy: 1, equipment: [Some(1), Some(2)] },
-                ArticulatedUnitSpecV1 { anatomy: 2, equipment: [Some(3), None] },
+                UnitSpecV1 { anatomy: 1, equipment: [Some(1), Some(2)] },
+                UnitSpecV1 { anatomy: 2, equipment: [Some(3), None] },
             ],
             &mut digest,
         );
@@ -676,7 +676,7 @@ mod tests {
         let table = scenario.combat_specs.as_ref().expect("a table");
         assert_eq!(table.equipment[0].binding, GripBinding::Left);
         assert_eq!(
-            crate::combat::spec::resolved_equipment(table, scenario.units[0].articulated.unwrap()),
+            crate::combat::spec::resolved_equipment(table, scenario.units[0].combat_spec.unwrap()),
             Ok([Some(1), None]),
             "the blade did not land on the left arm"
         );

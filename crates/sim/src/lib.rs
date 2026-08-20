@@ -73,16 +73,16 @@ pub use codec::{
     REPLAY_CODEC_VERSION,
 };
 pub use command::{
-    ArmTarget, ArticulatedCommandV1, ArticulatedPayloadError, CombatHeight, Command,
-    CommandField, CommandReject, EmbodiedCommandV1, GripRequest, Intent, LimbCommand, LimbSlot,
-    Objective, Order, ReleaseRequest, Strike, SubmitEmbodiedOutcome,
+    ArmTarget, CommandCoreV1, PayloadError, CombatHeight, Command,
+    CommandField, CommandReject, CommandV1, GripRequest, Intent, LimbCommand, LimbSlot,
+    Objective, Order, ReleaseRequest, Strike, SubmitOutcome,
     SubmittedCommand, ARTICULATED_PAYLOAD_BYTES, EMBODIED_COMMAND_LAYOUT_VERSION,
     EMBODIED_PAYLOAD_BYTES, SUBMITTED_COMMAND_LAYOUT_VERSION,
 };
 pub use combat::spec::{
     club, fighter_anatomy, forearm_volume, shield, sword, volume_region, AnatomyRegion,
     AnatomyRegionSpec, AnatomySpecId,
-    ArmorSpec, ArticulatedUnitSpecV1, BodyAnatomySpec, CombatSpecError, CombatSpecTableV1,
+    ArmorSpec, UnitSpecV1, BodyAnatomySpec, CombatSpecError, CombatSpecTableV1,
     EquipmentGeometry, EquipmentSpec, EquipmentSpecId, GripBinding, Material, SurfaceSpec,
     BODY_ANATOMY_SPEC_V1_BYTES, BODY_VOLUME_COUNT, COMBAT_SPEC_SCHEMA_V1, MAX_ANATOMY_SPECS,
     MAX_EQUIPMENT_SPECS, SEGMENT_EQUIPMENT_SPEC_V1_BYTES, SHIELD_EQUIPMENT_SPEC_V1_BYTES,
@@ -141,7 +141,7 @@ pub use combat::resolution::{ExactContactGroupDiagnostic, ExactContactKeyDiagnos
 /// happen.
 pub use combat::contact::{
     ContactCapacityError, ContactKind, ContactResolution, BODY_SLOT,
-    MAX_ARTICULATED_ENTITIES, NO_VOLUME,
+    MAX_ENTITIES, NO_VOLUME,
 };
 /// The two published shapes out of `geometry`, and nothing else. The pose row
 /// draws exactly a [`SegmentPose`] and the subject-scoped observation carries
@@ -167,20 +167,20 @@ pub use loadout::Loadout;
 /// The subject-scoped observation and its parts.
 ///
 /// **No feature vector.** `sim::FEATURE_COUNT`, `FEATURE_LAYOUT_VERSION` and the
-/// three per-model block widths went with the legacy `Observation` in embodied
+/// three per-model block widths went with the legacy observation in embodied
 /// session 10, because they were methods *on* it: the articulated and embodied
-/// blocks were written from a legacy observation that embedded an
-/// `ArticulatedObservation` as a field, so the surviving blocks were reachable
+/// blocks were written from a legacy observation that embedded this one as a
+/// field, so the surviving blocks were reachable
 /// only through the type being deleted. Nothing in the workspace read any of
 /// them. The learning interface that ships is `learn_core::write_features`,
 /// which builds its own columns from named fields here and is pinned by
 /// `LEARNED_INFERENCE_DIGEST`; a second, unexercised feature layout beside it
 /// was a contract with nobody.
 pub use obs::{
-    ArticulatedObservation, ObservedArm, ObservedOpponent,
-    ObservedOpponentStance, ObservedShield, ObservedStance, MAX_ARTICULATED_OPPONENTS,
+    Observation, ObservedArm, ObservedOpponent,
+    ObservedOpponentStance, ObservedShield, ObservedStance, MAX_OPPONENTS,
 };
-pub use pose::{AnimationHint, ArticulatedPose, PosedArm};
+pub use pose::{AnimationHint, Pose, PosedArm};
 pub use replay::{ObjectiveRecord, OrderRecord, Replay, SubmittedCommandRecord};
 pub use rules::{
     agility_multiplier, block_leak, blow_damage, dead_zone, peak_damage, peak_impulse, peak_recoil,
@@ -197,7 +197,7 @@ pub use scenario::{
     equip_fixture_body, Scenario, ScenarioFingerprintError, UnitSpec, DUNGEON_COLS,
     DUNGEON_ROWS,
 };
-pub use world::{ArticulatedProjectileView, DungeonObjectKind, DungeonObjectView, Outcome,
+pub use world::{ProjectileView, DungeonObjectKind, DungeonObjectView, Outcome,
                 Snapshot, SpawnError, StanceView, UnitView, World, WorldBuildError};
 #[cfg(feature = "cartesian-recoil")]
 pub use world::ExactLatticeEnvelope;

@@ -97,7 +97,7 @@ use crate::model::{
     LEARN_ACTION_LOGITS, LEARN_FEATURE_COUNT, LEARN_FEATURE_LAYOUT_VERSION,
 };
 use fx::{Fx, Hash64, Rng, Vec3};
-use sim::{ArticulatedObservation, BodyPart, EntityId, SegmentPose};
+use sim::{Observation, BodyPart, EntityId, SegmentPose};
 
 /// The ASCII prefix every case is hashed behind.
 ///
@@ -164,24 +164,24 @@ const CASE_TICKS: u32 = 57;
 /// everything under `crates/fx` is -- which it has to be, or a digest
 /// disagreement would not distinguish a divergent network from a divergent
 /// fixture.
-pub fn learned_inference_case(index: usize) -> ArticulatedObservation {
+pub fn learned_inference_case(index: usize) -> Observation {
     // Case zero is the blank observation, exactly as it arrives: a stale
     // identity, a corpse and a Legacy world all answer it, so it is the one
     // input every body is guaranteed to see and the one a corpus must not skip.
     if index == 0 {
-        return ArticulatedObservation::BLANK;
+        return Observation::BLANK;
     }
 
     let mut rng = Rng::from_stream(CORPUS_SEED, index as u64, 0);
-    let mut obs = ArticulatedObservation::BLANK;
+    let mut obs = Observation::BLANK;
     obs.tick = index as u32 * CASE_TICKS;
     obs.subject = EntityId::new(0, 0);
-    obs.capabilities = ArticulatedObservation::MOVEMENT
-        | ArticulatedObservation::TURNING
-        | ArticulatedObservation::LEFT_GRIP
-        | ArticulatedObservation::RIGHT_GRIP
-        | ArticulatedObservation::RIGHT_WEAPON
-        | ArticulatedObservation::SHIELD;
+    obs.capabilities = Observation::MOVEMENT
+        | Observation::TURNING
+        | Observation::LEFT_GRIP
+        | Observation::RIGHT_GRIP
+        | Observation::RIGHT_WEAPON
+        | Observation::SHIELD;
 
     // Inside a 24x16 room, which is the arena the configured duel opens. The
     // absolute placement reaches the slice only through differences, but a body
@@ -327,7 +327,7 @@ fn blade(rng: &mut Rng, at: Vec3) -> SegmentPose {
 /// `the_cross_target_digest_allocates_nothing` in
 /// `crates/learn/tests/allocation.rs` drives this function through the counting
 /// `#[global_allocator]`, on the argument that file's header makes: sixty-four
-/// `ArticulatedObservation`s are `Copy` and land on the stack *today*, and
+/// `Observation`s are `Copy` and land on the stack *today*, and
 /// "today" is the qualifier a counter removes.
 ///
 /// The [`FeatureMemory`] is carried from case to case rather than reset, because
@@ -435,7 +435,7 @@ mod tests {
         assert!(plated >= 20, "only {plated} cases put a number through features 39 and 40");
         assert_eq!(
             learned_inference_case(0),
-            ArticulatedObservation::BLANK,
+            Observation::BLANK,
             "case zero is the blank observation every body is guaranteed to see",
         );
     }

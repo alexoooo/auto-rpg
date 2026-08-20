@@ -5,12 +5,27 @@
 **Canonical source:** This contract plus `crates/sim/src/combat/actuator.rs`, `crates/sim/src/world/articulated.rs`, and `crates/sim/src/replay.rs`.
 **Update when:** An actuator constant, formula, phase order, initialization, or hashed field changes.
 
+**Two combat models are named all through this document and neither exists.** The
+legacy model went in embodied session 10 and the articulated model on 2026-08-19, so
+the columns, the integration, the grip transactions and the phase schedule below are
+simply *the* actuator; there is nothing left for them to be model-specific against.
+Every "in a Legacy world ..." and "the Legacy branch ..." sentence is kept as the
+record of what the alternative was, because each one says what this side does
+*instead of* something, and a contract that keeps only the surviving half has lost the
+reason it has that shape. The embodied body's three extra columns and its one
+substituted phase are in
+[`embodied-actuators.md`](embodied-actuators.md#what-an-embodied-body-has-that-an-articulated-one-did-not).
+
+The one thing to read differently rather than as history is the **sweep in the
+measurement section**: its fixture, its policies and the command that ran it are all
+deleted, so those numbers are a record and cannot be reproduced.
+
 ## Persistent state
 
-Articulated state uses parallel `Vec` columns keyed by entity slot. In v2-13 native
+Actuator state uses parallel `Vec` columns keyed by entity slot. In v2-13 native
 `World::spawn` could grow without a sim-level limit. V2-14 deliberately supersedes
-that statement with `MAX_ARTICULATED_ENTITIES=64` for Articulated worlds so retained
-contact scratch has one checked bound; exact Legacy limits remain unchanged. Reused
+that statement with an authoritative entity ceiling of 64, so retained
+contact scratch has one checked bound. Reused
 slots are overwritten in full before becoming alive.
 
 ```rust
@@ -358,7 +373,7 @@ movement may continue to update legacy `facing` from nonzero translation; that
 field means feet direction in an articulated world and is distinct from body yaw.
 `v2-14` inserts contact after geometry without changing the preceding order.
 
-The articulated movement phase reads `ArticulatedCommandV1::move_dir` from the
+The movement phase reads `move_dir` from the
 currently stored submitted command, or zero when that slot has no submitted
 command. It otherwise preserves the existing desired-velocity expression:
 `clamp_length(move_dir, 1) * stats.move_speed() * action_of(i).spec().move_bonus`,
@@ -385,7 +400,7 @@ Angles write `u16`, `Fx` writes raw `i32`, `Vec3` writes x/y/z raw, and options
 write a `u8` tag. Previous and current hands, cached velocity, fatigue, and both
 residues are deliberately included. LegacyV1 reads none of these columns.
 
-Replay records only accepted final `ArticulatedCommandV1` values. A rejection
+Replay records only accepted final submitted commands. A rejection
 diagnostic is runtime metadata owned outside `Replay`; it is not persisted and
 does not enter authoritative hashing. Playback starts from the same initialization
 and must match every pose field at every tick, not merely the final digest.

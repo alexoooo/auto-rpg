@@ -4,14 +4,15 @@
 //! method:
 //!
 //! ```ignore
-//! fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1; // EmbodiedPolicy
+//! fn decide(&mut self, obs: &Observation) -> CommandV1; // Policy
 //! ```
 //!
 //! There were **three**, and the sentence the other two are worth keeping for
 //! is the general one: everything downstream of this crate -- a neural policy,
 //! an evolved controller, a scripted test dummy, a human's mouse -- is the same
 //! signature, and the simulation cannot tell them apart and does not try to.
-//! The legacy model's seam was `fn decide(&Observation) -> Command`, and it
+//! The legacy model's seam took that model's own observation and answered a
+//! `Command`, and it
 //! went with the model: a legacy contact was a disc with a blade angle
 //! and the decision was where to stand, where a jointed opponent is a set of
 //! swept volumes and two blades and the decision is which of them to put steel
@@ -29,7 +30,7 @@
 //! and it was rejected on three counts. It would make every policy in this crate
 //! carry a match arm for a model it will never run under. It would turn "wrong
 //! model" into a runtime error, which was exactly the error
-//! [`sim::World::submit_embodied_v1`] refused at the boundary while there was a
+//! [`sim::World::submit`] refused at the boundary while there was a
 //! second grammar to be wrong about -- a second refusal one layer up bought
 //! nothing then and would buy nothing again. And a model was chosen once, by the
 //! [`sim::Scenario`], and never mixed inside a world, so a mismatch was static
@@ -42,10 +43,10 @@
 //! What that cost, while there were two families, is that they did not compose
 //! -- there was no team wrapper running one policy per side. **That cost was
 //! never really the traits', and it survives them**, which is why it is still
-//! written down: the legacy wrapper worked by matching on `Observation::faction`,
-//! and [`sim::ArticulatedObservation`] has no faction column. It is subject
+//! written down: the legacy wrapper worked by matching on that model's own
+//! `faction` column, and [`sim::Observation`] has none. It is subject
 //! scoped, and "the other side" appears in it only as
-//! [`opponents`](sim::ArticulatedObservation::opponents), already selected.
+//! [`opponents`](sim::Observation::opponents), already selected.
 //! Adding the column back so a wrapper could match on it would publish a fact no
 //! fighter perceives, and looking it up from the outside means handing the
 //! wrapper the world, which is the one thing this seam refuses. Per-side routing
@@ -54,7 +55,7 @@
 //! **The registry is per seam rather than one shared code space, and the two
 //! retired seams are why that is still worth saying.** v2-ui-05 put a fight
 //! behind a browser configuration, so a policy per side arrives as an integer
-//! somebody wrote down; [`EmbodiedPolicyKind`] is that registry, and the codes
+//! somebody wrote down; [`PolicyKind`] is that registry, and the codes
 //! are **append-only** because they are what a saved arena configuration or a
 //! URL carries. There were three such registries, one per seam, and a shared
 //! code space would now hold two retired policies' numbers: `2` was `windmill`
@@ -72,18 +73,18 @@
 //!   fixed seeds -- the header's own words were that a win rate is the only
 //!   honest way to state it. Its fixture and both its policies are gone. The
 //!   embodied corpus reports win rates and *could* carry the claim; it does not
-//!   carry it today, and `tests/embodied_script.rs` asserts behaviour rather than
+//!   carry it today, and `tests/script.rs` asserts behaviour rather than
 //!   outcome.
 //! * **That a policy which acts beats one that does nothing.**
 //!   `doing_something_beats_doing_nothing` was the control-condition floor: any
 //!   policy that cannot clear it is not playing, and any fitness function that
 //!   cannot see the difference is not measuring. There is no surviving idle
-//!   control to measure against -- [`NeutralEmbodiedPolicy`] is the nearest
+//!   control to measure against -- [`NeutralPolicy`] is the nearest
 //!   thing and nothing races it.
 //! * **That a policy instance can be reused across rollouts without one leaking
 //!   into the next.** `reset` is still on the surviving trait, and
 //!   `an_embodied_policy_instance_can_be_reused_without_leaking_between_runs`
-//!   is what checks that [`run_embodied`] calls it -- with a policy that
+//!   is what checks that [`run`] calls it -- with a policy that
 //!   tires as it decides, because a pure one answers the same either way.
 //!
 //! What did *not* go: reproducibility from a seed and exact replay, which
@@ -95,61 +96,63 @@
 #![forbid(unsafe_code)]
 
 mod composition;
-mod embodied_footwork;
-mod embodied_guard;
-mod embodied_script;
-mod embodied_tactics;
+mod footwork;
+mod guard;
+mod script;
+mod tactics;
 mod neutral;
 mod runner;
 
 pub use composition::{
-    CommandAuthority, ComposedController, CompositionError, PartialEmbodiedSource,
+    CommandAuthority, ComposedController, CompositionError, PartialCommandSource,
 };
-pub use embodied_footwork::{
+pub use footwork::{
     Footwork, LUNGE_SPEED_RAW, MEASURE_MARGIN_RAW, MEASURE_MIN_FRACTION_RAW,
     UNWIND_TWIST_RAW,
 };
-pub use embodied_guard::{
+pub use guard::{
     incoming_height, GuardCommand, GuardRead, GUARD_COMMIT_TICKS, GUARD_READ_DEADBAND_RAW,
 };
-pub use embodied_script::{
-    neutral_embodied_command, scripted_embodied_command, scripted_embodied_command_with,
-    EmbodiedPhase, EmbodiedScriptConfig, GroundSense, NeutralEmbodiedPolicy,
-    ScriptedEmbodiedPolicy, EMBODIED_CYCLE_TICKS, EMBODIED_HEIGHT_TICKS, EMBODIED_PHASE_TICKS,
+pub use script::{
+    neutral_command, scripted_command, scripted_command_with,
+    ScriptPhase, ScriptConfig, GroundSense, NeutralPolicy,
+    ScriptedPolicy, SCRIPT_CYCLE_TICKS, SCRIPT_HEIGHT_TICKS, SCRIPT_PHASE_TICKS,
 };
-pub use embodied_tactics::{
+pub use tactics::{
     into_torso, into_torso_frame, PlanScoring, StrikeDiagnostics, StrikePlan, StrikePlanner,
-    TacticalConfig, TacticalContextV1, TacticalEmbodiedPolicy, TacticalIntentV1, TacticalPhase,
-    ThreatAssessmentV1, FIXED_GUARD_EMBODIED_POLICY_CODE, ROBUST_STRIKE_HEIGHT,
-    ROBUST_STRIKE_TICKS, TACTICAL_EMBODIED_POLICY_CODE, TACTICAL_INTENT_COUNT,
+    TacticalConfig, TacticalContextV1, TacticalPolicy, TacticalIntentV1, TacticalPhase,
+    ThreatAssessmentV1, FIXED_GUARD_POLICY_CODE, ROBUST_STRIKE_HEIGHT,
+    ROBUST_STRIKE_TICKS, TACTICAL_POLICY_CODE, TACTICAL_INTENT_COUNT,
     TACTICAL_PHASE_COUNT,
 };
-pub use neutral::neutral_articulated_command;
-pub use runner::{run_embodied, RunConfig, RunResult};
+pub use neutral::neutral_world_command;
+pub use runner::{run, RunConfig, RunResult};
 
 use fx::Angle;
-use sim::{ArticulatedObservation, EmbodiedCommandV1};
+use sim::{Observation, CommandV1};
 
-/// Anything that can drive an embodied body: one observation in, one
-/// [`EmbodiedCommandV1`] out. **The seam**, singular, since session 05.
+/// Anything that can drive a body: one observation in, one [`CommandV1`] out.
+/// **The seam**, singular, since session 05.
 ///
 /// **It was a third trait rather than a mode of the articulated one, because
 /// the return type was the whole of the difference and it was not
-/// negotiable.** An embodied command carries a swing plane an articulated one
-/// has no offsets for, so a policy that produced an `ArticulatedCommandV1` for
-/// an embodied body would be a policy that could not command an elbow -- and
-/// the adapter that wrapped it would have to invent a plane, which is inventing
-/// state. That is also why the articulated seam could be deleted whole rather
+/// negotiable.** The surviving command carries a swing plane the articulated
+/// one had no offsets for, so a policy that answered a bare [`CommandCoreV1`]
+/// would be a policy that could not command an elbow -- and the adapter that
+/// wrapped it would have to invent a plane, which is inventing state. That is also why the articulated seam could be deleted whole rather
 /// than merged into this one: there was never an adapter between them to keep.
 ///
-/// It takes an `ArticulatedObservation` because that is what an embodied body
-/// produces: the perception was shared between the two models even though the
-/// command was not. The name is a wart that outlives its model, and session 06
-/// is the one that gets to fix it.
+/// It takes an [`Observation`] because that is what a body produces: the
+/// perception was shared between the two models even though the command was
+/// not. **The name was `ArticulatedObservation` and the wart outlived its
+/// model by a session; session 06 is the one that took it off**, along with
+/// this trait's own `Embodied` and the rest of the qualifiers in `sim` and
+/// here. What a qualifier has to earn is a distinction, and after session 05
+/// there was nothing left for these to distinguish.
 ///
 /// Session 08 built [`ComposedController`] with an inherent `decide` because it
 /// was the only thing of its kind; this is that shape promoted to a seam now
-/// that a scripted embodied policy stands beside it.
+/// that a scripted policy stands beside it.
 ///
 /// **There is no team wrapper that runs one policy per side**, and the module
 /// header argues why: it is a property of the observation rather than of the
@@ -164,16 +167,16 @@ use sim::{ArticulatedObservation, EmbodiedCommandV1};
 /// whole surface, and a working implementation of it:
 ///
 /// ```rust
-/// use policy::{neutral_articulated_command, EmbodiedPolicy};
-/// use sim::{ArticulatedObservation, EmbodiedCommandV1, Intent};
+/// use policy::{neutral_world_command, Policy};
+/// use sim::{Observation, CommandV1, Intent};
 ///
 /// struct Lunger;
 ///
-/// impl EmbodiedPolicy for Lunger {
-///     fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
-///         let mut command = EmbodiedCommandV1::new(neutral_articulated_command(obs));
+/// impl Policy for Lunger {
+///     fn decide(&mut self, obs: &Observation) -> CommandV1 {
+///         let mut command = CommandV1::new(neutral_world_command(obs));
 ///         if let Some(nearest) = obs.opponents().first() {
-///             command.articulated.intent = Intent::Attack(nearest.id);
+///             command.core.intent = Intent::Attack(nearest.id);
 ///         }
 ///         command
 ///     }
@@ -182,29 +185,29 @@ use sim::{ArticulatedObservation, EmbodiedCommandV1};
 /// // A stale identity, a corpse and a blank observation all answer nothing in
 /// // sight, so every policy has to survive one: nothing in sight, hold.
 /// let mut lunger = Lunger;
-/// let command = lunger.decide(&ArticulatedObservation::BLANK);
-/// assert_eq!(command.articulated.intent, Intent::Hold);
+/// let command = lunger.decide(&Observation::BLANK);
+/// assert_eq!(command.core.intent, Intent::Hold);
 /// ```
 ///
 /// The same policy, wanting the authoritative world as well, has nowhere to put
 /// it:
 ///
 /// ```compile_fail,E0050
-/// use policy::{neutral_articulated_command, EmbodiedPolicy};
-/// use sim::{ArticulatedObservation, EmbodiedCommandV1, Intent, World};
+/// use policy::{neutral_world_command, Policy};
+/// use sim::{Observation, CommandV1, Intent, World};
 ///
 /// struct Peeker;
 ///
-/// impl EmbodiedPolicy for Peeker {
+/// impl Policy for Peeker {
 ///     fn decide(
 ///         &mut self,
-///         obs: &ArticulatedObservation,
+///         obs: &Observation,
 ///         world: &World,
-///     ) -> EmbodiedCommandV1 {
-///         let mut command = EmbodiedCommandV1::new(neutral_articulated_command(obs));
+///     ) -> CommandV1 {
+///         let mut command = CommandV1::new(neutral_world_command(obs));
 ///         // Everything alive, not merely everything visible.
 ///         if let Some(&nearest) = world.alive_ids(sim::Faction::Monsters).first() {
-///             command.articulated.intent = Intent::Attack(nearest);
+///             command.core.intent = Intent::Attack(nearest);
 ///         }
 ///         command
 ///     }
@@ -236,8 +239,8 @@ use sim::{ArticulatedObservation, EmbodiedCommandV1};
 /// year. Moving it rather than deleting it is the point: the claim was never
 /// about which command came back, and the surviving trait is the one that now
 /// has to be unable to see the world.
-pub trait EmbodiedPolicy {
-    fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1;
+pub trait Policy {
+    fn decide(&mut self, obs: &Observation) -> CommandV1;
 
     /// Clears any per-run memory. The harness calls it before each run so
     /// one rollout's opinions cannot leak into the next, which is what lets
@@ -245,12 +248,12 @@ pub trait EmbodiedPolicy {
     fn reset(&mut self) {}
 }
 
-// Two forwarders, because the harness takes `impl EmbodiedPolicy` by value:
+// Two forwarders, because the harness takes `impl Policy` by value:
 // without these a caller that wants to keep its policy after the run -- which
 // is every caller reusing one instance across rollouts -- would have to clone
 // it, and a `dyn` one could not be driven at all.
-impl<P: EmbodiedPolicy + ?Sized> EmbodiedPolicy for &mut P {
-    fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
+impl<P: Policy + ?Sized> Policy for &mut P {
+    fn decide(&mut self, obs: &Observation) -> CommandV1 {
         (**self).decide(obs)
     }
 
@@ -259,8 +262,8 @@ impl<P: EmbodiedPolicy + ?Sized> EmbodiedPolicy for &mut P {
     }
 }
 
-impl<P: EmbodiedPolicy + ?Sized> EmbodiedPolicy for Box<P> {
-    fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
+impl<P: Policy + ?Sized> Policy for Box<P> {
+    fn decide(&mut self, obs: &Observation) -> CommandV1 {
         (**self).decide(obs)
     }
 
@@ -283,7 +286,7 @@ impl<P: EmbodiedPolicy + ?Sized> EmbodiedPolicy for Box<P> {
 /// eighth, the scripted guard arc is an eighth, and
 /// `learn_core::model::BEARING_OFFSETS` is an eighth each way. That last one is
 /// why the two copies were a hazard rather than a duplication:
-/// `the_action_table_is_the_scripts_own_vocabulary` pins the learned action
+/// `the_action_table_is_frozen_by_hand` pins the learned action
 /// table against *this* constant, so a private second copy that drifted would
 /// move an action decode without moving the test that watches it.
 pub const EIGHTH_TURN: Angle = Angle::from_raw(8_192);
@@ -304,10 +307,10 @@ pub const EIGHTH_TURN: Angle = Angle::from_raw(8_192);
 ///
 /// **Beside the seam trait since session 05, because the paragraph above is
 /// not really about a script.** The rule reads an
-/// [`ArticulatedObservation`], which is what the seam takes, and what it
+/// [`Observation`], which is what the seam takes, and what it
 /// answers -- the right hand when both are armed, the live one when the right
 /// came off -- is a fact about a *body*. The file it was written in has since
-/// been deleted, and `embodied_script.rs`, `embodied_guard.rs` and the strike
+/// been deleted, and `script.rs`, `guard.rs` and the strike
 /// planner all still ask it the same question about bodies that have no
 /// script at all.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -317,10 +320,10 @@ pub struct ArmRoles {
 }
 
 impl ArmRoles {
-    pub fn of(obs: &ArticulatedObservation) -> ArmRoles {
+    pub fn of(obs: &Observation) -> ArmRoles {
         let weapon_bit = [
-            ArticulatedObservation::LEFT_WEAPON,
-            ArticulatedObservation::RIGHT_WEAPON,
+            Observation::LEFT_WEAPON,
+            Observation::RIGHT_WEAPON,
         ];
         // The right hand when both are armed. That is the sim's own ownership
         // rule -- a two-handed item fills the right slot and clears the left
@@ -355,7 +358,7 @@ impl ArmRoles {
         // hand without needing to know which side the shield binds to. Reading
         // `SHIELD` alone would not say *where* it is, and reading the equipment
         // id alone would need the spec table this side of the seam cannot see.
-        let shield = if obs.can(ArticulatedObservation::SHIELD) {
+        let shield = if obs.can(Observation::SHIELD) {
             (0..2).find(|&i| obs.arms[i].equipment.is_some() && !obs.can(weapon_bit[i]))
         } else {
             None
@@ -373,7 +376,7 @@ impl ArmRoles {
 /// see the module header for why a code space is not shared. The codes are
 /// **append-only**: they are what a saved configuration or a URL carries.
 ///
-/// **[`EmbodiedPolicyKind::build`] returns a policy and not an `Option`, which
+/// **[`PolicyKind::build`] returns a policy and not an `Option`, which
 /// is where this one deliberately differed from its articulated sibling.**
 /// That registry answered
 /// `None` for its learned code because a trained fighter is a kind *plus fifteen
@@ -389,7 +392,7 @@ impl ArmRoles {
 /// shape rather than its subject: it is a *set of sources*, one of which is a
 /// human hand, and an integer has nowhere to put a person.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default)]
-pub enum EmbodiedPolicyKind {
+pub enum PolicyKind {
     /// Stands there, arms slack. The control condition.
     #[default]
     Neutral,
@@ -411,7 +414,7 @@ pub enum EmbodiedPolicyKind {
     /// On a flat fixture it is byte for byte [`Scripted`], which is what makes a
     /// difference measured on a sculpted corpus attributable to the term.
     ///
-    /// [`Scripted`]: EmbodiedPolicyKind::Scripted
+    /// [`Scripted`]: PolicyKind::Scripted
     ScriptedLevel,
     /// The strike planner behind the embodied seam: it names a region, prices
     /// the sweep that would cross it, and spends a commit on the best one.
@@ -420,7 +423,7 @@ pub enum EmbodiedPolicyKind {
     /// question "what should a body be doing" without ever asking where the
     /// opponent is soft; this one picks a `BodyPart` and buys a sweep that
     /// crosses it. What it does not know is that the body it drives has hips --
-    /// see [`TacticalEmbodiedPolicy`].
+    /// see [`TacticalPolicy`].
     Tactical,
     /// [`Tactical`] with the guard read switched off -- the policy whose plate
     /// goes where the body faces and never where the blade is.
@@ -432,71 +435,71 @@ pub enum EmbodiedPolicyKind {
     /// same reach, same effort, on the body's own centre line -- so the measured
     /// difference is the read and not "one of them has an arm up".
     ///
-    /// [`Tactical`]: EmbodiedPolicyKind::Tactical
-    /// [`ScriptedLevel`]: EmbodiedPolicyKind::ScriptedLevel
+    /// [`Tactical`]: PolicyKind::Tactical
+    /// [`ScriptedLevel`]: PolicyKind::ScriptedLevel
     TacticalFixedGuard,
 }
 
-impl EmbodiedPolicyKind {
-    pub const ALL: [EmbodiedPolicyKind; 5] = [
-        EmbodiedPolicyKind::Neutral,
-        EmbodiedPolicyKind::Scripted,
-        EmbodiedPolicyKind::ScriptedLevel,
-        EmbodiedPolicyKind::Tactical,
-        EmbodiedPolicyKind::TacticalFixedGuard,
+impl PolicyKind {
+    pub const ALL: [PolicyKind; 5] = [
+        PolicyKind::Neutral,
+        PolicyKind::Scripted,
+        PolicyKind::ScriptedLevel,
+        PolicyKind::Tactical,
+        PolicyKind::TacticalFixedGuard,
     ];
 
     pub const fn code(self) -> u32 {
         match self {
-            EmbodiedPolicyKind::Neutral => 0,
-            EmbodiedPolicyKind::Scripted => 1,
-            EmbodiedPolicyKind::ScriptedLevel => 2,
-            EmbodiedPolicyKind::Tactical => TACTICAL_EMBODIED_POLICY_CODE,
-            EmbodiedPolicyKind::TacticalFixedGuard => FIXED_GUARD_EMBODIED_POLICY_CODE,
+            PolicyKind::Neutral => 0,
+            PolicyKind::Scripted => 1,
+            PolicyKind::ScriptedLevel => 2,
+            PolicyKind::Tactical => TACTICAL_POLICY_CODE,
+            PolicyKind::TacticalFixedGuard => FIXED_GUARD_POLICY_CODE,
         }
     }
 
-    pub const fn from_code(code: u32) -> Option<EmbodiedPolicyKind> {
+    pub const fn from_code(code: u32) -> Option<PolicyKind> {
         match code {
-            0 => Some(EmbodiedPolicyKind::Neutral),
-            1 => Some(EmbodiedPolicyKind::Scripted),
-            2 => Some(EmbodiedPolicyKind::ScriptedLevel),
-            TACTICAL_EMBODIED_POLICY_CODE => Some(EmbodiedPolicyKind::Tactical),
-            FIXED_GUARD_EMBODIED_POLICY_CODE => Some(EmbodiedPolicyKind::TacticalFixedGuard),
+            0 => Some(PolicyKind::Neutral),
+            1 => Some(PolicyKind::Scripted),
+            2 => Some(PolicyKind::ScriptedLevel),
+            TACTICAL_POLICY_CODE => Some(PolicyKind::Tactical),
+            FIXED_GUARD_POLICY_CODE => Some(PolicyKind::TacticalFixedGuard),
             _ => None,
         }
     }
 
-    pub fn from_name(name: &str) -> Option<EmbodiedPolicyKind> {
-        EmbodiedPolicyKind::ALL.into_iter().find(|k| k.name() == name)
+    pub fn from_name(name: &str) -> Option<PolicyKind> {
+        PolicyKind::ALL.into_iter().find(|k| k.name() == name)
     }
 
     /// The name a report or a dropdown labels this policy with. Hyphenated like
     /// `attack-moves`, so one vocabulary describes a fight wherever it is run.
     pub const fn name(self) -> &'static str {
         match self {
-            EmbodiedPolicyKind::Neutral => "neutral",
-            EmbodiedPolicyKind::Scripted => "scripted",
-            EmbodiedPolicyKind::ScriptedLevel => "scripted-level",
-            EmbodiedPolicyKind::Tactical => "tactical",
-            EmbodiedPolicyKind::TacticalFixedGuard => "tactical-fixed-guard",
+            PolicyKind::Neutral => "neutral",
+            PolicyKind::Scripted => "scripted",
+            PolicyKind::ScriptedLevel => "scripted-level",
+            PolicyKind::Tactical => "tactical",
+            PolicyKind::TacticalFixedGuard => "tactical-fixed-guard",
         }
     }
 
-    pub fn build(self) -> Box<dyn EmbodiedPolicy> {
+    pub fn build(self) -> Box<dyn Policy> {
         match self {
-            EmbodiedPolicyKind::Neutral => Box::new(NeutralEmbodiedPolicy),
-            EmbodiedPolicyKind::Scripted => {
-                Box::new(ScriptedEmbodiedPolicy::new(EmbodiedScriptConfig::SEEKING))
+            PolicyKind::Neutral => Box::new(NeutralPolicy),
+            PolicyKind::Scripted => {
+                Box::new(ScriptedPolicy::new(ScriptConfig::SEEKING))
             }
-            EmbodiedPolicyKind::ScriptedLevel => {
-                Box::new(ScriptedEmbodiedPolicy::new(EmbodiedScriptConfig::LEVEL))
+            PolicyKind::ScriptedLevel => {
+                Box::new(ScriptedPolicy::new(ScriptConfig::LEVEL))
             }
-            EmbodiedPolicyKind::Tactical => {
-                Box::new(TacticalEmbodiedPolicy::new(TacticalConfig::READING))
+            PolicyKind::Tactical => {
+                Box::new(TacticalPolicy::new(TacticalConfig::READING))
             }
-            EmbodiedPolicyKind::TacticalFixedGuard => {
-                Box::new(TacticalEmbodiedPolicy::new(TacticalConfig::FIXED_GUARD))
+            PolicyKind::TacticalFixedGuard => {
+                Box::new(TacticalPolicy::new(TacticalConfig::FIXED_GUARD))
             }
         }
     }
@@ -509,22 +512,22 @@ impl EmbodiedPolicyKind {
     /// the shape of the bug two reviews of this repository found ten instances
     /// of: a flag accepted an input it could not act on and said nothing.
     /// `lab embodied --footwork` refuses the run by name when
-    /// [`EmbodiedPolicyKind::reads_footwork`] is false on both sides.
+    /// [`PolicyKind::reads_footwork`] is false on both sides.
     ///
     /// Nothing in the shipped registry goes through here. It exists so that
     /// **every sweep table in `docs/performance/embodied-tactical-policy.md` is
     /// reproducible from a command this repository ships** rather than from an
     /// edit to a constant and a rebuild, which is how session 04 produced them
     /// and why the review that followed could not check one of them.
-    pub fn build_with_footwork(self, footwork: Footwork) -> Option<Box<dyn EmbodiedPolicy>> {
+    pub fn build_with_footwork(self, footwork: Footwork) -> Option<Box<dyn Policy>> {
         let config = match self {
-            EmbodiedPolicyKind::Tactical => TacticalConfig::READING,
-            EmbodiedPolicyKind::TacticalFixedGuard => TacticalConfig::FIXED_GUARD,
-            EmbodiedPolicyKind::Neutral
-            | EmbodiedPolicyKind::Scripted
-            | EmbodiedPolicyKind::ScriptedLevel => return None,
+            PolicyKind::Tactical => TacticalConfig::READING,
+            PolicyKind::TacticalFixedGuard => TacticalConfig::FIXED_GUARD,
+            PolicyKind::Neutral
+            | PolicyKind::Scripted
+            | PolicyKind::ScriptedLevel => return None,
         };
-        Some(Box::new(TacticalEmbodiedPolicy::with_footwork(config, footwork)))
+        Some(Box::new(TacticalPolicy::with_footwork(config, footwork)))
     }
 
     /// Whether this entry drives a [`StrikePlanner`] and can therefore be
@@ -537,7 +540,7 @@ impl EmbodiedPolicyKind {
     pub const fn reads_footwork(self) -> bool {
         matches!(
             self,
-            EmbodiedPolicyKind::Tactical | EmbodiedPolicyKind::TacticalFixedGuard
+            PolicyKind::Tactical | PolicyKind::TacticalFixedGuard
         )
     }
 
@@ -569,14 +572,14 @@ impl EmbodiedPolicyKind {
     /// arm, so an appended entry would inherit "no clock" without anybody
     /// having measured it. Here it fails to compile until somebody answers.
     ///
-    /// [`Tactical`]: EmbodiedPolicyKind::Tactical
-    /// [`reads_footwork`]: EmbodiedPolicyKind::reads_footwork
+    /// [`Tactical`]: PolicyKind::Tactical
+    /// [`reads_footwork`]: PolicyKind::reads_footwork
     pub const fn reads_the_clock(self) -> bool {
         match self {
-            EmbodiedPolicyKind::Scripted | EmbodiedPolicyKind::ScriptedLevel => true,
-            EmbodiedPolicyKind::Neutral
-            | EmbodiedPolicyKind::Tactical
-            | EmbodiedPolicyKind::TacticalFixedGuard => false,
+            PolicyKind::Scripted | PolicyKind::ScriptedLevel => true,
+            PolicyKind::Neutral
+            | PolicyKind::Tactical
+            | PolicyKind::TacticalFixedGuard => false,
         }
     }
 }
@@ -602,23 +605,23 @@ mod tests {
         // protecting is now a property of the tree rather than of a run: a
         // second seam that appends codes to *this* enum instead of declaring
         // its own is the regression, and no unit test can see it.
-        assert_eq!(EmbodiedPolicyKind::Neutral.code(), 0);
-        assert_eq!(EmbodiedPolicyKind::Scripted.code(), 1);
-        assert_eq!(EmbodiedPolicyKind::ScriptedLevel.code(), 2);
-        assert_eq!(EmbodiedPolicyKind::Tactical.code(), 3);
-        assert_eq!(EmbodiedPolicyKind::TacticalFixedGuard.code(), 4);
+        assert_eq!(PolicyKind::Neutral.code(), 0);
+        assert_eq!(PolicyKind::Scripted.code(), 1);
+        assert_eq!(PolicyKind::ScriptedLevel.code(), 2);
+        assert_eq!(PolicyKind::Tactical.code(), 3);
+        assert_eq!(PolicyKind::TacticalFixedGuard.code(), 4);
         // One past the registry, which is the refusal a `from_code` written as a
         // range check gets wrong. The number moves every time the vocabulary
         // grows -- it was 4 until `tactical-fixed-guard` was appended -- and
         // `tools/wasm_check.js` writes it down a second time because it is
         // checking the *wasm* export rather than this function, so when this
         // line moves, that one does too.
-        assert_eq!(EmbodiedPolicyKind::from_code(5), None);
-        for kind in EmbodiedPolicyKind::ALL {
-            assert_eq!(EmbodiedPolicyKind::from_code(kind.code()), Some(kind));
-            assert_eq!(EmbodiedPolicyKind::from_name(kind.name()), Some(kind));
+        assert_eq!(PolicyKind::from_code(5), None);
+        for kind in PolicyKind::ALL {
+            assert_eq!(PolicyKind::from_code(kind.code()), Some(kind));
+            assert_eq!(PolicyKind::from_name(kind.name()), Some(kind));
         }
-        assert_eq!(EmbodiedPolicyKind::from_name("nonesuch"), None);
+        assert_eq!(PolicyKind::from_name("nonesuch"), None);
     }
 
     /// Only the two entries with a [`StrikePlanner`] behind them can be handed
@@ -634,7 +637,7 @@ mod tests {
     #[test]
     fn only_a_kind_with_a_planner_can_be_handed_a_footwork_row() {
         let mut with_feet = 0;
-        for kind in EmbodiedPolicyKind::ALL {
+        for kind in PolicyKind::ALL {
             let built = kind.build_with_footwork(Footwork::ARTICULATED);
             assert_eq!(
                 built.is_some(), kind.reads_footwork(),
@@ -642,26 +645,26 @@ mod tests {
             );
             if let Some(mut policy) = built {
                 with_feet += 1;
-                let command = policy.decide(&sim::ArticulatedObservation::BLANK);
+                let command = policy.decide(&sim::Observation::BLANK);
                 assert!(
-                    command.articulated.move_dir.length() <= Fx::ONE + Fx::from_ratio(1, 1000),
+                    command.core.move_dir.length() <= Fx::ONE + Fx::from_ratio(1, 1000),
                     "{} produced an over-long move", kind.name()
                 );
             }
         }
         assert_eq!(with_feet, 2, "the registry's planner-driven entries are tactical and its control");
-        assert!(!EmbodiedPolicyKind::Scripted.reads_footwork(),
+        assert!(!PolicyKind::Scripted.reads_footwork(),
                 "the frozen control grew feet a flag can move");
     }
 
     #[test]
     fn every_embodied_kind_builds_and_decides() {
-        let obs = sim::ArticulatedObservation::BLANK;
-        for kind in EmbodiedPolicyKind::ALL {
+        let obs = sim::Observation::BLANK;
+        for kind in PolicyKind::ALL {
             let mut policy = kind.build();
             let command = policy.decide(&obs);
             assert!(
-                command.articulated.move_dir.length() <= Fx::ONE + Fx::from_ratio(1, 1000),
+                command.core.move_dir.length() <= Fx::ONE + Fx::from_ratio(1, 1000),
                 "{} produced an over-long move", kind.name()
             );
             policy.reset();

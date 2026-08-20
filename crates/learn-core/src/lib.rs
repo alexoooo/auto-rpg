@@ -14,11 +14,11 @@
 //! because **nothing this code computes reaches authoritative state**. That
 //! premise is preserved rather than traded away:
 //!
-//! * [`LearnedActionV1`] is a separate type from [`sim::ArticulatedCommandV1`]
+//! * [`LearnedActionV1`] is a separate type from [`sim::CommandCoreV1`]
 //!   and its doc comment says why in as many words. What crosses from the float
 //!   side to the integer side is **five small head indices**, produced by an
 //!   argmax.
-//! * [`sim::World::submit_embodied_v1`] cannot be handed one, which the
+//! * [`sim::World::submit`] cannot be handed one, which the
 //!   doctest pair below is what says.
 //! * Nothing in `fx`, `sim` or `policy` can see this crate. The arrow points one
 //!   way and `the_learned_policy_is_unreachable_from_sim` in
@@ -67,22 +67,22 @@
 //!
 //! # Training types cannot enter authoritative state
 //!
-//! The seam is [`sim::World::submit_embodied_v1`], and the fence is its
+//! The seam is [`sim::World::submit`], and the fence is its
 //! signature. Here is the whole path from a network to a body, working:
 //!
 //! ```rust
-//! use learn_core::{LearnedEmbodiedPolicy, Model};
-//! use policy::EmbodiedPolicy;
-//! use sim::{Scenario, SubmitEmbodiedOutcome, World};
+//! use learn_core::{LearnedPolicy, Model};
+//! use policy::Policy;
+//! use sim::{Scenario, SubmitOutcome, World};
 //!
 //! let scenario = Scenario::embodied_duel();
 //! let mut world = World::new(&scenario, 1);
-//! let mut brain = LearnedEmbodiedPolicy::new(Model::zeros());
+//! let mut brain = LearnedPolicy::new(Model::zeros());
 //!
 //! let id = world.pending_decisions()[0];
-//! let obs = world.observe_articulated(id);
-//! let outcome = world.submit_embodied_v1(id, brain.decide(&obs));
-//! assert!(matches!(outcome, SubmitEmbodiedOutcome::Stored { rejection: None, .. }));
+//! let obs = world.observe(id);
+//! let outcome = world.submit(id, brain.decide(&obs));
+//! assert!(matches!(outcome, SubmitOutcome::Stored { rejection: None, .. }));
 //! ```
 //!
 //! And here is the same program handing the world what the *network* actually
@@ -90,18 +90,18 @@
 //! into a command:
 //!
 //! ```compile_fail,E0308
-//! use learn_core::{LearnedEmbodiedPolicy, Model};
-//! use policy::EmbodiedPolicy;
-//! use sim::{Scenario, SubmitEmbodiedOutcome, World};
+//! use learn_core::{LearnedPolicy, Model};
+//! use policy::Policy;
+//! use sim::{Scenario, SubmitOutcome, World};
 //!
 //! let scenario = Scenario::embodied_duel();
 //! let mut world = World::new(&scenario, 1);
-//! let mut brain = LearnedEmbodiedPolicy::new(Model::zeros());
+//! let mut brain = LearnedPolicy::new(Model::zeros());
 //!
 //! let id = world.pending_decisions()[0];
-//! let obs = world.observe_articulated(id);
-//! let outcome = world.submit_embodied_v1(id, brain.action(&obs));
-//! assert!(matches!(outcome, SubmitEmbodiedOutcome::Stored { rejection: None, .. }));
+//! let obs = world.observe(id);
+//! let outcome = world.submit(id, brain.action(&obs));
+//! assert!(matches!(outcome, SubmitOutcome::Stored { rejection: None, .. }));
 //! ```
 //!
 //! **Read those two as a pair, and the pairing is what makes the fence
@@ -110,10 +110,10 @@
 //! -- so the second block would pass on any compile error at all, including a
 //! typo. What rules out the typo is that the two blocks are the same program,
 //! differing in one method call. Measured on this toolchain the second emits
-//! exactly one error, and it is `E0308: expected EmbodiedCommandV1, found
+//! exactly one error, and it is `E0308: expected CommandV1, found
 //! LearnedActionV1`.
 //!
-//! **The assertion is not decoration.** `submit_embodied_v1` compiles against
+//! **The assertion is not decoration.** `submit` compiles against
 //! any world and answers `NotStored(WrongModel)` when the grammar disagrees, so
 //! a first block that named the wrong scenario would still build, still run and
 //! store nothing -- and, without the line under it, still pass. That is the
@@ -121,7 +121,7 @@
 //! what makes the working half a claim about a body rather than about the type
 //! checker.
 //!
-//! **The pair moved from `submit_articulated_v1` to `submit_embodied_v1` in
+//! **The pair moved from `submit_articulated_v1` to `submit` in
 //! session 05**, and the argument is carried across rather than dropped because
 //! the fence was never about which model: it is that the type the network emits
 //! and the type a world accepts are different types, and no submission entry of
@@ -152,8 +152,8 @@ pub use digest::{
 };
 pub use model::{
     compose, write_features, write_features_v2, FeatureMemory, Footwork, LearnedActionV1,
-    LearnedActionV2, LearnedArticulatedPolicy, LearnedEmbodiedPolicy,
-    LearnedTacticalEmbodiedPolicyV2, LearnedTacticalPolicyV2, Model, ModelShape,
+    LearnedActionV2, LearnedCorePolicy, LearnedPolicy,
+    LearnedTacticalPolicyV2, LearnedTacticalCorePolicyV2, Model, ModelShape,
     ModelShapeV2, ModelV2, Posture, CYCLE_TICKS, FOOTWORK_COUNT, GUARD_HEIGHT_COUNT, HEAD_OFFSETS,
     HEAD_WIDTHS, HIDDEN_UNITS, LEARN_ACTION_LAYOUT_VERSION, LEARN_ACTION_LOGITS,
     LEARN_FEATURE_COUNT, LEARN_FEATURE_LAYOUT_VERSION, LEARN_V2_ACTION_LAYOUT_VERSION,

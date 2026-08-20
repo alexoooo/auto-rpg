@@ -2,8 +2,8 @@
 
 **Purpose:** Record what the strike planner scored the day it was first put behind the embodied seam, what reading the incoming blade did to it, and what tuning its feet did — so that no session in this topic tunes against a memory, and so that the one that deletes `articulated_tactics.rs` does not delete a measurement with it. Three sessions, in the order they landed; the sections are not merged, because each is the control the next is measured against.
 **Status:** current
-**Canonical source:** this record, [`crates/policy/src/embodied_tactics.rs`](../../crates/policy/src/embodied_tactics.rs), [`crates/policy/src/embodied_guard.rs`](../../crates/policy/src/embodied_guard.rs), [`crates/policy/src/embodied_footwork.rs`](../../crates/policy/src/embodied_footwork.rs), and [architecture: policy](../architecture/policy.md#the-registry-and-why-its-build-cannot-fail)
-**Update when:** `TacticalEmbodiedPolicy`, `GuardRead`, `StrikePlanner`, `Footwork`, `embodied-duel-v1`, or the corpus shape changes.
+**Canonical source:** this record, [`crates/policy/src/tactics.rs`](../../crates/policy/src/tactics.rs), [`crates/policy/src/guard.rs`](../../crates/policy/src/guard.rs), [`crates/policy/src/footwork.rs`](../../crates/policy/src/footwork.rs), and [architecture: policy](../architecture/policy.md#the-registry-and-why-its-build-cannot-fail)
+**Update when:** `TacticalPolicy`, `GuardRead`, `StrikePlanner`, `Footwork`, `embodied-duel-v1`, or the corpus shape changes.
 
 # Session 02: the first outing
 
@@ -156,7 +156,7 @@ those draws come from the arm where tactical drives the brute, and a draw there 
 
 The sculpted fixture. Every run above is `embodied-duel-v1`; `--slope` was not run for
 this policy, because the elevation term the slope corpus exists to measure belongs to
-`ScriptedEmbodiedPolicy` and `StrikePlanner` has no such term to switch off. A tactical
+`ScriptedPolicy` and `StrikePlanner` has no such term to switch off. A tactical
 number on the slope would be a number about the floor, and this record is about the
 planner.
 
@@ -293,7 +293,7 @@ neither is offered as a reason the threshold was really met.**
 **The instrument drops pairs.** `lab embodied`'s `height_index` counts a pair only when
 *both* commanded heights are exactly `LOW`, `MID` or `HIGH`; anything between is dropped
 and the table's total falls. The read guard commands exact bands by construction — that
-is why `embodied_guard::band` exists at all — but the pairs where rules 2 and 3 stand the
+is why `guard::band` exists at all — but the pairs where rules 2 and 3 stand the
 guard aside leave `StrikePlan::height`, a continuous fraction, in the arm, and those are
 dropped. The symmetric subject counted 77,492 pairs against the control's 79,074:
 **1,582 fewer**, which is six times the 247-pair shortfall. So the miss is well inside
@@ -303,7 +303,7 @@ than a reason to claim the number. It is recorded as a miss.
 **And roughly half of every counted guard is a bare hand.** This one was missing from
 the record entirely until a review of the landed session found it.
 [`crates/lab/src/main.rs`](../../crates/lab/src/main.rs) fills the guard column from
-`command.articulated.arms[1 - roles.weapon].height`, and `Scenario::articulated_duel`
+`command.core.arms[1 - roles.weapon].height`, and the shipped duel
 gives the Brute `equipment: [Some(3), None]` — a club in the right hand and **nothing in
 the left**. On that body the guard column is the commanded height of an empty hand, which
 cannot block anything: there is no plate on it, and `REST_REACH` deliberately holds it in
@@ -350,7 +350,7 @@ tuning until it agrees.
 None was found by running the corpus. **The count read "two" here, "three" in the plan
 and "three" in the code, and the three lists were not the same list** — a review of the
 landed session reconciled them at four and found the fourth. They are in
-[`embodied_guard.rs`](../../crates/policy/src/embodied_guard.rs)'s header in full; the
+[`guard.rs`](../../crates/policy/src/guard.rs)'s header in full; the
 short forms:
 
 **1. `GUARD_COMMIT_TICKS` is 13 and not the plan's 12**, off `sim`'s two published
@@ -363,7 +363,7 @@ test. Only the third case landed. The measurement that rules the other two out i
 [its own section below](#nothing-published-can-tell-an-approach-from-a-retreat).
 
 **3. The guard arm is `1 - weapon` and not `ArmRoles::guard`**, which is the same arm
-`embodied_script.rs` assembles a guard into and the same arm `lab embodied` reads.
+`script.rs` assembles a guard into and the same arm `lab embodied` reads.
 
 **4. Rule 3 stands the guard aside for `TacticalPhase::Chamber` as well as
 `TacticalPhase::Commit`.** The plan names the commit alone. **This one shipped
@@ -396,7 +396,7 @@ judgement, so it is recorded here at length rather than left in a policy file's 
 Two columns look like they could answer "is this body coming at me", and neither can at
 the shipped stats of `embodied-duel-v1`.
 
-**`contact_timing` is a coin flip as a boolean.** `World::observe_articulated` blurs it by
+**`contact_timing` is a coin flip as a boolean.** `World::observe` blurs it by
 `jitter[6] * noise / 8` on *both* branches of its formula — the saturating branch included
 and deliberately so, because "nothing is closing" is a judgement like any other — and
 `Rng::signed_unit` is symmetric over `[-1, 1)`. A genuinely saturated column therefore
@@ -405,7 +405,7 @@ the type `Pcg32::signed_unit`; there is no such symbol. The type is
 [`Rng`](../../crates/fx/src/rng.rs), which is a PCG32 under a name that does not say so.)
 
 **Recomputing the sim's own `closing` term does not rescue it**, which is the obvious next
-idea. The formula at `World::observe_articulated` is
+idea. The formula at `World::observe` is
 `(subject_velocity - opponent_velocity) . normalize(delta)`, and its sign is exactly the
 judgement rule 1 wanted; the scalar blur above is applied afterwards and a policy that
 recomputes the term never touches it. But the *velocity* it consumes is already blurred:
@@ -422,7 +422,7 @@ The magnitudes decide it:
 
 The noise is 2.3x to 3.0x the entire signal range. Measured rather than argued, over
 9,689 decision ticks of twenty seeds of `embodied-duel-v1` driven by
-`TacticalEmbodiedPolicy`, comparing the recomputed sign against `World::articulated_pose`
+`TacticalPolicy`, comparing the recomputed sign against `World::pose`
 ground truth. **It is a landed test and not a one-off sweep** —
 `no_published_column_separates_an_approach_from_a_retreat` in
 [`crates/policy/tests/closing_channel.rs`](../../crates/policy/tests/closing_channel.rs)
@@ -458,7 +458,7 @@ band every `GUARD_COMMIT_TICKS` on a random draw, which is precisely the chatter
 under the closing range and could make the judgement honestly. The Fighter is 6, the Brute
 3, and the arithmetic is held from both sides by
 `the_closing_judgement_rule_1_asks_for_is_under_the_noise_it_would_read` in
-`embodied_guard.rs` — it asserts that the noise swamps the signal for both fixture eyes
+`guard.rs` — it asserts that the noise swamps the signal for both fixture eyes
 *and* that it stops doing so at perception 12, so the claim cannot quietly become a claim
 about the observation model.
 
@@ -466,10 +466,13 @@ What would have to change for a closing judgement to be implementable: a quieter
 term than a quarter of the positional noise, a longer baseline than one tick (a policy
 integrating observed range over many ticks, which costs memory the deadband design was
 chosen to avoid), or a published closing scalar that is not re-blurred on the way out.
-**Session 04 must not add any of them** — [the overview](../plans/fight-00-overview.md)
-forbids a new perception channel in this topic, and that is a separate topic with its own
-measurement. [Navigation and visibility](../design/navigation-visibility.md) owns what
-such a channel would take.
+**Session 04 added none of them, and was forbidden to.** The embodied fight ruled a new
+perception channel out of the whole topic. The plan set that said so is deleted; the rule
+is not, because it was never a fact about that topic: a closing judgement needs a column
+nothing publishes, and adding a published column is a measurement job with its own
+acceptance rather than a line a policy session may take on its way past an acceptance row
+it is missing. [Navigation and visibility](../design/navigation-visibility.md) owns what
+such a channel would take, and is where the rule lives now.
 
 ## What is not measured here either
 
@@ -484,8 +487,11 @@ Wall clock, for scale only: on the 2026-08-18 re-run the four 800-trial runs too
 
 **Host:** MSVC x86-64, Windows 10, AMD Ryzen 9 3950X, 16 cores / 32 threads. **Date:** 2026-08-19.
 
-This is the session carrying [the overview's preregistered
-acceptance](../plans/fight-00-overview.md#what-reasonably-played-is-declared-before-it-is-measured).
+This is the session carrying the four acceptance rows the embodied fight declared
+**before** any of this was measured, so that the session could not pick its thresholds
+after seeing its result. That plan set is deleted with the closed topic, and
+[the four preregistered rows](#the-four-preregistered-rows-revise-on-all-four) below are
+the surviving copy -- thresholds and shortfalls in one table.
 **All four rows miss and all four are recorded `revise`.** Two of them miss by a
 factor rather than by a margin, and the section that matters most here is
 [the arithmetic that says why](#the-finding-two-of-the-four-rows-are-not-reachable-by-a-policy).
@@ -518,7 +524,7 @@ cargo run --release -p lab -- embodied --seeds 400 --mirrored --policy tactical 
 
 **That flag did not exist while the sweeps were first run**, and its absence was
 the defect that made this whole record unauditable: session 04 swept its four
-constants by editing [`embodied_footwork.rs`](../../crates/policy/src/embodied_footwork.rs)
+constants by editing [`footwork.rs`](../../crates/policy/src/footwork.rs)
 and rebuilding, so not one published table could be reproduced from any command
 the repository ships. `--footwork` takes the four numbers as ratios or decimals,
 in the order margin, floor, lunge, unwind; it reaches the two registry entries
@@ -543,7 +549,7 @@ commanded pairs, 3585.1224 ticks mean -- which is what says the parameterisation
 itself changed nothing and the "before" column is the policy it claims to be.
 
 **Setting the embodied row byte-equal to `Footwork::ARTICULATED` does not do
-that**, and an earlier draft of `embodied_footwork.rs`'s header said it did.
+that**, and an earlier draft of `footwork.rs`'s header said it did.
 `Footwork::unwind_twist` is gated on `ObservedStance::present`, which is false on
 a body with no legs and true on one with hips, so the articulated row *does* fire
 on an embodied body: `--footwork 1/10,3/5,0,7/8` gives 974,691 weapon/body and
@@ -701,7 +707,7 @@ metric [the session plan declares](#how-the-shipped-point-was-chosen-and-the-obj
 which is weapon-on-body contact per trial and not the win rate, and the plan says
 in as many words that the win rate is *not* the number to watch. **The cost is
 recorded as the miss it is**, and a session that wants the 1.19 points back can
-have them by reverting [`Footwork::EMBODIED`](../../crates/policy/src/embodied_footwork.rs)
+have them by reverting [`Footwork::EMBODIED`](../../crates/policy/src/footwork.rs)
 to the articulated row, at 130 severances instead of 162, 974,691 weapon-on-body
 resolutions instead of 726,226, and the fight no more decisive either way.
 
@@ -758,7 +764,7 @@ ship the one with the fewest weapon-on-body resolutions per trial. Two
 constraints on what counts as a candidate, neither of them invented here:
 
 1. **A value must lie inside its own derived band.** The four bounding tests in
-   [`embodied_tactics.rs`](../../crates/policy/src/embodied_tactics.rs)
+   [`tactics.rs`](../../crates/policy/src/tactics.rs)
    enforce bands read off `sim`'s published actuator rates and the fixture's two
    anatomies, never off the corpus, and a shipped value outside one of them fails
    `cargo test -p policy`. The record already disqualified two swept margin rows
@@ -863,11 +869,61 @@ Neither has an embodied equivalent, and building one would have been shipping a 
 of a deletion session. If a later topic wants either answer it is building a new control
 and measuring it, not re-running something.
 
+## Two routes measured incidentally, and both say the fight does not resolve
+
+**Neither of these was measured to answer the question they answer**, which is the
+reason to write them down here and the reason to keep their authors' hedges. Both were
+taken while rigging a fixture in `tools/wasm_check.js` for an unrelated purpose, by
+somebody who needed a corpse and could not reliably get one. They are quoted with their
+caveats because a durable row that keeps a measurement and drops the measurer's own
+qualification is worse than no row.
+
+**The duel: 511 of 525 fights reach the clock with both bodies standing.** A sweep of
+all twenty-five embodied pairings over seeds 0..20 -- twenty-five pairings by
+twenty-one seeds -- ran 511 of them to the 3,600-tick limit with nobody down, so a
+death is the exception rather than the outcome. The source calls it, in the same
+breath, **"a number nobody should read a fight out of"**: it was taken to find out
+whether a fixture could wait for a fair kill, and the answer was that a fixture which
+did would be a coin toss dressed as a test.
+[`tools/wasm_check.js`](../../tools/wasm_check.js), the "a room rigged to kill"
+section, carries it.
+
+**The room: three Brutes finish the Fighter on no seed from 1 to 24 inside 6,000
+ticks.** That fixture used three Brutes on a populated floor and got its death at tick
+1,759, under a 6,000-tick cap chosen as over three times that. Both sides of the room
+have since opened on `tactical`, and the same three Brutes now kill on *no* seed in
+that range. The source's own words: that is **"the model saying an embodied fight does
+not resolve, which is a true thing and not this test's subject"**.
+
+**Two routes, not one body of evidence.** The first is the duel -- the arena's own
+fixture shape, two fighters on flat ground. The second is the dungeon room the `#/game`
+route opens, a Fighter against a mob on a generated floor. They were built for
+unrelated purposes and neither is a fight-quality measurement, which is exactly what
+makes them worth stating together: **both routes independently fail to resolve.**
+
+**"Add more monsters" was measured and does not work**, which forecloses the obvious
+objection. Twelve Brutes kill seed 1 at tick 5,260. Twenty-four and forty Brutes both
+leave the Fighter alive past 6,000 on seven of eight seeds -- *"because a crowd that
+cannot reach the target is not pressure"* -- and twenty-four Skitterers reach the death
+sooner in ticks, 3,202, while costing more wall clock, since every extra body is
+stepped on every tick. The pairing that does work is the one nobody would predict:
+against a body that does nothing, twelve **scripted** Brutes put the Fighter down on
+nineteen seeds out of twenty-four, while twelve **tactical** ones left it above 10 of
+its 12 health after 6,000 ticks on every one of seeds 1..12.
+
+**That last line is the fourth independent statement of this document's verdict.** The
+sections above have the frozen script beating the strike planner on wins (39.69%
+against a preregistered 60%) and on return (87.023 against 66.939). Here it beats it at
+killing a target that is not defending itself. Four measurements, four harnesses, none
+built to flatter another, all agreeing that **the shipped tactical fighter is worse
+than the control it was built to beat.**
+
 ## The finding: two of the four rows are not reachable by a policy
 
-**This is recorded as a finding rather than as a shortfall, which is what
-[the session plan](../plans/fight-04-the-fight-that-ends.md#what-this-session-may-not-change)
-asks for when the acceptance cannot be met without a mechanic.** The mechanics it
+**This is recorded as a finding rather than as a shortfall, because the session was
+forbidden to change a mechanic and was told what to do when that binds: when the
+acceptance cannot be met without one, write the finding down -- do not reach for the
+mechanic, and do not weaken the row.** The mechanics it
 would take are owned by [`crates/sim/src/rules.rs`](../../crates/sim/src/rules.rs)
 and the contact phase, and every pin in
 [the golden registry](../reference/hashes.md#golden-registry) would move with
@@ -1067,7 +1123,7 @@ seeds changed sign at 800.
 ## The bounding tests, and what mutating them does
 
 Each of the four carries a two-sided test in
-[`embodied_tactics.rs`](../../crates/policy/src/embodied_tactics.rs), beside
+[`tactics.rs`](../../crates/policy/src/tactics.rs), beside
 the functions that consume the values. Each combines a **derived band** -- read
 off `sim`'s published actuator floor, `Stats::move_speed` and the fixture's own
 two anatomies, never off a copy of the constant -- with an **exact pin through
@@ -1091,8 +1147,9 @@ the shipped margin and lunge caps it at 0.8521. **That upper end is not the one 
 earlier version of this record named.** It named the arm's *committed* extension,
 0.9724, and described the pair as "the two extensions the actuator will hold an
 arm at": `STRIKE_COMMIT_REACH` is a policy constant -- it was in
-`articulated_tactics.rs` and moved to `embodied_tactics.rs` with the planner in
-session 05 -- and not an actuator limit, and 0.9724 does not bind. The unwind threshold is bounded by
+`articulated_tactics.rs`, moved to `embodied_tactics.rs` with the planner in
+session 05, and is in `tactics.rs` since session 06 took the model out of the
+filename -- and not an actuator limit, and 0.9724 does not bind. The unwind threshold is bounded by
 the script's own argument, `(0.5, 1.0)`, plus the `ObservedStance::present` gate
 that makes it safe to carry on the articulated row.
 
@@ -1152,12 +1209,12 @@ a command stream rather than through the parsed struct. Proved by making
 `EmbodiedMatchup::build` ignore its own row, which fails it with *the footwork row
 never reached the policy that was built*.
 
-## `COMMIT_MIN_OPENING_RAW` is named by the overview and is not implemented
+## `COMMIT_MIN_OPENING_RAW` was named by the plan set and is not implemented
 
-The constant is [named in the overview's own
-list](../plans/fight-00-overview.md#constants-introduced) as *the smallest
-opening the planner will spend a commit on*, on the argument that `choose_plan`
-in [`embodied_tactics.rs`](../../crates/policy/src/embodied_tactics.rs)
+The constant was named in the embodied fight's own list of constants introduced -- that
+plan set is deleted, so this section is the surviving record of the name -- as *the
+smallest opening the planner will spend a commit on*, on the argument that `choose_plan`
+in [`tactics.rs`](../../crates/policy/src/tactics.rs)
 takes the best candidate whatever its score, so a body commits into a covered
 line as readily as an open one. **It is not in the landed tree**, and the reason
 is that every measured lever pointing the same way cost more than it bought.
@@ -1199,7 +1256,7 @@ was asked.
 **The elevation term is not in this policy and was never ported.** `--high-ground`
 measured -5.00 percentage points doubly witnessed and
 [the corpus record](embodied-corpus-and-high-ground.md#the-result) owns that
-result; `ScriptedEmbodiedPolicy` keeps the term because it is the frozen control
+result; `ScriptedPolicy` keeps the term because it is the frozen control
 and removing it would move `EMBODIED_CORPUS_DIGEST` for no gain. The one thing
 this session owed on that item was making sure the new fighter did not inherit a
 term that lost, and it did not: `StrikePlanner` has no ground sense of any kind

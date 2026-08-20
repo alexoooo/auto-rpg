@@ -896,9 +896,9 @@ impl ContactTickScratch {
             self.exact_trajectory_work.try_reserve()
                 .map_err(|_| ContactCapacityError::Allocation)?;
             try_reserve_exact(&mut self.exact_solve_owner_entry,
-                              crate::combat::contact::MAX_ARTICULATED_ENTITIES)?;
+                              crate::combat::contact::MAX_ENTITIES)?;
             try_reserve_exact(&mut self.exact_solve_trajectory_entry,
-                              crate::combat::contact::MAX_ARTICULATED_ENTITIES * 3)?;
+                              crate::combat::contact::MAX_ENTITIES * 3)?;
         }
         try_reserve_exact(&mut self.suppressed, candidate_bound)?;
         try_reserve_exact(&mut self.capped_entities, collider_bound)?;
@@ -1273,7 +1273,7 @@ pub(crate) fn solve_exact_contact_tick<P: ContactTrialProjector>(
         ExactContactFailure { cause, phase, key }
     };
     const MAX_EXACT_TRAJECTORIES: usize =
-        crate::combat::contact::MAX_ARTICULATED_ENTITIES * 3 + crate::rules::MAX_SHOTS;
+        crate::combat::contact::MAX_ENTITIES * 3 + crate::rules::MAX_SHOTS;
     if trajectories.len() > MAX_EXACT_TRAJECTORIES {
         return Err(failed(ResolutionError::ExactScan, scratch));
     }

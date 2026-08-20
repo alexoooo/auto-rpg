@@ -11,7 +11,7 @@
 //! nothing however many times it touches.
 //!
 //! The arithmetic of the rub is geometric and needs no corpus to see. A
-//! retracted arm is not retracted to the shoulder: `neutral_articulated_command`
+//! retracted arm is not retracted to the shoulder: `neutral_world_command`
 //! asks for `reach: Fx::ZERO` and the actuator clamps that up to
 //! `ARM_MIN_REACH_RAW`, a quarter of the arm. So a body doing nothing at all
 //! holds its blade `arm_length / 4 + blade` in front of it, which on the
@@ -68,7 +68,7 @@
 //!
 //! # Why a configuration and not an edit
 //!
-//! `embodied_guard.rs` copies three of `embodied_script.rs`'s constants rather
+//! `guard.rs` copies three of `script.rs`'s constants rather
 //! than importing them, because the script is the frozen control of this topic
 //! and a control that moves with its subject measures nothing. The same argument
 //! runs the other way here. [`StrikePlanner`] was also driven by
@@ -107,9 +107,11 @@
 //!
 //! # The constant that is named by the plan and is not here
 //!
-//! `COMMIT_MIN_OPENING_RAW` is named by `docs/plans/fight-00-overview.md` as the
-//! smallest opening the planner will spend a commit on, and **this session did
-//! not land it.** What it landed instead is the evidence that the lever it sits
+//! `COMMIT_MIN_OPENING_RAW` was named by the embodied fight's plan set as the
+//! smallest opening the planner will spend a commit on, and **that topic did
+//! not land it.** The plan set was deleted when the topic closed, so
+//! `docs/performance/embodied-tactical-policy.md` now carries the name and this
+//! paragraph is the only other place it appears. What it landed instead is the evidence that the lever it sits
 //! on points the wrong way on this fixture: every swept change that made a body
 //! commit *less* -- the floor at full reach, the standoff at zero -- lowered
 //! both severances and the pooled win rate against the script, and no swept
@@ -236,7 +238,7 @@ pub const LUNGE_SPEED_RAW: i32 = 32_768;
 /// The twist fraction at or past which a planted body puts a foot down. Seven
 /// eighths.
 ///
-/// `embodied_script.rs`'s `UNWIND_TWIST`, copied for this file's own reason and
+/// `script.rs`'s `UNWIND_TWIST`, copied for this file's own reason and
 /// with the script's argument unchanged: below about a half an ordinary guard
 /// change would step, so footwork would become a tax on aiming; at one the step
 /// would only begin after the torso had already stopped turning, so the policy
@@ -278,7 +280,7 @@ pub const UNWIND_TWIST_RAW: i32 = 57_344;
 /// What a planner's feet are told to do, as configuration rather than as four
 /// module constants.
 ///
-/// A struct rather than four `static`s, on `EmbodiedScriptConfig`'s and
+/// A struct rather than four `static`s, on `ScriptConfig`'s and
 /// `TacticalConfig`'s argument: two builds of one library that differ by a
 /// `static` cannot be raced against each other in one process at all, and every
 /// number in this topic is a race.
@@ -289,7 +291,7 @@ pub const UNWIND_TWIST_RAW: i32 = 57_344;
 /// rebuilding, exactly as a `static` would have required, and published sweep
 /// tables that no command in this repository could reproduce. `lab embodied
 /// --footwork margin,floor,lunge,unwind` is what closes that:
-/// `EmbodiedPolicyKind::build_with_footwork` hands the row to the two registry
+/// `PolicyKind::build_with_footwork` hands the row to the two registry
 /// entries that drive a [`StrikePlanner`], and refuses -- by name, with both
 /// policies in the sentence -- when neither side has feet to tell.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -307,7 +309,7 @@ pub struct Footwork {
     /// into a handful of expensive ones"*. Crossing measure is something feet
     /// do, and until this field existed the planner planted them for all 80
     /// ticks of chamber, commit and recovery: its blade carried the arm's sweep
-    /// and nothing else. `embodied_script.rs` records the identical correction,
+    /// and nothing else. `script.rs` records the identical correction,
     /// made the same way and paid for by the articulated corpus --
     /// `AttackFootwork::Planted` decayed a body to a standstill in about
     /// fourteen ticks and "the arm term alone could not reach
@@ -327,7 +329,7 @@ pub struct Footwork {
     /// The twist fraction at or past which the feet unwind the torso.
     ///
     /// **The commanded yaw is deliberately left asking for the full turn**, and
-    /// the reason is `embodied_script.rs`'s, measured before this file existed:
+    /// the reason is `script.rs`'s, measured before this file existed:
     /// `World::drive_stance` arms a step precisely when the request exceeds the
     /// budget, and re-arms it for as long as the demand persists. A planner that
     /// "asked for the turn it can have" by clamping its own request would end
@@ -366,6 +368,15 @@ impl Footwork {
     /// **This row is a frozen control and not a default worth improving.** Every
     /// measurement in `docs/performance/` taken under `articulated-duel-v1` was
     /// taken with these values, and `#/arena` renders a fight driven by them.
+    ///
+    /// **Its name and [`Footwork::EMBODIED`]'s survived session 06's rename
+    /// sweep, and they are provenance rather than a model qualifier.** A row is
+    /// named for the fixture it was swept against; those two fixtures are
+    /// `articulated-duel-v1` and `embodied-duel-v1`, and the second of those is
+    /// still the name of a live scenario whose fingerprint is pinned. Renaming
+    /// these would cost the reader the link between a constant and the sweep
+    /// table in `docs/performance/` that produced it, which is the only thing
+    /// either name is for.
     pub const ARTICULATED: Footwork = Footwork {
         margin: Fx::from_ratio(1, 10),
         min_fraction: Fx::from_ratio(3, 5),

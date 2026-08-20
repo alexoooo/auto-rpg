@@ -134,8 +134,8 @@ arithmetic before allocation; an ordinary exceeded documented cap is
 |---:|---:|---|---|
 | 0 | 4 | magic | ASCII `ARPG` |
 | 4 | 2 | codec version | `1` |
-| 6 | 2 | command schema | `2` for articulated records and `3` for embodied ones; `1` was reserved and never shipped, and `0` is the retired legacy stream |
-| 8 | 1 | hash domain | `0` LegacyV1; `1` ArticulatedV1 |
+| 6 | 2 | command schema | `3` is the only schema a decoded envelope may keep; `2` is the retired articulated stream, `1` was reserved and never shipped, and `0` is the retired legacy stream |
+| 8 | 1 | hash domain | `0` LegacyV1, `1` ArticulatedV1, `2` EmbodiedV1 -- all three are read, only `2` survives the tuple |
 | 9 | 1 | flags | `0`; every bit is reserved |
 | 10 | 2 | hash schema | `1` |
 | 12 | 4 | payload length | exact bytes following this header |
@@ -155,25 +155,36 @@ The tuple accepted in v2-10 was exactly:
 command schema 0, LegacyV1 (0), hash schema 1, CombatModel::Legacy (0)
 ```
 
-**That tuple is gone, and schema `0` is refused by its own number.** The legacy
-record stream was unwritable from the day the legacy command grammar was deleted --
-nothing could produce a record for it -- and it was removed from the format on
-2026-08-18 rather than kept frozen and empty, so that the layout moved once rather
-than twice. A file still declaring `0` fails the decoder's header check with
-`UnknownCommandSchema(0)` before a byte of its command section is read; an envelope
-assembled in memory carrying it fails the schema tuple with `CommandModelMismatch`.
-Both refusals name the number, which is the whole obligation a retired schema
-value carries.
-
-v2-11 adds exactly the payload owned by
-[Articulated command V1](articulated-command-v1.md#coordinate-and-scalar-rules):
+v2-11 added a second, for the payload owned by
+[the 53-byte core contract](articulated-command-v1.md#coordinate-and-scalar-rules):
 
 ```text
 command schema 2, ArticulatedV1 (1), hash schema 1, CombatModel::Articulated (1)
 ```
 
-Every other tuple is `CommandModelMismatch`, even when each number is independently
-known.
+**Both are gone, and each is refused by its own numbers.** The tuple is now three
+columns rather than four and accepts exactly one combination --
+`(3, EmbodiedV1, 1)` -- with everything else `CommandModelMismatch`, even when each
+number is independently known.
+
+**The fourth column did not shrink; it stopped existing.** It read a scenario in
+memory and never a wire byte, so with one model a tuple could not disagree with itself
+about it.
+
+**Where each retired value is refused is not the same place, and the difference is the
+point.** Schema `0` fails the decoder's *header* check with `UnknownCommandSchema(0)`
+before a byte of any command section is read -- the legacy record stream was unwritable
+from the day the legacy command grammar was deleted, so it was removed from the format
+on 2026-08-18 rather than kept frozen and empty, and the layout moved once rather than
+twice. Schema `2` is a number the header check still knows, so it is *carried* as far as
+the envelope tuple and refused there. Hash domains `0` and `1` are likewise decoded and
+then refused by the tuple. **The refusal moving outward is the change worth recording**:
+a value refused at the header cannot say what it was, and a value refused at the tuple
+can. "This is an articulated replay and there is no articulated world to play it into"
+is a different sentence from "this file is corrupt", and it is the one a reader holding
+an old recording needs.
+
+Both refusals name the number, which is the whole obligation a retired value carries.
 
 ## Scenario record
 
@@ -181,7 +192,7 @@ The scenario record is tightly packed in this order:
 
 | Width | Field |
 |---:|---|
-| 1 | combat model: Legacy `0`, Articulated `1` |
+| 1 | combat model: Legacy `0`, Articulated `1`, Embodied `2` |
 | 2 + N | UTF-8 name byte length `u16`, then N bytes |
 | 2, 2, 4 | dungeon columns, rows, and tile count |
 | tile count | row-major tile bytes: open `0`, wall `1`, shut door `2` |
@@ -192,6 +203,14 @@ The scenario record is tightly packed in this order:
 | variable | unit records in vector order |
 | 4 | torch count |
 | 5 each | torch `tx u16`, `ty u16`, face discriminant `u8` |
+
+**The model byte is read one step ahead of where it is judged, and only two of its
+three values get that far.** `0` is refused right here, as
+`UnknownDiscriminant(CombatModel, 0)`: those bytes describe a fight between two discs
+with one blade angle each, and there is nothing in the surviving record they could be
+read as. `1` is *accepted by this reader* and refused by the envelope tuple, so the
+whole file is refused by a number the decoder demonstrably recognised rather than by a
+byte it claims is nonsense. `2` is the only one that decodes.
 
 `tile_count` must equal checked `cols * rows`. Unknown tile bytes are rejected rather
 than treated as generic solid tiles. A portal must lie within the closed raw extent
@@ -328,15 +347,36 @@ other. Play runs the same complete validation used by encode -- including limits
 record order/ticks, model tuple, and scenario bounds -- so mutation of a public
 `Replay` after decode cannot bypass the persisted contract.
 
-## Required offset fixture
+## The offset fixture, and why it is history rather than a contract
 
-The layout test hand-builds a minimal legacy envelope with name `x`, a 1x1 open
+**`replay_codec_v1_matches_the_documented_offset_fixture` is gone, and it is the one
+deletion in this area that costs something.** It pinned the version-1 envelope's byte
+offsets against the table above, byte for byte, from the smallest envelope the encoder
+would take. Version 1 was the Legacy ceiling: no surviving scenario writes it, so the
+fixture cannot be constructed and the offsets it pinned have no producer left to drift.
+
+What it was: a minimal legacy envelope with name `x`, a 1x1 open
 dungeon, scenario `max_ticks=1`, no portal, no units, no torches, world seed zero,
-replay stopping tick zero, and no input records. Its ScenarioV1 fingerprint is the
-independently hand-computed `0x22c54dc8462a1204`. Its scenario record is 26 bytes and
-its payload is 38 bytes (the record plus three zero counts). The header therefore
-contains payload length `38` at offset 12, the fingerprint's little-endian bytes
-`04 12 2a 46 c8 4d c5 22` at offset 16, and scenario length `26` at offset 36;
-total file length is `78`. The test contains the complete 78-byte literal and compares
-every byte with the encoder; it does not call `Scenario::fingerprint` to obtain the
-expected value.
+replay stopping tick zero, and no input records. Its ScenarioV1 fingerprint was the
+independently hand-computed `0x22c54dc8462a1204`. Its scenario record was 26 bytes and
+its payload 38 bytes (the record plus three zero counts). The header therefore
+contained payload length `38` at offset 12, the fingerprint's little-endian bytes
+`04 12 2a 46 c8 4d c5 22` at offset 16, and scenario length `26` at offset 36; total
+file length was `78`. The test held the complete 78-byte literal and compared every
+byte with the encoder; it did **not** call `Scenario::fingerprint` to obtain the
+expected value, which is the property that made it worth having -- a fixture that asks
+the code for its expected answer agrees with a drifting encoder by construction.
+
+**What still checks the v1 header is the refusal path.** A v1 envelope fails the
+schema tuple, and `replay_decoder_rejects_a_model_schema_domain_mismatch` covers it,
+so the format is refused by name rather than silently mis-read. That is a weaker claim
+than the fixture made and it is the honest one: nothing now proves these offsets, and
+nothing produces them either.
+
+**The minimum is no longer minimal, which is why the fixture could not simply be
+rebuilt on the surviving model.** These tests wanted the smallest possible envelope
+because they are about byte offsets, truncation and discriminants rather than about a
+fight, and the old floor was a scenario with no spec table and no units at all. A world
+with articulated columns refuses both -- every unit needs an anatomy row and the table
+has to be present, checked before anything is allocated -- so the floor of the format
+is now one tile, one dressed body and the shipped fixture table.

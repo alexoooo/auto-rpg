@@ -12,14 +12,14 @@ pub(super) fn duel_world() -> World {
     World::new(&Scenario::embodied_duel(), 1)
 }
 
-pub(super) fn articulated_command() -> ArticulatedCommandV1 {
+pub(super) fn command_core() -> CommandCoreV1 {
     let arm = ArmTarget {
         bearing: Angle::QUARTER,
         height: crate::CombatHeight::MID,
         reach: Fx::ONE,
         effort: Fx::HALF,
     };
-    ArticulatedCommandV1 {
+    CommandCoreV1 {
         move_dir: Vec2::ZERO,
         body_yaw: Angle::QUARTER,
         intent: Intent::Hold,
@@ -31,10 +31,10 @@ pub(super) fn articulated_command() -> ArticulatedCommandV1 {
 
 /// The same six fields, wrapped for the surviving submission path.
 ///
-/// `ArticulatedCommandV1` is still the *inner* command type, so
-/// `articulated_command` stays and this is a wrapper rather than a replacement:
+/// `CommandCoreV1` is still the *inner* command type, so
+/// `command_core` stays and this is a wrapper rather than a replacement:
 /// a test that wants to talk about the payload wants the inner value, and a test
-/// that wants to submit wants this. `EmbodiedCommandV1::new` supplies the
+/// that wants to submit wants this. `CommandV1::new` supplies the
 /// neutral swing plane, which is the plane the elbow hung in before the field
 /// existed -- so a fixture with no opinion about the plane gets the old default
 /// rather than a number somebody chose.
@@ -45,8 +45,8 @@ pub(super) fn articulated_command() -> ArticulatedCommandV1 {
 /// `Angle::ZERO` -- true of every body at spawn, and of every body these
 /// fixtures never turn. A caller that turns its body first and still wants north
 /// has to take the yaw off itself.
-pub(super) fn embodied_command() -> crate::EmbodiedCommandV1 {
-    crate::EmbodiedCommandV1::new(articulated_command())
+pub(super) fn embodied_command() -> crate::CommandV1 {
+    crate::CommandV1::new(command_core())
 }
 
 pub(super) fn both_scenario() -> Scenario {
@@ -55,7 +55,7 @@ pub(super) fn both_scenario() -> Scenario {
     both.id = 4;
     both.binding = crate::GripBinding::Both;
     scenario.combat_specs.as_mut().unwrap().equipment.push(both);
-    scenario.units[1].articulated.as_mut().unwrap().equipment = [Some(4), None];
+    scenario.units[1].combat_spec.as_mut().unwrap().equipment = [Some(4), None];
     scenario.units[1].loadout = Loadout::single(ActionKind::Club);
     scenario
 }
@@ -111,7 +111,7 @@ pub(super) fn smart_60_entry(reflected: bool) -> Smart60Entry {
     // Smart41 removed perception from the bearing source only. The frozen
     // corpus still derives its target height from this one tick-zero
     // observation, so retain that input byte for byte here.
-    let shown = world.observe_articulated(attacker);
+    let shown = world.observe(attacker);
     let foe = shown.opponents().first().expect("the target is observed");
     let legs = foe.regions[BodyPart::Legs as usize];
     let local_height = (legs.lower.z + legs.upper.z) / Fx::from_int(2)
@@ -123,13 +123,13 @@ pub(super) fn smart_60_entry(reflected: bool) -> Smart60Entry {
     // oversight.** The torso frame reads `ArmTarget::bearing` as an offset
     // from the yaw the body holds at submission, so a world bearing normally has
     // to have that yaw taken off it -- but every command here is built on
-    // `neutral_articulated`, which asks for the yaw the body already has, and
+    // `neutral_core`, which asks for the yaw the body already has, and
     // both bodies spawn at `Angle::ZERO`. Slot 0 therefore never turns, the two
     // frames name the same world bearing for the whole of the swing, and
     // subtracting a yaw of zero would have been ceremony. Give this fixture a
     // body that turns and the subtraction becomes real.
     let make = |world: &World, bearing| {
-        let mut command = world.neutral_articulated(0);
+        let mut command = world.neutral_core(0);
         command.intent = Intent::Attack(defender);
         command.arms[limb] = ArmTarget { bearing, height, reach: Fx::from_raw(32_768),
                                          effort: Fx::ONE };
@@ -137,13 +137,13 @@ pub(super) fn smart_60_entry(reflected: bool) -> Smart60Entry {
     };
     for tick in 0..33 {
         let command = make(&world, if tick < 16 { chamber } else { follow });
-        let held = world.neutral_articulated(1);
+        let held = world.neutral_core(1);
         assert!(matches!(
-            world.submit_embodied_v1(attacker, crate::EmbodiedCommandV1::new(command)),
-            crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }));
+            world.submit(attacker, crate::CommandV1::new(command)),
+            crate::SubmitOutcome::Stored { rejection: None, .. }));
         assert!(matches!(
-            world.submit_embodied_v1(defender, crate::EmbodiedCommandV1::new(held)),
-            crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }));
+            world.submit(defender, crate::CommandV1::new(held)),
+            crate::SubmitOutcome::Stored { rejection: None, .. }));
         world.step_with_arm_rates(CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
     }
     let target = make(&world, follow).arms[limb];
@@ -220,7 +220,7 @@ pub(super) fn resolve_closing(world: &mut World, closing: &[(usize, Fx)]) {
     for &(i, speed) in closing { world.vel[i] = Vec2::new(speed, Fx::ZERO); }
     world.resolve_contact();
     world.settle_anatomy();
-    world.reap_dead_articulated();
+    world.reap_dead_bodies();
 }
 
 /// The braced fighter, the closing brute, and the region the sword chose.
@@ -287,11 +287,11 @@ pub(super) fn clinch_world() -> World {
 /// along the body's *current* facing, not along `yaw`. Bodies spawn at
 /// `Angle::ZERO`, so a caller wanting a westward reach has to let the yaw
 /// arrive -- which is what `step_into_contact` re-submitting every tick does.
-pub(super) fn reaching_command(yaw: Angle, reach: Fx) -> ArticulatedCommandV1 {
+pub(super) fn reaching_command(yaw: Angle, reach: Fx) -> CommandCoreV1 {
     let arm = |reach| ArmTarget {
         bearing: Angle::ZERO, height: crate::CombatHeight::MID, reach, effort: Fx::ONE,
     };
-    ArticulatedCommandV1 {
+    CommandCoreV1 {
         move_dir: Vec2::ZERO, body_yaw: yaw, intent: Intent::Hold,
         arms: [arm(Fx::from_ratio(1, 4)), arm(reach)],
         grips: [GripRequest::Keep; 2],
@@ -312,8 +312,8 @@ pub(super) fn step_into_contact(world: &mut World) -> u32 {
             if !world.alive[i] { continue; }
             let yaw = if i == 0 { Angle::ZERO } else { Angle::HALF };
             let reach = if i == 0 { Fx::ONE } else { Fx::from_ratio(1, 4) };
-            world.submit_embodied_v1(world.id_of(i),
-                crate::EmbodiedCommandV1::new(reaching_command(yaw, reach)));
+            world.submit(world.id_of(i),
+                crate::CommandV1::new(reaching_command(yaw, reach)));
         }
         world.step();
         if !world.contact_resolutions().is_empty() { return tick; }
@@ -463,7 +463,7 @@ pub(super) fn crowded_scenario() -> Scenario {
         // unit 0 already carries.
         if step == 0 {
             unit.kind = scenario.units[0].kind;
-            unit.articulated = scenario.units[0].articulated;
+            unit.combat_spec = scenario.units[0].combat_spec;
             // The loadout has to move with it: construction validates that
             // the two agree slot for slot.
             unit.loadout = scenario.units[0].loadout;
@@ -541,7 +541,7 @@ pub(super) fn door_world(body: Body) -> World {
 /// door fixtures never override. A fixture that turns a body and then leans
 /// would get its lean turned with it.
 pub(super) fn lean(w: &mut World, i: usize, dir: Vec2) {
-    w.articulated_command[i] = Some(crate::ArticulatedCommandV1 {
+    w.command_core[i] = Some(crate::CommandCoreV1 {
         move_dir: dir,
         body_yaw: fx::Angle::ZERO,
         intent: crate::Intent::Hold,

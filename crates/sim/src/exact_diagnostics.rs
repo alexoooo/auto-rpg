@@ -4,11 +4,11 @@
 //! It reruns one stored-command replay and then fingerprints both authority and
 //! the evidence rows needed to review why that authority moved.
 
-use crate::{AnatomyChoice, AnatomyState, ArmTarget, ArticulatedCommandV1, Body, BodyPart,
+use crate::{AnatomyChoice, AnatomyState, ArmTarget, CommandCoreV1, Body, BodyPart,
             CombatHeight, ContactKind, ContactResolution, DuelConfigV1,
-            EmbodiedCommandV1, EntityId, EquipmentGeometry, GripRequest, HashDomain, Intent,
+            CommandV1, EntityId, EquipmentGeometry, GripRequest, HashDomain, Intent,
             LimbSlot, RecoilExternalEnergy, ReleaseRequest, Replay, ResolutionError, Scenario,
-            SubmitEmbodiedOutcome, SubmittedCommand, World,
+            SubmitOutcome, SubmittedCommand, World,
             ARTICULATED_PAYLOAD_BYTES, SUBMITTED_COMMAND_LAYOUT_VERSION};
 use fx::{Angle, Fx, Hash64, Vec2, Vec3};
 
@@ -246,8 +246,8 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
     let attacker = EntityId::new(0, 0);
     let defender = EntityId::new(1, 0);
     let bodies = [attacker, defender];
-    let yaws = [first.articulated_pose(attacker)?.body_yaw,
-                first.articulated_pose(defender)?.body_yaw];
+    let yaws = [first.pose(attacker)?.body_yaw,
+                first.pose(defender)?.body_yaw];
     let hips = [first.stance(attacker)?.hip_yaw, first.stance(defender)?.hip_yaw];
     let toward = (-offset).angle();
     let chamber = toward - Angle::from_raw(8_192);
@@ -263,14 +263,14 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
     let neutral = |yaw| {
         let arm = ArmTarget { bearing: Angle::ZERO, height: CombatHeight::MID,
                               reach: Fx::ZERO, effort: Fx::ZERO };
-        ArticulatedCommandV1 { move_dir: Vec2::ZERO, body_yaw: yaw,
+        CommandCoreV1 { move_dir: Vec2::ZERO, body_yaw: yaw,
             intent: Intent::Hold, arms: [arm; 2], grips: [GripRequest::Keep; 2],
             releases: [ReleaseRequest::Keep; 2] }
     };
     // `held` is the yaw read off the body at submission and **not** the yaw the
     // command requests: `body_yaw` is a request the actuator chases at a bounded
     // rate, so subtracting it would land the arm short by the whole turn on any
-    // tick that asked for one. `policy::embodied_tactics::into_torso_frame` is
+    // tick that asked for one. `policy::tactics::into_torso_frame` is
     // the same subtraction for the same reason and says so at length.
     let command_at = |tick, id, held: Angle| {
         if id == defender { return neutral(yaws[1]); }
@@ -312,9 +312,9 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
 
     for tick in 0..TICKS {
         for id in bodies {
-            let requested = command_at(tick, id, first.articulated_pose(id)?.body_yaw);
-            let stored = match first.submit_embodied_v1(id, EmbodiedCommandV1::new(requested)) {
-                SubmitEmbodiedOutcome::Stored { command, rejection: None } => command,
+            let requested = command_at(tick, id, first.pose(id)?.body_yaw);
+            let stored = match first.submit(id, CommandV1::new(requested)) {
+                SubmitOutcome::Stored { command, rejection: None } => command,
                 _ => return None,
             };
             let rerun = if verify_reproduction {
@@ -322,9 +322,9 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
                 // `first`'s command, so that the rerun proves the torso
                 // conversion reproduces as well as the submission does.
                 let rerun_requested =
-                    command_at(tick, id, second.articulated_pose(id)?.body_yaw);
-                match second.submit_embodied_v1(id, EmbodiedCommandV1::new(rerun_requested)) {
-                    SubmitEmbodiedOutcome::Stored { command, rejection: None } => command,
+                    command_at(tick, id, second.pose(id)?.body_yaw);
+                match second.submit(id, CommandV1::new(rerun_requested)) {
+                    SubmitOutcome::Stored { command, rejection: None } => command,
                     _ => return None,
                 }
             } else { stored };
@@ -392,7 +392,7 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
             // `else { return None }` that stood here was an unreachable arm
             // rather than a refusal a caller could see.
             let SubmittedCommand::Embodied(command) = row.command;
-            let mut payload = command.articulated.payload_bytes();
+            let mut payload = command.core.payload_bytes();
             if mutation.command_byte && !changed_command {
                 payload[0] ^= 1;
                 changed_command = true;
@@ -575,25 +575,25 @@ fn lifted_config(strike_delta: i32, reach_delta: i32, mirrored: bool) -> Option<
     Some(config)
 }
 
-fn neutral_command(obs: &crate::ArticulatedObservation) -> ArticulatedCommandV1 {
+fn neutral_command(obs: &crate::Observation) -> CommandCoreV1 {
     // Zero is "along the torso", which is what an
     // idle arm means; the world adds `obs.body_yaw` back in `world_arm_target`.
     let arm = ArmTarget { bearing: Angle::ZERO, height: CombatHeight::MID,
                           reach: Fx::ZERO, effort: Fx::ZERO };
-    ArticulatedCommandV1 { move_dir: Vec2::ZERO, body_yaw: obs.body_yaw,
+    CommandCoreV1 { move_dir: Vec2::ZERO, body_yaw: obs.body_yaw,
         intent: Intent::Hold, arms: [arm; 2], grips: [GripRequest::Keep; 2],
         releases: [ReleaseRequest::Keep; 2] }
 }
 
 fn lifted_command(world: &World, id: EntityId, attacker: EntityId, defender: EntityId,
-                  tick: u32, reach_delta: i32, mirrored: bool) -> ArticulatedCommandV1 {
-    let obs = world.observe_articulated(id);
+                  tick: u32, reach_delta: i32, mirrored: bool) -> CommandCoreV1 {
+    let obs = world.observe(id);
     if id != attacker { return neutral_command(&obs); }
     lifted_coulomb_diagnostic_command(&obs, defender, tick, reach_delta, mirrored)
 }
 
-fn lifted_coulomb_diagnostic_command(obs: &crate::ArticulatedObservation,
-    defender: EntityId, tick: u32, reach_delta: i32, mirrored: bool) -> ArticulatedCommandV1
+fn lifted_coulomb_diagnostic_command(obs: &crate::Observation,
+    defender: EntityId, tick: u32, reach_delta: i32, mirrored: bool) -> CommandCoreV1
 {
     let mut command = neutral_command(obs);
     if tick >= 56 { return command; }
@@ -631,7 +631,7 @@ fn command_receipt(fingerprint: u64, records: &[crate::SubmittedCommandRecord]) 
         hash.write_u16(SUBMITTED_COMMAND_LAYOUT_VERSION);
         hash.write_u8(1); hash.write_u8(0); hash.write_u16(ARTICULATED_PAYLOAD_BYTES as u16);
         let SubmittedCommand::Embodied(command) = record.command;
-        hash.write_bytes(&command.articulated.payload_bytes());
+        hash.write_bytes(&command.core.payload_bytes());
     }
     Some(hash.finish())
 }
@@ -664,14 +664,14 @@ fn lifted_case_with_provenance(strike_delta: i32, reach_delta: i32, mirrored: bo
         }
         for id in pending {
             let requested = lifted_command(&first, id, attacker, defender, tick, reach_delta, mirrored);
-            let stored = match first.submit_embodied_v1(id, EmbodiedCommandV1::new(requested)) {
-                SubmitEmbodiedOutcome::Stored { command, rejection: None } => command,
+            let stored = match first.submit(id, CommandV1::new(requested)) {
+                SubmitOutcome::Stored { command, rejection: None } => command,
                 _ => { #[cfg(test)] eprintln!("lifted stored first failed tick {tick} id {:?}", id); return None },
             };
             let rerun_requested = lifted_command(&second, id, attacker, defender, tick,
                                                   reach_delta, mirrored);
-            let rerun = match second.submit_embodied_v1(id, EmbodiedCommandV1::new(rerun_requested)) {
-                SubmitEmbodiedOutcome::Stored { command, rejection: None } => command,
+            let rerun = match second.submit(id, CommandV1::new(rerun_requested)) {
+                SubmitOutcome::Stored { command, rejection: None } => command,
                 _ => { #[cfg(test)] eprintln!("lifted stored rerun failed tick {tick} id {:?}", id); return None },
             };
             if stored != rerun { #[cfg(test)] eprintln!("lifted command mismatch tick {tick}"); return None; }

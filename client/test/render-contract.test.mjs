@@ -2281,7 +2281,7 @@ test("bootstrap_disposes_initialized_client_and_renderer_when_input_attachment_f
 // here and its subject is gone.** It covered `pointToGotoCommand`: a ground pick
 // against the remembered map, refused off the floor plan, rounded to integer
 // thousandths exactly once. Nothing about that reasoning was wrong -- the
-// destination it produced was, because an `ArticulatedObservation` carries no
+// destination it produced was, because an `Observation` carries no
 // standing order and no nav field, so the click moved the state hash and painted
 // a header pip and moved nobody. The function went with the command, and what is
 // left of the pointer is the aim, the drag and the wheel, which the tests below

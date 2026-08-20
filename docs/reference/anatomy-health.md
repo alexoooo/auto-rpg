@@ -7,7 +7,14 @@
 
 This document owns regional coordinates, weapon/body and projectile/body
 assignment, armor transfer, wound evolution, impairment, death, and the sole
-articulated health query. Legacy HP is unchanged.
+health query.
+
+**The legacy HP column and the model it belonged to are deleted**, so "Legacy HP is
+unchanged" -- which this line said, and which was the whole of the compatibility claim
+-- is now vacuous rather than false. Where the document below contrasts the regional
+query with a legacy hit-point pool, read the contrast as the argument for the query's
+shape: health is *derived from the regions* and cached nowhere, so there is no second
+number to keep in step with the wounds that produced it.
 
 ## State and immutable specification
 

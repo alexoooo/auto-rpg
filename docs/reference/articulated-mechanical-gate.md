@@ -1,24 +1,68 @@
 # Articulated mechanical gate
 
-**Purpose:** Define the current fixture/script and the still-proposed completion contract for the articulated mechanical gate.
-**Status:** proposed
-**Canonical source:** `crates/policy/src/articulated_script.rs`, `crates/lab/src/main.rs`, and the future committed gate evidence
-**Update when:** The fixture, script phase, mirror, digest byte, denominator, threshold, worker message, artifact, or pin path changes.
+**Purpose:** Record a gate contract that was never completed, the fixture and script it was written against, and the corpora it did produce -- all of them about a combat model that no longer exists.
+**Status:** historical
+**Canonical source:** none. Every file this document was written against -- `crates/policy/src/articulated_script.rs`, the articulated policies, `Scenario::articulated_duel` and `lab articulated` -- has been deleted.
+**Update when:** Never. A closed record is not updated; a claim that turns out to be wrong is corrected in place and said so.
 
-The fixture, policies, lab measurement path, projector repair, and centre-of-mass
-velocity sampling are current. The worker fixtures, evidence artifact, visible review,
-and final pin below are proposed and have not run. The first attempt failed before
-those stages; its numbers, rejected explanations, and successor ledger live in
-[`v2-articulated-gate.md`](../performance/v2-articulated-gate.md). No
-`ARTICULATED_HASH` exists.
+**Retired as history on 2026-08-19, and the decision is worth stating rather than
+inferring from the status line.** This was the completion contract for a gate on
+`CombatModel::Articulated`. That model was deleted, and with it every input this
+document names: `Scenario::articulated_duel` and the `articulated-duel-v1` fingerprint
+`0x068d05fcada1027b`, the scripted, windmill and closing-attack policies the script
+section specifies phase by phase, `policy::run_articulated`, and the `lab articulated`
+command that measured the corpora. **A gate contract with no fixture is a promise
+nothing can keep**, and the alternative -- rewriting it as the embodied gate -- would
+have been worse: it would have produced a contract with thresholds nobody measured, a
+worker section describing a protocol that already shipped differently, and an evidence
+schema for artifacts that will never be written, all under a heading that claimed to be
+current.
 
-A later fixed `Robust Strike (controlled)` feature preset has two visible runs with a
-qualifying contact and wound. It is deliberately outside this gate: it supplies no
+**The live gate record is
+[`embodied-tactical-policy.md`](../performance/embodied-tactical-policy.md).** It is a
+measurement document rather than a contract, which is the honest shape for what this
+repository actually has: a corpus, an acceptance table, and results that are what they
+are. The pins that replace this document's never-created `ARTICULATED_HASH` as a
+*class* are `EMBODIED_CORPUS_DIGEST` for the fight and `ARTICULATED_STREAM_DIGEST` for
+the bytes the page reads, both in the [golden registry](hashes.md#golden-registry).
+
+**`ARTICULATED_HASH` was never created and now cannot be.** It was reserved for a
+scripted fight under the articulated model; there is no such fight to pin. The registry
+still carries the sentence that no earlier session may create it, and that sentence is
+now permanent rather than provisional.
+
+**Nothing below is owed.** The worker fixtures, the evidence JSON, the blinded visible
+review and the pin proof were proposed and never ran, and no session inherits them.
+The one part of this document that was still describing live machinery -- the snapshot
+buffer's reservation formula and the reason nothing is reserved -- has moved to
+[`articulated-abi.md`](articulated-abi.md#ownership-visibility-and-memory), which owns
+the publications it is arithmetic about.
+
+**What is worth reading here, and it is why this was retired rather than deleted.**
+The corpora below are measured evidence with provenance, and three of them recorded a
+correction against an intuition -- the off arm holding one pose, the guard's height and
+the small plate, the two-handed club's severance counts. Those are the repository's own
+house style working: a measurement contradicted somebody's expectation and the
+expectation was written down beside the number rather than quietly replaced. They
+describe a model that is gone, so they cannot be re-run, and that is exactly what makes
+the record the only copy. The first attempt's failure, its rejected explanations and its
+successor ledger are in
+[`v2-articulated-gate.md`](../performance/v2-articulated-gate.md).
+
+**Read every present tense below as past.** The prose was written while the model
+existed and it is left in its own voice rather than mechanically re-tensed, because a
+document rewritten into the past tense sentence by sentence reads as though somebody
+checked each claim against something, and nobody did -- there is nothing left to check
+them against. The fixture, the policies, the lab path and the digests it names are all
+gone.
+
+A later fixed `Robust Strike (controlled)` feature preset had two visible runs with a
+qualifying contact and wound. It was deliberately outside this gate: it supplied no
 800-trial generalized result, worker evidence JSON, blinded 15-clip classification or
 foreground frame-time measurement. The exact feature mechanics and their two paired
-digests are current in the [contact solver contract](contact-solver.md#feature-gated-exact-trajectory-and-response-authority),
-but their existence neither passes this proposed gate nor creates
-`ARTICULATED_HASH`.
+digests are still current, in the [contact solver
+contract](contact-solver.md#feature-gated-exact-trajectory-and-response-authority) --
+they outlived the model because they are solver laws rather than fixtures.
 
 ## Canonical fixture and stop rule
 
@@ -347,7 +391,7 @@ a corpus in which a guard is never tested against any height but its own. Phasin
 two *sides* apart by a whole 90 does not fix that and was measured not to: it produces
 0.00% diagonal, every pair mismatched, which is the same degeneracy relabelled. Only an
 offset that is not a multiple of the period puts mass in more than one relation. It is
-applied uniformly rather than keyed on the side, because `ArticulatedObservation` has no
+applied uniformly rather than keyed on the side, because `Observation` has no
 faction column by design and the subject's slot index is not a faction.
 
 **It mixes partially, and a reader of any blocked rate below needs the missing half.**
@@ -651,6 +695,16 @@ from the implementation under test.
 
 ## Worker integration
 
+**Superseded and, in one place, still cited.** The worker protocol shipped and its
+live contract is [`worker-protocol.md`](worker-protocol.md#messages-and-command-scheduling);
+what landed differs from what is proposed below, most visibly in the command union --
+there is one command grammar now and its payload is 57 bytes, not 55. The V1-session
+acceptance rule that document used to credit to this section is a live property of the
+worker and is stated there. **The snapshot reservation formula and its offsets moved
+to [`articulated-abi.md`](articulated-abi.md#ownership-visibility-and-memory)**, which
+owns the publications the arithmetic is about; the copy below is the original and is
+kept only as the place the numbers were first derived.
+
 `WORKER_PROTOCOL_VERSION` becomes `2`. The host continues to accept exact V1 sessions
 as legacy-only and returns the old V1 message/snapshot shape and old buffer capacity
 for their lifetime. A V2 `InitMessage` has optional `combatModel:0|1`; omission means
@@ -740,6 +794,13 @@ disclosure field rather than a previous-frame visibility guess.
 
 ## Evidence JSON and visible review
 
+**Never produced, and never will be.** The artifact this section specifies would be a
+recording of a fight under a model the workspace can no longer build. No file at
+`docs/performance/evidence/v2-articulated-gate.json` exists and none is owed. The
+schema is kept because the *shape* of it -- sorted keys, a named fixture fingerprint, a
+blinded classification with the truth labels held back until after the answers -- is
+the shape the next visible review should take, whatever it is a review of.
+
 `docs/performance/evidence/v2-articulated-gate.json` is UTF-8 JSON with sorted keys
 and this required shape:
 
@@ -800,6 +861,19 @@ height/normal/severance checks, and `pass|revise|stop`. Pass is at least 12/15 o
 at least 2/3 per label, and zero overlay disagreements.
 
 ## Pin proof
+
+**The pin this section proves out was never created and now cannot be.**
+`ARTICULATED_HASH` was reserved for a scripted fight under the articulated model, the
+replay fixture named below was never committed, and none of the four exports it
+specifies was ever written. The [golden registry](hashes.md#golden-registry) carries
+the reservation and the rule that no earlier session may create it; that rule is now
+permanent rather than provisional, and the class of claim it was to make is carried by
+`EMBODIED_CORPUS_DIGEST` and `EMBODIED_GOLDEN_DIGEST` instead. **The three-way equality
+below is the part worth keeping**: a golden that a native direct run, a native replay
+and a wasm replay must all agree on before it is recorded is a stronger pin than any
+one of the three, because it catches a replay that does not reproduce its own run and a
+target that does not agree with its sibling, neither of which a single-path golden can
+see.
 
 The canonical replay path is
 `fixtures/articulated/articulated-duel-v1-seed-0.replay`; evidence pins its SHA-256.

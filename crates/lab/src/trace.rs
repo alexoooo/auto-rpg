@@ -112,7 +112,7 @@ impl FightTrace {
         let table = scenario.combat_specs.as_ref()
             .expect("an articulated scenario carries a combat spec table");
         let anatomy = scenario.units.iter().map(|unit| {
-            let row = unit.articulated.expect("an articulated unit carries a spec row");
+            let row = unit.combat_spec.expect("an articulated unit carries a spec row");
             table.anatomy(row.anatomy).expect("a validated anatomy reference").clone()
         }).collect();
         let identity = scenario.units.iter().map(|unit| (unit.kind, unit.faction)).collect();
@@ -139,7 +139,7 @@ impl FightTrace {
         // because a panic path here would be unreachable code in a diagnostic.
         let _ = write!(out, "{{\"t\":{},\"poses\":[", world.tick());
 
-        for (n, pose) in world.articulated_poses().enumerate() {
+        for (n, pose) in world.poses().enumerate() {
             if n > 0 {
                 out.push(',');
             }
@@ -268,7 +268,7 @@ impl FightTrace {
         }
 
         out.push_str("],\"projectiles\":[");
-        for (n, projectile) in world.articulated_projectiles().enumerate() {
+        for (n, projectile) in world.projectiles().enumerate() {
             if n > 0 {
                 out.push(',');
             }
@@ -438,7 +438,7 @@ impl FightTrace {
 
             out.push_str(",\"carried\":[");
             let table = scenario.combat_specs.as_ref().expect("a validated spec table");
-            let row = unit.articulated.expect("a validated articulated unit");
+            let row = unit.combat_spec.expect("a validated articulated unit");
             for (slot, id) in row.equipment.iter().enumerate() {
                 if slot > 0 {
                     out.push(',');

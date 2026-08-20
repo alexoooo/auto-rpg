@@ -6,7 +6,7 @@
 //! every tick, and `nav_arm`, `reachable_point`, `nav_goal_point` and `nav_step`
 //! read headings out of it. All five had zero production callers by the time
 //! they were deleted -- the policy adapters that consumed a heading went with
-//! the legacy seam, `ArticulatedObservation` carries no navigation column, and
+//! the legacy seam, `Observation` carries no navigation column, and
 //! the browser's route exports were already gone -- so the search ran on every
 //! fight and nothing collected the answer. [`World::set_order`] holds the note
 //! about what that costs and what giving the channel a reader again would take;

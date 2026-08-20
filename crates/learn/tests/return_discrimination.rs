@@ -23,7 +23,7 @@
 //! *whether the twelve scripted phases were decoration*, and the closing-attack
 //! control was the one that existed because a checkpoint's corpus turned out to
 //! be measuring `AttackFootwork::Planted`. Session 05 deleted the articulated
-//! model, and `policy::EmbodiedPolicyKind` -- the registry that replaced this
+//! model, and `policy::PolicyKind` -- the registry that replaced this
 //! crate's own list -- has no windmill and no closing-attack entry. **Neither
 //! question is answerable on this tree, and inventing an embodied windmill to
 //! restore the shape would be shipping a policy out of a deletion session.**
@@ -31,7 +31,7 @@
 //! What survives is a different and slightly harder three, and the numbers below
 //! were re-measured on it rather than carried over:
 //!
-//! - **scripted** -- `EmbodiedPolicyKind::Scripted`, the composed script's
+//! - **scripted** -- `PolicyKind::Scripted`, the composed script's
 //!   successor and the fighter every other embodied corpus is measured against.
 //! - **tactical** -- the strike planner. It names a body region, prices the
 //!   sweep that would cross it, and spends a commit on the best one; it is the
@@ -101,16 +101,16 @@
 #![forbid(unsafe_code)]
 
 use learn::{band, shaped_return, Band, Corpus, Rollout};
-use policy::EmbodiedPolicyKind;
+use policy::PolicyKind;
 use sim::{Faction, Outcome};
 
 /// The registry entries this corpus can tell apart. See the module header for
 /// why it is not all five and for the two questions that went with the two
 /// controls session 05 deleted.
-const CANDIDATES: [EmbodiedPolicyKind; 3] = [
-    EmbodiedPolicyKind::Scripted,
-    EmbodiedPolicyKind::Tactical,
-    EmbodiedPolicyKind::TacticalFixedGuard,
+const CANDIDATES: [PolicyKind; 3] = [
+    PolicyKind::Scripted,
+    PolicyKind::Tactical,
+    PolicyKind::TacticalFixedGuard,
 ];
 
 /// Seeds per orientation. Both orientations are always run, so the sample is
@@ -201,7 +201,7 @@ fn mean(values: &[f32]) -> f32 {
 /// the same numbers whatever the machine is doing -- the same property
 /// `evolve.rs` gets out of chunked scoring, and it matters more here, because
 /// these numbers are going into a plan.
-fn measure(candidate: EmbodiedPolicyKind, opponent: EmbodiedPolicyKind) -> Corpse {
+fn measure(candidate: PolicyKind, opponent: PolicyKind) -> Corpse {
     let corpus = Corpus::new(true);
     let seeds: Vec<u64> = (0..SEEDS as u64).collect();
     let scenarios = [
@@ -271,7 +271,7 @@ fn the_shaped_return_separates_the_policies_that_survived_the_model() {
     );
     let mut bands = Vec::new();
     for (i, candidate) in CANDIDATES.into_iter().enumerate() {
-        let corpse = measure(candidate, EmbodiedPolicyKind::Scripted);
+        let corpse = measure(candidate, PolicyKind::Scripted);
         assert_eq!(corpse.rejected, 0, "{} submitted a refused command", candidate.name());
         bands.push((candidate, report(candidate.name(), &corpse, 0xA11CE + i as u64)));
         println!();
@@ -337,7 +337,7 @@ fn the_return_components_over_the_corpus() {
     // ends up contributing nothing.
     println!();
     for candidate in CANDIDATES {
-        let corpse = measure(candidate, EmbodiedPolicyKind::Scripted);
+        let corpse = measure(candidate, PolicyKind::Scripted);
         let (outcome, survival, attrition, time) = corpse.components();
         println!(
             "{:>14}  n={}  outcome {outcome:.3}  survival {survival:.3}  \
@@ -376,8 +376,8 @@ fn the_return_components_over_the_corpus() {
 #[ignore = "one fight, to time the corpus before committing to it"]
 fn one_fight_is_fast_enough_to_run_a_corpus_of() {
     let started = std::time::Instant::now();
-    let mut scripted = EmbodiedPolicyKind::Scripted.build();
-    let mut opponent = EmbodiedPolicyKind::Scripted.build();
+    let mut scripted = PolicyKind::Scripted.build();
+    let mut opponent = PolicyKind::Scripted.build();
     let result = learn::rollout(
         &sim::Scenario::embodied_duel(),
         0,

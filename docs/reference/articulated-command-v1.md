@@ -1,9 +1,20 @@
 # Articulated submitted command version 1
 
-**Purpose:** Define the typed command, validation outcome, replay bytes, and wasm action buffer for the first articulated combat model.
+**Purpose:** Define the typed command, validation outcome, replay bytes, and wasm action buffer of the 53-byte core payload -- the first fifty-three bytes of every command the surviving model accepts.
 **Status:** current
 **Canonical source:** This contract plus `crates/sim/src/command.rs`, `crates/sim/src/world/mod.rs`, `crates/sim/src/codec.rs`, and `crates/web/src/lib.rs`.
-**Update when:** An articulated input field, range, discriminant, fallback, or byte offset changes.
+**Update when:** A core input field, range, discriminant, fallback, or byte offset changes.
+
+**This document is named for a combat model that no longer exists and is still
+current, which is worth one paragraph before anything else.** The articulated model
+was deleted; its 53-byte payload was not. `ARTICULATED_PAYLOAD_BYTES` is `53`, three
+pinned digests are taken over it, and every command the surviving model accepts opens
+with these exact fifty-three bytes before a swing plane per arm continues to 57 -- see
+[`embodied-command-v1.md`](embodied-command-v1.md#the-embodied-submission-contract).
+So the scalar rules, the byte table and the packed result word below are **live
+contracts**; what is retired is the *second submission path* that used to carry them
+on its own, and each section that describes one says so in place. Renaming the width
+constant would move three pins to buy a word, which is why it is frozen.
 
 <!-- DOC_CONTRACT: articulated-command-v1 -->
 ## Coordinate and scalar rules
@@ -30,15 +41,21 @@ clockwise, so an exact half turn (`-32_768`) always chooses clockwise.
 
 | Type | Discriminants |
 |---|---|
-| `CombatModel` | Legacy `0`, Articulated `1` |
-| `SubmittedCommand` | Legacy `0`, Articulated `1` |
+| combat model, on the wire | Legacy `0`, Articulated `1`, Embodied `2` |
+| submitted-command record tag | Legacy `0`, Articulated `1`, Embodied `2` |
 | `LimbSlot` | LeftArm `0`, RightArm `1` |
 | `GripRequest` | Keep `0`, Release `1`, EquipSlot `2` |
 | `ReleaseRequest` | Keep `0`, Loose `1` |
 | `Intent` | Hold `0`, Attack `1`, Flee `2` |
 
+**The first two rows are wire numberings and no longer enums.** Both models they
+numbered are deleted and both numbering schemes are frozen: the surviving `2` is a
+constant in `crates/sim`, and `0` and `1` are refused *by their own numbers* rather
+than forgotten, so a saved replay can be told apart from a corrupt one. The four rows
+below them are live Rust enums.
+
 An `ArmTarget` is bearing `Angle`, height `CombatHeight`, reach `Fx`, effort `Fx` in
-that order. `ArticulatedCommandV1` is move x/y, body yaw, intent, left arm, right arm,
+that order. The core command is move x/y, body yaw, intent, left arm, right arm,
 left grip, right grip, left release, right release. Array position—not a redundant
 encoded limb byte—identifies the arm.
 
@@ -62,12 +79,13 @@ grip state lands in v2-13.
 
 For a valid `GripBinding::Both` transaction, both arms request the same slot. The
 right-arm target is authoritative and the left target remains encoded and hashed
-but is not actuated; v2-13 mirrors the off hand by the exact rule in
+but is not actuated; the off hand is mirrored by the exact rule in
 [Articulated actuators](articulated-actuators.md#grip-transactions-and-shield-pose).
 
 ## Canonical 53-byte articulated payload
 
-The replay and wasm layouts share this payload. It was 51 bytes through layout
+The replay and wasm layouts share this payload, and it is the prefix of the 57-byte
+one every command now carries. It was 51 bytes through layout
 version `1`; layout `2` appends the two release verbs at offsets 51 and 52 and moves
 nothing above them.
 
@@ -101,49 +119,62 @@ requires its requested slot byte. A release verb is `0` or `1`; any other value 
 refused by arm and value, exactly as an unknown grip tag is. Noncanonical ignored
 payloads are rejected.
 
-## Command-schema-2 replay records
+## Command-schema-2 replay records, retired
 
-Each record starts with tick `u32`, subject index `u32`, subject generation `u32`,
-then SubmittedCommand tag `u8`.
+**Nothing can write one and nothing will decode one.** Command schema `2` reaches the
+decoder's header check, which knows the number, and then fails the envelope's schema
+tuple -- the only accepted combination is `(3, EmbodiedV1, 1)`, and the surviving
+records are 70 bytes rather than 66. The grammar is kept here because a file carrying
+it still exists somewhere and a reader has to be able to say *which* retired format it
+is holding.
 
-- tag `0` is followed by the 25-byte legacy command payload from
+Each record started with tick `u32`, subject index `u32`, subject generation `u32`,
+then a record tag `u8`.
+
+- tag `0` was followed by the 25-byte legacy command payload from
   `replay-codec-v1.md`, for 38 bytes total;
-- tag `1` is followed by the 53-byte articulated payload above, for 66 bytes total.
+- tag `1` was followed by the 53-byte payload above, for 66 bytes total.
 
-The envelope tuple permits tag `1` only because the articulated command schema is
-paired with an Articulated scenario. That schema is `2` since the release verb landed
-and was `1` before it; `ARTICULATED_COMMAND_SCHEMA_RESERVED` is asserted equal to
-`SUBMITTED_COMMAND_LAYOUT_VERSION` at compile time, so the two cannot drift. Schema
-`1` is retired and is now refused as unknown. The tag-0 grammar is specified so the
-SubmittedCommand layout is complete, but an articulated-schema replay containing it is
-a model mismatch. Schema 0 remains the 37-byte untagged legacy record and is never
-reinterpreted as this format.
+`read_submitted_command` refuses both tags **by number** rather than reading a record
+at the wrong width and desynchronising every record after it -- which is the failure
+mode a forked width produces at a reader that hard-codes the other one, and it has
+happened here once already. Schema `2` was `1` before the release verb landed;
+`ARTICULATED_COMMAND_SCHEMA_RESERVED` is still asserted equal to
+`SUBMITTED_COMMAND_LAYOUT_VERSION` at compile time, so the retired pair cannot drift
+apart in the record of what they were. Schema `1` is refused as unknown and schema `0`
+-- the 37-byte untagged legacy stream -- is refused by the header check before a byte
+of any command section is read.
 
 ## Fifty-seven-byte wasm action buffer
 
-The wasm input buffer is:
+**The buffer and its four exports are gone; the packed result word below is live and
+is the reason this section is.** Every rule here is now applied at the 61-byte buffer
+in [`embodied-command-v1.md`](embodied-command-v1.md#sixty-one-byte-wasm-action-buffer),
+which is this shape four bytes wider.
+
+The wasm input buffer was:
 
 | Buffer offset | Width | Field |
 |---:|---:|---|
 | 0 | 2 | submitted-command layout version `2` |
-| 2 | 1 | SubmittedCommand tag `1` |
+| 2 | 1 | record tag `1` |
 | 3 | 1 | reserved, must be zero |
-| 4 | 53 | articulated payload |
+| 4 | 53 | core payload |
 
-The boundary owns a fixed `[u8; 57]` scratch array and exports:
+The boundary owned a fixed `[u8; 57]` scratch array and four exports --
+`submitted_command_ptr`, `submitted_command_len`, `submitted_command_layout_version`
+and `submit_articulated` -- all four deleted together, and `tools/wasm_check.js`
+asserts their absence by name. **Keeping the scratch without the submission was
+considered and refused**: it would have left a buffer a page could fill and nothing
+could act on, which is the shape of refusal this repository has already paid for
+twice.
 
-```text
-submitted_command_ptr() -> u32
-submitted_command_len() -> u32                 // 57
-submitted_command_layout_version() -> u32      // 2
-submit_articulated(entity_index: u32, entity_generation: u32) -> u32
-```
-
-The host obtains a fresh 57-byte view, writes it, drops the view, then calls submit.
-Submit first copies all 57 bytes into a local value, verifies
-layout/tag/reserved-byte/canonical payload, and only then mutates `World`. Unknown
-layout, legacy tag, or noncanonical bytes fail before mutation. Pointer and length
-are transport facts, never Rust struct size or alignment.
+The handshake is unchanged at the wider buffer: the host obtains a fresh view, writes
+it, drops the view, then calls submit. Submit first copies every byte into a local
+value, verifies layout/tag/reserved-byte/canonical payload, and only then mutates
+`World`. Unknown layout, a tag from a retired grammar, or noncanonical bytes fail
+before mutation. Pointer and length are transport facts, never Rust struct size or
+alignment.
 
 The submit result word is packed as:
 
@@ -162,14 +193,14 @@ bits 24..31  requested slot for missing equipment; otherwise 0
 buffer and diagnostics may report it directly. All unused detail bytes are zero.
 
 The wasm boundary also exports `state_digest_lo`, `state_digest_hi`,
-`state_digest_domain`, and `state_digest_schema`, plus the narrow
-`init_articulated_test` fixture and its embodied twin `init_embodied_test`. They let
+`state_digest_domain`, and `state_digest_schema`, plus the narrow `init_embodied_test`
+fixture. They let
 `tools/wasm_check.js` prove that the same
-submitted bytes produce the same typed digest natively and under wasm before the
-representative articulated room lands. Two fixtures rather than one because a
-model refusal has two directions and each needs a world of the other grammar;
-`ARTICULATED_COMMAND_HASH` is taken over the embodied one. Existing legacy hash
-exports and `init` retain their meanings.
+submitted bytes produce the same typed digest natively and under wasm, and
+`ARTICULATED_COMMAND_HASH` is taken over that fixture. **There were two fixtures and
+now there is one**: a model refusal has two directions, each needed a world of the
+other grammar, and with one grammar left there is no wrong model to offer. Both
+refusal tests went with the second fixture.
 
 ## Atomic validation, fallback, and recording
 
@@ -190,12 +221,15 @@ byte cannot be reported as an out-of-range field.
 
 The first failure chooses the diagnostic. Unknown layout, wrong model, and stale
 subject return `NotStored` and mutate/record nothing. A range or missing-equipment
-failure for a resolved articulated subject replaces the *entire* request with one
-neutral command; no valid arm or grip field leaks through.
+failure for a resolved subject replaces the *entire* request with one
+neutral command; no valid arm or grip field leaks through. **The wrong-model arm has
+no producer left and keeps its number**, because it is a wire failure code the browser
+maps onto a published reason byte -- see [refusals, by
+name](embodied-command-v1.md#refusals-by-name).
 
 Raw numeric range failures occur before a typed command can exist. The browser
-boundary therefore uses `World::submit_articulated_fallback_v1`, a narrow companion
-that accepts only the rejected `CommandField`, repeats model and subject checks,
+boundary therefore uses a narrow fallback companion
+that accepts only the rejected `CommandField`, repeats the subject check,
 and returns the same stored neutral command a typed range rejection returns. It is
 not a second command grammar and cannot store an arbitrary caller-supplied value.
 
@@ -216,16 +250,19 @@ A neutral command holds rather than looses. That is the command a slot falls bac
 when nobody has submitted one, so a `Loose` there would fire on behalf of every silent
 policy.
 
-`SubmitArticulatedOutcome::Stored` returns the exact command stored, whether original
-or fallback. A replay recorder records only that returned command. Rejection reason
-is optional diagnostics and is neither replay input nor authoritative state.
+The `Stored` arm of the submission outcome returns the exact command stored, whether
+original or fallback. A replay recorder records only that returned command. Rejection
+reason is optional diagnostics and is neither replay input nor authoritative state.
 
-## Articulated state-hash block
+## The command block in the state hash
 
-After the ArticulatedV1 prefix in
+After the domain prefix in
 [Hash domains V1](hash-domains-v1.md#primitive-and-typed-comparison), write allocated slot count
 `u32`, then for every slot in ascending index: presence `u8`; when present, the
-SubmittedCommand tag and canonical payload. The stored articulated command is always
-tag `1`. Dead allocated slots retain their last stored command and presence, matching
-the legacy core's dead-slot coverage. Every payload byte participates even when the
+record tag and canonical payload. **The tag is a frozen literal now** -- it was `1`
+for an articulated world and `2` for an embodied one, read off the world's model, and
+with one model left it is the constant `2`. Five pinned digests were recorded over that
+byte, so it is not a value to derive again. Dead allocated slots retain their last
+stored command and presence, matching
+the shared core's dead-slot coverage. Every payload byte participates even when the
 current actuator ignores it.

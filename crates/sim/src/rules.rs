@@ -769,7 +769,7 @@ pub const MAX_SHOTS: usize = 32;
 /// firing harmless arrows with no number out of place to point at.
 /// `hand::tests::a_drawn_bow_is_at_rest_when_it_looses` pinned that, and went
 /// with the phase machine. Nothing replaced it because there is nothing left to
-/// pin: `World::loose_articulated_projectiles` resolves an [`Arm`] from the bow
+/// pin: `World::loose_projectiles` resolves an [`Arm`] from the bow
 /// spec and the archer's stats and hands it straight here, and there is no live
 /// spin anywhere on that path to substitute by mistake.
 pub fn shot_speed(arm: Arm) -> Fx {

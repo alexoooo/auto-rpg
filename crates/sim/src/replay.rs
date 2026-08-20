@@ -211,7 +211,7 @@ impl Replay {
                 let entry = self.submitted_entries[next_submitted];
                 match entry.command {
                     SubmittedCommand::Embodied(command) => {
-                        let _ = world.submit_embodied_v1(entry.entity, command);
+                        let _ = world.submit(entry.entity, command);
                     }
                 }
                 next_submitted += 1;
@@ -227,8 +227,8 @@ impl Replay {
 mod tests {
     use super::*;
     use crate::{
-        ArmTarget, CombatHeight, EmbodiedCommandV1, GripRequest, ReleaseRequest, Scenario,
-        SubmitEmbodiedOutcome,
+        ArmTarget, CombatHeight, CommandV1, GripRequest, ReleaseRequest, Scenario,
+        SubmitOutcome,
     };
     use fx::{Angle, Fx, Vec2};
 
@@ -250,21 +250,21 @@ mod tests {
     // path went with the model, and the drain in `play_until` stayed.
 
     /// The shared six fields every fixture below drives, with the neutral swing
-    /// plane supplied at the submission by [`EmbodiedCommandV1::new`].
+    /// plane supplied at the submission by [`CommandV1::new`].
     ///
     /// Kept in the inner grammar rather than the outer one because every caller
     /// edits a field of it before submitting, and none of them has an opinion
     /// about the plane: the neutral plane is the one the elbow hung in before
     /// the field existed, so the wrapper asks for exactly what these fixtures
     /// asked for when they were articulated.
-    fn command() -> crate::ArticulatedCommandV1 {
+    fn command() -> crate::CommandCoreV1 {
         let arm = ArmTarget {
             bearing: Angle::ZERO,
             height: CombatHeight::MID,
             reach: Fx::ZERO,
             effort: Fx::ZERO,
         };
-        crate::ArticulatedCommandV1 {
+        crate::CommandCoreV1 {
             move_dir: Vec2::ZERO,
             body_yaw: Angle::ZERO,
             intent: crate::Intent::Hold,
@@ -281,9 +281,9 @@ mod tests {
         let mut replay = Replay::new(&scenario, 1);
         let mut invalid = command();
         invalid.arms[0].reach = Fx::from_raw(Fx::ONE.raw() + 1);
-        let requested = EmbodiedCommandV1::new(invalid);
-        let returned = if let SubmitEmbodiedOutcome::Stored { command: stored, rejection: Some(_) } =
-            world.submit_embodied_v1(EntityId::new(0, 0), requested)
+        let requested = CommandV1::new(invalid);
+        let returned = if let SubmitOutcome::Stored { command: stored, rejection: Some(_) } =
+            world.submit(EntityId::new(0, 0), requested)
         {
             assert_ne!(stored, requested);
             replay.record_submitted(0, EntityId::new(0, 0), SubmittedCommand::Embodied(stored));
@@ -291,15 +291,15 @@ mod tests {
         } else {
             panic!("invalid live request did not return its fallback");
         };
-        if let SubmitEmbodiedOutcome::Stored { command: stored, .. } =
-            world.submit_embodied_v1(EntityId::new(9, 0), EmbodiedCommandV1::new(command()))
+        if let SubmitOutcome::Stored { command: stored, .. } =
+            world.submit(EntityId::new(9, 0), CommandV1::new(command()))
         {
             replay.record_submitted(0, EntityId::new(9, 0), SubmittedCommand::Embodied(stored));
         }
         assert_eq!(replay.submitted_entries.len(), 1);
         assert_eq!(replay.submitted_entries[0].command, SubmittedCommand::Embodied(returned));
-        assert_eq!(returned.articulated.body_yaw, Angle::ZERO);
-        assert_eq!(returned.articulated.grips, [GripRequest::Keep; 2]);
+        assert_eq!(returned.core.body_yaw, Angle::ZERO);
+        assert_eq!(returned.core.grips, [GripRequest::Keep; 2]);
         // The substitute parks the elbow where it was rather than swinging it to
         // a plane nobody asked for, which is the embodied half of the same
         // atomicity the six shared fields get.
@@ -308,7 +308,7 @@ mod tests {
         replay.finish(1);
         let played = replay.play();
         let fighter = EntityId::new(0, 0);
-        assert_eq!(played.articulated_pose_test_view(fighter), world.articulated_pose_test_view(fighter));
+        assert_eq!(played.pose_test_view(fighter), world.pose_test_view(fighter));
         assert_eq!(played.state_digest().value, world.state_digest().value);
     }
 
@@ -347,13 +347,13 @@ mod tests {
                 // moved, which is a replay claim about nothing -- and the
                 // elbow is the whole of what an embodied arm has that an
                 // articulated one did not.
-                let mut requested = EmbodiedCommandV1::new(next);
+                let mut requested = CommandV1::new(next);
                 requested.swing_plane = [
                     Angle::from_raw((tick as u32).wrapping_mul(331) as u16),
                     Angle::from_raw((tick as u32).wrapping_mul(733).wrapping_add(4_099) as u16),
                 ];
-                let stored = match world.submit_embodied_v1(fighter, requested) {
-                    SubmitEmbodiedOutcome::Stored { command, rejection: None } => command,
+                let stored = match world.submit(fighter, requested) {
+                    SubmitOutcome::Stored { command, rejection: None } => command,
                     outcome => panic!("live embodied command was not stored: {outcome:?}"),
                 };
                 replay.record_submitted(tick, fighter, SubmittedCommand::Embodied(stored));
@@ -363,13 +363,13 @@ mod tests {
             replay.finish(tick + 1);
             let played = replay.play_until(tick + 1);
             assert_eq!(played.state_digest().value, world.state_digest().value, "digest diverged at tick {}", tick + 1);
-            assert_eq!(played.articulated_pose_test_view(fighter), world.articulated_pose_test_view(fighter),
+            assert_eq!(played.pose_test_view(fighter), world.pose_test_view(fighter),
                 "fighter pose diverged at tick {}", tick + 1);
-            assert_eq!(played.articulated_pose_test_view(brute), world.articulated_pose_test_view(brute),
+            assert_eq!(played.pose_test_view(brute), world.pose_test_view(brute),
                 "brute pose diverged at tick {}", tick + 1);
         }
         // Twelve submissions that the world *stored*, not twelve it refused.
-        // `submit_embodied_v1` against a world of the wrong grammar answers
+        // `submit` against a world of the wrong grammar answers
         // `NotStored(WrongModel)` without panicking, so a reseat that missed
         // this fixture would reproduce a hundred and eighty ticks of two
         // statues and report it as replay fidelity.
@@ -419,8 +419,8 @@ mod tests {
         let arm = |bearing: Angle, reach: Fx, effort: Fx| ArmTarget {
             bearing, height: CombatHeight::MID, reach, effort,
         };
-        let held = |yaw: Angle, arms: [ArmTarget; 2]| EmbodiedCommandV1::new(
-            crate::ArticulatedCommandV1 {
+        let held = |yaw: Angle, arms: [ArmTarget; 2]| CommandV1::new(
+            crate::CommandCoreV1 {
                 move_dir: Vec2::ZERO, body_yaw: yaw, intent: crate::Intent::Hold,
                 arms, grips: [GripRequest::Keep; 2], releases: [ReleaseRequest::Keep; 2],
             });
@@ -434,8 +434,8 @@ mod tests {
         let mut weapon_body_rows = 0usize;
         for tick in 0..60 {
             for (id, requested) in orders {
-                let stored = match world.submit_embodied_v1(id, requested) {
-                    SubmitEmbodiedOutcome::Stored { command, rejection: None } => command,
+                let stored = match world.submit(id, requested) {
+                    SubmitOutcome::Stored { command, rejection: None } => command,
                     outcome => panic!("live embodied command was not stored: {outcome:?}"),
                 };
                 replay.record_submitted(tick, id, SubmittedCommand::Embodied(stored));
@@ -449,9 +449,9 @@ mod tests {
             let played = replay.play_until(tick + 1);
             assert_eq!(played.state_digest().value, world.state_digest().value,
                 "digest diverged at tick {}", tick + 1);
-            assert_eq!(played.articulated_pose_test_view(fighter), world.articulated_pose_test_view(fighter),
+            assert_eq!(played.pose_test_view(fighter), world.pose_test_view(fighter),
                 "fighter pose diverged at tick {}", tick + 1);
-            assert_eq!(played.articulated_pose_test_view(brute), world.articulated_pose_test_view(brute),
+            assert_eq!(played.pose_test_view(brute), world.pose_test_view(brute),
                 "brute pose diverged at tick {}", tick + 1);
             assert_eq!(played.contact_resolutions(), world.contact_resolutions(),
                 "resolutions diverged at tick {}", tick + 1);
@@ -505,8 +505,8 @@ mod tests {
         let arm = |bearing: Angle, reach: Fx, effort: Fx| ArmTarget {
             bearing, height: CombatHeight::MID, reach, effort,
         };
-        let held = |yaw: Angle, arms: [ArmTarget; 2], grips| EmbodiedCommandV1::new(
-            crate::ArticulatedCommandV1 {
+        let held = |yaw: Angle, arms: [ArmTarget; 2], grips| CommandV1::new(
+            crate::CommandCoreV1 {
                 move_dir: Vec2::ZERO, body_yaw: yaw, intent: crate::Intent::Hold, arms, grips,
                 releases: [ReleaseRequest::Keep; 2],
             });
@@ -544,12 +544,12 @@ mod tests {
         for tick in 0..100 {
             for id in [fighter, brute] {
                 let requested = command_at(tick, id);
-                let stored = match first.submit_embodied_v1(id, requested) {
-                    SubmitEmbodiedOutcome::Stored { command, .. } => command,
+                let stored = match first.submit(id, requested) {
+                    SubmitOutcome::Stored { command, .. } => command,
                     outcome => panic!("live embodied command was not stored: {outcome:?}"),
                 };
-                let rerun = match second.submit_embodied_v1(id, requested) {
-                    SubmitEmbodiedOutcome::Stored { command, .. } => command,
+                let rerun = match second.submit(id, requested) {
+                    SubmitOutcome::Stored { command, .. } => command,
                     outcome => panic!("rerun embodied command was not stored: {outcome:?}"),
                 };
                 assert_eq!(rerun, stored, "stored command diverged at tick {tick}");
@@ -584,7 +584,7 @@ mod tests {
             assert_eq!(second.exact_external_energy(), first.exact_external_energy(),
                 "live external ledger diverged at tick {}", tick + 1);
             for id in [fighter, brute] {
-                assert_eq!(second.articulated_pose_test_view(id), first.articulated_pose_test_view(id),
+                assert_eq!(second.pose_test_view(id), first.pose_test_view(id),
                     "live pose or grips diverged at tick {}", tick + 1);
                 assert_eq!(second.anatomy_test_view(id), first.anatomy_test_view(id),
                     "live anatomy diverged at tick {}", tick + 1);
@@ -605,7 +605,7 @@ mod tests {
                        first.first_exact_contact_rejection(),
                        "replay rejection provenance diverged at tick {}", tick + 1);
             for id in [fighter, brute] {
-                assert_eq!(played.articulated_pose_test_view(id), first.articulated_pose_test_view(id),
+                assert_eq!(played.pose_test_view(id), first.pose_test_view(id),
                     "replay pose or grips diverged at tick {}", tick + 1);
                 assert_eq!(played.anatomy_test_view(id), first.anatomy_test_view(id),
                     "replay anatomy diverged at tick {}", tick + 1);
@@ -620,10 +620,10 @@ mod tests {
         assert_eq!(diagnostic.phase, crate::ExactContactRejectPhase::SolveGroup);
         // **80 after the reseat as well as before it, and it was re-measured
         // rather than carried over.** This transcript was articulated until
-        // session 05 and moved to `submit_embodied_v1` whole. The fight is not
+        // session 05 and moved to `submit` whole. The fight is not
         // the same fight -- the final state digest is `0x83eb2c1a6ecf49bb`
         // where the articulated run's was `0x6dfca6fed7c9ae7b`, which it must
-        // be, since `articulated_state_digest` writes the model word and the
+        // be, since `state_digest_value` writes the model word and the
         // body now has elbows, two more swept volumes and a stance row. What
         // did not move is the breakpoint: the same tick, the same
         // `SolveGroup` phase, the same right-arm-into-body key, and one
@@ -654,17 +654,17 @@ mod tests {
         let mut keep_right = command();
         keep_right.grips = [GripRequest::Keep, GripRequest::EquipSlot(0)];
         for requested in [release, keep_right] {
-            let stored = match world.submit_embodied_v1(fighter, EmbodiedCommandV1::new(requested)) {
-                SubmitEmbodiedOutcome::Stored { command, rejection: None } => command,
+            let stored = match world.submit(fighter, CommandV1::new(requested)) {
+                SubmitOutcome::Stored { command, rejection: None } => command,
                 outcome => panic!("same-tick request unexpectedly rejected: {outcome:?}"),
             };
             replay.record_submitted(0, fighter, SubmittedCommand::Embodied(stored));
         }
         assert_eq!(replay.submitted_entries.len(), 2);
         assert_eq!(replay.submitted_entries[0].command,
-            SubmittedCommand::Embodied(EmbodiedCommandV1::new(release)));
+            SubmittedCommand::Embodied(CommandV1::new(release)));
         assert_eq!(replay.submitted_entries[1].command,
-            SubmittedCommand::Embodied(EmbodiedCommandV1::new(keep_right)));
+            SubmittedCommand::Embodied(CommandV1::new(keep_right)));
         world.step();
         replay.finish(1);
         let played = replay.play();
@@ -672,9 +672,9 @@ mod tests {
             crate::GripState { equipment_slot: Some(1) },
             crate::GripState { equipment_slot: Some(0) },
         ];
-        assert_eq!(world.articulated_pose_test_view(fighter).unwrap().grips, expected,
+        assert_eq!(world.pose_test_view(fighter).unwrap().grips, expected,
             "the first pending release leaked into second-submission validation");
-        assert_eq!(played.articulated_pose_test_view(fighter), world.articulated_pose_test_view(fighter));
+        assert_eq!(played.pose_test_view(fighter), world.pose_test_view(fighter));
         assert_eq!(played.state_digest().value, world.state_digest().value);
     }
 }

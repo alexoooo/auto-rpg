@@ -765,7 +765,7 @@ function articulatedShape(wasm, abi) {
     projectileRows <= abi.MAX_ARTICULATED_PROJECTILES,
     `projectile count ${projectileRows} exceeds its capacity`,
   );
-  // The pose cap is the sim's own `MAX_ARTICULATED_ENTITIES`, so a drop here is
+  // The pose cap is the sim's own `MAX_ENTITIES`, so a drop here is
   // not a busy fight -- it is the cap or the identity ordering being wrong.
   assert.equal(wasm.poses_dropped() >>> 0, 0, "a pose row was dropped by a world sized to the sim's cap");
   assert.equal(
@@ -1442,7 +1442,7 @@ test("the_index_survives_a_death", async () => {
   //
   // It was the learned checkpoint's fight, then `windmill` on both sides at seed
   // 3, ending at tick 3,012 with the Fighter standing. v2-ui-08 moved `#/arena`
-  // onto `EmbodiedPolicyKind` and `windmill` stopped existing. **Nothing kills
+  // onto `PolicyKind` and `windmill` stopped existing. **Nothing kills
   // at seed 3 under any of the twenty-five embodied pairings**: every one of the
   // 525 fights of a sweep over seeds 0 to 20, staged through this file's own
   // `encodeArenaConfig` on 2026-08-19, reached the 3,600-tick clock except
@@ -1540,7 +1540,7 @@ test("the_index_survives_a_death", async () => {
 // default pairing.** The comparison builds the live fight out of the trace's
 // header, so a fixture whose `heroes` is a policy the picker cannot name is a
 // fixture this test cannot stage: v2-ui-08 moved `#/arena` onto
-// `EmbodiedPolicyKind`, which has no `learned` entry. Dropping to one fixture
+// `PolicyKind`, which has no `learned` entry. Dropping to one fixture
 // was the alternative and it is weaker -- one symmetric scripted fight would
 // leave the comparison blind to whatever the *other* dropdown entry does -- so
 // the pair is kept and the second one is `tactical` on both sides, which is what

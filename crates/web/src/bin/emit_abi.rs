@@ -591,6 +591,6 @@ mod tests {
         assert_eq!((MAP_OPEN, MAP_SOLID, MAP_UNKNOWN), (0, 1, 255));
         assert_eq!(RAW_ANGLE_TURN, 65536);
         assert_eq!(MAP_TILE_MILLI, 1000);
-        assert_eq!(MAX_POSES, sim::MAX_ARTICULATED_ENTITIES);
+        assert_eq!(MAX_POSES, sim::MAX_ENTITIES);
     }
 }

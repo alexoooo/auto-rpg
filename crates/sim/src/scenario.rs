@@ -1,5 +1,5 @@
 use crate::dungeon::{Dungeon, Torch};
-use crate::combat::spec::{combat_specs_into, ArticulatedUnitSpecV1, CombatSpecTableV1};
+use crate::combat::spec::{combat_specs_into, UnitSpecV1, CombatSpecTableV1};
 use crate::entity::{Body, Faction};
 use crate::loadout::Loadout;
 use crate::rules::Stats;
@@ -19,7 +19,7 @@ pub struct UnitSpec {
     /// (always the primary). A body no longer implies a weapon, so this is the
     /// other half of what used to be a single `kind`.
     pub loadout: Loadout,
-    pub articulated: Option<ArticulatedUnitSpecV1>,
+    pub combat_spec: Option<UnitSpecV1>,
     pub spawn: Vec2,
 }
 
@@ -214,7 +214,7 @@ pub fn equip_fixture_body(unit: &mut UnitSpec) {
         ([Some(1), None], crate::Loadout::single(crate::ActionKind::Sword))
     };
     unit.loadout = loadout;
-    unit.articulated = Some(ArticulatedUnitSpecV1 { anatomy, equipment });
+    unit.combat_spec = Some(UnitSpecV1 { anatomy, equipment });
 }
 
 impl Scenario {
@@ -285,7 +285,7 @@ impl Scenario {
                 faction: Faction::Monsters,
                 stats: kind.base_stats(),
                 loadout: kind.default_loadout(),
-                articulated: None,
+                combat_spec: None,
                 spawn: *at,
             });
         }
@@ -361,6 +361,15 @@ impl Scenario {
     /// a slip. It writes the arrangement out itself rather than reading it back
     /// off this function, because a test that compares a fixture with itself is
     /// worse than no test.
+    ///
+    /// **The `embodied_` on this name and its three siblings survived session
+    /// 06, which took that qualifier off everything else here.** It is not a
+    /// model qualifier on a type: the `name` field two lines below is
+    /// `"embodied-duel-v1"`, that string is folded into the fingerprint, and
+    /// the fingerprint is pinned. The function name and the fixture identity
+    /// are the same name, and a constructor that no longer spelled the fixture
+    /// it builds would cost a reader the one link that is actually load-bearing
+    /// here.
     pub fn embodied_duel() -> Scenario {
         Scenario {
             name: "embodied-duel-v1".to_string(),
@@ -375,7 +384,7 @@ impl Scenario {
                     faction: Faction::Heroes,
                     stats: Body::Fighter.base_stats(),
                     loadout: Body::Fighter.default_loadout(),
-                    articulated: Some(ArticulatedUnitSpecV1 {
+                    combat_spec: Some(UnitSpecV1 {
                         anatomy: 1,
                         equipment: [Some(1), Some(2)],
                     }),
@@ -386,7 +395,7 @@ impl Scenario {
                     faction: Faction::Monsters,
                     stats: Body::Brute.base_stats(),
                     loadout: crate::Loadout::single(crate::ActionKind::Club),
-                    articulated: Some(ArticulatedUnitSpecV1 {
+                    combat_spec: Some(UnitSpecV1 {
                         anatomy: 2,
                         equipment: [Some(3), None],
                     }),
@@ -686,7 +695,7 @@ mod tests {
         // identity at all, which is a different claim from this one.
         let mut rearmed = base.clone();
         rearmed.units[0].loadout = crate::Loadout::single(crate::ActionKind::Club);
-        rearmed.units[0].articulated = Some(ArticulatedUnitSpecV1 {
+        rearmed.units[0].combat_spec = Some(UnitSpecV1 {
             anatomy: 1,
             equipment: [Some(3), None],
         });
@@ -696,7 +705,7 @@ mod tests {
         // the primary one.
         let mut secondary = base.clone();
         secondary.units[0].loadout = crate::Loadout::single(crate::ActionKind::Sword);
-        secondary.units[0].articulated = Some(ArticulatedUnitSpecV1 {
+        secondary.units[0].combat_spec = Some(UnitSpecV1 {
             anatomy: 1,
             equipment: [Some(1), None],
         });
@@ -782,12 +791,12 @@ mod tests {
         assert_eq!(scenario.units.len(), 2);
         assert_eq!(scenario.units[0].kind, Body::Fighter);
         assert_eq!(scenario.units[0].spawn, Vec2::from_ints(7, 6));
-        assert_eq!(scenario.units[0].articulated,
-                   Some(ArticulatedUnitSpecV1 { anatomy: 1, equipment: [Some(1), Some(2)] }));
+        assert_eq!(scenario.units[0].combat_spec,
+                   Some(UnitSpecV1 { anatomy: 1, equipment: [Some(1), Some(2)] }));
         assert_eq!(scenario.units[1].kind, Body::Brute);
         assert_eq!(scenario.units[1].spawn, Vec2::from_ints(17, 10));
-        assert_eq!(scenario.units[1].articulated,
-                   Some(ArticulatedUnitSpecV1 { anatomy: 2, equipment: [Some(3), None] }));
+        assert_eq!(scenario.units[1].combat_spec,
+                   Some(UnitSpecV1 { anatomy: 2, equipment: [Some(3), None] }));
         // Worth pinning here precisely because the number *can* move: the
         // fingerprint covers the immutable spec table, so an edit to the shield
         // plate makes this a different fixture, and every corpus, replay
@@ -1026,7 +1035,7 @@ mod tests {
             faction: Faction::Heroes,
             stats: Body::Rogue.base_stats(),
             loadout: Body::Rogue.default_loadout(),
-            articulated: None,
+            combat_spec: None,
             spawn: Vec2::ZERO,
         }
     }
@@ -1068,7 +1077,7 @@ mod tests {
         // the wall before the sim took it over, so nothing regressed with the
         // move -- what changed is that the constraint is now visible here.
         assert_eq!(arrived.loadout.secondary, hero.loadout.secondary.map(|_| crate::ActionKind::Shield));
-        assert!(arrived.articulated.is_some(), "a descending hero arrived undressed");
+        assert!(arrived.combat_spec.is_some(), "a descending hero arrived undressed");
         assert_ne!(arrived.spawn, Vec2::ZERO, "left standing at the origin");
     }
 

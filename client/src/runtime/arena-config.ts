@@ -78,7 +78,7 @@ const HAND_BLOCK_BYTES = 22;
 export const ARENA_MAX_TICKS = 60 * 60;
 
 /**
- * `EmbodiedPolicyKind`, by code.
+ * `PolicyKind`, by code.
  *
  * The codes are the ABI's and the names are the tokens `lab trace` writes into a
  * trace header, which is what lets a recorded fight and a live one be described
@@ -92,7 +92,7 @@ export const ARENA_MAX_TICKS = 60 * 60;
  * asserts that specific reinterpretation rather than leaving it to be found.
  *
  * There is no `learned` entry. A trained fighter is a kind *plus fifteen
- * kilobytes of weights* and `EmbodiedPolicyKind` has nowhere to put a
+ * kilobytes of weights* and `PolicyKind` has nowhere to put a
  * checkpoint; `crates/policy/src/lib.rs` carries the argument. `lab trace
  * --policy learned` still records one, so a *trace* header can still say
  * "learned" and `arena.ts` still explains the digest when it does -- what has no
@@ -426,7 +426,7 @@ export const ARENA_REFUSALS: Readonly<Record<number, string>> = {
  * `ARENA_NO_CHECKPOINT`, and `ARENA_POLICY_UNAVAILABLE` beside it: **the two
  * reasons v2-ui-08 retired, still decoded here on purpose.**
  *
- * Nothing produces either since `#/arena` moved to `EmbodiedPolicyKind` -- that
+ * Nothing produces either since `#/arena` moved to `PolicyKind` -- that
  * registry's `build` is total and it has no `learned` entry, so there is no
  * unbuildable code and no code that wants a network. The numbers are reserved
  * rather than recycled, on the rule `crates/sim/src/codec.rs` states for a

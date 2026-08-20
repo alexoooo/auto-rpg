@@ -12,14 +12,32 @@
 //!
 //! # The 954-element vector is not the input, and that is the main decision
 //!
-//! [`sim::FEATURE_COUNT`] is 954 and [`sim::Observation::write_features`]
-//! writes all of it. Handing that to a 64-unit network is 62,290 weights, and
+//! **Both names this paragraph used to cite are gone, and the second one is a
+//! trap rather than a dead link.** It read `sim::FEATURE_COUNT` and
+//! `sim::Observation::write_features`; the first went with the legacy
+//! observation in embodied session 10 -- `crates/sim/src/lib.rs` records why,
+//! and the short version is that the per-model block widths were methods *on*
+//! the type being deleted -- and the second never existed under that spelling
+//! at all. Since session 06 renamed `ArticulatedObservation` to
+//! [`sim::Observation`], `sim::Observation` resolves again, to a live type that
+//! has no such method and never carried such a vector, so the citation would
+//! now point confidently at the wrong thing.
+//!
+//! The argument survives its subject and is why the paragraph is repaired
+//! rather than deleted. The legacy observation published a flattened
+//! 954-column feature vector. Handing that to a 64-unit network is 62,290
+//! weights, and
 //! the optimizer in `crates/learn` is a `(mu + lambda)` evolution strategy with
 //! no gradient at all -- it moves a population of twenty-odd points around by
 //! Gaussian perturbation, and 60,000 dimensions is not a space twenty points
 //! explore. For scale: the genome optimizer that shipped beside this one sized
 //! its whole world at 24 named weights (`policy::MAX_GENOME_LEN`, deleted with
-//! the legacy policies in embodied session 10).
+//! the legacy policies in embodied session 10). What ships instead is this
+//! file's own [`write_features`] at [`LEARN_FEATURE_COUNT`] = 41 columns, and
+//! [`write_features_v2`] at [`LEARN_V2_FEATURE_COUNT`] = 59; both build their
+//! columns from named fields of [`sim::Observation`] rather than from anything
+//! that type publishes, and `LEARNED_INFERENCE_DIGEST` is the pin over the
+//! first.
 //!
 //! So the slice below is hand-picked, and being hand-picked is a *claim*: that
 //! a fighter needs the bearing and range of the thing in front of it, the
@@ -54,14 +72,14 @@
 //! baseline were comparable as *choices* rather than as two different bodies.
 //! They were re-declared here rather than imported because that script kept
 //! them private, and the copies were pinned against its own output by
-//! `the_action_table_is_the_scripts_own_vocabulary`, so a drift on either side
+//! `the_action_table_is_frozen_by_hand`, so a drift on either side
 //! failed a test instead of quietly making the comparison unfair.
 //!
 //! **Past tense since session 05, which deleted that file.** The numbers do not
 //! move with it -- they are what the shipped checkpoint was fitted against, and
 //! `LEARNED_INFERENCE_DIGEST` is a claim about the network reading them the same
 //! way on two targets. What moved is the guard: the surviving
-//! `policy::embodied_script` is a *different* vocabulary rather than a renamed
+//! `policy::script` is a *different* vocabulary rather than a renamed
 //! one, so there is nothing left to compare with and the test named above now
 //! pins literals and says so in its own body. Whoever changes one of these
 //! constants owes a re-score of the checkpoint rather than a re-record of a
@@ -69,12 +87,12 @@
 
 use fx::{closest_point_on_segment, Angle, Fx, Rng, Vec2, Vec3};
 use policy::{
-    into_torso_frame, EmbodiedPolicy, StrikePlanner, TacticalContextV1, TacticalIntentV1,
+    into_torso_frame, Policy, StrikePlanner, TacticalContextV1, TacticalIntentV1,
     EIGHTH_TURN, TACTICAL_INTENT_COUNT,
 };
 use sim::{
-    ArmTarget, ArticulatedCommandV1, ArticulatedObservation, BodyPart, CombatHeight,
-    EmbodiedCommandV1, GripRequest,
+    ArmTarget, CommandCoreV1, Observation, BodyPart, CombatHeight,
+    CommandV1, GripRequest,
     ReleaseRequest,
     Intent, SegmentPose,
 };
@@ -96,7 +114,7 @@ pub const LEARN_FEATURE_LAYOUT_VERSION: u32 = 1;
 /// `policy::PHASE_TICKS * 12`, the period of the articulated script's twelve
 /// phases, and session 05 deletes that script. A constant derived from one that
 /// no longer exists is a trap; re-deriving it from the surviving clock would be
-/// a worse one, because `policy::EMBODIED_CYCLE_TICKS` is **120** and not 360,
+/// a worse one, because `policy::SCRIPT_CYCLE_TICKS` is **120** and not 360,
 /// and a unification of the two would move a pin while looking like tidying.
 ///
 /// **Frozen rather than merely stable.** `LEARNED_INFERENCE_DIGEST` is taken
@@ -112,7 +130,7 @@ pub const LEARN_FEATURE_LAYOUT_VERSION: u32 = 1;
 /// the digest freezing it: a constant and the pin taken over it should not live
 /// in different crates. The dependency arrow agrees -- `learn-core` depends on
 /// `policy` and never the reverse -- and moving it out of the neighbourhood of
-/// `EMBODIED_CYCLE_TICKS` removes the temptation to unify them structurally
+/// `SCRIPT_CYCLE_TICKS` removes the temptation to unify them structurally
 /// rather than by asking people not to.
 pub const CYCLE_TICKS: u32 = 360;
 
@@ -145,8 +163,8 @@ const HEIGHT_SCALE: f32 = 1.8;
 
 /// World units per tick that normalise to `1` in a body-speed feature.
 ///
-/// The same 0.25 [`sim::Observation::write_features`] uses, written as the same
-/// number for the same reason: it is comfortably above any archetype's walk, so
+/// The same 0.25 the legacy observation's own feature writer used, written as
+/// the same number for the same reason: it is comfortably above any archetype's walk, so
 /// what approaches the top of the range is a body that has been shoved.
 const SPEED_SCALE: f32 = 0.25;
 
@@ -194,7 +212,7 @@ const TACTICAL_CLOSING_SPEED_SCALE: f32 = 0.025;
 /// A single observation says where an opponent's weapon hand *is*; whether it
 /// is on its way up or on its way down is the difference between a blow that
 /// has been thrown and one that has landed, and no column of
-/// [`ArticulatedObservation`] carries it. The alternative -- inferring travel
+/// [`Observation`] carries it. The alternative -- inferring travel
 /// from the pose -- is exactly the reverse-engineering
 /// [`sim::Contact::limb_line`] exists to spare a policy one model down.
 ///
@@ -202,20 +220,20 @@ const TACTICAL_CLOSING_SPEED_SCALE: f32 = 0.025;
 /// can change without changing what was remembered.
 ///
 /// **One instance is one body.** `learn`'s `probe::rollout` gives each side its
-/// own policy, which is what this assumes; [`policy::run_embodied`] drives one
+/// own policy, which is what this assumes; [`policy::run`] drives one
 /// instance across both, and under that harness the memory of the Fighter's
 /// tick and the Brute's tick interleave, so the rate columns read a difference
 /// between two different bodies' blades. The `tick <= self.tick` guard turns
 /// the second decider of each tick into a pair of zeros rather than a wrong
 /// number, which makes it harmless where it happens (the boundary tests, which
 /// assert nothing about rates) and wrong anywhere it mattered. If a learned
-/// policy is ever driven through `run_embodied` for a measurement, give it two
+/// policy is ever driven through `run` for a measurement, give it two
 /// instances.
 ///
 /// **The named harness was `run_articulated` until session 05 deleted it**, and
 /// the paragraph is reseated rather than dropped because the defect is the
-/// harness's shape and not the model's: `run_embodied` takes one
-/// `impl EmbodiedPolicy` and hands it every body's observation in turn, exactly
+/// harness's shape and not the model's: `run` takes one
+/// `impl Policy` and hands it every body's observation in turn, exactly
 /// as its predecessor did.
 #[derive(Clone, Copy, PartialEq, Debug, Default)]
 pub struct FeatureMemory {
@@ -303,7 +321,7 @@ fn live_blade(opponent: &sim::ObservedOpponent, at: Vec3) -> Option<SegmentPose>
 ///
 /// # What is deliberately left out
 ///
-/// * **Opponents past the first.** `ArticulatedObservation` carries six rows and
+/// * **Opponents past the first.** `Observation` carries six rows and
 ///   the fixture fills one. Six rows would be 54 more columns describing a
 ///   melee that v2-19 does not run; the layout is append-only, so a session that
 ///   needs them can have them.
@@ -350,7 +368,7 @@ fn live_blade(opponent: &sim::ObservedOpponent, at: Vec3) -> Option<SegmentPose>
 /// So a typical fight shows the network about thirty live columns out of
 /// forty-one.
 pub fn write_features(
-    obs: &ArticulatedObservation,
+    obs: &Observation,
     memory: FeatureMemory,
     out: &mut [f32; LEARN_FEATURE_COUNT],
 ) -> FeatureMemory {
@@ -538,7 +556,7 @@ pub fn write_features(
 /// Writes the V2 tactical slice. Columns 0..41 are produced by the V1 writer
 /// unchanged; the controller context and targetable regions are appended.
 pub fn write_features_v2(
-    obs: &ArticulatedObservation,
+    obs: &Observation,
     memory: FeatureMemory,
     context: TacticalContextV1,
     out: &mut [f32; LEARN_V2_FEATURE_COUNT],
@@ -602,12 +620,12 @@ pub const LEARN_V2_ACTION_LAYOUT_VERSION: u32 = 2;
 /// **Fifteen sixteenths and not one**, and the reason is not aesthetic:
 /// `Vec2::with_length` normalises by dividing and then multiplying, so a unit
 /// answer can land one raw tick above the magnitude
-/// `World::submit_embodied_v1` validates -- and a refused command is not a slow
+/// `World::submit` validates -- and a refused command is not a slow
 /// fighter, it is the neutral command stored in place of the one that was asked
 /// for. `articulated_script::APPROACH_SPEED` was the same number for the same
-/// reason and `the_action_table_is_the_scripts_own_vocabulary` pinned the two
+/// reason and `the_action_table_is_frozen_by_hand` pinned the two
 /// together; session 05 deleted that file, and
-/// `embodied_script::APPROACH_SPEED` -- private, so still not importable -- is
+/// `script::APPROACH_SPEED` -- private, so still not importable -- is
 /// fifteen sixteenths on the same argument. The two are no longer pinned to each
 /// other, which that test's own body records.
 const APPROACH_SPEED: Fx = Fx::from_ratio(15, 16);
@@ -693,7 +711,7 @@ pub const LEARN_V2_ACTION_LOGITS: usize = LEARN_ACTION_LOGITS + TACTICAL_INTENT_
 /// Public across the v2-ui-08 split rather than `pub(crate)`: `learn`'s probe
 /// reports which height a checkpoint favoured, and a second copy of a
 /// three-element table is exactly the drift
-/// `the_action_table_is_the_scripts_own_vocabulary` exists to refuse.
+/// `the_action_table_is_frozen_by_hand` exists to refuse.
 pub const HEIGHTS: [CombatHeight; 3] =
     [CombatHeight::LOW, CombatHeight::MID, CombatHeight::HIGH];
 
@@ -716,7 +734,7 @@ const POSTURES: [Posture; POSTURE_COUNT] = [
 ///
 /// The third is minus an eighth, written as `65,536 - 8,192` evaluated by hand
 /// because [`Angle`] has no negation and `from_raw` takes a `u16` that the
-/// subtraction would underflow at compile time. `the_action_table_is_the_scripts_own_vocabulary`
+/// subtraction would underflow at compile time. `the_action_table_is_frozen_by_hand`
 /// checks the two are actually opposite rather than trusting the arithmetic.
 const BEARING_OFFSETS: [Angle; WEAPON_BEARING_COUNT] =
     [Angle::ZERO, EIGHTH_TURN, Angle::from_raw(57_344)];
@@ -737,9 +755,9 @@ impl Posture {
 /// One decision, as five head indices.
 ///
 /// **This is the type that must not reach the world**, and it is a separate
-/// type from [`ArticulatedCommandV1`] for exactly that reason: it names a row in
+/// type from [`CommandCoreV1`] for exactly that reason: it names a row in
 /// a table this crate owns, it is meaningless without
-/// [`LEARN_ACTION_LAYOUT_VERSION`], and [`sim::World::submit_embodied_v1`]
+/// [`LEARN_ACTION_LAYOUT_VERSION`], and [`sim::World::submit`]
 /// cannot be handed one. See the doctest pair on [`crate`].
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub struct LearnedActionV1 {
@@ -844,7 +862,7 @@ impl LearnedActionV2 {
 /// fixture spawns the two bodies 10.8 apart against a 9.6 sight range, so the
 /// opening seconds of every fight are spent walking along a bearing nobody can
 /// see, and a policy that fell back to `Angle::ZERO` would walk east.
-fn bearing_to(obs: &ArticulatedObservation) -> Angle {
+fn bearing_to(obs: &Observation) -> Angle {
     match obs.opponents().first() {
         Some(opponent) => Vec2::new(
             opponent.body_position.x - obs.body_position.x,
@@ -870,10 +888,10 @@ fn heading(bearing: Angle, magnitude: Fx) -> Vec2 {
 /// is deliberately not reproduced: this policy drives the off arm from its own
 /// head rather than from a table clause, so "which arm holds the shield" is not
 /// a question it has to answer -- the off arm is whichever one is not swinging.
-fn weapon_arm(obs: &ArticulatedObservation) -> usize {
-    if obs.can(ArticulatedObservation::RIGHT_WEAPON) {
+fn weapon_arm(obs: &Observation) -> usize {
+    if obs.can(Observation::RIGHT_WEAPON) {
         1
-    } else if obs.can(ArticulatedObservation::LEFT_WEAPON) {
+    } else if obs.can(Observation::LEFT_WEAPON) {
         0
     } else if obs.arms[1].severed && !obs.arms[0].severed {
         0
@@ -890,7 +908,7 @@ fn weapon_arm(obs: &ArticulatedObservation) -> usize {
 /// comes from a head, which means it can come from the observed threat -- which
 /// is the one place a learned policy has an edge available to it that a clocked
 /// guard structurally cannot have. That is still the experiment after session 05
-/// deleted the articulated script, because the surviving `embodied_guard` reads
+/// deleted the articulated script, because the surviving `guard` reads
 /// the incoming blade on the *defender's* own rule rather than on a head the
 /// network chose: what a checkpoint can learn here is which height to hold
 /// against what it sees, and no script of either model is choosing that.
@@ -939,7 +957,7 @@ fn off_hand(body_yaw: Angle, guard: CombatHeight, holding: bool) -> ArmTarget {
     }
 }
 
-/// Turns five head indices into a complete [`ArticulatedCommandV1`].
+/// Turns five head indices into a complete [`CommandCoreV1`].
 ///
 /// **The only way anything this crate computes reaches the world.** Every field
 /// is a table entry or a bearing derived from the observation; no float in the
@@ -953,7 +971,7 @@ fn off_hand(body_yaw: Angle, guard: CombatHeight, holding: bool) -> ArmTarget {
 /// `scripted_articulated_command` already gave. It costs two heads their
 /// expression in that state and `learned_output_uses_only_the_versioned_action_table`
 /// is written to allow for it.
-pub fn compose(obs: &ArticulatedObservation, action: LearnedActionV1) -> ArticulatedCommandV1 {
+pub fn compose(obs: &Observation, action: LearnedActionV1) -> CommandCoreV1 {
     let toward = bearing_to(obs);
     let visible = obs.opponents().first();
     let weapon = weapon_arm(obs);
@@ -1012,7 +1030,7 @@ pub fn compose(obs: &ArticulatedObservation, action: LearnedActionV1) -> Articul
     );
     arms[weapon] = weapon_target;
 
-    ArticulatedCommandV1 {
+    CommandCoreV1 {
         move_dir,
         // The body always faces the fight. The script turns off the line in
         // exactly one phase of twelve, and that phase exists to swing a shield
@@ -1340,13 +1358,13 @@ pub fn uniform(rng: &mut Rng) -> f32 {
 
 /// A frozen model, driving a body.
 ///
-/// Holds its own buffers so that [`LearnedArticulatedPolicy::decide`] allocates
+/// Holds its own buffers so that [`LearnedCorePolicy::decide`] allocates
 /// nothing: the feature slice, the hidden layer and the logits are fixed-width
 /// arrays and the only heap in the struct is the weight vector, which is filled
 /// once at construction. `frozen_inference_allocates_nothing_after_warmup`
 /// checks this against a counting allocator rather than against the source.
 #[derive(Clone, Debug)]
-pub struct LearnedArticulatedPolicy {
+pub struct LearnedCorePolicy {
     model: Model,
     features: [f32; LEARN_FEATURE_COUNT],
     hidden: [f32; HIDDEN_UNITS],
@@ -1354,9 +1372,9 @@ pub struct LearnedArticulatedPolicy {
     memory: FeatureMemory,
 }
 
-impl LearnedArticulatedPolicy {
-    pub fn new(model: Model) -> LearnedArticulatedPolicy {
-        LearnedArticulatedPolicy {
+impl LearnedCorePolicy {
+    pub fn new(model: Model) -> LearnedCorePolicy {
+        LearnedCorePolicy {
             model,
             features: [0.0; LEARN_FEATURE_COUNT],
             hidden: [0.0; HIDDEN_UNITS],
@@ -1375,7 +1393,7 @@ impl LearnedArticulatedPolicy {
     /// chose rather than reverse-engineering it out of an `ArmTarget`, and so
     /// that the doctest pair on [`crate`] has a training-side value to try to
     /// hand the world.
-    pub fn action(&mut self, obs: &ArticulatedObservation) -> LearnedActionV1 {
+    pub fn action(&mut self, obs: &Observation) -> LearnedActionV1 {
         self.memory = write_features(obs, self.memory, &mut self.features);
         self.model
             .forward(&self.features, &mut self.hidden, &mut self.logits);
@@ -1394,7 +1412,7 @@ impl LearnedArticulatedPolicy {
     /// harness could hold a `Box<dyn ArticulatedPolicy>` and drive an
     /// articulated body with it. There is no such body and no such harness any
     /// more, so what is left is one type with one caller --
-    /// [`LearnedEmbodiedPolicy`], one field up -- and a trait with a single
+    /// [`LearnedPolicy`], one field up -- and a trait with a single
     /// implementor is a seam that describes nothing. Nothing about the network
     /// moved with it: this is still `compose(obs, self.action(obs))`, which is
     /// what `training_types_cannot_enter_authoritative_state` searches the
@@ -1403,9 +1421,9 @@ impl LearnedArticulatedPolicy {
     /// The answer is in **world** coordinates and no body accepts one. The
     /// conversion is [`policy::into_torso_frame`], applied once by the wrapper,
     /// and this method deliberately does not do it -- see
-    /// [`LearnedEmbodiedPolicy`] for why there is exactly one place that sign
+    /// [`LearnedPolicy`] for why there is exactly one place that sign
     /// is computed.
-    pub fn decide(&mut self, obs: &ArticulatedObservation) -> ArticulatedCommandV1 {
+    pub fn decide(&mut self, obs: &Observation) -> CommandCoreV1 {
         let action = self.action(obs);
         compose(obs, action)
     }
@@ -1419,20 +1437,34 @@ impl LearnedArticulatedPolicy {
     }
 }
 
-/// [`LearnedArticulatedPolicy`] driving an embodied body.
+/// [`LearnedCorePolicy`] driving a body: the pair's outer half.
+///
+/// **`Core` and no suffix is the naming rule this file follows, and it names a
+/// frame rather than a size.** A `...CorePolicy` answers a
+/// [`sim::CommandCoreV1`] in *world* coordinates and no body accepts one; the
+/// unsuffixed type wraps it, answers a [`sim::CommandV1`] in the torso frame,
+/// and is the thing a harness drives. Session 06 renamed both halves; the pair
+/// was `LearnedArticulatedPolicy` and `LearnedEmbodiedPolicy`, which named two
+/// retired combat models and said nothing about the frame that is the whole of
+/// the difference between them.
 ///
 /// **An adapter and not a retirement, which is the decision worth writing
-/// down.** Session 05 deletes the articulated model and the obvious reading is
-/// that a policy named `Articulated` goes with it. It does not, and
+/// down.** Session 05 deletes the articulated model and the obvious reading was
+/// that the policy named `Articulated` goes with it. It does not, and
 /// `LEARNED_INFERENCE_DIGEST` is why: that pin is a *portability* claim over
 /// [`ModelShape`], the feature layout, the action layout and the forward pass,
-/// and none of those four is a combat model. Rewriting the network to answer an
-/// [`EmbodiedCommandV1`] directly would move it, and a move that those four
+/// and none of those four is a combat model. Rewriting the network to answer a
+/// [`CommandV1`] directly would move it, and a move that those four
 /// cannot explain is the one thing that pin's registry row says is a failure
 /// rather than a re-record. So the network is untouched and the frame
 /// conversion is bolted on outside it.
 ///
-/// [`TacticalEmbodiedPolicy`]'s shape exactly, deliberately: one call to
+/// **Do not fold the inner type into this one**, which is the same decision
+/// stated as an instruction: `allocation.rs` and the determinism tests beside
+/// it measure the network alone, on the near side of the adapter, and a single
+/// merged type turns two measurements into one.
+///
+/// [`TacticalPolicy`]'s shape exactly, deliberately: one call to
 /// `into_torso_frame` around the inner `decide` and nothing else. That function
 /// is the one place in the repository the world/torso sign lives, and a second
 /// adapter that did the subtraction itself would be a second place for it to be
@@ -1442,19 +1474,19 @@ impl LearnedArticulatedPolicy {
 /// **The swing plane stays neutral**, because [`compose`] has nothing to say
 /// about it: the action table's five heads are footwork, weapon height, weapon
 /// bearing, posture and guard height, and an elbow plane is a sixth head that
-/// nobody has trained. `EmbodiedCommandV1::new` writes the zero plane, which is
+/// nobody has trained. `CommandV1::new` writes the zero plane, which is
 /// the fold the body had before the field existed, so this adapter asks for the
 /// pose the network was fitted against rather than inventing one.
 ///
-/// [`TacticalEmbodiedPolicy`]: policy::TacticalEmbodiedPolicy
+/// [`TacticalPolicy`]: policy::TacticalPolicy
 #[derive(Clone, Debug)]
-pub struct LearnedEmbodiedPolicy {
-    inner: LearnedArticulatedPolicy,
+pub struct LearnedPolicy {
+    inner: LearnedCorePolicy,
 }
 
-impl LearnedEmbodiedPolicy {
-    pub fn new(model: Model) -> LearnedEmbodiedPolicy {
-        LearnedEmbodiedPolicy { inner: LearnedArticulatedPolicy::new(model) }
+impl LearnedPolicy {
+    pub fn new(model: Model) -> LearnedPolicy {
+        LearnedPolicy { inner: LearnedCorePolicy::new(model) }
     }
 
     pub fn model(&self) -> &Model {
@@ -1462,13 +1494,13 @@ impl LearnedEmbodiedPolicy {
     }
 
     /// The head indices, before they become a command, on
-    /// [`LearnedArticulatedPolicy::action`]'s contract exactly.
+    /// [`LearnedCorePolicy::action`]'s contract exactly.
     ///
     /// It answers the action and not the command, so it is the same value on
     /// both sides of the adapter -- which is what lets a diagnostic report *which
     /// row of the table* an embodied run chose without knowing that a frame
     /// conversion happened at all.
-    pub fn action(&mut self, obs: &ArticulatedObservation) -> LearnedActionV1 {
+    pub fn action(&mut self, obs: &Observation) -> LearnedActionV1 {
         self.inner.action(obs)
     }
 
@@ -1478,8 +1510,8 @@ impl LearnedEmbodiedPolicy {
     }
 }
 
-impl EmbodiedPolicy for LearnedEmbodiedPolicy {
-    fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
+impl Policy for LearnedPolicy {
+    fn decide(&mut self, obs: &Observation) -> CommandV1 {
         into_torso_frame(obs, self.inner.decide(obs))
     }
 
@@ -1490,7 +1522,7 @@ impl EmbodiedPolicy for LearnedEmbodiedPolicy {
 
 /// Frozen tactical inference wrapped around the fixed-point strike controller.
 #[derive(Clone, Debug)]
-pub struct LearnedTacticalPolicyV2 {
+pub struct LearnedTacticalCorePolicyV2 {
     model: ModelV2,
     features: [f32; LEARN_V2_FEATURE_COUNT],
     hidden: [f32; HIDDEN_UNITS],
@@ -1500,9 +1532,9 @@ pub struct LearnedTacticalPolicyV2 {
     selected: TacticalIntentV1,
 }
 
-impl LearnedTacticalPolicyV2 {
-    pub fn new(model: ModelV2) -> LearnedTacticalPolicyV2 {
-        LearnedTacticalPolicyV2 {
+impl LearnedTacticalCorePolicyV2 {
+    pub fn new(model: ModelV2) -> LearnedTacticalCorePolicyV2 {
+        LearnedTacticalCorePolicyV2 {
             model,
             features: [0.0; LEARN_V2_FEATURE_COUNT],
             hidden: [0.0; HIDDEN_UNITS],
@@ -1519,7 +1551,7 @@ impl LearnedTacticalPolicyV2 {
 
     /// Returns the newly sampled action, or `None` while the controller owns a
     /// chamber/commit/recovery sequence.
-    pub fn action(&mut self, obs: &ArticulatedObservation) -> Option<LearnedActionV2> {
+    pub fn action(&mut self, obs: &Observation) -> Option<LearnedActionV2> {
         let context = self.planner.observe(obs);
         self.memory = write_features_v2(obs, self.memory, context, &mut self.features);
         if !self.planner.can_sample_intent() {
@@ -1533,12 +1565,12 @@ impl LearnedTacticalPolicyV2 {
 
     /// The planner's world-frame answer to the intent last sampled.
     ///
-    /// Inherent for [`LearnedArticulatedPolicy::decide`]'s reason exactly: the
+    /// Inherent for [`LearnedCorePolicy::decide`]'s reason exactly: the
     /// trait this implemented is gone with the model it was a seam for, and the
-    /// one caller is [`LearnedTacticalEmbodiedPolicyV2`]. World coordinates,
+    /// one caller is [`LearnedTacticalPolicyV2`], one field up. World coordinates,
     /// because [`StrikePlanner`] answers in them -- the conversion is the
     /// wrapper's single call to [`policy::into_torso_frame`].
-    pub fn decide(&mut self, obs: &ArticulatedObservation) -> ArticulatedCommandV1 {
+    pub fn decide(&mut self, obs: &Observation) -> CommandCoreV1 {
         self.action(obs);
         self.planner.decide_with_intent(obs, self.selected)
     }
@@ -1550,10 +1582,14 @@ impl LearnedTacticalPolicyV2 {
     }
 }
 
-/// [`LearnedTacticalPolicyV2`] driving an embodied body.
+/// [`LearnedTacticalCorePolicyV2`] driving a body: the V2 pair's outer half.
 ///
-/// [`LearnedEmbodiedPolicy`]'s adapter over the tactical network, and the same
-/// four lines for the same reason. It is worth saying why this one is an adapter
+/// [`LearnedPolicy`]'s adapter over the tactical network, and the same
+/// four lines for the same reason -- including the `Core`/no-suffix rule, which
+/// names the frame and not the size. **The unsuffixed name moved between the
+/// two halves in session 06**: `LearnedTacticalPolicyV2` was the inner network
+/// and is now this wrapper, so a citation of that name from before session 06
+/// means [`LearnedTacticalCorePolicyV2`]. It is worth saying why this one is an adapter
 /// rather than a deletion, because the argument is *not* the one above: the V2
 /// network is not inside `LEARNED_INFERENCE_DIGEST` at all -- that pin folds
 /// `ModelShape::CURRENT`'s three widths and every `LEARN_ACTION_LOGITS` output
@@ -1566,20 +1602,20 @@ impl LearnedTacticalPolicyV2 {
 ///
 /// **What it wraps is a planner, and the planner is where the frame question
 /// actually lives.** [`StrikePlanner`] answers in world coordinates -- it is the
-/// same planner [`TacticalEmbodiedPolicy`] holds, and that type converts its
+/// same planner [`TacticalPolicy`] holds, and that type converts its
 /// answer the same way. The network above it chooses a [`TacticalIntentV1`] and
 /// never touches a bearing, so the conversion is entirely below the learned part
 /// and the digest-shaped question does not arise.
 ///
-/// [`TacticalEmbodiedPolicy`]: policy::TacticalEmbodiedPolicy
+/// [`TacticalPolicy`]: policy::TacticalPolicy
 #[derive(Clone, Debug)]
-pub struct LearnedTacticalEmbodiedPolicyV2 {
-    inner: LearnedTacticalPolicyV2,
+pub struct LearnedTacticalPolicyV2 {
+    inner: LearnedTacticalCorePolicyV2,
 }
 
-impl LearnedTacticalEmbodiedPolicyV2 {
-    pub fn new(model: ModelV2) -> LearnedTacticalEmbodiedPolicyV2 {
-        LearnedTacticalEmbodiedPolicyV2 { inner: LearnedTacticalPolicyV2::new(model) }
+impl LearnedTacticalPolicyV2 {
+    pub fn new(model: ModelV2) -> LearnedTacticalPolicyV2 {
+        LearnedTacticalPolicyV2 { inner: LearnedTacticalCorePolicyV2::new(model) }
     }
 
     pub fn model(&self) -> &ModelV2 { self.inner.model() }
@@ -1587,15 +1623,15 @@ impl LearnedTacticalEmbodiedPolicyV2 {
     pub fn last_features(&self) -> &[f32; LEARN_V2_FEATURE_COUNT] { self.inner.last_features() }
 
     /// The newly sampled action, or `None` while the controller owns a
-    /// chamber/commit/recovery sequence. [`LearnedTacticalPolicyV2::action`]'s
+    /// chamber/commit/recovery sequence. [`LearnedTacticalCorePolicyV2::action`]'s
     /// contract exactly.
-    pub fn action(&mut self, obs: &ArticulatedObservation) -> Option<LearnedActionV2> {
+    pub fn action(&mut self, obs: &Observation) -> Option<LearnedActionV2> {
         self.inner.action(obs)
     }
 }
 
-impl EmbodiedPolicy for LearnedTacticalEmbodiedPolicyV2 {
-    fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
+impl Policy for LearnedTacticalPolicyV2 {
+    fn decide(&mut self, obs: &Observation) -> CommandV1 {
         into_torso_frame(obs, self.inner.decide(obs))
     }
 
@@ -1615,17 +1651,17 @@ mod tests {
     /// that the pins below compared like with like; that file is gone and this
     /// is now the fixture in its own right -- kept unchanged, because changing
     /// it would move what half this module's assertions are about.
-    fn fighter_facing(tick: u32) -> ArticulatedObservation {
-        let mut obs = ArticulatedObservation::BLANK;
+    fn fighter_facing(tick: u32) -> Observation {
+        let mut obs = Observation::BLANK;
         obs.tick = tick;
         obs.subject = EntityId::new(0, 0);
         obs.body_yaw = Angle::ZERO;
-        obs.capabilities = ArticulatedObservation::MOVEMENT
-            | ArticulatedObservation::TURNING
-            | ArticulatedObservation::LEFT_GRIP
-            | ArticulatedObservation::RIGHT_GRIP
-            | ArticulatedObservation::RIGHT_WEAPON
-            | ArticulatedObservation::SHIELD;
+        obs.capabilities = Observation::MOVEMENT
+            | Observation::TURNING
+            | Observation::LEFT_GRIP
+            | Observation::RIGHT_GRIP
+            | Observation::RIGHT_WEAPON
+            | Observation::SHIELD;
         obs.arms[0].equipment = Some(2);
         obs.arms[1].equipment = Some(1);
         obs.opponent_count = 1;
@@ -1634,29 +1670,35 @@ mod tests {
         obs
     }
 
-    fn brute_facing(tick: u32) -> ArticulatedObservation {
+    fn brute_facing(tick: u32) -> Observation {
         let mut obs = fighter_facing(tick);
-        obs.capabilities = ArticulatedObservation::MOVEMENT
-            | ArticulatedObservation::TURNING
-            | ArticulatedObservation::RIGHT_GRIP
-            | ArticulatedObservation::RIGHT_WEAPON;
+        obs.capabilities = Observation::MOVEMENT
+            | Observation::TURNING
+            | Observation::RIGHT_GRIP
+            | Observation::RIGHT_WEAPON;
         obs.arms[0].equipment = None;
         obs.arms[1].equipment = Some(3);
         obs
     }
 
     #[test]
-    fn the_action_table_is_the_scripts_own_vocabulary() {
-        // **The script this test is named for was deleted in session 05, and
-        // saying so is the whole of the rewrite.** Four constants in this file
-        // were copies of four private constants in `policy::articulated_script`,
-        // and every one of them was pinned here against what that script
-        // actually submitted -- so a drift on either side failed at the line
-        // that moved rather than turning the learned-versus-scripted comparison
-        // into a comparison of two different bodies. The far side of that pin
-        // went with the articulated body.
+    fn the_action_table_is_frozen_by_hand() {
+        // **This test was named for a script, and the script was deleted in
+        // session 05.** Saying so was the whole of that session's rewrite, and
+        // session 06 finished the job by taking the script out of the name:
+        // `the_action_table_is_the_scripts_own_vocabulary` was present tense
+        // about a file that is gone, and a reader who went looking for the
+        // other side of the pin found nothing and no explanation. "By hand"
+        // is what replaced it, and this paragraph is what it means.
         //
-        // **`policy::embodied_script` is deliberately not substituted for it.**
+        // Four constants in this file were copies of four private constants in
+        // `policy::articulated_script`, and every one of them was pinned here
+        // against what that script actually submitted -- so a drift on either
+        // side failed at the line that moved rather than turning the
+        // learned-versus-scripted comparison into a comparison of two different
+        // bodies. The far side of that pin went with the articulated body.
+        //
+        // **`policy::script` is deliberately not substituted for it.**
         // It is a different vocabulary rather than the same one renamed: its
         // guard reaches three quarters where this table's `Guard` reaches a
         // half, and its phases run on a 120-tick clock against this table's 360.
@@ -1750,22 +1792,22 @@ mod tests {
         // `scripted_articulated_command` extended to full reach at full effort
         // in its commit phase and assert that `weapon_arm` named the same one.
         // That script is deleted; the rule it read is not -- `policy::ArmRoles`
-        // is public, it moved out of the doomed file, and `embodied_script`,
-        // `embodied_guard` and the strike planner all still ask it the same
+        // is public, it moved out of the doomed file, and `script`,
+        // `guard` and the strike planner all still ask it the same
         // question. Comparing with the rule is the stronger of the two pins: the
         // old one could only see the arm at a tick the script happened to commit
         // on, and this one holds at every observation either side can be handed.
         let mut maimed = fighter_facing(0);
-        maimed.capabilities = ArticulatedObservation::MOVEMENT
-            | ArticulatedObservation::TURNING
-            | ArticulatedObservation::LEFT_GRIP
-            | ArticulatedObservation::SHIELD;
+        maimed.capabilities = Observation::MOVEMENT
+            | Observation::TURNING
+            | Observation::LEFT_GRIP
+            | Observation::SHIELD;
         maimed.arms[1].equipment = None;
         maimed.arms[1].severed = true;
         for (name, obs) in [
             ("fighter", fighter_facing(0)),
             ("brute", brute_facing(0)),
-            ("blank", ArticulatedObservation::BLANK),
+            ("blank", Observation::BLANK),
             ("maimed", maimed),
         ] {
             assert_eq!(weapon_arm(&obs), ArmRoles::of(&obs).weapon, "{name}");
@@ -1777,7 +1819,7 @@ mod tests {
         // nothing still names an arm, because a total policy has to point
         // somewhere.
         assert_eq!(weapon_arm(&maimed), 0);
-        assert_eq!(weapon_arm(&ArticulatedObservation::BLANK), 1);
+        assert_eq!(weapon_arm(&Observation::BLANK), 1);
     }
 
     #[test]
@@ -1806,7 +1848,7 @@ mod tests {
         // on to build a `ModelShape` over `sim::FEATURE_COUNT` -- the flattened
         // 954-column observation vector -- and assert that it would have cost
         // 62,290 weights against this slice's 3,858. Embodied session 10 deleted
-        // that vector: it hung off the legacy `Observation`, and nothing in the
+        // that vector: it hung off the legacy observation, and nothing in the
         // workspace read it, this crate least of all. The comparison is kept as
         // prose in the module header, where it is an argument about why the
         // slice is hand-picked, rather than as an assertion about a constant
@@ -1821,7 +1863,7 @@ mod tests {
         // slice may be a NaN, and the visibility flag has to be the thing that
         // distinguishes it from an opponent standing at the origin.
         let mut out = [7.0f32; LEARN_FEATURE_COUNT];
-        let memory = write_features(&ArticulatedObservation::BLANK, FeatureMemory::EMPTY, &mut out);
+        let memory = write_features(&Observation::BLANK, FeatureMemory::EMPTY, &mut out);
         assert!(memory.primed);
         // Feature 1 is `cos` of a phase of zero and is therefore one, which is
         // the only non-zero column a blank observation writes. Spelled out
@@ -1977,7 +2019,7 @@ mod tests {
         // other, so the two bodies and the one plate between them are unchanged;
         // what changed is that the commands are submitted through the entry a
         // surviving body accepts. That matters more than it
-        // reads: `submit_embodied_v1` answers `WrongModel` rather than panicking
+        // reads: `submit` answers `WrongModel` rather than panicking
         // when the grammar disagrees, so a fixture on the wrong entry would run
         // its whole clock, store nothing, and assert forty columns of zero about
         // a fight that never happened. The `rejection: None` below is what rules
@@ -1988,19 +2030,19 @@ mod tests {
         let hero = world.alive_ids(sim::Faction::Heroes)[0];
         let mut features = [0.0f32; LEARN_FEATURE_COUNT];
         let mut memory = FeatureMemory::EMPTY;
-        let mut policy = LearnedEmbodiedPolicy::new(Model::zeros());
+        let mut policy = LearnedPolicy::new(Model::zeros());
         let mut stored = 0u32;
         for _ in 0..600 {
             for id in world.pending_decisions().to_vec() {
-                let obs = world.observe_articulated(id);
+                let obs = world.observe(id);
                 if id == hero {
                     memory = write_features(&obs, memory, &mut features);
                     assert_eq!(features[39], 0.0, "tick {}: a plate appeared", obs.tick);
                     assert_eq!(features[40], 0.0, "tick {}: a plate appeared", obs.tick);
                 }
                 let command = policy.decide(&obs);
-                match world.submit_embodied_v1(id, command) {
-                    sim::SubmitEmbodiedOutcome::Stored { rejection: None, .. } => stored += 1,
+                match world.submit(id, command) {
+                    sim::SubmitOutcome::Stored { rejection: None, .. } => stored += 1,
                     other => panic!("tick {}: {other:?}", obs.tick),
                 }
             }
@@ -2089,8 +2131,8 @@ mod tests {
         let mut rng = Rng::new(7);
         let model = Model::random(&mut rng);
         let obs = fighter_facing(137);
-        let mut a = LearnedArticulatedPolicy::new(model.clone());
-        let mut b = LearnedArticulatedPolicy::new(model);
+        let mut a = LearnedCorePolicy::new(model.clone());
+        let mut b = LearnedCorePolicy::new(model);
         assert_eq!(a.decide(&obs), b.decide(&obs));
         // And again after the memory has been primed differently on one of
         // them, once both have been reset -- which is the property `reset` is
@@ -2106,7 +2148,7 @@ mod tests {
     fn a_composed_command_is_one_the_world_accepts() {
         // Every entry of every head, against a body that can be commanded. The
         // arm ranges and the move magnitude are validated by
-        // `World::submit_embodied_v1`, and a refused command is the neutral
+        // `World::submit`, and a refused command is the neutral
         // one -- so a table entry that is one raw unit out of range would not
         // fail loudly, it would quietly delete a third of the action space.
         for bearing_degrees in [0i32, 37, 90, 145, 180, 271, 359] {
@@ -2130,7 +2172,7 @@ mod tests {
                         let command = compose(&obs, action);
                         let payload = command.payload_bytes();
                         assert_eq!(
-                            ArticulatedCommandV1::from_payload_bytes(&payload),
+                            CommandCoreV1::from_payload_bytes(&payload),
                             Ok(command),
                             "{action:?} at {bearing_degrees} degrees is not a legal command"
                         );
@@ -2147,9 +2189,9 @@ mod tests {
         // must survive is the footwork -- the fixture spawns outside sight
         // range, so a policy that could not walk while blind would never reach
         // the fight at all.
-        let blind = ArticulatedObservation {
+        let blind = Observation {
             body_yaw: Angle::from_degrees(90),
-            ..ArticulatedObservation::BLANK
+            ..Observation::BLANK
         };
         let commit = LearnedActionV1 {
             footwork: 0,
@@ -2261,7 +2303,7 @@ mod tests {
         let mut model = ModelV2::zeros();
         let bias = model.len() - LEARN_V2_ACTION_LOGITS;
         model.weights_mut()[bias + LEARN_ACTION_LOGITS + TacticalIntentV1::StrikeBest.index()] = 1.0;
-        let mut policy = LearnedTacticalPolicyV2::new(model);
+        let mut policy = LearnedTacticalCorePolicyV2::new(model);
         policy.decide(&obs);
         assert_eq!(policy.planner().phase(), TacticalPhase::Chamber);
         obs.tick += 1;

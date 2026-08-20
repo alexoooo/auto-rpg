@@ -3,21 +3,20 @@
 **Purpose:** Describe the current observation-to-command policy seams and their implementations.
 **Status:** current
 **Canonical source:** [`crates/policy/src/lib.rs`](../../crates/policy/src/lib.rs), [`Observation`](../../crates/sim/src/obs.rs), and [`Command`](../../crates/sim/src/command.rs)
-**Update when:** The `EmbodiedPolicy` trait, observation contract, command shape, policy registry, or run harness changes.
+**Update when:** The `Policy` trait, observation contract, command shape, policy registry, or run harness changes.
 
 ## The complete policy seam
 
 There is one seam, and it has one required operation:
 
 ```rust
-fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1;     // EmbodiedPolicy
+fn decide(&mut self, obs: &Observation) -> CommandV1;     // Policy
 ```
 
 **There were three.** `CombatModel::Legacy`'s seam was
 `fn decide(&Observation) -> Command`, and embodied session 10 deleted it with the
-model; `ArticulatedPolicy` was
-`fn decide(&ArticulatedObservation) -> ArticulatedCommandV1`, and session 05
-deleted it with *its* model. What is worth carrying forward is the general
+model; the articulated seam returned the 53-byte core payload rather than the 57-byte
+command, and session 05 deleted it with *its* model. What is worth carrying forward is the general
 sentence rather than the signatures: everything downstream of this crate -- a
 neural policy, an evolved controller, a scripted test dummy, a human's mouse --
 is the same one method, and the simulation cannot tell them apart and does not
@@ -40,25 +39,25 @@ state of this line for two sessions and the crate header recorded it as a gap.
 There is no team wrapper that runs one policy per side. The legacy seam had one,
 `TeamPolicy`, which dispatched on `Observation::faction` -- and the reason it has
 no successor is a property of the *observation* rather than an omission:
-`ArticulatedObservation` is subject-scoped and has no faction column, so "the
+`Observation` is subject-scoped and has no faction column, so "the
 other side" appears in it only as `opponents`, already selected. Per-side routing
 therefore belongs to whoever drives the run, which does know both factions. The
 crate's module header carries that argument in full, and
-[`EmbodiedPolicy`](../../crates/policy/src/lib.rs#L239) carries the doctest pair
+[`Policy`](../../crates/policy/src/lib.rs#L242) carries the doctest pair
 showing that no policy can be handed a `&World`.
 
 ## Observation to command
 
-`World::observe_articulated` produces a deterministic subject-scoped observation:
+`World::observe` produces a deterministic subject-scoped observation:
 exact proprioception, and bounded noisy information about everything else.
 Policies operate on those perceived values. What an embodied policy may see, and
 why it arrives as fractions rather than as world units, is
 [below](#what-an-embodied-policy-is-allowed-to-see-and-why-it-arrives-as-fractions).
 
-An `ArticulatedCommandV1` is a movement vector, a torso yaw, an intent, and per
-arm a bearing, a height, a reach, an effort, a grip request and a release
-request. An `EmbodiedCommandV1` is that plus a swing plane per arm, and its
-movement vector and arm bearings are read **relative to the torso** rather than
+A submitted command's 53-byte **core** is a movement vector, a torso yaw, an intent,
+and per arm a bearing, a height, a reach, an effort, a grip request and a release
+request. The 57-byte command a policy returns is that plus a swing plane per arm, and
+its movement vector and arm bearings are read **relative to the torso** rather than
 absolutely -- the same byte offsets meaning different things, which
 [the embodied command contract](../reference/embodied-command-v1.md) owns.
 
@@ -79,7 +78,7 @@ and what it cost the browser.
 
 ## Run harness ownership
 
-`policy::run_embodied` resets the policy, constructs a `World`, applies
+`policy::run` resets the policy, constructs a `World`, applies
 initial orders, and repeats the decision loop followed by `World::step`. It
 optionally records the submitted commands into a `Replay`, and returns outcome
 metrics and the final `World::state_hash`. **What it records is what the world
@@ -108,8 +107,8 @@ chose.
 
 ## The surviving seam
 
-`EmbodiedPolicy` is the same shape over the subject-scoped types:
-`World::observe_articulated` in, `EmbodiedCommandV1` out, and no `&World`
+`Policy` is the same shape over the subject-scoped types:
+`World::observe` in, `CommandV1` out, and no `&World`
 parameter. A `compile_fail` doctest on the trait fences that, because a unit
 test can only show that one policy did not read hidden state while the
 signature shows that none can. On the stable toolchain rustdoc does not enforce
@@ -119,36 +118,39 @@ rather than remembered.
 
 The three traits were separate rather than one trait over a `SubmittedCommand`
 enum. The model is chosen once by the `Scenario` and never mixes inside a
-world, so a mismatch is static information; `World::submit_embodied_v1` already
+world, so a mismatch is static information; `World::submit` already
 refuses the wrong model at the boundary, and a second refusal one layer up would
 buy nothing. **The argument outlives the second and third traits on purpose** --
 with one model left it is what says a new model arrives as a new seam rather
 than as a match arm in this one.
 
 There is no `TeamPolicy`. The legacy one routed on the observation's faction, and
-`ArticulatedObservation` has no faction column -- "the other side" appears only
+`Observation` has no faction column -- "the other side" appears only
 as already-selected `opponents`. Per-side routing belongs to whoever drives the
 run.
 
-**`EmbodiedPolicy` differed from `ArticulatedPolicy` in exactly one place: it
-returns an `EmbodiedCommandV1`.** That was not a formality, and it is why the
-articulated seam could be deleted whole rather than merged. An embodied command
-carries a swing plane the articulated payload has no offsets for, so a policy
-typed to return the articulated command could not command an elbow, and an
+**The surviving seam differed from the articulated one in exactly one place: the
+width of what it returns.** That was not a formality, and it is why the
+articulated seam could be deleted whole rather than merged. The 57-byte command
+carries a swing plane the 53-byte core has no offsets for, so a policy
+typed to return the core could not command an elbow, and an
 adapter between the two would have had to invent a plane -- which is inventing
 state rather than converting it. There was never an adapter to keep.
 
-It takes an `ArticulatedObservation` because that is what an embodied body
-produces: perception was shared between the two models even where the command was
-not. The name is a wart that outlives its model and the session that retires
-`Articulated` is the one that gets to fix it.
+It takes an `Observation` because that is what a body
+produces: **perception was shared between the two models even where the command was
+not**, which is why one observation type survived both deletions while two command
+types did not.
 
 ### What an embodied policy is allowed to see, and why it arrives as fractions
 
-`ArticulatedObservation` carries an `ObservedStance`, and each `ObservedOpponent`
-carries a narrower `ObservedOpponentStance`. Both are blank on a Legacy or
-Articulated world, on the rule the articulated block already sets: one struct and
-one vector width whichever model a scenario picked.
+`Observation` carries an `ObservedStance`, and each `ObservedOpponent`
+carries a narrower `ObservedOpponentStance`. Both were blank on a body without legs,
+on the rule the older block already set: one struct and one width whichever model a
+scenario picked. **No such body is reachable now**, and the blank case is still
+specified because the struct still has one -- see the [stance
+rows](../reference/articulated-abi.md#stance-rows), where the same distinction lost
+the fixture that used to demonstrate it.
 
 The subject's own values are the hips relative to the torso, the twist as a signed
 fraction of the stance budget, the pelvis as a fraction of standing pelvis height,
@@ -189,12 +191,12 @@ AI hand into one submission -- keeps its inherent `decide` and `reset` as the
 implementation, and the trait impl forwards to them. A caller holding one by
 value should not have to import a trait to drive it; the trait exists so a
 *driver* can hold either it or a scripted embodied policy behind one
-`Box<dyn EmbodiedPolicy>`, which is a different need and arrived a session
+`Box<dyn Policy>`, which is a different need and arrived a session
 later.
 
 ### The scripted embodied policy, and the one term that exists to be measured
 
-`crates/policy/src/embodied_script.rs` is the first policy typed to the embodied
+`crates/policy/src/script.rs` is the first policy typed to the embodied
 seam. It was a **sibling of `articulated_script.rs` and not a mode of it**, and the
 reason was the frame: `ArmTarget::bearing` and `move_dir` were world quantities in
 that file and are torso-relative ones here. A single file with a frame flag would make
@@ -246,7 +248,7 @@ height field in one and there should not be.
 
 That is the policy's only memory, and it is the reason `reset` has work to do.
 Everything else is a pure function of one observation, which is what
-`scripted_embodied_command` exposes: a test that wants to know what the script says
+`scripted_command` exposes: a test that wants to know what the script says
 at tick 137 does not have to build a policy and drive a world.
 
 **The term is switchable, and switching it off is the point.** The next session
@@ -295,16 +297,18 @@ the guard height is `HEIGHTS[((tick + GUARD_LEAD_TICKS) / HEIGHT_TICKS) % 3]`, a
 **never looks at the incoming blow**, and the diagonal is the arithmetic of two clocks half
 a step apart on a table whose three off-diagonal cells are structurally unreachable.
 
-None of this is news to the file: `embodied_script.rs` says in its own header that it does
+None of this is news to the file: `script.rs` says in its own header that it does
 not tune, because there was no embodied corpus to tune against when it was written. It
 existed to make the corpus possible. The corpus exists now, and the measured baseline above
-is what a policy that plays is measured against. The forward work is
-[the embodied fight plan](../plans/fight-00-overview.md); the numbers here are current and
-this document is where they live.
+is what a policy that plays is measured against. The topic that did so -- the embodied
+fight -- has closed, and
+[the tactical policy record](../performance/embodied-tactical-policy.md) is what it left:
+a tuned fighter measured against this baseline on four harnesses, losing to the frozen
+script on all four. The numbers here are current and this document is where they live.
 
 ## The registry, and why its `build` cannot fail
 
-`EmbodiedPolicyKind` is the last of three registries and was a sibling of the
+`PolicyKind` is the last of three registries and was a sibling of the
 other two rather than an extension of either: the three seams shared no code
 space, so `2` named `idle`, `windmill` and `scripted-level` depending on which
 registry was being read, and a collision between them would have been a page
@@ -324,14 +328,14 @@ per side.
 because every quantity it reads is a world quantity measured off an observation whose
 type is the same on both seams, so the port shares the planner and forks only the
 command assembly. The frame enters in one four-line function,
-[`into_torso_frame`](../../crates/policy/src/embodied_tactics.rs#L99), which subtracts
+[`into_torso_frame`](../../crates/policy/src/tactics.rs#L99), which subtracts
 the *observed* yaw and not the commanded one -- the world re-adds
 `World::body_yaw[i].angle`, and the commanded yaw is a request the actuator chases at a
 bounded rate. Its first measured outing is
 [the tactical policy record](../performance/embodied-tactical-policy.md).
 
 `tactical` also carries **the only guard in this repository that is a read rather than
-a clock**. [`GuardRead`](../../crates/policy/src/embodied_guard.rs) takes the nearest
+a clock**. [`GuardRead`](../../crates/policy/src/guard.rs) takes the nearest
 live blade's tip, expresses it as a fraction of the subject's own standing height above
 the floor its owner stands on, and commands the nearest of the three bands -- deadbanded
 so a blade that has not moved does not move the arm, and committed for the thirteen
@@ -349,22 +353,22 @@ out of reading the simulator rather than the corpus, is in
 [the tactical policy record](../performance/embodied-tactical-policy.md#session-03-the-guard-that-watches).
 
 `tactical` also carries **the one piece of this seam that is configuration rather
-than code**. [`Footwork`](../../crates/policy/src/embodied_footwork.rs) is four numbers
+than code**. [`Footwork`](../../crates/policy/src/footwork.rs) is four numbers
 a `StrikePlanner` spends on its feet -- the standoff it holds outside its own reach,
 the fraction of reach at which it gives ground, how fast the feet cross measure during
 a commit, and the twist fraction at which a wound torso walks while it unwinds. It is a
 struct on the planner and not four module constants for `TacticalConfig`'s reason:
 **one planner drove two seams.** `TacticalArticulatedPolicy`, which `#/arena` rendered
 and which every pinned `articulated-duel-v1` measurement was taken with, and
-`TacticalEmbodiedPolicy`, which session 04 retuned against `embodied-duel-v1`. Editing
+`TacticalPolicy`, which session 04 retuned against `embodied-duel-v1`. Editing
 the constants in place would have retuned the first silently. Session 05 deleted the
 first, so the row is now configuration with one live reader -- **kept rather than
 folded back into constants**, because it is what makes the sweeps below reproducible
 from a shipped command instead of from an edit and a rebuild. `Footwork::ARTICULATED`
 is therefore the planner's own pre-session-04 numbers,
-[`StrikePlanner::footwork`](../../crates/policy/src/embodied_tactics.rs#L416) is the
+[`StrikePlanner::footwork`](../../crates/policy/src/tactics.rs#L416) is the
 constructor that takes a row, and `StrikePlanner::default()` still answers the
-articulated one -- which is why `TacticalEmbodiedPolicy` has a hand-written `Default`
+articulated one -- which is why `TacticalPolicy` has a hand-written `Default`
 rather than a derived one.
 
 The row survives `StrikePlanner::reset`, on `PlanScoring`'s precedent: a corpus runner
@@ -372,11 +376,11 @@ resets between seeds, and a reset that restored `Default` wholesale would demote
 seed after the first to a policy nobody selected. And it is reachable from a command
 line -- `lab embodied --footwork margin,floor,lunge,unwind` -- so that the sweeps in
 [the tactical policy record](../performance/embodied-tactical-policy.md#session-04-the-fight-that-ends-and-does-not)
-are reproducible without editing a constant and rebuilding. `EmbodiedPolicyKind::build_with_footwork`
+are reproducible without editing a constant and rebuilding. `PolicyKind::build_with_footwork`
 answers `None` for the three entries with no planner, so a row that cannot be spent is
 refused by name rather than dropped.
 
-**`EmbodiedPolicyKind::build` returns a policy and not an `Option`, which is where
+**`PolicyKind::build` returns a policy and not an `Option`, which is where
 it deliberately differed from its sibling.** `ArticulatedPolicyKind` answered `None`
 for its learned code because a trained fighter is a kind *plus fifteen kilobytes of
 weights* and nothing keyed by an integer has anywhere to put a checkpoint; the
@@ -409,8 +413,8 @@ stop.
 
 `lab embodied` folded its own stream under `ARPG-EMBODIED-SCRIPT-V1` rather
 than calling it, and that fold is now the only one; the function is
-[`embodied_script_digest`](../../crates/lab/src/main.rs#L784), it copies
-`script_digest`'s grammar byte for byte over `EmbodiedCommandV1::payload_bytes`, and its
+[`embodied_script_digest`](../../crates/lab/src/main.rs#L774), it copies
+`script_digest`'s grammar byte for byte over `CommandV1::payload_bytes`, and its
 doc comment carries the whole argument. **The copy is now the original**, which is the
 cheapest possible discharge of a debt that was going to be a session with a hash
 prediction: the shared function fed three registered digests, so widening its match was
@@ -429,10 +433,10 @@ five-head action table and a checkpoint codec; `crates/learn` holds the
 population that trains one. Both may use floating point, which nothing under
 `fx`, `sim` or the deterministic parts of `policy` may, and the licence has one
 condition: **nothing they compute reaches authoritative state.** What crosses is
-five head indices from an argmax, assembled by `learn_core::compose` into an
-`ArticulatedCommandV1` out of a fixed table of `Fx` constants.
-`LearnedActionV1` is a separate type for exactly that reason and
-`World::submit_articulated_v1` cannot be handed one.
+five head indices from an argmax, assembled by `learn_core::compose` into a command
+core out of a fixed table of `Fx` constants.
+`LearnedActionV1` is a separate type for exactly that reason: the world's submission
+cannot be handed one.
 
 The dependency arrow is the rest of the architecture. `learn-core` may see `fx`,
 `sim` and `policy`; none of the three may see it, and
@@ -451,14 +455,16 @@ to be checked on. It is registered in
 [`hashes.md`](../reference/hashes.md#golden-registry) with the
 `-C target-cpu=native` caveat that bounds it.
 
-`policy::run_embodied` was `run_articulated`'s sibling and `run`'s before that,
-never a branch inside either, because a `match` on the combat model would have put
-every difference behind one branch on the hot decision loop of the thing that must
-not move. Three things distinguish it from the legacy loop, and all three survive
+The surviving run harness was `run_articulated`'s sibling and the legacy `run`'s
+before that, never a branch inside either, because a `match` on the combat model would
+have put every difference behind one branch on the hot decision loop of the thing that
+must not move. **It carries the surviving name now that the siblings are gone**, which
+is the shape that argument always pointed at. Three things distinguish it from the
+legacy loop, and all three survive
 the loops that are gone:
 
 - It records what the world **stored**, not what the policy offered.
-  `submit_embodied_v1` answers `Stored { command, rejection }`, and a range
+  The submission answers `Stored { command, rejection }`, and a range
   or equipment failure atomically stores the neutral command instead. Replays
   persist final submitted commands, so the stored one is what a
   `Replay::record_submitted` row carries -- not the offered one, which is
@@ -468,12 +474,12 @@ the loops that are gone:
 - `RunResult::rejected` and `RunResult::first_rejection` report refusals.
   Without them a run whose every command was replaced looks exactly like a run
   by a policy that is not very good.
-- The swordplay counters stay at zero, because the articulated branch of
-  `World::step` -- which this model shares -- emits only `Event::Death`. Damage
+- The swordplay counters stay at zero, because the surviving branch of
+  `World::step` emits only `Event::Death`. Damage
   travels as contact resolution rows.
 
 `World::outcome` is model-agnostic and is reachable here, because
-`reap_dead_articulated` clears `alive` when the anatomy says dead.
+`reap_dead_bodies` clears `alive` when the anatomy says dead.
 `an_embodied_run_stops_on_a_death_and_not_only_on_the_clock` proves that by
 thinning an anatomy until the reaper fires rather than by waiting for the game to
 be balanced -- which is how the same claim was made for the deleted loop, and for
@@ -499,10 +505,10 @@ its warning about replay completeness.
 
 The embodied observation/action seam, its registry, its configured duel, and the
 learned browser policy are current. The decision-loop ownership is intentionally
-split: `run_embodied` is exercised directly only by tests; a lab harness needs
+split: `policy::run` is exercised directly only by tests; a lab harness needs
 per-tick resolutions, cap hits, and energy-ledger columns that `RunResult` does not
 carry, so its loop is pinned to the runner by an equivalence test; and the browser
-needs two independently selected policies, while `run_embodied` installs one
+needs two independently selected policies, while `run` installs one
 policy kind on both sides. A future shared versioned policy envelope is still a
 proposal, not an omitted part of the current seam.
 
@@ -543,13 +549,13 @@ such demonstration exists. Any successor needs a separately approved causal ques
 
 ## Source anchors
 
-- The seam: [`EmbodiedPolicy`](../../crates/policy/src/lib.rs#L239)
-- The seam's registry: [`EmbodiedPolicyKind`](../../crates/policy/src/lib.rs#L388)
-- The scripted embodied policy: [`crates/policy/src/embodied_script.rs`](../../crates/policy/src/embodied_script.rs)
-- The tactical embodied policy: [`crates/policy/src/embodied_tactics.rs`](../../crates/policy/src/embodied_tactics.rs)
-- The guard that reads the blade: [`crates/policy/src/embodied_guard.rs`](../../crates/policy/src/embodied_guard.rs)
-- What a planner's feet are told: [`crates/policy/src/embodied_footwork.rs`](../../crates/policy/src/embodied_footwork.rs)
+- The seam: [`Policy`](../../crates/policy/src/lib.rs#L242)
+- The seam's registry: [`PolicyKind`](../../crates/policy/src/lib.rs#L394)
+- The scripted embodied policy: [`crates/policy/src/script.rs`](../../crates/policy/src/script.rs)
+- The tactical embodied policy: [`crates/policy/src/tactics.rs`](../../crates/policy/src/tactics.rs)
+- The guard that reads the blade: [`crates/policy/src/guard.rs`](../../crates/policy/src/guard.rs)
+- What a planner's feet are told: [`crates/policy/src/footwork.rs`](../../crates/policy/src/footwork.rs)
 - Headless decision loops: [`crates/policy/src/runner.rs`](../../crates/policy/src/runner.rs)
 - Subject-scoped inputs: [`crates/sim/src/obs.rs`](../../crates/sim/src/obs.rs)
 - The command grammars, `Order` and `Objective`: [`crates/sim/src/command.rs`](../../crates/sim/src/command.rs)
-- Submission and scheduling: [`World::submit_embodied_v1`](../../crates/sim/src/world/mod.rs)
+- Submission and scheduling: [`World::submit`](../../crates/sim/src/world/mod.rs)

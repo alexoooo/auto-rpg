@@ -109,10 +109,10 @@ use std::cell::{Cell, RefCell};
 
 use fx::{Angle, Fx, Rng, Vec2};
 use learn_core::{Checkpoint, CheckpointError, Model};
-use policy::{EmbodiedPolicy, EmbodiedPolicyKind, RunConfig};
+use policy::{Policy, PolicyKind, RunConfig};
 use sim::{
-    ArmTarget, ArticulatedObservation, ArticulatedPayloadError, Cardinal,
-    CombatHeight, CommandReject, EmbodiedCommandV1, EntityId,
+    ArmTarget, Observation, PayloadError, Cardinal,
+    CombatHeight, CommandReject, CommandV1, EntityId,
     Event, Faction, Intent, Objective, Order, Scenario,
     Body, Stats, Swing, Torch, UnitSpec, Loadout, Strike, UnitView, World,
 };
@@ -587,8 +587,8 @@ pub const FURNITURE_TORCH: u8 = 2;
 ///
 /// **An explicit mapping and never `Cardinal as u8`, and this is a trap rather
 /// than a preference.** [`sim::Cardinal`] is declared `NegX, PosX, NegY, PosY`
-/// in *percept* order -- the order `Observation::wall_clearance` has always
-/// reported -- so the obvious cast gives `PosX = 1` and `PosY = 3`, two values
+/// in *percept* order -- the order the legacy observation's `wall_clearance`
+/// column always reported -- so the obvious cast gives `PosX = 1` and `PosY = 3`, two values
 /// that mean nothing to a page and that would silently change if a fifth
 /// direction were ever added or the percept order were reshuffled. The enum has
 /// no discriminants and no `as u8` mapping of its own precisely so that a wire
@@ -754,12 +754,12 @@ pub const POSE_LAYOUT_VERSION: u32 = 1;
 
 /// Rows the pose buffer holds.
 ///
-/// Written as the authoritative [`sim::MAX_ARTICULATED_ENTITIES`] and never as
+/// Written as the authoritative [`sim::MAX_ENTITIES`] and never as
 /// a second literal 64. They are the same number by construction -- the sim
 /// cannot have more articulated bodies than the contact solver reserves for --
 /// and the day one of them moves, a second literal here would be the bug rather
 /// than the mismatch that reports it.
-pub const MAX_POSES: usize = sim::MAX_ARTICULATED_ENTITIES;
+pub const MAX_POSES: usize = sim::MAX_ENTITIES;
 
 /// Words in one pose row. See the column constants below for the layout.
 pub const POSE_STRIDE: usize = 66;
@@ -824,7 +824,7 @@ pub const POSE_SHOCK: usize = 60;
 /// Bit `part as u8` per severed region.
 pub const POSE_SEVERED_MASK: usize = 61;
 /// Left weapon bit 0, right weapon bit 1, shield bit 2 -- the mask
-/// [`sim::ArticulatedPose::equipment_mask`] reads off its own geometry, so a
+/// [`sim::Pose::equipment_mask`] reads off its own geometry, so a
 /// set bit and a zeroed hilt/tip pair cannot disagree.
 pub const POSE_EQUIPMENT_MASK: usize = 62;
 /// The stored command's intent, in the frozen wire ordinals the submitted
@@ -883,7 +883,7 @@ pub const REGION_LAYOUT_VERSION: u32 = 2;
 /// Rows one body publishes, one per swept volume.
 ///
 /// Written as the sim's own count and never as a second literal, exactly as
-/// [`MAX_POSES`] is written as `sim::MAX_ARTICULATED_ENTITIES`. An eighth volume
+/// [`MAX_POSES`] is written as `sim::MAX_ENTITIES`. An eighth volume
 /// would then widen this section rather than silently truncating it.
 ///
 /// **`sim::BODY_VOLUME_COUNT` and no longer `sim::AnatomyRegion::COUNT`, and the
@@ -993,7 +993,7 @@ pub const EMBODIED_STANCE_LAYOUT_VERSION: u32 = 1;
 /// Rows the stance buffer holds: one for every body the pose buffer can hold.
 ///
 /// Written as [`MAX_POSES`] and never as a second literal 64, exactly as that
-/// constant is written as `sim::MAX_ARTICULATED_ENTITIES`. A body with legs is a
+/// constant is written as `sim::MAX_ENTITIES`. A body with legs is a
 /// body that also publishes a pose, so a stance cap that could fill first would
 /// drop the legs of a body whose torso crossed -- which is the half-a-body
 /// failure [`MAX_REGIONS`] is written this way to refuse.
@@ -1373,7 +1373,7 @@ const _: () = assert!(
 // answer and this parser can no longer provoke -- a widened control brings them
 // back without a byte moving. `ARENA_POLICY_UNAVAILABLE` (7) and
 // `ARENA_NO_CHECKPOINT` (26) are not like that: v2-ui-08 moved the arena onto
-// `EmbodiedPolicyKind`, whose `build` returns a policy and never an `Option`,
+// `PolicyKind`, whose `build` returns a policy and never an `Option`,
 // and whose registry has no `learned` entry for a checkpoint to be missing
 // *for*. There is no control to widen and no asset to fetch. They have no
 // producer and no path back to one.
@@ -1422,7 +1422,7 @@ pub const ARENA_UNKNOWN_ANATOMY: u8 = 4;
 /// [`sim::ActionKind::code`]. Distinct from [`ARENA_UNKNOWN_ACTION`], which is
 /// an action that exists and has no equipment row.
 pub const ARENA_UNKNOWN_ITEM: u8 = 5;
-/// A fighter's policy byte is not an [`policy::EmbodiedPolicyKind::code`].
+/// A fighter's policy byte is not an [`policy::PolicyKind::code`].
 ///
 /// **The one policy refusal with a producer since v2-ui-08**, and the reason it
 /// is worth saying so is that the other two below used to share the work. A
@@ -1435,7 +1435,7 @@ pub const ARENA_UNKNOWN_POLICY: u8 = 6;
 /// It meant "the policy is one this build cannot construct", with the code in
 /// the slot byte so the refusal named it. That sentence needed a registry with
 /// an entry the boundary could not build, and there is no longer one:
-/// [`policy::EmbodiedPolicyKind::build`] returns a policy rather than an
+/// [`policy::PolicyKind::build`] returns a policy rather than an
 /// `Option`, on the argument written out on the enum itself -- nothing in that
 /// registry is fifteen kilobytes of weights.
 ///
@@ -1501,7 +1501,7 @@ pub const ARENA_UNKNOWN_ACTION: u8 = 25;
 /// the policy code in the slot byte. It was worth its own number beside
 /// [`ARENA_POLICY_UNAVAILABLE`] because a studio could act on it -- the answer
 /// was [`load_checkpoint`] and not a rebuild. What removed it is that
-/// [`policy::EmbodiedPolicyKind`] has no `learned` entry for a fighter to ask
+/// [`policy::PolicyKind`] has no `learned` entry for a fighter to ask
 /// for: a trained fighter is a kind plus a checkpoint, an arena policy byte has
 /// nowhere to put one, and session 09 deferred the widening that would earn the
 /// code. The checkpoint machinery itself is untouched -- [`load_checkpoint`]
@@ -1602,7 +1602,7 @@ pub const ARENA_NO_POLICY: u32 = u32::MAX;
 // **Nothing in this build makes a fighter out of it, and that is v2-ui-08's
 // doing rather than an oversight.** What used to be per-world was the learned
 // articulated policy in [`Arena::policies`]; the arena's policy byte is
-// an [`EmbodiedPolicyKind::code`] now and that registry has no `learned` entry,
+// an [`PolicyKind::code`] now and that registry has no `learned` entry,
 // for the reason written on the enum -- a trained fighter is a kind plus fifteen
 // kilobytes of weights and an integer has nowhere to put them. The buffer, the
 // validation and the digest all stay, because [`learned_inference_digest_lo`] is
@@ -2022,7 +2022,7 @@ struct Arena {
     /// One embodied policy per faction, indexed by [`Faction::index`].
     ///
     /// **Two instances and not one driven twice**, which is the whole point:
-    /// `policy::run_embodied` takes a single `impl EmbodiedPolicy` and installs
+    /// `policy::run` takes a single `impl Policy` and installs
     /// it on both sides, which is right for a control and useless for an arena.
     /// The shape ported here is `lab`'s `measure_embodied_matchup`.
     ///
@@ -2031,12 +2031,12 @@ struct Arena {
     /// `CombatModel::Embodied`; the two fields stay separate because an arena
     /// is driven by [`Sim::advance_arena`] over a captured roster and a dungeon
     /// by [`Sim::advance`], not because the vocabularies differ.
-    policies: [Box<dyn EmbodiedPolicy>; 2],
-    kinds: [EmbodiedPolicyKind; 2],
+    policies: [Box<dyn Policy>; 2],
+    kinds: [PolicyKind; 2],
     /// The Heroes' identities, captured once at install.
     ///
     /// **Routing is on the alive set and not on the observation**, because
-    /// [`sim::ArticulatedObservation`] has no faction column -- it is subject
+    /// [`sim::Observation`] has no faction column -- it is subject
     /// scoped by design, and adding the column back so a driver could match on
     /// it would publish a fact no fighter perceives. `lab` routes the same way
     /// for the same reason.
@@ -2068,8 +2068,8 @@ struct Sim {
     /// page can swap either of them mid-fight, which is the whole point of the
     /// behaviour panel: watching the same room go differently is much more
     /// convincing than reading that it would.
-    policies: [Box<dyn EmbodiedPolicy>; 2],
-    kinds: [EmbodiedPolicyKind; 2],
+    policies: [Box<dyn Policy>; 2],
+    kinds: [PolicyKind; 2],
     /// The configured duel this world is, or `None` for every world that is not
     /// one -- which is every world any export but [`arena_start`] installs.
     ///
@@ -2093,7 +2093,7 @@ struct Sim {
     ///
     /// `Option` per slot rather than a packed list, so the index *is* the slot.
     /// A `None` here is a unit with no articulated row, and that is the same
-    /// slot [`World::articulated_pose`] answers `None` for -- the two agree by
+    /// slot [`World::pose`] answers `None` for -- the two agree by
     /// construction rather than by luck.
     ///
     /// **A fixed array and not a `Vec`, and that is a measurement rather than a
@@ -2310,10 +2310,10 @@ struct Sim {
     /// fields of this. So the AI-driven half keeps its intellect cadence
     /// exactly, and the player's half is not throttled by a stat that is
     /// modelling somebody else's reaction time.
-    cached: EmbodiedCommandV1,
+    cached: CommandV1,
     /// The host's own decision clock for the hero.
     ///
-    /// Necessary and easy to miss: `World::submit_embodied_v1` pushes
+    /// Necessary and easy to miss: `World::submit` pushes
     /// `next_decision` out by
     /// a full period, so a hero submitted to on *every* tick never satisfies
     /// `next_decision <= tick` again and silently drops out of
@@ -2478,7 +2478,7 @@ fn equip_articulated(unit: &mut UnitSpec) {
         ([Some(1), None], Loadout::single(sim::ActionKind::Sword))
     };
     unit.loadout = loadout;
-    unit.articulated = Some(sim::ArticulatedUnitSpecV1 { anatomy, equipment });
+    unit.combat_spec = Some(sim::UnitSpecV1 { anatomy, equipment });
 }
 
 /// The anatomy row each of a scenario's spawn slots carries, resolved against
@@ -2500,7 +2500,7 @@ fn scenario_anatomy(scenario: &Scenario) -> [Option<sim::BodyAnatomySpec>; MAX_P
         // construction `World::try_new` has already had its say about. Whatever
         // it decided, this is reachable from `pub extern "C"` and a trap there
         // poisons the instance for the life of the page.
-        table?.anatomy(scenario.units.get(slot)?.articulated?.anatomy).cloned()
+        table?.anatomy(scenario.units.get(slot)?.combat_spec?.anatomy).cloned()
     })
 }
 
@@ -2511,8 +2511,8 @@ fn scenario_anatomy(scenario: &Scenario) -> [Option<sim::BodyAnatomySpec>; MAX_P
 /// holding. There is no body here, so it names the blank observation's zero --
 /// which is harmless and never read: [`Sim::drive_hero`] refreshes it on the
 /// first tick it is consulted, because `hero_next_decision` opens at zero.
-fn resting_command() -> EmbodiedCommandV1 {
-    policy::neutral_embodied_command(&ArticulatedObservation::BLANK)
+fn resting_command() -> CommandV1 {
+    policy::neutral_command(&Observation::BLANK)
 }
 
 impl Sim {
@@ -2584,7 +2584,7 @@ impl Sim {
                 faction: Faction::Heroes,
                 stats: Body::Fighter.base_stats(),
                 loadout: Body::Fighter.default_loadout(),
-                articulated: None,
+                combat_spec: None,
                 spawn: Vec2::ZERO,
             });
         let world = Sim::try_open(scenario, seed)?;
@@ -2599,7 +2599,7 @@ impl Sim {
         // It read: the legacy seam had two minds to contrast -- a naive baseline
         // whose footwork never looked at what was in its hand, against one that
         // dispatched per role -- and watching the same room go differently when
-        // the dropdown moved was the page's whole subject; `EmbodiedPolicyKind`
+        // the dropdown moved was the page's whole subject; `PolicyKind`
         // is not that registry, it holds one mind, one copy of that mind with a
         // single term switched off, and a control that stands there. That was an
         // accurate description of a three-entry registry, and the conclusion it
@@ -2619,7 +2619,7 @@ impl Sim {
         // sides of it. `#/arena` is the route whose whole subject is the matchup,
         // it opens on the contrast, and both sides here are still a
         // [`set_policy`] press away.
-        let kinds = [EmbodiedPolicyKind::Tactical, EmbodiedPolicyKind::Tactical];
+        let kinds = [PolicyKind::Tactical, PolicyKind::Tactical];
         let mut sim = Sim {
             world,
             policies: [kinds[0].build(), kinds[1].build()],
@@ -2693,7 +2693,7 @@ impl Sim {
                 faction: Faction::Monsters,
                 stats: Body::Skitterer.base_stats(),
                 loadout: Body::Skitterer.default_loadout(),
-                articulated: None,
+                combat_spec: None,
                 // Overwritten at every spawn. The page chooses *what* and the
                 // module chooses *where*, because a position invented in
                 // JavaScript is a float walking into simulation state.
@@ -2875,7 +2875,7 @@ impl Sim {
         // nowhere to go is a page that retries forever. So the floor is
         // installed and `contact_high_water` reads zero, which is the honest
         // report. Reachable only on `ContactCapacityError::Allocation` -- 64 is
-        // `MAX_ARTICULATED_ENTITIES`, so the entity limit cannot refuse -- which
+        // `MAX_ENTITIES`, so the entity limit cannot refuse -- which
         // is an out-of-memory module.
         self.contact_high_water = {
             {
@@ -3030,9 +3030,9 @@ impl Sim {
     /// zero is a control the page can still draw.
     ///
     /// A fresh instance and not a reset of the standing one:
-    /// [`policy::ScriptedEmbodiedPolicy`] carries the ground it has walked over,
+    /// [`policy::ScriptedPolicy`] carries the ground it has walked over,
     /// and a side that had just been *changed* should not inherit it.
-    fn set_policy(&mut self, faction: Faction, kind: EmbodiedPolicyKind) {
+    fn set_policy(&mut self, faction: Faction, kind: PolicyKind) {
         let side = faction.index();
         self.kinds[side] = kind;
         self.policies[side] = kind.build();
@@ -3042,7 +3042,7 @@ impl Sim {
     ///
     /// **Its own loop rather than the crate's**, which was true of the deleted
     /// `policy::run` and of the deleted `policy::run_articulated` and is true of
-    /// `policy::run_embodied`: they gate on
+    /// `policy::run`: they gate on
     /// `World::outcome()`, which reports `HeroesWin` from tick zero when there is
     /// nothing left to fight, so any of them would return before the hero took a
     /// step.
@@ -3074,7 +3074,7 @@ impl Sim {
     ///
     /// **A click is a fact about the world that no fighter can perceive.**
     /// `Order::Goto` still reaches `World::set_order` and still fingerprints,
-    /// and an `ArticulatedObservation` has no order column -- so nothing acts on
+    /// and an `Observation` has no order column -- so nothing acts on
     /// one under this grammar. Click-to-move is owed an observation column by
     /// whoever wants it back; the playable channel today is [`set_control`] and
     /// [`set_input`], which this loop answers every tick.
@@ -3154,7 +3154,7 @@ impl Sim {
                     continue; // answered below, every tick, from live input
                 }
                 // **The side is looked up rather than read off the
-                // observation.** An `ArticulatedObservation` is subject scoped
+                // observation.** An `Observation` is subject scoped
                 // and carries no faction column by design.
                 // [`Sim::advance_arena`] routes on a roster captured at install
                 // because a duel's roster is fixed; a floor's is not -- the
@@ -3168,12 +3168,12 @@ impl Sim {
                     continue;
                 };
                 // There is no `observe_embodied`, and the absence is the point:
-                // an embodied body produces an `ArticulatedObservation` exactly
+                // an embodied body produces an `Observation` exactly
                 // as an articulated one did. The observation was never per model
                 // -- the columns it reads were owned by a predicate both models
                 // answered true -- which is why deleting the second one took
                 // nothing out of this line.
-                let obs = self.world.observe_articulated(id);
+                let obs = self.world.observe(id);
                 let command = self.policies[faction.index()].decide(&obs);
                 // The outcome is discarded here where the runner counts it, on
                 // [`Sim::advance_arena`]'s argument exactly: a refusal stores the
@@ -3188,8 +3188,8 @@ impl Sim {
                 // the playable default without the policy wandering off. The
                 // embodied script cannot wander: with nobody in the observation
                 // there is no opponent to close on, and what it answers is
-                // `neutral_embodied_command`.
-                let _ = self.world.submit_embodied_v1(id, command);
+                // `neutral_command`.
+                let _ = self.world.submit(id, command);
                 if faction == Faction::Heroes {
                     self.last_decision_tick = self.world.tick();
                 }
@@ -3549,21 +3549,21 @@ impl Sim {
     /// step, harvest.
     ///
     /// **A port of `lab`'s `measure_embodied_matchup` and not of
-    /// `policy::run_embodied`**, because the second one takes a single
-    /// `impl EmbodiedPolicy` and installs it on both sides. That is exactly
+    /// `policy::run`**, because the second one takes a single
+    /// `impl Policy` and installs it on both sides. That is exactly
     /// right for a control condition and useless for an arena, whose whole
     /// subject is watching two different fighters meet.
     ///
     /// Four things differ from the loop above and all four follow from what an
     /// arena *is* rather than from taste. **Until v2-ui-08 the first of them was
-    /// the model**: this loop submitted `ArticulatedCommandV1` and the loop above
-    /// submitted `EmbodiedCommandV1`, over two policy registries and two
+    /// the model**: this loop submitted `CommandCoreV1` and the loop above
+    /// submitted `CommandV1`, over two policy registries and two
     /// vocabularies. `Scenario::duel_from` has built the surviving model since,
     /// so both loops speak one grammar and what is left below is about roster,
     /// stopping and publication.
     ///
     /// **The observation is still the articulated one**, which is not a
-    /// leftover: `EmbodiedPolicy::decide` takes an `ArticulatedObservation` too,
+    /// leftover: `Policy::decide` takes an `Observation` too,
     /// and it did under the deleted seam as well. A body's *view* did not change
     /// when its command frame did.
     ///
@@ -3603,7 +3603,7 @@ impl Sim {
             let Some(live) = arena.as_mut() else { break };
             // The runner's gate, character for character. A settled fight stops
             // being stepped rather than being stepped through: `World::outcome`
-            // is live under this model -- `reap_dead_articulated` clears `alive`
+            // is live under this model -- `reap_dead_bodies` clears `alive`
             // and pushes the death -- and the tick limit is the configuration's.
             if self.world.outcome().is_some() || self.world.tick() >= live.max_ticks {
                 break;
@@ -3616,7 +3616,7 @@ impl Sim {
             due.clear();
             due.extend_from_slice(self.world.pending_decisions());
             for &id in &due {
-                let obs = self.world.observe_articulated(id);
+                let obs = self.world.observe(id);
                 // Routed on the alive set captured at install, because an
                 // articulated observation has no faction column by design. See
                 // [`Arena::heroes`].
@@ -3631,7 +3631,7 @@ impl Sim {
                 // the fight carries on either way, and the page's channel for
                 // "the world refused something" is [`submit_embodied`]'s packed
                 // word rather than a counter nobody publishes.
-                let _ = self.world.submit_embodied_v1(id, command);
+                let _ = self.world.submit(id, command);
                 if side == Faction::Heroes {
                     self.last_decision_tick = self.world.tick();
                 }
@@ -3858,7 +3858,7 @@ impl Sim {
     /// **The body yaw rides in the command, and a held turn had to become a
     /// *lead* rather than a step.** It used to be written straight onto the body
     /// by `World::face_legacy`, which refuses an embodied world;
-    /// `ArticulatedCommandV1::body_yaw` is a request, chased by the actuator at
+    /// `CommandCoreV1::body_yaw` is a request, chased by the actuator at
     /// the body's own turn authority. The first translation asked for the body's
     /// own yaw plus 512 raw -- the exact number `face_legacy` used to write --
     /// and it was measured at 8,577 raw in 240 ticks, an eighth of the rate the
@@ -3889,11 +3889,11 @@ impl Sim {
     /// bearing it is handed. The distinction is recorded here as inert rather
     /// than dropped from [`set_input`], whose argument list is a wire contract.
     fn drive_hero(&mut self, hero: EntityId) {
-        let obs = self.world.observe_articulated(hero);
+        let obs = self.world.observe(hero);
         if self.world.tick() >= self.hero_next_decision {
             self.cached = self.policies[Faction::Heroes.index()].decide(&obs);
             // The decision clock off the body's own sheet, which is where the
-            // legacy observation carried it. An `ArticulatedObservation` has no
+            // legacy observation carried it. An `Observation` has no
             // such column and should not grow one -- it publishes what a fighter
             // perceives, and its own reaction time is not perception -- so the
             // host asks the world instead. A body that has just fallen answers
@@ -3915,8 +3915,8 @@ impl Sim {
             const PLAYER_TURN_LEAD_RAW: i32 = 8_192;
             let lead = (self.input_turn * PLAYER_TURN_LEAD_RAW).round_int();
             facing = obs.body_yaw + Angle::from_raw(lead as u16);
-            command.articulated.body_yaw = facing;
-            command.articulated.move_dir = self.input_move;
+            command.core.body_yaw = facing;
+            command.core.move_dir = self.input_move;
         }
         if self.control & CONTROL_LIMB != 0 {
             // **Which arm the pointer steers, and this is where `CONTROL_SLOT`
@@ -3932,7 +3932,7 @@ impl Sim {
                 0
             };
             let striking = !matches!(self.input_strike, Strike::None);
-            command.articulated.arms[arm] = ArmTarget {
+            command.core.arms[arm] = ArmTarget {
                 // Torso-relative, which is the whole of the frame difference on
                 // this column: the pointer is a world bearing, and zero here
                 // means "straight ahead" at every yaw.
@@ -3947,7 +3947,7 @@ impl Sim {
                 // bracing it.
                 reach: if striking { Fx::ONE } else { self.input_reach },
                 // **Both efforts are the script's own numbers**, taken rather
-                // than invented: `ScriptedEmbodiedPolicy` guards at a half and
+                // than invented: `ScriptedPolicy` guards at a half and
                 // commits at one, and a player's arm answering to a different
                 // pair would be a hand that behaves unlike every other hand in
                 // the room.
@@ -3959,7 +3959,7 @@ impl Sim {
         // still cannot tell which of them wrote it. The outcome is discarded on
         // the loop above's argument -- a refusal stores the neutral command
         // atomically and the page reads refusals through `submit_embodied`.
-        let _ = self.world.submit_embodied_v1(hero, command);
+        let _ = self.world.submit(hero, command);
     }
 
     /// Walks one monster into the running room. Answers how many monsters are
@@ -3970,7 +3970,7 @@ impl Sim {
             faction: Faction::Monsters,
             stats: kind.base_stats(),
             loadout,
-            articulated: None,
+            combat_spec: None,
             // Rolled inside `walk_in`, not here. See [`Sim::spawn_point`].
             spawn: Vec2::ZERO,
         })
@@ -4024,7 +4024,7 @@ impl Sim {
         //
         // Which is not hypothetical, and the shape of it has changed rather
         // than gone away. Every spec built on this side used to carry
-        // `articulated: None`, so on a world with articulated columns *the whole
+        // `combat_spec: None`, so on a world with articulated columns *the whole
         // path* was refused (`CombatSpecError::UnitPresence`) rather than only
         // its sixty-fifth row. The line above is what fixed that; what is left
         // for `try_spawn` to refuse is a 65th row
@@ -4108,7 +4108,7 @@ impl Sim {
             faction: Faction::Heroes,
             stats: plan.stats,
             loadout,
-            articulated: None,
+            combat_spec: None,
             spawn,
         };
         // Dressed for the floor, exactly as [`Sim::walk_in`] dresses a monster
@@ -4128,7 +4128,7 @@ impl Sim {
         // gone: `World::set_loadout` refuses an embodied world, so the kit is
         // decided at the door and nowhere else.
         plan.loadout = arriving.loadout;
-        plan.articulated = arriving.articulated;
+        plan.combat_spec = arriving.combat_spec;
         self.hero_spec = plan;
         self.units.push(id);
         self.remember_anatomy(id);
@@ -4483,15 +4483,15 @@ impl Sim {
             // while the fight goes on underneath it.
             //
             // Read off the pose rather than added to `UnitView`, because the
-            // pose is where a jointed body's yaw *is*: `ArticulatedPose::body_yaw`
+            // pose is where a jointed body's yaw *is*: `Pose::body_yaw`
             // is the same word `POSE_BODY_YAW_RAW` publishes, so the frame and
             // the pose section cannot disagree about which way somebody is
-            // facing. It costs a second `articulated_pose` per body per publish,
+            // facing. It costs a second `pose` per body per publish,
             // which `write_pose_buffer` already pays once; the alternative is a
             // cheap yaw accessor on `World`, and that is a `crates/sim` change.
             let yaw = self
                 .world
-                .articulated_pose(id)
+                .pose(id)
                 .map_or(view.facing, |pose| pose.body_yaw);
             write_unit(
                 &mut frame[HEADER_LEN + count * UNIT_STRIDE..],
@@ -4949,11 +4949,11 @@ const fn u64_words(value: u64) -> [u32; 2] {
 
 /// One published pose row, straight off the sim's own published pose.
 ///
-/// Nothing is derived here. [`sim::ArticulatedPose`] was shaped to be exactly
+/// Nothing is derived here. [`sim::Pose`] was shaped to be exactly
 /// this row -- its positions are already world space and its masks are already
 /// read off its own geometry -- so re-deriving any of it on this side would be
 /// a second answer to a question the sim has already answered once.
-fn pose_row(pose: &sim::ArticulatedPose) -> [u32; POSE_STRIDE] {
+fn pose_row(pose: &sim::Pose) -> [u32; POSE_STRIDE] {
     let mut row = [0u32; POSE_STRIDE];
     row[POSE_ENTITY_INDEX] = pose.id.index;
     row[POSE_ENTITY_GENERATION] = pose.id.generation;
@@ -5031,7 +5031,7 @@ fn region_row(volume: &sim::RegionVolume) -> [u32; REGION_STRIDE] {
 /// the same reuse reason; every remaining field is the simulation's own fixed-
 /// point state.
 fn articulated_projectile_row(
-    projectile: &sim::ArticulatedProjectileView,
+    projectile: &sim::ProjectileView,
 ) -> [u32; ARTICULATED_PROJECTILE_STRIDE] {
     let mut row = [0u32; ARTICULATED_PROJECTILE_STRIDE];
     row[ARTICULATED_PROJECTILE_SLOT] = projectile.slot;
@@ -5191,7 +5191,7 @@ fn push_combat_event(
 fn write_pose_buffer(sim: &Sim, out: &mut [u32; MAX_POSES * POSE_STRIDE]) -> (u32, u32) {
     let mut rows = 0u32;
     let mut dropped = 0u32;
-    for pose in sim.world.articulated_poses() {
+    for pose in sim.world.poses() {
         push_published_row(out, &mut rows, &mut dropped, &pose_row(&pose));
     }
     (rows, dropped)
@@ -5229,7 +5229,7 @@ fn write_pose_buffer(sim: &Sim, out: &mut [u32; MAX_POSES * POSE_STRIDE]) -> (u3
 /// `the_head_capsule_is_published_degenerate_and_present` need, since neither
 /// case is reachable by asking a live world nicely.
 fn pose_region_volumes(
-    pose: &sim::ArticulatedPose,
+    pose: &sim::Pose,
     anatomy: &sim::BodyAnatomySpec,
 ) -> [sim::RegionVolume; REGIONS_PER_BODY] {
     let present: [bool; sim::AnatomyRegion::COUNT] =
@@ -5260,7 +5260,7 @@ fn pose_region_volumes(
 fn write_region_buffer(sim: &Sim, out: &mut [u32; MAX_REGIONS * REGION_STRIDE]) -> (u32, u32) {
     let mut rows = 0u32;
     let mut dropped = 0u32;
-    for pose in sim.world.articulated_poses() {
+    for pose in sim.world.poses() {
         let Some(anatomy) = sim.anatomy.get(pose.id.index as usize).and_then(Option::as_ref)
         else {
             dropped = dropped.saturating_add(REGIONS_PER_BODY as u32);
@@ -5281,7 +5281,7 @@ fn write_articulated_projectile_buffer(
 ) -> (u32, u32) {
     let mut rows = 0u32;
     let mut dropped = 0u32;
-    for projectile in sim.world.articulated_projectiles() {
+    for projectile in sim.world.projectiles() {
         push_published_row(
             out,
             &mut rows,
@@ -5496,7 +5496,7 @@ pub extern "C" fn init(seed: u32) {
 // that field was deleted -- for exactly the reason below, arrived at from the
 // other end. The field's only readers were `nav_dir` and `nav_distance` on the
 // *legacy* `Observation`, and the order itself is copied into that same struct.
-// An `ArticulatedObservation` -- which is the whole of what an embodied body
+// An `Observation` -- which is the whole of what an embodied body
 // perceives -- has no order column and no nav column. So on this floor a click
 // moved the state hash, drew a destination pip in the frame header, rebuilt a
 // field nobody read, and changed nothing whatsoever about where anybody walked.
@@ -5515,7 +5515,7 @@ pub extern "C" fn init(seed: u32) {
 // still, which reads as a bug in the router rather than as a channel that is
 // not connected.
 //
-// **The alternative was to keep them and give `ArticulatedObservation` a nav
+// **The alternative was to keep them and give `Observation` a nav
 // column.** That is a new mechanic and a new feature block on a frozen vector,
 // which is not something a session retiring two models gets to add. Direct
 // control is the channel that survives: [`set_control`] and [`set_input`] are
@@ -5587,7 +5587,7 @@ fn install_boundary_fixture(scenario: &Scenario, seed: u32) {
     // pending decision by submitting the faction's policy command, and [`init`]'s
     // dungeon opens on `Tactical` on both sides -- a fighter that aims. On the
     // articulated fixture this module used to install, that loop was inert by
-    // accident: `World::submit_embodied_v1` refuses a world of the other grammar,
+    // accident: `World::submit` refuses a world of the other grammar,
     // so every policy command it produced was discarded and whatever the *host*
     // had submitted survived the tick. It is not refused here.
     //
@@ -5595,7 +5595,7 @@ fn install_boundary_fixture(scenario: &Scenario, seed: u32) {
     // boundary clinch caps on tick 132 against `Tactical` and on tick **109**
     // against the control. It is that `CLINCH_CAP_TICK` would become a function
     // of the shipped policy, mirrored into `client/test/wasm-memory.test.mjs`,
-    // so a session tuning `EmbodiedPolicyKind::Tactical` would move a browser
+    // so a session tuning `PolicyKind::Tactical` would move a browser
     // constant in two files for a reason nothing in either of them names. Every
     // move that constant has ever recorded is a solver change or a drive change;
     // this line is what keeps that true.
@@ -5605,8 +5605,8 @@ fn install_boundary_fixture(scenario: &Scenario, seed: u32) {
     // still, rather than that it has been switched off. It is still a decision
     // answered on the ordinary clock, so `expire_unanswered_decisions` behaves
     // here exactly as it does on a floor.
-    fresh.set_policy(Faction::Heroes, EmbodiedPolicyKind::Neutral);
-    fresh.set_policy(Faction::Monsters, EmbodiedPolicyKind::Neutral);
+    fresh.set_policy(Faction::Heroes, PolicyKind::Neutral);
+    fresh.set_policy(Faction::Monsters, PolicyKind::Neutral);
     // The world's anatomy rows, replaced along with the world. This fixture
     // swaps a duel in behind a `Sim` built on a generated floor, so the table it
     // inherited is that floor's roster rather than this duel's -- and a region
@@ -5625,7 +5625,7 @@ fn install_boundary_fixture(scenario: &Scenario, seed: u32) {
     // what the frame can ever publish, so reserving for it is the only figure
     // that makes *every* later spawn free; reserving for the roster would leave
     // the growth exactly where it must not be, on the call that adds a body.
-    // 64 is also `MAX_ARTICULATED_ENTITIES`, so this can never be the request
+    // 64 is also `MAX_ENTITIES`, so this can never be the request
     // that is refused for being too large.
     let reserved = fresh.world.try_reserve_contact_slots(MAX_UNITS).is_ok();
     if reserved {
@@ -5649,7 +5649,7 @@ fn install_boundary_fixture(scenario: &Scenario, seed: u32) {
 ///
 /// A plain Fighter, which is what the sandbox room has always opened with; the
 /// level decides where it stands, and every later floor carries whatever it has
-/// become. `articulated: None` here and filled in by [`equip_articulated`] on
+/// become. `combat_spec: None` here and filled in by [`equip_articulated`] on
 /// the way through [`dungeon_scenario`], because which anatomy row a Fighter
 /// takes is a fact about the table the floor is built against rather than about
 /// the character.
@@ -5659,7 +5659,7 @@ fn starting_hero() -> UnitSpec {
         faction: Faction::Heroes,
         stats: Body::Fighter.base_stats(),
         loadout: Body::Fighter.default_loadout(),
-        articulated: None,
+        combat_spec: None,
         spawn: Vec2::ZERO,
     }
 }
@@ -6057,7 +6057,7 @@ pub const extern "C" fn embodied_command_layout_version() -> u32 {
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn submit_embodied(entity_index: u32, entity_generation: u32) -> u32 {
-    use sim::{EmbodiedCommandV1, SubmitEmbodiedOutcome};
+    use sim::{CommandV1, SubmitOutcome};
     let bytes = EMBODIED_COMMAND.with(|buffer| *buffer.borrow());
     let layout = u16::from_le_bytes([bytes[0], bytes[1]]);
     // Kind `2` where the articulated envelope demands `1`. The byte is
@@ -6084,33 +6084,33 @@ pub extern "C" fn submit_embodied(entity_index: u32, entity_generation: u32) -> 
         if sim.world.view(id).is_none() {
             return submit_result(0, 3, 0, 0);
         }
-        if EmbodiedCommandV1::validate_payload_structure(payload).is_err() {
+        if CommandV1::validate_payload_structure(payload).is_err() {
             return submit_result(0, 1, 0, 0);
         }
-        let command = match EmbodiedCommandV1::from_payload_bytes(payload) {
+        let command = match CommandV1::from_payload_bytes(payload) {
             Ok(command) => command,
-            Err(ArticulatedPayloadError::OutOfRange(field)) => {
-                return match sim.world.submit_embodied_fallback_v1(
+            Err(PayloadError::OutOfRange(field)) => {
+                return match sim.world.submit_fallback(
                     id,
                     field,
                 ) {
-                    SubmitEmbodiedOutcome::Stored { .. } => submit_result(2, 4, field as u8, 0),
-                    SubmitEmbodiedOutcome::NotStored(CommandReject::WrongModel) => submit_result(0, 2, 0, 0),
+                    SubmitOutcome::Stored { .. } => submit_result(2, 4, field as u8, 0),
+                    SubmitOutcome::NotStored(CommandReject::WrongModel) => submit_result(0, 2, 0, 0),
                     _ => submit_result(0, 3, 0, 0),
                 };
             }
             Err(_) => return submit_result(0, 1, 0, 0),
         };
-        match sim.world.submit_embodied_v1(id, command) {
-            SubmitEmbodiedOutcome::Stored { rejection: None, .. } => submit_result(1, 0, 0, 0),
-            SubmitEmbodiedOutcome::Stored {
+        match sim.world.submit(id, command) {
+            SubmitOutcome::Stored { rejection: None, .. } => submit_result(1, 0, 0, 0),
+            SubmitOutcome::Stored {
                 rejection: Some(CommandReject::OutOfRange(field)), ..
             } => submit_result(2, 4, field as u8, 0),
-            SubmitEmbodiedOutcome::Stored {
+            SubmitOutcome::Stored {
                 rejection: Some(CommandReject::MissingEquipment { arm, slot }), ..
             } => submit_result(2, 5, arm as u8, slot),
-            SubmitEmbodiedOutcome::NotStored(CommandReject::WrongModel) => submit_result(0, 2, 0, 0),
-            SubmitEmbodiedOutcome::NotStored(CommandReject::StaleEntity) => submit_result(0, 3, 0, 0),
+            SubmitOutcome::NotStored(CommandReject::WrongModel) => submit_result(0, 2, 0, 0),
+            SubmitOutcome::NotStored(CommandReject::StaleEntity) => submit_result(0, 3, 0, 0),
             _ => submit_result(0, 1, 0, 0),
         }
     })
@@ -6157,7 +6157,7 @@ pub const extern "C" fn checkpoint_capacity() -> u32 { CHECKPOINT_CAPACITY as u3
 /// whether the `learned` entry in its policy dropdown was selectable, which was
 /// the difference between an option a reader can be told about and one that
 /// answers [`ARENA_NO_CHECKPOINT`] when they pick it. v2-ui-08 moved the arena
-/// onto [`EmbodiedPolicyKind`], which has no `learned` entry, so there is no
+/// onto [`PolicyKind`], which has no `learned` entry, so there is no
 /// dropdown row for this to grey out.
 ///
 /// What it still answers is whether [`learned_inference_digest_lo`] is reporting
@@ -6285,7 +6285,7 @@ pub extern "C" fn load_checkpoint(len: u32) -> u32 {
 /// `the_cross_target_digest_allocates_nothing` in
 /// `crates/learn/tests/allocation.rs` puts it through the counting
 /// `#[global_allocator]` this repository keeps one `unsafe` block for, because
-/// the function builds sixty-four whole `ArticulatedObservation`s and "they are
+/// the function builds sixty-four whole `Observation`s and "they are
 /// `Copy` so they land on the stack" is exactly the kind of claim that stops
 /// being true quietly.
 /// Reading both halves therefore walks the corpus twice, and the cost of that is
@@ -6490,7 +6490,7 @@ fn arena_fingerprint() -> u64 {
     with_sim(0, |sim| sim.arena.as_ref().map_or(0, |arena| arena.fingerprint))
 }
 
-/// Which policy a side is running, as an [`EmbodiedPolicyKind::code`], or
+/// Which policy a side is running, as an [`PolicyKind::code`], or
 /// [`ARENA_NO_POLICY`] when this world is not an arena.
 ///
 /// `0` is `neutral` and a perfectly ordinary answer, so absence needs a value no
@@ -6588,7 +6588,7 @@ fn install_arena(bytes: &[u8; ARENA_CONFIG_BYTES], seed: u64) -> Result<(), Aren
 fn parse_arena_fighter(
     bytes: &[u8; ARENA_CONFIG_BYTES],
     index: usize,
-) -> Result<(sim::DuelFighterV1, EmbodiedPolicyKind, Box<dyn EmbodiedPolicy>), ArenaRefusal> {
+) -> Result<(sim::DuelFighterV1, PolicyKind, Box<dyn Policy>), ArenaRefusal> {
     let base = ARENA_HEADER_BYTES + index * ARENA_FIGHTER_BYTES;
     let at = |offset: usize| i32::from_le_bytes(bytes[base + offset..][..4].try_into().unwrap());
 
@@ -6601,10 +6601,10 @@ fn parse_arena_fighter(
         _ => return Err(ArenaRefusal::fighter(ARENA_UNKNOWN_ANATOMY, index)),
     };
     let code = u32::from(bytes[base + ARENA_FIGHTER_POLICY]);
-    let kind = EmbodiedPolicyKind::from_code(code)
+    let kind = PolicyKind::from_code(code)
         .ok_or(ArenaRefusal::fighter(ARENA_UNKNOWN_POLICY, index))?;
     // **Every code this parser accepts now builds**, which is the whole of what
-    // v2-ui-08 did to this line. `EmbodiedPolicyKind::build` returns a policy
+    // v2-ui-08 did to this line. `PolicyKind::build` returns a policy
     // rather than an `Option` -- its own comment argues why, and the argument is
     // that nothing in that registry is a checkpoint -- so the two refusals that
     // used to live between here and a running fight, `ARENA_POLICY_UNAVAILABLE`
@@ -6614,10 +6614,10 @@ fn parse_arena_fighter(
     // refusal that names the offending code, which is the one thing a page
     // sending a stale saved code needs to be told.
     let mut policy = kind.build();
-    // `EmbodiedPolicy::reset`'s contract, honoured even though it is a no-op on
+    // `Policy::reset`'s contract, honoured even though it is a no-op on
     // an instance built one line above. It is what stops "fresh" from quietly
     // coming to mean "whatever a stateful successor happens to construct itself
-    // with" -- and `ScriptedEmbodiedPolicy` already carries `GroundSense`, a row
+    // with" -- and `ScriptedPolicy` already carries `GroundSense`, a row
     // of per-run memory, so this is not hypothetical here the way it was on the
     // articulated side. `lab`'s matchup loop resets two policies it has just
     // built for exactly that reason.
@@ -6809,7 +6809,7 @@ pub const extern "C" fn pose_capacity() -> u32 { MAX_POSES as u32 }
 
 /// Rows the last publication could not fit, saturating.
 ///
-/// Zero in every reachable case: the cap is `MAX_ARTICULATED_ENTITIES` and the
+/// Zero in every reachable case: the cap is `MAX_ENTITIES` and the
 /// sim cannot hold more articulated bodies than that. It is published anyway
 /// because the prefix rule is only meaningful if a reader can tell it fired,
 /// and because a future producer -- a newer module against an older page -- is
@@ -7127,13 +7127,13 @@ pub extern "C" fn lifted_coulomb_solver_digest_hi() -> u32 {
 // convincing.
 
 /// Chooses a faction's policy: `0` heroes, anything else monsters. The policy
-/// code is [`policy::EmbodiedPolicyKind::code`]. Answers `1` if it took, `0` if
+/// code is [`policy::PolicyKind::code`]. Answers `1` if it took, `0` if
 /// the code was unknown or there is no world yet.
 ///
 /// **The codes are a different registry from the one this export used to take**,
-/// and they had to be: `EmbodiedPolicyKind` and `PolicyKind` never shared a code
-/// space, deliberately, because the same integer names different things on each
-/// seam. A page holding a saved `2` now selects `scripted-level` where it once
+/// and they had to be: the legacy registry and today's [`policy::PolicyKind`]
+/// never shared a code space, deliberately, because the same integer named
+/// different things on each seam. A page holding a saved `2` now selects `scripted-level` where it once
 /// selected `idle`, and there is no compatibility shim because there is no
 /// legacy world left for one to mean anything on.
 ///
@@ -7143,7 +7143,7 @@ pub extern "C" fn lifted_coulomb_solver_digest_hi() -> u32 {
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn set_policy(faction_code: u32, policy_code: u32) -> u32 {
-    let kind = match EmbodiedPolicyKind::from_code(policy_code) {
+    let kind = match PolicyKind::from_code(policy_code) {
         Some(kind) => kind,
         None => return 0,
     };
@@ -7155,9 +7155,9 @@ pub extern "C" fn set_policy(faction_code: u32, policy_code: u32) -> u32 {
         //
         // **The reason is no longer that the two are different registries.**
         // Until v2-ui-08 an arena's fighters ran `ArticulatedPolicyKind` and
-        // this export took `EmbodiedPolicyKind`, and answering `1` would have
+        // this export took `PolicyKind`, and answering `1` would have
         // installed a code from one vocabulary into a slot read by the other.
-        // Both are `EmbodiedPolicyKind` now and the refusal stands anyway, for
+        // Both are `PolicyKind` now and the refusal stands anyway, for
         // the narrower reason it always also had: an arena's pair is written
         // once, by [`arena_start`], as half of a 120-byte configuration whose
         // fingerprint names the fight. A dropdown that swapped one side mid-run
@@ -7175,13 +7175,13 @@ pub extern "C" fn set_policy(faction_code: u32, policy_code: u32) -> u32 {
     took
 }
 
-/// Which policy a faction is running, as a [`policy::EmbodiedPolicyKind::code`],
+/// Which policy a faction is running, as a [`policy::PolicyKind::code`],
 /// or [`POLICY_KIND_UNKNOWN`] on a world this vocabulary does not describe.
 ///
 /// **An arena answers that it does not know, and kept doing so after v2-ui-08
 /// made the two registries one.** The original reason was a collision: an arena
 /// ran `ArticulatedPolicyKind`, where `2` is `windmill`, and this export is
-/// documented as returning `EmbodiedPolicyKind`, where `2` is `scripted-level`.
+/// documented as returning `PolicyKind`, where `2` is `scripted-level`.
 /// That reason is gone. What is left is that this export is the read half of
 /// [`set_policy`], which an arena refuses -- so a page that got a code back here
 /// would reasonably write one back there and be told `0`. [`arena_policy`] is
@@ -7206,10 +7206,10 @@ pub extern "C" fn policy_kind(faction_code: u32) -> u32 {
 ///
 /// **Rebased rather than deleted, and the list it indexes is one entry long.**
 /// These two used to name a legacy policy's genes, one label per slider, and the
-/// five exports that read and wrote those genes are gone -- `EmbodiedPolicyKind`
+/// five exports that read and wrote those genes are gone -- `PolicyKind`
 /// carries no genome, and an export answering a constant zero is a control the
 /// page can still draw. What a policy here does have is a name, so index `0` is
-/// [`policy::EmbodiedPolicyKind::name`] and every index past it is empty, which
+/// [`policy::PolicyKind::name`] and every index past it is empty, which
 /// is exactly how a caller discovered it had run off the gene list.
 ///
 /// **Keyed by faction and not by policy code**, which is a real limitation and
@@ -7597,7 +7597,7 @@ pub const extern "C" fn dungeon_object_layout_version() -> u32 {
 /// converts to is an ordinary generated floor with the floor loop, the floor
 /// policies and no arena: `arena_policy` goes back to [`ARENA_NO_POLICY`],
 /// `arena_fingerprint_*` back to `0`, [`policy_kind`] back to naming an
-/// [`policy::EmbodiedPolicyKind`] and [`set_policy`] back to taking one. See
+/// [`policy::PolicyKind`] and [`set_policy`] back to taking one. See
 /// [`Sim::descend`] for why that is the answer and not a refusal.
 #[allow(unsafe_code)]
 #[no_mangle]
@@ -8137,8 +8137,8 @@ fn stream_digest_scenario() -> Scenario {
 /// it, so a script that resubmitted every tick would be measuring the submission
 /// path rather than the stream.
 ///
-/// It still builds an [`sim::ArticulatedCommandV1`] and the caller wraps it in
-/// [`sim::EmbodiedCommandV1::new`], which is the neutral swing plane on both
+/// It still builds an [`sim::CommandCoreV1`] and the caller wraps it in
+/// [`sim::CommandV1::new`], which is the neutral swing plane on both
 /// arms. That is the right constructor here and not a shortcut: this function
 /// has no plane to give, and an adapter forced to invent one would be inventing
 /// state. The plane that is *not* neutral lives in the command fixture that
@@ -8152,14 +8152,14 @@ fn stream_digest_command(
     bearing: Angle,
     walk: Vec2,
     target: EntityId,
-) -> sim::ArticulatedCommandV1 {
+) -> sim::CommandCoreV1 {
     let arm = sim::ArmTarget {
         bearing,
         height: sim::CombatHeight::MID,
         reach: Fx::ONE,
         effort: Fx::ONE,
     };
-    sim::ArticulatedCommandV1 {
+    sim::CommandCoreV1 {
         move_dir: walk,
         body_yaw: bearing,
         intent: Intent::Attack(target),
@@ -8332,7 +8332,7 @@ fn drive_stream_digest_script(mut feed: impl FnMut(StreamPublication)) {
     // **The policies are named here rather than defaulted, because this fixture
     // drives a pinned digest and a room default moved it once already.** That is
     // not a hypothetical: the session that opened `#/game` on
-    // `EmbodiedPolicyKind::Tactical` changed one line in [`Sim::try_on`] and
+    // `PolicyKind::Tactical` changed one line in [`Sim::try_on`] and
     // `ARTICULATED_STREAM_DIGEST` moved, from `0x96e4e51de0c00d62` to
     // `0xfb1d4456a7ef82d1` -- a two-target, four-copy portability witness
     // reached by a dropdown's opening value, which it is not supposed to be
@@ -8353,8 +8353,8 @@ fn drive_stream_digest_script(mut feed: impl FnMut(StreamPublication)) {
     // and has to say the same thing for the same reason; the two are separate
     // because that test opens its batch mid-script rather than reading every
     // tick.
-    sim.set_policy(Faction::Heroes, EmbodiedPolicyKind::Scripted);
-    sim.set_policy(Faction::Monsters, EmbodiedPolicyKind::Scripted);
+    sim.set_policy(Faction::Heroes, PolicyKind::Scripted);
+    sim.set_policy(Faction::Monsters, PolicyKind::Scripted);
     // Reserved up front so the run's own contact vectors do not grow under it.
     // This costs one allocation burst before any pointer is handed out, which
     // is the same discipline `init` keeps.
@@ -8381,13 +8381,13 @@ fn drive_stream_digest_script(mut feed: impl FnMut(StreamPublication)) {
     // reader diffing these two lines across the move would conclude wrongly that
     // nothing changed.
     let west = Vec2::new(-Fx::ONE, Fx::ZERO);
-    sim.world.submit_embodied_v1(
+    sim.world.submit(
         fighter,
-        sim::EmbodiedCommandV1::new(stream_digest_command(Angle::ZERO, west, brute)),
+        sim::CommandV1::new(stream_digest_command(Angle::ZERO, west, brute)),
     );
-    sim.world.submit_embodied_v1(
+    sim.world.submit(
         brute,
-        sim::EmbodiedCommandV1::new(stream_digest_command(Angle::ZERO, Vec2::ZERO, fighter)),
+        sim::CommandV1::new(stream_digest_command(Angle::ZERO, Vec2::ZERO, fighter)),
     );
 
     // The five published buffers, built once and reused across the script
@@ -8474,7 +8474,7 @@ mod tests {
     /// it is handed to agrees with itself by construction and says nothing about
     /// the layout. This one is written against the offset constants, which is
     /// what a page has.
-    fn write_arena_config(config: &sim::DuelConfigV1, policies: [EmbodiedPolicyKind; 2]) {
+    fn write_arena_config(config: &sim::DuelConfigV1, policies: [PolicyKind; 2]) {
         ARENA_CONFIG.with(|buffer| {
             let mut bytes = buffer.borrow_mut();
             bytes.fill(0);
@@ -8548,7 +8548,7 @@ mod tests {
     fn the_lab_loop(
         scenario: &Scenario,
         seed: u64,
-        kinds: [EmbodiedPolicyKind; 2],
+        kinds: [PolicyKind; 2],
     ) -> (u64, Option<sim::Outcome>, u32) {
         the_lab_loop_with(scenario, seed, [kinds[0].build(), kinds[1].build()])
     }
@@ -8556,7 +8556,7 @@ mod tests {
     /// [`the_lab_loop`] over two policies the caller built.
     ///
     /// **It was split out for the one kind `ArticulatedPolicyKind::build` could
-    /// not make**, and that kind is gone: `EmbodiedPolicyKind::build` is total,
+    /// not make**, and that kind is gone: `PolicyKind::build` is total,
     /// so `the_lab_loop` above is now the whole of it. The split survives
     /// because a caller *outside* the registry -- a checkpoint, a wrapper, a
     /// policy assembled for one assertion -- is still a thing a test may want to
@@ -8565,7 +8565,7 @@ mod tests {
     fn the_lab_loop_with(
         scenario: &Scenario,
         seed: u64,
-        mut policies: [Box<dyn EmbodiedPolicy>; 2],
+        mut policies: [Box<dyn Policy>; 2],
     ) -> (u64, Option<sim::Outcome>, u32) {
         let mut world = World::new(scenario, seed);
         let orders = RunConfig::default().orders;
@@ -8579,10 +8579,10 @@ mod tests {
             due.clear();
             due.extend_from_slice(world.pending_decisions());
             for &id in &due {
-                let obs = world.observe_articulated(id);
+                let obs = world.observe(id);
                 let side = usize::from(!heroes.contains(&id));
                 let command = policies[side].decide(&obs);
-                let _ = world.submit_embodied_v1(id, command);
+                let _ = world.submit(id, command);
             }
             let _ = world.step();
         }
@@ -8610,14 +8610,14 @@ mod tests {
         yaw: Angle,
         height: sim::CombatHeight,
         target: EntityId,
-    ) -> sim::EmbodiedCommandV1 {
+    ) -> sim::CommandV1 {
         let arm = sim::ArmTarget {
             bearing: Angle::ZERO,
             height,
             reach: Fx::ONE,
             effort: Fx::ONE,
         };
-        sim::EmbodiedCommandV1::new(sim::ArticulatedCommandV1 {
+        sim::CommandV1::new(sim::CommandCoreV1 {
             move_dir: Vec2::ZERO,
             body_yaw: yaw,
             intent: Intent::Attack(target),
@@ -8743,7 +8743,7 @@ mod tests {
         // that what it hands `duel_from` is the configuration that was staged.
         let mut config = sim::DuelConfigV1::shipped();
         config.fighters[1].two_handed = true;
-        let kinds = [EmbodiedPolicyKind::Scripted, EmbodiedPolicyKind::Tactical];
+        let kinds = [PolicyKind::Scripted, PolicyKind::Tactical];
         write_arena_config(&config, kinds);
         let fighters = ARENA_CONFIG.with(|buffer| {
             let bytes = *buffer.borrow();
@@ -8800,7 +8800,7 @@ mod tests {
         // shipped fixture does not kill inside sixty seconds, so both runs stop
         // on the tick limit and the *limit* is what has to agree as well.
         config.max_ticks = 300;
-        let kinds = [EmbodiedPolicyKind::Scripted, EmbodiedPolicyKind::Tactical];
+        let kinds = [PolicyKind::Scripted, PolicyKind::Tactical];
         write_arena_config(&config, kinds);
         assert_eq!(
             arena_start(3),
@@ -8854,8 +8854,8 @@ mod tests {
 
     #[test]
     fn each_side_may_run_a_different_policy() {
-        // The thing `policy::run_embodied` cannot do: it takes a single
-        // `impl EmbodiedPolicy` and installs it on both sides, which is right
+        // The thing `policy::run` cannot do: it takes a single
+        // `impl Policy` and installs it on both sides, which is right
         // for a control condition and useless for an arena. Its articulated twin
         // had the same shape and the same limitation, and is gone.
         //
@@ -8867,9 +8867,9 @@ mod tests {
         config.max_ticks = 200;
         let mut hashes = Vec::new();
         for kinds in [
-            [EmbodiedPolicyKind::Scripted, EmbodiedPolicyKind::Scripted],
-            [EmbodiedPolicyKind::Scripted, EmbodiedPolicyKind::Neutral],
-            [EmbodiedPolicyKind::Neutral, EmbodiedPolicyKind::Scripted],
+            [PolicyKind::Scripted, PolicyKind::Scripted],
+            [PolicyKind::Scripted, PolicyKind::Neutral],
+            [PolicyKind::Neutral, PolicyKind::Scripted],
         ] {
             write_arena_config(&config, kinds);
             assert_eq!(arena_start(3) & 0xff, 1, "{kinds:?} was refused");
@@ -8888,9 +8888,9 @@ mod tests {
         // kind nothing here consults.
         assert_eq!(policy_kind(0), POLICY_KIND_UNKNOWN);
         assert_eq!(policy_kind(1), POLICY_KIND_UNKNOWN);
-        assert_eq!(set_policy(0, EmbodiedPolicyKind::Neutral.code()), 0,
+        assert_eq!(set_policy(0, PolicyKind::Neutral.code()), 0,
                    "an arena took an embodied policy");
-        assert_eq!(arena_policy(0), EmbodiedPolicyKind::Neutral.code());
+        assert_eq!(arena_policy(0), PolicyKind::Neutral.code());
     }
 
     #[test]
@@ -8912,7 +8912,7 @@ mod tests {
         // broken is not a rule, so it is written down here.
         let mut config = sim::DuelConfigV1::shipped();
         config.max_ticks = 300;
-        write_arena_config(&config, [EmbodiedPolicyKind::Scripted; 2]);
+        write_arena_config(&config, [PolicyKind::Scripted; 2]);
         assert_eq!(
             arena_start(3),
             submit_result(1, ARENA_OK, ARENA_WHOLE_CONFIG, ARENA_WHOLE_CONFIG),
@@ -8945,7 +8945,7 @@ mod tests {
         // about a world that is standing there rather than about `None`.
         let mut config = sim::DuelConfigV1::shipped();
         config.max_ticks = 120;
-        let kinds = [EmbodiedPolicyKind::Scripted, EmbodiedPolicyKind::Tactical];
+        let kinds = [PolicyKind::Scripted, PolicyKind::Tactical];
         write_arena_config(&config, kinds);
         assert_eq!(arena_start(3) & 0xff, 1);
         step(40);
@@ -9026,7 +9026,7 @@ mod tests {
 
         // 7. **Was the `learned` code with no network behind it, and there is no
         // seventh case.** `ARENA_NO_CHECKPOINT` was produced here; v2-ui-08 put
-        // the arena on `EmbodiedPolicyKind`, which has no `learned` entry, and
+        // the arena on `PolicyKind`, which has no `learned` entry, and
         // retired the code. `the_retired_policy_reasons_are_reserved_and_unproduced`
         // is what replaced this case, and it is a wider claim than this one was:
         // it drives every byte a page can put in the slot and asserts that
@@ -9092,9 +9092,9 @@ mod tests {
         // takes a new configuration.
         step(40);
         assert_eq!(tick(), standing.2 + 40);
-        write_arena_config(&config, [EmbodiedPolicyKind::Neutral; 2]);
+        write_arena_config(&config, [PolicyKind::Neutral; 2]);
         assert_eq!(arena_start(11) & 0xff, 1, "the instance stopped accepting fights");
-        assert_eq!(arena_policy(0), EmbodiedPolicyKind::Neutral.code());
+        assert_eq!(arena_policy(0), PolicyKind::Neutral.code());
         assert_eq!(tick(), 0);
     }
 
@@ -9105,7 +9105,7 @@ mod tests {
         // code `4`: `ArticulatedPolicyKind::from_code` knew it, `name` said
         // "learned", `build` answered `None`, and `arena_start` refused it by
         // name with `ARENA_NO_CHECKPOINT` until a network was loaded. The arena
-        // reads `EmbodiedPolicyKind` now, whose `build` is total and which has
+        // reads `PolicyKind` now, whose `build` is total and which has
         // no `learned` entry, so both `ARENA_POLICY_UNAVAILABLE` and
         // `ARENA_NO_CHECKPOINT` lost their producers in one move.
         //
@@ -9130,7 +9130,7 @@ mod tests {
         // the one policy refusal that still has a producer.
         let config = sim::DuelConfigV1::shipped();
         let registered: Vec<u32> =
-            EmbodiedPolicyKind::ALL.iter().map(|kind| kind.code()).collect();
+            PolicyKind::ALL.iter().map(|kind| kind.code()).collect();
         assert_eq!(registered, vec![0, 1, 2, 3, 4], "the embodied registry is no longer 0..5");
         for loaded in [false, true] {
             if loaded {
@@ -9140,7 +9140,7 @@ mod tests {
             }
             for side in 0..2 {
                 for byte in 0..=255u32 {
-                    write_arena_config(&config, [EmbodiedPolicyKind::Scripted; 2]);
+                    write_arena_config(&config, [PolicyKind::Scripted; 2]);
                     poke_arena_config(
                         ARENA_HEADER_BYTES + side * ARENA_FIGHTER_BYTES + ARENA_FIGHTER_POLICY,
                         byte as u8,
@@ -9170,9 +9170,9 @@ mod tests {
         // silent reinterpretation is the failure a reserved number exists to
         // prevent and this one is the case where reserving was not available.
         // `5` and `6` were `tactical` and `openings` and are now refused.
-        assert_eq!(EmbodiedPolicyKind::from_code(4), Some(EmbodiedPolicyKind::TacticalFixedGuard));
-        assert_eq!(EmbodiedPolicyKind::from_code(5), None);
-        assert_eq!(EmbodiedPolicyKind::from_code(6), None);
+        assert_eq!(PolicyKind::from_code(4), Some(PolicyKind::TacticalFixedGuard));
+        assert_eq!(PolicyKind::from_code(5), None);
+        assert_eq!(PolicyKind::from_code(6), None);
     }
 
     #[test]
@@ -9180,11 +9180,11 @@ mod tests {
         assert_eq!(checkpoint_installed(), 0);
         let config = sim::DuelConfigV1::shipped();
         write_arena_config(&config, [
-            EmbodiedPolicyKind::Tactical,
-            EmbodiedPolicyKind::Neutral,
+            PolicyKind::Tactical,
+            PolicyKind::Neutral,
         ]);
         assert_eq!(arena_start(23) & 0xff, 1);
-        assert_eq!(arena_policy(0), EmbodiedPolicyKind::Tactical.code());
+        assert_eq!(arena_policy(0), PolicyKind::Tactical.code());
     }
 
     /// The shipped artifact, the one `lab learn-probe evaluate` scores and the
@@ -9381,7 +9381,7 @@ mod tests {
                    "the reinstalled network is not being read");
         let mut config = sim::DuelConfigV1::shipped();
         config.max_ticks = 40;
-        write_arena_config(&config, [EmbodiedPolicyKind::Scripted, EmbodiedPolicyKind::Tactical]);
+        write_arena_config(&config, [PolicyKind::Scripted, PolicyKind::Tactical]);
         assert_eq!(arena_start(3) & 0xff, 1, "the instance stopped taking fights");
         step(config.max_ticks);
         assert_eq!(tick(), config.max_ticks);
@@ -9399,7 +9399,7 @@ mod tests {
     // and required a different fight, so "the network is consulted at all" was
     // measured rather than assumed.
     //
-    // Its subject is gone: an arena policy byte is an `EmbodiedPolicyKind::code`
+    // Its subject is gone: an arena policy byte is an `PolicyKind::code`
     // and that registry has no `learned` entry, for the reason written on the
     // enum. **What is lost, and what is not.**
     // `a_scripted_arena_fight_in_wasm_matches_the_same_fight_in_lab` still holds
@@ -9518,7 +9518,7 @@ mod tests {
         // anywhere reported it; the page was a hung level.
         let mut config = sim::DuelConfigV1::shipped();
         config.max_ticks = 300;
-        let kinds = [EmbodiedPolicyKind::Scripted, EmbodiedPolicyKind::Tactical];
+        let kinds = [PolicyKind::Scripted, PolicyKind::Tactical];
         write_arena_config(&config, kinds);
         assert_eq!(arena_start(3) & 0xff, 1, "the shipped configuration was refused");
         step(50);
@@ -9530,9 +9530,9 @@ mod tests {
         assert_eq!(arena_policy(1), ARENA_NO_POLICY);
         assert_eq!(arena_fingerprint(), 0, "a generated floor is named by a duel's configuration");
         assert_ne!(policy_kind(0), POLICY_KIND_UNKNOWN, "an ordinary floor cannot name its policy");
-        assert_eq!(set_policy(0, EmbodiedPolicyKind::Neutral.code()), 1,
+        assert_eq!(set_policy(0, PolicyKind::Neutral.code()), 1,
                    "an ordinary floor refused an embodied policy");
-        assert_eq!(policy_kind(0), EmbodiedPolicyKind::Neutral.code());
+        assert_eq!(policy_kind(0), PolicyKind::Neutral.code());
 
         // And it is a level that runs rather than one that has stopped. 300 is
         // where the tick used to stick, because `advance_arena`'s gate was still
@@ -9576,7 +9576,7 @@ mod tests {
             };
         }
 
-        let scripted = [EmbodiedPolicyKind::Scripted, EmbodiedPolicyKind::Tactical];
+        let scripted = [PolicyKind::Scripted, PolicyKind::Tactical];
         write_arena_config(&config, scripted);
         let hand_words = ARENA_CONFIG.with(|buffer| {
             let bytes = buffer.borrow();
@@ -9615,7 +9615,7 @@ mod tests {
         // tick because the fight is over before a guard read matters.
         assert_eq!(load_checkpoint(stage_shipped_checkpoint()) & 0xff, 1);
         write_arena_config(&config,
-            [EmbodiedPolicyKind::Tactical, EmbodiedPolicyKind::TacticalFixedGuard]);
+            [PolicyKind::Tactical, PolicyKind::TacticalFixedGuard]);
         assert_eq!(arena_start(3) & 0xff, 1, "the second fixture was refused");
         step(3_600);
         assert_eq!(tick(), 255, "the exact tactical fixture's stopping tick moved");
@@ -9678,7 +9678,7 @@ mod tests {
         // -- which catches a writer filling both arms from one. The two planes
         // are `0x4567` and `0x89ab`: **different, and neither of them zero**,
         // for `EMBODIED_FIXTURE_PLANE`'s reason in `crates/sim/src/codec.rs`. A
-        // pair that was equal, or that was the neutral plane `EmbodiedCommandV1::new`
+        // pair that was equal, or that was the neutral plane `CommandV1::new`
         // answers, would round-trip just as happily through a boundary that
         // truncated the buffer back to the articulated width or read one offset
         // twice.
@@ -9702,7 +9702,7 @@ mod tests {
         // `cap_hits` itself, from `0x584d711e492950e7` to `0x010411d521a376d7`.
         //
         // **Moved again by v2-20, and this fixture being unstepped is exactly
-        // why.** `initialize_articulated_pose` calls `derive_shield_pose` at
+        // why.** `initialize_pose` calls `derive_shield_pose` at
         // spawn, the ArticulatedV1 digest writes the plate's `half_width`,
         // `half_height` and `thickness` per slot, and two of those three are
         // what that session edited. So this is a *construction* move: nothing
@@ -9730,7 +9730,7 @@ mod tests {
         //
         // **Moved again by the session that deleted the legacy columns, and
         // this one is a *subtraction* where the five before it were additions.**
-        // `articulated_state_digest` folds `legacy_core_hash` before it writes a
+        // `state_digest_value` folds `legacy_core_hash` before it writes a
         // byte of its own, and that function lost `hp`, `max_hp`, the submitted
         // `command` word and the whole nine-column projectile block -- so this
         // reading could not have stayed still, and the plan that owned the
@@ -9750,7 +9750,7 @@ mod tests {
         // reach the number and all four were predicted from the fixture before
         // the run:
         //
-        // 1. `articulated_state_digest` writes the model byte and the payload
+        // 1. `state_digest_value` writes the model byte and the payload
         //    tag, and both go `1 -> 2` for Embodied.
         // 2. `World::state_digest` writes `payload_bytes()` for every stored
         //    command, and the embodied payload is 57 bytes where the articulated
@@ -9803,7 +9803,7 @@ mod tests {
     ///
     /// **This used to be `an_articulated_world_refuses_a_boundary_spawn_instead_of_trapping`,
     /// and the refusal it pinned was a defect rather than a contract.** Every
-    /// spec this crate built carried `articulated: None`, so a world with
+    /// spec this crate built carried `combat_spec: None`, so a world with
     /// articulated columns refused the whole path -- `CombatSpecError::UnitPresence`
     /// -- and the enemy panel answered `0` to every press. That was invisible
     /// while `init` opened a Legacy room and would have been the first thing a
@@ -9954,7 +9954,7 @@ mod tests {
     /// command before it steps, and every body is pending on tick zero -- so
     /// whatever the host submitted for tick zero is overwritten by the policy's.
     /// On the articulated fixture that loop was inert, because
-    /// `World::submit_embodied_v1` refuses a world of the other grammar and the
+    /// `World::submit` refuses a world of the other grammar and the
     /// outcome is discarded; here it stores. The consequence is not one lost
     /// tick, it is a *phase*: first contact moves 89 to 90 and the swept pairs
     /// stop arriving together, which is why the same bytes that cap on tick 119
@@ -9976,7 +9976,7 @@ mod tests {
         };
         // Both release verbs stay zero with the rest of the tail: `Keep`. This
         // drive is a clinch, and nothing in it is drawn. Both swing planes stay
-        // zero too, which is the neutral pair `EmbodiedCommandV1::new` answers:
+        // zero too, which is the neutral pair `CommandV1::new` answers:
         // this fixture is about the contact solver, and a plane it did not
         // choose would be a second input to a measurement with one.
         let mut bytes = [0u8; EMBODIED_COMMAND_BYTES];
@@ -10219,7 +10219,7 @@ mod tests {
 
     #[test]
     fn an_articulated_projectile_row_preserves_both_stable_identities_and_signed_words() {
-        let projectile = sim::ArticulatedProjectileView {
+        let projectile = sim::ProjectileView {
             slot: 4,
             generation: 7,
             owner: EntityId::new(9, 3),
@@ -10248,7 +10248,7 @@ mod tests {
         config.fighters[0].two_handed = true;
         write_arena_config(
             &config,
-            [EmbodiedPolicyKind::Scripted, EmbodiedPolicyKind::Neutral],
+            [PolicyKind::Scripted, PolicyKind::Neutral],
         );
         assert_eq!(arena_start(3) & 0xff, 1, "the canonical Bow grip was refused");
         let owner = POSES.with(|poses| {
@@ -10268,8 +10268,8 @@ mod tests {
         // bearing is `Angle::ZERO` under both frames here only because `reach`
         // is zero and
         // the arm is not being aimed: what this edge is about is the release
-        // verb, which `EmbodiedCommandV1` carries through unchanged.
-        write_embodied(sim::EmbodiedCommandV1::new(sim::ArticulatedCommandV1 {
+        // verb, which `CommandV1` carries through unchanged.
+        write_embodied(sim::CommandV1::new(sim::CommandCoreV1 {
             move_dir: Vec2::ZERO,
             body_yaw: Angle::ZERO,
             intent: Intent::Hold,
@@ -10322,7 +10322,7 @@ mod tests {
             .units
             .iter()
             .map(|unit| {
-                let row = unit.articulated.expect("an articulated unit carries a spec row");
+                let row = unit.combat_spec.expect("an articulated unit carries a spec row");
                 table.anatomy(row.anatomy).expect("a validated anatomy reference").clone()
             })
             .collect()
@@ -10342,7 +10342,7 @@ mod tests {
         SIM.with(|sim| {
             let borrowed = sim.borrow();
             let world = &borrowed.as_ref().expect("a world is installed").world;
-            let poses: Vec<sim::ArticulatedPose> = world.articulated_poses().collect();
+            let poses: Vec<sim::Pose> = world.poses().collect();
             assert_eq!(
                 rows.len(),
                 poses.len() * REGIONS_PER_BODY,
@@ -10454,7 +10454,7 @@ mod tests {
         // Way two: a configured duel, whose anatomy rows are built at runtime.
         let mut config = sim::DuelConfigV1::shipped();
         config.max_ticks = 240;
-        let kinds = [EmbodiedPolicyKind::Scripted, EmbodiedPolicyKind::Tactical];
+        let kinds = [PolicyKind::Scripted, PolicyKind::Tactical];
         write_arena_config(&config, kinds);
         assert_eq!(arena_start(3) & 0xff, 1, "the configured duel refused to start");
         let arena = Scenario::duel_from(&config).expect("the shipped configuration builds");
@@ -10579,9 +10579,9 @@ mod tests {
             assert_eq!(region_len(), REGIONS_PER_BODY as u32 * pose_len());
             assert_eq!(rows.len(), REGIONS_PER_BODY * pose_len() as usize);
 
-            let poses: Vec<sim::ArticulatedPose> = SIM.with(|sim| {
+            let poses: Vec<sim::Pose> = SIM.with(|sim| {
                 let borrowed = sim.borrow();
-                borrowed.as_ref().expect("a world").world.articulated_poses().collect()
+                borrowed.as_ref().expect("a world").world.poses().collect()
             });
             let raw = |value: Fx| value.raw() as u32;
             for (body, pose) in poses.iter().enumerate() {
@@ -10638,7 +10638,7 @@ mod tests {
         step(8);
         assert!(!published_stances().is_empty(), "the floor published no stance to lose");
         let mut broken = dungeon_scenario(7, 0, starting_hero());
-        broken.units[1].articulated = None;
+        broken.units[1].combat_spec = None;
         install_articulated(&broken, 7);
         assert!(with_sim(true, |_| false), "the broken fixture installed a world after all");
         assert!(published_stances().is_empty(), "a module with no world published a stance row");
@@ -11046,18 +11046,18 @@ mod tests {
             for row in &rows {
                 let id = EntityId::new(row[POSE_ENTITY_INDEX], row[POSE_ENTITY_GENERATION]);
                 let pose = world
-                    .articulated_pose(id)
+                    .pose(id)
                     .expect("a published row named a body the world does not have");
                 assert_eq!(*row, pose_row(&pose));
                 assert_eq!(
-                    world.articulated_pose(EntityId::new(id.index, id.generation + 1)),
+                    world.pose(EntityId::new(id.index, id.generation + 1)),
                     None,
                     "a bare index would have resolved",
                 );
             }
             // And nobody is missing: the row count is the live articulated body
             // count and not some subset that happened to be interesting.
-            assert_eq!(world.articulated_poses().count(), rows.len());
+            assert_eq!(world.poses().count(), rows.len());
         });
     }
 
@@ -11072,7 +11072,7 @@ mod tests {
     /// pose the actuator could reach. The fixture's only job is to make a
     /// transposition visible, which is exactly the failure the surviving checks
     /// on this row cannot see.
-    fn every_pose_column_filled() -> sim::ArticulatedPose {
+    fn every_pose_column_filled() -> sim::Pose {
         // Ten apart, so no component of one point can equal a component of
         // another and no swap between two points survives.
         fn scalar(n: i32) -> Fx {
@@ -11081,7 +11081,7 @@ mod tests {
         fn point(n: i32) -> fx::Vec3 {
             fx::Vec3::new(scalar(n), scalar(n + 1), scalar(n + 2))
         }
-        sim::ArticulatedPose {
+        sim::Pose {
             id: EntityId::new(41, 7),
             body: point(1),
             body_yaw: Angle::from_raw(20_001),
@@ -11383,7 +11383,7 @@ mod tests {
     #[test]
     fn pose_and_event_overflow_drop_only_the_canonical_tail() {
         // Driven through the writers directly, because neither cap is reachable
-        // from a world: `MAX_POSES` *is* `MAX_ARTICULATED_ENTITIES`, so a sim
+        // from a world: `MAX_POSES` *is* `MAX_ENTITIES`, so a sim
         // that overflowed the pose buffer would have broken its own limit
         // first. The rule is defensive against a malformed or future-version
         // producer, so the producer here is a synthetic one.
@@ -11496,7 +11496,7 @@ mod tests {
             let world = &borrowed.as_ref().unwrap().world;
             for row in published_poses() {
                 let id = EntityId::new(row[POSE_ENTITY_INDEX], row[POSE_ENTITY_GENERATION]);
-                let pose = world.articulated_pose(id).expect("a live body");
+                let pose = world.pose(id).expect("a live body");
                 for (limb, base) in [(0usize, POSE_LEFT_TARGET_X), (1, POSE_RIGHT_TARGET_X)] {
                     assert_eq!(
                         row[base..base + 3],
@@ -11619,24 +11619,24 @@ mod tests {
         // script, and a mind reading the room instead of the script would move
         // both numbers without moving anything this test is about.
         #[cfg(not(feature = "cartesian-recoil"))]
-        sim.set_policy(Faction::Heroes, EmbodiedPolicyKind::Scripted);
+        sim.set_policy(Faction::Heroes, PolicyKind::Scripted);
         #[cfg(not(feature = "cartesian-recoil"))]
-        sim.set_policy(Faction::Monsters, EmbodiedPolicyKind::Scripted);
+        sim.set_policy(Faction::Monsters, PolicyKind::Scripted);
         #[cfg(not(feature = "cartesian-recoil"))]
         let east = EntityId::new(0, 0);
         #[cfg(not(feature = "cartesian-recoil"))]
         let west = EntityId::new(1, 0);
         #[cfg(not(feature = "cartesian-recoil"))]
-        sim.world.submit_embodied_v1(
+        sim.world.submit(
             east,
-            sim::EmbodiedCommandV1::new(
+            sim::CommandV1::new(
                 stream_digest_command(Angle::ZERO, Vec2::new(-Fx::ONE, Fx::ZERO), west),
             ),
         );
         #[cfg(not(feature = "cartesian-recoil"))]
-        sim.world.submit_embodied_v1(
+        sim.world.submit(
             west,
-            sim::EmbodiedCommandV1::new(stream_digest_command(Angle::ZERO, Vec2::ZERO, east)),
+            sim::CommandV1::new(stream_digest_command(Angle::ZERO, Vec2::ZERO, east)),
         );
         #[cfg(not(feature = "cartesian-recoil"))]
         sim.advance(3);
@@ -11922,7 +11922,7 @@ mod tests {
         // count, so an eighth volume cannot leave the section publishing seven.
         // It read `AnatomyRegion::COUNT` while a body was five capsules; a
         // jointed arm is two, and the two numbers parted company there.
-        assert_eq!(pose_capacity(), sim::MAX_ARTICULATED_ENTITIES as u32);
+        assert_eq!(pose_capacity(), sim::MAX_ENTITIES as u32);
         assert_eq!(
             region_capacity(),
             pose_capacity() * sim::BODY_VOLUME_COUNT as u32,
@@ -12007,14 +12007,14 @@ mod tests {
                 (bare.kind, bare.faction, bare.spawn, bare.stats),
                 "a body moved, changed shape or changed sheet",
             );
-            assert!(dressed.articulated.is_some(), "a dressed scenario carried a bare unit");
+            assert!(dressed.combat_spec.is_some(), "a dressed scenario carried a bare unit");
         }
         // The hero crosses untouched: a Fighter's sword and shield are rows 1
         // and 2 of the shipped table, so nothing about it had to be re-equipped.
         assert_eq!(room.units[0].loadout, plain.units[0].loadout);
         assert_eq!(
-            room.units[0].articulated,
-            Some(sim::ArticulatedUnitSpecV1 { anatomy: 1, equipment: [Some(1), Some(2)] }),
+            room.units[0].combat_spec,
+            Some(sim::UnitSpecV1 { anatomy: 1, equipment: [Some(1), Some(2)] }),
         );
         // And the whole thing builds, which is the claim `init` rests on.
         assert!(World::try_new(&room, 3).is_ok(), "the floor does not construct");
@@ -12032,7 +12032,7 @@ mod tests {
         // owes. It has to be built by hand: everything the export itself can
         // build is valid by construction, and a fail-closed arm nothing can
         // reach is a fail-closed arm nobody has checked.
-        broken.units[1].articulated = None;
+        broken.units[1].combat_spec = None;
         assert!(World::try_new(&broken, 7).is_err(), "the broken fixture stopped being broken");
 
         install_articulated(&broken, 7);
@@ -12186,7 +12186,7 @@ mod tests {
     const HIGH_WATER_EVENT_ROWS: u32 = 344;
 
     /// And the pose half, which sits exactly on its capacity by construction:
-    /// 64 bodies is `MAX_ARTICULATED_ENTITIES` and `MAX_POSES` is the same
+    /// 64 bodies is `MAX_ENTITIES` and `MAX_POSES` is the same
     /// number, so a drop here would mean the cap or the identity ordering is
     /// wrong rather than that the corpus is busy.
     const HIGH_WATER_POSE_ROWS: u32 = 64;
@@ -12231,10 +12231,10 @@ mod tests {
                 });
             }
         }
-        // 64 is `MAX_ARTICULATED_ENTITIES` exactly. The corpus sits on the cap
+        // 64 is `MAX_ENTITIES` exactly. The corpus sits on the cap
         // deliberately, so a construction refused here is a finding about the
         // cap and not a reason to measure 62 bodies instead.
-        assert_eq!(scenario.units.len(), sim::MAX_ARTICULATED_ENTITIES);
+        assert_eq!(scenario.units.len(), sim::MAX_ENTITIES);
         install_articulated(&scenario, 0x4152_5047_4142_4931);
         assert_eq!(
             contact_high_water(),
@@ -12258,7 +12258,7 @@ mod tests {
                     EntityId::new(target, 0),
                 ));
                 // Through the 61-byte scratch and the export, not through
-                // `World::submit_embodied_v1`: a measurement that skipped the
+                // `World::submit`: a measurement that skipped the
                 // boundary would not be measuring what the page produces.
                 assert_eq!(
                     submit_embodied(subject, 0),
@@ -12307,7 +12307,7 @@ mod tests {
                 "the exact corpus's resolved publications moved");
             assert_eq!((refused, rejection, exact), (0, None, None),
                 "the exact high-water corpus refused a contact");
-            assert_eq!(contact_high_water(), sim::MAX_ARTICULATED_ENTITIES as u32);
+            assert_eq!(contact_high_water(), sim::MAX_ENTITIES as u32);
         }
         assert_eq!(combat_events_dropped(), 0, "the corpus is truncating again");
         // The acceptance rule itself, as a relationship rather than as two
@@ -12599,7 +12599,7 @@ mod tests {
     ///
     /// **Moved again by the deletion of the legacy columns**, and through the
     /// same route as the sentence above: `exact_diagnostics.rs` folds
-    /// `state_digest()` values into this stream, `articulated_state_digest`
+    /// `state_digest()` values into this stream, `state_digest_value`
     /// folds `legacy_core_hash` into each of those, and that function lost
     /// `hp`, `max_hp`, the submitted `command` word and the nine-column
     /// projectile block. The two sessions before this one each found out the
@@ -13332,23 +13332,23 @@ mod tests {
         // screenshot would still look like a fight -- it would just be the
         // control fighting itself. That is precisely the failure this file is
         // built to make loud rather than plausible.
-        assert_eq!(policy_kind(0), EmbodiedPolicyKind::Tactical.code());
-        assert_eq!(policy_kind(1), EmbodiedPolicyKind::Tactical.code());
+        assert_eq!(policy_kind(0), PolicyKind::Tactical.code());
+        assert_eq!(policy_kind(1), PolicyKind::Tactical.code());
 
-        assert_eq!(set_policy(0, EmbodiedPolicyKind::Neutral.code()), 1);
-        assert_eq!(policy_kind(0), EmbodiedPolicyKind::Neutral.code());
-        assert_eq!(policy_kind(1), EmbodiedPolicyKind::Tactical.code(), "both sides moved");
+        assert_eq!(set_policy(0, PolicyKind::Neutral.code()), 1);
+        assert_eq!(policy_kind(0), PolicyKind::Neutral.code());
+        assert_eq!(policy_kind(1), PolicyKind::Tactical.code(), "both sides moved");
 
         // An unknown code changes nothing rather than trapping.
         assert_eq!(set_policy(0, 999), 0);
-        assert_eq!(policy_kind(0), EmbodiedPolicyKind::Neutral.code());
+        assert_eq!(policy_kind(0), PolicyKind::Neutral.code());
     }
 
     #[test]
     fn changing_a_policy_changes_the_fight() {
         // The claim the panel is there to make. Same seed, same room, same
         // monster -- only the mind is different, and the run must differ.
-        let script = |kind: EmbodiedPolicyKind| -> u64 {
+        let script = |kind: PolicyKind| -> u64 {
             init_quiet(3);
             set_policy(0, kind.code());
             spawn_monster(2, SLOT_EMPTY, SLOT_EMPTY);
@@ -13356,8 +13356,8 @@ mod tests {
             hash()
         };
         assert_ne!(
-            script(EmbodiedPolicyKind::Neutral),
-            script(EmbodiedPolicyKind::Scripted),
+            script(PolicyKind::Neutral),
+            script(PolicyKind::Scripted),
             "swapping the hero's mind produced an identical run"
         );
     }
@@ -13620,7 +13620,7 @@ mod tests {
         // **There was no model parameter here and there deliberately was not
         // one; session 05 then deleted the field the argument was about.** A
         // world of any other model was completely inert under this host --
-        // `Sim::advance` submits through `World::submit_embodied_v1`, which
+        // `Sim::advance` submits through `World::submit`, which
         // refused anything that was not embodied, so nobody would think, move or
         // fight on one and a fixture that opened one would have been a floor
         // plan with statues. Kept because it is the answer a second model would
@@ -13652,7 +13652,7 @@ mod tests {
             faction,
             stats: kind.base_stats(),
             loadout: kind.default_loadout(),
-            articulated: None,
+            combat_spec: None,
             spawn: Vec2::new(Fx::from_ratio(x_tenths, 10), Fx::from_ratio(y_tenths, 10)),
         }
     }
@@ -13842,7 +13842,7 @@ mod tests {
 
         // Standing in it, doing nothing, for two seconds.
         let before = depth();
-        set_policy(0, EmbodiedPolicyKind::Neutral.code());
+        set_policy(0, PolicyKind::Neutral.code());
         step(120);
         assert_eq!(depth(), before, "the exit took the hero that opened it");
         assert_eq!(portal().2, PORTAL_OPEN, "and the way out went with it");
@@ -14069,7 +14069,7 @@ mod tests {
         // than either can see and a policy that waited to be seen would never
         // fight anybody. So a fixture that wants a body that does not move asks
         // for the control condition by name.
-        set_policy(0, EmbodiedPolicyKind::Neutral.code());
+        set_policy(0, PolicyKind::Neutral.code());
         let standing = hero();
         let revision = vis_revision();
         let bytes = vis_bytes();
@@ -14208,13 +14208,13 @@ mod tests {
     // rather than made.** `World::press_doors` reads `self.command[i].move_dir`
     // -- the *legacy* command column -- and nothing writes that column on a
     // world with articulated columns: `World::submit` refuses one outright and
-    // `submit_embodied_v1` stores into `articulated_command` instead. So on the
+    // `submit` stores into `command_core` instead. So on the
     // floor `init` opens, no body can lean on a door, `Dungeon::open_door` is
     // unreachable from this host, and the branch in `Sim::advance` that bumps
     // the map and furniture revisions when the plan changes is dead code.
     //
     // A Legacy fixture is not the way out either: `Sim::advance` submits every
-    // command through `submit_embodied_v1`, which refuses a Legacy world, so
+    // command through `submit`, which refuses a Legacy world, so
     // nobody on one would move at all.
     //
     // What is lost with it: that an opened door flips its furniture record's
@@ -14649,7 +14649,7 @@ mod tests {
     /// **death**.
     ///
     /// **They were all `1`, and `1` does not kill any more.** `Sim::try_on`
-    /// opens both sides on `EmbodiedPolicyKind::Tactical` rather than on
+    /// opens both sides on `PolicyKind::Tactical` rather than on
     /// `Scripted`, and a Fighter that reads the blade coming at it outlasts
     /// twelve Brutes for longer than any budget in this file: seed 1 reaches the
     /// end of eighteen thousand ticks with 10.2 of its 12 health still on it.
@@ -15469,7 +15469,7 @@ mod tests {
         // which walks the way it is facing when it can see nobody.
         set_input(0, 0, 0, 0, 0, 0, 0);
         set_control(0);
-        set_policy(0, EmbodiedPolicyKind::Neutral.code());
+        set_policy(0, PolicyKind::Neutral.code());
         step(120);
         let stride = hero_row().expect("the hero is gone")[31];
         step(60);
@@ -15718,7 +15718,7 @@ mod tests {
     /// fields the two grammars disagreed about, so a shared writer would have
     /// made every assertion below a test of one envelope written twice. That
     /// duplication is what let the articulated writer be deleted whole.
-    fn write_embodied(command: sim::EmbodiedCommandV1) {
+    fn write_embodied(command: sim::CommandV1) {
         EMBODIED_COMMAND.with(|buffer| {
             let mut bytes = buffer.borrow_mut();
             bytes.fill(0);
@@ -15728,14 +15728,14 @@ mod tests {
         });
     }
 
-    fn embodied_fixture() -> sim::EmbodiedCommandV1 {
+    fn embodied_fixture() -> sim::CommandV1 {
         let arm = sim::ArmTarget {
             bearing: Angle::QUARTER,
             height: sim::CombatHeight::MID,
             reach: Fx::HALF,
             effort: Fx::ONE,
         };
-        let mut command = sim::EmbodiedCommandV1::new(sim::ArticulatedCommandV1 {
+        let mut command = sim::CommandV1::new(sim::CommandCoreV1 {
             move_dir: Vec2::ZERO,
             body_yaw: Angle::QUARTER,
             intent: Intent::Hold,
@@ -15761,7 +15761,7 @@ mod tests {
     // embodied command and required `2 << 8` -- refused *by name* -- and then
     // corrupted the intent tag and required the same answer again, because that
     // second rung is the only input that separates this boundary's own model
-    // check from `World::submit_embodied_v1`'s: a boundary that checked the
+    // check from `World::submit`'s: a boundary that checked the
     // bytes first would answer `1` and name the payload for what is a model
     // mismatch.
     //
@@ -15825,7 +15825,7 @@ mod tests {
         assert_eq!(submit_embodied(0, 0), 2 | (4 << 8) | (4 << 16));
 
         let mut missing = command;
-        missing.articulated.grips[0] = sim::GripRequest::EquipSlot(7);
+        missing.core.grips[0] = sim::GripRequest::EquipSlot(7);
         write_embodied(missing);
         assert_eq!(submit_embodied(0, 0), 2 | (5 << 8) | (7 << 24));
     }

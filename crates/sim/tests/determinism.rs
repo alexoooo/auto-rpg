@@ -7,7 +7,7 @@
 //! tests pin the *simulation*, not the behaviour crate.
 //!
 //! **Everything here was written twice.** The file opened with a legacy half --
-//! a `greedy` policy over the legacy `Observation`, `Scenario::skirmish` and
+//! a `greedy` policy over the legacy observation, `Scenario::skirmish` and
 //! `Scenario::duel`, and `GOLDEN_STATE_HASH` over the first of those -- and an
 //! embodied half beneath it. Session 10 deleted the model the first half drove.
 //! It did not delete the first half's *claims*: outbound-channel order, seed
@@ -18,7 +18,7 @@
 //!
 //! One claim was **not** ported and is not replaced:
 //! `player_orders_change_the_outcome_without_breaking_determinism`. An embodied
-//! body cannot perceive a standing order -- `ArticulatedObservation` has no order
+//! body cannot perceive a standing order -- `Observation` has no order
 //! column and no navigation column -- so the property is not true of the
 //! surviving model rather than merely untested. The argument is below, where the
 //! ported tests are.
@@ -45,7 +45,7 @@ use sim::{Event, Faction, Replay, Scenario, World};
 mod embodied {
     use super::*;
     use sim::{
-        ArmTarget, ArticulatedCommandV1, CombatHeight, ContactResolution, EmbodiedCommandV1,
+        ArmTarget, CommandCoreV1, CombatHeight, ContactResolution, CommandV1,
         EntityId, GripRequest, Intent, ReleaseRequest, SubmittedCommand,
     };
     use fx::Angle;
@@ -54,7 +54,7 @@ mod embodied {
 
     /// Varies with the tick and the slot so the fight is not a pair of statues,
     /// and is a pure function of both so two runs cannot diverge by accident.
-    fn scripted(tick: u32, slot: usize) -> ArticulatedCommandV1 {
+    fn scripted(tick: u32, slot: usize) -> CommandCoreV1 {
         let phase = tick.wrapping_mul(1_013).wrapping_add(slot as u32 * 17);
         let arm = |k: u32| ArmTarget {
             bearing: Angle::from_raw(phase.wrapping_mul(7).wrapping_add(k * 4_099) as u16),
@@ -62,7 +62,7 @@ mod embodied {
             reach: Fx::from_raw((phase.wrapping_mul(5).wrapping_add(k) % 65_537) as i32),
             effort: Fx::ONE,
         };
-        ArticulatedCommandV1 {
+        CommandCoreV1 {
             move_dir: Vec2::new(
                 Fx::from_raw((phase % 46_341) as i32 - 23_170),
                 Fx::from_raw((phase.wrapping_mul(3) % 46_341) as i32 - 23_170),
@@ -90,7 +90,7 @@ mod embodied {
         let mut digests = Vec::with_capacity(TICKS as usize);
         for tick in 0..TICKS {
             for (slot, id) in ids.iter().enumerate() {
-                let mut command = EmbodiedCommandV1::new(scripted(tick, slot));
+                let mut command = CommandV1::new(scripted(tick, slot));
                 // The embodied-only field, driven like everything else here: a
                 // script that left it neutral would replay a column the live
                 // run never moved, which is a replay claim about nothing.
@@ -102,7 +102,7 @@ mod embodied {
                 if let Some(replay) = replay.as_deref_mut() {
                     replay.record_submitted(tick, *id, SubmittedCommand::Embodied(command));
                 }
-                world.submit_embodied_v1(*id, command);
+                world.submit(*id, command);
             }
             world.step();
             digests.push(world.state_digest().value);
@@ -190,14 +190,14 @@ mod embodied {
         // movement phase, which is the only thing that resamples `ground_z`.
         let mut highest = Fx::ZERO;
         for tick in 0..TICKS {
-            let mut command = EmbodiedCommandV1::new(scripted(tick, 0));
+            let mut command = CommandV1::new(scripted(tick, 0));
             // Straight across the hill, in the body frame, at full authority.
             // Everything else the script does is left alone.
-            command.articulated.move_dir = Vec2::new(Fx::ONE, Fx::ZERO);
-            command.articulated.body_yaw = Angle::ZERO;
-            world.submit_embodied_v1(id, command);
+            command.core.move_dir = Vec2::new(Fx::ONE, Fx::ZERO);
+            command.core.body_yaw = Angle::ZERO;
+            world.submit(id, command);
             world.step();
-            let pose = world.articulated_pose(id).expect("a live hero has a pose");
+            let pose = world.pose(id).expect("a live hero has a pose");
             // **Every tick, not just the last.** The body walks over the hill
             // and off the far side, so a final reading would be a reading from
             // the floor again -- which is exactly the shape of test that would
@@ -238,9 +238,9 @@ mod embodied {
     // **One of the legacy properties did not survive the port, and its absence
     // is a finding rather than an omission.**
     // `player_orders_change_the_outcome_without_breaking_determinism` cannot be
-    // written for this model. An order reaches a legacy agent through
-    // `Observation::order`, and the embodied percept is
-    // `ArticulatedObservation`, which has no order column and no nav column.
+    // written for this model. An order reached a legacy agent through that
+    // model's own `order` column, and the surviving [`sim::Observation`] has no
+    // order column and no nav column.
     //
     // **The next sentence used to say that the one phase reading `World::orders`
     // at all is `refresh_nav`, in the epilogue every model shares, whose
@@ -311,7 +311,7 @@ mod embodied {
     /// surviving command grammar has -- so forward is `(1, 0)` at every yaw and
     /// the arms swing about the body's own line. `heading` therefore only has
     /// to reach `body_yaw`, which is world space either way.
-    fn closing(tick: u32, heading: Vec2) -> EmbodiedCommandV1 {
+    fn closing(tick: u32, heading: Vec2) -> CommandV1 {
         let side = if (tick / SWING_PERIOD) % 2 == 0 { SWING_RAW } else { -SWING_RAW };
         let arm = ArmTarget {
             bearing: Angle::from_raw(side as u16),
@@ -323,7 +323,7 @@ mod embodied {
             reach: Fx::ONE,
             effort: Fx::ONE,
         };
-        EmbodiedCommandV1::new(ArticulatedCommandV1 {
+        CommandV1::new(CommandCoreV1 {
             move_dir: Vec2::new(Fx::ONE, Fx::ZERO),
             body_yaw: heading.angle(),
             // `Intent` is a statement about who is being fought for the renderer
@@ -344,7 +344,7 @@ mod embodied {
         /// seed-dependent, which is what makes the pinned digest below a number
         /// about the simulator rather than about the noise stream.
         Truth,
-        /// Through `World::observe_articulated`, which is where perception noise
+        /// Through `World::observe`, which is where perception noise
         /// enters and is the only seed-dependent input the embodied model has.
         ///
         /// It needs a fallback and the fallback is the point: the two spawns are
@@ -378,7 +378,7 @@ mod embodied {
         fn bodies(&self) -> Vec<i32> {
             let mut out: Vec<i32> = self
                 .world
-                .articulated_poses()
+                .poses()
                 .flat_map(|pose| [pose.body.x.raw(), pose.body.y.raw(), pose.body.z.raw()])
                 .collect();
             for faction in [Faction::Heroes, Faction::Monsters] {
@@ -404,7 +404,7 @@ mod embodied {
                 Some(world.view(other)?.position - me)
             }
             Aim::Perceived => {
-                let obs = world.observe_articulated(id);
+                let obs = world.observe(id);
                 let me = Vec2::new(obs.body_position.x, obs.body_position.y);
                 if obs.opponent_count == 0 {
                     let arena = world.arena();
@@ -438,7 +438,7 @@ mod embodied {
             for slot in 0..live.len() {
                 let id = live[slot];
                 let Some(to) = heading(&world, id, &live, slot, aim) else { continue };
-                world.submit_embodied_v1(id, closing(tick, to));
+                world.submit(id, closing(tick, to));
             }
             // `to_vec` before the contact rows are asked for, because both are
             // borrows of the world: the same reason `run_events` is a second
@@ -456,7 +456,7 @@ mod embodied {
     /// That claim does not port as it stands, because the feed does not. Every
     /// `Damage`, `Block`, `Parry` and `Shove` in the repository is pushed from
     /// `world/legacy.rs` and none of them survives the model; an embodied tick
-    /// emits `Death` from `reap_dead_articulated` and `Loose` from the bow path,
+    /// emits `Death` from `reap_dead_bodies` and `Loose` from the bow path,
     /// and `CombatSpecTableV1::fixtures()` has no bow in it. So an embodied
     /// event feed is empty until somebody dies, and a test that compared two of
     /// them would be comparing empty vectors -- green, and about nothing.
@@ -658,7 +658,7 @@ mod embodied {
     ///
     /// **Both values moved once, on the day the legacy columns were deleted,
     /// and the move is a grammar move rather than a fight move.**
-    /// `World::articulated_state_digest` folds `legacy_core_hash` into every
+    /// `World::state_digest_value` folds `legacy_core_hash` into every
     /// digest it produces, and that function lost `hp`, `max_hp`, the submitted
     /// `command` word and the whole nine-column projectile block, so every
     /// embodied digest in the repository moved by construction. What says the
@@ -683,7 +683,7 @@ mod embodied {
     /// Five pins moved in the session that deleted `hp`, `max_hp`,
     /// `World::command`, the projectile columns and `Replay::entries` from the
     /// state stream -- every pin taken over `World::state_digest`, because
-    /// `articulated_state_digest` folds `legacy_core_hash` -- and a re-recorded
+    /// `state_digest_value` folds `legacy_core_hash` -- and a re-recorded
     /// hash proves nothing on its own: it is a new number agreeing with itself.
     /// This is the claim the re-record cannot carry: that the *fight* is where
     /// it was. Per-region integrity and wound fractions are exactly
@@ -735,14 +735,14 @@ mod embodied {
             for slot in 0..live.len() {
                 let id = live[slot];
                 let Some(to) = heading(&world, id, &live, slot, Aim::Perceived) else { continue };
-                world.submit_embodied_v1(id, closing(tick, to));
+                world.submit(id, closing(tick, to));
             }
             world.step();
         }
         let mut measured = Vec::new();
         for faction in [Faction::Heroes, Faction::Monsters] {
             for id in world.alive_ids(faction) {
-                let obs = world.observe_articulated(id);
+                let obs = world.observe(id);
                 measured.extend(obs.integrity_fraction.iter().map(|f| f.raw()));
                 measured.extend(obs.wound_fraction.iter().map(|f| f.raw()));
             }

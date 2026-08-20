@@ -109,7 +109,8 @@ pub const TERRAIN_HEIGHT_RAW_UNIT: i32 = ONE_RAW / 8;
 /// and the multiple.
 pub const TERRAIN_STEP_UP_RAW: i32 = 3 * TERRAIN_HEIGHT_RAW_UNIT;
 
-/// The four axis directions, in the order `Observation::wall_clearance` has
+/// The four axis directions, in the order the legacy observation's
+/// `wall_clearance` column had
 /// always reported them.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Cardinal {
@@ -1035,7 +1036,7 @@ impl Dungeon {
     /// Distance from `p` to the first solid face along a cardinal, or to the
     /// edge of the grid when there is nothing in the way.
     ///
-    /// This is what `Observation::wall_clearance` reports. On a floor plan with
+    /// This is what the legacy observation's `wall_clearance` column reported. On a floor plan with
     /// nothing carved **and nothing sculpted** it is **bit-for-bit** the
     /// formula that field used before floor plans existed -- taken by the early
     /// return below rather than arrived at by the walk, so that it is a fact
@@ -2148,7 +2149,7 @@ mod tests {
             Vec2::from_ints(0, 0),
             Vec2::from_ints(24, 16),
         ] {
-            // The formula `Observation::wall_clearance` carried before floor
+            // The formula the legacy observation's `wall_clearance` carried before floor
             // plans existed, raw for raw.
             assert_eq!(d.clearance(p, Cardinal::NegX), p.x.max(Fx::ZERO));
             assert_eq!(

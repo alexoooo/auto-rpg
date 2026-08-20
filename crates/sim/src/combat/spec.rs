@@ -220,7 +220,7 @@ pub struct EquipmentSpec {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct ArticulatedUnitSpecV1 {
+pub struct UnitSpecV1 {
     pub anatomy: AnatomySpecId,
     pub equipment: [Option<EquipmentSpecId>; 2],
 }
@@ -306,13 +306,13 @@ impl CombatSpecTableV1 {
         sink: &mut S,
     ) {
         write_combat_specs(self, units.iter().map(|unit| {
-            unit.articulated.expect("validated articulated unit")
+            unit.combat_spec.expect("validated articulated unit")
         }), sink);
     }
 
     pub(crate) fn rows_into<S: ScenarioByteSink>(
         &self,
-        units: &[ArticulatedUnitSpecV1],
+        units: &[UnitSpecV1],
         sink: &mut S,
     ) {
         write_combat_specs(self, units.iter().copied(), sink);
@@ -322,7 +322,7 @@ impl CombatSpecTableV1 {
 fn write_combat_specs<S, I>(table: &CombatSpecTableV1, units: I, sink: &mut S)
 where
     S: ScenarioByteSink,
-    I: IntoIterator<Item = ArticulatedUnitSpecV1>,
+    I: IntoIterator<Item = UnitSpecV1>,
     I::IntoIter: ExactSizeIterator,
 {
     let units = units.into_iter();
@@ -360,15 +360,15 @@ pub fn validate_construction(
     units: &[crate::UnitSpec],
 ) -> Result<(), CombatSpecError> {
     let table = table.ok_or(CombatSpecError::MissingTable)?;
-    if units.iter().any(|unit| unit.articulated.is_none()) { return Err(CombatSpecError::UnitPresence); }
-    let rows = units.iter().map(|unit| unit.articulated.unwrap()).collect::<Vec<_>>();
+    if units.iter().any(|unit| unit.combat_spec.is_none()) { return Err(CombatSpecError::UnitPresence); }
+    let rows = units.iter().map(|unit| unit.combat_spec.unwrap()).collect::<Vec<_>>();
     let loadouts = units.iter().map(|unit| unit.loadout).collect::<Vec<_>>();
     validate_rows(table, &rows, &loadouts)
 }
 
 pub(crate) fn validate_rows(
     table: &CombatSpecTableV1,
-    rows: &[ArticulatedUnitSpecV1],
+    rows: &[UnitSpecV1],
     loadouts: &[crate::Loadout],
 ) -> Result<(), CombatSpecError> {
     if rows.len() != loadouts.len() { return Err(CombatSpecError::UnitPresence); }
@@ -449,7 +449,7 @@ fn validate_armor(row: ArmorSpec) -> Result<(), CombatSpecError> {
 
 fn fraction(value: Fx) -> bool { (0..=Fx::ONE.raw()).contains(&value.raw()) }
 
-fn validate_bindings(table: &CombatSpecTableV1, unit: ArticulatedUnitSpecV1) -> Result<(), CombatSpecError> {
+fn validate_bindings(table: &CombatSpecTableV1, unit: UnitSpecV1) -> Result<(), CombatSpecError> {
     let first = unit.equipment[0].and_then(|id| table.equipment(id));
     let second = unit.equipment[1].and_then(|id| table.equipment(id));
     if let (Some(a), Some(b)) = (first, second) {
@@ -467,7 +467,7 @@ fn validate_bindings(table: &CombatSpecTableV1, unit: ArticulatedUnitSpecV1) -> 
 
 pub fn resolved_equipment(
     table: &CombatSpecTableV1,
-    unit: ArticulatedUnitSpecV1,
+    unit: UnitSpecV1,
 ) -> Result<[Option<EquipmentSpecId>; 2], CombatSpecError> {
     validate_bindings(table, unit)?;
     let mut arms = [None; 2];
@@ -484,7 +484,7 @@ pub fn resolved_equipment(
 
 pub(crate) fn grips_valid(
     table: &CombatSpecTableV1,
-    unit: ArticulatedUnitSpecV1,
+    unit: UnitSpecV1,
     grips: [crate::GripRequest; 2],
 ) -> bool {
     for arm in 0..grips.len() {
@@ -495,7 +495,7 @@ pub(crate) fn grips_valid(
 
 pub(crate) fn grip_valid_for_arm(
     table: &CombatSpecTableV1,
-    unit: ArticulatedUnitSpecV1,
+    unit: UnitSpecV1,
     grips: [crate::GripRequest; 2],
     arm: usize,
 ) -> bool {
@@ -549,7 +549,7 @@ pub(crate) fn write_equipment<S: ScenarioByteSink>(row: &EquipmentSpec, sink: &m
     sink.write_u8(row.binding as u8); write_surface(row.surface, sink);
 }
 
-pub(crate) fn write_unit<S: ScenarioByteSink>(row: ArticulatedUnitSpecV1, sink: &mut S) {
+pub(crate) fn write_unit<S: ScenarioByteSink>(row: UnitSpecV1, sink: &mut S) {
     sink.write_u16(row.anatomy);
     for item in row.equipment {
         match item { None => sink.write_u8(0), Some(id) => { sink.write_u8(1); sink.write_u16(id); } }
@@ -922,7 +922,7 @@ mod tests {
         changed.combat_specs.as_mut().unwrap().equipment[0].mass += Fx::from_raw(1);
         assert_ne!(changed.fingerprint(), original);
         let mut changed = scenario.clone();
-        changed.units[0].articulated.as_mut().unwrap().anatomy = 2;
+        changed.units[0].combat_spec.as_mut().unwrap().anatomy = 2;
         assert_ne!(changed.fingerprint(), original);
     }
 
@@ -937,7 +937,7 @@ mod tests {
         changed.combat_specs.as_mut().unwrap().equipment[1].id = 1;
         assert_eq!(validate_construction(changed.combat_specs.as_ref(), &changed.units), Err(CombatSpecError::IdOrder));
         let mut changed = scenario.clone();
-        changed.units[0].articulated.as_mut().unwrap().anatomy = 99;
+        changed.units[0].combat_spec.as_mut().unwrap().anatomy = 99;
         assert_eq!(validate_construction(changed.combat_specs.as_ref(), &changed.units), Err(CombatSpecError::MissingReference));
         let mut changed = scenario.clone();
         changed.combat_specs.as_mut().unwrap().equipment[0].action = ActionKind::Club;
@@ -954,8 +954,8 @@ mod tests {
         }
         let mut digest = fx::Hash64::new();
         table.rows_into(&[
-            ArticulatedUnitSpecV1 { anatomy: 1, equipment: [Some(1), Some(2)] },
-            ArticulatedUnitSpecV1 { anatomy: 2, equipment: [Some(3), None] },
+            UnitSpecV1 { anatomy: 1, equipment: [Some(1), Some(2)] },
+            UnitSpecV1 { anatomy: 2, equipment: [Some(3), None] },
         ], &mut digest);
         // Moved once, by v2-20, and by exactly six bytes: the shield row's
         // `half_width` and `half_height` each went from a `7/20` and a `1/2` to

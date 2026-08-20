@@ -61,7 +61,7 @@ fn hash_exact_external_energy(h: &mut Hash64, rows: &[ExactExternalEnergyRow]) {
     }
 }
 
-/// The model byte [`World::articulated_state_digest`] writes into its prefix.
+/// The model byte [`World::state_digest_value`] writes into its prefix.
 ///
 /// **A wire value rather than a discriminant, and frozen.** It was
 /// `CombatModel::Embodied as u8` until the enum was deleted. `EMBODIED_CORPUS_DIGEST`,
@@ -172,9 +172,9 @@ impl World {
         // because a careless second pass at "delete the legacy columns" would
         // take these and weaken the fingerprint.
         //
-        // `facing` is live state. [`World::initialize_articulated_pose`] seeds
+        // `facing` is live state. [`World::initialize_pose`] seeds
         // both the body yaw and the squared stance from it, and
-        // [`World::apply_articulated_movement`] rewrites it on every tick a body
+        // [`World::apply_movement`] rewrites it on every tick a body
         // is travelling: it is where the feet are pointing, and it is an input
         // to the pose the fight is decided on.
         //
@@ -250,7 +250,7 @@ impl World {
         // rather than after. What retired it is that no surviving body can nock
         // an arrow into that table -- an articulated bow looses into
         // `articulated_projectile_*`, which
-        // [`World::articulated_state_digest`] hashes on the same terms and with
+        // [`World::state_digest_value`] hashes on the same terms and with
         // the same length-first argument. The block below the entity loop is
         // therefore this one's replacement rather than its neighbour, and it
         // sits in the digest that owns the model instead of in the shared core.
@@ -262,7 +262,7 @@ impl World {
         crate::StateDigest {
             domain: crate::HashDomain::EmbodiedV1,
             schema: 1,
-            value: self.articulated_state_digest(),
+            value: self.state_digest_value(),
         }
     }
 
@@ -289,7 +289,7 @@ impl World {
     /// `every_embodied_only_column_moves_its_own_digest_and_not_the_legacy_core`
     /// mutates each one and watches the digest move while `legacy_core_hash`
     /// stands still.
-    fn articulated_state_digest(&self) -> u64 {
+    fn state_digest_value(&self) -> u64 {
         let mut h = Hash64::new();
         h.write_bytes(b"ARPG-STATE");
         h.write_u16(1);
@@ -298,8 +298,8 @@ impl World {
         // grammar without changing the prefix that declares it.
         h.write_u16(1);
         h.write_u64(self.legacy_core_hash());
-        h.write_u32(self.articulated_command.len() as u32);
-        for command in &self.articulated_command {
+        h.write_u32(self.command_core.len() as u32);
+        for command in &self.command_core {
             match command {
                 None => h.write_u8(0),
                 Some(command) => {
@@ -311,22 +311,22 @@ impl World {
         }
         self.combat_specs.as_ref().expect("articulated combat specs")
             .rows_into(&self.combat_units, &mut h);
-        for i in 0..self.articulated_command.len() {
-            h.write_u16(self.articulated_anatomy[i].expect("articulated slot anatomy"));
-            for item in self.articulated_carried[i] {
+        for i in 0..self.command_core.len() {
+            h.write_u16(self.body_anatomy[i].expect("articulated slot anatomy"));
+            for item in self.body_carried[i] {
                 match item {
                     None => h.write_u8(0),
                     Some(id) => { h.write_u8(1); h.write_u16(id); }
                 }
             }
-            for item in self.articulated_equipment[i] {
+            for item in self.body_equipment[i] {
                 match item {
                     None => h.write_u8(0),
                     Some(id) => { h.write_u8(1); h.write_u16(id); }
                 }
             }
         }
-        for i in 0..self.articulated_command.len() {
+        for i in 0..self.command_core.len() {
             let yaw = self.body_yaw[i];
             h.write_u16(yaw.angle.raw());
             h.write_i32(yaw.speed_turns.raw());
@@ -375,18 +375,18 @@ impl World {
             h.write_u8(releases[0] as u8);
             h.write_u8(releases[1] as u8);
         }
-        h.write_u32(self.articulated_projectile_alive.len() as u32);
-        for k in 0..self.articulated_projectile_alive.len() {
-            h.write_bool(self.articulated_projectile_alive[k]);
-            h.write_u32(self.articulated_projectile_generation[k]);
-            for point in [self.articulated_projectile_pos[k], self.articulated_projectile_vel[k]] {
+        h.write_u32(self.projectile_alive.len() as u32);
+        for k in 0..self.projectile_alive.len() {
+            h.write_bool(self.projectile_alive[k]);
+            h.write_u32(self.projectile_generation[k]);
+            for point in [self.projectile_pos[k], self.projectile_vel[k]] {
                 h.write_i32(point.x.raw()); h.write_i32(point.y.raw()); h.write_i32(point.z.raw());
             }
-            h.write_i32(self.articulated_projectile_range[k].raw());
-            h.write_i32(self.articulated_projectile_radius[k].raw());
-            h.write_i32(self.articulated_projectile_mass[k].raw());
-            self.articulated_projectile_owner[k].hash_into(&mut h);
-            h.write_u8(self.articulated_projectile_faction[k].index() as u8);
+            h.write_i32(self.projectile_range[k].raw());
+            h.write_i32(self.projectile_radius[k].raw());
+            h.write_i32(self.projectile_mass[k].raw());
+            self.projectile_owner[k].hash_into(&mut h);
+            h.write_u8(self.projectile_faction[k].index() as u8);
         }
         // One global counter, after the complete actuator loop and
         // before the anatomy rows. Not per slot: the iteration cap
@@ -402,7 +402,7 @@ impl World {
         // disagree. Dead slots keep their final row -- a later bleed
         // reads `last_attacker` off a body that has stopped moving, so
         // it is authoritative after death as well as before it.
-        for i in 0..self.articulated_command.len() {
+        for i in 0..self.command_core.len() {
             self.wounds.get(i).copied().unwrap_or(AnatomyState::EMPTY).hash_into(&mut h);
         }
         #[cfg(feature = "cartesian-recoil")]
@@ -543,7 +543,7 @@ mod tests {
         let scenario = Scenario::embodied_duel();
         let world = World::new(&scenario, 1);
         for id in [EntityId::new(0, 0), EntityId::new(1, 0)] {
-            let pose = world.articulated_pose_test_view(id).unwrap();
+            let pose = world.pose_test_view(id).unwrap();
             assert_eq!((pose.move_authority, pose.turn_authority, pose.arm_authority),
                 (Fx::ONE, Fx::ONE, [Fx::ONE; 2]));
         }
@@ -955,16 +955,16 @@ mod tests {
 
     #[test]
     fn every_articulated_command_field_changes_only_the_articulated_hash_domain() {
-        let digest = |command: ArticulatedCommandV1| {
+        let digest = |command: CommandCoreV1| {
             let scenario = Scenario::embodied_duel();
             let mut world = World::new(&scenario, 1);
             assert!(matches!(
-                world.submit_embodied_v1(EntityId::new(0, 0), crate::EmbodiedCommandV1::new(command)),
-                crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }
+                world.submit(EntityId::new(0, 0), crate::CommandV1::new(command)),
+                crate::SubmitOutcome::Stored { rejection: None, .. }
             ));
             (world.state_hash(), world.state_digest().value)
         };
-        let base = articulated_command();
+        let base = command_core();
         let (legacy_core, base_digest) = digest(base);
         let mut variants = Vec::new();
         let mut changed = base; changed.move_dir.x = Fx::from_raw(1); variants.push(changed);
@@ -1108,22 +1108,22 @@ mod tests {
         let scenario = Scenario::embodied_duel();
         let mut world = World::new(&scenario, 1);
         let legacy_core = world.state_hash();
-        let mut command = articulated_command();
+        let mut command = command_core();
 
         command.grips[0] = GripRequest::EquipSlot(0);
-        world.articulated_command[0] = Some(command);
+        world.command_core[0] = Some(command);
         let left_zero = world.state_digest().value;
         command.grips[0] = GripRequest::EquipSlot(1);
-        world.articulated_command[0] = Some(command);
+        world.command_core[0] = Some(command);
         let left_one = world.state_digest().value;
         assert_ne!(left_zero, left_one, "left EquipSlot payload was omitted");
 
-        command = articulated_command();
+        command = command_core();
         command.grips[1] = GripRequest::EquipSlot(0);
-        world.articulated_command[0] = Some(command);
+        world.command_core[0] = Some(command);
         let right_zero = world.state_digest().value;
         command.grips[1] = GripRequest::EquipSlot(1);
-        world.articulated_command[0] = Some(command);
+        world.command_core[0] = Some(command);
         let right_one = world.state_digest().value;
         assert_ne!(right_zero, right_one, "right EquipSlot payload was omitted");
         assert_ne!(left_zero, right_zero, "left and right grip columns collided");
@@ -1147,17 +1147,17 @@ mod tests {
         assert_ne!(changed_world.state_digest().value, digest);
 
         let mut changed = base_scenario.clone();
-        changed.units[0].articulated.as_mut().unwrap().anatomy = 2;
+        changed.units[0].combat_spec.as_mut().unwrap().anatomy = 2;
         let changed_world = World::new(&changed, 1);
         assert_eq!(changed_world.state_hash(), legacy_core);
         assert_ne!(changed_world.state_digest().value, digest);
 
         let mut changed_world = base.clone();
-        changed_world.articulated_carried[0].swap(0, 1);
+        changed_world.body_carried[0].swap(0, 1);
         assert_eq!(changed_world.state_hash(), legacy_core);
         assert_ne!(changed_world.state_digest().value, digest, "carrying-slot order was omitted");
         let mut changed_world = base.clone();
-        changed_world.articulated_equipment[0].swap(0, 1);
+        changed_world.body_equipment[0].swap(0, 1);
         assert_eq!(changed_world.state_hash(), legacy_core);
         assert_ne!(changed_world.state_digest().value, digest, "resolved arm order was omitted");
     }
@@ -1174,15 +1174,15 @@ mod tests {
             faction: Faction::Heroes,
             stats: Body::Fighter.base_stats(),
             loadout: Loadout::pair(ActionKind::Sword, ActionKind::Sword),
-            articulated: Some(ArticulatedUnitSpecV1 { anatomy: 1, equipment: [Some(1), Some(2)] }),
+            combat_spec: Some(UnitSpecV1 { anatomy: 1, equipment: [Some(1), Some(2)] }),
             spawn: Vec2::from_ints(12, 8),
         };
         first.spawn(&common);
         let mut swapped = common;
-        swapped.articulated.as_mut().unwrap().equipment.swap(0, 1);
+        swapped.combat_spec.as_mut().unwrap().equipment.swap(0, 1);
         second.spawn(&swapped);
         assert_eq!(first.state_hash(), second.state_hash());
-        assert_eq!(first.articulated_equipment[2], second.articulated_equipment[2]);
+        assert_eq!(first.body_equipment[2], second.body_equipment[2]);
         assert_ne!(first.state_digest().value, second.state_digest().value);
     }
 

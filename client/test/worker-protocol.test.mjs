@@ -1520,7 +1520,7 @@ test("an_installed_checkpoint_is_named_in_the_recording", async () => {
   // embodied policy code asks for a network -- but the worker's `warmUp` still
   // installs one it is handed, and `checkpointDigest()` still names it. So the
   // header field is what it always was: which weights were in the module when
-  // this fight was recorded. The policy names beside it are `EmbodiedPolicyKind`
+  // this fight was recorded. The policy names beside it are `PolicyKind`
   // now, and `4` is `tactical-fixed-guard` where it was `learned`.
   const digest = "7a05fc8c76ad47858ac69f770d595fa556b1bfb81dbf7d62ced831e751e26b6c";
   const arena = new FakeArena({ ticks: 4, digest });
@@ -1830,7 +1830,7 @@ test("the_arena_client_fetches_nothing_and_posts_no_network", async () => {
   // against a working fetch and required the bytes to travel transferred beside
   // the config and to be fetched **once** across two presses.
   //
-  // v2-ui-08 moved `#/arena` onto `EmbodiedPolicyKind`, which has no `learned`
+  // v2-ui-08 moved `#/arena` onto `PolicyKind`, which has no `learned`
   // entry, so no policy code asks for a network and the fetch it drove is gone.
   // The `checkpoint` field on `arenaStart` is not: the worker's
   // `warmUp(seed, checkpoint)` and its `checkpointRefused` refusal are the

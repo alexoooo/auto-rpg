@@ -5,6 +5,15 @@
 **Canonical source:** `crates/sim/src/codec.rs`, mirrored here.
 **Update when:** A combat spec field, bound, presence rule, or codec-V2 byte changes.
 
+**Version 2 is the only version anything writes, and the presence rules below are no
+longer a choice.** The legacy and articulated models are both deleted, so a version-1
+envelope and a codec-V2 envelope with no combat-spec extension are both files nothing
+can produce -- and both are still *refused by name* rather than forgotten, which is
+what these rules are for now. A reader holding an old recording needs to be told which
+retired format it is holding, not that it is corrupt. Every "Legacy requires `0`;
+Articulated requires ..." line below is the record of that vocabulary; the surviving
+model requires presence `1` and a complete table.
+
 ## Compatibility rule
 
 Codec V1 is frozen by [Replay codec V1](replay-codec-v1.md#integer-and-size-rules)
@@ -27,7 +36,7 @@ The codec limits add:
 |---|---:|
 | `MAX_ANATOMY_SPECS` | 64 |
 | `MAX_EQUIPMENT_SPECS` | 128 |
-| `MAX_ARTICULATED_ENTITIES` | 64 |
+| `MAX_ENTITIES` | 64 |
 | `BODY_ANATOMY_SPEC_V1_BYTES` | 195 |
 | `SEGMENT_EQUIPMENT_SPEC_V1_BYTES` | 40 |
 | `SHIELD_EQUIPMENT_SPEC_V1_BYTES` | 44 |

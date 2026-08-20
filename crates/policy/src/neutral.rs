@@ -11,14 +11,14 @@
 //! sim itself substitutes for a submission it refuses.
 //!
 //! A fuzzer for the surviving seam would be worth having and is not this one.
-//! It would have to produce an `EmbodiedCommandV1` -- a bearing, a height, a
+//! It would have to produce an `CommandV1` -- a bearing, a height, a
 //! reach, an effort and a plane per arm -- and the interesting state transitions
 //! it should hammer are the contact solver's refusals, not a swing phase.
 //! Nothing in the repository does that today.
 
 use fx::{Fx, Vec2};
 use sim::{
-    ArmTarget, ArticulatedCommandV1, ArticulatedObservation, CombatHeight, GripRequest,
+    ArmTarget, CommandCoreV1, Observation, CombatHeight, GripRequest,
     Intent, ReleaseRequest,
 };
 
@@ -31,7 +31,7 @@ use sim::{
 /// policy can call it; what it builds is "stand still, hold, keep both grips,
 /// and point both arms at mid height with no reach and no effort", and the only
 /// world state in that sentence is the body's yaw. That is
-/// [`ArticulatedObservation::body_yaw`], published exact and unblurred because
+/// [`Observation::body_yaw`], published exact and unblurred because
 /// proprioception is free. So the two are derivable from each other rather than
 /// merely similar, and `the_neutral_command_is_the_one_the_world_substitutes`
 /// pins them together by making the world refuse a command and comparing what
@@ -42,14 +42,14 @@ use sim::{
 /// the body's yaw into `ArmTarget::bearing`, which was the world's own answer
 /// while an arm bearing was an absolute angle. The surviving grammar measures an
 /// arm bearing from the torso, so the world substitutes `Angle::ZERO` there and
-/// it is [`crate::neutral_embodied_command`] that matches it column for column.
+/// it is [`crate::neutral_command`] that matches it column for column.
 /// That test therefore compares the stored command against both: against the
 /// embodied neutral directly, and against *this* one put through
 /// [`crate::into_torso_frame`]. Two links instead of one, and neither may drift.
 ///
 /// A blank observation answers `Angle::ZERO`, which is harmless: the only way
 /// to get one is a stale identity or a corpse, and
-/// [`sim::World::submit_embodied_v1`] stores nothing for either.
+/// [`sim::World::submit`] stores nothing for either.
 ///
 /// **It is a function and no longer also a policy, and the argument the policy
 /// carried belongs here.** `NeutralArticulatedPolicy` wrapped this in an
@@ -59,14 +59,14 @@ use sim::{
 /// the body is already holding or the actuator reads a request to spin to
 /// north. So the smallest possible decision on this seam still reads its
 /// observation, which is why every composed command starts from this one.
-pub fn neutral_articulated_command(obs: &ArticulatedObservation) -> ArticulatedCommandV1 {
+pub fn neutral_world_command(obs: &Observation) -> CommandCoreV1 {
     let arm = ArmTarget {
         bearing: obs.body_yaw,
         height: CombatHeight::MID,
         reach: Fx::ZERO,
         effort: Fx::ZERO,
     };
-    ArticulatedCommandV1 {
+    CommandCoreV1 {
         move_dir: Vec2::ZERO,
         body_yaw: obs.body_yaw,
         intent: Intent::Hold,
@@ -79,9 +79,9 @@ pub fn neutral_articulated_command(obs: &ArticulatedObservation) -> ArticulatedC
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{into_torso_frame, neutral_embodied_command};
+    use crate::{into_torso_frame, neutral_command};
     use fx::{Angle, Fx, Vec2};
-    use sim::{EntityId, Scenario, SubmitEmbodiedOutcome, World};
+    use sim::{EntityId, Scenario, SubmitOutcome, World};
 
     #[test]
     fn the_neutral_command_is_the_one_the_world_substitutes() {
@@ -94,9 +94,9 @@ mod tests {
         // `World::submit_articulated_v1` until session 05, and the reseat cost
         // the test one link rather than its subject.** An arm bearing was an
         // absolute angle under the deleted grammar, so the world's substitute
-        // was `neutral_articulated_command` to the bit; it is measured from the
+        // was `neutral_world_command` to the bit; it is measured from the
         // torso under the surviving one, so the world's substitute is
-        // `neutral_embodied_command` and this file's function is one
+        // `neutral_command` and this file's function is one
         // `into_torso_frame` away from it. Both halves are asserted below,
         // because dropping either would leave a definition nothing compares.
         let scenario = Scenario::embodied_duel();
@@ -108,30 +108,30 @@ mod tests {
         // body that had finished turning would let one that echoed the
         // *requested* yaw pass; caught mid-turn, only the authoritative yaw
         // matches.
-        let mut turning = neutral_embodied_command(&world.observe_articulated(fighter));
-        turning.articulated.body_yaw = Angle::QUARTER;
-        let _ = world.submit_embodied_v1(fighter, turning);
+        let mut turning = neutral_command(&world.observe(fighter));
+        turning.core.body_yaw = Angle::QUARTER;
+        let _ = world.submit(fighter, turning);
         world.step();
         world.step();
-        let mid_turn = world.observe_articulated(fighter).body_yaw;
+        let mid_turn = world.observe(fighter).body_yaw;
         assert!(mid_turn != Angle::ZERO && mid_turn != Angle::QUARTER, "the body should be mid-turn");
 
-        let mut illegal = neutral_embodied_command(&world.observe_articulated(fighter));
-        illegal.articulated.arms[0].reach = Fx::from_raw(Fx::ONE.raw() + 1);
-        let SubmitEmbodiedOutcome::Stored { command: stored, rejection: Some(_) } =
-            world.submit_embodied_v1(fighter, illegal)
+        let mut illegal = neutral_command(&world.observe(fighter));
+        illegal.core.arms[0].reach = Fx::from_raw(Fx::ONE.raw() + 1);
+        let SubmitOutcome::Stored { command: stored, rejection: Some(_) } =
+            world.submit(fighter, illegal)
         else {
             panic!("an over-long reach must be refused and replaced");
         };
-        let obs = world.observe_articulated(fighter);
-        assert_eq!(stored.payload_bytes(), neutral_embodied_command(&obs).payload_bytes());
+        let obs = world.observe(fighter);
+        assert_eq!(stored.payload_bytes(), neutral_command(&obs).payload_bytes());
         // The second link, and the reason this test still belongs beside this
         // function: the world-frame neutral is what every composed command in
         // this crate starts from, and it is only the world's answer through the
         // one adapter.
         assert_eq!(
             stored.payload_bytes(),
-            into_torso_frame(&obs, neutral_articulated_command(&obs)).payload_bytes(),
+            into_torso_frame(&obs, neutral_world_command(&obs)).payload_bytes(),
         );
     }
 
@@ -139,9 +139,9 @@ mod tests {
     fn the_neutral_command_holds_every_channel_it_can() {
         let scenario = Scenario::embodied_duel();
         let world = World::new(&scenario, 1);
-        let obs = world.observe_articulated(EntityId::new(0, 0));
+        let obs = world.observe(EntityId::new(0, 0));
         assert!(obs.present());
-        let command = neutral_articulated_command(&obs);
+        let command = neutral_world_command(&obs);
         assert_eq!(command.move_dir, Vec2::ZERO);
         assert_eq!(command.intent, Intent::Hold);
         assert_eq!(command.grips, [GripRequest::Keep; 2]);

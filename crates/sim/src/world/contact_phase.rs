@@ -185,8 +185,8 @@ impl ContactTrialProjector for ContactProjector<'_> {
             delta.parts[part as usize].wound_gain += Fx::from_raw(wound_raw as i32);
             delta.integrity_loss += loss;
             if loss.is_positive() {
-                delta.last_attacker = world.articulated_projectile_slot(row.fact.key.a)
-                    .map(|slot| world.articulated_projectile_owner[slot])
+                delta.last_attacker = world.projectile_slot_of(row.fact.key.a)
+                    .map(|slot| world.projectile_owner[slot])
                     .unwrap_or(row.fact.key.a);
             }
         }
@@ -263,8 +263,8 @@ impl ContactTrialProjector for ContactProjector<'_> {
                 // would hand somebody else damage that fact did.
                 used += share;
                 if share <= 0 { continue; }
-                let credited = world.articulated_projectile_slot(row.fact.key.a)
-                    .map(|slot| world.articulated_projectile_owner[slot])
+                let credited = world.projectile_slot_of(row.fact.key.a)
+                    .map(|slot| world.projectile_owner[slot])
                     .unwrap_or(row.fact.key.a);
                 if let Some(source) = world.resolve(credited) {
                     self.credit[source] += Fx::from_raw(share as i32);
@@ -465,11 +465,11 @@ fn build_exact_contact_trajectories(
         }
         contact.exact_owners.push(staged);
     }
-    for slot in 0..world.articulated_projectile_alive.len() {
-        if !world.articulated_projectile_alive[slot] { continue; }
-        let mass_raw = world.articulated_projectile_mass[slot].raw();
+    for slot in 0..world.projectile_alive.len() {
+        if !world.projectile_alive[slot] { continue; }
+        let mass_raw = world.projectile_mass[slot].raw();
         contact.exact_owners.push(ExactOwnerTrajectory {
-            entity: world.articulated_projectile_id(slot), projectile: true,
+            entity: world.projectile_id(slot), projectile: true,
             body_mass_raw: mass_raw, common_scale: mass_raw as i128,
             common_response: ExactAffine3 {
                 mass_raw, at_group: [ExactPosition::default(); 3],
@@ -908,7 +908,7 @@ impl World {
         };
         let entry = entries.get(i).ok_or(ResolutionError::ColliderIndex)?;
         let anatomy = self.combat_specs.as_ref()
-            .and_then(|table| table.anatomy(self.articulated_anatomy[i]?))
+            .and_then(|table| table.anatomy(self.body_anatomy[i]?))
             .ok_or(ResolutionError::ColliderIndex)?;
         let yaw = self.body_yaw[i].angle;
         let entry_hand = entry.arms[limb].hand;
@@ -1125,7 +1125,7 @@ impl World {
             // and `mirror_two_handed` deliberately clears the nonowning recoil.
             if row.arms[1].is_some() && self.two_handed(i) {
                 let anatomy = self.combat_specs.as_ref().expect("articulated combat specs")
-                    .anatomy(self.articulated_anatomy[i].expect("articulated anatomy"))
+                    .anatomy(self.body_anatomy[i].expect("articulated anatomy"))
                     .expect("validated articulated anatomy").clone();
                 let right = self.arms[i][1];
                 actuator::mirror_two_handed(
@@ -1280,7 +1280,7 @@ impl World {
         if held[0] || held[1] {
             if held[1] && self.two_handed(i) {
                 let anatomy = self.combat_specs.as_ref().expect("articulated combat specs")
-                    .anatomy(self.articulated_anatomy[i].expect("articulated anatomy"))
+                    .anatomy(self.body_anatomy[i].expect("articulated anatomy"))
                     .expect("validated articulated anatomy").clone();
                 let right = self.arms[i][1];
                 actuator::mirror_two_handed(&mut self.arms[i][0], right, &anatomy, self.body_yaw[i].angle);
@@ -1318,7 +1318,7 @@ impl World {
         entry: TickEntry, remaining: u32, capped: bool,
     ) {
         let anatomy = self.combat_specs.as_ref().expect("articulated combat specs")
-            .anatomy(self.articulated_anatomy[i].expect("articulated anatomy"))
+            .anatomy(self.body_anatomy[i].expect("articulated anatomy"))
             .expect("validated articulated anatomy").clone();
         let yaw = self.body_yaw[i].angle;
         let pre = entry.pre_contact[limb];
@@ -1391,7 +1391,7 @@ impl World {
             let clamped_body = clamp_contact_velocity(body);
             self.vel[i] = Vec2::new(clamped_body.x, clamped_body.y);
             let anatomy = self.combat_specs.as_ref().expect("articulated combat specs")
-                .anatomy(self.articulated_anatomy[i].expect("articulated anatomy"))
+                .anatomy(self.body_anatomy[i].expect("articulated anatomy"))
                 .expect("validated articulated anatomy").clone();
             let yaw = self.body_yaw[i].angle;
             let mut shifted = [false; 2];
@@ -1534,7 +1534,7 @@ impl World {
             let equipment = |id| table.equipment(id).copied();
             let segments = geometry::held_segment_colliders(
                 previous_origin, requested_origin, entry.arms, self.arms[i],
-                grips, self.articulated_carried[i], equipment,
+                grips, self.body_carried[i], equipment,
             );
             for segment in segments.into_iter().flatten() {
                 let owner = segment.owner as usize;
@@ -1589,7 +1589,7 @@ impl World {
 
             let shield = geometry::held_shield_collider(
                 previous_origin, requested_origin, entry.shield, self.shield_pose[i],
-                grips, self.articulated_carried[i], equipment,
+                grips, self.body_carried[i], equipment,
             );
             if let Some(shield) = shield {
                 let owner = shield.owner as usize;
@@ -1623,20 +1623,20 @@ impl World {
             restitution: Fx::ZERO, friction: Fx::ZERO, edge_factor: Fx::ZERO,
             point_factor: Fx::ONE, material: crate::Material::Steel,
         };
-        for slot in 0..self.articulated_projectile_alive.len() {
-            if !self.articulated_projectile_alive[slot] { continue; }
-            let previous = self.articulated_projectile_pos[slot];
-            let (requested, _, shielded_body) = self.articulated_projectile_requested(slot);
+        for slot in 0..self.projectile_alive.len() {
+            if !self.projectile_alive[slot] { continue; }
+            let previous = self.projectile_pos[slot];
+            let (requested, _, shielded_body) = self.projectile_requested(slot);
             rows.push(ContactCollider {
-                entity: self.articulated_projectile_id(slot),
-                faction: self.articulated_projectile_faction[slot],
+                entity: self.projectile_id(slot),
+                faction: self.projectile_faction[slot],
                 slot: ARTICULATED_PROJECTILE_SLOT,
-                mass: self.articulated_projectile_mass[slot],
+                mass: self.projectile_mass[slot],
                 surface: projectile_surface,
-                velocity: self.articulated_projectile_vel[slot],
+                velocity: self.projectile_vel[slot],
                 velocity_offset: Vec3::ZERO,
                 shape: ContactShape::Projectile {
-                    previous, requested, radius: self.articulated_projectile_radius[slot],
+                    previous, requested, radius: self.projectile_radius[slot],
                     shielded_body,
                 },
                 present: true,
@@ -2639,7 +2639,7 @@ mod tests {
         // must hold is that the pose is self-consistent, which is what the
         // energy check will read.
         let anatomy = world.combat_specs.as_ref().unwrap()
-            .anatomy(world.articulated_anatomy[0].unwrap()).unwrap().clone();
+            .anatomy(world.body_anatomy[0].unwrap()).unwrap().clone();
         let arm = world.arms[0][1];
         assert_eq!(arm.hand, actuator::hand_position(
             &anatomy, world.body_yaw[0].angle, 1, arm.bearing, arm.height, arm.reach),
@@ -2716,7 +2716,7 @@ mod tests {
     /// and driven into a body, and the plate hangs on the other arm.
     fn club_armed(fragile: &[usize]) -> Scenario {
         let mut scenario = fragile_scenario(fragile);
-        scenario.units[0].articulated.as_mut().expect("articulated fighter").equipment =
+        scenario.units[0].combat_spec.as_mut().expect("articulated fighter").equipment =
             [Some(3), None];
         scenario.units[0].loadout = crate::Loadout {
             primary: crate::ActionKind::Club, secondary: None,
@@ -3240,7 +3240,7 @@ mod tests {
         // why leaving this at `Steel` stopped the fixture meaning what it says.
         blunt.surface.material = crate::combat::spec::Material::Flesh;
         scenario.combat_specs.as_mut().unwrap().equipment.push(blunt);
-        scenario.units[0].articulated.as_mut().unwrap().equipment = [Some(1), None];
+        scenario.units[0].combat_spec.as_mut().unwrap().equipment = [Some(1), None];
         scenario.units[0].loadout = Loadout::single(ActionKind::Sword);
         scenario.units[0].spawn = Vec2::from_ints(10, 8);
         // The same point as the first hero, so the two blades are collinear and
@@ -3248,7 +3248,7 @@ mod tests {
         // key against each other and this fixture never separates, so standing
         // them in each other costs nothing the test is about.
         scenario.units.push(UnitSpec {
-            articulated: Some(ArticulatedUnitSpecV1 { anatomy: 1, equipment: [Some(second_id), None] }),
+            combat_spec: Some(UnitSpecV1 { anatomy: 1, equipment: [Some(second_id), None] }),
             loadout: Loadout::single(second),
             ..scenario.units[0].clone()
         });
@@ -3367,7 +3367,7 @@ mod tests {
         // construction envelope. 146_237 is the nearest larger raw mass whose
         // carried configurations stay inside it (at 84 bits).
         scenario.combat_specs.as_mut().unwrap().equipment[2].mass = Fx::from_raw(146_237);
-        scenario.units[1].articulated.as_mut().unwrap().equipment = [Some(3), Some(2)];
+        scenario.units[1].combat_spec.as_mut().unwrap().equipment = [Some(3), Some(2)];
         scenario.units[1].loadout = Loadout::pair(ActionKind::Club, ActionKind::Shield);
         let mut world = World::new(&scenario, 1000);
         assert!(world.shield_pose[1].is_some(), "the fixture's brute carries no shield");
@@ -3555,9 +3555,9 @@ mod tests {
                 // clamp has nothing to do when nothing moves. Asserting the
                 // command arrived is what keeps the clamps below about a crowd
                 // rather than about two bodies standing still.
-                assert!(matches!(world.submit_embodied_v1(id,
-                    crate::EmbodiedCommandV1::new(reaching_command(yaw, Fx::ONE))),
-                    crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }),
+                assert!(matches!(world.submit(id,
+                    crate::CommandV1::new(reaching_command(yaw, Fx::ONE))),
+                    crate::SubmitOutcome::Stored { rejection: None, .. }),
                     "the reaching command was refused rather than obeyed");
             }
             world.step();
@@ -3761,7 +3761,7 @@ mod tests {
         let i = world.resolve(held.entity).expect("a live equipment row");
         let limb = held.slot as usize;
         let anatomy = world.combat_specs.as_ref().expect("articulated combat specs")
-            .anatomy(world.articulated_anatomy[i].expect("articulated anatomy"))
+            .anatomy(world.body_anatomy[i].expect("articulated anatomy"))
             .expect("validated articulated anatomy").clone();
         let (arm, yaw) = (world.arms[i][limb], world.body_yaw[i].angle);
         assert_eq!(contact.entry[i].arms[limb].hand + arm.linear_velocity, arm.hand,
@@ -3844,7 +3844,7 @@ mod tests {
         let chamber = Angle::from_raw(yaw.raw().wrapping_sub(Angle::QUARTER.raw()));
         // **`chamber` and `yaw` are torso-frame offsets that happen to be world
         // angles, and only here.** Every command below takes its `body_yaw` from
-        // `neutral_articulated`, which asks for the yaw the body already holds,
+        // `neutral_core`, which asks for the yaw the body already holds,
         // so slot 0 never turns off `Angle::ZERO` and `world_arm_target` adds a
         // zero back on the way in. Give this fixture a body that turns and the
         // two frames come apart and the subtraction becomes real.
@@ -3888,7 +3888,7 @@ mod tests {
         let height = crate::CombatHeight::try_from_raw(Fx::from_ratio(61, 128).raw())
             .expect("sixty-one hundred-and-twenty-eighths is a legal height");
         let strike = |world: &World, bearing| {
-            let mut command = world.neutral_articulated(0);
+            let mut command = world.neutral_core(0);
             command.intent = Intent::Attack(defender);
             command.arms[1] = ArmTarget { bearing, height,
                                           reach: Fx::ONE, effort: Fx::ONE };
@@ -3896,22 +3896,22 @@ mod tests {
         };
         let (max_speed, accel) = CAPTURED_ARM_RATES;
         for _ in 0..48 {
-            assert!(matches!(world.submit_embodied_v1(attacker,
-                crate::EmbodiedCommandV1::new(strike(&world, chamber))),
-                crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }),
+            assert!(matches!(world.submit(attacker,
+                crate::CommandV1::new(strike(&world, chamber))),
+                crate::SubmitOutcome::Stored { rejection: None, .. }),
                 "the chamber was refused rather than obeyed");
-            world.submit_embodied_v1(defender,
-                crate::EmbodiedCommandV1::new(world.neutral_articulated(1)));
+            world.submit(defender,
+                crate::CommandV1::new(world.neutral_core(1)));
             world.step_with_arm_rates(max_speed, accel);
         }
         let mut before = None;
         for _ in 0..48 {
-            assert!(matches!(world.submit_embodied_v1(attacker,
-                crate::EmbodiedCommandV1::new(strike(&world, yaw))),
-                crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }),
+            assert!(matches!(world.submit(attacker,
+                crate::CommandV1::new(strike(&world, yaw))),
+                crate::SubmitOutcome::Stored { rejection: None, .. }),
                 "the follow-through was refused rather than obeyed");
-            world.submit_embodied_v1(defender,
-                crate::EmbodiedCommandV1::new(world.neutral_articulated(1)));
+            world.submit(defender,
+                crate::CommandV1::new(world.neutral_core(1)));
             let saved = world.clone(); world.step_with_arm_rates(max_speed, accel);
             if world.contact_resolutions().iter().any(|row| row.fact.key.kind == ContactKind::WeaponBody) {
                 before = Some(saved); break;
@@ -3919,7 +3919,7 @@ mod tests {
         }
         let mut world = before.expect("captured strike lost contact");
         world.events.clear(); world.expire_unanswered_decisions(); world.retain_contact_entry();
-        world.apply_articulated_movement(); world.record_contact_locomotion(); world.separate();
+        world.apply_movement(); world.record_contact_locomotion(); world.separate();
         // **`drive_stance` and not `drive_body_yaw`, which is what stood here.**
         // The reconstruction has to be the schedule this world actually runs or
         // it is a different tick reporting the twenty-two assertions below. The
@@ -3928,9 +3928,9 @@ mod tests {
         // swapping it moves no recorded word here; on a fixture that turns it
         // would not be, and the row would have been a silent divergence rather
         // than a visible one.
-        world.drive_stance(); world.apply_articulated_grips();
-        world.drive_articulated_arms(max_speed, accel);
-        world.derive_articulated_geometry(); world.clamp_contact_entry();
+        world.drive_stance(); world.apply_grips();
+        world.drive_arms(max_speed, accel);
+        world.derive_geometry(); world.clamp_contact_entry();
         let contact = world.contact.take().unwrap();
         let mut colliders = Vec::new();
         world.build_contact_colliders(&contact.entry, &mut colliders, &world.wounds);
@@ -5208,7 +5208,7 @@ mod tests {
         // supposed to be about recoil reconciliation. It is not a rate the arm
         // is currently against -- the words hold at both -- which is exactly
         // why the dependency was invisible and worth removing.
-        world.drive_articulated_arms(CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
+        world.drive_arms(CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
         let next = world.arms[source][source_limb];
         assert_eq!((next.hand.x.raw(), next.hand.y.raw(), next.hand.z.raw(),
                     next.post_contact_com_velocity.x.raw(), next.post_contact_com_velocity.y.raw(),
@@ -5228,10 +5228,10 @@ mod tests {
         world.arms[0][1].post_contact_active = true;
         world.arms[0][1].post_contact_com_velocity =
             Vec3::new(Fx::from_raw(2), Fx::from_raw(-1), Fx::from_raw(3));
-        let mut release = world.neutral_articulated(0);
+        let mut release = world.neutral_core(0);
         release.grips = [GripRequest::Keep, GripRequest::Release];
-        world.articulated_command[0] = Some(release);
-        world.apply_articulated_grips();
+        world.command_core[0] = Some(release);
+        world.apply_grips();
         let ledger = world.recoil_external_energy(id, LimbSlot::RightArm).unwrap();
         assert_eq!((ledger.reason_mask, ledger.dissipated_numerator, ledger.supplied_numerator),
                    (RecoilExternalEnergy::RELEASE, 1_137_696, 0));
@@ -5248,20 +5248,20 @@ mod tests {
         world.contact.as_mut().unwrap().exact_external_energy[0].reason =
             RecoilExternalEnergy::RELEASE;
 
-        let mut free_left = world.neutral_articulated(0);
+        let mut free_left = world.neutral_core(0);
         free_left.grips = [GripRequest::Release, GripRequest::Keep];
-        world.articulated_command[0] = Some(free_left);
-        world.apply_articulated_grips();
+        world.command_core[0] = Some(free_left);
+        world.apply_grips();
         world.grips[0][1].equipment_slot = Some(0);
-        world.articulated_carried[0][1] = world.articulated_carried[0][0];
+        world.body_carried[0][1] = world.body_carried[0][0];
         let scale = world.exact_owners[0].unwrap().common_scale;
         world.exact_owners[0] = Some(world.initial_exact_owner(0, scale));
         world.arms[0][1].post_contact_active = true;
         world.arms[0][1].post_contact_com_velocity = Vec3::new(Fx::ONE, Fx::ZERO, Fx::ZERO);
-        let mut replace = world.neutral_articulated(0);
+        let mut replace = world.neutral_core(0);
         replace.grips = [GripRequest::Keep, GripRequest::EquipSlot(1)];
-        world.articulated_command[0] = Some(replace);
-        world.apply_articulated_grips();
+        world.command_core[0] = Some(replace);
+        world.apply_grips();
         let ledger = world.recoil_external_energy(id, LimbSlot::RightArm).unwrap();
         assert_eq!(ledger.reason_mask,
                    RecoilExternalEnergy::RELEASE | RecoilExternalEnergy::REPLACEMENT);
@@ -5647,7 +5647,7 @@ mod tests {
                     committed.linear_velocity.z.raw(), committed.post_contact_com_velocity.x.raw(),
                     committed.post_contact_com_velocity.y.raw(), committed.post_contact_com_velocity.z.raw()),
                    (33_833, -19_426, 56_215, -19, -366, 0, 81, 1_537, 0));
-        world.drive_articulated_arms(CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
+        world.drive_arms(CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
         let next = world.arms[source][limb];
         assert_ne!((committed.hand, committed.post_contact_com_velocity),
                    (next.hand, next.post_contact_com_velocity));
@@ -6171,7 +6171,7 @@ mod tests {
         config.fighters[1].anatomy = crate::AnatomyChoice::Fighter;
         config.max_ticks = 96;
         let mut scenario = Scenario::duel_from(&config).unwrap();
-        let sword = scenario.units[0].articulated.unwrap().equipment.into_iter()
+        let sword = scenario.units[0].combat_spec.unwrap().equipment.into_iter()
             .flatten().next().unwrap();
         scenario.combat_specs.as_mut().unwrap().equipment.iter_mut()
             .find(|row| row.id == sword).unwrap().binding = crate::GripBinding::Both;
@@ -6187,29 +6187,29 @@ mod tests {
         let height = crate::CombatHeight::try_from_raw(Fx::from_ratio(61, 128).raw())
             .expect("sixty-one hundred-and-twenty-eighths is a legal height");
         let strike = |world: &World, bearing| {
-            let mut command = world.neutral_articulated(0);
+            let mut command = world.neutral_core(0);
             command.intent = Intent::Attack(defender);
             command.arms[1] = ArmTarget { bearing, height,
                                           reach: Fx::ONE, effort: Fx::ONE };
             command
         };
         for _ in 0..48 {
-            assert!(matches!(world.submit_embodied_v1(attacker,
-                crate::EmbodiedCommandV1::new(strike(&world, chamber))),
-                crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }),
+            assert!(matches!(world.submit(attacker,
+                crate::CommandV1::new(strike(&world, chamber))),
+                crate::SubmitOutcome::Stored { rejection: None, .. }),
                 "the chamber was refused rather than obeyed");
-            world.submit_embodied_v1(defender,
-                crate::EmbodiedCommandV1::new(world.neutral_articulated(1)));
+            world.submit(defender,
+                crate::CommandV1::new(world.neutral_core(1)));
             world.step();
         }
         let mut hit = false;
         for _ in 0..48 {
-            assert!(matches!(world.submit_embodied_v1(attacker,
-                crate::EmbodiedCommandV1::new(strike(&world, yaw))),
-                crate::SubmitEmbodiedOutcome::Stored { rejection: None, .. }),
+            assert!(matches!(world.submit(attacker,
+                crate::CommandV1::new(strike(&world, yaw))),
+                crate::SubmitOutcome::Stored { rejection: None, .. }),
                 "the follow-through was refused rather than obeyed");
-            world.submit_embodied_v1(defender,
-                crate::EmbodiedCommandV1::new(world.neutral_articulated(1)));
+            world.submit(defender,
+                crate::CommandV1::new(world.neutral_core(1)));
             world.step();
             if world.contact_resolutions().iter().any(|row|
                 row.fact.key.kind == ContactKind::WeaponBody) {
@@ -6234,7 +6234,7 @@ mod tests {
         assert!(world.arms[0][1].post_contact_active,
                 "the contact did not activate the two-handed owner");
         let anatomy = world.combat_specs.as_ref().unwrap()
-            .anatomy(world.articulated_anatomy[0].unwrap()).unwrap().clone();
+            .anatomy(world.body_anatomy[0].unwrap()).unwrap().clone();
         let mut expected = world.arms[0][0];
         actuator::mirror_two_handed(&mut expected, world.arms[0][1], &anatomy, world.body_yaw[0].angle);
         assert_eq!(world.arms[0][0], expected, "the left arm was left on its pre-contact mirror");

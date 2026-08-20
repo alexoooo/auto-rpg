@@ -4,7 +4,7 @@
 //! `crates/learn-core` is allowed to use floating point on one condition: that
 //! nothing it computes reaches authoritative state. Half of that is a type
 //! fence -- [`learn_core::LearnedActionV1`] is not
-//! [`sim::EmbodiedCommandV1`] and `World::submit_embodied_v1` cannot be
+//! [`sim::CommandV1`] and `World::submit` cannot be
 //! handed one -- and the crate root's doctest pair is what says it. The other
 //! half is structural and is what this file says: **`sim` cannot see this
 //! crate**, so there is no path by which a weight could reach the world other

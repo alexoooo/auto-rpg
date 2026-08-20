@@ -6,17 +6,25 @@
 **Update when:** An embodied actuator constant, formula, phase order, column, or hashed field changes.
 
 <!-- DOC_CONTRACT: embodied-actuators -->
-## What an embodied body has that an articulated one does not
+## What an embodied body has that an articulated one did not
 
 Three columns and one derived joint. Everything else — arms, grips, shields,
-contact, anatomy — is the articulated actuator unchanged, and
+contact, anatomy — is the older actuator unchanged, and
 [that contract](articulated-actuators.md) still owns it.
 
-| Column | Type | Allocated for |
+| Column | Type | Allocated |
 |---|---|---|
-| `ground_z` | `Fx` per body | every model; non-zero only on a sculpted floor |
-| `stance` | `StanceState` per body | `CombatModel::has_stance` |
-| `elbow_plane` | `[ElbowPlaneState; 2]` per body | `CombatModel::has_swing_plane` |
+| `ground_z` | `Fx` per body | always; non-zero only on a sculpted floor |
+| `stance` | `StanceState` per body | always |
+| `elbow_plane` | `[ElbowPlaneState; 2]` per body | always |
+
+**Two of those three were allocated behind a model predicate and are not any more.**
+`CombatModel::has_stance` and `has_swing_plane` were deleted with the second model, so
+every column above is allocated for every body. **The ordering the predicates produced
+is not a free choice, and that is the part to carry forward**: all three go into the
+state stream *after* every byte the older grammar writes, because the pinned digests
+were recorded against that order and a column woven into the shared prefix would move
+five of them at once -- see [hash domains V1](hash-domains-v1.md#the-live-state-digest).
 
 The elbow itself is **not** a column. It is solved once per body per tick by
 `World::arm_elbows` from the shoulder, the hand and the held plane, and retained
@@ -167,11 +175,13 @@ part of where the arm *is* and everything downstream of that phase reads the pos
 
 ## What is hashed
 
-The embodied state digest is the articulated one plus a tail, and the tail sits
-**behind the model guard at the end** — after every byte the articulated grammar
-writes. That is what keeps an articulated digest answering exactly what it
-answered before any of these columns existed, without a second copy of the
-hundred-line grammar above it.
+The embodied state digest is the older one plus a tail, and the tail sits
+**at the end** — after every byte the shared grammar writes. That kept an articulated
+digest answering exactly what it answered before any of these columns existed, without
+a second copy of the hundred-line grammar above it. **The guard that enforced it is
+gone and the ordering it produced is load-bearing on its own**: the nested core hash is
+folded by every state-digest pin in the repository, so a column that reached it would
+move five pins for a reason nobody predicted.
 
 The tail is `ground_z`, then the stance rows, then the elbow planes — **both
 halves of each plane**, because neither is derived from the other: `commanded` is
@@ -180,12 +190,17 @@ what the last accepted command asked for and survives until the next decision,
 would either forget the request between ticks or resume the chase from the wrong
 place. They are equal only once the arm has arrived.
 
-`an_embodied_only_column_cannot_move_an_articulated_digest` perturbs each column
-separately and watches only `HashDomain::EmbodiedV1` move.
+`every_embodied_only_column_moves_its_own_digest_and_not_the_legacy_core` sweeps
+**every field of every one of these columns** and watches `HashDomain::EmbodiedV1`
+move while the nested core hash stands still. It replaced
+`an_embodied_only_column_cannot_move_an_articulated_digest` rather than renaming it:
+half of that test compared against a digest and a model that no longer exist, and it
+perturbed a single stance word, so it would have passed with the other four missing
+from the stream.
 
 ## What is published
 
-One `EMBODIED_STANCE_V1` row per live embodied body, carrying
+One `EMBODIED_STANCE_V1` row per live body, carrying
 `entity_index generation hip_yaw_raw pelvis_raw twist_raw step_left`, with
 `twist_raw` derived at the boundary so a consumer cannot be handed one that
 disagrees with the two angles it sits between. The section and its handshake are

@@ -9,19 +9,22 @@ use fx::{Angle, Fx, Vec3};
 //
 // One subject's articulated picture: its own joints exactly, and up to six
 // opponents as limbs and volumes rather than as a radius and a blade angle.
-// It rides inside [`Observation`] rather than replacing it, because the legacy
-// contact block is a live contract with two shipped policies behind it, and a
-// second observation type handed round beside the first is two boundaries to
-// keep honest instead of one.
+// It rode inside the legacy observation rather than replacing it, because that
+// model's contact block was a live contract with two shipped policies behind it,
+// and a second observation type handed round beside the first was two boundaries
+// to keep honest instead of one. Both the legacy observation and the choice are
+// gone: session 05 left one body model, so this *is* the observation, and the
+// header above is kept because it says why it was ever a passenger.
 //
 // **Every position in these structs is world space.** That is the rule
-// [`crate::ArticulatedPose`] set for published ground truth and the reason it
+// [`crate::Pose`] set for published ground truth and the reason it
 // set it applies here unchanged: authoritative arm and shield poses are
 // body-origin-relative because the actuator works in a frame the body carries,
 // the conversion belongs in exactly one place, and adding an origin twice was a
 // real defect class in the contact phase. The *feature vector* is the relative
 // view, and it is relative to one origin for the whole block; see
-// [`Observation::write_features`].
+// `learn_core::write_features`, which is the feature layout that ships now that
+// the legacy observation's own 954-column one has gone with it.
 
 /// How many opponents one articulated observation carries.
 ///
@@ -31,12 +34,12 @@ use fx::{Angle, Fx, Vec3};
 /// capacity and not [`crate::Stats::tracked_contacts`]: the legacy block
 /// narrows what a dim character can hold in mind, and the articulated block
 /// does not, because its width is a wasm row stride before it is a percept.
-pub const MAX_ARTICULATED_OPPONENTS: usize = MAX_CONTACTS;
+pub const MAX_OPPONENTS: usize = MAX_CONTACTS;
 
 /// A shield face as an observer reads it.
 ///
 /// Presence sits *inside* the struct rather than in an `Option`, which is the
-/// opposite of what [`crate::ArticulatedPose`] does with the same geometry, and
+/// opposite of what [`crate::Pose`] does with the same geometry, and
 /// both are right: a pose is Rust talking to Rust, while this row crosses the
 /// wasm wall at a fixed stride and a fixed row cannot be absent -- only blank.
 ///
@@ -117,7 +120,7 @@ pub struct ObservedStance {
     /// How much of a forced step is left to run, `[0, 1]`. Zero is settled.
     pub step_fraction: Fx,
     /// Each elbow relative to its own shoulder, as a fraction of `arm_length`,
-    /// indexed like [`ArticulatedObservation::arms`].
+    /// indexed like [`Observation::arms`].
     ///
     /// Relative to the *shoulder* and not to the body origin, which is the one
     /// place this crate's articulated block rule -- one frame for everything --
@@ -200,8 +203,9 @@ impl ObservedOpponentStance {
 
 /// One of the subject's own two arms, exactly.
 ///
-/// Proprioception is free -- the same rule [`Observation::position`] states --
-/// so nothing in here is blurred, however dim the body is. Perception noise
+/// Proprioception is free -- the rule the legacy observation stated on its own
+/// `position` column, inherited unchanged -- so nothing in here is blurred,
+/// however dim the body is. Perception noise
 /// reaches opponents and nothing else.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct ObservedArm {
@@ -209,7 +213,7 @@ pub struct ObservedArm {
     pub hand: Vec3,
     /// Where the actuator is trying to put the hand, world space.
     ///
-    /// The same substitution [`crate::World::articulated_pose`] publishes: a
+    /// The same substitution [`crate::World::pose`] publishes: a
     /// slot that has never had a command accepted answers the neutral command
     /// the arm driver supplies, because that is the pose it is genuinely
     /// converging on. A zero here would say "chasing the map origin".
@@ -221,7 +225,7 @@ pub struct ObservedArm {
     /// [`PosedArm::velocity`] exactly -- and it has to match, because the two
     /// are the same column read twice and a consumer that added the body
     /// velocity to one and not the other would draw two different hands. The
-    /// absolute velocity is [`ArticulatedObservation::body_velocity`] plus
+    /// absolute velocity is [`Observation::body_velocity`] plus
     /// this; publishing the sum would throw away the only term a reader cannot
     /// recover.
     ///
@@ -240,7 +244,7 @@ pub struct ObservedArm {
     /// published equipment fact does not follow the one-collider ownership
     /// rule. It is the truth of the grip -- both hands are on the haft, and
     /// both grip capability bits say so -- while
-    /// [`ArticulatedObservation::LEFT_WEAPON`] and the drawn geometry answer
+    /// [`Observation::LEFT_WEAPON`] and the drawn geometry answer
     /// the different question of which arm owns the collider.
     pub equipment: Option<EquipmentSpecId>,
 }
@@ -285,7 +289,7 @@ pub struct ObservedOpponent {
     /// the contact phase sweeps.
     pub regions: [RegionVolume; BodyPart::COUNT],
     /// The held segment in each grip, world space, indexed like
-    /// [`ArticulatedObservation::arms`]. A two-handed item fills the **right**
+    /// [`Observation::arms`]. A two-handed item fills the **right**
     /// slot only, which is the ownership the contact phase and the pose row
     /// both use: one item is one collider.
     pub weapons: [Option<SegmentPose>; 2],
@@ -339,21 +343,22 @@ impl ObservedOpponent {
 
 /// What one articulated body knows when it decides.
 ///
-/// The articulated twin of [`Observation`], and the same promise: if a policy
-/// needs something that is not in here, it cannot have it. The difference is
-/// what a decision is *about*. A legacy contact is a disc with a blade angle
-/// and the question is where to stand; an articulated opponent is five volumes
-/// and two blades and the question is which of them to put steel into.
+/// **The** observation since session 05, and it was the articulated twin of the
+/// legacy one before that. The promise is the twin's: if a policy needs something
+/// that is not in here, it cannot have it. What separated the two was what a
+/// decision is *about*. A legacy contact was a disc with a blade angle and the
+/// question was where to stand; a jointed opponent is five volumes and two blades
+/// and the question is which of them to put steel into.
 ///
 /// Subject state is exact and opponent state is measured; see
 /// [`ObservedOpponent`]. Every categorical fact on both sides -- identity,
-/// equipment, severance, [`ArticulatedObservation::capabilities`] -- is exact,
+/// equipment, severance, [`Observation::capabilities`] -- is exact,
 /// because those are the facts a glance settles.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct ArticulatedObservation {
+pub struct Observation {
     pub tick: u32,
     /// The subject, or [`EntityId::NONE`] for a blank observation. See
-    /// [`ArticulatedObservation::present`].
+    /// [`Observation::present`].
     pub subject: EntityId,
     /// What this body can currently do, as a bit mask. See the eight associated
     /// constants below for the bit order and the rule behind each one.
@@ -376,10 +381,10 @@ pub struct ArticulatedObservation {
     pub wound_fraction: [Fx; BodyPart::COUNT],
     /// Bit `part as u8` set for each severed region.
     pub severed_mask: u8,
-    /// How many of [`ArticulatedObservation::opponents`] are filled, nearest
+    /// How many of [`Observation::opponents`] are filled, nearest
     /// first.
     pub opponent_count: u8,
-    pub opponents: [ObservedOpponent; MAX_ARTICULATED_OPPONENTS],
+    pub opponents: [ObservedOpponent; MAX_OPPONENTS],
     /// Immutable body dimensions needed to reason about reach. These are
     /// outward views of the subject's anatomy row; they are deliberately not
     /// columns in the legacy feature vector.
@@ -392,15 +397,15 @@ pub struct ArticulatedObservation {
     /// The subject's own legs and joints, or [`ObservedStance::BLANK`] on a
     /// model with none.
     ///
-    /// **Last, and it stays last**, for the reason
-    /// [`Observation::articulated`] is last: its feature block is appended
-    /// after the articulated one and everything below is frozen against weights
-    /// that do not exist yet but will. Keeping the struct order and the vector
+    /// **Last, and it stays last**, for the reason this whole struct was last
+    /// inside the legacy observation: its feature block is appended after the
+    /// jointed one and everything below is frozen against weights that do not
+    /// exist yet but will. Keeping the struct order and the vector
     /// order the same is what makes that easy to see.
     pub stance: ObservedStance,
 }
 
-impl ArticulatedObservation {
+impl Observation {
     /// **The body can translate.** Set unless the legs are severed.
     ///
     /// Categorical, and the alternative was rejected rather than overlooked:
@@ -424,14 +429,14 @@ impl ArticulatedObservation {
     /// **The left grip holds something.** `GripState::equipment_slot.is_some()`.
     ///
     /// Occupancy rather than "the arm is intact", and the two are not a
-    /// trade-off: `apply_articulated_grips` clears the grip of a severed arm
+    /// trade-off: `apply_grips` clears the grip of a severed arm
     /// every tick, so an occupied grip *entails* a present arm and this bit
     /// carries strictly more. Severance on its own is already published twice
-    /// over ([`ObservedArm::severed`] and [`ArticulatedObservation::severed_mask`]),
+    /// over ([`ObservedArm::severed`] and [`Observation::severed_mask`]),
     /// and a capability bit that restated it would be the only bit in the mask
     /// saying nothing new.
     pub const LEFT_GRIP: u32 = 1 << 2;
-    /// **The right grip holds something.** See [`ArticulatedObservation::LEFT_GRIP`].
+    /// **The right grip holds something.** See [`Observation::LEFT_GRIP`].
     pub const RIGHT_GRIP: u32 = 1 << 3;
     /// **A weapon swings from the left hand**: the left grip holds an item with
     /// segment geometry, under the pose row's ownership rule -- so a two-handed
@@ -440,7 +445,7 @@ impl ArticulatedObservation {
     /// cannot disagree.
     pub const LEFT_WEAPON: u32 = 1 << 4;
     /// **A weapon swings from the right hand.** See
-    /// [`ArticulatedObservation::LEFT_WEAPON`].
+    /// [`Observation::LEFT_WEAPON`].
     pub const RIGHT_WEAPON: u32 = 1 << 5;
     /// **A shield is held**, in either hand. One bit and not two, because the
     /// shield pose the sim derives is one face however many grips are on it.
@@ -453,12 +458,13 @@ impl ArticulatedObservation {
 
     /// An observation of nothing: no subject, no opponents, no geometry.
     ///
-    /// What a Legacy world, a stale identity and a corpse all answer, and what
-    /// [`Observation::blank`] fills. The subject is [`EntityId::NONE`] rather
+    /// What a stale identity and a corpse both answer, and what
+    /// [`crate::World::observe`] returns for either. The subject is
+    /// [`EntityId::NONE`] rather
     /// than a zeroed handle because a zeroed handle names slot 0 generation 0 --
     /// a live fighter in every fixture in the repository -- and "blank" has to
     /// be a value no live body can take.
-    pub const BLANK: ArticulatedObservation = ArticulatedObservation {
+    pub const BLANK: Observation = Observation {
         tick: 0,
         subject: EntityId::NONE,
         capabilities: 0,
@@ -473,7 +479,7 @@ impl ArticulatedObservation {
         wound_fraction: [Fx::ZERO; BodyPart::COUNT],
         severed_mask: 0,
         opponent_count: 0,
-        opponents: [ObservedOpponent::BLANK; MAX_ARTICULATED_OPPONENTS],
+        opponents: [ObservedOpponent::BLANK; MAX_OPPONENTS],
         standing_height: Fx::ZERO,
         arm_length: Fx::ZERO,
         hand_radius: Fx::ZERO,
@@ -497,7 +503,7 @@ impl ArticulatedObservation {
         &self.opponents[..self.opponent_count as usize]
     }
 
-    /// Whether every bit in `mask` is set. `obs.can(ArticulatedObservation::SHIELD)`.
+    /// Whether every bit in `mask` is set. `obs.can(Observation::SHIELD)`.
     #[inline]
     pub fn can(&self, mask: u32) -> bool {
         self.capabilities & mask == mask
@@ -506,13 +512,13 @@ impl ArticulatedObservation {
 
 // **This file had a test module and it went with the feature vector.** Every
 // test in it -- thirteen of them, roughly six hundred lines -- asserted a column
-// index, a block width, or a zero fill in the 954-element vector
-// `Observation::write_features` produced: that the articulated block was 472 wide,
+// index, a block width, or a zero fill in the 954-element vector the legacy
+// observation's own `write_features` produced: that the articulated block was 472 wide,
 // that an unused opponent row wrote sixty-eight zeroes, that each documented
 // column landed on its documented index. There is no vector left for any of them
 // to be about.
 //
-// What survives here is `ArticulatedObservation` and the `Observed*` rows, and
+// What survives here is `Observation` and the `Observed*` rows, and
 // they are exercised where they are produced rather than where they are declared:
 // `crates/sim/src/world/query.rs` has the observation tests, and
 // `crates/learn-core/src/digest.rs` owns the feature layout that actually ships.

@@ -27,8 +27,12 @@ bytes:
   fixed widths, and everything published across the wasm boundary.
 
 [Policy architecture](../architecture/policy.md) owns the seam itself: one `decide`
-method, no `&World`, and why the two remaining models are separate traits rather than one
-trait over an enum.
+method, no `&World`, and what the two-trait split cost and bought while there were two
+models to split.
+
+**One combat model ships.** The legacy model went in embodied session 10 and the
+articulated model on 2026-08-19, so the two contracts above are two halves of one
+vocabulary rather than one model's half of two.
 
 ## Host standing inputs, and the fact that nothing perceives them
 
@@ -45,13 +49,14 @@ moved no pin.
 
 **No surviving observation carries them.** `Order` reached a body through
 `Observation::nav_dir` and `nav_distance`, which were columns of the deleted legacy
-observation; `ArticulatedObservation` has neither an order column nor a navigation one.
+observation; the surviving observation has neither an order column nor a navigation
+one.
 So a standing order is an input the simulation carries and no body can
 perceive — which is why the browser's click-to-move exports were removed rather than
 left drawing a marker the fighter ignored.
 
 **Ordered movement is therefore not implemented, and restoring it is three pieces of
-work in this order.** First a navigation column on `ArticulatedObservation`, which is a
+work in this order.** First a navigation column on the observation, which is a
 mechanic and not a plumbing job: somebody has to decide what a jointed body *knows* about
 a route it has not walked, and the answer is what the column's width and blur are.
 Second a route source to fill it — the deleted field, or anything else that answers "which
@@ -78,10 +83,10 @@ and a club. That is the whole set of things a body can currently hold, and it is
 ## Source anchors
 
 - The submitted command grammar: [`crates/sim/src/command.rs`](../../crates/sim/src/command.rs)
-- Subject-scoped observation: [`ArticulatedObservation`](../../crates/sim/src/obs.rs#L353), [`World::observe_articulated`](../../crates/sim/src/world/query.rs#L285)
+- Subject-scoped observation: [`Observation`](../../crates/sim/src/obs.rs#L353), [`World::observe`](../../crates/sim/src/world/query.rs#L285)
 - Action roles and append-only registry: [`Role`](../../crates/sim/src/action.rs#L28), [`ActionKind`](../../crates/sim/src/action.rs#L116)
 - Loadout shape: [`Loadout`](../../crates/sim/src/loadout.rs#L18)
-- Standing inputs: [`Order`](../../crates/sim/src/command.rs#L670), [`Objective`](../../crates/sim/src/command.rs#L773)
+- Standing inputs: [`Order`](../../crates/sim/src/command.rs#L670), [`Objective`](../../crates/sim/src/command.rs#L810)
 
 ## Superseded DESIGN sections
 
@@ -90,6 +95,6 @@ vector an agent was given: 450 columns under layout version 7, growing to 13 as 
 articulated and embodied blocks were appended. **There is no vector.** Embodied session
 10 deleted it with the legacy `Observation` it was a method on, having established that
 nothing in the workspace read it -- the learning interface that ships builds its own
-columns from named fields of `ArticulatedObservation`, and is pinned separately. That
+columns from named fields of the surviving observation, and is pinned separately. That
 section is history about a shape, and this page is where a reader looking for the
 current input contract is sent instead.

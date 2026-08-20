@@ -16,11 +16,11 @@
 
 use fx::{Angle, Fx, Vec3};
 use policy::{
-    incoming_height, EmbodiedPolicy, TacticalConfig, TacticalEmbodiedPolicy, TacticalPhase,
+    incoming_height, Policy, TacticalConfig, TacticalPolicy, TacticalPhase,
     GUARD_COMMIT_TICKS, GUARD_READ_DEADBAND_RAW,
 };
 use sim::{
-    ArticulatedObservation, BodyPart, CombatHeight, EntityId, ObservedOpponent, RegionVolume,
+    Observation, BodyPart, CombatHeight, EntityId, ObservedOpponent, RegionVolume,
     Scenario, SegmentPose, ARM_MIN_REACH_RAW,
 };
 
@@ -42,9 +42,9 @@ const SMALL: i32 = 2_000;
 const LARGE: i32 = 5_000;
 
 /// What the planner leaves in an arm it is not using, and what a refused guard
-/// therefore looks like: `neutral_articulated_command`'s row.
+/// therefore looks like: `neutral_world_command`'s row.
 const NEUTRAL_REACH: Fx = Fx::ZERO;
-/// What a guard carrying something asks for. `embodied_guard`'s `GUARD_REACH`,
+/// What a guard carrying something asks for. `guard`'s `GUARD_REACH`,
 /// written out here because the constant is private and the number is the whole
 /// difference between "the guard wrote this arm" and "the planner did".
 const GUARD_REACH: Fx = Fx::from_ratio(3, 4);
@@ -53,15 +53,15 @@ const GUARD_REACH: Fx = Fx::from_ratio(3, 4);
 /// plate in the left.
 ///
 /// Its guard arm is therefore index 0, which is `1 - weapon` -- the arm
-/// `embodied_script.rs` assembles a guard into and the arm `lab embodied` reads
+/// `script.rs` assembles a guard into and the arm `lab embodied` reads
 /// as the guard.
-fn subject() -> ArticulatedObservation {
-    let mut obs = ArticulatedObservation::BLANK;
+fn subject() -> Observation {
+    let mut obs = Observation::BLANK;
     obs.subject = EntityId::new(0, 0);
-    obs.capabilities = ArticulatedObservation::RIGHT_WEAPON
-        | ArticulatedObservation::RIGHT_GRIP
-        | ArticulatedObservation::LEFT_GRIP
-        | ArticulatedObservation::SHIELD;
+    obs.capabilities = Observation::RIGHT_WEAPON
+        | Observation::RIGHT_GRIP
+        | Observation::LEFT_GRIP
+        | Observation::SHIELD;
     obs.body_position = Vec3::ZERO;
     obs.body_yaw = Angle::ZERO;
     obs.arm_length = ARM;
@@ -108,7 +108,7 @@ fn armed(foe: &mut ObservedOpponent, raw: i32, tip_x: Fx, length: Fx) {
 
 /// The whole situation: a subject, an opponent `gap` ahead, and a blade whose
 /// tip sits at `raw` and `tip_x` in front.
-fn situation(gap: Fx, raw: i32, tip_x: Fx) -> ArticulatedObservation {
+fn situation(gap: Fx, raw: i32, tip_x: Fx) -> Observation {
     let mut obs = subject();
     let mut foe = opponent(gap);
     armed(&mut foe, raw, tip_x, Fx::from_ratio(3, 2));
@@ -117,13 +117,13 @@ fn situation(gap: Fx, raw: i32, tip_x: Fx) -> ArticulatedObservation {
     obs
 }
 
-fn at_tick(obs: &ArticulatedObservation, tick: u32) -> ArticulatedObservation {
-    ArticulatedObservation { tick, ..*obs }
+fn at_tick(obs: &Observation, tick: u32) -> Observation {
+    Observation { tick, ..*obs }
 }
 
 /// What the policy commands the guard arm this tick.
-fn guard_arm(policy: &mut TacticalEmbodiedPolicy, obs: &ArticulatedObservation) -> sim::ArmTarget {
-    policy.decide(obs).articulated.arms[0]
+fn guard_arm(policy: &mut TacticalPolicy, obs: &Observation) -> sim::ArmTarget {
+    policy.decide(obs).core.arms[0]
 }
 
 /// Reading raw for a band's own centre, so a test can name a band and get the
@@ -145,7 +145,7 @@ fn a_high_cut_is_met_with_a_high_guard() {
         Some(CombatHeight::HIGH),
         "the fixture does not present a high blade",
     );
-    let mut policy = TacticalEmbodiedPolicy::default();
+    let mut policy = TacticalPolicy::default();
     let guard = guard_arm(&mut policy, &obs);
     assert_eq!(guard.height, CombatHeight::HIGH);
     assert_eq!(guard.reach, GUARD_REACH, "the guard arm was not written at all");
@@ -157,7 +157,7 @@ fn a_high_cut_is_met_with_a_high_guard() {
 fn a_low_cut_is_met_with_a_low_guard() {
     let obs = situation(Fx::from_ratio(3, 2), at_band(CombatHeight::LOW), Fx::ONE);
     assert_eq!(incoming_height(&obs, &obs.opponents()[0]), Some(CombatHeight::LOW));
-    let mut policy = TacticalEmbodiedPolicy::default();
+    let mut policy = TacticalPolicy::default();
     assert_eq!(guard_arm(&mut policy, &obs).height, CombatHeight::LOW);
 }
 
@@ -184,7 +184,7 @@ fn a_low_cut_is_met_with_a_low_guard() {
 #[test]
 fn a_blade_that_has_not_moved_does_not_move_the_guard() {
     let gap = Fx::from_ratio(3, 2);
-    let mut policy = TacticalEmbodiedPolicy::default();
+    let mut policy = TacticalPolicy::default();
 
     let first = situation(gap, START, Fx::ONE);
     assert_eq!(guard_arm(&mut policy, &at_tick(&first, 0)).height, CombatHeight::LOW);
@@ -245,7 +245,7 @@ fn the_deadband_steps_straddle_the_deadband_they_are_measuring() {
 #[test]
 fn a_read_guard_holds_for_the_commit_window_before_it_is_re_read() {
     let gap = Fx::from_ratio(3, 2);
-    let mut policy = TacticalEmbodiedPolicy::default();
+    let mut policy = TacticalPolicy::default();
     let low = situation(gap, at_band(CombatHeight::LOW), Fx::ONE);
     let high = situation(gap, at_band(CombatHeight::HIGH), Fx::ONE);
 
@@ -277,10 +277,10 @@ fn a_read_guard_holds_for_the_commit_window_before_it_is_re_read() {
 /// holding a *stationary* opponent placed out of range, which is a green test
 /// asserting something the code does not do -- the exact shape `AGENTS.md` warns
 /// is invisible by construction. Nothing here reads a velocity, and departure 2
-/// in `embodied_guard.rs`'s header carries the measurement that says nothing can.
+/// in `guard.rs`'s header carries the measurement that says nothing can.
 #[test]
 fn a_blade_out_of_reach_returns_the_guard_to_the_centre_line() {
-    let mut policy = TacticalEmbodiedPolicy::default();
+    let mut policy = TacticalPolicy::default();
     let near = situation(Fx::from_ratio(3, 2), at_band(CombatHeight::HIGH), Fx::ONE);
     let near_guard = guard_arm(&mut policy, &at_tick(&near, 0));
     assert_eq!(near_guard.height, CombatHeight::HIGH, "the guard never left the centre line");
@@ -305,13 +305,13 @@ fn a_blade_out_of_reach_returns_the_guard_to_the_centre_line() {
 #[test]
 fn a_severed_guard_arm_does_not_hold_a_guard() {
     let obs = situation(Fx::from_ratio(3, 2), at_band(CombatHeight::HIGH), Fx::ONE);
-    let mut policy = TacticalEmbodiedPolicy::default();
+    let mut policy = TacticalPolicy::default();
     assert_eq!(guard_arm(&mut policy, &obs).reach, GUARD_REACH);
 
     let mut severed = obs;
     severed.arms[0].severed = true;
     severed.severed_mask |= 1 << BodyPart::LeftArm as u8;
-    let mut policy = TacticalEmbodiedPolicy::default();
+    let mut policy = TacticalPolicy::default();
     let arm = guard_arm(&mut policy, &severed);
     assert_eq!(arm.reach, NEUTRAL_REACH, "a stump was held out at a guard's reach");
     assert_eq!(arm.effort, Fx::ZERO, "a severed arm was asked for effort");
@@ -325,12 +325,12 @@ fn a_severed_guard_arm_does_not_hold_a_guard() {
 /// planner wants index 0 as well. That collision is the only situation in which
 /// rule 3 has anything to say, and it cannot be produced with the shipped
 /// sword-and-plate arrangement at all.
-fn dual_wielding(gap: Fx) -> ArticulatedObservation {
+fn dual_wielding(gap: Fx) -> Observation {
     let mut obs = situation(gap, at_band(CombatHeight::HIGH), Fx::ONE);
-    obs.capabilities = ArticulatedObservation::LEFT_WEAPON
-        | ArticulatedObservation::RIGHT_WEAPON
-        | ArticulatedObservation::LEFT_GRIP
-        | ArticulatedObservation::RIGHT_GRIP;
+    obs.capabilities = Observation::LEFT_WEAPON
+        | Observation::RIGHT_WEAPON
+        | Observation::LEFT_GRIP
+        | Observation::RIGHT_GRIP;
     obs.weapons[0] = obs.weapons[1];
     obs
 }
@@ -347,7 +347,7 @@ fn dual_wielding(gap: Fx) -> ArticulatedObservation {
 #[test]
 fn a_committed_cut_is_not_abandoned_for_an_incoming_one() {
     let obs = dual_wielding(Fx::from_ratio(3, 2));
-    let mut policy = TacticalEmbodiedPolicy::default();
+    let mut policy = TacticalPolicy::default();
 
     let mut measured: Option<Fx> = None;
     let mut committed: Option<Fx> = None;
@@ -357,10 +357,10 @@ fn a_committed_cut_is_not_abandoned_for_an_incoming_one() {
         let hand = policy.planner().context().plan.map(|plan| plan.hand as usize);
         match phase {
             TacticalPhase::Seek | TacticalPhase::Measure => {
-                measured.get_or_insert(command.articulated.arms[0].reach);
+                measured.get_or_insert(command.core.arms[0].reach);
             }
             TacticalPhase::Commit if hand == Some(0) => {
-                committed.get_or_insert(command.articulated.arms[0].reach);
+                committed.get_or_insert(command.core.arms[0].reach);
             }
             _ => {}
         }
@@ -376,7 +376,7 @@ fn a_committed_cut_is_not_abandoned_for_an_incoming_one() {
     assert_eq!(
         committed,
         Fx::from_raw(61_440),
-        "the committed arm is not `embodied_tactics::STRIKE_COMMIT_REACH`",
+        "the committed arm is not `tactics::STRIKE_COMMIT_REACH`",
     );
 }
 
@@ -400,14 +400,14 @@ fn a_committed_cut_is_not_abandoned_for_an_incoming_one() {
 #[test]
 fn a_chambered_cut_is_not_overwritten_by_a_guard() {
     let obs = dual_wielding(Fx::from_ratio(3, 2));
-    let mut policy = TacticalEmbodiedPolicy::default();
+    let mut policy = TacticalPolicy::default();
 
     let mut chambered: Option<Fx> = None;
     for tick in 0..200 {
         let command = policy.decide(&at_tick(&obs, tick));
         let hand = policy.planner().context().plan.map(|plan| plan.hand as usize);
         if policy.planner().phase() == TacticalPhase::Chamber && hand == Some(0) {
-            chambered.get_or_insert(command.articulated.arms[0].reach);
+            chambered.get_or_insert(command.core.arms[0].reach);
         }
     }
 
@@ -416,7 +416,7 @@ fn a_chambered_cut_is_not_overwritten_by_a_guard() {
     assert_eq!(
         chambered,
         Fx::ONE,
-        "the chambering arm is not `embodied_tactics::STRIKE_CHAMBER_REACH`",
+        "the chambering arm is not `tactics::STRIKE_CHAMBER_REACH`",
     );
 }
 
@@ -428,9 +428,9 @@ fn a_chambered_cut_is_not_overwritten_by_a_guard() {
 /// exercised that branch before 2026-08-18 -- every fixture in this file carried
 /// a plate -- which is why the constant could be mutated with the whole
 /// workspace still green.
-fn bare_guard_hand(gap: Fx) -> ArticulatedObservation {
+fn bare_guard_hand(gap: Fx) -> Observation {
     let mut obs = situation(gap, at_band(CombatHeight::HIGH), Fx::ONE);
-    obs.capabilities = ArticulatedObservation::RIGHT_WEAPON | ArticulatedObservation::RIGHT_GRIP;
+    obs.capabilities = Observation::RIGHT_WEAPON | Observation::RIGHT_GRIP;
     obs.arms[0].equipment = None;
     obs.weapons[0] = None;
     obs
@@ -458,11 +458,11 @@ fn an_empty_guard_hand_is_held_at_the_joints_own_floor() {
     // The fixture this is about, read off the scenario rather than described:
     // the Brute really does walk in with one hand empty.
     let duel = Scenario::embodied_duel();
-    let brute = duel.units[1].articulated.expect("the brute is an articulated unit");
+    let brute = duel.units[1].combat_spec.expect("the brute is an articulated unit");
     assert_eq!(brute.equipment, [Some(3), None], "the fixture's Brute now carries two things");
 
     let obs = bare_guard_hand(Fx::from_ratio(3, 2));
-    let mut policy = TacticalEmbodiedPolicy::default();
+    let mut policy = TacticalPolicy::default();
     let bare = guard_arm(&mut policy, &obs);
 
     // It is a guard: it read the blade and it is asking for the same effort a
@@ -483,7 +483,7 @@ fn an_empty_guard_hand_is_held_at_the_joints_own_floor() {
     // And the control, so the difference is the empty hand and not the fixture:
     // the same situation with something in that hand holds the carrying reach.
     let carried = situation(Fx::from_ratio(3, 2), at_band(CombatHeight::HIGH), Fx::ONE);
-    let mut policy = TacticalEmbodiedPolicy::default();
+    let mut policy = TacticalPolicy::default();
     assert_eq!(guard_arm(&mut policy, &carried).reach, GUARD_REACH);
 }
 
@@ -516,7 +516,7 @@ fn the_guard_reads_the_tip_and_not_the_hilt() {
     obs.opponent_count = 1;
     obs.opponents[0] = foe;
 
-    let mut policy = TacticalEmbodiedPolicy::default();
+    let mut policy = TacticalPolicy::default();
     let guard = guard_arm(&mut policy, &obs);
     assert_eq!(
         guard.height,
@@ -551,7 +551,7 @@ fn the_guard_reads_the_tip_and_not_the_hilt() {
     });
     slanted.opponent_count = 1;
     slanted.opponents[0] = foe;
-    let mut policy = TacticalEmbodiedPolicy::default();
+    let mut policy = TacticalPolicy::default();
     assert_eq!(
         guard_arm(&mut policy, &slanted).height,
         CombatHeight::HIGH,
@@ -584,7 +584,7 @@ fn the_guard_is_named_in_the_torso_frame_and_not_converted_twice() {
     obs.opponent_count = 1;
     obs.opponents[0] = foe;
 
-    let mut policy = TacticalEmbodiedPolicy::default();
+    let mut policy = TacticalPolicy::default();
     let guard = guard_arm(&mut policy, &obs);
     assert_eq!(guard.height, CombatHeight::HIGH, "the guard did not engage at this yaw");
     assert_eq!(
@@ -618,7 +618,7 @@ fn no_tick_selects_a_guard_height_that_no_blade_selected() {
         let obs = situation(Fx::from_ratio(3, 2), at_band(band), Fx::ONE);
         // A fresh policy per band, so the answer cannot be the previous band
         // held over -- which is the guard working and not the claim being made.
-        let mut policy = TacticalEmbodiedPolicy::default();
+        let mut policy = TacticalPolicy::default();
         for tick in 0..(4 * GUARD_COMMIT_TICKS + 7) {
             assert_eq!(
                 guard_arm(&mut policy, &at_tick(&obs, tick)).height,
@@ -645,8 +645,8 @@ fn the_fixed_guard_control_holds_the_centre_line_whatever_is_coming() {
         // A fresh pair per band. One subject carried across both would answer
         // the first band twice, because the second read would land inside the
         // window the first one committed -- which is the guard working.
-        let mut subject_policy = TacticalEmbodiedPolicy::new(TacticalConfig::READING);
-        let mut control = TacticalEmbodiedPolicy::new(TacticalConfig::FIXED_GUARD);
+        let mut subject_policy = TacticalPolicy::new(TacticalConfig::READING);
+        let mut control = TacticalPolicy::new(TacticalConfig::FIXED_GUARD);
         let obs = situation(Fx::from_ratio(3, 2), at_band(band), Fx::ONE);
         let read = guard_arm(&mut subject_policy, &at_tick(&obs, 0));
         let fixed = guard_arm(&mut control, &at_tick(&obs, 0));
@@ -667,7 +667,7 @@ fn the_fixed_guard_control_holds_the_centre_line_whatever_is_coming() {
 #[test]
 fn a_reset_clears_the_read_and_keeps_the_configuration() {
     let obs = situation(Fx::from_ratio(3, 2), at_band(CombatHeight::HIGH), Fx::ONE);
-    let mut control = TacticalEmbodiedPolicy::new(TacticalConfig::FIXED_GUARD);
+    let mut control = TacticalPolicy::new(TacticalConfig::FIXED_GUARD);
     assert_eq!(guard_arm(&mut control, &obs).height, CombatHeight::MID);
     control.reset();
     assert_eq!(control.config(), TacticalConfig::FIXED_GUARD, "a reset promoted the control");
@@ -676,7 +676,7 @@ fn a_reset_clears_the_read_and_keeps_the_configuration() {
     // And the subject's memory really is cleared: a guard inside its window
     // holds, and the same guard after a reset does not.
     let low = situation(Fx::from_ratio(3, 2), at_band(CombatHeight::LOW), Fx::ONE);
-    let mut policy = TacticalEmbodiedPolicy::default();
+    let mut policy = TacticalPolicy::default();
     assert_eq!(guard_arm(&mut policy, &at_tick(&low, 0)).height, CombatHeight::LOW);
     assert_eq!(guard_arm(&mut policy, &at_tick(&obs, 1)).height, CombatHeight::LOW);
     // The row itself and not only the command it produced, which is what says

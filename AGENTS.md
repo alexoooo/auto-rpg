@@ -67,7 +67,7 @@ ARPG_CARTESIAN_RECOIL=1 node --test tools/wasm_check.js
 cargo run --release -p lab -- embodied --corpus-digest   # exits 1 on a moved pin
 cargo run --release -p lab -- verify --seeds 200      # run, re-run, replay agree
 
-node --test "client/test/*.test.mjs"              # the four client suites, 235 tests
+node --test "client/test/*.test.mjs"              # the four client suites, 234 tests
 npm run check:abi                                 # generated TypeScript vs its generator
 node tools/check_docs.js                          # documentation links, anchors, authority
 node tools/check_deps.js                          # no crate may reach a registry or git source
@@ -99,6 +99,22 @@ Four notes on the gate itself, each of which has cost time:
   edits. Neither is on the gate because neither passes; whoever fixes one puts it
   on. A known-red list that names one of two failures is worse than none, because
   it reads as a complete list.
+- **`node --test tools/check_docs.test.js` is known red on SIX tests**, written
+  down here on 2026-08-19 for the reason the entry above gives: an undocumented
+  red gate costs the next agent the time it takes to prove the failure was not
+  theirs. 18 pass, 6 fail -- `every_architecture_document_has_the_standard_header`,
+  `architecture_source_anchors_resolve`,
+  `all_moved_design_anchors_have_a_valid_destination`,
+  `no_durable_document_depends_only_on_a_temporary_plan`,
+  `internal_links_and_anchors_resolve` and
+  `room_asset_contract_uses_the_exact_marker_set`. **These cannot be caused by a
+  documentation edit and it is worth knowing why before you go looking.** Every
+  one builds a synthetic root under `os.tmpdir()` and never reads the repository
+  tree, so the failures are the *fixture* drifting from the checker, not the docs
+  drifting from their sources -- `node tools/check_docs.js`, which does read the
+  tree, is green and is the one on the gate. Verified 2026-08-19 with both
+  `tools/check_docs.js` and `tools/check_docs.test.js` byte-identical to
+  `738acaa`. Whoever repairs the fixture takes this entry with it.
 
 Everything else, day to day:
 
@@ -279,11 +295,17 @@ the commit that finishes the topic. Durable results from a closed session belong
 in an architecture, design, reference or performance document — not in a plan and
 not in this file.
 
-The live roadmap is [the embodied fight](docs/plans/fight-00-overview.md). The
-visual work owed after the 2026-08-17 production pass is
-[its own topic](docs/plans/concept-production-00-overview.md). The proposed
-successor, which opens once the embodied fight closes, is
-[the arena you can fight in](docs/plans/arena-00-overview.md).
+The live roadmap is [the arena you can fight in](docs/plans/arena-00-overview.md).
+The visual work owed after the 2026-08-17 production pass is
+[its own topic](docs/plans/concept-production-00-overview.md). **The embodied fight is
+closed and its plan set is deleted**, which is this section's own rule applied to itself:
+what it measured is in [the tactical policy record](docs/performance/embodied-tactical-policy.md)
+and [the corpus and high-ground record](docs/performance/embodied-corpus-and-high-ground.md),
+what it built is in [architecture: policy](docs/architecture/policy.md), the constraint it
+placed on perception is in
+[navigation and visibility](docs/design/navigation-visibility.md), and the
+[golden registry](docs/reference/hashes.md#golden-registry) records which pins it moved.
+Look for a closed topic in those documents; there is no plan file to find.
 
 ## Gotchas that have already cost time
 

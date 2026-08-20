@@ -1,8 +1,8 @@
-use crate::EmbodiedPolicy;
+use crate::Policy;
 use fx::{Fx, Vec2};
 use sim::{
     CommandReject, EntityId, Event, Faction, Order, Outcome, Replay, Scenario,
-    SubmitEmbodiedOutcome, SubmittedCommand, World,
+    SubmitOutcome, SubmittedCommand, World,
 };
 
 /// How to drive a run.
@@ -95,9 +95,11 @@ impl RunResult {
 
 /// **Two sibling loops stood here and both are gone.**
 ///
-/// `run` -- the legacy loop this file was written around -- was eleven lines and
-/// drove `Policy` over the legacy `Observation`. `run_articulated` was this
-/// function with three substitutions: a different observation, a different
+/// The legacy loop this file was written around was called `run` -- the name the
+/// surviving loop below has since reclaimed, which is worth saying once so a
+/// reader of this paragraph does not read it as being about the function it sits
+/// on. It was eleven lines and drove the legacy policy trait over the legacy
+/// observation. `run_articulated` was this function with three substitutions: a different observation, a different
 /// submission entry and a different command variant in the replay. They were
 /// siblings rather than branches inside one loop on purpose, and the argument
 /// survives them because it is what says the next model gets its own loop: a
@@ -126,7 +128,7 @@ impl RunResult {
 ///
 /// **The difference that mattered between it and its deleted twins was never
 /// visible to the type checker, and that is why the assertion below is shaped
-/// the way it is.** [`World::submit_embodied_v1`] compiled against any world and
+/// the way it is.** [`World::submit`] compiled against any world and
 /// answered [`CommandReject::WrongModel`] when the scenario's grammar disagreed
 /// -- the refusal was a runtime value, not a compile error. So a harness wired
 /// to the wrong entry built, ran its whole clock, refused every submission and
@@ -141,7 +143,7 @@ impl RunResult {
 /// stopped submitting, and that needs no second grammar to happen.
 ///
 /// **What gets recorded is what the world *stored*, not what the policy
-/// offered.** [`SubmitEmbodiedOutcome::Stored`] may carry a command that is not
+/// offered.** [`SubmitOutcome::Stored`] may carry a command that is not
 /// the one it was handed -- a range failure or a grip against equipment that is
 /// not there stores the neutral command atomically and reports the reason
 /// alongside it. The v2 contract is that replays persist final submitted
@@ -163,17 +165,17 @@ impl RunResult {
 /// about here.
 ///
 /// **The outcome gate is live, and it is not a dressed-up `for tick in
-/// 0..max_ticks`.** Bodies do die -- `reap_dead_articulated` clears `alive` and
+/// 0..max_ticks`.** Bodies do die -- `reap_dead_bodies` clears `alive` and
 /// pushes the death -- so [`World::outcome`] is reachable, and
 /// `an_embodied_run_stops_on_a_death_and_not_only_on_the_clock` proves it by
 /// thinning an anatomy until the reaper fires rather than by waiting for the
 /// game to be balanced. The second gate carries the shipped fixture, which is
 /// why [`World::timeout`] scoring on points matters here rather than being the
 /// rare case.
-pub fn run_embodied(
+pub fn run(
     scenario: &Scenario,
     seed: u64,
-    mut policy: impl EmbodiedPolicy,
+    mut policy: impl Policy,
     config: &RunConfig,
 ) -> RunResult {
     policy.reset();
@@ -205,16 +207,16 @@ pub fn run_embodied(
         due.clear();
         due.extend_from_slice(world.pending_decisions());
         for &id in &due {
-            let command = policy.decide(&world.observe_articulated(id));
+            let command = policy.decide(&world.observe(id));
             decisions += 1;
-            let (stored, rejection) = match world.submit_embodied_v1(id, command) {
-                SubmitEmbodiedOutcome::Stored { command, rejection } => (Some(command), rejection),
+            let (stored, rejection) = match world.submit(id, command) {
+                SubmitOutcome::Stored { command, rejection } => (Some(command), rejection),
                 // The same two reasons the articulated arm can carry, and the
                 // same one of them is reachable from here: `pending_decisions`
                 // is rebuilt from the alive set and nothing between it and the
                 // submission kills anybody, so `StaleEntity` cannot arrive and
                 // `WrongModel` is what an articulated fixture answers.
-                SubmitEmbodiedOutcome::NotStored(reason) => (None, Some(reason)),
+                SubmitOutcome::NotStored(reason) => (None, Some(reason)),
             };
             if let Some(reason) = rejection {
                 rejected += 1;
@@ -263,10 +265,10 @@ pub fn run_embodied(
 mod tests {
     use super::*;
     use crate::{
-        into_torso_frame, neutral_articulated_command, neutral_embodied_command,
-        NeutralEmbodiedPolicy, ScriptedEmbodiedPolicy,
+        into_torso_frame, neutral_world_command, neutral_command,
+        NeutralPolicy, ScriptedPolicy,
     };
-    use sim::{ArticulatedObservation, CommandField, EmbodiedCommandV1, Intent};
+    use sim::{Observation, CommandField, CommandV1, Intent};
 
     /// The shipped embodied fixture with the two bodies moved inside each
     /// other's sight.
@@ -299,8 +301,8 @@ mod tests {
     /// submit legally and still produce a fight, which is exactly the shape this
     /// session's `cargo check` rule warns about. One conversion, in the one
     /// place the sign lives.
-    fn advance_and_strike(obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
-        let mut command = neutral_articulated_command(obs);
+    fn advance_and_strike(obs: &Observation) -> CommandV1 {
+        let mut command = neutral_world_command(obs);
         let Some(nearest) = obs.opponents().first() else {
             return into_torso_frame(obs, command);
         };
@@ -338,8 +340,8 @@ mod tests {
     /// an invisible one.
     #[derive(Default)]
     struct Recorder {
-        seen: Vec<ArticulatedObservation>,
-        issued: Vec<EmbodiedCommandV1>,
+        seen: Vec<Observation>,
+        issued: Vec<CommandV1>,
     }
 
     impl Recorder {
@@ -358,10 +360,10 @@ mod tests {
         }
     }
 
-    impl EmbodiedPolicy for Recorder {
-        fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
+    impl Policy for Recorder {
+        fn decide(&mut self, obs: &Observation) -> CommandV1 {
             let mut command = advance_and_strike(obs);
-            for arm in command.articulated.arms.iter_mut() {
+            for arm in command.core.arms.iter_mut() {
                 arm.effort = self.effort();
             }
             self.seen.push(*obs);
@@ -378,11 +380,11 @@ mod tests {
     #[test]
     fn an_embodied_policy_has_no_world_parameter() {
         // The *type-level* half of this claim belongs to the `compile_fail`
-        // doctest on `EmbodiedPolicy`, which is the only thing that can show no
+        // doctest on `Policy`, which is the only thing that can show no
         // policy can reach the world. What a unit test can show is the
         // consequence: decisions are a function of the observation sequence
         // alone. So drive one policy through the runner, prove it was shown
-        // exactly what `World::observe_articulated` answers at each decision
+        // exactly what `World::observe` answers at each decision
         // point, and then reproduce every command from that recording with no
         // world in the room at all.
         let scenario = duel_in_sight();
@@ -392,7 +394,7 @@ mod tests {
         };
 
         let mut recorder = Recorder::default();
-        let result = run_embodied(&scenario, 31, &mut recorder, &config);
+        let result = run(&scenario, 31, &mut recorder, &config);
         assert!(!recorder.seen.is_empty(), "nobody was ever asked to decide");
         assert_eq!(result.rejected, 0, "the fixture policy submits legal commands");
 
@@ -406,12 +408,12 @@ mod tests {
         ] {
             world.set_order(faction, order);
         }
-        let mut expected: Vec<ArticulatedObservation> = Vec::new();
+        let mut expected: Vec<Observation> = Vec::new();
         let mut next = 0usize;
         while world.outcome().is_none() && world.tick() < 180 {
             for id in world.pending_decisions().to_vec() {
-                expected.push(world.observe_articulated(id));
-                let _ = world.submit_embodied_v1(id, recorder.issued[next]);
+                expected.push(world.observe(id));
+                let _ = world.submit(id, recorder.issued[next]);
                 next += 1;
             }
             world.step();
@@ -423,7 +425,7 @@ mod tests {
         // a fresh instance. If anything the policy answered had come from
         // somewhere other than its argument, this is where it would go missing.
         let mut offline = Recorder::default();
-        let replayed: Vec<EmbodiedCommandV1> =
+        let replayed: Vec<CommandV1> =
             recorder.seen.iter().map(|obs| offline.decide(obs)).collect();
         assert_eq!(
             replayed.iter().map(|c| c.payload_bytes()).collect::<Vec<_>>(),
@@ -435,8 +437,8 @@ mod tests {
     fn an_embodied_run_is_reproducible() {
         let scenario = duel_in_sight();
         let config = RunConfig::default();
-        let a = run_embodied(&scenario, 17, Recorder::default(), &config);
-        let b = run_embodied(&scenario, 17, Recorder::default(), &config);
+        let a = run(&scenario, 17, Recorder::default(), &config);
+        let b = run(&scenario, 17, Recorder::default(), &config);
         assert_eq!(a.state_hash, b.state_hash);
         assert_eq!(a.ticks, b.ticks);
         assert_eq!(a.outcome, b.outcome);
@@ -449,7 +451,7 @@ mod tests {
             record: true,
             ..RunConfig::default()
         };
-        let result = run_embodied(&scenario, 21, Recorder::default(), &config);
+        let result = run(&scenario, 21, Recorder::default(), &config);
         let replay = result.replay.as_ref().expect("recording was requested");
         assert!(!replay.submitted_entries.is_empty(), "the recorder wrote nothing");
         let played = replay.play();
@@ -465,13 +467,13 @@ mod tests {
         // has to carry.
         #[derive(Default)]
         struct Overreacher {
-            seen: Vec<ArticulatedObservation>,
+            seen: Vec<Observation>,
         }
-        impl EmbodiedPolicy for Overreacher {
-            fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
+        impl Policy for Overreacher {
+            fn decide(&mut self, obs: &Observation) -> CommandV1 {
                 self.seen.push(*obs);
                 let mut command = advance_and_strike(obs);
-                command.articulated.arms[0].reach = Fx::from_raw(Fx::ONE.raw() + 1);
+                command.core.arms[0].reach = Fx::from_raw(Fx::ONE.raw() + 1);
                 command
             }
         }
@@ -482,9 +484,9 @@ mod tests {
             record: true,
             ..RunConfig::default()
         };
-        let honest = run_embodied(&scenario, 44, Recorder::default(), &config);
+        let honest = run(&scenario, 44, Recorder::default(), &config);
         let mut policy = Overreacher::default();
-        let result = run_embodied(&scenario, 44, &mut policy, &config);
+        let result = run(&scenario, 44, &mut policy, &config);
 
         assert_eq!(result.rejected, result.decisions as u32);
         assert!(result.rejected > 0);
@@ -515,14 +517,14 @@ mod tests {
             // final *submitted* commands, and the only way to check that is to
             // read what was written down.
             //
-            // **`neutral_embodied_command` and not `neutral_articulated_command`,
+            // **`neutral_command` and not `neutral_world_command`,
             // and the difference is one column.** The world substitutes an arm
             // bearing of `Angle::ZERO`, because an embodied bearing is measured
             // from the torso and zero is "straight ahead" there; the articulated
             // neutral writes the body's yaw, which in this frame would mean a
             // whole turn off the centre line.
-            assert_eq!(recorded.payload_bytes(), neutral_embodied_command(shown).payload_bytes());
-            assert!(recorded.articulated.arms[0].reach <= Fx::ONE);
+            assert_eq!(recorded.payload_bytes(), neutral_command(shown).payload_bytes());
+            assert!(recorded.core.arms[0].reach <= Fx::ONE);
         }
         let played = replay.play();
         assert_eq!(played.state_hash(), result.state_hash);
@@ -536,7 +538,7 @@ mod tests {
     // Reaching that arm took a scenario of the *other* grammar, and there is no
     // second grammar left: `StaleEntity` is the arm's only other reason and is
     // unreachable from this loop, because `World::pending_decisions` is rebuilt
-    // from the alive set and nothing between it and `submit_embodied_v1` kills
+    // from the alive set and nothing between it and `submit` kills
     // anybody. So the test did not become untested, it became vacuous, and a
     // reseat onto the surviving fixture would have been a green assertion about
     // a refusal no world can now produce -- the exact shape `AGENTS.md` calls
@@ -544,7 +546,7 @@ mod tests {
     //
     // What replaces it is structural: the harness can no longer be pointed at a
     // world that refuses it. What is *not* replaced is the `NotStored` arm's
-    // own behaviour, which `run_embodied` still spells out rather than
+    // own behaviour, which `run` still spells out rather than
     // collapsing into a wildcard, for the reason the event counters are spelled
     // out above -- the next reason that arm can carry has to be thought about
     // here.
@@ -553,7 +555,7 @@ mod tests {
     fn an_embodied_run_stops_on_a_death_and_not_only_on_the_clock() {
         // The loop gates on `World::outcome`, and that gate is only worth
         // having if the world can reach one. It can: contact wounds an anatomy,
-        // `settle_anatomy` bleeds it, `reap_dead_articulated` clears `alive`,
+        // `settle_anatomy` bleeds it, `reap_dead_bodies` clears `alive`,
         // and the outcome falls out of the alive counts. Without this the loop
         // would be a `for tick in 0..max_ticks` wearing a `while`.
         //
@@ -569,7 +571,7 @@ mod tests {
         brute.blood_max = Fx::from_ratio(1, 32);
 
         let config = RunConfig::default();
-        let result = run_embodied(&scenario, 9, Recorder::default(), &config);
+        let result = run(&scenario, 9, Recorder::default(), &config);
         assert_eq!(result.rejected, 0);
         assert!(
             result.ticks < scenario.max_ticks,
@@ -605,7 +607,7 @@ mod tests {
             max_ticks: Some(90),
             ..RunConfig::default()
         };
-        let result = run_embodied(&scenario, 9, Recorder::default(), &config);
+        let result = run(&scenario, 9, Recorder::default(), &config);
         assert_eq!(result.ticks, 90);
         assert!(
             matches!(result.outcome, Outcome::Decision(_)),
@@ -617,7 +619,7 @@ mod tests {
     #[test]
     fn an_embodied_policy_instance_can_be_reused_without_leaking_between_runs() {
         // `Recorder` tires as it decides, so the third run is only the first
-        // run again if `run_embodied` cleared the instance it was handed.
+        // run again if `run` cleared the instance it was handed.
         // Without that, the fatigue two runs deep is saturated where a fresh
         // instance's is zero, the commands differ from the first decision, and
         // both assertions below fail rather than passing on a policy that could
@@ -625,9 +627,9 @@ mod tests {
         let scenario = duel_in_sight();
         let config = RunConfig::default();
         let mut policy = Recorder::default();
-        let first = run_embodied(&scenario, 5, &mut policy, &config);
-        let _ = run_embodied(&scenario, 6, &mut policy, &config);
-        let again = run_embodied(&scenario, 5, &mut policy, &config);
+        let first = run(&scenario, 5, &mut policy, &config);
+        let _ = run(&scenario, 6, &mut policy, &config);
+        let again = run(&scenario, 5, &mut policy, &config);
         assert_eq!(first.state_hash, again.state_hash);
         assert_eq!(first.ticks, again.ticks);
         // And the recording itself is one run's worth, which is the same claim
@@ -641,7 +643,7 @@ mod tests {
     #[test]
     fn a_boxed_embodied_policy_is_driveable() {
         // The trait has to stay object-safe -- it is used as
-        // `dyn EmbodiedPolicy` by `EmbodiedPolicyKind::build`, and a seam that
+        // `dyn Policy` by `PolicyKind::build`, and a seam that
         // quietly was not would only be discovered by whoever first reached for
         // the box.
         let scenario = duel_in_sight();
@@ -649,8 +651,8 @@ mod tests {
             max_ticks: Some(30),
             ..RunConfig::default()
         };
-        let boxed: Box<dyn EmbodiedPolicy> = Box::new(NeutralEmbodiedPolicy);
-        let result = run_embodied(&scenario, 12, boxed, &config);
+        let boxed: Box<dyn Policy> = Box::new(NeutralPolicy);
+        let result = run(&scenario, 12, boxed, &config);
         assert_eq!(result.rejected, 0);
         assert_eq!(result.ticks, 30);
     }
@@ -658,7 +660,7 @@ mod tests {
     /// **The run has to have happened**, and on this seam that is a separate
     /// claim from "it finished".
     ///
-    /// [`World::submit_embodied_v1`] compiles against any world and answers
+    /// [`World::submit`] compiles against any world and answers
     /// `NotStored(WrongModel)` when the scenario disagrees. A loop wired to the
     /// wrong entry therefore runs its clock out and exits clean, having stored
     /// nothing -- so `rejected == 0` is satisfied by a loop that submitted
@@ -668,8 +670,8 @@ mod tests {
     ///
     /// What cannot be faked by an empty run is the last pair: a stored command
     /// written down for every decision, and a state hash that is not the
-    /// control condition's. `NeutralEmbodiedPolicy` is a body standing still, so
-    /// a `run_embodied` that stored nothing would land on exactly its hash.
+    /// control condition's. `NeutralPolicy` is a body standing still, so
+    /// a `run` that stored nothing would land on exactly its hash.
     #[test]
     fn an_embodied_run_stores_every_command_it_decides() {
         let scenario = Scenario::embodied_duel();
@@ -678,7 +680,7 @@ mod tests {
             record: true,
             ..RunConfig::default()
         };
-        let result = run_embodied(&scenario, 19, ScriptedEmbodiedPolicy::default(), &config);
+        let result = run(&scenario, 19, ScriptedPolicy::default(), &config);
 
         assert_eq!(result.ticks, 240, "the run did not last the clock it was given");
         assert_eq!(result.rejected, 0);
@@ -697,7 +699,7 @@ mod tests {
             );
         }
 
-        let idle = run_embodied(&scenario, 19, NeutralEmbodiedPolicy, &config);
+        let idle = run(&scenario, 19, NeutralPolicy, &config);
         assert_ne!(
             result.state_hash, idle.state_hash,
             "the scripted run reached the state two bodies standing still reach",

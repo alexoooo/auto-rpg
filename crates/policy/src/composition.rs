@@ -14,9 +14,9 @@
 //! exists for: a replay of a mixed fight reproduces it exactly without needing
 //! either the human or the policy.
 
-use sim::{ArticulatedObservation, EmbodiedCommandV1, LimbSlot};
+use sim::{Observation, CommandV1, LimbSlot};
 
-use crate::neutral_articulated_command;
+use crate::neutral_world_command;
 
 /// Which parts of a command a source is entitled to fill.
 ///
@@ -55,14 +55,14 @@ impl CommandAuthority {
 /// *sees* would make an off hand blind to the fight; narrowing what it *writes*
 /// is what `authority` already does, and doing it twice would be two places to
 /// disagree.
-pub trait PartialEmbodiedSource {
+pub trait PartialCommandSource {
     fn authority(&self) -> CommandAuthority;
 
-    fn contribute(&mut self, obs: &ArticulatedObservation, into: &mut EmbodiedCommandV1);
+    fn contribute(&mut self, obs: &Observation, into: &mut CommandV1);
 
-    /// Cleared before each run, on [`EmbodiedPolicy::reset`]'s contract.
+    /// Cleared before each run, on [`Policy::reset`]'s contract.
     ///
-    /// [`EmbodiedPolicy::reset`]: crate::EmbodiedPolicy::reset
+    /// [`Policy::reset`]: crate::Policy::reset
     fn reset(&mut self) {}
 }
 
@@ -109,7 +109,7 @@ impl CompositionError {
 /// `Debug` reports the shape rather than the sources, because a `dyn` source has
 /// nothing useful to print and the interesting fact is who claims what.
 pub struct ComposedController {
-    sources: Vec<Box<dyn PartialEmbodiedSource>>,
+    sources: Vec<Box<dyn PartialCommandSource>>,
 }
 
 impl core::fmt::Debug for ComposedController {
@@ -126,7 +126,7 @@ impl ComposedController {
     /// running a fight. Two sources both claiming `arms[1]`, or none claiming
     /// navigation, is a configuration error and not a runtime one.
     pub fn new(
-        sources: Vec<Box<dyn PartialEmbodiedSource>>,
+        sources: Vec<Box<dyn PartialCommandSource>>,
     ) -> Result<ComposedController, CompositionError> {
         let mut navigation = 0usize;
         let mut arms = [0usize; 2];
@@ -157,8 +157,8 @@ impl ComposedController {
     /// zero. Authority is disjoint by construction, so the order the sources
     /// were added in cannot matter; `composition_order_does_not_depend_on_the_order_sources_were_added`
     /// asserts that rather than assuming it.
-    pub fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
-        let mut command = EmbodiedCommandV1::new(neutral_articulated_command(obs));
+    pub fn decide(&mut self, obs: &Observation) -> CommandV1 {
+        let mut command = CommandV1::new(neutral_world_command(obs));
         for source in &mut self.sources {
             source.contribute(obs, &mut command);
         }
@@ -176,10 +176,10 @@ impl ComposedController {
 /// them**, rather than the other way round, because a caller that holds a
 /// `ComposedController` by value should not have to import a trait to drive it.
 /// The trait exists so a *driver* can hold this or a scripted embodied policy
-/// behind one `Box<dyn EmbodiedPolicy>`, which is a different need and arrived
+/// behind one `Box<dyn Policy>`, which is a different need and arrived
 /// a session later.
-impl crate::EmbodiedPolicy for ComposedController {
-    fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
+impl crate::Policy for ComposedController {
+    fn decide(&mut self, obs: &Observation) -> CommandV1 {
         ComposedController::decide(self, obs)
     }
 
@@ -200,8 +200,8 @@ impl crate::EmbodiedPolicy for ComposedController {
 // is what still holds it, over sources that write their own planes.
 //
 // It had no caller outside this crate's own tests, which is why it is deleted
-// rather than reseated onto [`EmbodiedPolicy`]: a source that returns an
-// `EmbodiedCommandV1` and then has most of it thrown away is a policy driven
+// rather than reseated onto [`Policy`]: a source that returns an
+// `CommandV1` and then has most of it thrown away is a policy driven
 // for one arm's worth of its answer, and `crates/policy/tests/composition.rs`
 // writes the four lines that does directly, where the fight it is part of can
 // see them.
@@ -226,25 +226,25 @@ mod tests {
         }
     }
 
-    impl PartialEmbodiedSource for Marker {
+    impl PartialCommandSource for Marker {
         fn authority(&self) -> CommandAuthority { self.authority }
 
-        fn contribute(&mut self, _obs: &ArticulatedObservation, into: &mut EmbodiedCommandV1) {
+        fn contribute(&mut self, _obs: &Observation, into: &mut CommandV1) {
             self.contributions += 1;
             if self.authority.navigation {
-                into.articulated.move_dir = Vec2::new(Fx::from_raw(self.mark as i32), Fx::ZERO);
-                into.articulated.body_yaw = Angle::from_raw(self.mark);
+                into.core.move_dir = Vec2::new(Fx::from_raw(self.mark as i32), Fx::ZERO);
+                into.core.body_yaw = Angle::from_raw(self.mark);
             }
             for slot in 0..2 {
                 if self.authority.arms[slot] {
-                    into.articulated.arms[slot] = ArmTarget {
+                    into.core.arms[slot] = ArmTarget {
                         bearing: Angle::from_raw(self.mark),
                         height: CombatHeight::MID,
                         reach: Fx::from_raw(self.mark as i32),
                         effort: Fx::from_raw(self.mark as i32),
                     };
-                    into.articulated.grips[slot] = GripRequest::EquipSlot((self.mark & 1) as u8);
-                    into.articulated.releases[slot] = ReleaseRequest::Loose;
+                    into.core.grips[slot] = GripRequest::EquipSlot((self.mark & 1) as u8);
+                    into.core.releases[slot] = ReleaseRequest::Loose;
                     // Rotated so the plane cannot be confused with the bearing
                     // the same mark writes two lines up: a `contribute` that
                     // filled the plane from the bearing would agree with an
@@ -261,7 +261,7 @@ mod tests {
     /// and counts the resets it has been handed.
     ///
     /// The counter is what makes `reset` observable at all: a source's own state
-    /// is behind a `Box<dyn PartialEmbodiedSource>` the moment it is composed, so
+    /// is behind a `Box<dyn PartialCommandSource>` the moment it is composed, so
     /// a forwarder that quietly dropped `reset` would look exactly like one that
     /// did not.
     struct Everything {
@@ -269,13 +269,13 @@ mod tests {
         resets: std::rc::Rc<std::cell::Cell<usize>>,
     }
 
-    impl PartialEmbodiedSource for Everything {
+    impl PartialCommandSource for Everything {
         fn authority(&self) -> CommandAuthority { CommandAuthority::ALL }
 
-        fn contribute(&mut self, _obs: &ArticulatedObservation, into: &mut EmbodiedCommandV1) {
-            into.articulated.body_yaw = Angle::from_raw(self.mark);
+        fn contribute(&mut self, _obs: &Observation, into: &mut CommandV1) {
+            into.core.body_yaw = Angle::from_raw(self.mark);
             for slot in 0..2 {
-                into.articulated.arms[slot].bearing = Angle::from_raw(self.mark);
+                into.core.arms[slot].bearing = Angle::from_raw(self.mark);
                 into.swing_plane[slot] = Angle::from_raw(self.mark.rotate_left(5));
             }
         }
@@ -285,7 +285,7 @@ mod tests {
 
     fn navigation_and_left_and_right(
         nav: u16, left: u16, right: u16,
-    ) -> Vec<Box<dyn PartialEmbodiedSource>> {
+    ) -> Vec<Box<dyn PartialCommandSource>> {
         vec![
             Box::new(Marker::new(CommandAuthority::navigation_only(), nav)),
             Box::new(Marker::new(CommandAuthority::arm(LimbSlot::LeftArm), left)),
@@ -297,11 +297,11 @@ mod tests {
     fn a_composed_command_takes_each_field_from_the_source_that_owns_it() {
         let mut controller = ComposedController::new(
             navigation_and_left_and_right(11, 22, 33)).expect("disjoint authority");
-        let command = controller.decide(&ArticulatedObservation::BLANK);
-        assert_eq!(command.articulated.body_yaw, Angle::from_raw(11));
-        assert_eq!(command.articulated.move_dir.x, Fx::from_raw(11));
-        assert_eq!(command.articulated.arms[0].bearing, Angle::from_raw(22));
-        assert_eq!(command.articulated.arms[1].bearing, Angle::from_raw(33));
+        let command = controller.decide(&Observation::BLANK);
+        assert_eq!(command.core.body_yaw, Angle::from_raw(11));
+        assert_eq!(command.core.move_dir.x, Fx::from_raw(11));
+        assert_eq!(command.core.arms[0].bearing, Angle::from_raw(22));
+        assert_eq!(command.core.arms[1].bearing, Angle::from_raw(33));
         // The embodied-only field divides the same way, which is the whole
         // reason it is claimed per arm: a plane owned by nobody would be a hole
         // in `CommandAuthority` that no refusal could name.
@@ -316,7 +316,7 @@ mod tests {
     fn the_swing_plane_belongs_to_the_arm_and_not_to_navigation() {
         let mut controller = ComposedController::new(
             navigation_and_left_and_right(11, 22, 33)).expect("disjoint authority");
-        let command = controller.decide(&ArticulatedObservation::BLANK);
+        let command = controller.decide(&Observation::BLANK);
         for plane in command.swing_plane {
             assert_ne!(plane, Angle::from_raw(11u16.rotate_left(5)),
                        "navigation wrote an arm's swing plane");
@@ -329,12 +329,12 @@ mod tests {
     fn an_unclaimed_field_holds_its_neutral_value_rather_than_zero() {
         // `intent` is navigation's, and the navigation marker above does not
         // write it -- so it must survive from the neutral command.
-        let neutral = neutral_articulated_command(&ArticulatedObservation::BLANK);
+        let neutral = neutral_world_command(&Observation::BLANK);
         let mut controller = ComposedController::new(
             navigation_and_left_and_right(11, 22, 33)).expect("disjoint authority");
-        let command = controller.decide(&ArticulatedObservation::BLANK);
-        assert_eq!(command.articulated.intent, neutral.intent);
-        assert_eq!(command.articulated.arms[0].height, CombatHeight::MID);
+        let command = controller.decide(&Observation::BLANK);
+        assert_eq!(command.core.intent, neutral.intent);
+        assert_eq!(command.core.arms[0].height, CombatHeight::MID);
     }
 
     #[test]
@@ -357,7 +357,7 @@ mod tests {
 
     #[test]
     fn a_composed_controller_with_no_navigation_source_is_refused_by_name() {
-        let sources: Vec<Box<dyn PartialEmbodiedSource>> = vec![
+        let sources: Vec<Box<dyn PartialCommandSource>> = vec![
             Box::new(Marker::new(CommandAuthority::arm(LimbSlot::LeftArm), 1)),
             Box::new(Marker::new(CommandAuthority::arm(LimbSlot::RightArm), 2)),
         ];
@@ -368,7 +368,7 @@ mod tests {
 
     #[test]
     fn a_composed_controller_with_an_undriven_arm_is_refused_by_name() {
-        let sources: Vec<Box<dyn PartialEmbodiedSource>> = vec![
+        let sources: Vec<Box<dyn PartialCommandSource>> = vec![
             Box::new(Marker::new(CommandAuthority::navigation_only(), 1)),
             Box::new(Marker::new(CommandAuthority::arm(LimbSlot::RightArm), 2)),
         ];
@@ -389,7 +389,7 @@ mod tests {
             sources.reverse();
             ComposedController::new(sources).expect("disjoint")
         };
-        let obs = ArticulatedObservation::BLANK;
+        let obs = Observation::BLANK;
         assert_eq!(forward.decide(&obs).payload_bytes(), reversed.decide(&obs).payload_bytes());
     }
 
@@ -419,15 +419,15 @@ mod tests {
     /// wrapped whole-command policy showed only the first.
     #[test]
     fn a_composed_controller_drives_through_a_boxed_embodied_policy() {
-        use crate::EmbodiedPolicy;
+        use crate::Policy;
 
         let seen = std::rc::Rc::new(std::cell::Cell::new(0));
-        let sources: Vec<Box<dyn PartialEmbodiedSource>> =
+        let sources: Vec<Box<dyn PartialCommandSource>> =
             vec![Box::new(Everything { mark: 4_321, resets: seen.clone() })];
-        let mut boxed: Box<dyn EmbodiedPolicy> =
+        let mut boxed: Box<dyn Policy> =
             Box::new(ComposedController::new(sources).expect("total authority"));
-        let command = boxed.decide(&ArticulatedObservation::BLANK);
-        assert_eq!(command.articulated.body_yaw, Angle::from_raw(4_321));
+        let command = boxed.decide(&Observation::BLANK);
+        assert_eq!(command.core.body_yaw, Angle::from_raw(4_321));
         assert_eq!(command.swing_plane[1], Angle::from_raw(4_321u16.rotate_left(5)));
         boxed.reset();
         assert_eq!(seen.get(), 1, "`reset` did not reach the source through the box");

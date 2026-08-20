@@ -6,7 +6,23 @@
 **Update when:** A collider, contact field, coefficient, equation, ordering rule, cap rule, or digest byte changes.
 
 This is the canonical deterministic contract for the purpose-built XYZ contact
-solver. Legacy combat does not construct its state or call it.
+solver.
+
+**Two combat models are named all through this document and neither exists.** The
+legacy model went in embodied session 10 and the articulated model on 2026-08-19. One
+model ships, so what this contract calls "an Articulated world" is now simply a world,
+and every "in a Legacy world ..." branch is a record of what the alternative was.
+**The branches are kept because they are the argument**: each one says what this side
+of the fork does *instead of* something, and a contract that states only the surviving
+half has lost the reason it is shaped that way. Read them as history and read the
+equations, orderings, caps and corpus bytes as live -- none of those changed with the
+models, because the solver is a law about capsules and impulses and was never a
+function of which body model asked it a question.
+
+**Where a *fixture* is named it is gone**, and the measurement it produced cannot be
+re-run: `Scenario::articulated_duel`, the `lab articulated` command, and the `composed`
+and `windmill` scripts all went with the model. Those are called out where they appear
+rather than here.
 
 The standard build uses the rounded resolver documented below. Under the opt-in
 `cartesian-recoil` feature, the retained exact trajectory and lifted-response path is
@@ -25,7 +41,7 @@ values `0..=65_536`. World XYZ is +X east, +Y north, +Z up.
 
 ```rust
 pub const MAX_CONTACT_GROUPS_PER_TICK: u8 = 8;
-pub const MAX_ARTICULATED_ENTITIES: usize = 64;
+pub const MAX_ENTITIES: usize = 64;
 pub const MAX_CONTACT_FACTS_PER_GROUP: usize = 512;
 pub const MAX_CONTACT_RESOLUTIONS_PER_TICK: usize = 4_096;
 pub const BODY_SLOT: u8 = 0xff;
@@ -284,8 +300,8 @@ own recomputation at the frozen pose does not repeat it — the scan has already
 each key to one row by the time a group forms. No row position or bare index is
 identity.
 
-Articulated worlds have the authoritative entity ceiling
-`MAX_ARTICULATED_ENTITIES=64`; Legacy world and codec limits do not change. Capacity
+The authoritative entity ceiling is 64; the codec's own limits are separate and
+unchanged. Capacity
 uses allocated-slot high water `n`, not live count. For `n<2`, pairs is
 zero; otherwise compute with checked `usize` arithmetic:
 
@@ -341,12 +357,21 @@ before returning a pointer or permitting a typed-array view; if that reservation
 it installs no world rather than leaving the previous one alive behind a call that says
 it started over, and it zeroes the frame header to say so. Two things about the refusal
 are worth stating exactly, because "refuses row 65" overstates it in one direction and
-understates it in the other. The host has no articulated spawn path at all today, so an
-Articulated world refuses the *whole* legacy spawn path with `UnitPresence` -- and that
-is an improvement, because before v2-14C the same call reached `World::spawn`'s
+understates it in the other.
+
+**This paragraph read "the host has no articulated spawn path at all today", and that
+stopped being true on 2026-08-18.** The whole spawn path was refused with
+`UnitPresence`, because a unit with no anatomy row cannot be built into a world with
+articulated columns and nothing on the boundary filled one in. The host fills the
+roster now -- one mapping, shared by the floor builder and the spawn path, so the two
+cannot dress a body differently -- and `spawn_monster` works. The 65th row answers
+`EntityLimit` through the line that was always there.
+
+The refusal was still an improvement over what preceded it, and that is worth keeping:
+before v2-14C the same call reached `World::spawn`'s
 `unreachable`, trapped, and left the `SIM` `RefCell` borrowed so every later export
-trapped too. The 65th row will answer `EntityLimit` through the identical line the day
-an articulated spawn exists.
+trapped too. A refusal by name, a trap, and a working path are three different things,
+and this line has been all three.
 
 `contact_high_water() -> u32` reports what the host reserved, and it is the host's own
 record rather than a reading of the vectors. That is a real limit and the division of
@@ -360,15 +385,16 @@ double-buffers; the settled page count moves whenever that fixture's work does, 
 measurement is recorded beside the loop that takes it and deliberately not copied here.
 
 `contact_cap_hits() -> u32` reports the running world's global `cap_hits`, and is `0`
-before the first `init` and on any Legacy world. Unlike the reservation beside it this
-is authoritative state -- the same `u32` the ArticulatedV1 digest writes after the
+before the first `init`. Unlike the reservation beside it this
+is authoritative state -- the same `u32` the state digest writes after the
 actuator rows -- and the export exists so the browser fixture can say it *reached* the
 cap path rather than hoping its drive still does. The cap tick is where every ordinal is
 spent, the entity closure is walked to a fixed point and every frozen row is restored to
 its last-safe pose, so it is the tick a per-tick allocation would hide in; a drive that
 quietly stopped clinching would otherwise keep passing while covering none of it.
-Calling `try_reserve_contact_slots` on a Legacy world is an exact no-op `Ok(())`.
-On Articulated, `high_water>64` returns `EntityLimit` before reserve; a request at or
+Calling `try_reserve_contact_slots` on a world with no contact state was an exact no-op
+`Ok(())`, and there is no such world left to call it on.
+`high_water>64` returns `EntityLimit` before reserve; a request at or
 below the already reserved/allocated high water is a no-op and never shrinks. On
 allocation failure no authoritative world column, solver counter, or resolution row
 mutates. Sequential `Vec::try_reserve` calls may already have grown some unhashed
@@ -961,14 +987,17 @@ finishes. Only `cap_hits` persists.
 The post-eight scan uses the same streaming candidate-to-closure pass when more than
 512 facts remain; cap behavior never depends on fact-vector truncation.
 
-In ArticulatedV1 hashing write exactly one global `cap_hits:u32`, after the complete
-loop of allocated-slot actuator rows and before v2-15 anatomy rows. It is not per
-slot. Legacy hashing writes no tag or placeholder. Adding zero therefore intentionally
-moved the paired articulated command probe from `0x584d711e492950e7` to
+In state hashing write exactly one global `cap_hits:u32`, after the complete
+loop of allocated-slot actuator rows and before the v2-15 anatomy rows. It is not per
+slot. The legacy stream wrote no tag or placeholder here. Adding zero therefore
+intentionally moved the paired articulated command probe from `0x584d711e492950e7` to
 `0x010411d521a376d7`, which is what it measured — the prediction was written down
 before the change and the measurement landed on it, so the four appended zero bytes
 are the whole explanation and no other v14 behavior reached that unstepped fixture.
-Rust and wasm are updated together. All six legacy pins remain fixed.
+Rust and wasm are updated together. The six legacy fight pins were unmoved by it and
+are all deleted now; the [retired half of the registry](hashes.md#golden-registry)
+carries their last values, because a number found in an old log has to be identifiable
+as retired rather than as a mismatch.
 
 ## Portable serialization corpus
 
@@ -1167,11 +1196,14 @@ fixture stated here:
   hashing, reuse, and legacy isolation. The web no-growth and byte-for-byte wasm
   checks prove the host side.
 - The three fixtures below carried one-line mentions and were designed by
-  checkpoint C. All three share the *clinch*: `Scenario::articulated_duel()` with the
+  checkpoint C. All three share the *clinch*: the shipped duel with the
   spawns moved to Fighter `(10,8)` and Brute `(23/2,8)` at seed 1000, which is a unit
   and a half apart and therefore inside both weapons. The duel's own spawns cannot be
-  used and cannot be moved in place — ten units apart resolves nothing, and
-  `articulated_duel_v1_has_the_frozen_identity_and_placement` pins them.
+  used and cannot be moved in place — ten units apart resolves nothing, and the
+  fixture's placement is pinned by its fingerprint. **The duel these were written
+  against was `Scenario::articulated_duel`, which is deleted**; the embodied control
+  was built from it and differs by its name bytes and its model word, so the placement
+  the clinch moves *from* is the same placement.
   - `repeated_crowded_separation_clamps_before_energy_and_sweep` has two halves. The
     ordering half drives the contact phase directly with the pair fifty units apart and
     a body velocity of five per axis — 8.66 long against an envelope of four — and
@@ -1201,11 +1233,14 @@ fixture stated here:
     mirrors it too.
 - **The browser cap fixture has landed, and the blocker recorded here twice was
   wrong the second time.** The reasoning was that nothing on the boundary could make
-  the duel's two rows touch, because no articulated steering export existed before
-  v2-16. It does: v2-11's `submit_articulated` stores a full `ArticulatedCommandV1` —
-  `move_dir` included — against a live row, `World::submit` returns early on an
-  Articulated world so no policy overwrites it, and the stored command persists across
-  ticks. The fixture drives both rows into each other from tick-zero constants with
+  the duel's two rows touch, because no steering export existed before
+  v2-16. It does: the submitted command stores a full payload —
+  `move_dir` included — against a live row, and the stored command persists across
+  ticks so a tick-zero submission steers indefinitely. **One half of that argument has
+  since been repaired rather than falsified**: the fixture also relied on the
+  policy loop's own commands being dropped by a world of the wrong grammar, which is no
+  longer true, so the boundary fixtures name their policies explicitly instead of
+  inheriting whatever the room opened on. The fixture drives both rows into each other from tick-zero constants with
   their arms sweeping an eighth-turn either side of the body bearing, four ticks a
   phase: first contact on tick 78, every group ordinal spent on tick 89, on all three
   seeds it warms. Nothing was swapped and no scenario moved, so

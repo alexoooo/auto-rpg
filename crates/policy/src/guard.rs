@@ -1,6 +1,6 @@
 //! The guard that watches the blow, instead of the clock that guesses at it.
 //!
-//! `embodied_script.rs` picks its guard height from `tick + GUARD_LEAD_TICKS`
+//! `script.rs` picks its guard height from `tick + GUARD_LEAD_TICKS`
 //! and the corpus reports a 52.06% diagonal for it. That number has been read as
 //! competence and is not: it is the arithmetic of two clocks half a step apart,
 //! on a table `lab embodied` fills from *commanded* heights, and the file that
@@ -12,7 +12,7 @@
 //! *opponent* quantity below is one [`ObservedOpponent`] already carries and has
 //! been through the perception noise, while `standing_height`, `arm_length`,
 //! `body_yaw` and `tick` are the subject's own and sit on
-//! [`ArticulatedObservation`] beside it, exact. An earlier draft of this
+//! [`Observation`] beside it, exact. An earlier draft of this
 //! paragraph said all of them were `ObservedOpponent` columns; the correction is
 //! here rather than applied silently, because which side of that line a column
 //! sits on is the whole argument for the gate below.
@@ -21,8 +21,10 @@
 //!
 //! Each was found by reading the simulator rather than by running the corpus,
 //! and each is written down here because the next reader will otherwise reach
-//! for the same wrong thing. `docs/plans/fight-03-the-guard-that-watches.md`
-//! carries the same four and the same count.
+//! for the same wrong thing. The session plan they depart from carried the same
+//! four and the same count, and it was deleted when the topic closed, so this
+//! module header is now the only record of them -- which is why the count is
+//! stated above and each departure keeps its own numbered paragraph below.
 //!
 //! **1. [`GUARD_COMMIT_TICKS`] is thirteen and not the plan's twelve.** The
 //! arithmetic is on the constant, off `sim`'s two published actuator rates.
@@ -36,7 +38,7 @@
 //! approaching body from a receding one at the fixture's stats**, and that is a
 //! fact about the perception channel rather than about this file.
 //!
-//! - `contact_timing` cannot carry it. `World::observe_articulated` blurs the
+//! - `contact_timing` cannot carry it. `World::observe` blurs the
 //!   column by `jitter[6] * noise / 8` on *both* branches of its formula -- the
 //!   saturating one included, deliberately, because "nothing is closing" is a
 //!   judgement like any other -- and `Rng::signed_unit` is symmetric over
@@ -55,7 +57,7 @@
 //!
 //! Measured on 2026-08-18 over 9,689 decision ticks of twenty driven seeds of
 //! `embodied-duel-v1`: the sign of a closing term recomputed from the published
-//! columns agrees with `World::articulated_pose`'s ground truth on **51.59%** of
+//! columns agrees with `World::pose`'s ground truth on **51.59%** of
 //! ticks, a body that is genuinely receding or stationary reads as closing on
 //! **49.47%**, and exactly one of the 9,689 ticks has a true closing speed that
 //! clears the noise. No deadband rescues it: at a threshold above the noise the
@@ -82,7 +84,7 @@
 //! carrying no plate the two roles collapse onto the same hand -- the fixture's
 //! Brute is exactly that, a club in the right hand and an empty left -- and a
 //! guard written to [`ArmRoles::guard`] there would be written over the strike.
-//! `embodied_script.rs` assembles its arms the same way and `lab embodied` reads
+//! `script.rs` assembles its arms the same way and `lab embodied` reads
 //! the same column, so this is one arm index across the policy, the control and
 //! the report rather than three.
 //!
@@ -110,7 +112,7 @@
 use crate::{ArmRoles, StrikePlanner, TacticalPhase};
 use fx::{Angle, Fx, Vec2, Vec3};
 use sim::{
-    ArmTarget, ArticulatedObservation, CombatHeight, ObservedOpponent, SegmentPose,
+    ArmTarget, Observation, CombatHeight, ObservedOpponent, SegmentPose,
     ARM_MIN_REACH_RAW,
 };
 
@@ -124,7 +126,7 @@ const HEIGHTS: [CombatHeight; 3] = [CombatHeight::LOW, CombatHeight::MID, Combat
 
 /// How far an observed blade must move before the guard follows it.
 ///
-/// **A deadband and not hysteresis**, on `embodied_script.rs`'s argument
+/// **A deadband and not hysteresis**, on `script.rs`'s argument
 /// exactly: a deadband needs no memory of its own decisions, makes "neither" a
 /// real state, and cannot chatter. The value is a fraction of standing height
 /// rather than a world length, because a Brute's HIGH and a Fighter's HIGH are
@@ -185,7 +187,7 @@ pub const GUARD_COMMIT_TICKS: u32 = 13;
 
 /// The reach a hand carrying something holds a guard at.
 ///
-/// `embodied_script.rs`'s three quarters and its argument, copied rather than
+/// `script.rs`'s three quarters and its argument, copied rather than
 /// imported for that file's own reason -- it is the frozen control now and this
 /// policy's constants must not become casualties of whatever happens to it.
 /// Three quarters is clear of both ends of `[ARM_MIN_REACH_RAW, 1]`, so a shoved
@@ -233,13 +235,13 @@ const GUARD_ARC: Angle = Angle::from_raw(8_192);
 
 /// What the guard arm asks of its actuator.
 ///
-/// **Full, where `embodied_script.rs` asks for a half, and the difference is
+/// **Full, where `script.rs` asks for a half, and the difference is
 /// what the two arms are for.** The script's guard holds a pose; this one is
 /// asked to *arrive*, and [`GUARD_COMMIT_TICKS`] is the arithmetic of arriving
 /// at the best authority a body can bring. `arm_available` multiplies the
 /// acceleration by effort, so a half-effort guard takes sixteen ticks to cross a
 /// band rather than thirteen and would miss the window it is committed to.
-/// `embodied_tactics.rs`'s own `Guard` intent asks for full effort for the same
+/// `tactics.rs`'s own `Guard` intent asks for full effort for the same
 /// reason -- it was written in `articulated_tactics.rs` and moved into this
 /// crate's surviving tactics file with the planner in session 05.
 ///
@@ -257,11 +259,11 @@ const GUARD_ARC: Angle = Angle::from_raw(8_192);
 /// so this is a reason and not a result.
 ///
 /// **Bounded from both sides, and the pair admits `[0.861, 1]`.** Above:
-/// `validate_articulated` refuses an effort outside `[0, 1]` by field name, so a
+/// `validate_core` refuses an effort outside `[0, 1]` by field name, so a
 /// larger value is a refused submission on every tick rather than a stronger
 /// arm. Below: `arm_available` multiplies the acceleration by effort, and under
 /// 0.861 the arm no longer crosses a band inside [`GUARD_COMMIT_TICKS`] -- at
-/// the half `embodied_script.rs` asks for it takes sixteen ticks against
+/// the half `script.rs` asks for it takes sixteen ticks against
 /// thirteen and misses the window it committed to.
 /// `the_guard_effort_is_what_arriving_inside_the_window_costs` holds both ends
 /// and names that range rather than leaving it to be read off two inequalities.
@@ -317,7 +319,7 @@ impl Default for GuardRead {
 impl GuardRead {
     /// `read` false is the fixed-guard control: the same arm, the same reach and
     /// the same effort, permanently on the body's own centre line at MID. It
-    /// never so much as *stores* a reading, on `EmbodiedScriptConfig::LEVEL`'s
+    /// never so much as *stores* a reading, on `ScriptConfig::LEVEL`'s
     /// argument -- a control that kept a number it had decided not to act on
     /// would be one edit away from acting on it.
     pub fn new(read: bool) -> GuardRead {
@@ -332,7 +334,7 @@ impl GuardRead {
     /// The band currently being held, or `None` on the centre line.
     ///
     /// Public so a test can say *which* rule moved a guard rather than only that
-    /// one did -- `ScriptedEmbodiedPolicy::ground`'s reason exactly.
+    /// one did -- `ScriptedPolicy::ground`'s reason exactly.
     pub fn held_height(&self) -> Option<CombatHeight> {
         self.held.map(|held| held.height)
     }
@@ -348,7 +350,7 @@ impl GuardRead {
     /// passed a phase could pass last tick's.
     pub fn decide(
         &mut self,
-        obs: &ArticulatedObservation,
+        obs: &Observation,
         planner: &StrikePlanner,
     ) -> Option<GuardCommand> {
         if !obs.present() {
@@ -478,7 +480,7 @@ impl GuardRead {
 /// The guard a body holds when nothing is coming: its own centre line, at MID.
 ///
 /// Zero bearing is straight ahead in the torso frame, so this needs no yaw at
-/// all -- the frame's own simplification, and the reason `embodied_script.rs`
+/// all -- the frame's own simplification, and the reason `script.rs`
 /// exists as a sibling of the world-frame file rather than a mode of it.
 ///
 /// MID because the centre of three bands is the answer that is wrong by the
@@ -517,13 +519,13 @@ fn centre_line(carried: bool) -> ArmTarget {
 /// rigidly, so `tip.z - foe.body_position.z` cancels the noise exactly and
 /// `tip.z - obs.body_position.z` does not: the duel's fighters carry 0.9 and 1.2
 /// world units of it against a sculpted fixture whose entire relief is 0.75.
-/// `embodied_tactics::height_for` takes the same difference for the same
+/// `tactics::height_for` takes the same difference for the same
 /// reason, and `GroundSense` is the measured record of what reading two floors
 /// against each other costs. What is given up is the elevation difference
 /// between the two bodies, which on every flat fixture is zero and on the
 /// sculpted one is smaller than the noise that would be let in to see it.
 pub fn incoming_height(
-    obs: &ArticulatedObservation,
+    obs: &Observation,
     foe: &ObservedOpponent,
 ) -> Option<CombatHeight> {
     let blade = nearest_blade(obs, foe)?;
@@ -535,7 +537,7 @@ pub fn incoming_height(
 /// Nearest by the *tip* for the reason the height read takes the tip: the tip is
 /// the end that arrives, and on a body winding up it is a whole blade closer
 /// than the hand carrying it.
-fn nearest_blade(obs: &ArticulatedObservation, foe: &ObservedOpponent) -> Option<SegmentPose> {
+fn nearest_blade(obs: &Observation, foe: &ObservedOpponent) -> Option<SegmentPose> {
     let mut best: Option<(Fx, SegmentPose)> = None;
     for blade in foe.weapons.into_iter().flatten() {
         let range = planar(blade.tip - obs.body_position).length();
@@ -552,7 +554,7 @@ fn nearest_blade(obs: &ArticulatedObservation, foe: &ObservedOpponent) -> Option
 
 /// Where a blade sits on the subject's own height scale, in `CombatHeight` raw.
 fn blade_reading(
-    obs: &ArticulatedObservation,
+    obs: &Observation,
     foe: &ObservedOpponent,
     blade: SegmentPose,
 ) -> Option<i32> {
@@ -576,11 +578,11 @@ fn blade_reading(
 /// It is measured planar because a bearing has no vertical part and the arm's
 /// vertical is the height this whole file is choosing; a blade directly overhead
 /// is at zero planar range and is exactly the blade a guard is for.
-fn within_reach(obs: &ArticulatedObservation, blade: SegmentPose) -> bool {
+fn within_reach(obs: &Observation, blade: SegmentPose) -> bool {
     planar(blade.tip - obs.body_position).length() <= reach_envelope(obs)
 }
 
-fn reach_envelope(obs: &ArticulatedObservation) -> Fx {
+fn reach_envelope(obs: &Observation) -> Fx {
     let held = obs.weapons[ArmRoles::of(obs).weapon];
     obs.arm_length + held.map_or(Fx::ZERO, |blade| blade.tip.distance(blade.hilt))
 }
@@ -607,7 +609,7 @@ fn band(raw: i32) -> CombatHeight {
 /// Two points at exactly one place answer "straight ahead", which keeps the
 /// guard on the centre line rather than pointing it along a direction derived
 /// from a zero vector.
-fn torso_bearing(obs: &ArticulatedObservation, at: Vec3) -> Angle {
+fn torso_bearing(obs: &Observation, at: Vec3) -> Angle {
     let delta = planar(at - obs.body_position);
     if delta.is_zero() {
         Angle::ZERO
@@ -617,7 +619,7 @@ fn torso_bearing(obs: &ArticulatedObservation, at: Vec3) -> Angle {
 }
 
 /// `bearing`, held inside `arc` of the body's own facing. Clamped, never
-/// wrapped: `embodied_script::clamp_arc`'s rule and its reason.
+/// wrapped: `script::clamp_arc`'s rule and its reason.
 fn clamp_arc(bearing: Angle, arc: Angle) -> Angle {
     let limit = arc.raw() as i32;
     Angle::from_raw(bearing.delta(Angle::ZERO).clamp(-limit, limit) as u16)
@@ -751,13 +753,13 @@ mod tests {
     /// `FOV / 2 > 46` came to pass for anything from 93 to 179 degrees and look
     /// like coverage.
     ///
-    /// Above: `validate_articulated` refuses an arm effort outside `[0, 1]` by
+    /// Above: `validate_core` refuses an arm effort outside `[0, 1]` by
     /// field name, so a guard asking for more would be a refused submission on
     /// every tick of every fight -- and the corpus reads `0 refused
     /// submissions`, which is the other half of that claim.
     ///
     /// Below: the whole reason this guard asks for full effort where
-    /// `embodied_script.rs`'s asks for a half is that it is asked to *arrive*.
+    /// `script.rs`'s asks for a half is that it is asked to *arrive*.
     /// `arm_available` multiplies the acceleration by effort, so the window it
     /// commits to is what prices the constant.
     #[test]
@@ -840,7 +842,7 @@ mod tests {
         // Everything either body can contribute to a closing speed, both moving
         // flat out along the line between them.
         let closing_range = fighter.move_speed() + brute.move_speed();
-        // `World::observe_articulated` blurs `body_velocity` by a quarter of the
+        // `World::observe` blurs `body_velocity` by a quarter of the
         // positional noise, per axis.
         for eye in [fighter, brute] {
             assert!(

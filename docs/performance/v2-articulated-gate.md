@@ -2,7 +2,7 @@
 
 **Purpose:** Preserve the measured result, rejected explanations, and open mechanics ledger from the articulated gate attempt.
 **Status:** current
-**Canonical source:** this record, [`lab articulated`](../../crates/lab/src/main.rs), and the exact future gate contract in [`articulated-mechanical-gate.md`](../reference/articulated-mechanical-gate.md)
+**Canonical source:** this record. `lab articulated` and the gate contract in [`articulated-mechanical-gate.md`](../reference/articulated-mechanical-gate.md) were the other two; the command is deleted and the contract is retired as history, so this record is now the only live copy of what was measured.
 **Update when:** The articulated fixture, policies, mechanics, gate thresholds, or corpus is changed or remeasured.
 
 **Host:** MSVC x86-64 Windows. **Date:** 2026-08-10, with the shield/guard
@@ -12,6 +12,17 @@ The gate attempt landed its scripted policies, `lab articulated`, the
 solver-rejection diagnostic, the projector correction, and centre-of-mass sampling
 for held segments. It stopped before the worker fixtures, evidence artifact, visible
 review, or final pin. **The gate did not pass and `ARTICULATED_HASH` does not exist.**
+
+**It cannot be resumed, and that is settled rather than pending.** The articulated
+model, its fixture, its scripted policies and `lab articulated` were all deleted on
+2026-08-19; there is no fight left for the missing stages to be about, and
+`ARTICULATED_HASH` is a name that can never be given a value. The gate contract is
+retired as history. **This record is what survives, and it is the part worth having**:
+a measured failure with its rejected explanations attached is evidence about the
+mechanics, and the mechanics -- the contact solver, the projector correction,
+centre-of-mass sampling -- outlived the model that exercised them. The live gate record
+for the model that ships is
+[`embodied-tactical-policy.md`](embodied-tactical-policy.md).
 
 Smart117 later recorded two semantically identical visible runs of the fixed
 `Robust Strike (controlled)` feature preset. That is useful visual/semantic evidence

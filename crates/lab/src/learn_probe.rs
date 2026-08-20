@@ -44,7 +44,7 @@
 //!
 //! # Two opponents, because a fixed script can be beaten by reading its clock
 //!
-//! `scripted_embodied_command` reads three clocks straight off `obs.tick`: four
+//! `scripted_command` reads three clocks straight off `obs.tick`: four
 //! phases on `tick % 120`, two height selectors on `tick / 90 % 3`, and the cut
 //! direction on `tick / 120 % 2`. Features 1 and 2 of the learned policy's input
 //! slice are the cosine and sine of `tick % 360`, put there deliberately, and
@@ -64,26 +64,26 @@
 //! observations, so the wrapper is the identity for all three: the control
 //! board comes back byte-identical to the frozen board, the verdict prices the
 //! difference between a fight and itself, and it costs twice the wall clock to
-//! print. `EmbodiedPolicyKind::reads_the_clock` is where the registry answers
+//! print. `PolicyKind::reads_the_clock` is where the registry answers
 //! the question and [`evaluate_opponents`] is where the answer becomes a
 //! sentence. `--frozen-only` scores such an opponent with no control at all,
 //! which is the honest version of what the doubled run was doing.
 
 use crate::args::Args;
 use learn::{
-    band, held_out_seeds, training_seeds, Band, Checkpoint, Corpus, LearnedEmbodiedPolicy,
+    band, held_out_seeds, training_seeds, Band, Checkpoint, Corpus, LearnedPolicy,
     Mechanics, Model, Opponent, ProbeConfig, Recorders, Rollout,
 };
-use policy::{EmbodiedPolicy, EmbodiedPolicyKind};
+use policy::{Policy, PolicyKind};
 use sim::{BodyPart, ContactKind, Faction, Outcome, Replay, Scenario};
 use std::path::PathBuf;
 use std::time::Instant;
 
 /// What `--opponent` accepts: the embodied registry, spelled exactly as
-/// `EmbodiedPolicyKind::name` spells it and therefore exactly as
+/// `PolicyKind::name` spells it and therefore exactly as
 /// `lab embodied --policy` spells it.
 ///
-/// **Built from `EmbodiedPolicyKind::ALL` rather than written out**, which is
+/// **Built from `PolicyKind::ALL` rather than written out**, which is
 /// the whole reason this file stopped carrying its own three-entry list of
 /// baselines: a registry entry appended in `crates/policy` becomes selectable
 /// here without an edit, and a table of names kept beside a registry is a table
@@ -94,12 +94,12 @@ use std::time::Instant;
 /// unasked question**, and the answer belongs on the registry rather than here:
 /// the three entries it replaced all read `obs.tick`, so the phase-randomised
 /// control worked for every one of them and nothing had to check. Only two of
-/// the five it selects now do. `EmbodiedPolicyKind::reads_the_clock` makes an
+/// the five it selects now do. `PolicyKind::reads_the_clock` makes an
 /// appended entry answer that question before it can be selected, and
 /// [`opponent_from`] turns a wrong answer into a refusal instead of a
 /// duplicated board.
-fn opponent_kinds() -> Vec<(&'static str, EmbodiedPolicyKind)> {
-    EmbodiedPolicyKind::ALL.iter().map(|&k| (k.name(), k)).collect()
+fn opponent_kinds() -> Vec<(&'static str, PolicyKind)> {
+    PolicyKind::ALL.iter().map(|&k| (k.name(), k)).collect()
 }
 
 /// The one named spec v2-19's command line asks for, and its settings.
@@ -209,7 +209,7 @@ pub fn opponent_from(args: &Args) -> Result<Opponent, String> {
     // a control condition is a legitimate thing to score against. What is
     // refused below is narrower and is a real impossibility: asking for a
     // phase-randomised opponent that has no phase to randomise.
-    let kind = args.choice("opponent", EmbodiedPolicyKind::Scripted, &opponent_kinds());
+    let kind = args.choice("opponent", PolicyKind::Scripted, &opponent_kinds());
     if args.flag("phase-random") {
         if !kind.reads_the_clock() {
             return Err(phase_refusal(
@@ -229,8 +229,8 @@ pub fn opponent_from(args: &Args) -> Result<Opponent, String> {
 /// `--phase-random` on `train` and the control board `evaluate` scores by
 /// default -- are the same impossibility and a reader who saw two different
 /// explanations would go looking for two different bugs.
-fn phase_refusal(kind: EmbodiedPolicyKind, asked: &str) -> String {
-    let clocked: Vec<&str> = EmbodiedPolicyKind::ALL
+fn phase_refusal(kind: PolicyKind, asked: &str) -> String {
+    let clocked: Vec<&str> = PolicyKind::ALL
         .iter()
         .filter(|kind| kind.reads_the_clock())
         .map(|kind| kind.name())
@@ -298,11 +298,11 @@ fn refuse(sentence: String) -> ! {
 /// An opponent as a sentence, for a headline rather than a table column.
 pub fn opponent_prose(opponent: Opponent) -> String {
     let policy = match opponent.kind {
-        EmbodiedPolicyKind::Neutral => "a body with its arms slack",
-        EmbodiedPolicyKind::Scripted => "the scripted body",
-        EmbodiedPolicyKind::ScriptedLevel => "the scripted body with the elevation term off",
-        EmbodiedPolicyKind::Tactical => "the strike planner",
-        EmbodiedPolicyKind::TacticalFixedGuard => "the strike planner with a fixed guard",
+        PolicyKind::Neutral => "a body with its arms slack",
+        PolicyKind::Scripted => "the scripted body",
+        PolicyKind::ScriptedLevel => "the scripted body with the elevation term off",
+        PolicyKind::Tactical => "the strike planner",
+        PolicyKind::TacticalFixedGuard => "the strike planner with a fixed guard",
     };
     if opponent.phase_randomised {
         format!("{policy} started at a per-run phase")
@@ -568,7 +568,7 @@ fn evaluate_tactical_v2(args: &Args) {
 ///
 /// **Five again after session 05, and it is not the same five.** `Composed`,
 /// `AttackMoves` and `Windmill` were articulated scripts and all three are gone;
-/// `policy::EmbodiedPolicyKind` has no windmill and no closing-attack entry, and
+/// `policy::PolicyKind` has no windmill and no closing-attack entry, and
 /// inventing one would be shipping a policy out of a deletion session. What
 /// replaced them is the three surviving registry entries that are distinct
 /// fighters on `embodied-duel-v1`. **Two of the registry's five are deliberately
@@ -606,11 +606,11 @@ impl Condition {
     /// The registry entry behind this row, or `None` for the two that are
     /// networks. Named rather than matched twice, so the name and the policy
     /// cannot disagree about which fighter a row is.
-    fn kind(self) -> Option<EmbodiedPolicyKind> {
+    fn kind(self) -> Option<PolicyKind> {
         match self {
-            Condition::Scripted => Some(EmbodiedPolicyKind::Scripted),
-            Condition::Tactical => Some(EmbodiedPolicyKind::Tactical),
-            Condition::TacticalFixedGuard => Some(EmbodiedPolicyKind::TacticalFixedGuard),
+            Condition::Scripted => Some(PolicyKind::Scripted),
+            Condition::Tactical => Some(PolicyKind::Tactical),
+            Condition::TacticalFixedGuard => Some(PolicyKind::TacticalFixedGuard),
             Condition::Constant | Condition::Learned => None,
         }
     }
@@ -631,10 +631,10 @@ impl Condition {
         }
     }
 
-    fn policy(self, model: &Model) -> Box<dyn EmbodiedPolicy> {
+    fn policy(self, model: &Model) -> Box<dyn Policy> {
         match self {
-            Condition::Constant => Box::new(LearnedEmbodiedPolicy::new(Model::zeros())),
-            Condition::Learned => Box::new(LearnedEmbodiedPolicy::new(model.clone())),
+            Condition::Constant => Box::new(LearnedPolicy::new(Model::zeros())),
+            Condition::Learned => Box::new(LearnedPolicy::new(model.clone())),
             Condition::Scripted | Condition::Tactical | Condition::TacticalFixedGuard => {
                 self.kind().expect("a registry row names a kind").build()
             }
@@ -1381,14 +1381,14 @@ mod tests {
         // Every clockless entry, walked out of the registry rather than named,
         // so an appended one that answers `reads_the_clock` wrongly arrives here
         // rather than in a table of duplicated numbers.
-        for kind in EmbodiedPolicyKind::ALL.iter().filter(|k| !k.reads_the_clock()) {
+        for kind in PolicyKind::ALL.iter().filter(|k| !k.reads_the_clock()) {
             let line = format!("learn-probe train --opponent {} --phase-random", kind.name());
             let refusal = opponent_from(&probe_args(&line))
                 .expect_err("a clockless opponent cannot honour --phase-random");
             assert!(refusal.contains("--phase-random"), "{refusal}");
             assert!(refusal.contains(kind.name()), "the refusal does not name the opponent: {refusal}");
             assert!(
-                refusal.contains(EmbodiedPolicyKind::Scripted.name()),
+                refusal.contains(PolicyKind::Scripted.name()),
                 "the refusal does not name an opponent that would work: {refusal}"
             );
 
@@ -1417,13 +1417,13 @@ mod tests {
         // has a verdict ladder at all.
         assert_eq!(
             opponent_from(&probe_args("learn-probe train --phase-random")),
-            Ok(Opponent::randomised(EmbodiedPolicyKind::Scripted)),
+            Ok(Opponent::randomised(PolicyKind::Scripted)),
         );
         assert_eq!(
             evaluate_opponents(&probe_args("learn-probe evaluate")),
             Ok(vec![
-                Opponent::frozen(EmbodiedPolicyKind::Scripted),
-                Opponent::randomised(EmbodiedPolicyKind::Scripted),
+                Opponent::frozen(PolicyKind::Scripted),
+                Opponent::randomised(PolicyKind::Scripted),
             ]),
         );
         // Two requests that contradict each other, named rather than resolved
@@ -1469,8 +1469,8 @@ mod tests {
         let mut replay = Replay::new(scenario, seeds[0]);
         let (hash, ticks) = {
             let mut rng = fx::Rng::new(4);
-            let mut learned = LearnedEmbodiedPolicy::new(Model::random(&mut rng));
-            let mut opponent = Opponent::frozen(EmbodiedPolicyKind::Scripted).policy_for(seeds[0]);
+            let mut learned = LearnedPolicy::new(Model::random(&mut rng));
+            let mut opponent = Opponent::frozen(PolicyKind::Scripted).policy_for(seeds[0]);
             let result = learn::rollout_with(
                 scenario,
                 seeds[0],
@@ -1500,12 +1500,12 @@ mod tests {
         // appends an entry at the front of a head the sentence in the module
         // header becomes false silently, and this is what notices.
         let mut constant = Condition::Constant.policy(&Model::zeros());
-        let mut obs = sim::ArticulatedObservation::BLANK;
+        let mut obs = sim::Observation::BLANK;
         obs.subject = sim::EntityId::new(0, 0);
-        obs.capabilities = sim::ArticulatedObservation::MOVEMENT
-            | sim::ArticulatedObservation::TURNING
-            | sim::ArticulatedObservation::RIGHT_GRIP
-            | sim::ArticulatedObservation::RIGHT_WEAPON;
+        obs.capabilities = sim::Observation::MOVEMENT
+            | sim::Observation::TURNING
+            | sim::Observation::RIGHT_GRIP
+            | sim::Observation::RIGHT_WEAPON;
         obs.arms[1].equipment = Some(1);
         obs.opponent_count = 1;
         obs.opponents[0].id = sim::EntityId::new(1, 0);
@@ -1513,7 +1513,7 @@ mod tests {
 
         let command = constant.decide(&obs);
         // Through the frame adapter, because that is what the row is: the
-        // condition builds a `LearnedEmbodiedPolicy`, and comparing against
+        // condition builds a `LearnedPolicy`, and comparing against
         // `compose` alone would assert about a command this table never runs.
         // The fixture faces due east with a zero body yaw, so the conversion is
         // the identity here -- which is why the columns below can still be read
@@ -1521,7 +1521,7 @@ mod tests {
         assert_eq!(obs.body_yaw, fx::Angle::ZERO, "the columns below are read in the world frame");
         let zeroed = policy::into_torso_frame(&obs, learn::compose(&obs, learn::LearnedActionV1::default()));
         assert_eq!(command, zeroed, "the constant is not the all-zero action");
-        let command = command.articulated;
+        let command = command.core;
         // Advance: a step of the approach magnitude straight at the opponent.
         assert!(command.move_dir.x > fx::Fx::ZERO && command.move_dir.y == fx::Fx::ZERO);
         // LOW on both arms, and the weapon arm chambered rather than resting.

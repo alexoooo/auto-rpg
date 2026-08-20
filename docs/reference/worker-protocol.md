@@ -9,8 +9,11 @@ This protocol serves two routes of the studio shell
 [`web/index.html`](../../web/index.html) through one worker module: `#/game`, the
 shipped diagnostic entry, and `#/arena`, which records a configured duel.
 It transports the existing browser crate and does not change simulation state, command
-meaning, replay contents, or a hash domain. The playable legacy Canvas page continues
-to instantiate the same wasm artifact directly.
+meaning, replay contents, or a hash domain. **It is the only consumer of that artifact
+now.** A playable Canvas page instantiated the same wasm directly until it was retired
+with `web/main.js`, which is why this document says "one worker module" rather than
+"the worker module": the sentence was a distinction between two consumers and is now a
+description of the only one.
 
 <!-- DOC_CONTRACT: worker-protocol-messages -->
 ## Messages and command scheduling
@@ -20,9 +23,11 @@ message is a tagged object carrying one of those two numbers; anything else fail
 fatally. A session is **one version for its whole life**: the first accepted message
 fixes it, every later message must match, and the host answers in it — which is what
 makes the unsolicited messages, a snapshot and `terminated`, carry a version without
-guessing which request they belong to. V1 is accepted for the lifetime of an exact V1
-session, as [`articulated-mechanical-gate.md`](articulated-mechanical-gate.md) commits;
-the two V2-only kinds are refused at V1 by name rather than as malformed messages,
+guessing which request they belong to. **V1 is accepted for the lifetime of an exact V1
+session, and this document is where that commitment lives.** It was made in
+`articulated-mechanical-gate.md`, which is now a historical record of a gate on a
+deleted combat model -- a promise a live session depends on does not live in one.
+The two V2-only kinds are refused at V1 by name rather than as malformed messages,
 because "your session is a V1 session" and "your message is invalid" are different
 instructions.
 
@@ -176,12 +181,12 @@ its own `Worker` from the same module, lazily, on the first **[Fight]**.
 
 `arenaStart` carries a seed, the exact `arena_config_len()` bytes transferred, and
 either the trained network's bytes or null. The buffer's length and its sole layout
-field are checked before wasm is touched — the articulated-command payload rule
+field are checked before wasm is touched — the submitted-command payload rule
 applied to the wider buffer — and every other rule in it is the module's to judge,
 which it does by name through the twenty-seven codes in
 [`articulated-abi.md`](articulated-abi.md#refusing-by-name). The checkpoint travels
 *with* the start rather than as its own message because `load_checkpoint` is the only
-allocating call in that set: it belongs in the same warm-up as `init_articulated`,
+allocating call in that set: it belongs in the same warm-up as `init`,
 before any typed array over the pose buffer exists.
 
 The drive is `step(1)` per tick, because `combat_event_len` is cleared per host
@@ -211,9 +216,11 @@ for the whole scrubbing session.
 | `index` | `u32` | seven words a frame: tick, then a start and a count per section |
 | `health` | `i32` | two raw `Fx` a frame: the Heroes' and the Monsters' health fraction |
 
-**The index is mandatory and is the point.** `pose_len` is one per *live* articulated
-body, so a fighter dying takes it from 2 to 1 — the default-mechanics windmill control
-kills the Brute at tick 1,260 on seed 3 — and a reader computing
+**The index is mandatory and is the point.** `pose_len` is one per *live*
+body, so a fighter dying takes it from 2 to 1 — measured on the articulated windmill
+control, which killed the Brute at tick 1,260 on seed 3 under default mechanics; that
+policy is deleted and the hazard is not, because every pairing the page can now run
+can also end in a body — and a reader computing
 `tick * 2 * POSE_STRIDE`
 silently misaligns from exactly the frame anybody opened the page to look at. The
 region section is read against the pose count for the same reason: a skipped body
@@ -264,7 +271,7 @@ of the field is that the exemption was taken deliberately.
 
 Two columns are assembled rather than copied and both are written down as such. The
 **faction health fractions** are `World::health_fraction`'s own arithmetic over the
-legacy frame's published `UnitView::hp` and `max_hp`, whose raws cross exactly as
+packed frame's published `UnitView::hp` and `max_hp`, whose raws cross exactly as
 `f32`; the denominator is taken from the first frame, because `health_fraction` totals
 the maxima of every unit alive or dead and a dead body has no row. The **outcome** is
 `World::outcome`'s table over the published alive counts, falling through to
@@ -282,7 +289,7 @@ cache updates true map bytes only where visibility is `2`, retains the previous 
 at `1`, and publishes `MAP_UNKNOWN` (`255`) at `0`. Hidden true-map changes therefore
 cannot rewrite remembered terrain.
 
-Only unit rows whose legacy `visible` field is nonzero survive. Shots, events, and
+Only unit rows whose frame `visible` column is nonzero survive. Shots, events, and
 furniture and dungeon objects survive only on currently visible tiles. Hidden event actor/other indices
 become `-1`. A Focus order's header coordinates survive only when the separate focus
 index and generation identify a surviving visible row; coordinate equality or index

@@ -68,7 +68,7 @@ may reach neither crate, and `web` reaches `learn-core` and not `learn`.
   action table, and the checkpoint format that freezes all three together. It
   and `learn` are the two crates permitted floating point, and they are
   permitted it because nothing they compute becomes authoritative state -- what
-  leaves them is an `ArticulatedCommandV1` assembled from fixed `Fx` constants
+  leaves them is a submitted command assembled from fixed `Fx` constants
   by an argmax. `learn-core` is the one of the two that ships to a browser, and
   `LEARNED_INFERENCE_DIGEST` is what holds its arithmetic to the same answer on
   both targets.
@@ -80,7 +80,7 @@ may reach neither crate, and `web` reaches `learn-core` and not `learn`.
   benchmarks, duels, and evolution, and is the only host `learn` has. No
   learned weight becomes authoritative state through it: `lab learn-probe` and
   `lab trace --policy learned` are not a second simulation, they drive the same
-  `World` through the same `ArticulatedCommandV1` a script does.
+  `World` through the same submitted command a script does.
 - [`web`](../../crates/web/src/lib.rs) owns the hand-written wasm ABI and the
   packed presentation frame. It is a host boundary, not a second simulation.
   The JavaScript in [`web/`](../../web/) reads that ABI and owns presentation.
@@ -109,7 +109,7 @@ dependency direction.
 Articulated actors, replay codec V2, and learned inference are current parts of this
 graph. Their boundary remains the submitted command: floating-point inference chooses
 five discrete heads, `learn-core` assembles the corresponding fixed-point constants,
-and only that `ArticulatedCommandV1` crosses into `sim`. Replay stores the accepted
+and only that assembled command crosses into `sim`. Replay stores the accepted
 command, so playback reaches neither policy nor model.
 
 ## Source anchors

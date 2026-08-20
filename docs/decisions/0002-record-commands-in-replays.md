@@ -22,7 +22,7 @@ as the same kind of input.
 
 ## Decision
 
-Replay records the concrete `Command` submitted for an entity at a tick, together
+Replay records the concrete command submitted for an entity at a tick, together
 with faction `Order` and `Objective` changes. Playback constructs a fresh world from
 the cloned scenario and seed and submits those recorded inputs without observing the
 world or invoking a policy.
@@ -40,8 +40,10 @@ behavior and limitations are normative in [Hashes and replay integrity](../refer
 - Every external mutation needed for reproduction must have a recorded input form.
   The current recorder covers commands, orders, and objectives, not the browser's
   editing mutators.
-- The replay preserves the command as submitted, including its one current
-  `LimbCommand`; it does not reconstruct intent from observations.
+- The replay preserves the command as submitted, whole; it does not reconstruct
+  intent from observations. The command it preserves is now a 57-byte payload with a
+  target per arm, and **the decision this ADR records did not change when the command
+  did** -- which is the point of choosing what to record rather than how to encode it.
 - Playback trusts recorder ordering and public vectors. The current type does not
   validate a hostile or manually rearranged replay.
 
@@ -49,9 +51,19 @@ behavior and limitations are normative in [Hashes and replay integrity](../refer
 
 An older design note priced a 36-byte `Command` with two hand commands and said
 `LimbCommand::strike` was hashed on both hands. That described an intermediate
-two-hand model. The current command contains exactly one limb command, and Rust
-layout size is not a replay-format promise. The durable finding survives the model:
-dropping limb input reproduces movement and loses the fight.
+two-hand model. The command that superseded it contained exactly one limb command, and
+Rust layout size is not a replay-format promise. The durable finding survives the
+model: dropping limb input reproduces movement and loses the fight.
+
+**Both of those commands are now deleted, and the record of the pair is the useful
+part.** The one-limb command went with the legacy model; the payload replays carry
+today has a bearing, a height, a reach, an effort, a grip, a release and a swing plane
+*per arm*, and is specified in
+[the embodied command contract](../reference/embodied-command-v1.md#canonical-57-byte-embodied-payload).
+So the input vocabulary has now been two-hand, then one-limb, then two-arm -- and this
+ADR has been correct across all three, because it decides *that the submitted decision
+is what gets recorded* and says nothing about its shape. A byte layout in an ADR would
+have gone stale twice.
 
 The historical estimate of roughly 180 decision records per second for thirty
 agents deciding every ten ticks remains an order-of-magnitude illustration, not a
@@ -61,5 +73,5 @@ normative size or throughput guarantee.
 
 - Replay rationale and current record vectors: [`Replay`](../../crates/sim/src/replay.rs#L61)
 - Playback without policy execution: [`Replay::play_until`](../../crates/sim/src/replay.rs#L141)
-- Current single-limb command: [`Command`](../../crates/sim/src/command.rs#L569)
+- The per-arm target inside a submitted command: [`LimbCommand`](../../crates/sim/src/command.rs#L569)
 - Headless recording path: [`run`](../../crates/policy/src/runner.rs#L97)

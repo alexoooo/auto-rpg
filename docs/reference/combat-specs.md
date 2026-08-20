@@ -5,10 +5,23 @@
 **Canonical source:** `crates/sim/src/combat/spec.rs`, mirrored here.
 **Update when:** A spec field, ID, fixture, validation rule, codec order, or fingerprint order changes.
 
+**Every rule here is now unconditional, and the model names below are history.** The
+legacy model went in embodied session 10 and the articulated model on 2026-08-19. The
+requirements this document states as "`CombatModel::Articulated` requires ..." are
+simply what a scenario requires: a spec table, an anatomy row per unit, and a loadout
+that names an item the table carries. The Legacy alternative -- no table, no rows -- is
+kept in place because it is what the requirement is a requirement *against*, and
+because a saved replay can still declare it and has to be refused by name.
+
+The spec table is likewise folded into `Scenario::fingerprint` unconditionally. The
+guard that used to precede it asked whether the scenario had articulated columns, and
+that was never a choice this fixture makes: the table is part of a scenario's identity
+for every model that has one, and the only model that did not was Legacy.
+
 ## Ownership and implementation order
 
 There is no global equipment registry. A `Scenario` owns the complete definitions
-used by its articulated units, and a replay serializes those definitions. IDs are
+used by its units, and a replay serializes those definitions. IDs are
 scenario-local stable keys, never indexes into a mutable process table.
 
 V2-11 lands structural validation against the current two-slot loadout. V2-12 lands
@@ -84,7 +97,7 @@ pub struct EquipmentSpec {
     pub binding: GripBinding,
     pub surface: SurfaceSpec,
 }
-pub struct ArticulatedUnitSpecV1 {
+pub struct UnitSpecV1 {
     pub anatomy: AnatomySpecId,
     pub equipment: [Option<EquipmentSpecId>; 2],
 }
@@ -95,7 +108,7 @@ pub struct CombatSpecTableV1 {
 ```
 
 `Scenario` gains `combat_specs: Option<CombatSpecTableV1>` and `UnitSpec` gains
-`articulated: Option<ArticulatedUnitSpecV1>`. Every legacy constructor writes `None`
+`combat_spec: Option<UnitSpecV1>`. Every legacy constructor writes `None`
 for both. `CombatModel::Legacy` requires both to be `None`.
 `CombatModel::Articulated` requires a table, an articulated row for every unit, and
 no legacy-only omission.
@@ -309,7 +322,7 @@ rows. Geometry writes its tag then exactly its variant fields.
 
 Fixed leaf widths are `AnatomyRegionSpec = 13`, `SurfaceSpec = 17`, and
 `ArmorSpec = 13` bytes. A `BodyAnatomySpec` is 195 bytes. An `EquipmentSpec` is 40
-bytes for Segment geometry and 44 for Shield geometry. `ArticulatedUnitSpecV1` is 4
+bytes for Segment geometry and 44 for Shield geometry. `UnitSpecV1` is 4
 to 8 bytes: anatomy ID, then two option tags and optional IDs.
 
 Codec V1 has no reserved tail and is never appended. Codec V2 writes the exact

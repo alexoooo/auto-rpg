@@ -319,7 +319,7 @@ pose diff, which is the confusing half of the failure the guard exists to make p
 change that made the comparison worth having. `Scenario::duel_from` -- what `arena_start`
 builds -- does not build an articulated world any more, and neither does `lab trace`,
 which until then carried a second policy vocabulary of its own. Both read
-`policy::EmbodiedPolicyKind` now: `neutral`, `scripted`, `scripted-level`, `tactical`,
+`policy::PolicyKind` now: `neutral`, `scripted`, `scripted-level`, `tactical`,
 `tactical-fixed-guard`. Five names, one registry, and `#/arena`'s dropdown,
 `lab trace --policy` and `lab embodied --policy` all spell a fight the same way. So the
 page shows the model every other measurement in the repository is taken under, which is

@@ -371,9 +371,12 @@ Recorded because the debt outlives the plan that incurred it.
   a corpus is fitting a policy to a corpus one step removed, and the first thing lost is the
   corpus's ability to say anything.
 - **Expect `EMBODIED_CORPUS_DIGEST` to move and nothing else.** Every constant on this page
-  is read only under `CombatModel::has_stance` or `has_swing_plane`, so no legacy or
-  articulated pin can see one, and the digests taken over the articulated payload width are
-  forked away from the embodied one on purpose.
+  was read only behind the stance and swing-plane model predicates, so no legacy or
+  articulated pin could see one, and the digests taken over the 53-byte payload width are
+  forked away from the 57-byte one on purpose. **The predicates are gone with the second
+  model and the isolation is not**: the columns they guarded still sit in the tail of the
+  state stream, after every byte the shared grammar writes, which is what keeps the core
+  hash -- and the five pins folded over it -- out of reach of anything on this page.
 
 ## What would invalidate this record
 

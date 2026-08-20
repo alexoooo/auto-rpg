@@ -11,7 +11,7 @@
 #![allow(dead_code)]
 
 use crate::combat::contact::{
-    ContactFact, ContactKind, ContactResolution, BODY_SLOT, MAX_ARTICULATED_ENTITIES, NO_VOLUME,
+    ContactFact, ContactKind, ContactResolution, BODY_SLOT, MAX_ENTITIES, NO_VOLUME,
 };
 use crate::combat::resolution::GeneralizedKind;
 use crate::combat::spec::{EquipmentSpecId, SurfaceSpec, BODY_VOLUME_COUNT};
@@ -20,8 +20,8 @@ use fx::{Fx, Vec3};
 
 const TICK_RAW: i128 = 65_536;
 pub(crate) const MAX_EXACT_OWNERS: usize =
-    MAX_ARTICULATED_ENTITIES + crate::rules::MAX_SHOTS;
-const MAX_FLOOR_REACTIONS: usize = MAX_ARTICULATED_ENTITIES;
+    MAX_ENTITIES + crate::rules::MAX_SHOTS;
+const MAX_FLOOR_REACTIONS: usize = MAX_ENTITIES;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub(crate) struct ExactPosition { pub(crate) raw: i32, pub(crate) remainder: i128 }
@@ -1026,7 +1026,7 @@ mod tests {
             core::mem::size_of::<Option<ExactOwnerTrajectory>>(),
             core::mem::size_of::<[Option<ExactOwnerTrajectory>; MAX_EXACT_OWNERS]>(),
             core::mem::size_of::<FixedExactOwners>());
-        assert_eq!(MAX_EXACT_OWNERS, MAX_ARTICULATED_ENTITIES + crate::rules::MAX_SHOTS);
+        assert_eq!(MAX_EXACT_OWNERS, MAX_ENTITIES + crate::rules::MAX_SHOTS);
         assert_eq!((core::mem::size_of::<ExactOwnerTrajectory>(),
                     core::mem::size_of::<Option<ExactOwnerTrajectory>>(),
                     core::mem::size_of::<[Option<ExactOwnerTrajectory>; MAX_EXACT_OWNERS]>(),

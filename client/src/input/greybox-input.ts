@@ -23,7 +23,7 @@ export type GroundPoint = Readonly<{ x: number; z: number }>;
 // **Click-to-move was here and it is not a feature that was cut -- it is one
 // that stopped working.** `pointToGotoCommand` turned a ground pick into a
 // `goto`, which dispatched to `set_goto`, which set a per-faction `Order` that
-// only the legacy `Observation` carries. An `ArticulatedObservation` has no
+// only the legacy observation carried. The surviving `sim::Observation` has no
 // order column and no nav column, so on this floor a click moved the state hash,
 // painted a destination pip in the frame header, rebuilt a flow field nobody
 // read and moved nobody. The projector below survives because aiming still uses
