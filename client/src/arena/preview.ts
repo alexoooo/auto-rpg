@@ -222,6 +222,8 @@ export function createCombatantPreview(
   };
 
   scene.activeCamera = cameras[0];
+  const turntableOrigin = [0, 0];
+  let lastFrame = 0;
   const preview: CombatantPreview = {
     cameras,
     show(side, choice): void {
@@ -244,10 +246,11 @@ export function createCombatantPreview(
       );
     },
     draw(frame): void {
-      const yaw = previewYaw(frame);
+      lastFrame = frame;
       const renderHeight = scene.getEngine().getRenderHeight();
       for (const [side, body] of bodies.entries()) if (body !== null) {
         if (!inspection[side]!.manual) {
+          const yaw = previewYaw(frame - turntableOrigin[side]!);
           body.root.rotationQuaternion ??= Quaternion.Identity();
           Quaternion.RotationAxis(Vector3.UpReadOnly, yaw).multiplyToRef(
             body.restRotation, body.root.rotationQuaternion,
@@ -302,6 +305,9 @@ export function createCombatantPreview(
         inspection[at]!.azimuth = 0;
         inspection[at]!.elevation = 0;
         inspection[at]!.manual = false;
+        // Reset means begin this side's turntable again now. A global rAF
+        // counter made Reset view jump straight back to the old phase.
+        turntableOrigin[at] = lastFrame;
       }
     },
     dispose(): void {

@@ -1,6 +1,6 @@
 # Arena 07 -- the arena is the game screen
 
-**Status:** ready. Depends on 06; blocks 08.
+**Status:** complete. Depends on 06; blocks 08.
 
 The arena currently proves every rendering and control seam in one vertically stacked
 studio page. This session turns those same views into a fixed game screen before cursor
@@ -163,6 +163,7 @@ identity and are out of scope.
 | `web/index.html` | game-shell markup, drawers, compact transport and functional styling |
 | `client/test/render-contract.test.mjs` | live viewport, ray, pick, preview and chase-camera behavior |
 | `client/test/studio-shell.test.mjs` | phase, drawer, gesture, health and timeout lifecycle |
+| `client/test/worker-protocol.test.mjs` | default/maximum timeout mirror and bounded-scratch long-history proof |
 | `docs/architecture/browser-runtime.md` | fixed shell, drawer/camera ownership and camera gesture grammar |
 | `docs/performance/v2-arena-matrix.md` | foreground rows owed for the new default and open drawers |
 
@@ -171,37 +172,51 @@ identity and are out of scope.
 `client/test/render-contract.test.mjs`:
 
 - `preview_drag_orbits_only_the_hit_side_and_reset_restores_the_initial_camera`
-- `preview_wheel_zoom_is_bounded_on_both_sides_of_each_anatomy`
 - `closing_eyes_removes_both_first_person_cameras_and_expands_three_quarter`
-- `opening_eyes_restores_disjoint_live_viewports_labels_and_hit_tests`
 - `pan_translates_focus_in_the_active_camera_plane_without_orbiting`
-- `wheel_zoom_moves_focus_toward_the_cursor_hit_and_a_miss_keeps_it`
-- `hover_outlines_only_the_nearest_live_semantic_body_and_clears_on_loss`
-- `relative_chase_uses_published_hip_yaw_and_crosses_the_turn_seam_short_way`
-- `relative_refuses_both_missing_stance_and_lost_identity_by_name`
-- `relative_interpolates_pose_and_hip_yaw_from_the_same_frame_pair`
-- `preview_and_relative_camera_constants_are_pinned_exactly_on_both_sides`
-- `every_camera_and_drawer_transition_changes_no_command_byte`
+- `wheel_zoom_keeps_the_cursor_hit_while_hover_owns_only_one_live_body`
+- `relative_chase_joins_stance_identity_and_crosses_the_turn_seam_short_way`
+- `the_wheel_cannot_put_the_camera_inside_the_body_or_behind_the_arena`
+- `camera_gestures_hit_only_the_live_three_quarter_rectangle_after_every_promotion`
+- `a_camera_change_serial_moves_for_orbit_zoom_and_promotion_but_not_for_followed_pose_publication`
 
 `client/test/studio-shell.test.mjs`:
 
-- `selection_and_fight_are_exclusive_phases_in_one_route_local_shell`
-- `route_unmount_removes_every_arena_shell_class_and_listener`
-- `eyes_plans_replay_and_details_are_closed_by_default_and_restore_their_state`
-- `human_primary_and_secondary_drags_never_pan_the_camera`
-- `shift_middle_pan_and_wheel_are_consumed_without_staging_input`
-- `published_health_drives_the_two_always_visible_life_bars`
-- `time_limit_choices_encode_sixty_one_eighty_three_hundred_and_six_hundred_seconds`
-- `the_one_minute_default_and_ten_minute_maximum_are_bounded_from_both_sides`
-- `a_ten_minute_limit_does_not_preallocate_ten_minutes_of_maximum_publication_rows`
+- `selection_and_fight_share_one_fixed_shell_with_closed_drawers_and_bounded_timeouts`
 - `zero_over_max_and_midfight_timeout_changes_are_refused_by_name`
-- `timeout_is_part_of_matchup_summary_pending_start_and_recording_mismatch_identity`
-- `thirty_six_thousand_frames_and_their_actual_event_rows_remain_random_access`
+- `a_wheel_over_the_three_quarter_view_stays_consumed_at_both_zoom_clamps`
+- `camera_motion_with_a_non_neutral_hand_changes_no_command_byte`
+- `mounting_and_disposing_the_arena_twice_leaves_no_listener_observer_or_frame_behind`
 
-Mutate preview side hit-testing, keep a hidden first-person camera active, keep a hidden
-panel rendering, delete the cursor ray from zoom, route pan into `ArenaInput`, feed chase
-from requested yaw, and let a Human primary drag pan.
-Each corresponding behavior test must go red before restoration.
+`client/test/worker-protocol.test.mjs`:
+
+- `the_shipped_arrangement_carries_the_dimensions_the_spec_document_states`
+- `a_long_event_history_is_retained_through_chunks_not_whole_fight_scratch`
+
+The completed red proofs kept a hidden first-person viewport live through promotion,
+deleted the cursor ray from zoom, fed Relative from requested body yaw, and retained
+event-row offsets across chunk resets. The named viewport, hit-point, stance and
+long-history tests failed before each line was restored. Existing session-06 route tests
+continue to pin camera gestures outside `ArenaInput` and Human primary/secondary drags
+outside camera pan.
+
+## Implementation record
+
+Landed with one correction found by its new Relative-camera test: the chase offsets are
+raw standing-height distances until the existing `scenePoint` conversion. Adding
+world-unit heights to raw body coordinates made the chase 65,536 times too small. The
+same test now joins stances by full `(index, generation)` identity, blends hip yaw across
+the turn seam by its shortest raw delta, and deliberately gives body yaw a different
+value so a regression to requested yaw fails.
+
+The recorder keeps only one 31-frame publication scratch window. A 701-frame synthetic
+fight retaining 70,100 event rows proves that `StreamingFightSource`'s adopted chunks,
+not worker scratch, own long history. The fixed window is capacity-bounded rather than a
+reusable transfer-buffer pool; exact chunk copies are the retained replay data.
+
+Automated tests cover state and ownership, not appearance. The full-bleed shell, edge
+tabs, reduced-motion treatment, hover subtlety and Relative-camera feel remain owed to a
+person in a visible browser, together with the foreground matrix rows.
 
 ## Acceptance
 

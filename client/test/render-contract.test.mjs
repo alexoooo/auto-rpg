@@ -4529,6 +4529,34 @@ test("pan_translates_focus_in_the_active_camera_plane_without_orbiting", async (
   content.dispose(); scene.dispose(); engine.dispose();
 });
 
+test("wheel_zoom_keeps_the_cursor_hit_while_hover_owns_only_one_live_body", async () => {
+  const { content, scene, engine } = await arenaStageHarness();
+  const poses = [arenaPose({ index: 0, x: 6 }), arenaPose({ index: 1, x: 10 })];
+  content.setEyes(false);
+  content.show(arenaView(poses, { focus: raw(8, 6, 0), span: 8 * RAW }));
+  scene.activeCamera = content.threeQuarter;
+  scene.activeCameras = [content.threeQuarter];
+  scene.render();
+  const hitPoint = poses[0].regions[1].upper;
+  const cursor = content.projectHand(hitPoint);
+  assert.ok(cursor !== null, "the semantic body point must project into the live camera");
+  assert.equal(content.hover(cursor), 0);
+  const outlined = scene.meshes.filter((mesh) => mesh.renderOutline);
+  assert.equal(outlined.length, 1);
+  assert.equal(outlined[0].metadata.arenaBody, 0);
+  content.zoom(-240, cursor);
+  scene.render();
+  const after = content.projectHand(hitPoint);
+  assert.ok(after !== null);
+  assert.ok(Math.hypot(after[0] - cursor[0], after[1] - cursor[1]) < 0.02,
+    `cursor hit drifted from ${cursor} to ${after}`);
+  content.clearHover();
+  assert.equal(scene.meshes.some((mesh) => mesh.renderOutline), false);
+  content.clear();
+  assert.equal(content.hover(cursor), null);
+  content.dispose(); scene.dispose(); engine.dispose();
+});
+
 test("relative_chase_joins_stance_identity_and_crosses_the_turn_seam_short_way", async () => {
   const { content, scene, engine } = await arenaStageHarness();
   const pose = arenaPose({ index: 0, x: 7, yaw: RAW / 4 });
@@ -4551,6 +4579,15 @@ test("relative_chase_joins_stance_identity_and_crosses_the_turn_seam_short_way",
   assert.equal(arenaStageCamera.CHASE_UP_HEIGHTS, 1);
   assert.equal(arenaStageCamera.CHASE_LOOK_AHEAD_HEIGHTS, 1);
   assert.equal(arenaStageCamera.CHASE_TARGET_UP_HEIGHTS, 0.55);
+  const replacement = arenaPose({ index: 0, x: 9, yaw: RAW / 4 });
+  replacement.id = [0, 1];
+  content.show(arenaView([pose], {
+    stances: [stance], next: {
+      ...arenaView([replacement], { stances: [{ ...nextStance, id: [0, 1] }] }).frame,
+    }, alpha: 0.5,
+  }));
+  assert.equal(content.cameraMode(), "fit");
+  assert.equal(content.cameraRefusal(), "RELATIVE_CAMERA_SUBJECT_LOST");
   content.setRelative(false);
   content.show(arenaView([pose], { stances: [{ ...stance, id: [0, 1] }] }));
   assert.equal(content.setRelative(true), "RELATIVE_CAMERA_NEEDS_STANCE");

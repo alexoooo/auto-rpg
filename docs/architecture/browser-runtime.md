@@ -262,6 +262,13 @@ a real root and a real target and only the bend plane is chosen. The legs are th
 weakest claim on the page: one capsule, no stride, no per-foot contact, so a walk cycle
 driven from body speed desynchronises from a footfall that does not exist.
 
+The arena route is one route-local fixed `100svh` shell. Selection and fight are exclusive
+phases inside it; changing routes removes the constraint without changing global
+`html`/`body` styles. Fight opens on the 3/4 camera alone. Eyes opts both existing
+first-person cameras into `Scene.activeCameras`; Plans, Replay and Details are closed
+drawers whose 2D drawing and formatting work stops while closed. Two health bars remain
+and read the published faction-health raws directly.
+
 The 3/4 viewport has one camera owner around the same `FreeCamera` the scene constructed;
 it creates no second camera, scene or engine. Span still frames the plan and elevation and
 seeds the 3/4 fit, but a middle drag or wheel gives that view to the reader until Refit.
@@ -270,11 +277,25 @@ under a frame-rate-independent response,
 advanced only by the arena's animation-frame clock; scrubbing and control redraws advance
 it by zero. At the close clamp the dead zone closes so the published head, which is wider
 than that near-distance allowance, is centred rather than clipped. Either eye-height camera can exchange viewports with the 3/4 camera, and the
-labels exchange with them. Middle drag and wheel hit-test the 3/4 camera's live rectangle,
-including after that exchange; a wheel claimed there remains claimed at its zoom bound.
+labels exchange with them. Closing Eyes removes both eye cameras and expands 3/4 to the
+whole canvas; promotion while closed cannot narrow it. Middle drag orbits, Shift-middle
+and spectator primary drag pan in the camera plane, and wheel hit-tests the 3/4 camera's
+live rectangle. Wheel zoom scales camera and focus about the nearest semantic-body or
+arena-floor ray hit, so the hit remains under the cursor; a miss keeps focus-centred zoom,
+and a claimed wheel remains claimed at either bound. Semantic body meshes are pickable
+only for presentation hover and clear their faction outline on leave, phase change,
+retirement, renderer loss and disposal.
 The promoted camera's basis and a serial changed by orbit,
 effective zoom and promotion are exposed for the relative weapon hand; camera movement
 itself submits no simulation command.
+
+Fixed follow retains the fit/dead-zone owner above. Relative follow requires one body and
+a same-generation live stance at both interpolation endpoints. It blends the pose and
+published `hipYaw` from that same pair, unwraps the yaw by the shortest raw turn, and
+places the chase 1.5 standing heights behind and 1.0 above while looking 1.0 height ahead
+and 0.55 above. Requested body yaw and velocity never steer it. Missing stance refuses as
+`RELATIVE_CAMERA_NEEDS_STANCE`; Follow Both refuses as
+`RELATIVE_CAMERA_NEEDS_ONE_BODY`, and endpoint identity loss returns to Fixed.
 
 `#/arena` supports both spectator and human-driven sides. A controlled side is sampled
 at a fixed 60 Hz by a transactional main-thread clock; one freshly encoded tick is in flight,
@@ -337,6 +358,14 @@ rather than a claim about one is `a_live_fight_matches_the_traced_fight`, which 
 the streamed fight against `lab trace`'s file for every tick of two whole fights --
 3,601 frames each, field for field. The channel is
 [worker protocol](../reference/worker-protocol.md#the-recording-and-why-it-is-not-the-pooled-buffer).
+
+The picker preserves the shipped one-minute default (`3,600` ticks) and offers one,
+three, five and ten minutes before a fight. Ten minutes (`36,000` ticks) is both the UI
+and browser-recording maximum; zero, non-integral and larger values are refused before
+start, and the selector is disabled once the matchup identity is in flight. Recorder
+publication arrays are one chunk plus its initial frame rather than ten minutes of
+maximum-capacity rows. Posted exact-used chunks are adopted into the live source, which
+is the sole owner of the full random-access history.
 
 **The trace format is written in one file and refused in another, on purpose.**
 [`crates/lab/src/trace.rs`](../../crates/lab/src/trace.rs) writes it and

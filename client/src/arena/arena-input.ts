@@ -1,5 +1,6 @@
 import type { EntityKey, Pose, V3 } from "../fight/trace.js";
 import type { StageCameraBasis } from "./stage-camera.js";
+import { CURSOR_HAND_SPAN_ARM_LENGTHS } from "./arena-hand-cursor.js";
 
 export const EMBODIED_COMMAND_BYTES = 61;
 export const EMBODIED_COMMAND_LAYOUT_VERSION = 2;
@@ -39,6 +40,9 @@ export interface ArmTargetState {
 
 type MutableTarget = { bearing: number; height: number; reach: number; effort: number; plane: number };
 type ButtonState = { down: boolean; order: number; travel: number };
+type ExtendAnchor = Readonly<{ direction: V3; distance: number; cursorY: number }>;
+
+export type AbsoluteWeaponResult = Readonly<{ changed: boolean; saturated: boolean }>;
 
 function clamp(value: number, low: number, high: number): number {
   return Math.min(high, Math.max(low, value));
@@ -74,6 +78,9 @@ export class ArenaInput {
   #minReach = ONE_RAW / 4;
   #pose: Pose | null = null;
   #target: MutableTarget | null = null;
+  #restTarget: MutableTarget | null = null;
+  #lastAbsoluteHand: V3 | null = null;
+  #extendAnchor: ExtendAnchor | null = null;
   #armAvailable = false;
   #posedStandingHeight = 0;
 
@@ -94,6 +101,9 @@ export class ArenaInput {
     this.#minReach = clamp(armMinReach, 1, ONE_RAW);
     this.#pose = null;
     this.#target = null;
+    this.#restTarget = null;
+    this.#lastAbsoluteHand = null;
+    this.#extendAnchor = null;
     this.#armAvailable = false;
   }
 
@@ -124,6 +134,11 @@ export class ArenaInput {
         effort: HUMAN_ARM_RESTING_EFFORT,
         plane: 0,
       };
+      // The cursor's centre is the guard the fight opened with, expressed in
+      // torso command space. It is never re-read from later publications: those
+      // publications contain the cursor's own prior request, and adopting one
+      // as a new rest would add the same edge offset again on every tick.
+      this.#restTarget = { ...this.#target };
     }
     return this.#target !== null;
   }
@@ -135,6 +150,9 @@ export class ArenaInput {
     if (down) {
       button.order = ++this.#buttonOrder;
       button.travel = 0;
+      if (channel === "extend") this.#extendAnchor = null;
+    } else if (channel === "extend") {
+      this.#extendAnchor = null;
     }
   }
 
@@ -198,17 +216,85 @@ export class ArenaInput {
     return true;
   }
 
-  #adoptHand(hand: V3, shoulder: V3): void {
-    if (this.#target === null || this.#pose === null || this.#anatomy === null) return;
+  /**
+   * Place the mouse-controlled hand from one absolute unit-disc sample.
+   *
+   * Touch deliberately continues through {@link moveWeapon}. The desktop
+   * cursor has no baseline delta: cut/placement is a pure rest-anchor mapping,
+   * while an extension freezes the ray and starting cursor height at its first
+   * owned sample so revisiting a point revisits an exact distance.
+   */
+  placeWeapon(
+    qx: number,
+    qy: number,
+    cursorY: number,
+    travelCss: number,
+    elapsedMs: number,
+    basis: StageCameraBasis,
+    channel = this.weaponOwner,
+  ): AbsoluteWeaponResult {
+    if (this.#target === null || this.#restTarget === null || this.#pose === null
+      || this.#anatomy === null || ![qx, qy, cursorY, travelCss, elapsedMs].every(Number.isFinite)) {
+      return Object.freeze({ changed: false, saturated: false });
+    }
+    const shoulder = this.#pose.regions[this.#limb + 2]?.lower;
+    if (shoulder === undefined) return Object.freeze({ changed: false, saturated: false });
+    const before = this.desiredHand();
+    if (before === null) return Object.freeze({ changed: false, saturated: false });
+
+    const powered = this.#buttons[channel].down;
+    const travel = Math.max(0, travelCss);
+    if (powered) this.#buttons[channel].travel += travel;
+    const pastDeadZone = powered && this.#buttons[channel].travel > SWING_DRAG_DEAD_ZONE_PX;
+    const speed = elapsedMs > 0 ? travel * 1_000 / elapsedMs : 0;
+    this.#target.effort = pastDeadZone
+      ? Math.round(HUMAN_ARM_RESTING_EFFORT + HUMAN_ARM_RESTING_EFFORT
+        * clamp(speed / SWING_DRAG_FULL_EFFORT_PX_S, 0, 1))
+      : HUMAN_ARM_RESTING_EFFORT;
+
+    let requested: V3;
+    if (channel === "extend" && powered) {
+      if (this.#extendAnchor === null) {
+        const offset = minus(before, shoulder);
+        const distance = length(offset);
+        if (distance === 0) return Object.freeze({ changed: false, saturated: false });
+        this.#extendAnchor = Object.freeze({ direction: unit(offset), distance, cursorY });
+      }
+      const distance = this.#extendAnchor.distance
+        - (cursorY - this.#extendAnchor.cursorY) * EXTEND_DRAG_SENSITIVITY * this.#anatomy.armLength;
+      requested = add(shoulder, scale(this.#extendAnchor.direction, Math.max(0, distance)));
+    } else {
+      const rest = this.#handOf(this.#restTarget);
+      if (rest === null) return Object.freeze({ changed: false, saturated: false });
+      const span = this.#anatomy.armLength * CURSOR_HAND_SPAN_ARM_LENGTHS;
+      requested = add(rest, add(scale(basis.right, qx * span), scale(basis.up, qy * span)));
+    }
+
+    const saturated = this.#adoptHand(requested, shoulder);
+    const after = this.desiredHand();
+    if (after === null) return Object.freeze({ changed: false, saturated });
+    const gesture = minus(after, this.#lastAbsoluteHand ?? before);
+    if (channel === "cut" && pastDeadZone && length(gesture) > 0) {
+      this.#adoptPlane(gesture, shoulder);
+    }
+    this.#lastAbsoluteHand = after;
+    return Object.freeze({ changed: length(minus(after, before)) > 0, saturated });
+  }
+
+  #adoptHand(hand: V3, shoulder: V3): boolean {
+    if (this.#target === null || this.#pose === null || this.#anatomy === null) return false;
     const planarX = hand[0] - shoulder[0];
     const planarY = hand[1] - shoulder[1];
     if (planarX !== 0 || planarY !== 0) {
       this.#target.bearing = wrapAngle(rawAngle(Math.atan2(planarY, planarX)) - this.#pose.yaw);
     }
-    this.#target.height = clamp(Math.round((hand[2] - this.#pose.body[2]) * ONE_RAW
-      / this.#posedStandingHeight), 0, ONE_RAW);
-    this.#target.reach = clamp(Math.round(Math.hypot(planarX, planarY) * ONE_RAW
-      / this.#anatomy.armLength), this.#minReach, ONE_RAW);
+    const height = Math.round((hand[2] - this.#pose.body[2]) * ONE_RAW
+      / this.#posedStandingHeight);
+    const reach = Math.round(Math.hypot(planarX, planarY) * ONE_RAW
+      / this.#anatomy.armLength);
+    this.#target.height = clamp(height, 0, ONE_RAW);
+    this.#target.reach = clamp(reach, this.#minReach, ONE_RAW);
+    return height !== this.#target.height || reach !== this.#target.reach;
   }
 
   #adoptPlane(gesture: V3, shoulder: V3): void {
@@ -229,13 +315,17 @@ export class ArenaInput {
   }
 
   desiredHand(): V3 | null {
-    if (this.#target === null || this.#pose === null || this.#anatomy === null) return null;
+    return this.#target === null ? null : this.#handOf(this.#target);
+  }
+
+  #handOf(target: MutableTarget): V3 | null {
+    if (this.#pose === null || this.#anatomy === null) return null;
     const shoulder = this.#pose.regions[this.#limb + 2]?.lower;
     if (shoulder === undefined) return null;
-    const world = radiansOf(this.#pose.yaw + this.#target.bearing);
-    const radius = this.#anatomy.armLength * this.#target.reach / ONE_RAW;
+    const world = radiansOf(this.#pose.yaw + target.bearing);
+    const radius = this.#anatomy.armLength * target.reach / ONE_RAW;
     return [shoulder[0] + Math.cos(world) * radius, shoulder[1] + Math.sin(world) * radius,
-      this.#pose.body[2] + this.#posedStandingHeight * this.#target.height / ONE_RAW];
+      this.#pose.body[2] + this.#posedStandingHeight * target.height / ONE_RAW];
   }
 
   get armTarget(): ArmTargetState | null {
@@ -256,6 +346,8 @@ export class ArenaInput {
       button.travel = 0;
     }
     if (this.#target !== null) this.#target.effort = HUMAN_ARM_RESTING_EFFORT;
+    this.#extendAnchor = null;
+    this.#lastAbsoluteHand = null;
   }
   setArmLive(live: boolean): void { if (!live) this.clear(); }
   get active(): boolean { return this.#held.size !== 0; }

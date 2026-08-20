@@ -15,6 +15,8 @@ const MIN_ORBIT_ELEVATION = 10 * DEGREES;
 const MAX_ORBIT_ELEVATION = 80 * DEGREES;
 const ORBIT_RADIANS_PER_PIXEL = 0.006;
 const ZOOM_PER_WHEEL_UNIT = 0.001;
+const ARENA_HALF_WIDTH = 12;
+const ARENA_HALF_DEPTH = 8;
 
 /**
  * How far the followed body may drift from the viewport centre before the
@@ -62,6 +64,12 @@ export type StageCameraBasis = Readonly<{
   up: readonly [number, number, number];
 }>;
 
+export type StageProjection = Readonly<{
+  /** Normalized whole-canvas coordinates, with DOM top-left origin. */
+  point: readonly [number, number];
+  inFront: boolean;
+}>;
+
 export interface StageCamera {
   readonly mode: StageCameraMode;
   readonly promoted: ArenaPromotedView;
@@ -69,8 +77,14 @@ export interface StageCamera {
   readonly changeSerial: number;
   /** The promoted view's basis, which is the basis a virtual hand sees. */
   readonly basis: StageCameraBasis;
+  /** The promoted camera's live rectangle, converted to DOM top-left origin. */
+  readonly activeViewport: ViewportRect;
+  /** The live 3/4 rectangle even when an eye owns the main panel. */
+  readonly threeQuarterViewport: ViewportRect;
   /** Project a sim-space point into normalized canvas coordinates. */
   project(point: V3): readonly [number, number] | null;
+  /** Projection that retains a directional answer for a point behind the eye. */
+  projectIndicator(point: V3): StageProjection | null;
   /** Hit-test the live 3/4 rectangle from CSS-normalized canvas coordinates. */
   containsThreeQuarterPoint(x: number, y: number): boolean;
   fit(focus: V3, span: number, azimuth: number): void;
@@ -118,6 +132,7 @@ export function createStageCamera(
   let elevation = THREE_QUARTER_ELEVATION_DEGREES * DEGREES;
   let radius = ARENA_WIDE_RADIUS;
   let eyesOpen = true;
+  let relativeInitialized = false;
 
   const place = (): void => {
     const ground = radius * Math.cos(elevation);
@@ -142,8 +157,15 @@ export function createStageCamera(
     // optional radius belongs only to owned zoom and never reaches this path.
     adoptPlacement(threeQuarterPlacement(fit.focus, fit.span, aspect(), azimuth));
   };
-  const active = (): FreeCamera => promoted === "firstPersonA" ? firstPerson[0]
+  const active = (): FreeCamera => !eyesOpen ? threeQuarter
+    : promoted === "firstPersonA" ? firstPerson[0]
     : promoted === "firstPersonB" ? firstPerson[1] : threeQuarter;
+  const domViewport = (camera: FreeCamera): ViewportRect => Object.freeze({
+    x: camera.viewport.x,
+    y: 1 - camera.viewport.y - camera.viewport.height,
+    width: camera.viewport.width,
+    height: camera.viewport.height,
+  });
 
   return Object.freeze({
     get mode() { return mode; },
@@ -161,6 +183,10 @@ export function createStageCamera(
         up: Object.freeze([up.x, -up.z, up.y] as const),
       });
     },
+    get activeViewport(): ViewportRect {
+      return domViewport(active());
+    },
+    get threeQuarterViewport(): ViewportRect { return domViewport(threeQuarter); },
     project(point: V3): readonly [number, number] | null {
       const camera = active();
       const engine = camera.getEngine();
@@ -173,6 +199,49 @@ export function createStageCamera(
       );
       if (![projected.x, projected.y, projected.z].every(finite) || projected.z < 0 || projected.z > 1) return null;
       return Object.freeze([projected.x / width, projected.y / height] as const);
+    },
+    projectIndicator(point: V3): StageProjection | null {
+      if (!point.every(finite)) return null;
+      const camera = active();
+      const engine = camera.getEngine();
+      const width = engine.getRenderWidth();
+      const height = engine.getRenderHeight();
+      if (width <= 0 || height <= 0) return null;
+      camera.getViewMatrix(true);
+      const scene = new Vector3(...scenePoint(point));
+      const fromEye = scene.subtract(camera.position);
+      const forward = camera.getDirection(Vector3.Forward()).normalize();
+      const right = camera.getDirection(Vector3.Right()).normalize();
+      const up = camera.getDirection(Vector3.Up()).normalize();
+      const inFront = Vector3.Dot(fromEye, forward) > 0;
+      if (inFront) {
+        const projected = Vector3.Project(
+          scene, Matrix.Identity(), camera.getTransformationMatrix(),
+          camera.viewport.toGlobal(width, height),
+        );
+        if ([projected.x, projected.y].every(finite)) {
+          return Object.freeze({
+            point: Object.freeze([projected.x / width, projected.y / height] as const),
+            inFront: true,
+          });
+        }
+      }
+      // Perspective division flips a point after it crosses the eye. Use its
+      // camera-plane direction instead, far enough from centre that the
+      // reticle's ray clamp necessarily parks it on an edge.
+      const viewport = this.activeViewport;
+      const horizontal = Vector3.Dot(fromEye, right);
+      const vertical = Vector3.Dot(fromEye, up);
+      const magnitude = Math.hypot(horizontal, vertical);
+      const dx = magnitude === 0 ? 0 : horizontal / magnitude;
+      const dy = magnitude === 0 ? -1 : -vertical / magnitude;
+      return Object.freeze({
+        point: Object.freeze([
+          viewport.x + viewport.width / 2 + dx * viewport.width,
+          viewport.y + viewport.height / 2 + dy * viewport.height,
+        ] as const),
+        inFront: false,
+      });
     },
     containsThreeQuarterPoint(x: number, y: number): boolean {
       if (!finite(x) || !finite(y)) return false;
@@ -193,6 +262,7 @@ export function createStageCamera(
     follow(body: Pose, dt: number): void {
       if (!finite(dt) || dt < 0) return;
       mode = "follow";
+      relativeInitialized = false;
       if (dt === 0) return;
       // The publication, not the anatomy mirror, says where this particular
       // body's head is now. A close camera aimed at the old fixed chest target
@@ -236,6 +306,7 @@ export function createStageCamera(
     orbit(buttons: number, dx: number, dy: number): boolean {
       if ((buttons & 4) === 0 || !finite(dx) || !finite(dy) || (dx === 0 && dy === 0)) return false;
       mode = "orbit";
+      relativeInitialized = false;
       azimuth += dx * ORBIT_RADIANS_PER_PIXEL;
       elevation = clamp(elevation + dy * ORBIT_RADIANS_PER_PIXEL,
         MIN_ORBIT_ELEVATION, MAX_ORBIT_ELEVATION);
@@ -255,6 +326,7 @@ export function createStageCamera(
       threeQuarter.position.addInPlace(shift);
       threeQuarter.setTarget(target);
       mode = "orbit";
+      relativeInitialized = false;
       changeSerial += 1;
       return true;
     },
@@ -264,7 +336,9 @@ export function createStageCamera(
         ARENA_CLOSE_UP_RADIUS, ARENA_WIDE_RADIUS);
       if (next === radius) return;
       if (mode === "fit") mode = "orbit";
-      const camera = active();
+      // Wheel ownership was already hit-tested against the live 3/4 rectangle.
+      // Promotion must not silently exchange the ray while leaving that owner.
+      const camera = threeQuarter;
       let anchor: Vector3 | null = null;
       if (cursor !== undefined && cursor.every(finite)) {
         const engine = camera.getEngine();
@@ -276,7 +350,14 @@ export function createStageCamera(
         anchor = hit?.pickedPoint ?? null;
         if (anchor === null && Math.abs(ray.direction.y) > 1e-9) {
           const distance = -ray.origin.y / ray.direction.y;
-          if (distance >= 0) anchor = ray.origin.add(ray.direction.scale(distance));
+          if (distance >= 0) {
+            const floor = ray.origin.add(ray.direction.scale(distance));
+            // The infinite mathematical plane is not the arena. A miss beyond
+            // the published 24 x 16 floor falls back to focus-centred zoom.
+            if (Math.abs(floor.x) <= ARENA_HALF_WIDTH && Math.abs(floor.z) <= ARENA_HALF_DEPTH) {
+              anchor = floor;
+            }
+          }
         }
       }
       const ratio = next / radius;
@@ -286,6 +367,7 @@ export function createStageCamera(
         threeQuarter.setTarget(target);
       }
       radius = next;
+      relativeInitialized = false;
       changeSerial += 1;
       if (anchor === null) place();
     },
@@ -326,9 +408,20 @@ export function createStageCamera(
         body.body[1] - forward[1] * h * CHASE_BACK_HEIGHTS,
         body.body[2] + h * CHASE_UP_HEIGHTS,
       ];
-      const response = dt === 0 ? 1 : 1 - Math.exp(-ARENA_FOLLOW_DAMPING_PER_SECOND * dt);
       const nextTarget = new Vector3(...scenePoint(desiredTarget));
       const nextPosition = new Vector3(...scenePoint(desiredPosition));
+      if (!relativeInitialized || mode !== "relative") {
+        target = nextTarget;
+        threeQuarter.position.copyFrom(nextPosition);
+        threeQuarter.setTarget(target);
+        mode = "relative";
+        relativeInitialized = true;
+        return;
+      }
+      // Synchronous redraws do not advance the chase. In particular, drawer,
+      // promotion and scrub redraws must preserve an already initialized pose.
+      if (dt === 0) return;
+      const response = 1 - Math.exp(-ARENA_FOLLOW_DAMPING_PER_SECOND * dt);
       target = Vector3.Lerp(target, nextTarget, response);
       threeQuarter.position.copyFrom(Vector3.Lerp(threeQuarter.position, nextPosition, response));
       threeQuarter.setTarget(target);
@@ -339,6 +432,7 @@ export function createStageCamera(
       const beforeTarget = target.clone();
       const beforeMode = mode;
       mode = "fit";
+      relativeInitialized = false;
       applyFit();
       if (beforeMode !== mode || !samePoint(beforePosition, threeQuarter.position)
           || !samePoint(beforeTarget, target)) changeSerial += 1;

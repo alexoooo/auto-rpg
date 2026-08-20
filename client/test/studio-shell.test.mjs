@@ -963,6 +963,26 @@ test("selection_and_fight_share_one_fixed_shell_with_closed_drawers_and_bounded_
   assert.match(SHELL_HTML, /id="arena-health-b"[^>]*max="65536"[^>]*value="65536"/);
 });
 
+test("zero_over_max_and_midfight_timeout_changes_are_refused_by_name", () => {
+  const harness = installDom();
+  try {
+    const container = harness.container();
+    const time = container.querySelector("#arena-time-limit");
+    for (const invalid of [0, 36_001, 1.5]) {
+      time.value = String(invalid);
+      assert.throws(() => picker.readMatchup(container),
+        /ARENA_TIME_LIMIT_INVALID: .*outside 1\.\.36000 ticks/);
+    }
+    time.value = "36000";
+    assert.equal(picker.readMatchup(container).maxTicks, 36_000);
+    const source = fs.readFileSync(path.join(ROOT, "client/src/arena/arena.ts"), "utf8");
+    assert.match(source, /timeLimitInput\.disabled = next === "fight"/,
+      "the matchup fingerprint must not change after fight phase begins");
+  } finally {
+    harness.restore();
+  }
+});
+
 test("the_seed_and_the_fight_button_belong_to_the_matchup_and_not_to_side_b", () => {
   // They were jammed into the end of Fighter B's row when the picker was two
   // stacked rows, which read as an accident of the layout the moment the layout
@@ -989,7 +1009,7 @@ test("the_seed_and_the_fight_button_belong_to_the_matchup_and_not_to_side_b", ()
 
 test("both_sides_driven_by_you_is_refused_by_naming_the_one_keyboard", () => {
   assert.equal(picker.HUMAN_CONTROL_LABEL,
-    "you (keys + direct hand)");
+    "you (keys + visible cursor hand)");
   const both = picker.review(matchup({ control: "human" }, { control: "human" }), "live");
   assert.match(both.refusal, /^Fighter A and Fighter B are both set to be driven by you/);
   assert.match(both.refusal, /one keyboard and one reserved hand-control channel/);
@@ -1593,9 +1613,12 @@ async function controlledRoute(harness, captureKind = "mouse", firstChunk = true
     description: () => "test stage", show() {}, clear() {}, resize() {},
     setMode: async () => {}, mode: () => "geometry", cameraMode: () => "fit",
     cameraBasis: () => ({ right: [0, 1, 0], up: [0, 0, 1] }),
-    projectHand: () => [0.5, 0.5], cameraChangeSerial: () => 0,
+    projectHand: () => [0.5, 0.5], projectHandIndicator: () => ({ point: [0.5, 0.5], inFront: true }),
+    activeViewport: () => ({ x: 0, y: 0, width: 1, height: 1 }),
+    threeQuarterViewport: () => ({ x: 0, y: 0, width: 1, height: 1 }), cameraChangeSerial: () => 0,
     containsThreeQuarterPoint: () => true, follow() {}, orbit: () => false, zoom() { this.pinchHits++; },
-    promote() {}, refit() {}, showPreview() {}, setPhase() {}, drawPreview() {}, dispose() {},
+    promote() {}, refit() {}, showPreview() {}, setPhase() {}, drawPreview() {},
+    showHandGuide() {}, clearHandGuide() {}, dispose() {},
     debug: { counts: () => ({}) },
   };
   const handle = await mount(container, new URLSearchParams(), async () => fakeStage);
@@ -1603,19 +1626,7 @@ async function controlledRoute(harness, captureKind = "mouse", firstChunk = true
   const control = container.querySelector("#a-control");
   control.value = "human";
   for (const entry of harness.listenersOn(control, "change")) entry.listener({ target: control });
-  if (captureKind === "mouse") container.querySelector("#take-controls").click();
-  else {
-    const take = container.querySelector("#take-controls");
-    for (const entry of harness.listenersOn(take, "pointerdown")) entry.listener({
-      target: take, pointerType: "touch", pointerId: 40, preventDefault() {},
-    });
-    const host = container.querySelector("#arena-stage");
-    const canvas = container.querySelector("#arena-3d");
-    for (const entry of harness.listenersOn(host, "pointerdown")) entry.listener({
-      target: canvas, pointerType: "touch", pointerId: 40, button: 0,
-      clientX: 200, clientY: 180, preventDefault() {},
-    });
-  }
+  container.querySelector("#fight").click();
   await settle();
   await settle();
   const worker = harness.workers.at(-1);
@@ -1623,6 +1634,14 @@ async function controlledRoute(harness, captureKind = "mouse", firstChunk = true
   worker.emit({ ...syntheticOpening(start.requestId), heroes: "you + tactical off hand" });
   if (firstChunk) worker.emit(syntheticChunk(start.requestId, 0, 1));
   await settle();
+  if (captureKind === "touch" && firstChunk) {
+    const host = container.querySelector("#arena-stage");
+    const canvas = container.querySelector("#arena-3d");
+    for (const entry of harness.listenersOn(host, "pointerdown")) entry.listener({
+      target: canvas, pointerType: "touch", pointerId: 40, button: 0,
+      clientX: 200, clientY: 180, timeStamp: 0, preventDefault() {},
+    });
+  }
   let frame = 0;
   let now = performance.now();
   const key = (code, key = code) => {
@@ -1716,13 +1735,13 @@ test("the_hand_reticle_clamps_marks_clears_and_disposes_without_owning_input", a
     const reticle = createHandReticle(host);
     const marker = host.children.at(-1);
     assert.equal(marker.hidden, true);
-    reticle.update([1.4, -0.2], true);
-    assert.deepEqual([marker.style.left, marker.style.top], ["100%", "0%"]);
+    reticle.update([1.4, -0.2], true, { x: 0, y: 0, width: 1, height: 1 }, [100, 100]);
+    assert.deepEqual([marker.style.left, marker.style.top], ["92%", "8%"]);
     assert.equal(marker.classList.contains("captured"), true);
     assert.equal(marker.classList.contains("offscreen"), true);
     reticle.update(null, false);
     assert.deepEqual([marker.style.left, marker.style.top], ["50%", "50%"]);
-    assert.equal(marker.classList.contains("offscreen"), true);
+    assert.equal(marker.classList.contains("offscreen"), false);
     reticle.clear();
     assert.equal(marker.hidden, true);
     assert.equal(marker.classList.contains("captured"), false);
@@ -1987,86 +2006,25 @@ test("a_severed_primary_releases_capture_but_held_body_input_keeps_the_worker_dr
   } finally { harness.restore(); }
 });
 
-test("capture_loss_before_the_first_chunk_does_not_resume_a_human_fight", async () => {
+test("a_human_fight_starts_without_take_controls_or_pointer_lock", async () => {
   const harness = installDom();
   try {
     const route = await controlledRoute(harness, "mouse", false);
-    globalThis.document.pointerLockElement = null;
-    for (const entry of harness.listenersOn(globalThis.document, "pointerlockchange")) entry.listener({});
+    assert.equal(route.container.querySelector("#take-controls"), null);
+    assert.equal(harness.listenersOn(globalThis.document, "pointerlockchange").length, 0);
     route.worker.emit(syntheticChunk(route.start.requestId, 0, 1));
     await settle();
-    await route.runFrame(40);
-    assert.equal(route.container.querySelector("#play").textContent, "Play");
-    assert.match(route.container.querySelector("#control-status").textContent, /Take controls again/);
-    assert.equal(route.worker.sent.filter((entry) => entry.message.kind === "arenaInput" && entry.message.ticksDue > 0).length, 0,
-      "the first chunk restarted authoritative production after capture loss");
+    assert.equal(route.container.querySelector("#play").textContent, "Pause");
+    await route.runFrame(20);
+    assert.ok(route.worker.sent.some((entry) => entry.message.kind === "arenaInput" && entry.message.ticksDue > 0));
     await route.handle.dispose(); harness.dropSubtree(route.container);
   } finally { harness.restore(); }
 });
 
-test("a_pending_pointer_lock_is_bound_to_the_selected_human_matchup", async () => {
-  const harness = installDom();
-  try {
-    const { mount } = await import(compiled("client/src/arena/arena.js"));
-    const container = harness.container();
-    const stage = {
-      description: () => "test stage", show() {}, clear() {}, resize() {}, setMode: async () => {},
-      mode: () => "geometry", cameraMode: () => "fit", cameraBasis: () => ({ right: [0, 1, 0], up: [0, 0, 1] }),
-      projectHand: () => [0.5, 0.5], cameraChangeSerial: () => 0, containsThreeQuarterPoint: () => true,
-      follow() {}, orbit: () => false, zoom() {}, promote() {}, refit() {}, showPreview() {}, setPhase() {},
-      drawPreview() {}, dispose() {}, debug: { counts: () => ({}) },
-    };
-    const handle = await mount(container, new URLSearchParams(), async () => stage);
-    await settle();
-    const control = container.querySelector("#a-control");
-    control.value = "human";
-    for (const entry of harness.listenersOn(control, "change")) entry.listener({ target: control });
-    const canvas = container.querySelector("#arena-3d");
-    let settleLock;
-    canvas.requestPointerLock = () => new Promise((resolve) => { settleLock = resolve; });
-    container.querySelector("#take-controls").click();
-    control.value = "tactical";
-    for (const entry of harness.listenersOn(control, "change")) entry.listener({ target: control });
-    globalThis.document.pointerLockElement = canvas;
-    for (const entry of harness.listenersOn(globalThis.document, "pointerlockchange")) entry.listener({});
-    settleLock();
-    await settle();
-    assert.equal(globalThis.document.pointerLockElement, null);
-    assert.equal(harness.workers.length, 0, "a stale Take attempt started the newly selected policy fight");
-    assert.match(container.querySelector("#control-status").textContent, /selected matchup changed/);
-    await handle.dispose(); harness.dropSubtree(container);
-  } finally { harness.restore(); }
-});
-
-test("a_late_pointer_lock_grant_after_route_disposal_is_released", async () => {
-  const harness = installDom();
-  try {
-    const { mount } = await import(compiled("client/src/arena/arena.js"));
-    const container = harness.container();
-    const stage = {
-      description: () => "test stage", show() {}, clear() {}, resize() {}, setMode: async () => {},
-      mode: () => "geometry", cameraMode: () => "fit", cameraBasis: () => ({ right: [0, 1, 0], up: [0, 0, 1] }),
-      projectHand: () => [0.5, 0.5], cameraChangeSerial: () => 0, containsThreeQuarterPoint: () => true,
-      follow() {}, orbit: () => false, zoom() {}, promote() {}, refit() {}, showPreview() {}, setPhase() {},
-      drawPreview() {}, dispose() {}, debug: { counts: () => ({}) },
-    };
-    const handle = await mount(container, new URLSearchParams(), async () => stage);
-    await settle();
-    const control = container.querySelector("#a-control");
-    control.value = "human";
-    for (const entry of harness.listenersOn(control, "change")) entry.listener({ target: control });
-    const canvas = container.querySelector("#arena-3d");
-    let settleLock;
-    canvas.requestPointerLock = () => new Promise((resolve) => { settleLock = resolve; });
-    container.querySelector("#take-controls").click();
-    await handle.dispose();
-    globalThis.document.pointerLockElement = canvas;
-    settleLock();
-    await settle();
-    assert.equal(globalThis.document.pointerLockElement, null,
-      "a lock granted after listener disposal leaked onto the next route");
-    harness.dropSubtree(container);
-  } finally { harness.restore(); }
+test("the_unlocked_cursor_path_registers_no_pointer_lock_lifecycle", () => {
+  const source = fs.readFileSync(path.join(ROOT, "client/src/arena/arena.ts"), "utf8");
+  assert.doesNotMatch(source, /requestPointerLock|pointerlockchange|pointerlockerror|exitPointerLock/);
+  assert.doesNotMatch(SHELL_HTML, /id="take-controls"/);
 });
 
 test("thirty_sixty_one_hundred_twenty_and_one_hundred_forty_four_hertz_stage_the_same_yaw_sequence", async () => {
@@ -2200,17 +2158,17 @@ test("mouse_motion_changes_no_navigation_or_body_yaw_byte", async () => {
   } finally { harness.restore(); }
 });
 
-test("relative_hand_motion_ignores_absolute_client_coordinates", async () => {
+test("movement_x_and_y_cannot_change_the_absolute_cursor_result", async () => {
   const commands = [];
-  for (const clientX of [-50_000, 90_000]) {
+  for (const movementX of [-50_000, 90_000]) {
     const harness = installDom();
     try {
       const route = await controlledRoute(harness);
       const stage = route.container.querySelector("#arena-stage");
       const canvas = route.container.querySelector("#arena-3d");
       for (const entry of harness.listenersOn(stage, "pointermove")) entry.listener({
-        target: canvas, pointerId: 17, clientX, clientY: -clientX,
-        movementX: 24, movementY: -13, buttons: 1, preventDefault() {},
+        target: canvas, pointerId: 17, pointerType: "mouse", clientX: 320, clientY: 220,
+        movementX, movementY: -movementX, buttons: 1, timeStamp: 20, preventDefault() {},
       });
       commands.push([...new Uint8Array((await route.nextInput()).bytes)]);
       await route.handle.dispose(); harness.dropSubtree(route.container);
@@ -2244,44 +2202,8 @@ test("camera_motion_with_a_non_neutral_hand_changes_no_command_byte", async () =
   } finally { harness.restore(); }
 });
 
-test("pointer_lock_rejection_and_timeout_are_named_before_a_fight_starts", async () => {
-  for (const mode of ["reject", "timeout"]) {
-    const harness = installDom();
-    try {
-      const { mount } = await import(compiled("client/src/arena/arena.js"));
-      const container = harness.container();
-      const stage = {
-        description: () => "test stage", show() {}, clear() {}, resize() {}, setMode: async () => {},
-        mode: () => "geometry", cameraMode: () => "fit", cameraBasis: () => ({ right: [0, 1, 0], up: [0, 0, 1] }),
-        projectHand: () => [0.5, 0.5], cameraChangeSerial: () => 0, containsThreeQuarterPoint: () => true,
-        follow() {}, orbit: () => false, zoom() {}, promote() {}, refit() {}, showPreview() {}, setPhase() {},
-        drawPreview() {}, dispose() {}, debug: { counts: () => ({}) },
-      };
-      const handle = await mount(container, new URLSearchParams(), async () => stage);
-      await settle();
-      const control = container.querySelector("#a-control");
-      control.value = "human";
-      for (const entry of harness.listenersOn(control, "change")) entry.listener({ target: control });
-      const canvas = container.querySelector("#arena-3d");
-      let timeout;
-      if (mode === "reject") canvas.requestPointerLock = () => Promise.reject(new Error("denied"));
-      else {
-        canvas.requestPointerLock = () => undefined;
-        globalThis.window.setTimeout = (callback) => { timeout = callback; return 99; };
-        globalThis.window.clearTimeout = () => {};
-      }
-      container.querySelector("#take-controls").click();
-      if (timeout !== undefined) timeout();
-      await settle();
-      assert.match(container.querySelector("#control-status").textContent, /CONTROL_POINTER_LOCK_UNAVAILABLE/);
-      assert.equal(harness.workers.length, 0, `${mode} started a fight without direct controls`);
-      await handle.dispose(); harness.dropSubtree(container);
-    } finally { harness.restore(); }
-  }
-});
-
-test("blur_visibility_pause_and_pointer_lock_loss_clear_every_held_input", async () => {
-  for (const stop of ["blur", "hidden", "pause", "pointerlock"]) {
+test("blur_hidden_and_pause_clear_every_held_input", async () => {
+  for (const stop of ["blur", "hidden", "pause"]) {
     const harness = installDom();
     try {
       const route = await controlledRoute(harness);
@@ -2291,9 +2213,6 @@ test("blur_visibility_pause_and_pointer_lock_loss_clear_every_held_input", async
       } else if (stop === "hidden") {
         globalThis.document.visibilityState = "hidden";
         for (const entry of harness.listenersOn(globalThis.document, "visibilitychange")) entry.listener({});
-      } else if (stop === "pointerlock") {
-        globalThis.document.pointerLockElement = null;
-        for (const entry of harness.listenersOn(globalThis.document, "pointerlockchange")) entry.listener({});
       } else route.key("Space", " ");
       await settle();
       const input = route.worker.sent.filter((entry) => entry.message.kind === "arenaInput").at(-1).message;
@@ -2321,7 +2240,7 @@ test("space_pauses_a_fight_that_is_still_being_produced", async () => {
   } finally { harness.restore(); }
 });
 
-test("pause_requires_take_controls_again_and_the_new_capture_outlives_the_stale_neutral_ack", async () => {
+test("pause_resumes_without_take_controls_and_outlives_the_stale_neutral_ack", async () => {
   const harness = installDom();
   try {
     const route = await controlledRoute(harness);
@@ -2329,11 +2248,6 @@ test("pause_requires_take_controls_again_and_the_new_capture_outlives_the_stale_
     const neutral = route.worker.sent.filter((entry) => entry.message.kind === "arenaInput").at(-1).message;
     assert.equal(neutral.ticksDue, 0);
     route.key("Space", " ");
-    assert.equal(route.container.querySelector("#play").textContent, "Play");
-    assert.match(route.container.querySelector("#control-status").textContent, /Take controls again/);
-    await settle();
-    route.container.querySelector("#take-controls").click();
-    await settle();
     assert.equal(route.container.querySelector("#play").textContent, "Pause");
     route.key("KeyQ");
     route.worker.emit({ kind: "arenaInputAck", version: 2, requestId: neutral.requestId,

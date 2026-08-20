@@ -105,7 +105,9 @@ import type { SideChoice } from "./picker.js";
 import { createCombatantPreview, type CombatantPreview } from "./preview.js";
 import {
   createStageCamera, type StageCamera, type StageCameraBasis, type StageCameraMode,
+  type StageProjection,
 } from "./stage-camera.js";
+import { HandGuide } from "./hand-guide.js";
 import {
   ARENA_VIEWPORTS, ARM_REGIONS, FAR_PLANE, FIRST_PERSON_FOV_DEGREES, FIRST_PERSON_PITCH_DEGREES,
   FOREARM_REGIONS,
@@ -113,7 +115,7 @@ import {
   armDrawn, blendPose, bodyAxes, capsuleBetween, capsuleCentre, capsuleParts, directionFrame,
   elbowOf, eyeOf, gaitOf, legsOf, regionDrawn, scenePoint, sceneLength, sceneYaw, segmentFrame,
   shieldLimb, shieldQuad, shieldSocketFrame, weaponSocketFrame, yawFrame,
-  type CapsuleParts, type Frame3, type Gait, type ScenePoint,
+  type CapsuleParts, type Frame3, type Gait, type ScenePoint, type ViewportRect,
 } from "./geometry.js";
 import type { ArenaPromotedView } from "./geometry.js";
 
@@ -518,6 +520,7 @@ export class ArenaContent {
   readonly firstPerson: readonly [FreeCamera, FreeCamera];
   readonly threeQuarter: FreeCamera;
   readonly stageCamera: StageCamera;
+  readonly handGuide: HandGuide;
   #floor: LinesMesh | null = null;
   #floorKey = "";
   #mode: ArenaMode = "geometry";
@@ -530,6 +533,7 @@ export class ArenaContent {
   #combatantLoad: Promise<void> | null = null;
   #follow: "both" | 0 | 1 = "both";
   #relative = false;
+  #cameraRefusal: string | null = null;
   #eyesOpen = false;
   #hovered: AbstractMesh | null = null;
 
@@ -555,6 +559,7 @@ export class ArenaContent {
       this.threeQuarter, this.firstPerson,
       () => this.#scene.getEngine().getAspectRatio(this.threeQuarter),
     );
+    this.handGuide = new HandGuide(scene, ALL_CAMERAS);
 
     // The order is the order they are drawn in, and Babylon clears the colour
     // buffer once for the first of them and only depth for the rest -- which is
@@ -623,13 +628,24 @@ export class ArenaContent {
   cameraMode(): StageCameraMode { return this.stageCamera.mode; }
   cameraBasis(): StageCameraBasis { return this.stageCamera.basis; }
   projectHand(point: V3): readonly [number, number] | null { return this.stageCamera.project(point); }
+  projectHandIndicator(point: V3): StageProjection | null {
+    return this.stageCamera.projectIndicator(point);
+  }
+  activeViewport(): ViewportRect { return this.stageCamera.activeViewport; }
+  threeQuarterViewport(): ViewportRect { return this.stageCamera.threeQuarterViewport; }
+  showHandGuide(bodyGround: V3, desired: V3): void { this.handGuide.update(bodyGround, desired); }
+  clearHandGuide(): void { this.handGuide.clear(); }
   cameraChangeSerial(): number { return this.stageCamera.changeSerial; }
   containsThreeQuarterPoint(x: number, y: number): boolean {
     return this.stageCamera.containsThreeQuarterPoint(x, y);
   }
   follow(target: "both" | 0 | 1): void {
     this.#follow = target;
-    if (target === "both") this.stageCamera.refit();
+    if (target === "both") {
+      if (this.#relative) this.#cameraRefusal = "RELATIVE_CAMERA_NEEDS_ONE_BODY";
+      this.#relative = false;
+      this.stageCamera.refit();
+    }
   }
   orbit(buttons: number, dx: number, dy: number): boolean {
     return this.stageCamera.orbit(buttons, dx, dy);
@@ -642,10 +658,17 @@ export class ArenaContent {
     this.clearHover();
     if (!cursor.every(Number.isFinite)) return null;
     const engine = this.#scene.getEngine();
+    const camera = (this.#scene.activeCameras ?? []).find((candidate) => {
+      const viewport = candidate.viewport;
+      const top = 1 - viewport.y - viewport.height;
+      return cursor[0] >= viewport.x && cursor[0] <= viewport.x + viewport.width
+        && cursor[1] >= top && cursor[1] <= top + viewport.height;
+    });
+    if (camera === undefined) return null;
     const hit = this.#scene.pick(
       cursor[0] * engine.getRenderWidth(), cursor[1] * engine.getRenderHeight(),
       (mesh) => typeof mesh.metadata?.arenaBody === "number", false,
-      this.#scene.activeCamera ?? this.threeQuarter,
+      camera,
     );
     const mesh = hit?.pickedMesh ?? null;
     if (mesh === null || typeof mesh.metadata?.arenaBody !== "number") return null;
@@ -669,16 +692,18 @@ export class ArenaContent {
     this.#scene.activeCamera = this.threeQuarter;
   }
   setRelative(enabled: boolean): string | null {
-    if (!enabled) { this.#relative = false; this.stageCamera.refit(); return null; }
-    if (this.#follow === "both") return "RELATIVE_CAMERA_NEEDS_ONE_BODY";
+    if (!enabled) { this.#relative = false; this.#cameraRefusal = null; this.stageCamera.refit(); return null; }
+    if (this.#follow === "both") return this.#cameraRefusal = "RELATIVE_CAMERA_NEEDS_ONE_BODY";
     const view = this.#view;
     const pose = view?.frame.poses.find((candidate) => candidate.id[0] === this.#follow);
     const stance = pose === undefined ? null : view?.frame.stances?.find((candidate) =>
       candidate?.id[0] === pose.id[0] && candidate.id[1] === pose.id[1]) ?? null;
-    if (stance === null) return "RELATIVE_CAMERA_NEEDS_STANCE";
+    if (stance === null) return this.#cameraRefusal = "RELATIVE_CAMERA_NEEDS_STANCE";
     this.#relative = true;
+    this.#cameraRefusal = null;
     return null;
   }
+  cameraRefusal(): string | null { return this.#cameraRefusal; }
   refit(): void { this.stageCamera.refit(); }
 
   mode(): ArenaMode { return this.#mode; }
@@ -717,6 +742,7 @@ export class ArenaContent {
     if (phase === this.#phase) return;
     this.#phase = phase;
     this.clearHover();
+    if (phase === "select") this.handGuide.clear();
     const lit = phase === "fight" && this.#mode === "texture";
     this.#environment?.setEnabled(lit);
     this.#floor?.setEnabled(phase === "fight" && this.#mode === "geometry");
@@ -763,6 +789,7 @@ export class ArenaContent {
   /** No fight: the floor and the cameras stay, every body and every rig goes. */
   clear(): void {
     this.clearHover();
+    this.handGuide.clear();
     for (const node of [...this.#nodes.values()]) this.#retire(node);
     for (const rig of [...this.#rigs.values()]) this.#retireRig(rig);
     for (const [body, dress] of [...this.#dresses]) this.#retireDress(body, dress);
@@ -821,6 +848,7 @@ export class ArenaContent {
 
   dispose(): void {
     this.clear();
+    this.handGuide.dispose();
     this.#floor?.dispose();
     this.#floor = null;
     this.#environment?.dispose();
@@ -913,9 +941,15 @@ export class ArenaContent {
           this.stageCamera.relative(followed, hipYaw, standing, view.cameraDt ?? 0);
         } else {
           this.#relative = false;
+          this.#cameraRefusal = "RELATIVE_CAMERA_SUBJECT_LOST";
           this.stageCamera.refit();
         }
       } else if (followed !== undefined) this.stageCamera.follow(followed, view.cameraDt ?? 0);
+      else if (this.#relative) {
+        this.#relative = false;
+        this.#cameraRefusal = "RELATIVE_CAMERA_SUBJECT_LOST";
+        this.stageCamera.refit();
+      }
     }
   }
 
@@ -1736,6 +1770,11 @@ export interface ArenaStage {
   cameraMode(): StageCameraMode;
   cameraBasis(): StageCameraBasis;
   projectHand(point: V3): readonly [number, number] | null;
+  projectHandIndicator(point: V3): StageProjection | null;
+  activeViewport(): ViewportRect;
+  threeQuarterViewport(): ViewportRect;
+  showHandGuide(bodyGround: V3, desired: V3): void;
+  clearHandGuide(): void;
   cameraChangeSerial(): number;
   containsThreeQuarterPoint(x: number, y: number): boolean;
   follow(target: "both" | 0 | 1): void;
@@ -1747,6 +1786,7 @@ export interface ArenaStage {
   promote(view: ArenaPromotedView): void;
   setEyes(open: boolean): void;
   setRelative(enabled: boolean): string | null;
+  cameraRefusal(): string | null;
   refit(): void;
   showPreview(side: 0 | 1, choice: SideChoice): void;
   orbitPreview(side: 0 | 1, dx: number, dy: number): boolean;
@@ -1863,6 +1903,20 @@ export async function createArenaStage(
     cameraMode(): StageCameraMode { return content.cameraMode(); },
     cameraBasis(): StageCameraBasis { return content.cameraBasis(); },
     projectHand(point: V3): readonly [number, number] | null { return content.projectHand(point); },
+    projectHandIndicator(point: V3): StageProjection | null {
+      return content.projectHandIndicator(point);
+    },
+    activeViewport(): ViewportRect { return content.activeViewport(); },
+    threeQuarterViewport(): ViewportRect { return content.threeQuarterViewport(); },
+    showHandGuide(bodyGround: V3, desired: V3): void {
+      if (!live()) return;
+      content.showHandGuide(bodyGround, desired);
+      draw();
+    },
+    clearHandGuide(): void {
+      content.clearHandGuide();
+      if (live()) draw();
+    },
     cameraChangeSerial(): number { return content.cameraChangeSerial(); },
     containsThreeQuarterPoint(x: number, y: number): boolean {
       return live() && content.containsThreeQuarterPoint(x, y);
@@ -1874,7 +1928,12 @@ export async function createArenaStage(
       if (consumed) draw();
       return consumed;
     },
-    pan(dx, dy, viewportHeight): boolean { return content.pan(dx, dy, viewportHeight); },
+    pan(dx, dy, viewportHeight): boolean {
+      if (!live()) return false;
+      const consumed = content.pan(dx, dy, viewportHeight);
+      if (consumed) draw();
+      return consumed;
+    },
     zoom(delta: number, cursor?: readonly [number, number]): void {
       if (!live()) return;
       const before = content.cameraChangeSerial();
@@ -1900,6 +1959,7 @@ export async function createArenaStage(
     },
     setEyes(open): void { content.setEyes(open); },
     setRelative(enabled): string | null { return content.setRelative(enabled); },
+    cameraRefusal(): string | null { return content.cameraRefusal(); },
     refit(): void {
       if (!live()) return;
       content.refit();

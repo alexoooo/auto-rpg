@@ -181,6 +181,20 @@ artifacts in `docs/performance/` that implies. That is a session of its own.
 
 Three, and none of them is an agent's call.
 
+Session 07 adds one combined game-screen pass: at a foreground `100svh` viewport confirm
+selection and fight do not scroll the document, the four closed edge tabs leave one large
+3/4 view, Eyes opens two correctly labelled viewports, the two health bars remain readable,
+and reduced motion removes drawer transitions. Exercise independent preview orbit/zoom/
+reset, cursor-centred zoom, hover clearing and Fixed/Relative follow. These are pending;
+an automated hidden tab is not evidence for layout or feel.
+
+The same pass must record the one-minute default and a ten-minute run: actual retained
+pose/region/projectile/event/stance row counts, peak adopted-history bytes, and the worst
+observed ten-minute event corpus. Also bracket closed drawers, each drawer alone, and all
+drawers open as `control -> subject -> control` frame-time comparisons. Every row remains
+pending foreground capture; the worker test proves bounded scratch and random access, not
+browser memory cost or visible frame time.
+
 - **The authored silhouette judgement.** The combatant asset now has a deterministic
   Blender game-camera preview and four-angle turntable, and fail-closed metrics defend
   shoulder/head proportions, projected equipment area, connected posed parts and the

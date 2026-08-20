@@ -481,6 +481,6 @@ one.
 - Snapshot validator and disclosure filter: [`SnapshotFilterState`](../../client/src/state/snapshot.ts#L59)
 - Real wasm adapter: [`readPublication`](../../client/src/runtime/sim.worker.ts#L94)
 - Generated offsets and capacities: [`abi.generated.ts`](../../client/src/protocol/abi.generated.ts#L1)
-- The streaming drive and its caps: [`recordArenaFight`](../../client/src/runtime/arena-recorder.ts#L648)
+- The streaming drive and its caps: [`recordArenaFight`](../../client/src/runtime/arena-recorder.ts#L643)
 - The arena's main-thread client and its decoder: [`decodeArenaMessage`](../../client/src/runtime/arena-client.ts#L89)
 - The stream's reader: [`StreamingFightSource`](../../client/src/fight/live.ts#L455)
