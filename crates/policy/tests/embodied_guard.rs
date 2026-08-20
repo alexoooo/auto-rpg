@@ -376,7 +376,7 @@ fn a_committed_cut_is_not_abandoned_for_an_incoming_one() {
     assert_eq!(
         committed,
         Fx::from_raw(61_440),
-        "the committed arm is not `articulated_tactics::STRIKE_COMMIT_REACH`",
+        "the committed arm is not `embodied_tactics::STRIKE_COMMIT_REACH`",
     );
 }
 
@@ -416,7 +416,7 @@ fn a_chambered_cut_is_not_overwritten_by_a_guard() {
     assert_eq!(
         chambered,
         Fx::ONE,
-        "the chambering arm is not `articulated_tactics::STRIKE_CHAMBER_REACH`",
+        "the chambering arm is not `embodied_tactics::STRIKE_CHAMBER_REACH`",
     );
 }
 

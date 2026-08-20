@@ -47,20 +47,30 @@
 //! the coupling this experiment is about -- guard height against observed
 //! threat -- lives inside a single head.
 //!
-//! # Every entry comes from the script's vocabulary
+//! # Every entry came from the script's vocabulary
 //!
 //! The reach, effort, speed and turn constants below are the ones
-//! `policy::articulated_script` already uses, so that a learned policy and the
-//! scripted baseline are comparable as *choices* rather than as two different
-//! bodies. They are re-declared here rather than imported because the script
-//! keeps them private, and the copies are pinned against the script's own
-//! output by `the_action_table_is_the_scripts_own_vocabulary` -- so a drift on
-//! either side fails a test instead of quietly making the comparison unfair.
+//! `policy::articulated_script` used, so that a learned policy and the scripted
+//! baseline were comparable as *choices* rather than as two different bodies.
+//! They were re-declared here rather than imported because that script kept
+//! them private, and the copies were pinned against its own output by
+//! `the_action_table_is_the_scripts_own_vocabulary`, so a drift on either side
+//! failed a test instead of quietly making the comparison unfair.
+//!
+//! **Past tense since session 05, which deleted that file.** The numbers do not
+//! move with it -- they are what the shipped checkpoint was fitted against, and
+//! `LEARNED_INFERENCE_DIGEST` is a claim about the network reading them the same
+//! way on two targets. What moved is the guard: the surviving
+//! `policy::embodied_script` is a *different* vocabulary rather than a renamed
+//! one, so there is nothing left to compare with and the test named above now
+//! pins literals and says so in its own body. Whoever changes one of these
+//! constants owes a re-score of the checkpoint rather than a re-record of a
+//! hash, and that is the whole of what is left watching them.
 
 use fx::{closest_point_on_segment, Angle, Fx, Rng, Vec2, Vec3};
 use policy::{
-    into_torso_frame, ArticulatedPolicy, EmbodiedPolicy, StrikePlanner, TacticalContextV1,
-    TacticalIntentV1, EIGHTH_TURN, TACTICAL_INTENT_COUNT,
+    into_torso_frame, EmbodiedPolicy, StrikePlanner, TacticalContextV1, TacticalIntentV1,
+    EIGHTH_TURN, TACTICAL_INTENT_COUNT,
 };
 use sim::{
     ArmTarget, ArticulatedCommandV1, ArticulatedObservation, BodyPart, CombatHeight,
@@ -151,7 +161,7 @@ const HAND_SPEED_SCALE: f32 = 0.025;
 /// Ticks that normalise to `1` in the elapsed-time feature: the fixture's
 /// `max_ticks`, so the feature is "how much of the fight is gone".
 ///
-/// A hand copy of `Scenario::articulated_duel().max_ticks`, which cannot be
+/// A hand copy of `Scenario::embodied_duel().max_ticks`, which cannot be
 /// read here -- the number has to be a compile-time constant and the scenario
 /// builds a `Dungeon`. `the_fight_clock_is_the_fixtures_own` pins the two
 /// together, because a divisor that silently stopped meaning "the whole fight"
@@ -192,15 +202,21 @@ const TACTICAL_CLOSING_SPEED_SCALE: f32 = 0.025;
 /// can change without changing what was remembered.
 ///
 /// **One instance is one body.** `learn`'s `probe::rollout` gives each side its
-/// own policy, which is what this assumes; [`policy::run_articulated`] drives one
+/// own policy, which is what this assumes; [`policy::run_embodied`] drives one
 /// instance across both, and under that harness the memory of the Fighter's
 /// tick and the Brute's tick interleave, so the rate columns read a difference
 /// between two different bodies' blades. The `tick <= self.tick` guard turns
 /// the second decider of each tick into a pair of zeros rather than a wrong
 /// number, which makes it harmless where it happens (the boundary tests, which
 /// assert nothing about rates) and wrong anywhere it mattered. If a learned
-/// policy is ever driven through `run_articulated` for a measurement, give it
-/// two instances.
+/// policy is ever driven through `run_embodied` for a measurement, give it two
+/// instances.
+///
+/// **The named harness was `run_articulated` until session 05 deleted it**, and
+/// the paragraph is reseated rather than dropped because the defect is the
+/// harness's shape and not the model's: `run_embodied` takes one
+/// `impl EmbodiedPolicy` and hands it every body's observation in turn, exactly
+/// as its predecessor did.
 #[derive(Clone, Copy, PartialEq, Debug, Default)]
 pub struct FeatureMemory {
     primed: bool,
@@ -314,7 +330,7 @@ fn live_blade(opponent: &sim::ObservedOpponent, at: Vec3) -> Option<SegmentPose>
 ///
 /// Worth writing down rather than discovering later, because "the slice was too
 /// narrow" is one of the explanations a failed probe has to rule out and a dead
-/// column is narrower than it looks. `Scenario::articulated_duel` is a Fighter
+/// column is narrower than it looks. `Scenario::embodied_duel` is a Fighter
 /// against a Brute and the probe always puts the candidate on the Fighter, so:
 ///
 /// * **Features 39 and 40 are identically zero, always.** The Brute carries no
@@ -586,11 +602,14 @@ pub const LEARN_V2_ACTION_LAYOUT_VERSION: u32 = 2;
 /// **Fifteen sixteenths and not one**, and the reason is not aesthetic:
 /// `Vec2::with_length` normalises by dividing and then multiplying, so a unit
 /// answer can land one raw tick above the magnitude
-/// `World::submit_articulated_v1` validates -- and a refused command is not a
-/// slow fighter, it is the neutral command stored in place of the one that was
-/// asked for. `articulated_script::APPROACH_SPEED` is the same number for the
-/// same reason and `the_action_table_is_the_scripts_own_vocabulary` pins the
-/// two together.
+/// `World::submit_embodied_v1` validates -- and a refused command is not a slow
+/// fighter, it is the neutral command stored in place of the one that was asked
+/// for. `articulated_script::APPROACH_SPEED` was the same number for the same
+/// reason and `the_action_table_is_the_scripts_own_vocabulary` pinned the two
+/// together; session 05 deleted that file, and
+/// `embodied_script::APPROACH_SPEED` -- private, so still not importable -- is
+/// fifteen sixteenths on the same argument. The two are no longer pinned to each
+/// other, which that test's own body records.
 const APPROACH_SPEED: Fx = Fx::from_ratio(15, 16);
 
 /// The magnitude of a withdrawal, and of a lateral step.
@@ -720,7 +739,7 @@ impl Posture {
 /// **This is the type that must not reach the world**, and it is a separate
 /// type from [`ArticulatedCommandV1`] for exactly that reason: it names a row in
 /// a table this crate owns, it is meaningless without
-/// [`LEARN_ACTION_LAYOUT_VERSION`], and [`sim::World::submit_articulated_v1`]
+/// [`LEARN_ACTION_LAYOUT_VERSION`], and [`sim::World::submit_embodied_v1`]
 /// cannot be handed one. See the doctest pair on [`crate`].
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub struct LearnedActionV1 {
@@ -820,7 +839,8 @@ impl LearnedActionV2 {
 /// holds.
 ///
 /// `articulated_script::bearing_to`, re-derived rather than imported because it
-/// is private. Keeping the fallback identical matters more than it looks: the
+/// was private -- and the file it was private in is gone, so this is the copy
+/// that survives. Keeping the fallback identical matters more than it looks: the
 /// fixture spawns the two bodies 10.8 apart against a 9.6 sight range, so the
 /// opening seconds of every fight are spent walking along a bearing nobody can
 /// see, and a policy that fell back to `Angle::ZERO` would walk east.
@@ -842,9 +862,11 @@ fn heading(bearing: Angle, magnitude: Fx) -> Vec2 {
 
 /// Which arm swings.
 ///
-/// `articulated_script::ArmRoles`'s weapon rule, re-derived for the same reason
-/// [`bearing_to`] is, and pinned against the script's own behaviour by
-/// `the_weapon_arm_is_the_one_the_script_swings`. The guard half of that struct
+/// [`policy::ArmRoles`]'s weapon rule, re-derived for the same reason
+/// [`bearing_to`] is, and pinned against that rule directly by
+/// `the_weapon_arm_is_the_one_the_script_swings` -- which read it off the
+/// script's commit phase until session 05 deleted the script, and reads it off
+/// `ArmRoles::of` now that the struct is the surviving half. The guard half of that struct
 /// is deliberately not reproduced: this policy drives the off arm from its own
 /// head rather than from a table clause, so "which arm holds the shield" is not
 /// a question it has to answer -- the off arm is whichever one is not swinging.
@@ -862,12 +884,16 @@ fn weapon_arm(obs: &ArticulatedObservation) -> usize {
 
 /// The off arm's pose: the script's static hand with its height freed.
 ///
-/// **This is the experiment.** `articulated_script::off_hand` welds the off arm
-/// to `CombatHeight::MID` and drives nothing; v2-20 gives it a height column and
-/// the scripted baseline will drive that column from `(tick / 90) % 3`. Here it
+/// **This is the experiment.** `articulated_script::off_hand` welded the off arm
+/// to `CombatHeight::MID` and drove nothing; v2-20 gave it a height column and
+/// had the scripted baseline drive that column from `(tick / 90) % 3`. Here it
 /// comes from a head, which means it can come from the observed threat -- which
-/// is the one place a learned policy has an edge available to it that the script
-/// structurally cannot have.
+/// is the one place a learned policy has an edge available to it that a clocked
+/// guard structurally cannot have. That is still the experiment after session 05
+/// deleted the articulated script, because the surviving `embodied_guard` reads
+/// the incoming blade on the *defender's* own rule rather than on a head the
+/// network chose: what a checkpoint can learn here is which height to hold
+/// against what it sees, and no script of either model is choosing that.
 ///
 /// The effort is a half because a zero-effort arm cannot return to a pose
 /// contact took it out of; and the reach is three quarters with something in the
@@ -875,36 +901,35 @@ fn weapon_arm(obs: &ArticulatedObservation) -> usize {
 /// capsule rather than parking a guard in front of anything. Both reasons are
 /// that function's and both still hold.
 ///
-/// **The bearing is welded here and is no longer welded there, and that
-/// divergence is deliberate.** It used to be welded on both sides for one shared
-/// reason: `World::derive_shield_pose` took the plate's normal from body yaw and
-/// its centre from the hand, so a free bearing presented the plate edge-on to
-/// the attack its position implied it covered. That defect was fixed on
-/// 2026-08-16 -- the normal now comes off the carrying arm's own bearing -- and
-/// `articulated_script::off_hand` accordingly lets the guard track the threat
-/// inside a bounded arc.
+/// **The bearing is welded here, and the copy it diverged from is gone.** Both
+/// copies welded it for one shared reason: `World::derive_shield_pose` took the
+/// plate's normal from body yaw and its centre from the hand, so a free bearing
+/// presented the plate edge-on to the attack its position implied it covered.
+/// That defect was fixed on 2026-08-16 -- the normal now comes off the carrying
+/// arm's own bearing -- and `articulated_script::off_hand` was freed to track
+/// the threat inside a bounded arc. This copy did not follow it, and the reason
+/// outlives the file: the off arm's four columns are part of the frozen learned
+/// action vocabulary, and the shipped checkpoint was scored against a guard that
+/// held the body's facing. Freeing it is a re-score of that checkpoint and not a
+/// re-record of a hash -- a training decision rather than a mechanical one --
+/// and it is still owed to whoever wants the learned guard to track. Note that
+/// `LEARNED_INFERENCE_DIGEST` would *not* notice: the pin folds the logits, and
+/// this function is downstream of them in [`compose`].
 ///
-/// This copy does **not** follow it, because this one is not a style choice: the
-/// off arm's four columns are part of the frozen learned action vocabulary that
-/// `LEARNED_INFERENCE_DIGEST` is taken over, and the shipped checkpoint was
-/// scored against a guard that held the body's facing. Freeing it here would not
-/// be a re-record of that pin but a re-score of the checkpoint behind it, which
-/// is a training decision and not a mechanical one. Whoever takes that decision
-/// should free this column and re-score in the same change, and
-/// `the_action_table_is_the_scripts_own_vocabulary` states in its own body which
-/// columns the two functions still share.
-///
-/// Built here rather than by calling into `policy` because that function is
-/// private. A local copy pinned by a test is cheaper than widening `policy`'s
-/// surface for one caller.
+/// Built here rather than by calling into `policy` because that function was
+/// private, and since session 05 because it does not exist. A local copy pinned
+/// by a test was cheaper than widening `policy`'s surface for one caller; a
+/// local copy is now the only copy.
 ///
 /// **The parameter order is `policy::articulated_script::off_hand`'s, deliberately.**
 /// It was written the other way round while that function's signature was still
 /// mid-flight in a concurrent session, and two same-named functions taking the
 /// same two arguments in opposite orders is a trap that only stays harmless
-/// while `CombatHeight` and `bool` remain different types. They agree now, and
-/// `the_action_table_is_the_scripts_own_vocabulary` is what notices if the far
-/// side moves.
+/// while `CombatHeight` and `bool` remain different types. The far side is gone
+/// and cannot move again, so this paragraph is now the record of why the order
+/// is what it is rather than a guard against it drifting; the guard that
+/// remains is the type system, for exactly as long as those two stay different
+/// types.
 fn off_hand(body_yaw: Angle, guard: CombatHeight, holding: bool) -> ArmTarget {
     ArmTarget {
         bearing: body_yaw,
@@ -921,11 +946,11 @@ fn off_hand(body_yaw: Angle, guard: CombatHeight, holding: bool) -> ArmTarget {
 /// network is ever converted into an `Fx` that a body acts on, which is the
 /// whole of why v2-19 can let this crate use floating point at all.
 ///
-/// One rule is borrowed wholesale from the script: **with nobody in sight the
+/// One rule was borrowed wholesale from the script: **with nobody in sight the
 /// weapon arm rests and the intent is Hold**, whatever the posture and bearing
 /// heads said. The geometry those two heads would otherwise invent is an eighth
-/// of a turn either side of a line to nobody, and the honest answer is the one
-/// `scripted_articulated_command` already gives. It costs two heads their
+/// of a turn either side of a line to nobody, and the honest answer was the one
+/// `scripted_articulated_command` already gave. It costs two heads their
 /// expression in that state and `learned_output_uses_only_the_versioned_action_table`
 /// is written to allow for it.
 pub fn compose(obs: &ArticulatedObservation, action: LearnedActionV1) -> ArticulatedCommandV1 {
@@ -1315,7 +1340,7 @@ pub fn uniform(rng: &mut Rng) -> f32 {
 
 /// A frozen model, driving a body.
 ///
-/// Holds its own buffers so that [`ArticulatedPolicy::decide`] allocates
+/// Holds its own buffers so that [`LearnedArticulatedPolicy::decide`] allocates
 /// nothing: the feature slice, the hidden layer and the logits are fixed-width
 /// arrays and the only heap in the struct is the weight vector, which is filled
 /// once at construction. `frozen_inference_allocates_nothing_after_warmup`
@@ -1361,10 +1386,26 @@ impl LearnedArticulatedPolicy {
     pub fn last_features(&self) -> &[f32; LEARN_FEATURE_COUNT] {
         &self.features
     }
-}
 
-impl ArticulatedPolicy for LearnedArticulatedPolicy {
-    fn decide(&mut self, obs: &ArticulatedObservation) -> ArticulatedCommandV1 {
+    /// One decision, as the world-frame command [`compose`] builds.
+    ///
+    /// **Inherent since session 05, and the seam it lost is the point.** This
+    /// was `impl policy::ArticulatedPolicy`, and that trait existed so that a
+    /// harness could hold a `Box<dyn ArticulatedPolicy>` and drive an
+    /// articulated body with it. There is no such body and no such harness any
+    /// more, so what is left is one type with one caller --
+    /// [`LearnedEmbodiedPolicy`], one field up -- and a trait with a single
+    /// implementor is a seam that describes nothing. Nothing about the network
+    /// moved with it: this is still `compose(obs, self.action(obs))`, which is
+    /// what `training_types_cannot_enter_authoritative_state` searches the
+    /// action table against.
+    ///
+    /// The answer is in **world** coordinates and no body accepts one. The
+    /// conversion is [`policy::into_torso_frame`], applied once by the wrapper,
+    /// and this method deliberately does not do it -- see
+    /// [`LearnedEmbodiedPolicy`] for why there is exactly one place that sign
+    /// is computed.
+    pub fn decide(&mut self, obs: &ArticulatedObservation) -> ArticulatedCommandV1 {
         let action = self.action(obs);
         compose(obs, action)
     }
@@ -1373,7 +1414,7 @@ impl ArticulatedPolicy for LearnedArticulatedPolicy {
     /// reading. Without it the first two rate features of a run would be
     /// computed against the last tick of the previous one, which is a fight
     /// this body was not in.
-    fn reset(&mut self) {
+    pub fn reset(&mut self) {
         self.memory = FeatureMemory::EMPTY;
     }
 }
@@ -1489,15 +1530,20 @@ impl LearnedTacticalPolicyV2 {
         self.selected = action.intent();
         Some(action)
     }
-}
 
-impl ArticulatedPolicy for LearnedTacticalPolicyV2 {
-    fn decide(&mut self, obs: &ArticulatedObservation) -> ArticulatedCommandV1 {
+    /// The planner's world-frame answer to the intent last sampled.
+    ///
+    /// Inherent for [`LearnedArticulatedPolicy::decide`]'s reason exactly: the
+    /// trait this implemented is gone with the model it was a seam for, and the
+    /// one caller is [`LearnedTacticalEmbodiedPolicyV2`]. World coordinates,
+    /// because [`StrikePlanner`] answers in them -- the conversion is the
+    /// wrapper's single call to [`policy::into_torso_frame`].
+    pub fn decide(&mut self, obs: &ArticulatedObservation) -> ArticulatedCommandV1 {
         self.action(obs);
         self.planner.decide_with_intent(obs, self.selected)
     }
 
-    fn reset(&mut self) {
+    pub fn reset(&mut self) {
         self.memory = FeatureMemory::EMPTY;
         self.planner.reset();
         self.selected = TacticalIntentV1::Close;
@@ -1561,12 +1607,14 @@ impl EmbodiedPolicy for LearnedTacticalEmbodiedPolicyV2 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use policy::{scripted_articulated_command, TacticalPhase, PHASE_TICKS};
+    use policy::{ArmRoles, TacticalPhase};
     use sim::{EntityId, RegionVolume};
 
     /// A Fighter looking east with a Brute four units due east: shield left,
-    /// sword right. The same fixture `articulated_script`'s tests use, so the
-    /// pins below compare like with like.
+    /// sword right. It was `articulated_script`'s own test fixture, copied so
+    /// that the pins below compared like with like; that file is gone and this
+    /// is now the fixture in its own right -- kept unchanged, because changing
+    /// it would move what half this module's assertions are about.
     fn fighter_facing(tick: u32) -> ArticulatedObservation {
         let mut obs = ArticulatedObservation::BLANK;
         obs.tick = tick;
@@ -1599,130 +1647,95 @@ mod tests {
 
     #[test]
     fn the_action_table_is_the_scripts_own_vocabulary() {
-        // Four constants in this file are copies of four private constants in
-        // `policy::articulated_script`, and a copy that nobody checks is a
-        // number that drifts. Every one of them is pinned here against what the
-        // script actually submits, so that a change on either side fails at the
-        // line that moved rather than turning the learned-versus-scripted
-        // comparison into a comparison of two different bodies.
+        // **The script this test is named for was deleted in session 05, and
+        // saying so is the whole of the rewrite.** Four constants in this file
+        // were copies of four private constants in `policy::articulated_script`,
+        // and every one of them was pinned here against what that script
+        // actually submitted -- so a drift on either side failed at the line
+        // that moved rather than turning the learned-versus-scripted comparison
+        // into a comparison of two different bodies. The far side of that pin
+        // went with the articulated body.
         //
-        // Due east has exact sines and cosines, so the feet come back as exact
-        // vectors and the assertion can be an equality.
-        let advance = scripted_articulated_command(&fighter_facing(0)).move_dir;
-        assert_eq!(advance, Vec2::new(APPROACH_SPEED, Fx::ZERO));
-        let retreat = scripted_articulated_command(&fighter_facing(9 * PHASE_TICKS)).move_dir;
-        assert_eq!(retreat, Vec2::new(-WITHDRAW_SPEED, Fx::ZERO));
-
-        // The three postures the script names, read off the arm it swings. A
-        // Brute is the subject for the guard row because a Fighter's guard
-        // clause lands on its shield arm and is overwritten by the static-hand
-        // override.
-        let chamber = scripted_articulated_command(&fighter_facing(3 * PHASE_TICKS)).arms[1];
-        assert_eq!((chamber.reach, chamber.effort), (THREE_QUARTERS, Fx::ONE));
-        let commit = scripted_articulated_command(&fighter_facing(4 * PHASE_TICKS)).arms[1];
-        assert_eq!((commit.reach, commit.effort), (Fx::ONE, Fx::ONE));
-        let rest = scripted_articulated_command(&brute_facing(CYCLE_TICKS + 5 * PHASE_TICKS)).arms[1];
-        assert_eq!((rest.reach, rest.effort), (QUARTER, Fx::ZERO));
-        let guard = scripted_articulated_command(&brute_facing(0)).arms[1];
-        assert_eq!((guard.reach, guard.effort), (Fx::HALF, Fx::HALF));
-        assert_eq!(Posture::Chamber.triple(), (chamber.reach, chamber.effort, true));
-        assert_eq!(Posture::Commit.triple(), (commit.reach, commit.effort, true));
-        assert_eq!(Posture::Rest.triple(), (rest.reach, rest.effort, false));
-        assert_eq!(Posture::Guard.triple(), (guard.reach, guard.effort, false));
-
-        // The off hand's two reaches and its effort, which this crate copies
-        // wholesale out of `off_hand`.
+        // **`policy::embodied_script` is deliberately not substituted for it.**
+        // It is a different vocabulary rather than the same one renamed: its
+        // guard reaches three quarters where this table's `Guard` reaches a
+        // half, and its phases run on a 120-tick clock against this table's 360.
+        // Re-pinning against it would move four numbers the shipped checkpoint
+        // was fitted with, which is a re-score and not a re-record -- the exact
+        // trade `off_hand`'s doc comment refuses for the bearing column, for the
+        // same reason.
         //
-        // **The height is not one of the copies, and pinning it as one is what
-        // broke.** This read `CombatHeight::MID` on both rows, which was true
-        // only while `off_hand` hardcoded it; v2-20 put the script's off hand on
-        // a clock and made that same height this crate's fifth action head. So
-        // the expectation is *read off the script* rather than named, and it is
-        // sampled at one tick per height so the coupling is proved instead of
-        // spot-checked. A literal here would break again at the next change to
-        // the lead, and it would break as a stale constant rather than as a real
-        // disagreement.
-        //
-        // **Read off the script rather than recomputed from its constants,
-        // since session 05.** This was `(tick + GUARD_LEAD_TICKS) / HEIGHT_TICKS
-        // % 3` over two constants imported from `policy::articulated_script`,
-        // and that session is taking that file's exports down to what survives
-        // it -- `CYCLE_TICKS` moved into this crate for exactly that reason, and
-        // a test holding `HEIGHT_TICKS` public would have been the last thing
-        // keeping a doomed name exported.
-        //
-        // **It is the same claim from the other side and not a weaker one.** The
-        // height is an *input* to `off_hand` rather than something it computes,
-        // so what this test owes is "handed the script's height, this crate's
-        // copy reproduces the script's arm" -- the reach, the effort and the
-        // bearing. Which height the clock picks at which tick is
-        // `articulated_script`'s own claim and is asserted there. Two things are
-        // added where the arithmetic left, and both are checks the two-constant
-        // version could not make: the two bodies are shown to read *one* clock,
-        // and the sample ticks are searched rather than named, which proves the
-        // coverage `[0, HEIGHT_TICKS, 2 * HEIGHT_TICKS]` assumed.
-        let guard_height = |tick: u32| {
-            let held = scripted_articulated_command(&fighter_facing(tick)).arms[0].height;
-            let empty = scripted_articulated_command(&brute_facing(tick)).arms[0].height;
-            assert_eq!(held, empty, "tick {tick}: the two bodies read different guard clocks");
-            held
-        };
-        // Searched over three of this crate's own cycles, which is longer than
-        // any guard period the script can have without the phase table changing
-        // shape -- and if it ever is not, this fails as a missing height rather
-        // than as a wrong one.
-        let samples = [CombatHeight::LOW, CombatHeight::MID, CombatHeight::HIGH].map(|height| {
-            (0..CYCLE_TICKS * 3)
-                .find(|&tick| guard_height(tick) == height)
-                .expect("the script no longer guards at all three heights")
-        });
+        // **So what is left of the constant half is a two-edit speed bump, and
+        // the honest reading is that nothing else in the repository would catch
+        // a drift now.** `LEARNED_INFERENCE_DIGEST` is taken over the *logits*,
+        // which are upstream of `compose`; `boundary.rs`'s row search rebuilds
+        // commands through this same table, so any self-consistent copy of it
+        // satisfies that search. Moving one of these numbers changes what the
+        // shipped checkpoint does and fails nothing, so whoever moves one owes a
+        // re-score on `lab learn-probe evaluate` -- and what the two edits buy
+        // is that they read this paragraph first. `CYCLE_TICKS` above carries
+        // the same debt in the same words.
+        assert_eq!(APPROACH_SPEED, Fx::from_ratio(15, 16));
+        assert_eq!(WITHDRAW_SPEED, Fx::HALF);
+        assert_eq!(THREE_QUARTERS, Fx::from_ratio(3, 4));
+        assert_eq!(QUARTER, Fx::from_ratio(1, 4));
+        assert_eq!(Posture::Chamber.triple(), (THREE_QUARTERS, Fx::ONE, true));
+        assert_eq!(Posture::Commit.triple(), (Fx::ONE, Fx::ONE, true));
+        assert_eq!(Posture::Rest.triple(), (QUARTER, Fx::ZERO, false));
+        assert_eq!(Posture::Guard.triple(), (Fx::HALF, Fx::HALF, false));
+        // Head 3 is read by index and a checkpoint has no other handle on it, so
+        // the *order* is as frozen as the four triples are.
         assert_eq!(
-            samples.map(guard_height),
-            [CombatHeight::LOW, CombatHeight::MID, CombatHeight::HIGH],
-            "the sample ticks stopped covering all three guard heights",
+            POSTURES.map(|posture| posture.triple().0),
+            [THREE_QUARTERS, Fx::ONE, QUARTER, Fx::HALF],
+            "head 3's rows moved under a checkpoint that reads them by index",
         );
-        // **Three of the four columns are shared; the bearing is not, since
-        // 2026-08-16.** The script's guard now tracks the threat inside a
-        // bounded arc while this copy stays welded to the commanded yaw,
-        // because this one is the frozen learned action vocabulary and freeing
-        // it is a re-score rather than a re-record -- `off_hand`'s doc comment
-        // above argues that at length.
-        //
-        // These fixtures put the opponent due east of a body facing east, so
-        // the threat offset is zero and the two functions still agree on all
-        // four columns here. That agreement is a property of the fixture and
-        // not of the code, so it is asserted as a whole-target equality *and*
-        // the divergence is proved separately below -- otherwise an off-axis
-        // fixture would one day break this line and read as drift when it is
-        // the intended difference.
-        for tick in samples {
-            let held = scripted_articulated_command(&fighter_facing(tick)).arms[0];
-            assert_eq!(held, off_hand(Angle::ZERO, guard_height(tick), true), "tick {tick}");
-            let empty = scripted_articulated_command(&brute_facing(tick)).arms[0];
-            assert_eq!(empty, off_hand(Angle::ZERO, guard_height(tick), false), "tick {tick}");
+
+        // **The off arm's four columns, read off the function rather than off
+        // the script.** These were compared with `scripted_articulated_command`
+        // at three sampled ticks; asked of `off_hand` directly they hold at
+        // every yaw and every height, which is more of the surface than the
+        // sampled comparison reached. Three columns are welded and the fourth is
+        // the experiment: the reach says whether the hand holds anything, the
+        // effort is a half so that a hand contact knocked out of pose can return
+        // to it, and the bearing is welded to the commanded yaw -- see this
+        // function's doc for why that last one stays welded here and no longer
+        // is in `policy`.
+        for yaw in [Angle::ZERO, Angle::QUARTER, Angle::from_degrees(137)] {
+            for height in HEIGHTS {
+                let held = off_hand(yaw, height, true);
+                let empty = off_hand(yaw, height, false);
+                assert_eq!((held.bearing, held.height), (yaw, height));
+                assert_eq!((empty.bearing, empty.height), (yaw, height));
+                assert_eq!((held.reach, held.effort), (THREE_QUARTERS, Fx::HALF));
+                assert_eq!((empty.reach, empty.effort), (QUARTER, Fx::HALF));
+            }
         }
-        // The threat is straight ahead in these fixtures, which is what makes
-        // the four-column equality above hold. Stated as an assertion so that
-        // moving the fixture opponent fails here, at the reason, rather than
-        // there, at the symptom.
-        let ahead = fighter_facing(0);
-        assert_eq!(
-            Vec2::new(
-                ahead.opponents[0].body_position.x - ahead.body_position.x,
-                ahead.opponents[0].body_position.y - ahead.body_position.y,
-            ).angle(),
-            Angle::ZERO,
-            "the shared-column equality above holds only while the threat is due east",
-        );
         // ...and the height is free, which is the whole experiment.
         assert_ne!(
             off_hand(Angle::ZERO, CombatHeight::HIGH, true),
             off_hand(Angle::ZERO, CombatHeight::MID, true)
         );
 
+        // The three heights in the order both height heads index them. A second
+        // copy of a three-element table is the drift this line refuses --
+        // `learn`'s probe reports which height a checkpoint favoured by indexing
+        // this one.
+        assert_eq!(
+            HEIGHTS,
+            [CombatHeight::LOW, CombatHeight::MID, CombatHeight::HIGH]
+        );
+
         // The eighth turn, both ways. The negative offset is written as a raw
         // complement because `Angle` has no negation, and this is what says the
         // two are actually opposite.
+        //
+        // **The one pin in this test that still reaches another crate.**
+        // `EIGHTH_TURN` survives session 05 in `crates/policy`, where its own
+        // doc comment names this test as what watches the learned action decode
+        // against it -- so these three lines fail if it moves there, which is
+        // the property the rest of the test lost.
+        assert_eq!(BEARING_OFFSETS[0], Angle::ZERO);
         assert_eq!(BEARING_OFFSETS[1], EIGHTH_TURN);
         assert_eq!(BEARING_OFFSETS[2] + EIGHTH_TURN, Angle::ZERO);
     }
@@ -1730,33 +1743,39 @@ mod tests {
     #[test]
     fn the_weapon_arm_is_the_one_the_script_swings() {
         // `weapon_arm` is a copy of a private rule, and the observable
-        // consequence of getting it wrong is a policy that swings a shield. The
-        // script's commit phase extends its weapon arm to full reach at full
-        // effort, so "which arm did the script move" is a decidable question.
-        let commit = 4 * PHASE_TICKS;
-        for (name, obs) in [
-            ("fighter", fighter_facing(commit)),
-            ("brute", brute_facing(commit)),
-        ] {
-            let command = scripted_articulated_command(&obs);
-            let swung = command
-                .arms
-                .iter()
-                .position(|arm| arm.reach == Fx::ONE && arm.effort == Fx::ONE)
-                .unwrap_or_else(|| panic!("{name}: the script committed with neither arm"));
-            assert_eq!(weapon_arm(&obs), swung, "{name}");
-        }
-
-        // A Fighter that has lost its sword arm swings with the other one, and
-        // a body holding nothing still names an arm, because a total policy has
-        // to point somewhere.
-        let mut maimed = fighter_facing(commit);
+        // consequence of getting it wrong is a policy that swings a shield.
+        //
+        // **Pinned against the rule since session 05, rather than against what
+        // a script did with it.** This used to find the arm
+        // `scripted_articulated_command` extended to full reach at full effort
+        // in its commit phase and assert that `weapon_arm` named the same one.
+        // That script is deleted; the rule it read is not -- `policy::ArmRoles`
+        // is public, it moved out of the doomed file, and `embodied_script`,
+        // `embodied_guard` and the strike planner all still ask it the same
+        // question. Comparing with the rule is the stronger of the two pins: the
+        // old one could only see the arm at a tick the script happened to commit
+        // on, and this one holds at every observation either side can be handed.
+        let mut maimed = fighter_facing(0);
         maimed.capabilities = ArticulatedObservation::MOVEMENT
             | ArticulatedObservation::TURNING
             | ArticulatedObservation::LEFT_GRIP
             | ArticulatedObservation::SHIELD;
         maimed.arms[1].equipment = None;
         maimed.arms[1].severed = true;
+        for (name, obs) in [
+            ("fighter", fighter_facing(0)),
+            ("brute", brute_facing(0)),
+            ("blank", ArticulatedObservation::BLANK),
+            ("maimed", maimed),
+        ] {
+            assert_eq!(weapon_arm(&obs), ArmRoles::of(&obs).weapon, "{name}");
+        }
+
+        // And the two answers the rule resolves rather than reads, spelled out
+        // so that a change to it fails here with the case named. A Fighter that
+        // has lost its sword arm swings with the other one, and a body holding
+        // nothing still names an arm, because a total policy has to point
+        // somewhere.
         assert_eq!(weapon_arm(&maimed), 0);
         assert_eq!(weapon_arm(&ArticulatedObservation::BLANK), 1);
     }
@@ -1929,7 +1948,7 @@ mod tests {
     fn the_fight_clock_is_the_fixtures_own() {
         assert_eq!(
             FIGHT_TICKS,
-            sim::Scenario::articulated_duel().max_ticks as f32,
+            sim::Scenario::embodied_duel().max_ticks as f32,
             "feature 3 divides by a clock the fixture no longer runs on"
         );
         // And the cycle the phase pair reads is 360. This was a cross-check
@@ -1951,12 +1970,25 @@ mod tests {
         // shield, the columns became live, and the paragraph in
         // `write_features` that calls them dead should be deleted rather than
         // the test.
-        let scenario = sim::Scenario::articulated_duel();
+        //
+        // **On `embodied-duel-v1` since session 05, which is the fixture the
+        // probe now runs.** It is `articulated_duel` with a different name and a
+        // different `combat_model`, so the two bodies and the one plate between
+        // them are the same; what changes is that the commands are submitted
+        // through the entry a surviving body accepts. That matters more than it
+        // reads: `submit_embodied_v1` answers `WrongModel` rather than panicking
+        // when the grammar disagrees, so a fixture on the wrong entry would run
+        // its whole clock, store nothing, and assert forty columns of zero about
+        // a fight that never happened. The `rejection: None` below is what rules
+        // that out, and it is the shape `an_embodied_run_stores_every_command_it
+        // _decides` names in `policy`.
+        let scenario = sim::Scenario::embodied_duel();
         let mut world = sim::World::new(&scenario, 0);
         let hero = world.alive_ids(sim::Faction::Heroes)[0];
         let mut features = [0.0f32; LEARN_FEATURE_COUNT];
         let mut memory = FeatureMemory::EMPTY;
-        let mut policy = LearnedArticulatedPolicy::new(Model::zeros());
+        let mut policy = LearnedEmbodiedPolicy::new(Model::zeros());
+        let mut stored = 0u32;
         for _ in 0..600 {
             for id in world.pending_decisions().to_vec() {
                 let obs = world.observe_articulated(id);
@@ -1966,10 +1998,14 @@ mod tests {
                     assert_eq!(features[40], 0.0, "tick {}: a plate appeared", obs.tick);
                 }
                 let command = policy.decide(&obs);
-                world.submit_articulated_v1(id, command);
+                match world.submit_embodied_v1(id, command) {
+                    sim::SubmitEmbodiedOutcome::Stored { rejection: None, .. } => stored += 1,
+                    other => panic!("tick {}: {other:?}", obs.tick),
+                }
             }
             world.step();
         }
+        assert!(stored > 0, "the fixture decided nothing");
     }
 
     #[test]
@@ -2069,7 +2105,7 @@ mod tests {
     fn a_composed_command_is_one_the_world_accepts() {
         // Every entry of every head, against a body that can be commanded. The
         // arm ranges and the move magnitude are validated by
-        // `World::submit_articulated_v1`, and a refused command is the neutral
+        // `World::submit_embodied_v1`, and a refused command is the neutral
         // one -- so a table entry that is one raw unit out of range would not
         // fail loudly, it would quietly delete a third of the action space.
         for bearing_degrees in [0i32, 37, 90, 145, 180, 271, 359] {

@@ -1,8 +1,8 @@
 //! One hand human, one hand AI, merged **before** submission.
 //!
 //! The pieces were already there: an embodied command carries independent left
-//! and right `ArmTarget`, grip and release, and an [`ArticulatedPolicy`] returns
-//! a whole command. What was missing is the join -- and the join cannot live
+//! and right `ArmTarget`, grip and release, and a policy returns a whole
+//! command. What was missing is the join -- and the join cannot live
 //! inside `sim`, because submission validation is **atomic on purpose**. A range
 //! or missing-equipment failure replaces the *entire* request with one neutral
 //! command; no valid arm or grip field leaks through. A half-command has no
@@ -60,9 +60,9 @@ pub trait PartialEmbodiedSource {
 
     fn contribute(&mut self, obs: &ArticulatedObservation, into: &mut EmbodiedCommandV1);
 
-    /// Cleared before each run, on [`ArticulatedPolicy::reset`]'s contract.
+    /// Cleared before each run, on [`EmbodiedPolicy::reset`]'s contract.
     ///
-    /// [`ArticulatedPolicy::reset`]: crate::ArticulatedPolicy::reset
+    /// [`EmbodiedPolicy::reset`]: crate::EmbodiedPolicy::reset
     fn reset(&mut self) {}
 }
 
@@ -188,70 +188,29 @@ impl crate::EmbodiedPolicy for ComposedController {
     }
 }
 
-/// Wraps a whole-command [`ArticulatedPolicy`] as a source that writes only the
-/// fields its authority names.
-///
-/// The policy still sees the whole observation and still returns a whole
-/// command; this copies out the part it is entitled to. That is deliberate on
-/// both counts -- narrowing what it sees would make an off hand blind to the
-/// fight, and narrowing what it returns would need a second trait for no gain.
-///
-/// [`ArticulatedPolicy`]: crate::ArticulatedPolicy
-pub struct PolicySource<P> {
-    pub policy: P,
-    pub authority: CommandAuthority,
-}
-
-impl<P> PolicySource<P> {
-    pub fn new(policy: P, authority: CommandAuthority) -> PolicySource<P> {
-        PolicySource { policy, authority }
-    }
-}
-
-impl<P: crate::ArticulatedPolicy> PartialEmbodiedSource for PolicySource<P> {
-    fn authority(&self) -> CommandAuthority {
-        self.authority
-    }
-
-    fn contribute(&mut self, obs: &ArticulatedObservation, into: &mut EmbodiedCommandV1) {
-        let whole = self.policy.decide(obs);
-        if self.authority.navigation {
-            into.articulated.move_dir = whole.move_dir;
-            into.articulated.body_yaw = whole.body_yaw;
-            into.articulated.intent = whole.intent;
-        }
-        for slot in 0..2 {
-            if self.authority.arms[slot] {
-                into.articulated.arms[slot] = whole.arms[slot];
-                into.articulated.grips[slot] = whole.grips[slot];
-                into.articulated.releases[slot] = whole.releases[slot];
-                // **The swing plane is per arm, so the arm's owner claims it**,
-                // and writes the neutral plane because an `ArticulatedPolicy`
-                // has none to give -- its command type has no such field. This
-                // is a claim rather than a no-op: without it the plane would be
-                // the one field of the command `CommandAuthority` did not
-                // divide, so an embodied source claiming the left arm could
-                // reach into the right arm's plane and nothing would refuse it.
-                // Writing zero also makes the wrap byte-identical to a direct
-                // submission of the same policy, which is what
-                // `a_source_claiming_everything_reproduces_its_policy_byte_for_byte`
-                // measures.
-                into.swing_plane[slot] = fx::Angle::ZERO;
-            }
-        }
-    }
-
-    fn reset(&mut self) {
-        crate::ArticulatedPolicy::reset(&mut self.policy);
-    }
-}
+// **`PolicySource` stood here and went with the `ArticulatedPolicy` trait it
+// was generic over.** It wrapped a whole-command articulated policy as a source
+// that copied out only the fields its authority named, and writing the neutral
+// swing plane for the arm it claimed was the interesting half: an articulated
+// command has no plane, so without that write the plane would have been the one
+// field of the command `CommandAuthority` did not divide, and a source claiming
+// the left arm could have reached into the right arm's plane with nothing to
+// refuse it. **That claim survives its adapter** -- it is a claim about
+// `CommandAuthority` -- and `the_swing_plane_belongs_to_the_arm_and_not_to_navigation`
+// is what still holds it, over sources that write their own planes.
+//
+// It had no caller outside this crate's own tests, which is why it is deleted
+// rather than reseated onto [`EmbodiedPolicy`]: a source that returns an
+// `EmbodiedCommandV1` and then has most of it thrown away is a policy driven
+// for one arm's worth of its answer, and `crates/policy/tests/composition.rs`
+// writes the four lines that does directly, where the fight it is part of can
+// see them.
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ArticulatedPolicy;
     use fx::{Angle, Fx, Vec2};
-    use sim::{ArmTarget, ArticulatedCommandV1, CombatHeight, GripRequest, Intent, ReleaseRequest};
+    use sim::{ArmTarget, CombatHeight, GripRequest, ReleaseRequest};
 
     /// A source that writes a recognisable constant into every field it owns, so
     /// a test can say which source a field came from by looking at it.
@@ -296,6 +255,32 @@ mod tests {
         }
 
         fn reset(&mut self) { self.contributions = 0; }
+    }
+
+    /// Claims everything, writes one recognisable mark into every field it owns,
+    /// and counts the resets it has been handed.
+    ///
+    /// The counter is what makes `reset` observable at all: a source's own state
+    /// is behind a `Box<dyn PartialEmbodiedSource>` the moment it is composed, so
+    /// a forwarder that quietly dropped `reset` would look exactly like one that
+    /// did not.
+    struct Everything {
+        mark: u16,
+        resets: std::rc::Rc<std::cell::Cell<usize>>,
+    }
+
+    impl PartialEmbodiedSource for Everything {
+        fn authority(&self) -> CommandAuthority { CommandAuthority::ALL }
+
+        fn contribute(&mut self, _obs: &ArticulatedObservation, into: &mut EmbodiedCommandV1) {
+            into.articulated.body_yaw = Angle::from_raw(self.mark);
+            for slot in 0..2 {
+                into.articulated.arms[slot].bearing = Angle::from_raw(self.mark);
+                into.swing_plane[slot] = Angle::from_raw(self.mark.rotate_left(5));
+            }
+        }
+
+        fn reset(&mut self) { self.resets.set(self.resets.get() + 1); }
     }
 
     fn navigation_and_left_and_right(
@@ -408,76 +393,12 @@ mod tests {
         assert_eq!(forward.decide(&obs).payload_bytes(), reversed.decide(&obs).payload_bytes());
     }
 
-    struct Fixed(ArticulatedCommandV1);
-
-    impl ArticulatedPolicy for Fixed {
-        fn decide(&mut self, _obs: &ArticulatedObservation) -> ArticulatedCommandV1 { self.0 }
-    }
-
-    fn distinctive() -> ArticulatedCommandV1 {
-        let arm = |k: i32| ArmTarget {
-            bearing: Angle::from_raw(1_000 + k as u16),
-            height: CombatHeight::HIGH,
-            reach: Fx::from_raw(700 + k),
-            effort: Fx::from_raw(800 + k),
-        };
-        ArticulatedCommandV1 {
-            move_dir: Vec2::new(Fx::from_raw(5), Fx::from_raw(-6)),
-            body_yaw: Angle::from_raw(4_321),
-            intent: Intent::Flee,
-            arms: [arm(0), arm(1)],
-            grips: [GripRequest::Release, GripRequest::EquipSlot(1)],
-            releases: [ReleaseRequest::Loose, ReleaseRequest::Keep],
-        }
-    }
-
-    #[test]
-    fn a_policy_adapter_contributes_only_the_arm_its_authority_names() {
-        let whole = distinctive();
-        let neutral = neutral_articulated_command(&ArticulatedObservation::BLANK);
-        let sources: Vec<Box<dyn PartialEmbodiedSource>> = vec![
-            Box::new(Marker::new(CommandAuthority::navigation_only(), 7)),
-            Box::new(Marker::new(CommandAuthority::arm(LimbSlot::LeftArm), 8)),
-            Box::new(PolicySource::new(Fixed(whole), CommandAuthority::arm(LimbSlot::RightArm))),
-        ];
-        let mut controller = ComposedController::new(sources).expect("disjoint");
-        let command = controller.decide(&ArticulatedObservation::BLANK).articulated;
-
-        assert_eq!(command.arms[1], whole.arms[1]);
-        assert_eq!(command.grips[1], whole.grips[1]);
-        assert_eq!(command.releases[1], whole.releases[1]);
-        // And nothing else came from it, including the fields it filled in its
-        // own return value.
-        assert_ne!(command.arms[0], whole.arms[0]);
-        assert_eq!(command.intent, neutral.intent);
-        assert_ne!(command.body_yaw, whole.body_yaw);
-    }
-
-    /// The regression surface for wrapping an existing whole-command policy: a
-    /// source claiming everything must reproduce the policy's command exactly,
-    /// byte for byte, so the composed path can replace the direct one without
-    /// changing a fight.
-    #[test]
-    fn a_source_claiming_everything_reproduces_its_policy_byte_for_byte() {
-        let whole = distinctive();
-        let sources: Vec<Box<dyn PartialEmbodiedSource>> =
-            vec![Box::new(PolicySource::new(Fixed(whole), CommandAuthority::ALL))];
-        let mut controller = ComposedController::new(sources).expect("total authority");
-        let command = controller.decide(&ArticulatedObservation::BLANK);
-        assert_eq!(command.payload_bytes(), EmbodiedCommandV1::new(whole).payload_bytes());
-    }
-
     #[test]
     fn resetting_a_composed_controller_resets_every_source() {
-        struct Counting(std::rc::Rc<std::cell::Cell<usize>>);
-        impl PartialEmbodiedSource for Counting {
-            fn authority(&self) -> CommandAuthority { CommandAuthority::ALL }
-            fn contribute(&mut self, _: &ArticulatedObservation, _: &mut EmbodiedCommandV1) {}
-            fn reset(&mut self) { self.0.set(self.0.get() + 1); }
-        }
         let seen = std::rc::Rc::new(std::cell::Cell::new(0));
         let mut controller = ComposedController::new(
-            vec![Box::new(Counting(seen.clone()))]).expect("total authority");
+            vec![Box::new(Everything { mark: 3, resets: seen.clone() })])
+            .expect("total authority");
         controller.reset();
         controller.reset();
         assert_eq!(seen.get(), 2);
@@ -490,17 +411,25 @@ mod tests {
     /// generic parameter on every harness. Both methods go through the box, so a
     /// forwarder that dropped `reset` would be caught here rather than by a
     /// rollout that leaked its predecessor's opinions.
+    ///
+    /// **It drove a `PolicySource` wrapping an articulated policy until session
+    /// 05 deleted both**, and the substitution is not a weakening: what the box
+    /// has to carry is `decide` and `reset`, and a source that answers a
+    /// recognisable mark and counts its resets shows both arriving, where a
+    /// wrapped whole-command policy showed only the first.
     #[test]
     fn a_composed_controller_drives_through_a_boxed_embodied_policy() {
         use crate::EmbodiedPolicy;
 
-        let whole = distinctive();
+        let seen = std::rc::Rc::new(std::cell::Cell::new(0));
         let sources: Vec<Box<dyn PartialEmbodiedSource>> =
-            vec![Box::new(PolicySource::new(Fixed(whole), CommandAuthority::ALL))];
+            vec![Box::new(Everything { mark: 4_321, resets: seen.clone() })];
         let mut boxed: Box<dyn EmbodiedPolicy> =
             Box::new(ComposedController::new(sources).expect("total authority"));
-        assert_eq!(boxed.decide(&ArticulatedObservation::BLANK).payload_bytes(),
-                   EmbodiedCommandV1::new(whole).payload_bytes());
+        let command = boxed.decide(&ArticulatedObservation::BLANK);
+        assert_eq!(command.articulated.body_yaw, Angle::from_raw(4_321));
+        assert_eq!(command.swing_plane[1], Angle::from_raw(4_321u16.rotate_left(5)));
         boxed.reset();
+        assert_eq!(seen.get(), 1, "`reset` did not reach the source through the box");
     }
 }

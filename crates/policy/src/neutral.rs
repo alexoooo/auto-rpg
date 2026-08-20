@@ -16,7 +16,6 @@
 //! it should hammer are the contact solver's refusals, not a swing phase.
 //! Nothing in the repository does that today.
 
-use crate::ArticulatedPolicy;
 use fx::{Fx, Vec2};
 use sim::{
     ArmTarget, ArticulatedCommandV1, ArticulatedObservation, CombatHeight, GripRequest,
@@ -40,6 +39,15 @@ use sim::{
 /// A blank observation answers `Angle::ZERO`, which is harmless: the only way
 /// to get one is a stale identity, a corpse or a Legacy world, and
 /// [`sim::World::submit_articulated_v1`] stores nothing for any of the three.
+///
+/// **It is a function and no longer also a policy, and the argument the policy
+/// carried belongs here.** `NeutralArticulatedPolicy` wrapped this in an
+/// `ArticulatedPolicy` impl and died with that trait in session 05; what it was
+/// worth saying is that the legacy `IdlePolicy` it replaced returned
+/// `Command::HOLD`, a *constant*, and this is not one -- it has to name the yaw
+/// the body is already holding or the actuator reads a request to spin to
+/// north. So the smallest possible decision on this seam still reads its
+/// observation, which is why every composed command starts from this one.
 pub fn neutral_articulated_command(obs: &ArticulatedObservation) -> ArticulatedCommandV1 {
     let arm = ArmTarget {
         bearing: obs.body_yaw,
@@ -54,24 +62,6 @@ pub fn neutral_articulated_command(obs: &ArticulatedObservation) -> ArticulatedC
         arms: [arm; 2],
         grips: [GripRequest::Keep; 2],
         releases: [ReleaseRequest::Keep; 2],
-    }
-}
-
-/// Stands there, arms tucked. The control condition on this seam, and it does
-/// one job the legacy `IdlePolicy` it replaced did not have to.
-///
-/// That policy returned `Command::HOLD`, a constant; the neutral articulated
-/// command is not a constant,
-/// because it has to name the yaw the body is already holding or the actuator
-/// reads a request to spin to north. So this is also the smallest exercise of
-/// the seam that reads its observation at all, which is what makes it the
-/// policy the runner's own tests are written against.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct NeutralArticulatedPolicy;
-
-impl ArticulatedPolicy for NeutralArticulatedPolicy {
-    fn decide(&mut self, obs: &ArticulatedObservation) -> ArticulatedCommandV1 {
-        neutral_articulated_command(obs)
     }
 }
 
@@ -111,19 +101,15 @@ mod tests {
             panic!("an over-long reach must be refused and replaced");
         };
         assert_eq!(stored, neutral_articulated_command(&world.observe_articulated(fighter)));
-        assert_eq!(
-            stored,
-            NeutralArticulatedPolicy.decide(&world.observe_articulated(fighter))
-        );
     }
 
     #[test]
-    fn the_neutral_articulated_policy_holds_every_channel_it_can() {
+    fn the_neutral_command_holds_every_channel_it_can() {
         let scenario = Scenario::articulated_duel();
         let world = World::new(&scenario, 1);
         let obs = world.observe_articulated(EntityId::new(0, 0));
         assert!(obs.present());
-        let command = NeutralArticulatedPolicy.decide(&obs);
+        let command = neutral_articulated_command(&obs);
         assert_eq!(command.move_dir, Vec2::ZERO);
         assert_eq!(command.intent, Intent::Hold);
         assert_eq!(command.grips, [GripRequest::Keep; 2]);

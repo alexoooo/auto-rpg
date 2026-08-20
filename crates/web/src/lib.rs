@@ -111,11 +111,10 @@ use fx::{Angle, Fx, Rng, Vec2};
 use learn_core::{Checkpoint, CheckpointError, Model};
 use policy::{EmbodiedPolicy, EmbodiedPolicyKind, RunConfig};
 use sim::{
-    ArmTarget, ArticulatedCommandV1, ArticulatedObservation, ArticulatedPayloadError, Cardinal,
+    ArmTarget, ArticulatedObservation, ArticulatedPayloadError, Cardinal,
     CombatHeight, CommandReject, EmbodiedCommandV1, EntityId,
-    Event, Faction, Intent, Objective, Order, Scenario, SubmitArticulatedOutcome,
+    Event, Faction, Intent, Objective, Order, Scenario,
     Body, Stats, Swing, Torch, UnitSpec, Loadout, Strike, UnitView, World,
-    ARTICULATED_PAYLOAD_BYTES, SUBMITTED_COMMAND_LAYOUT_VERSION,
 };
 
 /// Floats before the first unit: `[arena_x, arena_y, order_kind, order_x,
@@ -1113,8 +1112,10 @@ pub const COMBAT_EVENT_NO_BODY_PART: u32 = u32::MAX;
 /// Written out as the arithmetic rather than as `289_280` so that a stride or a
 /// capacity moving is a failed assertion here and not a stale comment: the
 /// reference charges v2-16 and v2-ui-06 exactly these bytes, and the
-/// [`SUBMITTED_COMMAND_BYTES`] scratch belongs to v2-11 and is not charged
-/// again.
+/// [`EMBODIED_COMMAND_BYTES`] scratch belongs to v2-11 and is not charged
+/// again -- it was the articulated scratch of the same shape until the
+/// articulated submission was deleted, and the sixty-one bytes it costs are as
+/// uncharged as the fifty-seven were.
 ///
 /// It was 49,664 while [`MAX_COMBAT_EVENTS`] was the provisional 256, and
 /// 147,968 while it was 1024. The measurements that rejected each of those are
@@ -1184,7 +1185,7 @@ const _: () = assert!(
 // nor "buffers are expensive". The route exports are gone -- see the standing
 // order section -- and the rule is worth keeping without them.
 //
-// The pattern is [`SUBMITTED_COMMAND`]'s exactly, down to the guard bytes: a
+// The pattern is [`EMBODIED_COMMAND`]'s exactly, down to the guard bytes: a
 // fixed array that never moves and never grows linear memory, a `u16` layout
 // version in bytes `0..2`, and one consumer that copies all of it into a local
 // before it reads any of it.
@@ -1199,7 +1200,7 @@ const _: () = assert!(
 // ```
 //
 // Every dimension is an `i32` raw 16.16 and every multi-byte field is
-// little-endian, which is [`submit_articulated`]'s grammar and not a second one.
+// little-endian, which is [`submit_embodied`]'s grammar and not a second one.
 
 /// Bytes `0..2` of [`ARENA_CONFIG`], and its sole layout field.
 ///
@@ -1289,16 +1290,17 @@ const ARENA_FIGHTERS: usize = 2;
 // the buffer's own bytes, that one nearby byte did not activate it, and an
 // exact energy ledger on the attributed Legs event at tick 45 of 53.
 //
-// It went for two reasons and not one. The schedule writes **world** bearings --
-// `robust_strike_schedule_command` derives them from a declared spawn offset --
+// It went for two reasons and not one. The schedule wrote **world** bearings --
+// `robust_strike_schedule_command` derived them from a declared spawn offset --
 // and this arena is `CombatModel::Embodied`, where a bearing is read from the
 // torso; the same numbers are a different swing, so the pinned ledger would have
 // had to be re-recorded to say anything, and a re-recorded pin proves nothing
 // about the session that moved it. And the preset lived in
-// `crates/policy/src/articulated_tactics.rs`, which the next step deletes with
-// the model, so keeping it meant keeping a world-frame command builder alive
-// inside a torso-frame policy for one call site the page cannot reach except by
-// writing 120 exact bytes.
+// `crates/policy/src/articulated_tactics.rs`, **which has since been deleted
+// with the articulated policies**, so the second reason has finished happening:
+// keeping the preset would have meant keeping a world-frame command builder
+// alive inside a torso-frame policy for one call site the page could not reach
+// except by writing 120 exact bytes.
 //
 // **What was lost, named rather than glossed.** The ledger assertion was this
 // module's only pin on a *specific* published combat event -- one blow, one
@@ -1389,7 +1391,7 @@ const _: () = assert!(
 /// Nothing was wrong. Paired with an outcome of `1`.
 pub const ARENA_OK: u8 = 0;
 /// Bytes `0..2` are not [`ARENA_CONFIG_LAYOUT_VERSION`], or the header's
-/// reserved byte is not zero. Folded together exactly as [`submit_articulated`]
+/// reserved byte is not zero. Folded together exactly as [`submit_embodied`]
 /// folds them: both mean the writer and the reader disagree about the buffer,
 /// and the attempted version is still sitting in the buffer for a diagnostic to
 /// read.
@@ -1406,7 +1408,7 @@ pub const ARENA_WRONG_FIGHTER_COUNT: u8 = 2;
 /// two-handed grip byte that describes nothing -- on the left hand, on an empty
 /// hand, or above `1` -- is not zero.
 ///
-/// `submit_articulated`'s rule, applied to the wider buffer: noncanonical
+/// `submit_embodied`'s rule, applied to the wider buffer: noncanonical
 /// ignored payloads are rejected. An ignored word is a place for a
 /// misunderstanding to live -- a caller that believed a sword had a thickness
 /// would be right about the bytes and wrong about the fight -- and the studio
@@ -1582,7 +1584,7 @@ pub const ARENA_NO_POLICY: u32 = u32::MAX;
 // embedded in the wasm would be one more thing that can only change by
 // rebuilding the thing that reads it.
 //
-// So the bytes arrive through a staging buffer on [`SUBMITTED_COMMAND`]'s and
+// So the bytes arrive through a staging buffer on [`EMBODIED_COMMAND`]'s and
 // [`ARENA_CONFIG`]'s pattern -- a fixed array that never moves and never grows
 // linear memory -- and [`load_checkpoint`] judges the whole of it at once. The
 // difference from those two is that a checkpoint is not a fixed width, so the
@@ -1597,8 +1599,8 @@ pub const ARENA_NO_POLICY: u32 = u32::MAX;
 // exactly as a fetched file survives a page navigating within a session.
 //
 // **Nothing in this build makes a fighter out of it, and that is v2-ui-08's
-// doing rather than an oversight.** What used to be per-world was the
-// `LearnedArticulatedPolicy` in [`Arena::policies`]; the arena's policy byte is
+// doing rather than an oversight.** What used to be per-world was the learned
+// articulated policy in [`Arena::policies`]; the arena's policy byte is
 // an [`EmbodiedPolicyKind::code`] now and that registry has no `learned` entry,
 // for the reason written on the enum -- a trained fighter is a kind plus fifteen
 // kilobytes of weights and an integer has nowhere to put them. The buffer, the
@@ -1690,20 +1692,21 @@ const _: () = assert!(
 /// perfectly good framing version.
 pub const CHECKPOINT_NO_DETAIL: u16 = u16::MAX;
 
-/// The submitted-command scratch: a four-byte envelope -- layout version, the
-/// command kind, one reserved zero -- and then the payload.
-///
-/// **Derived rather than written out.** It was the literal `55` in six places
-/// until layout 2 widened the payload, and six literals is six chances to move
-/// five of them. `submitted_command_len` is the exported half of this number and
-/// now cannot disagree with it.
-pub const SUBMITTED_COMMAND_BYTES: usize = 4 + ARTICULATED_PAYLOAD_BYTES;
+// **`SUBMITTED_COMMAND_BYTES` and the `SUBMITTED_COMMAND` scratch stood here and
+// are gone with the grammar they staged.** The constant was
+// `4 + ARTICULATED_PAYLOAD_BYTES`, the scratch was a fixed array of that width,
+// and `submitted_command_ptr`, `submitted_command_len`,
+// `submitted_command_layout_version` and `submit_articulated` were the four
+// exports over it. There is one command grammar left, and a second staging
+// buffer with no export that can act on it is precisely the control this
+// repository has paid for ten times in two reviews: a page could fill it, call
+// nothing, and be told nothing. [`EMBODIED_COMMAND`] is the one that survives,
+// and [`EMBODIED_COMMAND_BYTES`] carries the note about why the two widths were
+// separate constants while there were two.
 
 thread_local! {
     static SIM: RefCell<Option<Sim>> = const { RefCell::new(None) };
     static FRAME: RefCell<[f32; FRAME_MAX]> = const { RefCell::new([0.0; FRAME_MAX]) };
-    static SUBMITTED_COMMAND: RefCell<[u8; SUBMITTED_COMMAND_BYTES]> =
-        const { RefCell::new([0; SUBMITTED_COMMAND_BYTES]) };
     /// The duel the page is describing, judged whole by [`arena_start`]. See the
     /// section above for why this is a buffer where a route is three scalars.
     static ARENA_CONFIG: RefCell<[u8; ARENA_CONFIG_BYTES]> =
@@ -2118,10 +2121,9 @@ struct Sim {
     ///
     /// **Written wherever `world` is**, and there are three such places:
     /// [`Sim::try_on`], [`Sim::descend`] and [`install_boundary_fixture`], which
-    /// swaps a duel in behind a `Sim` built on a generated floor and is the
-    /// shared body of [`init_articulated_test`] and [`init_embodied_test`].
-    /// (The test helpers `articulated_test_world` and `embodied_test_world`
-    /// are a fourth and a fifth, and both copy the third.)
+    /// swaps a duel in behind a `Sim` built on a generated floor and is
+    /// [`init_embodied_test`]'s whole body. (The test helper
+    /// `embodied_test_world` is a fourth, and it copies the third.)
     ///
     /// A stale one cannot draw a wrong body: it costs that body its five region
     /// rows, which breaks `region_len == REGIONS_PER_BODY * pose_len` and is
@@ -3036,9 +3038,11 @@ impl Sim {
     /// `frames` ticks of the full loop.
     ///
     /// **Its own loop rather than the crate's**, which was true of the deleted
-    /// `policy::run` and is true of `policy::run_articulated`: those gate on
+    /// `policy::run` and of the deleted `policy::run_articulated` and is true of
+    /// `policy::run_embodied`: they gate on
     /// `World::outcome()`, which reports `HeroesWin` from tick zero when there is
-    /// nothing left to fight, so either would return before the hero took a step.
+    /// nothing left to fight, so any of them would return before the hero took a
+    /// step.
     ///
     /// The answering half is not optional either. `expire_unanswered_decisions`
     /// advances an agent's decision clock even when nothing answered it, so a
@@ -5382,8 +5386,8 @@ fn publish() {
         // an `init` has filled it -- so every header float held either a written
         // value or a zero that was never anything else. The note ended by saying
         // that a future export which could clear `SIM` has to zero the header
-        // here, and there are now three of them -- [`init_articulated_test`],
-        // [`init_embodied_test`] and [`init`], all of which refuse to install a
+        // here, and there are now two of them -- [`init_embodied_test`] and
+        // [`init`], both of which refuse to install a
         // world whose
         // construction or whose contact reservation the sim would not answer
         // `Ok` to. A header left over from the last live sim would then report
@@ -5516,69 +5520,87 @@ pub extern "C" fn init(seed: u32) {
 // writes anything else. Removing them is a `FRAME_LAYOUT_VERSION` move and
 // belongs with the mirrors, not here.
 
-/// Deterministic articulated command-boundary fixture used by the native/wasm
-/// equality gate until the representative articulated room lands in v2-17.
+/// Deterministic two-body command-boundary fixture: the same two bodies on the
+/// same open floor the corpus measures, with no room around them.
 ///
-/// **It keeps its model and its name, and that is a measurement rather than an
-/// omission.** The plan for the embodied reseat was to point this export at
-/// `Scenario::embodied_duel` and rename it, on the argument that it is the only
-/// two-body world a browser can open and the pinned command digest should be
-/// taken over the surviving model. The first half of that is what
-/// [`init_embodied_test`] is; the second half is why *this* one is still here.
-/// The boundary clinch -- `CLINCH_YAW`, `CLINCH_WALK`, `CLINCH_SWEEP` and the
+/// **`init_articulated_test` stood beside this one and is gone, and the
+/// measurement that kept it alive is worth carrying across because it was
+/// nearly repeated as a refusal.** That export opened
+/// `Scenario::articulated_duel`, and the argument against reseating it was that
+/// the boundary clinch -- `CLINCH_YAW`, `CLINCH_WALK`, `CLINCH_SWEEP` and the
 /// `CLINCH_CAP_TICK` that `client/test/wasm-memory.test.mjs` mirrors -- is a
-/// hand-written byte table of **world-frame** bearings, and
-/// `CombatModel::command_frame` reads the same bytes relative to the torso under
-/// the embodied grammar. Measured through a fresh wasm artifact: the identical
-/// table on the embodied duel resolves **zero** contacts in 400 ticks, and the
-/// obvious torso-frame translation -- walk straight forward, arm bearing zero --
-/// makes first contact on tick 87 and never spends a group ordinal at all.
-/// Reseating this export therefore does not move a fixture; it deletes one, and
-/// building its embodied replacement is a measurement job that belongs with the
-/// deletion of `Scenario::articulated_duel` rather than with a digest re-record.
+/// hand-written byte table of **world-frame** bearings, which
+/// `CombatModel::command_frame` reads relative to the torso under the embodied
+/// grammar. That much is true and still measures: the identical table on this
+/// duel resolves **zero** contacts in 400 ticks. What was wrong was the
+/// conclusion drawn from it. The translation that was tried held the arms
+/// still, which is the drive's own *control* condition -- `CLINCH_SWEEP`'s
+/// comment says in as many words that the swept drive is what reaches the cap
+/// and the still one never does -- so it measured the control and read the
+/// result as the model's.
 ///
-/// **Reserves the contact vectors for the frame's own ceiling before the world
-/// is reachable.** See the body for why the reservation is here and not left to
-/// the first spawn, and for what a refused reservation does.
-#[allow(unsafe_code)]
-#[no_mangle]
-pub extern "C" fn init_articulated_test(seed: u32) {
-    install_boundary_fixture(&Scenario::articulated_duel(), seed);
-}
-
-/// [`init_articulated_test`] against the model that survives: the same two
-/// bodies on the same open floor, embodied.
+/// Translated properly it is three changes and not one, which is the other half
+/// of why the first attempt failed: the walk becomes torso-forward at the same
+/// magnitude, the arm bearings become offsets from the torso, and the sweep
+/// widens from an eighth-turn to a quarter -- the eighth reaches ordinal 2 of 8
+/// on this duel and never caps. So driven, this fixture makes first contact on
+/// tick 90 and spends every group ordinal on tick **109**, on each of the three
+/// seeds the browser fixture warms. `CLINCH_CAP_TICK` records it and
+/// `the_boundary_clinch_reaches_the_contact_group_cap` is what fails if it
+/// moves.
 ///
-/// **The pinned command digest is taken over this one**, which is the whole
-/// reason it exists. `ARTICULATED_COMMAND_HASH` is a paired golden -- Rust and
+/// **The pinned command digest is taken over this fixture.**
+/// `ARTICULATED_COMMAND_HASH` is a paired golden -- Rust and
 /// `tools/wasm_check.js` both write the number down, so a one-sided move is
 /// target disagreement rather than a fixture that drifted -- and the browser can
-/// only pin a world an export will open for it. Leaving that pin on the
-/// articulated duel would have left the *surviving* grammar's stored-command
-/// bytes uncrossed by any cross-target check at all.
-///
-/// **A second export rather than a reseat of the one above**, and that export's
-/// own comment carries the measurement that forced the split. Two names is what
-/// this boundary had before -- `init_articulated` and `init_embodied` were both
-/// exports -- and this one outlives the other by exactly as long as
-/// `Scenario::articulated_duel` does.
+/// only pin a world an export will open for it.
 ///
 /// It shares [`install_boundary_fixture`] rather than reaching for
 /// [`install_articulated`], and the difference is not cosmetic: that one goes
 /// through [`Sim::try_open`], which sets both factions' objectives, and
 /// objectives are hashed state. Building the pinned world down a second path
 /// would have moved the digest by a route that has nothing to do with the model.
+///
+/// **Reserves the contact vectors for the frame's own ceiling before the world
+/// is reachable.** See the body for why the reservation is here and not left to
+/// the first spawn, and for what a refused reservation does.
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn init_embodied_test(seed: u32) {
     install_boundary_fixture(&Scenario::embodied_duel(), seed);
 }
 
-/// The body both boundary fixtures share, so the only difference between them is
-/// the scenario they are handed.
+/// The body the boundary fixture is built through, kept as its own function
+/// because [`init`] must not be able to reach it: this one installs a duel and
+/// no floor plan.
 fn install_boundary_fixture(scenario: &Scenario, seed: u32) {
     let mut fresh = Sim::new(u64::from(seed));
     fresh.world = World::new(scenario, u64::from(seed));
+    // **Both sides on the control policy, and this line keeps a browser-mirrored
+    // constant from becoming a policy pin.** [`Sim::advance`] answers every
+    // pending decision by submitting the faction's policy command, and [`init`]'s
+    // dungeon opens on `Tactical` on both sides -- a fighter that aims. On the
+    // articulated fixture this module used to install, that loop was inert by
+    // accident: `World::submit_embodied_v1` refuses a world of the other grammar,
+    // so every policy command it produced was discarded and whatever the *host*
+    // had submitted survived the tick. It is not refused here.
+    //
+    // The consequence is not that the drive stops working -- measured, the
+    // boundary clinch caps on tick 132 against `Tactical` and on tick **109**
+    // against the control. It is that `CLINCH_CAP_TICK` would become a function
+    // of the shipped policy, mirrored into `client/test/wasm-memory.test.mjs`,
+    // so a session tuning `EmbodiedPolicyKind::Tactical` would move a browser
+    // constant in two files for a reason nothing in either of them names. Every
+    // move that constant has ever recorded is a solver change or a drive change;
+    // this line is what keeps that true.
+    //
+    // `Neutral` and not "no policy": there is no such kind, and the honest
+    // reading of this fixture is that the bodies in it have a mind which stands
+    // still, rather than that it has been switched off. It is still a decision
+    // answered on the ordinary clock, so `expire_unanswered_decisions` behaves
+    // here exactly as it does on a floor.
+    fresh.set_policy(Faction::Heroes, EmbodiedPolicyKind::Neutral);
+    fresh.set_policy(Faction::Monsters, EmbodiedPolicyKind::Neutral);
     // The world's anatomy rows, replaced along with the world. This fixture
     // swaps a duel in behind a `Sim` built on a generated floor, so the table it
     // inherited is that floor's roster rather than this duel's -- and a region
@@ -5652,14 +5674,14 @@ fn starting_hero() -> UnitSpec {
 fn install_articulated(scenario: &Scenario, seed: u64) {
     let installed = Sim::try_on(scenario, seed).and_then(|mut fresh| {
         // Here, while `fresh` is still a local, for the whole of the argument
-        // [`init_articulated_test`] makes: one line further down the world is
+        // [`install_boundary_fixture`] makes: one line further down the world is
         // reachable through `SIM` and the page is entitled to keep a typed
         // array over what `publish` hands it, and a contact vector that grew
         // after that moment would detach every one of them.
         fresh.world.try_reserve_contact_slots(MAX_UNITS).ok()?;
         fresh.contact_high_water = MAX_UNITS as u32;
         // The floor plan and the furniture, exactly as `init` writes them --
-        // unlike `init_articulated_test`'s two-body duel this *is* a room, and
+        // unlike the boundary fixture's two-body duel this *is* a room, and
         // a page that opened it would otherwise draw the last level's masonry.
         // Written only on the success path: a buffer describing a world that
         // was not installed is worse than a stale one, because the frame beside
@@ -5683,7 +5705,7 @@ fn install_articulated(scenario: &Scenario, seed: u64) {
 /// "nothing has grown it *yet*". This is the difference between those two.
 ///
 /// It reports what the call that opened this world reserved -- one of [`init`],
-/// [`init_articulated_test`], [`init_embodied_test`] or [`Sim::descend`] -- rather
+/// [`init_embodied_test`] or [`Sim::descend`] -- rather
 /// than what the world holds, because the world deliberately does not publish
 /// the second: contact capacity is not authoritative state and
 /// `try_reserve_contact_slots` forbids reading it back as if it were.
@@ -5945,71 +5967,22 @@ fn contact_behavior_digest() -> u64 {
     })
 }
 
-/// Fixed versioned input buffer for one articulated submitted command.
-#[allow(unsafe_code)]
-#[no_mangle]
-pub extern "C" fn submitted_command_ptr() -> u32 {
-    SUBMITTED_COMMAND.with(|buffer| buffer.borrow().as_ptr() as usize as u32)
-}
-
-#[allow(unsafe_code)]
-#[no_mangle]
-pub const extern "C" fn submitted_command_len() -> u32 { SUBMITTED_COMMAND_BYTES as u32 }
-
-#[allow(unsafe_code)]
-#[no_mangle]
-pub const extern "C" fn submitted_command_layout_version() -> u32 {
-    SUBMITTED_COMMAND_LAYOUT_VERSION as u32
-}
-
-#[allow(unsafe_code)]
-#[no_mangle]
-pub extern "C" fn submit_articulated(entity_index: u32, entity_generation: u32) -> u32 {
-    let bytes = SUBMITTED_COMMAND.with(|buffer| *buffer.borrow());
-    let layout = u16::from_le_bytes([bytes[0], bytes[1]]);
-    if layout != SUBMITTED_COMMAND_LAYOUT_VERSION || bytes[2] != 1 || bytes[3] != 0 {
-        return submit_result(0, 1, 0, 0);
-    }
-    let payload: &[u8; ARTICULATED_PAYLOAD_BYTES] = bytes[4..SUBMITTED_COMMAND_BYTES].try_into().unwrap();
-    let id = EntityId::new(entity_index, entity_generation);
-    with_sim(submit_result(0, 3, 0, 0), |sim| {
-        if sim.world.combat_model() != sim::CombatModel::Articulated {
-            return submit_result(0, 2, 0, 0);
-        }
-        if sim.world.view(id).is_none() {
-            return submit_result(0, 3, 0, 0);
-        }
-        if ArticulatedCommandV1::validate_payload_structure(payload).is_err() {
-            return submit_result(0, 1, 0, 0);
-        }
-        let command = match ArticulatedCommandV1::from_payload_bytes(payload) {
-            Ok(command) => command,
-            Err(ArticulatedPayloadError::OutOfRange(field)) => {
-                return match sim.world.submit_articulated_fallback_v1(
-                    id,
-                    field,
-                ) {
-                    SubmitArticulatedOutcome::Stored { .. } => submit_result(2, 4, field as u8, 0),
-                    SubmitArticulatedOutcome::NotStored(CommandReject::WrongModel) => submit_result(0, 2, 0, 0),
-                    _ => submit_result(0, 3, 0, 0),
-                };
-            }
-            Err(_) => return submit_result(0, 1, 0, 0),
-        };
-        match sim.world.submit_articulated_v1(id, command) {
-            SubmitArticulatedOutcome::Stored { rejection: None, .. } => submit_result(1, 0, 0, 0),
-            SubmitArticulatedOutcome::Stored {
-                rejection: Some(CommandReject::OutOfRange(field)), ..
-            } => submit_result(2, 4, field as u8, 0),
-            SubmitArticulatedOutcome::Stored {
-                rejection: Some(CommandReject::MissingEquipment { arm, slot }), ..
-            } => submit_result(2, 5, arm as u8, slot),
-            SubmitArticulatedOutcome::NotStored(CommandReject::WrongModel) => submit_result(0, 2, 0, 0),
-            SubmitArticulatedOutcome::NotStored(CommandReject::StaleEntity) => submit_result(0, 3, 0, 0),
-            _ => submit_result(0, 1, 0, 0),
-        }
-    })
-}
+// **The articulated submission stood here: four exports, and they are gone.**
+// `submitted_command_ptr`, `submitted_command_len`,
+// `submitted_command_layout_version` and `submit_articulated` staged one
+// `ARTICULATED_COMMAND_V1` into a fixed scratch and handed it to
+// `World::submit_articulated_v1`. There is one grammar left, so the four
+// exports below are the whole of what a page may submit -- and the *absence*
+// of these four is checked rather than assumed: `tools/wasm_check.js` keeps a
+// list of removed names and asserts the module does not answer to them, which
+// is the only form of "this channel is gone" a list of present names cannot
+// state.
+//
+// **What went with them is a refusal, and that is the honest accounting.**
+// `submit_articulated` answered `WRONG_MODEL` when an embodied world was
+// handed articulated bytes, and both targets drove that direction. The page
+// cannot make the mistake any more, so the guard has nothing left to guard;
+// the module refusing to export the name is what replaces it.
 
 // --------------------------------------------------- the embodied submission
 //
@@ -6023,8 +5996,9 @@ pub extern "C" fn submit_articulated(entity_index: u32, entity_generation: u32) 
 /// own width.
 ///
 /// **Derived from [`sim::EMBODIED_PAYLOAD_BYTES`] where
-/// [`SUBMITTED_COMMAND_BYTES`] is derived from `ARTICULATED_PAYLOAD_BYTES`, and
-/// the two widths being equal was never a reason to read one constant twice.**
+/// the deleted `SUBMITTED_COMMAND_BYTES` was derived from
+/// `ARTICULATED_PAYLOAD_BYTES`, and the two widths being equal was never a
+/// reason to read one constant twice.**
 /// `ARTICULATED_COMMAND_HASH`, `EXACT_TRAJECTORY_STATE_DIGEST` and
 /// `LIFTED_COULOMB_SOLVER_DIGEST` are all taken over the articulated width, and
 /// all three have already moved together, twice, because a session appended a
@@ -6034,18 +6008,19 @@ pub extern "C" fn submit_articulated(entity_index: u32, entity_generation: u32) 
 pub const EMBODIED_COMMAND_BYTES: usize = 4 + sim::EMBODIED_PAYLOAD_BYTES;
 
 thread_local! {
-    /// A second fixed array rather than a second reader of [`SUBMITTED_COMMAND`],
-    /// for [`EMBODIED_COMMAND_BYTES`]' reason: one buffer would have to be as
-    /// wide as whichever payload grew last, and the whole point of the second
-    /// width is that the two grow apart.
+    /// **It was a second fixed array rather than a second reader of the
+    /// articulated scratch**, for [`EMBODIED_COMMAND_BYTES`]' reason: one buffer
+    /// would have to be as wide as whichever payload grew last, and the whole
+    /// point of the second width was that the two could grow apart. That is what
+    /// made the articulated one deletable without touching this one.
     static EMBODIED_COMMAND: RefCell<[u8; EMBODIED_COMMAND_BYTES]> =
         const { RefCell::new([0; EMBODIED_COMMAND_BYTES]) };
 }
 
 /// Fixed versioned input buffer for one embodied submitted command.
 ///
-/// Stable for the life of the module, exactly as [`submitted_command_ptr`] is
-/// and for its reason: a fixed array never moves and never grows linear memory,
+/// Stable for the life of the module: a fixed array never moves and never grows
+/// linear memory,
 /// so a view the host keeps over it is never detached by anything in here.
 #[allow(unsafe_code)]
 #[no_mangle]
@@ -6057,15 +6032,16 @@ pub extern "C" fn embodied_command_ptr() -> u32 {
 #[no_mangle]
 pub const extern "C" fn embodied_command_len() -> u32 { EMBODIED_COMMAND_BYTES as u32 }
 
-/// `2`, and so does [`submitted_command_layout_version`] -- **for unrelated
-/// reasons, and a host must not read the agreement as one number.**
+/// `2`, and the coincidence it used to warn about is worth keeping now that
+/// only one side of it is left.
 ///
-/// Two envelopes, two histories: the articulated one reached layout 2 when a
-/// release verb widened its payload to 53, and this one reached layout 2 when a
-/// swing plane widened its own to 57. They are on the same number by
-/// coincidence, over payloads four bytes apart, and each will move when its own
-/// contract does. This line used to record the opposite coincidence -- `1`
-/// against `2` -- which is the same warning from the other side.
+/// `submitted_command_layout_version` published the articulated envelope's own
+/// `2` beside this one, **for an unrelated reason**: that one reached layout 2
+/// when a release verb widened its payload to 53, and this one reached layout 2
+/// when a swing plane widened its own to 57. Two histories on the same number,
+/// over payloads four bytes apart. This line recorded the opposite coincidence
+/// -- `1` against `2` -- before that, which is the same warning from the other
+/// side, and it is why a host must never read either number off the other.
 #[allow(unsafe_code)]
 #[no_mangle]
 pub const extern "C" fn embodied_command_layout_version() -> u32 {
@@ -6145,7 +6121,7 @@ const fn submit_result(outcome: u8, reason: u8, detail: u8, slot: u8) -> u32 {
 /// Address of the checkpoint staging buffer in linear memory.
 ///
 /// Stable for the life of the module, because the buffer is a fixed array --
-/// [`submitted_command_ptr`]'s property and for its reason. The host obtains a
+/// [`embodied_command_ptr`]'s property and for its reason. The host obtains a
 /// fresh view, writes the checkpoint's bytes, drops the view, and only then
 /// calls [`load_checkpoint`] with the length it wrote.
 #[allow(unsafe_code)]
@@ -6399,13 +6375,13 @@ fn saturating_detail(value: usize) -> u16 {
 //
 // One configured duel, built from [`ARENA_CONFIG`] and run by
 // [`Sim::advance_arena`]. The buffer's layout and the refusal codes are up
-// beside `SUBMITTED_COMMAND`'s; what is here is the parse, the install, and the
+// beside `EMBODIED_COMMAND`'s; what is here is the parse, the install, and the
 // four reads a page needs afterwards.
 
 /// Address of the arena configuration buffer in linear memory.
 ///
 /// Stable for the life of the module, because the buffer is a fixed array --
-/// [`submitted_command_ptr`]'s property and for its reason. The host obtains a
+/// [`embodied_command_ptr`]'s property and for its reason. The host obtains a
 /// fresh view, writes all [`arena_config_len`] bytes, drops the view, and only
 /// then calls [`arena_start`].
 #[allow(unsafe_code)]
@@ -6436,7 +6412,7 @@ pub const extern "C" fn arena_config_layout_version() -> u32 {
 ///
 /// # Validation order is normative
 ///
-/// [`submit_articulated`]'s contract in the same words, because the first
+/// [`submit_embodied`]'s contract in the same words, because the first
 /// failure chooses the diagnostic and a page that shows one message must be able
 /// to predict which:
 ///
@@ -6470,7 +6446,7 @@ pub const extern "C" fn arena_config_layout_version() -> u32 {
 #[no_mangle]
 pub extern "C" fn arena_start(seed: u32) -> u32 {
     // Copied whole into a local before a single byte is read, on
-    // [`submit_articulated`]'s argument: the caller has dropped its view by now
+    // [`submit_embodied`]'s argument: the caller has dropped its view by now
     // and nothing below may depend on the buffer still holding what it did.
     let bytes = ARENA_CONFIG.with(|buffer| *buffer.borrow());
     match install_arena(&bytes, u64::from(seed)) {
@@ -8472,20 +8448,14 @@ mod tests {
     /// exception, and it is the only reason these names are in scope at all.
     use sim::{Dungeon, DUNGEON_COLS, DUNGEON_ROWS, OPEN, WALL};
 
-    /// The articulated duel, installed without publishing.
-    ///
-    /// [`embodied_test_world`] is its twin and the two must not converge: both
-    /// directions of the model refusal need a world of each grammar, and
-    /// `submit_embodied`'s "wrong model lost precedence" assertion has no
-    /// subject at all without an articulated one to be refused from.
-    fn articulated_test_world() {
-        let mut fresh = Sim::new(1);
-        let scenario = Scenario::articulated_duel();
-        fresh.world = World::new(&scenario, 1);
-        // Beside the world, exactly as `init_articulated_test` does it.
-        fresh.anatomy = scenario_anatomy(&scenario);
-        SIM.with(|sim| *sim.borrow_mut() = Some(fresh));
-    }
+    // **`articulated_test_world` stood here and is gone with the grammar it
+    // built.** It installed `Scenario::articulated_duel` without publishing, so
+    // that `submit_embodied`'s "wrong model lost precedence" ladder had a world
+    // to be refused from. Every world this module can install answers the same
+    // grammar now, so that ladder has no subject rather than a missing fixture
+    // -- see `an_articulated_module_refuses_submit_embodied_by_name`'s note
+    // where it stood. [`embodied_test_world`] is the survivor and is what the
+    // submission tests build against.
 
     /// A duel written into [`ARENA_CONFIG`] the way the studio writes it.
     ///
@@ -8616,14 +8586,34 @@ mod tests {
         })
     }
 
-    fn write_submitted(command: sim::ArticulatedCommandV1) {
-        SUBMITTED_COMMAND.with(|buffer| {
-            let mut bytes = buffer.borrow_mut();
-            bytes.fill(0);
-            bytes[0..2].copy_from_slice(&SUBMITTED_COMMAND_LAYOUT_VERSION.to_le_bytes());
-            bytes[2] = 1;
-            bytes[4..SUBMITTED_COMMAND_BYTES].copy_from_slice(&command.payload_bytes());
-        });
+    /// The high-water corpus's tick-zero command, staged into the one scratch
+    /// this boundary still owns.
+    ///
+    /// **The arm bearings are torso-relative and the body yaws are not**, which
+    /// is the whole of what porting this corpus off the articulated grammar
+    /// took: `World::world_arm_target` adds the body's own yaw back on under
+    /// `CommandFrame::Torso`, so the westward half of each pair asked for a
+    /// full turn away from its opponent when it kept `Angle::HALF` in both
+    /// fields. `body_yaw` stays a world angle under both frames.
+    fn write_high_water_command(
+        yaw: Angle,
+        height: sim::CombatHeight,
+        target: EntityId,
+    ) -> sim::EmbodiedCommandV1 {
+        let arm = sim::ArmTarget {
+            bearing: Angle::ZERO,
+            height,
+            reach: Fx::ONE,
+            effort: Fx::ONE,
+        };
+        sim::EmbodiedCommandV1::new(sim::ArticulatedCommandV1 {
+            move_dir: Vec2::ZERO,
+            body_yaw: yaw,
+            intent: Intent::Attack(target),
+            arms: [arm; 2],
+            grips: [sim::GripRequest::Keep; 2],
+            releases: [sim::ReleaseRequest::Keep; 2],
+        })
     }
 
     /// The next [`sim::CombatSpecError`] in declaration order, or `None` at the
@@ -8853,9 +8843,10 @@ mod tests {
 
     #[test]
     fn each_side_may_run_a_different_policy() {
-        // The thing `policy::run_articulated` cannot do: it takes a single
-        // `impl ArticulatedPolicy` and installs it on both sides, which is right
-        // for a control condition and useless for an arena.
+        // The thing `policy::run_embodied` cannot do: it takes a single
+        // `impl EmbodiedPolicy` and installs it on both sides, which is right
+        // for a control condition and useless for an arena. Its articulated twin
+        // had the same shape and the same limitation, and is gone.
         //
         // Three pairings on one configuration and one seed. The asymmetric pair
         // and its mirror are what carry the claim: if the two sides shared an
@@ -9630,94 +9621,27 @@ mod tests {
     // `each_side_may_run_a_different_policy` is where an arena refusing it is
     // checked.
 
-    /// `submit_articulated`'s refusal ordering, and the atomicity of everything
-    /// it turns away.
-    ///
-    /// **`ARTICULATED_COMMAND_HASH` used to be the last twenty lines of this
-    /// test and is now
-    /// [`the_embodied_command_fixture_is_stored_and_pinned_across_both_targets`].**
-    /// The pin moved to the model the game still runs, so its fixture is
-    /// [`init_embodied_test`] and its bytes go in through [`submit_embodied`].
-    /// The ladder below did **not** move with it, and that is deliberate rather
-    /// than left over: `submit_articulated` is still a `pub extern "C"` export
-    /// with a live articulated caller in `arena_start`, and both worlds this
-    /// ladder needs are still installable -- `init`'s embodied floor for the
-    /// wrong-model rung and [`articulated_test_world`] for every rung after it.
-    /// Moving it would have deleted the only coverage of this export's refusal
-    /// ordering while the export still ships, and duplicated a ladder
-    /// `the_embodied_wasm_scratch_is_its_own_buffer_and_submission_is_atomic`
-    /// already runs.
-    #[test]
-    fn articulated_wasm_scratch_is_fixed_and_submission_is_atomic() {
-        assert_ne!(submitted_command_ptr(), 0);
-        // 57 since layout 2 appended one release verb per arm; 55 before it.
-        // Spelled as a literal rather than as `SUBMITTED_COMMAND_BYTES` because
-        // this is the exported boundary number a JavaScript caller reads, and a
-        // test that computes it the same way the export does asserts nothing.
-        assert_eq!(submitted_command_len(), 57);
-        assert_eq!(submitted_command_layout_version(), 2);
-        let arm = sim::ArmTarget {
-            bearing: Angle::QUARTER,
-            height: sim::CombatHeight::MID,
-            reach: Fx::HALF,
-            effort: Fx::ONE,
-        };
-        let command = sim::ArticulatedCommandV1 {
-            move_dir: Vec2::ZERO,
-            body_yaw: Angle::QUARTER,
-            intent: Intent::Hold,
-            arms: [arm; 2],
-            grips: [sim::GripRequest::Keep; 2],
-            releases: [sim::ReleaseRequest::Keep; 2],
-        };
-        init(1);
-        write_submitted(command);
-        SUBMITTED_COMMAND.with(|buffer| {
-            let mut bytes = buffer.borrow_mut();
-            bytes[14] = 9;
-            bytes[4..8].copy_from_slice(&(Fx::ONE.raw() + 1).to_le_bytes());
-        });
-        assert_eq!(submit_articulated(0, 0), 2 << 8, "wrong model lost precedence");
-
-        articulated_test_world();
-        assert_eq!(submit_articulated(0, 9), 3 << 8, "stale subject lost precedence");
-        let before = SIM.with(|sim| sim.borrow().as_ref().unwrap().world.state_digest().value);
-        assert_eq!(submit_articulated(0, 0), 1 << 8, "mixed malformed/range input stored");
-        let after = SIM.with(|sim| sim.borrow().as_ref().unwrap().world.state_digest().value);
-        assert_eq!(after, before);
-
-        write_submitted(command);
-        assert_eq!(submit_articulated(0, 0), 1);
-
-        write_submitted(command);
-        SUBMITTED_COMMAND.with(|buffer| {
-            buffer.borrow_mut()[4 + 25..4 + 29]
-                .copy_from_slice(&(Fx::ONE.raw() + 1).to_le_bytes());
-        });
-        assert_eq!(submit_articulated(0, 0), 2 | (4 << 8) | (4 << 16));
-
-        let mut missing = command;
-        missing.grips[0] = sim::GripRequest::EquipSlot(7);
-        write_submitted(missing);
-        assert_eq!(submit_articulated(0, 0), 2 | (5 << 8) | (7 << 24));
-
-        write_submitted(command);
-        SUBMITTED_COMMAND.with(|buffer| buffer.borrow_mut()[3] = 1);
-        let before = SIM.with(|sim| sim.borrow().as_ref().unwrap().world.state_digest().value);
-        assert_eq!(submit_articulated(0, 0), 1 << 8);
-        let after = SIM.with(|sim| sim.borrow().as_ref().unwrap().world.state_digest().value);
-        assert_eq!(after, before, "reserved-byte rejection mutated the world");
-    }
+    // **`articulated_wasm_scratch_is_fixed_and_submission_is_atomic` stood here
+    // and went with the export it drove.** It was `submit_articulated`'s
+    // refusal ladder -- wrong model, then stale subject, then malformed, then
+    // out-of-range, then missing equipment, each rung asserting that a refused
+    // command left `World::state_digest` exactly where it found it. The ladder
+    // is not lost: `the_embodied_wasm_scratch_is_its_own_buffer_and_submission_is_atomic`
+    // runs the same rungs against the export that survives, which is why that
+    // one was written as this one's twin rather than as a second reader of it.
+    // What is lost is the *pair*, and that is the honest accounting -- there is
+    // one grammar now, so a page can no longer offer the wrong one.
 
     /// `ARTICULATED_COMMAND_HASH`: one hand-written wire buffer, stored through
     /// the boundary, read back as `World::state_digest`.
     ///
-    /// **Split out of [`articulated_wasm_scratch_is_fixed_and_submission_is_atomic`]
+    /// **Split out of `articulated_wasm_scratch_is_fixed_and_submission_is_atomic`
     /// when the pin moved to the embodied duel, because the two halves stopped
-    /// sharing an export.** That test's ladder is about `submit_articulated`'s
-    /// refusal *ordering* and still has both worlds it needs; this is about the
-    /// bytes a **browser** can stage into the grammar the game runs, which means
-    /// [`init_embodied_test`] and [`submit_embodied`].
+    /// sharing an export.** That test was about `submit_articulated`'s refusal
+    /// *ordering* and has since gone with it; this is about the bytes a
+    /// **browser** can stage into the grammar the game runs, which means
+    /// [`init_embodied_test`] and [`submit_embodied`]. The split is why this
+    /// pin's fixture survived that deletion untouched.
     ///
     /// **`init_embodied_test` and not `embodied_test_world`**, even though the
     /// two build the same world: this number is a *paired* golden, and
@@ -9844,7 +9768,7 @@ mod tests {
 
     #[test]
     fn the_articulated_boundary_reserves_the_frame_ceiling_before_it_publishes() {
-        init_articulated_test(1);
+        init_embodied_test(1);
         assert_eq!(
             contact_high_water(),
             MAX_UNITS as u32,
@@ -9923,13 +9847,22 @@ mod tests {
     // group cap, pinned here in the crate that owns the exports it calls.
     //
     // **Written as bytes on both sides on purpose.** The JavaScript builds the
-    // same fifty-five from the same documented offsets; if the two agreed only
+    // same sixty-one from the same documented offsets; if the two agreed only
     // because one of them called `payload_bytes`, the browser fixture would be
     // proving that `sim` agrees with itself. The constants below are the duel's
     // own geometry and nothing else -- see each one.
+    //
+    // **It was an articulated drive on `init_articulated_test` and is an
+    // embodied one on [`init_embodied_test`], and the translation is two
+    // fields.** Under `CommandFrame::Torso` the walk vector is read in the body
+    // frame and an arm bearing is measured from the torso, so `CLINCH_WALK`'s
+    // per-row world vector becomes one torso-forward magnitude for both rows and
+    // the arm bearings become offsets from zero. `body_yaw` is unchanged: a
+    // torso measured relative to itself would say nothing, so it is a world
+    // angle under both frames.
 
     /// Tick-zero bearing from each duel row to the other, as
-    /// `Angle::raw`. `articulated_duel` spawns at `(7,6)` and `(17,10)`, so
+    /// `Angle::raw`. The duel spawns at `(7,6)` and `(17,10)`, so
     /// these are `atan2(4,10)` and its opposite, and they are constants rather
     /// than a readback because the drive never re-aims: a fixture that steered
     /// from published positions would need `atan2` on the JavaScript side, and
@@ -9937,26 +9870,47 @@ mod tests {
     /// there could land the two targets on different ticks.
     const CLINCH_YAW: [u16; 2] = [0x0f74, 0x8f74];
 
-    /// The same two bearings as a walk vector, at thirty-one thirty-seconds of
-    /// full magnitude. Not thirty-two: `Vec2::from_angle` is a sin-table
+    /// Straight ahead, at thirty-one thirty-seconds of full magnitude.
+    ///
+    /// **One number where the articulated drive needed a vector per row**, and
+    /// that is the whole of what the torso frame buys a caller: `W` is `(1, 0)`
+    /// at every yaw, so a page steering a body no longer has to know which way
+    /// it faces. It was `[[58_976, 23_506], [-58_976, -23_506]]` -- the same
+    /// magnitude resolved along each row's own `CLINCH_YAW`.
+    ///
+    /// Not thirty-two thirty-seconds: `Vec2::from_angle` is a sin-table
     /// lookup whose length can exceed one by a raw unit, and `validate_move`
     /// refuses `x^2+y^2 > 65_536^2` outright -- which stores a *neutral*
     /// command instead, and two bodies standing still is a fixture that walks
-    /// its whole budget and reports nothing.
-    const CLINCH_WALK: [[i32; 2]; 2] = [[58_976, 23_506], [-58_976, -23_506]];
+    /// its whole budget and reports nothing. An axis vector cannot round over,
+    /// but the margin is kept so the two drives stay comparable.
+    const CLINCH_WALK: i32 = 63_488;
 
-    /// Both arms sweep a raw eighth-turn either side of the body bearing, four
+    /// The weapon arm sweeps a raw quarter-turn either side of the torso, four
     /// ticks a phase, cycling centre/left/centre/right. The sweep is what makes
-    /// the clinch reach the cap, and the control was measured: this same drive
-    /// with the arms held still touches on thirty-one of four hundred ticks,
-    /// resolves at most three rows on any of them, and never spends the eighth
-    /// ordinal. With the sweep it caps on the second tick that touches at all.
-    const CLINCH_SWEEP: i32 = 8_192;
+    /// the clinch reach the cap, and the control was measured on both models:
+    /// this same drive with the arms held still touches from tick 89 and never
+    /// spends more than four of the eight ordinals, out to four hundred ticks.
+    ///
+    /// **That control is also the measurement an earlier reseat mistook for the
+    /// model's answer**, and it is recorded here because the mistake is cheap to
+    /// repeat: a torso-frame translation that holds the arms at bearing zero is
+    /// this control and not this drive, and it correctly never caps.
+    ///
+    /// **A raw eighth-turn until the port onto the embodied duel, where it does
+    /// not cap through the boundary.** The amplitude is not free and the band
+    /// was measured rather than guessed: through `step`, on all three warmed
+    /// seeds, `12_288` and `16_384` and `24_576` all exhaust the ordinal on tick
+    /// 109, `20_480` reaches ordinal 2 and never caps, and `8_192` -- the
+    /// articulated value -- reaches ordinal 2 and never caps either. This sits
+    /// in the middle of the lower working band and is a nameable angle rather
+    /// than a number found by search.
+    const CLINCH_SWEEP: i32 = 16_384;
     const CLINCH_PHASE_TICKS: u32 = 4;
 
     /// The tick this drive first exhausts the ordinal, measured, on every seed
-    /// the browser fixture warms (`0`, `1`, `u32::MAX`) -- the articulated path
-    /// draws no randomness, so the seed reaches the floor plan and not the duel.
+    /// the browser fixture warms (`0`, `1`, `u32::MAX`) -- the duel draws no
+    /// randomness, so the seed reaches the floor plan and not the fight.
     /// Pinned rather than bounded so that a solver change which merely *moves*
     /// the cap is a failure here, with a number to re-measure, instead of
     /// silently making the browser fixture cover less than it says.
@@ -9964,7 +9918,7 @@ mod tests {
     /// **Smart134 moved it from 89 to 85 by doubling the arm bearing rates**,
     /// and the interesting half is that the gap closed rather than the number
     /// falling. First contact used to land at 78 and the cap eleven ticks later
-    /// at 89; both now land on 85 together. A faster arm brings all 32 pairs
+    /// at 89; both then landed on 85 together. A faster arm brings all 32 pairs
     /// onto the same tick instead of letting them stagger in, so the ordinal is
     /// exhausted by the first contact rather than by an accumulating clinch --
     /// which is still exactly what this fixture exists to reach, by a shorter
@@ -9973,27 +9927,52 @@ mod tests {
     /// withdraws sooner.
     ///
     /// **Moved from 85 to 88 on 2026-08-16, and by a drive change rather than a
-    /// solver change.** Freeing the shield normal to follow its arm made this
+    /// solver change.** Freeing the shield normal to follow its arm made that
     /// fixture's two-arm sweep spin the plate's facing, which stopped it capping
-    /// at all; the sweep is now the weapon arm's alone, for the reason
-    /// `clinch_payload` gives, and the ordinal is exhausted three ticks later.
+    /// at all; the sweep became the weapon arm's alone, for the reason
+    /// `clinch_payload` gives, and the ordinal was exhausted three ticks later.
+    ///
+    /// **Moved from 88 to 109 by the port onto the embodied duel**, which is a
+    /// re-measurement rather than a re-record: it is a different fight. The gap
+    /// between first contact and the cap re-opened from nothing to nineteen
+    /// ticks -- 90 and 109 -- and `CLINCH_SWEEP` doubled to reach it at all.
+    ///
+    /// **The first tick of this drive is not this drive's**, and that is the
+    /// half of the port that cost the most to find. [`Sim::advance`] answers
+    /// every entity in `World::pending_decisions` with its faction's policy
+    /// command before it steps, and every body is pending on tick zero -- so
+    /// whatever the host submitted for tick zero is overwritten by the policy's.
+    /// On the articulated fixture that loop was inert, because
+    /// `World::submit_embodied_v1` refuses a world of the other grammar and the
+    /// outcome is discarded; here it stores. The consequence is not one lost
+    /// tick, it is a *phase*: first contact moves 89 to 90 and the swept pairs
+    /// stop arriving together, which is why the same bytes that cap on tick 119
+    /// against a bare `World` reach ordinal 2 and never cap through `step`. The
+    /// number below and `CLINCH_SWEEP`'s band are both measured through `step`,
+    /// which is the only path a browser has.
+    ///
+    /// Nothing here is a bound: the drive holds two bodies alive to the cap on
+    /// all three seeds, and `CLINCH_BUDGET` on the JavaScript side is the same
+    /// number as the loop bound below.
     #[cfg(not(feature = "cartesian-recoil"))]
-    const CLINCH_CAP_TICK: u32 = 88;
+    const CLINCH_CAP_TICK: u32 = 109;
 
-    fn clinch_payload(row: usize, tick: u32) -> [u8; SUBMITTED_COMMAND_BYTES] {
+    fn clinch_payload(row: usize, tick: u32) -> [u8; EMBODIED_COMMAND_BYTES] {
         let offset = match (tick / CLINCH_PHASE_TICKS) % 4 {
             0 | 2 => 0,
             1 => CLINCH_SWEEP,
             _ => -CLINCH_SWEEP,
         };
-        let bearing = CLINCH_YAW[row].wrapping_add(offset as u16);
         // Both release verbs stay zero with the rest of the tail: `Keep`. This
-        // drive is a clinch, and nothing in it is drawn.
-        let mut bytes = [0u8; SUBMITTED_COMMAND_BYTES];
-        bytes[0..2].copy_from_slice(&SUBMITTED_COMMAND_LAYOUT_VERSION.to_le_bytes());
-        bytes[2] = 1;
-        bytes[4..8].copy_from_slice(&CLINCH_WALK[row][0].to_le_bytes());
-        bytes[8..12].copy_from_slice(&CLINCH_WALK[row][1].to_le_bytes());
+        // drive is a clinch, and nothing in it is drawn. Both swing planes stay
+        // zero too, which is the neutral pair `EmbodiedCommandV1::new` answers:
+        // this fixture is about the contact solver, and a plane it did not
+        // choose would be a second input to a measurement with one.
+        let mut bytes = [0u8; EMBODIED_COMMAND_BYTES];
+        bytes[0..2].copy_from_slice(&sim::EMBODIED_COMMAND_LAYOUT_VERSION.to_le_bytes());
+        bytes[2] = 2;
+        bytes[4..8].copy_from_slice(&CLINCH_WALK.to_le_bytes());
+        bytes[8..12].copy_from_slice(&0i32.to_le_bytes());
         bytes[12..14].copy_from_slice(&CLINCH_YAW[row].to_le_bytes());
         // Intent, target and both grips stay zero: `Hold`, nobody, `Keep`. The
         // The compatibility solver reads none of the three -- what it sees is
@@ -10008,23 +9987,33 @@ mod tests {
             bytes[15..19].copy_from_slice(&((1 - row) as u32).to_le_bytes());
         }
         for arm in [23usize, 37] {
-            // **The sweep is the weapon arm's; the guard arm holds the body
+            // **The sweep is the weapon arm's; the guard arm holds the torso
             // bearing.** It swept both until 2026-08-16, when
             // `World::derive_shield_pose` began taking the plate's normal from
             // the arm that carries it. Before that the guard's bearing moved the
             // plate's position and not its facing, so sweeping it was a
-            // *position* input to a collider fixture; after it, this drive also
-            // spins the plate's facing by an eighth turn every four ticks -- a
+            // *position* input to a collider fixture; after it, that drive also
+            // spun the plate's facing by an eighth turn every four ticks -- a
             // shield waved like a fan, which is not an input anybody chose.
             //
-            // Measured, because the difference is not small: swept both ways
-            // this drive never exhausts the ordinal at all, out to 2048 ticks,
-            // because a plate whose normal turns every phase stops the 32 pairs
-            // landing together. This fixture exists to saturate the contact
-            // group cap and is deliberately independent of targeting; holding
-            // the guard steady keeps it measuring the solver rather than the
-            // guard, and it caps again at `CLINCH_CAP_TICK`.
-            let arm_bearing = if arm == 23 { CLINCH_YAW[row] } else { bearing };
+            // Measured, and the measurement is a model-specific one that no
+            // longer bites: swept both ways the *articulated* drive never
+            // exhausted the ordinal at all, out to 2048 ticks, because a plate
+            // whose normal turns every phase stopped the 32 pairs landing
+            // together. The embodied drive caps either way -- on tick 98 with
+            // the guard swept as well. The guard is still held steady, because
+            // the reason was never that the alternative failed to cap: this
+            // fixture exists to saturate the contact group cap and is
+            // deliberately independent of targeting, and holding the guard
+            // steady keeps it measuring the solver rather than the guard.
+            //
+            // Zero rather than `CLINCH_YAW[row]`, and that is the frame rather
+            // than a neutral value: `World::world_arm_target` adds the body's
+            // own yaw back on under `CommandFrame::Torso`, so a bearing of the
+            // body yaw here would ask for twice it -- the identical mistake
+            // `World::neutral_articulated` records having made in the other
+            // direction.
+            let arm_bearing = if arm == 23 { 0 } else { offset as u16 };
             bytes[arm..arm + 2].copy_from_slice(&arm_bearing.to_le_bytes());
             bytes[arm + 2..arm + 6].copy_from_slice(&Fx::HALF.raw().to_le_bytes());
             bytes[arm + 6..arm + 10].copy_from_slice(&Fx::ONE.raw().to_le_bytes());
@@ -10036,16 +10025,18 @@ mod tests {
     #[cfg(not(feature = "cartesian-recoil"))]
     #[test]
     fn the_boundary_clinch_reaches_the_contact_group_cap() {
-        init_articulated_test(1);
+        init_embodied_test(1);
         assert_eq!(contact_cap_hits(), 0, "a fresh world arrived already capped");
-        // Comfortably past 88 and still bounded: an unbounded loop on a drive
+        // Comfortably past 109 and still bounded: an unbounded loop on a drive
         // that stopped clinching would hang the suite instead of failing it.
+        // The same number as `CLINCH_BUDGET` in
+        // `client/test/wasm-memory.test.mjs`, which drives the identical bytes.
         let mut fired = None;
-        for tick in 0..128 {
+        for tick in 0..160 {
             for row in 0..2 {
-                SUBMITTED_COMMAND.with(|buffer| *buffer.borrow_mut() = clinch_payload(row, tick));
+                EMBODIED_COMMAND.with(|buffer| *buffer.borrow_mut() = clinch_payload(row, tick));
                 assert_eq!(
-                    submit_articulated(row as u32, 0),
+                    submit_embodied(row as u32, 0),
                     1,
                     "tick {tick}: the boundary refused row {row}'s clinch command",
                 );
@@ -10064,7 +10055,7 @@ mod tests {
         // reach a cap with one body left standing over the other's slot -- and
         // that would be a different tick shape than the one the browser fixture
         // claims to warm. Asked of the world rather than of `Sim::units`: that
-        // roster is the legacy floor `init_articulated_test` builds before it
+        // roster is the generated floor [`init_embodied_test`] builds before it
         // replaces the world, and it answers seven here.
         let standing = SIM.with(|sim| {
             let borrowed = sim.borrow();
@@ -10153,12 +10144,12 @@ mod tests {
     /// fight to argue about. One tick per `step`, so a row's publication and
     /// its tick are the same thing.
     fn clinch_event_rows(ticks: u32) -> Vec<Vec<[u32; COMBAT_EVENT_STRIDE]>> {
-        init_articulated_test(1);
+        init_embodied_test(1);
         let mut collected = Vec::new();
         for tick in 0..ticks {
             for row in 0..2 {
-                SUBMITTED_COMMAND.with(|buffer| *buffer.borrow_mut() = clinch_payload(row, tick));
-                submit_articulated(row as u32, 0);
+                EMBODIED_COMMAND.with(|buffer| *buffer.borrow_mut() = clinch_payload(row, tick));
+                submit_embodied(row as u32, 0);
             }
             step(1);
             collected.push(published_events());
@@ -10186,7 +10177,7 @@ mod tests {
     /// reserved, published, or nothing at all.
     ///
     /// [`init`] opens an embodied *floor* and this opens the embodied *duel*,
-    /// which is the same split `init` and `init_articulated_test` have: a
+    /// which is the same split `init` and [`init_embodied_test`] have: a
     /// fixture with two bodies and no floor is what a publication assertion
     /// wants, and a generated room is not.
     /// It goes through `install_articulated` rather than assigning `SIM` the way
@@ -10420,7 +10411,7 @@ mod tests {
         // **Both ways a fight can start in this module**, because the two build
         // their spec tables from different places and the section has to be the
         // same call either way: the shipped `CombatSpecTableV1::fixtures()`
-        // behind `init_articulated_test`, and the runtime table
+        // behind [`init_embodied_test`], and the runtime table
         // `Scenario::duel_from` assembles out of a studio's configuration
         // behind `arena_start`. A host that hung the wrong anatomy off a slot
         // would draw a Brute's shoulders on a Fighter and every other column
@@ -10431,13 +10422,13 @@ mod tests {
         // spawn pose. An arm capsule runs shoulder to *hand*, so a fixture that
         // never moved a hand would check the three rigid regions and nothing
         // else.
-        let duel = Scenario::articulated_duel();
-        init_articulated_test(1);
+        let duel = Scenario::embodied_duel();
+        init_embodied_test(1);
         published_regions_are_the_swept_capsules(&duel, "the duel at rest");
         for tick in 0..48u32 {
             for row in 0..2 {
-                SUBMITTED_COMMAND.with(|buffer| *buffer.borrow_mut() = clinch_payload(row, tick));
-                submit_articulated(row as u32, 0);
+                EMBODIED_COMMAND.with(|buffer| *buffer.borrow_mut() = clinch_payload(row, tick));
+                submit_embodied(row as u32, 0);
                 // Every mutating export publishes, so a submitted command that
                 // moved a target hand is in the buffer before the step -- which
                 // is the pose section's rule and holds here for free because
@@ -10485,7 +10476,7 @@ mod tests {
         // `n / REGIONS_PER_BODY`, and the only way that can be wrong is a count
         // that does not line up. One comparison, on every world this module can
         // install.
-        for open in [init as extern "C" fn(u32), init_articulated_test] {
+        for open in [init as extern "C" fn(u32), init_embodied_test] {
             open(1);
             assert!(pose_len() > 0, "an articulated world published no poses to cover");
             assert_eq!(
@@ -10553,10 +10544,13 @@ mod tests {
     /// this one checks that the multiplier is the *volume* count, and that the
     /// two extra rows are the forearms rather than padding.
     ///
-    /// The two models are both driven because the section is one shape for both.
-    /// An articulated body publishes its last two rows absent and an embodied
-    /// one publishes them present; a section whose width followed the model
-    /// would make `REGIONS_PER_BODY` a lie on one of them.
+    /// **Both models used to be driven here and one is left.** An articulated
+    /// body published its last two rows absent and an embodied one publishes
+    /// them present, and the pair was the argument that `REGIONS_PER_BODY` is a
+    /// property of the *wire* rather than of the model. Only the present half is
+    /// reachable now; the absent half survives as the `Option` below, which is
+    /// still what a body with no elbow would publish and is still checked
+    /// against the pose rather than assumed away.
     #[cfg(not(feature = "cartesian-recoil"))]
     #[test]
     fn the_published_region_section_covers_every_volume() {
@@ -10565,8 +10559,7 @@ mod tests {
         assert_eq!(REGIONS_PER_BODY, sim::BODY_VOLUME_COUNT);
         assert_eq!(REGIONS_PER_BODY, sim::AnatomyRegion::COUNT + 2);
 
-        for (scenario, jointed) in [(Scenario::articulated_duel(), false),
-                                    (Scenario::embodied_duel(), true)] {
+        for (scenario, jointed) in [(Scenario::embodied_duel(), true)] {
             install_articulated(&scenario, 1);
             step(8);
             let rows = published_regions();
@@ -10612,21 +10605,31 @@ mod tests {
     }
 
     #[test]
-    fn an_articulated_module_publishes_a_zero_length_stance_section_and_not_no_section() {
-        // The distinction the whole publication turns on. Only
-        // `CombatModel::Embodied` has legs, so a fight without them publishes
-        // nothing here -- and "nothing, and I am telling you so" is a different
-        // answer from "this module has never heard of stances". A reader that
-        // could not tell them apart would have no way to know whether an empty
-        // section meant a legless world or a wasm artifact built before the
-        // section existed.
+    fn a_module_with_no_world_publishes_a_zero_length_stance_section_and_not_no_section() {
+        // The distinction the whole publication turns on: "nothing, and I am
+        // telling you so" is a different answer from "this module has never
+        // heard of stances". A reader that could not tell them apart would have
+        // no way to know whether an empty section meant an empty world or a wasm
+        // artifact built before the section existed.
         //
-        // **One legless world is left and it is a fixture**, which is worth
-        // saying because it used to be the ordinary case: `init` opens legs now,
-        // and [`init_embodied_test`] opens them too, so `init_articulated_test`
-        // is the whole of the subject until the session that retires it.
-        init_articulated_test(1);
-        assert!(published_stances().is_empty(), "a legless world published a stance row");
+        // **It was `an_articulated_module_publishes_a_zero_length_stance_section_and_not_no_section`
+        // and it has lost the world it asked, not the question.** Only
+        // `CombatModel::Embodied` has legs, so a legless world published an
+        // empty section -- and there is no legless world left to install. The
+        // remaining producer of an empty section is the arm of [`publish`]
+        // written for exactly this: a refused install leaves no `Sim` at all,
+        // and that arm zeroes every length and wipes every row rather than
+        // letting the previous world's stances stand behind a stale count. That
+        // is the harder case of the two, because a stale row behind a live
+        // length is a body the page would draw.
+        init(7);
+        step(8);
+        assert!(!published_stances().is_empty(), "the floor published no stance to lose");
+        let mut broken = dungeon_scenario(7, 0, starting_hero());
+        broken.units[1].articulated = None;
+        install_articulated(&broken, 7);
+        assert!(with_sim(true, |_| false), "the broken fixture installed a world after all");
+        assert!(published_stances().is_empty(), "a module with no world published a stance row");
         assert_eq!((embodied_stance_len(), embodied_stances_dropped()), (0, 0));
         step(8);
         assert_eq!((embodied_stance_len(), embodied_stances_dropped()), (0, 0));
@@ -10827,7 +10830,7 @@ mod tests {
         // 256th -- and the documented clinch then severs one at tick 85. The
         // *geometry* is untouched, which is what this test is about; only the
         // integrity budget moved.
-        let mut scenario = Scenario::articulated_duel();
+        let mut scenario = Scenario::embodied_duel();
         for row in scenario
             .combat_specs
             .as_mut()
@@ -10842,8 +10845,8 @@ mod tests {
         let mut severed = None;
         for tick in 0..200u32 {
             for row in 0..2 {
-                SUBMITTED_COMMAND.with(|buffer| *buffer.borrow_mut() = clinch_payload(row, tick));
-                submit_articulated(row as u32, 0);
+                EMBODIED_COMMAND.with(|buffer| *buffer.borrow_mut() = clinch_payload(row, tick));
+                submit_embodied(row as u32, 0);
             }
             step(1);
             let masks: Vec<u32> =
@@ -10862,10 +10865,10 @@ mod tests {
 
         // **The mask is `BodyPart`-wide and the section is volume-wide**, so the
         // comparison runs over the five region rows only. The two after them are
-        // the forearms, which this fixture -- an articulated duel -- publishes
-        // absent on every body and every tick because its arms are one link;
-        // they are checked separately below rather than folded in, because
-        // "absent" means two different things in the two halves.
+        // the forearms, and they are read separately below rather than folded
+        // in, because "absent" means two different things in the two halves: a
+        // severed *region* is a fact about the body, and a forearm row's
+        // presence is a fact about whether the arm has an elbow at all.
         let rows = published_regions();
         let mut absent = 0;
         for part in 0..sim::AnatomyRegion::COUNT {
@@ -10880,10 +10883,28 @@ mod tests {
             absent += u32::from(gone);
         }
         assert!(absent > 0, "the mask said something was severed and every region was present");
-        for (at, row) in rows.iter().enumerate() {
-            if at % REGIONS_PER_BODY < sim::AnatomyRegion::COUNT { continue; }
-            assert_eq!(row[REGION_PRESENT], 0,
-                "a single-link arm published a forearm at row {at}");
+        // **This required `0` on every forearm row while the fixture was the
+        // articulated duel, whose arms are one link, and that reading said
+        // nothing about severance at all.** An embodied arm is jointed, so the
+        // forearm rows carry a real presence column and the claim worth making
+        // is that it *follows its own arm's severance*: a severed arm takes its
+        // forearm with it, and a body that lost a leg keeps both. A loop
+        // requiring `1` everywhere would be satisfied by an encoder that had
+        // stopped consulting the mask, which is the failure this whole test
+        // exists to catch, one row further out.
+        for limb in 0..2 {
+            let gone = mask & (1 << (sim::AnatomyRegion::LeftArm as usize + limb)) != 0;
+            let fore = rows[body * REGIONS_PER_BODY + sim::forearm_volume(limb)];
+            assert_eq!(fore[REGION_PRESENT], u32::from(!gone),
+                "limb {limb}'s forearm does not follow its arm under mask {mask:#b}");
+            for other in 0..rows.len() / REGIONS_PER_BODY {
+                if other == body { continue; }
+                assert_eq!(
+                    rows[other * REGIONS_PER_BODY + sim::forearm_volume(limb)][REGION_PRESENT],
+                    1,
+                    "an untouched body lost limb {limb}'s forearm",
+                );
+            }
         }
 
         // Every other body still has all five, which is what makes the column a
@@ -10911,7 +10932,7 @@ mod tests {
         // the legacy clinch's damage schedule. Feed a nontrivial authoritative
         // pose mask through the production region encoder and prove that only
         // its named bits disappear.
-        let anatomy = scenario_anatomy_independently(&Scenario::articulated_duel());
+        let anatomy = scenario_anatomy_independently(&Scenario::embodied_duel());
         let mut pose = every_pose_column_filled();
         pose.severed_mask = 1 << sim::AnatomyRegion::LeftArm as u8;
         let rows = pose_region_volumes(&pose, &anatomy[0]).map(|volume| region_row(&volume));
@@ -10929,7 +10950,7 @@ mod tests {
         // that region. So a head is a zero-length segment on every body, on
         // every tick, and "lower == upper means nothing is here" would delete
         // it from every fight this module can run.
-        init_articulated_test(1);
+        init_embodied_test(1);
         step(4);
         let rows = published_regions();
         assert!(!rows.is_empty(), "the duel published no regions to read a head off");
@@ -10954,7 +10975,7 @@ mod tests {
         // them: a degenerate capsule that *is* absent and a degenerate capsule
         // that is present publish the same seven words and differ only in the
         // eighth, which is the whole argument for the eighth existing.
-        let anatomy = scenario_anatomy_independently(&Scenario::articulated_duel());
+        let anatomy = scenario_anatomy_independently(&Scenario::embodied_duel());
         let pose = every_pose_column_filled();
         let volumes = pose_region_volumes(&pose, &anatomy[0]);
         let head = region_row(&volumes[sim::AnatomyRegion::Head as usize]);
@@ -11232,13 +11253,13 @@ mod tests {
         // zero columns survives this where it would not survive the pose test's
         // fixture. It is worth having anyway: without it, sixteen of these
         // columns have no per-column pin at all.
-        init_articulated_test(1);
+        init_embodied_test(1);
         let mut checked = 0usize;
         let (mut saw_named_region, mut saw_absent_region) = (false, false);
         for phase in 0..128 {
             for row in 0..2 {
-                SUBMITTED_COMMAND.with(|buffer| *buffer.borrow_mut() = clinch_payload(row, phase));
-                submit_articulated(row as u32, 0);
+                EMBODIED_COMMAND.with(|buffer| *buffer.borrow_mut() = clinch_payload(row, phase));
+                submit_embodied(row as u32, 0);
             }
             let at = tick();
             step(1);
@@ -11658,12 +11679,12 @@ mod tests {
 
         // And the seven pairs are wired to seven different fields, read back off
         // the solver's own rows rather than off a second call to the encoder.
-        init_articulated_test(1);
+        init_embodied_test(1);
         let mut published = Vec::new();
         for phase in 0..128 {
             for row in 0..2 {
-                SUBMITTED_COMMAND.with(|buffer| *buffer.borrow_mut() = clinch_payload(row, phase));
-                submit_articulated(row as u32, 0);
+                EMBODIED_COMMAND.with(|buffer| *buffer.borrow_mut() = clinch_payload(row, phase));
+                submit_embodied(row as u32, 0);
             }
             let at = tick();
             step(1);
@@ -11691,7 +11712,23 @@ mod tests {
                         );
                         assert_eq!(channel(COMBAT_EVENT_CUT_LO), solved.cut_raw);
                         assert_eq!(channel(COMBAT_EVENT_THRUST_LO), solved.thrust_raw);
-                        assert_eq!(channel(COMBAT_EVENT_PRESSURE_LO), solved.pressure_raw);
+                        // **`crush + pressure`, which is what `combat_event_row`
+                        // publishes and what `articulated-abi.md` documents this
+                        // column to be.** It read `solved.pressure_raw` alone
+                        // until the drive above was ported onto the embodied
+                        // duel, and passed -- because the articulated clinch it
+                        // used to run never produced a crushing component on the
+                        // tick this loop stops at, so the two spellings were the
+                        // same number. That is the shape `AGENTS.md` calls the
+                        // worst defect this repository produces: a green
+                        // assertion about something the code does not do,
+                        // invisible until a fixture moved underneath it. The
+                        // embodied brute's club lands crush, and it caught it.
+                        assert_eq!(
+                            channel(COMBAT_EVENT_PRESSURE_LO),
+                            solved.crush_raw + solved.pressure_raw,
+                            "the pressure column is not the crush-and-pressure sum",
+                        );
                         assert_eq!(channel(COMBAT_EVENT_DEFLECTED_LO), solved.deflected_raw);
                         assert_eq!(row[COMBAT_EVENT_SEVERED], u32::from(solved.severed));
                         solved.energy.before_raw
@@ -11889,10 +11926,11 @@ mod tests {
         // five sections to answer `(0, 0)`, and the drop halves were the point:
         // a count left over from the last articulated run would tell the page it
         // was missing bodies it was never owed. There is no such world left to
-        // open -- `init_articulated_test` is articulated, so it publishes four of
-        // the five -- and the one section that still has a legless subject keeps
-        // its own test in
-        // `an_articulated_module_publishes_a_zero_length_stance_section_and_not_no_section`.
+        // open -- every world this module installs publishes all five -- and the
+        // only producer of an empty section that is left is the arm of `publish`
+        // that runs when no world is installed at all, which keeps its own test
+        // in
+        // `a_module_with_no_world_publishes_a_zero_length_stance_section_and_not_no_section`.
         init(1);
         assert_ne!(pose_ptr(), 0);
         assert_ne!(combat_event_ptr(), 0);
@@ -12110,6 +12148,22 @@ mod tests {
     /// Worth stating because the intuition runs the other way -- "faster arms,
     /// busier fight, more rows" is what a reader predicts here, and this corpus
     /// has now contradicted it twice. The capacity is still 2,048 against 556.
+    /// **And the port off the articulated model moved it back up, 249 to 344.**
+    /// Up is the direction the two moves above make a reader expect to be wrong,
+    /// so it is worth saying what is different: this is not the same fight
+    /// measured again, it is the same *arrangement* fought under the surviving
+    /// grammar. Three things reach it. The bodies have jointed arms, so there
+    /// are seven swept volumes a side rather than five and two more of them can
+    /// meet. An arm bearing is torso-relative, so the westward half of each pair
+    /// now asks for `Angle::ZERO` -- along its own torso -- where it used to ask
+    /// for `Angle::HALF` in world space, and both halves reach across the gap
+    /// instead of one of them reaching away. And [`Sim::advance`] answers each
+    /// body's tick-zero decision with its policy command before the step, which
+    /// on the articulated fixture was refused and discarded and here is not, so
+    /// the corpus is one tick of neutral and then the commanded pose. 344
+    /// doubles to 688, still comfortably inside the 2,048 the capacity was sized
+    /// to against the all-time busiest 556.
+    ///
     /// Provenance is the whole of its meaning: **this fixture, this seed, this
     /// batch.** Seed `0x4152504741424931`, an open 24x16 room, 64 bodies as 32
     /// Fighter/Brute pairs, one command each at tick zero and none after, one
@@ -12117,7 +12171,7 @@ mod tests {
     /// and eight `step(1)`s measure the busiest tick rather than what one host
     /// call accumulates -- which is the thing being sized, because the feed is
     /// cleared per call.
-    const HIGH_WATER_EVENT_ROWS: u32 = 249;
+    const HIGH_WATER_EVENT_ROWS: u32 = 344;
 
     /// And the pose half, which sits exactly on its capacity by construction:
     /// 64 bodies is `MAX_ARTICULATED_ENTITIES` and `MAX_POSES` is the same
@@ -12132,7 +12186,7 @@ mod tests {
         // built by the thing that prints its number can be re-pinned to its own
         // drift. Both copies are `docs/reference/articulated-abi.md`,
         // "Combat-event rows", read literally.
-        let mut scenario = Scenario::articulated_duel();
+        let mut scenario = Scenario::embodied_duel();
         scenario.name = "abi-high-water".to_string();
         let (fighter, brute) = (scenario.units[0], scenario.units[1]);
         scenario.units.clear();
@@ -12186,21 +12240,16 @@ mod tests {
             for (subject, yaw, target) in
                 [(2 * i, Angle::ZERO, 2 * i + 1), (2 * i + 1, Angle::HALF, 2 * i)]
             {
-                let arm =
-                    sim::ArmTarget { bearing: yaw, height, reach: Fx::ONE, effort: Fx::ONE };
-                write_submitted(sim::ArticulatedCommandV1 {
-                    move_dir: Vec2::ZERO,
-                    body_yaw: yaw,
-                    intent: Intent::Attack(EntityId::new(target, 0)),
-                    arms: [arm; 2],
-                    grips: [sim::GripRequest::Keep; 2],
-                    releases: [sim::ReleaseRequest::Keep; 2],
-                });
-                // Through the 55-byte scratch and the export, not through
-                // `World::submit_articulated_v1`: a measurement that skipped the
+                write_embodied(write_high_water_command(
+                    yaw,
+                    height,
+                    EntityId::new(target, 0),
+                ));
+                // Through the 61-byte scratch and the export, not through
+                // `World::submit_embodied_v1`: a measurement that skipped the
                 // boundary would not be measuring what the page produces.
                 assert_eq!(
-                    submit_articulated(subject, 0),
+                    submit_embodied(subject, 0),
                     1,
                     "the boundary refused body {subject}'s tick-zero command",
                 );
@@ -12208,8 +12257,8 @@ mod tests {
         }
         #[cfg(feature = "cartesian-recoil")]
         for row in 0..2 {
-            SUBMITTED_COMMAND.with(|buffer| *buffer.borrow_mut() = clinch_payload(row, 0));
-            assert_eq!(submit_articulated(row as u32, 0), 1,
+            EMBODIED_COMMAND.with(|buffer| *buffer.borrow_mut() = clinch_payload(row, 0));
+            assert_eq!(submit_embodied(row as u32, 0), 1,
                 "the boundary refused exact body {row}'s tick-zero command");
         }
         // One call. Eight publications would clear the feed seven times and
@@ -12229,10 +12278,21 @@ mod tests {
                 (world.contact_solver_rejections(),
                  world.first_contact_rejection(), world.first_exact_contact_rejection())
             });
-            // Event ticks are the zero-based solving tick; this is the one
-            // publication observed after the world's eighty-fifth step.
-            assert_eq!((published_events()[0][COMBAT_EVENT_TICK] + 1, combat_event_len()), (85, 1),
-                "the exact corpus's single resolved publication moved");
+            // Event ticks are the zero-based solving tick, so this is the
+            // first of the rows the world's 128 steps left in one feed.
+            //
+            // **Re-measured `(85, 1)` -> `(113, 2)` by the port off the deleted
+            // articulated model**, and by the same three routes the default
+            // arm's `HIGH_WATER_EVENT_ROWS` moved along: jointed arms give each
+            // body seven swept volumes rather than five, an arm bearing is
+            // torso-relative so both halves of each pair reach across the gap
+            // instead of one of them reaching away, and `Sim::advance` answers
+            // the tick-zero decision with a policy command that this grammar
+            // stores where the other refused it. Bounded lifted resolution still
+            // refuses nothing here, which is the assertion below and the reason
+            // this arm exists at all.
+            assert_eq!((published_events()[0][COMBAT_EVENT_TICK] + 1, combat_event_len()), (113, 2),
+                "the exact corpus's resolved publications moved");
             assert_eq!((refused, rejection, exact), (0, None, None),
                 "the exact high-water corpus refused a contact");
             assert_eq!(contact_high_water(), sim::MAX_ARTICULATED_ENTITIES as u32);
@@ -12290,7 +12350,7 @@ mod tests {
     #[test]
     #[ignore]
     fn print_articulated_buffer_high_water_marks() {
-        let mut scenario = Scenario::articulated_duel();
+        let mut scenario = Scenario::embodied_duel();
         scenario.name = "abi-high-water".to_string();
         // The v2-12 fixture rows, taken off the shipped duel rather than
         // respelled: stats, loadout and the anatomy/equipment references are
@@ -12318,17 +12378,12 @@ mod tests {
             for (subject, yaw, target) in
                 [(2 * i, Angle::ZERO, 2 * i + 1), (2 * i + 1, Angle::HALF, 2 * i)]
             {
-                let arm =
-                    sim::ArmTarget { bearing: yaw, height, reach: Fx::ONE, effort: Fx::ONE };
-                write_submitted(sim::ArticulatedCommandV1 {
-                    move_dir: Vec2::ZERO,
-                    body_yaw: yaw,
-                    intent: Intent::Attack(EntityId::new(target, 0)),
-                    arms: [arm; 2],
-                    grips: [sim::GripRequest::Keep; 2],
-                    releases: [sim::ReleaseRequest::Keep; 2],
-                });
-                if submit_articulated(subject, 0) != 1 {
+                write_embodied(write_high_water_command(
+                    yaw,
+                    height,
+                    EntityId::new(target, 0),
+                ));
+                if submit_embodied(subject, 0) != 1 {
                     refused += 1;
                 }
             }
@@ -12434,10 +12489,10 @@ mod tests {
     /// this one is an extension and nothing else.** A fifth section went on the
     /// wire and the digest's rule is every published word of every publication,
     /// so a section reaches it whether or not the fixture has a row for it. This
-    /// fixture has none -- it is `Scenario::articulated_duel` and only
-    /// `CombatModel::Embodied` has legs -- so the new tail is a zero length and
-    /// a zero drop count on each of the twenty ticks, and **their presence is
-    /// the change**. The shape printer below reports the same counts it did
+    /// fixture had none at the time -- it was `Scenario::articulated_duel` and
+    /// only `CombatModel::Embodied` has legs -- so the new tail was a zero length
+    /// and a zero drop count on each of the twenty ticks, and **their presence
+    /// was the change**. The shape printer below reports the same counts it did
     /// before: two poses and ten regions every tick, one event row on ticks 3
     /// and 5, none on 0, 1, 2 and 4, and now zero stances throughout.
     ///
@@ -15635,15 +15690,16 @@ mod tests {
         let mut fresh = Sim::new(1);
         let scenario = Scenario::embodied_duel();
         fresh.world = World::new(&scenario, 1);
-        // Beside the world, exactly as `articulated_test_world` does it.
+        // Beside the world, exactly as `install_boundary_fixture` does it.
         fresh.anatomy = scenario_anatomy(&scenario);
         SIM.with(|sim| *sim.borrow_mut() = Some(fresh));
     }
 
-    /// [`write_submitted`]'s twin, and it writes its own envelope rather than
-    /// calling that one: the layout version and the kind byte are the two
-    /// fields the two grammars disagree about, so a shared writer would make
-    /// every assertion below a test of one envelope written twice.
+    /// **`write_submitted`'s twin, and it wrote its own envelope rather than
+    /// calling that one**: the layout version and the kind byte were the two
+    /// fields the two grammars disagreed about, so a shared writer would have
+    /// made every assertion below a test of one envelope written twice. That
+    /// duplication is what let the articulated writer be deleted whole.
     fn write_embodied(command: sim::EmbodiedCommandV1) {
         EMBODIED_COMMAND.with(|buffer| {
             let mut bytes = buffer.borrow_mut();
@@ -15681,71 +15737,49 @@ mod tests {
         SIM.with(|sim| sim.borrow().as_ref().unwrap().world.state_digest().value)
     }
 
-    /// A request a control cannot honour is refused **by name**, and the two
-    /// controls that cannot honour [`submit_embodied`] are the legacy module
-    /// and the articulated one. Both are here rather than one standing for the
-    /// other: they refuse through different grammars, and a test that only ever
-    /// saw one of them would be satisfied by a guard asking the wrong question.
+    // **`an_articulated_module_refuses_submit_embodied_by_name` stood here and
+    // has lost its subject rather than its fixture.** It built an articulated
+    // world without publishing, offered [`submit_embodied`] a well-formed
+    // embodied command and required `2 << 8` -- refused *by name* -- and then
+    // corrupted the intent tag and required the same answer again, because that
+    // second rung is the only input that separates this boundary's own model
+    // check from `World::submit_embodied_v1`'s: a boundary that checked the
+    // bytes first would answer `1` and name the payload for what is a model
+    // mismatch.
+    //
+    // The check it guarded is still in [`submit_embodied`] and still ahead of
+    // the structural one, and the argument for that ordering is written where
+    // the code is. What is gone is any world that can reach it: every scenario
+    // this module can install answers the same grammar, so the wrong-model arm
+    // is unreachable from the boundary and a test asserting it would have to
+    // construct a world no export opens. That is a refusal the page can no
+    // longer provoke, not a guard that stopped being run -- and it is the same
+    // shape as the `WRONG_MODEL` assertion `tools/wasm_check.js` lost when
+    // `submit_articulated` went.
+
+    /// The whole of the submission ladder, now that there is one submission.
     ///
-    /// **The malformed half is what makes this a measurement rather than a
-    /// restatement, and it is the only half that can fail.**
-    /// `World::submit_embodied_v1` refuses a non-embodied world on its own
-    /// account, so a boundary with no model check of its own still answers `2`
-    /// for a *well-formed* payload -- against that input the two guards are
-    /// indistinguishable and this test would pass with the guard deleted. A
-    /// structurally malformed payload separates them:
-    /// `EmbodiedCommandV1::from_payload_bytes` fails before any world is asked,
-    /// so a boundary that checked the bytes first would answer `1` and name the
-    /// payload for what is really a model mismatch. That is
-    /// `submit_articulated`'s own "wrong model lost precedence" assertion, in
-    /// the same words and for the same reason.
-    #[test]
-    fn an_articulated_module_refuses_submit_embodied_by_name() {
-        let command = embodied_fixture();
-
-        // **The legacy half of this test went with the world it opened.** It
-        // drove `init(1)` -- a generated floor under `CombatModel::Legacy`,
-        // which is what the browser used to boot into -- and required the same
-        // refusal there. `init` opens an embodied floor now, so the only module
-        // left that can refuse an embodied command by name is the articulated
-        // fixture, which is also the half where "stores nothing" is actually
-        // measured: the `ArticulatedV1` digest folds
-        // `payload_bytes()` for every stored command, so a command that reached
-        // the slot would move this number. A `LegacyV1` digest has no such
-        // column, which is why the run above is the refusal code alone.
-        articulated_test_world();
-        write_embodied(command);
-        let before = digest();
-        assert_eq!(submit_embodied(0, 0), 2 << 8,
-                   "an articulated module accepted an embodied command");
-        assert_eq!(digest(), before, "a refused embodied command reached the stored-command slot");
-        EMBODIED_COMMAND.with(|buffer| buffer.borrow_mut()[4 + 10] = 9);
-        assert_eq!(submit_embodied(0, 0), 2 << 8,
-                   "wrong model lost precedence on an articulated module");
-        assert_eq!(digest(), before, "a malformed refusal mutated an articulated world");
-    }
-
-    /// The other side of the refusal above, and the reason it is worth having:
-    /// an export that refused everything would satisfy that test completely.
-    /// This one is [`articulated_wasm_scratch_is_fixed_and_submission_is_atomic`]
-    /// aimed at the embodied twin -- its own buffer, its own layout version, a
-    /// command that stores, and the raw-range fallback that stores a neutral one
-    /// in its place.
+    /// **It was written as `articulated_wasm_scratch_is_fixed_and_submission_is_atomic`'s
+    /// twin and is what that test left behind**: its own buffer, its own layout
+    /// version, a command that stores, every refusal in precedence order, and
+    /// the raw-range fallback that stores a neutral command in its place. It was
+    /// deliberately a second copy rather than a shared helper, and that is why
+    /// deleting the articulated half cost none of these rungs.
     #[test]
     fn the_embodied_wasm_scratch_is_its_own_buffer_and_submission_is_atomic() {
         assert_ne!(embodied_command_ptr(), 0);
-        assert_ne!(embodied_command_ptr(), submitted_command_ptr(),
-                   "the embodied scratch is the articulated one under another name");
-        // 61 and 2 as literals rather than as the constants the exports read,
-        // for `submitted_command_len`'s reason: these are the boundary numbers a
-        // JavaScript caller reads, and a test that computes them the way the
-        // export does asserts nothing. Both moved with the swing plane -- the
-        // four bytes it appended, and the layout version that announces them --
-        // while `submitted_command_len` stayed at 57, which is the whole of what
-        // the forked payload bought.
+        // 61 and 2 as literals rather than as the constants the exports read:
+        // these are the boundary numbers a JavaScript caller reads, and a test
+        // that computes them the way the export does asserts nothing. Both moved
+        // with the swing plane -- the four bytes it appended, and the layout
+        // version that announces them -- while the articulated envelope beside
+        // it stayed at 57, which was the whole of what the forked payload
+        // bought. That envelope is gone and its width is not: `sim` still
+        // declares `ARTICULATED_PAYLOAD_BYTES` as 53, three pinned digests are
+        // taken over it, and `EMBODIED_PAYLOAD_BYTES` is 57 because the two were
+        // separated rather than shared.
         assert_eq!(embodied_command_len(), 61);
         assert_eq!(embodied_command_layout_version(), 2);
-        assert_eq!(submitted_command_len(), 57, "the articulated buffer followed the embodied one");
 
         let command = embodied_fixture();
         embodied_test_world();

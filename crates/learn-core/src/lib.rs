@@ -18,7 +18,7 @@
 //!   and its doc comment says why in as many words. What crosses from the float
 //!   side to the integer side is **five small head indices**, produced by an
 //!   argmax.
-//! * [`sim::World::submit_articulated_v1`] cannot be handed one, which the
+//! * [`sim::World::submit_embodied_v1`] cannot be handed one, which the
 //!   doctest pair below is what says.
 //! * Nothing in `fx`, `sim` or `policy` can see this crate. The arrow points one
 //!   way and `the_learned_policy_is_unreachable_from_sim` in
@@ -67,21 +67,22 @@
 //!
 //! # Training types cannot enter authoritative state
 //!
-//! The seam is [`sim::World::submit_articulated_v1`], and the fence is its
+//! The seam is [`sim::World::submit_embodied_v1`], and the fence is its
 //! signature. Here is the whole path from a network to a body, working:
 //!
 //! ```rust
-//! use learn_core::{LearnedArticulatedPolicy, Model};
-//! use policy::ArticulatedPolicy;
-//! use sim::{Scenario, World};
+//! use learn_core::{LearnedEmbodiedPolicy, Model};
+//! use policy::EmbodiedPolicy;
+//! use sim::{Scenario, SubmitEmbodiedOutcome, World};
 //!
-//! let scenario = Scenario::articulated_duel();
+//! let scenario = Scenario::embodied_duel();
 //! let mut world = World::new(&scenario, 1);
-//! let mut brain = LearnedArticulatedPolicy::new(Model::zeros());
+//! let mut brain = LearnedEmbodiedPolicy::new(Model::zeros());
 //!
 //! let id = world.pending_decisions()[0];
 //! let obs = world.observe_articulated(id);
-//! world.submit_articulated_v1(id, brain.decide(&obs));
+//! let outcome = world.submit_embodied_v1(id, brain.decide(&obs));
+//! assert!(matches!(outcome, SubmitEmbodiedOutcome::Stored { rejection: None, .. }));
 //! ```
 //!
 //! And here is the same program handing the world what the *network* actually
@@ -89,28 +90,44 @@
 //! into a command:
 //!
 //! ```compile_fail,E0308
-//! use learn_core::{LearnedArticulatedPolicy, Model};
-//! use policy::ArticulatedPolicy;
-//! use sim::{Scenario, World};
+//! use learn_core::{LearnedEmbodiedPolicy, Model};
+//! use policy::EmbodiedPolicy;
+//! use sim::{Scenario, SubmitEmbodiedOutcome, World};
 //!
-//! let scenario = Scenario::articulated_duel();
+//! let scenario = Scenario::embodied_duel();
 //! let mut world = World::new(&scenario, 1);
-//! let mut brain = LearnedArticulatedPolicy::new(Model::zeros());
+//! let mut brain = LearnedEmbodiedPolicy::new(Model::zeros());
 //!
 //! let id = world.pending_decisions()[0];
 //! let obs = world.observe_articulated(id);
-//! world.submit_articulated_v1(id, brain.action(&obs));
+//! let outcome = world.submit_embodied_v1(id, brain.action(&obs));
+//! assert!(matches!(outcome, SubmitEmbodiedOutcome::Stored { rejection: None, .. }));
 //! ```
 //!
 //! **Read those two as a pair, and the pairing is what makes the fence
-//! honest.** `policy`'s [`ArticulatedPolicy`] doctest records the reason and it
-//! applies here unchanged: rustdoc only *enforces* a `compile_fail` error code
-//! on nightly, and on the stable toolchain this repository pins the code is
-//! parsed and ignored -- so the second block would pass on any compile error at
-//! all, including a typo. What rules out the typo is that the two blocks are the
-//! same program, differing in one method call. Measured on this toolchain the
-//! second emits exactly one error, and it is `E0308: expected
-//! ArticulatedCommandV1, found LearnedActionV1`.
+//! honest.** Rustdoc only *enforces* a `compile_fail` error code on nightly, and
+//! on the stable toolchain this repository pins the code is parsed and ignored
+//! -- so the second block would pass on any compile error at all, including a
+//! typo. What rules out the typo is that the two blocks are the same program,
+//! differing in one method call. Measured on this toolchain the second emits
+//! exactly one error, and it is `E0308: expected EmbodiedCommandV1, found
+//! LearnedActionV1`.
+//!
+//! **The assertion is not decoration.** `submit_embodied_v1` compiles against
+//! any world and answers `NotStored(WrongModel)` when the grammar disagrees, so
+//! a first block that named the wrong scenario would still build, still run and
+//! store nothing -- and, without the line under it, still pass. That is the
+//! exact shape session 05 kept producing, and `Stored { rejection: None }` is
+//! what makes the working half a claim about a body rather than about the type
+//! checker.
+//!
+//! **The pair moved from `submit_articulated_v1` to `submit_embodied_v1` in
+//! session 05**, and the argument is carried across rather than dropped because
+//! the fence was never about which model: it is that the type the network emits
+//! and the type a world accepts are different types, and no submission entry of
+//! either grammar takes the former. `policy`'s `ArticulatedPolicy` doctest used
+//! to be where the `compile_fail` caveat above was recorded; that trait is
+//! deleted, so it is recorded here.
 //!
 //! The value-level half of the same claim is
 //! `training_types_cannot_enter_authoritative_state` in
@@ -118,8 +135,6 @@
 //! recording harness and reads what was written down. It stayed with the
 //! trainer because it needs one: the harness it drives is `policy`'s, but the
 //! model it drives through it is a *trained* one.
-//!
-//! [`ArticulatedPolicy`]: policy::ArticulatedPolicy
 
 #![forbid(unsafe_code)]
 

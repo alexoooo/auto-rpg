@@ -239,8 +239,9 @@ const GUARD_ARC: Angle = Angle::from_raw(8_192);
 /// at the best authority a body can bring. `arm_available` multiplies the
 /// acceleration by effort, so a half-effort guard takes sixteen ticks to cross a
 /// band rather than thirteen and would miss the window it is committed to.
-/// `articulated_tactics.rs`'s own `Guard` intent asks for full effort for the
-/// same reason.
+/// `embodied_tactics.rs`'s own `Guard` intent asks for full effort for the same
+/// reason -- it was written in `articulated_tactics.rs` and moved into this
+/// crate's surviving tactics file with the planner in session 05.
 ///
 /// It costs little to *hold*, which is not the same as costing nothing.
 /// `bill_fatigue_with_com_delta` recovers fatigue outright only when **both** of
@@ -516,7 +517,7 @@ fn centre_line(carried: bool) -> ArmTarget {
 /// rigidly, so `tip.z - foe.body_position.z` cancels the noise exactly and
 /// `tip.z - obs.body_position.z` does not: the duel's fighters carry 0.9 and 1.2
 /// world units of it against a sculpted fixture whose entire relief is 0.75.
-/// `articulated_tactics::height_for` takes the same difference for the same
+/// `embodied_tactics::height_for` takes the same difference for the same
 /// reason, and `GroundSense` is the measured record of what reading two floors
 /// against each other costs. What is given up is the elevation difference
 /// between the two bodies, which on every flat fixture is zero and on the

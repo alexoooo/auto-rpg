@@ -8,9 +8,7 @@
 //! time, which is exactly the coupling the ADR refuses.
 
 use fx::{Angle, Fx, Vec2};
-use policy::{
-    ArticulatedPolicy, CommandAuthority, ComposedController, PartialEmbodiedSource, PolicySource,
-};
+use policy::{CommandAuthority, ComposedController, PartialEmbodiedSource};
 use sim::{
     ArmTarget, ArticulatedCommandV1, ArticulatedObservation, CombatHeight, EmbodiedCommandV1,
     Faction, LimbSlot, Replay, Scenario, SubmittedCommand, World,
@@ -54,31 +52,69 @@ impl PartialEmbodiedSource for HandOnTheControls {
     }
 }
 
-/// The off hand: a policy that only ever gets to write one arm.
-struct GuardTheOffHand;
+/// The off hand's whole command, as a function of the observation alone.
+///
+/// A whole command and not just the arm, so that
+/// `a_controller_claiming_everything_drives_the_fight_its_policy_would_have`
+/// below can submit it *directly* and compare -- which is the only way to state
+/// "the composed path can replace the direct one" as a claim about a fight
+/// rather than about a struct.
+fn guard_the_off_hand(obs: &ArticulatedObservation) -> ArticulatedCommandV1 {
+    let mut command = policy::neutral_articulated_command(obs);
+    command.arms[LimbSlot::LeftArm as usize] = ArmTarget {
+        // Across the body, in the torso frame: a guard that stays where the
+        // fighter put it however the fighter turns.
+        bearing: Angle::from_raw(8_192),
+        height: CombatHeight::HIGH,
+        reach: Fx::HALF,
+        effort: Fx::ONE,
+    };
+    command
+}
 
-impl ArticulatedPolicy for GuardTheOffHand {
-    fn decide(&mut self, obs: &ArticulatedObservation) -> ArticulatedCommandV1 {
-        let mut command = policy::neutral_articulated_command(obs);
-        command.arms[LimbSlot::LeftArm as usize] = ArmTarget {
-            // Across the body, in the torso frame: a guard that stays where the
-            // fighter put it however the fighter turns.
-            bearing: Angle::from_raw(8_192),
-            height: CombatHeight::HIGH,
-            reach: Fx::HALF,
-            effort: Fx::ONE,
-        };
-        command
+/// Writes out only the part of that whole command its authority names.
+///
+/// **This was `policy::PolicySource`, and it is four lines here instead**:
+/// that adapter was generic over the `ArticulatedPolicy` trait, session 05
+/// deleted the trait, and its only callers were these tests. The narrowing it
+/// did is what the two tests below are about, so it lives where they can see
+/// it -- including the swing plane, which an articulated command has no field
+/// for and which the arm's owner therefore has to claim explicitly. Without
+/// that write the plane would be the one field of the command
+/// `CommandAuthority` does not divide.
+struct GuardTheOffHand {
+    authority: CommandAuthority,
+}
+
+impl PartialEmbodiedSource for GuardTheOffHand {
+    fn authority(&self) -> CommandAuthority {
+        self.authority
+    }
+
+    fn contribute(&mut self, obs: &ArticulatedObservation, into: &mut EmbodiedCommandV1) {
+        let whole = guard_the_off_hand(obs);
+        if self.authority.navigation {
+            into.articulated.move_dir = whole.move_dir;
+            into.articulated.body_yaw = whole.body_yaw;
+            into.articulated.intent = whole.intent;
+        }
+        for slot in 0..2 {
+            if self.authority.arms[slot] {
+                into.articulated.arms[slot] = whole.arms[slot];
+                into.articulated.grips[slot] = whole.grips[slot];
+                into.articulated.releases[slot] = whole.releases[slot];
+                into.swing_plane[slot] = Angle::ZERO;
+            }
+        }
     }
 }
 
 fn controller() -> ComposedController {
     ComposedController::new(vec![
         Box::new(HandOnTheControls { tick: 0 }),
-        Box::new(PolicySource::new(
-            GuardTheOffHand,
-            CommandAuthority::arm(LimbSlot::LeftArm),
-        )),
+        Box::new(GuardTheOffHand {
+            authority: CommandAuthority::arm(LimbSlot::LeftArm),
+        }),
     ])
     .expect("navigation and both arms claimed exactly once")
 }
@@ -145,10 +181,11 @@ fn the_two_hands_of_a_composed_fight_are_visibly_driven_by_different_things() {
             "the human's hand did not move");
     assert_ne!(left_bearings[0], right_bearings[0]);
 
-    // And the same split in the embodied-only field: the policy-driven arm holds
-    // the neutral plane it has no way to move, the human-driven one swings.
+    // And the same split in the embodied-only field: the off hand holds the
+    // neutral plane its whole-command source has no way to move, the
+    // human-driven one swings.
     assert!(planes.iter().all(|pair| pair[0] == Angle::ZERO),
-            "a policy with no plane to give wrote one anyway");
+            "a source with no plane to give wrote one anyway");
     assert!(planes.windows(2).any(|pair| pair[0][1] != pair[1][1]),
             "the human's swing plane did not move");
 }
@@ -161,19 +198,17 @@ fn a_controller_claiming_everything_drives_the_fight_its_policy_would_have() {
     let subject_of = |world: &World| world.alive_ids(Faction::Heroes)[0];
 
     let mut direct = World::new(&scenario, 5);
-    let mut policy = GuardTheOffHand;
     let subject = subject_of(&direct);
     for _ in 0..TICKS {
-        let command = policy.decide(&direct.observe_articulated(subject));
+        let command = guard_the_off_hand(&direct.observe_articulated(subject));
         direct.submit_embodied_v1(subject, EmbodiedCommandV1::new(command));
         direct.step();
     }
 
     let mut wrapped = World::new(&scenario, 5);
-    let mut composed = ComposedController::new(vec![Box::new(PolicySource::new(
-        GuardTheOffHand,
-        CommandAuthority::ALL,
-    ))])
+    let mut composed = ComposedController::new(vec![Box::new(GuardTheOffHand {
+        authority: CommandAuthority::ALL,
+    })])
     .expect("total authority");
     for _ in 0..TICKS {
         let command = composed.decide(&wrapped.observe_articulated(subject));

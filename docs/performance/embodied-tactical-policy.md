@@ -2,7 +2,7 @@
 
 **Purpose:** Record what the strike planner scored the day it was first put behind the embodied seam, what reading the incoming blade did to it, and what tuning its feet did — so that no session in this topic tunes against a memory, and so that the one that deletes `articulated_tactics.rs` does not delete a measurement with it. Three sessions, in the order they landed; the sections are not merged, because each is the control the next is measured against.
 **Status:** current
-**Canonical source:** this record, [`crates/policy/src/embodied_tactics.rs`](../../crates/policy/src/embodied_tactics.rs), [`crates/policy/src/embodied_guard.rs`](../../crates/policy/src/embodied_guard.rs), [`crates/policy/src/embodied_footwork.rs`](../../crates/policy/src/embodied_footwork.rs), and [architecture: policy](../architecture/policy.md#the-embodied-registry-and-why-its-build-cannot-fail)
+**Canonical source:** this record, [`crates/policy/src/embodied_tactics.rs`](../../crates/policy/src/embodied_tactics.rs), [`crates/policy/src/embodied_guard.rs`](../../crates/policy/src/embodied_guard.rs), [`crates/policy/src/embodied_footwork.rs`](../../crates/policy/src/embodied_footwork.rs), and [architecture: policy](../architecture/policy.md#the-registry-and-why-its-build-cannot-fail)
 **Update when:** `TacticalEmbodiedPolicy`, `GuardRead`, `StrikePlanner`, `Footwork`, `embodied-duel-v1`, or the corpus shape changes.
 
 # Session 02: the first outing
@@ -758,7 +758,7 @@ ship the one with the fewest weapon-on-body resolutions per trial. Two
 constraints on what counts as a candidate, neither of them invented here:
 
 1. **A value must lie inside its own derived band.** The four bounding tests in
-   [`articulated_tactics.rs`](../../crates/policy/src/articulated_tactics.rs)
+   [`embodied_tactics.rs`](../../crates/policy/src/embodied_tactics.rs)
    enforce bands read off `sim`'s published actuator rates and the fixture's two
    anatomies, never off the corpus, and a shipped value outside one of them fails
    `cargo test -p policy`. The record already disqualified two swept margin rows
@@ -1067,7 +1067,7 @@ seeds changed sign at 800.
 ## The bounding tests, and what mutating them does
 
 Each of the four carries a two-sided test in
-[`articulated_tactics.rs`](../../crates/policy/src/articulated_tactics.rs), beside
+[`embodied_tactics.rs`](../../crates/policy/src/embodied_tactics.rs), beside
 the functions that consume the values. Each combines a **derived band** -- read
 off `sim`'s published actuator floor, `Stats::move_speed` and the fixture's own
 two anatomies, never off a copy of the constant -- with an **exact pin through
@@ -1090,8 +1090,9 @@ an *idle* arm at -- `ARM_MIN_REACH_RAW`, a quarter, which puts a resting tip at
 the shipped margin and lunge caps it at 0.8521. **That upper end is not the one an
 earlier version of this record named.** It named the arm's *committed* extension,
 0.9724, and described the pair as "the two extensions the actuator will hold an
-arm at": `STRIKE_COMMIT_REACH` is a constant in `articulated_tactics.rs` and not
-an actuator limit, and 0.9724 does not bind. The unwind threshold is bounded by
+arm at": `STRIKE_COMMIT_REACH` is a policy constant -- it was in
+`articulated_tactics.rs` and moved to `embodied_tactics.rs` with the planner in
+session 05 -- and not an actuator limit, and 0.9724 does not bind. The unwind threshold is bounded by
 the script's own argument, `(0.5, 1.0)`, plus the `ObservedStance::present` gate
 that makes it safe to carry on the articulated row.
 
@@ -1156,7 +1157,7 @@ never reached the policy that was built*.
 The constant is [named in the overview's own
 list](../plans/fight-00-overview.md#constants-introduced) as *the smallest
 opening the planner will spend a commit on*, on the argument that `choose_plan`
-in [`articulated_tactics.rs`](../../crates/policy/src/articulated_tactics.rs)
+in [`embodied_tactics.rs`](../../crates/policy/src/embodied_tactics.rs)
 takes the best candidate whatever its score, so a body commits into a covered
 line as readily as an open one. **It is not in the landed tree**, and the reason
 is that every measured lever pointing the same way cost more than it bought.

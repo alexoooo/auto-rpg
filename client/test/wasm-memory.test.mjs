@@ -223,20 +223,32 @@ function exercise(wasm, abi, seed, guard = null, expectedInitialRevisions = null
 
 // ------------------------------------------------------- the boundary clinch
 //
-// Two duel rows walked into each other, arms sweeping, until a tick spends every
-// contact group ordinal. Everything below is a byte table and a phase counter:
-// no positions are read back and no angle is computed here, which is deliberate
-// twice over. The trajectory is chaotic -- a raw unit of difference in the walk
-// vector moves the cap tick or loses it entirely -- so a JavaScript `atan2`
-// steering off published positions would be pinning the last ulp of whatever
-// engine ran the test. And the same fifty-five bytes are built from the same
-// documented offsets in `crates/web/src/lib.rs`, by hand on both sides, so the
-// two targets agreeing means the ABI agrees rather than that `sim` agrees with
-// itself. Every constant is stated where it comes from in that file's
+// Two duel rows walked into each other, the weapon arm sweeping, until a tick
+// spends every contact group ordinal. Everything below is a byte table and a
+// phase counter: no positions are read back and no angle is computed here, which
+// is deliberate twice over. The trajectory is chaotic -- a raw unit of difference
+// in the walk vector moves the cap tick or loses it entirely -- so a JavaScript
+// `atan2` steering off published positions would be pinning the last ulp of
+// whatever engine ran the test. And the same sixty-one bytes are built from the
+// same documented offsets in `crates/web/src/lib.rs`, by hand on both sides, so
+// the two targets agreeing means the ABI agrees rather than that `sim` agrees
+// with itself. Every constant is stated where it comes from in that file's
 // `CLINCH_*` block; the reasoning is not repeated here.
+//
+// **It was an articulated drive on `init_articulated_test` and is an embodied
+// one on `init_embodied_test`.** Under `CommandFrame::Torso` the walk vector is
+// read in the body frame and an arm bearing is measured from the torso, so the
+// per-row world vector became one forward magnitude and the arm bearings became
+// offsets from zero. `body_yaw` is a world angle under both frames and did not
+// move.
 const CLINCH_YAW = [0x0f74, 0x8f74];
-const CLINCH_WALK = [[58_976, 23_506], [-58_976, -23_506]];
-const CLINCH_SWEEP = 8_192;
+// Straight ahead. It was `[[58_976, 23_506], [-58_976, -23_506]]` -- the same
+// magnitude resolved along each row's own `CLINCH_YAW`.
+const CLINCH_WALK = 63_488;
+// Re-recorded 8_192 -> 16_384 with the port: the eighth-turn the articulated
+// drive used reaches ordinal 2 of 8 on the embodied duel and never caps. The
+// Rust owner (`CLINCH_SWEEP` in crates/web/src/lib.rs) states the measured band.
+const CLINCH_SWEEP = 16_384;
 const CLINCH_PHASE_TICKS = 4;
 // Re-recorded 89 -> 85 on 2026-08-16: Smart134 doubled the arm bearing rates,
 // and the Rust owner (`CLINCH_CAP_TICK` in crates/web/src/lib.rs) moved with
@@ -246,37 +258,42 @@ const CLINCH_PHASE_TICKS = 4;
 // entirely, so the sweep is now the weapon arm's alone and the ordinal is
 // exhausted three ticks later. The Rust owner is `CLINCH_CAP_TICK` in
 // crates/web/src/lib.rs.
-const CLINCH_CAP_TICK = 88;
-// Comfortably past 88 and still bounded: a drive that stopped clinching should
+// Re-recorded 88 -> 109 with the port onto the embodied duel. A different fight,
+// not a re-record: first contact lands on 90 and the swept pairs stagger in over
+// the nineteen ticks after it.
+const CLINCH_CAP_TICK = 109;
+// Comfortably past 109 and still bounded: a drive that stopped clinching should
 // fail this fixture, not hang the suite inside it.
-const CLINCH_BUDGET = 128;
+const CLINCH_BUDGET = 160;
 
-// 57 since payload layout 2 appended one release verb per arm; 55 before it.
-// The two new bytes sit after both grips, so every offset this file writes is
-// unmoved and only the length and the version changed.
-const SUBMITTED_COMMAND_BYTES = 57;
+// 61 since the swing plane appended a `u16` per arm to the 57-byte payload. The
+// four new bytes sit after both release verbs, so every offset this file writes
+// is unmoved and only the length changed.
+const EMBODIED_COMMAND_BYTES = 61;
 const HALF_RAW = 0x8000;
 const ONE_RAW = 0x1_0000;
 
 function clinchPayload(row, tick) {
   const phase = Math.floor(tick / CLINCH_PHASE_TICKS) % 4;
   const offset = phase === 1 ? CLINCH_SWEEP : phase === 3 ? -CLINCH_SWEEP : 0;
-  const bearing = (CLINCH_YAW[row] + offset) & 0xffff;
-  const bytes = new Uint8Array(SUBMITTED_COMMAND_BYTES);
+  const bearing = offset & 0xffff;
+  const bytes = new Uint8Array(EMBODIED_COMMAND_BYTES);
   const view = new DataView(bytes.buffer);
-  view.setUint16(0, 2, true); // SUBMITTED_COMMAND_LAYOUT_VERSION
-  bytes[2] = 1; // an articulated command; byte 3 stays the reserved zero
-  view.setInt32(4, CLINCH_WALK[row][0], true);
-  view.setInt32(8, CLINCH_WALK[row][1], true);
+  view.setUint16(0, 2, true); // EMBODIED_COMMAND_LAYOUT_VERSION
+  bytes[2] = 2; // an embodied command; byte 3 stays the reserved zero
+  view.setInt32(4, CLINCH_WALK, true);
+  view.setInt32(8, 0, true);
   view.setUint16(12, CLINCH_YAW[row], true);
-  // Intent, target and both grips stay zero: `Hold`, nobody, `Keep`.
-  // The sweep is the weapon arm's; the guard arm holds the body bearing. It
-  // swept both until 2026-08-16, when the shield normal began following the arm
-  // that carries it -- after which sweeping the guard spins the plate's facing
-  // by an eighth turn every four ticks and the drive never caps at all. Mirrors
-  // `clinch_payload` in crates/web/src/lib.rs, which argues it at length.
+  // Intent, target, both grips, both release verbs and both swing planes stay
+  // zero: `Hold`, nobody, `Keep`, `Keep`, and the neutral plane.
+  // The sweep is the weapon arm's; the guard arm holds the torso bearing, which
+  // is zero rather than the body yaw -- `World::world_arm_target` adds the yaw
+  // back on under `CommandFrame::Torso`, so writing it here would ask for twice
+  // it. It swept both until 2026-08-16, when the shield normal began following
+  // the arm that carries it. Mirrors `clinch_payload` in crates/web/src/lib.rs,
+  // which argues both at length.
   for (const arm of [23, 37]) {
-    view.setUint16(arm, arm === 23 ? CLINCH_YAW[row] : bearing, true);
+    view.setUint16(arm, arm === 23 ? 0 : bearing, true);
     view.setInt32(arm + 2, HALF_RAW, true); // CombatHeight::MID
     view.setInt32(arm + 6, ONE_RAW, true); // full reach
     view.setInt32(arm + 10, ONE_RAW, true); // full effort
@@ -285,7 +302,7 @@ function clinchPayload(row, tick) {
 }
 
 // Returns the tick the cap fired on. The scratch is re-read from
-// `submitted_command_ptr()` on every write rather than kept as one view,
+// `embodied_command_ptr()` on every write rather than kept as one view,
 // because a fixture whose subject is "nothing detaches" is the last place to
 // assume a view is still attached.
 function driveToContactCap(wasm, checked) {
@@ -293,11 +310,11 @@ function driveToContactCap(wasm, checked) {
     for (let row = 0; row < 2; row++) {
       const scratch = new Uint8Array(
         wasm.memory.buffer,
-        wasm.submitted_command_ptr() >>> 0,
-        SUBMITTED_COMMAND_BYTES,
+        wasm.embodied_command_ptr() >>> 0,
+        EMBODIED_COMMAND_BYTES,
       );
       scratch.set(clinchPayload(row, tick));
-      const stored = wasm.submit_articulated(row, 0) >>> 0;
+      const stored = wasm.submit_embodied(row, 0) >>> 0;
       assert.equal(stored, 1, `tick ${tick}: the boundary refused row ${row}'s clinch command`);
     }
     // Guarded on the capping tick and not on each of the eighty-six, which
@@ -316,12 +333,13 @@ function driveToContactCap(wasm, checked) {
   throw new Error(`the clinch drive spent ${CLINCH_BUDGET} ticks without exhausting a group ordinal`);
 }
 
-// The articulated contact warmup, as a browser drives it: construct, walk the
+// The duel contact warmup, as a browser drives it: construct, walk the
 // roster at the row ceiling, tick, reset. A second fixture beside `exercise`
 // rather than a branch inside it, because the two share no export but `step`
-// -- an articulated world is a different world, not a different level.
+// -- a two-body duel with no floor plan is a different world, not a different
+// level.
 //
-// **The reset is inside the fixture, not around it.** `init_articulated_test`
+// **The reset is inside the fixture, not around it.** `init_embodied_test`
 // builds the replacement world while the outgoing one is still owned, so the
 // peak footprint is two articulated worlds and it is the reset that reaches it.
 // A fixture that stopped short of its own reset would be warming a smaller
@@ -340,17 +358,17 @@ function contactWarmup(wasm, abi, seed, guard = null) {
     `${label}: the world is not reserved to the frame's row ceiling`,
   );
 
-  checked(`init_articulated_test(${seed})`, () => wasm.init_articulated_test(seed));
+  checked(`init_embodied_test(${seed})`, () => wasm.init_embodied_test(seed));
   // The reservation is the whole subject, and it is the one thing flat memory
   // cannot evidence on its own: a `Vec`'s capacity is invisible from here, and
   // "nothing grew" reads identically for "reserved once, up front" and for
   // "nothing has grown it yet". This export is the difference between them.
-  reserved(`init_articulated_test(${seed})`);
+  reserved(`init_embodied_test(${seed})`);
 
   // **To the row ceiling, and this loop is a fill now rather than a refusal.**
   // It asserted `0` on every call for as long as the host built every spec with
-  // no articulated row: an articulated world turned the whole legacy spawn path
-  // away, not merely its sixty-fifth caller. `Sim::walk_in` dresses the spec for
+  // no articulated row: a world with articulated columns turned the whole legacy
+  // spawn path away, not merely its sixty-fifth caller. `Sim::walk_in` dresses the spec for
   // the world it is entering now, so the bodies arrive -- which is the case the
   // old comment reserved the loop bound for, and only the expected return
   // changed. What is under test is unchanged and is the interesting half either
@@ -371,7 +389,7 @@ function contactWarmup(wasm, abi, seed, guard = null) {
   // measurement of *two* rows walking into each other. Driving the clinch on a
   // floor holding sixty-four bodies is a different fixture that happens to use
   // the same bytes, and it caps somewhere else.
-  checked(`duel before the clinch(${seed})`, () => wasm.init_articulated_test(seed));
+  checked(`duel before the clinch(${seed})`, () => wasm.init_embodied_test(seed));
   reserved(`duel before the clinch(${seed})`);
 
   // ---- the cap.
@@ -380,16 +398,16 @@ function contactWarmup(wasm, abi, seed, guard = null) {
   // the entity closure walked to a fixed point, and every frozen row restored
   // to its last-safe pose: whatever the solver was going to allocate per tick,
   // it allocates here or nowhere. Reaching it needs no export the boundary
-  // lacks -- v2-11's `submit_articulated` steers an articulated row, and two
-  // duel rows walked into each other with their arms sweeping reach the cap on
-  // tick 89. (The blocker recorded here through v2-15 said otherwise. It was
-  // reading the plan's next steering export as the only one, and missed the one
-  // already on the wall.)
+  // lacks -- `submit_embodied` steers a duel row, and two duel rows walked into
+  // each other with a weapon arm sweeping reach the cap on `CLINCH_CAP_TICK`.
+  // (The blocker recorded here through v2-15 said otherwise. It was reading the
+  // plan's next steering export as the only one, and missed the one already on
+  // the wall.)
   const capTick = driveToContactCap(wasm, checked);
   assert.equal(capTick, CLINCH_CAP_TICK, "the clinch no longer caps where Rust says it does");
   // Once, not once per group, and the same number `crates/web`'s
   // `the_boundary_clinch_reaches_the_contact_group_cap` measures against the
-  // same fifty-five bytes built from the same offsets on the other side.
+  // same sixty-one bytes built from the same offsets on the other side.
   assert.equal(wasm.contact_cap_hits() >>> 0, 1, "the cap tick was counted more than once");
   reserved("contact cap");
 
@@ -404,8 +422,8 @@ function contactWarmup(wasm, abi, seed, guard = null) {
   reserved("step(64)");
 
   // The reset, on the same call the page would use to start over.
-  checked(`reset init_articulated_test(${seed})`, () => wasm.init_articulated_test(seed));
-  reserved(`reset init_articulated_test(${seed})`);
+  checked(`reset init_embodied_test(${seed})`, () => wasm.init_embodied_test(seed));
+  reserved(`reset init_embodied_test(${seed})`);
 }
 
 test("the_browser_contact_warmup_does_not_grow_wasm_memory", () => {
@@ -413,8 +431,8 @@ test("the_browser_contact_warmup_does_not_grow_wasm_memory", () => {
   const wasm = instantiate();
   const seeds = [0, 1, 0xffff_ffff];
 
-  // A legacy level first, and it is load-bearing rather than scene-setting:
-  // `init_articulated_test` republishes neither the tiles, the fog nor the
+  // A generated level first, and it is load-bearing rather than scene-setting:
+  // `init_embodied_test` republishes neither the tiles, the fog nor the
   // furniture, so on an instance that has never seen an `init` all three are
   // zero-length -- and a zero-length retained view cannot witness a detach,
   // because a detached view reads a `byteLength` of zero too. This is the same
@@ -441,7 +459,7 @@ test("the_browser_contact_warmup_does_not_grow_wasm_memory", () => {
   // live `combat_events` reservations that grew with it.
   //
   // The seeds are warmed in the order the guarded cycles drive them, because
-  // `init_articulated_test` builds a whole legacy `Sim` -- a generated floor,
+  // `init_embodied_test` builds a whole `Sim` -- a generated floor,
   // its nav fields and its fog -- before it replaces the world, and a floor's
   // footprint depends on its seed. None of that is what this test is about, and
   // warming it out of the way is what keeps the subject the reservation.
@@ -505,7 +523,7 @@ test("the_browser_contact_warmup_does_not_grow_wasm_memory", () => {
   // step to 305 at round thirty-eight, 349 at round thirty-nine, then 349
   // unchanged through round one hundred.** Thirty-seven therefore ended one
   // round before the first of two steps, and both landed inside a *guarded*
-  // cycle -- `seed 0, cycle 1, reset init_articulated_test(0)` -- which reads as
+  // cycle -- `seed 0, cycle 1, reset init_embodied_test(0)` -- which reads as
   // a leak and is not one: sixty-one consecutive flat rounds is the strongest
   // tail this fixture has ever recorded.
   //
@@ -854,7 +872,7 @@ function articulatedStress(wasm, abi, seed, guard = null) {
 
   // ---- the room the page opens.
   //
-  // Not the two-body duel `init_articulated_test` opens: this is the generated
+  // Not the two-body duel `init_embodied_test` opens: this is the generated
   // floor plan, its furniture and its roster, so it reserves 64 rows of contact
   // vectors *and* republishes the map, the fog and the furniture.
   checked(`init(${seed})`, () => wasm.init(seed));
@@ -912,13 +930,13 @@ function articulatedStress(wasm, abi, seed, guard = null) {
   // ---- the contact and event maxima.
   //
   // The duel, because the clinch is measured against it: two rows walked into
-  // each other with their arms sweeping spend every contact group ordinal on
-  // tick 89, and that tick is the one shape whose scratch use is maximal.
-  // The generated room cannot be driven there -- its second body is
+  // each other with a weapon arm sweeping spend every contact group ordinal on
+  // `CLINCH_CAP_TICK`, and that tick is the one shape whose scratch use is
+  // maximal. The generated room cannot be driven there -- its second body is
   // wherever the generator put it -- so the fixture switches worlds rather than
   // steering blind.
-  checked(`init_articulated_test(${seed})`, () => wasm.init_articulated_test(seed));
-  reserved(`init_articulated_test(${seed})`);
+  checked(`init_embodied_test(${seed})`, () => wasm.init_embodied_test(seed));
+  reserved(`init_embodied_test(${seed})`);
   const capTick = driveToContactCap(wasm, checked);
   assert.equal(capTick, CLINCH_CAP_TICK, "the clinch no longer caps where Rust says it does");
   assert.equal(wasm.contact_cap_hits() >>> 0, 1, "the cap tick was counted more than once");
@@ -936,12 +954,12 @@ function articulatedStress(wasm, abi, seed, guard = null) {
     for (let row = 0; row < 2; row++) {
       const scratch = new Uint8Array(
         wasm.memory.buffer,
-        wasm.submitted_command_ptr() >>> 0,
-        SUBMITTED_COMMAND_BYTES,
+        wasm.embodied_command_ptr() >>> 0,
+        EMBODIED_COMMAND_BYTES,
       );
       scratch.set(clinchPayload(row, tick));
       assert.equal(
-        wasm.submit_articulated(row, 0) >>> 0,
+        wasm.submit_embodied(row, 0) >>> 0,
         1,
         `batch ${round}: the boundary refused row ${row}'s clinch command`,
       );
@@ -1011,7 +1029,7 @@ test("published_views_survive_articulated_stress_without_memory_growth", () => {
   // contact fixture above: the retained MAP, VIS and FURNITURE views must have a
   // non-zero length before the guard closes, because a detached view reads a
   // `byteLength` of zero and so does a view that was never over anything. `init`
-  // does republish all three -- unlike `init_articulated_test` -- so the fixture
+  // does republish all three -- unlike `init_embodied_test` -- so the fixture
   // below would warm them anyway, and this line keeps the three fixtures reading
   // the same way.
   wasm.init(1);

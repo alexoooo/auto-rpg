@@ -71,13 +71,21 @@
 //! `embodied_guard.rs` copies three of `embodied_script.rs`'s constants rather
 //! than importing them, because the script is the frozen control of this topic
 //! and a control that moves with its subject measures nothing. The same argument
-//! runs the other way here. [`StrikePlanner`] is also driven by
-//! `TacticalArticulatedPolicy`, which is what `#/arena` renders and what
+//! runs the other way here. [`StrikePlanner`] was also driven by
+//! `TacticalArticulatedPolicy`, which is what `#/arena` rendered and what
 //! `docs/performance/` records under `articulated-duel-v1`; retuning the
 //! constants in place would have retuned that policy too, silently, on a corpus
 //! nobody was going to re-run. [`Footwork::ARTICULATED`] is therefore that
 //! file's own two numbers exactly, [`Footwork::EMBODIED`] is what session 04
 //! swept, and `StrikePlanner::default()` still answers the articulated row.
+//!
+//! **Session 05 deleted that second driver and the row stays**, which is worth
+//! saying because the obvious cleanup is to fold it back into constants now that
+//! one policy reads it. What it buys is no longer isolation from a second
+//! policy: it is that every sweep table in `docs/performance/` is reproducible
+//! from `lab embodied --footwork` rather than from an edit to a constant and a
+//! rebuild, which is how session 04 produced them and why the review that
+//! followed could not check one of them.
 //!
 //! **Every table is reproducible from a shipped command.** `lab embodied
 //! --footwork margin,floor,lunge,unwind` replaces this row for the two registry

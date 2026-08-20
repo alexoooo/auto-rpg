@@ -20,21 +20,11 @@ use args::Args;
 use trace::{FightTrace, TraceRun};
 use fx::{Fx, Hash64, Vec2};
 use policy::{ArmRoles, EmbodiedPolicy, EmbodiedPolicyKind, Footwork, RunConfig};
-// The articulated block below `verify_one_embodied` is test-only and goes with
-// `CombatModel::Articulated`; these are its imports, gated so the release build
-// stays warning-free rather than by widening the block back into the binary.
-#[cfg(test)]
-use policy::{
-    script_digest, ArticulatedPolicy, ClosingAttackControlPolicy, ScriptedArticulatedPolicy,
-    WindmillArticulatedPolicy,
-};
 use sim::{
     AnatomyChoice, CombatHeight, ContactKind, DuelConfigV1, EntityId, Faction, Intent,
     Outcome, Replay, Scenario, StateDigest, SubmitEmbodiedOutcome,
     SubmittedCommand, SubmittedCommandRecord, World,
 };
-#[cfg(test)]
-use sim::SubmitArticulatedOutcome;
 use std::time::Instant;
 
 fn main() {
@@ -333,64 +323,16 @@ fn verify_one_embodied(
     }
 }
 
-// ------------------------------------------------------- the articulated fixture
+// ------------------------------------------------------------ the shared readers
 //
-// **Everything from here to `height_index` is test-only and goes with
-// `CombatModel::Articulated`.** `lab articulated` was deleted three sessions
-// ago and `lab trace` stopped being articulated in v2-ui-08, so nothing this
-// binary can be asked to do reaches any of it. What is left is the evidence the
-// articulated model still owes -- the three scripts are distinguishable, the
-// measured loop is the runner's loop, and the created-energy excess is zero on
-// two seeds under three scripts -- and deleting that evidence before the model
-// it is about would be deleting a test to save a compile. The step that removes
-// the enum removes this block and its three tests together.
-
-/// Which script drives both sides of the fixture.
-///
-/// **One of these is the reference and two are controls**, and the naming says
-/// so on purpose: `Composed` is the twelve-phase script the `ARPG-SCRIPT-V1`
-/// digest is defined over, and nothing recorded under either other arm may be
-/// offered as evidence for it.
-///
-/// It had `Tactical` and `Openings` arms until v2-ui-08. They were `--policy`
-/// spellings and nothing else -- no evidence test named either -- so they went
-/// with the flag rather than being kept as an enum nobody constructs.
-///
-/// The controls exist because checkpoint A's 800/800 tick-limit corpus turned
-/// out to be a property of the script rather than of the physics: phases 3, 4,
-/// 7 and 8 command `move_dir: Vec2::ZERO`, both bodies coast to a standstill
-/// inside every attack, and the arm term alone cannot reach
-/// `CONTACT_ENERGY_FLOOR`. Both controls put the feet back -- the windmill
-/// because it always walked, the closing script because that is the single
-/// cell under evaluation -- so between them they say whether the floor is
-/// binding for this physics or only for that reading of the table.
-#[cfg(test)]
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-enum Script {
-    Composed,
-    Windmill,
-    ClosingAttacks,
-}
-
-#[cfg(test)]
-impl Script {
-    /// A fresh instance per faction, which is what the fixture asks for.
-    fn policy(self) -> Box<dyn ArticulatedPolicy> {
-        match self {
-            Script::Composed => Box::new(ScriptedArticulatedPolicy),
-            Script::Windmill => Box::new(WindmillArticulatedPolicy),
-            Script::ClosingAttacks => Box::new(ClosingAttackControlPolicy),
-        }
-    }
-
-    fn name(self) -> &'static str {
-        match self {
-            Script::Composed => "the composed script",
-            Script::Windmill => "the windmill control",
-            Script::ClosingAttacks => "the composed script with closing attacks (control)",
-        }
-    }
-}
+// **What is left of the articulated block that stood here.** It carried a
+// `Script` enum over three articulated policies and the evidence those policies
+// still owed; the policies went in session 05 and the evidence went with them,
+// because a control you cannot construct is not a control. What is below
+// outlived it for the reason the block's own banner gave away -- not one of them
+// was ever articulated-only. Two matchup-key readers, a reflection and a height
+// bucket read a command line, a spawn row and a `CombatHeight`, and none of
+// those is a combat model.
 
 /// The two asymmetric keys, spelled once.
 ///
@@ -460,8 +402,8 @@ fn mirror_spawns(scenario: &mut Scenario) {
 /// Which of the three ordinary heights this is, or `None`.
 ///
 /// **`None` rather than a fourth bucket**, because the fourth height that
-/// exists -- the Dev control's raw `24_576` -- belongs to a command path none of
-/// the three scripts here can reach, and a bucket for it would be a column that
+/// exists -- the Dev control's raw `24_576` -- belongs to a command path no
+/// registered policy can reach, and a bucket for it would be a column that
 /// is always zero and therefore never read. If one ever appears in this corpus
 /// the pair is dropped and the table's own total stops matching the tick count,
 /// which is a louder signal than a silent fourth column.
@@ -474,14 +416,14 @@ fn height_index(height: CombatHeight) -> Option<usize> {
 /// One measured run of the fixture.
 ///
 /// A sibling of `policy::RunResult` rather than an extension of it, and the
-/// reason is the same one that keeps the loop below from simply calling
-/// `policy::run_articulated`: three of the numbers a mechanical measurement
-/// turns on -- how many contacts resolved, `contact_cap_hits`, and the worst
-/// per-tick energy-ledger excess -- are read off the **world** immediately
-/// after each step, and `RunResult` deliberately carries none of them. Widening
-/// `RunResult` would hang four body-model columns off the struct every rollout
-/// in the workspace allocates, on the hot path of the numbers that must not
-/// move. Two copies of a loop is a thing that drifts, so
+/// reason is the same one that keeps [`measure_embodied_matchup`] from simply
+/// calling `policy::run_embodied`: three of the numbers a mechanical
+/// measurement turns on -- how many contacts resolved, `contact_cap_hits`, and
+/// the worst per-tick energy-ledger excess -- are read off the **world**
+/// immediately after each step, and `RunResult` deliberately carries none of
+/// them. Widening `RunResult` would hang four body-model columns off the struct
+/// every rollout in the workspace allocates, on the hot path of the numbers
+/// that must not move. Two copies of a loop is a thing that drifts, so
 /// `the_measured_run_is_the_run_the_harness_would_have_driven` pins this one
 /// against the runner's.
 #[derive(Clone, Debug)]
@@ -554,189 +496,6 @@ struct ArticulatedTrial {
     rejected: u32,
     digest: u64,
     state: StateDigest,
-}
-
-/// One seed of an articulated fixture driven to its stop, with the two sides
-/// chosen by the caller.
-///
-/// A copy of `run_articulated`'s decision loop rather than a call to it, for the
-/// reason [`ArticulatedTrial`] gives: three of the columns below are read off
-/// the **world** immediately after each step and `RunResult` carries none of
-/// them. Two copies of a loop drift, so
-/// `the_measured_run_is_the_run_the_harness_would_have_driven` pins this one
-/// against the runner's.
-///
-/// **The two sides are separate parameters** because the corpus that drove this
-/// always put one script on both and `lab trace` did not. Both callers are gone
-/// -- the articulated corpus with the model, `trace` to
-/// `measure_embodied_matchup` in v2-ui-08 -- and the shape is kept rather than
-/// narrowed, because narrowing it would be editing the loop the three surviving
-/// tests exist to hold still.
-#[cfg(test)]
-fn measure_articulated_matchup(
-    scenario: &Scenario,
-    seed: u64,
-    hero_policy: &mut dyn ArticulatedPolicy,
-    monster_policy: &mut dyn ArticulatedPolicy,
-    mut recorder: Option<&mut FightTrace>,
-) -> ArticulatedTrial {
-    let config = RunConfig::default();
-    let mut world = World::new(scenario, seed);
-    // Set for the reason `run_articulated` sets them: an articulated
-    // observation has no order column so nothing reads these, and they reach
-    // the state hash anyway, so a driver that skipped them would fingerprint a
-    // different world from the one the runner fingerprints for the same seed.
-    for (faction, order) in [
-        (Faction::Heroes, config.orders[0]),
-        (Faction::Monsters, config.orders[1]),
-    ] {
-        world.set_order(faction, order);
-    }
-
-    // **One fresh policy per faction**, which the fixture specifies and
-    // `run_articulated` deliberately does not do -- it drives one instance
-    // across both sides. Both are the same stateless script today so the two
-    // shapes cannot be told apart, and the split is still the right one: the day
-    // one side gets a different script, the thing that has to change must not be
-    // the shape of this loop. Routed on the alive set rather than on the
-    // observation, which has no faction column by design.
-    //
-    // Reset anyway, on `ArticulatedPolicy::reset`'s contract. It is a no-op on
-    // an instance built one line above and on a policy with no state, and it is
-    // what stops "fresh" from quietly meaning "whatever a stateful successor
-    // happens to construct itself with".
-    let heroes = world.alive_ids(Faction::Heroes);
-    hero_policy.reset();
-    monster_policy.reset();
-
-    let mut due: Vec<EntityId> = Vec::new();
-    let mut stream: Vec<SubmittedCommandRecord> = Vec::new();
-    let mut contacts = 0u64;
-    let mut kinds = [0u64; 4];
-    let mut guard_pairs = [[0u64; 3]; 3];
-    // One row per body that decided this tick: whether it asked to attack, the
-    // height its weapon arm was commanded to, and the height its off arm was
-    // commanded to. Cleared and refilled rather than allocated, because this
-    // runs inside the tick loop of every seed on every thread.
-    let mut commanded: Vec<(bool, Option<usize>, Option<usize>)> = Vec::new();
-    let mut max_energy_excess = 0u64;
-    let mut severances = 0u64;
-    let mut max_blow_raw = 0u64;
-    let mut max_tick_damage = Fx::ZERO;
-    let mut dealt = Fx::ZERO;
-    let mut rejected = 0u32;
-
-    // The runner's expression, character for character, rather than
-    // `scenario.max_ticks` -- which is the same number today only because
-    // `RunConfig::default` leaves the override unset.
-    let limit = config.max_ticks.unwrap_or(scenario.max_ticks);
-    // Frame zero is the fixture as it spawned, before anybody has decided
-    // anything. It is the only frame that shows the starting geometry, which is
-    // half of what a first look at this fight is for.
-    if let Some(trace) = recorder.as_deref_mut() {
-        trace.record(&world);
-    }
-    while world.outcome().is_none() && world.tick() < limit {
-        due.clear();
-        due.extend_from_slice(world.pending_decisions());
-        commanded.clear();
-        for &id in &due {
-            let obs = world.observe_articulated(id);
-            let command = if heroes.contains(&id) {
-                hero_policy.decide(&obs)
-            } else {
-                monster_policy.decide(&obs)
-            };
-            // Read off the *offered* command and the roles the script itself
-            // assigned, before the world has had a chance to refuse anything.
-            // The lockstep question is about what the two scripts asked for --
-            // a refused submission is already counted, loudly, one field down.
-            let roles = ArmRoles::of(&obs);
-            commanded.push((
-                matches!(command.intent, Intent::Attack(_)),
-                height_index(command.arms[roles.weapon].height),
-                height_index(command.arms[1 - roles.weapon].height),
-            ));
-            match world.submit_articulated_v1(id, command) {
-                SubmitArticulatedOutcome::Stored { command, rejection } => {
-                    if rejection.is_some() {
-                        rejected += 1;
-                    }
-                    // The stored command and never the offered one, which is
-                    // what `ARPG-SCRIPT-V1` is defined over: a refused
-                    // submission stores the neutral command, and the digest has
-                    // to describe the fight that happened.
-                    stream.push(SubmittedCommandRecord {
-                        tick: world.tick(),
-                        entity: id,
-                        command: SubmittedCommand::Articulated(command),
-                    });
-                }
-                SubmitArticulatedOutcome::NotStored(_) => rejected += 1,
-            }
-        }
-        // Ordered pairs and not unordered ones: "who was swinging" and "who was
-        // holding the plate" are different roles, and on this fixture only one
-        // of the two bodies carries a shield at all, so folding the pair would
-        // average the interesting cell with a cell that has no plate in it.
-        for (attacker, &(attacking, weapon, _)) in commanded.iter().enumerate() {
-            let Some(weapon) = weapon.filter(|_| attacking) else { continue };
-            for (defender, &(_, _, guard)) in commanded.iter().enumerate() {
-                if defender == attacker {
-                    continue;
-                }
-                if let Some(guard) = guard {
-                    guard_pairs[weapon][guard] += 1;
-                }
-            }
-        }
-        let _ = world.step();
-        for row in world.contact_resolutions() {
-            contacts += 1;
-            kinds[row.fact.key.kind as usize] += 1;
-            max_energy_excess = max_energy_excess
-                .max(row.energy.after_raw.saturating_sub(row.energy.before_raw));
-            severances += u64::from(row.severed);
-            // Cut plus thrust and not pressure: the two channels a weapon-body
-            // fact bills a wound out of. Pressure is the leaning term, which is
-            // where all of checkpoint A's attrition came from and is exactly
-            // what a "blow" has to be measured apart from.
-            max_blow_raw = max_blow_raw.max(row.cut_raw.saturating_add(row.thrust_raw));
-        }
-        let total = world.damage_dealt(Faction::Heroes) + world.damage_dealt(Faction::Monsters);
-        max_tick_damage = max_tick_damage.max(total - dealt);
-        dealt = total;
-        if let Some(trace) = recorder.as_deref_mut() {
-            trace.record(&world);
-        }
-    }
-
-    let settled = world.outcome();
-    ArticulatedTrial {
-        seed,
-        outcome: settled.unwrap_or_else(|| world.timeout()),
-        timed_out: settled.is_none(),
-        ticks: world.tick(),
-        hero_health: world.health_fraction(Faction::Heroes),
-        monster_health: world.health_fraction(Faction::Monsters),
-        contacts,
-        kinds,
-        guard_pairs,
-        cap_hits: world.contact_cap_hits(),
-        max_energy_excess,
-        solver_rejections: world.contact_solver_rejections(),
-        first_rejection: world.first_contact_rejection(),
-        severances,
-        max_blow_raw,
-        max_tick_damage,
-        rejected,
-        // `expect` and not a fallback: this arm drives an articulated world, so
-        // every record is an articulated one and a refusal here would mean the
-        // fixture had changed model underneath the harness -- which is a thing
-        // to stop on rather than to report a number for.
-        digest: script_digest(&stream).expect("an articulated run stores articulated commands"),
-        state: world.state_digest(),
-    }
 }
 
 /// Distribution of a batch of values.
@@ -944,13 +703,12 @@ fn report_trials(
     println!("commands  {rejected} refused submissions");
 
     // The two fingerprints of the canonical seed-zero run, printed and
-    // deliberately **not** recorded anywhere. `ARTICULATED_HASH` is created
-    // once, at the very end of v2-17, after both gates pass; a constant pinned
-    // here would be a promise about a physics that checkpoint B is still allowed
-    // to change, and `docs/reference/hashes.md` forbids exactly that. The
-    // embodied corpus prints the same line and is under the same rule: its pin
-    // is `EMBODIED_CORPUS_DIGEST`, which is a fold over a frozen corpus reached
-    // by its own flag, and is not this line under another name.
+    // deliberately **not** recorded anywhere. A constant pinned here would be a
+    // promise about whatever `--seeds`, `--policy` and `--footwork` last named,
+    // and `docs/reference/hashes.md` forbids a pin that a flag can redirect.
+    // This corpus already has one: `EMBODIED_CORPUS_DIGEST` is a fold over a
+    // frozen corpus reached by its own flag, which refuses every override, and
+    // it is not this line under another name.
     if let Some(pin) = canonical.first().filter(|t| t.seed == 0) {
         println!(
             "seed 0    {:?}/{} 0x{:016x}  script 0x{:016x}",
@@ -986,38 +744,40 @@ fn report_trials(
 /// what `lab trace` measures a fight into.
 type EmbodiedTrial = ArticulatedTrial;
 
-/// The ASCII domain prefix of [`embodied_script_digest`], on
-/// `policy::SCRIPT_DIGEST_DOMAIN`'s own precedent: a bare FNV of a byte stream
-/// is a number any other byte stream can collide with, and a domain prefix is
-/// the cheapest way to make "this is an *embodied* command stream" part of what
-/// was hashed. A different prefix from the articulated one, deliberately, since
-/// the two grammars differ by four bytes and a shared prefix would invite the
-/// comparison.
+/// The ASCII domain prefix of [`embodied_script_digest`], on the retired
+/// `ARPG-SCRIPT-V1`'s own precedent: a bare FNV of a byte stream is a number any
+/// other byte stream can collide with, and a domain prefix is the cheapest way
+/// to make "this is an *embodied* command stream" part of what was hashed. A
+/// different prefix from the articulated one, deliberately, since the two
+/// grammars differed by four bytes and a shared prefix would have invited the
+/// comparison. The articulated digest is gone and the prefix stays as it is:
+/// every number recorded under it in `docs/performance/` was folded this way.
 const EMBODIED_SCRIPT_DIGEST_DOMAIN: &[u8] = b"ARPG-EMBODIED-SCRIPT-V1";
 
 /// One embodied run's stored command stream, as eight bytes.
 ///
-/// **This exists because `policy::script_digest` answers the empty-stream
-/// constant for every embodied fight, and does it silently.** Its loop is
-/// `let SubmittedCommand::Articulated(command) = record.command else { continue }`,
-/// and its doc comment accounts for the skipped arm as
-/// `SubmittedCommand::Legacy`, which "cannot occur". `SubmittedCommand::Embodied`
-/// occurs on every record of every embodied run, so the digest counts zero
-/// records and finishes at `0x89b684347e2caedd` -- the same number for the
-/// script, the control, and a matchup with a different policy on each side.
-/// Three tests in this file were written against it and all three failed on the
-/// first run, which is the only reason it was found: an embodied corpus reported
-/// a `script` column that looked like a fingerprint and was a constant.
+/// **It exists because the shared digest it replaced answered a constant for
+/// every embodied fight, and did it silently. Keep the correction even though
+/// the offending function is gone.** `policy::script_digest` kept only
+/// `SubmittedCommand::Articulated` records and accounted for the skipped arm as
+/// a variant that "cannot occur"; `SubmittedCommand::Embodied` occurs on every
+/// record of every embodied run, so it counted zero records and finished at
+/// `0x89b684347e2caedd` for the script, for the control, and for a matchup with
+/// a different policy on each side. Three tests in this file were written
+/// against it and all three failed on their first run, which is the only reason
+/// it was ever found: an embodied corpus was printing a `script` column that
+/// looked like a fingerprint and was a constant. **The shape to remember is not
+/// the missing arm -- it is that a digest which silently folds nothing reads
+/// exactly like a digest, and only a test that expected two runs to differ can
+/// tell them apart.**
 ///
-/// **The fix belongs in `crates/policy` and is not taken here.** Teaching
-/// `script_digest` the third arm is a one-line change to a function that feeds
+/// It was left unrepaired at the time because `script_digest` fed
 /// `ARTICULATED_STREAM_DIGEST`'s neighbours and every pinned articulated
-/// `script` column, and this session's whole job is to record numbers that hold
-/// still. So the embodied corpus digests its own stream, under its own domain,
-/// and the day `script_digest` grows the arm this function is what it has to
-/// agree with -- or be deleted in favour of.
+/// `script` column, and that session's job was to record numbers that held
+/// still. Session 05 deleted it with the articulated model instead, so this is
+/// now the only command-stream digest in the binary rather than the second one.
 ///
-/// The grammar is `script_digest`'s, byte for byte, over
+/// The grammar is the retired digest's, byte for byte, over
 /// `EmbodiedCommandV1::payload_bytes` instead of the articulated 53: the tick,
 /// the subject's full identity, the payload, and the record count last so that a
 /// stream cannot be extended by a record whose bytes happen to be zero.
@@ -1039,15 +799,15 @@ fn embodied_script_digest(records: &[SubmittedCommandRecord]) -> u64 {
     h.finish()
 }
 
-/// The sentence fragment naming an embodied policy in a report headline, on
-/// [`Script::name`]'s terms exactly.
+/// The sentence fragment naming an embodied policy in a report headline, in the
+/// terms the retired articulated corpus printed.
 ///
-/// Separate from [`EmbodiedPolicyKind::name`] for the reason [`Script::token`]
-/// is separate from [`Script::name`]: that one is the identifier a command line
-/// and a trace header spell, this one is English. The vocabulary itself is *not*
-/// duplicated -- `--policy` parses through `EmbodiedPolicyKind::from_name`, so
-/// there is one list of embodied policy names in the repository and this
-/// function does not add a second.
+/// Separate from [`EmbodiedPolicyKind::name`] because the two answer different
+/// questions: that one is the identifier a command line and a trace header
+/// spell, this one is English. The vocabulary itself is *not* duplicated --
+/// `--policy` parses through `EmbodiedPolicyKind::from_name`, so there is one
+/// list of embodied policy names in the repository and this function does not
+/// add a second.
 fn embodied_name(kind: EmbodiedPolicyKind) -> &'static str {
     match kind {
         EmbodiedPolicyKind::Neutral => "the neutral control",
@@ -1061,13 +821,16 @@ fn embodied_name(kind: EmbodiedPolicyKind) -> &'static str {
 
 /// Which embodied policy drives each side.
 ///
-/// [`Matchup`]'s sibling and deliberately not a widening of it. The two hold
-/// different enums because the two enums build different traits --
-/// `Box<dyn ArticulatedPolicy>` and `Box<dyn EmbodiedPolicy>` -- returning
-/// different command types, and a single matchup over a runtime-tagged script
-/// would make "which model is this fight" a question answered at the submission
-/// call rather than at the type. That is the argument `embodied_script.rs`
-/// exists as a separate file for, one layer down.
+/// It had an articulated sibling until session 05, and the two were deliberately
+/// separate rather than one matchup over a runtime-tagged script: they built
+/// different traits returning different command types, and folding them would
+/// have made "which model is this fight" a question answered at the submission
+/// call rather than at the type. **The argument outlived the sibling and is
+/// worth keeping, because the submission entries did not become type-safe when
+/// the second model went away.** `World::submit_embodied_v1` compiles against an
+/// articulated world and answers `CommandReject::WrongModel` at runtime, so the
+/// only thing that has ever stopped a harness from measuring a corpus of
+/// refusals is that the wrong grammar is unspellable here.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 struct EmbodiedMatchup {
     heroes: EmbodiedPolicyKind,
@@ -1084,7 +847,8 @@ struct EmbodiedMatchup {
     footwork: Option<Footwork>,
 }
 
-/// A bare kind *is* the symmetric matchup, exactly as a bare [`Script`] is.
+/// A bare kind *is* the symmetric matchup, which is what lets every call site
+/// that names one policy stay a call site that names one policy.
 impl From<EmbodiedPolicyKind> for EmbodiedMatchup {
     fn from(kind: EmbodiedPolicyKind) -> EmbodiedMatchup {
         EmbodiedMatchup::symmetric(kind)
@@ -1115,8 +879,9 @@ impl EmbodiedMatchup {
     }
 
     /// One name when both sides are the same and "x against y" when they are
-    /// not, which is [`Matchup::name`]'s rule and is what lets a symmetric
-    /// embodied corpus be read without noticing the feature.
+    /// not, which is the rule the retired articulated matchup printed under and
+    /// is what lets a symmetric embodied corpus be read without noticing the
+    /// feature.
     fn name(self) -> String {
         let pair = if self.is_symmetric() {
             embodied_name(self.heroes).to_string()
@@ -1227,8 +992,9 @@ fn embodied_matchup_from(args: &Args) -> Result<EmbodiedMatchup, String> {
     // `--policy` sets both, so a bare `--policy` with no value would silently
     // resolve to the default and run a corpus nobody asked for. It is the same
     // demotion the two asymmetric keys are refused for, and it is refused here
-    // rather than in the shared helper because the shared helper is used by a
-    // reader whose `--policy` is [`script_from`]'s, which has its own arms.
+    // rather than in [`matchup_key_refusal`]: that helper is deliberately
+    // ignorant of any policy vocabulary, which is what made it shareable with a
+    // second reader while there were two models to read for.
     if args.flag("policy") {
         return Err(
             "--policy names the embodied policy driving both sides and needs a value: \
@@ -1384,14 +1150,19 @@ impl ElevationProbe {
 /// Drives one seed of an embodied fixture to its stop and records what the
 /// mechanics did.
 ///
-/// A second copy of [`measure_articulated_matchup`]'s loop and **not** a
-/// generalisation of it. The two differ in the one place a generalisation would
-/// have had to hide: the command type. `submit_embodied_v1` takes an
-/// `EmbodiedCommandV1`, whose `swing_plane` has no articulated counterpart, and
-/// a loop that took both through a runtime tag would put the model behind a
-/// branch at exactly the call that decides which grammar the world is speaking.
-/// `World::submit_embodied_v1` already refuses the wrong model by name, and the
-/// value of that refusal is that nothing ever reaches it.
+/// A second copy of `policy::run_embodied`'s decision loop and **not** a call to
+/// it, for the reason [`ArticulatedTrial`] gives: three of the columns below are
+/// read off the **world** immediately after each step and `RunResult` carries
+/// none of them. Two copies of a loop drift, so
+/// `the_measured_run_is_the_run_the_harness_would_have_driven` pins this one
+/// against the runner's, column by column and down to the command stream.
+///
+/// **The two sides are separate parameters** because `run_embodied` drives one
+/// policy instance across both factions and a corpus of two different policies
+/// cannot. That is not cosmetic here the way it was under the articulated
+/// scripts: `ScriptedEmbodiedPolicy` carries per-run ground memory, so one
+/// instance across both bodies is a different fight from two wherever the floor
+/// is not flat.
 ///
 /// `limit` is the tick bound, `None` meaning the scenario's own. **A parameter
 /// rather than an edited `Scenario::max_ticks`**, because `max_ticks` is in the
@@ -1418,7 +1189,7 @@ fn measure_embodied_matchup(
 ) -> EmbodiedTrial {
     let config = RunConfig::default();
     let mut world = World::new(scenario, seed);
-    // Set *and recorded*, on `run_articulated`'s reasoning exactly: no embodied
+    // Set *and recorded*, on `run_embodied`'s reasoning exactly: no embodied
     // observation has an order column, so nothing reads these, and they reach
     // the state hash anyway. A replay that recorded only the inputs somebody
     // currently reads would stop reproducing its run the day the embodied model
@@ -1439,9 +1210,11 @@ fn measure_embodied_matchup(
     // stale handle out of the probe's mean rather than a second liveness query
     // per tick.
     let monsters = world.alive_ids(Faction::Monsters);
-    // **`reset` is load-bearing here in a way it is not on the articulated
-    // side.** `ScriptedEmbodiedPolicy` carries `GroundSense`, which is a row of
-    // per-run memory: the floor it started on and the highest it has reached. A
+    // **`reset` is load-bearing here in a way it was not under the articulated
+    // scripts.** `ScriptedEmbodiedPolicy` carries `GroundSense`, which is a row
+    // of per-run memory: the floor it started on and the highest it has
+    // reached -- where the three articulated scripts were stateless and could
+    // not tell a fresh instance from a reused one. A
     // corpus that reused an instance across seeds without this would carry seed
     // n-1's hill into seed n, and the symptom would be a win rate that depended
     // on the order the seeds were chunked into threads.
@@ -1666,8 +1439,8 @@ const EMBODIED_CORPUS_SEEDS: u64 = 8;
 /// The tick bound of the pin corpus.
 ///
 /// 600 rather than the fixture's 3,600 because of what those ticks contain: the
-/// articulated corpus reaches its clock in 95% of trials, so the last five sixths
-/// of a fight are two bodies that have already stopped deciding anything new,
+/// retired articulated corpus reached its clock in 95% of trials, so the last
+/// five sixths of a fight are two bodies that have stopped deciding anything new,
 /// while the first 600 are the whole approach -- the closing, the climb, the
 /// first exchanges, and on the sculpted fixture the terrain sampling that no
 /// other pinned corpus in this repository reaches. It also makes the constant's
@@ -2715,19 +2488,20 @@ fn trace_fight(args: &Args) {
     if learned {
         // `--opponent` names an `EmbodiedPolicyKind`, which is the same
         // vocabulary `--policy`, `--hero-policy` and `--monster-policy` read
-        // through `embodied_matchup_from`. It was `ArticulatedPolicyKind`'s
-        // three scripts until v2-ui-08, on a scaffold whose own comment named
-        // this step as the one that deletes it rather than edits it.
+        // through `embodied_matchup_from`. **This was the last reader in the
+        // binary with a vocabulary of its own**, and the whole value of closing
+        // it is that a policy named on a `trace` line, on an `embodied` line and
+        // in the studio picker is now one word in one list.
         //
-        // Every entry is offered rather than a chosen three, because
-        // `EmbodiedPolicyKind::build` cannot refuse: there is no arm here that
-        // answers `None` the way the articulated `Learned` code did, so a subset
-        // would be a shorter list with no reason behind it.
+        // Every entry is offered rather than a chosen few, because
+        // `EmbodiedPolicyKind::build` cannot refuse: no arm of it answers
+        // `None`, so a subset would be a shorter list with no reason behind it.
         //
-        // What this drops is `--phase-random`, and the refusal is
+        // What this arm does not have is `--phase-random`, and the refusal is
         // [`trace_phase_random_refusal`] rather than a sentence printed here.
-        // See it for why it is returned rather than printed, and for why it is
-        // read before this branch rather than inside it.
+        // See it for why it is returned rather than printed, for why it is read
+        // before this branch rather than inside it, and for where the shifted
+        // control still lives.
         let named = args.text("opponent").unwrap_or("scripted");
         let Some(opponent) = EmbodiedPolicyKind::from_name(named) else {
             let vocabulary: Vec<&str> =
@@ -2835,20 +2609,6 @@ fn trace_fight(args: &Args) {
 mod tests {
     use super::*;
 
-    /// One seed of the pinned *articulated* fixture under one script.
-    ///
-    /// **Symmetric, because nothing asymmetric is left to ask it.** It used to
-    /// take a `Matchup`; `trace` was the only caller that needed two sides and
-    /// `trace` is embodied since v2-ui-08, so the parameter was a shape kept for
-    /// a caller that no longer exists. The three tests that still use this are
-    /// the articulated model's own evidence and every one of them runs one
-    /// script on both sides.
-    fn measure_articulated(scenario: &Scenario, seed: u64, script: Script) -> ArticulatedTrial {
-        let mut heroes = script.policy();
-        let mut monsters = script.policy();
-        measure_articulated_matchup(scenario, seed, heroes.as_mut(), monsters.as_mut(), None)
-    }
-
     /// One seed of an embodied fixture under one matchup, with a frame recorder
     /// optionally hung off it.
     ///
@@ -2909,114 +2669,6 @@ mod tests {
         // 5000 runs at 150 would overflow a 16.16 accumulator.
         let values = vec![Fx::from_int(150); 5000];
         assert_eq!(Summary::of(&values).mean, Fx::from_int(150));
-    }
-
-    #[cfg(feature = "cartesian-recoil")]
-    #[derive(Clone, PartialEq, Eq, Debug)]
-    struct Smart116ControlReceipt {
-        mirrored: bool,
-        attempts: u32,
-        stored: u32,
-        decisions: [u32; 2],
-        steps: u32,
-        final_tick: u32,
-        solver_rejections: u32,
-        exact: Option<sim::ExactContactRejectionDiagnostic>,
-        pair: Option<sim::ExactScanPairRejectionDiagnostic>,
-        command_digest: u64,
-        state_domain: sim::HashDomain,
-        state_schema: u16,
-        state_value: u64,
-    }
-
-    #[cfg(feature = "cartesian-recoil")]
-    fn smart116_control(mut scenario: Scenario, mirrored: bool) -> Smart116ControlReceipt {
-        // These are the two retired Smart103/106 refusal boundaries, not a
-        // competence run. Canonical has a separately owned later solver
-        // refusal, so extending this receipt to 1,800 would conflate laws.
-        let limit = if mirrored { 111 } else { 211 };
-        scenario.max_ticks = limit;
-        let mut world = World::new(&scenario, 0);
-        let heroes = world.alive_ids(Faction::Heroes);
-        // Named through `policy::` rather than imported: this is the only caller
-        // left, and it is behind `cartesian-recoil`, so a plain `use` is an
-        // unused import in the default build.
-        let mut policies = [policy::TacticalArticulatedPolicy::default(),
-                            policy::TacticalArticulatedPolicy::default()];
-        policies[0].reset(); policies[1].reset();
-        let mut stream = Vec::new();
-        let mut attempts = 0u32; let mut stored = 0u32;
-        let mut decisions = [0u32; 2]; let mut steps = 0u32;
-        while world.outcome().is_none() && world.tick() < limit {
-            for id in world.pending_decisions().to_vec() {
-                let side = usize::from(!heroes.contains(&id));
-                let command = policies[side].decide(&world.observe_articulated(id));
-                attempts += 1; decisions[side] += 1;
-                match world.submit_articulated_v1(id, command) {
-                    SubmitArticulatedOutcome::Stored { command: accepted, rejection } => {
-                        assert!(rejection.is_none());
-                        assert_eq!(accepted, command);
-                        stored += 1;
-                        stream.push(SubmittedCommandRecord { tick: world.tick(), entity: id,
-                            command: SubmittedCommand::Articulated(accepted) });
-                    }
-                    SubmitArticulatedOutcome::NotStored(rejection) =>
-                        panic!("Smart116 command unexpectedly refused: {rejection:?}"),
-                }
-            }
-            let _ = world.step(); steps += 1;
-        }
-        let state = world.state_digest();
-        Smart116ControlReceipt {
-            mirrored, attempts, stored, decisions, steps, final_tick: world.tick(),
-            solver_rejections: world.contact_solver_rejections(),
-            exact: world.first_exact_contact_rejection(),
-            pair: world.exact_scan_pair_rejection(),
-            command_digest: script_digest(&stream)
-                .expect("an articulated run stores articulated commands"),
-            state_domain: state.domain, state_schema: state.schema, state_value: state.value,
-        }
-    }
-
-    #[cfg(feature = "cartesian-recoil")]
-    fn smart116_serial_controls() -> &'static [Smart116ControlReceipt; 2] {
-        static ROWS: std::sync::OnceLock<[Smart116ControlReceipt; 2]> =
-            std::sync::OnceLock::new();
-        ROWS.get_or_init(|| [
-            smart116_control(Scenario::articulated_duel(), false),
-            smart116_control(mirrored_embodied(&Scenario::articulated_duel()), true),
-        ])
-    }
-
-    #[cfg(feature = "cartesian-recoil")]
-    #[test]
-    fn old_smart103_and_smart106_boundaries_now_complete_without_refusal_or_diagnostics() {
-        let rows = smart116_serial_controls();
-        assert_eq!((rows[0].steps, rows[1].steps), (211, 111));
-        assert!(rows.iter().all(|row| row.solver_rejections == 0
-            && row.exact.is_none() && row.pair.is_none()));
-    }
-
-    #[cfg(feature = "cartesian-recoil")]
-    #[test]
-    fn tactical_control_submits_every_command_and_steps_each_tick_once() {
-        for row in smart116_serial_controls() {
-            assert_eq!(row.attempts, row.stored);
-            assert_eq!(row.attempts, row.decisions[0] + row.decisions[1]);
-            assert_eq!(row.steps, row.final_tick);
-            assert!(row.command_digest != 0 && row.state_value != 0);
-        }
-    }
-
-    #[cfg(feature = "cartesian-recoil")]
-    #[test]
-    fn tactical_control_receipts_ignore_thread_completion_order() {
-        let canonical = std::thread::spawn(||
-            smart116_control(Scenario::articulated_duel(), false));
-        let mirrored = std::thread::spawn(||
-            smart116_control(mirrored_embodied(&Scenario::articulated_duel()), true));
-        assert_eq!([canonical.join().unwrap(), mirrored.join().unwrap()],
-                   *smart116_serial_controls());
     }
 
     #[test]
@@ -3360,37 +3012,55 @@ mod tests {
 
     #[test]
     fn the_measured_run_is_the_run_the_harness_would_have_driven() {
-        // `measure_articulated` is a second copy of `run_articulated`'s decision
-        // loop, carrying the contact evidence `RunResult` does not. Two copies
-        // of a loop drift, and the way this one would drift is silent: a
+        // [`measure_embodied_matchup`] is a second copy of `policy::run_embodied`'s
+        // decision loop, carrying the contact evidence `RunResult` does not. Two
+        // copies of a loop drift, and the way this one would drift is silent: a
         // different order, a decision taken a tick late, a command recorded
         // before the world stored it, and the digest and the pin would describe
         // a run the runner never produced. So every column the two both carry
         // has to agree, including the command stream reduced to eight bytes.
         //
+        // **It was the articulated pair that stood here until session 05**,
+        // against `run_articulated` and the composed script. The claim belongs
+        // to the loops and not to the model, so it moved rather than went -- and
+        // one of the three caveats it carried is now a real difference rather
+        // than an invisible one, which is the reason to say where it moved from.
+        //
         // **What it cannot catch, stated so nobody trusts it further than it
-        // goes.** The two loops genuinely differ in three places, and all three
-        // are invisible against this policy: one instance per faction rather
-        // than one across both (the fixture asks for the split, and a stateless
-        // script cannot tell), the tick limit taken from `RunConfig` rather than
-        // straight off the scenario (the same number while the override is
-        // `None`), and `reset` (a no-op on a policy with no state). A stateful
-        // articulated policy would need a stronger comparison than this one.
-        let scenario = Scenario::articulated_duel();
-        let trial = measure_articulated(&scenario, 3, Script::Composed);
+        // goes.** The two loops differ in two places this fixture hides. The
+        // runner drives one policy instance across both factions and this loop
+        // builds one per side; `ScriptedEmbodiedPolicy` carries per-run ground
+        // memory, so that is a genuinely different fight the moment the floor is
+        // not flat -- on `embodied-slope-v1` these two harnesses are not
+        // comparable at all, and the fixture below is the flat one for that
+        // reason and not for speed. And the tick limit is taken from
+        // `RunConfig` here and from the parameter there, which is the same
+        // number only while both are told the same one.
+        let scenario = Scenario::embodied_duel();
+        let trial = measure_embodied(&scenario, 3, EmbodiedPolicyKind::Scripted, TEST_TICKS);
+        // **Every assertion below is satisfied by two harnesses that both
+        // measured nothing**, and that is not a hypothetical shape:
+        // `submit_embodied_v1` compiles against an articulated world and refuses
+        // it at *runtime*, so a pair of loops wired to the wrong entry would
+        // agree perfectly about a fight in which nobody moved. A contact count
+        // is the cheapest number a refused corpus cannot produce.
+        assert!(trial.contacts > 0, "the compared run never touched");
+        assert_eq!(trial.rejected, 0, "the fixture refused a submission");
+
         let config = RunConfig {
             record: true,
+            max_ticks: TEST_TICKS,
             ..RunConfig::default()
         };
         let harness =
-            policy::run_articulated(&scenario, 3, ScriptedArticulatedPolicy, &config);
+            policy::run_embodied(&scenario, 3, EmbodiedPolicyKind::Scripted.build(), &config);
         assert_eq!(trial.ticks, harness.ticks);
         assert_eq!(trial.outcome, harness.outcome);
         assert_eq!(trial.hero_health, harness.hero_health);
         assert_eq!(trial.monster_health, harness.monster_health);
         assert_eq!(trial.rejected, harness.rejected);
         let replay = harness.replay.as_ref().expect("recording was requested");
-        assert_eq!(Some(trial.digest), script_digest(&replay.submitted_entries));
+        assert_eq!(trial.digest, embodied_script_digest(&replay.submitted_entries));
         // And the typed digest, which `RunResult` does not carry: replaying the
         // runner's own recording has to land on the exact state this loop
         // reported. Through `compare` rather than `==`, because `StateDigest`
@@ -3421,36 +3091,6 @@ mod tests {
         assert_eq!(back, original, "the reflection moved something that is not a spawn");
     }
 
-    #[test]
-    fn each_script_is_a_different_fight_and_only_one_of_them_is_the_reference() {
-        // The controls have to be reachable *and* distinguishable, or the
-        // comparison they exist for is a comparison of one thing with itself.
-        // The digest is the right witness: it is the stored command stream, so
-        // two scripts sharing it would mean the flag reached nothing.
-        let scenario = Scenario::articulated_duel();
-        let composed = measure_articulated(&scenario, 3, Script::Composed);
-        let windmill = measure_articulated(&scenario, 3, Script::Windmill);
-        let closing = measure_articulated(&scenario, 3, Script::ClosingAttacks);
-        assert_ne!(composed.digest, windmill.digest);
-        assert_ne!(composed.digest, closing.digest);
-        assert_ne!(windmill.digest, closing.digest);
-
-        // And the reference arm is still bit-for-bit the run the harness drives
-        // with the reference policy, which is what stops a control from
-        // becoming the pin by way of a default.
-        let harness = policy::run_articulated(
-            &scenario,
-            3,
-            ScriptedArticulatedPolicy,
-            &RunConfig {
-                record: true,
-                ..RunConfig::default()
-            },
-        );
-        let replay = harness.replay.as_ref().expect("recording was requested");
-        assert_eq!(Some(composed.digest), script_digest(&replay.submitted_entries));
-    }
-
     #[cfg(not(feature = "cartesian-recoil"))]
     #[test]
     fn zero_created_energy_excess_and_intentional_refusals_are_separate_evidence() {
@@ -3463,85 +3103,81 @@ mod tests {
         // as proof of soundness. The rejection cause is therefore pinned beside
         // it instead of treating every refusal as evidence of created energy.
         //
-        // Written first as `solver_rejections > 0`, because that was the state
-        // of the tree: the fixture refused roughly two hundred of its 3,600
-        // ticks under every script, always `ResolutionError::Projector`, the
-        // `after > before` arm. Checkpoint B found the cause -- `project`
-        // re-derived every equipment row through the joint's inexact inverse
-        // map at every alpha including zero, and the drift read as created
-        // energy -- and this assertion is its gate, inverted rather than
-        // deleted so that the direction it was inverted from stays on the
-        // record. Smart102 then separated that law from the windmill's one
-        // intentional `EnergyNumerator` refusal: its two-contact group loses one
-        // raw unit while both allocation weights are zero, so refusing is the
-        // only honest result. Composed and closing do not reach that boundary.
-        // Smart134's doubled arm bearing rates moved the intentional refusal off
-        // this seed. It is not gone -- across 100 mirrored seeds the windmill
-        // still refuses 12 ticks and the composed script 14, every one of them
-        // `EnergyNumerator` -- but seed 5 no longer reaches the degenerate group
-        // on any script, so pinning `(1, EnergyNumerator)` here would now pin the
-        // absence of the thing this assertion exists to describe.
+        // **The history is the articulated fixture's, and it is kept because the
+        // direction the assertion was inverted from is the whole of its value.**
+        // It was written first as `solver_rejections > 0`, because that was the
+        // state of the tree: that fixture refused roughly two hundred of its
+        // 3,600 ticks under every script, always `ResolutionError::Projector`,
+        // the `after > before` arm. Checkpoint B found the cause -- `project`
+        // re-derived every equipment row through the joint's inexact inverse map
+        // at every alpha including zero, and the drift read as created energy --
+        // and this assertion is its gate, inverted rather than deleted. Smart102
+        // then separated that law from one *intentional* `EnergyNumerator`
+        // refusal, whose two-contact group loses a raw unit while both
+        // allocation weights are zero: refusing is the only honest result there,
+        // and an assertion that counted it as a violation would be pinning a bug
+        // report against correct code.
         //
-        // So it is pinned in two places instead of one, because the two halves
-        // are different claims. Seed 5 says the ordinary case refuses nothing.
-        // Seed 14 keeps an actual refusal under the assertion, and keeping one
-        // is the point: the inverted gate below is only meaningful while some
-        // fixture still exercises a refusal it could get wrong.
-        // **2026-08-16 brought the windmill's refusal back onto seed 5.**
-        // Freeing the guard bearing, and taking the plate's normal from the arm
-        // that carries it, put that script back onto the degenerate two-contact
-        // group Smart134 had moved it off -- one tick, `EnergyNumerator`, the
-        // same law and the same count Smart102 described. So seed 5 now pins
-        // both halves directly: two scripts that never reach the boundary and
-        // one that reaches it exactly once. That is a stronger statement than
-        // the uniform zero it replaces, and it is the shape this assertion had
-        // before Smart134, not a new one.
-        for script in [Script::Composed, Script::ClosingAttacks] {
-            let trial = measure_articulated(&Scenario::articulated_duel(), 5, script);
-            assert!(trial.contacts > 0, "{}: nothing touched", script.name());
-            assert_eq!(trial.max_energy_excess, 0, "{}", script.name());
+        // **Session 05 moved it from the three articulated scripts onto the
+        // registry, and the law came with it unchanged.** It is the same
+        // `EnergyNumerator`, the same count of one, on the embodied fixtures --
+        // which is worth saying plainly, because it means the boundary Smart102
+        // described is a property of the solver and was never a property of the
+        // windmill. The four cells below are seed 1 at the fixtures' own clock
+        // rather than a bounded run: the refusal arrives once in 3,600 ticks and
+        // a 300-tick bound does not reach it, so bounding this test would leave
+        // the retained-refusal half asserting the absence of the thing it exists
+        // to hold.
+        //
+        // Two halves, and they are different claims. The ordinary cells say the
+        // ordinary case refuses nothing. The refusing cells keep an actual
+        // refusal under the assertion, and keeping one is the point: the
+        // inverted gate is only meaningful while some fixture still exercises a
+        // refusal it could get wrong.
+        for (kind, arena) in [
+            (EmbodiedPolicyKind::Scripted, Scenario::embodied_duel()),
+            (EmbodiedPolicyKind::TacticalFixedGuard, Scenario::embodied_duel()),
+        ] {
+            let trial = measure_embodied(&arena, 1, kind, None);
+            assert!(trial.contacts > 0, "{}/{}: nothing touched", arena.name, kind.name());
+            assert_eq!(trial.max_energy_excess, 0, "{}/{}", arena.name, kind.name());
             assert_eq!(
                 (trial.solver_rejections, trial.first_rejection), (0, None),
-                "{}: the refusal count and its law changed independently",
-                script.name()
+                "{}/{}: the refusal count and its law changed independently",
+                arena.name, kind.name(),
             );
         }
-        let windmill = measure_articulated(&Scenario::articulated_duel(), 5, Script::Windmill);
-        assert!(windmill.contacts > 0, "windmill: nothing touched");
-        assert_eq!(windmill.max_energy_excess, 0, "windmill");
-        assert_eq!(
-            (windmill.solver_rejections, windmill.first_rejection),
-            (1, Some(sim::ResolutionError::EnergyNumerator)),
-            "the windmill's intentional refusal changed count or law",
-        );
-        // **Seed 14 and seed 5 swapped roles on 2026-08-16.** This seed was
-        // added by Smart134 because its doubled arm rates moved the intentional
-        // refusal off seed 5 and something still had to exercise one. Freeing
-        // the guard bearing moved a refusal back onto seed 5's windmill and off
-        // this one, so the duty has returned to where Smart102 left it and this
-        // seed is now the ordinary case.
-        //
-        // It is kept rather than deleted, because "a second seed also refuses
-        // nothing" is a weaker claim than the one above but not a worthless one:
-        // the pair is what says the zero is a property of the solver and not of
-        // one seed. The retained-refusal half is the windmill assertion above,
-        // and the inverted gate stays meaningful only while that one stands.
-        let refusing = measure_articulated(&Scenario::articulated_duel(), 14, Script::Composed);
-        assert_eq!(refusing.max_energy_excess, 0, "a refused tick still created energy");
-        assert_eq!(
-            (refusing.solver_rejections, refusing.first_rejection),
-            (0, None),
-            "the second ordinary seed changed count or law",
-        );
+        // Both fixtures, because a retained refusal on one arena only would be a
+        // claim about that arena's floor rather than about the solver.
+        for (kind, arena) in [
+            (EmbodiedPolicyKind::Tactical, Scenario::embodied_duel()),
+            (EmbodiedPolicyKind::Scripted, Scenario::embodied_slope()),
+        ] {
+            let trial = measure_embodied(&arena, 1, kind, None);
+            assert!(trial.contacts > 0, "{}/{}: nothing touched", arena.name, kind.name());
+            assert_eq!(trial.max_energy_excess, 0, "{}/{}", arena.name, kind.name());
+            assert_eq!(
+                (trial.solver_rejections, trial.first_rejection),
+                (1, Some(sim::ResolutionError::EnergyNumerator)),
+                "{}/{}: the intentional refusal changed count or law",
+                arena.name, kind.name(),
+            );
+        }
     }
 
-    /// The bound every embodied test in this module runs under.
+    /// The bound the embodied tests in this module run under, with one stated
+    /// exception.
     ///
     /// A fixture fight is 3,600 ticks and reaches its clock, so a debug build
     /// pays for the whole of it to learn something the first few hundred ticks
     /// already say. 300 is the determinism suite's own bound, chosen there for
     /// the same reason, and it is past the approach on both fixtures -- which is
     /// what these tests are about.
+    ///
+    /// `zero_created_energy_excess_and_intentional_refusals_are_separate_evidence`
+    /// runs unbounded and says why in place: the one intentional solver refusal
+    /// on either fixture arrives once in 3,600 ticks, and a bounded run would
+    /// assert the absence of the thing that test exists to hold.
     const TEST_TICKS: Option<u32> = Some(300);
 
     #[test]
@@ -3809,14 +3445,15 @@ mod tests {
         // and the vocabulary is `EmbodiedPolicyKind`'s own, so a policy added
         // there appears here without this file being edited.
         let unknown = embodied_matchup_from(&traced_args("embodied --policy composed"))
-            .expect_err("composed is an articulated script");
+            .expect_err("composed was an articulated script and is no policy name at all");
         assert!(unknown.contains("composed"), "{unknown}");
         for kind in EmbodiedPolicyKind::ALL {
             assert!(unknown.contains(kind.name()), "the refusal must list {}: {unknown}", kind.name());
         }
 
         // `--matchup a:b` is a spelling this build never had, refused here by
-        // the same shared helper that refuses it for the articulated corpus.
+        // [`matchup_key_refusal`] -- which is shared rather than inlined so that
+        // a second reader cannot re-derive one of its two traps subtly wrong.
         let matchup = embodied_matchup_from(&traced_args("embodied --matchup scripted:neutral"))
             .expect_err("a spelling this build does not have");
         assert!(matchup.contains("--matchup"), "{matchup}");

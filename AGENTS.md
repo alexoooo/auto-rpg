@@ -89,10 +89,16 @@ Four notes on the gate itself, each of which has cost time:
   session that widened the audited set edited the exact constant
   `tools/check_deps.test.js` covers and left it red at 13 pass, 2 fail, because
   neither command was on any list here.
-- **`cargo test -p web --features cartesian-recoil` is known red** on
-  `exact_region_encoder_makes_only_a_pose_masks_severed_region_absent`, verified
-  at `2b2c544` on a clean worktree. It is not on the gate because it does not
-  pass; whoever fixes it puts it on.
+- **`cargo test -p web --features cartesian-recoil` is known red on TWO tests**,
+  and only one of them was written down here until 2026-08-19.
+  `exact_region_encoder_makes_only_a_pose_masks_severed_region_absent` was
+  verified at `2b2c544` on a clean worktree; `the_hero_and_a_newcomer_close_and_trade_blows`
+  fails beside it and was **undocumented**, which is how it cost an agent an hour
+  of deciding whether its own change had caused it. Verified at `c1d2445` on a
+  throwaway worktree: 102 pass, the same 2 fail, before and after that session's
+  edits. Neither is on the gate because neither passes; whoever fixes one puts it
+  on. A known-red list that names one of two failures is worse than none, because
+  it reads as a complete list.
 
 Everything else, day to day:
 
@@ -314,11 +320,15 @@ Both measurement methods, the evidence behind them, and the CPU-pinning advice
 that went stale with the machine it was measured on are in
 [performance evidence](docs/performance/README.md).
 
-**`policy::script_digest` answers a constant for every embodied fight** — its
-loop keeps only articulated commands, so it counts zero records and finishes at
-`0x89b684347e2caedd` for every policy and every matchup. `lab embodied` folds its
-own stream instead. The repair is still owed;
-[architecture: policy](docs/architecture/policy.md) carries it.
+**`policy::script_digest` answered a constant for every embodied fight, and it was
+deleted rather than repaired on 2026-08-19.** Its loop kept only articulated
+commands, so it counted zero records and finished at `0x89b684347e2caedd` for every
+policy and every matchup — a digest that folds nothing reads exactly like a digest
+that folds everything, which is why this sat here as a gotcha rather than as a bug
+report. `lab embodied` folds its own stream and always did. The repair is **closed by
+removal**, not owed: the function went with the articulated policies. The correction
+survives verbatim on `embodied_script_digest`'s doc comment in `crates/lab`, because
+the shape it teaches outlives the function it happened to.
 
 **Ordered movement is not implemented for the surviving combat model.** `Order`
 is per-faction, is hashed and replayed, and no surviving observation carries it,

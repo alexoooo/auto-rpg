@@ -2,7 +2,7 @@
 
 **Purpose:** Record the embodied corpus, its registered pin, and the measured result of the elevation term — including that the term lost.
 **Status:** current
-**Canonical source:** this record, [`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1882), and the `EMBODIED_CORPUS_DIGEST` row in the [golden registry](../reference/hashes.md#golden-registry)
+**Canonical source:** this record, [`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1655), and the `EMBODIED_CORPUS_DIGEST` row in the [golden registry](../reference/hashes.md#golden-registry)
 **Update when:** An embodied fixture, the embodied script, the corpus shape, the pin, or the high-ground result changes.
 
 **Host:** MSVC x86-64, Windows 10, AMD Ryzen 9 3950X, 32 logical cores. **Date:** 2026-08-17.
@@ -25,7 +25,7 @@ range — see [the measurement design](#why-this-is-mirrored-and-swapped-and-not
 ## The corpus
 
 Two shipped fixtures, each in its canonical orientation and in the reflection across
-`y = 8` that [`lab articulated`](../../crates/lab/src/main.rs#L1882) has always run for
+`y = 8` that [`lab articulated`](../../crates/lab/src/main.rs#L1655) has always run for
 its second orientation.
 
 | fixture | canonical | mirrored |
@@ -81,7 +81,7 @@ the policy at once, since no embodied fixture can be driven by an articulated sc
 ## The registered pin
 
 `EMBODIED_CORPUS_DIGEST = 0x00e08317d7a31c7c`, defined at
-[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1577) and asserted by
+[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1350) and asserted by
 `the_embodied_corpus_digest_is_the_pinned_one`.
 
 ```text
@@ -115,7 +115,7 @@ several documents grew one. `verify` has only ever
 driven a Legacy skirmish, and run/re-run/replay agreement is a property of the replay
 codec rather than of any body model, so the claim is now made over seeds under the
 embodied one too — at
-[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L205). 200 seeds of
+[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L195). 200 seeds of
 `embodied-duel-v1` and 50 of `embodied-slope-v1` are identical on re-run and exact on
 replay, and the sculpted half is the only replay corpus in the repository whose floor
 reaches a state hash at all.
@@ -165,9 +165,9 @@ which actually plays gets measured against, and the forward work that does so is
 ## The high-ground measurement
 
 `lab embodied --high-ground`, at
-[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1997). The subject is
+[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1770). The subject is
 `EmbodiedScriptConfig::SEEKING` and the control is
-[`EmbodiedScriptConfig`](../../crates/policy/src/embodied_script.rs#L259)`::LEVEL`,
+[`EmbodiedScriptConfig`](../../crates/policy/src/embodied_script.rs#L272)`::LEVEL`,
 which is the same script with the elevation term switched off so completely that the
 body never stores a floor height.
 
@@ -260,7 +260,7 @@ all.
 So this measurement did not test the criterion. It tested a policy that pays a tactical
 price — walking somewhere other than at its opponent — and buys essentially no
 elevation with it, which is a finding about
-[`EmbodiedScriptConfig`](../../crates/policy/src/embodied_script.rs#L259)`::SEEKING`
+[`EmbodiedScriptConfig`](../../crates/policy/src/embodied_script.rs#L272)`::SEEKING`
 rather than about whether height helps.
 
 **The likeliest reason is the fixture, and it is visible in the same three lines.**
@@ -405,19 +405,27 @@ would be this record's ability to say anything.
 - A different host does **not** invalidate them. There is no wall clock in any figure
   above except the run times, and the simulation is fixed point throughout.
 
-## A defect found while measuring, not fixed here
+## A defect found while measuring, and deleted rather than fixed
 
-[`script_digest`](../../crates/policy/src/articulated_script.rs#L995) skips every
-`SubmittedCommand::Embodied` record and says nothing. Its loop keeps only the
-`Articulated` arm, and its doc comment accounts for the skipped case as `Legacy`, which
-"cannot occur". `Embodied` occurs on every record of every embodied run, so the
-function counts zero records and returns the empty-stream constant
-`0x89b684347e2caedd` — the same number for the script, for the control, and for a
-matchup running a different policy on each side.
+`policy::script_digest` skipped every `SubmittedCommand::Embodied` record and said
+nothing. Its loop kept only the `Articulated` arm, and its doc comment accounted for
+the skipped case as `Legacy`, which "cannot occur". `Embodied` occurs on every record
+of every embodied run, so the function counted zero records and returned the
+empty-stream constant `0x89b684347e2caedd` — the same number for the script, for the
+control, and for a matchup running a different policy on each side.
 
 It was found only because three tests in `crates/lab` were written against it and all
 three failed on their first run. Until then the embodied corpus printed a `script`
 column that looked like a fingerprint and was a constant.
+
+**The repair was never made and no longer can be.** The function lived in
+`crates/policy/src/articulated_script.rs`, which session 05 deleted with the model it
+served, so there is no shared digest left for a caller to reach and get a constant
+from. What the corpus prints is `lab embodied`'s own fold under
+`ARPG-EMBODIED-SCRIPT-V1`, which was written because of this defect and is now the
+only one. The record is kept because the *shape* of the defect outlives it: a column
+that looks like a fingerprint and is a constant is invisible until something is
+written against it.
 
 The embodied corpus therefore digests its own stream under its own domain,
 `ARPG-EMBODIED-SCRIPT-V1`, over `EmbodiedCommandV1::payload_bytes` and otherwise byte

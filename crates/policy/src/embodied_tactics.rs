@@ -40,14 +40,14 @@
 //! the other would have made the difference two things.
 //!
 //! **The planner and its four command builders now live in this file.** They
-//! were written in `articulated_tactics.rs`, which session 05 deletes, and this
-//! is the only caller left. Nothing above changes: the builders still write
+//! were written in `articulated_tactics.rs`, which session 05 deleted, and this
+//! is the only caller left. Nothing above changed: the builders still write
 //! world quantities, [`into_torso_frame`] is still the one place the frame
 //! enters, and the move was a move rather than a rewrite -- which is what the
 //! planner's own tests, carried across unedited, are here to say.
 
 use crate::{neutral_articulated_command, ArmRoles, EmbodiedPolicy, Footwork, GuardRead, EIGHTH_TURN};
-use fx::{closest_points_on_segments, swept_segment_segment, Angle, Fx, Vec2, Vec3};
+use fx::{swept_segment_segment, Angle, Fx, Vec2, Vec3};
 use sim::{
     ArmTarget, ArticulatedCommandV1, ArticulatedObservation, BodyPart, CombatHeight,
     EmbodiedCommandV1, EntityId, Intent, LimbSlot, ObservedOpponent, RegionVolume, SegmentPose,
@@ -239,12 +239,24 @@ impl EmbodiedPolicy for TacticalEmbodiedPolicy {
 // ------------------------------------------------------------- the strike planner
 //
 // Everything below arrived from `articulated_tactics.rs` in session 05, byte for
-// byte. Some of it is `pub(crate)` rather than private only because the three
-// articulated policies that also drive it have not been deleted yet; when they
-// go, so does the wider visibility.
+// byte, and the three articulated policies that shared it went with that file in
+// the same session -- which is why nothing here is `pub(crate)` any more.
+//
+// **What they took with them is the planner's whole defensive half, and that is
+// worth writing down rather than discovering from a diff.** `can_cover` priced
+// whether the guard could reach an incoming sweep before it arrived, and
+// `evade_intent` chose which side to step when it could not; `GUARD_LINEAR_SPEED`
+// and the intercept model `predicted_plate_centre` existed to answer the first.
+// Every caller of all four was an articulated policy *deciding for itself* what
+// to do about a threat. The embodied seam is handed its intent from outside --
+// by `learn_core::LearnedTacticalPolicyV2` or by a corpus naming one -- so
+// `decide_with_intent` receives `Guard`, `EvadeLeft` or `EvadeRight` rather than
+// choosing between them, and `intent_command` still answers all three. What died
+// is the chooser, not the vocabulary: `TACTICAL_INTENT_COUNT` is unchanged at
+// eight, because it is the learned action width.
 
-pub(crate) const CHAMBER_TICKS: u32 = 28;
-pub(crate) const COMMIT_TICKS: u32 = 28;
+const CHAMBER_TICKS: u32 = 28;
+const COMMIT_TICKS: u32 = 28;
 const RECOVER_TICKS: u32 = 24;
 const APPROACH_SPEED: Fx = Fx::from_ratio(15, 16);
 const WITHDRAW_SPEED: Fx = Fx::HALF;
@@ -253,13 +265,9 @@ const WITHDRAW_SPEED: Fx = Fx::HALF;
 // of them was retuned; `Footwork::ARTICULATED` is the articulated seam's own
 // pair, unchanged, and `StrikePlanner::default()` still carries it.
 const GUARD_REACH: Fx = Fx::from_ratio(3, 4);
-pub(crate) const STRIKE_CHAMBER_REACH: Fx = Fx::ONE;
-pub(crate) const STRIKE_COMMIT_REACH: Fx = Fx::from_raw(61_440);
+const STRIKE_CHAMBER_REACH: Fx = Fx::ONE;
+const STRIKE_COMMIT_REACH: Fx = Fx::from_raw(61_440);
 const THREAT_LOOKAHEAD_TICKS: u32 = 32;
-// The production actuator's published base linear maximum. A guard estimate
-// must price the distance from its observed pose rather than grant every hand
-// the same twenty-two-tick teleport.
-const GUARD_LINEAR_SPEED: Fx = Fx::from_raw(1_638);
 const RECOVERY_MIN_STEP: Fx = Fx::from_ratio(1, 500);
 
 pub const TACTICAL_PHASE_COUNT: usize = 5;
@@ -347,12 +355,12 @@ pub struct StrikeDiagnostics {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct PreviousOpponent {
-    pub(crate) subject: EntityId,
-    pub(crate) opponent: EntityId,
-    pub(crate) tick: u32,
-    pub(crate) weapons: [Option<SegmentPose>; 2],
-    pub(crate) body_position: Vec3,
+struct PreviousOpponent {
+    subject: EntityId,
+    opponent: EntityId,
+    tick: u32,
+    weapons: [Option<SegmentPose>; 2],
+    body_position: Vec3,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -364,10 +372,10 @@ pub struct StrikePlanner {
     previous: Option<PreviousOpponent>,
     observed_tick: Option<(EntityId, u32)>,
     threat: Option<ThreatAssessmentV1>,
-    pub(crate) threat_crossing: Option<SegmentPose>,
+    threat_crossing: Option<SegmentPose>,
     opponent_recovering: bool,
-    pub(crate) scoring: PlanScoring,
-    pub(crate) footwork: Footwork,
+    scoring: PlanScoring,
+    footwork: Footwork,
 }
 
 impl Default for StrikePlanner {
@@ -569,7 +577,7 @@ fn unwinding(obs: &ArticulatedObservation, footwork: Footwork) -> bool {
     obs.stance.present && obs.stance.twist_fraction.abs() >= footwork.unwind_twist
 }
 
-pub(crate) fn weapon_is_withdrawing(
+fn weapon_is_withdrawing(
     foe: &ObservedOpponent,
     previous: PreviousOpponent,
     elapsed: Fx,
@@ -589,7 +597,7 @@ pub(crate) fn weapon_is_withdrawing(
     false
 }
 
-pub(crate) fn assess_threat(
+fn assess_threat(
     obs: &ArticulatedObservation,
     foe: &ObservedOpponent,
     previous: PreviousOpponent,
@@ -652,90 +660,6 @@ pub(crate) fn assess_threat(
     best.map(|row| (row.2, row.3))
 }
 
-/// Where the guard's plate would sit if its arm bore `bearing` at
-/// [`GUARD_REACH`], with its face centre at `target_z`.
-///
-/// **The body axis stands in for the shoulder**, exactly as [`predicted_segment`]
-/// does and for the same stated reason: shoulder width is deliberately absent
-/// from the observation. `World::derive_shield_pose` puts the plate's centre
-/// *at the hand*, and the hand is the shoulder plus the reach vector, so this
-/// prediction is wrong by exactly the shoulder's own offset from the body
-/// origin -- a body-frame constant that **does not depend on `bearing` at all**,
-/// because prediction and hand both rotate the same reach vector about points
-/// that differ by that fixed offset.
-///
-/// That invariance is what makes freeing the guard bearing safe for this model
-/// rather than merely untested. Before 2026-08-16 the guard was welded to body
-/// yaw and this function was only ever asked about one bearing, so nothing
-/// established that its error was bearing-independent;
-/// `the_intercept_model_agrees_with_the_derived_plate_at_a_nonzero_guard_bearing`
-/// is that missing guard.
-fn predicted_plate_centre(
-    obs: &ArticulatedObservation, bearing: Angle, target_z: Fx,
-) -> Vec3 {
-    Vec3::new(bearing.cos(), bearing.sin(), Fx::ZERO) * (obs.arm_length * GUARD_REACH)
-        + Vec3::new(obs.body_position.x, obs.body_position.y, target_z)
-}
-
-pub(crate) fn can_cover(
-    obs: &ArticulatedObservation,
-    threat: ThreatAssessmentV1,
-    crossing: SegmentPose,
-) -> bool {
-    let roles = ArmRoles::of(obs);
-    if obs.arms[roles.guard].severed || !GUARD_LINEAR_SPEED.is_positive() {
-        return false;
-    }
-    let foe = obs.opponents().iter().find(|row| row.id == threat.opponent);
-    let Some(foe) = foe else { return false };
-    let toward = planar(foe.body_position - obs.body_position).angle();
-    let target_z = obs.body_position.z
-        + obs.standing_height * Fx::from_raw(threat.crossing_height.raw());
-    let (current, target) = if obs.shield.present {
-        let current = SegmentPose {
-            hilt: obs.shield.centre - Vec3::Z * obs.shield.half_height,
-            tip: obs.shield.centre + Vec3::Z * obs.shield.half_height,
-            radius: obs.shield.half_width,
-        };
-        let centre = predicted_plate_centre(obs, toward, target_z);
-        (current, SegmentPose {
-            hilt: centre - Vec3::Z * obs.shield.half_height,
-            tip: centre + Vec3::Z * obs.shield.half_height,
-            radius: obs.shield.half_width,
-        })
-    } else if let Some(current) = obs.weapons[roles.guard] {
-        (current, predicted_segment(
-            obs, roles.guard, current, toward, threat.crossing_height, GUARD_REACH,
-        ))
-    } else {
-        return false;
-    };
-
-    let covers = closest_points_on_segments(
-        target.hilt, target.tip, crossing.hilt, crossing.tip,
-    ).distance_sq <= (target.radius + crossing.radius) * (target.radius + crossing.radius);
-    let travel = current.hilt.distance(target.hilt).max(current.tip.distance(target.tip));
-    covers && travel / GUARD_LINEAR_SPEED <= threat.ticks_to_crossing
-}
-
-fn evade_miss_distances(obs: &ArticulatedObservation, crossing: SegmentPose) -> (Fx, Fx) {
-    let Some(foe) = obs.opponents().first() else { return (Fx::ZERO, Fx::ZERO) };
-    let toward = planar(foe.body_position - obs.body_position);
-    let side = Vec2::new(-toward.y, toward.x).normalize();
-    let offset = Vec3::new(side.x, side.y, Fx::ZERO) * obs.arm_length;
-    let lower = Vec3::Z * (obs.standing_height * Fx::from_ratio(1, 4));
-    let upper = Vec3::Z * (obs.standing_height * Fx::from_ratio(3, 4));
-    let distance = |at: Vec3| closest_points_on_segments(
-        crossing.hilt, crossing.tip, at + lower, at + upper,
-    ).distance_sq;
-    (distance(obs.body_position + offset), distance(obs.body_position - offset))
-}
-
-pub(crate) fn evade_intent(obs: &ArticulatedObservation, crossing: SegmentPose) -> TacticalIntentV1 {
-    let (left, right) = evade_miss_distances(obs, crossing);
-    if left >= right { TacticalIntentV1::EvadeLeft } else { TacticalIntentV1::EvadeRight }
-}
-
 fn matching_opponent<'a>(
     obs: &'a ArticulatedObservation,
     plan: Option<StrikePlan>,
@@ -746,7 +670,7 @@ fn matching_opponent<'a>(
 
 fn planar(v: Vec3) -> Vec2 { Vec2::new(v.x, v.y) }
 
-pub(crate) fn centre(region: RegionVolume) -> Vec3 {
+fn centre(region: RegionVolume) -> Vec3 {
     Vec3::new(
         (region.lower.x + region.upper.x) / Fx::from_int(2),
         (region.lower.y + region.upper.y) / Fx::from_int(2),
@@ -891,9 +815,13 @@ const SHIELD_COVER_MARGIN: Fx = Fx::from_ratio(1, 8);
 
 /// The plate as a capsule the swept-segment test can take.
 ///
-/// Exactly the shape [`can_cover`] builds from the same three published numbers,
-/// and shared with it for that reason: two readings of one plate that disagreed
-/// would let a policy dodge a guard it had just decided it could not beat.
+/// It was **exactly the shape `can_cover` built** from the same three published
+/// numbers, and shared with it so that two readings of one plate could not
+/// disagree and let a policy dodge a guard it had just decided it could not
+/// beat. `can_cover` was the articulated seam's own defensive chooser and went
+/// with it in session 05, so this is the only reading left -- which removes the
+/// hazard rather than the reason for stating it, and the shape is still the one
+/// the contact phase will sweep.
 ///
 /// **It reads the plate's centre and extents and deliberately not its normal**,
 /// so the plate is modelled as a vertical capsule rather than the oriented
@@ -901,10 +829,12 @@ const SHIELD_COVER_MARGIN: Fx = Fx::from_ratio(1, 8);
 /// to ignore while the normal was welded to body yaw and a policy facing its
 /// opponent always saw the plate broadside. Since 2026-08-16 the normal follows
 /// the carrying arm, so it is worth stating why the approximation survives:
-/// `articulated_script::GUARD_ARC` bounds a scripted guard to an eighth turn off
-/// its body, and this file's own `Guard` bears straight at the threat, so on
+/// this file's own `Guard` bears straight at the threat, so on
 /// every policy in the tree the plate is at worst 45 degrees oblique and never
-/// edge-on. A capsule of the plate's half-width is then an **over**-estimate of
+/// edge-on. (`GUARD_ARC` was the scripted guard's eighth-turn bound in
+/// `articulated_script.rs`, deleted in session 05 along with the only policy
+/// that could exceed this file's own straight-at-the-threat `Guard`.)
+/// A capsule of the plate's half-width is then an **over**-estimate of
 /// what it covers, which makes `candidate_covered` conservative -- it may call a
 /// region covered that a glancing blow would reach, and will not call one open
 /// that the plate would stop. A future policy that swung its guard past a
@@ -1216,65 +1146,6 @@ mod tests {
         Scenario::duel_from(&config).unwrap()
     }
 
-    /// The guard the intercept model never had: its predicted plate position,
-    /// checked against the plate `World::derive_shield_pose` actually produces,
-    /// at a **non-zero** guard bearing.
-    ///
-    /// The claim is not that the prediction is exact -- it deliberately uses the
-    /// body axis for the shoulder -- but that its error is the shoulder's fixed
-    /// body-frame offset and is therefore **the same at every bearing**. That is
-    /// what says freeing the guard bearing did not quietly make this model
-    /// worse. Before the bearing was freed the guard was welded to body yaw and
-    /// this function was only ever asked about one bearing, so nothing checked
-    /// it.
-    #[test]
-    fn the_intercept_model_agrees_with_the_derived_plate_at_a_nonzero_guard_bearing() {
-        let scenario = close_duel();
-        let fighter = EntityId::new(0, 0);
-
-        // The commanded reach is `GUARD_REACH`, matching what the prediction
-        // assumes; a different reach would confound the offset under test.
-        let error_at = |bearing: Angle| {
-            let mut world = World::new(&scenario, 17);
-            let shown = world.observe_articulated(fighter);
-            let mut command = neutral_articulated_command(&shown);
-            command.arms[0] = ArmTarget {
-                bearing, height: CombatHeight::MID, reach: GUARD_REACH, effort: Fx::ONE,
-            };
-            submit(&mut world, fighter, &shown, command);
-            for _ in 0..400 { world.step(); }
-            let obs = world.observe_articulated(fighter);
-            assert!(obs.shield.present, "the fighter must be carrying the plate");
-            let predicted = predicted_plate_centre(&obs, bearing, obs.shield.centre.z);
-            obs.shield.centre - predicted
-        };
-
-        let straight = error_at(Angle::ZERO);
-        let turned = error_at(GUARD_ARC_UNDER_TEST);
-
-        // The error is a body-frame constant: same vector at both bearings.
-        // An implementation that predicted from the wrong reach, or that let
-        // the bearing leak into the shoulder term, would fail here.
-        let drift = (turned - straight).length();
-        assert!(drift <= Fx::from_ratio(1, 64),
-            "the intercept model's error moved with the guard bearing: \
-             straight {straight:?}, turned {turned:?}, drift {drift:?}");
-
-        // And it is genuinely a shoulder-sized offset rather than zero, so the
-        // assertion above cannot be satisfied by a prediction that happens to
-        // be exact and therefore proves nothing about the omitted geometry.
-        assert!(straight.length() > Fx::ZERO,
-            "the prediction became exact; this test no longer bounds the omitted shoulder");
-        assert!(straight.length() <= Fx::ONE,
-            "the omitted shoulder offset is larger than a whole world unit");
-    }
-
-    /// A bearing inside the script's guard arc, written here rather than
-    /// imported because `articulated_script::GUARD_ARC` is private to that
-    /// module. An eighth turn is what it holds; this test only needs *a*
-    /// non-zero bearing the guard can actually reach.
-    const GUARD_ARC_UNDER_TEST: Angle = Angle::from_raw(8_192);
-
     fn threat_pair(step: Fx, lateral: Fx) -> (ArticulatedObservation, ArticulatedObservation) {
         let scenario = close_duel();
         let world = World::new(&scenario, 17);
@@ -1514,42 +1385,6 @@ mod tests {
     }
 
     #[test]
-    fn an_incoming_sweep_is_guarded_when_coverage_arrives_first() {
-        let (_, mut obs) = threat_pair(Fx::ONE, Fx::ZERO);
-        let foe = obs.opponents[0];
-        let toward = planar(foe.body_position - obs.body_position).angle();
-        let centre = obs.body_position
-            + Vec3::new(toward.cos(), toward.sin(), Fx::ZERO)
-                * (obs.arm_length * GUARD_REACH)
-            + Vec3::Z * (obs.standing_height * Fx::HALF);
-        obs.shield.present = true;
-        obs.shield.centre = centre;
-        obs.shield.half_width = Fx::from_ratio(1, 2);
-        obs.shield.half_height = Fx::from_ratio(1, 2);
-        let crossing = SegmentPose {
-            hilt: centre - Vec3::Y,
-            tip: centre + Vec3::Y,
-            radius: Fx::from_ratio(1, 20),
-        };
-        let threat = ThreatAssessmentV1 {
-            opponent: foe.id, hand: LimbSlot::RightArm, closing_speed: Fx::ONE,
-            ticks_to_crossing: Fx::ONE, crossing_height: CombatHeight::MID,
-        };
-        let target_lower = centre - Vec3::Z * obs.shield.half_height;
-        let target_upper = centre + Vec3::Z * obs.shield.half_height;
-        assert!(closest_points_on_segments(
-            target_lower, target_upper, crossing.hilt, crossing.tip,
-        ).distance_sq <= (obs.shield.half_width + crossing.radius)
-            * (obs.shield.half_width + crossing.radius));
-        assert!(can_cover(&obs, threat, crossing));
-
-        obs.shield.centre -= Vec3::X * Fx::from_int(4);
-        let travel = obs.shield.centre.distance(centre);
-        assert!(travel / GUARD_LINEAR_SPEED > threat.ticks_to_crossing);
-        assert!(!can_cover(&obs, threat, crossing));
-    }
-
-    #[test]
     fn threat_timing_names_the_first_predicted_crossing_tick() {
         let (before, now) = threat_pair(Fx::ONE, Fx::ZERO);
         let current = now.opponents[0].weapons[1].unwrap();
@@ -1582,52 +1417,6 @@ mod tests {
         let (threat, _) = assess_threat(&now, &now.opponents[0], prior, Fx::ONE)
             .expect("the independently crossed segment is a threat");
         assert_eq!(threat.ticks_to_crossing, Fx::from_int(3));
-    }
-
-    #[test]
-    fn an_uncoverable_sweep_is_evaded_to_the_farther_side() {
-        let (_, obs) = threat_pair(Fx::ONE, Fx::from_ratio(1, 4));
-        let crossing = obs.opponents[0].weapons[1].unwrap();
-        let toward = planar(obs.opponents[0].body_position - obs.body_position);
-        let side = Vec2::new(-toward.y, toward.x).normalize();
-        let offset = Vec3::new(side.x, side.y, Fx::ZERO) * obs.arm_length;
-        let lower = Vec3::Z * (obs.standing_height * Fx::from_ratio(1, 4));
-        let upper = Vec3::Z * (obs.standing_height * Fx::from_ratio(3, 4));
-        let left = closest_points_on_segments(
-            crossing.hilt, crossing.tip,
-            obs.body_position + offset + lower, obs.body_position + offset + upper,
-        ).distance_sq;
-        let right = closest_points_on_segments(
-            crossing.hilt, crossing.tip,
-            obs.body_position - offset + lower, obs.body_position - offset + upper,
-        ).distance_sq;
-        assert!(right > left, "fixture does not make the right evade safer");
-        assert_eq!(evade_intent(&obs, crossing), TacticalIntentV1::EvadeRight);
-
-        let centred = SegmentPose {
-            hilt: crossing.hilt - Vec3::Y * Fx::from_ratio(1, 4),
-            tip: crossing.tip - Vec3::Y * Fx::from_ratio(1, 4),
-            radius: crossing.radius,
-        };
-        let (left, right) = evade_miss_distances(&obs, centred);
-        assert_eq!(left, right, "fixture does not exercise the left tie-break");
-        assert_eq!(evade_intent(&obs, centred), TacticalIntentV1::EvadeLeft);
-    }
-
-    #[test]
-    fn mirrored_threats_produce_mirrored_defences() {
-        let (_, now_left) = threat_pair(Fx::ONE, Fx::from_ratio(1, 4));
-        let (_, now_right) = threat_pair(Fx::ONE, Fx::from_ratio(-1, 4));
-        let left = evade_intent(&now_left, now_left.opponents[0].weapons[1].unwrap());
-        let right = evade_intent(&now_right, now_right.opponents[0].weapons[1].unwrap());
-        let centre_y = |obs: &ArticulatedObservation|
-            (obs.opponents[0].weapons[1].unwrap().hilt.y
-                + obs.opponents[0].weapons[1].unwrap().tip.y) * Fx::HALF;
-        assert!(centre_y(&now_left) > now_left.body_position.y);
-        assert!(centre_y(&now_right) < now_right.body_position.y);
-        assert!(matches!(left, TacticalIntentV1::EvadeLeft | TacticalIntentV1::EvadeRight));
-        assert!(matches!(right, TacticalIntentV1::EvadeLeft | TacticalIntentV1::EvadeRight));
-        assert_ne!(left, right, "the reflected threat chose the same world-side step");
     }
 
     #[test]

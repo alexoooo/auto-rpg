@@ -123,42 +123,35 @@ const COMBAT_GEOMETRY_HASH = 0x9d15344883cf6e9cn;
 // measured both before this file was edited.
 const EXACT_TRAJECTORY_STATE_DIGEST = 0x5add1f2ca295e79bn;
 const LIFTED_COULOMB_SOLVER_DIGEST = 0x1f9afcf81ba74700n;
-// A four-byte envelope and a 53-byte payload. Written out rather than derived,
+// A four-byte envelope and a 57-byte payload. Written out rather than derived,
 // because this file exists to disagree with Rust when Rust is wrong: the export
 // is asserted against this number, so computing it the way the export computes
-// it would assert nothing. It was 55 through payload layout 1.
-const SUBMITTED_COMMAND_BYTES = 57;
-// The same envelope over the embodied payload, and **no longer the same
-// width**: the swing plane appended a `u16` per arm, taking the payload from 53
-// to 57 and this buffer from 57 to 61 while `SUBMITTED_COMMAND_BYTES` above
-// stayed exactly where it was. That is what the second constant was for -- three
-// pinned digests are taken over the articulated width and have moved together
-// twice, and none of them moved for this. Written out here for the reason above.
+// it would assert nothing.
+//
+// **`SUBMITTED_COMMAND_BYTES = 57` stood beside this and is gone with the
+// articulated submission.** It was the same envelope over the 53-byte
+// articulated payload, and the fork is why this one could reach 61 without
+// moving it: the swing plane appended a `u16` per arm, and the three pinned
+// digests taken over the articulated width did not move for it. `sim` still
+// declares both widths for that reason.
 const EMBODIED_COMMAND_BYTES = 61;
-// Layout 2 is the swing plane. It coincides with the articulated layout version
-// over payloads four bytes apart, which is a coincidence and not a shared
-// number: each moves when its own contract does.
+// Layout 2 is the swing plane. It coincided with the articulated envelope's own
+// layout version over payloads four bytes apart, which was a coincidence and not
+// a shared number: each moved when its own contract did.
 const EMBODIED_COMMAND_LAYOUT_VERSION = 2;
 
-// The two commands, written out here rather than inside one test, because three
-// tests now stage them: the articulated fixture, the embodied fixture, and each
-// of them offered to the *other* model's boundary. Still written out and not
-// derived from one another -- the shared prefix is a fact about the two grammars
-// that this file states twice on purpose, so that a session which moves one
-// payload has to look at the other.
-const ARTICULATED_COMMAND_FIXTURE = Object.freeze([
-  0x02,0x00,0x01,0x00, 0x01,0x00,0x00,0x00, 0xfe,0xff,0xff,0xff,
-  0x34,0x12,0x01, 0x44,0x33,0x22,0x11, 0x88,0x77,0x66,0x55,
-  0x45,0x23, 0x00,0x40,0x00,0x00, 0x03,0x00,0x00,0x00,
-  0x04,0x00,0x00,0x00, 0x56,0x34, 0x00,0xc0,0x00,0x00,
-  0x05,0x00,0x00,0x00, 0x06,0x00,0x00,0x00, 0x02,0x01,0x01,0x00,
-  0x00,0x01,
-]);
-// Layout 2 and kind 2 over the 53 payload bytes above **plus four more**: the
-// two grammars share a prefix and diverge after byte 52, where the embodied one
-// continues with a swing-plane `u16` per arm. The two planes differ and neither
-// is zero, so a boundary that truncated the buffer back to the articulated width
-// could not stage this by accident.
+// **`ARTICULATED_COMMAND_FIXTURE` stood here and is gone with the export that
+// could stage it.** It was the same bytes as the fixture below with kind `1` in
+// the envelope and no swing planes, and the two were written out separately on
+// purpose -- the shared prefix is a fact about two grammars, and stating it twice
+// meant a session moving one payload had to look at the other. There is one
+// grammar left, so there is one fixture.
+//
+// Layout 2 and kind 2. The first 53 payload bytes are the ones `crates/sim`'s
+// `write_payload` still spells out, and the four after byte 52 are a
+// swing-plane `u16` per arm. The two planes differ and neither is zero, so a
+// boundary that truncated the buffer back to the 53-byte width could not stage
+// this by accident.
 const EMBODIED_COMMAND_FIXTURE = Object.freeze([
   0x02,0x00,0x02,0x00, 0x01,0x00,0x00,0x00, 0xfe,0xff,0xff,0xff,
   0x34,0x12,0x01, 0x44,0x33,0x22,0x11, 0x88,0x77,0x66,0x55,
@@ -467,13 +460,16 @@ test("the boundary exports everything the client calls", () => {
     // one model left there is nothing to select, so the two extra names are gone
     // and every fixture below drives this one.
     "init",
-    // The two boundary fixtures, one per model, and both are needed because the
-    // pair is what makes every model refusal below reachable from here: an
-    // embodied command offered to `init_articulated_test`'s duel, an articulated
-    // one offered to `init_embodied_test`'s. `ARTICULATED_COMMAND_HASH` is taken
-    // over the second, because a paired golden can only be taken over a world
-    // this side can also open.
-    "init_articulated_test",
+    // The boundary fixture: two bodies on an open floor and no room around
+    // them. `ARTICULATED_COMMAND_HASH` is taken over it, because a paired golden
+    // can only be taken over a world this side can also open, and `init`'s
+    // generated floor is not a fixture any native test shares.
+    //
+    // **`init_articulated_test` stood beside it and is gone.** The pair was what
+    // made both directions of the model refusal reachable from here -- an
+    // embodied command offered to an articulated duel, an articulated one
+    // offered to this one -- and with one grammar left there is no wrong model to
+    // offer. Both of those tests went with it; see where the second one stood.
     "init_embodied_test",
     // **`set_goto`, `set_focus`, `clear_order`, the three route names and the
     // two focus readers stood here and are gone.** Not a rename to chase: an
@@ -502,7 +498,7 @@ test("the boundary exports everything the client calls", () => {
     "contact_behavior_corpus_byte",
     "contact_behavior_digest_lo",
     "contact_behavior_digest_hi",
-    // How many articulated rows `init_articulated_test` reserved the contact
+    // How many articulated rows `init_embodied_test` reserved the contact
     // vectors for. On this list for the same reason as the four above and one
     // more besides: its only caller is client/test/wasm-memory.test.mjs, whose
     // whole subject is that linear memory does not grow -- and an export that
@@ -606,14 +602,11 @@ test("the boundary exports everything the client calls", () => {
     // below, which is precisely why they need a line here.
     "articulated_stream_digest_lo",
     "articulated_stream_digest_hi",
-    "submitted_command_ptr",
-    "submitted_command_len",
-    "submitted_command_layout_version",
-    "submit_articulated",
-    // The embodied twin of the four names above, and the pair has swapped which
-    // one is live: `init` opens an embodied floor, so `submit_embodied` is the
-    // one that stores and `submit_articulated` is the one that answers the model
-    // refusal there. Both directions are driven below rather than assumed.
+    // **The submission, and there is one.** `submitted_command_ptr`,
+    // `submitted_command_len`, `submitted_command_layout_version` and
+    // `submit_articulated` were the four names of the articulated twin of these,
+    // and they are gone with the grammar; their absence is asserted below rather
+    // than only implied by this list.
     "embodied_command_ptr",
     "embodied_command_len",
     "embodied_command_layout_version",
@@ -709,11 +702,20 @@ test("the boundary exports everything the client calls", () => {
     "reset_policy_genes",
     "set_hero_loadout", "set_hero_body",
     "selftest_hash_lo", "selftest_hash_hi",
+    // **The five the articulated grammar took with it.** `submit_articulated`
+    // stored one articulated command; the three scratch accessors were the only
+    // way to stage one, and `init_articulated_test` opened the only world that
+    // would have accepted it. Keeping the scratch without the submission would
+    // have left a buffer a page could fill and nothing could act on, which is
+    // the refusal shape this repository has already paid for.
+    "submitted_command_ptr", "submitted_command_len", "submitted_command_layout_version",
+    "submit_articulated", "init_articulated_test",
   ];
   for (const name of removed) {
     assert.equal(wasm[name], undefined, `web.wasm still exports ${name}()`);
   }
-  assert.equal(removed.length, 19, "the removed-export list is not the nineteen this session deleted");
+  assert.equal(removed.length, 24,
+    "the removed-export list is not the nineteen of the Legacy deletion plus the five of the articulated one");
 
   // The five numbers the page's boot handshake compares. Wrong here and the
   // page stops with an overlay instead of painting a health bar out of a guard
@@ -840,51 +842,30 @@ test("the embodied command scratch matches Rust and stores atomically", () => {
   console.log(`embodied cmd    ${hex(measured)}  == native command fixture`);
 });
 
-test("an articulated module refuses submit_embodied by name", () => {
-  // `init_articulated_test` is still the only articulated world this boundary
-  // can build, which is what keeps this refusal reachable at all: `init` opens
-  // an embodied floor and `init_embodied_test` an embodied duel, so without this
-  // fixture the wrong-model answer would have no caller and the test below it
-  // would be the only direction ever driven. **That is the reason the fixture
-  // was not reseated when the command pin moved to `init_embodied_test`** --
-  // reseating it would have deleted this test rather than moved it.
-  wasm.init_articulated_test(1);
-  // The articulated scratch's own width and version, asserted here since the
-  // pinned command test above stopped being the one that reads them. Written out
-  // rather than derived, for the reason at the top of this file.
-  assert.equal(wasm.submitted_command_len(), SUBMITTED_COMMAND_BYTES);
-  assert.equal(wasm.submitted_command_layout_version(), 2);
+// **`an articulated module refuses submit_embodied by name` stood here and has
+// lost its subject.** It opened `init_articulated_test`'s duel, offered
+// `submit_embodied` a well-formed embodied command and required `WRONG_MODEL`,
+// then corrupted the intent tag and required the same answer again -- because
+// that second rung is the only input that separates the boundary's own model
+// check from `World::submit_embodied_v1`'s. Every world this module can install
+// answers the same grammar now, so the refusal is unreachable from here rather
+// than unchecked: a page cannot offer the wrong model to a boundary that has
+// only one. The scratch width and layout version it also asserted have moved
+// down into the test below, which is now the only reader of them.
+
+test("the embodied floor takes an embodied command", () => {
+  // The direction that had no caller until `init` started opening an embodied
+  // world, and it is the one that matters: the whole `EMBODIED_COMMAND_V1`
+  // grammar reached this boundary and went nowhere, so an export that only ever
+  // answered a refusal was compatible with the store path never having run on
+  // either target.
+  wasm.init(1);
+  // The scratch's own width and version, read here because the pinned command
+  // test above stopped being the one that reads them and the articulated test
+  // that took them over has since gone. Written out rather than derived, for the
+  // reason at the top of this file.
   assert.equal(wasm.embodied_command_len(), EMBODIED_COMMAND_BYTES);
   assert.equal(wasm.embodied_command_layout_version(), EMBODIED_COMMAND_LAYOUT_VERSION);
-  assert.notEqual(u32(wasm.embodied_command_ptr()), u32(wasm.submitted_command_ptr()),
-    "the embodied scratch is the articulated one under another name");
-  const fixture = Uint8Array.from(EMBODIED_COMMAND_FIXTURE);
-  assert.equal(fixture.length, EMBODIED_COMMAND_BYTES, "the fixture is not a whole command");
-  const scratch = () => new Uint8Array(wasm.memory.buffer, u32(wasm.embodied_command_ptr()),
-                                       EMBODIED_COMMAND_BYTES);
-  scratch().set(fixture);
-  const before = hash64(wasm.state_digest_lo(), wasm.state_digest_hi());
-  assert.equal(u32(wasm.submit_embodied(0, 0)), WRONG_MODEL,
-    "an articulated module accepted an embodied command");
-  // And the model outranks the bytes: an intent tag no grammar has, at payload
-  // offset 10. Without a model check ahead of the structural one this answers
-  // `1` and names the payload for what is a model mismatch -- which is the only
-  // input that can tell this boundary's guard from the world's own.
-  const malformed = fixture.slice();
-  malformed[4 + 10] = 9;
-  scratch().set(malformed);
-  assert.equal(u32(wasm.submit_embodied(0, 0)), WRONG_MODEL, "wrong model lost precedence");
-  assert.equal(hash64(wasm.state_digest_lo(), wasm.state_digest_hi()), before,
-    "a refused embodied command mutated the world");
-});
-
-test("the embodied floor takes an embodied command and refuses an articulated one", () => {
-  // The other direction, and it is the one that had no caller until `init`
-  // started opening an embodied world. It matters more than the refusal above:
-  // the whole `EMBODIED_COMMAND_V1` grammar reached this boundary and went
-  // nowhere, so `submit_embodied` answering the refusal was compatible with the
-  // store path never having run on either target.
-  wasm.init(1);
   const staged = Uint8Array.from(EMBODIED_COMMAND_FIXTURE);
   new Uint8Array(wasm.memory.buffer, u32(wasm.embodied_command_ptr()),
                  EMBODIED_COMMAND_BYTES).set(staged);
@@ -904,12 +885,17 @@ test("the embodied floor takes an embodied command and refuses an articulated on
   // *generated* floor's roster, so pinning it would create a new browser golden
   // over a fixture no native test shares. `ARTICULATED_COMMAND_HASH` above is the
   // paired one, and it is taken over the two-body duel for exactly that reason.
-  new Uint8Array(wasm.memory.buffer, u32(wasm.submitted_command_ptr()),
-                 SUBMITTED_COMMAND_BYTES).set(Uint8Array.from(ARTICULATED_COMMAND_FIXTURE));
-  assert.equal(u32(wasm.submit_articulated(0, 0)), WRONG_MODEL,
-    "an embodied floor accepted an articulated command");
+
+  // **The last three lines of this test refused an articulated command by name
+  // and are gone.** They staged 57 bytes into `submitted_command_ptr()`, called
+  // `submit_articulated(0, 0)` on this embodied floor, required `WRONG_MODEL`,
+  // and required the refusal to leave the digest where it was. Nothing replaces
+  // them, and nothing should: the export they called does not exist, so the page
+  // can no longer make the mistake they guarded against. `web.wasm` refusing to
+  // answer to the name at all is checked in the removed-export list above, which
+  // is the only assertion that can still be made about a channel that is gone.
   assert.equal(hash64(wasm.state_digest_lo(), wasm.state_digest_hi()), stored,
-    "a refused articulated command mutated an embodied world");
+    "reading the digest twice moved it");
 });
 
 test("combat geometry matches the frozen native digest", () => {
@@ -1392,7 +1378,7 @@ test("wasm_exports_match_layout_stride_capacity_and_drop_fields", () => {
     "embodied_stance_ptr", "embodied_stance_len", "embodied_stance_stride",
     "embodied_stance_capacity", "embodied_stances_dropped",
     "embodied_stance_layout_version",
-    "init", "init_articulated_test", "init_embodied_test",
+    "init", "init_embodied_test",
   ]) {
     assert.equal(typeof wasm[name], "function", `web.wasm does not export ${name}()`);
   }
@@ -1433,24 +1419,24 @@ test("wasm_exports_match_layout_stride_capacity_and_drop_fields", () => {
   assert.equal(u32(wasm.embodied_stance_stride()), EMBODIED_STANCE_STRIDE, "EMBODIED_STANCE_STRIDE");
   assert.equal(u32(wasm.embodied_stance_capacity()), MAX_EMBODIED_STANCE, "MAX_EMBODIED_STANCE");
 
-  // **The zero-stance witness is `init_articulated_test`'s duel now, not a
-  // Legacy world.** This block used to open with `init(1)` and assert that all
-  // five sections were empty, because `init` built a Legacy floor and a Legacy
-  // floor publishes none of them. There is no Legacy world left to install, so
-  // the distinction the block exists to draw -- a section that is empty because
-  // this model has no legs, against one that is full because it does -- is drawn
-  // between the two models that remain. The duel is articulated, so its stance
-  // section is zero-length rather than absent: nothing was published *and*
-  // nothing was turned away, which tells a reader this world has no legs rather
-  // than that it ran out of room for them.
-  wasm.init_articulated_test(1);
+  // **The zero-stance witness has run out of worlds and the block now says so.**
+  // It opened with `init(1)` under Legacy, which published none of the five
+  // sections; then with `init_articulated_test`, whose duel had no legs and so
+  // published an empty stance section beside four full ones. Neither world
+  // exists. Every world this boundary can open publishes all five, so what is
+  // left to draw here is the *relation* between them on a two-body fixture --
+  // one stance and seven region rows per published pose, and every drop field
+  // zero -- which is what a reader of these sections needs and is the half a
+  // world with no legs could never state.
+  wasm.init_embodied_test(1);
   wasm.step(60);
   const duelRows = u32(wasm.pose_len());
-  assert.ok(duelRows > 0, "the articulated duel published no pose rows");
+  assert.ok(duelRows > 0, "the duel published no pose rows");
   assert.equal(u32(wasm.region_len()), duelRows * REGIONS_PER_BODY,
     "the duel's region section does not cover every published pose");
-  assert.equal(u32(wasm.embodied_stance_len()), 0, "an articulated world published a stance row");
-  assert.equal(u32(wasm.embodied_stances_dropped()), 0, "an articulated world dropped a stance row");
+  assert.equal(u32(wasm.embodied_stance_len()), duelRows,
+    "the duel's stance section does not cover every published pose");
+  assert.equal(u32(wasm.embodied_stances_dropped()), 0, "the duel dropped a stance row");
   assert.equal(u32(wasm.poses_dropped()), 0, "the duel overflowed a buffer sized to the sim's own cap");
   assert.equal(u32(wasm.regions_dropped()), 0, "a published body carried no capsules");
   assert.equal(u32(wasm.articulated_projectile_len()), 0,
@@ -1698,25 +1684,28 @@ test("native_and_wasm_pose_event_stream_digests_match", () => {
   }
   assert.ok(degenerate > 1, "fewer than two bodies published a head");
 
-  // And the other half of that distinction, kept where it still holds: the
-  // two-body duel's arms are one link, so rows 5 and 6 are published *absent*
-  // rather than omitted. Without this the paragraph above would be the only
-  // reading either way, and "always present" is exactly what a region encoder
-  // that had stopped consulting the anatomy would also produce.
-  wasm.init_articulated_test(1);
-  const single = regionRows();
-  assert.equal(single.length, u32(wasm.pose_len()) * REGIONS_PER_BODY,
+  // **The other half of that distinction has run out of subjects.** It opened
+  // `init_articulated_test`, whose arms were one link, and required rows 5 and 6
+  // to be published *absent* rather than omitted -- because "always present" is
+  // exactly what a region encoder that had stopped consulting the anatomy would
+  // also produce, and without a body that has no forearm the paragraph above is
+  // the only reading either way. There is no single-link body left to open.
+  //
+  // What is still reachable, and is checked here instead, is the *length*
+  // relation on a second world: the section is `REGIONS_PER_BODY` rows per pose
+  // whatever the roster is, so a duel of two and a floor of many both have to
+  // satisfy it. An encoder that had stopped consulting the anatomy would still
+  // pass this; the absent-forearm reading that would have caught it is owed to
+  // whoever gives this boundary a body without one.
+  wasm.init_embodied_test(1);
+  const duel = regionRows();
+  assert.equal(duel.length, u32(wasm.pose_len()) * REGIONS_PER_BODY,
     "the duel's region section is not per pose");
-  for (let body = 0; body * REGIONS_PER_BODY < single.length; body++) {
-    for (let part = BODY_PART_COUNT; part < REGIONS_PER_BODY; part++) {
-      assert.equal(single[body * REGIONS_PER_BODY + part][REGION_PRESENT], 0,
-        `duel body ${body} volume ${part}: a single-link arm published a forearm`);
-    }
-  }
+  assert.ok(duel.length > 0, "the duel published no region rows");
   console.log(
     `pose grammar   ${rows.length} rows, hero mask ${rows[0][POSE_EQUIPMENT_MASK]}, ` +
       `${regions.length} region rows, ${degenerate} degenerate heads present, ` +
-      `${single.length} single-link duel rows`,
+      `${duel.length} duel region rows`,
   );
 });
 

@@ -1,15 +1,19 @@
 //! The embodied script: close, guard, circle, unwind, and take the ground.
 //!
-//! **A sibling of `articulated_script.rs` and deliberately not a mode of it**,
-//! for the reason the plan gives and the compiler cannot: the two files read the
-//! same struct field in different frames. `ArmTarget::bearing` and `move_dir`
-//! are *world* quantities in that file and *torso-relative* ones here --
+//! **It was a sibling of `articulated_script.rs` and deliberately not a mode of
+//! it**, for the reason the plan gave and the compiler could not: the two files
+//! read the same struct field in different frames. `ArmTarget::bearing` and
+//! `move_dir` were *world* quantities in that file and are *torso-relative* ones
+//! here --
 //! `CombatModel::command_frame` is where the difference lives, `+x` is forward,
 //! `+y` is body-left, and a zero bearing holds the arm directly ahead at every
-//! yaw. A single file with a frame flag would make "which frame is this
+//! yaw. A single file with a frame flag would have made "which frame is this
 //! bearing" a runtime question in the one place where getting it wrong produces
 //! a fighter that swings at the map's north instead of at its opponent, and
-//! nothing would refuse the command.
+//! nothing would refuse the command. Session 05 deleted the articulated script
+//! rather than merging it, so the flag was never needed -- but the argument is
+//! kept, because it is the argument against reintroducing one the day a second
+//! frame arrives.
 //!
 //! The frame is not only a hazard, it is a simplification, and both show up
 //! below. A guard arc centred on the body is `bearing.clamp(-arc, arc)` here and
@@ -74,12 +78,14 @@ use sim::{
 /// Ticks in one phase of the cycle.
 ///
 /// **The articulated script's number, copied and not imported.** Thirty ticks is
-/// what `PHASE_TICKS` has been through every articulated measurement in the
+/// what `PHASE_TICKS` was through every articulated measurement in the
 /// repository, and a first embodied corpus that ran on a different tempo could
 /// not be read beside the articulated gate that measured the same contact
-/// solver. It is a copy because session 10 deletes the file it came from, and a
-/// `pub use` of a constant that is about to be removed would make this policy's
-/// tempo a casualty of that deletion rather than a decision.
+/// solver. It is a copy because the file it came from was going to be deleted,
+/// and a `pub use` of a constant that was about to be removed would have made
+/// this policy's tempo a casualty of that deletion rather than a decision.
+/// **Session 05 deleted it and this number did not move**, which is the copy
+/// doing exactly the job it was made for.
 pub const EMBODIED_PHASE_TICKS: u32 = 30;
 
 /// Ticks in the full cycle: guard, chamber, commit, recover.
@@ -101,8 +107,12 @@ pub const EMBODIED_HEIGHT_TICKS: u32 = 90;
 /// articulated corpus's joint distribution of (attacker height, guard height)
 /// came back **100.00% diagonal, every off-diagonal cell exactly zero** -- a HIGH
 /// guard met a HIGH swing and never met anything else, on every trial, by
-/// construction. `articulated_script.rs`'s own `GUARD_LEAD_TICKS` carries the
-/// counts and the three cells the fix still cannot reach. A whole-step offset
+/// construction. **The counts are written out here because the constant that
+/// carried them is gone**: `articulated_script.rs`'s `GUARD_LEAD_TICKS` held
+/// them until session 05 deleted the file, and the corpus that produced them is
+/// not re-runnable on this tree. The composed corpus measured
+/// `[[9382, 9375, 0], [0, 10934, 10913], [10930, 0, 10939]]`, with the same
+/// three cells exactly zero on both controls. A whole-step offset
 /// relabels rather than mixes, since equal periods make the index difference
 /// constant; a half is the smallest offset that is not a whole multiple of the
 /// period. Six of the nine cells become reachable and three remain unreachable,
@@ -431,8 +441,8 @@ pub fn neutral_embodied_command(obs: &ArticulatedObservation) -> EmbodiedCommand
 /// The script's command for one observation, with the elevation term on and no
 /// ground remembered.
 ///
-/// Exposed as a function beside the policy for the same reason
-/// [`crate::scripted_articulated_command`] is: a test that wants to know what the
+/// Exposed as a function beside the policy for the reason the deleted
+/// `scripted_articulated_command` was: a test that wants to know what the
 /// script says at tick 137 should not have to build a policy and drive a world to
 /// find out. Everything except the elevation term is a pure function of the
 /// observation, so on a flat fixture this *is* the whole policy.
@@ -826,10 +836,13 @@ impl EmbodiedPolicy for ScriptedEmbodiedPolicy {
 
 /// Stands there, arms slack, in the embodied frame. The control condition.
 ///
-/// A separate type from `NeutralArticulatedPolicy` rather than an adapter over
-/// it, for [`neutral_embodied_command`]'s reason: the neutral arm bearing is not
-/// the same number in the two frames, and an adapter would have had to convert
-/// one it cannot see the yaw for.
+/// A separate type from the deleted `NeutralArticulatedPolicy` rather than an
+/// adapter over it, for [`neutral_embodied_command`]'s reason: the neutral arm
+/// bearing is not the same number in the two frames, and an adapter would have
+/// had to convert one it cannot see the yaw for. The two *commands* are still
+/// both here and still differ in that one column --
+/// [`crate::neutral_articulated_command`] is what the world substitutes under
+/// `CommandFrame::World` -- so the argument is live rather than historical.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct NeutralEmbodiedPolicy;
 
@@ -1206,8 +1219,10 @@ mod tests {
     /// negating coordinates rather than by `Vec2::rotate`, because both of those
     /// are exact: `atan2` folds by quadrant, so a quarter turn shifts a bearing by
     /// exactly 16,384 units and the comparison can be an equality rather than a
-    /// tolerance. A bearing copied from `articulated_script.rs` would fail this
-    /// on the first column it touched.
+    /// tolerance. A bearing copied from the deleted `articulated_script.rs`,
+    /// whose bearings were world quantities, would have failed this on the first
+    /// column it touched -- which is the whole of why the two files were never
+    /// one file with a flag.
     #[test]
     fn the_same_situation_at_two_yaws_produces_one_command() {
         let mut straight = situation(NEAR, Angle::ZERO, Fx::ZERO);

@@ -34,7 +34,7 @@
 
 use fx::{Fx, Rng, Vec3};
 use learn::{LearnedArticulatedPolicy, Model};
-use policy::{ArticulatedPolicy, EmbodiedPolicy};
+use policy::EmbodiedPolicy;
 use sim::{ArticulatedObservation, EntityId, SegmentPose};
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;

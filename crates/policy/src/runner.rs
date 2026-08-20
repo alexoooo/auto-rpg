@@ -1,8 +1,8 @@
-use crate::{ArticulatedPolicy, EmbodiedPolicy};
+use crate::EmbodiedPolicy;
 use fx::{Fx, Vec2};
 use sim::{
     CommandReject, EntityId, Event, Faction, Order, Outcome, Replay, Scenario,
-    SubmitArticulatedOutcome, SubmitEmbodiedOutcome, SubmittedCommand, World,
+    SubmitEmbodiedOutcome, SubmittedCommand, World,
 };
 
 /// How to drive a run.
@@ -58,20 +58,24 @@ pub struct RunResult {
     /// Arrows loosed. The **denominator** of an accuracy figure and not a
     /// success count: whether one arrived is already in `blows`.
     pub shots: u32,
-    /// Submissions the world did not take as offered. Always zero for [`run`],
-    /// which drives [`World::submit`] and has nothing to report: the legacy
-    /// entry is infallible by construction and silently ignores a stale handle.
+    /// Submissions the world did not take as offered.
     ///
-    /// [`run_articulated`]'s entry is not. A range failure or a grip against
-    /// missing equipment stores the **neutral** command instead of the one the
-    /// policy offered, and a stale identity or a Legacy scenario stores nothing
-    /// at all -- though of those last two only the Legacy refusal is reachable
-    /// from this harness, because every handle it submits came out of
+    /// A range failure or a grip against equipment that is not there stores the
+    /// **neutral** command instead of the one the policy offered, and a stale
+    /// identity or a scenario of the other grammar stores nothing at all --
+    /// though of those last two only the grammar refusal is reachable from this
+    /// harness, because every handle it submits came out of
     /// [`World::pending_decisions`] on the same tick. Both are counted here,
     /// because both mean the run that happened
     /// is not the run the policy asked for, and a harness that swallowed the
     /// difference would leave a policy bug looking like a policy that does not
     /// work very well.
+    ///
+    /// **It was zero by construction under the legacy `run`**, whose entry was
+    /// infallible and silently ignored a stale handle, and that is why this is a
+    /// counter beside a reason rather than a `Result` on the loop: a run where
+    /// every single command was thrown away and a run by a policy that is not
+    /// very good are the same run from the outside.
     pub rejected: u32,
     /// Why the first rejection happened, or `None` if there were none.
     ///
@@ -89,180 +93,39 @@ impl RunResult {
     }
 }
 
-/// **`run` -- the legacy loop this file was written around -- is gone.**
-/// It was eleven lines and drove `Policy` over the legacy `Observation`, and
-/// three claims went with it that nothing else in this crate now makes: that a
-/// run is reproducible from its seed, that a recorded run replays exactly, and
-/// that a policy instance can be reused across rollouts without one leaking into
-/// the next. The first two are asserted for the surviving model in
+/// **Two sibling loops stood here and both are gone.**
+///
+/// `run` -- the legacy loop this file was written around -- was eleven lines and
+/// drove `Policy` over the legacy `Observation`. `run_articulated` was this
+/// function with three substitutions: a different observation, a different
+/// submission entry and a different command variant in the replay. They were
+/// siblings rather than branches inside one loop on purpose, and the argument
+/// survives them because it is what says the next model gets its own loop: a
+/// `match` on the combat model inside the hot decision loop would put every one
+/// of those differences behind one branch on the thing that must not move.
+///
+/// Three claims went with the legacy one. Reproducibility from a seed and exact
+/// replay are asserted for the surviving model in
 /// `crates/sim/tests/determinism.rs`, which is the better home for them anyway
-/// -- they are properties of the simulator, not of a runner. **The third is not
-/// asserted anywhere**: `reset` is still on both surviving traits and nothing
-/// checks that a caller who forgets it gets caught. That is a real gap and it is
-/// written here rather than in a commit message.
+/// -- they are properties of the simulator, not of a runner. The third, that a
+/// policy instance can be reused across rollouts without one leaking into the
+/// next, was unasserted for a long time and is not any more:
+/// `an_embodied_policy_instance_can_be_reused_without_leaking_between_runs`
+/// drives a policy that *tires* as it decides, because a policy whose `decide`
+/// is a pure function of its argument answers identically whether or not the
+/// runner cleared it -- which is how deleting the `policy.reset()` line below
+/// once kept every test in this crate green.
 ///
-/// It also took `doing_something_beats_doing_nothing`, the control-condition
-/// claim that a policy which acts beats one that does not. The embodied corpus
-/// reports win rates and could carry that claim; it does not carry it today.
+/// The legacy loop also took `doing_something_beats_doing_nothing`, the
+/// control-condition claim that a policy which acts beats one that does not. The
+/// embodied corpus reports win rates and could carry that claim; it does not
+/// carry it today.
 
-/// Drives an articulated scenario to a conclusion.
+/// Drives an embodied scenario to a conclusion. **The loop**, singular, since
+/// session 05.
 ///
-/// [`run`]'s twin, and deliberately a sibling rather than a branch inside it:
-/// `run` is on the path of every pinned lab hash, and the two loops differ in
-/// the observation they ask for, the entry they submit to, the command vector
-/// they record into, and what a refusal means. A `match` on the combat model
-/// inside `run` would put all four differences behind one branch on the hot
-/// loop of the thing that must not move.
-///
-/// Three things differ from `run` beyond the obvious substitutions.
-///
-/// **What gets recorded is what the world *stored*, not what the policy
-/// offered.** [`World::submit_articulated_v1`] answers
-/// [`SubmitArticulatedOutcome::Stored`] with a command that may not be the one
-/// it was handed: a range failure or a grip against equipment that is not there
-/// stores the neutral command atomically and returns the reason alongside it.
-/// The v2 contract is that replays persist final submitted commands, and
-/// [`Replay::play`] feeds them straight back through this same entry -- so
-/// recording the *offered* command would re-run the same rejection at playback
-/// and, the day validation changes by a raw unit, reproduce a different fight
-/// from the one it claims to. Record the stored command and playback is exact
-/// whatever validation later decides.
-///
-/// **The event counters stay at zero.** The articulated arm of [`World::step`]
-/// emits exactly one [`Event`] variant, [`Event::Death`]; blows, blocks,
-/// parries and shots are legacy swing-resolution events and no articulated tick
-/// produces them. Damage under this model is carried by contact resolution
-/// rows, not by the event feed. The arms below are spelled out anyway, on the
-/// same argument `run`'s are: the next variant has to be thought about here.
-///
-/// **The outcome gate is live, and the shipped fixture will not reach it.**
-/// Articulated bodies do die -- `reap_dead_articulated` clears `alive` and
-/// pushes the death -- so [`World::outcome`] is reachable and this is not a
-/// dressed-up `for tick in 0..max_ticks`;
-/// `an_articulated_run_stops_on_a_death_and_not_only_on_the_clock` proves it by
-/// thinning an anatomy until the reaper fires. What no policy can do today is
-/// reach it in `Scenario::articulated_duel`: measured at v2-16, sixty seconds
-/// of continuous contact between the fixture's Fighter and Brute takes the
-/// Brute from 1.000 health to 0.948 and leaves the Fighter untouched. That is a
-/// damage model still being built, not a broken loop, and until it lands the
-/// second gate carries every run -- which is why [`World::timeout`] scoring on
-/// points matters here rather than being the rare case it is under `run`.
-pub fn run_articulated(
-    scenario: &Scenario,
-    seed: u64,
-    mut policy: impl ArticulatedPolicy,
-    config: &RunConfig,
-) -> RunResult {
-    policy.reset();
-
-    let mut world = World::new(scenario, seed);
-    let limit = config.max_ticks.unwrap_or(scenario.max_ticks);
-    let mut replay = config.record.then(|| Replay::new(scenario, seed));
-
-    // Set and recorded exactly as `run` does, and inert exactly as deliberately:
-    // an articulated observation has no order column, so no articulated policy
-    // can read one and no articulated movement consults the nav field. It is
-    // still a world input, and a replay that recorded only the inputs somebody
-    // currently reads would silently stop reproducing its run on the day the
-    // articulated model grows a standing order.
-    for (faction, order) in [
-        (Faction::Heroes, config.orders[0]),
-        (Faction::Monsters, config.orders[1]),
-    ] {
-        world.set_order(faction, order);
-        if let Some(replay) = replay.as_mut() {
-            replay.record_order(0, faction, order);
-        }
-    }
-    let mut due: Vec<EntityId> = Vec::new();
-    let mut decisions = 0u64;
-    let (mut blows, mut blocks, mut parries, mut shots) = (0u32, 0u32, 0u32, 0u32);
-    let mut rejected = 0u32;
-    let mut first_rejection: Option<CommandReject> = None;
-
-    while world.outcome().is_none() && world.tick() < limit {
-        due.clear();
-        due.extend_from_slice(world.pending_decisions());
-        for &id in &due {
-            let command = policy.decide(&world.observe_articulated(id));
-            // Counted where `run` counts it: a decision is one the policy made,
-            // not one the world liked. `rejected` is the second number, and the
-            // two together say how much of the run the policy actually drove.
-            decisions += 1;
-            let (stored, rejection) = match world.submit_articulated_v1(id, command) {
-                SubmitArticulatedOutcome::Stored { command, rejection } => {
-                    (Some(command), rejection)
-                }
-                // **Exactly one reason reaches this arm from here, and it is
-                // `WrongModel`.** The other one it can carry is `StaleEntity`,
-                // and no handle in `due` can be stale: `pending_decisions` is
-                // rebuilt from the alive set, `observe_articulated` and
-                // `submit_articulated_v1` kill nobody, and the only thing that
-                // does -- `World::step` -- runs after this loop. The arm is
-                // written for the outcome and not for the reason, so a future
-                // caller that names the dead (a replay driver, say) lands here
-                // correctly rather than needing a second shape.
-                SubmitArticulatedOutcome::NotStored(reason) => (None, Some(reason)),
-            };
-            if let Some(reason) = rejection {
-                rejected += 1;
-                first_rejection.get_or_insert(reason);
-            }
-            // Nothing to persist when nothing was stored: the world's command
-            // vector is unchanged, so a replay that carried a row here would
-            // hand playback a submission the recorded run never made.
-            if let (Some(replay), Some(stored)) = (replay.as_mut(), stored) {
-                replay.record_submitted(
-                    world.tick(),
-                    id,
-                    SubmittedCommand::Articulated(stored),
-                );
-            }
-        }
-        for event in world.step() {
-            match event {
-                Event::Damage { .. } => blows += 1,
-                Event::Block { .. } => blocks += 1,
-                Event::Parry { .. } => parries += 1,
-                Event::Loose { .. } => shots += 1,
-                Event::Death { .. } | Event::Shove { .. } => {}
-            }
-        }
-    }
-
-    let ticks = world.tick();
-    if let Some(replay) = replay.as_mut() {
-        replay.finish(ticks);
-    }
-
-    RunResult {
-        outcome: world.outcome().unwrap_or_else(|| world.timeout()),
-        ticks,
-        state_hash: world.state_hash(),
-        hero_health: world.health_fraction(Faction::Heroes),
-        monster_health: world.health_fraction(Faction::Monsters),
-        hero_damage: world.damage_dealt(Faction::Heroes),
-        monster_damage: world.damage_dealt(Faction::Monsters),
-        decisions,
-        blows,
-        blocks,
-        parries,
-        shots,
-        rejected,
-        first_rejection,
-        replay,
-    }
-}
-
-/// Drives an embodied scenario to a conclusion.
-///
-/// [`run_articulated`]'s twin, and a sibling rather than a branch inside it on
-/// that function's own argument: the two loops differ in the entry they submit
-/// to, the outcome type that entry answers and the command variant they record,
-/// and a `match` on the combat model would put all three behind one branch on a
-/// hot loop.
-///
-/// **The difference that matters is not visible to the type checker, which is
+/// **The difference that mattered between it and its deleted twins is not
+/// visible to the type checker, which is
 /// why this loop is worth having rather than being a copy.**
 /// [`World::submit_embodied_v1`] compiles against any world and answers
 /// [`CommandReject::WrongModel`] when the scenario's grammar disagrees -- the
@@ -274,18 +137,36 @@ pub fn run_articulated(
 /// per decision rather than the absence of a rejection: zero rejections is a
 /// claim a loop that submitted nothing also satisfies.
 ///
-/// Everything [`run_articulated`] argues about recording holds here word for
-/// word. [`SubmitEmbodiedOutcome::Stored`] may carry a command that is not the
-/// one it was handed -- a range failure or a grip against equipment that is not
-/// there stores the neutral command atomically and reports the reason alongside
-/// it -- and the v2 contract is that a replay persists the command the world
-/// *stored*, so playback through this same entry reproduces the fight instead of
-/// re-running the rejection against whatever validation says next year.
+/// **What gets recorded is what the world *stored*, not what the policy
+/// offered.** [`SubmitEmbodiedOutcome::Stored`] may carry a command that is not
+/// the one it was handed -- a range failure or a grip against equipment that is
+/// not there stores the neutral command atomically and reports the reason
+/// alongside it. The v2 contract is that replays persist final submitted
+/// commands, and [`Replay::play`] feeds them straight back through this same
+/// entry, so recording the *offered* command would re-run the same rejection at
+/// playback and, the day validation changes by a raw unit, reproduce a different
+/// fight from the one it claims to. Record the stored command and playback is
+/// exact whatever validation later decides;
+/// `a_refused_submission_is_recorded_as_what_the_world_stored` reads what was
+/// written down rather than resting on replay equality, which would pass either
+/// way.
 ///
-/// The event counters stay at zero for the reason they do there, and it is the
-/// same code: both models share the articulated arm of [`World::step`], which
-/// emits only [`Event::Death`]. Blows, blocks, parries and shots were legacy
-/// swing-resolution events; damage here travels as contact resolution rows.
+/// **The event counters stay at zero.** The articulated arm of [`World::step`]
+/// -- which is the arm this model shares -- emits exactly one [`Event`] variant,
+/// [`Event::Death`]. Blows, blocks, parries and shots were legacy
+/// swing-resolution events; damage here travels as contact resolution rows. The
+/// arms below are spelled out anyway rather than collapsed into a wildcard, on
+/// the argument the deleted loops' were: the next variant has to be thought
+/// about here.
+///
+/// **The outcome gate is live, and it is not a dressed-up `for tick in
+/// 0..max_ticks`.** Bodies do die -- `reap_dead_articulated` clears `alive` and
+/// pushes the death -- so [`World::outcome`] is reachable, and
+/// `an_embodied_run_stops_on_a_death_and_not_only_on_the_clock` proves it by
+/// thinning an anatomy until the reaper fires rather than by waiting for the
+/// game to be balanced. The second gate carries the shipped fixture, which is
+/// why [`World::timeout`] scoring on points matters here rather than being the
+/// rare case.
 pub fn run_embodied(
     scenario: &Scenario,
     seed: u64,
@@ -298,8 +179,8 @@ pub fn run_embodied(
     let limit = config.max_ticks.unwrap_or(scenario.max_ticks);
     let mut replay = config.record.then(|| Replay::new(scenario, seed));
 
-    // Set and recorded exactly as `run_articulated` does, and inert for exactly
-    // the same reason: an embodied body perceives no order either, and a replay
+    // Set and recorded exactly as the two deleted loops did, and inert for
+    // exactly the same reason: an embodied body perceives no order, and a replay
     // that recorded only the inputs somebody currently reads would stop
     // reproducing its run the day one of them grows a standing order.
     for (faction, order) in [
@@ -379,24 +260,22 @@ pub fn run_embodied(
 mod tests {
     use super::*;
     use crate::{
-        neutral_articulated_command, NeutralArticulatedPolicy, NeutralEmbodiedPolicy,
-        ScriptedEmbodiedPolicy,
+        into_torso_frame, neutral_articulated_command, neutral_embodied_command,
+        NeutralEmbodiedPolicy, ScriptedEmbodiedPolicy,
     };
-    use sim::{ArticulatedCommandV1, ArticulatedObservation, CommandField, Intent};
+    use sim::{ArticulatedObservation, CommandField, EmbodiedCommandV1, Intent};
 
-    // ------------------------------------------------------- articulated seam
-
-    /// The shipped articulated fixture with the two bodies moved inside each
+    /// The shipped embodied fixture with the two bodies moved inside each
     /// other's sight.
     ///
-    /// `Scenario::articulated_duel` spawns them 10.8 units apart and the
-    /// Fighter's sight range is 9.6, so at the shipped placement neither
-    /// observation ever contains an opponent -- and an articulated policy has
-    /// no standing order to walk along while it searches, because the
-    /// observation deliberately has no order column. Every test below is about
-    /// the seam and not about search, so they start in contact range.
+    /// `Scenario::embodied_duel` spawns them 10.8 units apart and the Fighter's
+    /// sight range is 9.6, so at the shipped placement neither observation ever
+    /// contains an opponent -- and no policy on this seam has a standing order
+    /// to walk along while it searches, because the observation deliberately has
+    /// no order column. Every test below is about the seam and not about search,
+    /// so they start in contact range.
     fn duel_in_sight() -> Scenario {
-        let mut scenario = Scenario::articulated_duel();
+        let mut scenario = Scenario::embodied_duel();
         scenario.units[0].spawn = Vec2::from_ints(10, 8);
         scenario.units[1].spawn = Vec2::from_ints(14, 8);
         scenario
@@ -405,13 +284,22 @@ mod tests {
     /// Walks at the nearest opponent and swings at it with both arms.
     ///
     /// A bad fighter and not trying to be a good one: it is the smallest thing
-    /// that makes an articulated fight actually *finish*, which is what these
-    /// tests need out of it, and every column it reads comes out of the
-    /// observation it was handed.
-    fn advance_and_strike(obs: &ArticulatedObservation) -> ArticulatedCommandV1 {
+    /// that makes a fight actually *finish*, which is what these tests need out
+    /// of it, and every column it reads comes out of the observation it was
+    /// handed.
+    ///
+    /// **It builds a world-frame command and converts once**, through
+    /// [`into_torso_frame`], rather than writing torso-relative bearings by
+    /// hand. An embodied arm bearing is measured from the torso, so a fixture
+    /// that wrote `delta.angle()` straight into `arms[i].bearing` would swing at
+    /// the opponent plus the body's own yaw -- and would still compile, still
+    /// submit legally and still produce a fight, which is exactly the shape this
+    /// session's `cargo check` rule warns about. One conversion, in the one
+    /// place the sign lives.
+    fn advance_and_strike(obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
         let mut command = neutral_articulated_command(obs);
         let Some(nearest) = obs.opponents().first() else {
-            return command;
+            return into_torso_frame(obs, command);
         };
         let delta = Vec2::new(
             nearest.body_position.x - obs.body_position.x,
@@ -430,7 +318,7 @@ mod tests {
             arm.reach = Fx::ONE;
             arm.effort = Fx::ONE;
         }
-        command
+        into_torso_frame(obs, command)
     }
 
     /// Keeps every observation it was shown and every command it answered with,
@@ -439,16 +327,16 @@ mod tests {
     /// **The tiring is what makes `reset` observable, and it is here because
     /// nothing else in this file could see it.** A policy whose `decide` is a
     /// pure function of its argument answers identically whether or not the
-    /// runner cleared it, so every fixture being pure left
-    /// `run_articulated`'s `policy.reset()` covered by nothing: deleting the
-    /// line kept all 102 policy tests green, including the one named for the
-    /// property. So this policy carries state that accumulates across decisions
-    /// *and* changes what it answers with, and the leak becomes a different
-    /// state hash rather than an invisible one.
+    /// runner cleared it, so every fixture being pure left the harness's
+    /// `policy.reset()` covered by nothing: deleting the line kept all 102
+    /// policy tests green, including the one named for the property. So this
+    /// policy carries state that accumulates across decisions *and* changes what
+    /// it answers with, and the leak becomes a different state hash rather than
+    /// an invisible one.
     #[derive(Default)]
     struct Recorder {
         seen: Vec<ArticulatedObservation>,
-        issued: Vec<ArticulatedCommandV1>,
+        issued: Vec<EmbodiedCommandV1>,
     }
 
     impl Recorder {
@@ -467,10 +355,10 @@ mod tests {
         }
     }
 
-    impl ArticulatedPolicy for Recorder {
-        fn decide(&mut self, obs: &ArticulatedObservation) -> ArticulatedCommandV1 {
+    impl EmbodiedPolicy for Recorder {
+        fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
             let mut command = advance_and_strike(obs);
-            for arm in command.arms.iter_mut() {
+            for arm in command.articulated.arms.iter_mut() {
                 arm.effort = self.effort();
             }
             self.seen.push(*obs);
@@ -485,10 +373,10 @@ mod tests {
     }
 
     #[test]
-    fn an_articulated_policy_has_no_world_parameter() {
+    fn an_embodied_policy_has_no_world_parameter() {
         // The *type-level* half of this claim belongs to the `compile_fail`
-        // doctest on `ArticulatedPolicy`, which is the only thing that can show
-        // no policy can reach the world. What a unit test can show is the
+        // doctest on `EmbodiedPolicy`, which is the only thing that can show no
+        // policy can reach the world. What a unit test can show is the
         // consequence: decisions are a function of the observation sequence
         // alone. So drive one policy through the runner, prove it was shown
         // exactly what `World::observe_articulated` answers at each decision
@@ -501,7 +389,7 @@ mod tests {
         };
 
         let mut recorder = Recorder::default();
-        let result = run_articulated(&scenario, 31, &mut recorder, &config);
+        let result = run_embodied(&scenario, 31, &mut recorder, &config);
         assert!(!recorder.seen.is_empty(), "nobody was ever asked to decide");
         assert_eq!(result.rejected, 0, "the fixture policy submits legal commands");
 
@@ -520,7 +408,7 @@ mod tests {
         while world.outcome().is_none() && world.tick() < 180 {
             for id in world.pending_decisions().to_vec() {
                 expected.push(world.observe_articulated(id));
-                let _ = world.submit_articulated_v1(id, recorder.issued[next]);
+                let _ = world.submit_embodied_v1(id, recorder.issued[next]);
                 next += 1;
             }
             world.step();
@@ -532,35 +420,34 @@ mod tests {
         // a fresh instance. If anything the policy answered had come from
         // somewhere other than its argument, this is where it would go missing.
         let mut offline = Recorder::default();
-        let replayed: Vec<ArticulatedCommandV1> =
+        let replayed: Vec<EmbodiedCommandV1> =
             recorder.seen.iter().map(|obs| offline.decide(obs)).collect();
-        assert_eq!(replayed, recorder.issued);
+        assert_eq!(
+            replayed.iter().map(|c| c.payload_bytes()).collect::<Vec<_>>(),
+            recorder.issued.iter().map(|c| c.payload_bytes()).collect::<Vec<_>>(),
+        );
     }
 
     #[test]
-    fn an_articulated_run_is_reproducible() {
+    fn an_embodied_run_is_reproducible() {
         let scenario = duel_in_sight();
         let config = RunConfig::default();
-        let a = run_articulated(&scenario, 17, Recorder::default(), &config);
-        let b = run_articulated(&scenario, 17, Recorder::default(), &config);
+        let a = run_embodied(&scenario, 17, Recorder::default(), &config);
+        let b = run_embodied(&scenario, 17, Recorder::default(), &config);
         assert_eq!(a.state_hash, b.state_hash);
         assert_eq!(a.ticks, b.ticks);
         assert_eq!(a.outcome, b.outcome);
     }
 
     #[test]
-    fn a_recorded_articulated_run_replays_exactly() {
+    fn a_recorded_embodied_run_replays_exactly() {
         let scenario = duel_in_sight();
         let config = RunConfig {
             record: true,
             ..RunConfig::default()
         };
-        let result = run_articulated(&scenario, 21, Recorder::default(), &config);
+        let result = run_embodied(&scenario, 21, Recorder::default(), &config);
         let replay = result.replay.as_ref().expect("recording was requested");
-        // This used to assert *which* of two command vectors the articulated
-        // seam wrote to, which was the recorder's half of "exactly one command
-        // vector is active". The legacy vector is gone, so the half that is
-        // still the recorder's is that it recorded at all.
         assert!(!replay.submitted_entries.is_empty(), "the recorder wrote nothing");
         let played = replay.play();
         assert_eq!(played.state_hash(), result.state_hash);
@@ -577,11 +464,11 @@ mod tests {
         struct Overreacher {
             seen: Vec<ArticulatedObservation>,
         }
-        impl ArticulatedPolicy for Overreacher {
-            fn decide(&mut self, obs: &ArticulatedObservation) -> ArticulatedCommandV1 {
+        impl EmbodiedPolicy for Overreacher {
+            fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
                 self.seen.push(*obs);
                 let mut command = advance_and_strike(obs);
-                command.arms[0].reach = Fx::from_raw(Fx::ONE.raw() + 1);
+                command.articulated.arms[0].reach = Fx::from_raw(Fx::ONE.raw() + 1);
                 command
             }
         }
@@ -592,9 +479,9 @@ mod tests {
             record: true,
             ..RunConfig::default()
         };
-        let honest = run_articulated(&scenario, 44, Recorder::default(), &config);
+        let honest = run_embodied(&scenario, 44, Recorder::default(), &config);
         let mut policy = Overreacher::default();
-        let result = run_articulated(&scenario, 44, &mut policy, &config);
+        let result = run_embodied(&scenario, 44, &mut policy, &config);
 
         assert_eq!(result.rejected, result.decisions as u32);
         assert!(result.rejected > 0);
@@ -611,8 +498,8 @@ mod tests {
         assert_eq!(replay.submitted_entries.len(), result.decisions as usize);
         assert_eq!(policy.seen.len(), result.decisions as usize);
         for (record, shown) in replay.submitted_entries.iter().zip(&policy.seen) {
-            let SubmittedCommand::Articulated(recorded) = record.command else {
-                panic!("an articulated run must record articulated commands");
+            let SubmittedCommand::Embodied(recorded) = record.command else {
+                panic!("an embodied run must record embodied commands");
             };
             // Note what this deliberately does *not* rest on. Replay equality
             // would pass either way today: playback runs the same validator, so
@@ -620,8 +507,15 @@ mod tests {
             // and substituted again. The contract is that a replay persists
             // final *submitted* commands, and the only way to check that is to
             // read what was written down.
-            assert_eq!(recorded, neutral_articulated_command(shown));
-            assert!(recorded.arms[0].reach <= Fx::ONE);
+            //
+            // **`neutral_embodied_command` and not `neutral_articulated_command`,
+            // and the difference is one column.** The world substitutes an arm
+            // bearing of `Angle::ZERO` under `CommandFrame::Torso`, because zero
+            // is "straight ahead" there; the articulated neutral writes the
+            // body's yaw, which under this frame would mean a whole turn off the
+            // centre line.
+            assert_eq!(recorded.payload_bytes(), neutral_embodied_command(shown).payload_bytes());
+            assert!(recorded.articulated.arms[0].reach <= Fx::ONE);
         }
         let played = replay.play();
         assert_eq!(played.state_hash(), result.state_hash);
@@ -633,36 +527,34 @@ mod tests {
         // nothing for a replay to carry, and a harness that recorded a row here
         // would hand playback a submission the run never made.
         //
-        // **Named for the rejection it actually produces.** It was called
-        // `a_stale_identity_is_counted_and_never_recorded`, which named a
-        // rejection this test cannot reach and neither can the runner:
-        // `World::pending_decisions` is rebuilt from the alive set and yields
-        // only live handles, nothing between it and `submit_articulated_v1`
-        // kills anybody -- only `World::step` does, and that is past the
-        // decision loop -- so `NotStored(StaleEntity)` is unreachable from
-        // `run_articulated` altogether. The `NotStored` arm is worth covering
-        // regardless, because what is being checked is the arm's *behaviour*
-        // and not which reason walked into it, and `WrongModel` is the reason
-        // that is reachable. See the note on the arm itself.
-        struct WrongModel;
-        impl ArticulatedPolicy for WrongModel {
-            fn decide(&mut self, obs: &ArticulatedObservation) -> ArticulatedCommandV1 {
-                neutral_articulated_command(obs)
+        // **Named for the rejection it actually produces.** `StaleEntity` is the
+        // other reason the `NotStored` arm can carry and it is unreachable from
+        // this loop: `World::pending_decisions` is rebuilt from the alive set
+        // and yields only live handles, nothing between it and
+        // `submit_embodied_v1` kills anybody -- only `World::step` does, and
+        // that is past the decision loop. The arm is worth covering regardless,
+        // because what is being checked is the arm's *behaviour* and not which
+        // reason walked into it.
+        //
+        // **This test outlives its own reachability by one session.** It needs a
+        // scenario of the *other* grammar to reach `WrongModel` at all, and the
+        // articulated fixture is deleted in the step after this one. When the
+        // second grammar goes, so does this test, and the fact that the harness
+        // can no longer be pointed at the wrong world is what replaces it.
+        struct Neutral;
+        impl EmbodiedPolicy for Neutral {
+            fn decide(&mut self, obs: &ArticulatedObservation) -> EmbodiedCommandV1 {
+                neutral_embodied_command(obs)
             }
         }
 
-        // **An embodied scenario refuses every articulated submission by model**,
-        // and it is the only way this harness reaches the `NotStored` arm at all.
-        // It was a Legacy scenario, which refused for the same reason and no
-        // longer exists; the two surviving grammars refuse each other, which is
-        // the same claim on the pair that is left.
-        let scenario = Scenario::embodied_duel();
+        let scenario = Scenario::articulated_duel();
         let config = RunConfig {
             max_ticks: Some(30),
             record: true,
             ..RunConfig::default()
         };
-        let result = run_articulated(&scenario, 3, WrongModel, &config);
+        let result = run_embodied(&scenario, 3, Neutral, &config);
         assert!(result.decisions > 0);
         assert_eq!(result.rejected, result.decisions as u32);
         assert_eq!(result.first_rejection, Some(CommandReject::WrongModel));
@@ -671,43 +563,26 @@ mod tests {
     }
 
     #[test]
-    fn an_articulated_run_stops_on_a_death_and_not_only_on_the_clock() {
+    fn an_embodied_run_stops_on_a_death_and_not_only_on_the_clock() {
         // The loop gates on `World::outcome`, and that gate is only worth
-        // having if an articulated world can reach one. It can: contact wounds
-        // an anatomy, `settle_anatomy` bleeds it, `reap_dead_articulated`
-        // clears `alive`, and the outcome falls out of the alive counts exactly
-        // as it does under the legacy model. Without this the loop would be a
-        // `for tick in 0..max_ticks` wearing a `while`.
+        // having if the world can reach one. It can: contact wounds an anatomy,
+        // `settle_anatomy` bleeds it, `reap_dead_articulated` clears `alive`,
+        // and the outcome falls out of the alive counts. Without this the loop
+        // would be a `for tick in 0..max_ticks` wearing a `while`.
         //
-        // **The monster is made of paper on purpose.** At the shipped anatomy
-        // the v2-16 contact model is nowhere near lethal -- measured, sixty
-        // seconds of continuous contact takes the Brute from 1.000 health to
-        // 0.948 and leaves the Fighter untouched, so no policy can end this
-        // fixture inside its hour of ticks. That is a property of a damage
-        // model still being built and not of this loop, and the honest way to
-        // test the loop is to shrink the anatomy until the reaper fires rather
-        // than to wait for the game to be balanced.
-        // `an_articulated_run_that_outlives_the_clock_is_scored_on_points`
-        // covers the shipped fixture as it actually behaves today.
-        //
-        // **The last clause of that paragraph stopped being true on
-        // 2026-08-15 and is kept because it is the measurement it was.**
-        // Smart134's doubled arm bearing rates made the shipped anatomy
-        // lethal: `duel_in_sight` at seed 9 now ends on tick 511 with the
-        // Fighter winning in the default build, and on tick 125 with the
-        // Fighter *dead* under `cartesian-recoil`. The paper monster stays --
-        // shrinking the anatomy is still the way to make this test about the
-        // reaper rather than about how hard the game happens to hit this
-        // month, which is exactly what a fixture that ends on tick 511 for
-        // reasons of its own would stop being.
+        // **The monster is made of paper on purpose.** Shrinking the anatomy
+        // until the reaper fires is the honest way to test the loop; waiting for
+        // the game to be balanced is not, and a fixture that ended on its own
+        // for reasons of its own would stop being a test about the reaper the
+        // next time the damage model moved.
         let mut scenario = duel_in_sight();
-        let table = scenario.combat_specs.as_mut().expect("the articulated fixture has specs");
+        let table = scenario.combat_specs.as_mut().expect("the embodied fixture has specs");
         let brute = table.anatomies.iter_mut().find(|row| row.id == 2).expect("the brute anatomy");
         brute.integrity_maxima = [Fx::from_ratio(1, 32); 5];
         brute.blood_max = Fx::from_ratio(1, 32);
 
         let config = RunConfig::default();
-        let result = run_articulated(&scenario, 9, Recorder::default(), &config);
+        let result = run_embodied(&scenario, 9, Recorder::default(), &config);
         assert_eq!(result.rejected, 0);
         assert!(
             result.ticks < scenario.max_ticks,
@@ -721,46 +596,41 @@ mod tests {
     }
 
     #[test]
-    fn an_articulated_run_that_outlives_the_clock_is_scored_on_points() {
-        // `World::timeout` is model-agnostic -- it compares health fractions,
-        // and `health_fraction` routes through the anatomy for an articulated
-        // body -- so the second gate is a real answer rather than a shrug. It
-        // is also the answer this bounded fixture gives today. The cap is
-        // deliberately before the first natural body decision, so reaching it
-        // proves this was the clock's answer rather than a coincident outcome.
+    fn an_embodied_run_that_outlives_the_clock_is_scored_on_points() {
+        // `World::timeout` compares health fractions, and `health_fraction`
+        // routes through the anatomy -- so the second gate is a real answer
+        // rather than a shrug. The cap is deliberately before the first natural
+        // body decision, so reaching it proves this was the clock's answer
+        // rather than a coincident outcome, and the number is bounded from both
+        // sides rather than shaved. From above: with the cap removed this
+        // fixture ends on tick 1,468 at seed 9 in the default build, measured
+        // 2026-08-19 by deleting the `config.max_ticks` line and watching this
+        // assertion report it. Past that the outcome stops being `Decision` and
+        // this is no longer a test about the clock. From below: the health
+        // comparison is deciding a tie until the two fractions have separated,
+        // which the third assertion states rather than assumes.
         //
-        // **90 and not 180, since 2026-08-15**, and the cap moved rather than
-        // the claim. Smart134's doubled arm bearing rates gave this fixture a
-        // natural body decision it did not have: under `cartesian-recoil` the
-        // Fighter now *dies* on tick 125, so a 180-tick clock stopped being a
-        // clock at all here and the two assertions below both failed -- which
-        // is exactly the failure the sentence above predicted and wanted. The
-        // fixture is unchanged; only the clock it outlives moved.
-        //
-        // The number is bounded from both sides by the assertions themselves,
-        // which is the point of choosing it with room rather than shaving it.
-        // From above by the earliest natural decision either build reaches:
-        // 125 under `cartesian-recoil` and 511 in the default build, where the
-        // Fighter wins instead. Past either one, `outcome` stops being
-        // `Decision` and this is no longer a test about the clock. From below
-        // by the health comparison: the two fractions have to have separated
-        // by the cap or the third assertion is deciding a tie, and they
-        // separate before tick 40 in both builds.
+        // Only the default build, deliberately -- `crates/policy` has no
+        // `cartesian-recoil` feature of its own and is not in the exact-law
+        // command, so there is no second number to bracket here.
         let scenario = duel_in_sight();
         let config = RunConfig {
             max_ticks: Some(90),
             ..RunConfig::default()
         };
-        let result = run_articulated(&scenario, 9, Recorder::default(), &config);
+        let result = run_embodied(&scenario, 9, Recorder::default(), &config);
         assert_eq!(result.ticks, 90);
-        assert_eq!(result.outcome, Outcome::Decision(Faction::Heroes));
-        assert!(result.hero_health > result.monster_health);
+        assert!(
+            matches!(result.outcome, Outcome::Decision(_)),
+            "the clock was not what ended this run: {:?}", result.outcome
+        );
+        assert_ne!(result.hero_health, result.monster_health, "the points are a tie");
     }
 
     #[test]
-    fn an_articulated_policy_instance_can_be_reused_without_leaking_between_runs() {
+    fn an_embodied_policy_instance_can_be_reused_without_leaking_between_runs() {
         // `Recorder` tires as it decides, so the third run is only the first
-        // run again if `run_articulated` cleared the instance it was handed.
+        // run again if `run_embodied` cleared the instance it was handed.
         // Without that, the fatigue two runs deep is saturated where a fresh
         // instance's is zero, the commands differ from the first decision, and
         // both assertions below fail rather than passing on a policy that could
@@ -768,9 +638,9 @@ mod tests {
         let scenario = duel_in_sight();
         let config = RunConfig::default();
         let mut policy = Recorder::default();
-        let first = run_articulated(&scenario, 5, &mut policy, &config);
-        let _ = run_articulated(&scenario, 6, &mut policy, &config);
-        let again = run_articulated(&scenario, 5, &mut policy, &config);
+        let first = run_embodied(&scenario, 5, &mut policy, &config);
+        let _ = run_embodied(&scenario, 6, &mut policy, &config);
+        let again = run_embodied(&scenario, 5, &mut policy, &config);
         assert_eq!(first.state_hash, again.state_hash);
         assert_eq!(first.ticks, again.ticks);
         // And the recording itself is one run's worth, which is the same claim
@@ -782,27 +652,25 @@ mod tests {
     }
 
     #[test]
-    fn a_boxed_articulated_policy_is_driveable() {
-        // The trait has to stay object-safe -- `Policy` is used as `dyn Policy`
-        // by `PolicyKind::build`, and a sibling that quietly was not would only
-        // be discovered by whoever first reached for the box.
+    fn a_boxed_embodied_policy_is_driveable() {
+        // The trait has to stay object-safe -- it is used as
+        // `dyn EmbodiedPolicy` by `EmbodiedPolicyKind::build`, and a seam that
+        // quietly was not would only be discovered by whoever first reached for
+        // the box.
         let scenario = duel_in_sight();
         let config = RunConfig {
             max_ticks: Some(30),
             ..RunConfig::default()
         };
-        let boxed: Box<dyn ArticulatedPolicy> = Box::new(NeutralArticulatedPolicy);
-        let result = run_articulated(&scenario, 12, boxed, &config);
+        let boxed: Box<dyn EmbodiedPolicy> = Box::new(NeutralEmbodiedPolicy);
+        let result = run_embodied(&scenario, 12, boxed, &config);
         assert_eq!(result.rejected, 0);
         assert_eq!(result.ticks, 30);
     }
 
-    // ---------------------------------------------------------- embodied seam
-
     /// **The run has to have happened**, and on this seam that is a separate
     /// claim from "it finished".
     ///
-    /// The two grammars refuse each other at *runtime*:
     /// [`World::submit_embodied_v1`] compiles against any world and answers
     /// `NotStored(WrongModel)` when the scenario disagrees. A loop wired to the
     /// wrong entry therefore runs its clock out and exits clean, having stored
