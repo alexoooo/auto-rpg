@@ -71,7 +71,7 @@ and are not repeated here. This is the *kind* of evidence each one has.
 | `PELVIS_SPEED_DROP_RAW` | a judgement, "small on purpose", with no bound on the magnitude | the same test, in direction only |
 | `PELVIS_TWIST_DROP_RAW` | the same judgement, stated twice deliberately | the same test, in direction only |
 | `ELBOW_PLANE_MAX_SPEED_RAW` | derived from a **measured** constant | [`the_elbow_plane_rate_is_bounded_from_both_sides`](../../crates/sim/src/world/mod.rs#L2708) |
-| `UPPER_ARM_FRACTION_RAW` | a refusal to invent an asymmetry, not a measurement | [`an_elbow_stop_is_a_fold_and_not_a_hinge`](../../crates/sim/src/combat/limb.rs#L730), which bounds what the equality forces |
+| `UPPER_ARM_FRACTION_RAW` | a refusal to invent an asymmetry, not a measurement | [`an_elbow_stop_is_a_fold_and_not_a_hinge`](../../crates/sim/src/combat/limb.rs#L800), which bounds what the equality forces |
 | `ELBOW_MIN_INCLUDED_ANGLE_RAW` | anatomy: where a human elbow meets its own bicep | the same test, from both sides |
 
 **`STANCE_HIP_ACCEL_RAW` is the one row with no bound at all**, and that is defensible
@@ -223,7 +223,7 @@ those measurements are real numbers with real slack in them.
 
 ### The arm-length clamp, swept over its whole commanded range
 
-[`a_hand_can_never_be_further_from_its_shoulder_than_the_arm_is_long`](../../crates/sim/src/world/mod.rs#L2499)
+[`a_hand_can_never_be_further_from_its_shoulder_than_the_arm_is_long`](../../crates/sim/src/world/mod.rs#L2504)
 enumerates both bodies × two pelvis heights × four yaws × two limbs × sixteen bearings ×
 nine heights × nine reaches and asserts the realised hand stayed on the annulus. **Both
 bounds carry the exact slack that was measured**: one raw unit over the outer bound and
@@ -237,7 +237,7 @@ excess grew with both axes at once, and every one-axis sweep missed it.
 
 ### The elbow solution, swept across the annulus and six planes
 
-[`the_elbow_lies_on_both_link_circles`](../../crates/sim/src/combat/limb.rs#L566) sweeps
+[`the_elbow_lies_on_both_link_circles`](../../crates/sim/src/combat/limb.rs#L636) sweeps
 seventeen radii across the reachable annulus at four bearings, four yaws, both limbs and
 six commanded planes. The measured maximum error off either link circle is **four raw
 units**, and it is exact from both sides: three fails, and five would pass on an error that

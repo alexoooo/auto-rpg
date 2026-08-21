@@ -87,7 +87,8 @@
 
 use fx::{closest_point_on_segment, Angle, Fx, Rng, Vec2, Vec3};
 use policy::{
-    into_torso_frame, Policy, StrikePlanner, TacticalContextV1, TacticalIntentV1,
+    into_torso_frame, Footwork as PlannerFootwork, Policy, StrikePlanner, TacticalContextV1,
+    TacticalIntentV1,
     EIGHTH_TURN, TACTICAL_INTENT_COUNT,
 };
 use sim::{
@@ -1530,7 +1531,11 @@ pub struct LearnedTacticalCorePolicyV2 {
     memory: FeatureMemory,
     planner: StrikePlanner,
     selected: TacticalIntentV1,
+    keep_out_until: u32,
+    powered_last: bool,
 }
+
+const LEARNED_KEEP_OUT_TICKS: u32 = 180;
 
 impl LearnedTacticalCorePolicyV2 {
     pub fn new(model: ModelV2) -> LearnedTacticalCorePolicyV2 {
@@ -1540,8 +1545,14 @@ impl LearnedTacticalCorePolicyV2 {
             hidden: [0.0; HIDDEN_UNITS],
             logits: [0.0; LEARN_V2_ACTION_LOGITS],
             memory: FeatureMemory::EMPTY,
-            planner: StrikePlanner::default(),
+            // Tactical V2 drives the surviving embodied body. `Default` is the
+            // historical articulated control with no lunge; using it here made
+            // the learner stand in reach through chamber and recovery while the
+            // shipped tactical policy used the measured embodied row.
+            planner: StrikePlanner::footwork(PlannerFootwork::EMBODIED),
             selected: TacticalIntentV1::Close,
+            keep_out_until: 0,
+            powered_last: false,
         }
     }
 
@@ -1572,14 +1583,60 @@ impl LearnedTacticalCorePolicyV2 {
     /// wrapper's single call to [`policy::into_torso_frame`].
     pub fn decide(&mut self, obs: &Observation) -> CommandCoreV1 {
         self.action(obs);
-        self.planner.decide_with_intent(obs, self.selected)
+        let requested = if obs.tick < self.keep_out_until && self.planner.can_sample_intent() {
+            TacticalIntentV1::Disengage
+        } else {
+            self.selected
+        };
+        let mut command = self.planner.decide_with_intent(obs, requested);
+        let powered_attack = matches!(command.intent, Intent::Attack(_))
+            && command.arms.iter().any(|arm| arm.effort == Fx::ONE);
+        if self.powered_last && !powered_attack {
+            self.keep_out_until = obs.tick.saturating_add(LEARNED_KEEP_OUT_TICKS);
+        }
+        self.powered_last = powered_attack;
+        if !powered_attack {
+            if let Some(foe) = observed_weapon_envelope(obs) {
+                let toward = Vec2::new(
+                    foe.body_position.x - obs.body_position.x,
+                    foe.body_position.y - obs.body_position.y,
+                ).angle();
+                let away = toward + Angle::HALF;
+                command.move_dir = Vec2::new(away.cos(), away.sin())
+                    * Fx::from_ratio(15, 16);
+                command.body_yaw = toward;
+            }
+        }
+        command
     }
 
     pub fn reset(&mut self) {
         self.memory = FeatureMemory::EMPTY;
         self.planner.reset();
         self.selected = TacticalIntentV1::Close;
+        self.keep_out_until = 0;
+        self.powered_last = false;
     }
+}
+
+fn observed_weapon_envelope(obs: &Observation) -> Option<&sim::ObservedOpponent> {
+    let foe = obs.opponents().first()?;
+    let body_distance = Vec2::new(
+        foe.body_position.x - obs.body_position.x,
+        foe.body_position.y - obs.body_position.y,
+    ).length();
+    let mut reach = Fx::ZERO;
+    for blade in foe.weapons.iter().flatten() {
+        for point in [blade.hilt, blade.tip] {
+            let planar = Vec2::new(
+                point.x - foe.body_position.x,
+                point.y - foe.body_position.y,
+            ).length();
+            reach = reach.max(planar + blade.radius);
+        }
+    }
+    (reach.is_positive() && body_distance <= reach + obs.hand_radius * Fx::TWO)
+        .then_some(foe)
 }
 
 /// [`LearnedTacticalCorePolicyV2`] driving a body: the V2 pair's outer half.
@@ -2294,10 +2351,10 @@ mod tests {
             tip: Vec3::new(Fx::from_int(2), Fx::ZERO, Fx::from_ratio(9, 10)),
             radius: Fx::from_ratio(1, 20),
         });
-        obs.opponents[0].body_position = Vec3::new(Fx::from_ratio(5, 2), Fx::ZERO, Fx::ZERO);
+        obs.opponents[0].body_position = Vec3::new(Fx::from_ratio(14, 5), Fx::ZERO, Fx::ZERO);
         obs.opponents[0].regions[BodyPart::Torso as usize] = RegionVolume {
-            lower: Vec3::new(Fx::from_ratio(5, 2), Fx::ZERO, Fx::from_ratio(1, 2)),
-            upper: Vec3::new(Fx::from_ratio(5, 2), Fx::ZERO, Fx::from_ratio(13, 10)),
+            lower: Vec3::new(Fx::from_ratio(14, 5), Fx::ZERO, Fx::from_ratio(1, 2)),
+            upper: Vec3::new(Fx::from_ratio(14, 5), Fx::ZERO, Fx::from_ratio(13, 10)),
             radius: Fx::from_ratio(1, 2), present: true,
         };
         let mut model = ModelV2::zeros();
@@ -2308,6 +2365,36 @@ mod tests {
         assert_eq!(policy.planner().phase(), TacticalPhase::Chamber);
         obs.tick += 1;
         assert_eq!(policy.action(&obs), None, "a chamber sampled a contradictory intent");
+    }
+
+    #[test]
+    fn learned_keep_out_withdrawal_uses_the_largest_legal_authored_speed() {
+        let mut obs = fighter_facing(0);
+        obs.hand_radius = Fx::from_ratio(1, 10);
+        obs.opponents[0].body_position = Vec3::new(Fx::HALF, Fx::ZERO, Fx::ZERO);
+        obs.opponents[0].weapons[0] = Some(SegmentPose {
+            hilt: obs.opponents[0].body_position,
+            tip: Vec3::new(Fx::from_ratio(3, 2), Fx::ZERO, Fx::ZERO),
+            radius: Fx::from_ratio(1, 20),
+        });
+        let mut policy = LearnedTacticalCorePolicyV2::new(ModelV2::zeros());
+        let command = policy.decide(&obs);
+        assert_eq!(command.move_dir, Vec2::new(-Fx::from_ratio(15, 16), Fx::ZERO));
+        assert_eq!(command.move_dir.length(), Fx::from_ratio(15, 16));
+        assert!(command.move_dir.length() <= Fx::ONE,
+            "the keep-out layer authored an input the command validator may refuse");
+    }
+
+    #[test]
+    fn a_completed_powered_exchange_starts_a_three_second_keep_out_window() {
+        let mut policy = LearnedTacticalCorePolicyV2::new(ModelV2::zeros());
+        policy.powered_last = true;
+        let obs = fighter_facing(37);
+        policy.decide(&obs);
+        assert_eq!(policy.keep_out_until, 37 + LEARNED_KEEP_OUT_TICKS);
+        policy.reset();
+        assert_eq!(policy.keep_out_until, 0);
+        assert!(!policy.powered_last);
     }
 
     #[test]

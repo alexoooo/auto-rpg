@@ -72,7 +72,8 @@
 use crate::args::Args;
 use learn::{
     band, held_out_seeds, training_seeds, Band, Checkpoint, Corpus, LearnedPolicy,
-    Mechanics, Model, Opponent, ProbeConfig, Recorders, Rollout,
+    LearnedTacticalPolicyV2, Mechanics, Model, Opponent, ProbeConfig, Recorders, Rollout,
+    TacticalEvidence,
 };
 use policy::{Policy, PolicyKind};
 use sim::{BodyPart, ContactKind, Faction, Outcome, Replay, Scenario};
@@ -221,6 +222,27 @@ pub fn opponent_from(args: &Args) -> Result<Opponent, String> {
         return Ok(Opponent::randomised(kind));
     }
     Ok(Opponent::frozen(kind))
+}
+
+fn tactical_roster(args: &Args) -> Vec<Opponent> {
+    if args.text("opponent") != Some("roster") {
+        return Vec::new();
+    }
+    if args.flag("phase-random") {
+        refuse(
+            "--opponent roster cannot be phase-randomised: three shipped policies have no clock, so the requested control does not exist"
+                .to_string(),
+        );
+    }
+    PolicyKind::ALL.iter().copied().map(Opponent::frozen).collect()
+}
+
+fn tactical_primary_opponent(args: &Args) -> Opponent {
+    if args.text("opponent") == Some("roster") {
+        Opponent::frozen(PolicyKind::ALL[0])
+    } else {
+        opponent_from(args).unwrap_or_else(|sentence| refuse(sentence))
+    }
 }
 
 /// Why a phase-shifted opponent of this kind would not be one, as a sentence.
@@ -386,6 +408,7 @@ fn train(args: &Args) {
             ticks => Some(ticks),
         },
         opponent: opponent_from(args).unwrap_or_else(|sentence| refuse(sentence)),
+        roster: Vec::new(),
         verbose: !args.flag("quiet"),
     };
     let path = output_path(args);
@@ -497,7 +520,8 @@ fn train_tactical_v2(args: &Args) {
         threads: args.usize("threads", default_threads()),
         master_seed: args.number("master-seed", SPEC_MASTER_SEED),
         max_ticks: match args.u32("ticks", 0) { 0 => None, ticks => Some(ticks) },
-        opponent: opponent_from(args).unwrap_or_else(|sentence| refuse(sentence)),
+        opponent: tactical_primary_opponent(args),
+        roster: tactical_roster(args),
         verbose: !args.flag("quiet"),
     };
     let path = output_path(args);
@@ -522,7 +546,7 @@ fn train_tactical_v2(args: &Args) {
         eprintln!("could not write {}: {error}", path.display()); std::process::exit(1);
     }
     println!("  wrote {} ({})", path.display(), checkpoint.digest());
-    println!("  tactical V2 remains native-only and is not the shipped browser checkpoint");
+    println!("  training alone does not ship this artifact; Arena embeds only the explicitly promoted learned-roster checkpoint");
 }
 
 fn load_checkpoint_v2(args: &Args) -> learn::CheckpointV2 {
@@ -543,17 +567,124 @@ fn evaluate_tactical_v2(args: &Args) {
         mirrored: !args.flag("plain"), sigma: 0.0,
         threads: args.usize("threads", default_threads()), master_seed: SPEC_MASTER_SEED,
         max_ticks: match args.u32("ticks", 0) { 0 => None, ticks => Some(ticks) },
-        opponent: opponent_from(args).unwrap_or_else(|sentence| refuse(sentence)),
+        opponent: tactical_primary_opponent(args),
+        roster: tactical_roster(args),
         verbose: false,
     };
     let corpus = Corpus::new(config.mirrored);
-    let score = learn::score_v2(&checkpoint.model, &corpus, &config);
+    if !config.roster.is_empty() && checkpoint.opponent_mask != config.tactical_opponent_mask() {
+        refuse(format!(
+            "{} records tactical opponent mask 0x{:08x}, but --opponent roster requires 0x{:08x}",
+            checkpoint_path(args).display(),
+            checkpoint.opponent_mask,
+            config.tactical_opponent_mask(),
+        ));
+    }
     println!("learn-probe evaluate --action-layout tactical-v2");
     println!("  checkpoint  {}", checkpoint_path(args).display());
     println!("              sha256 {}", checkpoint.digest());
-    println!("  held out    {} tactical trials", corpus.trials(&config.seeds));
-    println!("  mean return {score:.3}");
-    println!("  promotion is session 08 work; the browser and unsuffixed runtime remain V1");
+    println!(
+        "  held out    {} seed{} x {} orientation{} x {} opponent{}",
+        config.seeds.len(), if config.seeds.len() == 1 { "" } else { "s" },
+        corpus.scenarios().len(), if corpus.scenarios().len() == 1 { "" } else { "s" },
+        config.tactical_opponents().len(),
+        if config.tactical_opponents().len() == 1 { "" } else { "s" },
+    );
+    println!("  opponent    wins    Wilson95       outside   safe action  full effort  rejected  replay  return");
+
+    let mut all_pass = true;
+    let first_seed = config.seeds.first().copied();
+    for &opponent in config.tactical_opponents() {
+        let mut policy = LearnedTacticalPolicyV2::new(checkpoint.model.clone());
+        let mut wins = 0usize;
+        let mut trials = 0usize;
+        let mut rejected = 0u64;
+        let mut evidence = TacticalEvidence::default();
+        let mut score = 0.0f32;
+        let mut replayed = 0usize;
+        let mut replay_failures = 0usize;
+        for scenario in corpus.scenarios() {
+            for &seed in &config.seeds {
+                let mut baseline = opponent.policy_for(seed);
+                let mut one = TacticalEvidence::default();
+                let check_replay = Some(seed) == first_seed;
+                let mut replay = check_replay.then(|| Replay::new(scenario, seed));
+                let result = learn::rollout_with(
+                    scenario,
+                    seed,
+                    &mut policy,
+                    baseline.as_mut(),
+                    config.max_ticks,
+                    &mut Recorders {
+                        mechanics: None,
+                        tactics: Some(&mut one),
+                        replay: replay.as_mut(),
+                    },
+                );
+                wins += usize::from(matches!(
+                    result.outcome,
+                    Outcome::HeroesWin | Outcome::Decision(Faction::Heroes)
+                ));
+                rejected += result.rejected as u64;
+                evidence.samples = evidence.samples.saturating_add(one.samples);
+                evidence.outside_samples = evidence
+                    .outside_samples
+                    .saturating_add(one.outside_samples);
+                evidence.unsafe_exposures = evidence
+                    .unsafe_exposures
+                    .saturating_add(one.unsafe_exposures);
+                evidence.attacks = evidence.attacks.saturating_add(one.attacks);
+                evidence.full_effort_attacks = evidence
+                    .full_effort_attacks
+                    .saturating_add(one.full_effort_attacks);
+                score += learn::shaped_return(&result)
+                    - learn::RETURN_PASSIVE_EXPOSURE * (1.0 - one.safety_fraction())
+                    - learn::RETURN_SUBMAXIMAL_ATTACK * (1.0 - one.full_effort_fraction());
+                if let Some(replay) = replay {
+                    replayed += 1;
+                    replay_failures += usize::from(
+                        !replay.is_intact() || replay.play().state_hash() != result.state_hash,
+                    );
+                }
+                trials += 1;
+            }
+        }
+        let rate = if trials == 0 { 0.0 } else { wins as f64 / trials as f64 };
+        let (low, high) = wilson95(wins, trials);
+        let outside = evidence.outside_fraction();
+        let safety = evidence.safety_fraction();
+        let force = evidence.full_effort_fraction();
+        let passed = rate >= 0.60 && low > 0.50 && safety >= 0.90
+            && force == 1.0 && rejected == 0 && replay_failures == 0;
+        all_pass &= passed;
+        println!(
+            "  {:<20} {:>3}/{:<3} [{:>5.1},{:>5.1}]%  {:>6.1}%     {:>6.1}%      {:>6.1}%      {:>4}     {}/{}   {:>7.3}  {}",
+            opponent.kind.name(), wins, trials, low * 100.0, high * 100.0,
+            outside * 100.0, safety * 100.0, force * 100.0, rejected,
+            replayed - replay_failures, replayed,
+            if trials == 0 { 0.0 } else { score / trials as f32 },
+            if passed { "PASS" } else { "REVISE" },
+        );
+    }
+    println!(
+        "  promotion   {} -- every row needs >=60% wins, Wilson lower >50%, >=90% safe action, full effort, zero refusals, and exact sampled replay",
+        if all_pass { "PASS" } else { "REVISE" },
+    );
+    println!("  a passing full-roster artifact is eligible for explicit Arena promotion");
+}
+
+fn wilson95(wins: usize, trials: usize) -> (f64, f64) {
+    if trials == 0 {
+        return (0.0, 1.0);
+    }
+    let n = trials as f64;
+    let p = wins as f64 / n;
+    let z = 1.959_963_984_540_054f64;
+    let z2 = z * z;
+    let centre = (p + z2 / (2.0 * n)) / (1.0 + z2 / n);
+    let margin = z * ((p * (1.0 - p) / n + z2 / (4.0 * n * n)).sqrt())
+        / (1.0 + z2 / n);
+    ((centre - margin).max(0.0), (centre + margin).min(1.0))
 }
 
 // ----------------------------------------------------------------- evaluation
@@ -970,6 +1101,7 @@ fn score_condition(
                         None,
                         &mut Recorders {
                             mechanics: Some(audit),
+                            tactics: None,
                             replay: replay.as_mut(),
                         },
                     );
@@ -1479,6 +1611,7 @@ mod tests {
                 Some(400),
                 &mut Recorders {
                     mechanics: None,
+                    tactics: None,
                     replay: Some(&mut replay),
                 },
             );

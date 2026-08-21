@@ -1727,7 +1727,11 @@ impl World {
         let elbow = crate::combat::limb::Elbow::of(&anatomy);
         let (height, reach) =
             crate::combat::limb::reachable_extent(&anatomy, target.height, target.reach, elbow);
-        ArmTarget { height, reach, ..target }
+        let bearing = crate::combat::limb::rear_limited_bearing(
+            self.body_yaw[i].angle,
+            target.bearing,
+        );
+        ArmTarget { bearing, height, reach, ..target }
     }
 
     /// The move authority a body actually has this tick.

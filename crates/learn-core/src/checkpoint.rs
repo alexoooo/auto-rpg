@@ -290,6 +290,10 @@ pub struct Checkpoint {
 #[derive(Clone, PartialEq, Debug)]
 pub struct CheckpointV2 {
     pub training: TrainingRecord,
+    /// Bit `PolicyKind::code()` is set when that opponent was on every
+    /// candidate's training board. Tactical V2 has no promoted artifact yet,
+    /// so adding this provenance changes no accepted checkpoint bytes.
+    pub opponent_mask: u32,
     pub model: ModelV2,
 }
 
@@ -500,6 +504,7 @@ impl CheckpointV2 {
         put_f32(&mut out, self.training.training_return); put_u64(&mut out, self.training.master_seed);
         put_u32(&mut out, self.training.seeds.len() as u32);
         for &seed in &self.training.seeds { put_u64(&mut out, seed); }
+        put_u32(&mut out, self.opponent_mask);
         put_u32(&mut out, self.model.len() as u32);
         for &weight in self.model.weights() { put_f32(&mut out, weight); }
         let digest = sha256(&out); out.extend_from_slice(&digest); out
@@ -522,6 +527,7 @@ impl CheckpointV2 {
         let seed_count = r.u32("the seed count")? as usize;
         let mut seeds = Vec::with_capacity(seed_count.min(bytes.len() / 8));
         for _ in 0..seed_count { seeds.push(r.u64("a training seed")?); }
+        let opponent_mask = r.u32("the tactical opponent mask")?;
         let weight_count = r.u32("the weight count")? as usize;
         let mut weights = Vec::with_capacity(weight_count.min(ModelShapeV2::CURRENT.weight_count()));
         for _ in 0..weight_count { weights.push(r.f32("a weight")?); }
@@ -537,7 +543,11 @@ impl CheckpointV2 {
             if !weight.is_finite() { return Err(CheckpointV2Error::NotFinite { at }); }
         }
         let model = ModelV2::from_weights(weights).map_err(|found| CheckpointV2Error::WeightCount { expected: ModelShapeV2::CURRENT.weight_count(), found })?;
-        Ok(CheckpointV2 { training: TrainingRecord { generations, population, elite, sigma, master_seed, seeds, training_return }, model })
+        Ok(CheckpointV2 {
+            training: TrainingRecord { generations, population, elite, sigma, master_seed, seeds, training_return },
+            opponent_mask,
+            model,
+        })
     }
 
     pub fn digest(&self) -> String {
@@ -878,7 +888,11 @@ mod tests {
             })
         );
 
-        let tactical = CheckpointV2 { training: fixture().training, model: ModelV2::zeros() };
+        let tactical = CheckpointV2 {
+            training: fixture().training,
+            opponent_mask: 0b1_1111,
+            model: ModelV2::zeros(),
+        };
         assert_eq!(CheckpointV2::from_bytes(&tactical.to_bytes()), Ok(tactical));
     }
 

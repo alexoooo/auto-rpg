@@ -5,6 +5,10 @@
 **Canonical source:** this record. The corpus measured below was the *articulated* duel, and the session that deleted the articulated model deleted both its fixtures; it was last runnable at `c4e9d67`, and **nothing in this document is re-runnable on this tree**.
 **Update when:** Nothing. A successor that re-runs the probe on the embodied corpus writes its own record; this one is closed.
 
+The promoted embodied successor is the
+[learned roster policy](learned-roster-policy.md). This page remains the historical
+V1 probe result and is not evidence for the Tactical V2 artifact.
+
 **Host:** MSVC x86-64 Windows 11, 20 logical cores. **Date:** 2026-08-11.
 
 ## Why this is history and exactly what of it died

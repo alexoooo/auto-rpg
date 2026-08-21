@@ -99,15 +99,14 @@ export const ARENA_MAX_TICKS = 60 * 60 * 10;
  * `the_retired_policy_reasons_are_reserved_and_unproduced` in `crates/web`
  * asserts that specific reinterpretation rather than leaving it to be found.
  *
- * There is no `learned` entry. A trained fighter is a kind *plus fifteen
- * kilobytes of weights* and `PolicyKind` has nowhere to put a
- * checkpoint; `crates/policy/src/lib.rs` carries the argument. `lab trace
- * --policy learned` still records one, so a *trace* header can still say
- * "learned" and `arena.ts` still explains the digest when it does -- what has no
- * code is a live one.
+ * The first five entries are `PolicyKind`. `learned-roster` is code 5 in the
+ * Arena-local envelope: `crates/web` sits above both `policy` and `learn-core`,
+ * decodes the promoted checkpoint, and constructs the tactical wrapper without
+ * pretending a checkpoint belongs in the lower registry.
  */
 export const ARENA_POLICY_NAMES = [
   "neutral", "scripted", "scripted-level", "tactical", "tactical-fixed-guard",
+  "learned-roster",
 ] as const;
 export type ArenaPolicyName = (typeof ARENA_POLICY_NAMES)[number];
 

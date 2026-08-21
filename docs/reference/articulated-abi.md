@@ -1,6 +1,6 @@
 # Articulated observation and stream ABI
 
-**Purpose:** Freeze subject observations, host word layouts, exports, capacities, and stream digests for v2-16, plus the configured duel's input buffer and refusal codes and the checkpoint staging buffer behind its fifth policy code.
+**Purpose:** Freeze subject observations, host word layouts, exports, capacities, and stream digests, plus the configured duel's input buffer, refusal codes, V1 checkpoint staging buffer, and compiled Tactical V2 digest.
 **Status:** current
 **Canonical source:** `crates/sim/src/obs.rs`, `crates/policy/src/lib.rs`, `crates/learn-core/src/digest.rs`, and `crates/web/src/lib.rs`
 **Update when:** An observation field, word offset, export, capacity, ownership rule, or digest byte changes.
@@ -384,8 +384,8 @@ either would fingerprint a different world. `a_scripted_arena_fight_in_wasm_matc
 is what says the two agree, against a second spelling of the loop rather than
 against a pinned number.
 
-Policies are named by `policy::PolicyKind`, which is also the registry
-`set_policy` takes on an ordinary floor:
+Codes `0..4` are named by `policy::PolicyKind`, which is also the registry
+`set_policy` takes on an ordinary floor. The Arena appends one host-owned code:
 
 | code | policy | source |
 |---:|---|---|
@@ -394,6 +394,7 @@ Policies are named by `policy::PolicyKind`, which is also the registry
 | 2 | `scripted-level` | the frozen script, `LEVEL` |
 | 3 | `tactical` | the tactical fighter, `TacticalConfig::READING` |
 | 4 | `tactical-fixed-guard` | the tactical fighter, `TacticalConfig::FIXED_GUARD` |
+| 5 | `learned-roster` | Arena-local, exact compiled Tactical V2 checkpoint |
 
 **This table replaced a different one in v2-ui-08 and the codes are not a
 superset.** `Scenario::duel_from` builds an embodied duel since that
@@ -401,41 +402,32 @@ session, so `#/arena` reads this registry where it read the articulated one's se
 entries — `neutral`, `composed`, `windmill`,
 `attack-moves`, `learned`, `tactical`, `openings`, in that code order. A page
 holding a saved `4` now selects `tactical-fixed-guard` where it selected
-`learned`; `5` and `6` were `tactical` and `openings` and are refused with
-[`ARENA_UNKNOWN_POLICY`](#refusing-by-name). The registry is append-only from
-here. **The articulated registry is gone as code and is written out here on
+`learned`; `6` was `openings` and is refused with
+[`ARENA_UNKNOWN_POLICY`](#refusing-by-name). Code `5`, formerly articulated
+`tactical`, is deliberately the first append after `PolicyKind` and now names the
+Arena-local learned-roster artifact. **The articulated registry is gone as code and is written out here on
 purpose**: a page can still be holding one of those seven saved integers, and the
 refusal a reader has to understand is a refusal of *that* number.
 
-**There is no `learned` code and adding one is a decision, not an omission.**
-`PolicyKind::build` returns a policy rather than an `Option` precisely
-because nothing in it is a checkpoint: a trained fighter is a kind *plus fifteen
-kilobytes of weights*, which a registry keyed by an integer has nowhere to put,
-and session 09 measured the learning boundary and deferred the network widening
-that would earn the code. [The checkpoint staging
-buffer](#the-checkpoint-staging-buffer) below is untouched and
-`learned_inference_digest_lo` is still taken over what it installed; what no longer exists is a *fighter* built from it. `lab
-trace --policy learned` still records one, so a trace header can still name it
-and the studio still explains the digest when it does.
+**There is still no learned `PolicyKind`.** `PolicyKind::build` remains total because
+nothing in it is a checkpoint. The host that owns weights owns selection: the Arena's
+local registry appends `learned-roster` code `5`, backed only by the compiled
+`checkpoints/learned-roster-v2.ckpt`, while the V1 staging buffer below remains the
+separate model used by `lab trace --policy learned`. Neither path adds a float
+dependency to `crates/policy`.
 
-Two reason codes lost their producers in that move and **keep their numbers**:
-`ARENA_POLICY_UNAVAILABLE` (7), which meant "this build cannot construct that
-policy", and `ARENA_NO_CHECKPOINT` (26), which meant "that fighter wants a
-network and none is installed". Neither has a path back to a producer — there is
-no unbuildable code and no code that wants a checkpoint. They are reserved rather
-than recycled on the rule `crates/sim/src/codec.rs` states for a retired command
-schema: these bytes cross a worker boundary and outlive a build in whatever a
-page saved, so a number that once meant something must be refused by that number
-rather than quietly given a new meaning.
+`ARENA_NO_CHECKPOINT` (26) remains retired because no Arena policy asks for the
+V1 staging buffer. `ARENA_POLICY_UNAVAILABLE` (7) has a new narrow producer: the
+Arena refuses learned-roster if its compiled Tactical V2 checkpoint is corrupt or
+does not record all five roster opponents. It never falls back to another policy.
 
 ### The checkpoint staging buffer
 
-A trained network is **fetched and not compiled in**. A checkpoint *is* a
-fighter, so the studio should be able to put a different one in the ring without
-a Rust rebuild, and `checkpoints/v2-probe.ckpt` is 15,580 bytes beside an 8 MB
-trace. `vite.config.ts` serves it at `/checkpoints/v2-probe.ckpt` in development
-and copies that one file into `dist/checkpoints/` at build; the rest of
-`checkpoints/` is evidence a reader quotes and is deliberately not addressable.
+This buffer is the **V1 fetched-checkpoint ABI**. `checkpoints/v2-probe.ckpt` is
+15,580 bytes; `vite.config.ts` serves it at `/checkpoints/v2-probe.ckpt` in
+development and copies that one file into `dist/checkpoints/` at build. The promoted
+22,264-byte Tactical V2 roster checkpoint is instead compiled into `web.wasm`; it
+does not use this pointer, capacity, install flag, or digest buffer.
 
 ```text
 checkpoint_ptr() -> u32
@@ -446,6 +438,8 @@ checkpoint_digest_len() -> u32          // 32
 load_checkpoint(len:u32) -> u32         // packed, see below
 learned_inference_digest_lo() -> u32
 learned_inference_digest_hi() -> u32
+learned_tactical_inference_digest_lo() -> u32
+learned_tactical_inference_digest_hi() -> u32
 ```
 
 `SUBMITTED_COMMAND`'s and `ARENA_CONFIG`'s pattern: a fixed array that never
@@ -494,21 +488,17 @@ v2-ui-07 is the session that wrote the client.**
    was recorded from. **This is the only handshake step that is optional**, and
    it is the one that makes a live fight and a recorded one comparable on
    identical terms.
-5. **Step five was "only then may a fighter carry policy code `4`", and there is
-   no step five.** `arena_start` refused code 4 with `ARENA_NO_CHECKPOINT`
-   otherwise and installed nothing; v2-ui-08 moved the arena onto
-   `PolicyKind`, which has no `learned` entry, so no policy byte asks for
-   a network. The four steps above are unchanged and still hold the digest, which
-   is what the handshake is for now: `learned_inference_digest_lo` is taken over
-   the checkpoint that was *installed*, so the sequence that installs it is the
-   sequence a pinned two-target number depends on.
+5. The installed V1 model does not enable an Arena policy code. Arena-local code `5`
+   uses the separately compiled Tactical V2 artifact, so loading or replacing this
+   buffer cannot change that fighter. The four steps above still own the V1 digest:
+   `learned_inference_digest_lo` is taken over the checkpoint that was installed.
 
-The installed network is **not** per-world state. It survives `init`, `descend`
+The installed V1 network is **not** per-world state. It survives `init`, `descend`
 and `arena_start` exactly as a fetched file survives a page navigating within a
 session, which is why it is not on `Sim` and owes none of the companion lines
-`Sim::anatomy` and `Sim::arena` do. What used to be per-world was the policy
-instance built out of it, in the arena's own `policies` array; since v2-ui-08
-nothing in this module builds a fighter from a checkpoint at all.
+`Sim::anatomy` and `Sim::arena` do. The Tactical V2 roster checkpoint is a
+different immutable module artifact; an Arena policy instance is built from that
+exact file for code `5`, never from this mutable V1 slot.
 
 `load_checkpoint` packs its answer with a word of its own:
 
@@ -567,6 +557,13 @@ It is safe to call mid-fight for the same reason: no growth, no detached views. 
 the byte order are on `crates/learn-core/src/digest.rs`; the pin, its ownership
 and the `-C target-cpu=native` caveat that bounds it are in
 [`hashes.md`](hashes.md#golden-registry).
+
+`learned_tactical_inference_digest_lo`/`_hi` is the additive
+`LEARNED_TACTICAL_INFERENCE_DIGEST` over the exact compiled Tactical V2 roster
+checkpoint. It is available without a staging-buffer install and remains constant
+for the module's life. Its domain is `ARPG-LEARNED-TACTICAL-V2`; changing the
+compiled artifact, V2 shape, feature/action layouts, decoder, or forward pass owns
+its registry row and requires native/wasm agreement.
 
 `policy_kind(faction)` answers `0xffff_ffff` on a configured duel and
 `set_policy` refuses it. **The reason is no longer that the two are different
@@ -706,7 +703,7 @@ arena_config_layout_version() -> u32    // 3
 arena_start(seed:u32) -> u32
 arena_fingerprint_lo() -> u32
 arena_fingerprint_hi() -> u32
-arena_policy(faction_code:u32) -> u32   // PolicyKind::code, or 0xffff_ffff
+arena_policy(faction_code:u32) -> u32   // Arena policy code 0..5, or 0xffff_ffff
 arena_control(faction_code:u32) -> u32  // 0 policy, 1 human, or 0xffff_ffff
 arena_decision_period(faction_code:u32) -> u32 // positive installed cadence, or 0
 ```
@@ -747,14 +744,10 @@ bits 16..23  the fighter the refusal is about, or 255
 bits 24..31  the hand it is about, or 255
 ```
 
-**Bits 24..31 carried a *policy code* for reasons 7 and 26 and no longer carry
-one for anything.** Those were the two refusals about a policy rather than about
-a slot, and v2-ui-08 retired both; the surviving policy refusal, `6`, is about
-the whole fighter and writes 255 there. The collision that made this worth a
-paragraph was real -- `ARENA_HANDS` is 2, so a hand byte is only ever `0`, `1` or
-`255`, and a code `0` in that field would have read as "the left hand" -- and it
-is gone rather than solved. A client still has to branch on the reason if either
-number is ever produced again; nothing produces them today.
+**Bits 24..31 carried a policy code for reasons 7 and 26 in the old registry.**
+Reason 26 remains retired. The new producer of reason 7 is a whole-fighter
+learned-roster refusal, so bits 16..23 identify the fighter and bits 24..31 are
+255. A client must still branch on the reason before interpreting either byte.
 
 Reasons are `0` none, `1` unknown layout, `2` wrong fighter count, `3`
 noncanonical bytes, `4` unknown anatomy, `5` unknown item code, `6` unknown
@@ -793,19 +786,17 @@ differs between `arena_start` and `arena_stage_input`; the refusal table remains
 dense from `0` through `30` rather than pretending the two calls have one set of
 producers.
 
-**Two other unreachable ones are *retired* rather than merely unreachable, and
-the difference matters.** Beside the dated retirement of `29`, `7` (policy
-unavailable) needed a registry entry the boundary could not build and `26` (no
-checkpoint) needed a fighter that wants a network; `PolicyKind::build` returns a
-policy and never an `Option`, and
-that registry has no `learned` entry, so neither has a producer or a path back to
-one. The seven spec errors below are not like that: `crates/sim` can still answer
+**Two codes are retired and one former retirement is live again.** Beside the dated
+retirement of `29`, `26` still needs a fighter that wants the mutable V1 checkpoint
+and no Arena code does. Code `7` is now the named refusal for a corrupt or
+incomplete compiled learned-roster artifact. The seven spec errors below are not like
+the retired codes: `crates/sim` can still answer
 every one of them and a widened control brings them back without a byte moving.
-All three retired numbers stay declared and distinct on the codec's retired-schema
-rule. For `7` and `26`, `every arena policy byte either fights or is refused by name` in
-`tools/wasm_check.js` drives all 256 values a page can write into a policy slot
-and asserts neither number comes back from any of them -- which is the half of
-"retired" that a declaration cannot say on its own. `Fraction`,
+The spent numbers stay declared and distinct on the codec's retired-schema rule.
+`every arena policy byte either fights or is refused by name` in
+`tools/wasm_check.js` drives all 256 values a page can write into a policy slot;
+separate Rust fixtures corrupt the compiled artifact and clear one opponent-mask bit
+to prove reason `7` is not a fallback. `Fraction`,
 `Maximum`, `IdOrder`,
 `MissingReference`, `LoadoutMismatch`, `TooManyAnatomies` and `TooManyEquipment`
 were named as slider-reachable and are not: `Scenario::duel_from` derives
@@ -954,7 +945,7 @@ read it and built the recorder against it:
 - **Neither fixture ends early.** Both run to the 3,600-tick limit, so this is
   the cost of the longest fight a configuration allows. A duel that settles at
   tick 400 costs a ninth of it, and nothing here says how often one does.
-- **The `learned` policy was unmeasured** when this section was written. Its
+- **The V1 `learned` policy was unmeasured** when this section was written. Its
   *inference* is measured now and the rest of it is not, and the difference
   matters. v2-ui-08 measured `learned_inference_digest_lo()`, which is 64 feature
   extractions and 64 forward passes over a fixed corpus and nothing else, at

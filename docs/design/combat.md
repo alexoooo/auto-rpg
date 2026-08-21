@@ -59,6 +59,16 @@ and, for a cut, the signed elbow-plane update; it never freezes fine target plac
 a slow extension. Releasing a button parks the last target instead of snapping the arm
 to a canned guard.
 
+The parked target is still anatomy-bound. After the elbow annulus limits height and
+reach, the simulator measures its world bearing from the achieved torso yaw and clamps
+it to 135 degrees on either side. That retains 45 degrees of rear reach but refuses the
+directly-behind half-turn that let a circular mouse path pull an arm and weapon through
+their owner. The clamp belongs to the simulator, not the browser, so Human, policy,
+replay, and native trace commands all obey the same law; both the actuator and the
+published target read the projected value. This is a rear target envelope, not full
+swept self-collision between the blade, torso, and opposite arm. That broader collision
+phase remains separate mechanics.
+
 Evidence begins after submission, not at the input reducer. The arena publishes only
 commands `World::submit` accepted as stored, with full entity generation and tick, and a
 Human run may be downloaded as [ARPGCTL1](../reference/arena-control-evidence-v1.md).

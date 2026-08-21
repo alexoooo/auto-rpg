@@ -38,6 +38,7 @@ fn a_short_training_run_climbs_and_writes_a_loadable_checkpoint() {
         master_seed: 20_260_810,
         max_ticks: None,
         opponent: learn::Opponent::frozen(PolicyKind::Scripted),
+        roster: Vec::new(),
         verbose: true,
     };
     println!(

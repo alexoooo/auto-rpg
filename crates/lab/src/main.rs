@@ -94,7 +94,7 @@ fn usage() {
           it reaches the two entries that drive a planner: a matchup with no
           such side is refused rather than run with the row dropped.
 
-  trace   --seed N --policy <embodied policy>|learned --mirrored
+  trace   --seed N --policy <embodied policy>|learned|learned-roster --mirrored
           --hero-policy <embodied policy>  --monster-policy <embodied policy>
           --footwork M,F,L,U
           --ticks N --out PATH
@@ -1503,12 +1503,12 @@ const EMBODIED_CORPUS_TICKS: u32 = 600;
 /// now changes translation only, while the hips chase achieved torso yaw.
 /// Previously `0x00e08317d7a31c7c` and `0x5f972ba975775ee2`.
 #[cfg(not(feature = "cartesian-recoil"))]
-const EMBODIED_CORPUS_DIGEST: u64 = 0xfa4e_bbfb_dde4_2fd1;
+const EMBODIED_CORPUS_DIGEST: u64 = 0x0f2f_8601_66c1_79e0;
 
 /// The same fold over the same *fixtures* under the other solver; see above for
 /// why "the same corpus" would be the wrong phrase for it.
 #[cfg(feature = "cartesian-recoil")]
-const EMBODIED_CORPUS_DIGEST: u64 = 0x9338_4862_586e_6027;
+const EMBODIED_CORPUS_DIGEST: u64 = 0x9c66_dcf4_3f58_1d69;
 
 /// The four arenas of the pin corpus, in the order the fold writes them.
 ///
@@ -2500,8 +2500,9 @@ fn trace_fight(args: &Args) {
     // `Option` -- has nowhere to put a checkpoint. That argument is written out
     // on the enum itself.
     let learned = args.text("policy") == Some("learned");
+    let learned_roster = args.text("policy") == Some("learned-roster");
     let (mut hero_policy, mut monster_policy, hero_token, monster_token, digest, headline);
-    if learned {
+    if learned || learned_roster {
         // `--opponent` names a `PolicyKind`, which is the same
         // vocabulary `--policy`, `--hero-policy` and `--monster-policy` read
         // through `embodied_matchup_from`. **This was the last reader in the
@@ -2528,14 +2529,38 @@ fn trace_fight(args: &Args) {
             );
             std::process::exit(2);
         };
-        let checkpoint = learn_probe::load_checkpoint(args);
-        hero_policy = Box::new(learn::LearnedPolicy::new(checkpoint.model.clone()))
-            as Box<dyn Policy>;
+        if learned_roster {
+            let path = std::path::Path::new(
+                args.text("checkpoint").unwrap_or("checkpoints/learned-roster-v2.ckpt")
+            );
+            let checkpoint = learn::CheckpointV2::read(path)
+                .unwrap_or_else(|error| {
+                    eprintln!("could not read {}: {error}", path.display());
+                    std::process::exit(1);
+                })
+                .unwrap_or_else(|refusal| {
+                    eprintln!("{} is not the promoted tactical checkpoint: {refusal}", path.display());
+                    std::process::exit(1);
+                });
+            if checkpoint.opponent_mask != 0b1_1111 {
+                eprintln!("{} was not trained against the complete policy roster", path.display());
+                std::process::exit(2);
+            }
+            digest = Some(checkpoint.digest());
+            hero_policy = Box::new(learn::LearnedTacticalPolicyV2::new(checkpoint.model))
+                as Box<dyn Policy>;
+            hero_token = "learned-roster".to_string();
+            headline = format!("the learned roster policy against {}", embodied_name(opponent));
+        } else {
+            let checkpoint = learn_probe::load_checkpoint(args);
+            digest = Some(checkpoint.digest());
+            hero_policy = Box::new(learn::LearnedPolicy::new(checkpoint.model.clone()))
+                as Box<dyn Policy>;
+            hero_token = "learned".to_string();
+            headline = format!("the learned policy against {}", embodied_name(opponent));
+        }
         monster_policy = opponent.build();
-        hero_token = "learned".to_string();
         monster_token = opponent.name().to_string();
-        headline = format!("the learned policy against {}", embodied_name(opponent));
-        digest = Some(checkpoint.digest());
     } else {
         // The same matchup `embodied` resolves, so that a corpus row and the
         // trace a reader opens to look at it are the same fight. A trace is the

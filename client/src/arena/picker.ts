@@ -79,7 +79,7 @@ export interface PolicyOption {
 }
 
 /**
- * The five policies, in `PolicyKind` code order.
+ * The five `PolicyKind` rows followed by the Arena-local promoted learner.
  *
  * The labels carry the constraint rather than a tooltip carrying it, because a
  * disabled-looking option a reader has to hover to understand is an option they
@@ -95,6 +95,7 @@ export const POLICIES: readonly PolicyOption[] = [
   { code: "scripted-level", label: "scripted-level (no elevation term)", live: true },
   { code: "tactical", label: "tactical (aims at a region)", live: true },
   { code: "tactical-fixed-guard", label: "tactical-fixed-guard (guard does not read)", live: true },
+  { code: "learned-roster", label: "learned-roster (trained against every policy)", live: true },
 ];
 
 export type PolicyCode = string;
@@ -342,7 +343,7 @@ export function review(matchup: Matchup, mode: FightMode): Review {
         refusal: `${label} is set to ${side.policy}, which is not one of the `
           + `${POLICIES.length} embodied policy codes `
           + `(${POLICIES.map((option) => option.code).join(", ")}). The picker and `
-          + `PolicyKind are two halves of one vocabulary, so this means one of `
+          + `the Arena policy reader are two halves of one vocabulary, so this means one of `
           + `them moved.`,
         notes: [],
       };
@@ -508,7 +509,7 @@ const TRACEABLE_SCRIPTS: readonly string[] = POLICIES.map((option) => option.cod
 /**
  * The `lab trace` command that would record this pairing, or null if none does.
  *
- * `--policy` puts **one policy on both sides** -- that is what makes a symmetric
+ * `--policy` normally puts **one policy on both sides** -- that is what makes a symmetric
  * trace a control -- and `--hero-policy`/`--monster-policy` name a driver per
  * side, so a mixed pairing has a command too.
  *
@@ -519,15 +520,21 @@ const TRACEABLE_SCRIPTS: readonly string[] = POLICIES.map((option) => option.cod
  * alternative to refusing is printing a command that exits 2 at the reader's
  * shell. `missingRecording` prints whatever this answers.
  *
- * The `learned` arm went with the picker's `learned` entry. `lab trace --policy
- * learned --opponent <policy>` still exists; nothing here can spell the pairing
- * it records, because no side of this picker can be set to `learned`.
+ * `learned-roster` is checkpoint-backed and the Lab spells it as the Hero
+ * against one registry opponent. A learner on Fighter B or both sides is still
+ * runnable live, but has no trace command until that CLI owns a two-checkpoint
+ * selection envelope, so those pairings return `null` rather than printing a
+ * command that exits 2.
  */
 export function recordingCommand(matchup: Matchup): string | null {
   const a = matchup.a.policy;
   const b = matchup.b.policy;
   const base = `cargo run --release -p lab -- trace --seed ${matchup.seed}`;
   if (!TRACEABLE_SCRIPTS.includes(a) || !TRACEABLE_SCRIPTS.includes(b)) return null;
+  if (a === "learned-roster" && b !== "learned-roster") {
+    return `${base} --policy learned-roster --opponent ${b}`;
+  }
+  if (b === "learned-roster") return null;
   if (a !== b) return `${base} --hero-policy ${a} --monster-policy ${b}`;
   return `${base} --policy ${a}`;
 }

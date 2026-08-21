@@ -62,6 +62,14 @@ pub(crate) const UPPER_ARM_FRACTION_RAW: i32 = 32_768;
 /// one.
 pub(crate) const ELBOW_MIN_INCLUDED_ANGLE_RAW: u16 = 7_282;
 
+/// Furthest a commanded hand bearing may travel from the achieved torso facing.
+///
+/// Three eighths of a turn (135 degrees) leaves one eighth-turn of useful rear
+/// reach on either side, but removes the directly-behind half-turn which lets a
+/// mouse circle pull the weapon through its owner. This is an anatomy law, not
+/// browser feel tuning: every command source reaches the same projection.
+pub(crate) const ARM_REAR_SWEEP_LIMIT_RAW: i32 = 24_576;
+
 /// An arm as two links and the stop between them.
 ///
 /// A value rather than three loose numbers, because the pair of bounds it
@@ -164,6 +172,18 @@ pub(crate) fn reachable_extent(
         held_reach = Fx::from_raw(held_reach.raw() + 1);
     }
     (held_height, held_reach)
+}
+
+/// The nearest world bearing inside the torso's rear sweep envelope.
+///
+/// `bearing` and `body_yaw` are both world angles. [`Angle::delta`] chooses the
+/// shortest signed torso-relative route across the wrap seam; clamping that
+/// signed value makes the two sides exact reflections and makes a second pass
+/// idempotent.
+pub(crate) fn rear_limited_bearing(body_yaw: Angle, bearing: Angle) -> Angle {
+    let relative = bearing.delta(body_yaw)
+        .clamp(-ARM_REAR_SWEEP_LIMIT_RAW, ARM_REAR_SWEEP_LIMIT_RAW);
+    Angle::from_raw(body_yaw.raw().wrapping_add(relative as u16))
 }
 
 /// How much of the annulus the arm has left before [`reachable_extent`]'s clamp
@@ -468,6 +488,56 @@ mod tests {
     /// this module reads and a claim that holds for one shape is not a claim.
     fn anatomies() -> [BodyAnatomySpec; 2] {
         [fighter_anatomy(), brute_anatomy()]
+    }
+
+    #[test]
+    fn a_target_directly_behind_the_torso_projects_to_the_nearest_rear_boundary() {
+        let yaw = Angle::from_raw(7_000);
+        let behind = yaw + Angle::HALF;
+        assert_eq!(
+            rear_limited_bearing(yaw, behind).delta(yaw).abs(),
+            ARM_REAR_SWEEP_LIMIT_RAW,
+        );
+    }
+
+    #[test]
+    fn bearings_24575_24576_and_24577_pin_both_sides_of_the_limit() {
+        let yaw = Angle::from_raw(51_000);
+        for sign in [-1, 1] {
+            for distance in [24_575, 24_576, 24_577] {
+                let asked = Angle::from_raw(yaw.raw().wrapping_add((sign * distance) as u16));
+                let held = rear_limited_bearing(yaw, asked);
+                assert_eq!(
+                    held.delta(yaw),
+                    sign * distance.min(ARM_REAR_SWEEP_LIMIT_RAW),
+                    "side {sign} at {distance} raw units",
+                );
+                assert_eq!(rear_limited_bearing(yaw, held), held,
+                    "the rear projection was not idempotent on side {sign}");
+            }
+        }
+    }
+
+    #[test]
+    fn left_and_right_rear_envelopes_are_exact_reflections() {
+        let yaw = Angle::from_raw(65_000);
+        for distance in [0, 1, 8_192, 24_575, 24_576, 24_577, 32_767] {
+            let left = rear_limited_bearing(
+                yaw, Angle::from_raw(yaw.raw().wrapping_add(distance as u16)));
+            let right = rear_limited_bearing(
+                yaw, Angle::from_raw(yaw.raw().wrapping_sub(distance as u16)));
+            assert_eq!(left.delta(yaw), -right.delta(yaw), "distance {distance}");
+        }
+    }
+
+    #[test]
+    fn a_target_on_or_ahead_of_the_rear_boundary_is_unchanged() {
+        let yaw = Angle::from_raw(12_345);
+        for relative in [-24_576, -16_384, -1, 0, 1, 16_384, 24_576] {
+            let asked = Angle::from_raw(yaw.raw().wrapping_add(relative as u16));
+            assert_eq!(rear_limited_bearing(yaw, asked), asked,
+                "an in-envelope bearing {relative} raw units from the torso moved");
+        }
     }
 
     #[test]

@@ -87,8 +87,8 @@ pub use learn_core::{
 pub use probe::{
     band, held_out_seeds, mirrored_embodied_duel, phase_offset, rollout, rollout_with, score,
     score_v2, shaped_return, train, train_v2, train_with, train_with_v2, training_seeds, Band,
-    Corpus, Mechanics, Opponent,
+    Corpus, Mechanics, Opponent, TacticalEvidence,
     PhaseShiftedScript, ProbeConfig, Recorders, Rollout, HELD_OUT_SEED_BASE, RETURN_ATTRITION,
     RETURN_DECISION, RETURN_MUTUAL, RETURN_SURVIVAL, RETURN_TICK_DIVISOR, RETURN_WIN,
-    SCRIPT_PERIOD_TICKS, TRAINING_SEED_BASE,
+    RETURN_PASSIVE_EXPOSURE, RETURN_SUBMAXIMAL_ATTACK, SCRIPT_PERIOD_TICKS, TRAINING_SEED_BASE,
 };

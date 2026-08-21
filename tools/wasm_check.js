@@ -608,6 +608,8 @@ test("the boundary exports everything the client calls", () => {
     "load_checkpoint",
     "learned_inference_digest_lo",
     "learned_inference_digest_hi",
+    "learned_tactical_inference_digest_lo",
+    "learned_tactical_inference_digest_hi",
     // The portable stream claim, read a half at a time. Nothing on the page
     // calls either; they exist for `native_and_wasm_pose_event_stream_digests_match`
     // below, which is precisely why they need a line here.
@@ -2628,15 +2630,18 @@ const SWORD = 2;
 const CLUB = 3;
 const SHIELD = 4;
 // `policy::PolicyKind::code`. The registry is 0..5 and append-only;
-// `5`, `6` and `7` were `tactical`, `openings` and free on the articulated one
-// this replaced, and all three are refused here.
+// Codes 0..4 mirror `PolicyKind`; code 5 is the Arena-local promoted tactical
+// checkpoint. Higher bytes remain refused rather than interpreted through an
+// older registry.
 const NEUTRAL = 0;
 const SCRIPTED = 1;
 const SCRIPTED_LEVEL = 2;
 const TACTICAL = 3;
 const TACTICAL_FIXED_GUARD = 4;
+const LEARNED_ROSTER = 5;
 const EMBODIED_POLICY_CODES = [
   NEUTRAL, SCRIPTED, SCRIPTED_LEVEL, TACTICAL, TACTICAL_FIXED_GUARD,
+  LEARNED_ROSTER,
 ];
 // `web::ARENA_NO_POLICY` and `web::POLICY_KIND_UNKNOWN`, which are the same
 // sentinel for two different registries: `0` is a real answer in both.
@@ -2865,12 +2870,11 @@ test("a configured duel runs inside the module and refuses by name", () => {
       bytes.fill(0, at, at + ARENA_HAND_BYTES);
       bytes[at] = ARENA_HAND_EMPTY;
     }, { reason: ARENA_NO_EQUIPMENT, fighter: ARENA_WHOLE_CONFIG, slot: ARENA_WHOLE_CONFIG }],
-    // **This slot held "the learned policy with no checkpoint" and the answer
-    // was `ARENA_NO_CHECKPOINT`.** v2-ui-08 retired that reason with the code
-    // that produced it; what is left in its place is the one policy refusal that
-    // still has a producer, on the first byte past the registry.
+    // Code 5 is the promoted tactical checkpoint. The first byte past the
+    // Arena-local registry is therefore 6; the underlying `PolicyKind` registry
+    // remains the unchanged five entries 0..4.
     ["a policy code past the registry", (bytes) => {
-      bytes[ARENA_HEADER_BYTES + 1] = 5;
+      bytes[ARENA_HEADER_BYTES + 1] = 6;
     }, { reason: ARENA_UNKNOWN_POLICY, fighter: 0, slot: ARENA_WHOLE_CONFIG }],
     // The two-handed marker anywhere but a full right hand: on the Fighter's
     // left hand block, byte 1. The legal placement is asserted below, where a
@@ -3145,6 +3149,7 @@ test("an installed arena refuses the exports that would rewrite its fight", () =
 // closes contraction; `-C target-cpu=native` on a host that does have one
 // re-opens it and is outside the guarantee.
 const LEARNED_INFERENCE_DIGEST = 0xbdba8d64d340ce32n;
+const LEARNED_TACTICAL_INFERENCE_DIGEST = 0x6d06a0e332628298n;
 
 // The shipped artifact, read off disk rather than embedded in the module. That
 // is the delivery decision under test as much as it is a convenience: a
@@ -3165,6 +3170,11 @@ const checkpointResult = (packed) => ({
 
 const learnedDigest = () =>
   hash64(wasm.learned_inference_digest_lo(), wasm.learned_inference_digest_hi());
+
+const learnedTacticalDigest = () => hash64(
+  wasm.learned_tactical_inference_digest_lo(),
+  wasm.learned_tactical_inference_digest_hi(),
+);
 
 const publishedName = () =>
   Buffer.from(new Uint8Array(wasm.memory.buffer, u32(wasm.checkpoint_digest_ptr()), 32));
@@ -3216,6 +3226,10 @@ test("native_and_wasm_learned_inference_digests_match", () => {
   assert.equal(learnedDigest(), measured, "the inference digest is not a function of the weights");
   assert.deepEqual(undisturbed(), before, "the inference digest disturbed the installed sim");
   console.log(`learned digest ${hex(measured)}  == native`);
+});
+
+test("native_and_wasm_tactical_inference_have_the_same_digest", () => {
+  assert.equal(learnedTacticalDigest(), LEARNED_TACTICAL_INFERENCE_DIGEST);
 });
 
 test("a corrupt checkpoint is refused and the instance stays usable", () => {
@@ -3420,10 +3434,11 @@ test("every arena policy byte either fights or is refused by name", () => {
     moved.set(byte, stateHash());
   }
 
-  // Neither retired reason came back from any of the 256, which is the half of
-  // "retired" that a declaration cannot say on its own.
-  assert.equal(EMBODIED_POLICY_CODES.length, 5, "the embodied registry changed size");
-  for (const retired of [ARENA_POLICY_UNAVAILABLE, ARENA_NO_CHECKPOINT]) {
+  // `ARENA_NO_CHECKPOINT` remains retired. `ARENA_POLICY_UNAVAILABLE` is now
+  // reserved for corrupt embedded learner bytes and cannot be induced by a
+  // policy selector byte in this real-wasm sweep.
+  assert.equal(EMBODIED_POLICY_CODES.length, 6, "the Arena policy registry changed size");
+  for (const retired of [ARENA_NO_CHECKPOINT]) {
     for (let byte = 0; byte < 256; byte += 1) {
       const config = shippedArena();
       config.fighters[0].policy = byte;
@@ -3456,10 +3471,10 @@ test("every arena policy byte either fights or is refused by name", () => {
     "scripted and scripted-level diverged on a flat floor");
   const distinct = new Set([
     moved.get(NEUTRAL), moved.get(SCRIPTED), moved.get(TACTICAL),
-    moved.get(TACTICAL_FIXED_GUARD),
+    moved.get(TACTICAL_FIXED_GUARD), moved.get(LEARNED_ROSTER),
   ]);
-  assert.equal(distinct.size, CARTESIAN_RECOIL ? 3 : 4,
-    "the number of distinct fights the five policies produce moved");
+  assert.equal(distinct.size, CARTESIAN_RECOIL ? 4 : 5,
+    "the number of distinct fights the six Arena policies produce moved");
   assert.equal(moved.get(TACTICAL) === moved.get(TACTICAL_FIXED_GUARD), CARTESIAN_RECOIL,
     "the guard read stopped mattering, or started, on the law it did not");
   // The three that must differ under either law: the control, a script and an
@@ -3470,6 +3485,6 @@ test("every arena policy byte either fights or is refused by name", () => {
   // And the module is still usable, on the standing fail-closed discipline.
   stageArena(arenaBytes(baseline));
   assert.equal(arenaResult(wasm.arena_start(3)).outcome, 1);
-  console.log(`arena policies 5 registered, 251 refused by name, ${distinct.size} distinct fights`);
+  console.log(`arena policies ${EMBODIED_POLICY_CODES.length} registered, ${256 - EMBODIED_POLICY_CODES.length} refused by name, ${distinct.size} distinct fights`);
   wasm.init(1);
 });

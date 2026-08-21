@@ -147,7 +147,8 @@ pub use checkpoint::{
     TrainingRecord, CHECKPOINT_FORMAT_VERSION, CHECKPOINT_MAGIC,
 };
 pub use digest::{
-    learned_inference_case, learned_inference_digest, LEARNED_INFERENCE_CASES,
+    learned_inference_case, learned_inference_digest, learned_tactical_inference_digest,
+    LEARNED_INFERENCE_CASES, LEARNED_TACTICAL_INFERENCE_DIGEST_DOMAIN,
     LEARNED_INFERENCE_DIGEST_DOMAIN,
 };
 pub use model::{

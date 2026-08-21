@@ -108,7 +108,9 @@
 use std::cell::{Cell, RefCell};
 
 use fx::{Angle, Fx, Rng, Vec2};
-use learn_core::{Checkpoint, CheckpointError, Model};
+use learn_core::{
+    Checkpoint, CheckpointError, CheckpointV2, LearnedTacticalPolicyV2, Model,
+};
 use policy::{
     CommandAuthority, ComposedController, PartialCommandSource,
     Policy, PolicyKind, RunConfig,
@@ -2331,6 +2333,67 @@ impl PartialCommandSource for CadencedEmbodiedSource {
 /// that no longer existed and stopped dead on the old configuration's tick
 /// limit. [`Sim::descend`] carries the line that closes it, and the argument
 /// for clearing rather than refusing.
+const ARENA_LEARNED_ROSTER_POLICY_CODE: u32 = 5;
+const LEARNED_ROSTER_OPPONENT_MASK: u32 = 0b1_1111;
+const LEARNED_ROSTER_CHECKPOINT: &[u8] =
+    include_bytes!("../../../checkpoints/learned-roster-v2.ckpt");
+
+/// The Arena-local policy vocabulary.
+///
+/// `PolicyKind` cannot own a checkpoint because `policy` sits below
+/// `learn-core`. The browser boundary sits above both, so the first five codes
+/// delegate to the append-only registry and code 5 names the exact promoted
+/// tactical artifact. No simulation configuration or fingerprint reads this
+/// enum; replay records only the commands the selected policy submitted.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum ArenaPolicyKind {
+    Builtin(PolicyKind),
+    LearnedRoster,
+}
+
+impl ArenaPolicyKind {
+    fn from_code(code: u32) -> Option<ArenaPolicyKind> {
+        PolicyKind::from_code(code).map(ArenaPolicyKind::Builtin).or_else(|| {
+            (code == ARENA_LEARNED_ROSTER_POLICY_CODE).then_some(ArenaPolicyKind::LearnedRoster)
+        })
+    }
+
+    const fn code(self) -> u32 {
+        match self {
+            ArenaPolicyKind::Builtin(kind) => kind.code(),
+            ArenaPolicyKind::LearnedRoster => ARENA_LEARNED_ROSTER_POLICY_CODE,
+        }
+    }
+
+    fn build(self, fighter: usize) -> Result<Box<dyn Policy>, ArenaRefusal> {
+        match self {
+            ArenaPolicyKind::Builtin(kind) => Ok(kind.build()),
+            ArenaPolicyKind::LearnedRoster => learned_roster_policy_from(
+                LEARNED_ROSTER_CHECKPOINT,
+                fighter,
+            ),
+        }
+    }
+}
+
+/// Decodes the promoted artifact without a fallback policy.
+///
+/// Kept as a byte-taking seam rather than spelling `include_bytes!` inside
+/// `ArenaPolicyKind::build` so the refusal can be mutation-tested with corrupt
+/// and incomplete-roster artifacts. A silently substituted tactical policy
+/// would make the picker claim the learner ran when it did not.
+fn learned_roster_policy_from(
+    bytes: &[u8],
+    fighter: usize,
+) -> Result<Box<dyn Policy>, ArenaRefusal> {
+    let checkpoint = CheckpointV2::from_bytes(bytes)
+        .map_err(|_| ArenaRefusal::fighter(ARENA_POLICY_UNAVAILABLE, fighter))?;
+    if checkpoint.opponent_mask != LEARNED_ROSTER_OPPONENT_MASK {
+        return Err(ArenaRefusal::fighter(ARENA_POLICY_UNAVAILABLE, fighter));
+    }
+    Ok(Box::new(LearnedTacticalPolicyV2::new(checkpoint.model)))
+}
+
 struct Arena {
     /// One embodied policy per faction, indexed by [`Faction::index`].
     ///
@@ -2345,7 +2408,7 @@ struct Arena {
     /// is driven by [`Sim::advance_arena`] over a captured roster and a dungeon
     /// by [`Sim::advance`], not because the vocabularies differ.
     policies: [Box<dyn Policy>; 2],
-    kinds: [PolicyKind; 2],
+    kinds: [ArenaPolicyKind; 2],
     /// Who drives each side, as [`ARENA_CONTROL_POLICY`] or
     /// [`ARENA_CONTROL_HUMAN`], indexed by [`Faction::index`].
     ///
@@ -6894,6 +6957,31 @@ pub extern "C" fn arena_control(faction_code: u32) -> u32 {
     })
 }
 
+/// Low half of the promoted tactical checkpoint's additive portability
+/// receipt. Unlike the V1 export it is always available because the exact
+/// checkpoint is compiled into this Arena build.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn learned_tactical_inference_digest_lo() -> u32 {
+    learned_tactical_inference_digest() as u32
+}
+
+/// High half of [`learned_tactical_inference_digest_lo`].
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn learned_tactical_inference_digest_hi() -> u32 {
+    (learned_tactical_inference_digest() >> 32) as u32
+}
+
+fn learned_tactical_inference_digest() -> u64 {
+    CheckpointV2::from_bytes(LEARNED_ROSTER_CHECKPOINT)
+        .ok()
+        .filter(|checkpoint| checkpoint.opponent_mask == LEARNED_ROSTER_OPPONENT_MASK)
+        .map_or(0, |checkpoint| {
+            learn_core::learned_tactical_inference_digest(&checkpoint.model)
+        })
+}
+
 /// The installed body's authoritative decision cadence in ticks, or `0` when
 /// this world is not an arena.
 ///
@@ -7189,7 +7277,7 @@ fn arena_controller(
 fn parse_arena_fighter(
     bytes: &[u8; ARENA_CONFIG_BYTES],
     index: usize,
-) -> Result<(sim::DuelFighterV1, PolicyKind, Box<dyn Policy>, u8), ArenaRefusal> {
+) -> Result<(sim::DuelFighterV1, ArenaPolicyKind, Box<dyn Policy>, u8), ArenaRefusal> {
     let base = ARENA_HEADER_BYTES + index * ARENA_FIGHTER_BYTES;
     let at = |offset: usize| i32::from_le_bytes(bytes[base + offset..][..4].try_into().unwrap());
 
@@ -7217,19 +7305,12 @@ fn parse_arena_fighter(
         _ => return Err(ArenaRefusal::fighter(ARENA_UNKNOWN_ANATOMY, index)),
     };
     let code = u32::from(bytes[base + ARENA_FIGHTER_POLICY]);
-    let kind = PolicyKind::from_code(code)
+    let kind = ArenaPolicyKind::from_code(code)
         .ok_or(ArenaRefusal::fighter(ARENA_UNKNOWN_POLICY, index))?;
-    // **Every code this parser accepts now builds**, which is the whole of what
-    // v2-ui-08 did to this line. `PolicyKind::build` returns a policy
-    // rather than an `Option` -- its own comment argues why, and the argument is
-    // that nothing in that registry is a checkpoint -- so the two refusals that
-    // used to live between here and a running fight, `ARENA_POLICY_UNAVAILABLE`
-    // and `ARENA_NO_CHECKPOINT`, have no producer left. They keep their numbers
-    // and are retired by name where they are declared. What survives is
-    // `ARENA_UNKNOWN_POLICY` above: a byte outside the registry is still a
-    // refusal that names the offending code, which is the one thing a page
-    // sending a stale saved code needs to be told.
-    let mut policy = kind.build();
+    // Registry rows are total. The appended Arena-local learned row has an
+    // artifact to validate, and refuses by the already-reserved policy reason
+    // instead of falling back to a hand-written fighter.
+    let mut policy = kind.build(index)?;
     // `Policy::reset`'s contract, honoured even though it is a no-op on
     // an instance built one line above. It is what stops "fresh" from quietly
     // coming to mean "whatever a stateful successor happens to construct itself
@@ -10266,7 +10347,7 @@ mod tests {
     }
 
     #[test]
-    fn the_retired_policy_reasons_are_reserved_and_unproduced() {
+    fn the_checkpoint_refusal_is_reserved_and_the_promoted_arena_row_is_available() {
         // **The replacement for `the_learned_code_is_refused_by_name`**, which
         // v2-ui-05 wrote and v2-ui-08 removed the subject of. That test held
         // code `4`: `ArticulatedPolicyKind::from_code` knew it, `name` said
@@ -10288,17 +10369,19 @@ mod tests {
         assert!(ARENA_REASONS.contains(&ARENA_NO_CHECKPOINT));
         assert!(reasons_are_distinct(&ARENA_REASONS));
 
-        // **Two: nothing produces them.** Every one of the 256 values a page can
-        // write into a policy slot, on both sides, with a network installed and
-        // without -- because "no checkpoint" was a refusal about an *absent*
-        // asset and the honest way to say it is gone is to look for it in the
-        // state where it used to fire. A registered code installs and its own
-        // code is read back; anything else is `ARENA_UNKNOWN_POLICY`, which is
-        // the one policy refusal that still has a producer.
+        // **Two: the embedded promoted artifact is available.** Every one of
+        // the 256 values a page can write into a policy slot, on both sides,
+        // with the older V1 network installed and without: a registered code
+        // installs and reads back as itself, while anything else is named
+        // `ARENA_UNKNOWN_POLICY`. `ARENA_POLICY_UNAVAILABLE` now has one narrow
+        // producer tested below -- corrupt promoted V2 bytes -- and must never
+        // be used as a fallback from an ordinary unknown code.
         let config = sim::DuelConfigV1::shipped();
-        let registered: Vec<u32> =
+        let mut registered: Vec<u32> =
             PolicyKind::ALL.iter().map(|kind| kind.code()).collect();
-        assert_eq!(registered, vec![0, 1, 2, 3, 4], "the embodied registry is no longer 0..5");
+        registered.push(ARENA_LEARNED_ROSTER_POLICY_CODE);
+        assert_eq!(registered, vec![0, 1, 2, 3, 4, 5],
+            "the Arena-local learner did not append after PolicyKind");
         for loaded in [false, true] {
             if loaded {
                 assert_eq!(load_checkpoint(stage_shipped_checkpoint()) & 0xff, 1);
@@ -10315,7 +10398,7 @@ mod tests {
                     let packed = arena_start(3);
                     let reason = ((packed >> 8) & 0xff) as u8;
                     assert_ne!(reason, ARENA_POLICY_UNAVAILABLE,
-                        "policy byte {byte} on side {side} produced a retired reason");
+                        "policy byte {byte} on side {side} produced an artifact-only reason");
                     assert_ne!(reason, ARENA_NO_CHECKPOINT,
                         "policy byte {byte} on side {side} produced a retired reason");
                     if registered.contains(&byte) {
@@ -10336,10 +10419,48 @@ mod tests {
         // it installs *something else*, which is worth an assertion because a
         // silent reinterpretation is the failure a reserved number exists to
         // prevent and this one is the case where reserving was not available.
-        // `5` and `6` were `tactical` and `openings` and are now refused.
+        // `5` was retired and is now deliberately reused by the new
+        // Arena-local registry; `PolicyKind` itself remains unchanged.
         assert_eq!(PolicyKind::from_code(4), Some(PolicyKind::TacticalFixedGuard));
         assert_eq!(PolicyKind::from_code(5), None);
         assert_eq!(PolicyKind::from_code(6), None);
+        assert_eq!(ArenaPolicyKind::from_code(5), Some(ArenaPolicyKind::LearnedRoster));
+        assert_eq!(ArenaPolicyKind::from_code(6), None);
+    }
+
+    #[test]
+    fn the_arena_appends_learned_roster_without_renumbering_a_policy_kind() {
+        assert_eq!(PolicyKind::ALL.map(PolicyKind::code), [0, 1, 2, 3, 4]);
+        let config = sim::DuelConfigV1::shipped();
+        write_arena_config(&config, [PolicyKind::Scripted, PolicyKind::Tactical]);
+        poke_arena_config(
+            ARENA_HEADER_BYTES + ARENA_FIGHTER_POLICY,
+            ARENA_LEARNED_ROSTER_POLICY_CODE as u8,
+        );
+        assert_eq!(arena_start(73) & 0xff, 1, "the promoted checkpoint was refused");
+        assert_eq!(arena_policy(0), ARENA_LEARNED_ROSTER_POLICY_CODE);
+        assert_eq!(arena_policy(1), PolicyKind::Tactical.code());
+        step(1);
+        assert_eq!(tick(), 1, "the learned roster did not advance its first tick");
+    }
+
+    #[test]
+    fn a_bad_tactical_checkpoint_is_refused_and_never_falls_back() {
+        let corrupt = &LEARNED_ROSTER_CHECKPOINT[..LEARNED_ROSTER_CHECKPOINT.len() - 1];
+        assert_eq!(
+            learned_roster_policy_from(corrupt, 1).err(),
+            Some(ArenaRefusal::fighter(ARENA_POLICY_UNAVAILABLE, 1)),
+            "truncated tactical bytes were silently accepted or substituted",
+        );
+
+        let mut incomplete = CheckpointV2::from_bytes(LEARNED_ROSTER_CHECKPOINT)
+            .expect("the shipped tactical checkpoint must decode");
+        incomplete.opponent_mask &= !(1 << PolicyKind::Tactical.code());
+        assert_eq!(
+            learned_roster_policy_from(&incomplete.to_bytes(), 0).err(),
+            Some(ArenaRefusal::fighter(ARENA_POLICY_UNAVAILABLE, 0)),
+            "a checkpoint that skipped one roster policy was installed",
+        );
     }
 
     #[test]
@@ -10617,6 +10738,16 @@ mod tests {
     }
 
     #[test]
+    fn native_and_wasm_tactical_inference_have_the_same_digest() {
+        let measured = u64::from(learned_tactical_inference_digest_lo())
+            | (u64::from(learned_tactical_inference_digest_hi()) << 32);
+        assert_eq!(
+            measured, LEARNED_TACTICAL_INFERENCE_DIGEST,
+            "LEARNED_TACTICAL_INFERENCE_DIGEST moved: {measured:#018x}",
+        );
+    }
+
+    #[test]
     fn the_shipped_corpus_produces_only_finite_logits() {
         // The half of the cross-target argument that `learn_core::portable_bits`
         // rests on. A NaN logit's payload bits are unspecified in WebAssembly,
@@ -10665,6 +10796,14 @@ mod tests {
         );
         println!("checkpoint:               {}", checkpoint.digest());
         println!("checkpoint bytes:         {}", SHIPPED_CHECKPOINT.len());
+        let tactical = CheckpointV2::from_bytes(LEARNED_ROSTER_CHECKPOINT)
+            .expect("the promoted tactical checkpoint is loadable");
+        println!(
+            "LEARNED_TACTICAL_INFERENCE_DIGEST: {:#018x}",
+            learn_core::learned_tactical_inference_digest(&tactical.model),
+        );
+        println!("tactical checkpoint:      {}", tactical.digest());
+        println!("tactical checkpoint bytes: {}", LEARNED_ROSTER_CHECKPOINT.len());
         println!(
             "corpus:                   {} cases, {} logits each",
             learn_core::LEARNED_INFERENCE_CASES,
@@ -13874,6 +14013,7 @@ mod tests {
     /// than a footnote -- nothing in the repository would notice until this
     /// number failed.
     const LEARNED_INFERENCE_DIGEST: u64 = 0xbdba_8d64_d340_ce32;
+    const LEARNED_TACTICAL_INFERENCE_DIGEST: u64 = 0x6d06_a0e3_3262_8298;
 
     #[test]
     #[ignore]
@@ -15850,9 +15990,10 @@ mod tests {
     ///
     /// The four below were retained across the isolation so the replacement
     /// placement sweep still crosses the same four floor plans. Re-measured
-    /// under Neutral/Scripted with twelve Brutes and the same 18,000-tick bound,
-    /// in fastest-first order: seed 15 falls at 2,970, seed 2 at 3,210, seed 9
-    /// at 4,260 and seed 16 at 13,680. Cost is a correctness argument here:
+    /// under Neutral/Scripted with twelve Brutes and the same 18,000-tick bound
+    /// after the rear-arm envelope landed, in fastest-first order: seed 4 falls
+    /// at 527, seed 5 at 1,046, seed 12 at 1,359 and seed 10 at 3,003. Cost is a
+    /// correctness argument here:
     /// three fixtures run a fall one tick at a time. Four is also the width
     /// `a_replacement_lands_where_the_last_one_fell` needs, because where a body
     /// falls is a fact about the floor plan it was chased across.
@@ -15860,7 +16001,7 @@ mod tests {
     /// The policy assignments happen after any warmup and before the attackers
     /// spawn, so a warmup can no longer turn the prerequisite into another
     /// matchup.
-    const FATAL_SEEDS: [u32; 4] = [15, 2, 9, 16];
+    const FATAL_SEEDS: [u32; 4] = [4, 5, 12, 10];
 
     /// The one of [`FATAL_SEEDS`] a fixture takes when it needs a single death
     /// and does not care which floor it happens on.
@@ -15909,10 +16050,9 @@ mod tests {
     /// worked. Twelve brutes is not subtle, and it should not be.
     ///
     /// Twelve and 18,000 remain measured inputs rather than a widened escape
-    /// hatch. All four [`FATAL_SEEDS`] die under the explicit rig at ticks 2,970,
-    /// 3,210, 4,260 and 13,680 with a thirty-tick sampler; the slowest still has
-    /// 4,320 ticks of margin. The bound did not move when the policy dependency
-    /// was removed.
+    /// hatch. All four [`FATAL_SEEDS`] die under the explicit rig at exact
+    /// one-tick observations 527, 1,046, 1,359 and 3,003; the slowest still has
+    /// 14,997 ticks of margin. The bound did not move.
     fn kill_the_hero() -> bool {
         arm_death_rig();
         for _ in 0..300 {

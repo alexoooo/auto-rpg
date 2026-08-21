@@ -748,7 +748,7 @@ test("the_picker_says_when_a_choice_it_honours_shows_the_reader_nothing", () => 
   // third instance of that trap recorded in this repository.
   const unknown = picker.review(matchup({ policy: "telepathy" }), "live").refusal;
   assert.match(unknown, new RegExp(`not one of the ${picker.POLICIES.length} embodied policy codes`));
-  assert.match(unknown, /PolicyKind/);
+  assert.match(unknown, /Arena policy reader/);
   // And the retired names are refused by name, which is what a saved matchup
   // from before v2-ui-08 arrives as.
   for (const gone of ["composed", "windmill", "attack-moves", "openings", "learned"]) {
@@ -785,10 +785,14 @@ test("a_recording_command_exists_only_where_lab_trace_could_actually_produce_one
   // `PolicyKind::from_name`, the same registry this table is. So the
   // list is derived rather than restated, and this loop is what says the
   // derivation holds for every row rather than for the two somebody typed out.
-  for (const option of picker.POLICIES) {
+  for (const option of picker.POLICIES.filter((row) => row.code !== "learned-roster")) {
     assert.equal(command(option.code, option.code),
       `cargo run --release -p lab -- trace --seed 3 --policy ${option.code}`);
   }
+  assert.equal(command("learned-roster", "scripted"),
+    "cargo run --release -p lab -- trace --seed 3 --policy learned-roster --opponent scripted");
+  assert.equal(command("scripted", "learned-roster"), null);
+  assert.equal(command("learned-roster", "learned-roster"), null);
   assert.equal(command("scripted", "tactical"),
     "cargo run --release -p lab -- trace --seed 3 --hero-policy scripted --monster-policy tactical");
   assert.equal(command("tactical-fixed-guard", "neutral", 5),
@@ -899,7 +903,8 @@ test("the_picker_and_the_config_agree_on_every_policy_code", () => {
   // still caught. These are `PolicyKind::code`'s own numbers and the
   // enum is append-only.
   assert.deepEqual([...CONFIG.ARENA_POLICY_NAMES],
-    ["neutral", "scripted", "scripted-level", "tactical", "tactical-fixed-guard"]);
+    ["neutral", "scripted", "scripted-level", "tactical", "tactical-fixed-guard",
+      "learned-roster"]);
 });
 
 // **`robust strike is an explicit controlled preset with exact ordinal 3144

@@ -1511,6 +1511,47 @@ mod tests {
         }
     }
 
+    #[test]
+    fn the_published_target_is_the_rear_limited_target_the_arm_chases() {
+        let mut world = World::new(&Scenario::embodied_duel(), 1);
+        let fighter = EntityId::new(0, 0);
+        let mut behind = crate::CommandV1::new(world.neutral_core(0));
+        behind.core.body_yaw = Angle::QUARTER;
+        for limb in 0..2 {
+            behind.core.arms[limb] = crate::ArmTarget {
+                bearing: Angle::HALF,
+                height: crate::CombatHeight::MID,
+                reach: Fx::HALF,
+                effort: Fx::ONE,
+            };
+        }
+        assert!(matches!(
+            world.submit(fighter, behind),
+            crate::SubmitOutcome::Stored { rejection: None, .. }
+        ));
+        world.step();
+
+        let yaw = world.body_yaw[0].angle;
+        assert_ne!(yaw, Angle::QUARTER,
+            "the achieved yaw accidentally equals the requested yaw, so the fixture cannot distinguish them");
+        let spec = world.anatomy_spec(0).cloned().expect("embodied anatomy");
+        let body = Vec3::new(world.pos[0].x, world.pos[0].y, world.ground_z[0]);
+        let pose = world.pose(fighter).expect("a live fighter");
+        for limb in 0..2 {
+            // Exactly behind has the binary angle's canonical negative
+            // half-turn delta, so the nearest side at the tie is -135 degrees.
+            let held = Angle::from_raw(yaw.raw().wrapping_sub(
+                crate::combat::limb::ARM_REAR_SWEEP_LIMIT_RAW as u16));
+            let expected = actuator::hand_position(
+                &spec, yaw, limb, held, crate::CombatHeight::MID, Fx::HALF);
+            assert_eq!(pose.arms[limb].target_hand, body + expected,
+                "arm {limb}'s published target bypassed the rear envelope");
+            assert!(world.arms[0][limb].bearing.delta(yaw).abs() <=
+                crate::combat::limb::ARM_REAR_SWEEP_LIMIT_RAW,
+                "arm {limb}'s actuator chased through its owner");
+        }
+    }
+
     /// A neutral embodied arm is asked for "ahead", and "ahead" is zero in the
     /// frame it will be read in.
     ///

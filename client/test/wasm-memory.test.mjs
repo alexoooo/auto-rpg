@@ -1699,7 +1699,10 @@ test("the_index_survives_a_death", async () => {
   //
   // That an embodied duel between two competent policies runs its clock 97% of
   // the time is worth recording here rather than only in a plan.
-  const deathTick = 2_923;
+  // The achieved-yaw-relative rear-arm envelope moved this symmetric death
+  // from 2,923 to 3,249; keeping the literal makes later mechanics changes
+  // prove they reached this publication/index witness.
+  const deathTick = 3_249;
   const config = liveConfig({ heroes: "scripted", monsters: "scripted", seed: 14 });
   const { source, finished, opened, chunks, whole } = await recordLive(wasm, config);
 
@@ -1712,8 +1715,8 @@ test("the_index_survives_a_death", async () => {
 
   // **The fight arrives in chunks and the count is arithmetic rather than a
   // literal**, so the cadence constant can move without this fixture lying about
-  // what it proved. 2,924 frames at 30 a chunk is 98 messages, the last of which
-  // is the fourteen-frame tail.
+  // what it proved. 3,250 frames at 30 a chunk is 109 messages, the last of which
+  // is the ten-frame tail.
   const chunkTicks = MSG.ARENA_STREAM_CHUNK_TICKS;
   assert.equal(chunks.length, Math.ceil((deathTick + 1) / chunkTicks));
   assert.deepEqual(chunks.map((chunk) => chunk.frameCount).slice(0, -1),

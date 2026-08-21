@@ -13,16 +13,23 @@ side of it the code sits on, not where the line is.
 
 ## What ships
 
-A trained network drives a fighter, natively and in the browser.
+A trained network drives a fighter, natively and in the browser. Two frozen
+artifacts ship, and their roles are deliberately different:
 
-| | |
-|---|---|
-| the network | 41 x 64 x 18, one hidden layer, ReLU, 3,858 `f32` weights |
-| the artifact | `checkpoints/v2-probe.ckpt`, 15,580 bytes, committed |
-| inference | [`crates/learn-core`](../../crates/learn-core/src/model.rs) -- the compact feature slice, the forward pass, the action table, the checkpoint codec |
-| training | [`crates/learn`](../../crates/learn/src/probe.rs) -- a `(mu + lambda)` population optimizer, six elites of a population, Gaussian mutation at sigma 0.08 |
-| hosts | native `lab learn-probe` and `lab trace --policy learned`; `web.wasm`, since `learn-core` is [`crates/web`](../../crates/web/Cargo.toml)'s dependency |
-| the score | **not currently established.** See below |
+| | V1 probe | Tactical V2 roster policy |
+|---|---|---|
+| network | 41 x 64 x 18, 3,858 `f32` weights | 59 x 64 x 26, 5,530 `f32` weights |
+| artifact | `checkpoints/v2-probe.ckpt`, 15,580 bytes | `checkpoints/learned-roster-v2.ckpt`, 22,264 bytes |
+| format | `Checkpoint`, the installed staging-buffer model | `CheckpointV2`, with the full-roster mask `0b11111` |
+| host | `lab trace --policy learned` and the V1 wasm staging ABI | `lab trace --policy learned-roster` and Arena-local policy code `5` |
+| score | historical only; the corpus it was trained against is gone | passed every five-opponent promotion row; [measured record](../performance/learned-roster-policy.md) |
+
+Both use the ReLU forward pass and versioned feature/action layouts in
+[`crates/learn-core`](../../crates/learn-core/src/model.rs). Training stays in
+[`crates/learn`](../../crates/learn/src/probe.rs), outside the browser dependency
+graph. The browser compiles the one promoted Tactical V2 artifact into `web.wasm`;
+it does not fetch or train that model at runtime. The older V1 staging buffer remains
+an independent ABI for the exact file a caller installs.
 
 **The score row used to read "88.922 mean return over 400 held-out seeds, 95% CI
 `[86.287, 91.962]`, 30 kills, against the scripted windmill's 84.606", and every part
@@ -33,7 +40,7 @@ now and its non-learned conditions are a zeroed network, the scripted body, the 
 planner and that planner with a fixed guard — so there is no windmill to beat and no
 number here that a reader can check.
 
-**The checkpoint itself is unaffected and still ships.** `ModelShape`, both layout
+**The V1 checkpoint itself is unaffected and still ships.** `ModelShape`, both layout
 versions and the forward pass are untouched, `checkpoints/v2-probe.ckpt` decodes, and
 `LEARNED_INFERENCE_DIGEST` is unmoved at `0xbdba8d64d340ce32`. What is missing is a
 *score* for it on the corpus that exists, and producing one is a measurement session
@@ -53,15 +60,13 @@ whole weight vector: it samples, scores through the ordinary rollout harness, ke
 elites and mutates. There is no autodiff path, no backward pass and no tensor library,
 which is why the whole thing is a few hundred lines with zero external dependencies.
 
-Session smart-ai-07 also adds an unpromoted native-only tactical contract beside the
-shipped one: `ModelV2` is 59 x 64 x 26, with the 41 V1 features and 18 V1 logits
-preserved as prefixes. Its appended inputs describe opponent regions, the controller's
-threat assessment, and its tactical phase; its appended eight-way head chooses a
-`TacticalIntentV1` that `StrikePlanner` executes to a motor boundary. `CheckpointV2`
-validates those layouts independently, and `lab learn-probe ... --action-layout
-tactical-v2` is the only host. This is not the browser model and does not change the
-shipped checkpoint or `LEARNED_INFERENCE_DIGEST`; training and promotion are session
-smart-ai-08 work.
+The Tactical V2 contract preserves the 41 V1 features and 18 V1 logits as prefixes.
+Its appended inputs describe opponent regions, the controller's threat assessment,
+and its tactical phase; its appended eight-way head chooses a `TacticalIntentV1`
+that `StrikePlanner` executes to the fixed-point motor boundary. `CheckpointV2`
+validates those layouts and the recorded opponent mask independently. Promotion did
+not change the V1 artifact or `LEARNED_INFERENCE_DIGEST`; it added the separate
+`LEARNED_TACTICAL_INFERENCE_DIGEST` instead.
 
 ## The boundary, which did not move
 
@@ -72,7 +77,9 @@ promised:
 - **A type fence.** `learn_core::LearnedActionV1` is a different type from the
   submitted command, and the world's submission cannot be handed one.
   What crosses from the float side to the integer side is **five head indices**, chosen
-  by an argmax, which then index a fixed table of `Fx` constants.
+  by an argmax, which then index a fixed table of `Fx` constants. Tactical V2 crosses
+  the same boundary as a fixed tactical-intent index; `StrikePlanner`, on the integer
+  side, turns that intent into the submitted command.
 - **A direction fence.** `the_learned_policy_is_unreachable_from_sim` in
   `crates/learn-core/tests/direction.rs` asks Cargo for the resolved graph and asserts
   that `fx`, `sim` and `policy` reach neither crate, that `web` reaches `learn-core`,
@@ -89,11 +96,12 @@ discharged once, for `learn-core`, by the session that split the crates -- the c
 made and the answer is the amendment above. It **stands unchanged for `learn`**, whose
 only host is `lab`, through `lab learn-probe` and `lab trace --policy learned`.
 
-- **A cross-target pin.** `LEARNED_INFERENCE_DIGEST` (`0xbdba8d64d340ce32`) is FNV-1a-64
-  over the logit words the shipped checkpoint produces on a fixed 64-case corpus. It is
-  duplicated in `crates/web/src/lib.rs` and `tools/wasm_check.js`, and native and wasm
-  agree on it. Its registry row in [`hashes.md`](../reference/hashes.md#golden-registry)
-  names the `-C target-cpu=native` hole that bounds it.
+- **Cross-target pins.** `LEARNED_INFERENCE_DIGEST` (`0xbdba8d64d340ce32`)
+  and the additive `LEARNED_TACTICAL_INFERENCE_DIGEST`
+  (`0x6d06a0e332628298`) are FNV-1a-64 over logit words on fixed synthetic
+  corpora. Rust and wasm publish both. Their registry rows in
+  [`hashes.md`](../reference/hashes.md#golden-registry) name the
+  `-C target-cpu=native` hole that bounds the portability claim.
 
 `crates/policy` deliberately did **not** gain the dependency, and the reason outlived
 the registry entry that used to demonstrate it. The articulated registry had a
@@ -102,13 +110,13 @@ the registry entry that used to demonstrate it. The articulated registry had a
 the dispatch lived in `crates/web`, beside the buffer holding the weights, and a
 fighter asking for that code with nothing loaded was refused by name.
 
-**The surviving registry has no `learned` entry at all**, so `PolicyKind::build`
-returns a policy rather than an `Option` -- the shape the argument above always
-implied, arrived at by deletion rather than by design. Adding the code back is a
-decision and not an omission: it needs the network widening that was measured and
-deferred, and until then nothing in this workspace builds a fighter from a checkpoint.
-The checkpoint staging buffer is untouched and `LEARNED_INFERENCE_DIGEST` is still
-taken over whatever it installs; the ABI for fetching and installing one is in
+**`PolicyKind` still has no learned entry**, so `PolicyKind::build` remains total and
+the dependency direction remains intact. The two hosts that own checkpoint bytes own
+their learned selection too: Lab has its local learned variants, while `crates/web`
+appends Arena-local code `5` for the exact compiled roster artifact after the five
+`PolicyKind` codes. The V1 checkpoint staging buffer is untouched and
+`LEARNED_INFERENCE_DIGEST` is still taken over whatever it installs; the browser ABI
+and the compiled Tactical V2 digest exports are in
 [`articulated-abi.md`](../reference/articulated-abi.md#the-checkpoint-staging-buffer).
 
 **Neither crate carries a crates.io dependency, and neither does anything else.**
@@ -182,10 +190,8 @@ oversight:
   crate boundary from anything a browser loads.
 - **No GPU evaluator, and no Python training pipeline.** The workspace has no external
   dependency at all and `tools/check_deps.js` audits every member for one.
-- **A checkpoint picker beyond the shipped file.** The staging buffer takes any
-  checkpoint a caller fetches, so this is client work rather than module work.
-- **More than one network in a duel.** The installed checkpoint is one network, not a
-  per-fighter handle; a slot array is additive later in the two reserved bytes of each
-  fighter block.
+- **An arbitrary checkpoint picker.** The Arena offers the exact promoted roster
+  artifact compiled into the module. The separate V1 staging buffer can accept a file,
+  but the studio does not expose arbitrary Tactical V2 slots or artifacts.
 - **No learned state inside the simulation.** This one is not deferred; it is refused,
   and the three fences above are what refuse it.

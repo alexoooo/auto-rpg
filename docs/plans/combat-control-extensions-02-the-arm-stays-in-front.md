@@ -1,6 +1,6 @@
 # Combat control extensions 02 -- the arm stays in front
 
-**Status:** future mechanics session; independent of 01.
+**Status:** complete; full native, exact-law, replay, wasm, browser, and documentation gates passed; independent of 01.
 
 The elbow annulus limits height and reach but permits a hand bearing directly behind the
 torso. This session gives the simulator one anatomy-owned rear envelope. The browser may
@@ -64,10 +64,12 @@ This is a values-only mechanics move, not a digest grammar or ABI-layout move. B
 editing, trace all six relevant registry fixtures: `EMBODIED_CORPUS_DIGEST`,
 `EMBODIED_GOLDEN_DIGEST`, `ARTICULATED_COMMAND_HASH`,
 `EXACT_TRAJECTORY_STATE_DIGEST`, `LIFTED_COULOMB_SOLVER_DIGEST` and the independently
-published `ARTICULATED_STREAM_DIGEST`. Corpus, golden and stream are probable movers.
-The unstepped command fixture and both exact diagnostics remain unchanged only if their
-concrete bytes never reach the projection; that is measured, not assumed. Re-record only
-fixtures proven to reach the law, native first and then every wasm/registry mirror.
+published `ARTICULATED_STREAM_DIGEST`. Measurement found only the corpus reaches the new
+rear envelope. The default corpus moved from `0xfa4ebbfbdde42fd1` to
+`0x0f2f860166c179e0`; the exact corpus moved from `0x93384862586e6027` to
+`0x9c66dcf43f581d69`. The closing-script golden remains `0x029fcc4140715db3`, and the
+unstepped command and twenty-tick stream fixtures remain unchanged. The exact diagnostic
+pins still require their full feature gate before this status becomes complete.
 
 ## Verification
 

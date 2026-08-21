@@ -93,10 +93,13 @@
 //! substituted into the loop, and the pin saw it.
 
 use crate::model::{
-    write_features, FeatureMemory, Model, ModelShape, HIDDEN_UNITS, LEARN_ACTION_LAYOUT_VERSION,
-    LEARN_ACTION_LOGITS, LEARN_FEATURE_COUNT, LEARN_FEATURE_LAYOUT_VERSION,
+    write_features, write_features_v2, FeatureMemory, Model, ModelShape, ModelShapeV2, ModelV2,
+    HIDDEN_UNITS, LEARN_ACTION_LAYOUT_VERSION, LEARN_ACTION_LOGITS, LEARN_FEATURE_COUNT,
+    LEARN_FEATURE_LAYOUT_VERSION, LEARN_V2_ACTION_LAYOUT_VERSION, LEARN_V2_ACTION_LOGITS,
+    LEARN_V2_FEATURE_COUNT, LEARN_V2_FEATURE_LAYOUT_VERSION,
 };
 use fx::{Fx, Hash64, Rng, Vec3};
+use policy::{TacticalContextV1, TacticalPhase};
 use sim::{Observation, BodyPart, EntityId, SegmentPose};
 
 /// The ASCII prefix every case is hashed behind.
@@ -105,6 +108,7 @@ use sim::{Observation, BodyPart, EntityId, SegmentPose};
 /// `ARPG-STREAM-V1` set: two digests over different subjects that happened to
 /// start with the same bytes would otherwise be comparable by accident.
 pub const LEARNED_INFERENCE_DIGEST_DOMAIN: &[u8] = b"ARPG-LEARNED-V1";
+pub const LEARNED_TACTICAL_INFERENCE_DIGEST_DOMAIN: &[u8] = b"ARPG-LEARNED-TACTICAL-V2";
 
 /// How many observations the corpus is.
 ///
@@ -351,6 +355,47 @@ pub fn learned_inference_digest(model: &Model) -> u64 {
     for index in 0..LEARNED_INFERENCE_CASES {
         let obs = learned_inference_case(index);
         memory = write_features(&obs, memory, &mut features);
+        model.forward(&features, &mut hidden, &mut logits);
+        hash.write_u32(index as u32);
+        for logit in logits {
+            hash.write_u32(portable_bits(logit));
+        }
+    }
+    hash.finish()
+}
+
+/// The tactical V2 network's cross-target receipt over the same synthetic
+/// observation walk as V1. It is additive: the V1 digest continues to name the
+/// shipped V1 checkpoint and cannot be re-recorded because a second artifact
+/// was promoted beside it.
+pub fn learned_tactical_inference_digest(model: &ModelV2) -> u64 {
+    let mut hash = Hash64::new();
+    hash.write_bytes(LEARNED_TACTICAL_INFERENCE_DIGEST_DOMAIN);
+    hash.write_u32(LEARN_V2_FEATURE_LAYOUT_VERSION);
+    hash.write_u32(LEARN_V2_ACTION_LAYOUT_VERSION);
+    let shape = ModelShapeV2::CURRENT;
+    hash.write_u32(shape.inputs as u32);
+    hash.write_u32(shape.hidden as u32);
+    hash.write_u32(shape.outputs as u32);
+    hash.write_u32(LEARNED_INFERENCE_CASES as u32);
+
+    let mut features = [0.0f32; LEARN_V2_FEATURE_COUNT];
+    let mut hidden = [0.0f32; HIDDEN_UNITS];
+    let mut logits = [0.0f32; LEARN_V2_ACTION_LOGITS];
+    let mut memory = FeatureMemory::EMPTY;
+    for index in 0..LEARNED_INFERENCE_CASES {
+        let obs = learned_inference_case(index);
+        memory = write_features_v2(
+            &obs,
+            memory,
+            TacticalContextV1 {
+                phase: TacticalPhase::Seek,
+                plan: None,
+                threat: None,
+                opponent_recovering: false,
+            },
+            &mut features,
+        );
         model.forward(&features, &mut hidden, &mut logits);
         hash.write_u32(index as u32);
         for logit in logits {

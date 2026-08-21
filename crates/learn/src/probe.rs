@@ -88,6 +88,19 @@ use sim::{
 };
 use std::time::Instant;
 
+/// Return points lost when every sample inside the opponent's observed weapon
+/// envelope is neither a full-force attack nor a decisive withdrawal. Eighty
+/// is deliberately comparable with a win: the 25-point smoke value produced
+/// 61--70% literal outside time while winning most rows, which demonstrated
+/// that the optimizer could buy outcomes by lingering in reach. A pursuing
+/// opponent can choose the bodies' separation, so the scored promise is the
+/// action the candidate owns; literal outside time remains a reported column.
+pub const RETURN_PASSIVE_EXPOSURE: f32 = 80.0;
+/// A submaximal powered attack voids the force promise. The tactical planner
+/// currently makes this term identically zero; keeping it in the objective
+/// makes a future action path fail as fitness rather than only as reporting.
+pub const RETURN_SUBMAXIMAL_ATTACK: f32 = 100.0;
+
 // ------------------------------------------------------------------ the corpus
 
 // **There is no `Baseline` enum here any more, and its replacement is
@@ -447,6 +460,50 @@ pub struct Mechanics {
     pub candidate_nanos: u128,
 }
 
+/// The two behavioural promises the tactical learner is trained to keep.
+///
+/// This is host-side evidence, not another observation and not authoritative
+/// state.  It reads the observation the candidate was handed and the command it
+/// offered, then dies with the rollout.  Replay still records only the stored
+/// [`CommandV1`].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct TacticalEvidence {
+    pub samples: u32,
+    pub outside_samples: u32,
+    /// Samples inside the observed weapon envelope where the candidate was
+    /// neither making a full-effort attack nor withdrawing at least 7/8 speed
+    /// along the direction directly away from the opponent.
+    pub unsafe_exposures: u32,
+    pub attacks: u32,
+    pub full_effort_attacks: u32,
+}
+
+impl TacticalEvidence {
+    pub fn outside_fraction(self) -> f32 {
+        if self.samples == 0 {
+            1.0
+        } else {
+            self.outside_samples as f32 / self.samples as f32
+        }
+    }
+
+    pub fn safety_fraction(self) -> f32 {
+        if self.samples == 0 {
+            1.0
+        } else {
+            1.0 - self.unsafe_exposures as f32 / self.samples as f32
+        }
+    }
+
+    pub fn full_effort_fraction(self) -> f32 {
+        if self.attacks == 0 {
+            1.0
+        } else {
+            self.full_effort_attacks as f32 / self.attacks as f32
+        }
+    }
+}
+
 impl Mechanics {
     pub fn merge(&mut self, other: &Mechanics) {
         for kind in 0..self.kinds.len() {
@@ -492,6 +549,7 @@ impl Mechanics {
 #[derive(Default)]
 pub struct Recorders<'a> {
     pub mechanics: Option<&'a mut Mechanics>,
+    pub tactics: Option<&'a mut TacticalEvidence>,
     /// The normal replay envelope, recorded exactly as
     /// [`policy::run`] records it: the orders at tick zero and the
     /// **stored** command per decision, never the offered one.
@@ -503,6 +561,64 @@ pub struct Recorders<'a> {
     /// `learn` at all. `recorded_learned_replays_do_not_load_the_model` is the
     /// value-level assertion.
     pub replay: Option<&'a mut Replay>,
+}
+
+fn inside_observed_weapon_envelope(obs: &Observation) -> bool {
+    let Some(foe) = obs.opponents().first() else { return false };
+    let body_distance = fx::Vec2::new(
+        foe.body_position.x - obs.body_position.x,
+        foe.body_position.y - obs.body_position.y,
+    ).length();
+    let mut reach = Fx::ZERO;
+    for blade in foe.weapons.iter().flatten() {
+        for point in [blade.hilt, blade.tip] {
+            let planar = fx::Vec2::new(
+                point.x - foe.body_position.x,
+                point.y - foe.body_position.y,
+            ).length();
+            reach = reach.max(planar + blade.radius);
+        }
+    }
+    reach.is_positive() && body_distance <= reach + obs.hand_radius * Fx::TWO
+}
+
+fn observe_tactical_sample(
+    obs: &Observation,
+    command: &CommandV1,
+    evidence: &mut TacticalEvidence,
+) {
+    evidence.samples = evidence.samples.saturating_add(1);
+    // `Intent::Attack` also stays set while the feet are merely measuring and
+    // during the zero-effort recovery.  Those are navigation, not blows.  A
+    // force sample begins only when an attacking command actually powers an
+    // arm, which makes "maximum force" about the actuator rather than a label.
+    let attacking = matches!(command.core.intent, Intent::Attack(_))
+        && command.core.arms.iter().any(|arm| arm.effort.is_positive());
+    let full_effort = attacking && command.core.arms.iter().any(|arm| arm.effort == Fx::ONE);
+    evidence.attacks = evidence.attacks.saturating_add(u32::from(attacking));
+    evidence.full_effort_attacks = evidence
+        .full_effort_attacks
+        .saturating_add(u32::from(full_effort));
+    let inside = inside_observed_weapon_envelope(obs);
+    evidence.outside_samples = evidence.outside_samples.saturating_add(u32::from(!inside));
+    if inside && !full_effort && !decisively_withdrawing(obs, command) {
+        evidence.unsafe_exposures = evidence.unsafe_exposures.saturating_add(1);
+    }
+}
+
+fn decisively_withdrawing(obs: &Observation, command: &CommandV1) -> bool {
+    let Some(foe) = obs.opponents().first() else { return false };
+    let (cos, sin) = (obs.body_yaw.cos(), obs.body_yaw.sin());
+    let local = command.core.move_dir;
+    let world = fx::Vec2::new(
+        local.x * cos - local.y * sin,
+        local.x * sin + local.y * cos,
+    );
+    let away = fx::Vec2::new(
+        obs.body_position.x - foe.body_position.x,
+        obs.body_position.y - foe.body_position.y,
+    ).normalize();
+    world.dot(away) >= Fx::from_ratio(7, 8)
 }
 
 /// Drives one fight with a different policy on each side.
@@ -601,6 +717,11 @@ pub fn rollout_with(
             } else {
                 monsters.decide(&obs)
             };
+            if candidate {
+                if let Some(evidence) = recorders.tactics.as_deref_mut() {
+                    observe_tactical_sample(&obs, &command, evidence);
+                }
+            }
             if recorders.mechanics.is_some() {
                 // The *offered* command and the roles the policy itself was
                 // working from, read before the world has had a chance to refuse
@@ -963,6 +1084,10 @@ pub struct ProbeConfig {
     /// that trains more than one checkpoint against more than one opponent
     /// should add the column before it trains the second.
     pub opponent: Opponent,
+    /// Tactical-V2's training board. Empty preserves the single `opponent`
+    /// contract used by the shipped V1 probe; non-empty is scored by its worst
+    /// row so one easy matchup cannot hide one losing matchup.
+    pub roster: Vec<Opponent>,
     pub verbose: bool,
 }
 
@@ -979,8 +1104,25 @@ impl Default for ProbeConfig {
             master_seed: 1,
             max_ticks: None,
             opponent: Opponent::frozen(PolicyKind::Scripted),
+            roster: Vec::new(),
             verbose: false,
         }
+    }
+}
+
+impl ProbeConfig {
+    pub fn tactical_opponents(&self) -> &[Opponent] {
+        if self.roster.is_empty() {
+            std::slice::from_ref(&self.opponent)
+        } else {
+            &self.roster
+        }
+    }
+
+    pub fn tactical_opponent_mask(&self) -> u32 {
+        self.tactical_opponents().iter().fold(0u32, |mask, opponent| {
+            mask | (1u32 << opponent.kind.code())
+        })
     }
 }
 
@@ -1064,10 +1206,42 @@ pub fn score(model: &Model, corpus: &Corpus, config: &ProbeConfig) -> f32 {
 }
 
 pub fn score_v2(model: &ModelV2, corpus: &Corpus, config: &ProbeConfig) -> f32 {
-    let mut policy = LearnedTacticalPolicyV2::new(model.clone());
-    let mut returns = Vec::with_capacity(corpus.trials(&config.seeds));
-    corpus.returns(&config.seeds, &mut policy, config.opponent, config.max_ticks, &mut returns);
-    if returns.is_empty() { 0.0 } else { returns.iter().sum::<f32>() / returns.len() as f32 }
+    let mut rows = Vec::with_capacity(config.tactical_opponents().len());
+    for &opponent in config.tactical_opponents() {
+        let mut policy = LearnedTacticalPolicyV2::new(model.clone());
+        let mut sum = 0.0f32;
+        let mut count = 0usize;
+        for scenario in corpus.scenarios() {
+            for &seed in &config.seeds {
+                let mut baseline = opponent.policy_for(seed);
+                let mut evidence = TacticalEvidence::default();
+                let result = rollout_with(
+                    scenario,
+                    seed,
+                    &mut policy,
+                    baseline.as_mut(),
+                    config.max_ticks,
+                    &mut Recorders {
+                        tactics: Some(&mut evidence),
+                        ..Recorders::default()
+                    },
+                );
+                let spacing_penalty = RETURN_PASSIVE_EXPOSURE
+                    * (1.0 - evidence.safety_fraction());
+                let force_penalty = RETURN_SUBMAXIMAL_ATTACK
+                    * (1.0 - evidence.full_effort_fraction());
+                sum += shaped_return(&result) - spacing_penalty - force_penalty;
+                count += 1;
+            }
+        }
+        let mean = if count == 0 { 0.0 } else { sum / count as f32 };
+        rows.push(mean);
+    }
+    roster_floor(&rows)
+}
+
+fn roster_floor(rows: &[f32]) -> f32 {
+    rows.iter().copied().reduce(f32::min).unwrap_or(0.0)
 }
 
 /// Scores every candidate whose score is not already known.
@@ -1336,7 +1510,7 @@ fn record_v2(config: &ProbeConfig, elite: usize, generations: u32, best_score: f
         generations, population: config.population as u32, elite: elite as u32, sigma: config.sigma,
         master_seed: config.master_seed, seeds: config.seeds.clone(),
         training_return: if best_score.is_finite() { best_score } else { 0.0 },
-    }, model }
+    }, opponent_mask: config.tactical_opponent_mask(), model }
 }
 
 #[cfg(test)]
@@ -1603,6 +1777,7 @@ mod tests {
             Some(600),
             &mut Recorders {
                 mechanics: Some(&mut mechanics),
+                tactics: None,
                 replay: Some(&mut replay),
             },
         );
@@ -1742,7 +1917,7 @@ mod tests {
             scripted().as_mut(),
             scripted().as_mut(),
             Some(300),
-            &mut Recorders { mechanics: Some(&mut mechanics), replay: None },
+            &mut Recorders { mechanics: Some(&mut mechanics), tactics: None, replay: None },
         );
         assert_eq!(plain.rejected, 0);
         assert!(
@@ -1919,6 +2094,7 @@ mod tests {
             master_seed: 99,
             max_ticks: Some(180),
             opponent: Opponent::frozen(PolicyKind::Scripted),
+            roster: Vec::new(),
             verbose: false,
         };
         let one = train(&base);
@@ -1928,6 +2104,70 @@ mod tests {
         // And the checkpoint it produced is one the reader accepts.
         let bytes = one.to_bytes();
         assert_eq!(Checkpoint::from_bytes(&bytes), Ok(one));
+    }
+
+    #[test]
+    fn the_roster_is_policy_kind_all_in_append_only_order() {
+        let config = ProbeConfig {
+            roster: PolicyKind::ALL.iter().copied().map(Opponent::frozen).collect(),
+            ..ProbeConfig::default()
+        };
+        let names: Vec<&str> = config
+            .tactical_opponents()
+            .iter()
+            .map(|opponent| opponent.kind.name())
+            .collect();
+        assert_eq!(
+            names,
+            PolicyKind::ALL.iter().map(|kind| kind.name()).collect::<Vec<_>>(),
+        );
+        assert_eq!(config.tactical_opponent_mask(), 0b1_1111);
+    }
+
+    #[test]
+    fn roster_training_scores_the_worst_opponent_not_the_mean() {
+        assert_eq!(roster_floor(&[91.0, 88.0, 12.5, 77.0, 83.0]), 12.5);
+        assert_ne!(
+            roster_floor(&[91.0, 88.0, 12.5, 77.0, 83.0]),
+            (91.0 + 88.0 + 12.5 + 77.0 + 83.0) / 5.0,
+        );
+    }
+
+    #[test]
+    fn full_effort_or_decisive_withdrawal_is_safe_inside_the_weapon_envelope() {
+        let world = World::new(&duel_in_sight(), 3);
+        let hero = world.alive_ids(Faction::Heroes)[0];
+        let mut obs = world.observe(hero);
+        let foe = obs.opponents[0].id;
+        // Put the observed point across the subject's centre so the envelope
+        // test is definitely true rather than relying on a rest pose.
+        let body = obs.opponents[0].body_position;
+        obs.opponents[0].weapons[1] = Some(sim::SegmentPose {
+            hilt: body,
+            tip: obs.body_position,
+            radius: obs.hand_radius,
+        });
+        assert!(inside_observed_weapon_envelope(&obs));
+
+        let mut waiting = policy::neutral_command(&obs);
+        let mut evidence = TacticalEvidence::default();
+        observe_tactical_sample(&obs, &waiting, &mut evidence);
+        assert_eq!((evidence.samples, evidence.unsafe_exposures), (1, 1));
+
+        waiting.core.intent = Intent::Attack(foe);
+        waiting.core.arms[1].effort = Fx::ONE;
+        observe_tactical_sample(&obs, &waiting, &mut evidence);
+        assert_eq!((evidence.samples, evidence.unsafe_exposures), (2, 1));
+        assert_eq!((evidence.attacks, evidence.full_effort_attacks), (1, 1));
+
+        waiting.core.intent = Intent::Hold;
+        waiting.core.arms[1].effort = Fx::ZERO;
+        let away = (fx::Vec2::new(obs.body_position.x, obs.body_position.y)
+            - fx::Vec2::new(body.x, body.y)).normalize();
+        waiting.core.move_dir = policy::into_torso(away * Fx::from_ratio(15, 16), obs.body_yaw);
+        observe_tactical_sample(&obs, &waiting, &mut evidence);
+        assert_eq!((evidence.samples, evidence.unsafe_exposures), (3, 1));
+        assert!((evidence.safety_fraction() - 2.0 / 3.0).abs() < 0.000_001);
     }
 
     /// `Neutral` under a tap, so "it never aims" can be asserted rather than

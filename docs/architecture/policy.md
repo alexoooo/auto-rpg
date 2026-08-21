@@ -380,16 +380,15 @@ are reproducible without editing a constant and rebuilding. `PolicyKind::build_w
 answers `None` for the three entries with no planner, so a row that cannot be spent is
 refused by name rather than dropped.
 
-**`PolicyKind::build` returns a policy and not an `Option`, which is where
-it deliberately differed from its sibling.** `ArticulatedPolicyKind` answered `None`
-for its learned code because a trained fighter is a kind *plus fifteen kilobytes of
-weights* and nothing keyed by an integer has anywhere to put a checkpoint; the
-dispatch belonged to whoever held the checkpoint, and `crates/policy` could not
-have built one anyway -- it is audited by `tools/check_deps.js` and must not gain a
-float dependency, and the floating point lives in `crates/learn-core`, which
-depends on *this* crate. Nothing here is a checkpoint: session 09 measured the
-learning boundary and deferred widening the network's input, so an embodied
-learned code would be a promise made before the session that owes it exists.
+**`PolicyKind::build` returns a policy and not an `Option`.** A trained fighter is a
+kind plus checkpoint bytes, and nothing keyed only by an integer has anywhere to put
+those weights. The dispatch therefore belongs to the host that owns the artifact:
+Lab names its learned runners locally, and `crates/web` appends Arena-local code `5`
+for the exact compiled learned-roster checkpoint after `PolicyKind`'s five codes.
+`crates/policy` could not build either network anyway -- it is audited by
+`tools/check_deps.js` and must not gain a float dependency, while the floating point
+lives in `crates/learn-core`, which depends on *this* crate. Nothing here is a
+checkpoint and the promoted browser policy does not change that arrow.
 `ComposedController` is not a kind either, for the same argument's shape rather
 than its subject -- it is a set of sources, one of which is a human hand, and an
 integer has nowhere to put a person.
@@ -427,15 +426,17 @@ about, and it shipped in a report for the length of one session. The measured re
 
 ## Frozen networks are current, and where the float stops
 
-`crates/learn-core` holds a compact 41-feature slice, a 41x64x18 perceptron, a
-five-head action table and a checkpoint codec; `crates/learn` holds the
-population that trains one. Both may use floating point, which nothing under
+`crates/learn-core` holds both frozen inference contracts: the V1 41x64x18
+perceptron with its five-head action table, and Tactical V2's 59x64x26 perceptron
+whose appended head selects a tactical intent. `crates/learn` holds the population
+that trains them. Both may use floating point, which nothing under
 `fx`, `sim` or the deterministic parts of `policy` may, and the licence has one
 condition: **nothing they compute reaches authoritative state.** What crosses is
 five head indices from an argmax, assembled by `learn_core::compose` into a command
 core out of a fixed table of `Fx` constants.
 `LearnedActionV1` is a separate type for exactly that reason: the world's submission
-cannot be handed one.
+cannot be handed one. Tactical V2 crosses as an intent index and then uses the
+fixed-point `StrikePlanner`; its logits do not cross into authoritative state either.
 
 The dependency arrow is the rest of the architecture. `learn-core` may see `fx`,
 `sim` and `policy`; none of the three may see it, and
@@ -447,7 +448,8 @@ that the compiler never enforced this arrow, leaving the test as the whole of
 it. `crates/web` depends on `learn-core` and must never depend on `crates/learn`,
 which uses `std::thread::scope` and a wall clock and belongs in no `cdylib`.
 
-`LEARNED_INFERENCE_DIGEST` is what keeps the crossing honest between targets:
+`LEARNED_INFERENCE_DIGEST` and the additive
+`LEARNED_TACTICAL_INFERENCE_DIGEST` keep both crossings honest between targets:
 `Model::forward` is a rectified linear precisely so that no libm call enters the
 inference path, and until v2-ui-08 that portability argument had no second host
 to be checked on. It is registered in
@@ -521,8 +523,9 @@ the former `DESIGN.md#the-one-exception-taking-the-controls` discussion while ke
 its warning about replay completeness.
 
 The embodied observation/action seam, its registry, and its configured duel are
-current. A learned policy remains a Lab/checkpoint path and is not a live arena
-`PolicyKind`. The decision-loop ownership is intentionally
+current. Learned policies remain host/checkpoint paths and are not a
+`PolicyKind`; the promoted roster policy is nevertheless live in the Arena through
+the browser's additive local code `5`. The decision-loop ownership is intentionally
 split: `policy::run` is exercised directly only by tests; a lab harness needs
 per-tick resolutions, cap hits, and energy-ledger columns that `RunResult` does not
 carry, so its loop is pinned to the runner by an equivalence test; and the browser
