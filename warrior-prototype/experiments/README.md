@@ -24,14 +24,17 @@ changes just because they fit in one edit.
    expected component/view movement, and rejection conditions.
 2. Run `npm run similarity`, then snapshot it with
    `npm run similarity:experiment:snapshot -- NNNN-short-name baseline`.
+   The snapshot command refuses a stale report, a non-canonical score, an
+   incomplete pre-registration, a non-sequential ID, or a source that differs
+   from `accepted-state.json`. Snapshots are immutable and written atomically.
 3. Make only the registered asset change. Do not tune the metric or reference
    annotation in response to the candidate.
 4. Run `npm run similarity`, then snapshot it with
    `npm run similarity:experiment:snapshot -- NNNN-short-name candidate`.
    The ignored `.review/experiments/` directory retains the renders, reports,
    source hashes, component deltas, and view deltas used for the decision. The
-   same command copies the candidate's fixed front view into the tracked
-   `experiments/progress/` gallery.
+   The report hashes must match every render and landmark file at capture time;
+   mask overlays and the exact authored source are retained with both stages.
 5. Inspect all eight candidate renders and mask overlays. A lower score is kept
    only when the image changed in the intended way and the diagnostic movement
    has a plausible causal explanation. Use the randomized human A/B tool when
@@ -42,13 +45,69 @@ changes just because they fit in one edit.
    annotation error, damaging an important unmeasured quality, or causing a
    large unexplained component/view regression.
 7. Keep a successful source edit and regenerate `public/assets/warrior.glb`.
-   Revert an unsuccessful source edit, but retain its experiment record because
+   Revert an unsuccessful source edit to the captured baseline, but retain its experiment record because
    a disproved hypothesis is still useful. Retain its progress frame too, and
-   label its decision in `experiments/progress/README.md`. Complete the record
-   with the exact result, decision, observations, and the next highest-value question.
-8. Run the nested `AGENTS.md` gates. The next iteration starts from the last
+   label its decision. Complete the record with the exact result, decision,
+   an explicit all-eight-view review, observations, and the next highest-value
+   question. Leave `Status: proposed` until the record is complete, then run
+   `npm run similarity:experiment:decide -- NNNN-short-name accepted|rejected`.
+   This command verifies the candidate or reverted baseline source, advances
+   `accepted-state.json`, retains the front frame, and regenerates the gallery.
+8. Run `npm run similarity:experiment:audit`, then the nested `AGENTS.md` gates.
+   The audit checks contiguous records, immutable evidence, report hashes,
+   accepted-source continuity, checkpoint state, and gallery membership. The next iteration starts from the last
    accepted asset and cites any earlier observation it builds upon.
 
 The tracked Markdown record is durable knowledge. Generated evidence stays
 ignored because eight beauty images, eight masks, and neural reports are large;
 their hashes and numerical summary in the record make the evidence identifiable.
+
+## Closing an experimental phase
+
+A long experiment chain does not remain indefinitely as hundreds of active
+records, progress images, and ignored render files. Close a phase when its ruler,
+search space, or asset representation has reached a durable plateau, or before a
+successor phase changes any of those controls.
+
+The transition has five required products:
+
+1. Write a debrief under `docs/analysis/` that records the accepted checkpoint,
+   transferable findings, closed representation families, metric limitations,
+   and the reason a new phase is warranted. This is the durable interpretation;
+   do not make future agents reconstruct it from dozens of `Next question`
+   sections.
+2. Write a multi-session successor plan under `docs/plans/`. It names ruler and
+   asset version boundaries, session order, exact gates, reference/hash
+   expectations, and the condition that permits formal experiments to resume.
+3. Compact the closed phase under `experiments/archive/phase-NN/`. Retain one
+   complete concatenated ledger, a machine-readable manifest with source/report
+   and result hashes, a labelled front-render contact sheet, and a short archive
+   README. The ledger preserves the full individual narratives; the debrief
+   carries only conclusions that remain useful.
+4. Verify the compact archive before pruning. The archive manifest must cover a
+   contiguous, fully decided range and reproduce its terminal accepted source,
+   report, distance, and experiment identity. Global numbering continues after
+   the archive; it never resets or silently reuses an ID.
+5. Remove the superseded top-level records, individual progress frames, and
+   `.review` snapshots only after verification. Also remove disposable build
+   output. Keep pinned model caches, environments, and dependencies when another
+   phase is imminent; they are reusable tooling rather than historical evidence.
+
+For phase 01 the explicit commands are:
+
+```powershell
+npm run similarity:phase:contact-sheet -- experiments/progress experiments/archive/phase-01/front-contact-sheet.png
+npm run similarity:phase:archive -- phase-01 phase-02
+npm run similarity:experiment:audit
+```
+
+The archive command refuses an active proposal, source/checkpoint mismatch,
+missing progress frame, missing snapshot summary, noncontiguous range, or an
+existing archive. It writes the ledger and manifest before changing the active
+checkpoint, prunes only after those products exist, and finishes by running the
+archive-aware audit.
+
+An archive closes evidence storage, not intellectual responsibility. If an old
+candidate becomes relevant under a new ruler, cite its archived ID and rerun it
+as a newly preregistered experiment. Never retroactively change its decision or
+splice a formula-v2 score into the formula-v1 ledger.

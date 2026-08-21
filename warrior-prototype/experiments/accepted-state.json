@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 2,
+  "latestClosedExperiment": "0073-layered-plate-gauntlets",
+  "latestAcceptedExperiment": "0032-ablate-pauldron-hoops",
+  "distance": 0.6740783861195763,
+  "assetSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+  "reportSha256": "b21b2749febb4942f818874f483eb9d6e3764bc7a2ca3463e9bd4822f746022a",
+  "activePhase": "phase-02",
+  "archivedPhases": [
+    {
+      "phaseId": "phase-01",
+      "firstExperiment": "0001-mirror-equipment",
+      "lastExperiment": "0073-layered-plate-gauntlets",
+      "recordCount": 73,
+      "manifestSha256": "bc41602669b122e0ece4a9ad02ce5808c01adf1850344fa3809ccd01c9123dbd",
+      "acceptedCheckpoint": {
+        "experimentId": "0032-ablate-pauldron-hoops",
+        "distance": 0.6740783861195763,
+        "assetSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "reportSha256": "b21b2749febb4942f818874f483eb9d6e3764bc7a2ca3463e9bd4822f746022a"
+      }
+    }
+  ]
+}
