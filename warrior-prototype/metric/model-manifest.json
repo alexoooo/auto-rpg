@@ -1,0 +1,15 @@
+{
+  "device": "cpu",
+  "floatMode": "float32",
+  "packages": {
+    "dreamsim": "0.2.1",
+    "lpips": "0.1.4",
+    "torch": "2.5.1",
+    "torchvision": "0.20.1"
+  },
+  "schemaVersion": 1,
+  "stateDictSha256": {
+    "dreamsim_dinov2_vitb14": "adca43076002ab888344597bbc8ff47b76998f815237e5274387c34654f6c229",
+    "lpips_alex_0.1": "a4a997e7d6083f46058902d6acff38f095be4769087f51e656f1502de58e19ac"
+  }
+}

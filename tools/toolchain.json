@@ -16,6 +16,8 @@
     "package-lock.json",
     "warrior-prototype/package.json",
     "warrior-prototype/package-lock.json",
+    "warrior-prototype/metric/pyproject.toml",
+    "warrior-prototype/metric/uv.lock",
     "tools/toolchain.json",
     "tools/art/manifest.json",
     "tools/art/combatants-manifest.json",

@@ -10,9 +10,16 @@
     "build": "vinext build",
     "start": "vinext start",
     "test": "node --test tests/turntable-state.test.mjs && npm run build && node --test tests/rendered-html.test.mjs",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern metric/.venv --ignore-pattern .metric-cache",
     "asset:build": "node scripts/run-blender.mjs",
-    "asset:validate": "node scripts/validate-asset.mjs"
+    "asset:validate": "node scripts/validate-asset.mjs",
+    "similarity:setup": "node scripts/run-metric.mjs setup",
+    "similarity:render": "node scripts/render-review.mjs",
+    "similarity": "npm run similarity:render && node scripts/run-metric.mjs score",
+    "similarity:classical": "npm run similarity:render && node scripts/run-metric.mjs score --classical",
+    "similarity:compare": "node scripts/compare-similarity.mjs",
+    "similarity:compare:report": "node scripts/run-metric.mjs comparisons",
+    "similarity:test": "node scripts/run-metric.mjs test"
   },
   "dependencies": {
     "@babylonjs/core": "9.18.1",

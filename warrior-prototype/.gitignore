@@ -41,3 +41,5 @@ yarn-error.log*
 
 # local Blender review evidence
 /.review/
+/.metric-cache/
+/metric/.venv/
