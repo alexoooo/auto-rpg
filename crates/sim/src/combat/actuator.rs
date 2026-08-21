@@ -9,16 +9,22 @@ use fx::{mul_div, Vec2};
 ///
 /// Set by hand to answer one question the owner asked at a visible browser: is
 /// the controlled arm slow because a frame is late, or because a constant says
-/// it may not go faster? It multiplies every *motion ceiling* in this file and
-/// bypasses the swept self-collision clamp; it changes authoritative motion, so
-/// every pinned hash, every corpus digest and most of the actuator suite move
-/// while it is on. That is expected and is why it may not be committed.
+/// it may not go faster? It multiplies every *motion ceiling* in this file. It
+/// changes authoritative motion, so every pinned hash, every corpus digest and
+/// most of the actuator suite move while it is on. That is expected and is why
+/// it may not be committed.
+///
+/// **It no longer touches self-collision.** It did, on the argument that a
+/// swept stop is a motion limit as surely as a rate ceiling is. That was true
+/// and it was still the wrong trade: bypassing the clearance pass put a sword
+/// through its own owner's back on screen, which reads as broken anatomy rather
+/// than as a probe being on, and it confounds every later reading.
 ///
 /// What it does NOT remove, so a reading of the experiment stays honest: the
 /// two-link elbow annulus, `reachable_extent`, the rear-bearing envelope, the
-/// effort/fatigue budget, and contact response. Those bound *where a hand may
-/// be*, not how fast it may get there. If the arm still feels bound with this
-/// on, the cause is one of those or the presentation layer, not a rate.
+/// effort/fatigue budget, self-collision, and contact response. Those bound
+/// *where a hand may be*, not how fast it may get there. If the arm still feels
+/// bound with this on, the cause is one of those or the presentation layer.
 pub const UNLIMITED_MOTION: bool = true;
 
 /// How much headroom the diagnostic gives each ceiling. Eight puts the sword

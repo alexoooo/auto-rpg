@@ -3344,6 +3344,38 @@ test("a_fight_in_progress_reports_no_outcome_rather_than_a_default", async () =>
   }
 });
 
+test("a_controlled_playhead_rides_the_newest_authoritative_tick", async () => {
+  const harness = installDom();
+  try {
+    const route = await controlledRoute(harness);
+    const chunk = PROTOCOL.ARENA_STREAM_CHUNK_TICKS;
+    // Production jumps ahead of the display, which is the only condition under
+    // which the lead is observable at all.
+    route.worker.emit(syntheticChunk(route.start.requestId, 1, chunk));
+    await settle();
+    for (let n = 0; n < 3 * chunk; n += 1) await route.runFrame(17);
+    const shown = tickOf(route.container);
+    // **The stream lead is not spendable in a human fight.** It is sized for a
+    // recorded one, where the worker runs thousands of ticks a second and half a
+    // chunk of buffer costs nobody anything. A controlled fight produces one
+    // authoritative tick per input round trip, so production is never ahead and
+    // the same buffer becomes a standing quarter-second between the hand that
+    // moved and the picture of it. Anything short of the newest produced tick
+    // here is that lag, designed into the one mode built to feel immediate.
+    assert.equal(shown, chunk, `controlled playhead stopped ${chunk - shown} ticks short`);
+    // Riding the frontier means it says "waiting" between ticks, which is
+    // honest: at that moment there really is nothing newer to draw. What must
+    // not happen is standing off from a tick that already exists, so the proof
+    // is that one further published tick reaches the screen on the next frame.
+    route.worker.emit(syntheticChunk(route.start.requestId, chunk + 1, 1));
+    await settle();
+    await route.runFrame(17);
+    assert.equal(tickOf(route.container), chunk + 1,
+      "a published tick did not reach the screen on the next display frame");
+    await route.handle.dispose(); harness.dropSubtree(route.container);
+  } finally { harness.restore(); }
+});
+
 test("a_starving_playhead_says_so_instead_of_stalling_silently", async () => {
   const harness = installDom();
   try {

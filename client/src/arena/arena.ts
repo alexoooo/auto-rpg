@@ -2389,7 +2389,19 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
         carry -= steps;
         const produced = loaded.source.frameCount();
         const wanted = state.frame + steps;
-        if (producing && wanted + ARENA_STREAM_LEAD_TICKS > produced) {
+        // **A controlled fight has no production lead to spend.** The stream
+        // lead is sized for a *recorded* fight, where the worker runs 3,816 to
+        // 5,349 ticks a second and a half-chunk buffer is a few milliseconds of
+        // production nobody feels. A human fight produces exactly one
+        // authoritative tick per input round trip, so production is never ahead
+        // -- and the same buffer becomes a standing fifteen-tick, 250 ms delay
+        // between the hand that moved and the picture of it, with the playhead
+        // holding on every frame that would close the gap. That is a quarter of
+        // a second of lag designed into the one mode built to feel immediate.
+        // A controlled playhead therefore rides the newest authoritative tick:
+        // one is the smallest lead that still names a produced frame.
+        const lead = controlledFaction === null ? ARENA_STREAM_LEAD_TICKS : 1;
+        if (producing && wanted + lead > produced) {
           // **Production is behind the display. Hold the frame rather than
           // clamping to it.** Clamping runs the playhead up against the producer
           // and stutters one frame at a time, which reads as a broken renderer
