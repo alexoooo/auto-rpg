@@ -281,7 +281,7 @@ export class SimWorkerHost {
           onOpened: (opened) => {
             if (this.fatal || this.terminated) return;
             this.send({ kind: "arenaOpened", version: WORKER_PROTOCOL_VERSION,
-              requestId: message.requestId, ...opened });
+              requestId: message.requestId, ...opened }, [opened.replayBaseline]);
           },
           // **Seven buffers per chunk.** Spectator recordings transfer them;
           // controlled recordings allow three non-transferred exact copies in
@@ -293,7 +293,7 @@ export class SimWorkerHost {
             this.send({ kind: "arenaChunk", version: WORKER_PROTOCOL_VERSION,
               requestId: message.requestId, ...chunk },
             controlled ? undefined : [chunk.poses, chunk.regions, chunk.projectiles,
-              chunk.events, chunk.stances, chunk.index, chunk.health]);
+              chunk.events, chunk.stances, chunk.commands, chunk.index, chunk.health]);
           },
           // A macrotask and not a microtask. A worker services no message while
           // JavaScript is on the stack, and a microtask queue drains before the

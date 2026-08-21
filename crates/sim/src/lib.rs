@@ -70,6 +70,7 @@ pub use anatomy::{AnatomyState, BodyPart, PartWoundState};
 pub use codec::{
     ReplayDecodeError, ReplayEncodeError, ReplayEnvelope, ReplayField, ReplayLimit,
     ReplayPlayError, ReplayStream, ReplayValidationError, ARTICULATED_COMMAND_SCHEMA_RESERVED,
+    EMBODIED_COMMAND_SCHEMA, MAX_COMMAND_RECORDS, MAX_REPLAY_ENVELOPE_BYTES,
     REPLAY_CODEC_VERSION,
 };
 pub use command::{

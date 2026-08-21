@@ -44,7 +44,7 @@ const tsc = spawnSync(process.execPath, [
   // `environment.ts` joined it in v2-ui-03, which is where the arena grew a
   // light, a shadow generator and a room to stand in.
   "client/src/arena/geometry.ts", "client/src/arena/scene.ts", "client/src/arena/environment.ts",
-  "client/src/arena/preview.ts", "client/src/arena/stage-camera.ts",
+  "client/src/arena/preview.ts", "client/src/arena/stage-camera.ts", "client/src/arena/hand-guide.ts",
   "client/src/arena/picker.ts", "client/src/runtime/arena-config.ts",
 ], { cwd: ROOT, encoding: "utf8" });
 assert.equal(tsc.status, 0, `TypeScript test compilation failed:\n${tsc.stdout}\n${tsc.stderr}`);
@@ -96,6 +96,7 @@ const arenaScene = await load("client/src/arena/scene.js");
 const arenaEnvironment = await load("client/src/arena/environment.js");
 const arenaPreview = await load("client/src/arena/preview.js");
 const arenaStageCamera = await load("client/src/arena/stage-camera.js");
+const arenaHandGuide = await load("client/src/arena/hand-guide.js");
 const arenaConfig = await load("client/src/runtime/arena-config.js");
 
 test("the_room_variant_selector_is_repeatable_uses_every_variant_and_avoids_checkerboards", () => {
@@ -4476,6 +4477,9 @@ test("the_stage_viewports_match_the_css_that_labels_them", async () => {
 test("closing_eyes_removes_both_first_person_cameras_and_expands_three_quarter", async () => {
   const { content, scene, engine } = await arenaStageHarness();
   content.setEyes(false);
+  scene.activeCamera = content.threeQuarter;
+  scene.activeCameras = [content.threeQuarter];
+  scene.render();
   assert.deepEqual(scene.activeCameras.map(({ name }) => name), ["arena-three-quarter"]);
   assert.deepEqual([content.threeQuarter.viewport.x, content.threeQuarter.viewport.y,
     content.threeQuarter.viewport.width, content.threeQuarter.viewport.height], [0, 0, 1, 1]);
@@ -4491,6 +4495,82 @@ test("closing_eyes_removes_both_first_person_cameras_and_expands_three_quarter",
   content.dispose(); scene.dispose(); engine.dispose();
 });
 
+test("a_remembered_eye_promotion_uses_three_quarter_basis_projection_and_viewport_while_eyes_are_closed", async () => {
+  const { Vector3 } = await import("@babylonjs/core/Maths/math.vector.js");
+  const { content, scene, engine } = await arenaStageHarness();
+  content.show(arenaView([arenaPose({ index: 0 }), arenaPose({ index: 1, x: 11 })]));
+  content.promote("firstPersonA");
+  const eyeBasis = content.cameraBasis();
+  content.setEyes(false);
+  scene.activeCamera = content.threeQuarter;
+  scene.activeCameras = [content.threeQuarter];
+  scene.render();
+  content.threeQuarter.getViewMatrix(true);
+  const right = content.threeQuarter.getDirection(Vector3.Right());
+  const up = content.threeQuarter.getDirection(Vector3.Up());
+  assert.notDeepEqual(content.cameraBasis(), eyeBasis);
+  assert.deepEqual(content.cameraBasis().right, [right.x, -right.z, right.y]);
+  assert.deepEqual(content.cameraBasis().up, [up.x, -up.z, up.y]);
+  assert.deepEqual(content.activeViewport(), { x: 0, y: 0, width: 1, height: 1 });
+  assert.ok(content.projectHand(arenaGeometry.eyeOf(arenaPose())) !== null);
+  content.setEyes(true);
+  assert.deepEqual([content.firstPerson[0].viewport.x, content.firstPerson[0].viewport.width],
+    [arenaGeometry.ARENA_VIEWPORTS.threeQuarter.x, arenaGeometry.ARENA_VIEWPORTS.threeQuarter.width],
+    "the remembered promotion must remain available on reopen");
+  content.dispose(); scene.dispose(); engine.dispose();
+});
+
+test("behind_camera_hand_direction_is_aspect_correct_in_wide_and_narrow_views", async () => {
+  const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
+  const { Vector3 } = await import("@babylonjs/core/Maths/math.vector.js");
+  for (const [width, height] of [[1200, 400], [400, 1200]]) {
+    const engine = new NullEngine({ renderWidth: width, renderHeight: height });
+    const built = arenaScene.createArenaContent(engine, new rendererDebug.RendererDebugRegistry());
+    built.content.show(arenaView([arenaPose({ index: 0 }), arenaPose({ index: 1, x: 11 })]));
+    built.scene.render(true, false);
+    const camera = built.content.threeQuarter;
+    camera.getViewMatrix(true);
+    const scenePoint = camera.position
+      .add(camera.getDirection(Vector3.Right()).scale(2))
+      .add(camera.getDirection(Vector3.Up()))
+      .subtract(camera.getDirection(Vector3.Forward()).scale(2));
+    const simPoint = [scenePoint.x * RAW, -scenePoint.z * RAW, scenePoint.y * RAW];
+    const projected = built.content.projectHandIndicator(simPoint);
+    assert.equal(projected?.inFront, false);
+    const viewport = built.content.activeViewport();
+    const dx = (projected.point[0] - viewport.x - viewport.width / 2) * width;
+    const dy = (projected.point[1] - viewport.y - viewport.height / 2) * height;
+    assert.ok(dx > 0 && dy < 0, `${width}x${height} reversed the behind-eye direction`);
+    assert.ok(Math.abs(Math.abs(dx / dy) - 2) < 1e-6,
+      `${width}x${height} distorted the camera-plane 2:1 direction to ${dx}:${dy}`);
+    built.content.dispose(); built.scene.dispose(); engine.dispose();
+  }
+});
+
+test("the_desired_guide_uses_the_body_floor_projection_and_exact_desired_endpoint", async () => {
+  assert.deepEqual(arenaHandGuide.handGuidePoints([RAW, 2 * RAW, 0], [4 * RAW, 5 * RAW, 6 * RAW]), {
+    floor: [[1, 0, -2], [4, 0, -5]],
+    vertical: [[4, 0, -5], [4, 6, -5]],
+    endpoint: [4, 6, -5],
+  });
+  const engine = new NullEngine();
+  const scene = new Scene(engine);
+  const guide = new arenaHandGuide.HandGuide(scene, 0x7);
+  for (const mesh of [guide.floor, guide.vertical, guide.endpoint]) {
+    assert.equal(mesh.layerMask, 0x7);
+    assert.equal(mesh.isPickable, false);
+    assert.equal(mesh.isEnabled(), false);
+  }
+  guide.update([RAW, 2 * RAW, 0], [4 * RAW, 5 * RAW, 6 * RAW]);
+  assert.deepEqual(guide.endpoint.position.asArray(), [4, 6, -5]);
+  assert.ok([guide.floor, guide.vertical, guide.endpoint].every((mesh) => mesh.isEnabled()));
+  guide.clear();
+  assert.ok([guide.floor, guide.vertical, guide.endpoint].every((mesh) => !mesh.isEnabled()));
+  guide.dispose();
+  assert.ok([guide.floor, guide.vertical, guide.endpoint].every((mesh) => mesh.isDisposed()));
+  scene.dispose(); engine.dispose();
+});
+
 test("preview_drag_orbits_only_the_hit_side_and_reset_restores_the_initial_camera", async () => {
   const engine = new NullEngine();
   const scene = new Scene(engine);
@@ -4498,6 +4578,14 @@ test("preview_drag_orbits_only_the_hit_side_and_reset_restores_the_initial_camer
   const { Vector3 } = await import("@babylonjs/core/Maths/math.vector.js");
   const stage = [0, 1, 2].map((n) => new FreeCamera(`stage-preview-${n}`, new Vector3(), scene));
   const preview = arenaPreview.createCombatantPreview(scene, stage, () => {}, async () => null);
+  preview.show(0, {
+    anatomy: "fighter", left: "shield", right: "sword", twoHanded: false,
+    policy: "tactical", control: "policy",
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  const root = scene.getTransformNodeByName("arena-preview:0:root");
+  assert.ok(root);
   const initial = preview.cameras.map((camera) => camera.position.asArray());
   assert.equal(preview.orbit(0, 30, 12), true);
   assert.notDeepEqual(preview.cameras[0].position.asArray(), initial[0]);
@@ -4508,6 +4596,11 @@ test("preview_drag_orbits_only_the_hit_side_and_reset_restores_the_initial_camer
   assert.deepEqual(preview.cameras[0].position.asArray(), parked, "manual inspection pauses turntable");
   preview.reset(0);
   assert.deepEqual(preview.cameras[0].position.asArray(), initial[0]);
+  preview.draw(240);
+  const resetRotation = root.rotationQuaternion.asArray();
+  preview.draw(360);
+  assert.notDeepEqual(root.rotationQuaternion.asArray(), resetRotation,
+    "reset reused the global turntable phase instead of restarting this side");
   assert.equal(arenaPreview.PREVIEW_ORBIT_LIMIT_DEGREES, 80);
   assert.equal(arenaPreview.PREVIEW_MIN_RADIUS_HEIGHTS, 1.1);
   assert.equal(arenaPreview.PREVIEW_MAX_RADIUS_HEIGHTS, 2.5);
@@ -4592,6 +4685,30 @@ test("relative_chase_joins_stance_identity_and_crosses_the_turn_seam_short_way",
   content.show(arenaView([pose], { stances: [{ ...stance, id: [0, 1] }] }));
   assert.equal(content.setRelative(true), "RELATIVE_CAMERA_NEEDS_STANCE");
   content.dispose(); scene.dispose(); engine.dispose();
+});
+
+test("relative_zero_dt_preserves_an_initialized_chase_and_positive_dt_is_partition_independent", async () => {
+  const one = await arenaStageHarness();
+  const two = await arenaStageHarness();
+  const stance = { id: [0, 0], hipYaw: 0, pelvis: 0, twist: 0, stepLeft: 0 };
+  for (const { content } of [one, two]) {
+    const pose = arenaPose({ index: 0, x: 7 });
+    content.show(arenaView([pose], { stances: [stance] }));
+    content.follow(0);
+    assert.equal(content.setRelative(true), null);
+    content.show(arenaView([pose], { stances: [stance], cameraDt: 0 }));
+  }
+  const before = one.content.threeQuarter.position.clone();
+  one.content.show(arenaView([arenaPose({ index: 0, x: 9 })], { stances: [stance], cameraDt: 0 }));
+  assert.deepEqual(one.content.threeQuarter.position.asArray(), before.asArray(),
+    "a synchronous redraw snapped the initialized chase");
+  one.content.show(arenaView([arenaPose({ index: 0, x: 9 })], { stances: [stance], cameraDt: 0.04 }));
+  two.content.show(arenaView([arenaPose({ index: 0, x: 9 })], { stances: [stance], cameraDt: 0.02 }));
+  two.content.show(arenaView([arenaPose({ index: 0, x: 9 })], { stances: [stance], cameraDt: 0.02 }));
+  assert.ok(one.content.threeQuarter.position.subtract(two.content.threeQuarter.position).length() < 1e-12);
+  for (const harness of [one, two]) {
+    harness.content.dispose(); harness.scene.dispose(); harness.engine.dispose();
+  }
 });
 
 test("the_follow_dead_zone_is_bounded_from_both_sides", () => {
@@ -5395,6 +5512,15 @@ test("the_arena_stage_owns_every_engine_it_builds_including_one_it_fails_on", as
     assert.match(stage.description(), /^webgl2, geometry, \d+ sources, \d+ instances, 0 shadow casters$/);
     stage.show(arenaView([arenaPose(), arenaPose({ index: 1, x: 11 })]));
     assert.match(stage.description(), /[1-9]\d* instances/);
+    const scene = built[0].engine.scenes[0];
+    let guideDraws = 0;
+    const render = scene.render.bind(scene);
+    scene.render = (...args) => { guideDraws += 1; return render(...args); };
+    stage.showHandGuide([0, 0, 0], [1, 0, 1]);
+    assert.equal(guideDraws, 0,
+      "refreshing the stored Human guide rasterised an extra Babylon frame");
+    stage.show(arenaView([arenaPose(), arenaPose({ index: 1, x: 11 })]));
+    assert.equal(guideDraws, 1, "the ordinary stage draw did not render the updated guide");
     stage.resize();
     assert.deepEqual(built[0].scaling, [0.5, 0.5]);
     stage.clear();

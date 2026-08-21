@@ -59,7 +59,9 @@ export function createHandReticle(host: HTMLElement): HandReticle {
 
   const clear = (): void => {
     marker.hidden = true;
-    marker.classList.remove("captured", "offscreen", "saturated");
+    marker.classList.remove("captured");
+    marker.classList.remove("offscreen");
+    marker.classList.remove("saturated");
   };
   clear();
 

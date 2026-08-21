@@ -235,10 +235,16 @@ export function createStageCamera(
       const magnitude = Math.hypot(horizontal, vertical);
       const dx = magnitude === 0 ? 0 : horizontal / magnitude;
       const dy = magnitude === 0 ? -1 : -vertical / magnitude;
+      // `point` is in whole-canvas fractions but its ray is consumed in CSS
+      // pixels. Divide the camera-plane direction by the corresponding render
+      // extent before sending it far outside the viewport; multiplying both by
+      // one common pixel distance preserves the direction in wide and narrow
+      // canvases alike.
+      const pixelDistance = 2 * Math.max(width, height);
       return Object.freeze({
         point: Object.freeze([
-          viewport.x + viewport.width / 2 + dx * viewport.width,
-          viewport.y + viewport.height / 2 + dy * viewport.height,
+          viewport.x + viewport.width / 2 + dx * pixelDistance / width,
+          viewport.y + viewport.height / 2 + dy * pixelDistance / height,
         ] as const),
         inFront: false,
       });

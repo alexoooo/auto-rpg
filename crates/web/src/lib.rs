@@ -2156,6 +2156,25 @@ const fn actor_index(id: EntityId) -> u32 {
 /// expire before an ordinary reaction.
 const CONTROL_INPUT_MAX_HOLD_TICKS: u32 = 6;
 
+/// Exact durable submitted-command rows accepted during the most recent arena
+/// tick. A configured duel has two bodies, so more than two stored submissions
+/// is an invariant failure rather than a reason to grow an outward buffer.
+const ARENA_ACCEPTED_COMMAND_LAYOUT_VERSION: u32 = 1;
+const ARENA_ACCEPTED_COMMAND_STRIDE: usize = 13 + sim::EMBODIED_PAYLOAD_BYTES;
+const ARENA_ACCEPTED_COMMAND_CAPACITY: usize = 2;
+const ARENA_ACCEPTED_COMMAND_BYTES: usize =
+    ARENA_ACCEPTED_COMMAND_STRIDE * ARENA_ACCEPTED_COMMAND_CAPACITY;
+
+thread_local! {
+    static ARENA_ACCEPTED_COMMANDS: RefCell<[u8; ARENA_ACCEPTED_COMMAND_BYTES]> =
+        const { RefCell::new([0; ARENA_ACCEPTED_COMMAND_BYTES]) };
+    static ARENA_ACCEPTED_COMMAND_LEN: Cell<u32> = const { Cell::new(0) };
+    static ARENA_ACCEPTED_COMMANDS_DROPPED: Cell<u32> = const { Cell::new(0) };
+    /// Codec-V2 zero-tick identity for the installed duel. Built before any
+    /// outward view exists and immutable until the next `arena_start`.
+    static ARENA_REPLAY_BASELINE: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
+}
+
 #[derive(Clone, Copy)]
 struct StagedArenaInput {
     tick: u32,
@@ -2183,9 +2202,31 @@ thread_local! {
         const { RefCell::new(Vec::new()) };
 }
 
-#[cfg(test)]
+fn clear_arena_submissions() {
+    ARENA_ACCEPTED_COMMAND_LEN.with(|len| len.set(0));
+}
+
 fn record_arena_submission(tick: u32, id: EntityId, outcome: sim::SubmitOutcome) {
     if let sim::SubmitOutcome::Stored { command, .. } = outcome {
+        let row = ARENA_ACCEPTED_COMMAND_LEN.with(Cell::get) as usize;
+        if row < ARENA_ACCEPTED_COMMAND_CAPACITY {
+            ARENA_ACCEPTED_COMMANDS.with(|bytes| {
+                let mut bytes = bytes.borrow_mut();
+                let at = row * ARENA_ACCEPTED_COMMAND_STRIDE;
+                bytes[at..at + 4].copy_from_slice(&tick.to_le_bytes());
+                bytes[at + 4..at + 8].copy_from_slice(&id.index.to_le_bytes());
+                bytes[at + 8..at + 12].copy_from_slice(&id.generation.to_le_bytes());
+                bytes[at + 12] = 2;
+                bytes[at + 13..at + ARENA_ACCEPTED_COMMAND_STRIDE]
+                    .copy_from_slice(&command.payload_bytes());
+            });
+            ARENA_ACCEPTED_COMMAND_LEN.with(|len| len.set((row + 1) as u32));
+        } else {
+            ARENA_ACCEPTED_COMMANDS_DROPPED.with(|dropped| {
+                dropped.set(dropped.get().saturating_add(1));
+            });
+        }
+        #[cfg(test)]
         ARENA_SUBMISSIONS.with(|rows| rows.borrow_mut().push((tick, id, command)));
     }
 }
@@ -3901,6 +3942,7 @@ impl Sim {
             // increments the counter on its way out. The same reasoning, and the
             // same line, as the loop above.
             let solving_tick = self.world.tick();
+            clear_arena_submissions();
             let driven = live.driven;
             due.clear();
             due.extend_from_slice(self.world.pending_decisions());
@@ -3918,16 +3960,11 @@ impl Sim {
                     Faction::Monsters
                 };
                 let command = live.policies[side.index()].decide(&obs);
-                // The outcome is deliberately discarded here where the runner
-                // counts it: a refusal stores the neutral command atomically, so
-                // the fight carries on either way, and the page's channel for
-                // "the world refused something" is [`submit_embodied`]'s packed
-                // word rather than a counter nobody publishes.
+                // Only a stored outcome crosses the receipt publication below.
+                // A refusal may keep the fight moving under its prior command,
+                // but it is not evidence that this candidate became authority.
                 let outcome = self.world.submit(id, command);
-                #[cfg(test)]
                 record_arena_submission(solving_tick, id, outcome);
-                #[cfg(not(test))]
-                let _ = outcome;
                 if side == Faction::Heroes {
                     self.last_decision_tick = self.world.tick();
                 }
@@ -3942,10 +3979,7 @@ impl Sim {
                 let obs = self.world.observe(id);
                 let command = live.policies[side].decide(&obs);
                 let outcome = self.world.submit(id, command);
-                #[cfg(test)]
                 record_arena_submission(solving_tick, id, outcome);
-                #[cfg(not(test))]
-                let _ = outcome;
             }
             // The slice is dropped immediately: nothing in it is published under
             // this model, and the harvest below needs the world back.
@@ -6923,6 +6957,18 @@ fn install_arena(bytes: &[u8; ARENA_CONFIG_BYTES], seed: u64) -> Result<(), Aren
     fresh.world.set_objective(Faction::Heroes, Objective::None);
     fresh.world.set_objective(Faction::Monsters, Objective::None);
 
+    // A complete durable identity with no elapsed tick and no command rows.
+    // The browser later joins only accepted rows and the terminal tick onto
+    // this envelope; it never reconstructs a Scenario in TypeScript.
+    let mut baseline = sim::Replay::new(&scenario, seed);
+    baseline.record_order(0, Faction::Heroes, orders[0]);
+    baseline.record_order(0, Faction::Monsters, orders[1]);
+    baseline.record_objective(0, Faction::Heroes, Objective::None);
+    baseline.record_objective(0, Faction::Monsters, Objective::None);
+    baseline.finish(0);
+    let baseline = sim::ReplayEnvelope::from_replay(baseline).encode()
+        .map_err(|_| ArenaRefusal::whole(ARENA_CONSTRUCTION_REFUSED))?;
+
     let heroes = fresh.world.alive_ids(Faction::Heroes);
     let monsters = fresh.world.alive_ids(Faction::Monsters);
     let ids = [
@@ -6944,6 +6990,9 @@ fn install_arena(bytes: &[u8; ARENA_CONFIG_BYTES], seed: u64) -> Result<(), Aren
         (controls[side] == ARENA_CONTROL_HUMAN).then_some(ids[side])
     });
     ARENA_INPUT.with(|inputs| *inputs.borrow_mut() = [StagedArenaInput::EMPTY; 2]);
+    clear_arena_submissions();
+    ARENA_ACCEPTED_COMMANDS_DROPPED.with(|dropped| dropped.set(0));
+    ARENA_REPLAY_BASELINE.with(|bytes| *bytes.borrow_mut() = baseline);
     #[cfg(test)]
     ARENA_SUBMISSIONS.with(|rows| rows.borrow_mut().clear());
     fresh.arena = Some(Arena {
@@ -6974,6 +7023,58 @@ fn primary_arm_of(fighter: &sim::DuelFighterV1) -> LimbSlot {
     } else {
         LimbSlot::RightArm
     }
+}
+
+/// Codec-exact submitted-command rows stored during the most recent arena
+/// tick. `len` is rows; each row is tick, full entity identity, kind byte 2,
+/// and the 57-byte embodied payload.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn arena_accepted_command_ptr() -> u32 {
+    ARENA_ACCEPTED_COMMANDS.with(|rows| rows.borrow().as_ptr() as usize as u32)
+}
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn arena_accepted_command_len() -> u32 {
+    ARENA_ACCEPTED_COMMAND_LEN.with(Cell::get)
+}
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub const extern "C" fn arena_accepted_command_stride() -> u32 {
+    ARENA_ACCEPTED_COMMAND_STRIDE as u32
+}
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub const extern "C" fn arena_accepted_command_capacity() -> u32 {
+    ARENA_ACCEPTED_COMMAND_CAPACITY as u32
+}
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn arena_accepted_commands_dropped() -> u32 {
+    ARENA_ACCEPTED_COMMANDS_DROPPED.with(Cell::get)
+}
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub const extern "C" fn arena_accepted_command_layout_version() -> u32 {
+    ARENA_ACCEPTED_COMMAND_LAYOUT_VERSION
+}
+
+/// The zero-tick durable ReplayEnvelope for the installed arena.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn arena_replay_baseline_ptr() -> u32 {
+    ARENA_REPLAY_BASELINE.with(|bytes| bytes.borrow().as_ptr() as usize as u32)
+}
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn arena_replay_baseline_len() -> u32 {
+    ARENA_REPLAY_BASELINE.with(|bytes| bytes.borrow().len() as u32)
 }
 
 /// Copies the 61-byte embodied-command scratch into one side's staged input.
@@ -9444,6 +9545,51 @@ mod tests {
         }
         replay.finish(live_tick);
         assert_eq!(replay.play().state_hash(), live_hash);
+    }
+
+    #[test]
+    fn accepted_arena_rows_and_the_zero_tick_baseline_replay_the_live_tick() {
+        let mut config = sim::DuelConfigV1::shipped();
+        config.max_ticks = 20;
+        write_arena_config(&config, [PolicyKind::Scripted, PolicyKind::Tactical]);
+        poke_arena_config(ARENA_HEADER_BYTES + ARENA_FIGHTER_CONTROL, ARENA_CONTROL_HUMAN);
+        assert_eq!(arena_start(23) & 0xff, 1);
+        let baseline = ARENA_REPLAY_BASELINE.with(|bytes| bytes.borrow().clone());
+        let mut envelope = sim::ReplayEnvelope::decode(&baseline).expect("zero-tick baseline");
+        assert_eq!(envelope.tick_limit, 0);
+        assert!(envelope.replay.submitted_entries.is_empty());
+        assert_eq!(envelope.replay.orders.len(), 2);
+        assert_eq!(envelope.replay.objectives.len(), 2);
+
+        let hero = with_sim(EntityId::NONE, |sim| sim.arena.as_ref().and_then(|a| a.driven[0])
+            .unwrap_or(EntityId::NONE));
+        let obs = with_sim(Observation::BLANK, |sim| sim.world.observe(hero));
+        write_embodied(policy::neutral_command(&obs));
+        assert_eq!(arena_stage_input(0) & 0xff, 1);
+        step(1);
+        let count = arena_accepted_command_len() as usize;
+        assert!((1..=2).contains(&count));
+        let bytes = ARENA_ACCEPTED_COMMANDS.with(|rows| rows.borrow()[..count * ARENA_ACCEPTED_COMMAND_STRIDE].to_vec());
+        let mut records = Vec::new();
+        for row in bytes.chunks_exact(ARENA_ACCEPTED_COMMAND_STRIDE) {
+            assert_eq!(row[12], 2);
+            let payload: &[u8; sim::EMBODIED_PAYLOAD_BYTES] = row[13..].try_into().unwrap();
+            records.push(sim::SubmittedCommandRecord {
+                tick: u32::from_le_bytes(row[0..4].try_into().unwrap()),
+                entity: EntityId::new(u32::from_le_bytes(row[4..8].try_into().unwrap()),
+                    u32::from_le_bytes(row[8..12].try_into().unwrap())),
+                command: sim::SubmittedCommand::Embodied(CommandV1::from_payload_bytes(payload).unwrap()),
+            });
+        }
+        assert!(records.iter().any(|row| row.entity == hero));
+        envelope.tick_limit = 1;
+        envelope.replay.ticks = 1;
+        envelope.replay.submitted_entries = records;
+        let replayed = envelope.play().unwrap().state_digest();
+        let live = state_digest();
+        assert_eq!((replayed.domain, replayed.schema, replayed.value),
+            (live.domain, live.schema, live.value));
+        assert_eq!(arena_accepted_commands_dropped(), 0);
     }
 
     #[test]

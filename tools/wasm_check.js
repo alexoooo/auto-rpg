@@ -586,6 +586,14 @@ test("the boundary exports everything the client calls", () => {
     "arena_control",
     "arena_stage_input",
     "arm_min_reach_raw",
+    "arena_accepted_command_ptr",
+    "arena_accepted_command_len",
+    "arena_accepted_command_stride",
+    "arena_accepted_command_capacity",
+    "arena_accepted_commands_dropped",
+    "arena_accepted_command_layout_version",
+    "arena_replay_baseline_ptr",
+    "arena_replay_baseline_len",
     // The fetched network, v2-ui-08's eight. Same argument again and sharper
     // than most: `checkpoint_installed()` reading `undefined >>> 0` is `0`,
     // which is "nothing loaded" -- so a renamed export would turn every learned
@@ -2576,6 +2584,9 @@ const ARENA_CONFIG_BYTES = 120;
 // what made spending it a version bump rather than a free bit. `2` was
 // combat-arms-01's claim on the hand block's byte 1 for the two-handed grip.
 const ARENA_CONFIG_LAYOUT_VERSION = 3;
+const ARENA_ACCEPTED_COMMAND_LAYOUT_VERSION = 1;
+const ARENA_ACCEPTED_COMMAND_STRIDE = 70;
+const ARENA_ACCEPTED_COMMAND_CAPACITY = 2;
 // The two control bytes, and the offset inside a fighter block that carries
 // one. Mirrored from `crates/web`, like every other number in this block.
 const ARENA_FIGHTER_CONTROL = 2;
@@ -2732,6 +2743,10 @@ test("a configured duel runs inside the module and refuses by name", () => {
     "arena_config_ptr", "arena_config_len", "arena_config_layout_version",
     "arena_start", "arena_fingerprint_lo", "arena_fingerprint_hi", "arena_policy",
     "arena_control", "arena_stage_input", "arm_min_reach_raw",
+    "arena_accepted_command_ptr", "arena_accepted_command_len",
+    "arena_accepted_command_stride", "arena_accepted_command_capacity",
+    "arena_accepted_commands_dropped", "arena_accepted_command_layout_version",
+    "arena_replay_baseline_ptr", "arena_replay_baseline_len",
   ]) {
     assert.equal(typeof wasm[name], "function", `web.wasm does not export ${name}()`);
   }
@@ -2741,6 +2756,12 @@ test("a configured duel runs inside the module and refuses by name", () => {
   assert.equal(u32(wasm.arm_min_reach_raw()), ARM_MIN_REACH_RAW,
     "arm_min_reach_raw differs from the native actuator capability");
   assert.ok(u32(wasm.arena_config_ptr()) > 0, "the arena buffer is at address zero");
+  assert.equal(u32(wasm.arena_accepted_command_layout_version()),
+    ARENA_ACCEPTED_COMMAND_LAYOUT_VERSION, "arena accepted-command layout");
+  assert.equal(u32(wasm.arena_accepted_command_stride()), ARENA_ACCEPTED_COMMAND_STRIDE,
+    "arena accepted-command stride");
+  assert.equal(u32(wasm.arena_accepted_command_capacity()), ARENA_ACCEPTED_COMMAND_CAPACITY,
+    "arena accepted-command capacity");
 
   // A legacy world knows nothing about any of this, which is the half of the
   // read-back that is not vacuous.
@@ -2771,6 +2792,10 @@ test("a configured duel runs inside the module and refuses by name", () => {
   // nothing in an arena consults.
   assert.equal(u32(wasm.policy_kind(0)), NO_POLICY, "an arena answered a legacy policy code");
   assert.equal(u32(wasm.pose_len()), 2, "an arena publishes one pose row per fighter");
+  assert.equal(u32(wasm.arena_accepted_command_len()), 0,
+    "arena_start published commands before an authoritative step");
+  assert.ok(u32(wasm.arena_replay_baseline_ptr()) > 0, "the replay baseline is at address zero");
+  assert.ok(u32(wasm.arena_replay_baseline_len()) > 0, "the replay baseline is empty");
   const fingerprint = arenaFingerprint();
   assert.notEqual(fingerprint, 0n, "the installed configuration has no fingerprint");
 
@@ -2793,6 +2818,10 @@ test("a configured duel runs inside the module and refuses by name", () => {
   const STOPS_AT = config.maxTicks;
   wasm.step(3_600);
   assert.equal(u32(wasm.tick()), STOPS_AT, "the arena did not stop where it should");
+  assert.ok(u32(wasm.arena_accepted_command_len()) <= ARENA_ACCEPTED_COMMAND_CAPACITY,
+    "the accepted-command publication exceeded its fixed capacity");
+  assert.equal(u32(wasm.arena_accepted_commands_dropped()), 0,
+    "the shipped two-fighter arena dropped an accepted command");
   assert.ok(u32(wasm.combat_event_len()) > 0, "the whole fight resolved no contact");
   const fought = stateHash();
 

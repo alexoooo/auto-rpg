@@ -39,14 +39,16 @@ the other arm at the body's decision cadence. These authorities are disjoint. Ke
 turning may carry the shoulder and weapon because the body physically turned, but a
 pointer movement never writes body yaw or movement. Camera orbit and zoom write neither.
 
-The host stores an `ArmTarget`, not a screen cursor. Relative pointer motion reconstructs
-the desired hand in world space, moves it in the active camera's right/up plane, then
-encodes the result back as torso-relative bearing, continuous height, and reach. A
-separate extension gesture scales the shoulder-to-hand vector along itself, bounded by
-the command envelope; it does not steal a depth estimate from camera pitch. Sampling the
-camera basis only when a weapon delta arrives means a stationary pointer survives orbit,
-follow, zoom, and view promotion without rebasing the command. Pointer lock supplies an
-unbounded delta stream rather than making the canvas edge the limit of a cut.
+The host stores an `ArmTarget`, not a screen cursor. The ordinary visible mouse cursor is
+reduced inside the active viewport to a radial unit disc. Its displacement from centre
+moves a synchronized rest hand in the active camera's right/up plane, then the host
+encodes that world point back as torso-relative bearing, continuous height, and reach.
+The mapping is absolute: A -> B -> A returns to the same command, and motion beyond an
+edge saturates instead of accumulating. A separate powered extension freezes the current
+shoulder-to-hand ray and scales distance along it; captured touch retains the relative
+gesture grammar. Neither path steals a depth estimate from camera pitch. A stationary
+cursor survives orbit, follow, zoom, and view promotion without rewriting the command;
+the next sample reads the then-active camera basis.
 
 The path itself asks for speed. Effort is tracking authority, not a second host-authored
 velocity or damage scalar: an unpowered placement holds the script's resting half, and a
@@ -57,8 +59,15 @@ and, for a cut, the signed elbow-plane update; it never freezes fine target plac
 a slow extension. Releasing a button parks the last target instead of snapping the arm
 to a canned guard.
 
-This defines the control semantics, not their final feel. Pointer sensitivity, extension
-gain, gesture classification, powered dead zone, and full-effort speed require the
+Evidence begins after submission, not at the input reducer. The arena publishes only
+commands `World::submit` accepted as stored, with full entity generation and tick, and a
+Human run may be downloaded as [ARPGCTL1](../reference/arena-control-evidence-v1.md).
+Replaying that artifact to its recorded typed state digest is the prerequisite for
+comparing desired and achieved motion; a log of pointer events or candidate bytes is not.
+
+This defines the control semantics, not their final feel. Pointer sensitivity, cursor
+span, extension gain, gesture classification, powered dead zone, full-effort speed and
+body-turn lead require the
 foreground calibration recorded in
 [arena human control](../performance/arena-human-control.md); no value or comfort claim
 is implied here before that session is run.

@@ -75,6 +75,8 @@ class FakeArena {
   // itself.
   control(faction) { return this.config[8 + faction * 56 + 2]; }
   armMinReach() { return 16_384; }
+  replayBaseline() { return Uint8Array.of(0); }
+  stateDigest() { return { domain: 2, schema: 1, lo: 0, hi: 0 }; }
   tick() { return this.now; }
   step() { if (this.now < this.ticks) this.now += 1; }
   bodies() { return this.deathTick !== null && this.now >= this.deathTick ? 1 : 2; }
@@ -123,6 +125,7 @@ class FakeArena {
       maxHealth: [65_536, 65_536],
       arena: [24 * 65_536, 16 * 65_536],
       stancesDropped: 0,
+      commandRows: 0, commands: new Uint8Array(0), commandsDropped: 0,
     };
   }
 }
@@ -207,7 +210,10 @@ test("the_stream_chunk_is_bounded_from_both_sides", () => {
   // **Both ends, and the two ends are different costs**, which is why one
   // inequality would not be a bound: a rule of the form "at least 2" is
   // satisfied by 300, and 300 is the wait this session exists to remove.
-  const framesInAFight = RECORDER.RECORDING_TICK_CAP + 1;
+  // The cadence was measured for the shipped one-minute fight. Session 07
+  // widened the selectable recording cap to ten minutes without changing the
+  // default whose interactive delivery this bracket protects.
+  const framesInAFight = CONFIG.ARENA_DEFAULT_TICKS + 1;
   // The slowest of the four pairings measured in `arena-recorder.ts`, which is
   // the one `populatePolicies` selects in both controls -- so it is the rate the
   // page actually opens on rather than the flattering one.
@@ -215,7 +221,7 @@ test("the_stream_chunk_is_bounded_from_both_sides", () => {
   const messagesPerFight = (chunk) => Math.ceil(framesInAFight / chunk);
   const msOfFightPerChunk = (chunk) => (chunk / slowestTicksPerSecond) * 1_000;
 
-  // Below: a chunk small enough that the duel is mostly `postMessage`. Six
+  // Below: a chunk small enough that the duel is mostly `postMessage`. Eight
   // buffer allocations and one structured clone per chunk, 3,601 of each at a
   // chunk of one.
   assert.ok(messagesPerFight(CHUNK) <= 200,
@@ -341,6 +347,7 @@ function joinChunks(opened, chunks) {
     ["projectiles", opened.articulatedProjectileStride, RECORDER.INDEX_PROJECTILE_START],
     ["events", opened.combatEventStride, RECORDER.INDEX_EVENT_START],
     ["stances", opened.embodiedStanceStride, RECORDER.INDEX_STANCE_START],
+    ["commands", opened.acceptedCommandStride, RECORDER.INDEX_COMMAND_START, Uint8Array],
   ];
   const parts = new Map(sections.map(([name]) => [name, []]));
   const bases = new Map(sections.map(([name]) => [name, 0]));
@@ -355,8 +362,8 @@ function joinChunks(opened, chunks) {
       for (const [name, , start] of sections) row[start] += bases.get(name);
       index.push(...row);
     }
-    for (const [name, stride] of sections) {
-      const rows = new Uint32Array(chunk[name]);
+    for (const [name, stride, , View = Uint32Array] of sections) {
+      const rows = new View(chunk[name]);
       parts.get(name).push(...rows);
       bases.set(name, bases.get(name) + rows.length / stride);
     }
@@ -367,7 +374,7 @@ function joinChunks(opened, chunks) {
     firstFrame: 0, frameCount: frames,
     index: Uint32Array.from(index).buffer, health: Int32Array.from(health).buffer,
   };
-  for (const [name] of sections) out[name] = Uint32Array.from(parts.get(name)).buffer;
+  for (const [name, , , View = Uint32Array] of sections) out[name] = View.from(parts.get(name)).buffer;
   return out;
 }
 
@@ -389,14 +396,14 @@ test("the_worker_posts_one_opening_a_run_of_chunks_and_one_finish", async () => 
   assert.equal(posted.filter((kind) => kind === "arenaProgress").length, 0);
   assert.equal(posted.filter((kind) => kind === "fightRecording").length, 0);
 
-  // Seven buffers, transferred, per spectator chunk. The count is read off the message
+  // Eight buffers, transferred, per spectator chunk. The count is read off the message
   // rather than written down: the reference said five for two sessions while
   // the code moved six.
   for (const entry of sent.filter((one) => one.message.kind === "arenaChunk")) {
     assert.deepEqual(entry.transfer, [entry.message.poses, entry.message.regions,
-      entry.message.projectiles, entry.message.events, entry.message.stances, entry.message.index,
-      entry.message.health]);
-    assert.equal(entry.transfer.length, 7);
+      entry.message.projectiles, entry.message.events, entry.message.stances,
+      entry.message.commands, entry.message.index, entry.message.health]);
+    assert.equal(entry.transfer.length, 8);
   }
   const opened = sent[0].message;
   assert.equal(opened.spectator, true, "the arena's unfiltered ground truth must say so");
@@ -457,7 +464,7 @@ test("an_arena_chunk_is_refused_at_v1_by_name_rather_than_as_malformed", async (
   worker.emit({ kind: "arenaChunk", version: MSG.LEGACY_WORKER_PROTOCOL_VERSION, requestId,
     firstFrame: 0, frameCount: 1,
     poses: new ArrayBuffer(0), regions: new ArrayBuffer(0), projectiles: new ArrayBuffer(0),
-    events: new ArrayBuffer(0), stances: new ArrayBuffer(0),
+    events: new ArrayBuffer(0), stances: new ArrayBuffer(0), commands: new ArrayBuffer(0),
     index: new ArrayBuffer(0), health: new ArrayBuffer(0) });
   await assert.rejects(running, /arenaChunk needs protocol version 2/);
   await assert.rejects(running, /legacy V1/);
@@ -473,7 +480,8 @@ test("an_arena_chunk_is_refused_at_v1_by_name_rather_than_as_malformed", async (
   second.emit({ kind: "arenaChunk", version: MSG.WORKER_PROTOCOL_VERSION, requestId: id2,
     firstFrame: 0, frameCount: 1, poses: [0], regions: new ArrayBuffer(0),
     projectiles: new ArrayBuffer(0), events: new ArrayBuffer(0),
-    stances: new ArrayBuffer(0), index: new ArrayBuffer(0), health: new ArrayBuffer(0) });
+    stances: new ArrayBuffer(0), commands: new ArrayBuffer(0),
+    index: new ArrayBuffer(0), health: new ArrayBuffer(0) });
   await assert.rejects(pending, /malformed arenaChunk response/);
   assert.equal(opened, 0, "a malformed chunk must not open a fight");
   assert.equal(second.terminateCalls, 1);

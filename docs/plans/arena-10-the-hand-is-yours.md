@@ -1,6 +1,6 @@
-# Arena 09 -- prove the hand is yours
+# Arena 10 -- prove the hand is yours
 
-**Status:** ready once sessions 07 and 08 have landed. Blocks 10.
+**Status:** ready once session 09 has landed. Blocks 11.
 
 A tactical opponent is a bad calibration instrument. It advances, strikes, blocks, moves
 the camera's subject and can end the trial before a player knows whether a failed cut was

@@ -230,6 +230,22 @@ pub struct ReplayEnvelope {
 }
 
 impl ReplayEnvelope {
+    /// Wraps a recorder-built replay in the only durable tuple this build can
+    /// write. Callers should not have to repeat the schema/domain pairing: a
+    /// second spelling is exactly how an otherwise valid command stream gets
+    /// labelled as a grammar it cannot be played under.
+    pub fn from_replay(replay: Replay) -> ReplayEnvelope {
+        ReplayEnvelope {
+            command_schema: EMBODIED_COMMAND_SCHEMA,
+            hash_domain: HashDomain::EmbodiedV1,
+            hash_schema: 1,
+            scenario_fingerprint: replay.scenario_fingerprint,
+            seed: replay.seed,
+            tick_limit: replay.ticks,
+            replay,
+        }
+    }
+
     pub fn encode(&self) -> Result<Vec<u8>, ReplayEncodeError> {
         validate_envelope(self).map_err(ReplayEncodeError::Invalid)?;
         let scenario_len = scenario_record_len(&self.replay.scenario)

@@ -1911,7 +1911,9 @@ export async function createArenaStage(
     showHandGuide(bodyGround: V3, desired: V3): void {
       if (!live()) return;
       content.showHandGuide(bodyGround, desired);
-      draw();
+      // The route refreshes this stored world-space target every animation
+      // frame before the stage's ordinary draw. Drawing here would rasterise
+      // the whole Babylon scene twice for every Human frame.
     },
     clearHandGuide(): void {
       content.clearHandGuide();

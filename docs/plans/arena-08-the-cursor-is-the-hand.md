@@ -1,6 +1,7 @@
 # Arena 08 -- the cursor is the hand
 
-**Status:** ready once session 07 lands. Blocks 09.
+**Status:** implementation complete; foreground visible-browser acceptance remains owed.
+Blocks 09.
 
 Session 06 proved a relative, pointer-locked hand. The owner has now chosen the ordinary
 game cursor instead: the cursor stays visible and movable, the hand follows its clamped
@@ -13,12 +14,12 @@ already exported envelope.
 
 ## Current seams
 
-The mapping remains inside [`ArenaInput`](../../client/src/arena/arena-input.ts#L65).
+The mapping remains inside [`ArenaInput`](../../client/src/arena/arena-input.ts#L69).
 Route event ownership currently begins at the arena's
-[`pointermove` handler](../../client/src/arena/arena.ts#L1415), while camera wheel
-ownership begins at the adjacent [`wheel` handler](../../client/src/arena/arena.ts#L1536).
+[`pointermove` handler](../../client/src/arena/arena.ts#L1517), while camera wheel
+ownership begins at the adjacent [`wheel` handler](../../client/src/arena/arena.ts#L1663).
 Active-camera and preview lifetime remain behind
-[`createArenaStage`](../../client/src/arena/scene.ts#L1690). Replacing pointer lock must
+[`createArenaStage`](../../client/src/arena/scene.ts#L1809). Replacing pointer lock must
 delete its lifecycle from these owners rather than layering a second input path over it.
 
 ## Absolute cursor reducer
@@ -35,7 +36,7 @@ and a first sample near any edge immediately requests that side of the envelope.
 
 Encode `H` through the client-known CommandV1 height and reach bounds, including exported
 `armMinReach`; call this the **encodable envelope**. Rust's coupled `reachable_extent` law
-may further clamp the achieved pose and session 09's desired/achieved markers expose that
+may further clamp the achieved pose and session 10's desired/achieved markers expose that
 difference. The client does not mirror or claim the authoritative annulus.
 
 Session 06's extension, signed elbow plane and effort law remain: secondary drag changes
@@ -70,7 +71,7 @@ renderer terminal and disposal clear every node. Pause may retain the parked gui
 
 The desired reticle is clamped to the active viewport along the ray from viewport centre,
 with an eight-CSS-pixel inset. It must preserve offscreen direction; independent x/y
-clamping is not acceptable. A distinct achieved marker and error line remain session 09's
+clamping is not acceptable. A distinct achieved marker and error line remain session 10's
 diagnostic work.
 
 ## Files
@@ -98,22 +99,29 @@ diagnostic work.
 
 - `the_first_sample_near_each_edge_requests_the_corresponding_envelope_side`
 - `cursor_a_to_b_to_a_is_exact_and_repeated_samples_past_each_edge_are_equal`
+- `absolute_hand_a_to_b_to_a_returns_to_the_exact_rest_anchored_command`
 - `movement_x_and_y_cannot_change_the_absolute_cursor_result`
-- `resize_promotion_drawer_and_camera_changes_stage_nothing_until_the_next_sample`
-- `primary_and_secondary_capture_the_pointer_and_release_power_on_every_exit`
-- `pointercancel_and_lostpointercapture_clear_power_without_an_invented_delta`
 - `a_human_fight_starts_without_take_controls_or_pointer_lock`
-- `blur_hidden_pause_finish_terminal_and_dispose_clear_capture_and_power`
-- `touch_remains_relative_and_synthetic_hybrid_mouse_events_are_ignored`
-- `cursor_weapon_input_changes_no_navigation_body_or_camera_byte`
+- `the_unlocked_cursor_path_registers_no_pointer_lock_lifecycle`
+- `blur_hidden_and_pause_clear_every_held_input`
+- `two_touch_parallel_motion_is_extension_while_opposed_motion_is_camera_only`
+- `mouse_motion_changes_no_navigation_or_body_yaw_byte`
+- `camera_motion_with_a_non_neutral_hand_changes_no_command_byte`
+- `route_saturation_survives_raf_and_farther_edge_samples_do_not_raise_effort`
+- `mouse_capture_survives_either_button_release_until_both_are_up`
+- `touch_up_reduces_its_final_position_while_cancel_does_not`
+- `touch_claim_releases_mouse_capture_and_suppresses_compatibility_mouse`
+- `human_frame_zero_and_the_first_control_clock_tick_reach_the_live_route`
+- `selection_finish_and_disposal_clear_the_desired_hand_guide`
+- `renderer_terminal_clears_and_disposes_the_captured_stage_once`
 
 `client/test/render-contract.test.mjs`:
 
 - `the_desired_guide_uses_the_body_floor_projection_and_exact_desired_endpoint`
-- `the_guide_is_visible_to_stage_cameras_and_never_to_preview_cameras`
-- `stationary_cursor_camera_and_body_redraw_change_no_command_byte`
-- `offscreen_reticle_clamping_preserves_direction_in_every_promoted_view`
-- `selection_policy_control_arm_loss_finish_terminal_and_dispose_clear_the_guide`
+- `a_remembered_eye_promotion_uses_three_quarter_basis_projection_and_viewport_while_eyes_are_closed`
+- `relative_zero_dt_preserves_an_initialized_chase_and_positive_dt_is_partition_independent`
+- `preview_drag_orbits_only_the_hit_side_and_reset_restores_the_initial_camera`
+- `behind_camera_hand_direction_is_aspect_correct_in_wide_and_narrow_views`
 
 Mutation-check the behavior by replacing absolute placement with accumulated deltas,
 removing the radial clamp, reading `movementX`, retaining pointer-lock gating, swapping

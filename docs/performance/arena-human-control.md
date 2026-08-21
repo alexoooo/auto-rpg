@@ -6,9 +6,9 @@
 **Update when:** A hand-control constant, gesture mapping, diagnostic field, cadence-control procedure, or measured result changes.
 
 This is a measurement protocol, not a result. The arena has provisional source values
-for its pointer sensitivity, extension gain, touch classifier, powered dead zone, and
-full-effort speed so the control can be exercised. None has yet been accepted by the
-foreground calibration this record requires. Session 09 owns those values and the
+for its pointer sensitivity, cursor span, extension gain, touch classifier, powered dead
+zone, full-effort speed and body-turn lead so the control can be exercised. None has yet been accepted by the
+foreground calibration this record requires. Session 10 owns those values and the
 owner's visible-browser judgement; leaving the result blank here is deliberate.
 
 The design being measured is in [Combat design](../design/combat.md#the-human-hand-is-a-target-path-not-an-attack-button).
@@ -27,11 +27,11 @@ Every accepted capture records this header. A result without it is a note, not e
 | host | OS, CPU, browser name/version, graphics backend |
 | display | CSS viewport, device-pixel ratio, refresh rate, page zoom |
 | arena view | three-quarter or first person; promoted viewport named explicitly |
-| input | mouse/touch device, pointer-lock or capture state |
+| input | mouse/touch device and pointer-capture state |
 | fight | arena fingerprint, seed, tick bound, both anatomies/loadouts and policies |
 | body | controlled faction, primary arm, arm length, standing height, decision period |
-| constants | all five control constants exactly as built |
-| artifact | raw diagnostic file plus any visible recording or written judgement |
+| constants | all seven control constants exactly as built |
+| artifact | the exact [ARPGCTL1 evidence](../reference/arena-control-evidence-v1.md), raw diagnostic file, plus any visible recording or written judgement |
 
 CSS pixels are the input unit. Device pixels must still be recorded so a changed browser
 scale cannot masquerade as a sensitivity result. Three-quarter and first-person captures
@@ -50,15 +50,20 @@ one clock.
 | `tick_seen` | latest published authoritative tick when the event was reduced |
 | `view` | active three-quarter or first-person basis |
 | `channel` | placement, cut, extension, or camera; exactly one |
-| `dx_css`, `dy_css` | relative CSS-pixel delta consumed by that channel |
+| `client_x_css`, `client_y_css` | ordinary mouse position before viewport reduction |
+| `qx`, `qy` | active-viewport coordinates after radial unit-disc clamp |
+| `saturated` | cursor disc or encodable command envelope reached |
+| `dx_css`, `dy_css` | touch-relative delta; absent for ordinary mouse placement |
 | `powered` | whether the winning button/finger channel owned this delta |
 | `travel_css` | that powered gesture's accumulated travel for dead-zone evidence |
 | `desired_x/y/z` | stored desired hand after the reducer, in world-space raw units |
 | `bearing_raw`, `height_raw`, `reach_raw`, `effort_raw`, `plane_raw` | the command fields staged after this event |
 | `body_yaw_raw`, `move_x_raw`, `move_y_raw` | ownership witnesses; hand-only events must leave them unchanged |
 
-Absolute cursor coordinates are deliberately absent. If an implementation needs them to
-reproduce the arm command, it is measuring a different control scheme.
+Ordinary mouse rows retain their absolute cursor sample because that is the control
+scheme: replaying the same viewport, basis and point must reproduce the same command.
+`movementX` and `movementY` are deliberately absent from those rows. Touch rows retain
+relative deltas and name their captured owner.
 
 ### Authoritative-tick rows
 
@@ -79,7 +84,7 @@ effort distribution: minimum, median, p90, maximum, and fractions at the resting
 and at full effort. Quote target-error median and p90 by gesture channel. A single mean
 can hide both a mapper pinned at full effort and a slow cut that never leaves rest.
 
-## Foreground calibration owed in session 09
+## Foreground calibration owed in session 10
 
 Run at least one matched pass in each arena view. In each pass:
 
@@ -91,7 +96,7 @@ Run at least one matched pass in each arena view. In each pass:
    target and judge whether it jumps.
 6. Fight the configured Tactical opponent and retain the complete command recording.
 
-The five constants are accepted only with both failure directions judged. Sensitivity
+The seven constants are accepted only with both failure directions judged. Sensitivity
 must permit a deliberate cross-body stroke without turning tremor into full travel;
 extension gain must reach the boundary without erasing intermediate probes; the touch
 ratio must separate an uneven two-finger push from a deliberate pinch; the dead zone
@@ -100,13 +105,15 @@ slow path below maximum while allowing a deliberate fast path to reach it.
 
 No accepted values or judgements are recorded yet:
 
-| item | session 09 evidence |
+| item | session 10 evidence |
 |---|---|
 | `VIRTUAL_HAND_SENSITIVITY` | owed |
+| `CURSOR_HAND_SPAN_ARM_LENGTHS` | owed |
 | `EXTEND_DRAG_SENSITIVITY` | owed |
 | `TOUCH_PINCH_SPREAD_RATIO` | owed |
 | `SWING_DRAG_DEAD_ZONE_PX` | owed |
 | `SWING_DRAG_FULL_EFFORT_PX_S` | owed |
+| `BODY_TURN_INPUT_LEAD_RAW` | owed |
 | three-quarter guard/cut/thrust judgement | owed in a visible browser |
 | first-person guard/cut/thrust judgement | owed in a visible browser |
 | target-error and effort distributions | owed |
@@ -144,5 +151,5 @@ like aiming.
 
 ## Result
 
-Pending session 09. No pass, calibration value, win-rate claim, or comfort judgement has
+Pending session 10. No pass, calibration value, win-rate claim, or comfort judgement has
 been recorded.

@@ -13,6 +13,7 @@
 //! ```
 
 mod args;
+mod control_evidence;
 mod learn_probe;
 mod trace;
 
@@ -33,6 +34,12 @@ fn main() {
         "verify" => verify(&args),
         "embodied" => embodied(&args),
         "trace" => trace_fight(&args),
+        "control-evidence" => {
+            if let Err(error) = control_evidence::run(&args) {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        }
         "learn-probe" => learn_probe::learn_probe(&args),
         "" | "help" => usage(),
         other => {
@@ -138,6 +145,12 @@ fn usage() {
           2 rather than quietly running something else: one of these keys
           written without a value, and one aimed at an item that fighter is not
           carrying.
+
+  control-evidence --in PATH [--full-out PATH] [--thinned-out PATH]
+          Validates a browser ARPGCTL1 accepted-command receipt, rebuilds its
+          full durable replay and checks the browser's typed state digest. Then
+          removes only Human rows between policy decision ticks and reports the
+          equal-horizon cadence control.
 
   learn-probe train    --gens N --pop N --elite N --seeds N --sigma-pct N
                        [--action-layout tactical-v2]

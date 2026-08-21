@@ -140,6 +140,8 @@ class FakeArena {
   // the two halves cannot go in one commit.
   control(faction) { return this.config[8 + faction * 56 + 2]; }
   armMinReach() { return 16_384; }
+  replayBaseline() { return Uint8Array.of(0); }
+  stateDigest() { return { domain: 2, schema: 1, lo: 0, hi: 0 }; }
   tick() { return this.now; }
   step() {
     this.steps += 1;
@@ -202,6 +204,7 @@ class FakeArena {
       projectileRows, eventRows: this.eventsPerTick,
       posesDropped: 0, regionsDropped: 0, projectilesDropped: 0, eventsDropped: 0,
       poses, regions, projectiles, events, stances, stancesDropped: 0,
+      commandRows: 0, commands: new Uint8Array(0), commandsDropped: 0,
       alive: bodies === 1 ? [1, 0] : [1, 1],
       health: bodies === 1 ? [65_536, 0] : [65_536, 32_768],
       maxHealth: [65_536, 65_536],
@@ -1413,6 +1416,7 @@ function wholeFight(opened, chunks) {
     ["projectiles", opened.articulatedProjectileStride, RECORDER.INDEX_PROJECTILE_START],
     ["events", opened.combatEventStride, RECORDER.INDEX_EVENT_START],
     ["stances", opened.embodiedStanceStride, RECORDER.INDEX_STANCE_START],
+    ["commands", opened.acceptedCommandStride, RECORDER.INDEX_COMMAND_START, Uint8Array],
   ];
   const parts = new Map(sections.map(([name]) => [name, []]));
   const bases = new Map(sections.map(([name]) => [name, 0]));
@@ -1428,8 +1432,8 @@ function wholeFight(opened, chunks) {
       for (const [name, , start] of sections) row[start] += bases.get(name);
       index.push(...row);
     }
-    for (const [name, stride] of sections) {
-      const rows = new Uint32Array(chunk[name]);
+    for (const [name, stride, , View = Uint32Array] of sections) {
+      const rows = new View(chunk[name]);
       parts.get(name).push(...rows);
       bases.set(name, bases.get(name) + rows.length / stride);
     }
@@ -1437,7 +1441,7 @@ function wholeFight(opened, chunks) {
     frames += chunk.frameCount;
   }
   const out = { frameCount: frames, index: Uint32Array.from(index), health: Int32Array.from(health) };
-  for (const [name] of sections) out[name] = Uint32Array.from(parts.get(name));
+  for (const [name, , , View = Uint32Array] of sections) out[name] = View.from(parts.get(name));
   return out;
 }
 
@@ -1643,14 +1647,14 @@ test("a_recorded_fight_transfers_its_buffers_and_its_index", async () => {
   assert.equal(opened.checkpoint, null);
   assert.equal(arena.warmed, 1, "the allocating calls run once, before any buffer exists");
   assert.equal(chunks.length, Math.ceil(17 / MSG.ARENA_STREAM_CHUNK_TICKS));
-  // Every buffer is transferred rather than copied: seven of them, in order, on
+  // Every buffer is transferred rather than copied: eight of them, in order, on
   // every chunk. The count is read off the message and not off a sentence --
   // `worker-protocol.md` said five for two sessions while the code moved six.
   for (const entry of sent.filter((one) => one.message.kind === "arenaChunk")) {
     const chunk = entry.message;
     assert.deepEqual(entry.transfer,
       [chunk.poses, chunk.regions, chunk.projectiles, chunk.events, chunk.stances,
-        chunk.index, chunk.health]);
+        chunk.commands, chunk.index, chunk.health]);
   }
   const source = (await record(arena, arenaConfig())).source();
   assert.equal(source.frameCount(), 17);
@@ -2079,6 +2083,12 @@ const openedMessage = (requestId, over = {}) => ({
   embodiedStanceLayoutVersion: RECORDER.EMBODIED_STANCE_LAYOUT_VERSION,
   embodiedStanceStride: RECORDER.EMBODIED_STANCE_STRIDE,
   embodiedStanceCapacity: RECORDER.EMBODIED_STANCE_CAPACITY,
+  acceptedCommandLayoutVersion: RECORDER.ACCEPTED_COMMAND_LAYOUT_VERSION,
+  acceptedCommandStride: RECORDER.ACCEPTED_COMMAND_STRIDE,
+  acceptedCommandCapacity: RECORDER.ACCEPTED_COMMAND_CAPACITY,
+  acceptedCommandSchema: RECORDER.ACCEPTED_COMMAND_SCHEMA,
+  replayBaseline: Uint8Array.of(0).buffer,
+  controlledFaction: null,
   armMinReach: 16_384,
   impactThreshold: 3_932, contactEnergyFloor: 144, bodySlot: 255, noRegion: 4_294_967_295,
   regionNames: [], hintNames: [], contactKinds: [], bodies: [],
@@ -2090,7 +2100,7 @@ const chunkMessage = (requestId, over = {}) => ({
   kind: "arenaChunk", version: MSG.WORKER_PROTOCOL_VERSION, requestId,
   firstFrame: 0, frameCount: 1,
   poses: new ArrayBuffer(0), regions: new ArrayBuffer(0), projectiles: new ArrayBuffer(0),
-  events: new ArrayBuffer(0), stances: new ArrayBuffer(0),
+  events: new ArrayBuffer(0), stances: new ArrayBuffer(0), commands: new ArrayBuffer(0),
   index: new Uint32Array(RECORDER.RECORDING_INDEX_STRIDE).buffer,
   health: new Int32Array(2).buffer,
   ...over,
@@ -2102,6 +2112,8 @@ const finishedMessage = (requestId, over = {}) => ({
   posesDropped: 0, regionsDropped: 0, articulatedProjectilesDropped: 0,
   combatEventsDropped: 0,
   embodiedStancesDropped: 0,
+  acceptedCommandsDropped: 0,
+  stateDigestDomain: 2, stateDigestSchema: 1, stateDigestLo: 0, stateDigestHi: 0,
   ...over,
 });
 
@@ -2111,6 +2123,45 @@ const emitFight = (worker, requestId, over = {}) => {
   worker.emitMessage(chunkMessage(requestId));
   worker.emitMessage(finishedMessage(requestId));
 };
+
+test("a_finished_human_stream_builds_self_describing_control_evidence", () => {
+  const baseline = Uint8Array.of(9, 8, 7);
+  const source = new StreamingFightSource(openedMessage(1, {
+    controlledFaction: 0, replayBaseline: baseline.buffer,
+  }));
+  const commands = new Uint8Array(RECORDER.ACCEPTED_COMMAND_STRIDE);
+  const row = new DataView(commands.buffer);
+  row.setUint32(0, 0, true);
+  row.setUint32(4, 3, true);
+  row.setUint32(8, 4, true);
+  row.setUint8(12, 2);
+  commands.fill(0x5a, 13);
+  const index = new Uint32Array(RECORDER.RECORDING_INDEX_STRIDE);
+  index[RECORDER.INDEX_COMMAND_COUNT] = 1;
+  source.adopt(chunkMessage(1, { commands: commands.buffer, index: index.buffer }));
+  source.finish(finishedMessage(1, {
+    ticks: 1, stateDigestDomain: 2, stateDigestSchema: 1,
+    stateDigestLo: 0x12345678, stateDigestHi: 0x9abcdef0,
+  }));
+  const evidence = source.controlEvidence();
+  assert.ok(evidence !== null);
+  assert.equal(new TextDecoder().decode(evidence.subarray(0, 8)), "ARPGCTL1");
+  const header = new DataView(evidence.buffer, evidence.byteOffset, evidence.byteLength);
+  assert.deepEqual([
+    header.getUint16(8, true), header.getUint16(12, true), header.getUint32(20, true),
+    header.getUint32(24, true), header.getUint32(28, true), header.getUint8(32),
+    header.getUint32(40, true), header.getUint32(44, true),
+  ], [3, RECORDER.ACCEPTED_COMMAND_STRIDE, 3, 1, 1, 0, 0x12345678, 0x9abcdef0]);
+  assert.deepEqual([...evidence.subarray(48, 51)], [...baseline]);
+  assert.deepEqual([...evidence.subarray(51)], [...commands]);
+
+  const dropped = new StreamingFightSource(openedMessage(2, {
+    controlledFaction: 0, replayBaseline: baseline.buffer,
+  }));
+  dropped.adopt(chunkMessage(2));
+  dropped.finish(finishedMessage(2, { ticks: 1, acceptedCommandsDropped: 1 }));
+  assert.equal(dropped.controlEvidence(), null, "dropped command evidence was offered as complete");
+});
 
 test("the_arena_client_transfers_its_configuration_and_streams_the_fight", async () => {
   // **Renamed rather than kept.** It was `..._and_reports_progress`, and the
@@ -2483,6 +2534,7 @@ test("a_recorded_index_that_points_past_its_own_buffers_is_refused_rather_than_c
   assert.throws(bend(RECORDER.INDEX_POSE_START, 10_000), /addresses pose rows/);
   assert.throws(bend(RECORDER.INDEX_REGION_START, 10_000), /addresses region rows/);
   assert.throws(bend(RECORDER.INDEX_EVENT_COUNT, 10_000), /addresses combat-event rows/);
+  assert.throws(bend(RECORDER.INDEX_COMMAND_COUNT, 10_000), /addresses accepted-command rows/);
   // And a section that is not a whole number of rows at all, which is a layout
   // fact rather than an index one and therefore lives on the opening.
   assert.throws(() => {

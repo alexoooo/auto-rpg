@@ -276,6 +276,12 @@ export type ArenaOpenedMessage = {
   combatEventLayoutVersion: number; combatEventStride: number;
   embodiedStanceLayoutVersion: number; embodiedStanceStride: number;
   embodiedStanceCapacity: number;
+  acceptedCommandLayoutVersion: number; acceptedCommandStride: number;
+  acceptedCommandCapacity: number; acceptedCommandSchema: number;
+  /** Zero-tick codec-V2 ReplayEnvelope for this exact configured duel. */
+  replayBaseline: ArrayBuffer;
+  /** The single Human side, or null for a policy-only spectator fight. */
+  controlledFaction: number | null;
   /** Authoritative `combat::ARM_MIN_REACH_RAW`, for direct hand-control clamps. */
   armMinReach: number;
   impactThreshold: number; contactEnergyFloor: number;
@@ -311,6 +317,8 @@ export type ArenaChunkMessage = {
   firstFrame: number; frameCount: number;
   /** `Uint32Array` words: pose, region, projectile and event rows, packed. */
   poses: ArrayBuffer; regions: ArrayBuffer; projectiles: ArrayBuffer; events: ArrayBuffer;
+  /** Uint8Array codec-exact accepted submitted-command rows. */
+  commands: ArrayBuffer;
   /** Optional on an old trace adapter; always present on a live arena chunk. */
   stances: ArrayBuffer;
   /**
@@ -348,6 +356,9 @@ export type ArenaFinishedMessage = {
   /** The module's own saturating drop counters, summed over the whole fight. */
   posesDropped: number; regionsDropped: number; articulatedProjectilesDropped: number;
   combatEventsDropped: number; embodiedStancesDropped: number;
+  acceptedCommandsDropped: number;
+  stateDigestDomain: number; stateDigestSchema: number;
+  stateDigestLo: number; stateDigestHi: number;
 };
 
 /**

@@ -149,7 +149,9 @@ function isOpened(value: Record<string, unknown>): boolean {
     value.regionsPerBody, value.articulatedProjectileLayoutVersion,
     value.articulatedProjectileStride, value.combatEventLayoutVersion, value.combatEventStride,
     value.embodiedStanceLayoutVersion, value.embodiedStanceStride,
-    value.embodiedStanceCapacity, value.armMinReach, value.impactThreshold, value.contactEnergyFloor,
+    value.embodiedStanceCapacity, value.acceptedCommandLayoutVersion,
+    value.acceptedCommandStride, value.acceptedCommandCapacity, value.acceptedCommandSchema,
+    value.armMinReach, value.impactThreshold, value.contactEnergyFloor,
     value.bodySlot, value.noRegion];
   const names = [value.regionNames, value.hintNames, value.contactKinds];
   return value.version === WORKER_PROTOCOL_VERSION && isU32(value.requestId)
@@ -162,6 +164,8 @@ function isOpened(value: Record<string, unknown>): boolean {
     && isString(value.scenario) && value.mirrored === false && isString(value.fingerprint)
     && isString(value.heroes) && isString(value.monsters)
     && (value.checkpoint === null || isString(value.checkpoint))
+    && isBuffer(value.replayBaseline)
+    && (value.controlledFaction === null || value.controlledFaction === 0 || value.controlledFaction === 1)
     && Array.isArray(value.arena) && value.arena.length === 2
     && value.arena.every((word) => isU32(word))
     && Array.isArray(value.bodies) && value.bodies.every(isRecord);
@@ -170,7 +174,7 @@ function isOpened(value: Record<string, unknown>): boolean {
 function isChunk(value: Record<string, unknown>): boolean {
   const buffers = [
     value.poses, value.regions, value.projectiles, value.events, value.stances,
-    value.index, value.health,
+    value.commands, value.index, value.health,
   ];
   return value.version === WORKER_PROTOCOL_VERSION && isU32(value.requestId)
     && isU32(value.firstFrame) && isU32(value.frameCount, true)
@@ -180,7 +184,8 @@ function isChunk(value: Record<string, unknown>): boolean {
 function isFinished(value: Record<string, unknown>): boolean {
   const counts = [value.ticks, value.frameCount, value.posesDropped, value.regionsDropped,
     value.articulatedProjectilesDropped, value.combatEventsDropped,
-    value.embodiedStancesDropped];
+    value.embodiedStancesDropped, value.acceptedCommandsDropped,
+    value.stateDigestDomain, value.stateDigestSchema, value.stateDigestLo, value.stateDigestHi];
   return value.version === WORKER_PROTOCOL_VERSION && isU32(value.requestId)
     && isString(value.outcome) && typeof value.timedOut === "boolean"
     && typeof value.recordingTruncated === "boolean"

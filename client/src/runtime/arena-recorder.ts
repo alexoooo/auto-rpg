@@ -165,8 +165,8 @@ export const RECORDING_CHUNK_TICKS = 300;
  * step and stops the moment a step advances nothing -- and "happens to equal" is
  * precisely the kind of arithmetic this index exists to stop a reader doing.
  */
-export const RECORDING_INDEX_STRIDE = 11;
-export const ARENA_STREAM_LAYOUT_VERSION = 2;
+export const RECORDING_INDEX_STRIDE = 13;
+export const ARENA_STREAM_LAYOUT_VERSION = 3;
 export const INDEX_TICK = 0;
 export const INDEX_POSE_START = 1;
 export const INDEX_POSE_COUNT = 2;
@@ -178,6 +178,13 @@ export const INDEX_EVENT_START = 7;
 export const INDEX_EVENT_COUNT = 8;
 export const INDEX_STANCE_START = 9;
 export const INDEX_STANCE_COUNT = 10;
+export const INDEX_COMMAND_START = 11;
+export const INDEX_COMMAND_COUNT = 12;
+
+export const ACCEPTED_COMMAND_LAYOUT_VERSION = 1;
+export const ACCEPTED_COMMAND_STRIDE = 70;
+export const ACCEPTED_COMMAND_CAPACITY = 2;
+export const ACCEPTED_COMMAND_SCHEMA = 3;
 
 export const EMBODIED_STANCE_LAYOUT_VERSION = 1;
 export const EMBODIED_STANCE_STRIDE = 6;
@@ -222,6 +229,8 @@ export interface ArenaPublication {
   readonly events: Uint32Array;
   readonly projectiles: Uint32Array;
   readonly stances: Uint32Array;
+  readonly commandRows: number;
+  readonly commands: Uint8Array;
   /** Alive units per faction, `Faction::index` order. */
   readonly alive: readonly [number, number];
   /** Summed `UnitView::hp` raws over the alive units of each faction. */
@@ -231,6 +240,7 @@ export interface ArenaPublication {
   /** `Scenario::arena`, raw. */
   readonly arena: readonly [number, number];
   readonly stancesDropped: number;
+  readonly commandsDropped: number;
 }
 
 /** Everything the recorder asks of wasm, and nothing the legacy path needs. */
@@ -261,6 +271,9 @@ export interface ArenaWasmAdapter {
   control(faction: number): number;
   /** The actuator's authoritative lower reach clamp. */
   armMinReach(): number;
+  replayBaseline(): Uint8Array;
+  stateDigest(): { readonly domain: number; readonly schema: number;
+    readonly lo: number; readonly hi: number };
   tick(): number;
   /** Exactly one tick, because the event feed is cleared per call. */
   step(): void;
@@ -305,6 +318,12 @@ export interface ArenaExports {
   embodied_stance_stride: U32Export; embodied_stance_capacity: U32Export;
   embodied_stances_dropped: U32Export; embodied_stance_layout_version: U32Export;
   arm_min_reach_raw: U32Export;
+  arena_accepted_command_ptr: U32Export; arena_accepted_command_len: U32Export;
+  arena_accepted_command_stride: U32Export; arena_accepted_command_capacity: U32Export;
+  arena_accepted_commands_dropped: U32Export; arena_accepted_command_layout_version: U32Export;
+  arena_replay_baseline_ptr: U32Export; arena_replay_baseline_len: U32Export;
+  state_digest_domain: U32Export; state_digest_schema: U32Export;
+  state_digest_lo: U32Export; state_digest_hi: U32Export;
 }
 
 /** The names above, for `sim.worker.ts`'s boot check and for `wasm_check.js`. */
@@ -333,6 +352,11 @@ export const ARENA_EXPORTS = [
   "embodied_stance_ptr", "embodied_stance_len", "embodied_stance_stride",
   "embodied_stance_capacity", "embodied_stances_dropped", "embodied_stance_layout_version",
   "arm_min_reach_raw",
+  "arena_accepted_command_ptr", "arena_accepted_command_len",
+  "arena_accepted_command_stride", "arena_accepted_command_capacity",
+  "arena_accepted_commands_dropped", "arena_accepted_command_layout_version",
+  "arena_replay_baseline_ptr", "arena_replay_baseline_len",
+  "state_digest_domain", "state_digest_schema", "state_digest_lo", "state_digest_hi",
 ] as const;
 
 const HEX = "0123456789abcdef";
@@ -418,7 +442,10 @@ export function createArenaAdapter(wasm: ArenaExports): ArenaWasmAdapter {
       || (wasm.embodied_command_layout_version() >>> 0) !== 2
       || (wasm.embodied_stance_layout_version() >>> 0) !== EMBODIED_STANCE_LAYOUT_VERSION
       || (wasm.embodied_stance_stride() >>> 0) !== EMBODIED_STANCE_STRIDE
-      || (wasm.embodied_stance_capacity() >>> 0) !== EMBODIED_STANCE_CAPACITY) {
+      || (wasm.embodied_stance_capacity() >>> 0) !== EMBODIED_STANCE_CAPACITY
+      || (wasm.arena_accepted_command_layout_version() >>> 0) !== ACCEPTED_COMMAND_LAYOUT_VERSION
+      || (wasm.arena_accepted_command_stride() >>> 0) !== ACCEPTED_COMMAND_STRIDE
+      || (wasm.arena_accepted_command_capacity() >>> 0) !== ACCEPTED_COMMAND_CAPACITY) {
       throw new RangeError("wasm arena layout disagrees with the generated ABI");
     }
   };
@@ -463,6 +490,18 @@ export function createArenaAdapter(wasm: ArenaExports): ArenaWasmAdapter {
     policy(faction) { return wasm.arena_policy(faction) >>> 0; },
     control(faction) { return wasm.arena_control(faction) >>> 0; },
     armMinReach() { return wasm.arm_min_reach_raw() >>> 0; },
+    replayBaseline() {
+      const length = wasm.arena_replay_baseline_len() >>> 0;
+      const pointer = wasm.arena_replay_baseline_ptr() >>> 0;
+      if (length === 0 || length > 16_777_216) {
+        throw new RangeError(`arena replay baseline length ${length} is outside the codec cap`);
+      }
+      return Uint8Array.from(new Uint8Array(wasm.memory.buffer, pointer, length));
+    },
+    stateDigest() {
+      return { domain: wasm.state_digest_domain() >>> 0, schema: wasm.state_digest_schema() >>> 0,
+        lo: wasm.state_digest_lo() >>> 0, hi: wasm.state_digest_hi() >>> 0 };
+    },
     writeEmbodiedCommand(bytes) {
       const length = wasm.embodied_command_len() >>> 0;
       if (bytes.length !== length || (wasm.embodied_command_layout_version() >>> 0) !== 2) {
@@ -494,6 +533,9 @@ export function createArenaAdapter(wasm: ArenaExports): ArenaWasmAdapter {
       const stanceRows = wasm.embodied_stance_len() >>> 0;
       const stancePointer = wasm.embodied_stance_ptr() >>> 0;
       const stancesDropped = wasm.embodied_stances_dropped() >>> 0;
+      const commandRows = wasm.arena_accepted_command_len() >>> 0;
+      const commandPointer = wasm.arena_accepted_command_ptr() >>> 0;
+      const commandsDropped = wasm.arena_accepted_commands_dropped() >>> 0;
       const memory = wasm.memory.buffer;
       if (poseRows > MAX_POSES || eventRows > MAX_COMBAT_EVENTS
         || projectileRows > MAX_ARTICULATED_PROJECTILES
@@ -509,6 +551,9 @@ export function createArenaAdapter(wasm: ArenaExports): ArenaWasmAdapter {
       if (stanceRows > EMBODIED_STANCE_CAPACITY) {
         throw new RangeError("wasm embodied stance length exceeds the generated ABI capacity");
       }
+      if (commandRows > ACCEPTED_COMMAND_CAPACITY) {
+        throw new RangeError("wasm accepted-command length exceeds its fixed two-row capacity");
+      }
       return {
         poseRows, regionRows, projectileRows, eventRows,
         posesDropped, regionsDropped, projectilesDropped, eventsDropped,
@@ -521,11 +566,13 @@ export function createArenaAdapter(wasm: ArenaExports): ArenaWasmAdapter {
         stances: new Uint32Array(
           memory, stancePointer, stanceRows * EMBODIED_STANCE_STRIDE,
         ),
+        commandRows,
+        commands: new Uint8Array(memory, commandPointer, commandRows * ACCEPTED_COMMAND_STRIDE),
         alive: aggregates.alive,
         health: aggregates.health,
         maxHealth: aggregates.maxHealth,
         arena: [Math.round((frame[0] ?? 0) * ONE_RAW), Math.round((frame[1] ?? 0) * ONE_RAW)],
-        stancesDropped,
+        stancesDropped, commandsDropped,
       };
     },
   };
@@ -684,6 +731,9 @@ export async function recordArenaFight(
   );
   const events = new Uint32Array(RECORDING_CHUNK_EVENT_ROW_CAP * COMBAT_EVENT_STRIDE);
   const stances = new Uint32Array(scratchFrames * EMBODIED_STANCE_CAPACITY * EMBODIED_STANCE_STRIDE);
+  const commands = new Uint8Array(
+    scratchFrames * ACCEPTED_COMMAND_CAPACITY * ACCEPTED_COMMAND_STRIDE,
+  );
   const index = new Uint32Array(scratchFrames * RECORDING_INDEX_STRIDE);
   const health = new Int32Array(scratchFrames * 2);
 
@@ -694,12 +744,14 @@ export async function recordArenaFight(
   let projectileRows = 0;
   let eventRows = 0;
   let stanceRows = 0;
+  let commandRows = 0;
   let truncated = false;
   let posesDropped = 0;
   let regionsDropped = 0;
   let projectilesDropped = 0;
   let eventsDropped = 0;
   let stancesDropped = 0;
+  let commandsDropped = 0;
   let maxHealth: readonly [number, number] = [0, 0];
   let alive: readonly [number, number] = [0, 0];
   let lastHealth: readonly [number, number] = [0, 0];
@@ -719,6 +771,7 @@ export async function recordArenaFight(
       || projectileRows + published.projectileRows > scratchFrames * MAX_ARTICULATED_PROJECTILES
       || stanceRows + published.stances.length / EMBODIED_STANCE_STRIDE
         > scratchFrames * EMBODIED_STANCE_CAPACITY
+      || commandRows + published.commandRows > scratchFrames * ACCEPTED_COMMAND_CAPACITY
       || eventRows + published.eventRows > RECORDING_CHUNK_EVENT_ROW_CAP) {
       return false;
     }
@@ -727,6 +780,7 @@ export async function recordArenaFight(
     projectiles.set(published.projectiles, projectileRows * ARTICULATED_PROJECTILE_STRIDE);
     events.set(published.events, eventRows * COMBAT_EVENT_STRIDE);
     stances.set(published.stances, stanceRows * EMBODIED_STANCE_STRIDE);
+    commands.set(published.commands, commandRows * ACCEPTED_COMMAND_STRIDE);
     const at = chunkFrames * RECORDING_INDEX_STRIDE;
     index[at + INDEX_TICK] = tick;
     index[at + INDEX_POSE_START] = poseRows;
@@ -739,11 +793,14 @@ export async function recordArenaFight(
     index[at + INDEX_EVENT_COUNT] = published.eventRows;
     index[at + INDEX_STANCE_START] = stanceRows;
     index[at + INDEX_STANCE_COUNT] = published.stances.length / EMBODIED_STANCE_STRIDE;
+    index[at + INDEX_COMMAND_START] = commandRows;
+    index[at + INDEX_COMMAND_COUNT] = published.commandRows;
     poseRows += published.poseRows;
     regionRows += published.regionRows;
     projectileRows += published.projectileRows;
     eventRows += published.eventRows;
     stanceRows += published.stances.length / EMBODIED_STANCE_STRIDE;
+    commandRows += published.commandRows;
     // The maxima come from the first frame, where both bodies are standing.
     // `health_fraction`'s denominator counts a dead body's maximum and a dead
     // body has no published row, so a per-tick denominator would climb as the
@@ -762,6 +819,7 @@ export async function recordArenaFight(
     projectilesDropped += published.projectilesDropped;
     eventsDropped += published.eventsDropped;
     stancesDropped += published.stancesDropped;
+    commandsDropped = published.commandsDropped;
     frames += 1;
     chunkFrames += 1;
     return true;
@@ -800,6 +858,8 @@ export async function recordArenaFight(
       chunkIndex[to + INDEX_EVENT_COUNT] = index[from + INDEX_EVENT_COUNT]!;
       chunkIndex[to + INDEX_STANCE_START] = index[from + INDEX_STANCE_START]!;
       chunkIndex[to + INDEX_STANCE_COUNT] = index[from + INDEX_STANCE_COUNT]!;
+      chunkIndex[to + INDEX_COMMAND_START] = index[from + INDEX_COMMAND_START]!;
+      chunkIndex[to + INDEX_COMMAND_COUNT] = index[from + INDEX_COMMAND_COUNT]!;
     }
     hooks.onChunk({
       firstFrame: chunkFirstFrame,
@@ -809,6 +869,7 @@ export async function recordArenaFight(
       projectiles: projectiles.buffer.slice(0, projectileRows * ARTICULATED_PROJECTILE_STRIDE * 4),
       events: events.buffer.slice(0, eventRows * COMBAT_EVENT_STRIDE * 4),
       stances: stances.buffer.slice(0, stanceRows * EMBODIED_STANCE_STRIDE * 4),
+      commands: commands.buffer.slice(0, commandRows * ACCEPTED_COMMAND_STRIDE),
       index: chunkIndex.buffer,
       health: health.buffer.slice(0, chunkFrames * 2 * 4),
     });
@@ -819,6 +880,7 @@ export async function recordArenaFight(
     projectileRows = 0;
     eventRows = 0;
     stanceRows = 0;
+    commandRows = 0;
   };
 
   if (!capture()) truncated = true;
@@ -849,6 +911,14 @@ export async function recordArenaFight(
     embodiedStanceLayoutVersion: EMBODIED_STANCE_LAYOUT_VERSION,
     embodiedStanceStride: EMBODIED_STANCE_STRIDE,
     embodiedStanceCapacity: EMBODIED_STANCE_CAPACITY,
+    acceptedCommandLayoutVersion: ACCEPTED_COMMAND_LAYOUT_VERSION,
+    acceptedCommandStride: ACCEPTED_COMMAND_STRIDE,
+    acceptedCommandCapacity: ACCEPTED_COMMAND_CAPACITY,
+    acceptedCommandSchema: ACCEPTED_COMMAND_SCHEMA,
+    replayBaseline: wasm.replayBaseline().buffer as ArrayBuffer,
+    controlledFaction: config.fighters.findIndex((fighter) => fighter.control === ARENA_CONTROL_HUMAN) < 0
+      ? null
+      : config.fighters.findIndex((fighter) => fighter.control === ARENA_CONTROL_HUMAN),
     armMinReach: wasm.armMinReach(),
     impactThreshold: IMPACT_THRESHOLD_RAW, contactEnergyFloor: CONTACT_ENERGY_FLOOR,
     // The event row widens `sim::NO_REGION` to a full word so a reader that lost
@@ -926,6 +996,7 @@ export async function recordArenaFight(
   await postChunk();
 
   const decided = outcomeOf(alive, lastHealth);
+  const digest = wasm.stateDigest();
   return {
     ok: true,
     finished: {
@@ -939,6 +1010,9 @@ export async function recordArenaFight(
       recordingTruncated: truncated,
       posesDropped, regionsDropped, articulatedProjectilesDropped: projectilesDropped,
       combatEventsDropped: eventsDropped, embodiedStancesDropped: stancesDropped,
+      acceptedCommandsDropped: commandsDropped,
+      stateDigestDomain: digest.domain, stateDigestSchema: digest.schema,
+      stateDigestLo: digest.lo, stateDigestHi: digest.hi,
     },
   };
 }

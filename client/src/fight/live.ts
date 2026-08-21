@@ -77,11 +77,14 @@ import {
 import type { ArenaChunk, ArenaFinished, ArenaOpened } from "../protocol/messages.js";
 import {
   INDEX_EVENT_COUNT, INDEX_EVENT_START, INDEX_POSE_COUNT, INDEX_POSE_START,
+  INDEX_COMMAND_COUNT, INDEX_COMMAND_START,
   INDEX_PROJECTILE_COUNT, INDEX_PROJECTILE_START,
   INDEX_REGION_COUNT, INDEX_REGION_START, INDEX_STANCE_COUNT, INDEX_STANCE_START,
   INDEX_TICK, ARENA_STREAM_LAYOUT_VERSION, EMBODIED_STANCE_CAPACITY,
   EMBODIED_STANCE_LAYOUT_VERSION,
   EMBODIED_STANCE_STRIDE, RECORDING_INDEX_STRIDE,
+  ACCEPTED_COMMAND_CAPACITY, ACCEPTED_COMMAND_LAYOUT_VERSION,
+  ACCEPTED_COMMAND_SCHEMA, ACCEPTED_COMMAND_STRIDE,
 } from "../runtime/arena-recorder.js";
 import type { EmbodiedStance, FightFrame, FightHeader, FightSource } from "./source.js";
 import type {
@@ -158,6 +161,7 @@ interface Layout {
   readonly eventStride: number;
   readonly projectileStride: number;
   readonly stanceStride: number;
+  readonly commandStride: number;
 }
 
 /**
@@ -176,6 +180,7 @@ class FightChunk {
   readonly #events: Uint32Array;
   readonly #projectiles: Uint32Array;
   readonly #stances: Uint32Array;
+  readonly #commands: Uint8Array;
   readonly #index: Uint32Array;
   readonly #health: Int32Array;
   readonly #layout: Layout;
@@ -191,6 +196,7 @@ class FightChunk {
     this.#events = new Uint32Array(chunk.events);
     this.#projectiles = new Uint32Array(chunk.projectiles);
     this.#stances = new Uint32Array(chunk.stances);
+    this.#commands = new Uint8Array(chunk.commands);
     this.#index = new Uint32Array(chunk.index);
     this.#health = new Int32Array(chunk.health);
     if (!Number.isInteger(this.frameCount) || this.frameCount <= 0
@@ -225,6 +231,10 @@ class FightChunk {
     const eventRows = rows(this.#events, layout.eventStride, "combat-event");
     const projectileRows = rows(this.#projectiles, layout.projectileStride, "projectile");
     const stanceRows = rows(this.#stances, layout.stanceStride, "stance");
+    if (this.#commands.length % layout.commandStride !== 0) {
+      throw new RangeError("a chunk's accepted-command section is not a whole number of rows");
+    }
+    const commandRows = this.#commands.length / layout.commandStride;
     if (!Number.isInteger(layout.regionsPerBody) || layout.regionsPerBody <= 0) {
       throw new RangeError("a fight publishes no regions per body");
     }
@@ -238,12 +248,17 @@ class FightChunk {
         [this.#index[at + INDEX_EVENT_START]!, this.#index[at + INDEX_EVENT_COUNT]!, eventRows, "combat-event"],
         [this.#index[at + INDEX_STANCE_START]!, this.#index[at + INDEX_STANCE_COUNT]!,
           stanceRows, "stance"],
+        [this.#index[at + INDEX_COMMAND_START]!, this.#index[at + INDEX_COMMAND_COUNT]!,
+          commandRows, "accepted-command"],
       ];
       for (const [start, count, available, what] of extents) {
         if (start + count > available) {
           throw new RangeError(`frame ${this.firstFrame + frame} addresses ${what} rows ${start} to `
             + `${start + count} of a chunk section holding ${available}`);
         }
+      }
+      if (this.#index[at + INDEX_COMMAND_COUNT]! > ACCEPTED_COMMAND_CAPACITY) {
+        throw new RangeError(`frame ${this.firstFrame + frame} publishes more than two accepted commands`);
       }
       const poseStart = this.#index[at + INDEX_POSE_START]!;
       const poseCount = this.#index[at + INDEX_POSE_COUNT]!;
@@ -262,6 +277,10 @@ class FightChunk {
         }
       }
     }
+  }
+
+  acceptedCommands(): Uint8Array {
+    return this.#commands;
   }
 
   /** The frame at `local`, which is `index - firstFrame`. */
@@ -460,6 +479,9 @@ export class StreamingFightSource implements FightSource {
   readonly #chunks: FightChunk[] = [];
   #frames = 0;
   #finished = false;
+  readonly #baseline: Uint8Array;
+  readonly #controlledFaction: number | null;
+  #tail: ArenaFinished | null = null;
 
   constructor(opened: ArenaOpened) {
     // **The exemption is checked and not merely declared.** The arena publishes
@@ -485,11 +507,23 @@ export class StreamingFightSource implements FightSource {
       throw new RangeError(`embodied stance layout ${opened.embodiedStanceLayoutVersion} `
         + `with stride ${opened.embodiedStanceStride} is not supported`);
     }
+    if (opened.acceptedCommandLayoutVersion !== ACCEPTED_COMMAND_LAYOUT_VERSION
+      || opened.acceptedCommandStride !== ACCEPTED_COMMAND_STRIDE
+      || opened.acceptedCommandCapacity !== ACCEPTED_COMMAND_CAPACITY
+      || opened.acceptedCommandSchema !== ACCEPTED_COMMAND_SCHEMA) {
+      throw new RangeError(`accepted-command layout ${opened.acceptedCommandLayoutVersion} `
+        + `with stride ${opened.acceptedCommandStride} is not supported`);
+    }
+    if (opened.replayBaseline.byteLength === 0 || opened.replayBaseline.byteLength > 16_777_216) {
+      throw new RangeError(`replay baseline length ${opened.replayBaseline.byteLength} is outside the codec cap`);
+    }
     if (!Number.isInteger(opened.armMinReach) || opened.armMinReach <= 0
       || opened.armMinReach > opened.one) {
       throw new RangeError(`arm minimum reach ${opened.armMinReach} is outside (0, ${opened.one}]`);
     }
     this.armMinReach = opened.armMinReach;
+    this.#baseline = Uint8Array.from(new Uint8Array(opened.replayBaseline));
+    this.#controlledFaction = opened.controlledFaction;
     this.#header = {
       one: opened.one,
       scenario: opened.scenario,
@@ -524,6 +558,7 @@ export class StreamingFightSource implements FightSource {
       eventStride: opened.combatEventStride,
       projectileStride: opened.articulatedProjectileStride,
       stanceStride: opened.embodiedStanceStride,
+      commandStride: opened.acceptedCommandStride,
     };
     this.#fittings = fittingsOf(this.#header);
   }
@@ -573,7 +608,50 @@ export class StreamingFightSource implements FightSource {
     this.#header.timedOut = tail.timedOut;
     this.#header.ticks = tail.ticks;
     this.#header.truncated = tail.recordingTruncated;
+    this.#tail = tail;
     this.#finished = true;
+  }
+
+  /** Main-thread evidence over the exact rows this source successfully adopted. */
+  controlEvidence(): Uint8Array | null {
+    const tail = this.#tail;
+    if (tail === null || this.#controlledFaction === null || tail.acceptedCommandsDropped !== 0) {
+      return null;
+    }
+    let records = 0;
+    for (const chunk of this.#chunks) records += chunk.acceptedCommands().length / ACCEPTED_COMMAND_STRIDE;
+    const total = 48 + this.#baseline.length + records * ACCEPTED_COMMAND_STRIDE;
+    if (records > 262_144 || records > tail.ticks * ACCEPTED_COMMAND_CAPACITY
+      || total > 16_777_216) return null;
+    const out = new Uint8Array(total);
+    out.set(new TextEncoder().encode("ARPGCTL1"), 0);
+    const view = new DataView(out.buffer);
+    view.setUint16(8, ACCEPTED_COMMAND_SCHEMA, true);
+    view.setUint8(10, 2);
+    view.setUint8(11, 0);
+    view.setUint16(12, ACCEPTED_COMMAND_STRIDE, true);
+    view.setUint16(14, 57, true);
+    view.setUint16(16, 2, true);
+    view.setUint16(18, 0, true);
+    view.setUint32(20, this.#baseline.length, true);
+    view.setUint32(24, tail.ticks, true);
+    view.setUint32(28, records, true);
+    view.setUint8(32, this.#controlledFaction);
+    view.setUint8(33, tail.recordingTruncated ? 1 : 0);
+    view.setUint8(34, tail.stateDigestDomain);
+    view.setUint8(35, 0);
+    view.setUint16(36, tail.stateDigestSchema, true);
+    view.setUint16(38, 0, true);
+    view.setUint32(40, tail.stateDigestLo, true);
+    view.setUint32(44, tail.stateDigestHi, true);
+    out.set(this.#baseline, 48);
+    let at = 48 + this.#baseline.length;
+    for (const chunk of this.#chunks) {
+      const bytes = chunk.acceptedCommands();
+      out.set(bytes, at);
+      at += bytes.length;
+    }
+    return out;
   }
 
   frameCount(): number {

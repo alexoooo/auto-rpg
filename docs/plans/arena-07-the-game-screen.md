@@ -1,6 +1,7 @@
 # Arena 07 -- the arena is the game screen
 
-**Status:** complete. Depends on 06; blocks 08.
+**Status:** implementation complete; foreground visible-browser acceptance remains owed.
+Depends on 06; blocks 08.
 
 The arena currently proves every rendering and control seam in one vertically stacked
 studio page. This session turns those same views into a fixed game screen before cursor
@@ -122,10 +123,10 @@ two frame identities and alpha already used by the pose, taking hip yaw by the s
 turn. Do not mix interpolated pose with latest-tick stance. Death, identity replacement or
 loss of either endpoint switches to Fixed and reports `RELATIVE_CAMERA_SUBJECT_LOST`.
 
-Because camera basis changes pointer meaning, Relative must land before session 09 tunes
+Because camera basis changes pointer meaning, Relative must land before session 10 tunes
 the hand. Promotion, drawers, completed pan/zoom gestures and entering/leaving Relative
 increment the existing camera change serial once. Damped chase frames do not increment it.
-Session 09 repeats its camera-independence drill across all of them.
+Session 10 repeats its camera-independence drill across all of them.
 
 ## Timeout selection
 

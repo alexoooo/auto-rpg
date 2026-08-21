@@ -335,7 +335,7 @@ message is dispatched into a re-entrant `handle()` while the outer one is suspen
 pelvis and step fractions and **no client module reads it**. The twist fraction is what
 says *"you are about to be forced to step"*. Keyboard turning and a weapon physically
 carried by the shoulder make that something the player feels, so it belongs on their HUD,
-and session 09 is where it is drawn.
+and session 10 is where it is drawn.
 
 **Getting it there is transport work and it lands in this session**, because this is the
 session already widening the transport. It is not free: `ARENA_EXPORTS` and the
@@ -343,7 +343,7 @@ session already widening the transport. It is not free: `ARENA_EXPORTS` and the
 export, the recording formerly allocated six buffers with no stance among them, and
 `RECORDING_INDEX_STRIDE` was **9** with no stance start or count. A seventh buffer and
 two more index words move the chunk contract, which is exactly the kind of
-change a documents-and-HUD session budgets no time for. Doing it here keeps session 09
+change a documents-and-HUD session budgets no time for. Doing it here keeps session 10
 honest about its own claim that nothing moves.
 
 ## The keyboard turns the body; the pointer does not
@@ -365,7 +365,7 @@ published Human torso yaw. A held key offsets that achieved heading by the provi
 `BODY_TURN_INPUT_LEAD_RAW = 8_192`, mirrored from Rust's measured standing
 `PLAYER_TURN_LEAD_RAW`; with neither held, the target is the published yaw exactly. This
 closed loop prevents a released turn target from continuing to steer W/A movement while
-the torso catches up. Session 09 owns visible-browser calibration of the shared lead and
+the torso catches up. Session 10 owns visible-browser calibration of the shared lead and
 its feel; session 05 proves deterministic feedback and Q/E separation across refresh
 schedules.
 

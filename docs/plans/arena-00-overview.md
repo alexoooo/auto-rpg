@@ -1,6 +1,6 @@
 # The arena you can fight in -- overview
 
-**Status:** in progress. Sessions 01 through 07 are complete; session 08 is next. The
+**Status:** in progress. Sessions 01 through 08 are complete; session 09 is next. The
 topic opened after the embodied fight's session 07 closed and its plan files were deleted.
 
 The goal, in the owner's words on 2026-08-19: **pick two units side by side with a 3D
@@ -185,7 +185,7 @@ tick and a policy every `decision_period`, so a human hand feels sharper than a 
 half a second of reaction time before any skill is involved.
 
 The plan's position: **keep it, and write it down.** A hand at 60 Hz that only registers
-every thirtieth tick is not a control scheme, it is a complaint. But session 09 records
+every thirtieth tick is not a control scheme, it is a complaint. But session 10 records
 the asymmetry beside its result, because "the human beat `tactical`" is not evidence about
 aiming if the human decided thirty times as often. The honest control is the same recorded
 input replayed against the same policy, which session 05's replay makes free.
@@ -202,8 +202,9 @@ input replayed against the same policy, which session 05's replay makes free.
 | [06](arena-06-the-blow-you-aim.md) | relative pointer motion owns a virtual weapon hand: a stable guard, primary-drag cuts, a secondary-drag extension that makes the thrust reachable in first person, explicit height/reach/elbow-plane mapping and effort with a nonzero moving floor | 05 |
 | [07](arena-07-the-game-screen.md) | a fixed game screen: inspectable previews, drawer-owned secondary views, compact transport/details, life bars, pan, cursor-centred zoom, hover, Relative chase and a selectable pre-fight limit | 06 |
 | [08](arena-08-the-cursor-is-the-hand.md) | the unlocked viewport-saturating cursor and world-space desired-hand guide replace pointer lock before feel is measured | 07 |
-| [09](arena-09-the-hand-is-yours.md) | the control lab: reticle and commanded-versus-achieved feedback, repeatable guards and named cuts against `neutral`, refresh-rate equivalence, and the owner's first tuning pass | 08 |
-| [10](arena-10-the-feel-and-the-close.md) | the full fight against `tactical`, the owner's judgement at a foreground browser, the durable documents, and this plan set deleted | 09 |
+| [09](arena-09-the-command-was-accepted.md) | accepted-command receipts, a codec-produced zero-tick replay baseline, ARPGCTL1 browser evidence and exact full/thinned Lab replay analysis | 08 |
+| [10](arena-10-the-hand-is-yours.md) | the control lab: reticle and commanded-versus-achieved feedback, repeatable guards and named cuts against `neutral`, refresh-rate equivalence, and the owner's first tuning pass | 09 |
+| [11](arena-11-the-feel-and-the-close.md) | the full fight against `tactical`, the owner's judgement at a foreground browser, the durable documents, and this plan set deleted | 10 |
 
 Sessions 01 and 02 are independent and either may go first. 03 needs 02's per-side model;
 04 needs 01's live source to have something to follow. Everything from 05 on is serial.
@@ -262,14 +263,14 @@ HUMAN_ARM_SLOT       strike/right   05; the configured strike hand, falling back
                                      when neither hand strikes. Authority is fixed at
                                      construction and does not move after an amputation
 BODY_TURN_INPUT_LEAD_RAW       8192  05/09; provisional absolute-yaw lead, mirrored from
-                                     Rust's measured `PLAYER_TURN_LEAD_RAW`. Session 09
+                                     Rust's measured `PLAYER_TURN_LEAD_RAW`. Session 10
                                      measures and may replace the shared value in the
                                      control lab; released Q/E rebases to published yaw
 HUMAN_ARM_RESTING_EFFORT        1/2  06; the existing held-guard effort and the floor for
                                      every moving human hand, not a value drag speed may
                                      lower toward zero
 VIRTUAL_HAND_SENSITIVITY      0.006  06/09; provisional arm lengths of virtual-hand travel
-                                     per CSS pixel at the reference viewport. Session 09
+                                     per CSS pixel at the reference viewport. Session 10
                                      owns visible-browser calibration
 CURSOR_HAND_SPAN_ARM_LENGTHS    1.0  08/09; desktop cursor centre-to-edge offset around
                                      the synchronized rest anchor; touch retains 06's
@@ -289,7 +290,7 @@ SWING_DRAG_FULL_EFFORT_PX_S    900   06/09; provisional drag speed that maps mov
 SWING_DRAG_FULL_REACH_ARM_LENGTHS 1  06; derived: the virtual hand's unit disc, with the
                                      physical minimum reach at its centre and full reach
                                      at its rim
-VIRTUAL_HAND_REFERENCE_VIEWPORT_PX 1000 06; CSS-height normalization reference; session 09
+VIRTUAL_HAND_REFERENCE_VIEWPORT_PX 1000 06; CSS-height normalization reference; session 10
                                      remeasures both promoted views rather than assuming equality
 ARENA_CLOSE_UP_RADIUS           --   04; the nearest the 3/4 camera may come to a body,
                                      bounded below by NEAR_PLANE and the head capsule
@@ -297,7 +298,7 @@ ARENA_CLOSE_UP_RADIUS           --   04; the nearest the 3/4 camera may come to 
 
 Seven are deliberately left `--`. Six are the control lab's feel constants; the seventh,
 `ARENA_CLOSE_UP_RADIUS`, is session 04's camera bound, written there as a placeholder 0.9
-and judged at the owner's browser in session 10. A placeholder number in this table is a
+and judged at the owner's browser in session 11. A placeholder number in this table is a
 number somebody quotes.
 
 ## Hash expectations
@@ -406,7 +407,7 @@ feeling the result.
 | a human-driven fight replayed from its recorded commands | -- | **the same `state_digest`**, with neither the human nor the policy in the room | 05 |
 | every policy and control the picker can send | -- | **takes effect, or comes back as a named refusal a test can assert** | 02, 05 |
 
-**The row that closes the topic is not in that table.** Session 10 puts the owner at a
+**The row that closes the topic is not in that table.** Session 11 puts the owner at a
 foreground browser with their hands on it, and only their answer to *"does it control
 well?"* finishes this. A green suite is evidence that it runs, not evidence that it is
 worth playing, and those are different claims -- the same distinction the embodied fight

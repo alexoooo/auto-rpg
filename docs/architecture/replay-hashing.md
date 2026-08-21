@@ -57,6 +57,12 @@ adds the scenario-owned combat-spec extension. Exact bytes and caps live in
 [`replay-codec-v1.md`](../reference/replay-codec-v1.md) and
 [`replay-codec-v2-combat-specs.md`](../reference/replay-codec-v2-combat-specs.md).
 
+`ReplayEnvelope::from_replay` is the canonical constructor for a host that needs durable
+bytes from an already validated in-memory replay. The arena uses it for the zero-tick
+baseline inside [control evidence](../reference/arena-control-evidence-v1.md), then appends
+only commands the authoritative submit path accepted. This seam does not create another
+codec or relax replay validation; the Lab reader decodes the resulting envelope normally.
+
 Its input vocabulary is also narrower than every current host mutation:
 legacy or versioned submitted commands, orders, and objectives are recorded,
 while browser editing mutators are not. A caller that changes bodies, stats,

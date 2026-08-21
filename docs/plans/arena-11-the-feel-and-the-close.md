@@ -1,8 +1,8 @@
-# Arena 10 -- the fight, the documents, and the close
+# Arena 11 -- the fight, the documents, and the close
 
-**Status:** ready once session 09 has passed every control drill. Closes the topic.
+**Status:** ready once session 10 has passed every control drill. Closes the topic.
 
-Sessions 05 and 06 prove that input reaches an independently controlled hand. Session 09
+Sessions 05 and 06 prove that input reaches an independently controlled hand. Session 10
 proves that the owner can deliberately place guards and name repeatable cuts against a
 neutral body. This session asks the harder question in the owner's original words: **does
 it control well in a fight?** It then moves the plan's knowledge into durable documents
@@ -152,7 +152,7 @@ five commits. This close verifies no durable document restores a superseded name
 ## Hash expectations
 
 **Nothing moves.** A final play pass, prose and plan deletions do not reach authoritative
-state. If a mechanics session was inserted because session 09 found one necessary, that
+state. If a mechanics session was inserted because session 10 found one necessary, that
 session owns and predicts its own hash movement before this close resumes.
 
 The browser goldens that once caught accidental authoritative changes are retired, so the

@@ -238,7 +238,7 @@ this protocol.
 
 `ticksDue: 0` is the stage-only stop command: it validates and stages neutral input,
 acknowledges zero stepped ticks, and publishes no frame. Blur, hidden visibility,
-pointer-lock loss and pause send it asynchronously as soon as any previous tick settles,
+direct-control release and pause send it asynchronously as soon as any previous tick settles,
 without waiting for another animation frame. A newer resume invalidates that stop so a
 late neutral acknowledgement cannot pause fresh input.
 
@@ -249,7 +249,8 @@ wait without turning a late, valid final credit into an `invalidMessage` error.
 The protocol tag remains V2 because the main and worker ship in one bundle and the only
 compatibility promise is an exact V1 session. The widened live stream is nevertheless
 self-describing and fail-fast: `arenaOpened` declares `arenaStreamLayoutVersion`,
-`recordingIndexStride`, and the stance layout, stride and capacity before any chunk is
+`recordingIndexStride`, the stance layout, stride and capacity, and the accepted-command
+layout, stride, capacity and schema before any chunk is
 accepted. A mismatch terminates the arena client by name rather than waiting forever.
 
 <!-- DOC_CONTRACT: worker-recording-transfer -->
@@ -267,16 +268,16 @@ not a tidy-up. Everything below it was rewritten instead.
 
 | message | when | carries |
 |---|---|---|
-| `arenaOpened` | after `arena_start` returns and the first publication is read, before the first step | `spectator: true`, stream/index and publication layout declarations, `one`, `scenario`, `fingerprint`, `seed`, honest side-driver labels, `checkpoint`, `maxTicks`, `arena`, `armMinReach`, the two thresholds, the name lists, and the per-body anatomy and carried blocks |
-| `arenaChunk` | every `ARENA_STREAM_CHUNK_TICKS`, or each controlled tick | **seven** `ArrayBuffer`s holding only that chunk's frames, plus `firstFrame` and `frameCount` |
-| `arenaFinished` | when the drive settles or caps out | `outcome`, `timedOut`, `ticks`, `frameCount`, `recordingTruncated`, and the five drop counters |
+| `arenaOpened` | after `arena_start` returns and the first publication is read, before the first step | `spectator: true`, stream/index and publication layout declarations, accepted-command layout/stride/capacity/schema, the zero-tick replay baseline, controlled faction, `one`, `scenario`, `fingerprint`, `seed`, honest side-driver labels, `checkpoint`, `maxTicks`, `arena`, `armMinReach`, the two thresholds, the name lists, and the per-body anatomy and carried blocks |
+| `arenaChunk` | every `ARENA_STREAM_CHUNK_TICKS`, or each controlled tick | **eight** `ArrayBuffer`s holding only that chunk's frames, plus `firstFrame` and `frameCount` |
+| `arenaFinished` | when the drive settles or caps out | `outcome`, `timedOut`, `ticks`, `frameCount`, `recordingTruncated`, six drop counters and the typed final state digest |
 
 **`arenaProgress` was deleted rather than kept beside these.** It carried a tick count so
 a page could show a bar while it waited for a fight it could not yet see; a chunk already
 says how far the fight has got, and the page is *drawing* that frame. Two messages
 answering one question is how one of them goes stale.
 
-**The count of buffers in a chunk is seven and this table used to say five.** The section
+**The count of buffers in a chunk is eight and this table used to say five.** The section
 it replaced listed `poses`, `regions`, `events`, `index` and `health` and omitted
 `projectiles`, which the code had transferred since the row existed. Count from the list
 below, never from a sentence.
@@ -288,13 +289,18 @@ below, never from a sentence.
 | `projectiles` | `u32` | articulated-projectile rows, `ARTICULATED_PROJECTILE_STRIDE` words each |
 | `events` | `u32` | combat-event rows, packed, `COMBAT_EVENT_STRIDE` words each |
 | `stances` | `u32` | live embodied-stance rows, joined to poses by full `(index, generation)` identity |
-| `index` | `u32` | **eleven** words a frame: tick, then a start and a count per section |
+| `commands` | `u8` | accepted stored-command rows, two at most per authoritative tick |
+| `index` | `u32` | **thirteen** words a frame: tick, then a start and a count per section |
 | `health` | `i32` | two raw `Fx` a frame: the Heroes' and the Monsters' health fraction |
 
 Stance is optional live presentation data and does not widen `TRACE_SCHEMA` or lab JSON.
 Old trace frames therefore have no `stances` field. A live stance row that matches only
 an index but not its generation is refused; stance length is not assumed to be a fixed
 multiple of pose length.
+
+Accepted commands are likewise live-only and do not widen `TRACE_SCHEMA` or fight JSON.
+Their separate evidence grammar and exact replay requirement are
+[arena control evidence V1](arena-control-evidence-v1.md).
 
 It does not use the snapshot pool, for three independently sufficient reasons: the pool
 zero-fills a whole buffer on every return and is sized for one publication; it

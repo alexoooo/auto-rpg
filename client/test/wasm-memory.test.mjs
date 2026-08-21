@@ -1249,7 +1249,7 @@ const CHECKPOINT = path.join(root, "checkpoints", "v2-probe.ckpt");
 /** The picker's own vocabulary, as the arena route will assemble it. */
 function liveConfig({ heroes = "scripted", monsters = "scripted", seed = 3,
   hands = [["shield", "sword"], ["empty", "club"]], twoHanded = [false, false],
-  anatomies = [0, 1] } = {}) {
+  anatomies = [0, 1], maxTicks = CONFIG.ARENA_MAX_TICKS } = {}) {
   const policy = (name) => {
     const code = CONFIG.policyCodeOf(name);
     assert.notEqual(code, null, `${name} is not an embodied policy code`);
@@ -1264,7 +1264,7 @@ function liveConfig({ heroes = "scripted", monsters = "scripted", seed = 3,
       hands: [CONFIG.HAND_ITEMS[hands[side][0]], CONFIG.HAND_ITEMS[hands[side][1]]],
       twoHanded: twoHanded[side],
     })),
-    maxTicks: CONFIG.ARENA_MAX_TICKS,
+    maxTicks,
     seed,
   };
 }
@@ -1307,6 +1307,10 @@ function reassemble(opened, chunks) {
       RECORDER.INDEX_PROJECTILE_START, RECORDER.INDEX_PROJECTILE_COUNT],
     ["events", opened.combatEventStride,
       RECORDER.INDEX_EVENT_START, RECORDER.INDEX_EVENT_COUNT],
+    ["stances", opened.embodiedStanceStride,
+      RECORDER.INDEX_STANCE_START, RECORDER.INDEX_STANCE_COUNT],
+    ["commands", opened.acceptedCommandStride,
+      RECORDER.INDEX_COMMAND_START, RECORDER.INDEX_COMMAND_COUNT, Uint8Array],
   ];
   const words = new Map(sections.map(([name]) => [name, []]));
   const index = [];
@@ -1330,8 +1334,8 @@ function reassemble(opened, chunks) {
       }
       index.push(...row);
     }
-    for (const [name, stride] of sections) {
-      const section = new Uint32Array(chunk[name]);
+    for (const [name, stride, , , View = Uint32Array] of sections) {
+      const section = new View(chunk[name]);
       assert.equal(section.length % stride, 0, `${name} is not a whole number of rows`);
       words.get(name).push(...section);
       bases.set(name, bases.get(name) + section.length / stride);
@@ -1340,7 +1344,7 @@ function reassemble(opened, chunks) {
     frames += chunk.frameCount;
   }
   const out = { frameCount: frames, index: Uint32Array.from(index), health: Int32Array.from(health) };
-  for (const [name] of sections) out[name] = Uint32Array.from(words.get(name));
+  for (const [name, , , , View = Uint32Array] of sections) out[name] = View.from(words.get(name));
   return out;
 }
 
@@ -1388,10 +1392,11 @@ async function recordLive(wasm, config, { checkpoint = null, cancelAfter = null 
   };
 }
 
-/** The six buffers, copied, so one set can be adopted and the other inspected. */
+/** The eight buffers, copied, so one set can be adopted and the other inspected. */
 function copyOf(chunk) {
   const out = {};
-  for (const name of ["poses", "regions", "projectiles", "events", "index", "health"]) {
+  for (const name of ["poses", "regions", "projectiles", "events", "stances", "commands",
+    "index", "health"]) {
     out[name] = chunk[name].slice(0);
   }
   return out;
@@ -1437,6 +1442,8 @@ test("real_wasm_human_forward_back_and_strafe_rebase_yaw_and_do_not_circle", () 
     assert.ok(CONFIG.arenaStarted(started), CONFIG.describeArenaRefusal(started));
     assert.equal(adapter.control(0), CONFIG.ARENA_CONTROL_HUMAN);
     assert.equal(adapter.control(1), CONFIG.ARENA_CONTROL_POLICY);
+    assert.ok(adapter.replayBaseline().length > 0,
+      "the real arena exposed no zero-tick replay baseline");
 
     let publication = adapter.read();
     const opponent = pose(publication, 1).id;
@@ -1480,6 +1487,19 @@ test("real_wasm_human_forward_back_and_strafe_rebase_yaw_and_do_not_circle", () 
       assert.ok(CONFIG.arenaStarted(staged), CONFIG.describeArenaRefusal(staged));
       adapter.step();
       publication = adapter.read();
+      assert.ok(publication.commandRows >= 1 && publication.commandRows <= 2,
+        `the real tick published ${publication.commandRows} accepted commands`);
+      const accepted = [];
+      for (let rowIndex = 0; rowIndex < publication.commandRows; rowIndex += 1) {
+        const at = rowIndex * RECORDER.ACCEPTED_COMMAND_STRIDE;
+        const receipt = new DataView(publication.commands.buffer,
+          publication.commands.byteOffset + at, RECORDER.ACCEPTED_COMMAND_STRIDE);
+        if (receipt.getUint32(4, true) === before.id[0]
+          && receipt.getUint32(8, true) === before.id[1]) accepted.push(receipt);
+      }
+      assert.equal(accepted.length, 1, `${code} did not publish exactly one Human receipt`);
+      assert.deepEqual([...new Uint8Array(accepted[0].buffer, accepted[0].byteOffset + 13, 57)],
+        [...bytes.subarray(4)], `${code} receipt differs from the staged payload`);
       const after = pose(publication, 0);
       assert.equal(after.yaw, opening.yaw, `${code} spun the real Human body at tick ${tick + 1}`);
       path.push([after.x - opening.x, after.y - opening.y]);
@@ -1819,7 +1839,10 @@ test("a_live_fight_matches_the_traced_fight", async (t) => {
     const wasm = instantiate();
     const config = liveConfig({
       heroes: trace.heroes, monsters: trace.monsters, seed: trace.seed,
+      maxTicks: trace.maxTicks,
     });
+    assert.equal(config.maxTicks, trace.maxTicks,
+      `${fixture.file}: live configuration does not use the trace tick horizon`);
     const { source: live } = await recordLive(wasm, config,
       { checkpoint: trace.checkpoint === null ? null : checkpoint });
     const where = `${fixture.file}: `;

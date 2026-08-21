@@ -304,13 +304,16 @@ maps `W`/`S` to torso forward/back, `A`/`D` to sidestep, and `Q`/`E` to an absol
 yaw target. Every freshly sampled authoritative tick rebases that target on the latest
 published Human torso yaw. Held `Q`/`E` adds or subtracts the provisional 8,192-raw
 `PLAYER_TURN_LEAD_RAW`; with neither held, the target is the published yaw itself, so a
-released turn leaves no stale heading for forward or strafe input to chase. Relative
-pointer or touch motion owns the configured strike hand: cut moves its stored desired
-point in the active camera plane, extension scales the shoulder-to-hand line, and neither
-changes navigation or yaw. The Babylon camera basis is converted back to simulation axes
-before it touches published pose points. Blur, hidden visibility, pause, pointer-lock loss
-and touch-capture loss clear powered levels, stage neutral, release capture, and stop
-the clock until a fresh gesture. The camera follows the Human side by default.
+released turn leaves no stale heading for forward or strafe input to chase. An ordinary
+visible mouse cursor maps the active viewport's radial unit disc around the synchronized
+rest hand into the active camera plane; revisiting one cursor point revisits one command,
+and an edge saturates without accumulating hidden motion. A captured touch gesture keeps
+the relative grammar. Primary cut and secondary extension capture only their pointer,
+consume the final release sample, and change neither navigation nor yaw. The Babylon
+camera basis is converted back to simulation axes before it touches published pose
+points. Blur, hidden visibility, pause, capture loss, finish and renderer loss clear
+powered levels, stage neutral, release capture, and stop the clock. The camera follows
+the Human side by default.
 
 The arena was originally spectator-only: two loadouts, two policies and a seed decided
 the fight before the first frame, and the panels only watched and scrubbed it. The two
@@ -325,7 +328,7 @@ but the picker, the stage layout and the two first-person viewports all do.
 of the 120-byte buffer spends the first of the fighter block's two
 reserved bytes on a control byte -- `0` policy-driven, `1` human-driven -- and the picker
 offers it as one "driven by" list of the five policies plus
-`you (keys + direct hand)`,
+`you (keys + visible cursor hand)`,
 revealing an off-hand policy row when the last is chosen. Both sides cannot be Human,
 and the picker requires a strike hand (right, else left, else the empty Right fallback)
 before starting. `ARENA_CONTROL_UNAVAILABLE` (`29`) remains retired and spent;
@@ -341,7 +344,8 @@ owns it, its exports and its refusal table.
 ## The trace file is a two-file contract
 
 `#/arena` runs its own fight -- it writes a configuration, a Worker of its own drives
-the duel in wasm, and the transferred pose, region, projectile and combat-event rows
+the duel in wasm, and the transferred pose, region, projectile, combat-event, stance and
+accepted-command rows
 are what the page draws -- but it still plays a recorded `lab trace` file through the
 same `FightSource` seam when one is named by `?trace=`. `npm run view`, which is Vite
 with no wasm build, is enough to *open* the route, because the Worker is constructed
@@ -358,6 +362,15 @@ rather than a claim about one is `a_live_fight_matches_the_traced_fight`, which 
 the streamed fight against `lab trace`'s file for every tick of two whole fights --
 3,601 frames each, field for field. The channel is
 [worker protocol](../reference/worker-protocol.md#the-recording-and-why-it-is-not-the-pooled-buffer).
+
+Accepted commands remain a live side publication and do not widen `TRACE_SCHEMA` or the
+Lab fight JSON. At each authoritative step wasm publishes the at-most-two commands that
+`World::submit` actually stored, not the browser events or candidate bytes that preceded
+submission. A Human finish with no dropped rows enables an **[Evidence]** download: a
+bounded `ARPGCTL1` file containing a canonical zero-tick replay baseline, those accepted
+rows and the final typed state digest. The independent Lab reader must replay the full
+stream to that digest before it reports either the full or thinned analysis. The durable
+byte grammar is [arena control evidence V1](../reference/arena-control-evidence-v1.md).
 
 The picker preserves the shipped one-minute default (`3,600` ticks) and offers one,
 three, five and ten minutes before a fight. Ten minutes (`36,000` ticks) is both the UI
