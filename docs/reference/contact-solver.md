@@ -335,14 +335,23 @@ Add exact compatibility APIs:
 pub enum ContactCapacityError { EntityLimit, PairCount, CandidateCount, ResolutionCount,
                                 ColliderCount, EnergyNumerator, GeometryEnvelope,
                                 Allocation }
-pub enum WorldBuildError { CombatSpec(CombatSpecError), Contact(ContactCapacityError) }
-pub enum SpawnError { CombatSpec(CombatSpecError), Contact(ContactCapacityError) }
+pub enum WorldBuildError { CombatSpec(CombatSpecError), InitialSelfOverlap,
+                           Contact(ContactCapacityError) }
+pub enum SpawnError { CombatSpec(CombatSpecError), InitialSelfOverlap,
+                      Contact(ContactCapacityError) }
 
 pub fn World::try_new(scenario: &Scenario, seed: u64) -> Result<World,WorldBuildError>;
 pub fn World::try_spawn(&mut self, spec: &UnitSpec) -> Result<EntityId,SpawnError>;
 pub fn World::try_reserve_contact_slots(&mut self, high_water: usize)
     -> Result<(),ContactCapacityError>;
 ```
+
+`InitialSelfOverlap` refuses a prospective pose whose held or shield geometry already
+crosses the opposite arm, held item, or shield. The shipped Fighter and Brute retain
+their structural arm/body entry overlaps; the per-tick release law lets those pairs
+clear before protecting them from re-entry. Scenario fingerprinting, `try_new`, and
+`try_spawn` all validate the same pure initial-pose record before reserving or mutating
+world storage.
 
 `World::new` and `World::spawn` remain source-compatible wrappers that call the typed
 form and panic before mutation on error. `try_new` validates combat construction and
@@ -625,8 +634,13 @@ is velocity. It costs nothing, because `hand = tick-entry hand + relative veloci
 this contract's own identity in both directions: an arm's generalized velocity *is* its
 hand's displacement over the tick, which is exactly what the commit writes back. So a
 trial reads `entry_hand + ((trial_equipment_velocity - velocity_offset) -
-trial_body_velocity)`, maps it through `inverse_hand`/`hand_position`, and reports
-`trial_body_velocity + (reachable_hand - entry_hand) + velocity_offset`. With a zero
+trial_body_velocity)`, brackets the linear `entry_hand -> trial_hand` path against both
+limits of the two-link elbow annulus, maps the last reachable point through
+`inverse_hand`/`reachable_extent`/`hand_position`, and reports
+`trial_body_velocity + (reachable_hand - entry_hand) + velocity_offset`. The same
+achieved endpoint is therefore the velocity the energy check prices, the joint pose the
+commit stores, and the hand/forearm publication derives; contact cannot buy an
+unreachable hand and repair it after the ledger has closed. With a zero
 accumulator that round-trips to the pose the actuator left, which is why an unchanged
 row must be recognised as unchanged rather than re-derived — see the commit rule below.
 
@@ -659,7 +673,8 @@ what makes a single reference correct: the actuator's own motion this tick is al
 billed on its own speeds, and re-billing it would report a swing's rate as the block's.
 An arm whose only change is the entry clamp has no group, and answers a whole tick.
 
-At final commit, every contacted arm—not only `Both`—keeps
+At final commit, every contacted arm—not only `Both`—reuses that same linear annulus
+constraint before writing its scalar joint pose. It keeps
 `previous_hand=tick_entry.hand` and writes `linear_velocity=final_relative_hand-
 previous_hand`. Its scalar speeds use the remaining-fraction rule above; when
 `t==65_536` they are zero.
@@ -704,6 +719,17 @@ right-hand release row at tick 54, with two live runs and replay equal through t
 horizon. These lifecycle rows are covered by Smart122's feature-only trajectory
 digest; Smart123's solver corpus stops at first contact and does not claim them. They
 are not group loss, injury, or a claim that the feature is default authority.
+
+An exact contact response can also end outside the owner's two-link elbow annulus.
+The lifted contact solve deliberately keeps its registered feasibility law; the joint
+limit is a later physical reaction, not a new contact candidate. Before staging commit,
+the simulator maps the tick-entry-to-solved-hand segment to its last representable
+reachable point, applies the same displacement to the exact held position and momentum,
+and records the signed kinetic-energy change on that limb's lane under external reason
+`ANATOMICAL_CONSTRAINT = 64`. It then rebases the exact owner. Commit stores that already
+reachable hand and COM state without a second inverse/forward projection. The row creates
+no wound, event, block, parry, opponent-contact credit or contact-group energy, while its
+reason, lane, numerator and denominator remain authoritative state and replay/hash input.
 
 The arm poses are fixed against the *solver's* body origin, before settlement moves it.
 A wall push is rigid: it must carry body and arms together, and measuring the relative
@@ -828,12 +854,12 @@ ticks and allocated before the phase. The native/wasm stack audit records a 422,
 byte active feature call chain, and both feature digests are cached at the browser
 boundary without second-call memory growth. They have separate jobs:
 
-- `EXACT_TRAJECTORY_STATE_DIGEST = 0x83051e8c6b4ef20f` pins Smart122's 56-tick
-  ordinary north-wall trajectory, replay, remainder, wall and later-release
-  lifecycle.
-- `LIFTED_COULOMB_SOLVER_DIGEST = 0x83cd7bb2b73aeb9e` pins Smart123's eighteen
-  source-41 cases, each stopped at its first qualifying contact, including the solver
-  row, post-contact state, anatomy and refusal grammar.
+- `EXACT_TRAJECTORY_STATE_DIGEST = 0x5ac6679a0565ca96` pins the V2 56-tick
+  ordinary north-wall command stream, replay, self-constraint witness and terminal
+  no-contact outcome, plus its state/external/release/refusal/cap grammar.
+- `LIFTED_COULOMB_SOLVER_DIGEST = 0x6c87b7b1ff935069` pins the V2 eighteen-case
+  source-41 corpus with frozen inputs, optional contact mechanics, terminal outcome,
+  self-constraint witness, post-state, anatomy and refusal/cap grammar.
 
 Their split exports are absent from the default wasm. Native/wasm agreement makes
 them portability and grammar pins; neither is the unregistered feature stream

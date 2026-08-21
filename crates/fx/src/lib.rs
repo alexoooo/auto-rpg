@@ -50,9 +50,12 @@ pub use geom::{
 };
 pub use geom3::{
     closest_points_on_segments, closest_points_segment_rectangle,
-    combat_geometry_boundary_digest, combat_geometry_digest, segment_plane,
-    swept_segment_rectangle, swept_segment_segment, swept_segment_sphere,
-    swept_segment_vertical_capsule, ClosestPoints, SegmentRectangleClosest, TimeOfImpact,
+    combat_geometry_boundary_digest, combat_geometry_digest,
+    conservative_first_clear, conservative_sweep_after_release_bracket, segment_plane,
+    swept_segment_rectangle, swept_segment_rectangle_bracket, swept_segment_segment,
+    swept_segment_segment_bracket, swept_segment_sphere, swept_segment_sphere_bracket,
+    swept_segment_vertical_capsule, swept_segment_vertical_capsule_bracket, ClosestPoints,
+    SegmentRectangleClosest, SweepBracket, TimeOfImpact,
 };
 pub use hash::Hash64;
 pub use rng::Rng;

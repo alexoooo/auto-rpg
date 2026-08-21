@@ -197,12 +197,30 @@ pub(super) fn fragile_scenario(fragile: &[usize]) -> Scenario {
 /// fatigue and a hand velocity into the answer; what these tests are about
 /// is the wound a contact makes, and the pose is the fixture, not the
 /// question.
+///
+/// **Through `reachable_pose`, and it was `hand_position` at `Fx::ONE` until
+/// 2026-08-21, which is a pose no embodied body can hold.** `reach` is
+/// measured from the *body*, not the shoulder: at `CombatHeight::MID` this
+/// anatomy's shoulder sits half a unit above the braced hand, so a fully
+/// extended `Fx::ONE` put the hand 59,073 raw from a shoulder whose two links
+/// span 49,152 -- twenty per cent past the arm's own reach. Nothing noticed
+/// while the contact commit re-derived the pose from scalars; the exact
+/// anatomical projection added this session *does* notice, and corrected the
+/// impossible pose mid-contact, which made every fixture built on it a
+/// fixture about a body that cannot exist.
+///
+/// `reachable_extent` is what production always applies between a commanded
+/// extent and a realised hand, and `reachable_pose` closes the last raw unit
+/// of it. Skipping both was the shortcut, and it predates the elbow.
 pub(super) fn brace_weapon(world: &mut World, i: usize) {
     let spec = world.anatomy_spec(i).cloned().expect("articulated anatomy");
     let yaw = world.body_yaw[i].angle;
-    let hand = actuator::hand_position(&spec, yaw, 1, yaw, crate::CombatHeight::MID, Fx::ONE);
+    let links = crate::combat::limb::Elbow::of(&spec);
+    let (height, reach, hand) = crate::combat::limb::reachable_pose(
+        &spec, yaw, 1, yaw, crate::CombatHeight::MID, Fx::ONE, links);
     world.arms[i][1].bearing = yaw;
-    world.arms[i][1].reach = Fx::ONE;
+    world.arms[i][1].height = height;
+    world.arms[i][1].reach = reach;
     world.arms[i][1].hand = hand;
     world.arms[i][1].previous_hand = hand;
 }
@@ -224,9 +242,17 @@ pub(super) fn resolve_closing(world: &mut World, closing: &[(usize, Fx)]) {
 }
 
 /// The braced fighter, the closing brute, and the region the sword chose.
+///
+/// The closing body starts one braced-hand's worth of correction nearer than
+/// its spawn, for the reason [`brace_weapon`] gives: the braced hand came back
+/// 12,518 raw when it stopped posing past its own arm, and the blade came with
+/// it. Closing the gap by exactly that distance restores the geometry at the
+/// moment of impact and leaves the closing speed -- and so the energy this
+/// fixture's wounds are made of -- untouched.
 pub(super) fn braced_thrust(scenario: &Scenario) -> (World, u8) {
     let mut world = World::new(scenario, 1000);
     brace_weapon(&mut world, 0);
+    world.pos[1].x = world.pos[1].x - Fx::from_raw(12_518);
     resolve_closing(&mut world, &[(1, -Fx::ONE)]);
     let region = world.contact_resolutions().iter()
         .find(|row| row.fact.key.kind == ContactKind::WeaponBody)

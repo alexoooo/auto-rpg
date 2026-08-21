@@ -71,6 +71,23 @@ scheme: replaying the same viewport, basis and point must reproduce the same com
 `movementX` and `movementY` are deliberately absent from those rows. Touch rows retain
 the reduced centroid and name their captured owner.
 
+### Presentation-latency rows
+
+The host-side report keeps five timestamps that must not be merged: the physical sample
+which produced an eligible candidate, submission of its request for tick `T`, arrival of
+publication `T + 1`, settlement of the later host acknowledgement, and the rAF which first
+displayed that publication. It reports sample-to-submission, submission-to-publication,
+publication-to-acknowledgement and publication-to-display distributions beside the
+desired-to-achieved arm-length error distribution. Each latency row also retains the exact
+primary-arm target encoded by its request; report construction refuses unless that row is
+byte-equal to the authoritative receipt at `T`. Thus a later eligible mouse sample cannot
+be silently reported against an earlier in-flight target. The worker publishes the chunk
+before it acknowledges the request, so calling acknowledgement arrival "acceptance" would
+make the prior publication look like negative latency. A row without its request-owned sample,
+the exact `T` to `T + 1` publication, acknowledgement or later display is refused as
+`CONTROL_LATENCY_JOIN_REFUSED`; terminal report creation waits for that display rather
+than backdating it to the worker message.
+
 Pointer moves are coalesced against a fixed `1000 / 120` ms anchor only while that anchor
 is still the last row and has the same attempt, channel, action, powered state, device and
 capture owner. Any discrete append invalidates it, so a final endpoint can never be crossed
@@ -201,5 +218,9 @@ like aiming.
 ## Result
 
 Arena 10's preset, reset, event sidecar, receipt join, classifier, HUD and two evidence
-downloads are implemented and automated. No foreground pass, calibration value,
-win-rate claim, owner verdict or comfort judgement has been recorded.
+downloads are implemented and automated. The Session 03 client fixture additionally
+holds two eligible absolute mouse samples before a control tick, proves the later sample
+is the next request and accepted receipt, and keeps a deliberately slow half-effort row
+distinct from a full-effort row. Those are reducer/receipt invariants, not an actuator-rate
+measurement: authoritative arm rates remain exclusively in the simulator. No foreground
+pass, calibration value, win-rate claim, owner verdict or comfort judgement has been recorded.

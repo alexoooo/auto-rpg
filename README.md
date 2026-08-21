@@ -424,7 +424,7 @@ evidence](docs/performance/evidence/2026-08-combat-mechanics.md).
 
 ## Where this goes next
 
-The remaining implementation roadmap is [the arena you can fight in](docs/plans/arena-00-overview.md).
+The remaining implementation roadmap is [the responsive arena](docs/plans/arena-response-00-overview.md).
 Completed sessions are removed from it, and the whole set goes in the commit that closes
 the topic — the embodied fight closed that way. Shipped behavior and unresolved measured
 limits remain with the design, architecture, reference, and performance documents

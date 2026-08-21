@@ -5520,7 +5520,11 @@ test("the_arena_stage_owns_every_engine_it_builds_including_one_it_fails_on", as
     assert.equal(guideDraws, 0,
       "refreshing the stored Human guide rasterised an extra Babylon frame");
     stage.show(arenaView([arenaPose(), arenaPose({ index: 1, x: 11 })]));
-    assert.equal(guideDraws, 1, "the ordinary stage draw did not render the updated guide");
+    assert.equal(guideDraws, 0, "a stage mutation drew outside the display-frame owner");
+    assert.equal(stage.draw(), true, "the display owner did not flush the updated guide");
+    assert.equal(stage.draw(), false, "an unchanged display callback submitted a second Babylon draw");
+    assert.equal(guideDraws, 1);
+    assert.equal(stage.renderCount(), 1, "the sole draw owner did not publish its cumulative count");
     stage.resize();
     assert.deepEqual(built[0].scaling, [0.5, 0.5]);
     stage.clear();
@@ -7053,6 +7057,21 @@ test("the_frame_meter_discards_hidden_time_and_resets_between_route_mounts", () 
   const remounted = new frameMeter.GameFrameMeter();
   assert.equal(remounted.reading, null);
   assert.equal(remounted.label, "-- FPS / -- ms worst");
+});
+
+test("arena_frame_meter_separates_display_callbacks_from_babylon_draws", () => {
+  const meter = new frameMeter.ArenaFrameMeter();
+  meter.advance(0, 0, "paused");
+  for (const [now, renders] of [[100, 1], [200, 1], [300, 2], [400, 2], [500, 2]]) {
+    meter.advance(now, renders, "ready");
+  }
+  assert.deepEqual(meter.reading, Object.freeze({ displayFps: 10, renderFps: 4,
+    worstMs: 100, budgetMs: 100, wait: "ready" }));
+  assert.equal(meter.label, "10 display / 4 3D / 100 ms worst / 100.0 ms budget / ready");
+  assert.match(meter.ariaLabel, /10 callbacks per second.*4 three dimensional renders/s);
+  meter.reset(1_000, 2);
+  assert.equal(meter.reading, null);
+  assert.throws(() => meter.advance(1_001, -1, "ready"), /render count/);
 });
 
 test("the_six_view_modes_share_one_worker_snapshot_and_identity_registry", async () => {

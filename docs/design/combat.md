@@ -2,7 +2,7 @@
 
 **Purpose:** Preserve the rationale, measured corrections, and trade-offs behind the current combat model.
 **Status:** current
-**Canonical source:** [`World` combat phases](../../crates/sim/src/world/mod.rs#L1661), [`Hand`](../../crates/sim/src/hand.rs#L182), and [`rules`](../../crates/sim/src/rules.rs#L1)
+**Canonical source:** [`World` combat phases](../../crates/sim/src/world/mod.rs#L1657), [`Hand`](../../crates/sim/src/hand.rs#L182), and [`rules`](../../crates/sim/src/rules.rs#L1)
 **Update when:** Limb state, action roles, collision, damage, recoil, perception, recovery, regeneration, or timeout design changes.
 
 This document explains why the mechanics have their current shape. Exact enum
@@ -65,9 +65,18 @@ it to 135 degrees on either side. That retains 45 degrees of rear reach but refu
 directly-behind half-turn that let a circular mouse path pull an arm and weapon through
 their owner. The clamp belongs to the simulator, not the browser, so Human, policy,
 replay, and native trace commands all obey the same law; both the actuator and the
-published target read the projected value. This is a rear target envelope, not full
-swept self-collision between the blade, torso, and opposite arm. That broader collision
-phase remains separate mechanics.
+published target read the projected value. The rear target envelope is only the
+desired-target bound. Achieved motion is also subject to deterministic swept
+self-collision between the two jointed arms, held segments, shields, and the owner's
+body. This is a kinematic constraint, not a hit: it causes no wound, damage, impulse or
+combat event. A structural pair that starts overlapped may move out, but once clear it
+cannot sweep back through the owner in the same tick. The target remains desired intent
+while the published pose reports the constrained achieved hand.
+An opponent's impulse cannot pull the hand outside the same anatomy either. The default
+response prices the last reachable point of the linear tick-entry-to-contact path. The
+exact response records its post-solve joint reaction as external anatomical energy while
+moving retained hand momentum to that same point. Commit then adds no second projection,
+keeping the authoritative hand, elbow, forearm and energy authority together.
 
 Evidence begins after submission, not at the input reducer. The arena publishes only
 commands `World::submit` accepted as stored, with full entity generation and tick, and a
@@ -476,7 +485,7 @@ anchors whose wording did not become standalone headings here:
 - Limb phases, and where the machine that ran them went: [`hand.rs`](../../crates/sim/src/hand.rs#L1)
 - Action roles and registry: [`action.rs`](../../crates/sim/src/action.rs#L28)
 - Loadout mutation: [`loadout.rs`](../../crates/sim/src/loadout.rs#L18)
-- Tick ordering and combat resolution: [`world/mod.rs`](../../crates/sim/src/world/mod.rs#L1725)
+- Tick ordering and combat resolution: [`world/mod.rs`](../../crates/sim/src/world/mod.rs#L1680)
 - Damage, blocking and recovery constants, and why regeneration is not among them: [`rules.rs`](../../crates/sim/src/rules.rs#L37)
 - Spacing and stance decisions: **no longer owned by a policy in this repository.**
   `duelist.rs` was deleted with the legacy seam in embodied session 10, and its

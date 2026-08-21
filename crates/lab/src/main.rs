@@ -15,6 +15,7 @@
 mod args;
 mod control_evidence;
 mod learn_probe;
+mod self_clearance;
 mod trace;
 
 use args::Args;
@@ -71,7 +72,7 @@ fn usage() {
            --policy neutral|scripted|scripted-level|tactical|tactical-fixed-guard
            --hero-policy|--monster-policy neutral|scripted|scripted-level|tactical|tactical-fixed-guard
            --footwork margin,floor,lunge,unwind
-           --corpus-digest --high-ground
+           --corpus-digest --high-ground --self-clearance-audit
           The corpus measurement under the embodied model. It runs
           `embodied-duel-v1` unless --slope names the sculpted fixture, and
           --mirrored adds the reflection across y=8, because one orientation
@@ -81,6 +82,9 @@ fn usage() {
           --corpus-digest is the frozen pin corpus and refuses every override
           that would change what it measures; the number it prints is the one
           `docs/reference/hashes.md` registers.
+          --self-clearance-audit replays the six registered pin inputs without
+          resolving owner contact and reports which arm-rate constants reach
+          their state. It is observational and refuses every override.
           --high-ground is the elevation measurement: the embodied script
           against itself with the high-ground term switched off on one side,
           on the sculpted fixture, over both orientations and both side
@@ -1503,12 +1507,12 @@ const EMBODIED_CORPUS_TICKS: u32 = 600;
 /// now changes translation only, while the hips chase achieved torso yaw.
 /// Previously `0x00e08317d7a31c7c` and `0x5f972ba975775ee2`.
 #[cfg(not(feature = "cartesian-recoil"))]
-const EMBODIED_CORPUS_DIGEST: u64 = 0x0f2f_8601_66c1_79e0;
+const EMBODIED_CORPUS_DIGEST: u64 = 0xe82e_1318_de16_c056;
 
 /// The same fold over the same *fixtures* under the other solver; see above for
 /// why "the same corpus" would be the wrong phrase for it.
 #[cfg(feature = "cartesian-recoil")]
-const EMBODIED_CORPUS_DIGEST: u64 = 0x9c66_dcf4_3f58_1d69;
+const EMBODIED_CORPUS_DIGEST: u64 = 0xcea3_940e_15fb_5d0d;
 
 /// The four arenas of the pin corpus, in the order the fold writes them.
 ///
@@ -1604,13 +1608,13 @@ fn embodied(args: &Args) {
     // measurements on one line is exactly the shape of input where "nearly
     // right" survives review: the operator gets a number, and it is the other
     // measurement's.
-    let frozen: Vec<&str> = ["corpus-digest", "high-ground"]
+    let frozen: Vec<&str> = ["corpus-digest", "high-ground", "self-clearance-audit"]
         .into_iter()
         .filter(|key| args.flag(key))
         .collect();
     if frozen.len() > 1 {
         eprintln!(
-            "embodied --corpus-digest and --high-ground are two frozen measurements: name one"
+            "embodied frozen measurements are mutually exclusive: name one of --corpus-digest, --high-ground, --self-clearance-audit"
         );
         std::process::exit(2);
     }
@@ -1621,7 +1625,11 @@ fn embodied(args: &Args) {
         }
         return match mode {
             "corpus-digest" => embodied_corpus_report(),
-            _ => high_ground_report(),
+            "high-ground" => high_ground_report(),
+            _ => self_clearance::report().unwrap_or_else(|sentence| {
+                eprintln!("{sentence}");
+                std::process::exit(2);
+            }),
         };
     }
     let count = args.u32("seeds", 400) as u64;
@@ -3243,16 +3251,18 @@ mod tests {
         #[cfg(not(feature = "cartesian-recoil"))]
         let expected = [
             (0x1a1e_8e74_eecd_55d5, 300, Outcome::Decision(Faction::Heroes)),
-            (0x95b6_b5f9_bc80_865d, 300, Outcome::Decision(Faction::Heroes)),
+            // Session 02's self constraint changes the mirrored flat fight's
+            // bounded health decision without changing its clock or fixture.
+            (0x95b6_b5f9_bc80_865d, 300, Outcome::Decision(Faction::Monsters)),
             (0xf49d_e9a6_1f93_9163, 300, Outcome::Decision(Faction::Heroes)),
             (0x7f09_9084_44ff_a113, 300, Outcome::Decision(Faction::Heroes)),
         ];
         #[cfg(feature = "cartesian-recoil")]
         let expected = [
-            (0x1a1e_8e74_eecd_55d5, 300, Outcome::Decision(Faction::Heroes)),
+            (0x1a1e_8e74_eecd_55d5, 300, Outcome::Draw),
             (0x95b6_b5f9_bc80_865d, 300, Outcome::Draw),
-            (0xf49d_e9a6_1f93_9163, 300, Outcome::Draw),
-            (0x7f09_9084_44ff_a113, 281, Outcome::HeroesWin),
+            (0xf49d_e9a6_1f93_9163, 247, Outcome::MonstersWin),
+            (0x7f09_9084_44ff_a113, 300, Outcome::Decision(Faction::Heroes)),
         ];
 
         // The exact vector moved with the stance-authority correction rather
@@ -3594,7 +3604,7 @@ mod tests {
             ("hero-policy", Some("scripted")), ("monster-policy", Some("neutral")),
             ("ticks", Some("600")), ("footwork", Some("1/2,4/5,1/2,7/8")),
         ] {
-            for mode in ["corpus-digest", "high-ground"] {
+            for mode in ["corpus-digest", "high-ground", "self-clearance-audit"] {
                 let mut tokens =
                     vec!["embodied".to_string(), format!("--{mode}"), format!("--{key}")];
                 if let Some(value) = value {
@@ -3604,7 +3614,7 @@ mod tests {
                 assert_eq!(embodied_override(&args), Some(key), "--{mode} --{key}");
             }
         }
-        for mode in ["corpus-digest", "high-ground"] {
+        for mode in ["corpus-digest", "high-ground", "self-clearance-audit"] {
             let frozen = Args::parse(vec!["embodied".into(), format!("--{mode}")]);
             assert_eq!(embodied_override(&frozen), None, "--{mode}");
         }

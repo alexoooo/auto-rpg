@@ -121,8 +121,8 @@ const COMBAT_GEOMETRY_HASH = 0x9d15344883cf6e9cn;
 // appended floor/stance/elbow tail, torso-relative arm bearings, and an arm the
 // reach clamp now holds where the articulated one was unclamped. Native MSVC
 // measured both before this file was edited.
-const EXACT_TRAJECTORY_STATE_DIGEST = 0x5add1f2ca295e79bn;
-const LIFTED_COULOMB_SOLVER_DIGEST = 0x1f9afcf81ba74700n;
+const EXACT_TRAJECTORY_STATE_DIGEST = 0x5ac6679a0565ca96n;
+const LIFTED_COULOMB_SOLVER_DIGEST = 0x6c87b7b1ff935069n;
 // A four-byte envelope and a 57-byte payload. Written out rather than derived,
 // because this file exists to disagree with Rust when Rust is wrong: the export
 // is asserted against this number, so computing it the way the export computes
@@ -1321,8 +1321,8 @@ const SEVERED_MASK_BITS = 5;
 // digests are unmoved. Native MSVC measured both values below before either wasm
 // owner was edited, and a fresh artifact of each build then answered both.
 const ARTICULATED_STREAM_DIGEST = CARTESIAN_RECOIL
-  ? 0x8c8a5e4350230df6n
-  : 0x63bf8b26809d43c4n;
+  ? 0x24af077a739e07ddn
+  : 0xaf4ff2866fa3ce2an;
 
 // The live pose rows, copied out. Words and not floats: every published column
 // is a `u32`, and the signed ones are two's-complement raw bits.

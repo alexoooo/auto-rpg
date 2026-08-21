@@ -47,7 +47,7 @@ pub(crate) fn normalize_momentum(
     Ok(normalized)
 }
 
-fn normalize_position(
+pub(crate) fn normalize_position(
     mut position: ExactPosition, scale: i128,
 ) -> Result<ExactPosition, ExactTrajectoryReject> {
     if scale <= 0 { return Err(ExactTrajectoryReject::Mass); }

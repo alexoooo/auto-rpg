@@ -107,12 +107,32 @@ fn legs_are_inert(world: &World, ids: [EntityId; 2], hips: [Angle; 2]) -> bool {
 /// for the reason the paragraphs above give.
 pub(crate) const CAPTURED_ARM_RATES: (i32, i32) = (1_092, 182);
 
+/// The one exact rational this fixture's external-energy lane publishes: the
+/// attacker's right limb letting go of the blade on tick 54, over `2^33`.
+///
+/// **The numerator moved when the self stop landed, and it is a transcript
+/// reading rather than a re-recorded pin.** V1 measured `-62_666_977_392` for
+/// the same tick, entity, lane, reason and denominator; the arm now stops at
+/// its owner's legs on tick 7, so every pose downstream of that differs and the
+/// hand is travelling about a percent slower when it opens. What would make
+/// this a bug rather than a consequence is the row moving *lane*, *reason*,
+/// *tick* or *denominator* -- so those four are compared as well, and
+/// `an_adjacent_release_witness_refuses_the_exact_trajectory_fixture` proves
+/// the numerator is compared exactly by shifting it a raw unit each way and
+/// watching the fixture refuse.
+const RELEASE_WITNESS_NUMERATOR: i128 = -61_960_224_384;
+const RELEASE_WITNESS_DENOMINATOR: i128 = 8_589_934_592;
+
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
 struct DigestMutation {
     command_byte: bool,
-    owner_remainder: bool,
     external_reason: bool,
-    selected_impulse: bool,
+    self_constraint: bool,
+    /// Added to [`RELEASE_WITNESS_NUMERATOR`] before the witness comparison.
+    /// It is not hashed and cannot reach the transcript: it exists so a test
+    /// can ask what a *wrong* literal would do, which is the only way an
+    /// equality against a frozen measurement is shown to be load-bearing.
+    release_witness_delta: i128,
 }
 
 fn i128_le_bytes(value: i128) -> [u8; 16] {
@@ -132,6 +152,23 @@ fn write_vec3(hash: &mut Hash64, value: Vec3) {
     hash.write_i32(value.x.raw());
     hash.write_i32(value.y.raw());
     hash.write_i32(value.z.raw());
+}
+
+fn write_self_constraint(
+    hash: &mut Hash64,
+    row: crate::diagnostics::SelfCollisionAttemptDiagnostic,
+) {
+    hash.write_u8(row.moving_limb);
+    hash.write_u8(row.moving_shape);
+    match row.obstacle {
+        crate::diagnostics::SelfCollisionObstacleDiagnostic::Body { region } => {
+            hash.write_u8(0); hash.write_u8(region);
+        }
+        crate::diagnostics::SelfCollisionObstacleDiagnostic::OppositeShape { limb, shape } => {
+            hash.write_u8(1); hash.write_u8(limb); hash.write_u8(shape);
+        }
+    }
+    hash.write_i32(row.last_clear.raw());
 }
 
 fn write_resolution_error(hash: &mut Hash64, value: ResolutionError) {
@@ -209,7 +246,11 @@ fn write_refusal_words(
     if let Some(detail) = group_reject { write_group_reject(hash, detail); }
 }
 
-fn digest_with(mutation: DigestMutation) -> Option<u64> {
+fn digest_with_profile(
+    mutation: DigestMutation,
+    rates: crate::ArmRateProfile,
+    mut observe: impl FnMut(u32, &World),
+) -> Option<u64> {
     let verify_reproduction = mutation == DigestMutation::default();
     // The north wall was selected by the measured response direction. Moving
     // the old east-wall premise until it happened to collide would have made
@@ -290,8 +331,8 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
     };
 
     let mut hash = Hash64::new();
-    hash.write_bytes(b"ARPG-EXACT-TRAJECTORY-V1");
-    hash.write_u16(1);
+    hash.write_bytes(b"ARPG-EXACT-TRAJECTORY-V2");
+    hash.write_u16(2);
     hash.write_u64(scenario.fingerprint());
     hash.write_u64(0);
     hash.write_u32(TICKS);
@@ -300,15 +341,18 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
     let mut position_remainder = false;
     let mut wall = false;
     let mut release = false;
+    // The release is the *only* row this lifecycle may publish. Counting is
+    // what refuses a second one: a witness that merely finds its own row is
+    // silent about anything published beside it, and the anatomical projection
+    // added in this session publishes into exactly this lane.
+    let mut external_rows = 0u32;
     let mut changed_command = false;
     let mut changed_external = false;
-    let mut changed_impulse = false;
-    #[cfg(test)]
-    let mut changed_owner = false;
+    let mut changed_constraint = false;
     let mut weapon_body_ticks = Vec::new();
     let mut momentum_ticks = Vec::new();
     let mut position_ticks = Vec::new();
-    let (max_speed, accel) = CAPTURED_ARM_RATES;
+    let mut first_constraint = None;
 
     for tick in 0..TICKS {
         for id in bodies {
@@ -331,21 +375,15 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
             if rerun != stored { return None; }
             replay.record_submitted(tick, id, SubmittedCommand::Embodied(stored));
         }
-        first.step_with_arm_rates(max_speed, accel);
-        if verify_reproduction { second.step_with_arm_rates(max_speed, accel); }
+        first.step_with_arm_rate_profile(rates);
+        if verify_reproduction { second.step_with_arm_rate_profile(rates); }
+        observe(tick + 1, &first);
         replay.finish(tick + 1);
-        let mut played = if verify_reproduction {
-            replay.play_until_with_arm_rates(tick + 1, max_speed, accel)
+        let played = if verify_reproduction {
+            replay.play_until_with_arm_rate_profile(tick + 1, rates)
         } else {
             first.clone()
         };
-        #[cfg(test)]
-        if mutation.owner_remainder && !changed_owner {
-            let a = first.mutate_exact_owner_remainder_for_test();
-            let b = played.mutate_exact_owner_remainder_for_test();
-            if a != b { return None; }
-            changed_owner = a;
-        }
         let state = played.state_digest();
         let live_state = first.state_digest();
         let rerun_state = second.state_digest();
@@ -363,7 +401,10 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
             || second.first_exact_contact_rejection() != first.first_exact_contact_rejection()
             || played.first_exact_contact_rejection() != first.first_exact_contact_rejection()
             || second.contact_cap_hits() != first.contact_cap_hits()
-            || played.contact_cap_hits() != first.contact_cap_hits()) {
+            || played.contact_cap_hits() != first.contact_cap_hits()
+            || bodies.into_iter().any(|id|
+                second.self_collision_attempt(id) != first.self_collision_attempt(id)
+                    || played.self_collision_attempt(id) != first.self_collision_attempt(id))) {
             return None;
         }
         if played.contact_cap_hits() != 0
@@ -411,6 +452,19 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
         let group_reject = played.exact_contact_group_diagnostics().iter()
             .find_map(|row| row.reject);
         write_refusal_words(&mut hash, refusal, group_reject);
+        for id in bodies {
+            let attempt = played.self_collision_attempt(id);
+            if first_constraint.is_none() {
+                if let Some(row) = attempt { first_constraint = Some((tick + 1, id, row)); }
+            }
+            let remove = mutation.self_constraint && !changed_constraint && attempt.is_some();
+            if remove { changed_constraint = true; }
+            hash.write_bool(attempt.is_some() && !remove);
+            if let Some(row) = attempt.filter(|_| !remove) {
+                write_entity(&mut hash, id);
+                write_self_constraint(&mut hash, row);
+            }
+        }
         hash.write_u32(played.contact_resolutions().len() as u32);
         let diagnostic_groups = played.exact_contact_group_diagnostics().len() as u32;
         let resolved_groups = played.contact_resolutions().iter()
@@ -452,12 +506,7 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
             write_vec3(&mut hash, row.fact.point); write_vec3(&mut hash, row.fact.normal);
             write_vec3(&mut hash, row.fact.velocity_a); write_vec3(&mut hash, row.fact.velocity_b);
             if row.impulse.key != key { return None; }
-            let mut impulse_a = row.impulse.on_a;
-            if mutation.selected_impulse && !changed_impulse {
-                impulse_a.x = Fx::from_raw(impulse_a.x.raw() ^ 1);
-                changed_impulse = true;
-            }
-            write_vec3(&mut hash, impulse_a); write_vec3(&mut hash, row.impulse.on_b);
+            write_vec3(&mut hash, row.impulse.on_a); write_vec3(&mut hash, row.impulse.on_b);
             hash.write_u64(row.energy.before_raw); hash.write_u64(row.energy.after_raw);
             hash.write_u64(row.energy.dissipated_raw); hash.write_u64(row.cut_raw);
             hash.write_u64(row.thrust_raw); hash.write_u64(row.pressure_raw);
@@ -465,25 +514,31 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
         }
         hash.write_u32(played.exact_external_energy().len() as u32);
         for row in played.exact_external_energy() {
+            external_rows += 1;
             write_entity(&mut hash, row.entity); hash.write_u8(row.lane);
             let reason = if mutation.external_reason && !changed_external {
                 changed_external = true; row.reason ^ RecoilExternalEnergy::CAP
             } else { row.reason };
             hash.write_u8(reason); write_i128(&mut hash, row.signed_numerator);
             write_i128(&mut hash, row.denominator);
-            // Both witnesses are keyed to a tick and to an exact rational, and
-            // both were re-read when the range closed -- the wall row on the
-            // tick the blade lands, which is now 44, and the release row on the
-            // tick after the grip lets go, which is still 54 because the grip
-            // schedule did not move.
-            wall |= row.entity == defender && row.lane == 0
-                && row.reason == RecoilExternalEnergy::WALL
-                && tick + 1 == 44 && row.signed_numerator == -12_045_818_473
-                && row.denominator == 8_589_934_592;
+            // The self stop removes the downstream wall/contact lifecycle but
+            // not the ordinary release.
+            //
+            // **This predicate named the retired V1 wall row's exact rational
+            // until 2026-08-21, and that was an unreachable comparison reading
+            // as coverage.** Under V2 the blade never reaches the north wall,
+            // so the transcript publishes no wall row for the literals to
+            // match -- the check was satisfied by the absence of the whole
+            // lane and would have stayed satisfied if a *different* wall row
+            // had appeared. The mask test is the assertion that was meant:
+            // no wall lane at all, whatever its rational.
+            wall |= row.reason & RecoilExternalEnergy::WALL != 0;
             release |= row.entity == attacker && row.lane == 2
                 && row.reason == RecoilExternalEnergy::RELEASE
-                && tick + 1 == 54 && row.signed_numerator == -503_974_948_800
-                && row.denominator == 8_589_934_592;
+                && tick + 1 == 54
+                && row.signed_numerator
+                    == RELEASE_WITNESS_NUMERATOR + mutation.release_witness_delta
+                && row.denominator == RELEASE_WITNESS_DENOMINATOR;
         }
         for id in [attacker, defender] {
             let (momentum, position) = played.exact_trajectory_remainder_view(id)?;
@@ -497,13 +552,22 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
             }
         }
     }
-    if accepted_groups != 2 || weapon_body_ticks != [44, 45]
-        || momentum_ticks != (44..=56).collect::<Vec<_>>()
-        || position_ticks != (44..=56).collect::<Vec<_>>()
-        || !momentum_remainder || !position_remainder || !wall || !release {
+    let expected_constraint = first_constraint.is_some_and(|(tick, id, row)|
+        tick == 7 && id == attacker && row.moving_limb == LimbSlot::RightArm as u8
+            && row.moving_shape == 2
+            && row.obstacle == (crate::diagnostics::SelfCollisionObstacleDiagnostic::Body {
+                region: BodyPart::Legs as u8,
+            })
+            && row.last_clear.raw() == 16_151);
+    if accepted_groups != 0 || !weapon_body_ticks.is_empty()
+        || !momentum_ticks.is_empty() || !position_ticks.is_empty()
+        || momentum_remainder || position_remainder || wall || !release
+        || external_rows != 1
+        || !expected_constraint || (mutation.self_constraint && !changed_constraint) {
         return None;
     }
     hash.write_u32(accepted_groups);
+    hash.write_bool(true); // terminal no-opponent-contact outcome
     hash.write_bool(momentum_remainder);
     hash.write_bool(position_remainder);
     hash.write_bool(wall);
@@ -511,10 +575,78 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
     Some(hash.finish())
 }
 
+fn digest_with(mutation: DigestMutation) -> Option<u64> {
+    digest_with_profile(mutation, crate::ArmRateProfile {
+        bearing_max_speed_raw: CAPTURED_ARM_RATES.0,
+        bearing_accel_raw: CAPTURED_ARM_RATES.1,
+        ..crate::ArmRateProfile::CURRENT
+    }, |_, _| {})
+}
+
 /// Portable digest of the exact north-wall lifecycle fixture, or zero if any
 /// live/rerun/replay or witness assertion fails.
 pub fn exact_trajectory_state_digest() -> u64 {
     digest_with(DigestMutation::default()).unwrap_or(0)
+}
+
+/// First state-divergence tick for each current arm-rate constant under the
+/// exact trajectory pin's frozen command schedule.
+///
+/// The first two entries are intentionally `None`: this fixture freezes its
+/// measured bearing pair at [`CAPTURED_ARM_RATES`], so changing today's
+/// production bearing constants cannot reach it. The remaining entries use the
+/// same construction and commands as [`digest_with`].
+#[doc(hidden)]
+pub struct ArmRateAudit {
+    pub overlap: Option<(u32, EntityId, usize, usize)>,
+    pub rates: [Option<u32>; 5],
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct LiftedSelfCollisionAttemptAudit {
+    pub strike_delta: i32,
+    pub reach_delta: i32,
+    pub mirrored: bool,
+    pub tick: u32,
+    pub entity: EntityId,
+    pub attempt: crate::diagnostics::SelfCollisionAttemptDiagnostic,
+}
+
+#[doc(hidden)]
+pub fn exact_trajectory_arm_rate_reach() -> ArmRateAudit {
+    let base = crate::ArmRateProfile {
+        bearing_max_speed_raw: CAPTURED_ARM_RATES.0,
+        bearing_accel_raw: CAPTURED_ARM_RATES.1,
+        ..crate::ArmRateProfile::CURRENT
+    };
+    let mut baseline = Vec::new();
+    let mut overlap = None;
+    let _ = digest_with_profile(DigestMutation::default(), base, |tick, world| {
+        baseline.push(state_words(world));
+        if overlap.is_none() {
+            for faction in [crate::Faction::Heroes, crate::Faction::Monsters] {
+                for id in world.alive_ids(faction) {
+                if let Some(attempt) = world.self_collision_attempt(id) {
+                    let (a, b) = attempt.volume_codes();
+                    overlap = Some((tick, id, a, b)); return;
+                    }
+                }
+            }
+        }
+    }).expect("registered exact trajectory fixture");
+    let mut reached: [Option<u32>; 5] = [None; 5];
+    for (at, profile) in [
+        crate::ArmRateProfile { linear_max_speed_raw: base.linear_max_speed_raw + 1, ..base },
+        crate::ArmRateProfile { linear_accel_raw: base.linear_accel_raw + 1, ..base },
+        crate::ArmRateProfile { elbow_plane_max_speed_raw: base.elbow_plane_max_speed_raw + 1, ..base },
+    ].into_iter().enumerate() {
+        let mut seen = Vec::new();
+        let _ = digest_with_profile(DigestMutation::default(), profile,
+            |_, world| seen.push(state_words(world)));
+        reached[at + 2] = baseline.iter().zip(seen).position(|(a, b)| a != &b)
+            .map(|tick| tick as u32 + 1);
+    }
+    ArmRateAudit { overlap, rates: reached }
 }
 
 /// Three quarters of the frozen `(-2.5, -1.0)`, and the same value
@@ -545,8 +677,8 @@ struct LiftedReceipt {
     mirrored: bool,
     fingerprint: u64,
     command_receipt: u64,
-    contact_tick: u32,
-    row: ContactResolution,
+    terminal_tick: u32,
+    row: Option<ContactResolution>,
     post_state: (HashDomain, u16, u64),
     external: Vec<crate::ExactExternalEnergyRow>,
     post_anatomy: AnatomyState,
@@ -641,8 +773,11 @@ fn state_words(world: &World) -> (HashDomain, u16, u64) {
     let row = world.state_digest(); (row.domain, row.schema, row.value)
 }
 
-fn lifted_case_with_provenance(strike_delta: i32, reach_delta: i32, mirrored: bool,
-                               source: LiftedStrikeProvenance) -> Option<LiftedReceipt> {
+fn lifted_case_with_provenance_profile(
+    strike_delta: i32, reach_delta: i32, mirrored: bool,
+    source: LiftedStrikeProvenance, rates: crate::ArmRateProfile,
+    mut observe: impl FnMut(u32, &World),
+) -> Option<LiftedReceipt> {
     require_ordinary_strike_provenance(source).ok()?;
     let config = lifted_config(strike_delta, reach_delta, mirrored)?;
     let scenario = embodied_duel_from(&config)?;
@@ -677,8 +812,9 @@ fn lifted_case_with_provenance(strike_delta: i32, reach_delta: i32, mirrored: bo
             if stored != rerun { #[cfg(test)] eprintln!("lifted command mismatch tick {tick}"); return None; }
             replay.record_submitted(tick, id, SubmittedCommand::Embodied(stored));
         }
-        first.step_with_arm_rates(CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
-        second.step_with_arm_rates(CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
+        first.step_with_arm_rate_profile(rates);
+        second.step_with_arm_rate_profile(rates);
+        observe(tick + 1, &first);
         replay.finish(tick + 1);
         if state_words(&first) != state_words(&second)
             || first.contact_resolutions() != second.contact_resolutions()
@@ -715,13 +851,9 @@ fn lifted_case_with_provenance(strike_delta: i32, reach_delta: i32, mirrored: bo
             break 'ticks;
         }
     }
-    let Some(contact_tick) = contact_tick else {
-        #[cfg(test)] eprintln!("lifted ({strike_delta},{reach_delta}) mirror={mirrored}: no contact");
-        return None;
-    };
-    let Some((direct_post, rerun_post)) = post else { return None };
-    let played_post = replay.play_until_with_arm_rates(contact_tick,
-        CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
+    let terminal_tick = contact_tick.unwrap_or(config.max_ticks);
+    let (direct_post, rerun_post) = post.unwrap_or_else(|| (first.clone(), second.clone()));
+    let played_post = replay.play_until_with_arm_rate_profile(terminal_tick, rates);
     for live in [&direct_post, &rerun_post] {
         let played = &played_post;
         if state_words(live) != state_words(played)
@@ -740,26 +872,38 @@ fn lifted_case_with_provenance(strike_delta: i32, reach_delta: i32, mirrored: bo
             return None;
         }
     }
-    let row = *played_post.contact_resolutions().first()?;
-    if selected_row != Some(row) { return None; }
-    if row.fact.toi.get() <= Fx::ZERO || row.fact.toi.get() >= Fx::ONE
-        || row.impulse.key != row.fact.key || row.impulse.on_a == Vec3::ZERO
-        || row.impulse.on_b != -row.impulse.on_a
-        || row.group_alpha_raw != 65_536 || row.energy.dissipated_raw != 147
-        || row.energy.before_raw.checked_sub(row.energy.after_raw) != Some(147)
+    let row = played_post.contact_resolutions().first().copied();
+    if selected_row != row { return None; }
+    if let Some(row) = row {
+        if row.fact.toi.get() <= Fx::ZERO || row.fact.toi.get() >= Fx::ONE
+            || row.impulse.key != row.fact.key || row.impulse.on_a == Vec3::ZERO
+            || row.impulse.on_b != -row.impulse.on_a
+            || row.group_alpha_raw != 65_536 || row.energy.dissipated_raw != 147
+            || row.energy.before_raw.checked_sub(row.energy.after_raw) != Some(147)
+            || played_post.contact_cap_hits() != 0 || played_post.contact_solver_rejections() != 0
+            || played_post.first_exact_contact_rejection().is_some()
+            || played_post.exact_contact_group_diagnostics().iter().any(|group| group.reject.is_some()) {
+            #[cfg(test)] eprintln!("lifted ({strike_delta},{reach_delta}) mirror={mirrored}: mechanics row {:?}; on_b_inverse={} post cap/solver/refusal/groups={}/{}/{:?}/{}",
+                row, row.impulse.on_b == -row.impulse.on_a,
+                played_post.contact_cap_hits(), played_post.contact_solver_rejections(),
+                played_post.first_exact_contact_rejection(), played_post.exact_contact_group_diagnostics().iter().filter(|g| g.reject.is_some()).count());
+            return None;
+        }
+    } else if !played_post.contact_resolutions().is_empty()
         || played_post.contact_cap_hits() != 0 || played_post.contact_solver_rejections() != 0
         || played_post.first_exact_contact_rejection().is_some()
-        || played_post.exact_contact_group_diagnostics().iter().any(|group| group.reject.is_some()) {
-        #[cfg(test)] eprintln!("lifted ({strike_delta},{reach_delta}) mirror={mirrored}: mechanics row {:?}; on_b_inverse={} post cap/solver/refusal/groups={}/{}/{:?}/{}",
-            row, row.impulse.on_b == -row.impulse.on_a,
-            played_post.contact_cap_hits(), played_post.contact_solver_rejections(),
-            played_post.first_exact_contact_rejection(), played_post.exact_contact_group_diagnostics().iter().filter(|g| g.reject.is_some()).count());
+        || !played_post.exact_contact_group_diagnostics().is_empty()
+    {
         return None;
     }
     let post_anatomy = played_post.anatomy_diagnostic_view(defender)?;
-    if (row.cut_raw == 0 && row.thrust_raw == 0)
-        || post_anatomy == AnatomyState::new(&crate::combat::spec::brute_anatomy()) {
-        #[cfg(test)] eprintln!("lifted ({strike_delta},{reach_delta}) mirror={mirrored}: no wound");
+    if let Some(row) = row {
+        if (row.cut_raw == 0 && row.thrust_raw == 0)
+            || post_anatomy == AnatomyState::new(&crate::combat::spec::brute_anatomy()) {
+            #[cfg(test)] eprintln!("lifted ({strike_delta},{reach_delta}) mirror={mirrored}: no wound");
+            return None;
+        }
+    } else if post_anatomy != AnatomyState::new(&crate::combat::spec::brute_anatomy()) {
         return None;
     }
     if direct_post.anatomy_diagnostic_view(defender) != Some(post_anatomy)
@@ -769,19 +913,30 @@ fn lifted_case_with_provenance(strike_delta: i32, reach_delta: i32, mirrored: bo
         return None;
     }
     let post_remainders = played_post.exact_trajectory_remainder_view(attacker)?;
-    if post_remainders != (true, true) {
+    let expected_remainders = if row.is_some() { (true, true) } else { (false, false) };
+    if post_remainders != expected_remainders {
         #[cfg(test)] eprintln!("lifted ({strike_delta},{reach_delta}) mirror={mirrored}: remainders {post_remainders:?}");
         return None;
     }
     Some(LiftedReceipt { strike_delta, reach_delta, mirrored,
         fingerprint: scenario.fingerprint(),
         command_receipt: command_receipt(scenario.fingerprint(), &replay.submitted_entries)?,
-        contact_tick, row, post_state: state_words(&played_post),
+        terminal_tick, row, post_state: state_words(&played_post),
         external: played_post.exact_external_energy().to_vec(),
         post_anatomy,
         cap_hits: played_post.contact_cap_hits(),
         refusal: played_post.first_exact_contact_rejection(),
     })
+}
+
+fn lifted_case_with_provenance(strike_delta: i32, reach_delta: i32, mirrored: bool,
+                               source: LiftedStrikeProvenance) -> Option<LiftedReceipt> {
+    lifted_case_with_provenance_profile(strike_delta, reach_delta, mirrored, source,
+        crate::ArmRateProfile {
+            bearing_max_speed_raw: CAPTURED_ARM_RATES.0,
+            bearing_accel_raw: CAPTURED_ARM_RATES.1,
+            ..crate::ArmRateProfile::CURRENT
+        }, |_, _| {})
 }
 
 fn lifted_case(strike_delta: i32, reach_delta: i32, mirrored: bool) -> Option<LiftedReceipt> {
@@ -798,25 +953,28 @@ fn lifted_receipts() -> Option<Vec<LiftedReceipt>> {
             }
             let pair = &rows[rows.len() - 2..];
             let (plain, mirror) = (&pair[0], &pair[1]);
-            if plain.row.fact.key.a != mirror.row.fact.key.a
-                || plain.row.fact.key.b != mirror.row.fact.key.b
-                || plain.row.fact.key.a_slot != LimbSlot::RightArm as u8
-                || mirror.row.fact.key.a_slot != LimbSlot::LeftArm as u8
-                || plain.row.fact.key.b_slot != mirror.row.fact.key.b_slot
-                || plain.row.fact.key.kind != mirror.row.fact.key.kind
-                || plain.row.fact.volume != mirror.row.fact.volume
-                || (plain.row.fact.toi.get().raw() - mirror.row.fact.toi.get().raw()).abs() > 1
-                || (plain.row.fact.point.x.raw() - mirror.row.fact.point.x.raw()).abs() > 1
-                || (plain.row.fact.point.y.raw() + mirror.row.fact.point.y.raw()
-                    - 16 * Fx::ONE.raw()).abs() > 1
-                || (plain.row.fact.point.z.raw() - mirror.row.fact.point.z.raw()).abs() > 1
-                || plain.row.energy != mirror.row.energy
+            if plain.terminal_tick != mirror.terminal_tick
+                || plain.row.is_some() != mirror.row.is_some()
                 || plain.post_anatomy != mirror.post_anatomy { return None; }
-            for (a, b) in [(plain.row.fact.normal, mirror.row.fact.normal),
-                           (plain.row.fact.velocity_a, mirror.row.fact.velocity_a),
-                           (plain.row.fact.velocity_b, mirror.row.fact.velocity_b),
-                           (plain.row.impulse.on_a, mirror.row.impulse.on_a),
-                           (plain.row.impulse.on_b, mirror.row.impulse.on_b)] {
+            let (Some(plain_row), Some(mirror_row)) = (plain.row, mirror.row) else { continue };
+            if plain_row.fact.key.a != mirror_row.fact.key.a
+                || plain_row.fact.key.b != mirror_row.fact.key.b
+                || plain_row.fact.key.a_slot != LimbSlot::RightArm as u8
+                || mirror_row.fact.key.a_slot != LimbSlot::LeftArm as u8
+                || plain_row.fact.key.b_slot != mirror_row.fact.key.b_slot
+                || plain_row.fact.key.kind != mirror_row.fact.key.kind
+                || plain_row.fact.volume != mirror_row.fact.volume
+                || (plain_row.fact.toi.get().raw() - mirror_row.fact.toi.get().raw()).abs() > 1
+                || (plain_row.fact.point.x.raw() - mirror_row.fact.point.x.raw()).abs() > 1
+                || (plain_row.fact.point.y.raw() + mirror_row.fact.point.y.raw()
+                    - 16 * Fx::ONE.raw()).abs() > 1
+                || (plain_row.fact.point.z.raw() - mirror_row.fact.point.z.raw()).abs() > 1
+                || plain_row.energy != mirror_row.energy { return None; }
+            for (a, b) in [(plain_row.fact.normal, mirror_row.fact.normal),
+                           (plain_row.fact.velocity_a, mirror_row.fact.velocity_a),
+                           (plain_row.fact.velocity_b, mirror_row.fact.velocity_b),
+                           (plain_row.impulse.on_a, mirror_row.impulse.on_a),
+                           (plain_row.impulse.on_b, mirror_row.impulse.on_b)] {
                 if (a.x.raw() - b.x.raw()).abs() > 1 || (a.y.raw() + b.y.raw()).abs() > 1
                     || (a.z.raw() - b.z.raw()).abs() > 1 { return None; }
             }
@@ -827,9 +985,9 @@ fn lifted_receipts() -> Option<Vec<LiftedReceipt>> {
 
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
 enum LiftedMutation {
-    #[default] None, Header, Bounds, CaseOrder, CommandReceipt, Key, Region, Toi,
-    Geometry, Velocity, Impulse, Energy, State, External, Anatomy, Cap, Refusal,
-    RefusalCauseTable, RefusalPhaseTable, GroupRejectTable, Damage,
+    #[default] None, Header, Bounds, CaseOrder, CommandReceipt, Outcome,
+    State, External, Anatomy, Cap, Refusal, RefusalCauseTable, RefusalPhaseTable,
+    GroupRejectTable,
 }
 
 fn write_state(hash: &mut Hash64, state: (HashDomain, u16, u64)) {
@@ -844,9 +1002,9 @@ fn write_state(hash: &mut Hash64, state: (HashDomain, u16, u64)) {
 fn hash_lifted(rows: &[LiftedReceipt], mutation: LiftedMutation) -> u64 {
     let mut hash = Hash64::new();
     hash.write_bytes(if mutation == LiftedMutation::Header {
-        b"ARPG-LIFTED-COULOMB-V0"
-    } else { b"ARPG-LIFTED-COULOMB-V1" });
-    hash.write_u16(1);
+        b"ARPG-LIFTED-COULOMB-V3"
+    } else { b"ARPG-LIFTED-COULOMB-V2" });
+    hash.write_u16(2);
     let bounds = [crate::combat::lifted_solver::MAX_LIFTED_SOLVER_FACTS as u32,
         crate::combat::lifted_solver::MAX_LIFTED_SOLVER_ROWS as u32,
         crate::combat::lifted_solver::LIFTED_SOLVER_SWEEPS as u32,
@@ -873,24 +1031,23 @@ fn hash_lifted(rows: &[LiftedReceipt], mutation: LiftedMutation) -> u64 {
         hash.write_u64(if mutation == LiftedMutation::CommandReceipt && at == 0 {
             receipt.command_receipt ^ 1
         } else { receipt.command_receipt });
-        hash.write_u32(receipt.contact_tick);
-        let row = receipt.row; let key = row.fact.key;
-        write_entity(&mut hash, key.a); hash.write_u8(if mutation == LiftedMutation::Key && at == 0 { key.a_slot ^ 1 } else { key.a_slot });
+        hash.write_u32(receipt.terminal_tick);
+        hash.write_bool(receipt.row.is_some() ^ (mutation == LiftedMutation::Outcome && at == 0));
+        if let Some(row) = receipt.row {
+        let key = row.fact.key;
+        write_entity(&mut hash, key.a); hash.write_u8(key.a_slot);
         write_entity(&mut hash, key.b); hash.write_u8(key.b_slot); write_contact_kind(&mut hash, key.kind);
-        hash.write_u8(if mutation == LiftedMutation::Region && at == 0 { row.fact.volume ^ 1 } else { row.fact.volume });
-        hash.write_u32(if mutation == LiftedMutation::Toi && at == 0 { row.fact.toi.get().raw() as u32 ^ 1 } else { row.fact.toi.get().raw() as u32 });
-        let mut point = row.fact.point;
-        if mutation == LiftedMutation::Geometry && at == 0 { point.x = Fx::from_raw(point.x.raw() ^ 1); }
-        write_vec3(&mut hash, point); write_vec3(&mut hash, row.fact.normal);
-        let mut velocity_a = row.fact.velocity_a;
-        if mutation == LiftedMutation::Velocity && at == 0 { velocity_a.x = Fx::from_raw(velocity_a.x.raw() ^ 1); }
-        write_vec3(&mut hash, velocity_a); write_vec3(&mut hash, row.fact.velocity_b);
-        let mut impulse = row.impulse.on_a;
-        if mutation == LiftedMutation::Impulse && at == 0 { impulse.x = Fx::from_raw(impulse.x.raw() ^ 1); }
-        write_vec3(&mut hash, impulse); write_vec3(&mut hash, row.impulse.on_b);
+        hash.write_u8(row.fact.volume);
+        hash.write_u32(row.fact.toi.get().raw() as u32);
+        write_vec3(&mut hash, row.fact.point); write_vec3(&mut hash, row.fact.normal);
+        write_vec3(&mut hash, row.fact.velocity_a); write_vec3(&mut hash, row.fact.velocity_b);
+        write_vec3(&mut hash, row.impulse.on_a); write_vec3(&mut hash, row.impulse.on_b);
         hash.write_u32(row.group_alpha_raw);
-        hash.write_u64(if mutation == LiftedMutation::Energy && at == 0 { row.energy.before_raw ^ 1 } else { row.energy.before_raw });
+        hash.write_u64(row.energy.before_raw);
         hash.write_u64(row.energy.after_raw); hash.write_u64(row.energy.dissipated_raw);
+        hash.write_u64(row.cut_raw); hash.write_u64(row.thrust_raw); hash.write_u64(row.pressure_raw);
+        hash.write_u64(row.deflected_raw); hash.write_bool(row.severed);
+        }
         let state = if mutation == LiftedMutation::State && at == 0 {
             (receipt.post_state.0, receipt.post_state.1, receipt.post_state.2 ^ 1)
         } else { receipt.post_state };
@@ -911,14 +1068,11 @@ fn hash_lifted(rows: &[LiftedReceipt], mutation: LiftedMutation) -> u64 {
         anatomy.hash_into(&mut hash);
         hash.write_u32(if mutation == LiftedMutation::Cap && at == 0 { receipt.cap_hits + 1 } else { receipt.cap_hits });
         let refusal = if mutation == LiftedMutation::Refusal && at == 0 {
-            Some(crate::ExactContactRejectionDiagnostic { tick: receipt.contact_tick,
+            Some(crate::ExactContactRejectionDiagnostic { tick: receipt.terminal_tick,
                 cause: ResolutionError::ExactSolver,
                 phase: crate::ExactContactRejectPhase::SolveGroup, key: None })
         } else { receipt.refusal };
         write_refusal_words(&mut hash, refusal, None);
-        hash.write_u64(if mutation == LiftedMutation::Damage && at == 0 { row.cut_raw ^ 1 } else { row.cut_raw });
-        hash.write_u64(row.thrust_raw); hash.write_u64(row.pressure_raw);
-        hash.write_u64(row.deflected_raw); hash.write_bool(row.severed);
     }
     let refusal_codes = [ResolutionError::ColliderIndex, ResolutionError::EnergyNumerator,
         ResolutionError::ResolutionCount, ResolutionError::Mass, ResolutionError::Projector,
@@ -967,6 +1121,90 @@ pub fn lifted_coulomb_solver_digest() -> u64 {
     lifted_receipts().map(|rows| hash_lifted(&rows, LiftedMutation::default())).unwrap_or(0)
 }
 
+/// Earliest rate divergence across every cell of the lifted solver corpus.
+#[doc(hidden)]
+pub fn lifted_coulomb_arm_rate_reach() -> ArmRateAudit {
+    let mut reached: [Option<u32>; 5] = [None; 5];
+    let mut overlap = None;
+    let base = crate::ArmRateProfile {
+        bearing_max_speed_raw: CAPTURED_ARM_RATES.0,
+        bearing_accel_raw: CAPTURED_ARM_RATES.1,
+        ..crate::ArmRateProfile::CURRENT
+    };
+    for strike_delta in LIFTED_STRIKE_DELTAS {
+        for reach_delta in LIFTED_REACH_DELTAS {
+            for mirrored in [false, true] {
+                let mut baseline = Vec::new();
+                lifted_case_with_provenance_profile(strike_delta, reach_delta, mirrored,
+                    LiftedStrikeProvenance::OrdinarySubmittedCommands, base, |tick, world| {
+                        baseline.push(state_words(world));
+                        if overlap.is_none() {
+                            for id in [EntityId::new(0, 0), EntityId::new(1, 0)] {
+                                if let Some(attempt) = world.self_collision_attempt(id) {
+                                    let (a, b) = attempt.volume_codes();
+                                    overlap = Some((tick, id, a, b)); break;
+                                }
+                            }
+                        }
+                    }).expect("registered lifted fixture cell");
+                for (at, profile) in [
+                    crate::ArmRateProfile { linear_max_speed_raw: base.linear_max_speed_raw + 1, ..base },
+                    crate::ArmRateProfile { linear_accel_raw: base.linear_accel_raw + 1, ..base },
+                    crate::ArmRateProfile { elbow_plane_max_speed_raw: base.elbow_plane_max_speed_raw + 1, ..base },
+                ].into_iter().enumerate() {
+                    let mut seen = Vec::new();
+                    let _ = lifted_case_with_provenance_profile(strike_delta, reach_delta, mirrored,
+                        LiftedStrikeProvenance::OrdinarySubmittedCommands, profile,
+                        |_, world| seen.push(state_words(world)));
+                    if let Some(tick) = baseline.iter().zip(seen).position(|(a, b)| a != &b)
+                        .map(|tick| tick as u32 + 1)
+                    {
+                        reached[at + 2] = Some(reached[at + 2].map_or(tick, |old| old.min(tick)));
+                    }
+                }
+            }
+        }
+    }
+    ArmRateAudit { overlap, rates: reached }
+}
+
+/// First preconstraint pair selected by each frozen lifted fixture cell.
+#[doc(hidden)]
+pub fn lifted_coulomb_self_collision_attempts()
+    -> Option<Vec<LiftedSelfCollisionAttemptAudit>>
+{
+    let rates = crate::ArmRateProfile {
+        bearing_max_speed_raw: CAPTURED_ARM_RATES.0,
+        bearing_accel_raw: CAPTURED_ARM_RATES.1,
+        ..crate::ArmRateProfile::CURRENT
+    };
+    let mut rows = Vec::with_capacity(18);
+    for strike_delta in LIFTED_STRIKE_DELTAS {
+        for reach_delta in LIFTED_REACH_DELTAS {
+            for mirrored in [false, true] {
+                let mut first = None;
+                lifted_case_with_provenance_profile(
+                    strike_delta, reach_delta, mirrored,
+                    LiftedStrikeProvenance::OrdinarySubmittedCommands, rates,
+                    |tick, world| {
+                        if first.is_some() { return }
+                        for entity in [EntityId::new(0, 0), EntityId::new(1, 0)] {
+                            if let Some(attempt) = world.self_collision_attempt(entity) {
+                                first = Some(LiftedSelfCollisionAttemptAudit {
+                                    strike_delta, reach_delta, mirrored, tick, entity, attempt,
+                                });
+                                break;
+                            }
+                        }
+                    },
+                )?;
+                rows.push(first?);
+            }
+        }
+    }
+    Some(rows)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -978,13 +1216,54 @@ mod tests {
         assert_eq!(exact_trajectory_state_digest(), base);
         for (name, mutation) in [
             ("stored command byte", DigestMutation { command_byte: true, ..DigestMutation::default() }),
-            ("owner remainder", DigestMutation { owner_remainder: true, ..DigestMutation::default() }),
             ("external reason", DigestMutation { external_reason: true, ..DigestMutation::default() }),
-            ("selected impulse", DigestMutation { selected_impulse: true, ..DigestMutation::default() }),
+            ("self-constraint outcome", DigestMutation { self_constraint: true, ..DigestMutation::default() }),
         ] {
             let changed = digest_with(mutation).unwrap_or_else(||
                 panic!("{name} mutation broke the fixture instead of changing the transcript"));
             assert_ne!(changed, base, "{name} was absent from the grammar");
+        }
+    }
+
+    #[test]
+    fn an_adjacent_release_witness_refuses_the_exact_trajectory_fixture() {
+        // The frozen numerator is an equality against a measurement, and an
+        // equality that is only ever satisfied proves nothing about whether it
+        // is *compared*. Shift the expectation one raw unit each way and the
+        // fixture must stop computing -- if either of these returns a digest,
+        // the release lane is being folded without being checked.
+        assert!(exact_trajectory_state_digest() != 0);
+        for delta in [-1i128, 1] {
+            assert_eq!(digest_with(DigestMutation {
+                release_witness_delta: delta, ..DigestMutation::default()
+            }), None, "a release witness off by {delta} was accepted");
+        }
+    }
+
+    #[test]
+    fn registered_exact_drivers_report_only_rates_their_own_stops_reach() {
+        let trajectory = exact_trajectory_arm_rate_reach();
+        assert_eq!(trajectory.rates, [None, None, None, Some(1), None]);
+        assert_eq!(trajectory.overlap, Some((7, EntityId::new(0, 0), 8, 4)));
+        let lifted = lifted_coulomb_arm_rate_reach();
+        assert_eq!(lifted.rates, [None, None, None, Some(1), None]);
+        assert_eq!(lifted.overlap, Some((7, EntityId::new(0, 0), 8, 4)));
+    }
+
+    #[test]
+    fn every_frozen_lifted_case_first_stops_its_held_segment_at_its_owners_legs() {
+        let rows = lifted_coulomb_self_collision_attempts().expect("all frozen cases constrain");
+        assert_eq!(rows.len(), 18);
+        for (at, row) in rows.into_iter().enumerate() {
+            let mirrored = at % 2 == 1;
+            assert_eq!((row.strike_delta, row.reach_delta, row.mirrored),
+                (LIFTED_STRIKE_DELTAS[at / 6], LIFTED_REACH_DELTAS[(at / 2) % 3], mirrored));
+            assert_eq!((row.tick, row.entity), (7, EntityId::new(0, 0)));
+            assert_eq!((row.attempt.moving_limb, row.attempt.moving_shape),
+                (if mirrored { 0 } else { 1 }, 2));
+            assert_eq!(row.attempt.obstacle,
+                crate::diagnostics::SelfCollisionObstacleDiagnostic::Body { region: 4 });
+            assert_eq!(row.attempt.last_clear.raw(), if mirrored { 7_425 } else { 16_151 });
         }
     }
 
@@ -1045,17 +1324,14 @@ mod tests {
             ("header", LiftedMutation::Header), ("solver bounds", LiftedMutation::Bounds),
             ("case order", LiftedMutation::CaseOrder),
             ("stored command receipt", LiftedMutation::CommandReceipt),
-            ("mapped key", LiftedMutation::Key), ("region", LiftedMutation::Region),
-            ("TOI", LiftedMutation::Toi), ("geometry", LiftedMutation::Geometry),
-            ("velocity", LiftedMutation::Velocity), ("selected impulse", LiftedMutation::Impulse),
-            ("energy", LiftedMutation::Energy), ("state digest", LiftedMutation::State),
+            ("terminal outcome", LiftedMutation::Outcome),
+            ("state digest", LiftedMutation::State),
             ("empty external-row presence", LiftedMutation::External),
             ("anatomy", LiftedMutation::Anatomy), ("cap", LiftedMutation::Cap),
             ("refusal", LiftedMutation::Refusal),
             ("refusal-cause table", LiftedMutation::RefusalCauseTable),
             ("refusal-phase table", LiftedMutation::RefusalPhaseTable),
             ("group-reject table", LiftedMutation::GroupRejectTable),
-            ("damage", LiftedMutation::Damage),
         ] {
             let changed = hash_lifted(&rows, mutation);
             assert_ne!(changed, 0, "{name} mutation produced the invariant sentinel");
@@ -1075,11 +1351,41 @@ mod tests {
         assert!(lifted_case(-1, -256, false).is_some());
     }
 
+    #[test]
+    #[ignore]
+    fn print_lifted_self_collision_attempts() {
+        for row in lifted_coulomb_self_collision_attempts().expect("all frozen cases constrain") {
+            println!("{row:?} raw={}", row.attempt.last_clear.raw());
+        }
+    }
+
 
     #[test]
     #[ignore]
     fn print_the_lifted_coulomb_solver_digest() {
         println!("LIFTED_COULOMB_SOLVER_DIGEST: {:#018x}", lifted_coulomb_solver_digest());
+    }
+
+    /// Dumps every exact external-energy row the trajectory fixture publishes,
+    /// which is how [`RELEASE_WITNESS_NUMERATOR`] is re-derived from a
+    /// transcript instead of copied out of a failing diff. Run it before you
+    /// touch that literal, not after.
+    #[test]
+    #[ignore]
+    fn print_the_exact_trajectory_external_energy_rows() {
+        let rates = crate::ArmRateProfile {
+            bearing_max_speed_raw: CAPTURED_ARM_RATES.0,
+            bearing_accel_raw: CAPTURED_ARM_RATES.1,
+            ..crate::ArmRateProfile::CURRENT
+        };
+        let outcome = digest_with_profile(DigestMutation::default(), rates, |tick, world| {
+            for row in world.exact_external_energy() {
+                println!("tick={tick} entity={}/{} lane={} reason={} num={} den={}",
+                    row.entity.index, row.entity.generation, row.lane, row.reason,
+                    row.signed_numerator, row.denominator);
+            }
+        });
+        println!("digest = {outcome:?}");
     }
 
     #[test]

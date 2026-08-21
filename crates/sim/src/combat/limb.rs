@@ -174,6 +174,49 @@ pub(crate) fn reachable_extent(
     (held_height, held_reach)
 }
 
+/// The representable forward pose inside the elbow annulus for one bearing.
+///
+/// [`reachable_extent`] closes the scalar height/reach law, but the sine table
+/// can make the realised planar vector a few raw units longer or shorter than
+/// that scalar extent. Collision, contact and elbow publication consume the
+/// realised hand, so they share this final bounded raw-square closure rather
+/// than each choosing a different one-raw boundary answer.
+pub(crate) fn reachable_pose(
+    anatomy: &BodyAnatomySpec, yaw: Angle, limb: usize, bearing: Angle,
+    height: CombatHeight, reach: Fx, elbow: Elbow,
+) -> (CombatHeight, Fx, Vec3) {
+    let shoulder = shoulder(anatomy, yaw, limb);
+    let (inner, outer) = elbow.reach_bounds();
+    let (mut height, mut reach) = reachable_extent(anatomy, height, reach, elbow);
+    let mut hand = hand_position(anatomy, yaw, limb, bearing, height, reach);
+    for _ in 0..256 {
+        let delta = hand - shoulder;
+        let square = delta.x.raw() as i128 * delta.x.raw() as i128
+            + delta.y.raw() as i128 * delta.y.raw() as i128
+            + delta.z.raw() as i128 * delta.z.raw() as i128;
+        let inner_square = inner.raw() as i128 * inner.raw() as i128;
+        let outer_square = outer.raw() as i128 * outer.raw() as i128;
+        if square >= inner_square && square <= outer_square
+            && elbow_point(shoulder, hand, elbow, Angle::ZERO).is_some() { break }
+        if square < inner_square && reach < Fx::ONE {
+            reach = Fx::from_raw(reach.raw() + 1);
+        } else if square > outer_square && reach.raw() > ARM_MIN_REACH_RAW {
+            reach = Fx::from_raw(reach.raw() - 1);
+        } else {
+            let realised_z = anatomy.standing_height * Fx::from_raw(height.raw());
+            let below = realised_z < shoulder.z;
+            let step = if square > outer_square {
+                if below { 1 } else { -1 }
+            } else if below { -1 } else { 1 };
+            let next = (height.raw() + step).clamp(0, Fx::ONE.raw());
+            if next == height.raw() { break }
+            height = CombatHeight::try_from_raw(next).expect("joint height nudge stayed in range");
+        }
+        hand = hand_position(anatomy, yaw, limb, bearing, height, reach);
+    }
+    (height, reach, hand)
+}
+
 /// The nearest world bearing inside the torso's rear sweep envelope.
 ///
 /// `bearing` and `body_yaw` are both world angles. [`Angle::delta`] chooses the

@@ -1,29 +1,23 @@
 # Combat control extensions -- overview
 
-**Status:** future topic. Begins only after the current arena topic closes, unless session
-09 proves the anatomical limit blocks its acceptance and explicitly pulls sessions 02 or
-03 forward as measured mechanics prerequisites.
+**Status:** future host-authority topic. The rear-envelope mechanics are complete and
+durable; swept self-collision moved into the live responsive-arena topic after the owner
+demonstrated that the envelope did not stop a blade crossing its owner.
 
-The playable arena deliberately installs Human or policy control at fight construction
-and lets the simulator's ordinary arm reach law accept targets behind or through the
-owner. The owner has requested three deeper changes: take over and release a live body,
-prevent anatomically impossible rear targets, and prevent arms or held weapons sweeping
-through their owner. They are related at the screen and unrelated in authority:
+The playable arena still installs Human or policy control at fight construction. The
+remaining change here is live takeover and release. It is a host/controller transition;
+it does not alter the arm law or solve self-collision.
 
-- live takeover is a host/controller transition whose replay is still complete commands;
-- a rear envelope changes the arm target law; and
-- self-collision adds a new deterministic constraint phase.
-
-They are separate sessions because a green host transition proves nothing about collision,
-and a target projection must be measurable without a swept-collision solver hiding it.
+The completed rear limit is recorded in [Combat design](../design/combat.md). The stronger
+own-body and held-weapon constraint is now session 02 of the
+[responsive arena](arena-response-00-overview.md), where it blocks feel calibration. A
+green authority transition proves neither of those mechanics, so it remains separate.
 
 ## Session order
 
 | session | lands | depends on |
 |---|---|---|
-| [01](combat-control-extensions-01-live-authority.md) | policy -> Human -> policy transitions during one live fight, with exact next-tick ownership and replay | arena topic closed |
-| [02](combat-control-extensions-02-the-arm-stays-in-front.md) | anatomy-owned rear bearing projection shared by actuator and publication | independent of 01 |
-| [03](combat-control-extensions-03-the-body-is-solid.md) | swept own-body, opposite-arm and held-item constraints without self-damage events | 02 |
+| [01](combat-control-extensions-01-live-authority.md) | policy -> Human -> policy transitions during one live fight, with exact next-tick ownership and replay | responsive arena closed |
 
 ## Boundaries
 

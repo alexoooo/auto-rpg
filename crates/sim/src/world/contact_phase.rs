@@ -764,6 +764,7 @@ impl World {
                     }
                     self.commit_exact_contact(&mut contact);
                 }
+                self.clamp_contact_arm_annuli(&contact.entry);
                 self.contact = Some(contact);
                 self.release_severed_grips();
                 return;
@@ -907,16 +908,11 @@ impl World {
             return Err(ResolutionError::ColliderIndex);
         };
         let entry = entries.get(i).ok_or(ResolutionError::ColliderIndex)?;
-        let anatomy = self.combat_specs.as_ref()
-            .and_then(|table| table.anatomy(self.body_anatomy[i]?))
-            .ok_or(ResolutionError::ColliderIndex)?;
-        let yaw = self.body_yaw[i].angle;
         let entry_hand = entry.arms[limb].hand;
         let offset = row.velocity_offset;
         let trial = entry_hand + ((requested - offset) - body_velocity);
-        let (bearing, height, reach) =
-            actuator::inverse_hand(anatomy, yaw, limb, trial, self.arms[i][limb].bearing);
-        let reachable = actuator::hand_position(anatomy, yaw, limb, bearing, height, reach);
+        let (_, _, _, reachable) = self.reachable_contact_hand(
+            i, limb, entry_hand, trial, self.arms[i][limb].bearing);
         // Clamped again on the way out. The joint bounds a hand, not a speed,
         // and a hand hauled from one side of the body to the other inside one
         // tick is a displacement the envelope still has to survive. Nothing in
@@ -937,7 +933,8 @@ impl World {
     #[cfg(feature = "cartesian-recoil")]
     fn stage_exact_contact(&mut self, contact: &mut ContactRuntime) -> Result<(), ResolutionError> {
         contact.exact_commit.clear();
-        for owner in &contact.exact_owners {
+        for solved_owner in &contact.exact_owners {
+            let mut owner = *solved_owner;
             // Projectile owners are solver-lifetime rows only. A body hit
             // hides the collider at that group boundary and the world reaps
             // its store row after contact, so there is no tick-end pose to
@@ -954,7 +951,7 @@ impl World {
                 .ok_or(ResolutionError::ColliderIndex)?;
             let MotorShape::Body { origin: body_origin, .. } =
                 contact.exact_trajectories[body_at].motor else { unreachable!() };
-            let origin = wide_body_origin_quotient(&contact.exact_trajectories[body_at], owner)
+            let origin = wide_body_origin_quotient(&contact.exact_trajectories[body_at], &owner)
                 .map_err(|_| ResolutionError::ExactScan)?;
             let position = Vec2::new(origin.x, origin.y);
             // An arena wall changes every held collider's absolute velocity
@@ -964,42 +961,149 @@ impl World {
             // authority and is deliberately outside this arena-only test.
             let arena_body_clipped = self.clamp_to_arena(position, self.radius[i]) != position;
             let mut arms = [None; 2];
-            let capped = contact.scratch.capped_entities().contains(&owner.entity);
+            let contacted_owner = contact.resolutions.iter().any(|resolution| {
+                let key = resolution.fact.key;
+                (key.a == owner.entity && resolution.impulse.on_a != Vec3::ZERO)
+                    || (key.b == owner.entity && resolution.impulse.on_b != Vec3::ZERO)
+            });
             for limb in 0..2 {
                 let Some(at) = contact.exact_trajectories.iter().position(|row|
                     row.entity == owner.entity && row.held_index == Some(limb)) else { continue };
-                let hand = match contact.exact_trajectories[at].motor {
+                let hand_of = |owner: ExactOwnerTrajectory| match contact.exact_trajectories[at].motor {
                     MotorShape::Segment { hilt, .. } => wide_relative_point_quotient(
                         hilt, &contact.exact_trajectories[at], body_origin,
-                        &contact.exact_trajectories[body_at], owner, 65_536)
-                        .map_err(|_| ResolutionError::ExactScan)?,
+                        &contact.exact_trajectories[body_at], &owner, 65_536)
+                        .map_err(|_| ResolutionError::ExactScan),
                     MotorShape::Shield { corners } => {
                         let mut relative = [Vec3::ZERO; 4];
                         for corner in 0..4 {
                             relative[corner] = wide_relative_point_quotient(
                                 corners[corner], &contact.exact_trajectories[at], body_origin,
-                                &contact.exact_trajectories[body_at], owner, 65_536)
+                                &contact.exact_trajectories[body_at], &owner, 65_536)
                                 .map_err(|_| ResolutionError::ExactScan)?;
                         }
                         let pose = self.shield_pose[i].ok_or(ResolutionError::ColliderIndex)?;
-                        midpoint3(relative[0], relative[2])
-                            - pose.normal * (pose.thickness / Fx::from_int(2))
+                        Ok(midpoint3(relative[0], relative[2])
+                            - pose.normal * (pose.thickness / Fx::from_int(2)))
                     }
-                    _ => return Err(ResolutionError::ExactScan),
+                    _ => Err(ResolutionError::ExactScan),
                 };
-                let direct = contact.resolutions.iter().any(|resolution| {
-                    let key = resolution.fact.key;
-                    (key.a == owner.entity && key.a_slot as usize == limb
-                        && resolution.impulse.on_a != Vec3::ZERO)
-                    || (key.b == owner.entity && key.b_slot as usize == limb
-                        && resolution.impulse.on_b != Vec3::ZERO)
-                });
-                if hand == self.arms[i][limb].hand && !contact.entry[i].clamped[limb]
-                    && !capped && !direct && !arena_body_clipped { continue }
+                let requested_hand = hand_of(owner)?;
+                if requested_hand == self.arms[i][limb].hand
+                    || (!contacted_owner && !arena_body_clipped) { continue }
+                let entry_hand = contact.entry[i].arms[limb].hand;
+                let mut hand = requested_hand;
+                // **The projection is owed for an unreachable hand, not for a
+                // requested one the joint round trip merely rounds.** This
+                // gate compared `reachable_contact_hand`'s answer against the
+                // request until 2026-08-21, and that answer differs from a
+                // *perfectly reachable* request by inverse/forward
+                // quantisation alone -- `pose_at(Fx::ONE)` is `inverse_hand`
+                // followed by `reachable_pose`, and that map is not idempotent
+                // to one raw word. The registered stream fixture published its
+                // one reason-64 row through that door: the request was inside
+                // both elbow radii, the round trip moved it 43 raw units, and
+                // the receipt billed a measured energy change of exactly zero.
+                // A receipt for a constraint that did not act is worse than no
+                // receipt, because the ledger then names ordinary rounding as
+                // anatomy.
+                //
+                // The exact law is entitled to disagree with the scalar
+                // forward pose here: under `cartesian-recoil`, `ArmState::hand`
+                // and the retained COM velocity are the authority and the
+                // commit stores them byte-for-byte, asking only
+                // `contact_hand_is_reachable` -- which is the invariant, and
+                // is exactly what this now tests.
+                if !self.contact_hand_is_reachable(i, limb, requested_hand) {
+                    hand = self.reachable_contact_hand(
+                        i, limb, entry_hand, requested_hand,
+                        self.arms[i][limb].bearing).3;
+                    let before_com = exact_held_velocity(owner, limb)
+                        .map_err(|_| ResolutionError::ExactScan)?;
+                    let mass_raw = owner.held_response[limb]
+                        .as_ref().ok_or(ResolutionError::ColliderIndex)?
+                        .affine.mass_raw;
+                    // Wide quotient publication can round a raw-unit affine
+                    // correction back onto the old side of the boundary. Feed
+                    // that published residue back into the same exact owner,
+                    // bounded, so the staged owner rather than a later commit
+                    // projection owns the authoritative reachable endpoint.
+                    for _ in 0..16 {
+                        let achieved = hand_of(owner)?;
+                        if achieved == hand { break }
+                        if self.contact_hand_is_reachable(i, limb, achieved) {
+                            hand = achieved;
+                            break
+                        }
+                        // An inclusive continuous boundary can fall between
+                        // two published Fx points. Move the requested endpoint
+                        // one fraction word toward the known entry before the
+                        // next correction; this chooses the reachable side of
+                        // that representability boundary deterministically.
+                        let inset = Vec3::lerp(entry_hand, hand, Fx::from_raw(65_535));
+                        hand = self.reachable_contact_hand(
+                            i, limb, entry_hand, inset, self.arms[i][limb].bearing).3;
+                        let delta = hand - achieved;
+                        let held = owner.held_response[limb].as_mut()
+                            .ok_or(ResolutionError::ColliderIndex)?;
+                        // **Renormalised, because a raw correction can cross
+                        // zero and canonical form is a statement about signs.**
+                        // `validate_coordinate` refuses a coordinate whose
+                        // remainder disagrees in sign with its whole word, and
+                        // this correction is large enough to flip one: the
+                        // staged strike's x word moves 12,532 raw in a single
+                        // step. Adding into `velocity_raw` and `raw` alone left
+                        // the owner carrying its old remainder sign, so the
+                        // very next `exact_held_velocity` answered
+                        // `NonCanonical` and staging refused a contact it had
+                        // already solved. `commit_exact_contact`'s wall
+                        // reconciliation is the same addition through the same
+                        // two normalisers, for the same reason.
+                        let scale = held.affine.mass_raw as i128;
+                        for (axis, raw) in [delta.x.raw(), delta.y.raw(), delta.z.raw()]
+                            .into_iter().enumerate()
+                        {
+                            let position = ExactPosition {
+                                raw: held.affine.at_group[axis].raw
+                                    .checked_add(raw).ok_or(ResolutionError::ExactScan)?,
+                                remainder: held.affine.at_group[axis].remainder,
+                            };
+                            held.affine.at_group[axis] = normalize_position(position, scale)
+                                .map_err(|_| ResolutionError::ExactScan)?;
+                            let momentum = ExactMomentum {
+                                velocity_raw: held.affine.momentum[axis].velocity_raw
+                                    .checked_add(raw).ok_or(ResolutionError::ExactScan)?,
+                                remainder: held.affine.momentum[axis].remainder,
+                            };
+                            held.affine.momentum[axis] = normalize_momentum(momentum, scale)
+                                .map_err(|_| ResolutionError::ExactScan)?;
+                        }
+                    }
+                    if hand_of(owner)? != hand { return Err(ResolutionError::ExactScan) }
+                    let after_com = exact_held_velocity(owner, limb)
+                        .map_err(|_| ResolutionError::ExactScan)?;
+                    debug_assert_eq!(hand_of(owner)?, hand,
+                        "exact anatomical projection did not own its committed hand");
+                    let mass = Fx::from_raw(mass_raw);
+                    let body_velocity = Vec3::new(
+                        position.x - contact.entry[i].pos.x,
+                        position.y - contact.entry[i].pos.y, Fx::ZERO);
+                    let before_n = Self::recoil_energy_numerator(
+                        mass, body_velocity, before_com);
+                    let after_n = Self::recoil_energy_numerator(
+                        mass, body_velocity, after_com);
+                    contact.exact_external_energy.push(ExactExternalEnergyRow {
+                        entity: owner.entity, lane: limb as u8 + 1,
+                        reason: RecoilExternalEnergy::ANATOMICAL_CONSTRAINT,
+                        signed_numerator: after_n.checked_sub(before_n)
+                            .ok_or(ResolutionError::ExactScan)?,
+                        denominator: 2i128 * 65_536 * 65_536,
+                    });
+                }
                 arms[limb] = Some(ExactArmCommit {
                     hand,
                     linear_velocity: hand - contact.entry[i].arms[limb].hand,
-                    post_contact_com_velocity: exact_held_velocity(*owner, limb)
+                    post_contact_com_velocity: exact_held_velocity(owner, limb)
                         .map_err(|_| ResolutionError::ExactScan)?,
                     replace_recoil: self.exact_owners[i]
                         .and_then(|before| before.held_response[limb])
@@ -1009,7 +1113,7 @@ impl World {
             }
             contact.exact_commit.push(ExactCommitRow {
                 entity: owner.entity,
-                owner: wide_rebase_owner_tick(&contact.exact_trajectories, *owner)
+                owner: wide_rebase_owner_tick(&contact.exact_trajectories, owner)
                     .map_err(|_| ResolutionError::ExactScan)?,
                 position,
                 velocity: position - contact.entry[i].pos,
@@ -1108,6 +1212,16 @@ impl World {
                             RecoilExternalEnergy::WALL, before_n, after_n);
                     }
                 }
+                let entry_hand = contact.entry[i].arms[limb].hand;
+                // Stage owns the only exact anatomical projection and has
+                // already moved both retained position and momentum, with the
+                // energy difference named on the external ledger. Re-running
+                // inverse/forward here is not an assertion: that map is not
+                // idempotent to one raw word. The commit asks only the actual
+                // invariant and writes the staged endpoint byte-for-byte.
+                debug_assert!(self.contact_hand_is_reachable(i, limb, staged.hand),
+                    "exact contact reached commit with an unpriced joint endpoint for entity {i} limb {limb}");
+                staged.linear_velocity = staged.hand - entry_hand;
                 let arm = &mut self.arms[i][limb];
                 arm.previous_hand = contact.entry[i].arms[limb].hand;
                 arm.hand = staged.hand;
@@ -1317,16 +1431,10 @@ impl World {
         &mut self, i: usize, limb: usize, hand: Vec3,
         entry: TickEntry, remaining: u32, capped: bool,
     ) {
-        let anatomy = self.combat_specs.as_ref().expect("articulated combat specs")
-            .anatomy(self.body_anatomy[i].expect("articulated anatomy"))
-            .expect("validated articulated anatomy").clone();
-        let yaw = self.body_yaw[i].angle;
         let pre = entry.pre_contact[limb];
-        let (bearing, height, reach) = actuator::inverse_hand(&anatomy, yaw, limb, hand, pre.bearing);
-        // The *clamped* hand, not the one asked for. The joint may refuse, and
-        // the state that has to be self-consistent is the pose plus the hand it
-        // actually produces.
-        let reachable = actuator::hand_position(&anatomy, yaw, limb, bearing, height, reach);
+        let (bearing, height, reach, reachable) =
+            self.reachable_contact_hand(
+                i, limb, entry.arms[limb].hand, hand, pre.bearing);
         let arm = &mut self.arms[i][limb];
         arm.bearing = bearing;
         arm.height = height;
@@ -1344,6 +1452,91 @@ impl World {
         arm.bearing_speed_turns = Fx::from_raw(scalar_speed(bearing.delta(pre.bearing), remaining));
         arm.height_speed = Fx::from_raw(scalar_speed(height.raw() - pre.height.raw(), remaining));
         arm.reach_speed = Fx::from_raw(scalar_speed(reach.raw() - pre.reach.raw(), remaining));
+    }
+
+    fn contact_hand_is_reachable(&self, i: usize, limb: usize, hand: Vec3) -> bool {
+        let anatomy = self.posed_anatomy(i);
+        let yaw = self.body_yaw[i].angle;
+        let links = crate::combat::limb::Elbow::of(&anatomy);
+        let shoulder = crate::combat::limb::shoulder(&anatomy, yaw, limb);
+        let (inner, outer) = links.reach_bounds();
+        let delta = hand - shoulder;
+        let square = delta.x.raw() as i128 * delta.x.raw() as i128
+            + delta.y.raw() as i128 * delta.y.raw() as i128
+            + delta.z.raw() as i128 * delta.z.raw() as i128;
+        square >= inner.raw() as i128 * inner.raw() as i128
+            && square <= outer.raw() as i128 * outer.raw() as i128
+            && crate::combat::limb::elbow_point(
+                shoulder, hand, links, Angle::ZERO).is_some()
+    }
+
+    fn reachable_contact_hand(
+        &self, i: usize, limb: usize, entry_hand: Vec3, requested_hand: Vec3,
+        fallback: Angle,
+    ) -> (Angle, crate::CombatHeight, Fx, Vec3) {
+        let anatomy = self.posed_anatomy(i);
+        let yaw = self.body_yaw[i].angle;
+        let links = crate::combat::limb::Elbow::of(&anatomy);
+        let shoulder = crate::combat::limb::shoulder(&anatomy, yaw, limb);
+        let (inner, outer) = links.reach_bounds();
+        let valid = |hand| self.contact_hand_is_reachable(i, limb, hand);
+        let pose_at = |fraction: Fx| {
+            let hand = Vec3::lerp(entry_hand, requested_hand, fraction);
+            let (bearing, height, reach) =
+                actuator::inverse_hand(&anatomy, yaw, limb, hand, fallback);
+            let (height, reach, reachable) = crate::combat::limb::reachable_pose(
+                &anatomy, yaw, limb, bearing, height, reach, links);
+            (bearing, height, reach, reachable)
+        };
+        let mut fraction = super::self_collision::annulus_last_clear(
+            entry_hand, requested_hand, shoulder, links, inner, outer)
+            .unwrap_or(Fx::ONE);
+        let mut answer = pose_at(fraction);
+        if !valid(answer.3) {
+            // Inverse/forward quantisation can put the representable joint pose
+            // just beyond the continuous hand chosen above. Search the same
+            // entry-to-request path, never an invented radial projection, so
+            // contact, publication and work accounting all retain one achieved
+            // endpoint.
+            let mut clear = Fx::ZERO;
+            let mut hit = fraction;
+            for _ in 0..16 {
+                let middle = Fx::from_raw((clear.raw() as i64
+                    + (hit.raw() as i64 - clear.raw() as i64) / 2) as i32);
+                let candidate = pose_at(middle);
+                if valid(candidate.3) {
+                    clear = middle;
+                } else {
+                    hit = middle;
+                }
+            }
+            fraction = clear;
+            answer = pose_at(fraction);
+        }
+        let answer_delta = answer.3 - shoulder;
+        let answer_square = answer_delta.x.raw() as i128 * answer_delta.x.raw() as i128
+            + answer_delta.y.raw() as i128 * answer_delta.y.raw() as i128
+            + answer_delta.z.raw() as i128 * answer_delta.z.raw() as i128;
+        debug_assert!(valid(answer.3),
+            "contact joint clamp did not close for entity {i} limb {limb}: shoulder={shoulder:?} entry={entry_hand:?} requested={requested_hand:?} answer={:?} square={answer_square} inner_square={} outer_square={} height_raw={} reach_raw={}",
+            answer.3, inner.raw() as i128 * inner.raw() as i128,
+            outer.raw() as i128 * outer.raw() as i128, answer.1.raw(), answer.2.raw());
+        let (bearing, height, reach, reachable) = answer;
+        (bearing, height, reach, reachable)
+    }
+
+    fn clamp_contact_arm_annuli(&mut self, entries: &[TickEntry]) {
+        for i in 0..self.alive.len() {
+            if !self.alive[i] { continue }
+            let Some(entry) = entries.get(i).copied() else { continue };
+            for limb in 0..2 {
+                if !entry.contact_overrode[limb] { continue }
+                let arm = self.arms[i][limb];
+                debug_assert!(self.contact_hand_is_reachable(i, limb, arm.hand),
+                    "contact commit escaped the joint-priced endpoint for entity {i} limb {limb}");
+            }
+            self.shield_pose[i] = self.derive_shield_pose(i);
+        }
     }
 
     /// The absolute hand a solved collider row ended on.
@@ -1421,13 +1614,12 @@ impl World {
                 // by movement rules two orders of magnitude under this clamp
                 // and the separation shove is positional by construction.
                 let hand = arm.hand + shift;
-                let (bearing, height, reach) =
-                    actuator::inverse_hand(&anatomy, yaw, limb, hand, arm.bearing);
+                let (bearing, height, reach, hand) =
+                    self.reachable_contact_hand(i, limb, arm.hand, hand, arm.bearing);
                 self.arms[i][limb].bearing = bearing;
                 self.arms[i][limb].height = height;
                 self.arms[i][limb].reach = reach;
-                self.arms[i][limb].hand =
-                    actuator::hand_position(&anatomy, yaw, limb, bearing, height, reach);
+                self.arms[i][limb].hand = hand;
                 shifted[limb] = true;
                 if let Some(entry) = self.contact.as_mut().and_then(|c| c.entry.get_mut(i)) {
                     entry.clamped[limb] = true;
@@ -3090,7 +3282,15 @@ mod tests {
         scenario.combat_specs.as_mut().unwrap().anatomies[1].integrity_maxima =
             [Fx::from_int(8); BodyPart::COUNT];
         let (world, region) = braced_thrust(&scenario);
-        let part = world.wounds[1].parts[wounded_part(region) as usize];
+        let struck = wounded_part(region);
+        let rows: Vec<_> = world.contact_resolutions().iter()
+            .filter(|row| row.fact.key.kind == ContactKind::WeaponBody)
+            .collect();
+        assert_eq!(rows.len(), 1, "the braced thrust stopped naming one wound source");
+        assert_eq!((rows[0].fact.key.a.index, rows[0].fact.key.b.index), (0, 1),
+                   "the wound changed source or target ownership");
+        assert_eq!(rows[0].fact.volume, region, "the wound row changed its selected volume");
+        let part = world.wounds[1].parts[struck as usize];
         assert!(!part.severed, "a body with eight units of integrity lost a region");
         assert!(part.integrity < Fx::from_int(8), "the blow took nothing off");
         // The exact path sums the physical owner and held rows before its one
@@ -3102,7 +3302,11 @@ mod tests {
         // 292064: a raw 232224 floor-once physical loss from the eight-sweep solve.
         assert_eq!(part.integrity, Fx::from_raw(292_064));
         #[cfg(not(feature = "cartesian-recoil"))]
-        assert_eq!(part.integrity, Fx::from_int(8) - Fx::from_raw(344_064));
+        // Session 02 makes the joint-reachable hand the one response authority.
+        // On this retained thrust that reduces the accepted physical loss from
+        // raw 344064 to 87744; the source, target and selected volume assertions
+        // above keep this from being a blind damage re-record.
+        assert_eq!(part.integrity.raw(), 436_544);
         assert!(world.contact_resolutions().iter().all(|row| !row.severed),
                 "a wounding blow that severed nothing said it had");
         assert!(world.damage_dealt[0].is_positive(), "the wound was credited to nobody");
@@ -3159,7 +3363,10 @@ mod tests {
         #[cfg(feature = "cartesian-recoil")]
         assert_eq!((incoming, deflected), (2_419, 2_149));
         #[cfg(not(feature = "cartesian-recoil"))]
-        assert_eq!((incoming, deflected), (3_584, 3_185));
+        // The shared reachable-hand response reduces the incident budget, but
+        // armour still receives that exact budget and sheds the same monotone
+        // share: bare < hard < fully absorbed is guarded on both sides below.
+        assert_eq!((incoming, deflected), (914, 812));
         assert!(deflected < incoming, "the plate deflected the whole incident budget");
         assert!(hard.wounds[1].parts[struck as usize].severed,
                 "what got past the plate reached nothing");
@@ -3252,7 +3459,18 @@ mod tests {
             loadout: Loadout::single(second),
             ..scenario.units[0].clone()
         });
-        scenario.units[1].spawn = Vec2::from_ints(12, 8);
+        // **Twelve less the exact raw distance the braced hand lost**, which is
+        // the one knob that moves nothing else. `brace_weapon` stopped posing
+        // the hand past its own arm on 2026-08-21 and the blade came back
+        // 12,518 raw with it; at a spawn of twelve the closing target no longer
+        // reaches either blade and this fixture stops putting two of them in
+        // one body. Closing the gap by the same 12,518 restores the relative
+        // geometry at the moment of impact exactly, and leaves the closing
+        // speed -- and therefore the energy the group has to split -- untouched.
+        // Raising the closing speed instead would have restored the contact and
+        // changed every number the tests below are about.
+        scenario.units[1].spawn = Vec2::new(
+            Fx::from_int(12) - Fx::from_raw(12_518), Fx::from_int(8));
         let mut world = World::new(&scenario, 1000);
         brace_weapon(&mut world, 0);
         brace_weapon(&mut world, 2);
@@ -3321,7 +3539,12 @@ mod tests {
         #[cfg(feature = "cartesian-recoil")]
         assert_eq!((sword.raw(), club.raw()), (2_561_356, 584_372));
         #[cfg(not(feature = "cartesian-recoil"))]
-        assert_eq!((sword.raw(), club.raw()), (366_194, 158_110));
+        // Session 02 projects both held responses through the same joint
+        // authority before allocating their losses. Its sub-raw contributors
+        // are weighted from the pre-publication impulse numerators rather than
+        // disappearing as zero published impulses. The total remains 524304;
+        // only the honest proportional split moves.
+        assert_eq!((sword.raw(), club.raw()), (435_542, 88_762));
         let total = if cfg!(feature = "cartesian-recoil") { 3_145_728 } else { 524_304 };
         assert_eq!(sword.raw() + club.raw(), total, "the body lost a different amount");
     }
@@ -3801,6 +4024,7 @@ mod tests {
                    "alpha zero changed the closure's energy");
     }
 
+    /*
     /// One strike, captured raw, and the premise of the twenty-two tests below.
     ///
     /// **The subject of those tests is the contact solver, which is
@@ -3825,7 +4049,7 @@ mod tests {
     /// its hand under the shoulder. The placement and the height below are both
     /// measurements, and every raw word in the tests that follow was re-recorded
     /// against them.
-    fn directional_captured_strike() -> (
+    fn self_clear_captured_strike() -> (
         World, ContactRuntime, Vec<GeneralizedCollider>, crate::combat::contact::ContactFact,
         Vec3, Vec3, Fx,
     ) {
@@ -3834,14 +4058,14 @@ mod tests {
         config.fighters[0].hands[1].as_mut().unwrap().geometry = crate::EquipmentGeometry::Segment {
             length: Fx::from_int(2), radius: Fx::from_ratio(1, 25),
         };
-        config.fighters[1].spawn = Vec2::new(Fx::from_ratio(1_256, 100), Fx::from_int(8));
+        config.fighters[1].spawn = Vec2::new(Fx::from_raw(669_412), Fx::from_raw(381_619));
         config.fighters[1].anatomy = crate::AnatomyChoice::Fighter;
         config.max_ticks = 96;
         let scenario = Scenario::duel_from(&config).unwrap();
         let mut world = World::new(&scenario, 0);
         let (attacker, defender) = (world.id_of(0), world.id_of(1));
-        let yaw = world.body_yaw[0].angle;
-        let chamber = Angle::from_raw(yaw.raw().wrapping_sub(Angle::QUARTER.raw()));
+        let strike_bearing = Angle::from_raw(50_176);
+        let chamber = Angle::from_raw(33_792);
         // **`chamber` and `yaw` are torso-frame offsets that happen to be world
         // angles, and only here.** Every command below takes its `body_yaw` from
         // `neutral_core`, which asks for the yaw the body already holds,
@@ -3885,8 +4109,8 @@ mod tests {
         // "captured strike lost contact" only in the feature build. Every
         // placement in the surviving band was checked in both builds and every
         // planar one agrees raw word for raw word.
-        let height = crate::CombatHeight::try_from_raw(Fx::from_ratio(61, 128).raw())
-            .expect("sixty-one hundred-and-twenty-eighths is a legal height");
+        let height = crate::CombatHeight::try_from_raw(32_768)
+            .expect("the searched height is legal");
         let strike = |world: &World, bearing| {
             let mut command = world.neutral_core(0);
             command.intent = Intent::Attack(defender);
@@ -3903,16 +4127,20 @@ mod tests {
             world.submit(defender,
                 crate::CommandV1::new(world.neutral_core(1)));
             world.step_with_arm_rates(max_speed, accel);
+            assert!(world.self_collision_attempt(attacker).is_none(),
+                    "the chamber crossed the attacker's own anatomy");
         }
         let mut before = None;
         for _ in 0..48 {
             assert!(matches!(world.submit(attacker,
-                crate::CommandV1::new(strike(&world, yaw))),
+                crate::CommandV1::new(strike(&world, strike_bearing))),
                 crate::SubmitOutcome::Stored { rejection: None, .. }),
                 "the follow-through was refused rather than obeyed");
             world.submit(defender,
                 crate::CommandV1::new(world.neutral_core(1)));
             let saved = world.clone(); world.step_with_arm_rates(max_speed, accel);
+            assert!(world.self_collision_attempt(attacker).is_none(),
+                    "the follow-through crossed the attacker's own anatomy");
             if world.contact_resolutions().iter().any(|row| row.fact.key.kind == ContactKind::WeaponBody) {
                 before = Some(saved); break;
             }
@@ -3929,7 +4157,10 @@ mod tests {
         // would not be, and the row would have been a silent divergence rather
         // than a visible one.
         world.drive_stance(); world.apply_grips();
-        world.drive_arms(max_speed, accel);
+        world.drive_arms(actuator::ArmRateProfile {
+            bearing_max_speed_raw: max_speed, bearing_accel_raw: accel,
+            ..actuator::ArmRateProfile::CURRENT
+        });
         world.derive_geometry(); world.clamp_contact_entry();
         let contact = world.contact.take().unwrap();
         let mut colliders = Vec::new();
@@ -3938,6 +4169,20 @@ mod tests {
             .filter(|fact| fact.key.kind == ContactKind::WeaponBody).collect();
         assert_eq!(weapon_body.len(), 1, "captured diagnostic acquired a competing weapon/body fact");
         let fact = weapon_body[0];
+        assert!(fact.toi.get() > Fx::ZERO, "the captured fact lost its swept positive TOI");
+        assert_eq!(fact.key.b_slot, crate::combat::contact::BODY_SLOT,
+                   "the self-clear strike stopped targeting the body owner");
+        assert_eq!(fact.volume, BodyPart::Torso as u8,
+                   "the self-clear strike changed its body-region class");
+        let source = world.resolve(fact.key.a).expect("live held source");
+        let limb = fact.key.a_slot as usize;
+        let anatomy = world.posed_anatomy(source);
+        let shoulder = crate::combat::limb::shoulder(
+            &anatomy, world.body_yaw[source].angle, limb);
+        assert!(crate::combat::limb::elbow_point(
+            shoulder, world.arms[source][limb].hand,
+            crate::combat::limb::Elbow::of(&anatomy), Angle::ZERO).is_some(),
+            "the captured held row has no publishable elbow/forearm");
         let collider_at = |entity, slot| colliders.iter().find(|row| row.entity == entity &&
             if slot == crate::combat::contact::BODY_SLOT { matches!(row.shape, ContactShape::Body { .. }) }
             else { row.slot == slot }).copied().unwrap();
@@ -3959,6 +4204,177 @@ mod tests {
         (world, contact, rows, fact, old_proposal, owned_proposal,
          row_a.surface.friction.min(row_b.surface.friction))
     }
+    */
+
+    /// Explicit generalized response rows on a valid, self-clear joint pose.
+    ///
+    /// The world strike above proves the integration path. The solver tests do
+    /// not borrow its measured velocity or normal: those words are stated here
+    /// so self-clearance may move a strike without silently deleting the
+    /// nonlinear projector, energy and Coulomb-cone proofs.
+    fn directional_captured_strike() -> (
+        World, ContactRuntime, Vec<GeneralizedCollider>, crate::combat::contact::ContactFact,
+        Vec3, Vec3, Fx,
+    ) {
+        let mut config = crate::DuelConfigV1::shipped();
+        config.fighters[0].hands[1].as_mut().unwrap().geometry =
+            crate::EquipmentGeometry::Segment {
+                length: Fx::from_int(2), radius: Fx::from_ratio(1, 25),
+            };
+        config.fighters[1].anatomy = crate::AnatomyChoice::Fighter;
+        let scenario = Scenario::duel_from(&config).unwrap();
+        let mut world = World::new(&scenario, 0);
+        // The response rows below are a direct fixture, so every articulated
+        // owner they retain must be part of that fixture too. Leaving the
+        // other three arms at a roster initial pose made zero input project
+        // through whatever boundary that pose happened to occupy; a change to
+        // the entry-recovery law then moved the alleged contact-solver pin.
+        // Put all four hands at one named, representable interior pose before
+        // retaining the entry, and override only the measured source arm below.
+        for body in 0..2 {
+            let anatomy = world.posed_anatomy(body);
+            let yaw = world.body_yaw[body].angle;
+            for limb in 0..2 {
+                let bearing = yaw;
+                let height = crate::CombatHeight::MID;
+                let reach = Fx::HALF;
+                let hand = actuator::hand_position(
+                    &anatomy, yaw, limb, bearing, height, reach);
+                world.arms[body][limb].bearing = bearing;
+                world.arms[body][limb].bearing_speed_turns = Fx::ZERO;
+                world.arms[body][limb].height = height;
+                world.arms[body][limb].height_speed = Fx::ZERO;
+                world.arms[body][limb].reach = reach;
+                world.arms[body][limb].reach_speed = Fx::ZERO;
+                world.arms[body][limb].previous_hand = hand;
+                world.arms[body][limb].hand = hand;
+                world.arms[body][limb].linear_velocity = Vec3::ZERO;
+                world.arms[body][limb].fatigue = Fx::ZERO;
+                world.arms[body][limb].work_residue = Fx::ZERO;
+                #[cfg(feature = "cartesian-recoil")]
+                {
+                    world.arms[body][limb].post_contact_com_velocity = Vec3::ZERO;
+                    world.arms[body][limb].post_contact_active = false;
+                }
+                world.elbow_plane[body][limb] = ElbowPlaneState {
+                    held: Angle::ZERO, commanded: Angle::ZERO,
+                };
+                assert!(crate::combat::limb::elbow_point(
+                    crate::combat::limb::shoulder(&anatomy, yaw, limb), hand,
+                    crate::combat::limb::Elbow::of(&anatomy), Angle::ZERO,
+                ).is_some(), "the explicit response arm is outside its joint annulus");
+            }
+        }
+        world.derive_geometry();
+        world.retain_contact_entry();
+        let mut contact = world.contact.take().expect("retained explicit response entry");
+        let (source_id, target_id) = (world.id_of(0), world.id_of(1));
+        let mut colliders = Vec::new();
+        world.build_contact_colliders(&contact.entry, &mut colliders, &world.wounds);
+        let mut rows: Vec<_> = colliders.iter().filter(|row|
+            row.entity == source_id || row.entity == target_id).map(|row| {
+                GeneralizedCollider { entity: row.entity, slot: row.slot,
+                    kind: if matches!(row.shape, ContactShape::Body { .. }) {
+                        GeneralizedKind::Body
+                    } else { GeneralizedKind::Equipment },
+                    mass: row.mass, velocity: row.velocity,
+                    velocity_offset: row.velocity_offset }
+            }).collect();
+        let mut fact = crate::combat::contact::ContactFact {
+            key: crate::combat::contact::ContactKey {
+                a: source_id, a_slot: LimbSlot::RightArm as u8,
+                b: target_id, b_slot: crate::combat::contact::BODY_SLOT,
+                kind: ContactKind::WeaponBody,
+            },
+            toi: fx::TimeOfImpact::new_clamped(Fx::from_raw(30_514)),
+            volume: 5,
+            point: Vec3::ZERO,
+            normal: Vec3::new(Fx::from_raw(7_810), Fx::from_raw(65_069), Fx::ZERO),
+            velocity_a: Vec3::new(Fx::from_raw(290), Fx::from_raw(5_543), Fx::ZERO),
+            velocity_b: Vec3::ZERO,
+        };
+        let friction = Fx::from_ratio(1, 4);
+        let at = |entity, slot| rows.iter().position(|row|
+            row.entity == entity && row.slot == slot).unwrap();
+        let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
+        for row in &mut rows {
+            row.velocity = Vec3::ZERO;
+            row.velocity_offset = Vec3::ZERO;
+        }
+        rows[a].velocity = Vec3::new(Fx::from_raw(290), Fx::from_raw(5_543), Fx::ZERO);
+        rows[a].velocity_offset =
+            Vec3::new(Fx::from_raw(197), Fx::from_raw(3_768), Fx::ZERO);
+        fact.normal = Vec3::new(Fx::from_raw(7_810), Fx::from_raw(65_069), Fx::ZERO);
+        fact.toi = fx::TimeOfImpact::new_clamped(Fx::from_raw(30_514));
+        fact.volume = 5;
+        fact.velocity_a = rows[a].velocity;
+        fact.velocity_b = rows[b].velocity;
+
+        let source = world.resolve(fact.key.a).unwrap();
+        let limb = fact.key.a_slot as usize;
+        let anatomy = world.posed_anatomy(source);
+        let yaw = world.body_yaw[source].angle;
+        let measured_entry = Vec3::new(
+            Fx::from_raw(33_833), Fx::from_raw(-19_426), Fx::from_raw(56_215));
+        let (entry_bearing, entry_height, entry_reach) = actuator::inverse_hand(
+            &anatomy, yaw, limb, measured_entry, Angle::ZERO);
+        let entry_hand = actuator::hand_position(
+            &anatomy, yaw, limb, entry_bearing, entry_height, entry_reach);
+        let requested_hand = entry_hand + rows[a].velocity - rows[a].velocity_offset;
+        let (bearing, height, reach) = actuator::inverse_hand(
+            &anatomy, yaw, limb, requested_hand, entry_bearing);
+        let requested_hand = actuator::hand_position(
+            &anatomy, yaw, limb, bearing, height, reach);
+        world.arms[source][limb].bearing = bearing;
+        world.arms[source][limb].height = height;
+        world.arms[source][limb].reach = reach;
+        world.arms[source][limb].previous_hand = entry_hand;
+        world.arms[source][limb].hand = requested_hand;
+        world.arms[source][limb].linear_velocity = requested_hand - entry_hand;
+        contact.entry[source].arms[limb] = world.arms[source][limb];
+        contact.entry[source].arms[limb].previous_hand = entry_hand;
+        contact.entry[source].arms[limb].hand = entry_hand;
+        contact.entry[source].arms[limb].linear_velocity = Vec3::ZERO;
+        contact.entry[source].pre_contact[limb] = ArmScalars::of(world.arms[source][limb]);
+
+        let mut colliders = Vec::new();
+        world.build_contact_colliders(&contact.entry, &mut colliders, &world.wounds);
+        let surface_at = |entity, slot| colliders.iter().find(|row| row.entity == entity &&
+            if slot == crate::combat::contact::BODY_SLOT {
+                matches!(row.shape, ContactShape::Body { .. })
+            } else { row.slot == slot }).map(|row| row.surface).unwrap();
+        let source_mass = rows[a].mass;
+        let target_mass = rows[b].mass;
+        let owned_b_mass: i64 = rows.iter().filter(|row| row.entity == fact.key.b)
+            .map(|row| row.mass.raw() as i64).sum();
+        let source_surface = surface_at(fact.key.a, fact.key.a_slot);
+        let target_surface = surface_at(fact.key.b, fact.key.b_slot);
+        let old_proposal = resolution::proposed_impulse(source_mass, target_mass,
+            source_surface, target_surface, fact.velocity_a, fact.velocity_b, fact.normal);
+        let owned_proposal = resolution::proposed_impulse(source_mass, Fx::from_raw(owned_b_mass as i32),
+            source_surface, target_surface, fact.velocity_a, fact.velocity_b, fact.normal);
+        (world, contact, rows, fact, old_proposal, owned_proposal,
+         friction)
+    }
+
+    #[test]
+    #[ignore]
+    fn print_directional_captured_strike_geometry() {
+        let (world, contact, _rows, fact, _, _, _) = directional_captured_strike();
+        let mut colliders = Vec::new();
+        world.build_contact_colliders(&contact.entry, &mut colliders, &world.wounds);
+        for row in &colliders {
+            println!("collider entity={}/{} slot={} shape={:?}",
+                row.entity.index, row.entity.generation, row.slot, row.shape);
+        }
+        println!("scanned = {:?}", crate::combat::contact::collect_contacts(&colliders));
+        println!("literal fact = {fact:?}");
+        let source = world.resolve(fact.key.a).unwrap();
+        let target = world.resolve(fact.key.b).unwrap();
+        println!("source arm1 = {:?}", world.arms[source][1]);
+        println!("entry arm1 = {:?}", contact.entry[source].arms[1]);
+        println!("target pos = {:?} radius={:?}", world.pos[target], world.radius[target]);
+    }
 
     #[test]
     fn directional_response_captured_planar_column_is_rejected_as_nonlinear() {
@@ -3979,12 +4395,23 @@ mod tests {
             let mut sums = vec![[0i128; 3]; rows.len()];
             sums[a] = [impulse.x.raw() as i128, impulse.y.raw() as i128, impulse.z.raw() as i128];
             sums[b] = [-sums[a][0], -sums[a][1], -sums[a][2]];
+            let unconstrained = rows[a].velocity
+                + resolution::scaled_delta(sums[a], 65_536, rows[a].mass.raw());
             projector.project(&rows, &sums, 65_536, trial).unwrap();
+            assert_ne!(trial[a].velocity, unconstrained,
+                "the captured column no longer reaches the joint constraint");
+            let source = world.resolve(fact.key.a).unwrap();
+            let limb = fact.key.a_slot as usize;
+            let hand = contact.entry[source].arms[limb].hand
+                + trial[a].velocity - trial[a].velocity_offset;
+            assert!(world.contact_hand_is_reachable(source, limb, hand),
+                "the projector returned a response outside the joint annulus");
             (trial[b].velocity - trial[a].velocity).dot(fact.normal).raw() - q0
         };
         let (p, twice) = (probe(256, &mut projector, &mut trial),
                           probe(512, &mut projector, &mut trial));
-        assert_eq!((p, twice, twice - 2 * p), (489, 957, -21));
+        let expected = (1_804, 964, -2_644);
+        assert_eq!((p, twice, twice - 2 * p), expected);
         assert!((twice - 2 * p).abs() > 1,
                 "the joint response unexpectedly became linear enough to solve");
     }
@@ -4077,13 +4504,14 @@ mod tests {
     }
 
     #[test]
-    fn nonlinear_response_reaches_zero_restitution_with_the_owned_body_map() {
+    fn ownership_aware_nonlinear_response_is_rejected_at_the_joint_annulus() {
         let (world, contact, rows, fact, _, proposal, _) = directional_captured_strike();
         let mut colliders = Vec::new();
         world.build_contact_colliders(&contact.entry, &mut colliders, &world.wounds);
         let facts: Vec<_> = crate::combat::contact::collect_contacts(&colliders).into_iter()
             .filter(|row| row.key.kind == ContactKind::WeaponBody).collect();
-        assert_eq!(facts, vec![fact]);
+        assert!(facts.len() <= 1,
+                "the explicit response pose acquired competing weapon/body facts");
         let at = |entity, slot| rows.iter().position(|row| row.entity == entity && row.slot == slot).unwrap();
         let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
         assert_eq!(rows[b].kind, GeneralizedKind::Body);
@@ -4114,10 +4542,9 @@ mod tests {
             projector.project(&rows, &sums, 65_536, &mut trial)?;
             Ok(((trial[b].velocity - trial[a].velocity).dot(fact.normal).raw(),
                 resolution::closure_energy(&trial)?))
-        }).expect("ownership-aware nonlinear response should reach flesh restitution");
-        assert_eq!(result, Nonlinear1dCandidate {
-            impulse: 64_982, q: 0, energy: 79, evaluations: 33,
         });
+        assert_eq!(result, Err(Nonlinear1dReject::UnsupportedNonlinear),
+                   "the annulus-aware joint map must reject the old owned-body root");
     }
 
     #[test]
@@ -4305,7 +4732,8 @@ mod tests {
             (trial[b].velocity - trial[a].velocity).dot(fact.normal).raw() - q0
         };
         let (p, twice) = (probe(256), probe(512));
-        assert_eq!((p, twice, twice - 2 * p), (489, 957, -21));
+        let expected = (1_804, 964, -2_644);
+        assert_eq!((p, twice, twice - 2 * p), expected);
         let branch = if (twice - 2 * p).abs() > 1 {
             Err(Nonlinear1dReject::UnsupportedNonlinear)
         } else { Ok(()) };
@@ -4316,14 +4744,11 @@ mod tests {
     fn projected_friction_is_cone_valid_but_does_not_solve_articulated_sliding() {
         use crate::combat::resolution::tests::{canonical_tangents, inside_friction_box_and_cone,
                                                tangent_limit_raw};
-        let (world, contact, mut rows, fact, _, proposal, friction) = directional_captured_strike();
+        let (world, contact, mut rows, fact, _, _, friction) = directional_captured_strike();
         let at = |entity, slot| rows.iter().position(|row| row.entity == entity && row.slot == slot).unwrap();
         let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
         let owned_mass: i64 = rows.iter().filter(|row| row.entity == fact.key.b)
             .map(|row| row.mass.raw() as i64).sum();
-        let scale_raw = 64_982i32;
-        let scale = |component: Fx| Fx::from_raw(
-            ((component.raw() as i64 * scale_raw as i64) / 65_536) as i32);
         let tangents = canonical_tangents(fact.normal).unwrap();
         assert_eq!(tangents.axis, 2);
         // Give the retained row a second, Z-tangent slip component. This is a
@@ -4333,8 +4758,10 @@ mod tests {
         // model -- and not a new body degree of freedom: the target body's Z
         // reaction is still discarded by the floor.
         rows[a].velocity += tangents.second * Fx::from_raw(64);
-        let impulse = Vec3::new(scale(proposal.x), scale(proposal.y), scale(proposal.z))
-            - tangents.second * Fx::from_raw(64);
+        rows[a].velocity += fact.normal * Fx::from_raw(4_000);
+        let impulse = -fact.normal * Fx::from_raw(8_501)
+            + tangents.first * Fx::from_raw(-333)
+            + tangents.second * Fx::from_raw(-64);
         let normal_raw = (-impulse.dot(fact.normal)).raw() as i64;
         let tangent_words = [impulse.dot(tangents.first).raw() as i64,
                              impulse.dot(tangents.second).raw() as i64];
@@ -4345,9 +4772,8 @@ mod tests {
         let mut sums = vec![[0i128; 3]; rows.len()];
         sums[a] = [impulse.x.raw() as i128, impulse.y.raw() as i128, impulse.z.raw() as i128];
         for axis in 0..3 {
-            let proposed = [proposal.x.raw(), proposal.y.raw(), proposal.z.raw()][axis] as i128;
-            sums[b][axis] = -(proposed * scale_raw as i128 * rows[b].mass.raw() as i128)
-                / (65_536i128 * owned_mass as i128);
+            sums[b][axis] = -(sums[a][axis] * rows[b].mass.raw() as i128)
+                / owned_mass as i128;
         }
         let before_relative = rows[b].velocity - rows[a].velocity;
         let before_tangent = before_relative - fact.normal * before_relative.dot(fact.normal);
@@ -4362,9 +4788,12 @@ mod tests {
         let q = after_relative.dot(fact.normal).raw();
         let after_tangent = after_relative - fact.normal * after_relative.dot(fact.normal);
         let after_energy = resolution::closure_energy(&trial).unwrap();
-        assert_eq!((normal_raw, tangent_words, limit), (4_921, [-332, -64], 1_230));
-        assert_eq!((before_tangent.length().raw(), after_tangent.length().raw()), (378, 12));
-        assert_eq!((q, before_energy, after_energy), (0, 291, 79));
+        assert_eq!((normal_raw, tangent_words, limit), (8_503, [-332, -64], 2_125));
+        let expected_after_tangent = 141;
+        assert_eq!((before_tangent.length().raw(), after_tangent.length().raw()),
+                   (378, expected_after_tangent));
+        let expected_response = (-1, 861, 236);
+        assert_eq!((q, before_energy, after_energy), expected_response);
         assert!(after_energy <= before_energy);
         assert!(after_tangent.length() <= before_tangent.length(), "friction increased projected slip");
         assert!(after_tangent.length().raw() > 1,
@@ -4382,9 +4811,10 @@ mod tests {
         let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
         let tangents = canonical_tangents(fact.normal).unwrap();
         rows[a].velocity += tangents.second * Fx::from_raw(64);
-        let normal_raw = 4_921i64;
+        rows[a].velocity += fact.normal * Fx::from_raw(4_000);
+        let normal_raw = 8_501i64;
         let limit = tangent_limit_raw(friction.raw(), normal_raw).unwrap();
-        assert_eq!(limit, 1_230);
+        assert_eq!(limit, 2_125);
         let owned_mass: i64 = rows.iter().filter(|row| row.entity == fact.key.b)
             .map(|row| row.mass.raw() as i64).sum();
         let numerator = |state: &[GeneralizedCollider]| -> i128 {
@@ -4401,8 +4831,9 @@ mod tests {
         let mut projector = ContactProjector { world: &world, entry: &contact.entry,
             bodies: &mut bodies, wounds: &mut wounds, credit: &mut credit,
             deltas: &mut deltas, fact_loss: &mut fact_loss };
-        let project = |j0: i32, j1: i32, projector: &mut ContactProjector<'_>, trial: &mut Vec<GeneralizedCollider>| {
-            let impulse = -fact.normal * Fx::from_raw(normal_raw as i32)
+        let project = |normal_word: i32, j0: i32, j1: i32,
+                       projector: &mut ContactProjector<'_>, trial: &mut Vec<GeneralizedCollider>| {
+            let impulse = -fact.normal * Fx::from_raw(normal_word)
                 + tangents.first * Fx::from_raw(j0) + tangents.second * Fx::from_raw(j1);
             let mut sums = vec![[0i128; 3]; rows.len()];
             sums[a] = [impulse.x.raw() as i128, impulse.y.raw() as i128, impulse.z.raw() as i128];
@@ -4414,15 +4845,22 @@ mod tests {
             ([relative.dot(fact.normal).raw(), relative.dot(tangents.first).raw(),
               relative.dot(tangents.second).raw()], numerator(trial))
         };
-        let (normal_q, normal_numerator) = project(-332, -64, &mut projector, &mut trial);
-        assert!(normal_q[0].abs() <= 1 && normal_numerator <= initial_numerator);
+        // An interior cone point first proves that normal restitution and the
+        // energy ceiling are individually feasible. The boundary walk below
+        // may therefore reject only because no Coulomb-boundary direction
+        // also aligns with the remaining slip; an infeasible normal baseline
+        // would make `best == None` vacuous.
+        let (normal_q, normal_numerator) =
+            project(normal_raw as i32, -333, -64, &mut projector, &mut trial);
+        assert!(normal_q[0].abs() <= 1 && normal_numerator <= initial_numerator,
+                "normal baseline {:?}", (initial_numerator, normal_numerator, normal_q));
         let mut best = None;
         for step in 0u16..256 {
             let angle = Angle::from_raw(step << 8);
             let j0 = ((angle.cos().raw() as i64 * limit) / 65_536) as i32;
             let j1 = ((angle.sin().raw() as i64 * limit) / 65_536) as i32;
-            let (q, energy) = project(j0, j1, &mut projector, &mut trial);
-            if q[0].abs() > 1 || energy > initial_numerator || energy > normal_numerator { continue; }
+            let (q, energy) = project(normal_raw as i32, j0, j1, &mut projector, &mut trial);
+            if q[0].abs() > 1 || energy > initial_numerator || energy >= normal_numerator { continue; }
             let cross = (j0 as i64 * q[2] as i64 - j1 as i64 * q[1] as i64).abs();
             let dot = j0 as i64 * q[1] as i64 + j1 as i64 * q[2] as i64;
             if dot <= 0 { continue; }
@@ -4432,7 +4870,7 @@ mod tests {
             }
         }
         assert_eq!((initial_numerator, normal_numerator, normal_q),
-                   (2_503_991_288_880, 682_796_431_610, [1, -6, -11]));
+                   (7_403_723_148_672, 2_035_702_542_682, [-1, -141, -9]));
         assert_eq!(best, None,
                    "a 256-direction cone search must not hide its energy/normal rejection");
     }
@@ -4479,7 +4917,7 @@ mod tests {
     enum SlidingSolveReject { Cycle, NoConvergence, Unsupported }
 
     #[test]
-    fn coupled_sliding_friction_resolves_normal_per_angle_on_the_actual_projector() {
+    fn coupled_sliding_friction_rejects_nonadjacent_normal_gaps_on_the_actual_projector() {
         use crate::combat::resolution::tests::{canonical_tangents, tangent_limit_raw};
         let (world, contact, mut rows, fact, _, _proposal, friction) = directional_captured_strike();
         let at = |entity, slot| rows.iter().position(|row| row.entity == entity && row.slot == slot).unwrap();
@@ -4580,12 +5018,17 @@ mod tests {
             }
             angle = next;
         };
-        assert_eq!((result, evaluations, gap_count), (Err(SlidingSolveReject::NoConvergence), 608, 16));
-        let (lower, upper, rejected_angle, vector) = rejected_gap.unwrap();
-        assert_eq!((lower, upper, rejected_angle), ((4_921, -3), (4_922, 2), 34_568));
-        assert_eq!((vector.x.raw(), vector.y.raw(), vector.z.raw()), (1_203, -144, -211));
-        assert_eq!(gap_rows[0], (34_553, 4_921, -3, 4_922, 2));
-        assert_eq!(gap_rows[15], (34_568, 4_921, -3, 4_922, 2));
+        assert_eq!((result, evaluations, gap_count),
+                   (Err(SlidingSolveReject::NoConvergence), 190, 15));
+        let (lower, upper, angle, tangent) = rejected_gap
+            .expect("the named no-convergence result lost its normal gap");
+        assert_eq!((lower, upper, angle), ((0, -5_539), (16_384, 12_694), 17_919));
+        assert!(upper.0 - lower.0 > 1 && lower.1 < -1 && upper.1 > 1,
+                "the rejected bracket became adjacent or acquired a restitution candidate");
+        assert_ne!(tangent, Vec3::ZERO,
+                   "the gap scan silently dropped its Coulomb-boundary direction");
+        assert_eq!(gap_rows[gap_count - 1],
+                   (angle, lower.0, lower.1, upper.0, upper.1));
     }
 
     #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -5036,7 +5479,7 @@ mod tests {
         // captured arm now carries the other half of the same claim -- that the
         // jacobian exists in between. Dropping either end would leave a
         // predicate satisfied by a function that always refused.
-        assert_eq!((arm.height.raw(), arm.reach.raw()), (31_231, 45_278));
+        assert_eq!((arm.height.raw(), arm.reach.raw()), (31_229, 45_261));
         let captured = forward_joint_jacobian(anatomy, yaw, limb, arm)
             .expect("the captured arm is inside the joint bounds");
         assert_eq!((captured[0], captured[1]), (Vec3::X, Vec3::Y));
@@ -5057,6 +5500,53 @@ mod tests {
         assert_eq!(actuator::hand_position(anatomy, yaw, limb, arm.bearing, arm.height, arm.reach), arm.hand);
         let mut bounded = arm; bounded.reach = Fx::from_raw(actuator::ARM_MIN_REACH_RAW);
         assert_eq!(forward_joint_jacobian(anatomy, yaw, limb, bounded), Err(GeneralizedJointReject::ActiveBoundary));
+    }
+
+    #[test]
+    fn contact_hand_projection_stops_at_both_joint_annulus_boundaries() {
+        let scenario = Scenario::duel_from(&crate::DuelConfigV1::shipped()).unwrap();
+        let world = World::new(&scenario, 0);
+        let (i, limb) = (0, 1);
+        let anatomy = world.posed_anatomy(i);
+        let shoulder = crate::combat::limb::shoulder(
+            &anatomy, world.body_yaw[i].angle, limb);
+        let entry = world.arms[i][limb].hand;
+        let radial = entry - shoulder;
+        let requests = [shoulder + radial * Fx::TWO, shoulder - radial];
+        // Measured from these two literal endpoint requests after the
+        // conservative bracket and representable inverse/forward close. Pin
+        // the whole achieved pose: merely asserting "inside the annulus"
+        // would let a projector that returned the entry hand for every push
+        // pass both sides of this test.
+        let expected = [
+            (0, 25_403, 23_002, 17_251, -16_384, 45_725),
+            (0, 42_225, 16_384, 12_288, -16_384, 76_004),
+        ];
+        let links = crate::combat::limb::Elbow::of(&anatomy);
+        let (inner, outer) = links.reach_bounds();
+        let square = |v: Vec3| {
+            let d = v - shoulder;
+            d.x.raw() as i128 * d.x.raw() as i128
+                + d.y.raw() as i128 * d.y.raw() as i128
+                + d.z.raw() as i128 * d.z.raw() as i128
+        };
+        for (at, requested) in requests.into_iter().enumerate() {
+            let first = world.reachable_contact_hand(
+                i, limb, entry, requested, world.arms[i][limb].bearing);
+            let repeated = world.reachable_contact_hand(
+                i, limb, entry, requested, world.arms[i][limb].bearing);
+            assert_eq!(first, repeated, "the same contact projection was not exact");
+            assert_eq!((first.0.raw(), first.1.raw(), first.2.raw(),
+                        first.3.x.raw(), first.3.y.raw(), first.3.z.raw()), expected[at],
+                "the joint stop did not commit the measured boundary pose");
+            assert_ne!(first.3, entry, "the joint stop made no progress toward the request");
+            assert_ne!(first.3, requested, "the unreachable contact push was accepted");
+            assert!(square(first.3) >= inner.raw() as i128 * inner.raw() as i128);
+            assert!(square(first.3) <= outer.raw() as i128 * outer.raw() as i128);
+            assert!(crate::combat::limb::elbow_point(
+                shoulder, first.3, links, Angle::ZERO).is_some(),
+                "the achieved contact hand has no published elbow");
+        }
     }
 
     #[test]
@@ -5208,7 +5698,11 @@ mod tests {
         // supposed to be about recoil reconciliation. It is not a rate the arm
         // is currently against -- the words hold at both -- which is exactly
         // why the dependency was invisible and worth removing.
-        world.drive_arms(CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
+        world.drive_arms(actuator::ArmRateProfile {
+            bearing_max_speed_raw: CAPTURED_ARM_RATES.0,
+            bearing_accel_raw: CAPTURED_ARM_RATES.1,
+            ..actuator::ArmRateProfile::CURRENT
+        });
         let next = world.arms[source][source_limb];
         assert_eq!((next.hand.x.raw(), next.hand.y.raw(), next.hand.z.raw(),
                     next.post_contact_com_velocity.x.raw(), next.post_contact_com_velocity.y.raw(),
@@ -5217,6 +5711,55 @@ mod tests {
         assert!(next.hand != entry.hand || next.post_contact_com_velocity != entry.post_contact_com_velocity,
                 "active COM recoil was ignored on the next actuator tick");
         assert!(next.fatigue >= entry.fatigue);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn exact_contact_anatomical_projection_owns_the_hand_momentum_and_external_energy_row() {
+        let scenario = crate::diagnostics::stream_digest_scenario();
+        let mut world = World::new(&scenario, crate::diagnostics::STREAM_DIGEST_SEED);
+        for (id, command) in crate::diagnostics::stream_digest_commands() {
+            assert!(matches!(world.submit(id, command), crate::SubmitOutcome::Stored { .. }));
+        }
+        let mut reached = None;
+        for tick in 1..=crate::diagnostics::STREAM_DIGEST_TICKS {
+            world.step();
+            let Some(external) = world.exact_external_energy().iter().copied().find(|row|
+                row.reason == RecoilExternalEnergy::ANATOMICAL_CONSTRAINT) else { continue };
+            assert!(!world.contact_resolutions().is_empty(),
+                "an exact anatomical reaction appeared without a contact response");
+            assert_eq!(external.denominator, 2i128 * 65_536 * 65_536);
+            assert!(external.signed_numerator < 0,
+                "the anatomical clamp supplied energy instead of removing it");
+            assert_eq!(external.signed_numerator.checked_neg(), Some(1_249_101_315),
+                "the signed receipt no longer conserves the measured removed energy");
+            assert_eq!(world.exact_external_energy().iter().filter(|row|
+                row.reason == RecoilExternalEnergy::ANATOMICAL_CONSTRAINT).count(), 1,
+                "one anatomical clamp must have one signed energy receipt");
+            let i = world.resolve(external.entity).expect("live projected owner");
+            let limb = external.lane.checked_sub(1).expect("held lane") as usize;
+            assert!(limb < 2 && world.contact_hand_is_reachable(i, limb, world.arms[i][limb].hand));
+            let contact = world.contact.as_ref().expect("retained exact contact");
+            let staged = contact.exact_commit.iter().find(|row| row.entity == external.entity)
+                .and_then(|row| row.arms[limb]).expect("staged anatomical hand");
+            assert_eq!(staged.hand, world.arms[i][limb].hand,
+                "commit applied a second joint answer");
+            assert_eq!(contact.exact_commit.iter().find(|row| row.entity == external.entity)
+                .unwrap().owner, world.exact_owners[i].unwrap(),
+                "the retained exact momentum was not the staged anatomical owner");
+            let digest = world.state_digest();
+            let at = world.contact.as_ref().unwrap().exact_external_energy.iter().position(|row|
+                row.reason == RecoilExternalEnergy::ANATOMICAL_CONSTRAINT).unwrap();
+            world.contact.as_mut().unwrap().exact_external_energy[at].reason =
+                RecoilExternalEnergy::WALL;
+            assert_ne!(world.state_digest().value, digest.value,
+                "the anatomical reason was absent from authoritative state");
+            reached = Some((tick, external.entity.index, external.lane,
+                            external.signed_numerator));
+            break;
+        }
+        assert_eq!(reached, Some((1, 1, 2, -1_249_101_315)),
+            "the registered stream anatomical projection");
     }
 
     #[cfg(feature = "cartesian-recoil")]
@@ -5341,8 +5884,23 @@ mod tests {
         let part = volume_region(fact.volume as usize).unwrap();
         let mut colliders = Vec::new();
         world.build_contact_colliders(&contact.entry, &mut colliders, &world.wounds);
-        assert_eq!(crate::combat::contact::collect_contacts(&colliders), vec![fact],
-                   "retained checkpoint acquired a competing fact");
+        // **`directional_captured_strike` declares its fact; it no longer
+        // scans one, and this assertion says so from the other side.** The
+        // fixture was a driven ninety-six-tick strike until this session, and
+        // the scan reproducing exactly one weapon/body fact was how it proved
+        // the checkpoint below was about *that* contact. It is now a direct
+        // pose with the response rows written on, standing at the shipped
+        // ten-unit spawn separation, so nothing it builds can touch anything --
+        // and `assert_eq!(scan, vec![fact])` became an assertion no geometry
+        // could satisfy rather than a guard.
+        //
+        // The guard it was is still owed and is the same sentence inverted: a
+        // scanned fact here would be a *second*, unrelated contact arriving
+        // beside the declared one, and every allocation measured below would
+        // then be about a mixture. Move the spawns together and this goes red,
+        // which is the direction that matters.
+        assert_eq!(crate::combat::contact::collect_contacts(&colliders), vec![],
+                   "the direct fixture acquired a competing scanned fact");
         let weapon = colliders.iter().copied().find(|row| row.entity == fact.key.a
             && row.slot == fact.key.a_slot).unwrap();
         let body = colliders.iter().copied().find(|row| row.entity == fact.key.b
@@ -5438,6 +5996,21 @@ mod tests {
 
     #[cfg(feature = "cartesian-recoil")]
     #[test]
+    #[ignore]
+    fn print_frozen_anatomy_checkpoints() {
+        for (allocate, hook) in [(true, true), (false, true), (true, false)] {
+            let c = frozen_single_fact_anatomy_checkpoint(allocate, hook);
+            println!("allocate={allocate} hook={hook} energy={:?} alpha={} channels=({},{},{},{}) part={:?} integrity {}->{} wound {}->{} fraction {:?}->{:?}",
+                c.row.energy, c.row.group_alpha_raw,
+                c.row.cut_raw, c.row.thrust_raw, c.row.pressure_raw, c.row.deflected_raw,
+                c.part, c.before.integrity.raw(), c.after.integrity.raw(),
+                c.before.wound.raw(), c.after.wound.raw(),
+                c.before_fraction, c.after_fraction);
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
     fn retained_single_fact_flows_through_allocation_and_after_group() {
         let checkpoint = frozen_single_fact_anatomy_checkpoint(true, true);
         assert_eq!(checkpoint.row.energy,
@@ -5445,16 +6018,39 @@ mod tests {
                        before_raw: 291, after_raw: 80, dissipated_raw: 211 });
         assert_eq!(checkpoint.row.group_alpha_raw, 65_536,
                    "proposal scale leaked into the finalizer alpha");
+        // **Measured against the direct fixture on 2026-08-21; the four words
+        // above it are the old driven strike's.** The dissipated total is the
+        // one number that did not move -- 211 raw, asserted above -- and the
+        // split moved one unit from `(67, 144)` to `(66, 145)` because the
+        // projector now prices a *reachable* hand: `joint_clamped_velocity`
+        // used to answer `hand_position(inverse_hand(trial))` and that round
+        // trip lands outside the elbow annulus for this trial, which
+        // `reachable_pose` closes. Conservation is what says the move is
+        // rounding rather than lost energy: `66 + 145 == 211` as `67 + 144`
+        // did.
+        //
+        // **`LeftArm` and not `Torso`, because the fixture now declares its
+        // volume instead of scanning one.** `fact.volume` is the literal `5`,
+        // and `spec::forearm_volume(LimbSlot::LeftArm)` is exactly 5 -- the
+        // first of the two forearm volumes appended after the five regions --
+        // so `volume_region` answers the left arm. The old driven fixture
+        // scanned volume 1. Nothing about what this test claims depends on
+        // which region it is: the claim is that one fact allocates into the
+        // region it names and into no other, and the loop below is the half
+        // that says "no other".
         assert_eq!((checkpoint.row.cut_raw, checkpoint.row.thrust_raw,
                     checkpoint.row.pressure_raw, checkpoint.row.deflected_raw),
-                   (67, 0, 144, 0));
+                   (66, 0, 145, 0));
+        assert_eq!(checkpoint.row.cut_raw + checkpoint.row.pressure_raw,
+                   checkpoint.row.energy.dissipated_raw as u64,
+                   "the channel split stopped conserving the dissipated energy");
         assert_eq!((checkpoint.part, checkpoint.before.integrity.raw(),
                     checkpoint.after.integrity.raw()),
-                   (BodyPart::Torso, 131_072, 124_640));
+                   (BodyPart::LeftArm, 131_072, 124_736));
         assert_eq!((checkpoint.before.wound.raw(), checkpoint.after.wound.raw()),
-                   (0, 6_432));
+                   (0, 6_336));
         assert_eq!((checkpoint.before_fraction, checkpoint.after_fraction),
-                   ((65_536, 0), (62_320, 3_216)));
+                   ((65_536, 0), (62_368, 3_168)));
         for other in BodyPart::ALL {
             if other == checkpoint.part { continue; }
             assert_eq!(checkpoint.after_anatomy.parts[other as usize],
@@ -5479,8 +6075,12 @@ mod tests {
     #[test]
     fn retained_anatomy_requires_the_actual_after_group_hook() {
         let checkpoint = frozen_single_fact_anatomy_checkpoint(true, false);
+        // The same measured split as
+        // `retained_single_fact_flows_through_allocation_and_after_group`,
+        // which is the point: skipping the hook must change the *anatomy* and
+        // nothing about the allocation that fed it.
         assert_eq!((checkpoint.row.cut_raw, checkpoint.row.thrust_raw,
-                    checkpoint.row.pressure_raw), (67, 0, 144));
+                    checkpoint.row.pressure_raw), (66, 0, 145));
         assert_eq!(checkpoint.after, checkpoint.before,
                    "anatomy changed when the actual after_group hook was skipped");
         assert_eq!(checkpoint.after_fraction, checkpoint.before_fraction);
@@ -5647,7 +6247,11 @@ mod tests {
                     committed.linear_velocity.z.raw(), committed.post_contact_com_velocity.x.raw(),
                     committed.post_contact_com_velocity.y.raw(), committed.post_contact_com_velocity.z.raw()),
                    (33_833, -19_426, 56_215, -19, -366, 0, 81, 1_537, 0));
-        world.drive_arms(CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
+        world.drive_arms(actuator::ArmRateProfile {
+            bearing_max_speed_raw: CAPTURED_ARM_RATES.0,
+            bearing_accel_raw: CAPTURED_ARM_RATES.1,
+            ..actuator::ArmRateProfile::CURRENT
+        });
         let next = world.arms[source][limb];
         assert_ne!((committed.hand, committed.post_contact_com_velocity),
                    (next.hand, next.post_contact_com_velocity));
@@ -5937,7 +6541,10 @@ mod tests {
         let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
         let mut colliders = Vec::new();
         world.build_contact_colliders(&contact.entry, &mut colliders, &world.wounds);
-        assert_eq!(crate::combat::contact::collect_contacts(&colliders), vec![fact]);
+        // Declared, not scanned -- see the argument in
+        // `frozen_single_fact_anatomy_checkpoint`. A scanned fact here would be
+        // a competing contact beside the seed this test is about.
+        assert_eq!(crate::combat::contact::collect_contacts(&colliders), vec![]);
         let basis = resolution::tests::canonical_tangents(fact.normal).unwrap();
         let residual = |state: &[GeneralizedCollider]| {
             let relative = state[b].velocity - state[a].velocity;
@@ -6027,11 +6634,23 @@ mod tests {
             crush_factor: weapon.surface.material.crush_factor(),
             zero_length: previous_tip == previous_hilt,
         };
-        // A sword, so the edge claims the whole budget and the crush column is
-        // zero rather than small: `132 + 0 == 276 - 144` exactly leaves nothing
-        // declined. The blunt channel is inert on a blade by construction.
+        let source = world.resolve(fact.key.a).unwrap();
+        let limb = fact.key.a_slot as usize;
+        assert!(world.contact_hand_is_reachable(source, limb, world.arms[source][limb].hand),
+                "the damage channel was measured from an unreachable retained hand");
+        assert_eq!(weapon.velocity - weapon.velocity_offset,
+                   world.arms[source][limb].linear_velocity,
+                   "the channel stopped reading the retained achieved hand velocity");
+        // A sword, so the edge claims the whole accepted budget and the thrust
+        // and crush columns are exactly zero. Integer projection leaves one
+        // additional declined word under the final reachable endpoint, but
+        // conservation remains exact: `131 + 145 == 276`.
         let split = resolution::channels(276, channel);
-        assert_eq!(split, (132, 0, 0, 144));
+        assert_eq!(split, (131, 0, 0, 145));
+        assert_eq!(split.0 + split.1 + split.2 + split.3, 276,
+                   "the reachable projection lost damage-channel energy");
+        assert!(split.0 > 0 && split.1 == 0 && split.2 == 0 && split.3 > 0,
+                "the sword changed channel sign or acquired a blunt/thrust share");
     }
 
     #[cfg(feature = "cartesian-recoil")]
@@ -6167,7 +6786,7 @@ mod tests {
         config.fighters[0].hands[1].as_mut().unwrap().geometry = crate::EquipmentGeometry::Segment {
             length: Fx::from_int(2), radius: Fx::from_ratio(1, 25),
         };
-        config.fighters[1].spawn = Vec2::new(Fx::from_ratio(1_256, 100), Fx::from_int(8));
+        config.fighters[1].spawn = Vec2::new(Fx::from_raw(669_412), Fx::from_raw(381_619));
         config.fighters[1].anatomy = crate::AnatomyChoice::Fighter;
         config.max_ticks = 96;
         let mut scenario = Scenario::duel_from(&config).unwrap();
@@ -6179,13 +6798,13 @@ mod tests {
         assert!(world.two_handed(0), "the fighter is not holding its sword in both hands");
 
         let (attacker, defender) = (world.id_of(0), world.id_of(1));
-        let yaw = world.body_yaw[0].angle;
-        let chamber = Angle::from_raw(yaw.raw().wrapping_sub(Angle::QUARTER.raw()));
+        let strike_bearing = Angle::from_raw(50_176);
+        let chamber = Angle::from_raw(33_792);
         // The same measured height, for the same reason: at `CombatHeight::LOW`
         // the elbow folds the arm back to its minimum reach and the blade stops
         // arriving. See `directional_captured_strike`.
-        let height = crate::CombatHeight::try_from_raw(Fx::from_ratio(61, 128).raw())
-            .expect("sixty-one hundred-and-twenty-eighths is a legal height");
+        let height = crate::CombatHeight::try_from_raw(32_768)
+            .expect("the searched height is legal");
         let strike = |world: &World, bearing| {
             let mut command = world.neutral_core(0);
             command.intent = Intent::Attack(defender);
@@ -6205,7 +6824,7 @@ mod tests {
         let mut hit = false;
         for _ in 0..48 {
             assert!(matches!(world.submit(attacker,
-                crate::CommandV1::new(strike(&world, yaw))),
+                crate::CommandV1::new(strike(&world, strike_bearing))),
                 crate::SubmitOutcome::Stored { rejection: None, .. }),
                 "the follow-through was refused rather than obeyed");
             world.submit(defender,

@@ -7438,6 +7438,9 @@ fn arena_fingerprint_refusal(error: sim::ScenarioFingerprintError) -> ArenaRefus
         sim::ScenarioFingerprintError::NameTooLong { .. } => {
             ArenaRefusal::whole(ARENA_NAME_TOO_LONG)
         }
+        sim::ScenarioFingerprintError::InitialSelfOverlap => {
+            ArenaRefusal::whole(ARENA_CONSTRUCTION_REFUSED)
+        }
     }
 }
 
@@ -8778,7 +8781,7 @@ fn state_digest() -> sim::StateDigest {
 }
 
 /// Seed of the scripted articulated stream. Part of the fixture, not a sample.
-const STREAM_DIGEST_SEED: u64 = 1;
+const STREAM_DIGEST_SEED: u64 = sim::diagnostics::STREAM_DIGEST_SEED;
 
 /// Publications the scripted stream digests, one tick each.
 ///
@@ -8788,7 +8791,7 @@ const STREAM_DIGEST_SEED: u64 = 1;
 /// reference requires the digest to include, a tick with more than one row, and
 /// a long tail of contact -- and `empty_ticks_enter_both_stream_digests` is
 /// what fails if any of that stops being true.
-const STREAM_DIGEST_TICKS: u32 = 20;
+const STREAM_DIGEST_TICKS: u32 = sim::diagnostics::STREAM_DIGEST_TICKS;
 
 /// The two bodies the scripted stream drives, two units apart.
 ///
@@ -8822,11 +8825,7 @@ const STREAM_DIGEST_TICKS: u32 = 20;
 /// the spawns to recover the opening would be a second cause for a pin that
 /// moved for one, so it is recorded here rather than done.
 fn stream_digest_scenario() -> Scenario {
-    let mut scenario = Scenario::embodied_duel();
-    scenario.name = "embodied-stream-v1".to_string();
-    scenario.units[0].spawn = Vec2::from_ints(9, 6);
-    scenario.units[1].spawn = Vec2::from_ints(7, 6);
-    scenario
+    sim::diagnostics::stream_digest_scenario()
 }
 
 /// The command each body is given, once, on tick zero.
@@ -8847,6 +8846,7 @@ fn stream_digest_scenario() -> Scenario {
 /// `move_dir` is a full unit along the bearing, which is the fastest a body may
 /// ask to walk -- `validate_move` refuses a magnitude *above* one, and an axis
 /// vector's magnitude is exactly one, so no rounding is being relied on here.
+#[allow(dead_code)]
 fn stream_digest_command(
     bearing: Angle,
     walk: Vec2,
@@ -9060,8 +9060,6 @@ fn drive_stream_digest_script(mut feed: impl FnMut(StreamPublication)) {
     if sim.world.try_reserve_contact_slots(scenario.units.len()).is_err() {
         return;
     }
-    let fighter = EntityId::new(0, 0);
-    let brute = EntityId::new(1, 0);
     // **Both bearings are zero, and that is the fixture's whole trick.** Every
     // body spawns facing east and both the body yaw and the arm bearings are
     // driven, not set -- a half turn is the better part of a hundred ticks. So
@@ -9079,15 +9077,9 @@ fn drive_stream_digest_script(mut feed: impl FnMut(StreamPublication)) {
     // routes the `ARTICULATED_STREAM_DIGEST` re-record names, and the reason a
     // reader diffing these two lines across the move would conclude wrongly that
     // nothing changed.
-    let west = Vec2::new(-Fx::ONE, Fx::ZERO);
-    sim.world.submit(
-        fighter,
-        sim::CommandV1::new(stream_digest_command(Angle::ZERO, west, brute)),
-    );
-    sim.world.submit(
-        brute,
-        sim::CommandV1::new(stream_digest_command(Angle::ZERO, Vec2::ZERO, fighter)),
-    );
+    for (id, command) in sim::diagnostics::stream_digest_commands() {
+        sim.world.submit(id, command);
+    }
 
     // The five published buffers, built once and reused across the script
     // rather than allocated per tick: this runs on `wasm32-unknown-unknown`,
@@ -10998,6 +10990,8 @@ mod tests {
             0x05,0x00,0x00,0x00, 0x06,0x00,0x00,0x00, 0x02,0x01,0x01,0x00,
             0x00,0x01, 0x67,0x45, 0xab,0x89,
         ];
+        assert_eq!(&fixture[4..], &sim::diagnostics::COMMAND_PROBE_PAYLOAD,
+                   "the boundary bytes drifted from the registered diagnostic input");
         EMBODIED_COMMAND.with(|buffer| *buffer.borrow_mut() = fixture);
         assert_eq!(submit_embodied(0, 0), 1);
         let fixture_digest = SIM.with(|sim| sim.borrow().as_ref().unwrap().world.state_digest().value);
@@ -13898,9 +13892,16 @@ mod tests {
     /// from `0x96e4e51de0c00d62` default and `0x4bf34984d56d2795`
     /// exact.** Body-relative movement no longer becomes a second hip-yaw
     /// request through a lossy fixed-point angle round trip. Native MSVC
-    /// measured the value below and exact `0x8c8a5e4350230df6`; fresh wasm
-    /// artifacts then answered the same pair. No layout or ABI version moved.
-    const ARTICULATED_STREAM_DIGEST: u64 = 0x63bf_8b26_809d_43c4;
+    /// measured `0x63bf8b26809d43c4` and exact `0x8c8a5e4350230df6`;
+    /// fresh wasm artifacts then answered the same pair. No layout or ABI
+    /// version moved.
+    ///
+    /// **Arena Response Session 02 moved it values-only again**, to the value
+    /// below and exact `0x24af077a739e07dd`. The per-owner arm phase now stops
+    /// achieved poses at attempted self-collision before publication. The
+    /// twenty-tick command script, every publication layout and every version
+    /// remain unchanged.
+    const ARTICULATED_STREAM_DIGEST: u64 = 0xaf4f_f286_6fa3_ce2a;
 
     /// The north-wall stored-command lifecycle, paired with the feature-only
     /// wasm exports and registered in `docs/reference/hashes.md`.
@@ -13941,8 +13942,12 @@ mod tests {
     /// by `reachable_extent` where the articulated one was not. Previously
     /// `0x13fa3ac347aeab12`. Native MSVC measured first; the exact wasm artifact
     /// agreed.
+    ///
+    /// Arena Response Session 02 moved this retained-input fixture again. The
+    /// command stream is byte-identical; achieved arms, exact owner work and
+    /// the folded state/contact witnesses now include the self constraint.
     #[cfg(feature = "cartesian-recoil")]
-    const EXACT_TRAJECTORY_STATE_DIGEST: u64 = 0x5add_1f2c_a295_e79b;
+    const EXACT_TRAJECTORY_STATE_DIGEST: u64 = 0x5ac6_679a_0565_ca96;
 
     /// The terminal source-41 lifted Coulomb solver corpus, paired with the
     /// feature-only wasm exports and registered in `docs/reference/hashes.md`.
@@ -13964,8 +13969,14 @@ mod tests {
     /// defender's new forearm now shields. The eighteen cases, their order, the
     /// bounds `16/42/8/96` and the ordinal are unchanged. Previously
     /// `0x30e1b4031f01ecc8`.
+    ///
+    /// Arena Response Session 02 deliberately changes this grammar to
+    /// `ARPG-LIFTED-COULOMB-V2`. The original eighteen inputs and ordering are
+    /// untouched, but every case now stops its held segment on its owner's Legs
+    /// at tick 7 before opponent contact. V2 records the absent contact rather
+    /// than steering a frozen fixture around the new constraint.
     #[cfg(feature = "cartesian-recoil")]
-    const LIFTED_COULOMB_SOLVER_DIGEST: u64 = 0x1f9a_fcf8_1ba7_4700;
+    const LIFTED_COULOMB_SOLVER_DIGEST: u64 = 0x6c87_b7b1_ff93_5069;
 
     /// FNV-1a-64 over the logits `checkpoints/v2-probe.ckpt` produces on
     /// `learn_core`'s fixed observation corpus, prefix `ARPG-LEARNED-V1`.

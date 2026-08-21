@@ -54,7 +54,8 @@ use crate::combat::resolution::{ExactContactRejectPhase, ExactContactRejectionDi
 use crate::combat::trajectory::{ExactAffine3, ExactContactTrajectory, ExactHeldResponse,
                                 ExactMotorBounds, ExactMotorPoint, ExactOwnerTrajectory,
                                 ExactMomentum, ExactPosition, ExactTrajectoryReject, FloorReaction, MotorShape,
-                                exact_held_velocity, normalize_momentum};
+                                exact_held_velocity, normalize_momentum,
+                                normalize_position};
 #[cfg(all(test, feature = "cartesian-recoil"))]
 use crate::combat::trajectory::{advance_exact, apply_exact_group, evaluate_exact};
 use crate::{EquipmentGeometry, EquipmentSpecId};
@@ -65,6 +66,7 @@ mod hash;
 mod movement;
 mod navigation;
 mod articulated;
+mod self_collision;
 mod projectile;
 mod contact_phase;
 mod props;
@@ -100,6 +102,7 @@ impl RecoilExternalEnergy {
     pub const CAP: u8 = 8;
     pub const WALL: u8 = 16;
     pub const FLOOR: u8 = 32;
+    pub const ANATOMICAL_CONSTRAINT: u8 = 64;
 }
 
 #[cfg(feature = "cartesian-recoil")]
@@ -240,6 +243,8 @@ pub struct World {
     /// different rows and let one be updated without the other.
     elbow_plane: Vec<[ElbowPlaneState; 2]>,
     arms: Vec<[ArmState; 2]>,
+    /// Last attempted owner constraint, excluded from every authoritative hash.
+    self_collision_attempt: Vec<Option<crate::diagnostics::SelfCollisionAttemptDiagnostic>>,
     grips: Vec<[GripState; 2]>,
     /// Release edge remembered independently of the submitted command, which persists.
     articulated_release_was: Vec<[ReleaseRequest; 2]>,
@@ -740,6 +745,7 @@ impl ArmScalars {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum WorldBuildError {
     CombatSpec(CombatSpecError),
+    InitialSelfOverlap,
     Contact(ContactCapacityError),
     #[cfg(feature = "cartesian-recoil")]
     ExactLattice(ExactLatticeEnvelope),
@@ -786,6 +792,7 @@ impl Clone for ContactRuntime {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum SpawnError {
     CombatSpec(CombatSpecError),
+    InitialSelfOverlap,
     Contact(ContactCapacityError),
     #[cfg(feature = "cartesian-recoil")]
     ExactLattice(ExactLatticeEnvelope),
@@ -799,6 +806,7 @@ impl From<SpawnError> for WorldBuildError {
     fn from(error: SpawnError) -> WorldBuildError {
         match error {
             SpawnError::CombatSpec(spec) => WorldBuildError::CombatSpec(spec),
+            SpawnError::InitialSelfOverlap => WorldBuildError::InitialSelfOverlap,
             SpawnError::Contact(contact) => WorldBuildError::Contact(contact),
             #[cfg(feature = "cartesian-recoil")]
             SpawnError::ExactLattice(exact) => WorldBuildError::ExactLattice(exact),
@@ -1148,11 +1156,7 @@ struct ExactCommitRow {
 /// Threaded as a parameter rather than stashed on `World` for the duration of a
 /// step, because a scratch column is authoritative state that then has to be
 /// hashed or argued out of the hash, and a parameter is neither.
-#[derive(Clone, Copy)]
-struct ArmRates {
-    bearing_max_speed_raw: i32,
-    bearing_accel_raw: i32,
-}
+type ArmRates = actuator::ArmRateProfile;
 
 /// A phase is its name and its body.
 ///
@@ -1219,7 +1223,7 @@ const EMBODIED_PHASES: &[Phase] = &[
     ("stance", |w, _| w.drive_stance()),
     ("grips", |w, _| w.apply_grips()),
     ("arms", |w, r| {
-        w.drive_arms(r.bearing_max_speed_raw, r.bearing_accel_raw)
+        w.drive_arms(r)
     }),
     ("geometry", |w, _| w.derive_geometry()),
     ("loose projectiles", |w, _| w.loose_projectiles()),
@@ -1257,6 +1261,15 @@ impl World {
                 .ok_or(WorldBuildError::CombatSpec(CombatSpecError::UnitPresence))?;
             check_contact_envelope(arena, unit.spawn, table, row)
                 .map_err(WorldBuildError::Contact)?;
+            let facing = match unit.faction {
+                Faction::Heroes => Angle::ZERO,
+                Faction::Monsters => Angle::HALF,
+            };
+            if crate::combat::spec::initial_pose_has_forbidden_overlap(table, row, facing)
+                .map_err(WorldBuildError::CombatSpec)?
+            {
+                return Err(WorldBuildError::InitialSelfOverlap);
+            }
             #[cfg(feature = "cartesian-recoil")]
             exact_lattice_for_unit(unit.kind.mass().raw(), table, row)
                 .map_err(WorldBuildError::ExactLattice)?;
@@ -1294,6 +1307,7 @@ impl World {
             stance: Vec::with_capacity(n),
             elbow_plane: Vec::with_capacity(n),
             arms: Vec::with_capacity(n),
+            self_collision_attempt: Vec::with_capacity(n),
             grips: Vec::with_capacity(n),
             articulated_release_was: Vec::with_capacity(n),
             #[cfg(feature = "cartesian-recoil")]
@@ -1373,7 +1387,7 @@ impl World {
     /// exactly as it found it.
     pub fn try_spawn(&mut self, spec: &UnitSpec) -> Result<EntityId, SpawnError> {
         #[cfg(feature = "cartesian-recoil")]
-        let mut exact_scale = 0i128;
+        let exact_scale;
         {
             {
                 let row = spec.combat_spec
@@ -1382,6 +1396,15 @@ impl World {
                     .ok_or(SpawnError::CombatSpec(CombatSpecError::MissingTable))?;
                 crate::combat::spec::validate_rows(table, &[row], &[spec.loadout])
                     .map_err(SpawnError::CombatSpec)?;
+                let facing = match spec.faction {
+                    Faction::Heroes => Angle::ZERO,
+                    Faction::Monsters => Angle::HALF,
+                };
+                if crate::combat::spec::initial_pose_has_forbidden_overlap(table, row, facing)
+                    .map_err(SpawnError::CombatSpec)?
+                {
+                    return Err(SpawnError::InitialSelfOverlap);
+                }
                 check_contact_envelope(self.arena, spec.spawn, table, row)
                     .map_err(SpawnError::Contact)?;
                 #[cfg(feature = "cartesian-recoil")]
@@ -1484,6 +1507,7 @@ impl World {
                 self.stance.push(StanceState::squared(Angle::ZERO));
                 self.elbow_plane.push([ElbowPlaneState::NEUTRAL; 2]);
                 self.arms.push([arm; 2]);
+                self.self_collision_attempt.push(None);
                 self.grips.push([GripState { equipment_slot: None }; 2]);
                 self.articulated_release_was.push([ReleaseRequest::Keep; 2]);
                 #[cfg(feature = "cartesian-recoil")]
@@ -1535,6 +1559,7 @@ impl World {
             (Some(table), Some(row)) => resolved_equipment(table, row).expect("validated combat construction"),
             _ => [None; 2],
         };
+        self.self_collision_attempt[i] = None;
         self.initialize_pose(i);
         #[cfg(feature = "cartesian-recoil")]
         {
@@ -1659,20 +1684,31 @@ impl World {
     ///   does -- so taking the difference any earlier would charge a fighter for
     ///   the swing it meant to throw rather than the one it got.
     pub fn step(&mut self) -> &[Event] {
-        self.step_with_arm_rates(
-            actuator::ARM_BEARING_MAX_SPEED_RAW,
-            actuator::ARM_BEARING_ACCEL_RAW,
-        )
+        self.step_with_arm_rate_profile(actuator::ArmRateProfile::CURRENT)
     }
 
     // `pub(crate)` rather than private because a frozen fixture is not always
     // in this file: `exact_diagnostics` and `replay`'s exact tests capture a
     // configuration too, and each of them has to pin the arm rate it was
     // measured at for the same reason `CAPTURED_ARM_RATES` gives below.
+    #[allow(dead_code)]
     pub(crate) fn step_with_arm_rates(
         &mut self, bearing_max_speed_raw: i32, bearing_accel_raw: i32,
     ) -> &[Event] {
-        let rates = ArmRates { bearing_max_speed_raw, bearing_accel_raw };
+        self.step_with_arm_rate_profile(actuator::ArmRateProfile {
+            bearing_max_speed_raw, bearing_accel_raw, ..actuator::ArmRateProfile::CURRENT
+        })
+    }
+
+    /// One diagnostic step with a complete arm-rate row.
+    ///
+    /// Lab uses this only to compare a frozen command transcript against the
+    /// current row. The older two-rate seam cannot observe linear or elbow-plane
+    /// reachability. This is deliberately absent from every host ABI.
+    #[doc(hidden)]
+    pub fn step_with_arm_rate_profile(
+        &mut self, rates: actuator::ArmRateProfile,
+    ) -> &[Event] {
         // The iterator borrows nothing but `&'static` tables, so the body is
         // free to take `&mut self`. It chose the middle table off the world's
         // model until there was one; the property that made that safe is why the
@@ -2995,6 +3031,28 @@ mod tests {
         assert_eq!(world.try_spawn(&row).unwrap_err(),
                    SpawnError::Contact(ContactCapacityError::GeometryEnvelope));
         assert_eq!(world.alive.len(), 2, "a refused spawn allocated a column");
+        assert_eq!(world.state_digest().value, digest);
+    }
+
+    #[test]
+    fn an_initial_item_overlap_refuses_identity_build_and_spawn_before_mutation() {
+        let mut invalid = Scenario::embodied_duel();
+        let table = invalid.combat_specs.as_mut().unwrap();
+        let EquipmentGeometry::Shield { thickness, .. } =
+            table.equipment[1].geometry else { unreachable!() };
+        table.equipment[1].geometry = EquipmentGeometry::Shield {
+            half_width: Fx::from_int(2), half_height: Fx::from_int(2), thickness,
+        };
+        assert_eq!(invalid.try_fingerprint(), Err(crate::ScenarioFingerprintError::InitialSelfOverlap));
+        assert_eq!(World::try_new(&invalid, 1).err(), Some(WorldBuildError::InitialSelfOverlap));
+
+        let scenario = Scenario::embodied_duel();
+        let mut world = World::new(&scenario, 1);
+        world.combat_specs = invalid.combat_specs.clone();
+        let digest = world.state_digest().value;
+        let lengths = (world.alive.len(), world.generation.len(), world.free.len());
+        assert_eq!(world.try_spawn(&invalid.units[0]), Err(SpawnError::InitialSelfOverlap));
+        assert_eq!((world.alive.len(), world.generation.len(), world.free.len()), lengths);
         assert_eq!(world.state_digest().value, digest);
     }
 

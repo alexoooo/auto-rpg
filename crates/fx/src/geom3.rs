@@ -37,6 +37,18 @@ impl TimeOfImpact {
     }
 }
 
+/// A conservative sweep's proved clear/hit interval.
+///
+/// `exhausted` means the advance budget ended before an overlap was observed;
+/// callers must clamp at `last_clear` and must not bisect the synthetic upper
+/// end as though it were known to overlap.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct SweepBracket {
+    pub last_clear: TimeOfImpact,
+    pub first_hit: TimeOfImpact,
+    pub exhausted: bool,
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct ClosestPoints {
     pub a: Vec3,
@@ -342,17 +354,35 @@ pub fn swept_segment_sphere(
     swept_segment_sphere_audited(a0, a1, a2, a3, c0, c1, radius).0
 }
 
+pub fn swept_segment_sphere_bracket(
+    a0: Vec3, a1: Vec3, a2: Vec3, a3: Vec3,
+    c0: Vec3, c1: Vec3, radius: Fx,
+) -> Option<SweepBracket> {
+    swept_segment_sphere_bracket_audited(a0, a1, a2, a3, c0, c1, radius).0
+}
+
 fn swept_segment_sphere_audited(
     a0: Vec3, a1: Vec3, a2: Vec3, a3: Vec3,
     c0: Vec3, c1: Vec3, radius: Fx,
 ) -> (Option<TimeOfImpact>, usize, bool) {
+    let (bracket, advances) =
+        swept_segment_sphere_bracket_audited(a0, a1, a2, a3, c0, c1, radius);
+    (bracket.map(|row| row.first_hit), advances,
+     bracket.is_some_and(|row| row.exhausted))
+}
+
+fn swept_segment_sphere_bracket_audited(
+    a0: Vec3, a1: Vec3, a2: Vec3, a3: Vec3,
+    c0: Vec3, c1: Vec3, radius: Fx,
+) -> (Option<SweepBracket>, usize) {
     if !valid_sphere_sweep(a0, a1, a2, a3, c0, c1, radius) {
-        return (Some(TimeOfImpact::ZERO), 0, false);
+        return (Some(SweepBracket { last_clear: TimeOfImpact::ZERO,
+                                    first_hit: TimeOfImpact::ZERO, exhausted: false }), 0);
     }
     let centre_delta = c1 - c0;
     let speed = ((a2 - a0) - centre_delta).length()
         .max(((a3 - a1) - centre_delta).length());
-    conservative_sweep_audited(speed, radius, |t| {
+    conservative_sweep_bracket_audited(speed, radius, |t| {
         let a = Vec3::lerp(a0, a2, t);
         let b = Vec3::lerp(a1, a3, t);
         let c = Vec3::lerp(c0, c1, t);
@@ -370,6 +400,15 @@ pub fn swept_segment_vertical_capsule(
     ).0
 }
 
+pub fn swept_segment_vertical_capsule_bracket(
+    a0: Vec3, a1: Vec3, a2: Vec3, a3: Vec3,
+    centre0: Vec3, centre1: Vec3, half_height: Fx, radius: Fx,
+) -> Option<SweepBracket> {
+    swept_segment_vertical_capsule_bracket_audited(
+        a0, a1, a2, a3, centre0, centre1, half_height, radius,
+    ).0
+}
+
 pub fn swept_segment_segment(
     a0: Vec3, a1: Vec3, a2: Vec3, a3: Vec3, radius_a: Fx,
     b0: Vec3, b1: Vec3, b2: Vec3, b3: Vec3, radius_b: Fx,
@@ -379,14 +418,35 @@ pub fn swept_segment_segment(
     ).0
 }
 
+pub fn swept_segment_segment_bracket(
+    a0: Vec3, a1: Vec3, a2: Vec3, a3: Vec3, radius_a: Fx,
+    b0: Vec3, b1: Vec3, b2: Vec3, b3: Vec3, radius_b: Fx,
+) -> Option<SweepBracket> {
+    swept_segment_segment_bracket_audited(
+        a0, a1, a2, a3, radius_a, b0, b1, b2, b3, radius_b,
+    ).0
+}
+
 fn swept_segment_segment_audited(
     a0: Vec3, a1: Vec3, a2: Vec3, a3: Vec3, radius_a: Fx,
     b0: Vec3, b1: Vec3, b2: Vec3, b3: Vec3, radius_b: Fx,
 ) -> (Option<TimeOfImpact>, usize, bool) {
+    let (bracket, advances) = swept_segment_segment_bracket_audited(
+        a0, a1, a2, a3, radius_a, b0, b1, b2, b3, radius_b,
+    );
+    (bracket.map(|row| row.first_hit), advances,
+     bracket.is_some_and(|row| row.exhausted))
+}
+
+fn swept_segment_segment_bracket_audited(
+    a0: Vec3, a1: Vec3, a2: Vec3, a3: Vec3, radius_a: Fx,
+    b0: Vec3, b1: Vec3, b2: Vec3, b3: Vec3, radius_b: Fx,
+) -> (Option<SweepBracket>, usize) {
     if !valid_segment_segment_sweep(
         a0, a1, a2, a3, radius_a, b0, b1, b2, b3, radius_b,
     ) {
-        return (Some(TimeOfImpact::ZERO), 0, false);
+        return (Some(SweepBracket { last_clear: TimeOfImpact::ZERO,
+                                    first_hit: TimeOfImpact::ZERO, exhausted: false }), 0);
     }
     let ad0 = a2 - a0;
     let ad1 = a3 - a1;
@@ -396,7 +456,7 @@ fn swept_segment_segment_audited(
         .max((ad0 - bd1).length())
         .max((ad1 - bd0).length())
         .max((ad1 - bd1).length());
-    conservative_sweep_audited(speed, radius_a + radius_b, |t| {
+    conservative_sweep_bracket_audited(speed, radius_a + radius_b, |t| {
         let closest = closest_points_on_segments(
             reflected_lerp(a0, a2, t), reflected_lerp(a1, a3, t),
             reflected_lerp(b0, b2, t), reflected_lerp(b1, b3, t),
@@ -596,12 +656,33 @@ pub fn swept_segment_rectangle(
     swept_segment_rectangle_audited(a0, a1, a2, a3, radius, rectangle0, rectangle1).0
 }
 
+pub fn swept_segment_rectangle_bracket(
+    a0: Vec3, a1: Vec3, a2: Vec3, a3: Vec3, radius: Fx,
+    rectangle0: [Vec3; 4], rectangle1: [Vec3; 4],
+) -> Option<SweepBracket> {
+    swept_segment_rectangle_bracket_audited(
+        a0, a1, a2, a3, radius, rectangle0, rectangle1,
+    ).0
+}
+
 fn swept_segment_rectangle_audited(
     a0: Vec3, a1: Vec3, a2: Vec3, a3: Vec3, radius: Fx,
     rectangle0: [Vec3; 4], rectangle1: [Vec3; 4],
 ) -> (Option<TimeOfImpact>, usize, bool) {
+    let (bracket, advances) = swept_segment_rectangle_bracket_audited(
+        a0, a1, a2, a3, radius, rectangle0, rectangle1,
+    );
+    (bracket.map(|row| row.first_hit), advances,
+     bracket.is_some_and(|row| row.exhausted))
+}
+
+fn swept_segment_rectangle_bracket_audited(
+    a0: Vec3, a1: Vec3, a2: Vec3, a3: Vec3, radius: Fx,
+    rectangle0: [Vec3; 4], rectangle1: [Vec3; 4],
+) -> (Option<SweepBracket>, usize) {
     if !valid_segment_rectangle_sweep(a0, a1, a2, a3, radius, rectangle0, rectangle1) {
-        return (Some(TimeOfImpact::ZERO), 0, false);
+        return (Some(SweepBracket { last_clear: TimeOfImpact::ZERO,
+                                    first_hit: TimeOfImpact::ZERO, exhausted: false }), 0);
     }
     let endpoint_displacements = [a2 - a0, a3 - a1];
     let corner_displacements = [
@@ -614,7 +695,7 @@ fn swept_segment_rectangle_audited(
             speed = speed.max((endpoint - corner).length());
         }
     }
-    conservative_sweep_audited(speed, radius, |t| {
+    conservative_sweep_bracket_audited(speed, radius, |t| {
         let rectangle = [
             Vec3::lerp(rectangle0[0], rectangle1[0], t),
             Vec3::lerp(rectangle0[1], rectangle1[1], t),
@@ -741,13 +822,25 @@ fn swept_segment_vertical_capsule_audited(
     a0: Vec3, a1: Vec3, a2: Vec3, a3: Vec3,
     centre0: Vec3, centre1: Vec3, half_height: Fx, radius: Fx,
 ) -> (Option<TimeOfImpact>, usize, bool) {
+    let (bracket, advances) = swept_segment_vertical_capsule_bracket_audited(
+        a0, a1, a2, a3, centre0, centre1, half_height, radius,
+    );
+    (bracket.map(|row| row.first_hit), advances,
+     bracket.is_some_and(|row| row.exhausted))
+}
+
+fn swept_segment_vertical_capsule_bracket_audited(
+    a0: Vec3, a1: Vec3, a2: Vec3, a3: Vec3,
+    centre0: Vec3, centre1: Vec3, half_height: Fx, radius: Fx,
+) -> (Option<SweepBracket>, usize) {
     if !valid_capsule_sweep(a0, a1, a2, a3, centre0, centre1, half_height, radius) {
-        return (Some(TimeOfImpact::ZERO), 0, false);
+        return (Some(SweepBracket { last_clear: TimeOfImpact::ZERO,
+                                    first_hit: TimeOfImpact::ZERO, exhausted: false }), 0);
     }
     let centre_delta = centre1 - centre0;
     let speed = ((a2 - a0) - centre_delta).length()
         .max(((a3 - a1) - centre_delta).length());
-    conservative_sweep_audited(speed, radius, |t| {
+    conservative_sweep_bracket_audited(speed, radius, |t| {
         let a = Vec3::lerp(a0, a2, t);
         let b = Vec3::lerp(a1, a3, t);
         let centre = Vec3::lerp(centre0, centre1, t);
@@ -1004,36 +1097,112 @@ fn write_toi(hash: &mut Hash64, toi: Option<TimeOfImpact>) {
     }
 }
 
+#[cfg(test)]
 fn conservative_sweep_audited(
+    speed: Fx,
+    radius: Fx,
+    distance: impl FnMut(Fx) -> Fx,
+) -> (Option<TimeOfImpact>, usize, bool) {
+    let (bracket, advances) = conservative_sweep_bracket_audited(speed, radius, distance);
+    (bracket.map(|row| row.first_hit), advances,
+     bracket.is_some_and(|row| row.exhausted))
+}
+
+fn conservative_sweep_bracket_audited(
     mut speed: Fx,
     radius: Fx,
     mut distance: impl FnMut(Fx) -> Fx,
-) -> (Option<TimeOfImpact>, usize, bool) {
+) -> (Option<SweepBracket>, usize) {
     let mut time = Fx::ZERO;
     let mut separation = distance(time) - radius;
     if separation <= Fx::ZERO {
-        return (Some(TimeOfImpact::ZERO), 0, false);
+        return (Some(SweepBracket { last_clear: TimeOfImpact::ZERO,
+                                    first_hit: TimeOfImpact::ZERO, exhausted: false }), 0);
     }
     if speed <= Fx::ZERO {
-        return (None, 0, false);
+        return (None, 0);
     }
     // The argument is intentionally mutable only to make the proof obvious to
     // the optimizer: validation excludes a negative speed before this point.
     speed = speed.max(Fx::EPSILON);
     for advance_index in 0..SWEEP_ADVANCES {
+        let last_clear = time;
         let quotient = ((separation.raw() as i64) << FRAC_BITS) / speed.raw() as i64;
         let remaining = Fx::ONE - time;
         let advance_raw = quotient.max(1).min(remaining.raw() as i64) as i32;
         time += Fx::from_raw(advance_raw);
         separation = distance(time) - radius;
         if separation <= Fx::ZERO {
-            return (Some(TimeOfImpact::new_clamped(time)), advance_index + 1, false);
+            return (Some(SweepBracket {
+                last_clear: TimeOfImpact::new_clamped(last_clear),
+                first_hit: TimeOfImpact::new_clamped(time), exhausted: false,
+            }), advance_index + 1);
         }
         if time == Fx::ONE {
-            return (None, advance_index + 1, false);
+            return (None, advance_index + 1);
         }
     }
-    (Some(TimeOfImpact::new_clamped(time)), SWEEP_ADVANCES, true)
+    (Some(SweepBracket {
+        last_clear: TimeOfImpact::new_clamped(time),
+        first_hit: TimeOfImpact::ONE, exhausted: true,
+    }), SWEEP_ADVANCES)
+}
+
+/// Ignore a structural entry overlap until its endpoint-linear path first
+/// becomes clear, then return the first clear-to-hit bracket in the remainder.
+///
+/// `separation` is signed distance minus combined radius. The recursive search
+/// proves wholly-overlapping intervals from the same Lipschitz speed bound; it
+/// does not sample and cannot jump over a one-word clear interval.
+fn conservative_first_clear_raw(
+    speed: Fx, separation: &mut impl FnMut(Fx) -> Fx, lo: i32, hi: i32,
+) -> Option<i32> {
+    let lo_value = separation(Fx::from_raw(lo));
+    if lo_value > Fx::ZERO { return Some(lo) }
+    if lo_value + speed * Fx::from_raw(hi - lo) <= Fx::ZERO { return None }
+    if hi - lo <= 1 {
+        return (separation(Fx::from_raw(hi)) > Fx::ZERO).then_some(hi);
+    }
+    let middle = lo + (hi - lo) / 2;
+    conservative_first_clear_raw(speed, separation, lo, middle)
+        .or_else(|| conservative_first_clear_raw(speed, separation, middle, hi))
+}
+
+/// First strictly clear word on a Lipschitz-bounded endpoint-linear path.
+/// Unlike a sample grid, the recursive exclusion cannot jump over a one-word
+/// clear interval.
+pub fn conservative_first_clear(
+    speed: Fx, mut separation: impl FnMut(Fx) -> Fx,
+) -> Option<TimeOfImpact> {
+    conservative_first_clear_raw(
+        speed, &mut separation, Fx::ZERO.raw(), Fx::ONE.raw())
+        .map(|raw| TimeOfImpact::new_clamped(Fx::from_raw(raw)))
+}
+
+pub fn conservative_sweep_after_release_bracket(
+    speed: Fx,
+    mut separation: impl FnMut(Fx) -> Fx,
+) -> Option<SweepBracket> {
+
+    if separation(Fx::ZERO) > Fx::ZERO {
+        return conservative_sweep_bracket_audited(speed, Fx::ZERO, separation).0;
+    }
+    let release_raw = conservative_first_clear_raw(
+        speed, &mut separation, Fx::ZERO.raw(), Fx::ONE.raw())?;
+    let release = Fx::from_raw(release_raw);
+    let remaining = Fx::ONE - release;
+    let (bracket, _) = conservative_sweep_bracket_audited(
+        speed * remaining, Fx::ZERO,
+        |relative| separation(release + remaining * relative),
+    );
+    bracket.map(|row| {
+        let map = |time: TimeOfImpact| TimeOfImpact::new_clamped(
+            release + remaining * time.get());
+        SweepBracket {
+            last_clear: map(row.last_clear), first_hit: map(row.first_hit),
+            exhausted: row.exhausted,
+        }
+    })
 }
 
 fn valid_sphere_sweep(a0: Vec3, a1: Vec3, a2: Vec3, a3: Vec3, c0: Vec3, c1: Vec3, radius: Fx) -> bool {
@@ -1345,6 +1514,25 @@ mod tests {
     fn stationary_separated_sweeps_have_no_contact() {
         assert_eq!(swept_segment_sphere(p(0, 0, 0), p(0, 1, 0), p(0, 0, 0), p(0, 1, 0), p(4, 0, 0), p(4, 0, 0), Fx::HALF), None);
         assert_eq!(swept_segment_vertical_capsule(p(0, 0, 0), p(0, 1, 0), p(0, 0, 0), p(0, 1, 0), p(4, 0, 0), p(4, 0, 0), Fx::ONE, Fx::HALF), None);
+    }
+
+    #[test]
+    fn an_entry_overlap_may_release_and_stay_clear() {
+        let result = conservative_sweep_after_release_bracket(Fx::ONE, |time| {
+            time - Fx::HALF
+        });
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn an_entry_overlap_that_releases_and_reenters_is_bracketed() {
+        let bracket = conservative_sweep_after_release_bracket(Fx::from_int(2), |time| {
+            Fx::from_ratio(1, 4) - (time * Fx::from_int(2) - Fx::ONE).abs()
+        }).expect("the released path re-enters");
+        assert!(!bracket.exhausted);
+        assert!(bracket.last_clear.get() > Fx::HALF);
+        assert!(bracket.first_hit.get() > bracket.last_clear.get());
+        assert!(bracket.first_hit.get() <= Fx::from_ratio(5, 8) + Fx::EPSILON);
     }
 
     #[test]

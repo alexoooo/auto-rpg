@@ -341,6 +341,7 @@
       background: #05070a; z-index: 20; display: grid; grid-template-rows: auto 1fr; }
     .route-arena[data-phase="select"] { overflow: auto; }
     .route-arena[data-phase="fight"] { grid-template-rows: minmax(0, 1fr); }
+    .route-arena[data-phase="fight"] > .legend { display: none; }
     .route-arena[data-phase="select"] > .stage-row,
     .route-arena[data-phase="select"] > #arena-replay-panel,
     .route-arena[data-phase="select"] > #arena-details-panel { display: none; }
@@ -354,9 +355,12 @@
       justify-content: space-between; pointer-events: none; }
     .arena-edge-tabs button { pointer-events: auto; background: rgba(12,18,25,.82); }
     .arena-life-bars { position: absolute; z-index: 4; top: 2.8rem; left: 10%; right: 10%;
-      display: grid; grid-template-columns: 1fr 1fr; gap: 12%; pointer-events: none; }
+      display: grid; grid-template-columns: 1fr auto 1fr; gap: .75rem; align-items: center;
+      pointer-events: none; }
     .arena-life-bars progress { width: 100%; accent-color: #7fb2ff; }
-    .arena-life-bars progress:last-child { accent-color: #ff6e5b; direction: rtl; }
+    .arena-life-bars progress:last-of-type { accent-color: #ff6e5b; direction: rtl; }
+    #arena-fps { color: #c3ceda; font: .66rem/1.15 ui-monospace, Consolas, monospace;
+      white-space: nowrap; text-shadow: 0 1px 2px #000; }
     .route-arena[data-phase="select"] .arena-edge-tabs,
     .route-arena[data-phase="select"] .arena-life-bars { display: none; }
     #arena-plans-panel, #arena-replay-panel, #arena-details-panel { position: absolute; z-index: 6;
@@ -674,6 +678,7 @@
           </div>
           <div class="arena-life-bars" aria-label="Faction health">
             <progress id="arena-health-a" max="65536" value="65536" aria-label="Heroes health"></progress>
+            <output id="arena-fps" aria-label="Arena display and three dimensional render cadence have not been measured yet">-- display / -- 3D / -- ms worst / -- ms budget</output>
             <progress id="arena-health-b" max="65536" value="65536" aria-label="Monsters health"></progress>
           </div>
           <div class="stage-modes">

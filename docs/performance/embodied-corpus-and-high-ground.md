@@ -88,7 +88,7 @@ the policy at once, since no embodied fixture can be driven by an articulated sc
 ## The registered pin
 
 `EMBODIED_CORPUS_DIGEST = 0xfa4ebbfbdde42fd1`, defined at
-[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1506) and asserted by
+[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1540) and asserted by
 `the_embodied_corpus_digest_is_the_pinned_one`.
 
 ```text
@@ -174,7 +174,7 @@ at the pair.
 ## The high-ground measurement
 
 `lab embodied --high-ground`, at
-[`high_ground_report`](../../crates/lab/src/main.rs#L1786). The subject is
+[`high_ground_report`](../../crates/lab/src/main.rs#L1794). The subject is
 `ScriptConfig::SEEKING` and the control is
 [`ScriptConfig`](../../crates/policy/src/script.rs#L272)`::LEVEL`,
 which is the same script with the elevation term switched off so completely that the

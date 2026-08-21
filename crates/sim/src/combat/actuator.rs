@@ -218,14 +218,44 @@ impl ElbowPlaneState {
     /// command is what keeps the arriving pose exact: once the remaining delta
     /// is inside the budget the step is the whole delta, so it lands on
     /// `commanded` and stops, with no overshoot and no limit cycle.
+    #[allow(dead_code)]
     pub fn chase(self) -> ElbowPlaneState {
+        self.chase_with_rate(ELBOW_PLANE_MAX_SPEED_RAW)
+    }
+
+    pub(crate) fn chase_with_rate(self, max_speed_raw: i32) -> ElbowPlaneState {
         let delta = self.commanded.delta(self.held);
-        let step = delta.clamp(-ELBOW_PLANE_MAX_SPEED_RAW, ELBOW_PLANE_MAX_SPEED_RAW);
+        let step = delta.clamp(-max_speed_raw, max_speed_raw);
         ElbowPlaneState {
             commanded: self.commanded,
             held: Angle::from_raw(self.held.raw().wrapping_add(step as u16)),
         }
     }
+}
+
+/// The complete arm-rate row used by the Lab's observational reachability audit.
+///
+/// This is not authoritative state and is not a host ABI. Production always uses
+/// [`CURRENT`]; carrying the row through one diagnostic step lets the Lab ask
+/// whether each named constant reaches a frozen fixture without editing a global.
+#[doc(hidden)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ArmRateProfile {
+    pub bearing_max_speed_raw: i32,
+    pub bearing_accel_raw: i32,
+    pub linear_max_speed_raw: i32,
+    pub linear_accel_raw: i32,
+    pub elbow_plane_max_speed_raw: i32,
+}
+
+impl ArmRateProfile {
+    pub const CURRENT: ArmRateProfile = ArmRateProfile {
+        bearing_max_speed_raw: ARM_BEARING_MAX_SPEED_RAW,
+        bearing_accel_raw: ARM_BEARING_ACCEL_RAW,
+        linear_max_speed_raw: ARM_LINEAR_MAX_SPEED_RAW,
+        linear_accel_raw: ARM_LINEAR_ACCEL_RAW,
+        elbow_plane_max_speed_raw: ELBOW_PLANE_MAX_SPEED_RAW,
+    };
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -454,6 +484,7 @@ fn arm_available(
     (inertia, available)
 }
 
+#[allow(dead_code)]
 pub(crate) fn integrate_arm_with_rates(
     state: &mut ArmState,
     anatomy: &BodyAnatomySpec,
@@ -466,9 +497,10 @@ pub(crate) fn integrate_arm_with_rates(
     bearing_max_speed_raw: i32,
     bearing_accel_raw: i32,
 ) -> ArmStep {
-    integrate_arm_for_grip(
+    integrate_arm_for_grip_with_profile(
         state, anatomy, yaw, limb, target, item, stats, authority,
-        bearing_max_speed_raw, bearing_accel_raw, Grip::OneHanded,
+        ArmRateProfile { bearing_max_speed_raw, bearing_accel_raw, ..ArmRateProfile::CURRENT },
+        Grip::OneHanded,
     )
 }
 
@@ -477,6 +509,7 @@ pub(crate) fn integrate_arm_with_rates(
 /// The one-handed entry point above is this with [`Grip::OneHanded`], which is
 /// inert, so every existing caller keeps both its signature and its behaviour.
 #[allow(clippy::too_many_arguments)]
+#[allow(dead_code)]
 pub(crate) fn integrate_arm_for_grip(
     state: &mut ArmState,
     anatomy: &BodyAnatomySpec,
@@ -490,12 +523,130 @@ pub(crate) fn integrate_arm_for_grip(
     bearing_accel_raw: i32,
     grip: Grip,
 ) -> ArmStep {
-    let (step, inertia, _, _) = integrate_arm_unbilled(
+    integrate_arm_for_grip_with_profile(
         state, anatomy, yaw, limb, target, item, stats, authority,
-        bearing_max_speed_raw, bearing_accel_raw, grip,
+        ArmRateProfile { bearing_max_speed_raw, bearing_accel_raw, ..ArmRateProfile::CURRENT }, grip,
+    )
+}
+
+/// The actuator work carried beside an unbilled arm proposal.
+///
+/// The arm state itself is the proposed geometry. Keeping the entry motor and
+/// exact COM words here lets a later constraint charge the achieved change
+/// without ever charging work that was proposed through the owner's body.
+#[derive(Clone, Copy)]
+pub(crate) struct ArmWorkProposal {
+    entry_bearing_speed: Fx,
+    entry_height_speed: Fx,
+    entry_reach_speed: Fx,
+    proposed_step: ArmStep,
+    idle_at_entry: bool,
+    inertia: Fx,
+    effort: Fx,
+    grip: Grip,
+    arm_length: Fx,
+    #[cfg(feature = "cartesian-recoil")]
+    entry_com: Vec3,
+    #[cfg(feature = "cartesian-recoil")]
+    proposed_com: Vec3,
+    #[cfg(feature = "cartesian-recoil")]
+    proposed_offset: Vec3,
+    #[cfg(feature = "cartesian-recoil")]
+    was_active: bool,
+}
+
+impl ArmWorkProposal {
+    fn achieved_step(self, state: ArmState) -> ArmStep {
+        ArmStep {
+            delta_bearing_speed: state.bearing_speed_turns - self.entry_bearing_speed,
+            delta_height_speed: state.height_speed - self.entry_height_speed,
+            delta_reach_speed: state.reach_speed - self.entry_reach_speed,
+            idle_at_entry: self.idle_at_entry,
+        }
+    }
+
+    fn accepted_step(self, fraction: Fx) -> ArmStep {
+        let accepted = |delta: Fx| Fx::from_raw(
+            ((delta.raw() as i64 * fraction.raw() as i64) / Fx::ONE.raw() as i64) as i32);
+        ArmStep {
+            delta_bearing_speed: accepted(self.proposed_step.delta_bearing_speed),
+            delta_height_speed: accepted(self.proposed_step.delta_height_speed),
+            delta_reach_speed: accepted(self.proposed_step.delta_reach_speed),
+            idle_at_entry: self.idle_at_entry,
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    pub(crate) fn physical_com_at(self, fraction: Fx) -> Vec3 {
+        Vec3::lerp(self.entry_com, self.proposed_com, fraction)
+    }
+
+    #[cfg(not(feature = "cartesian-recoil"))]
+    pub(crate) fn physical_com_at(self, _fraction: Fx) -> Vec3 { Vec3::ZERO }
+
+    pub(crate) fn for_matching_arm(mut self, entry: ArmState) -> ArmWorkProposal {
+        self.entry_bearing_speed = entry.bearing_speed_turns;
+        self.entry_height_speed = entry.height_speed;
+        self.entry_reach_speed = entry.reach_speed;
+        self
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn integrate_arm_for_grip_with_profile(
+    state: &mut ArmState, anatomy: &BodyAnatomySpec, yaw: Angle, limb: usize,
+    target: ArmTarget, item: Option<EquipmentSpec>, stats: Stats, authority: Fx,
+    rates: ArmRateProfile, grip: Grip,
+) -> ArmStep {
+    let work = propose_arm_with_profile(
+        state, anatomy, yaw, limb, target, item, stats, authority, rates, grip,
     );
-    bill_fatigue_for_grip(state, inertia, target.effort, step, grip);
+    let step = work.achieved_step(*state);
+    bill_achieved_work(state, work, work.physical_com_at(Fx::ONE));
     step
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn propose_arm_with_profile(
+    state: &mut ArmState, anatomy: &BodyAnatomySpec, yaw: Angle, limb: usize,
+    target: ArmTarget, item: Option<EquipmentSpec>, stats: Stats, authority: Fx,
+    rates: ArmRateProfile, grip: Grip,
+) -> ArmWorkProposal {
+    let entry_bearing_speed = state.bearing_speed_turns;
+    let entry_height_speed = state.height_speed;
+    let entry_reach_speed = state.reach_speed;
+    #[cfg(feature = "cartesian-recoil")]
+    let entry_bearing = state.bearing;
+    #[cfg(feature = "cartesian-recoil")]
+    let entry_hand = state.hand;
+    #[cfg(feature = "cartesian-recoil")]
+    let entry_com = state.post_contact_com_velocity;
+    #[cfg(feature = "cartesian-recoil")]
+    let was_active = state.post_contact_active;
+    let (step, inertia, com_accel, com_max) = integrate_arm_unbilled(
+        state, anatomy, yaw, limb, target, item, stats, authority, rates, grip,
+    );
+    #[cfg(not(feature = "cartesian-recoil"))]
+    let _ = (com_accel, com_max);
+    #[cfg(feature = "cartesian-recoil")]
+    let (proposed_com, proposed_offset) = finish_recoil_proposal(
+        state, item, entry_bearing, entry_hand, entry_com,
+        was_active, com_accel, com_max,
+    );
+    ArmWorkProposal {
+        entry_bearing_speed, entry_height_speed, entry_reach_speed,
+        proposed_step: step,
+        idle_at_entry: step.idle_at_entry, inertia, effort: target.effort, grip,
+        arm_length: anatomy.arm_length,
+        #[cfg(feature = "cartesian-recoil")]
+        entry_com,
+        #[cfg(feature = "cartesian-recoil")]
+        proposed_com,
+        #[cfg(feature = "cartesian-recoil")]
+        proposed_offset,
+        #[cfg(feature = "cartesian-recoil")]
+        was_active,
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -508,8 +659,7 @@ fn integrate_arm_unbilled(
     item: Option<EquipmentSpec>,
     stats: Stats,
     authority: Fx,
-    bearing_max_speed_raw: i32,
-    bearing_accel_raw: i32,
+    rates: ArmRateProfile,
     grip: Grip,
 ) -> (ArmStep, Fx, i32, i32) {
     let reach_target = target.reach.clamp(Fx::from_raw(ARM_MIN_REACH_RAW), Fx::ONE);
@@ -524,10 +674,10 @@ fn integrate_arm_unbilled(
 
     let (inertia, available) = arm_available(*state, target, item, stats, authority, grip);
     let agility = stat_factor(stats.agility);
-    let bearing_accel = (Fx::from_raw(bearing_accel_raw) * available).raw().abs();
-    let linear_accel = (Fx::from_raw(ARM_LINEAR_ACCEL_RAW) * available).raw().abs();
-    let bearing_max = (Fx::from_raw(bearing_max_speed_raw) * agility).raw().abs();
-    let linear_max = (Fx::from_raw(ARM_LINEAR_MAX_SPEED_RAW) * agility).raw().abs();
+    let bearing_accel = (Fx::from_raw(rates.bearing_accel_raw) * available).raw().abs();
+    let linear_accel = (Fx::from_raw(rates.linear_accel_raw) * available).raw().abs();
+    let bearing_max = (Fx::from_raw(rates.bearing_max_speed_raw) * agility).raw().abs();
+    let linear_max = (Fx::from_raw(rates.linear_max_speed_raw) * agility).raw().abs();
 
     let (bearing_step, bearing_speed) = chase(bearing_error, entry_bearing_speed, bearing_max, bearing_accel);
     state.bearing = Angle::from_raw(state.bearing.raw().wrapping_add(bearing_step as u16));
@@ -555,6 +705,7 @@ fn integrate_arm_unbilled(
 }
 
 #[cfg(feature = "cartesian-recoil")]
+#[allow(dead_code)]
 pub(crate) fn integrate_arm_with_recoil(
     state: &mut ArmState, anatomy: &BodyAnatomySpec, yaw: Angle, limb: usize,
     target: ArmTarget, item: Option<EquipmentSpec>, stats: Stats, authority: Fx,
@@ -566,23 +717,44 @@ pub(crate) fn integrate_arm_with_recoil(
     )
 }
 
+#[cfg(feature = "cartesian-recoil")]
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn integrate_arm_with_recoil_profile(
+    state: &mut ArmState, anatomy: &BodyAnatomySpec, yaw: Angle, limb: usize,
+    target: ArmTarget, item: Option<EquipmentSpec>, stats: Stats, authority: Fx,
+    rates: ArmRateProfile, grip: Grip,
+) -> ArmStep {
+    let work = propose_arm_with_profile(
+        state, anatomy, yaw, limb, target, item, stats, authority, rates, grip,
+    );
+    let step = work.achieved_step(*state);
+    bill_achieved_work(state, work, work.physical_com_at(Fx::ONE));
+    step
+}
+
 /// [`integrate_arm_with_recoil`] for an arm that may be sharing its item. The
 /// one-handed entry point above is this with the inert [`Grip::OneHanded`].
 #[cfg(feature = "cartesian-recoil")]
 #[allow(clippy::too_many_arguments)]
+#[allow(dead_code)]
 pub(crate) fn integrate_arm_with_recoil_for_grip(
     state: &mut ArmState, anatomy: &BodyAnatomySpec, yaw: Angle, limb: usize,
     target: ArmTarget, item: Option<EquipmentSpec>, stats: Stats, authority: Fx,
     bearing_max_speed_raw: i32, bearing_accel_raw: i32, grip: Grip,
 ) -> ArmStep {
-    let entry_bearing = state.bearing;
-    let entry_hand = state.hand;
-    let entry_com = state.post_contact_com_velocity;
-    let was_active = state.post_contact_active;
-    let (step, inertia, com_accel, com_max) = integrate_arm_unbilled(
+    integrate_arm_with_recoil_profile(
         state, anatomy, yaw, limb, target, item, stats, authority,
-        bearing_max_speed_raw, bearing_accel_raw, grip,
-    );
+        ArmRateProfile { bearing_max_speed_raw, bearing_accel_raw, ..ArmRateProfile::CURRENT }, grip,
+    )
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[allow(clippy::too_many_arguments)]
+fn finish_recoil_proposal(
+    state: &mut ArmState, item: Option<EquipmentSpec>,
+    entry_bearing: Angle, entry_hand: Vec3, entry_com: Vec3, was_active: bool,
+    com_accel: i32, com_max: i32,
+) -> (Vec3, Vec3) {
     let next_offset = item.and_then(|item| {
         let crate::EquipmentGeometry::Segment { length, .. } = item.geometry else { return None };
         let old = Vec3::new(entry_bearing.cos(), entry_bearing.sin(), Fx::ZERO) * length;
@@ -623,9 +795,106 @@ pub(crate) fn integrate_arm_with_recoil_for_grip(
         state.post_contact_active = state.hand != forward || next_com != desired_com;
         state.post_contact_com_velocity = if state.post_contact_active { next_com } else { Vec3::ZERO };
     }
-    bill_fatigue_with_com_delta(state, inertia, target.effort, step,
-        if was_active { next_com - entry_com } else { Vec3::ZERO }, anatomy.arm_length, grip);
-    step
+    (next_com, next_offset)
+}
+
+/// Commit the linear endpoint path and interpolated motor state selected by the
+/// owner's constraint. Fraction one returns the proposal verbatim.
+pub(crate) fn achieved_arm_state(
+    entry: ArmState, proposed: ArmState, work: ArmWorkProposal,
+    anatomy: &BodyAnatomySpec, yaw: Angle, limb: usize,
+    fraction: Fx, stopped: bool,
+) -> (ArmState, Vec3) {
+    #[cfg(not(feature = "cartesian-recoil"))]
+    let _ = (anatomy, yaw, limb);
+    if fraction == Fx::ONE && !stopped {
+        return (proposed, work.physical_com_at(Fx::ONE));
+    }
+    if fraction == Fx::ZERO {
+        let mut achieved = entry;
+        achieved.previous_hand = entry.hand;
+        achieved.linear_velocity = Vec3::ZERO;
+        if stopped {
+            achieved.bearing_speed_turns = Fx::ZERO;
+            achieved.height_speed = Fx::ZERO;
+            achieved.reach_speed = Fx::ZERO;
+        }
+        return (achieved, work.physical_com_at(Fx::ZERO));
+    }
+    let interpolate_raw = |a: i32, b: i32| {
+        a.saturating_add((((b as i64 - a as i64) * fraction.raw() as i64)
+            / Fx::ONE.raw() as i64) as i32)
+    };
+    let bearing_delta = proposed.bearing.delta(entry.bearing);
+    let mut achieved = entry;
+    achieved.bearing = Angle::from_raw(entry.bearing.raw().wrapping_add(
+        ((bearing_delta as i64 * fraction.raw() as i64) / Fx::ONE.raw() as i64) as u16));
+    achieved.height = CombatHeight::try_from_raw(interpolate_raw(
+        entry.height.raw(), proposed.height.raw())).expect("interpolated combat height");
+    achieved.reach = Fx::from_raw(interpolate_raw(entry.reach.raw(), proposed.reach.raw()));
+    achieved.bearing_speed_turns = Fx::from_raw(interpolate_raw(
+        entry.bearing_speed_turns.raw(), proposed.bearing_speed_turns.raw()));
+    achieved.height_speed = Fx::from_raw(interpolate_raw(
+        entry.height_speed.raw(), proposed.height_speed.raw()));
+    achieved.reach_speed = Fx::from_raw(interpolate_raw(
+        entry.reach_speed.raw(), proposed.reach_speed.raw()));
+    if stopped {
+        achieved.bearing_speed_turns = Fx::ZERO;
+        achieved.height_speed = Fx::ZERO;
+        achieved.reach_speed = Fx::ZERO;
+    }
+    achieved.previous_hand = entry.hand;
+    achieved.hand = Vec3::lerp(entry.hand, proposed.hand, fraction);
+    achieved.linear_velocity = achieved.hand - entry.hand;
+    achieved.fatigue = entry.fatigue;
+    achieved.work_residue = entry.work_residue;
+    let achieved_com = work.physical_com_at(fraction);
+    #[cfg(feature = "cartesian-recoil")]
+    {
+        let offset = Vec3::lerp(Vec3::ZERO, work.proposed_offset, fraction);
+        let desired_com = achieved.linear_velocity + offset;
+        let forward = hand_position(
+            anatomy, yaw, limb, achieved.bearing, achieved.height, achieved.reach);
+        achieved.post_contact_active = achieved.hand != forward || achieved_com != desired_com;
+        achieved.post_contact_com_velocity = if achieved.post_contact_active {
+            achieved_com
+        } else {
+            Vec3::ZERO
+        };
+    }
+    (achieved, achieved_com)
+}
+
+pub(crate) fn bill_achieved_work(
+    state: &mut ArmState, work: ArmWorkProposal, _achieved_com: Vec3,
+) {
+    bill_accepted_work(state, work, _achieved_com, Fx::ONE);
+}
+
+pub(crate) fn bill_accepted_work(
+    state: &mut ArmState, work: ArmWorkProposal, _achieved_com: Vec3, fraction: Fx,
+) {
+    let step = work.accepted_step(fraction);
+    #[cfg(feature = "cartesian-recoil")]
+    let delta_com = if work.was_active { _achieved_com - work.entry_com } else { Vec3::ZERO };
+    #[cfg(not(feature = "cartesian-recoil"))]
+    let delta_com = Vec3::ZERO;
+    bill_fatigue_with_com_delta(
+        state, work.inertia, work.effort, step, delta_com, work.arm_length, work.grip,
+    );
+}
+
+pub(crate) fn bill_matching_accepted_work(
+    state: &mut ArmState, work: ArmWorkProposal, _achieved_com: Vec3, fraction: Fx,
+) {
+    let step = work.accepted_step(fraction);
+    #[cfg(feature = "cartesian-recoil")]
+    let delta_com = if work.was_active { _achieved_com - work.entry_com } else { Vec3::ZERO };
+    #[cfg(not(feature = "cartesian-recoil"))]
+    let delta_com = Vec3::ZERO;
+    bill_fatigue_with_com_delta(
+        state, work.inertia, work.effort, step, delta_com, work.arm_length, work.grip,
+    );
 }
 
 /// Charge one tick of arm work against `state`'s fatigue, for an arm whose
@@ -638,6 +907,7 @@ pub(crate) fn integrate_arm_with_recoil_for_grip(
 /// itself become. That test now drives this function, which is what
 /// `world/articulated.rs` calls, so the byte-identity claim is about a path
 /// something ships.
+#[allow(dead_code)]
 pub(crate) fn bill_fatigue_for_grip(
     state: &mut ArmState, inertia: Fx, effort: Fx, step: ArmStep, grip: Grip,
 ) {
@@ -1156,6 +1426,48 @@ mod tests {
         );
         assert!(idle.idle_at_entry);
         assert_eq!((arm.fatigue.raw(), arm.work_residue.raw()), (97, 255));
+    }
+
+    #[test]
+    fn a_zero_fraction_stop_bills_no_rejected_motor_work_and_only_an_idle_entry_recovers() {
+        let anatomy = crate::fighter_anatomy();
+        let hand = hand_position(&anatomy, Angle::ZERO, 1, Angle::ZERO,
+            CombatHeight::MID, Fx::HALF);
+        let mut moving = tucked_arm(hand);
+        moving.bearing = Angle::ZERO;
+        moving.height = CombatHeight::MID;
+        moving.reach = Fx::HALF;
+        moving.fatigue = Fx::from_raw(100);
+        moving.work_residue = Fx::from_raw(255);
+        let entry = moving;
+        let work = propose_arm_with_profile(
+            &mut moving, &anatomy, Angle::ZERO, 1,
+            ArmTarget { bearing: Angle::QUARTER, height: CombatHeight::HIGH,
+                        reach: Fx::ONE, effort: Fx::ONE },
+            None, Stats::new(20, 20, 0, 0, 0), Fx::ONE,
+            ArmRateProfile::CURRENT, Grip::OneHanded,
+        );
+        let (mut stopped, com) = achieved_arm_state(
+            entry, moving, work, &anatomy, Angle::ZERO, 1, Fx::ZERO, true);
+        bill_accepted_work(&mut stopped, work, com, Fx::ZERO);
+        assert_eq!((stopped.fatigue.raw(), stopped.work_residue.raw()), (100, 255),
+            "a rejected proposal was billed or a non-idle entry recovered");
+        assert_eq!((stopped.bearing_speed_turns, stopped.height_speed, stopped.reach_speed),
+            (Fx::ZERO, Fx::ZERO, Fx::ZERO), "the participating joint did not stop");
+
+        let mut idle = entry;
+        let idle_work = propose_arm_with_profile(
+            &mut idle, &anatomy, Angle::ZERO, 1,
+            ArmTarget { bearing: entry.bearing, height: entry.height,
+                        reach: entry.reach, effort: Fx::ONE },
+            None, Stats::new(20, 20, 0, 0, 0), Fx::ONE,
+            ArmRateProfile::CURRENT, Grip::OneHanded,
+        );
+        let (mut idle_stopped, idle_com) = achieved_arm_state(
+            entry, idle, idle_work, &anatomy, Angle::ZERO, 1, Fx::ZERO, true);
+        bill_accepted_work(&mut idle_stopped, idle_work, idle_com, Fx::ZERO);
+        assert_eq!((idle_stopped.fatigue.raw(), idle_stopped.work_residue.raw()), (96, 255),
+            "a genuinely idle constrained entry lost ordinary recovery");
     }
 
     #[test]

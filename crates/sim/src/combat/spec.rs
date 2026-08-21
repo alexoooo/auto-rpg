@@ -1,6 +1,11 @@
-use crate::{ActionKind, LimbSlot};
+use crate::{ActionKind, CombatHeight, GripState, LimbSlot};
+use crate::combat::actuator::{self, ArmState, BodyYawState, ElbowPlaneState,
+                              ShieldPose, StanceState};
+use crate::combat::geometry::{held_segment_colliders, held_shield_collider,
+                              jointed_body_region_volumes};
+use crate::combat::limb::{elbow_point, shoulder, Elbow};
 use crate::scenario::ScenarioByteSink;
-use fx::Fx;
+use fx::{Angle, Fx, Vec3};
 
 pub const COMBAT_SPEC_SCHEMA_V1: u16 = 1;
 pub const MAX_ANATOMY_SPECS: usize = 64;
@@ -482,6 +487,118 @@ pub fn resolved_equipment(
     Ok(arms)
 }
 
+/// The one authoritative construction pose used by validation and commit.
+#[derive(Clone, Copy)]
+pub(crate) struct InitialPoseV1 {
+    pub body_yaw: BodyYawState,
+    pub stance: StanceState,
+    pub elbow_plane: [ElbowPlaneState; 2],
+    pub arms: [ArmState; 2],
+    pub grips: [GripState; 2],
+    pub shield: Option<ShieldPose>,
+}
+
+pub(crate) fn initial_pose_v1(
+    table: &CombatSpecTableV1, unit: UnitSpecV1, facing: Angle,
+) -> Result<InitialPoseV1, CombatSpecError> {
+    let anatomy = table.anatomy(unit.anatomy).ok_or(CombatSpecError::MissingReference)?;
+    let equipment = resolved_equipment(table, unit)?;
+    let mut arms = [actuator::tucked_arm(Vec3::ZERO); 2];
+    let mut grips = [GripState { equipment_slot: None }; 2];
+    for limb in 0..2 {
+        let hand = actuator::hand_position(
+            anatomy, facing, limb, Angle::ZERO, CombatHeight::MID,
+            Fx::from_raw(actuator::ARM_MIN_REACH_RAW),
+        );
+        arms[limb] = actuator::tucked_arm(hand);
+        grips[limb].equipment_slot = equipment[limb].and_then(|id|
+            unit.equipment.iter().position(|item| *item == Some(id)).map(|slot| slot as u8));
+    }
+    let mut shield = None;
+    for limb in 0..2 {
+        let Some(slot) = grips[limb].equipment_slot else { continue };
+        let Some(id) = unit.equipment.get(slot as usize).copied().flatten() else { continue };
+        let Some(item) = table.equipment(id) else { continue };
+        if let EquipmentGeometry::Shield { half_width, half_height, thickness } = item.geometry {
+            shield = Some(ShieldPose {
+                centre: arms[limb].hand,
+                normal: Vec3::new(arms[limb].bearing.cos(), arms[limb].bearing.sin(), Fx::ZERO),
+                half_width, half_height, thickness,
+            });
+            break;
+        }
+    }
+    Ok(InitialPoseV1 {
+        body_yaw: BodyYawState { angle: facing, speed_turns: Fx::ZERO,
+                                 authority_residue: Fx::ZERO },
+        stance: StanceState::squared(facing),
+        elbow_plane: [ElbowPlaneState::NEUTRAL; 2], arms, grips, shield,
+    })
+}
+
+/// Initial arm/body intersections are the shipped tucked body's structural
+/// baseline. Items do not get that exemption: held/held, held/opposite-arm,
+/// shield/opposite-arm and shield/opposite-held pairs must begin clear so the
+/// release law cannot grandfather a posed loadout.
+pub(crate) fn initial_pose_has_forbidden_overlap(
+    table: &CombatSpecTableV1, unit: UnitSpecV1, facing: Angle,
+) -> Result<bool, CombatSpecError> {
+    let pose = initial_pose_v1(table, unit, facing)?;
+    let anatomy = table.anatomy(unit.anatomy).ok_or(CombatSpecError::MissingReference)?;
+    let links = Elbow::of(anatomy);
+    let elbows = core::array::from_fn(|limb| elbow_point(
+        shoulder(anatomy, facing, limb), pose.arms[limb].hand,
+        links, pose.elbow_plane[limb].held));
+    let regions = jointed_body_region_volumes(
+        Vec3::ZERO, anatomy, facing, pose.arms.map(|arm| arm.hand), [true; 5], elbows);
+    let held = held_segment_colliders(
+        Vec3::ZERO, Vec3::ZERO, pose.arms, pose.arms, pose.grips, unit.equipment,
+        |id| table.equipment(id).copied());
+    let shield = held_shield_collider(
+        Vec3::ZERO, Vec3::ZERO, pose.shield, pose.shield, pose.grips, unit.equipment,
+        |id| table.equipment(id).copied());
+    let segment_overlap = |a: crate::SegmentPose, b: crate::SegmentPose| {
+        let closest = fx::closest_points_on_segments(a.hilt, a.tip, b.hilt, b.tip);
+        let radius = a.radius + b.radius;
+        closest.distance_sq <= radius * radius
+    };
+    if let (Some(left), Some(right)) = (held[0], held[1]) {
+        if segment_overlap(left.requested, right.requested) { return Ok(true) }
+    }
+    for limb in 0..2 {
+        let other = 1 - limb;
+        if let Some(item) = held[limb] {
+            for region in [if other == 0 { 2 } else { 3 }, if other == 0 { 5 } else { 6 }] {
+                if !regions[region].present { continue }
+                let closest = fx::closest_points_on_segments(
+                    item.requested.hilt, item.requested.tip,
+                    regions[region].lower, regions[region].upper);
+                let radius = item.requested.radius + regions[region].radius;
+                if closest.distance_sq <= radius * radius { return Ok(true) }
+            }
+        }
+    }
+    if let Some(shield) = shield {
+        let owner = shield.owner as usize;
+        let other = 1 - owner;
+        for region in [if other == 0 { 2 } else { 3 }, if other == 0 { 5 } else { 6 }] {
+            let closest = fx::closest_points_segment_rectangle(
+                regions[region].lower, regions[region].upper, shield.requested.corners);
+            if closest.distance_sq <= regions[region].radius * regions[region].radius {
+                return Ok(true)
+            }
+        }
+        if let Some(item) = held[other] {
+            let closest = fx::closest_points_segment_rectangle(
+                item.requested.hilt, item.requested.tip, shield.requested.corners);
+            if closest.distance_sq <= item.requested.radius * item.requested.radius {
+                return Ok(true)
+            }
+        }
+    }
+    Ok(false)
+}
+
 pub(crate) fn grips_valid(
     table: &CombatSpecTableV1,
     unit: UnitSpecV1,
@@ -673,6 +790,33 @@ mod tests {
             (2, ActionKind::Shield, GripBinding::Left),
             (3, ActionKind::Club, GripBinding::Right),
         ]);
+    }
+
+    #[test]
+    fn shipped_initial_poses_are_clear_but_a_new_item_overlap_is_refused() {
+        let scenario = crate::Scenario::embodied_duel();
+        let mut table = scenario.combat_specs.clone().expect("fixture table");
+        for unit in &scenario.units {
+            let facing = if unit.faction == crate::Faction::Heroes {
+                Angle::ZERO
+            } else {
+                Angle::HALF
+            };
+            assert!(!initial_pose_has_forbidden_overlap(
+                &table, unit.combat_spec.expect("fixture row"), facing).unwrap());
+        }
+
+        // This remains a valid equipment row. Its broad face is nevertheless
+        // already wrapped around the opposite arm in the tucked pose, so it is
+        // a posed-loadout refusal rather than a table-shape refusal.
+        let EquipmentGeometry::Shield { thickness, .. } =
+            table.equipment[1].geometry else { unreachable!() };
+        table.equipment[1].geometry = EquipmentGeometry::Shield {
+            half_width: Fx::from_int(2), half_height: Fx::from_int(2), thickness,
+        };
+        let hero = scenario.units[0];
+        assert!(initial_pose_has_forbidden_overlap(
+            &table, hero.combat_spec.unwrap(), Angle::ZERO).unwrap());
     }
 
     #[test]

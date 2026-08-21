@@ -61,8 +61,9 @@ import { ArenaInput, TOUCH_PINCH_SPREAD_RATIO, type ArmTargetState } from "./are
 import { ControlledClock } from "./controlled-clock.js";
 import { createHandReticle } from "./hand-reticle.js";
 import { ArenaHandCursor } from "./arena-hand-cursor.js";
+import { ArenaFrameMeter, type ArenaWaitState } from "../render/frame-meter.js";
 import {
-  ControlInputLog, controlLabReport, type ControlAttemptManifest, type ControlInputChannel,
+  ControlInputLog, ControlLatencyLog, controlLabReport, type ControlAttemptManifest, type ControlInputChannel,
   type ControlLabReport, type ControlReportContext, type ControlView,
 } from "./control-lab.js";
 
@@ -343,6 +344,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
   const detailsPanel = element<HTMLElement>(container, "arena-details-panel");
   const healthA = element<HTMLProgressElement>(container, "arena-health-a");
   const healthB = element<HTMLProgressElement>(container, "arena-health-b");
+  const arenaFps = element<HTMLOutputElement>(container, "arena-fps");
   const cameraModeInput = element<HTMLSelectElement>(container, "arena-camera-mode");
   const timeLimitInput = element<HTMLSelectElement>(container, "arena-time-limit");
   const resetPreviewButton = element<HTMLButtonElement>(container, "arena-reset-preview");
@@ -369,12 +371,14 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
   let controlEvidence: Uint8Array | null = null;
   let controlReport: ControlLabReport | null = null;
   const controlInputLog = testControlInputLog ?? new ControlInputLog();
+  const controlLatency = new ControlLatencyLog();
   let practiceActive = false;
   let controlHudOpen = false;
   let labFaction: 0 | 1 | null = null;
   let labLimb: 0 | 1 = 1;
   let cutAttempt = 0;
   let acceptedArmTarget: ArmTargetState | null = null;
+  const frameMeter = new ArenaFrameMeter();
   /**
    * Production is behind the playhead, and the page says so rather than
    * stuttering.
@@ -591,6 +595,9 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     if (next === "select") pickerSides.prepend(stageCanvas);
     else stageHost.prepend(stageCanvas);
     stage?.setPhase(next);
+    frameMeter.reset(performance.now(), stage?.renderCount?.() ?? 0);
+    arenaFps.value = frameMeter.label;
+    arenaFps.setAttribute("aria-label", frameMeter.ariaLabel);
     closeFightDrawers();
     if (next === "select") updatePreview();
   }
@@ -710,6 +717,9 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     lost?.clear();
     lost?.dispose();
     stage = null;
+    frameMeter.reset();
+    arenaFps.value = frameMeter.label;
+    arenaFps.setAttribute("aria-label", frameMeter.ariaLabel);
   };
 
   async function startStage(): Promise<void> {
@@ -1265,6 +1275,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     const pose = latestHumanPose();
     const shoulder = pose?.regions[labLimb + 2]?.lower ?? null;
     const armLength = loaded?.source.header.bodies[labFaction]?.anatomy.armLength ?? null;
+    const target = arenaInput.armTarget;
     controlInputLog.append({
       sampleMs, tickSeen: loaded?.source.header.ticks ?? 0, view: currentControlView(), channel,
       inputDevice: lastInputDevice,
@@ -1272,9 +1283,12 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
       ...(action === undefined ? {} : { action }),
       ...(q === undefined ? {} : { qx: q[0], qy: q[1] }), saturated, powered, travelCss,
       ...(clientCss === undefined ? {} : { clientXCss: clientCss[0], clientYCss: clientCss[1] }),
-      desired: arenaInput.desiredHand(), shoulder, armLength, target: arenaInput.armTarget,
+      desired: arenaInput.desiredHand(), shoulder, armLength, target,
       bodyYaw: pose?.yaw ?? null, basis: stage.cameraBasis(),
     }, cutAttempt, coalescePointer);
+    if (powered && target !== null && (channel === "cut" || channel === "extend")) {
+      controlLatency.sample(sampleMs, target);
+    }
   }
 
   function recordControlTransition(channel: ControlInputChannel, action: string): void {
@@ -1328,6 +1342,17 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
         pointerCaptureEver: history.some((row) => row.captureActive),
         arenaView: currentControlView() }),
     });
+  }
+
+  function completeControlReport(): void {
+    if (!practiceActive || controlEvidence === null || labFaction === null || loaded === null
+      || !controlInputLog.reportEligible || !controlLatency.complete) return;
+    controlReport = controlLabReport(loaded.source, controlEvidence, labLimb, controlInputLog.rows(),
+      reportContext(), controlInputLog.manifests(), controlLatency.rows());
+    saveControlReportButton.disabled = false;
+    if (controlStatus.textContent.startsWith("CONTROL_LATENCY_JOIN_REFUSED:")) {
+      controlStatus.textContent = "Control report ready";
+    }
   }
 
   function updateControlHud(frame: FightFrame): void {
@@ -1412,6 +1437,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
       : matchup.b.control === "human" ? 1 : null;
     labFaction = practiceActive ? controlledFaction : null;
     controlInputLog.clear();
+    controlLatency.clear();
     lastInputDevice = null;
     cutAttempt = 0;
     acceptedArmTarget = null;
@@ -1481,6 +1507,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
           if (loaded === null) {
             firstFrameMs = Math.round(performance.now() - started);
             adopt(streaming);
+            observeControlPublications(performance.now());
             // **Playing, and that is what "watch the fight happen" means.** The
             // old page adopted a finished recording and waited to be told to
             // play it, which is the right default for a file and the wrong one
@@ -1503,6 +1530,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
             return;
           }
           grow();
+          observeControlPublications(performance.now());
         },
       });
       if (!current()) return;
@@ -1517,11 +1545,11 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
       else adopt(source);
       controlEvidence = source.controlEvidence();
       saveEvidenceButton.disabled = controlEvidence === null;
-      if (practiceActive && controlEvidence !== null && labFaction !== null
-        && controlInputLog.reportEligible) {
-        controlReport = controlLabReport(source, controlEvidence, labLimb, controlInputLog.rows(),
-          reportContext(), controlInputLog.manifests());
-        saveControlReportButton.disabled = false;
+      completeControlReport();
+      if (practiceActive && controlEvidence !== null && controlInputLog.reportEligible
+        && !controlLatency.complete) {
+        controlStatus.textContent = controlLatency.refusal()
+          ?? "CONTROL_LATENCY_JOIN_REFUSED: presentation clocks are incomplete";
       }
       if (practiceActive && !controlInputLog.reportEligible) {
         controlStatus.textContent = `Control report unavailable: ${controlInputLog.dropped} input rows exceeded the ten-minute cap`;
@@ -2101,11 +2129,9 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     mode = next;
     modeTexture.setAttribute("aria-pressed", String(next === "texture"));
     modeGeometry.setAttribute("aria-pressed", String(next === "geometry"));
-    // **The stage first and the label second**, because everything in
-    // `setMode` up to its own first `await` runs synchronously: the mode has
-    // already changed and the frame has already been drawn by the time this
-    // returns, so a label written before it would name the mode that has just
-    // stopped being on the screen for as long as the room takes to fetch.
+    // The stage state and pressed label change together before the next rAF;
+    // Babylon submission remains owned by that callback rather than this
+    // control event.
     //
     // The promise settles when the authored room has landed or failed, which is
     // the only part of a press that is not immediate; the label is rewritten
@@ -2171,7 +2197,12 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
   }
   const onBlur = (): void => stopControlledFight(performance.now(), true, "blur");
   const onVisibility = (): void => {
-    if (document.visibilityState === "hidden") stopControlledFight(performance.now(), true, "hidden");
+    if (document.visibilityState === "hidden") {
+      stopControlledFight(performance.now(), true, "hidden");
+      frameMeter.reset();
+      arenaFps.value = frameMeter.label;
+      arenaFps.setAttribute("aria-label", frameMeter.ariaLabel);
+    }
   };
   window.addEventListener("keydown", onKeydown);
   window.addEventListener("keyup", onKeyup);
@@ -2191,11 +2222,41 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
   let cameraElapsed = 0;
   let previewFrame = 0;
 
+  function meterWait(): ArenaWaitState {
+    if (document.visibilityState === "hidden") return "hidden";
+    if (controlledInput !== null || stagingNeutral !== null) return "input-ack";
+    if (starving && producing) return "producer";
+    if (!state.playing) return "paused";
+    return "ready";
+  }
+
+  function observeControlPublications(now: number): void {
+    if (loaded === null || loaded.source.frameCount() === 0) return;
+    const latestTick = loaded.source.frameAt(loaded.source.frameCount() - 1).t;
+    controlLatency.observePublishedThrough(latestTick, now);
+  }
+
+  /** The only production owner allowed to submit the accumulated Babylon work. */
+  function finishPresentationFrame(now: number, allowDraw = true): void {
+    if (allowDraw) stage?.draw?.();
+    observeControlPublications(now);
+    if (loaded !== null && loaded.source.frameCount() > 0) {
+      controlLatency.display(loaded.source.frameAt(state.frame).t, now);
+    }
+    completeControlReport();
+    const count = stage?.renderCount?.() ?? 0;
+    if (frameMeter.advance(now, count, meterWait()) !== null) {
+      arenaFps.value = frameMeter.label;
+      arenaFps.setAttribute("aria-label", frameMeter.ariaLabel);
+    }
+  }
+
   /** Drain elapsed control time one freshly sampled authoritative tick at a time. */
   function drainControlledTicks(): void {
     if (controlledFaction === null || !producing || loaded === null || arena === null
       || controlledStopped || stagingNeutral || neutralPending || !controlledClock.beginTick()) return;
     const latest = loaded.source.frameAt(loaded.source.frameCount() - 1);
+    const receiptTick = latest.t;
     const human = humanPoseOf(latest);
     if (human === undefined) {
       controlledClock.settleBatch(0);
@@ -2207,6 +2268,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     }
     const stagedTarget = arenaInput.armTarget;
     const bytes = arenaInput.encode(opponentOf(latest), human.yaw);
+    if (stagedTarget !== null) controlLatency.submit(receiptTick, performance.now(), stagedTarget);
     const request = arena.input(controlledFaction, bytes, 1);
     controlledInput = request;
     void request.then((stepped) => {
@@ -2216,6 +2278,8 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
         return;
       }
       acceptedArmTarget = stagedTarget;
+      controlLatency.settle(receiptTick, performance.now());
+      observeControlPublications(performance.now());
       controlledClock.settleTick();
       // At 30 Hz two ticks normally become due together. The second is sampled
       // only after the first acknowledgement, so yaw and future arm input have
@@ -2260,6 +2324,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
         }
         go(state.frame + 1, cameraElapsed);
         if (pairedDraws) cameraElapsed = 0;
+        finishPresentationFrame(now, pairedDraws);
         frameRequest = window.requestAnimationFrame(loop);
         return;
       }
@@ -2323,6 +2388,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
         stage.showHandGuide([pose.body[0], pose.body[1], 0], desired);
       }
     }
+    finishPresentationFrame(now);
     frameRequest = window.requestAnimationFrame(loop);
   }
 
@@ -2381,6 +2447,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
       // disposes itself on arrival instead.
       stage?.dispose();
       stage = null;
+      frameMeter.reset();
       // The recording worker, its wasm instance and its linear memory. A
       // recording in flight is cancelled by the disposal rather than left to
       // finish into a route that no longer exists -- and a worker that outlived

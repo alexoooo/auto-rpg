@@ -147,6 +147,117 @@ export interface ControlAttemptManifest {
   readonly pairId: string | null;
 }
 
+export interface ControlLatencyRow {
+  readonly sampleMs: number;
+  readonly submittedMs: number;
+  readonly settledMs: number | null;
+  readonly receiptTick: number;
+  /** Exact primary-arm row encoded by this request, with ABI angles wrapped to u16. */
+  readonly submittedTarget: ArmTargetState;
+  readonly publishedTick: number | null;
+  readonly publicationMs: number | null;
+  readonly displayedTick: number | null;
+  readonly displayMs: number | null;
+}
+
+function sameTarget(a: ArmTargetState, b: ArmTargetState): boolean {
+  return a.bearing === b.bearing && a.height === b.height && a.reach === b.reach
+    && a.effort === b.effort && a.plane === b.plane;
+}
+
+type MutableControlLatencyRow = {
+  sampleMs: number; submittedMs: number; settledMs: number | null; receiptTick: number;
+  publishedTick: number | null; publicationMs: number | null;
+  displayedTick: number | null; displayMs: number | null; submittedTarget: ArmTargetState;
+};
+
+function encodedTarget(target: ArmTargetState): ArmTargetState {
+  return Object.freeze({ ...target, bearing: target.bearing & 0xffff, plane: target.plane & 0xffff });
+}
+
+/** Host presentation clocks beside receipts; none enters the replay or trace grammar. */
+export class ControlLatencyLog {
+  #sample: Readonly<{ at: number; target: ArmTargetState }> | null = null;
+  readonly #publicationArrivals = new Map<number, number>();
+  #publishedThrough = -1;
+  #samplePending = false;
+  readonly #rows: MutableControlLatencyRow[] = [];
+
+  sample(at: number, target: ArmTargetState): void {
+    if (!Number.isFinite(at)) throw new RangeError("control sample time must be finite");
+    this.#sample = Object.freeze({ at, target: Object.freeze({ ...target }) });
+    this.#samplePending = true;
+  }
+  submit(receiptTick: number, at: number, target: ArmTargetState): void {
+    const sample = this.#sample;
+    if (sample === null || !sameTarget(sample.target, target)) return;
+    if (!Number.isInteger(receiptTick) || receiptTick < 0 || !Number.isFinite(at) || at < sample.at) {
+      throw new RangeError("control submission clock is invalid");
+    }
+    const row: MutableControlLatencyRow = { sampleMs: sample.at, submittedMs: at,
+      settledMs: null, receiptTick,
+      publishedTick: null, publicationMs: null, displayedTick: null, displayMs: null,
+      submittedTarget: encodedTarget(target) };
+    this.#rows.push(row);
+    this.#samplePending = false;
+    const arrival = this.#publicationArrivals.get(receiptTick + 1);
+    if (arrival !== undefined) { row.publishedTick = receiptTick + 1; row.publicationMs = arrival; }
+  }
+  settle(receiptTick: number, at: number): void {
+    const row = this.#rows.find((candidate) => candidate.receiptTick === receiptTick
+      && candidate.settledMs === null);
+    if (row === undefined || !Number.isFinite(at) || at < row.submittedMs) return;
+    row.settledMs = at;
+  }
+  publication(receiptTick: number, at: number): void {
+    this.observePublishedThrough(receiptTick + 1, at);
+  }
+  observePublishedThrough(publishedTick: number, at: number): void {
+    if (!Number.isInteger(publishedTick) || publishedTick < 0 || !Number.isFinite(at)) return;
+    for (let tick = this.#publishedThrough + 1; tick <= publishedTick; tick += 1) {
+      this.#publicationArrivals.set(tick, at);
+    }
+    this.#publishedThrough = Math.max(this.#publishedThrough, publishedTick);
+    for (const row of this.#rows) {
+      if (row.receiptTick + 1 > publishedTick || row.publicationMs !== null) continue;
+      row.publishedTick = row.receiptTick + 1;
+      row.publicationMs = this.#publicationArrivals.get(row.publishedTick) ?? at;
+    }
+  }
+  display(publishedThrough: number, at: number): void {
+    for (const row of this.#rows) {
+      if (row.publishedTick === null || row.publishedTick > publishedThrough || row.displayMs !== null) continue;
+      if (!Number.isFinite(at) || at < row.publicationMs!) continue;
+      row.displayedTick = publishedThrough;
+      row.displayMs = at;
+    }
+  }
+  rows(): readonly ControlLatencyRow[] {
+    return this.#rows.map((row) => Object.freeze({ ...row }));
+  }
+  pendingReceiptTicks(): readonly number[] {
+    return this.#rows.filter((row) => row.publicationMs === null).map((row) => row.receiptTick);
+  }
+  get complete(): boolean {
+    return !this.#samplePending
+      && this.#rows.every((row) => row.settledMs !== null && row.publicationMs !== null
+      && row.displayMs !== null);
+  }
+  refusal(): string | null {
+    if (this.#samplePending) {
+      return "CONTROL_LATENCY_JOIN_REFUSED: latest eligible sample was never submitted";
+    }
+    const row = this.#rows.find((candidate) => candidate.settledMs === null
+      || candidate.publicationMs === null || candidate.displayMs === null);
+    return row === undefined ? null
+      : `CONTROL_LATENCY_JOIN_REFUSED: receipt ${row.receiptTick} is missing settlement, publication, or display`;
+  }
+  clear(): void {
+    this.#sample = null; this.#rows.length = 0; this.#publicationArrivals.clear();
+    this.#publishedThrough = -1; this.#samplePending = false;
+  }
+}
+
 /** Presentation/input evidence. It is deliberately not part of ARPGCTL1. */
 export class ControlInputLog {
   readonly #rows: ControlInputSample[] = [];
@@ -418,6 +529,14 @@ export interface ControlLabReport {
     effortRaw: Distribution; errorArmLengths: Distribution;
     restingEffortFraction: number | null; fullEffortFraction: number | null;
   }>;
+  readonly latency: Readonly<{
+    rows: readonly ControlLatencyRow[];
+    sampleToSubmissionMs: Distribution;
+    submissionToPublicationMs: Distribution;
+    publicationToAcknowledgementMs: Distribution;
+    publicationToDisplayMs: Distribution;
+    targetToAchievedArmLengths: Distribution;
+  }>;
   readonly inputRows: readonly ControlInputSample[];
   readonly tickRows: readonly ControlTickRow[];
   readonly attempts: readonly Readonly<{ attemptId: number; valid: boolean;
@@ -432,6 +551,7 @@ export function controlLabReport(
   source: FightSource, evidenceBytes: Uint8Array, limb: HumanArm,
   inputRows: readonly ControlInputSample[], metadata: ControlReportContext,
   manifests: ReadonlyMap<number, ControlAttemptManifest> = new Map(),
+  latencyRows: readonly ControlLatencyRow[] = [],
 ): ControlLabReport {
   const evidence = parseControlEvidence(evidenceBytes, limb);
   const decisionPeriodTicks = source.decisionPeriods?.[evidence.controlledFaction];
@@ -471,6 +591,25 @@ export function controlLabReport(
     return count + added;
   }, 0);
   const summaryComplete = tickRows.every((row) => row.severedMasks.every((mask) => mask !== null));
+  for (const row of latencyRows) {
+    if (row.publishedTick !== row.receiptTick + 1 || row.publicationMs === null
+      || row.settledMs === null || row.displayedTick === null || row.displayMs === null) {
+      throw new RangeError(`CONTROL_LATENCY_JOIN_REFUSED: receipt ${row.receiptTick} is missing settlement, publication, or display`);
+    }
+    if (row.submittedMs < row.sampleMs || row.settledMs < row.publicationMs
+      || row.displayMs < row.publicationMs) {
+      throw new RangeError(`CONTROL_LATENCY_JOIN_REFUSED: receipt ${row.receiptTick} clocks are not ordered`);
+    }
+    const receipt = tickRows.find((tick) => tick.receiptTick === row.receiptTick);
+    if (receipt === undefined || !sameTarget(row.submittedTarget, receipt.command.target)) {
+      throw new RangeError(`CONTROL_LATENCY_JOIN_REFUSED: receipt ${row.receiptTick} does not contain its submitted target`);
+    }
+  }
+  const latencyErrors = latencyRows.map((row) => tickRows.find((tick) =>
+    tick.receiptTick === row.receiptTick)?.errorArmLengths ?? null);
+  if (latencyErrors.some((value) => value === null)) {
+    throw new RangeError("CONTROL_LATENCY_JOIN_REFUSED: a presentation row has no achieved-hand receipt");
+  }
   return Object.freeze({
     schema: "arpg-arena-control-report-1", status: "foreground-calibration-owed",
     fingerprint: source.header.fingerprint, seed: source.header.seed,
@@ -496,6 +635,12 @@ export function controlLabReport(
       fullEffortFraction: efforts.length === 0 ? null
         : efforts.filter((effort) => effort === 65_536).length / efforts.length,
     }),
+    latency: Object.freeze({ rows: latencyRows.slice(),
+      sampleToSubmissionMs: distribution(latencyRows.map((row) => row.submittedMs - row.sampleMs)),
+      submissionToPublicationMs: distribution(latencyRows.map((row) => row.publicationMs! - row.submittedMs)),
+      publicationToAcknowledgementMs: distribution(latencyRows.map((row) => row.settledMs! - row.publicationMs!)),
+      publicationToDisplayMs: distribution(latencyRows.map((row) => row.displayMs! - row.publicationMs!)),
+      targetToAchievedArmLengths: distribution(latencyErrors as number[]) }),
     inputRows: inputRows.slice(), tickRows, attempts,
     classifier: Object.freeze({ minNetTravel: CUT_MIN_NET_TRAVEL,
       minAxisTravel: CUT_MIN_AXIS_TRAVEL, minPathEfficiency: CUT_MIN_PATH_EFFICIENCY,

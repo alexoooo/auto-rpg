@@ -1827,6 +1827,12 @@ artifacts independently measured `0x63bf8b26809d43c4` by default and
 `0x8c8a5e4350230df6` under `cartesian-recoil`, replacing
 `0x96e4e51de0c00d62` and `0x4bf34984d56d2795` respectively.
 
+**Arena Response Session 02 is a later values-only move.** The per-owner arm phase
+now constrains attempted self-collision before the publication writers run, so the
+same twenty-tick script measures `0xaf4ff2866fa3ce2a` by default and
+`0x24af077a739e07dd` under `cartesian-recoil`. No section, row, offset, stride,
+count grammar or ABI version changed.
+
 **The JavaScript half pins the number and does not rebuild the bytes, and that is
 worth stating because the sibling corpus does the opposite.** `tools/wasm_check.js`
 builds all 3,548 bytes of the behavioural contact corpus from

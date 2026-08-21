@@ -182,37 +182,25 @@ impl World {
 
     pub(super) fn initialize_pose(&mut self, i: usize) {
         let table = self.combat_specs.as_ref().expect("articulated combat specs");
-        let anatomy = table.anatomy(self.body_anatomy[i].expect("articulated anatomy"))
-            .expect("validated articulated anatomy");
         let yaw = self.facing[i];
-        self.body_yaw[i] = BodyYawState { angle: yaw, speed_turns: Fx::ZERO, authority_residue: Fx::ZERO };
-        // Feet under the torso, square: a body starts settled, so the twist
-        // begins at zero and the first step it takes is one it chose.
-        self.stance[i] = StanceState::squared(yaw);
-        // Both halves, because a reused slot must not inherit the last
-        // occupant's elbow: a fresh body is one nobody has commanded, and the
-        // neutral plane is the one the elbow hung in before the field existed.
-        self.elbow_plane[i] = [ElbowPlaneState::NEUTRAL; 2];
-        let mut arms = [actuator::tucked_arm(Vec3::ZERO); 2];
-        let mut grips = [GripState { equipment_slot: None }; 2];
-        for limb in 0..2 {
-            let hand = actuator::hand_position(
-                anatomy, yaw, limb, Angle::ZERO, crate::CombatHeight::MID,
-                Fx::from_raw(actuator::ARM_MIN_REACH_RAW),
-            );
-            arms[limb] = actuator::tucked_arm(hand);
-            grips[limb].equipment_slot = self.body_equipment[i][limb].and_then(|id| {
-                self.body_carried[i].iter().position(|item| *item == Some(id)).map(|slot| slot as u8)
-            });
-        }
-        self.arms[i] = arms;
-        self.grips[i] = grips;
+        let unit = crate::UnitSpecV1 {
+            anatomy: self.body_anatomy[i].expect("articulated anatomy"),
+            equipment: self.body_carried[i],
+        };
+        let pose = crate::combat::spec::initial_pose_v1(table, unit, yaw)
+            .expect("validated articulated initial pose");
+        let anatomy = table.anatomy(unit.anatomy).expect("validated articulated anatomy");
+        self.body_yaw[i] = pose.body_yaw;
+        self.stance[i] = pose.stance;
+        self.elbow_plane[i] = pose.elbow_plane;
+        self.arms[i] = pose.arms;
+        self.grips[i] = pose.grips;
         self.articulated_release_was[i] = [ReleaseRequest::Keep; 2];
         self.move_authority[i] = Fx::ONE;
         self.turn_authority[i] = Fx::ONE;
         self.arm_authority[i] = [Fx::ONE; 2];
         self.wounds[i] = AnatomyState::new(anatomy);
-        self.shield_pose[i] = self.derive_shield_pose(i);
+        self.shield_pose[i] = pose.shield;
     }
 
     /// The once-per-tick half of anatomy: bleed, shed shock, and republish the
@@ -490,10 +478,12 @@ impl World {
         }
     }
 
-    pub(super) fn drive_arms(&mut self, bearing_max_speed_raw: i32, bearing_accel_raw: i32) {
+    pub(super) fn drive_arms(&mut self, rates: actuator::ArmRateProfile) {
         for i in 0..self.alive.len() {
             if !self.alive[i] { continue; }
             let command = self.command_core[i].unwrap_or_else(|| self.neutral_core(i));
+            let entry_arms = self.arms[i];
+            let entry_planes = self.elbow_plane[i];
             // **The elbow plane is chased, never snapped**, and the rate bound
             // is required rather than polish. Once the forearm is a swept
             // collider, a commanded plane that jumped half a turn in one tick
@@ -504,7 +494,8 @@ impl World {
             // part of where the arm *is* and everything downstream of this phase
             // reads the pose.
             for slot in 0..2 {
-                self.elbow_plane[i][slot] = self.elbow_plane[i][slot].chase();
+                self.elbow_plane[i][slot] = self.elbow_plane[i][slot]
+                    .chase_with_rate(rates.elbow_plane_max_speed_raw);
             }
             // The one frame conversion in the arm driver. Everything below reads
             // `targets` and never `command.arms`, so an embodied bearing cannot
@@ -522,56 +513,49 @@ impl World {
             let both = self.grips[i][0].equipment_slot.is_some()
                 && self.grips[i][0].equipment_slot == self.grips[i][1].equipment_slot
                 && right_item.is_some_and(|item| item.binding == crate::GripBinding::Both);
-            #[cfg(feature = "cartesian-recoil")]
-            let drive = |arm: &mut ArmState, limb: usize, target: ArmTarget,
-                         item: Option<crate::EquipmentSpec>, authority: Fx| {
-                actuator::integrate_arm_with_recoil(arm, &anatomy, yaw, limb, target, item,
-                    self.stats[i], authority, bearing_max_speed_raw, bearing_accel_raw)
+            let mut proposed = entry_arms;
+            let work = if both {
+                let right_work = actuator::propose_arm_with_profile(
+                    &mut proposed[1], &anatomy, yaw, 1, targets[1], right_item,
+                    self.stats[i], self.arm_authority[i][1], rates, actuator::Grip::TwoHanded,
+                );
+                proposed[0].previous_hand = entry_arms[0].hand;
+                let right = proposed[1];
+                actuator::mirror_two_handed(&mut proposed[0], right, &anatomy, yaw);
+                [right_work.for_matching_arm(entry_arms[0]), right_work]
+            } else {
+                let left_work = actuator::propose_arm_with_profile(
+                    &mut proposed[0], &anatomy, yaw, 0, targets[0], left_item,
+                    self.stats[i], self.arm_authority[i][0], rates, actuator::Grip::OneHanded,
+                );
+                let right_work = actuator::propose_arm_with_profile(
+                    &mut proposed[1], &anatomy, yaw, 1, targets[1], right_item,
+                    self.stats[i], self.arm_authority[i][1], rates, actuator::Grip::OneHanded,
+                );
+                [left_work, right_work]
             };
+            let constrained = self.constrain_arm_proposals(
+                i, &anatomy, entry_arms, proposed, entry_planes, self.elbow_plane[i], work, both,
+            );
+            self.arms[i] = constrained.arms;
+            self.elbow_plane[i] = constrained.planes;
             if both {
-                self.arms[i][0].previous_hand = self.arms[i][0].hand;
-                #[cfg(not(feature = "cartesian-recoil"))]
-                let step = actuator::integrate_arm_for_grip(
-                    &mut self.arms[i][1], &anatomy, yaw, 1, targets[1], right_item,
-                    self.stats[i], self.arm_authority[i][1], bearing_max_speed_raw, bearing_accel_raw,
-                    actuator::Grip::TwoHanded,
-                );
-                #[cfg(feature = "cartesian-recoil")]
-                let step = actuator::integrate_arm_with_recoil_for_grip(
-                    &mut self.arms[i][1], &anatomy, yaw, 1, targets[1], right_item,
-                    self.stats[i], self.arm_authority[i][1], bearing_max_speed_raw, bearing_accel_raw,
-                    actuator::Grip::TwoHanded,
-                );
-                // The off arm is billed the same work from the same right-arm
-                // deltas, and both bills are halves: one item's work, split
-                // across the two arms that share it, rather than charged whole
-                // to each. Equal halves also keep the two accounts identical,
-                // which `a_two_handed_target_mirrors_the_off_hand` asserts.
-                actuator::bill_fatigue_for_grip(
-                    &mut self.arms[i][0], actuator::equipment_inertia(right_item),
-                    targets[1].effort, step, actuator::Grip::TwoHanded,
-                );
+                actuator::bill_accepted_work(
+                    &mut self.arms[i][1], work[1], constrained.physical_com[1],
+                    constrained.fractions[1]);
+                actuator::bill_matching_accepted_work(
+                    &mut self.arms[i][0], work[0], constrained.physical_com[1],
+                    constrained.fractions[1]);
+                self.arms[i][0].previous_hand = entry_arms[0].hand;
                 let right = self.arms[i][1];
                 actuator::mirror_two_handed(&mut self.arms[i][0], right, &anatomy, yaw);
             } else {
-                #[cfg(not(feature = "cartesian-recoil"))]
-                {
-                actuator::integrate_arm_with_rates(
-                    &mut self.arms[i][0], &anatomy, yaw, 0, targets[0], left_item,
-                    self.stats[i], self.arm_authority[i][0], bearing_max_speed_raw, bearing_accel_raw,
-                );
-                actuator::integrate_arm_with_rates(
-                    &mut self.arms[i][1], &anatomy, yaw, 1, targets[1], right_item,
-                    self.stats[i], self.arm_authority[i][1], bearing_max_speed_raw, bearing_accel_raw,
-                );
-                }
-                #[cfg(feature = "cartesian-recoil")]
-                {
-                    drive(&mut self.arms[i][0], 0, targets[0], left_item,
-                          self.arm_authority[i][0]);
-                    drive(&mut self.arms[i][1], 1, targets[1], right_item,
-                          self.arm_authority[i][1]);
-                }
+                actuator::bill_accepted_work(
+                    &mut self.arms[i][0], work[0], constrained.physical_com[0],
+                    constrained.fractions[0]);
+                actuator::bill_accepted_work(
+                    &mut self.arms[i][1], work[1], constrained.physical_com[1],
+                    constrained.fractions[1]);
             }
         }
     }
@@ -971,6 +955,7 @@ mod tests {
         let mut sword_world = World::new(&sword_scenario, 1);
         let mut club_world = World::new(&club_scenario, 1);
         let fighter = EntityId::new(0, 0);
+        let mut first_constraint = [None; 2];
         for tick in 0..120 {
             let outward = (tick / 20) % 2 == 0;
             let target = if outward {
@@ -979,13 +964,25 @@ mod tests {
                 ArmTarget { bearing: Angle::ZERO, height: crate::CombatHeight::MID,
                     reach: Fx::from_raw(actuator::ARM_MIN_REACH_RAW), effort: Fx::ONE }
             };
-            for world in [&mut sword_world, &mut club_world] {
+            for (at, world) in [&mut sword_world, &mut club_world].into_iter().enumerate() {
                 let mut command = world.neutral_core(0);
                 command.arms[1] = target;
                 submit(world, fighter, command);
                 world.step();
+                if first_constraint[at].is_none() {
+                    first_constraint[at] = world.self_collision_attempt(fighter)
+                        .map(|attempt| (tick + 1, attempt));
+                }
             }
         }
+        assert_eq!(first_constraint[0], None,
+            "the sword acquired a self stop and no longer controls the fatigue comparison");
+        let (tick, attempt) = first_constraint[1].expect("the longer club never reached its owner");
+        assert_eq!((tick, attempt.moving_limb, attempt.moving_shape,
+                   attempt.obstacle, attempt.last_clear.raw()),
+            (103, 1, 0,
+             crate::diagnostics::SelfCollisionObstacleDiagnostic::Body { region: 4 }, 65_281),
+            "the club's measured upper-arm/legs stop moved");
         // Recorded under the shipped arm rates on purpose, unlike
         // `directional_captured_strike`: what this test is about is the work
         // the *production* actuator bills, so a rate pinned here would stop it
@@ -1007,8 +1004,19 @@ mod tests {
         // `(MID, ARM_MIN_REACH_RAW)` comes back unclamped, and the two bearings
         // are byte identical under both frames because this body never leaves
         // `Angle::ZERO`. So the work billed is the same work.
+        //
+        // Session 02 moved only the club row to `(368, 194)`: its longer held
+        // geometry first makes the right upper arm reach the owner's legs on
+        // tick 103 at raw fraction 65,281. The constraint stops the joint's
+        // authoritative speed, but that external stop is not powered motor
+        // work; fatigue bills only the accepted 65,281/65,536 of the proposal.
+        // The sword stays `(115, 67)`. The superseded `(325, 84)` was measured
+        // while billing final stopped speed minus entry speed, which charged a
+        // constraint reaction as actuator work. Keeping both exact rows and
+        // the first pair above distinguishes the geometric cause from a global
+        // fatigue-law change.
         assert_eq!((sword_world.arms[0][1].fatigue.raw(), sword_world.arms[0][1].work_residue.raw()), (115, 67));
-        assert_eq!((club_world.arms[0][1].fatigue.raw(), club_world.arms[0][1].work_residue.raw()), (377, 119));
+        assert_eq!((club_world.arms[0][1].fatigue.raw(), club_world.arms[0][1].work_residue.raw()), (368, 194));
         assert!(club_world.arms[0][1].fatigue > sword_world.arms[0][1].fatigue);
     }
 

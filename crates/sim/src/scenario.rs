@@ -58,6 +58,7 @@ pub(crate) const SCENARIO_MODEL_TAG: u8 = 2;
 pub enum ScenarioFingerprintError {
     NameTooLong { bytes: usize },
     InvalidCombatSpecs(crate::CombatSpecError),
+    InitialSelfOverlap,
 }
 
 /// The byte-level seam shared by ScenarioV1 identity and persistence.
@@ -322,6 +323,23 @@ impl Scenario {
             self.combat_specs.as_ref(),
             &self.units,
         ).map_err(ScenarioFingerprintError::InvalidCombatSpecs)?;
+        let table = self.combat_specs.as_ref()
+            .ok_or(ScenarioFingerprintError::InvalidCombatSpecs(
+                crate::CombatSpecError::MissingTable))?;
+        for unit in &self.units {
+            let row = unit.combat_spec.ok_or(
+                ScenarioFingerprintError::InvalidCombatSpecs(
+                    crate::CombatSpecError::UnitPresence))?;
+            let facing = match unit.faction {
+                crate::Faction::Heroes => fx::Angle::ZERO,
+                crate::Faction::Monsters => fx::Angle::HALF,
+            };
+            if crate::combat::spec::initial_pose_has_forbidden_overlap(table, row, facing)
+                .map_err(ScenarioFingerprintError::InvalidCombatSpecs)?
+            {
+                return Err(ScenarioFingerprintError::InitialSelfOverlap);
+            }
+        }
         let name_len = u16::try_from(self.name.len()).map_err(|_| {
             ScenarioFingerprintError::NameTooLong { bytes: self.name.len() }
         })?;

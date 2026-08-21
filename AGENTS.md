@@ -318,7 +318,7 @@ the commit that finishes the topic. Durable results from a closed session belong
 in an architecture, design, reference or performance document — not in a plan and
 not in this file.
 
-The live roadmap is [the arena you can fight in](docs/plans/arena-00-overview.md).
+The live roadmap is [the responsive arena](docs/plans/arena-response-00-overview.md).
 The visual work owed after the 2026-08-17 production pass is
 [its own topic](docs/plans/concept-production-00-overview.md). **The embodied fight is
 closed and its plan set is deleted**, which is this section's own rule applied to itself:

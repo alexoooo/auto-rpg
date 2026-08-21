@@ -172,6 +172,14 @@ impl Replay {
     pub(crate) fn play_until_with_arm_rates(
         &self, ticks: u32, bearing_max_speed_raw: i32, bearing_accel_raw: i32,
     ) -> World {
+        self.play_until_with_arm_rate_profile(ticks, crate::ArmRateProfile {
+            bearing_max_speed_raw, bearing_accel_raw, ..crate::ArmRateProfile::CURRENT
+        })
+    }
+
+    pub(crate) fn play_until_with_arm_rate_profile(
+        &self, ticks: u32, rates: crate::ArmRateProfile,
+    ) -> World {
         let mut world = World::new(&self.scenario, self.seed);
         let mut next_submitted = 0;
         let mut next_order = 0;
@@ -216,7 +224,7 @@ impl Replay {
                 }
                 next_submitted += 1;
             }
-            world.step_with_arm_rates(bearing_max_speed_raw, bearing_accel_raw);
+            world.step_with_arm_rate_profile(rates);
         }
 
         world

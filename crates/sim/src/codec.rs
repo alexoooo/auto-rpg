@@ -523,6 +523,7 @@ fn validate_envelope(envelope: &ReplayEnvelope) -> Result<(), ReplayValidationEr
         crate::ScenarioFingerprintError::NameTooLong { .. } => ReplayValidationError::LimitExceeded(ReplayLimit::ScenarioNameBytes),
         crate::ScenarioFingerprintError::InvalidCombatSpecs(CombatSpecError::MissingTable) => ReplayValidationError::MissingCombatSpecs,
         crate::ScenarioFingerprintError::InvalidCombatSpecs(_) => ReplayValidationError::InvalidField(ReplayField::UnitSpec),
+        crate::ScenarioFingerprintError::InitialSelfOverlap => ReplayValidationError::InvalidField(ReplayField::UnitSpec),
     })?;
     if envelope.replay.scenario_fingerprint != computed {
         return Err(ReplayValidationError::ScenarioFingerprintMismatch {

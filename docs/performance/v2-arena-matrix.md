@@ -199,6 +199,13 @@ drawers open as `control -> subject -> control` frame-time comparisons. Every ro
 pending foreground capture; the worker test proves bounded scratch and random access, not
 browser memory cost or visible frame time.
 
+The response pass adds an always-visible two-clock meter and a downloadable multi-clock
+control-latency join. Foreground evidence is still owed: after a five-second warm-up,
+record ten seconds each for fixed/HUD-off, fixed/HUD-on, relative with guide and reticles,
+and Plans, Replay and Details opened separately. Each bracket remains
+`control -> subject -> control`; automation proves reset arithmetic and one-draw
+ownership, but a hidden tab cannot supply display cadence or visible judgement.
+
 - **The authored silhouette judgement.** The combatant asset now has a deterministic
   Blender game-camera preview and four-angle turntable, and fail-closed metrics defend
   shoulder/head proportions, projected equipment area, connected posed parts and the

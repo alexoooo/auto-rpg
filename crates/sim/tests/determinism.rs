@@ -138,6 +138,40 @@ mod embodied {
         }
     }
 
+    #[test]
+    fn a_constrained_circular_mouse_command_replays_without_crossing_the_owner() {
+        const CIRCLE_TICKS: u32 = 64;
+        let scenario = Scenario::embodied_duel();
+        let mut world = World::new(&scenario, 31);
+        let ids = [EntityId::new(0, 0), EntityId::new(1, 0)];
+        let mut replay = Replay::new(&scenario, 31);
+        let mut reached = false;
+        let mut digests = Vec::with_capacity(CIRCLE_TICKS as usize);
+        for tick in 0..CIRCLE_TICKS {
+            for (slot, id) in ids.into_iter().enumerate() {
+                let mut core = scripted(tick, slot);
+                let circle = Angle::from_raw((tick as u16).wrapping_mul(4_096));
+                core.arms[0].bearing = circle;
+                core.arms[1].bearing = Angle::from_raw(circle.raw().wrapping_add(Angle::HALF.raw()));
+                let mut command = CommandV1::new(core);
+                command.swing_plane = [circle, Angle::from_raw(circle.raw().wrapping_neg())];
+                replay.record_submitted(tick, id, SubmittedCommand::Embodied(command));
+                assert!(matches!(world.submit(id, command), sim::SubmitOutcome::Stored { .. }));
+            }
+            world.step();
+            reached |= ids.into_iter().any(|id| world.self_collision_attempt(id).is_some());
+            digests.push(world.state_digest().value);
+        }
+        replay.finish(CIRCLE_TICKS);
+        assert!(reached, "the circular command never exercised the self constraint");
+        assert_eq!(replay.play().state_digest().value, world.state_digest().value);
+        for tick in 1..=CIRCLE_TICKS {
+            assert_eq!(replay.play_until(tick).state_digest().value,
+                digests[tick as usize - 1],
+                "circular replay did not reproduce tick {tick}");
+        }
+    }
+
     /// **The first fixture with a floor that is not flat, through the whole
     /// run/re-run/replay claim.**
     ///
@@ -293,9 +327,6 @@ mod embodied {
     /// A wider swing is not a better one: past about 45 degrees the arm spends
     /// the swing turning rather than in front of the body, and the sweep's
     /// 16,384-unit cells fall as low as three resolutions in 600 ticks.
-    const SWING_RAW: i32 = 6_144;
-    const SWING_PERIOD: u32 = 6;
-
     /// A command that closes and cuts, which [`scripted`] deliberately does not.
     ///
     /// **`scripted` never reaches the contact phase, and that is measured
@@ -312,28 +343,7 @@ mod embodied {
     /// the arms swing about the body's own line. `heading` therefore only has
     /// to reach `body_yaw`, which is world space either way.
     fn closing(tick: u32, heading: Vec2) -> CommandV1 {
-        let side = if (tick / SWING_PERIOD) % 2 == 0 { SWING_RAW } else { -SWING_RAW };
-        let arm = ArmTarget {
-            bearing: Angle::from_raw(side as u16),
-            // High rather than mid, and the sweep is what chose it: at this
-            // period a mid-height swing produces *more* contact and no kill --
-            // 918 resolutions in 900 ticks with both bodies still standing --
-            // which is a fight of glancing blows rather than a fight.
-            height: CombatHeight::HIGH,
-            reach: Fx::ONE,
-            effort: Fx::ONE,
-        };
-        CommandV1::new(CommandCoreV1 {
-            move_dir: Vec2::new(Fx::ONE, Fx::ZERO),
-            body_yaw: heading.angle(),
-            // `Intent` is a statement about who is being fought for the renderer
-            // and the fitness function to read; it does not cause damage, so
-            // naming a target here would change nothing the contact phase does.
-            intent: Intent::Hold,
-            arms: [arm, arm],
-            grips: [GripRequest::Keep; 2],
-            releases: [ReleaseRequest::Keep; 2],
-        })
+        sim::diagnostics::golden_closing_command(tick, heading)
     }
 
     /// Where a body's heading comes from, and the **only** difference between
@@ -684,11 +694,11 @@ mod embodied {
     /// trajectory differently. Previously `0x49d412eb61020365` by default and
     /// `0xc8a745fdf3897645` under the feature.
     #[cfg(not(feature = "cartesian-recoil"))]
-    const EMBODIED_GOLDEN_DIGEST: u64 = 0x029f_cc41_4071_5db3;
+    const EMBODIED_GOLDEN_DIGEST: u64 = 0x309d_04b4_d617_e202;
 
     /// The same fight under the wider hash stream; see above.
     #[cfg(feature = "cartesian-recoil")]
-    const EMBODIED_GOLDEN_DIGEST: u64 = 0x5812_adb7_a1d6_a354;
+    const EMBODIED_GOLDEN_DIGEST: u64 = 0x7c52_3435_9fa1_4cdf;
 
     /// The wounds the legacy columns would have shadowed, recorded **before**
     /// they were deleted.

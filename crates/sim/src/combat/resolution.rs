@@ -689,6 +689,26 @@ fn allocate_shares_into(
             .raw().max(0) as u128;
         weights.push(normal.checked_mul(closing).ok_or(ResolutionError::EnergyNumerator)?);
     }
+    if total > 0 && weights.iter().all(|&weight| weight == 0) {
+        // Several sub-raw contact impulses may add to one representable owner
+        // velocity change even though each separately rounds to zero. The
+        // closure then genuinely loses a raw energy unit, but weighting the
+        // already-rounded public impulses refuses because it has erased every
+        // contributor. Retain their pre-rounding normal numerators only for
+        // this otherwise-unattributable case. `alpha_raw` is common to every
+        // row, so leaving its 65,536 denominator uncancelled changes no share.
+        weights.clear();
+        for row in contacts {
+            let normal = (-row.impulse_on_a).dot(row.fact.normal)
+                .raw().max(0) as u128;
+            let closing = (-(row.fact.velocity_b - row.fact.velocity_a)
+                .dot(row.fact.normal)).raw().max(0) as u128;
+            let scaled = normal.checked_mul(alpha_raw as u128)
+                .and_then(|value| value.checked_mul(closing))
+                .ok_or(ResolutionError::EnergyNumerator)?;
+            weights.push(scaled);
+        }
+    }
     allocate_weighted_into(total, weights, shares)
 }
 
@@ -2731,6 +2751,20 @@ pub(crate) mod tests {
         assert!(output.is_empty());
         assert_eq!(finalize_projected_group(&mut before, &projected, &[], 0, 65_536,
             &mut weights, &mut shares, &mut output), Err(ResolutionError::ResolutionCount));
+    }
+
+    #[test]
+    fn sub_raw_contact_impulses_still_attribute_the_energy_their_sum_dissipates() {
+        let f = fact(0, 1, ContactKind::WeaponBody, 0, 1, 0);
+        let contact = ProposedContact { fact: f, a_collider: 0, b_collider: 1,
+            impulse_on_a: Vec3::new(Fx::from_raw(-1), Fx::ZERO, Fx::ZERO), channel: None };
+        let mut weights = Vec::new();
+        let mut shares = Vec::new();
+        assert_eq!(scale_impulse(contact.impulse_on_a, 1), Vec3::ZERO,
+            "the fixture's public impulse stopped rounding below one raw unit");
+        allocate_shares_into(1, &[contact], 1, &mut weights, &mut shares).unwrap();
+        assert_eq!(weights, [1], "pre-rounding attribution lost its normal/closing product");
+        assert_eq!(shares, [1], "a real raw-unit loss became an unattributed refusal");
     }
 
     #[test]

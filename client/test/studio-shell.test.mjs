@@ -118,8 +118,8 @@ class FakeNode {
     this.selected = false;
     this.title = "";
     this.className = "";
-    this.textContent = "";
-    this.innerHTML = "";
+    this._textContent = "";
+    this._innerHTML = "";
     this.width = 0;
     this.height = 0;
     this.children = [];
@@ -141,6 +141,17 @@ class FakeNode {
 
   get valueAsNumber() {
     return this.value === "" ? Number.NaN : Number(this.value);
+  }
+
+  get textContent() { return this._textContent; }
+  set textContent(value) {
+    this._textContent = value;
+    if (this.id === "readout" || this.id === "contacts") this.harness.drawerFormatWrites += 1;
+  }
+  get innerHTML() { return this._innerHTML; }
+  set innerHTML(value) {
+    this._innerHTML = value;
+    if (this.id === "readout" || this.id === "contacts") this.harness.drawerFormatWrites += 1;
   }
 
   get classList() {
@@ -178,7 +189,7 @@ class FakeNode {
     if (kind !== "2d") return null;
     if (this.context === null) {
       const context = { canvas: this, fillStyle: "", strokeStyle: "", lineWidth: 1, lineCap: "butt", font: "", globalAlpha: 1 };
-      for (const name of CANVAS_2D_CALLS) context[name] = () => undefined;
+      for (const name of CANVAS_2D_CALLS) context[name] = () => { this.harness.canvasCalls += 1; };
       this.context = context;
     }
     return this.context;
@@ -243,6 +254,8 @@ function installDom() {
     fetches: [],
     /** Every `new Worker` the route constructed, newest last. */
     workers: [],
+    canvasCalls: 0,
+    drawerFormatWrites: 0,
     nextFrame: 1,
 
     addListener(target, type, listener) { this.listeners.push({ target, type, listener }); },
@@ -961,6 +974,9 @@ test("selection_and_fight_share_one_fixed_shell_with_closed_drawers_and_bounded_
     /\.route-arena\[data-phase="fight"\]\s*\{[^}]*grid-template-rows:\s*minmax\(0,\s*1fr\)/,
     "fight mode must give the stage the only flexible shell row");
   assert.match(SHELL_HTML,
+    /\.route-arena\[data-phase="fight"\]\s*>\s*\.legend\s*\{[^}]*display:\s*none/,
+    "legacy help must never allocate another fight grid row");
+  assert.match(SHELL_HTML,
     /\.route-arena\[data-phase="fight"\] \.stage-row\s*\{[^}]*grid-row:\s*1/,
     "the fight stage must explicitly occupy the full game-screen row");
   for (const id of ["arena-plans-panel", "arena-replay-panel", "arena-details-panel"]) {
@@ -989,6 +1005,8 @@ test("selection_and_fight_share_one_fixed_shell_with_closed_drawers_and_bounded_
   assert.match(picker.summariseMatchup(matchup({}, {}, 9, 10_800)), /180 second limit/);
   assert.match(SHELL_HTML, /id="arena-health-a"[^>]*max="65536"[^>]*value="65536"/);
   assert.match(SHELL_HTML, /id="arena-health-b"[^>]*max="65536"[^>]*value="65536"/);
+  assert.match(SHELL_HTML, /id="arena-fps"[^>]*>-- display \/ -- 3D \/ -- ms worst \/ -- ms budget/,
+    "the health HUD must carry the two-clock meter even with every drawer closed");
 });
 
 test("zero_over_max_and_midfight_timeout_changes_are_refused_by_name", () => {
@@ -1662,8 +1680,10 @@ async function controlledRoute(harness, captureKind = "mouse", firstChunk = true
   let stageHooks = null;
   const fakeStage = {
     pinchHits: 0,
-    guideVisible: false, guideShows: 0, guideClears: 0, disposeCalls: 0,
-    description: () => "test stage", show() {}, clear() {}, resize() {},
+    guide: null, guideVisible: false, guideShows: 0, guideClears: 0, disposeCalls: 0,
+    draws: 0, dirty: true,
+    description: () => "test stage", show() { this.dirty = true; },
+    clear() { this.dirty = true; }, resize() { this.dirty = true; },
     setMode: async () => {}, mode: () => "geometry", cameraMode: () => "fit",
     cameraBasis: () => ({ right: [0, 1, 0], up: [0, 0, 1] }),
     projectHand: () => [0.5, 0.5], projectHandIndicator: () => ({ point: [0.5, 0.5], inFront: true }),
@@ -1672,9 +1692,19 @@ async function controlledRoute(harness, captureKind = "mouse", firstChunk = true
     containsThreeQuarterPoint: () => true, follow() {}, orbit: () => false, pan: () => true,
     zoom() { this.pinchHits++; },
     promote() {}, refit() {}, setRelative: () => null, setEyes() {},
-    showPreview() {}, setPhase() {}, drawPreview() {},
-    showHandGuide() { this.guideVisible = true; this.guideShows++; },
-    clearHandGuide() { this.guideVisible = false; this.guideClears++; },
+    showPreview() { this.dirty = true; }, setPhase() { this.dirty = true; },
+    drawPreview() { this.dirty = true; },
+    showHandGuide(body, desired) {
+      const next = JSON.stringify([body, desired]);
+      if (this.guide !== next) this.dirty = true;
+      this.guide = next; this.guideVisible = true; this.guideShows++;
+    },
+    clearHandGuide() {
+      if (this.guide !== null) this.dirty = true;
+      this.guide = null; this.guideVisible = false; this.guideClears++;
+    },
+    draw() { if (!this.dirty) return false; this.dirty = false; this.draws++; return true; },
+    renderCount() { return this.draws; },
     dispose() { this.disposeCalls++; },
     debug: { counts: () => ({}) },
   };
@@ -1744,6 +1774,82 @@ async function controlledRoute(harness, captureKind = "mouse", firstChunk = true
   return { container, handle, worker, start, key, release, nextInput, acknowledge, runFrame,
     fakeStage, terminal: (message = "lost") => stageHooks.onTerminal(message) };
 }
+
+test("one_active_arena_raf_causes_at_most_one_scene_render", async () => {
+  const harness = installDom();
+  try {
+    const route = await controlledRoute(harness);
+    route.worker.emit(syntheticChunk(route.start.requestId, 1, 30));
+    await settle();
+    let before = route.fakeStage.draws;
+    await route.runFrame(20);
+    assert.equal(route.fakeStage.draws - before, 1,
+      "an ordinary advancing display callback did not submit exactly one Babylon frame");
+    before = route.fakeStage.draws;
+    await route.runFrame(1);
+    assert.equal(route.fakeStage.draws - before, 0,
+      "an unchanged display callback submitted redundant Babylon work");
+    await route.handle.dispose(); harness.dropSubtree(route.container);
+  } finally { harness.restore(); }
+});
+
+test("pointer_motion_marks_the_guide_dirty_without_drawing_synchronously", async () => {
+  const harness = installDom();
+  try {
+    const route = await controlledRoute(harness);
+    const host = route.container.querySelector("#arena-stage");
+    const canvas = route.container.querySelector("#arena-3d");
+    for (const entry of harness.listenersOn(host, "pointerdown")) entry.listener({
+      target: canvas, pointerType: "mouse", pointerId: 71, button: 0, buttons: 1,
+      clientX: 200, clientY: 180, timeStamp: 10, preventDefault() {},
+    });
+    const before = route.fakeStage.draws;
+    for (const entry of harness.listenersOn(host, "pointermove")) entry.listener({
+      target: canvas, pointerType: "mouse", pointerId: 71, buttons: 1,
+      clientX: 240, clientY: 150, movementX: 40, movementY: -30,
+      timeStamp: 20, preventDefault() {},
+    });
+    assert.equal(route.fakeStage.draws, before, "pointer movement drew synchronously");
+    assert.equal(route.fakeStage.dirty, true, "the changed guide was not marked dirty");
+    await route.runFrame(16);
+    assert.equal(route.fakeStage.draws, before + 1, "the next display callback did not flush the guide");
+    await route.handle.dispose(); harness.dropSubtree(route.container);
+  } finally { harness.restore(); }
+});
+
+test("hidden_pause_phase_change_and_dispose_reset_the_arena_meter", async () => {
+  const harness = installDom();
+  try {
+    const route = await controlledRoute(harness);
+    for (let index = 0; index < 6; index += 1) await route.runFrame(100);
+    const output = route.container.querySelector("#arena-fps");
+    assert.match(output.value, /display \/ .*3D \/ .*(ready|input-ack)/,
+      "the meter did not name the live wait owner");
+    globalThis.document.visibilityState = "hidden";
+    for (const entry of harness.listenersOn(globalThis.document, "visibilitychange")) entry.listener({});
+    assert.match(output.value, /^-- display/);
+    globalThis.document.visibilityState = "visible";
+    route.container.querySelector("#change-matchup").click();
+    assert.match(output.value, /^-- display/);
+    await route.handle.dispose();
+    assert.match(output.value, /^-- display/);
+    harness.dropSubtree(route.container);
+  } finally { harness.restore(); }
+});
+
+test("closed_drawers_do_no_per_frame_canvas_or_formatting_work", async () => {
+  const harness = installDom();
+  try {
+    const route = await controlledRoute(harness);
+    route.worker.emit(syntheticChunk(route.start.requestId, 1, 30));
+    await settle();
+    const before = [harness.canvasCalls, harness.drawerFormatWrites];
+    await route.runFrame(20);
+    assert.deepEqual([harness.canvasCalls, harness.drawerFormatWrites], before,
+      "an advancing frame prepared or formatted a closed Plans, Replay, or Details owner");
+    await route.handle.dispose(); harness.dropSubtree(route.container);
+  } finally { harness.restore(); }
+});
 
 function directHandFixture() {
   const bodyZ = 10 * ONE;
@@ -1938,7 +2044,7 @@ test("control_receipt_tick_t_joins_publication_t_plus_one", () => {
   const report = CONTROL.controlLabReport(source, evidence, 1, [], metadata);
   assert.deepEqual(Object.keys(report).sort(), ["attempts", "classifier", "config", "constants",
     "controlledFaction", "finalTick", "fingerprint", "inputRows", "metadata", "outcome",
-    "schema", "seed", "stateDigest", "status", "summary", "tickRows"].sort());
+    "schema", "seed", "stateDigest", "status", "summary", "tickRows", "latency"].sort());
   assert.deepEqual([report.schema, report.status, report.finalTick, report.outcome],
     ["arpg-arena-control-report-1", "foreground-calibration-owed", 1, source.header.outcome]);
   assert.deepEqual([report.config.scenario, report.config.seed, report.config.primaryArm,
@@ -1948,6 +2054,26 @@ test("control_receipt_tick_t_joins_publication_t_plus_one", () => {
   assert.equal(report.summary.effortRaw.count, 1);
   assert.equal(report.summary.errorArmLengths.count, 1);
   assert.equal(report.metadata.sourceIdentity, null, "missing provenance was invented");
+
+  const latency = new CONTROL.ControlLatencyLog();
+  const target = parsed.commands[0].target;
+  latency.sample(10, target); latency.submit(0, 14, target);
+  latency.publication(0, 19); latency.settle(0, 22); latency.display(1, 25);
+  const timed = CONTROL.controlLabReport(source, evidence, 1, [], metadata, new Map(), latency.rows());
+  assert.deepEqual([timed.latency.sampleToSubmissionMs.median,
+    timed.latency.submissionToPublicationMs.median,
+    timed.latency.publicationToAcknowledgementMs.median,
+    timed.latency.publicationToDisplayMs.median], [4, 5, 3, 6]);
+  assert.equal(timed.latency.targetToAchievedArmLengths.count, 1);
+  assert.deepEqual(timed.latency.rows[0].submittedTarget, timed.tickRows[0].command.target);
+  const staleTarget = [{ ...latency.rows()[0],
+    submittedTarget: { ...latency.rows()[0].submittedTarget, reach: target.reach + 1 } }];
+  assert.throws(() => CONTROL.controlLabReport(source, evidence, 1, [], metadata,
+    new Map(), staleTarget),
+  /CONTROL_LATENCY_JOIN_REFUSED: receipt 0 does not contain its submitted target/);
+  const missingDisplay = [{ ...latency.rows()[0], displayMs: null, displayedTick: null }];
+  assert.throws(() => CONTROL.controlLabReport(source, evidence, 1, [], metadata,
+    new Map(), missingDisplay), /CONTROL_LATENCY_JOIN_REFUSED: receipt 0/);
 
   const deadFrames = [frames[0], { ...frames[1], poses: [] }];
   const deadSource = { header, decisionPeriods: [12, 18], frameCount: () => deadFrames.length,
@@ -1967,6 +2093,42 @@ test("control_receipt_tick_t_joins_publication_t_plus_one", () => {
     /CONTROL_REPORT_REFUSED: controlled fighter anatomy/);
   assert.throws(() => CONTROL.controlLabReport({ ...source, decisionPeriods: undefined },
     evidence, 1, [], metadata), /CONTROL_REPORT_REFUSED: authoritative decision period/);
+});
+
+test("control_latency_keeps_sample_submission_publication_ack_and_display_clocks_distinct", () => {
+  const target = { bearing: 7, height: 8, reach: 9, effort: 10, plane: 11 };
+  const latency = new CONTROL.ControlLatencyLog();
+  latency.sample(2, target);
+  latency.submit(4, 7, target);
+  latency.publication(4, 13);
+  latency.settle(4, 17);
+  latency.display(5, 21);
+  assert.deepEqual(latency.rows(), [{ sampleMs: 2, submittedMs: 7, settledMs: 17, receiptTick: 4,
+    submittedTarget: target,
+    publishedTick: 5, publicationMs: 13, displayedTick: 5, displayMs: 21 }]);
+  assert.equal(latency.complete, true);
+  const messageOrder = new CONTROL.ControlLatencyLog();
+  messageOrder.sample(2, target);
+  messageOrder.submit(4, 4, target);
+  messageOrder.observePublishedThrough(5, 6);
+  messageOrder.settle(4, 7);
+  messageOrder.display(5, 9);
+  assert.deepEqual([messageOrder.rows()[0].submittedMs, messageOrder.rows()[0].publicationMs,
+    messageOrder.rows()[0].settledMs, messageOrder.rows()[0].displayMs], [4, 6, 7, 9],
+    "worker publication arrival must remain between submission and the later acknowledgement");
+
+  const overlapping = new CONTROL.ControlLatencyLog();
+  const next = { ...target, bearing: 12 };
+  overlapping.sample(1, target);
+  overlapping.submit(0, 2, target);
+  overlapping.sample(3, next);
+  overlapping.observePublishedThrough(1, 4);
+  overlapping.settle(0, 5);
+  assert.deepEqual(overlapping.rows()[0], { sampleMs: 1, submittedMs: 2, settledMs: 5,
+    receiptTick: 0, submittedTarget: target,
+    publishedTick: 1, publicationMs: 4, displayedTick: null, displayMs: null },
+  "a later physical sample replaced the snapshot owned by an in-flight request");
+  assert.match(overlapping.refusal(), /latest eligible sample was never submitted/);
 });
 
 test("hidden_time_is_discarded_instead_of_becoming_tick_debt", () => {
@@ -2233,6 +2395,80 @@ test("change_closes_every_fight_drawer_and_resets_its_aria_before_selection", as
   }
 });
 
+test("the_latest_eligible_mouse_target_is_accepted_on_the_next_tick", async () => {
+  const harness = installDom();
+  const originalCreate = URL.createObjectURL;
+  const originalRevoke = URL.revokeObjectURL;
+  const blobs = [];
+  URL.createObjectURL = (blob) => { blobs.push(blob); return `blob:fresh-${blobs.length}`; };
+  URL.revokeObjectURL = () => {};
+  try {
+    const inputLog = new CONTROL.ControlInputLog();
+    const route = await controlledRoute(harness, "mouse", true, inputLog, true);
+    const host = route.container.querySelector("#arena-stage");
+    const canvas = route.container.querySelector("#arena-3d");
+    const fire = (type, x, timeStamp, movementX) => {
+      for (const entry of harness.listenersOn(host, type)) entry.listener({
+        target: canvas, pointerType: "mouse", pointerId: 89, button: 0, buttons: 1,
+        clientX: x, clientY: 180, timeStamp, movementX, movementY: 0,
+        preventDefault() {},
+      });
+    };
+    fire("pointerdown", 200, 10, 0);
+    fire("pointermove", 201, 1_010, 1); // Eligible target inside the powered dead zone: half effort.
+    const slow = await route.nextInput();
+    const slowTarget = commandArm(new Uint8Array(slow.bytes));
+    assert.equal(slowTarget.effort, ONE / 2);
+    assert.deepEqual(inputLog.rows().filter((row) => row.powered && row.target !== null).at(-1).target,
+      slowTarget, "the first request retained an older eligible mouse target");
+    await route.acknowledge(slow, undefined, 0, true);
+
+    fire("pointermove", 220, 1_011, -20);
+    fire("pointermove", 280, 1_012, 60); // The later sample must win this request.
+    const fast = await route.nextInput();
+    const fastTarget = commandArm(new Uint8Array(fast.bytes));
+    assert.equal(fastTarget.effort, ONE);
+    assert.deepEqual(inputLog.rows().filter((row) => row.powered && row.target !== null).at(-1).target,
+      fastTarget, "the second request retained the penultimate eligible mouse target");
+    await route.acknowledge(fast, undefined, 0, true);
+
+    route.worker.emit(syntheticFinish(route.start.requestId, 3));
+    await settle(); await settle();
+    route.container.querySelector("#step-forward").click();
+    route.container.querySelector("#step-forward").click();
+    await route.runFrame(20);
+    assert.equal(route.container.querySelector("#arena-save-control-report").disabled, false,
+      route.container.querySelector("#control-status").textContent);
+    route.container.querySelector("#arena-save-control-report").click();
+    const report = JSON.parse(await blobs.at(-1).text());
+    assert.deepEqual(report.tickRows.map((row) => [row.receiptTick, row.publishedTick,
+      row.command.target.effort]), [[0, 1, ONE / 2], [1, 2, ONE]]);
+    assert.deepEqual(report.latency.rows.map((row) => row.submittedTarget),
+      report.tickRows.map((row) => row.command.target),
+      "host request snapshots and authoritative receipts diverged");
+    await route.handle.dispose(); harness.dropSubtree(route.container);
+  } finally {
+    URL.createObjectURL = originalCreate;
+    URL.revokeObjectURL = originalRevoke;
+    harness.restore();
+  }
+});
+
+test("the_browser_reports_arm_response_without_owning_an_authoritative_rate", () => {
+  const sources = ["client/src/arena/arena.ts", "client/src/arena/control-lab.ts"]
+    .map((file) => fs.readFileSync(path.join(ROOT, file), "utf8")).join("\n");
+  for (const owner of ["ARM_BEARING_MAX_SPEED_RAW", "ARM_BEARING_ACCEL_RAW",
+    "ARM_LINEAR_MAX_SPEED_RAW", "ARM_LINEAR_ACCEL_RAW", "ArmRateProfile",
+    "integrate_arm_for_grip_with_profile"]) {
+    assert.equal(sources.includes(owner), false, `the client copied authoritative rate owner ${owner}`);
+  }
+  assert.deepEqual(Object.keys(CONTROL.CONTROL_FEEL_CONSTANTS).sort(), [
+    "bodyTurnInputLeadRaw", "cursorHandSpanArmLengths", "extendDragSensitivity",
+    "swingDragDeadZonePx", "swingDragFullEffortPxS", "touchPinchSpreadRatio",
+    "virtualHandSensitivity",
+  ]);
+});
+
 test("a_finished_practice_run_downloads_raw_receipts_and_the_exact_self_describing_report", async () => {
   const harness = installDom();
   const originalCreate = URL.createObjectURL;
@@ -2261,6 +2497,8 @@ test("a_finished_practice_run_downloads_raw_receipts_and_the_exact_self_describi
     await route.acknowledge(input, undefined, 1, true);
     route.worker.emit(syntheticFinish(route.start.requestId, 2));
     await settle(); await settle();
+    route.container.querySelector("#step-forward").click();
+    await route.runFrame(20);
     const hudToggle = route.container.querySelector("#arena-control-hud-toggle");
     hudToggle.click();
     assert.match(route.container.querySelector("#arena-control-hud").textContent,
@@ -2302,6 +2540,25 @@ test("a_finished_practice_run_downloads_raw_receipts_and_the_exact_self_describi
   }
 });
 
+test("a_terminal_incomplete_latency_join_is_refused_where_the_operator_can_see_it", async () => {
+  const harness = installDom();
+  try {
+    const route = await controlledRoute(harness, "mouse", true, new CONTROL.ControlInputLog(), true);
+    const host = route.container.querySelector("#arena-stage");
+    const canvas = route.container.querySelector("#arena-3d");
+    for (const entry of harness.listenersOn(host, "pointerdown")) entry.listener({
+      target: canvas, pointerType: "mouse", pointerId: 44, button: 0, buttons: 1,
+      clientX: 200, clientY: 180, timeStamp: 10, preventDefault() {},
+    });
+    route.worker.emit(syntheticFinish(route.start.requestId, 1));
+    await settle(); await settle();
+    assert.match(route.container.querySelector("#control-status").textContent,
+      /^CONTROL_LATENCY_JOIN_REFUSED: latest eligible sample was never submitted$/);
+    assert.equal(route.container.querySelector("#arena-save-control-report").disabled, true);
+    await route.handle.dispose(); harness.dropSubtree(route.container);
+  } finally { harness.restore(); }
+});
+
 test("a_touch_practice_report_retains_device_and_capture_history_after_terminal_clear", async () => {
   const harness = installDom();
   const originalCreate = URL.createObjectURL;
@@ -2322,13 +2579,15 @@ test("a_touch_practice_report_retains_device_and_capture_history_after_terminal_
     await route.acknowledge(input, undefined, 0, true);
     route.worker.emit(syntheticFinish(route.start.requestId, 2));
     await settle(); await settle();
+    route.container.querySelector("#step-forward").click();
+    await route.runFrame(20);
     route.container.querySelector("#arena-save-control-report").click();
     const decoded = JSON.parse(await blobs.at(-1).text());
     assert.deepEqual([decoded.metadata.environment.inputDevice,
       decoded.metadata.environment.inputDevices,
       decoded.metadata.environment.pointerCaptureEver], ["touch", ["touch"], true]);
     assert.ok(decoded.inputRows.some((row) => row.action === "terminal:touch"
-      && row.captureActive), "terminal clear erased touch capture before the sidecar saw it");
+      && row.captureActive), `terminal clear erased touch capture before the sidecar saw it: ${JSON.stringify(decoded.inputRows)}`);
     await route.handle.dispose(); harness.dropSubtree(route.container);
   } finally {
     URL.createObjectURL = originalCreate;

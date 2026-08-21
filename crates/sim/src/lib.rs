@@ -51,6 +51,8 @@ mod codec;
 mod combat;
 mod command;
 mod dungeon;
+#[doc(hidden)]
+pub mod diagnostics;
 mod entity;
 #[cfg(feature = "cartesian-recoil")]
 mod exact_diagnostics;
@@ -93,9 +95,9 @@ pub use combat::spec::{
 /// a [`Scenario`] already has [`Scenario::duel_from`].
 pub use combat::arena::{AnatomyChoice, DuelConfigV1, DuelFighterV1, HandItemV1};
 pub use combat::actuator::{
-    ArmState, BodyYawState, GripState, ShieldPose, ARM_BEARING_ACCEL_RAW,
+    ArmRateProfile, ArmState, BodyYawState, GripState, ShieldPose, ARM_BEARING_ACCEL_RAW,
     ARM_BEARING_MAX_SPEED_RAW, ARM_LINEAR_ACCEL_RAW, ARM_LINEAR_MAX_SPEED_RAW,
-    ARM_MIN_REACH_RAW, BODY_YAW_ACCEL_RAW, BODY_YAW_MAX_SPEED_RAW,
+    ARM_MIN_REACH_RAW, ELBOW_PLANE_MAX_SPEED_RAW, BODY_YAW_ACCEL_RAW, BODY_YAW_MAX_SPEED_RAW,
     FATIGUE_RECOVERY_RAW, FATIGUE_WORK_SCALE_RAW,
 };
 /// The behavioral contact proof, and only it. The collector, the resolver and
@@ -160,7 +162,9 @@ pub use combat::geometry::{body_region_volumes, jointed_body_region_volumes,
 pub use dungeon::{Cardinal, Door, Dungeon, Level, Rect, Torch, CORRIDOR, DOOR, OPEN, WALL};
 pub use entity::{EntityId, Faction, Body};
 #[cfg(feature = "cartesian-recoil")]
-pub use exact_diagnostics::{exact_trajectory_state_digest, lifted_coulomb_solver_digest};
+pub use exact_diagnostics::{ArmRateAudit, exact_trajectory_arm_rate_reach, exact_trajectory_state_digest,
+                            LiftedSelfCollisionAttemptAudit, lifted_coulomb_arm_rate_reach,
+                            lifted_coulomb_self_collision_attempts, lifted_coulomb_solver_digest};
 pub use event::Event;
 pub use hand::{Hand, Swing};
 pub use hash_domain::{DigestCompareError, HashDomain, StateDigest};

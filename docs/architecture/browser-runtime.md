@@ -275,7 +275,17 @@ the stage. Replay owns its chart and controls inside one positioned bottom drawe
 contributing implicit shell rows. Every phase transition closes
 all four drawers and synchronizes their `aria-expanded` state, so Change cannot carry a
 fight overlay back into selection. Two health bars remain and read the published
-faction-health raws directly.
+faction-health raws directly. The compact meter between them keeps display callbacks and
+Babylon submissions as separate rates, reports the worst callback interval and observed
+frame budget, and names whether the route is ready, producer-bound, waiting for an input
+acknowledgement, paused or hidden.
+
+The route owns one `requestAnimationFrame` callback and the stage owns one explicit
+Babylon flush. Camera, guide, preview, resize and body updates only mark that stage dirty;
+the rAF applies all of them and calls the sole `scene.render()` owner at most once. A
+pointer event therefore changes the next picture without submitting an out-of-band GPU
+frame. Hidden, phase transition, renderer loss and disposal reset the cadence window so
+time during which the route could not present is never reported as a slow frame.
 
 The 3/4 viewport has one camera owner around the same `FreeCamera` the scene constructed;
 it creates no second camera, scene or engine. Span still frames the plan and elevation and

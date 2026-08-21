@@ -1264,6 +1264,191 @@ impl World {
     }
 }
 
+fn diagnostic_segment_crosses(
+    a0: Vec3, a1: Vec3, a2: Vec3, a3: Vec3, ar: Fx,
+    b0: Vec3, b1: Vec3, b2: Vec3, b3: Vec3, br: Fx,
+) -> bool {
+    let ad = [a2 - a0, a3 - a1];
+    let bd = [b2 - b0, b3 - b1];
+    let mut speed = Fx::ZERO;
+    for a in ad { for b in bd { speed = speed.max((a - b).length()); } }
+    fx::conservative_sweep_after_release_bracket(speed, |time| {
+        let closest = fx::closest_points_on_segments(
+            Vec3::lerp(a0, a2, time), Vec3::lerp(a1, a3, time),
+            Vec3::lerp(b0, b2, time), Vec3::lerp(b1, b3, time));
+        closest.a.distance(closest.b) - ar - br
+    }).is_some()
+}
+
+fn diagnostic_segment_crosses_rectangle(
+    a0: Vec3, a1: Vec3, a2: Vec3, a3: Vec3, radius: Fx,
+    rectangle0: [Vec3; 4], rectangle1: [Vec3; 4],
+) -> bool {
+    let endpoints = [a2 - a0, a3 - a1];
+    let corners = core::array::from_fn::<_, 4, _>(|at| rectangle1[at] - rectangle0[at]);
+    let mut speed = Fx::ZERO;
+    for endpoint in endpoints {
+        for corner in corners { speed = speed.max((endpoint - corner).length()); }
+    }
+    fx::conservative_sweep_after_release_bracket(speed, |time| {
+        let rectangle = core::array::from_fn(|at|
+            Vec3::lerp(rectangle0[at], rectangle1[at], time));
+        let closest = fx::closest_points_segment_rectangle(
+            Vec3::lerp(a0, a2, time), Vec3::lerp(a1, a3, time), rectangle,
+        );
+        closest.a.distance(closest.b) - radius
+    }).is_some()
+}
+
+fn diagnostic_socket_trim(a: Vec3, b: Vec3, shoulder: Vec3, radius: Fx) -> (Vec3, Vec3) {
+    let (socket, far, reversed) = if a.distance_sq(shoulder) <= b.distance_sq(shoulder) {
+        (a, b, false)
+    } else { (b, a, true) };
+    let axis = far - socket;
+    let length = axis.length();
+    let trimmed = if length <= radius || !length.is_positive() { far } else {
+        let mut distance = radius + Fx::EPSILON;
+        let mut point = socket + axis * (distance / length);
+        for _ in 0..8 {
+            let delta = point - shoulder;
+            let square = delta.x.raw() as i128 * delta.x.raw() as i128
+                + delta.y.raw() as i128 * delta.y.raw() as i128
+                + delta.z.raw() as i128 * delta.z.raw() as i128;
+            if square > radius.raw() as i128 * radius.raw() as i128 { break }
+            distance += Fx::EPSILON;
+            point = socket + axis * (distance / length);
+        }
+        point
+    };
+    if reversed { (far, trimmed) } else { (trimmed, far) }
+}
+
+impl World {
+    /// The first self-constraint attempted for `id` in the latest tick.
+    /// Diagnostic only: this row is neither replayed nor hashed.
+    #[doc(hidden)]
+    pub fn self_collision_attempt(
+        &self, id: EntityId,
+    ) -> Option<crate::diagnostics::SelfCollisionAttemptDiagnostic> {
+        let i = self.resolve(id)?;
+        self.self_collision_attempt.get(i).copied().flatten()
+    }
+    /// First forbidden clear-to-hit crossing among one body's articulated shapes.
+    /// Entry overlap is structural until that exact pair first clears; a later
+    /// re-entry in the same tick is a crossing. Diagnostic only; it has no route
+    /// back into contact resolution.
+    #[doc(hidden)]
+    pub fn diagnostic_owner_overlap(&self, id: EntityId) -> Option<(usize, usize)> {
+        let swept = self.swept_regions(id)?;
+        for a in [2usize, 3, 5, 6] {
+            let right = a == 3 || a == 6;
+            for b in 0..BODY_VOLUME_COUNT {
+                if a == b { continue }
+                let same_limb = if right { b == 3 || b == 6 } else { b == 2 || b == 5 };
+                if same_limb { continue }
+                let (mut moving0, mut moving1) = swept[a];
+                let (obstacle0, obstacle1) = swept[b];
+                if !moving0.present || !moving1.present
+                    || !obstacle0.present || !obstacle1.present { continue }
+                if b == 1 && a < 5 {
+                    let (forearm0, forearm1) = swept[if right { 6 } else { 5 }];
+                    let shoulder = |upper: RegionVolume, forearm: RegionVolume| {
+                        let lower_is_elbow = upper.lower.distance_sq(forearm.lower)
+                            .min(upper.lower.distance_sq(forearm.upper))
+                            <= upper.upper.distance_sq(forearm.lower)
+                                .min(upper.upper.distance_sq(forearm.upper));
+                        if lower_is_elbow { upper.upper } else { upper.lower }
+                    };
+                    let (lower, upper) = diagnostic_socket_trim(
+                        moving0.lower, moving0.upper, shoulder(moving0, forearm0), moving0.radius);
+                    moving0.lower = lower; moving0.upper = upper;
+                    let (lower, upper) = diagnostic_socket_trim(
+                        moving1.lower, moving1.upper, shoulder(moving1, forearm1), moving1.radius);
+                    moving1.lower = lower; moving1.upper = upper;
+                }
+                if diagnostic_segment_crosses(
+                    moving0.lower, moving0.upper, moving1.lower, moving1.upper, moving0.radius,
+                    obstacle0.lower, obstacle0.upper, obstacle1.lower, obstacle1.upper,
+                    obstacle0.radius,
+                ) {
+                    return Some((a, b));
+                }
+            }
+        }
+        let weapons = [self.swept_weapon(id, LimbSlot::LeftArm),
+                       self.swept_weapon(id, LimbSlot::RightArm)];
+        for (limb, weapon) in weapons.into_iter().enumerate() {
+            let Some((previous, requested)) = weapon else { continue };
+            for b in 0..BODY_VOLUME_COUNT {
+                let own_arm = if limb == 0 { b == 2 || b == 5 } else { b == 3 || b == 6 };
+                if own_arm { continue }
+                let (region0, region1) = swept[b];
+                if !region0.present || !region1.present { continue }
+                if diagnostic_segment_crosses(
+                    previous.hilt, previous.tip, requested.hilt, requested.tip, previous.radius,
+                    region0.lower, region0.upper, region1.lower, region1.upper, region0.radius,
+                ) {
+                    return Some((7 + limb, b));
+                }
+            }
+        }
+        if let (Some((left_previous, left_requested)), Some((right_previous, right_requested)))
+            = (weapons[0], weapons[1])
+        {
+            if diagnostic_segment_crosses(
+                left_previous.hilt, left_previous.tip, left_requested.hilt, left_requested.tip,
+                left_previous.radius, right_previous.hilt, right_previous.tip,
+                right_requested.hilt, right_requested.tip, right_previous.radius,
+            ) {
+                return Some((7, 8));
+            }
+        }
+        if let Some((limb, previous, requested)) = self.swept_shield(id) {
+            let owner = limb as usize;
+            for b in 0..BODY_VOLUME_COUNT {
+                let own_arm = if owner == 0 { b == 2 || b == 5 } else { b == 3 || b == 6 };
+                if own_arm { continue }
+                let (region0, region1) = swept[b];
+                if !region0.present || !region1.present { continue }
+                if diagnostic_segment_crosses_rectangle(
+                    region0.lower, region0.upper, region1.lower, region1.upper,
+                    region0.radius, previous, requested,
+                ) {
+                    return Some((9, b));
+                }
+            }
+            for (weapon_limb, weapon) in weapons.into_iter().enumerate() {
+                if weapon_limb == owner { continue }
+                let Some((weapon_previous, weapon_requested)) = weapon else { continue };
+                if diagnostic_segment_crosses_rectangle(
+                    weapon_previous.hilt, weapon_previous.tip,
+                    weapon_requested.hilt, weapon_requested.tip,
+                    weapon_previous.radius, previous, requested,
+                ) {
+                    return Some((9, 7 + weapon_limb));
+                }
+            }
+        }
+        None
+    }
+
+    #[doc(hidden)]
+    pub fn swept_shield(&self, id: EntityId)
+        -> Option<(LimbSlot, [Vec3; 4], [Vec3; 4])>
+    {
+        self.contact.as_ref()?.swept.iter().find_map(|row| {
+            if row.entity != id { return None }
+            let ContactShape::Shield { previous, requested } = row.shape else { return None };
+            let limb = if row.slot == LimbSlot::LeftArm as u8 {
+                LimbSlot::LeftArm
+            } else if row.slot == LimbSlot::RightArm as u8 {
+                LimbSlot::RightArm
+            } else { return None };
+            Some((limb, previous, requested))
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2580,13 +2765,18 @@ mod tests {
         let ids = [world.alive_ids(Faction::Heroes)[0], world.alive_ids(Faction::Monsters)[0]];
         let upper = Fx::from_raw(crate::combat::limb::UPPER_ARM_FRACTION_RAW);
         let mut worst = 0i32;
+        let mut measured = [[false; 2]; 2];
         for tick in 0..60 {
             for id in ids { world.submit(id, turning_embodied_command(Angle::HALF)); }
             world.step();
-            for id in ids {
-                let stance = world.observe(id).stance;
+            for (body, id) in ids.into_iter().enumerate() {
+                let observation = world.observe(id);
+                let stance = observation.stance;
                 assert!(stance.present, "a body lost its legs at tick {tick}");
                 for limb in 0..2 {
+                    let part = limb_body_part(limb as u8).expect("two arm slots");
+                    if observation.severed_mask & (1 << part as u8) != 0 { continue; }
+                    measured[body][limb] = true;
                     let span = stance.elbow[limb].length();
                     worst = worst.max((span - upper).abs().raw());
                     // Six raw units, measured across this sweep and exact from
@@ -2603,6 +2793,8 @@ mod tests {
                 }
             }
         }
+        assert_eq!(measured, [[true; 2]; 2],
+            "the fight never published every live elbow");
         assert!(worst > 0, "the sweep never moved the elbow off an exact half");
     }
 
@@ -2664,4 +2856,86 @@ mod tests {
         assert_eq!(got, vec![1, 4, 3]);
     }
 
+    #[test]
+    fn owner_overlap_observes_a_clear_to_hit_crossing_and_not_only_endpoints() {
+        let mut world = World::new(&Scenario::embodied_duel(), 1);
+        world.step();
+        let fighter = EntityId::new(0, 0);
+        let row = world.contact.as_mut().unwrap().swept.iter_mut()
+            .find(|row| row.entity == fighter && matches!(row.shape, ContactShape::Body { .. }))
+            .expect("fighter body sweep");
+        let ContactShape::Body { ref mut parts, .. } = row.shape else { unreachable!() };
+        for part in parts.iter_mut() { part.present = false; }
+        let point = Vec3::new(Fx::ZERO, Fx::ZERO, Fx::HALF);
+        parts[1] = RegionSweep { previous_lower: point, previous_upper: point,
+            requested_lower: point, requested_upper: point, radius: Fx::from_ratio(1, 10),
+            present: true };
+        parts[2] = RegionSweep {
+            previous_lower: Vec3::new(-Fx::ONE, Fx::ZERO, Fx::ZERO),
+            previous_upper: Vec3::new(-Fx::ONE, Fx::ZERO, Fx::ONE),
+            requested_lower: Vec3::new(Fx::ONE, Fx::ZERO, Fx::ZERO),
+            requested_upper: Vec3::new(Fx::ONE, Fx::ZERO, Fx::ONE),
+            radius: Fx::from_ratio(1, 10), present: true,
+        };
+        assert_eq!(world.diagnostic_owner_overlap(fighter), Some((2, 1)),
+                   "endpoint-only observation missed the crossing at half time");
+    }
+
+    #[test]
+    fn an_entry_overlap_that_never_clears_is_not_a_forbidden_crossing() {
+        let mut world = World::new(&Scenario::embodied_duel(), 1);
+        world.step();
+        let fighter = EntityId::new(0, 0);
+        let swept = &mut world.contact.as_mut().unwrap().swept;
+        for row in swept.iter_mut().filter(|row| row.entity == fighter) {
+            match &mut row.shape {
+                ContactShape::Body { parts, .. } => {
+                    for part in parts { part.present = false; }
+                }
+                ContactShape::Segment { previous_hilt, previous_tip,
+                                        requested_hilt, requested_tip, .. } => {
+                    *previous_hilt = Vec3::new(-Fx::ONE, Fx::ZERO, Fx::ZERO);
+                    *previous_tip = Vec3::new(Fx::ONE, Fx::ZERO, Fx::ZERO);
+                    *requested_hilt = *previous_hilt; *requested_tip = *previous_tip;
+                }
+                ContactShape::Shield { previous, requested } => {
+                    *previous = [Vec3::new(Fx::ZERO, -Fx::ONE, -Fx::ONE),
+                                 Vec3::new(Fx::ZERO, Fx::ONE, -Fx::ONE),
+                                 Vec3::new(Fx::ZERO, Fx::ONE, Fx::ONE),
+                                 Vec3::new(Fx::ZERO, -Fx::ONE, Fx::ONE)];
+                    *requested = *previous;
+                }
+                ContactShape::Projectile { .. } => {}
+            }
+        }
+        assert_eq!(world.diagnostic_owner_overlap(fighter), None,
+                   "a structural entry overlap was treated as a new crossing");
+    }
+
+    #[test]
+    fn an_entry_overlap_that_clears_and_reenters_is_a_forbidden_crossing() {
+        let point = |x, y| Vec3::new(Fx::from_int(x), Fx::from_int(y), Fx::ZERO);
+        assert!(!diagnostic_segment_crosses(
+            point(-1, 0), point(1, 0), point(-1, 0), point(1, 0), Fx::ZERO,
+            point(-1, 0), point(1, 0), point(-1, 0), point(1, 0), Fx::ZERO,
+        ), "an entry overlap that never released was reported as a crossing");
+        assert!(diagnostic_segment_crosses(
+            point(3, -3), point(-2, 1), point(-1, 0), point(3, -3), Fx::ZERO,
+            point(-2, 0), point(2, 0), point(-2, 0), point(2, 0), Fx::ZERO,
+        ), "entry overlap was ignored even after a proved clear interval and re-entry");
+    }
+
+    #[test]
+    fn socket_trim_excludes_exactly_one_upper_arm_radius_in_both_directions() {
+        let radius = Fx::from_ratio(1, 4);
+        for far in [Fx::ONE, -Fx::ONE] {
+            let (a, b) = diagnostic_socket_trim(
+                Vec3::new(far, Fx::ZERO, Fx::ZERO), Vec3::ZERO, Vec3::ZERO, radius);
+            let live = if a.distance_sq(Vec3::ZERO) <= b.distance_sq(Vec3::ZERO) { a } else { b };
+            assert!(live.x.abs() > radius);
+            let toward_shoulder = Fx::from_raw(live.x.raw() - live.x.raw().signum());
+            assert!(toward_shoulder.abs() <= radius,
+                    "socket trim skipped the first raw point beyond the collar");
+        }
+    }
 }

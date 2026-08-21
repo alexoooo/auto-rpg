@@ -1759,10 +1759,9 @@ export interface ArenaStage {
   /**
    * `[Texture]` or `[Geometry]`, on this one scene.
    *
-   * The picture has already changed by the time this returns -- the procedural
-   * floor is drawn synchronously -- and the promise settles when the authored
-   * room has either landed or failed, which is what a caller showing the mode on
-   * a label needs to know. Nothing is thrown either way: a missing room is a
+   * The procedural floor is ready for the route's next animation-frame flush
+   * by the time this returns, and the promise settles when the authored room has
+   * either landed or failed. Nothing is thrown either way: a missing room is a
    * floor, not an error.
    */
   setMode(mode: ArenaMode): Promise<void>;
@@ -1794,6 +1793,10 @@ export interface ArenaStage {
   resetPreview(side?: 0 | 1): void;
   setPhase(phase: "select" | "fight"): void;
   drawPreview(frame: number): void;
+  /** Flush all accumulated presentation changes, at most once for this call. */
+  draw(): boolean;
+  /** Cumulative calls to this stage's sole Babylon `scene.render()` owner. */
+  renderCount(): number;
   dispose(): void;
 }
 
@@ -1857,6 +1860,9 @@ export async function createArenaStage(
     scene, stageCameras, lifecycle.onPreviewDress ?? (() => {}), () => content.loadCombatants(),
   );
   let disposed = false;
+  let dirty = true;
+  let renders = 0;
+  let guide: readonly [V3, V3] | null = null;
 
   const live = (): boolean => !disposed && !terminal && !handle.terminal;
 
@@ -1879,7 +1885,10 @@ export async function createArenaStage(
     handle.engine.beginFrame();
     scene.render();
     handle.engine.endFrame();
+    renders += 1;
+    dirty = false;
   };
+  const markDirty = (): void => { dirty = true; };
 
   return {
     description(): string {
@@ -1892,12 +1901,12 @@ export async function createArenaStage(
     show(view: ArenaStageView): void {
       if (!live()) return;
       content.show(view);
-      draw();
+      markDirty();
     },
     clear(): void {
       if (!live()) return;
       content.clear();
-      draw();
+      markDirty();
     },
     mode(): ArenaMode { return content.mode(); },
     cameraMode(): StageCameraMode { return content.cameraMode(); },
@@ -1910,68 +1919,81 @@ export async function createArenaStage(
     threeQuarterViewport(): ViewportRect { return content.threeQuarterViewport(); },
     showHandGuide(bodyGround: V3, desired: V3): void {
       if (!live()) return;
+      const changed = guide === null || bodyGround.some((value, index) => value !== guide![0][index])
+        || desired.some((value, index) => value !== guide![1][index]);
       content.showHandGuide(bodyGround, desired);
       // The route refreshes this stored world-space target every animation
       // frame before the stage's ordinary draw. Drawing here would rasterise
       // the whole Babylon scene twice for every Human frame.
+      guide = [bodyGround, desired];
+      if (changed) markDirty();
     },
     clearHandGuide(): void {
       content.clearHandGuide();
-      if (live()) draw();
+      if (live() && guide !== null) markDirty();
+      guide = null;
     },
     cameraChangeSerial(): number { return content.cameraChangeSerial(); },
     containsThreeQuarterPoint(x: number, y: number): boolean {
       return live() && content.containsThreeQuarterPoint(x, y);
     },
-    follow(target: "both" | 0 | 1): void { content.follow(target); },
+    follow(target: "both" | 0 | 1): void { content.follow(target); markDirty(); },
     orbit(buttons: number, dx: number, dy: number): boolean {
       if (!live()) return false;
       const consumed = content.orbit(buttons, dx, dy);
-      if (consumed) draw();
+      if (consumed) markDirty();
       return consumed;
     },
     pan(dx, dy, viewportHeight): boolean {
       if (!live()) return false;
       const consumed = content.pan(dx, dy, viewportHeight);
-      if (consumed) draw();
+      if (consumed) markDirty();
       return consumed;
     },
     zoom(delta: number, cursor?: readonly [number, number]): void {
       if (!live()) return;
       const before = content.cameraChangeSerial();
       content.zoom(delta, cursor);
-      if (content.cameraChangeSerial() !== before) draw();
+      if (content.cameraChangeSerial() !== before) markDirty();
     },
     hover(cursor): number | null {
       if (!live()) return null;
       const body = content.hover(cursor);
-      draw();
+      markDirty();
       return body;
     },
     clearHover(): void {
       if (!live()) return;
       content.clearHover();
-      draw();
+      markDirty();
     },
     promote(view: ArenaPromotedView): void {
       if (!live()) return;
       const before = content.cameraChangeSerial();
       content.promote(view);
-      if (content.cameraChangeSerial() !== before) draw();
+      if (content.cameraChangeSerial() !== before) markDirty();
     },
-    setEyes(open): void { content.setEyes(open); },
-    setRelative(enabled): string | null { return content.setRelative(enabled); },
+    setEyes(open): void { content.setEyes(open); markDirty(); },
+    setRelative(enabled): string | null { const refusal = content.setRelative(enabled); markDirty(); return refusal; },
     cameraRefusal(): string | null { return content.cameraRefusal(); },
     refit(): void {
       if (!live()) return;
       content.refit();
       content.redraw();
-      draw();
+      markDirty();
     },
-    showPreview(side: 0 | 1, choice: SideChoice): void { preview?.show(side, choice); },
-    orbitPreview(side, dx, dy): boolean { return preview?.orbit(side, dx, dy) ?? false; },
-    zoomPreview(side, delta): boolean { return preview?.zoom(side, delta) ?? false; },
-    resetPreview(side): void { preview?.reset(side); },
+    showPreview(side: 0 | 1, choice: SideChoice): void { preview?.show(side, choice); markDirty(); },
+    orbitPreview(side, dx, dy): boolean {
+      const consumed = preview?.orbit(side, dx, dy) ?? false;
+      if (consumed) markDirty();
+      return consumed;
+    },
+    zoomPreview(side, delta): boolean {
+      const consumed = preview?.zoom(side, delta) ?? false;
+      if (consumed) markDirty();
+      return consumed;
+    },
+    resetPreview(side): void { preview?.reset(side); markDirty(); },
     setPhase(phase: "select" | "fight"): void {
       if (!live()) return;
       content.setPhase(phase);
@@ -1983,34 +2005,38 @@ export async function createArenaStage(
         preview.dispose();
         preview = null;
       }
-      draw();
+      markDirty();
     },
     drawPreview(frame: number): void {
       if (!live()) return;
       preview?.draw(frame);
-      draw();
+      markDirty();
     },
     async setMode(mode: ArenaMode): Promise<void> {
       if (!live()) return;
       content.setMode(mode);
       content.redraw();
-      draw();
-      // **The picture is already on the screen by the line above**, and this is
-      // the tail: the authored room is a hashed fetch of about a megabyte, and a
-      // button that stayed pressed-but-unchanged for the length of it would read
-      // as a broken control. So the procedural floor draws first and the kit
-      // upgrades it, or does not, and the caller hears about it either way.
+      markDirty();
+      // The procedural floor is now dirty for the route's next rAF. This tail is
+      // a hashed fetch of about a megabyte; when it settles, the same single
+      // display owner upgrades that floor to the kit, or leaves the fallback.
       await content.loadEnvironment();
       if (!live()) return;
       content.redraw();
-      draw();
+      markDirty();
     },
     resize(): void {
       if (!live()) return;
       handle.engine.setHardwareScalingLevel(1 / Math.min(2, window.devicePixelRatio || 1));
       handle.engine.resize();
-      draw();
+      markDirty();
     },
+    draw(): boolean {
+      if (!live() || !dirty) return false;
+      draw();
+      return true;
+    },
+    renderCount(): number { return renders; },
     dispose(): void {
       if (disposed) return;
       disposed = true;

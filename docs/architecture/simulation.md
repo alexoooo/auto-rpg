@@ -73,10 +73,11 @@ the tick tail. It retains every slot's contact tick-entry pose *before* movement
 records intended locomotion *between* movement and separation, because that
 displacement exists on its own at no other point in the tick. Between separation and
 doors it drives body yaw, atomically applies the pending grip transaction, advances
-both arm actuators, derives shield geometry, and then resolves contact. The complete
+both arm actuators, constrains their achieved poses against the owner's body and
+equipment, derives shield geometry, and then resolves contact. The complete
 order is pinned by a phase trace rather than argued from the reading order of the
 branch: `retain contact entry`, `apply articulated movement`,
-`record contact locomotion`, `separate`, `body yaw`, `grips`, `arms`, `geometry`,
+`record contact locomotion`, `separate`, `body yaw`, `grips`, `arms`, `self collision`, `geometry`,
 `contact`, `doors`. The non-legacy branch deliberately calls no legacy
 regeneration, limb, parry, swing, recoil, shot, or HP-reap phase; anatomy damage and
 model-specific death land in later mechanical sessions. No future non-legacy schedule
@@ -110,6 +111,20 @@ bounded group solve, the impulse commit, one wall settlement per changed body, a
 cap commit. Body velocity, body position, both arm rows, the shield pose, and the
 global `cap_hits` counter are all authoritative outputs of the phase, and completed
 resolutions are published beside them as evidence rather than as a second authority.
+The self-collision phase is authoritative but produces no combat row and no damage:
+it conservatively brackets an attempted crossing, commits only the achieved clear arm
+state, bills fatigue from that achieved work, and stops the participating joint speeds.
+An entry-overlapping structural pair is ignored only until it first clears, after which
+a same-tick re-entry is constrained. `World::self_collision_attempt` is a diagnostic
+copy of the first rejected proposal; it is cleared per owner and excluded from replay,
+state hashes and every publication ABI.
+The same endpoint law also protects a contacted arm. The default projector prices its
+last reachable point. The exact law applies the joint limit after its lifted contact solve,
+mutates the retained held position and momentum, and records that external anatomical
+reaction under reason 64 before rebasing the owner. Commit is a no-op for the physical
+endpoint under either law, so the energy authority, hand, elbow/forearm geometry and scalar
+joint pose name one reachable result. Untouched rows are not inverse-mapped merely to prove
+this; doing so would add fixed-point round-trip drift to a hand no impulse moved.
 The solver is handed collider scratch and never a world column, so a mid-tick
 `ResolutionError` costs the tick its contact and leaves no half-written body. Anatomy
 evolution and `articulated` damage do not participate: v2-14 mutates no HP.
@@ -172,6 +187,6 @@ own.
 
 - Storage and construction: [`World` fields and `World::new`](../../crates/sim/src/world/mod.rs)
 - Decision seam: [`World::pending_decisions` and `World::observe`](../../crates/sim/src/world/query.rs), and [`World::submit`](../../crates/sim/src/world/mod.rs)
-- Tick phase order: [`World::step`](../../crates/sim/src/world/mod.rs#L1661)
+- Tick phase order: [`World::step`](../../crates/sim/src/world/mod.rs#L1657)
 - Observation shape and feature projection: [`obs.rs`](../../crates/sim/src/obs.rs)
 - Command, order, and objective inputs: [`command.rs`](../../crates/sim/src/command.rs)

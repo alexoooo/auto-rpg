@@ -1,6 +1,6 @@
 # Combat control extensions 01 -- take the body, release the body
 
-**Status:** future; ready after the arena topic closes.
+**Status:** future; ready after the responsive-arena topic closes.
 
 A fight no longer chooses Human ownership only at construction. Either live side may be
 taken over and returned to its configured policy without restarting the world, losing a
