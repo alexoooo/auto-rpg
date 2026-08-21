@@ -9,7 +9,7 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "start": "vinext start",
-    "test": "node --test tests/turntable-state.test.mjs && npm run build && node --test tests/rendered-html.test.mjs",
+    "test": "node --test tests/turntable-state.test.mjs tests/experiment-state.test.mjs && npm run build && node --test tests/rendered-html.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern metric/.venv --ignore-pattern .metric-cache",
     "asset:build": "node scripts/run-blender.mjs",
     "asset:validate": "node scripts/validate-asset.mjs",
@@ -20,6 +20,10 @@
     "similarity:compare": "node scripts/compare-similarity.mjs",
     "similarity:compare:report": "node scripts/run-metric.mjs comparisons",
     "similarity:experiment:snapshot": "node scripts/snapshot-similarity-experiment.mjs",
+    "similarity:experiment:decide": "node scripts/decide-similarity-experiment.mjs",
+    "similarity:experiment:audit": "node scripts/audit-similarity-experiments.mjs",
+    "similarity:phase:contact-sheet": "node scripts/run-metric.mjs archive-progress",
+    "similarity:phase:archive": "node scripts/archive-similarity-phase.mjs",
     "similarity:test": "node scripts/run-metric.mjs test"
   },
   "dependencies": {

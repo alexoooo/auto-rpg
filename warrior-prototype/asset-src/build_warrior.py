@@ -36,11 +36,11 @@ REVIEW_LANDMARKS = {
     "right_hand": (0.50, -0.19, 0.80),
     "left_boot": (-0.205, -0.055, 0.03),
     "right_boot": (0.22, -0.055, 0.03),
-    "shield_top": (0.64, -0.39, 1.36),
-    "shield_outer": (0.88, -0.34, 1.08),
-    "shield_bottom": (0.61, -0.34, 0.48),
+    "shield_top": (0.5405, -0.39, 1.604),
+    "shield_outer": (0.7925, -0.34, 1.296),
+    "shield_bottom": (0.509, -0.34, 0.636),
     "sword_hilt": (-0.48, -0.31, 0.89),
-    "sword_tip": (-0.66, -0.31, 0.08),
+    "sword_tip": (-0.20, -0.31, 0.08),
     "tabard_bottom": (0.0, -0.265, 0.34),
 }
 
@@ -176,11 +176,11 @@ def make_warrior():
     root = bpy.data.objects.new("Warrior", None)
     bpy.context.scene.collection.objects.link(root)
 
-    steel = material("worn_dark_steel", (0.16, 0.17, 0.17), 0.76, 0.37)
-    bright = material("polished_steel_edges", (0.42, 0.43, 0.40), 0.84, 0.26)
+    steel = material("worn_dark_steel", (0.075, 0.080, 0.080), 0.76, 0.37)
+    bright = material("polished_steel_edges", (0.22, 0.23, 0.22), 0.84, 0.26)
     black = material("blackened_iron", (0.055, 0.05, 0.045), 0.72, 0.48)
     brass = material("aged_brass", (0.34, 0.21, 0.075), 0.72, 0.32)
-    leather = material("worn_leather", (0.17, 0.085, 0.036), 0.0, 0.82)
+    leather = material("worn_leather", (0.105, 0.045, 0.018), 0.0, 0.82)
     cloth = material("burgundy_cloth", (0.25, 0.035, 0.025), 0.0, 0.92)
     skin = material("warm_skin", (0.42, 0.22, 0.13), 0.0, 0.74)
     hair = material("hair_and_beard", (0.045, 0.025, 0.016), 0.0, 0.96)
@@ -198,14 +198,14 @@ def make_warrior():
         rounded_box(side + "_knee_ridge", (x + lean, -0.135, 0.51), (0.105, 0.035, 0.05), bright, root, 0.012)
         segment(side + "_shin", (x + lean, 0.01, 0.47), (x + lean * 1.4, 0.02, 0.20), 0.105, black, root)
         cone(side + "_greave", (x + lean, -0.055, 0.33), 0.12, 0.155, 0.31, steel, root)
-        rounded_box(side + "_boot", (x + lean * 1.4, -0.055, 0.105), (0.14, 0.22, 0.105), leather, root, 0.035)
+        rounded_box(side + "_boot", (x + lean * 1.4, -0.055, 0.105), (0.14, 0.22, 0.105), steel, root, 0.035)
         for band, height in enumerate((0.23, 0.35)):
             torus(f"{side}_greave_band_{band}", (x + lean, -0.005, height),
                   0.108 + band * 0.008, 0.014, bright, root)
 
     # Waist, segmented faulds, and the ragged red tabard from the concept fighter.
-    cylinder("belt", (0, 0, 0.89), 0.34, 0.105, leather, root, rotation=(0, 0, 0))
-    rounded_box("belt_buckle", (0, -0.245, 0.90), (0.075, 0.025, 0.065), brass, root, 0.012)
+    cylinder("belt", (0, 0, 0.89), 0.300, 0.072, leather, root, rotation=(0, 0, 0))
+    rounded_box("belt_buckle", (0, -0.245, 0.90), (0.065, 0.020, 0.050), brass, root, 0.012)
     for row, (height, width) in enumerate(((0.84, 0.34), (0.77, 0.315), (0.70, 0.29))):
         rounded_box(f"fauld_{row}", (0, -0.02 - row * 0.008, height),
                     (width, 0.19, 0.075), steel, root, 0.025)
@@ -225,7 +225,7 @@ def make_warrior():
     rounded_box("breastplate_shadow", (0, -0.269, 1.20), (0.225, 0.018, 0.035), steel, root, 0.01)
     for row, z in enumerate((1.08, 1.19, 1.30, 1.40)):
         rounded_box(f"cuirass_ridge_{row}", (0, -0.292, z),
-                    (0.24 + (z - 1.08) * 0.16, 0.012, 0.012), brass, root, 0.005)
+                    (0.24 + (z - 1.08) * 0.16, 0.012, 0.012), black, root, 0.005)
     torus("gorget", (0, 0, 1.50), 0.18, 0.035, bright, root)
     segment("cross_body_strap", (-0.24, -0.315, 1.44), (0.22, -0.315, 1.00),
             0.034, leather, root, 20)
@@ -241,51 +241,46 @@ def make_warrior():
         "right": ((0.38, 0.01, 1.38), (0.51, -0.05, 1.08), (0.50, -0.19, 0.80)),
     }
     for side, (shoulder, elbow, hand) in arm_points.items():
-        sphere(side + "_pauldron", shoulder, (0.20, 0.17, 0.145), steel, root)
-        for ridge in range(3):
-            torus(f"{side}_pauldron_ridge_{ridge}",
-                  (shoulder[0], shoulder[1] - 0.14, shoulder[2] + 0.07 - ridge * 0.055),
-                  0.15 - ridge * 0.012, 0.012, bright, root, rotation=(math.pi / 2, 0, 0))
+        sphere(side + "_pauldron", shoulder, (0.16, 0.145, 0.12), steel, root)
         segment(side + "_upper_arm", shoulder, elbow, 0.115, black, root)
         segment(side + "_vambrace", elbow, hand, 0.12, steel, root)
         sphere(side + "_gauntlet", hand, (0.11, 0.10, 0.13), bright, root)
         for rivet in (-1, 1):
             sphere(f"{side}_pauldron_rivet_{rivet}",
-                   (shoulder[0] + rivet * 0.105, -0.16, shoulder[2] + 0.04),
-                   (0.018, 0.012, 0.018), brass, root, 20)
+                   (shoulder[0] + rivet * 0.085, -0.135, shoulder[2] + 0.035),
+                   (0.015, 0.010, 0.015), brass, root, 20)
 
     # The canonical turnaround leaves the battered face exposed. Uneven hair tufts
     # keep the head readable in silhouette without pretending a procedural mesh is hair.
-    sphere("head", (0, -0.035, 1.63), (0.145, 0.125, 0.175), skin, root)
-    sphere("nose", (0, -0.158, 1.63), (0.028, 0.038, 0.055), skin, root, 24)
-    for side, x in (("left", -0.054), ("right", 0.054)):
-        sphere(side + "_eye_socket", (x, -0.151, 1.68), (0.032, 0.012, 0.018), black, root, 20)
-    sphere("beard", (0, -0.14, 1.555), (0.105, 0.045, 0.09), hair, root, 28)
-    sphere("hair_back", (0, 0.055, 1.66), (0.15, 0.11, 0.17), hair, root, 28)
-    hair_tufts = ((-0.11, -0.04, 1.775, -0.50), (-0.055, -0.075, 1.79, -0.25),
-                  (0.01, -0.08, 1.80, 0.08), (0.07, -0.055, 1.79, 0.30),
-                  (0.12, -0.01, 1.77, 0.52), (-0.145, 0.025, 1.735, -0.70),
-                  (0.145, 0.045, 1.73, 0.72))
+    sphere("head", (0, -0.035, 1.63), (0.120, 0.105, 0.175), skin, root)
+    sphere("nose", (0, -0.138, 1.63), (0.024, 0.032, 0.055), skin, root, 24)
+    for side, x in (("left", -0.045), ("right", 0.045)):
+        sphere(side + "_eye_socket", (x, -0.132, 1.68), (0.027, 0.010, 0.018), black, root, 20)
+    sphere("beard", (0, -0.123, 1.555), (0.088, 0.038, 0.09), hair, root, 28)
+    sphere("hair_back", (0, 0.041, 1.66), (0.126, 0.092, 0.17), hair, root, 28)
+    hair_tufts = ((-0.0924, -0.0392, 1.775, -0.50), (-0.0462, -0.0686, 1.79, -0.25),
+                  (0.0084, -0.0728, 1.80, 0.08), (0.0588, -0.0518, 1.79, 0.30),
+                  (0.1008, -0.0140, 1.77, 0.52), (-0.1218, 0.0154, 1.735, -0.70),
+                  (0.1218, 0.0322, 1.73, 0.72))
     for index, (x, y, z, tilt) in enumerate(hair_tufts):
-        cone(f"hair_tuft_{index}", (x, y, z), 0.038, 0.006, 0.11,
+        cone(f"hair_tuft_{index}", (x, y, z), 0.032, 0.006, 0.11,
              hair, root, 16, rotation=(0, tilt, 0))
 
     # The target keeps its tall heater shield on image-right in the front review.
-    shield_points = [(0.78, 1.32), (0.49, 1.36), (0.39, 1.17),
-                     (0.43, 0.78), (0.61, 0.48), (0.82, 0.78), (0.88, 1.12)]
-    shield = prism("kite_shield", shield_points, 0.07, black, root, 0.025)
+    shield_points = [(0.6875, 1.560), (0.3830, 1.604), (0.2780, 1.395),
+                     (0.3200, 0.966), (0.5090, 0.636), (0.7295, 0.966),
+                     (0.7925, 1.340)]
+    shield = prism("kite_shield", shield_points, 0.045, black, root, 0.025)
     shield.location.y = -0.28
-    inner = [(0.75, 1.28), (0.52, 1.31), (0.44, 1.14),
-             (0.48, 0.81), (0.61, 0.57), (0.77, 0.81), (0.82, 1.10)]
-    shield_field = prism("shield_field", inner, 0.035, steel, root, 0.018)
+    inner = [(0.6560, 1.516), (0.4145, 1.549), (0.3305, 1.362),
+             (0.3725, 0.999), (0.5090, 0.735), (0.6770, 0.999),
+             (0.7295, 1.318)]
+    shield_field = prism("shield_field", inner, 0.022, steel, root, 0.018)
     shield_field.location.y = -0.34
-    sphere("shield_boss", (0.63, -0.39, 1.02), (0.105, 0.045, 0.105), brass, root, 28)
-    for index, (x, z) in enumerate(shield_points[:-1]):
-        sphere(f"shield_rivet_{index}", (x * 0.97, -0.385, z * 0.97 + 0.025),
-               (0.018, 0.012, 0.018), brass, root, 18)
+    sphere("shield_boss", (0.530, -0.388, 1.230), (0.065, 0.030, 0.068), brass, root, 28)
 
     # The target keeps its sword on image-left in the front review.
-    blade("sword_blade", (-0.50, 0.78), (-0.66, 0.08), 0.055, 0.006, 0.045, bright, root).location.y = -0.31
+    blade("sword_blade", (-0.50, 0.78), (-0.20, 0.08), 0.055, 0.006, 0.045, bright, root).location.y = -0.31
     segment("sword_guard", (-0.38, -0.31, 0.78), (-0.63, -0.31, 0.84), 0.025, brass, root, 20)
     segment("sword_grip", (-0.49, -0.31, 0.80), (-0.46, -0.31, 0.98), 0.035, leather, root, 22)
     sphere("sword_pommel", (-0.45, -0.31, 1.00), (0.055, 0.045, 0.055), brass, root, 22)

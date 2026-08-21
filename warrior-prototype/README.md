@@ -75,6 +75,12 @@ Scored asset changes follow the pre-registered, one-factor iteration loop in
 gets a tracked record, while its full render evidence is snapshotted under the ignored
 `.review/experiments/` directory.
 
+The first 73 experiments, their plateau diagnosis, the metric limitations they
+exposed, and the successor direction are summarized in the
+[phase-01 similarity debrief](docs/analysis/phase-01-similarity-debrief.md). Completed
+phases are compacted under `experiments/archive/`; active records alone remain at the
+top of `experiments/`.
+
 ```powershell
 npm test
 npm run build

@@ -8,6 +8,7 @@ const action = process.argv[2];
 const extra = process.argv.slice(3);
 const candidates = [
   process.env.PYTHON_PATH,
+  resolve(root, "metric/.venv/Scripts/python.exe"),
   resolve(root, "../.tools/blender-4.5.12/blender-4.5.12-windows-x64/4.5/python/bin/python.exe"),
   "python3",
   "python",
@@ -40,8 +41,11 @@ if (action === "setup") {
 } else if (action === "comparisons") {
   args = ["run", "--project", "metric", "--frozen", "--python", python,
     "python", "metric/evaluate_comparisons.py"];
+} else if (action === "archive-progress") {
+  args = ["run", "--project", "metric", "--frozen", "--python", python,
+    "python", "metric/archive_progress.py", ...extra];
 } else {
-  throw new Error("run-metric.mjs expects setup, score, comparisons, or test");
+  throw new Error("run-metric.mjs expects setup, score, comparisons, test, or archive-progress");
 }
 
 const result = spawnSync("uv", args, { cwd: root, encoding: "utf8", stdio: "inherit", windowsHide: true });

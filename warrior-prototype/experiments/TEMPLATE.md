@@ -2,6 +2,9 @@
 
 Status: proposed
 
+Keep this status until both evidence stages and the complete decision narrative
+exist. The decision command changes it to `accepted` or `rejected`.
+
 ## Pre-registration
 
 - Observation:

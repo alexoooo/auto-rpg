@@ -1,0 +1,2498 @@
+{
+  "schemaVersion": 1,
+  "phaseId": "phase-01",
+  "firstExperiment": "0001-mirror-equipment",
+  "lastExperiment": "0073-layered-plate-gauntlets",
+  "recordCount": 73,
+  "initialDistance": 0.8229677371467846,
+  "acceptedCheckpoint": {
+    "experimentId": "0032-ablate-pauldron-hoops",
+    "distance": 0.6740783861195763,
+    "assetSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+    "reportSha256": "b21b2749febb4942f818874f483eb9d6e3764bc7a2ca3463e9bd4822f746022a"
+  },
+  "contactSheetSha256": "2716e80236ae73b2e1cf66b5b014279bc1e3d399f4c09398b30e912d344620db",
+  "experiments": [
+    {
+      "id": "0001-mirror-equipment",
+      "title": "Mirror the equipment sides",
+      "status": "accepted",
+      "baselineDistance": 0.8229677371467846,
+      "candidateDistance": 0.7318364543659257,
+      "delta": -0.09113128278085891,
+      "componentDeltas": {
+        "dreamsim": 0.005168095231056213,
+        "landmarks": -0.4228323740175842,
+        "lpips": -0.007435828447341919,
+        "palette_texture": -0.0013927119280857103,
+        "parts": -0.0416107008960932,
+        "silhouette": -0.017388040392473547
+      },
+      "viewDeltas": {
+        "back": -0.13508438487129504,
+        "back_left": -0.003931795711616615,
+        "back_right": -0.1459598554173448,
+        "front": -0.14210875527766076,
+        "front_left": -0.10704003777078874,
+        "front_right": -0.07667387734131903,
+        "left": -0.012602751320635153,
+        "right": 0.006166462538762962
+      },
+      "hashes": {
+        "recordSha256": "183c6a36367a986c8b02764cdcae9538473977af0e6c834ee5f0afce0c9b501e",
+        "progressSha256": "190374ae6e7e9337a7307fee7ecae993932b1369d4b97f81e7ebaeb321d1af62",
+        "candidateSourceSha256": "b98d1bd3b9fa765746f68d8b2647ee23829774efa0d2fef177db5e3217d20c2c",
+        "baselineReportSha256": "17ca76a42f64b14dc63d0da149a27da5f924087b012aa3127568bd2dcb5a0ed9",
+        "candidateReportSha256": "290311ec09e4743c2aa180fd92a21ae4c10a3818ed845cfed4183ac44c2316eb"
+      }
+    },
+    {
+      "id": "0002-vertical-aspect",
+      "title": "Correct the global vertical aspect",
+      "status": "rejected",
+      "baselineDistance": 0.7318364543659257,
+      "candidateDistance": 0.7774841040614503,
+      "delta": 0.045647649695524595,
+      "componentDeltas": {
+        "dreamsim": 0.1240437924861908,
+        "landmarks": 0.04669215283146366,
+        "lpips": -0.006186328828334808,
+        "palette_texture": 0.002465631636882515,
+        "parts": 0.03713279373634426,
+        "silhouette": 0.03598614725874982
+      },
+      "viewDeltas": {
+        "back": 0.040850156953473826,
+        "back_left": 0.02673946088460022,
+        "back_right": 0.03788622128235175,
+        "front": 0.05134669143965431,
+        "front_left": 0.04062973775665846,
+        "front_right": 0.07346211924806789,
+        "left": 0.05124665540594042,
+        "right": 0.061206473738441236
+      },
+      "hashes": {
+        "recordSha256": "aef24bca296b00fff3335f2fd30cbb2bf45a5db6b018323c0dd852c9b84cd384",
+        "progressSha256": "ed282aab94643508aaf835962d73f07114ffd7a0b8d1fda4de6bec90c33e4feb",
+        "baselineSourceSha256": "b98d1bd3b9fa765746f68d8b2647ee23829774efa0d2fef177db5e3217d20c2c",
+        "candidateSourceSha256": "aae19de38ad0e156da27029a57f6d1157b9293d2c46005bac18a2e63f057a4f2",
+        "baselineReportSha256": "56e8384dfd6f2336c40f230772fab2ad801cd92e1153874f7f48d643333f47e7",
+        "candidateReportSha256": "d8a863a226d6f194efcfb9f178d3046ba6db6846a10d626e58c89de37e404aec"
+      }
+    },
+    {
+      "id": "0003-compact-pauldrons",
+      "title": "Compact the pauldrons",
+      "status": "accepted",
+      "baselineDistance": 0.7318364555549048,
+      "candidateDistance": 0.7273066156376012,
+      "delta": -0.004529839917303602,
+      "componentDeltas": {
+        "dreamsim": -0.03485649824142456,
+        "landmarks": 0.0007007629585881192,
+        "lpips": -0.020221762359142303,
+        "palette_texture": 0.002913819696699238,
+        "parts": 0.00005983780612450751,
+        "silhouette": 0.0022104300955743117
+      },
+      "viewDeltas": {
+        "back": -0.013897988800205208,
+        "back_left": 0.0063004423310706326,
+        "back_right": -0.011060292653394588,
+        "front": -0.004420629171454027,
+        "front_left": -0.02624088329565566,
+        "front_right": -0.019907456795068446,
+        "left": -0.0021676079012430405,
+        "right": 0.006274944285190598
+      },
+      "hashes": {
+        "recordSha256": "2e26150779549da7cc5e3c09caee1dc631730f2b4d6b8d7cae3873232233c99b",
+        "progressSha256": "43f1af9bbe3927759d598b01a88736782a656a8f6c72584629b63293e4cb9ada",
+        "baselineSourceSha256": "009884e8bf8f617fbc6f3d8fa31de517101f4d08d45d57593850812aed6b0c66",
+        "candidateSourceSha256": "30a88293dc5cd3567a058abaacc331a557550ec2d7eb235c65f7c3f21db61cd1",
+        "baselineReportSha256": "9a22ab5f8e08beb00b30b98a8c64185fddb745576a7810fe6b20fa34ac94ff1c",
+        "candidateReportSha256": "244d2a13c9806377bc50ebda9a24dd9a5d66d717b8adfd0ecfcde3c85c824064"
+      }
+    },
+    {
+      "id": "0004-shield-profile",
+      "title": "Correct the shield profile",
+      "status": "rejected",
+      "baselineDistance": 0.7273066104221949,
+      "candidateDistance": 0.7122740256692548,
+      "delta": -0.015032584752940115,
+      "componentDeltas": {
+        "dreamsim": -0.0018758028745651245,
+        "landmarks": -0.019386021346035065,
+        "lpips": 0.004402950406074524,
+        "palette_texture": 0.0013942962417866078,
+        "parts": -0.030395883317410832,
+        "silhouette": -0.014850317563297466
+      },
+      "viewDeltas": {
+        "back": 0.0019075774980407134,
+        "back_left": -0.02279153061205219,
+        "back_right": 0.018791601009530368,
+        "front": -0.06467869121716763,
+        "front_left": -0.053585289369845523,
+        "front_right": 0.000568308719524846,
+        "left": -0.002403831053918948,
+        "right": 0.01601286739353347
+      },
+      "hashes": {
+        "recordSha256": "ecb7636fdf005e383cc8486ce1b3b46fb83d0a73e63a188b503dca7722a30d4b",
+        "progressSha256": "4bc04984518ce9a81adcb140d1c1a398101d0aa32e00d72f5021e39d6ffff8ba",
+        "baselineSourceSha256": "30a88293dc5cd3567a058abaacc331a557550ec2d7eb235c65f7c3f21db61cd1",
+        "candidateSourceSha256": "86cda31e1421d701c83ca5ca82ff61fcf924cb2e213c64ce66616825d381be79",
+        "baselineReportSha256": "00d899245d2188f5609f888b61fe61d39c9d07bf91f3ab5cc1cd608a671bd596",
+        "candidateReportSha256": "b0bf70b7df767d977bd13201dd48e970e44d24f0cdf3e771baf2e733a4a22eb6"
+      }
+    },
+    {
+      "id": "0005-attached-shield-profile",
+      "title": "Keep the shield profile with attached hardware",
+      "status": "rejected",
+      "baselineDistance": 0.7273066101613006,
+      "candidateDistance": 0.7130326888110317,
+      "delta": -0.014273921350268948,
+      "componentDeltas": {
+        "dreamsim": 0.0005127638578414917,
+        "landmarks": -0.019394258014824972,
+        "lpips": 0.00659247487783432,
+        "palette_texture": 0.0022553512386304098,
+        "parts": -0.03025044632628382,
+        "silhouette": -0.014708445724715968
+      },
+      "viewDeltas": {
+        "back": 0.002403422883160866,
+        "back_left": -0.019971703274831998,
+        "back_right": 0.019157679019222273,
+        "front": -0.063219734394235,
+        "front_left": -0.0521871968637474,
+        "front_right": 0.002220400489532093,
+        "left": -0.0024411707372459235,
+        "right": 0.014629470513960019
+      },
+      "hashes": {
+        "recordSha256": "5f7f54b71eb13633b4f8d12315e6d2b7e34454503a3e706adb4c7e133de2f57c",
+        "progressSha256": "c038e9bb5977338f42f6e5db324f7e5701a8b6b8376a2ea96bcd36ef18591890",
+        "baselineSourceSha256": "30a88293dc5cd3567a058abaacc331a557550ec2d7eb235c65f7c3f21db61cd1",
+        "candidateSourceSha256": "4e4bb8d0d6c8540f353fdbe01e4b318837b26e676df3c5f5c75e63b24b2d426e",
+        "baselineReportSha256": "bba9f678b85fa878b8fc61fa746a5aed6a53d3dc7b3ee79f5d97a51629ca8882",
+        "candidateReportSha256": "14afa1152fe4af73cbcb161eeccb3cd76e9a81957d857a3fca89a38cb3b44127"
+      }
+    },
+    {
+      "id": "0006-inset-shield-rivets",
+      "title": "Inset the shield rivets",
+      "status": "rejected",
+      "baselineDistance": 0.7273066156376012,
+      "candidateDistance": 0.7138886919645686,
+      "delta": -0.013417923673032628,
+      "componentDeltas": {
+        "dreamsim": -0.0009519755840301514,
+        "landmarks": -0.01813138911537826,
+        "lpips": 0.002481512725353241,
+        "palette_texture": 0.002271264265308659,
+        "parts": -0.029957161414092437,
+        "silhouette": -0.010668448189663837
+      },
+      "viewDeltas": {
+        "back": 0.0012259037591296762,
+        "back_left": -0.01749827736262277,
+        "back_right": 0.01874692306258552,
+        "front": -0.06391208322000375,
+        "front_left": -0.048648661369521284,
+        "front_right": 0.003645181463727054,
+        "left": -0.003101940611363041,
+        "right": 0.01308050806604899
+      },
+      "hashes": {
+        "recordSha256": "a87f124623646fe46114b51ea69c94bc472ac0f4cc9ff1513ce3209175bb0b0b",
+        "progressSha256": "da8ccc4aecab2c9bf162c943f0fc3a1970f17f65bb08197b40679fa94b5cf20a",
+        "baselineSourceSha256": "30a88293dc5cd3567a058abaacc331a557550ec2d7eb235c65f7c3f21db61cd1",
+        "candidateSourceSha256": "4802dfdaa7e7ad4ae0af598247c16ff868e1d44a6d552dfe5c2078a9c83057d9",
+        "baselineReportSha256": "bc6f4319c38796ced422c812afa92c125c4dfdd58a0be6c9b7ebcd3e17ec2bc6",
+        "candidateReportSha256": "5b3d7ebfe52fd5b07825c18c2f2aff26ca0badb43564ec0db6e7827a59be620a"
+      }
+    },
+    {
+      "id": "0007-rivetless-shield-profile",
+      "title": "Remove perimeter rivets from the shield profile",
+      "status": "accepted",
+      "baselineDistance": 0.7273066197379574,
+      "candidateDistance": 0.711335211069292,
+      "delta": -0.01597140866866542,
+      "componentDeltas": {
+        "dreamsim": 0.0014355331659317017,
+        "landmarks": -0.019466327551575402,
+        "lpips": -0.005987294018268585,
+        "palette_texture": 0.0035271938303207684,
+        "parts": -0.030747890453433957,
+        "silhouette": -0.01864177580000337
+      },
+      "viewDeltas": {
+        "back": 0.0012177142690467102,
+        "back_left": -0.02326065630666918,
+        "back_right": 0.018755830357545467,
+        "front": -0.06661074708489745,
+        "front_left": -0.050402303370397306,
+        "front_right": -0.00031360496633980883,
+        "left": -0.0076857635280696,
+        "right": 0.013946088296149739
+      },
+      "hashes": {
+        "recordSha256": "b6270c21357fc643f8a584948644308f8fce5816c0b0a48d5c252fefb5391022",
+        "progressSha256": "7dbe8a88e2e7496c1843523c926c596b51fccd17cd75286cd694cf0621aae5e3",
+        "baselineSourceSha256": "30a88293dc5cd3567a058abaacc331a557550ec2d7eb235c65f7c3f21db61cd1",
+        "candidateSourceSha256": "f710b768ac93d8ba7437caae8b8a85d8e688def845ee72b1cb19414c6afd122b",
+        "baselineReportSha256": "ccd89b942d7081002845fa19fd32437cad75b1c996edf76270bde7571979f102",
+        "candidateReportSha256": "dfd581e5504e55cb6ed562ee3a357c55d714acff67af235d893a2dfc34583af0"
+      }
+    },
+    {
+      "id": "0008-sword-blade-angle",
+      "title": "Angle the sword blade inward",
+      "status": "accepted",
+      "baselineDistance": 0.7113352093929114,
+      "candidateDistance": 0.7033412780406184,
+      "delta": -0.007993931352292982,
+      "componentDeltas": {
+        "dreamsim": 0.0012823641300201416,
+        "landmarks": -0.04051267550959703,
+        "lpips": 0.004237145185470581,
+        "palette_texture": 0.0009242852971693971,
+        "parts": -0.0005072114709958608,
+        "silhouette": -0.017252137092723774
+      },
+      "viewDeltas": {
+        "back": -0.005331178193776376,
+        "back_left": -0.007610235771205898,
+        "back_right": -0.020624040958323486,
+        "front": -0.018622988686275432,
+        "front_left": -0.020391663812250438,
+        "front_right": 0.013743605121134594,
+        "left": -0.003983473042343366,
+        "right": -0.008232150564682073
+      },
+      "hashes": {
+        "recordSha256": "eeeff0ea670a863d4b04522e0e7f91123747842dd9af1c888bd30a951fe2d234",
+        "progressSha256": "5e38a71c5be5b84a8d0a0b7c0da12439fbfb8f77e97c49ef513894387f30d244",
+        "baselineSourceSha256": "f710b768ac93d8ba7437caae8b8a85d8e688def845ee72b1cb19414c6afd122b",
+        "candidateSourceSha256": "f2e9c5490bdea9bf77bdd8371f97bfcd7f835243d0b8a08f2fd0e55fb430530f",
+        "baselineReportSha256": "62c3f674cb87de2ac1ff60ee2aca88f4a3c02b31af310d557215d78df8a3edeb",
+        "candidateReportSha256": "0c5842b663c71f4dbab8a77725e406f92977cbb3b469a1159f152cee4805c27f"
+      }
+    },
+    {
+      "id": "0009-rear-crossed-harness",
+      "title": "Add the rear crossed harness",
+      "status": "rejected",
+      "baselineDistance": 0.7033412780406184,
+      "candidateDistance": 0.7010389871277429,
+      "delta": -0.002302290912875482,
+      "componentDeltas": {
+        "dreamsim": -0.0018938183784484863,
+        "landmarks": 0,
+        "lpips": -0.009273968636989594,
+        "palette_texture": 0.0004949924176145537,
+        "parts": -0.000017347160057856748,
+        "silhouette": -0.00005297329827863573
+      },
+      "viewDeltas": {
+        "back": -0.00539438540960957,
+        "back_left": -0.005745950101836095,
+        "back_right": -0.000030998335759369056,
+        "front": 0.0000028371693774342788,
+        "front_left": -4.805921962613979e-7,
+        "front_right": -0.0000027585183306477745,
+        "left": -0.00031250789084291686,
+        "right": 0.001311501700818174
+      },
+      "hashes": {
+        "recordSha256": "dc2627d2279b7bad63ad611f4bf183c8e97877ffd5a9423d029a54c2eb1b9fc3",
+        "progressSha256": "abe19535ad345ec013c315669b3c992a4d324e818314f83c70fbbc904d5ce341",
+        "baselineSourceSha256": "f2e9c5490bdea9bf77bdd8371f97bfcd7f835243d0b8a08f2fd0e55fb430530f",
+        "candidateSourceSha256": "b4d32953e9594214e4b5e2da438fc90b5b13634214109ba3258b731f7c5199aa",
+        "baselineReportSha256": "f780be3f7dda507c10e9d967eebf4a3e7dc8e50d1414a8caddb1970ec9224fce",
+        "candidateReportSha256": "d8228107043ec1630517090b772e4066e8612ad73285e39936a35a30d8fd4f02"
+      }
+    },
+    {
+      "id": "0010-shallow-torso-depth",
+      "title": "Reduce torso depth",
+      "status": "rejected",
+      "baselineDistance": 0.7033412780406184,
+      "candidateDistance": 0.705013471075743,
+      "delta": 0.0016721930351245584,
+      "componentDeltas": {
+        "dreamsim": 0.005875617265701294,
+        "landmarks": 0,
+        "lpips": 0.0010573118925094604,
+        "palette_texture": -0.0005257436339626553,
+        "parts": 0.002322550116071853,
+        "silhouette": 0.003509919032086195
+      },
+      "viewDeltas": {
+        "back": -0.0008439327027924826,
+        "back_left": 0.0014108349817258947,
+        "back_right": 0.002140070790503157,
+        "front": -0.0003466061510606355,
+        "front_left": 0.0016439271614615558,
+        "front_right": 0.0019501017799182785,
+        "left": 0.00590715364814598,
+        "right": 0.008225663407539496
+      },
+      "hashes": {
+        "recordSha256": "f2e64bc9da7deb6476d82f95e3a1a2f005f1fb6bc0be4a160005f714c27591e9",
+        "progressSha256": "e4bc24aed23c25b34847affbb7fae81c7466dd83def872bce387690784c38bb0",
+        "baselineSourceSha256": "f2e9c5490bdea9bf77bdd8371f97bfcd7f835243d0b8a08f2fd0e55fb430530f",
+        "candidateSourceSha256": "1429dc662fea86b0668a1aecca3a4f164331c74f52b3455113eec001327e421f",
+        "baselineReportSha256": "9c1c083778a16539c06d3d877308948b1c860100fe2a8e1d863ef575014606d1",
+        "candidateReportSha256": "2c458bbd884a4420933fdba1a1b2664c6093979ef078551b5bb89f5d0a0a98c2"
+      }
+    },
+    {
+      "id": "0011-rear-cuirass-plate",
+      "title": "Add a planar rear cuirass plate",
+      "status": "rejected",
+      "baselineDistance": 0.7033413304687262,
+      "candidateDistance": 0.7022929608135451,
+      "delta": -0.0010483696551810695,
+      "componentDeltas": {
+        "dreamsim": 0.00613856315612793,
+        "landmarks": 0,
+        "lpips": -0.00674062967300415,
+        "palette_texture": -0.0007464179211656707,
+        "parts": -0.0014256257842949482,
+        "silhouette": -0.00290703669390302
+      },
+      "viewDeltas": {
+        "back": -0.0028170608815875076,
+        "back_left": -0.000612807588681763,
+        "back_right": 0.0020961421910866695,
+        "front": -0.0010114064305670745,
+        "front_left": -0.00003776177160375038,
+        "front_right": 0.0015824316269886785,
+        "left": 0.0006058798190435866,
+        "right": -0.0034758642690444486
+      },
+      "hashes": {
+        "recordSha256": "0dcbd316a7c6835f9d3d0259d29ccc1da7482e3648cc106c1eb6d03a31429019",
+        "progressSha256": "44d18dd59dbe901228a76abf1cd6445d0328c50da331064df28ac653468fccf1",
+        "baselineSourceSha256": "f2e9c5490bdea9bf77bdd8371f97bfcd7f835243d0b8a08f2fd0e55fb430530f",
+        "candidateSourceSha256": "6c305394af8190474577cc8e609b18dc0970ad66ca72db47f3632cb53cd6fa37",
+        "baselineReportSha256": "cce03515d092c5a66be8934df5546f0acbac21cb1c019be400051db163fc3cfb",
+        "candidateReportSha256": "a908d0c454ac3f78caff95c5a194755a511d3e4096338aed43051ab727bb4369"
+      }
+    },
+    {
+      "id": "0012-rear-hair-breakup",
+      "title": "Break up the rear hair mass",
+      "status": "rejected",
+      "baselineDistance": 0.7033412820189618,
+      "candidateDistance": 0.7005270916384758,
+      "delta": -0.0028141903804860258,
+      "componentDeltas": {
+        "dreamsim": -0.016409099102020264,
+        "landmarks": 0.000871711800413344,
+        "lpips": -0.0026422515511512756,
+        "palette_texture": -0.0012270292007621753,
+        "parts": 0.0023167785863864587,
+        "silhouette": 0.002274385143229418
+      },
+      "viewDeltas": {
+        "back": -0.009617180103509315,
+        "back_left": 0.0007916288344065325,
+        "back_right": -0.0019505014472047666,
+        "front": -0.004158967205851849,
+        "front_left": 0.0008747223087897105,
+        "front_right": -0.005773876423271429,
+        "left": -0.0010944431452861725,
+        "right": 0.0008972615796004613
+      },
+      "hashes": {
+        "recordSha256": "f7f0509a6258b9216d8ee23d9349bf3efe5cfdbbbcde446e8f8e453163320923",
+        "progressSha256": "10f6590c071451b9757e951f14447f188468757bf5471ce2f5e4da2f93022fb9",
+        "baselineSourceSha256": "f2e9c5490bdea9bf77bdd8371f97bfcd7f835243d0b8a08f2fd0e55fb430530f",
+        "candidateSourceSha256": "249211cd79d9b7cb856605d2d1149fded434766ed2b18a0b24689f78b8dad8b2",
+        "baselineReportSha256": "bc983aa9bd472c41ddb7eda9d2e0f37a27255380a42af36a9ff130aa1cf3720e",
+        "candidateReportSha256": "573aabd117fb9b95875eeec738d954c2dd8acdee56ac29ff6d1e4563a5b476be"
+      }
+    },
+    {
+      "id": "0013-slim-arm-radii",
+      "title": "Slim the arm armour",
+      "status": "rejected",
+      "baselineDistance": 0.7033412780406184,
+      "candidateDistance": 0.7052058225150212,
+      "delta": 0.0018645444744027628,
+      "componentDeltas": {
+        "dreamsim": 0.0076956599950790405,
+        "landmarks": 0.0014090547629411754,
+        "lpips": -0.0034257248044013977,
+        "palette_texture": -0.00012295659751299093,
+        "parts": -0.0012884971005444612,
+        "silhouette": 0.0023877916657362164
+      },
+      "viewDeltas": {
+        "back": 0.002805009503780931,
+        "back_left": -0.0018286307380908084,
+        "back_right": 0.006896767742970322,
+        "front": 0.001987963372326651,
+        "front_left": 0.006790679474013794,
+        "front_right": -0.002621569150813796,
+        "left": 0.0026685792562477495,
+        "right": -0.004290350410221633
+      },
+      "hashes": {
+        "recordSha256": "f4d3346320e4009b4a2474b7cd016ec992a8d7078ad09129d0bca7848c1e2667",
+        "progressSha256": "e6870609d90f9963d33551e970d40ea7d5ad05d1194ab788020616302b698608",
+        "baselineSourceSha256": "f2e9c5490bdea9bf77bdd8371f97bfcd7f835243d0b8a08f2fd0e55fb430530f",
+        "candidateSourceSha256": "5a6f30733e36f43b80135ec06f23071b2f15b9233abf3832e6a59e073e605e58",
+        "baselineReportSha256": "2177b5d8e50975f6bde2f038c0f1ac148e1f2eef5b808f0ada08e8e2762219cd",
+        "candidateReportSha256": "60c558c13a442a29009561b4b45b2bbbcad8eeb0febc4c9e0ef385279980e9cd"
+      }
+    },
+    {
+      "id": "0014-compact-belt",
+      "title": "Compact the belt assembly",
+      "status": "accepted",
+      "baselineDistance": 0.7033412780406184,
+      "candidateDistance": 0.6913992557735769,
+      "delta": -0.011942022267041552,
+      "componentDeltas": {
+        "dreamsim": -0.025534838438034058,
+        "landmarks": -0.004922801939085897,
+        "lpips": -0.020255640149116516,
+        "palette_texture": -0.014781555028701321,
+        "parts": -0.0006442164736935041,
+        "silhouette": -0.009110719232917952
+      },
+      "viewDeltas": {
+        "back": -0.013771172684390653,
+        "back_left": -0.010334466020744282,
+        "back_right": -0.004231468611828437,
+        "front": -0.0040252430349625445,
+        "front_left": -0.0010615010427270644,
+        "front_right": 0.0005026447008454893,
+        "left": -0.026579356091299022,
+        "right": -0.031157880904960744
+      },
+      "hashes": {
+        "recordSha256": "42311146bc57d726623192a1d1b3c6432304aab88d3372628ed0d25b5f8c027a",
+        "progressSha256": "4b35abff613abd630b556a23b1817ac2a332ff0576ab967244170346e2258506",
+        "baselineSourceSha256": "f2e9c5490bdea9bf77bdd8371f97bfcd7f835243d0b8a08f2fd0e55fb430530f",
+        "candidateSourceSha256": "25971d29585262d02b90e61346c98d67244c33933ca59f53a8ffac1082ef07b2",
+        "baselineReportSha256": "047f26f6a1f944d68bf24832aefe980d6267377ab4b3ec1e7ebc14ef3a4ed2b5",
+        "candidateReportSha256": "49c2137b0033ad69b5ed40b9a1956a438a27c8681e7d41e1f75017d9479f35dc"
+      }
+    },
+    {
+      "id": "0015-short-irregular-hair-tufts",
+      "title": "Shorten and vary the front hair tufts",
+      "status": "rejected",
+      "baselineDistance": 0.6913992557735769,
+      "candidateDistance": 0.6975419300022573,
+      "delta": 0.0061426742286804226,
+      "componentDeltas": {
+        "dreamsim": 0.015236929059028625,
+        "landmarks": 0.0018183489751717463,
+        "lpips": 0.006690017879009247,
+        "palette_texture": 0.001667813252953454,
+        "parts": -0.0012596622523461942,
+        "silhouette": 0.0031234458901975293
+      },
+      "viewDeltas": {
+        "back": 0.0004847898524951155,
+        "back_left": 0.012273537597860873,
+        "back_right": 0.004714947161748584,
+        "front": 0.0004663116855312399,
+        "front_left": 0.002215404232920437,
+        "front_right": 0.009320984258985088,
+        "left": 0.0024929856577722287,
+        "right": 0.003756598642532305
+      },
+      "hashes": {
+        "recordSha256": "c0e54f982409fc93d195a5bb85d066b8b2e5018cfb86621c37c6a60952177c4c",
+        "progressSha256": "2e0e086ffbcf736aaa1cadc3ae927d726609f0f5faa927306eb0439b51dc49c3",
+        "baselineSourceSha256": "25971d29585262d02b90e61346c98d67244c33933ca59f53a8ffac1082ef07b2",
+        "candidateSourceSha256": "45a051dc5eb542672ebbfa5a2f65cb8e33d1064881d72ac74be96600cf2ae30e",
+        "baselineReportSha256": "3a3affbcbfa12c69d10dfaecaa9a6fcc0522856fc8d90bf33a319342fb3d0523",
+        "candidateReportSha256": "16144832c3d4f3fd6a0e70d56fc39125f4e07737dfaae60d66dbcff2055eec18"
+      }
+    },
+    {
+      "id": "0016-darkened-steel-palette",
+      "title": "Darken the steel palette",
+      "status": "accepted",
+      "baselineDistance": 0.6913992557735769,
+      "candidateDistance": 0.6880753720188472,
+      "delta": -0.003323883754729695,
+      "componentDeltas": {
+        "dreamsim": -0.002816423773765564,
+        "landmarks": 0,
+        "lpips": -0.013783097267150879,
+        "palette_texture": -0.019863742104551774,
+        "parts": 0,
+        "silhouette": 0
+      },
+      "viewDeltas": {
+        "back": -0.001511628943148935,
+        "back_left": -0.009628275140886378,
+        "back_right": 0.0023287104268405745,
+        "front": -0.0033703057139410353,
+        "front_left": -0.009712064932251518,
+        "front_right": -0.003799729459948553,
+        "left": -0.004103941896484997,
+        "right": -0.0016265138755661157
+      },
+      "hashes": {
+        "recordSha256": "d0499106f8e8497183775c849bb1d473cb6dea2aec8ca536bdd09ef3b56aed2f",
+        "progressSha256": "91564e42f412e5300a99861e68dbda78195b89b725360419e4ed4837d7d40f20",
+        "baselineSourceSha256": "25971d29585262d02b90e61346c98d67244c33933ca59f53a8ffac1082ef07b2",
+        "candidateSourceSha256": "fdb580523b2861c40475dc3c4ba38696a2f16ec1d5eb037d1937d90c0b134f34",
+        "baselineReportSha256": "4dba430a210eb4093763d0303ee5cba6347d38b41679479855b748ef8669c6ad",
+        "candidateReportSha256": "d3e6f019001210b89c1496e7e9a0e0a9ef0da73594144d00cf9e8286df341ed1"
+      }
+    },
+    {
+      "id": "0017-subdued-brass-palette",
+      "title": "Subdue the brass palette",
+      "status": "rejected",
+      "baselineDistance": 0.6880753766586285,
+      "candidateDistance": 0.6876286079304276,
+      "delta": -0.0004467687282009303,
+      "componentDeltas": {
+        "dreamsim": -0.002178400754928589,
+        "landmarks": 0,
+        "lpips": -0.0032889023423194885,
+        "palette_texture": 0.0011708054550998437,
+        "parts": 0,
+        "silhouette": 0
+      },
+      "viewDeltas": {
+        "back": 0.00015539460631930346,
+        "back_left": -8.529547953495253e-7,
+        "back_right": 0.0006327572159218198,
+        "front": -0.001670600062650962,
+        "front_left": -0.0011301835905004332,
+        "front_right": -0.0030028146151896973,
+        "left": 0.0002745457905448667,
+        "right": -0.00043816510731120584
+      },
+      "hashes": {
+        "recordSha256": "6bb4267638c2b701df70031e55c9ae8ac4b5d5d65ce4e1ddfccd02d9552baeb7",
+        "progressSha256": "9a1f0ca865c8baec06cdf252dea7cc1e8cb48a699eb01830ba88bd9580a05c90",
+        "baselineSourceSha256": "fdb580523b2861c40475dc3c4ba38696a2f16ec1d5eb037d1937d90c0b134f34",
+        "candidateSourceSha256": "b7874e7e7e14aba6d191f27452cedd9e88dca9092f0b0b4eaf7f2886ed34c14e",
+        "baselineReportSha256": "32277f0d5503384d0d2d4d3e32e639d330edf0784683de6328aae05a31d0ed88",
+        "candidateReportSha256": "55e3507529e40447d2bce6b1d6f8082db497e5d33ab5b09c952a89d1b22665dc"
+      }
+    },
+    {
+      "id": "0018-steel-boots",
+      "title": "Change boots from leather to steel",
+      "status": "accepted",
+      "baselineDistance": 0.6880753766586285,
+      "candidateDistance": 0.6852487012332253,
+      "delta": -0.002826675425403158,
+      "componentDeltas": {
+        "dreamsim": -0.002642035484313965,
+        "landmarks": 0,
+        "lpips": -0.016142621636390686,
+        "palette_texture": -0.007779652050623559,
+        "parts": 0,
+        "silhouette": 0
+      },
+      "viewDeltas": {
+        "back": -0.0025447983049198264,
+        "back_left": -0.0010841113116846213,
+        "back_right": -0.0018520878152790132,
+        "front": -0.006092882314791992,
+        "front_left": -0.002150540431320014,
+        "front_right": -0.0038587399845985138,
+        "left": -0.0021532796160326217,
+        "right": -0.0036286359458866935
+      },
+      "hashes": {
+        "recordSha256": "41c0c4e77284ceadf399b49e51660a9a7c6d3b88e5ed9185e46b4b3e36b8814b",
+        "progressSha256": "5970e437c87212216a448f1c7b4421b9c99283d8844cdc8eca9f95821911ba02",
+        "baselineSourceSha256": "fdb580523b2861c40475dc3c4ba38696a2f16ec1d5eb037d1937d90c0b134f34",
+        "candidateSourceSha256": "0993ec43b3381e9e306969f52a42941615ebece24edd622444997dd077d44bd7",
+        "baselineReportSha256": "14a10cbc325e9ed519391c997cf9a7ca1c6658a1a711c1f43855a585796d75c7",
+        "candidateReportSha256": "3463959bf31662b568f3f05992c7e49996e4e8f934431ceb56269fe434ee4b24"
+      }
+    },
+    {
+      "id": "0019-tapered-boot-profile",
+      "title": "Lower and lengthen the boot profile",
+      "status": "rejected",
+      "baselineDistance": 0.6852487012332253,
+      "candidateDistance": 0.6858221674335893,
+      "delta": 0.0005734662003639146,
+      "componentDeltas": {
+        "dreamsim": 0.0071712881326675415,
+        "landmarks": -0.002455516705574312,
+        "lpips": 0.003481529653072357,
+        "palette_texture": -0.0007341939787259555,
+        "parts": -0.0008132585288818106,
+        "silhouette": -0.001320523897100967
+      },
+      "viewDeltas": {
+        "back": -0.00032586802801848336,
+        "back_left": -0.0005622007145411612,
+        "back_right": 0.0039021067031543843,
+        "front": 0.0021226871644599576,
+        "front_left": 0.0057189336417795555,
+        "front_right": -0.001178319164223507,
+        "left": -0.0007499461779318928,
+        "right": -0.0019414392127486968
+      },
+      "hashes": {
+        "recordSha256": "909bb2fdbc513167c77d1ebafd054f71d39769015ef270f206696205e9b35523",
+        "progressSha256": "3293a7aa35552529667307921d7ca44667be566c3ea629bd7ed0619878593668",
+        "baselineSourceSha256": "0993ec43b3381e9e306969f52a42941615ebece24edd622444997dd077d44bd7",
+        "candidateSourceSha256": "9cc22819fb50c9b6ec92e0c38b66e6a68bf914bc1256d3130d90191ceb4de274",
+        "baselineReportSha256": "cfc0f3a7a83b6b96609ce1b935293235cc2c2b09b05d998b72fbadc68b3c93de",
+        "candidateReportSha256": "ead6f7e952d98d1fbb5fe351b255fb87fd7593771a7d36161608b10d4aecda88"
+      }
+    },
+    {
+      "id": "0020-layered-hip-tassets",
+      "title": "Add layered rigid hip tassets",
+      "status": "rejected",
+      "baselineDistance": 0.6852487012332253,
+      "candidateDistance": 0.6863796936270848,
+      "delta": 0.001130992393859498,
+      "componentDeltas": {
+        "dreamsim": 0.018028870224952698,
+        "landmarks": 0,
+        "lpips": -0.002652466297149658,
+        "palette_texture": -0.0011122914722410948,
+        "parts": -0.0024211066274277826,
+        "silhouette": -0.0036422784938881514
+      },
+      "viewDeltas": {
+        "back": -0.0011627281618128427,
+        "back_left": -0.00031941379954880667,
+        "back_right": -0.002080691809423829,
+        "front": 0.01200442988191508,
+        "front_left": 0.0031527492908902666,
+        "front_right": 0.0025229463116371864,
+        "left": 0.00037165294810959093,
+        "right": 0.0006755826375679508
+      },
+      "hashes": {
+        "recordSha256": "ba245cf7689e71db4f7b9a312c55c78a1df5d0c4d4adcfaec99da8fd67417050",
+        "progressSha256": "559484061be2cd3ddd85fdefa91da0d59f48916d7b2dfee19130521ab07777ac",
+        "baselineSourceSha256": "0993ec43b3381e9e306969f52a42941615ebece24edd622444997dd077d44bd7",
+        "candidateSourceSha256": "ad1a08bec204fe0beb62c8cad9e43b5debbc07123638d9c845f0ebc187fc35f1",
+        "baselineReportSha256": "378aa0d852d18e5d61830b3b8e35edb8165ae641e3e9f1eee5d7a4f83e145f50",
+        "candidateReportSha256": "ad437ec9710d1e5b7c53ef01a83b8f1c8f82561c98fa2452495826406c973d59"
+      }
+    },
+    {
+      "id": "0021-breastplate-waist-taper",
+      "title": "Taper the breastplate toward the waist",
+      "status": "rejected",
+      "baselineDistance": 0.6852487012332253,
+      "candidateDistance": 0.6852552185013109,
+      "delta": 0.000006517268085537431,
+      "componentDeltas": {
+        "dreamsim": -0.00026948750019073486,
+        "landmarks": 0,
+        "lpips": 0.0006526261568069458,
+        "palette_texture": 0.00006978207267518965,
+        "parts": -0.00006045227299522615,
+        "silhouette": 0.00015087880358444217
+      },
+      "viewDeltas": {
+        "back": -0.00007414897379220964,
+        "back_left": 0.00032614296210864424,
+        "back_right": 0.000034255036729602395,
+        "front": -0.0013050082121139894,
+        "front_left": 0.0012436713689807366,
+        "front_right": 0.0014079899139075591,
+        "left": -0.0014185402532450597,
+        "right": 0.000052886280449637724
+      },
+      "hashes": {
+        "recordSha256": "e60dcc8c609a03c91b18f1863394d776c08951e4a49c6d4dbc837e2dacc6bf5a",
+        "progressSha256": "58ff7fb87eec587658bfe158d70b9e964cce4c544dd52e4470f220835d9f56aa",
+        "baselineSourceSha256": "0993ec43b3381e9e306969f52a42941615ebece24edd622444997dd077d44bd7",
+        "candidateSourceSha256": "3dafc72e99199de13a9442da66ab329a8b506fe0ea7a659b7600667a87a13425",
+        "baselineReportSha256": "254bf5f0ca681b4f27608ee5b0b80b8aa5ff76ffdf0e551b5465023217fba3e0",
+        "candidateReportSha256": "508ceef6b07442c3ac599cbcad714be96baccdd7985af6e4fbe79b5d5a304c9f"
+      }
+    },
+    {
+      "id": "0022-compact-shield-boss",
+      "title": "Compact the shield boss",
+      "status": "accepted",
+      "baselineDistance": 0.6852487012332253,
+      "candidateDistance": 0.6830961936105201,
+      "delta": -0.0021525076227052464,
+      "componentDeltas": {
+        "dreamsim": -0.010087385773658752,
+        "landmarks": -0.000023742661271475285,
+        "lpips": -0.0055631473660469055,
+        "palette_texture": -0.001652505865497117,
+        "parts": -0.0000099896767583596,
+        "silhouette": -0.0006494825468013055
+      },
+      "viewDeltas": {
+        "back": 0.000014962926058736947,
+        "back_left": 0.00008148897952564571,
+        "back_right": 0.00006173613315252346,
+        "front": -0.00749491421913262,
+        "front_left": -0.007560932508594909,
+        "front_right": -0.006029667218593104,
+        "left": -0.0023761683232399466,
+        "right": 0.0003035117858098957
+      },
+      "hashes": {
+        "recordSha256": "967f02c9d1261a1b522d9d18e031bbdd2f81ce326a5a4c77cba5fbb7268e7782",
+        "progressSha256": "76e95fc8db5c78ee335052503b74e704921327a2c28feb64ac33d76d9ef55583",
+        "baselineSourceSha256": "0993ec43b3381e9e306969f52a42941615ebece24edd622444997dd077d44bd7",
+        "candidateSourceSha256": "b60d8257adfc201730d7d5f83f2c98b6da0bffd134de2ce0df9990596719e18d",
+        "baselineReportSha256": "3f31aeb7844b218f81cab8c881e8bcda6b6098a77405f2286990788d1f4121bd",
+        "candidateReportSha256": "1ec70fe203e3f2e6e98ed6f69345b69f5c3ba81b3a08fa6d59feaf88162c0aeb"
+      }
+    },
+    {
+      "id": "0023-dark-cuirass-ridges",
+      "title": "Darken the cuirass ridges",
+      "status": "rejected",
+      "baselineDistance": 0.6830961936105201,
+      "candidateDistance": 0.6821239462251432,
+      "delta": -0.0009722473853769342,
+      "componentDeltas": {
+        "dreamsim": -0.00606188178062439,
+        "landmarks": 0,
+        "lpips": -0.0010726451873779297,
+        "palette_texture": 0.00023311027693484476,
+        "parts": 0,
+        "silhouette": 0
+      },
+      "viewDeltas": {
+        "back": 0,
+        "back_left": 0,
+        "back_right": 0,
+        "front": -0.0020035549232242378,
+        "front_left": -0.004374677559900397,
+        "front_right": -0.003846846864224762,
+        "left": -0.000001287540792094255,
+        "right": -0.00014427188921184442
+      },
+      "hashes": {
+        "recordSha256": "aee6f204bd1b54ed1c2e2b169543510481189b44877de6699c81b8ed54e5609b",
+        "progressSha256": "2926c6a59b8280cdc4e612f55f73ffb505453c45e0ba3b3545acc78c6447ef41",
+        "baselineSourceSha256": "b60d8257adfc201730d7d5f83f2c98b6da0bffd134de2ce0df9990596719e18d",
+        "candidateSourceSha256": "c65d16a894393bafd27ad662d5a2bdad04ddf4f9080cfbe2671c83165e6cfca5",
+        "baselineReportSha256": "5cfcfd1e4f172b882f592e4c390fcad498983c10fcfe2e812e9870ccfc9be243",
+        "candidateReportSha256": "71195b0bb4db24645fb8fca85fe400783243d33967bfec69e342e2d24c13a99b"
+      }
+    },
+    {
+      "id": "0024-blackened-cuirass-ridges",
+      "title": "Blacken the cuirass ridges",
+      "status": "accepted",
+      "baselineDistance": 0.6830960729035708,
+      "candidateDistance": 0.6820894240944771,
+      "delta": -0.0010066488090936243,
+      "componentDeltas": {
+        "dreamsim": -0.006397664546966553,
+        "landmarks": 0,
+        "lpips": -0.001253768801689148,
+        "palette_texture": 0.0006271137743741606,
+        "parts": 0,
+        "silhouette": 0
+      },
+      "viewDeltas": {
+        "back": 0,
+        "back_left": 0,
+        "back_right": 0,
+        "front": -0.0020082725979948535,
+        "front_left": -0.004784681216235653,
+        "front_right": -0.004292301197445503,
+        "left": 0.000001287540792094255,
+        "right": 0.000346380173885108
+      },
+      "hashes": {
+        "recordSha256": "7594c664d88f7769ba6540128342e13840762b0bea4d91d6350e703de61f1d65",
+        "progressSha256": "9102e26dda2fddab4b219ab47985d2cb725cd743309d347889396b8541a98e92",
+        "baselineSourceSha256": "b60d8257adfc201730d7d5f83f2c98b6da0bffd134de2ce0df9990596719e18d",
+        "candidateSourceSha256": "2f3a88e1feb5213c3f08e2fe25c695db9f74891d0e53a6e53b7741698db32158",
+        "baselineReportSha256": "d41cec87f06f3f663db289af10a2bf209a244a803f29d5587e2b313d48370f09",
+        "candidateReportSha256": "7808ef4fda50fee421985eac9ac53e3cf72ec905b18549db61428ea69e7e4fac"
+      }
+    },
+    {
+      "id": "0025-narrow-head-assembly",
+      "title": "Narrow the complete head assembly",
+      "status": "accepted",
+      "baselineDistance": 0.6820894240944771,
+      "candidateDistance": 0.6810348510339064,
+      "delta": -0.0010545730605707737,
+      "componentDeltas": {
+        "dreamsim": 0.0087299644947052,
+        "landmarks": -0.000044481892327086214,
+        "lpips": -0.004395641386508942,
+        "palette_texture": -0.005083189168286539,
+        "parts": -0.004248782832573572,
+        "silhouette": -0.00038765597154583054
+      },
+      "viewDeltas": {
+        "back": -0.0031734242137628765,
+        "back_left": 0.0036019887319557187,
+        "back_right": -0.002050371998798095,
+        "front": -0.003240916976113173,
+        "front_left": 0.0007017156505702005,
+        "front_right": 0.00041600401334218606,
+        "left": -0.002558262395266353,
+        "right": 0.003516952445351551
+      },
+      "hashes": {
+        "recordSha256": "b207eb51da02e217730ed77a16f9ed2654895237f867ad52106870882f9c70b6",
+        "progressSha256": "cc122eb7ae495a479c105c6b09173727f62b0a5705202d118f8bf82bd7bd2056",
+        "baselineSourceSha256": "2f3a88e1feb5213c3f08e2fe25c695db9f74891d0e53a6e53b7741698db32158",
+        "candidateSourceSha256": "0ade4dc8b84df032104fd913c57f8163d739daf10c59667d6813cab6f0c1f256",
+        "baselineReportSha256": "df826447d3c9f0bbcff8e86a3dad996ac6762888b7df79b0b4abfa739b0d4589",
+        "candidateReportSha256": "1d35459e95ec3e811fe22763f4aefe8f741ffd03c208b38036d12dbc4aacbc11"
+      }
+    },
+    {
+      "id": "0026-dark-pauldron-ridges",
+      "title": "Darken the pauldron ridges",
+      "status": "rejected",
+      "baselineDistance": 0.6810348510339064,
+      "candidateDistance": 0.6802338080942207,
+      "delta": -0.0008010429396856367,
+      "componentDeltas": {
+        "dreamsim": -0.003963038325309753,
+        "landmarks": 0,
+        "lpips": -0.0044202134013175964,
+        "palette_texture": 0.0025722760439347014,
+        "parts": 0,
+        "silhouette": 0
+      },
+      "viewDeltas": {
+        "back": -0.0002719675563415125,
+        "back_left": -0.0007497995125871348,
+        "back_right": -0.000552167163972439,
+        "front": -0.0025381475882180204,
+        "front_left": -0.0014504030630131393,
+        "front_right": -0.0013581867388712254,
+        "left": -0.0005531665232497707,
+        "right": -0.00034537306014892355
+      },
+      "hashes": {
+        "recordSha256": "7e9e52df59d3b4c23cdd2e867fd8ca2787e40b586f598da571bfe8a854f45d9c",
+        "progressSha256": "0865e614c4926fbc6d9366d5e90a628614ee4fec6105e547210a4a3fa7197bef",
+        "baselineSourceSha256": "0ade4dc8b84df032104fd913c57f8163d739daf10c59667d6813cab6f0c1f256",
+        "candidateSourceSha256": "5b3927cc0e6166f3d8d33492422a0db80eb4bfe5651da15c92d3e20ab3f00560",
+        "baselineReportSha256": "e5f1209c9905672d358acd90c8b42f4f0c86448051c648336fe1bac7f0f7bbba",
+        "candidateReportSha256": "1f724c8884992163b2dc4835bb69b77587be732b7ae8af515b556c5635fcea32"
+      }
+    },
+    {
+      "id": "0027-layered-pauldron-caps",
+      "title": "Replace pauldron hoops with layered caps",
+      "status": "rejected",
+      "baselineDistance": 0.6810348510339064,
+      "candidateDistance": 0.680960908596241,
+      "delta": -0.00007394243766534192,
+      "componentDeltas": {
+        "dreamsim": -0.0037302225828170776,
+        "landmarks": 0.00012804744470762408,
+        "lpips": -0.012059628963470459,
+        "palette_texture": 0.005290923765435718,
+        "parts": -0.00006800887987823412,
+        "silhouette": 0.002617770230872174
+      },
+      "viewDeltas": {
+        "back": 0.002395698529706669,
+        "back_left": 0.00023468918424918161,
+        "back_right": -0.012186661886269823,
+        "front": 0.001551685565768679,
+        "front_left": -0.00004373782433664264,
+        "front_right": -0.0009957851328643574,
+        "left": -0.006666447915215645,
+        "right": 0.00853331073131458
+      },
+      "hashes": {
+        "recordSha256": "ee5e6e72cd5aa96f8568b52cb22ad4c175481b16c31fddbd998bbde9f02fe35f",
+        "progressSha256": "dc2cfdc61a3f17292cbbe1a698a5a47043c46294956767243fe9b25054b51a48",
+        "baselineSourceSha256": "0ade4dc8b84df032104fd913c57f8163d739daf10c59667d6813cab6f0c1f256",
+        "candidateSourceSha256": "090146f6a204e0b7e2a5605e3809af30b3ae777928390af853dfabbca75a5327",
+        "baselineReportSha256": "f5bf362167445f388858e8d16452a429cae5d9ecead2b6683b7eb2942c42d3d8",
+        "candidateReportSha256": "b57e48bc9de7980962ac898e4c32295ed0ea4280b028c04c924752ce2b13db2d"
+      }
+    },
+    {
+      "id": "0028-thin-shield-slab",
+      "title": "Thin the shield slab",
+      "status": "accepted",
+      "baselineDistance": 0.6810348498249377,
+      "candidateDistance": 0.6793299158807575,
+      "delta": -0.0017049339441801425,
+      "componentDeltas": {
+        "dreamsim": -0.004885092377662659,
+        "landmarks": -0.00007487639749603758,
+        "lpips": -0.0037066712975502014,
+        "palette_texture": -0.0012999236946600878,
+        "parts": 0.00006785260335251397,
+        "silhouette": -0.0020432507610767536
+      },
+      "viewDeltas": {
+        "back": -0.0011779464694552377,
+        "back_left": -0.004478868523270285,
+        "back_right": -0.000487254368374046,
+        "front": -0.002353582447710556,
+        "front_left": -0.003769250139100677,
+        "front_right": 0.001361727687069103,
+        "left": -0.003684558439662866,
+        "right": -0.00045503878553720956
+      },
+      "hashes": {
+        "recordSha256": "1ed83b024ec9e284177dd40abe7020d6fcc8f128119a3ab52da567bd9bc39231",
+        "progressSha256": "fc6f2eac3eb32682398f99a8d046a2678cedb01ad3ccacb29efb5774f9aaa96e",
+        "baselineSourceSha256": "0ade4dc8b84df032104fd913c57f8163d739daf10c59667d6813cab6f0c1f256",
+        "candidateSourceSha256": "5c3314e1c2208d5b4cac11fdad2b55e78d834ce32179e254d09de6bd26807ea0",
+        "baselineReportSha256": "0eb1adc336e5a79ac92e9e0edcc3a5b386d5c9e25316030a5afa3522f4a067cc",
+        "candidateReportSha256": "30c109dd42b44a42b025e630ed1a2e62df20bb1a087c990c93ce11cf08c59830"
+      }
+    },
+    {
+      "id": "0029-compact-sword-pommel",
+      "title": "Compact the sword pommel",
+      "status": "rejected",
+      "baselineDistance": 0.6793295068705235,
+      "candidateDistance": 0.6796112021786105,
+      "delta": 0.0002816953080869711,
+      "componentDeltas": {
+        "dreamsim": 0.0016201436519622803,
+        "landmarks": 0,
+        "lpips": 0.0013826414942741394,
+        "palette_texture": 0.00003248461674904002,
+        "parts": 0.00018092887186116346,
+        "silhouette": -0.0003944799513320163
+      },
+      "viewDeltas": {
+        "back": -0.000168851475233045,
+        "back_left": -0.000018389343314217932,
+        "back_right": -0.0017026522488723383,
+        "front": 0.001964380071620253,
+        "front_left": 0.001842782003303678,
+        "front_right": 0.0016376669898698903,
+        "left": 0.0004150110875212887,
+        "right": -0.0005149265313462159
+      },
+      "hashes": {
+        "recordSha256": "0401db16c685a3fae356a7482f3ab4503851bbfedf7beeb2039d03a5c7646f9b",
+        "progressSha256": "6af4579e69324bfd89f83438cf440942e59d0a0d4ce700c0f7487b94623f9e5d",
+        "baselineSourceSha256": "5c3314e1c2208d5b4cac11fdad2b55e78d834ce32179e254d09de6bd26807ea0",
+        "candidateSourceSha256": "2ce2978e2880fbd227fc6ae141c99f3dae772782f445b50700b95c6b9ab4e470",
+        "baselineReportSha256": "1c0c10d0dd5e9ac68dd13a81917a60c7e6285defc19fb5721536f9f7774af72c",
+        "candidateReportSha256": "f2e608ccad7eb28ab36411edc751f92a81218473f7dc80154ada591e43dc8443"
+      }
+    },
+    {
+      "id": "0030-dark-leather-palette",
+      "title": "Darken the leather palette",
+      "status": "accepted",
+      "baselineDistance": 0.6793299171309972,
+      "candidateDistance": 0.6763572643366178,
+      "delta": -0.0029726527943794157,
+      "componentDeltas": {
+        "dreamsim": -0.008325815200805664,
+        "landmarks": 0,
+        "lpips": -0.008897073566913605,
+        "palette_texture": -0.00655083706540921,
+        "parts": 0,
+        "silhouette": 0
+      },
+      "viewDeltas": {
+        "back": -0.002260748867337292,
+        "back_left": -0.005180502996051772,
+        "back_right": -0.00395382717607673,
+        "front": -0.003634356261378646,
+        "front_left": -0.0027655168438975863,
+        "front_right": -0.0018436661936307441,
+        "left": -0.0016143590019194187,
+        "right": -0.004426655486855058
+      },
+      "hashes": {
+        "recordSha256": "33327a1733ab4a18a5c6d9590f7e32c0a084672fed5acad23e20ca5146071e6f",
+        "progressSha256": "a510eb3586c644446b02ece5fef6668ad51c08aab29e38ee7a9fcd4e95b98933",
+        "baselineSourceSha256": "5c3314e1c2208d5b4cac11fdad2b55e78d834ce32179e254d09de6bd26807ea0",
+        "candidateSourceSha256": "ec1e51df5c45f2a6d91db56cc7293c6052cb29bf5ae11ddcaae1ef7b65d9d34c",
+        "baselineReportSha256": "6588fb7195cf6dbabe6703a79620af90fb256062ade678dfe2cf5c1c57398ec1",
+        "candidateReportSha256": "3faf2633883a796fdd1d3d7cb7ad6d0a279e6d1bf2e67316f302f22483ec0c56"
+      }
+    },
+    {
+      "id": "0031-remove-cloth-occluders",
+      "title": "Remove the cloth occluders",
+      "status": "rejected",
+      "baselineDistance": 0.6763572643366178,
+      "candidateDistance": 0.67437445103621,
+      "delta": -0.0019828133004078374,
+      "componentDeltas": {
+        "dreamsim": -0.017890527844429016,
+        "landmarks": 0,
+        "lpips": 0.01403827965259552,
+        "palette_texture": -0.0024413599005942976,
+        "parts": -0.0027031976760216736,
+        "silhouette": 0.004644352798798768
+      },
+      "viewDeltas": {
+        "back": -0.0014352258428372844,
+        "back_left": 0.003187723360990935,
+        "back_right": -0.01119070141865297,
+        "front": 0.0037616349638016633,
+        "front_left": -0.004205069719118493,
+        "front_right": -0.011516202366799844,
+        "left": 0.003694572952625985,
+        "right": 0.0003805284465392411
+      },
+      "hashes": {
+        "recordSha256": "365c96fb4d7e13c5c7e61b4301285a02d10dd59137c09b2a19233bfc0ef53778",
+        "progressSha256": "a05d6ef11fe3700acd0be7ef22b227ad620bbc49be55f7fba64626cfc947e058",
+        "baselineSourceSha256": "ec1e51df5c45f2a6d91db56cc7293c6052cb29bf5ae11ddcaae1ef7b65d9d34c",
+        "candidateSourceSha256": "659c253481e4dd2fcbc4b2d58799055604fe6cc9e3e92ce31adbf8a6465efe9f",
+        "baselineReportSha256": "80824a89b18f988af0ee9ab54f85d8109103265d83c2ba6f773619b8bd8bcdb2",
+        "candidateReportSha256": "4ad640cc1c2bfaa39b99bb1f30fea95b2a51151b2c58b8077b0325170ff6bbfe"
+      }
+    },
+    {
+      "id": "0032-ablate-pauldron-hoops",
+      "title": "Ablate the pauldron hoops",
+      "status": "accepted",
+      "baselineDistance": 0.6763572643366178,
+      "candidateDistance": 0.6740783861195763,
+      "delta": -0.0022788782170415356,
+      "componentDeltas": {
+        "dreamsim": -0.01759275794029236,
+        "landmarks": 0,
+        "lpips": -0.007769778370857239,
+        "palette_texture": 0.011510112555891766,
+        "parts": -0.00006146490054070863,
+        "silhouette": 0.002161370569436105
+      },
+      "viewDeltas": {
+        "back": -0.0009326820257573587,
+        "back_left": -0.0023778943766126215,
+        "back_right": -0.0042800865318312065,
+        "front": -0.0015842095823236368,
+        "front_left": 0.00022370350454326005,
+        "front_right": -0.013747371134364639,
+        "left": -0.00024992072427520995,
+        "right": 0.001127578624197545
+      },
+      "hashes": {
+        "recordSha256": "593b1361764be8244abc9d024c8f1e3f7cd4ef083968daa0f5cb51900937a20b",
+        "progressSha256": "68496f12d43ea67165bfc8cf7ddab273ac43e5ba4d1b89de6f88016142dee15d",
+        "baselineSourceSha256": "ec1e51df5c45f2a6d91db56cc7293c6052cb29bf5ae11ddcaae1ef7b65d9d34c",
+        "candidateSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "baselineReportSha256": "f62d3f959d99ff4fa3f48a06ef1dff4b8e54b8642aae7d883e9f8d32f36c6fb8",
+        "candidateReportSha256": "b21b2749febb4942f818874f483eb9d6e3764bc7a2ca3463e9bd4822f746022a"
+      }
+    },
+    {
+      "id": "0033-narrow-tapered-sword-blade",
+      "title": "Narrow the tapered sword blade",
+      "status": "rejected",
+      "baselineDistance": 0.6740783861195763,
+      "candidateDistance": 0.6739413680947006,
+      "delta": -0.00013701802487564585,
+      "componentDeltas": {
+        "dreamsim": 0.0004290640354156494,
+        "landmarks": 0,
+        "lpips": -0.00009909272193908691,
+        "palette_texture": 0.00011600343361845011,
+        "parts": -0.00012874623843939226,
+        "silhouette": -0.0007704225017158839
+      },
+      "viewDeltas": {
+        "back": -0.00025177055439673524,
+        "back_left": 0.00018267888780132413,
+        "back_right": 0.001604882002379071,
+        "front": -0.0007840272609184185,
+        "front_left": -0.00023554879048670596,
+        "front_right": -0.0022211549065527247,
+        "left": -0.00025182635157738886,
+        "right": 0.001166629520135909
+      },
+      "hashes": {
+        "recordSha256": "3eeeedbe65b3d4534a2afba561e65a4944e3e9fc9b1744315d6b952859910604",
+        "progressSha256": "422086bf043bbc2c58f8bc1cf63aeabadd9503f5f668f1535e4f96c0b15c7e89",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "eb7b1d6bd80b140b612765af36c567e9503bf3e898db3a3c9cbe4dbaa17e6fc8",
+        "baselineReportSha256": "9b37fe308ce0daa81592489f9c33b2affab0933f7cc20f8ac45af95985435a77",
+        "candidateReportSha256": "5c377711996a9c8bcfbe3d40cb51fc2e4868b6b6fcc1c5b43faa6428a97b218f"
+      }
+    },
+    {
+      "id": "0034-conforming-rear-harness",
+      "title": "Add a conforming rear harness",
+      "status": "rejected",
+      "baselineDistance": 0.6740783861195763,
+      "candidateDistance": 0.6741808214817437,
+      "delta": 0.00010243536216747451,
+      "componentDeltas": {
+        "dreamsim": 0.0011360645294189453,
+        "landmarks": 0,
+        "lpips": -0.0021039173007011414,
+        "palette_texture": 0.0004612697051625536,
+        "parts": 0,
+        "silhouette": 0
+      },
+      "viewDeltas": {
+        "back": 0.00022089700968019876,
+        "back_left": -0.00016912084689313378,
+        "back_right": 0.0012405600781876247,
+        "front": 0.0000045219233734128395,
+        "front_left": 0.0000029285915081889158,
+        "front_right": -0.0000034448585786162056,
+        "left": -0.0007948549357830181,
+        "right": 0.00000209820914442993
+      },
+      "hashes": {
+        "recordSha256": "e0d5638fa0e997dfe33d22e1ab340c6cbd38cfb348f105382fcf4dc2813095fa",
+        "progressSha256": "35bceb67be48dd8fad4531bbf1741f3ca843a3d92ba82101eafaf7ac02e6d733",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "3d642a9a498c69727d1393134ebf652bb9997cb8a7800d8c7b37dbde4af65da6",
+        "baselineReportSha256": "55c63e0205754deb74c76fd9f2d2a84ce9dd6c634d41cf3d1f56208ed7f3bd1f",
+        "candidateReportSha256": "0f7fd4e748ee8a6fed03846da49be7065c570280350d1a6fad91dedba9bfb95e"
+      }
+    },
+    {
+      "id": "0035-darken-skin-palette",
+      "title": "Darken the skin palette",
+      "status": "rejected",
+      "baselineDistance": 0.6740783792344194,
+      "candidateDistance": 0.6752308399412784,
+      "delta": 0.0011524607068590376,
+      "componentDeltas": {
+        "dreamsim": 0.007370427250862122,
+        "landmarks": 0,
+        "lpips": 0.0008596926927566528,
+        "palette_texture": -0.00023440443636113528,
+        "parts": 0,
+        "silhouette": 0
+      },
+      "viewDeltas": {
+        "back": 0,
+        "back_left": 0.0008633875036854199,
+        "back_right": 0.0007798763596128522,
+        "front": 0.001969086791757557,
+        "front_left": 0.0020713540091014115,
+        "front_right": 0.003345812597397968,
+        "left": 0.0017982893725611016,
+        "right": 0.0014651075723797202
+      },
+      "hashes": {
+        "recordSha256": "860ead4735362fd66ca4a354655561445aef85d01515665ca34b0e49d3b7bd58",
+        "progressSha256": "6759a44208a2351610ea4f383a102953c37e69a6a0d89b511e689ebebf6eae85",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "7745d07cd6428ae8d21c0f5a9c9f5a91bc1dff2f4b52fe022e314661fa8e76a2",
+        "baselineReportSha256": "78b447b5d8f5ffd0673d636fc5751e8d9f649ba2e5b0af9fc9ebf22ba2fce8aa",
+        "candidateReportSha256": "dd70578b2795c2be5be1cc7d44eaed184104d58baeebeec976ba3ff94270eca6"
+      }
+    },
+    {
+      "id": "0036-blackened-gorget",
+      "title": "Blacken the gorget",
+      "status": "rejected",
+      "baselineDistance": 0.6740783861195763,
+      "candidateDistance": 0.6749148039150398,
+      "delta": 0.0008364177954635066,
+      "componentDeltas": {
+        "dreamsim": 0.00235198438167572,
+        "landmarks": 0,
+        "lpips": -0.00044433027505874634,
+        "palette_texture": 0.002697685791233806,
+        "parts": 0,
+        "silhouette": 0
+      },
+      "viewDeltas": {
+        "back": 0.0012584738979961596,
+        "back_left": 0.0006719396527140598,
+        "back_right": 0.0013868339492961734,
+        "front": -0.00000348669112393285,
+        "front_left": 0.00004308985889267536,
+        "front_right": -0.0017850051781140852,
+        "left": -0.0007079069059610088,
+        "right": 0.00470192083992127
+      },
+      "hashes": {
+        "recordSha256": "1a8118035286eab4e703504fa6d534d1823f21afb0fedde8d7dbea2789c1ccb6",
+        "progressSha256": "4bdf7db02e2bae78e244ef2c345407dd373c0d7f007768579fdf8af029991557",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "2143cf86774dc5b67a04b9834934d5b9f9d7a14278562452d2e129d43f0ed64f",
+        "baselineReportSha256": "a29e7ce5ba6e6023c7b66b9b647023284a22d830295c700896d1f380cb46a0b7",
+        "candidateReportSha256": "3341358a4f97b38477747a1218de3a42c9775ffc716bc445f6ca17cbefcfb82c"
+      }
+    },
+    {
+      "id": "0037-dark-steel-gauntlets",
+      "title": "Use dark steel for the gauntlets",
+      "status": "rejected",
+      "baselineDistance": 0.6740783727964181,
+      "candidateDistance": 0.6745321141749914,
+      "delta": 0.0004537413785732358,
+      "componentDeltas": {
+        "dreamsim": 0.0017192661762237549,
+        "landmarks": 0,
+        "lpips": 0.0005095675587654114,
+        "palette_texture": -0.00013112154175140556,
+        "parts": 0,
+        "silhouette": 0
+      },
+      "viewDeltas": {
+        "back": 0.0006698720034545858,
+        "back_left": 0.000342043589420693,
+        "back_right": 0.0008428844573507011,
+        "front": 0.0011163298404620603,
+        "front_left": 0.0008920205197650022,
+        "front_right": 0.0009799999704229734,
+        "left": 0.0002274944200398865,
+        "right": -0.002017062105347023
+      },
+      "hashes": {
+        "recordSha256": "f009674100c1d9977ce15bc57195c1187e8eb45280b3ba11b53ada132a0513f5",
+        "progressSha256": "6d379e1e912c9c81f7695aa84e77978be946ee9c69f83e81975242ae93262fb9",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "a44a20677cec1b624056d921d1e1c725b4a03abc4ee5c43056eed577ad5ce4d0",
+        "baselineReportSha256": "68115696c96ab05f698610988f554c7902cbe3b441578c942df22b02139bc20a",
+        "candidateReportSha256": "ba04f4aedf450ac635d41825871787ff2fb417a3fd7f685f1f2c2f4074d7d451"
+      }
+    },
+    {
+      "id": "0038-dark-lower-leg-trim",
+      "title": "Darken the lower-leg trim",
+      "status": "rejected",
+      "baselineDistance": 0.6740783925575773,
+      "candidateDistance": 0.6736024809905212,
+      "delta": -0.0004759115670560643,
+      "componentDeltas": {
+        "dreamsim": 0.0009953230619430542,
+        "landmarks": 0,
+        "lpips": -0.004014052450656891,
+        "palette_texture": 0.0011314989373707174,
+        "parts": 0,
+        "silhouette": 0
+      },
+      "viewDeltas": {
+        "back": -0.0016360740514045347,
+        "back_left": -0.0007969714134260508,
+        "back_right": 0.000364496202282405,
+        "front": 0.001151548186971052,
+        "front_left": 0.001665076631774287,
+        "front_right": 5.152654762863307e-7,
+        "left": -0.000843337985226178,
+        "right": -0.0006187787479674522
+      },
+      "hashes": {
+        "recordSha256": "c614e82637da81254602a7dd947a5e7480d795817fd393a120878c359692717a",
+        "progressSha256": "a1a9fae296e5ad1a0691728d0be79c2a9c53903a23e591dc72c93826c70ab1b5",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "1c90d3516ec8e0ebd5064593a248b10e0207e002372cff2b3e1add7b167a5003",
+        "baselineReportSha256": "1c80291112cb579fe1ac88b754ae36da7e45259ba374de17c007cbb35d612733",
+        "candidateReportSha256": "5b097da7f49364056c6ea6b7514177d6cbd131566347b49bff9a0033fa8ba486"
+      }
+    },
+    {
+      "id": "0039-high-plate-collar",
+      "title": "Replace the gorget ring with a high plate collar",
+      "status": "rejected",
+      "baselineDistance": 0.6740783792344194,
+      "candidateDistance": 0.6767016819603526,
+      "delta": 0.002623302725933252,
+      "componentDeltas": {
+        "dreamsim": 0.008959442377090454,
+        "landmarks": 0,
+        "lpips": 0.0018190741539001465,
+        "palette_texture": 0.003508255499858476,
+        "parts": -0.0007387491031490834,
+        "silhouette": 0.00014984341362106468
+      },
+      "viewDeltas": {
+        "back": 0.003983502360539903,
+        "back_left": 0.001826747905085635,
+        "back_right": 0.01173190166561855,
+        "front": -0.0027382255997454585,
+        "front_left": -0.0019771718361416557,
+        "front_right": -0.0032103735815106615,
+        "left": 0.00019377563123745833,
+        "right": 0.007549066236763213
+      },
+      "hashes": {
+        "recordSha256": "d639fcb8c5dd64a20d917e5f64b812330df91417c5f0aa6d4054badc7dca9f17",
+        "progressSha256": "138772696da003b78130bd40ad222d7c9b4eb26541ca6877f55a8d7abdd5178b",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "60fe3cf2f144a14b37bdf6c6e657b6c5e8026a3f753501c8437f3449b0c2aa71",
+        "baselineReportSha256": "5dbad5f295786157eadd4a44fef982377cc7f4aca320a891517bb8c2b75c3857",
+        "candidateReportSha256": "2846f7b3950db5e28b2ee163743f094b7fdd693e62727e366e2ae45dd3383279"
+      }
+    },
+    {
+      "id": "0040-shield-heraldry",
+      "title": "Add seated shield heraldry",
+      "status": "rejected",
+      "baselineDistance": 0.674078384839113,
+      "candidateDistance": 0.674931678471542,
+      "delta": 0.0008532936324290308,
+      "componentDeltas": {
+        "dreamsim": 0.0032790303230285645,
+        "landmarks": 0,
+        "lpips": 0.0027166754007339478,
+        "palette_texture": 0.0017988727462814047,
+        "parts": 0.0000017632460933558747,
+        "silhouette": 0.00009931151160214036
+      },
+      "viewDeltas": {
+        "back": 0.000030182550262880525,
+        "back_left": -0.00001758358401993121,
+        "back_right": 0.000007619285327109537,
+        "front": 0.0003536918604392092,
+        "front_left": 0.004263908268409389,
+        "front_right": 0.0030286431268882197,
+        "left": 0.0010916448556245184,
+        "right": 0.0002632055822765489
+      },
+      "hashes": {
+        "recordSha256": "59da4ba7826abbd914addb5b8a1a30e2c6ac58d4b39635090b3d63cab232339d",
+        "progressSha256": "938caf9fefc67e54ef7d92602b3f33f5eb08773eae9d750fe1d0d67730562fc2",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "46f52354bdcefe5c8f7ae9d5d89b0223fc3e20da3531660281da19860456d08d",
+        "baselineReportSha256": "88354055a37b7def07514e4c171719ecb28987a7fb2bbc6ce093b9a4f01a4f0f",
+        "candidateReportSha256": "bbe78346815f1957f1df9b6c4c265b31e23ae482da52c59be3d830f5d70db485"
+      }
+    },
+    {
+      "id": "0041-ablate-shield-boss",
+      "title": "Remove the shield boss",
+      "status": "rejected",
+      "baselineDistance": 0.6740783861195763,
+      "candidateDistance": 0.6748198469606594,
+      "delta": 0.0007414608410831747,
+      "componentDeltas": {
+        "dreamsim": -0.003126993775367737,
+        "landmarks": 0.0038990935227094514,
+        "lpips": -0.0007005184888839722,
+        "palette_texture": -0.00019474147258596863,
+        "parts": -0.0004796212948030565,
+        "silhouette": 0.006117630417123654
+      },
+      "viewDeltas": {
+        "back": 0.000045163253603042186,
+        "back_left": -0.00008338607595792524,
+        "back_right": 0.00007165849978252314,
+        "front": -0.004462449197889962,
+        "front_left": -0.0018290918055644534,
+        "front_right": -0.0061054523185472,
+        "left": 0.02024589461003612,
+        "right": -0.00009385667018313448
+      },
+      "hashes": {
+        "recordSha256": "c038adb4ccb5360fa16f26f6c17ea62d50308a3944e9b23c34886f6118b7152d",
+        "progressSha256": "620bec48225450b87e6b88955b290b61cf141c3f2a29b846516edd5214a303ab",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "d540527a42e402f7544c37d97e7675a6c598227949eec238551374e7188f9ce7",
+        "baselineReportSha256": "3a008bcd12eaa6113e97c1f42d912b6377ffe7e5e518e7cc99decc3ff08c419e",
+        "candidateReportSha256": "dd78be7c2941371c66c04d161bd9fdb771aee2618ae9b23c5c04d9da53382740"
+      }
+    },
+    {
+      "id": "0042-compact-cross-body-strap",
+      "title": "Compact the cross-body strap",
+      "status": "rejected",
+      "baselineDistance": 0.6740783861195763,
+      "candidateDistance": 0.6733844263548396,
+      "delta": -0.0006939597647366291,
+      "componentDeltas": {
+        "dreamsim": -0.0025474727153778076,
+        "landmarks": 0,
+        "lpips": -0.0012306347489356995,
+        "palette_texture": -0.0017952482927824642,
+        "parts": -0.00022094742439371373,
+        "silhouette": -0.0004546187370841892
+      },
+      "viewDeltas": {
+        "back": 0.00009889129334184066,
+        "back_left": 0.00009052988029500941,
+        "back_right": 0.0003715944489489642,
+        "front": -0.0016271766885628258,
+        "front_left": -0.0014735013415141385,
+        "front_right": -0.0020234258673573757,
+        "left": 0.00014787629601697994,
+        "right": -0.0032507356272697407
+      },
+      "hashes": {
+        "recordSha256": "7d145bd68f7de161166b56ceaa24e3b01c4d268e9c81227af3be540da0113b8b",
+        "progressSha256": "2fa1c2c4e8f92edc1f7d3ee826f76fa0d52b93bbbc9b59f2993fb99453afa6fe",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "dd596e8c8c0b12ce33fc48377770d3e81262191e246a2135dc8abefea9776895",
+        "baselineReportSha256": "5b83c5e4a50cf3558cb677225cbec5e76b75ce80e7403d629201e97f2ec227eb",
+        "candidateReportSha256": "fcdba6476a4a81a81988725fed977153c4514318a480e214a997719baebb5fa1"
+      }
+    },
+    {
+      "id": "0043-polished-sword-blade",
+      "title": "Restore a polished sword-blade surface",
+      "status": "rejected",
+      "baselineDistance": 0.6740783801825001,
+      "candidateDistance": 0.6735401592627356,
+      "delta": -0.0005382209197645205,
+      "componentDeltas": {
+        "dreamsim": -0.0039781928062438965,
+        "landmarks": 0,
+        "lpips": 0.0014369189739227295,
+        "palette_texture": 0.000241673665350578,
+        "parts": 0,
+        "silhouette": 0
+      },
+      "viewDeltas": {
+        "back": -0.00026954578709403876,
+        "back_left": 0.00008013774065540602,
+        "back_right": -0.0023305794761303567,
+        "front": -0.0006151334007000742,
+        "front_left": -0.000535562267031553,
+        "front_right": -0.000685177928363645,
+        "left": -0.0006461296585138498,
+        "right": -0.000020243601393410415
+      },
+      "hashes": {
+        "recordSha256": "79c13f7862825703bf3c765ff116bceb76182ce2972e36fa42d099f876ac83ff",
+        "progressSha256": "b2dbc2ed87af09d695d8d0dec2d1911b8cb6004184bfb4b3c0ee6dd7a0daa9fb",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "70a5503a968e8d5821d23709cab01a6ef5afa4e021c68dc9f105ce748110e1db",
+        "baselineReportSha256": "817573402641f4286728b6c514a26494f4ceb1e9a33ee07504cab32a81aaf5ca",
+        "candidateReportSha256": "6254cfbb18d046abd0fc0ee45cc371d71d18f53f9098a2a71de6267bb478a26a"
+      }
+    },
+    {
+      "id": "0044-tapered-nose",
+      "title": "Replace the bulb nose with a tapered nose",
+      "status": "rejected",
+      "baselineDistance": 0.674078384839113,
+      "candidateDistance": 0.6742827822130184,
+      "delta": 0.00020439737390542945,
+      "componentDeltas": {
+        "dreamsim": 0.001940205693244934,
+        "landmarks": 0,
+        "lpips": 0.0002868548035621643,
+        "palette_texture": -0.00021015782306291197,
+        "parts": -0.0002748142321244984,
+        "silhouette": -0.00021226595211515376
+      },
+      "viewDeltas": {
+        "back": -0.00003607276911266055,
+        "back_left": 0.0000048980579610002906,
+        "back_right": -0.000004114395602883292,
+        "front": -0.0010374824695372764,
+        "front_left": -0.00011944827308918438,
+        "front_right": 0.0003573169906685436,
+        "left": -0.00017873603814211325,
+        "right": 0.003290071602812583
+      },
+      "hashes": {
+        "recordSha256": "77fe01946b35b27bf370aa48b41668381bc90e5248dbbdc076783d009827d82b",
+        "progressSha256": "b88639db32607a5d156491cce2296fe2778d5c3c4e73e741edaafd67b470c939",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "e2c38751c0fbc069e3c89437443ab4096828a296dee8a2de57b53b39ffc2660e",
+        "baselineReportSha256": "d995b70ce339c695f8f8844a0e59c37ce0ef2f597bf48b637b8476a5af241f94",
+        "candidateReportSha256": "d307df76fa735c66a700c147efe0363e01473becadad4973c74edca52cf8406f"
+      }
+    },
+    {
+      "id": "0045-compact-eye-sockets",
+      "title": "Compact the eye sockets",
+      "status": "rejected",
+      "baselineDistance": 0.6740783925575773,
+      "candidateDistance": 0.674982441649487,
+      "delta": 0.0009040490919096644,
+      "componentDeltas": {
+        "dreamsim": 0.005431681871414185,
+        "landmarks": 0,
+        "lpips": -0.00004588812589645386,
+        "palette_texture": 0.0006222720479300281,
+        "parts": 0.00014109903489289977,
+        "silhouette": 0.00010528847451946044
+      },
+      "viewDeltas": {
+        "back": 0.00001527470729811853,
+        "back_left": 0.0009196261294102115,
+        "back_right": -0.0004921354350262419,
+        "front": 0.004047249244305107,
+        "front_left": 0.005140695075013246,
+        "front_right": -0.0010579143152494863,
+        "left": -0.00027629519734639896,
+        "right": 0.0013059575525019573
+      },
+      "hashes": {
+        "recordSha256": "1d22d3f8b9e75b4ae8d233fe826c9f3022e8ba5bb72adf855f77f04f4ac5a222",
+        "progressSha256": "9a5ce5da4fdb1e6034476931eb8689f054c88b77b15ccee92f54265320720ff5",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "0358a9b97f91536aedb6369e2f042a09904f9d1a12c3606d76c6d6b13bf72358",
+        "baselineReportSha256": "4916604ed97758e9a19940b7742e97f459d23cfccf120818176287a6032f4709",
+        "candidateReportSha256": "a73d0f6ebf8011a43f3f3a5c902978f5fc9ee060a73b006c8d26b57b84b6db2a"
+      }
+    },
+    {
+      "id": "0046-blackened-cuirass-mass",
+      "title": "Blacken the cuirass mass",
+      "status": "rejected",
+      "baselineDistance": 0.6740783727964181,
+      "candidateDistance": 0.6750510072183362,
+      "delta": 0.0009726344219180838,
+      "componentDeltas": {
+        "dreamsim": 0.0049419403076171875,
+        "landmarks": 0,
+        "lpips": 0.0005863457918167114,
+        "palette_texture": 0.0009735743993593837,
+        "parts": 0,
+        "silhouette": 0
+      },
+      "viewDeltas": {
+        "back": 0.0004573974457485752,
+        "back_left": 0.0014732271810725672,
+        "back_right": 0.0005169757731566804,
+        "front": 0.0025581962953126203,
+        "front_left": 0.0008672763379466986,
+        "front_right": -0.00023584196286263737,
+        "left": 0.0016538976445109599,
+        "right": 0.001863911930242601
+      },
+      "hashes": {
+        "recordSha256": "530886b5c771bb0991c6c196049b0269695115a3d4a91ade55a182968f98201d",
+        "progressSha256": "dfc639f6301b075cbd331ebab34c6d62ee71ef688bf61ab2961428c44eb2b571",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "1576e30c65ddf7e85eb086ec082e858cd38ffe575fa58c8cb2c81f85c23156e0",
+        "baselineReportSha256": "2feb8acce185f7a3c0a16d50acdb62b21d1e572e40d0b8f5418af96b1e77c831",
+        "candidateReportSha256": "98c50c0889a547ca366ea4bc0201109bdb6328b26117b9bd192c270ca333f311"
+      }
+    },
+    {
+      "id": "0047-faceted-cuirass-shell",
+      "title": "Facet the cuirass shell",
+      "status": "rejected",
+      "baselineDistance": 0.6740783861195763,
+      "candidateDistance": 0.6726456545791717,
+      "delta": -0.0014327315404045748,
+      "componentDeltas": {
+        "dreamsim": -0.004126384854316711,
+        "landmarks": 0,
+        "lpips": -0.0029117465019226074,
+        "palette_texture": -0.0005190528485756185,
+        "parts": 0.00014020811838977298,
+        "silhouette": -0.00008461748040056172
+      },
+      "viewDeltas": {
+        "back": -0.0022802410444305865,
+        "back_left": -0.001976651001090013,
+        "back_right": 0.0005360636199194246,
+        "front": -0.0017186994034811276,
+        "front_left": 0.0005191524433207917,
+        "front_right": -0.004886257619948986,
+        "left": 0.0013845707994702972,
+        "right": -0.0007797647729268498
+      },
+      "hashes": {
+        "recordSha256": "cfccd05541a309c7612187a77fe646db921d6a7262e0ddd09b229f0a8bf38c60",
+        "progressSha256": "426e8121e771631d3027e66dc9d8298dcfb8264da1a3be01e995c2ce9063c48c",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "4af3b335050f290c68a96fd1b8b95e517dfa0b7d99c876326e3de5c634cb7c97",
+        "baselineReportSha256": "66c5321bec2b73effecab262e63c3908e6e943719cdfcab38490a646d49dec24",
+        "candidateReportSha256": "6f477228ae20d6796ddd4a19c0ef68111412e17010a2c7d94702cefb8536131b"
+      }
+    },
+    {
+      "id": "0048-weathered-shield-field",
+      "title": "Weather the shield field",
+      "status": "rejected",
+      "baselineDistance": 0.6740783925575773,
+      "candidateDistance": 0.6746937353181104,
+      "delta": 0.0006153427605330997,
+      "componentDeltas": {
+        "dreamsim": 0.002176031470298767,
+        "landmarks": 0,
+        "lpips": 0.0010548010468482971,
+        "palette_texture": 0.002797706152994406,
+        "parts": 0,
+        "silhouette": 0
+      },
+      "viewDeltas": {
+        "back": 0,
+        "back_left": 0,
+        "back_right": 0,
+        "front": 0.0030311838321341877,
+        "front_left": 0.0009297050580326927,
+        "front_right": 0.001661665641763732,
+        "left": 0.0003993527975392208,
+        "right": 0.0005417487828821566
+      },
+      "hashes": {
+        "recordSha256": "b628d1e86855f8e48d8ee6ca1df590acc2839848872622bcb670041a0d8bd78f",
+        "progressSha256": "cbd02a72ab45c018e50d15366adb51007d23e08c14fff9a60d7710f2ef82ef17",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "0af30f80e0563e3c3bc730d4c94f26c077d5e01fa7b1498e640f0763798bb2d5",
+        "baselineReportSha256": "cddd6241ea770864d503eed9f13004ee09333c86eba82c41a51edf895ffa28f3",
+        "candidateReportSha256": "e1a52c33afa1dfa065b3464538010129d0e342797db79320f2db1c724f4f40f3"
+      }
+    },
+    {
+      "id": "0049-seated-rear-cuirass-rivets",
+      "title": "Add seated rear cuirass rivets",
+      "status": "rejected",
+      "baselineDistance": 0.674078384839113,
+      "candidateDistance": 0.6740783861195763,
+      "delta": 1.2804632909535485e-9,
+      "componentDeltas": {
+        "dreamsim": 0,
+        "landmarks": 0,
+        "lpips": 0,
+        "palette_texture": 1.7072843944143656e-8,
+        "parts": 0,
+        "silhouette": 0
+      },
+      "viewDeltas": {
+        "back": 0,
+        "back_left": 0,
+        "back_right": 0,
+        "front": 0,
+        "front_left": 0,
+        "front_right": 0,
+        "left": 1.3658275177519386e-8,
+        "right": 0
+      },
+      "hashes": {
+        "recordSha256": "0abfbb99d78cfc798509a19f4b3c629bf688894c1711cdbc59e1903667c06d8d",
+        "progressSha256": "ed5129f13902a9a23ff6246ce5b2740e26579087167ac8aae2463c6d38f375ec",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "a865ccf60dc18f9cbb421c803c6d59bd6c4f237a78cffca41fb68259801ae38d",
+        "baselineReportSha256": "ecba16c2878368278bddb3ab0b2f2cd32227ad34728ac9c047584dec678f3291",
+        "candidateReportSha256": "87b407a996224febd111976f6e49a2baf094b80f4391c104c69c96669f924066"
+      }
+    },
+    {
+      "id": "0050-taper-lower-beard",
+      "title": "Taper the lower beard",
+      "status": "rejected",
+      "baselineDistance": 0.6740783861195763,
+      "candidateDistance": 0.6734418814421627,
+      "delta": -0.0006365046774136074,
+      "componentDeltas": {
+        "dreamsim": -0.003831520676612854,
+        "landmarks": 0,
+        "lpips": 0.00005607306957244873,
+        "palette_texture": -0.00019571156602768425,
+        "parts": -0.00028701932238461847,
+        "silhouette": 0.000029379750037306085
+      },
+      "viewDeltas": {
+        "back": -0.0000075781129841301365,
+        "back_left": 0.00009310466635459314,
+        "back_right": -0.00023212461876953583,
+        "front": -0.0005841171942392309,
+        "front_left": -0.0026076166534889644,
+        "front_right": -0.0030135377269078223,
+        "left": 0.00005712511259992059,
+        "right": -0.00047443039701922096
+      },
+      "hashes": {
+        "recordSha256": "2fe5fa89ed12fb41943548c6933af5b661b92f2e50145699a9257cc4684f8b83",
+        "progressSha256": "66967c42907e0ed9182e54e4c3cebd09a0ed86474fbac4df655e6d19741d2f1b",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "8b9cfc20e80db8f16b4c46e5efeda3bde1e5f17a246b72907756e385fbdaf68b",
+        "baselineReportSha256": "528370ef8cba095b539fe71fb10787efaad75bcfb6a41e4116e1c62bdc8b4a48",
+        "candidateReportSha256": "02b28057b9936900b9200476bc20f0712194df46696e51198778ab3e3530e4c3"
+      }
+    },
+    {
+      "id": "0051-steel-thigh-armour",
+      "title": "Change the thigh armour to dark steel",
+      "status": "rejected",
+      "baselineDistance": 0.6740783861195763,
+      "candidateDistance": 0.6736376488364122,
+      "delta": -0.0004407372831640721,
+      "componentDeltas": {
+        "dreamsim": -0.0011455714702606201,
+        "landmarks": 0,
+        "lpips": -0.0003244131803512573,
+        "palette_texture": -0.00028119096506848407,
+        "parts": 0,
+        "silhouette": 0
+      },
+      "viewDeltas": {
+        "back": -0.0008939250068736859,
+        "back_left": -0.00012272039777905253,
+        "back_right": -0.0002535680093262993,
+        "front": -0.0008790878162012739,
+        "front_left": -0.0012518984821534573,
+        "front_right": -0.00011684284007995593,
+        "left": -0.00028289731776842686,
+        "right": 0.001483542201428989
+      },
+      "hashes": {
+        "recordSha256": "86aa3e6452c03d5b3105fc5f27a19256e3591e1d70e6c2cd50d2ac4ec85631ee",
+        "progressSha256": "25f931426c583537514684a2102143d39fc50e20f87b0f2967cbb3ff92f0a4dc",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "5f5e5cb9aec8511f70a30428d0fb9237702d674280448b00d2db01c8c79c7cb9",
+        "baselineReportSha256": "dca0940b74fd3398888ca55c69f10f3e1c2397cfcf772001497ed91a85a653a4",
+        "candidateReportSha256": "1223cac814ec989d8e99f322d8472562e3bb2d42ffaa5f1c40c22d5fe4abcda1"
+      }
+    },
+    {
+      "id": "0052-compact-straighter-arm-paths",
+      "title": "Compact and straighten both arm paths",
+      "status": "rejected",
+      "baselineDistance": 0.6740783861195763,
+      "candidateDistance": 0.677938956300972,
+      "delta": 0.0038605701813957394,
+      "componentDeltas": {
+        "dreamsim": 0.014555305242538452,
+        "landmarks": 0.0018434826253261871,
+        "lpips": -0.0024955198168754578,
+        "palette_texture": -0.00046804925544169373,
+        "parts": 0.0016796847705344842,
+        "silhouette": 0.0010096358482218348
+      },
+      "viewDeltas": {
+        "back": 0.004903056033524478,
+        "back_left": 0.0031406457219279593,
+        "back_right": 0.002504307833949948,
+        "front": 0.0018234137678655449,
+        "front_left": 0.00552610237533524,
+        "front_right": 0.006010624093404138,
+        "left": 0.004041530882967215,
+        "right": 0.0001549184698483863
+      },
+      "hashes": {
+        "recordSha256": "fa82fe0b63018d8d6a60684e9e615fe885be6560fde1ee335a8e74cf23214d07",
+        "progressSha256": "cd272dfcc32ef7416189125ae50ffb5fe06106398ef92b37aac327f09bc65c45",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "a34e25e077d7068345002d6c89bf8b3fc7cfe08b51d08a480f7489f6ece67cca",
+        "baselineReportSha256": "e6ecff74cd4827039bcd5162de2003271495e446ddfe88d294aa1559f81f4ac2",
+        "candidateReportSha256": "42bf290b1e6a54e85793d6c9c9619cf60b2e5590ffe292017e3154720a250652"
+      }
+    },
+    {
+      "id": "0053-diagonal-cuirass-seams",
+      "title": "Replace horizontal cuirass bars with diagonal seams",
+      "status": "rejected",
+      "baselineDistance": 0.6740783861195763,
+      "candidateDistance": 0.6740302480358294,
+      "delta": -0.00004813808374681816,
+      "componentDeltas": {
+        "dreamsim": 0.0002795606851577759,
+        "landmarks": 0,
+        "lpips": -0.0017497614026069641,
+        "palette_texture": 0.0006657860701932972,
+        "parts": -0.00006647631498435391,
+        "silhouette": 0.00001546113459127696
+      },
+      "viewDeltas": {
+        "back": 0.000005484409125844358,
+        "back_left": 0.00002573196931621169,
+        "back_right": 0.00016474233434515817,
+        "front": -0.0007663714204080296,
+        "front_left": 0.000483437626612071,
+        "front_right": -0.0038651326893962556,
+        "left": -0.00040932601765697463,
+        "right": 0.0038333358037609955
+      },
+      "hashes": {
+        "recordSha256": "e317ba4edaf9a3fc308f1646fb55f3798784c41bb78acfde1adbcb4685216e0a",
+        "progressSha256": "2256e0948811e93523380142a8af4deefa645f5ceb3bebca11101c9dee90b26f",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "0f53b99326bee9a80b40f6dd86924d097cdc75c44fa093d5d7355ceb6ecbecab",
+        "baselineReportSha256": "58f168c8f395e80c4e2130903a4fc99376b530f0dee9a49bc6c8d67484c458ac",
+        "candidateReportSha256": "f1a6fa095fbcc406256f719da24ae669af163fe4cb567304f0edfaa76520d386"
+      }
+    },
+    {
+      "id": "0054-wide-leg-stance",
+      "title": "Widen the complete leg stance",
+      "status": "rejected",
+      "baselineDistance": 0.6740783861195763,
+      "candidateDistance": 0.6765896750778959,
+      "delta": 0.0025112889583196463,
+      "componentDeltas": {
+        "dreamsim": 0.0037918388843536377,
+        "landmarks": 0.0017712489036925128,
+        "lpips": 0.004294306039810181,
+        "palette_texture": -0.0016709187490087096,
+        "parts": -0.0018563892163250273,
+        "silhouette": 0.0005186255667379847
+      },
+      "viewDeltas": {
+        "back": 0.007267090880965332,
+        "back_left": 0.004978444097352042,
+        "back_right": 0.002652742399542607,
+        "front": 0.0002170556502568699,
+        "front_left": 0.0013350686596064198,
+        "front_right": -0.003226717223031361,
+        "left": -0.0002594992548696773,
+        "right": -0.005556012003653521
+      },
+      "hashes": {
+        "recordSha256": "afd548011a9f1ef0ed1e555397b4eda1a7772f0c0f76c984af0bfc6e9e5ece91",
+        "progressSha256": "c75b764b295b1ce3b9ec4e8298afeb2a22a86491fdbad80792d09d1082a9fad6",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "d54d33f03ef957d9c51097f92ecca3aa43af07e80971d36e3823119da456346a",
+        "baselineReportSha256": "153e88070bb9566b936eacf253d77e3fae5fc5695965f0d3e429fbce5649e3a3",
+        "candidateReportSha256": "5d13d22dde29eb888ced5d5f87801aa883239d0c315945dc55ffb1b1a0b88456"
+      }
+    },
+    {
+      "id": "0055-raised-hip-attachment",
+      "title": "Raise the complete hip attachment rail",
+      "status": "rejected",
+      "baselineDistance": 0.6740783861195763,
+      "candidateDistance": 0.6752682044509128,
+      "delta": 0.0011898183313365784,
+      "componentDeltas": {
+        "dreamsim": 0.00472375750541687,
+        "landmarks": 0.0003485315296025693,
+        "lpips": -0.0005184486508369446,
+        "palette_texture": -0.0015707497520213998,
+        "parts": 0.0008637606945857135,
+        "silhouette": 0.004873604663437225
+      },
+      "viewDeltas": {
+        "back": -0.0011770441643689233,
+        "back_left": -0.0012441134980027968,
+        "back_right": 0.0004503798781534396,
+        "front": -0.002119314915896564,
+        "front_left": 0.005917264602558148,
+        "front_right": 0.002327326570845556,
+        "left": 0.0014954553861066255,
+        "right": 0.010180226113179147
+      },
+      "hashes": {
+        "recordSha256": "a7f6a04996b4ddfc1fbd43108367cd49e464a1deff5344fe1709b963b9c92183",
+        "progressSha256": "6c6ba2e75a8ea84256a0c592ce89cc3517e58c34390fb6f8734ade4c28c0f209",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "9a731dc3d8cb76e01d9b466eb0bd7bd5397c517d28923e7b3e6d6b9e3457d5d6",
+        "baselineReportSha256": "f9ac75575a1926d58b99389f9775b7cd66e18dcfc535384b80ccba69574e595f",
+        "candidateReportSha256": "421a574640a224bcc1595eeaabf110462c0dbf63ca88ea7bb9cc51f43d9e5cdc"
+      }
+    },
+    {
+      "id": "0056-ablate-greave-hoops",
+      "title": "Ablate the four greave hoops",
+      "status": "rejected",
+      "baselineDistance": 0.6740783861195763,
+      "candidateDistance": 0.6741816945305336,
+      "delta": 0.00010330841095729237,
+      "componentDeltas": {
+        "dreamsim": 0.008807256817817688,
+        "landmarks": 0,
+        "lpips": -0.01002413034439087,
+        "palette_texture": 0.002491442579198422,
+        "parts": 0.00005050363262937285,
+        "silhouette": 0.000008039693692174499
+      },
+      "viewDeltas": {
+        "back": -0.002654015657990727,
+        "back_left": 0.0021835565479881858,
+        "back_right": 0.006051578642144895,
+        "front": -0.000041134257207864344,
+        "front_left": -0.0014862924508904918,
+        "front_right": -0.00040470982378193465,
+        "left": 0.0022880299515101177,
+        "right": 0.002242318519748321
+      },
+      "hashes": {
+        "recordSha256": "e9b5c3802e2b8dbe32adc58abc649e0e93128b809d6d02f1f4ff420d42d5907b",
+        "progressSha256": "fbc7c9cf497e72b20f3393e71958da65b40e2afb91d622da70bae4d94430f901",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "90df7317806df472e273b390748d91ed050a587b749dbf5d6c53b867cf9ccf39",
+        "baselineReportSha256": "10652efe7b9cd33e370f0bdc368a6702fa6aecbf3d39c4edd866fec93e331b3c",
+        "candidateReportSha256": "4a13ff78728c49932272d2069ec67861a88cb677b04411d995904227defd999c"
+      }
+    },
+    {
+      "id": "0057-fitted-elliptical-belt",
+      "title": "Replace the belt puck with a fitted elliptical band",
+      "status": "rejected",
+      "baselineDistance": 0.674078384839113,
+      "candidateDistance": 0.6688405548085028,
+      "delta": -0.00523783003061018,
+      "componentDeltas": {
+        "dreamsim": -0.005595222115516663,
+        "landmarks": -0.007119017147737439,
+        "lpips": -0.014849953353404999,
+        "palette_texture": -0.008228860022779089,
+        "parts": -0.003173138449682922,
+        "silhouette": -0.008789144017606165
+      },
+      "viewDeltas": {
+        "back": 0.00018635512403242238,
+        "back_left": 0.000570782674705228,
+        "back_right": 0.0030556811447843835,
+        "front": -0.0030848182010816405,
+        "front_left": 0.0006788239721301492,
+        "front_right": 0.0016799624102115107,
+        "left": -0.013049777443616906,
+        "right": -0.04640414367175982
+      },
+      "hashes": {
+        "recordSha256": "c0c094a9bbdb12c92b4e9c3d2ebf3ced78dc7ca57c4aadd0cf7fdce0f5408ad7",
+        "progressSha256": "1244ad0229da8c26385e6260f2b5a07d999aae5c3932d1b2de3e20a6d13ead9a",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "f0ce96388209be4d9c62bbee8067be81593310e667ee41ced6424f49f76c53fd",
+        "baselineReportSha256": "2d3fc9cc557ca5473852446b1c865cd9857a9df8de88739b9a3d6bf3f55df2ab",
+        "candidateReportSha256": "b15941d84cb0882de43b82fbadc9fea2f27ae5b756cc4fd13284bfa8123b3393"
+      }
+    },
+    {
+      "id": "0058-irregular-cuirass-surface",
+      "title": "Bake restrained irregularity into the smooth cuirass",
+      "status": "rejected",
+      "baselineDistance": 0.6740783861195763,
+      "candidateDistance": 0.6741176008344839,
+      "delta": 0.00003921471490764272,
+      "componentDeltas": {
+        "dreamsim": 0.00011754035949707031,
+        "landmarks": 0,
+        "lpips": -0.00007268041372299194,
+        "palette_texture": 0.00000869716743195914,
+        "parts": -0.000006977701241139833,
+        "silhouette": -2.0887668916724778e-7
+      },
+      "viewDeltas": {
+        "back": 0.00011088821976390495,
+        "back_left": -0.00009333788611065597,
+        "back_right": 0.000010499368982230806,
+        "front": 0.00006223356871948305,
+        "front_left": 0.00010659726305384254,
+        "front_right": -0.00002396372189095164,
+        "left": -0.00002016610230914928,
+        "right": -0.000030162337231187664
+      },
+      "hashes": {
+        "recordSha256": "fa8f816bd9bfc0384ec890cfa4acf4ef854399fb47d02d24c4ba4ccd8dd42214",
+        "progressSha256": "35fdb99e0ae19a4996cbb26e981028eee58f8b7d7a2d5a7dff62c8699481b436",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "006bd8926c048f73319e763c948cd33a9653760784485c93bf03a516ac10b8df",
+        "baselineReportSha256": "52f0dc9086e17fb9dc99e43acf1bccd768b41511f05f752a00fe66ff10684cec",
+        "candidateReportSha256": "7365072eae991cf12106e31677d081f9fe015af54d2d4ac4bba9348559f0679d"
+      }
+    },
+    {
+      "id": "0059-articulated-tapered-arms",
+      "title": "Replace cylindrical arms with tapered articulated assemblies",
+      "status": "rejected",
+      "baselineDistance": 0.6740783925575773,
+      "candidateDistance": 0.6710014248151079,
+      "delta": -0.00307696774246935,
+      "componentDeltas": {
+        "dreamsim": -0.00514984130859375,
+        "landmarks": -0.00018707484429336674,
+        "lpips": -0.005231805145740509,
+        "palette_texture": -0.002595658888557978,
+        "parts": -0.0006532799667822164,
+        "silhouette": -0.0013492815039375383
+      },
+      "viewDeltas": {
+        "back": -0.005486014417050544,
+        "back_left": -0.005458022222283865,
+        "back_right": -0.00376028882541668,
+        "front": 0.003212298500822053,
+        "front_left": 0.0060266270015478796,
+        "front_right": -0.006241047713101633,
+        "left": -0.005725306604284275,
+        "right": -0.0007598631944386591
+      },
+      "hashes": {
+        "recordSha256": "1bbdf078b5dc5d4a905cb501dd8e17656384d5a940c9063d79957179d5d156e6",
+        "progressSha256": "5656294af1e9294032f3035ced58e2dad7e26fb848bdf6c039e2f4bcd59a0da0",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "119e0cab5353a0805f53ca6eae36a51a30d37174903a0f25b6f7eb7670483c68",
+        "baselineReportSha256": "bf8232ff3771034988dbdbdb4bde47ba6b89aef3ce946e8aed93af1d38233ca0",
+        "candidateReportSha256": "2c946a60c0a5d3d3784c5146ed40f4066e3b308b192bafa79ec8f0c3863106ff"
+      }
+    },
+    {
+      "id": "0060-authored-cuirass-loft",
+      "title": "Replace the egg cuirass with an authored smooth loft",
+      "status": "rejected",
+      "baselineDistance": 0.6740783861195763,
+      "candidateDistance": 0.6742601883023723,
+      "delta": 0.00018180218279606475,
+      "componentDeltas": {
+        "dreamsim": -0.0015073418617248535,
+        "landmarks": 0,
+        "lpips": -0.0006889775395393372,
+        "palette_texture": -0.00006632430507569342,
+        "parts": 0.00008109407800893642,
+        "silhouette": -0.00027091149447988627
+      },
+      "viewDeltas": {
+        "back": 0.001959930739784954,
+        "back_left": -0.0021485951365923794,
+        "back_right": 0.000027396755646336146,
+        "front": -0.0017070278709593323,
+        "front_left": -0.0001359186564953152,
+        "front_right": -0.0010333528119316204,
+        "left": -0.0005385807451367963,
+        "right": 0.00028888903608259575
+      },
+      "hashes": {
+        "recordSha256": "d7f187cd45224f8111a765129929cc78abeaaf5f86b0043015b01f747ca210fa",
+        "progressSha256": "8e98edf8a5074abdb9a4199bbdfc92a5f2b38cf23e0ca1e8cd56e77aa276e9fd",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "a8f0bc262febd6331099c063ba668673d2297e654e071a6548c395dbd96cd9a2",
+        "baselineReportSha256": "019816e4d9d038e9fae3ddd802402398367b43991286f55269dde94f79268980",
+        "candidateReportSha256": "c55bed310a05a8948d3a4ab791ad2404c1f2431035d9a942fd5d6eab7eb7222b"
+      }
+    },
+    {
+      "id": "0061-flat-cross-body-band",
+      "title": "Replace the round chest strap with a seated flat band",
+      "status": "rejected",
+      "baselineDistance": 0.6740783861195763,
+      "candidateDistance": 0.6738052869336503,
+      "delta": -0.0002730991859259957,
+      "componentDeltas": {
+        "dreamsim": -0.002789542078971863,
+        "landmarks": 0,
+        "lpips": -0.0005583688616752625,
+        "palette_texture": 0.0013465853086436774,
+        "parts": -0.000028203918835956188,
+        "silhouette": 0.00017452398153255944
+      },
+      "viewDeltas": {
+        "back": 0.0002613021197958032,
+        "back_left": 0.0002208648328296814,
+        "back_right": 0.000002062778988509706,
+        "front": -0.00040943542768001606,
+        "front_left": -0.0004156497169919282,
+        "front_right": 0.00011062050408894297,
+        "left": -0.0015891887496995993,
+        "right": -0.001790439977331304
+      },
+      "hashes": {
+        "recordSha256": "ce458b8de919d93268da1d51c8a1a01928aec46a0123e09d633e3a686dfedede",
+        "progressSha256": "f53fb651aba492a80e798db30bfaf17b51b9425d7013d3b85c8a0441e9c9a81f",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "1078b29a4bb48dcbee21ad2c44c3c108c1c574d0bdad64c167adc34543d68038",
+        "baselineReportSha256": "18e35b0d9564ca8d9eab5f40a8ab2f92a1812c314bb1b8acef4932b388611386",
+        "candidateReportSha256": "c0aa3afcd9a2b822c619fd3543d2d68756ad43a2dbfddfd2d2adae8b4060c17e"
+      }
+    },
+    {
+      "id": "0062-rear-tapered-hair-tufts",
+      "title": "Break up the rear hair with short tapered tufts",
+      "status": "rejected",
+      "baselineDistance": 0.6740783861195763,
+      "candidateDistance": 0.6716373316562312,
+      "delta": -0.0024410544633450826,
+      "componentDeltas": {
+        "dreamsim": -0.008821055293083191,
+        "landmarks": 0,
+        "lpips": -0.0006516203284263611,
+        "palette_texture": -0.0012069701653436016,
+        "parts": 0.0007319119190770662,
+        "silhouette": 0.0004770300952420259
+      },
+      "viewDeltas": {
+        "back": -0.00474915952585242,
+        "back_left": -0.0010928263824105944,
+        "back_right": -0.004586581081308161,
+        "front": -0.000007176655811069743,
+        "front_left": 0.003295398425238294,
+        "front_right": -0.00044278650746243375,
+        "left": -0.001572701038001889,
+        "right": -0.004217656107799561
+      },
+      "hashes": {
+        "recordSha256": "8c76fb01b70479d4434c68394aab7f8620ca8e095306db2fc556f6937348db86",
+        "progressSha256": "feefc446b1b06cd63ab77b9a49713799a348b72d1c689a2513f813934c99539b",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "130552260e009b3c52000f7fbcb2f344f404d96366a80bd6e386c89c8950b045",
+        "baselineReportSha256": "ca662060003a838592037690fe9ea0935d532fec791b479b5162f0da3af99c56",
+        "candidateReportSha256": "43157ebdb126079f6efea12c4c74f25e191edcdaf7bf5a294e35b8add9bcf434"
+      }
+    },
+    {
+      "id": "0063-rounded-plate-gauntlets",
+      "title": "Replace spherical gauntlets with rounded plate blocks",
+      "status": "rejected",
+      "baselineDistance": 0.6740783861195763,
+      "candidateDistance": 0.6759044296472635,
+      "delta": 0.0018260435276872267,
+      "componentDeltas": {
+        "dreamsim": 0.008529052138328552,
+        "landmarks": 0,
+        "lpips": 0.0028058886528015137,
+        "palette_texture": -0.0005158648378102981,
+        "parts": 0.0011525204038499437,
+        "silhouette": 0.00017568695333952666
+      },
+      "viewDeltas": {
+        "back": 0.0005299332083633645,
+        "back_left": -0.003533645698726051,
+        "back_right": 0.00027136705504715586,
+        "front": 0.0028527576153328793,
+        "front_left": 0.006630283009998794,
+        "front_right": 0.006295503165410388,
+        "left": 0.0030155642546715322,
+        "right": 0.002002879796263679
+      },
+      "hashes": {
+        "recordSha256": "0c81bbe206cb12e74e9c03534349d06ca5f5b529e40bf5e168d623f12b60c794",
+        "progressSha256": "314be67424212b6b1012bc49731208a55445397644feb3edcc1f1d08e6dc0dbc",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "4e2c52c207d33e747687d98727bd069b1f80fe979429a1c8f636ec6e896011af",
+        "baselineReportSha256": "1ab16d0fcb0ca5f5b20f0d67b199d48ce876bb4e735ce0c39087f39edeb57f3e",
+        "candidateReportSha256": "bd63e38e94209fcc1b7d3b817fb744f334db0a895e43162c1436b6f42f64d921"
+      }
+    },
+    {
+      "id": "0064-reverse-shield-carrying-bands",
+      "title": "Add reverse shield carrying bands",
+      "status": "rejected",
+      "baselineDistance": 0.6740783861195763,
+      "candidateDistance": 0.6744650269036652,
+      "delta": 0.00038664078408889857,
+      "componentDeltas": {
+        "dreamsim": 0.0020347684621810913,
+        "landmarks": 0,
+        "lpips": -0.00010421872138977051,
+        "palette_texture": 0.000999805458234665,
+        "parts": -0.00010910038957867574,
+        "silhouette": 0.00015532548024937975
+      },
+      "viewDeltas": {
+        "back": 0.00004565604202821927,
+        "back_left": 0.005151572141199434,
+        "back_right": 0.000016917336942756656,
+        "front": 0.00012882747531539618,
+        "front_left": -0.0005398454034881706,
+        "front_right": -0.00009021900737116173,
+        "left": -0.0007520235299426359,
+        "right": 0.000041533863523235404
+      },
+      "hashes": {
+        "recordSha256": "ade0a35a0cc9a8776c3eb89ea56b211e90afd7deb617209a174e409faa698046",
+        "progressSha256": "6397cea6145fbb685a7b8f1788500f0f78f771d1ee5582f13c3fa4876d88d8d4",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "41cee34a148b264b6094cf43417d53e489e42808907019de79decdb921f789f2",
+        "baselineReportSha256": "420dfe039af6bcb6e0608786c559acf572fb61f8eed6d7b44498648fec2730a0",
+        "candidateReportSha256": "fcfc4807ab74ea2075d338f98db9e36397594a88c45f35c094ee4ba669d0036b"
+      }
+    },
+    {
+      "id": "0065-tapered-arms-with-plate-cops",
+      "title": "Rebuild tapered arms with authored plate cops",
+      "status": "rejected",
+      "baselineDistance": 0.6740783861195763,
+      "candidateDistance": 0.6724037782280479,
+      "delta": -0.0016746078915284013,
+      "componentDeltas": {
+        "dreamsim": 0.0012032091617584229,
+        "landmarks": -0.00018707484429336674,
+        "lpips": -0.0033467188477516174,
+        "palette_texture": -0.002971226120240006,
+        "parts": -0.0004450377252156468,
+        "silhouette": -0.0014946108720653162
+      },
+      "viewDeltas": {
+        "back": -0.004210245075688457,
+        "back_left": -0.0055663648792732,
+        "back_right": -0.0043389323498409516,
+        "front": 0.004180152189572239,
+        "front_left": 0.006540782641950571,
+        "front_right": -0.0006827441849306393,
+        "left": -0.003694736163709633,
+        "right": 0.0011369238474524535
+      },
+      "hashes": {
+        "recordSha256": "9f72cfc3383f22346165b81365a09b04737dbe956d09aee482792ae5df8e4077",
+        "progressSha256": "6bd0e41423f96957af5144de63b36c9b4167be760b85f1329e24ff6e3fd91400",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "e3fe297fe86d1b9efe25b271c0ada19132b85662eaf2b9896c0fde285f4b7c9a",
+        "baselineReportSha256": "1ea7d588852ba9dcf71204d2006ad8d0427668b86fd5f3ccec7dc2d08f6c23a7",
+        "candidateReportSha256": "8f8e3bd1ccf54429215e10d6fbd059ea65052199967b89d2d6fc71ad1cee7191"
+      }
+    },
+    {
+      "id": "0066-merged-rear-hair-shell",
+      "title": "Shape one merged rear-hair shell",
+      "status": "rejected",
+      "baselineDistance": 0.6740783861195763,
+      "candidateDistance": 0.6743897875930531,
+      "delta": 0.00031140147347685776,
+      "componentDeltas": {
+        "dreamsim": -0.0026113390922546387,
+        "landmarks": 0,
+        "lpips": 0.0006388872861862183,
+        "palette_texture": 0.0003616939650298856,
+        "parts": 0.0015958482977527222,
+        "silhouette": 0.0006025724401496069
+      },
+      "viewDeltas": {
+        "back": 0.0009538052864914714,
+        "back_left": 0.0006983192632198376,
+        "back_right": 0.0006924278180029386,
+        "front": -0.0004803088911833342,
+        "front_left": 0.001470629064646678,
+        "front_right": 0.0010542957248991236,
+        "left": 0.0008399928314085647,
+        "right": -0.004451026144375092
+      },
+      "hashes": {
+        "recordSha256": "d27475bbb1531c1766d89fda1aacbec76beb9e933928427fb5a78636cff30e48",
+        "progressSha256": "0c6cb840642842ba282aa9bd98e9842fc2862b4d2e43b6af097ac77b2b0ecb84",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "e99229bcf8d3a658205157b6c42a8b5998cfe1a2f5154ee34bdd50bf4f2fc292",
+        "baselineReportSha256": "4f6e4c7afa81e0bfc7daaa9faf75376966c9f9249df52cb4bd7e599021e0e910",
+        "candidateReportSha256": "b0156d9cc71f9336e947e80f84787c4482132e8d0b74b3386f94a1b5e92632c9"
+      }
+    },
+    {
+      "id": "0067-common-rail-rigid-skirt",
+      "title": "Replace cloth and faulds with a common-rail rigid skirt",
+      "status": "rejected",
+      "baselineDistance": 0.6740783861195763,
+      "candidateDistance": 0.6741930997038315,
+      "delta": 0.0001147135842551883,
+      "componentDeltas": {
+        "dreamsim": -0.004956990480422974,
+        "landmarks": 0,
+        "lpips": 0.007487736642360687,
+        "palette_texture": -0.0016281113240063927,
+        "parts": -0.003541030938730594,
+        "silhouette": 0.005807785825305278
+      },
+      "viewDeltas": {
+        "back": 0.0008462627386329746,
+        "back_left": 0.005786420681857418,
+        "back_right": -0.009241645325471892,
+        "front": 0.005163442755131364,
+        "front_left": 0.0016388049703618401,
+        "front_right": -0.001881440170412807,
+        "left": 0.0020793380116465032,
+        "right": -0.005424272732711177
+      },
+      "hashes": {
+        "recordSha256": "fec95341ec6c9a4832d8614ba26d7ee858bd310a8712900cf2b748d431f31bb0",
+        "progressSha256": "531254beafb2726e97bcf5de47660eae93604f814a5040d61b6bd8ad3c1b82a8",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "b2c1b6400a6deaac788720834c9e05199811a9cc3897562dd2f1ef8127f4a3d7",
+        "baselineReportSha256": "39c070009310151fe20c0ff535889101e7a82e61567241926ad2ec6eb9d2befa",
+        "candidateReportSha256": "9b43f38bf5a37e2c38aebf2f36cf2a51d91859d3377e8062332d9e3fc32550f7"
+      }
+    },
+    {
+      "id": "0068-continuous-pauldron-shells",
+      "title": "Replace spherical pauldrons with continuous plate shells",
+      "status": "rejected",
+      "baselineDistance": 0.6740783861195763,
+      "candidateDistance": 0.6714725822538408,
+      "delta": -0.002605803865735501,
+      "componentDeltas": {
+        "dreamsim": -0.007038086652755737,
+        "landmarks": -0.00024486776602850036,
+        "lpips": -0.004890508949756622,
+        "palette_texture": -0.0009198414523488019,
+        "parts": -0.00016872832251935144,
+        "silhouette": -0.0005030011241325405
+      },
+      "viewDeltas": {
+        "back": -0.0042416634355193494,
+        "back_left": 0.004661113140957851,
+        "back_right": -0.00047008333166032035,
+        "front": -0.0019823816132158445,
+        "front_left": 0.0028371815752400442,
+        "front_right": -0.0022476183066326705,
+        "left": -0.005143864821285482,
+        "right": -0.01075800193686316
+      },
+      "hashes": {
+        "recordSha256": "1fd65a18a92d292eaee70e51d842a1e8bfd21e6ccf4455d5002d80b5839e159d",
+        "progressSha256": "442e613613b84b3b976a8b948112bc3a68ec84fd6992c218f2fd316939404b6d",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "da13c1050c772cc9b80980de3d2b8e430a7e834c3c3adf6ccb35b3f98340f918",
+        "baselineReportSha256": "9ef28f8b52bff4b211ac239da93da59c047cfc5dc51a34b250f562061e24ecc2",
+        "candidateReportSha256": "b52458c405dfcf2b5d705b6474a99ab2817cf592076e3cf5b4fbceaebd360a47"
+      }
+    },
+    {
+      "id": "0069-continuous-bent-arm-shells",
+      "title": "Replace paired arm cylinders with continuous bent shells",
+      "status": "rejected",
+      "baselineDistance": 0.6740783861195763,
+      "candidateDistance": 0.6736308629897962,
+      "delta": -0.0004475231297800253,
+      "componentDeltas": {
+        "dreamsim": 0.006317064166069031,
+        "landmarks": 0.0004188225081274144,
+        "lpips": -0.007541365921497345,
+        "palette_texture": 0.0019818187128895492,
+        "parts": -0.0007712712877310235,
+        "silhouette": -0.00015335356052803562
+      },
+      "viewDeltas": {
+        "back": -0.003430471382721123,
+        "back_left": 0.002540577550464107,
+        "back_right": 0.006437443099132745,
+        "front": -0.002482240634873678,
+        "front_left": 0.002898005591978836,
+        "front_right": 0.00019139429665759877,
+        "left": 0.0019466009047314214,
+        "right": -0.003726965789100034
+      },
+      "hashes": {
+        "recordSha256": "8d292db99af290a6b2b8caa7335bdcd83a9ba61db51784c4a3e983a4614dfdeb",
+        "progressSha256": "53ae4eec3d4ae5a4b602f16eef5be4b1a4189a68eefc10e8ce61887c0a12e98e",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "0fb138eab4bd8addd8e4acb4c8c8c53a9367fcece68deba3f22f1877ced83b71",
+        "baselineReportSha256": "593423cad43a876552cafbc69f7f016eed93242d5e0856ee6f79855acde84425",
+        "candidateReportSha256": "1ccf928a64eb7c3dc7924dd38bbbb01b83f1ab7f11714c00ab203ce2a2b6612e"
+      }
+    },
+    {
+      "id": "0070-shallow-domed-breastplate",
+      "title": "Give the flat breastplate a shallow smooth dome",
+      "status": "rejected",
+      "baselineDistance": 0.6740783861195763,
+      "candidateDistance": 0.674218809139035,
+      "delta": 0.00014042301945871305,
+      "componentDeltas": {
+        "dreamsim": 0.0010044127702713013,
+        "landmarks": 0,
+        "lpips": -0.0004111826419830322,
+        "palette_texture": 0.00011402876843596976,
+        "parts": 0.00003912834889607808,
+        "silhouette": -6.31908859405339e-7
+      },
+      "viewDeltas": {
+        "back": 0.000019223461379502815,
+        "back_left": -0.000017832306362652872,
+        "back_right": -0.00010136293283247166,
+        "front": 0.00337747310392722,
+        "front_left": -0.003752826240540297,
+        "front_right": 0.0014959987282028298,
+        "left": -0.00007187567692423791,
+        "right": 0.0004977848403638907
+      },
+      "hashes": {
+        "recordSha256": "b00b33ec741dfae1f7feaa0961955a495f57d367f314e31a466ae867352d8c64",
+        "progressSha256": "ae75f315c033442bbcccfe377e8e6e3a9046886b21eb23b58f1a6fa0381a06da",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "2cd07240250988bda2fe35e2ef84551aa0ac9035a4e2ba1f8bb7d605f06bccdf",
+        "baselineReportSha256": "03ebef706288b25e935a81f9ec8e0e71ffc573e4cd37f6c76f5f65f74d6c319a",
+        "candidateReportSha256": "b49f09ed0174ce156ae355050d5eda284ad9e7972c31c5cd76381fcfd5576d42"
+      }
+    },
+    {
+      "id": "0071-forearm-aligned-gauntlet-plates",
+      "title": "Replace spherical gauntlets with forearm-aligned plates",
+      "status": "rejected",
+      "baselineDistance": 0.6740783861195763,
+      "candidateDistance": 0.6732882233220076,
+      "delta": -0.0007901627975687164,
+      "componentDeltas": {
+        "dreamsim": -0.003544539213180542,
+        "landmarks": 0,
+        "lpips": -0.0009595602750778198,
+        "palette_texture": 0.00010304647403019951,
+        "parts": -0.0006607585623894519,
+        "silhouette": 0.0003402862481838853
+      },
+      "viewDeltas": {
+        "back": -0.00048557634917034687,
+        "back_left": 0.001346327015392057,
+        "back_right": -0.0009946820784872967,
+        "front": -0.0003738829581294567,
+        "front_left": -0.000948361871841108,
+        "front_right": -0.0025661393634991425,
+        "left": -0.0018165301870513018,
+        "right": -0.0012946871168248997
+      },
+      "hashes": {
+        "recordSha256": "cc459c9287650c114b3d11dcd83c8b871eda5fd521b015a69aee6aaed30cd515",
+        "progressSha256": "3600b0571abe7934b7841ed1faf95168bf356caa1d6165e78535799aed42577a",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "06dd0678e8d7b32d36a791d40e8206a4693caf10061e133d7f60a0f1e31f0a08",
+        "baselineReportSha256": "7b4fe6bc74a8a202dbeca29da08792138d1dfd235ea139e7e2d426abe344cc42",
+        "candidateReportSha256": "07906604e7dd458772d56992fe6ad963ca8ce9a18a439a93b222701f80bdf904"
+      }
+    },
+    {
+      "id": "0072-attached-anatomical-ears",
+      "title": "Add attached anatomical ears",
+      "status": "rejected",
+      "baselineDistance": 0.6740783727964181,
+      "candidateDistance": 0.6719273240511668,
+      "delta": -0.002151048745251294,
+      "componentDeltas": {
+        "dreamsim": -0.01377442479133606,
+        "landmarks": 0,
+        "lpips": -0.0010607391595840454,
+        "palette_texture": -0.000578510029360213,
+        "parts": 0.0001760356321269807,
+        "silhouette": -0.0001840501474010825
+      },
+      "viewDeltas": {
+        "back": 0.0001306380148249353,
+        "back_left": -0.0022500556279768658,
+        "back_right": -0.002000861700245826,
+        "front": 0.0010125347966836173,
+        "front_left": -0.0010317230828845725,
+        "front_right": -0.005520454799870955,
+        "left": -0.001891557986703929,
+        "right": -0.011741407602707699
+      },
+      "hashes": {
+        "recordSha256": "274ba9878c4a45d5b7fe2ad7ddc2003a6385307bb7ae6c897683ad6081d017ab",
+        "progressSha256": "678e25f2eaceb61a8bf675d300b96c6e6cfa60e16559b9d2cfe34986b94bd60b",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "76ad5165104d0fdd68be0c61d1a60e5dd8606818679e859e1d3938d121573f8c",
+        "baselineReportSha256": "7e830de260cb0bb7ef338d4753b9716d0c5432b729ae6cc66b0d94ba35cb73c4",
+        "candidateReportSha256": "09da04fc6e2e43040235f65f39b96492cd2853a0428c454811eb86a794848311"
+      }
+    },
+    {
+      "id": "0073-layered-plate-gauntlets",
+      "title": "Replace spherical fists with layered plate gauntlets",
+      "status": "rejected",
+      "baselineDistance": 0.6740783861195763,
+      "candidateDistance": 0.6743061891017611,
+      "delta": 0.00022780298218483264,
+      "componentDeltas": {
+        "dreamsim": 0.0026163309812545776,
+        "landmarks": 0,
+        "lpips": -0.000030621886253356934,
+        "palette_texture": -0.0006170565327376365,
+        "parts": -0.0005946275060642048,
+        "silhouette": -0.0006294952927894948
+      },
+      "viewDeltas": {
+        "back": 0.00035938467090557147,
+        "back_left": 0.0005114412578292038,
+        "back_right": -0.0006050533040518058,
+        "front": 0.0003622664750599913,
+        "front_left": 0.000004690059247858258,
+        "front_right": 0.0028426718465135448,
+        "left": -0.0017141108496275814,
+        "right": -0.0002897508016537209
+      },
+      "hashes": {
+        "recordSha256": "9e203b25585b470d9f0511e0a2b505f245a95cfb1031a2c467b930ab7dc8486f",
+        "progressSha256": "cdc1621ac028380308caa11fe12615a46495aec1fd9210482d29c39f2f224277",
+        "baselineSourceSha256": "f6d7364088fedc344a91ee789f0bc83c360527097753229a0796c77d465ae78b",
+        "candidateSourceSha256": "52e59b35a2b641156d27faca41d7530bdb3f8473251981da6ebda40e65aa98c7",
+        "baselineReportSha256": "abcae8fa70e79935cb23a7360dd596f973de9e517f48beb6dae59ffc6ca2220d",
+        "candidateReportSha256": "9abcff1143d4f1cd54e32f6b19bf64368e1fcf36768d628fdea14d0cf5c30324"
+      }
+    }
+  ]
+}
