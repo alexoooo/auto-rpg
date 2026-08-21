@@ -2530,7 +2530,7 @@ test("a_finished_practice_run_downloads_raw_receipts_and_the_exact_self_describi
       route.container.querySelector("#arena-view").value,
       route.container.querySelector("#arena-stage").getAttribute("data-eyes-open"),
       route.container.querySelector("#arena-control-hud-toggle").getAttribute("aria-pressed"),
-    ], ["fixed", "threeQuarter", "false", "true"]);
+    ], ["relative", "threeQuarter", "false", "true"]);
     assert.equal(report.disabled, true, "Reset drill left the prior report downloadable");
     await route.handle.dispose(); harness.dropSubtree(route.container);
   } finally {

@@ -5,8 +5,34 @@ use fx::{Angle, Fx, Vec3};
 #[cfg(feature = "cartesian-recoil")]
 use fx::{mul_div, Vec2};
 
-pub const BODY_YAW_MAX_SPEED_RAW: i32 = 546;
-pub const BODY_YAW_ACCEL_RAW: i32 = 91;
+/// **TEMPORARY DIAGNOSTIC -- 2026-08-21. Not landable. Revert before any gate.**
+///
+/// Set by hand to answer one question the owner asked at a visible browser: is
+/// the controlled arm slow because a frame is late, or because a constant says
+/// it may not go faster? It multiplies every *motion ceiling* in this file and
+/// bypasses the swept self-collision clamp; it changes authoritative motion, so
+/// every pinned hash, every corpus digest and most of the actuator suite move
+/// while it is on. That is expected and is why it may not be committed.
+///
+/// What it does NOT remove, so a reading of the experiment stays honest: the
+/// two-link elbow annulus, `reachable_extent`, the rear-bearing envelope, the
+/// effort/fatigue budget, and contact response. Those bound *where a hand may
+/// be*, not how fast it may get there. If the arm still feels bound with this
+/// on, the cause is one of those or the presentation layer, not a rate.
+pub const UNLIMITED_MOTION: bool = true;
+
+/// How much headroom the diagnostic gives each ceiling. Eight puts the sword
+/// hand at roughly nine units a second against a measured 1.12, which is well
+/// past anything a body could do and is the point: it is a ceiling-removal
+/// probe, not a tuning candidate.
+const UNLIMITED_MOTION_FACTOR: i32 = 8;
+
+const fn ceiling(raw: i32) -> i32 {
+    if UNLIMITED_MOTION { raw * UNLIMITED_MOTION_FACTOR } else { raw }
+}
+
+pub const BODY_YAW_MAX_SPEED_RAW: i32 = ceiling(546);
+pub const BODY_YAW_ACCEL_RAW: i32 = ceiling(91);
 
 // ---------------------------------------------------------------- stance
 //
@@ -112,8 +138,8 @@ pub const PELVIS_TWIST_DROP_RAW: i32 = 3_277;
 /// shape is that speed only pays while the blade is on the line: widening the
 /// commanded arc to +-3/8 of a turn *lowered* decided fights below baseline even
 /// though it raised tip speed.
-pub const ARM_BEARING_MAX_SPEED_RAW: i32 = 2_184;
-pub const ARM_BEARING_ACCEL_RAW: i32 = 364;
+pub const ARM_BEARING_MAX_SPEED_RAW: i32 = ceiling(2_184);
+pub const ARM_BEARING_ACCEL_RAW: i32 = ceiling(364);
 
 /// How fast an embodied elbow may swing its plane about the arm's own axis.
 ///
@@ -132,8 +158,8 @@ pub const ARM_BEARING_ACCEL_RAW: i32 = 364;
 /// nothing behind it. A plane change is free and slow, which is the pair of
 /// properties the swept forearm actually needs.
 pub const ELBOW_PLANE_MAX_SPEED_RAW: i32 = ARM_BEARING_MAX_SPEED_RAW;
-pub const ARM_LINEAR_MAX_SPEED_RAW: i32 = 1_638;
-pub const ARM_LINEAR_ACCEL_RAW: i32 = 273;
+pub const ARM_LINEAR_MAX_SPEED_RAW: i32 = ceiling(1_638);
+pub const ARM_LINEAR_ACCEL_RAW: i32 = ceiling(273);
 pub const ARM_MIN_REACH_RAW: i32 = 16_384;
 pub const FATIGUE_WORK_SCALE_RAW: i32 = 256;
 pub const FATIGUE_RECOVERY_RAW: i32 = 4;

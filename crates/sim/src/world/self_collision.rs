@@ -379,6 +379,19 @@ impl World {
         work: [ArmWorkProposal; 2], linked: bool,
     ) -> ConstrainedArms {
         self.self_collision_attempt[i] = None;
+        // **TEMPORARY DIAGNOSTIC -- see `actuator::UNLIMITED_MOTION`.** A swept
+        // stop is a motion limit as surely as a rate ceiling is, so the probe
+        // that removes the ceilings has to remove this too or it would answer
+        // the owner's question with the arm still pinned at its own legs.
+        // Revert with the switch.
+        if actuator::UNLIMITED_MOTION {
+            return ConstrainedArms {
+                arms: proposed, planes: proposed_planes,
+                physical_com: [work[0].physical_com_at(Fx::ONE),
+                               work[1].physical_com_at(Fx::ONE)],
+                fractions: [Fx::ONE; 2],
+            };
+        }
         let mut proposed = proposed;
         let previous = self.owner_pose(i, anatomy, entry, entry_planes);
         let mut fractions = [Fx::ONE; 2];

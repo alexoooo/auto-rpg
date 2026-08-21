@@ -850,7 +850,19 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
       header: source.header, frame, next, alpha, cameraDt, focus: centre(frame),
       span: state.span, azimuth: state.azimuth, contacts: toggles.showContacts.checked,
     });
-    const refusal = stage.cameraRefusal?.() ?? null;
+    let refusal = stage.cameraRefusal?.() ?? null;
+    // **A chase asked for before the first frame exists refuses for a reason
+    // that expires.** `setRelative` reads the followed body's stance out of the
+    // last shown view, and at the moment a controlled fight adopts its first
+    // chunk there is no shown view yet -- so the honest answer is
+    // `RELATIVE_CAMERA_NEEDS_STANCE`, and the old handler treated that
+    // one-frame answer as permanent by writing "fixed" into the select. The
+    // request outlives the refusal: retry it here, where a frame has just been
+    // shown, and only report a refusal that survives the retry.
+    if (refusal !== null && cameraModeInput.value === "relative") {
+      refusal = stage.setRelative(true);
+      if (refusal === null) { describeStage(); return; }
+    }
     if (refusal !== null) {
       cameraModeInput.value = "fixed";
       status.textContent = refusal;
@@ -1515,15 +1527,25 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
             state.playing = true;
             playButton.textContent = "Pause";
             if (controlledFaction !== null) {
+              // **Follow first, then chase.** `setRelative` refuses
+              // `RELATIVE_CAMERA_NEEDS_ONE_BODY` while the camera is still
+              // framing both fighters, so the subject has to be chosen before
+              // the mode that needs one. The old order did the opposite and
+              // then pinned the select to "fixed", which is why a controlled
+              // fight never started in the chase view it was built for.
+              followInput.value = controlledFaction === 0 ? "a" : "b";
+              stage?.follow(controlledFaction);
               if (practiceActive) {
-                cameraModeInput.value = "fixed";
-                stage?.setRelative(false);
                 viewInput.value = "threeQuarter";
                 stage?.promote("threeQuarter");
                 stageHost.dataset.mainView = "threeQuarter";
               }
-              followInput.value = controlledFaction === 0 ? "a" : "b";
-              stage?.follow(controlledFaction);
+              // Chase is what "you are this body" looks like: the camera sits
+              // behind the hero along its own hip yaw and looks where the hero
+              // faces. A refusal here is the pre-first-frame one `drawStage`
+              // retries; the select carries the request across it.
+              cameraModeInput.value = "relative";
+              stage?.setRelative(true);
               capture = "mouse";
               resumeControlledFight(performance.now());
             }
@@ -2053,7 +2075,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     stopControlledFight();
     selectPracticeHand();
     closeFightDrawers();
-    cameraModeInput.value = "fixed";
+    cameraModeInput.value = "relative";
     viewInput.value = "threeQuarter";
     stageHost.dataset.mainView = "threeQuarter";
     controlHudOpen = true;
