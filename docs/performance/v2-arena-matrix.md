@@ -186,8 +186,10 @@ Three, and none of them is an agent's call.
 Session 07 adds one combined game-screen pass: at a foreground `100svh` viewport confirm
 selection and fight do not scroll the document, the four closed edge tabs leave one large
 3/4 view, Eyes opens two correctly labelled viewports, the two health bars remain readable,
-and reduced motion removes drawer transitions. Exercise independent preview orbit/zoom/
-reset, cursor-centred zoom, hover clearing and Fixed/Relative follow. These are pending;
+and reduced motion removes drawer transitions. Open each drawer, press Change, and confirm
+selection contains only its reparented preview canvas and picker -- no empty fight row,
+legend, chart, controls or remembered drawer. Exercise independent preview orbit/zoom/reset,
+cursor-centred zoom, hover clearing and Fixed/Relative follow. These are pending;
 an automated hidden tab is not evidence for layout or feel.
 
 The same pass must record the one-minute default and a ten-minute run: actual retained

@@ -216,6 +216,10 @@
     .route-arena h1 { font-size: 1.15rem; margin: 0; }
     .route-arena #status { font-size: .9rem; color: #8fd3a8; }
     .route-arena #status.error { color: #ff9d9d; }
+    /* Native `[hidden]` loses to any author `display` rule of equal origin.
+       Drawers and phase-only blocks therefore get one route-scoped authority
+       that no later grid/flex declaration can accidentally override. */
+    .route-arena [hidden] { display: none !important; }
     .route-arena canvas { display: block; width: 100%; background: #0b0f14;
       border: 1px solid #24303d; border-radius: .4rem; }
     .route-arena figure { margin: 0; display: grid; gap: .25rem; }
@@ -336,10 +340,14 @@
     .route-arena { position: fixed; inset: 0; height: 100svh; overflow: hidden;
       background: #05070a; z-index: 20; display: grid; grid-template-rows: auto 1fr; }
     .route-arena[data-phase="select"] { overflow: auto; }
+    .route-arena[data-phase="fight"] { grid-template-rows: minmax(0, 1fr); }
+    .route-arena[data-phase="select"] > .stage-row,
+    .route-arena[data-phase="select"] > #arena-replay-panel,
+    .route-arena[data-phase="select"] > #arena-details-panel { display: none; }
     .route-arena[data-phase="fight"] > h1,
     .route-arena[data-phase="fight"] > .picker,
     .route-arena[data-phase="fight"] > #status { position: absolute; left: -10000px; }
-    .route-arena[data-phase="fight"] .stage-row { display: block; min-height: 0; height: 100%; }
+    .route-arena[data-phase="fight"] .stage-row { display: block; grid-row: 1; min-height: 0; height: 100%; }
     .route-arena[data-phase="fight"] .stage { width: 100%; height: 100%; }
     .route-arena[data-phase="fight"] #arena-3d { width: 100%; height: 100%; aspect-ratio: auto; }
     .arena-edge-tabs { position: absolute; inset: .5rem .5rem auto; z-index: 5; display: flex;
@@ -354,8 +362,12 @@
     #arena-plans-panel, #arena-replay-panel, #arena-details-panel { position: absolute; z-index: 6;
       background: rgba(13,19,27,.92); overflow: auto; max-height: calc(100svh - 4rem); }
     #arena-plans-panel { right: .5rem; top: 3.5rem; width: min(34rem, 44vw); }
-    #arena-replay-panel { left: 8%; right: 8%; bottom: .5rem; }
+    #arena-replay-panel { left: 8%; right: 8%; bottom: .5rem; display: grid; gap: .4rem;
+      padding: .45rem; }
+    #arena-replay-panel > figure { min-width: 0; }
+    #arena-replay-panel #arena-replay-controls { padding: .4rem; }
     #arena-details-panel { right: .5rem; top: 3.5rem; width: min(32rem, 42vw); }
+    #arena-details-panel > .legend { grid-column: 1 / -1; margin: 0; }
     @media (prefers-reduced-motion: no-preference) {
       #arena-plans-panel, #arena-replay-panel, #arena-details-panel { transition: opacity .15s ease; }
     }
@@ -685,18 +697,19 @@
         </div>
       </div>
 
-      <figure id="arena-replay-panel" hidden>
-        <canvas id="chart" width="1800" height="220"></canvas>
-        <figcaption>Click to scrub. Upper band: blade tip travel per tick against
+      <div id="arena-replay-panel" hidden>
+        <figure>
+          <canvas id="chart" width="1800" height="220"></canvas>
+          <figcaption>Click to scrub. Upper band: blade tip travel per tick against
           <code>IMPACT_THRESHOLD</code> &mdash; world-space, so a walking fighter's feet count,
           and the bar itself is the legacy model's. Lower band: the energy allocated to each
           tick's loudest contact against <code>CONTACT_ENERGY_FLOOR</code>, which is deducted
           from exactly that allocation &mdash; <em>not</em> the group's kinetic-energy ledger,
-          which the floor is never charged against. Both lines are read out of the Rust that
-          owns them.</figcaption>
-      </figure>
+            which the floor is never charged against. Both lines are read out of the Rust that
+            owns them.</figcaption>
+        </figure>
 
-      <div class="controls" id="arena-replay-controls" hidden>
+        <div class="controls" id="arena-replay-controls">
         <button id="play" type="button">Play</button>
         <button id="step-back" type="button" title="Left arrow; shift for ten">&minus;1</button>
         <button id="step-forward" type="button" title="Right arrow; shift for ten">+1</button>
@@ -745,26 +758,26 @@
         <label><input id="show-regions" type="checkbox" checked> regions</label>
         <label><input id="show-targets" type="checkbox" checked> commanded hand</label>
         <label><input id="show-velocity" type="checkbox"> velocity</label>
-        <label><input id="show-contacts" type="checkbox" checked> contacts</label>
+          <label><input id="show-contacts" type="checkbox" checked> contacts</label>
+        </div>
       </div>
 
       <div class="panels" id="arena-details-panel" hidden>
         <pre id="readout">&hellip;</pre>
         <div id="contacts" class="muted">&hellip;</div>
+        <p class="legend">
+          <span><b>chase</b> is commanded hand minus actual hand, both published.</span>
+          <span><b>reach</b> is the arm capsule's own length over the anatomy's arm length.</span>
+          <span><b>Span</b> frames all five panels alike until the stage camera is moved; then it
+            keeps framing plan and elevation until <b>Refit</b>. <b>Azimuth</b> turns the elevation
+            and a fitted 3/4 view together.</span>
+          <span><b>Space</b> plays, <b>arrows</b> step, <b>[</b> and <b>]</b> jump between contacts.</span>
+          <span>Regenerate the recorded fights with <code>npm run trace</code>.</span>
+          <span>Watch a <b>learned</b> fight with
+            <code>cargo run --release -p lab -- trace --policy learned --checkpoint checkpoints/v2-probe.ckpt --seed 3</code>
+            &mdash; the header then names both sides and the checkpoint digest.</span>
+        </p>
       </div>
-
-      <p class="legend">
-        <span><b>chase</b> is commanded hand minus actual hand, both published.</span>
-        <span><b>reach</b> is the arm capsule's own length over the anatomy's arm length.</span>
-        <span><b>Span</b> frames all five panels alike until the stage camera is moved; then it
-          keeps framing plan and elevation until <b>Refit</b>. <b>Azimuth</b> turns the elevation
-          and a fitted 3/4 view together.</span>
-        <span><b>Space</b> plays, <b>arrows</b> step, <b>[</b> and <b>]</b> jump between contacts.</span>
-        <span>Regenerate the recorded fights with <code>npm run trace</code>.</span>
-        <span>Watch a <b>learned</b> fight with
-          <code>cargo run --release -p lab -- trace --policy learned --checkpoint checkpoints/v2-probe.ckpt --seed 3</code>
-          &mdash; the header then names both sides and the checkpoint digest.</span>
-      </p>
     </div>
   </template>
 

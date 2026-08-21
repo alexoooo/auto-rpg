@@ -340,7 +340,6 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
   const detailsButton = element<HTMLButtonElement>(container, "arena-details");
   const plansPanel = element<HTMLElement>(container, "arena-plans-panel");
   const replayPanel = element<HTMLElement>(container, "arena-replay-panel");
-  const replayControls = element<HTMLElement>(container, "arena-replay-controls");
   const detailsPanel = element<HTMLElement>(container, "arena-details-panel");
   const healthA = element<HTMLProgressElement>(container, "arena-health-a");
   const healthB = element<HTMLProgressElement>(container, "arena-health-b");
@@ -564,6 +563,19 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     stage.showPreview(1, matchup.b);
   }
 
+  function closeFightDrawers(): void {
+    eyesOpen = plansOpen = replayOpen = detailsOpen = false;
+    stageHost.setAttribute("data-eyes-open", "false");
+    stage?.setEyes?.(false);
+    for (const [button, panel] of [
+      [plansButton, plansPanel], [replayButton, replayPanel], [detailsButton, detailsPanel],
+    ] as const) {
+      button.setAttribute("aria-expanded", "false");
+      panel.hidden = true;
+    }
+    eyesButton.setAttribute("aria-expanded", "false");
+  }
+
   function setPhase(next: Phase): void {
     phase = next;
     container.setAttribute("data-phase", next);
@@ -579,17 +591,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     if (next === "select") pickerSides.prepend(stageCanvas);
     else stageHost.prepend(stageCanvas);
     stage?.setPhase(next);
-    if (next === "fight") {
-      eyesOpen = plansOpen = replayOpen = detailsOpen = false;
-      stageHost.setAttribute("data-eyes-open", "false");
-      stage?.setEyes?.(false);
-      for (const [button, panel] of [[plansButton, plansPanel], [detailsButton, detailsPanel]] as const) {
-        button.setAttribute("aria-expanded", "false"); panel.hidden = true;
-      }
-      eyesButton.setAttribute("aria-expanded", "false");
-      replayButton.setAttribute("aria-expanded", "false");
-      replayPanel.hidden = replayControls.hidden = true;
-    }
+    closeFightDrawers();
     if (next === "select") updatePreview();
   }
 
@@ -614,7 +616,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
   replayButton.addEventListener("click", () => {
     replayOpen = !replayOpen;
     replayButton.setAttribute("aria-expanded", String(replayOpen));
-    replayPanel.hidden = replayControls.hidden = !replayOpen;
+    replayPanel.hidden = !replayOpen;
     recordControlTransition("drawer", `replay:${replayOpen ? "open" : "closed"}`);
     if (replayOpen) render();
   });
@@ -2022,15 +2024,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
   resetDrillButton.addEventListener("click", () => {
     stopControlledFight();
     selectPracticeHand();
-    eyesOpen = plansOpen = replayOpen = detailsOpen = false;
-    stageHost.setAttribute("data-eyes-open", "false");
-    stage?.setEyes?.(false);
-    for (const [button, panel] of [[plansButton, plansPanel], [detailsButton, detailsPanel]] as const) {
-      button.setAttribute("aria-expanded", "false"); panel.hidden = true;
-    }
-    eyesButton.setAttribute("aria-expanded", "false");
-    replayButton.setAttribute("aria-expanded", "false");
-    replayPanel.hidden = replayControls.hidden = true;
+    closeFightDrawers();
     cameraModeInput.value = "fixed";
     viewInput.value = "threeQuarter";
     stageHost.dataset.mainView = "threeQuarter";

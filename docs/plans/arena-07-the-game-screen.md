@@ -184,6 +184,7 @@ identity and are out of scope.
 `client/test/studio-shell.test.mjs`:
 
 - `selection_and_fight_share_one_fixed_shell_with_closed_drawers_and_bounded_timeouts`
+- `change_closes_every_fight_drawer_and_resets_its_aria_before_selection`
 - `zero_over_max_and_midfight_timeout_changes_are_refused_by_name`
 - `a_wheel_over_the_three_quarter_view_stays_consumed_at_both_zoom_clamps`
 - `camera_motion_with_a_non_neutral_hand_changes_no_command_byte`
@@ -218,6 +219,19 @@ reusable transfer-buffer pool; exact chunk copies are the retained replay data.
 Automated tests cover state and ownership, not appearance. The full-bleed shell, edge
 tabs, reduced-motion treatment, hover subtlety and Relative-camera feel remain owed to a
 person in a visible browser, together with the foreground matrix rows.
+
+The selection screenshot audit found two layout authorities that state tests alone had
+not closed. The route now gives `[hidden]` an `!important` route-local rule and explicitly
+phase-hides the empty fight stage, Replay, Details and legend while the canvas is reparented
+into the picker. Replay's chart and controls share one positioned drawer, so the controls
+cannot become an implicit fixed-shell grid row. `setPhase` closes Eyes, Plans, Replay and
+Details and resets every `aria-expanded` value on Change; the named test opens each drawer
+separately before taking that transition.
+
+The fight screenshot audit found the complementary grid failure: the direct-child help legend
+occupied the flexible row while the stage was auto-placed in the short `auto` row. The help now
+lives inside Details, and fight mode gives its explicitly placed stage the shell's sole
+`minmax(0, 1fr)` row. The regression test mutation restores `auto 1fr` and must fail.
 
 ## Acceptance
 

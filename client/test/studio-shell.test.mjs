@@ -952,12 +952,31 @@ test("the_preview_cards_are_pinned_to_the_same_columns_as_their_camera_viewports
 test("selection_and_fight_share_one_fixed_shell_with_closed_drawers_and_bounded_timeouts", () => {
   assert.match(SHELL_HTML, /\.route-arena\s*\{[^}]*position:\s*fixed;[^}]*inset:\s*0;[^}]*height:\s*100svh/,
     "the arena must own one route-local viewport rather than document scroll");
+  assert.match(SHELL_HTML,
+    /\.route-arena\[data-phase="fight"\]\s*\{[^}]*grid-template-rows:\s*minmax\(0,\s*1fr\)/,
+    "fight mode must give the stage the only flexible shell row");
+  assert.match(SHELL_HTML,
+    /\.route-arena\[data-phase="fight"\] \.stage-row\s*\{[^}]*grid-row:\s*1/,
+    "the fight stage must explicitly occupy the full game-screen row");
   for (const id of ["arena-plans-panel", "arena-replay-panel", "arena-details-panel"]) {
     assert.match(SHELL_HTML, new RegExp(`id="${id}" hidden`), `${id} must open closed`);
   }
   for (const id of ["arena-eyes", "arena-plans", "arena-replay", "arena-details"]) {
     assert.equal(TEMPLATE_TAGS.get(id), "button", `${id} must be an edge control`);
   }
+  assert.match(SHELL_HTML, /\.route-arena \[hidden\]\s*\{\s*display:\s*none\s*!important;/,
+    "author display rules must not override the route's hidden authority");
+  for (const selector of ["> .stage-row", "> #arena-replay-panel",
+    "> #arena-details-panel"]) {
+    assert.match(SHELL_HTML, new RegExp(`\\.route-arena\\[data-phase="select"\\][\\s\\S]*?${selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^}]*display:\\s*none`),
+      `selection must explicitly hide ${selector}`);
+  }
+  assert.match(SHELL_HTML,
+    /<div id="arena-replay-panel" hidden>[\s\S]*?<figure>[\s\S]*?id="chart"[\s\S]*?id="arena-replay-controls"[\s\S]*?<\/div>\s*<\/div>/,
+    "Replay chart and controls must share one positioned drawer");
+  assert.match(SHELL_HTML,
+    /<div class="panels" id="arena-details-panel" hidden>[\s\S]*?<p class="legend">[\s\S]*?<\/p>\s*<\/div>/,
+    "fight help must live inside the hidden Details drawer, not consume a shell grid row");
   assert.deepEqual([...SHELL_HTML.matchAll(/<option value="(3600|10800|18000|36000)"/g)]
     .map((match) => Number(match[1])), [3_600, 10_800, 18_000, 36_000]);
   assert.equal(TEMPLATE_VALUES.get("arena-time-limit").value, "3600");
@@ -2182,6 +2201,31 @@ test("the_sidecar_names_body_camera_view_and_drawer_transitions_without_rewritin
       ["KeyW:down", "KeyW:up"]);
     await route.handle.dispose(); harness.dropSubtree(route.container);
   } finally { harness.restore(); }
+});
+
+test("change_closes_every_fight_drawer_and_resets_its_aria_before_selection", async () => {
+  for (const opened of ["eyes", "plans", "replay", "details"]) {
+    const harness = installDom();
+    try {
+      const route = await controlledRoute(harness);
+      const button = route.container.querySelector(`#arena-${opened}`);
+      button.click();
+      assert.equal(button.getAttribute("aria-expanded"), "true", `${opened} did not open`);
+      route.container.querySelector("#change-matchup").click();
+      assert.equal(route.container.getAttribute("data-phase"), "select");
+      assert.equal(route.container.querySelector("#arena-stage").getAttribute("data-eyes-open"),
+        "false");
+      for (const drawer of ["eyes", "plans", "replay", "details"]) {
+        assert.equal(route.container.querySelector(`#arena-${drawer}`).getAttribute("aria-expanded"),
+          "false", `${opened} -> Change left ${drawer} aria open`);
+      }
+      for (const panel of ["arena-plans-panel", "arena-replay-panel", "arena-details-panel"]) {
+        assert.equal(route.container.querySelector(`#${panel}`).hidden, true,
+          `${opened} -> Change left ${panel} visible`);
+      }
+      await route.handle.dispose(); harness.dropSubtree(route.container);
+    } finally { harness.restore(); }
+  }
 });
 
 test("a_finished_practice_run_downloads_raw_receipts_and_the_exact_self_describing_report", async () => {

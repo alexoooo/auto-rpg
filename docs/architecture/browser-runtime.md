@@ -264,10 +264,18 @@ driven from body speed desynchronises from a footfall that does not exist.
 
 The arena route is one route-local fixed `100svh` shell. Selection and fight are exclusive
 phases inside it; changing routes removes the constraint without changing global
-`html`/`body` styles. Fight opens on the 3/4 camera alone. Eyes opts both existing
-first-person cameras into `Scene.activeCameras`; Plans, Replay and Details are closed
-drawers whose 2D drawing and formatting work stops while closed. Two health bars remain
-and read the published faction-health raws directly.
+`html`/`body` styles. Selection reparents the one live stage canvas into the paired picker
+and explicitly removes the empty fight stage, Replay, Details and legend blocks from
+layout. The route-scoped `[hidden]` authority wins over later grid and flex rules. Fight
+opens on the 3/4 camera alone. Eyes opts both existing first-person cameras into
+`Scene.activeCameras`; Plans, Replay and Details are closed drawers whose 2D drawing and
+formatting work stops while closed. Details also owns the legacy help legend; no informational
+block remains in the fight shell's grid flow. Fight uses one explicit `minmax(0, 1fr)` row for
+the stage. Replay owns its chart and controls inside one positioned bottom drawer rather than
+contributing implicit shell rows. Every phase transition closes
+all four drawers and synchronizes their `aria-expanded` state, so Change cannot carry a
+fight overlay back into selection. Two health bars remain and read the published
+faction-health raws directly.
 
 The 3/4 viewport has one camera owner around the same `FreeCamera` the scene constructed;
 it creates no second camera, scene or engine. Span still frames the plan and elevation and
