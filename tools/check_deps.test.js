@@ -175,6 +175,34 @@ test("npm manifest and lock must agree", () => {
   assert.match(errors, /no valid lockfile integrity/);
 });
 
+test("a_nested_standalone_package_is_audited_as_its_own_npm_graph", () => {
+  const root = fixture();
+  write(root, "experiment/package.json", JSON.stringify({
+    name: "experiment", version: "1.0.0", private: true,
+    dependencies: { ranged: "^2.0.0" },
+  }));
+  write(root, "experiment/package-lock.json", JSON.stringify({
+    name: "experiment", version: "1.0.0", lockfileVersion: 3, requires: true,
+    packages: { "": {
+      name: "experiment", version: "1.0.0", dependencies: { ranged: "^2.0.0" },
+    } },
+  }));
+  const toolchainFile = path.join(root, "tools", "toolchain.json");
+  const toolchain = JSON.parse(fs.readFileSync(toolchainFile, "utf8"));
+  toolchain.manifests.push("experiment/package.json", "experiment/package-lock.json");
+  write(root, "tools/toolchain.json", JSON.stringify(toolchain));
+  const errors = problems(root).join("\n");
+  assert.match(errors, /ranged must be an exact version/);
+  assert.match(errors, /missing lock entry node_modules\/ranged/);
+});
+
+test("generated_build_manifests_are_not_dependency_inputs", () => {
+  const root = fixture();
+  write(root, "dist/client/.vite/manifest.json", "{}\n");
+  write(root, ".next/package.json", "{}\n");
+  assert.deepEqual(problems(root), []);
+});
+
 test("every_transitive_lock_edge_resolves_through_the_npm_ancestor_chain", () => {
   const root = fixture();
   npmFiles(root, {

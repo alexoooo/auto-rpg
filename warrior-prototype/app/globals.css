@@ -1,0 +1,121 @@
+:root {
+  color-scheme: dark;
+  --ink: #0a0907;
+  --brass: #b68a49;
+  --bone: #eadfc8;
+  --muted: #a99c86;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  overflow: hidden;
+  background: var(--ink);
+  color: var(--bone);
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+button { font: inherit; }
+
+.viewer-shell {
+  position: fixed;
+  inset: 0;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(85, 63, 39, 0.2), transparent 38%),
+    linear-gradient(155deg, #100e0b, #060605 68%);
+}
+
+.viewer-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+  touch-action: none;
+}
+
+.viewer-heading {
+  position: absolute;
+  top: clamp(1rem, 3vw, 2rem);
+  left: clamp(1rem, 3vw, 2.2rem);
+  z-index: 2;
+  pointer-events: none;
+  text-shadow: 0 2px 12px #000;
+}
+
+.viewer-heading p,
+.viewer-heading h1 { margin: 0; }
+
+.viewer-kicker {
+  color: var(--brass);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.viewer-heading h1 {
+  margin-top: 0.25rem;
+  font-size: clamp(1.65rem, 4vw, 3.1rem);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.viewer-help {
+  margin-top: 0.4rem !important;
+  color: var(--muted);
+  font: 0.78rem/1.4 ui-monospace, Consolas, monospace;
+}
+
+.viewer-controls {
+  position: absolute;
+  right: clamp(1rem, 3vw, 2rem);
+  bottom: clamp(1rem, 3vw, 2rem);
+  z-index: 3;
+  display: flex;
+  gap: 0.55rem;
+}
+
+.viewer-controls button {
+  min-width: 5.5rem;
+  border: 1px solid #6f5532;
+  border-radius: 0.3rem;
+  padding: 0.6rem 0.85rem;
+  background: rgba(18, 15, 11, 0.88);
+  color: var(--bone);
+  box-shadow: inset 0 0 0 1px #21180e, 0 6px 24px #0008;
+  cursor: pointer;
+}
+
+.viewer-controls button:hover,
+.viewer-controls button:focus-visible {
+  border-color: var(--brass);
+  outline: 2px solid transparent;
+  color: #fff6df;
+}
+
+.viewer-status {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 4;
+  transform: translate(-50%, -50%);
+  max-width: min(32rem, calc(100vw - 2rem));
+  padding: 0.8rem 1rem;
+  border: 1px solid #4c3a24;
+  background: rgba(8, 7, 5, 0.88);
+  color: var(--muted);
+  font: 0.8rem/1.5 ui-monospace, Consolas, monospace;
+  text-align: center;
+}
+
+.viewer-status[data-error="true"] { color: #ffb5a5; }
+.viewer-status[hidden] { display: none; }
+
+@media (max-width: 560px) {
+  .viewer-help { max-width: 15rem; }
+  .viewer-controls { left: 1rem; right: 1rem; }
+  .viewer-controls button { flex: 1; }
+}

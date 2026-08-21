@@ -95,7 +95,16 @@ function isAuditedManifestPath(relativePath, baseName) {
 // `.tools` is the ignored installation cache checked by check_toolchain.js.
 // Walking a Blender distribution would audit Blender's own bundled templates
 // as though they were dependency declarations committed by this repository.
-const SKIP_DIRS = new Set([".git", ".tools", "node_modules", "target"]);
+// The remaining entries are generated dependency graphs. This list used to skip
+// only installation caches, so adding the standalone warrior package made its
+// Vinext output's two `.vite/manifest.json` files look like reviewed inputs.
+// Those files describe a build we just produced; auditing them as sources both
+// reverses the dependency direction and makes a clean tree differ from a built
+// one. Their source package and lock remain visible and are audited below.
+const SKIP_DIRS = new Set([
+  ".git", ".next", ".tools", ".vinext", ".wrangler",
+  "dist", "node_modules", "out", "target",
+]);
 
 // Vite's locked graph carries fsevents for native file watching on macOS. npm
 // marks the package as having an install script even on hosts where the whole
@@ -107,6 +116,27 @@ const LIFECYCLE_ALLOWLIST = {
     version: "2.3.3",
     optional: true,
     os: ["darwin"],
+    direct: false,
+    transitive: true,
+  },
+  // Sites' local Vinext path uses these three binary dispatch packages. npm
+  // install is still run with scripts disabled in this repository; these exact
+  // lock records are admitted so their declared lifecycle hooks cannot make a
+  // version drift invisible to the dependency gate.
+  "node_modules/sharp": {
+    version: "0.34.5",
+    direct: false,
+    transitive: true,
+  },
+  "node_modules/workerd": {
+    version: "1.20260515.1",
+    direct: false,
+    transitive: true,
+  },
+  "node_modules/wrangler/node_modules/esbuild": {
+    version: "0.27.3",
+    direct: false,
+    transitive: true,
   },
 };
 
@@ -300,7 +330,12 @@ function lockReachability(packages) {
   while (queue.length) {
     const where = queue.shift();
     const entry = packages[where] || {};
-    const fields = where === "" ? DEPENDENCY_FIELDS : ["dependencies", "optionalDependencies"];
+    // npm 7+ installs peer dependencies into the lock graph. Ignoring those
+    // edges made the Sites graph's Webpack and source-map closure look orphaned
+    // even though the package that requested each peer was reachable.
+    const fields = where === ""
+      ? DEPENDENCY_FIELDS
+      : ["dependencies", "optionalDependencies", "peerDependencies"];
     for (const field of fields) {
       for (const name of Object.keys(entry[field] || {})) {
         const target = resolveLockedDependency(packages, where, name);
@@ -396,22 +431,47 @@ function auditNpm(root, errors) {
   }
 }
 
+function auditNpmRoots(root, errors) {
+  // The root client was the repository's only npm graph when this audit was
+  // written, and `auditNpm(root)` encoded that fact as though it were a rule.
+  // A top-level independent experiment is useful only if its independence does
+  // not also make its lock invisible. Discover every source package manifest
+  // through the same fail-closed walk that inventories tool manifests, then
+  // audit each package/lock pair with the existing graph checks.
+  const roots = new Set();
+  walk(root, (file) => {
+    if (path.basename(file) === "package.json") roots.add(path.dirname(file));
+  });
+  for (const packageRoot of [...roots].sort()) auditNpm(packageRoot, errors);
+}
+
 function auditLockedLifecycle(where, entry, rootRecord, graph, errors) {
   const allowed = LIFECYCLE_ALLOWLIST[where];
   if (!allowed) {
     errors.push(`package-lock.json: ${where} has an unaudited lifecycle install script`);
     return;
   }
-  const exactOs = Array.isArray(entry.os)
-    && entry.os.length === allowed.os.length
-    && entry.os.every((value, i) => value === allowed.os[i]);
-  const direct = DEPENDENCY_FIELDS.some((field) => rootRecord[field] && "fsevents" in rootRecord[field]);
+  const packageName = where.slice(where.lastIndexOf("node_modules/") + "node_modules/".length);
+  const direct = DEPENDENCY_FIELDS.some((field) => rootRecord[field] && packageName in rootRecord[field]);
   const transitive = graph.reachable.has(where)
     && [...(graph.incoming.get(where) || [])].some((parent) => parent !== "");
-  if (entry.version === allowed.version && entry.optional === allowed.optional && exactOs && !direct && transitive) return;
+  const exactOptional = allowed.optional === undefined || entry.optional === allowed.optional;
+  const exactOs = allowed.os === undefined || (Array.isArray(entry.os)
+    && entry.os.length === allowed.os.length
+    && entry.os.every((value, i) => value === allowed.os[i]));
+  const exactDirect = allowed.direct === undefined || direct === allowed.direct;
+  const exactTransitive = allowed.transitive === undefined || transitive === allowed.transitive;
+  if (entry.version === allowed.version && exactOptional && exactOs && exactDirect && exactTransitive) return;
+  const expected = [
+    allowed.transitive ? "transitive" : null,
+    `version ${allowed.version}`,
+    allowed.optional === undefined ? null : `optional ${allowed.optional}`,
+    allowed.os === undefined ? null : `os ${JSON.stringify(allowed.os)}`,
+    allowed.direct === undefined ? null : `direct ${allowed.direct}`,
+  ].filter(Boolean).join(", ");
   errors.push(
     `package-lock.json: ${where} has a lifecycle install script but does not match its audited exception `
-    + `(expected transitive version ${allowed.version}, optional true, os [\"darwin\"]; got version `
+    + `(expected ${expected}; got version `
     + `${JSON.stringify(entry.version)}, optional ${JSON.stringify(entry.optional)}, os ${JSON.stringify(entry.os)}, `
     + `direct ${direct}, reachable transitive ${transitive})`,
   );
@@ -479,7 +539,7 @@ function audit(root) {
   auditRoot = path.resolve(root);
   const errors = [];
   auditCargo(auditRoot, errors);
-  auditNpm(auditRoot, errors);
+  auditNpmRoots(auditRoot, errors);
   auditToolManifests(auditRoot, errors);
   return errors;
 }

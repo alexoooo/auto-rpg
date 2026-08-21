@@ -14,6 +14,8 @@
     "crates/web/Cargo.toml",
     "package.json",
     "package-lock.json",
+    "warrior-prototype/package.json",
+    "warrior-prototype/package-lock.json",
     "tools/toolchain.json",
     "tools/art/manifest.json",
     "tools/art/combatants-manifest.json",

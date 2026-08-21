@@ -23,6 +23,7 @@ crates/lab      headless experiment CLI
 crates/web      the browser boundary: a hand-rolled wasm ABI, no wasm-bindgen
 web/            the studio shell and its assets
 client/         the TypeScript studio: hash router, v2 Worker protocol, arena
+warrior-prototype/ standalone 3D turntable experiment; its nested AGENTS.md owns it
 tools/          sine table generator, the wasm/native equality check, repository gates
 docs/plans/     working plans, one file per landable session
 ```
