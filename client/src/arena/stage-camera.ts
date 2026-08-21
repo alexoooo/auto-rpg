@@ -52,10 +52,31 @@ export const ARENA_CLOSE_UP_RADIUS = 0.9;
 
 /** The farthest, so a wheel cannot lose the fight off the back of the arena. */
 export const ARENA_WIDE_RADIUS = 30;
-export const CHASE_BACK_HEIGHTS = 1.5;
-export const CHASE_UP_HEIGHTS = 1.0;
-export const CHASE_LOOK_AHEAD_HEIGHTS = 1.0;
-export const CHASE_TARGET_UP_HEIGHTS = 0.55;
+/**
+ * The chase rig, in standing heights from the followed body's ground point.
+ *
+ * **A third-person chase hovers above and looks down; it does not ride the
+ * neck.** The first rig placed the eye one standing height up and aimed a full
+ * height ahead at chest level, which is a 10 degree tilt from head height: the
+ * followed head sat level with the eye, filled the middle of the frame and hid
+ * the ground the fight is standing on. These four are chosen together so the
+ * rig reads the way the genre's chase cameras do:
+ *
+ * - the eye is 1.9 heights up, clearly above a 1.0-height head rather than
+ *   behind it, and 1.7 back, so the whole body is in frame with room around it;
+ * - the aim point is 1.2 heights ahead at 0.7 up, which tilts the look
+ *   direction `atan(1.2 / 2.9)`, about 22 degrees, below horizontal; and
+ * - the followed head then subtends about 5 degrees *below* that aim line, so
+ *   it sits just under centre and the ground ahead -- where an opponent stands
+ *   -- occupies the frame above it.
+ *
+ * An opponent one body length ahead lands a similar distance above centre, so a
+ * duel frames both fighters without the camera having to widen.
+ */
+export const CHASE_BACK_HEIGHTS = 1.7;
+export const CHASE_UP_HEIGHTS = 1.9;
+export const CHASE_LOOK_AHEAD_HEIGHTS = 1.2;
+export const CHASE_TARGET_UP_HEIGHTS = 0.7;
 
 export type StageCameraMode = "fit" | "follow" | "orbit" | "relative";
 

@@ -275,10 +275,25 @@ the stage. Replay owns its chart and controls inside one positioned bottom drawe
 contributing implicit shell rows. Every phase transition closes
 all four drawers and synchronizes their `aria-expanded` state, so Change cannot carry a
 fight overlay back into selection. Two health bars remain and read the published
-faction-health raws directly. The compact meter between them keeps display callbacks and
-Babylon submissions as separate rates, reports the worst callback interval and observed
-frame budget, and names whether the route is ready, producer-bound, waiting for an input
-acknowledgement, paused or hidden.
+faction-health raws directly. The compact meter between them keeps display callbacks,
+Babylon submissions and *advanced simulation ticks* as three separate rates, reports the
+worst callback interval and observed frame budget, and names whether the route is ready,
+producer-bound, waiting for an input acknowledgement, paused or hidden.
+
+The third rate is not decoration. The first two can both read healthy while the fight in
+front of the reader is a slide show: the compositor keeps calling back at the display rate,
+and an arena that correctly declines to redraw an unchanged frame is still submitting
+whenever a cursor guide moves. Only the tick rate distinguishes a slow renderer from a
+playhead that is starving, and the wait word then names which owner is holding it —
+`producer` for stream production behind the display, `input-ack` for the one-tick-per-round-trip
+controlled drive. The rate is fight time rather than wall time, so `Speed` scales it and the
+shortfall from `60 x rate` is the size of the stall.
+
+The stage camera is reachable from the stage. `[Chase] [Fixed]` sits beside
+`[Texture] [Geometry]` on the 3/4 panel, and the Replay drawer's `Camera` select is the
+same value seen from the drawer; one writer owns both surfaces, so they cannot disagree
+about which camera is live. A refusal shows what the stage granted rather than what was
+asked for.
 
 The route owns one `requestAnimationFrame` callback and the stage owns one explicit
 Babylon flush. Camera, guide, preview, resize and body updates only mark that stage dirty;
@@ -310,8 +325,12 @@ itself submits no simulation command.
 Fixed follow retains the fit/dead-zone owner above. Relative follow requires one body and
 a same-generation live stance at both interpolation endpoints. It blends the pose and
 published `hipYaw` from that same pair, unwraps the yaw by the shortest raw turn, and
-places the chase 1.5 standing heights behind and 1.0 above while looking 1.0 height ahead
-and 0.55 above. Requested body yaw and velocity never steer it. Missing stance refuses as
+places the chase 1.7 standing heights behind and 1.9 above while looking 1.2 heights ahead
+and 0.7 above. Those four are a third-person rig rather than a shoulder mount: the eye
+clears a standing head instead of sitting level with it, the look direction tilts about 22
+degrees below horizontal, and the followed head lands just under the aim line so the ground
+ahead — where an opponent stands — keeps the frame above it. An opponent one body length
+away is framed with it. Requested body yaw and velocity never steer it. Missing stance refuses as
 `RELATIVE_CAMERA_NEEDS_STANCE`; Follow Both refuses as
 `RELATIVE_CAMERA_NEEDS_ONE_BODY`, and endpoint identity loss returns to Fixed.
 

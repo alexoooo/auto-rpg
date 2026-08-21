@@ -4665,13 +4665,28 @@ test("relative_chase_joins_stance_identity_and_crosses_the_turn_seam_short_way",
   }));
   assert.equal(content.cameraMode(), "relative");
   const target = arenaCameraTarget(content.threeQuarter);
-  assert.ok(Math.abs(target.x - (8 + 1.8)) < 1e-4,
+  assert.ok(Math.abs(target.x - (8 + 1.8 * arenaStageCamera.CHASE_LOOK_AHEAD_HEIGHTS)) < 1e-4,
     `seam chose the long path: target ${target.asArray()} position ${content.threeQuarter.position.asArray()}`);
   assert.ok(Math.abs(target.y - (1.8 * arenaStageCamera.CHASE_TARGET_UP_HEIGHTS)) < 1e-4);
-  assert.equal(arenaStageCamera.CHASE_BACK_HEIGHTS, 1.5);
-  assert.equal(arenaStageCamera.CHASE_UP_HEIGHTS, 1);
-  assert.equal(arenaStageCamera.CHASE_LOOK_AHEAD_HEIGHTS, 1);
-  assert.equal(arenaStageCamera.CHASE_TARGET_UP_HEIGHTS, 0.55);
+  assert.equal(arenaStageCamera.CHASE_BACK_HEIGHTS, 1.7);
+  assert.equal(arenaStageCamera.CHASE_UP_HEIGHTS, 1.9);
+  assert.equal(arenaStageCamera.CHASE_LOOK_AHEAD_HEIGHTS, 1.2);
+  assert.equal(arenaStageCamera.CHASE_TARGET_UP_HEIGHTS, 0.7);
+  // **The rig hovers above the body and looks down at it.** The literals above
+  // pin the numbers; these pin what the numbers have to mean, so a later edit
+  // cannot flatten the chase back onto the neck while still "matching" a
+  // re-recorded constant.
+  const eye = content.threeQuarter.position;
+  assert.ok(Math.abs(eye.x - (8 - 1.8 * arenaStageCamera.CHASE_BACK_HEIGHTS)) < 1e-4,
+    `chase eye was not placed behind the body: ${eye.asArray()}`);
+  assert.ok(Math.abs(eye.y - (1.8 * arenaStageCamera.CHASE_UP_HEIGHTS)) < 1e-4);
+  assert.ok(eye.y > 1.8, "the chase eye must clear a standing head, not sit level with it");
+  const tilt = Math.atan2(eye.y - target.y, Math.hypot(target.x - eye.x, target.z - eye.z));
+  assert.ok(tilt > 15 * Math.PI / 180 && tilt < 35 * Math.PI / 180,
+    `chase tilt ${(tilt * 180 / Math.PI).toFixed(1)} degrees is not a third-person down angle`);
+  const head = Math.atan2(eye.y - 1.8, Math.hypot(8 - eye.x, target.z - eye.z));
+  assert.ok(head > tilt,
+    "the followed head must sit below the aim line so the ground ahead stays in frame");
   const replacement = arenaPose({ index: 0, x: 9, yaw: RAW / 4 });
   replacement.id = [0, 1];
   content.show(arenaView([pose], {
@@ -7061,17 +7076,45 @@ test("the_frame_meter_discards_hidden_time_and_resets_between_route_mounts", () 
 
 test("arena_frame_meter_separates_display_callbacks_from_babylon_draws", () => {
   const meter = new frameMeter.ArenaFrameMeter();
-  meter.advance(0, 0, "paused");
-  for (const [now, renders] of [[100, 1], [200, 1], [300, 2], [400, 2], [500, 2]]) {
-    meter.advance(now, renders, "ready");
+  meter.advance(0, 0, "paused", null, 10);
+  for (const [now, renders, tick] of
+    [[100, 1, 11], [200, 1, 11], [300, 2, 12], [400, 2, 12], [500, 2, 12]]) {
+    meter.advance(now, renders, "ready", null, tick);
   }
-  assert.deepEqual(meter.reading, Object.freeze({ displayFps: 10, renderFps: 4,
+  assert.deepEqual(meter.reading, Object.freeze({ displayFps: 10, renderFps: 4, fightFps: 4,
     worstMs: 100, budgetMs: 100, wait: "ready" }));
-  assert.equal(meter.label, "10 display / 4 3D / 100 ms worst / 100.0 ms budget / ready");
+  assert.equal(meter.label,
+    "10 display / 4 3D / 4 fight / 100 ms worst / 100.0 ms budget / ready");
   assert.match(meter.ariaLabel, /10 callbacks per second.*4 three dimensional renders/s);
+  assert.match(meter.ariaLabel, /4 fight ticks per second/);
   meter.reset(1_000, 2);
   assert.equal(meter.reading, null);
   assert.throws(() => meter.advance(1_001, -1, "ready"), /render count/);
+  assert.throws(() => meter.advance(1_001, 2, "ready", null, -1), /shown tick/);
+});
+
+test("the_arena_meter_reports_a_starving_playhead_that_the_display_clock_hides", () => {
+  // **The complaint this number exists for.** The compositor keeps calling back
+  // at 58 Hz and the arena honestly declines to redraw an unchanged frame, so
+  // both older clocks read healthy while the fight in front of the reader is a
+  // slide show. Only the tick clock says so.
+  const meter = new frameMeter.ArenaFrameMeter();
+  meter.advance(0, 0, "ready", null, 500);
+  for (let index = 1; index <= 30; index += 1) {
+    meter.advance(index * 17, index < 15 ? 0 : 1, "producer", null, index < 15 ? 500 : 501);
+  }
+  const reading = meter.reading;
+  assert.ok(reading !== null);
+  assert.ok(reading.displayFps >= 55, `display clock read ${reading.displayFps}`);
+  assert.equal(reading.fightFps, 2);
+  assert.equal(reading.wait, "producer");
+  // A scrub backwards re-bases rather than crediting the jump as fight time.
+  const scrubbed = new frameMeter.ArenaFrameMeter();
+  scrubbed.advance(0, 0, "paused", null, 900);
+  for (const [now, tick] of [[100, 0], [200, 1], [300, 2], [400, 3], [500, 4]]) {
+    scrubbed.advance(now, 0, "paused", null, tick);
+  }
+  assert.equal(scrubbed.reading.fightFps, 8, "a rewind was credited as fight time");
 });
 
 test("the_six_view_modes_share_one_worker_snapshot_and_identity_registry", async () => {

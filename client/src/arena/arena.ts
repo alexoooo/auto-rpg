@@ -279,6 +279,9 @@ interface Loaded {
   series: Series;
 }
 
+/** The stage camera as the page offers it: the arena's frame, or the hero's. */
+type ArenaCameraMode = "fixed" | "relative";
+
 export async function mount(container: HTMLElement, params: URLSearchParams,
   testStage?: (hooks?: Readonly<{ onTerminal: (message: string) => void }>) => Promise<ArenaStage>,
   testControlInputLog?: ControlInputLog,
@@ -334,6 +337,8 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
   const pairIdInput = element<HTMLInputElement>(container, "arena-pair-id");
   const modeTexture = element<HTMLButtonElement>(container, "mode-texture");
   const modeGeometry = element<HTMLButtonElement>(container, "mode-geometry");
+  const modeChase = element<HTMLButtonElement>(container, "mode-chase");
+  const modeFixed = element<HTMLButtonElement>(container, "mode-fixed");
   const controlStatus = element<HTMLElement>(container, "control-status");
   const eyesButton = element<HTMLButtonElement>(container, "arena-eyes");
   const plansButton = element<HTMLButtonElement>(container, "arena-plans");
@@ -864,7 +869,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
       if (refusal === null) { describeStage(); return; }
     }
     if (refusal !== null) {
-      cameraModeInput.value = "fixed";
+      showCameraMode("fixed");
       status.textContent = refusal;
       status.classList.add("error");
     }
@@ -1544,7 +1549,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
               // behind the hero along its own hip yaw and looks where the hero
               // faces. A refusal here is the pre-first-frame one `drawStage`
               // retries; the select carries the request across it.
-              cameraModeInput.value = "relative";
+              showCameraMode("relative");
               stage?.setRelative(true);
               capture = "mouse";
               resumeControlledFight(performance.now());
@@ -1666,17 +1671,41 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     render();
     showCameraOwnership();
   });
-  cameraModeInput.addEventListener("change", () => {
-    const refusal = stage?.setRelative(cameraModeInput.value === "relative") ?? null;
+  /**
+   * The one writer of the live camera mode, across both of its surfaces.
+   *
+   * **The `<select>` is not a control a player can find.** It lives in the
+   * Replay drawer, which a fight is watched with closed, so the only way to
+   * leave the chase was to open a drawer built for scrubbing a recording. The
+   * on-stage `[Chase] [Fixed]` pair sits beside `[Texture] [Geometry]` where a
+   * reader is already looking. They are two views of one value, so nothing
+   * writes it directly: a disagreement between them would be a page claiming
+   * two cameras.
+   */
+  function showCameraMode(value: ArenaCameraMode): void {
+    cameraModeInput.value = value;
+    modeChase.setAttribute("aria-pressed", String(value === "relative"));
+    modeFixed.setAttribute("aria-pressed", String(value === "fixed"));
+  }
+  /** Ask the stage for a mode, and show what it granted rather than what was asked. */
+  function requestCameraMode(value: ArenaCameraMode): void {
+    const refusal = stage?.setRelative(value === "relative") ?? null;
     if (refusal !== null) {
-      cameraModeInput.value = "fixed";
+      showCameraMode("fixed");
       status.textContent = refusal;
       status.classList.add("error");
-    } else {
-      recordControlTransition("camera-mode", cameraModeInput.value);
-      render();
+      return;
     }
+    showCameraMode(value);
+    recordControlTransition("camera-mode", value);
+    render();
+  }
+  cameraModeInput.addEventListener("change", () => {
+    requestCameraMode(cameraModeInput.value === "relative" ? "relative" : "fixed");
   });
+  modeChase.addEventListener("click", () => requestCameraMode("relative"));
+  modeFixed.addEventListener("click", () => requestCameraMode("fixed"));
+  showCameraMode(cameraModeInput.value === "relative" ? "relative" : "fixed");
   viewInput.addEventListener("change", () => {
     const view = viewInput.value as "threeQuarter" | "firstPersonA" | "firstPersonB";
     stage?.promote(view);
@@ -2075,7 +2104,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     stopControlledFight();
     selectPracticeHand();
     closeFightDrawers();
-    cameraModeInput.value = "relative";
+    showCameraMode("relative");
     viewInput.value = "threeQuarter";
     stageHost.dataset.mainView = "threeQuarter";
     controlHudOpen = true;
@@ -2262,12 +2291,16 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
   function finishPresentationFrame(now: number, allowDraw = true): void {
     if (allowDraw) stage?.draw?.();
     observeControlPublications(now);
-    if (loaded !== null && loaded.source.frameCount() > 0) {
-      controlLatency.display(loaded.source.frameAt(state.frame).t, now);
-    }
+    // The tick this callback leaves on the screen. It is the display clock the
+    // latency ledger already wanted, and it is also the only clock that answers
+    // "why does a 58 FPS page look like a slide show" -- so both read it here,
+    // from the one place that knows a frame has just been submitted.
+    const shownTick = loaded !== null && loaded.source.frameCount() > 0
+      ? loaded.source.frameAt(state.frame).t : null;
+    if (shownTick !== null) controlLatency.display(shownTick, now);
     completeControlReport();
     const count = stage?.renderCount?.() ?? 0;
-    if (frameMeter.advance(now, count, meterWait()) !== null) {
+    if (frameMeter.advance(now, count, meterWait(), null, shownTick) !== null) {
       arenaFps.value = frameMeter.label;
       arenaFps.setAttribute("aria-label", frameMeter.ariaLabel);
     }

@@ -304,7 +304,8 @@
     .stage[data-main-view="firstPersonA"] #label-three-quarter { left: .5rem; top: .4rem; }
     .stage[data-main-view="firstPersonB"] #label-three-quarter {
       left: .5rem; top: calc(50% + .4rem); }
-    .stage-modes { position: absolute; left: calc(28% + .5rem); bottom: .5rem; display: flex; gap: .35rem; }
+    .stage-modes { position: absolute; left: calc(28% + .5rem); bottom: .5rem; display: flex; gap: .9rem; }
+    .stage-modes span { display: flex; gap: .35rem; }
     .stage-modes button[aria-pressed="true"] { background: #3d6089; border-color: #6d8cb4; }
     .hand-controls { position: absolute; right: .5rem; bottom: .5rem; display: flex;
       align-items: center; gap: .4rem; font-size: .75rem; }
@@ -678,12 +679,16 @@
           </div>
           <div class="arena-life-bars" aria-label="Faction health">
             <progress id="arena-health-a" max="65536" value="65536" aria-label="Heroes health"></progress>
-            <output id="arena-fps" aria-label="Arena display and three dimensional render cadence have not been measured yet">-- display / -- 3D / -- ms worst / -- ms budget</output>
+            <output id="arena-fps" aria-label="Arena display and three dimensional render cadence have not been measured yet">-- display / -- 3D / -- fight / -- ms worst / -- ms budget</output>
             <progress id="arena-health-b" max="65536" value="65536" aria-label="Monsters health"></progress>
           </div>
           <div class="stage-modes">
-            <button id="mode-texture" type="button" aria-pressed="false">Texture</button>
-            <button id="mode-geometry" type="button" aria-pressed="true">Geometry</button>
+            <span><button id="mode-chase" type="button" aria-pressed="true"
+                title="Camera rides behind and above the followed fighter">Chase</button>
+              <button id="mode-fixed" type="button" aria-pressed="false"
+                title="Camera holds the arena, following without turning">Fixed</button></span>
+            <span><button id="mode-texture" type="button" aria-pressed="false">Texture</button>
+              <button id="mode-geometry" type="button" aria-pressed="true">Geometry</button></span>
           </div>
           <div class="hand-controls"><span id="control-status">Cursor hand ready</span></div>
           <pre class="arena-control-hud" id="arena-control-hud" hidden>control lab waiting for a Human fight</pre>

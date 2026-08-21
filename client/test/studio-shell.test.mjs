@@ -1005,8 +1005,16 @@ test("selection_and_fight_share_one_fixed_shell_with_closed_drawers_and_bounded_
   assert.match(picker.summariseMatchup(matchup({}, {}, 9, 10_800)), /180 second limit/);
   assert.match(SHELL_HTML, /id="arena-health-a"[^>]*max="65536"[^>]*value="65536"/);
   assert.match(SHELL_HTML, /id="arena-health-b"[^>]*max="65536"[^>]*value="65536"/);
-  assert.match(SHELL_HTML, /id="arena-fps"[^>]*>-- display \/ -- 3D \/ -- ms worst \/ -- ms budget/,
-    "the health HUD must carry the two-clock meter even with every drawer closed");
+  assert.match(SHELL_HTML,
+    /id="arena-fps"[^>]*>-- display \/ -- 3D \/ -- fight \/ -- ms worst \/ -- ms budget/,
+    "the health HUD must carry the three-clock meter even with every drawer closed");
+  // **The camera has to be reachable without opening a scrubbing drawer.** The
+  // `<select>` lives in Replay, which a fight is watched with closed, so the
+  // on-stage pair is the only camera control a player can find.
+  assert.match(SHELL_HTML, /<div class="stage-modes">[\s\S]*?id="mode-chase"[\s\S]*?id="mode-fixed"/,
+    "the stage must offer Chase and Fixed beside the render modes");
+  assert.equal(TEMPLATE_VALUES.get("arena-camera-mode").value, "relative",
+    "a controlled fight is watched from the chase camera by default");
 });
 
 test("zero_over_max_and_midfight_timeout_changes_are_refused_by_name", () => {

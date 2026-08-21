@@ -199,8 +199,11 @@ drawers open as `control -> subject -> control` frame-time comparisons. Every ro
 pending foreground capture; the worker test proves bounded scratch and random access, not
 browser memory cost or visible frame time.
 
-The response pass adds an always-visible two-clock meter and a downloadable multi-clock
-control-latency join. Foreground evidence is still owed: after a five-second warm-up,
+The response pass adds an always-visible three-clock meter — display callbacks, Babylon
+submissions and advanced simulation ticks — and a downloadable multi-clock
+control-latency join. The tick clock is the one a slide-show report is judged against; a
+healthy display rate beside a collapsed tick rate is a starving playhead, not a slow
+renderer, and the meter's wait word names the owner. Foreground evidence is still owed: after a five-second warm-up,
 record ten seconds each for fixed/HUD-off, fixed/HUD-on, relative with guide and reticles,
 and Plans, Replay and Details opened separately. Each bracket remains
 `control -> subject -> control`; automation proves reset arithmetic and one-draw
