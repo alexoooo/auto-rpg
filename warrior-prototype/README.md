@@ -70,6 +70,11 @@ The eight references substantially reduce the blind spots between cardinal views
 They still measure fixed projections rather than the complete 3D surface, so animation,
 lighting changes, and unseen geometry need separate review.
 
+Scored asset changes follow the pre-registered, one-factor iteration loop in
+[`experiments/README.md`](experiments/README.md). Each accepted or rejected attempt
+gets a tracked record, while its full render evidence is snapshotted under the ignored
+`.review/experiments/` directory.
+
 ```powershell
 npm test
 npm run build

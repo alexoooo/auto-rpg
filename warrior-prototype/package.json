@@ -19,6 +19,7 @@
     "similarity:classical": "npm run similarity:render && node scripts/run-metric.mjs score --classical",
     "similarity:compare": "node scripts/compare-similarity.mjs",
     "similarity:compare:report": "node scripts/run-metric.mjs comparisons",
+    "similarity:experiment:snapshot": "node scripts/snapshot-similarity-experiment.mjs",
     "similarity:test": "node scripts/run-metric.mjs test"
   },
   "dependencies": {

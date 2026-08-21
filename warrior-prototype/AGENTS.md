@@ -16,3 +16,5 @@ run `npm run similarity:test` and `npm run similarity`. The canonical metric is 
 advisory local-ML check rather than part of `npm test`: its first setup downloads
 pinned weights, and silently substituting the classical smoke score is not allowed.
 The A/B comparison server follows the same foreground ownership rule as the viewer.
+Scored asset iterations follow `experiments/README.md` and retain a tracked experiment
+record even when their hypothesis is rejected.

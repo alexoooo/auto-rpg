@@ -36,11 +36,11 @@ REVIEW_LANDMARKS = {
     "right_hand": (0.50, -0.19, 0.80),
     "left_boot": (-0.205, -0.055, 0.03),
     "right_boot": (0.22, -0.055, 0.03),
-    "shield_top": (-0.64, -0.39, 1.36),
-    "shield_outer": (-0.88, -0.34, 1.08),
-    "shield_bottom": (-0.61, -0.34, 0.48),
-    "sword_hilt": (0.48, -0.31, 0.89),
-    "sword_tip": (0.66, -0.31, 0.08),
+    "shield_top": (0.64, -0.39, 1.36),
+    "shield_outer": (0.88, -0.34, 1.08),
+    "shield_bottom": (0.61, -0.34, 0.48),
+    "sword_hilt": (-0.48, -0.31, 0.89),
+    "sword_tip": (-0.66, -0.31, 0.08),
     "tabard_bottom": (0.0, -0.265, 0.34),
 }
 
@@ -270,25 +270,25 @@ def make_warrior():
         cone(f"hair_tuft_{index}", (x, y, z), 0.038, 0.006, 0.11,
              hair, root, 16, rotation=(0, tilt, 0))
 
-    # A tall heater shield follows the four-angle reference and stays broad in profile.
-    shield_points = [(-0.78, 1.32), (-0.49, 1.36), (-0.39, 1.17),
-                     (-0.43, 0.78), (-0.61, 0.48), (-0.82, 0.78), (-0.88, 1.12)]
+    # The target keeps its tall heater shield on image-right in the front review.
+    shield_points = [(0.78, 1.32), (0.49, 1.36), (0.39, 1.17),
+                     (0.43, 0.78), (0.61, 0.48), (0.82, 0.78), (0.88, 1.12)]
     shield = prism("kite_shield", shield_points, 0.07, black, root, 0.025)
     shield.location.y = -0.28
-    inner = [(-0.75, 1.28), (-0.52, 1.31), (-0.44, 1.14),
-             (-0.48, 0.81), (-0.61, 0.57), (-0.77, 0.81), (-0.82, 1.10)]
+    inner = [(0.75, 1.28), (0.52, 1.31), (0.44, 1.14),
+             (0.48, 0.81), (0.61, 0.57), (0.77, 0.81), (0.82, 1.10)]
     shield_field = prism("shield_field", inner, 0.035, steel, root, 0.018)
     shield_field.location.y = -0.34
-    sphere("shield_boss", (-0.63, -0.39, 1.02), (0.105, 0.045, 0.105), brass, root, 28)
+    sphere("shield_boss", (0.63, -0.39, 1.02), (0.105, 0.045, 0.105), brass, root, 28)
     for index, (x, z) in enumerate(shield_points[:-1]):
         sphere(f"shield_rivet_{index}", (x * 0.97, -0.385, z * 0.97 + 0.025),
                (0.018, 0.012, 0.018), brass, root, 18)
 
-    # The sword hangs ready at the right hand and remains legible from the rear.
-    blade("sword_blade", (0.50, 0.78), (0.66, 0.08), 0.055, 0.006, 0.045, bright, root).location.y = -0.31
-    segment("sword_guard", (0.38, -0.31, 0.78), (0.63, -0.31, 0.84), 0.025, brass, root, 20)
-    segment("sword_grip", (0.49, -0.31, 0.80), (0.46, -0.31, 0.98), 0.035, leather, root, 22)
-    sphere("sword_pommel", (0.45, -0.31, 1.00), (0.055, 0.045, 0.055), brass, root, 22)
+    # The target keeps its sword on image-left in the front review.
+    blade("sword_blade", (-0.50, 0.78), (-0.66, 0.08), 0.055, 0.006, 0.045, bright, root).location.y = -0.31
+    segment("sword_guard", (-0.38, -0.31, 0.78), (-0.63, -0.31, 0.84), 0.025, brass, root, 20)
+    segment("sword_grip", (-0.49, -0.31, 0.80), (-0.46, -0.31, 0.98), 0.035, leather, root, 22)
+    sphere("sword_pommel", (-0.45, -0.31, 1.00), (0.055, 0.045, 0.055), brass, root, 22)
 
     return root
 
