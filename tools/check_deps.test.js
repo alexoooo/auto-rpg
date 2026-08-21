@@ -203,6 +203,13 @@ test("generated_build_manifests_are_not_dependency_inputs", () => {
   assert.deepEqual(problems(root), []);
 });
 
+test("downloaded_python_environments_and_model_caches_are_not_dependency_inputs", () => {
+  const root = fixture();
+  write(root, "experiment/.venv/lib/package/pyproject.toml", "[project]\nname = 'cached'\n");
+  write(root, "experiment/.metric-cache/model/requirements.txt", "cached==1.0\n");
+  assert.deepEqual(problems(root), []);
+});
+
 test("every_transitive_lock_edge_resolves_through_the_npm_ancestor_chain", () => {
   const root = fixture();
   npmFiles(root, {

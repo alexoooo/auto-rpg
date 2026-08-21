@@ -1,20 +1,68 @@
-"""Build the standalone warrior study and its four review angles."""
+"""Build the standalone warrior study and its eight review angles."""
 
 import argparse
+import json
 import math
 from pathlib import Path
 import sys
 
 import bpy
+from bpy_extras.object_utils import world_to_camera_view
 from mathutils import Vector
+
+
+REVIEW_VIEWS = {
+    "front": (0.0, -4.5, 2.5),
+    # Names describe the direction the warrior faces in the resulting image,
+    # which is opposite the camera's horizontal position around the subject.
+    "front_left": (3.181981, -3.181981, 2.5),
+    "left": (4.5, 0.0, 2.5),
+    "back_left": (3.181981, 3.181981, 2.5),
+    "back": (0.0, 4.5, 2.5),
+    "back_right": (-3.181981, 3.181981, 2.5),
+    "right": (-4.5, 0.0, 2.5),
+    "front_right": (-3.181981, -3.181981, 2.5),
+}
+
+# These are semantic anchors, not joints. Keeping them beside the procedural
+# dimensions makes a moved shoulder or weapon endpoint visible to the review
+# metric without asking image recognition to rediscover authored information.
+REVIEW_LANDMARKS = {
+    "crown": (0.0, -0.035, 1.855),
+    "chin": (0.0, -0.155, 1.50),
+    "left_shoulder": (-0.38, 0.01, 1.38),
+    "right_shoulder": (0.38, 0.01, 1.38),
+    "left_hand": (-0.49, -0.12, 0.83),
+    "right_hand": (0.50, -0.19, 0.80),
+    "left_boot": (-0.205, -0.055, 0.03),
+    "right_boot": (0.22, -0.055, 0.03),
+    "shield_top": (0.64, -0.39, 1.36),
+    "shield_outer": (0.88, -0.34, 1.08),
+    "shield_bottom": (0.61, -0.34, 0.48),
+    "sword_hilt": (-0.48, -0.31, 0.89),
+    "sword_tip": (-0.66, -0.31, 0.08),
+    "tabard_bottom": (0.0, -0.265, 0.34),
+}
+
+PART_COLOURS = {
+    "body_armour": (1.0, 0.0, 0.0, 1.0),
+    "head_hair": (0.0, 1.0, 0.0, 1.0),
+    "shield": (0.0, 0.0, 1.0, 1.0),
+    "sword": (1.0, 1.0, 0.0, 1.0),
+    "tabard": (1.0, 0.0, 1.0, 1.0),
+}
 
 
 def arguments():
     parser = argparse.ArgumentParser(allow_abbrev=False)
-    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--output", type=Path)
     parser.add_argument("--review", type=Path, required=True)
+    parser.add_argument("--review-only", action="store_true")
     values = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
-    return parser.parse_args(values)
+    args = parser.parse_args(values)
+    if not args.review_only and args.output is None:
+        parser.error("--output is required unless --review-only is selected")
+    return args
 
 
 def material(name, colour, metallic=0.0, roughness=0.65):
@@ -222,25 +270,25 @@ def make_warrior():
         cone(f"hair_tuft_{index}", (x, y, z), 0.038, 0.006, 0.11,
              hair, root, 16, rotation=(0, tilt, 0))
 
-    # A tall heater shield follows the four-angle reference and stays broad in profile.
-    shield_points = [(-0.78, 1.32), (-0.49, 1.36), (-0.39, 1.17),
-                     (-0.43, 0.78), (-0.61, 0.48), (-0.82, 0.78), (-0.88, 1.12)]
+    # The target keeps its tall heater shield on image-right in the front review.
+    shield_points = [(0.78, 1.32), (0.49, 1.36), (0.39, 1.17),
+                     (0.43, 0.78), (0.61, 0.48), (0.82, 0.78), (0.88, 1.12)]
     shield = prism("kite_shield", shield_points, 0.07, black, root, 0.025)
     shield.location.y = -0.28
-    inner = [(-0.75, 1.28), (-0.52, 1.31), (-0.44, 1.14),
-             (-0.48, 0.81), (-0.61, 0.57), (-0.77, 0.81), (-0.82, 1.10)]
+    inner = [(0.75, 1.28), (0.52, 1.31), (0.44, 1.14),
+             (0.48, 0.81), (0.61, 0.57), (0.77, 0.81), (0.82, 1.10)]
     shield_field = prism("shield_field", inner, 0.035, steel, root, 0.018)
     shield_field.location.y = -0.34
-    sphere("shield_boss", (-0.63, -0.39, 1.02), (0.105, 0.045, 0.105), brass, root, 28)
+    sphere("shield_boss", (0.63, -0.39, 1.02), (0.105, 0.045, 0.105), brass, root, 28)
     for index, (x, z) in enumerate(shield_points[:-1]):
         sphere(f"shield_rivet_{index}", (x * 0.97, -0.385, z * 0.97 + 0.025),
                (0.018, 0.012, 0.018), brass, root, 18)
 
-    # The sword hangs ready at the right hand and remains legible from the rear.
-    blade("sword_blade", (0.50, 0.78), (0.66, 0.08), 0.055, 0.006, 0.045, bright, root).location.y = -0.31
-    segment("sword_guard", (0.38, -0.31, 0.78), (0.63, -0.31, 0.84), 0.025, brass, root, 20)
-    segment("sword_grip", (0.49, -0.31, 0.80), (0.46, -0.31, 0.98), 0.035, leather, root, 22)
-    sphere("sword_pommel", (0.45, -0.31, 1.00), (0.055, 0.045, 0.055), brass, root, 22)
+    # The target keeps its sword on image-left in the front review.
+    blade("sword_blade", (-0.50, 0.78), (-0.66, 0.08), 0.055, 0.006, 0.045, bright, root).location.y = -0.31
+    segment("sword_guard", (-0.38, -0.31, 0.78), (-0.63, -0.31, 0.84), 0.025, brass, root, 20)
+    segment("sword_grip", (-0.49, -0.31, 0.80), (-0.46, -0.31, 0.98), 0.035, leather, root, 22)
+    sphere("sword_pommel", (-0.45, -0.31, 1.00), (0.055, 0.045, 0.055), brass, root, 22)
 
     return root
 
@@ -279,7 +327,58 @@ def area_light(name, location, energy, size, colour):
     look_at(light, (0, 0, 1.0))
 
 
-def render_reviews(review):
+def part_group(name):
+    if name.startswith("shield_") or name == "kite_shield":
+        return "shield"
+    if name.startswith("sword_"):
+        return "sword"
+    if name in {"tabard", "tabard_badge", "rear_tabard"}:
+        return "tabard"
+    if (name in {"head", "nose", "beard", "hair_back"}
+            or name.startswith("hair_tuft_") or name.endswith("_eye_socket")):
+        return "head_hair"
+    return "body_armour"
+
+
+def render_part_mask(scene, ground, root, filepath):
+    engine = scene.render.engine
+    film_transparent = scene.render.film_transparent
+    transparent = scene.display.shading.show_shadows
+    colours = {}
+    for child in root.children_recursive:
+        if child.type != "MESH":
+            continue
+        colours[child.name] = tuple(child.color)
+        child.color = PART_COLOURS[part_group(child.name)]
+    ground.hide_render = True
+    scene.render.engine = "BLENDER_WORKBENCH"
+    scene.display.shading.light = "FLAT"
+    scene.display.shading.color_type = "OBJECT"
+    scene.display.shading.show_shadows = False
+    scene.display.shading.show_cavity = False
+    scene.render.film_transparent = True
+    scene.render.filepath = str(filepath)
+    bpy.ops.render.render(write_still=True)
+    for child in root.children_recursive:
+        if child.type == "MESH":
+            child.color = colours[child.name]
+    ground.hide_render = False
+    scene.render.engine = engine
+    scene.render.film_transparent = film_transparent
+    scene.display.shading.show_shadows = transparent
+
+
+def projected_landmarks(scene, camera):
+    width = scene.render.resolution_x
+    height = scene.render.resolution_y
+    result = {}
+    for name, point in REVIEW_LANDMARKS.items():
+        projected = world_to_camera_view(scene, camera, Vector(point))
+        result[name] = [round(projected.x * width, 3), round((1.0 - projected.y) * height, 3)]
+    return result
+
+
+def render_reviews(review, root):
     review.mkdir(parents=True, exist_ok=True)
     bpy.ops.mesh.primitive_plane_add(size=8, location=(0, 0, -0.025))
     ground = bpy.context.object
@@ -301,20 +400,27 @@ def render_reviews(review):
     scene.view_settings.look = "AgX - Medium High Contrast"
     scene.world = bpy.data.worlds.new("review_world")
     scene.world.color = (0.004, 0.004, 0.003)
-    for degrees in (0, 90, 180, 270):
-        angle = math.radians(degrees - 55)
-        camera.location = (4.5 * math.cos(angle), 4.5 * math.sin(angle), 2.5)
+    landmarks = {"schemaVersion": 1, "width": 640, "height": 800, "views": {}}
+    for name, location in REVIEW_VIEWS.items():
+        camera.location = location
         look_at(camera, (0, 0, 1.0))
-        scene.render.filepath = str(review / f"warrior-{degrees:03d}.png")
+        scene.render.filepath = str(review / f"{name}.png")
         bpy.ops.render.render(write_still=True)
+        render_part_mask(scene, ground, root, review / f"{name}.parts.png")
+        landmarks["views"][name] = projected_landmarks(scene, camera)
+    (review / "landmarks.json").write_text(json.dumps(landmarks, indent=2) + "\n", encoding="utf-8")
 
 
 def main():
     args = arguments()
     root = make_warrior()
-    export(root, args.output)
-    render_reviews(args.review)
-    print(f"wrote {args.output}")
+    if not args.review_only:
+        export(root, args.output)
+    render_reviews(args.review, root)
+    if args.review_only:
+        print(f"wrote review renders to {args.review}")
+    else:
+        print(f"wrote {args.output} and review renders to {args.review}")
 
 
 if __name__ == "__main__":

@@ -95,14 +95,17 @@ function isAuditedManifestPath(relativePath, baseName) {
 // `.tools` is the ignored installation cache checked by check_toolchain.js.
 // Walking a Blender distribution would audit Blender's own bundled templates
 // as though they were dependency declarations committed by this repository.
-// The remaining entries are generated dependency graphs. This list used to skip
+// The remaining entries are generated dependency graphs. `.metric-cache` and
+// `.venv` are the standalone warrior scorer's downloaded model/source cache and
+// locked Python environment; their source manifests are the local pyproject and
+// uv.lock, both inventoried by this audit. This list used to skip
 // only installation caches, so adding the standalone warrior package made its
 // Vinext output's two `.vite/manifest.json` files look like reviewed inputs.
 // Those files describe a build we just produced; auditing them as sources both
 // reverses the dependency direction and makes a clean tree differ from a built
 // one. Their source package and lock remain visible and are audited below.
 const SKIP_DIRS = new Set([
-  ".git", ".next", ".tools", ".vinext", ".wrangler",
+  ".git", ".metric-cache", ".next", ".tools", ".venv", ".vinext", ".wrangler",
   "dist", "node_modules", "out", "target",
 ]);
 
