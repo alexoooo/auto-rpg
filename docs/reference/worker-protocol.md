@@ -370,6 +370,14 @@ it optionally for a streaming arena, while trace JSON and `TRACE_SCHEMA` do not 
 Malformed or out-of-range capability values reject the correlated opening before a chunk
 can be adopted.
 
+`decisionPeriods` is the required `[Heroes, Monsters]` pair read back from the installed
+arena sources through `arena_decision_period(faction)`. Both entries are positive `u32`
+tick counts and are retained after a body dies. Keeping the pair rather than a spectator
+fallback lets a Human report select its controlled faction authoritatively while policy-only
+viewers still describe both sides truthfully. This is an additive opening-message scalar
+pair: trace JSON, `TRACE_SCHEMA`, command bytes, publication layouts and golden pins do not
+move.
+
 It also carries **`spectator: true`**, and that field is a **gate rather than a
 label**. The arena publishes unfiltered ground truth, which is correct here — both
 fighters are the subject and there is no fog — and a leak the moment this path is
@@ -480,13 +488,13 @@ weakest of the three rules. Four links in the tree have that shape. An
 anchor is a hint and not a contract; check the symbol is on the line before quoting
 one.
 
-- Protocol declarations and input decoder: [`messages.ts`](../../client/src/protocol/messages.ts#L1), [`decodeClientMessage`](../../client/src/protocol/messages.ts#L426)
+- Protocol declarations and input decoder: [`messages.ts`](../../client/src/protocol/messages.ts#L1), [`decodeClientMessage`](../../client/src/protocol/messages.ts#L439)
 - Fixed buffer pool: [`FixedBufferPool`](../../client/src/runtime/buffer-pool.ts#L22)
 - Pure worker state machine: [`SimWorkerHost`](../../client/src/runtime/sim-worker-host.ts#L55)
 - Main-thread request and lease owner: [`SimClient`](../../client/src/runtime/sim-client.ts#L122)
 - Snapshot validator and disclosure filter: [`SnapshotFilterState`](../../client/src/state/snapshot.ts#L59)
 - Real wasm adapter: [`readPublication`](../../client/src/runtime/sim.worker.ts#L94)
 - Generated offsets and capacities: [`abi.generated.ts`](../../client/src/protocol/abi.generated.ts#L1)
-- The streaming drive and its caps: [`recordArenaFight`](../../client/src/runtime/arena-recorder.ts#L643)
+- The streaming drive and its caps: [`recordArenaFight`](../../client/src/runtime/arena-recorder.ts#L690)
 - The arena's main-thread client and its decoder: [`decodeArenaMessage`](../../client/src/runtime/arena-client.ts#L89)
-- The stream's reader: [`StreamingFightSource`](../../client/src/fight/live.ts#L455)
+- The stream's reader: [`StreamingFightSource`](../../client/src/fight/live.ts#L507)

@@ -10,7 +10,7 @@ and deletes the plan set.
 
 ## The controlled body remains legible
 
-The diagnostic shell built in 09 remains available during a fight and answers:
+The diagnostic shell built in 10 remains available during a fight and answers:
 
 1. **Whose body am I?** The controlled side and primary/off-hand authority are named.
 2. **What did I ask for, and what did the body achieve?** Desired and achieved hand
@@ -71,16 +71,28 @@ The first, third and feedback findings can extend this browser topic. An actuato
 footwork or other mechanics change is a different measured session and predicts the
 appropriate hash moves before code is edited.
 
+The close begins with every foreground result blank. Fill this table only from the
+owner-operated visible-browser protocol above; an automated observation is not a verdict.
+
+| owed result | owner record |
+|---|---|
+| source identity, operator, browser/GPU/display and input device | **blank -- foreground run owed** |
+| first 3/4 fight against Tactical | **blank -- foreground run owed** |
+| repeated 3/4 fight against Tactical | **blank -- foreground run owed** |
+| promoted first-person fight against Tactical | **blank -- foreground run owed** |
+| mapping / actuator / camera / footwork / feedback / cadence findings | **blank -- foreground run owed** |
+| owner's answer to “does it control well?” | **blank -- foreground verdict owed** |
+
 ## The durable documents
 
-Nine implementation sessions changed the browser's shape. Each result has one durable
+Ten implementation sessions changed the browser's shape. Each result has one durable
 home:
 
 | what | where |
 |---|---|
 | streaming transport, fixed-time controlled drive, input messages and chunk-relative indices | `docs/reference/worker-protocol.md` |
 | the arena's selection/fight phases, game-shell drawers, owned cameras, unlocked cursor lifecycle and three disjoint input claims | `docs/architecture/browser-runtime.md` |
-| human body/arm composition and the browser replay recorder still owed | `docs/architecture/policy.md` |
+| human body/arm composition, accepted-command publication and the replayable browser evidence boundary | `docs/architecture/policy.md` and `docs/reference/arena-control-evidence-v1.md` |
 | the arena config at layout 3 and its refusal table | `docs/reference/articulated-abi.md` |
 | what a human hand may ask for, relative-delta conversion, the extension channel and its encodable envelope, physical minimum reach and signed elbow plane | `docs/reference/embodied-command-v1.md` and `docs/design/combat.md` |
 | fixed-refresh proof, chosen feel constants, desired/achieved traces, drills, cadence control and owner verdict | `docs/performance/arena-human-control.md` |
@@ -90,15 +102,16 @@ Specific corrections that must not be missed:
 - `docs/architecture/browser-runtime.md`'s sentence that the arena "needs an input path
   that exists in no layer" became past tense in 05. Rewrite it rather than deleting the
   history of why the path exists.
-- **There is one inward command buffer, not two**: `embodied_command_ptr` at
-  `crates/web/src/lib.rs:6033`. The articulated one went with its model, so an instruction
+- **There is one inward command buffer, not two**:
+  [`embodied_command_ptr`](../../crates/web/src/lib.rs#L6379). The articulated one went with its model, so an instruction
   to tell the two apart is an instruction to look for something that is not there. The
   inward-buffer paragraph names that single buffer and **keeps it documented distinctly
   from the outward frame publication**, which is the distinction the paragraph exists for;
   losing the inward/outward split along with the plurality would be the wrong repair. Do
   not describe a deleted model in the present tense.
-- The control document must say keyboard body, a primary-drag cut and a secondary-drag
-  extension on the relative mouse hand, and camera-only middle/wheel. A sentence saying
+- The control document must say keyboard body, absolute saturating visible-cursor hand
+  placement, a primary-drag cut, a secondary-drag extension, relative captured touch,
+  and camera-only middle/wheel. A sentence saying
   "the pointer aims the body" -- or one still giving the camera the secondary button --
   is a stale copy of a rejected design and `rg` must find none.
 - The worker reference must say 60 simulation ticks per second independent of rAF. "One
@@ -131,8 +144,8 @@ five commits. This close verifies no durable document restores a superseded name
    to mapping, actuator, camera, footwork, feedback or cadence.
 3. `rg` for the two rejected contracts: pointer-derived body yaw and one-tick-per-rAF.
    Only the historical correction paragraphs may remain.
-4. Delete `docs/plans/arena-*.md` -- the overview plus sessions 01 through 10, eleven files.
-5. Repoint the roadmap links in `AGENTS.md`, `README.md`, `DESIGN.md` and `docs/README.md`
+4. Delete `docs/plans/arena-*.md` -- the overview plus sessions 01 through 11, twelve files.
+5. Repoint the three roadmap links in `AGENTS.md`, `README.md` and `DESIGN.md`
    at the next live topic, respecting `checkDurablePlanAuthority`.
 6. Say in the commit message which knowledge moved into which durable document.
 
@@ -147,7 +160,7 @@ five commits. This close verifies no durable document restores a superseded name
    the diagnostic overlay on, and the fight remains playable with it off.
 4. `node tools/check_docs.js` is green, with no durable document describing the rejected
    coupled-yaw or refresh-rate-dependent contracts as current behavior.
-5. All eleven `docs/plans/arena-*.md` files are deleted and the four roadmap links repointed.
+5. All twelve `docs/plans/arena-*.md` files are deleted and the three roadmap links repointed.
 
 ## Hash expectations
 
@@ -169,6 +182,9 @@ cargo build --release --target wasm32-unknown-unknown -p web
 node --test tools/wasm_check.js
 cargo build --release --target wasm32-unknown-unknown -p web --features cartesian-recoil
 $env:ARPG_CARTESIAN_RECOIL=1; node --test tools/wasm_check.js
+Remove-Item Env:ARPG_CARTESIAN_RECOIL
+cargo build --release --target wasm32-unknown-unknown -p web
+node --test tools/wasm_check.js
 cargo run --release -p lab -- embodied --corpus-digest
 cargo run --release -p lab -- verify --seeds 200
 node --test "client/test/*.test.mjs"

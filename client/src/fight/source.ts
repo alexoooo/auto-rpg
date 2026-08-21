@@ -73,6 +73,8 @@ export interface FightSource {
   readonly header: FightHeader;
   /** Live arena capability; absent from durable trace JSON by design. */
   readonly armMinReach?: number;
+  /** Authoritative body cadence in Heroes, Monsters order; live-only. */
+  readonly decisionPeriods?: readonly [number, number];
   frameCount(): number;
   /**
    * The recorded frame at `index`.

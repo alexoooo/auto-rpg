@@ -150,7 +150,7 @@ export const RECORDING_CHUNK_EVENT_ROW_CAP = (ARENA_STREAM_CHUNK_TICKS + 1) * MA
 export const RECORDING_CHUNK_TICKS = 300;
 
 /**
- * Eleven words a frame: the tick, then a start and a count for each of the five
+ * Thirteen words a frame: the tick, then a start and a count for each of the six
  * variable-length publications.
  *
  * **The index is the point of the whole transfer.** `pose_len` is one per *live*
@@ -269,6 +269,8 @@ export interface ArenaWasmAdapter {
   policy(faction: number): number;
   /** `arena_control(faction)`, so the header names the driver the fight is running. */
   control(faction: number): number;
+  /** Installed body's authoritative decision cadence. */
+  decisionPeriod(faction: number): number;
   /** The actuator's authoritative lower reach clamp. */
   armMinReach(): number;
   replayBaseline(): Uint8Array;
@@ -295,6 +297,7 @@ export interface ArenaExports {
   arena_fingerprint_lo: U32Export; arena_fingerprint_hi: U32Export;
   arena_policy(faction: number): number;
   arena_control(faction: number): number;
+  arena_decision_period(faction: number): number;
   arena_stage_input(faction: number): number;
   embodied_command_ptr: U32Export; embodied_command_len: U32Export;
   embodied_command_layout_version: U32Export;
@@ -335,7 +338,7 @@ export const ARENA_EXPORTS = [
   "init",
   "arena_config_ptr", "arena_config_len", "arena_config_layout_version",
   "arena_start", "arena_fingerprint_lo", "arena_fingerprint_hi", "arena_policy",
-  "arena_control",
+  "arena_control", "arena_decision_period",
   "arena_stage_input", "embodied_command_ptr", "embodied_command_len",
   "embodied_command_layout_version",
   "checkpoint_ptr", "checkpoint_capacity", "checkpoint_installed",
@@ -489,6 +492,7 @@ export function createArenaAdapter(wasm: ArenaExports): ArenaWasmAdapter {
     fingerprint() { return hex64(wasm.arena_fingerprint_hi() >>> 0, wasm.arena_fingerprint_lo() >>> 0); },
     policy(faction) { return wasm.arena_policy(faction) >>> 0; },
     control(faction) { return wasm.arena_control(faction) >>> 0; },
+    decisionPeriod(faction) { return wasm.arena_decision_period(faction) >>> 0; },
     armMinReach() { return wasm.arm_min_reach_raw() >>> 0; },
     replayBaseline() {
       const length = wasm.arena_replay_baseline_len() >>> 0;
@@ -773,6 +777,12 @@ export async function recordArenaFight(
         > scratchFrames * EMBODIED_STANCE_CAPACITY
       || commandRows + published.commandRows > scratchFrames * ACCEPTED_COMMAND_CAPACITY
       || eventRows + published.eventRows > RECORDING_CHUNK_EVENT_ROW_CAP) {
+      // The world has already stepped, so these receipts exist even when the
+      // visual frame cannot enter its bounded recording. They must make the
+      // evidence ineligible rather than disappearing behind a zero wasm drop
+      // count and producing an ARPGCTL1 file that claims completeness.
+      commandsDropped = Math.min(0xffff_ffff,
+        Math.max(commandsDropped, published.commandsDropped) + published.commandRows);
       return false;
     }
     poses.set(published.poses, poseRows * POSE_STRIDE);
@@ -919,6 +929,7 @@ export async function recordArenaFight(
     controlledFaction: config.fighters.findIndex((fighter) => fighter.control === ARENA_CONTROL_HUMAN) < 0
       ? null
       : config.fighters.findIndex((fighter) => fighter.control === ARENA_CONTROL_HUMAN),
+    decisionPeriods: [wasm.decisionPeriod(0), wasm.decisionPeriod(1)],
     armMinReach: wasm.armMinReach(),
     impactThreshold: IMPACT_THRESHOLD_RAW, contactEnergyFloor: CONTACT_ENERGY_FLOOR,
     // The event row widens `sim::NO_REGION` to a full word so a reader that lost

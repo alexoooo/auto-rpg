@@ -2,7 +2,7 @@
 
 **Purpose:** Record the embodied corpus, its registered pin, and the measured result of the elevation term — including that the term lost.
 **Status:** historical
-**Canonical source:** this record, [`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1588), and the `EMBODIED_CORPUS_DIGEST` row in the [golden registry](../reference/hashes.md#golden-registry)
+**Canonical source:** this record, [`embodied`](../../crates/lab/src/main.rs#L1601), and the `EMBODIED_CORPUS_DIGEST` row in the [golden registry](../reference/hashes.md#golden-registry)
 **Update when:** An embodied fixture, the embodied script, the corpus shape, the pin, or the high-ground result changes.
 
 **Host:** MSVC x86-64, Windows 10, AMD Ryzen 9 3950X, 32 logical cores. **Date:** 2026-08-17.
@@ -88,7 +88,7 @@ the policy at once, since no embodied fixture can be driven by an articulated sc
 ## The registered pin
 
 `EMBODIED_CORPUS_DIGEST = 0xfa4ebbfbdde42fd1`, defined at
-[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1493) and asserted by
+[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1506) and asserted by
 `the_embodied_corpus_digest_is_the_pinned_one`.
 
 ```text
@@ -122,7 +122,7 @@ several documents grew one. `verify` has only ever
 driven a Legacy skirmish, and run/re-run/replay agreement is a property of the replay
 codec rather than of any body model, so the claim is now made over seeds under the
 embodied one too — at
-[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L195). 200 seeds of
+[`verify`](../../crates/lab/src/main.rs#L208). 200 seeds of
 `embodied-duel-v1` and 50 of `embodied-slope-v1` are identical on re-run and exact on
 replay, and the sculpted half is the only replay corpus in the repository whose floor
 reaches a state hash at all.
@@ -174,7 +174,7 @@ at the pair.
 ## The high-ground measurement
 
 `lab embodied --high-ground`, at
-[`crates/lab/src/main.rs`](../../crates/lab/src/main.rs#L1773). The subject is
+[`high_ground_report`](../../crates/lab/src/main.rs#L1786). The subject is
 `ScriptConfig::SEEKING` and the control is
 [`ScriptConfig`](../../crates/policy/src/script.rs#L272)`::LEVEL`,
 which is the same script with the elevation term switched off so completely that the

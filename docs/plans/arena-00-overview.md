@@ -1,6 +1,6 @@
 # The arena you can fight in -- overview
 
-**Status:** in progress. Sessions 01 through 08 are complete; session 09 is next. The
+**Status:** in progress. Sessions 01 through 09 are complete; session 10 is next. The
 topic opened after the embodied fight's session 07 closed and its plan files were deleted.
 
 The goal, in the owner's words on 2026-08-19: **pick two units side by side with a 3D
@@ -262,30 +262,30 @@ CONTROL_INPUT_MAX_HOLD_TICKS     6   05; how long a staged input frame is re-use
 HUMAN_ARM_SLOT       strike/right   05; the configured strike hand, falling back to Right
                                      when neither hand strikes. Authority is fixed at
                                      construction and does not move after an amputation
-BODY_TURN_INPUT_LEAD_RAW       8192  05/09; provisional absolute-yaw lead, mirrored from
+BODY_TURN_INPUT_LEAD_RAW       8192  05/10; provisional absolute-yaw lead, mirrored from
                                      Rust's measured `PLAYER_TURN_LEAD_RAW`. Session 10
                                      measures and may replace the shared value in the
                                      control lab; released Q/E rebases to published yaw
 HUMAN_ARM_RESTING_EFFORT        1/2  06; the existing held-guard effort and the floor for
                                      every moving human hand, not a value drag speed may
                                      lower toward zero
-VIRTUAL_HAND_SENSITIVITY      0.006  06/09; provisional arm lengths of virtual-hand travel
+VIRTUAL_HAND_SENSITIVITY      0.006  06/10; provisional arm lengths of virtual-hand travel
                                      per CSS pixel at the reference viewport. Session 10
                                      owns visible-browser calibration
-CURSOR_HAND_SPAN_ARM_LENGTHS    1.0  08/09; desktop cursor centre-to-edge offset around
+CURSOR_HAND_SPAN_ARM_LENGTHS    1.0  08/10; desktop cursor centre-to-edge offset around
                                      the synchronized rest anchor; touch retains 06's
                                      relative sensitivity
-EXTEND_DRAG_SENSITIVITY       0.004  06/09; provisional arm lengths of shoulder-to-hand distance per CSS
+EXTEND_DRAG_SENSITIVITY       0.004  06/10; provisional arm lengths of shoulder-to-hand distance per CSS
                                      pixel of secondary vertical travel -- the source
                                      material's extend verb. The screen plane's only depth
                                      is a height-coupled leak through the cameras' pitch,
                                      so this is the axis a thrust is aimed with
-TOUCH_PINCH_SPREAD_RATIO      0.75   06/09; provisional spread-to-centroid classifier ratio;
+TOUCH_PINCH_SPREAD_RATIO      0.75   06/10; provisional spread-to-centroid classifier ratio;
                                      centroid travel, makes a two-finger touch gesture a
                                      pinch for the camera instead of an extension drag
-SWING_DRAG_DEAD_ZONE_PX          6   06/09; provisional; below this a primary press places or holds a
+SWING_DRAG_DEAD_ZONE_PX          6   06/10; provisional; below this a primary press places or holds a
                                      guard and does not add swing effort
-SWING_DRAG_FULL_EFFORT_PX_S    900   06/09; provisional drag speed that maps moving effort from
+SWING_DRAG_FULL_EFFORT_PX_S    900   06/10; provisional drag speed that maps moving effort from
                                      the resting half to 1.0 -- never from zero
 SWING_DRAG_FULL_REACH_ARM_LENGTHS 1  06; derived: the virtual hand's unit disc, with the
                                      physical minimum reach at its centre and full reach
@@ -389,7 +389,7 @@ green even if one side still draws.
 
 ## What "controls well" is, declared before it is measured
 
-Preregistered here so that sessions 06 and 09 cannot choose their success criteria after
+Preregistered here so that sessions 06 and 10 cannot choose their success criteria after
 feeling the result.
 
 | quantity | today | acceptance | owned by |
@@ -400,10 +400,10 @@ feeling the result.
 | elapsed time to simulated ticks at 60, 120 and 144 Hz display schedules | -- | **the same 60 ticks after one visible second**, with no hidden-tab catch-up | 05 |
 | mouse motion with no body key held | -- | **changes no navigation or body-yaw command byte** | 05, 06 |
 | camera orbit, zoom or view promotion with no arm motion | -- | **changes no staged arm target** | 04, 06 |
-| deliberately parked high-left, high-right, centre, low-left and low-right guards | -- | **at least 4 of 5 distinct on the first attempt**, with no forced step from weapon input | 09 |
-| five attempts in each named cut family | -- | **at least 4 of 5 desired-hand traces classify as named before contact is considered** | 09 |
-| paired slow and fast cuts to one endpoint | -- | **ordered target speed and nondecreasing effort**, with achieved speed reported separately | 09 |
-| a straight thrust from the tucked guard to full extension, first person, no footwork | -- | **reachable with the secondary gesture alone**, and the same gesture in the 3/4 view | 06, 09 |
+| deliberately parked high-left, high-right, centre, low-left and low-right guards | -- | **at least 4 of 5 distinct on the first attempt**, with no forced step from weapon input | 10 |
+| five attempts in each named cut family | -- | **at least 4 of 5 desired-hand traces classify as named before contact is considered** | 10 |
+| paired slow and fast cuts to one endpoint | -- | **ordered target speed and nondecreasing effort**, with achieved speed reported separately | 10 |
+| a straight thrust from the tucked guard to full extension, first person, no footwork | -- | **reachable with the secondary gesture alone**, and the same gesture in the 3/4 view | 06, 10 |
 | a human-driven fight replayed from its recorded commands | -- | **the same `state_digest`**, with neither the human nor the policy in the room | 05 |
 | every policy and control the picker can send | -- | **takes effect, or comes back as a named refusal a test can assert** | 02, 05 |
 

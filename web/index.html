@@ -314,6 +314,15 @@
     .arena-hand-reticle.captured::after { top: 50%; left: -.25rem; height: 1px; width: 1.5rem; }
     .arena-hand-reticle.offscreen { border-style: dashed; opacity: .7; }
     .arena-hand-reticle.saturated { border-color: #ffb45f; box-shadow: 0 0 .45rem #ff8a3d; }
+    .arena-hand-reticle.achieved { width: .75rem; height: .75rem; margin: -.375rem;
+      border-color: #8fd7c1; box-shadow: 0 0 .3rem #000; }
+    .arena-hand-error { position: absolute; height: 2px; transform-origin: 0 50%;
+      pointer-events: none; z-index: 2; box-shadow: 0 0 .2rem #000; }
+    .arena-control-hud { position: absolute; z-index: 6; left: .5rem; bottom: 3rem;
+      width: min(25rem, calc(100% - 1rem)); max-height: 42%; overflow: auto;
+      padding: .55rem .7rem; border: 1px solid #365064; background: rgba(8,13,18,.86);
+      font: .72rem/1.35 ui-monospace, SFMono-Regular, Consolas, monospace;
+      white-space: pre-wrap; pointer-events: none; }
     .stage[data-eyes-open="false"] #label-first-a,
     .stage[data-eyes-open="false"] #label-first-b { display: none; }
     .stage[data-eyes-open="false"] #label-three-quarter { left: .5rem; top: .4rem; }
@@ -603,6 +612,7 @@
             </select>
           </label>
           <button id="arena-reset-preview" type="button">Reset view</button>
+          <button id="arena-practice-hand" type="button">Practice hand</button>
           <div id="picker-message"></div>
           <button id="fight" type="button">Run selected fight</button>
         </div>
@@ -613,7 +623,25 @@
              exists to hold. -->
         <div class="picker-summary" id="picker-summary" hidden>
           <span id="matchup-summary"></span>
+          <button id="arena-reset-drill" type="button" hidden>Reset drill</button>
+          <button id="arena-control-hud-toggle" type="button" aria-pressed="false" hidden>Control HUD</button>
+          <label id="arena-drill-label-wrap" hidden>Drill
+            <select id="arena-drill-label">
+              <option value="guard">guard</option><option value="named-cut">named cut</option>
+              <option value="slow-fast">slow / fast</option><option value="body-independence">body independence</option>
+              <option value="camera-independence">camera independence</option><option value="reach-thrust">reach / thrust</option>
+            </select>
+          </label>
+          <label id="arena-cut-family-wrap" hidden>Requested cut
+            <select id="arena-cut-family">
+              <option value="">not a cut</option><option value="left-to-right">left to right</option>
+              <option value="right-to-left">right to left</option><option value="overhead">overhead</option>
+              <option value="rising-diagonal">rising diagonal</option><option value="falling-diagonal">falling diagonal</option>
+            </select>
+          </label>
+          <label id="arena-pair-id-wrap" hidden>Pair <input id="arena-pair-id" type="text" maxlength="32" placeholder="optional ID"></label>
           <button id="arena-save-evidence" type="button" disabled>Save control evidence</button>
+          <button id="arena-save-control-report" type="button" disabled>Save control report</button>
           <button id="change-matchup" type="button">Change</button>
         </div>
       </div>
@@ -641,6 +669,7 @@
             <button id="mode-geometry" type="button" aria-pressed="true">Geometry</button>
           </div>
           <div class="hand-controls"><span id="control-status">Cursor hand ready</span></div>
+          <pre class="arena-control-hud" id="arena-control-hud" hidden>control lab waiting for a Human fight</pre>
         </div>
         <div class="side-panels" id="arena-plans-panel" hidden>
           <figure>

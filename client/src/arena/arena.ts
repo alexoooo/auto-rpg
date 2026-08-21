@@ -57,10 +57,14 @@ import {
 // Type-only, and that matters: a value import of `./scene.js` would pull Babylon
 // into this route's first chunk and make the 8 MB recording wait behind it.
 import type { ArenaMode, ArenaStage } from "./scene.js";
-import { ArenaInput, TOUCH_PINCH_SPREAD_RATIO } from "./arena-input.js";
+import { ArenaInput, TOUCH_PINCH_SPREAD_RATIO, type ArmTargetState } from "./arena-input.js";
 import { ControlledClock } from "./controlled-clock.js";
 import { createHandReticle } from "./hand-reticle.js";
 import { ArenaHandCursor } from "./arena-hand-cursor.js";
+import {
+  ControlInputLog, controlLabReport, type ControlAttemptManifest, type ControlInputChannel,
+  type ControlLabReport, type ControlReportContext, type ControlView,
+} from "./control-lab.js";
 
 const ONE = 65536;
 
@@ -275,7 +279,8 @@ interface Loaded {
 }
 
 export async function mount(container: HTMLElement, params: URLSearchParams,
-  testStage?: (hooks?: Readonly<{ onTerminal: (message: string) => void }>) => Promise<ArenaStage>
+  testStage?: (hooks?: Readonly<{ onTerminal: (message: string) => void }>) => Promise<ArenaStage>,
+  testControlInputLog?: ControlInputLog,
 ): Promise<RouteHandle> {
   const status = element<HTMLElement>(container, "status");
 
@@ -315,6 +320,17 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
   const matchupSummary = element<HTMLElement>(container, "matchup-summary");
   const changeMatchup = element<HTMLButtonElement>(container, "change-matchup");
   const saveEvidenceButton = element<HTMLButtonElement>(container, "arena-save-evidence");
+  const saveControlReportButton = element<HTMLButtonElement>(container, "arena-save-control-report");
+  const practiceHandButton = element<HTMLButtonElement>(container, "arena-practice-hand");
+  const resetDrillButton = element<HTMLButtonElement>(container, "arena-reset-drill");
+  const controlHudButton = element<HTMLButtonElement>(container, "arena-control-hud-toggle");
+  const controlHud = element<HTMLElement>(container, "arena-control-hud");
+  const drillLabelWrap = element<HTMLElement>(container, "arena-drill-label-wrap");
+  const drillLabelInput = element<HTMLSelectElement>(container, "arena-drill-label");
+  const cutFamilyWrap = element<HTMLElement>(container, "arena-cut-family-wrap");
+  const cutFamilyInput = element<HTMLSelectElement>(container, "arena-cut-family");
+  const pairIdWrap = element<HTMLElement>(container, "arena-pair-id-wrap");
+  const pairIdInput = element<HTMLInputElement>(container, "arena-pair-id");
   const modeTexture = element<HTMLButtonElement>(container, "mode-texture");
   const modeGeometry = element<HTMLButtonElement>(container, "mode-geometry");
   const controlStatus = element<HTMLElement>(container, "control-status");
@@ -352,6 +368,14 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
    */
   let producing = false;
   let controlEvidence: Uint8Array | null = null;
+  let controlReport: ControlLabReport | null = null;
+  const controlInputLog = testControlInputLog ?? new ControlInputLog();
+  let practiceActive = false;
+  let controlHudOpen = false;
+  let labFaction: 0 | 1 | null = null;
+  let labLimb: 0 | 1 = 1;
+  let cutAttempt = 0;
+  let acceptedArmTarget: ArmTargetState | null = null;
   /**
    * Production is behind the playhead, and the page says so rather than
    * stuttering.
@@ -403,6 +427,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
   const handCursor = new ArenaHandCursor();
   const handReticle = createHandReticle(stageHost);
   let capture: "none" | "mouse" | "touch" = "none";
+  let lastInputDevice: "mouse" | "touch" | null = null;
   let primaryArmLost = false;
   let mouseWeaponPointer: number | null = null;
   let lastMousePoint: readonly [number, number] | null = null;
@@ -480,6 +505,28 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     showOffHandRows(container);
   }
 
+  /** The control lab is an ordinary picker configuration, never a scenario bit. */
+  function selectPracticeHand(): void {
+    setPhase("select");
+    setPickerValue("a-anatomy", "fighter");
+    setPickerValue("a-left", "shield");
+    setPickerValue("a-right", "sword");
+    setPickerValue("b-anatomy", "brute");
+    setPickerValue("b-left", "empty");
+    setPickerValue("b-right", "club");
+    setPickerValue("arena-seed", "3");
+    setPickerValue("arena-time-limit", "3600");
+    clearTwoHanded();
+    populatePolicies(container, "tactical", "neutral");
+    setPickerValue("a-control", "human");
+    setPickerValue("a-off-hand", "tactical");
+    setPickerValue("b-control", "neutral");
+    showOffHandRows(container);
+    practiceActive = true;
+    refreshPicker();
+    updatePreview();
+  }
+
   /**
    * Which half of `#/arena` the reader is looking at.
    *
@@ -524,6 +571,11 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     pickerSides.hidden = next === "fight";
     pickerFooter.hidden = next === "fight";
     pickerSummary.hidden = next === "select";
+    resetDrillButton.hidden = next !== "fight" || !practiceActive;
+    controlHudButton.hidden = next !== "fight" || !practiceActive;
+    drillLabelWrap.hidden = cutFamilyWrap.hidden = pairIdWrap.hidden
+      = next !== "fight" || !practiceActive;
+    controlHud.hidden = next !== "fight" || !practiceActive || !controlHudOpen;
     if (next === "select") pickerSides.prepend(stageCanvas);
     else stageHost.prepend(stageCanvas);
     stage?.setPhase(next);
@@ -552,18 +604,24 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     stageHost.setAttribute("data-eyes-open", String(eyesOpen));
     eyesButton.setAttribute("aria-expanded", String(eyesOpen));
     stage?.setEyes?.(eyesOpen);
+    recordControlTransition("drawer", `eyes:${eyesOpen ? "open" : "closed"}`);
     render();
   });
-  plansButton.addEventListener("click", () => toggleDrawer(plansButton, plansPanel,
-    () => plansOpen, (open) => { plansOpen = open; }));
+  plansButton.addEventListener("click", () => {
+    toggleDrawer(plansButton, plansPanel, () => plansOpen, (open) => { plansOpen = open; });
+    recordControlTransition("drawer", `plans:${plansOpen ? "open" : "closed"}`);
+  });
   replayButton.addEventListener("click", () => {
     replayOpen = !replayOpen;
     replayButton.setAttribute("aria-expanded", String(replayOpen));
     replayPanel.hidden = replayControls.hidden = !replayOpen;
+    recordControlTransition("drawer", `replay:${replayOpen ? "open" : "closed"}`);
     if (replayOpen) render();
   });
-  detailsButton.addEventListener("click", () => toggleDrawer(detailsButton, detailsPanel,
-    () => detailsOpen, (open) => { detailsOpen = open; }));
+  detailsButton.addEventListener("click", () => {
+    toggleDrawer(detailsButton, detailsPanel, () => detailsOpen, (open) => { detailsOpen = open; });
+    recordControlTransition("drawer", `details:${detailsOpen ? "open" : "closed"}`);
+  });
   resetPreviewButton.addEventListener("click", () => stage?.resetPreview());
 
   // ---------------------------------------------------------------- the panels
@@ -645,11 +703,11 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     // in. Clear and dispose the captured owner before making the capability
     // unreachable, then park the authoritative producer too.
     const lost = stage;
+    stopControlledFight(performance.now(), true, "renderer-loss");
     lost?.clearHandGuide?.();
     lost?.clear();
     lost?.dispose();
     stage = null;
-    stopControlledFight(performance.now());
   };
 
   async function startStage(): Promise<void> {
@@ -811,6 +869,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     }
     healthA.value = Math.max(0, frame.health[0] ?? 0);
     healthB.value = Math.max(0, frame.health[1] ?? 0);
+    updateControlHud(frame);
 
     tickLabel.textContent = `tick ${frame.t} / ${header.ticks}`;
     if (phase !== "fight" || detailsOpen) {
@@ -1114,7 +1173,10 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     }
   }
 
-  function releaseDirectControls(): void {
+  function releaseDirectControls(reason = "release"): void {
+    if (capture !== "none" || mouseWeaponPointer !== null || touchPoints.size > 0) {
+      recordControlTransition("lifecycle", `${reason}:${capture}`);
+    }
     capture = "none";
     if (mouseWeaponPointer !== null && stageCanvas.hasPointerCapture(mouseWeaponPointer)) {
       stageCanvas.releasePointerCapture(mouseWeaponPointer);
@@ -1142,14 +1204,15 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
   function losePrimaryArm(): void {
     if (primaryArmLost) return;
     primaryArmLost = true;
-    releaseDirectControls();
+    releaseDirectControls("arm-loss");
     arenaInput.releaseArm();
     status.textContent = "CONTROL_PRIMARY_ARM_UNAVAILABLE: the controlled hand is severed or absent; body control continues";
     status.classList.add("error");
   }
 
-  function stopControlledFight(now = performance.now(), stageNeutral = true): void {
-    releaseDirectControls();
+  function stopControlledFight(now = performance.now(), stageNeutral = true,
+    reason = "pause"): void {
+    releaseDirectControls(reason);
     if (controlledFaction === null) return;
     const faction = controlledFaction;
     const generation = (controlGeneration += 1);
@@ -1171,6 +1234,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     controlledClock.resume(now);
     state.playing = true;
     playButton.textContent = "Pause";
+    recordControlTransition("lifecycle", `reacquire:${capture}`);
   }
 
   function opponentOf(frame: FightFrame): readonly [number, number] | null {
@@ -1185,6 +1249,137 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
   function latestHumanPose() {
     if (loaded === null || loaded.source.frameCount() === 0) return undefined;
     return humanPoseOf(loaded.source.frameAt(loaded.source.frameCount() - 1));
+  }
+
+  function currentControlView(): ControlView {
+    const view = stageHost.dataset.mainView;
+    return view === "firstPersonA" || view === "firstPersonB" ? view : "threeQuarter";
+  }
+
+  function recordControlInput(sampleMs: number, channel: ControlInputChannel,
+    travelCss: number, saturated: boolean, powered: boolean, q?: readonly [number, number],
+    clientCss?: readonly [number, number], action?: string, coalescePointer = false): void {
+    if (!practiceActive || stage === null || labFaction === null) return;
+    const pose = latestHumanPose();
+    const shoulder = pose?.regions[labLimb + 2]?.lower ?? null;
+    const armLength = loaded?.source.header.bodies[labFaction]?.anatomy.armLength ?? null;
+    controlInputLog.append({
+      sampleMs, tickSeen: loaded?.source.header.ticks ?? 0, view: currentControlView(), channel,
+      inputDevice: lastInputDevice,
+      captureActive: mouseWeaponPointer !== null || touchPoints.size > 0,
+      ...(action === undefined ? {} : { action }),
+      ...(q === undefined ? {} : { qx: q[0], qy: q[1] }), saturated, powered, travelCss,
+      ...(clientCss === undefined ? {} : { clientXCss: clientCss[0], clientYCss: clientCss[1] }),
+      desired: arenaInput.desiredHand(), shoulder, armLength, target: arenaInput.armTarget,
+      bodyYaw: pose?.yaw ?? null, basis: stage.cameraBasis(),
+    }, cutAttempt, coalescePointer);
+  }
+
+  function recordControlTransition(channel: ControlInputChannel, action: string): void {
+    recordControlInput(performance.now(), channel, 0, false, false, undefined, undefined, action);
+  }
+
+  function attemptManifest(): ControlAttemptManifest {
+    const family = cutFamilyInput.value;
+    return Object.freeze({
+      requestedFamily: family === "left-to-right" || family === "right-to-left"
+        || family === "overhead" || family === "rising-diagonal"
+        || family === "falling-diagonal" ? family : null,
+      drillLabel: drillLabelInput.value || null,
+      pairId: pairIdInput.value.trim() || null,
+    });
+  }
+
+  function beginCutAttempt(): number {
+    const attempt = controlInputLog.beginAttempt(attemptManifest());
+    if (attempt === 0) {
+      controlStatus.textContent = "CONTROL_INPUT_EVIDENCE_INELIGIBLE: the input-row cap forbids another recorded attempt";
+    }
+    return attempt;
+  }
+
+  function reportContext(): ControlReportContext {
+    const viewportWidth = Number.isFinite(window.innerWidth) ? window.innerWidth : null;
+    const viewportHeight = Number.isFinite(window.innerHeight) ? window.innerHeight : null;
+    const display = typeof screen === "undefined" ? null : screen;
+    const screenWidth = display !== null && Number.isFinite(display.width) ? display.width : null;
+    const screenHeight = display !== null && Number.isFinite(display.height) ? display.height : null;
+    const history = controlInputLog.rows();
+    const devices = [...new Set(history.flatMap((row) => row.inputDevice === null
+      ? [] : [row.inputDevice]))];
+    const lastDevice = devices.length === 0 ? null : devices[devices.length - 1]!;
+    return Object.freeze({ sourceIdentity: null, createdAt: new Date().toISOString(), operator: null,
+      environment: Object.freeze({ userAgent: navigator.userAgent || null,
+        platform: navigator.platform || null,
+        hardwareConcurrency: Number.isFinite(navigator.hardwareConcurrency)
+          ? navigator.hardwareConcurrency : null,
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
+        viewportCss: viewportWidth === null || viewportHeight === null
+          ? null : Object.freeze([viewportWidth, viewportHeight] as const),
+        devicePixelRatio: Number.isFinite(window.devicePixelRatio) ? window.devicePixelRatio : null,
+        screenPixels: screenWidth === null || screenHeight === null
+          ? null : Object.freeze([screenWidth, screenHeight] as const),
+        refreshHz: null, pageZoom: Number.isFinite(window.visualViewport?.scale)
+          ? window.visualViewport!.scale : null,
+        graphicsBackend: null, inputDevice: lastDevice, inputDevices: Object.freeze(devices),
+        pointerCaptureActive: mouseWeaponPointer !== null || touchPoints.size > 0,
+        pointerCaptureEver: history.some((row) => row.captureActive),
+        arenaView: currentControlView() }),
+    });
+  }
+
+  function updateControlHud(frame: FightFrame): void {
+    if (!practiceActive || labFaction === null) {
+      handReticle.updateAchieved(null);
+      return;
+    }
+    const pose = poseOf(frame, labFaction);
+    const info = loaded?.source.header.bodies[labFaction];
+    if (pose === undefined || info === undefined) {
+      controlHud.textContent = `tick ${frame.t}\ncontrolled body unavailable`;
+      handReticle.updateAchieved(null);
+      return;
+    }
+    const shoulder = pose.regions[labLimb + 2]?.lower;
+    const achieved = pose.arms[labLimb].hand;
+    const desired = arenaInput.desiredHand() ?? pose.arms[labLimb].target;
+    const error = Math.hypot(desired[0] - achieved[0], desired[1] - achieved[1],
+      desired[2] - achieved[2]) / info.anatomy.armLength;
+    if (controlHudOpen && stage !== null) {
+      const bounds = stageCanvas.getBoundingClientRect();
+      handReticle.updateAchieved(stage.projectHandIndicator(achieved)?.point ?? null,
+        stage.activeViewport(), [bounds.width, bounds.height], error);
+    } else handReticle.updateAchieved(null);
+    const candidate = arenaInput.armTarget;
+    const stance = frame.stances?.find((candidate) => candidate?.id[0] === pose.id[0]
+      && candidate.id[1] === pose.id[1]) ?? null;
+    const dx = shoulder === undefined ? 0 : achieved[0] - shoulder[0];
+    const dy = shoulder === undefined ? 0 : achieved[1] - shoulder[1];
+    const achievedBearing = shoulder === undefined ? null
+      : ((((Math.atan2(dy, dx) * ONE / (Math.PI * 2)) - pose.yaw) % ONE) + ONE) % ONE;
+    const achievedHeight = (achieved[2] - pose.body[2]) / info.anatomy.standingHeight;
+    const achievedReach = shoulder === undefined ? null
+      : Math.hypot(dx, dy) / info.anatomy.armLength;
+    const targetLine = (name: string, target: ArmTargetState | null): string => target === null
+      ? `${name}: unavailable`
+      : `${name}: bearing ${target.bearing}  height ${(target.height / ONE).toFixed(3)}  `
+        + `reach ${(target.reach / ONE).toFixed(3)}  effort ${(target.effort / ONE).toFixed(3)}  plane ${target.plane}`;
+    const achievedLine = achievedBearing === null || achievedReach === null
+      ? "achieved: unavailable"
+      : `achieved: bearing ${Math.round(achievedBearing)}  height ${achievedHeight.toFixed(3)}  `
+        + `reach ${achievedReach.toFixed(3)}  error ${error.toFixed(3)} arm lengths`;
+    const stanceLine = stance === null ? "stance: unavailable"
+      : `stance: body yaw ${pose.yaw}  hip yaw ${stance.hipYaw}  pelvis ${(stance.pelvis / ONE).toFixed(3)}  `
+        + `twist ${(stance.twist / ONE).toFixed(3)}  forced-step ${stance.stepLeft} ticks`;
+    controlHud.textContent = [
+      `tick ${frame.t}  desired immediate / achieved publication`,
+      `primary ${labLimb === 0 ? "left" : "right"}; off hand tactical`,
+      targetLine("candidate input", candidate), targetLine("accepted command", acceptedArmTarget),
+      `published target: ${pose.arms[labLimb].target.join(",")}`,
+      achievedLine, stanceLine,
+      `health: Heroes ${(frame.health[0] / ONE).toFixed(3)}  Monsters ${(frame.health[1] / ONE).toFixed(3)}`,
+      "foreground calibration: owed",
+    ].join("\n");
   }
 
   /**
@@ -1213,6 +1408,13 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     const hasHuman = matchup.a.control === "human" || matchup.b.control === "human";
     controlledFaction = matchup.a.control === "human" ? 0
       : matchup.b.control === "human" ? 1 : null;
+    labFaction = practiceActive ? controlledFaction : null;
+    controlInputLog.clear();
+    lastInputDevice = null;
+    cutAttempt = 0;
+    acceptedArmTarget = null;
+    controlReport = null;
+    saveControlReportButton.disabled = true;
     arenaInput.clear();
     neutralPending = false;
     controlledStopped = controlledFaction !== null;
@@ -1245,6 +1447,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
       if (controlledFaction !== null) {
         const side = controlledFaction === 0 ? matchup.a : matchup.b;
         const limb = humanArmOf(side) === "left" ? 0 : 1;
+        labLimb = limb;
         const anatomy = ANATOMIES[config.fighters[controlledFaction].anatomy];
         if (anatomy === undefined) throw new RangeError("CONTROL_PRIMARY_ARM_UNAVAILABLE: anatomy is not shipped");
         // The minimum arrives with `arenaOpened`; initialize at the old safe
@@ -1283,6 +1486,13 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
             state.playing = true;
             playButton.textContent = "Pause";
             if (controlledFaction !== null) {
+              if (practiceActive) {
+                cameraModeInput.value = "fixed";
+                stage?.setRelative(false);
+                viewInput.value = "threeQuarter";
+                stage?.promote("threeQuarter");
+                stageHost.dataset.mainView = "threeQuarter";
+              }
               followInput.value = controlledFaction === 0 ? "a" : "b";
               stage?.follow(controlledFaction);
               capture = "mouse";
@@ -1295,7 +1505,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
       });
       if (!current()) return;
       producing = false;
-      if (controlledFaction !== null) stopControlledFight(performance.now(), false);
+      if (controlledFaction !== null) stopControlledFight(performance.now(), false, "terminal");
       controlledFaction = null;
       neutralPending = false;
       producedMs = Math.round(performance.now() - started);
@@ -1305,6 +1515,15 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
       else adopt(source);
       controlEvidence = source.controlEvidence();
       saveEvidenceButton.disabled = controlEvidence === null;
+      if (practiceActive && controlEvidence !== null && labFaction !== null
+        && controlInputLog.reportEligible) {
+        controlReport = controlLabReport(source, controlEvidence, labLimb, controlInputLog.rows(),
+          reportContext(), controlInputLog.manifests());
+        saveControlReportButton.disabled = false;
+      }
+      if (practiceActive && !controlInputLog.reportEligible) {
+        controlStatus.textContent = `Control report unavailable: ${controlInputLog.dropped} input rows exceeded the ten-minute cap`;
+      }
       if (controlEvidence === null && (source.header.heroes.includes("you")
         || source.header.monsters.includes("you"))) {
         controlStatus.textContent = "Control evidence unavailable: accepted command rows were incomplete";
@@ -1313,7 +1532,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     } catch (error) {
       if (!current()) return;
       producing = false;
-      if (controlledFaction !== null) stopControlledFight(performance.now(), false);
+      if (controlledFaction !== null) stopControlledFight(performance.now(), false, "failed");
       controlledFaction = null;
       neutralPending = false;
       // **A cancelled or failed fight keeps the frames it already delivered.**
@@ -1346,7 +1565,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
 
   playButton.addEventListener("click", () => {
     if (controlledFaction !== null && producing) {
-      if (state.playing) stopControlledFight();
+      if (state.playing) stopControlledFight(performance.now(), true, "pause");
       else { capture = "mouse"; resumeControlledFight(); }
       return;
     }
@@ -1391,6 +1610,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
   followInput.addEventListener("change", () => {
     const target = followInput.value === "a" ? 0 : followInput.value === "b" ? 1 : "both";
     stage?.follow(target);
+    recordControlTransition("follow", String(followInput.value));
     render();
     showCameraOwnership();
   });
@@ -1400,17 +1620,22 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
       cameraModeInput.value = "fixed";
       status.textContent = refusal;
       status.classList.add("error");
-    } else render();
+    } else {
+      recordControlTransition("camera-mode", cameraModeInput.value);
+      render();
+    }
   });
   viewInput.addEventListener("change", () => {
     const view = viewInput.value as "threeQuarter" | "firstPersonA" | "firstPersonB";
     stage?.promote(view);
     stageHost.dataset.mainView = view;
+    recordControlTransition("promotion", view);
   });
   refitButton.addEventListener("click", () => {
     followInput.value = "both";
     stage?.follow("both");
     stage?.refit();
+    recordControlTransition("refit", "both:fit");
     render();
     showCameraOwnership();
   });
@@ -1474,6 +1699,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
       lastMousePoint = null;
       latestHandSaturated = false;
       capture = "touch";
+      lastInputDevice = "touch";
       controlStatus.textContent = "Touch hand controls active";
       refreshPicker();
       touchPoints.set(event.pointerId, [event.clientX, event.clientY]);
@@ -1496,6 +1722,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
         touchPinchEligible = stage.containsThreeQuarterPoint(x, y);
       } else touchPinchEligible = false;
       stageCanvas.setPointerCapture(event.pointerId);
+      recordControlTransition("lifecycle", "capture-acquired:touch");
       arenaInput.buttonTransition("cut", false);
       arenaInput.buttonTransition("extend", false);
       event.preventDefault();
@@ -1517,15 +1744,18 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
       return;
     }
     if (capture === "mouse" && event.pointerType !== "touch" && (event.button === 0 || event.button === 2)) {
+      lastInputDevice = "mouse";
       mouseWeaponPointer = event.pointerId;
       stageCanvas.setPointerCapture(event.pointerId);
+      recordControlTransition("lifecycle", "capture-acquired:mouse");
+      if (event.button === 0) cutAttempt = beginCutAttempt();
       arenaInput.buttonTransition(event.button === 0 ? "cut" : "extend", true);
       placeMouseSample(event);
       event.preventDefault();
     }
   });
   let lastWeaponAt = performance.now();
-  const placeMouseSample = (event: PointerEvent): boolean => {
+  const placeMouseSample = (event: PointerEvent, poweredOverride?: boolean): boolean => {
     if (capture !== "mouse" || event.pointerType === "touch" || stage === null) return false;
     const pose = latestHumanPose();
     if (pose === undefined) return false;
@@ -1544,10 +1774,15 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     const desired = arenaInput.desiredHand();
     if (desired !== null) {
       const projection = stage.projectHandIndicator(desired);
-      handReticle.update(projection?.point ?? null, event.buttons !== 0, stage.activeViewport(),
+      handReticle.update(projection?.point ?? null, poweredOverride ?? event.buttons !== 0,
+        stage.activeViewport(),
         [bounds.width, bounds.height], latestHandSaturated);
       stage.showHandGuide([pose.body[0], pose.body[1], 0], desired);
     }
+    recordControlInput(now, arenaInput.weaponOwner, travel, latestHandSaturated,
+      poweredOverride ?? event.buttons !== 0, [sample.qx, sample.qy],
+      [event.clientX, event.clientY], poweredOverride ? "pointerup-final" : undefined,
+      poweredOverride === undefined);
     return true;
   };
   stageHost.addEventListener("pointermove", (event) => {
@@ -1592,6 +1827,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
             : Math.abs(spreadDelta) > travel * TOUCH_PINCH_SPREAD_RATIO ? "pinch" : "extend";
           arenaInput.buttonTransition("cut", touchMode === "cut");
           arenaInput.buttonTransition("extend", touchMode === "extend");
+          if (touchMode === "cut") cutAttempt = beginCutAttempt();
         }
         if (touchMode === "pinch") {
           lastWeaponAt = performance.now();
@@ -1611,6 +1847,10 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
             stage.activeViewport(), [bounds.width, bounds.height]);
           stage.showHandGuide([pose.body[0], pose.body[1], 0], desired);
         }
+        if (touchMode !== "pinch") {
+          recordControlInput(eventAt, touchMode, travel, false, true, undefined, centroid,
+            undefined, true);
+        } else recordControlInput(eventAt, "camera", travel, false, false, undefined, centroid);
         touchCentroid = centroid;
         touchSpread = spread;
         touchWindowStarted = eventAt;
@@ -1624,6 +1864,9 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
           stageCanvas.getBoundingClientRect().height * (stage?.threeQuarterViewport().height ?? 1))
         : stage?.orbit(event.buttons, event.movementX, event.movementY);
       if (consumed !== true) return;
+      recordControlInput(Number.isFinite(event.timeStamp) ? event.timeStamp : performance.now(),
+        "camera", Math.hypot(event.movementX, event.movementY), false, false, undefined,
+        [event.clientX, event.clientY], undefined, true);
       showCameraOwnership();
       event.preventDefault();
       return;
@@ -1652,13 +1895,18 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
       const pose = latestHumanPose();
       if (pose !== undefined && arenaInput.synchronize(pose)) {
         const now = Number.isFinite(event.timeStamp) ? event.timeStamp : performance.now();
+        const travel = Math.hypot(centroid[0] - touchCentroid[0], centroid[1] - touchCentroid[1]);
         arenaInput.moveWeapon(centroid[0] - touchCentroid[0], centroid[1] - touchCentroid[1],
           now - lastWeaponAt, stageCanvas.getBoundingClientRect().height,
           stage.cameraBasis(), touchMode);
         lastWeaponAt = now;
+        recordControlInput(now, touchMode, travel, false, true, undefined, centroid,
+          "pointerup-final");
       }
     }
-    if (!touchPoints.delete(event.pointerId)) return;
+    if (!touchPoints.has(event.pointerId)) return;
+    recordControlTransition("lifecycle", "capture-released:touch");
+    touchPoints.delete(event.pointerId);
     if (stageCanvas.hasPointerCapture(event.pointerId)) stageCanvas.releasePointerCapture(event.pointerId);
     const remaining = [...touchPoints.values()];
     touchCentroid = remaining.length === 0 ? null : [
@@ -1686,10 +1934,12 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
   });
   stageHost.addEventListener("lostpointercapture", (event) => {
     if (capture === "touch" && touchPoints.has(event.pointerId)) {
+      recordControlTransition("lifecycle", "lost-capture:touch");
       touchPoints.delete(event.pointerId);
-      stopControlledFight();
+      stopControlledFight(performance.now(), true, "lost-capture");
     }
     if (event.pointerId === mouseWeaponPointer && (event.buttons & 3) === 0) {
+      recordControlTransition("lifecycle", "lost-capture:mouse");
       mouseWeaponPointer = null;
       arenaInput.buttonTransition("cut", false);
       arenaInput.buttonTransition("extend", false);
@@ -1699,10 +1949,11 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     if (capture !== "mouse") return;
     // Capture keeps this final position under the old gesture owner. Release
     // comes only after its absolute sample has been consumed.
-    placeMouseSample(event);
+    placeMouseSample(event, event.button === 0 || event.button === 2);
     if (event.button === 0) arenaInput.buttonTransition("cut", false);
     if (event.button === 2) arenaInput.buttonTransition("extend", false);
     if (event.pointerId === mouseWeaponPointer && (event.buttons & 3) === 0) {
+      recordControlTransition("lifecycle", "capture-released:mouse");
       if (stageCanvas.hasPointerCapture(event.pointerId)) stageCanvas.releasePointerCapture(event.pointerId);
       mouseWeaponPointer = null;
     }
@@ -1720,6 +1971,9 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
       (event.clientX - bounds.left) / Math.max(1, bounds.width),
       (event.clientY - bounds.top) / Math.max(1, bounds.height),
     ]);
+    recordControlInput(Number.isFinite(event.timeStamp) ? event.timeStamp : performance.now(),
+      "wheel", Math.abs(event.deltaY), false, false, undefined,
+      [event.clientX, event.clientY], String(event.deltaY));
     showCameraOwnership();
     // Reaching a clamp does not transfer this wheel gesture to page scrolling.
     event.preventDefault();
@@ -1758,11 +2012,39 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
   populatePolicies(container, "tactical", "scripted");
   for (const control of pickerControls(container)) {
     control.addEventListener("change", () => {
+      practiceActive = false;
       refreshPicker();
       updatePreview();
     });
   }
+  practiceHandButton.addEventListener("click", selectPracticeHand);
   fightButton.addEventListener("click", () => { void onFight(); });
+  resetDrillButton.addEventListener("click", () => {
+    stopControlledFight();
+    selectPracticeHand();
+    eyesOpen = plansOpen = replayOpen = detailsOpen = false;
+    stageHost.setAttribute("data-eyes-open", "false");
+    stage?.setEyes?.(false);
+    for (const [button, panel] of [[plansButton, plansPanel], [detailsButton, detailsPanel]] as const) {
+      button.setAttribute("aria-expanded", "false"); panel.hidden = true;
+    }
+    eyesButton.setAttribute("aria-expanded", "false");
+    replayButton.setAttribute("aria-expanded", "false");
+    replayPanel.hidden = replayControls.hidden = true;
+    cameraModeInput.value = "fixed";
+    viewInput.value = "threeQuarter";
+    stageHost.dataset.mainView = "threeQuarter";
+    controlHudOpen = true;
+    controlHudButton.setAttribute("aria-pressed", "true");
+    void onFight();
+  });
+  controlHudButton.addEventListener("click", () => {
+    controlHudOpen = !controlHudOpen;
+    controlHudButton.setAttribute("aria-pressed", String(controlHudOpen));
+    controlHud.hidden = !controlHudOpen;
+    if (!controlHudOpen) handReticle.updateAchieved(null);
+    else render();
+  });
   saveEvidenceButton.addEventListener("click", () => {
     if (controlEvidence === null) return;
     const evidenceBuffer = controlEvidence.slice().buffer as ArrayBuffer;
@@ -1770,6 +2052,16 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     const link = document.createElement("a");
     link.href = url;
     link.download = `arena-control-${loaded?.source.header.seed ?? 0}.arpgctl`;
+    link.click();
+    URL.revokeObjectURL(url);
+  });
+  saveControlReportButton.addEventListener("click", () => {
+    if (controlReport === null) return;
+    const bytes = new TextEncoder().encode(`${JSON.stringify(controlReport, null, 2)}\n`);
+    const url = URL.createObjectURL(new Blob([bytes], { type: "application/json" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `arena-control-${controlReport.seed}.json`;
     link.click();
     URL.revokeObjectURL(url);
   });
@@ -1868,6 +2160,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return;
     if (event.key === " ") { playButton.click(); event.preventDefault(); }
     else if (phase === "fight" && producing && controlledFaction !== null && arenaInput.keyDown(event.code)) {
+      recordControlTransition("keyboard", `${event.code}:down`);
       if (controlledStopped) { capture = "mouse"; resumeControlledFight(); }
       event.preventDefault();
     }
@@ -1877,10 +2170,15 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     else if (event.key === "]") seekContact(1, false);
   }
   function onKeyup(event: KeyboardEvent): void {
-    if (producing && controlledFaction !== null && arenaInput.keyUp(event.code)) event.preventDefault();
+    if (producing && controlledFaction !== null && arenaInput.keyUp(event.code)) {
+      recordControlTransition("keyboard", `${event.code}:up`);
+      event.preventDefault();
+    }
   }
-  const onBlur = (): void => stopControlledFight();
-  const onVisibility = (): void => { if (document.visibilityState === "hidden") stopControlledFight(); };
+  const onBlur = (): void => stopControlledFight(performance.now(), true, "blur");
+  const onVisibility = (): void => {
+    if (document.visibilityState === "hidden") stopControlledFight(performance.now(), true, "hidden");
+  };
   window.addEventListener("keydown", onKeydown);
   window.addEventListener("keyup", onKeyup);
   window.addEventListener("blur", onBlur);
@@ -1907,21 +2205,23 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
     const human = humanPoseOf(latest);
     if (human === undefined) {
       controlledClock.settleBatch(0);
-      stopControlledFight(performance.now(), false);
+      stopControlledFight(performance.now(), false, "controlled-body-absent");
       return;
     }
     if (!arenaInput.synchronize(human)) {
       losePrimaryArm();
     }
+    const stagedTarget = arenaInput.armTarget;
     const bytes = arenaInput.encode(opponentOf(latest), human.yaw);
     const request = arena.input(controlledFaction, bytes, 1);
     controlledInput = request;
     void request.then((stepped) => {
       if (stepped !== 1) {
         controlledClock.settleBatch(stepped);
-        stopControlledFight(performance.now(), false);
+        stopControlledFight(performance.now(), false, "input-refused");
         return;
       }
+      acceptedArmTarget = stagedTarget;
       controlledClock.settleTick();
       // At 30 Hz two ticks normally become due together. The second is sampled
       // only after the first acknowledgement, so yaw and future arm input have
@@ -1931,7 +2231,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams,
       controlledClock.settleBatch(0);
       // A user stop may already be waiting to stage neutral behind this
       // rejection. Do not invalidate that stop's generation on its behalf.
-      if (!controlledStopped) stopControlledFight(performance.now(), false);
+      if (!controlledStopped) stopControlledFight(performance.now(), false, "input-refused");
       status.textContent = `arena input was refused: ${String(error)}`;
       status.classList.add("error");
     }).finally(() => {

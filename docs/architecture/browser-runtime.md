@@ -372,6 +372,14 @@ rows and the final typed state digest. The independent Lab reader must replay th
 stream to that digest before it reports either the full or thinned analysis. The durable
 byte grammar is [arena control evidence V1](../reference/arena-control-evidence-v1.md).
 
+**Practice hand** starts the ordinary Human-versus-Neutral configured fight through that
+same boundary; it is not a presentation-only puppet. **Reset drill** restores its declared
+starting state. The control HUD keeps desired and achieved hand state separate from body
+and stance witnesses, while the evidence and control-report downloads preserve the
+accepted-command proof and the presentation-side diagnostic record as different
+artifacts. Those tools make the foreground protocol reproducible; they do not supply its
+still-blank comfort or fight-quality verdict.
+
 The picker preserves the shipped one-minute default (`3,600` ticks) and offers one,
 three, five and ten minutes before a fight. Ten minutes (`36,000` ticks) is both the UI
 and browser-recording maximum; zero, non-integral and larger values are refused before
@@ -547,8 +555,8 @@ intersects the floor, and torch/material treatment remains schematic and repetit
 ## Source anchors
 
 - Fixed publication pools: [`thread_local!`](../../crates/web/src/lib.rs#L1850)
-- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L4716)
-- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L5792)
+- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L4753)
+- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L5829)
 - Worker adapter and atomic scalar phase: [`readPublication`](../../client/src/runtime/sim.worker.ts#L94)
 - Pure protocol host: [`SimWorkerHost`](../../client/src/runtime/sim-worker-host.ts#L55)
 - Main-thread lease owner: [`SimClient`](../../client/src/runtime/sim-client.ts#L122)

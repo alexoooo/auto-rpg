@@ -47,6 +47,10 @@ const { StreamingFightSource } = require(path.join(OUT, "client/src/fight/live.j
 
 const settle = async () => { for (let turn = 0; turn < 6; turn += 1) await Promise.resolve(); };
 const CHUNK = MSG.ARENA_STREAM_CHUNK_TICKS;
+// `Body::Fighter` intellect 8 and `Body::Brute` intellect 2 through
+// `Stats::decision_period`; this fake mirrors the installed arena read-back,
+// not a cadence chosen by the browser fixture.
+const SHIPPED_DECISION_PERIODS = [12, 18];
 
 // ------------------------------------------------------------- the fake arena
 //
@@ -74,6 +78,7 @@ class FakeArena {
   // the drive is a claim about the encoder rather than a value compared with
   // itself.
   control(faction) { return this.config[8 + faction * 56 + 2]; }
+  decisionPeriod(faction) { return SHIPPED_DECISION_PERIODS[faction]; }
   armMinReach() { return 16_384; }
   replayBaseline() { return Uint8Array.of(0); }
   stateDigest() { return { domain: 2, schema: 1, lo: 0, hi: 0 }; }
@@ -408,6 +413,8 @@ test("the_worker_posts_one_opening_a_run_of_chunks_and_one_finish", async () => 
   const opened = sent[0].message;
   assert.equal(opened.spectator, true, "the arena's unfiltered ground truth must say so");
   assert.equal(opened.armMinReach, 16_384);
+  assert.deepEqual(opened.decisionPeriods, [12, 18],
+    "the opening must publish the installed Fighter/Brute policy cadences");
   assert.equal(opened.outcome, undefined, "an opening message cannot know the outcome");
   const finished = sent.at(-1).message;
   assert.deepEqual([finished.outcome, finished.timedOut, finished.ticks],

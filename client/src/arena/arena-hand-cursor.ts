@@ -1,6 +1,6 @@
 import type { ViewportRect } from "./geometry.js";
 
-/** Provisional centre-to-edge hand travel. Arena 09 owns foreground calibration. */
+/** Provisional centre-to-edge hand travel pending Arena 10's foreground calibration. */
 export const CURSOR_HAND_SPAN_ARM_LENGTHS = 1;
 
 export type CssRect = Readonly<{

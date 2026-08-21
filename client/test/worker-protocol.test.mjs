@@ -139,6 +139,7 @@ class FakeArena {
   // it, because `arena-recorder.ts` belongs to another session in this wave and
   // the two halves cannot go in one commit.
   control(faction) { return this.config[8 + faction * 56 + 2]; }
+  decisionPeriod(faction) { return faction === 0 ? 7 : 11; }
   armMinReach() { return 16_384; }
   replayBaseline() { return Uint8Array.of(0); }
   stateDigest() { return { domain: 2, schema: 1, lo: 0, hi: 0 }; }
@@ -1645,6 +1646,7 @@ test("a_recorded_fight_transfers_its_buffers_and_its_index", async () => {
   assert.equal(opened.monsters, "scripted-level");
   assert.equal(opened.fingerprint, "0x00000000deadbeef");
   assert.equal(opened.checkpoint, null);
+  assert.deepEqual(opened.decisionPeriods, [7, 11]);
   assert.equal(arena.warmed, 1, "the allocating calls run once, before any buffer exists");
   assert.equal(chunks.length, Math.ceil(17 / MSG.ARENA_STREAM_CHUNK_TICKS));
   // Every buffer is transferred rather than copied: eight of them, in order, on
@@ -1657,6 +1659,7 @@ test("a_recorded_fight_transfers_its_buffers_and_its_index", async () => {
         chunk.commands, chunk.index, chunk.health]);
   }
   const source = (await record(arena, arenaConfig())).source();
+  assert.deepEqual(source.decisionPeriods, [7, 11]);
   assert.equal(source.frameCount(), 17);
   for (let frame = 0; frame < source.frameCount(); frame += 1) {
     assert.equal(source.frameAt(frame).t, frame, "the index carries its own tick word");
@@ -1765,6 +1768,33 @@ test("a_zero_tick_input_stages_neutral_without_advancing_the_fight", async () =>
   assert.equal(result.ok, false);
   assert.equal(arena.staged.length, 1);
   assert.equal(arena.steps, 0, "a stage-only neutral command advanced an authoritative tick");
+});
+
+test("a_visual_cap_that_skips_a_stepped_receipt_marks_control_evidence_incomplete", async () => {
+  class VisualCapArena extends FakeArena {
+    read() {
+      this.eventsPerTick = this.now === 0 ? 0 : RECORDER.RECORDING_CHUNK_EVENT_ROW_CAP + 1;
+      const publication = super.read();
+      if (this.now === 0) return publication;
+      const commands = new Uint8Array(RECORDER.ACCEPTED_COMMAND_STRIDE);
+      const row = new DataView(commands.buffer);
+      row.setUint32(0, this.now - 1, true); row.setUint32(4, 0, true);
+      row.setUint32(8, 1, true); row.setUint8(12, 2);
+      return { ...publication, commandRows: 1, commands };
+    }
+  }
+  const arena = new VisualCapArena({ ticks: 1 });
+  const config = arenaConfig({ controls: [1, 0], maxTicks: 1 });
+  let input = true;
+  const result = await RECORDER.recordArenaFight(arena, config, CONFIG.encodeArenaConfig(config),
+    null, { onOpened() {}, onChunk() {}, async yieldToMessages() {},
+      nextInput: async () => input
+        ? (input = false, { requestId: 1, faction: 0, ticksDue: 1, bytes: new Uint8Array(61) })
+        : null }, () => false);
+  assert.equal(result.ok, true);
+  assert.equal(result.finished.recordingTruncated, true);
+  assert.equal(result.finished.acceptedCommandsDropped, 1,
+    "a stepped receipt vanished behind the visual cap with a zero drop count");
 });
 
 test("a_missed_input_frame_holds_and_then_expires", async () => {
@@ -2089,6 +2119,7 @@ const openedMessage = (requestId, over = {}) => ({
   acceptedCommandSchema: RECORDER.ACCEPTED_COMMAND_SCHEMA,
   replayBaseline: Uint8Array.of(0).buffer,
   controlledFaction: null,
+  decisionPeriods: [7, 11],
   armMinReach: 16_384,
   impactThreshold: 3_932, contactEnergyFloor: 144, bodySlot: 255, noRegion: 4_294_967_295,
   regionNames: [], hintNames: [], contactKinds: [], bodies: [],
@@ -2132,15 +2163,28 @@ test("a_finished_human_stream_builds_self_describing_control_evidence", () => {
   const commands = new Uint8Array(RECORDER.ACCEPTED_COMMAND_STRIDE);
   const row = new DataView(commands.buffer);
   row.setUint32(0, 0, true);
-  row.setUint32(4, 3, true);
-  row.setUint32(8, 4, true);
+  row.setUint32(4, 0, true);
+  row.setUint32(8, 0, true);
   row.setUint8(12, 2);
   commands.fill(0x5a, 13);
-  const index = new Uint32Array(RECORDER.RECORDING_INDEX_STRIDE);
-  index[RECORDER.INDEX_COMMAND_COUNT] = 1;
-  source.adopt(chunkMessage(1, { commands: commands.buffer, index: index.buffer }));
+  const index = new Uint32Array(2 * RECORDER.RECORDING_INDEX_STRIDE);
+  index[RECORDER.INDEX_POSE_COUNT] = 1;
+  index[RECORDER.RECORDING_INDEX_STRIDE + RECORDER.INDEX_TICK] = 1;
+  index[RECORDER.RECORDING_INDEX_STRIDE + RECORDER.INDEX_POSE_START] = 1;
+  index[RECORDER.RECORDING_INDEX_STRIDE + RECORDER.INDEX_POSE_COUNT] = 1;
+  index[RECORDER.RECORDING_INDEX_STRIDE + RECORDER.INDEX_COMMAND_COUNT] = 1;
+  const poses = new Uint32Array(2 * ABI.POSE_STRIDE);
+  poses[ABI.POSE_ENTITY_INDEX] = poses[ABI.POSE_ENTITY_GENERATION] = 0;
+  poses[ABI.POSE_STRIDE + ABI.POSE_ENTITY_INDEX] = 0;
+  poses[ABI.POSE_STRIDE + ABI.POSE_ENTITY_GENERATION] = 0;
+  const regions = new Uint32Array(2 * ABI.REGIONS_PER_BODY * ABI.REGION_STRIDE);
+  index[RECORDER.INDEX_REGION_COUNT] = ABI.REGIONS_PER_BODY;
+  index[RECORDER.RECORDING_INDEX_STRIDE + RECORDER.INDEX_REGION_START] = ABI.REGIONS_PER_BODY;
+  index[RECORDER.RECORDING_INDEX_STRIDE + RECORDER.INDEX_REGION_COUNT] = ABI.REGIONS_PER_BODY;
+  source.adopt(chunkMessage(1, { frameCount: 2, commands: commands.buffer,
+    poses: poses.buffer, regions: regions.buffer, index: index.buffer, health: new Int32Array(4).buffer }));
   source.finish(finishedMessage(1, {
-    ticks: 1, stateDigestDomain: 2, stateDigestSchema: 1,
+    ticks: 1, frameCount: 2, stateDigestDomain: 2, stateDigestSchema: 1,
     stateDigestLo: 0x12345678, stateDigestHi: 0x9abcdef0,
   }));
   const evidence = source.controlEvidence();
@@ -2161,6 +2205,52 @@ test("a_finished_human_stream_builds_self_describing_control_evidence", () => {
   dropped.adopt(chunkMessage(2));
   dropped.finish(finishedMessage(2, { ticks: 1, acceptedCommandsDropped: 1 }));
   assert.equal(dropped.controlEvidence(), null, "dropped command evidence was offered as complete");
+});
+
+test("accepted_command_rows_are_an_exact_tick_and_identity_bound_partition", () => {
+  const opened = openedMessage(9, { controlledFaction: 0, replayBaseline: Uint8Array.of(1).buffer });
+  const make = () => {
+    const commands = new Uint8Array(RECORDER.ACCEPTED_COMMAND_STRIDE);
+    const row = new DataView(commands.buffer);
+    row.setUint32(0, 0, true); row.setUint32(4, 0, true); row.setUint32(8, 0, true); row.setUint8(12, 2);
+    const poses = new Uint32Array(2 * ABI.POSE_STRIDE);
+    const index = new Uint32Array(2 * RECORDER.RECORDING_INDEX_STRIDE);
+    index[RECORDER.INDEX_POSE_COUNT] = 1;
+    const second = RECORDER.RECORDING_INDEX_STRIDE;
+    index[second + RECORDER.INDEX_TICK] = 1;
+    index[second + RECORDER.INDEX_POSE_START] = 1;
+    index[second + RECORDER.INDEX_POSE_COUNT] = 1;
+    index[second + RECORDER.INDEX_COMMAND_COUNT] = 1;
+    const regions = new Uint32Array(2 * ABI.REGIONS_PER_BODY * ABI.REGION_STRIDE);
+    index[RECORDER.INDEX_REGION_COUNT] = ABI.REGIONS_PER_BODY;
+    index[second + RECORDER.INDEX_REGION_START] = ABI.REGIONS_PER_BODY;
+    index[second + RECORDER.INDEX_REGION_COUNT] = ABI.REGIONS_PER_BODY;
+    return { commands, poses, regions, index, second };
+  };
+  const adopt = ({ commands, poses, regions, index }) => new StreamingFightSource(opened).adopt(chunkMessage(9, {
+    frameCount: 2, commands: commands.buffer, poses: poses.buffer, regions: regions.buffer, index: index.buffer,
+    health: new Int32Array(4).buffer,
+  }));
+  adopt(make());
+
+  const trailing = make();
+  trailing.commands = new Uint8Array(2 * RECORDER.ACCEPTED_COMMAND_STRIDE);
+  trailing.commands.set(make().commands);
+  assert.throws(() => adopt(trailing), /trailing accepted-command rows/);
+
+  const overlap = make();
+  overlap.commands = new Uint8Array(2 * RECORDER.ACCEPTED_COMMAND_STRIDE);
+  overlap.commands.set(make().commands);
+  overlap.index[overlap.second + RECORDER.INDEX_COMMAND_START] = 1;
+  assert.throws(() => adopt(overlap), /overlapping or unindexed accepted-command row/);
+
+  const wrongTick = make();
+  new DataView(wrongTick.commands.buffer).setUint32(0, 1, true);
+  assert.throws(() => adopt(wrongTick), /carries accepted command tick 1/);
+
+  const wrongIdentity = make();
+  new DataView(wrongIdentity.commands.buffer).setUint32(4, 1, true);
+  assert.throws(() => adopt(wrongIdentity), /accepted command 1:0 without its pose/);
 });
 
 test("the_arena_client_transfers_its_configuration_and_streams_the_fight", async () => {
@@ -2246,6 +2336,7 @@ test("correlated_malformed_v2_arena_messages_reject_and_replace_the_worker", asy
     { embodiedStanceStride: undefined },
     { embodiedStanceCapacity: "64" },
     { armMinReach: "16384" },
+    { decisionPeriods: [7, 0] },
   ]) {
     const running = client.run(arenaConfig(), noStream());
     await settle();
@@ -2255,14 +2346,14 @@ test("correlated_malformed_v2_arena_messages_reject_and_replace_the_worker", asy
     await assert.rejects(running, /malformed arenaOpened response/);
     assert.equal(worker.terminateCalls, 1);
   }
-  assert.equal(workers.length, 4, "a malformed stream worker was reused by the next Fight");
+  assert.equal(workers.length, 5, "a malformed stream worker was reused by the next Fight");
   const healthy = client.run(arenaConfig(), noStream());
   await settle();
   const worker = workers.at(-1);
   const requestId = worker.sent.at(-1).message.requestId;
   emitFight(worker, requestId);
   await healthy;
-  assert.equal(workers.length, 5);
+  assert.equal(workers.length, 6);
 });
 
 test("arm_min_reach_is_required_integer_and_inside_the_physical_command_range", async () => {

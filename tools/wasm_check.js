@@ -584,6 +584,7 @@ test("the boundary exports everything the client calls", () => {
     "arena_fingerprint_hi",
     "arena_policy",
     "arena_control",
+    "arena_decision_period",
     "arena_stage_input",
     "arm_min_reach_raw",
     "arena_accepted_command_ptr",
@@ -2742,7 +2743,7 @@ test("a configured duel runs inside the module and refuses by name", () => {
   for (const name of [
     "arena_config_ptr", "arena_config_len", "arena_config_layout_version",
     "arena_start", "arena_fingerprint_lo", "arena_fingerprint_hi", "arena_policy",
-    "arena_control", "arena_stage_input", "arm_min_reach_raw",
+    "arena_control", "arena_decision_period", "arena_stage_input", "arm_min_reach_raw",
     "arena_accepted_command_ptr", "arena_accepted_command_len",
     "arena_accepted_command_stride", "arena_accepted_command_capacity",
     "arena_accepted_commands_dropped", "arena_accepted_command_layout_version",
@@ -2771,6 +2772,8 @@ test("a configured duel runs inside the module and refuses by name", () => {
   // answer for every side of every fight this build installs -- so a zero here
   // would be indistinguishable from the commonest real answer there is.
   assert.equal(u32(wasm.arena_control(0)), NO_CONTROL, "a legacy world named a control");
+  assert.equal(u32(wasm.arena_decision_period(0)), 0,
+    "a legacy world named a decision period");
   assert.equal(arenaFingerprint(), 0n, "a legacy world named a configuration");
 
   const config = shippedArena();
@@ -2788,6 +2791,11 @@ test("a configured duel runs inside the module and refuses by name", () => {
   // exercised separately below.
   assert.equal(u32(wasm.arena_control(0)), ARENA_CONTROL_POLICY);
   assert.equal(u32(wasm.arena_control(1)), ARENA_CONTROL_POLICY);
+  assert.deepEqual(
+    [u32(wasm.arena_decision_period(0)), u32(wasm.arena_decision_period(1))],
+    [12, 18],
+    "the shipped arena bodies' wasm decision periods differ from the native fixture",
+  );
   // The legacy registry says it does not know rather than naming a `PolicyKind`
   // nothing in an arena consults.
   assert.equal(u32(wasm.policy_kind(0)), NO_POLICY, "an arena answered a legacy policy code");
@@ -2929,6 +2937,7 @@ test("a configured duel runs inside the module and refuses by name", () => {
   wasm.init(1);
   assert.equal(u32(wasm.arena_policy(0)), NO_POLICY);
   assert.equal(u32(wasm.arena_control(0)), NO_CONTROL);
+  assert.equal(u32(wasm.arena_decision_period(0)), 0);
 });
 
 test("arena input is staged only for the named human side", () => {

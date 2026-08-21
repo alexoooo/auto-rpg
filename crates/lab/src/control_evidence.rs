@@ -2,6 +2,7 @@
 
 use crate::args::Args;
 use policy::RunConfig;
+use std::collections::HashSet;
 use sim::{CommandV1, EntityId, Faction, HashDomain, ReplayEnvelope, SubmittedCommand,
     SubmittedCommandRecord, World, EMBODIED_COMMAND_SCHEMA, EMBODIED_PAYLOAD_BYTES,
     MAX_COMMAND_RECORDS, MAX_REPLAY_ENVELOPE_BYTES};
@@ -11,7 +12,7 @@ const ROW: usize = 13 + EMBODIED_PAYLOAD_BYTES;
 fn u16_at(bytes: &[u8], at: usize) -> u16 { u16::from_le_bytes(bytes[at..at + 2].try_into().unwrap()) }
 fn u32_at(bytes: &[u8], at: usize) -> u32 { u32::from_le_bytes(bytes[at..at + 4].try_into().unwrap()) }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct Evidence { baseline: ReplayEnvelope, tick: u32, controlled: Faction,
     truncated: bool, digest: u64, rows: Vec<SubmittedCommandRecord> }
 
@@ -29,6 +30,7 @@ fn decode(bytes: &[u8]) -> Result<Evidence, String> {
     }
     let baseline_len = u32_at(bytes, 20) as usize;
     let tick = u32_at(bytes, 24);
+    if tick == 0 { return Err("ARPGCTL1 terminal tick must be positive".into()); }
     let count = u32_at(bytes, 28) as usize;
     if count > MAX_COMMAND_RECORDS || count > (tick as usize).saturating_mul(2) {
         return Err("ARPGCTL1 accepted-command count exceeds two rows per tick".into());
@@ -41,6 +43,11 @@ fn decode(bytes: &[u8]) -> Result<Evidence, String> {
         .map_err(|e| format!("ARPGCTL1 baseline replay was refused: {e:?}"))?;
     if baseline.tick_limit != 0 || baseline.replay.ticks != 0 || !baseline.replay.submitted_entries.is_empty() {
         return Err("ARPGCTL1 baseline is not a zero-tick replay with no commands".into());
+    }
+    let units = &baseline.replay.scenario.units;
+    if baseline.replay.scenario.name != "configured-duel-v1" || units.len() != 2
+        || units[0].faction != Faction::Heroes || units[1].faction != Faction::Monsters {
+        return Err("ARPGCTL1 baseline is not the ordered two-body configured duel".into());
     }
     let defaults = RunConfig::default().orders;
     if baseline.replay.orders.len() != 2 || baseline.replay.objectives.len() != 2
@@ -58,6 +65,7 @@ fn decode(bytes: &[u8]) -> Result<Evidence, String> {
     let mut rows = Vec::with_capacity(count);
     let mut previous = 0;
     let mut same_tick = 0;
+    let mut identities = HashSet::new();
     for index in 0..count {
         let at = HEADER + baseline_len + index * ROW;
         let row_tick = u32_at(bytes, at);
@@ -67,8 +75,11 @@ fn decode(bytes: &[u8]) -> Result<Evidence, String> {
         same_tick = if index > 0 && row_tick == previous { same_tick + 1 } else { 1 };
         if same_tick > 2 { return Err(format!("ARPGCTL1 tick {row_tick} carries more than two accepted commands")); }
         let entity = EntityId::new(u32_at(bytes, at + 4), u32_at(bytes, at + 8));
-        if bytes[at + 12] != 2 || entity.generation != 0 || entity.index as usize >= baseline.replay.scenario.units.len() {
+        if bytes[at + 12] != 2 || entity.generation != 0 || entity.index as usize >= units.len() {
             return Err("ARPGCTL1 command kind or initial-roster identity is invalid".into());
+        }
+        if !identities.insert((row_tick, entity)) {
+            return Err(format!("ARPGCTL1 repeats command tick {row_tick} for {entity:?}"));
         }
         let payload: &[u8; EMBODIED_PAYLOAD_BYTES] = bytes[at + 13..at + ROW].try_into().unwrap();
         let command = CommandV1::from_payload_bytes(payload)
@@ -77,8 +88,12 @@ fn decode(bytes: &[u8]) -> Result<Evidence, String> {
             command: SubmittedCommand::Embodied(command) });
         previous = row_tick;
     }
-    let controlled_index = baseline.replay.scenario.units.iter().position(|u| u.faction == controlled)
-        .ok_or_else(|| "ARPGCTL1 controlled faction has no initial body".to_string())? as u32;
+    let controlled_bodies = units.iter().enumerate().filter(|(_, u)| u.faction == controlled)
+        .map(|(index, _)| index as u32).collect::<Vec<_>>();
+    if controlled_bodies.len() != 1 {
+        return Err("ARPGCTL1 controlled faction does not map to exactly one initial body".into());
+    }
+    let controlled_index = controlled_bodies[0];
     for expected_tick in 0..tick {
         if !rows.iter().any(|r| r.tick == expected_tick && r.entity.index == controlled_index) {
             return Err(format!("ARPGCTL1 is missing the controlled command at tick {expected_tick}"));
@@ -123,4 +138,145 @@ pub fn run(args: &Args) -> Result<(), String> {
 }
 
 #[cfg(test)]
-mod tests { use super::*; #[test] fn arpgctl1_rows_are_codec_exact() { assert_eq!((HEADER, ROW, EMBODIED_PAYLOAD_BYTES), (48, 70, 57)); } }
+mod tests {
+    use super::*;
+    use policy::neutral_command;
+    use sim::{DuelConfigV1, Objective, Replay, Scenario, SubmitOutcome};
+
+    fn baseline(scenario: &Scenario, seed: u64) -> ReplayEnvelope {
+        let defaults = RunConfig::default().orders;
+        let mut replay = Replay::new(scenario, seed);
+        replay.record_order(0, Faction::Heroes, defaults[0]);
+        replay.record_order(0, Faction::Monsters, defaults[1]);
+        replay.record_objective(0, Faction::Heroes, Objective::None);
+        replay.record_objective(0, Faction::Monsters, Objective::None);
+        replay.finish(0);
+        ReplayEnvelope::from_replay(replay)
+    }
+
+    fn fixture() -> (Vec<u8>, Vec<SubmittedCommandRecord>, u32) {
+        let scenario = Scenario::duel_from(&DuelConfigV1::shipped()).unwrap();
+        let seed = 3;
+        let tick = 6;
+        let mut world = World::new(&scenario, seed);
+        let defaults = RunConfig::default().orders;
+        world.set_order(Faction::Heroes, defaults[0]);
+        world.set_order(Faction::Monsters, defaults[1]);
+        world.set_objective(Faction::Heroes, Objective::None);
+        world.set_objective(Faction::Monsters, Objective::None);
+        let ids = [world.alive_ids(Faction::Heroes)[0], world.alive_ids(Faction::Monsters)[0]];
+        let mut rows = Vec::new();
+        for at in 0..tick {
+            for id in ids {
+                let command = neutral_command(&world.observe(id));
+                let outcome = world.submit(id, command);
+                let SubmitOutcome::Stored { command, .. } = outcome else { panic!("neutral refused") };
+                rows.push(SubmittedCommandRecord { tick: at, entity: id,
+                    command: SubmittedCommand::Embodied(command) });
+            }
+            world.step();
+        }
+        let digest = world.state_digest();
+        let baseline = baseline(&scenario, seed).encode().unwrap();
+        let mut bytes = vec![0; HEADER + baseline.len() + rows.len() * ROW];
+        bytes[..8].copy_from_slice(b"ARPGCTL1");
+        bytes[8..10].copy_from_slice(&EMBODIED_COMMAND_SCHEMA.to_le_bytes());
+        bytes[10] = 2;
+        bytes[12..14].copy_from_slice(&(ROW as u16).to_le_bytes());
+        bytes[14..16].copy_from_slice(&(EMBODIED_PAYLOAD_BYTES as u16).to_le_bytes());
+        bytes[16..18].copy_from_slice(&sim::EMBODIED_COMMAND_LAYOUT_VERSION.to_le_bytes());
+        bytes[20..24].copy_from_slice(&(baseline.len() as u32).to_le_bytes());
+        bytes[24..28].copy_from_slice(&tick.to_le_bytes());
+        bytes[28..32].copy_from_slice(&(rows.len() as u32).to_le_bytes());
+        bytes[32] = 0;
+        bytes[34] = digest.domain as u8;
+        bytes[36..38].copy_from_slice(&digest.schema.to_le_bytes());
+        bytes[40..48].copy_from_slice(&digest.value.to_le_bytes());
+        bytes[HEADER..HEADER + baseline.len()].copy_from_slice(&baseline);
+        for (index, row) in rows.iter().enumerate() {
+            let at = HEADER + baseline.len() + index * ROW;
+            bytes[at..at + 4].copy_from_slice(&row.tick.to_le_bytes());
+            bytes[at + 4..at + 8].copy_from_slice(&row.entity.index.to_le_bytes());
+            bytes[at + 8..at + 12].copy_from_slice(&row.entity.generation.to_le_bytes());
+            bytes[at + 12] = 2;
+            let SubmittedCommand::Embodied(command) = row.command;
+            bytes[at + 13..at + ROW].copy_from_slice(&command.payload_bytes());
+        }
+        (bytes, rows, tick)
+    }
+
+    #[test]
+    fn arpgctl1_rows_are_codec_exact() {
+        assert_eq!((HEADER, ROW, EMBODIED_PAYLOAD_BYTES), (48, 70, 57));
+    }
+
+    #[test]
+    fn a_real_receipt_decodes_replays_to_its_digest_and_thins_only_the_controlled_side() {
+        let (bytes, rows, tick) = fixture();
+        let evidence = decode(&bytes).unwrap();
+        assert_eq!(evidence.rows, rows);
+        let full = envelope(&evidence, evidence.rows.clone());
+        assert_eq!(full.tick_limit, tick);
+        assert_eq!(full.replay.ticks, tick);
+        assert_eq!(full.play().unwrap().state_digest().value, evidence.digest);
+
+        let controlled = 0;
+        let initial = World::new(&evidence.baseline.replay.scenario, evidence.baseline.seed);
+        let period = u32::from(initial.stats(EntityId::new(controlled, 0)).unwrap()
+            .decision_period().max(1));
+        let thinned_rows = evidence.rows.iter().copied()
+            .filter(|row| row.entity.index != controlled || row.tick % period == 0)
+            .collect::<Vec<_>>();
+        assert!(thinned_rows.len() < evidence.rows.len(), "fixture did not thin the Human side");
+        assert_eq!(thinned_rows.iter().filter(|row| row.entity.index == 1).count(), tick as usize,
+            "thinning removed an opponent receipt");
+        let thinned = envelope(&evidence, thinned_rows);
+        assert_eq!((thinned.tick_limit, thinned.replay.ticks), (tick, tick));
+        thinned.play().expect("a cadence control remains a valid replay");
+    }
+
+    #[test]
+    fn duplicate_rows_zero_horizon_and_noncanonical_rosters_are_refused() {
+        let (bytes, _, _) = fixture();
+        let baseline_len = u32_at(&bytes, 20) as usize;
+        let first = HEADER + baseline_len;
+
+        let mut duplicate = bytes.clone();
+        duplicate[first + ROW..first + 2 * ROW].copy_from_slice(&bytes[first..first + ROW]);
+        assert!(decode(&duplicate).unwrap_err().contains("repeats command tick"));
+
+        let mut zero = bytes.clone();
+        zero[24..28].copy_from_slice(&0u32.to_le_bytes());
+        assert!(decode(&zero).unwrap_err().contains("terminal tick must be positive"));
+
+        let evidence = decode(&bytes).unwrap();
+        let mut wrong = evidence.baseline.clone();
+        wrong.replay.scenario.name = "embodied-duel-v1".into();
+        wrong.replay.scenario_fingerprint = wrong.replay.scenario.fingerprint();
+        wrong.scenario_fingerprint = wrong.replay.scenario_fingerprint;
+        let encoded = wrong.encode().unwrap();
+        let mut wrong_bytes = bytes[..HEADER].to_vec();
+        wrong_bytes[20..24].copy_from_slice(&(encoded.len() as u32).to_le_bytes());
+        wrong_bytes.extend_from_slice(&encoded);
+        wrong_bytes.extend_from_slice(&bytes[first..]);
+        assert!(decode(&wrong_bytes).unwrap_err().contains("ordered two-body configured duel"));
+    }
+
+    #[test]
+    fn unknown_identity_and_missing_controlled_ticks_are_refused_before_replay() {
+        let (bytes, _, _) = fixture();
+        let baseline_len = u32_at(&bytes, 20) as usize;
+        let first = HEADER + baseline_len;
+        let mut unknown = bytes.clone();
+        unknown[first + 4..first + 8].copy_from_slice(&2u32.to_le_bytes());
+        assert!(decode(&unknown).unwrap_err().contains("initial-roster identity"));
+
+        let mut missing = bytes.clone();
+        // Turn the controlled tick-zero row into the opponent's second row;
+        // duplicate detection may answer first, and either refusal proves the
+        // receipt cannot reach replay as a complete Human stream.
+        missing[first + 4..first + 8].copy_from_slice(&1u32.to_le_bytes());
+        let error = decode(&missing).unwrap_err();
+        assert!(error.contains("repeats command tick") || error.contains("missing the controlled command"));
+    }
+}

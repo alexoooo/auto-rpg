@@ -2360,6 +2360,9 @@ struct Arena {
     /// Read back beside [`arena_policy`] so a recorder labels the fight with
     /// what it is actually running rather than what the caller requested.
     controls: [u8; 2],
+    /// The installed bodies' authoritative decision cadence, retained after a
+    /// death so metadata never depends on the live roster.
+    decision_periods: [u32; 2],
     /// The fixed body identity for each human side; policy sides are `None`.
     driven: [Option<EntityId>; 2],
     /// The Heroes' identities, captured once at install.
@@ -6891,6 +6894,20 @@ pub extern "C" fn arena_control(faction_code: u32) -> u32 {
     })
 }
 
+/// The installed body's authoritative decision cadence in ticks, or `0` when
+/// this world is not an arena.
+///
+/// This is retained on [`Arena`] rather than re-read from the live world so the
+/// metadata remains a fact about the installed fixture after either body dies.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn arena_decision_period(faction_code: u32) -> u32 {
+    with_sim(0, |sim| match sim.arena.as_ref() {
+        Some(arena) => arena.decision_periods[faction_from_code(faction_code).index()],
+        None => 0,
+    })
+}
+
 /// The whole of [`arena_start`] except the packing, so that every exit is a
 /// `?` and no path can install half a world.
 fn install_arena(bytes: &[u8; ARENA_CONFIG_BYTES], seed: u64) -> Result<(), ArenaRefusal> {
@@ -6999,6 +7016,7 @@ fn install_arena(bytes: &[u8; ARENA_CONFIG_BYTES], seed: u64) -> Result<(), Aren
         policies,
         kinds: [kind_a, kind_b],
         controls,
+        decision_periods: periods,
         driven,
         heroes,
         fingerprint,
@@ -9381,6 +9399,18 @@ mod tests {
         assert_eq!(arena_start(3) & 0xff, 1, "the policy control byte was refused");
         assert_eq!(arena_control(0), u32::from(ARENA_CONTROL_POLICY));
         assert_eq!(arena_control(1), u32::from(ARENA_CONTROL_POLICY));
+        let expected_periods = with_sim([0; 2], |sim| {
+            [Faction::Heroes, Faction::Monsters].map(|faction| {
+                let id = sim.world.alive_ids(faction)[0];
+                u32::from(sim.world.stats(id).expect("the arena body has stats").decision_period())
+            })
+        });
+        assert_eq!(
+            [arena_decision_period(0), arena_decision_period(1)],
+            expected_periods,
+            "the arena cadence is not the installed bodies' cadence",
+        );
+        assert!(expected_periods.iter().all(|&period| period > 0));
 
         write_arena_config(&config, kinds);
         poke_arena_config(ARENA_HEADER_BYTES + ARENA_FIGHTER_CONTROL, ARENA_CONTROL_HUMAN);

@@ -408,12 +408,11 @@ on each side.
 **The owed repair was a one-line change and was discharged by deletion instead.** The
 function lived in `crates/policy/src/articulated_script.rs`, which session 05 deleted
 with the model it served, so there is no longer a shared digest for a caller to reach
-for and get a constant from. `AGENTS.md` still lists the repair as owed and should
-stop.
+for and get a constant from. `AGENTS.md` now records the repair as closed by removal.
 
 `lab embodied` folded its own stream under `ARPG-EMBODIED-SCRIPT-V1` rather
 than calling it, and that fold is now the only one; the function is
-[`embodied_script_digest`](../../crates/lab/src/main.rs#L774), it copies
+[`embodied_script_digest`](../../crates/lab/src/main.rs#L791), it copies
 `script_digest`'s grammar byte for byte over `CommandV1::payload_bytes`, and its
 doc comment carries the whole argument. **The copy is now the original**, which is the
 cheapest possible discharge of a debt that was going to be a session with a hash
@@ -492,9 +491,12 @@ a test about the reaper the next time the damage model moves. A run that reaches
 The browser may ask a person rather than a Rust policy for the hero's next command.
 This is a change of command source, not a second authority channel: the host still
 submits `Command`, and `World` cannot tell whether a policy, a replay, or live input
-produced it. Direct control deliberately asks for a movement direction, an attack
-line, and a cut; swing phases and recovery remain simulation rules rather than
-pointer-controlled pose.
+produced it. `W`/`S` own forward and back, `A`/`D` strafe, and `Q`/`E` turn the
+body. An ordinary visible mouse cursor maps an absolute, saturating point in the
+active viewport to the primary hand; primary drag powers a cut and secondary drag
+owns extension. Captured touch retains the relative-delta grammar. Middle drag and
+wheel remain camera-only. Swing phases and recovery remain simulation rules rather
+than pointer-controlled pose.
 
 Submitting the composed command every tick also advances the world's decision
 deadline every tick. The browser boundary therefore wraps the off-hand policy in a
@@ -508,14 +510,19 @@ The staged host frame is deliberately not authoritative state. It is tick-stampe
 expires after a bounded hold, and reaches the world only as the whole command returned
 by `ComposedController` and submitted through the ordinary seam. The host source copies
 navigation and the configured primary arm, including its grip, release and swing plane;
-the cadenced policy source owns the other arm. A recorder for browser fights captures
-that resulting whole command rather than the host's partial request; the current lab
-runner only records decisions made through its pending-policy loop. This supersedes
+the cadenced policy source owns the other arm. The accepted-command publication
+captures the whole command `World::submit` stored rather than the host's partial
+request. A completed Human fight can package those rows with a canonical zero-tick
+`ReplayEnvelope` baseline and final typed digest as `ARPGCTL1`; the Lab reader first
+replays the full stream to that digest, then may analyze the full-rate or thinned
+human cadence. This is distinct from the ordinary Lab policy runner's pending-policy
+loop, not an owed browser recorder. This supersedes
 the former `DESIGN.md#the-one-exception-taking-the-controls` discussion while keeping
 its warning about replay completeness.
 
-The embodied observation/action seam, its registry, its configured duel, and the
-learned browser policy are current. The decision-loop ownership is intentionally
+The embodied observation/action seam, its registry, and its configured duel are
+current. A learned policy remains a Lab/checkpoint path and is not a live arena
+`PolicyKind`. The decision-loop ownership is intentionally
 split: `policy::run` is exercised directly only by tests; a lab harness needs
 per-tick resolutions, cap hits, and energy-ledger columns that `RunResult` does not
 carry, so its loop is pinned to the runner by an equivalence test; and the browser

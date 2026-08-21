@@ -154,6 +154,7 @@ function isOpened(value: Record<string, unknown>): boolean {
     value.armMinReach, value.impactThreshold, value.contactEnergyFloor,
     value.bodySlot, value.noRegion];
   const names = [value.regionNames, value.hintNames, value.contactKinds];
+  const decisionPeriods = value.decisionPeriods;
   return value.version === WORKER_PROTOCOL_VERSION && isU32(value.requestId)
     // **Not `truthy` and not `!== false`.** The exemption is the whole reason
     // this field exists, so the only value that passes is the one the recorder
@@ -166,6 +167,8 @@ function isOpened(value: Record<string, unknown>): boolean {
     && (value.checkpoint === null || isString(value.checkpoint))
     && isBuffer(value.replayBaseline)
     && (value.controlledFaction === null || value.controlledFaction === 0 || value.controlledFaction === 1)
+    && Array.isArray(decisionPeriods) && decisionPeriods.length === 2
+    && decisionPeriods.every((period) => isU32(period) && period > 0)
     && Array.isArray(value.arena) && value.arena.length === 2
     && value.arena.every((word) => isU32(word))
     && Array.isArray(value.bodies) && value.bodies.every(isRecord);

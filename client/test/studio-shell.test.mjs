@@ -53,6 +53,8 @@ const picker = await import(compiled("client/src/arena/picker.js"));
 const CONFIG = await import(compiled("client/src/runtime/arena-config.js"));
 const INPUT = await import(compiled("client/src/arena/arena-input.js"));
 const CURSOR = await import(compiled("client/src/arena/arena-hand-cursor.js"));
+const CONTROL = await import(compiled("client/src/arena/control-lab.js"));
+const CLOCK = await import(compiled("client/src/arena/controlled-clock.js"));
 
 const SHELL_HTML = fs.readFileSync(path.join(ROOT, "web", "index.html"), "utf8");
 const ONE = 65536;
@@ -122,6 +124,7 @@ class FakeNode {
     this.height = 0;
     this.children = [];
     this.style = {};
+    this.dataset = {};
     this.hidden = false;
     this.attributes = new Map();
     this.classes = new Set();
@@ -1519,6 +1522,7 @@ function syntheticOpening(requestId) {
     acceptedCommandSchema: RECORDER.ACCEPTED_COMMAND_SCHEMA,
     replayBaseline: Uint8Array.of(0).buffer,
     controlledFaction: null,
+    decisionPeriods: [12, 18],
     armMinReach: ONE / 4,
     impactThreshold: ONE / 4, contactEnergyFloor: 512,
     bodySlot: 255, noRegion: 4_294_967_295,
@@ -1528,7 +1532,8 @@ function syntheticOpening(requestId) {
 }
 
 /** One chunk of two-body frames, with chunk-relative index starts. */
-function syntheticChunk(requestId, firstFrame, frameCount, humanYaw = 0, humanSevered = 0) {
+function syntheticChunk(requestId, firstFrame, frameCount, humanYaw = 0, humanSevered = 0,
+  acceptedPayload = null) {
   const bodies = 2;
   const poses = new Uint32Array(frameCount * bodies * ABI.POSE_STRIDE);
   const regions = new Uint32Array(frameCount * bodies * ABI.REGIONS_PER_BODY * ABI.REGION_STRIDE);
@@ -1540,7 +1545,7 @@ function syntheticChunk(requestId, firstFrame, frameCount, humanYaw = 0, humanSe
     for (let body = 0; body < bodies; body += 1) {
       const at = (frame * bodies + body) * ABI.POSE_STRIDE;
       poses[at + ABI.POSE_ENTITY_INDEX] = body;
-      poses[at + ABI.POSE_ENTITY_GENERATION] = 1;
+      poses[at + ABI.POSE_ENTITY_GENERATION] = 0;
       // Bodies eleven units apart and closing, so `adopt`'s default span and
       // azimuth have something real to read.
       poses[at + ABI.POSE_BODY_X] = body === 0 ? tick * 16 : 11 * ONE;
@@ -1559,7 +1564,7 @@ function syntheticChunk(requestId, firstFrame, frameCount, humanYaw = 0, humanSe
       }
       const stanceAt = (frame * bodies + body) * RECORDER.EMBODIED_STANCE_STRIDE;
       stances[stanceAt] = body;
-      stances[stanceAt + 1] = 1;
+      stances[stanceAt + 1] = 0;
     }
     const at = frame * RECORDER.RECORDING_INDEX_STRIDE;
     index[at + RECORDER.INDEX_TICK] = tick;
@@ -1569,15 +1574,27 @@ function syntheticChunk(requestId, firstFrame, frameCount, humanYaw = 0, humanSe
     index[at + RECORDER.INDEX_REGION_COUNT] = bodies * ABI.REGIONS_PER_BODY;
     index[at + RECORDER.INDEX_STANCE_START] = frame * bodies;
     index[at + RECORDER.INDEX_STANCE_COUNT] = bodies;
+    index[at + RECORDER.INDEX_COMMAND_START] = acceptedPayload === null ? 0 : frame;
+    index[at + RECORDER.INDEX_COMMAND_COUNT] = acceptedPayload === null ? 0 : 1;
     health[frame * 2] = ONE;
     health[frame * 2 + 1] = ONE;
+  }
+  const commands = acceptedPayload === null ? new Uint8Array() : new Uint8Array(frameCount * 70);
+  if (acceptedPayload !== null) {
+    for (let frame = 0; frame < frameCount; frame += 1) {
+      const row = frame * 70;
+      const view = new DataView(commands.buffer, row, 70);
+      view.setUint32(0, firstFrame + frame - 1, true);
+      view.setUint32(4, 0, true); view.setUint32(8, 0, true); view.setUint8(12, 2);
+      commands.set(acceptedPayload, row + 13);
+    }
   }
   return {
     kind: "arenaChunk", version: PROTOCOL.WORKER_PROTOCOL_VERSION, requestId,
     firstFrame, frameCount,
     poses: poses.buffer, regions: regions.buffer,
     projectiles: new ArrayBuffer(0), events: new ArrayBuffer(0), stances: stances.buffer,
-    commands: new ArrayBuffer(0),
+    commands: commands.buffer,
     index: index.buffer, health: health.buffer,
   };
 }
@@ -1614,7 +1631,8 @@ const tickOf = (container) => {
   return shown === null ? null : Number(shown[1]);
 };
 
-async function controlledRoute(harness, captureKind = "mouse", firstChunk = true) {
+async function controlledRoute(harness, captureKind = "mouse", firstChunk = true, inputLog,
+  practice = false) {
   const { mount } = await import(compiled("client/src/arena/arena.js"));
   const container = harness.container();
   let stageHooks = null;
@@ -1627,8 +1645,10 @@ async function controlledRoute(harness, captureKind = "mouse", firstChunk = true
     projectHand: () => [0.5, 0.5], projectHandIndicator: () => ({ point: [0.5, 0.5], inFront: true }),
     activeViewport: () => ({ x: 0, y: 0, width: 1, height: 1 }),
     threeQuarterViewport: () => ({ x: 0, y: 0, width: 1, height: 1 }), cameraChangeSerial: () => 0,
-    containsThreeQuarterPoint: () => true, follow() {}, orbit: () => false, zoom() { this.pinchHits++; },
-    promote() {}, refit() {}, showPreview() {}, setPhase() {}, drawPreview() {},
+    containsThreeQuarterPoint: () => true, follow() {}, orbit: () => false, pan: () => true,
+    zoom() { this.pinchHits++; },
+    promote() {}, refit() {}, setRelative: () => null, setEyes() {},
+    showPreview() {}, setPhase() {}, drawPreview() {},
     showHandGuide() { this.guideVisible = true; this.guideShows++; },
     clearHandGuide() { this.guideVisible = false; this.guideClears++; },
     dispose() { this.disposeCalls++; },
@@ -1637,19 +1657,25 @@ async function controlledRoute(harness, captureKind = "mouse", firstChunk = true
   const handle = await mount(container, new URLSearchParams(), async (hooks) => {
     stageHooks = hooks;
     return fakeStage;
-  });
+  }, inputLog);
   await settle();
-  const control = container.querySelector("#a-control");
-  control.value = "human";
-  for (const entry of harness.listenersOn(control, "change")) entry.listener({ target: control });
+  if (practice) container.querySelector("#arena-practice-hand").click();
+  else {
+    const control = container.querySelector("#a-control");
+    control.value = "human";
+    for (const entry of harness.listenersOn(control, "change")) entry.listener({ target: control });
+  }
   container.querySelector("#fight").click();
   await settle();
   await settle();
   const worker = harness.workers.at(-1);
   const start = worker.sent.find((entry) => entry.message.kind === "arenaStart").message;
-  worker.emit({ ...syntheticOpening(start.requestId), heroes: "you + tactical off hand" });
+  worker.emit({ ...syntheticOpening(start.requestId), heroes: "you + tactical off hand",
+    controlledFaction: 0 });
   if (firstChunk) worker.emit(syntheticChunk(start.requestId, 0, 1));
   await settle();
+  if (practice) assert.equal(container.querySelector("#arena-reset-drill").hidden, false,
+    "Practice hand did not survive into the fight phase");
   if (captureKind === "touch" && firstChunk) {
     const host = container.querySelector("#arena-stage");
     const canvas = container.querySelector("#arena-3d");
@@ -1682,9 +1708,11 @@ async function controlledRoute(harness, captureKind = "mouse", firstChunk = true
     harness.runFrame(now);
     await settle();
   };
-  const acknowledge = async (input, publishedYaw = new DataView(input.bytes).getUint16(12, true), severed = 0) => {
+  const acknowledge = async (input, publishedYaw = new DataView(input.bytes).getUint16(12, true),
+    severed = 0, publishReceipt = false) => {
     frame += 1;
-    worker.emit(syntheticChunk(start.requestId, frame, 1, publishedYaw, severed));
+    const payload = publishReceipt ? new Uint8Array(input.bytes).slice(4) : null;
+    worker.emit(syntheticChunk(start.requestId, frame, 1, publishedYaw, severed, payload));
     worker.emit({ kind: "arenaInputAck", version: 2, requestId: input.requestId,
       arenaRequestId: start.requestId, steppedTicks: 1 });
     await settle();
@@ -1725,14 +1753,226 @@ const commandArm = (bytes, limb = 1) => {
   };
 };
 
-test("the_virtual_hand_constants_are_provisional_exact_and_two_sided", () => {
+test("all_seven_virtual_hand_constants_are_exact_and_explicitly_uncalibrated", () => {
   assert.deepEqual([
-    INPUT.VIRTUAL_HAND_SENSITIVITY, INPUT.EXTEND_DRAG_SENSITIVITY,
+    INPUT.BODY_TURN_INPUT_LEAD_RAW, INPUT.VIRTUAL_HAND_SENSITIVITY,
+    CURSOR.CURSOR_HAND_SPAN_ARM_LENGTHS, INPUT.EXTEND_DRAG_SENSITIVITY,
     INPUT.TOUCH_PINCH_SPREAD_RATIO, INPUT.SWING_DRAG_DEAD_ZONE_PX,
-    INPUT.SWING_DRAG_FULL_EFFORT_PX_S, INPUT.VIRTUAL_HAND_REFERENCE_VIEWPORT_PX,
-  ], [0.006, 0.004, 0.75, 6, 900, 1_000]);
-  assert.ok(INPUT.VIRTUAL_HAND_SENSITIVITY > 0 && INPUT.VIRTUAL_HAND_SENSITIVITY < 0.01);
-  assert.ok(INPUT.SWING_DRAG_DEAD_ZONE_PX > 0 && INPUT.SWING_DRAG_DEAD_ZONE_PX < 100);
+    INPUT.SWING_DRAG_FULL_EFFORT_PX_S,
+  ], [8_192, 0.006, 1, 0.004, 0.75, 6, 900]);
+  assert.deepEqual(CONTROL.CONTROL_FEEL_CONSTANTS, {
+    bodyTurnInputLeadRaw: 8_192, virtualHandSensitivity: 0.006,
+    cursorHandSpanArmLengths: 1, extendDragSensitivity: 0.004,
+    touchPinchSpreadRatio: 0.75, swingDragDeadZonePx: 6,
+    swingDragFullEffortPxS: 900,
+  });
+});
+
+test("the_input_sidecar_cap_is_exact_and_a_dropped_row_makes_a_report_ineligible", () => {
+  const log = new CONTROL.ControlInputLog();
+  const row = { sampleMs: 0, tickSeen: 0, view: "threeQuarter", channel: "keyboard",
+    inputDevice: null, captureActive: false,
+    action: "KeyW:down", saturated: false, powered: false, travelCss: 0,
+    desired: null, shoulder: null, armLength: null, target: null, bodyYaw: null,
+    basis: { right: [1, 0, 0], up: [0, 0, 1] } };
+  for (let index = 0; index < CONTROL.CONTROL_INPUT_ROW_CAP; index += 1) log.append(row);
+  assert.deepEqual([log.rows().length, log.dropped, log.reportEligible],
+    [CONTROL.CONTROL_INPUT_ROW_CAP, 0, true]);
+  log.append(row);
+  assert.deepEqual([log.rows().length, log.dropped, log.reportEligible],
+    [CONTROL.CONTROL_INPUT_ROW_CAP, 1, false]);
+  const manifests = log.manifests().size;
+  assert.equal(log.beginAttempt(), 0);
+  assert.equal(log.manifests().size, manifests, "an ineligible attempt grew the manifest map");
+});
+
+test("a_final_endpoint_breaks_the_pointer_coalescing_anchor_and_preserves_owner_order", () => {
+  const log = new CONTROL.ControlInputLog();
+  const row = { tickSeen: 0, view: "threeQuarter", channel: "cut", inputDevice: "mouse",
+    captureActive: true, saturated: false, travelCss: 1, shoulder: [0, 0, 0], armLength: 1,
+    target: null, bodyYaw: 0, basis: { right: [1, 0, 0], up: [0, 0, 1] } };
+  log.append({ ...row, sampleMs: 5, powered: true, desired: [0, 0, 0] }, 1, true);
+  log.append({ ...row, sampleMs: 6, powered: true, desired: [0.4, 0, 0],
+    action: "pointerup-final" }, 1, false);
+  log.append({ ...row, sampleMs: 7, powered: false, desired: [0.8, 0, 0] }, 1, true);
+  assert.deepEqual(log.rows().map((sample) => [sample.sampleMs, sample.action ?? null,
+    sample.powered]), [[5, null, true], [6, "pointerup-final", true], [7, null, false]]);
+  const powered = log.rows().filter((sample) => sample.powered)
+    .map((sample) => ({ right: sample.desired[0], up: sample.desired[1] }));
+  assert.equal(CONTROL.classifyCut(powered).family, "left-to-right",
+    "coalescing changed which owned endpoint the classifier consumed");
+});
+
+test("a_ten_minute_one_kilohertz_pointer_stream_is_coalesced_below_the_120_hz_cap", () => {
+  const log = new CONTROL.ControlInputLog();
+  const row = { tickSeen: 0, view: "threeQuarter", channel: "cut",
+    inputDevice: "mouse", captureActive: true, saturated: false, powered: true, travelCss: 1,
+    desired: null, shoulder: null, armLength: null, target: null, bodyYaw: null,
+    basis: { right: [1, 0, 0], up: [0, 0, 1] } };
+  for (let sampleMs = 0; sampleMs < 600_000; sampleMs += 1) {
+    log.append({ ...row, sampleMs }, 1, true);
+  }
+  log.append({ ...row, sampleMs: 600_000, action: "pointerup-final" }, 1, false);
+  assert.ok(log.rows().length <= CONTROL.CONTROL_INPUT_ROW_CAP);
+  assert.deepEqual([log.dropped, log.reportEligible, log.rows().at(-1).action],
+    [0, true, "pointerup-final"]);
+});
+
+test("a_post_cap_primary_down_is_refused_without_throwing_or_growing_manifests", async () => {
+  const harness = installDom();
+  try {
+    const log = new CONTROL.ControlInputLog();
+    const route = await controlledRoute(harness, "mouse", true, log, true);
+    const row = { sampleMs: 0, tickSeen: 0, view: "threeQuarter", channel: "keyboard",
+      inputDevice: null, captureActive: false, action: "cap", saturated: false, powered: false,
+      travelCss: 0, desired: null, shoulder: null, armLength: null, target: null, bodyYaw: null,
+      basis: { right: [1, 0, 0], up: [0, 0, 1] } };
+    const already = log.rows().length;
+    for (let index = already; index < CONTROL.CONTROL_INPUT_ROW_CAP; index += 1) log.append(row);
+    log.append(row);
+    const manifests = log.manifests().size;
+    const host = route.container.querySelector("#arena-stage");
+    const canvas = route.container.querySelector("#arena-3d");
+    assert.doesNotThrow(() => {
+      for (const entry of harness.listenersOn(host, "pointerdown")) entry.listener({
+        target: canvas, pointerType: "mouse", pointerId: 93, button: 0, buttons: 1,
+        clientX: 200, clientY: 180, timeStamp: 10, preventDefault() {},
+      });
+    });
+    assert.equal(log.manifests().size, manifests);
+    assert.match(route.container.querySelector("#control-status").textContent,
+      /CONTROL_INPUT_EVIDENCE_INELIGIBLE/);
+    await route.handle.dispose(); harness.dropSubtree(route.container);
+  } finally { harness.restore(); }
+});
+
+test("five_named_cut_fixtures_use_the_frozen_camera_basis", () => {
+  const named = [
+    ["left-to-right", [[0, 0], [0.4, 0.02]]],
+    ["right-to-left", [[0.4, 0], [0, -0.02]]],
+    ["overhead", [[0, 0.4], [0.02, 0]]],
+    ["rising-diagonal", [[0, 0], [0.3, 0.3]]],
+    ["falling-diagonal", [[0, 0.3], [0.3, 0]]],
+  ];
+  for (const [family, points] of named) {
+    assert.equal(CONTROL.classifyCut(points.map(([right, up]) => ({ right, up }))).family, family);
+  }
+  const basis = { right: [0, 1, 0], up: [0, 0, 1] };
+  const before = CONTROL.cutPoint([10, 2, 3], [10, 1, 2], 2, basis);
+  const afterBodyTranslation = CONTROL.cutPoint([110, -48, 3], [110, -49, 2], 2, basis);
+  assert.deepEqual(afterBodyTranslation, before,
+    "body translation leaked into a shoulder-relative cut");
+});
+
+test("ambiguous_short_and_returning_paths_are_unclassified", () => {
+  assert.equal(CONTROL.classifyCut([{ right: 0, up: 0 }, { right: 0.29, up: 0 }]).family,
+    "unclassified");
+  assert.equal(CONTROL.classifyCut([
+    { right: 0, up: 0 }, { right: 0.5, up: 0 }, { right: 0.02, up: 0 },
+  ]).family, "unclassified");
+  assert.deepEqual([
+    CONTROL.CUT_MIN_NET_TRAVEL, CONTROL.CUT_MIN_AXIS_TRAVEL,
+    CONTROL.CUT_MIN_PATH_EFFICIENCY, CONTROL.CUT_AXIS_DOMINANCE,
+    CONTROL.CUT_ENDPOINT_TOLERANCE,
+  ], [0.30, 0.20, 0.65, 1.75, 0.10]);
+});
+
+test("control_receipt_tick_t_joins_publication_t_plus_one", () => {
+  const trace = syntheticTrace();
+  const frames = trace.frames.map((frame) => ({ ...frame,
+    poses: frame.poses.map((pose) => ({ ...pose, id: [pose.id[0], 0] })) }));
+  const { frames: _frames, schema: _schema, ...header } = trace;
+  const source = { header, decisionPeriods: [12, 18],
+    frameCount: () => frames.length, frameAt: (index) => frames[index] };
+  const baseline = Uint8Array.of(9);
+  const evidence = new Uint8Array(48 + baseline.length + CONTROL.CONTROL_RECEIPT_BYTES);
+  evidence.set(new TextEncoder().encode("ARPGCTL1"));
+  const view = new DataView(evidence.buffer);
+  view.setUint16(8, 3, true); view.setUint8(10, 2);
+  view.setUint16(12, 70, true); view.setUint16(14, 57, true); view.setUint16(16, 2, true);
+  view.setUint32(20, baseline.length, true); view.setUint32(24, 1, true);
+  view.setUint32(28, 1, true); view.setUint8(32, 0); view.setUint8(34, 2);
+  view.setUint16(36, 1, true);
+  evidence.set(baseline, 48);
+  const at = 49;
+  view.setUint32(at, 0, true); view.setUint32(at + 4, 0, true); view.setUint32(at + 8, 0, true);
+  view.setUint8(at + 12, 2);
+  const right = at + 13 + 33;
+  view.setUint16(right, 123, true); view.setInt32(right + 2, ONE / 2, true);
+  view.setInt32(right + 6, ONE / 2, true); view.setInt32(right + 10, ONE / 2, true);
+  const parsed = CONTROL.parseControlEvidence(evidence, 1);
+  const joined = CONTROL.joinControlReceipt(parsed, source, 1);
+  assert.deepEqual([joined[0].receiptTick, joined[0].publishedTick], [0, 1]);
+  assert.deepEqual(joined[0].desired, frames[1].poses[0].arms[1].target);
+  assert.deepEqual(joined[0].achieved, frames[1].poses[0].arms[1].hand);
+  const metadata = { sourceIdentity: null, createdAt: "2026-08-20T00:00:00.000Z", operator: null,
+    environment: { userAgent: null, platform: null, viewportCss: null, devicePixelRatio: null,
+      hardwareConcurrency: null, timeZone: null, screenPixels: null, refreshHz: null,
+      pageZoom: null, graphicsBackend: null, inputDevice: null, inputDevices: [],
+      pointerCaptureActive: false, pointerCaptureEver: false,
+      arenaView: "threeQuarter" } };
+  const report = CONTROL.controlLabReport(source, evidence, 1, [], metadata);
+  assert.deepEqual(Object.keys(report).sort(), ["attempts", "classifier", "config", "constants",
+    "controlledFaction", "finalTick", "fingerprint", "inputRows", "metadata", "outcome",
+    "schema", "seed", "stateDigest", "status", "summary", "tickRows"].sort());
+  assert.deepEqual([report.schema, report.status, report.finalTick, report.outcome],
+    ["arpg-arena-control-report-1", "foreground-calibration-owed", 1, source.header.outcome]);
+  assert.deepEqual([report.config.scenario, report.config.seed, report.config.primaryArm,
+    report.config.decisionPeriodTicks], [source.header.scenario, 3, 1, 12]);
+  assert.deepEqual(report.constants, CONTROL.CONTROL_FEEL_CONSTANTS);
+  assert.equal(report.tickRows.length, 1);
+  assert.equal(report.summary.effortRaw.count, 1);
+  assert.equal(report.summary.errorArmLengths.count, 1);
+  assert.equal(report.metadata.sourceIdentity, null, "missing provenance was invented");
+
+  const deadFrames = [frames[0], { ...frames[1], poses: [] }];
+  const deadSource = { header, decisionPeriods: [12, 18], frameCount: () => deadFrames.length,
+    frameAt: (index) => deadFrames[index] };
+  const death = CONTROL.joinControlReceipt(parsed, deadSource, 1);
+  assert.deepEqual([death.length, death[0].publishedTick, death[0].desired, death[0].missing],
+    [1, 1, null, "controlled-body-absent"]);
+  const deathReport = CONTROL.controlLabReport(deadSource, evidence, 1, [], metadata);
+  assert.deepEqual([deathReport.summary.summaryComplete, deathReport.summary.severances],
+    [false, null], "terminal pose loss was reported as a complete zero-severance summary");
+  const missingSource = { header, frameCount: () => 1, frameAt: () => frames[0] };
+  assert.throws(() => CONTROL.joinControlReceipt(parsed, missingSource, 1), /no publication 1/);
+  const invalidAnatomy = { header: { ...header, bodies: [{ ...header.bodies[0], anatomy: null },
+    header.bodies[1]] }, decisionPeriods: [12, 18],
+    frameCount: source.frameCount, frameAt: source.frameAt };
+  assert.throws(() => CONTROL.controlLabReport(invalidAnatomy, evidence, 1, [], metadata),
+    /CONTROL_REPORT_REFUSED: controlled fighter anatomy/);
+  assert.throws(() => CONTROL.controlLabReport({ ...source, decisionPeriods: undefined },
+    evidence, 1, [], metadata), /CONTROL_REPORT_REFUSED: authoritative decision period/);
+});
+
+test("hidden_time_is_discarded_instead_of_becoming_tick_debt", () => {
+  const clock = new CLOCK.ControlledClock(0);
+  assert.equal(clock.advance(250), 15);
+  for (let tick = 0; tick < 15; tick += 1) { assert.equal(clock.beginTick(), true); clock.settleTick(); }
+  assert.equal(clock.advance(500), 15);
+  for (let tick = 0; tick < 15; tick += 1) { assert.equal(clock.beginTick(), true); clock.settleTick(); }
+  clock.stop(500); assert.equal(clock.advance(1_500), 0); clock.resume(1_500);
+  assert.equal(clock.advance(1_750), 15);
+  for (let tick = 0; tick < 15; tick += 1) { assert.equal(clock.beginTick(), true); clock.settleTick(); }
+  assert.equal(clock.advance(2_000), 15);
+  assert.equal(clock.dueTicks, 15);
+});
+
+test("practice_hand_is_an_ordinary_human_versus_neutral_configuration", async () => {
+  const harness = installDom();
+  try {
+    const { mount } = await import(compiled("client/src/arena/arena.js"));
+    const container = harness.container();
+    const handle = await mount(container, new URLSearchParams());
+    container.querySelector("#arena-practice-hand").click();
+    const chosen = picker.readMatchup(container);
+    assert.deepEqual(chosen, matchup({ policy: "tactical", control: "human" }, {
+      anatomy: "brute", left: "empty", right: "club", policy: "neutral", control: "policy",
+    }));
+    assert.deepEqual(picker.arenaConfigOf(chosen), picker.arenaConfigOf({ ...chosen }),
+      "Practice hand added state outside the ordinary picker configuration");
+    await handle.dispose(); harness.dropSubtree(container);
+  } finally { harness.restore(); }
 });
 
 test("mouse_motion_changes_the_arm_and_not_the_body", () => {
@@ -1830,10 +2070,12 @@ test("mouse_capture_survives_either_button_release_until_both_are_up", async () 
 
 test("touch_up_reduces_its_final_position_while_cancel_does_not", async () => {
   const results = [];
+  const finalRows = [];
   for (const ending of ["pointerup", "pointercancel"]) {
     const harness = installDom();
     try {
-      const route = await controlledRoute(harness, "touch");
+      const inputLog = new CONTROL.ControlInputLog();
+      const route = await controlledRoute(harness, "touch", true, inputLog, true);
       const host = route.container.querySelector("#arena-stage");
       const canvas = route.container.querySelector("#arena-3d");
       for (const entry of harness.listenersOn(host, "pointermove")) entry.listener({
@@ -1847,11 +2089,203 @@ test("touch_up_reduces_its_final_position_while_cancel_does_not", async () => {
         timeStamp: 30, button: 0, buttons: 0, preventDefault() {},
       });
       results.push(commandArm(new Uint8Array((await route.nextInput()).bytes)));
+      finalRows.push(inputLog.rows().filter((row) => row.action === "pointerup-final"));
       await route.handle.dispose(); harness.dropSubtree(route.container);
     } finally { harness.restore(); }
   }
   assert.notDeepEqual(results[0], results[1],
     "pointerup discarded its owned final position or cancel consumed one it did not own");
+  assert.equal(finalRows[0].length, 1);
+  assert.equal(finalRows[0][0].powered, true);
+  assert.equal(finalRows[1].length, 0, "pointercancel fabricated a final sidecar sample");
+});
+
+test("mouse_up_records_its_material_endpoint_with_the_pre_release_owner", async () => {
+  const harness = installDom();
+  try {
+    const inputLog = new CONTROL.ControlInputLog();
+    const route = await controlledRoute(harness, "mouse", true, inputLog, true);
+    const host = route.container.querySelector("#arena-stage");
+    const canvas = route.container.querySelector("#arena-3d");
+    for (const entry of harness.listenersOn(host, "pointerdown")) entry.listener({
+      target: canvas, pointerType: "mouse", pointerId: 88, button: 0, buttons: 1,
+      clientX: 200, clientY: 180, timeStamp: 10, preventDefault() {},
+    });
+    for (const entry of harness.listenersOn(host, "pointerup")) entry.listener({
+      target: canvas, pointerType: "mouse", pointerId: 88, button: 0, buttons: 0,
+      clientX: 260, clientY: 180, timeStamp: 20, preventDefault() {},
+    });
+    const final = inputLog.rows().filter((row) => row.action === "pointerup-final");
+    assert.equal(final.length, 1);
+    assert.deepEqual([final[0].channel, final[0].powered, final[0].clientXCss], ["cut", true, 260]);
+    await route.handle.dispose(); harness.dropSubtree(route.container);
+  } finally { harness.restore(); }
+});
+
+test("capture_acquire_loss_and_reacquire_are_logged_before_ownership_is_cleared", async () => {
+  const harness = installDom();
+  try {
+    const inputLog = new CONTROL.ControlInputLog();
+    const route = await controlledRoute(harness, "mouse", true, inputLog, true);
+    const host = route.container.querySelector("#arena-stage");
+    const canvas = route.container.querySelector("#arena-3d");
+    for (const entry of harness.listenersOn(host, "pointerdown")) entry.listener({
+      target: canvas, pointerType: "mouse", pointerId: 89, button: 0, buttons: 1,
+      clientX: 200, clientY: 180, timeStamp: 10, preventDefault() {},
+    });
+    for (const entry of harness.listenersOn(host, "lostpointercapture")) entry.listener({
+      target: canvas, pointerType: "mouse", pointerId: 89, buttons: 0,
+    });
+    const lifecycle = inputLog.rows().filter((row) => row.channel === "lifecycle");
+    assert.ok(lifecycle.some((row) => row.action === "reacquire:mouse"));
+    const acquired = lifecycle.findIndex((row) => row.action === "capture-acquired:mouse");
+    const lost = lifecycle.findIndex((row) => row.action === "lost-capture:mouse");
+    assert.ok(acquired >= 0 && lost > acquired && lifecycle[lost].captureActive,
+      "lost capture was logged after its owner had already been cleared");
+    await route.handle.dispose(); harness.dropSubtree(route.container);
+  } finally { harness.restore(); }
+});
+
+test("the_sidecar_names_body_camera_view_and_drawer_transitions_without_rewriting_the_target", async () => {
+  const harness = installDom();
+  try {
+    const inputLog = new CONTROL.ControlInputLog();
+    const route = await controlledRoute(harness, "mouse", true, inputLog, true);
+    const initial = await route.nextInput();
+    await route.acknowledge(initial);
+    route.key("KeyW", "w"); route.release("KeyW", "w");
+    const change = (id, value) => {
+      const control = route.container.querySelector(`#${id}`); control.value = value;
+      for (const entry of harness.listenersOn(control, "change")) entry.listener({ target: control });
+    };
+    change("arena-follow", "b"); change("arena-camera-mode", "relative");
+    change("arena-view", "firstPersonA");
+    route.container.querySelector("#arena-refit").click();
+    route.container.querySelector("#arena-eyes").click();
+    const host = route.container.querySelector("#arena-stage");
+    const canvas = route.container.querySelector("#arena-3d");
+    for (const entry of harness.listenersOn(host, "wheel")) entry.listener({
+      target: canvas, deltaY: 10, clientX: 200, clientY: 180, timeStamp: 50,
+      preventDefault() {},
+    });
+    const rows = inputLog.rows();
+    assert.deepEqual(new Set(rows.map((row) => row.channel)),
+      new Set(["lifecycle", "keyboard", "follow", "camera-mode", "promotion", "refit",
+        "drawer", "wheel"]));
+    assert.ok(rows.filter((row) => row.channel !== "lifecycle")
+      .every((row) => Number.isInteger(row.tickSeen) && row.target !== null),
+      "an independence transition omitted its tick or staged-target witness");
+    assert.ok(rows.filter((row) => row.channel === "lifecycle")
+      .every((row) => Number.isInteger(row.tickSeen)),
+    "a lifecycle transition omitted its latest published tick");
+    assert.deepEqual(rows.filter((row) => row.channel === "keyboard").map((row) => row.action),
+      ["KeyW:down", "KeyW:up"]);
+    await route.handle.dispose(); harness.dropSubtree(route.container);
+  } finally { harness.restore(); }
+});
+
+test("a_finished_practice_run_downloads_raw_receipts_and_the_exact_self_describing_report", async () => {
+  const harness = installDom();
+  const originalCreate = URL.createObjectURL;
+  const originalRevoke = URL.revokeObjectURL;
+  const blobs = [];
+  URL.createObjectURL = (blob) => { blobs.push(blob); return `blob:test-${blobs.length}`; };
+  URL.revokeObjectURL = () => {};
+  try {
+    const inputLog = new CONTROL.ControlInputLog();
+    const route = await controlledRoute(harness, "mouse", true, inputLog, true);
+    route.container.querySelector("#arena-drill-label").value = "named-cut";
+    route.container.querySelector("#arena-cut-family").value = "left-to-right";
+    route.container.querySelector("#arena-pair-id").value = "pair-a";
+    const stageHost = route.container.querySelector("#arena-stage");
+    const stageCanvas = route.container.querySelector("#arena-3d");
+    for (const entry of harness.listenersOn(stageHost, "pointerdown")) entry.listener({
+      target: stageCanvas, pointerType: "mouse", pointerId: 90, button: 0, buttons: 1,
+      clientX: 200, clientY: 180, timeStamp: 10, preventDefault() {},
+    });
+    for (const entry of harness.listenersOn(stageHost, "pointermove")) entry.listener({
+      target: stageCanvas, pointerType: "mouse", pointerId: 90, button: 0, buttons: 1,
+      clientX: 280, clientY: 180, timeStamp: 20, movementX: 80, movementY: 0,
+      preventDefault() {},
+    });
+    const input = await route.nextInput();
+    await route.acknowledge(input, undefined, 1, true);
+    route.worker.emit(syntheticFinish(route.start.requestId, 2));
+    await settle(); await settle();
+    const hudToggle = route.container.querySelector("#arena-control-hud-toggle");
+    hudToggle.click();
+    assert.match(route.container.querySelector("#arena-control-hud").textContent,
+      /candidate input: bearing.*accepted command: bearing.*published target:/s);
+    const raw = route.container.querySelector("#arena-save-evidence");
+    const report = route.container.querySelector("#arena-save-control-report");
+    assert.deepEqual([raw.disabled, report.disabled], [false, false]);
+    raw.click(); report.click();
+    assert.equal(blobs.length, 2);
+    const decoded = JSON.parse(await blobs[1].text());
+    assert.deepEqual([decoded.schema, decoded.status, decoded.outcome, decoded.finalTick],
+      ["arpg-arena-control-report-1", "foreground-calibration-owed", "Decision(Heroes)", 1]);
+    assert.equal(Object.keys(decoded.constants).length, 7);
+    assert.deepEqual([decoded.config.scenario, decoded.config.controlledFaction,
+      decoded.config.decisionPeriodTicks,
+      decoded.metadata.sourceIdentity, decoded.metadata.environment.refreshHz],
+    ["configured-duel-v1", 0, 12, null, null]);
+    assert.deepEqual([decoded.metadata.environment.inputDevice,
+      decoded.metadata.environment.inputDevices,
+      decoded.metadata.environment.pointerCaptureEver], ["mouse", ["mouse"], true]);
+    assert.deepEqual([decoded.tickRows.length, decoded.summary.effortRaw.count], [1, 1]);
+    assert.ok(Array.isArray(decoded.tickRows[0].contacts));
+    assert.deepEqual(decoded.attempts[0].manifest,
+      { requestedFamily: "left-to-right", drillLabel: "named-cut", pairId: "pair-a" });
+    route.container.querySelector("#arena-eyes").click();
+    route.container.querySelector("#arena-reset-drill").click();
+    assert.deepEqual([
+      route.container.querySelector("#arena-camera-mode").value,
+      route.container.querySelector("#arena-view").value,
+      route.container.querySelector("#arena-stage").getAttribute("data-eyes-open"),
+      route.container.querySelector("#arena-control-hud-toggle").getAttribute("aria-pressed"),
+    ], ["fixed", "threeQuarter", "false", "true"]);
+    assert.equal(report.disabled, true, "Reset drill left the prior report downloadable");
+    await route.handle.dispose(); harness.dropSubtree(route.container);
+  } finally {
+    URL.createObjectURL = originalCreate;
+    URL.revokeObjectURL = originalRevoke;
+    harness.restore();
+  }
+});
+
+test("a_touch_practice_report_retains_device_and_capture_history_after_terminal_clear", async () => {
+  const harness = installDom();
+  const originalCreate = URL.createObjectURL;
+  const originalRevoke = URL.revokeObjectURL;
+  const blobs = [];
+  URL.createObjectURL = (blob) => { blobs.push(blob); return `blob:touch-${blobs.length}`; };
+  URL.revokeObjectURL = () => {};
+  try {
+    const inputLog = new CONTROL.ControlInputLog();
+    const route = await controlledRoute(harness, "touch", true, inputLog, true);
+    const host = route.container.querySelector("#arena-stage");
+    const canvas = route.container.querySelector("#arena-3d");
+    for (const entry of harness.listenersOn(host, "pointermove")) entry.listener({
+      target: canvas, pointerType: "touch", pointerId: 40, clientX: 230, clientY: 180,
+      timeStamp: 20, movementX: 30, movementY: 0, buttons: 1, preventDefault() {},
+    });
+    const input = await route.nextInput();
+    await route.acknowledge(input, undefined, 0, true);
+    route.worker.emit(syntheticFinish(route.start.requestId, 2));
+    await settle(); await settle();
+    route.container.querySelector("#arena-save-control-report").click();
+    const decoded = JSON.parse(await blobs.at(-1).text());
+    assert.deepEqual([decoded.metadata.environment.inputDevice,
+      decoded.metadata.environment.inputDevices,
+      decoded.metadata.environment.pointerCaptureEver], ["touch", ["touch"], true]);
+    assert.ok(decoded.inputRows.some((row) => row.action === "terminal:touch"
+      && row.captureActive), "terminal clear erased touch capture before the sidecar saw it");
+    await route.handle.dispose(); harness.dropSubtree(route.container);
+  } finally {
+    URL.createObjectURL = originalCreate;
+    URL.revokeObjectURL = originalRevoke;
+    harness.restore();
+  }
 });
 
 test("touch_claim_releases_mouse_capture_and_suppresses_compatibility_mouse", async () => {
@@ -1883,13 +2317,16 @@ test("touch_claim_releases_mouse_capture_and_suppresses_compatibility_mouse", as
 test("renderer_terminal_clears_and_disposes_the_captured_stage_once", async () => {
   const harness = installDom();
   try {
-    const route = await controlledRoute(harness);
+    const inputLog = new CONTROL.ControlInputLog();
+    const route = await controlledRoute(harness, "mouse", true, inputLog, true);
     route.fakeStage.showHandGuide([0, 0, 0], [1, 0, 1]);
     route.terminal("device lost");
     assert.equal(route.fakeStage.guideVisible, false);
     assert.ok(route.fakeStage.guideClears >= 1);
     assert.equal(route.fakeStage.disposeCalls, 1);
     assert.match(route.container.querySelector("#label-three-quarter").textContent, /renderer lost: device lost/);
+    assert.ok(inputLog.rows().some((row) => row.channel === "lifecycle"
+      && row.action === "renderer-loss:mouse"), "renderer loss cleared before logging ownership");
     await route.handle.dispose();
     await route.handle.dispose();
     assert.equal(route.fakeStage.disposeCalls, 1, "route disposal re-disposed a terminal stage");
@@ -1913,18 +2350,37 @@ test("the_hand_reticle_clamps_marks_clears_and_disposes_without_owning_input", a
     const { createHandReticle } = await import(compiled("client/src/arena/hand-reticle.js"));
     const host = harness.container();
     const reticle = createHandReticle(host);
+    const error = host.children[0];
+    const achieved = host.children[1];
     const marker = host.children.at(-1);
     assert.equal(marker.hidden, true);
     reticle.update([1.4, -0.2], true, { x: 0, y: 0, width: 1, height: 1 }, [100, 100]);
     assert.deepEqual([marker.style.left, marker.style.top], ["92%", "17.33333333333333%"]);
     assert.equal(marker.classList.contains("captured"), true);
     assert.equal(marker.classList.contains("offscreen"), true);
+    reticle.update([0.25, 0.25], false, { x: 0, y: 0, width: 1, height: 1 }, [100, 100]);
+    reticle.updateAchieved([0.75, 0.5], { x: 0, y: 0, width: 1, height: 1 }, [100, 100], 0.5);
+    assert.deepEqual([marker.style.left, marker.style.top], ["25%", "25%"]);
+    assert.deepEqual([achieved.style.left, achieved.style.top], ["75%", "50%"]);
+    assert.equal(error.hidden, false, "distinct desired and achieved sources drew no error");
+    assert.equal(error.style.backgroundColor, "rgb(236, 141, 154)",
+      "desired-first ordering painted the default zero-error colour");
+    assert.notEqual(error.style.width, "0px", "achieved marker reused the desired source");
+    reticle.update([0.4, 0.25], false, { x: 0, y: 0, width: 1, height: 1 }, [100, 100]);
+    assert.equal(error.hidden, true, "a desired event recoloured a stale achieved publication");
+    reticle.updateAchieved([0.7, 0.5], { x: 0, y: 0, width: 1, height: 1 }, [100, 100], 0.3);
+    assert.equal(error.hidden, false);
     reticle.update(null, false);
-    assert.deepEqual([marker.style.left, marker.style.top], ["92%", "17.33333333333333%"]);
+    assert.deepEqual([marker.style.left, marker.style.top], ["40%", "25%"]);
     assert.equal(marker.classList.contains("offscreen"), false);
     reticle.clear();
     assert.equal(marker.hidden, true);
     assert.equal(marker.classList.contains("captured"), false);
+    reticle.updateAchieved([0.75, 0.5], { x: 0, y: 0, width: 1, height: 1 }, [100, 100], 0.5);
+    reticle.update([0.25, 0.25], false, { x: 0, y: 0, width: 1, height: 1 }, [100, 100]);
+    assert.equal(error.hidden, true, "achieved-first ordering invented a matched error line");
+    reticle.updateAchieved([0.75, 0.5], { x: 0, y: 0, width: 1, height: 1 }, [100, 100], 0.5);
+    assert.equal(error.hidden, false);
     reticle.dispose();
     assert.equal(host.children.includes(marker), false);
   } finally { harness.restore(); }
@@ -2169,7 +2625,8 @@ test("lifting_one_of_two_touches_rebaselines_the_remaining_drag", async () => {
 test("a_severed_primary_releases_capture_but_held_body_input_keeps_the_worker_draining", async () => {
   const harness = installDom();
   try {
-    const route = await controlledRoute(harness);
+    const inputLog = new CONTROL.ControlInputLog();
+    const route = await controlledRoute(harness, "mouse", true, inputLog, true);
     route.fakeStage.showHandGuide([0, 0, 0], [1, 0, 1]);
     route.key("KeyW");
     const beforeLoss = await route.nextInput();
@@ -2181,6 +2638,8 @@ test("a_severed_primary_releases_capture_but_held_body_input_keeps_the_worker_dr
     assert.equal(route.fakeStage.guideVisible, false, "arm loss left the desired-hand guide visible");
     assert.equal(view.getInt32(4, true), ONE, "arm loss cleared held body movement");
     assert.equal(commandArm(new Uint8Array(afterLoss.bytes)).reach, 0);
+    assert.ok(inputLog.rows().some((row) => row.channel === "lifecycle"
+      && row.action === "arm-loss:mouse"), "arm loss cleared before logging ownership");
     await route.acknowledge(afterLoss);
     const continued = await route.nextInput();
     assert.equal(continued.ticksDue, 1, "arm loss stranded the controlled worker");
@@ -2410,7 +2869,8 @@ test("blur_hidden_and_pause_clear_every_held_input", async () => {
   for (const stop of ["blur", "hidden", "pause"]) {
     const harness = installDom();
     try {
-      const route = await controlledRoute(harness);
+      const inputLog = new CONTROL.ControlInputLog();
+      const route = await controlledRoute(harness, "mouse", true, inputLog, true);
       route.key("KeyW", "w");
       if (stop === "blur") {
         for (const entry of harness.listenersOn(globalThis.window, "blur")) entry.listener({});
@@ -2428,6 +2888,8 @@ test("blur_hidden_and_pause_clear_every_held_input", async () => {
         `${stop} produced a new authoritative frame`);
       assert.equal(route.container.querySelector("#play").textContent, "Play",
         `${stop} did not pause a fight still being produced`);
+      assert.ok(inputLog.rows().some((row) => row.channel === "lifecycle"
+        && row.action === `${stop}:mouse`), `${stop} cleared before logging capture ownership`);
       await route.handle.dispose(); harness.dropSubtree(route.container);
     } finally { harness.restore(); }
   }

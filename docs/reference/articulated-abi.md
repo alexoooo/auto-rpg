@@ -708,14 +708,22 @@ arena_fingerprint_lo() -> u32
 arena_fingerprint_hi() -> u32
 arena_policy(faction_code:u32) -> u32   // PolicyKind::code, or 0xffff_ffff
 arena_control(faction_code:u32) -> u32  // 0 policy, 1 human, or 0xffff_ffff
+arena_decision_period(faction_code:u32) -> u32 // positive installed cadence, or 0
 ```
 
 `arena_control` is a **read-back** and not a report: `arena_start` is the only
 thing that installs a duel, so the byte it took is the byte the fight is running
 and a recorder that labelled a recording with what it *sent* would be labelling
 it with an intention. Its absent value is `0xffff_ffff` and not `0`, because `0`
-is the answer for every side of every fight this build installs -- a human side
-is refused with `29` below, so nothing else can come back today.
+is a valid policy-controlled side. A Human side is installed as `1`; its host
+navigation and primary arm are composed with the configured policy's tactical
+off hand through the ordinary command boundary.
+
+`arena_decision_period` is the matching read-back for the installed embodied
+source cadence. The recorder reads both faction codes into the required
+`arenaOpened.decisionPeriods` tuple; it does not infer the controlled value from
+a policy label. The scalar is additive and read-only: it widens no configuration,
+command or publication row, moves no layout version, and changes no digest or pin.
 
 `arena_fingerprint_*` is `Scenario::try_fingerprint` of the installed
 configuration, `0` when none is installed. It is what a recorded fight is named
@@ -760,38 +768,41 @@ since v2-ui-08 `26` no checkpoint installed. Articulated Bow appends `27`
 BowGrip -- sole right-hand item under a two-handed grip -- rather than inserting
 it beside `NoEquipment` and changing an already-shipped meaning, and arena-02
 appends `28` unknown control byte and `29` control unavailable for the same
-reason. One opaque zero would make a studio say "invalid" for a typo, for an
-impossibility and for a session that has not landed yet.
+reason. Arena 05 retired `29` without recycling it and appended `30` for a
+refused `arena_stage_input` target. One opaque zero would make a studio say
+"invalid" for a typo, for an impossibility and for a session that has not landed
+yet.
 
 | reason | when | retires |
 |---:|---|---|
 | `28` | a fighter's control byte is neither `0` nor `1` | never |
-| `29` | a side asked to be driven by a person and this build has no arena input path | arena-05 |
+| `29` | retired: a side asked to be driven by a person before the arena input path existed | arena-05 |
+| `30` | `arena_stage_input` named an unknown faction, a policy-controlled side, or no installed arena | never |
 
-**`29` is a refusal by design and not a gap.** The configuration learns who drives
-a side one session before `Sim::advance_arena` can consult it, and the honest
-answer in between is a named refusal rather than a fight the policy quietly
-drove -- the rule `ARENA_POLICY_UNAVAILABLE` was written for. When arena-05
-builds the input path the refusal is deleted and **the number stays spent**, on
-the retired-schema rule below: a saved configuration or a URL can carry a reason
-byte, so renumbering one down into a gap makes an old artifact say something new.
-The reason names the *fighter* and leaves `255` in bits 24..31, deliberately:
-`1` is a perfectly good hand index and the paragraph above records what that
-collision cost once.
+**`29` is spent, not reused.** It kept the intermediate build honest until Arena
+05 installed the input path; `arena_start` no longer emits it. A saved refusal
+word can outlive a build, so renumbering a later meaning down into that gap would
+make an old artifact say something new.
 
-**Fourteen are reachable from a control and the rest are not**, and the split is
-not the one the plan predicted. That sentence read "twelve" over a list of
-twelve, and both numbers moved when arena-02 added the two control refusals.
+`arena_stage_input` uses the same packed result grammar with reason `30`
+(`ARENA_INPUT_REFUSED`). Bits 16..23 are a detail: `1` unknown faction, `2`
+policy-controlled side, or `3` no installed arena. Bits 24..31 identify Heroes
+as `0` or Monsters as `1` for the latter two details; an invalid faction is
+checked first and has no valid side identity to report. Reachability therefore
+differs between `arena_start` and `arena_stage_input`; the refusal table remains
+dense from `0` through `30` rather than pretending the two calls have one set of
+producers.
 
-**Two of the unreachable ones are *retired* rather than merely unreachable, and
-the difference matters.** `7` (policy unavailable) needed a registry entry the
-boundary could not build and `26` (no checkpoint) needed a fighter that wants a
-network; `PolicyKind::build` returns a policy and never an `Option`, and
+**Two other unreachable ones are *retired* rather than merely unreachable, and
+the difference matters.** Beside the dated retirement of `29`, `7` (policy
+unavailable) needed a registry entry the boundary could not build and `26` (no
+checkpoint) needed a fighter that wants a network; `PolicyKind::build` returns a
+policy and never an `Option`, and
 that registry has no `learned` entry, so neither has a producer or a path back to
 one. The seven spec errors below are not like that: `crates/sim` can still answer
 every one of them and a widened control brings them back without a byte moving.
-Both retired numbers stay declared and distinct on the codec's retired-schema
-rule, and `every arena policy byte either fights or is refused by name` in
+All three retired numbers stay declared and distinct on the codec's retired-schema
+rule. For `7` and `26`, `every arena policy byte either fights or is refused by name` in
 `tools/wasm_check.js` drives all 256 values a page can write into a policy slot
 and asserts neither number comes back from any of them -- which is the half of
 "retired" that a declaration cannot say on its own. `Fraction`,

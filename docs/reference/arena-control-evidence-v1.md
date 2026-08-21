@@ -1,9 +1,10 @@
 # Reference: arena control evidence V1
 
-**Status:** current.
+**Purpose:** Define the exact browser evidence container for accepted Human arena commands and its replay validation.
+**Status:** current
+**Canonical source:** [`controlEvidence`](../../client/src/fight/live.ts) and [`run`](../../crates/lab/src/control_evidence.rs)
+**Update when:** The evidence header, command row, replay baseline, bounds, digest grammar, or analyzer changes.
 
-**Canonical source:** [`controlEvidence`](../../client/src/fight/live.ts) writes the browser
-container; [`analyze`](../../crates/lab/src/control_evidence.rs) is its independent reader.
 The replay bytes inside it remain owned by [`ReplayEnvelope`](../../crates/sim/src/codec.rs).
 
 ## Purpose
@@ -15,6 +16,7 @@ stored command rows published by the wasm host, and names the final typed state 
 `lab control-evidence` must replay those rows to that digest before a control measurement
 may cite the file.
 
+<!-- DOC_CONTRACT: arena-control-evidence-v1 -->
 ## Container
 
 All integers are little-endian. The fixed header is 48 bytes.
@@ -33,7 +35,7 @@ All integers are little-endian. The fixed header is 48 bytes.
 | 24 | `u32` | authoritative final tick |
 | 28 | `u32` | accepted row count |
 | 32 | `u8` | controlled faction, 0 Heroes or 1 Monsters |
-| 33 | `u8` | flags; bit 0 means the visual recording was truncated |
+| 33 | `u8` | flags; bit 0 records visual truncation in a container assembled elsewhere |
 | 34 | `u8` | final state hash domain |
 | 35 | `u8` | zero |
 | 36 | `u16` | final state hash schema |
@@ -51,8 +53,10 @@ u32 tick | u32 entity index | u32 generation | u8 kind=2 | payload[57]
 
 Rows are ordered by tick, carry a generation-qualified identity, and number at most two per
 tick. The whole file is capped at 16 MiB and 262,144 rows. A dropped receipt makes evidence
-unavailable; a truncated visual recording remains explicitly marked and analyzable because
-receipt correctness is independent of retained pose history.
+unavailable. The current browser recorder shares its retained chunks with the visual cap;
+if that cap skips an already-stepped receipt it increments the command-drop count and offers
+no `ARPGCTL1` file. Byte 33 preserves the container grammar, but the shipped producer cannot
+currently emit analyzable truncated evidence without independent receipt retention.
 
 ## Analysis
 

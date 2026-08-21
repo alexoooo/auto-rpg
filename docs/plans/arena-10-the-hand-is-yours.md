@@ -1,6 +1,6 @@
 # Arena 10 -- prove the hand is yours
 
-**Status:** ready once session 09 has landed. Blocks 11.
+**Status:** implementation complete; foreground acceptance pending. Blocks 11.
 
 A tactical opponent is a bad calibration instrument. It advances, strikes, blocks, moves
 the camera's subject and can end the trial before a player knows whether a failed cut was
@@ -39,7 +39,7 @@ The diagnostic shell answers four questions without turning into final art:
    success threshold.
 3. **What did I command?** Bearing, height, reach, effort and elbow plane, beside achieved
    bearing, height and reach. The labels include units or normalized ranges.
-4. **What is the body doing?** Body yaw, hip yaw, twist fraction and forced-step fraction,
+4. **What is the body doing?** Body yaw, hip yaw, pelvis, twist and remaining forced-step ticks,
    plus both health fractions. The primary/off-hand ownership is named explicitly.
 
 The desired marker updates immediately from input; the achieved marker updates from the
@@ -172,37 +172,75 @@ it.
 
 | file | change |
 |---|---|
-| `client/src/arena/control-lab.ts` | new: preset, pure trace classifier, drill recorder and report rows |
-| `client/src/arena/arena-hand-cursor.ts` | measured absolute-cursor values replace session-08 provisional mapping values |
+| `client/src/arena/control-lab.ts` | new: pure classifier, input-event sidecar, strict receipt decoder, publication join and report |
+| `client/src/arena/arena-hand-cursor.ts` | retains the provisional absolute mapping until foreground samples exist |
 | `client/src/arena/hand-reticle.ts` | desired and achieved markers plus error line |
-| `client/src/arena/arena.ts` | Practice hand, Reset drill, Control HUD and the live tick counter |
+| `client/src/arena/arena.ts` | Practice hand, Reset drill, Control HUD and raw/report evidence downloads |
 | `web/index.html` | the restrained practice/HUD controls |
-| `client/src/arena/arena-input.ts` | measured values replace placeholders; no mapping-shape change unless a drill proves one |
-| `docs/performance/arena-human-control.md` | samples, chosen constants, six drill results, cadence control and findings |
+| `client/src/arena/arena-input.ts` | retains provisional values and names the outstanding calibration |
+| `client/src/runtime/arena-recorder.ts` | counts receipts lost behind the visual cap so incomplete evidence is refused |
+| `client/src/fight/live.ts` | command extents form an exact tick/identity-bound chunk partition; retains both authoritative decision periods |
+| `client/src/protocol/messages.ts`, `client/src/runtime/arena-client.ts` | additive two-faction decision-period opening contract and validation |
+| `crates/web/src/lib.rs`, `tools/wasm_check.js` | read-only installed decision-period capability and native/wasm guard |
+| `crates/lab/src/control_evidence.rs` | fail-closed evidence decoder plus full and thinned replay construction |
+| `docs/performance/arena-human-control.md` | implemented schema and cadence recipe; owner samples and findings remain owed |
 
 ## Tests
 
 `client/test/studio-shell.test.mjs`:
 
 - `practice_hand_is_an_ordinary_human_versus_neutral_configuration`
-- `reset_drill_rebuilds_the_same_config_and_seed`
-- `desired_and_achieved_markers_read_different_sources`
-- `a_stationary_guard_survives_fixed_relative_pan_zoom_drawers_and_view_promotion`
-- `five_named_cut_fixtures_are_classified_in_their_declared_directions`
-- `a_fast_cut_has_no_less_effort_than_its_slow_twin`
-- `body_inputs_carry_the_body_without_rewriting_the_arm_target`
-- `camera_inputs_change_no_command_byte`
-- `the_control_hud_can_be_disabled_without_disabling_input`
-- `feel_constants_are_bounded_from_both_sides`
+- `the_hand_reticle_clamps_marks_clears_and_disposes_without_owning_input`
+- `five_named_cut_fixtures_use_the_frozen_camera_basis`
+- `ambiguous_short_and_returning_paths_are_unclassified`
+- `mouse_motion_changes_the_arm_and_not_the_body`
+- `a_guard_moves_at_resting_effort_and_fast_powered_paths_order_effort`
+- `camera_motion_with_a_non_neutral_hand_changes_no_command_byte`
+- `all_seven_virtual_hand_constants_are_exact_and_explicitly_uncalibrated`
+- `thirty_sixty_one_hundred_twenty_and_one_hundred_forty_four_hertz_stage_the_same_yaw_sequence`
+- `hidden_time_is_discarded_instead_of_becoming_tick_debt`
+- `the_input_sidecar_cap_is_exact_and_a_dropped_row_makes_a_report_ineligible`
+- `a_ten_minute_one_kilohertz_pointer_stream_is_coalesced_below_the_120_hz_cap`
+- `a_final_endpoint_breaks_the_pointer_coalescing_anchor_and_preserves_owner_order`
+- `a_post_cap_primary_down_is_refused_without_throwing_or_growing_manifests`
+- `touch_up_reduces_its_final_position_while_cancel_does_not`
+- `mouse_up_records_its_material_endpoint_with_the_pre_release_owner`
+- `capture_acquire_loss_and_reacquire_are_logged_before_ownership_is_cleared`
+- `the_sidecar_names_body_camera_view_and_drawer_transitions_without_rewriting_the_target`
+- `a_finished_practice_run_downloads_raw_receipts_and_the_exact_self_describing_report`
+- `a_touch_practice_report_retains_device_and_capture_history_after_terminal_clear`
 
 `client/test/worker-protocol.test.mjs`:
 
-- `display_schedules_at_thirty_sixty_one_hundred_twenty_and_one_hundred_forty_four_hertz_each_run_sixty_ticks`
-- `hidden_time_is_not_a_tick_debt`
+- `a_visual_cap_that_skips_a_stepped_receipt_marks_control_evidence_incomplete`
+- `accepted_command_rows_are_an_exact_tick_and_identity_bound_partition`
+
+`crates/lab/src/control_evidence.rs`:
+
+- `a_real_receipt_decodes_replays_to_its_digest_and_thins_only_the_controlled_side`
+- `duplicate_rows_zero_horizon_and_noncanonical_rosters_are_refused`
+- `unknown_identity_and_missing_controlled_ticks_are_refused_before_replay`
 
 Show the direction classifier fail by swapping its horizontal sign, and show the refresh
 test fail by restoring one-step-per-rAF. Those are the two green-looking failures this
 session is most likely to ship.
+
+The Reset drill, HUD toggle, camera/view guard persistence, named-attempt repeatability,
+slow/fast paired medians and body-plus-hand drills require the visible foreground pass.
+Their acceptance rows remain owed below; the automated suite does not pretend that a DOM
+click or a synthetic pointer sample is the owner's judgement.
+
+The implemented report is schema `arpg-arena-control-report-1`: environment/provenance
+fields are present and nullable rather than invented; exact ordinary fight config, all
+seven provisional constants, outcome, final tick, digest, requested attempt manifests,
+raw input/tick/contact/severance rows and effort/error/contact/severance summaries are
+downloadable beside the raw `.arpgctl`. The sidecar retains 72,000 rows (ten minutes at
+120 samples/s); compatible pointer moves coalesce only while their anchor remains the tail,
+while endpoints and discrete rows invalidate it. A later row names a drop, assigns later
+primary-downs nonrecording attempt zero without growing manifests, and makes the report ineligible.
+The report takes its controlled faction's positive decision period from the additive
+two-faction `arenaOpened` capability. Missing anatomy, publication horizon or cadence
+refuses by name; incomplete terminal severance evidence remains nullable rather than zero.
 
 ## Acceptance
 
@@ -217,7 +255,7 @@ session is most likely to ship.
 5. Every feel constant tuned here carries foreground samples and two-sided bounds; a
    constant left at its placeholder for want of a device says so beside its bounds.
 6. Any mechanical limitation is recorded as a blocker and a new session is inserted before
-   08; it is not papered over with host gain.
+   11; it is not papered over with host gain.
 
 ## Hash expectations
 
@@ -233,5 +271,9 @@ npm run check
 npm run check:abi
 node tools/check_docs.js
 node tools/check_deps.js
-npm run dev        # foreground: run all six drills, record samples, then stop the server
 ```
+
+The automated gate does not start Vite. A foreground owner must still run all six drills
+in a visible browser, retain the raw `.arpgctl` receipt artifact and separate JSON report,
+and record samples and judgement in the durable performance record. Until that happens,
+the provisional values and this plan's acceptance remain explicitly pending.

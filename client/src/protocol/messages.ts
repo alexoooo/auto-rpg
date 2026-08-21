@@ -282,6 +282,8 @@ export type ArenaOpenedMessage = {
   replayBaseline: ArrayBuffer;
   /** The single Human side, or null for a policy-only spectator fight. */
   controlledFaction: number | null;
+  /** Authoritative body cadence in Heroes, Monsters order. */
+  decisionPeriods: readonly [number, number];
   /** Authoritative `combat::ARM_MIN_REACH_RAW`, for direct hand-control clamps. */
   armMinReach: number;
   impactThreshold: number; contactEnergyFloor: number;
@@ -322,8 +324,8 @@ export type ArenaChunkMessage = {
   /** Optional on an old trace adapter; always present on a live arena chunk. */
   stances: ArrayBuffer;
   /**
-   * `Uint32Array`, **eleven** words a frame: the tick, then a chunk-relative start
-   * and a count for each pose, region, projectile, event and stance section.
+   * `Uint32Array`, **thirteen** words a frame: the tick, then a chunk-relative start
+   * and a count for each pose, region, projectile, event, stance and command section.
    * `RECORDING_INDEX_STRIDE` owns the number and `INDEX_TICK` owns the word.
    */
   index: ArrayBuffer;

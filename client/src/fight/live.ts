@@ -185,8 +185,10 @@ class FightChunk {
   readonly #health: Int32Array;
   readonly #layout: Layout;
   readonly #fittings: readonly Fittings[];
+  readonly endingPoseIdentities: ReadonlySet<string>;
 
-  constructor(chunk: ArenaChunk, layout: Layout, fittings: readonly Fittings[]) {
+  constructor(chunk: ArenaChunk, layout: Layout, fittings: readonly Fittings[],
+    precedingPoseIdentities: ReadonlySet<string> = new Set()) {
     this.firstFrame = chunk.firstFrame;
     this.frameCount = chunk.frameCount;
     this.#layout = layout;
@@ -238,6 +240,8 @@ class FightChunk {
     if (!Number.isInteger(layout.regionsPerBody) || layout.regionsPerBody <= 0) {
       throw new RangeError("a fight publishes no regions per body");
     }
+    let nextCommandRow = 0;
+    let priorIdentities = precedingPoseIdentities;
     for (let frame = 0; frame < this.frameCount; frame += 1) {
       const at = frame * RECORDING_INDEX_STRIDE;
       const extents: readonly (readonly [number, number, number, string])[] = [
@@ -260,6 +264,12 @@ class FightChunk {
       if (this.#index[at + INDEX_COMMAND_COUNT]! > ACCEPTED_COMMAND_CAPACITY) {
         throw new RangeError(`frame ${this.firstFrame + frame} publishes more than two accepted commands`);
       }
+      const commandStart = this.#index[at + INDEX_COMMAND_START]!;
+      const commandCount = this.#index[at + INDEX_COMMAND_COUNT]!;
+      if (commandStart !== nextCommandRow) {
+        throw new RangeError(`frame ${this.firstFrame + frame} leaves an overlapping or unindexed accepted-command row`);
+      }
+      nextCommandRow += commandCount;
       const poseStart = this.#index[at + INDEX_POSE_START]!;
       const poseCount = this.#index[at + INDEX_POSE_COUNT]!;
       const stanceStart = this.#index[at + INDEX_STANCE_START]!;
@@ -276,7 +286,30 @@ class FightChunk {
           throw new RangeError(`frame ${this.firstFrame + frame} publishes stance ${key} without its pose`);
         }
       }
+      const commandIdentities = new Set<string>();
+      for (let row = 0; row < commandCount; row += 1) {
+        const commandAt = (commandStart + row) * layout.commandStride;
+        const commandView = new DataView(this.#commands.buffer,
+          this.#commands.byteOffset + commandAt, layout.commandStride);
+        const tick = commandView.getUint32(0, true);
+        const key = `${commandView.getUint32(4, true)}:${commandView.getUint32(8, true)}`;
+        if (tick + 1 !== this.#index[at + INDEX_TICK]!) {
+          throw new RangeError(`frame ${this.firstFrame + frame} carries accepted command tick ${tick}`);
+        }
+        if (!priorIdentities.has(key)) {
+          throw new RangeError(`frame ${this.firstFrame + frame} carries accepted command ${key} without its pose`);
+        }
+        if (commandView.getUint8(12) !== 2 || commandIdentities.has(key)) {
+          throw new RangeError(`frame ${this.firstFrame + frame} carries a malformed or duplicate accepted command ${key}`);
+        }
+        commandIdentities.add(key);
+      }
+      priorIdentities = identities;
     }
+    if (nextCommandRow !== commandRows) {
+      throw new RangeError("a chunk has trailing accepted-command rows that no frame indexes");
+    }
+    this.endingPoseIdentities = priorIdentities;
   }
 
   acceptedCommands(): Uint8Array {
@@ -473,10 +506,12 @@ type GrowingHeader = { -readonly [K in keyof FightHeader]: FightHeader[K] };
  */
 export class StreamingFightSource implements FightSource {
   readonly armMinReach: number;
+  readonly decisionPeriods: readonly [number, number];
   readonly #header: GrowingHeader;
   readonly #layout: Layout;
   readonly #fittings: readonly Fittings[];
   readonly #chunks: FightChunk[] = [];
+  #lastPoseIdentities: ReadonlySet<string> = new Set();
   #frames = 0;
   #finished = false;
   readonly #baseline: Uint8Array;
@@ -521,7 +556,12 @@ export class StreamingFightSource implements FightSource {
       || opened.armMinReach > opened.one) {
       throw new RangeError(`arm minimum reach ${opened.armMinReach} is outside (0, ${opened.one}]`);
     }
+    if (opened.decisionPeriods.length !== 2
+      || opened.decisionPeriods.some((period) => !Number.isInteger(period) || period <= 0)) {
+      throw new RangeError("arena decision periods must be two positive tick counts");
+    }
     this.armMinReach = opened.armMinReach;
+    this.decisionPeriods = [opened.decisionPeriods[0], opened.decisionPeriods[1]];
     this.#baseline = Uint8Array.from(new Uint8Array(opened.replayBaseline));
     this.#controlledFaction = opened.controlledFaction;
     this.#header = {
@@ -587,8 +627,9 @@ export class StreamingFightSource implements FightSource {
       throw new RangeError(`a chunk starting at frame ${chunk.firstFrame} does not continue a fight `
         + `holding ${this.#frames}`);
     }
-    const adopted = new FightChunk(chunk, this.#layout, this.#fittings);
+    const adopted = new FightChunk(chunk, this.#layout, this.#fittings, this.#lastPoseIdentities);
     this.#chunks.push(adopted);
+    this.#lastPoseIdentities = adopted.endingPoseIdentities;
     this.#frames += adopted.frameCount;
     this.#header.frameCount = this.#frames;
     // What the fight has got to, read off the last frame's own tick word rather

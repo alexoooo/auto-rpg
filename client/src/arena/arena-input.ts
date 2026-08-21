@@ -8,7 +8,7 @@ export const EMBODIED_COMMAND_KIND = 2;
 export const ONE_RAW = 65_536;
 export const HUMAN_ARM_RESTING_EFFORT = ONE_RAW / 2;
 
-/** Provisional session-06 values. Arena-07 owns foreground calibration. */
+/** Provisional source values until Arena 10's visible-browser evidence is recorded. */
 export const VIRTUAL_HAND_SENSITIVITY = 0.006;
 export const EXTEND_DRAG_SENSITIVITY = 0.004;
 export const TOUCH_PINCH_SPREAD_RATIO = 0.75;

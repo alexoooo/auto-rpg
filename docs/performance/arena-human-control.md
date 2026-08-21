@@ -8,8 +8,9 @@
 This is a measurement protocol, not a result. The arena has provisional source values
 for its pointer sensitivity, cursor span, extension gain, touch classifier, powered dead
 zone, full-effort speed and body-turn lead so the control can be exercised. None has yet been accepted by the
-foreground calibration this record requires. Session 10 owns those values and the
-owner's visible-browser judgement; leaving the result blank here is deliberate.
+foreground calibration this record requires. Arena 10 installed the capture and report
+path but did not run a visible browser or substitute automated samples for the owner's
+judgement; leaving the result blank here is deliberate.
 
 The design being measured is in [Combat design](../design/combat.md#the-human-hand-is-a-target-path-not-an-attack-button).
 The host stores a desired hand target and the simulator publishes the achieved hand.
@@ -18,7 +19,9 @@ from an actuator that could not keep up with the right one.
 
 ## Artifact and environment record
 
-Every accepted capture records this header. A result without it is a note, not evidence.
+Every downloadable JSON report records this header. Browser-readable values are captured;
+source identity, operator, refresh rate and graphics backend remain `null` until a foreground
+owner supplies them. A null is an explicit owed field, not permission to infer a machine.
 
 | field | required value |
 |---|---|
@@ -27,7 +30,7 @@ Every accepted capture records this header. A result without it is a note, not e
 | host | OS, CPU, browser name/version, graphics backend |
 | display | CSS viewport, device-pixel ratio, refresh rate, page zoom |
 | arena view | three-quarter or first person; promoted viewport named explicitly |
-| input | mouse/touch device and pointer-capture state |
+| input | actual mouse/touch devices used plus pointer-capture ownership history |
 | fight | arena fingerprint, seed, tick bound, both anatomies/loadouts and policies |
 | body | controlled faction, primary arm, arm length, standing height, decision period |
 | constants | all seven control constants exactly as built |
@@ -46,45 +49,91 @@ one clock.
 
 | field | meaning |
 |---|---|
-| `sample_ms` | monotonic host sample time, used only for pointer speed |
-| `tick_seen` | latest published authoritative tick when the event was reduced |
+| `attemptId` | local gesture identity; zero means no powered cut attempt owns the row |
+| `sampleMs` | monotonic host sample time, used only for pointer speed |
+| `tickSeen` | latest published authoritative tick when the event was reduced |
 | `view` | active three-quarter or first-person basis |
-| `channel` | placement, cut, extension, or camera; exactly one |
-| `client_x_css`, `client_y_css` | ordinary mouse position before viewport reduction |
+| `channel` | hand, keyboard, wheel, camera mode, promotion, follow, refit, drawer or lifecycle owner |
+| `inputDevice`, `captureActive` | actual pointer device last used and pre-clear capture witness |
+| `action` | exact key transition or camera/drawer choice when the channel is discrete |
+| `clientXCss`, `clientYCss` | mouse or touch-centroid position before viewport reduction |
 | `qx`, `qy` | active-viewport coordinates after radial unit-disc clamp |
 | `saturated` | cursor disc or encodable command envelope reached |
-| `dx_css`, `dy_css` | touch-relative delta; absent for ordinary mouse placement |
 | `powered` | whether the winning button/finger channel owned this delta |
-| `travel_css` | that powered gesture's accumulated travel for dead-zone evidence |
-| `desired_x/y/z` | stored desired hand after the reducer, in world-space raw units |
-| `bearing_raw`, `height_raw`, `reach_raw`, `effort_raw`, `plane_raw` | the command fields staged after this event |
-| `body_yaw_raw`, `move_x_raw`, `move_y_raw` | ownership witnesses; hand-only events must leave them unchanged |
+| `travelCss` | that powered gesture's accumulated travel for dead-zone evidence |
+| `desired`, `shoulder`, `armLength` | world-space target and normalization inputs after the reducer |
+| `target` | staged bearing, height, reach, effort and plane fields after this event |
+| `bodyYaw` | published ownership witness; hand-only events must leave it unchanged |
+| `basis` | frozen screen-right and screen-up world axes used by the classifier |
 
 Ordinary mouse rows retain their absolute cursor sample because that is the control
 scheme: replaying the same viewport, basis and point must reproduce the same command.
 `movementX` and `movementY` are deliberately absent from those rows. Touch rows retain
-relative deltas and name their captured owner.
+the reduced centroid and name their captured owner.
+
+Pointer moves are coalesced against a fixed `1000 / 120` ms anchor only while that anchor
+is still the last row and has the same attempt, channel, action, powered state, device and
+capture owner. Any discrete append invalidates it, so a final endpoint can never be crossed
+or reordered by a later unpowered move. The sidecar
+is capped at exactly 72,000 rows: ten minutes at the preregistered ceiling of 120
+presentation samples per second. Row 72,001 increments `dropped`; any nonzero drop makes
+the JSON report ineligible, makes later primary-downs use nonrecording attempt zero without
+growing the manifest map, and makes the UI name the refusal and count. A mouse or touch `pointerup` retains
+one final material endpoint with its pre-release owner and `powered: true`; `pointercancel`
+adds no endpoint it did not own. Keyboard down/up and every wheel, mode, promotion, follow,
+refit and drawer transition carry `tickSeen` and the complete staged target snapshot.
+Pause, blur, hidden visibility, lost capture, reacquisition, arm loss and renderer/terminal
+loss are written before their reducer clears ownership.
+
+Before primary-down the operator chooses a drill label, requested cut family and optional
+slow/fast pair ID. That manifest is frozen onto the attempt. The classifier never supplies
+the requested family after seeing the path.
 
 ### Authoritative-tick rows
 
 | field | meaning |
 |---|---|
-| `tick` | authoritative world tick |
-| `desired_x/y/z` | desired primary-hand point published for that tick |
-| `achieved_x/y/z` | achieved primary-hand point in the same frame |
-| `error_arm_lengths` | Euclidean desired-to-achieved error divided by published arm length |
-| `effort_raw` | submitted primary-arm effort |
-| `body_yaw_raw`, `move_x_raw`, `move_y_raw` | independent body command beside it |
-| `staged_age` | ticks since the host frame was staged; expired input is named, not inferred |
-| `contact_rows`, `weapon_body_rows` | resolved contacts this tick and the weapon/body subset |
-| `severed_mask` | controlled and opposing severance state after the tick |
+| `receiptTick` | tick at which the authoritative host accepted the command |
+| `publishedTick` | the following publication, `receiptTick + 1` |
+| `desired` | desired primary-hand point in that following publication |
+| `achieved` | achieved primary-hand point in the same frame |
+| `errorArmLengths` | Euclidean desired-to-achieved error divided by published arm length |
+| `command` | accepted movement, yaw and primary-arm command fields |
+| `bodyYaw`, `hipYaw`, `pelvis`, `twist` | published body and stance witnesses |
+| `forcedStepTicks` | published remaining forced-step ticks, or absent on an old adapter |
+| `health` | published Heroes and Monsters health fractions |
+| `contacts`, `severedMasks` | raw publication rows supporting the contact/severance summary |
+| `missing` | `controlled-body-absent` when the accepted final command killed the body |
+
+The browser report joins accepted receipt tick `t` to publication `t + 1`. The receipt
+is stored before `World::step`; publication `t` still describes the state before that
+acceptance. Pointer samples remain a separate presentation sidecar and are never claimed
+as replay input. A cut attempt freezes its initial camera basis, subtracts the published
+shoulder, normalizes by arm length, and is classified only when its net travel is at least
+`0.30`, its axis travel at least `0.20`, its path efficiency at least `0.65`, and its
+dominant axis ratio at least `1.75`. The declared endpoint tolerance is `0.10` arm lengths.
+These values were preregistered in source; they are not calibrated results.
+
+There is exactly one tick row per controlled receipt. A terminal publication without the
+controlled pose retains a nullable achieved/stance row and names `controlled-body-absent`;
+a missing publication is an impossible visual/evidence mismatch and refuses the report.
+Missing or invalid controlled anatomy refuses by name, as does a receipt horizon that does
+not contain exactly `finalTick` controlled rows ending at that publication. The installed
+decision period is read authoritatively for both factions at `arenaOpened`; the report
+selects the controlled faction's positive value rather than leaving it unknown.
+The top level also carries scenario/config/body rows, all seven source constants, outcome,
+authoritative `finalTick`, typed state digest, environment metadata, attempt manifests,
+raw input and tick rows, and min/median/p90/max effort/error summaries with resting/full
+fractions, contact counts and newly set severance bits. If terminal pose loss makes either
+severance mask unavailable, `summaryComplete` is false and aggregate severances are null;
+the report never turns missing anatomy evidence into zero damage.
 
 The run summary records outcome, stop tick, weapon/body contacts, severances, and the
 effort distribution: minimum, median, p90, maximum, and fractions at the resting floor
 and at full effort. Quote target-error median and p90 by gesture channel. A single mean
 can hide both a mapper pinned at full effort and a slow cut that never leaves rest.
 
-## Foreground calibration owed in session 10
+## Foreground calibration still owed after Arena 10
 
 Run at least one matched pass in each arena view. In each pass:
 
@@ -151,5 +200,6 @@ like aiming.
 
 ## Result
 
-Pending session 10. No pass, calibration value, win-rate claim, or comfort judgement has
-been recorded.
+Arena 10's preset, reset, event sidecar, receipt join, classifier, HUD and two evidence
+downloads are implemented and automated. No foreground pass, calibration value,
+win-rate claim, owner verdict or comfort judgement has been recorded.

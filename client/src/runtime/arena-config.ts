@@ -446,9 +446,9 @@ export function carriedOf(fighter: ArenaFighterConfig): readonly (CarriedSlot | 
  * [`articulated-abi.md`](../../../docs/reference/articulated-abi.md#refusing-by-name),
  * written out because that section's whole argument is that one opaque zero
  * would make a studio say "invalid" for a typo, for an impossibility and for a
- * session that has not landed yet. Twelve are reachable from these controls and
- * the rest are not; they keep distinct sentences anyway, on that section's own
- * argument about the day one of them does happen.
+ * a retired schema or a request to the separate staging export. Reachability
+ * differs between `arena_start` and `arena_stage_input`; the dense table keeps
+ * every shipped meaning distinct even when its producer has retired.
  */
 export const ARENA_REFUSALS: Readonly<Record<number, string>> = {
   0: "no refusal",
@@ -501,12 +501,11 @@ export const ARENA_REFUSALS: Readonly<Record<number, string>> = {
 export const ARENA_NO_CHECKPOINT = 26;
 export const ARENA_POLICY_UNAVAILABLE = 7;
 /**
- * `ARENA_CONTROL_UNAVAILABLE`: **the third retired-on-arrival number, and the
- * only one that is retired on a date rather than on an argument.**
+ * `ARENA_CONTROL_UNAVAILABLE`: **the third retired number, decoded for old
+ * refusal words but no longer emitted by `arena_start`.**
  *
- * `7` and `26` lost their producers and can never get them back; this one has a
- * producer today and loses it in arena-05, when the input path exists and the
- * refusal is deleted. The number stays spent either way, on the same rule: a
+ * Arena 05 supplied the host input path and retired this producer. The number
+ * stays spent, on the same rule: a
  * saved configuration or a URL can carry a refusal code, so renumbering one
  * down into a gap makes an old artifact say something new.
  */
@@ -538,9 +537,9 @@ export interface ArenaRefusal {
  * is the instruction `articulated-abi.md` gives in as many words. `4` is a
  * perfectly good hand index and a perfectly good policy code, and the two
  * refusals that put a *code* there are `7` (policy unavailable, now unreachable)
- * and `26` (no checkpoint installed, which is the one `learned` gets today). A
- * client decoding by the older table -- which named only `7` -- reads `255` where
- * a `4` belongs, and then reports a hand that does not exist.
+ * and `26` (no checkpoint installed, historically paired with `learned`). A
+ * client decoding by the older table -- which named only `7` -- could read `255`
+ * where a policy code belonged, and then report a hand that did not exist.
  */
 export function decodeArenaRefusal(packed: number): ArenaRefusal {
   const word = packed >>> 0;

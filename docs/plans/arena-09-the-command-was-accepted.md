@@ -1,7 +1,6 @@
 # Arena 09 -- the command was accepted
 
-**Status:** implementation complete; verification in progress. Session 10 is next only
-after the commands below are green.
+**Status:** complete. Session 10 is next.
 
 The control lab must compare a command with the state it actually produced. Before this
 session the browser retained poses but not the authoritative answer to `World::submit`, so
@@ -36,14 +35,18 @@ worker and main thread ship as one bundle; all new fields remain mandatory and f
 
 The main thread may offer evidence only after a finished Human fight with zero command
 drops. `ARPGCTL1` is capped at 16 MiB and contains a 48-byte self-describing header, the
-baseline envelope and the accepted rows. Bit 0 of byte 33 says the recording is truncated;
-truncation remains analyzable but is never described as a full-fight result.
+baseline envelope and the accepted rows. Bit 0 of byte 33 retains the container's truncation
+grammar, but the shipped recorder does not retain receipts independently of its visual cap:
+skipping an already-stepped receipt increments the command-drop count and makes evidence
+unavailable. A future independently retained receipt stream may use the flag; this producer
+cannot call a visually truncated run analyzable today.
 
-`lab control-evidence PATH [--thinned N]` decodes the baseline through the canonical replay
+`lab control-evidence --in PATH` decodes the baseline through the canonical replay
 codec, checks the row grammar/identity/order/caps, reconstructs the full replay and requires
-its typed final state digest to equal the browser's. `--thinned N` additionally retains only
-the controlled body's rows on ticks divisible by `N`, preserving the same horizon, and
-reports that counterfactual separately from the full exact replay.
+its typed final state digest to equal the browser's. It additionally retains only the
+controlled body's rows on ticks divisible by that body's authoritative decision period,
+preserving the same horizon, and reports that counterfactual separately from the full exact
+replay. `--full-out` and `--thinned-out` optionally write the two canonical envelopes.
 
 ## Files
 
@@ -70,9 +73,10 @@ reports that counterfactual separately from the full exact replay.
 - `real_wasm_human_forward_back_and_strafe_rebase_yaw_and_do_not_circle`
 - `a configured duel runs inside the module and refuses by name` in `tools/wasm_check.js`
 
-Each new acceptance was mutation-checked at its owning boundary: omitting a stored row,
-changing the command index count, altering the ARPGCTL1 magic, and changing the wasm stride
-must make the named test red before restoration.
+The owning boundaries were mutation-checked by omitting a stored row, altering the
+ARPGCTL1 magic, and giving the live comparison the arena default horizon instead of its
+trace header. Each made its named behavior red before restoration; the latter failed on
+the explicit configuration comparison before it could be mistaken for a mechanics move.
 
 ## Verification
 
@@ -90,6 +94,7 @@ ARPG_CARTESIAN_RECOIL=1 node --test tools/wasm_check.js
 node tools/check_docs.js
 ```
 
-The final command set is recorded only after both wasm artifacts and the serialized client
-suites are green. No foreground browser evidence is fabricated here; session 10 owns that
-measurement after the receipt prerequisite is trustworthy.
+Both wasm configurations, the serialized client suites, the TypeScript/ABI/docs/dependency
+gates and the default-artifact real-wasm replay comparison are green. No foreground browser
+evidence is fabricated here; session 10 owns that measurement now that the receipt
+prerequisite is trustworthy.

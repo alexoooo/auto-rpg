@@ -1,6 +1,6 @@
 # v2 arena foreground matrix
 
-**Purpose:** Hold everything the v2-ui arena series owes a person at a visible browser — the frame times, the visual judgements and the two by-hand checks — with the procedure that takes them and the reason no agent can.
+**Purpose:** Hold everything the v2-ui arena series owes a person at a visible browser — the frame times, the visual judgements and the remaining by-hand check — with the procedure that takes them and the reason no agent can.
 **Status:** current
 **Canonical source:** this document, the `?stage` modes in `client/src/arena/arena.ts`, and the [performance evidence index](README.md#performance-evidence)
 **Update when:** A foreground number is taken, a visual judgement is recorded, the probe modes or their procedure change, or the arena picker gains a dimension control.
@@ -73,7 +73,8 @@ has to be a page change, and it is.
 ### The probe
 
 The same snippet each time; only the URL and the button press change. Run it in a normal
-focused Chrome window with `npm run view` serving.
+focused Chrome window with `npm run dev` serving. `npm run view` deliberately omits the
+wasm artifact and can open selection, but it cannot produce the fight this probe measures.
 
 ```js
 (async () => {
@@ -98,8 +99,9 @@ focused Chrome window with `npm run view` serving.
 
 ### The five steps
 
-1. Open `http://localhost:5173/#/arena`. Wait for the fight. Set **Span 6**,
-   **Azimuth 0**, **Speed 1x**, scrub to **tick 800**, press **Play**, and leave the
+1. Open `http://localhost:5173/#/arena`, select a policy-versus-policy matchup and press
+   **Fight**. Wait until tick 800 exists, pause, set **Span 6**, **Azimuth 0** and
+   **Speed 1x**, scrub to **tick 800**, press **Play**, and leave the
    window focused and frontmost. Run the probe. This is the **baseline**: read `all` and
    ignore the parity split.
 2. Open `http://localhost:5173/#/arena?stage=paired` — same span, azimuth and starting
@@ -211,8 +213,8 @@ browser memory cost or visible frame time.
 
 ## Owed by-hand checks
 
-Two. One is blocked on code as well as on a person; the other is now blocked on nothing
-but the browser.
+One remains active and is blocked on code as well as on a person. The historical learned
+fighter check below is retained as a retired instruction, not counted as owed.
 
 ### The arena interaction
 
@@ -234,28 +236,13 @@ The half of the check that is automatable was done: pressing [Fight] twice on on
 configuration produces the same fight, proven against a third, independent source by
 `a_live_fight_matches_the_traced_fight`.
 
-### The learned fighter, watched from the body it is beating
+### The learned-fighter arena check is retired
 
-**Run `learned` against the composed script in the arena, and watch it from the
-first-person view of the body it is beating.** v2-ui-08 recorded this as **owed to a
-human, not to a session** — a digest that agrees native and wasm says the same numbers
-came out of the network on both targets, and a mean return over 400 held-out seeds says
-it scores above the scripted windmill; neither says the fighter reads as one.
-
-**One of its two blockers has cleared.** It was blocked on v2-ui-07 wiring the live path
-and on a visible browser tab. v2-ui-07 landed: `#/arena` runs the fight the picker
-describes rather than loading a recording, and `learned` is offered as a live policy
-beside the other four, with a note that it fetches `/checkpoints/v2-probe.ckpt` first.
-`POLICIES` in `client/src/arena/picker.ts` carries `live: true` on all five, and
-`learned_runs_live_and_is_noted_once_because_it_is_the_one_policy_that_fetches` in
-`client/test/studio-shell.test.mjs` asserts that no policy is left without a live driver
-and that a live `learned` fight is not refused. **What is left is the browser**, for the
-reason the first section gives.
-
-**What a person is looking for.** Set Fighter A's policy to `learned`, leave Fighter B on
-`composed`, press **[Fight]**, and watch the *losing* body's panel — `first-person B` if A
-is the one winning — rather than the 3/4 view. The question is whether the trained network
-reads as a fighter from inside the fight: whether what comes at the losing body looks like
-an opponent closing, guarding and striking, or like a policy exploiting something about
-the simulation that a score cannot see. That is a judgement about a picture in motion, so
-it needs the frames a hidden tab does not get.
+The old instruction was to run a live `learned` fighter against `composed` and judge it
+from its opponent's first-person view. Neither name is a live arena policy now. The picker
+offers `neutral`, `scripted`, `scripted-level`, `tactical`, and
+`tactical-fixed-guard`; a checkpoint is not representable by `PolicyKind`, and the live
+configuration has no checkpoint field. This row is therefore unavailable by contract,
+not a foreground result still waiting to be taken. The learning probe's held-out evidence
+remains in its own performance record; restoring a live learned opponent would require a
+new versioned configuration and checkpoint-loading session before any visual judgement.

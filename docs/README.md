@@ -60,6 +60,7 @@ Current marked contracts are [determinism](reference/determinism.md#contract), t
 [disclosure mapping](reference/room-asset-contract.md#authored-room-disclosure-mapping),
 [loader lifecycle and failure](reference/room-asset-contract.md#loader-lifecycle-and-failure), and
 [presentation-only bounds](reference/room-asset-contract.md#presentation-only-bounds), and the
+[arena accepted-command evidence](reference/arena-control-evidence-v1.md#container), the
 [embodied submission contract](reference/embodied-command-v1.md#the-embodied-submission-contract)
 and the [embodied actuator columns](reference/embodied-actuators.md#what-an-embodied-body-has-that-an-articulated-one-did-not).
 
