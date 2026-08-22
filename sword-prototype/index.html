@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sword prototype</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <canvas id="stage"></canvas>
+    <div id="hud"></div>
+    <div id="curtain">
+      <div class="panel">
+        <h1>Sword prototype</h1>
+        <p class="lede">
+          The blade is a physical object. There is no attack button &mdash; you swing by
+          moving your arm, and you cut by driving the edge through something at speed.
+        </p>
+        <dl class="keys">
+          <dt>Mouse</dt><dd>moves the sword arm</dd>
+          <dt>W / S</dt><dd>walk forward and back</dd>
+          <dt>A / D</dt><dd>turn</dd>
+          <dt>Q / E</dt><dd>strafe</dd>
+          <dt>Left button</dt><dd>thrust &mdash; extend the reach</dd>
+          <dt>Right button</dt><dd>pull the guard in close</dd>
+          <dt>Wheel</dt><dd>roll the wrist &mdash; turns the edge</dd>
+          <dt>Space</dt><dd>reset the dummy</dd>
+          <dt>Tab</dt><dd>toggle the physics readout</dd>
+          <dt>Esc</dt><dd>release the mouse</dd>
+        </dl>
+        <button id="begin" type="button">Click to take the sword</button>
+        <p class="note" id="boot-note">Loading Havok&hellip;</p>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
