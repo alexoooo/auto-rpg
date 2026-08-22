@@ -71,6 +71,8 @@ export class Hero {
   readonly sword: Sword;
 
   private readonly grip: Physics6DoFConstraint;
+  private readonly shoulder: Physics6DoFConstraint;
+  private readonly elbow: Physics6DoFConstraint;
 
   /** Hand target in torso space: azimuth, elevation, and distance out. */
   private azimuth = 0.3;
@@ -86,6 +88,8 @@ export class Hero {
     shoulder: new Vector3(),
     target: new Vector3(),
     aim: new Vector3(),
+    aimFar: new Vector3(),
+    feet: new Vector3(),
     edge: new Vector3(),
     axisX: new Vector3(),
     axisY: new Vector3(),
@@ -145,7 +149,7 @@ export class Hero {
 
     // Shoulder: a ball joint with a generous cone. The limits exist to rule out
     // inhuman poses, not to shape the motion.
-    joint(scene, this.torso, this.upperArm, {
+    this.shoulder = joint(scene, this.torso, this.upperArm, {
       pivotParent: this.shoulderLocal,
       pivotChild: new Vector3(0, A.upperLength / 2, 0),
       swing: {
@@ -156,7 +160,7 @@ export class Hero {
     });
 
     // Elbow: a hinge. It bends one way, like an elbow.
-    joint(scene, this.upperArm, this.forearm, {
+    this.elbow = joint(scene, this.upperArm, this.forearm, {
       pivotParent: new Vector3(0, -A.upperLength / 2, 0),
       pivotChild: new Vector3(0, A.foreLength / 2, 0),
       swing: { x: { min: -2.45, max: 0 } },
@@ -261,6 +265,16 @@ export class Hero {
     for (const axis of LINEAR) this.grip.setAxisMotorMaxForce(axis, A.linearMotorForce);
     for (const axis of ANGULAR) this.grip.setAxisMotorMaxForce(axis, A.angularMotorForce);
 
+    // Muscle tone. See CONFIG.arm.shoulderTone for why this axis needs holding.
+    for (const axis of ANGULAR) {
+      this.shoulder.setAxisMotorType(axis, PhysicsConstraintMotorType.POSITION);
+      this.shoulder.setAxisMotorTarget(axis, 0);
+      this.shoulder.setAxisMotorMaxForce(axis, A.shoulderTone);
+    }
+    this.elbow.setAxisMotorType(PhysicsConstraintAxis.ANGULAR_X, PhysicsConstraintMotorType.POSITION);
+    this.elbow.setAxisMotorTarget(PhysicsConstraintAxis.ANGULAR_X, A.elbowRest);
+    this.elbow.setAxisMotorMaxForce(PhysicsConstraintAxis.ANGULAR_X, A.elbowTone);
+
     for (const part of [this.upperArm, this.forearm, this.hand]) {
       part.body.setLinearDamping(A.linearDamping);
       part.body.setAngularDamping(A.angularDamping);
@@ -271,6 +285,17 @@ export class Hero {
 
   targetPosition(): Vector3 {
     return this.scratch.target;
+  }
+
+  /** The point the blade is aimed at, in world space. */
+  aimPoint(): Vector3 {
+    return this.scratch.aimFar;
+  }
+
+  /** The hero's position on the ground. */
+  feetPosition(): Vector3 {
+    const p = this.torso.mesh.absolutePosition;
+    return this.scratch.feet.set(p.x, 0, p.z);
   }
 
   armAngles(): { azimuth: number; elevation: number; roll: number; reach: number } {
@@ -341,6 +366,12 @@ export class Hero {
     aim.normalize();
 
     target.copyFrom(shoulder).addInPlace(aim.scale(this.reach));
+
+    // Where the point of the blade is being sent, which is what the player is
+    // actually aiming and so what the indicator stakes out.
+    this.scratch.aimFar
+      .copyFrom(shoulder)
+      .addInPlace(aim.scale(this.reach + this.sword.tipOffset));
   }
 
   /**

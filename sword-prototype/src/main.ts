@@ -10,6 +10,7 @@ import { Dummy } from "./dummy";
 import { Combat } from "./combat";
 import { Hud } from "./hud";
 import { Controls } from "./input";
+import { AimIndicator } from "./aim";
 
 const need = <T extends HTMLElement>(id: string): T => {
   const element = document.getElementById(id);
@@ -57,6 +58,7 @@ async function boot(): Promise<void> {
   combat.attach(dummy);
 
   const hud = new Hud(need("hud"));
+  const aim = new AimIndicator(arena.scene);
   refreshShadowCasters(arena.scene, arena.shadows);
 
   // The control loop runs on the physics clock, not the render clock.
@@ -142,6 +144,7 @@ async function boot(): Promise<void> {
     combat.advance(dt);
     placeCamera(dt, false);
 
+    aim.update(hero.feetPosition(), hero.aimPoint());
     arena.scene.render();
 
     hud.update(

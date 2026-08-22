@@ -26,6 +26,10 @@ body {
 }
 
 #stage {
+  /* A drag that starts on the canvas must not become a text selection, or the
+     arm looks frozen for as long as a button is held. */
+  user-select: none;
+  -webkit-user-select: none;
   position: fixed;
   inset: 0;
   width: 100%;

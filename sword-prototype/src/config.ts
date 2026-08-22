@@ -78,7 +78,27 @@ export const CONFIG = {
 
     /** Bleeds off residual ringing in the chain. */
     linearDamping: 0.7,
-    angularDamping: 1.1,
+    angularDamping: 3,
+
+    /**
+     * Resting muscle tone, in newton-metres.
+     *
+     * Pinning the hand in all six degrees of freedom still leaves the seven-DoF
+     * arm one spare: the elbow can swivel about the line from shoulder to hand
+     * without moving the hand at all. Nothing else constrains that axis, so the
+     * elbow hangs and swings like a noodle.
+     *
+     * These ceilings are tiny next to the roughly 400 N.m the grip commands at
+     * the shoulder, so they cannot argue with where the hand goes -- they only
+     * show up on the axis nothing else was holding.
+     */
+    // Measured: the shoulder axis needs no help once the timestep is fixed, but a
+    // little tone at the elbow gives it a pose to hold instead of dangling, and
+    // takes the settling bob at the tip from 48 mm down to 39 mm.
+    shoulderTone: 0,
+    elbowTone: 6,
+    /** The elbow's preferred bend, radians. Slightly bent, like an arm. */
+    elbowRest: -0.45,
 
 
     /**
@@ -115,10 +135,12 @@ export const CONFIG = {
     /** The sword's own damping. Follow-through should read as weight, not as a
      *  loose pendulum, and this is what separates the two. */
     swordLinearDamping: 0.5,
-    // 3.6 rather than 1.6: settling after a committed swing drops from 2.1 s to
-    // ~1.1 s while peak tip speed only falls 24.4 -> 23.2 m/s. Follow-through
-    // should read as weight, not as a loose pendulum.
-    swordAngularDamping: 3.6,
+    // Damping, not motor strength, is the lever on settling. Raising the angular
+    // motor instead makes the bob far worse -- 44 mm at 110 N.m against 234 mm at
+    // 800 -- because a stiffer motor simply overshoots harder. Past about 8 the
+    // damping starts eating swing power (peak 20.4 -> 15.4 m/s), so this sits
+    // just below that.
+    swordAngularDamping: 6,
     /**
      * A real arming sword balances a few centimetres ahead of the guard, not at
      * the middle of the blade. Moving the centre of mass down the grip is the

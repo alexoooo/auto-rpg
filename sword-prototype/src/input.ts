@@ -62,10 +62,11 @@ export class Controls {
     window.addEventListener("keyup", this.onKeyUp);
     window.addEventListener("blur", this.onBlur);
     window.addEventListener("mousemove", this.onMouseMove);
-    window.addEventListener("mousedown", this.onMouseDown);
+    window.addEventListener("mousedown", this.onMouseDown, { passive: false });
     window.addEventListener("mouseup", this.onMouseUp);
     canvas.addEventListener("wheel", this.onWheel, { passive: false });
     canvas.addEventListener("contextmenu", this.onContextMenu);
+    window.addEventListener("auxclick", this.onAuxClick, { passive: false });
   }
 
   get isActive(): boolean {
@@ -103,7 +104,12 @@ export class Controls {
     window.removeEventListener("mouseup", this.onMouseUp);
     this.canvas.removeEventListener("wheel", this.onWheel);
     this.canvas.removeEventListener("contextmenu", this.onContextMenu);
+    window.removeEventListener("auxclick", this.onAuxClick);
   }
+
+  private readonly onAuxClick = (event: MouseEvent): void => {
+    if (this.active) event.preventDefault();
+  };
 
   private readonly onContextMenu = (event: Event): void => {
     // The right button is the guard, so it must not raise a menu mid-fight.
@@ -149,6 +155,11 @@ export class Controls {
 
   private readonly onMouseDown = (event: MouseEvent): void => {
     if (!this.active) return;
+    // Without this the browser takes the drag for itself and the arm appears to
+    // freeze while a button is held: the left button begins a text selection,
+    // and the middle button opens Chrome's autoscroll widget, which captures the
+    // pointer outright and stops delivering mousemove at all.
+    event.preventDefault();
     if (event.button === 0) this.state.thrust = true;
     if (event.button === 2) this.state.guard = true;
   };
