@@ -43,6 +43,9 @@ export async function startPhysics(scene: Scene): Promise<HavokPlugin> {
   // A sword tip travelling faster than the default clamp is exactly the case
   // this prototype exists to explore, so raise the ceiling out of the way.
   plugin.setVelocityLimits(220, 220);
+  // Tells Havok what step size to expect, which its solver uses when tuning
+  // constraint response. The world still steps by the real frame delta.
+  plugin.setTimeStep(1 / 60);
 
   if (!scene.getPhysicsEngine()) {
     throw new Error("Havok loaded but the scene has no physics engine attached.");

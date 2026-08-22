@@ -25,8 +25,10 @@ export interface InputState {
   pointerX: number;
   /** Cursor position up the window, -1 (bottom) to +1 (top). */
   pointerY: number;
-  /** Wheel notches since the last frame. */
-  wheel: number;
+  /** Cumulative wheel notches. Absolute, not a per-frame delta, so that the
+   *  control loop running several times per rendered frame cannot apply it
+   *  more than once. */
+  roll: number;
   thrust: boolean;
   guard: boolean;
 }
@@ -40,7 +42,7 @@ export class Controls {
     turn: 0,
     pointerX: 0,
     pointerY: 0,
-    wheel: 0,
+    roll: 0,
     thrust: false,
     guard: false,
   };
@@ -90,11 +92,6 @@ export class Controls {
     this.state.turn = axis("KeyA", "KeyD");
     this.state.strafe = axis("KeyQ", "KeyE");
     return this.state;
-  }
-
-  /** Zero the per-frame deltas. The pointer position is absolute and persists. */
-  endFrame(): void {
-    this.state.wheel = 0;
   }
 
   dispose(): void {
@@ -164,6 +161,6 @@ export class Controls {
   private readonly onWheel = (event: WheelEvent): void => {
     if (!this.active) return;
     event.preventDefault();
-    this.state.wheel += Math.sign(event.deltaY);
+    this.state.roll += Math.sign(event.deltaY);
   };
 }

@@ -59,10 +59,20 @@ async function boot(): Promise<void> {
   const hud = new Hud(need("hud"));
   refreshShadowCasters(arena.scene, arena.shadows);
 
+  // The control loop runs on the physics clock, not the render clock.
+  //
+  // Babylon's accumulator takes several fixed solver steps per rendered frame,
+  // and notifies this observable before each one. Driving the arm from the
+  // render loop instead refreshed the anchor's target only on the first of
+  // those steps, so the keyframed anchor kept coasting through the rest and the
+  // arm wandered metres from where it was pointed.
+  const FIXED_STEP = 1 / CONFIG.world.physicsHz;
+
   let physicsMs = 0;
   let physicsStart = 0;
   arena.scene.onBeforePhysicsObservable.add(() => {
     physicsStart = performance.now();
+    if (controls.isActive) hero.update(FIXED_STEP, controls.state);
   });
   arena.scene.onAfterPhysicsObservable.add(() => {
     // Smoothed, because a raw per-frame number is unreadable at 60 Hz.
@@ -104,15 +114,17 @@ async function boot(): Promise<void> {
     const forward = new Vector3(world.m[8], world.m[9], world.m[10]).normalize();
     const origin = hero.torso.mesh.absolutePosition;
 
+    // Both goals are built from the hero's position on the ground, so the
+    // framing does not shift when the torso's centre height is retuned.
     cameraGoal
-      .copyFrom(origin)
+      .copyFromFloats(origin.x, 0, origin.z)
       .subtractInPlace(forward.scale(C.distance))
-      .addInPlaceFromFloats(0, C.height - 0.9, 0);
+      .addInPlaceFromFloats(0, C.height, 0);
 
     lookGoal
-      .copyFrom(origin)
-      .addInPlace(forward.scale(1.6))
-      .addInPlaceFromFloats(0, C.pitch, 0);
+      .copyFromFloats(origin.x, 0, origin.z)
+      .addInPlace(forward.scale(C.lookAhead))
+      .addInPlaceFromFloats(0, C.lookHeight, 0);
 
     const blend = snap ? 1 : 1 - Math.exp(-C.followResponse * dt);
     arena.camera.position.addInPlace(cameraGoal.subtract(arena.camera.position).scale(blend));
@@ -126,11 +138,7 @@ async function boot(): Promise<void> {
     const dt = Math.min(engine.getDeltaTime() / 1000, CONFIG.world.maxFrameSeconds);
     if (dt <= 0) return;
 
-    if (controls.isActive) {
-      const input = controls.sample();
-      hero.update(dt, input);
-      controls.endFrame();
-    }
+    if (controls.isActive) controls.sample();
     combat.advance(dt);
     placeCamera(dt, false);
 

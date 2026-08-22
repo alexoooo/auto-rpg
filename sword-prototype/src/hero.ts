@@ -162,13 +162,24 @@ export class Hero {
       swing: { x: { min: -2.45, max: 0 } },
     });
 
+    // The wrist holds the hand onto the forearm but does not constrain its
+    // orientation at all.
+    //
+    // It used to carry limits on all three angular axes, and that quietly made
+    // the system over-constrained: the grip below commands the hand's absolute
+    // orientation, while the wrist was simultaneously constraining that same
+    // orientation relative to the forearm. Whenever the commanded pose sat near
+    // a wrist limit the motor and the limit pushed against each other every
+    // step, and the sword buzzed in the hand even with the cursor held still.
+    // Leaving the angular axes free hands orientation authority to exactly one
+    // constraint, and the elbow hinge and shoulder cone still keep the arm human.
     joint(scene, this.forearm, this.hand, {
       pivotParent: new Vector3(0, -A.foreLength / 2, 0),
       pivotChild: new Vector3(0, A.handLength / 2, 0),
       swing: {
-        x: { min: -1.05, max: 1.05 },
-        y: { min: -2.6, max: 2.6 },
-        z: { min: -0.55, max: 0.55 },
+        x: { min: -Math.PI, max: Math.PI },
+        y: { min: -Math.PI, max: Math.PI },
+        z: { min: -Math.PI, max: Math.PI },
       },
     });
 
@@ -308,7 +319,7 @@ export class Hero {
 
     this.azimuth = clamp(spread(input.pointerX, A.azMin, A.azMax), A.azMin, A.azMax);
     this.elevation = clamp(spread(input.pointerY, A.elMin, A.elMax), A.elMin, A.elMax);
-    this.roll = clamp(this.roll + input.wheel * A.rollSensitivity, A.rollMin, A.rollMax);
+    this.roll = clamp(input.roll * A.rollSensitivity, A.rollMin, A.rollMax);
 
     const wanted = Math.min(
       input.thrust ? A.reachThrust : input.guard ? A.reachGuard : A.reachNeutral,

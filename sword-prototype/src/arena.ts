@@ -66,6 +66,12 @@ export async function buildArena(engine: Engine): Promise<Arena> {
   // unhelpful "No Physics Engine available".
   await startPhysics(scene);
 
+  // A fixed physics timestep, accumulated across frames. Babylon reads this in
+  // Scene._advancePhysicsEngineStep and steps the solver a whole number of times
+  // per frame, so the solver never sees a variable delta. The value is in
+  // milliseconds. Without it the sword shivers in the hand.
+  scene.getPhysicsEngine()?.setSubTimeStep(1000 / CONFIG.world.physicsHz);
+
   const camera = new FreeCamera("camera", new Vector3(0, 2, -4), scene);
   camera.fov = CONFIG.camera.fov;
   camera.minZ = 0.05;

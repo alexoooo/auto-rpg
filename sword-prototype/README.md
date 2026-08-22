@@ -111,6 +111,11 @@ constrained, and the sword follows because it is welded to the hand. The lag, ov
 carried momentum come from that force ceiling being finite — the motor simply cannot drag a
 1.35 kg sword instantly — rather than from any tuned spring.
 
+Physics runs on a **fixed 240 Hz timestep** with control sampled on the same clock rather
+than the render clock. That is not an optimisation, it is the difference between a steady
+weapon and one that shivers: a motorised joint stepped by the raw frame delta receives a
+slightly different correction every frame, which reads as the blade trembling in the hand.
+
 Nothing is animated, and **no force is applied from outside the solver**. That is not
 stylistic. The first version ran a spring-damper on the hand with `applyForce` every frame
 and shook itself to pieces: Babylon converts a force to an impulse using `getTimeStep()`

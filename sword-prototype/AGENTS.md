@@ -45,6 +45,24 @@ npm run dev             # http://localhost:5180, strictPort
   5180, which meant editing one server and reading another -- and the orphan outlived a
   `TaskStop` on its parent, because killing `npx` leaves the `vite` child running. Kill by
   PID: `netstat -ano | findstr ":5180"`.
+- **The solver must never see a variable timestep.** `Scene._advancePhysicsEngineStep`
+  contains a fixed-step accumulator, driven by `PhysicsEngine.setSubTimeStep` (a value in
+  **milliseconds**). Step by the raw frame delta instead and a motorised joint gets a
+  slightly different correction every frame: measured at 40 mm of tip wander under
+  realistic jitter, against 0 mm fixed. Note that `PhysicsEngine._step` itself ignores the
+  sub-step -- reading only that function is how this was wrongly written off as a no-op,
+  which is what introduced the shake in the first place.
+- **Control runs on the physics clock, via `scene.onBeforePhysicsObservable`.** The
+  accumulator takes several solver steps per rendered frame and notifies that observable
+  before each. Driving the arm from the render loop refreshes the keyframed anchor's target
+  on only the first of them, so it coasts through the rest -- the arm wandered close to four
+  metres from where it was pointed.
+- **A sleeping body hides every steady-state defect.** Havok deactivates the arm at rest, so
+  a measurement taken after it settles reads a perfect zero no matter how badly it shakes
+  when awake. Force `pl.setActivationControl(body, 1)` before trusting any rest measurement.
+- **Do not drive physics by calling `scene.render()` in a tight loop to test.** The delta
+  comes from `engine.getDeltaTime()`, which is near zero between two immediate calls, so the
+  simulation crawls and every derived number is wrong. Step with a fixed delta instead.
 - **`src/scoring.ts` and `src/config.ts` are imported directly by Node** in the test run,
   so their intra-directory imports carry explicit `.ts` extensions. Vite does not care;
   Node's ESM resolver does.
