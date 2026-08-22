@@ -1,11 +1,17 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
+import { Vector3, Quaternion, Matrix } from "@babylonjs/core/Maths/math.vector.js";
+import {
+  PhysicsMotionType,
+  PhysicsConstraintAxis,
+  PhysicsConstraintAxisLimitMode,
+  PhysicsConstraintMotorType,
+} from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
+import { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsConstraint.js";
 import type { Material } from "@babylonjs/core/Materials/material.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 
 import { CONFIG } from "./config";
 import { LAYER, COLLIDES } from "./physics";
-import { capsulePart, joint, weld, type Part } from "./rig";
+import { capsulePart, joint, spherePart, type Part } from "./rig";
 import { Sword } from "./sword";
 import type { InputState } from "./input";
 
@@ -17,13 +23,22 @@ export interface HeroMaterials {
   brass: Material;
 }
 
-const clampLength = (v: Vector3, max: number): Vector3 => {
-  const length = v.length();
-  return length > max ? v.scaleInPlace(max / length) : v;
-};
-
 const clamp = (value: number, min: number, max: number) =>
   value < min ? min : value > max ? max : value;
+
+/** Map a signed -1..1 stick position onto an asymmetric range. */
+const spread = (t: number, min: number, max: number) => (t < 0 ? -t * min : t * max);
+
+const LINEAR = [
+  PhysicsConstraintAxis.LINEAR_X,
+  PhysicsConstraintAxis.LINEAR_Y,
+  PhysicsConstraintAxis.LINEAR_Z,
+];
+const ANGULAR = [
+  PhysicsConstraintAxis.ANGULAR_X,
+  PhysicsConstraintAxis.ANGULAR_Y,
+  PhysicsConstraintAxis.ANGULAR_Z,
+];
 
 /**
  * The hero.
@@ -31,18 +46,31 @@ const clamp = (value: number, min: number, max: number) =>
  * The torso is keyframed: it goes exactly where you steer it, because a body
  * that wobbles under the weight of its own arm is not fun to walk around.
  * Everything from the shoulder outward is genuinely simulated -- three
- * constrained bones and a weighted sword, driven by a spring at the hand rather
- * than by any animation.
+ * constrained bones and a weighted sword.
  *
- * That split is the design. Your movement is yours; your arm is only mostly
- * yours, and the sword is a heavy object you are negotiating with.
+ * The arm is driven by a single invisible keyframed *anchor* joined to the hand
+ * by a six-degree-of-freedom constraint whose motors have a finite force budget.
+ * Move the anchor and the solver drags the hand after it, the forearm and upper
+ * arm follow because they are constrained, and the sword follows because it is
+ * welded to the hand. Nothing is animated and no force is applied from outside
+ * the solver.
+ *
+ * That last point is not stylistic. The first version ran a spring-damper on the
+ * hand with `applyForce` each frame and shook itself to pieces, because Babylon
+ * converts a force to an impulse using `getTimeStep()` while the world steps by
+ * the real frame delta -- so the gain flickered every frame. It also torqued the
+ * sword toward an aim direction while the weld held the sword rigid to the hand,
+ * which is a contradiction the solver can only answer by vibrating.
  */
 export class Hero {
   readonly torso: Part;
   readonly upperArm: Part;
   readonly forearm: Part;
   readonly hand: Part;
+  readonly handAnchor: Part;
   readonly sword: Sword;
+
+  private readonly grip: Physics6DoFConstraint;
 
   /** Hand target in torso space: azimuth, elevation, and distance out. */
   private azimuth = 0.3;
@@ -55,19 +83,19 @@ export class Hero {
 
   private readonly scratch = {
     dirLocal: new Vector3(),
-    dirWorld: new Vector3(),
     shoulder: new Vector3(),
     target: new Vector3(),
-    force: new Vector3(),
-    torque: new Vector3(),
-    errA: new Vector3(),
-    errB: new Vector3(),
     aim: new Vector3(),
-    desiredEdge: new Vector3(),
-    axis: new Vector3(),
+    edge: new Vector3(),
+    axisX: new Vector3(),
+    axisY: new Vector3(),
+    axisZ: new Vector3(),
+    spin: new Vector3(),
     move: new Vector3(),
     right: new Vector3(),
     forward: new Vector3(),
+    basis: Matrix.Identity(),
+    rotation: Quaternion.Identity(),
   };
 
   constructor(scene: Scene, origin: Vector3, materials: HeroMaterials) {
@@ -75,14 +103,13 @@ export class Hero {
     const A = CONFIG.arm;
 
     const torsoHeight = 1.62;
-    const torsoRadius = 0.24;
     const torsoCentre = torsoHeight / 2 + 0.09;
 
     this.torso = capsulePart(scene, {
       name: "hero.torso",
       position: origin.add(new Vector3(0, torsoCentre, 0)),
       height: torsoHeight,
-      radius: torsoRadius,
+      radius: 0.24,
       mass: 68,
       layer: LAYER.HERO,
       collidesWith: COLLIDES.HERO,
@@ -97,45 +124,27 @@ export class Hero {
     );
     const shoulderWorld = origin.add(new Vector3(0, torsoCentre, 0)).add(this.shoulderLocal);
 
-    // Rest pose: the arm hangs straight down. The controller lifts it on the
-    // first frame, which is also a decent smoke test that the spring is alive.
-    this.upperArm = capsulePart(scene, {
-      name: "hero.upperArm",
-      position: shoulderWorld.add(new Vector3(0, -A.upperLength / 2, 0)),
-      height: A.upperLength,
-      radius: A.upperRadius,
-      mass: A.upperMass,
-      layer: LAYER.HERO,
-      collidesWith: COLLIDES.HERO,
-      material: materials.cloth,
-    });
+    const limb = (name: string, drop: number, length: number, radius: number, mass: number, material: Material): Part => {
+      const part = capsulePart(scene, {
+        name: `hero.${name}`,
+        position: shoulderWorld.add(new Vector3(0, -drop, 0)),
+        height: length,
+        radius,
+        mass,
+        layer: LAYER.HERO,
+        collidesWith: COLLIDES.HERO,
+        material,
+      });
+      return part;
+    };
 
-    this.forearm = capsulePart(scene, {
-      name: "hero.forearm",
-      position: shoulderWorld.add(new Vector3(0, -A.upperLength - A.foreLength / 2, 0)),
-      height: A.foreLength,
-      radius: A.foreRadius,
-      mass: A.foreMass,
-      layer: LAYER.HERO,
-      collidesWith: COLLIDES.HERO,
-      material: materials.leather,
-    });
+    // Rest pose: the arm hangs straight down, and the anchor lifts it on frame one.
+    this.upperArm = limb("upperArm", A.upperLength / 2, A.upperLength, A.upperRadius, A.upperMass, materials.cloth);
+    this.forearm = limb("forearm", A.upperLength + A.foreLength / 2, A.foreLength, A.foreRadius, A.foreMass, materials.leather);
+    this.hand = limb("hand", A.upperLength + A.foreLength + A.handLength / 2, A.handLength, A.handRadius, A.handMass, materials.flesh);
 
-    this.hand = capsulePart(scene, {
-      name: "hero.hand",
-      position: shoulderWorld.add(
-        new Vector3(0, -A.upperLength - A.foreLength - A.handLength / 2, 0),
-      ),
-      height: A.handLength,
-      radius: A.handRadius,
-      mass: A.handMass,
-      layer: LAYER.HERO,
-      collidesWith: COLLIDES.HERO,
-      material: materials.flesh,
-    });
-
-    // Shoulder: a ball joint with a generous cone. The limits exist to stop
-    // inhuman poses, not to shape the motion -- the spring at the hand does that.
+    // Shoulder: a ball joint with a generous cone. The limits exist to rule out
+    // inhuman poses, not to shape the motion.
     joint(scene, this.torso, this.upperArm, {
       pivotParent: this.shoulderLocal,
       pivotChild: new Vector3(0, A.upperLength / 2, 0),
@@ -153,8 +162,6 @@ export class Hero {
       swing: { x: { min: -2.45, max: 0 } },
     });
 
-    // Wrist: a little bend, and a lot of roll. Roll is what turns the edge, so
-    // it is the one axis given a nearly full range.
     joint(scene, this.forearm, this.hand, {
       pivotParent: new Vector3(0, -A.foreLength / 2, 0),
       pivotChild: new Vector3(0, A.handLength / 2, 0),
@@ -165,23 +172,92 @@ export class Hero {
       },
     });
 
-    const gripWorld = shoulderWorld.add(
+    const fistWorld = shoulderWorld.add(
       new Vector3(0, -A.upperLength - A.foreLength - A.handLength, 0),
     );
-    this.sword = new Sword(scene, gripWorld, materials);
+    this.sword = new Sword(scene, fistWorld, materials);
 
-    // Welded rather than fused: cutting this one constraint is a disarm, which
-    // is the entire implementation of being disarmed.
-    weld(
+    // The blade must leave the fist pointing *away* from the wrist, so the
+    // sword's +Y is welded to the hand's -Y. Getting this backwards put the
+    // blade back up through the forearm, which is invisible when the hero does
+    // not collide with itself and baffling when you try to swing.
+    joint(scene, this.hand, {
+      name: "sword",
+      mesh: this.hand.mesh,
+      body: this.sword.body,
+      shape: this.sword.shape,
+    }, {
+      pivotParent: new Vector3(0, -A.handLength / 2, 0),
+      pivotChild: Vector3.Zero(),
+      axisParent: new Vector3(1, 0, 0),
+      axisChild: new Vector3(1, 0, 0),
+      perpParent: new Vector3(0, -1, 0),
+      perpChild: new Vector3(0, 1, 0),
+      swing: {},
+    });
+
+    // The anchor: massless, collides with nothing, and exists only to be a frame
+    // the solver can pull the hand toward.
+    this.handAnchor = spherePart(scene, {
+      name: "hero.handAnchor",
+      position: fistWorld,
+      diameter: 0.02,
+      mass: 0,
+      layer: 0,
+      collidesWith: 0,
+      motionType: PhysicsMotionType.ANIMATED,
+      visible: false,
+    });
+
+    this.grip = new Physics6DoFConstraint(
+      {
+        pivotA: Vector3.Zero(),
+        pivotB: Vector3.Zero(),
+        axisA: new Vector3(1, 0, 0),
+        axisB: new Vector3(1, 0, 0),
+        perpAxisA: new Vector3(0, 1, 0),
+        perpAxisB: new Vector3(0, 1, 0),
+        collision: false,
+      },
+      [],
       scene,
-      this.hand,
-      { name: "sword", mesh: this.hand.mesh, body: this.sword.body, shape: this.sword.shape },
-      new Vector3(0, -A.handLength / 2, 0),
-      Vector3.Zero(),
     );
+    this.handAnchor.body.addConstraint(this.hand.body, this.grip);
+
+    // Every axis free, every axis motorised toward zero offset. The force
+    // ceiling is what makes the sword feel heavy: the motor is simply unable to
+    // drag it instantly, so the blade lags, overshoots, and carries momentum.
+    for (const axis of [...LINEAR, ...ANGULAR]) {
+      this.grip.setAxisMode(axis, PhysicsConstraintAxisLimitMode.FREE);
+      this.grip.setAxisMotorType(axis, PhysicsConstraintMotorType.POSITION);
+      this.grip.setAxisMotorTarget(axis, 0);
+    }
+    this.applyTuning();
   }
 
-  /** Where the hand is being asked to go, in world space. The HUD draws it. */
+  /**
+   * Push the current CONFIG into the solver.
+   *
+   * Motor ceilings and damping are set on native objects at construction, so
+   * editing CONFIG alone does nothing to them. Calling this re-reads the whole
+   * lot, which is what makes `__sword.hero.applyTuning()` a live tuning loop
+   * rather than a page reload.
+   */
+  applyTuning(): void {
+    const A = CONFIG.arm;
+    const S = CONFIG.sword;
+
+    for (const axis of LINEAR) this.grip.setAxisMotorMaxForce(axis, A.linearMotorForce);
+    for (const axis of ANGULAR) this.grip.setAxisMotorMaxForce(axis, A.angularMotorForce);
+
+    for (const part of [this.upperArm, this.forearm, this.hand]) {
+      part.body.setLinearDamping(A.linearDamping);
+      part.body.setAngularDamping(A.angularDamping);
+    }
+    this.sword.body.setLinearDamping(S.swordLinearDamping);
+    this.sword.body.setAngularDamping(S.swordAngularDamping);
+  }
+
   targetPosition(): Vector3 {
     return this.scratch.target;
   }
@@ -198,8 +274,7 @@ export class Hero {
   update(dt: number, input: InputState): void {
     this.steer(dt, input);
     this.aimArm(dt, input);
-    this.driveHand();
-    this.aimBlade();
+    this.driveAnchor();
   }
 
   private steer(dt: number, input: InputState): void {
@@ -212,30 +287,36 @@ export class Hero {
     desired.addInPlace(forward.scale(input.forward * H.walkSpeed));
     desired.addInPlace(right.scale(input.strafe * H.strafeSpeed));
 
-    // Ease toward the requested velocity so starting and stopping have weight.
     const blend = 1 - Math.exp(-H.accelResponse * dt);
     this.velocity.x += (desired.x - this.velocity.x) * blend;
     this.velocity.z += (desired.z - this.velocity.z) * blend;
     this.velocity.y = 0;
 
-    // A keyframed body is moved by its velocity rather than by teleporting its
-    // transform. That way the shoulder constraint sees the motion, and the sword
-    // swings out behind you when you turn -- which is most of the feel.
     this.torso.body.setLinearVelocity(this.velocity);
-    this.torso.body.setAngularVelocity(this.scratch.axis.set(0, input.turn * H.turnSpeed, 0));
+    this.torso.body.setAngularVelocity(this.scratch.spin.set(0, input.turn * H.turnSpeed, 0));
   }
 
+  /**
+   * Where the cursor is on screen is where the hand is asked to be.
+   *
+   * Absolute rather than accumulated: the pointer is not captured, so the arm
+   * has a home position you can always find again by moving the mouse back to
+   * the middle of the window.
+   */
   private aimArm(dt: number, input: InputState): void {
     const A = CONFIG.arm;
 
-    this.azimuth = clamp(this.azimuth + input.mouseDx * A.mouseSensitivity, A.azMin, A.azMax);
-    this.elevation = clamp(this.elevation - input.mouseDy * A.mouseSensitivity, A.elMin, A.elMax);
+    this.azimuth = clamp(spread(input.pointerX, A.azMin, A.azMax), A.azMin, A.azMax);
+    this.elevation = clamp(spread(input.pointerY, A.elMin, A.elMax), A.elMin, A.elMax);
     this.roll = clamp(this.roll + input.wheel * A.rollSensitivity, A.rollMin, A.rollMax);
 
-    const wanted = input.thrust ? A.reachThrust : input.guard ? A.reachGuard : A.reachNeutral;
+    const wanted = Math.min(
+      input.thrust ? A.reachThrust : input.guard ? A.reachGuard : A.reachNeutral,
+      A.reachMax,
+    );
     this.reach += (wanted - this.reach) * (1 - Math.exp(-A.reachResponse * dt));
 
-    const { dirLocal, dirWorld, shoulder, target } = this.scratch;
+    const { dirLocal, shoulder, target, aim } = this.scratch;
     const cosEl = Math.cos(this.elevation);
     dirLocal.set(
       Math.sin(this.azimuth) * cosEl,
@@ -245,68 +326,46 @@ export class Hero {
 
     const world = this.torso.mesh.getWorldMatrix();
     Vector3.TransformCoordinatesToRef(this.shoulderLocal, world, shoulder);
-    Vector3.TransformNormalToRef(dirLocal, world, dirWorld);
-    dirWorld.normalize();
+    Vector3.TransformNormalToRef(dirLocal, world, aim);
+    aim.normalize();
 
-    target.copyFrom(shoulder).addInPlace(dirWorld.scale(this.reach));
-  }
-
-  /** One spring-damper at the hand drags the whole arm behind it. */
-  private driveHand(): void {
-    const A = CONFIG.arm;
-    const handPos = this.hand.body.getObjectCenterWorld();
-    const handVel = this.hand.body.getLinearVelocity();
-
-    const force = this.scratch.force.copyFrom(this.scratch.target).subtractInPlace(handPos);
-    force.scaleInPlace(A.stiffness);
-    force.subtractInPlace(handVel.scale(A.damping));
-
-    // Cancel most of the weight of arm and sword, or the guard sags and every
-    // swing has to start by climbing out of a droop.
-    const carried = A.upperMass + A.foreMass + A.handMass + CONFIG.sword.mass;
-    force.y += A.gravityCompensation * carried * -CONFIG.world.gravity;
-
-    clampLength(force, A.maxForce);
-    this.hand.body.applyForce(force, handPos);
+    target.copyFrom(shoulder).addInPlace(aim.scale(this.reach));
   }
 
   /**
-   * Aim the blade with torque.
+   * Pose the anchor, and let the solver do the rest.
    *
-   * Two cross products and no quaternion algebra: cross(current, desired) is an
-   * axis whose length is the sine of the angle between them, which is exactly the
-   * proportional error term wanted here, and is immune to getting a
-   * multiplication order or a handedness convention backwards.
+   * The hand's own -Y runs down the blade, so the anchor's orientation is built
+   * from three axes directly rather than by composing rotations: it is easier to
+   * be sure a basis is correct than to be sure a quaternion product is.
    */
-  private aimBlade(): void {
-    const S = CONFIG.sword;
-    const { aim, desiredEdge, errA, errB, torque } = this.scratch;
+  private driveAnchor(): void {
+    const { aim, edge, axisX, axisY, axisZ, basis, rotation, target } = this.scratch;
 
-    // The blade continues the line running from the shoulder out through the hand.
-    aim.copyFrom(this.scratch.target).subtractInPlace(this.scratch.shoulder).normalize();
+    // Hand +Y points back up the arm, because the blade runs along hand -Y.
+    axisY.copyFrom(aim).scaleInPlace(-1).normalize();
 
-    // The edge sits perpendicular to that line, rolled by the wrist: start from
-    // world up, remove whatever lies along the blade, then roll about the blade.
-    desiredEdge.set(0, 1, 0);
-    desiredEdge.subtractInPlace(aim.scale(Vector3.Dot(desiredEdge, aim)));
-    if (desiredEdge.lengthSquared() < 1e-5) {
-      desiredEdge.set(1, 0, 0).subtractInPlace(aim.scale(aim.x));
-    }
-    desiredEdge.normalize();
+    // The edge starts perpendicular to the blade, then rolls about it.
+    edge.set(0, 1, 0);
+    edge.subtractInPlace(aim.scale(Vector3.Dot(edge, aim)));
+    if (edge.lengthSquared() < 1e-5) edge.set(1, 0, 0).subtractInPlace(aim.scale(aim.x));
+    edge.normalize();
 
-    Vector3.CrossToRef(aim, desiredEdge, errA);
-    const cr = Math.cos(this.roll);
-    const sr = Math.sin(this.roll);
-    desiredEdge.scaleInPlace(cr).addInPlace(errA.scaleInPlace(sr)).normalize();
+    Vector3.CrossToRef(aim, edge, axisZ);
+    edge.scaleInPlace(Math.cos(this.roll)).addInPlace(axisZ.scaleInPlace(Math.sin(this.roll)));
+    edge.normalize();
 
-    Vector3.CrossToRef(this.sword.bladeDirection(), aim, errA);
-    Vector3.CrossToRef(this.sword.edgeDirection(), desiredEdge, errB);
+    axisX.copyFrom(edge);
+    axisX.subtractInPlace(axisY.scale(Vector3.Dot(axisX, axisY))).normalize();
+    Vector3.CrossToRef(axisX, axisY, axisZ);
+    axisZ.normalize();
 
-    torque.copyFrom(errA).addInPlace(errB.scaleInPlace(0.55));
-    torque.scaleInPlace(S.torqueStiffness);
-    torque.subtractInPlace(this.sword.body.getAngularVelocity().scale(S.torqueDamping));
+    Matrix.FromXYZAxesToRef(axisX, axisY, axisZ, basis);
+    Quaternion.FromRotationMatrixToRef(basis, rotation);
 
-    clampLength(torque, S.maxTorque);
-    this.sword.body.applyTorque(torque);
+    // setTargetTransform rather than teleporting the transform node: it gives the
+    // keyframed anchor a real velocity, so the constraint sees motion instead of
+    // a jump, and the sword trails properly when you sweep the cursor.
+    this.handAnchor.body.setTargetTransform(target, rotation);
   }
 }

@@ -34,6 +34,8 @@ export interface PartOptions {
   friction?: number;
   restitution?: number;
   motionType?: PhysicsMotionType;
+  /** Control frames exist for the solver, not for the eye. */
+  visible?: boolean;
   /** Where the body balances, in its own local space. */
   centerOfMass?: Vector3;
 }
@@ -45,6 +47,7 @@ function finish(
   opts: PartOptions,
 ): Part {
   mesh.position.copyFrom(opts.position);
+  if (opts.visible === false) mesh.isVisible = false;
   mesh.rotationQuaternion = opts.rotation ? opts.rotation.clone() : Quaternion.Identity();
   if (opts.material) mesh.material = opts.material;
 
@@ -82,6 +85,19 @@ export function capsulePart(
     scene,
   );
   return finish(scene, mesh, PhysicsShapeType.CAPSULE, opts);
+}
+
+/** A control frame or a small round thing. */
+export function spherePart(
+  scene: Scene,
+  opts: PartOptions & { diameter: number },
+): Part {
+  const mesh = MeshBuilder.CreateSphere(
+    opts.name,
+    { diameter: opts.diameter, segments: 6 },
+    scene,
+  );
+  return finish(scene, mesh, PhysicsShapeType.SPHERE, opts);
 }
 
 export function boxPart(
@@ -178,15 +194,4 @@ export function joint(
     }
   }
   return constraint;
-}
-
-/** A rigid weld: the child becomes part of the parent until the joint is cut. */
-export function weld(
-  scene: Scene,
-  parent: Part,
-  child: Part,
-  pivotParent: Vector3,
-  pivotChild: Vector3,
-): Physics6DoFConstraint {
-  return joint(scene, parent, child, { pivotParent, pivotChild, swing: {} });
 }

@@ -13,9 +13,12 @@
 export const CONFIG = {
   world: {
     gravity: -9.81,
-    /** Havok substeps per rendered frame. Motorised joints holding a heavy
-     *  lever arm need more than one or the arm visibly sags under its sword. */
-    subSteps: 4,
+    /**
+     * NOTE: Babylon's v2 `PhysicsEngine.setSubTimeStep` is a no-op -- `_step`
+     * never reads it and calls `executeStep` exactly once per frame. Substepping
+     * is therefore not available, and pretending otherwise cost an afternoon.
+     * Stability comes from using solver motors instead of applied forces.
+     */
     /** Clamp: a long stall must not integrate one enormous step. */
     maxFrameSeconds: 1 / 20,
   },
@@ -47,33 +50,46 @@ export const CONFIG = {
     handMass: 0.65,
 
     /**
-     * The arm is driven at the hand, not joint by joint.
+     * The arm is driven by solver motors, not by forces applied from outside.
      *
-     * Solving per-joint angles and feeding them to motors means getting three
-     * constraint frames exactly right and tuning a dozen gains; driving the end
-     * effector with one spring-damper and letting the constrained bones follow
-     * gives the same anatomy from six numbers -- and it is what produces the lag,
-     * overshoot and carried momentum that the whole design rests on.
+     * The first version applied a spring-damper to the hand every frame with
+     * `applyForce`. That is explicit integration bolted onto an implicit solver,
+     * and it shook itself apart: Babylon converts a force to an impulse using
+     * `getTimeStep()` while the world actually steps by the real frame delta, so
+     * the effective gain flickered frame to frame. Motors live inside the solver,
+     * so they are unconditionally stable and do not care about the frame rate.
+     *
+     * These are force *ceilings*, not stiffnesses. The lag and overshoot that
+     * make the weapon feel heavy come from the ceiling being finite -- the motor
+     * simply cannot drag the sword instantly -- rather than from a tuned spring.
      */
-    stiffness: 1150,
-    damping: 62,
-    maxForce: 3200,
-    /** Fraction of the arm+sword weight cancelled so the guard does not sag. */
-    gravityCompensation: 0.92,
+    linearMotorForce: 850,
+    // 110 rather than 42: measured re-aim time after a cursor jump falls from
+    // 0.42 s to 0.07 s, and nothing above 110 improves it further.
+    angularMotorForce: 110,
 
-    /** Reach envelope, as a distance from the shoulder. */
-    reachNeutral: 0.50,
-    reachThrust: 0.70,
-    reachGuard: 0.32,
-    /** How fast reach moves between those stops. */
+    /** Bleeds off residual ringing in the chain. */
+    linearDamping: 0.7,
+    angularDamping: 1.1,
+
+    /**
+     * Reach, measured from the shoulder to the centre of the hand.
+     *
+     * The chain reaches 0.63 m fully extended, so everything here stays inside
+     * that. The first pass let a thrust ask for 0.70 -- past full extension --
+     * which pinned the elbow against its stop and buzzed there.
+     */
+    reachNeutral: 0.45,
+    reachThrust: 0.60,
+    reachGuard: 0.28,
+    reachMax: 0.61,
     reachResponse: 9,
 
-    /** Angular envelope of the hand target, in torso-local space. */
+    /** Where the cursor sits maps straight onto where the hand goes. */
     azMin: -1.15,
     azMax: 1.30,
     elMin: -1.05,
     elMax: 1.25,
-    mouseSensitivity: 0.0032,
     /** Wheel notches to wrist roll. */
     rollSensitivity: 0.22,
     rollMin: -2.6,
@@ -87,6 +103,13 @@ export const CONFIG = {
     guardWidth: 0.22,
     gripLength: 0.19,
     mass: 1.35,
+    /** The sword's own damping. Follow-through should read as weight, not as a
+     *  loose pendulum, and this is what separates the two. */
+    swordLinearDamping: 0.5,
+    // 3.6 rather than 1.6: settling after a committed swing drops from 2.1 s to
+    // ~1.1 s while peak tip speed only falls 24.4 -> 23.2 m/s. Follow-through
+    // should read as weight, not as a loose pendulum.
+    swordAngularDamping: 3.6,
     /**
      * A real arming sword balances a few centimetres ahead of the guard, not at
      * the middle of the blade. Moving the centre of mass down the grip is the
@@ -94,10 +117,6 @@ export const CONFIG = {
      */
     balancePoint: 0.10,
 
-    /** Orientation controller: how hard the wrist fights to aim the blade. */
-    torqueStiffness: 165,
-    torqueDamping: 13.5,
-    maxTorque: 120,
   },
 
   combat: {

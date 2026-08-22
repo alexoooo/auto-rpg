@@ -65,7 +65,6 @@ export async function buildArena(engine: Engine): Promise<Arena> {
   // scene, and building one before it exists fails with the singularly
   // unhelpful "No Physics Engine available".
   await startPhysics(scene);
-  scene.getPhysicsEngine()?.setSubTimeStep(1000 / (60 * CONFIG.world.subSteps));
 
   const camera = new FreeCamera("camera", new Vector3(0, 2, -4), scene);
   camera.fov = CONFIG.camera.fov;

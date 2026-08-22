@@ -75,19 +75,21 @@ async function boot(): Promise<void> {
 
   const controls = new Controls(canvas, {
     onReset: () => {
-      combat.attach(dummy);
       dummy.dispose();
       dummy = new Dummy(arena.scene, dummyOrigin, arena.materials);
       combat.attach(dummy);
       refreshShadowCasters(arena.scene, arena.shadows);
     },
     onToggleReadout: () => hud.toggle(),
-    onLockChange: (locked) => showCurtain(!locked),
+    onPause: () => {
+      controls.pause();
+      showCurtain(true);
+    },
   });
 
   beginButton.addEventListener("click", () => {
     showCurtain(false);
-    controls.requestLock();
+    controls.start();
   });
 
   // Camera: a simple trailing chase. It lags on purpose -- a rigid camera makes
@@ -124,7 +126,7 @@ async function boot(): Promise<void> {
     const dt = Math.min(engine.getDeltaTime() / 1000, CONFIG.world.maxFrameSeconds);
     if (dt <= 0) return;
 
-    if (controls.isLocked) {
+    if (controls.isActive) {
       const input = controls.sample();
       hero.update(dt, input);
       controls.endFrame();

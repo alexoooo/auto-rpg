@@ -14,10 +14,12 @@ Do not leave a development server running.
 
 ## Commands
 
+Run from inside this directory; npm walks up and will otherwise build the root client.
+
 ```powershell
-npm install
-npm run asset:fetch     # one-time: the CC0 environment map, ~1.5 MB
-npm run dev             # http://localhost:5180
+npm ci                  # not `install` -- exact lockfile, identical on every machine
+npm run asset:fetch     # one-time: the CC0 environment map, ~1.5 MB, digest-pinned
+npm run dev             # http://localhost:5180, strictPort
 ```
 
 ## Traps that have already cost time
@@ -39,6 +41,10 @@ npm run dev             # http://localhost:5180
   two in one step.
 - **Backgrounding the dev server with `&` does not survive the shell call.** It dies
   silently and the next page load fails to connect.
+- **The dev port is `strictPort`.** It used to drift to 5181 when an orphaned server held
+  5180, which meant editing one server and reading another -- and the orphan outlived a
+  `TaskStop` on its parent, because killing `npx` leaves the `vite` child running. Kill by
+  PID: `netstat -ano | findstr ":5180"`.
 - **`src/scoring.ts` and `src/config.ts` are imported directly by Node** in the test run,
   so their intra-directory imports carry explicit `.ts` extensions. Vite does not care;
   Node's ESM resolver does.

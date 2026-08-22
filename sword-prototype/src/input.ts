@@ -1,10 +1,17 @@
 /**
  * Input.
  *
- * The mouse belongs to the sword arm, not to the camera. That is the single
- * most important control decision in the prototype and the thing that makes it
- * read as Die by the Sword rather than as a third-person action game: turning
- * is on the keyboard precisely so the mouse can be spent entirely on the blade.
+ * The mouse belongs to the sword arm, not to the camera. That is the single most
+ * important control decision here and the reason this reads as Die by the Sword
+ * rather than as a third-person action game: turning is on the keyboard
+ * precisely so the mouse can be spent entirely on the blade.
+ *
+ * The pointer is deliberately **not** captured. An earlier version took a
+ * pointer lock and accumulated relative movement, which meant the arm had no
+ * home -- it drifted, you could not find centre again, and you could not leave.
+ * Reading the cursor's absolute position instead makes the mapping legible:
+ * where the cursor sits in the window is where the hand is asked to be, the
+ * middle of the window is always centre guard, and the mouse stays yours.
  */
 
 export interface InputState {
@@ -14,55 +21,64 @@ export interface InputState {
   strafe: number;
   /** -1 left, +1 right. */
   turn: number;
-  /** Mouse movement since the last frame, in raw device units. */
-  mouseDx: number;
-  mouseDy: number;
+  /** Cursor position across the window, -1 (left) to +1 (right). */
+  pointerX: number;
+  /** Cursor position up the window, -1 (bottom) to +1 (top). */
+  pointerY: number;
   /** Wheel notches since the last frame. */
   wheel: number;
   thrust: boolean;
   guard: boolean;
 }
 
+const clamp1 = (value: number) => (value < -1 ? -1 : value > 1 ? 1 : value);
+
 export class Controls {
   readonly state: InputState = {
     forward: 0,
     strafe: 0,
     turn: 0,
-    mouseDx: 0,
-    mouseDy: 0,
+    pointerX: 0,
+    pointerY: 0,
     wheel: 0,
     thrust: false,
     guard: false,
   };
 
   private readonly held = new Set<string>();
-  private locked = false;
+  private active = false;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
     private readonly hooks: {
       onReset: () => void;
       onToggleReadout: () => void;
-      onLockChange: (locked: boolean) => void;
+      onPause: () => void;
     },
   ) {
     window.addEventListener("keydown", this.onKeyDown);
     window.addEventListener("keyup", this.onKeyUp);
     window.addEventListener("blur", this.onBlur);
-    document.addEventListener("pointerlockchange", this.onPointerLockChange);
-    canvas.addEventListener("mousemove", this.onMouseMove);
-    canvas.addEventListener("mousedown", this.onMouseDown);
+    window.addEventListener("mousemove", this.onMouseMove);
+    window.addEventListener("mousedown", this.onMouseDown);
     window.addEventListener("mouseup", this.onMouseUp);
     canvas.addEventListener("wheel", this.onWheel, { passive: false });
-    canvas.addEventListener("contextmenu", (event) => event.preventDefault());
+    canvas.addEventListener("contextmenu", this.onContextMenu);
   }
 
-  get isLocked(): boolean {
-    return this.locked;
+  get isActive(): boolean {
+    return this.active;
   }
 
-  requestLock(): void {
-    void this.canvas.requestPointerLock();
+  start(): void {
+    this.active = true;
+  }
+
+  pause(): void {
+    this.active = false;
+    this.held.clear();
+    this.state.thrust = false;
+    this.state.guard = false;
   }
 
   /** Fold held keys into axes. Call once per frame, before reading `state`. */
@@ -76,10 +92,8 @@ export class Controls {
     return this.state;
   }
 
-  /** Zero the deltas. Call after the frame has consumed them. */
+  /** Zero the per-frame deltas. The pointer position is absolute and persists. */
   endFrame(): void {
-    this.state.mouseDx = 0;
-    this.state.mouseDy = 0;
     this.state.wheel = 0;
   }
 
@@ -87,12 +101,17 @@ export class Controls {
     window.removeEventListener("keydown", this.onKeyDown);
     window.removeEventListener("keyup", this.onKeyUp);
     window.removeEventListener("blur", this.onBlur);
-    document.removeEventListener("pointerlockchange", this.onPointerLockChange);
-    this.canvas.removeEventListener("mousemove", this.onMouseMove);
-    this.canvas.removeEventListener("mousedown", this.onMouseDown);
+    window.removeEventListener("mousemove", this.onMouseMove);
+    window.removeEventListener("mousedown", this.onMouseDown);
     window.removeEventListener("mouseup", this.onMouseUp);
     this.canvas.removeEventListener("wheel", this.onWheel);
+    this.canvas.removeEventListener("contextmenu", this.onContextMenu);
   }
+
+  private readonly onContextMenu = (event: Event): void => {
+    // The right button is the guard, so it must not raise a menu mid-fight.
+    if (this.active) event.preventDefault();
+  };
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     if (event.code === "Tab") {
@@ -100,12 +119,16 @@ export class Controls {
       this.hooks.onToggleReadout();
       return;
     }
+    if (event.code === "Escape") {
+      this.hooks.onPause();
+      return;
+    }
     if (event.code === "Space") {
       event.preventDefault();
       this.hooks.onReset();
       return;
     }
-    this.held.add(event.code);
+    if (this.active) this.held.add(event.code);
   };
 
   private readonly onKeyUp = (event: KeyboardEvent): void => {
@@ -119,27 +142,16 @@ export class Controls {
     this.state.guard = false;
   };
 
-  private readonly onPointerLockChange = (): void => {
-    this.locked = document.pointerLockElement === this.canvas;
-    if (!this.locked) {
-      this.held.clear();
-      this.state.thrust = false;
-      this.state.guard = false;
-    }
-    this.hooks.onLockChange(this.locked);
-  };
-
   private readonly onMouseMove = (event: MouseEvent): void => {
-    if (!this.locked) return;
-    this.state.mouseDx += event.movementX;
-    this.state.mouseDy += event.movementY;
+    const rect = this.canvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    this.state.pointerX = clamp1(((event.clientX - rect.left) / rect.width) * 2 - 1);
+    // Screen Y grows downward; the arm does not.
+    this.state.pointerY = clamp1(1 - ((event.clientY - rect.top) / rect.height) * 2);
   };
 
   private readonly onMouseDown = (event: MouseEvent): void => {
-    if (!this.locked) {
-      this.requestLock();
-      return;
-    }
+    if (!this.active) return;
     if (event.button === 0) this.state.thrust = true;
     if (event.button === 2) this.state.guard = true;
   };
@@ -150,7 +162,7 @@ export class Controls {
   };
 
   private readonly onWheel = (event: WheelEvent): void => {
-    if (!this.locked) return;
+    if (!this.active) return;
     event.preventDefault();
     this.state.wheel += Math.sign(event.deltaY);
   };
