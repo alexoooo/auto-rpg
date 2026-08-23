@@ -32,12 +32,14 @@ import {
   begin,
   defaultMatchup,
   humanSide,
+  pauseAction,
   restart,
   selectScreen,
   takeBody,
   toSelect,
   type Matchup,
   type Ring,
+  type Screen,
   type SideSetup,
 } from "./bout";
 
@@ -156,6 +158,11 @@ async function boot(): Promise<void> {
   const canvas = need<HTMLCanvasElement>("stage");
   const curtain = need("curtain");
   const beginButton = need<HTMLButtonElement>("begin");
+  const resumeButton = need<HTMLButtonElement>("resume");
+  const restartButton = need<HTMLButtonElement>("restart");
+  const leaveButton = need<HTMLButtonElement>("leave");
+  const helpPanel = need("help");
+  const helpClose = need<HTMLButtonElement>("help-close");
   const bootNote = need("boot-note");
   const modeLine = need("mode");
 
@@ -208,14 +215,7 @@ async function boot(): Promise<void> {
       // change your mind about it.
       if (state.phase === "select") return;
       if (state.phase === "over") {
-        state = toSelect(state);
-        controls.pause();
-        // An armed takeover behind the curtain is a mode you cannot see, cannot
-        // cancel -- `C` is gated on `active` -- and whose rings are drawn over a
-        // pair of bodies that are about to be replaced.
-        takeover.cancel();
-        setup.show(state.matchup);
-        showCurtain(true);
+        leave();
         return;
       }
       state = restart(state);
@@ -251,22 +251,25 @@ async function boot(): Promise<void> {
       // A toggle, and the same one the Resume button is: a paused fight is a
       // curtain over a live arena, and the two ways of lifting it must not be
       // able to disagree about what lifting it means.
-      if (state.phase === "fight" && !controls.isActive) {
-        showCurtain(false);
-        controls.start();
-        return;
+      //
+      // The *rule* is `pauseAction` in `bout.ts`, with a test, because this hook
+      // used to carry it inline and got it wrong in a way no test could see:
+      // from `over` it ran `toSelect` on its way past, which put the character
+      // selector over a fight that was still standing, and from `select` the
+      // resume branch was then unreachable, so the key was dead. Both bugs were
+      // the same mistake -- a key that pauses deciding to also abandon.
+      switch (pauseAction(state.phase, controls.isActive)) {
+        case "resume":
+          resume();
+          break;
+        case "pause":
+          pause();
+          break;
+        case "nothing":
+          break;
       }
-      // A decided bout opens the setup screen instead. There is nothing left to
-      // resume, so pausing it would put a Resume button over a fight that is not
-      // happening.
-      if (state.phase === "over") {
-        state = toSelect(state);
-        setup.show(state.matchup);
-      }
-      controls.pause();
-      takeover.cancel();
-      showCurtain(true);
     },
+    onToggleHelp: () => toggleHelp(),
     onToggleLock: () => targeting.toggle(),
     onSwapHands: () => {
       // The mouse has already changed hands by the time this runs -- `Controls`
@@ -675,19 +678,48 @@ async function boot(): Promise<void> {
   });
 
   /**
-   * The curtain is two screens wearing one coat.
+   * Which screen the curtain is showing, or `null` to take it away.
    *
-   * Before a bout it is the setup screen and the button starts what is on it;
-   * over a bout already running it is a pause and the button lifts it off again.
-   * `paused` hides the matchup, because offering a choice the button will not
-   * act on is worse than offering none -- and the label says which of the two
-   * you are looking at, so the state is never something you have to remember.
+   * **Stated, never inferred.** This used to be `showCurtain(show: boolean)`,
+   * which derived both the screen and the button's label from
+   * `state.phase === "select"` -- and that is the pause bug, all of it. A pause
+   * was the setup screen with two blocks hidden by a class, so anything that
+   * moved the phase to `select` silently turned a pause into the character
+   * pickers, over a fight that was still standing, with the only button on
+   * offer wired to dispose both fighters. Two phases can want the same screen
+   * and one phase can want either, so the screen is now an argument.
    */
-  const showCurtain = (show: boolean): void => {
-    curtain.classList.toggle("gone", !show);
-    const choosing = state.phase === "select";
-    curtain.classList.toggle("paused", !choosing);
-    beginButton.textContent = choosing ? "Fight" : "Resume";
+  const showScreen = (screen: Screen | null): void => {
+    curtain.classList.toggle("gone", screen === null);
+    if (screen) curtain.dataset.screen = screen;
+  };
+
+  /** The pause, and the three ways out of it, in one place so they agree. */
+  const resume = (): void => {
+    showScreen(null);
+    controls.start();
+  };
+
+  const pause = (): void => {
+    controls.pause();
+    showScreen("paused");
+  };
+
+  /**
+   * Back to the setup screen, from wherever you were.
+   *
+   * The takeover is cancelled *here* and no longer on a pause. An armed takeover
+   * behind a pause is fine -- the bodies it points at are still standing and
+   * still the ones you will be clicking on when the curtain lifts -- but behind
+   * the setup screen it points at a pair about to be replaced, and `C` is gated
+   * on `active` so it could not be cancelled by hand.
+   */
+  const leave = (): void => {
+    state = toSelect(state);
+    controls.pause();
+    takeover.cancel();
+    setup.show(state.matchup);
+    showScreen("setup");
   };
 
   beginButton.addEventListener("click", () => {
@@ -698,9 +730,31 @@ async function boot(): Promise<void> {
       state = begin(state, setup.selection);
       rebuild();
     }
-    showCurtain(false);
-    controls.start();
+    resume();
   });
+
+  resumeButton.addEventListener("click", resume);
+  restartButton.addEventListener("click", () => {
+    // The same thing `R` does mid-fight, and it stays paused afterwards: you
+    // pressed it from behind a curtain, so lifting the curtain as a side effect
+    // would be the button doing two things.
+    state = restart(state);
+    rebuild();
+  });
+  leaveButton.addEventListener("click", leave);
+
+  /**
+   * The controls sheet.
+   *
+   * Not a `Screen`: it goes over whatever is already there, including a fight,
+   * and it changes nothing about the world underneath. `?` opens and closes it
+   * and so does the button, because a full-screen overlay with one way out is a
+   * trap on a keyboard nobody has read the list on yet.
+   */
+  const toggleHelp = (): void => {
+    helpPanel.classList.toggle("gone");
+  };
+  helpClose.addEventListener("click", toggleHelp);
 
   // Camera: a simple trailing chase, in two readings of the same arena. It lags
   // on purpose -- a rigid camera makes a swing look like the world is turning
@@ -859,7 +913,7 @@ async function boot(): Promise<void> {
 
     const decided = state.outcome;
     const banner = [
-      decided ? `BOUT OVER &mdash; ${decided.text} &mdash; Space for the setup screen` : "",
+      decided ? `BOUT OVER &mdash; ${decided.text} &mdash; R for the setup screen` : "",
       // Ahead of the lock's own line, because it is the mode you just entered and
       // the one a click is about to be spent on.
       takeover.isArmed ? TAKE_TEXT : "",
@@ -1018,7 +1072,7 @@ async function boot(): Promise<void> {
 
   bootNote.textContent = "Havok ready.";
   beginButton.disabled = false;
-  showCurtain(true);
+  showScreen("setup");
 }
 
 /**

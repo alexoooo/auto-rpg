@@ -121,6 +121,49 @@ on a cut to the head. Whether that reads worse than a lethal torso -- the bigges
 the body, and the one a swing finds by accident -- is a question for somebody who has
 fought one to the end.
 
+## The curtain, which is two screens and used to be one
+
+`Space` paused a fight and then, from the state pausing had put you in, did something else
+entirely. Three faults, and they chained:
+
+- **`CONFIG.bout.capSeconds` was 60, and 60 is the bench's number.** Its own comment argued
+  it entirely from bulk -- a hundred headless bouts at 250x real time cost twenty-five
+  seconds of wall clock -- and none of that argument is about a person at a keyboard, who
+  driving a body against `idle` is routinely still fighting after a minute. `advance` set
+  `phase = "over"` underneath them, announced by one line of banner text competing with the
+  lock, camera and takeover notices in the same element.
+- **From `over`, `Space` ran `toSelect`.** So the character pickers came up over a fight
+  that was still standing, with the only button on offer wired to `rebuild()`, which
+  disposes both fighters. *"The game is gone."*
+- **From `select`, the resume branch was unreachable.** It was written `phase === "fight"`,
+  so every later press just re-paused something already paused. *"Pause doesn't un-pause."*
+
+Underneath all three was one design fault: **the screen was inferred from the phase.**
+`showCurtain(show: boolean)` derived which controls to show *and* what to write on the
+button from `phase === "select"`, and a pause was the setup screen with two blocks hidden by
+a class. So anything that moved the phase silently changed what you were looking at.
+
+Two phases can want the same screen and one phase can want either, so a `Screen` is now
+stated -- `showScreen("setup" | "paused" | null)`, and `#curtain[data-screen]` is the whole
+of the CSS. The pause is its own section carrying a heading, Resume, Restart and Leave and
+none of the setup screen's furniture, because a curtain offering to change the matchup over
+a live fight reads as the fight having been discarded, which is what it used to mean.
+
+The rule itself went to `bout.ts` as `pauseAction(phase, running)`, with a test, for the
+reason everything else in that file is there: it is a rule, it was wrong, and it was wrong
+in a way that could only be found by starting a browser and waiting sixty seconds. It
+returns `pause`, `resume` or `nothing` and **never a phase** -- a key that pauses and a key
+that abandons must not be the same key. Leaving is `R`'s, and the pause screen's Leave
+button, and they are one function.
+
+The cap that ships is now a safety net at 600 s, and `scripts/measure.mjs` sets its own 60
+at the top, where the argument for 60 lives.
+
+The seventeen-row key list went with it, to a `?` overlay. It was on the curtain, above the
+Fight button, on both screens -- `style.css` already capped the panel height and scrolled it
+because the list plus the matchup overflowed a laptop window, which is a Fight button below
+the fold. A controls sheet is also something you want mid-fight, which a curtain cannot be.
+
 ## Dying, which is not the same as losing
 
 `over` not stopping the world was the right call about the *bout* and, for a long time, it

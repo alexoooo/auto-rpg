@@ -10,29 +10,66 @@
     <canvas id="stage"></canvas>
     <div id="hud"></div>
     <div id="mode"></div>
-    <div id="curtain">
+    <!-- One curtain, two screens. Which one is showing is `data-screen`, set by
+         `showScreen` in src/main.ts and by nothing else. It used to be derived
+         from the bout's phase, which is how a pause turned into the character
+         selector with the fight still running behind it. -->
+    <div id="curtain" data-screen="setup">
       <div class="panel">
-        <h1>Sword prototype</h1>
+        <section class="screen" data-screen="setup">
+          <h1>Sword prototype</h1>
+          <p class="lede">
+            The blade is a physical object. There is no attack button &mdash; you swing by
+            moving your arm, and you cut by driving the edge through something at speed.
+            Two fighters of one kind stand in the ring. Choose who drives each of them: a
+            policy, or you &mdash; and change your mind mid-fight with <b>C</b>, which lets
+            you step into either body without the blade jumping.
+          </p>
+          <!-- Filled by src/setup.ts from the unit and policy registries, so an
+               option that is offered is one the code actually has. -->
+          <div id="matchup"></div>
+          <!-- What the three policies do. Prose for somebody about to press
+               Fight, so it lives here rather than as a field on the registry that
+               `src/setup.ts` reads: the code has no use for it, and a policy is
+               chosen once at the start of a bout rather than browsed. -->
+          <p class="note" id="policies">
+            <b>Idle</b> stands there and can be cut apart. <b>Swinger</b> walks in and
+            cuts on a fixed cadence, never once looking at your guard &mdash; so its
+            openings are learnable, which is the whole of how you beat it.
+            <b>Duelist</b> holds measure, guards between exchanges, and commits when
+            your point leaves the line.
+          </p>
+          <button id="begin" class="action" type="button">Fight</button>
+          <p class="note" id="boot-note">Loading Havok&hellip;</p>
+        </section>
+
+        <!-- The pause. It says one thing and offers three, and it deliberately
+             carries none of the setup screen's furniture: a curtain that shows
+             the character pickers over a fight that is still standing reads as
+             the fight having been thrown away, which is exactly what it used to
+             mean here. -->
+        <section class="screen" data-screen="paused">
+          <h1>Paused</h1>
+          <p class="lede">The arena is still standing behind this. Nothing has been thrown away.</p>
+          <button id="resume" class="action" type="button">Resume</button>
+          <button id="restart" class="action quiet" type="button">Restart this bout</button>
+          <button id="leave" class="action quiet" type="button">Leave &mdash; back to the setup screen</button>
+        </section>
+
+        <p class="note keys-hint"><b>?</b> for the controls</p>
+      </div>
+    </div>
+    <!-- The controls, on their own overlay rather than on the curtain.
+         Seventeen rows above the Fight button pushed it off the bottom of a
+         laptop window and had to be scrolled past every time a bout was
+         chosen; `?` is where a key list belongs and it works mid-fight too. -->
+    <div id="help" class="gone">
+      <div class="panel">
+        <h1>Controls</h1>
         <p class="lede">
-          The blade is a physical object. There is no attack button &mdash; you swing by
-          moving your arm, and you cut by driving the edge through something at speed.
-          Two fighters of one kind stand in the ring. Choose who drives each of them: a
-          policy, or you &mdash; and change your mind mid-fight with <b>C</b>, which lets
-          you step into either body without the blade jumping.
-        </p>
-        <!-- Filled by src/setup.ts from the unit and policy registries, so an
-             option that is offered is one the code actually has. -->
-        <div id="matchup"></div>
-        <!-- What the three policies do. Prose for somebody about to press
-             Fight, so it lives here rather than as a field on the registry that
-             `src/setup.ts` reads: the code has no use for it, and a policy is
-             chosen once at the start of a bout rather than browsed. -->
-        <p class="note" id="policies">
-          <b>Idle</b> stands there and can be cut apart. <b>Swinger</b> walks in and
-          cuts on a fixed cadence, never once looking at your guard &mdash; so its
-          openings are learnable, which is the whole of how you beat it.
-          <b>Duelist</b> holds measure, guards between exchanges, and commits when
-          your point leaves the line.
+          The mouse belongs to the <b>arm</b>, not to the camera. Where the cursor sits in
+          the window is where that hand is asked to be, so the middle of the window is
+          always centre guard and the arm has a home you can find again.
         </p>
         <dl class="keys">
           <dt>Mouse</dt><dd>moves one arm &mdash; the cursor is where that hand goes</dd>
@@ -48,13 +85,13 @@
           <dt>Wheel</dt><dd>zoom</dd>
           <dt>V</dt><dd>camera &mdash; Overhead behind the fighter, or Fixed on a world bearing</dd>
           <dt>[ / ]</dt><dd>swing the Fixed camera round the arena</dd>
-          <dt>Space / Esc</dt><dd>pause, and start again</dd>
-          <dt>R</dt><dd>the same bout again &mdash; and this screen once one has been decided</dd>
+          <dt>Space / Esc</dt><dd>pause, and resume &mdash; the same key both ways</dd>
+          <dt>R</dt><dd>this bout again &mdash; and the setup screen once one has been decided</dd>
           <dt>Tab</dt><dd>toggle the physics readout</dd>
           <dt>G</dt><dd>the rig &mdash; collision shapes, anchors, joints and contacts</dd>
+          <dt>?</dt><dd>this list</dd>
         </dl>
-        <button id="begin" type="button">Fight</button>
-        <p class="note" id="boot-note">Loading Havok&hellip;</p>
+        <button id="help-close" class="action" type="button">Close</button>
       </div>
     </div>
     <script type="module" src="/src/main.ts"></script>

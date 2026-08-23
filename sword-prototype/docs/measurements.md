@@ -490,6 +490,29 @@ Two smaller ones, recorded where they were found rather than forgotten:
   keyframed torso keeps the linear velocity `steer` last gave it and the fighter drifts
   behind the curtain. True since the hero; `R` from a decided bout is a second door onto
   it.
+
+## The pause, and what a hidden tab could not answer
+
+`Space` pausing and never resuming was three faults chained, and `docs/design.md` has the
+account. What was checked, and in which harness:
+
+**In the page** (a tab on the owner's dev server, driven from the console): `Space` toggles
+pause and resume repeatedly -- four presses, alternating, with `Esc` agreeing; the pause
+screen carries a heading, Resume, Restart and Leave and **no** matchup, lede or key list;
+`Restart` rebuilds both bodies (a severed head is back on afterwards); `Leave` returns to
+the setup screen; `Space` and `Esc` from the setup screen do nothing rather than pretending;
+`?` opens and closes the controls sheet from the curtain *and* over a running fight; the key
+list is 18 rows in `#help` and 0 rows on the curtain.
+
+**Not checked in the page, and worth saying so:** pausing a bout in `over`. The tab would
+not come to the foreground -- it belongs to the owner's window -- and Chrome pauses
+`requestAnimationFrame` outright in a hidden one, so the render loop never ran, the bout
+clock never advanced and the phase could not reach `over`. `engine.frameId` frozen at 5
+across a 700 ms wait is how that was told apart from a slow browser. That path is pinned in
+`tests/bout.test.mjs` instead, by five cases that all go red when `pauseAction` is mutated
+back to the shipped logic -- which is the stronger check of the two for a rule, and no check
+at all of the wiring. **Somebody with the window in front of them should let a bout finish
+and press `Space`.**
 - **`idle` holds its blade out level**, because a centred cursor is a level arm rather than
   a lowered one. It costs nothing in any measurement -- `idle` scored zero on seventeen
   thousand contacts -- but it is not what a control condition called "idle" looks like it

@@ -94,10 +94,20 @@ the arm drifted, centre was unrecoverable, and you could not get your mouse back
 | Wheel | zoom |
 | V | camera — Overhead behind the fighter, or Fixed on a world bearing |
 | `[` / `]` | swing the Fixed camera round the arena, 45 degrees at a time |
-| Space / Esc | pause, and start again |
+| Space / Esc | pause, and resume — the same key both ways, in a decided bout as much as a live one |
 | R | the same bout again — both fighters, from nothing; and the setup screen once one has been decided |
 | Tab | toggle the readout |
 | G | the rig — collision shapes, anchors, joints and contacts, with the costume off |
+| ? | the controls — this list, over whatever is on screen |
+
+**Pausing never throws a fight away.** The curtain has two screens and says which one you
+are looking at: the setup screen before a bout, and a pause over one that is standing.
+Leaving is `R`, and only `R`. That distinction is new, and its absence was a bug — `Space`
+used to mean "pause" in a live bout and "abandon this and go back to the pickers" in a
+decided one, and the bout cap that decided bouts was sixty seconds, chosen for a headless
+harness that runs a hundred of them. So a fight you were still having ended underneath you
+after a minute, the next `Space` put the character selector over it, and from there the key
+was dead for the rest of the session.
 
 A bout is chosen before it is fought. The curtain carries a left corner and a right corner —
 a unit, a policy, and whether that side is driven by a mind or by you — and the Fight button

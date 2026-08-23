@@ -540,17 +540,25 @@ export const CONFIG = {
      *
      * A cap exists because idle versus idle otherwise stands there forever, and
      * a pairing that never terminates is not a control condition -- it is a hung
-     * measurement. Sixty seconds is long enough that no fight anybody wants to
-     * watch is cut short (a policy that swings at all resolves a bout in
-     * seconds) and short enough to be affordable in bulk, which is the other
-     * thing this number buys. Session 06 reports its policies as distributions
-     * over N bouts, and headless Babylon was measured at about 250x real time --
-     * 10 s of simulated time in 39 ms -- so a hundred *capped* bouts cost about
-     * twenty-five seconds of wall clock. That is the whole argument for 60 over
-     * 90 or 120: the only bouts that reach the cap are the ones that were never
-     * going to end, and they are the ones being paid for.
+     * measurement.
+     *
+     * **This was 60 and 60 is the bench's number, not a player's.** It was
+     * chosen for bulk: `npm run measure` reports each policy as a distribution
+     * over N bouts, headless Babylon runs at about 250x real time, and a hundred
+     * *capped* bouts at 60 s therefore cost about twenty-five seconds of wall
+     * clock. Every word of that argument is about a harness, and none of it is
+     * about somebody at a keyboard -- who, driving a body against `idle`, will
+     * routinely still be fighting after a minute. What 60 did to them was end
+     * the bout underneath them with one line of banner text, and the next
+     * `Space` then meant "abandon it" rather than "pause it". That is the whole
+     * of the pause bug: see `pauseAction` in `src/bout.ts`.
+     *
+     * So the cap that ships is a *safety net* -- long enough that no fight
+     * anybody is having is cut short, short enough that a forgotten tab does not
+     * accumulate an hour of idle-versus-idle -- and `scripts/measure.mjs` sets
+     * its own 60 at the top, where the argument for 60 actually lives.
      */
-    capSeconds: 60,
+    capSeconds: 600,
 
     /**
      * How long the takeover hint stays on the banner at the start of a bout.

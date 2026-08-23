@@ -8,6 +8,7 @@ import {
   begin,
   defaultMatchup,
   humanSide,
+  pauseAction,
   restart,
   selectScreen,
   settle,
@@ -382,7 +383,7 @@ test("one pass through every phase, in the order a player walks it", () => {
   assert.equal(state.clock, 12);
 
   state = restart(state);
-  assert.equal(state.clock, 0, "and Space starts the same bout over");
+  assert.equal(state.clock, 0, "and R starts the same bout over");
 
   state = advance(state, still, CONFIG.bout.capSeconds);
   assert.equal(state.phase, "over");
@@ -399,6 +400,62 @@ test("one pass through every phase, in the order a player walks it", () => {
     humanSide(state.matchup),
     "right",
     "the second bout is the same bout, on the side that was chosen",
+  );
+});
+
+// ---- the pause ------------------------------------------------------------
+//
+// Every case here is a bug that shipped. `Space` paused a fight, and then from
+// the phase the pause had put you in it did something else entirely: `over` ran
+// `toSelect` on the way past, which raised the character selector over a fight
+// that was still standing, and from `select` the resume branch could never be
+// reached again, so the key was dead for the rest of the session.
+
+test("pausing and resuming is one toggle, and it is the same one in both live phases", () => {
+  for (const phase of ["fight", "over"]) {
+    assert.equal(pauseAction(phase, true), "pause", `${phase}: a running world pauses`);
+    assert.equal(pauseAction(phase, false), "resume", `${phase}: a stopped one resumes`);
+  }
+});
+
+test("a decided bout is paused, not abandoned", () => {
+  // The whole of "I click space and then the game is gone". `over` keeps its
+  // world -- see `Phase` -- so it has something to pause, and pausing it must
+  // not be spelled the same way as throwing it away. Leaving is `R`.
+  assert.equal(pauseAction("over", true), "pause");
+  assert.notEqual(pauseAction("over", true), "nothing");
+});
+
+test("resuming is reachable from every state a pause can leave you in", () => {
+  // The second half of the bug, and the half that made it permanent: the resume
+  // branch was written as `phase === "fight"`, so a pause taken in any other
+  // phase could not be lifted by the key that took it.
+  for (const phase of ["fight", "over"]) {
+    assert.equal(
+      pauseAction(phase, false),
+      "resume",
+      `a pause taken in ${phase} can be lifted by the same key that took it`,
+    );
+  }
+});
+
+test("behind the setup screen there is nothing to pause, and it says so", () => {
+  assert.equal(pauseAction("select", false), "nothing");
+  // `isActive` cannot honestly be true here, but the rule must not depend on a
+  // caller getting that right: there are no bodies behind the setup screen.
+  assert.equal(pauseAction("select", true), "nothing");
+});
+
+test("the bout cap that ships is a player's, not the bench's", () => {
+  // 60 s is `scripts/measure.mjs`'s number and the argument for it is entirely
+  // about running a hundred bouts. Applied to the page it ended a fight
+  // underneath whoever was having it after one minute, which is what put the
+  // phase into `over` without anybody asking -- and every pause bug above only
+  // ever fired because something had moved the phase. If this fails because the
+  // cap went back to 60, the pause is broken again by a different route.
+  assert.ok(
+    CONFIG.bout.capSeconds >= 300,
+    `a cap of ${CONFIG.bout.capSeconds} s interrupts a fight somebody is having`,
   );
 });
 

@@ -254,6 +254,23 @@ npm run dev             # http://localhost:5180, strictPort
   keyframed torso keeps the linear velocity `steer` last gave it and the fighter drifts
   behind the curtain. True since the hero, and `R` from a decided bout is a second door
   onto it.
+- **A screen inferred from a state machine changes when the state machine does, and nobody
+  wrote that transition.** `showCurtain(show: boolean)` derived which curtain you were
+  looking at from `state.phase === "select"`, so a *pause* was the setup screen with two
+  blocks hidden by a class. The moment anything moved the phase -- and the sixty-second bout
+  cap moved it, on its own, under a fight somebody was still having -- the pause silently
+  became the character pickers over a live arena, with the only button on offer wired to
+  dispose both fighters. The resume branch was `phase === "fight"`, so from there the key
+  was dead for the rest of the session. Two bugs, one report ("pause doesn't un-pause, the
+  game is gone"), and one cause. A screen is now an argument (`showScreen`), the rule is
+  `pauseAction` in `bout.ts` with a test, and **a key that pauses must never also be the key
+  that abandons.**
+- **A constant tuned for the bench does not become a player's by being in `config.ts`.**
+  `bout.capSeconds` was 60 and every word of the argument beside it was about running a
+  hundred bouts headlessly at 250x real time. Nothing in it was about somebody at a
+  keyboard, and against a policy that does not close, sixty seconds is a fight interrupted
+  rather than a fight finished. The bench sets its own now, in `scripts/measure.mjs`. When a
+  number's justification names a harness, check which harness is about to read it.
 - **`src/scoring.ts`, `src/config.ts` and `src/buttons.ts` are imported directly by Node**
   in the test run, so their intra-directory imports carry explicit `.ts` extensions. Vite
   does not care; Node's ESM resolver does. `buttons.ts` imports nothing today, which is

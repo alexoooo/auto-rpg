@@ -88,10 +88,12 @@ export interface ControlHooks {
    *
    * One hook for both directions rather than a pause and a resume, because the
    * key is a toggle and the thing it toggles -- the curtain and the controller
-   * together -- is one state. `main.ts` decides which way it is going, because
-   * the bout's phase decides it: a decided bout has nothing left to resume.
+   * together -- is one state. `main.ts` decides which way it is going, through
+   * `pauseAction` in `bout.ts`, which is where the rule lives and is tested.
    */
   onPause: () => void;
+  /** `?`: the controls sheet, over whatever is already on screen. */
+  onToggleHelp: () => void;
   /** The rig overlay: what the solver is holding, over the top of the costume. */
   onToggleRig: () => void;
   /** Overhead or Fixed: whether the camera's bearing belongs to the fighter or to
@@ -253,8 +255,22 @@ export class Controls {
         // Restart, which `Space` used to be. Not gated on `active`: it is
         // meaningful behind the curtain during a fight -- "this bout again" is
         // exactly what you want after pausing a mess -- and `main.ts` refuses
-        // it from the setup screen, where there is no bout to rebuild.
+        // it from the setup screen, where there is no bout to rebuild. From a
+        // decided bout it is the way back to the setup screen, and it is the
+        // only way: `Space` used to agree with it there and that was the bug.
         this.hooks.onReset();
+        return;
+      case "Slash":
+        // The key list, which used to be seventeen rows on the curtain above the
+        // Fight button. Ungated on `active`, like `Tab`: the whole point of a
+        // controls sheet is that you reach for it in the middle of not knowing
+        // what you are doing, which is as likely mid-fight as behind a curtain.
+        //
+        // On `code` rather than `key`, so it is the same physical key with or
+        // without shift and on a layout where `?` is somewhere else. It is
+        // announced as `?` because that is what is printed on it.
+        event.preventDefault();
+        this.hooks.onToggleHelp();
         return;
       case "KeyG":
         // Gated on `active` like the lock, and for the same reason: the overlay

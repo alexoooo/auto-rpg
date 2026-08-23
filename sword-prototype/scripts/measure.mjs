@@ -40,6 +40,24 @@ import { advance, begin, selectScreen } from "../src/bout.ts";
 
 const FIXED = 1 / CONFIG.world.physicsHz;
 const FRAME = 1 / 60;
+
+/**
+ * The bench's bout cap, in seconds of simulation time. Sixty, and the argument
+ * for sixty is entirely about running a lot of them.
+ *
+ * A policy here is reported as a distribution over N bouts. Headless Babylon
+ * runs at about 250x real time -- 10 s of simulated time in 39 ms -- so a
+ * hundred *capped* bouts cost about twenty-five seconds of wall clock at 60 s
+ * and four minutes at the 600 s the page ships. The only bouts that ever reach
+ * the cap are the ones that were never going to end, and they are the ones being
+ * paid for, so 60 over 90 or 120 is bought and not guessed.
+ *
+ * It lives here rather than in `config.ts` because the page is not running a
+ * hundred bouts, it is running one, with a person in it -- and 60 s in the page
+ * ended a fight underneath whoever was having it. `CONFIG.bout.capSeconds` says
+ * the rest.
+ */
+CONFIG.bout.capSeconds = 60;
 const wasmPath = new URL("../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm", import.meta.url);
 
 // One Havok module, many worlds. `new HavokPlugin(...)` creates its own world

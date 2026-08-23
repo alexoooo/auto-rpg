@@ -317,7 +317,11 @@ body {
   color: var(--dim);
 }
 
-#begin {
+/* Was `#begin`. The pause screen has three of these and they have to read as
+   the same control the setup screen's one is, so the look is a class and the id
+   is only an address. `.quiet` is the secondary pair -- present, pressable, and
+   visibly not the thing you came here to press. */
+.action {
   width: 100%;
   padding: 11px;
   font: inherit;
@@ -331,18 +335,33 @@ body {
   transition: background 140ms ease, transform 90ms ease;
 }
 
-#begin:hover {
+.action + .action {
+  margin-top: 8px;
+}
+
+.action:hover {
   background: #fff;
 }
 
-#begin:active {
+.action:active {
   transform: translateY(1px);
 }
 
-#begin:disabled {
+.action:disabled {
   background: #3a3b40;
   color: var(--dim);
   cursor: progress;
+}
+
+.action.quiet {
+  background: transparent;
+  color: var(--dim);
+  border: 1px solid var(--edge);
+}
+
+.action.quiet:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink);
 }
 
 .note {
@@ -395,13 +414,23 @@ body {
   margin: 0 0 20px;
 }
 
-/* Paused over a bout already running, the curtain is not a setup screen: the
-   button resumes what is behind it, and a matchup nothing will act on is worse
-   than no matchup at all. The line describing the policies goes with it for the
-   same reason -- it is the caption to a control that is not there. */
-#curtain.paused #matchup,
-#curtain.paused #policies {
+/* The screen router. One curtain, one `data-screen`, and exactly one section
+   showing.
+
+   This replaces a rule that hid `#matchup` and `#policies` when the curtain
+   carried `.paused` -- which meant a pause was the setup screen with two blocks
+   taken out of it, still carrying the title, the lede inviting you to choose who
+   drives each fighter, and a seventeen-row key list. It read as the fight having
+   been thrown away, and the class was set from the bout's *phase*, so anything
+   that moved the phase silently changed which screen you were looking at. A
+   screen is now a thing `main.ts` states rather than a thing anything infers. */
+.screen {
   display: none;
+}
+
+#curtain[data-screen="setup"] .screen[data-screen="setup"],
+#curtain[data-screen="paused"] .screen[data-screen="paused"] {
+  display: block;
 }
 
 /* Tucked up under the two corners it describes, and set ragged rather than
@@ -485,8 +514,50 @@ body {
    laptop window, and a Fight button below the fold is a Fight button that does
    not exist. The panel scrolls rather than the curtain, because a grid with
    `place-items: center` clips its child at the *top* once the child is taller
-   than the cell, so scrolling the curtain would hide the title instead. */
+   than the cell, so scrolling the curtain would hide the title instead.
+
+   The key list moving to `#help` is most of what made the panel tall, so this
+   rule now rarely fires. It is kept because a small window still exists and
+   because the failure it prevents is silent. */
 .panel {
   max-height: calc(100vh - 40px);
   overflow-y: auto;
+}
+
+/* ---------- the controls, on their own overlay ---------- */
+
+/* Above the curtain, because `?` is meant to work from the pause screen as well
+   as from a fight, and a help sheet that opens behind the thing you opened it
+   from is a help sheet nobody can read. */
+#help {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(6, 7, 9, 0.92);
+  backdrop-filter: blur(3px);
+  z-index: 20;
+  transition: opacity 160ms ease, visibility 160ms;
+}
+
+#help.gone {
+  opacity: 0;
+  visibility: hidden;
+}
+
+#help .panel {
+  max-width: 560px;
+}
+
+/* Ragged and quiet, under the button rather than over it: it is a pointer to a
+   list, not a control, and the one thing it must not do is compete with the
+   button it sits beneath. */
+.keys-hint {
+  margin-top: 14px;
+  opacity: 0.75;
+}
+
+.keys-hint b {
+  color: var(--hot);
+  font-weight: 600;
 }
