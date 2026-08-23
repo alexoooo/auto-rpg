@@ -34,39 +34,112 @@ const PARTS = [
 const whole = () => Object.fromEntries(PARTS.map((key) => [key, 1]));
 
 /**
+ * One hand of one body, as `Fighter.describe` would have published it.
+ *
+ * **Both hands hang off the one shoulder the body carries**, which is the same
+ * simplification the views below already declare and not a new one: the arena
+ * puts the two sockets 420 mm apart, and every sign in every answer here is
+ * readable precisely because this geometry does not. `outboard` is still +1 and
+ * -1, so every rule that turns on which side of the body a hand is on -- which
+ * is what a shield's placement is -- is exercised exactly as it is in the arena.
+ *
+ * What this cannot check is the socket offset itself: that a hand aims from its
+ * *own* shoulder rather than from the body's. `tests/view.test.mjs` pins that
+ * the two sockets are 420 mm apart in a real scene, and `.review/two-hands.mjs`
+ * measures what aiming from the wrong one costs -- a fighter fighting
+ * left-handed killed nobody in 24 bouts and landed 20 points of damage on heads
+ * against 216 on torsos.
+ */
+function hand({ weapon = "empty", name = "primary", shoulder, sign = 1, tip, tipSpeed = 0, lost = false }) {
+  const fist = { x: shoulder.x, y: shoulder.y, z: shoulder.z + sign * CONFIG.arm.reachNeutral };
+  return {
+    weapon,
+    shoulder,
+    tip: tip ?? fist,
+    tipSpeed,
+    lost,
+    outboard: name === "primary" ? 1 : -1,
+  };
+}
+
+/**
  * A fighter's view of an opponent standing `gap` metres away, shoulder to
  * shoulder, straight ahead.
  *
  * `blade` says what the opponent's point is doing: "line" is a guard pointed at
  * my chest, which is the thing a duelist must not commit into; "away" is a blade
  * that has been spent somewhere else.
+ *
+ * `mine` and `theirs` are the two loadouts. They default to what every fighter
+ * carried before there was a choice -- a sword and an empty hand -- so every
+ * assertion written before hands existed goes on measuring the same fighter.
  */
-function facing({ gap = 1.4, blade = "line", tipSpeed = 0, measure = null, clock = 0 } = {}) {
+function facing({
+  gap = 1.4,
+  blade = "line",
+  tipSpeed = 0,
+  measure = null,
+  clock = 0,
+  mine = { primary: "sword", secondary: "empty" },
+  theirs = { primary: "sword", secondary: "empty" },
+} = {}) {
   const tip =
     blade === "line"
       ? { x: 0, y: 1.4, z: gap - 1.3 }
       : { x: 0.9, y: 2.1, z: gap + 0.6 };
+  const myTip = { x: 0, y: 1.4, z: 1.3 };
+  const mySocket = { x: 0, y: 1.4, z: 0 };
+  const theirSocket = { x: 0, y: 1.4, z: gap };
+  const mineHands = {
+    primary: hand({ weapon: mine.primary, name: "primary", shoulder: mySocket, tip: myTip }),
+    secondary: hand({ weapon: mine.secondary, name: "secondary", shoulder: mySocket }),
+  };
+  const theirHands = {
+    primary: hand({
+      weapon: theirs.primary, name: "primary", shoulder: theirSocket, sign: -1, tip, tipSpeed,
+    }),
+    secondary: hand({ weapon: theirs.secondary, name: "secondary", shoulder: theirSocket, sign: -1 }),
+  };
   return {
     self: {
       ground: { x: 0, y: 0, z: 0 },
       facing: 0,
-      shoulder: { x: 0, y: 1.4, z: 0 },
-      tip: { x: 0, y: 1.4, z: 1.3 },
+      // The primary's, and *the same object* the primary hand carries, because
+      // `Fighter.describe` fills the two from one socket and a fixture where
+      // they disagree is a fixture describing a body that cannot exist.
+      shoulder: mineHands.primary.shoulder,
+      tip: myTip,
       tipSpeed: 0,
+      hands: mineHands,
       reach: CONFIG.arm.reachNeutral,
       health: whole(),
     },
     opponent: {
       ground: { x: 0, y: 0, z: gap },
       facing: Math.PI,
-      shoulder: { x: 0, y: 1.4, z: gap },
+      shoulder: theirHands.primary.shoulder,
       tip,
       tipSpeed,
+      hands: theirHands,
       health: whole(),
     },
     measure: measure === null ? gap - 0.4 : measure,
     clock,
   };
+}
+
+/**
+ * Move the opponent's point.
+ *
+ * Both places, because `Fighter.describe` fills `BodyView.tip` by copying the
+ * primary hand's -- so a fixture in which the two disagree is a fixture
+ * describing a body that cannot exist, and a policy reading one of them would be
+ * argued with over geometry the arena would never hand it.
+ */
+function putTip(view, point) {
+  view.opponent.tip = point;
+  view.opponent.hands.primary.tip = point;
+  return view;
 }
 
 /**
@@ -279,7 +352,7 @@ test("duelist guards between exchanges, on the line of the opponent's point", ()
 
   // Lift the point and the guard follows it up rather than staying level.
   const high = facing({ gap: 1.4 });
-  high.opponent.tip = { x: 0, y: 2.1, z: 0.4 };
+  putTip(high, { x: 0, y: 2.1, z: 0.4 });
   const covering = ask(mind, high);
   assert.ok(covering.pointerY > 0.3, `the guard should rise to a high point, got ${covering.pointerY}`);
 
@@ -301,17 +374,17 @@ test("duelist covers the line whichever way its body happens to be pointed", () 
   view.self.facing = Math.PI / 2;
   view.opponent.ground = { x: 1.4, y: 0, z: 0 };
   view.opponent.shoulder = { x: 1.4, y: 1.4, z: 0 };
-  view.opponent.tip = { x: 0.1, y: 1.4, z: 0 };
+  putTip(view, { x: 0.1, y: 1.4, z: 0 });
 
   const ahead = ask(mind, view);
   assert.ok(Math.abs(ahead.pointerX) < 0.05, `straight ahead is centre, got ${ahead.pointerX}`);
 
   // Looking down +X, the fighter's right hand side is world -Z.
-  view.opponent.tip = { x: 0.6, y: 1.4, z: -0.6 };
+  putTip(view, { x: 0.6, y: 1.4, z: -0.6 });
   const outboard = ask(mind, view);
   assert.ok(outboard.pointerX > 0.3, `a point at the fighter's right is +X on the cursor, got ${outboard.pointerX}`);
 
-  view.opponent.tip = { x: 0.6, y: 1.4, z: 0.6 };
+  putTip(view, { x: 0.6, y: 1.4, z: 0.6 });
   const across = ask(mind, view);
   assert.ok(across.pointerX < -0.3, `and one at its left is -X, got ${across.pointerX}`);
 });
@@ -329,11 +402,11 @@ test("the cursor a covering line asks for is the exact inverse of the arm's own 
   const at = (azimuth, elevation) => {
     const view = facing({ gap: 1.4 });
     const cos = Math.cos(elevation);
-    view.opponent.tip = {
+    putTip(view, {
       x: view.self.shoulder.x + Math.sin(azimuth) * cos,
       y: view.self.shoulder.y + Math.sin(elevation),
       z: view.self.shoulder.z + Math.cos(azimuth) * cos,
-    };
+    });
     return ask(mind, view);
   };
 
@@ -467,23 +540,30 @@ test("the roll stays inside what the wrist is allowed", () => {
 
 // ---- one mouse, two hands -------------------------------------------------
 
-/** A mind that asks for one fixed thing on one named hand. */
-const oneHanded = (name, hand, over) => {
+/**
+ * A mind that asks for one fixed thing, per hand.
+ *
+ * `driving` is which hand it is *attacking* with, which is now a different
+ * question from which hands it has an opinion about: every policy plans both.
+ */
+const twoHanded = (name, driving, over) => {
   const intent = blankIntent();
-  intent.driving = hand;
+  intent.driving = driving;
   Object.assign(intent, over.body ?? {});
-  Object.assign(intent[hand], over.hand ?? {});
+  Object.assign(intent.primary, over.primary ?? {});
+  Object.assign(intent.secondary, over.secondary ?? {});
   return { name, decide: () => intent };
 };
 
 test("the person keeps the feet and the hand the mouse is on", () => {
-  const person = oneHanded("you", "primary", {
+  const person = twoHanded("you", "primary", {
     body: { forward: 1, strafe: -1, turn: 0.5, zoom: 1.6 },
-    hand: { pointerX: 0.4, pointerY: -0.3, roll: 0.9, thrust: true, guard: false },
+    primary: { pointerX: 0.4, pointerY: -0.3, roll: 0.9, thrust: true, guard: false },
   });
-  const policy = oneHanded("swinger", "primary", {
+  const policy = twoHanded("swinger", "primary", {
     body: { forward: -1, strafe: 1, turn: -1, zoom: 9 },
-    hand: { pointerX: -0.8, pointerY: 0.7, roll: -1.1, thrust: false, guard: true },
+    primary: { pointerX: -0.8, pointerY: 0.7, roll: -1.1, thrust: false, guard: true },
+    secondary: { pointerX: 0.15, pointerY: -0.05, roll: 1.4, thrust: false, guard: true },
   });
 
   const split = splitMind(person, policy);
@@ -500,17 +580,41 @@ test("the person keeps the feet and the hand the mouse is on", () => {
   assert.deepEqual(out.primary, {
     pointerX: 0.4, pointerY: -0.3, roll: 0.9, thrust: true, guard: false,
   });
-  // And the spare one is the policy's, whichever hand the policy called its own.
+  // And the spare one takes the policy's plan **for that same hand** -- not the
+  // plan it made for the hand it is attacking with. That distinction is the
+  // whole of this rule: a policy plans a hand by what is in it, so its secondary
+  // plan is a plan for the secondary's weapon.
   assert.deepEqual(out.secondary, {
-    pointerX: -0.8, pointerY: 0.7, roll: -1.1, thrust: false, guard: true,
+    pointerX: 0.15, pointerY: -0.05, roll: 1.4, thrust: false, guard: true,
   });
 });
 
+test("the policy's attack does not follow the person round to the other arm", () => {
+  // The defect this pins, in the terms it was found in: pick a sword and a
+  // shield, take the sword, and the old rule copied `theirs[theirs.driving]` --
+  // the swing -- onto whichever arm was spare. That arm was the shield's. The
+  // board was being swung on the commit stroke of a cut, for the whole bout.
+  const cut = { pointerX: -0.9, pointerY: 0.8, roll: -0.93, thrust: false, guard: false };
+  const cover = { pointerX: 0.55, pointerY: 0.1, roll: 1.2, thrust: false, guard: false };
+  const policy = twoHanded("swinger", "primary", { primary: cut, secondary: cover });
+
+  for (const driving of ["primary", "secondary"]) {
+    const person = twoHanded("you", driving, { [driving]: { pointerX: 0.4 } });
+    const out = splitMind(person, policy).decide(facing({ gap: 1.2 }), FIXED);
+    const spare = otherHand(driving);
+    assert.deepEqual(
+      out[spare],
+      spare === "primary" ? cut : cover,
+      `driving the ${driving}, the ${spare} should get the policy's plan for the ${spare}`,
+    );
+  }
+});
+
 test("swapping hands swaps which one the policy has", () => {
-  const person = oneHanded("you", "secondary", {
-    hand: { pointerX: 0.25, roll: 0.5 },
+  const person = twoHanded("you", "secondary", {
+    secondary: { pointerX: 0.25, roll: 0.5 },
   });
-  const policy = oneHanded("duelist", "primary", { hand: { pointerX: -0.6, guard: true } });
+  const policy = twoHanded("duelist", "primary", { primary: { pointerX: -0.6, guard: true } });
 
   const out = splitMind(person, policy).decide(facing({ gap: 1.2 }), FIXED);
 
@@ -526,7 +630,7 @@ test("a policy reading a hand does not read the person's", () => {
   // two hands would then be references to the two minds' own live objects, and
   // a policy that writes its hand next step would silently rewrite what the
   // fighter was already given.
-  const person = oneHanded("you", "primary", { hand: { pointerX: 0.5 } });
+  const person = twoHanded("you", "primary", { primary: { pointerX: 0.5 } });
   const policyIntent = blankIntent();
   const policy = {
     name: "shifty",
@@ -555,7 +659,7 @@ test("the policy is driven every step, at its own dt", () => {
       return blankIntent();
     },
   };
-  const split = splitMind(oneHanded("you", "primary", {}), policy);
+  const split = splitMind(twoHanded("you", "primary", {}), policy);
   for (let i = 0; i < 12; i += 1) split.decide(facing({ gap: 1.2 }), FIXED);
 
   assert.equal(seen.length, 12);
@@ -565,6 +669,245 @@ test("the policy is driven every step, at its own dt", () => {
 test("a split mind answers to the person's name", () => {
   // A readout should say who is driving, and "you" is the answer even though
   // half the body is on a policy.
-  const split = splitMind(oneHanded("you", "primary", {}), policyMind("swinger", 3));
+  const split = splitMind(twoHanded("you", "primary", {}), policyMind("swinger", 3));
   assert.equal(split.name, "you");
+});
+
+// ---- two hands ------------------------------------------------------------
+
+test("a policy holds a shield across the line rather than letting it hang", () => {
+  // The shipped behaviour this replaces: `blankIntent` parks the off hand at
+  // `restPointerX/restPointerY` and no policy ever wrote it again, so a shield
+  // hung at its owner's side for the whole bout.
+  for (const name of ["swinger", "duelist"]) {
+    const track = drive(policyMind(name, 5), 1.5, () =>
+      facing({ gap: 1.3, mine: { primary: "sword", secondary: "shield" } }),
+    );
+    const last = track[track.length - 1];
+
+    assert.ok(
+      last.secondary.pointerY > CONFIG.arm.restPointerY + 0.5,
+      `${name}: the shield should be up, not at rest, got ${last.secondary.pointerY}`,
+    );
+    // The threat is straight ahead, so the bearing to it is azimuth zero, and a
+    // shield on the *secondary* -- the fighter's left -- swings across to its
+    // right, which is +X on the cursor.
+    assert.ok(
+      last.secondary.pointerX > 0.35,
+      `${name}: the shield arm should be across the body, got ${last.secondary.pointerX}`,
+    );
+    assert.equal(last.secondary.guard, false, `${name}: reachCap already bends the elbow`);
+  }
+});
+
+test("a shield's wrist turns the same way its arm was swung, and not to the stop", () => {
+  // Two things, and the second is a regression guard rather than a rule.
+  //
+  // The sign, because the wrist has authority turning the way the arm went and
+  // almost none turning against it: swept in the bench, a roll of +1.0 on a
+  // *primary* arm swung across to azimuth -0.7 puts the hand 504 mm off its own
+  // anchor, and the mirror of that breaks the secondary. Getting this backwards
+  // does not look like a shield held wrong, it looks like an arm that has come
+  // apart.
+  //
+  // And not at the stop, because the first version of this was a servo that
+  // wound up: 237 of 420 steps sat pinned at the +-2.6 wrist limit, and every
+  // one of those was an arm being asked for a twist it could not give.
+  for (const name of ["primary", "secondary"]) {
+    const other = name === "primary" ? "secondary" : "primary";
+    const outboard = name === "primary" ? 1 : -1;
+    const track = drive(policyMind("duelist", 5), 1.5, () =>
+      facing({ gap: 1.3, mine: { [name]: "shield", [other]: "sword" } }),
+    );
+    const { roll, pointerX } = track[track.length - 1][name];
+    assert.ok(
+      pointerX * -outboard > 0.35,
+      `${name}: the arm swings across, got ${pointerX.toFixed(2)}`,
+    );
+    assert.ok(
+      roll * -outboard > 0.5,
+      `${name}: the wrist should follow it round, got ${roll.toFixed(2)}`,
+    );
+    assert.ok(
+      Math.abs(roll) < CONFIG.arm.rollMax - 0.5,
+      `${name}: and stay well inside the wrist, got ${roll.toFixed(2)}`,
+    );
+  }
+});
+
+test("a shield is carried below the line it covers, not above it", () => {
+  // The number this pins is the largest single one in the guard, and the first
+  // version of it had the wrong sign on a perfectly good argument: the plate
+  // hangs down the forearm, so a hand held level with the threat covers the
+  // belly rather than the head, so lift it. Measured over 24 bouts that argument
+  // costs 80 points of damage taken -- 241.0 at +0.16 against 160.8 at -0.20 --
+  // because a board held high leaves everything under it open. The head is worth
+  // less than the rest of the body put together.
+  const track = drive(policyMind("duelist", 5), 1.5, () =>
+    facing({ gap: 1.3, mine: { primary: "sword", secondary: "shield" } }),
+  );
+  // The threat is level with the shoulder, so the bearing to it is elevation
+  // zero and anything below that is a cursor below centre.
+  const { pointerY } = track[track.length - 1].secondary;
+  assert.ok(pointerY < -0.05, `the guard should sit low, got ${pointerY.toFixed(2)}`);
+});
+
+test("a hand aims from its own shoulder, not from the body's", () => {
+  // The two sockets are 420 mm apart and `BodyView.shoulder` is the primary's,
+  // so a policy that aims everything from it is aiming the *other* hand from the
+  // wrong side of the chest. Measured, that is not a rounding error: a fighter
+  // fighting left-handed put 216 of 483 points of damage on torsos and 20 on
+  // heads, against the primary's 45 and 90, and killed nobody in 24 bouts while
+  // dealing twice as much damage as the hand that killed 17 times.
+  //
+  // The shared fixture cannot see this -- it hangs both hands off one shoulder,
+  // and says so -- so this view moves the socket the way the arena does.
+  const view = facing({
+    gap: 1.4,
+    blade: "away",
+    mine: { primary: "shield", secondary: "sword" },
+  });
+  view.self.hands.secondary.shoulder = { x: -2 * CONFIG.fighter.shoulderSide, y: 1.4, z: 0 };
+
+  const out = policyMind("duelist", 4).decide(view, FIXED);
+  assert.equal(out.driving, "secondary", "the sword hand is the one aiming");
+  // Their chest is straight ahead of the *body*, so a guard aimed from the body
+  // would sit at centre. Aimed from a socket 420 mm to the left of it, the same
+  // chest is off to the right.
+  assert.ok(
+    out.secondary.pointerX > 0.15,
+    `the guard should lead right of centre, got ${out.secondary.pointerX.toFixed(3)}`,
+  );
+});
+
+test("a shield in the leading hand is held across the other way", () => {
+  // Mirrored, and it is the one thing `outboard` exists to say. A rule written
+  // without it is right for one hand and inside-out for the other.
+  const track = drive(policyMind("duelist", 5), 1.5, () =>
+    facing({ gap: 1.3, mine: { primary: "shield", secondary: "sword" } }),
+  );
+  const last = track[track.length - 1];
+  assert.ok(last.primary.pointerX < -0.35, `got ${last.primary.pointerX}`);
+});
+
+test("a policy attacks with the hand that can, not with the first one", () => {
+  // A shield in the primary used to be swung, because `driving` was a constant
+  // and every policy read `intent[intent.driving]` once at construction.
+  const track = drive(policyMind("swinger", 7), 3, () =>
+    facing({ gap: 1.1, mine: { primary: "shield", secondary: "sword" } }),
+  );
+  assert.ok(
+    track.every((intent) => intent.driving === "secondary"),
+    "the sword hand is the one that swings",
+  );
+  // And the sword hand actually swings: the commit sweeps the cursor across.
+  const xs = track.map((intent) => intent.secondary.pointerX);
+  assert.ok(Math.max(...xs) - Math.min(...xs) > 1.0, `the off sword should cut, span ${Math.max(...xs) - Math.min(...xs)}`);
+});
+
+test("two swords take turns, and the one not cutting covers", () => {
+  const track = drive(policyMind("swinger", 3), 8, () =>
+    facing({ gap: 1.1, mine: { primary: "sword", secondary: "sword" } }),
+  );
+  const hands = new Set(track.map((intent) => intent.driving));
+  assert.deepEqual([...hands].sort(), ["primary", "secondary"], "both hands get a turn");
+
+  // Both of them actually swing -- a turn that produced no stroke would satisfy
+  // the line above and none of the complaint -- and each swings its **own** way
+  // round. `swinger`'s stroke is written for a right arm: it chambers high and
+  // *outside*, on the sword shoulder's side, and sweeps across and down. The
+  // left arm has to swing the mirror of that, or it chambers across its own
+  // chest and cuts outward, which is both wrong to watch and slower. The bug is
+  // not hypothetical: `splitMind` handed a policy the secondary every time a
+  // person took the primary, so this was every bout with a human in it.
+  for (const name of ["primary", "secondary"]) {
+    const outboard = name === "primary" ? 1 : -1;
+    const mine = track.filter((i) => i.driving === name).map((i) => i[name]);
+    const xs = mine.map((h) => h.pointerX);
+    assert.ok(
+      Math.max(...xs) - Math.min(...xs) > 1.0,
+      `the ${name} should cut on its turn, span ${(Math.max(...xs) - Math.min(...xs)).toFixed(2)}`,
+    );
+    const chamber = outboard > 0 ? Math.max(...xs) : Math.min(...xs);
+    assert.ok(
+      chamber * outboard > 0.8,
+      `the ${name} should chamber outside, on its own side: got ${chamber.toFixed(2)}`,
+    );
+    // And the wrist with it. `rollForStroke` derives the roll from the stroke,
+    // so a mirrored stroke carries a mirrored roll by construction -- and the
+    // sign of that roll is worth 91 % of a cut against 2 %, measured.
+    const rolls = mine.map((h) => h.roll).filter((r) => r !== 0);
+    assert.ok(
+      rolls.length > 0 && rolls.every((r) => r * outboard < 0),
+      `the ${name}'s edge should lead its own way round, rolls ${rolls.slice(0, 3)}`,
+    );
+  }
+
+  // And whichever is not cutting is guarding rather than resting.
+  const off = track.filter((i) => i[otherHand(i.driving)].guard);
+  assert.ok(off.length > track.length * 0.8, `the spare blade should cover, ${off.length}/${track.length}`);
+});
+
+test("a swinger with a shield still never reads the opponent's blade", () => {
+  // Its whole documented character. A shield that tracked an incoming point
+  // would be a different policy wearing this one's name and this one's numbers.
+  const seen = () => facing({ gap: 1.1, mine: { primary: "sword", secondary: "shield" } });
+  const spent = () => {
+    const view = seen();
+    putTip(view, { x: 0.9, y: 2.1, z: 2.0 });
+    view.opponent.hands.primary.tipSpeed = 14;
+    return view;
+  };
+  const a = drive(policyMind("swinger", 11), 2, seen);
+  const b = drive(policyMind("swinger", 11), 2, spent);
+  assert.deepEqual(
+    a.map((i) => [i.primary.pointerX, i.secondary.pointerX, i.secondary.roll]),
+    b.map((i) => [i.primary.pointerX, i.secondary.pointerX, i.secondary.roll]),
+  );
+});
+
+test("a duelist guards the hand that can hurt it, not the first hand", () => {
+  // Their primary holds a shield out at the far side; their secondary holds the
+  // sword, extended down the line. The guard has to be on the sword.
+  const view = facing({
+    gap: 1.4,
+    theirs: { primary: "shield", secondary: "sword" },
+  });
+  view.opponent.hands.primary.tip = { x: 1.2, y: 1.4, z: 1.4 };
+  view.opponent.hands.secondary.tip = { x: 0, y: 1.4, z: 0.2 };
+  const out = ask(policyMind("duelist", 4), view);
+  assert.ok(Math.abs(out.pointerX) < 0.1, `should cover the sword straight ahead, got ${out.pointerX}`);
+});
+
+test("a guard covers the arm they still have, not the sword on the floor", () => {
+  // A severed arm keeps its weapon: the reference is still there and the blade
+  // is still in the world as debris, so `HandView.tip` goes on reporting where
+  // it fell. Covering that is covering a patch of ground.
+  //
+  // This was worth 3 severs and 4 points of mean damage across 40 bouts of
+  // `duelist vs swinger`, which is the whole of why that table moved this
+  // session: the default loadout has one armed hand and nothing else about it
+  // changed.
+  const view = facing({ gap: 1.4, theirs: { primary: "sword", secondary: "sword" } });
+  // Their sword arm is off, and the blade has landed to one side of me -- near
+  // enough that `coveringLine` would take it for an extended point rather than
+  // falling back to the chest, which is what makes this a real test.
+  view.opponent.hands.primary.lost = true;
+  view.opponent.hands.primary.tip = { x: 0.7, y: 0.9, z: 0.4 };
+  // The one they still have is extended down the line.
+  view.opponent.hands.secondary.tip = { x: 0, y: 1.4, z: 0.2 };
+
+  const out = ask(policyMind("duelist", 4), view);
+  assert.ok(
+    Math.abs(out.pointerX) < 0.1,
+    `should cover the live hand straight ahead, got ${out.pointerX.toFixed(2)}`,
+  );
+});
+
+test("an arm that has been cut off is not planned for", () => {
+  const view = facing({ gap: 1.2, mine: { primary: "sword", secondary: "shield" } });
+  view.self.hands.secondary.lost = true;
+  const before = { ...blankIntent().secondary };
+  const out = policyMind("duelist", 4).decide(view, FIXED);
+  assert.deepEqual({ ...out.secondary }, before, "a lost arm keeps whatever it had");
 });

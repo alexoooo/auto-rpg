@@ -37,8 +37,14 @@ npm run dev             # http://localhost:5180, strictPort
 - **Chrome does not paint WebGL in a hidden tab.** A screenshot of a backgrounded window
   shows the DOM overlay updating over a black canvas, `getActiveMeshes()` returns 0, and it
   looks exactly like a broken renderer. Check `document.visibilityState` before believing
-  it. Forcing `scene.render()` from the console and sampling the canvas distinguishes the
-  two in one step.
+  it -- and `engine.frameId` frozen across a wait is the sharper tell, because Chrome pauses
+  `requestAnimationFrame` outright rather than merely slowing it.
+
+  **There is a way through, and two sessions were blocked before anybody found it.** Step
+  the world by hand (`scene._renderId += 1; scene._advancePhysicsEngineStep(1000/60)`), then
+  call `scene.render()` yourself, and the canvas really paints -- a screenshot of the tab
+  comes back with a full frame in it. So a visual check *can* be made from a background
+  window; it just cannot be made by waiting for one.
 - **Backgrounding the dev server with `&` does not survive the shell call.** It dies
   silently and the next page load fails to connect.
 - **The dev port is `strictPort`.** It used to drift to 5181 when an orphaned server held
@@ -338,6 +344,37 @@ npm run dev             # http://localhost:5180, strictPort
 
   and `git diff --ignore-cr-at-eol --numstat` against plain `--numstat` is the after-the-fact
   check: any file where the two disagree has had its endings rewritten.
+- **A hand-written `FighterView` has to carry every field the real one does.** There are
+  exactly two in the tree -- `tests/minds.test.mjs`'s `facing()` and `scripts/measure.mjs`'s
+  `phantom` -- and both are plain JS, so neither is a compile error when the view grows a
+  field. Both threw on the first substep the day it grew `hands`, twelve tests and the whole
+  bench at once, with a `TypeError` that names the policy rather than the fixture. Grep for
+  `self: {` before adding a field to the view.
+- **A fixture may simplify the world; it may not describe one that cannot exist.**
+  `Fighter.describe` fills `BodyView.shoulder` from the primary hand's socket, so a fixture
+  where those two disagree is arguing with a body the arena would never hand a policy. The
+  test fixture hangs *both* hands off one shoulder -- a stated simplification, and the reason
+  it cannot see the "aim from your own socket" rule at all, which is why that rule has a test
+  of its own that moves the socket the way the arena does.
+- **A feedback loop against the arm winds up.** The arm follows a commanded pose with real
+  lag, so a controller that reads the achieved pose, takes the error and steps the command
+  toward it will run the command past what the arm can reach and sit on the limit: measured,
+  237 of 420 steps pinned at the wrist stop with the hand 137 mm off its own anchor. If a
+  policy needs a pose held, prefer a constant chosen from a sweep -- the placements here are
+  defined relative to the thing being covered, so what looks like it needs tracking usually
+  does not.
+- **A view field with no reader is a field that will drift.** `HandView` shipped three of
+  them for one session's servo and they went out with the servo. `WEAPON_KINDS` sat unread
+  for two sessions and is the reason the rule is written down at all.
+- **The stroke geometry in `policies.ts` is written for a right arm** -- "high and outside,
+  on the sword shoulder's side" -- and has to be mirrored by `HandView.outboard` for the
+  other one. So does a shield's placement, and so does the wrist roll that goes with it. Get
+  the roll's sign backwards and it does not look like a hand held wrong, it looks like an arm
+  coming apart: 504 mm of hand-to-anchor stray, because the shoulder cone refuses the twist
+  and the solver pays for the orientation out of the position.
+- **`Combat.log` keeps the newest 24 entries.** A bout produces hundreds, so a total summed
+  from it at the end is not a total, it is the last second and a half. Accumulate from
+  `lastHit` per step instead, keyed on `at`.
 
 ## House rules
 

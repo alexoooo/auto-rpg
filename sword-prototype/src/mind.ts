@@ -7,6 +7,11 @@ import type { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 // the graph a headless harness loads; the two below them are real, and
 // everything they reach is `config.ts`, which reaches nothing.
 import type { InputState } from "./input.ts";
+// A type, so it erases; and `kinds.ts` imports nothing anyway, which is the
+// property that let the kinds move there in the first place.
+// `hands.ts` imports nothing, so this one is a real import rather than a type
+// one and still costs a headless harness nothing.
+import { HANDS, otherHand, type HandName, type WeaponKind } from "./hands.ts";
 // The dependency on `policies.ts` runs one way only: `policies.ts` takes
 // `Intent`, `Mind` and `FighterView` from here and all three of them are types,
 // so they erase and there is no module cycle at run time. That is worth the
@@ -53,8 +58,6 @@ import { CONFIG } from "./config.ts";
  */
 export type Intent = InputState;
 
-/** Which of a fighter's two hands. */
-export type HandName = "primary" | "secondary";
 
 /**
  * What one hand is being asked for.
@@ -81,31 +84,19 @@ export interface HandIntent {
 }
 
 /**
- * Both of them, for the loops that must not favour the one being driven.
+ * The hand names, forwarded from `hands.ts`.
  *
- * Declared here rather than in `input.ts` with `InputState`, and that is not
- * arbitrary. `mind.ts` takes `InputState` as a **type**, which erases, so the
- * DOM never reaches a headless harness. Putting this constant on the far side
- * and importing its *value* back reverses that in one line: five test files and
- * the whole bench failed at once with "Cannot find module .../src/config",
- * because `input.ts` is on the side that does not carry `.ts` extensions.
+ * They were declared here, on the argument that a *value* import of `input.ts`
+ * anywhere in a fighter's graph would take `fighter.ts` out of Node's reach and
+ * the headless bench and four test files with it -- which was true and is still
+ * true. What moved them on is that `policies.ts` needs them too, and this module
+ * imports `policies.ts` at run time, so reaching back for them from over there
+ * would have closed a real cycle. `hands.ts` imports nothing at all, which is
+ * strictly the safer place, and re-exporting from here means nothing that
+ * already asked this module for them had to change.
  */
-export const HANDS: readonly HandName[] = ["primary", "secondary"];
-
-/** The other one. */
-export const otherHand = (hand: HandName): HandName =>
-  hand === "primary" ? "secondary" : "primary";
-
-/**
- *
- * `input.ts` is the browser's, and a *value* import of it anywhere in a
- * fighter's graph would take `fighter.ts` out of Node's reach and the headless
- * bench and four test files with it. `HANDS` is the one value that crosses, and
- * it crosses because it is a frozen pair of strings with no DOM anywhere near
- * it -- the alternative was a second copy of `["primary", "secondary"]`, which
- * is exactly the kind of duplication that goes wrong the day a third hand is
- * imagined.
- */
+export type { HandName };
+export { HANDS, otherHand };
 
 /** One pose per hand, which is what a takeover has to seed from. */
 export type ArmPoses = Record<HandName, ArmPose>;
@@ -124,17 +115,86 @@ export type ArmPoses = Record<HandName, ArmPose>;
  */
 export type PartHealth = Record<string, number>;
 
+/**
+ * One of a fighter's two hands, as a mind sees it.
+ *
+ * This is the record that was missing, and its absence is the whole of why a
+ * shield was held wherever the cursor happened to be sitting. A policy could not
+ * be told what its own off hand was holding, which side of the body that hand
+ * was on, or which way the thing in it was pointing -- so it could not place a
+ * shield even if it had wanted to, and no amount of work on the mount could fix
+ * that from the other end.
+ *
+ * Facts only, and world-space ones. Nothing here is an interpretation: there is
+ * no `isGuarding`, no `threat` and no `shouldBlock`, because a view that answers
+ * questions starts being believed instead of read.
+ *
+ * **Five fields, and every one of them has a reader.** It was eight. A `hand`
+ * position, a `reach` and a `face` -- the world direction of the hand's own +X,
+ * which for a strapped shield is the plate's normal -- were carried for a servo
+ * that turned the wrist toward whatever it was covering. The servo was measured
+ * against a constant and lost badly (see `GUARD.roll`), and the three fields
+ * went out with it rather than staying as things a view offers and nothing
+ * takes. `WEAPON_KINDS` sat unread for two sessions and is the reason that rule
+ * is written down.
+ */
+export interface HandView {
+  /** What this hand holds. `empty` for a bare fist, which is a kind not a null. */
+  weapon: WeaponKind;
+  /** Where this arm hangs from. */
+  shoulder: Vector3;
+  /**
+   * The point of what it holds, or the fist itself when it holds nothing.
+   *
+   * **Only meaningful while `lost` is false.** A dropped weapon keeps being
+   * tracked -- the arm still holds the reference, the body is still in the world
+   * as debris -- so a severed arm's `tip` is wherever its sword happens to have
+   * landed. That is the truth about where the object is and it is not a threat,
+   * and `policies.ts`'s `threatHand` is where the difference is made.
+   */
+  tip: Vector3;
+  /** Speed of that point, m/s. */
+  tipSpeed: number;
+  /** True once any piece of this arm has been cut off it. */
+  lost: boolean;
+  /**
+   * Which way is away from the body for this arm: +1 on the fighter's own right,
+   * -1 on its left.
+   *
+   * The sign that makes "a shield guard is an arm held *across*" expressible.
+   * Across is a direction, and a direction needs to know which side it started
+   * on; without this a policy can only swing an arm outward or inward by
+   * guessing, and it will guess wrong for exactly one of the two hands.
+   */
+  outboard: number;
+}
+
 /** One body as a mind sees it: where it is, where its blade is, what is left of it. */
 export interface BodyView {
   /** Position on the floor. */
   ground: Vector3;
   /** Heading in radians, zero down +Z turning toward +X, as everywhere here. */
   facing: number;
+  /**
+   * The primary hand's shoulder, point and speed.
+   *
+   * Kept at the top level, and kept meaning the **primary's**, rather than being
+   * folded into `hands` and read from there. Every figure in
+   * `docs/measurements.md` that names a shoulder or a tip was taken through
+   * these three, and a field that quietly starts meaning "whichever hand is
+   * interesting" is a field that makes two readings taken a session apart
+   * incomparable without either of them looking wrong.
+   *
+   * A policy that wants the hand that is actually a threat should read `hands`
+   * and choose. `duelist` does.
+   */
   shoulder: Vector3;
   /** The point of the blade, in world space. */
   tip: Vector3;
   /** Speed of that point, m/s. The damage model is built from this number. */
   tipSpeed: number;
+  /** Both hands, always both, whatever either of them is holding. */
+  hands: Record<HandName, HandView>;
   health: PartHealth;
 }
 
@@ -330,9 +390,22 @@ export function splitMind(person: Mind, policy: Mind): Mind {
       blended.zoom = mine.zoom;
       blended.driving = mine.driving;
 
+      // The person's hand is the person's, and the other one is the policy's
+      // plan **for that same hand** -- not for whichever hand the policy calls
+      // its own.
+      //
+      // It used to be `theirs[theirs.driving]`, and that was right for exactly
+      // as long as a policy planned one hand: whatever it had, it wanted its arm
+      // to do, and which arm that was did not matter. It matters now. A policy
+      // plans a hand by *what is in it*, so its plan for the secondary is a plan
+      // for the secondary's weapon -- and handing that plan to the other arm
+      // hands a sword's cadence to a shield. That is not hypothetical: pick a
+      // sword and a shield, take the sword, and the old rule ran `swinger`'s
+      // commit stroke on the shield arm for the whole bout. The board was being
+      // swung like a bat.
       const spare = otherHand(mine.driving);
       copyHand(blended[mine.driving], mine[mine.driving]);
-      copyHand(blended[spare], theirs[theirs.driving]);
+      copyHand(blended[spare], theirs[spare]);
       return blended;
     },
   };

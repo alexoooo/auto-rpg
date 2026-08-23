@@ -42,9 +42,9 @@ transfer, because there was never an authority to transfer.
   thing the design forbids. Policies steer with the `turn` axis instead, proportionally to
   their heading error, and it costs them: `fighter.turnSpeed` is 2.5 rad/s against a
   locked-on player's 4.2.
-- *`FighterView` carries no part positions* -- a ground point, a shoulder, a blade tip, and
-  a health map with no coordinates attached. "The nearest soft part" is therefore not a
-  question the view can answer, and the duelist aims at shoulder height plus 0.20 m
+- *`FighterView` carries no part positions* -- a ground point, two shoulders, two blade
+  tips, and a health map with no coordinates attached. "The nearest soft part" is therefore
+  not a question the view can answer, and the duelist aims at shoulder height plus 0.20 m
   instead. That 0.20 is anatomy, and it is only safe because both sides are the same unit
   today. **The day two fighters have different bodies, a policy has to be told how tall the
   thing in front of it is, and `FighterView` is where that belongs.**
@@ -481,6 +481,81 @@ about it: an arm pointed at the enemy shows him 0.033 m^2 of a 0.26 m^2 board, a
 held across the line shows him 0.190. The mount decides what the plate *can* do and only
 whoever is aiming the arm decides what it *does*. That is the next session and it is the same
 change as teaching a policy to fight with both hands.
+
+### Two hands that fight
+
+The transport was symmetric from the day `Intent` grew a hand: `HandIntent`, `HANDS`,
+`Fighter.update`, `Arm`, `handover` and `Controls` all take either hand without caring
+which. What was not symmetric was everything above it, and three faults made "two swords use
+only one hand" and "the AI holds its shield strangely" the same bug.
+
+**A policy planned one hand and the other was furniture.** `handOf(intent)` was read *once*
+at construction, `blankIntent` sets `driving: "primary"`, and nothing ever wrote it -- so the
+off hand kept the rest pose it was built with for the whole bout. `attackHand(view, prefer)`
+replaces it and is asked every step, because the answer changes: an arm gets cut off, a hand
+holding a shield is never the one that swings, and two blades take turns.
+
+**`splitMind` handed the policy's *attack* to whichever arm the person was not using.** It
+copied `theirs[theirs.driving]`, which was right for exactly as long as a policy planned one
+hand -- whatever it had, it wanted its arm to do. It is wrong the moment a hand's plan
+depends on what the hand holds. Pick a sword and a shield, take the sword, and the old rule
+ran `swinger`'s commit stroke *on the shield arm*: the board was being swung like a bat, for
+the whole bout, in every game anybody played. It copies `theirs[spare]` now, and the fix is
+that one word.
+
+**`FighterView` had no hands.** `HandView` is five fields -- what the hand holds, where its
+shoulder is, the point of what it holds and how fast that point is moving, whether the arm
+is still attached, and **which side of the body it is on**. That last one is the whole of
+what makes "a shield guard is an arm held *across*" expressible: across is a direction, and
+a direction has to know which side it started on.
+
+It was eight fields. A hand position, a reach and a `face` -- the world direction of the
+hand's own +X, which for a strapped shield is the plate's normal -- were carried for a servo
+that turned the wrist toward whatever it was covering. The servo lost to a constant by a
+factor of two (`docs/measurements.md`), and the three fields went out with it rather than
+staying as things a view offers and nothing takes.
+
+**The vocabulary moved again**, and for the same reason it moved the first time. `HandName`,
+`HANDS` and `otherHand` lived in `mind.ts`, which imports `policies.ts` at run time; a
+policy that has to name the other hand would have closed a real cycle reaching back for
+them. They live in `src/hands.ts` now with `WeaponKind` and its three predicates, and that
+file **imports nothing at all**. Both halves are things a policy has to be able to say --
+which hand, and what is in it -- and `weapon.ts` and `mind.ts` re-export their halves, so
+nothing that already asked either of them had to change.
+
+**What a hand does is decided by what is in it.** One table, shared by both policies,
+because two copies of a rule is one copy somebody edits:
+
+| the hand holds | what it does |
+| --- | --- |
+| a striking weapon, and it is the attacking hand | exactly what it did before |
+| a shield or a buckler | interposes: arm across the line, wrist turned to bring the plate round |
+| a striking weapon, not attacking | covers on the guard line, and takes the next exchange |
+| nothing | rests |
+
+What differs between the policies is the *threat* they hand in, and that difference is their
+characters rather than the table's business. `swinger` never reads the other fighter's blade
+-- that is its whole documented point -- so its shield covers the chest it is already walking
+at. `duelist` covers whichever of their hands can actually hurt it, which also stops it
+guarding against a shield they happen to be carrying in the primary.
+
+**Both hands aim from their own shoulder.** The two sockets are 420 mm apart and
+`BodyView.shoulder` is the primary's, so a policy aiming everything from it was aiming its
+other hand from the wrong side of the chest. It is not a rounding error: a fighter fighting
+left-handed dealt twice the damage of the right-handed one and killed nobody in 24 bouts,
+because it landed on torsos rather than on the head that ends a bout.
+
+**A shield's placement is two numbers and a sign, and none of them was guessed.** The arm is
+swung across the line of the blow by `GUARD.across`, carried *below* the bearing to the
+threat by `GUARD.lift`, and the wrist is turned by `GUARD.roll` in the direction the arm was
+swung. The geometry derives the first at 0.785 rad and the sweep agrees at 0.80. The second
+was derived with the *wrong sign* on a perfectly good argument and the sweep caught it: a
+board held high covers the head and opens everything under it, and the head is worth less
+than the rest of the body put together. The third is a constant because the placement is
+defined relative to the threat, so the turn that brings the plate round is very nearly fixed
+-- and because the servo that computed it exactly walked the wrist into a limit it cannot
+pass. Every number has its table beside it in `config`-style comments and in
+`docs/measurements.md`.
 
 ### The two-handed club, which was wrong twice
 

@@ -41,7 +41,7 @@ import { blankIntent } from "../src/policies.ts";
 const wasm = new URL("../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm", import.meta.url);
 const FIXED = 1 / CONFIG.world.physicsHz;
 
-async function ring() {
+async function ring(loadout = undefined) {
   const engine = new NullEngine();
   const scene = new Scene(engine);
   attachPhysics(scene, await HavokPhysics({ wasmBinary: await readFile(wasm) }));
@@ -72,7 +72,7 @@ async function ring() {
   };
 
   const left = new Fighter(scene, {
-    side: "left", origin: Vector3.Zero(), facing: 0, mind: busy(0.5),
+    side: "left", origin: Vector3.Zero(), facing: 0, mind: busy(0.5), loadout,
   }, materials);
   const right = new Fighter(scene, {
     side: "right", origin: new Vector3(0, 0, CONFIG.fighter.separation),
@@ -123,7 +123,16 @@ test("looking at the world leaves no trace on it", async (t) => {
   // candidate for having stamped them. `hand` in particular is the node the
   // anchor-to-hand error is measured against, and it is the one the defect was
   // found on.
-  for (const part of [left.hand, left.head, left.pelvis, right.hand]) {
+  // Both hands of both fighters, because `describe` reads two arms now and the
+  // second one is exactly as able to stamp a node as the first.
+  for (const part of [
+    left.hand,
+    left.arms.secondary.hand,
+    left.head,
+    left.pelvis,
+    right.hand,
+    right.arms.secondary.hand,
+  ]) {
     const lazy = part.mesh.absolutePosition.clone();
     part.mesh.computeWorldMatrix(true);
     const fresh = part.mesh.absolutePosition.clone();
@@ -199,4 +208,106 @@ test("the view says the same thing the world matrix would have said", async (t) 
   assert.ok(Vector3.Distance(snap.view.shoulder, snap.shoulder) < 1e-6, "shoulder");
   assert.ok(Vector3.Distance(snap.view.tip, snap.tip) < 1e-6, "tip");
   assert.ok(Math.abs(snap.view.tipSpeed - snap.tipSpeed) < 1e-6, "tip speed");
+});
+
+test("both hands are published, and the primary's is the one at the top level", async (t) => {
+  // A shield in the off hand, so `weapon`, `face` and `outboard` all have
+  // something to say and a stubbed-out second hand cannot pass by looking like
+  // an empty one.
+  const { engine, scene, left, right } = await ring({ primary: "sword", secondary: "shield" });
+  t.after(() => engine.dispose());
+
+  let clock = 0;
+  const control = () => {
+    clock += FIXED;
+    left.observe(right, clock);
+    right.observe(left, clock);
+    left.update(FIXED);
+    right.update(FIXED);
+  };
+  for (let i = 0; i < 60; i += 1) frame(scene, control);
+
+  const view = left.view.self;
+  assert.equal(view.hands.primary.weapon, "sword");
+  assert.equal(view.hands.secondary.weapon, "shield");
+  assert.equal(view.hands.primary.outboard, 1, "the primary is on the fighter's right");
+  assert.equal(view.hands.secondary.outboard, -1);
+  assert.equal(view.hands.primary.lost, false);
+  assert.equal(view.hands.secondary.lost, false);
+  assert.ok(view.hands.secondary.tip.length() > 0.5, "the shield's point is somewhere");
+
+  // The top-level three are the primary's, and say so by being equal to them
+  // rather than by a comment. A field that quietly started meaning "whichever
+  // hand is interesting" would make every reading in `docs/measurements.md`
+  // incomparable with the next one taken, and neither would look wrong.
+  assert.ok(Vector3.Distance(view.shoulder, view.hands.primary.shoulder) < 1e-9, "shoulder");
+  assert.ok(Vector3.Distance(view.tip, view.hands.primary.tip) < 1e-9, "tip");
+  assert.equal(view.tipSpeed, view.hands.primary.tipSpeed);
+
+  // The two sockets are a body apart, so a second hand copied off the first
+  // would show up here immediately.
+  const across = Vector3.Distance(view.hands.primary.shoulder, view.hands.secondary.shoulder);
+  assert.ok(
+    Math.abs(across - 2 * CONFIG.fighter.shoulderSide) < 1e-6,
+    `the shoulders should be ${2 * CONFIG.fighter.shoulderSide} m apart, got ${across}`,
+  );
+
+  // The opponent's hands too: a view that only filled its own would leave every
+  // policy guarding against a pair of zeroes.
+  for (const name of ["primary", "secondary"]) {
+    const hand = left.view.opponent.hands[name];
+    assert.ok(hand.shoulder.length() > 0.5, `${name}: the opponent's shoulder is somewhere`);
+    assert.ok(
+      Vector3.Distance(hand.shoulder, right.view.self.hands[name].shoulder) < 1e-9,
+      `${name}: both fighters agree where that shoulder is`,
+    );
+  }
+});
+
+test("a strapped shield's face is welded to its hand's own +X", async (t) => {
+  const { engine, scene, left, right } = await ring({ primary: "sword", secondary: "shield" });
+  t.after(() => engine.dispose());
+
+  let clock = 0;
+  let snap = null;
+  const control = () => {
+    clock += FIXED;
+    left.observe(right, clock);
+    right.observe(left, clock);
+    if (clock > 0.5 && !snap) {
+      // Taken in the same breath as the view, for the reason the test below
+      // gives: the solver moves everything between substeps.
+      const arm = left.arms.secondary;
+      arm.hand.mesh.computeWorldMatrix(true);
+      arm.weapon.root.computeWorldMatrix(true);
+      const m = arm.hand.mesh.getWorldMatrix();
+      snap = {
+        // The first row of the hand's rotation matrix: the image of (1, 0, 0),
+        // which is the axis `HandIntent.roll` turns.
+        hand: new Vector3(m.m[0], m.m[1], m.m[2]).normalize(),
+        // And what the plate is actually doing. `mountFor("shield")` welds the
+        // board's face normal -- its own local +Y -- onto the hand's +X, so the
+        // two are the same direction or the mount is not what it says it is,
+        // and every number `GUARD.roll` was chosen from is measuring something
+        // else.
+        plate: arm.weapon.bladeDirection().clone(),
+      };
+    }
+    left.update(FIXED);
+    right.update(FIXED);
+  };
+  for (let i = 0; i < 60; i += 1) frame(scene, control);
+
+  assert.ok(snap, "the comparison was taken");
+  // Not to within a rounding error, and it should not be: the weld is a
+  // constraint the solver satisfies rather than a parenting, so the board sits a
+  // couple of degrees out from the fist under its own weight. Measured 0.9989
+  // here, which is 2.7 degrees. The bound is set at 0.99 -- 8 degrees -- which is
+  // loose enough to be about compliance and tight enough that a mount welding
+  // the plate to the wrong axis is 90 degrees out and cannot pass.
+  const square = Vector3.Dot(snap.hand, snap.plate);
+  assert.ok(
+    square > 0.99,
+    `the plate's normal should be the hand's +X, dot ${square} (${((Math.acos(square) * 180) / Math.PI).toFixed(1)} deg out)`,
+  );
 });

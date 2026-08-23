@@ -561,6 +561,18 @@ export class Arm {
   }
 
   /**
+   * Which way is away from the body for this arm: +1 or -1.
+   *
+   * Published because a policy needs it and cannot work it out. "A shield guard
+   * is an arm held *across*" is a direction, and a direction has to know which
+   * side it started on -- a rule written without this is right for one hand and
+   * mirrored for the other. `Fighter.describe` copies it into `HandView`.
+   */
+  get side(): number {
+    return this.outboard;
+  }
+
+  /**
    * How far the hand is being held from the shoulder.
    *
    * A separate accessor from `angles()`, which allocates: `observe` publishes

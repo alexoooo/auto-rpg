@@ -354,22 +354,55 @@ function runSwingBench({ seed = 1, seconds = 20 } = {}) {
   ];
   const whole = () => Object.fromEntries(PARTS.map((key) => [key, 1]));
   const at = 1.2;
+
+  /**
+   * Both hands, because a policy plans both and reads what each is holding.
+   *
+   * A hand-written view has to carry every field the real one does or the policy
+   * reads `undefined` off it, and this one threw on the first substep the day
+   * `FighterView` grew hands -- exactly as `tests/minds.test.mjs`'s fixture did.
+   * The two are the only hand-written views in the tree and they fail the same
+   * way, which is worth knowing before writing a third.
+   *
+   * The loadout is the fighter's below: a sword in the primary and nothing in
+   * the other hand. `shoulder` is the body's for both, which is the same
+   * simplification the rest of this phantom makes.
+   */
+  const bothHands = (shoulder, tip, sign) => ({
+    primary: {
+      weapon: "sword", shoulder, tip, tipSpeed: 0, lost: false, outboard: 1,
+    },
+    secondary: {
+      weapon: "empty",
+      shoulder,
+      tip: new Vector3(shoulder.x, shoulder.y, shoulder.z + sign * CONFIG.arm.reachNeutral),
+      tipSpeed: 0,
+      lost: false,
+      outboard: -1,
+    },
+  });
+  const mySocket = new Vector3(0, 1.42, 0);
+  const theirSocket = new Vector3(0, 1.42, at);
+  const myTip = new Vector3(0, 1.42, 1.3);
+  const theirTip = new Vector3(0, 1.42, at - 1.3);
   const phantom = {
     self: {
       ground: new Vector3(0, 0, 0),
       facing: 0,
-      shoulder: new Vector3(0, 1.42, 0),
-      tip: new Vector3(0, 1.42, 1.3),
+      shoulder: mySocket,
+      tip: myTip,
       tipSpeed: 0,
+      hands: bothHands(mySocket, myTip, 1),
       reach: CONFIG.arm.reachNeutral,
       health: whole(),
     },
     opponent: {
       ground: new Vector3(0, 0, at),
       facing: Math.PI,
-      shoulder: new Vector3(0, 1.42, at),
-      tip: new Vector3(0, 1.42, at - 1.3),
+      shoulder: theirSocket,
+      tip: theirTip,
       tipSpeed: 0,
+      hands: bothHands(theirSocket, theirTip, -1),
       health: whole(),
     },
     measure: at - 0.4,

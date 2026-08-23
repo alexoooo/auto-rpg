@@ -34,6 +34,7 @@ import {
   type BodyView,
   type FighterView,
   type HandName,
+  type HandView,
   type Intent,
   type Mind,
 } from "./mind.ts";
@@ -233,6 +234,24 @@ const REST_POSE: GaitPose = {
  * cursor sweep run on the *right* fighter's arm -- is a swap of it from the
  * console.
  */
+/**
+ * One hand's half of a view, allocated and never replaced.
+ *
+ * Four of these per fighter -- its own two and the two it can see -- built in
+ * the constructor before either arm exists, so every field starts as a zero and
+ * the first `observe` fills it. The alternative was to build them from the arms
+ * after the arms, which would have put the view's allocation below the bones and
+ * moved the build order the whole of `docs/measurements.md` was taken against.
+ */
+const blankHand = (): HandView => ({
+  weapon: "empty",
+  shoulder: new Vector3(),
+  tip: new Vector3(),
+  tipSpeed: 0,
+  lost: false,
+  outboard: 1,
+});
+
 export class Fighter {
   readonly side: Side;
   readonly torso: Part;
@@ -413,6 +432,15 @@ export class Fighter {
     // Built empty and filled in place by `observe` from then on. Nothing here
     // creates a body, a shape or a constraint, so it costs the arm's build order
     // nothing to sit above it.
+    //
+    // Both hands of both bodies are allocated here too, for the same reason and
+    // with the same discipline: `describe` writes into them and never replaces
+    // one. Built before the arms exist, so nothing in here may ask an arm
+    // anything -- every field is a zero that the first `observe` overwrites.
+    const blankHands = (): Record<HandName, HandView> => ({
+      primary: blankHand(),
+      secondary: blankHand(),
+    });
     this.view = {
       self: {
         ground: new Vector3(),
@@ -420,6 +448,7 @@ export class Fighter {
         shoulder: new Vector3(),
         tip: new Vector3(),
         tipSpeed: 0,
+        hands: blankHands(),
         reach: CONFIG.arm.reachNeutral,
         health: {},
       },
@@ -429,6 +458,7 @@ export class Fighter {
         shoulder: new Vector3(),
         tip: new Vector3(),
         tipSpeed: 0,
+        hands: blankHands(),
         health: {},
       },
       measure: Number.POSITIVE_INFINITY,
@@ -1204,21 +1234,48 @@ export class Fighter {
 
     into.ground.set(here.x, 0, here.z);
 
+    const basis = this.scratch.viewBasis;
     if (spin) {
-      // `(0, 0, 1)` and `(1, 0, 0)` turned by the quaternion -- the third and
-      // first columns of the rotation matrix, written out rather than composed
-      // through a `Matrix`, because the whole point of this function is to touch
-      // nothing that caches. The heading convention is the one used everywhere
-      // here: zero down +Z, turning toward +X.
+      // `(0, 0, 1)` turned by the quaternion -- the third row of the rotation
+      // matrix, written out rather than composed through a `Matrix`, because the
+      // whole point of this function is to touch nothing that caches. The
+      // heading convention is the one used everywhere here: zero down +Z,
+      // turning toward +X.
       const fx = 2 * (spin.x * spin.z + spin.w * spin.y);
       const fz = 1 - 2 * (spin.x * spin.x + spin.y * spin.y);
       into.facing = Math.atan2(fx, fz);
-      Matrix.FromQuaternionToRef(spin, this.scratch.viewBasis);
-      Vector3.TransformNormalToRef(fighter.shoulderLocal, this.scratch.viewBasis, into.shoulder);
-      into.shoulder.addInPlace(here);
+      Matrix.FromQuaternionToRef(spin, basis);
     } else {
       into.facing = 0;
-      into.shoulder.copyFrom(fighter.shoulderLocal).addInPlace(here);
+      Matrix.IdentityToRef(basis);
+    }
+    Vector3.TransformNormalToRef(fighter.shoulderLocal, basis, into.shoulder);
+    into.shoulder.addInPlace(here);
+
+    // Both hands, whatever either is holding, and in the same pass -- because a
+    // policy that plans one hand by what the other is doing needs the two to be
+    // samples of the same instant. `fighter.shoulderLocal` above is the
+    // primary's socket, so `hands.primary.shoulder` is the same point arrived at
+    // the same way, and the two are checked against each other in
+    // `tests/view.test.mjs` rather than assumed.
+    for (const name of HANDS) {
+      const arm = fighter.arms[name];
+      const hand = into.hands[name];
+      hand.weapon = arm.holding;
+      hand.lost = !arm.armed;
+      hand.outboard = arm.side;
+      Vector3.TransformNormalToRef(arm.socket, basis, hand.shoulder);
+      hand.shoulder.addInPlace(here);
+
+      const held = arm.weapon;
+      if (held) {
+        held.tipPositionToRef(hand.tip);
+        hand.tipSpeed = held.speedAt(hand.tip);
+      } else {
+        // `mesh.position`, never `absolutePosition`. See the note on `observe`.
+        hand.tip.copyFrom(arm.hand.mesh.position);
+        hand.tipSpeed = 0;
+      }
     }
 
     // The primary weapon's point, or the fist itself when that hand is empty.
@@ -1226,14 +1283,12 @@ export class Fighter {
     // line from this, so it has to be a place rather than a null: an empty hand
     // is at the end of an arm, which is exactly where the guard should be
     // covering.
-    const weapon = fighter.arm.weapon;
-    if (weapon) {
-      weapon.tipPositionToRef(into.tip);
-      into.tipSpeed = weapon.speedAt(into.tip);
-    } else {
-      into.tip.copyFrom(fighter.arm.hand.mesh.position);
-      into.tipSpeed = 0;
-    }
+    //
+    // Copied off the hand record rather than recomputed, so the two can never
+    // disagree about the same blade.
+    const lead = into.hands.primary;
+    into.tip.copyFrom(lead.tip);
+    into.tipSpeed = lead.tipSpeed;
 
     for (const limb of fighter.limbs) {
       into.health[limb.key] = limb.severed ? 0 : Math.max(0, limb.health / limb.maxHealth);

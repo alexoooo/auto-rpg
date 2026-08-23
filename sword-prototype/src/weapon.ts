@@ -12,17 +12,27 @@ import type { Material } from "@babylonjs/core/Materials/material.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 
 import { CONFIG } from "./config.ts";
+import {
+  WEAPON_KINDS,
+  handsFor,
+  isShield,
+  isStrapped,
+  isStriking,
+  type WeaponKind,
+} from "./hands.ts";
 
 /**
- * What is in a hand.
+ * The kinds, and the questions about a kind, forwarded from `kinds.ts`.
  *
- * `empty` is a kind rather than a null, and that is deliberate: a hand holding
- * nothing is still a hand that swings, blocks with its forearm and can be cut
- * off, and every path that asks "what is in this hand" would otherwise have to
- * ask "is there anything in this hand" first. The one place it does become a
- * null is the physics -- there is no body for an empty hand to weld to.
+ * They are declared over there because they have to be answerable without
+ * Babylon: a policy plans a hand by what is in it, and `policies.ts` keeps an
+ * import graph of exactly `config.ts` so that `tests/minds.test.mjs` costs
+ * milliseconds rather than seconds. Re-exported from here because this is where
+ * every existing caller already looks for them, and a move that renames nothing
+ * is a move nothing can break.
  */
-export type WeaponKind = "sword" | "shield" | "buckler" | "club" | "empty";
+export type { WeaponKind };
+export { WEAPON_KINDS, handsFor, isShield, isStrapped, isStriking };
 
 export interface WeaponMaterials {
   steel: Material;
@@ -47,43 +57,6 @@ interface Built {
   baseOffset: number;
   tipOffset: number;
 }
-
-/** Every kind that is actually a thing, in the order the picker offers them. */
-export const WEAPON_KINDS: readonly WeaponKind[] = [
-  "sword",
-  "shield",
-  "buckler",
-  "club",
-  "empty",
-];
-
-/** How many hands a kind takes. Only the club takes two. */
-export const handsFor = (kind: WeaponKind): 1 | 2 => (kind === "club" ? 2 : 1);
-
-/**
- * Is this kind a shield -- something that covers and scores nothing?
- *
- * True for both. What follows from it: the thing goes on the shield collision
- * layer, which is the one its owner's own trunk can stop, and `scoring.ts`
- * gives it no damage however hard it arrives.
- */
-export const isShield = (kind: WeaponKind): boolean =>
-  kind === "shield" || kind === "buckler";
-
-/**
- * Is this kind **strapped** across the forearm, rather than held out on the arm?
- *
- * True for the heater shield and nothing else, and it is a different question
- * from `isShield` -- which is exactly why they are two functions. Being strapped
- * is what forces the plate's normal square to the forearm, and everything that
- * costs follows from it: the hand is built already turned to the front so the
- * board is not made inside its owner's pelvis, the frame is seeded from the
- * radial rather than from world up, and the reach is capped so the elbow bends.
- *
- * A buckler is none of that. It is held out on the end of the arm like a blade,
- * so it takes the blade's mount, the blade's seed and the blade's reach.
- */
-export const isStrapped = (kind: WeaponKind): boolean => kind === "shield";
 
 /**
  * A kind with no builder, refused at compile time.

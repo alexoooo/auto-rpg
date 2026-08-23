@@ -328,7 +328,8 @@ None of this was skipped for want of effort. Every item is a judgement about how
 feels or looks, and the tabs this was built in render a black canvas because Chrome does not
 paint WebGL in a hidden window -- and, worse, pauses `requestAnimationFrame` there
 altogether, so a background tab is not a slow browser but a stopped one. **Two of them are
-cheap and change what should be built next: the first and the fourth.**
+cheap and change what should be built next: the first and the fourth.** Items 11 and 12 are
+not cheap and are not about a browser: they are one arm defect, measured from two directions.
 
 1. **Is a human against `swinger` winnable, and not trivially so?** This is the only
    criterion that decides whether the policy work is finished. Its cycle is chamber 0.34 s,
@@ -380,28 +381,38 @@ cheap and change what should be built next: the first and the fourth.**
    correctly placed the whole time. Anybody picking this up should start at a browser they
    can see, strip the maps at the console, and put them back one material at a time; three
    diagnoses made by probing state rather than looking were all wrong.
-10. **No policy knows what a shield is for**, and this is now the whole of what is left of
-   "the AI holds its shield strangely". Measured in the bench: an `idle` fighter given a
-   shield took *more* damage than one with two empty hands, 90 against 28, because it holds
-   the thing wherever its cursor happens to sit rather than between itself and the blade.
+10. **Done.** This entry recorded that no policy knew what a shield was for, and that an
+   `idle` fighter given one took *more* damage than one with two empty hands -- 90 against
+   28. Closing it needed the two-handed `FighterView` the entry called for, and that is what
+   session 03 built. `duelist` now takes **160.8** damage with a shield against **284.5**
+   without, and dies 0 times in 24 against 7. See "Two hands, and what a shield is finally
+   worth" above. `idle` is unchanged and stays the control: a fighter that does nothing gets
+   nothing from a shield, which is correct.
 
-   The mount fixed the *pose* -- a shield is a plate held square to its owner's front, and
-   it cannot be inside him. It cannot fix the *placement*. A strapped shield's plate contains
-   the forearm, so an arm pointed at the enemy presents the plate edge-on however it is
-   rolled, and `duelist`'s covering line points the arm at the enemy. Held there, the frame
-   is near-singular and the plate used to roll between vertical and flat on solver noise;
-   `shield.minFace` conditions it so a hopeless pose at least stands on its edge. That is
-   cosmetics on a tactical hole.
+11. **The arm envelope is written for the right arm and applied to both.**
+   `spread(pointerX, azMin, azMax)` maps the cursor onto a torso-space azimuth that runs
+   -1.15 to +1.30, and its own comment says why -- "the arm reaches further across its own
+   side than across the far one". That is true of the *primary*. The secondary gets the same
+   range, so its wide side is across its body and its narrow side is its own, which is the
+   mirror of anatomy. The shoulder cone underneath it is asymmetric in the same one-sided
+   way (`swing z: { min: -1.7, max: 0.6 }`, one literal for both arms).
 
-   **What closing it needs is a two-handed `FighterView`.** A policy must know two things it
-   cannot currently be told: that the hand it is driving holds a shield, and which side of
-   the body that hand is on -- a shield guard is an arm held *across*, and across is a sign.
-   The view carries one shoulder and one tip, from when a fighter had one arm, and
-   `splitMind` hands a policy whichever hand the person is not using, so a per-hand record
-   also has to be remapped through it. That is a design change with its own measurements, not
-   a tweak to a policy, and it is the next thing anybody working on shields should do.
+   What it costs is not yet separated from what aiming from the wrong socket cost, which was
+   most of it and is fixed. What is left is visible in the wrist: a shield arm swung across
+   the body can be rolled one way and not the other, 504 mm of hand-to-anchor stray at the
+   sign that does not work. Mirroring the envelope is not a two-line change -- the cursor
+   inverse is used by `cursorForPose` and therefore by every handover, so it becomes a
+   per-hand mapping across a seam that currently has none, and it would move `swinger`'s
+   pinned stroke roll. It wants its own session and its own before-and-after table.
 
-11. **An idle arm cannot hang all the way down**, and the reason is the envelope
+12. **The shield hand is 167 mm off its anchor in a live exchange**, against the sword
+   hand's 85 mm in the same bouts, and 56 against 53 with nothing hitting either. So it is
+   not the shield's pose -- but both numbers are large, and they are the same arm defect as
+   the entry above. A guard that is 167 mm from where it was asked to be is a guard placed by
+   the solver rather than by the policy, and the fact that it works anyway is luck the next
+   change could take away.
+
+13. **An idle arm cannot hang all the way down**, and the reason is the envelope
    rather than the pose. `arm.restPointerY` sends an unused hand to the bottom of the
    cursor range, and the bottom of the cursor range is `elMin` = -1.05 rad -- sixty degrees
    below the horizontal, not ninety. Measured, idle, bench, three seconds settled:
@@ -419,6 +430,138 @@ cheap and change what should be built next: the first and the fourth.**
    policy's wrist does, and what a low guard can reach, to improve how a resting arm looks
    is a trade somebody should make deliberately at a browser. The alternative is a rest path
    that does not go through the cursor at all, which is a second code path into `Arm.aim`.
+
+## Two hands, and what a shield is finally worth
+
+All from `.review/two-hands.mjs`: 24 bouts a row, 20 s cap, `duelist` carrying the loadout
+against `swinger` with a sword. "Taken" is the sum of what is missing from every limb at the
+end, meaned over the 24.
+
+| loadout | damage taken | died | killed | damage dealt | blows blocked |
+|---|---|---|---|---|---|
+| sword + empty | 284.5 | 7 / 24 | 17 / 24 | 4626 | 531 |
+| **sword + shield** | **160.8** | **0 / 24** | **24 / 24** | 5167 | 1313 |
+| sword + buckler | 278.0 | 3 / 24 | 21 / 24 | 5173 | 1315 |
+| sword + sword | 294.4 | 4 / 24 | 20 / 24 | **6551** | 984 |
+| shield + sword | 298.6 | 6 / 24 | 17 / 24 | 6190 | 1492 |
+
+**The shield halves the damage and the fighter stops dying.** That is item 10 of "what is
+still owed" discharged: it recorded an `idle` fighter *taking more* damage for carrying a
+shield, 90 against 28, because it held the thing wherever its cursor happened to sit. `idle`
+is unchanged and always will be -- it is the control, and a fighter that does nothing gets
+nothing from a shield -- but every policy that plans a hand now knows what a shield is for.
+
+**Two swords use both hands.** The second one deals 2957 of the 6551, over 201 blows. Before
+this session it dealt zero, because `blankIntent` parked it at `restPointerY` and no policy
+ever wrote it again. It costs defence, which is the honest trade for the loadout.
+
+**A shield belongs in the off hand**, and by a factor of two: 160.8 taken with the board in
+the secondary against 298.6 with it in the primary. `swinger` chambers high on its own right
+and cuts across to its left, so its blows arrive on our left, and that is the side the board
+has to be on. The mechanism is a reading of one opponent rather than a law.
+
+**`swinger` gains much less than `duelist`** -- 182.9 taken to 180.1, though it dies 14 times
+in 24 instead of 18 and deals 29 % more. That is its documented character working: it never
+reads the other fighter's blade, so its shield covers the chest it is walking at rather than
+the point that is coming. A shield that tracked an incoming blade would be a different policy
+wearing this one's name.
+
+### Placement, and then the wrist
+
+A strapped plate's normal is square to the forearm, so the most of it an enemy can ever see
+is `sin` of the angle between the forearm and the line to him -- and `roll` slides that normal
+all the way round the circle. The first is the ceiling and the second is how much of it is
+collected, and **nothing in the program was setting the second**. Held poses, 30 threat
+bearings, settled, `-outboard` sign:
+
+| roll | of what placement made available | worst pose | hand off its anchor |
+|---|---|---|---|
+| 0 | 56 %, 63 % | 0.054 | 32 mm |
+| 0.8 | 94 %, 96 % | 0.080 | 36 mm |
+| **1.0** | **96 %, 96 %** | 0.161 | 34 mm |
+| 2.0 | 62 %, 84 % | 0.095 | 103 mm |
+
+(Two figures a row: the secondary hand and the primary.)
+
+**A servo was written first and the measurement threw it out.** It read the plate's actual
+facing out of the world, took the signed angle to where it should be, and stepped the command
+toward it -- textbook, and it wound up. The command moved faster than the arm could follow, so
+the error never closed: 237 of 420 sampled steps sat pinned at the +-2.6 wrist limit, the hand
+was a median 137 mm off its own anchor, and the plate stopped being square to the forearm at
+all. It collected 54 % where the constant collects 96 %. `HandView` carried a `face`, a `hand`
+position and a `reach` for it, and all three went out with it.
+
+**The wrist has authority one way and not the other.** Swept at elevation zero, hand-to-anchor
+stray holding a shield: a roll of +1.0 on the *primary* arm swung across to azimuth -0.7
+strays **504 mm**, and -1.0 on the secondary swung the other way does the mirror of it. The
+usable sign is the one that matches the way the arm was swung. This is the arm defect the
+previous session recorded, met head on.
+
+### The two knobs, swept against damage rather than against geometry
+
+`GUARD.lift` is the largest single number in the guard and the first version had **the wrong
+sign on a good argument**: `shield.gripInset` puts the fist above the board's centre, so a
+hand held level with the threat covers the belly and not the head -- therefore lift it. Held
+high, the board covers the head and leaves everything under it open:
+
+| lift | taken | head | torso | pelvis | legs |
+|---|---|---|---|---|---|
+| +0.16 | 241.0 | 16.4 | 70.5 | 38.4 | 23.2 |
+| -0.05 | 212.7 | 22.0 | 45.7 | 26.8 | 25.7 |
+| **-0.20** | **160.8** | 12.3 | 34.7 | 22.6 | 25.6 |
+| -0.28 | 193.8 | 27.1 | 36.0 | 22.4 | 21.6 |
+
+The no-shield control takes 284.5 with 58.9 of it on the head and **no leg damage at all**, so
+a low guard trades some legs for most of a head. `GUARD.across` was derived from the geometry
+at 0.785 rad and then swept: 213.9 at 0.45, 214.3 at 0.65, **160.8 at 0.80**, 195.4 at 0.95,
+184.7 at 1.10. Derivation and measurement agreeing is worth recording precisely because they
+so often do not.
+
+### Aiming from the wrong shoulder
+
+The two sockets are 420 mm apart and `BodyView.shoulder` is the primary's, so a policy that
+aimed everything from it was aiming its *other* hand from the wrong side of the chest. It cost
+almost everything that hand could do:
+
+| the sword is in | damage to their head | to their torso | of total | bouts they died |
+|---|---|---|---|---|
+| the primary | 90.0 | 45.0 | 201.1 | 9 / 12 |
+| the secondary, before | 19.7 | 216.3 | 483.4 | **0 / 12** |
+| the secondary, after | 71.1 | 38.1 | 248.8 | 7 / 12 |
+
+A left-handed fighter dealt **twice** the damage and killed nobody, because it landed on
+torsos and limbs rather than on the head that ends a bout. The primary's column is
+byte-identical before and after, which is what says only the other hand moved.
+
+### The policy table did not move, except where it should have
+
+Same seed, same day, `npm run measure`. `swinger vs idle` is identical to every digit; the
+swinger's own numbers in `duelist vs swinger` are identical; the duelist's moved a little --
+bout length 5.18 s to 5.22, damage 244.41 to 248.32, severs 32 to 35. That drift is one
+change and it is an improvement: **a guard no longer covers a sword that has been cut off and
+dropped.** A severed arm keeps its weapon, so `HandView.tip` goes on reporting where the blade
+landed, and `threatHand` is what now skips it.
+
+### The shield in the page, at last
+
+The previous two sessions recorded that Chrome freezes `requestAnimationFrame` in a hidden
+tab, so nothing could be looked at. **There is a way through it**: force `scene.render()` by
+hand after stepping the world, and the canvas paints. Screenshots taken that way settle three
+things nobody had seen. The heater is held across the chest with the elbow bent and the boss
+facing out -- a person holding a shield, not a plate on a stick. The buckler is punched out on
+a straight arm, small and round and facing where it points, which is what a buckler is. And
+the fist sits 615 mm from the chest centre at `shield.reachCap`, level with the sternum at
+1.19 m.
+
+**The shield hand strays like the sword hand does.** With the bout over and nothing hitting
+either arm, the median hand-to-anchor stray is 56 mm on the shield and 53 mm on the sword. In
+a live exchange it is 167 mm against the sword's 85 -- worse, and the same order, and a 4 kg
+board being struck a thousand times a run is enough to account for it. The shield's pose is
+not what strays arms.
+
+**And the pause from `over` works**, which session 01 could only pin in unit tests. Space from
+a decided bout shows the pause panel and leaves the phase alone; Space again resumes with both
+fighters still standing; `?` toggles the key list; `R` goes to the setup screen.
 
 ## The shield, and what a pose was hiding
 
