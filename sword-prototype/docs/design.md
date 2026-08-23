@@ -437,6 +437,51 @@ shield hand already turned to the front, and the stray goes to zero.
 its original cases still call it with one argument and still pass unedited. The damage model
 this prototype was tuned against is still exactly the damage model.
 
+### Two shields, because there are two ways to hold one
+
+The strapped shield above was still wrong, and the way it was wrong is the same shape as the
+lollipop: one hold was being asked to be two.
+
+A **buckler** is not a small shield, it is a *differently held* one. It is gripped on a bar
+behind its boss and punched out on the end of a straight arm, so its face runs **along** the
+arm -- which is the blade's mount, the very mount a heater shield had to be taken out of. It
+therefore needs none of the strapped shield's machinery: no `handFrame`, no square-to-the-
+front hand, no conditioning. It faces wherever the arm points, which is always directly away
+from its owner, and that is the whole of the rule the owner asked for. `mountFor("buckler")`
+is `mountFor("sword")`, and `tests/shield.test.mjs` asserts they are the same object's worth
+of numbers so nobody "fixes" it later.
+
+Two predicates rather than one string comparison in five places: `isShield` (covers, scores
+nothing, goes on the layer its owner's trunk can stop) and `isStrapped` (mounted across the
+forearm, and everything that costs). They are different questions and a buckler answers them
+differently.
+
+**The strapped shield's frame is seeded from the radial now.** It used to be seeded from the
+torso's *forward*, and that was wrong in the commonest pose rather than in a corner. A plate
+whose normal is square to the forearm cannot face forward while the forearm points forward,
+so an arm held out at the enemy collapsed the seed and its direction became solver noise.
+Worse at rest: an unused hand sits sixty degrees below the horizontal, and the component of
+*forward* square to an arm pointing down points sixty degrees **up** -- the plate faced the
+sky, which is exactly what "angled almost randomly, often just vertically pointed up"
+describes. Seeding from `hand - torsoCentre` is the owner's own rule, facing away from the
+holder on the surface of a sphere, and it is degenerate only where the arm points along the
+shoulder's offset from the chest, which is one corner of the envelope rather than its middle.
+
+It is also **body-relative and knows nothing about the enemy**, which is what keeps it out of
+the seam. A plate that turned to face an incoming blade would be defensive aim-assist, and
+`Arm` has no view to do it with even if that were wanted.
+
+The board comes in as well: `standOff` halved, the fist slid back along it, and a **reach
+ceiling** so the elbow is bent. That last one is not the knob the previous session removed --
+that was a *floor* under `reachGuard`, refuted because lifting the reach moved the plate
+closer to the head. This is the opposite bound and that measurement argues for it.
+
+**What none of it fixes is placement**, and the numbers in `docs/measurements.md` are blunt
+about it: an arm pointed at the enemy shows him 0.033 m^2 of a 0.26 m^2 board, and an arm
+held across the line shows him 0.190. The mount decides what the plate *can* do and only
+whoever is aiming the arm decides what it *does*. That is the next session and it is the same
+change as teaching a policy to fight with both hands.
+
 ### The two-handed club, which was wrong twice
 
 The design was two motorised grips pulling one haft, so that the 850 N ceilings add up on

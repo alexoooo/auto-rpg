@@ -130,25 +130,53 @@ const toSegment = (p, a, b) => {
   return Vector3.Distance(p, a.add(ab.scale(t)));
 };
 
-/** How far the plate is inside the trunk, in millimetres, at its deepest. */
-function biteMm(fighter, arm) {
+/**
+ * A grid of points over the face of whichever shield this is, in its own frame.
+ *
+ * **Per kind, and it has to be.** This used to be the heater shield's rectangle
+ * written out inline, which would have gone on passing for a buckler by sampling
+ * a 440x600 mm patch of empty air where a 340 mm disc is -- a green test
+ * asserting nothing, which `AGENTS.md` calls the worst defect this directory
+ * produces. The two kinds do not even agree about which local axis is the long
+ * one: a strapped shield lies along +Z and a buckler is a disc in the XZ plane
+ * with its normal on +Y.
+ */
+function facePoints(kind) {
+  const points = [];
+  if (kind === "buckler") {
+    const B = CONFIG.buckler;
+    for (let ring = 0; ring <= 3; ring += 1) {
+      const r = (ring / 3) * (B.diameter / 2);
+      const steps = ring === 0 ? 1 : 8 * ring;
+      for (let i = 0; i < steps; i += 1) {
+        const a = (i / steps) * Math.PI * 2;
+        points.push(new Vector3(Math.cos(a) * r, B.standOff, Math.sin(a) * r));
+      }
+    }
+    return points;
+  }
   const S = CONFIG.shield;
   const along = S.height / 2 - S.gripInset;
+  for (let i = 0; i <= 6; i += 1) {
+    for (let j = 0; j <= 8; j += 1) {
+      points.push(
+        new Vector3((i / 6 - 0.5) * S.width, S.standOff, along + (j / 8 - 0.5) * S.height),
+      );
+    }
+  }
+  return points;
+}
+
+/** How far the plate is inside the trunk, in millimetres, at its deepest. */
+function biteMm(fighter, arm) {
   const m = arm.weapon.root.computeWorldMatrix(true);
   const capsules = trunk(fighter);
   const world = new Vector3();
   let deepest = 0;
-  for (let i = 0; i <= 6; i += 1) {
-    for (let j = 0; j <= 8; j += 1) {
-      const local = new Vector3(
-        (i / 6 - 0.5) * S.width,
-        S.standOff,
-        along + (j / 8 - 0.5) * S.height,
-      );
-      Vector3.TransformCoordinatesToRef(local, m, world);
-      for (const c of capsules) {
-        deepest = Math.max(deepest, c.radius - toSegment(world, c.a, c.b));
-      }
+  for (const local of facePoints(arm.weapon.kind)) {
+    Vector3.TransformCoordinatesToRef(local, m, world);
+    for (const c of capsules) {
+      deepest = Math.max(deepest, c.radius - toSegment(world, c.a, c.b));
     }
   }
   return deepest * 1000;
@@ -171,31 +199,65 @@ test("an arm holding a shield tracks its anchor as closely as one holding a swor
   );
 });
 
-test("a shield stays out of the fighter carrying it, over the whole aiming envelope", async (t) => {
-  const { engine, left, intent, run } = await ring({ primary: "shield", secondary: "empty" });
-  t.after(() => engine.dispose());
+for (const kind of ["shield", "buckler"]) {
+  test(`a ${kind} stays out of the fighter carrying it, over the whole aiming envelope`, async (t) => {
+    const { engine, left, intent, run } = await ring({ primary: kind, secondary: "empty" });
+    t.after(() => engine.dispose());
 
-  let worst = 0;
-  let worstAt = null;
-  for (const pointerX of [-1, -0.5, 0, 0.5, 1]) {
-    for (const pointerY of [-1, 0, 1]) {
-      for (const roll of [-2.6, 0, 2.6]) {
-        for (const guard of [false, true]) {
-          Object.assign(intent.primary, { pointerX, pointerY, roll, guard });
-          run(0.4);
-          const bite = biteMm(left, left.arms.primary);
-          if (bite > worst) {
-            worst = bite;
-            worstAt = { pointerX, pointerY, roll, guard };
+    let worst = 0;
+    let worstAt = null;
+    for (const pointerX of [-1, -0.5, 0, 0.5, 1]) {
+      for (const pointerY of [-1, 0, 1]) {
+        for (const roll of [-2.6, 0, 2.6]) {
+          for (const guard of [false, true]) {
+            Object.assign(intent.primary, { pointerX, pointerY, roll, guard });
+            run(0.4);
+            const bite = biteMm(left, left.arms.primary);
+            if (bite > worst) {
+              worst = bite;
+              worstAt = { pointerX, pointerY, roll, guard };
+            }
           }
         }
       }
     }
-  }
 
-  // Deepest anywhere in ninety poses is single-digit millimetres, which is less
-  // than the plate's own half thickness and inside the solver's contact slop.
-  assert.ok(worst < 10, `plate ${worst.toFixed(1)} mm inside the trunk at ${JSON.stringify(worstAt)}`);
+    // Deepest anywhere in ninety poses is single-digit millimetres, which is
+    // less than the plate's own half thickness and inside the solver's contact
+    // slop.
+    assert.ok(
+      worst < 10,
+      `${kind} ${worst.toFixed(1)} mm inside the trunk at ${JSON.stringify(worstAt)}`,
+    );
+  });
+}
+
+test("a strapped shield is held closer in than a buckler is held out", async (t) => {
+  // The owner's complaint, as a number: "the shield is held with a full arm
+  // extended, that's not how a person holds a shield, unless it's a buckler."
+  // So the two must not agree, and the strapped one must be the near one.
+  const shield = await ring({ primary: "shield", secondary: "empty" });
+  t.after(() => shield.engine.dispose());
+  shield.run(1.5);
+  const strapped = shield.left.arms.primary.reach;
+
+  const buckler = await ring({ primary: "buckler", secondary: "empty" });
+  t.after(() => buckler.engine.dispose());
+  buckler.run(1.5);
+  const punched = buckler.left.arms.primary.reach;
+
+  assert.ok(
+    strapped <= CONFIG.shield.reachCap + 1e-6,
+    `a strapped shield reached ${strapped.toFixed(3)} m, past its cap of ${CONFIG.shield.reachCap}`,
+  );
+  assert.ok(
+    punched > strapped + 0.05,
+    `a buckler is punched out (${punched.toFixed(3)} m) and a shield is not (${strapped.toFixed(3)} m)`,
+  );
+  assert.ok(
+    Math.abs(punched - CONFIG.arm.reachNeutral) < 0.02,
+    `a buckler takes the blade's reach, not a capped one: ${punched.toFixed(3)} m`,
+  );
 });
 
 test("the collision table lets a shield rest on its owner and a blade pass through", async (t) => {
@@ -241,9 +303,10 @@ test("the collision table lets a shield rest on its owner and a blade pass throu
   }
 });
 
-test("a shield's face is square to the arm and a blade's runs along it", () => {
+test("a strapped shield's face is square to the arm and a buckler's runs along it", () => {
   // `mountFor` gives the weapon's own +X and +Y in the hand's frame, and the
-  // hand's -Y is the arm. So a blade's +Y is the arm, and a shield's is not.
+  // hand's -Y is the arm. So a blade's +Y is the arm, and a strapped shield's is
+  // not -- and this is the whole difference between the two shields.
   const arm = new Vector3(0, -1, 0);
 
   const blade = mountFor("sword");
@@ -251,11 +314,22 @@ test("a shield's face is square to the arm and a blade's runs along it", () => {
 
   const shield = mountFor("shield");
   assert.equal(Vector3.Dot(shield.perp, arm), 0, "a shield's face is square to the arm");
-  // And on the hand's +X, which is the axis `roll` turns -- so `roll` is where a
-  // shield faces, and zero is square to the fighter's own front.
+  // And on the hand's +X, which is the axis `roll` turns.
   assert.equal(shield.perp.x, 1);
 
-  for (const kind of ["sword", "shield", "club"]) {
+  const buckler = mountFor("buckler");
+  assert.equal(
+    Vector3.Dot(buckler.perp, arm),
+    1,
+    "a buckler is punched out along the arm, so it faces wherever the arm points",
+  );
+  assert.deepEqual(
+    { axis: buckler.axis.asArray(), perp: buckler.perp.asArray() },
+    { axis: blade.axis.asArray(), perp: blade.perp.asArray() },
+    "and it takes the blade's mount exactly, which is why it needs none of the shield's machinery",
+  );
+
+  for (const kind of ["sword", "shield", "buckler", "club"]) {
     const { axis, perp } = mountFor(kind);
     assert.equal(Vector3.Dot(axis, perp), 0, `${kind}: the two mount axes must be perpendicular`);
     assert.equal(Vector3.Cross(axis, perp).length(), 1, `${kind}: and unit, or the frame is not one`);
@@ -269,7 +343,7 @@ test("every weapon is built in the frame its own weld demands", async (t) => {
   // standing perfectly still: sword 48.3 m/s before this held, club 80.4,
   // shield 26.8. They are 23.9, 19.1 and 3.5 now, and what is left is the arm
   // being lifted out of its build pose rather than the weld snapping shut.
-  for (const kind of ["sword", "shield", "club"]) {
+  for (const kind of ["sword", "shield", "buckler", "club"]) {
     const { engine, left } = await ring({ primary: kind, secondary: "empty" });
     t.after(() => engine.dispose());
 

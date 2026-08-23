@@ -116,6 +116,20 @@ test("a shield scores nothing however hard it is swung", () => {
   assert.equal(severs(score, -500, "shield"), false, "a shield cannot take a limb off");
 });
 
+test("a buckler is a shield: it shoves and it scores nothing", () => {
+  // Same rule, and deliberately the same rule. A buckler punch is a real
+  // technique and this refuses it anyway -- see `scoring.ts` -- because the
+  // moment a shield scores, every policy holding one has an offensive option
+  // nobody designed and the guard stops being a guard.
+  const hard = { speed: 20, edgeAlignment: 1, bladeAlignment: 1, nearTip: true };
+  const score = scoreHit(hard, "buckler");
+  assert.equal(score.damage, 0, "a buckler does no damage however hard it arrives");
+  assert.equal(score.quality, 0);
+  assert.equal(score.kind, "slap");
+  assert.equal(severs(score, -500, "buckler"), false, "a buckler cannot take a limb off");
+  assert.deepEqual(score, scoreHit(hard, "shield"), "and it is scored exactly as a shield is");
+});
+
 test("a club does not care how it is held", () => {
   // The whole character of the weapon. A sword swung flat is a shove; a club has
   // no flat, so the same motion at the same speed is worth the same either way.

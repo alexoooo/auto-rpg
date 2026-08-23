@@ -5,6 +5,7 @@ import { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
 import {
   PhysicsShapeBox,
   PhysicsShapeContainer,
+  PhysicsShapeCylinder,
 } from "@babylonjs/core/Physics/v2/physicsShape.js";
 import { PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import type { Material } from "@babylonjs/core/Materials/material.js";
@@ -21,7 +22,7 @@ import { CONFIG } from "./config.ts";
  * ask "is there anything in this hand" first. The one place it does become a
  * null is the physics -- there is no body for an empty hand to weld to.
  */
-export type WeaponKind = "sword" | "shield" | "club" | "empty";
+export type WeaponKind = "sword" | "shield" | "buckler" | "club" | "empty";
 
 export interface WeaponMaterials {
   steel: Material;
@@ -48,10 +49,53 @@ interface Built {
 }
 
 /** Every kind that is actually a thing, in the order the picker offers them. */
-export const WEAPON_KINDS: readonly WeaponKind[] = ["sword", "shield", "club", "empty"];
+export const WEAPON_KINDS: readonly WeaponKind[] = [
+  "sword",
+  "shield",
+  "buckler",
+  "club",
+  "empty",
+];
 
 /** How many hands a kind takes. Only the club takes two. */
 export const handsFor = (kind: WeaponKind): 1 | 2 => (kind === "club" ? 2 : 1);
+
+/**
+ * Is this kind a shield -- something that covers and scores nothing?
+ *
+ * True for both. What follows from it: the thing goes on the shield collision
+ * layer, which is the one its owner's own trunk can stop, and `scoring.ts`
+ * gives it no damage however hard it arrives.
+ */
+export const isShield = (kind: WeaponKind): boolean =>
+  kind === "shield" || kind === "buckler";
+
+/**
+ * Is this kind **strapped** across the forearm, rather than held out on the arm?
+ *
+ * True for the heater shield and nothing else, and it is a different question
+ * from `isShield` -- which is exactly why they are two functions. Being strapped
+ * is what forces the plate's normal square to the forearm, and everything that
+ * costs follows from it: the hand is built already turned to the front so the
+ * board is not made inside its owner's pelvis, the frame is seeded from the
+ * radial rather than from world up, and the reach is capped so the elbow bends.
+ *
+ * A buckler is none of that. It is held out on the end of the arm like a blade,
+ * so it takes the blade's mount, the blade's seed and the blade's reach.
+ */
+export const isStrapped = (kind: WeaponKind): boolean => kind === "shield";
+
+/**
+ * A kind with no builder, refused at compile time.
+ *
+ * `kind: never` is the whole of it: every branch above has to have narrowed the
+ * union to nothing before this can be called, so adding a kind and forgetting to
+ * build it is a type error rather than a weapon that quietly turns out to be a
+ * club.
+ */
+const unbuildable = (kind: never): never => {
+  throw new Error(`no builder for weapon kind ${String(kind)}`);
+};
 
 /**
  * How a kind sits in the fist: two of the weapon's own axes, written in the
@@ -73,6 +117,15 @@ export const handsFor = (kind: WeaponKind): 1 | 2 => (kind === "club" ? 2 : 1);
  * choice. For the shield that works out as: the face normal on the hand's +X,
  * which is the axis `roll` turns, so **`roll` is where the shield faces**; and
  * the plate's long axis on the hand's -Y, so the plate lies along the forearm.
+ *
+ * A **buckler** takes the default pair, the same one a blade does, and that is
+ * the whole difference between the two shields rather than an oversight. A
+ * buckler is not strapped to anything: it is a small round plate held on a bar
+ * behind its boss, punched out on the end of a straight arm. Its face normal
+ * therefore runs *along* the arm -- the mount a strapped shield was wrong to
+ * have, and the right one here -- so it faces wherever the arm points, which is
+ * always radially outward from its owner. The pose the heater shield had to be
+ * taken out of is the pose a buckler is for.
  */
 export interface Mount {
   /** Where the weapon's own +X points, in the hand's frame. */
@@ -201,11 +254,25 @@ export class Weapon {
 
     this.shape = new PhysicsShapeContainer(scene);
 
+    // A hand holding nothing has no body to weld, so `Arm` never builds one --
+    // but `empty` is a member of the union and the exhaustiveness check below
+    // cannot narrow it away on its own. Refused here rather than silently built.
+    if (opts.kind === "empty") throw new Error("an empty hand has no weapon body");
+
     if (opts.kind !== "sword") {
+      // Exhaustive, and it is worth the extra line. This was a ternary whose
+      // else-branch was `buildClub`, so a kind added to the union and to the
+      // picker compiled clean, passed `tsc`, and shipped as a club -- which for
+      // a shield is a shield-shaped thing that scores crushing blows. `never` is
+      // what turns "you forgot a builder" from a playtest into a compile error.
       const built =
         opts.kind === "shield"
           ? this.buildShield(scene, opts.name, materials)
-          : this.buildClub(scene, opts.name, materials);
+          : opts.kind === "buckler"
+            ? this.buildBuckler(scene, opts.name, materials)
+            : opts.kind === "club"
+              ? this.buildClub(scene, opts.name, materials)
+              : unbuildable(opts.kind);
       this.baseOffset = built.baseOffset;
       this.tipOffset = built.tipOffset;
       this.body = this.finish(scene, opts, built.mass, built.centreOfMass);
@@ -396,6 +463,104 @@ export class Weapon {
       centreOfMass: new Vector3(0, out * 0.75, along * 0.75),
       baseOffset: 0,
       tipOffset: out + S.thickness,
+    };
+  }
+
+  /**
+   * A buckler: a small round plate on a bar behind its boss, punched out on the
+   * end of the arm.
+   *
+   * It takes the **default** mount, the blade's, so its face normal (local +Y)
+   * runs out along the arm rather than square to it. That is the entire
+   * difference from the shield above and it is what makes a buckler a buckler:
+   * you do not strap one on, you hold it out and put it between you and the
+   * point, so the plate faces wherever the arm is pointing -- always directly
+   * away from its owner, which is the one thing a shield has to do.
+   *
+   * The heater shield had that mount and was wrong to. The pose it produced --
+   * a plate held out at the end of a straight arm -- is not how anybody carries
+   * 600 mm of limewood, and is exactly how everybody carries 340 mm of steel.
+   *
+   * So it needs none of the strapped shield's machinery: no `handFrame`, no
+   * square-to-the-front seed, no `minFace` conditioning. `roll` spins it about
+   * its own axis, and it is round, so that is invisible -- which is the honest
+   * reason a buckler is the easy one.
+   *
+   * Round in the solver too, not a squared-off box. A box would over-cover the
+   * corners by about a quarter of the plate's own area, and small is the whole
+   * point of the thing.
+   */
+  private buildBuckler(
+    scene: Scene,
+    name: string,
+    materials: WeaponMaterials,
+  ): Built {
+    const B = CONFIG.buckler;
+    const out = B.standOff;
+    const radius = B.diameter / 2;
+
+    const plate = MeshBuilder.CreateCylinder(
+      `${name}.plate`,
+      { height: B.thickness, diameter: B.diameter, tessellation: 20 },
+      scene,
+    );
+    plate.position.set(0, out, 0);
+    plate.material = materials.steel;
+    plate.parent = this.root;
+
+    const rim = MeshBuilder.CreateTorus(
+      `${name}.rim`,
+      { diameter: B.diameter, thickness: B.thickness * 1.8, tessellation: 20 },
+      scene,
+    );
+    rim.position.set(0, out, 0);
+    rim.material = materials.brass;
+    rim.parent = this.root;
+
+    // The dome over the fist. On a buckler this is structural rather than
+    // decorative -- the hand is inside it, which is why the grip bar can sit
+    // behind the plate instead of on top of it.
+    const boss = MeshBuilder.CreateSphere(
+      `${name}.boss`,
+      { diameter: B.bossDiameter, segments: 12 },
+      scene,
+    );
+    boss.position.set(0, out - B.bossDiameter * 0.22, 0);
+    boss.scaling.set(1, 0.75, 1);
+    boss.material = materials.steel;
+    boss.parent = this.root;
+
+    const grip = MeshBuilder.CreateCylinder(
+      `${name}.grip`,
+      { height: B.gripLength, diameter: 0.03, tessellation: 8 },
+      scene,
+    );
+    // Across the hand, not along the arm: the bar a buckler is held by runs at
+    // right angles to the way it is pointed.
+    grip.rotation.z = Math.PI / 2;
+    grip.position.set(0, out - B.bossDiameter * 0.5, 0);
+    grip.material = materials.leather;
+    grip.parent = this.root;
+
+    this.shape.addChild(
+      new PhysicsShapeCylinder(
+        new Vector3(0, -B.thickness / 2, 0),
+        new Vector3(0, B.thickness / 2, 0),
+        radius,
+        scene,
+      ),
+      new Vector3(0, out, 0),
+    );
+
+    return {
+      mass: B.mass,
+      // Almost all of it in the plate, which is where a steel buckler's is. The
+      // lever is short, and that is the point of comparison with the shield: a
+      // buckler is quick because its mass is close to the fist, not because it
+      // is light.
+      centreOfMass: new Vector3(0, out * 0.9, 0),
+      baseOffset: 0,
+      tipOffset: out + B.thickness,
     };
   }
 

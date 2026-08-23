@@ -68,6 +68,19 @@ npm run dev             # http://localhost:5180, strictPort
   those become 23.9 and 19.1, which is the arm lifting out of its build pose and nothing
   else. If you add a kind, build it through `mountRotation` -- and note that a bout's *peak*
   readings carry a frame-one flick forever, because a peak is a maximum.
+- **A ternary chain with a default branch is not a dispatch table, it is a silent
+  substitution.** `Weapon`'s constructor read `kind === "shield" ? buildShield : buildClub`,
+  so any kind added to the union and to the picker compiled clean, passed `tsc`, passed the
+  build, and shipped **as a club** -- which for a shield means a shield-shaped thing that
+  scores crushing blows and severs limbs. It is a `never` default now
+  (`weapon.ts`'s `unbuildable`), so a kind without a builder is a compile error. The same
+  shape of hole is worth looking for wherever a union is switched on: `handsFor`, `mountFor`
+  and `PARRY_LABEL` are the ones that existed, and only the last was already total.
+- **A test helper that reconstructs geometry from `CONFIG` is pinned to one kind's geometry.**
+  `tests/shield.test.mjs` sampled the plate by rebuilding the heater shield's rectangle from
+  `CONFIG.shield` inline. Handed a buckler it would have gone on passing while sampling a
+  440x600 mm patch of empty air where a 340 mm disc is -- a green test asserting nothing,
+  which is the defect this file calls the worst one available. It takes the kind now.
 - **A body built overlapping another on a layer that forbids the overlap deadlocks the chain
   driving it, and the symptom is a pose.** A shield stands 110 mm off the fist along the
   hand's +X, a hand is built in the torso's frame, so an off-hand shield was built inside its

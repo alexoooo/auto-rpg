@@ -93,6 +93,7 @@ export type Control = "mind" | "you";
 export const EQUIPMENT: readonly { name: string; label: string }[] = [
   { name: "sword", label: "Sword" },
   { name: "shield", label: "Shield" },
+  { name: "buckler", label: "Buckler" },
   { name: "club", label: "Club (two-handed)" },
   { name: "empty", label: "Empty" },
 ];

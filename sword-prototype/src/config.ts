@@ -312,8 +312,14 @@ export const CONFIG = {
      * of a straight arm, and this is the whole of what stands in for that. Too
      * small and the plate sits inside the hand; too large and the fighter is
      * carrying a door at arm's length.
+     *
+     * **Halved, from 0.11.** 110 mm is a plate held clear of the arm on a bar,
+     * which is a buckler's hold and not this one's -- and `CONFIG.buckler` is
+     * where that now lives. Strapped means the forearm lies against the back of
+     * the board, so what is left is the thickness of the enarmes and a wrist
+     * inside them.
      */
-    standOff: 0.11,
+    standOff: 0.055,
     /**
      * How far the plate reaches back past the fist, toward the shoulder.
      *
@@ -323,26 +329,122 @@ export const CONFIG = {
      * plate's centre, which is where the enarmes of a heater shield actually
      * are, and leaves 380 mm hanging on out past the hand.
      *
-     * It does not have to carry the whole guarantee on its own -- a shield is on
-     * a collision layer its owner's trunk can stop, and `arm.minShieldReach`
-     * keeps it from being drawn in that far in the first place -- but it is the
-     * one of the three that costs nothing.
+     * **280, from 220, and it is a trade rather than a correction.** 220 put the
+     * fist a third of the way up the board with 380 mm hanging on ahead of it,
+     * which is a plate carried in *front* of the hand. A strapped shield goes
+     * the other way: the arm passes through two enarmes and the hand grips the
+     * outer one, so most of the board sits behind the fist, over the forearm.
+     *
+     * Sliding the fist back does three good things and one bad one, all
+     * monotonically, and the table is why this is 280 and not 400. Bench, one
+     * fighter standing still, 150 poses over the cursor envelope, with the radial
+     * seed and the reach cap in place:
+     *
+     * | gripInset | faces the sky | off the radial | extent | stray > 20 mm |
+     * |---|---|---|---|---|
+     * | 0.16 | 4.0 % | 65.2 deg | 0.933 m | 13.3 % |
+     * | 0.22 | 4.0 % | 66.1 | 0.897 | 16.0 % |
+     * | **0.28** | **5.3 %** | **60.0** | **0.827** | **17.3 %** |
+     * | 0.34 | 6.0 % | 56.7 | 0.777 | 26.0 % |
+     * | 0.40 | 10.7 % | 53.1 | 0.747 | 30.7 % |
+     *
+     * The shipped shield before any of this read 11.3 %, 78.8 deg, 0.926 m and
+     * 16.0 %. 280 therefore improves every one of the owner's three complaints
+     * -- it faces the sky less than half as often, it faces outward eighteen
+     * degrees closer, and it is held a hundred millimetres nearer the body --
+     * while leaving the stray where it already was. Past 280 the facing keeps
+     * improving and the arm starts losing its anchor, which is a worse failure
+     * than a plate at a slight angle.
+     *
+     * ("Stray" is the hand against its own anchor. The median is 0.0 mm at every
+     * setting including this one; what moves is how many of the envelope's
+     * corners the arm cannot hold. See `docs/measurements.md` -- most of it is
+     * the wrist roll and it is not a shield problem.)
      */
-    gripInset: 0.22,
+    gripInset: 0.28,
+
+    /**
+     * The furthest a hand holding a strapped shield is asked to reach, metres
+     * from the shoulder.
+     *
+     * A **ceiling**, and the distinction from the knob that was removed matters:
+     * `arm.minShieldReach` was a *floor* under `reachGuard`, on the argument that
+     * a guard pulls the plate into the chest, and the measurement refuted it --
+     * lifting the reach moved the plate closer to the head, 623 mm to 307 mm.
+     * That reading is an argument *for* a ceiling. The complaint it answers is
+     * the other one: "the shield is held with a full arm extended, and that is
+     * not how a person holds a shield."
+     *
+     * The chain reaches 0.63 m, so `reachNeutral` at 0.45 is 71 % extended and
+     * `reachThrust` at 0.60 is 95 %. Neither is a shield arm. 0.32 is a bent
+     * elbow with the board over the forearm, and it caps a thrust as well --
+     * which is correct, because nobody lunges with a shield, and a `guard` at
+     * 0.28 still passes under it untouched.
+     */
+    reachCap: 0.32,
     bossDiameter: 0.13,
     gripLength: 0.12,
     mass: 4.0,
     /**
-     * How square to the front a shield insists on being, as a sine.
+     * How far off the radial a shield may be seeded before the frame is
+     * conditioned, as a sine.
      *
-     * Zero roll points the plate's face at the fighter's own front, which is
-     * only possible to the extent the arm is *not* pointing there -- the plate
-     * contains the forearm. 0.42 is sin 25 degrees: inside that cone the frame
-     * is conditioned with the horizontal square to the arm, so a shield in a
-     * hopeless pose stands on its edge rather than lying flat. `arm.ts`'s
+     * The seed used to be the fighter's own **front**, and its singularity was
+     * the commonest pose in the game: a plate whose normal is square to the
+     * forearm cannot face forward while the forearm points forward, so near an
+     * arm held out at the enemy the seed collapsed and its direction became
+     * whatever tiny way the aim happened to be off. That is the "angled almost
+     * randomly, often just vertically pointed up" the owner reported, and no
+     * amount of conditioning fixes a seed that is wrong.
+     *
+     * The seed is now the **radial**, hand minus torso centre, which is the
+     * plate facing away from its owner along the surface of a sphere. It is
+     * singular only when the arm points along the shoulder's own offset from the
+     * chest -- out sideways and up, one corner of the envelope -- rather than
+     * straight ahead.
+     *
+     * So this fires far less often than it did and is kept as insurance rather
+     * than as the mechanism. 0.42 is sin 25 degrees; inside that cone the frame
+     * is topped up with the horizontal square to the arm, outboard, so a shield
+     * in a hopeless pose stands on its edge rather than lying flat. `arm.ts`'s
      * `driveAnchor` has the argument at length.
      */
     minFace: 0.42,
+  },
+
+  /**
+   * The buckler: 340 mm of steel on a bar, punched out on a straight arm.
+   *
+   * The other half of the shield answer, and the easy half. Where a heater
+   * shield is strapped across the forearm and therefore cannot face forward
+   * while the arm does, a buckler is *held out* -- so it takes the blade's mount,
+   * its face normal runs along the arm, and it faces wherever the arm points.
+   * That is the owner's rule ("facing away from the holder, like the surface of
+   * a sphere") satisfied by geometry rather than by a seed.
+   *
+   * It buys that with area. A heater covers 0.26 m^2 and this covers 0.09, so it
+   * has to be *put* somewhere rather than merely held up -- which is the trade a
+   * buckler is, and it is the one that makes having two shields worth more than
+   * having a slider.
+   *
+   * Nothing here has been played with. The numbers are a real buckler's: a steel
+   * plate a third of a metre across, a couple of millimetres thick, with a domed
+   * boss deep enough for a fist behind it, coming out at about 1.2 kg.
+   */
+  buckler: {
+    diameter: 0.34,
+    thickness: 0.0045,
+    /**
+     * How far the plate stands off the fist, along the arm.
+     *
+     * The hand sits *inside* the boss, so this is the depth of the dome plus the
+     * bar behind it rather than an arbitrary gap. Too small and the fist is in
+     * front of the plate it is supposed to be behind.
+     */
+    standOff: 0.075,
+    bossDiameter: 0.115,
+    gripLength: 0.10,
+    mass: 1.2,
   },
 
   /**

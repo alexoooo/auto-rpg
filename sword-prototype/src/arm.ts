@@ -13,7 +13,14 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import { CONFIG } from "./config.ts";
 import type { ArmPose, HandIntent } from "./mind.ts";
 import { capsulePart, spherePart, joint, type Part } from "./rig.ts";
-import { Weapon, mountFor, mountRotation, type WeaponKind, type WeaponMaterials } from "./weapon.ts";
+import {
+  Weapon,
+  isStrapped,
+  mountFor,
+  mountRotation,
+  type WeaponKind,
+  type WeaponMaterials,
+} from "./weapon.ts";
 import { LAYER, COLLIDES } from "./physics.ts";
 
 const LINEAR = [
@@ -55,7 +62,7 @@ const UP = new Vector3(0, 1, 0);
  * are written in the torso's frame and would move with them.
  */
 function handFrame(kind: WeaponKind, rotation: Quaternion): Quaternion {
-  if (kind !== "shield") return rotation;
+  if (!isStrapped(kind)) return rotation;
   const local = Matrix.Identity();
   // +X to the torso's front, +Y still up the arm, +Z following from those two.
   Matrix.FromXYZAxesToRef(FORWARD, new Vector3(0, 1, 0), new Vector3(-1, 0, 0), local);
@@ -236,8 +243,14 @@ export class Arm {
     shoulder: new Vector3(),
     target: new Vector3(),
     aim: new Vector3(),
-    /** The torso's forward, in world space, as of this step's `aim`. */
-    front: new Vector3(0, 0, 1),
+    /**
+     * The torso's own centre, in world space, as of this step's `aim`.
+     *
+     * The centre of the sphere a shield's face points out of. It replaced the
+     * torso's *forward*, which is what the seed used to be and is the reason a
+     * plate faced the sky: see `driveAnchor`.
+     */
+    centre: new Vector3(),
     /** The horizontal square to the arm, for conditioning a shield's frame. */
     lateral: new Vector3(),
     aimFar: new Vector3(),
@@ -369,7 +382,7 @@ export class Arm {
     // and baffling when you try to swing. A shield welds differently, and
     // `mountFor` is where the difference and the argument for it live.
     const mount = mountFor(opts.weapon);
-    this.squaresToFront = opts.weapon === "shield";
+    this.squaresToFront = isStrapped(opts.weapon);
 
     this.weapon =
       opts.weapon === "empty"
@@ -732,6 +745,17 @@ export class Arm {
     const wanted = Math.min(
       input.thrust ? A.reachThrust : input.guard ? A.reachGuard : A.reachNeutral,
       A.reachMax,
+      // A **ceiling**, and only a strapped shield has one. `reachNeutral` is 71 %
+      // of the chain and `reachThrust` is 95 %, which is an arm held out
+      // straight -- right for a blade and for a buckler, and not how anybody
+      // carries 600 mm of board. `shield.reachCap` is a bent elbow.
+      //
+      // Read live rather than cached at construction, so it is tunable from the
+      // console like everything else in `CONFIG`. Note this is not the knob that
+      // was refuted: that was a *floor* under `reachGuard`, and the measurement
+      // that killed it -- lifting the reach moved the plate closer to the head --
+      // argues for this one.
+      this.squaresToFront ? CONFIG.shield.reachCap : Infinity,
     );
     this.armReach += (wanted - this.armReach) * (1 - Math.exp(-A.reachResponse * dt));
 
@@ -750,8 +774,9 @@ export class Arm {
     // Taken here rather than in `driveAnchor` because the torso's world matrix
     // is already in hand, and a second `getWorldMatrix()` on the same node in
     // the same step is the sort of thing that is free until somebody moves it.
-    Vector3.TransformNormalToRef(FORWARD, world, this.scratch.front);
-    this.scratch.front.normalize();
+    // The torso capsule's own origin is its centre, so this is the translation
+    // and not a transformed point.
+    world.getTranslationToRef(this.scratch.centre);
 
     target.copyFrom(shoulder).addInPlace(aim.scale(this.armReach));
 
@@ -783,32 +808,52 @@ export class Arm {
     // Where the hand's +X starts, before `roll` turns it about the arm.
     //
     // World up for a blade: the edge sits in the vertical plane through the aim,
-    // and a roll of zero is a level cut. A **shield** starts square to the
-    // fighter's front instead, because its +X is its face normal -- one seeded
-    // from the vertical would face wherever the arm happened to point, which is
-    // exactly the lollipop the mount was changed to stop. What that buys is that
-    // `roll` becomes "how far off square the shield is angled", and that zero,
-    // which is where every hand rests, is a shield facing the enemy.
-    edge.copyFrom(this.squaresToFront ? s.front : UP);
+    // and a roll of zero is a level cut.
+    //
+    // A **strapped shield** starts from the **radial** -- the line from its
+    // owner's own centre out through the hand -- because its +X is the plate's
+    // face normal, and where a shield should face is *away from the person
+    // holding it*, along the surface of a sphere centred on him. Whatever the
+    // arm is doing, the closest a plate square to the forearm can come to that
+    // is the radial with the arm projected out of it, which is exactly what the
+    // two lines below compute.
+    //
+    // It used to be seeded from the torso's **forward**, and that was wrong in
+    // the commonest pose in the game rather than in a corner. A plate whose
+    // normal is square to the forearm cannot face forward while the forearm
+    // points forward, so an arm held out at the enemy -- `duelist`'s covering
+    // line, and dead centre cursor -- collapsed the seed to nothing, and near
+    // there its *direction* was whatever tiny way the aim happened to be off.
+    // Worse, at rest: an unused hand sits at `elMin`, sixty degrees below the
+    // horizontal, and the component of *forward* square to an arm pointing down
+    // is a vector pointing sixty degrees **up**. The plate faced the sky, and
+    // "angled almost randomly, often just vertically pointed up" is exactly what
+    // that looks like from outside.
+    //
+    // The radial has neither failure. It is degenerate only where the arm points
+    // along the shoulder's own offset from the chest -- out sideways and up,
+    // one corner of the envelope -- and it varies smoothly everywhere else.
+    // Unit *before* the projection, so that what is left is the sine of the
+    // angle between the seed and the arm -- which is what `minFace` is and what
+    // the threshold below compares against. The radial is a displacement and the
+    // blade's `UP` is already a unit, so only one of them needs the step.
+    if (this.squaresToFront) {
+      edge.copyFrom(target).subtractInPlace(s.centre);
+      if (edge.lengthSquared() > 1e-8) edge.normalize();
+    } else {
+      edge.copyFrom(UP);
+    }
     edge.subtractInPlace(aim.scale(Vector3.Dot(edge, aim)));
     if (this.squaresToFront) {
-      // **The singularity, and it is a real one rather than an edge case.**
+      // Conditioning for that one corner, kept from when the seed was the front
+      // and the corner was the whole middle of the envelope. Short of
+      // `shield.minFace` the seed is topped up with the horizontal square to the
+      // arm, outboard, by exactly the shortfall -- continuous, since the top-up
+      // reaches zero at the threshold, and outboard rather than inboard so the
+      // plate leans away from its owner rather than across him. A shield in a
+      // hopeless pose then stands on its edge like a shield instead of lying
+      // flat like furniture.
       //
-      // A strapped shield's plate contains the forearm, so there is no
-      // forward-facing normal square to an arm that is itself pointing forward
-      // -- and an arm pointing forward is exactly what `duelist` does with its
-      // covering line. Near that pose the seed above is a short vector whose
-      // *direction* is whatever tiny way the aim happens to be off the front, so
-      // the plate rolls between vertical and flat on solver noise. Held dead on
-      // it, the shield lies flat like a tea tray.
-      //
-      // So the seed is floored: short of `shield.minFace` it is topped up with
-      // the horizontal square to the arm, outboard, by exactly the shortfall.
-      // Continuous -- the top-up reaches zero at the threshold -- and outboard
-      // rather than inboard so the plate leans away from its owner rather than
-      // across him. What it buys is that a shield held in a hopeless pose stands
-      // on its edge like a shield instead of lying flat like furniture. It does
-      // not make the pose a good one; only the policy can do that.
       const facing = edge.length();
       if (facing < CONFIG.shield.minFace) {
         Vector3.CrossToRef(UP, aim, s.lateral);

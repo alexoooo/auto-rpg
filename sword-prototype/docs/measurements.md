@@ -491,6 +491,81 @@ Two smaller ones, recorded where they were found rather than forgotten:
   behind the curtain. True since the hero; `R` from a decided bout is a second door onto
   it.
 
+## Two shields, and what a strapped one can and cannot do
+
+`docs/design.md` has the argument. The numbers, all from the bench
+(`.review/shield-facing.mjs`), one fighter standing still, 150 poses over the cursor
+envelope, 0.5 s settle each:
+
+| | faces the sky | off the radial (median) | worst | extent | held at | nearest to head |
+|---|---|---|---|---|---|---|
+| shield, before | 11.3 % | 78.8 deg | 156.2 deg | 0.926 m | 0.448 m | 111 mm |
+| **shield, after** | **5.3 %** | **60.0** | **113.4** | **0.827** | **0.320** | **114 mm** |
+| buckler | 20.0 % | 22.8 | 49.3 | 0.657 | 0.448 | 147 mm |
+
+*Faces the sky* is the owner's complaint made countable: the plate's normal within 30
+degrees of straight up. *Off the radial* is the angle between the normal and the line out
+from the fighter's own centre through the plate -- zero is "facing away from the holder, on
+the surface of a sphere", and a worst case of 156 degrees means the old shield sometimes
+faced **back at its owner**. *Extent* is the furthest corner of the board from the body's
+centre, which is "held at a full arm's length" as a number.
+
+The buckler's 20 % is not the same defect and is not one: its face runs *along* the arm, so
+pointing the arm up points the plate up, which is what a buckler does. Its 22.8 degrees off
+the radial is the shoulder's own offset from the chest and is the floor for any hand-held
+plate.
+
+**`gripInset` was chosen from a sweep rather than an argument**, and the table is beside the
+number in `config.ts`. It trades monotonically: sliding the fist back improves the facing
+and pulls the board in, and costs poses the arm can no longer hold.
+
+### The arm loses its anchor at the corners, and always did
+
+Bench, same sweep, hand against its own anchor:
+
+| kind | median | worst | poses over 20 mm |
+|---|---|---|---|
+| sword | 0.00 mm | 171 mm | 9.3 % |
+| shield | 0.00 mm | 444 mm | 17.3 % |
+| buckler | 0.00 mm | 272 mm | 4.7 % |
+
+**The median is zero for all three**, so this is the envelope's corners and not a pin. Four
+hypotheses were tested and three refuted:
+
+- *The own-trunk collision layer.* Refuted -- identical with the pair lifted, to the
+  hundredth of a millimetre. That layer still has never been observed to do anything.
+- *The plate's mass.* Refuted -- a shield at a sword's 1.35 kg strays 445 mm, same as at 4 kg.
+- *The board standing on the ground.* Refuted -- at the worst pose its lowest corner is
+  1.09 m up.
+- *Settling.* Refuted -- six times the settle time moves the worst reading by 7 mm.
+
+What is left is the **wrist roll**. Holding roll at zero and sweeping everything else drops
+the shield's worst from 444 mm to 151 mm and the sword's from 171 to 91. A large commanded
+roll at an inboard aim asks for an arm twist the shoulder cone refuses, and the solver pays
+for the orientation out of the position. **This is not a shield defect and it is not new** --
+it is a property of the arm that nobody had measured, and it means the roll control does not
+fully work at the edges of the envelope. Somebody should decide whether the shoulder cone is
+too tight; it is a controller change with its own measurements.
+
+### What is still not fixed, and it is the placement
+
+Measured in the page, a fighter at guard, how much of the board an enemy straight ahead
+actually sees -- the plate's 0.26 m^2 times how square its face is to him:
+
+| cursor X | face-on | seen |
+|---|---|---|
+| -1.0 (across) | 0.26 | 0.068 m^2 |
+| -0.2 (ahead) | 0.12 | 0.033 |
+| +0.6 (out) | 0.58 | 0.154 |
+| +0.75 | 0.73 | 0.190 |
+
+A strapped plate's normal is square to the forearm, so it can only face the enemy to the
+extent the **forearm does not**. The arm has to be held *across the line of the blow*, and
+an arm pointed at the enemy presents an edge however it is rolled -- 0.033 m^2 of a 0.26 m^2
+board. No mount and no seed can fix that; only whoever is placing the arm can, which is
+`docs/measurements.md` item 10 and the next session. The screenshots are the same story: at
+cursor 0.75 the board reads as a shield, and at -0.2 it is a diagonal sliver.
+
 ## The pause, and what a hidden tab could not answer
 
 `Space` pausing and never resuming was three faults chained, and `docs/design.md` has the

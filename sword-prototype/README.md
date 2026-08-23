@@ -128,19 +128,27 @@ goes on bleeding as it falls.
 
 ## Two hands
 
-Each hand takes a **sword**, a **shield** or **nothing**, chosen per corner before the
+Each hand takes a **sword**, a **shield**, a **buckler** or **nothing**, chosen per corner before the
 fight. Both are real arms — three bones, a shoulder cone, an elbow hinge, a free wrist and
 a keyframed anchor dragging the whole thing about — so a shield is not a state a fighter is
 in, it is a plank of limewood with a steel rim welded into a fist, and it blocks by being
 in the way. The collision layers already said an enemy blade and this side's weapons may
 touch; blocking needed a shape, not a rule.
 
-A shield is the one thing a hand carries that is **not aimed**. A blade leaves the fist
-along the arm; a shield is strapped across the forearm, so its face is square to the arm and
-can point at the enemy whatever the arm is doing. It is also the one thing its owner's own
-trunk can stop — it has a collision layer of its own for that, while a blade still passes
-through its owner, which is a decision the layer table argues at length. Where a shield
-faces is the wrist roll, and zero roll is square to the fighter's own front.
+There are **two shields**, and they differ by how they are held rather than by size. A
+**shield** is strapped across the forearm, so its face is square to the arm: it covers a lot,
+and it covers whatever your forearm is lying across rather than whatever you are pointing at.
+A **buckler** is gripped on a bar behind its boss and punched out on the end of a straight
+arm, so it faces exactly where you point it and covers a third as much. Neither scores.
+Both are the one thing its owner's own trunk can stop — they have a collision layer of their
+own for that, while a blade still passes through its owner, which is a decision the layer
+table argues at length.
+
+Where a strapped shield faces is decided for you: the plate points away from your own centre,
+along the surface of a sphere, as squarely as an arm lying across it allows. So the useful
+thing to think about is not the shield's angle but **your elbow** — an arm pointed at the
+enemy shows him the edge of the board, and an arm held across the line shows him the face of
+it. That is also the part the policies do not yet know, and it is the next thing owed.
 
 There is also a **club**, which takes both hands. It has no edge, so nothing about how you
 hold it matters and everything about how fast it arrives does — you cannot place a blow

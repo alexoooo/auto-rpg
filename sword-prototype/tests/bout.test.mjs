@@ -464,7 +464,7 @@ test("the bout cap that ships is a player's, not the bench's", () => {
 test("the picker offers exactly the equipment the code has", () => {
   assert.deepEqual(
     EQUIPMENT.map((item) => item.name),
-    ["sword", "shield", "club", "empty"],
+    ["sword", "shield", "buckler", "club", "empty"],
   );
   for (const item of EQUIPMENT) {
     assert.ok(item.label.length > 0, `${item.name} needs a label for the screen`);

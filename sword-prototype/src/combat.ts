@@ -57,6 +57,22 @@ export interface HitReport {
 }
 
 /**
+ * What a blow stopped by each kind is called in the readout.
+ *
+ * A total record over the kinds that can stop one, so adding a kind is a compile
+ * error here rather than a blow that reads as "Guard" for the rest of the
+ * session. `empty` is in it because a bare forearm genuinely can stop a blade,
+ * and "Guard" is what that is.
+ */
+const PARRY_LABEL: Record<WeaponKind, string> = {
+  sword: "Blade",
+  shield: "Shield",
+  buckler: "Buckler",
+  club: "Club",
+  empty: "Guard",
+};
+
+/**
  * Turning a contact into a wound.
  *
  * Damage is computed from the blade's own speed at the contact point and how
@@ -185,9 +201,9 @@ export class Combat {
     if (this.log.length > 24) this.log.length = 24;
   }
 
-  /**
-   * A blow that found the other fighter's guard instead of the other fighter.
-   *
+/**
+ * A blow that found the other fighter's guard instead of the other fighter.
+ *
    * It costs nothing and it is not a wound, so it is filed with zero damage and
    * a limb named for the thing it hit. What it buys is that a block is visible:
    * before this, a blade stopped dead by a shield and a blade that missed
@@ -208,7 +224,7 @@ export class Combat {
     const report: HitReport = {
       by: this.side,
       weapon: weapon.kind,
-      limb: stopped.kind === "shield" ? "Shield" : "Guard",
+      limb: PARRY_LABEL[stopped.kind],
       key: `block:${stopped.kind}`,
       kind: "weak",
       speed: velocity.length(),

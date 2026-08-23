@@ -12,7 +12,7 @@ export type HitKind = "cut" | "thrust" | "slap" | "weak" | "crush";
  * whole value of this module is that it does not. `WeaponKind` satisfies this
  * structurally, so what is handed in is the weapon's own answer.
  */
-export type Striker = "sword" | "shield" | "club" | "empty";
+export type Striker = "sword" | "shield" | "buckler" | "club" | "empty";
 
 /** A contact reduced to the four numbers that decide what it was worth. */
 export interface Contact {
@@ -63,12 +63,19 @@ export function scoreHit(
   const speedFrom = (from: number) =>
     clamp01((contact.speed - from) / (tuning.referenceSpeed - from));
 
-  // A shield scores nothing, ever. It still files a report and it still shoves,
-  // because the shove is applied by `combat.ts` regardless of quality and a
-  // shield bash is a real thing to do with a shield -- but a plate has no edge
-  // and no point, and giving it damage would be inventing a weapon rather than
-  // modelling one.
-  if (by === "shield") {
+  // A shield scores nothing, ever, and a buckler is a shield. Both still file a
+  // report and both still shove, because the shove is applied by `combat.ts`
+  // regardless of quality and a bash is a real thing to do with either -- but a
+  // plate has no edge and no point, and giving one damage would be inventing a
+  // weapon rather than modelling one.
+  //
+  // A buckler punch is the case with an argument on the other side: it is a
+  // fist-sized boss driven point-first at speed, and people did break faces with
+  // them. It is refused all the same, because the moment a shield scores, every
+  // policy that holds one has an offensive option nobody designed and the guard
+  // stops being a guard. If it is ever given damage it should be given its own
+  // kind and its own test, not a share of the sword's.
+  if (by === "shield" || by === "buckler") {
     return { kind: "slap", quality: 0, damage: 0 };
   }
 

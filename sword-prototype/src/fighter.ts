@@ -25,7 +25,7 @@ import { COLLIDES, LAYER, layersFor, type Side } from "./physics.ts";
 import { capsulePart, joint, type Part } from "./rig.ts";
 import { Figure } from "./figure.ts";
 import { Arm } from "./arm.ts";
-import { handsFor, type Weapon, type WeaponKind } from "./weapon.ts";
+import { handsFor, isShield, type Weapon, type WeaponKind } from "./weapon.ts";
 import {
   HANDS,
   idleMind,
@@ -547,9 +547,14 @@ export class Fighter {
           // stop, so it is the one thing that goes on the shield layer. See the
           // table in `physics.ts` for why that is a bit of its own rather than
           // the blade exemption being lifted.
-          weaponLayer: wanted[hand] === "shield" ? layers.shield : layers.sword,
+          // Both shields go on the shield layer, which is the one its owner's
+          // own trunk can stop. A buckler is small and out on the end of the
+          // arm, so it reaches a chest less often than a board does -- but "less
+          // often" is a property of the poses somebody sampled, and this is a
+          // property of the simulation.
+          weaponLayer: isShield(wanted[hand]) ? layers.shield : layers.sword,
           weaponCollidesWith:
-            wanted[hand] === "shield" ? layers.shieldCollides : layers.swordCollides,
+            isShield(wanted[hand]) ? layers.shieldCollides : layers.swordCollides,
           weapon: wanted[hand],
           visible,
         },
