@@ -18,8 +18,7 @@ Run from inside this directory; npm walks up and will otherwise build the root c
 
 ```powershell
 npm ci                  # not `install` -- exact lockfile, identical on every machine
-npm run asset:fetch     # one-time: the CC0 environment map and four normal maps,
-                        # ~2.9 MB, every file digest-pinned
+npm run asset:fetch     # one-time: the CC0 environment map, ~1.5 MB, digest-pinned
 npm run dev             # http://localhost:5180, strictPort
 ```
 
@@ -107,16 +106,29 @@ npm run dev             # http://localhost:5180, strictPort
   physics, shadow/depth/post-process, outline, `Culling/ray`, `edgesRenderer`, and this. When
   a Babylon feature works in the playground and not here, suspect a missing side-effect
   import before suspecting the feature.
-- **Blender computes tangent space only for tris and quads.** `asset-src/build_warrior.py`'s
-  `plate()` authors n-gons by construction -- its whole job is a silhouette typed as a list
-  of points -- so the weld triangulates before the exporter asks. Without it the export
-  prints "Tangent space can only be computed for tris/quads, aborting" once per piece,
-  **succeeds**, and ships a file with no TANGENT attribute for the normal maps to use.
-- **A diffuse map multiplies the palette colour, it does not replace it.** Babylon's
-  `albedoTexture` times `albedoColor`, and a photographic diffuse averages well below
-  white, so wiring one onto a palette that already carries the right colours darkens the
-  whole scene to about a third. It looks like a lighting bug. `src/arena.ts` carries the
-  argument for why only the normal maps survived.
+- **A material with a texture that will not come ready is a mesh that is not drawn.** Four
+  CC0 tiling normal maps were wired into the palette and every material carrying one stopped
+  rendering -- the warriors lost their helms, pauldrons, collars and breastplates while the
+  untextured flesh and the cloth beneath kept drawing, which reads as a fighter made of
+  floating arms. Reverted; `src/arena.ts` says so. Two smaller lessons from the same
+  episode: a diffuse map **multiplies** `albedoColor` rather than replacing it, so wiring one
+  onto a palette that already carries the right colours darkens the whole scene to about a
+  third and looks like a lighting bug; and Blender computes tangent space only for tris and
+  quads, so `plate()`'s n-gons make the exporter print "Tangent space can only be computed
+  for tris/quads, aborting" per piece, **succeed**, and ship a file with no TANGENT.
+- **Three ways to ask the wrong question about why something is not on screen**, all of
+  which cost time here in one sitting:
+  - `Material.isReady(mesh)` returns **false for every material** when called outside a
+    render pass, textures or no textures. It is not "is this material broken".
+  - `scene.materials` does **not** reliably contain every material in the scene -- several
+    of the palette were attached to meshes, rendering, and absent from that list. Reach
+    materials through `mesh.material`.
+  - After an HMR update `main.ts` builds a **second scene**, and the first one's materials
+    linger on nothing with their textures abandoned mid-load at 0x0. Any reading taken after
+    an edit, without a full navigation, may be of the corpse. Navigate, do not reload.
+
+  The thing that settled it in one step was stripping the textures at the console and
+  taking a screenshot. **Look at it before probing it.**
 - **Particles need `@babylonjs/core/Particles/particleSystemComponent` imported for their
   side effect.** Sixth member of the family, and it fails the most convincingly of all of
   them: a `ParticleSystem` constructs cleanly, accepts every setting you give it, takes

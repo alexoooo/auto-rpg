@@ -718,53 +718,6 @@ export const CONFIG = {
    * nobody's idea of either. The preset keys are spelled the same as the mode, so
    * `CONFIG.camera[CONFIG.camera.mode]` is the whole of the lookup.
    */
-  /**
-   * How the PBR maps are applied. Not what they look like -- that is the files.
-   *
-   * Fetched by `scripts/fetch-textures.mjs`, pinned by digest, CC0 from Poly
-   * Haven, and deliberately **not** committed: they are reproducible byte for
-   * byte from a pin, which `warrior.glb` is not. A clone that has not fetched
-   * them still runs and simply looks flatter, exactly as it does without the
-   * environment map.
-   */
-  surfaces: {
-    /**
-     * How many times each map repeats across a piece.
-     *
-     * These are tiling maps rather than a hand-painted atlas, and the whole
-     * question with a tiling map is grain: too few repeats and a helm wears one
-     * enormous smear, too many and it wears noise. The UVs come out of Blender
-     * packed per piece into 0..1, so a repeat here is a repeat across whatever
-     * that piece happens to be -- which is why steel, on helms and plates and a
-     * blade, takes more than wood, on a shield board and a club haft, and why
-     * they are four numbers rather than one.
-     *
-     * Live-tunable, and this is how:
-     *
-     *     const t = __sword.arena.materials.steel.albedoTexture;
-     *     t.uScale = t.vScale = 6;
-     *
-     * Nobody has looked at any of these yet.
-     */
-    tiles: {
-      steel: 4,
-      leather: 3,
-      cloth: 3,
-      wood: 2,
-    },
-
-    /**
-     * How hard the normal maps push, as a multiplier on the published map.
-     *
-     * One is the map as authored, which assumes a surface seen at arm's length.
-     * A fighter is seen from four metres through a tone-mapped pipeline with
-     * bloom on it, and at that range an honest normal map reads as almost
-     * nothing -- so this is above one on purpose. Far above it and armour turns
-     * to crumpled foil.
-     */
-    normalStrength: 1.6,
-  },
-
   camera: {
     /**
      * Which reading is live.

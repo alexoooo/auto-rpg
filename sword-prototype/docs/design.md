@@ -379,23 +379,31 @@ right when there was one simulated arm and it was the subject of every measureme
 two, it leaves a fighter in half a shirt, which reads as a bug rather than as an instrument.
 `G` is the instrument, and it takes the whole costume off.
 
-The asset gained UVs and tangents, which it had never had -- `export_texcoords` was off to
-match. Tangents needed one more thing than the flag: Blender computes tangent space only for
-tris and quads, and `plate()` authors n-gons by construction, so the weld triangulates before
-anything asks. Without it the exporter prints a warning per piece and quietly ships a file
-with no TANGENT attribute.
+### The textures that were tried, and are not there
 
-What the maps are is one decision taken at a screenshot. The published sets carry diffuse,
-normal and roughness, and all three were wired up first. Babylon multiplies `albedoTexture`
-by `albedoColor`; a photographic diffuse averages well below white; the whole scene came out
-at about a third of its intended brightness and both fighters read as black cutouts. The
-palette colours are not decoration -- they are the identity of each surface and the thing a
-surcoat is tinted with -- so the half to give up was the photograph. What is left is relief
-only, which is the part that was doing the work: a normal map changes how light rakes across
-a surface and cannot change its colour.
+The asset briefly gained UVs and tangents and the palette briefly gained four CC0 tiling
+maps. All of it is reverted, and the way it failed is worth more than the feature was.
 
-**It is still not good enough.** Twenty-four welded primitives with tiling normal maps is a
-real step up from twenty-four welded primitives in flat colour and it is not finished art.
+Two things were wrong and only the second mattered. A **diffuse** map multiplies
+`albedoColor` in Babylon rather than replacing it, and a photographic diffuse averages well
+below white, so the whole scene came out at about a third of its brightness and both
+fighters read as black cutouts -- the palette colours are the identity of each surface and
+the thing a surcoat is tinted with, so the half to give up was the photograph. Dropping to
+**normal maps alone** fixed the brightness and then did something much worse: every material
+carrying one stopped rendering. The warriors lost their helms, pauldrons, collars and
+breastplates while the untextured flesh and the cloth beneath kept drawing, so a fighter
+became a head and a surcoat with arms floating beside it.
+
+**Every piece was present, visible, and in exactly the right place throughout.** Bounding
+boxes proved it, at the build pose and driven. That is what made it expensive: three
+separate wrong diagnoses came from probing state instead of looking -- a stale HMR scene, a
+`scene.materials` list that does not contain every material, and `Material.isReady(mesh)`,
+which returns false for everything outside a render pass and is not the question anybody
+thinks it is. What settled it in one step was stripping the maps at the console and taking a
+screenshot.
+
+**It is still not good enough.** Twenty-four welded primitives in flat colour is not
+finished art, and both arms being dressed is the only part of this that survived.
 `docs/measurements.md` records what the two ways forward actually cost.
 
 ## The house rules this work was done under

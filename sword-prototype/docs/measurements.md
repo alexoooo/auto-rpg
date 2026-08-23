@@ -365,13 +365,21 @@ cheap and change what should be built next: the first and the fourth.**
    checked from a background window: `__sword.engine.frameId` frozen across a wait is how to
    tell that is what you are looking at.
 
-9. **Do the warriors look like anything yet?** They wear tiling normal maps on twenty-four
-   welded primitives, both arms are dressed where one used to be bare, and the whole thing
-   is still visibly procedural. The two ways further are a hand-modelled and hand-textured
-   character, or a pre-built CC0 one with the rig re-fitted to its proportions -- and every
-   good free character is stylized low-poly, so the second is a change of art direction and
-   not of mesh. This is the item the person who asked for it should rule on before anybody
-   spends a day on either.
+9. **Do the warriors look like anything yet?** No. Twenty-four welded primitives in four
+   flat colours; both arms are dressed where one used to be bare, and that is the whole of
+   what improved. The two ways further are a hand-modelled and hand-textured character, or a
+   pre-built CC0 one with the rig re-fitted to its proportions -- and every good free
+   character is stylized low-poly, so the second is a change of art direction and not of
+   mesh. This is the item the person who asked for it should rule on before anybody spends a
+   day on either.
+
+   **A tiling-PBR pass was tried and reverted.** Four CC0 normal maps, fetched and
+   digest-pinned; every material that carried one stopped rendering and the armour vanished
+   while the flesh underneath kept drawing. The cause was never established -- the maps
+   themselves load and decode at 1024x1024, and the geometry was provably present and
+   correctly placed the whole time. Anybody picking this up should start at a browser they
+   can see, strip the maps at the console, and put them back one material at a time; three
+   diagnoses made by probing state rather than looking were all wrong.
 10. **No policy knows what a shield is for.** Measured in the bench: an `idle` fighter given
    a shield took *more* damage than one with two empty hands, 90 against 28, because it
    holds the thing wherever its cursor happens to sit rather than between itself and the

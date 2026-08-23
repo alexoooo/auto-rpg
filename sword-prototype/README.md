@@ -33,7 +33,7 @@ What each one is for, and why it is that command and not a near neighbour:
 | --- | --- |
 | `cd <repo>\sword-prototype` | Not optional. npm walks *up* to find a project, so running from the repo root builds the auto-rpg client instead and never installs this directory's dependencies. |
 | `npm ci` | Not `npm install`. `ci` deletes `node_modules` and installs exactly what `package-lock.json` pins, so two machines get byte-identical trees. `install` may quietly resolve something newer. |
-| `npm run asset:fetch` | One-time, ~2.9 MB. Downloads the CC0 environment map and the four normal maps, which are binaries and not authored here. Every file is digest-pinned, and the command is idempotent: run it again and it just verifies. |
+| `npm run asset:fetch` | One-time, ~1.5 MB. Downloads the CC0 environment map, which is a binary and not authored here. Digest-pinned and idempotent: run it again and it just verifies. |
 | `npm run dev` | Serves on port 5180, `strictPort`, so a port collision fails loudly instead of silently moving to 5181 and leaving you reading a stale server. |
 
 To confirm the whole thing is sound without opening a browser:
@@ -227,14 +227,10 @@ CC0, fetched and digest-pinned by `scripts/fetch-polyhaven.mjs`. Image-based lig
 what makes a steel blade read as steel rather than as a grey box; without it the scene
 still runs, just flatter.
 
-Four **normal maps** — steel, leather, cloth and wood — come from the same place under the
-same licence, fetched and pinned by `scripts/fetch-textures.mjs`. They are relief only: a
-normal map changes how light rakes across a surface and cannot change its colour, so the
-palette in `src/arena.ts` and the per-side crimson and blue come through untouched. The
-diffuse and roughness maps from the same sets were wired up first and dropped; `arena.ts`
-says why at length. Neither the maps nor the environment map is committed — both are
-reproducible byte for byte from their pins, which `warrior.glb` is not — so a clone that
-skips `npm run asset:fetch` runs and simply looks flatter.
+There are **no other textures**, and that is a finding rather than an omission: four CC0
+tiling normal maps were fetched, pinned and wired in, and every material that carried one
+stopped rendering — the warriors lost their helms, pauldrons and breastplates while the
+untextured flesh kept drawing. `src/arena.ts` and `docs/measurements.md` record it.
 
 The warriors are authored: `public/assets/warrior.glb` is built from
 `asset-src/build_warrior.py` by `npm run asset:build`, which needs Blender, and the result
@@ -253,13 +249,13 @@ on a lost head, blood, policies that fight with the controller you use, live tak
 either body, two cameras, the rig overlay, the authored armour, and a build that runs at
 60 fps with physics under a millisecond.
 
-**The warriors still do not look good.** They are twenty-four welded primitives with
-tiling normal maps on them, and that is a real step up from twenty-four welded primitives
-in four flat colours, but it is not what anybody would call finished art. Getting further
-means either a modelled and hand-textured character, or adopting a pre-built one and
-re-fitting the rig to its proportions — the good free ones are all stylized low-poly, so
-that is a change of art direction rather than a change of mesh. Neither is a texture
-setting, and `docs/measurements.md` records it as owed rather than pretending otherwise.
+**The warriors still do not look good.** They are twenty-four welded primitives in four
+flat colours — both arms properly dressed now, where the sword arm used to be bare, but no
+better surfaced than before. Getting further means either a modelled and hand-textured
+character, or adopting a pre-built one and re-fitting the rig to its proportions — the good
+free ones are all stylized low-poly, so that is a change of art direction rather than a
+change of mesh. `docs/measurements.md` records it as owed rather than pretending
+otherwise.
 
 Not yet done: **nobody has played it.** Every number in `src/config.ts` is a first guess
 tuned against a measurement rather than against a person, and the questions that decide

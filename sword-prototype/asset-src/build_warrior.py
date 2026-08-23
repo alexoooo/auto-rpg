@@ -228,24 +228,6 @@ def piece(name, joint, parts, surface, root):
     # and the panel is invisible from the front and solid from behind, which
     # looks like a missing piece rather than like an inside-out one.
     bmesh.ops.recalc_face_normals(welded, faces=welded.faces)
-    # Triangles, but **only for the n-gons**, and the restriction is the whole
-    # point. Blender computes tangent space for tris and quads alone, and `plate`
-    # authors n-gons by construction -- its job is a silhouette typed as a list of
-    # points -- so without any triangulation the exporter prints "Tangent space
-    # can only be computed for tris/quads, aborting" once per piece and quietly
-    # ships a file with no TANGENT attribute.
-    #
-    # Triangulating *everything* fixes that and costs far more than it buys:
-    # `bmesh.ops.triangulate` does not carry the smooth flag onto the faces it
-    # creates, so every sphere and every tube in the figure came back flat-shaded
-    # and the whole warrior read as a faceted lump of boxes. Nothing about the
-    # silhouette had changed and it looked like the costume had failed to load.
-    # The n-gons are exactly the faces `plate` makes, and `plate` is built
-    # `smooth=False` anyway, so this splits the ones that need splitting and
-    # leaves every curved surface alone.
-    ngons = [face for face in welded.faces if len(face.verts) > 4]
-    if ngons:
-        bmesh.ops.triangulate(welded, faces=ngons)
     mesh = bpy.data.meshes.new(name + "_mesh")
     welded.to_mesh(mesh)
     welded.free()
@@ -260,41 +242,7 @@ def piece(name, joint, parts, surface, root):
     bpy.context.scene.collection.objects.link(obj)
     obj.location = pivot
     obj.parent = root
-    _unwrap(obj)
     return obj
-
-
-def _unwrap(obj):
-    """Give a welded piece somewhere for a texture to sit.
-
-    The asset carried no UVs at all until now, and `export_texcoords` was off to
-    match. That is most of why the warriors read as a toy: twenty-one primitives
-    painted in four flat colours are twenty-one flat colours however good the
-    silhouette is, because no real surface is one colour anywhere.
-
-    Smart UV Project rather than anything cleverer, and packed into 0..1 per
-    piece rather than laid out at a shared physical scale. Both are deliberate.
-    The maps are *tiling* -- steel, leather, cloth, wood, none of them authored
-    for this body -- so there is nothing to lay out *to*; what matters is only
-    that each piece gets a sane, non-overlapping, low-distortion patch, and how
-    many times the map repeats across it is a decision the runtime makes and can
-    change while you watch. `config.ts`'s `surfaces.tiles` is that decision.
-
-    `angle_limit` is generous because these are welded unions of spheres and
-    boxes: a tight limit shatters a pauldron into forty islands and every seam
-    between them is a place the tiling map visibly jumps.
-    """
-    previous = bpy.context.view_layer.objects.active
-    bpy.ops.object.select_all(action="DESELECT")
-    obj.select_set(True)
-    bpy.context.view_layer.objects.active = obj
-    bpy.ops.object.mode_set(mode="EDIT")
-    bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.uv.smart_project(angle_limit=1.15, island_margin=0.02)
-    bpy.ops.object.mode_set(mode="OBJECT")
-    obj.select_set(False)
-    if previous:
-        bpy.context.view_layer.objects.active = previous
 
 
 def build(dimensions):
@@ -552,12 +500,11 @@ def export(root, output):
     result = bpy.ops.export_scene.gltf(
         filepath=str(output), export_format="GLB", check_existing=False,
         export_yup=True, export_apply=True, use_selection=True,
-        # Both on, where both were off. `export_texcoords` is what makes the
-        # UVs above reach the file at all; `export_tangents` is what a normal
-        # map needs to know which way is along the surface. Without tangents
-        # Babylon derives them per pixel from screen-space derivatives, which
-        # works and is visibly noisier on curved welded shells like these.
-        export_texcoords=True, export_normals=True, export_tangents=True,
+        # Positions and normals, and nothing else. Both of the others were
+        # turned on for a normal-map experiment that is reverted -- `src/arena.ts`
+        # says why -- and with nothing sampling a UV they only doubled the
+        # committed binary. Turn them back on together with whatever needs them.
+        export_texcoords=False, export_normals=True, export_tangents=False,
         export_materials="EXPORT", export_cameras=False, export_lights=False,
         export_animations=False, export_skins=False, export_morph=False,
         export_extras=False,

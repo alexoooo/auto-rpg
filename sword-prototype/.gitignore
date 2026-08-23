@@ -2,11 +2,3 @@ node_modules/
 dist/
 .vite/
 .review/
-
-# Fetched, not authored: 6 MB of CC0 PBR maps, every one pinned by digest in
-# scripts/fetch-textures.mjs. Committed binaries here are the ones that *cannot*
-# be reproduced -- warrior.glb, because Blenders exporter is not byte-stable --
-# and these can be, exactly, by anybody running npm run asset:fetch. The page
-# comes up without them and simply looks flatter, the same way it does without
-# the environment map.
-public/assets/textures/
