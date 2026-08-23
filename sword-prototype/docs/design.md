@@ -75,12 +75,23 @@ there -- and the sag looked exactly like a stiffness deficit for as long as nobo
 it. It was not: every angular motor set to 40 000 N.m, over a thousand times the shipped
 34, moved the head by zero. Two incompatible intents in one constraint.
 
-`src/physics.ts` names six layers -- `WORLD`, `LEFT_BODY`, `LEFT_SWORD`, `RIGHT_BODY`,
-`RIGHT_SWORD`, `DEBRIS` -- and each side's blade collides with the other side's body, the
-world and debris, but not with its own. Self-pass-through is kept **deliberately**: Die by
-the Sword lets you cut yourself and it is one of the things people remember about it, but
-turning it on changes every number the arm was tuned with, so it is a separate decision
-with its own measurement.
+`src/physics.ts` names ten layers: `WORLD`, `DEBRIS`, and four per side -- trunk, arm,
+sword, shield. Each side's blade collides with the other side's everything, the world and
+debris, but not with its own. Self-pass-through for a *blade* is kept **deliberately**: Die
+by the Sword lets you cut yourself and it is one of the things people remember about it, but
+turning it on changes every number the arm was tuned with, so it is a separate decision with
+its own measurement.
+
+The four-per-side split exists to buy exactly one pair: **a shield collides with its owner's
+trunk.** A shield cuts nothing and has no such decision to make -- its whole job is to occupy
+a rectangle, and a rectangle that can be commanded into its owner's chest is the one failure
+a shield cannot have -- so it gets a bit of its own rather than the blade exemption being
+lifted for everything. It stops at the trunk and does not see its owner's arms, because the
+plate hangs 110 mm off the fist that holds it with its own forearm inside that gap: a shield
+that collided with its own arm would be in permanent contact with the chain driving it, which
+is the motor-versus-contact buzz this file warns about, with a 4 kg lever on it. Everything
+else in the table is the two-layer version's exemptions, pair for pair, and
+`tests/shield.test.mjs` drops a box on a box to say so.
 
 ## What a bout is
 
@@ -335,12 +346,45 @@ of the same shape a person produces.
 along the weapon, +X the edge, +Z the flat -- which is what lets `Combat` ask the same four
 questions of any of them without a branch.
 
-- A **shield** is a plate whose face normal is +Y, so it stands across the arm rather than
-  along it. It scores nothing and blocks nothing by rule: the collision layers had said
-  since they were written that an enemy blade and this side's weapons may touch, so blocking
-  needed a shape and not a rule. What it did need was a *record* -- `limbFor` answers nothing
-  for a weapon body, so a blade stopped dead and a blade that missed produced the same
-  readout, which is none. `Combat.parried` files the difference.
+- A **shield** is a plate whose face normal is +Y. It scores nothing and blocks nothing by
+  rule: the collision layers had said since they were written that an enemy blade and this
+  side's weapons may touch, so blocking needed a shape and not a rule. What it did need was a
+  *record* -- `limbFor` answers nothing for a weapon body, so a blade stopped dead and a blade
+  that missed produced the same readout, which is none. `Combat.parried` files the difference.
+
+  It is also the one kind that is **held rather than aimed**, and getting that wrong was the
+  whole of why it looked like a toy. See below.
+
+### A shield is held, not aimed
+
+Every weapon welds into the fist through one frame, and for a long time it was the blade's:
+the weapon's +Y went out along the arm. For a shield that is a lollipop. Its +Y is the face
+normal, so the plate faced wherever the arm pointed -- a hand resting at its owner's side
+laid the plate flat like a table top through his hip, and a hand on a guard faced the plate
+at the floor. A shield has to be able to face the front from any pose an arm can be in, and
+the only mount that allows that is the real one: strapped across the forearm, face square to
+the arm rather than along it. `mountFor` in `weapon.ts` is that decision, one pair of axes
+per kind, and `roll` -- which turns the hand about the arm -- becomes *where the shield
+faces*, with zero square to the fighter's own front.
+
+Two things fell out of it, and the second was a real bug rather than a matter of taste.
+
+**Every weapon was being built in the wrong frame.** A weld between two frames that disagree
+at construction is a violation the solver clears on the first step, and it clears it by
+flinging the thing. Peak tip speed in the first fifth of a second of a fighter standing
+perfectly still, before and after building each kind in the frame its own weld demands:
+sword 48.3 -> 23.9 m/s, club 80.4 -> 19.1, shield 26.8 -> 3.5. The policy table's "struck"
+column has always carried that flick in it, because a peak over a bout is a maximum and the
+flick happened on frame one of every bout ever measured.
+
+**And a shield deadlocked its own arm.** The plate stands 110 mm off the fist along the
+hand's +X; a hand built in the torso's frame has its +X pointing *at* the torso; so the off
+hand's shield was built inside its owner's pelvis, on the layer that says the two may not
+overlap. The contact pinned the arm at full extension before it had lifted once, so the hand
+never re-orientated, so the overlap never cleared. A shield arm tracked its anchor 350 mm
+away where a sword arm tracked it to nothing -- and every visible symptom of that was a
+*pose*, so no amount of looking at the pose was going to find it. `handFrame` builds a
+shield hand already turned to the front, and the stray goes to zero.
 - A **club** has no edge, so `scoring.ts` never asks about its +X and a blow is worth what
   its speed is worth. It hits harder than an unaimed cut and less hard than a placed one,
   and it severs -- because a club that could never sever could only win by flattening all

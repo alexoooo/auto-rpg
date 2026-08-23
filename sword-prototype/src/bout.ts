@@ -31,7 +31,7 @@ import type { HitKind } from "./scoring.ts";
  * `select` is the screen, `fight` is the arena, and `over` is a fight that has
  * been decided. `over` deliberately does **not** stop the world: the fighters go
  * on being driven by their minds and the solver goes on solving, and all that
- * changes is what the banner says and what `Space` does. Freezing would need
+ * changes is what the banner says and where `Space` and `R` take you. Freezing would need
  * either a branch in `Fighter` for "the bout is over" -- which is the same shape
  * of branch as "is this one the player", and the whole point of the seam is that
  * there is not one -- or a keyframed torso left holding its last velocity, which
@@ -383,12 +383,14 @@ export function begin(state: BoutState, matchup: Matchup): BoutState {
 }
 
 /**
- * `Space` during a fight: the same bout again, from nothing.
+ * `R` during a fight: the same bout again, from nothing.
  *
- * This is what `Space` has always done here, and it is kept because it is the
- * key you press when you have made a mess of a limb and want to try the cut
- * again. `main.ts` rebuilds both fighters beside this; the clock going back to
- * zero is this function's whole share of it.
+ * `Space` did this until `Space` became the pause, which is what a key beside
+ * the thumb is for once you are driving a body rather than watching one. The
+ * behaviour is unchanged and it is kept because it is the key you press when you
+ * have made a mess of a limb and want to try the cut again. `main.ts` rebuilds
+ * both fighters beside this; the clock going back to zero is this function's
+ * whole share of it.
  */
 export function restart(state: BoutState): BoutState {
   if (state.phase !== "fight") return state;
@@ -396,9 +398,10 @@ export function restart(state: BoutState): BoutState {
 }
 
 /**
- * `Space` from a finished bout, and `Esc` from one: back to the screen with the
- * same matchup selected, because the thing you want after a bout is the same
- * bout again.
+ * From a finished bout, whichever of `Space`, `Esc` and `R` you press: back to
+ * the screen with the same matchup selected, because the thing you want after a
+ * bout is the same bout again. All three agree there deliberately -- a decided
+ * fight has nothing left to pause and nothing worth rebuilding in place.
  */
 export function toSelect(state: BoutState): BoutState {
   if (state.phase === "select") return state;

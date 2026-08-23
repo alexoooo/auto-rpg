@@ -30,7 +30,7 @@ __sword.right.mind = { name: "sweep", decide: (view, dt) => {
   return { ...__sword.controls.state, pointerX: x, pointerY: 0 };
 } };
 // To put it back, hand it a mind that asks for nothing; a real policy comes back
-// on the next `Space`, since the matchup is what `policyMind` is read from.
+// on the next `R`, since the matchup is what `policyMind` is read from.
 __sword.right.mind = { name: "idle", decide: () => ({ ...__sword.controls.state,
   forward: 0, strafe: 0, turn: 0, pointerX: 0, pointerY: 0,
   thrust: false, guard: false }) };
@@ -380,12 +380,26 @@ cheap and change what should be built next: the first and the fourth.**
    correctly placed the whole time. Anybody picking this up should start at a browser they
    can see, strip the maps at the console, and put them back one material at a time; three
    diagnoses made by probing state rather than looking were all wrong.
-10. **No policy knows what a shield is for.** Measured in the bench: an `idle` fighter given
-   a shield took *more* damage than one with two empty hands, 90 against 28, because it
-   holds the thing wherever its cursor happens to sit rather than between itself and the
-   blade. The shield is a real object that really stops a blade -- the collision masks and
-   `Combat.parried` both say so -- and nothing in `policies.ts` has any notion of
-   interposing it. Until one does, a shield in an AI's hand is a plank it is carrying.
+10. **No policy knows what a shield is for**, and this is now the whole of what is left of
+   "the AI holds its shield strangely". Measured in the bench: an `idle` fighter given a
+   shield took *more* damage than one with two empty hands, 90 against 28, because it holds
+   the thing wherever its cursor happens to sit rather than between itself and the blade.
+
+   The mount fixed the *pose* -- a shield is a plate held square to its owner's front, and
+   it cannot be inside him. It cannot fix the *placement*. A strapped shield's plate contains
+   the forearm, so an arm pointed at the enemy presents the plate edge-on however it is
+   rolled, and `duelist`'s covering line points the arm at the enemy. Held there, the frame
+   is near-singular and the plate used to roll between vertical and flat on solver noise;
+   `shield.minFace` conditions it so a hopeless pose at least stands on its edge. That is
+   cosmetics on a tactical hole.
+
+   **What closing it needs is a two-handed `FighterView`.** A policy must know two things it
+   cannot currently be told: that the hand it is driving holds a shield, and which side of
+   the body that hand is on -- a shield guard is an arm held *across*, and across is a sign.
+   The view carries one shoulder and one tip, from when a fighter had one arm, and
+   `splitMind` hands a policy whichever hand the person is not using, so a per-hand record
+   also has to be remapped through it. That is a design change with its own measurements, not
+   a tweak to a policy, and it is the next thing anybody working on shields should do.
 
 11. **An idle arm cannot hang all the way down**, and the reason is the envelope
    rather than the pose. `arm.restPointerY` sends an unused hand to the bottom of the
@@ -406,11 +420,75 @@ cheap and change what should be built next: the first and the fourth.**
    is a trade somebody should make deliberately at a browser. The alternative is a rest path
    that does not go through the cursor at all, which is a second code path into `Arm.aim`.
 
+## The shield, and what a pose was hiding
+
+A shield welded like a blade -- face normal out along the arm -- is a lollipop, and every
+complaint about how one looked followed from that line. It was also hiding a real fault.
+
+**A shield arm never tracked its anchor.** Bench, a fighter standing still with a sword in
+one hand and a shield in the other, three seconds settled, hand-to-anchor stray:
+
+| hand | before | after |
+|---|---|---|
+| sword | 0.0 mm | 0.0 mm |
+| shield | **315 mm** | **0.0 mm** |
+
+The cause is in `docs/design.md` and is worth the sentence here too: the plate stands 110 mm
+off the fist along the hand's +X, a hand is built in the torso's frame, so the off hand's
+shield was built *inside its owner's pelvis* on a layer that forbids the overlap. The
+contact pinned the arm before it had lifted once and it never got out. Pinned at full
+extension, hanging, is a pose -- so every symptom looked like art direction.
+`tests/shield.test.mjs` holds the number.
+
+**Building every weapon in the frame its own weld demands.** Peak tip speed in the first
+fifth of a second, fighter standing perfectly still, bench:
+
+| kind | before | after |
+|---|---|---|
+| sword | 48.33 m/s | 23.88 |
+| club | 80.40 | 19.10 |
+| shield | 26.77 | 3.50 |
+
+That is the weld snapping shut on a violation that had been built into every weapon since
+there were weapons. It matters beyond tidiness: **the policy table's "struck" column carried
+it**, because a peak over a bout is a maximum and the flick was on frame one of every bout.
+(`npm run measure` had to be repaired to take these at all: it built a `Combat` from
+`fighter.sword` and read `intent.roll`, both of which moved when a fighter grew a second
+hand, so it threw on the first bout and counted no strokes. It had not run since.)
+Same seed, same day, `npm run measure`, before and after: `swinger vs idle` struck peak fell
+from 69.91 to 43.74 m/s, `duelist vs duelist` from 83.42 to 49.05. The stroke against
+nothing -- which starts after the arm has settled -- moved from 40.04 to 39.98 m/s, which is
+to say not at all. Numbers in this file taken before this landed should be read with that in
+mind.
+
+**Does the shield stay out of its owner?** Deepest the plate gets into any trunk capsule,
+measured geometrically from the shapes rather than asked of the solver:
+
+| harness | with the own-trunk layer | without it |
+|---|---|---|
+| 175 held poses across the cursor envelope | 4.6 mm | 4.6 mm |
+| two duelists, sword and shield each, 20 s | 0.0 mm | 0.0 mm |
+
+**The collision layer has never been observed to do anything**, and that is the honest
+reading of it: the mount is what keeps the shield out of the body, and the layer is a guard
+rail that has not yet been leaned on. It is kept because "a shield cannot be inside its
+owner" should be a property of the simulation and not of the poses somebody happened to
+sample, and because a contact constraint cannot be violated where a command-side rule can be
+walked round. `tests/shield.test.mjs` proves the pair is live by dropping a box on a box --
+a shield lands on its own trunk, a blade falls through it, and the arm exemptions are
+untouched.
+
+A third thing was tried and removed: a floor under `reachGuard` for a shield hand, on the
+argument that a guard pulls the plate into its owner's chest. **The measurement refuted it.**
+At `reachGuard` the nearest point of the plate is 298 mm from the centre of the torso -- 108
+mm outside it -- and lifting the reach to 0.42 m moved the plate *closer* to the head, 623 mm
+to 307 mm, rather than further. It stopped nothing and cost a knob.
+
 Two smaller ones, recorded where they were found rather than forgotten:
 
 - **A pause mid-stride still slides.** `Controls.pause()` stops the control loop, so the
   keyframed torso keeps the linear velocity `steer` last gave it and the fighter drifts
-  behind the curtain. True since the hero; `Space` from a decided bout is a second door onto
+  behind the curtain. True since the hero; `R` from a decided bout is a second door onto
   it.
 - **`idle` holds its blade out level**, because a centred cursor is a level arm rather than
   a lowered one. It costs nothing in any measurement -- `idle` scored zero on seventeen

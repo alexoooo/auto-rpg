@@ -1,6 +1,6 @@
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
-import { Vector3, Quaternion } from "@babylonjs/core/Maths/math.vector.js";
+import { Vector3, Quaternion, Matrix } from "@babylonjs/core/Maths/math.vector.js";
 import { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
 import {
   PhysicsShapeBox,
@@ -33,8 +33,16 @@ export interface WeaponMaterials {
 /** What a kind's builder settles, once its meshes and shapes are in place. */
 interface Built {
   mass: number;
-  /** Along local +Y, from the origin. */
-  centreOfMass: number;
+  /**
+   * Where it balances, in its own local frame.
+   *
+   * A point rather than a distance along +Y. It was a distance while every kind
+   * was a thing on a stick and the only question was how far up the stick; a
+   * shield hangs to one side of the fist that holds it and off along the arm
+   * from it, and a shield whose mass sat on the fist would be a shield you could
+   * hold out all day.
+   */
+  centreOfMass: Vector3;
   baseOffset: number;
   tipOffset: number;
 }
@@ -44,6 +52,65 @@ export const WEAPON_KINDS: readonly WeaponKind[] = ["sword", "shield", "club", "
 
 /** How many hands a kind takes. Only the club takes two. */
 export const handsFor = (kind: WeaponKind): 1 | 2 => (kind === "club" ? 2 : 1);
+
+/**
+ * How a kind sits in the fist: two of the weapon's own axes, written in the
+ * hand's frame.
+ *
+ * The hand's frame is built by `Arm.driveAnchor` and its **-Y runs out along the
+ * arm**, away from the shoulder, which is why a sword's +Y welds to `(0, -1, 0)`
+ * and comes out of the fist pointing away from the wrist.
+ *
+ * A shield does not. It is the one thing a hand carries that is not aimed, and
+ * welding it like a blade is what made it a lollipop: its face normal pointed
+ * wherever the arm pointed, so a resting arm laid the plate flat like a table
+ * top through its owner's hip and a guarding one faced it at the floor. Strapped
+ * across the forearm instead -- face normal square to the arm rather than along
+ * it -- the plate can face the front from any pose the arm is in, which is the
+ * whole of what a shield has to be able to do.
+ *
+ * The pair is `(+X, +Y)`; +Z follows from the cross product and is not a free
+ * choice. For the shield that works out as: the face normal on the hand's +X,
+ * which is the axis `roll` turns, so **`roll` is where the shield faces**; and
+ * the plate's long axis on the hand's -Y, so the plate lies along the forearm.
+ */
+export interface Mount {
+  /** Where the weapon's own +X points, in the hand's frame. */
+  axis: Vector3;
+  /** Where the weapon's own +Y points, in the hand's frame. */
+  perp: Vector3;
+}
+
+export const mountFor = (kind: WeaponKind): Mount =>
+  kind === "shield"
+    ? { axis: new Vector3(0, 0, -1), perp: new Vector3(1, 0, 0) }
+    : { axis: new Vector3(1, 0, 0), perp: new Vector3(0, -1, 0) };
+
+/**
+ * The world rotation a weapon must be *built* with to satisfy its own weld.
+ *
+ * A weld between two frames that disagree at construction is a violation the
+ * solver answers on the first step, and this is the arithmetic that makes them
+ * agree. It mattered less when the disagreement was a half turn about the blade
+ * -- the sword flipped, in a frame nobody watched -- and it matters now, because
+ * a shield that starts a quarter turn out starts inside the trunk it is not
+ * allowed to be inside, and the first thing the solver does is throw it out.
+ */
+export function mountRotation(
+  kind: WeaponKind,
+  hand: Quaternion,
+  into = new Quaternion(),
+): Quaternion {
+  const mount = mountFor(kind);
+  const local = Matrix.Identity();
+  Matrix.FromXYZAxesToRef(mount.axis, mount.perp, Vector3.Cross(mount.axis, mount.perp), local);
+  const handMatrix = Matrix.Identity();
+  Matrix.FromQuaternionToRef(hand, handMatrix);
+  // Row-vector convention, so `local.multiply(handMatrix)` is "weapon into the
+  // hand, then hand into the world" and not the other way round.
+  Quaternion.FromRotationMatrixToRef(local.multiply(handMatrix), into);
+  return into;
+}
 
 export interface WeaponOptions {
   /**
@@ -85,10 +152,11 @@ export interface WeaponOptions {
  *   about swords;
  * - a **club** has no edge, so `scoring.ts` never asks about its +X. Its mass is
  *   out at the head, which is what makes it slow to start and hard to stop;
- * - a **shield** is a plate whose *face normal* is +Y, so it stands across the
- *   arm rather than along it. Nothing about it is aimed: it works by being in
- *   the way, and the collision layers were already saying that an enemy blade
- *   and this body may touch.
+ * - a **shield** is a plate whose *face normal* is +Y. Nothing about it is
+ *   aimed: it works by being in the way. It is the one kind whose weld is not
+ *   "out of the fist along the arm" -- see `mountFor` -- because a shield has to
+ *   be able to face the front whatever the arm is doing, and it is the one kind
+ *   its owner's own trunk can stop.
  */
 export class Weapon {
   readonly kind: WeaponKind;
@@ -215,7 +283,7 @@ export class Weapon {
     // An arming sword balances a hand's width ahead of the guard. Put the centre
     // of mass there and the weapon rotates about the wrist the way a sword does
     // instead of the way a broom does.
-    this.body = this.finish(scene, opts, mass, this.baseOffset + balancePoint);
+    this.body = this.finish(scene, opts, mass, new Vector3(0, this.baseOffset + balancePoint, 0));
   }
 
   /**
@@ -226,30 +294,34 @@ export class Weapon {
    * contacts at all, `Combat` hears nothing without it, and a silent damage
    * model looks exactly like a weapon that never connects.
    */
-  private finish(scene: Scene, opts: WeaponOptions, mass: number, balance: number): PhysicsBody {
+  private finish(scene: Scene, opts: WeaponOptions, mass: number, balance: Vector3): PhysicsBody {
     this.shape.filterMembershipMask = opts.layer;
     this.shape.filterCollideMask = opts.collidesWith;
 
     const body = new PhysicsBody(this.root, PhysicsMotionType.DYNAMIC, false, scene);
     body.shape = this.shape;
-    body.setMassProperties({ mass, centerOfMass: new Vector3(0, balance, 0) });
+    body.setMassProperties({ mass, centerOfMass: balance });
     body.setCollisionCallbackEnabled(true);
     return body;
   }
 
   /**
-   * A shield: a plate standing across the arm, and a boss.
+   * A shield: a plate strapped along the arm, standing off the fist.
    *
-   * Its face normal is local +Y, which is the direction the weld sends a weapon
-   * away from the fist, so the plate stands across the arm rather than along it
-   * -- the way a shield punched out at something does. Nothing about it is aimed
-   * and nothing about it scores: it works by being in the way, and the collision
-   * layers have said since they were written that an enemy blade and this side's
-   * weapons may touch.
+   * Its face normal is local +Y and its long axis is local +Z, and `mountFor`
+   * welds those to the hand's +X and -Y -- so the plate lies **along** the
+   * forearm and faces square to it. Nothing about it is aimed and nothing about
+   * it scores: it works by being in the way.
    *
-   * `tipOffset` is the far face rather than a point, because `Arm` uses it to
-   * decide how far past the hand the aim indicator reaches, and because
-   * `scoring.ts` never asks a shield about its tip.
+   * The fist is not in the middle of it. `gripInset` is how far the plate
+   * reaches back past the hand toward the shoulder, and the rest of the plate
+   * hangs on out along the arm, which is where the enarmes of a real one put it
+   * and is also the only place a 600 mm plate can go without the inboard half of
+   * it arriving in the wearer's chest.
+   *
+   * `tipOffset` is the front face over the fist rather than a point, because
+   * `Arm` uses it to decide how far past the hand the aim indicator reaches, and
+   * because `scoring.ts` never asks a shield about its tip.
    */
   private buildShield(
     scene: Scene,
@@ -258,13 +330,15 @@ export class Weapon {
   ): Built {
     const S = CONFIG.shield;
     const out = S.standOff;
+    /** The plate's centre along the arm, from the fist. */
+    const along = S.height / 2 - S.gripInset;
 
     const plate = MeshBuilder.CreateBox(
       `${name}.plate`,
       { width: S.width, height: S.thickness, depth: S.height },
       scene,
     );
-    plate.position.set(0, out, 0);
+    plate.position.set(0, out, along);
     plate.material = materials.wood;
     plate.parent = this.root;
 
@@ -273,10 +347,12 @@ export class Weapon {
       { width: S.width * 1.05, height: S.thickness * 0.55, depth: S.height * 1.04 },
       scene,
     );
-    rim.position.set(0, out - S.thickness * 0.55, 0);
+    rim.position.set(0, out - S.thickness * 0.55, along);
     rim.material = materials.steel;
     rim.parent = this.root;
 
+    // Over the fist rather than at the plate's centre, because that is what a
+    // boss is: the cover over the hand.
     const boss = MeshBuilder.CreateSphere(
       `${name}.boss`,
       { diameter: S.bossDiameter, segments: 10 },
@@ -287,11 +363,15 @@ export class Weapon {
     boss.material = materials.steel;
     boss.parent = this.root;
 
+    // The bar the fist holds, bridging the gap the plate stands off by. It used
+    // to sit on the origin, which put half of it behind the hand and inside the
+    // wrist.
     const grip = MeshBuilder.CreateCylinder(
       `${name}.grip`,
       { height: S.gripLength, diameter: 0.032, tessellation: 8 },
       scene,
     );
+    grip.position.set(0, S.gripLength / 2, 0);
     grip.material = materials.leather;
     grip.parent = this.root;
 
@@ -305,14 +385,15 @@ export class Weapon {
         new Vector3(S.width, S.thickness * 2.4, S.height),
         scene,
       ),
-      new Vector3(0, out, 0),
+      new Vector3(0, out, along),
     );
 
     return {
       mass: S.mass,
-      // Most of a shield's weight is out past the fist, which is what makes it
-      // tiring to hold up and slow to bring back across the body.
-      centreOfMass: out * 0.75,
+      // Out past the fist and off to the front of it, three quarters of the way
+      // to the plate's own centre. That lever is what makes a shield tiring to
+      // hold up and slow to bring back across the body.
+      centreOfMass: new Vector3(0, out * 0.75, along * 0.75),
       baseOffset: 0,
       tipOffset: out + S.thickness,
     };
@@ -421,7 +502,7 @@ export class Weapon {
 
     return {
       mass: C.mass,
-      centreOfMass: C.balancePoint,
+      centreOfMass: new Vector3(0, C.balancePoint, 0),
       baseOffset: 0,
       tipOffset: butt + C.haftLength + C.headLength,
     };

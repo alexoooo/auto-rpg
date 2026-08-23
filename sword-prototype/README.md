@@ -94,10 +94,10 @@ the arm drifted, centre was unrecoverable, and you could not get your mouse back
 | Wheel | zoom |
 | V | camera — Overhead behind the fighter, or Fixed on a world bearing |
 | `[` / `]` | swing the Fixed camera round the arena, 45 degrees at a time |
-| Space | the same bout again — both fighters, from nothing; and the setup screen once one has been decided |
+| Space / Esc | pause, and start again |
+| R | the same bout again — both fighters, from nothing; and the setup screen once one has been decided |
 | Tab | toggle the readout |
 | G | the rig — collision shapes, anchors, joints and contacts, with the costume off |
-| Esc | pause |
 
 A bout is chosen before it is fought. The curtain carries a left corner and a right corner —
 a unit, a policy, and whether that side is driven by a mind or by you — and the Fight button
@@ -124,6 +124,13 @@ a keyframed anchor dragging the whole thing about — so a shield is not a state
 in, it is a plank of limewood with a steel rim welded into a fist, and it blocks by being
 in the way. The collision layers already said an enemy blade and this side's weapons may
 touch; blocking needed a shape, not a rule.
+
+A shield is the one thing a hand carries that is **not aimed**. A blade leaves the fist
+along the arm; a shield is strapped across the forearm, so its face is square to the arm and
+can point at the enemy whatever the arm is doing. It is also the one thing its owner's own
+trunk can stop — it has a collision layer of its own for that, while a blade still passes
+through its owner, which is a decision the layer table argues at length. Where a shield
+faces is the wrist roll, and zero roll is square to the fighter's own front.
 
 There is also a **club**, which takes both hands. It has no edge, so nothing about how you
 hold it matters and everything about how fast it arrives does — you cannot place a blow

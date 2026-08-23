@@ -85,7 +85,7 @@ export class SetupScreen {
   /**
    * Put a matchup back on the screen.
    *
-   * `Space` from a finished bout comes back here with the same one selected,
+   * Leaving a finished bout comes back here with the same one selected,
    * because the thing you want after a bout is the same bout again. Nothing else
    * edits the matchup, so this is usually a no-op -- and it is called anyway,
    * because "the screen happens to still have it" is not the same promise as

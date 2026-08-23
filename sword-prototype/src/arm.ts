@@ -13,7 +13,7 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import { CONFIG } from "./config.ts";
 import type { ArmPose, HandIntent } from "./mind.ts";
 import { capsulePart, spherePart, joint, type Part } from "./rig.ts";
-import { Weapon, type WeaponKind, type WeaponMaterials } from "./weapon.ts";
+import { Weapon, mountFor, mountRotation, type WeaponKind, type WeaponMaterials } from "./weapon.ts";
 import { LAYER, COLLIDES } from "./physics.ts";
 
 const LINEAR = [
@@ -30,6 +30,39 @@ const ANGULAR = [
 
 const clamp = (value: number, low: number, high: number) =>
   value < low ? low : value > high ? high : value;
+
+/** The torso's own forward, which is what a shield squares itself to. */
+const FORWARD = new Vector3(0, 0, 1);
+const UP = new Vector3(0, 1, 0);
+
+/**
+ * The frame a hand is *built* in, which is not always the fighter's own.
+ *
+ * Every arm is built hanging straight down and lifted by its anchor on the first
+ * step, so a hand's build orientation used to be a detail nobody could see. A
+ * shield made it visible and then made it fatal: the plate stands 110 mm off the
+ * fist along the hand's +X, and a hand built in the torso's frame has its +X
+ * pointing at the torso -- so the off hand's shield was built **inside its
+ * owner's pelvis**, on a layer that says the two may not overlap. The contact
+ * pinned the arm at full extension before it had lifted once, the hand therefore
+ * never re-orientated, and the overlap therefore never cleared: a deadlock on
+ * frame one, and the whole of why a shield arm tracked its anchor 350 mm away
+ * instead of the sword's nothing.
+ *
+ * So a shield hand is built already turned to face the front, which is where
+ * `driveAnchor` puts it on the first step anyway. Only the hand and its anchor:
+ * the two capsules above are round about their own axis, and their joints' cones
+ * are written in the torso's frame and would move with them.
+ */
+function handFrame(kind: WeaponKind, rotation: Quaternion): Quaternion {
+  if (kind !== "shield") return rotation;
+  const local = Matrix.Identity();
+  // +X to the torso's front, +Y still up the arm, +Z following from those two.
+  Matrix.FromXYZAxesToRef(FORWARD, new Vector3(0, 1, 0), new Vector3(-1, 0, 0), local);
+  const base = Matrix.Identity();
+  Matrix.FromQuaternionToRef(rotation, base);
+  return Quaternion.FromRotationMatrix(local.multiply(base));
+}
 
 /** Map a signed -1..1 stick position onto an asymmetric range. */
 const spread = (t: number, min: number, max: number) => (t < 0 ? -t * min : t * max);
@@ -129,9 +162,29 @@ export class Arm {
    * Held only to dispose it. It is the one constraint here that no limb owns and
    * so the one nothing else would take down: `PhysicsBody.dispose` releases the
    * Havok body and walks straight past whatever is constraining it, so a bout
-   * rebuilt on `Space` would leak this one every time.
+   * rebuilt on `R` would leak this one every time.
    */
   private readonly weld: Physics6DoFConstraint | null;
+
+  /**
+   * Whether this hand's frame is measured from the fighter's front rather than
+   * from world up.
+   *
+   * True for a shield and only for a shield. It is what makes `roll` mean "how
+   * far the shield is angled off square" instead of "which way the edge lies",
+   * and it is read on the hot path every step, so it is settled once at
+   * construction rather than asked of the weapon.
+   */
+  private readonly squaresToFront: boolean;
+
+  /**
+   * Which way is away from the body for this arm: +1 or -1.
+   *
+   * Read off the shoulder, which is the only thing an arm knows about which side
+   * of a fighter it is. It settles one tie and one only -- see `driveAnchor` --
+   * and it is a constant, so it can never flip a shield over mid-swing.
+   */
+  private readonly outboard: number;
 
   /**
    * The second weld, when this arm is the trailing hand on a two-hander.
@@ -183,6 +236,10 @@ export class Arm {
     shoulder: new Vector3(),
     target: new Vector3(),
     aim: new Vector3(),
+    /** The torso's forward, in world space, as of this step's `aim`. */
+    front: new Vector3(0, 0, 1),
+    /** The horizontal square to the arm, for conditioning a shield's frame. */
+    lateral: new Vector3(),
     aimFar: new Vector3(),
     grip: new Vector3(),
     edge: new Vector3(),
@@ -225,6 +282,9 @@ export class Arm {
     // is the subject of the whole prototype and putting a sleeve over it would be
     // hiding the thing being looked at. They are pickable for the same reason the
     // costume is -- an arm is a limb like any other and hovering it should say so.
+    const handRotation = handFrame(opts.weapon, opts.rotation);
+    this.outboard = opts.shoulderLocal.x >= 0 ? 1 : -1;
+
     const built: Mesh[] = [];
     const limb = (
       name: string,
@@ -233,11 +293,12 @@ export class Arm {
       radius: number,
       mass: number,
       material: Material,
+      rotation = opts.rotation,
     ): Part => {
       const part = capsulePart(scene, {
         name: `${opts.name}.${name}`,
         position: armDrop(drop),
-        rotation: opts.rotation,
+        rotation,
         height: length,
         radius,
         mass,
@@ -257,7 +318,7 @@ export class Arm {
     // Rest pose: the arm hangs straight down, and the anchor lifts it on frame one.
     this.upperArm = limb("upperArm", A.upperLength / 2, A.upperLength, A.upperRadius, A.upperMass, materials.cloth);
     this.forearm = limb("forearm", A.upperLength + A.foreLength / 2, A.foreLength, A.foreRadius, A.foreMass, materials.leather);
-    this.hand = limb("hand", A.upperLength + A.foreLength + A.handLength / 2, A.handLength, A.handRadius, A.handMass, materials.flesh);
+    this.hand = limb("hand", A.upperLength + A.foreLength + A.handLength / 2, A.handLength, A.handRadius, A.handMass, materials.flesh, handRotation);
     this.meshes = built;
 
     // Shoulder: a ball joint with a generous cone. The limits exist to rule out
@@ -301,6 +362,15 @@ export class Arm {
     });
 
     const fistWorld = armDrop(A.upperLength + A.foreLength + A.handLength);
+    // Which two of its own axes this kind pins to which two of the hand's. A
+    // blade leaves the fist pointing *away* from the wrist, so its +Y welds to
+    // the hand's -Y; getting that backwards put the blade back up through the
+    // forearm, which is invisible when the fighter does not collide with itself
+    // and baffling when you try to swing. A shield welds differently, and
+    // `mountFor` is where the difference and the argument for it live.
+    const mount = mountFor(opts.weapon);
+    this.squaresToFront = opts.weapon === "shield";
+
     this.weapon =
       opts.weapon === "empty"
         ? null
@@ -310,17 +380,16 @@ export class Arm {
               name: `${opts.name}.weapon`,
               kind: opts.weapon,
               position: fistWorld,
-              rotation: opts.rotation,
+              // The rotation the weld is about to demand, rather than the
+              // fighter's own: a weapon built in the wrong frame is a violation
+              // the solver clears on the first step by throwing it there.
+              rotation: mountRotation(opts.weapon, handRotation),
               layer: opts.weaponLayer,
               collidesWith: opts.weaponCollidesWith,
             },
             materials,
           );
 
-    // The blade must leave the fist pointing *away* from the wrist, so the
-    // sword's +Y is welded to the hand's -Y. Getting this backwards put the
-    // blade back up through the forearm, which is invisible when the fighter does
-    // not collide with itself and baffling when you try to swing.
     this.weld = !this.weapon ? null : joint(scene, this.hand, {
       name: `${opts.name}.weapon`,
       mesh: this.hand.mesh,
@@ -329,9 +398,9 @@ export class Arm {
     }, {
       pivotParent: new Vector3(0, -A.handLength / 2, 0),
       pivotChild: Vector3.Zero(),
-      axisParent: new Vector3(1, 0, 0),
+      axisParent: mount.axis,
       axisChild: new Vector3(1, 0, 0),
-      perpParent: new Vector3(0, -1, 0),
+      perpParent: mount.perp,
       perpChild: new Vector3(0, 1, 0),
       swing: {},
     });
@@ -341,7 +410,9 @@ export class Arm {
     this.handAnchor = spherePart(scene, {
       name: `${opts.name}.handAnchor`,
       position: fistWorld,
-      rotation: opts.rotation,
+      // The hand's frame, not the fighter's: the grip pins the two together and
+      // a pair that starts a quarter turn apart starts with a violation.
+      rotation: handRotation,
       diameter: 0.02,
       mass: 0,
       layer: 0,
@@ -676,6 +747,11 @@ export class Arm {
     Vector3.TransformCoordinatesToRef(this.shoulderLocal, world, shoulder);
     Vector3.TransformNormalToRef(dirLocal, world, aim);
     aim.normalize();
+    // Taken here rather than in `driveAnchor` because the torso's world matrix
+    // is already in hand, and a second `getWorldMatrix()` on the same node in
+    // the same step is the sort of thing that is free until somebody moves it.
+    Vector3.TransformNormalToRef(FORWARD, world, this.scratch.front);
+    this.scratch.front.normalize();
 
     target.copyFrom(shoulder).addInPlace(aim.scale(this.armReach));
 
@@ -704,9 +780,45 @@ export class Arm {
     // Hand +Y points back up the arm, because the blade runs along hand -Y.
     axisY.copyFrom(aim).scaleInPlace(-1).normalize();
 
-    // The edge starts perpendicular to the blade, then rolls about it.
-    edge.set(0, 1, 0);
+    // Where the hand's +X starts, before `roll` turns it about the arm.
+    //
+    // World up for a blade: the edge sits in the vertical plane through the aim,
+    // and a roll of zero is a level cut. A **shield** starts square to the
+    // fighter's front instead, because its +X is its face normal -- one seeded
+    // from the vertical would face wherever the arm happened to point, which is
+    // exactly the lollipop the mount was changed to stop. What that buys is that
+    // `roll` becomes "how far off square the shield is angled", and that zero,
+    // which is where every hand rests, is a shield facing the enemy.
+    edge.copyFrom(this.squaresToFront ? s.front : UP);
     edge.subtractInPlace(aim.scale(Vector3.Dot(edge, aim)));
+    if (this.squaresToFront) {
+      // **The singularity, and it is a real one rather than an edge case.**
+      //
+      // A strapped shield's plate contains the forearm, so there is no
+      // forward-facing normal square to an arm that is itself pointing forward
+      // -- and an arm pointing forward is exactly what `duelist` does with its
+      // covering line. Near that pose the seed above is a short vector whose
+      // *direction* is whatever tiny way the aim happens to be off the front, so
+      // the plate rolls between vertical and flat on solver noise. Held dead on
+      // it, the shield lies flat like a tea tray.
+      //
+      // So the seed is floored: short of `shield.minFace` it is topped up with
+      // the horizontal square to the arm, outboard, by exactly the shortfall.
+      // Continuous -- the top-up reaches zero at the threshold -- and outboard
+      // rather than inboard so the plate leans away from its owner rather than
+      // across him. What it buys is that a shield held in a hopeless pose stands
+      // on its edge like a shield instead of lying flat like furniture. It does
+      // not make the pose a good one; only the policy can do that.
+      const facing = edge.length();
+      if (facing < CONFIG.shield.minFace) {
+        Vector3.CrossToRef(UP, aim, s.lateral);
+        if (s.lateral.lengthSquared() > 1e-6) {
+          s.lateral.normalize().scaleInPlace(this.outboard * (CONFIG.shield.minFace - facing));
+          edge.addInPlace(s.lateral);
+        }
+      }
+    }
+    // A blade held straight up has the same problem and no better answer.
     if (edge.lengthSquared() < 1e-5) edge.set(1, 0, 0).subtractInPlace(aim.scale(aim.x));
     edge.normalize();
 

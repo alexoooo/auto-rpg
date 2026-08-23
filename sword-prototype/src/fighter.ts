@@ -459,8 +459,8 @@ export class Fighter {
       height: B.torsoLength,
       radius: B.torsoRadius,
       mass: B.torsoMass,
-      layer: layers.body,
-      collidesWith: layers.bodyCollides,
+      layer: layers.trunk,
+      collidesWith: layers.trunkCollides,
       material: materials.cloth,
       motionType: PhysicsMotionType.ANIMATED,
     });
@@ -541,10 +541,15 @@ export class Fighter {
           shoulderLocal: new Vector3(side, F.shoulderHeight - B.torsoCentre, F.shoulderFront),
           shoulderWorld: place(side, F.shoulderHeight, F.shoulderFront),
           rotation: yaw,
-          layer: layers.body,
-          collidesWith: layers.bodyCollides,
-          weaponLayer: layers.sword,
-          weaponCollidesWith: layers.swordCollides,
+          layer: layers.arm,
+          collidesWith: layers.armCollides,
+          // A shield is the one thing a fighter carries that its own trunk can
+          // stop, so it is the one thing that goes on the shield layer. See the
+          // table in `physics.ts` for why that is a bit of its own rather than
+          // the blade exemption being lifted.
+          weaponLayer: wanted[hand] === "shield" ? layers.shield : layers.sword,
+          weaponCollidesWith:
+            wanted[hand] === "shield" ? layers.shieldCollides : layers.swordCollides,
           weapon: wanted[hand],
           visible,
         },
@@ -596,8 +601,8 @@ export class Fighter {
         height,
         radius,
         mass,
-        layer: layers.body,
-        collidesWith: layers.bodyCollides,
+        layer: layers.trunk,
+        collidesWith: layers.trunkCollides,
         material: materials.hide,
         friction: 0.8,
       });

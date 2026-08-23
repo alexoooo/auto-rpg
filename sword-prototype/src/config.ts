@@ -216,6 +216,14 @@ export const CONFIG = {
     reachMax: 0.61,
     reachResponse: 9,
 
+    // There was a `minShieldReach` here for an afternoon -- a floor under
+    // `reachGuard` for a hand holding a shield, on the argument that a guard
+    // pulls the plate into its owner's chest. **The measurement refuted it.**
+    // At `reachGuard` the nearest point of the plate is 298 mm from the centre
+    // of the torso, which is 108 mm outside it, and lifting the reach to 0.42 m
+    // moved the plate *closer* to the head, from 623 mm to 307 mm, rather than
+    // further. It stopped nothing and cost a knob, so it is gone.
+
     /**
      * Where an unused hand rests, as a cursor position.
      *
@@ -306,9 +314,35 @@ export const CONFIG = {
      * carrying a door at arm's length.
      */
     standOff: 0.11,
+    /**
+     * How far the plate reaches back past the fist, toward the shoulder.
+     *
+     * The plate is 600 mm long and lies along the forearm, so where the hand
+     * sits on it decides whether the inboard end of it is in front of the
+     * wearer's chest or inside it. 220 mm puts the fist a little above the
+     * plate's centre, which is where the enarmes of a heater shield actually
+     * are, and leaves 380 mm hanging on out past the hand.
+     *
+     * It does not have to carry the whole guarantee on its own -- a shield is on
+     * a collision layer its owner's trunk can stop, and `arm.minShieldReach`
+     * keeps it from being drawn in that far in the first place -- but it is the
+     * one of the three that costs nothing.
+     */
+    gripInset: 0.22,
     bossDiameter: 0.13,
     gripLength: 0.12,
     mass: 4.0,
+    /**
+     * How square to the front a shield insists on being, as a sine.
+     *
+     * Zero roll points the plate's face at the fighter's own front, which is
+     * only possible to the extent the arm is *not* pointing there -- the plate
+     * contains the forearm. 0.42 is sin 25 degrees: inside that cone the frame
+     * is conditioned with the horizontal square to the arm, so a shield in a
+     * hopeless pose stands on its edge rather than lying flat. `arm.ts`'s
+     * `driveAnchor` has the argument at length.
+     */
+    minFace: 0.42,
   },
 
   /**

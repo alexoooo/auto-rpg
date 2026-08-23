@@ -198,14 +198,14 @@ async function boot(): Promise<void> {
 
   const controls = new Controls(canvas, {
     onReset: () => {
-      // `Space` means "this bout again", and what that costs depends on where
-      // you are. Behind the screen it means nothing, because there is no bout
-      // yet. During one it rebuilds both fighters, which is what it has always
-      // done here and is the key you press after making a mess of a limb you
-      // wanted to cut properly. After one has been decided it opens the screen,
-      // with the same matchup still selected, because the thing you want after
-      // a bout is the same bout again -- and because a decided fight rebuilt in
-      // place would give you no chance to change your mind about it.
+      // `R` means "this bout again", and what that costs depends on where you
+      // are. Behind the screen it means nothing, because there is no bout yet.
+      // During one it rebuilds both fighters, which is the key you press after
+      // making a mess of a limb you wanted to cut properly. After one has been
+      // decided it opens the screen, with the same matchup still selected,
+      // because the thing you want after a bout is the same bout again -- and
+      // because a decided fight rebuilt in place would give you no chance to
+      // change your mind about it.
       if (state.phase === "select") return;
       if (state.phase === "over") {
         state = toSelect(state);
@@ -248,9 +248,17 @@ async function boot(): Promise<void> {
       announceCamera();
     },
     onPause: () => {
-      // `Esc` on a decided bout opens the same door `Space` does. There is
-      // nothing left to resume, so pausing it would put a Resume button over a
-      // fight that is not happening.
+      // A toggle, and the same one the Resume button is: a paused fight is a
+      // curtain over a live arena, and the two ways of lifting it must not be
+      // able to disagree about what lifting it means.
+      if (state.phase === "fight" && !controls.isActive) {
+        showCurtain(false);
+        controls.start();
+        return;
+      }
+      // A decided bout opens the setup screen instead. There is nothing left to
+      // resume, so pausing it would put a Resume button over a fight that is not
+      // happening.
       if (state.phase === "over") {
         state = toSelect(state);
         setup.show(state.matchup);
@@ -765,7 +773,7 @@ async function boot(): Promise<void> {
    * them rather than letting any one of them quietly win.
    *
    * The outcome comes first and is a *verdict*: it stands for as long as the
-   * bout is over, which is until `Space`, and it is the one message that is
+   * bout is over, which is until you leave it, and it is the one message that is
    * about something that has already happened rather than about something you
    * are doing. Targeting owns the line as a level: `SELECT TARGET` stands for as
    * long as the choice is armed, and `free` maps to an empty string on purpose
@@ -908,7 +916,7 @@ async function boot(): Promise<void> {
   // fighter it belongs to, and that now includes every joint of the body:
   // `__sword.left.applyTuning()`.
   //
-  // `left` and `right` are getters rather than fields because `Space` replaces
+  // `left` and `right` are getters rather than fields because `R` replaces
   // both fighters, and a console handle that quietly refers to a disposed body
   // is worse than no handle -- every reading taken through it would be of
   // something that is no longer in the world.

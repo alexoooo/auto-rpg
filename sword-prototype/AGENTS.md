@@ -60,6 +60,23 @@ npm run dev             # http://localhost:5180, strictPort
 - **A sleeping body hides every steady-state defect.** Havok deactivates the arm at rest, so
   a measurement taken after it settles reads a perfect zero no matter how badly it shakes
   when awake. Force `pl.setActivationControl(body, 1)` before trusting any rest measurement.
+- **A weld whose two frames disagree at construction is a violation the solver clears by
+  flinging the thing.** Every weapon here was built in the fighter's frame and welded into
+  the hand's, which for the sword was a half turn out; peak tip speed in the first fifth of a
+  second of a fighter standing perfectly still was 48.3 m/s for the sword and 80.4 for the
+  club. `weapon.ts`'s `mountRotation` builds each kind in the frame its own weld demands and
+  those become 23.9 and 19.1, which is the arm lifting out of its build pose and nothing
+  else. If you add a kind, build it through `mountRotation` -- and note that a bout's *peak*
+  readings carry a frame-one flick forever, because a peak is a maximum.
+- **A body built overlapping another on a layer that forbids the overlap deadlocks the chain
+  driving it, and the symptom is a pose.** A shield stands 110 mm off the fist along the
+  hand's +X, a hand is built in the torso's frame, so an off-hand shield was built inside its
+  owner's pelvis. The contact pinned the arm at full extension before the anchor had lifted
+  it once; the hand therefore never re-orientated; the overlap therefore never cleared. The
+  arm sat 315 mm from where it was commanded, looking exactly like a badly-chosen rest pose,
+  and no amount of looking at the pose was going to find it. **Measure the hand against its
+  anchor.** A driven arm that is not within a few millimetres of its own anchor is not posed
+  wrongly, it is stuck on something.
 - **Do not drive physics by calling `scene.render()` in a tight loop to test.** The delta
   comes from `engine.getDeltaTime()`, which is near zero between two immediate calls, so the
   simulation crawls and every derived number is wrong. Step with a fixed delta instead.
@@ -235,7 +252,7 @@ npm run dev             # http://localhost:5180, strictPort
   in an authored asset here is dimensional, not structural.
 - **A pause mid-stride still slides.** `Controls.pause()` stops the control loop, so the
   keyframed torso keeps the linear velocity `steer` last gave it and the fighter drifts
-  behind the curtain. True since the hero, and `Space` from a decided bout is a second door
+  behind the curtain. True since the hero, and `R` from a decided bout is a second door
   onto it.
 - **`src/scoring.ts`, `src/config.ts` and `src/buttons.ts` are imported directly by Node**
   in the test run, so their intra-directory imports carry explicit `.ts` extensions. Vite

@@ -190,8 +190,12 @@ function runBout({ left: leftPolicy, right: rightPolicy, seeds }) {
   );
 
   const sides = [
-    { fighter: left, combat: new Combat("left", left.sword), record: sideRecord(leftPolicy), last: null },
-    { fighter: right, combat: new Combat("right", right.sword), record: sideRecord(rightPolicy), last: null },
+    // `weapons`, not `sword`: a fighter has two hands and `Combat` watches all
+    // of what is in them. This said `left.sword` until the hands were split, and
+    // a `Combat` handed one weapon where it wanted a list threw on construction
+    // -- which is to say `npm run measure` has not run since.
+    { fighter: left, combat: new Combat("left", left.weapons), record: sideRecord(leftPolicy), last: null },
+    { fighter: right, combat: new Combat("right", right.weapons), record: sideRecord(rightPolicy), last: null },
   ];
   sides[0].combat.attach(right);
   sides[1].combat.attach(left);
@@ -384,11 +388,15 @@ function runSwingBench({ seed = 1, seconds = 20 } = {}) {
     fighter.update(FIXED);
     fighter.sword.tipPositionToRef(tip);
     peak = Math.max(peak, fighter.sword.speedAt(tip));
-    if (lastRoll !== null && asked.roll !== lastRoll) {
+    // The driven hand's roll, not the intent's: `roll` moved onto the hand when
+    // the intent grew two of them, so this read `undefined` every step and the
+    // stroke counter therefore counted no strokes at all.
+    const roll = asked[asked.driving].roll;
+    if (lastRoll !== null && roll !== lastRoll) {
       peaks.push(peak);
       peak = 0;
     }
-    lastRoll = asked.roll;
+    lastRoll = roll;
   });
 
   const frames = Math.round(seconds * 60);

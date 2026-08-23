@@ -80,9 +80,17 @@ const clamp = (value: number, min: number, max: number) =>
 
 
 export interface ControlHooks {
-  /** `Space`: build the bout again from nothing, both fighters. */
+  /** `R`: build the bout again from nothing, both fighters. */
   onReset: () => void;
   onToggleReadout: () => void;
+  /**
+   * `Space` and `Esc`: stop the world, or start it again.
+   *
+   * One hook for both directions rather than a pause and a resume, because the
+   * key is a toggle and the thing it toggles -- the curtain and the controller
+   * together -- is one state. `main.ts` decides which way it is going, because
+   * the bout's phase decides it: a decided bout has nothing left to resume.
+   */
   onPause: () => void;
   /** The rig overlay: what the solver is holding, over the top of the costume. */
   onToggleRig: () => void;
@@ -233,7 +241,19 @@ export class Controls {
         this.hooks.onPause();
         return;
       case "Space":
+        // Pause, not restart. It was the restart key for as long as there was
+        // nothing to pause *for* -- a bout you were watching rather than in --
+        // and the moment you are driving a body, the key nearest the thumb is
+        // the one you want for stopping the world. `preventDefault` because the
+        // canvas can hold focus and Space would otherwise scroll the page.
         event.preventDefault();
+        this.hooks.onPause();
+        return;
+      case "KeyR":
+        // Restart, which `Space` used to be. Not gated on `active`: it is
+        // meaningful behind the curtain during a fight -- "this bout again" is
+        // exactly what you want after pausing a mess -- and `main.ts` refuses
+        // it from the setup screen, where there is no bout to rebuild.
         this.hooks.onReset();
         return;
       case "KeyG":
