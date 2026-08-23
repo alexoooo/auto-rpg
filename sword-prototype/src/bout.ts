@@ -43,12 +43,30 @@ export type Phase = "select" | "fight" | "over";
 export type Control = "mind" | "you";
 
 /** One corner of the setup screen. */
+/**
+ * What a hand can be given, and what the picker offers.
+ *
+ * Same `{ name, label }` shape as `UNITS` and `POLICIES`, because `setup.ts`
+ * builds every `select` from one of these and an option that is offered is then
+ * provably an option the code has.
+ */
+export const EQUIPMENT: readonly { name: string; label: string }[] = [
+  { name: "sword", label: "Sword" },
+  { name: "shield", label: "Shield" },
+  { name: "club", label: "Club (two-handed)" },
+  { name: "empty", label: "Empty" },
+];
+
 export interface SideSetup {
   /** Which body. One kind for now; see `UNITS`. */
   unit: string;
   /** Which policy, by `Policy.name` in `mind.ts`. */
   policy: string;
   control: Control;
+  /** The primary hand -- the one the mouse starts on. */
+  handA: string;
+  /** The secondary. `empty` is a choice rather than an absence. */
+  handB: string;
 }
 
 export interface Matchup {
@@ -79,8 +97,12 @@ export const UNITS: readonly { name: string; label: string }[] = [
  */
 export function defaultMatchup(): Matchup {
   return {
-    left: { unit: "warrior", policy: "idle", control: "you" },
-    right: { unit: "warrior", policy: "idle", control: "mind" },
+    // A sword and an empty hand, which is what every fighter carried before
+    // there was a choice -- so the default matchup is the body every number in
+    // `docs/measurements.md` was taken from, and a bout opened without touching
+    // the pickers is still that measurement's bout.
+    left: { unit: "warrior", policy: "idle", control: "you", handA: "sword", handB: "empty" },
+    right: { unit: "warrior", policy: "idle", control: "mind", handA: "sword", handB: "empty" },
   };
 }
 
@@ -119,6 +141,33 @@ export function withPolicy(matchup: Matchup, side: Side, policy: string): Matchu
  * re-reads both groups from the answer. Letting the DOM own it instead is how
  * you get a setup screen that offers two humans and an arena that has one.
  */
+/**
+ * Put something in a hand.
+ *
+ * The club is one weapon and takes two hands, so choosing it in either hand
+ * fills both, and choosing anything else in a hand that was holding half a club
+ * empties the other. The rule lives here rather than in the DOM for exactly the
+ * reason "there is one of you" does: `setup.ts` re-reads the whole screen from
+ * the matchup after every change, precisely because a change to one control can
+ * legitimately move another.
+ *
+ * `Fighter` enforces the same rule again when it builds a body, because a
+ * harness that makes a fighter directly never goes near this screen.
+ */
+export function withEquipment(
+  matchup: Matchup,
+  side: Side,
+  hand: "handA" | "handB",
+  kind: string,
+): Matchup {
+  const next = copy(matchup);
+  const other = hand === "handA" ? "handB" : "handA";
+  next[side][hand] = kind;
+  if (kind === "club") next[side][other] = "club";
+  else if (next[side][other] === "club") next[side][other] = "empty";
+  return next;
+}
+
 export function withControl(matchup: Matchup, side: Side, control: Control): Matchup {
   const next = copy(matchup);
   next[side].control = control;
@@ -254,6 +303,7 @@ export function beaten(parts: readonly PartState[]): boolean {
 }
 
 const KIND_NOUN: Record<HitKind, string> = {
+  crush: "crushing blow",
   cut: "cut",
   thrust: "thrust",
   slap: "flat",

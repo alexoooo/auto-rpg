@@ -11,7 +11,7 @@
 // `Vector3`'s methods: every position a view carries is a `Vector3` in the
 // arena, but nothing here needs it to be one, so nothing here demands it.
 import { CONFIG } from "./config.ts";
-import type { FighterView, Intent, Mind } from "./mind.ts";
+import type { FighterView, HandIntent, Intent, Mind } from "./mind.ts";
 
 /**
  * The two policies that fight.
@@ -74,18 +74,33 @@ interface Aim {
  *
  * One of these per mind, returned from every `decide` and never reallocated,
  * because `decide` runs 240 times a second per fighter.
+ *
+ * Exported for the tests, which used to declare their own copies of this shape
+ * -- four of them, all plain JS and all untyped, so none of them was a compile
+ * error when the intent grew two hands and every one of them handed `undefined`
+ * to an arm. A fixture that can silently disagree with the thing it stands for
+ * is worse than no fixture.
  */
-const blankIntent = (): Intent => ({
+export const blankIntent = (): Intent => ({
   forward: 0,
   strafe: 0,
   turn: 0,
-  pointerX: 0,
-  pointerY: 0,
-  roll: 0,
   zoom: 1,
-  thrust: false,
-  guard: false,
+  driving: "primary",
+  primary: { pointerX: 0, pointerY: 0, roll: 0, thrust: false, guard: false },
+  secondary: { pointerX: 0, pointerY: 0, roll: 0, thrust: false, guard: false },
 });
+
+/**
+ * The hand a policy is talking about.
+ *
+ * Every policy in this file fights one-handed, and says so here rather than by
+ * writing `intent.primary` forty times. What that buys is the thing worth
+ * having: a policy driving a fighter's off hand -- which is what `splitMind`
+ * asks one to do -- is the same policy with a different hand name, not a second
+ * implementation of it.
+ */
+const handOf = (intent: Intent): HandIntent => intent[intent.driving];
 
 /**
  * The cursor and the arm's aim, in both directions.
@@ -363,6 +378,11 @@ type Leg = 0 | 1 | 2 | 3;
 export function swingerMind(seed = randomSeed()): Mind {
   const random = mulberry32(seed);
   const intent = blankIntent();
+  // The hand this policy drives, taken once. A policy fights one-handed and
+  // says which hand it means through `driving`, and the caller decides what
+  // that maps onto: `splitMind` hands a policy's hand to whichever arm the
+  // person is not using. So this is "my hand", not "the right hand".
+  const hand = handOf(intent);
 
   // Where the last leg of the cycle left the cursor, and where this one is
   // taking it. Held rather than recomputed because the chamber leg starts from
@@ -387,8 +407,8 @@ export function swingerMind(seed = randomSeed()): Mind {
   const jitter = (amount: number) => (random() * 2 - 1) * amount;
 
   const beginCycle = (): void => {
-    fromX = intent.pointerX;
-    fromY = intent.pointerY;
+    fromX = hand.pointerX;
+    fromY = hand.pointerY;
     toX = SWINGER.chamber.x;
     toY = SWINGER.chamber.y;
     leg = 0;
@@ -402,7 +422,7 @@ export function swingerMind(seed = randomSeed()): Mind {
     // person does it and is the only way the wrist has time to get there. The
     // stroke it is computed from is this cycle's jittered one, so no two swings
     // carry quite the same roll.
-    intent.roll = rollForStroke(SWINGER.chamber.x, SWINGER.chamber.y, commitX, commitY);
+    hand.roll = rollForStroke(SWINGER.chamber.x, SWINGER.chamber.y, commitX, commitY);
   };
 
   const nextLeg = (): void => {
@@ -446,12 +466,12 @@ export function swingerMind(seed = randomSeed()): Mind {
       intent.turn = turnToward(view, view.opponent.ground, SWINGER.turnGain);
       intent.forward = gap > SWINGER.engage ? 1 : 0;
       intent.strafe = 0;
-      intent.thrust = false;
-      intent.guard = false;
+      hand.thrust = false;
+      hand.guard = false;
 
       if (waiting) {
-        intent.pointerX = SWINGER.rest.x;
-        intent.pointerY = SWINGER.rest.y;
+        hand.pointerX = SWINGER.rest.x;
+        hand.pointerY = SWINGER.rest.y;
         pause -= dt;
         // The one and only look at the range the cycle takes. From here to the
         // end of the recover it swings on its clock and on nothing else.
@@ -468,15 +488,15 @@ export function swingerMind(seed = randomSeed()): Mind {
         nextLeg();
         elapsed = carry;
         if (waiting) {
-          intent.pointerX = SWINGER.rest.x;
-          intent.pointerY = SWINGER.rest.y;
+          hand.pointerX = SWINGER.rest.x;
+          hand.pointerY = SWINGER.rest.y;
           return intent;
         }
       }
 
       const t = legSeconds > 0 ? elapsed / legSeconds : 1;
-      intent.pointerX = fromX + (toX - fromX) * t;
-      intent.pointerY = fromY + (toY - fromY) * t;
+      hand.pointerX = fromX + (toX - fromX) * t;
+      hand.pointerY = fromY + (toY - fromY) * t;
       return intent;
     },
   };
@@ -600,6 +620,11 @@ type Stance = "hold" | "chamber" | "cut" | "recover";
 export function duelistMind(seed = randomSeed()): Mind {
   const random = mulberry32(seed);
   const intent = blankIntent();
+  // The hand this policy drives, taken once. A policy fights one-handed and
+  // says which hand it means through `driving`, and the caller decides what
+  // that maps onto: `splitMind` hands a policy's hand to whichever arm the
+  // person is not using. So this is "my hand", not "the right hand".
+  const hand = handOf(intent);
   const aim: Aim = { pointerX: 0, pointerY: 0 };
   const target: Point = { x: 0, y: 0, z: 0 };
 
@@ -700,10 +725,10 @@ export function duelistMind(seed = randomSeed()): Mind {
 
       // ---- hands -----------------------------------------------------------
       if (stance === "hold") {
-        intent.guard = true;
+        hand.guard = true;
         coveringLine(view, tipGap, towardLength, target, aim);
-        intent.pointerX = aim.pointerX;
-        intent.pointerY = aim.pointerY;
+        hand.pointerX = aim.pointerX;
+        hand.pointerY = aim.pointerY;
         // Along the covering line the blade is a bar, not an edge, so the roll
         // is left where the last cut put it rather than spent on nothing.
 
@@ -717,14 +742,14 @@ export function duelistMind(seed = randomSeed()): Mind {
           fromY = clamp(aim.pointerY + DUELIST.offset.y, -1, 1);
           toX = clamp(aim.pointerX - DUELIST.offset.x, -1, 1);
           toY = clamp(aim.pointerY - DUELIST.offset.y, -1, 1);
-          intent.roll = rollForStroke(fromX, fromY, toX, toY);
+          hand.roll = rollForStroke(fromX, fromY, toX, toY);
 
           patience = DUELIST.patience * (0.8 + random() * 0.4);
           sinceOpening = 0;
           goTo("chamber", DUELIST.chamberSeconds);
           // The chamber lifts from wherever the guard left the cursor.
-          aim.pointerX = intent.pointerX;
-          aim.pointerY = intent.pointerY;
+          aim.pointerX = hand.pointerX;
+          aim.pointerY = hand.pointerY;
         }
         return intent;
       }
@@ -733,21 +758,21 @@ export function duelistMind(seed = randomSeed()): Mind {
       const t = stanceSeconds > 0 ? clamp(elapsed / stanceSeconds, 0, 1) : 1;
 
       if (stance === "chamber") {
-        intent.guard = false;
+        hand.guard = false;
         // A step in with the chamber, on the diagonal the strafe is already
         // walking: closing straight down the middle is what `swinger` does.
         intent.forward = Math.max(intent.forward, 0.35);
-        intent.pointerX = aim.pointerX + (fromX - aim.pointerX) * t;
-        intent.pointerY = aim.pointerY + (fromY - aim.pointerY) * t;
+        hand.pointerX = aim.pointerX + (fromX - aim.pointerX) * t;
+        hand.pointerY = aim.pointerY + (fromY - aim.pointerY) * t;
         if (t >= 1) goTo("cut", DUELIST.cutSeconds);
         return intent;
       }
 
       if (stance === "cut") {
-        intent.guard = false;
+        hand.guard = false;
         intent.forward = Math.max(intent.forward, 0.2);
-        intent.pointerX = fromX + (toX - fromX) * t;
-        intent.pointerY = fromY + (toY - fromY) * t;
+        hand.pointerX = fromX + (toX - fromX) * t;
+        hand.pointerY = fromY + (toY - fromY) * t;
         if (t >= 1) goTo("recover", DUELIST.recoverSeconds);
         return intent;
       }
@@ -755,10 +780,10 @@ export function duelistMind(seed = randomSeed()): Mind {
       // Recover: the guard goes back up immediately and the cursor walks back to
       // the covering line under it, because the hand is what is slow and the
       // button is not.
-      intent.guard = true;
+      hand.guard = true;
       coveringLine(view, tipGap, towardLength, target, aim);
-      intent.pointerX = toX + (aim.pointerX - toX) * t;
-      intent.pointerY = toY + (aim.pointerY - toY) * t;
+      hand.pointerX = toX + (aim.pointerX - toX) * t;
+      hand.pointerY = toY + (aim.pointerY - toY) * t;
       if (t >= 1) {
         cooldown = DUELIST.cooldown;
         goTo("hold", 0);

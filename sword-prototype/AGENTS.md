@@ -18,7 +18,8 @@ Run from inside this directory; npm walks up and will otherwise build the root c
 
 ```powershell
 npm ci                  # not `install` -- exact lockfile, identical on every machine
-npm run asset:fetch     # one-time: the CC0 environment map, ~1.5 MB, digest-pinned
+npm run asset:fetch     # one-time: the CC0 environment map and four normal maps,
+                        # ~2.9 MB, every file digest-pinned
 npm run dev             # http://localhost:5180, strictPort
 ```
 
@@ -106,6 +107,22 @@ npm run dev             # http://localhost:5180, strictPort
   physics, shadow/depth/post-process, outline, `Culling/ray`, `edgesRenderer`, and this. When
   a Babylon feature works in the playground and not here, suspect a missing side-effect
   import before suspecting the feature.
+- **Blender computes tangent space only for tris and quads.** `asset-src/build_warrior.py`'s
+  `plate()` authors n-gons by construction -- its whole job is a silhouette typed as a list
+  of points -- so the weld triangulates before the exporter asks. Without it the export
+  prints "Tangent space can only be computed for tris/quads, aborting" once per piece,
+  **succeeds**, and ships a file with no TANGENT attribute for the normal maps to use.
+- **A diffuse map multiplies the palette colour, it does not replace it.** Babylon's
+  `albedoTexture` times `albedoColor`, and a photographic diffuse averages well below
+  white, so wiring one onto a palette that already carries the right colours darkens the
+  whole scene to about a third. It looks like a lighting bug. `src/arena.ts` carries the
+  argument for why only the normal maps survived.
+- **Particles need `@babylonjs/core/Particles/particleSystemComponent` imported for their
+  side effect.** Sixth member of the family, and it fails the most convincingly of all of
+  them: a `ParticleSystem` constructs cleanly, accepts every setting you give it, takes
+  `start()` without complaint, reports a sensible `getCapacity()`, and emits nothing
+  whatsoever. There is no error, no warning and no null. `src/blood.ts` carries the import
+  and is the only thing in the tree that needs it so far.
 - **A hidden tab never renders, so picking silently finds nothing.** `requestAnimationFrame`
   does not fire, no view matrix is ever computed, and every `scene.pick` misses. Call
   `scene.render()` once by hand before believing a picking result taken from the console.
@@ -217,7 +234,7 @@ npm run dev             # http://localhost:5180, strictPort
   `constructor(private readonly scene: Scene)` fails to parse with "TypeScript parameter
   property is not supported in strip-only mode". One of them anywhere in what a harness
   imports blocks the whole harness, so those files use fields and assignments instead.
-- **This tree is LF, on Windows, with `core.autocrlf` false and no `.gitattributes`.** Git
+- **This tree is mixed, on Windows, with `core.autocrlf` false and no `.gitattributes`.** Git
   therefore stores exactly the bytes written, and a tool that rewrites a file with the
   platform's line ending silently converts the whole thing. Nothing breaks and every check
   still passes -- but `git diff` then reports the file as wholly replaced, a 90-line change
@@ -229,17 +246,39 @@ npm run dev             # http://localhost:5180, strictPort
   whether a suspiciously large diff is real; compare it against plain `--numstat` and any
   file where the two disagree has had its endings rewritten.
 
-  **`src/style.css` is the one exception and must be left alone:** it is genuinely mixed in
-  `HEAD` -- 342 CRLF lines and 24 bare LF -- and has been since before any of this. A
-  session that "tidied" those 24 lines turned a 126-line addition into a 150/24 diff and had
-  to be undone. Match whatever ending the line you are editing already has, and do not
-  normalise a file wholesale on the way past. Two agents have now reported this tree as
-  uniformly CRLF after checking it with `grep -c $'\r'`, which counts *lines containing* a
-  CR and so returns the line count for a CRLF file and for a mixed one alike. **The anchored
-  spelling `grep -c $'\r$'` is no better here**: run against `AGENTS.md` and `README.md`,
-  which contain zero CR bytes, it returned their full line counts. It is not a measurement;
-  read the bytes. `tr -dc '\r' < file | wc -c` against `tr -dc '\n' < file | wc -c` is one,
-  and it is what says this tree is LF and `src/style.css` is mixed.
+  **Which file is which, measured rather than assumed.** Most of `src/` is LF, but **six
+  files are pure CRLF in `HEAD`** and always have been:
+
+  | CRLF | LF | Mixed |
+  | --- | --- | --- |
+  | `src/arena.ts`, `src/combat.ts`, `src/physics.ts`, `src/rig.ts`, `src/scoring.ts`, `scripts/fetch-polyhaven.mjs` | everything else in `src/`, `tests/`, `scripts/`, `asset-src/` | `src/style.css` |
+
+  `src/style.css` is genuinely mixed -- 468 CR against 492 LF -- and has been since before
+  any of this. A session that "tidied" its bare-LF lines turned a 126-line addition into a
+  150/24 diff and had to be undone.
+
+  So: **match whatever ending the file you are editing already has**, check before you write,
+  and do not normalise anything wholesale on the way past. The practical trap is a script
+  that searches for `"a\n b"` in a CRLF file and silently matches nothing -- if a Python or
+  `perl` edit reports zero replacements in `combat.ts` or `scoring.ts`, that is why, and the
+  answer is `\r\n` in the pattern rather than a rewrite of the file.
+
+  Three agents have now reported this tree as uniformly *CRLF* after checking with
+  `grep -c $'\r'`, which counts *lines containing* a CR and so returns the line count for a
+  CRLF file and a mixed one alike; a fourth reported it as uniformly *LF* on the strength of
+  six spot checks that all happened to land on LF files. **The anchored spelling
+  `grep -c $'\r$'` is no better**: run against `AGENTS.md` and `README.md`, which contain
+  zero CR bytes, it returns their full line counts. None of those is a measurement. This is:
+
+  ```bash
+  for f in $(git ls-files sword-prototype/src); do
+    printf "%-24s cr=%s lf=%s\n" "$f" \
+      $(git show HEAD:"$f" | tr -dc '\r' | wc -c) $(git show HEAD:"$f" | tr -dc '\n' | wc -c)
+  done
+  ```
+
+  and `git diff --ignore-cr-at-eol --numstat` against plain `--numstat` is the after-the-fact
+  check: any file where the two disagree has had its endings rewritten.
 
 ## House rules
 

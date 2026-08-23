@@ -5,7 +5,7 @@ import type { Observer } from "@babylonjs/core/Misc/observable.js";
 
 import { CONFIG } from "./config.ts";
 import type { Side } from "./physics.ts";
-import type { Sword } from "./sword.ts";
+import type { Weapon, WeaponKind } from "./weapon.ts";
 import type { Fighter, Limb } from "./fighter.ts";
 import { scoreHit, severs, type HitKind } from "./scoring.ts";
 
@@ -17,7 +17,19 @@ export interface HitReport {
    * how, and the report of the blow that ended it is the only place that knows.
    */
   by: Side;
+  /** Which of the side's two hands landed it. A bout can end on either. */
+  weapon: WeaponKind;
+  /** The limb's label, which is what a person reads in the banner. */
   limb: string;
+  /**
+   * The limb's key, which is what code matches on.
+   *
+   * Both, because they are different jobs and the label is allowed to be
+   * rewritten for the readout without silently breaking a lookup. `bout.ts`
+   * already keys its own rules this way -- `beaten()` names `"head"` and
+   * `"torso"`, never "Head".
+   */
+  key: string;
   kind: HitKind;
   /** Speed of the blade at the contact point, m/s. */
   speed: number;
@@ -68,10 +80,26 @@ export class Combat {
   /** Which side's blade this watches. Stamped onto every report it files. */
   readonly side: Side;
 
-  private readonly sword: Sword;
-  private observer: Observer<IPhysicsCollisionEvent> | null = null;
+  /**
+   * Every weapon this side is carrying, and the observer watching each.
+   *
+   * One `Combat` per side rather than per blade, which is what it has always
+   * been -- but a side now carries up to two things and either of them can score.
+   * The alternative was a watcher per weapon and a list of them in `bout.sides`,
+   * which would have moved the same change into `main.ts`, `rigview.ts`, the
+   * HUD's "newest blow by anybody" reduction and `scripts/measure.mjs`. What
+   * scores is a property of a side; what it is holding is a detail of it.
+   *
+   * The weapon is captured per observer rather than looked up from the event,
+   * because `getCollisionObservable` is already per body -- so the binding is
+   * exact and free, and there is no way for a report to name the wrong blade.
+   */
+  private readonly watching: { weapon: Weapon; observer: Observer<IPhysicsCollisionEvent> }[] = [];
   private target: Fighter | null = null;
   private clock = 0;
+  /** Parries share one cooldown, since two blades resting together contact
+   *  every step and a log full of one block is a log of nothing. */
+  private lastParryAt = -999;
 
   /** The most recent meaningful contact, for the readout. */
   lastHit: HitReport | null = null;
@@ -84,10 +112,15 @@ export class Combat {
     push: new Vector3(),
   };
 
-  constructor(side: Side, sword: Sword) {
+  constructor(side: Side, weapons: readonly (Weapon | null)[]) {
     this.side = side;
-    this.sword = sword;
-    this.observer = sword.body.getCollisionObservable().add(this.onContact);
+    for (const weapon of weapons) {
+      if (!weapon) continue;
+      const observer = weapon.body
+        .getCollisionObservable()
+        .add((event) => this.onContact(weapon, event));
+      if (observer) this.watching.push({ weapon, observer });
+    }
   }
 
   /**
@@ -104,6 +137,19 @@ export class Combat {
     this.target = target;
   }
 
+  /**
+   * The body this blade is entitled to find.
+   *
+   * Exposed so that a report can be turned back into the limb it was filed
+   * against. `HitReport` carries a key rather than a body because it is a record
+   * of a blow and not a handle on one -- the limb it names may since have been
+   * cut off, and a record that kept the object alive would be a leak dressed up
+   * as a convenience. `src/blood.ts` is the only caller.
+   */
+  get body(): Fighter | null {
+    return this.target;
+  }
+
   /** Simulation time, seconds since the run started. */
   get now(): number {
     return this.clock;
@@ -114,43 +160,90 @@ export class Combat {
   }
 
   dispose(): void {
-    if (this.observer) {
-      this.sword.body.getCollisionObservable().remove(this.observer);
-      this.observer = null;
+    for (const watch of this.watching) {
+      watch.weapon.body.getCollisionObservable().remove(watch.observer);
     }
+    this.watching.length = 0;
   }
 
-  private readonly onContact = (event: IPhysicsCollisionEvent): void => {
+  private onContact(weapon: Weapon, event: IPhysicsCollisionEvent): void {
     if (event.type === PhysicsEventType.COLLISION_FINISHED) return;
     if (!this.target || !event.point) return;
 
     const limb = this.target.limbFor(event.collidedAgainst);
-    if (!limb || limb.severed) return;
+    if (!limb) {
+      this.parried(weapon, event);
+      return;
+    }
+    if (limb.severed) return;
     if (this.clock - limb.lastHitAt < CONFIG.combat.hitCooldown) return;
 
-    const report = this.resolve(limb, event);
+    const report = this.resolve(weapon, limb, event);
     limb.lastHitAt = this.clock;
     this.lastHit = report;
     this.log.unshift(report);
     if (this.log.length > 24) this.log.length = 24;
-  };
+  }
 
-  private resolve(limb: Limb, event: IPhysicsCollisionEvent): HitReport {
+  /**
+   * A blow that found the other fighter's guard instead of the other fighter.
+   *
+   * It costs nothing and it is not a wound, so it is filed with zero damage and
+   * a limb named for the thing it hit. What it buys is that a block is visible:
+   * before this, a blade stopped dead by a shield and a blade that missed
+   * entirely produced exactly the same readout, which is nothing.
+   *
+   * Rate-limited on the same clock as a real hit, because two blades resting
+   * against each other generate a contact every step and would otherwise fill
+   * the log with a single parry twenty-four times over.
+   */
+  private parried(weapon: Weapon, event: IPhysicsCollisionEvent): void {
+    const stopped = this.target?.parriedBy(event.collidedAgainst);
+    if (!stopped || !event.point) return;
+    if (this.clock - this.lastParryAt < CONFIG.combat.hitCooldown) return;
+    this.lastParryAt = this.clock;
+
+    const point = event.point as Vector3;
+    const velocity = this.scratch.velocity.copyFrom(weapon.velocityAt(point));
+    const report: HitReport = {
+      by: this.side,
+      weapon: weapon.kind,
+      limb: stopped.kind === "shield" ? "Shield" : "Guard",
+      key: `block:${stopped.kind}`,
+      kind: "weak",
+      speed: velocity.length(),
+      edgeAlignment: 0,
+      solverImpulse: event.impulse,
+      damage: 0,
+      severed: false,
+      at: this.clock,
+      point: point.clone(),
+      velocity: velocity.clone(),
+      edge: weapon.edgeDirection().clone(),
+    };
+    this.lastHit = report;
+    this.log.unshift(report);
+    if (this.log.length > 24) this.log.length = 24;
+  }
+
+  private resolve(weapon: Weapon, limb: Limb, event: IPhysicsCollisionEvent): HitReport {
     const C = CONFIG.combat;
     const point = event.point as Vector3;
 
-    const velocity = this.scratch.velocity.copyFrom(this.sword.velocityAt(point));
+    const velocity = this.scratch.velocity.copyFrom(weapon.velocityAt(point));
     const speed = velocity.length();
 
     const base = {
       by: this.side,
       limb: limb.label,
+      key: limb.key,
+      weapon: weapon.kind,
       solverImpulse: event.impulse,
       speed,
       at: this.clock,
       point: point.clone(),
       velocity: velocity.clone(),
-      edge: this.sword.edgeDirection().clone(),
+      edge: weapon.edgeDirection().clone(),
     };
 
     if (speed < C.minCutSpeed) {
@@ -158,14 +251,17 @@ export class Combat {
     }
 
     const direction = this.scratch.direction.copyFrom(velocity).scaleInPlace(1 / speed);
-    const edgeAlignment = Math.abs(Vector3.Dot(direction, this.sword.edgeDirection()));
+    const edgeAlignment = Math.abs(Vector3.Dot(direction, weapon.edgeDirection()));
 
-    const score = scoreHit({
-      speed,
-      edgeAlignment,
-      bladeAlignment: Math.abs(Vector3.Dot(direction, this.sword.bladeDirection())),
-      nearTip: Vector3.Distance(point, this.sword.tipPosition()) < C.thrustTipZone,
-    });
+    const score = scoreHit(
+      {
+        speed,
+        edgeAlignment,
+        bladeAlignment: Math.abs(Vector3.Dot(direction, weapon.bladeDirection())),
+        nearTip: Vector3.Distance(point, weapon.tipPosition()) < C.thrustTipZone,
+      },
+      weapon.kind,
+    );
     const { kind, quality, damage } = score;
 
     limb.health -= damage;
@@ -178,7 +274,7 @@ export class Combat {
       .scaleInPlace(speed * 0.11 * (1.35 - quality * 0.7));
     limb.part.body.applyImpulse(shove, point);
 
-    const severed = severs(score, limb.health);
+    const severed = severs(score, limb.health, weapon.kind);
     if (severed) this.target?.sever(limb, direction);
 
     return { ...base, kind, edgeAlignment, damage, severed };

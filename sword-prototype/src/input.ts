@@ -1,4 +1,15 @@
 import { CONFIG } from "./config";
+// The hand vocabulary lives in `mind.ts`, not here, and the direction of that
+// import is the point. `mind.ts` is on the simulation side of the directory and
+// takes `InputState` from this file as a **type**, which erases -- so the DOM
+// never enters a headless harness's module graph. Declaring `HANDS` here and
+// importing its *value* into `mind.ts` reversed that in one line and took
+// `fighter.ts` out of Node's reach with it: five test files failed at once with
+// "Cannot find module .../src/config", because this file is on the side that
+// does not carry `.ts` extensions.
+import { HANDS, otherHand, type HandIntent, type HandName } from "./mind.ts";
+
+export type { HandIntent, HandName };
 import { AUXILIARY, maskOfButton, nextSpent, poseFromButtons, PRIMARY } from "./buttons";
 
 /**
@@ -43,24 +54,30 @@ export interface InputState {
   strafe: number;
   /** -1 left, +1 right. Non-zero also means "I am steering", which breaks a lock. */
   turn: number;
-  /** Cursor position across the window, -1 (left) to +1 (right). */
-  pointerX: number;
-  /** Cursor position up the window, -1 (bottom) to +1 (top). */
-  pointerY: number;
-  /**
-   * Wrist roll in radians. Absolute, not a per-frame delta, because the control
-   * loop runs several times per rendered frame and would otherwise apply the
-   * same increment more than once.
-   */
-  roll: number;
   /** Camera zoom factor, multiplied into the camera's distance and height. */
   zoom: number;
-  thrust: boolean;
-  guard: boolean;
+  /**
+   * Which hand the mouse is driving. The other one is on its policy.
+   *
+   * There is one cursor and there are two hands, and the alternative -- half the
+   * screen each, or a modifier key held down -- was rejected because the mouse
+   * being spent *entirely* on one blade is the whole reason this reads as Die by
+   * the Sword. Splitting it would make both hands worse to control in order to
+   * avoid making a choice.
+   *
+   * It lives on the intent rather than beside it because a mind has to be able
+   * to see it: `splitMind` reads exactly this to decide which hand it takes from
+   * the person and which it takes from the policy.
+   */
+  driving: HandName;
+  primary: HandIntent;
+  secondary: HandIntent;
 }
 
 const clamp = (value: number, min: number, max: number) =>
   value < min ? min : value > max ? max : value;
+
+
 
 export interface ControlHooks {
   /** `Space`: build the bout again from nothing, both fighters. */
@@ -78,6 +95,8 @@ export interface ControlHooks {
   /** `C`: arm the takeover, or drop it again. The click that follows takes a
    *  body rather than starting a thrust. */
   onToggleTakeover: () => void;
+  /** `F`: the mouse changes hands. The one it leaves goes back to its policy. */
+  onSwapHands: () => void;
   /** Return true to swallow the click -- used when it picked a target or took a
    *  body instead of starting a thrust. */
   onPrimaryDown: () => boolean;
@@ -88,12 +107,10 @@ export class Controls {
     forward: 0,
     strafe: 0,
     turn: 0,
-    pointerX: 0,
-    pointerY: 0,
-    roll: 0,
     zoom: 1,
-    thrust: false,
-    guard: false,
+    driving: "primary",
+    primary: { pointerX: 0, pointerY: 0, roll: 0, thrust: false, guard: false },
+    secondary: { pointerX: 0, pointerY: 0, roll: 0, thrust: false, guard: false },
   };
 
   private readonly canvas: HTMLCanvasElement;
@@ -156,12 +173,13 @@ export class Controls {
     this.state.strafe = axis("KeyA", "KeyD");
     this.state.turn = axis("KeyQ", "KeyE");
 
+    // The roll keys turn the wrist of whichever hand the mouse has, and that
+    // hand only. The other one is being driven by a policy, which sets its own
+    // roll outright every step -- an increment written into it here would be
+    // overwritten before it reached a joint.
     const A = CONFIG.arm;
-    this.state.roll = clamp(
-      this.state.roll + axis("KeyZ", "KeyX") * A.rollRate * dt,
-      A.rollMin,
-      A.rollMax,
-    );
+    const hand = this.state[this.state.driving];
+    hand.roll = clamp(hand.roll + axis("KeyZ", "KeyX") * A.rollRate * dt, A.rollMin, A.rollMax);
 
     const C = CONFIG.camera;
     const wanted = clamp(Math.exp(this.zoomNotches * C.zoomStep), C.zoomMin, C.zoomMax);
@@ -242,6 +260,15 @@ export class Controls {
         // screen, so nothing is lost by the mode not existing.
         if (this.active) this.hooks.onToggleTakeover();
         return;
+      case "KeyF":
+        // Both hands drop whatever they were holding down. The buttons belong to
+        // the cursor and the cursor has just moved, so a guard pressed on the
+        // hand you are leaving would otherwise stay pressed with nothing holding
+        // it -- the same lost-release failure `openHand` exists for.
+        this.openHand();
+        this.state.driving = otherHand(this.state.driving);
+        this.hooks.onSwapHands();
+        return;
       default:
         if (this.active) this.held.add(event.code);
     }
@@ -264,8 +291,13 @@ export class Controls {
   /** Drop everything the hand was holding, and forget what it had paid for. */
   private openHand(): void {
     this.spent = 0;
-    this.state.thrust = false;
-    this.state.guard = false;
+    // Both, not just the driven one. Which hand the mouse has can change while
+    // the window is out of focus -- `F` is a key like any other -- and a guard
+    // left standing on the hand you were not holding is a pose nobody pressed.
+    for (const name of HANDS) {
+      this.state[name].thrust = false;
+      this.state[name].guard = false;
+    }
   }
 
   private readonly onPointerMove = (event: PointerEvent): void => {
@@ -274,9 +306,10 @@ export class Controls {
 
     const rect = this.canvas.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return;
-    this.state.pointerX = clamp(((event.clientX - rect.left) / rect.width) * 2 - 1, -1, 1);
+    const hand = this.state[this.state.driving];
+    hand.pointerX = clamp(((event.clientX - rect.left) / rect.width) * 2 - 1, -1, 1);
     // Screen Y grows downward; the arm does not.
-    this.state.pointerY = clamp(1 - ((event.clientY - rect.top) / rect.height) * 2, -1, 1);
+    hand.pointerY = clamp(1 - ((event.clientY - rect.top) / rect.height) * 2, -1, 1);
   };
 
   private readonly onPointerDown = (event: PointerEvent): void => {
@@ -338,8 +371,9 @@ export class Controls {
     }
     this.spent = nextSpent(this.spent, event.buttons, swallowed);
     const pose = poseFromButtons(event.buttons, this.spent);
-    this.state.thrust = pose.thrust;
-    this.state.guard = pose.guard;
+    const hand = this.state[this.state.driving];
+    hand.thrust = pose.thrust;
+    hand.guard = pose.guard;
   }
 
   private readonly onWheel = (event: WheelEvent): void => {

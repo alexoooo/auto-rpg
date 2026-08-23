@@ -91,3 +91,73 @@ test("a thrust that empties a limb takes it off", () => {
   assert.equal(thrust.kind, "thrust");
   assert.equal(severs(thrust, 0), true);
 });
+
+// ---- what a weapon that is not a sword is worth ---------------------------
+
+test("the sword is unchanged by the other two existing", () => {
+  // Every one of the eleven cases above calls `scoreHit` with one argument, and
+  // that is the whole point of the kind being a defaulted parameter rather than
+  // a field on `Contact`: the damage model this prototype was tuned against is
+  // still exactly the damage model, and nothing about a club being added is
+  // allowed to have moved it.
+  const cut = cleanCut();
+  assert.deepEqual(scoreHit(cut), scoreHit(cut, "sword"));
+});
+
+test("a shield scores nothing however hard it is swung", () => {
+  const hard = { speed: 40, edgeAlignment: 1, bladeAlignment: 1, nearTip: true };
+  const score = scoreHit(hard, "shield");
+  assert.equal(score.damage, 0);
+  assert.equal(score.quality, 0);
+  // A slap rather than a kind of its own: `combat.ts` applies its shove
+  // regardless of quality, so a shield bash still moves what it hits, and the
+  // readout already has a word for a blow that pushes without biting.
+  assert.equal(score.kind, "slap");
+  assert.equal(severs(score, -500, "shield"), false, "a shield cannot take a limb off");
+});
+
+test("a club does not care how it is held", () => {
+  // The whole character of the weapon. A sword swung flat is a shove; a club has
+  // no flat, so the same motion at the same speed is worth the same either way.
+  const along = scoreHit({ speed: 18, edgeAlignment: 1, bladeAlignment: 0, nearTip: false }, "club");
+  const across = scoreHit({ speed: 18, edgeAlignment: 0, bladeAlignment: 1, nearTip: true }, "club");
+  assert.equal(along.kind, "crush");
+  assert.deepEqual(along, across);
+  assert.ok(along.damage > 0);
+});
+
+test("a club is worth less than a perfect cut and more than a bad one", () => {
+  const speed = 14;
+  const club = scoreHit({ speed, edgeAlignment: 0, bladeAlignment: 0, nearTip: false }, "club");
+  const perfect = scoreHit({ speed, edgeAlignment: 1, bladeAlignment: 0, nearTip: false });
+  const clumsy = scoreHit({ speed, edgeAlignment: 0.35, bladeAlignment: 0, nearTip: false });
+
+  assert.ok(club.damage < perfect.damage, "a club should not out-damage a placed cut");
+  assert.ok(club.damage > clumsy.damage, "but it should beat a cut nobody aimed");
+});
+
+test("a club still rises with speed, and still has a floor", () => {
+  const at = (speed) =>
+    scoreHit({ speed, edgeAlignment: 0, bladeAlignment: 0, nearTip: false }, "club").damage;
+  assert.equal(at(CONFIG.combat.minCrushSpeed - 0.01), 0, "below its floor it is a nudge");
+  assert.ok(at(8) > at(4));
+  assert.equal(at(CONFIG.combat.referenceSpeed + 20), at(CONFIG.combat.referenceSpeed));
+});
+
+test("a club takes a limb off by crushing through it", () => {
+  const blow = scoreHit({ speed: 16, edgeAlignment: 0, bladeAlignment: 0, nearTip: false }, "club");
+  // The edge-quality clause has nothing to say about a weapon with no edge, so
+  // it is dropped rather than failed. A club that could never sever could only
+  // win by flattening all thirteen parts.
+  assert.equal(severs(blow, 0, "club"), true);
+  assert.equal(severs(blow, 5, "club"), false, "a limb with health left stays on");
+});
+
+test("a club's floor is lower than a blade's", () => {
+  // A blade arriving slowly is a blade being leaned on. A club arriving slowly is
+  // still several kilograms of wood.
+  assert.ok(CONFIG.combat.minCrushSpeed < CONFIG.combat.minCutSpeed);
+  const slow = { speed: 2.6, edgeAlignment: 1, bladeAlignment: 0, nearTip: false };
+  assert.equal(scoreHit(slow).damage, 0, "a sword does nothing at this speed");
+  assert.ok(scoreHit(slow, "club").damage > 0, "a club does");
+});

@@ -415,7 +415,7 @@ export class RigView {
     const upperWorld = fighter.upperArm.mesh.computeWorldMatrix(true);
     fighter.hand.mesh.computeWorldMatrix(true);
     fighter.elbowAnchor.mesh.computeWorldMatrix(true);
-    fighter.sword.root.computeWorldMatrix(true);
+    fighter.sword?.root.computeWorldMatrix(true);
 
     s.anchor.copyFrom(fighter.handAnchor.mesh.absolutePosition);
     s.hand.copyFrom(fighter.hand.mesh.absolutePosition);
@@ -537,7 +537,7 @@ export class RigView {
 
     this.reading.errorMm = error * 1000;
     this.reading.elbowDriftMm = travel * 1000;
-    this.reading.tipSpeed = fighter.sword.tipSpeed();
+    this.reading.tipSpeed = fighter.sword?.tipSpeed() ?? 0;
   }
 
   /**
@@ -625,13 +625,15 @@ export class RigView {
     this.shownConstraints.length = 0;
     for (const body of this.shownBodies) this.viewer.hideBody(body);
     this.shownBodies.length = 0;
-    for (const side of this.sides) this.viewer.hideInertia(side.fighter.sword.body);
+    for (const side of this.sides) {
+      if (side.fighter.sword) this.viewer.hideInertia(side.fighter.sword.body);
+    }
 
     if (R.shapes) {
       for (const side of this.sides) {
         const fighter = side.fighter;
         for (const limb of fighter.limbs) this.shownBodies.push(limb.part.body);
-        this.shownBodies.push(fighter.sword.body);
+        if (fighter.sword) this.shownBodies.push(fighter.sword.body);
         // The two control frames are bodies like any other and it is worth
         // seeing that they exist at all -- they are two-centimetre spheres that
         // collide with nothing, which is exactly the sort of thing you stop
@@ -648,7 +650,9 @@ export class RigView {
       // transverse and roll moments differ by about three orders of magnitude,
       // and that ratio is the entire reason `arm.gripAngularDamping` has to be
       // scaled by the principal moments before it is applied.
-      for (const side of this.sides) this.viewer.showInertia(side.fighter.sword.body);
+      for (const side of this.sides) {
+        if (side.fighter.sword) this.viewer.showInertia(side.fighter.sword.body);
+      }
     }
 
     // Every joint of both fighters, the sword arm's included -- which is new, and

@@ -34,8 +34,24 @@ export interface FigureRig {
   torso: Part;
   head: Part;
   pelvis: Part;
+  /**
+   * Both arms, all six bones.
+   *
+   * There used to be two, because there used to be one driven arm and one
+   * gait-swung stub, and the driven one was deliberately left bare: it was the
+   * subject of the whole prototype and a sleeve on it would have been a costume
+   * on the thing being measured. Both arms are driven now, and that argument
+   * does not survive the change -- it would leave a fighter dressed on one side
+   * and stripped on the other, which is not an instrument, it is a mistake. The
+   * instrument is `G`, which takes the whole costume off and was built for
+   * exactly this.
+   */
+  swordUpperArm: Part;
+  swordForearm: Part;
+  swordHand: Part;
   offUpperArm: Part;
   offForearm: Part;
+  offHand: Part;
   thighLeft: Part;
   shinLeft: Part;
   thighRight: Part;
@@ -96,14 +112,42 @@ export interface BoneFrame {
 export function boneFrames(): Record<BoneName, BoneFrame> {
   const B = CONFIG.body;
   const F = CONFIG.fighter;
+  const A = CONFIG.arm;
+  const side = F.shoulderSide;
   const off = -F.shoulderSide;
   const z = F.shoulderFront;
   return {
     torso: { joint: [0, B.waist, 0], centre: [0, B.torsoCentre, 0] },
     head: { joint: [0, B.neck, 0], centre: [0, B.headCentre, 0] },
     pelvis: { joint: [0, B.waist, 0], centre: [0, B.pelvisCentre, 0] },
-    offUpperArm: { joint: [off, F.shoulderHeight, z], centre: [off, B.offUpperCentre, z] },
-    offForearm: { joint: [off, B.offElbow, z], centre: [off, B.offForeCentre, z] },
+    // Both arms take their dimensions from the one `arm` block, because both
+    // arms are now built from it. They used to differ -- the off arm was its own
+    // set of numbers in `body`, a couple of centimetres shorter -- and a costume
+    // authored to those and hung on these would sit that far out of place.
+    swordUpperArm: {
+      joint: [side, F.shoulderHeight, z],
+      centre: [side, F.shoulderHeight - A.upperLength / 2, z],
+    },
+    swordForearm: {
+      joint: [side, F.shoulderHeight - A.upperLength, z],
+      centre: [side, F.shoulderHeight - A.upperLength - A.foreLength / 2, z],
+    },
+    swordHand: {
+      joint: [side, F.shoulderHeight - A.upperLength - A.foreLength, z],
+      centre: [side, F.shoulderHeight - A.upperLength - A.foreLength - A.handLength / 2, z],
+    },
+    offUpperArm: {
+      joint: [off, F.shoulderHeight, z],
+      centre: [off, F.shoulderHeight - A.upperLength / 2, z],
+    },
+    offForearm: {
+      joint: [off, F.shoulderHeight - A.upperLength, z],
+      centre: [off, F.shoulderHeight - A.upperLength - A.foreLength / 2, z],
+    },
+    offHand: {
+      joint: [off, F.shoulderHeight - A.upperLength - A.foreLength, z],
+      centre: [off, F.shoulderHeight - A.upperLength - A.foreLength - A.handLength / 2, z],
+    },
     thighLeft: { joint: [-B.hipSide, B.hip, 0], centre: [-B.hipSide, B.thighCentre, 0] },
     shinLeft: { joint: [-B.hipSide, B.knee, 0], centre: [-B.hipSide, B.shinCentre, 0] },
     thighRight: { joint: [B.hipSide, B.hip, 0], centre: [B.hipSide, B.thighCentre, 0] },
@@ -125,8 +169,49 @@ export function boneFrames(): Record<BoneName, BoneFrame> {
 export function costumePieces(): CostumePiece[] {
   const B = CONFIG.body;
   const F = CONFIG.fighter;
+  const side = F.shoulderSide;
   const off = -F.shoulderSide;
   const z = F.shoulderFront;
+  /**
+   * One arm's three sleeves, from the shoulder down.
+   *
+   * `R` is the sword side and `L` the off side, matching the leg suffixes and
+   * the names the asset already carries -- the off arm's three pieces were
+   * `upperArmL`, `forearmL` and `handL` before there was a second set, and
+   * keeping them is what stops this being a rename of the asset as well as an
+   * addition to it.
+   */
+  const sleeve = (suffix: "L" | "R", x: number): CostumePiece[] => {
+    const A = CONFIG.arm;
+    const elbow = F.shoulderHeight - A.upperLength;
+    const wrist = elbow - A.foreLength;
+    const bone = (part: string) =>
+      (suffix === "R" ? `sword${part}` : `off${part}`) as BoneName;
+    return [
+      {
+        name: `upperArm${suffix}`,
+        bone: bone("UpperArm"),
+        material: "cloth",
+        at: [x, F.shoulderHeight - A.upperLength / 2, z],
+        primitive: { kind: "capsule", height: A.upperLength, radius: A.upperRadius },
+      },
+      {
+        name: `forearm${suffix}`,
+        bone: bone("Forearm"),
+        material: "leather",
+        at: [x, elbow - A.foreLength / 2, z],
+        primitive: { kind: "capsule", height: A.foreLength, radius: A.foreRadius },
+      },
+      {
+        name: `hand${suffix}`,
+        bone: bone("Hand"),
+        material: "flesh",
+        at: [x, wrist - A.handLength / 2, z],
+        primitive: { kind: "capsule", height: A.handLength, radius: A.handRadius },
+      },
+    ];
+  };
+
   const leg = (suffix: "L" | "R", side: -1 | 1): CostumePiece[] => {
     const x = side * B.hipSide;
     const thigh = suffix === "L" ? "thighLeft" : "thighRight";
@@ -261,30 +346,13 @@ export function costumePieces(): CostumePiece[] {
     },
 
     // ---- free arm ----
-    // The sword arm is missing here on purpose. That one is real, and it is the
-    // whole point of the prototype -- it is three simulated bones and a weighted
-    // blade, and putting a sleeve on it would be putting a costume on the subject.
-    {
-      name: "upperArmL",
-      bone: "offUpperArm",
-      material: "cloth",
-      at: [off, B.offUpperCentre, z],
-      primitive: { kind: "capsule", height: 0.30, radius: 0.055 },
-    },
-    {
-      name: "forearmL",
-      bone: "offForearm",
-      material: "leather",
-      at: [off, B.offForeCentre, z],
-      primitive: { kind: "capsule", height: 0.27, radius: 0.048 },
-    },
-    {
-      name: "handL",
-      bone: "offForearm",
-      material: "flesh",
-      at: [off, B.offForeCentre - B.offForeLength / 2 - 0.06, z],
-      primitive: { kind: "capsule", height: 0.12, radius: 0.046 },
-    },
+    // Both arms, mirrored. The sword arm used to be missing here on purpose --
+    // it was the one real arm and the whole point of the prototype, and a sleeve
+    // on it would have been a costume on the subject being measured. There are
+    // two real arms now, and half a fighter in a shirt reads as a bug rather
+    // than as an instrument. `G` is the instrument.
+    ...sleeve("R", side),
+    ...sleeve("L", off),
 
     // ---- legs ----
     ...leg("L", -1),

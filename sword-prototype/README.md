@@ -33,7 +33,7 @@ What each one is for, and why it is that command and not a near neighbour:
 | --- | --- |
 | `cd <repo>\sword-prototype` | Not optional. npm walks *up* to find a project, so running from the repo root builds the auto-rpg client instead and never installs this directory's dependencies. |
 | `npm ci` | Not `npm install`. `ci` deletes `node_modules` and installs exactly what `package-lock.json` pins, so two machines get byte-identical trees. `install` may quietly resolve something newer. |
-| `npm run asset:fetch` | One-time, ~1.5 MB. Downloads the CC0 environment map, which is a binary and not authored here. Digest-pinned and idempotent: run it again and it just verifies. |
+| `npm run asset:fetch` | One-time, ~2.9 MB. Downloads the CC0 environment map and the four normal maps, which are binaries and not authored here. Every file is digest-pinned, and the command is idempotent: run it again and it just verifies. |
 | `npm run dev` | Serves on port 5180, `strictPort`, so a port collision fails loudly instead of silently moving to 5181 and leaving you reading a stale server. |
 
 To confirm the whole thing is sound without opening a browser:
@@ -81,7 +81,7 @@ the arm drifted, centre was unrecoverable, and you could not get your mouse back
 
 | Input | Does |
 | --- | --- |
-| Mouse | moves the sword arm — the cursor is where the hand goes |
+| Mouse | moves one arm — the cursor is where that hand goes |
 | W / S | walk forward and back |
 | A / D | strafe |
 | Q / E | turn |
@@ -89,6 +89,7 @@ the arm drifted, centre was unrecoverable, and you could not get your mouse back
 | Left button | thrust — drive the point out |
 | Right button | guard — pull the blade in close |
 | Middle button / L | arm a lock-on, then click an enemy; strafe to circle it, Q/E to break |
+| F | the mouse changes hands — the one it leaves goes back to its policy |
 | C | arm a takeover, then click either fighter — you drive that one and the one you leave picks its policy back up |
 | Wheel | zoom |
 | V | camera — Overhead behind the fighter, or Fixed on a world bearing |
@@ -106,6 +107,36 @@ in and cuts on a fixed cadence without ever looking at your guard, and **duelist
 measure, guards between exchanges, and commits when your point leaves the line. A bout ends
 when a fighter loses its head or is beaten to nothing everywhere, or when the clock runs
 out, and the banner names the winner and the blow that did it.
+
+Losing your head is also the end of you as a body, and not only as a competitor. The torso
+stops being steered and falls under its own weight, every joint drops to a fraction of its
+strength so the thing crumples rather than toppling in one piece, and the mind is never
+asked what it wants again. Until recently only the banner noticed, and a decapitated fighter
+went on walking and swinging with a stump for a neck. Blood follows the same rule the damage
+model does — a clean cut at pace sprays and a flat slap does not — and a limb that comes off
+goes on bleeding as it falls.
+
+## Two hands
+
+Each hand takes a **sword**, a **shield** or **nothing**, chosen per corner before the
+fight. Both are real arms — three bones, a shoulder cone, an elbow hinge, a free wrist and
+a keyframed anchor dragging the whole thing about — so a shield is not a state a fighter is
+in, it is a plank of limewood with a steel rim welded into a fist, and it blocks by being
+in the way. The collision layers already said an enemy blade and this side's weapons may
+touch; blocking needed a shape, not a rule.
+
+There is also a **club**, which takes both hands. It has no edge, so nothing about how you
+hold it matters and everything about how fast it arrives does — you cannot place a blow
+with a club, you can only arrive with one. It hits harder than a badly-aimed cut and less
+hard than a placed one, and it will take a head off.
+
+You have one mouse and a fighter has two arms, so **`F`** moves the cursor from one to the
+other and the hand you leave goes back to the side's own policy. Splitting the cursor
+instead — half the screen each, or a modifier held down — would have made both hands worse
+to control in order to avoid making a choice. The hand you arrive at is seeded from the
+pose it is actually in, exactly as a takeover is, because the cursor is absolute and a hand
+taken over without seeding snaps to wherever the mouse happens to be at the full 850 N the
+grip can pull.
 
 Lock-on exists because the mouse is spent entirely on the blade. With no hand left over for
 the camera, keeping an enemy in front of you while you circle it is otherwise impossible —
@@ -130,8 +161,9 @@ orchestrating it.
 A fighter is deliberately split in two, and there are two of them in the ring, of one kind.
 The torso is **keyframed**: it goes exactly where you steer it, because a body that wobbles under the weight of its own arm is not fun to
 walk around. Everything from the shoulder outward is **genuinely simulated** — a ball
-joint at the shoulder, a hinge at the elbow, a rolling wrist, and an arming sword that
-balances a hand's width ahead of its guard.
+joint at the shoulder, a hinge at the elbow, a rolling wrist, and whatever is welded into
+the fist. Both arms are like that: two full chains, either of which can hold a sword, a
+shield or nothing.
 
 The arm is driven by a single invisible keyframed **anchor**, joined to the hand by a
 six-degree-of-freedom constraint whose motors have a finite force budget. Move the anchor
@@ -195,9 +227,20 @@ CC0, fetched and digest-pinned by `scripts/fetch-polyhaven.mjs`. Image-based lig
 what makes a steel blade read as steel rather than as a grey box; without it the scene
 still runs, just flatter.
 
+Four **normal maps** — steel, leather, cloth and wood — come from the same place under the
+same licence, fetched and pinned by `scripts/fetch-textures.mjs`. They are relief only: a
+normal map changes how light rakes across a surface and cannot change its colour, so the
+palette in `src/arena.ts` and the per-side crimson and blue come through untouched. The
+diffuse and roughness maps from the same sets were wired up first and dropped; `arena.ts`
+says why at length. Neither the maps nor the environment map is committed — both are
+reproducible byte for byte from their pins, which `warrior.glb` is not — so a clone that
+skips `npm run asset:fetch` runs and simply looks flatter.
+
 The warriors are authored: `public/assets/warrior.glb` is built from
 `asset-src/build_warrior.py` by `npm run asset:build`, which needs Blender, and the result
-is committed so a fresh clone runs without one. The Python holds **no dimensions** — every
+is committed so a fresh clone runs without one. Twenty-four pieces now, where there were
+twenty-one: both arms are simulated and both are therefore dressed, where the sword arm
+used to be left bare as the subject of the measurement. `G` is what takes the costume off. The Python holds **no dimensions** — every
 number comes from `asset-src/dimensions.json`, regenerated out of `src/config.ts` and
 `src/figure.ts` on each build, so a bone that moves without a rebuild fails
 `npm run asset:verify` instead of quietly stretching a warrior. Delete the `.glb` and the
@@ -205,10 +248,18 @@ page still boots, still plays, and shows the blockout primitives it replaced.
 
 ## Status
 
-Working: two fighters of one kind, the arm, the blade, contact scoring, dismemberment,
-policies that fight with the controller you use, live takeover of either body, two cameras,
-the rig overlay, the authored armour, and a build that runs at 60 fps with physics under a
-millisecond.
+Working: two fighters of one kind, the arm, the blade, contact scoring, dismemberment, death
+on a lost head, blood, policies that fight with the controller you use, live takeover of
+either body, two cameras, the rig overlay, the authored armour, and a build that runs at
+60 fps with physics under a millisecond.
+
+**The warriors still do not look good.** They are twenty-four welded primitives with
+tiling normal maps on them, and that is a real step up from twenty-four welded primitives
+in four flat colours, but it is not what anybody would call finished art. Getting further
+means either a modelled and hand-textured character, or adopting a pre-built one and
+re-fitting the rig to its proportions — the good free ones are all stylized low-poly, so
+that is a change of art direction rather than a change of mesh. Neither is a texture
+setting, and `docs/measurements.md` records it as owed rather than pretending otherwise.
 
 Not yet done: **nobody has played it.** Every number in `src/config.ts` is a first guess
 tuned against a measurement rather than against a person, and the questions that decide

@@ -1,5 +1,14 @@
 import { POLICIES } from "./mind";
-import { UNITS, withControl, withPolicy, withUnit, type Control, type Matchup } from "./bout";
+import {
+  EQUIPMENT,
+  UNITS,
+  withControl,
+  withEquipment,
+  withPolicy,
+  withUnit,
+  type Control,
+  type Matchup,
+} from "./bout";
 import type { Side } from "./physics";
 
 /**
@@ -31,6 +40,7 @@ export class SetupScreen {
 
   private readonly units: Record<Side, HTMLSelectElement>;
   private readonly policies: Record<Side, HTMLSelectElement>;
+  private readonly hands: Record<"handA" | "handB", Record<Side, HTMLSelectElement>>;
   private readonly controls: Record<Side, HTMLInputElement[]>;
 
   constructor(host: HTMLElement, matchup: Matchup) {
@@ -51,6 +61,10 @@ export class SetupScreen {
 
     this.units = pick<HTMLSelectElement>("unit");
     this.policies = pick<HTMLSelectElement>("policy");
+    this.hands = {
+      handA: pick<HTMLSelectElement>("handA"),
+      handB: pick<HTMLSelectElement>("handB"),
+    };
     this.controls = {
       left: [...host.querySelectorAll<HTMLInputElement>('[data-side="left"][data-field="control"]')],
       right: [...host.querySelectorAll<HTMLInputElement>('[data-side="right"][data-field="control"]')],
@@ -106,6 +120,14 @@ export class SetupScreen {
           <span class="field-name">Policy</span>
           <select data-side="${side}" data-field="policy">${options(POLICIES)}</select>
         </label>
+        <label class="field">
+          <span class="field-name">Hand A</span>
+          <select data-side="${side}" data-field="handA">${options(EQUIPMENT)}</select>
+        </label>
+        <label class="field">
+          <span class="field-name">Hand B</span>
+          <select data-side="${side}" data-field="handB">${options(EQUIPMENT)}</select>
+        </label>
         <div class="field">
           <span class="field-name">Control</span>
           <span class="choice">
@@ -129,6 +151,14 @@ export class SetupScreen {
       case "unit":
         this.matchup = withUnit(this.matchup, side, target.value);
         break;
+      case "handA":
+      case "handB":
+        // Straight through the reducer, club rule and all. The screen does not
+        // know that choosing a club fills both hands; `render` below re-reads
+        // every control from the matchup afterwards, which is the same
+        // arrangement that lets `withControl` move the *other* corner.
+        this.matchup = withEquipment(this.matchup, side, target.dataset.field, target.value);
+        break;
       case "policy":
         this.matchup = withPolicy(this.matchup, side, target.value);
         break;
@@ -146,6 +176,8 @@ export class SetupScreen {
       const setup = this.matchup[side];
       this.units[side].value = setup.unit;
       this.policies[side].value = setup.policy;
+      this.hands.handA[side].value = setup.handA;
+      this.hands.handB[side].value = setup.handB;
       for (const button of this.controls[side]) button.checked = button.value === setup.control;
     }
   }

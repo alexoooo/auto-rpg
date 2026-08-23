@@ -53,6 +53,63 @@ import { CONFIG } from "./config.ts";
  */
 export type Intent = InputState;
 
+/** Which of a fighter's two hands. */
+export type HandName = "primary" | "secondary";
+
+/**
+ * What one hand is being asked for.
+ *
+ * These five used to sit at the top of `InputState`, because there used to be
+ * one arm. Splitting them out rather than adding a second set of differently
+ * named fields is what keeps the two hands genuinely alike: there is no
+ * `pointerX` and `offPointerX`, no hand that is the real one and a hand that is
+ * the afterthought, and `Arm` takes one of these without caring which it is.
+ */
+export interface HandIntent {
+  /** Cursor position across the window, -1 (left) to +1 (right). */
+  pointerX: number;
+  /** Cursor position up the window, -1 (bottom) to +1 (top). */
+  pointerY: number;
+  /**
+   * Wrist roll in radians. Absolute, not a per-frame delta, because the control
+   * loop runs several times per rendered frame and would otherwise apply the
+   * same increment more than once.
+   */
+  roll: number;
+  thrust: boolean;
+  guard: boolean;
+}
+
+/**
+ * Both of them, for the loops that must not favour the one being driven.
+ *
+ * Declared here rather than in `input.ts` with `InputState`, and that is not
+ * arbitrary. `mind.ts` takes `InputState` as a **type**, which erases, so the
+ * DOM never reaches a headless harness. Putting this constant on the far side
+ * and importing its *value* back reverses that in one line: five test files and
+ * the whole bench failed at once with "Cannot find module .../src/config",
+ * because `input.ts` is on the side that does not carry `.ts` extensions.
+ */
+export const HANDS: readonly HandName[] = ["primary", "secondary"];
+
+/** The other one. */
+export const otherHand = (hand: HandName): HandName =>
+  hand === "primary" ? "secondary" : "primary";
+
+/**
+ *
+ * `input.ts` is the browser's, and a *value* import of it anywhere in a
+ * fighter's graph would take `fighter.ts` out of Node's reach and the headless
+ * bench and four test files with it. `HANDS` is the one value that crosses, and
+ * it crosses because it is a frozen pair of strings with no DOM anywhere near
+ * it -- the alternative was a second copy of `["primary", "secondary"]`, which
+ * is exactly the kind of duplication that goes wrong the day a third hand is
+ * imagined.
+ */
+
+/** One pose per hand, which is what a takeover has to seed from. */
+export type ArmPoses = Record<HandName, ArmPose>;
+
 /**
  * How much of each part of a body is left, keyed by `Limb.key`: 1 whole, 0 gone.
  *
@@ -168,12 +225,14 @@ export const NEUTRAL: Intent = Object.freeze({
   forward: 0,
   strafe: 0,
   turn: 0,
-  pointerX: 0,
-  pointerY: 0,
-  roll: 0,
   zoom: 1,
-  thrust: false,
-  guard: false,
+  driving: "primary",
+  // Frozen too, and separately. `Object.freeze` is shallow, so freezing only the
+  // outer object would leave both hands writable through a reference anybody
+  // holds -- and the whole point of freezing this is that a policy handed the
+  // neutral intent cannot quietly turn it into its own.
+  primary: Object.freeze({ pointerX: 0, pointerY: 0, roll: 0, thrust: false, guard: false }),
+  secondary: Object.freeze({ pointerX: 0, pointerY: 0, roll: 0, thrust: false, guard: false }),
 });
 
 /**
@@ -218,6 +277,69 @@ export function idleMind(): Mind {
 export function humanMind(source: { readonly state: Intent }, name = "you"): Mind {
   return { name, decide: () => source.state };
 }
+
+/**
+ * One mouse, two hands.
+ *
+ * A person has one cursor and a fighter has two arms, so exactly one of them can
+ * be the person's at a time and the other has to be driven by something. This is
+ * that something: it runs both minds every step, takes the feet and the driven
+ * hand from the person, and takes the other hand from the policy.
+ *
+ * Splitting the *cursor* instead -- half the screen each, or a modifier held
+ * down -- was the obvious alternative and is worse. The mouse being spent
+ * entirely on one blade is the whole reason this reads as Die by the Sword
+ * rather than as a third-person action game, and halving it would make both
+ * hands worse to control in order to avoid making a choice. `F` makes the
+ * choice, and it can be made mid-swing.
+ *
+ * The policy is driven every step whichever hand it is on, and at its own `dt`,
+ * for the same reason `handover` drives its inner mind through the rebase
+ * window: a policy whose cadence stopped while somebody else was using its arm
+ * would be a different policy. It writes into its own hand slot -- policies say
+ * which hand they mean through `driving` -- and this reads that slot rather
+ * than assuming a side, so a policy needs to know nothing about any of this.
+ *
+ * House rule 1 survives intact: what reaches the fighter is still one `Intent`,
+ * still the same nine-field shape a person produces, and there is still nothing
+ * anywhere that asks which of the two hands is the real one.
+ */
+export function splitMind(person: Mind, policy: Mind): Mind {
+  const blended: Intent = {
+    ...NEUTRAL,
+    primary: { ...NEUTRAL.primary },
+    secondary: { ...NEUTRAL.secondary },
+  };
+
+  return {
+    name: person.name,
+    decide(view: FighterView, dt: number): Intent {
+      const mine = person.decide(view, dt);
+      const theirs = policy.decide(view, dt);
+
+      blended.forward = mine.forward;
+      blended.strafe = mine.strafe;
+      blended.turn = mine.turn;
+      blended.zoom = mine.zoom;
+      blended.driving = mine.driving;
+
+      const spare = otherHand(mine.driving);
+      copyHand(blended[mine.driving], mine[mine.driving]);
+      copyHand(blended[spare], theirs[theirs.driving]);
+      return blended;
+    },
+  };
+}
+
+/** Five fields, by hand, because a reference would alias two live objects. */
+function copyHand(into: HandIntent, from: HandIntent): void {
+  into.pointerX = from.pointerX;
+  into.pointerY = from.pointerY;
+  into.roll = from.roll;
+  into.thrust = from.thrust;
+  into.guard = from.guard;
+}
+
 
 /**
  * The pose an arm is actually in, exactly as `Fighter.armAngles()` answers it.
@@ -364,11 +486,24 @@ export interface Handover extends Mind {
  * what it asks the hand for. A policy that was told the fight had paused for a
  * quarter of a second would be a different policy.
  */
-export function handover(inner: Mind, pose: ArmPose, seconds = CONFIG.takeover.rebaseSeconds): Handover {
-  const seed = cursorForPose(pose);
+export function handover(
+  inner: Mind,
+  poses: ArmPoses,
+  seconds = CONFIG.takeover.rebaseSeconds,
+): Handover {
+  const seed = { primary: cursorForPose(poses.primary), secondary: cursorForPose(poses.secondary) };
   // Mutable, allocated once, and never handed out except during the window --
   // the same contract `NEUTRAL` documents and every policy already keeps.
-  const blended: Intent = { ...NEUTRAL };
+  //
+  // The two hands are rebuilt rather than spread: `{ ...NEUTRAL }` copies the
+  // *references* to NEUTRAL's two frozen hand objects, so the first write to
+  // `blended.primary.pointerX` would throw in a module (which is strict) or, far
+  // worse, silently do nothing if this ever ran unstrict.
+  const blended: Intent = {
+    ...NEUTRAL,
+    primary: { ...NEUTRAL.primary },
+    secondary: { ...NEUTRAL.secondary },
+  };
   let elapsed = 0;
   let done = seconds <= 0;
 
@@ -398,11 +533,21 @@ export function handover(inner: Mind, pose: ArmPose, seconds = CONFIG.takeover.r
       blended.strafe = asked.strafe;
       blended.turn = asked.turn;
       blended.zoom = asked.zoom;
-      blended.thrust = asked.thrust;
-      blended.guard = asked.guard;
-      blended.pointerX = seed.pointerX + (asked.pointerX - seed.pointerX) * t;
-      blended.pointerY = seed.pointerY + (asked.pointerY - seed.pointerY) * t;
-      blended.roll = seed.roll + (asked.roll - seed.roll) * t;
+      blended.driving = asked.driving;
+      // Both hands, and by the same clock. A takeover that rebased one hand and
+      // snapped the other would be exactly half a fix: the cursor is absolute,
+      // so whichever hand it is not currently driving is still being commanded
+      // from a pose the incoming mind knows nothing about.
+      for (const name of HANDS) {
+        const to = blended[name];
+        const from = seed[name];
+        const want = asked[name];
+        to.thrust = want.thrust;
+        to.guard = want.guard;
+        to.pointerX = from.pointerX + (want.pointerX - from.pointerX) * t;
+        to.pointerY = from.pointerY + (want.pointerY - from.pointerY) * t;
+        to.roll = from.roll + (want.roll - from.roll) * t;
+      }
       return blended;
     },
   };

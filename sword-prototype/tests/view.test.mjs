@@ -12,6 +12,7 @@ import { CONFIG } from "../src/config.ts";
 import { attachPhysics } from "../src/physics.ts";
 import { Fighter } from "../src/fighter.ts";
 import { idleMind } from "../src/mind.ts";
+import { blankIntent } from "../src/policies.ts";
 
 /**
  * The one test in this directory that runs the real solver.
@@ -50,15 +51,25 @@ async function ring() {
   const materials = {
     flesh: mat("flesh"), cloth: mat("cloth"), steel: mat("steel"),
     leather: mat("leather"), brass: mat("brass"), hide: mat("hide"),
+    wood: mat("wood"),
   };
 
-  const busy = (pointerX) => ({
-    name: "busy",
-    decide: () => ({
-      forward: 1, strafe: 0.3, turn: 0.4, pointerX, pointerY: -0.2,
-      roll: 0.5, zoom: 1, thrust: false, guard: false,
-    }),
-  });
+  // Built from the real `blankIntent` rather than from a literal of its own.
+  // Four test files used to carry their own copies of that shape, all plain JS
+  // and all untyped, and every one of them went on compiling and started handing
+  // `undefined` to an arm the day the intent grew a second hand.
+  const busy = (pointerX) => {
+    const intent = blankIntent();
+    intent.forward = 1;
+    intent.strafe = 0.3;
+    intent.turn = 0.4;
+    for (const hand of [intent.primary, intent.secondary]) {
+      hand.pointerX = pointerX;
+      hand.pointerY = -0.2;
+      hand.roll = 0.5;
+    }
+    return { name: "busy", decide: () => intent };
+  };
 
   const left = new Fighter(scene, {
     side: "left", origin: Vector3.Zero(), facing: 0, mind: busy(0.5),

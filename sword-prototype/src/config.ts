@@ -253,6 +253,139 @@ export const CONFIG = {
 
   },
 
+  /**
+   * The shield.
+   *
+   * It scores nothing and is not aimed. What it does is occupy a rectangle in
+   * front of the arm holding it, and the collision layers were already saying
+   * that an enemy blade and this side's weapons may touch -- so blocking needed
+   * no code at all, only a shape. That is the whole design of it: a shield that
+   * worked by a rule would be a rule a player has to learn, and one that works
+   * by being in the way is one they can see.
+   *
+   * Nothing here has been played with. The numbers are a real heater shield's:
+   * about 60 cm tall, 45 across, lime board a centimetre thick with a steel rim
+   * and boss, which comes out around 4 kg. If it turns out to block everything,
+   * the honest lever is `width` and `height` rather than a damage rule.
+   */
+  shield: {
+    width: 0.44,
+    height: 0.60,
+    thickness: 0.014,
+    /**
+     * How far the face stands out from the fist, along the weapon's +Y.
+     *
+     * A shield is strapped across the forearm rather than punched out on the end
+     * of a straight arm, and this is the whole of what stands in for that. Too
+     * small and the plate sits inside the hand; too large and the fighter is
+     * carrying a door at arm's length.
+     */
+    standOff: 0.11,
+    bossDiameter: 0.13,
+    gripLength: 0.12,
+    mass: 4.0,
+  },
+
+  /**
+   * The club: two hands, no edge, and all of its weight at the far end.
+   *
+   * The one weapon whose `hands` is 2, which is what makes it worth having
+   * rather than a heavy sword. Both arms are welded to the same haft and both
+   * grips are motorised toward one commanded pose, so the 850 N ceilings add up
+   * -- the strength of both arms combined, arrived at physically rather than by
+   * doubling a constant somewhere.
+   *
+   * `balancePoint` is the number that gives it its character. A sword balances a
+   * hand's width ahead of the guard so it turns about the wrist; this balances
+   * most of the way out, so it takes real time to start and cannot be stopped
+   * once it is going. If the club ever feels like a broom, that is the number,
+   * and moving it is a change to the feel of the weapon that wants a
+   * before-and-after table here.
+   */
+  club: {
+    /**
+     * How far the butt sits *behind* the leading hand, in metres.
+     *
+     * The club is the one weapon whose origin is not its butt but its leading
+     * grip, because two hands need shaft on both sides of where the front one
+     * holds it. Everything else in this block is measured from that grip.
+     */
+    buttLength: 0.34,
+    haftLength: 0.86,
+    haftDiameter: 0.044,
+    headLength: 0.24,
+    headDiameter: 0.105,
+    gripLength: 0.30,
+    mass: 3.4,
+    /** Along +Y from the origin, in metres. Well out toward the head. */
+    balancePoint: 0.62,
+    /**
+     * How far along the haft from the leading hand the second one sits.
+     *
+     * Negative: the trailing hand is *behind* the leading one, back toward the
+     * butt, which is also back toward the body. That direction is not a
+     * stylistic choice -- forward is unreachable. The two shoulders are 0.42 m
+     * apart and an arm is 0.63 m long, so a trailing hand placed ahead of the
+     * leading one ends up around 0.84 m from its own shoulder and the grip
+     * spends the whole bout stretched.
+     *
+     * Getting this wrong is not subtle once it is measured and is invisible
+     * until it is: the first version put both hands at the same angles from
+     * their own shoulders, which is two targets 0.42 m apart on a haft that
+     * holds the fists 0.26 m apart. Mean commanded-to-actual hand error went
+     * from 5.95 mm one-handed to 95.70 mm two-handed -- and the *reversal* rate
+     * fell from 73/s to 19/s, which is what says it was a steady tug-of-war
+     * rather than the chatter it would be easy to mistake it for.
+     */
+    secondGrip: -0.26,
+    /**
+     * What the two grips are worth, as multipliers on `arm.linearMotorForce`
+     * and `arm.angularMotorForce`, when a club is held.
+     *
+     * The obvious design was two motorised grips pulling one haft, so that the
+     * 850 N ceilings add up on their own and "the strength of both arms" needs
+     * no number at all. **It is refuted by measurement.** Mean commanded-to-
+     * actual hand error over the standard sweep, bench harness, trailing grip
+     * swept from nothing to full:
+     *
+     *     trailing   peak mm   mean mm   reversals/s
+     *         0.00     121.2     34.45          19.9
+     *         0.15     178.3     39.14          33.5
+     *         0.30     175.2     61.25          19.5
+     *         0.50     217.0     90.30          18.0
+     *         0.75     211.7     94.32           8.9
+     *         1.00     190.4     87.09          11.9
+     *
+     * There is no setting at which the second motor helps. It cannot: the two
+     * hands hang off two shoulders 0.42 m apart on a torso that does not twist,
+     * so the poses the two chains can reach differ, and two position motors
+     * asked for poses their chains disagree about pull against each other. The
+     * low reversal counts are what say it is a tug-of-war rather than chatter --
+     * a fighting motor would reverse *more* often, not less.
+     *
+     * So the trailing hand is a passive linkage -- welded to the haft, adding
+     * its mass and its inertia and no force -- and the strength of both arms is
+     * expressed where the solver can actually carry it, on the hand that has the
+     * weapon. Sweeping that:
+     *
+     *     lead   peak mm   mean mm   reversals/s
+     *     1.0      121.2     34.45          19.9
+     *     1.5      123.7     21.02          49.9
+     *     2.0       46.6      4.95          87.3      <- both arms, and the knee
+     *     2.5       37.1      3.01         103.5
+     *     3.0       77.6      3.02         120.9
+     *
+     * 2.0 is where the number that is physically right and the number that
+     * measures best turn out to be the same one: it is exactly two arms' worth
+     * of grip, and it lands the club's tracking on top of the sword's own 4.21
+     * mm mean and 45.27 mm peak. Above it the mean stops improving while the
+     * peak and the reversal rate both climb, which is the onset of the chatter
+     * the two-motor version had all along.
+     */
+    trailingGrip: 0,
+    leadGrip: 2,
+  },
+
   combat: {
     /** Below this contact speed nothing cuts; the blade just shoves. */
     minCutSpeed: 3.0,
@@ -269,6 +402,70 @@ export const CONFIG = {
     severKick: 3.4,
     /** Seconds of cooldown per part, so one contact is not billed 60 times. */
     hitCooldown: 0.09,
+
+    /**
+     * The club, which does not cut.
+     *
+     * `crushScale` against `damageScale`'s 46: a club landing square is worth
+     * less than a sword landing perfectly, and far more than a sword landing
+     * badly. That is the trade the weapon is for -- you cannot place a blow with
+     * a club, so it should not need placing, and it should not out-damage a cut
+     * that somebody actually aimed.
+     *
+     * `minCrushSpeed` is below `minCutSpeed` because a blade that arrives slowly
+     * is a blade being leaned on and a club that arrives slowly is still several
+     * kilograms of wood. Neither number has been played with.
+     */
+    crushScale: 34,
+    minCrushSpeed: 2.2,
+  },
+
+  /**
+   * Blood, which decides nothing.
+   *
+   * Every number here is a look rather than a rule, and `src/blood.ts` is on the
+   * presentation side of the directory precisely so that it stays that way. The
+   * damage a blow scored is an input to this and never an output of it.
+   *
+   * None of it has been seen by anybody yet -- these are first guesses, set to
+   * be legible in a still frame rather than tuned against a fight. The thing to
+   * watch for is the opposite failure from the usual one: not too little, but a
+   * cut that fills the screen and hides the blow that caused it.
+   */
+  blood: {
+    /**
+     * Damage below which a contact draws nothing.
+     *
+     * A blade at `minCutSpeed` scores near zero and a flat slap scores near
+     * zero, so this mostly separates "touched" from "cut". It is expressed in
+     * damage rather than in speed so that it moves with the scoring rule instead
+     * of having to be re-derived every time `damageScale` changes.
+     */
+    minSpray: 1.5,
+    /** Damage at which a spray is as big as it gets. `partHealth` is 100. */
+    fullSpray: 22,
+
+    /** Droplets in the largest single burst. */
+    sprayCount: 90,
+    /** Metres per second the droplets leave at, before the strength scaling. */
+    spraySpeed: 2.6,
+    /** Seconds a droplet lives. Gravity does the rest. */
+    sprayLife: 0.75,
+
+    /** Droplets in the air at once from one stump. */
+    stumpCount: 140,
+    /** Droplets per second it sheds while it is still bleeding. */
+    stumpRate: 110,
+    stumpLife: 1.1,
+    /** How long a severed limb goes on bleeding, seconds. */
+    stumpSeconds: 2.5,
+
+    /** Metres across, at the largest. A droplet is not a beach ball. */
+    dropSize: 0.05,
+
+    /** Fresh, and a few frames old. Linear, not sRGB: the pipeline tone-maps. */
+    red: [0.55, 0.02, 0.02],
+    dark: [0.18, 0.01, 0.01],
   },
 
   /**
@@ -295,6 +492,17 @@ export const CONFIG = {
      * going to end, and they are the ones being paid for.
      */
     capSeconds: 60,
+
+    /**
+     * How long the takeover hint stays on the banner at the start of a bout.
+     *
+     * Long enough to be read once without being read twice. The feature it
+     * points at is not new -- `C` has taken a body mid-fight since session 07,
+     * and the curtain has listed it the whole time -- but a key on a screen you
+     * dismissed in order to start playing is a key nobody has, and this is what
+     * that cost. Purely a screen number; nothing in the rules reads it.
+     */
+    hintSeconds: 6,
   },
 
   /**
@@ -418,6 +626,27 @@ export const CONFIG = {
     kneeStrength: 6,
 
     /**
+     * What is left of every joint ceiling once the fighter is dead, as a
+     * multiplier on the whole table above.
+     *
+     * Zero is wrong and it is worth saying why, because zero is the obvious
+     * first guess. A body whose joints carry no torque at all is a bag of
+     * capsules: the head-end of the spine folds through the pelvis, the knees
+     * hyperextend to their stops on the first bounce, and what lands on the
+     * floor reads as a dropped puppet rather than as a person who has just been
+     * killed. A little tone left in keeps the limbs roughly where limbs go while
+     * gravity does the rest.
+     *
+     * Not yet measured against a person's eye -- nobody has played this. Set at
+     * 0.08, which puts the waist at 60 N.m against its usual 748 and the neck at
+     * 16 against 204. If a corpse looks stiff, lower it; if it looks boneless,
+     * raise it, and write the two readings here. It is live-tunable on a body
+     * already on the floor: `__sword.config.body.deadJointStrength = 0.3;
+     * __sword.left.applyTuning()`.
+     */
+    deadJointStrength: 0.08,
+
+    /**
      * Whether the stride drives the hips and knees.
      *
      * The legs are real bodies on motorised joints so that one can be cut off,
@@ -464,6 +693,53 @@ export const CONFIG = {
    * nobody's idea of either. The preset keys are spelled the same as the mode, so
    * `CONFIG.camera[CONFIG.camera.mode]` is the whole of the lookup.
    */
+  /**
+   * How the PBR maps are applied. Not what they look like -- that is the files.
+   *
+   * Fetched by `scripts/fetch-textures.mjs`, pinned by digest, CC0 from Poly
+   * Haven, and deliberately **not** committed: they are reproducible byte for
+   * byte from a pin, which `warrior.glb` is not. A clone that has not fetched
+   * them still runs and simply looks flatter, exactly as it does without the
+   * environment map.
+   */
+  surfaces: {
+    /**
+     * How many times each map repeats across a piece.
+     *
+     * These are tiling maps rather than a hand-painted atlas, and the whole
+     * question with a tiling map is grain: too few repeats and a helm wears one
+     * enormous smear, too many and it wears noise. The UVs come out of Blender
+     * packed per piece into 0..1, so a repeat here is a repeat across whatever
+     * that piece happens to be -- which is why steel, on helms and plates and a
+     * blade, takes more than wood, on a shield board and a club haft, and why
+     * they are four numbers rather than one.
+     *
+     * Live-tunable, and this is how:
+     *
+     *     const t = __sword.arena.materials.steel.albedoTexture;
+     *     t.uScale = t.vScale = 6;
+     *
+     * Nobody has looked at any of these yet.
+     */
+    tiles: {
+      steel: 4,
+      leather: 3,
+      cloth: 3,
+      wood: 2,
+    },
+
+    /**
+     * How hard the normal maps push, as a multiplier on the published map.
+     *
+     * One is the map as authored, which assumes a surface seen at arm's length.
+     * A fighter is seen from four metres through a tone-mapped pipeline with
+     * bloom on it, and at that range an honest normal map reads as almost
+     * nothing -- so this is above one on purpose. Far above it and armour turns
+     * to crumpled foil.
+     */
+    normalStrength: 1.6,
+  },
+
   camera: {
     /**
      * Which reading is live.

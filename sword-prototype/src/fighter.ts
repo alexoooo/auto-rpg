@@ -2,7 +2,6 @@ import { Vector3, Quaternion, Matrix } from "@babylonjs/core/Maths/math.vector.j
 import {
   PhysicsMotionType,
   PhysicsConstraintAxis,
-  PhysicsConstraintAxisLimitMode,
   PhysicsConstraintMotorType,
 } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsConstraint.js";
@@ -23,10 +22,21 @@ import type { Scene } from "@babylonjs/core/scene.js";
 // through `mind.ts`'s `Intent`, which is a type alias and erases.
 import { CONFIG } from "./config.ts";
 import { COLLIDES, LAYER, layersFor, type Side } from "./physics.ts";
-import { capsulePart, joint, spherePart, type Part } from "./rig.ts";
+import { capsulePart, joint, type Part } from "./rig.ts";
 import { Figure } from "./figure.ts";
-import { Sword } from "./sword.ts";
-import { idleMind, type BodyView, type FighterView, type Intent, type Mind } from "./mind.ts";
+import { Arm } from "./arm.ts";
+import { handsFor, type Weapon, type WeaponKind } from "./weapon.ts";
+import {
+  HANDS,
+  idleMind,
+  otherHand,
+  type ArmPoses,
+  type BodyView,
+  type FighterView,
+  type HandName,
+  type Intent,
+  type Mind,
+} from "./mind.ts";
 
 export type { Side };
 
@@ -37,6 +47,8 @@ export interface FighterMaterials {
   leather: Material;
   brass: Material;
   hide: Material;
+  /** Shield boards and club hafts. The arena has had one all along. */
+  wood: Material;
 }
 
 /** One severable piece of a fighter, and how close it is to coming off. */
@@ -71,6 +83,13 @@ export interface FighterOptions {
    * not thought about it stands still rather than reading undefined.
    */
   mind?: Mind;
+  /**
+   * What is in each hand. Defaults to a sword in the primary and nothing in the
+   * secondary, which is what every fighter held before there was a choice --
+   * so a harness that has not thought about equipment measures the same body
+   * that every number in `docs/measurements.md` was taken from.
+   */
+  loadout?: Partial<Record<HandName, WeaponKind>>;
 }
 
 /** Hip, knee and off-arm angles for one instant of the walk. */
@@ -79,15 +98,10 @@ export interface GaitPose {
   hipRight: number;
   kneeLeft: number;
   kneeRight: number;
-  offShoulder: number;
-  offElbow: number;
 }
 
 const clamp = (value: number, min: number, max: number) =>
   value < min ? min : value > max ? max : value;
-
-/** Map a signed -1..1 stick position onto an asymmetric range. */
-const spread = (t: number, min: number, max: number) => (t < 0 ? -t * min : t * max);
 
 /** Shortest signed way round from `from` to `to`. */
 const angleTo = (from: number, to: number): number => {
@@ -97,11 +111,6 @@ const angleTo = (from: number, to: number): number => {
   return delta;
 };
 
-const LINEAR = [
-  PhysicsConstraintAxis.LINEAR_X,
-  PhysicsConstraintAxis.LINEAR_Y,
-  PhysicsConstraintAxis.LINEAR_Z,
-];
 const ANGULAR = [
   PhysicsConstraintAxis.ANGULAR_X,
   PhysicsConstraintAxis.ANGULAR_Y,
@@ -139,17 +148,24 @@ export function gait(phase: number, speed: number): GaitPose {
     // Positive is backward here, which is the way a knee goes.
     kneeLeft: Math.max(0, -Math.sin(phase + 0.7)) * swing * 1.5,
     kneeRight: Math.max(0, -Math.sin(phase + 0.7 + Math.PI)) * swing * 1.5,
-    // The free arm counterswings; the sword arm is busy.
-    offShoulder: opposite * swing * 0.55,
-    // Negative, where the cosmetic version of this was positive. An elbow bends
-    // forward and a knee bends backward, and driving a real hinge whose limits
-    // say so with a target of the wrong sign parks the motor against a stop and
-    // buzzes there -- the same over-constraint that once made the sword buzz at
-    // the wrist. The costume had the sign wrong and nothing noticed, because a
-    // `TransformNode` has no opinion about which way a joint goes.
-    offElbow: -Math.max(0, opposite) * swing * 0.5,
   };
 }
+
+/**
+ * Which arm each arm-limb's key belongs to.
+ *
+ * A table rather than a chain of string comparisons, because there are six of
+ * them now and the version with three was already the sort of line that gets
+ * one case added and one forgotten.
+ */
+const ARM_KEYS: Record<string, HandName | undefined> = {
+  upperArm: "primary",
+  forearm: "primary",
+  hand: "primary",
+  offUpperArm: "secondary",
+  offForearm: "secondary",
+  offHand: "secondary",
+};
 
 /** Standing still. Every joint the stride drives goes to its rest angle. */
 const REST_POSE: GaitPose = {
@@ -157,8 +173,6 @@ const REST_POSE: GaitPose = {
   hipRight: 0,
   kneeLeft: 0,
   kneeRight: 0,
-  offShoulder: 0,
-  offElbow: 0,
 };
 
 /**
@@ -224,12 +238,42 @@ export class Fighter {
   readonly torso: Part;
   readonly head: Part;
   readonly pelvis: Part;
-  readonly upperArm: Part;
-  readonly forearm: Part;
-  readonly hand: Part;
-  readonly handAnchor: Part;
-  readonly elbowAnchor: Part;
-  readonly sword: Sword;
+
+  /**
+   * The driven arm.
+   *
+   * Everything from the shoulder outward used to be eleven singular fields on
+   * this class, which was the right shape while there was one arm. The getters
+   * below keep every one of those names working, because `rigview.ts` reaches
+   * for `fighter.handAnchor` and `fighter.grip` by name, `main.ts` and
+   * `scripts/measure.mjs` for `fighter.sword`, and the handover tests for both.
+   * Delegating rather than renaming meant the extraction touched no caller and
+   * no test, which is the only way to be sure a refactor of the arm has not
+   * moved the arm.
+   */
+  readonly arms: Record<HandName, Arm>;
+
+  /** What each hand ended up holding, after the two-hander rule. */
+  readonly loadout: Record<HandName, WeaponKind>;
+
+  /**
+   * Which hand owns the two-hander, or null when neither does.
+   *
+   * Held rather than re-derived, because `update` asks every step and the answer
+   * cannot change without a rebuild.
+   */
+  readonly twoHanded: HandName | null = null;
+
+  /**
+   * The primary arm, under the name everything already calls it by.
+   *
+   * `rigview.ts` draws one arm's anchors and drives, the takeover readings are
+   * taken from one arm's pose, and every figure in `docs/measurements.md` was
+   * measured on one arm. All of them mean this one.
+   */
+  get arm(): Arm {
+    return this.arms.primary;
+  }
   /** Height of the collision capsule's centre above the feet. */
   readonly torsoCentre: number;
   /** Every hittable piece, in the order the readout lists them. */
@@ -246,10 +290,6 @@ export class Fighter {
    * only handle on a constraint is whatever object holds the reference. This is
    * that object, so this is where they have to be published from.
    */
-  readonly grip: Physics6DoFConstraint;
-  readonly shoulder: Physics6DoFConstraint;
-  readonly elbow: Physics6DoFConstraint;
-  readonly elbowDrive: Physics6DoFConstraint;
 
   /** Where to face while locked on, or null to steer by hand. */
   lockTarget: Vector3 | null = null;
@@ -290,8 +330,19 @@ export class Fighter {
    */
   readonly costume: readonly AbstractMesh[];
 
-  /** Every body joint and how many times `body.jointStiffness` it is worth. */
-  private readonly springs: { constraint: Physics6DoFConstraint; strength: number }[] = [];
+  /**
+   * Every body joint, how many times `body.jointStiffness` it is worth, and the
+   * limb it holds on.
+   *
+   * The limb is here for the same reason `driven` carries one: a severed limb's
+   * constraint has been disposed and this list still holds it, so anything that
+   * walks these has to know which entries are dead letters.
+   */
+  private readonly springs: {
+    constraint: Physics6DoFConstraint;
+    strength: number;
+    limb: Limb | null;
+  }[] = [];
   /**
    * The joints the stride drives, each beside the limb whose loss silences it.
    * Held as a list rather than looked up by key every step: this runs 240 times
@@ -304,85 +355,57 @@ export class Fighter {
     angle: keyof GaitPose;
   }[] = [];
 
-  /** The weld that makes the blade rigid to the hand. Held only to dispose it. */
-  private readonly swordWeld: Physics6DoFConstraint;
-
   private readonly byBody = new Map<PhysicsBody, Limb>();
   private readonly owned = new Set<AbstractMesh>();
-
-  /** Hand target in torso space: azimuth, elevation, and distance out. */
-  private azimuth = 0.3;
-  private elevation = -0.15;
-  private roll = 0;
-  private reach = CONFIG.arm.reachNeutral;
 
   /** Where in the stride the legs are. */
   private stride = 0;
 
   /**
-   * True once any part of the sword arm has been cut off.
+   * True once the head or the torso has come off.
    *
-   * The arm is driven by two keyframed anchors pulling on the hand and the upper
-   * arm, and those anchors do not care whether the arm is still attached to
-   * anybody. Severing a piece of it without dropping the drives leaves the grip
-   * dragging a loose hand and sword round the arena at 850 N, which is not a
-   * dismemberment so much as a haunting. So the whole arm is released at once
-   * whatever piece of it comes off.
+   * Kept separate from `armLost` because the two are different kinds of loss. An
+   * arm off is a fighter with a problem; a head off is not a fighter at all, and
+   * until this existed it went on walking, turning, aiming and swinging with a
+   * stump for a neck. `bout.ts` noticed -- `beaten()` has named the head since it
+   * was written -- but a verdict is the bout's business and a body is the body's,
+   * and nothing here was listening.
+   *
+   * What it costs to be dead: the mind is never asked again, the torso stops
+   * being keyframed and falls under its own 68 kg, and every body joint drops to
+   * `body.deadJointStrength` of its usual ceiling so the thing crumples instead
+   * of toppling in one rigid piece. A corpse has joints; it just has no strength
+   * in them.
    */
-  private armLost = false;
+  private dead = false;
 
   private readonly shoulderLocal: Vector3;
   private readonly middle = new Vector3();
   private readonly velocity = new Vector3();
-  /** Principal moments of the sword, cached: the grip damper needs them to bleed
-   *  off spin evenly about a body whose inertia varies a thousandfold by axis. */
-  private readonly swordInertia = new Vector3(1, 1, 1);
-  private hasPreviousFrame = false;
 
+  /**
+   * What is left of the fighter's own scratch once the arm took its share.
+   *
+   * Everything the four arm methods used -- the aim frame, the two bases, the
+   * previous frame's axes, the commanded spin -- moved to `Arm`, one set per arm,
+   * because two arms sharing a `prevX` is the second one being handed the first
+   * one's history every step. These five are the torso's: three for `steer` and
+   * `walk`, one for the feet, and `viewBasis` for `observe`, which is kept apart
+   * from all of them so that a view can never overwrite a frame anything else is
+   * mid-way through reading.
+   */
   private readonly scratch = {
-    dirLocal: new Vector3(),
-    shoulder: new Vector3(),
-    target: new Vector3(),
-    aim: new Vector3(),
-    aimFar: new Vector3(),
     feet: new Vector3(),
-    edge: new Vector3(),
-    axisX: new Vector3(),
-    axisY: new Vector3(),
-    axisZ: new Vector3(),
-    prevX: new Vector3(1, 0, 0),
-    prevY: new Vector3(0, 1, 0),
-    prevZ: new Vector3(0, 0, 1),
-    cross: new Vector3(),
-    commandedSpin: new Vector3(),
-    swordSpin: new Vector3(),
-    localSpin: new Vector3(),
-    impulse: new Vector3(),
     spin: new Vector3(),
     move: new Vector3(),
     right: new Vector3(),
     forward: new Vector3(),
-    pole: new Vector3(),
-    along: new Vector3(),
-    sideways: new Vector3(),
-    elbowPoint: new Vector3(),
-    boneX: new Vector3(),
-    boneY: new Vector3(),
-    boneZ: new Vector3(),
-    basis: Matrix.Identity(),
-    elbowBasis: Matrix.Identity(),
-    /** `observe`'s own, so a view can never overwrite a frame of the arm's. */
     viewBasis: Matrix.Identity(),
-    swordFrame: Matrix.Identity(),
-    swordFrameInverse: Matrix.Identity(),
-    rotation: Quaternion.Identity(),
-    elbowRotation: Quaternion.Identity(),
   };
 
   constructor(scene: Scene, opts: FighterOptions, materials: FighterMaterials) {
     const F = CONFIG.fighter;
     const B = CONFIG.body;
-    const A = CONFIG.arm;
     const layers = layersFor(opts.side);
     this.side = opts.side;
     this.mind = opts.mind ?? idleMind();
@@ -397,7 +420,7 @@ export class Fighter {
         shoulder: new Vector3(),
         tip: new Vector3(),
         tipSpeed: 0,
-        reach: this.reach,
+        reach: CONFIG.arm.reachNeutral,
         health: {},
       },
       opponent: {
@@ -483,192 +506,74 @@ export class Fighter {
       F.shoulderHeight - B.torsoCentre,
       F.shoulderFront,
     );
-    const shoulderWorld = place(F.shoulderSide, F.shoulderHeight, F.shoulderFront);
-    const armDrop = (drop: number): Vector3 => shoulderWorld.add(new Vector3(0, -drop, 0));
 
-    // The sword arm's capsules are the only bones drawn as themselves, and they
-    // always have been: the costume leaves this arm out on purpose, because it
-    // is the subject of the whole prototype and putting a sleeve over it would
-    // be hiding the thing being looked at. They are pickable for the same reason
-    // the costume is -- an arm is a limb like any other and hovering it should
-    // say so.
-    const limb = (name: string, drop: number, length: number, radius: number, mass: number, material: Material): Part => {
-      const part = capsulePart(scene, {
-        name: `${opts.side}.${name}`,
-        position: armDrop(drop),
-        rotation: yaw,
-        height: length,
-        radius,
-        mass,
-        layer: layers.body,
-        collidesWith: layers.bodyCollides,
-        material,
-      });
-      this.owned.add(part.mesh);
-      return part;
+    // Both arms, here, where the one arm used to be. The primary is built first
+    // and exactly as it was, which is what keeps the sweep reading comparable
+    // with every one taken before there were two; the secondary follows
+    // immediately, so neither ends up below the bones. The build-order note
+    // above is about this block as a whole.
+    // What each hand holds, settled before either arm is built.
+    //
+    // A two-hander is one weapon, so it cannot be in both hands and cannot share
+    // a hand with anything else: whichever hand names it gets the object, and the
+    // other is emptied and then given a second grip on it below. The rule is
+    // enforced here as well as in `bout.ts`'s picker, because the picker is a
+    // screen and this is the body -- a harness that builds a fighter directly
+    // never goes near the screen.
+    const wanted: Record<HandName, WeaponKind> = {
+      primary: opts.loadout?.primary ?? "sword",
+      secondary: opts.loadout?.secondary ?? "empty",
+    };
+    const twoHanded: HandName | null =
+      handsFor(wanted.primary) === 2 ? "primary" : handsFor(wanted.secondary) === 2 ? "secondary" : null;
+    if (twoHanded) {
+      wanted.primary = twoHanded === "primary" ? wanted.primary : "empty";
+      wanted.secondary = twoHanded === "secondary" ? wanted.secondary : "empty";
+    }
+    this.loadout = wanted;
+
+    const buildArm = (hand: HandName, side: number, visible: boolean): Arm =>
+      new Arm(
+        scene,
+        {
+          name: `${opts.side}.${hand}`,
+          torso: this.torso,
+          shoulderLocal: new Vector3(side, F.shoulderHeight - B.torsoCentre, F.shoulderFront),
+          shoulderWorld: place(side, F.shoulderHeight, F.shoulderFront),
+          rotation: yaw,
+          layer: layers.body,
+          collidesWith: layers.bodyCollides,
+          weaponLayer: layers.sword,
+          weaponCollidesWith: layers.swordCollides,
+          weapon: wanted[hand],
+          visible,
+        },
+        materials,
+      );
+
+    // Neither arm draws its own capsules any more: both wear a sleeve, and a
+    // bare capsule inside one is a second arm showing through the first. `G`
+    // takes the costume off, which is what it is for.
+    this.arms = {
+      primary: buildArm("primary", F.shoulderSide, false),
+      secondary: buildArm("secondary", -F.shoulderSide, false),
     };
 
-    // Rest pose: the arm hangs straight down, and the anchor lifts it on frame one.
-    this.upperArm = limb("upperArm", A.upperLength / 2, A.upperLength, A.upperRadius, A.upperMass, materials.cloth);
-    this.forearm = limb("forearm", A.upperLength + A.foreLength / 2, A.foreLength, A.foreRadius, A.foreMass, materials.leather);
-    this.hand = limb("hand", A.upperLength + A.foreLength + A.handLength / 2, A.handLength, A.handRadius, A.handMass, materials.flesh);
-
-    // Shoulder: a ball joint with a generous cone. The limits exist to rule out
-    // inhuman poses, not to shape the motion.
-    this.shoulder = joint(scene, this.torso, this.upperArm, {
-      pivotParent: this.shoulderLocal,
-      pivotChild: new Vector3(0, A.upperLength / 2, 0),
-      swing: {
-        x: { min: -2.7, max: 1.5 },
-        y: { min: -1.9, max: 1.9 },
-        z: { min: -1.7, max: 0.6 },
-      },
-    });
-
-    // Elbow: a hinge. It bends one way, like an elbow.
-    this.elbow = joint(scene, this.upperArm, this.forearm, {
-      pivotParent: new Vector3(0, -A.upperLength / 2, 0),
-      pivotChild: new Vector3(0, A.foreLength / 2, 0),
-      swing: { x: { min: -2.45, max: 0 } },
-    });
-
-    // The wrist holds the hand onto the forearm but does not constrain its
-    // orientation at all.
-    //
-    // It used to carry limits on all three angular axes, and that quietly made
-    // the system over-constrained: the grip below commands the hand's absolute
-    // orientation, while the wrist was simultaneously constraining that same
-    // orientation relative to the forearm. Whenever the commanded pose sat near
-    // a wrist limit the motor and the limit pushed against each other every
-    // step, and the sword buzzed in the hand even with the cursor held still.
-    // Leaving the angular axes free hands orientation authority to exactly one
-    // constraint, and the elbow hinge and shoulder cone still keep the arm human.
-    const wrist = joint(scene, this.forearm, this.hand, {
-      pivotParent: new Vector3(0, -A.foreLength / 2, 0),
-      pivotChild: new Vector3(0, A.handLength / 2, 0),
-      swing: {
-        x: { min: -Math.PI, max: Math.PI },
-        y: { min: -Math.PI, max: Math.PI },
-        z: { min: -Math.PI, max: Math.PI },
-      },
-    });
-
-    const fistWorld = armDrop(A.upperLength + A.foreLength + A.handLength);
-    this.sword = new Sword(
-      scene,
-      {
-        name: `${opts.side}.sword`,
-        position: fistWorld,
-        rotation: yaw,
-        layer: layers.sword,
-        collidesWith: layers.swordCollides,
-      },
-      materials,
-    );
-
-    // The blade must leave the fist pointing *away* from the wrist, so the
-    // sword's +Y is welded to the hand's -Y. Getting this backwards put the
-    // blade back up through the forearm, which is invisible when the fighter does
-    // not collide with itself and baffling when you try to swing.
-    //
-    // Kept, where it used to be built and forgotten, because it is the one
-    // constraint here that no limb owns and so the one nothing else would take
-    // down. `PhysicsBody.dispose` releases the Havok body and walks straight past
-    // whatever is constraining it, so a bout rebuilt on `Space` would leak this
-    // one every time.
-    this.swordWeld = joint(scene, this.hand, {
-      name: `${opts.side}.sword`,
-      mesh: this.hand.mesh,
-      body: this.sword.body,
-      shape: this.sword.shape,
-    }, {
-      pivotParent: new Vector3(0, -A.handLength / 2, 0),
-      pivotChild: Vector3.Zero(),
-      axisParent: new Vector3(1, 0, 0),
-      axisChild: new Vector3(1, 0, 0),
-      perpParent: new Vector3(0, -1, 0),
-      perpChild: new Vector3(0, 1, 0),
-      swing: {},
-    });
-
-    // The anchor: massless, collides with nothing, and exists only to be a frame
-    // the solver can pull the hand toward.
-    this.handAnchor = spherePart(scene, {
-      name: `${opts.side}.handAnchor`,
-      position: fistWorld,
-      rotation: yaw,
-      diameter: 0.02,
-      mass: 0,
-      layer: 0,
-      collidesWith: 0,
-      motionType: PhysicsMotionType.ANIMATED,
-      visible: false,
-    });
-
-    this.grip = new Physics6DoFConstraint(
-      {
-        pivotA: Vector3.Zero(),
-        pivotB: Vector3.Zero(),
-        axisA: new Vector3(1, 0, 0),
-        axisB: new Vector3(1, 0, 0),
-        perpAxisA: new Vector3(0, 1, 0),
-        perpAxisB: new Vector3(0, 1, 0),
-        collision: false,
-      },
-      [],
-      scene,
-    );
-    this.handAnchor.body.addConstraint(this.hand.body, this.grip);
-
-    // Every axis free, every axis motorised toward zero offset. The force
-    // ceiling is what makes the sword feel heavy: the motor is simply unable to
-    // drag it instantly, so the blade lags, overshoots, and carries momentum.
-    for (const axis of [...LINEAR, ...ANGULAR]) {
-      this.grip.setAxisMode(axis, PhysicsConstraintAxisLimitMode.FREE);
-      this.grip.setAxisMotorType(axis, PhysicsConstraintMotorType.POSITION);
-      this.grip.setAxisMotorTarget(axis, 0);
+    // The second hand takes hold of the haft, passively: it adds its mass and
+    // its inertia and no force, because two motorised grips on one haft were
+    // measured fighting each other and never helping. The strength of both arms
+    // goes to the hand that has the weapon instead. The two sweeps that settled
+    // it are in `config.ts` beside `club.trailingGrip`.
+    if (twoHanded) {
+      const holder = this.arms[twoHanded];
+      const helper = this.arms[twoHanded === "primary" ? "secondary" : "primary"];
+      if (holder.weapon) helper.takeSecondGrip(scene, holder.weapon, `${opts.side}.${twoHanded}`);
+      helper.gripScale = CONFIG.club.trailingGrip;
+      holder.gripScale = CONFIG.club.leadGrip;
+      this.twoHanded = twoHanded;
     }
-
-    // The elbow's anchor. Every linear axis is free and *unmotorised*, so this
-    // constraint says nothing about where the upper arm is -- only which way it
-    // points. The shoulder joint already fixes the elbow's distance from the
-    // shoulder, so a direction is all that is missing.
-    this.elbowAnchor = spherePart(scene, {
-      name: `${opts.side}.elbowAnchor`,
-      position: shoulderWorld,
-      rotation: yaw,
-      diameter: 0.02,
-      mass: 0,
-      layer: 0,
-      collidesWith: 0,
-      motionType: PhysicsMotionType.ANIMATED,
-      visible: false,
-    });
-
-    this.elbowDrive = new Physics6DoFConstraint(
-      {
-        pivotA: Vector3.Zero(),
-        pivotB: Vector3.Zero(),
-        axisA: new Vector3(1, 0, 0),
-        axisB: new Vector3(1, 0, 0),
-        perpAxisA: new Vector3(0, 1, 0),
-        perpAxisB: new Vector3(0, 1, 0),
-        collision: false,
-      },
-      [],
-      scene,
-    );
-    this.elbowAnchor.body.addConstraint(this.upperArm.body, this.elbowDrive);
-    for (const axis of [...LINEAR, ...ANGULAR]) {
-      this.elbowDrive.setAxisMode(axis, PhysicsConstraintAxisLimitMode.FREE);
-    }
-    // X and Z only. The bone runs along its own local Y, so ANGULAR_Y is the
-    // upper arm's *twist* -- a real degree of freedom that the elbow hinge and
-    // the hand's orientation between them decide. Driving it too would put this
-    // constraint back into an argument with the grip.
-    for (const axis of [PhysicsConstraintAxis.ANGULAR_X, PhysicsConstraintAxis.ANGULAR_Z]) {
-      this.elbowDrive.setAxisMotorType(axis, PhysicsConstraintMotorType.POSITION);
-      this.elbowDrive.setAxisMotorTarget(axis, 0);
+    for (const name of HANDS) {
+      for (const mesh of this.arms[name].meshes) this.owned.add(mesh);
     }
 
     // ---- the body that can be hit ----
@@ -708,23 +613,13 @@ export class Fighter {
     this.head = bone("head", place(0, B.headCentre, 0), B.headLength, B.headRadius, B.headMass);
     this.pelvis = bone("pelvis", place(0, B.pelvisCentre, 0), B.pelvisLength, B.pelvisRadius, B.pelvisMass);
 
-    // The off arm mirrors the sword arm across the centreline, so that a hit
-    // landing on one side of a fighter finds the same geometry as on the other.
-    const offSide = -F.shoulderSide;
-    const offUpper = bone(
-      "offUpperArm",
-      place(offSide, B.offUpperCentre, F.shoulderFront),
-      B.offUpperLength,
-      B.offUpperRadius,
-      B.offUpperMass,
-    );
-    const offFore = bone(
-      "offForearm",
-      place(offSide, B.offForeCentre, F.shoulderFront),
-      B.offForeLength,
-      B.offForeRadius,
-      B.offForeMass,
-    );
+    // The off arm used to be two capsules on gait-driven motors, with no hand
+    // body, no anchor and no grip: it counterswung while you walked and there
+    // was nothing you could put in it. It is a second `Arm` now, built above
+    // with the first, and `body.offUpper*` / `body.offFore*` are consequently
+    // unread -- the two arms take their dimensions from the one `arm` block,
+    // because two arms of different lengths on one body is not a design, it is
+    // an oversight nobody got round to.
 
     const legs = (["L", "R"] as const).map((suffix, index) => {
       const x = index === 0 ? -B.hipSide : B.hipSide;
@@ -761,7 +656,6 @@ export class Fighter {
         pivotChild: spec.anchor.subtract(spec.childCentre),
         swing: spec.swing,
       });
-      this.springs.push({ constraint: attachment, strength: spec.strength });
       const limb: Limb = {
         key: spec.key,
         label: spec.label,
@@ -772,6 +666,7 @@ export class Fighter {
         severed: false,
         lastHitAt: -999,
       };
+      this.springs.push({ constraint: attachment, strength: spec.strength, limb });
       this.register(limb);
       if (spec.angle) this.driven.push({ constraint: attachment, limb, angle: spec.angle });
       return limb;
@@ -779,15 +674,15 @@ export class Fighter {
 
     const health = B.partHealth;
     const spine = { x: { min: -0.6, max: 0.6 }, y: { min: -0.7, max: 0.7 }, z: { min: -0.6, max: 0.6 } };
-    const socket = { x: { min: -1.9, max: 1.9 }, y: { min: -1.2, max: 1.2 }, z: { min: -1.6, max: 1.6 } };
     // A hip has to reach the whole stride and no further. The dummy's sockets
     // were wider because a rag has no pose to protect; a fighter's leg that can
     // reach the splits looks broken the first time it is hit hard.
     const hipRange = { x: { min: -1.3, max: 1.3 }, y: { min: -0.7, max: 0.7 }, z: { min: -0.6, max: 0.6 } };
-    // Knees backward, elbows forward, and a hand's width of slack past straight
-    // at each so that a motor target of zero is not sitting exactly on a stop.
+    // Knees backward, with a hand's width of slack past straight so that a
+    // motor target of zero is not sitting exactly on a stop. The elbow's own
+    // range moved to `Arm` with the rest of the chain, and the shoulder socket
+    // went with it; both arms are driven now, so nothing here needs either.
     const knee = { x: { min: -0.15, max: 2.2 } };
-    const armHinge = { x: { min: -2.2, max: 0.15 } };
 
     const torsoCentreVec = new Vector3(0, B.torsoCentre, 0);
 
@@ -831,68 +726,51 @@ export class Fighter {
       health: health * B.pelvisHealth,
     });
 
-    // The sword arm is hittable too, and it is the only limb whose loss changes
-    // what the fighter can do rather than only how well it stands. Its two
-    // joints are not in `springs`, because they are tuned out of the `arm` block
-    // by `applyTuning` and must go on being tuned there.
-    this.register({
-      key: "upperArm",
-      label: "Sword arm",
-      part: this.upperArm,
-      attachment: this.shoulder,
-      health,
-      maxHealth: health,
-      severed: false,
-      lastHitAt: -999,
-    });
-    this.register({
-      key: "forearm",
-      label: "Sword forearm",
-      part: this.forearm,
-      attachment: this.elbow,
-      health,
-      maxHealth: health,
-      severed: false,
-      lastHitAt: -999,
-    });
-    this.register({
-      key: "hand",
-      label: "Sword hand",
-      part: this.hand,
-      attachment: wrist,
-      health,
-      maxHealth: health,
-      severed: false,
-      lastHitAt: -999,
-    });
-
-    const offUpperCentre = new Vector3(offSide, B.offUpperCentre, F.shoulderFront);
-    hang({
-      key: "offUpperArm",
-      label: "Off arm",
-      parent: this.torso,
-      parentCentre: torsoCentreVec,
-      child: offUpper,
-      childCentre: offUpperCentre,
-      anchor: new Vector3(offSide, F.shoulderHeight, F.shoulderFront),
-      swing: socket,
-      strength: B.offShoulderStrength,
-      health,
-      angle: "offShoulder",
-    });
-    hang({
-      key: "offForearm",
-      label: "Off forearm",
-      parent: offUpper,
-      parentCentre: offUpperCentre,
-      child: offFore,
-      childCentre: new Vector3(offSide, B.offForeCentre, F.shoulderFront),
-      anchor: new Vector3(offSide, B.offElbow, F.shoulderFront),
-      swing: armHinge,
-      strength: B.offElbowStrength,
-      health,
-      angle: "offElbow",
-    });
+    // Both arms are hittable, and they are the only limbs whose loss changes
+    // what the fighter can *do* rather than only how well it stands. Their joints
+    // are not in `springs`, because they are tuned out of the `arm` block by
+    // `applyTuning` and must go on being tuned there.
+    //
+    // The labels still say "Sword" and "Off" rather than "Primary" and
+    // "Secondary", because the readout is read by a person watching a fight and
+    // "Off forearm" is a part of a body while "Secondary forearm" is a part of a
+    // program. The *keys* say primary and secondary, and the keys are what code
+    // matches on. `offUpperArm` and `offForearm` are kept as keys for the same
+    // reason `bout.ts` keeps naming the torso: `figure.ts` dresses those bones,
+    // and renaming them would be a rename of the asset.
+    const armLimbs: {
+      hand: HandName;
+      keys: [string, string, string];
+      labels: [string, string, string];
+    }[] = [
+      {
+        hand: "primary",
+        keys: ["upperArm", "forearm", "hand"],
+        labels: ["Sword arm", "Sword forearm", "Sword hand"],
+      },
+      {
+        hand: "secondary",
+        keys: ["offUpperArm", "offForearm", "offHand"],
+        labels: ["Off arm", "Off forearm", "Off hand"],
+      },
+    ];
+    for (const spec of armLimbs) {
+      const arm = this.arms[spec.hand];
+      const bones = [arm.upperArm, arm.forearm, arm.hand];
+      const joints = [arm.shoulder, arm.elbow, arm.wrist];
+      for (let i = 0; i < 3; i += 1) {
+        this.register({
+          key: spec.keys[i],
+          label: spec.labels[i],
+          part: bones[i],
+          attachment: joints[i],
+          health,
+          maxHealth: health,
+          severed: false,
+          lastHitAt: -999,
+        });
+      }
+    }
 
     const pelvisCentreVec = new Vector3(0, B.pelvisCentre, 0);
     for (const [index, leg] of legs.entries()) {
@@ -935,8 +813,12 @@ export class Fighter {
       torso: this.torso,
       head: this.head,
       pelvis: this.pelvis,
-      offUpperArm: offUpper,
-      offForearm: offFore,
+      swordUpperArm: this.arms.primary.upperArm,
+      swordForearm: this.arms.primary.forearm,
+      swordHand: this.arms.primary.hand,
+      offUpperArm: this.arms.secondary.upperArm,
+      offForearm: this.arms.secondary.forearm,
+      offHand: this.arms.secondary.hand,
       thighLeft: legs[0].thigh,
       shinLeft: legs[0].shin,
       thighRight: legs[1].thigh,
@@ -963,56 +845,43 @@ export class Fighter {
    * number with no way to push it into the solver is worse than a constant.
    */
   applyTuning(): void {
-    const A = CONFIG.arm;
-    const S = CONFIG.sword;
     const B = CONFIG.body;
 
-    for (const axis of LINEAR) this.grip.setAxisMotorMaxForce(axis, A.linearMotorForce);
-    for (const axis of ANGULAR) this.grip.setAxisMotorMaxForce(axis, A.angularMotorForce);
-
-    for (const axis of ANGULAR) {
-      this.shoulder.setAxisMotorType(axis, PhysicsConstraintMotorType.POSITION);
-      this.shoulder.setAxisMotorTarget(axis, 0);
-      this.shoulder.setAxisMotorMaxForce(axis, A.shoulderTone);
-    }
-    this.elbow.setAxisMotorType(PhysicsConstraintAxis.ANGULAR_X, PhysicsConstraintMotorType.POSITION);
-    this.elbow.setAxisMotorTarget(PhysicsConstraintAxis.ANGULAR_X, A.elbowRest);
-    this.elbow.setAxisMotorMaxForce(PhysicsConstraintAxis.ANGULAR_X, A.elbowTone);
-
-    for (const axis of [PhysicsConstraintAxis.ANGULAR_X, PhysicsConstraintAxis.ANGULAR_Z]) {
-      this.elbowDrive.setAxisMotorMaxForce(axis, A.elbowPoleForce);
-    }
-
-    for (const part of [this.upperArm, this.forearm, this.hand]) {
-      part.body.setLinearDamping(A.linearDamping);
-      part.body.setAngularDamping(A.angularDamping);
-    }
-    this.sword.body.setLinearDamping(S.swordLinearDamping);
-    this.sword.body.setAngularDamping(S.swordAngularDamping);
-
-    const inertia = this.sword.body.getMassProperties().inertia;
-    if (inertia) this.swordInertia.copyFrom(inertia);
+    // The arm tunes its own solver objects, and guards the two that `drop`
+    // disposes -- a tuning pass on a fighter that has lost its arm, which `die`
+    // performs on every death, must not write into a freed constraint. That is
+    // the same hazard `walk` learned about when it started skipping severed
+    // limbs.
+    for (const name of HANDS) this.arms[name].applyTuning();
 
     // And the body's own joints, which is what the dummy could never do -- see
     // the note above. Every one of them is a position motor toward its rest
     // angle; the stride overwrites the targets of the six it drives on the very
     // next step, so setting them to zero here is a reset rather than a fight.
+    // A dead fighter's joints go slack here rather than in `die`, so that the
+    // corpse stays tunable: `__sword.config.body.deadJointStrength = 0.3;
+    // __sword.left.applyTuning()` re-reads it on a body already lying on the
+    // floor. A severed limb's constraint is disposed, and `springs` still holds
+    // it -- so the skip is not tidiness, it is the same freed-constraint hazard
+    // as everywhere else.
+    const tone = this.dead ? B.deadJointStrength : 1;
     for (const spring of this.springs) {
+      if (spring.limb?.severed) continue;
       for (const axis of ANGULAR) {
         spring.constraint.setAxisMotorType(axis, PhysicsConstraintMotorType.POSITION);
         spring.constraint.setAxisMotorTarget(axis, 0);
-        spring.constraint.setAxisMotorMaxForce(axis, B.jointStiffness * spring.strength);
+        spring.constraint.setAxisMotorMaxForce(axis, B.jointStiffness * spring.strength * tone);
       }
     }
   }
 
   targetPosition(): Vector3 {
-    return this.scratch.target;
+    return this.arm.targetPosition();
   }
 
   /** The point the blade is aimed at, in world space. */
   aimPoint(): Vector3 {
-    return this.scratch.aimFar;
+    return this.arm.aimPoint();
   }
 
   /** The fighter's position on the ground. */
@@ -1027,17 +896,89 @@ export class Fighter {
   }
 
   armAngles(): { azimuth: number; elevation: number; roll: number; reach: number } {
-    return {
-      azimuth: this.azimuth,
-      elevation: this.elevation,
-      roll: this.roll,
-      reach: this.reach,
-    };
+    return this.arm.angles();
+  }
+
+  /**
+   * Both hands' poses, which is what a takeover has to seed from.
+   *
+   * Both, always, even when one of them is holding nothing: the cursor is
+   * absolute, so the hand it is *not* currently driving is still being commanded
+   * from a pose the incoming mind knows nothing about, and rebasing only the
+   * driven one would leave the other to snap at the full 850 N the grip can
+   * pull.
+   */
+  armPoses(): ArmPoses {
+    return { primary: this.arms.primary.angles(), secondary: this.arms.secondary.angles() };
   }
 
   /** False once the sword arm has been cut off it. */
   get armed(): boolean {
-    return !this.armLost;
+    return this.arm.armed;
+  }
+
+  // ---- the arm, under the names everything outside already calls it by ----
+  //
+  // `rigview.ts` reaches for `handAnchor`, `upperArm`, `hand`, `elbowAnchor`,
+  // `grip` and `elbowDrive` by name; `main.ts`, `scripts/measure.mjs` and two
+  // test files reach for `sword`. Delegating rather than renaming is what let
+  // the arm move into its own class without a single caller changing, which is
+  // the only way to be sure that a refactor of the arm has not moved the arm.
+
+  /**
+   * The primary hand's weapon.
+   *
+   * Nullable now, where it never used to be: a fighter can be built with an
+   * empty primary hand, and a shield is not a sword. Every caller outside this
+   * file was written when it could not be null, so each of them now has to say
+   * what it does about a fighter holding nothing -- which is the point of making
+   * it nullable rather than handing back a blade nobody is carrying.
+   */
+  get sword(): Weapon | null {
+    return this.arm.weapon;
+  }
+
+  /**
+   * Everything this fighter is holding, in hand order.
+   *
+   * What `Combat` watches. A two-hander appears once, not twice: it belongs to
+   * the arm that welded it and the other hand merely has hold of the haft, so
+   * the trailing arm's own `weapon` is null and this list is already right.
+   */
+  get weapons(): (Weapon | null)[] {
+    return HANDS.map((name) => this.arms[name].weapon);
+  }
+  get upperArm(): Part {
+    return this.arm.upperArm;
+  }
+  get forearm(): Part {
+    return this.arm.forearm;
+  }
+  get hand(): Part {
+    return this.arm.hand;
+  }
+  get handAnchor(): Part {
+    return this.arm.handAnchor;
+  }
+  get elbowAnchor(): Part {
+    return this.arm.elbowAnchor;
+  }
+  get grip(): Physics6DoFConstraint {
+    return this.arm.grip;
+  }
+  get shoulder(): Physics6DoFConstraint {
+    return this.arm.shoulder;
+  }
+  get elbow(): Physics6DoFConstraint {
+    return this.arm.elbow;
+  }
+  get elbowDrive(): Physics6DoFConstraint {
+    return this.arm.elbowDrive;
+  }
+
+  /** False once it has lost its head. A dead fighter is still in the world. */
+  get alive(): boolean {
+    return !this.dead;
   }
 
   /**
@@ -1064,6 +1005,26 @@ export class Fighter {
 
   limbFor(body: PhysicsBody): Limb | undefined {
     return this.byBody.get(body);
+  }
+
+  /**
+   * The weapon of this fighter's that a body belongs to, if any.
+   *
+   * A blade stopped by a shield generates a real contact and the solver really
+   * stops it -- the collision masks have said since they were written that an
+   * enemy blade and this side's weapons may touch. What was missing was any
+   * *record* of it: `limbFor` answers nothing for a weapon body, so `Combat`
+   * dropped the contact and a block was indistinguishable from a miss.
+   *
+   * Two bodies to check rather than a map, because there are two hands and this
+   * is only asked on contacts that found no limb.
+   */
+  parriedBy(body: PhysicsBody): Weapon | null {
+    for (const name of HANDS) {
+      const weapon = this.arms[name].weapon;
+      if (weapon && weapon.body === body) return weapon;
+    }
+    return null;
   }
 
   /**
@@ -1113,20 +1074,43 @@ export class Fighter {
     const view = this.view;
     view.clock = clock;
     this.describe(view.self, this);
-    view.self.reach = this.reach;
+    view.self.reach = this.arm.reach;
     this.describe(view.opponent, opponent);
     view.measure = opponent.nearestPartTo(view.self.shoulder);
   }
 
   update(dt: number): void {
+    // Before `decide`, not after: a dead fighter is not asked what it wants. The
+    // early return for a lost arm sits four lines further down and deliberately
+    // runs `walk` first, because a one-armed fighter still walks. This one comes
+    // first because a headless one does not.
+    if (this.dead) return;
     const intent = this.mind.decide(this.view, dt);
     this.steer(dt, intent);
     this.walk(dt);
-    if (this.armLost) return;
-    this.aimArm(dt, intent);
-    this.driveAnchor(dt);
-    this.driveElbow();
-    this.dampGrip(dt);
+    // Both arms, each from its own half of the intent. `Arm.update` returns on
+    // its own if that arm has been dropped, which is why there is no second
+    // early return here: a fighter with one arm off still walks, and still
+    // fights with the other one.
+    //
+    // A two-hander is the exception. The leading arm aims as any arm does; the
+    // trailing one is *sent* to a point on the haft the leading one computed,
+    // and holds the leading one's frame.
+    //
+    // Handing both arms the same `HandIntent` was the obvious first version and
+    // it is wrong, because each arm builds its target from its own shoulder --
+    // so one pose becomes two targets 0.42 m apart across the body, on a haft
+    // that holds the fists 0.26 m apart. The two grips then pull against each
+    // other for the whole bout. Measured: mean commanded-to-actual hand error
+    // 95.70 mm, against 5.95 mm for the same club held in one hand.
+    if (this.twoHanded) {
+      const lead = this.arms[this.twoHanded];
+      const trail = this.arms[otherHand(this.twoHanded)];
+      lead.update(dt, intent[this.twoHanded]);
+      trail.follow(lead.gripPoint(CONFIG.club.secondGrip), lead.commandedRotation);
+      return;
+    }
+    for (const name of HANDS) this.arms[name].update(dt, intent[name]);
   }
 
   /** Cut a limb free and give it a parting shove along the cut. */
@@ -1136,10 +1120,21 @@ export class Fighter {
     limb.health = 0;
     limb.attachment.dispose();
 
-    // Losing any piece of the sword arm drops the whole arm, anchors and all.
-    // See `armLost`.
-    if (limb.key === "upperArm" || limb.key === "forearm" || limb.key === "hand") {
-      this.dropArm();
+    // Losing any piece of an arm drops that whole arm, anchors and all -- see
+    // `Arm.drop`. Which arm is decided by the key, because that is what the key
+    // is for; matching on the part would mean holding six references here to
+    // answer a question the registry already answers.
+    const dropped = ARM_KEYS[limb.key];
+    if (dropped) this.arms[dropped].drop();
+
+    // The two `bout.ts`'s `beaten()` names. The torso cannot come off today --
+    // it is registered with `attachment: null` and the guard above has already
+    // returned -- and it is named here anyway for the same reason the rule names
+    // it: severability is a property of the body, not of the rule, and a clause
+    // that only covers what happens to be severable this week has to be found
+    // and edited when one more becomes so.
+    if (limb.key === "head" || limb.key === "torso") {
+      this.die();
     }
 
     // Freed pieces stop being part of the fighter and become debris, so they no
@@ -1165,15 +1160,8 @@ export class Fighter {
     for (const limb of this.limbs) {
       if (!limb.severed) limb.attachment?.dispose();
     }
-    if (!this.armLost) {
-      this.grip.dispose();
-      this.elbowDrive.dispose();
-    }
-    this.swordWeld.dispose();
-    this.sword.dispose();
+    for (const name of HANDS) this.arms[name].dispose();
     for (const limb of this.limbs) limb.part.mesh.dispose();
-    this.handAnchor.mesh.dispose();
-    this.elbowAnchor.mesh.dispose();
     this.limbs.length = 0;
     this.driven.length = 0;
     this.springs.length = 0;
@@ -1223,8 +1211,19 @@ export class Fighter {
       into.shoulder.copyFrom(fighter.shoulderLocal).addInPlace(here);
     }
 
-    fighter.sword.tipPositionToRef(into.tip);
-    into.tipSpeed = fighter.sword.speedAt(into.tip);
+    // The primary weapon's point, or the fist itself when that hand is empty.
+    // A view is a thing a mind reads every step and `duelist` builds its covering
+    // line from this, so it has to be a place rather than a null: an empty hand
+    // is at the end of an arm, which is exactly where the guard should be
+    // covering.
+    const weapon = fighter.arm.weapon;
+    if (weapon) {
+      weapon.tipPositionToRef(into.tip);
+      into.tipSpeed = weapon.speedAt(into.tip);
+    } else {
+      into.tip.copyFrom(fighter.arm.hand.mesh.position);
+      into.tipSpeed = 0;
+    }
 
     for (const limb of fighter.limbs) {
       into.health[limb.key] = limb.severed ? 0 : Math.max(0, limb.health / limb.maxHealth);
@@ -1253,15 +1252,31 @@ export class Fighter {
     return nearest;
   }
 
-  private dropArm(): void {
-    if (this.armLost) return;
-    this.armLost = true;
-    this.grip.dispose();
-    this.elbowDrive.dispose();
-    // A dropped sword is debris like any other piece, and the exemption that
-    // let it pass through its owner belonged to the owner, not to the steel.
-    this.sword.shape.filterMembershipMask = LAYER.DEBRIS;
-    this.sword.shape.filterCollideMask = COLLIDES.DEBRIS;
+  /**
+   * Stop being a fighter.
+   *
+   * Three things, and the order matters. The arm goes first, through the same
+   * `dropArm` a severed elbow uses, because the grip would otherwise go on
+   * hauling a corpse's hand about at 850 N. Then the torso stops being keyframed:
+   * it has carried `PhysicsMotionType.ANIMATED` since construction, which is what
+   * makes a fighter walk without wobbling under the weight of its own arm, and it
+   * is also what would hold a dead one standing upright forever. Then
+   * `applyTuning` re-reads the joint ceilings, which now come out at
+   * `body.deadJointStrength` of their usual value because `dead` is set -- so the
+   * body folds instead of toppling like a felled tree.
+   *
+   * Going through `applyTuning` rather than writing the motor forces here is the
+   * point: it is the only path that pushes CONFIG into native solver objects, and
+   * a ceiling set anywhere else is a number nobody can tune afterwards. The
+   * dummy's `stiffen()` made exactly that mistake and every live experiment that
+   * edited its stiffness was measuring nothing at all.
+   */
+  private die(): void {
+    if (this.dead) return;
+    this.dead = true;
+    for (const name of HANDS) this.arms[name].drop();
+    this.torso.body.setMotionType(PhysicsMotionType.DYNAMIC);
+    this.applyTuning();
   }
 
   private steer(dt: number, input: Intent): void {
@@ -1328,217 +1343,6 @@ export class Fighter {
     const wanted = Math.atan2(this.lockTarget.x - here.x, this.lockTarget.z - here.z);
     const facing = Math.atan2(forward.x, forward.z);
     return clamp(angleTo(facing, wanted) * T.lockTurnGain, -T.lockTurnMax, T.lockTurnMax);
-  }
-
-  /**
-   * Where the cursor is on screen is where the hand is asked to be.
-   *
-   * Absolute rather than accumulated: the pointer is not captured, so the arm
-   * has a home position you can always find again by moving the mouse back to
-   * the middle of the window.
-   */
-  private aimArm(dt: number, input: Intent): void {
-    const A = CONFIG.arm;
-
-    this.azimuth = clamp(spread(input.pointerX, A.azMin, A.azMax), A.azMin, A.azMax);
-    this.elevation = clamp(spread(input.pointerY, A.elMin, A.elMax), A.elMin, A.elMax);
-    this.roll = clamp(input.roll, A.rollMin, A.rollMax);
-
-    const wanted = Math.min(
-      input.thrust ? A.reachThrust : input.guard ? A.reachGuard : A.reachNeutral,
-      A.reachMax,
-    );
-    this.reach += (wanted - this.reach) * (1 - Math.exp(-A.reachResponse * dt));
-
-    const { dirLocal, shoulder, target, aim } = this.scratch;
-    const cosEl = Math.cos(this.elevation);
-    dirLocal.set(
-      Math.sin(this.azimuth) * cosEl,
-      Math.sin(this.elevation),
-      Math.cos(this.azimuth) * cosEl,
-    );
-
-    const world = this.torso.mesh.getWorldMatrix();
-    Vector3.TransformCoordinatesToRef(this.shoulderLocal, world, shoulder);
-    Vector3.TransformNormalToRef(dirLocal, world, aim);
-    aim.normalize();
-
-    target.copyFrom(shoulder).addInPlace(aim.scale(this.reach));
-
-    // Where the point of the blade is being sent, which is what the player is
-    // actually aiming and so what the indicator stakes out.
-    this.scratch.aimFar
-      .copyFrom(shoulder)
-      .addInPlace(aim.scale(this.reach + this.sword.tipOffset));
-  }
-
-  /**
-   * Pose the anchor, and let the solver do the rest.
-   *
-   * The hand's own -Y runs down the blade, so the anchor's orientation is built
-   * from three axes directly rather than by composing rotations: it is easier to
-   * be sure a basis is correct than to be sure a quaternion product is.
-   */
-  private driveAnchor(dt: number): void {
-    const s = this.scratch;
-    const { aim, edge, axisX, axisY, axisZ, basis, rotation, target } = s;
-
-    s.prevX.copyFrom(axisX);
-    s.prevY.copyFrom(axisY);
-    s.prevZ.copyFrom(axisZ);
-
-    // Hand +Y points back up the arm, because the blade runs along hand -Y.
-    axisY.copyFrom(aim).scaleInPlace(-1).normalize();
-
-    // The edge starts perpendicular to the blade, then rolls about it.
-    edge.set(0, 1, 0);
-    edge.subtractInPlace(aim.scale(Vector3.Dot(edge, aim)));
-    if (edge.lengthSquared() < 1e-5) edge.set(1, 0, 0).subtractInPlace(aim.scale(aim.x));
-    edge.normalize();
-
-    Vector3.CrossToRef(aim, edge, axisZ);
-    edge.scaleInPlace(Math.cos(this.roll)).addInPlace(axisZ.scaleInPlace(Math.sin(this.roll)));
-    edge.normalize();
-
-    axisX.copyFrom(edge);
-    axisX.subtractInPlace(axisY.scale(Vector3.Dot(axisX, axisY))).normalize();
-    Vector3.CrossToRef(axisX, axisY, axisZ);
-    axisZ.normalize();
-
-    Matrix.FromXYZAxesToRef(axisX, axisY, axisZ, basis);
-    Quaternion.FromRotationMatrixToRef(basis, rotation);
-
-    // The angular velocity this frame's move is asking the hand for, taken
-    // straight from the two bases rather than from a quaternion difference:
-    // w = 1/2 sum(e_prev x e_now) / dt is exact to first order for an
-    // orthonormal frame and carries no convention to get backwards. The grip
-    // damper measures against this, so it must be right.
-    const commanded = s.commandedSpin.set(0, 0, 0);
-    if (this.hasPreviousFrame) {
-      Vector3.CrossToRef(s.prevX, axisX, s.cross);
-      commanded.addInPlace(s.cross);
-      Vector3.CrossToRef(s.prevY, axisY, s.cross);
-      commanded.addInPlace(s.cross);
-      Vector3.CrossToRef(s.prevZ, axisZ, s.cross);
-      commanded.addInPlace(s.cross);
-      commanded.scaleInPlace(0.5 / dt);
-    }
-    this.hasPreviousFrame = true;
-
-    // setTargetTransform rather than teleporting the transform node: it gives the
-    // keyframed anchor a real velocity, so the constraint sees motion instead of
-    // a jump, and the sword trails properly when you sweep the cursor.
-    this.handAnchor.body.setTargetTransform(target, rotation);
-  }
-
-  /**
-   * Put the elbow somewhere an elbow goes.
-   *
-   * Two-bone inverse kinematics. The shoulder and the hand target are both
-   * known, and the two bone lengths fix how far apart they can be -- so the
-   * elbow is somewhere on a circle around the shoulder-to-hand line, and the
-   * pole vector picks the point on that circle. Feeding the resulting *direction*
-   * to a weak orientation motor is enough: the shoulder joint already holds the
-   * elbow at the right distance, so direction is the whole of what was missing.
-   *
-   * Muscle tone was the wrong tool here and the measurements said so -- elbow
-   * travel barely moved. Tone pulls a joint toward a resting *angle*, and the
-   * elbow's angle was never the free variable.
-   */
-  private driveElbow(): void {
-    const A = CONFIG.arm;
-    const s = this.scratch;
-
-    const upper = A.upperLength;
-    const lower = A.foreLength + A.handLength / 2;
-
-    const along = s.along.copyFrom(s.target).subtractInPlace(s.shoulder);
-    const span = clamp(along.length(), Math.abs(upper - lower) + 1e-3, upper + lower - 1e-3);
-    if (along.lengthSquared() < 1e-8) return;
-    along.normalize();
-
-    // Distance from the shoulder to the foot of the elbow's perpendicular, and
-    // how far off the line it then sits.
-    const foot = (upper * upper - lower * lower + span * span) / (2 * span);
-    const rise = Math.sqrt(Math.max(0, upper * upper - foot * foot));
-
-    const world = this.torso.mesh.getWorldMatrix();
-    const pole = s.pole.set(A.elbowPole.x, A.elbowPole.y, A.elbowPole.z);
-    Vector3.TransformNormalToRef(pole, world, pole);
-    const sideways = s.sideways.copyFrom(pole);
-    sideways.subtractInPlace(along.scale(Vector3.Dot(pole, along)));
-    if (sideways.lengthSquared() < 1e-6) return;
-    sideways.normalize();
-
-    s.elbowPoint
-      .copyFrom(s.shoulder)
-      .addInPlace(along.scale(foot))
-      .addInPlace(sideways.scale(rise));
-
-    // The upper arm's local +Y runs from its centre up to the shoulder.
-    const boneY = s.boneY.copyFrom(s.shoulder).subtractInPlace(s.elbowPoint);
-    if (boneY.lengthSquared() < 1e-8) return;
-    boneY.normalize();
-
-    // Keep the twist reference continuous with wherever the arm already is, so
-    // the two motorised axes never have to unwind a full turn.
-    const armWorld = this.upperArm.mesh.getWorldMatrix();
-    const boneX = s.boneX.set(armWorld.m[0], armWorld.m[1], armWorld.m[2]);
-    boneX.subtractInPlace(boneY.scale(Vector3.Dot(boneX, boneY)));
-    if (boneX.lengthSquared() < 1e-6) {
-      boneX.set(armWorld.m[8], armWorld.m[9], armWorld.m[10]);
-      boneX.subtractInPlace(boneY.scale(Vector3.Dot(boneX, boneY)));
-      if (boneX.lengthSquared() < 1e-6) return;
-    }
-    boneX.normalize();
-    Vector3.CrossToRef(boneX, boneY, s.boneZ);
-    s.boneZ.normalize();
-
-    Matrix.FromXYZAxesToRef(boneX, boneY, s.boneZ, s.elbowBasis);
-    Quaternion.FromRotationMatrixToRef(s.elbowBasis, s.elbowRotation);
-    this.elbowAnchor.body.setTargetTransform(s.elbowPoint, s.elbowRotation);
-  }
-
-  /**
-   * The grip's damping term.
-   *
-   * A position motor is a spring, and a spring with no damper rings. That ring
-   * was the settling bob at the tip, and neither of the obvious knobs fixed it:
-   * a stiffer motor overshoots harder, and the blade's own angular damping
-   * fights every rotation including the one you asked for, so swings lose their
-   * punch. What was missing is a term that resists the blade turning
-   * *differently* from the way it was told to.
-   *
-   * The impulse is scaled by the sword's own principal moments before it is
-   * applied. That is not a nicety: a blade's inertia about its long axis is
-   * roughly a thousandth of its inertia across, so a flat impulse that gently
-   * settles a swing would send the roll axis straight to infinity.
-   */
-  private dampGrip(dt: number): void {
-    const rate = CONFIG.arm.gripAngularDamping;
-    if (rate <= 0) return;
-
-    const s = this.scratch;
-    const frame = this.sword.root.rotationQuaternion;
-    if (!frame) return;
-
-    this.sword.body.getAngularVelocityToRef(s.swordSpin);
-    s.swordSpin.subtractInPlace(s.commandedSpin);
-
-    Matrix.FromQuaternionToRef(frame, s.swordFrame);
-    s.swordFrame.transposeToRef(s.swordFrameInverse);
-    Vector3.TransformNormalToRef(s.swordSpin, s.swordFrameInverse, s.localSpin);
-
-    // 1 - exp(-rate*dt) rather than rate*dt, so the bleed-off cannot overshoot
-    // into a sign flip however coarse the step gets.
-    const bleed = 1 - Math.exp(-rate * dt);
-    s.impulse.set(
-      -bleed * this.swordInertia.x * s.localSpin.x,
-      -bleed * this.swordInertia.y * s.localSpin.y,
-      -bleed * this.swordInertia.z * s.localSpin.z,
-    );
-    Vector3.TransformNormalToRef(s.impulse, s.swordFrame, s.impulse);
-    this.sword.body.applyAngularImpulse(s.impulse);
   }
 }
 

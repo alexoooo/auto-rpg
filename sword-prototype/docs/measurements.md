@@ -272,17 +272,48 @@ angular motor at 40 000 N.m -- over a thousand times the shipped 34 -- moved the
 - Fallback verified by renaming the asset away: the page boots clean, no uncaught error,
   heads still hold 1.660 after 10 s, triangles drop to 10 952 primitives.
 
+## The two arms, and what they cost
+
+Peak and mean commanded-to-actual hand error on the driven arm, over a fixed cursor sweep,
+in the **bench**. `.review/club-probe.mjs` takes it. The sweep is not the one that produced
+the 242.88 mm figure elsewhere in this file, so the numbers are comparable with each other
+and with nothing above.
+
+| build | peak mm | mean mm | reversals/s |
+|---|---|---|---|
+| one arm, sword (before the second arm existed) | 45.27 | 4.21 | 40.2 |
+| two arms, sword and an empty hand | **45.16** | 4.21 | 40.2 |
+| two arms, sword and a shield | 45.27 | 4.21 | 39.4 |
+| two-handed club | 46.63 | 4.95 | 87.3 |
+
+**A second arm costs the first one 0.11 mm of peak error**, which is a fifth of a per cent,
+and a shield in it costs nothing measurable at all. That is not luck: both arms hang off a
+torso that is keyframed, so the extra mass never reaches the shoulder the measurement is
+taken at, and the only coupling left is solver ordering.
+
+Extracting `Arm` out of `Fighter` moved the reading by **nothing**: 45.27 mm before and
+45.27 mm after, identical to the hundredth of a millimetre across 2 255 solver steps. That
+was the acceptance for the refactor, and a change of that size in a chaotic constrained
+chain is a change of no bits at all.
+
+The club's two tuning sweeps -- why the trailing grip is unmotorised and why the leading one
+is worth two arms -- are in `config.ts` beside `club.trailingGrip`, because they are what
+set those two numbers.
+
 ## The test tiers
 
-- `npm test` -- **96 tests**, about 1.0 s, no browser. `tests/view.test.mjs` and
-  `tests/handover.test.mjs` run the real solver under `NullEngine` and cost about 0.6 s
-  between them; they earn it because the defects they guard are invisible to a pure test.
+- `npm test` -- **103 tests**, about 1.9 s, no browser. `tests/view.test.mjs`,
+  `tests/handover.test.mjs` and `tests/death.test.mjs` run the real solver under
+  `NullEngine` and cost about 1.4 s between them; they earn it because the defects they
+  guard are invisible to a pure test.
 - `npm run measure` -- the bouts, about 90 s, deliberately **not** in `npm test`, because a
   default test run that takes minutes is a test run nobody runs.
 
 Every assertion in the pure tier has been watched failing against a purpose-built mutation
 of the thing it is about: twelve mutations of `bout.ts`, twenty-seven across the policies,
-six reintroductions of the `observe` defect. Four assertions were rewritten because the
+six reintroductions of the `observe` defect, and four of death -- `die()` never called
+(5 of 7 fail), the torso left `ANIMATED` (1), the early return removed from `update` (2),
+and `deadJointStrength` ignored (1). Four assertions were rewritten because the
 first version of each was satisfied by its own setup and survived the mutation. See the
 `AGENTS.md` entry on green tests that assert nothing.
 
@@ -295,8 +326,9 @@ twenty-four constraints and a contact stream in the hundreds.
 
 None of this was skipped for want of effort. Every item is a judgement about how the game
 feels or looks, and the tabs this was built in render a black canvas because Chrome does not
-paint WebGL in a hidden window. **Two of them are cheap and change what should be built
-next: the first and the fourth.**
+paint WebGL in a hidden window -- and, worse, pauses `requestAnimationFrame` there
+altogether, so a background tab is not a slow browser but a stopped one. **Two of them are
+cheap and change what should be built next: the first and the fourth.**
 
 1. **Is a human against `swinger` winnable, and not trivially so?** This is the only
    criterion that decides whether the policy work is finished. Its cycle is chamber 0.34 s,
@@ -317,6 +349,35 @@ next: the first and the fourth.**
    walk.
 6. **Frame cost**, bracketed control -> subject -> control, on both machines, and the recoil
    table `config.ts` asks for beside `body.jointStiffness`. Both need a visible browser.
+7. **Does a corpse fall like a person?** `body.deadJointStrength` is 0.08 on an argument
+   rather than a reading -- it puts the waist at 59.84 N.m against its living 748 and a knee
+   at 16.32 against 204, both confirmed in the page. Whether that folds or flops has not
+   been seen by anybody. It is live-tunable on a body already on the floor:
+   `__sword.config.body.deadJointStrength = 0.3; __sword.left.applyTuning()`. Write the two
+   readings beside the number.
+8. **Does blood read as blood?** Every figure in `CONFIG.blood` is a first guess set to be
+   legible in a still frame. The failure to watch for is the opposite of the usual one: not
+   too little, but a cut that fills the screen and hides the blow that caused it. The
+   lifecycle is proven -- a burst is collected 1.0 s after it fires and a stump 3.85 s
+   after, both measured by hand-stepping `__sword.blood.update(1/60)` and reading
+   `__sword.blood.count`, with `scene.meshes` flat at 104 throughout -- but nobody has seen
+   one. Chrome pauses `requestAnimationFrame` outright in a hidden tab, so this cannot be
+   checked from a background window: `__sword.engine.frameId` frozen across a wait is how to
+   tell that is what you are looking at.
+
+9. **Do the warriors look like anything yet?** They wear tiling normal maps on twenty-four
+   welded primitives, both arms are dressed where one used to be bare, and the whole thing
+   is still visibly procedural. The two ways further are a hand-modelled and hand-textured
+   character, or a pre-built CC0 one with the rig re-fitted to its proportions -- and every
+   good free character is stylized low-poly, so the second is a change of art direction and
+   not of mesh. This is the item the person who asked for it should rule on before anybody
+   spends a day on either.
+10. **No policy knows what a shield is for.** Measured in the bench: an `idle` fighter given
+   a shield took *more* damage than one with two empty hands, 90 against 28, because it
+   holds the thing wherever its cursor happens to sit rather than between itself and the
+   blade. The shield is a real object that really stops a blade -- the collision masks and
+   `Combat.parried` both say so -- and nothing in `policies.ts` has any notion of
+   interposing it. Until one does, a shield in an AI's hand is a plank it is carrying.
 
 Two smaller ones, recorded where they were found rather than forgotten:
 

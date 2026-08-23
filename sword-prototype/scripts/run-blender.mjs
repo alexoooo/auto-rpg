@@ -54,7 +54,7 @@ const DIMENSIONS = "asset-src/dimensions.json";
  *
  * Re-record it in the same commit that rebuilds the asset, and only then.
  */
-const PIN = "aefc6a0f56b430681ca93b9e7b9fd628e8139c9466268d2ca0c2e10393b887c6";
+const PIN = "0b904f019a601124a5958b7dee9d968dd3744a302356340bf2b7772e797b4384";
 
 /**
  * Everything the Blender script is allowed to know about this rig.
@@ -139,13 +139,51 @@ async function report(expected) {
   return result.ok;
 }
 
+/**
+ * What actually differs between the committed dimensions and today's.
+ *
+ * The check used to report "a bone has moved" whenever the two texts differed,
+ * which is what it is *for* -- but the file carries every numeric field of
+ * `CONFIG.fighter`, `CONFIG.arm` and `CONFIG.body`, and most of those are not
+ * dimensions at all. Adding `body.deadJointStrength`, a tuning number no vertex
+ * depends on, produced a confident report that a bone had moved. Naming the keys
+ * costs a dozen lines and turns "something is wrong somewhere" into an answer.
+ */
+function whatChanged(committed, expected) {
+  let before;
+  try {
+    before = JSON.parse(committed);
+  } catch {
+    return ["  the committed file is not readable JSON"];
+  }
+  const notes = [];
+  const walk = (a, b, path) => {
+    const keys = new Set([...Object.keys(a ?? {}), ...Object.keys(b ?? {})]);
+    for (const key of keys) {
+      const here = path ? `${path}.${key}` : key;
+      const one = a?.[key];
+      const two = b?.[key];
+      if (one && two && typeof one === "object" && !Array.isArray(one)) {
+        walk(one, two, here);
+      } else if (JSON.stringify(one) !== JSON.stringify(two)) {
+        notes.push(`  ${here}: ${JSON.stringify(one)} -> ${JSON.stringify(two)}`);
+      }
+    }
+  };
+  walk(before, expected, "");
+  return notes.length ? notes : ["  the two differ only in formatting"];
+}
+
 async function verify() {
   const expected = dimensions();
   const committed = await readFile(resolve(ROOT, DIMENSIONS), "utf8").catch(() => null);
   if (committed !== asText(expected)) {
     console.error(
-      `${DIMENSIONS} is not what src/config.ts and src/figure.ts say today.\n` +
-        "  A bone has moved since the asset was built. Run: npm run asset:build",
+      `${DIMENSIONS} is not what src/config.ts and src/figure.ts say today:\n` +
+        `${whatChanged(committed ?? "", expected).join("\n")}\n` +
+        "  If a bone moved, the asset must be rebuilt: npm run asset:build\n" +
+        "  If nothing dimensional moved, the file only needs rewriting:" +
+        " npm run asset:dimensions",
     );
     process.exit(1);
   }
@@ -193,7 +231,29 @@ async function build() {
   process.exit(ok ? 0 : 1);
 }
 
-const main = process.argv.includes("--verify") ? verify : build;
+/**
+ * Rewrite the dimensions file, and nothing else.
+ *
+ * For the case the message in `verify` names: a number in one of the three
+ * blocks changed, no bone moved, and the committed `.glb` is still exactly
+ * right. Rebuilding for that would need Blender, would produce different bytes
+ * -- the exporter is not reproducible -- and would need a fresh digest pin
+ * recorded, all to change a line of JSON that no vertex depends on.
+ *
+ * Deliberately not something `--verify` does for itself. A check that silently
+ * repaired what it was checking would never report a moved bone again.
+ */
+async function rewrite() {
+  await writeFile(resolve(ROOT, DIMENSIONS), asText(dimensions()));
+  console.log(`wrote ${DIMENSIONS} from config.ts -- the .glb was NOT rebuilt.`);
+  console.log("  Only right when nothing dimensional moved. Read the diff.");
+}
+
+const main = process.argv.includes("--verify")
+  ? verify
+  : process.argv.includes("--dimensions")
+    ? rewrite
+    : build;
 main().catch((error) => {
   console.error(error.message);
   process.exit(1);

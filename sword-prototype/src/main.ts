@@ -12,17 +12,21 @@ import { Controls } from "./input";
 import { AimIndicator } from "./aim";
 import { Takeover, Targeting } from "./targeting";
 import { RigView } from "./rigview";
+import { Blood } from "./blood";
 import { SetupScreen } from "./setup";
 import type { Side } from "./physics";
 import {
+  HANDS,
   cursorForPose,
   handover,
   humanMind,
   policyMind,
   poseShiftMm,
+  splitMind,
   type ArmPose,
   type Mind,
 } from "./mind";
+import type { WeaponKind } from "./weapon";
 import {
   advance,
   begin,
@@ -36,6 +40,19 @@ import {
   type Ring,
   type SideSetup,
 } from "./bout";
+
+/**
+ * Where the point of a fighter's primary weapon is, or its fist if it has none.
+ *
+ * The takeover readings are millimetre comparisons across one control step, and
+ * a hand holding nothing still has a place -- so this answers with the knuckles
+ * rather than refusing. Every call allocates, and every call is on a takeover
+ * rather than in a loop.
+ */
+const tipOf = (fighter: Fighter): Vector3 =>
+  fighter.sword
+    ? fighter.sword.tipPositionToRef(new Vector3())
+    : fighter.hand.mesh.position.clone();
 
 const need = <T extends HTMLElement>(id: string): T => {
   const element = document.getElementById(id);
@@ -84,6 +101,13 @@ const MODE_TEXT: Record<string, string> = {
 /** The takeover's own level, worded to match `SELECT TARGET` because it is the
  *  same gesture with a wider choice. */
 const TAKE_TEXT = "TAKE A BODY &mdash; click either fighter, or C to cancel";
+
+/** The nudge that says the gesture above exists. See `hintLeft`. */
+const HINT_TEXT = "C to take a body &mdash; either one, at any point in the fight";
+
+/** Which hand the mouse just moved to. `F` swaps; the other goes to its policy. */
+const HAND_A_TEXT = "MOUSE ON THE PRIMARY HAND &mdash; F to swap";
+const HAND_B_TEXT = "MOUSE ON THE SECONDARY HAND &mdash; F to swap";
 
 /**
  * One body changing hands, and what the change cost.
@@ -236,6 +260,23 @@ async function boot(): Promise<void> {
       showCurtain(true);
     },
     onToggleLock: () => targeting.toggle(),
+    onSwapHands: () => {
+      // The mouse has already changed hands by the time this runs -- `Controls`
+      // moves `driving` itself, because the state is its own. What is left is
+      // to seed the hand it has arrived at from the pose that hand is actually
+      // in, exactly as a takeover does: the cursor is absolute, so a hand taken
+      // over without seeding snaps to wherever the mouse happens to be at the
+      // full 850 N the grip can pull.
+      const fighter = yours();
+      if (!fighter.armed) return;
+      const seed = cursorForPose(fighter.armPoses()[controls.state.driving]);
+      const hand = controls.state[controls.state.driving];
+      hand.pointerX = seed.pointerX;
+      hand.pointerY = seed.pointerY;
+      hand.roll = seed.roll;
+      handNotice = controls.state.driving === "primary" ? HAND_A_TEXT : HAND_B_TEXT;
+      handLeft = CONFIG.camera.noticeSeconds;
+    },
     onToggleTakeover: () => {
       // Arming the takeover drops a target choice that was still open. Two armed
       // modes would be two breathing rings under one cursor and a click that had
@@ -271,8 +312,23 @@ async function boot(): Promise<void> {
    */
   const you = humanMind(controls);
 
+  /**
+   * Who drives a side, and what drives the hand you are not using.
+   *
+   * A person gets `splitMind`: their own feet and their own cursor hand, and the
+   * side's *own policy* on the other. Not a second policy chosen separately --
+   * the one already picked for that corner, which is what that fighter becomes
+   * the moment you step out of it. So the spare hand fights the way the whole
+   * body would, and there is nothing new to choose on the screen.
+   */
   const mindFor = (side: SideSetup): Mind =>
-    side.control === "you" ? you : policyMind(side.policy);
+    side.control === "you" ? splitMind(you, policyMind(side.policy)) : policyMind(side.policy);
+
+  /** What a corner's two pickers mean to a body. */
+  const loadoutFor = (side: SideSetup) => ({
+    primary: side.handA as WeaponKind,
+    secondary: side.handB as WeaponKind,
+  });
 
   /**
    * Two fighters of the same kind, facing each other, one `Combat` per side
@@ -287,7 +343,13 @@ async function boot(): Promise<void> {
     const F = CONFIG.fighter;
     const left = new Fighter(
       arena.scene,
-      { side: "left", origin: Vector3.Zero(), facing: 0, mind: mindFor(matchup.left) },
+      {
+        side: "left",
+        origin: Vector3.Zero(),
+        facing: 0,
+        mind: mindFor(matchup.left),
+        loadout: loadoutFor(matchup.left),
+      },
       arena.materials,
     );
     const right = new Fighter(
@@ -297,12 +359,13 @@ async function boot(): Promise<void> {
         origin: new Vector3(0, 0, F.separation),
         facing: Math.PI,
         mind: mindFor(matchup.right),
+        loadout: loadoutFor(matchup.right),
       },
       arena.materials,
     );
     const sides = [
-      { fighter: left, combat: new Combat("left", left.sword) },
-      { fighter: right, combat: new Combat("right", right.sword) },
+      { fighter: left, combat: new Combat("left", left.weapons) },
+      { fighter: right, combat: new Combat("right", right.weapons) },
     ];
     // Each blade is pointed at the other body. The collision layers already say
     // the same thing in the solver; this says it again in the scoring.
@@ -333,7 +396,37 @@ async function boot(): Promise<void> {
   takeover.attach(bout.left, bout.right);
   const rigview = new RigView(arena.scene);
   rigview.attach(bout.sides);
+  const blood = new Blood(arena.scene);
   refreshShadowCasters(arena.scene, arena.shadows);
+
+  /**
+   * The last blow each side had been told about, so the same one is not drawn
+   * twice and none is missed.
+   *
+   * Not `combat.lastHit`, which is a single slot: two contacts inside one
+   * rendered frame -- and at 240 Hz there are four control steps in a frame to
+   * have them in -- leave only the newer, and the one that goes missing is as
+   * likely as not the one that took an arm off. `Combat.log` keeps two dozen,
+   * newest first, so walking it back to the last timestamp this saw is both
+   * complete and bounded.
+   */
+  const drawn: Record<Side, number> = { left: -1, right: -1 };
+
+  const drawBlood = (): void => {
+    for (const side of bout.sides) {
+      const seen = drawn[side.combat.side];
+      let newest = seen;
+      for (const report of side.combat.log) {
+        if (report.at <= seen) break;
+        if (report.at > newest) newest = report.at;
+        blood.spray(report.point, report.velocity, report.damage);
+        if (!report.severed) continue;
+        const limb = side.combat.body?.limbs.find((part) => part.key === report.key);
+        if (limb) blood.stump(limb.part.mesh, report.point);
+      }
+      drawn[side.combat.side] = newest;
+    }
+  };
 
   /**
    * Handover readings waiting for the first control step after their swap.
@@ -353,7 +446,6 @@ async function boot(): Promise<void> {
   /** The last dozen takeovers, so "five times in one bout" is a thing you can
    *  read rather than a thing you have to watch for. */
   const takeovers: TakeoverReading[] = [];
-  const takeoverTip = new Vector3();
 
   /**
    * Both fighters again, from nothing, with whatever minds the matchup asks for.
@@ -373,6 +465,14 @@ async function boot(): Promise<void> {
   const rebuild = (): void => {
     const rigWasUp = rigview.isVisible;
     if (rigWasUp) rigview.hide();
+
+    // Before the bodies go: a stump's emitter is parented to the severed part's
+    // mesh, and a node whose parent has been disposed does not go with it. It
+    // stays exactly where it last stood, bleeding, for the rest of the run.
+    blood.clear();
+    drawn.left = -1;
+    drawn.right = -1;
+    hintLeft = CONFIG.bout.hintSeconds;
 
     for (const side of bout.sides) side.combat.dispose();
     bout.left.dispose();
@@ -429,6 +529,7 @@ async function boot(): Promise<void> {
 
     if (fighter.armed) {
       const pose = fighter.armAngles();
+      const poses = fighter.armPoses();
       // The person's own cursor is rebased as well as the mind's, and the two
       // are not the same act. `roll` is an *accumulator* -- `Controls.sample`
       // integrates the Z and X keys into it and nothing ever writes an absolute
@@ -439,18 +540,24 @@ async function boot(): Promise<void> {
       // takeover frame itself exact, and `handover`'s rebase window is what
       // carries it across the frames after that.
       if (incoming === you) {
-        const seed = cursorForPose(pose);
-        controls.state.pointerX = seed.pointerX;
-        controls.state.pointerY = seed.pointerY;
-        controls.state.roll = seed.roll;
+        // Both hands, because the cursor drives one of them and the keys the
+        // other's wrist, and whichever one it is not on is still being commanded
+        // from a pose it knows nothing about.
+        for (const name of HANDS) {
+          const seed = cursorForPose(poses[name]);
+          const hand = controls.state[name];
+          hand.pointerX = seed.pointerX;
+          hand.pointerY = seed.pointerY;
+          hand.roll = seed.roll;
+        }
       }
-      fighter.mind = handover(incoming, pose);
+      fighter.mind = handover(incoming, poses);
       reading.seeded = true;
       pending.push({
         fighter,
         reading,
         pose,
-        tip: fighter.sword.tipPositionToRef(new Vector3()),
+        tip: tipOf(fighter),
       });
     } else {
       // A severed arm cannot be taken over into a pose it no longer has.
@@ -467,7 +574,7 @@ async function boot(): Promise<void> {
         fighter,
         reading,
         pose: fighter.armAngles(),
-        tip: fighter.sword.tipPositionToRef(new Vector3()),
+        tip: tipOf(fighter),
       });
     }
     return reading;
@@ -489,7 +596,9 @@ async function boot(): Promise<void> {
     let released: HandReading | null = null;
     if (before && before !== side) {
       const leaving = before === "left" ? bout.left : bout.right;
-      released = handOver(leaving, before, policyMind(state.matchup[before].policy));
+      // A whole policy, not a split one: nobody is driving that body any more, so
+    // both of its hands go back to the mind the corner names.
+    released = handOver(leaving, before, policyMind(state.matchup[before].policy));
     }
 
     state = takeBody(state, side);
@@ -513,8 +622,7 @@ async function boot(): Promise<void> {
       // gives at length: the matrix-backed accessor stamps the render id as a
       // side effect and converts every later reader that frame into a reader of
       // this sample. A measurement must not move the thing it measures.
-      read.fighter.sword.tipPositionToRef(takeoverTip);
-      read.reading.tipMm = Vector3.Distance(read.tip, takeoverTip) * 1000;
+      read.reading.tipMm = Vector3.Distance(read.tip, tipOf(read.fighter)) * 1000;
     }
     pending.length = 0;
   };
@@ -671,6 +779,20 @@ async function boot(): Promise<void> {
    */
   let cameraNotice = "";
   let noticeLeft = 0;
+  /**
+   * Seconds left on the takeover hint.
+   *
+   * Which body is yours has been changeable mid-bout since session 07 and the
+   * curtain has listed `C` the whole time, and it turns out that a key on a
+   * screen you dismissed to start playing is a key nobody has. The feature was
+   * not missing; the affordance was. It shows for a few seconds at the start of
+   * each bout, last in the banner's priority list so it can never cover a
+   * verdict or a mode line, and it is gone by the time anything is happening.
+   */
+  let hintLeft = 0;
+  /** The `F` notice, on the same timer arrangement as the camera's. */
+  let handNotice = "";
+  let handLeft = 0;
   let shownBanner = "";
   let shownMode = "";
 
@@ -696,6 +818,11 @@ async function boot(): Promise<void> {
     }
 
     for (const side of bout.sides) side.combat.advance(dt);
+    // After `advance`, so a report filed this frame is already timestamped, and
+    // outside the `isActive` guard above: a blow struck on the frame the window
+    // lost focus should still finish bleeding rather than freeze in the air.
+    drawBlood();
+    blood.update(dt);
     // The rules get the rendered frame's delta, which is the same clock
     // `Combat` counts on, so the cap and a report's timestamp are comparable.
     // Only while the fight is actually running: a bout paused behind the curtain
@@ -716,6 +843,11 @@ async function boot(): Promise<void> {
       noticeLeft -= dt;
       if (noticeLeft <= 0) cameraNotice = "";
     }
+    if (hintLeft > 0) hintLeft -= dt;
+    if (handLeft > 0) {
+      handLeft -= dt;
+      if (handLeft <= 0) handNotice = "";
+    }
 
     const decided = state.outcome;
     const banner = [
@@ -724,7 +856,10 @@ async function boot(): Promise<void> {
       // the one a click is about to be spent on.
       takeover.isArmed ? TAKE_TEXT : "",
       MODE_TEXT[targeting.status] ?? "",
+      handNotice,
       cameraNotice,
+      // Last, and silent the moment anything else has something to say.
+      hintLeft > 0 && !decided && !takeover.isArmed ? HINT_TEXT : "",
     ]
       .filter((part) => part !== "")
       .join(" &middot; ");
@@ -752,7 +887,7 @@ async function boot(): Promise<void> {
       {
         fps: engine.getFps(),
         physicsMs,
-        tipSpeed: driven.sword.tipSpeed(),
+        tipSpeed: driven.sword?.tipSpeed() ?? 0,
         edgeAlignment: edgeAlignmentNow(driven),
         meshes: arena.scene.meshes.length,
         rig: rigview.readout(),
@@ -857,6 +992,18 @@ async function boot(): Promise<void> {
       // pinned -- that it creates no body, no shape and no constraint. It cannot
       // be pinned in `tests/`, which has no Babylon to run.
       rigview,
+      /**
+       * Blood, for looking at it without having to be hit.
+       *
+       *     __sword.blood.spray(__sword.left.centre(), new BABYLON.Vector3(0,1,0), 20)
+       *     __sword.blood.count      // emitters alive; must fall back to 0
+       *
+       * The count is the leak check: every burst and every stump is collected a
+       * particle lifetime after it stops feeding, so a bout that has finished
+       * bleeding must read zero. It never rises during a rebuild either, because
+       * `clear()` runs before the bodies the stumps hang on are disposed.
+       */
+      blood,
       config: CONFIG,
     },
   });
@@ -874,11 +1021,13 @@ async function boot(): Promise<void> {
  * after a hit teaches that far more slowly.
  */
 function edgeAlignmentNow(fighter: Fighter): number {
-  const tip = fighter.sword.tipPosition();
-  const velocity = fighter.sword.velocityAt(tip);
+  const weapon = fighter.sword;
+  if (!weapon) return 0;
+  const tip = weapon.tipPosition();
+  const velocity = weapon.velocityAt(tip);
   const speed = velocity.length();
   if (speed < 0.4) return 0;
-  return Math.abs(Vector3.Dot(velocity.scale(1 / speed), fighter.sword.edgeDirection()));
+  return Math.abs(Vector3.Dot(velocity.scale(1 / speed), weapon.edgeDirection()));
 }
 
 boot().catch((error: unknown) => {

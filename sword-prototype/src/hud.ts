@@ -36,6 +36,7 @@ export interface Telemetry {
 }
 
 const KIND_LABEL: Record<HitReport["kind"], string> = {
+  crush: "CRUSH",
   cut: "CUT",
   thrust: "THRUST",
   slap: "FLAT",

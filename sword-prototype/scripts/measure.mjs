@@ -77,6 +77,7 @@ function buildArena() {
     leather: mat("leather"),
     brass: mat("brass"),
     hide: mat("hide"),
+    wood: mat("wood"),
   };
 
   const ground = MeshBuilder.CreateBox("ground", { width: 60, height: 1, depth: 60 }, scene);

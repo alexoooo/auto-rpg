@@ -110,6 +110,74 @@ on a cut to the head. Whether that reads worse than a lethal torso -- the bigges
 the body, and the one a swing finds by accident -- is a question for somebody who has
 fought one to the end.
 
+## Dying, which is not the same as losing
+
+`over` not stopping the world was the right call about the *bout* and, for a long time, it
+was also mistaken for a call about the *body*. `beaten()` has named the head since it was
+written; nothing else ever listened. A decapitated fighter went on walking, turning, aiming
+and swinging with a stump for a neck, and the only thing that changed was the banner.
+
+So `Fighter` now has a second kind of loss beside `armLost`. `dead` is set from `sever` when
+the head or the torso comes off, and it costs three things:
+
+- **the mind is never asked again** -- `update` returns before `decide`, which is earlier
+  than the `armLost` return, because a one-armed fighter still walks and a headless one does
+  not;
+- **the torso stops being keyframed.** It has carried `PhysicsMotionType.ANIMATED` since
+  construction, which is what lets a fighter walk without wobbling under the weight of its
+  own arm and is equally what would hold a dead one upright forever;
+- **every body joint drops to `body.deadJointStrength`** of its usual ceiling. Zero was the
+  obvious first guess and is wrong: a body with no torque anywhere in it lands as a bag of
+  capsules rather than as a person who has just been killed.
+
+The slackening goes through `applyTuning` rather than writing motor forces at the point of
+death, and that is the whole design of it. `applyTuning` is the only path that pushes CONFIG
+into native solver objects, so a ceiling set anywhere else is a number nobody can tune
+afterwards -- the mistake the old dummy's `stiffen()` made, where every live experiment that
+edited its stiffness was measuring nothing at all. Going through it means a corpse on the
+floor is still tunable, and it means `die()` is four lines.
+
+It also exposed a latent fault worth naming: `applyTuning` used to write into `grip` and
+`elbowDrive` unconditionally, and `dropArm` disposes both. Nobody had hit it because nothing
+called `applyTuning` after an arm came off. `die()` calls it on every death.
+
+The two judgements stay apart. Whether a body is finished is `Fighter`'s business and
+whether a bout is finished is `bout.ts`'s, and `tests/death.test.mjs` asserts them together
+in one case, because the day they disagree is the day a corpse wins a fight.
+
+## Blood, which decides nothing
+
+`src/blood.ts` is on the presentation side of the directory and that is the entire point.
+The house rule is that cosmetics carry no authority, and the cheapest way to break it here
+would have been to hang an emitter off `Fighter.sever` -- one line, and from then on the
+simulation half imports a renderer, `fighter.ts` stops loading under Node, and the headless
+bench and four test files go with it.
+
+Instead it reads the log `Combat` already keeps. Every report carries the contact point, the
+blade's velocity there, the damage and whether the blow severed; `HitReport`'s own comment
+says the world-space triple is held "because the log is the only record of a blow that
+survives it", and this is simply the second reader of that record. Nothing in the simulation
+half changed except one added field, `key`, so a report can be matched back to the limb it
+was filed against.
+
+Three decisions inside it:
+
+- **It reads the log, not `lastHit`.** That is a single slot, and there are four control
+  steps inside a rendered frame to have two contacts in. The one that goes missing is as
+  likely as not the one that took an arm off.
+- **It adds no nodes to the scene.** A burst emits from a bare world point; a stump emits
+  from the severed limb's own mesh, offset to the cut through the emitter box. So there is
+  nothing of ours to outlive the body it hung on, nothing for `refreshShadowCasters` to
+  sweep up, and the mesh count in the readout does not wander during a fight.
+- **Stopping and collecting are two moments**, a full particle lifetime apart. A stopped
+  system goes on drawing what is already in the air, and disposing at the stop makes a
+  severed arm's trail vanish in mid-fall.
+
+The one texture is drawn with a `DynamicTexture` rather than fetched. A particle system with
+no texture draws nothing, and the alternative was a PNG in `public/assets` -- a fetch script,
+a digest pin, a licence line and one more thing that can be missing on a fresh clone, all
+for a white dot with soft edges.
+
 ## The instrument, and why it landed before the costume
 
 `G` draws what Havok is actually solving: collision shapes taken from `body.getGeometry()`
@@ -218,6 +286,117 @@ wrong.
 Per-side colour is applied in `figure.ts` rather than authored into the asset, because
 there is one asset and two fighters, so an authored colour could only ever have been one of
 the two and the wrong one would have looked deliberate.
+
+## Two arms, and what is in them
+
+The seam was one hand for as long as there was one arm. `Intent` carried nine flat fields,
+`Fighter` carried eleven singular arm fields, and the off arm was two capsules on gait-driven
+motors with no hand, no anchor and no grip -- it counterswung while you walked and there was
+nothing you could put in it.
+
+Three things changed, in this order, each landing green:
+
+**`Arm` came out of `Fighter`.** Two hundred lines of constructor and four per-step methods,
+moved wholesale. It is a class because every piece of state it carries -- the pose scalars,
+the previous frame's basis, the commanded spin the grip damper measures against -- is state
+two arms must not share; one `prevX` serving two chains is the second arm being handed the
+first one's history every step. The acceptance was that the arm did not move, and it did
+not: 45.27 mm of peak commanded-to-actual error before and after, identical to the
+hundredth of a millimetre. Every name the outside used -- `fighter.sword`, `fighter.grip`,
+`fighter.handAnchor` -- is a getter onto `arms.primary` now, which is why the overlay and
+sixteen handover tests needed no edit.
+
+**`Intent` grew a hand.** `HandIntent` is the five fields that belong to a hand -- two
+cursor axes, the wrist, thrust and guard -- and `InputState` is the four that belong to the
+body plus two of those and a `driving`. Splitting them out rather than adding a second set
+of differently named fields is what keeps the two hands alike: there is no `pointerX` and
+`offPointerX`, no hand that is the real one and a hand that is the afterthought, and `Arm`
+takes one without caring which it is.
+
+The vocabulary lives in `mind.ts` and not beside `InputState` in `input.ts`, and the
+direction of that import is load-bearing. `mind.ts` takes `InputState` as a **type**, which
+erases, so the DOM never reaches a headless harness. Declaring `HANDS` on the far side and
+importing its *value* back reversed that in one line and took `fighter.ts` out of Node's
+reach with it -- five test files failed at once with "Cannot find module .../src/config".
+
+**One mouse, two hands.** `splitMind` runs a person and a policy every step, takes the feet
+and the driven hand from the person and the other hand from the policy, and `F` moves the
+cursor between them. Splitting the *cursor* instead -- half the screen each, or a modifier
+held down -- was the obvious alternative and is worse: the mouse being spent entirely on one
+blade is the whole reason this reads as Die by the Sword, and halving it would make both
+hands worse to control in order to avoid making a choice. The spare hand takes the side's
+*own* policy, the one it becomes the moment you step out of it, so there is nothing new to
+choose on the screen. House rule 1 survives: what reaches the fighter is still one `Intent`
+of the same shape a person produces.
+
+## What is in a hand
+
+`Weapon` replaced `Sword`. Three kinds and an `empty`, all sharing one local frame -- +Y
+along the weapon, +X the edge, +Z the flat -- which is what lets `Combat` ask the same four
+questions of any of them without a branch.
+
+- A **shield** is a plate whose face normal is +Y, so it stands across the arm rather than
+  along it. It scores nothing and blocks nothing by rule: the collision layers had said
+  since they were written that an enemy blade and this side's weapons may touch, so blocking
+  needed a shape and not a rule. What it did need was a *record* -- `limbFor` answers nothing
+  for a weapon body, so a blade stopped dead and a blade that missed produced the same
+  readout, which is none. `Combat.parried` files the difference.
+- A **club** has no edge, so `scoring.ts` never asks about its +X and a blow is worth what
+  its speed is worth. It hits harder than an unaimed cut and less hard than a placed one,
+  and it severs -- because a club that could never sever could only win by flattening all
+  thirteen parts, which is not a weapon so much as a chore.
+
+`scoring.ts` took the kind as a **defaulted third parameter**, which is why all eleven of
+its original cases still call it with one argument and still pass unedited. The damage model
+this prototype was tuned against is still exactly the damage model.
+
+### The two-handed club, which was wrong twice
+
+The design was two motorised grips pulling one haft, so that the 850 N ceilings add up on
+their own and "the strength of both arms" needs no number. It is refuted by measurement,
+and the two ways it was wrong are both worth keeping.
+
+The first version handed both arms the same `HandIntent`. Each arm builds its target from
+its *own* shoulder, so one pose became two targets 0.42 m apart across the body, on a haft
+that holds the fists 0.26 m apart. Mean hand error went from 5.95 mm one-handed to 95.70 mm.
+
+The second version sent the trailing hand to a point the leading one computed -- which is
+right, and still not enough. Sweeping the trailing grip from nothing to full found **no
+setting at which the second motor helps**. It cannot: the two chains disagree about which
+poses are reachable, and two position motors asked for poses their chains disagree about
+pull against each other. The falling reversal count as it strengthened is what says it was a
+tug-of-war and not the chatter it would be easy to mistake it for.
+
+So the trailing hand is a passive linkage -- welded to the haft, adding mass and inertia and
+no force -- and the strength of both arms is carried by `club.leadGrip` on the hand that has
+the weapon. Set to exactly two arms' worth, which is also, on the sweep, where it measures
+best: the club then tracks at 4.95 mm mean against the sword's 4.21.
+
+## The costume, second time
+
+Both arms are dressed now, where the sword arm was deliberately bare. That exemption was
+right when there was one simulated arm and it was the subject of every measurement; with
+two, it leaves a fighter in half a shirt, which reads as a bug rather than as an instrument.
+`G` is the instrument, and it takes the whole costume off.
+
+The asset gained UVs and tangents, which it had never had -- `export_texcoords` was off to
+match. Tangents needed one more thing than the flag: Blender computes tangent space only for
+tris and quads, and `plate()` authors n-gons by construction, so the weld triangulates before
+anything asks. Without it the exporter prints a warning per piece and quietly ships a file
+with no TANGENT attribute.
+
+What the maps are is one decision taken at a screenshot. The published sets carry diffuse,
+normal and roughness, and all three were wired up first. Babylon multiplies `albedoTexture`
+by `albedoColor`; a photographic diffuse averages well below white; the whole scene came out
+at about a third of its intended brightness and both fighters read as black cutouts. The
+palette colours are not decoration -- they are the identity of each surface and the thing a
+surcoat is tinted with -- so the half to give up was the photograph. What is left is relief
+only, which is the part that was doing the work: a normal map changes how light rakes across
+a surface and cannot change its colour.
+
+**It is still not good enough.** Twenty-four welded primitives with tiling normal maps is a
+real step up from twenty-four welded primitives in flat colour and it is not finished art.
+`docs/measurements.md` records what the two ways forward actually cost.
 
 ## The house rules this work was done under
 

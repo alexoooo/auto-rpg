@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  EQUIPMENT,
   advance,
   beaten,
   begin,
@@ -14,6 +15,7 @@ import {
   toSelect,
   verdict,
   withControl,
+  withEquipment,
   withPolicy,
   withUnit,
 } from "../src/bout.ts";
@@ -398,4 +400,57 @@ test("one pass through every phase, in the order a player walks it", () => {
     "right",
     "the second bout is the same bout, on the side that was chosen",
   );
+});
+
+// ---- what is in each hand -------------------------------------------------
+
+test("the picker offers exactly the equipment the code has", () => {
+  assert.deepEqual(
+    EQUIPMENT.map((item) => item.name),
+    ["sword", "shield", "club", "empty"],
+  );
+  for (const item of EQUIPMENT) {
+    assert.ok(item.label.length > 0, `${item.name} needs a label for the screen`);
+  }
+});
+
+test("equipping a hand touches that hand, that side, and nothing else", () => {
+  const before = defaultMatchup();
+  const after = withEquipment(before, "left", "handB", "shield");
+
+  assert.equal(after.left.handB, "shield");
+  assert.equal(after.left.handA, "sword", "the other hand is left alone");
+  assert.deepEqual(after.right, before.right, "and so is the other corner");
+  assert.equal(before.left.handB, "empty", "the input is not mutated");
+});
+
+test("a club fills both hands, because it is one weapon", () => {
+  const club = withEquipment(defaultMatchup(), "right", "handA", "club");
+  assert.equal(club.right.handA, "club");
+  assert.equal(club.right.handB, "club", "the second hand is on the haft");
+
+  // And from the other side, which is the case a rule written once and applied
+  // to `handA` only would get wrong.
+  const other = withEquipment(defaultMatchup(), "right", "handB", "club");
+  assert.equal(other.right.handA, "club");
+  assert.equal(other.right.handB, "club");
+});
+
+test("putting something else in a hand puts the club down", () => {
+  const club = withEquipment(defaultMatchup(), "left", "handA", "club");
+  const after = withEquipment(club, "left", "handA", "sword");
+
+  assert.equal(after.left.handA, "sword");
+  assert.equal(after.left.handB, "empty", "half a club is not a weapon");
+});
+
+test("a bout opens with the loadout every measurement was taken from", () => {
+  // A sword and an empty hand, on both sides. Every number in
+  // `docs/measurements.md` predates there being a choice, and a default that
+  // quietly changed the body would have invalidated all of them at once.
+  const opening = defaultMatchup();
+  for (const side of ["left", "right"]) {
+    assert.equal(opening[side].handA, "sword");
+    assert.equal(opening[side].handB, "empty");
+  }
 });

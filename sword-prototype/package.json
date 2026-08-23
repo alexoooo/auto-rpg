@@ -15,7 +15,9 @@
     "measure": "node scripts/measure.mjs",
     "asset:build": "node scripts/run-blender.mjs",
     "asset:verify": "node scripts/run-blender.mjs --verify",
-    "asset:fetch": "node scripts/fetch-polyhaven.mjs"
+    "asset:dimensions": "node scripts/run-blender.mjs --dimensions",
+    "asset:fetch": "node scripts/fetch-polyhaven.mjs && node scripts/fetch-textures.mjs",
+    "asset:textures": "node scripts/fetch-textures.mjs"
   },
   "dependencies": {
     "@babylonjs/core": "9.18.1",

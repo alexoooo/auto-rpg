@@ -11,7 +11,7 @@ import HavokPhysics from "@babylonjs/havok";
 import { CONFIG } from "../src/config.ts";
 import { attachPhysics } from "../src/physics.ts";
 import { Fighter } from "../src/fighter.ts";
-import { azimuthOf, elevationOf } from "../src/policies.ts";
+import { azimuthOf, elevationOf, blankIntent } from "../src/policies.ts";
 import {
   cursorForPose,
   handOffset,
@@ -47,18 +47,27 @@ const wasm = new URL("../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm
 const FIXED = 1 / CONFIG.world.physicsHz;
 const A = CONFIG.arm;
 
-const blank = (over = {}) => ({
-  forward: 0,
-  strafe: 0,
-  turn: 0,
-  pointerX: 0,
-  pointerY: 0,
-  roll: 0,
-  zoom: 1,
-  thrust: false,
-  guard: false,
-  ...over,
-});
+/**
+ * An intent, with one hand's fields overridden.
+ *
+ * Built from the real `blankIntent` rather than from a literal of its own. This
+ * file used to carry its own copy of the shape, in plain untyped JS, and when
+ * the intent grew a second hand the copy went on compiling and started handing
+ * `undefined` to an arm. Four files had the same copy and all four broke
+ * together.
+ *
+ * `over` names the *driven* hand's fields, because that is what every test here
+ * is about; `handsOf` below is for the cases that need to see both.
+ */
+const blank = (over = {}) => {
+  const intent = blankIntent();
+  Object.assign(intent, over);
+  Object.assign(intent[intent.driving], over);
+  return intent;
+};
+
+/** One pose per hand, for `handover`, which seeds both. */
+const bothPoses = (pose) => ({ primary: pose, secondary: pose });
 
 /** A mind that always asks for one fixed thing, which is what a still hand is. */
 const fixed = (name, intent) => ({ name, decide: () => intent });
@@ -154,18 +163,18 @@ test("a pose is its own zero, and the far corner of the envelope is not", () => 
 test("the first command after a handover is exactly the pose it found", () => {
   const pose = poseFor(0.8, -0.6, 0.4);
   const centre = fixed("centre", blank());
-  const held = handover(centre, pose, 0.25);
+  const held = handover(centre, bothPoses(pose), 0.25);
 
   const first = held.decide(null, FIXED);
-  assert.equal(first.pointerX, cursorForPose(pose).pointerX);
-  assert.equal(first.pointerY, cursorForPose(pose).pointerY);
-  assert.equal(first.roll, pose.roll);
-  assert.equal(poseShiftMm(pose, poseFor(first.pointerX, first.pointerY)), 0);
+  assert.equal(first.primary.pointerX, cursorForPose(pose).pointerX);
+  assert.equal(first.primary.pointerY, cursorForPose(pose).pointerY);
+  assert.equal(first.primary.roll, pose.roll);
+  assert.equal(poseShiftMm(pose, poseFor(first.primary.pointerX, first.primary.pointerY)), 0);
 
   // The control: the same taker with no rebase at all is the teleport this whole
   // session exists to stop, and it is 300 mm of hand in one substep.
   const raw = centre.decide(null, FIXED);
-  const jump = poseShiftMm(pose, poseFor(raw.pointerX, raw.pointerY));
+  const jump = poseShiftMm(pose, poseFor(raw.primary.pointerX, raw.primary.pointerY));
   assert.ok(jump > 300, `an unseeded handover only moved the hand ${jump.toFixed(1)} mm`);
 });
 
@@ -173,7 +182,7 @@ test("the rebase arrives, and then gets out of the way", () => {
   const pose = poseFor(-0.9, 0.9, -1.0);
   const asked = blank({ pointerX: 0.5, pointerY: -0.4, roll: 0.8 });
   const inner = fixed("swinger", asked);
-  const held = handover(inner, pose, 0.25);
+  const held = handover(inner, bothPoses(pose), 0.25);
 
   assert.equal(held.name, "swinger", "a readout should name the mind, not the wrapper");
   assert.equal(held.settled, false);
@@ -193,14 +202,14 @@ test("the rebase arrives, and then gets out of the way", () => {
 
 test("the rebase walks the cursor across, monotonically and once", () => {
   const pose = poseFor(-1, -1);
-  const held = handover(fixed("centre", blank()), pose, 0.25);
+  const held = handover(fixed("centre", blank()), bothPoses(pose), 0.25);
 
   let previous = -Infinity;
   let steps = 0;
   while (!held.settled) {
     const intent = held.decide(null, FIXED);
-    assert.ok(intent.pointerX >= previous, "the rebase reversed direction");
-    previous = intent.pointerX;
+    assert.ok(intent.primary.pointerX >= previous, "the rebase reversed direction");
+    previous = intent.primary.pointerX;
     steps += 1;
     assert.ok(steps < 500, "the rebase never finished, which is what an exponential one does");
   }
@@ -209,7 +218,7 @@ test("the rebase walks the cursor across, monotonically and once", () => {
   // And the step after the window is the taker's own cursor, not a blend of it
   // that got close: this is the difference between a rebase that ends and one
   // that merely becomes hard to see.
-  assert.equal(held.decide(null, FIXED).pointerX, 0);
+  assert.equal(held.decide(null, FIXED).primary.pointerX, 0);
 });
 
 test("the feet, the buttons and the zoom are the new driver's from the first step", () => {
@@ -217,14 +226,14 @@ test("the feet, the buttons and the zoom are the new driver's from the first ste
   // and locomotion at `fighter.accelResponse`, so blending them would be a lag
   // bought for nothing. Only the two aiming axes and the wrist are absolute.
   const asked = blank({ forward: 1, strafe: -1, turn: 0.5, thrust: true, guard: true, zoom: 1.4 });
-  const held = handover(fixed("driver", asked), poseFor(-1, 1, 1), 0.25);
+  const held = handover(fixed("driver", asked), bothPoses(poseFor(-1, 1, 1)), 0.25);
 
   const first = held.decide(null, FIXED);
   assert.equal(first.forward, 1);
   assert.equal(first.strafe, -1);
   assert.equal(first.turn, 0.5);
-  assert.equal(first.thrust, true);
-  assert.equal(first.guard, true);
+  assert.equal(first.primary.thrust, true);
+  assert.equal(first.primary.guard, true);
   assert.equal(first.zoom, 1.4);
 });
 
@@ -232,7 +241,7 @@ test("a zero-width rebase is the plan's seed alone, and is not a broken handover
   // `config.takeover.rebaseSeconds = 0` is the control condition for any argument
   // about whether the rebase is worth having, so it has to keep working.
   const asked = blank({ pointerX: 0.5 });
-  const held = handover(fixed("centre", asked), poseFor(-1, -1), 0);
+  const held = handover(fixed("centre", asked), bothPoses(poseFor(-1, -1)), 0);
   assert.equal(held.settled, true);
   assert.equal(held.decide(null, FIXED), asked);
 });
@@ -249,7 +258,7 @@ test("the inner mind is driven every step of the window, at its own dt", () => {
       return blank();
     },
   };
-  const held = handover(inner, poseFor(-1, -1), 0.25);
+  const held = handover(inner, bothPoses(poseFor(-1, -1)), 0.25);
   for (let i = 0; i < 24; i += 1) held.decide(null, FIXED);
 
   assert.equal(seen.length, 24);
@@ -275,6 +284,7 @@ async function ring(mind) {
   const materials = {
     flesh: mat("flesh"), cloth: mat("cloth"), steel: mat("steel"),
     leather: mat("leather"), brass: mat("brass"), hide: mat("hide"),
+    wood: mat("wood"),
   };
 
   const left = new Fighter(scene, {
@@ -299,6 +309,10 @@ async function ring(mind) {
  */
 function sweeper() {
   const intent = blank();
+  // The driven hand only. The other one holds centre, which is what a hand not
+  // being swept looks like, and leaving it out of the sweep is what keeps this
+  // a measurement of one arm being handed over rather than of two.
+  const hand = intent[intent.driving];
   let elapsed = 0;
   return {
     name: "sweeper",
@@ -306,9 +320,9 @@ function sweeper() {
       elapsed += dt;
       const phase = (elapsed / 0.5) % 2;
       const across = phase < 1 ? phase : 2 - phase;
-      intent.pointerX = -0.9 + across * 1.8;
-      intent.pointerY = 0.7 - across * 1.3;
-      intent.roll = -0.6 + across * 1.2;
+      hand.pointerX = -0.9 + across * 1.8;
+      hand.pointerY = 0.7 - across * 1.3;
+      hand.roll = -0.6 + across * 1.2;
       return intent;
     },
   };
@@ -346,7 +360,7 @@ async function jumpOnHandover(t, { driver, incoming, seeded, frames = 25 }) {
   const pose = left.armAngles();
   const speed = left.sword.speedAt(left.sword.tipPositionToRef(new Vector3()));
 
-  left.mind = seeded ? handover(incoming, pose, CONFIG.takeover.rebaseSeconds) : incoming;
+  left.mind = seeded ? handover(incoming, bothPoses(pose), CONFIG.takeover.rebaseSeconds) : incoming;
 
   // One control step, and no solver step: what is being measured is the command
   // the new mind produced, and `aimArm` has written it by the time `update`

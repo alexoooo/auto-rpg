@@ -88,6 +88,7 @@
     "offElbowStrength": 3,
     "hipStrength": 10,
     "kneeStrength": 6,
+    "deadJointStrength": 0.08,
     "partHealth": 100,
     "torsoHealth": 2,
     "pelvisHealth": 1.8
@@ -129,6 +130,42 @@
         0
       ]
     },
+    "swordUpperArm": {
+      "joint": [
+        0.21,
+        1.42,
+        0.02
+      ],
+      "centre": [
+        0.21,
+        1.27,
+        0.02
+      ]
+    },
+    "swordForearm": {
+      "joint": [
+        0.21,
+        1.1199999999999999,
+        0.02
+      ],
+      "centre": [
+        0.21,
+        0.9849999999999999,
+        0.02
+      ]
+    },
+    "swordHand": {
+      "joint": [
+        0.21,
+        0.8499999999999999,
+        0.02
+      ],
+      "centre": [
+        0.21,
+        0.7899999999999998,
+        0.02
+      ]
+    },
     "offUpperArm": {
       "joint": [
         -0.21,
@@ -137,19 +174,31 @@
       ],
       "centre": [
         -0.21,
-        1.28,
+        1.27,
         0.02
       ]
     },
     "offForearm": {
       "joint": [
         -0.21,
-        1.14,
+        1.1199999999999999,
         0.02
       ],
       "centre": [
         -0.21,
-        1.01,
+        0.9849999999999999,
+        0.02
+      ]
+    },
+    "offHand": {
+      "joint": [
+        -0.21,
+        0.8499999999999999,
+        0.02
+      ],
+      "centre": [
+        -0.21,
+        0.7899999999999998,
         0.02
       ]
     },
@@ -324,12 +373,42 @@
       ]
     },
     {
+      "name": "upperArmR",
+      "bone": "swordUpperArm",
+      "material": "cloth",
+      "at": [
+        0.21,
+        1.27,
+        0.02
+      ]
+    },
+    {
+      "name": "forearmR",
+      "bone": "swordForearm",
+      "material": "leather",
+      "at": [
+        0.21,
+        0.9849999999999999,
+        0.02
+      ]
+    },
+    {
+      "name": "handR",
+      "bone": "swordHand",
+      "material": "flesh",
+      "at": [
+        0.21,
+        0.7899999999999998,
+        0.02
+      ]
+    },
+    {
       "name": "upperArmL",
       "bone": "offUpperArm",
       "material": "cloth",
       "at": [
         -0.21,
-        1.28,
+        1.27,
         0.02
       ]
     },
@@ -339,17 +418,17 @@
       "material": "leather",
       "at": [
         -0.21,
-        1.01,
+        0.9849999999999999,
         0.02
       ]
     },
     {
       "name": "handL",
-      "bone": "offForearm",
+      "bone": "offHand",
       "material": "flesh",
       "at": [
         -0.21,
-        0.8200000000000001,
+        0.7899999999999998,
         0.02
       ]
     },

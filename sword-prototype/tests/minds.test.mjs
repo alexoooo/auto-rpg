@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { POLICIES, policyMind } from "../src/mind.ts";
-import { rollForStroke } from "../src/policies.ts";
+import { POLICIES, otherHand, policyMind, splitMind } from "../src/mind.ts";
+import { blankIntent, rollForStroke } from "../src/policies.ts";
 import { CONFIG } from "../src/config.ts";
 
 /**
@@ -69,8 +69,38 @@ function facing({ gap = 1.4, blade = "line", tipSpeed = 0, measure = null, clock
   };
 }
 
-/** One intent, copied, because a mind hands back the same object every call. */
-const snapshot = (intent) => ({ ...intent });
+/**
+ * One intent, copied, because a mind hands back the same object every call.
+ *
+ * Two things beyond a spread, and both are load-bearing.
+ *
+ * The two hands are copied in their own right. A spread copies the *references*
+ * to them, so every entry in a track would be looking at the same pair of live
+ * objects and would read as whatever the last step asked for -- which would have
+ * made the seed test above compare a fight against itself and pass.
+ *
+ * And the driven hand's five fields are flattened onto the copy. Every policy in
+ * this file fights one-handed and every assertion below is about the hand it is
+ * fighting with, so `intent.pointerX` goes on meaning what it has always meant
+ * here. The nested copies are still there for anything that wants to be explicit.
+ */
+const snapshot = (intent) => ({
+  ...intent,
+  primary: { ...intent.primary },
+  secondary: { ...intent.secondary },
+  ...intent[intent.driving],
+});
+
+/**
+ * One step of a mind, snapshotted.
+ *
+ * The tests that take a single reading used to call `decide` and read the result
+ * directly, which is fine as long as the fields being read are on the object it
+ * hands back. They are on one of its hands now, so everything goes through the
+ * same flattening `drive` uses rather than half the file knowing about hands and
+ * the other half not.
+ */
+const ask = (mind, view) => snapshot(mind.decide(view, FIXED));
 
 /** Step a mind for `seconds` at the control rate, keeping every intent. */
 function drive(mind, seconds, viewFor) {
@@ -141,24 +171,24 @@ test("swinger turns toward whatever is in front of it", () => {
   const mind = policyMind("swinger", 7);
   const toTheRight = { ...facing({ gap: 2.0 }) };
   toTheRight.opponent = { ...toTheRight.opponent, ground: { x: 2.0, y: 0, z: 0 } };
-  assert.ok(mind.decide(toTheRight, FIXED).turn > 0.5, "a target at +X is a right turn");
+  assert.ok(ask(mind, toTheRight).turn > 0.5, "a target at +X is a right turn");
 
   const toTheLeft = { ...facing({ gap: 2.0 }) };
   toTheLeft.opponent = { ...toTheLeft.opponent, ground: { x: -2.0, y: 0, z: 0 } };
-  assert.ok(mind.decide(toTheLeft, FIXED).turn < -0.5, "a target at -X is a left turn");
+  assert.ok(ask(mind, toTheLeft).turn < -0.5, "a target at -X is a left turn");
 
   // Straight ahead is no turn at all, which is the case a sign error still
   // passes and a gain error does not.
-  assert.equal(Math.abs(mind.decide(facing({ gap: 2.0 }), FIXED).turn) < 1e-9, true);
+  assert.equal(Math.abs(ask(mind, facing({ gap: 2.0 })).turn) < 1e-9, true);
 
   // And with the body already pointed somewhere, because a heading error taken
   // against the wrong zero is the classic way a policy ends up spinning.
   const turned = facing({ gap: 2.0 });
   turned.self.facing = Math.PI / 2;
   turned.opponent.ground = { x: 2.0, y: 0, z: 0 };
-  assert.ok(Math.abs(mind.decide(turned, FIXED).turn) < 1e-9, "already facing it is no turn");
+  assert.ok(Math.abs(ask(mind, turned).turn) < 1e-9, "already facing it is no turn");
   turned.opponent.ground = { x: 2.0, y: 0, z: 2.0 };
-  assert.ok(mind.decide(turned, FIXED).turn < -0.5, "a target off its left shoulder is a left turn");
+  assert.ok(ask(mind, turned).turn < -0.5, "a target off its left shoulder is a left turn");
 });
 
 test("swinger commits across and down, faster than a hand could be asked to", () => {
@@ -240,7 +270,7 @@ test("swinger never asks for a guard or a thrust", () => {
 
 test("duelist guards between exchanges, on the line of the opponent's point", () => {
   const mind = policyMind("duelist", 4);
-  const intent = mind.decide(facing({ gap: 1.4, blade: "line" }), FIXED);
+  const intent = ask(mind, facing({ gap: 1.4, blade: "line" }));
   assert.equal(intent.guard, true);
 
   // The point is straight ahead and level, so the covering line is centre guard.
@@ -250,14 +280,14 @@ test("duelist guards between exchanges, on the line of the opponent's point", ()
   // Lift the point and the guard follows it up rather than staying level.
   const high = facing({ gap: 1.4 });
   high.opponent.tip = { x: 0, y: 2.1, z: 0.4 };
-  const covering = mind.decide(high, FIXED);
+  const covering = ask(mind, high);
   assert.ok(covering.pointerY > 0.3, `the guard should rise to a high point, got ${covering.pointerY}`);
 
   // A point that is not extended toward it -- chambered, dropped, or hanging off
   // a fighter that has turned away -- is not the thing to cover, and chasing one
   // drags the guard off the body it is supposed to be standing between. So the
   // covering line falls back to the chest, which here is dead ahead and level.
-  const spent = mind.decide(facing({ gap: 1.4, blade: "away" }), FIXED);
+  const spent = ask(mind, facing({ gap: 1.4, blade: "away" }));
   assert.ok(Math.abs(spent.pointerX) < 0.05, `should cover the chest, pointerX ${spent.pointerX}`);
   assert.ok(Math.abs(spent.pointerY) < 0.05, `should cover the chest, pointerY ${spent.pointerY}`);
 });
@@ -273,16 +303,16 @@ test("duelist covers the line whichever way its body happens to be pointed", () 
   view.opponent.shoulder = { x: 1.4, y: 1.4, z: 0 };
   view.opponent.tip = { x: 0.1, y: 1.4, z: 0 };
 
-  const ahead = mind.decide(view, FIXED);
+  const ahead = ask(mind, view);
   assert.ok(Math.abs(ahead.pointerX) < 0.05, `straight ahead is centre, got ${ahead.pointerX}`);
 
   // Looking down +X, the fighter's right hand side is world -Z.
   view.opponent.tip = { x: 0.6, y: 1.4, z: -0.6 };
-  const outboard = mind.decide(view, FIXED);
+  const outboard = ask(mind, view);
   assert.ok(outboard.pointerX > 0.3, `a point at the fighter's right is +X on the cursor, got ${outboard.pointerX}`);
 
   view.opponent.tip = { x: 0.6, y: 1.4, z: 0.6 };
-  const across = mind.decide(view, FIXED);
+  const across = ask(mind, view);
   assert.ok(across.pointerX < -0.3, `and one at its left is -X, got ${across.pointerX}`);
 });
 
@@ -304,7 +334,7 @@ test("the cursor a covering line asks for is the exact inverse of the arm's own 
       y: view.self.shoulder.y + Math.sin(elevation),
       z: view.self.shoulder.z + Math.cos(azimuth) * cos,
     };
-    return mind.decide(view, FIXED);
+    return ask(mind, view);
   };
 
   const close = (got, want, what) =>
@@ -321,15 +351,15 @@ test("the cursor a covering line asks for is the exact inverse of the arm's own 
 test("duelist gives ground when it is crowded and closes when it is given room", () => {
   const mind = policyMind("duelist", 4);
   assert.ok(
-    mind.decide(facing({ gap: 0.7, measure: 0.4 }), FIXED).forward < -0.5,
+    ask(mind, facing({ gap: 0.7, measure: 0.4 })).forward < -0.5,
     "a point in its face is a reason to back off",
   );
   assert.ok(
-    mind.decide(facing({ gap: 2.2, measure: 1.8 }), FIXED).forward > 0.5,
+    ask(mind, facing({ gap: 2.2, measure: 1.8 })).forward > 0.5,
     "two metres of daylight is a reason to close",
   );
   assert.ok(
-    Math.abs(mind.decide(facing({ gap: 1.4, measure: 1.0 }), FIXED).forward) < 1e-9,
+    Math.abs(ask(mind, facing({ gap: 1.4, measure: 1.0 })).forward) < 1e-9,
     "and at its own measure it holds",
   );
 });
@@ -380,8 +410,8 @@ test("duelist closes in proportion to how far out of position it is", () => {
   // asks for a full walk whenever it is not exactly at its range overshoots,
   // ends up crowded, and reverses -- which is the shuffle rather than the hover.
   const mind = policyMind("duelist", 8);
-  const near = mind.decide(facing({ gap: 1.55, measure: 1.15 }), FIXED).forward;
-  const far = mind.decide(facing({ gap: 1.9, measure: 1.5 }), FIXED).forward;
+  const near = ask(mind, facing({ gap: 1.55, measure: 1.15 })).forward;
+  const far = ask(mind, facing({ gap: 1.9, measure: 1.5 })).forward;
 
   assert.ok(near > 0 && near < 0.4, `a little out of position is a little walk, got ${near}`);
   assert.ok(far > near, `further out should ask for more, got ${far} against ${near}`);
@@ -433,4 +463,108 @@ test("the roll stays inside what the wrist is allowed", () => {
       assert.ok(roll >= CONFIG.arm.rollMin && roll <= CONFIG.arm.rollMax, `roll ${roll}`);
     }
   }
+});
+
+// ---- one mouse, two hands -------------------------------------------------
+
+/** A mind that asks for one fixed thing on one named hand. */
+const oneHanded = (name, hand, over) => {
+  const intent = blankIntent();
+  intent.driving = hand;
+  Object.assign(intent, over.body ?? {});
+  Object.assign(intent[hand], over.hand ?? {});
+  return { name, decide: () => intent };
+};
+
+test("the person keeps the feet and the hand the mouse is on", () => {
+  const person = oneHanded("you", "primary", {
+    body: { forward: 1, strafe: -1, turn: 0.5, zoom: 1.6 },
+    hand: { pointerX: 0.4, pointerY: -0.3, roll: 0.9, thrust: true, guard: false },
+  });
+  const policy = oneHanded("swinger", "primary", {
+    body: { forward: -1, strafe: 1, turn: -1, zoom: 9 },
+    hand: { pointerX: -0.8, pointerY: 0.7, roll: -1.1, thrust: false, guard: true },
+  });
+
+  const split = splitMind(person, policy);
+  const out = split.decide(facing({ gap: 1.2 }), FIXED);
+
+  // The body is the person's, whole.
+  assert.equal(out.forward, 1);
+  assert.equal(out.strafe, -1);
+  assert.equal(out.turn, 0.5);
+  assert.equal(out.zoom, 1.6);
+  assert.equal(out.driving, "primary");
+
+  // Their hand is theirs.
+  assert.deepEqual(out.primary, {
+    pointerX: 0.4, pointerY: -0.3, roll: 0.9, thrust: true, guard: false,
+  });
+  // And the spare one is the policy's, whichever hand the policy called its own.
+  assert.deepEqual(out.secondary, {
+    pointerX: -0.8, pointerY: 0.7, roll: -1.1, thrust: false, guard: true,
+  });
+});
+
+test("swapping hands swaps which one the policy has", () => {
+  const person = oneHanded("you", "secondary", {
+    hand: { pointerX: 0.25, roll: 0.5 },
+  });
+  const policy = oneHanded("duelist", "primary", { hand: { pointerX: -0.6, guard: true } });
+
+  const out = splitMind(person, policy).decide(facing({ gap: 1.2 }), FIXED);
+
+  assert.equal(out.driving, "secondary");
+  assert.equal(out.secondary.pointerX, 0.25, "the mouse is on the secondary now");
+  assert.equal(out.primary.pointerX, -0.6, "so the policy has the primary");
+  assert.equal(out.primary.guard, true);
+  assert.equal(otherHand(out.driving), "primary");
+});
+
+test("a policy reading a hand does not read the person's", () => {
+  // The failure this guards is a spread instead of a field-by-field copy: the
+  // two hands would then be references to the two minds' own live objects, and
+  // a policy that writes its hand next step would silently rewrite what the
+  // fighter was already given.
+  const person = oneHanded("you", "primary", { hand: { pointerX: 0.5 } });
+  const policyIntent = blankIntent();
+  const policy = {
+    name: "shifty",
+    decide: () => {
+      policyIntent.primary.pointerX += 0.1;
+      return policyIntent;
+    },
+  };
+
+  const split = splitMind(person, policy);
+  const first = { ...split.decide(facing({ gap: 1.2 }), FIXED).secondary };
+  split.decide(facing({ gap: 1.2 }), FIXED);
+
+  assert.ok(first.pointerX !== policyIntent.primary.pointerX, "the copy was taken, not aliased");
+});
+
+test("the policy is driven every step, at its own dt", () => {
+  // A policy whose cadence stopped while somebody else was using its arm would
+  // be a different policy -- the same argument `handover` makes for driving its
+  // inner mind through the rebase window.
+  const seen = [];
+  const policy = {
+    name: "counter",
+    decide: (view, dt) => {
+      seen.push(dt);
+      return blankIntent();
+    },
+  };
+  const split = splitMind(oneHanded("you", "primary", {}), policy);
+  for (let i = 0; i < 12; i += 1) split.decide(facing({ gap: 1.2 }), FIXED);
+
+  assert.equal(seen.length, 12);
+  assert.ok(seen.every((dt) => dt === FIXED));
+});
+
+test("a split mind answers to the person's name", () => {
+  // A readout should say who is driving, and "you" is the answer even though
+  // half the body is on a policy.
+  const split = splitMind(oneHanded("you", "primary", {}), policyMind("swinger", 3));
+  assert.equal(split.name, "you");
 });
