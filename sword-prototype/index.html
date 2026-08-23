@@ -16,6 +16,23 @@
         <p class="lede">
           The blade is a physical object. There is no attack button &mdash; you swing by
           moving your arm, and you cut by driving the edge through something at speed.
+          Two fighters of one kind stand in the ring. Choose who drives each of them: a
+          policy, or you &mdash; and change your mind mid-fight with <b>C</b>, which lets
+          you step into either body without the blade jumping.
+        </p>
+        <!-- Filled by src/setup.ts from the unit and policy registries, so an
+             option that is offered is one the code actually has. -->
+        <div id="matchup"></div>
+        <!-- What the three policies do. Prose for somebody about to press
+             Fight, so it lives here rather than as a field on the registry that
+             `src/setup.ts` reads: the code has no use for it, and a policy is
+             chosen once at the start of a bout rather than browsed. -->
+        <p class="note" id="policies">
+          <b>Idle</b> stands there and can be cut apart. <b>Swinger</b> walks in and
+          cuts on a fixed cadence, never once looking at your guard &mdash; so its
+          openings are learnable, which is the whole of how you beat it.
+          <b>Duelist</b> holds measure, guards between exchanges, and commits when
+          your point leaves the line.
         </p>
         <dl class="keys">
           <dt>Mouse</dt><dd>moves the sword arm &mdash; the cursor is where the hand goes</dd>
@@ -25,13 +42,17 @@
           <dt>Z / X</dt><dd>roll the wrist &mdash; turns the edge into the cut</dd>
           <dt>Left button</dt><dd>thrust &mdash; drive the point out</dd>
           <dt>Right button</dt><dd>guard &mdash; pull the blade in close</dd>
-          <dt>L</dt><dd>lock on, then click an enemy &mdash; strafe to circle it</dd>
+          <dt>Middle button / L</dt><dd>lock on, then click an enemy &mdash; strafe to circle it</dd>
+          <dt>C</dt><dd>take a body, then click either fighter &mdash; the one you leave picks its policy back up</dd>
           <dt>Wheel</dt><dd>zoom</dd>
-          <dt>Space</dt><dd>reset the dummy</dd>
+          <dt>V</dt><dd>camera &mdash; Overhead behind the fighter, or Fixed on a world bearing</dd>
+          <dt>[ / ]</dt><dd>swing the Fixed camera round the arena</dd>
+          <dt>Space</dt><dd>the same bout again &mdash; and this screen once one has been decided</dd>
           <dt>Tab</dt><dd>toggle the physics readout</dd>
+          <dt>G</dt><dd>the rig &mdash; collision shapes, anchors, joints and contacts</dd>
           <dt>Esc</dt><dd>pause</dd>
         </dl>
-        <button id="begin" type="button">Take the sword</button>
+        <button id="begin" type="button">Fight</button>
         <p class="note" id="boot-note">Loading Havok&hellip;</p>
       </div>
     </div>

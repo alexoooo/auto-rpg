@@ -3,14 +3,20 @@ import { PhysicsEventType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugi
 import type { IPhysicsCollisionEvent } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import type { Observer } from "@babylonjs/core/Misc/observable.js";
 
-import { CONFIG } from "./config";
-import type { Sword } from "./sword";
-import type { Dummy, Limb } from "./dummy";
-import { scoreHit, severs, type HitKind } from "./scoring";
+import { CONFIG } from "./config.ts";
+import type { Side } from "./physics.ts";
+import type { Sword } from "./sword.ts";
+import type { Fighter, Limb } from "./fighter.ts";
+import { scoreHit, severs, type HitKind } from "./scoring.ts";
 
 export type { HitKind };
 
 export interface HitReport {
+  /**
+   * Which side landed it. A bout that ends has to be able to say who won and
+   * how, and the report of the blow that ended it is the only place that knows.
+   */
+  by: Side;
   limb: string;
   kind: HitKind;
   /** Speed of the blade at the contact point, m/s. */
@@ -22,6 +28,20 @@ export interface HitReport {
   damage: number;
   severed: boolean;
   at: number;
+  /**
+   * Where the contact was, how the blade was moving there, and which way the
+   * edge was pointing at that instant -- all in world space, and all owned
+   * copies rather than views onto scratch that the next contact would overwrite.
+   *
+   * None of the three is read by the damage model, which is computed entirely
+   * from the two scalars above. They are kept because the log is the only record
+   * of a blow that survives it, and a blow that scored nothing is unarguable
+   * until you can see where it landed and which way the edge was facing when it
+   * did. `src/rigview.ts` draws them.
+   */
+  point: Vector3;
+  velocity: Vector3;
+  edge: Vector3;
 }
 
 /**
@@ -35,10 +55,22 @@ export interface HitReport {
  * the quantity a player can actually feel themselves controlling, so that is the
  * quantity the damage is built from. The impulse is still surfaced in the
  * readout, because when the two disagree that is worth seeing.
+ *
+ * One of these per side, each watching one blade and pointed at the other
+ * fighter. It used to be built around one sword and one dummy, and that
+ * asymmetry was the whole of what made it a training-yard object rather than a
+ * fight: it knew which body was allowed to be hurt. It now knows which blade it
+ * is watching and whose body that blade is entitled to find, and two of them
+ * make a bout. `scoring.ts` is untouched by any of it, being already pure and
+ * already knowing nothing about who is swinging.
  */
 export class Combat {
+  /** Which side's blade this watches. Stamped onto every report it files. */
+  readonly side: Side;
+
+  private readonly sword: Sword;
   private observer: Observer<IPhysicsCollisionEvent> | null = null;
-  private dummy: Dummy | null = null;
+  private target: Fighter | null = null;
   private clock = 0;
 
   /** The most recent meaningful contact, for the readout. */
@@ -52,12 +84,24 @@ export class Combat {
     push: new Vector3(),
   };
 
-  constructor(private readonly sword: Sword) {
+  constructor(side: Side, sword: Sword) {
+    this.side = side;
+    this.sword = sword;
     this.observer = sword.body.getCollisionObservable().add(this.onContact);
   }
 
-  attach(dummy: Dummy): void {
-    this.dummy = dummy;
+  /**
+   * Whose body this blade may find.
+   *
+   * Only the opposite fighter is ever passed in, and the collision layers say
+   * the same thing again in the solver -- a blade does not even generate a
+   * contact against its own side. Two statements of one rule, deliberately: the
+   * layer mask is what keeps the arm from shoving its owner across the arena,
+   * and this is what keeps a stray contact from being scored against the wrong
+   * body if the masks are ever loosened.
+   */
+  attach(target: Fighter): void {
+    this.target = target;
   }
 
   /** Simulation time, seconds since the run started. */
@@ -78,9 +122,9 @@ export class Combat {
 
   private readonly onContact = (event: IPhysicsCollisionEvent): void => {
     if (event.type === PhysicsEventType.COLLISION_FINISHED) return;
-    if (!this.dummy || !event.point) return;
+    if (!this.target || !event.point) return;
 
-    const limb = this.dummy.limbFor(event.collidedAgainst);
+    const limb = this.target.limbFor(event.collidedAgainst);
     if (!limb || limb.severed) return;
     if (this.clock - limb.lastHitAt < CONFIG.combat.hitCooldown) return;
 
@@ -99,10 +143,14 @@ export class Combat {
     const speed = velocity.length();
 
     const base = {
+      by: this.side,
       limb: limb.label,
       solverImpulse: event.impulse,
       speed,
       at: this.clock,
+      point: point.clone(),
+      velocity: velocity.clone(),
+      edge: this.sword.edgeDirection().clone(),
     };
 
     if (speed < C.minCutSpeed) {
@@ -131,7 +179,7 @@ export class Combat {
     limb.part.body.applyImpulse(shove, point);
 
     const severed = severs(score, limb.health);
-    if (severed) this.dummy?.sever(limb, direction);
+    if (severed) this.target?.sever(limb, direction);
 
     return { ...base, kind, edgeAlignment, damage, severed };
   }

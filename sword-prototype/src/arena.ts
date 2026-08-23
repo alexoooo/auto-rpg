@@ -14,8 +14,21 @@ import { ImageProcessingConfiguration } from "@babylonjs/core/Materials/imagePro
 import { DefaultRenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline.js";
 import type { Engine } from "@babylonjs/core/Engines/engine.js";
 
+import HavokPhysics from "@babylonjs/havok";
+// Havok's solver is a WebAssembly module shipped beside its ESM bundle. Vite
+// will not find it on its own, so hand it the resolved URL explicitly.
+//
+// This lives here rather than beside `attachPhysics` in `src/physics.ts`
+// because it is the one line in the whole bring-up that only a bundler can
+// resolve: Node's ESM resolver rejects the `?url` subpath outright, and a
+// module that carries it takes every one of its importers -- `fighter.ts` and
+// `combat.ts` among them -- out of reach of a headless harness. `arena.ts` is
+// already the browser's half of the directory and imports HDR textures and a
+// post-processing pipeline, so it is where a browser-only import belongs.
+import havokWasmUrl from "@babylonjs/havok/lib/esm/HavokPhysics.wasm?url";
+
 import { CONFIG } from "./config";
-import { LAYER, COLLIDES, startPhysics } from "./physics";
+import { LAYER, COLLIDES, attachPhysics } from "./physics";
 
 // Side effects: the PBR pipeline and shadow support register themselves on import.
 import "@babylonjs/core/Materials/Textures/Loaders/hdrTextureLoader.js";
@@ -64,7 +77,7 @@ export async function buildArena(engine: Engine): Promise<Arena> {
   // Physics first. Every PhysicsAggregate below needs a live engine on the
   // scene, and building one before it exists fails with the singularly
   // unhelpful "No Physics Engine available".
-  await startPhysics(scene);
+  attachPhysics(scene, await HavokPhysics({ locateFile: () => havokWasmUrl }));
 
   // A fixed physics timestep, accumulated across frames. Babylon reads this in
   // Scene._advancePhysicsEngineStep and steps the solver a whole number of times

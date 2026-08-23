@@ -1,11 +1,24 @@
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
-import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
+import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
+import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader.js";
+import { Color3 } from "@babylonjs/core/Maths/math.color.js";
+import { Matrix } from "@babylonjs/core/Maths/math.vector.js";
+import type { AssetContainer } from "@babylonjs/core/assetContainer.js";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import type { Material } from "@babylonjs/core/Materials/material.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 
-import { CONFIG } from "./config";
-import type { Hero } from "./hero";
+// Side effect, and a load-bearing one: this is what teaches `LoadAssetContainerAsync`
+// that a `.glb` is a thing it can read. Without it the load rejects with "Unable to
+// find a plugin to load .glb files", the costume silently never arrives, and the
+// page looks exactly like a page whose asset is missing. Fifth member of the same
+// family as the physics, shadow, outline, `Culling/ray` and `edgesRenderer` imports
+// -- when a Babylon feature works in the playground and not here, suspect a missing
+// side-effect import before suspecting the feature.
+import "@babylonjs/loaders/glTF/2.0/glTFLoader.js";
+
+import { CONFIG } from "./config.ts";
+import type { Part } from "./rig.ts";
 
 export interface FigureMaterials {
   steel: Material;
@@ -14,192 +27,546 @@ export interface FigureMaterials {
   flesh: Material;
 }
 
-const clamp = (value: number, min: number, max: number) =>
-  value < min ? min : value > max ? max : value;
+/** The bones a costume hangs on. Every piece is a child of one of these. */
+export interface FigureRig {
+  /** Which fighter this is, so two costumes in one scene have distinct names. */
+  prefix: string;
+  torso: Part;
+  head: Part;
+  pelvis: Part;
+  offUpperArm: Part;
+  offForearm: Part;
+  thighLeft: Part;
+  shinLeft: Part;
+  thighRight: Part;
+  shinRight: Part;
+}
+
+/** Every name in `FigureRig` that is a bone rather than the prefix. */
+export type BoneName = Exclude<keyof FigureRig, "prefix">;
+
+/** Which of the arena's materials a piece is made of, or its fighter's colour. */
+export type PieceMaterial = keyof FigureMaterials | "side";
+
+type Triple = readonly [number, number, number];
+
+/** The stand-in drawn when the authored asset has nothing under this name. */
+type Primitive =
+  | { kind: "box"; size: Triple }
+  | { kind: "capsule"; height: number; radius: number }
+  | { kind: "sphere"; diameter: number; scale?: Triple }
+  | { kind: "cylinder"; height: number; diameter: number };
+
+export interface CostumePiece {
+  /** The node name in `public/assets/warrior.glb`, and the mesh name in the
+   *  scene once the fighter's prefix is on the front of it. */
+  name: string;
+  /** Which physics part it rides on. */
+  bone: BoneName;
+  material: PieceMaterial;
+  /**
+   * Where the *primitive* is drawn, as a point in the fighter's own upright
+   * frame -- absolute, so it can be read against the table in `config.ts`'s
+   * `body` block with a tape measure rather than by unwinding an offset. The
+   * authored piece ignores this and stands where it was authored.
+   */
+  at: Triple;
+  primitive: Primitive;
+}
+
+/** Where a bone hangs from, and where its capsule balances. Both absolute. */
+export interface BoneFrame {
+  /** The joint this bone swings about: the origin its authored piece is cut at. */
+  joint: Triple;
+  /** The centre of the physics capsule, which is the origin of its local frame. */
+  centre: Triple;
+}
 
 /**
- * What the hero looks like.
+ * The nine bones, in the fighter's upright frame, straight off `config.ts`.
  *
- * Deliberately cosmetic and deliberately separate. The physics rig is a capsule
- * for the body and three constrained bones for the sword arm, and it should stay
- * that way -- simulating a torso that only ever gets steered, or legs that only
- * ever walk on flat ground, buys nothing and costs solver time and stability.
- * So the collision capsule is hidden and this hangs a segmented figure off it:
- * mail, plate, a head, a free arm, and legs that actually stride.
+ * A function rather than a constant because `config.ts` is deliberately mutable
+ * -- `?tune` writes into it live -- and a table snapshotted at module load would
+ * quietly disagree with the bodies the numbers actually built.
  *
- * The right arm is missing here on purpose. That one is real, and it is the
- * whole point of the prototype.
- *
- * Everything is parented to the torso's mesh, so nothing here needs to know
- * where the hero is or which way it is facing -- it inherits both. The one
- * offset that matters is the root's, which drops the figure's origin from the
- * capsule's centre down to the ground, so every measurement below is a height
- * above the floor and can be read against a tape measure.
+ * Read the two columns together and the arithmetic checks itself: the torso and
+ * the pelvis share the waist, because that is the one joint where the spine
+ * splits; the thigh's joint is the hip and its centre is half a thigh below it.
  */
-export class Figure {
-  private readonly root: TransformNode;
-  private readonly hipLeft: TransformNode;
-  private readonly hipRight: TransformNode;
-  private readonly kneeLeft: TransformNode;
-  private readonly kneeRight: TransformNode;
-  private readonly armLeft: TransformNode;
-  private readonly elbowLeft: TransformNode;
+export function boneFrames(): Record<BoneName, BoneFrame> {
+  const B = CONFIG.body;
+  const F = CONFIG.fighter;
+  const off = -F.shoulderSide;
+  const z = F.shoulderFront;
+  return {
+    torso: { joint: [0, B.waist, 0], centre: [0, B.torsoCentre, 0] },
+    head: { joint: [0, B.neck, 0], centre: [0, B.headCentre, 0] },
+    pelvis: { joint: [0, B.waist, 0], centre: [0, B.pelvisCentre, 0] },
+    offUpperArm: { joint: [off, F.shoulderHeight, z], centre: [off, B.offUpperCentre, z] },
+    offForearm: { joint: [off, B.offElbow, z], centre: [off, B.offForeCentre, z] },
+    thighLeft: { joint: [-B.hipSide, B.hip, 0], centre: [-B.hipSide, B.thighCentre, 0] },
+    shinLeft: { joint: [-B.hipSide, B.knee, 0], centre: [-B.hipSide, B.shinCentre, 0] },
+    thighRight: { joint: [B.hipSide, B.hip, 0], centre: [B.hipSide, B.thighCentre, 0] },
+    shinRight: { joint: [B.hipSide, B.knee, 0], centre: [B.hipSide, B.shinCentre, 0] },
+  };
+}
 
-  private readonly baseHeight: number;
-  private phase = 0;
+/**
+ * Every piece of the costume, once.
+ *
+ * This table is the single description of what a fighter wears, and it is
+ * exported because two other things read it: `scripts/run-blender.mjs` writes it
+ * into `asset-src/dimensions.json` so the Blender script builds exactly these
+ * names on exactly these bones, and `scripts/check-warrior.mjs` asserts the
+ * built `.glb` carries all of them and nothing else. A second copy of this list
+ * in the authoring script would drift the first time a piece was renamed, and
+ * the failure would be a piece that silently fell back to its primitive.
+ */
+export function costumePieces(): CostumePiece[] {
+  const B = CONFIG.body;
+  const F = CONFIG.fighter;
+  const off = -F.shoulderSide;
+  const z = F.shoulderFront;
+  const leg = (suffix: "L" | "R", side: -1 | 1): CostumePiece[] => {
+    const x = side * B.hipSide;
+    const thigh = suffix === "L" ? "thighLeft" : "thighRight";
+    const shin = suffix === "L" ? "shinLeft" : "shinRight";
+    return [
+      {
+        name: `thigh${suffix}`,
+        bone: thigh,
+        material: "cloth",
+        at: [x, B.thighCentre, 0],
+        primitive: { kind: "capsule", height: 0.44, radius: 0.085 },
+      },
+      {
+        name: `shin${suffix}`,
+        bone: shin,
+        material: "leather",
+        at: [x, B.shinCentre, 0],
+        primitive: { kind: "capsule", height: 0.42, radius: 0.068 },
+      },
+      // The sole sits on the floor: half the 0.075 boot above zero. Twenty
+      // millimetres out and the figure reads as hovering.
+      {
+        name: `foot${suffix}`,
+        bone: shin,
+        material: "leather",
+        at: [x, 0.0375, 0.055],
+        primitive: { kind: "box", size: [0.11, 0.075, 0.26] },
+      },
+    ];
+  };
 
-  constructor(scene: Scene, hero: Hero, materials: FigureMaterials) {
-    // Drop the figure's origin from the capsule's centre to the ground, so every
-    // measurement below is a height above the floor and can be read against a
-    // tape measure rather than against an arbitrary datum.
-    this.baseHeight = -hero.torsoCentre;
+  return [
+    // ---- trunk ----
+    {
+      name: "belly",
+      bone: "torso",
+      material: "leather",
+      at: [0, 1.16, 0],
+      primitive: { kind: "box", size: [0.30, 0.18, 0.23] },
+    },
+    {
+      name: "chest",
+      bone: "torso",
+      material: "steel",
+      at: [0, 1.34, 0],
+      primitive: { kind: "box", size: [0.37, 0.34, 0.25] },
+    },
+    {
+      name: "collar",
+      bone: "torso",
+      material: "steel",
+      at: [0, 1.49, 0],
+      primitive: { kind: "box", size: [0.40, 0.07, 0.26] },
+    },
+    {
+      name: "pauldronR",
+      bone: "torso",
+      material: "steel",
+      at: [F.shoulderSide, 1.44, 0.01],
+      primitive: { kind: "sphere", diameter: 0.20, scale: [1, 0.72, 1] },
+    },
+    {
+      name: "pauldronL",
+      bone: "torso",
+      material: "steel",
+      at: [-F.shoulderSide, 1.44, 0.01],
+      primitive: { kind: "sphere", diameter: 0.20, scale: [1, 0.72, 1] },
+    },
+    // The one piece this session adds, and it is here to be *read* rather than
+    // to be worn: from the Fixed camera at default zoom a helmed figure in steel
+    // looks like the other helmed figure in steel, and the surcoat is the panel
+    // large enough to carry a colour that says which is which at a glance.
+    {
+      name: "surcoat",
+      bone: "torso",
+      material: "side",
+      at: [0, 1.24, 0],
+      primitive: { kind: "box", size: [0.26, 0.44, 0.27] },
+    },
 
-    this.root = new TransformNode("figure", scene);
-    this.root.parent = hero.torso.mesh;
-    this.root.position.y = this.baseHeight;
+    // ---- pelvis ----
+    {
+      name: "pelvis",
+      bone: "pelvis",
+      material: "leather",
+      at: [0, 0.94, 0],
+      primitive: { kind: "box", size: [0.28, 0.16, 0.22] },
+    },
+    {
+      name: "skirt",
+      bone: "pelvis",
+      material: "side",
+      at: [0, 1.03, 0],
+      primitive: { kind: "box", size: [0.33, 0.21, 0.27] },
+    },
 
-    const dress = (mesh: Mesh, material: Material, parent: TransformNode): Mesh => {
-      mesh.material = material;
-      mesh.parent = parent;
-      mesh.receiveShadows = true;
-      // Picking is for choosing a target, and the hero is never the target.
-      mesh.isPickable = false;
-      return mesh;
-    };
-
-    const box = (
-      name: string,
-      size: [number, number, number],
-      at: [number, number, number],
-      material: Material,
-      parent: TransformNode = this.root,
-    ): Mesh => {
-      const mesh = MeshBuilder.CreateBox(
-        `figure.${name}`,
-        { width: size[0], height: size[1], depth: size[2] },
-        scene,
-      );
-      mesh.position.set(at[0], at[1], at[2]);
-      return dress(mesh, material, parent);
-    };
-
-    const capsule = (
-      name: string,
-      height: number,
-      radius: number,
-      at: [number, number, number],
-      material: Material,
-      parent: TransformNode = this.root,
-    ): Mesh => {
-      const mesh = MeshBuilder.CreateCapsule(
-        `figure.${name}`,
-        { height, radius, tessellation: 12, subdivisions: 1 },
-        scene,
-      );
-      mesh.position.set(at[0], at[1], at[2]);
-      return dress(mesh, material, parent);
-    };
-
-    const ball = (
-      name: string,
-      diameter: number,
-      at: [number, number, number],
-      scale: [number, number, number],
-      material: Material,
-      parent: TransformNode = this.root,
-    ): Mesh => {
-      const mesh = MeshBuilder.CreateSphere(`figure.${name}`, { diameter, segments: 12 }, scene);
-      mesh.position.set(at[0], at[1], at[2]);
-      mesh.scaling.set(scale[0], scale[1], scale[2]);
-      return dress(mesh, material, parent);
-    };
-
-    const pivot = (name: string, at: [number, number, number], parent: TransformNode): TransformNode => {
-      const node = new TransformNode(`figure.${name}`, scene);
-      node.position.set(at[0], at[1], at[2]);
-      node.parent = parent;
-      return node;
-    };
-
-    // ---- body ----
-    box("pelvis", [0.28, 0.16, 0.22], [0, 0.94, 0], materials.leather);
-    box("skirt", [0.33, 0.21, 0.27], [0, 1.03, 0], materials.cloth);
-    box("belly", [0.30, 0.18, 0.23], [0, 1.16, 0], materials.leather);
-    box("chest", [0.37, 0.34, 0.25], [0, 1.34, 0], materials.steel);
-    box("collar", [0.40, 0.07, 0.26], [0, 1.49, 0], materials.steel);
-
-    const neck = MeshBuilder.CreateCylinder(
-      "figure.neck",
-      { height: 0.10, diameter: 0.11, tessellation: 12 },
-      scene,
-    );
-    neck.position.set(0, 1.53, 0);
-    dress(neck, materials.flesh, this.root);
-
-    ball("head", 0.205, [0, 1.635, 0], [1, 1, 1], materials.flesh);
+    // ---- head ----
+    // The neck rides on the head rather than on the torso, because a head turned
+    // by a blow that leaves a neck stump pointing the old way reads as a break in
+    // the model rather than as a hit.
+    {
+      name: "neck",
+      bone: "head",
+      material: "flesh",
+      at: [0, 1.53, 0],
+      primitive: { kind: "cylinder", height: 0.10, diameter: 0.11 },
+    },
+    {
+      name: "head",
+      bone: "head",
+      material: "flesh",
+      at: [0, 1.635, 0],
+      primitive: { kind: "sphere", diameter: 0.205 },
+    },
     // A skullcap rather than a full helm: a face reads as a person, and a
-    // featureless steel egg does not.
-    ball("helm", 0.235, [0, 1.655, -0.004], [1, 0.92, 1.04], materials.steel);
-    box("nasal", [0.028, 0.13, 0.03], [0, 1.618, 0.108], materials.steel);
-
-    ball("pauldronL", 0.20, [-0.215, 1.44, 0.01], [1, 0.72, 1], materials.steel);
-    ball("pauldronR", 0.20, [0.215, 1.44, 0.01], [1, 0.72, 1], materials.steel);
+    // featureless steel egg does not. The primitive is the egg, because a box
+    // and a sphere cannot cut a face opening; the authored piece is the helm the
+    // comment has always described, with cheek plates and an open front.
+    {
+      name: "helm",
+      bone: "head",
+      material: "steel",
+      at: [0, 1.655, -0.004],
+      primitive: { kind: "sphere", diameter: 0.235, scale: [1, 0.92, 1.04] },
+    },
+    {
+      name: "nasal",
+      bone: "head",
+      material: "steel",
+      at: [0, 1.618, 0.108],
+      primitive: { kind: "box", size: [0.028, 0.13, 0.03] },
+    },
 
     // ---- free arm ----
-    this.armLeft = pivot("armL", [-0.215, 1.42, 0.02], this.root);
-    capsule("upperArmL", 0.30, 0.055, [0, -0.15, 0], materials.cloth, this.armLeft);
-    this.elbowLeft = pivot("elbowL", [0, -0.30, 0], this.armLeft);
-    capsule("forearmL", 0.27, 0.048, [0, -0.135, 0], materials.leather, this.elbowLeft);
-    capsule("handL", 0.12, 0.046, [0, -0.32, 0], materials.flesh, this.elbowLeft);
+    // The sword arm is missing here on purpose. That one is real, and it is the
+    // whole point of the prototype -- it is three simulated bones and a weighted
+    // blade, and putting a sleeve on it would be putting a costume on the subject.
+    {
+      name: "upperArmL",
+      bone: "offUpperArm",
+      material: "cloth",
+      at: [off, B.offUpperCentre, z],
+      primitive: { kind: "capsule", height: 0.30, radius: 0.055 },
+    },
+    {
+      name: "forearmL",
+      bone: "offForearm",
+      material: "leather",
+      at: [off, B.offForeCentre, z],
+      primitive: { kind: "capsule", height: 0.27, radius: 0.048 },
+    },
+    {
+      name: "handL",
+      bone: "offForearm",
+      material: "flesh",
+      at: [off, B.offForeCentre - B.offForeLength / 2 - 0.06, z],
+      primitive: { kind: "capsule", height: 0.12, radius: 0.046 },
+    },
 
     // ---- legs ----
-    const leg = (side: "L" | "R", x: number): [TransformNode, TransformNode] => {
-      const hip = pivot(`hip${side}`, [x, 0.90, 0], this.root);
-      capsule(`thigh${side}`, 0.44, 0.085, [0, -0.22, 0], materials.cloth, hip);
-      const knee = pivot(`knee${side}`, [0, -0.44, 0], hip);
-      capsule(`shin${side}`, 0.42, 0.068, [0, -0.21, 0], materials.leather, knee);
-      // -0.4225 puts the sole exactly on the floor: 0.90 hip - 0.44 thigh - 0.4225 - half
-      // the 0.075 boot. Twenty millimetres out and the figure reads as hovering.
-      box(`foot${side}`, [0.11, 0.075, 0.26], [0, -0.4225, 0.055], materials.leather, knee);
-      return [hip, knee];
-    };
+    ...leg("L", -1),
+    ...leg("R", 1),
+  ];
+}
 
-    [this.hipLeft, this.kneeLeft] = leg("L", -0.105);
-    [this.hipRight, this.kneeRight] = leg("R", 0.105);
+/**
+ * The fighter's colour, as linear RGB.
+ *
+ * Two panels carry it -- the surcoat and the skirt -- and nothing else does,
+ * because a fighter dyed head to foot stops reading as armour. Crimson and blue
+ * rather than two shades of one hue: the arena is lit by a warm sun through an
+ * ACES curve, and two warm colours converge under it.
+ */
+const SIDE_COLOUR: Record<string, Triple> = {
+  left: [0.42, 0.06, 0.08],
+  right: [0.07, 0.15, 0.42],
+};
+
+/**
+ * One cloth material per fighter per scene, tinted.
+ *
+ * A clone of the arena's cloth rather than a material built here, so the
+ * surcoat answers to the same palette every other surface does and only its
+ * colour is this file's opinion. Cached per scene because `rebuild()` throws
+ * both fighters away and makes two more, and a material minted per Figure would
+ * accumulate one pair per rebuild for the life of the page.
+ */
+const tints = new WeakMap<Scene, Map<string, Material>>();
+
+function sideCloth(scene: Scene, prefix: string, cloth: Material): Material {
+  let byPrefix = tints.get(scene);
+  if (!byPrefix) {
+    byPrefix = new Map();
+    tints.set(scene, byPrefix);
+  }
+  const cached = byPrefix.get(prefix);
+  if (cached) return cached;
+
+  const tinted = cloth.clone(`figure.side.${prefix}`) ?? cloth;
+  const rgb = SIDE_COLOUR[prefix] ?? SIDE_COLOUR.left;
+  // PBR calls it `albedoColor` and the standard material calls it
+  // `diffuseColor`. Written as a property probe rather than an `instanceof`
+  // because this file is loaded by Node in the test run, where the palette is
+  // made of standard materials, and a hard dependency on the PBR class would be
+  // a browser-only import in a module the headless harness has to load.
+  const target = tinted as unknown as { albedoColor?: Color3; diffuseColor?: Color3 };
+  if (target.albedoColor) target.albedoColor = new Color3(rgb[0], rgb[1], rgb[2]);
+  if (target.diffuseColor) target.diffuseColor = new Color3(rgb[0], rgb[1], rgb[2]);
+  byPrefix.set(prefix, tinted);
+  return tinted;
+}
+
+/**
+ * Turn every triangle round.
+ *
+ * glTF winds a front face the opposite way from Babylon, and Babylon's loader
+ * does not fix that in the geometry -- it fixes it by setting the reversed
+ * `sideOrientation` on the materials it creates for the file. These vertices
+ * are leaving those materials behind for the arena's palette, so the
+ * compensation has to come with them or every piece renders inside out: solid
+ * from behind, invisible from in front, which reads as a missing costume rather
+ * than as a back-to-front one.
+ *
+ * Measured rather than reasoned, because there is a second flip in the way and
+ * the two are easy to talk yourself into cancelling. `VertexData.transform`
+ * reverses the winding on its own when the matrix determinant is negative,
+ * which it is here -- Babylon's glTF root mirrors X to change handedness. Both
+ * flips are needed, and the check that says so is direct: on every mesh Babylon
+ * builds itself, the cross product of a triangle's two edges *opposes* its
+ * stored vertex normal, and after `transform` alone this data agreed with it on
+ * all 13344 faces.
+ */
+function reverseWinding(data: VertexData): void {
+  const indices = data.indices;
+  if (!indices) return;
+  for (let i = 0; i + 2 < indices.length; i += 3) {
+    const first = indices[i];
+    indices[i] = indices[i + 2];
+    indices[i + 2] = first;
+  }
+}
+
+/** Where the authored costume is served from, relative to the site root. */
+const COSTUME_URL = "/assets/warrior.glb";
+
+/**
+ * The costume's bytes, asked for once and as early as anything can be asked for.
+ *
+ * This runs at module load, which is several hundred milliseconds before the
+ * first `Figure` exists: `buildArena` has Havok's wasm and a 1.5 MB HDRI to get
+ * through first, and the fighters are built after both. Starting the request
+ * here rather than at the first construction is the difference between the
+ * costume being ready when it is wanted and a visible frame or two of boxes.
+ *
+ * Guarded on `window` because `fighter.ts` -- and therefore this file -- is
+ * imported by `tests/view.test.mjs` and by `npm run measure`, neither of which
+ * has a server to ask. A missing or broken asset resolves to `null` and every
+ * piece keeps its primitive, which is the whole of the fallback.
+ */
+const costumeBytes: Promise<ArrayBuffer | null> =
+  typeof window === "undefined" || typeof fetch !== "function"
+    ? Promise.resolve(null)
+    : fetch(COSTUME_URL)
+        .then((response) => (response.ok ? response.arrayBuffer() : null))
+        .catch(() => null);
+
+/** Parsed once per scene: two fighters wear one asset. */
+const costumes = new WeakMap<Scene, Promise<AssetContainer | null>>();
+
+function costumeFor(scene: Scene): Promise<AssetContainer | null> {
+  const known = costumes.get(scene);
+  if (known) return known;
+  const pending = costumeBytes.then(async (raw) => {
+    if (!raw) return null;
+    try {
+      // The container is deliberately *not* added to the scene. Its meshes are
+      // a source of vertex data and nothing else: they are never rendered, are
+      // not in `scene.meshes`, and so cannot be picked, lit, or swept up by
+      // `main.ts`'s shadow-caster refresh.
+      return await LoadAssetContainerAsync(new Uint8Array(raw), scene, {
+        pluginExtension: ".glb",
+      });
+    } catch {
+      return null;
+    }
+  });
+  costumes.set(scene, pending);
+  return pending;
+}
+
+/**
+ * What a fighter looks like.
+ *
+ * Deliberately cosmetic, and genuinely so. It used to be a rigid figure
+ * parented to the torso alone, with its own hips and knees that it animated
+ * itself -- which was right while the body below it was a single capsule, and
+ * became a lie the moment the body became eleven jointed bodies that move
+ * independently. A head that lolls under a blow while its helmet stays level, or
+ * a leg that has been cut off and is still wearing its boot back on the fighter,
+ * is worse than no costume at all.
+ *
+ * So every piece here is a child of the physics part it covers, and this class
+ * has no update method: it builds and then it is finished. Whatever the solver
+ * does to a part, the part's mesh does, and the costume rides along for free --
+ * including falling to the floor when the part it is on is severed, because
+ * Babylon disposes and transforms children with their parent. That is also why
+ * the parts themselves are invisible rather than absent: they are the transform
+ * the costume needs.
+ *
+ * Nothing here carries authority. These meshes own no collision and decide no
+ * hit; the one thing they are asked for besides being looked at is being
+ * pickable, so that hovering a fighter can outline the piece under the cursor.
+ *
+ * **Every piece is built as a primitive first and re-skinned in place when the
+ * authored asset arrives.** That is a deliberate choice over building the
+ * authored meshes instead, and the reason is identity: `Fighter` snapshots this
+ * object's meshes into the set that answers `owns()`, `main.ts` snapshots them
+ * into the shadow map's render list, and the rig overlay hides them by
+ * reference and expects to put back exactly what it hid. All three were taken
+ * before an asynchronous load can possibly have finished, so a costume built out
+ * of *new* meshes would arrive unpickable, shadowless and invisible to `G`.
+ * Swapping the vertex data under a mesh that already exists changes none of
+ * those. It also gives the fallback for free: a piece the asset does not name
+ * simply never gets re-skinned.
+ */
+export class Figure {
+  /** Every mesh built here, for the rig overlay to hide and a pick to find. */
+  readonly pieces: Mesh[] = [];
+
+  /** The piece under each authored node name, and the bone it rides on. */
+  private readonly byName = new Map<string, { mesh: Mesh; bone: BoneName }>();
+
+  constructor(scene: Scene, rig: FigureRig, materials: FigureMaterials) {
+    const frames = boneFrames();
+
+    const paint = (which: PieceMaterial): Material =>
+      which === "side" ? sideCloth(scene, rig.prefix, materials.cloth) : materials[which];
+
+    for (const piece of costumePieces()) {
+      const parent = rig[piece.bone];
+      const centre = frames[piece.bone].centre;
+      const shape = piece.primitive;
+      const name = `${rig.prefix}.figure.${piece.name}`;
+
+      let mesh: Mesh;
+      switch (shape.kind) {
+        case "box":
+          mesh = MeshBuilder.CreateBox(
+            name,
+            { width: shape.size[0], height: shape.size[1], depth: shape.size[2] },
+            scene,
+          );
+          break;
+        case "capsule":
+          mesh = MeshBuilder.CreateCapsule(
+            name,
+            { height: shape.height, radius: shape.radius, tessellation: 12, subdivisions: 1 },
+            scene,
+          );
+          break;
+        case "sphere":
+          mesh = MeshBuilder.CreateSphere(name, { diameter: shape.diameter, segments: 12 }, scene);
+          if (shape.scale) mesh.scaling.set(shape.scale[0], shape.scale[1], shape.scale[2]);
+          break;
+        case "cylinder":
+          mesh = MeshBuilder.CreateCylinder(
+            name,
+            { height: shape.height, diameter: shape.diameter, tessellation: 12 },
+            scene,
+          );
+          break;
+      }
+
+      // The parent's own centre is subtracted here rather than being baked into
+      // a number nobody can check, which is how the whole figure stays readable
+      // against a tape measure.
+      mesh.position.set(
+        piece.at[0] - centre[0],
+        piece.at[1] - centre[1],
+        piece.at[2] - centre[2],
+      );
+      mesh.material = paint(piece.material);
+      mesh.parent = parent.mesh;
+      mesh.receiveShadows = true;
+      // Pickable, and explicitly so: this used to be turned off with the note
+      // that the hero is never the target, which stopped being true the moment
+      // there were two fighters and either could be locked on to. The capsules
+      // underneath are invisible, so these are the only meshes a ray can find.
+      mesh.isPickable = true;
+      this.pieces.push(mesh);
+      this.byName.set(piece.name, { mesh, bone: piece.bone });
+    }
+
+    void costumeFor(scene).then((container) => {
+      if (container) this.wear(container, frames);
+    });
   }
 
   /**
-   * Walk.
+   * Put the authored geometry on, one piece at a time.
    *
-   * Cadence is proportional to speed rather than fixed, so the feet keep pace
-   * with the ground instead of scuffing along it, and the swing amplitude fades
-   * with speed so that standing still straightens the legs on its own -- no
-   * separate idle pose, and no blend between the two to get wrong.
+   * The asset is authored in the fighter's own upright frame with each piece cut
+   * at the joint of the bone it rides on, so what lands here is that piece's
+   * vertices in world metres of a warrior standing at the origin. Two transforms
+   * bring it home: the source's world matrix, which is what folds in both the
+   * node's joint translation and the handedness flip Babylon's glTF loader hangs
+   * on `__root__`; and a translation by minus the bone's capsule centre, which
+   * is the origin of the local frame the mesh actually lives in. Neither is a
+   * fudge factor -- the first comes out of the file and the second out of
+   * `config.ts` -- and a piece that lands in the wrong place is therefore a
+   * piece that was authored in the wrong place.
+   *
+   * Nothing here is conditional on the piece being *right*: a node whose
+   * geometry is nonsense produces a nonsense costume, which is what
+   * `scripts/check-warrior.mjs` exists to refuse before the file is committed.
+   * What is conditional is the node being *there*.
    */
-  update(dt: number, speed: number): void {
-    const H = CONFIG.hero;
-    const amount = clamp(speed / H.walkSpeed, 0, 1);
-    this.phase += speed * H.strideCadence * dt;
+  private wear(container: AssetContainer, frames: Record<BoneName, BoneFrame>): void {
+    for (const source of container.meshes) {
+      const worn = this.byName.get(source.name);
+      if (!worn || worn.mesh.isDisposed()) continue;
+      if (source.getTotalVertices() === 0) continue;
 
-    const swing = H.strideSwing * amount;
-    const step = Math.sin(this.phase);
-    const opposite = Math.sin(this.phase + Math.PI);
-
-    this.hipLeft.rotation.x = step * swing;
-    this.hipRight.rotation.x = opposite * swing;
-
-    // A knee only bends one way, and only while the leg is swinging through.
-    this.kneeLeft.rotation.x = Math.max(0, -Math.sin(this.phase + 0.7)) * swing * 1.5;
-    this.kneeRight.rotation.x = Math.max(0, -Math.sin(this.phase + 0.7 + Math.PI)) * swing * 1.5;
-
-    // The free arm counterswings; the sword arm is busy.
-    this.armLeft.rotation.x = opposite * swing * 0.55;
-    this.elbowLeft.rotation.x = Math.max(0, opposite) * swing * 0.5;
-
-    this.root.position.y = this.baseHeight + Math.abs(step) * 0.016 * amount;
-  }
-
-  dispose(): void {
-    this.root.dispose(false, true);
+      const centre = frames[worn.bone].centre;
+      // `forceCopy`, and it is not an optimisation to remove: `transform` works
+      // in place, both fighters read the same source, and sharing the buffer
+      // would leave the second one wearing the first one's offsets.
+      const data = VertexData.ExtractFromMesh(source as Mesh, false, true);
+      data.transform(
+        source
+          .computeWorldMatrix(true)
+          .multiply(Matrix.Translation(-centre[0], -centre[1], -centre[2])),
+      );
+      reverseWinding(data);
+      data.applyToMesh(worn.mesh);
+      // The primitive's offset and squash were how *it* was placed; the authored
+      // piece carries its own position in its vertices, so both go back to
+      // nothing rather than being applied twice.
+      worn.mesh.position.setAll(0);
+      worn.mesh.scaling.setAll(1);
+    }
   }
 }

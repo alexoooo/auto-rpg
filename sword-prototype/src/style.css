@@ -195,6 +195,22 @@ body {
   gap: 3px;
 }
 
+/* One heading per side. The bout has two bodies and the lists are otherwise
+   eleven identical rows followed by eleven more. */
+.limbs-title {
+  color: var(--hot);
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  font-size: 9.5px;
+  opacity: 0.75;
+  text-align: left;
+  margin: 2px 0 1px;
+}
+
+.limbs-title:first-child {
+  margin-top: 0;
+}
+
 .limb {
   display: flex;
   align-items: center;
@@ -363,4 +379,114 @@ body {
 
 #mode.locked {
   color: var(--bad);
+}
+
+#mode.decided {
+  color: var(--ink);
+  opacity: 1;
+}
+
+/* ---------- the setup screen ---------- */
+
+#matchup {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 0 0 20px;
+}
+
+/* Paused over a bout already running, the curtain is not a setup screen: the
+   button resumes what is behind it, and a matchup nothing will act on is worse
+   than no matchup at all. The line describing the policies goes with it for the
+   same reason -- it is the caption to a control that is not there. */
+#curtain.paused #matchup,
+#curtain.paused #policies {
+  display: none;
+}
+
+/* Tucked up under the two corners it describes, and set ragged rather than
+   centred: it is three sentences about three things, and centring it makes the
+   eye hunt for where each one starts. */
+#policies {
+  margin: -12px 0 18px;
+  text-align: left;
+  line-height: 1.55;
+}
+
+#policies b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.corner {
+  border: 1px solid var(--edge);
+  border-radius: 6px;
+  padding: 9px 11px 12px;
+  background: rgba(255, 255, 255, 0.022);
+}
+
+.corner-title {
+  color: var(--hot);
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  font-size: 9.5px;
+  opacity: 0.75;
+}
+
+/* Label above control rather than beside it. Two of these sit side by side
+   inside a panel that is already as wide as it should be, and a label column
+   wide enough for "Control" leaves the select too narrow to read a unit name
+   out of. */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 8px;
+}
+
+.field-name {
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  font-size: 9.5px;
+}
+
+.field select {
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--ink);
+  background: rgba(0, 0, 0, 0.42);
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  padding: 3px 5px;
+  cursor: pointer;
+}
+
+.choice {
+  display: flex;
+  gap: 12px;
+  color: var(--dim);
+  font-size: 11.5px;
+}
+
+.choice label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+.choice input {
+  accent-color: var(--hot);
+  margin: 0;
+}
+
+/* The panel gained a matchup and is now tall enough to reach the bottom of a
+   laptop window, and a Fight button below the fold is a Fight button that does
+   not exist. The panel scrolls rather than the curtain, because a grid with
+   `place-items: center` clips its child at the *top* once the child is taller
+   than the cell, so scrolling the curtain would hide the title instead. */
+.panel {
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
 }

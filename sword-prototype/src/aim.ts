@@ -13,7 +13,7 @@ import type { Scene } from "@babylonjs/core/scene.js";
  * moving in three dimensions under a cursor moving in two is not legible on its
  * own -- depth is exactly the part a player cannot read. So the aim point is
  * staked out on the ground and then lifted: a dotted line runs along the floor
- * from the hero's feet, turns a right angle, and rises to a bright dot at the
+ * from the fighter's feet, turns a right angle, and rises to a bright dot at the
  * point itself. The floor segment carries the distance and bearing, the riser
  * carries the height, and neither has to be inferred from perspective.
  */
@@ -67,7 +67,7 @@ export class AimIndicator {
   }
 
   /**
-   * @param feet   the hero's position on the ground
+   * @param feet   the fighter's position on the ground
    * @param target the point being aimed at
    */
   update(feet: Vector3, target: Vector3): void {

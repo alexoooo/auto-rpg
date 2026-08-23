@@ -88,15 +88,38 @@ the arm drifted, centre was unrecoverable, and you could not get your mouse back
 | Z / X | roll the wrist — turns the edge into the cut |
 | Left button | thrust — drive the point out |
 | Right button | guard — pull the blade in close |
-| L | arm a lock-on, then click an enemy; strafe to circle it, Q/E to break |
+| Middle button / L | arm a lock-on, then click an enemy; strafe to circle it, Q/E to break |
+| C | arm a takeover, then click either fighter — you drive that one and the one you leave picks its policy back up |
 | Wheel | zoom |
-| Space | reset the dummy |
+| V | camera — Overhead behind the fighter, or Fixed on a world bearing |
+| `[` / `]` | swing the Fixed camera round the arena, 45 degrees at a time |
+| Space | the same bout again — both fighters, from nothing; and the setup screen once one has been decided |
 | Tab | toggle the readout |
+| G | the rig — collision shapes, anchors, joints and contacts, with the costume off |
 | Esc | pause |
+
+A bout is chosen before it is fought. The curtain carries a left corner and a right corner —
+a unit, a policy, and whether that side is driven by a mind or by you — and the Fight button
+starts what is on it. There is one of you, so taking a side gives the other one back to its
+policy. Three policies ship: **idle** stands there and can be cut apart, **swinger** walks
+in and cuts on a fixed cadence without ever looking at your guard, and **duelist** holds
+measure, guards between exchanges, and commits when your point leaves the line. A bout ends
+when a fighter loses its head or is beaten to nothing everywhere, or when the clock runs
+out, and the banner names the winner and the blow that did it.
 
 Lock-on exists because the mouse is spent entirely on the blade. With no hand left over for
 the camera, keeping an enemy in front of you while you circle it is otherwise impossible —
-so the hero does it for you, and drops the lock the moment you touch the turn keys.
+so the fighter does it for you, and drops the lock the moment you touch the turn keys.
+
+Which body is yours is not settled at the curtain. `C` arms a takeover, both fighters light
+up as candidates, and a click puts you in that one — either side, any number of times, mid
+swing. It is a swap of which mind a fighter reads from and the physics never notices it,
+because a person and a policy were always producing the same `Intent`. What it *does* cost
+is continuity: the cursor is absolute, so a body taken without care snaps its arm to
+wherever your mouse happens to be at the full 850 N the grip can pull. Both directions of a
+handover are therefore seeded from the pose they find — the cursor does not move, its
+meaning is rebased — and `__sword.takeover.last` reports how far the hand was actually
+asked to jump on the frame it changed hands.
 
 ## How it is built
 
@@ -104,8 +127,8 @@ so the hero does it for you, and drops the lock the moment you touch the turn ke
 browser — no export step, and the solver is native-speed WebAssembly with TypeScript only
 orchestrating it.
 
-The hero is deliberately split in two. The torso is **keyframed**: it goes exactly where
-you steer it, because a body that wobbles under the weight of its own arm is not fun to
+A fighter is deliberately split in two, and there are two of them in the ring, of one kind.
+The torso is **keyframed**: it goes exactly where you steer it, because a body that wobbles under the weight of its own arm is not fun to
 walk around. Everything from the shoulder outward is **genuinely simulated** — a ball
 joint at the shoulder, a hinge at the elbow, a rolling wrist, and an arming sword that
 balances a hand's width ahead of its guard.
@@ -136,10 +159,11 @@ substep luck), so tuning against it is tuning against noise. Speed times alignme
 quantity a player can feel themselves controlling. The impulse is still shown in the
 readout, because when the two disagree that is worth seeing.
 
-The dummy is a jointed figure rather than a block, because the interesting question is not
+A fighter is a jointed figure rather than a block, because the interesting question is not
 whether a hit registers — it is whether a hit that lands badly reads differently from one
-that lands well. Its joints hold a pose with weak motors, so it rocks, twists, and
-eventually comes apart.
+that lands well. A head, a pelvis, a free arm and two legs hang off the driven torso on
+motorised joints, so a struck body rocks, twists, and eventually comes apart. Both sides
+are the same class: there is nothing in it that knows which one you are driving.
 
 ## Tuning
 
@@ -152,11 +176,11 @@ __sword.config.sword.mass = 1.9
 ```
 
 Motor ceilings and damping are set on native solver objects at construction, so editing
-those particular numbers needs `__sword.hero.applyTuning()` to push them across:
+those particular numbers needs `__sword.left.applyTuning()` to push them across:
 
 ```js
 __sword.config.sword.swordAngularDamping = 5
-__sword.hero.applyTuning()
+__sword.left.applyTuning()
 ```
 
 Find the number in the console, then write it back into the file.
@@ -171,14 +195,44 @@ CC0, fetched and digest-pinned by `scripts/fetch-polyhaven.mjs`. Image-based lig
 what makes a steel blade read as steel rather than as a grey box; without it the scene
 still runs, just flatter.
 
-Everything else is currently procedural geometry — the figures are capsules and boxes.
-That is the next piece of work, not a finished state.
+The warriors are authored: `public/assets/warrior.glb` is built from
+`asset-src/build_warrior.py` by `npm run asset:build`, which needs Blender, and the result
+is committed so a fresh clone runs without one. The Python holds **no dimensions** — every
+number comes from `asset-src/dimensions.json`, regenerated out of `src/config.ts` and
+`src/figure.ts` on each build, so a bone that moves without a rebuild fails
+`npm run asset:verify` instead of quietly stretching a warrior. Delete the `.glb` and the
+page still boots, still plays, and shows the blockout primitives it replaced.
 
 ## Status
 
-Working: the arm, the blade, contact scoring, dismemberment, the readout, and a build that
-runs at 60 fps with physics under a millisecond.
+Working: two fighters of one kind, the arm, the blade, contact scoring, dismemberment,
+policies that fight with the controller you use, live takeover of either body, two cameras,
+the rig overlay, the authored armour, and a build that runs at 60 fps with physics under a
+millisecond.
 
-Not yet done: the characters are untextured blockout geometry, and no one has tuned the
-feel against an actual person playing it. Every number in `src/config.ts` is a first
-guess.
+Not yet done: **nobody has played it.** Every number in `src/config.ts` is a first guess
+tuned against a measurement rather than against a person, and the questions that decide
+whether any of it is any good — is `swinger` beatable and not trivially so, does
+body-relative aim read under the fixed camera, do the two warriors read apart at range —
+are listed at the foot of [docs/measurements.md](docs/measurements.md).
+
+## Where the work is written down
+
+Almost every argument is beside the code it decides: `src/config.ts` for each tuned number
+and the table that set it, `src/mind.ts` for the seam the whole thing hangs on,
+`src/bout.ts` for what a bout is, `scripts/check-warrior.mjs` for what a costume has to
+measure. Two documents carry what belongs to no single file:
+
+| Document | Holds |
+| --- | --- |
+| [docs/design.md](docs/design.md) | the map — each subsystem, and the decisions that span several of them |
+| [docs/measurements.md](docs/measurements.md) | every number taken, the harness that took it, and what is still owed |
+| [AGENTS.md](AGENTS.md) | the working contract, the house rules, and the traps that have already cost time |
+
+Two commands beyond the usual, both from this directory and both deliberately outside
+`npm test`, because a default test run that takes minutes is one nobody runs:
+
+```powershell
+npm run measure        # runs bouts headlessly and prints the policy table, about 90 s
+npm run asset:verify   # checks the committed warrior.glb still fits the rig
+```

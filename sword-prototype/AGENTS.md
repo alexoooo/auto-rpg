@@ -71,12 +71,41 @@ npm run dev             # http://localhost:5180, strictPort
   is one. `src/input.ts` uses pointer events throughout, and `main.ts` turns the flag off as
   well. Do not "fix" a frozen-input report by adding `preventDefault` to a mouse handler --
   that handler is not being called at all.
+- **A level maintained from edges is permanently wrong after one lost edge.** `thrust`
+  and `guard` were once set on `pointerdown` and cleared on `pointerup`, which is correct
+  only for as long as the browser delivers every release -- and it does not. A
+  `pointercancel` reports its `button` as -1, so aliasing it to the `pointerup` handler
+  cleared nothing at all; a button let go outside the window never reports up; a tab
+  hidden mid-hold swallows the release as well. The symptom was an arm locked in the
+  guard pose with nothing held, and no amount of further clicking freed it. Whether a
+  button is down is a *level*, so read it from `event.buttons` -- the live bitmask that
+  every pointer event carries, `pointermove` included -- and the next twitch of the mouse
+  repairs a lost edge. `src/buttons.ts` holds that rule and keeps edges for actions
+  alone, which must fire once per press. Same lesson as the trap above: nothing the
+  browser says about the end of a gesture is guaranteed to arrive.
 - **`scene.pick` needs `@babylonjs/core/Culling/ray.js` imported for its side effect.**
   Without it the call throws "Ray needs to be imported before as it contains a side-effect
   required by your code" -- once per frame from inside the render loop, which is easy to
   miss entirely if the tab happens to be hidden. Same family as the physics and shadow
   imports above. `renderOutline` is a module augmentation with the same requirement, from
   `@babylonjs/core/Rendering/outlineRenderer.js`.
+- **`PhysicsViewer` needs `@babylonjs/core/Rendering/edgesRenderer.js` imported for its
+  side effect.** It calls `enableEdgesRendering()` on the inertia box and on the constraint
+  cage, and in the tree-shaken build that method does not exist. The failure is worse than
+  the others in this family because what it throws is a bare **string**, not an `Error`: it
+  carries no stack, and a `catch (e)` that reads `e.message` reports `undefined`. `tsc` and
+  `vite build` are both perfectly happy. The symptom is that pressing `G` does nothing at
+  all. Fourth member of the same family as the physics, shadow, outline and `Culling/ray`
+  imports -- when a Babylon feature works in the playground and not here, suspect a missing
+  side-effect import before suspecting the feature.
+- **The glTF loader needs `@babylonjs/loaders/glTF/2.0/glTFLoader.js` imported for its side
+  effect.** Fifth member of the same family, and the quietest: without it the costume simply
+  never arrives, which is indistinguishable from a missing asset file, a failed fetch or a
+  bad path -- and `src/figure.ts` is built to degrade to primitives on all of those, so the
+  page looks *fine*. Nothing is logged and nothing throws. Five members of this family now:
+  physics, shadow/depth/post-process, outline, `Culling/ray`, `edgesRenderer`, and this. When
+  a Babylon feature works in the playground and not here, suspect a missing side-effect
+  import before suspecting the feature.
 - **A hidden tab never renders, so picking silently finds nothing.** `requestAnimationFrame`
   does not fire, no view matrix is ever computed, and every `scene.pick` misses. Call
   `scene.render()` once by hand before believing a picking result taken from the console.
@@ -85,21 +114,175 @@ npm run dev             # http://localhost:5180, strictPort
   because a teleport gives the blade no momentum to carry. Sweeping the cursor for a quarter
   of a second and then holding it still is what a player does, and it turns the same
   measurement from "no ringing at all" into ten direction changes over 0.68 s.
-- **`getWorldMatrix()` short-circuits on the render id.** Step the solver from the console
+- **`getWorldMatrix()` short-circuits on the render id, and *reading* it stamps that id as
+  a side effect.** The first half is the obvious one: step the solver from the console
   without rendering and every derived reading -- tip position, tip speed, absolute positions
   -- freezes at its first value, because the matrix is only recomputed when the render id
-  changes. Whole sweeps come back as exactly 0.0. Force `computeWorldMatrix(true)` on every
-  node you intend to read.
-- **`src/scoring.ts` and `src/config.ts` are imported directly by Node** in the test run,
-  so their intra-directory imports carry explicit `.ts` extensions. Vite does not care;
-  Node's ESM resolver does.
+  changes, so whole sweeps come back as exactly 0.0. Force `computeWorldMatrix(true)` on
+  every node you intend to read.
+
+  The second half is the one that has cost the most, three separate times. Whoever reads a
+  node first in a frame gets a fresh matrix and **silently converts every later reader that
+  frame -- including a person measuring from the console -- into a reader of that first
+  sample.** With the control loop at 240 Hz against a 60 Hz display, a per-substep reader is
+  always first by up to three substeps. The symptom is a clean nine per cent regression in
+  the weapon, in a build where the physics is provably bit-identical: peak anchor-to-hand
+  error read 273.84 mm against a true 242.88, with tip speed and elbow drift shifted to
+  match. The tell was a rest-pose error that neither decayed nor responded to what the arm
+  had been doing, which is not a physical offset. `Fighter.observe` therefore reads
+  `mesh.position` and `mesh.rotationQuaternion` and nothing else: every bone, anchor and the
+  sword's root is a scene-root node, so those two fields *are* the world transform, Havok's
+  `syncTransform` writes them at the end of every solver step, and reading them stamps
+  nothing. `tests/view.test.mjs` pins it. Anything added to `observe` later that goes through
+  `getWorldMatrix()`, `absolutePosition` or `absoluteRotationQuaternion` is wrong and that
+  test will say so.
+- **A reading is only comparable with another taken in the same harness.** There are two:
+  the page, and the headless bench (`scripts/measure.mjs` and its relatives). They agree on
+  converged behaviour and **disagree by about 9 % on the arm's peak transient with identical
+  code** -- 264.97 mm against 242.88 -- and why is not established. Solver ordering, solver
+  islanding, the render id, the rig overlay and the `Mind` seam have each been tested and
+  eliminated; the remaining suspects are what else the page has in the scene. Neither
+  harness is wrong. Putting both in one column is, and it has already produced a regression
+  report about a build where nothing had changed. Name the harness in every figure you
+  record. Full account in `docs/measurements.md`.
+- **The whole simulation graph runs headless under Node, and the recipe is not obvious.**
+  `NullEngine`, then a `Scene`, then `attachPhysics(scene, havok)` exactly as `arena.ts`
+  does. **Havok's wasm must be handed over as bytes** -- its emscripten glue calls `fetch()`
+  and Node cannot fetch a `file://` URL, so `locateFile` does not save you:
+  `HavokPhysics({ wasmBinary: await readFile(".../HavokPhysics.wasm") })`. Step with
+  `scene._advancePhysicsEngineStep(1000 / 60)`, the millisecond-valued call that runs
+  Babylon's fixed sub-step accumulator and notifies `onBeforePhysicsObservable` before each
+  solver step, which is where the control loop hangs -- it is the *only* correct way to
+  advance without rendering. Advance `scene._renderId += 1` once per simulated frame, or
+  every matrix the arm reads freezes at its first sample (see the trap above). Measured at
+  about 39x real time for a full two-fighter bout. This is why the `?url` wasm import lives
+  in `arena.ts` and `physics.ts` exposes `attachPhysics(scene, havok)`: `?url` is a Vite
+  spelling that Node's resolver rejects outright, and one line of it at the top of the module
+  every hittable thing imports took the whole graph out of Node's reach.
+- **A blade that is *struck* goes far faster than one that is driven, and a peak that does
+  not say which it is means nothing.** Two exclusions are mandatory for any tip-speed
+  reading. The first 0.6 s, because an arm is built hanging straight down and the anchor
+  keyframes onto the commanded pose on the very first control step -- a snap worth **77 m/s**
+  in a fighter that never swings, and the page does it too the moment you press Fight. And a
+  quarter second after any contact: blade on blade, a glance off a body, or a dropped sword
+  hitting the floor all spin the blade past anything a motor could do, measured over
+  **100 m/s**. Related: **a swing measured from rest is a floor on a swing measured in
+  flight, not an estimate of it** -- the swinger's commit stroke peaks at 22.2 m/s from a
+  settled chamber and at 40 as the fourth leg of a running cycle.
+- **A green test can assert nothing, and that is the worst defect this directory
+  produces**, because it is invisible by construction. The only way to know a test is not
+  that is to mutate the thing it is about and watch it go red. Doing so has already rewritten
+  four assertions here that were satisfied by their own setup, and caught a `handover` test
+  that passed against a deliberately broken cursor inverse -- the aiming envelope is
+  asymmetric (azimuth runs -1.15 to +1.30), so the correct inverse and the plausible one that
+  divides by a single half-range **agree exactly for a positive azimuth**. Sample both sides
+  of centre. Every jump assertion in `tests/handover.test.mjs` now comes in a pair with its
+  unseeded control beside it.
+- **`PhysicsViewer` leaks constraints across a toggle, and `hideConstraint` corrupts its own
+  list.** `dispose()` hides impostors, bodies and inertia meshes and never touches
+  `_constraints`, so a shown constraint left in place at toggle-off leaks its meshes *and*
+  its before-render sync, once per toggle, forever. And `hideConstraint` splices the entry
+  out and then *also* swaps what it thinks is the last entry into the hole it just closed,
+  overwriting a live neighbour with `undefined` unless the entry removed was the last one.
+  `src/rigview.ts` therefore takes constraints down from the end, by hand, before disposing,
+  and rebuilds the whole set rather than differencing it. Also: the constructor's third
+  parameter defaults to the **shared** `UtilityLayerRenderer.DefaultUtilityLayer`, and a
+  default parameter only fires for `undefined` -- pass an explicit `null` to make the viewer
+  build and own the layer its `dispose()` will take down.
+- **Blender's glTF exporter is not byte-reproducible.** Two consecutive builds from
+  identical input differ in about 14 000 of 61 662 words of the binary chunk, almost all of
+  it triangle index order, and `PYTHONHASHSEED=0` does not settle it. Two builds are the same
+  warrior and never the same file, so the digest in `scripts/run-blender.mjs` pins the
+  *file* -- catching a working copy that is not what the repository holds -- and
+  `scripts/check-warrior.mjs` is what answers whether the asset is right. Separately,
+  **Blender evaluates `matrix_world` from the dependency graph, which is only stepped by the
+  next operator**, so a bake loop reading it gets every sub-object right *except the last one
+  built in each piece*, which welds in at its unscaled primitive size. Half the figure is
+  correct, which is the failure mode that survives a glance; `build_warrior.py` uses
+  `matrix_basis` and says so.
+- **`gltf-validator` is not a dependency of this directory** and exists only in the
+  repository root's `node_modules`. Reaching up into it is exactly what the boundary rule at
+  the top of this file forbids, and it would check the wrong thing anyway: what can go wrong
+  in an authored asset here is dimensional, not structural.
+- **A pause mid-stride still slides.** `Controls.pause()` stops the control loop, so the
+  keyframed torso keeps the linear velocity `steer` last gave it and the fighter drifts
+  behind the curtain. True since the hero, and `Space` from a decided bout is a second door
+  onto it.
+- **`src/scoring.ts`, `src/config.ts` and `src/buttons.ts` are imported directly by Node**
+  in the test run, so their intra-directory imports carry explicit `.ts` extensions. Vite
+  does not care; Node's ESM resolver does. `buttons.ts` imports nothing today, which is
+  the only reason it does not show one -- give it an import and it needs the extension. The
+  same graph carries a second constraint: **Node runs a `.ts` file by stripping its types,
+  and strip-only mode rejects TypeScript parameter properties** --
+  `constructor(private readonly scene: Scene)` fails to parse with "TypeScript parameter
+  property is not supported in strip-only mode". One of them anywhere in what a harness
+  imports blocks the whole harness, so those files use fields and assignments instead.
+- **This tree is LF, on Windows, with `core.autocrlf` false and no `.gitattributes`.** Git
+  therefore stores exactly the bytes written, and a tool that rewrites a file with the
+  platform's line ending silently converts the whole thing. Nothing breaks and every check
+  still passes -- but `git diff` then reports the file as wholly replaced, a 90-line change
+  reads as 308 added and 222 removed, and the change becomes unreviewable at precisely the
+  moment somebody wants to review it. Writing through the editor tools preserves the
+  convention; shell redirection and any script opening a file in **text** mode do not
+  (Python's `open(p, "w")` is the one that has already done it here -- use `"wb"` and bytes,
+  or pass `newline=""`). `git diff --ignore-cr-at-eol --numstat` tells you in one command
+  whether a suspiciously large diff is real; compare it against plain `--numstat` and any
+  file where the two disagree has had its endings rewritten.
+
+  **`src/style.css` is the one exception and must be left alone:** it is genuinely mixed in
+  `HEAD` -- 342 CRLF lines and 24 bare LF -- and has been since before any of this. A
+  session that "tidied" those 24 lines turned a 126-line addition into a 150/24 diff and had
+  to be undone. Match whatever ending the line you are editing already has, and do not
+  normalise a file wholesale on the way past. Two agents have now reported this tree as
+  uniformly CRLF after checking it with `grep -c $'\r'`, which counts *lines containing* a
+  CR and so returns the line count for a CRLF file and for a mixed one alike. **The anchored
+  spelling `grep -c $'\r$'` is no better here**: run against `AGENTS.md` and `README.md`,
+  which contain zero CR bytes, it returned their full line counts. It is not a measurement;
+  read the bytes. `tr -dc '\r' < file | wc -c` against `tr -dc '\n' < file | wc -c` is one,
+  and it is what says this tree is LF and `src/style.css` is mixed.
+
+## House rules
+
+Six, and each one was paid for.
+
+- **A policy plays with the controller a person plays with.** `Mind.decide` returns an
+  `Intent`, which is a type alias for the human's own `InputState`. Nothing may reach past
+  it to set a joint angle, place a blade, or ask for a pose the solver would refuse a
+  person. An AI that could pose the arm directly would be a different game's AI.
+- **Cosmetics never carry authority.** `src/figure.ts` and anything in the authored asset
+  own no collision and decide no hit.
+- **The rig overlay creates no body, shape or constraint.** `__sword.rigview.audit()` pins
+  it across toggles rather than a comment claiming it.
+- **No feel complaint is fixed by raising a motor ceiling without a measured before/after
+  table beside the number in `src/config.ts`.** Every number in the `arm` block was set that
+  way and each one carries its table.
+- **Every measurement names its harness**, for the reason in the traps above.
+- **Commit each landable change as it lands.** The one question this directory could not
+  settle -- where the 9 % transient disagreement comes from -- needed two builds bisected,
+  and neither had been committed. It is the cheapest rule here and the one that has already
+  cost the most.
 
 ## Where the design lives
 
-`src/config.ts` is the whole tuning surface, and it is deliberately mutable: the page
-exposes `window.__sword`, so `__sword.config.arm.stiffness = 1600` takes effect on the next
-frame. Tune from the console first, then write the number back into the file.
+`docs/design.md` is the map: what each subsystem is, and the decisions that belong to no
+single file. `docs/measurements.md` is every number that has been taken, the harness that
+took it, and the list of what is still owed -- all of which is a judgement about how the
+game feels and needs somebody to play it.
+
+Everything else is written beside the code it decides. `src/config.ts` is the whole tuning
+surface, and it is deliberately mutable: the page exposes `window.__sword`, so
+`__sword.config.arm.stiffness = 1600` takes effect on the next frame. Tune from the console
+first, then write the number back into the file. Motor ceilings and damping are set on
+native solver objects at construction, so those need `__sword.left.applyTuning()` to push
+them across.
 
 `src/scoring.ts` is the balance rule -- what counts as a cut, a thrust, or a clang -- kept
 pure and free of Babylon so it can be argued with in `tests/scoring.test.mjs` rather than
 only by swinging. Changes to how the game rewards a blow belong there, with a test.
+
+Two commands beyond the usual, both slow and both deliberately outside `npm test`:
+
+```powershell
+npm run measure        # bouts, headless, about 90 s -- prints the policy table
+npm run asset:verify   # checks the committed warrior.glb still fits the rig
+```
