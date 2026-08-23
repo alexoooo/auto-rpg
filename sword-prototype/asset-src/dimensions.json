@@ -39,6 +39,8 @@
     "reachGuard": 0.28,
     "reachMax": 0.61,
     "reachResponse": 9,
+    "restPointerX": 0,
+    "restPointerY": -1,
     "azMin": -1.15,
     "azMax": 1.3,
     "elMin": -1.05,

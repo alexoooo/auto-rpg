@@ -216,6 +216,31 @@ export const CONFIG = {
     reachMax: 0.61,
     reachResponse: 9,
 
+    /**
+     * Where an unused hand rests, as a cursor position.
+     *
+     * The centre of the window is centre guard: `(0, 0)` puts a hand straight
+     * out in front at `reachNeutral`, which is what a fighter *aiming* with that
+     * hand wants and is exactly wrong for one that is not using it. With two
+     * driven arms and both defaulting to centre, every fighter stood with both
+     * arms out in front like a sleepwalker -- and it read as the costume being
+     * broken rather than as a pose, because nothing about a person looks like
+     * that.
+     *
+     * The off arm used to hang because it was not driven at all: it was two
+     * capsules counterswinging on the gait, and gravity and the stride did this
+     * job for free. It is a real arm now and has to be told.
+     *
+     * `-1` is the bottom of the envelope, and the envelope is what limits it:
+     * `elMin` is -1.05 rad, about sixty degrees below the horizontal, so a
+     * resting arm angles down and forward rather than hanging plumb. Widening
+     * `elMin` would let it hang properly and would also change where every
+     * *aimed* low guard can reach, which is a change to the controller and wants
+     * its own measurement.
+     */
+    restPointerX: 0,
+    restPointerY: -1,
+
     /** Where the cursor sits maps straight onto where the hand goes. */
     azMin: -1.15,
     azMax: 1.30,

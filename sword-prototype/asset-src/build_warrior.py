@@ -228,13 +228,24 @@ def piece(name, joint, parts, surface, root):
     # and the panel is invisible from the front and solid from behind, which
     # looks like a missing piece rather than like an inside-out one.
     bmesh.ops.recalc_face_normals(welded, faces=welded.faces)
-    # Triangles, before anything asks for a tangent. Blender computes tangent
-    # space only for tris and quads, and `plate` authors n-gons by construction --
-    # its whole job is a silhouette typed as a list of points. Without this the
-    # exporter prints "Tangent space can only be computed for tris/quads,
-    # aborting" once per piece and quietly ships a file with no TANGENT
-    # attribute, which the normal maps then have to guess at per pixel.
-    bmesh.ops.triangulate(welded, faces=welded.faces)
+    # Triangles, but **only for the n-gons**, and the restriction is the whole
+    # point. Blender computes tangent space for tris and quads alone, and `plate`
+    # authors n-gons by construction -- its job is a silhouette typed as a list of
+    # points -- so without any triangulation the exporter prints "Tangent space
+    # can only be computed for tris/quads, aborting" once per piece and quietly
+    # ships a file with no TANGENT attribute.
+    #
+    # Triangulating *everything* fixes that and costs far more than it buys:
+    # `bmesh.ops.triangulate` does not carry the smooth flag onto the faces it
+    # creates, so every sphere and every tube in the figure came back flat-shaded
+    # and the whole warrior read as a faceted lump of boxes. Nothing about the
+    # silhouette had changed and it looked like the costume had failed to load.
+    # The n-gons are exactly the faces `plate` makes, and `plate` is built
+    # `smooth=False` anyway, so this splits the ones that need splitting and
+    # leaves every curved surface alone.
+    ngons = [face for face in welded.faces if len(face.verts) > 4]
+    if ngons:
+        bmesh.ops.triangulate(welded, faces=ngons)
     mesh = bpy.data.meshes.new(name + "_mesh")
     welded.to_mesh(mesh)
     welded.free()

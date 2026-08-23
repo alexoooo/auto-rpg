@@ -110,7 +110,16 @@ export class Controls {
     zoom: 1,
     driving: "primary",
     primary: { pointerX: 0, pointerY: 0, roll: 0, thrust: false, guard: false },
-    secondary: { pointerX: 0, pointerY: 0, roll: 0, thrust: false, guard: false },
+    // The hand the mouse is not on starts at rest, not out in front. It stays
+    // wherever it was left the moment `F` moves the cursor off it, which is what
+    // `onSwapHands` seeds -- this is only where it begins.
+    secondary: {
+      pointerX: CONFIG.arm.restPointerX,
+      pointerY: CONFIG.arm.restPointerY,
+      roll: 0,
+      thrust: false,
+      guard: false,
+    },
   };
 
   private readonly canvas: HTMLCanvasElement;

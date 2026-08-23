@@ -88,7 +88,15 @@ export const blankIntent = (): Intent => ({
   zoom: 1,
   driving: "primary",
   primary: { pointerX: 0, pointerY: 0, roll: 0, thrust: false, guard: false },
-  secondary: { pointerX: 0, pointerY: 0, roll: 0, thrust: false, guard: false },
+  // A policy fights one-handed, so its other hand rests at its side rather than
+  // being held out in front. See `arm.restPointerY`.
+  secondary: {
+    pointerX: CONFIG.arm.restPointerX,
+    pointerY: CONFIG.arm.restPointerY,
+    roll: 0,
+    thrust: false,
+    guard: false,
+  },
 });
 
 /**

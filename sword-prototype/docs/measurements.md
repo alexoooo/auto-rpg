@@ -379,6 +379,25 @@ cheap and change what should be built next: the first and the fourth.**
    `Combat.parried` both say so -- and nothing in `policies.ts` has any notion of
    interposing it. Until one does, a shield in an AI's hand is a plank it is carrying.
 
+11. **An idle arm cannot hang all the way down**, and the reason is the envelope
+   rather than the pose. `arm.restPointerY` sends an unused hand to the bottom of the
+   cursor range, and the bottom of the cursor range is `elMin` = -1.05 rad -- sixty degrees
+   below the horizontal, not ninety. Measured, idle, bench, three seconds settled:
+
+   | elMin | off hand, below the shoulder | forward |
+   |---|---|---|
+   | -1.05 (shipped) | 0.39 m | 0.24 m |
+   | -1.25 | 0.43 m | 0.16 m |
+   | -1.45 | 0.45 m | 0.07 m |
+
+   -1.45 is an arm by the side and it is **not** shipped, because `elMin` is a controller
+   surface and not a cosmetic one: `rollForStroke` derives the wrist roll from the cursor
+   stroke through `elevationOf`, so widening it moved `swinger`'s pinned stroke roll from
+   -0.925 to -0.888 rad and failed the test that holds that number. Changing what every
+   policy's wrist does, and what a low guard can reach, to improve how a resting arm looks
+   is a trade somebody should make deliberately at a browser. The alternative is a rest path
+   that does not go through the cursor at all, which is a second code path into `Arm.aim`.
+
 Two smaller ones, recorded where they were found rather than forgotten:
 
 - **A pause mid-stride still slides.** `Controls.pause()` stops the control loop, so the

@@ -232,7 +232,14 @@ export const NEUTRAL: Intent = Object.freeze({
   // holds -- and the whole point of freezing this is that a policy handed the
   // neutral intent cannot quietly turn it into its own.
   primary: Object.freeze({ pointerX: 0, pointerY: 0, roll: 0, thrust: false, guard: false }),
-  secondary: Object.freeze({ pointerX: 0, pointerY: 0, roll: 0, thrust: false, guard: false }),
+  // The off hand rests rather than points. See `arm.restPointerY`.
+  secondary: Object.freeze({
+    pointerX: CONFIG.arm.restPointerX,
+    pointerY: CONFIG.arm.restPointerY,
+    roll: 0,
+    thrust: false,
+    guard: false,
+  }),
 });
 
 /**
