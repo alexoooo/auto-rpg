@@ -340,3 +340,27 @@ body {
 .note.error {
   color: var(--bad);
 }
+
+/* ---------- targeting banner ---------- */
+
+#mode {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 26px;
+  text-align: center;
+  pointer-events: none;
+  font-size: 11.5px;
+  letter-spacing: 0.14em;
+  color: var(--hot);
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+#mode.on {
+  opacity: 0.92;
+}
+
+#mode.locked {
+  color: var(--bad);
+}

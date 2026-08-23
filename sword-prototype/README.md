@@ -83,14 +83,20 @@ the arm drifted, centre was unrecoverable, and you could not get your mouse back
 | --- | --- |
 | Mouse | moves the sword arm — the cursor is where the hand goes |
 | W / S | walk forward and back |
-| A / D | turn |
-| Q / E | strafe |
-| Left button | thrust — extend the reach |
-| Right button | pull the guard in close |
-| Wheel | roll the wrist — turns the edge |
+| A / D | strafe |
+| Q / E | turn |
+| Z / X | roll the wrist — turns the edge into the cut |
+| Left button | thrust — drive the point out |
+| Right button | guard — pull the blade in close |
+| L | arm a lock-on, then click an enemy; strafe to circle it, Q/E to break |
+| Wheel | zoom |
 | Space | reset the dummy |
 | Tab | toggle the readout |
 | Esc | pause |
+
+Lock-on exists because the mouse is spent entirely on the blade. With no hand left over for
+the camera, keeping an enemy in front of you while you circle it is otherwise impossible —
+so the hero does it for you, and drops the lock the moment you touch the turn keys.
 
 ## How it is built
 

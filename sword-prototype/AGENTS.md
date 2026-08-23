@@ -63,6 +63,33 @@ npm run dev             # http://localhost:5180, strictPort
 - **Do not drive physics by calling `scene.render()` in a tight loop to test.** The delta
   comes from `engine.getDeltaTime()`, which is near zero between two immediate calls, so the
   simulation crawls and every derived number is wrong. Step with a fixed delta instead.
+- **Babylon cancels `pointerdown`, and that kills every mouse event after it.** Its input
+  manager attaches to the canvas with `preventDefaultOnPointerDown` defaulting to true, and
+  cancelling `pointerdown` suppresses the *compatibility* mouse events for the rest of that
+  gesture. A listener on `mousemove`/`mousedown` therefore goes deaf the instant any button
+  is held: the arm freezes and the button appears to do nothing, which reads as two bugs and
+  is one. `src/input.ts` uses pointer events throughout, and `main.ts` turns the flag off as
+  well. Do not "fix" a frozen-input report by adding `preventDefault` to a mouse handler --
+  that handler is not being called at all.
+- **`scene.pick` needs `@babylonjs/core/Culling/ray.js` imported for its side effect.**
+  Without it the call throws "Ray needs to be imported before as it contains a side-effect
+  required by your code" -- once per frame from inside the render loop, which is easy to
+  miss entirely if the tab happens to be hidden. Same family as the physics and shadow
+  imports above. `renderOutline` is a module augmentation with the same requirement, from
+  `@babylonjs/core/Rendering/outlineRenderer.js`.
+- **A hidden tab never renders, so picking silently finds nothing.** `requestAnimationFrame`
+  does not fire, no view matrix is ever computed, and every `scene.pick` misses. Call
+  `scene.render()` once by hand before believing a picking result taken from the console.
+- **Test the wobble with a sweep, not a jump.** Teleporting the cursor and watching the arm
+  converge shows a clean monotonic settle with zero overshoot -- and tells you nothing,
+  because a teleport gives the blade no momentum to carry. Sweeping the cursor for a quarter
+  of a second and then holding it still is what a player does, and it turns the same
+  measurement from "no ringing at all" into ten direction changes over 0.68 s.
+- **`getWorldMatrix()` short-circuits on the render id.** Step the solver from the console
+  without rendering and every derived reading -- tip position, tip speed, absolute positions
+  -- freezes at its first value, because the matrix is only recomputed when the render id
+  changes. Whole sweeps come back as exactly 0.0. Force `computeWorldMatrix(true)` on every
+  node you intend to read.
 - **`src/scoring.ts` and `src/config.ts` are imported directly by Node** in the test run,
   so their intra-directory imports carry explicit `.ts` extensions. Vite does not care;
   Node's ESM resolver does.

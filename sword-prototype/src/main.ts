@@ -6,11 +6,13 @@ import type { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGener
 import { CONFIG } from "./config";
 import { buildArena } from "./arena";
 import { Hero } from "./hero";
+import { Figure } from "./figure";
 import { Dummy } from "./dummy";
 import { Combat } from "./combat";
 import { Hud } from "./hud";
 import { Controls } from "./input";
 import { AimIndicator } from "./aim";
+import { Targeting } from "./targeting";
 
 const need = <T extends HTMLElement>(id: string): T => {
   const element = document.getElementById(id);
@@ -18,22 +20,31 @@ const need = <T extends HTMLElement>(id: string): T => {
   return element as T;
 };
 
-/** Everything visible casts a shadow except the floor it falls on. */
+/** Everything solid casts a shadow. Indicators and control frames do not. */
 function refreshShadowCasters(scene: Scene, shadows: ShadowGenerator): void {
   const list = shadows.getShadowMap()?.renderList;
   if (!list) return;
   list.length = 0;
   for (const mesh of scene.meshes) {
     if (mesh.name === "ground") continue;
+    if (!mesh.isVisible) continue;
+    if (mesh.name.startsWith("aim.") || mesh.name.startsWith("target.")) continue;
     list.push(mesh);
   }
 }
+
+const MODE_TEXT: Record<string, string> = {
+  free: "",
+  selecting: "SELECT TARGET &mdash; click an enemy, or L to cancel",
+  locked: "LOCKED &mdash; strafe to circle, Q/E to break",
+};
 
 async function boot(): Promise<void> {
   const canvas = need<HTMLCanvasElement>("stage");
   const curtain = need("curtain");
   const beginButton = need<HTMLButtonElement>("begin");
   const bootNote = need("boot-note");
+  const modeLine = need("mode");
 
   beginButton.disabled = true;
 
@@ -50,7 +61,15 @@ async function boot(): Promise<void> {
   // 144 Hz monitor as on a 60 Hz one.
   const arena = await buildArena(engine);
 
+  // Babylon's own input manager cancels `pointerdown`, and cancelling that
+  // suppresses every compatibility mouse event for the rest of the gesture. It
+  // costs nothing to turn off here, and leaving it on makes any future
+  // mouse-event listener mysteriously deaf while a button is held.
+  arena.scene.preventDefaultOnPointerDown = false;
+  arena.scene.preventDefaultOnPointerUp = false;
+
   const hero = new Hero(arena.scene, Vector3.Zero(), arena.materials);
+  const figure = new Figure(arena.scene, hero, arena.materials);
   const dummyOrigin = new Vector3(CONFIG.dummy.origin.x, CONFIG.dummy.origin.y, CONFIG.dummy.origin.z);
   let dummy = new Dummy(arena.scene, dummyOrigin, arena.materials);
 
@@ -59,6 +78,8 @@ async function boot(): Promise<void> {
 
   const hud = new Hud(need("hud"));
   const aim = new AimIndicator(arena.scene);
+  const targeting = new Targeting(arena.scene, hero);
+  targeting.attach(dummy);
   refreshShadowCasters(arena.scene, arena.shadows);
 
   // The control loop runs on the physics clock, not the render clock.
@@ -90,6 +111,7 @@ async function boot(): Promise<void> {
       dummy.dispose();
       dummy = new Dummy(arena.scene, dummyOrigin, arena.materials);
       combat.attach(dummy);
+      targeting.attach(dummy);
       refreshShadowCasters(arena.scene, arena.shadows);
     },
     onToggleReadout: () => hud.toggle(),
@@ -97,6 +119,8 @@ async function boot(): Promise<void> {
       controls.pause();
       showCurtain(true);
     },
+    onToggleLock: () => targeting.toggle(),
+    onPrimaryDown: () => targeting.primaryDown(),
   });
 
   beginButton.addEventListener("click", () => {
@@ -115,13 +139,16 @@ async function boot(): Promise<void> {
     const world = hero.torso.mesh.getWorldMatrix();
     const forward = new Vector3(world.m[8], world.m[9], world.m[10]).normalize();
     const origin = hero.torso.mesh.absolutePosition;
+    const zoom = controls.state.zoom;
 
     // Both goals are built from the hero's position on the ground, so the
-    // framing does not shift when the torso's centre height is retuned.
+    // framing does not shift when the torso's centre height is retuned. Zoom
+    // scales distance and height together, so the camera slides along its own
+    // sight line and the angle you read the arena at never changes.
     cameraGoal
       .copyFromFloats(origin.x, 0, origin.z)
-      .subtractInPlace(forward.scale(C.distance))
-      .addInPlaceFromFloats(0, C.height, 0);
+      .subtractInPlace(forward.scale(C.distance * zoom))
+      .addInPlaceFromFloats(0, C.height * zoom, 0);
 
     lookGoal
       .copyFromFloats(origin.x, 0, origin.z)
@@ -136,16 +163,31 @@ async function boot(): Promise<void> {
 
   placeCamera(0, true);
 
+  let shownMode = "";
+
   engine.runRenderLoop(() => {
     const dt = Math.min(engine.getDeltaTime() / 1000, CONFIG.world.maxFrameSeconds);
     if (dt <= 0) return;
 
-    if (controls.isActive) controls.sample();
+    if (controls.isActive) {
+      controls.sample(dt);
+      targeting.releaseIfSteering(controls.state.turn);
+      targeting.update(dt);
+    }
+
     combat.advance(dt);
+    figure.update(dt, hero.groundSpeed());
     placeCamera(dt, false);
 
     aim.update(hero.feetPosition(), hero.aimPoint());
     arena.scene.render();
+
+    if (targeting.status !== shownMode) {
+      shownMode = targeting.status;
+      modeLine.innerHTML = MODE_TEXT[shownMode] ?? "";
+      modeLine.classList.toggle("on", shownMode !== "free");
+      modeLine.classList.toggle("locked", shownMode === "locked");
+    }
 
     hud.update(
       {
@@ -164,10 +206,21 @@ async function boot(): Promise<void> {
   window.addEventListener("resize", () => engine.resize());
 
   // A live handle on everything, for tuning from the console. CONFIG is
-  // deliberately mutable, so `__sword.config.arm.stiffness = 1600` takes effect
-  // on the very next frame -- which is the whole point of a feel prototype.
+  // deliberately mutable, so `__sword.config.arm.linearMotorForce = 1600` takes
+  // effect on the very next frame -- which is the whole point of a feel
+  // prototype. Anything the solver caches natively needs `hero.applyTuning()`.
   Object.assign(window as unknown as Record<string, unknown>, {
-    __sword: { engine, scene: arena.scene, camera: arena.camera, hero, combat, config: CONFIG },
+    __sword: {
+      engine,
+      scene: arena.scene,
+      camera: arena.camera,
+      hero,
+      figure,
+      combat,
+      targeting,
+      controls,
+      config: CONFIG,
+    },
   });
 
   bootNote.textContent = "Havok ready.";

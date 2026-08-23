@@ -68,6 +68,7 @@ function stiffen(constraint: Physics6DoFConstraint, maxForce: number): void {
 export class Dummy {
   readonly limbs: Limb[] = [];
   private readonly byBody = new Map<PhysicsBody, Limb>();
+  private readonly middle = new Vector3();
   private readonly base: { mesh: ReturnType<typeof MeshBuilder.CreateBox>; body: PhysicsBody };
 
   constructor(
@@ -203,6 +204,19 @@ export class Dummy {
     link("thighR", "Right thigh", pelvis, thighR, new Vector3(0.105, -0.13, 0), new Vector3(0, 0.20, 0), socket, s * 10);
     link("shinL", "Left shin", thighL, shinL, new Vector3(0, -0.20, 0), new Vector3(0, 0.20, 0), hinge, s * 6);
     link("shinR", "Right shin", thighR, shinR, new Vector3(0, -0.20, 0), new Vector3(0, 0.20, 0), hinge, s * 6);
+  }
+
+  /**
+   * Roughly where the figure is, for a lock-on to point at and a ring to sit
+   * under. The torso if it still has one, the pelvis otherwise -- a lock that
+   * follows a severed arm across the arena would be a comedy.
+   */
+  centre(): Vector3 {
+    const trunk =
+      this.limbs.find((limb) => limb.key === "torso" && !limb.severed) ??
+      this.limbs.find((limb) => limb.key === "pelvis");
+    if (trunk) this.middle.copyFrom(trunk.part.mesh.absolutePosition);
+    return this.middle;
   }
 
   private register(limb: Limb): void {
