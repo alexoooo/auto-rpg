@@ -1,8 +1,8 @@
-# Session 20 -- integrate a passing controller
+# Session 24 -- integrate a passing controller
 
 ## Entry gate
 
-Begin only when session 19 names a passing artifact. A null verdict blocks this session and
+Begin only when session 23 names a passing artifact. A null verdict blocks this session and
 requires a new research plan.
 
 ## Implement
@@ -22,7 +22,7 @@ requires a new research plan.
 - Re-run the tournament report from raw rows and confirm the promoted digest.
 - Add complete-bout, finite-command, post-verdict, restart/disposal and browser-load tests.
 - Mutation-check digest bypass, capability fallback and post-verdict action.
-- Run npm test, npm run check, npm run build, npm run measure, npm run ai:options and
-  npm run ai:evaluate -- --verify-promoted.
+- Run `npm test`, `npm run check`, `npm run build`, `npm run measure`,
+  `npm run ai:preflight` and `npm run ai:evaluate -- --verify-promoted`.
 
 No passing candidate means none of this file is performed.

@@ -1,8 +1,8 @@
-# Session 21 -- final integration, visible playtest and close-out
+# Session 25 -- final integration, visible playtest and close-out
 
 ## Entry gate
 
-Session 20 is complete and adaptive-v1 is backed by the exact passing tournament artifact.
+Session 24 is complete and adaptive-v1 is backed by the exact passing tournament artifact.
 
 ## Automated close-out
 
@@ -24,7 +24,7 @@ npm test
 npm run check
 npm run build
 npm run measure -- --seed 20260824
-npm run ai:options -- --seed 20260824
+npm run ai:preflight -- --seed 20260824
 npm run ai:evaluate -- --verify-promoted
 ~~~
 
