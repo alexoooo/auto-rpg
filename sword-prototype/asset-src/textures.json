@@ -1,0 +1,227 @@
+{
+  "schema": 1,
+  "sources": [
+    { "sourceUrl": "https://polyhaven.com/a/slab_tiles", "license": "CC0-1.0", "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/" },
+    { "sourceUrl": "https://polyhaven.com/a/metal_plate_02", "license": "CC0-1.0", "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/" },
+    { "sourceUrl": "https://polyhaven.com/a/terlenka", "license": "CC0-1.0", "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/" },
+    { "sourceUrl": "https://polyhaven.com/a/brown_leather", "license": "CC0-1.0", "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/" },
+    { "sourceUrl": "https://polyhaven.com/a/beige_wall_001", "license": "CC0-1.0", "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/" },
+    { "sourceUrl": "https://polyhaven.com/a/fine_grained_wood", "license": "CC0-1.0", "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/" },
+    { "sourceUrl": "https://polyhaven.com/a/brass_pot_02", "license": "CC0-1.0", "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/" },
+    { "sourceUrl": "https://polyhaven.com/a/distressed_painted_planks", "license": "CC0-1.0", "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/" },
+    { "sourceUrl": "https://polyhaven.com/a/stone_wall_05", "license": "CC0-1.0", "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/" },
+    { "sourceUrl": "https://polyhaven.com/a/wooden_planks", "license": "CC0-1.0", "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/" },
+    { "sourceUrl": "https://polyhaven.com/a/fabric_pattern_07", "license": "CC0-1.0", "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/" }
+  ],
+  "textures": [
+    {
+      "name": "slab-tiles-albedo", "file": "slab_tiles_diff_1k.jpg", "localUrl": "/assets/textures/slab_tiles_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/slab_tiles/slab_tiles_diff_1k.jpg", "sourceUrl": "https://polyhaven.com/a/slab_tiles",
+      "sha256": "e92e60c242e6de1c758419ff04eae005524a09ca0ea4e574fd911586a35e796c", "channel": "albedo", "colourSpace": "srgb",
+      "family": "stone-floor", "consumers": ["palette.ground"], "scale": 1, "invertY": false, "metresPerRepeat": 2.4
+    },
+    {
+      "name": "slab-tiles-normal", "file": "slab_tiles_nor_gl_1k.jpg", "localUrl": "/assets/textures/slab_tiles_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/slab_tiles/slab_tiles_nor_gl_1k.jpg", "sourceUrl": "https://polyhaven.com/a/slab_tiles",
+      "sha256": "5b22a5800d9ecf607c9287cb2b7cb2fc845d76101b407829dbfe72f0a6307705", "channel": "normal", "colourSpace": "linear",
+      "family": "stone-floor", "consumers": ["palette.ground"], "scale": 1, "invertY": false, "metresPerRepeat": 2.4,
+      "normalConvention": "opengl", "tangentBasis": "babylon-lh"
+    },
+    {
+      "name": "slab-tiles-orm", "file": "slab_tiles_arm_1k.jpg", "localUrl": "/assets/textures/slab_tiles_arm_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/slab_tiles/slab_tiles_arm_1k.jpg", "sourceUrl": "https://polyhaven.com/a/slab_tiles",
+      "sha256": "f5cf32dba3caf095f181f79e659a9a9e99c86b179fc6fb6ad630b8dd3b15c1bc", "channel": "orm", "colourSpace": "linear",
+      "family": "stone-floor", "consumers": ["palette.ground"], "scale": 1, "invertY": false, "metresPerRepeat": 2.4
+    },
+    {
+      "name": "metal-plate-albedo", "file": "metal_plate_02_diff_1k.jpg", "localUrl": "/assets/textures/metal_plate_02_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/metal_plate_02/metal_plate_02_diff_1k.jpg", "sourceUrl": "https://polyhaven.com/a/metal_plate_02",
+      "sha256": "6e80877d0e9d5973d96298c6091df7ace906b0a6760afc4f3592e4855f3f1d4c", "channel": "albedo", "colourSpace": "srgb",
+      "family": "worn-steel", "consumers": ["figure.steel", "weapon.steel"], "scale": 2, "invertY": false
+    },
+    {
+      "name": "metal-plate-normal", "file": "metal_plate_02_nor_gl_1k.jpg", "localUrl": "/assets/textures/metal_plate_02_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/metal_plate_02/metal_plate_02_nor_gl_1k.jpg", "sourceUrl": "https://polyhaven.com/a/metal_plate_02",
+      "sha256": "58736fbb8aa4fc6690cf8152b174db65caf22a766375b625fb0087e1bc955bc7", "channel": "normal", "colourSpace": "linear",
+      "family": "worn-steel", "consumers": ["figure.steel", "weapon.steel"], "scale": 2, "invertY": false,
+      "normalConvention": "opengl", "tangentBasis": "babylon-lh"
+    },
+    {
+      "name": "metal-plate-orm", "file": "metal_plate_02_arm_1k.jpg", "localUrl": "/assets/textures/metal_plate_02_arm_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/metal_plate_02/metal_plate_02_arm_1k.jpg", "sourceUrl": "https://polyhaven.com/a/metal_plate_02",
+      "sha256": "e099a8385d53f4a515b7e0ce94f85d88657fcac49c23979474f5394b22dd550b", "channel": "orm", "colourSpace": "linear",
+      "family": "worn-steel", "consumers": ["figure.steel", "weapon.steel"], "scale": 2, "invertY": false
+    },
+    {
+      "name": "terlenka-albedo", "file": "terlenka_diff_1k.jpg", "localUrl": "/assets/textures/terlenka_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/terlenka/terlenka_diff_1k.jpg", "sourceUrl": "https://polyhaven.com/a/terlenka",
+      "sha256": "74c4333ed05e133928b0cf6d52e732135c8c0ce6dc8623efa590fb31b90f15c0", "channel": "albedo", "colourSpace": "srgb",
+      "family": "neutral-cloth", "consumers": ["figure.cloth"], "scale": 3, "invertY": false
+    },
+    {
+      "name": "terlenka-normal", "file": "terlenka_nor_gl_1k.jpg", "localUrl": "/assets/textures/terlenka_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/terlenka/terlenka_nor_gl_1k.jpg", "sourceUrl": "https://polyhaven.com/a/terlenka",
+      "sha256": "05d7152ff680a6699018f5c37456a14e16eb1e70014a79d4d500dfd2e099c8f9", "channel": "normal", "colourSpace": "linear",
+      "family": "neutral-cloth", "consumers": ["figure.cloth"], "scale": 3, "invertY": false,
+      "normalConvention": "opengl", "tangentBasis": "babylon-lh"
+    },
+    {
+      "name": "terlenka-orm", "file": "terlenka_arm_1k.jpg", "localUrl": "/assets/textures/terlenka_arm_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/terlenka/terlenka_arm_1k.jpg", "sourceUrl": "https://polyhaven.com/a/terlenka",
+      "sha256": "219e2dfab9cd0b25b222b89f302d249edd4e91f7fd749d6a1d8bbb73cb50d772", "channel": "orm", "colourSpace": "linear",
+      "family": "neutral-cloth", "consumers": ["figure.cloth"], "scale": 3, "invertY": false
+    },
+    {
+      "name": "brown-leather-albedo", "file": "brown_leather_albedo_1k.jpg", "localUrl": "/assets/textures/brown_leather_albedo_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/brown_leather/brown_leather_albedo_1k.jpg", "sourceUrl": "https://polyhaven.com/a/brown_leather",
+      "sha256": "7e9e1d6566d1fd91d4ceb4966c4820361e85d53a7a828b6bab3b2a093a876cd1", "channel": "albedo", "colourSpace": "srgb",
+      "family": "brown-leather", "consumers": ["figure.leather", "weapon.leather"], "scale": 2, "invertY": false
+    },
+    {
+      "name": "brown-leather-normal", "file": "brown_leather_nor_gl_1k.jpg", "localUrl": "/assets/textures/brown_leather_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/brown_leather/brown_leather_nor_gl_1k.jpg", "sourceUrl": "https://polyhaven.com/a/brown_leather",
+      "sha256": "506a0b7650c2dea285e247f26ed2d0d6ec38fc10dd584359f0d203e9c082236d", "channel": "normal", "colourSpace": "linear",
+      "family": "brown-leather", "consumers": ["figure.leather", "weapon.leather"], "scale": 2, "invertY": false,
+      "normalConvention": "opengl", "tangentBasis": "babylon-lh"
+    },
+    {
+      "name": "brown-leather-orm", "file": "brown_leather_arm_1k.jpg", "localUrl": "/assets/textures/brown_leather_arm_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/brown_leather/brown_leather_arm_1k.jpg", "sourceUrl": "https://polyhaven.com/a/brown_leather",
+      "sha256": "8f40d242830b2c1310470abfaf2df15f52658d01c21d97dd96f0679589677de1", "channel": "orm", "colourSpace": "linear",
+      "family": "brown-leather", "consumers": ["figure.leather", "weapon.leather"], "scale": 2, "invertY": false
+    },
+    {
+      "name": "fine-wood-albedo", "file": "fine_grained_wood_col_1k.jpg", "localUrl": "/assets/textures/fine_grained_wood_col_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/fine_grained_wood/fine_grained_wood_col_1k.jpg", "sourceUrl": "https://polyhaven.com/a/fine_grained_wood",
+      "sha256": "d171f45ef01bc6e239b00dfaa4961bcd27f7d8e93e3962da3bd3d0ce703d802c", "channel": "albedo", "colourSpace": "srgb",
+      "family": "fine-grained-wood", "consumers": ["weapon.wood"], "scale": 3, "invertY": false
+    },
+    {
+      "name": "fine-wood-normal", "file": "fine_grained_wood_nor_gl_1k.jpg", "localUrl": "/assets/textures/fine_grained_wood_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/fine_grained_wood/fine_grained_wood_nor_gl_1k.jpg", "sourceUrl": "https://polyhaven.com/a/fine_grained_wood",
+      "sha256": "ba95eadc009818e161d0f753191f1bacc3fc861e593be0bc6d82b437f9ec8044", "channel": "normal", "colourSpace": "linear",
+      "family": "fine-grained-wood", "consumers": ["weapon.wood"], "scale": 3, "invertY": false,
+      "normalConvention": "opengl", "tangentBasis": "babylon-lh"
+    },
+    {
+      "name": "fine-wood-orm", "file": "fine_grained_wood_arm_1k.jpg", "localUrl": "/assets/textures/fine_grained_wood_arm_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/fine_grained_wood/fine_grained_wood_arm_1k.jpg", "sourceUrl": "https://polyhaven.com/a/fine_grained_wood",
+      "sha256": "3928796cc98b380cd254dc67e9246e60027ef349edb5f75033cc6f3b34572450", "channel": "orm", "colourSpace": "linear",
+      "family": "fine-grained-wood", "consumers": ["weapon.wood"], "scale": 3, "invertY": false
+    },
+    {
+      "name": "worn-brass-albedo", "file": "brass_pot_02_diff_1k.jpg", "localUrl": "/assets/textures/brass_pot_02_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/brass_pot_02/brass_pot_02_diff_1k.jpg", "sourceUrl": "https://polyhaven.com/a/brass_pot_02",
+      "sha256": "723ec51238cc800cf18bb85a91c406600ea5e9a91ec4a2af2bc1d7ba73bd2634", "channel": "albedo", "colourSpace": "srgb",
+      "family": "worn-brass", "consumers": ["weapon.brass"], "scale": 2, "invertY": false
+    },
+    {
+      "name": "worn-brass-normal", "file": "brass_pot_02_nor_gl_1k.jpg", "localUrl": "/assets/textures/brass_pot_02_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/brass_pot_02/brass_pot_02_nor_gl_1k.jpg", "sourceUrl": "https://polyhaven.com/a/brass_pot_02",
+      "sha256": "8eb46dc1588ffbe0a2d535aa15a33f8dc366a1006a7401120af1f510eb14e5b1", "channel": "normal", "colourSpace": "linear",
+      "family": "worn-brass", "consumers": ["weapon.brass"], "scale": 2, "invertY": false,
+      "normalConvention": "opengl", "tangentBasis": "babylon-lh"
+    },
+    {
+      "name": "worn-brass-orm", "file": "brass_pot_02_arm_1k.jpg", "localUrl": "/assets/textures/brass_pot_02_arm_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/brass_pot_02/brass_pot_02_arm_1k.jpg", "sourceUrl": "https://polyhaven.com/a/brass_pot_02",
+      "sha256": "6ff681c075ce8b5c597f987e214939c2da0b4b1b8321a60dc60bcff45ff78c27", "channel": "orm", "colourSpace": "linear",
+      "family": "worn-brass", "consumers": ["weapon.brass"], "scale": 2, "invertY": false
+    },
+    {
+      "name": "painted-board-albedo", "file": "distressed_painted_planks_diff_1k.jpg", "localUrl": "/assets/textures/distressed_painted_planks_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/distressed_painted_planks/distressed_painted_planks_diff_1k.jpg", "sourceUrl": "https://polyhaven.com/a/distressed_painted_planks",
+      "sha256": "ec8d54700e32d583ec3cd64089de73810de1e177874266fe29e931d33ab5ca1e", "channel": "albedo", "colourSpace": "srgb",
+      "family": "distressed-painted-board", "consumers": ["weapon.paintedWood"], "scale": 2, "invertY": false
+    },
+    {
+      "name": "painted-board-normal", "file": "distressed_painted_planks_nor_gl_1k.jpg", "localUrl": "/assets/textures/distressed_painted_planks_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/distressed_painted_planks/distressed_painted_planks_nor_gl_1k.jpg", "sourceUrl": "https://polyhaven.com/a/distressed_painted_planks",
+      "sha256": "65372398238b1a4d723e414b195e94900e076fa63d9409c5acc9b55d795abe88", "channel": "normal", "colourSpace": "linear",
+      "family": "distressed-painted-board", "consumers": ["weapon.paintedWood"], "scale": 2, "invertY": false,
+      "normalConvention": "opengl", "tangentBasis": "babylon-lh"
+    },
+    {
+      "name": "painted-board-orm", "file": "distressed_painted_planks_arm_1k.jpg", "localUrl": "/assets/textures/distressed_painted_planks_arm_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/distressed_painted_planks/distressed_painted_planks_arm_1k.jpg", "sourceUrl": "https://polyhaven.com/a/distressed_painted_planks",
+      "sha256": "10cf35fb0e55ccbf3e4e31f68e8f2d8e4579fe4241bb999669eedbb6b0172722", "channel": "orm", "colourSpace": "linear",
+      "family": "distressed-painted-board", "consumers": ["weapon.paintedWood"], "scale": 2, "invertY": false
+    },
+    {
+      "name": "skin-detail-albedo", "file": "beige_wall_001_diff_1k.jpg", "localUrl": "/assets/textures/beige_wall_001_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/beige_wall_001/beige_wall_001_diff_1k.jpg", "sourceUrl": "https://polyhaven.com/a/beige_wall_001",
+      "sha256": "72104704d0b9bd3713c5f6238971252b63eccf6e61263059c674caa8f3d0fa6d", "channel": "albedo", "colourSpace": "srgb",
+      "family": "skin-detail", "consumers": ["figure.flesh"], "scale": 4, "invertY": false
+    },
+    {
+      "name": "skin-detail-normal", "file": "beige_wall_001_nor_gl_1k.jpg", "localUrl": "/assets/textures/beige_wall_001_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/beige_wall_001/beige_wall_001_nor_gl_1k.jpg", "sourceUrl": "https://polyhaven.com/a/beige_wall_001",
+      "sha256": "cec747be50f91da0693986080b6f59ef868d53cb2ab7d577982165ece63ed75e", "channel": "normal", "colourSpace": "linear",
+      "family": "skin-detail", "consumers": ["figure.flesh"], "scale": 4, "invertY": false,
+      "normalConvention": "opengl", "tangentBasis": "babylon-lh"
+    },
+    {
+      "name": "skin-detail-orm", "file": "beige_wall_001_arm_1k.jpg", "localUrl": "/assets/textures/beige_wall_001_arm_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/beige_wall_001/beige_wall_001_arm_1k.jpg", "sourceUrl": "https://polyhaven.com/a/beige_wall_001",
+      "sha256": "2382c7cccde8baedb61830a3c61264c5567aca4fbf825425fcc0544d40323f3d", "channel": "orm", "colourSpace": "linear",
+      "family": "skin-detail", "consumers": ["figure.flesh"], "scale": 4, "invertY": false
+    },
+    {
+      "name": "stone-wall-albedo", "file": "stone_wall_05_diff_1k.jpg", "localUrl": "/assets/textures/stone_wall_05_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/stone_wall_05/stone_wall_05_diff_1k.jpg", "sourceUrl": "https://polyhaven.com/a/stone_wall_05",
+      "sha256": "0dbdc815a88f3f4365254fa5a927dfcac46031a28a9b6bdc01654b34a1d4ac7a", "channel": "albedo", "colourSpace": "srgb",
+      "family": "stone-wall", "consumers": ["room.wall"], "scale": 1, "invertY": false, "metresPerRepeat": 2.1
+    },
+    {
+      "name": "stone-wall-normal", "file": "stone_wall_05_nor_gl_1k.jpg", "localUrl": "/assets/textures/stone_wall_05_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/stone_wall_05/stone_wall_05_nor_gl_1k.jpg", "sourceUrl": "https://polyhaven.com/a/stone_wall_05",
+      "sha256": "e726242629e27941f0027d059ac14328d094664616ebd0b7edc629d9ac4dc100", "channel": "normal", "colourSpace": "linear",
+      "family": "stone-wall", "consumers": ["room.wall"], "scale": 1, "invertY": false, "metresPerRepeat": 2.1,
+      "normalConvention": "opengl", "tangentBasis": "babylon-lh"
+    },
+    {
+      "name": "stone-wall-orm", "file": "stone_wall_05_arm_1k.jpg", "localUrl": "/assets/textures/stone_wall_05_arm_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/stone_wall_05/stone_wall_05_arm_1k.jpg", "sourceUrl": "https://polyhaven.com/a/stone_wall_05",
+      "sha256": "51dc391cc9897c22376b01d1d40dced68276d76d42ed72bb349d4296cfcccdc2", "channel": "orm", "colourSpace": "linear",
+      "family": "stone-wall", "consumers": ["room.wall"], "scale": 1, "invertY": false, "metresPerRepeat": 2.1
+    },
+    {
+      "name": "room-timber-albedo", "file": "wooden_planks_diff_1k.jpg", "localUrl": "/assets/textures/wooden_planks_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/wooden_planks/wooden_planks_diff_1k.jpg", "sourceUrl": "https://polyhaven.com/a/wooden_planks",
+      "sha256": "1273876d6f92fb1a1d29c1bb28f548a9256154187531e84f993b56e347f1d17b", "channel": "albedo", "colourSpace": "srgb",
+      "family": "room-timber", "consumers": ["room.timber"], "scale": 1, "invertY": false, "metresPerRepeat": 2.0
+    },
+    {
+      "name": "room-timber-normal", "file": "wooden_planks_nor_gl_1k.jpg", "localUrl": "/assets/textures/wooden_planks_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/wooden_planks/wooden_planks_nor_gl_1k.jpg", "sourceUrl": "https://polyhaven.com/a/wooden_planks",
+      "sha256": "6c85ff0a410a2993cc09d25859d7d735bc05e9f15dc51393d2e58aa2ce8a0916", "channel": "normal", "colourSpace": "linear",
+      "family": "room-timber", "consumers": ["room.timber"], "scale": 1, "invertY": false, "metresPerRepeat": 2.0,
+      "normalConvention": "opengl", "tangentBasis": "babylon-lh"
+    },
+    {
+      "name": "room-timber-orm", "file": "wooden_planks_arm_1k.jpg", "localUrl": "/assets/textures/wooden_planks_arm_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/wooden_planks/wooden_planks_arm_1k.jpg", "sourceUrl": "https://polyhaven.com/a/wooden_planks",
+      "sha256": "4f4201d86653299329a8f743b9b4962359cbcc2d5c306e64e6eaab4e27f05c77", "channel": "orm", "colourSpace": "linear",
+      "family": "room-timber", "consumers": ["room.timber"], "scale": 1, "invertY": false, "metresPerRepeat": 2.0
+    },
+    {
+      "name": "banner-cloth-albedo", "file": "fabric_pattern_07_col_1_1k.jpg", "localUrl": "/assets/textures/fabric_pattern_07_col_1_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/fabric_pattern_07/fabric_pattern_07_col_1_1k.jpg", "sourceUrl": "https://polyhaven.com/a/fabric_pattern_07",
+      "sha256": "aeb7a1487b77aec55e39de662def4d371f5c7c617f62d1f291d7f9932ffebdc9", "channel": "albedo", "colourSpace": "srgb",
+      "family": "banner-cloth", "consumers": ["room.banner"], "scale": 1, "invertY": false, "metresPerRepeat": 0.4
+    },
+    {
+      "name": "banner-cloth-normal", "file": "fabric_pattern_07_nor_gl_1k.jpg", "localUrl": "/assets/textures/fabric_pattern_07_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/fabric_pattern_07/fabric_pattern_07_nor_gl_1k.jpg", "sourceUrl": "https://polyhaven.com/a/fabric_pattern_07",
+      "sha256": "f6955bbdead9f023f2357f6f8808ed49627d10882cd2a3cb6b5a5ace155abc45", "channel": "normal", "colourSpace": "linear",
+      "family": "banner-cloth", "consumers": ["room.banner"], "scale": 1, "invertY": false, "metresPerRepeat": 0.4,
+      "normalConvention": "opengl", "tangentBasis": "babylon-lh"
+    },
+    {
+      "name": "banner-cloth-orm", "file": "fabric_pattern_07_arm_1k.jpg", "localUrl": "/assets/textures/fabric_pattern_07_arm_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/fabric_pattern_07/fabric_pattern_07_arm_1k.jpg", "sourceUrl": "https://polyhaven.com/a/fabric_pattern_07",
+      "sha256": "57520f1383a41ea9d69a3f9c1d2a2b0cdc6ba85c579935c44a1281845ec11030", "channel": "orm", "colourSpace": "linear",
+      "family": "banner-cloth", "consumers": ["room.banner"], "scale": 1, "invertY": false, "metresPerRepeat": 0.4
+    }
+  ]
+}
