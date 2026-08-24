@@ -419,6 +419,84 @@ npm run dev             # http://localhost:5180, strictPort
   -- `SelfView.reach` went three sessions unread and is gone for good -- but before deleting
   one, try to name the reader that is coming. If you can, leave it and write the name down.
 
+- **A `PhysicsShapeContainer`'s collision filter does nothing at all.** Havok filters on
+  the **leaf** shapes; setting `filterMembershipMask` on the container writes to the
+  container's own shape, which nothing consults, and *reading it back hands you garbage*
+  -- a shape set to 8 returned 383476. Every weapon in this directory had its layers set
+  that way since the file was written, so **for its whole life a weapon collided with
+  everything**: measured on one fighter swept through its envelope for twelve seconds, the
+  sword logged 1687 contacts against its own upper arm, 1572 against its own forearm, 853
+  against its own torso and 795 against its own shield, and the shield logged 985 against
+  its owner's head and 725/669 against its owner's two arms. That last one is the
+  expensive one -- a shield's own forearm sits inside its stand-off by construction, so
+  that is permanent contact between a 4 kg lever and the chain driving it, which is the
+  exact failure the four-layers-per-side table was invented to prevent.
+
+  It hid because the symptom is **friction, not a hole**: an arm that tracks its anchor a
+  little worse than it should, in a prototype whose whole subject is how well an arm tracks
+  its anchor. `Weapon` keeps its leaves in `parts` and sets the masks on each
+  (`relayer`); `Arrow` uses a bare `PhysicsShapeBox` and no container at all.
+  `.review/mask-probe.mjs` is the six-case drop that settles it, and
+  `tests/weapons.test.mjs` asserts the read-back per kind. **If you add a compound body,
+  set the filter on its children.**
+- **`setTargetTransform` is not a teleport for a DYNAMIC body.** It is the *target* of a
+  keyframed one and against a dynamic body it does nothing: six shots nominally from one
+  origin ended at -6.63, -12.19, -4.35, -9.94, -1.93 and -7.66, because the body carried on
+  from wherever the last one left it while `mesh.position` was being overwritten from it
+  every step. Write the transform node and set `body.disablePreStep = false`, which is
+  `PhysicsPrestepType.TELEPORT` under a boolean's name; a hundred launches then land at the
+  same place with spread **0**. Put the flag back up one step later -- and note that "one
+  step later" has to mean *after* a solver step has run, so the code that lowers it must
+  run **before** the code that raises it in the same control step. `Quiver.step` is called
+  as the first line of `Arm.update` for that reason.
+- **Two watchers on one body, and the order they were added in decides the outcome.**
+  `Arrow` watches its own collisions to know it has struck, and `Combat` watches the same
+  body to score the blow. `Arrow`'s observer is added first -- in its constructor, before a
+  fighter exists to be handed to a `Combat` -- so setting "spent" inside that callback
+  marks the arrow spent *before* the watcher that scores it runs, and **every arrow in the
+  game scored nothing**: 0 of 288 over twelve bouts, with no error anywhere and a flight
+  that looked perfectly healthy. Set a flag in the callback and promote it on the next
+  control step; then neither watcher needs to know the other exists.
+- **`velocityAt` is the right question for a blade and the wrong one for a projectile.**
+  `linear + w x r` is what a sword's contact point actually moves at, because the rotation
+  is the arm's and is there before the contact. An arrow has no rotation in flight, so any
+  `w` at the contact was put there *by* the contact, and over a 0.36 m half-shaft that is
+  tens of metres a second. Fired at 48 m/s into a keyframed slab, the three readings were:
+  body's linear velocity **38.4**, last control step **48.0**, `linear + w x r` **5.6**.
+  The last is what the damage model was being handed, and it did it *consistently* -- a
+  tight band around 27 m/s, which is the shape of a systematic error rather than of noise.
+  An arrow caches its free-flight velocity each control step and is scored from that.
+- **Do not infer an event from a side effect that has a second cause.** Three probes in one
+  session disagreed about the archer's rate of fire, because each watched something that
+  goes up when an arrow is loosed: the count of live arrows (also moves when one is
+  culled), `live` going true (misses a *recycled* arrow, which goes live->live), and the
+  age resetting (`Arrow.step` also resets `age` when a shot **strikes**, so every hit reads
+  as a new shot). The age watcher was the worst: it reported 16 shots in 20 s of which 12
+  left the string at under 4 m/s, which looked exactly like a broken draw and was a broken
+  probe. Wrapping `Quiver.loose` itself settled it in one run: 96 calls, **every one at
+  48.0 m/s**, one every 1.25 s. When a measurement is surprising, instrument the *call*.
+- **A weapon that cannot sever cannot win a bout, and that is a rule rather than a
+  balance number.** `beaten()` ends a bout on a severed head or torso, or on all twelve
+  parts at zero. An arrow deliberately never severs, so an archer cannot win: against
+  `idle` -- a fighter that stands still and does nothing -- it landed 80 arrows for 274.7
+  damage a bout over sixteen 30-second bouts and killed **0**. Against `swinger` it hit
+  98.9 % of what it loosed for 366.2 damage and died 16/16. The rule's own docstring
+  already flags the alternative and reserves it for a person; the point for anybody adding
+  a weapon is that **damage and lethality are separate systems here**, and a new kind has
+  to say which one it participates in.
+- **A fighter used to retreat at a dead run.** `steer` multiplied `input.forward` by
+  `walkSpeed` whatever its sign, which nobody noticed for as long as the only policy that
+  backed up did it in short bursts -- and which became load-bearing the moment there was a
+  policy whose whole plan is distance. A fighter that retreats as fast as its pursuer
+  advances cannot be caught, so the first archer bench came back 0 kills and 0 deaths at
+  the cap: a stalemate that no amount of tuning the bow could have touched, because it was
+  not about the bow. `fighter.backSpeed` is 59 % of a walk now, and the cost to the melee
+  policies is in `docs/measurements.md`.
+- **`asset:verify` mirrors the whole `CONFIG.fighter` block, not just the bones.** Adding
+  `backSpeed` -- a walking speed, nothing dimensional -- fails it. `npm run asset:dimensions`
+  rewrites the sidecar without rebuilding the `.glb`, which is right exactly when nothing
+  dimensional moved; read the diff before believing that.
+
 ## House rules
 
 Six, and each one was paid for.

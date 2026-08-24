@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { POLICIES, otherHand, policyMind, splitMind } from "../src/mind.ts";
-import { blankIntent, rollForStroke } from "../src/policies.ts";
+import { blankIntent, cursorForElevation, rollForStroke } from "../src/policies.ts";
 import { CONFIG } from "../src/config.ts";
 
 /**
@@ -216,7 +216,7 @@ function drive(mind, seconds, viewFor) {
 test("the picker offers exactly the policies that exist", () => {
   assert.deepEqual(
     POLICIES.map((policy) => policy.name),
-    ["idle", "swinger", "duelist"],
+    ["idle", "swinger", "duelist", "archer"],
   );
   for (const policy of POLICIES) {
     assert.equal(policyMind(policy.name, 1).name, policy.name);
@@ -1061,4 +1061,99 @@ test("a policy swings whatever it is holding, not only the kinds it was written 
       `${name} should not attack with a shield when it has an axe`,
     );
   }
+});
+
+/**
+ * The archer, which is the first policy here that does not fence.
+ *
+ * Everything below is the pure half: what `decide` returns when it is shown a
+ * view. What a bow is *worth* is `.review/bow.mjs` and `docs/measurements.md`,
+ * and the two are deliberately not mixed -- these run in microseconds and that
+ * runs the solver for minutes.
+ */
+
+test("an archer holds the button down and then lets go of it", () => {
+  const mind = policyMind("archer", 4242);
+  const view = facing({ gap: 6, mine: { primary: "bow", secondary: "empty" } });
+  const asked = drive(mind, 4, () => view);
+
+  const held = asked.filter((intent) => intent.thrust).length;
+  assert.ok(held > 0, "it draws");
+  assert.ok(held < asked.length, "and it lets go");
+
+  // A loose is a *falling edge*, which is what `nextDraw` fires on, so what this
+  // is really checking is that the policy spends whole steps with the button up
+  // rather than flickering it. A policy that dropped the button for one step in
+  // every two would draw nothing and shoot nothing, and would look identical in
+  // a screenshot.
+  let runs = 0;
+  for (let i = 1; i < asked.length; i += 1) {
+    const was = asked[i - 1].thrust;
+    const now = asked[i].thrust;
+    if (was && !now) runs += 1;
+  }
+  assert.ok(runs >= 1, "at least one release in four seconds");
+  assert.ok(runs <= 6, `and not a flicker: ${runs} releases in four seconds`);
+});
+
+test("an archer shoots with the hand that holds the bow, not the one that swings", () => {
+  // `isStriking` is false for a bow -- you do not swing one -- so `attackHand`
+  // walks straight past the only hand that matters. `shootHand` is the sibling
+  // question, and this is the difference between the two written down.
+  const mind = policyMind("archer", 11);
+  const view = facing({ gap: 6, mine: { primary: "sword", secondary: "bow" } });
+  const asked = drive(mind, 2, () => view);
+  assert.ok(
+    asked.every((intent) => intent.driving === "secondary"),
+    "the bow hand drives, even with a sword in the other",
+  );
+});
+
+test("an archer keeps its distance, and closes when it has too much", () => {
+  const mind = policyMind("archer", 7);
+  const near = drive(mind, 0.5, () => facing({ gap: 2, mine: { primary: "bow", secondary: "empty" } }));
+  assert.ok(near.every((i) => i.forward < 0), "too close: it backs away");
+
+  const far = policyMind("archer", 7);
+  const away = drive(far, 0.5, () => facing({ gap: 12, mine: { primary: "bow", secondary: "empty" } }));
+  assert.ok(away.every((i) => i.forward > 0), "too far: it closes");
+});
+
+test("an archer with no bow keeps its distance and never pretends to fence", () => {
+  // Deliberate rather than unfinished. The moment this policy grows a melee
+  // branch it stops being a measurement of what a bow is worth.
+  const mind = policyMind("archer", 3);
+  const asked = drive(mind, 2, () => facing({ gap: 2, mine: { primary: "sword", secondary: "empty" } }));
+  assert.ok(asked.every((i) => !i.thrust), "it does not draw a sword like a bow");
+  assert.ok(asked.every((i) => i.forward < 0), "and it backs off rather than closing");
+});
+
+test("an archer aims above the mark, and further above it the further away it is", () => {
+  /**
+   * The drop over a flight is `g t^2 / 2` with `t = range / speed`, so the lift
+   * in *metres* is quadratic in the range -- and the aiming **angle** is
+   * therefore very nearly linear in it, because the angle is the lift over the
+   * range. The first draft of this test asserted the quadratic on the cursor and
+   * failed, correctly: the cursor is an angle.
+   *
+   * So the assertion is one no restatement of the formula can accidentally
+   * satisfy. The fixture puts both shoulders at 1.40 m and the archer aims 120 mm
+   * *below* the opponent's shoulder line, so with no lift at all it would aim
+   * downward at **every** range. It aims downward close in and upward far out,
+   * and the crossover is the ballistics being real.
+   */
+  const aimAt = (gap) => {
+    const mind = policyMind("archer", 5);
+    const view = facing({ gap, mine: { primary: "bow", secondary: "empty" } });
+    const asked = drive(mind, 0.05, () => view);
+    return asked[asked.length - 1].pointerY;
+  };
+  const level = cursorForElevation(0);
+  const near = aimAt(3);
+  const mid = aimAt(8);
+  const far = aimAt(18);
+
+  assert.ok(near < level, `close in it aims below level, at the chest: ${near.toFixed(4)}`);
+  assert.ok(far > level, `far out it aims above level, over the chest: ${far.toFixed(4)}`);
+  assert.ok(mid > near && far > mid, "and it rises all the way, without a step");
 });

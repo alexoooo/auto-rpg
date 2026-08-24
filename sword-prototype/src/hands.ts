@@ -48,7 +48,35 @@ export const otherHand = (hand: HandName): HandName =>
  * ask "is there anything in this hand" first. The one place it does become a
  * null is the physics -- there is no body for an empty hand to weld to.
  */
-export type WeaponKind = "sword" | "axe" | "shield" | "buckler" | "club" | "empty";
+export type WeaponKind =
+  | "sword"
+  | "axe"
+  | "bow"
+  | "shield"
+  | "buckler"
+  | "club"
+  | "empty";
+
+/**
+ * Everything that can hurt somebody, which is **not** the same list.
+ *
+ * An arrow is a thing that hits and is not a thing a hand holds, and that one
+ * sentence is the whole of why this type exists. It was declared in
+ * `scoring.ts`, by hand, until session 04 found it had drifted into an exact
+ * copy of `WeaponKind` and collapsed it into an alias -- correctly, on the
+ * evidence available, and wrongly one session later.
+ *
+ * The lesson is worth more than the type: **two unions that are equal today are
+ * not the same union**, and the test is not whether they currently agree, it is
+ * whether you can name the member that is coming. `HandView.reach` was deleted
+ * and restored for exactly the same reason, one session apart.
+ *
+ * What keeps this from being a hand-maintained list again is the direction of
+ * the derivation. `GRIPS` below is keyed by `Striker`, and `WEAPON_KINDS` is
+ * the rows of it that a hand can actually take -- so the narrow list is
+ * computed from the wide table rather than written beside it.
+ */
+export type Striker = WeaponKind | "arrow";
 
 /**
  * What a kind *is*, as one row per kind, and the whole reason this file was
@@ -62,25 +90,47 @@ export type WeaponKind = "sword" | "axe" | "shield" | "buckler" | "club" | "empt
  * in `EQUIPMENT` is a weapon that compiles, ships, and that every policy in the
  * program silently declines to swing. The fighter stands there holding it.
  *
- * `Record<WeaponKind, Grip>` is total, so a kind without a row is a compile
- * error, and every predicate under it is a field read rather than a guess.
- * `weapon.ts` builds its meshes from a second such record and `scoring.ts`
- * decides what a blow is worth from a third; this one is the *shape* of the
- * thing, which is the half every layer above the physics asks about.
+ * `Record<Striker, Grip>` is total, so a kind without a row is a compile error,
+ * and every predicate under it is a field read rather than a guess. `weapon.ts`
+ * builds its meshes from a second such record and `scoring.ts` decides what a
+ * blow is worth from a third; this one is the *shape* of the thing, which is the
+ * half every layer above the physics asks about.
+ *
+ * It is keyed by `Striker` rather than by `WeaponKind`, so the arrow -- which no
+ * hand ever holds -- has a row here too, and `WEAPON_KINDS` is what filters it
+ * back out. Every field below is answerable for an arrow, and answerable
+ * *truthfully*: it takes no hands, it is not carried, it strikes, it is all
+ * point, and it has no second edge. A row that had to be filled in with
+ * placeholders would be an argument against keying it this way; there are none.
  */
 interface Grip {
-  /** How many hands it takes. */
-  hands: 1 | 2;
   /**
-   * How it is carried: out on the end of the arm like a blade, or strapped
-   * across the forearm.
+   * How many hands it takes.
+   *
+   * **Zero is a real answer**, and it is the arrow's. It was `1 | 2` while every
+   * row was something a person picks up.
+   */
+  hands: 0 | 1 | 2;
+  /**
+   * How it is carried: out on the end of the arm like a blade, strapped across
+   * the forearm, or not carried at all.
    *
    * The whole of what `mountFor` needs, and it used to be spelled `kind ===
-   * "shield"` in two files that had to agree with each other.
+   * "shield"` in two files that had to agree with each other. `loosed` is the
+   * third answer and it does a second job: it is what `WEAPON_KINDS` and
+   * `isWeaponKind` test, so a thing that is shot rather than held cannot reach
+   * the picker, a `<select>` value, or `Weapon`'s builder.
    */
-  carry: "held" | "strapped";
-  /** What it is for. */
-  use: "strike" | "cover" | "none";
+  carry: "held" | "strapped" | "loosed";
+  /**
+   * What it is for.
+   *
+   * `shoot` is not a flavour of `strike`, and keeping them apart is what stops a
+   * policy swinging a bow. `isStriking` is how a policy chooses the hand it
+   * attacks with; a bow is not swung, so it answers false, and `archer` asks
+   * `isShooting` instead.
+   */
+  use: "strike" | "cover" | "shoot" | "none";
   /**
    * Whether it has a point that can be driven into somebody.
    *
@@ -110,14 +160,29 @@ interface Grip {
  * can be cut off and still a hand a policy has to plan, and the alternative to a
  * row is a null check in front of every question.
  */
-const GRIPS: Record<WeaponKind, Grip> = {
+const GRIPS: Record<Striker, Grip> = {
   sword: { hands: 1, carry: "held", use: "strike", point: true, bothEdges: true },
   axe: { hands: 1, carry: "held", use: "strike", point: false, bothEdges: false },
+  // Two hands, like the club, and for the same reason the club takes two: one
+  // holds it and the other works it. `mountFor` gives it the blade's mount, so
+  // its +Y runs out along the arm and **an arrow flies where the arm points**.
+  bow: { hands: 2, carry: "held", use: "shoot", point: false, bothEdges: false },
   shield: { hands: 1, carry: "strapped", use: "cover", point: false, bothEdges: false },
   buckler: { hands: 1, carry: "held", use: "cover", point: false, bothEdges: false },
   club: { hands: 2, carry: "held", use: "strike", point: false, bothEdges: false },
   empty: { hands: 1, carry: "held", use: "none", point: false, bothEdges: false },
+  // Not a weapon, and every field says so honestly rather than by omission.
+  arrow: { hands: 0, carry: "loosed", use: "strike", point: true, bothEdges: false },
 };
+
+/**
+ * Is this a thing a hand can take?
+ *
+ * The one claim in this file that the compiler is taking on trust, and it is
+ * confined to a single line so that it can be. Everything that separates the two
+ * unions goes through here.
+ */
+const held = (kind: Striker): kind is WeaponKind => GRIPS[kind].carry !== "loosed";
 
 /**
  * Every kind that is actually a thing, in the order the picker offers them.
@@ -126,12 +191,16 @@ const GRIPS: Record<WeaponKind, Grip> = {
  * sessions and read by nobody -- which is the state a hand-maintained copy of a
  * list ends up in, and `AGENTS.md` carries the rule about it. `Object.keys` of a
  * total record over the union *is* the union, in declaration order, so this
- * cannot drift from `GRIPS` and the cast is on the type rather than on the
- * value. It has a reader now: `tests/bout.test.mjs` asserts that the picker
- * offers exactly these, so a kind added here and forgotten on the setup screen
- * is a failing test rather than a weapon nobody can choose.
+ * cannot drift from `GRIPS`. It has a reader: `tests/bout.test.mjs` asserts that
+ * the picker offers exactly these, so a kind added here and forgotten on the
+ * setup screen is a failing test rather than a weapon nobody can choose.
+ *
+ * The filter is what makes `GRIPS` able to carry the arrow without the arrow
+ * turning up on the setup screen. It is stated as a property of the row --
+ * "nobody carries this" -- rather than as a name to skip, so the next thing that
+ * is shot rather than held needs no edit here.
  */
-export const WEAPON_KINDS = Object.keys(GRIPS) as readonly WeaponKind[];
+export const WEAPON_KINDS: readonly WeaponKind[] = (Object.keys(GRIPS) as Striker[]).filter(held);
 
 /**
  * Is this string one of them?
@@ -143,9 +212,13 @@ export const WEAPON_KINDS = Object.keys(GRIPS) as readonly WeaponKind[];
  * and started being `undefined.hands`. A `TypeError` from inside `handsFor` is a
  * worse way to learn that a saved matchup has gone stale than a named refusal at
  * the door.
+ *
+ * `"arrow"` is a row in `GRIPS` and is refused here, which is the door the two
+ * unions meet at: a string is only a `WeaponKind` if it is a row *and* the row
+ * is something a hand takes.
  */
 export const isWeaponKind = (value: string): value is WeaponKind =>
-  Object.hasOwn(GRIPS, value);
+  Object.hasOwn(GRIPS, value) && held(value as Striker);
 
 /**
  * The same question asked as a conversion, for the one caller that has to hand
@@ -160,8 +233,8 @@ export const isWeaponKind = (value: string): value is WeaponKind =>
 export const kindOrEmpty = (value: string): WeaponKind =>
   isWeaponKind(value) ? value : "empty";
 
-/** How many hands a kind takes. Only the club takes two. */
-export const handsFor = (kind: WeaponKind): 1 | 2 => GRIPS[kind].hands;
+/** How many hands a kind takes. The club and the bow take two; an arrow takes none. */
+export const handsFor = (kind: Striker): 0 | 1 | 2 => GRIPS[kind].hands;
 
 /**
  * Is this kind a shield -- something that covers and scores nothing?
@@ -171,7 +244,7 @@ export const handsFor = (kind: WeaponKind): 1 | 2 => GRIPS[kind].hands;
  * no damage however hard it arrives, and a policy holding one interposes it
  * rather than swinging it.
  */
-export const isShield = (kind: WeaponKind): boolean => GRIPS[kind].use === "cover";
+export const isShield = (kind: Striker): boolean => GRIPS[kind].use === "cover";
 
 /**
  * Is this kind **strapped** across the forearm, rather than held out on the arm?
@@ -186,7 +259,7 @@ export const isShield = (kind: WeaponKind): boolean => GRIPS[kind].use === "cove
  * A buckler is none of that. It is held out on the end of the arm like a blade,
  * so it takes the blade's mount, the blade's seed and the blade's reach.
  */
-export const isStrapped = (kind: WeaponKind): boolean => GRIPS[kind].carry === "strapped";
+export const isStrapped = (kind: Striker): boolean => GRIPS[kind].carry === "strapped";
 
 /**
  * Can this kind be swung at somebody?
@@ -202,8 +275,29 @@ export const isStrapped = (kind: WeaponKind): boolean => GRIPS[kind].carry === "
  * would happily score it, but nothing welds a body to an empty hand, so there is
  * no contact to score and a policy that chose one as its attacking hand would
  * swing at the air for the rest of the bout.
+ *
+ * **A bow is false**, and that is the one answer here worth arguing with. It is
+ * a weapon, it is in the picker, and it kills people -- and it is not *swung*,
+ * so a policy that picked the bow hand as the hand it attacks with would run a
+ * cut with a stave. The consequence is stated rather than discovered: `duelist`
+ * and `swinger` handed a bow find no striking hand and fall through
+ * `attackHand`'s nothing-left-to-swing branch, which is the branch two shields
+ * already take. That is a fighter who has brought a bow to a sword fight, which
+ * is a true thing about the world rather than a hole -- and `archer`, which asks
+ * `isShooting`, is the policy that knows what to do with one.
  */
-export const isStriking = (kind: WeaponKind): boolean => GRIPS[kind].use === "strike";
+export const isStriking = (kind: Striker): boolean => GRIPS[kind].use === "strike";
+
+/**
+ * Can this kind be loosed at somebody from across the arena?
+ *
+ * Its own question rather than a flavour of `isStriking`, for the reason that
+ * one is its own question rather than a negation of `isShield`: it is asked for
+ * its own purpose. `archer` reads it to find the hand it shoots with, `Arm` reads
+ * it to decide whether to build a quiver at all, and neither of those wants the
+ * hand that swings.
+ */
+export const isShooting = (kind: Striker): boolean => GRIPS[kind].use === "shoot";
 
 /**
  * Can this kind be driven point-first?
@@ -214,13 +308,20 @@ export const isStriking = (kind: WeaponKind): boolean => GRIPS[kind].use === "st
  * collar and that is about the end of it. `scoring.ts` is what enforces it --
  * a thrust with anything else is a shove, which is what `slap` already means.
  *
- * No policy reads this, and that is not an oversight either. `policies.ts` sets
- * `thrust = false` on every hand of every intent it writes, and `duelist`'s own
- * docstring argues at length that a thrusting policy is a second policy rather
- * than a branch in this one. So this is a rule a **person** meets, on the left
- * mouse button, and the half of the axe's trade that the bench cannot see.
+ * An **arrow** is the one thing here that is nothing but point, and it does not
+ * read this either: `scoring.ts` gives it a bite of its own -- `how: "point"` --
+ * because an arrow has no cutting branch to fall out of and no tip zone to be
+ * near. The field is true for it because it is true, not because anything asks.
+ *
+ * No policy reads this, and that is not an oversight either. `duelist` and
+ * `swinger` set `thrust = false` on every hand of every intent they write, and
+ * `duelist`'s own docstring argues at length that a thrusting policy is a second
+ * policy rather than a branch in this one. So this is a rule a **person** meets,
+ * on the left mouse button, and the half of the axe's trade that the bench
+ * cannot see. `archer` holds the button, but it is holding it to draw a bow --
+ * which has no point either.
  */
-export const hasPoint = (kind: WeaponKind): boolean => GRIPS[kind].point;
+export const hasPoint = (kind: Striker): boolean => GRIPS[kind].point;
 
 /**
  * Does this kind cut on both sides of its edge axis, or only on +X?
@@ -233,4 +334,4 @@ export const hasPoint = (kind: WeaponKind): boolean => GRIPS[kind].point;
  * heavy sword that happens to cut with its back, which is not a weapon anybody
  * has ever carried.
  */
-export const cutsBothWays = (kind: WeaponKind): boolean => GRIPS[kind].bothEdges;
+export const cutsBothWays = (kind: Striker): boolean => GRIPS[kind].bothEdges;

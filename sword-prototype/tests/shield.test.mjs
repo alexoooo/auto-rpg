@@ -371,3 +371,73 @@ test("every weapon is built in the frame its own weld demands", async (t) => {
     assert.ok(wanted, "and `mountRotation` is the thing that put it there");
   }
 });
+
+test("a weapon does not collide with the arm that is holding it", async () => {
+  /**
+   * The regression this session found, and it is the same *shape* as the one at
+   * the top of this file: a rule stated at length in `physics.ts`, believed by
+   * everybody, and not enforced anywhere.
+   *
+   * `Weapon.finish` set its collision masks on the `PhysicsShapeContainer`.
+   * Havok filters on the **leaf** shapes and ignores a container's mask
+   * entirely, so every weapon in the program carried the default filter, which
+   * collides with everything. Measured on a real fighter swept through its
+   * envelope for twelve seconds: the sword logged 1687 contacts against its own
+   * upper arm, 1572 against its own forearm, 853 against its own torso and 795
+   * against its own shield; the shield logged 985 against its owner's head, 725
+   * and 669 against its owner's two arms, and 391 against its own hand.
+   *
+   * The shield's is the expensive half. The plate hangs 110 mm off the fist and
+   * its own forearm sits inside that gap by construction, so that is *permanent*
+   * contact between a 4 kg lever and the chain driving it -- which is exactly
+   * the failure the four-layers-per-side split was invented to prevent, running
+   * the whole time it was there.
+   *
+   * It was invisible because the symptom is friction rather than a hole, in a
+   * prototype whose whole subject is how cleanly an arm tracks its anchor.
+   */
+  const { engine, left, intent, run } = await ring({ primary: "sword", secondary: "shield" });
+  try {
+    const own = new Set();
+    for (const limb of left.limbs) own.add(limb.part.body);
+
+    const arms = new Set();
+    for (const name of ["primary", "secondary"]) {
+      const arm = left.arms[name];
+      for (const part of [arm.upperArm, arm.forearm, arm.hand]) arms.add(part.body);
+    }
+
+    const hits = { sword: 0, shield: 0, swordOwnArm: 0, shieldOwnArm: 0 };
+    const watch = (weapon, key) => {
+      weapon.body.getCollisionObservable().add((event) => {
+        if (own.has(event.collidedAgainst)) hits[key] += 1;
+        if (arms.has(event.collidedAgainst)) hits[`${key}OwnArm`] += 1;
+      });
+    };
+    watch(left.arms.primary.weapon, "sword");
+    watch(left.arms.secondary.weapon, "shield");
+
+    // Sweep both hands right through their envelopes, which is what found it.
+    for (let leg = 0; leg < 24; leg += 1) {
+      const a = (leg / 24) * Math.PI * 2;
+      intent.primary.pointerX = Math.sin(a * 1.7);
+      intent.primary.pointerY = Math.cos(a * 1.1);
+      intent.secondary.pointerX = Math.sin(a * 0.9 + 1);
+      intent.secondary.pointerY = Math.cos(a * 1.4 + 2);
+      run(0.5);
+    }
+
+    assert.equal(hits.swordOwnArm, 0, "a blade passes through the arm swinging it");
+    assert.equal(
+      hits.shieldOwnArm,
+      0,
+      "and a shield through both of its owner's -- the 4 kg lever that must not be in permanent contact",
+    );
+    // What the shield *is* allowed to find is its owner's trunk, which is the
+    // entire reason it has a layer of its own. So this is not "a shield touches
+    // nothing"; it is a shield touching the one thing it should.
+    assert.ok(hits.shield > 0, "the shield still stops on its owner's trunk, which is its whole job");
+  } finally {
+    engine.dispose();
+  }
+});

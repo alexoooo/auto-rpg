@@ -1,22 +1,26 @@
 // Explicit extension: this module and its test are run directly by Node (which
 // requires it) as well as bundled by Vite (which does not care).
 import { CONFIG } from "./config.ts";
-import { cutsBothWays, hasPoint, type WeaponKind } from "./hands.ts";
+import { cutsBothWays, hasPoint, type Striker } from "./hands.ts";
 
 export type HitKind = "cut" | "thrust" | "slap" | "weak" | "crush";
 
 /**
- * What is doing the hitting.
+ * What is doing the hitting, forwarded from `hands.ts`.
  *
- * It was a restatement of `WeaponKind`, hand-maintained, for the reason every
- * other shape in this file is what it is: `weapon.ts` imports Babylon and the
- * whole value of this module is that it does not. `hands.ts` does not either --
- * it imports nothing at all -- so the copy has no job left and the alias is the
- * real thing. What that buys is not tidiness: a kind added to the union is now a
- * missing key in `BITE` below, reported here, instead of an assignability error
- * at `combat.ts`'s call site that reads as a problem with the caller.
+ * It was declared here, hand-maintained, as a restatement of `WeaponKind` --
+ * because `weapon.ts` imports Babylon and the whole value of this module is that
+ * it does not. Session 04 noticed that `hands.ts` imports nothing at all either,
+ * so the copy had no job left, and collapsed it to `type Striker = WeaponKind`.
+ *
+ * One session later there is an arrow: a thing that hits somebody and is not a
+ * thing a hand holds. The alias was right about where the type belongs and wrong
+ * about what it is, and `hands.ts` now declares both -- so this is a forwarding,
+ * which is the shape everything else in that file already has. **Two unions that
+ * are equal today are not the same union**; the test is whether you can name the
+ * member that is coming.
  */
-export type Striker = WeaponKind;
+export type { Striker };
 
 /** A contact reduced to the four numbers that decide what it was worth. */
 export interface Contact {
@@ -67,13 +71,35 @@ export type Tuning = typeof CONFIG.combat;
  */
 interface Bite {
   /**
-   * How it hurts somebody: with an edge that has to be placed, with mass that
-   * does not have to be, or not at all.
+   * How it hurts somebody: with an edge that has to be placed, with a point that
+   * has to arrive straight, with mass that has to do neither, or not at all.
+   *
+   * `point` is not "the thrust half of `edge`". The edge branch scores a thrust
+   * only for a contact near the tip of something that is mostly *not* a point,
+   * and takes the better of the cut and the thrust; an arrow is a point along
+   * its whole length, has no cut to lose to and no tip zone to be inside, and a
+   * blade's arithmetic applied to one would have scored a hit anywhere along the
+   * shaft as a slap. Its own branch is four lines and says what an arrow is.
    */
-  how: "edge" | "mass" | "none";
+  how: "edge" | "point" | "mass" | "none";
   /** Contact speed below which it does nothing, and the readout says so. */
   floor: (tuning: Tuning) => number;
-  /** Damage at `referenceSpeed` for a blow of quality 1. */
+  /**
+   * Contact speed at which it is worth everything it can be worth.
+   *
+   * Beside `floor` because it is the same kind of fact -- the two ends of the
+   * one ramp -- and per kind for the reason the floor is: `combat.referenceSpeed`
+   * is 11 m/s and that is a **blade's** number. An arrow leaves the string at 48,
+   * so scored against 11 every arrow that arrives straight saturates at 1 and a
+   * half-drawn bow does exactly as much damage as a full one. That is a knob
+   * that changes nothing, which is the defect the axe's two refuted knobs were,
+   * and this is it caught before it shipped rather than after.
+   *
+   * Every hand-held row hands back `referenceSpeed`, so nothing about the sword,
+   * the axe or the club moves by a bit.
+   */
+  reference: (tuning: Tuning) => number;
+  /** Damage at `reference` for a blow of quality 1. */
   scale: (tuning: Tuning) => number;
   /**
    * How well a blow has to be placed before it may take a limb off.
@@ -112,6 +138,7 @@ interface Bite {
 const inert: Bite = {
   how: "none",
   floor: (t) => t.minCutSpeed,
+  reference: (t) => t.referenceSpeed,
   scale: () => 0,
   severQuality: () => 1,
 };
@@ -120,6 +147,7 @@ const BITE: Record<Striker, Bite> = {
   sword: {
     how: "edge",
     floor: (t) => t.minCutSpeed,
+    reference: (t) => t.referenceSpeed,
     scale: (t) => t.damageScale,
     severQuality: (t) => t.severQuality,
   },
@@ -150,6 +178,7 @@ const BITE: Record<Striker, Bite> = {
   axe: {
     how: "edge",
     floor: (t) => t.minCutSpeed,
+    reference: (t) => t.referenceSpeed,
     scale: (t) => t.chopScale,
     severQuality: (t) => t.severQuality,
   },
@@ -167,11 +196,43 @@ const BITE: Record<Striker, Bite> = {
   club: {
     how: "mass",
     floor: (t) => t.minCrushSpeed,
+    reference: (t) => t.referenceSpeed,
     scale: (t) => t.crushScale,
     severQuality: () => 0,
   },
   shield: inert,
   buckler: inert,
+  /**
+   * A bow, swung.
+   *
+   * `inert`, like the shields, and for the same reason rather than a different
+   * one: it is a stave with a string on it, and a weapon that scores when it is
+   * used the way it is not meant to be used is a weapon with an option nobody
+   * designed. Everything a bow is worth is in the arrow below.
+   */
+  bow: inert,
+  /**
+   * An arrow, which is the first striker in this table that no hand ever holds.
+   *
+   * All of it is speed and alignment, and the alignment is the *shaft's*: an
+   * arrow that arrives point-first buries itself, and one that arrives broadside
+   * is a stick hitting somebody. There is no edge to place and no wrist to place
+   * it with, so `edgeAlignment` never enters -- which is what `how: "point"`
+   * means and why it is not a flavour of the blade's branch.
+   *
+   * **It never severs.** `severQuality` at 1 is unreachable, which is the same
+   * idiom `inert` uses to say never. An arrow through an arm is an arm with an
+   * arrow in it; taking the limb off wants an edge and a swing, and giving a
+   * projectile that power would make the bow strictly better than the axe at the
+   * one thing the axe is for.
+   */
+  arrow: {
+    how: "point",
+    floor: (t) => t.minArrowSpeed,
+    reference: (t) => t.arrowReference,
+    scale: (t) => t.pierceScale,
+    severQuality: () => 1,
+  },
   /**
    * A bare hand.
    *
@@ -226,8 +287,10 @@ export function scoreHit(
     return { kind: "weak", quality: 0, damage: 0 };
   }
 
-  const speedFrom = (from: number) =>
-    clamp01((contact.speed - from) / (tuning.referenceSpeed - from));
+  // How far up its own ramp this arrived, floor to reference, both out of the
+  // kind's own row. It was one expression against `tuning.referenceSpeed`, which
+  // was every kind's ramp because every kind was swung by an arm.
+  const hard = clamp01((contact.speed - floor) / (bite.reference(tuning) - floor));
 
   if (bite.how === "none") {
     // A slap rather than a kind of its own: the shove still lands, and the
@@ -236,7 +299,16 @@ export function scoreHit(
   }
 
   if (bite.how === "mass") {
-    return { kind: "crush", quality: 1, damage: bite.scale(tuning) * speedFrom(floor) };
+    return { kind: "crush", quality: 1, damage: bite.scale(tuning) * hard };
+  }
+
+  if (bite.how === "point") {
+    // How straight it arrived, and nothing else. A tumbling arrow's velocity is
+    // across its own shaft, `bladeAlignment` collapses toward zero, and the same
+    // 45 m/s that buries a clean shot is a stick hitting somebody.
+    const quality = Math.pow(contact.bladeAlignment, tuning.edgeExponent);
+    const kind: HitKind = quality < 0.25 ? "slap" : "thrust";
+    return { kind, quality, damage: bite.scale(tuning) * quality * hard };
   }
 
   // Which way round the blade was travelling, for the kinds that care. A sword
@@ -260,7 +332,7 @@ export function scoreHit(
   const quality = thrusting ? thrustQuality : cutQuality;
   const kind: HitKind = quality < 0.25 ? "slap" : thrusting ? "thrust" : "cut";
 
-  return { kind, quality, damage: bite.scale(tuning) * quality * speedFrom(floor) };
+  return { kind, quality, damage: bite.scale(tuning) * quality * hard };
 }
 
 /**

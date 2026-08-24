@@ -3,13 +3,64 @@ import { PhysicsEventType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugi
 import type { IPhysicsCollisionEvent } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import type { Observer } from "@babylonjs/core/Misc/observable.js";
 
+import type { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
+
 import { CONFIG } from "./config.ts";
 import type { Side } from "./physics.ts";
-import type { Weapon, WeaponKind } from "./weapon.ts";
+import type { WeaponKind } from "./weapon.ts";
 import type { Fighter, Limb } from "./fighter.ts";
-import { biteFloor, scoreHit, severs, type HitKind } from "./scoring.ts";
+import { biteFloor, scoreHit, severs, type HitKind, type Striker } from "./scoring.ts";
 
 export type { HitKind };
+
+/**
+ * What this file needs from a thing that can hurt somebody.
+ *
+ * It used to need a `Weapon`, which is a class with a mesh tree, a compound
+ * shape, a mount and a builder per kind -- and of all that, six members are ever
+ * read here. An **arrow** can answer all six and is none of the rest of it: no
+ * hand holds one, no `mountRotation` places one, and there is no row for it in
+ * any of the tables `Weapon`'s constructor switches on.
+ *
+ * So the dependency is stated as what it is. `Weapon` satisfies this without a
+ * line of change, because it already had all six; `Arrow` satisfies it because
+ * this is the list it was written against. Nothing else moves.
+ *
+ * Two of the six are answered differently by an arrow and it is worth saying
+ * which. `edgeDirection` is the shaft's +X and means nothing -- an arrow has no
+ * edge, and `scoring.ts` never asks about one, because its bite is `how: "point"`
+ * rather than `how: "edge"`. `tipPosition` is the head, and `nearTip` is
+ * likewise never asked. They are here because the report keeps them: a blow that
+ * scored nothing is unarguable until you can see where it was and which way it
+ * was facing.
+ */
+export interface Striking {
+  readonly kind: Striker;
+  readonly body: PhysicsBody;
+  /**
+   * Whether this has stopped being a weapon: dropped, or already spent.
+   *
+   * **Debris does not score**, and that is one rule with two instances rather
+   * than a special case for arrows. A weapon that has been cut out of a hand and
+   * an arrow that has already hit somebody are the same thing -- an object lying
+   * in the arena that used to be dangerous -- and both are re-layered onto
+   * `DEBRIS` to say so. What was missing is that the *scoring* seam never asked.
+   *
+   * It cost real numbers. An arrow that has struck goes on generating contacts
+   * against the limb it is resting on, one every `hitCooldown`, and a limb that
+   * is moving drags it past `minArrowSpeed` often enough to be billed: over 12
+   * bouts, 62 of the archer's "hits" averaged **2.9 damage** where a clean arrow
+   * is worth 55, because most of them were the same handful of spent shafts
+   * being scored eleven times a second. The speed floor was doing most of the
+   * work and it was never going to do all of it -- a floor filters the typical
+   * case and this is a tail.
+   */
+  readonly spent: boolean;
+  velocityAt(world: Vector3): Vector3;
+  edgeDirection(): Vector3;
+  bladeDirection(): Vector3;
+  tipPosition(): Vector3;
+}
 
 export interface HitReport {
   /**
@@ -17,8 +68,13 @@ export interface HitReport {
    * how, and the report of the blow that ended it is the only place that knows.
    */
   by: Side;
-  /** Which of the side's two hands landed it. A bout can end on either. */
-  weapon: WeaponKind;
+  /**
+   * What landed it.
+   *
+   * A `Striker` rather than a `WeaponKind`, because a side can now be hit by
+   * something nobody is holding.
+   */
+  weapon: Striker;
   /** The limb's label, which is what a person reads in the banner. */
   limb: string;
   /**
@@ -67,6 +123,7 @@ export interface HitReport {
 const PARRY_LABEL: Record<WeaponKind, string> = {
   sword: "Blade",
   axe: "Haft",
+  bow: "Stave",
   shield: "Shield",
   buckler: "Buckler",
   club: "Club",
@@ -110,8 +167,19 @@ export class Combat {
    * The weapon is captured per observer rather than looked up from the event,
    * because `getCollisionObservable` is already per body -- so the binding is
    * exact and free, and there is no way for a report to name the wrong blade.
+   *
+   * **It is still bound once, in the constructor, and a bow did not change
+   * that.** The master plan expected an arrow to need `watch`/`unwatch` per
+   * shot, on the reasoning that a projectile is a body appearing mid-bout. It is
+   * not: `Quiver` builds every arrow with the fighter and parks it, so the list
+   * this walks is complete before the first step. That was chosen against the
+   * alternative on a measurement -- 24 arrows parked STATIC on membership mask 0
+   * cost **-0.0015 ms/frame**, which is below the bench's own noise -- and what
+   * it buys is that an observable is never touched at 240 Hz and no arrow can
+   * outlive the observer watching it. `Fighter.strikers` is what hands them over.
    */
-  private readonly watching: { weapon: Weapon; observer: Observer<IPhysicsCollisionEvent> }[] = [];
+  private readonly watching: { weapon: Striking; observer: Observer<IPhysicsCollisionEvent> }[] =
+    [];
   private target: Fighter | null = null;
   private clock = 0;
   /** Parries share one cooldown, since two blades resting together contact
@@ -129,7 +197,7 @@ export class Combat {
     push: new Vector3(),
   };
 
-  constructor(side: Side, weapons: readonly (Weapon | null)[]) {
+  constructor(side: Side, weapons: readonly (Striking | null)[]) {
     this.side = side;
     for (const weapon of weapons) {
       if (!weapon) continue;
@@ -183,8 +251,10 @@ export class Combat {
     this.watching.length = 0;
   }
 
-  private onContact(weapon: Weapon, event: IPhysicsCollisionEvent): void {
+  private onContact(weapon: Striking, event: IPhysicsCollisionEvent): void {
     if (event.type === PhysicsEventType.COLLISION_FINISHED) return;
+    // Debris does not score, and does not parry either. See `Striking.spent`.
+    if (weapon.spent) return;
     if (!this.target || !event.point) return;
 
     const limb = this.target.limbFor(event.collidedAgainst);
@@ -214,7 +284,7 @@ export class Combat {
    * against each other generate a contact every step and would otherwise fill
    * the log with a single parry twenty-four times over.
    */
-  private parried(weapon: Weapon, event: IPhysicsCollisionEvent): void {
+  private parried(weapon: Striking, event: IPhysicsCollisionEvent): void {
     const stopped = this.target?.parriedBy(event.collidedAgainst);
     if (!stopped || !event.point) return;
     if (this.clock - this.lastParryAt < CONFIG.combat.hitCooldown) return;
@@ -243,7 +313,7 @@ export class Combat {
     if (this.log.length > 24) this.log.length = 24;
   }
 
-  private resolve(weapon: Weapon, limb: Limb, event: IPhysicsCollisionEvent): HitReport {
+  private resolve(weapon: Striking, limb: Limb, event: IPhysicsCollisionEvent): HitReport {
     const C = CONFIG.combat;
     const point = event.point as Vector3;
 

@@ -1,8 +1,10 @@
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
+import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import { Vector3, Quaternion, Matrix } from "@babylonjs/core/Maths/math.vector.js";
 import { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
 import {
+  PhysicsShape,
   PhysicsShapeBox,
   PhysicsShapeContainer,
   PhysicsShapeCylinder,
@@ -12,10 +14,12 @@ import type { Material } from "@babylonjs/core/Materials/material.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 
 import { CONFIG } from "./config.ts";
+import { COLLIDES, LAYER } from "./physics.ts";
 import {
   WEAPON_KINDS,
   handsFor,
   isShield,
+  isShooting,
   isStrapped,
   isStriking,
   type WeaponKind,
@@ -32,7 +36,7 @@ import {
  * is a move nothing can break.
  */
 export type { WeaponKind };
-export { WEAPON_KINDS, handsFor, isShield, isStrapped, isStriking };
+export { WEAPON_KINDS, handsFor, isShield, isShooting, isStrapped, isStriking };
 
 export interface WeaponMaterials {
   steel: Material;
@@ -56,6 +60,27 @@ interface Built {
   centreOfMass: Vector3;
   baseOffset: number;
   tipOffset: number;
+  /**
+   * Where a second hand takes hold, along local +Y -- or **null** for a kind no
+   * second hand grips.
+   *
+   * It was `CONFIG.club.secondGrip`, written into `Arm.takeSecondGrip`: one
+   * kind's number, in a method whose entire subject is two-handedness in
+   * general. Exactly the defect `combat.ts` had when it held its own copy of
+   * `minCutSpeed`, and it stayed invisible for the same reason -- the club was
+   * the only two-handed kind, so a caller's copy and the table agreed.
+   *
+   * A bow is what made them disagree, and its answer is `null`. It takes both
+   * hands and the trailing one is on the string, which travels 620 mm through a
+   * draw: there is nothing fixed to weld it to. Its second hand is committed by
+   * the loadout and modelled by the draw, and inventing a joint so that the
+   * field could hold a number would be the opposite of what this field is for.
+   *
+   * `Built` is where it goes rather than `hands.ts` because it is a *distance*,
+   * which is geometry -- and geometry is what a builder already knows and what
+   * `hands.ts`, which imports nothing, deliberately does not.
+   */
+  secondGrip: number | null;
 }
 
 /**
@@ -196,16 +221,74 @@ export interface WeaponOptions {
  */
 export class Weapon {
   readonly kind: WeaponKind;
-  /** Two for the club, one for everything else. */
-  readonly hands: 1 | 2;
   readonly root: TransformNode;
   readonly body: PhysicsBody;
   readonly shape: PhysicsShapeContainer;
+
+  /**
+   * Every leaf shape this weapon is made of, because **Havok filters on the
+   * leaves and ignores the container's own mask entirely**.
+   *
+   * This list exists because of a defect that had been in the file since there
+   * was a file. `finish` set `this.shape.filterMembershipMask`, on the
+   * container, which is what the API invites -- and it did nothing whatsoever.
+   * Not "nothing subtle": a real fighter holding a real sword, swept through its
+   * envelope for twelve seconds, logged **1687 contacts against its own upper
+   * arm, 1572 against its own forearm, 853 against its own torso and 795 against
+   * its own shield**. Every one of those is a pair `physics.ts` spends fifty
+   * lines explaining must never touch, and the shield was worse: 985 against its
+   * owner's head, 725 and 669 against its owner's two arms, 391 against its own
+   * hand. The plate hangs 110 mm off the fist and its own forearm sits inside
+   * that gap by construction, so that is *permanent* contact between a 4 kg
+   * lever and the chain driving it -- the exact failure the layer table was
+   * designed to prevent, running the whole time.
+   *
+   * It stayed invisible because the symptom is not a crash or a hole, it is
+   * *friction*: an arm that tracks its anchor a little worse than it should, in
+   * a prototype whose entire subject is how well an arm tracks its anchor. And
+   * reading the mask back does not catch it either -- a container hands back
+   * garbage (383476 for a shape set to 8).
+   *
+   * `.review/mask-probe.mjs` is the six-case drop that settles it: a leaf's mask
+   * takes, before or after its body exists; a container's never takes at all;
+   * and a child's mask set through the container's back takes.
+   */
+  private readonly parts: PhysicsShape[] = [];
 
   /** Distance from origin to the point of the blade, along local +Y. */
   readonly tipOffset: number;
   /** Where the blade proper begins -- the guard. */
   readonly baseOffset: number;
+  /** Where a second hand takes hold along local +Y, or null if none does. */
+  readonly secondGrip: number | null;
+
+  private discarded = false;
+
+  /**
+   * Whether this has stopped being a weapon, which for a `Weapon` means it has
+   * been cut out of somebody's hand.
+   *
+   * Read by `Combat`, which will not score a contact from it. That is not a new
+   * rule for arrows being applied to blades by analogy -- a sword lying on the
+   * floor scoring cuts against whoever walks over it is the same defect, and it
+   * has been here as long as limbs have come off.
+   */
+  get spent(): boolean {
+    return this.discarded;
+  }
+
+  /**
+   * The three pieces a bow's draw moves, and null for every other kind.
+   *
+   * Data rather than a branch: `drawTo` is a no-op for anything that has no
+   * string, so nothing above here asks what it is holding. All three are
+   * **cosmetic** -- they are not in the physics shape, and house rule 2 is why:
+   * the string does not stop a blade and the nocked arrow does not hit anybody.
+   * What they do is answer the one question a hold-to-charge control cannot be
+   * played without, which is *how far have I drawn it*.
+   */
+  private draw: { upper: Mesh; lower: Mesh; nocked: Mesh; brace: number; pull: number } | null =
+    null;
 
   private readonly scratch = {
     edge: new Vector3(),
@@ -229,7 +312,6 @@ export class Weapon {
     materials: WeaponMaterials,
   ) {
     this.kind = opts.kind;
-    this.hands = handsFor(opts.kind);
 
     this.root = new TransformNode(opts.name, scene);
     this.root.position.copyFrom(opts.position);
@@ -251,15 +333,18 @@ export class Weapon {
       const built =
         opts.kind === "axe"
           ? this.buildAxe(scene, opts.name, materials)
-          : opts.kind === "shield"
-            ? this.buildShield(scene, opts.name, materials)
-            : opts.kind === "buckler"
-              ? this.buildBuckler(scene, opts.name, materials)
-              : opts.kind === "club"
-                ? this.buildClub(scene, opts.name, materials)
-                : unbuildable(opts.kind);
+          : opts.kind === "bow"
+            ? this.buildBow(scene, opts.name, materials)
+            : opts.kind === "shield"
+              ? this.buildShield(scene, opts.name, materials)
+              : opts.kind === "buckler"
+                ? this.buildBuckler(scene, opts.name, materials)
+                : opts.kind === "club"
+                  ? this.buildClub(scene, opts.name, materials)
+                  : unbuildable(opts.kind);
       this.baseOffset = built.baseOffset;
       this.tipOffset = built.tipOffset;
+      this.secondGrip = built.secondGrip;
       this.body = this.finish(scene, opts, built.mass, built.centreOfMass);
       return;
     }
@@ -269,6 +354,7 @@ export class Weapon {
 
     this.baseOffset = gripLength / 2;
     this.tipOffset = this.baseOffset + bladeLength;
+    this.secondGrip = null;
 
     const bladeCentre = this.baseOffset + bladeLength / 2;
 
@@ -320,15 +406,15 @@ export class Weapon {
 
     // Physics: one compound shape, so the guard can turn a blow and the pommel
     // has presence, rather than the blade being the only thing in the world.
-    this.shape.addChild(
+    this.addPart(
       new PhysicsShapeBox(Vector3.Zero(), Quaternion.Identity(), new Vector3(bladeWidth, bladeLength, bladeThickness), scene),
       new Vector3(0, bladeCentre, 0),
     );
-    this.shape.addChild(
+    this.addPart(
       new PhysicsShapeBox(Vector3.Zero(), Quaternion.Identity(), new Vector3(guardWidth, 0.026, 0.038), scene),
       new Vector3(0, this.baseOffset, 0),
     );
-    this.shape.addChild(
+    this.addPart(
       new PhysicsShapeBox(Vector3.Zero(), Quaternion.Identity(), new Vector3(0.034, gripLength, 0.034), scene),
       Vector3.Zero(),
     );
@@ -347,8 +433,7 @@ export class Weapon {
    * model looks exactly like a weapon that never connects.
    */
   private finish(scene: Scene, opts: WeaponOptions, mass: number, balance: Vector3): PhysicsBody {
-    this.shape.filterMembershipMask = opts.layer;
-    this.shape.filterCollideMask = opts.collidesWith;
+    this.relayer(opts.layer, opts.collidesWith);
 
     const body = new PhysicsBody(this.root, PhysicsMotionType.DYNAMIC, false, scene);
     body.shape = this.shape;
@@ -430,7 +515,7 @@ export class Weapon {
     // One box for the whole face. A shield does not need a compound shape: it is
     // a flat thing whose job is to occupy a rectangle, and every extra child is
     // another pair the solver tests every step for the rest of the bout.
-    this.shape.addChild(
+    this.addPart(
       new PhysicsShapeBox(
         Vector3.Zero(),
         Quaternion.Identity(),
@@ -448,6 +533,7 @@ export class Weapon {
       centreOfMass: new Vector3(0, out * 0.75, along * 0.75),
       baseOffset: 0,
       tipOffset: out + S.thickness,
+      secondGrip: null,
     };
   }
 
@@ -527,7 +613,7 @@ export class Weapon {
     grip.material = materials.leather;
     grip.parent = this.root;
 
-    this.shape.addChild(
+    this.addPart(
       new PhysicsShapeCylinder(
         new Vector3(0, -B.thickness / 2, 0),
         new Vector3(0, B.thickness / 2, 0),
@@ -546,6 +632,7 @@ export class Weapon {
       centreOfMass: new Vector3(0, out * 0.9, 0),
       baseOffset: 0,
       tipOffset: out + B.thickness,
+      secondGrip: null,
     };
   }
 
@@ -655,7 +742,7 @@ export class Weapon {
     // Two shapes, as the club has two. The head's box spans poll to edge,
     // because that is what the head is; the visible taper is a look and the
     // solver has no use for it.
-    this.shape.addChild(
+    this.addPart(
       new PhysicsShapeBox(
         Vector3.Zero(),
         Quaternion.Identity(),
@@ -664,7 +751,7 @@ export class Weapon {
       ),
       new Vector3(0, shaftCentre, 0),
     );
-    this.shape.addChild(
+    this.addPart(
       new PhysicsShapeBox(
         Vector3.Zero(),
         Quaternion.Identity(),
@@ -679,7 +766,175 @@ export class Weapon {
       centreOfMass: new Vector3(A.balanceOffset, A.balancePoint, 0),
       baseOffset: base,
       tipOffset: tip,
+      secondGrip: null,
     };
+  }
+
+  /**
+   * A bow: a stave across the fist, a string behind it, and an arrow that goes
+   * where the arm is pointing.
+   *
+   * It takes the blade's mount, which is the whole design and not a shortcut.
+   * The weapon's **+Y runs out along the arm**, so an arrow loosed along +Y goes
+   * exactly where a sword's point would have gone -- the aiming is the aiming
+   * that already exists, and there is no second control surface, no crosshair
+   * and no mode. The stave lies on **+X**, which is the axis `roll` turns the
+   * weapon about, so a wrist at zero holds it upright and a rolled wrist cants
+   * it. Both of those fall out of the shared local frame rather than being
+   * arranged: +X is where an axe's edge goes and where a sword's edge goes, and
+   * it is the one axis a wrist owns.
+   *
+   * The archer is at -Y. So the riser stands proud toward -Y, where the hand
+   * is; the string is drawn back past it, further into -Y; and the limbs and the
+   * arrow are ahead at +Y. That is a real bow's geometry and it is also the only
+   * arrangement in which the hand is not inside the string.
+   *
+   * **Two shapes, and neither of them is the string.** The stave and the riser
+   * are the physics; the string and the nocked arrow are meshes and nothing
+   * else. A string that stopped a blade would be a 2 mm rectangle that parries,
+   * and a nocked arrow with a body would be a second thing in the world every
+   * time somebody held the button down.
+   */
+  private buildBow(
+    scene: Scene,
+    name: string,
+    materials: WeaponMaterials,
+  ): Built {
+    const B = CONFIG.bow;
+    const half = B.staveLength / 2;
+
+    const stave = MeshBuilder.CreateBox(
+      `${name}.stave`,
+      { width: B.staveLength, height: B.staveDepth, depth: B.staveThickness },
+      scene,
+    );
+    stave.material = materials.wood;
+    stave.parent = this.root;
+
+    // The tips, which are what the string runs between and what makes the
+    // silhouette read as a bow rather than as a stick.
+    for (const side of [-1, 1]) {
+      const tip = MeshBuilder.CreateBox(
+        `${name}.tip${side > 0 ? "A" : "B"}`,
+        { width: B.staveLength * 0.10, height: B.staveDepth * 0.7, depth: B.staveThickness * 1.4 },
+        scene,
+      );
+      tip.position.set(side * (half - B.staveLength * 0.05), -B.staveDepth * 0.25, 0);
+      tip.material = materials.leather;
+      tip.parent = this.root;
+    }
+
+    // The riser: what the hand actually holds, standing proud on the archer's
+    // side of the stave.
+    const grip = MeshBuilder.CreateBox(
+      `${name}.grip`,
+      { width: B.gripLength, height: B.gripDepth, depth: B.staveThickness * 1.9 },
+      scene,
+    );
+    grip.position.set(0, -B.gripDepth / 2, 0);
+    grip.material = materials.leather;
+    grip.parent = this.root;
+
+    // The two halves of the string, and the arrow on it. `drawTo` moves all
+    // three; this is only where they begin.
+    const stringOf = (label: string) => {
+      const mesh = MeshBuilder.CreateBox(
+        `${name}.string${label}`,
+        { width: 0.004, height: 1, depth: 0.004 },
+        scene,
+      );
+      mesh.material = materials.leather;
+      mesh.parent = this.root;
+      return mesh;
+    };
+    const upper = stringOf("A");
+    const lower = stringOf("B");
+
+    const nocked = MeshBuilder.CreateBox(
+      `${name}.nocked`,
+      { width: CONFIG.arrow.shaftDiameter, height: CONFIG.arrow.length, depth: CONFIG.arrow.shaftDiameter },
+      scene,
+    );
+    nocked.rotationQuaternion = Quaternion.RotationAxis(new Vector3(1, 0, 0), Math.PI / 2);
+    nocked.material = materials.wood;
+    nocked.parent = this.root;
+
+    this.draw = { upper, lower, nocked, brace: B.braceHeight, pull: B.drawLength };
+    this.drawTo(0);
+
+    this.addPart(
+      new PhysicsShapeBox(
+        Vector3.Zero(),
+        Quaternion.Identity(),
+        new Vector3(B.staveLength, B.staveDepth, B.staveThickness),
+        scene,
+      ),
+      Vector3.Zero(),
+    );
+    this.addPart(
+      new PhysicsShapeBox(
+        Vector3.Zero(),
+        Quaternion.Identity(),
+        new Vector3(B.gripLength, B.gripDepth, B.staveThickness * 1.9),
+        scene,
+      ),
+      new Vector3(0, -B.gripDepth / 2, 0),
+    );
+
+    return {
+      mass: B.mass,
+      // At the fist, which is where a bow balances and is also the one place a
+      // centre of mass can be that asks the wrist for nothing.
+      centreOfMass: Vector3.Zero(),
+      baseOffset: 0,
+      tipOffset: B.launchOffset,
+      // Two hands, and no second *grip*. See `Built.secondGrip`.
+      secondGrip: null,
+    };
+  }
+
+  /**
+   * Show how far the string is back, 0 to 1.
+   *
+   * A no-op for everything that has no string, so `Arm` calls it without asking
+   * what it is holding. The nock travels from the brace height to a full draw
+   * along -Y; each half of the string is a unit box stretched and turned to run
+   * from a limb tip to wherever the nock now is, and the arrow sits on it.
+   *
+   * A hold-to-charge control is unplayable without this. It is the same argument
+   * the aim indicator was built on: a quantity the player is being asked to
+   * manage has to be visible somewhere, and a bow's is *on the bow*.
+   */
+  drawTo(fraction: number): void {
+    const d = this.draw;
+    if (!d) return;
+    const t = fraction < 0 ? 0 : fraction > 1 ? 1 : fraction;
+    const half = CONFIG.bow.staveLength / 2;
+    const nockY = -(d.brace + d.pull * t);
+
+    for (const [mesh, side] of [
+      [d.upper, 1],
+      [d.lower, -1],
+    ] as const) {
+      const tipX = side * half;
+      const tipY = -CONFIG.bow.staveDepth * 0.25;
+      const dx = -tipX;
+      const dy = nockY - tipY;
+      const span = Math.hypot(dx, dy);
+      mesh.position.set(tipX + dx / 2, tipY + dy / 2, 0);
+      mesh.scaling.set(1, span, 1);
+      // The box's own long axis is +Y, so the turn is about +Z and is measured
+      // from +Y rather than from +X.
+      mesh.rotationQuaternion = Quaternion.RotationAxis(
+        new Vector3(0, 0, 1),
+        Math.atan2(-dx, dy),
+      );
+    }
+
+    d.nocked.setEnabled(t > 0);
+    // The arrow lies along +Y with its nock on the string, so its centre is half
+    // a shaft ahead of the nock.
+    d.nocked.position.set(0, nockY + CONFIG.arrow.length / 2, 0);
   }
 
   /**
@@ -764,7 +1019,7 @@ export class Weapon {
     wrap.material = materials.leather;
     wrap.parent = this.root;
 
-    this.shape.addChild(
+    this.addPart(
       new PhysicsShapeBox(
         Vector3.Zero(),
         Quaternion.Identity(),
@@ -773,7 +1028,7 @@ export class Weapon {
       ),
       new Vector3(0, haftCentre, 0),
     );
-    this.shape.addChild(
+    this.addPart(
       new PhysicsShapeBox(
         Vector3.Zero(),
         Quaternion.Identity(),
@@ -788,7 +1043,64 @@ export class Weapon {
       centreOfMass: new Vector3(0, C.balancePoint, 0),
       baseOffset: 0,
       tipOffset: butt + C.haftLength + C.headLength,
+      secondGrip: CONFIG.club.secondGrip,
     };
+  }
+
+  /**
+   * Add one piece to the compound, and remember it.
+   *
+   * The remembering is the point: `PhysicsShapeContainer` keeps no list of what
+   * has been put in it, and the masks have to reach the leaves. See `parts`.
+   */
+  private addPart(part: PhysicsShape, offset: Vector3): void {
+    this.parts.push(part);
+    this.shape.addChild(part, offset);
+  }
+
+  /**
+   * Put every piece of this weapon on a layer.
+   *
+   * A method rather than two assignments at the call site, because the two
+   * assignments at the call site is what was wrong: `Arm.drop` re-layered a
+   * dropped weapon onto `DEBRIS` by writing the container's masks, so a severed
+   * arm's sword went on carrying whatever filter its leaves happened to have --
+   * which was Havok's default, which is everything. The rule that a dropped
+   * weapon "is debris like any other piece" was true in the comment and nowhere
+   * in the solver.
+   */
+  /**
+   * The leaf shapes, so a test can ask what the solver is going to ask.
+   *
+   * Exposed because a readback is the one cheap check that catches the container
+   * fault: a container's mask is written, ignored, *and* read back as garbage,
+   * so a test that asserts the mask it set is the mask that is there would have
+   * failed on day one. `tests/weapons.test.mjs` does exactly that, over every
+   * kind.
+   */
+  get pieces(): readonly PhysicsShape[] {
+    return this.parts;
+  }
+
+  relayer(layer: number, collidesWith: number): void {
+    for (const part of this.parts) {
+      part.filterMembershipMask = layer;
+      part.filterCollideMask = collidesWith;
+    }
+  }
+
+  /**
+   * Cut out of the hand that was holding it.
+   *
+   * The layer and the flag together, because they are two halves of one fact and
+   * setting only the first is what `Arm.drop` used to do: the exemption that let
+   * a blade pass through its owner belonged to the owner rather than to the
+   * steel, so a dropped sword becomes debris -- and debris is not a thing that
+   * scores, which is the half nothing was saying.
+   */
+  discard(): void {
+    this.relayer(LAYER.DEBRIS, COLLIDES.DEBRIS);
+    this.discarded = true;
   }
 
   /** World-space direction of the cutting edge (local +X). */
@@ -856,16 +1168,33 @@ export class Weapon {
    * three-line expression is easier to be sure of than a matrix product.
    */
   tipPositionToRef(ref: Vector3): Vector3 {
-    const q = this.root.rotationQuaternion;
-    if (!q) return ref.copyFrom(this.root.position);
-    return ref
-      .set(
-        2 * (q.x * q.y - q.w * q.z),
-        1 - 2 * (q.x * q.x + q.z * q.z),
-        2 * (q.y * q.z + q.w * q.x),
-      )
+    if (!this.root.rotationQuaternion) return ref.copyFrom(this.root.position);
+    return this.bladeDirectionToRef(ref)
       .scaleInPlace(this.tipOffset)
       .addInPlace(this.root.position);
+  }
+
+  /**
+   * Which way the weapon is pointing -- local +Y -- taken the same cache-free
+   * way, and for the same reason.
+   *
+   * `bladeDirection()` above goes through `getWorldMatrix()`, which is right for
+   * the damage model, which asks once per contact inside a rendered frame. **An
+   * arrow is loosed on the control step**, 240 times a second, and a reader
+   * there is first by up to three substeps -- so asking that way would stamp the
+   * render id and quietly convert every later reader that frame, the renderer
+   * included, into a reader of the control loop's sample. That is the fault that
+   * read as a 9 % regression in the arm and cost a session; `tipPositionToRef`
+   * exists because of it, and this is the direction half of the same argument.
+   */
+  bladeDirectionToRef(ref: Vector3): Vector3 {
+    const q = this.root.rotationQuaternion;
+    if (!q) return ref.set(0, 1, 0);
+    return ref.set(
+      2 * (q.x * q.y - q.w * q.z),
+      1 - 2 * (q.x * q.x + q.z * q.z),
+      2 * (q.y * q.z + q.w * q.x),
+    );
   }
 
   /**

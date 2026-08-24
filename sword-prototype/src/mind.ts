@@ -29,6 +29,7 @@ import { HANDS, otherHand, type HandName, type WeaponKind } from "./hands.ts";
 import {
   cursorForAzimuth,
   cursorForElevation,
+  archerMind,
   duelistMind,
   swingerMind,
 } from "./policies.ts";
@@ -699,6 +700,7 @@ export const POLICIES: readonly Policy[] = [
   { name: "idle", label: "Idle", create: idleMind },
   { name: "swinger", label: "Swinger", create: swingerMind },
   { name: "duelist", label: "Duelist", create: duelistMind },
+  { name: "archer", label: "Archer", create: archerMind },
 ];
 
 /**

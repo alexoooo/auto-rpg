@@ -69,6 +69,50 @@ async function bench() {
   return { engine, scene, make };
 }
 
+// ---- the layer, which for a whole year did nothing --------------------------
+
+test("a weapon's collision layer reaches the shapes the solver actually filters on", async () => {
+  const { engine, make } = await bench();
+  try {
+    for (const kind of THINGS) {
+      const weapon = make(kind);
+      // Read the *leaves*. Havok filters on them and ignores the container's own
+      // mask entirely -- and reading a container's mask back does not report the
+      // problem either, it reports garbage: a container set to 8 handed back
+      // 383476. So this asks the shapes the solver asks.
+      const parts = weapon.pieces;
+      assert.ok(parts.length > 0, `${kind} is made of something`);
+      for (const part of parts) {
+        assert.equal(
+          part.filterMembershipMask,
+          LAYER.LEFT_SWORD,
+          `${kind}: every piece is on the layer it was built with`,
+        );
+        assert.equal(part.filterCollideMask, COLLIDES.LEFT_SWORD, `${kind}: and collides with it`);
+      }
+    }
+  } finally {
+    engine.dispose();
+  }
+});
+
+test("re-layering a weapon reaches every piece of it", async () => {
+  // `Arm.drop` calls this, and used to do it by writing the container's masks --
+  // so "a dropped weapon is debris like any other piece" was true in the comment
+  // and false in the solver, for as long as there was a comment.
+  const { engine, make } = await bench();
+  try {
+    const sword = make("sword");
+    sword.relayer(LAYER.DEBRIS, COLLIDES.DEBRIS);
+    for (const part of sword.pieces) {
+      assert.equal(part.filterMembershipMask, LAYER.DEBRIS);
+      assert.equal(part.filterCollideMask, COLLIDES.DEBRIS);
+    }
+  } finally {
+    engine.dispose();
+  }
+});
+
 // ---- the table itself -----------------------------------------------------
 
 test("every kind the code has can be built, and the one that cannot says so", async () => {

@@ -334,7 +334,11 @@ altogether. That is still true and it is no longer a wall: step the world by han
 finally looked at. So an item still open here is open because **nobody has played it**, not
 because nobody could see it. **Two of them are cheap and change what should be built next:
 the first and the fourth.** Items 11 and 12 are one arm defect measured from two directions;
-item 14 is the half of a weapon that only a person can price.
+items 14 and 15 are the halves of two weapons that only a person can price.
+
+**Item 16 is not like the others.** Every other entry is a judgement waiting on somebody
+with a mouse; that one is a rule with a number attached, it decides whether a whole weapon
+can be used at all, and the bench has already said what it costs.
 
 1. **Is a human against `swinger` winnable, and not trivially so?** This is the only
    criterion that decides whether the policy work is finished. Its cycle is chamber 0.34 s,
@@ -449,6 +453,255 @@ item 14 is the half of a weapon that only a person can price.
    happens the axe's price in this file is understated by an unknown amount. The cheapest way
    to close it is not a bench: it is a thrusting policy, which the master plan already wants
    for session 05's bow.
+
+   **Partly answered, and not the way it expected.** `archer` exists and holds the
+   button, so the *machinery* a thrusting policy needs is built and tested -- but
+   it did not price the axe, because what it holds the button for is a bow, which
+   has no point either. The rule `hasPoint` enforces is still worth exactly
+   nothing to any policy in the program, and still needs a person.
+
+15. **Nobody has held the bow's button.** Draw-and-loose is a *hold*: press, wait
+   0.9 s while the string comes back and the bow shows you how far, release. The
+   bench can say what an arrow is worth and cannot say whether that second of
+   standing still is tense or tedious -- and it is the single decision the whole
+   weapon is built around. Two things to watch for that no number can see: whether
+   the string and the nocked arrow read as a draw at all from the Fixed camera,
+   and whether being pinned at 1.8 m by a duelist while holding a bow is
+   frustrating the way a bad matchup is or the way a bug is.
+
+16. **Should a bow-armed fighter be able to win at all?** The bench says it cannot:
+   `beaten()` wants a severed head or torso and an arrow deliberately never severs,
+   so an archer shooting an `idle` fighter for thirty seconds deals 274.7 damage a
+   bout and kills nobody, sixteen times out of sixteen. The two ways out both change
+   every bout in the game -- let an arrow sever, or let a torso beaten to nothing
+   end a bout on its own -- and `beaten()`'s own docstring already reserves the
+   second for the first person to play one to the end. Numbers under "What a bow is
+   worth" below. **This is the most consequential open question in the file.**
+
+17. **The console is being filled at two lines a frame, and it is not new.**
+   `aim.ts:83` and `:88` pass `dashNb`/`dashSize`/`gapSize` to `CreateDashedLines`
+   *together with* `instance`, and Babylon warns "you have used an option other
+   than points with the instance option" every time -- **7202 messages in one
+   minute of bout**, measured. Nothing is wrong with the indicator; the options
+   are simply ignored on an update, which is what the caller wants anyway. It is
+   listed because of what it costs: establishing that a fresh console full of
+   warnings had nothing to do with the session's new subsystem took real time,
+   and it will take the next person the same. The fix is to pass the dash
+   options on creation only.
+
+## The bow, and the four defects it found on the way in
+
+Every figure in this section is the **headless bench** unless it says otherwise:
+`.review/bow.mjs` for the bow, `npm run measure` for the standard corpus, both at
+seed 20260823 on the 16C/32T desktop. None of it is the page.
+
+Adding a ranged weapon turned out to be mostly an exercise in finding out what was
+already wrong, because a bow asks questions no melee weapon had ever asked: *do the
+collision layers work, can a body be moved without being pushed, how fast was it
+going when it arrived, and can you run away.* Four of those had wrong answers.
+
+### The collision layers had never worked for a weapon
+
+`Weapon.finish` set its masks on the `PhysicsShapeContainer`. Havok filters on the
+**leaf** shapes and ignores a container's own filter completely -- and reading it
+back does not report the problem, it reports garbage (a shape set to 8 returned
+383476). So every weapon in the program carried Havok's default filter, which
+collides with everything.
+
+`.review/weapon-mask.mjs`, one fighter with a sword and a shield, cursor swept
+through both envelopes for 12 s, contacts against **its own body**:
+
+| | before | after |
+| --- | --- | --- |
+| sword vs own upper arm | 1687 | 0 |
+| sword vs own forearm | 1572 | 0 |
+| sword vs own torso | 853 | 0 |
+| sword vs own shield | 795 | 0 |
+| shield vs own head | 985 | 873 |
+| shield vs own torso | 808 | 808 |
+| shield vs own forearm | 725 | 0 |
+| shield vs own off-arm | 669 | 0 |
+| shield vs own hand | 391 | 0 |
+
+The shield's remaining contacts are its owner's **trunk**, which is the entire
+reason the shield has a layer of its own -- so the fix is not "a shield touches
+nothing", it is a shield touching the one thing it should. The plate stands 110 mm
+off the fist and its own forearm sits inside that gap by construction, so those
+725 and 669 were *permanent* contact between a 4 kg lever and the chain driving it:
+exactly the failure `physics.ts` spends fifty lines explaining the layer table
+prevents, running the whole time it was there.
+
+It stayed invisible because the symptom is **friction rather than a hole**. What it
+cost, standard corpus, 40 bouts a row:
+
+| | before | after |
+| --- | --- | --- |
+| duelist beats swinger | 27/40 | **29/40** |
+| duelist got its blade past 11 m/s | 30/40 | **36/40** |
+| duelist-vs-duelist bout length | 11.74 s | 9.94 s |
+| duelist-vs-duelist contacts | 81.67 | 61.35 |
+| duelist-vs-duelist severs | 47 | **61** |
+| edge alignment, median | 0.652 | **0.693** |
+
+Fewer contacts, better-placed ones, more severs, shorter bouts. The single number
+worth quoting is the third row: with the blade no longer grinding on the arm
+swinging it, six more duelists in forty actually got their sword up to cutting
+speed.
+
+**Every arm number in `config.ts` was tuned against the broken behaviour**, and
+none of them has been re-derived. Nothing looks wrong, but that is now an open
+question rather than a settled one.
+
+### A fighter retreated at a dead run
+
+`steer` multiplied `input.forward` by `walkSpeed` whatever its sign. Nobody noticed
+while the only policy that backed up did it in short bursts; it became
+load-bearing the moment there was a policy whose whole plan is distance, because
+**a fighter that retreats as fast as its pursuer advances cannot be caught**. The
+first archer bench came back 0 kills and 0 deaths in twelve bouts at the cap.
+
+`fighter.backSpeed` is 1.7 against a walk of 2.9. Cost to the melee policies,
+standard corpus:
+
+| | before | after |
+| --- | --- | --- |
+| duelist beats swinger | 29/40 | 30/40 |
+| duelist-vs-duelist bout length | 9.94 s | 11.16 s |
+| duelist-vs-duelist contacts | 61.35 | 75.61 |
+| duelist got its blade past 11 m/s | 76/80 | **80/80** |
+
+Longer and busier, because a duelist can no longer disengage for free. Nothing
+destabilised.
+
+### An arrow was being scored at nine times less than it arrived at
+
+`Weapon.velocityAt` is `linear + w x r`, which is the right question for a blade:
+the rotation is the arm's and is there before the contact. An arrow has no rotation
+in flight, so any it has at the contact was put there **by** the contact, and over
+a 0.36 m half-shaft that is tens of metres a second. Fired into a keyframed slab,
+`.review/impact-speed.mjs`:
+
+| loosed at | body's linear velocity | last control step | `linear + w x r` |
+| --- | --- | --- | --- |
+| 48 | 38.4 | 48.0 | **5.6** |
+| 40 | 39.5 | 40.0 | 30.5 |
+| 30 | 29.5 | 30.0 | 20.6 |
+| 22 | 22.0 | 22.1 | 20.5 |
+
+The last column is what the damage model was handed, and it did it *consistently*
+-- a tight band around 27 m/s, which is the shape of a systematic error rather than
+of noise. An arrow caches its free-flight velocity each control step and is scored
+from that.
+
+### A spent arrow went on being billed
+
+A struck arrow rests against whatever it hit and files a contact every
+`hitCooldown`; a moving limb drags it back over `minArrowSpeed` often enough to
+score. Over 12 bouts that turned into **62 "hits" averaging 2.9 damage** where a
+clean arrow is worth 55. `Combat` refuses to score a `spent` striker now, which is
+one rule with two instances -- a dropped weapon is the other, and a sword lying on
+the floor scoring cuts against whoever walks over it had been true since limbs
+started coming off.
+
+Fix by fix, archer vs duelist, 12 bouts x 30 s, damage the archer dealt per bout:
+
+| | dealt | per landed arrow |
+| --- | --- | --- |
+| as first built | 26.6 | 2.9 |
+| debris stops scoring | 26.6 | 10.4 |
+| scored at arrival speed | **141.9** | **55.0** |
+
+A factor of 5.3, entirely from correctness. Not one number was tuned.
+
+## What a bow is worth, and the rule that stops it winning
+
+`.review/bow.mjs`, 16 bouts x 30 s each, archer with a bow against each policy:
+
+| opponent | dealt | taken | arrows landed | accuracy | archer killed | archer died |
+| --- | --- | --- | --- | --- | --- | --- |
+| duelist | 140.8 | 65.1 | 38 | 9.9 % | **0/16** | 0/16 |
+| swinger | 366.2 | 349.7 | 94 | **98.9 %** | **0/16** | 16/16 |
+| idle | 274.7 | 0.0 | 80 | 20.8 % | **0/16** | 0/16 |
+
+Every landed arrow is worth 55.0 -- exactly `pierceScale`, every time, because an
+arrow flies along its own shaft (measured shaft-versus-velocity alignment in flight:
+median **1.000**) so it either arrives point-first or does not arrive.
+
+**The archer cannot win, and it is not about the numbers.** `beaten()` ends a bout
+on a severed head or torso, or on all twelve parts at zero; an arrow deliberately
+never severs. Against `idle` -- a fighter that stands still and does nothing while
+being shot for thirty seconds -- it dealt 274.7 damage a bout and killed nobody, in
+sixteen bouts. Raising `pierceScale` does not touch it either:
+
+| pierceScale | dealt per bout | killed |
+| --- | --- | --- |
+| 55 | 141.9 | 0/12 |
+| 70 | 180.7 | 0/12 |
+| 85 | 219.4 | 0/12 |
+| 100 | 258.1 | 0/12 |
+
+At 100 a single arrow is half a torso and two of them are the whole of it, and the
+bout still does not end. **Damage and lethality are separate systems in this
+prototype**, and until today every weapon participated in both. `beaten()`'s own
+docstring already names the alternative -- letting a torso beaten to nothing end a
+bout on its own -- and reserves the choice for the first person to play one to the
+end. It is now a decision with a number attached rather than a note.
+
+The swinger row is the one to look at twice. The archer hits **98.9 %** of what it
+looses at a fighter that charges in a straight line, deals more damage than the
+swinger does, and dies every single time.
+
+### Two more things the bench cannot price, and one it should not have had to
+
+**The arena starts fighters at sword range.** `fighter.separation` is 2.4 m, chosen
+when every weapon was a sword, so an archer begins every bout already inside its own
+minimum range and -- retreating slower than a duelist advances -- never gets out
+again. Its median range at loose against a duelist is **1.81 m**, with a p10 of 1.76
+and a p90 of 1.82: it is pinned at the duelist's preferred distance for the whole
+fight. Given room, it does better, but not enough to matter while it cannot kill:
+
+| start | dealt | arrows landed | accuracy |
+| --- | --- | --- | --- |
+| 2.4 m (the arena's) | 123.6 | 24 | 8.3 % |
+| 6 m | 114.5 | 20 | 6.9 % |
+| 10 m | 123.6 | 23 | 8.2 % |
+| 16 m | **226.9** | 41 | **14.4 %** |
+
+**A held-out sword is a shield against arrows**, and that is emergent rather than
+designed: a duelist covers the line to its own chest, which is exactly where the
+archer aims. Aiming higher does not help -- the sweep goes the wrong way, so the
+chest stays the mark:
+
+| archer aims (above the shoulder line) | dealt | accuracy |
+| --- | --- | --- |
+| **-0.12 (the chest)** | **141.9** | **10.1 %** |
+| +0.06 | 73.3 | 4.2 % |
+| +0.18 | 87.3 | 4.2 % |
+| +0.28 | 91.6 | 6.9 % |
+
+**And a person has not held the button.** Draw-and-loose is a hold on the left
+mouse button, which is a control no policy can evaluate for feel. `archer` proves
+the machinery works and prices the weapon; whether a 0.9 s draw is tense or tedious
+is item 15 below.
+
+### The quiver costs nothing, which is why it is a pool
+
+`.review/park-cost.mjs`, 24 arrows, ms per frame against a re-taken baseline:
+
+| parked as | delta |
+| --- | --- |
+| DYNAMIC on membership mask 0 | **+0.0726** |
+| STATIC on membership mask 0 | **-0.0015** |
+
+A body that collides with nothing still falls: parked the naive way, the 24 arrows
+were 3.5 km below the arena and accelerating. Parked STATIC the cost is below the
+noise of the bench that measured it, which is what lets `Combat` go on binding its
+observers once in its constructor -- the master plan expected a `watch`/`unwatch`
+pair per shot and a pool makes it unnecessary.
+
+The acceptance check, `tests/arrow.test.mjs`: `scene.meshes` and the physics body
+count are **identical** before and after a hundred shots, and every arrow is
+collected. A hundred launches from one origin land in one place, spread **0**.
 
 ## The axe, and six tables that were lying
 

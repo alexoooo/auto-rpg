@@ -479,7 +479,7 @@ test("the picker offers exactly the equipment the code has", () => {
   );
   assert.deepEqual(
     [...WEAPON_KINDS],
-    ["sword", "axe", "shield", "buckler", "club", "empty"],
+    ["sword", "axe", "bow", "shield", "buckler", "club", "empty"],
     "and the union itself has not quietly gained or lost one",
   );
   for (const item of EQUIPMENT) {

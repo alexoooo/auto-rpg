@@ -86,7 +86,7 @@ the arm drifted, centre was unrecoverable, and you could not get your mouse back
 | A / D | strafe |
 | Q / E | turn |
 | Z / X | roll the wrist — turns the edge into the cut |
-| Left button | thrust — drive the point out |
+| Left button | thrust — drive the point out. **Hold it with a bow**: draw, then let go to loose |
 | Right button | guard — pull the blade in close |
 | Middle button / L | arm a lock-on, then click an enemy; strafe to circle it, Q/E to break |
 | F | the mouse changes hands — the one it leaves goes back to its policy |
@@ -112,9 +112,11 @@ was dead for the rest of the session.
 A bout is chosen before it is fought. The curtain carries a left corner and a right corner —
 a unit, a policy, and whether that side is driven by a mind or by you — and the Fight button
 starts what is on it. There is one of you, so taking a side gives the other one back to its
-policy. Three policies ship: **idle** stands there and can be cut apart, **swinger** walks
-in and cuts on a fixed cadence without ever looking at your guard, and **duelist** holds
-measure, guards between exchanges, and commits when your point leaves the line. A bout ends
+policy. Four policies ship: **idle** stands there and can be cut apart, **swinger** walks
+in and cuts on a fixed cadence without ever looking at your guard, **duelist** holds
+measure, guards between exchanges, and commits when your point leaves the line, and
+**archer** keeps its distance and shoots — give it a bow, or it will simply back away from
+you all day. A bout ends
 when a fighter loses its head or is beaten to nothing everywhere, or when the clock runs
 out, and the banner names the winner and the blow that did it.
 
@@ -128,8 +130,8 @@ goes on bleeding as it falls.
 
 ## Two hands
 
-Each hand takes a **sword**, an **axe**, a **shield**, a **buckler** or **nothing**, chosen per corner
-before the fight. Both are real arms — three bones, a shoulder cone, an elbow hinge, a free wrist and
+Each hand takes a **sword**, an **axe**, a **bow**, a **shield**, a **buckler** or **nothing**,
+chosen per corner before the fight. Both are real arms — three bones, a shoulder cone, an elbow hinge, a free wrist and
 a keyframed anchor dragging the whole thing about — so a shield is not a state a fighter is
 in, it is a plank of limewood with a steel rim welded into a fist, and it blocks by being
 in the way. The collision layers already said an enemy blade and this side's weapons may
@@ -180,6 +182,28 @@ of 24 where a sword alone kills 17, and dies four times instead of seven — bec
 weakness is having to stand close, and a shield is the answer to standing close. Nobody
 designed that; it falls out of the two things being in the same loadout.
 
+A **bow** takes both hands and is the first thing here that hurts somebody it is not
+touching. It aims the way everything else aims — the arrow goes where the arm points, so
+there is no crosshair and no mode — and the left button becomes a *hold*: press it, watch
+the string come back over about a second, and let go. Release early and the shot is
+abandoned rather than taken, which is what makes a draw worth holding instead of a button
+worth tapping. The bow shows you how far you have drawn, on the bow.
+
+What it costs is everything else. It takes both hands, so no shield and no second blade; it
+scores nothing swung, so at sword range you are carrying a stick; and a second of standing
+still is a second a swordsman spends walking at you. An arrow that arrives is worth more
+than a sword's best cut — **55 against 46** — and it arrives point-first every time, because
+it flies along its own shaft.
+
+Two things about it are honest rather than finished, and both are written up in
+`docs/measurements.md`. A **held-out sword blocks arrows**, which nobody designed: a duelist
+covers the line to its own chest and that is exactly where an archer aims, so only about one
+arrow in ten gets through. And **an archer cannot currently win a bout** — a bout ends when a
+head or torso comes *off*, an arrow deliberately never takes a limb off, and so shooting a
+motionless fighter for thirty seconds does 275 points of damage and kills nobody. That is a
+gap in the rules rather than in the bow, and it is the one open question in this repository
+with a number attached.
+
 You have one mouse and a fighter has two arms, so **`F`** moves the cursor from one to the
 other and the hand you leave goes back to the side's own policy. Splitting the cursor
 instead — half the screen each, or a modifier held down — would have made both hands worse
@@ -213,12 +237,12 @@ The torso is **keyframed**: it goes exactly where you steer it, because a body t
 walk around. Everything from the shoulder outward is **genuinely simulated** — a ball
 joint at the shoulder, a hinge at the elbow, a rolling wrist, and whatever is welded into
 the fist. Both arms are like that: two full chains, either of which can hold a sword, a
-shield or nothing.
+shield, a bow or nothing.
 
 The arm is driven by a single invisible keyframed **anchor**, joined to the hand by a
 six-degree-of-freedom constraint whose motors have a finite force budget. Move the anchor
 and the solver drags the hand after it; the forearm and upper arm follow because they are
-constrained, and the sword follows because it is welded to the hand. The lag, overshoot and
+constrained, and the weapon follows because it is welded to the hand. The lag, overshoot and
 carried momentum come from that force ceiling being finite — the motor simply cannot drag a
 1.35 kg sword instantly — rather than from any tuned spring.
 

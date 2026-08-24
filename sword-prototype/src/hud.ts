@@ -44,6 +44,24 @@ const KIND_LABEL: Record<HitReport["kind"], string> = {
 };
 
 /**
+ * What a blow that found a guard is called.
+ *
+ * `Combat.parried` files every block as `weak`, because a block is not a wound
+ * and `weak` is the kind that means "worth nothing". That reads correctly for
+ * blade on blade, where the contact really is slow -- and it reads as a lie the
+ * moment something fast is stopped: an arrow blocked by a sword came up
+ * **"TOO SLOW" at 48.0 m/s**, which is the readout arguing with the number
+ * directly beneath it.
+ *
+ * The fix is here rather than in `Combat` because the report already says so:
+ * a parry carries `key: "block:<kind>"` and a wound carries a limb key, so the
+ * distinction is in the data and only the wording was missing. The colour still
+ * comes from `kind`, so `style.css` -- which `tsc` does not check -- needs
+ * nothing.
+ */
+const isBlock = (report: HitReport): boolean => report.key.startsWith("block:");
+
+/**
  * The readout.
  *
  * This is a measuring instrument, not decoration. The prototype's question is
@@ -184,9 +202,9 @@ export class Hud {
       const age = now - lastHit.at;
       this.hitPanel.classList.toggle("fresh", age < 0.55);
       this.hitPanel.innerHTML = `
-        <div class="hit-kind kind-${lastHit.kind}">${KIND_LABEL[lastHit.kind]}${
-          lastHit.severed ? ' <span class="sever">SEVERED</span>' : ""
-        }</div>
+        <div class="hit-kind kind-${lastHit.kind}">${
+          isBlock(lastHit) ? "BLOCKED" : KIND_LABEL[lastHit.kind]
+        }${lastHit.severed ? ' <span class="sever">SEVERED</span>' : ""}</div>
         <div class="hit-target">${lastHit.by} &rarr; ${lastHit.limb}</div>
         <table class="hit-rows">
           <tr><th>damage</th><td>${lastHit.damage.toFixed(1)}</td></tr>

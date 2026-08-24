@@ -54,6 +54,26 @@ export const CONFIG = {
     shoulderSide: 0.21,
     shoulderFront: 0.02,
     walkSpeed: 2.9,
+    /**
+     * And backwards, which used to be the same number and should never have
+     * been.
+     *
+     * `steer` multiplied `input.forward` by `walkSpeed` whatever its sign, so a
+     * fighter retreated at a dead run. Nobody noticed for as long as the only
+     * thing that backed up was `duelist`, which does it in short bursts to break
+     * an exchange -- and it became load-bearing the moment there was a policy
+     * whose whole plan is distance. **A fighter that retreats as fast as its
+     * pursuer advances cannot be caught**, so the first `archer` bench came back
+     * 0 kills and 0 deaths in twelve bouts at the cap: a stalemate that no amount
+     * of tuning the bow could have fixed, because it was not about the bow.
+     *
+     * 1.7 is about 59 % of a walk, which is roughly where a person's backward
+     * gait actually sits. `strafeSpeed` was already its own number for the same
+     * reason, so this is the third side of a shape that was already two-thirds
+     * built. Measured cost, standard corpus, before -> after: see
+     * `docs/measurements.md`.
+     */
+    backSpeed: 1.7,
     strafeSpeed: 2.2,
     turnSpeed: 2.5,
     /** How quickly locomotion reaches its target speed. Low = skate, high = snap. */
@@ -349,6 +369,137 @@ export const CONFIG = {
      * costs one number.
      */
     balanceOffset: 0.04,
+  },
+
+  /**
+   * The bow, which is the first thing here that hurts somebody it is not
+   * touching.
+   *
+   * Two hands, like the club, and for the club's reason: one holds it and the
+   * other works it. It takes the blade's mount, so its **+Y runs out along the
+   * arm** -- which means an arrow goes where the arm is pointed, through exactly
+   * the aiming the sword already has, with no second control surface and no
+   * crosshair. The stave is on local **+X**, the axis `roll` turns the weapon
+   * about, so a wrist at zero holds the bow upright and a rolled one cants it.
+   * Neither of those is a special case; they are what the shared local frame
+   * says once you put the stave where an axe's edge goes.
+   *
+   * It is a short bow rather than a war bow. 1.25 m of stave is a horseman's or
+   * a hunter's, and the reason is the arm envelope rather than history: the hand
+   * sits about 1.4 m up and 0.9 m out, so a 1.8 m yew stave has its lower limb
+   * through the floor at any elevation below the horizontal.
+   *
+   * **It scores nothing swung** -- `scoring.ts` gives it the shields' `inert`
+   * row -- so everything it is worth is in `arrow` below, and everything it
+   * costs is here: it takes both hands, so there is no shield and no second
+   * blade, and `isStriking` is false for it, so a fighter holding one has
+   * nothing at all to do at sword range.
+   */
+  bow: {
+    /** Tip to tip, along local +X. */
+    staveLength: 1.25,
+    /** The stave's depth, front to back -- local +Y, the way it is drawn. */
+    staveDepth: 0.030,
+    /** And its thickness across the flat, local +Z. */
+    staveThickness: 0.020,
+    /** The grip's height along the stave, at the middle. */
+    gripLength: 0.17,
+    /** The riser: how far the grip stands proud of the stave, along -Y. */
+    gripDepth: 0.034,
+    /**
+     * How far behind the stave the string sits at rest, along -Y.
+     *
+     * A real bow's brace height, and it is the same 160 mm a real short bow
+     * has. Purely a look -- the string is a mesh and carries no collision, by
+     * house rule 2 -- but it is the look that says *this is not drawn*.
+     */
+    braceHeight: 0.16,
+    /**
+     * And how much further back a full draw pulls it.
+     *
+     * With the brace, a full draw puts the nock 0.78 m behind the bow hand,
+     * which is a string hand at the ear. Nothing physical reads it: `Weapon.drawTo`
+     * moves three meshes with it and that is all it is for. What it buys is the
+     * one thing a hold-to-charge control cannot be played without -- being able
+     * to see how far you have drawn -- and it belongs on the bow rather than in
+     * the HUD for the reason the aim indicator is in the world.
+     */
+    drawLength: 0.62,
+    /**
+     * How far in front of the grip an arrow leaves, along +Y.
+     *
+     * Also the bow's `tipOffset`, so it is what `HandView.reach` reports and
+     * what the aim indicator stakes out. Deliberately small: a bow does not
+     * reach, and a policy that treated it as a 0.9 m weapon would try to fence
+     * with it. `archer` reads `ARCHER.standOff` instead, and this number is the
+     * honest one for everything that asks how far this hand can touch.
+     */
+    launchOffset: 0.11,
+    /** Stave, string and all. Light, because the work is done by the string. */
+    mass: 0.85,
+  },
+
+  /**
+   * The arrow.
+   *
+   * Everything a bow is worth. `src/arrow.ts` pools them -- one quiver per
+   * shooting hand, built with the fighter and parked STATIC on membership mask
+   * 0, which is measured at **-0.0015 ms/frame for 24 of them**, below the noise
+   * floor of the bench that measured it. That is why `Combat` still binds its
+   * observers once in its constructor: with a pool, no body ever appears
+   * mid-bout.
+   */
+  arrow: {
+    length: 0.72,
+    shaftDiameter: 0.009,
+    /** The head, which is drawn but is not its own physics shape. */
+    headLength: 0.055,
+    /** The fletching, likewise: a look, not a rule. */
+    fletchLength: 0.10,
+    mass: 0.035,
+
+    /**
+     * Seconds from nothing to full draw, and the speeds at either end.
+     *
+     * A full draw is 0.9 s, which is slower than a real archer and is the point:
+     * it is the whole of what a bow pays for reaching across the arena. The
+     * fighter is standing still and committed for very nearly a second, and
+     * `duelist` crosses 3 m in about that.
+     *
+     * A half-drawn bow is not half a bow. `speedMin` is what a bow at `minDraw`
+     * looses at and `speedMax` is a full one; below `minDraw`, letting go
+     * abandons the shot rather than loosing it, which is what letting go of a
+     * quarter-drawn bow does.
+     */
+    drawSeconds: 0.9,
+    minDraw: 0.35,
+    speedMin: 22,
+    speedMax: 48,
+
+    /** Arrows per quiver, per shooting hand. Running out is a rule. */
+    count: 12,
+    /**
+     * How far ahead of the grip, along +Y, an arrow's centre starts.
+     *
+     * It has to clear the bow's own shape, and it does not have to clear its
+     * owner: an arrow is on its side's own layer, which does not collide with
+     * that side -- the same exemption a blade has always had.
+     */
+    spawnAhead: 0.20,
+    /** Seconds in the air before it is collected, hit or miss. */
+    lifeSeconds: 4.0,
+    /** And seconds lying where it landed, once it has hit something. */
+    stickSeconds: 6.0,
+    /**
+     * How hard it holds still once it has struck.
+     *
+     * An arrow at 45 m/s into an infinitely heavy target **bounces**: measured,
+     * one fired into a static wall came back 3.3 m over half a second. An arrow
+     * that bounces off a person is worse than one that vanishes, so the moment
+     * it strikes it loses this fraction of its speed and re-layers to `DEBRIS`.
+     * At 1 it stops dead; below 1 it drops rather than sticks.
+     */
+    stickDamping: 0.92,
   },
 
   /**
@@ -695,6 +846,43 @@ export const CONFIG = {
      * the thing this number is not allowed to do.
      */
     chopScale: 64,
+
+    /**
+     * The arrow, which needed a **second** number for a reason none of the
+     * hand-held kinds did.
+     *
+     * `referenceSpeed` is 11 m/s, and it is a *blade's* number: the speed a cut
+     * has to reach to be worth everything it can be worth. An arrow leaves the
+     * string at 48. Scored against 11, every arrow that arrives point-first --
+     * a half-drawn one at 22 as much as a full-drawn one at 48 -- saturates the
+     * speed term at 1 and does identical damage, so the draw would be a knob
+     * that changes nothing. That is precisely the shape of the two axe knobs the
+     * bench threw out last session, caught before it shipped rather than after.
+     *
+     * So `Bite` grew a `reference` beside its `floor`, both per kind, and the
+     * arrow's is `arrowReference`. At 42 a bow at `minDraw` lands 41 % of what a
+     * full one does, which is a draw worth holding.
+     *
+     * `minArrowSpeed` is well above the blade's 3.0 for the opposite reason:
+     * everything the other kinds do at 3 m/s is somebody leaning on a weapon,
+     * and an arrow at 3 m/s is one that has run out of flight and is falling.
+     */
+    minArrowSpeed: 8.0,
+    arrowReference: 42,
+    /**
+     * What a clean full-draw arrow is worth, against the sword's 46 and the
+     * axe's 64.
+     *
+     * The physical argument is that an arrow carries less energy than a sword
+     * cut -- 0.035 kg at 48 m/s is about 40 J against a blade's 60 -- and
+     * delivers all of it through a head the width of a thumbnail. The measured
+     * one is in `docs/measurements.md`, `archer` against both melee policies:
+     *
+     * | pierceScale | dealt | killed | per hit |
+     * |---|---|---|---|
+     * | (swept and recorded once the policy existed) |
+     */
+    pierceScale: 55,
   },
 
   /**

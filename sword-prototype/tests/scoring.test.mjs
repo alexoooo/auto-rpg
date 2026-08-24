@@ -290,3 +290,77 @@ test("no kind that scores nothing can ever take a limb off", () => {
     assert.equal(severs(score, -500, kind), false, `${kind} scores nothing and must sever nothing`);
   }
 });
+
+test("an arrow scores on how straight it arrived and on nothing else", () => {
+  // All point, no edge. `edgeAlignment` is the number the whole sword model is
+  // built on and an arrow does not read it: swapped end for end, the same shot
+  // is worth exactly the same.
+  const straight = scoreHit(
+    { speed: 45, edgeAlignment: 1, bladeAlignment: 1, nearTip: true },
+    "arrow",
+  );
+  const edgeless = scoreHit(
+    { speed: 45, edgeAlignment: 0, bladeAlignment: 1, nearTip: false },
+    "arrow",
+  );
+  assert.equal(straight.damage, edgeless.damage, "the edge axis means nothing to an arrow");
+  assert.equal(straight.kind, "thrust");
+  // And `nearTip` means nothing either: an arrow is its own point along its
+  // whole length, which is why it is `how: "point"` rather than the blade's
+  // thrust branch.
+  assert.equal(straight.quality, edgeless.quality);
+
+  // Broadside is a stick hitting somebody.
+  const tumbling = scoreHit(
+    { speed: 45, edgeAlignment: 1, bladeAlignment: 0.1, nearTip: true },
+    "arrow",
+  );
+  assert.equal(tumbling.kind, "slap");
+  assert.ok(tumbling.damage < straight.damage * 0.05, "and worth almost nothing");
+});
+
+test("a bow at half draw is worth about 40 % of a full one, and that needs its own reference", () => {
+  // The knob this catches: `combat.referenceSpeed` is 11 m/s, a *blade's*
+  // number. Scored against it, every arrow that arrives straight -- 22 m/s from
+  // a bow at `minDraw` as much as 48 from a full one -- saturates the speed term
+  // and does identical damage, and the draw is a control that changes nothing.
+  const at = (speed) =>
+    scoreHit({ speed, edgeAlignment: 0, bladeAlignment: 1, nearTip: false }, "arrow").damage;
+  const full = at(CONFIG.arrow.speedMax);
+  const half = at(CONFIG.arrow.speedMin);
+  assert.ok(full > 0 && half > 0);
+  assert.ok(half < full * 0.75, `a short draw is worth much less: ${half.toFixed(1)} vs ${full.toFixed(1)}`);
+  assert.ok(half > full * 0.15, "but not nothing");
+});
+
+test("an arrow never takes a limb off, however hard it lands", () => {
+  const best = scoreHit(
+    { speed: 200, edgeAlignment: 1, bladeAlignment: 1, nearTip: true },
+    "arrow",
+  );
+  assert.equal(best.quality, 1, "as well delivered as a blow can be");
+  assert.equal(severs(best, -1000, "arrow"), false, "and it still leaves the arm on");
+});
+
+test("a bow is worth nothing swung, like the shields", () => {
+  const swung = scoreHit(
+    { speed: 30, edgeAlignment: 1, bladeAlignment: 1, nearTip: true },
+    "bow",
+  );
+  assert.equal(swung.damage, 0);
+  assert.equal(severs(swung, -100, "bow"), false);
+});
+
+test("an arrow needs far more speed than a blade before it is worth anything", () => {
+  // The floor runs the other way from the club's. Everything a hand-held kind
+  // does at 3 m/s is somebody leaning on it; an arrow at 3 m/s is one that has
+  // run out of flight and is falling.
+  assert.ok(biteFloor("arrow") > biteFloor("sword"));
+  assert.ok(biteFloor("club") < biteFloor("sword"));
+  const drifting = scoreHit(
+    { speed: biteFloor("arrow") - 0.1, edgeAlignment: 0, bladeAlignment: 1, nearTip: false },
+    "arrow",
+  );
+  assert.equal(drifting.kind, "weak");
+  assert.equal(drifting.damage, 0);
+});

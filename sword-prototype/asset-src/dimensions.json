@@ -7,6 +7,7 @@
     "shoulderSide": 0.21,
     "shoulderFront": 0.02,
     "walkSpeed": 2.9,
+    "backSpeed": 1.7,
     "strafeSpeed": 2.2,
     "turnSpeed": 2.5,
     "accelResponse": 11,

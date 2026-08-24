@@ -212,8 +212,8 @@ function runBout({ left: leftPolicy, right: rightPolicy, seeds }) {
     // of what is in them. This said `left.sword` until the hands were split, and
     // a `Combat` handed one weapon where it wanted a list threw on construction
     // -- which is to say `npm run measure` has not run since.
-    { fighter: left, combat: new Combat("left", left.weapons), record: sideRecord(leftPolicy), last: null },
-    { fighter: right, combat: new Combat("right", right.weapons), record: sideRecord(rightPolicy), last: null },
+    { fighter: left, combat: new Combat("left", left.strikers), record: sideRecord(leftPolicy), last: null },
+    { fighter: right, combat: new Combat("right", right.strikers), record: sideRecord(rightPolicy), last: null },
   ];
   sides[0].combat.attach(right);
   sides[1].combat.attach(left);

@@ -18,6 +18,7 @@ import { CONFIG } from "./config.ts";
 import {
   cutsBothWays,
   isShield,
+  isShooting,
   isStrapped,
   isStriking,
   otherHand,
@@ -136,6 +137,29 @@ function attackHand(view: FighterView, prefer: HandName): HandName {
   // Nothing left to swing. Keep an arm that is still attached, so the fighter
   // goes on turning to face and goes on covering with whatever it has.
   return hands[prefer].lost && !hands[spare].lost ? spare : prefer;
+}
+
+/**
+ * Which hand a policy is *shooting* with, this step.
+ *
+ * `attackHand`'s sibling rather than a flag on it, because the two questions have
+ * different answers and a policy knows which one it is asking. A bow is not a
+ * striking weapon -- you do not swing it -- so `isStriking` is false for one and
+ * `attackHand` would walk straight past the only hand that matters to an archer.
+ *
+ * When neither hand shoots it hands back `attackHand`'s answer, so an archer
+ * given a sword still turns to face and still has an arm it can be told about.
+ * It will not fence with it: see `archerMind`, which declines to invent a
+ * swordsman out of a policy that is not one.
+ */
+function shootHand(view: FighterView, prefer: HandName): HandName {
+  const hands = view.self.hands;
+  const able = (name: HandName): boolean =>
+    !hands[name].lost && isShooting(hands[name].weapon);
+  if (able(prefer)) return prefer;
+  const spare = otherHand(prefer);
+  if (able(spare)) return spare;
+  return attackHand(view, prefer);
 }
 
 /**
@@ -1034,6 +1058,196 @@ const DUELIST = {
    */
   headLift: 0.20,
 } as const;
+
+/**
+ * The archer's numbers.
+ *
+ * Fewer than the other two policies have, and that is the character rather than
+ * an omission: there is no stroke to phase, no wrist to roll and no chamber to
+ * hold. What an archer does is stand at a distance, point, and wait.
+ */
+const ARCHER = {
+  /**
+   * Shoulder-to-shoulder metres it wants between itself and the other fighter.
+   *
+   * Far enough that a sword is a walk away rather than a step. `duelist` closes
+   * at roughly 3 m/s, and a full draw is 0.9 s, so six metres is about two shots
+   * before it has a fight on its hands -- which is the trade this policy is for.
+   */
+  standOff: 6.0,
+  /**
+   * And the distance at which it stops holding ground and backs off.
+   *
+   * Below this it walks backwards while drawing. It does *not* stop drawing:
+   * a bow at three metres is still a bow, and a policy that panicked and lowered
+   * it would be a policy that cannot defend itself at all.
+   */
+  giveGround: 3.2,
+  turnGain: 2.4,
+  /**
+   * How far off the bearing it will loose, in radians.
+   *
+   * The arrow leaves along the arm and the arm aims in *torso* space, so a shot
+   * taken mid-turn goes where the fighter was pointing rather than where it was
+   * looking. 0.15 rad is about 9 degrees, which at six metres is a metre of
+   * miss -- so this gate is most of what separates an archer from a fighter
+   * spraying arrows across the arena.
+   */
+  aimTolerance: 0.15,
+  /** Where on the body it aims, above the shoulder line. */
+  chestLift: -0.12,
+  /** Seconds between letting one go and starting the next. */
+  cooldown: 0.30,
+} as const;
+
+/**
+ * How far above the mark to aim, for an arrow that has to fall on the way.
+ *
+ * **Computed rather than tuned**, which is unusual for this file and is worth
+ * the exception. Every other constant here is a judgement about how a fighter
+ * behaves; this one is where a thrown thing lands, and that has an answer. The
+ * flight is `range / speed` and the drop is `g t^2 / 2`, so the lift is
+ * `g range^2 / 2 v^2` -- quadratic in the range, which is why a linear fudge
+ * would have been right at exactly one distance and wrong at every other.
+ *
+ * Reading `CONFIG.arrow` from a policy is the same liberty `SWINGER.engage`
+ * already takes with the sword's length: a person shooting a bow knows how fast
+ * it shoots, and house rule 1 is about what a policy may *do* -- it may only
+ * produce an `Intent` -- rather than about what it may know.
+ */
+function arrowLift(range: number): number {
+  const speed = CONFIG.arrow.speedMax;
+  const flight = range / speed;
+  return Math.abs(CONFIG.world.gravity) * flight * flight * 0.5;
+}
+
+/**
+ * Stands off, draws, and looses.
+ *
+ * The third policy, and the first that does not fence. It exists for a reason
+ * beyond having an archer to fight: without it the bow would ship as a weapon
+ * **no policy uses**, which is exactly the hole session 04 was named for -- a
+ * kind with a mesh, a builder, a config block and a picker entry that every mind
+ * in the program silently declines to pick up. `isStriking` is false for a bow
+ * on purpose, so `duelist` and `swinger` handed one find no hand to attack with
+ * and fall through to the branch two shields already take. That is a fighter who
+ * has brought a bow to a sword fight, which is a true thing about the world; it
+ * is not a policy for the bow.
+ *
+ * **The draw is counted rather than read.** `Arm` owns the string and the view
+ * does not carry it, so this holds `thrust` for `CONFIG.arrow.drawSeconds` and
+ * lets go -- the same clock `buttons.ts` is integrating on the other side of the
+ * seam, from the same constant. Publishing the draw on `HandView` would be the
+ * tidier-looking option and it would be a field with one reader that duplicates
+ * a number both sides already have; `AGENTS.md` has the rule about that, and
+ * `HandView.reach` is the exception that earns it (a *weapon's* length is not
+ * knowable from `config.ts` without knowing the weapon).
+ *
+ * **It does not fence.** Handed a sword instead of a bow it keeps its distance
+ * and never attacks, and that is deliberate rather than unfinished: the moment
+ * this policy grows a melee branch it stops being a measurement of what a bow is
+ * worth and becomes a measurement of a mixed policy. What it *does* do without a
+ * bow is back away, which is at least a coherent fighter.
+ */
+export function archerMind(seed = randomSeed()): Mind {
+  const random = mulberry32(seed);
+  const intent = blankIntent();
+  const aim: Aim = { pointerX: 0, pointerY: 0 };
+  const mark: Point = { x: 0, y: 0, z: 0 };
+  const off = offScratch();
+  const cover: Point = { x: 0, y: 0, z: 0 };
+
+  let shooter: HandName = "primary";
+  /** Seconds the string has been coming back, or -1 while resting. */
+  let drawn = -1;
+  // Two archers built together should not loose on the same frame.
+  let rest = random() * ARCHER.cooldown;
+  /** One step of released button, which is what the loose actually is. */
+  let releasing = false;
+
+  return {
+    name: "archer",
+    decide(view: FighterView, dt: number): Intent {
+      const self = view.self;
+      const them = view.opponent;
+      const gap = distance(self.shoulder, them.shoulder);
+
+      shooter = shootHand(view, shooter);
+      intent.driving = shooter;
+      const hand = intent[shooter];
+      const me = self.hands[shooter];
+
+      // ---- feet -----------------------------------------------------------
+      intent.turn = turnToward(view, them.ground, ARCHER.turnGain);
+      intent.strafe = 0;
+      intent.forward = gap < ARCHER.giveGround ? -1 : gap > ARCHER.standOff ? 1 : 0;
+
+      // ---- the mark --------------------------------------------------------
+      // Their shoulder line, dropped to the chest, and then lifted by whatever
+      // the arrow is going to lose on the way.
+      mark.x = them.ground.x;
+      mark.y = them.shoulder.y + ARCHER.chestLift + arrowLift(gap);
+      mark.z = them.ground.z;
+      aimAt(view, mark, aim, me.shoulder);
+      hand.pointerX = aim.pointerX;
+      hand.pointerY = aim.pointerY;
+      hand.roll = 0;
+      hand.guard = false;
+
+      // The hand that is not on the bow. A bow takes both, so in practice this
+      // is an empty hand resting -- but it is asked rather than assumed, because
+      // a fighter can be built by a harness with anything in either hand.
+      planOffHand(view, otherHand(shooter), chestOf(them, cover), intent[otherHand(shooter)], off);
+
+      // ---- the string ------------------------------------------------------
+      // One step of released button *is* the loose: `nextDraw` fires on the edge
+      // where the level ends, so this has to spend a step down before it may
+      // start pulling again.
+      if (releasing) {
+        releasing = false;
+        hand.thrust = false;
+        rest = ARCHER.cooldown;
+        drawn = -1;
+        return intent;
+      }
+
+      if (!isShooting(me.weapon) || me.lost) {
+        // Nothing to draw. It keeps its distance and its facing and does not
+        // pretend to be a swordsman.
+        hand.thrust = false;
+        drawn = -1;
+        return intent;
+      }
+
+      if (rest > 0) {
+        rest -= dt;
+        hand.thrust = false;
+        return intent;
+      }
+
+      // Square enough to shoot? The arrow leaves along the arm, and the arm aims
+      // in torso space, so a shot taken mid-turn goes where the body is pointing.
+      const bearing = Math.atan2(them.ground.x - self.ground.x, them.ground.z - self.ground.z);
+      const square = Math.abs(angleTo(self.facing, bearing)) < ARCHER.aimTolerance;
+
+      if (!square) {
+        // Hold whatever draw it has rather than dropping it: a bow half drawn
+        // while you turn is a bow you can loose the moment you are round.
+        hand.thrust = drawn >= 0;
+        return intent;
+      }
+
+      drawn = drawn < 0 ? 0 : drawn + dt;
+      if (drawn >= CONFIG.arrow.drawSeconds) {
+        releasing = true;
+        hand.thrust = false;
+        return intent;
+      }
+      hand.thrust = true;
+      return intent;
+    },
+  };
+}
 
 type Stance = "hold" | "chamber" | "cut" | "recover";
 

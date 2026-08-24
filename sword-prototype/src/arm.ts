@@ -21,7 +21,9 @@ import {
   type WeaponKind,
   type WeaponMaterials,
 } from "./weapon.ts";
-import { LAYER, COLLIDES } from "./physics.ts";
+import { isShooting } from "./hands.ts";
+import { Quiver } from "./arrow.ts";
+import { nextDraw } from "./buttons.ts";
 
 const LINEAR = [
   PhysicsConstraintAxis.LINEAR_X,
@@ -93,6 +95,15 @@ export interface ArmOptions {
   collidesWith: number;
   weaponLayer: number;
   weaponCollidesWith: number;
+  /**
+   * The side's arrow layer, for the quiver a shooting hand builds.
+   *
+   * Passed rather than derived, like every other mask here: `layersFor` is the
+   * one place that decides what a side owns, and an arm that worked its own out
+   * would be a second copy of that table.
+   */
+  arrowLayer: number;
+  arrowCollidesWith: number;
   /** What this hand holds. `empty` builds no body and welds nothing. */
   weapon: WeaponKind;
   /**
@@ -153,6 +164,25 @@ export class Arm {
    * object is not.
    */
   readonly weapon: Weapon | null;
+
+  /**
+   * Arrows, for a hand that holds something that shoots, and null otherwise.
+   *
+   * On the arm rather than on the fighter because everything a shot needs is
+   * here: the intent that draws it, the weapon whose +Y it flies along, and the
+   * control step it happens on. `Fighter.strikers` is what gathers it back up
+   * for `Combat`.
+   */
+  readonly quiver: Quiver | null;
+
+  /**
+   * How far the string is back, 0 to 1.
+   *
+   * The only piece of state in this file that a *button* owns rather than the
+   * solver, and it is one number because `buttons.ts` keeps it that way. See
+   * `nextDraw`: a draw is a level and a loose is the edge where it ends.
+   */
+  private draw = 0;
 
   /** The three joints of the chain. Each is a limb's `attachment`. */
   readonly shoulder: Physics6DoFConstraint;
@@ -267,6 +297,10 @@ export class Arm {
     basis: new Matrix(),
     rotation: new Quaternion(),
     along: new Vector3(),
+    /** Where an arrow is pointed, and where it starts. Owned, because
+     *  `bladeDirectionToRef` writes into whatever it is handed. */
+    shot: new Vector3(),
+    nock: new Vector3(),
     pole: new Vector3(),
     sideways: new Vector3(),
     elbowPoint: new Vector3(),
@@ -403,6 +437,20 @@ export class Arm {
             materials,
           );
 
+    // Built with the arm and never during a bout -- see `arrow.ts`, which
+    // explains why that is the whole design rather than an optimisation.
+    this.quiver = !isShooting(opts.weapon)
+      ? null
+      : new Quiver(
+          scene,
+          {
+            name: `${opts.name}.arrow`,
+            layer: opts.arrowLayer,
+            collidesWith: opts.arrowCollidesWith,
+          },
+          materials,
+        );
+
     this.weld = !this.weapon ? null : joint(scene, this.hand, {
       name: `${opts.name}.weapon`,
       mesh: this.hand.mesh,
@@ -505,9 +553,24 @@ export class Arm {
    * Take hold of the other arm's two-hander.
    *
    * Built by `Fighter`, because it joins two arms and neither can reach the
-   * other. The haft is welded to this hand at `club.secondGrip` along its own
-   * -Y, so the two fists sit apart along the shaft rather than in the same
-   * place, and this arm's grip goes on being motorised.
+   * other. The haft is welded to this hand at the weapon's **own** second grip
+   * along its local +Y, so the two fists sit apart along the shaft rather than in
+   * the same place, and this arm's grip goes on being motorised.
+   *
+   * That offset used to be `CONFIG.club.secondGrip`, written here -- one kind's
+   * number, in a method whose whole subject is two-handedness in general. It is
+   * the same defect as a missing table row and the same one `combat.ts` had with
+   * `minCutSpeed`: a caller holding a copy of something it has no business
+   * knowing. A bow is what made it wrong; `Weapon.secondGrip` is where the answer
+   * lives now, beside the builder that knows the geometry, and a kind that does
+   * not answer does not compile.
+   *
+   * **A `null` is a real answer and the bow's.** A bow takes both hands and the
+   * trailing one is on the *string*, which travels 620 mm through the draw -- so
+   * there is nothing fixed to weld it to, and welding it anywhere would be
+   * inventing a joint to have one. The bow's second hand is committed in the
+   * loadout and modelled by the draw, not by the solver; refused here, quietly
+   * and by construction.
    *
    * **The trailing grip is left unmotorised**, and that is a measurement rather
    * than a simplification. Two position motors pulling one rigid body fight each
@@ -524,6 +587,7 @@ export class Arm {
    */
   takeSecondGrip(scene: Scene, weapon: Weapon, name: string): void {
     if (this.shared || this.weapon) return;
+    if (weapon.secondGrip === null) return;
     this.shared = joint(scene, this.hand, {
       name: `${name}.shared`,
       mesh: this.hand.mesh,
@@ -531,7 +595,7 @@ export class Arm {
       shape: weapon.shape,
     }, {
       pivotParent: new Vector3(0, -CONFIG.arm.handLength / 2, 0),
-      pivotChild: new Vector3(0, CONFIG.club.secondGrip, 0),
+      pivotChild: new Vector3(0, weapon.secondGrip, 0),
       axisParent: new Vector3(1, 0, 0),
       axisChild: new Vector3(1, 0, 0),
       perpParent: new Vector3(0, -1, 0),
@@ -672,11 +736,62 @@ export class Arm {
 
   /** The four per-step methods, in the one order they work in. */
   update(dt: number, hand: HandIntent): void {
+    // **First, and outside the `lost` guard**, for two separate reasons.
+    //
+    // Outside it, because an arrow already in the air belongs to nobody: it goes
+    // on flying, ageing and being collected whether or not the arm that loosed
+    // it is still attached. Skipping this for a severed arm would leave every
+    // arrow it had shot live for the rest of the bout, which is the pool never
+    // recycling and the acceptance check failing in the one case nobody tests.
+    //
+    // First, because `Quiver.step` is what takes down the one-step teleport that
+    // `loose` puts up. Run after a loose in the same step it would cancel the
+    // teleport before the solver ever saw it, and every shot would start from
+    // wherever the last one ended -- the exact failure `arrow.ts`'s header
+    // records, six shots from one origin landing 12 m apart.
+    this.quiver?.step(dt);
     if (this.lost) return;
+    this.shoot(dt, hand);
     this.aim(dt, hand);
     this.driveAnchor(dt);
     this.driveElbow();
     this.dampGrip(dt);
+  }
+
+  /**
+   * Draw, and loose.
+   *
+   * The whole of the bow's control, and it is four lines of rule and three of
+   * geometry because the two halves it needs already existed. `nextDraw` owns
+   * "a hold is a level and a loose is its edge", which is `buttons.ts`'s subject
+   * and has a test that costs microseconds. The direction is the weapon's own
+   * +Y, which for a bow is where the arm is pointing -- so an arrow goes exactly
+   * where a sword's point would have gone, through the aiming that already
+   * exists, with no second control surface anywhere.
+   *
+   * `bladeDirectionToRef` rather than `bladeDirection()`, and the difference is
+   * not style: this runs 240 times a second, and the cached world matrix stamps
+   * the scene's render id as a *side effect* of being read. See the accessor.
+   *
+   * A hand with no quiver still runs `nextDraw`, and that is deliberate rather
+   * than wasteful -- it is what keeps `this.draw` at zero for a hand holding a
+   * sword, so that picking up a bow later cannot inherit a draw from a button
+   * somebody was leaning on.
+   */
+  private shoot(dt: number, hand: HandIntent): void {
+    const step = nextDraw(this.draw, hand.thrust, dt, CONFIG.arrow);
+    this.draw = step.draw;
+    const weapon = this.weapon;
+    if (!weapon || !this.quiver) return;
+    weapon.drawTo(step.draw);
+    if (step.loose <= 0) return;
+
+    const along = weapon.bladeDirectionToRef(this.scratch.shot);
+    const from = this.scratch.nock
+      .copyFrom(along)
+      .scaleInPlace(CONFIG.arrow.spawnAhead)
+      .addInPlace(weapon.root.position);
+    this.quiver.loose(from, along, step.loose);
   }
 
   /**
@@ -733,6 +848,10 @@ export class Arm {
   drop(): void {
     if (this.lost) return;
     this.lost = true;
+    // Whatever it was holding, it is not drawing it any more. The arrows it has
+    // already loosed are unaffected -- see `update`.
+    this.draw = 0;
+    this.weapon?.drawTo(0);
     this.grip.dispose();
     this.elbowDrive.dispose();
     // The second weld goes too, or a dropped arm goes on holding the other hand's
@@ -741,10 +860,15 @@ export class Arm {
     this.shared = null;
     // A dropped weapon is debris like any other piece, and the exemption that
     // let it pass through its owner belonged to the owner, not to the steel.
-    if (this.weapon) {
-      this.weapon.shape.filterMembershipMask = LAYER.DEBRIS;
-      this.weapon.shape.filterCollideMask = COLLIDES.DEBRIS;
-    }
+    // A dropped weapon is debris like any other piece, and the exemption that
+    // let it pass through its owner belonged to the owner and not to the steel.
+    //
+    // Through `discard`, which does two things this used to do neither of.
+    // It writes the masks onto the **leaf** shapes -- writing the container's,
+    // which is what this line was, is a no-op Havok ignores and reads back as
+    // garbage -- and it marks the thing spent, so `Combat` stops scoring cuts
+    // from a sword lying on the floor.
+    this.weapon?.discard();
   }
 
   /**
@@ -762,6 +886,7 @@ export class Arm {
     this.shared?.dispose();
     this.weld?.dispose();
     this.weapon?.dispose();
+    this.quiver?.dispose();
     this.handAnchor.mesh.dispose();
     this.elbowAnchor.mesh.dispose();
   }

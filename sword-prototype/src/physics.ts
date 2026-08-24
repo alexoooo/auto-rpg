@@ -35,6 +35,22 @@ import { CONFIG } from "./config.ts";
  * one failure a shield cannot have. This buys the guarantee without touching a
  * single number the sword was tuned against.
  *
+ * **An arrow is on its side, not on its own.** It gets a fifth bit per side and
+ * that bit joins `LEFT_SIDE` / `RIGHT_SIDE`, which is what buys the two things
+ * an arrow has to be able to do without a line of code anywhere: it finds the
+ * other fighter's trunk, arms and shield, because those are what collide with a
+ * side; and **an enemy blade can bat it out of the air**, because a sword
+ * collides with the whole of the far side and an arrow is now part of one. Its
+ * own row is the sword's shape exactly -- world, the far side, and debris -- so
+ * it passes through the archer who loosed it, which is the same exemption a
+ * blade has always had and is why a bow can be drawn past one's own arm.
+ *
+ * It also means **two arrows on the same side never touch**, which is not a
+ * nicety: a quiver parks a dozen of them in the same cubic centimetre, and a
+ * stack that collided with itself would be a dozen bodies solving against each
+ * other for the whole bout. They are parked on membership mask 0 as well, so
+ * this is the second of two independent reasons rather than the only one.
+ *
  * A side's body parts do not collide with each other, which is the rule `HERO`
  * already carried and the old `DUMMY` did not. Adjacent capsules in a jointed
  * chain overlap at every joint by construction -- `rig.ts`'s `joint()` turns off
@@ -62,12 +78,19 @@ export const LAYER = {
   RIGHT_SWORD: 1 << 7,
   RIGHT_SHIELD: 1 << 8,
   DEBRIS: 1 << 9,
+  LEFT_ARROW: 1 << 10,
+  RIGHT_ARROW: 1 << 11,
 } as const;
 
 /** Everything one side owns, which is what the *other* side collides with. */
-const LEFT_SIDE = LAYER.LEFT_TRUNK | LAYER.LEFT_ARM | LAYER.LEFT_SWORD | LAYER.LEFT_SHIELD;
+const LEFT_SIDE =
+  LAYER.LEFT_TRUNK | LAYER.LEFT_ARM | LAYER.LEFT_SWORD | LAYER.LEFT_SHIELD | LAYER.LEFT_ARROW;
 const RIGHT_SIDE =
-  LAYER.RIGHT_TRUNK | LAYER.RIGHT_ARM | LAYER.RIGHT_SWORD | LAYER.RIGHT_SHIELD;
+  LAYER.RIGHT_TRUNK |
+  LAYER.RIGHT_ARM |
+  LAYER.RIGHT_SWORD |
+  LAYER.RIGHT_SHIELD |
+  LAYER.RIGHT_ARROW;
 
 const EVERY_FIGHTER = LEFT_SIDE | RIGHT_SIDE;
 
@@ -77,10 +100,14 @@ export const COLLIDES = {
   LEFT_ARM: LAYER.WORLD | RIGHT_SIDE | LAYER.DEBRIS,
   LEFT_SWORD: LAYER.WORLD | RIGHT_SIDE | LAYER.DEBRIS,
   LEFT_SHIELD: LAYER.WORLD | RIGHT_SIDE | LAYER.LEFT_TRUNK | LAYER.DEBRIS,
+  // The sword's row exactly. An arrow in flight is a small fast blade that
+  // belongs to a side, and everything that follows from that is already written.
+  LEFT_ARROW: LAYER.WORLD | RIGHT_SIDE | LAYER.DEBRIS,
   RIGHT_TRUNK: LAYER.WORLD | LEFT_SIDE | LAYER.RIGHT_SHIELD | LAYER.DEBRIS,
   RIGHT_ARM: LAYER.WORLD | LEFT_SIDE | LAYER.DEBRIS,
   RIGHT_SWORD: LAYER.WORLD | LEFT_SIDE | LAYER.DEBRIS,
   RIGHT_SHIELD: LAYER.WORLD | LEFT_SIDE | LAYER.RIGHT_TRUNK | LAYER.DEBRIS,
+  RIGHT_ARROW: LAYER.WORLD | LEFT_SIDE | LAYER.DEBRIS,
   // A piece that has come off is nobody's any more: it collides with everything,
   // including the fighter it was cut from, because a severed arm lying against
   // its owner's shin is a truer picture than one sunk into it.
@@ -90,7 +117,7 @@ export const COLLIDES = {
 /** Which side of the ring a fighter stands on. Everything symmetric keys off it. */
 export type Side = "left" | "right";
 
-/** The four masks a fighter needs, chosen by side rather than by role. */
+/** The five masks a fighter needs, chosen by side rather than by role. */
 export const layersFor = (side: Side) =>
   side === "left"
     ? {
@@ -102,6 +129,8 @@ export const layersFor = (side: Side) =>
         swordCollides: COLLIDES.LEFT_SWORD,
         shield: LAYER.LEFT_SHIELD,
         shieldCollides: COLLIDES.LEFT_SHIELD,
+        arrow: LAYER.LEFT_ARROW,
+        arrowCollides: COLLIDES.LEFT_ARROW,
       }
     : {
         trunk: LAYER.RIGHT_TRUNK,
@@ -112,6 +141,8 @@ export const layersFor = (side: Side) =>
         swordCollides: COLLIDES.RIGHT_SWORD,
         shield: LAYER.RIGHT_SHIELD,
         shieldCollides: COLLIDES.RIGHT_SHIELD,
+        arrow: LAYER.RIGHT_ARROW,
+        arrowCollides: COLLIDES.RIGHT_ARROW,
       };
 
 /**

@@ -26,6 +26,7 @@ import { capsulePart, joint, type Part } from "./rig.ts";
 import { Figure } from "./figure.ts";
 import { Arm } from "./arm.ts";
 import { handsFor, isShield, type Weapon, type WeaponKind } from "./weapon.ts";
+import type { Striking } from "./combat.ts";
 import {
   HANDS,
   idleMind,
@@ -585,6 +586,11 @@ export class Fighter {
           weaponLayer: isShield(wanted[hand]) ? layers.shield : layers.sword,
           weaponCollidesWith:
             isShield(wanted[hand]) ? layers.shieldCollides : layers.swordCollides,
+          // Handed to every arm rather than only to one that shoots, because an
+          // arm decides for itself whether it has a quiver -- and a mask passed
+          // conditionally is a mask that has to be worked out twice.
+          arrowLayer: layers.arrow,
+          arrowCollidesWith: layers.arrowCollides,
           weapon: wanted[hand],
           visible,
         },
@@ -979,14 +985,32 @@ export class Fighter {
   }
 
   /**
-   * Everything this fighter is holding, in hand order.
+   * Everything of this fighter's that can hurt somebody -- what it holds, and
+   * what it can loose.
    *
-   * What `Combat` watches. A two-hander appears once, not twice: it belongs to
-   * the arm that welded it and the other hand merely has hold of the haft, so
-   * the trailing arm's own `weapon` is null and this list is already right.
+   * What `Combat` watches. It was `weapons`, a list of what is in the two hands,
+   * and the rename is the change rather than the addition: a `Weapon` is a thing
+   * in a hand, and a quiver's arrows are things this fighter owns that no hand
+   * holds. Nothing wanted the narrower list once the wider one existed, so there
+   * is not one.
+   *
+   * A two-hander appears once, not twice: it belongs to the arm that welded it
+   * and the other hand merely has hold of the haft, so the trailing arm's own
+   * `weapon` is null and walking both hands is already right.
+   *
+   * Read once, in `Combat`'s constructor, and that is the whole reason a quiver
+   * is a fixed pool. See `arrow.ts`: with a pool, this list is complete before
+   * the first step, so an observable is never touched during a bout and no arrow
+   * can outlive the observer watching it.
    */
-  get weapons(): (Weapon | null)[] {
-    return HANDS.map((name) => this.arms[name].weapon);
+  get strikers(): Striking[] {
+    const all: Striking[] = [];
+    for (const name of HANDS) {
+      const arm = this.arms[name];
+      if (arm.weapon) all.push(arm.weapon);
+      if (arm.quiver) all.push(...arm.quiver.arrows);
+    }
+    return all;
   }
   get upperArm(): Part {
     return this.arm.upperArm;
@@ -1351,7 +1375,11 @@ export class Fighter {
     const forward = this.scratch.forward.set(world.m[8], world.m[9], world.m[10]).normalize();
 
     const desired = this.scratch.move.set(0, 0, 0);
-    desired.addInPlace(forward.scale(input.forward * F.walkSpeed));
+    // Backwards is slower than forwards, which it was not until there was a
+    // policy that lived on the difference. See `fighter.backSpeed`.
+    desired.addInPlace(
+      forward.scale(input.forward * (input.forward >= 0 ? F.walkSpeed : F.backSpeed)),
+    );
     desired.addInPlace(right.scale(input.strafe * F.strafeSpeed));
 
     const blend = 1 - Math.exp(-F.accelResponse * dt);

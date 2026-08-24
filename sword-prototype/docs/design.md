@@ -385,7 +385,7 @@ of the same shape a person produces.
 
 ## What is in a hand
 
-`Weapon` replaced `Sword`. Five kinds and an `empty`, all sharing one local frame -- +Y
+`Weapon` replaced `Sword`. Six kinds and an `empty`, all sharing one local frame -- +Y
 along the weapon, +X the edge, +Z the flat -- which is what lets `Combat` ask the same four
 questions of any of them without a branch.
 
@@ -556,6 +556,131 @@ defined relative to the threat, so the turn that brings the plate round is very 
 -- and because the servo that computed it exactly walked the wrist into a limit it cannot
 pass. Every number has its table beside it in `config`-style comments and in
 `docs/measurements.md`.
+
+### The bow, and the difference between a thing in a hand and a thing that hits you
+
+A bow is the first weapon here that hurts somebody it is not touching, and the first
+whose damage comes from an object no hand holds. Both halves of that sentence turned
+out to be load-bearing.
+
+**The aiming is the aiming that already exists.** A bow takes the blade's mount, so
+its +Y runs out along the arm -- and an arrow loosed along +Y therefore goes exactly
+where a sword's point would have gone. There is no second control surface, no
+crosshair and no mode. The stave lies on +X, which is the axis the wrist's `roll`
+turns the weapon about, so a wrist at zero holds the bow upright and a rolled one
+cants it. Neither of those was arranged; they fall out of the local frame the other
+five kinds already share, once you put the stave where an axe's edge goes.
+
+**Draw is a level and loose is the edge where it ends**, which is `buttons.ts`'s
+subject rather than a new one. It rides `thrust`, so `HandIntent` is still five
+fields and `NEUTRAL`, `blankIntent`, `copyHand`, the handover blend and every policy
+are untouched. `nextDraw` is fed the boolean rather than the button, which is why
+`archer` charges a bow through exactly the code a hand on a mouse does and the arena
+has no way to tell them apart. Below `minDraw` a release abandons the shot instead
+of taking it -- that is what makes a draw worth *holding* rather than a button worth
+tapping.
+
+**`Striker` came apart from `WeaponKind` one session after being collapsed into it.**
+Session 04 found the two lists identical and made one an alias of the other, on the
+evidence available, and an arrow is the counter-example: a thing that hits somebody
+and is not a thing a hand takes. What keeps this from being a hand-maintained copy
+again is the direction of the derivation -- `GRIPS` is keyed by `Striker` and
+`WEAPON_KINDS` is *computed* as the rows nobody carries, so the narrow list follows
+the wide table rather than sitting beside it. The lesson is worth more than the type:
+**two unions that are equal today are not the same union**, and the test is not
+whether they currently agree but whether you can name the member that is coming. It
+is the same shape as `HandView.reach`, deleted for having no reader and restored the
+next session.
+
+**Nothing is created while a bout is running.** A quiver builds every arrow with the
+fighter and parks it; `loose` wakes one. The master plan expected the opposite -- a
+body per shot, and a `watch`/`unwatch` pair on `Combat` to go with it -- and a pool
+makes that unnecessary, which is strictly better: an observable is never touched at
+240 Hz and no arrow can outlive the observer watching it. It was chosen on a
+measurement rather than on taste (24 parked arrows cost **-0.0015 ms/frame**, below
+the bench's own noise) and it makes the session's acceptance check true by
+construction rather than by careful disposal.
+
+### Four things that were already wrong, and one weapon that asked
+
+A bow asks questions no melee weapon had ever asked -- *do the layers work, can a
+body be moved without being pushed, how fast was it going when it arrived, and can
+you run away* -- and four of them had wrong answers. `docs/measurements.md` has the
+tables; what belongs here is why they were invisible.
+
+**A `PhysicsShapeContainer`'s collision filter does nothing.** Havok filters on the
+leaf shapes, so every weapon in the program had carried the default filter -- collide
+with everything -- since the file was written. A sword swept through its envelope
+logged 1687 contacts against its own upper arm; a shield logged 725 and 669 against
+its owner's two arms, which is permanent contact between a 4 kg lever and the chain
+driving it, and is the exact failure the four-layers-per-side split was invented to
+prevent. It hid because **the symptom is friction rather than a hole**: an arm that
+tracks its anchor a little worse than it should, in a prototype whose entire subject
+is how well an arm tracks its anchor. Reading the mask back does not catch it either
+-- a container hands you garbage.
+
+**Two watchers on one body, and the order they were added decides the outcome.** An
+arrow watches its own collisions to know it has struck; `Combat` watches the same
+body to score the blow. The arrow's observer is added first, so marking it spent
+inside that callback marks it spent *before* the watcher that scores it runs -- and
+every arrow in the game scored nothing, silently, with a flight that looked
+perfectly healthy. The fix is to promote the flag one control step later, after
+which neither watcher needs to know the other exists.
+
+**`velocityAt` is the right question for a blade and the wrong one for a
+projectile.** `linear + w x r` is what a sword's contact point moves at, because the
+rotation is the arm's and is there before the contact. An arrow has no rotation in
+flight, so any it has at the contact was put there *by* the contact -- and over a
+0.36 m half-shaft that cancelled a 48 m/s shot down to 5.6. Copying a blade's
+accessor because both are "things that hit people" is the same class of mistake as
+copying a blade's `referenceSpeed`, and the same session made both.
+
+**A fighter retreated at a dead run**, because `steer` multiplied `input.forward` by
+`walkSpeed` whatever its sign. Nobody noticed while the only policy that backed up
+did it in bursts. A ranged policy lives on that difference, so it became the whole
+fight: a fighter that retreats as fast as its pursuer advances cannot be caught, and
+the first archer bench was a 0-0 stalemate that no amount of tuning the bow could
+have touched.
+
+### Damage and lethality turn out to be different systems
+
+`beaten()` ends a bout on a **severed** head or torso, or on all twelve parts at
+zero. Every weapon until now was a chopping weapon, so nothing had ever tested the
+difference -- and an arrow deliberately never severs, because taking a limb off wants
+an edge and a swing, and giving a projectile that power would make the bow strictly
+better than the axe at the one thing the axe is for.
+
+The consequence is that **an archer cannot win a bout**, and it is not a balance
+number: shooting a fighter that stands still and does nothing, for thirty seconds,
+sixteen times, it deals 274.7 damage a bout and kills nobody. Raising the arrow's
+damage to where two of them exceed a whole torso does not change it.
+
+That is a real gap in the model rather than a missing feature of the bow: there is
+no notion here of *killed without dismemberment*. `beaten()`'s docstring already
+named the alternative and reserved the choice for whoever plays a bout to the end,
+which was the right call when nothing depended on it. Something does now, and
+`docs/measurements.md` item 16 has the number.
+
+### An archer, because a weapon nobody uses is a weapon nobody can measure
+
+`isStriking` is false for a bow -- you do not swing one -- so `duelist` and `swinger`
+handed one find no hand to attack with and fall through to the branch two shields
+already take. That is a fighter who has brought a bow to a sword fight, which is a
+true thing about the world and not a policy for the weapon. Session 04's most
+expensive finding was that a kind every policy declines to pick up ships looking
+complete, so `archer` is part of the weapon rather than a follow-up.
+
+It stands off, faces, draws, and looses, and it does exactly one thing the other two
+do not: **it computes its own ballistics**. The lift is `g range^2 / 2 v^2`, derived
+rather than tuned, which is unusual for that file and is the exception that proves
+the rule -- every other constant in `policies.ts` is a judgement about how a fighter
+behaves, and where a thrown thing lands is not a judgement. Reading `CONFIG.arrow`
+from a policy is the same liberty `SWINGER.engage` already takes with the sword's
+length: house rule 1 is about what a policy may *do*, not what it may know.
+
+Handed a sword instead of a bow it keeps its distance and never attacks. That is
+deliberate rather than unfinished -- the moment it grows a melee branch it stops
+being a measurement of what a bow is worth.
 
 ### The axe, and the tables that had been answering for kinds they did not know
 

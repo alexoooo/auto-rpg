@@ -386,8 +386,8 @@ async function boot(): Promise<void> {
       arena.materials,
     );
     const sides = [
-      { fighter: left, combat: new Combat("left", left.weapons) },
-      { fighter: right, combat: new Combat("right", right.weapons) },
+      { fighter: left, combat: new Combat("left", left.strikers) },
+      { fighter: right, combat: new Combat("right", right.strikers) },
     ];
     // Each blade is pointed at the other body. The collision layers already say
     // the same thing in the solver; this says it again in the scoring.

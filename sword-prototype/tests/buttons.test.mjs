@@ -6,6 +6,7 @@ import {
   PRIMARY,
   SECONDARY,
   maskOfButton,
+  nextDraw,
   nextSpent,
   poseFromButtons,
 } from "../src/buttons.ts";
@@ -279,4 +280,60 @@ test("a spent bit lasts exactly as long as the button that owes it", () => {
   assert.equal(nextSpent(held, PRIMARY | SECONDARY, 0), PRIMARY, "kept while the button is down");
   assert.equal(nextSpent(held, SECONDARY, 0), 0, "forgotten as soon as buttons says it is up");
   assert.equal(poseFromButtons(PRIMARY, held).thrust, false);
+});
+
+/**
+ * The bow's draw, which is the level-and-edge rule one layer up from the mouse.
+ *
+ * Pure, so these cost microseconds -- which is the whole argument for the rule
+ * living in this file rather than beside the arrows.
+ */
+const BOW = { drawSeconds: 1.0, minDraw: 0.4, speedMin: 20, speedMax: 50 };
+
+test("holding grows the draw and never looses on its own", () => {
+  let draw = 0;
+  for (let i = 0; i < 300; i += 1) {
+    const step = nextDraw(draw, true, 1 / 60, BOW);
+    assert.equal(step.loose, 0, "a held button never looses, however long it is held");
+    draw = step.draw;
+  }
+  assert.equal(draw, 1, "and the draw stops at full rather than running past it");
+});
+
+test("letting go of a full draw looses at speedMax and empties the string", () => {
+  const step = nextDraw(1, false, 1 / 60, BOW);
+  assert.equal(step.loose, BOW.speedMax);
+  assert.equal(step.draw, 0);
+});
+
+test("letting go below the bar abandons the shot rather than taking a weak one", () => {
+  const step = nextDraw(BOW.minDraw - 0.001, false, 1 / 60, BOW);
+  assert.equal(step.loose, 0, "nothing leaves the string");
+  assert.equal(step.draw, 0, "and the draw is gone -- it is abandoned, not held");
+});
+
+test("the bar is a floor on the shot, not a dead zone that is then ignored", () => {
+  // A bow released *exactly* at the bar looses, at speedMin. Getting this wrong
+  // the obvious way -- ramping speed from a draw of 0 rather than from the bar
+  // -- makes the weakest legal shot 40 % of speedMin instead of speedMin, and
+  // nothing in the arena would say so.
+  assert.equal(nextDraw(BOW.minDraw, false, 1 / 60, BOW).loose, BOW.speedMin);
+  const half = nextDraw((1 + BOW.minDraw) / 2, false, 1 / 60, BOW).loose;
+  assert.ok(
+    Math.abs(half - (BOW.speedMin + BOW.speedMax) / 2) < 1e-9,
+    `halfway up the ramp is halfway between the speeds; got ${half}`,
+  );
+});
+
+test("a draw that is not held and not past the bar is simply nothing", () => {
+  const step = nextDraw(0, false, 1 / 60, BOW);
+  assert.equal(step.draw, 0);
+  assert.equal(step.loose, 0);
+});
+
+test("a minDraw of 1 does not hand the solver an infinity", () => {
+  // Legal to type at the console, so it has to have an answer.
+  const step = nextDraw(1, false, 1 / 60, { ...BOW, minDraw: 1 });
+  assert.equal(step.loose, BOW.speedMax);
+  assert.ok(Number.isFinite(step.loose));
 });
