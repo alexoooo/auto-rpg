@@ -24,8 +24,12 @@ export class AimIndicator {
   private readonly pad: Mesh;
 
   private readonly scene: Scene;
-  private readonly floorPoints = [new Vector3(), new Vector3()];
-  private readonly riserPoints = [new Vector3(), new Vector3()];
+  // Babylon refuses a dashed-line vertex buffer when both constructor points
+  // coincide. Seed two sub-visible segments; the first `update` overwrites
+  // every coordinate before the indicator is meaningful, but construction no
+  // longer emits two empty-position warnings in an otherwise clean console.
+  private readonly floorPoints = [new Vector3(), new Vector3(0, 0, 0.001)];
+  private readonly riserPoints = [new Vector3(), new Vector3(0, 0.001, 0)];
 
   constructor(scene: Scene) {
     this.scene = scene;

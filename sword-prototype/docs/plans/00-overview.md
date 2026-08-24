@@ -1,5 +1,19 @@
 # Sword prototype -- the body joins the fight
 
+## Progress -- 2026-08-24
+
+Sessions 01--12 are implemented and adversarially reviewed. Session 13 completed all three
+full default training runs, but the selected candidate failed seven unchanged promotion
+gates; the generic learning machinery and compact negative result landed without a bundled
+checkpoint or a dishonest `learned-v1` registration. Session 14's headless integration,
+three-seed corpus, lifecycle audit and a narrow visible browser sample are complete.
+
+The topic is not closed. Human-visible checks at normal frame rate remain for the complete
+camera/loadout/side/hand matrix, rig overlay, body-relative aim, both zoom clamps, paired
+corpse strength, broader blood scale, bow pressure, axe thrust and in-flight arrow trace.
+The bracketed frame-cost comparison still needs two visible machines. The session files stay
+in place until those explicit acceptance items are measured.
+
 ## Outcome
 
 Turn the current arm-and-weapon prototype into a whole-body combat experiment: a fight has
@@ -118,8 +132,8 @@ physics authority.
 | [10](10-arena-surfaces.md) | textured floor, walls and room dressing without new authority | 09 |
 | [11](11-action-options-and-evaluation.md) | composable action options and a reproducible behaviour corpus | 10 |
 | [12](12-neat-meta-training.md) | seeded NEAT trainer, novelty archive and checkpoint codec | 11 |
-| [13](13-learned-meta-policy.md) | held-out learned policy available in the setup screen | 12 |
-| [14](14-integration-and-playtest.md) | final balance, visual and performance pass; plan set closes | 13 |
+| [13](13-learned-meta-policy.md) | promotion decision from held-out evidence; failed candidates remain unshipped | 12 |
+| [14](14-integration-and-playtest.md) | final balance, visual and performance pass; plan set closes when acceptance is complete | 13 |
 
 No session depends on an uncommitted result from a later one. Art sessions are deliberately
 before training so the final learned-policy playtest measures the game that will actually be

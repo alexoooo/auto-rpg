@@ -115,9 +115,18 @@ policy. Four policies ship: **idle** stands there and can be cut apart, **swinge
 in and cuts on a fixed cadence without ever looking at your guard, **duelist** holds
 measure, guards between exchanges, and commits when your point leaves the line, and
 **archer** keeps its distance and shoots — give it a bow, or it will simply back away from
-you all day. A bout ends
-when a fighter loses its head or is beaten to nothing everywhere, or when the clock runs
-out, and the banner names the winner and the blow that did it.
+you all day. A bout ends when its one derived vitality bar reaches zero, or when the clock
+runs out. Zero head or torso health is fatal by itself; serious combined wounds elsewhere
+can spend the same bar without erasing the local health that drives severing and disability.
+The banner names the winner and the blow that did it.
+
+There is no hidden learned policy in that picker. Three full population experiments were
+run, and the validation-selected candidate then lost every held-out promotion bout across
+sword, shield, axe, bow and bare hands. It spent 88% of its decisions disengaging and
+failed seven predeclared gates, so it is recorded as an unpromoted experiment rather than
+renamed `learned-v1`. The checkpoint loader, option diagnostic and five-loadout evaluator
+remain available for the next experiment; [the measurement record](docs/measurements.md)
+has the exact evidence.
 
 Losing your head is also the end of you as a body, and not only as a competitor. The torso
 stops being steered and falls under its own weight, every joint drops to a fraction of its
@@ -334,17 +343,19 @@ page still boots, still plays, and shows the blockout primitives it replaced.
 
 ## Status
 
-Working: two fighters of one kind, the arm, the blade, contact scoring, dismemberment, death
-on a lost head, blood, policies that fight with the controller you use, live takeover of
-either body, two cameras, the rig overlay, the authored armour, and a build that runs at
-60 fps with physics under a millisecond.
+Working: two fighters of one kind, articulated arms, wrists, trunks and crouch, blades,
+shields, bows and bare hands, contact scoring, dismemberment, one derived vitality state,
+clean verdict shutdown, blood, policies that fight with the controller you use, live
+takeover of either body, two cameras, the rig overlay and authored arena and equipment
+surfaces. The learned controller remains an unpromoted experiment rather than a setup option.
 
 The twenty-four-piece warriors now separate skin, neutral woven cloth, leather and worked
 steel with authored UVs and shared PBR maps. Only the surcoat/skirt material is constructed per
 fighter, so crimson and blue remain independent while their images stay shared; rebuilding
-a bout disposes those materials. This is an implemented surface pass, not yet its visual
-verdict: matched Fixed-camera screenshots at both zoom clamps remain part of the integrated
-session-14 review in `docs/measurements.md`.
+a bout disposes those materials. The first default-zoom Fixed/Overhead browser comparison
+kept the four families, side colours, open faces and waist join readable. Both zoom clamps
+and walking/crouching comparisons remain part of the integrated session-14 review in
+`docs/measurements.md`.
 
 Weapons, shields, arrows and ring posts use the same registry without changing their
 geometry or physics. A total 35-part table assigns forged steel, brass, worn leather,
@@ -364,9 +375,14 @@ stone, timber and cloth UVs are scaled from the Poly Haven material's physical m
 
 The first playtest is in: a human can beat `swinger`, its timing stays where it is, and the
 gait-driven knees look good. The larger feel pass is still open -- body-relative aim under
-the fixed camera, the bow's draw, visual readability and the new work sequenced in
+the Fixed camera, bow pressure, in-flight arrow trace, the remaining visual matrix and the work sequenced in
 [docs/plans/](docs/plans/00-overview.md) -- while the durable measurements and remaining
 human judgements stay at the foot of [docs/measurements.md](docs/measurements.md).
+
+The integrated headless contract covers every shipped policy with every setup equipment
+choice, finite anatomical commands over complete bouts, the exact verdict edge, identical
+fight records with costumes enabled or disabled, 25 fighter rebuilds and 100 pooled arrows.
+These are authority and lifecycle results, not substitutes for the open visual judgements.
 
 ## Where the work is written down
 

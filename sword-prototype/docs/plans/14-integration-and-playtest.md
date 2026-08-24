@@ -1,5 +1,29 @@
 # Session 14 -- the complete fight earns its defaults
 
+## Progress -- 2026-08-24
+
+The headless portion is complete. All five named integration tests pass inside the 319-test
+suite; all four policies traverse all 27 setup-reachable loadouts. The required
+resource and cosmetic-authority mutations failed before restoration. The three predeclared
+measure seeds and option evaluator completed, with durable evidence in
+`docs/measurements.md#integrated-headless-close-out----2026-08-24`. The generic checkpoint
+route remains experimental; session 13 shipped neither `learned-v1` nor checkpoint bytes,
+so the learned picker matrix is inapplicable rather than silently substituted.
+
+A partial visible pass now covers the setup screen, default-zoom Fixed and Overhead cameras,
+a sword-plus-empty melee bout and a left-side bow bout. Team colours, the four material
+families, vitality, the single verdict, corpse collapse and a dense blood burst were readable.
+The browser also exposed two one-time empty-buffer warnings from the aim indicator; 1 mm
+constructor seeds and a mutation-proven test close those warnings. The attached server was
+stopped and port 5180 was confirmed free.
+
+Still open: body-relative human aim; both zoom clamps; walking/crouching material comparison;
+paired corpse strength; broader blood scale; bow pressure; axe thrust; in-flight arrow trace;
+the remaining camera/loadout/side/hand matrix; rig-overlay toggles; and two-machine bracketed
+frame cost. Browser security review stopped the attempted rig-control exercise, and the
+1--2 fps automated tab could not provide feel, trace or performance evidence. The plan set
+must not be deleted while those items remain open.
+
 ## Outcome
 
 Play, measure and calibrate the integrated body, art and learned behaviour; close every plan

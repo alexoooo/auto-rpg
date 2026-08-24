@@ -15,6 +15,16 @@ export const PARITY_CALIBRATION = Object.freeze({
   method: "fresh Havok per bout; unscored warm-up, then legacy -> meta -> legacy-repeat for each seed, side and loadout",
 });
 
+export function seedRangesOverlap(ranges: Record<string, readonly [number, number]>): boolean {
+  const entries = Object.values(ranges);
+  for (let i = 0; i < entries.length; i += 1) {
+    for (let j = i + 1; j < entries.length; j += 1) {
+      if (Math.max(entries[i][0], entries[j][0]) <= Math.min(entries[i][1], entries[j][1])) return true;
+    }
+  }
+  return false;
+}
+
 export function validateSeedRanges(ranges: Record<string, readonly [number, number]>): void {
   const entries = Object.entries(ranges);
   for (const [name, [low, high]] of entries) {
@@ -24,11 +34,8 @@ export function validateSeedRanges(ranges: Record<string, readonly [number, numb
   }
   for (let i = 0; i < entries.length; i += 1) {
     for (let j = i + 1; j < entries.length; j += 1) {
-      const [a, [a0, a1]] = entries[i];
-      const [b, [b0, b1]] = entries[j];
-      if (Math.max(a0, b0) <= Math.min(a1, b1)) {
-        throw new Error(`seed ranges ${a} and ${b} overlap`);
-      }
+      const [a, [a0, a1]] = entries[i]; const [b, [b0, b1]] = entries[j];
+      if (Math.max(a0, b0) <= Math.min(a1, b1)) throw new Error(`seed ranges ${a} and ${b} overlap`);
     }
   }
 }

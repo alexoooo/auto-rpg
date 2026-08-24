@@ -139,6 +139,7 @@ test("a parked arrow has no visible trace", async () => {
   assert.equal(scene.getMeshByName("q.0.head").material.name, materials.arrowAccent.name);
   assert.equal(scene.getMeshByName("q.0.fletch").material.name, materials.arrowAccent.name);
   assert.equal(arrow.trail.material.name, materials.arrowAccent.name, "all three highlights share the accent");
+  assert.ok(arrow.trail.getTotalVertices() > 0, "the pooled tube starts with a real vertex buffer");
   arrow.tracePoints[0].set(1, 2, 3);
   arrow.park();
   assert.ok(

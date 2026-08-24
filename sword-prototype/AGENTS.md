@@ -505,6 +505,19 @@ npm run dev             # http://localhost:5180, strictPort
   rewrites the sidecar without rebuilding the `.glb`, which is right exactly when nothing
   dimensional moved; read the diff before believing that.
 
+- **Babylon removes observers asynchronously.** `Observable.remove` and `removeCallback`
+  mark an observer `_willBeUnregistered` immediately, then splice it on a zero-delay timer.
+  A lifecycle census taken synchronously after disposal must count active observers rather
+  than the raw backing-array length, or every correct removal looks like a leak.
+  `tests/integration.test.mjs` learned this while auditing 25 rebuilds; it still catches a
+  genuinely live callback because marked observers no longer participate in notification.
+
+- **Havok's private constraint-to-body map is a debug history, not a live-resource census.**
+  Version 9.18.1 adds entries in `initConstraint` but does not remove them in
+  `disposeConstraint`, even though the native constraint is disabled and released there.
+  The integration lifecycle audit wraps those two plugin calls and balances the actual
+  `_pluginData` IDs; reading `_constraintToBodyIdPair.size` would report a leak forever.
+
 ## House rules
 
 Six, and each one was paid for.

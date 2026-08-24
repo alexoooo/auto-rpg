@@ -54,6 +54,38 @@ times a second per side, and a freshly allocated view would be the largest singl
 in the prototype. What `observe` may read is tightly constrained; see the render-id trap in
 `AGENTS.md`, which is the most expensive lesson in this directory.
 
+### Learning stops at the same seam
+
+The learned meta-controller does not produce poses. A frozen checkpoint maps the versioned
+50-column `FighterView` feature table to logits for the same eight action options the
+scripted meta-controller uses, plus a bounded persistence interval. Unsupported options are
+masked from both choice and diagnostics, and reading the diagnostic never runs the network.
+Missing, corrupt, wrong-feature and wrong-option checkpoints refuse by name; there is no
+fallback that quietly turns an experiment into `duelist`.
+
+Loading a checkpoint is deliberately separate from shipping a policy. Registration requires
+held-out wins over scripted and random controls, a 15-point per-loadout specialist bound,
+option diversity, transition diversity and four safety gates. The first three full runs
+failed that rule: the validation-selected network disengaged for 88% of decisions and won
+none of its 120 held-out bouts. Consequently the generic loader and evaluator exist, but
+`POLICIES` has no `learned-v1` entry and the selected checkpoint is not bundled. This is the
+important direction of the boundary: evidence authorizes a picker entry; the existence of
+bytes does not.
+
+Promotion provenance includes the raw generation ledger, not only requested dimensions.
+A default report must contain exactly 80 rows whose generation fields are 0 through 79 in
+order. This changes no training or selection semantics; it prevents an interrupted or
+spliced report from presenting a complete-run configuration as proof that the run completed.
+
+### The integrated authority check
+
+Every picker policy is built with every equipment choice, stepped through the real Havok
+pair, taken to a verdict and disposed. Complete bouts reject non-finite or out-of-envelope
+body, cursor, roll and wrist commands. Running the same seeded bout in fresh solver instances
+with every costume enabled versus disabled produces the exact same outcome, contact stream
+and fight record. That is the executable form of “cosmetics carry no authority”: visibility
+may change; physics and scoring may not.
+
 ## One kind of body
 
 `Fighter` is both driveable and hittable, and there are two of them. The torso is a

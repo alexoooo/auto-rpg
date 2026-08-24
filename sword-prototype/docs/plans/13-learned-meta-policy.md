@@ -62,3 +62,28 @@ npm run build
 npm run ai:evaluate -- --seed 20260823 --policy learned-v1
 npm run measure -- --seed 20260823
 ```
+
+## Implementation record -- 2026-08-24
+
+Three default experiments completed under run IDs `session13-20260823`,
+`session13-777001` and `session13-991337`. Validation-only selection chose 777001. Its
+full five-loadout test evaluation failed seven unchanged promotion gates, so this session
+intentionally did **not** register `learned-v1` or bundle a checkpoint. Compact evidence is
+`asset-src/learning/unpromoted-v1.json`; durable interpretation is in
+`docs/measurements.md`.
+
+The trainer exposed a two-bout test probe in every raw report before selection, so the run
+did not achieve a pristine test quarantine even though the selector itself cannot read that
+field. The final evaluator excluded that already reported cell and began at test cell 1.
+This methodological failure is recorded rather than silently upgraded into stronger evidence.
+
+The generic validated checkpoint loader, read-only diagnostics, conditional HUD,
+five-loadout evaluator, explicit experimental `measure --checkpoint` route and hard-gate
+tests landed. `the_shipped_checkpoint_matches_the_feature_and_option_contract` is
+inapplicable until a candidate is actually shipped; inventing shipped bytes to satisfy its
+name would violate the acceptance rule above. `npm run ai:evaluate -- --seed 20260823
+--policy learned-v1` is likewise intentionally unavailable.
+
+The three visible bouts remain open for session 14 because an unpromoted policy has no
+honest setup-screen route. Before viewing any such outcomes, the bouts were fixed as melee
+seed 291337/left, bow seed 291338/right and bare-hands seed 291339/left.

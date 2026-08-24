@@ -1,16 +1,18 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 
 import { FEATURE_COLUMNS, FEATURE_VERSION } from "../src/learning/features.ts";
 import { Checkpoint } from "../src/learning/checkpoint.ts";
-import { SEED_RANGES, forcedOptionEvaluationMind, mirroredEvaluationJobs, validateSeedRanges } from "../src/learning/evaluation.ts";
+import { SEED_RANGES, evaluationMirrorSeeds, forcedOptionEvaluationMind, mirroredEvaluationJobs, seedRangesOverlap, validateSeedRanges } from "../src/learning/evaluation.ts";
 import { InnovationTracker, addEdgeMutation, addNodeMutation, breedGeneration, crossover, hasCycle, initialPopulation, innovationTrackerFor, speciate, speciesSelectionWeights } from "../src/learning/genome.ts";
 import { learnedMetaMind, META_OUTPUT_NAMES, networkMetaMind, noveltyDescriptor, randomMetaMind } from "../src/learning/meta.ts";
 import { behaviourRecord, scriptedMetaMind } from "../src/options.ts";
 import { partitionIndexed, restoreIndexed } from "../src/learning/jobs.ts";
 import { Network } from "../src/learning/network.ts";
 import { SeededRng } from "../src/learning/rng.ts";
-import { assessPromotion, selectValidationChampion } from "../src/learning/promotion.ts";
+import { assessPromotion, selectValidationChampion, validateDefaultTrainingReport } from "../src/learning/promotion.ts";
 import { runPromotionEvaluation } from "../scripts/promotion-evaluator.mjs";
 
 const digest = (value) => JSON.stringify(value);
@@ -151,7 +153,7 @@ const checkpointFixture = () => {
   const genome = initialPopulation(1, FEATURE_COLUMNS.length, META_OUTPUT_NAMES.length, 44)[0];
   return { genome, data: { featureVersion: FEATURE_VERSION, featureNames: FEATURE_COLUMNS,
     optionNames: META_OUTPUT_NAMES.slice(0, -1), nodes: genome.nodes, edges: genome.edges,
-    provenance: { seed: 44, config: "test" } } };
+    provenance: { seed: 44, configDigest: "0123456789abcdef" } } };
 };
 
 const learningView = (primary = "sword", secondary = "empty") => {
@@ -212,6 +214,19 @@ test("diagnostics_report_the_decision_without_changing_it", () => {
   assert.equal(Object.isFrozen(first.topLogits), true); assert.ok(first.topLogits.length <= 3);
 });
 
+test("diagnostics_keep_the_active_persistence_duration_while_logits_are_re_evaluated", () => {
+  const nodes = [...Array.from({ length: FEATURE_COLUMNS.length }, (_, id) => ({ id, kind: "input" })),
+    ...Array.from({ length: META_OUTPUT_NAMES.length }, (_, index) => ({ id: FEATURE_COLUMNS.length + index, kind: "output" }))];
+  let runs = 0; const network = { nodes, run() {
+    const output = Array(META_OUTPUT_NAMES.length).fill(-1); output[1] = 1; output.at(-1); output[output.length - 1] = runs++ ? -1 : 1; return output;
+  } };
+  const mind = networkMetaMind(network); const view = learningView(); view.opponent.ground.z = 0.8; view.opponent.shoulder.z = 0.8; view.measure = 0.6;
+  mind.decide(view, 1 / 240);
+  const persistence = mind.diagnostic().persistenceSeconds;
+  view.clock = 0.11; mind.decide(view, 1 / 240);
+  assert.equal(mind.diagnostic().persistenceSeconds, persistence);
+});
+
 test("the_learned_policy_never_selects_an_option_the_loadout_cannot_perform", () => {
   const nodes = [...Array.from({ length: FEATURE_COLUMNS.length }, (_, id) => ({ id, kind: "input" })),
     ...Array.from({ length: META_OUTPUT_NAMES.length }, (_, index) => ({ id: FEATURE_COLUMNS.length + index, kind: "output" }))];
@@ -219,6 +234,8 @@ test("the_learned_policy_never_selects_an_option_the_loadout_cannot_perform", ()
   const mind = networkMetaMind(network); const view = learningView("sword", "empty");
   mind.decide(view, 1 / 240);
   assert.equal(mind.selected, "cut", "shoot is masked when neither hand carries a bow");
+  assert.equal(mind.diagnostic().topLogits.some((row) => row.option === "shoot"), false,
+    "the readout does not advertise an unavailable option");
 });
 
 test("the_learned_policy_replays_its_pinned_option_sequence_on_a_fixed_view_trace", () => {
@@ -234,12 +251,38 @@ test("the_learned_policy_replays_its_pinned_option_sequence_on_a_fixed_view_trac
 });
 
 test("promotion_selects_across_runs_without_looking_at_test_evidence", () => {
+  const run = (runId, seed, championDigest, validationScore, testScore) => ({ runId, seed, championDigest,
+    validationScore, testScore, population: 128, generations: 80, mirroredBouts: 24, workers: 8,
+    trainerProtocol: 3, configDigest: "0123456789abcdef", featureVersion: FEATURE_VERSION,
+    optionNames: META_OUTPUT_NAMES.slice(0, -1) });
   const selected = selectValidationChampion([
-    { runId: "a", championDigest: "a1", validationScore: 1.5, testScore: 100 },
-    { runId: "b", championDigest: "b1", validationScore: 2.0, testScore: -100 },
-    { runId: "c", championDigest: "c1", validationScore: 1.7, testScore: 500 },
+    run("a", 1, "a1", 1.5, 100),
+    run("b", 2, "b1", 2.0, -100),
+    run("c", 3, "c1", 1.7, 500),
   ]);
   assert.equal(selected.runId, "b");
+  assert.throws(() => selectValidationChampion([
+    run("a", 1, "a1", 1.5, 100), run("b", 1, "b1", 2, -100), run("c", 3, "c1", 1.7, 500),
+  ]), /not independent/);
+  assert.throws(() => selectValidationChampion([
+    run("a", 1, "a1", 1.5, 100), { ...run("b", 2, "b1", 2, -100), generations: 79 }, run("c", 3, "c1", 1.7, 500),
+  ]), /not a default/);
+});
+
+test("promotion_provenance_requires_every_generation_row_in_order", () => {
+  const provenance = { seed: 77, configDigest: "0123456789abcdef" };
+  const complete = {
+    config: { version: 3, seed: 77, population: 128, generations: 80, mirroredBouts: 24 },
+    configDigest: provenance.configDigest,
+    championDigest: "champion",
+    reports: Array.from({ length: 80 }, (_, generation) => ({ generation })),
+  };
+  assert.doesNotThrow(() => validateDefaultTrainingReport(complete, "champion", provenance));
+  assert.throws(() => validateDefaultTrainingReport(
+    { ...complete, reports: complete.reports.slice(0, -1) }, "champion", provenance,
+  ), /exactly 80 rows/);
+  const misindexed = structuredClone(complete); misindexed.reports[43].generation = 44;
+  assert.throws(() => validateDefaultTrainingReport(misindexed, "champion", provenance), /row 43 must have index 43/);
 });
 
 test("every_promotion_threshold_is_a_hard_gate", () => {
@@ -255,11 +298,44 @@ test("every_promotion_threshold_is_a_hard_gate", () => {
     "close, cover and cut still clear the diversity gate");
   assert.equal(assessPromotion({ ...good, decisionCounts: { ...counts, disengage: 0, cut: 0 } }).promoted, false);
   assert.equal(assessPromotion({ ...good, motifs: good.motifs.slice(0, 1) }).promoted, false);
+  assert.equal(assessPromotion({ ...good, splitOverlap: true }).promoted, false);
+  assert.equal(assessPromotion({ ...good, randomWinScore: 0.7 }).promoted, false);
   assert.equal(assessPromotion({ ...good, safety: { ...good.safety, finiteIntents: false } }).promoted, false);
+  assert.equal(assessPromotion({ ...good, safety: { ...good.safety, supportedOptions: false } }).promoted, false);
+  assert.equal(assessPromotion({ ...good, safety: { ...good.safety, noStuckOption: false } }).promoted, false);
+  assert.equal(assessPromotion({ ...good, safety: { ...good.safety, noPostVerdictAction: false } }).promoted, false);
+});
+
+test("the_compact_unpromoted_evidence_recomputes_the_recorded_failure", () => {
+  const report = JSON.parse(readFileSync(new URL("../asset-src/learning/unpromoted-v1.json", import.meta.url), "utf8"));
+  const selected = selectValidationChampion(report.experiments.map((row) => ({ ...row,
+    validationScore: row.bestValidation, championDigest: row.championSha256,
+    population: report.configuration.population, generations: report.configuration.generations,
+    mirroredBouts: report.configuration.mirroredBouts, workers: report.configuration.workers,
+    trainerProtocol: report.configuration.trainerProtocol, featureVersion: report.configuration.featureVersion,
+    optionNames: report.configuration.optionNames })));
+  assert.equal(selected.runId, report.selection.selectedRunId);
+  const stored = report.promotionEvaluation;
+  const decision = assessPromotion({
+    splitOverlap: seedRangesOverlap(report.configuration.seedRanges),
+    heldOutWinScore: stored.winScores.learned,
+    scriptedWinScore: stored.winScores.scripted,
+    randomWinScore: stored.winScores.random,
+    loadouts: stored.loadouts.map((row) => ({ name: row.name, learnedWinRate: row.learned,
+      specialistWinRate: row.scriptedSpecialist })),
+    decisionCounts: stored.decisionCounts,
+    motifs: stored.motifsPer100Decisions,
+    safety: stored.safety,
+  });
+  assert.equal(report.status, "unpromoted");
+  assert.equal(decision.promoted, false);
+  assert.deepEqual(decision.failures, stored.failures);
 });
 
 test("promotion_evaluation_covers_every_loadout_on_both_mirrored_sides", async () => {
-  const { data } = checkpointFixture(); const bytes = new Checkpoint(data).toBytes(); const seen = [];
+  const { data } = checkpointFixture(); const bytes = new Checkpoint(data).toBytes(); const seen = []; const seenSeeds = [];
+  await assert.rejects(runPromotionEvaluation({ checkpointBytes: bytes, baseSeed: 55, bouts: 2,
+    freshHavok: async () => ({}), runBout: () => ({}) }), /training-report is required/);
   const hand = (weapon, outboard, z) => ({ weapon, lost: false, reach: 1.4, tipSpeed: 0, outboard,
     shoulder: { x: outboard * 0.2, y: 1.4, z }, tip: { x: outboard * 0.2, y: 1.4, z: z + (z ? -1 : 1) } });
   const view = (loadout, z, facing) => { const primary = hand(loadout.primary, 1, z); const secondary = hand(loadout.secondary, -1, z);
@@ -268,6 +344,7 @@ test("promotion_evaluation_covers_every_loadout_on_both_mirrored_sides", async (
       measure: 1.2, clock: 0 }; };
   const runBout = (opts) => { const actorSide = opts.left === "swinger" ? "right" : "left";
     const loadout = actorSide === "left" ? opts.leftLoadout : opts.rightLoadout; seen.push(`${loadout.primary}+${loadout.secondary}/${actorSide}`);
+    seenSeeds.push(opts.seeds[0]);
     const actor = view(loadout, 0, 0); const enemy = view({ primary: "sword", secondary: "empty" }, 1.4, Math.PI);
     actor.opponent = enemy.self; enemy.opponent = actor.self;
     for (let frame = 0; frame < 30; frame += 1) { actor.clock = frame / 60; enemy.clock = frame / 60;
@@ -276,9 +353,15 @@ test("promotion_evaluation_covers_every_loadout_on_both_mirrored_sides", async (
     return { ending: "exhaustion", winner: actorSide, seconds: 0.5 }; };
   const original = console.log; console.log = () => {};
   let report; try { report = await runPromotionEvaluation({ checkpointBytes: bytes, baseSeed: 55, bouts: 2,
+    trainingReport: { config: { version: 3, seed: 44, population: 128, generations: 80, mirroredBouts: 24 },
+      configDigest: "0123456789abcdef", championDigest: createHash("sha256").update(bytes).digest("hex"),
+      reports: Array.from({ length: 80 }, (_, generation) => ({ generation })) },
     freshHavok: async () => ({}), runBout }); } finally { console.log = original; }
   assert.deepEqual(report.loadouts.map((row) => row.name), ["sword", "shield", "axe", "bow", "bare-hands"]);
   for (const loadout of ["sword+empty", "sword+shield", "axe+empty", "bow+empty", "empty+empty"]) {
     assert.ok(seen.includes(`${loadout}/left`)); assert.ok(seen.includes(`${loadout}/right`));
   }
+  assert.equal(seenSeeds.includes(evaluationMirrorSeeds(55, "test", 0)[0]), false,
+    "the trainer's already reported test cell is excluded");
+  assert.equal(new Set(seenSeeds).size, 5, "each loadout owns one seed shared by controllers and mirrors");
 });

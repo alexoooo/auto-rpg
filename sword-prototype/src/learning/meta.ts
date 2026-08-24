@@ -71,13 +71,14 @@ export function networkMetaMind(network: Network): MetaMind {
     const output = network.run(writer.write(view)); const allowed = supportedOptions(view); let best: OptionName = "recover"; let score = -Infinity;
     OPTION_NAMES.forEach((name, index) => { if (allowed.has(name) && (output[index] as number) > score) { best = name; score = output[index] as number; } });
     if (output.some((value) => !Number.isFinite(value))) throw new Error("learned meta-policy produced a non-finite output");
-    topLogits = OPTION_NAMES.map((name, index) => ({ option: name, value: output[index] as number }))
+    topLogits = OPTION_NAMES.filter((name) => allowed.has(name))
+      .map((name) => ({ option: name, value: output[OPTION_NAMES.indexOf(name)] as number }))
       .sort((a, b) => b.value - a.value || OPTION_NAMES.indexOf(a.option) - OPTION_NAMES.indexOf(b.option))
       .slice(0, 3);
     const persistenceRaw = Math.max(-1, Math.min(1, output[OPTION_NAMES.length] as number));
     const persistence = MIN_PERSISTENCE + (MAX_PERSISTENCE - MIN_PERSISTENCE) * ((persistenceRaw + 1) / 2);
-    persistenceSeconds = persistence;
     if (maySwitch) {
+      persistenceSeconds = persistence;
       if (!current || best !== selected || current.done(view)) {
         if (current && best !== selected) switches += 1; selected = best; current = combatOption(best); current.enter(view);
         entries[best] += 1;
@@ -90,7 +91,10 @@ export function networkMetaMind(network: Network): MetaMind {
     diagnostic() { return diagnosticSnapshot(selected, persistenceSeconds, Math.max(0, persistUntil - observedClock), topLogits); },
     decide(view, dt): Intent {
     observedClock = view.clock;
-    if (supportedOptions(view).size === 0) { current = null; if (selected !== "recover") switches += 1; selected = "recover"; return freshIntent(); }
+    if (supportedOptions(view).size === 0) {
+      current = null; if (selected !== "recover") switches += 1; selected = "recover";
+      persistenceSeconds = 0; persistUntil = view.clock; topLogits = EMPTY_LOGITS; return freshIntent();
+    }
     const unavailable = current ? !supportedOptions(view).has(current.name) : true;
     if (!current || unavailable || view.clock - decisionClock >= DECISION_SECONDS) {
       choose(view, !current || unavailable || current.done(view) || view.clock >= persistUntil);

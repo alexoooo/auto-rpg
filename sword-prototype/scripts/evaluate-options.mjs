@@ -20,6 +20,7 @@ const candidateCheckpoint = value("checkpoint", null);
 if (candidateCheckpoint) {
   const { runPromotionEvaluation } = await import("./promotion-evaluator.mjs");
   await runPromotionEvaluation({ checkpointPath: candidateCheckpoint,
+    trainingReportPath: value("training-report", null),
     baseSeed: Number(value("seed", 20260823)) >>> 0, bouts: Number(value("bouts", 24)),
     outputPath: value("output", null), freshHavok, runBout });
   process.exit(0);

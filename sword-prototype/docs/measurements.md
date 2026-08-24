@@ -407,35 +407,42 @@ derived whole-body vitality bar, with local part health retained for injury and 
 4. **Done: the gait-driven knees look good.** Played on 2026-08-23 with `G` up. They do not
    chatter, so `body.gaitDrivesLegs` remains true and the straight-leg fallback remains a
    diagnostic rather than the shipped pose.
-5. **Surface implementation done; visible verdict owed.** Both warriors now use the same
+5. **Surface implementation done; the first visible verdict is in.** Both warriors now use the same
    digest-pinned cloth, skin-detail, leather and worked-steel maps, with distinct disposable
    crimson/blue cloth tints. Authored/fallback family parity and a conservative four-corner
-   waist AABB are mutation-tested. Session 14 still has to judge the open face, material read,
-   team colour and seams at both Fixed-camera zoom clamps while walking and crouching.
+   waist AABB are mutation-tested. The 2026-08-24 browser pass showed readable open faces,
+   worked steel, leather and cloth, distinct crimson/blue sides and no visible waist break in
+   Fixed and Overhead stills at the default zoom. Both zoom clamps and a walking/crouching
+   comparison remain open; one well-lit still is not an art-direction sign-off.
 6. **Frame cost**, bracketed control -> subject -> control, on both machines, and the recoil
    table `config.ts` asks for beside `body.jointStiffness`. Both need a visible browser.
-7. **Does a corpse fall like a person?** `body.deadJointStrength` is 0.08 on an argument
+7. **First visible corpse pass done; paired strength verdict owed.** `body.deadJointStrength` is 0.08 on an argument
    rather than a reading -- it puts the waist at 59.84 N.m against its living 748 and a knee
-   at 16.32 against 204, both confirmed in the page. Whether that folds or flops has not
-   been seen by anybody. It is live-tunable on a body already on the floor:
+   at 16.32 against 204, both confirmed in the page. A melee torso death and a one-arrow
+   torso death both collapsed into coherent, recognisably jointed corpses without exploding
+   or continuing to fight. That is one default-strength observation, not the missing paired
+   0.08-versus-0.3 judgement. It is live-tunable on a body already on the floor:
    `__sword.config.body.deadJointStrength = 0.3; __sword.left.applyTuning()`. Write the two
    readings beside the number.
-8. **Does blood read as blood?** Every figure in `CONFIG.blood` is a first guess set to be
+8. **Blood reads, but the scale still wants a broader play pass.** Every figure in `CONFIG.blood` is a first guess set to be
    legible in a still frame. The failure to watch for is the opposite of the usual one: not
    too little, but a cut that fills the screen and hides the blow that caused it. The
    lifecycle is proven -- a burst is collected 1.0 s after it fires and a stump 3.85 s
    after, both measured by hand-stepping `__sword.blood.update(1/60)` and reading
-   `__sword.blood.count`, with `scene.meshes` flat at 104 throughout -- but nobody has seen
-   one. Chrome pauses `requestAnimationFrame` outright in a hidden tab, so this cannot be
-   checked from a background window: `__sword.engine.frameId` frozen across a wait is how to
-   tell that is what you are looking at.
+   `__sword.blood.count`, with `scene.meshes` flat at 104 throughout. The 2026-08-24 melee
+   still showed a dense central spray, but both fighters, team colours and the causing blow
+   remained readable. More loadouts and a visible foreground tab are still needed before
+   changing the first-guess constants; the automated browser rendered at 1--2 fps and is not
+   performance or feel evidence.
 
-9. **Character surfaces implemented; art-direction verdict owed.** The warriors remain a
+9. **Character surfaces implemented; first visible comparison passed.** The warriors remain a
    deliberately welded low-poly silhouette, but they are no longer four flat colours:
    cloth, skin detail, leather and worked steel have separate CC0 PBR families, consistent
    authored texel density and total piece-to-family mapping. The earlier disappearing-map
-   failure is closed by delayed attachment and colour fallback. Whether this is a good
-   enough artistic result is the matched visible comparison owed to session 14.
+   failure is closed by delayed attachment and colour fallback. A matched Fixed/Overhead
+   browser sample showed the material families and side tints as distinct at combat distance.
+   The two zoom clamps and motion comparison remain owed, so this closes basic readability
+   rather than the whole art-direction verdict.
 10. **Done.** This entry recorded that no policy knew what a shield was for, and that an
    `idle` fighter given one took *more* damage than one with two empty hands -- 90 against
    28. Closing it needed the two-handed `FighterView` the entry called for, and that is what
@@ -506,39 +513,31 @@ derived whole-body vitality bar, with local part health retained for injury and 
    has no point either. The rule `hasPoint` enforces is still worth exactly
    nothing to any policy in the program, and still needs a person.
 
-15. **Partly done: the bow is cool, and the arrows are too hard to see.** The 0.9 s
+15. **Highlight implemented; in-flight readability remains open.** The 0.9 s
    hold-and-release interaction survived its first playtest; do not retune it merely because
-   it had been unplayed. The visible defect is the projectile: after release it is difficult
-   to trace. [`plans/02-traceable-arrows.md`](plans/02-traceable-arrows.md) adds a pooled
-   high-contrast head/fletch and short flight trail without changing physics or scoring.
-   Whether the bow remains enjoyable while pinned at 1.8 m by a duelist is still open.
+   it had been unplayed. Arrows now carry pooled high-contrast amber head/fletch accents and
+   a short translucent tube trail without changing physics or scoring. The 2026-08-24 browser
+   bow bout showed those accents and a clean one-arrow finish, but the automated visible tab
+   ran at 1--2 fps and skipped over the roughly 50 ms flight. That is not evidence that a
+   moving arrow can be traced. In-flight readability and whether the bow remains enjoyable
+   while pinned at 1.8 m by a duelist are still open.
 
-16. **Implemented, measurement refresh owed: a bow-armed fighter can win through whole-body vitality.**
-   The bench says it currently cannot:
-   `beaten()` wants a severed head or torso and an arrow deliberately never severs,
-   so an archer shooting an `idle` fighter for thirty seconds deals 274.7 damage a
-   bout and kills nobody, sixteen times out of sixteen. The two ways out both change
-   every bout in the game -- let an arrow sever, or let injury exhaust the body.
-   The playtest verdict is broader than a torso-only exception: preserve local health for
-   severing and disability, derive one vitality bar from weighted injury, and give head and
-   torso enough weight that either at zero is fatal. Serious combinations of pelvis and limb
-   wounds can exhaust the same bar. The exact initial formula and weights, plus the
-   before/after corpus required to move them, are in plan session 01. Session 01 now derives
-   that bar directly from local health and stops both minds and contact scorers on the
-   verdict edge. Numbers under "What a bow is worth" below remain the before measurement;
-   the matching seeded after table is owed while the local Babylon dependency tree cannot
-   load the headless suites.
+16. **Done: a bow-armed fighter can win through whole-body vitality.** Local health still
+   owns injury and severing; the single displayed vitality value is derived from weighted
+   regional injury, and zero head or torso health is independently fatal. The three-seed
+   close-out corpus includes the refreshed archer rows. In the 2026-08-24 browser bout an
+   archer killed an idle opponent with a torso thrust at 48.0 m/s: the victim reached zero
+   vitality, the verdict fired once and both policies stopped. That closes the old state in
+   which arrows could accumulate injury forever without ending a bout.
 
-17. **The console is being filled at two lines a frame, and it is not new.**
-   `aim.ts:83` and `:88` pass `dashNb`/`dashSize`/`gapSize` to `CreateDashedLines`
-   *together with* `instance`, and Babylon warns "you have used an option other
-   than points with the instance option" every time -- **7202 messages in one
-   minute of bout**, measured. Nothing is wrong with the indicator; the options
-   are simply ignored on an update, which is what the caller wants anyway. It is
-   listed because of what it costs: establishing that a fresh console full of
-   warnings had nothing to do with the session's new subsystem took real time,
-   and it will take the next person the same. The fix is to pass the dash
-   options on creation only.
+17. **Done: the aim indicator starts with real line buffers and a quiet console.** The old
+   per-frame dashed-line option warning was already removed. The integrated browser pass then
+   exposed two different one-time warnings: both aim lines were constructed from coincident
+   points, so Babylon created an empty position buffer before the first update. Each line now
+   starts with a 1 mm non-degenerate segment that the first real update overwrites. The named
+   regression test asserts both buffers contain vertices; restoring coincident seed points
+   made it fail and reproduced both warnings. The arrow trail has a separate vertex-buffer
+   assertion, which proved it was not the source.
 
 ## The bow, and the four defects it found on the way in
 
@@ -1471,3 +1470,150 @@ The required adversarial pass was observed red before restoration:
   because repeated legacy winner/ending results differed.
 - adding equal and opposite intent deviations to consecutive frames preserved the reported
   mean and failed the ordered sequence gate.
+
+## Learned meta-policy experiment -- 2026-08-24
+
+Three independently seeded default runs completed all 80 generations at population 128,
+24 mirrored evaluation bouts and eight workers. The run IDs and seeds were fixed before
+outcomes: `session13-20260823` / 20260823, `session13-777001` / 777001 and
+`session13-991337` / 991337. Their best validation totals were respectively **4.70734** at
+generation 9, **6.86409** at generation 4 and **6.24394** at generation 43. The selector,
+which cannot read test fields, therefore chose 777001. The trainer nevertheless wrote a
+two-bout test probe into every raw report before selection, so this was not a pristine test
+quarantine; the observed choice follows validation ordering while the exposed test ordering
+would have selected 991337. Every run remained one 128-member species. Novelty peaked at
+0.337, 0.439 and 0.350 respectively before converging to zero. Those are results, not
+thresholds changed after seeing them. Each run wrote atomic five-generation checkpoints and
+a resumable final state; elapsed
+wall times were 5 h 48 m, 6 h 25 m and 6 h 43 m.
+
+The selected checkpoint was then evaluated once on the test range in 24 mirrored bouts for
+each of sword, sword-and-shield, axe, bow and bare hands against the same seeded swinger.
+This evaluation began at test cell 1, deliberately excluding the trainer's already exposed
+cell 0. The evaluator required the raw training report and matched its protocol-v3 default
+dimensions, seed, config digest and champion SHA-256 to the checkpoint before running; it
+also refused any generated promotion-seed collision. Its mean win score was **0.000**, versus
+**0.4167** for scripted meta and **0.1917** for the random-option control. It won no bout in
+any loadout. Scripted specialist scores were sword
+0.625, shield 0.9583, axe 0, bow 0.500 and bare hands 0, so sword, shield and bow missed the
+maximum 15-point gap by wide margins.
+
+The decision stream contained 6,550 disengage, 409 cover, 267 cut and 214 punch samples:
+**88.04%**, 5.50%, 3.59% and 2.88%. No other option was selected. Several factual transition
+rates were absent from scripted meta -- disengage-to-punch 0.417, disengage-to-cut 0.390,
+punch-to-disengage 0.376 and cut-to-disengage 0.376 per 100 decisions -- but diversity still
+failed because only one non-recover option cleared 8%. A shield example changed from
+disengage to cut at 0.117 s with measure 0.591 and both vitalities 1; at 1.183 s it changed
+back with measure 0.100, self vitality 0.962 and opponent vitality 0.774. These are recorded
+features, not claims about what the network intended.
+
+Finite intents, capability masking and the no-post-verdict-action gate passed. The stuck
+option gate failed: long sword and axe bouts spent at least 95% of their duration in
+disengage. In total the candidate failed seven gates -- both control comparisons, the sword,
+shield and bow specialist bounds, option diversity and stuck-option safety. Thresholds were
+not lowered, `learned-v1` was not registered, and no checkpoint was bundled. The compact
+commands, digests, tables, transitions and exact failure strings are in
+`asset-src/learning/unpromoted-v1.json`; raw generation reports remain in ignored run dirs.
+
+`npm run measure -- --checkpoint <path> --bouts 24 --seed 777001` is the explicit
+five-loadout route for an unregistered experiment. It names the subject
+`experimental-checkpoint`; it does not make it a production option. Three visible bouts
+remain open for session 14 because there is no honest picker route for an unpromoted policy.
+Their choices are fixed before viewing: melee seed 291337 on the left, bow seed 291338 on
+the right and bare-hands seed 291339 on the left. No result has been captured for them.
+
+Mutation evidence was taken before restoration: removing the terminal no-hands branch made
+the last-hand-loss regression enter an impossible option; making the diagnostic call the
+network again changed its run count; and corrupting a feature name made checkpoint loading
+refuse the feature contract. The promotion-threshold test separately changes every hard
+boundary across its passing/failing edge.
+
+## Integrated headless close-out -- 2026-08-24
+
+Harness: `npm run measure`, real NullEngine/Havok fights, 40 bouts per standard matchup at
+each seed. Seeds 20260823, 777001 and 991337 were named by the plan before inspection. No
+constant was tuned from these results.
+
+| seed | swinger over idle | median seconds | duelist over swinger | median seconds | duelist mirror decided | median seconds |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 20260823 | 40–0 | 9.44 | 15–25 | 4.32 | 40/40 | 7.14 |
+| 777001 | 40–0 | 8.84 | 16–24 | 3.90 | 40/40 | 9.30 |
+| 991337 | 40–0 | 8.46 | 21–19 | 4.31 | 40/40 | 9.57 |
+
+All 360 standard bouts reached an injury verdict before the 60 s bench cap. Across the three
+swinger/idle cells, final regions were torso 93, head 17, pelvis 9 and left thigh 1; sever
+counts were 41, 40 and 41. Duelist/swinger final regions were dominated by head (55) and
+torso (41), with 15 pelvis and 9 limb finishes; each side's sever count stayed in the 1–5
+range per seed. The duelist result is seed-sensitive -- 37.5%, 40% and 52.5% -- and one seed
+is not a balance verdict.
+
+The bare-hand cells stayed legible across seeds. Unarmed versus idle produced 423, 423 and
+399 damaging punches, 80 blocks each and 98.2–103.0 damage per bout, with both fighters
+surviving all 40 capped bouts. Against a sword it produced 271, 335 and 268 punches and
+84.6–106.4 damage per bout; the unarmed fighter survived 0, 2 and 2 bouts while the sword
+fighter survived all 120. Sword-plus-empty duelist versus sword swinger followed the same
+15–25, 16–24 and 21–19 result as the standard cell, with 267–297 fist blocks and no more
+than two incidental punches per role.
+
+Posture is seed-independent in this harness because the four-corner and crouch probes are
+fixed commands: waist-anchor peak remained 0.00 mm, hand peak 10.69–11.00 mm and angular
+limit occupancy 55.3%; full crouch lowered the standing pelvis 0.960→0.620 m and walking
+pelvis 0.905→0.573 m with zero knee-limit occupancy. The seed-20260823 option evaluator
+reached close, disengage, cover, cut, thrust, punch, shoot and recover. All 12 real
+legacy/scripted-meta comparison rows across train, validation and test matched winner,
+ending, duration, damage and all 20 ordered intent fields exactly. Archer rows also matched
+exactly, including draw/release commands and arrow damage.
+
+`tests/integration.test.mjs` is the lifecycle and authority complement to that corpus. It
+builds all four shipped policies with all 27 setup-reachable two-hand loadouts (108
+combinations), steps and finishes them, checks every
+shipped policy's finite anatomical command envelope over a complete bout, and proves the
+verdict revokes both minds on that edge. A fresh-Havok duelist/swinger pair produced an exact
+fight-record and event-stream match with all costume meshes enabled versus disabled. Giving
+one costume a physics aggregate made that test fail and flipped the winner, proving the
+comparison can see cosmetic authority rather than merely comparing two inert flags.
+
+The resource audit warms Babylon's one-time scene state, then runs 25 two-fighter rebuilds
+across sword/empty, sword/shield, axe/shield, two swords and bow. After every disposal the
+scene returned to `{ meshes: 1, materials: 8, textures: 0, bodies: 1, constraints: 0,
+active physics observers: 0, render observers: 0, particles: 0, trails: 0 }`. Native Havok
+constraint creation and release were counted at the plugin boundary rather than inferred
+from Babylon's stale debug map. One prebuilt quiver then fired
+100 arrows without moving any count and returned to the same baseline on disposal. Removing
+that disposal made the proof fail at 49 meshes and 13 bodies.
+
+The learning result remains explicitly unpromoted. There is no `learned-v1` picker matrix
+to run and no bundled checkpoint to select; the generic checkpoint route remains an
+experimental command-line facility. Promotion evaluation now additionally rejects a raw
+default report unless its generation ledger contains exactly rows 0 through 79 in order.
+Disabling the row-count check made its named test fail before restoration. The verdict probe
+also failed 75 decisions versus 63 at the verdict when `stopFighting()` was removed, proving
+its post-verdict tail observes the action source rather than only the harness loop.
+
+### Visible browser sample
+
+The 2026-08-24 attached browser pass covered the setup screen and default-zoom Fixed and
+Overhead views. A duelist with sword plus empty hand fought a swinger: open faces, worked
+steel, leather, cloth and the crimson/blue sides remained distinct at combat distance. No
+waist seam opened. A dense blood burst left both fighters and the causing blow readable. The
+loser reached zero vitality, collapsed as a coherent jointed corpse and received no further
+attacks; the survivor stopped at the verdict. The Overhead view showed the same completed
+bout without a framing failure.
+
+A separate bow-versus-idle bout required bow in both hand selectors and ended with one
+48.0 m/s torso arrow. The amber arrow accents were visible before release and the vitality,
+verdict and corpse path were coherent. The tab rendered at only 1--2 fps, however, so it
+skipped the approximately 50 ms free flight. This sample cannot settle arrow-trace
+readability, interaction feel or frame cost. Browser security review stopped the attempted
+`G`/`Tab` rig-control exercise; no alternate automation surface was used. The attached server
+was stopped and port 5180 was confirmed free afterward.
+
+The suite now contains **319 passing tests**, including a mutation-proven check that the two
+aim lines and the pooled arrow trail start with non-empty vertex buffers.
+
+Still open, by name: Fixed-camera body-relative human aim; both zoom clamps; walking and
+crouching material comparison; the 0.08-versus-0.3 corpse-strength pair; broader blood-scale
+play; bow draw under pressure; the axe's missing thrust; in-flight arrow-trace readability;
+the full Fixed/Overhead loadout, side and hand-choice human matrix; the rig overlay; and
+control → subject → control frame cost on two visible machines. Neither the headless
+corpus nor the narrow visible sample answers those questions.

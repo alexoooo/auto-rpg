@@ -22,6 +22,8 @@ import { idleMind } from "../src/mind.ts";
 import { beaten, begin, defaultMatchup, selectScreen } from "../src/bout.ts";
 import { blankIntent } from "../src/policies.ts";
 import { advanceFight, FightEnd } from "../src/fight-end.ts";
+import { FEATURE_COLUMNS } from "../src/learning/features.ts";
+import { META_OUTPUT_NAMES, networkMetaMind } from "../src/learning/meta.ts";
 
 /**
  * What losing your head costs.
@@ -61,7 +63,7 @@ function counter() {
   };
 }
 
-async function ring() {
+async function ring(leftMind = null) {
   const engine = new NullEngine();
   const scene = new Scene(engine);
   attachPhysics(scene, await HavokPhysics({ wasmBinary: await readFile(wasm) }));
@@ -74,7 +76,7 @@ async function ring() {
     wood: mat("wood"), arrowAccent: mat("arrow-accent"),
   };
 
-  const mind = counter();
+  const mind = leftMind ?? counter();
   const left = new Fighter(scene, {
     side: "left", origin: Vector3.Zero(), facing: 0, mind,
   }, materials);
@@ -296,6 +298,23 @@ test("the_winning_mind_is_not_asked_again_after_the_verdict", async (t) => {
     "and leaves no locomotion command running");
   assert.equal(left.pelvis.body.getAngularVelocity().length(), 0,
     "and leaves no turning command running");
+});
+
+test("the_learned_policy_stops_on_the_bout_verdict", async (t) => {
+  const nodes = [...Array.from({ length: FEATURE_COLUMNS.length }, (_, id) => ({ id, kind: "input" })),
+    ...Array.from({ length: META_OUTPUT_NAMES.length }, (_, index) => ({ id: FEATURE_COLUMNS.length + index, kind: "output" }))];
+  let asked = 0;
+  const learned = networkMetaMind({ nodes, run() {
+    asked += 1; const output = Array(META_OUTPUT_NAMES.length).fill(-1); output[0] = 1; return output;
+  } });
+  const { engine, scene, left, right } = await ring(learned);
+  t.after(() => engine.dispose());
+  const clock = { now: 0 };
+  for (let i = 0; i < 10; i += 1) frame(scene, left, right, clock);
+  const atVerdict = asked;
+  left.stopFighting();
+  for (let i = 0; i < 10; i += 1) frame(scene, left, right, clock);
+  assert.equal(asked, atVerdict, "the host revokes the learned mind at the verdict edge");
 });
 
 test("a_surviving_torso_has_no_residual_turn_after_the_verdict", async (t) => {

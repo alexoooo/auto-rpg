@@ -1,11 +1,12 @@
 import { readFile, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 
 import { Checkpoint } from "../src/learning/checkpoint.ts";
-import { evaluationMirrorSeeds, validateSeedRanges, SEED_RANGES } from "../src/learning/evaluation.ts";
+import { evaluationMirrorSeeds, seedRangesOverlap, validateSeedRanges, SEED_RANGES } from "../src/learning/evaluation.ts";
 import { FeatureWriter, FEATURE_COLUMNS } from "../src/learning/features.ts";
 import { learnedMetaMind, randomMetaMind, supportedOptions } from "../src/learning/meta.ts";
-import { assessPromotion } from "../src/learning/promotion.ts";
+import { assessPromotion, validateDefaultTrainingReport } from "../src/learning/promotion.ts";
 import { OPTION_NAMES, scriptedMetaMind } from "../src/options.ts";
 import { policyMind } from "../src/mind.ts";
 
@@ -26,12 +27,20 @@ const intentNumbers = (intent) => [intent.forward, intent.strafe, intent.turn, i
 const score = (winner, side) => winner === null ? 0.5 : winner === side ? 1 : 0;
 const motifCounts = (transitions) => Object.fromEntries(Object.entries(transitions).filter(([name]) => !name.startsWith("null")));
 
-export async function runPromotionEvaluation({ checkpointPath, checkpointBytes, baseSeed, bouts, outputPath, freshHavok, runBout }) {
+export async function runPromotionEvaluation({ checkpointPath, checkpointBytes, trainingReportPath, trainingReport,
+  baseSeed, bouts, outputPath, freshHavok, runBout }) {
   validateSeedRanges(SEED_RANGES);
   if (!checkpointPath && !checkpointBytes) throw new Error("--checkpoint is required for candidate promotion evaluation");
   if (!Number.isInteger(bouts) || bouts <= 0 || bouts % 2 !== 0) throw new Error("--bouts must be a positive even integer");
-  const checkpoint = Checkpoint.fromBytes(checkpointBytes ?? new Uint8Array(await readFile(checkpointPath)));
+  const bytes = checkpointBytes ?? new Uint8Array(await readFile(checkpointPath));
+  const checkpoint = Checkpoint.fromBytes(bytes);
+  const trained = trainingReport ?? (trainingReportPath ? JSON.parse(await readFile(trainingReportPath, "utf8")) : null);
+  if (!trained) throw new Error("--training-report is required to prove promotion provenance");
+  const digest = createHash("sha256").update(bytes).digest("hex");
+  validateDefaultTrainingReport(trained, digest, checkpoint.provenance);
   const controllers = ["learned", "scripted", "random"];
+  const reservedTestSeed = evaluationMirrorSeeds(baseSeed, "test", 0)[0];
+  const promotionSeeds = new Set([reservedTestSeed]);
   const raw = []; const totalDecisions = Object.fromEntries(OPTION_NAMES.map((name) => [name, 0]));
   const learnedMotifs = {}; const scriptedMotifs = {}; const transitionExamples = [];
   const safety = { finiteIntents: true, supportedOptions: true, noStuckOption: true, noPostVerdictAction: true };
@@ -41,7 +50,13 @@ export async function runPromotionEvaluation({ checkpointPath, checkpointBytes, 
     const cell = LOADOUTS[loadoutIndex];
     for (const controller of controllers) {
       for (let pair = 0; pair < bouts / 2; pair += 1) {
-        const seed = evaluationMirrorSeeds(baseSeed, "test", loadoutIndex * 100 + pair)[0];
+        // Trainer reports already contain test cell zero. Promotion begins at
+        // one so the final decision does not score the candidate on that probe again.
+        const seed = evaluationMirrorSeeds(baseSeed, "test", loadoutIndex * 100 + pair + 1)[0];
+        if (controller === controllers[0]) {
+          if (promotionSeeds.has(seed)) throw new Error(`promotion seed ${seed} reuses a previously scored test cell`);
+          promotionSeeds.add(seed);
+        }
         for (let mirror = 0; mirror < 2; mirror += 1) {
           const actorSide = mirror === 0 ? "left" : "right";
           const mind = controller === "learned" ? learnedMetaMind(checkpoint)
@@ -127,7 +142,7 @@ export async function runPromotionEvaluation({ checkpointPath, checkpointBytes, 
   const motifs = [...new Set([...Object.keys(learnedMotifs), ...Object.keys(scriptedMotifs)])].sort().map((name) =>
     ({ name, learned: (learnedMotifs[name] ?? 0) * 100 / Math.max(1, learnedDecisionTotal),
       scripted: (scriptedMotifs[name] ?? 0) * 100 / Math.max(1, scriptedDecisionTotal) }));
-  const evidence = { splitOverlap: false, heldOutWinScore: meanScore(rowsFor("learned")),
+  const evidence = { splitOverlap: seedRangesOverlap(SEED_RANGES), heldOutWinScore: meanScore(rowsFor("learned")),
     scriptedWinScore: meanScore(rowsFor("scripted")), randomWinScore: meanScore(rowsFor("random")),
     loadouts, decisionCounts: totalDecisions, motifs, safety };
   const decision = assessPromotion(evidence);
