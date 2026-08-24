@@ -248,6 +248,7 @@ const blankHand = (): HandView => ({
   shoulder: new Vector3(),
   tip: new Vector3(),
   tipSpeed: 0,
+  reach: 0,
   lost: false,
   outboard: 1,
 });
@@ -449,7 +450,6 @@ export class Fighter {
         tip: new Vector3(),
         tipSpeed: 0,
         hands: blankHands(),
-        reach: CONFIG.arm.reachNeutral,
         health: {},
       },
       opponent: {
@@ -1114,7 +1114,6 @@ export class Fighter {
     const view = this.view;
     view.clock = clock;
     this.describe(view.self, this);
-    view.self.reach = this.arm.reach;
     this.describe(view.opponent, opponent);
     view.measure = opponent.nearestPartTo(view.self.shoulder);
   }
@@ -1264,6 +1263,7 @@ export class Fighter {
       hand.weapon = arm.holding;
       hand.lost = !arm.armed;
       hand.outboard = arm.side;
+      hand.reach = arm.strikeReach;
       Vector3.TransformNormalToRef(arm.socket, basis, hand.shoulder);
       hand.shoulder.addInPlace(here);
 

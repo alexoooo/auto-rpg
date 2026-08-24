@@ -7,7 +7,7 @@ import { CONFIG } from "./config.ts";
 import type { Side } from "./physics.ts";
 import type { Weapon, WeaponKind } from "./weapon.ts";
 import type { Fighter, Limb } from "./fighter.ts";
-import { scoreHit, severs, type HitKind } from "./scoring.ts";
+import { biteFloor, scoreHit, severs, type HitKind } from "./scoring.ts";
 
 export type { HitKind };
 
@@ -66,6 +66,7 @@ export interface HitReport {
  */
 const PARRY_LABEL: Record<WeaponKind, string> = {
   sword: "Blade",
+  axe: "Haft",
   shield: "Shield",
   buckler: "Buckler",
   club: "Club",
@@ -262,17 +263,28 @@ export class Combat {
       edge: weapon.edgeDirection().clone(),
     };
 
-    if (speed < C.minCutSpeed) {
+    // The weapon's own floor, asked of the table rather than assumed to be the
+    // blade's. This early-out exists to skip a divide and three dot products for
+    // a contact too slow to be worth anything, and that is all it is allowed to
+    // be: for most of a year it was `speed < C.minCutSpeed`, which meant a club
+    // below 3.0 m/s never reached `scoreHit` and `minCrushSpeed` was a setting
+    // that worked only in its unit test.
+    if (speed < biteFloor(weapon.kind)) {
       return { ...base, kind: "weak", edgeAlignment: 0, damage: 0, severed: false };
     }
 
     const direction = this.scratch.direction.copyFrom(velocity).scaleInPlace(1 / speed);
-    const edgeAlignment = Math.abs(Vector3.Dot(direction, weapon.edgeDirection()));
+    // Signed for the damage model, absolute for the readout. A sword cuts on
+    // both sides of its edge axis and does not care; an axe's -X is the poll,
+    // and `scoring.ts` is what knows the difference. The report keeps the
+    // magnitude because the HUD draws a bar with it.
+    const alongEdge = Vector3.Dot(direction, weapon.edgeDirection());
+    const edgeAlignment = Math.abs(alongEdge);
 
     const score = scoreHit(
       {
         speed,
-        edgeAlignment,
+        edgeAlignment: alongEdge,
         bladeAlignment: Math.abs(Vector3.Dot(direction, weapon.bladeDirection())),
         nearTip: Vector3.Distance(point, weapon.tipPosition()) < C.thrustTipZone,
       },

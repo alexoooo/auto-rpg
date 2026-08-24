@@ -128,8 +128,8 @@ goes on bleeding as it falls.
 
 ## Two hands
 
-Each hand takes a **sword**, a **shield**, a **buckler** or **nothing**, chosen per corner before the
-fight. Both are real arms — three bones, a shoulder cone, an elbow hinge, a free wrist and
+Each hand takes a **sword**, an **axe**, a **shield**, a **buckler** or **nothing**, chosen per corner
+before the fight. Both are real arms — three bones, a shoulder cone, an elbow hinge, a free wrist and
 a keyframed anchor dragging the whole thing about — so a shield is not a state a fighter is
 in, it is a plank of limewood with a steel rim welded into a fist, and it blocks by being
 in the way. The collision layers already said an enemy blade and this side's weapons may
@@ -162,6 +162,23 @@ There is also a **club**, which takes both hands. It has no edge, so nothing abo
 hold it matters and everything about how fast it arrives does — you cannot place a blow
 with a club, you can only arrive with one. It hits harder than a badly-aimed cut and less
 hard than a placed one, and it will take a head off.
+
+An **axe** is the sword's opposite trade. It is a quarter of a metre shorter, so you have to
+be *inside* the other fighter's range to use it at all, and its weight is out at the head, so
+it takes real time to start and cannot be called back. What you get for that is a blow that
+bites: over 24 bouts an axe lands **45 % fewer blows and each is 30 % heavier** than a
+sword's. Two things it cannot do, and both are real. It has no point, so driving it forward
+is a shove rather than a thrust — the left button does nothing useful with an axe in your
+hand. And it has **one edge**: swing it backhand and it arrives poll-first, which is a lump
+of steel and not a cut. Which way round the head is pointing is your wrist's business, and it
+is the first weapon here where that is true.
+
+Against a sword the axe is behind on the totals, and that is the honest answer rather than a
+balance failure: in a fight decided by a blade meeting a body, a quarter of a metre of reach
+beats a heavier head. **Give it a shield and it changes sides.** An axe and a shield kills 20
+of 24 where a sword alone kills 17, and dies four times instead of seven — because the axe's
+weakness is having to stand close, and a shield is the answer to standing close. Nobody
+designed that; it falls out of the two things being in the same loadout.
 
 You have one mouse and a fighter has two arms, so **`F`** moves the cursor from one to the
 other and the hand you leave goes back to the side's own policy. Splitting the cursor

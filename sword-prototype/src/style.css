@@ -148,6 +148,14 @@ body {
   color: var(--hot);
 }
 
+/* A crush, which is what a club scores. This rule has been missing since the
+   day the club landed: `HitKind` is typed and a stylesheet is not, so `hud.ts`
+   gained its CRUSH label under `tsc`'s eye while the colour it is drawn in was
+   simply never written. It has read in the default ink ever since. */
+.kind-crush {
+  color: var(--bad);
+}
+
 .kind-slap,
 .kind-weak {
   color: var(--dim);

@@ -155,6 +155,28 @@ export interface HandView {
   tip: Vector3;
   /** Speed of that point, m/s. */
   tipSpeed: number;
+  /**
+   * How far this hand can put that point from its own shoulder, in metres.
+   *
+   * Not where it is -- how far out it *goes*, at the extension a policy commits
+   * an attack at. A constant for a given hand and a given weapon, and the only
+   * number in the view that a policy needs in order to know when it is close
+   * enough to hit somebody.
+   *
+   * This field existed for one session and was removed for having no readers,
+   * which is `AGENTS.md`'s rule and was the right call at the time. It is back
+   * because there is a weapon that is not a sword's length now, and both
+   * policies had the sword's reach written into them as a literal --
+   * `duelist.hold = 1.40` with a comment saying "just inside the 1.45 m the
+   * point of the blade reaches", and `swinger.engage = 1.30` with a measured
+   * `1.45` in its own. Handed an axe, which reaches 1.13, `duelist` stood 255 mm
+   * out of its own range and swung at the air for the whole bout: 31 blows in
+   * twelve bouts against a sword's 398.
+   *
+   * `lost` does not zero it. A severed arm keeps its weapon and its geometry;
+   * what it has stopped being is a threat, and that is what `lost` says.
+   */
+  reach: number;
   /** True once any piece of this arm has been cut off it. */
   lost: boolean;
   /**
@@ -198,11 +220,23 @@ export interface BodyView {
   health: PartHealth;
 }
 
-/** The same, plus the one thing a body knows about itself that it cannot see. */
-export interface SelfView extends BodyView {
-  /** How far the hand is currently being held from the shoulder, metres. */
-  reach: number;
-}
+/**
+ * The same, and for the moment exactly the same.
+ *
+ * It carried one extra field: how far the primary hand was *currently* being
+ * held from its shoulder. Nothing ever read it, in the three sessions it
+ * existed, which is the state `AGENTS.md` has a rule about -- and by the time
+ * there were two hands it was answering for one of them anyway. What a policy
+ * actually wanted turned out to be the other question: not where the hand is,
+ * but how far out it goes, per hand and including what the hand is holding. That
+ * is `HandView.reach`, and it has a reader.
+ *
+ * The alias is kept rather than collapsed because the distinction is real and
+ * about to be load-bearing: a fighter knows things about itself that it cannot
+ * know about the thing in front of it, and session 06 gives the two sides
+ * different bodies. This is where the first of those goes.
+ */
+export type SelfView = BodyView;
 
 /**
  * What a fighter can see. Published from the world, never from another mind.

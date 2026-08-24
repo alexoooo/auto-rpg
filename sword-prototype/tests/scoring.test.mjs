@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { scoreHit, severs } from "../src/scoring.ts";
+import { biteFloor, scoreHit, severs } from "../src/scoring.ts";
 import { CONFIG } from "../src/config.ts";
+import { WEAPON_KINDS } from "../src/hands.ts";
 
 const T = CONFIG.combat;
 
@@ -94,14 +95,22 @@ test("a thrust that empties a limb takes it off", () => {
 
 // ---- what a weapon that is not a sword is worth ---------------------------
 
-test("the sword is unchanged by the other two existing", () => {
+test("the sword is unchanged by the other kinds existing", () => {
   // Every one of the eleven cases above calls `scoreHit` with one argument, and
   // that is the whole point of the kind being a defaulted parameter rather than
   // a field on `Contact`: the damage model this prototype was tuned against is
-  // still exactly the damage model, and nothing about a club being added is
-  // allowed to have moved it.
+  // still exactly the damage model, and nothing about a club or an axe being
+  // added is allowed to have moved it.
   const cut = cleanCut();
   assert.deepEqual(scoreHit(cut), scoreHit(cut, "sword"));
+
+  // And the sword does not care which way round the blade was travelling, which
+  // is what stayed true when `Contact.edgeAlignment` became signed for the axe's
+  // sake. An arming sword is double-edged; both edges cut.
+  assert.deepEqual(
+    scoreHit({ ...cleanCut(9), edgeAlignment: -1 }),
+    scoreHit({ ...cleanCut(9), edgeAlignment: 1 }),
+  );
 });
 
 test("a shield scores nothing however hard it is swung", () => {
@@ -174,4 +183,110 @@ test("a club's floor is lower than a blade's", () => {
   const slow = { speed: 2.6, edgeAlignment: 1, bladeAlignment: 0, nearTip: false };
   assert.equal(scoreHit(slow).damage, 0, "a sword does nothing at this speed");
   assert.ok(scoreHit(slow, "club").damage > 0, "a club does");
+});
+
+// ---- the axe, which cuts but is not a blade -------------------------------
+
+test("an axe cuts with its bit and does nothing with its poll", () => {
+  // The whole of what makes it an axe rather than a short heavy sword. A sword
+  // is double-edged and the model has always taken the magnitude of the edge
+  // alignment; an axe's bit is on +X and its poll is on -X, and a blow arriving
+  // at -1 is the back of the head.
+  const bit = scoreHit({ ...cleanCut(), edgeAlignment: 1 }, "axe");
+  const poll = scoreHit({ ...cleanCut(), edgeAlignment: -1 }, "axe");
+
+  assert.equal(bit.kind, "cut");
+  assert.ok(bit.damage > 0);
+  assert.equal(poll.kind, "slap", "the back of an axe head is not an edge");
+  assert.equal(poll.damage, 0);
+});
+
+test("an axe cannot be thrust, however well it is driven", () => {
+  // A sword's point does this for real damage. An axe has a corner there.
+  const contact = { speed: 14, edgeAlignment: 0, bladeAlignment: 1, nearTip: true };
+  assert.equal(scoreHit(contact, "sword").kind, "thrust");
+
+  const axe = scoreHit(contact, "axe");
+  assert.equal(axe.kind, "slap", "driving an axe forward is a shove");
+  assert.equal(axe.damage, 0);
+  assert.equal(severs(axe, -50, "axe"), false, "and a shove takes nothing off");
+});
+
+test("an axe placed well hurts more than a sword placed well", () => {
+  const speed = 12;
+  const square = { speed, edgeAlignment: 1, bladeAlignment: 0, nearTip: false };
+  assert.ok(
+    scoreHit(square, "axe").damage > scoreHit(square, "sword").damage,
+    "a hand's width of edge carries the same arm speed further in than 840 mm of it",
+  );
+});
+
+test("an axe shares the blade's floor and the blade's bar, and only its scale", () => {
+  // Both of the other two were drafted and both were refused by the bench, which
+  // is the finding rather than a simplification: an axe's own speed floor moved
+  // 24 bouts' total damage by 15 points out of 3350, and its own sever bar
+  // returned byte-identical numbers at 0.2 and at 0.4, because a chop that
+  // empties a limb has already landed at a quality above either.
+  // `docs/measurements.md` has the tables. This is here so that putting either
+  // back is a decision somebody makes rather than one that happens.
+  assert.equal(biteFloor("axe"), biteFloor("sword"));
+
+  const emptied = { speed: 15, edgeAlignment: 1, bladeAlignment: 0, nearTip: false };
+  assert.equal(
+    severs(scoreHit(emptied, "axe"), 0, "axe"),
+    severs(scoreHit(emptied, "sword"), 0, "sword"),
+  );
+
+  // What is left, and the whole of what makes it an axe in this table.
+  assert.ok(CONFIG.combat.chopScale > CONFIG.combat.damageScale);
+  const square = { speed: 12, edgeAlignment: 1, bladeAlignment: 0, nearTip: false };
+  assert.ok(scoreHit(square, "axe").damage > scoreHit(square, "sword").damage);
+});
+
+// ---- what the table has to answer for every kind --------------------------
+
+test("every kind has a floor, and it is the same one the caller must use", () => {
+  // `combat.ts` skips a divide and three dot products for a contact too slow to
+  // be worth anything -- and it skipped them on `minCutSpeed`, hard-coded, which
+  // is the blade's number and nobody else's. So a club below 3.0 m/s never
+  // reached `scoreHit` at all and `minCrushSpeed` did nothing in an actual fight
+  // for the whole of the club's life, while passing its own unit test the entire
+  // time. `biteFloor` exists so there is one answer rather than two.
+  for (const kind of WEAPON_KINDS) {
+    const floor = biteFloor(kind);
+    assert.ok(floor > 0, `${kind} needs a floor`);
+    const under = { speed: floor - 0.01, edgeAlignment: 1, bladeAlignment: 1, nearTip: true };
+    assert.equal(
+      scoreHit(under, kind).kind,
+      "weak",
+      `${kind} should report nothing below its own floor`,
+    );
+  }
+  // And the one that was wrong, which is the reason the export exists: a club's
+  // floor is *below* the blade's, and `combat.ts` used to gate every contact on
+  // the blade's before `scoreHit` ever saw it.
+  assert.equal(biteFloor("club"), CONFIG.combat.minCrushSpeed);
+  assert.equal(biteFloor("sword"), CONFIG.combat.minCutSpeed);
+  assert.ok(biteFloor("club") < biteFloor("sword"));
+});
+
+test("a bare hand is not an arming sword", () => {
+  // Nothing ever asks: `Combat` subscribes to weapon bodies and there is no body
+  // to weld to an empty hand. That is exactly how the old default survived three
+  // sessions scoring a fist as a blade without anybody noticing, and a total
+  // table has to answer rather than fall through.
+  const hard = { speed: 30, edgeAlignment: 1, bladeAlignment: 1, nearTip: true };
+  const fist = scoreHit(hard, "empty");
+  assert.equal(fist.damage, 0);
+  assert.equal(fist.kind, "slap");
+  assert.equal(severs(fist, -500, "empty"), false);
+});
+
+test("no kind that scores nothing can ever take a limb off", () => {
+  const hard = { speed: 40, edgeAlignment: 1, bladeAlignment: 1, nearTip: true };
+  for (const kind of WEAPON_KINDS) {
+    const score = scoreHit(hard, kind);
+    if (score.damage > 0) continue;
+    assert.equal(severs(score, -500, kind), false, `${kind} scores nothing and must sever nothing`);
+  }
 });

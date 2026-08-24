@@ -573,6 +573,32 @@ export class Arm {
   }
 
   /**
+   * How far this hand puts the business end of what it holds from its own
+   * shoulder, at the extension an attack is committed at.
+   *
+   * A constant for a hand and a loadout, not a reading: `reach` above is where
+   * the hand *is* and this is how far out it *goes*. `policies.ts` is what wants
+   * it, and wants it as the one number that answers "am I close enough to hit
+   * them" for a weapon whose length it does not otherwise know.
+   *
+   * The minimum is `aim`'s own, written the same way and for the same reason a
+   * shield is capped there: an arm carrying 600 mm of board is held with the
+   * elbow bent, so its shield does not reach as far as its arm could. Duplicated
+   * rather than shared because `aim` filters toward its target over
+   * `reachResponse` and this is the target itself -- the same expression, asked
+   * two different questions.
+   */
+  get strikeReach(): number {
+    const A = CONFIG.arm;
+    const extension = Math.min(
+      A.reachNeutral,
+      A.reachMax,
+      this.squaresToFront ? CONFIG.shield.reachCap : Infinity,
+    );
+    return extension + (this.weapon?.tipOffset ?? 0);
+  }
+
+  /**
    * How far the hand is being held from the shoulder.
    *
    * A separate accessor from `angles()`, which allocates: `observe` publishes

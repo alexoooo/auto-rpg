@@ -99,6 +99,12 @@ const unbuildable = (kind: never): never => {
  * have, and the right one here -- so it faces wherever the arm points, which is
  * always radially outward from its owner. The pose the heater shield had to be
  * taken out of is the pose a buckler is for.
+ *
+ * The question asked is `isStrapped` rather than `kind === "shield"`, and the
+ * difference is not style. This file and `arm.ts` both had to know which kind
+ * was the strapped one, separately, in a `===` that neither could see the other
+ * make -- so a second strapped kind was two edits in two files with nothing
+ * connecting them. There is one answer now and `hands.ts` has it.
  */
 export interface Mount {
   /** Where the weapon's own +X points, in the hand's frame. */
@@ -108,7 +114,7 @@ export interface Mount {
 }
 
 export const mountFor = (kind: WeaponKind): Mount =>
-  kind === "shield"
+  isStrapped(kind)
     ? { axis: new Vector3(0, 0, -1), perp: new Vector3(1, 0, 0) }
     : { axis: new Vector3(1, 0, 0), perp: new Vector3(0, -1, 0) };
 
@@ -176,6 +182,10 @@ export interface WeaponOptions {
  *
  * - a **sword** is as described, and is unchanged from when this file only knew
  *   about swords;
+ * - an **axe** is the frame taken literally: its head sticks out along +X and
+ *   its edge is the +X face, so the axis a sword cuts on *both* sides of is the
+ *   axis an axe cuts on one side of. `-X` is the poll, and `scoring.ts` scores
+ *   it as the lump of steel it is;
  * - a **club** has no edge, so `scoring.ts` never asks about its +X. Its mass is
  *   out at the head, which is what makes it slow to start and hard to stop;
  * - a **shield** is a plate whose *face normal* is +Y. Nothing about it is
@@ -239,13 +249,15 @@ export class Weapon {
       // a shield is a shield-shaped thing that scores crushing blows. `never` is
       // what turns "you forgot a builder" from a playtest into a compile error.
       const built =
-        opts.kind === "shield"
-          ? this.buildShield(scene, opts.name, materials)
-          : opts.kind === "buckler"
-            ? this.buildBuckler(scene, opts.name, materials)
-            : opts.kind === "club"
-              ? this.buildClub(scene, opts.name, materials)
-              : unbuildable(opts.kind);
+        opts.kind === "axe"
+          ? this.buildAxe(scene, opts.name, materials)
+          : opts.kind === "shield"
+            ? this.buildShield(scene, opts.name, materials)
+            : opts.kind === "buckler"
+              ? this.buildBuckler(scene, opts.name, materials)
+              : opts.kind === "club"
+                ? this.buildClub(scene, opts.name, materials)
+                : unbuildable(opts.kind);
       this.baseOffset = built.baseOffset;
       this.tipOffset = built.tipOffset;
       this.body = this.finish(scene, opts, built.mass, built.centreOfMass);
@@ -534,6 +546,139 @@ export class Weapon {
       centreOfMass: new Vector3(0, out * 0.9, 0),
       baseOffset: 0,
       tipOffset: out + B.thickness,
+    };
+  }
+
+  /**
+   * An axe: a short haft with a single bit at the top of it.
+   *
+   * The frame taken at its word. +Y is the haft, +X is the edge -- so the head
+   * is built sticking out along **+X only**, its cutting face is the +X extreme,
+   * and the lump on -X is the poll. That asymmetry is the weapon: a sword is
+   * double-edged so `roll` matters to it only modulo half a turn, and an axe
+   * cares about the whole turn, because half a turn out is the difference
+   * between the edge and the back of the head.
+   *
+   * Nothing here is a rule. The two rules an axe gets -- no point, one edge --
+   * are rows in `hands.ts` and are enforced in `scoring.ts`. What is here is
+   * geometry and mass, and the reason the weapon *feels* different: 0.68 m of
+   * reach against the sword's 0.935, and a centre of mass at 0.45 against the
+   * sword's 0.195, which meets the arm's 850 N ceiling as three times the moment
+   * of inertia and comes out the other side as a swing that cannot be recalled.
+   *
+   * The centre of mass is off the haft axis, out along +X with the head. An axe
+   * is genuinely off-balance sideways -- it is why one wants to turn in the hand
+   * and why holding one is a skill -- and `Built.centreOfMass` has been a point
+   * rather than a distance since the shield needed it to be, so saying so costs
+   * one number rather than a refactor.
+   */
+  private buildAxe(
+    scene: Scene,
+    name: string,
+    materials: WeaponMaterials,
+  ): Built {
+    const A = CONFIG.axe;
+
+    // The origin is the middle of the grip, as the sword's is. `baseOffset` is
+    // where the business end starts, which for a sword is the guard and for an
+    // axe is the underside of the head.
+    const butt = -A.gripLength / 2;
+    const base = A.gripLength / 2 + A.haftLength;
+    const tip = base + A.headLength;
+    const shaftLength = A.gripLength + A.haftLength;
+    const shaftCentre = butt + shaftLength / 2;
+    const headCentre = base + A.headLength / 2;
+
+    const haft = MeshBuilder.CreateCylinder(
+      `${name}.haft`,
+      {
+        height: shaftLength,
+        diameterTop: A.haftDiameter,
+        diameterBottom: A.haftDiameter * 0.88,
+        tessellation: 10,
+      },
+      scene,
+    );
+    haft.position.set(0, shaftCentre, 0);
+    haft.material = materials.wood;
+    haft.parent = this.root;
+
+    const wrap = MeshBuilder.CreateCylinder(
+      `${name}.wrap`,
+      { height: A.gripLength, diameter: A.haftDiameter * 1.16, tessellation: 10 },
+      scene,
+    );
+    wrap.material = materials.leather;
+    wrap.parent = this.root;
+
+    // The eye and the poll: the steel wrapped round the haft, and the counter-
+    // weight behind it. Short in Y, because the bit flares away from it.
+    const eye = MeshBuilder.CreateBox(
+      `${name}.eye`,
+      {
+        width: A.pollReach + A.haftDiameter,
+        height: A.headLength * 0.58,
+        depth: A.headThickness,
+      },
+      scene,
+    );
+    eye.position.set((A.haftDiameter - A.pollReach) / 2, headCentre, 0);
+    eye.material = materials.steel;
+    eye.parent = this.root;
+
+    // The bit, reaching out along +X to the edge, and thinner than the eye
+    // because it is a wedge rather than a block.
+    const bit = MeshBuilder.CreateBox(
+      `${name}.bit`,
+      { width: A.headReach, height: A.headLength, depth: A.headThickness * 0.62 },
+      scene,
+    );
+    bit.position.set(A.headReach / 2, headCentre, 0);
+    bit.material = materials.steel;
+    bit.parent = this.root;
+
+    // The edge itself: thin, and taller than the bit behind it, which is what a
+    // bearded axe looks like and what says at a glance which way round it is.
+    const edge = MeshBuilder.CreateBox(
+      `${name}.edge`,
+      {
+        width: A.headReach * 0.16,
+        height: A.headLength * 1.18,
+        depth: A.headThickness * 0.24,
+      },
+      scene,
+    );
+    edge.position.set(A.headReach * 0.95, headCentre, 0);
+    edge.material = materials.steel;
+    edge.parent = this.root;
+
+    // Two shapes, as the club has two. The head's box spans poll to edge,
+    // because that is what the head is; the visible taper is a look and the
+    // solver has no use for it.
+    this.shape.addChild(
+      new PhysicsShapeBox(
+        Vector3.Zero(),
+        Quaternion.Identity(),
+        new Vector3(A.haftDiameter, shaftLength, A.haftDiameter),
+        scene,
+      ),
+      new Vector3(0, shaftCentre, 0),
+    );
+    this.shape.addChild(
+      new PhysicsShapeBox(
+        Vector3.Zero(),
+        Quaternion.Identity(),
+        new Vector3(A.headReach + A.pollReach, A.headLength, A.headThickness),
+        scene,
+      ),
+      new Vector3((A.headReach - A.pollReach) / 2, headCentre, 0),
+    );
+
+    return {
+      mass: A.mass,
+      centreOfMass: new Vector3(A.balanceOffset, A.balancePoint, 0),
+      baseOffset: base,
+      tipOffset: tip,
     };
   }
 

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { handsFor, isWeaponKind, WEAPON_KINDS } from "../src/hands.ts";
 import {
   EQUIPMENT,
   advance,
@@ -462,13 +463,64 @@ test("the bout cap that ships is a player's, not the bench's", () => {
 // ---- what is in each hand -------------------------------------------------
 
 test("the picker offers exactly the equipment the code has", () => {
+  // Against `WEAPON_KINDS` rather than against a literal, and that is the whole
+  // point of the list existing: it was exported and read by nobody for three
+  // sessions, which is the state `AGENTS.md` has a rule about. A kind added to
+  // the union, given a builder and a row in every table, and then forgotten on
+  // the setup screen, is a weapon nobody can choose -- and this is the only
+  // thing in the tree that would say so.
+  //
+  // The order is asserted too. Both lists are declaration-ordered and the picker
+  // is what a person reads top to bottom, so `sword` first is a choice rather
+  // than an accident.
   assert.deepEqual(
     EQUIPMENT.map((item) => item.name),
-    ["sword", "shield", "buckler", "club", "empty"],
+    [...WEAPON_KINDS],
+  );
+  assert.deepEqual(
+    [...WEAPON_KINDS],
+    ["sword", "axe", "shield", "buckler", "club", "empty"],
+    "and the union itself has not quietly gained or lost one",
   );
   for (const item of EQUIPMENT) {
     assert.ok(item.label.length > 0, `${item.name} needs a label for the screen`);
   }
+});
+
+test("a hand can be given a kind that takes two, and the table is what says so", () => {
+  // `withEquipment` used to spell "it takes two hands" as `kind === "club"`,
+  // which was the same sentence right up until the moment it was not. It asks
+  // `handsFor` now, so a second two-handed kind is a row rather than an edit
+  // here -- and the club, which is that kind today, still behaves exactly as it
+  // did.
+  const both = withEquipment(defaultMatchup(), "left", "handA", "club");
+  assert.equal(both.left.handA, "club");
+  assert.equal(both.left.handB, "club", "a two-handed weapon fills the other hand");
+
+  const freed = withEquipment(both, "left", "handB", "axe");
+  assert.equal(freed.left.handB, "axe");
+  assert.equal(freed.left.handA, "empty", "and putting something else down empties it");
+
+  // The kinds that take one hand leave the other alone, all of them.
+  for (const kind of WEAPON_KINDS.filter((k) => handsFor(k) === 1)) {
+    const one = withEquipment(defaultMatchup(), "left", "handA", kind);
+    assert.equal(one.left.handB, "empty", `${kind} should not reach across`);
+  }
+});
+
+test("a hand offered a kind the code does not have is left empty rather than trusted", () => {
+  // The value arrives from a `<select>`, so it is a string, and it was cast
+  // rather than checked. That held while every question about a kind had a
+  // default; the tables are total now, so an unrecognised string is a
+  // `TypeError` from inside `handsFor` instead of a quiet mistake. This is the
+  // door it is refused at.
+  assert.equal(isWeaponKind("sword"), true);
+  assert.equal(isWeaponKind("halberd"), false);
+  assert.equal(isWeaponKind("toString"), false, "and not a prototype member either");
+
+  // A stale matchup does not crash the reducer on its way past.
+  const stale = withEquipment(defaultMatchup(), "left", "handA", "halberd");
+  assert.equal(stale.left.handB, "empty");
 });
 
 test("equipping a hand touches that hand, that side, and nothing else", () => {

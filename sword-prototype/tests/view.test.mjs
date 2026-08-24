@@ -311,3 +311,39 @@ test("a strapped shield's face is welded to its hand's own +X", async (t) => {
     `the plate's normal should be the hand's +X, dot ${square} (${((Math.acos(square) * 180) / Math.PI).toFixed(1)} deg out)`,
   );
 });
+
+test("a hand publishes how far it reaches, and it is the weapon's not the arm's", async () => {
+  // The number both policies shift every one of their ranges by. It went out of
+  // the view one session ago for having no readers, which was right then and is
+  // not now: the ranges were the sword's length written into a constant, and an
+  // axe standing at them swings at the air.
+  const { engine, scene, left, right } = await ring({ primary: "axe", secondary: "sword" });
+  try {
+    let clock = 0;
+    for (let i = 0; i < 20; i += 1) {
+      frame(scene, () => {
+        clock += FIXED;
+        left.observe(right, clock);
+        right.observe(left, clock);
+        left.update(FIXED);
+        right.update(FIXED);
+      });
+    }
+    const mine = left.view.self.hands;
+    const theirs = right.view.self.hands;
+
+    const axe = CONFIG.arm.reachNeutral + left.arms.primary.weapon.tipOffset;
+    const sword = CONFIG.arm.reachNeutral + left.arms.secondary.weapon.tipOffset;
+    assert.ok(Math.abs(mine.primary.reach - axe) < 1e-9, "the axe hand reaches arm plus haft");
+    assert.ok(Math.abs(mine.secondary.reach - sword) < 1e-9, "and the sword hand arm plus blade");
+
+    // The claim the policies rest on, stated as the inequality rather than as
+    // two numbers: a shorter weapon is a shorter reach, from the same shoulder.
+    assert.ok(mine.primary.reach < mine.secondary.reach - 0.2);
+
+    // Both fighters agree, and neither is reading the other's arm.
+    assert.equal(theirs.primary.reach, CONFIG.arm.reachNeutral + right.arms.primary.weapon.tipOffset);
+  } finally {
+    engine.dispose();
+  }
+});

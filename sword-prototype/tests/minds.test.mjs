@@ -50,6 +50,31 @@ const whole = () => Object.fromEntries(PARTS.map((key) => [key, 1]));
  * left-handed killed nobody in 24 bouts and landed 20 points of damage on heads
  * against 216 on torsos.
  */
+/**
+ * How far a hand holding each kind puts its business end from its own shoulder.
+ *
+ * The real one is `Arm.strikeReach`, which needs a scene. This is the same
+ * arithmetic against `config.ts`, because a range gate written against it is
+ * what these tests are here to argue with -- and because a fixture that made the
+ * number up would let a policy shift its ranges onto a weapon length nobody
+ * actually builds.
+ */
+const reachOf = (weapon) => {
+  const extension = weapon === "shield"
+    ? Math.min(CONFIG.arm.reachNeutral, CONFIG.shield.reachCap)
+    : CONFIG.arm.reachNeutral;
+  if (weapon === "sword") {
+    return extension + (CONFIG.sword.gripLength / 2 + CONFIG.sword.bladeLength);
+  }
+  if (weapon === "axe") {
+    return extension + (CONFIG.axe.gripLength / 2 + CONFIG.axe.haftLength + CONFIG.axe.headLength);
+  }
+  // Everything else is either not swung at anybody or is not in these fixtures;
+  // the arm alone is the honest answer and an over-precise one would be a
+  // second copy of `weapon.ts`'s geometry living in a test.
+  return extension;
+};
+
 function hand({ weapon = "empty", name = "primary", shoulder, sign = 1, tip, tipSpeed = 0, lost = false }) {
   const fist = { x: shoulder.x, y: shoulder.y, z: shoulder.z + sign * CONFIG.arm.reachNeutral };
   return {
@@ -57,6 +82,7 @@ function hand({ weapon = "empty", name = "primary", shoulder, sign = 1, tip, tip
     shoulder,
     tip: tip ?? fist,
     tipSpeed,
+    reach: reachOf(weapon),
     lost,
     outboard: name === "primary" ? 1 : -1,
   };
@@ -111,7 +137,6 @@ function facing({
       tip: myTip,
       tipSpeed: 0,
       hands: mineHands,
-      reach: CONFIG.arm.reachNeutral,
       health: whole(),
     },
     opponent: {
@@ -238,6 +263,59 @@ test("swinger walks in, and holds its cursor still until it is in measure", () =
     assert.equal(intent.forward, 1, "out of measure it should be closing");
     assert.equal(intent.pointerX, 0, "and not swinging at the air on the way");
   }
+});
+
+test("a policy carries a short weapon further in, and a sword no further than it did", () => {
+  // Every range in `policies.ts` was tuned with an arming sword on the end of
+  // the arm, and until there was a weapon of another length that was invisible:
+  // `duelist.hold = 1.40` with a comment reading "just inside the 1.45 m the
+  // point of the blade reaches". Handed an axe, which reaches 1.13, it went on
+  // holding 1.40 and committing at 1.48 -- a quarter of a metre outside its own
+  // range -- and swung at the air for the whole bout.
+  const axe = { primary: "axe", secondary: "empty" };
+  const sword = { primary: "sword", secondary: "empty" };
+
+  // A gap a sword-armed swinger is happy at, and an axe-armed one is not.
+  const gap = 1.25;
+  assert.ok(reachOf("sword") > gap && reachOf("axe") < gap, "the fixture has to straddle it");
+
+  assert.equal(ask(policyMind("swinger", 7), facing({ gap, mine: sword })).forward, 0,
+    "with a sword it is already in range and stops");
+  assert.equal(ask(policyMind("swinger", 7), facing({ gap, mine: axe })).forward, 1,
+    "with an axe it has a quarter of a metre still to walk");
+
+  // And the duelist, whose hold is a proportional term rather than a switch, so
+  // the sign of it is the assertion. 1.30 m is inside a sword's 1.40 hold and
+  // outside an axe's 1.145, which is the whole of the difference.
+  const held = ask(policyMind("duelist", 3), facing({ gap: 1.30, mine: sword }));
+  const short = ask(policyMind("duelist", 3), facing({ gap: 1.30, mine: axe }));
+  assert.ok(held.forward < 0, "a sword at 1.30 m is too close and it gives ground");
+  assert.ok(short.forward > 0, "an axe at 1.30 m is still too far and it closes");
+});
+
+test("a hand that has lost its weapon closes on the fist it has left", () => {
+  // The one behaviour this shift changed for a fighter carrying a sword, and it
+  // is worth pinning because it is the whole of the drift in `npm run measure`:
+  // once the weapon arm is off, `attackHand` hands the policy the other one, and
+  // the other one reaches as far as a fist does. Standing at sword range holding
+  // nothing was never a decision, only what a constant said.
+  const armed = facing({ gap: 1.6 });
+  const disarmed = facing({ gap: 1.6 });
+  disarmed.self.hands.primary.lost = true;
+
+  assert.equal(ask(policyMind("swinger", 7), armed).forward, 1);
+  assert.equal(ask(policyMind("swinger", 7), disarmed).forward, 1);
+
+  // At a gap inside a sword's range but well outside a fist's, the two differ.
+  const near = facing({ gap: 1.20 });
+  const nearDisarmed = facing({ gap: 1.20 });
+  nearDisarmed.self.hands.primary.lost = true;
+  assert.equal(ask(policyMind("swinger", 7), near).forward, 0, "in range with a sword");
+  assert.equal(
+    ask(policyMind("swinger", 7), nearDisarmed).forward,
+    1,
+    "and nowhere near it with a fist",
+  );
 });
 
 test("swinger turns toward whatever is in front of it", () => {
@@ -910,4 +988,77 @@ test("an arm that has been cut off is not planned for", () => {
   const before = { ...blankIntent().secondary };
   const out = policyMind("duelist", 4).decide(view, FIXED);
   assert.deepEqual({ ...out.secondary }, before, "a lost arm keeps whatever it had");
+});
+
+test("the roll a stroke needs is folded for a blade and not for a bit", () => {
+  // `rollForStroke` folded its answer into +-pi/2 because a sword is
+  // double-edged: `roll` and `roll +- pi` are the same cut, and the short one is
+  // the one the wrist can get to. That is exactly false for a single-bitted
+  // weapon, where one of the two is the poll -- and measured on the bench, both
+  // policies and both hands were picking the poll **every single time**, because
+  // the fold's tie-break is which is closer to zero and that is no tie-break at
+  // all. An axe swung with the fold left in arrived poll-first on 64 % of the
+  // contacts that landed on a body; unfolded, 36 %, and the rest is the arc
+  // curving and the wrist taking time to get there.
+  const strokes = [
+    ["swinger, right hand", 0.85, 0.80, -0.70, -0.35],
+    ["swinger, left hand", -0.85, 0.80, 0.70, -0.35],
+    ["duelist, right hand", 0.62, 0.50, -0.62, -0.50],
+    ["duelist, left hand", -0.62, 0.50, 0.62, -0.50],
+  ];
+  for (const [what, fx, fy, tx, ty] of strokes) {
+    const folded = rollForStroke(fx, fy, tx, ty);
+    const full = rollForStroke(fx, fy, tx, ty, false);
+    assert.ok(Math.abs(folded) <= Math.PI / 2 + 1e-9, `${what}: a blade's roll is folded`);
+    assert.ok(
+      Math.abs(Math.abs(folded - full) - Math.PI) < 1e-6,
+      `${what}: and the two differ by exactly half a turn, which is bit against poll`,
+    );
+    // And the wrist can get there, which is not automatic: `arm.rollMin/rollMax`
+    // is +-2.6 and the unfolded answer lives in (-pi, pi]. These four strokes
+    // want 2.22, so nothing is clamped -- but a stroke that wanted 2.8 would be,
+    // and would arrive poll-first however this function answered.
+    assert.ok(Math.abs(full) < CONFIG.arm.rollMax, `${what}: and the wrist reaches it`);
+  }
+
+  // The default is the blade's, so every caller written before there was a
+  // single-bitted weapon means what it meant.
+  assert.equal(rollForStroke(0.85, 0.80, -0.70, -0.35), rollForStroke(0.85, 0.80, -0.70, -0.35, true));
+});
+
+test("a policy swings whatever it is holding, not only the kinds it was written with", () => {
+  // The hole this session is named for, at its sharpest. `isStriking` was
+  // `kind === "sword" || kind === "club"` and session 03 made it the question a
+  // policy asks to decide **which hand it attacks with** -- so a kind added to
+  // the union, given a builder, a mesh, a config block and a picker entry would
+  // be a weapon that compiles, ships, and that every policy in the program
+  // silently declines to swing. The fighter stands there holding it, and nothing
+  // anywhere says why.
+  for (const name of ["swinger", "duelist"]) {
+    // 1.0 m, not the 1.1 the sword tests use: an axe reaches 1.13 against a
+    // sword's 1.385, so a policy that has learnt its own range stands out of
+    // measure at 1.1 and walks rather than swings. That is the session's other
+    // finding meeting this one, and it took a failing test to notice.
+    const lead = drive(policyMind(name, 7), 4, () =>
+      facing({ gap: 1.0, mine: { primary: "axe", secondary: "shield" } }),
+    );
+    assert.ok(
+      lead.every((intent) => intent.driving === "primary"),
+      `${name} should attack with an axe`,
+    );
+    const swept = lead.map((intent) => intent.primary.pointerX);
+    assert.ok(
+      Math.max(...swept) - Math.min(...swept) > 1.0,
+      `${name}'s axe should actually cut, span ${Math.max(...swept) - Math.min(...swept)}`,
+    );
+
+    // And in the other hand, against a shield that must never be swung.
+    const off = drive(policyMind(name, 7), 4, () =>
+      facing({ gap: 1.0, mine: { primary: "shield", secondary: "axe" } }),
+    );
+    assert.ok(
+      off.every((intent) => intent.driving === "secondary"),
+      `${name} should not attack with a shield when it has an axe`,
+    );
+  }
 });

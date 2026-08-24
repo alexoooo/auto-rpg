@@ -375,6 +375,49 @@ npm run dev             # http://localhost:5180, strictPort
 - **`Combat.log` keeps the newest 24 entries.** A bout produces hundreds, so a total summed
   from it at the end is not a total, it is the last second and a half. Accumulate from
   `lastHit` per step instead, keyed on `at`.
+- **A mutation battery poisons the dev server that is watching the tree.** Vite caches a
+  transform per file and invalidates it on the watcher's event. A script that edits a source
+  file, runs a test and restores it in a few milliseconds can leave the *mutated* text in
+  that cache -- and the owner's server on 5180 goes on serving it, through a reload, with no
+  error anywhere. It cost a session's visual check: `Arm.strikeReach` returned the right
+  number while `Fighter.describe` published `reachNeutral`, because `fighter.ts` was the
+  mutated module and `arm.ts` was not. **After running mutations, before believing anything
+  in the page, fetch the modules you changed and grep the served text** --
+  `await fetch("/src/fighter.ts").then(r => r.text())` -- and re-touch any that come back
+  stale. Do not restart the server to fix it; it is not yours. Note the served text is
+  esbuild's output, so match on a distinctive identifier rather than on your own formatting.
+- **`grep -c $'\r'` is not a line-ending check.** It reported every line of a pure-LF file as
+  containing a carriage return, which sent a whole file through a needless CRLF conversion
+  and produced a 292-line diff on a four-line change. This repository has `core.autocrlf =
+  false` and a `.gitattributes` that pins only a handful of files, so **each file's real
+  endings are whatever is committed** and they are not uniform: `src/scoring.ts` and
+  `src/combat.ts` are CRLF, `src/config.ts` and every test file are LF, and `src/style.css`
+  is genuinely mixed. Count bytes in Python (`data.count(b"\r\n")` against
+  `data.count(b"\n")`), and gate the commit on `git diff --numstat` being identical to
+  `git diff --ignore-cr-at-eol --numstat`.
+- **A caller holding its own copy of a rule is the same defect as a missing table row, and
+  is much harder to see.** `combat.ts` skipped the damage model for a contact below
+  `minCutSpeed` -- a real optimisation, worth having -- and that is the *blade's* number.
+  The club's own lower floor therefore never ran in a fight for the whole of the club's
+  life, while passing its unit test the entire time. If a module owns a rule, it owns the
+  cheap early-out for that rule too; export the predicate rather than letting the caller
+  approximate it.
+- **A range constant in `policies.ts` is a weapon's length in disguise.** `duelist.hold`,
+  `duelist.strike` and `swinger.engage` were all "an arm at `reachNeutral` with an arming
+  sword on the end of it", stated in a comment and nowhere a program could read. Any weapon
+  of another length stands outside its own range and swings at the air -- measured, 31 blows
+  against 398. They shift by `HandView.reach` now; a new range added here has to shift too.
+- **`rollForStroke` folds its answer into +-pi/2, and that fold is a claim about the
+  weapon.** It is right for a double-edged blade, where `roll` and `roll +- pi` are the same
+  cut, and exactly wrong for anything single-bitted -- where its tie-break picks the poll,
+  and measured, picked it for both policies and both hands every time. It takes a
+  `bothEdges` argument, defaulted to the blade's answer. Any new stroke has to pass
+  `cutsBothWays` of what the hand is actually holding.
+- **A view field with no reader and a view field with no reader *yet* look identical.**
+  `HandView.reach` was removed one session for having none and put back the next, because
+  the weapon that needed it did not exist yet. The rule about unread fields is still right
+  -- `SelfView.reach` went three sessions unread and is gone for good -- but before deleting
+  one, try to name the reader that is coming. If you can, leave it and write the name down.
 
 ## House rules
 

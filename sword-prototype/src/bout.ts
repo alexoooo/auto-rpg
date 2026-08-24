@@ -5,6 +5,10 @@
 // and `HitKind` are types and erase. Nothing in this file may become a value
 // import from a module that touches Babylon without moving the test with it.
 import { CONFIG } from "./config.ts";
+// `hands.ts` imports nothing at all, which is the only reason this file may have
+// it: `tests/bout.test.mjs` runs this module under Node with no DOM and no
+// Babylon anywhere in its graph, and that property is not negotiable.
+import { handsFor, isWeaponKind, type WeaponKind } from "./hands.ts";
 import type { Side } from "./physics.ts";
 import type { HitKind } from "./scoring.ts";
 
@@ -89,9 +93,16 @@ export type Control = "mind" | "you";
  * Same `{ name, label }` shape as `UNITS` and `POLICIES`, because `setup.ts`
  * builds every `select` from one of these and an option that is offered is then
  * provably an option the code has.
+ *
+ * `name` is a `WeaponKind` rather than a `string`, which makes the guarantee run
+ * the other way too: an entry the code does *not* have will not compile. What
+ * the type cannot say is that every kind appears, so `tests/bout.test.mjs`
+ * checks this against `WEAPON_KINDS` -- and that is the reader that list spent
+ * three sessions without.
  */
-export const EQUIPMENT: readonly { name: string; label: string }[] = [
+export const EQUIPMENT: readonly { name: WeaponKind; label: string }[] = [
   { name: "sword", label: "Sword" },
+  { name: "axe", label: "Axe" },
   { name: "shield", label: "Shield" },
   { name: "buckler", label: "Buckler" },
   { name: "club", label: "Club (two-handed)" },
@@ -204,8 +215,12 @@ export function withEquipment(
   const next = copy(matchup);
   const other = hand === "handA" ? "handB" : "handA";
   next[side][hand] = kind;
-  if (kind === "club") next[side][other] = "club";
-  else if (next[side][other] === "club") next[side][other] = "empty";
+  // "It takes two hands", asked of the table rather than spelled as the name of
+  // the one kind that does today. The prose above says two-handed and the code
+  // said `club`, which is the shape of every other hole this session closed.
+  const twoHanded = (k: string) => isWeaponKind(k) && handsFor(k) === 2;
+  if (twoHanded(kind)) next[side][other] = kind;
+  else if (twoHanded(next[side][other])) next[side][other] = "empty";
   return next;
 }
 

@@ -324,12 +324,17 @@ twenty-four constraints and a contact stream in the hundreds.
 
 ## What is still owed
 
-None of this was skipped for want of effort. Every item is a judgement about how the game
-feels or looks, and the tabs this was built in render a black canvas because Chrome does not
-paint WebGL in a hidden window -- and, worse, pauses `requestAnimationFrame` there
-altogether, so a background tab is not a slow browser but a stopped one. **Two of them are
-cheap and change what should be built next: the first and the fourth.** Items 11 and 12 are
-not cheap and are not about a browser: they are one arm defect, measured from two directions.
+None of this was skipped for want of effort. Most of it is a judgement about how the game
+*feels*, which is not a thing a bench can be pointed at.
+
+The list used to open by saying the tabs this was built in render a black canvas, because
+Chrome does not paint WebGL in a hidden window and pauses `requestAnimationFrame` there
+altogether. That is still true and it is no longer a wall: step the world by hand and call
+`scene.render()` yourself and the canvas paints, which is how the shields and the axe were
+finally looked at. So an item still open here is open because **nobody has played it**, not
+because nobody could see it. **Two of them are cheap and change what should be built next:
+the first and the fourth.** Items 11 and 12 are one arm defect measured from two directions;
+item 14 is the half of a weapon that only a person can price.
 
 1. **Is a human against `swinger` winnable, and not trivially so?** This is the only
    criterion that decides whether the policy work is finished. Its cycle is chamber 0.34 s,
@@ -430,6 +435,257 @@ not cheap and are not about a browser: they are one arm defect, measured from tw
    policy's wrist does, and what a low guard can reach, to improve how a resting arm looks
    is a trade somebody should make deliberately at a browser. The alternative is a rest path
    that does not go through the cursor at all, which is a second code path into `Arm.aim`.
+
+14. **Half of what the axe costs cannot be measured here, and it is the interesting half.**
+   An axe has no point, so a thrust with it is a shove. That is a rule, it is tested, and it
+   is worth **exactly nothing** in every table above -- because no policy thrusts.
+   `policies.ts` writes `thrust = false` on every hand of every intent it produces, and
+   `duelist`'s docstring argues at length that a thrusting policy would be a second policy
+   rather than a branch in that one.
+
+   So the axe's measured record is a record of a fighter that was never going to use the
+   button anyway. A person has it. Whether "you cannot thrust" reads as a real constraint or
+   as an option nobody missed is a question for somebody holding the mouse, and until that
+   happens the axe's price in this file is understated by an unknown amount. The cheapest way
+   to close it is not a bench: it is a thrusting policy, which the master plan already wants
+   for session 05's bow.
+
+## The axe, and six tables that were lying
+
+The session was meant to be one hole -- `weapon.ts` silently building a club for any kind
+it did not recognise -- and that one had already been closed. Reading for it found five
+more of the same shape, and adding a sixth kind to the union turned four of them into
+compile errors in a single `tsc` run:
+
+```
+src/combat.ts(67,7):  Property 'axe' is missing in type ... Record<WeaponKind, string>
+src/combat.ts(279,7): Argument of type 'WeaponKind' is not assignable to 'Striker'
+src/weapon.ts(248,29): Argument of type '"axe"' is not assignable to parameter of type 'never'
+```
+
+The two that did **not** show up there are the two that mattered.
+
+| where | what it did with a kind it had never heard of |
+| --- | --- |
+| `isStriking` | **false** -- so no policy would ever attack with it |
+| `scoreHit` | fell past both branches and **scored it as a sword** |
+| `handsFor` | one hand |
+| `mountFor` | the blade's mount |
+| `bout.ts:207` | `kind === "club"` where the prose above it says "takes two hands" |
+| `combat.ts:265` | gated every contact on `minCutSpeed` before `scoreHit` saw it |
+
+`isStriking` is the expensive one. Session 03 made it the question a policy asks to decide
+**which hand it attacks with**, so a weapon with a mesh, a builder, a config block and a
+picker entry would have been one every policy silently declines to swing: a fighter
+standing in the ring holding it. `scoreHit` is the invisible one -- it compiles, it runs,
+and it produces a plausible number, so a new weapon is not broken, it is *an arming sword
+with a different mesh* and nothing on screen says so.
+
+### The sixth, which had already cost the club its floor
+
+`combat.ts` skips a divide and three dot products for a contact too slow to be worth
+anything. That is a sound optimisation and it was written as `speed < C.minCutSpeed` --
+the *blade's* number, hard-coded, in a file with no business holding an opinion about it.
+So a club below 3.0 m/s never reached `scoreHit`, and `minCrushSpeed` -- a setting with a
+paragraph of config comment explaining why it is lower than the blade's, and a unit test
+proving that it works -- **did nothing whatsoever in an actual fight** for the whole of the
+club's life. The test was right and the arena never ran the code it tested.
+
+Fixed by asking the table (`biteFloor`). Measured, two clubs against a sword, 12 bouts:
+104 blows becomes 110, and total damage 2500 becomes 2479. So the rule was wrong and the
+effect is nothing -- which is worth writing down in exactly that order, because "the
+setting does nothing" and "the setting is unreachable" look identical from the damage
+number and only one of them is a bug.
+
+## The axe
+
+A one-handed war axe: 0.62 m of haft with a 0.17 m bit on the top of it, 1.4 kg. It keeps
+the frame every kind keeps -- **+Y** along the haft, **+X** the edge, **+Z** the flat -- so
+the head is built sticking out along +X only, its cutting face is the +X extreme, and the
+lump on -X is the poll. `scoring.ts` asks it exactly the questions it asks a sword.
+
+Four things make it an axe and **only two of them are rules**:
+
+- it is **27 % shorter** -- `tipOffset` 0.68 m against the sword's 0.935;
+- its **mass is out at the head** -- centre of mass 0.45 from the grip against the sword's
+  0.195, and off the haft axis by 0.04 because the head is only on one side of it;
+- it has **no point**, so a thrust with it is a shove;
+- it has **one edge**, so a backhand arrives poll-first and is worth nothing.
+
+The first two are `config.ts` meeting the arm's 850 N ceiling, which is where a weapon's
+feel belongs. The last two are rows in `hands.ts`.
+
+**The no-point half of that is a cost the bench cannot see, and saying so is part of the
+measurement.** No policy thrusts -- `policies.ts` writes `thrust = false` on every hand of
+every intent, and `duelist`'s docstring argues at length that a thrusting policy would be a
+second policy rather than a branch. So `hasPoint` costs the AI nothing at all. It costs a
+*person* the left mouse button, and only a playtest can price it.
+
+### What each fix bought, in order
+
+`duelist` carrying the axe against `swinger` with a sword, 12 bouts a row, `chopScale` held
+at 54 throughout so that the three rows differ only by the fix named:
+
+| | taken | dealt | died | killed | blows | damage | severs | poll-first |
+|---|---|---|---|---|---|---|---|---|
+| as first built | 398.2 | 43.3 | 12/12 | 0/12 | 31 | 356 | 0 | 75 % |
+| ranges know the weapon | 611.6 | 126.6 | 12/12 | 0/12 | 56 | 1305 | 0 | 64 % |
+| the roll stops folding | **391.6** | **148.8** | **4/12** | **7/12** | **101** | **1530** | **5** | **40 %** |
+
+The sword in the same seat over the same 12: 308.5 taken, 201 dealt, 3 deaths, 9 kills, 132
+blows at 15.2 each.
+
+Note the middle row, which is the honest shape of the reach fix: damage *taken* went **up**,
+from 398 to 612, while damage dealt tripled. A weapon a quarter of a metre short has to be
+carried a quarter of a metre inside the other fighter's range, and that is not a cost the
+fix introduced -- it is the cost the weapon always had, being paid for the first time.
+
+### The ranges were the sword's length, written down as constants
+
+`duelist.hold = 1.40`, with a comment reading "just inside the 1.45 m the point of the blade
+reaches". `duelist.strike = 1.48`. `swinger.engage = 1.30`, with a measured **1.45** in its
+own docstring. Six literals across two policies, every one of them an arm at
+`arm.reachNeutral` with an arming sword on the end of it, and none of them saying so
+anywhere a program could read.
+
+Handed an axe, which reaches 1.13, `duelist` went on holding 1.40 and committing at 1.48 --
+a quarter of a metre outside its own range -- and swung at the air: **31 blows in twelve
+bouts against a sword's 398 in the same bouts against the same opponent.**
+
+`HandView.reach` is back, and the arc is worth recording as a caution about the rule that
+removed it. It was cut one session ago for having no readers, which was correct at the time
+and is `AGENTS.md`'s own rule. What brought it back is not that the rule was wrong -- the
+field it replaces (`SelfView.reach`, the live extension of the *primary* arm) really did go
+three sessions unread and really has gone now. It is that a field with no reader and a field
+with no reader **yet** look the same from inside one session.
+
+`shiftedTo` moves a tuned range by `reach - TUNED_REACH`, an offset rather than a ratio,
+because a body's depth does not scale with the thing being swung at it. For a hand holding a
+sword the shift is **exactly zero** -- `TUNED_REACH` is written with the same association
+`Arm.strikeReach` uses, checked bit for bit -- so every figure in this file taken before
+today still names the same fighter.
+
+### `rollForStroke` was folding the bit into the poll, every time
+
+`rollForStroke` derived the wrist roll that lays the edge along the stroke, and then folded
+the answer into +-pi/2. Its docstring said why, and the reason was sound: *the sword is
+double-edged*, `roll` and `roll +- pi` are the same cut, and the short one is the one the
+wrist can get to.
+
+That fold is exactly false for a single-bitted weapon, where one of the two is the back of
+the head -- and its tie-break is "whichever is closer to zero", which is no tie-break at all.
+Measured on the four strokes the two policies actually fly:
+
+| stroke | folded | unfolded | differ by pi? | wrist reaches it? |
+|---|---|---|---|---|
+| swinger, right hand | -0.925 | 2.216 | yes | yes |
+| swinger, left hand | 0.919 | -2.222 | yes | yes |
+| duelist, right hand | -0.922 | 2.219 | yes | yes |
+| duelist, left hand | 0.922 | -2.219 | yes | yes |
+
+**Both policies, both hands, exactly half a turn out** -- so an axe arrived poll-first on 64 %
+of the contacts that landed on a body. Unfolded, 40 %, and what is left is the arc curving
+away from the roll the stroke was planned at plus the wrist taking real time to travel 3.14
+radians further than it used to.
+
+The clamp is worth naming because it is a real limit that these four strokes happen to miss:
+`arm.rollMin/rollMax` is +-2.6 and the unfolded answer lives in (-pi, pi], so a stroke
+wanting 2.8 would get 2.6 and arrive poll-first however this function answered. An axeman
+steps round rather than turning a wrist that far, and this program has no way to express
+that.
+
+### `chopScale`, and the two knobs that were refused
+
+Swept with everything else settled, 12 bouts a row:
+
+| chopScale | taken | dealt | died | killed | per blow |
+|---|---|---|---|---|---|
+| 46 | 412.5 | 136.4 | 5 | 6 | 13.3 |
+| 54 | 391.6 | 148.8 | 4 | 7 | 15.1 |
+| **64** | **354.0** | **155.6** | **3** | **8** | **17.2** |
+| 76 | 327.4 | 165.2 | 2 | 9 | 21.0 |
+
+64 is where two independent arguments meet: the physical one -- the same arm speed arriving
+through a hand's width of edge rather than through 840 mm of it, worth something like 1.4
+times, and 46 x 1.4 is 64.4 -- and the measured one, which is the row where the axe survives
+as well as a sword while still landing fewer and heavier blows. 76 is where it starts to
+out-damage a placed cut, which would make the sword pointless.
+
+**The axe was drafted with two more knobs and the bench refused both.**
+
+*Its own speed floor*, between the blade's 3.0 and the club's 2.2, on the club's own argument
+that a heavy head arriving slowly still bites. 24 bouts:
+
+| minChopSpeed | taken | dealt | died | killed | damage | blows | per blow |
+|---|---|---|---|---|---|---|---|
+| 3.0 (the blade's) | 340.6 | 171.2 | 8 | 15 | 3339 | 183 | 18.25 |
+| 2.6 | 343.5 | 166.4 | 9 | 14 | 3354 | 193 | 17.38 |
+
+Fifteen points of damage out of 3350, and ten more contacts too slight to be worth counting.
+It only ever changed what got *called* a blow.
+
+*Its own sever bar*, 0.2 against the blade's 0.4, on the argument that taking limbs off is
+what an axe is famous for. At 0.2 and at 0.4 the bench returned **byte-identical numbers** --
+354.0 taken, 155.6 dealt, 3 deaths, 8 kills, 7 severs, 1663 damage, all four figures the
+same -- because a chop that empties a limb has already landed at a quality well above either.
+The bar was never the binding constraint and `chopScale` was doing all of the work.
+
+Both are gone. The axe's row in `scoring.ts` is the sword's row with one number changed, and
+that is a finding rather than a simplification.
+
+### What the axe is worth
+
+24 bouts, `duelist` carrying the loadout against `swinger` with a sword. "Taken" and "dealt"
+are means per bout; blows, per-blow and severs are totals over the 24.
+
+| loadout | taken | dealt | died | killed | blows | per blow | severs |
+|---|---|---|---|---|---|---|---|
+| sword + empty | **292.7** | **241.6** | 7/24 | 17/24 | 333 | 14.09 | 15 |
+| axe + empty | 340.6 | 171.2 | 8/24 | 15/24 | 183 | 18.25 | 13 |
+| **axe + shield** | 333.5 | 176.9 | **4/24** | **20/24** | 161 | **23.65** | 16 |
+| sword + axe | 403.1 | 270.1 | 5/24 | 19/24 | 509 | 11.06 | 16 |
+
+**The axe lands 45 % fewer blows and each is 30 % heavier**, which is the whole of what the
+weapon is. Against a sword it is behind on the totals -- 29 % less damage dealt for 16 % more
+taken -- and that is the honest answer rather than a balance failure: in a model where a blow
+is a blade meeting a body, a quarter of a metre of reach is worth more than a heavier head.
+
+**The interesting row is the third.** An axe with a shield kills 20 of 24 against a sword's
+17 and dies 4 times against its 7, at 23.65 damage a blow. The axe's weakness is having to
+stand inside the other fighter's range; a shield is the answer to standing inside somebody's
+range. Nobody designed that -- it falls out of a short weapon and a plate being in the same
+loadout -- and it is the first thing in this prototype that reads like a *choice* between two
+loadouts rather than a ranking of them.
+
+### The drift in `npm run measure`, fully attributed
+
+`swinger vs idle` is **identical to every digit**. `duelist vs swinger` keeps its win rate
+(27/40) and its severs (32 and 16) and moves its bout length from 5.18 s to 5.38 and its
+damage from 245.39 to 246.07. `duelist vs duelist` keeps 40/40 decided and 47 severs and
+moves 242.33 to 243.59.
+
+One cause, isolated by pinning `shiftedTo` to zero and confirming the table returns
+**byte-for-byte** to its old numbers: once a fighter's weapon arm is cut off, `attackHand`
+hands the policy the other hand, and the other hand reaches as far as a fist does. It closes
+now instead of standing at sword range holding nothing. `idle` never severs anything, which
+is why the first block does not move at all.
+
+### In the page
+
+Stepped by hand and rendered by hand, which is how a hidden tab is looked at (`AGENTS.md`).
+The axe reads as an axe: a wooden haft with a steel head at the top, the bit out to one side
+and flaring taller than the eye behind it, a small poll on the other. From the log of a live
+bout:
+
+```
+axe:cut Torso    62.5 @17.2 m/s edge 98%
+axe:cut Off arm  60.8 @21.6 m/s edge 97%
+axe:weak Shield   0.0 @22.8 m/s edge  0%
+shield:weak Haft  0.0 @ 1.2 m/s edge  0%
+```
+
+The third line is a shield stopping a 22.8 m/s chop dead, and the fourth is the new parry
+label: a shield that caught the *haft* rather than the head.
 
 ## Two hands, and what a shield is finally worth
 

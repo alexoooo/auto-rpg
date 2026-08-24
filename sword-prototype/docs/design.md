@@ -385,7 +385,7 @@ of the same shape a person produces.
 
 ## What is in a hand
 
-`Weapon` replaced `Sword`. Three kinds and an `empty`, all sharing one local frame -- +Y
+`Weapon` replaced `Sword`. Five kinds and an `empty`, all sharing one local frame -- +Y
 along the weapon, +X the edge, +Z the flat -- which is what lets `Combat` ask the same four
 questions of any of them without a branch.
 
@@ -556,6 +556,81 @@ defined relative to the threat, so the turn that brings the plate round is very 
 -- and because the servo that computed it exactly walked the wrist into a limit it cannot
 pass. Every number has its table beside it in `config`-style comments and in
 `docs/measurements.md`.
+
+### The axe, and the tables that had been answering for kinds they did not know
+
+Adding a fifth kind was meant to be a builder and a config block. What it actually did was
+find six places that answered a question about a weapon by comparing its **name**, with a
+default for the names they had not heard of -- and every one of those defaults was a
+plausible lie rather than a crash.
+
+Two of them cost real things. `isStriking` was `kind === "sword" || kind === "club"`, and
+session 03 made it the question a policy asks to decide *which hand it attacks with*: its
+default is `false`, so a fully built weapon -- mesh, builder, config, picker entry -- would
+have been one every policy in the program silently declines to swing, with a fighter
+standing in the ring holding it and nothing anywhere saying why. `scoreHit` fell past its two
+`by === "club"` branches into the sword's arithmetic, so a new weapon was not broken, it was
+**an arming sword with a different mesh**.
+
+The sixth is the one worth generalising from, because it is not a missing branch at all.
+`combat.ts` skipped the damage model for a contact too slow to matter -- a sound optimisation
+-- and skipped it on `minCutSpeed`, hard-coded, in a file with no business holding an opinion
+about a weapon's floor. So the club's own lower floor, which has a paragraph of config
+comment and a passing unit test, **never ran in an actual fight**. A second copy of a rule in
+a caller is the same defect as a missing row, and it is harder to see because nothing about
+it looks like a table.
+
+**The answer is two tables and no comparisons.** `hands.ts` holds `GRIPS`, one row per kind,
+which is the *shape* of the thing: how many hands, how it is carried, what it is for, whether
+it has a point, whether it cuts on both sides of its edge axis. `scoring.ts` holds `BITE`,
+which is what a blow with it is *worth*: a floor, a scale and a sever bar, each as an
+accessor on the tuning so that the tuning stays a parameter. Both are `Record<..., ...>` over
+the union, so a kind without a row does not compile, and every predicate above them is a
+field read. Adding the axe turned four of the six holes into `tsc` errors in one run.
+
+`Striker` stopped being a hand-maintained copy of `WeaponKind` and became an alias of it.
+`scoring.ts` restated the union because `weapon.ts` imports Babylon and the whole value of
+that module is that it does not -- but `hands.ts` imports **nothing at all**, so the copy had
+no job left.
+
+**An axe is a sword's row with one number changed, plus two facts about its shape.** It hits
+harder (`chopScale`), and that is the only thing in the damage table that differs. What it
+pays is not in the table: no point, so a thrust is a shove; one edge, so a backhand arrives
+poll-first and is worth nothing; 27 % less reach; and its mass out at the head. The last two
+are `config.ts` meeting the arm's force ceiling, which is where a weapon's feel belongs.
+
+The axe was drafted with its own speed floor and its own sever bar as well, on arguments that
+sounded good, and the bench refused both -- the sever bar returned byte-identical numbers at
+0.2 and at 0.4. They are gone. `docs/measurements.md` has the tables, and the fact that a
+knob was tried and dropped is the part worth keeping.
+
+### A policy that knows how long its weapon is
+
+Six literals across the two policies were the sword's reach written down without saying so:
+`duelist.hold = 1.40` ("just inside the 1.45 m the point of the blade reaches"),
+`duelist.strike = 1.48`, `swinger.engage = 1.30`. Handed an axe that reaches 1.13, `duelist`
+stood a quarter of a metre outside its own range and swung at the air -- 31 blows in twelve
+bouts where a sword landed 398.
+
+`HandView` carries a `reach` again, and the arc is a caution about the rule that removed it a
+session ago. That rule -- a view field with no reader is a field that will drift -- was right,
+and the field it replaces really had gone three sessions unread. But a field with no reader
+and a field with no reader *yet* look identical from inside one session, and the only thing
+that distinguishes them is whether somebody can name the reader that is coming.
+
+The shift is an offset, not a ratio: a weapon 255 mm shorter is carried 255 mm closer, not to
+82 % of the distance, because the numbers being shifted are all "shoulder to shoulder, at
+which my point lands on them" and a body's depth does not scale with what is swung at it. For
+a hand holding a sword the shift is exactly zero, bit for bit, which is what lets every
+figure taken before today go on naming the same fighter.
+
+**`rollForStroke` was folding the bit into the poll.** It derived the wrist roll that lays
+the edge along the stroke and then folded the answer into +-pi/2, because a sword is
+double-edged and `roll` and `roll +- pi` are the same cut. That is exactly false for a
+single-bitted weapon, and the fold's tie-break -- whichever is closer to zero -- is no
+tie-break at all: measured, both policies and both hands came out **exactly half a turn out**,
+so an axe arrived poll-first on 64 % of its contacts. The fold is now conditional on
+`cutsBothWays`, defaulted to the blade's answer so every existing caller means what it meant.
 
 ### The two-handed club, which was wrong twice
 

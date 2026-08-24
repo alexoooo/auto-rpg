@@ -16,6 +16,7 @@ import { CONFIG } from "./config.ts";
 // in the graph. It is imported for its *values* -- a policy has to ask what the
 // hand it is planning for is holding, and to be able to name the other hand.
 import {
+  cutsBothWays,
   isShield,
   isStrapped,
   isStriking,
@@ -252,19 +253,41 @@ function aimAt(view: FighterView, target: Point, into: Aim, from?: Point): Aim {
  * `combat.edgeExponent`, which is 2, so those three are worth 91 %, 55 % and 2 %
  * of a full cut. Getting the sign backwards is not a near miss.
  *
- * Folded into +-pi/2 because the sword is double-edged and `Combat` takes the
- * absolute value of the edge dot product, so `roll` and `roll +- pi` are the same
- * cut; the short one is the one that stays inside `arm.rollMin/rollMax` and the
- * one the wrist can get to.
+ * Folded into +-pi/2 **when the weapon is double-edged**, which the sword is and
+ * which was the only case there was: the damage model takes the absolute value
+ * of the edge dot product, so `roll` and `roll +- pi` are the same cut, and the
+ * short one is the one that stays inside `arm.rollMin/rollMax` and the one the
+ * wrist can actually get to.
+ *
+ * For a single-bitted weapon those two are not the same cut at all -- one of
+ * them is the poll -- and the fold picks between them by which is closer to
+ * zero, which is to say by nothing. Measured: an axe swung with the fold left in
+ * arrived poll-first on **64 %** of the contacts that landed on a body, and a
+ * poll scores nothing. Unfolded, the derivation puts the weapon's +X along the
+ * direction of travel, which is exactly where a bit belongs.
+ *
+ * What is left is the wrist. The unfolded answer lives in (-pi, pi] and
+ * `arm.rollMin/rollMax` is +-2.6, so a stroke that wants the last half-radian of
+ * the turn gets the clamp instead -- and that is not a shortcoming of this
+ * function but of the arm, and of every real axeman, who steps round rather than
+ * turning a wrist that far. `docs/measurements.md` has what it costs.
  */
-export function rollForStroke(fromX: number, fromY: number, toX: number, toY: number): number {
+export function rollForStroke(
+  fromX: number,
+  fromY: number,
+  toX: number,
+  toY: number,
+  bothEdges = true,
+): number {
   const deltaAz = azimuthOf(toX) - azimuthOf(fromX);
   const deltaEl = elevationOf(toY) - elevationOf(fromY);
   const midEl = (elevationOf(toY) + elevationOf(fromY)) / 2;
 
   let roll = Math.atan2(-Math.cos(midEl) * deltaAz, deltaEl);
-  while (roll > HALF_PI) roll -= Math.PI;
-  while (roll < -HALF_PI) roll += Math.PI;
+  if (bothEdges) {
+    while (roll > HALF_PI) roll -= Math.PI;
+    while (roll < -HALF_PI) roll += Math.PI;
+  }
   return clamp(roll, A.rollMin, A.rollMax);
 }
 
@@ -602,6 +625,37 @@ export const randomSeed = (): number => (Math.random() * 0x100000000) >>> 0;
  * the other half of naive. It cuts through the volume in front of its own sword
  * shoulder and lands whatever happens to be standing there.
  */
+/**
+ * The reach every range in this file was tuned at: an arm held at
+ * `arm.reachNeutral` with an arming sword on the end of it.
+ *
+ * Written out rather than left implied, because until there was a weapon of a
+ * different length it was implied in six literals across two policies and a
+ * comment saying "the 1.45 m the point of the blade reaches". Handed an axe --
+ * 0.68 m of haft and head against the sword's 0.935 -- `duelist` went on holding
+ * 1.40 m and committing at 1.48, which is a quarter of a metre outside its own
+ * range. It swung at the air: 31 blows in twelve bouts, against a sword's 398 in
+ * the same bouts against the same opponent.
+ *
+ * The association is the one `Arm.strikeReach` uses, so that a hand holding a
+ * sword computes bit-for-bit the same number and `shiftedTo` below is exactly
+ * zero. That is not fussiness: every figure in `docs/measurements.md` was taken
+ * with these ranges, and a policy that moved by a float's last bit would make
+ * the whole table unreadable for no reason.
+ */
+const TUNED_REACH =
+  CONFIG.arm.reachNeutral + (CONFIG.sword.gripLength / 2 + CONFIG.sword.bladeLength);
+
+/**
+ * A distance tuned against a sword, moved onto whatever this hand holds.
+ *
+ * An offset rather than a ratio, and that is the physical claim: a weapon 255 mm
+ * shorter has to be carried 255 mm closer, not to 82 % of the distance. The
+ * numbers being shifted are all "shoulder to shoulder, at which my point lands
+ * on them", and a body's depth does not scale with the thing being swung at it.
+ */
+const shiftedTo = (tuned: number, reach: number): number => tuned + (reach - TUNED_REACH);
+
 const SWINGER = {
   /**
    * Shoulder-to-shoulder metres at which it stops closing and starts cutting.
@@ -618,6 +672,11 @@ const SWINGER = {
    * for reasons that have nothing to do with range. `measure` earns its keep in
    * `duelist`, where "something of theirs is close to me" is exactly the
    * question.
+   *
+   * And the sword's 1.45 is why this is a *tuned* number rather than a fixed
+   * one: it is shifted by `shiftedTo` onto whatever the attacking hand actually
+   * holds. A weapon a quarter of a metre shorter has to be walked a quarter of a
+   * metre further in, and this policy's whole character is that it walks in.
    */
   engage: 1.30,
   turnGain: 2.2,
@@ -698,6 +757,16 @@ export function swingerMind(seed = randomSeed()): Mind {
    * because `splitMind` handed the policy the secondary.
    */
   let mirror = 1;
+  /**
+   * Whether the attacking hand's weapon cuts on both sides of its edge axis.
+   *
+   * A closure variable beside `mirror`, and for the same reason: `beginCycle`
+   * fixes the whole stroke -- its roll included -- at the moment it starts, and
+   * it does not see the view. Both are re-read from the attacking hand every
+   * step, so a fighter that loses an arm and picks the exchange up with the
+   * other one gets this cycle's answer rather than the last one's.
+   */
+  let bothEdges = true;
 
   // Where the last leg of the cycle left the cursor, and where this one is
   // taking it. Held rather than recomputed because the chamber leg starts from
@@ -742,7 +811,13 @@ export function swingerMind(seed = randomSeed()): Mind {
     // `rollForStroke` derives the roll from the stroke and a mirrored stroke has
     // a mirrored roll by construction. Negating the answer would be a second
     // statement of the same fact, and the one that gets it backwards.
-    hand.roll = rollForStroke(SWINGER.chamber.x * mirror, SWINGER.chamber.y, commitX, commitY);
+    hand.roll = rollForStroke(
+      SWINGER.chamber.x * mirror,
+      SWINGER.chamber.y,
+      commitX,
+      commitY,
+      bothEdges,
+    );
   };
 
   const nextLeg = (): void => {
@@ -789,10 +864,14 @@ export function swingerMind(seed = randomSeed()): Mind {
       attacker = attackHand(view, prefer);
       intent.driving = attacker;
       mirror = view.self.hands[attacker].outboard;
+      bothEdges = cutsBothWays(view.self.hands[attacker].weapon);
       const hand = intent[attacker];
 
+      // Its own range, for the weapon it is actually holding.
+      const engage = shiftedTo(SWINGER.engage, view.self.hands[attacker].reach);
+
       intent.turn = turnToward(view, view.opponent.ground, SWINGER.turnGain);
-      intent.forward = gap > SWINGER.engage ? 1 : 0;
+      intent.forward = gap > engage ? 1 : 0;
       intent.strafe = 0;
       hand.thrust = false;
       hand.guard = false;
@@ -809,7 +888,7 @@ export function swingerMind(seed = randomSeed()): Mind {
         pause -= dt;
         // The one and only look at the range the cycle takes. From here to the
         // end of the recover it swings on its clock and on nothing else.
-        if (pause <= 0 && gap <= SWINGER.engage) {
+        if (pause <= 0 && gap <= engage) {
           waiting = false;
           beginCycle(hand);
         }
@@ -884,7 +963,14 @@ const DUELIST = {
    * whole of the tactical difference between them.
    */
   hold: 1.40,
-  /** Nearest part of theirs, in metres, at which it gives ground. */
+  /**
+   * Nearest part of theirs, in metres, at which it gives ground.
+   *
+   * The one distance here that is **not** shifted by the weapon's reach, and
+   * deliberately: it is about *their* arm arriving, not about mine leaving. A
+   * fighter holding a shorter weapon is not less crowded by somebody standing on
+   * top of it.
+   */
   crowd: 0.85,
   /** Shoulder to shoulder, past which a commit would fall short. */
   strike: 1.48,
@@ -1071,12 +1157,19 @@ export function duelistMind(seed = randomSeed()): Mind {
       // Crowding is read off `measure` -- the nearest part of them, whatever it
       // is -- because being crowded is not a fact about their shoulders. Range
       // keeping is read off the shoulders, because that one is.
+      // Both ranges moved onto the weapon this hand is actually holding. `hold`
+      // and `strike` are 1.40 and 1.48 for a sword, which is where every number
+      // in `docs/measurements.md` was taken, and 1.145 and 1.225 for an axe.
+      const reach = view.self.hands[attacker].reach;
+      const hold = shiftedTo(DUELIST.hold, reach);
+      const strike = shiftedTo(DUELIST.strike, reach);
+
       if (view.measure < DUELIST.crowd) {
         intent.forward = -0.8;
-      } else if (gap > DUELIST.hold + DUELIST.slack) {
-        intent.forward = clamp((gap - DUELIST.hold) * DUELIST.closeGain, 0, 1);
-      } else if (gap < DUELIST.hold - DUELIST.slack) {
-        intent.forward = clamp((gap - DUELIST.hold) * DUELIST.closeGain, -1, 0);
+      } else if (gap > hold + DUELIST.slack) {
+        intent.forward = clamp((gap - hold) * DUELIST.closeGain, 0, 1);
+      } else if (gap < hold - DUELIST.slack) {
+        intent.forward = clamp((gap - hold) * DUELIST.closeGain, -1, 0);
       } else {
         intent.forward = 0;
       }
@@ -1101,7 +1194,7 @@ export function duelistMind(seed = randomSeed()): Mind {
         // Along the covering line the blade is a bar, not an edge, so the roll
         // is left where the last cut put it rather than spent on nothing.
 
-        if (cooldown <= 0 && gap <= DUELIST.strike && (opening || sinceOpening > patience)) {
+        if (cooldown <= 0 && gap <= strike && (opening || sinceOpening > patience)) {
           target.x = them.ground.x;
           target.y = them.shoulder.y + DUELIST.headLift;
           target.z = them.ground.z;
@@ -1111,7 +1204,13 @@ export function duelistMind(seed = randomSeed()): Mind {
           fromY = clamp(aim.pointerY + DUELIST.offset.y, -1, 1);
           toX = clamp(aim.pointerX - DUELIST.offset.x * mirror, -1, 1);
           toY = clamp(aim.pointerY - DUELIST.offset.y, -1, 1);
-          hand.roll = rollForStroke(fromX, fromY, toX, toY);
+          hand.roll = rollForStroke(
+            fromX,
+            fromY,
+            toX,
+            toY,
+            cutsBothWays(view.self.hands[attacker].weapon),
+          );
 
           patience = DUELIST.patience * (0.8 + random() * 0.4);
           sinceOpening = 0;

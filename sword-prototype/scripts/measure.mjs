@@ -370,13 +370,23 @@ function runSwingBench({ seed = 1, seconds = 20 } = {}) {
    */
   const bothHands = (shoulder, tip, sign) => ({
     primary: {
-      weapon: "sword", shoulder, tip, tipSpeed: 0, lost: false, outboard: 1,
+      weapon: "sword",
+      shoulder,
+      tip,
+      tipSpeed: 0,
+      // The same arithmetic `Arm.strikeReach` does, because a policy shifts its
+      // ranges by it and a phantom that omitted it would hand `NaN` to every
+      // distance comparison in the file.
+      reach: CONFIG.arm.reachNeutral + (CONFIG.sword.gripLength / 2 + CONFIG.sword.bladeLength),
+      lost: false,
+      outboard: 1,
     },
     secondary: {
       weapon: "empty",
       shoulder,
       tip: new Vector3(shoulder.x, shoulder.y, shoulder.z + sign * CONFIG.arm.reachNeutral),
       tipSpeed: 0,
+      reach: CONFIG.arm.reachNeutral,
       lost: false,
       outboard: -1,
     },

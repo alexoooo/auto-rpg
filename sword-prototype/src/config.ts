@@ -287,6 +287,71 @@ export const CONFIG = {
   },
 
   /**
+   * The axe: shorter than the sword, and all of its weight at the far end.
+   *
+   * The other edged weapon, and it keeps the frame every kind keeps -- +Y along
+   * the haft, +X the edge, +Z the flat -- so `scoring.ts` asks it exactly the
+   * questions it asks a sword and gets its own answers back. What makes it an
+   * axe rather than a short sword is four things, and only two of them are
+   * rules:
+   *
+   * - **It is 27 % shorter.** `tipOffset` works out at 0.68 m against the
+   *   sword's 0.935, so it has to be carried in to be used at all.
+   * - **Its mass is out at the head.** `balancePoint` at 0.45 against the
+   *   sword's 0.195, which is what makes it slow to start and impossible to
+   *   stop. Nothing enforces that: the arm's 850 N ceiling meets three times the
+   *   moment of inertia and the solver does the rest, which is where a weapon's
+   *   feel belongs.
+   * - It has **no point**, so a thrust with it is a shove.
+   * - It has **one edge**, so a backhand arrives poll-first and is worth
+   *   nothing. `hands.ts` holds both of those and `scoring.ts` enforces them.
+   *
+   * The numbers are a one-handed war axe's: a 0.62 m haft with a 0.17 m bit at
+   * the top of it, about a kilo and a half all in. Real heads were lighter than
+   * people expect -- the weight is a lever, not a mass.
+   */
+  axe: {
+    /** Where the hand sits. The origin is the middle of it, as the sword's is. */
+    gripLength: 0.22,
+    /** Bare haft above the grip, up to the underside of the head. */
+    haftLength: 0.40,
+    haftDiameter: 0.036,
+    /** The bit's height, along the haft. */
+    headLength: 0.17,
+    /**
+     * How far the head reaches out along **+X**, from the haft to the edge.
+     *
+     * +X is the axis `roll` turns, so this is the whole of why a wrist matters
+     * with an axe in a way it does not with a double-edged sword: the sword's
+     * edge is on both sides of this axis and the axe's is on one.
+     */
+    headReach: 0.13,
+    /** Across the flat, at the eye. The edge itself is a third of it. */
+    headThickness: 0.042,
+    /** The lump behind the eye, which is what makes it visibly single-bitted. */
+    pollReach: 0.045,
+    mass: 1.4,
+    /**
+     * Along +Y from the origin, in metres -- measured from the grip, like the
+     * club's and unlike the sword's, because an axe has no guard to measure
+     * from.
+     *
+     * Not guessed: a 0.9 kg head centred at 0.595 and a 0.5 kg haft centred at
+     * 0.19 balance at 0.45, and this is that number rather than a feel.
+     */
+    balancePoint: 0.45,
+    /**
+     * And out along +X, because the head is.
+     *
+     * An axe is off-balance sideways -- that is why one wants to roll in the
+     * hand, and why an axeman's grip is a real skill rather than a detail. The
+     * centre of mass is a `Vector3` for the shield's sake already, so saying so
+     * costs one number.
+     */
+    balanceOffset: 0.04,
+  },
+
+  /**
    * The shield.
    *
    * It scores nothing and is not aimed. What it does is occupy a rectangle in
@@ -559,6 +624,16 @@ export const CONFIG = {
     damageScale: 46,
     /** Damage past a part's remaining health this far over severs it. */
     severMargin: 1.0,
+    /**
+     * How well a blade has to be placed before it may take a limb off.
+     *
+     * A literal in `scoring.ts` until there was a second edged weapon to
+     * disagree with it, and it is here now because it is the bar the *sword*
+     * sets rather than the bar. Beating a limb to nothing with the flat leaves
+     * it ruined but attached, which is both more interesting and more honest
+     * than letting a clumsy player dismember by accumulation.
+     */
+    severQuality: 0.4,
     /** Impulse delivered to a limb the moment it comes free. */
     severKick: 3.4,
     /** Seconds of cooldown per part, so one contact is not billed 60 times. */
@@ -579,6 +654,47 @@ export const CONFIG = {
      */
     crushScale: 34,
     minCrushSpeed: 2.2,
+
+    /**
+     * The axe, which cuts, but not like a blade does.
+     *
+     * **One number, and it is the only one that survived.** The axe was drafted
+     * with three -- its own scale, its own speed floor and its own sever bar --
+     * and the bench refused two of them outright:
+     *
+     * - *Its own floor*, between the blade's 3.0 and the club's 2.2, on the
+     *   club's argument that a heavy head arriving slowly still bites. Over 24
+     *   bouts it moved the axe's total damage from 3339 to 3354, which is
+     *   nothing, and its blow *count* from 183 to 193, which is the same damage
+     *   spread over ten more contacts too slight to be worth counting. It only
+     *   ever changed what got called a blow.
+     * - *Its own sever bar*, 0.2 against the blade's 0.4, on the argument that
+     *   taking limbs off is what an axe is for. At 0.2 and at 0.4 the bench
+     *   returned **byte-identical** numbers, because an axe blow that empties a
+     *   limb has already landed at a quality well above either. The bar was
+     *   never the binding constraint and the weapon's own scale was doing all of
+     *   the work.
+     *
+     * So `chopScale` is the axe, and 64 is where two independent arguments meet.
+     * The physical one: the same arm speed arrives through a hand's width of
+     * edge rather than through 840 mm of it, which is worth something like 1.4
+     * times, and 46 x 1.4 is 64.4. The measured one, `duelist` carrying it
+     * against `swinger`, 12 bouts a row:
+     *
+     * | chopScale | damage taken | dealt | died | killed | per blow |
+     * |---|---|---|---|---|---|
+     * | 46 | 412.5 | 136.4 | 5 | 6 | 13.3 |
+     * | 54 | 391.6 | 148.8 | 4 | 7 | 15.1 |
+     * | **64** | **354.0** | **155.6** | **3** | **8** | **17.2** |
+     * | 76 | 327.4 | 165.2 | 2 | 9 | 21.0 |
+     *
+     * The sword in the same seat takes 308.5, deals 201, dies 3 and kills 9 at
+     * 15.2 a blow. So 64 is where the axe survives as well as a sword while
+     * still landing fewer and heavier blows, and 76 is where it starts to
+     * out-damage a placed cut -- which would make the sword pointless, and is
+     * the thing this number is not allowed to do.
+     */
+    chopScale: 64,
   },
 
   /**

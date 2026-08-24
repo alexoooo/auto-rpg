@@ -26,7 +26,7 @@ import {
   type ArmPose,
   type Mind,
 } from "./mind";
-import type { WeaponKind } from "./weapon";
+import { kindOrEmpty } from "./hands";
 import {
   advance,
   begin,
@@ -335,10 +335,21 @@ async function boot(): Promise<void> {
   const mindFor = (side: SideSetup): Mind =>
     side.control === "you" ? splitMind(you, policyMind(side.policy)) : policyMind(side.policy);
 
-  /** What a corner's two pickers mean to a body. */
+  /**
+   * What a corner's two pickers mean to a body.
+   *
+   * Checked rather than asserted. `as WeaponKind` was a promise about a string
+   * that arrived from a `<select>`, and the promise held only because every
+   * question about a kind used to have a default -- an unrecognised one was
+   * quietly "one-handed, not a shield, not a striking weapon" and got as far as
+   * `Weapon`'s builder before anything objected. The questions are table lookups
+   * now, so the same string is a `TypeError` from inside `handsFor` instead. An
+   * empty hand is the honest thing to put in a hand whose contents nobody
+   * recognises, and it is what the picker's own default already is.
+   */
   const loadoutFor = (side: SideSetup) => ({
-    primary: side.handA as WeaponKind,
-    secondary: side.handB as WeaponKind,
+    primary: kindOrEmpty(side.handA),
+    secondary: kindOrEmpty(side.handB),
   });
 
   /**
