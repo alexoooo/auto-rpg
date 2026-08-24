@@ -47,6 +47,12 @@ names, policy decisions, bout results or any existing learning artifact contract
 6. Update the controller boundary and takeover sections of `docs/design.md`; update the
    controls section of `README.md`. State explicitly that the human and AI share the combat
    command, while camera gestures remain host-only.
+7. Update the first house rule in `AGENTS.md`. It currently reads *"`Mind.decide` returns an
+   `Intent`, which is a type alias for the human's own `InputState`"*, and this session deletes
+   `InputState`. The rule itself is unchanged and still load-bearing -- a policy plays with the
+   controller a person plays with -- but its wording becomes false the moment this lands, and a
+   house rule that describes a type that no longer exists stops being paid attention to. The
+   seam survives; the alias does not.
 
 ## Tests and adversarial proof
 

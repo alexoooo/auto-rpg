@@ -12,7 +12,10 @@ Session 24 is complete and adaptive-v1 is backed by the exact passing tournament
    strike, arrow flight and post-verdict settling.
 3. Run the lifecycle audit across Warrior, Broot, Centipede, bows, shields, bare hands and the
    promoted artifact.
-4. Recompute the tournament verdict from committed raw rows and verify every artifact pin.
+4. Recompute the tournament verdict from committed raw rows and verify every artifact pin,
+   including the compute-contract and balance-config digests the promoted artifact ran under.
+   If the game has moved since that run, say so in the promotion record rather than implying
+   the tournament was fought under today's balance.
 5. Run:
 
 ~~~powershell
@@ -28,9 +31,11 @@ npm run ai:preflight -- --seed 20260824
 npm run ai:evaluate -- --verify-promoted
 ~~~
 
-## Visible playtest
+## Confirming visible playtest
 
-Use an attached visible browser, not a hidden performance tab:
+Session 18 already played this game with the promotion instrument attached, and session 24
+already fought the promoted controller. This is the confirmation pass over the whole shipped
+surface, not the first look. Use an attached visible browser, not a hidden performance tab:
 
 - pause/restart during live and decided bouts;
 - middle-drag orbit and Shift+middle pan;

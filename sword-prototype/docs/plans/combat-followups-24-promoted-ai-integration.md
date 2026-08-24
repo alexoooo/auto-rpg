@@ -2,12 +2,13 @@
 
 ## Entry gate
 
-Begin only when session 23 names a passing artifact. A null verdict blocks this session and
-requires a new research plan.
+Begin only when session 23 names a passing artifact. A null verdict blocks this session; see
+**No passing candidate** below.
 
 ## Implement
 
-1. Copy the exact winning artifact into its committed runtime location and pin its SHA-256.
+1. Copy the exact winning artifact into its committed runtime location and pin its SHA-256,
+   alongside the compute-contract and balance-config digests it ran under.
 2. Register one policy named adaptive-v1; do not expose algorithm or seed variants.
 3. Load through src/learning/deployment.ts. Runtime receives only published FighterView,
    the frozen recurrent/model state and capability masks.
@@ -25,4 +26,23 @@ requires a new research plan.
 - Run `npm test`, `npm run check`, `npm run build`, `npm run measure`,
   `npm run ai:preflight` and `npm run ai:evaluate -- --verify-promoted`.
 
-No passing candidate means none of this file is performed.
+## Playtest before you believe the verdict
+
+Before writing the promotion into durable documentation, fight adaptive-v1 by hand across the
+supported loadouts, exactly as session 21 required of every champion-so-far. A controller that
+passes every gate and plays a fight nobody enjoys is a finding about the gates, and it must be
+recorded as one in `docs/measurements.md` rather than shipped quietly because the numbers were
+green. This does not block promotion; it is promoted on the tournament. It blocks the claim
+that the gates now measure something worth having.
+
+## No passing candidate
+
+None of the implementation above is performed. Instead:
+
+1. Fold every candidate's full gate table, signed margins and ledger summary into
+   `docs/measurements.md` as a dated negative result. Four directions that stopped, with the
+   place each one stopped, is a real finding about this interface.
+2. Add the named diagnosis session chosen by session 23's decide branch. It is an interface,
+   fitness or gate session, not a longer run.
+3. Do not add a picker entry, do not lower a threshold, and do not promote the least-bad
+   controller under a softer name.
