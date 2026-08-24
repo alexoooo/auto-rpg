@@ -390,6 +390,8 @@ test("an arrow that hits the ground plants where it landed and is collected late
 
   frames(120);
   assert.ok(arrow.struck, "it found the ground");
+  assert.equal(arrow.shape.filterMembershipMask, LAYER.SPENT_ARROW);
+  assert.equal(arrow.shape.filterCollideMask, COLLIDES.SPENT_ARROW);
   const where = arrow.root.position.clone();
 
   frames(120);
@@ -401,6 +403,67 @@ test("an arrow that hits the ground plants where it landed and is collected late
   // Six seconds of lying about, and then it is gone.
   frames(Math.round((CONFIG.arrow.stickSeconds + 1) * 60));
   assert.equal(arrow.live, false, "and it is collected");
+});
+
+test("parked_flying_and_spent_masks_are_three_distinct_states", async () => {
+  const { scene, materials, frames, driver } = await world();
+  const layers = layersFor("left");
+  const quiver = new Quiver(scene,
+    { name: "states", layer: layers.arrow, collidesWith: layers.arrowCollides }, materials);
+  const arrow = quiver.arrows[0];
+  assert.deepEqual([arrow.shape.filterMembershipMask, arrow.shape.filterCollideMask], [0, 0]);
+  driver(quiver).fire(new Vector3(0, 1, 0), new Vector3(0, -1, 0), 20);
+  frames(1);
+  assert.equal(arrow.shape.filterMembershipMask, layers.arrow);
+  for (let i = 0; i < 60 && !arrow.struck; i += 1) frames(1);
+  assert.equal(arrow.struck, true);
+  assert.deepEqual(
+    [arrow.shape.filterMembershipMask, arrow.shape.filterCollideMask],
+    [LAYER.SPENT_ARROW, COLLIDES.SPENT_ARROW],
+  );
+  assert.deepEqual([quiver.parked, quiver.flying, quiver.spent],
+    [CONFIG.arrow.count - 1, 0, 1]);
+});
+
+test("spent_arrows_land_on_world_but_never_on_one_another", () => {
+  assert.notEqual(COLLIDES.WORLD & LAYER.SPENT_ARROW, 0, "world reciprocity lets spent shafts land");
+  assert.equal(COLLIDES.SPENT_ARROW, LAYER.WORLD);
+  assert.equal(COLLIDES.SPENT_ARROW & LAYER.SPENT_ARROW, 0, "spent shafts cannot support each other");
+  assert.equal(COLLIDES.SPENT_ARROW & (LAYER.LEFT_TRUNK | LAYER.RIGHT_TRUNK | LAYER.DEBRIS), 0,
+    "spent shafts cannot push fighters or severed debris");
+});
+
+test("twenty_spent_arrows_cannot_build_a_floating_stack", async () => {
+  const { scene, materials, frames } = await world();
+  const layers = layersFor("left");
+  const quiver = new Quiver(scene,
+    { name: "pile", layer: layers.arrow, collidesWith: layers.arrowCollides }, materials);
+  const rightLayers = layersFor("right");
+  const second = new Quiver(scene,
+    { name: "pile.right", layer: rightLayers.arrow, collidesWith: rightLayers.arrowCollides }, materials);
+  const quivers = [quiver, second];
+  let pending = null;
+  scene.onBeforePhysicsObservable.add(() => {
+    for (const owner of quivers) owner.step(FIXED);
+    if (!pending) return;
+    pending.owner.loose(pending.from, pending.along, pending.speed);
+    pending = null;
+  });
+  const settled = [];
+  for (let shot = 0; shot < 20; shot += 1) {
+    const owner = quivers[Math.floor(shot / CONFIG.arrow.count)];
+    const before = new Set(owner.arrows.filter((candidate) => candidate.live));
+    pending = { owner, from: new Vector3(0, 1.2, 0), along: new Vector3(0, -1, 0), speed: 20 };
+    frames(1);
+    const arrow = owner.arrows.find((candidate) => candidate.live && !before.has(candidate));
+    assert.ok(arrow, `shot ${shot} left the pool`);
+    for (let i = 0; i < 45 && !arrow.struck; i += 1) frames(1);
+    assert.equal(arrow.struck, true, `shot ${shot} reached the floor`);
+    settled.push(arrow.root.position.y);
+  }
+  const span = Math.max(...settled) - Math.min(...settled);
+  assert.ok(span <= CONFIG.arrow.shaftDiameter,
+    `twenty shafts settled in one layer (${(span * 1000).toFixed(2)} mm), not a stack`);
 });
 
 test("a fighter with a bow builds a quiver, and one with a sword does not", async () => {
@@ -501,12 +564,12 @@ test("holding the button draws the bow and letting go looses an arrow", async ()
   );
 
   // A tap is not a shot.
-  const before = quiver.flying;
+  const before = quiver.flying + quiver.spent;
   intent.primary.thrust = true;
   run(0.1);
   intent.primary.thrust = false;
   run(0.05);
-  assert.equal(quiver.flying, before, "a tap below minDraw abandons rather than looses");
+  assert.equal(quiver.flying + quiver.spent, before, "a tap below minDraw abandons rather than looses");
 });
 
 test("a spent arrow does not go on scoring the limb it is lying against", async () => {

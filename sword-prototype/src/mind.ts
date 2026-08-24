@@ -6,7 +6,7 @@ import type { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 // to nothing, which is what keeps `input.ts` -- and through it the DOM -- out of
 // the graph a headless harness loads; the two below them are real, and
 // everything they reach is `config.ts`, which reaches nothing.
-import type { InputState } from "./input.ts";
+import type { HumanOwnership, InputState } from "./input.ts";
 // A type, so it erases; and `kinds.ts` imports nothing anyway, which is the
 // property that let the kinds move there in the first place.
 // `hands.ts` imports nothing, so this one is a real import rather than a type
@@ -36,6 +36,7 @@ import {
   swingerMind,
 } from "./policies.ts";
 import { CONFIG } from "./config.ts";
+import { crawlerMind } from "./bodies/centipede.ts";
 
 /**
  * What a fighter can ask for.
@@ -120,6 +121,13 @@ export type ArmPoses = Record<HandName, ArmPose>;
  */
 export type PartHealth = Record<string, number>;
 
+/** A named natural striker, published without exposing its body or controller. */
+export interface NaturalAttackView {
+  readonly reach: number;
+  readonly ready: boolean;
+  readonly active: boolean;
+}
+
 /**
  * One of a fighter's two hands, as a mind sees it.
  *
@@ -198,6 +206,13 @@ export interface HandView {
 
 /** One body as a mind sees it: where it is, where its blade is, what is left of it. */
 export interface BodyView {
+  /** Registry identity and unlike-body geometry used by tactics and framing. */
+  unit: string;
+  reach: number;
+  crownHeight: number;
+  vitalHeight: number;
+  collisionRadius: number;
+  naturalAttacks: Readonly<Record<string, NaturalAttackView>>;
   /** Position on the floor. */
   ground: Vector3;
   /** Heading in radians, zero down +Z turning toward +X, as everywhere here. */
@@ -424,7 +439,11 @@ export function humanMind(source: { readonly state: Intent }, name = "you"): Min
  * still the same nine-field shape a person produces, and there is still nothing
  * anywhere that asks which of the two hands is the real one.
  */
-export function splitMind(person: Mind, policy: Mind): Mind {
+export function splitMind(
+  person: Mind,
+  policy: Mind,
+  ownership: HumanOwnership = { posture: false, drivenWrist: false },
+): Mind {
   const blended: Intent = {
     ...NEUTRAL,
     posture: { ...NEUTRAL.posture },
@@ -446,9 +465,10 @@ export function splitMind(person: Mind, policy: Mind): Mind {
       // Posture and wrist orientation are policy-owned during human play. The
       // body keeps moving as part of the fight while the person's mouse remains
       // entirely available to place one hand.
-      blended.posture.trunkLean = theirs.posture.trunkLean;
-      blended.posture.trunkTwist = theirs.posture.trunkTwist;
-      blended.posture.crouch = theirs.posture.crouch;
+      const posture = ownership.posture ? mine.posture : theirs.posture;
+      blended.posture.trunkLean = posture.trunkLean;
+      blended.posture.trunkTwist = posture.trunkTwist;
+      blended.posture.crouch = posture.crouch;
 
       // The person's hand is the person's, and the other one is the policy's
       // plan **for that same hand** -- not for whichever hand the policy calls
@@ -464,7 +484,11 @@ export function splitMind(person: Mind, policy: Mind): Mind {
       // commit stroke on the shield arm for the whole bout. The board was being
       // swung like a bat.
       const spare = otherHand(mine.driving);
-      composeHand(blended[mine.driving], mine[mine.driving], theirs[mine.driving]);
+      composeHand(
+        blended[mine.driving],
+        mine[mine.driving],
+        ownership.drivenWrist ? mine[mine.driving] : theirs[mine.driving],
+      );
       composeHand(blended[spare], theirs[spare], theirs[spare]);
       return blended;
     },
@@ -757,6 +781,7 @@ export const POLICIES: readonly Policy[] = [
   { name: "swinger", label: "Swinger", create: swingerMind },
   { name: "duelist", label: "Duelist", create: duelistMind },
   { name: "archer", label: "Archer", create: archerMind },
+  { name: "crawler", label: "Crawler", create: crawlerMind },
 ];
 
 /**

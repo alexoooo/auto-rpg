@@ -10,7 +10,8 @@ import { CONFIG } from "./config";
 import { HANDS, otherHand, type HandIntent, type HandName } from "./mind.ts";
 
 export type { HandIntent, HandName };
-import { AUXILIARY, maskOfButton, nextSpent, poseFromButtons, PRIMARY } from "./buttons";
+import { maskOfButton, nextSpent, poseFromButtons, PRIMARY } from "./buttons";
+import { dragCamera, type CameraGestureState } from "./camera";
 
 /**
  * Input.
@@ -85,6 +86,12 @@ export interface PostureIntent {
   crouch: number;
 }
 
+/** Host-only switches; ownership is not part of the combat command. */
+export interface HumanOwnership {
+  posture: boolean;
+  drivenWrist: boolean;
+}
+
 const clamp = (value: number, min: number, max: number) =>
   value < min ? min : value > max ? max : value;
 
@@ -103,6 +110,8 @@ export interface ControlHooks {
    * `pauseAction` in `bout.ts`, which is where the rule lives and is tested.
    */
   onPause: () => void;
+  /** Blur/hidden are pause-only edges: receiving both must never resume. */
+  onPauseOnly: () => void;
   /** `?`: the controls sheet, over whatever is already on screen. */
   onToggleHelp: () => void;
   /** The rig overlay: what the solver is holding, over the top of the costume. */
@@ -124,6 +133,10 @@ export interface ControlHooks {
 }
 
 export class Controls {
+  readonly ownership: HumanOwnership = { posture: false, drivenWrist: false };
+  readonly camera: CameraGestureState = {
+    mode: "none", pointerId: null, yaw: 0, pitch: 0, panX: 0, panZ: 0,
+  };
   readonly state: InputState = {
     forward: 0,
     strafe: 0,
@@ -153,6 +166,8 @@ export class Controls {
   private zoomNotches = 0;
   /** Buttons whose current press has already been paid out as an action. */
   private spent = 0;
+  private cameraX = 0;
+  private cameraY = 0;
 
   // Fields and assignments rather than constructor parameter properties, here
   // and everywhere else in this directory. Node 24 runs a `.ts` file by
@@ -174,6 +189,7 @@ export class Controls {
     window.addEventListener("pointerdown", this.onPointerDown);
     window.addEventListener("pointerup", this.onPointerUp);
     window.addEventListener("pointercancel", this.onPointerCancel);
+    canvas.addEventListener("lostpointercapture", this.onLostPointerCapture);
     canvas.addEventListener("wheel", this.onWheel, { passive: false });
     canvas.addEventListener("contextmenu", this.onContextMenu);
     // Chrome opens its autoscroll widget on a middle click, which captures the
@@ -194,6 +210,7 @@ export class Controls {
     this.active = false;
     this.held.clear();
     this.openHand();
+    this.endCameraGesture();
   }
 
   /** Fold held keys into axes. Call once per rendered frame. */
@@ -204,6 +221,28 @@ export class Controls {
     this.state.forward = axis("KeyS", "KeyW");
     this.state.strafe = axis("KeyA", "KeyD");
     this.state.turn = axis("KeyQ", "KeyE");
+
+    const slew = (value: number, wanted: number, rate: number) => {
+      const step = rate * dt;
+      return value < wanted ? Math.min(wanted, value + step) : Math.max(wanted, value - step);
+    };
+    const Ctl = CONFIG.controls;
+    if (this.ownership.posture) {
+      this.state.posture.crouch = slew(
+        this.state.posture.crouch, this.held.has("ShiftLeft") ? 1 : 0, Ctl.crouchSlewPerSecond,
+      );
+      this.state.posture.trunkLean = slew(
+        this.state.posture.trunkLean, axis("ArrowDown", "ArrowUp"), Ctl.postureSlewPerSecond,
+      );
+      this.state.posture.trunkTwist = slew(
+        this.state.posture.trunkTwist, axis("ArrowLeft", "ArrowRight"), Ctl.postureSlewPerSecond,
+      );
+    }
+    if (this.ownership.drivenWrist) {
+      const hand = this.state[this.state.driving];
+      hand.roll = slew(hand.roll, axis("KeyZ", "KeyX"), Ctl.wristSlewPerSecond);
+      hand.wristBend = slew(hand.wristBend, axis("KeyT", "KeyY") > 0 ? 1 : 0, Ctl.wristSlewPerSecond);
+    }
 
     const C = CONFIG.camera;
     const wanted = clamp(Math.exp(this.zoomNotches * C.zoomStep), C.zoomMin, C.zoomMax);
@@ -220,6 +259,7 @@ export class Controls {
     window.removeEventListener("pointerdown", this.onPointerDown);
     window.removeEventListener("pointerup", this.onPointerUp);
     window.removeEventListener("pointercancel", this.onPointerCancel);
+    this.canvas.removeEventListener("lostpointercapture", this.onLostPointerCapture);
     this.canvas.removeEventListener("wheel", this.onWheel);
     this.canvas.removeEventListener("contextmenu", this.onContextMenu);
     window.removeEventListener("auxclick", this.onAuxClick);
@@ -332,6 +372,8 @@ export class Controls {
   private readonly onBlur = (): void => {
     this.held.clear();
     this.openHand();
+    this.endCameraGesture();
+    this.hooks.onPauseOnly();
   };
 
   private readonly onVisibilityChange = (): void => {
@@ -352,6 +394,20 @@ export class Controls {
 
   private readonly onPointerMove = (event: PointerEvent): void => {
     if (event.pointerType === "touch" && !event.isPrimary) return;
+    if (this.camera.pointerId === event.pointerId && this.camera.mode !== "none") {
+      event.preventDefault();
+      const next = dragCamera(
+        this.camera,
+        event.clientX - this.cameraX,
+        event.clientY - this.cameraY,
+        CONFIG.camera.dragSensitivity,
+        CONFIG.camera.panLimit,
+      );
+      Object.assign(this.camera, next);
+      this.cameraX = event.clientX;
+      this.cameraY = event.clientY;
+      return;
+    }
     this.applyButtons(event);
 
     const rect = this.canvas.getBoundingClientRect();
@@ -373,6 +429,14 @@ export class Controls {
     // is that the compatibility mouse events stop arriving for the rest of the
     // gesture, which is free: nothing in this file listens for them.
     if (event.button === 1) event.preventDefault();
+    if (event.button === 1) {
+      this.camera.mode = event.shiftKey ? "pan" : "orbit";
+      this.camera.pointerId = event.pointerId;
+      this.cameraX = event.clientX;
+      this.cameraY = event.clientY;
+      try { this.canvas.setPointerCapture(event.pointerId); } catch { /* capture is best effort off-canvas */ }
+      return;
+    }
 
     // A press is proof that whatever the last press of this button owed has been
     // settled, however its release went missing, so it starts again unspent.
@@ -385,15 +449,14 @@ export class Controls {
     let swallowed = 0;
     // A click can be a thrust or a target pick, and only the caller knows which.
     if (pressed.thrust && this.hooks.onPrimaryDown()) swallowed |= PRIMARY;
-    if (pressed.lockToggle) {
-      this.hooks.onToggleLock();
-      swallowed |= AUXILIARY;
-    }
-
     this.applyButtons(event, swallowed);
   };
 
   private readonly onPointerUp = (event: PointerEvent): void => {
+    if (this.camera.pointerId === event.pointerId && event.button === 1) {
+      this.endCameraGesture();
+      return;
+    }
     this.applyButtons(event);
   };
 
@@ -405,7 +468,15 @@ export class Controls {
    */
   private readonly onPointerCancel = (): void => {
     this.openHand();
+    this.endCameraGesture();
   };
+
+  private readonly onLostPointerCapture = (): void => this.endCameraGesture();
+
+  private endCameraGesture(): void {
+    this.camera.mode = "none";
+    this.camera.pointerId = null;
+  }
 
   /**
    * Take the pose from the buttons held now, less what those presses have

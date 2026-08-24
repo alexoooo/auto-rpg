@@ -99,8 +99,11 @@ export const ROOM = Object.freeze({
   maxReachHeight: 3.6,
   floorSize: 60,
   floorMetresPerRepeat: ROOM_METRES.floor,
-  wallWidth: 25.2,
+  wallWidth: 26.24,
   wallHeight: 4.2,
+  /** Depth of the authoritative boxes whose inner faces meet the wall scrims. */
+  wallThickness: 0.24,
+  wallHalfExtent: 13,
   wallMetresPerRepeat: ROOM_METRES.wall,
   timberMetresPerRepeat: ROOM_METRES.timber,
   bannerMetresPerRepeat: ROOM_METRES.banner,
@@ -110,8 +113,34 @@ const wall = (name: string, x: number, z: number, rotationY: number, halfExtent:
   name, role: "wall", position: [x, ROOM.wallHeight / 2, z], rotationY, halfExtent,
   // These are translucent textile-like scrims, not masonry silhouettes. Their
   // non-solidity is visible and is asserted beside the PBR opacity contract.
-  solid: false, collider: null,
+  solid: false, collider: `${name}.collider`,
 });
+
+const roomWalls = (): readonly RoomPlacement[] => {
+  const H = ROOM.wallHalfExtent;
+  const W = ROOM.wallWidth / 2;
+  const Y = ROOM.wallHeight / 2;
+  return [
+    wall("room.wall.north", 0, H, 0, [W, Y, 0]),
+    wall("room.wall.south", 0, -H, Math.PI, [W, Y, 0]),
+    wall("room.wall.east", H, 0, -Math.PI / 2, [0, Y, W]),
+    wall("room.wall.west", -H, 0, Math.PI / 2, [0, Y, W]),
+  ];
+};
+
+/** One immutable authority table shared by browser and headless bouts. */
+export const ROOM_WALL_COLLIDERS = Object.freeze(roomWalls().map((placement) => {
+  const northSouth = placement.name.endsWith("north") || placement.name.endsWith("south");
+  const depth = ROOM.wallThickness; const centre = ROOM.wallHalfExtent + depth / 2;
+  return Object.freeze({ name: placement.collider as string,
+    width: northSouth ? ROOM.wallWidth : depth, height: ROOM.wallHeight,
+    depth: northSouth ? depth : ROOM.wallWidth,
+    position: Object.freeze([
+      placement.position[0] === 0 ? 0 : Math.sign(placement.position[0]) * centre,
+      ROOM.wallHeight / 2,
+      placement.position[2] === 0 ? 0 : Math.sign(placement.position[2]) * centre,
+    ] as const) });
+}));
 const placed = (
   name: string,
   role: RoomPlacement["role"],
@@ -129,12 +158,7 @@ const placed = (
  */
 export const ROOM_GROUPS: readonly RoomGroup[] = Object.freeze([
   {
-    role: "wall", metresPerRepeat: ROOM.wallMetresPerRepeat, placements: [
-      wall("room.wall.north", 0, 13, 0, [ROOM.wallWidth / 2, ROOM.wallHeight / 2, 0]),
-      wall("room.wall.south", 0, -13, Math.PI, [ROOM.wallWidth / 2, ROOM.wallHeight / 2, 0]),
-      wall("room.wall.east", 13, 0, -Math.PI / 2, [0, ROOM.wallHeight / 2, ROOM.wallWidth / 2]),
-      wall("room.wall.west", -13, 0, Math.PI / 2, [0, ROOM.wallHeight / 2, ROOM.wallWidth / 2]),
-    ],
+    role: "wall", metresPerRepeat: ROOM.wallMetresPerRepeat, placements: roomWalls(),
   },
   {
     role: "beam", metresPerRepeat: ROOM.timberMetresPerRepeat, placements: [
@@ -182,7 +206,11 @@ export const ROOM_GROUPS: readonly RoomGroup[] = Object.freeze([
   },
 ]);
 
-const existingColliders = new Set(["ground", ...Array.from({ length: 14 }, (_, index) => `post${index}`)]);
+const existingColliders = new Set([
+  "ground",
+  ...Array.from({ length: 14 }, (_, index) => `post${index}`),
+  ...roomWalls().map((placement) => placement.collider as string),
+]);
 
 export function validateRoomPlacements(groups: readonly RoomGroup[]): string[] {
   const failures: string[] = [];
@@ -345,6 +373,20 @@ export function buildArenaColliders(
   groundBody.shape.filterCollideMask = COLLIDES.WORLD;
   meshes.push(ground); aggregates.push(groundBody);
 
+  for (const wall of ROOM_WALL_COLLIDERS) {
+    const collider = MeshBuilder.CreateBox(wall.name, {
+      width: wall.width, height: wall.height, depth: wall.depth,
+    }, scene);
+    collider.position.set(...wall.position);
+    collider.isVisible = false;
+    const body = new PhysicsAggregate(
+      collider, PhysicsShapeType.BOX, { mass: 0, friction: 0.3, restitution: 0.05 }, scene,
+    );
+    body.shape.filterMembershipMask = LAYER.WORLD;
+    body.shape.filterCollideMask = COLLIDES.WORLD;
+    meshes.push(collider); aggregates.push(body);
+  }
+
   for (let index = 0; index < 14; index += 1) {
     const angle = (index / 14) * Math.PI * 2;
     const post = MeshBuilder.CreateCylinder(`post${index}`, { height: 1.5, diameter: 0.17, tessellation: 8 }, scene);
@@ -363,7 +405,7 @@ export function buildArenaColliders(
     pairs,
     dispose: () => {
       for (const mesh of meshes) {
-        if (mesh.name !== "ground") shadows.remove(mesh);
+        if (mesh.name.startsWith("post")) shadows.remove(mesh);
       }
       for (const aggregate of aggregates) aggregate.dispose();
       for (let index = meshes.length - 1; index >= 0; index -= 1) {

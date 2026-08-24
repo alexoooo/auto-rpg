@@ -11,6 +11,17 @@ const ROOT = resolve(HERE, "..");
 const warrior = await readFile(process.env.SWORD_WARRIOR_UNDER_TEST ?? resolve(ROOT, "public/assets/warrior.glb"));
 const dimensions = JSON.parse(await readFile(resolve(ROOT, "asset-src/dimensions.json"), "utf8"));
 
+test("every_imported_character_source_has_a_pinned_cc0_license_record", async () => {
+  const provenance = JSON.parse(await readFile(resolve(ROOT, "asset-src/armour-sources.json"), "utf8"));
+  const selected = provenance.sources.find((source) => source.id === provenance.selected);
+  assert.ok(selected, "selected armour source has a row");
+  assert.equal(selected.license, "CC0-1.0");
+  assert.match(selected.licenseUrl, /creativecommons\.org\/publicdomain\/zero\/1\.0/);
+  assert.match(selected.archiveSha256, /^[0-9a-f]{64}$/);
+  assert.ok(selected.selectedObjects.length >= 1);
+  assert.ok(selected.adaptations.some((entry) => /render-only/.test(entry)));
+});
+
 test("the_warrior_has_no_dead_geometry_payload", () => {
   const failures = checkWarrior(warrior, dimensions).failures.filter((failure) => /dead|binary payload/.test(failure));
   assert.deepEqual(failures, []);

@@ -2,7 +2,7 @@ import { evaluationMirrorSeeds, mirroredEvaluationJobs } from "../src/learning/e
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { fitnessComponents, networkMetaMind, noveltyDescriptor, randomMetaMind } from "../src/learning/meta.ts";
 import { Network } from "../src/learning/network.ts";
-import { ATTACK_OPTION_NAMES, behaviourRecord, recordBehaviourSample, recordCombatEvent, scriptedMetaMind } from "../src/options.ts";
+import { ATTACK_OPTION_NAMES, behaviourRecord, recordBehaviourSample, recordCombatEvent, recordIntentAttack, scriptedMetaMind } from "../src/options.ts";
 
 process.env.SWORD_MEASURE_LIBRARY = "1";
 // One default experiment creates hundreds of thousands of isolated NullEngines.
@@ -15,17 +15,22 @@ async function boutFor(mind, job) {
   const seed = job.seed;
   const enemy = scriptedMetaMind("duelist", seed ^ 0xa5a5a5a5); const record = behaviourRecord(); const previous = {};
   const actorLeft = job.actorSide === "left"; let opponentVitality = 1;
-  const tracked = { name: mind.name, decide(view, dt) { return mind.decide(view, dt); } };
+  const previousIntent = {}; const tracked = { name: mind.name, last: null, decide(view, dt) { this.last = mind.decide(view, dt); return this.last; } };
   const result = runBout({ left: actorLeft ? "learned" : "swinger", right: actorLeft ? "swinger" : "learned",
     seeds: [seed, seed ^ 0xa5a5a5a5], leftLoadout: actorLeft ? { primary: "sword", secondary: "empty" } : undefined,
     rightLoadout: actorLeft ? undefined : { primary: "sword", secondary: "empty" }, leftMind: actorLeft ? tracked : enemy,
     rightMind: actorLeft ? enemy : tracked, physics: await freshHavok(),
     onSample({ left, right, dt }) { const actor = actorLeft ? left : right; const opponent = actorLeft ? right : left;
-      recordBehaviourSample(record, actor.view, mind.selected ?? null, dt, previous); opponentVitality = opponent.view.self.vitality; },
+      recordBehaviourSample(record, actor.view, mind.selected ?? null, dt, previous);
+      if (tracked.last) recordIntentAttack(record, actor.view, tracked.last, previousIntent);
+      opponentVitality = opponent.view.self.vitality; },
     onEvent(event) {
       if ((event.side === "left") === actorLeft) recordCombatEvent(record,
-        { hand: event.hand, weapon: event.report.weapon, damage: event.report.damage, blocked: false });
-      else if (event.blocked) record.blocks += 1;
+        { hand: event.hand, weapon: event.report.weapon, damage: event.report.damage, blocked: false, at: event.report.at,
+          contactId: `${event.side}:${event.hand}:${event.report.weapon}:${event.report.key}:${event.report.at}` });
+      else if (event.blocked) recordCombatEvent(record,
+        { hand: event.hand, weapon: event.report.weapon, damage: 0, blocked: true, defending: true, at: event.report.at,
+          contactId: `${event.side}:${event.hand}:${event.report.weapon}:${event.report.key}:${event.report.at}` });
     },
   });
   record.win = result.winner === (actorLeft ? "left" : "right"); record.seconds = result.seconds;

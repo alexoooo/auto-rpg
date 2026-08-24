@@ -828,6 +828,10 @@ export const CONFIG = {
     fistScale: 18,
     fistMinSpeed: 3.5,
     fistReferenceSpeed: 9,
+    /** Centipede's committed lunge: damaging, point-like, and never severing. */
+    biteScale: 24,
+    biteMinSpeed: 2.8,
+    biteReferenceSpeed: 8,
 
     /**
      * The axe, which cuts, but not like a blade does.
@@ -1243,6 +1247,12 @@ export const CONFIG = {
     },
   },
 
+  controls: {
+    postureSlewPerSecond: 1.8,
+    crouchSlewPerSecond: 2.2,
+    wristSlewPerSecond: 2.4,
+  },
+
   /**
    * The camera, in two readings of the same arena, on `V`.
    *
@@ -1341,6 +1351,8 @@ export const CONFIG = {
     zoomMin: 0.45,
     zoomMax: 2.10,
     zoomResponse: 12,
+    dragSensitivity: 0.006,
+    panLimit: 12.5,
 
     /**
      * The trailing chase.

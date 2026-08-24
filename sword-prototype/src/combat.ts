@@ -8,7 +8,8 @@ import type { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody.js";
 import { CONFIG } from "./config.ts";
 import type { Side } from "./physics.ts";
 import type { WeaponKind } from "./weapon.ts";
-import type { Fighter, Limb } from "./fighter.ts";
+import type { Limb } from "./fighter.ts";
+import type { Combatant } from "./units.ts";
 import type { HandName } from "./hands.ts";
 import { biteFloor, scoreHit, severs, type HitKind, type Striker } from "./scoring.ts";
 
@@ -58,6 +59,8 @@ export interface Striking {
    * case and this is a tail.
    */
   readonly spent: boolean;
+  /** Projectiles may restrict scoring to the body that raised their first contact. */
+  allowsContact?(body: PhysicsBody): boolean;
   velocityAt(world: Vector3): Vector3;
   edgeDirection(): Vector3;
   bladeDirection(): Vector3;
@@ -188,7 +191,7 @@ export class Combat {
    */
   private readonly watching: { weapon: Striking; observer: Observer<IPhysicsCollisionEvent> }[] =
     [];
-  private target: Fighter | null = null;
+  private target: Combatant | null = null;
   private clock = 0;
   /** Parries share one cooldown, since two blades resting together contact
    *  every step and a log full of one block is a log of nothing. */
@@ -232,7 +235,7 @@ export class Combat {
    * and this is what keeps a stray contact from being scored against the wrong
    * body if the masks are ever loosened.
    */
-  attach(target: Fighter): void {
+  attach(target: Combatant): void {
     this.target = target;
   }
 
@@ -245,7 +248,7 @@ export class Combat {
    * cut off, and a record that kept the object alive would be a leak dressed up
    * as a convenience. `src/blood.ts` is the only caller.
    */
-  get body(): Fighter | null {
+  get body(): Combatant | null {
     return this.target;
   }
 
@@ -275,6 +278,7 @@ export class Combat {
     if (event.type === PhysicsEventType.COLLISION_FINISHED) return;
     // Debris does not score, and does not parry either. See `Striking.spent`.
     if (weapon.spent) return;
+    if (weapon.allowsContact && !weapon.allowsContact(event.collidedAgainst)) return;
     if (!this.target || !event.point) return;
 
     // A bare hand and forearm are both limbs and a guard. Physical interposition

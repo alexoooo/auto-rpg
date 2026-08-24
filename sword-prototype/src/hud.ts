@@ -1,4 +1,4 @@
-import type { Fighter } from "./fighter";
+import type { Combatant } from "./units";
 import type { HitReport } from "./combat";
 import type { Side } from "./physics";
 import type { RigReadout } from "./rigview";
@@ -208,7 +208,7 @@ export class Hud {
 
   update(
     telemetry: Telemetry,
-    fighters: Record<"left" | "right", Fighter>,
+    fighters: Record<"left" | "right", Combatant>,
     lastHit: HitReport | null,
     now: number,
   ): void {

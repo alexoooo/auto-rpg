@@ -7,8 +7,8 @@ import { FEATURE_COLUMNS, FEATURE_VERSION } from "../src/learning/features.ts";
 import { Checkpoint } from "../src/learning/checkpoint.ts";
 import { SEED_RANGES, evaluationMirrorSeeds, forcedOptionEvaluationMind, mirroredEvaluationJobs, seedRangesOverlap, validateSeedRanges } from "../src/learning/evaluation.ts";
 import { InnovationTracker, addEdgeMutation, addNodeMutation, breedGeneration, crossover, hasCycle, initialPopulation, innovationTrackerFor, speciate, speciesSelectionWeights } from "../src/learning/genome.ts";
-import { learnedMetaMind, META_OUTPUT_NAMES, networkMetaMind, noveltyDescriptor, randomMetaMind } from "../src/learning/meta.ts";
-import { behaviourRecord, scriptedMetaMind } from "../src/options.ts";
+import { fitnessComponents, learnedMetaMind, META_OUTPUT_NAMES, networkMetaMind, noveltyDescriptor, randomMetaMind } from "../src/learning/meta.ts";
+import { HAND_ACTION_NAMES, MOVEMENT_NAMES, OPTION_NAMES, behaviourRecord, scriptedMetaMind } from "../src/options.ts";
 import { partitionIndexed, restoreIndexed } from "../src/learning/jobs.ts";
 import { Network } from "../src/learning/network.ts";
 import { SeededRng } from "../src/learning/rng.ts";
@@ -91,6 +91,25 @@ test("non_attack_option_entries_do_not_dilute_attack_novelty", () => {
   assert.equal(noveltyDescriptor(record)[4], 0.5);
 });
 
+test("elapsed_survival_cannot_reward_a_draw_or_loss", () => {
+  const short = behaviourRecord(); short.seconds = 1; short.vitality = 1;
+  const long = { ...short, seconds: 30 };
+  assert.equal(fitnessComponents(short, 1, 0).survival, 0);
+  assert.equal(fitnessComponents(long, 1, 0).total, fitnessComponents(short, 1, 0).total);
+  assert.ok(fitnessComponents(short, 1, 0).total < 0);
+  short.win = true; assert.ok(fitnessComponents(short, 1, 0).total > 0);
+});
+
+test("engagement_is_a_hard_feasibility_gate_not_a_positive_reward", () => {
+  const feasible = behaviourRecord(); feasible.win = true; feasible.engagement.viableOpportunities = 1;
+  feasible.engagement.attacksInWindow = 1;
+  const avoider = behaviourRecord(); avoider.win = true; avoider.damage = 1000;
+  avoider.engagement.retreatOutsideReachSeconds = 10;
+  assert.equal(fitnessComponents(feasible, 1, 0).feasible, true);
+  assert.equal(fitnessComponents(avoider, 1, 0).feasible, false);
+  assert.ok(fitnessComponents(feasible, 1, 0).total > fitnessComponents(avoider, 1, 0).total);
+});
+
 test("train_validation_and_test_seed_ranges_do_not_overlap", () => {
   assert.doesNotThrow(() => validateSeedRanges(SEED_RANGES));
   assert.throws(() => validateSeedRanges({ train: [0, 10], validation: [10, 20], test: [30, 40] }), /overlap/);
@@ -125,7 +144,7 @@ test("a_learned_meta_policy_can_repeat_one_completed_option_and_goes_inert_after
   const view = { self: body(), opponent: body(), measure: 1.2, clock: 0 }; view.opponent.ground.z = 1.4;
   const nodes = [...Array.from({ length: FEATURE_COLUMNS.length }, (_, id) => ({ id, kind: "input" })),
     ...Array.from({ length: META_OUTPUT_NAMES.length }, (_, index) => ({ id: FEATURE_COLUMNS.length + index, kind: "output" }))];
-  const network = { nodes, run() { const output = Array(META_OUTPUT_NAMES.length).fill(-1); output[3] = 1; output.at(-1); return output; } };
+  const network = { nodes, run() { const output = Array(META_OUTPUT_NAMES.length).fill(-1); output[META_OUTPUT_NAMES.indexOf("cut")] = 1; return output; } };
   const mind = networkMetaMind(network); let fallingEdges = 0; let guarded = true;
   for (let frame = 0; frame < 200; frame += 1) { view.clock = frame / 60; const intent = mind.decide(view, 1 / 60);
     if (guarded && !intent.primary.guard) fallingEdges += 1; guarded = intent.primary.guard; }
@@ -145,8 +164,8 @@ test("worker_count_and_completion_order_do_not_change_the_indexed_generation", (
 });
 
 test("the_runtime_learning_shape_is_the_versioned_feature_table_plus_exact_option_outputs", () => {
-  assert.equal(FEATURE_VERSION, 2); assert.equal(FEATURE_COLUMNS.length, 50);
-  assert.deepEqual(META_OUTPUT_NAMES, ["close", "disengage", "cover", "cut", "thrust", "punch", "shoot", "recover", "persistence"]);
+  assert.equal(FEATURE_VERSION, 3); assert.equal(FEATURE_COLUMNS.length, 66);
+  assert.deepEqual(META_OUTPUT_NAMES, [...MOVEMENT_NAMES, ...HAND_ACTION_NAMES, "persistence"]);
 });
 
 const checkpointFixture = () => {
@@ -193,6 +212,13 @@ test("a_checkpoint_refuses_wrong_features_options_cycles_nans_and_trailing_bytes
   const outputNode = genome.nodes.find((node) => node.kind === "output");
   assert.throws(() => new Checkpoint({ ...data, edges: [...genome.edges,
     { innovation: 99997, from: outputNode.id, to: 0, weight: 1, enabled: false }] }), /node roles/);
+  const hiddenC = { id: 1002, kind: "hidden", bias: 0, activation: "tanh" };
+  assert.throws(() => new Checkpoint({ ...data, nodes: [...genome.nodes, hiddenC], edges: [...genome.edges,
+    { innovation: 99996, from: 0, to: hiddenC.id, weight: 1, enabled: true, recurrent: true }] }), /has no recurrence field/);
+  const nested = { seed: 44, configDigest: "0123456789abcdef", selection: { split: "validation" } };
+  const immutable = new Checkpoint({ ...data, provenance: nested }); const immutableBytes = immutable.toBytes();
+  nested.selection.split = "test"; assert.deepEqual(immutable.toBytes(), immutableBytes);
+  assert.equal(immutable.provenance.selection.split, "validation");
   const bytes = new Checkpoint(data).toBytes(); const trailing = new Uint8Array(bytes.length + 1); trailing.set(bytes);
   assert.throws(() => Checkpoint.fromBytes(trailing), /trailing/);
 });
@@ -230,7 +256,8 @@ test("diagnostics_keep_the_active_persistence_duration_while_logits_are_re_evalu
 test("the_learned_policy_never_selects_an_option_the_loadout_cannot_perform", () => {
   const nodes = [...Array.from({ length: FEATURE_COLUMNS.length }, (_, id) => ({ id, kind: "input" })),
     ...Array.from({ length: META_OUTPUT_NAMES.length }, (_, index) => ({ id: FEATURE_COLUMNS.length + index, kind: "output" }))];
-  const network = { nodes, run() { const output = Array(META_OUTPUT_NAMES.length).fill(-1); output[6] = 100; output[3] = 2; return output; } };
+  const network = { nodes, run() { const output = Array(META_OUTPUT_NAMES.length).fill(-1);
+    output[META_OUTPUT_NAMES.indexOf("shoot")] = 100; output[META_OUTPUT_NAMES.indexOf("cut")] = 2; return output; } };
   const mind = networkMetaMind(network); const view = learningView("sword", "empty");
   mind.decide(view, 1 / 240);
   assert.equal(mind.selected, "cut", "shoot is masked when neither hand carries a bow");
@@ -238,23 +265,30 @@ test("the_learned_policy_never_selects_an_option_the_loadout_cannot_perform", ()
     "the readout does not advertise an unavailable option");
 });
 
-test("the_learned_policy_replays_its_pinned_option_sequence_on_a_fixed_view_trace", () => {
-  const { data } = checkpointFixture(); const bytes = new Checkpoint(data).toBytes();
-  const trace = (mind) => { const view = learningView(); const sequence = [];
-    for (let frame = 0; frame < 240; frame += 1) { view.clock = frame / 240; view.measure = 0.8 + (frame % 80) / 100;
-      view.opponent.hands.primary.tipSpeed = frame % 60 < 20 ? 12 : 0; mind.decide(view, 1 / 240);
-      if (frame % 24 === 0) sequence.push(mind.selected); }
-    return sequence; };
-  const expected = ["cover", "cover", "cover", "cover", "cover", "cover", "cover", "close", "close", "cover"];
-  assert.deepEqual(trace(learnedMetaMind(bytes)), expected);
-  assert.equal(expected.length, 10);
+test("the_factorized_policy_uses_a_published_natural_bite_without_fabricated_hands", () => {
+  const nodes = [...Array.from({ length: FEATURE_COLUMNS.length }, (_, id) => ({ id, kind: "input" })),
+    ...Array.from({ length: META_OUTPUT_NAMES.length }, (_, index) => ({ id: FEATURE_COLUMNS.length + index, kind: "output" }))];
+  const network = { nodes, run() { const output = Array(META_OUTPUT_NAMES.length).fill(-1);
+    output[META_OUTPUT_NAMES.indexOf("hold")] = 1; output[META_OUTPUT_NAMES.indexOf("bite")] = 2; return output; } };
+  const v = learningView(); v.self.hands = {}; v.self.naturalAttacks = { bite: { reach: 0.7, ready: true, active: false } };
+  v.self.collisionRadius = 0.2; v.opponent.collisionRadius = 0.3; v.measure = 0.8;
+  const mind = networkMetaMind(network); const intent = mind.decide(v, 1 / 240);
+  assert.equal(mind.selectedAction, "bite"); assert.equal(intent.primary.thrust, true); assert.equal(intent.forward, 0);
+});
+
+test("feature_v3_rejects_the_unpromoted_v2_checkpoint", () => {
+  const { data } = checkpointFixture();
+  assert.throws(() => new Checkpoint({ ...data, featureVersion: 2 }), /feature version 2 does not match runtime 3/);
+  const legacy = new Checkpoint({ ...data, featureVersion: 2 },
+    { featureVersion: 2, featureNames: data.featureNames, optionNames: data.optionNames });
+  assert.throws(() => learnedMetaMind(legacy), /feature v2 checkpoint cannot run as feature v3/);
 });
 
 test("promotion_selects_across_runs_without_looking_at_test_evidence", () => {
   const run = (runId, seed, championDigest, validationScore, testScore) => ({ runId, seed, championDigest,
     validationScore, testScore, population: 128, generations: 80, mirroredBouts: 24, workers: 8,
-    trainerProtocol: 3, configDigest: "0123456789abcdef", featureVersion: FEATURE_VERSION,
-    optionNames: META_OUTPUT_NAMES.slice(0, -1) });
+    trainerProtocol: 3, configDigest: "0123456789abcdef", featureVersion: 2,
+    optionNames: OPTION_NAMES });
   const selected = selectValidationChampion([
     run("a", 1, "a1", 1.5, 100),
     run("b", 2, "b1", 2.0, -100),

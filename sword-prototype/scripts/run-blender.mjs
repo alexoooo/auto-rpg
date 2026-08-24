@@ -54,7 +54,7 @@ const DIMENSIONS = "asset-src/dimensions.json";
  *
  * Re-record it in the same commit that rebuilds the asset, and only then.
  */
-const PIN = "b7d4dab666a4bd4ac8147286a480540b91adde1040bb2d0b9ffc7ee5a11d3338";
+const PIN = "1b3446c16a4a9b87feda3b8043a6a0894c6355f77f26d1a57697785a1fb36759";
 
 /**
  * Everything the Blender script is allowed to know about this rig.

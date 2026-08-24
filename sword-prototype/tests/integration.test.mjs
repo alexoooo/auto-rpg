@@ -105,6 +105,28 @@ test("every_finish_path_stops_combat_on_the_exact_verdict_step", async () => {
   }
 });
 
+for (const kind of ["shield", "buckler"]) {
+  test(`an_arrow_stopped_by_a_${kind}_records_one_block_and_no_wound`, async () => {
+    const contacts = [];
+    const result = runBout({
+      left: "archer", right: "duelist", seeds: [3101, 7103],
+      leftLoadout: { primary: "bow", secondary: "empty" },
+      rightLoadout: { primary: "sword", secondary: kind },
+      physics: await freshHavok(),
+      onEvent(event) {
+        if (event.side === "left" && event.report.weapon === "arrow") contacts.push(event);
+      },
+    });
+    const blocks = contacts.filter((event) => event.blocked && event.report.key === `block:${kind}`);
+    assert.ok(blocks.length > 0, `${kind} physically intercepted at least one shot`);
+    for (const block of blocks) {
+      assert.equal(contacts.some((event) => !event.blocked && event.report.at === block.report.at), false,
+        "the first-contact block cannot also become a wound before spent promotion");
+    }
+    assert.ok(result.right, "the real bout completed and disposed");
+  });
+}
+
 test("all_shipped_intents_stay_finite_and_anatomically_bounded_for_a_full_bout", () => {
   const loadoutFor = { idle: { primary: "sword", secondary: "empty" },
     swinger: { primary: "sword", secondary: "empty" }, duelist: { primary: "sword", secondary: "shield" },

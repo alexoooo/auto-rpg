@@ -458,12 +458,15 @@ the numbered list here now carries only playtest history and judgements that rem
    its non-comparable shield readings are in "Anatomical wrist and mirrored-hand close-out"
    below.
 
-12. **Done as a controller defect; shield effectiveness against arrows is newly open.** The
+12. **Done.** The
    secondary arm now has its own mirrored envelope and socket, so it is no longer driven
-   through primary-hand geometry. This closes the anatomical mapping defect without claiming
-   every shield pose is balanced. The 2026-08-24 follow-up playtest reports that both shield
-   kinds still appear ineffective against archers; that is sequenced as a physical
-   interception measurement in `plans/combat-followups-04-shields-against-archers.md`.
+   through primary-hand geometry. Arrow first-contact ownership now lets shield and buckler
+   bodies intercept a projectile before it can wound through the same solver step. In the
+   seed-20260824, 40-side-swapped harness the shield recorded 170 plate contacts and 7 defender
+   wins, the buckler 477 and 9, while empty hands recorded no plate contact and no win. Final
+   defender vitality was 0.112, 0.306 and 0.040 respectively. Raw damage is not directly
+   comparable because successful defence extends the bout and therefore admits more shots;
+   contact, vitality and outcome together are the durable effectiveness evidence.
 
 13. **An idle arm cannot hang all the way down**, and the reason is the envelope
    rather than the pose. `arm.restPointerY` sends an unused hand to the bottom of the
@@ -1454,15 +1457,16 @@ three button edges, proving draw and release rather than merely comparing two al
 all-down traces. The JSON stores and enforces per-field changed-rate/max-delta limits plus
 shot-duty and edge-count limits.
 
-The learner boundary is feature schema v2: 50 named finite columns for measure and closing
-rate, both vitalities, one-hot kind plus loss/reach/tip speed for all four visible hands,
-threat bearing-to-tip and speed from one chosen dangerous hand, solved posture and a clamped
-clock fraction. A fast primary shield plus a slower secondary sword selects both bearing and
-speed from the sword rather than combining two unrelated hands. A nonzero asymmetric
-mirror fixture uses explicit per-column signs: bearing and trunk twist negate while scalar
-facts remain. The evaluator owns a persistent `FeatureWriter`, so closing rate reads the
-previous measure/time sample in production; the remaining columns read `FighterView`
-directly.
+That result used feature schema v2's 50 columns. Session 14 superseded the live learner
+boundary with schema v3: 66 named finite columns. It adds usable reach margin, facing error,
+five current-movement indicators, seven current-action indicators (including bite),
+persistence age and time since damage. The original measure/closing-rate, vitality, four-hand
+kind/loss/reach/speed, threat, posture and clock facts remain. A fast primary shield plus a
+slower secondary sword still selects both bearing and speed from the sword rather than
+combining unrelated hands. Mirroring now also swaps circle-left with circle-right; bearing,
+facing error and trunk twist negate while scalar facts remain. The evaluator owns a
+persistent `FeatureWriter`, so temporal columns read actual prior samples and tactic edges.
+Every v2 checkpoint refuses under v3 rather than being reinterpreted.
 
 The required adversarial pass was observed red before restoration:
 
@@ -1597,7 +1601,7 @@ ending, duration, damage and all 20 ordered intent fields exactly. Archer rows a
 exactly, including draw/release commands and arrow damage.
 
 `tests/integration.test.mjs` is the lifecycle and authority complement to that corpus. It
-builds all four shipped policies with all 27 setup-reachable two-hand loadouts (108
+builds all four humanoid policies with all 27 setup-reachable two-hand loadouts (108
 combinations), steps and finishes them, checks every
 shipped policy's finite anatomical command envelope over a complete bout, and proves the
 verdict revokes both minds on that edge. A fresh-Havok duelist/swinger pair produced an exact
@@ -1640,8 +1644,9 @@ readability, interaction feel or frame cost. Browser security review stopped the
 `G`/`Tab` rig-control exercise; no alternate automation surface was used. The attached server
 was stopped and port 5180 was confirmed free afterward.
 
-The suite now contains **319 passing tests**, including a mutation-proven check that the two
-aim lines and the pooled arrow trail start with non-empty vertex buffers.
+The automated suite includes a mutation-proven check that the two aim lines and the pooled
+arrow trail start with non-empty vertex buffers. Its count is deliberately not frozen here;
+the contract is the named assertion, not a total that changes whenever another session lands.
 
 Still open, by name: Fixed-camera body-relative human aim; both zoom clamps; walking and
 crouching material comparison; the 0.08-versus-0.3 corpse-strength pair; broader blood-scale
@@ -1649,3 +1654,67 @@ play; bow draw under pressure; the axe's missing thrust; in-flight arrow-trace r
 the full Fixed/Overhead loadout, side and hand-choice human matrix; the rig overlay; and
 control → subject → control frame cost on two visible machines. Neither the headless
 corpus nor the narrow visible sample answers those questions.
+
+## Engagement promotion baseline -- 2026-08-24
+
+Harness: `npm run ai:evaluate -- --split train --seed 20260824
+--write-engagement-baseline`, fresh NullEngine/Havok bouts through `scripts/measure.mjs`.
+The raw 40 rows, mirrors and aggregate inputs are frozen in
+`asset-src/learning/engagement-baseline-v1.json`. This is train evidence only; no held-out
+test row was opened.
+
+The promotion thresholds were fixed before any of the four new research directions ran:
+an opportunity window of 0.75 s, a progress drought of 2.0 s, opportunity-to-attack rate at
+least 0.65, attack-to-damaging-contact rate at least 0.20, near-range stall share at most
+0.15, first-attack p90 at most 6 s, and symmetric time-cap rate at most 0.10. They are
+feasibility gates, not positive fitness. A draw or loss receives no terminal success and
+elapsed survival contributes exactly zero; novelty can guide search but cannot change a
+promotion verdict.
+
+| controller | rows | win rate | opportunity attack | attack contact | first attack p90 | near-range stall |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| legacy | 16 | 0.125 | 0.2282 | 0.5000 | 5.267 s | 0.1514 |
+| scripted/forced meta | 20 | 0.200 | 0.2031 | 0.6346 | 0.683 s | 0.2435 |
+| parity repeat | 4 | 0.000 | 0.5556 | 0.6667 | 1.183 s | 0.0000 |
+
+The baseline is deliberately not a claim that these controls pass. The worst raw cell was
+legacy duelist with axe on the left: zero opportunity conversion and zero contact
+conversion. The instrument catches precisely the existing failure that motivated this
+round. Intent edges, including bow release, are measured for controllers without option
+labels; arrow contacts are attributed back to the bow opportunity. Natural-attack reach is
+included for Centipede, and contact identities collapse resting rattles without merging two
+distinct projectiles.
+
+The blind tournament remains unopened. There are no complete validation-selected NEAT-QD,
+DAgger, PPO or look-ahead artifacts, no frozen `tournament-v1.json`, and therefore no honest
+session-19 result or promoted artifact. `npm run ai:evaluate -- --split test` refuses without
+that manifest and raw indexed rows; once complete it recomputes macro, worst-cell and the
+verdict from raw mirrors rather than trusting stored aggregates.
+
+### Four-direction research implementation smoke -- 2026-08-24
+
+These are execution and accounting checks, not training results. The retained NEAT-QD smoke
+spent exactly 30,720 Havok solver steps and the DAgger smoke spent 19,200. Indexed worker
+schedules and completed resume reproduced artifact, state and report bytes; adversarial review
+also caught and repaired equal-fitness crossover loss, decorative opponent sampling, narrow
+single-cell validation and mixed feature-version DAgger input.
+
+PPO advances at option boundaries, trains its movement, action and value heads and applies
+16-boundary truncated backpropagation through all three GRU gates under one global norm clip.
+An interrupted arm-boundary run reproduced uninterrupted artifact, resume and report bytes.
+Frozen DAgger/PPO league artifacts are checksum-validated and decoded rather than represented
+by labels that silently run a specialist.
+
+The minimum exhaustive look-ahead run spent exactly 42,240 steps with zero unspent, produced
+220 trace rows across 13 body/loadout cells and froze model digest `e2098c12`. Its first full
+attempt exposed a hand-only recovery path in Centipede; after capability-neutral recovery and
+hand-required cover were separated, every Centipede movement crossed with bite/recover ran a
+complete Havok window and the same exhaustive command passed twice. The retained artifact is
+engineering evidence only, not the plan's 1.8-billion-step candidate.
+
+The full common budget remains unspent. The current short-run rates extrapolate to roughly
+86 hours for one NEAT seed and 125 hours for one DAgger seed before the required NEAT ablations;
+those estimates do not include contention or validation overhead and are not a substitute for
+the ledger. Session 19 now has a strict four-algorithm deployment executor and atomic indexed
+resume, but it correctly has nothing to execute until four full-budget validation-selected
+artifacts and the frozen manifest exist.

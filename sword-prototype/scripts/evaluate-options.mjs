@@ -1,7 +1,7 @@
 // Reproducible option evaluation in the same real-solver harness as measure.mjs.
 import { readFile, writeFile } from "node:fs/promises";
 
-import { OPTION_NAMES, behaviourRecord, recordBehaviourSample, recordCombatEvent,
+import { OPTION_NAMES, behaviourRecord, recordBehaviourSample, recordCombatEvent, recordIntentAttack,
   scriptedMetaMind } from "../src/options.ts";
 import { INTENT_FIELDS, PARITY_CALIBRATION, PARITY_LIMITS, SHOT_PARITY_LIMITS, SYNTHETIC_FIELD_LIMITS,
   evaluationMirrorSeeds, forcedOptionEvaluationMind, intentFieldDeltas, intentSequencesEqual } from "../src/learning/evaluation.ts";
@@ -143,6 +143,7 @@ for (const parityPhase of [true, false]) for (const split of splits) {
       const traceKey = `${split}/${cell.parity ?? cell.name}/${mirror}/${cell.controller ?? "other"}`;
       const intentTrace = [];
       const previous = {};
+      const previousIntent = {};
       const featureWriter = new FeatureWriter();
       let lastFeatures = [];
       let actor = null;
@@ -174,6 +175,7 @@ for (const parityPhase of [true, false]) for (const split of splits) {
           recordBehaviourSample(behavior, actor.view, "selected" in meta ? meta.selected : null, dt, previous);
           const intent = tracked.last;
           if (intent) {
+            recordIntentAttack(behavior, actor.view, intent, previousIntent);
             if (cell.parity || argv.includes("--trace-intents")) intentTrace.push(structuredClone(intent));
             behavior.actionTrace ??= { forward: 0, back: 0, guard: 0, thrust: 0 };
             if (intent.forward > 0) behavior.actionTrace.forward += 1;
@@ -197,11 +199,15 @@ for (const parityPhase of [true, false]) for (const split of splits) {
             // A block report belongs to the striker's stream but describes the
             // defender's action. Credit it to the actor only when the other
             // side's blow was stopped by the actor.
-            if (blocked) behavior.blocks += 1;
+            if (blocked) recordCombatEvent(behavior, {
+              hand, weapon: report.weapon, damage: 0, blocked: true, defending: true, at: report.at,
+              contactId: `${side}:${hand}:${report.weapon}:${report.key}:${report.at}`,
+            });
             return;
           }
           recordCombatEvent(behavior, {
-            hand, weapon: report.weapon, damage: report.damage, blocked: false,
+            hand, weapon: report.weapon, damage: report.damage, blocked: false, at: report.at,
+            contactId: `${side}:${hand}:${report.weapon}:${report.key}:${report.at}`,
           });
         },
       });
@@ -274,7 +280,7 @@ for (const split of splits) for (const pair of ["duelist-sword", "archer-bow"]) 
     row.controlWithinLimits;
   parity.push(row);
 }
-const output = { version: 3, baseSeed, featureVersion: FEATURE_VERSION, parityCalibration: PARITY_CALIBRATION, parityLimits: PARITY_LIMITS,
+export const output = { version: 3, baseSeed, featureVersion: FEATURE_VERSION, parityCalibration: PARITY_CALIBRATION, parityLimits: PARITY_LIMITS,
   syntheticParity, cells: CELLS, splits, optionCorpus, parity, records };
 if (argv.includes("--calibrate")) {
   const maxima = parity.reduce((at, row) => ({

@@ -68,7 +68,7 @@ test("cosmetic_room_dressing_creates_no_physics_body", async (t) => {
   const { engine, scene, materials } = await setup();
   t.after(() => engine.dispose());
   const colliders = buildArenaColliders(scene, materials);
-  assert.equal(bodies(scene), 15, "the old ground plus fourteen post bodies remain the whole world");
+  assert.equal(bodies(scene), 19, "ground, fourteen posts and four outer walls are the whole world");
   const ground = scene.getMeshByName("ground");
   assert.deepEqual(rounded(ground.getBoundingInfo().boundingBox.minimum.asArray()), [-30, -0.5, -30]);
   assert.deepEqual(rounded(ground.getBoundingInfo().boundingBox.maximum.asArray()), [30, 0.5, 30]);
@@ -85,6 +85,14 @@ test("cosmetic_room_dressing_creates_no_physics_body", async (t) => {
     assert.equal(post.physicsBody.getMassProperties().mass, 0);
     assert.equal(shape.filterMembershipMask, LAYER.WORLD);
     assert.equal(shape.filterCollideMask, COLLIDES.WORLD);
+  }
+  for (const side of ["north", "south", "east", "west"]) {
+    const visual = scene.getMeshByName(`room.wall.${side}`);
+    const collider = scene.getMeshByName(`room.wall.${side}.collider`);
+    assert.equal(collider.physicsBody.getMassProperties().mass, 0);
+    assert.equal(collider.physicsBody.shape.filterMembershipMask, LAYER.WORLD);
+    assert.equal(collider.physicsBody.shape.filterCollideMask, COLLIDES.WORLD);
+    if (visual) assert.fail("cosmetic room should not exist before its own build");
   }
   const before = bodies(scene);
   const room = buildCosmeticRoom(scene, materials);
@@ -145,6 +153,29 @@ test("every_reachable_solid_visual_names_an_existing_collider", async (t) => {
       assert.ok(bounds.extendSize.y < 1e-6, `${placement.name} is a flat marking, not a pass-through block`);
     }
   }
+  world.dispose();
+});
+
+test("the_four_room_walls_are_world_colliders_aligned_with_their_visuals", async (t) => {
+  const { engine, scene, materials } = await setup();
+  t.after(() => engine.dispose());
+  const world = buildArenaWorld(scene, materials);
+  const pairs = ROOM_GROUPS.find((group) => group.role === "wall").placements;
+  assert.equal(pairs.length, 4);
+  for (const placement of pairs) {
+    const visual = scene.getMeshByName(placement.name);
+    const collider = scene.getMeshByName(placement.collider);
+    assert.ok(visual && collider?.physicsBody, `${placement.name}: visual and authority both exist`);
+    assert.equal(collider.physicsBody.shape.filterMembershipMask, LAYER.WORLD);
+    assert.equal(collider.physicsBody.shape.filterCollideMask, COLLIDES.WORLD);
+    assert.deepEqual(validateVisualColliderPairs(scene, [{
+      visual: placement.name, collider: placement.collider,
+    }]), []);
+  }
+  const north = scene.getMeshByName("room.wall.north.collider").getBoundingInfo().boundingBox;
+  const east = scene.getMeshByName("room.wall.east.collider").getBoundingInfo().boundingBox;
+  assert.ok(north.maximumWorld.x >= east.minimumWorld.x, "the north/east corner has no escape gap");
+  assert.ok(north.minimumWorld.z <= east.maximumWorld.z, "the north/east authority overlaps in depth");
   world.dispose();
 });
 
@@ -293,7 +324,7 @@ test("room_instances_share_materials_and_textures", async (t) => {
   assert.strictEqual(world.audit(), report, "audit returns one stable report object");
   assert.deepEqual(
     { meshes: report.meshes, materials: report.materials, textures: report.textures },
-    { meshes: 48, materials: 4, textures: 4 },
+    { meshes: 52, materials: 4, textures: 4 },
     "unowned scene resources do not leak into the arena census",
   );
   foreign.dispose(false, false);
@@ -323,9 +354,9 @@ test("an_arena_rebuild_returns_every_audit_count_to_its_baseline", async (t) => 
       meshes: audit.meshes, bodies: audit.bodies, instances: audit.instances,
       materials: audit.materials, textures: audit.textures,
     }, {
-      meshes: 48, bodies: 15, instances: 27, materials: 4, textures: 4,
+      meshes: 52, bodies: 19, instances: 27, materials: 4, textures: 4,
     });
-    assert.equal(audit.visualColliderPairs.length, 15, "floor and every visible post name authority");
+    assert.equal(audit.visualColliderPairs.length, 19, "floor, posts and every visible wall name authority");
     assert.equal(
       shadowGenerator.getShadowMap().renderList.length, shadowBaseline + 22,
       "opaque room pieces and posts cast; translucent scrims cannot advertise collision through shadows",

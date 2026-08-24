@@ -27,6 +27,7 @@ import { Figure, type FigureMaterials } from "./figure.ts";
 import { Arm } from "./arm.ts";
 import { handsFor, isShield, type Weapon, type WeaponKind } from "./weapon.ts";
 import type { Striking } from "./combat.ts";
+import type { Combatant } from "./units.ts";
 import { vitality } from "./bout.ts";
 import {
   HANDS,
@@ -70,6 +71,9 @@ export interface Limb {
   readonly attachment: Physics6DoFConstraint | null;
   health: number;
   readonly maxHealth: number;
+  /** Per-body vitality metadata. Humanoids omit it and use CONFIG's table. */
+  readonly vitalityWeight?: number;
+  readonly fatal?: boolean;
   severed: boolean;
   /** Simulation time of the last billed hit, for the per-part cooldown. */
   lastHitAt: number;
@@ -97,6 +101,86 @@ export interface FighterOptions {
    * that every number in `docs/measurements.md` was taken from.
    */
   loadout?: Partial<Record<HandName, WeaponKind>>;
+  /** Per-body tuning. Omitted is the exact historical Warrior. */
+  profile?: HumanoidProfile;
+}
+
+export interface HumanoidProfile {
+  readonly kind: "warrior" | "broot";
+  readonly scale: number;
+  readonly massScale: number;
+  readonly healthScale: number;
+  readonly forceScale: number;
+  readonly mobilityScale: number;
+  readonly turnScale: number;
+  /** Authored warrior geometry is never stretched onto a different body. */
+  readonly authoredCostume: boolean;
+}
+
+export const WARRIOR_PROFILE: HumanoidProfile = Object.freeze({
+  kind: "warrior", scale: 1, massScale: 1, healthScale: 1, forceScale: 1,
+  mobilityScale: 1, turnScale: 1, authoredCostume: true,
+});
+
+export const BROOT_PROFILE: HumanoidProfile = Object.freeze({
+  kind: "broot", scale: 1.18, massScale: 1.64, healthScale: 1.30, forceScale: 1.35,
+  mobilityScale: 0.88, turnScale: 0.88, authoredCostume: false,
+});
+
+type BodyConfig = typeof CONFIG.body;
+type FighterConfig = typeof CONFIG.fighter;
+type ArmConfig = typeof CONFIG.arm;
+
+const BODY_LENGTHS = new Set([
+  "torsoCentre", "torsoLength", "torsoRadius", "headCentre", "headLength", "headRadius",
+  "pelvisCentre", "pelvisLength", "pelvisRadius", "hipSide", "thighCentre", "thighLength",
+  "thighRadius", "shinCentre", "shinLength", "shinRadius", "neck", "waist", "hip", "knee",
+  "crouchDepth",
+]);
+const BODY_MASSES = new Set(["torsoMass", "headMass", "pelvisMass", "thighMass", "shinMass"]);
+const BODY_FORCES = new Set([
+  "neckStrength", "waistStrength", "hipStrength", "kneeStrength", "jointStiffness",
+  "trunkMotorForce",
+]);
+const ARM_LENGTHS = new Set([
+  "upperLength", "upperRadius", "foreLength", "foreRadius", "handLength", "handRadius",
+  "reachNeutral", "reachThrust", "reachGuard", "reachMax",
+]);
+const ARM_MASSES = new Set(["upperMass", "foreMass", "handMass"]);
+const ARM_FORCES = new Set([
+  "linearMotorForce", "wristMotorForce", "shoulderTone", "elbowTone", "elbowPoleForce",
+]);
+
+function scaledRecord<T extends Record<string, unknown>>(
+  source: T,
+  factorFor: (key: string) => number,
+): T {
+  return Object.fromEntries(Object.entries(source).map(([key, value]) => [
+    key,
+    typeof value === "number" ? value * factorFor(key) : value,
+  ])) as T;
+}
+
+export function humanoidProfileValues(profile: HumanoidProfile): {
+  body: BodyConfig; fighter: FighterConfig; arm: ArmConfig;
+} {
+  if (profile === WARRIOR_PROFILE || profile.kind === "warrior") {
+    return { body: CONFIG.body, fighter: CONFIG.fighter, arm: CONFIG.arm };
+  }
+  const body = scaledRecord(CONFIG.body, (key) =>
+    BODY_LENGTHS.has(key) ? profile.scale
+      : BODY_MASSES.has(key) ? profile.massScale
+        : BODY_FORCES.has(key) ? profile.forceScale
+          : key === "partHealth" ? profile.healthScale : 1);
+  const fighter = scaledRecord(CONFIG.fighter, (key) =>
+    key === "walkSpeed" || key === "backSpeed" || key === "strafeSpeed"
+      ? profile.mobilityScale
+      : key === "turnSpeed" ? profile.turnScale : key.includes("shoulder") ? profile.scale : 1);
+  const arm = scaledRecord(CONFIG.arm, (key) =>
+    ARM_LENGTHS.has(key) ? profile.scale
+      : ARM_MASSES.has(key) ? profile.massScale
+        : ARM_FORCES.has(key) ? profile.forceScale : 1);
+  return { body, fighter, arm };
 }
 
 /** Hip, knee and off-arm angles for one instant of the walk. */
@@ -143,9 +227,13 @@ const ANGULAR = [
  * also what makes the resting-sag acceptance a static measurement: at zero speed
  * every target here is exactly zero.
  */
-export function legPose(phase: number, speed: number, crouch: number): GaitPose {
-  const F = CONFIG.fighter;
-  const B = CONFIG.body;
+export function legPose(
+  phase: number,
+  speed: number,
+  crouch: number,
+  F: FighterConfig = CONFIG.fighter,
+  B: BodyConfig = CONFIG.body,
+): GaitPose {
   const amount = clamp(speed / F.walkSpeed, 0, 1);
   const swing = F.strideSwing * amount;
   const step = Math.sin(phase);
@@ -297,8 +385,14 @@ const blankHand = (): HandView => ({
   lost: false,
   outboard: 1,
 });
+const NO_NATURAL_ATTACKS = Object.freeze({});
 
 export class Fighter {
+  readonly kind: "warrior" | "broot";
+  readonly profile: HumanoidProfile;
+  private readonly bodyConfig: BodyConfig;
+  private readonly fighterConfig: FighterConfig;
+  private readonly armConfig: ArmConfig;
   readonly side: Side;
   readonly torso: Part;
   readonly head: Part;
@@ -484,8 +578,14 @@ export class Fighter {
   };
 
   constructor(scene: Scene, opts: FighterOptions, materials: FighterMaterials) {
-    const F = CONFIG.fighter;
-    const B = CONFIG.body;
+    this.profile = opts.profile ?? WARRIOR_PROFILE;
+    this.kind = this.profile.kind;
+    const profileConfig = humanoidProfileValues(this.profile);
+    this.bodyConfig = profileConfig.body;
+    this.fighterConfig = profileConfig.fighter;
+    this.armConfig = profileConfig.arm;
+    const F = this.fighterConfig;
+    const B = this.bodyConfig;
     const layers = layersFor(opts.side);
     this.side = opts.side;
     this.mind = opts.mind ?? idleMind();
@@ -504,6 +604,12 @@ export class Fighter {
     });
     this.view = {
       self: {
+        unit: this.kind,
+        reach: this.armConfig.reachNeutral,
+        crownHeight: this.bodyConfig.headCentre + this.bodyConfig.headRadius,
+        vitalHeight: this.bodyConfig.torsoCentre,
+        collisionRadius: this.bodyConfig.pelvisRadius,
+        naturalAttacks: NO_NATURAL_ATTACKS,
         ground: new Vector3(),
         facing: opts.facing,
         shoulder: new Vector3(),
@@ -517,6 +623,12 @@ export class Fighter {
         health: {},
       },
       opponent: {
+        unit: "warrior",
+        reach: CONFIG.arm.reachNeutral,
+        crownHeight: CONFIG.body.headCentre + CONFIG.body.headRadius,
+        vitalHeight: CONFIG.body.torsoCentre,
+        collisionRadius: CONFIG.body.pelvisRadius,
+        naturalAttacks: NO_NATURAL_ATTACKS,
         ground: new Vector3(),
         facing: 0,
         shoulder: new Vector3(),
@@ -663,6 +775,7 @@ export class Fighter {
           arrowCollidesWith: layers.arrowCollides,
           weapon: wanted[hand],
           visible,
+          config: this.armConfig,
         },
         materials,
       );
@@ -952,7 +1065,10 @@ export class Fighter {
       shinLeft: legs[0].shin,
       thighRight: legs[1].thigh,
       shinRight: legs[1].shin,
-    }, materials.figure ?? materials);
+    }, materials.figure ?? materials, {
+      scale: this.profile.scale,
+      authored: this.profile.authoredCostume,
+    });
     this.costume = this.figure.pieces;
     for (const mesh of this.costume) this.owned.add(mesh);
 
@@ -975,7 +1091,7 @@ export class Fighter {
    * number with no way to push it into the solver is worse than a constant.
    */
   applyTuning(): void {
-    const B = CONFIG.body;
+    const B = this.bodyConfig;
 
     // The arm tunes its own solver objects, and guards the two that `drop`
     // disposes -- a tuning pass on a fighter that has lost its arm, which `die`
@@ -1244,12 +1360,16 @@ export class Fighter {
    * would freeze on its first sample; this one does not, and session 06's
    * measurements do not have to work around it.
    */
-  observe(opponent: Fighter, clock: number): void {
+  observe(opponent: Combatant, clock: number): void {
     const view = this.view;
     view.clock = clock;
-    this.describe(view.self, this);
-    this.describe(view.opponent, opponent);
+    this.describe(view.self);
+    opponent.describe(view.opponent);
     view.measure = opponent.nearestPartTo(view.self.shoulder);
+  }
+
+  occlusionPoints(): readonly Vector3[] {
+    return [this.pelvis.mesh.position, this.torso.mesh.position, this.head.mesh.position];
   }
 
   update(dt: number): void {
@@ -1298,6 +1418,7 @@ export class Fighter {
   stopFighting(): void {
     if (!this.fighting) return;
     this.fighting = false;
+    for (const name of HANDS) this.arms[name].stopFighting();
     this.velocity.set(0, 0, 0);
     this.pelvis.body.setLinearVelocity(this.velocity);
     this.pelvis.body.setAngularVelocity(this.scratch.spin.set(0, 0, 0));
@@ -1312,6 +1433,11 @@ export class Fighter {
     this.waist.setAxisMotorTarget(PhysicsConstraintAxis.ANGULAR_Y, posture.y);
     this.waist.setAxisMotorTarget(PhysicsConstraintAxis.ANGULAR_Z, 0);
     if (this.vitality === 0) this.die();
+  }
+
+  /** Age and recycle arrows after a verdict without restoring combat authority. */
+  stepProjectiles(dt: number): void {
+    for (const name of HANDS) this.arms[name].stepProjectiles(dt);
   }
 
   /** Cut a limb free and give it a parting shove along the cut. */
@@ -1389,14 +1515,24 @@ export class Fighter {
    * allocates nothing. A severed limb stays in `limbs` and reads as exactly 0,
    * which is what makes "is it still on" and "is it finished" one question.
    */
-  private describe(into: BodyView, fighter: Fighter): void {
+  describe(into: BodyView): void {
+    this.describeFighter(into, this);
+  }
+
+  private describeFighter(into: BodyView, fighter: Fighter): void {
+    into.unit = fighter.kind;
+    into.reach = fighter.armConfig.reachNeutral;
+    into.crownHeight = fighter.bodyConfig.headCentre + fighter.bodyConfig.headRadius;
+    into.vitalHeight = fighter.bodyConfig.torsoCentre;
+    into.collisionRadius = fighter.bodyConfig.pelvisRadius;
+    into.naturalAttacks = NO_NATURAL_ATTACKS;
     const pelvis = fighter.pelvis.mesh;
     const here = pelvis.position;
     const spin = pelvis.rotationQuaternion;
 
     into.ground.set(here.x, 0, here.z);
     into.crouch = clamp(
-      (fighter.pelvisRestY - here.y) / Math.max(CONFIG.body.crouchDepth, 1e-6),
+      (fighter.pelvisRestY - here.y) / Math.max(fighter.bodyConfig.crouchDepth, 1e-6),
       0,
       1,
     );
@@ -1423,8 +1559,8 @@ export class Fighter {
     const trunkHere = fighter.torso.mesh.position;
     if (spin && trunkSpin) {
       const posture = fighter.relativeTrunkAngles();
-      into.trunkLean = clamp(posture.x / CONFIG.body.trunkLeanMax, -1, 1);
-      into.trunkTwist = clamp(posture.y / CONFIG.body.trunkTwistMax, -1, 1);
+      into.trunkLean = clamp(posture.x / fighter.bodyConfig.trunkLeanMax, -1, 1);
+      into.trunkTwist = clamp(posture.y / fighter.bodyConfig.trunkTwistMax, -1, 1);
     } else {
       into.trunkLean = 0;
       into.trunkTwist = 0;
@@ -1485,7 +1621,7 @@ export class Fighter {
    * not a thing to be in measure of, and a policy that closed on one would walk
    * away from the fight to stand over a limb.
    */
-  private nearestPartTo(point: Vector3): number {
+  nearestPartTo(point: Vector3): number {
     let nearest = Number.POSITIVE_INFINITY;
     for (const limb of this.limbs) {
       if (limb.severed) continue;
@@ -1527,7 +1663,7 @@ export class Fighter {
   }
 
   private steer(dt: number, input: Intent): void {
-    const F = CONFIG.fighter;
+    const F = this.fighterConfig;
     const world = this.frameOf(this.pelvis, this.scratch.locomotionFrame);
     const right = this.scratch.right.set(world.m[0], world.m[1], world.m[2]).normalize();
     const forward = this.scratch.forward.set(world.m[8], world.m[9], world.m[10]).normalize();
@@ -1551,7 +1687,7 @@ export class Fighter {
 
   /** Drive the physical chest about the planted, upright locomotion frame. */
   private poseTrunk(dt: number, input: Intent): void {
-    const B = CONFIG.body;
+    const B = this.bodyConfig;
     const blend = 1 - Math.exp(-B.trunkResponse * dt);
     const posture = input.posture;
     this.trunkLean += (clamp(posture.trunkLean, -1, 1) - this.trunkLean) * blend;
@@ -1614,13 +1750,13 @@ export class Fighter {
    * second code path would rot the moment nobody was using it.
    */
   private walk(dt: number): void {
-    const B = CONFIG.body;
+    const B = this.bodyConfig;
     const speed = this.groundSpeed();
-    this.stride += speed * CONFIG.fighter.strideCadence * dt;
+    this.stride += speed * this.fighterConfig.strideCadence * dt;
 
     const pose = B.gaitDrivesLegs
-      ? legPose(this.stride, speed, this.crouch)
-      : legPose(0, 0, this.crouch);
+      ? legPose(this.stride, speed, this.crouch, this.fighterConfig, B)
+      : legPose(0, 0, this.crouch, this.fighterConfig, B);
     for (const drive of this.driven) {
       // A severed limb's joint has been disposed, and writing a motor target
       // into a freed constraint is the one way this loop can take the page down.
@@ -1650,7 +1786,7 @@ export class Fighter {
    * its guard toward the thing trying to kill it.
    */
   private turnRate(input: Intent, forward: Vector3): number {
-    const F = CONFIG.fighter;
+    const F = this.fighterConfig;
     if (input.turn !== 0 || !this.lockTarget) return input.turn * F.turnSpeed;
 
     const T = CONFIG.targeting;
@@ -1678,7 +1814,7 @@ export class Fighter {
  * render loop refreshes the keyframed anchors on only the first of them, and the
  * arm coasts through the rest.
  */
-export function stepPair(left: Fighter, right: Fighter, dt: number, clock: number): void {
+export function stepPair(left: Combatant, right: Combatant, dt: number, clock: number): void {
   left.observe(right, clock);
   right.observe(left, clock);
   left.update(dt);

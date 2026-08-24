@@ -1,7 +1,6 @@
 import { POLICIES } from "./mind";
 import {
   EQUIPMENT,
-  UNITS,
   withControl,
   withEquipment,
   withPolicy,
@@ -9,6 +8,7 @@ import {
   type Control,
   type Matchup,
 } from "./bout";
+import { UNITS, unitDefinition } from "./units";
 import type { Side } from "./physics";
 
 /**
@@ -150,6 +150,11 @@ export class SetupScreen {
     switch (target.dataset.field) {
       case "unit":
         this.matchup = withUnit(this.matchup, side, target.value);
+        if (unitDefinition(target.value).hands === 0) {
+          this.matchup = withEquipment(this.matchup, side, "handA", "empty");
+          this.matchup = withEquipment(this.matchup, side, "handB", "empty");
+          this.matchup = withPolicy(this.matchup, side, unitDefinition(target.value).compatiblePolicies![0]);
+        }
         break;
       case "handA":
       case "handB":
@@ -174,6 +179,16 @@ export class SetupScreen {
   private render(): void {
     for (const side of ["left", "right"] as const) {
       const setup = this.matchup[side];
+      const definition = unitDefinition(setup.unit);
+      const compatible = new Set(definition.equipment);
+      for (const field of [this.hands.handA[side], this.hands.handB[side]]) {
+        for (const option of field.options) option.disabled = !compatible.has(option.value as never);
+        field.disabled = definition.hands === 0;
+      }
+      for (const option of this.policies[side].options) {
+        option.disabled = definition.compatiblePolicies !== null
+          && !definition.compatiblePolicies.includes(option.value);
+      }
       this.units[side].value = setup.unit;
       this.policies[side].value = setup.policy;
       this.hands.handA[side].value = setup.handA;

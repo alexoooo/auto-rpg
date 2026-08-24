@@ -34,12 +34,15 @@ import HavokPhysics from "@babylonjs/havok";
 
 import { CONFIG } from "../src/config.ts";
 import { attachPhysics, LAYER, COLLIDES } from "../src/physics.ts";
+import { ROOM_WALL_COLLIDERS } from "../src/arena-room.ts";
 import { Fighter, stepPair } from "../src/fighter.ts";
+import { isArticulatedCombatant, policyForUnit, unitDefinition } from "../src/units.ts";
 import { Combat } from "../src/combat.ts";
 import { policyMind } from "../src/mind.ts";
 import { Checkpoint } from "../src/learning/checkpoint.ts";
 import { learnedMetaMind } from "../src/learning/meta.ts";
 import { blankIntent } from "../src/policies.ts";
+import { ACTION_TUNING } from "../src/action-primitives.ts";
 import { advance, begin, selectScreen } from "../src/bout.ts";
 
 const FIXED = 1 / CONFIG.world.physicsHz;
@@ -119,6 +122,17 @@ function buildArena(physics = havok) {
   groundBody.shape.filterMembershipMask = LAYER.WORLD;
   groundBody.shape.filterCollideMask = COLLIDES.WORLD;
 
+  for (const wall of ROOM_WALL_COLLIDERS) {
+    const mesh = MeshBuilder.CreateBox(wall.name, {
+      width: wall.width, height: wall.height, depth: wall.depth,
+    }, scene);
+    mesh.position.set(...wall.position);
+    const body = new PhysicsAggregate(mesh, PhysicsShapeType.BOX,
+      { mass: 0, friction: 0.3, restitution: 0.05 }, scene);
+    body.shape.filterMembershipMask = LAYER.WORLD;
+    body.shape.filterCollideMask = COLLIDES.WORLD;
+  }
+
   for (let i = 0; i < 14; i += 1) {
     const angle = (i / 14) * Math.PI * 2;
     const post = MeshBuilder.CreateCylinder(
@@ -187,6 +201,10 @@ function sideRecord(policy) {
     blocks: 0,
     damage: 0,
     severs: 0,
+    punchAttempts: 0,
+    approach: 0,
+    insidePunchRange: 0,
+    retreatTime: 0,
   };
 }
 
@@ -201,31 +219,28 @@ function sideRecord(policy) {
  */
 export function runBout({
   left: leftPolicy, right: rightPolicy, seeds, leftLoadout, rightLoadout,
+  leftUnit = "warrior", rightUnit = "warrior",
   leftMind = null, rightMind = null, onSample = null, onEvent = null,
   onVerdict = null, postVerdictFrames = 0, physics = havok,
 }) {
   const { engine, scene, materials } = buildArena(physics);
   const F = CONFIG.fighter;
 
-  const left = new Fighter(
-    scene,
-    {
+  const left = unitDefinition(leftUnit).build({
+      scene,
       side: "left", origin: Vector3.Zero(), facing: 0,
-      mind: leftMind ?? policyMind(leftPolicy, seeds[0]), loadout: leftLoadout,
-    },
-    materials,
-  );
-  const right = new Fighter(
-    scene,
-    {
+      mind: leftMind ?? policyMind(policyForUnit(leftUnit, leftPolicy), seeds[0]), loadout: leftLoadout,
+      materials,
+    });
+  const right = unitDefinition(rightUnit).build({
+      scene,
       side: "right",
       origin: new Vector3(0, 0, F.separation),
       facing: Math.PI,
-      mind: rightMind ?? policyMind(rightPolicy, seeds[1]),
+      mind: rightMind ?? policyMind(policyForUnit(rightUnit, rightPolicy), seeds[1]),
       loadout: rightLoadout,
-    },
-    materials,
-  );
+      materials,
+    });
 
   const leftRecord = sideRecord(leftPolicy);
   const rightRecord = sideRecord(rightPolicy);
@@ -259,9 +274,15 @@ export function runBout({
    */
   const WARMUP = 0.6;
 
+  let decided = false;
   scene.onBeforePhysicsObservable.add(() => {
     const now = sides[0].combat.now;
-    stepPair(left, right, FIXED, now);
+    if (decided) {
+      left.stepProjectiles(FIXED);
+      right.stepProjectiles(FIXED);
+    } else {
+      stepPair(left, right, FIXED, now);
+    }
     if (onSample) onSample({ left, right, dt: FIXED, clock: now });
     const struck = Math.max(
       sides[0].combat.lastHit ? sides[0].combat.lastHit.at : -Infinity,
@@ -271,7 +292,7 @@ export function runBout({
     for (const side of sides) {
       const speed = side.fighter.view.self.tipSpeed;
       if (speed > side.record.peakTip) side.record.peakTip = speed;
-      if (quiet && side.fighter.armed && speed > side.record.peakTipDriven) {
+      if (quiet && (!isArticulatedCombatant(side.fighter) || side.fighter.armed) && speed > side.record.peakTipDriven) {
         side.record.peakTipDriven = speed;
       }
     }
@@ -281,8 +302,8 @@ export function runBout({
   // the same two transitions, so the bout this bench runs is the bout the page
   // runs and not a second implementation of one.
   const matchup = {
-    left: { unit: "warrior", policy: leftPolicy, control: "mind" },
-    right: { unit: "warrior", policy: rightPolicy, control: "mind" },
+    left: { unit: leftUnit, policy: leftPolicy, control: "mind" },
+    right: { unit: rightUnit, policy: rightPolicy, control: "mind" },
   };
   let state = begin(selectScreen(matchup), matchup);
   const ring = () => ({
@@ -332,6 +353,7 @@ export function runBout({
     const before = state.phase;
     state = advance(state, ring(), FRAME);
     if (before === "fight" && state.phase === "over") {
+      decided = true;
       left.stopFighting();
       right.stopFighting();
       for (const side of sides) side.combat.stop();
@@ -792,6 +814,16 @@ function report(run) {
 
 const FIST_CELLS = [
   {
+    name: "duelist-vs-duelist",
+    a: { label: "duelist A", policy: "duelist", loadout: { primary: "empty", secondary: "empty" } },
+    b: { label: "duelist B", policy: "duelist", loadout: { primary: "empty", secondary: "empty" } },
+  },
+  {
+    name: "duelist-vs-sword",
+    a: { label: "bare duelist", policy: "duelist", loadout: { primary: "empty", secondary: "empty" } },
+    b: { label: "sword duelist", policy: "duelist", loadout: { primary: "sword", secondary: "empty" } },
+  },
+  {
     name: "unarmed-vs-idle",
     a: { label: "unarmed", policy: "swinger", loadout: { primary: "empty", secondary: "empty" } },
     b: { label: "idle", policy: "idle", loadout: { primary: "empty", secondary: "empty" } },
@@ -811,25 +843,59 @@ const FIST_CELLS = [
 /** The session-06 cells: side-swapped loadouts, and fist-specific outcomes. */
 function runFistCell(cell, count, seed) {
   const stats = Object.fromEntries([cell.a, cell.b].map((role) => [role.label, {
-    punches: 0, blocks: 0, damage: 0, deaths: 0, wins: 0,
+    punches: 0, attempts: 0, blocks: 0, damage: 0, deaths: 0, wins: 0,
+    approach: 0, inside: 0, retreat: 0, duration: 0,
   }]));
   for (let i = 0; i < count; i += 1) {
     const swapped = i % 2 === 1;
     const left = swapped ? cell.b : cell.a;
     const right = swapped ? cell.a : cell.b;
+    const attempts = { left: 0, right: 0 };
+    const retreat = { left: 0, right: 0 };
+    const tracked = (policy, side, policySeed) => {
+      const inner = policyMind(policy, policySeed);
+      const extended = { primary: false, secondary: false };
+      return { name: inner.name, decide(view, dt) {
+        const intent = inner.decide(view, dt);
+        for (const hand of ["primary", "secondary"]) {
+          if (intent[hand].thrust && !extended[hand] && view.self.hands[hand].weapon === "empty") attempts[side] += 1;
+          extended[hand] = intent[hand].thrust;
+        }
+        if (intent.forward < -0.05) retreat[side] += dt;
+        return intent;
+      } };
+    };
+    const seeds = [seedFor(seed, i, swapped ? 1 : 0), seedFor(seed, i, swapped ? 0 : 1)];
+    let initialGap = null; let minimumGap = Infinity; let inside = 0;
     const result = runBout({
       left: left.policy,
       right: right.policy,
       leftLoadout: left.loadout,
       rightLoadout: right.loadout,
-      seeds: [seedFor(seed, i, swapped ? 1 : 0), seedFor(seed, i, swapped ? 0 : 1)],
+      seeds,
+      leftMind: tracked(left.policy, "left", seeds[0]),
+      rightMind: tracked(right.policy, "right", seeds[1]),
+      onSample({ left: leftFighter, dt }) {
+        const gap = Math.hypot(
+          leftFighter.view.self.shoulder.x - leftFighter.view.opponent.shoulder.x,
+          leftFighter.view.self.shoulder.y - leftFighter.view.opponent.shoulder.y,
+          leftFighter.view.self.shoulder.z - leftFighter.view.opponent.shoulder.z,
+        );
+        initialGap ??= gap; minimumGap = Math.min(minimumGap, gap);
+        if (gap <= ACTION_TUNING.bareStrikeRange) inside += dt;
+      },
     });
     for (const [side, role] of [["left", left], ["right", right]]) {
       const record = result[side];
       const into = stats[role.label];
       into.punches += record.punches;
+      into.attempts += attempts[side];
       into.blocks += record.blocks;
       into.damage += record.damage;
+      into.approach += Math.max(0, initialGap - minimumGap);
+      into.inside += inside;
+      into.retreat += retreat[side];
+      into.duration += result.seconds;
       if (result.winner === side) into.wins += 1;
       else if (result.winner !== null) into.deaths += 1;
     }
@@ -839,17 +905,66 @@ function runFistCell(cell, count, seed) {
 
 function reportFistCells(count, seed) {
   console.log(`\n=== bare hands -- ${count} side-swapped bouts per cell ===`);
-  console.log("  cell                         role         punches  blocks  damage/bout  survived");
+  console.log("  cell                         role         attempts/landed  blocks  approach  in-range  retreat  damage/bout  result  duration");
   for (const cell of FIST_CELLS) {
     const stats = runFistCell(cell, count, seed);
     for (const role of [cell.a, cell.b]) {
       const s = stats[role.label];
       console.log(
         `  ${cell.name.padEnd(28)} ${role.label.padEnd(11)} ` +
-        `${String(s.punches).padStart(7)}  ${String(s.blocks).padStart(6)}  ` +
-        `${(s.damage / count).toFixed(1).padStart(11)}  ${String(count - s.deaths).padStart(4)}/${count}`,
+        `${`${s.attempts}/${s.punches}`.padStart(15)}  ${String(s.blocks).padStart(6)}  ` +
+        `${(s.approach / count).toFixed(2).padStart(8)}  ${(s.inside / count).toFixed(2).padStart(8)}  ` +
+        `${(s.retreat / count).toFixed(2).padStart(7)}  ${(s.damage / count).toFixed(1).padStart(11)}  ` +
+        `${`${s.wins}W/${s.deaths}L`.padStart(7)}  ${(s.duration / count).toFixed(1).padStart(8)}`,
       );
     }
+  }
+}
+
+function reportShieldArcherCells(count, seed) {
+  console.log(`\n=== shields against archer -- ${count} side-swapped bouts per cell ===`);
+  console.log("  defence     shots  plate contacts  wounds  damage  vitality  defender wins");
+  for (const kind of ["shield", "buckler", "empty"]) {
+    const totals = { shots: 0, plates: 0, wounds: 0, damage: 0, vitality: 0, wins: 0 };
+    for (let i = 0; i < count; i += 1) {
+      const archerSide = i % 2 === 0 ? "left" : "right";
+      const defenderSide = archerSide === "left" ? "right" : "left";
+      const seeds = [seedFor(seed, i, 0), seedFor(seed, i, 1)];
+      let held = false; let vitality = 1;
+      const archer = policyMind("archer", seeds[archerSide === "left" ? 0 : 1]);
+      const trackedArcher = { name: archer.name, decide(view, dt) {
+        const intent = archer.decide(view, dt);
+        const drawing = intent[intent.driving].thrust;
+        if (held && !drawing) totals.shots += 1;
+        held = drawing;
+        return intent;
+      } };
+      const defender = policyMind("duelist", seeds[defenderSide === "left" ? 0 : 1]);
+      const loadout = { primary: "sword", secondary: kind };
+      const result = runBout({
+        left: archerSide === "left" ? "archer" : "duelist",
+        right: archerSide === "right" ? "archer" : "duelist",
+        seeds,
+        leftMind: archerSide === "left" ? trackedArcher : defender,
+        rightMind: archerSide === "right" ? trackedArcher : defender,
+        leftLoadout: archerSide === "left" ? { primary: "bow", secondary: "empty" } : loadout,
+        rightLoadout: archerSide === "right" ? { primary: "bow", secondary: "empty" } : loadout,
+        onEvent(event) {
+          if (event.side !== archerSide || event.report.weapon !== "arrow") return;
+          if (event.blocked && event.report.key === `block:${kind}`) totals.plates += 1;
+          if (!event.blocked && event.report.damage > 0) totals.wounds += 1;
+        },
+        onSample(sample) { vitality = sample[defenderSide].view.self.vitality; },
+      });
+      totals.damage += result[archerSide].damage;
+      totals.vitality += vitality;
+      if (result.winner === defenderSide) totals.wins += 1;
+    }
+    console.log(
+      `  ${kind.padEnd(10)} ${String(totals.shots).padStart(5)}  ${String(totals.plates).padStart(14)}  ` +
+      `${String(totals.wounds).padStart(6)}  ${(totals.damage / count).toFixed(1).padStart(6)}  ` +
+      `${(totals.vitality / count).toFixed(3).padStart(8)}  ${String(totals.wins).padStart(13)}/${count}`,
+    );
   }
 }
 
@@ -984,5 +1099,6 @@ for (const [a, b] of MATCHUPS) {
   report(runMatchup(a, b, bouts, runSeed, verbose));
 }
 if (!only || only === "fists") reportFistCells(bouts, runSeed);
+if (!only || only === "shield-archer") reportShieldArcherCells(bouts, runSeed);
 console.log(`\nseed ${runSeed}, ${((Date.now() - started) / 1000).toFixed(1)} s of wall clock`);
 }

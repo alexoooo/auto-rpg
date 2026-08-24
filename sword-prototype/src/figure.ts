@@ -548,8 +548,14 @@ export class Figure {
   private readonly sideMaterial: Material;
   private readonly unfollowSideMaps: () => void;
 
-  constructor(scene: Scene, rig: FigureRig, materials: FigureMaterials) {
+  constructor(
+    scene: Scene,
+    rig: FigureRig,
+    materials: FigureMaterials,
+    options: { scale?: number; authored?: boolean } = {},
+  ) {
     const frames = boneFrames();
+    const scale = options.scale ?? 1;
     const side = sideCloth(rig.prefix, materials.cloth);
     this.sideMaterial = side.material;
     this.unfollowSideMaps = side.unfollow;
@@ -568,25 +574,25 @@ export class Figure {
         case "box":
           mesh = MeshBuilder.CreateBox(
             name,
-            { width: shape.size[0], height: shape.size[1], depth: shape.size[2] },
+            { width: shape.size[0] * scale, height: shape.size[1] * scale, depth: shape.size[2] * scale },
             scene,
           );
           break;
         case "capsule":
           mesh = MeshBuilder.CreateCapsule(
             name,
-            { height: shape.height, radius: shape.radius, tessellation: 12, subdivisions: 1 },
+            { height: shape.height * scale, radius: shape.radius * scale, tessellation: 12, subdivisions: 1 },
             scene,
           );
           break;
         case "sphere":
-          mesh = MeshBuilder.CreateSphere(name, { diameter: shape.diameter, segments: 12 }, scene);
+          mesh = MeshBuilder.CreateSphere(name, { diameter: shape.diameter * scale, segments: 12 }, scene);
           if (shape.scale) mesh.scaling.set(shape.scale[0], shape.scale[1], shape.scale[2]);
           break;
         case "cylinder":
           mesh = MeshBuilder.CreateCylinder(
             name,
-            { height: shape.height, diameter: shape.diameter, tessellation: 12 },
+            { height: shape.height * scale, diameter: shape.diameter * scale, tessellation: 12 },
             scene,
           );
           break;
@@ -596,9 +602,9 @@ export class Figure {
       // a number nobody can check, which is how the whole figure stays readable
       // against a tape measure.
       mesh.position.set(
-        piece.at[0] - centre[0],
-        piece.at[1] - centre[1],
-        piece.at[2] - centre[2],
+        (piece.at[0] - centre[0]) * scale,
+        (piece.at[1] - centre[1]) * scale,
+        (piece.at[2] - centre[2]) * scale,
       );
       mesh.material = paint(piece.material);
       mesh.parent = parent.mesh;
@@ -612,6 +618,7 @@ export class Figure {
       this.byName.set(piece.name, { mesh, bone: piece.bone });
     }
 
+    if (options.authored === false) return;
     void costumeFor(scene).then((container) => {
       if (container) this.wear(container, frames);
     });

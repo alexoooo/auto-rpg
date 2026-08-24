@@ -1,17 +1,37 @@
-import { cutsBothWays, hasHeldWeapon, hasPoint, isShooting, isStriking, otherHand, type HandName, type Striker, type WeaponKind } from "./hands.ts";
+import { cutsBothWays, HANDS, hasHeldWeapon, hasPoint, isShooting, isStriking, otherHand, type HandName, type Striker, type WeaponKind } from "./hands.ts";
 import { ACTION_STROKE_TIMING, ACTION_TUNING, actionAimAt, actionArcherAim, actionCoverAt, actionDistance, actionShotPhase,
-  actionStrokePose, actionStrokeReading, actionStrokeRoll, applyActionPosture, boundIntent, clampAction,
+  actionStrokePose, actionStrokeReading, actionStrokeRoll, applyActionPosture, bareCrowdDistance, bareHoldDistance, boundIntent, clampAction,
   freshIntent } from "./action-primitives.ts";
 import type { FighterView, Intent, Mind } from "./mind.ts";
+import { attackOpportunity, engagementRecord, EngagementTracker, type EngagementRecord } from "./learning/engagement.ts";
 
-export type OptionName = "close" | "disengage" | "cover" | "cut" | "thrust" | "punch" | "shoot" | "recover";
+export type MovementName = "close" | "hold" | "circle-left" | "circle-right" | "disengage";
+export type HandActionName = "cover" | "cut" | "thrust" | "punch" | "shoot" | "bite" | "recover";
+export type OptionName = MovementName | HandActionName;
+export const MOVEMENT_NAMES: readonly MovementName[] = Object.freeze(["close", "hold", "circle-left", "circle-right", "disengage"]);
+export const HAND_ACTION_NAMES: readonly HandActionName[] = Object.freeze(["cover", "cut", "thrust", "punch", "shoot", "bite", "recover"]);
+/** Compatibility vocabulary for reports written before tactics had two heads. */
 export const OPTION_NAMES: readonly OptionName[] = Object.freeze(["close", "disengage", "cover", "cut", "thrust", "punch", "shoot", "recover"]);
-export const ATTACK_OPTION_NAMES: readonly OptionName[] = Object.freeze(["cut", "thrust", "punch", "shoot"]);
+export const TACTIC_NAMES: readonly OptionName[] = Object.freeze([...MOVEMENT_NAMES, ...HAND_ACTION_NAMES]);
+export const ATTACK_OPTION_NAMES: readonly OptionName[] = Object.freeze(["cut", "thrust", "punch", "shoot", "bite"]);
 export interface CombatOption { readonly name: OptionName; enter(view: FighterView): void; decide(view: FighterView, dt: number): Intent; done(view: FighterView): boolean }
-const knownOption = (value: string): value is OptionName => (OPTION_NAMES as readonly string[]).includes(value);
+const knownOption = (value: string): value is OptionName => (TACTIC_NAMES as readonly string[]).includes(value);
+const knownMovement = (value: string): value is MovementName => (MOVEMENT_NAMES as readonly string[]).includes(value);
+const knownHandAction = (value: string): value is HandActionName => (HAND_ACTION_NAMES as readonly string[]).includes(value);
 const gap = (view: FighterView): number => actionDistance(view.self.shoulder, view.opponent.shoulder);
 const threat = (view: FighterView) => {
   const { primary, secondary } = view.opponent.hands;
+  if (!primary || !secondary) {
+    return {
+      weapon: "empty" as const,
+      shoulder: view.opponent.shoulder,
+      tip: view.opponent.tip,
+      tipSpeed: view.opponent.tipSpeed,
+      reach: view.opponent.reach,
+      lost: false,
+      outboard: 1,
+    };
+  }
   const lead = !primary.lost && isStriking(primary.weapon);
   const off = !secondary.lost && isStriking(secondary.weapon);
   if (lead && off) return primary.tipSpeed >= secondary.tipSpeed ? primary : secondary;
@@ -30,6 +50,58 @@ const turnToward = (view: FighterView): number => {
   while (delta > Math.PI) delta -= Math.PI * 2; while (delta < -Math.PI) delta += Math.PI * 2;
   return clampAction(delta * 2.4);
 };
+
+const supportedHandAction = (view: FighterView, action: HandActionName): string | null => {
+  if (action === "bite") return view.self.naturalAttacks?.bite ? null : "a published natural attack named bite";
+  if (action === "recover") return null;
+  const hands = Object.values(view.self.hands).filter((hand) => !hand.lost);
+  if (!hands.length) return "an attached hand";
+  if (action === "shoot" && !hands.some((hand) => isShooting(hand.weapon))) return "a bow";
+  if (action === "punch" && !hands.some((hand) => hand.weapon === "empty")) return "an empty hand";
+  if (action === "thrust" && !hands.some((hand) => hasPoint(hand.weapon))) return "a pointed weapon";
+  if (action === "cut" && !hands.some((hand) => isStriking(hand.weapon) && hand.weapon !== "empty")) return "a held striking weapon";
+  return null;
+};
+
+/** The movement head owns exactly the three locomotion axes. */
+export function movementIntent(requested: MovementName | string, view: FighterView): Intent {
+  if (!knownMovement(requested)) throw new Error(`unknown movement "${requested}" -- known movements are ${MOVEMENT_NAMES.join(", ")}`);
+  const intent = freshIntent(); intent.turn = turnToward(view);
+  if (requested === "close") intent.forward = 1;
+  else if (requested === "disengage") intent.forward = -0.8;
+  else if (requested === "circle-left") intent.strafe = -0.55;
+  else if (requested === "circle-right") intent.strafe = 0.55;
+  return intent;
+}
+
+const neutralHands = (intent: Intent): boolean => {
+  const blank = freshIntent();
+  return intent.driving === blank.driving && (["primary", "secondary"] as const).every((hand) =>
+    Object.keys(blank[hand]).every((field) => intent[hand][field as keyof Intent[typeof hand]] === blank[hand][field as keyof Intent[typeof hand]]));
+};
+const neutralPosture = (intent: Intent): boolean => intent.posture.trunkLean === 0 && intent.posture.trunkTwist === 0 && intent.posture.crouch === 0;
+
+/**
+ * The only tactic merge. Movement, hands and posture each have one owner; a
+ * contaminated partial is refused instead of depending on spread order.
+ */
+export function composeTactic(view: FighterView, movement: MovementName | string, action: HandActionName | string,
+  movementPart: Intent, actionPart: Intent): Intent {
+  if (!knownMovement(movement)) throw new Error(`illegal tactic movement "${movement}" with hand action "${action}"`);
+  if (!knownHandAction(action)) throw new Error(`illegal tactic movement "${movement}" with hand action "${action}"`);
+  const unsupported = supportedHandAction(view, action);
+  if (unsupported) throw new Error(`illegal tactic "${movement}" + "${action}": hand action "${action}" requires ${unsupported}`);
+  if (!neutralHands(movementPart) || !neutralPosture(movementPart)) {
+    throw new Error(`illegal tactic "${movement}" + "${action}": movement "${movement}" wrote hand or posture fields`);
+  }
+  if (actionPart.forward !== 0 || actionPart.strafe !== 0 || actionPart.turn !== 0 || actionPart.zoom !== 1) {
+    throw new Error(`illegal tactic "${movement}" + "${action}": hand action "${action}" wrote movement fields`);
+  }
+  const result = freshIntent(); result.forward = movementPart.forward; result.strafe = movementPart.strafe;
+  result.turn = movementPart.turn; result.zoom = movementPart.zoom; result.driving = actionPart.driving;
+  Object.assign(result.posture, actionPart.posture); Object.assign(result.primary, actionPart.primary);
+  Object.assign(result.secondary, actionPart.secondary); return boundIntent(result);
+}
 const aimAt = (view: FighterView, intent: Intent, name: HandName, y = view.opponent.shoulder.y): void => {
   actionAimAt(view, { x: view.opponent.ground.x, y, z: view.opponent.ground.z }, intent[name], name,
     view.self.hands[name].shoulder);
@@ -78,6 +150,8 @@ export function combatOption(requested: OptionName | string, preferred: HandName
       let actionPosture: "cover" | "commit" | "recover" | "draw" | "close" = "close";
       if (name === "close") intent.forward = 1;
       else if (name === "disengage") intent.forward = -0.8;
+      else if (name === "circle-left") intent.strafe = -0.55;
+      else if (name === "circle-right") intent.strafe = 0.55;
       else if (name === "cover") {
         actionCoverAt(view, threat(view), h, hand); h.guard = true;
       } else if (name === "cut" || name === "punch") {
@@ -169,9 +243,53 @@ export function combatOption(requested: OptionName | string, preferred: HandName
       const age = Math.max(elapsed, view.clock - started);
       if (name === "close") return gap(view) <= view.self.hands[hand].reach + 0.12;
       if (name === "disengage") return gap(view) >= Math.max(0.9, view.self.hands[hand].reach - 0.05);
+      if (name === "hold" || name === "circle-left" || name === "circle-right") return age >= 0.30;
       if (name === "cover") return age >= 0.30; if (name === "shoot") return shotComplete;
       if (name === "cut" || name === "punch") return strokePhase === "complete"; return age >= (name === "recover" ? 0.26 : 0.18);
     },
+  };
+}
+
+/** Stateful hand skill with locomotion stripped before the one legal merge. */
+export interface FactorizedHandAction extends CombatOption { readonly movement: Readonly<{ forward: number; strafe: number; turn: number; zoom: number }> }
+export function handActionOption(requested: HandActionName | string, preferred: HandName = "primary",
+  start?: Readonly<{ pointerX: number; pointerY: number }>, initialShotRest = 0): FactorizedHandAction {
+  if (!knownHandAction(requested)) throw new Error(`unknown hand action "${requested}" -- known hand actions are ${HAND_ACTION_NAMES.join(", ")}`);
+  if (requested === "bite") {
+    let entered = 0; let sawActive = false; const intent = freshIntent();
+    const movement = { forward: 0, strafe: 0, turn: 0, zoom: 1 };
+    return { name: requested, movement,
+      enter(view) { const unsupported = supportedHandAction(view, requested); if (unsupported) refuse(requested, unsupported); entered = view.clock; sawActive = false; },
+      decide(view) { Object.assign(intent, freshIntent()); const bite = view.self.naturalAttacks.bite;
+        intent.primary.thrust = Boolean(bite?.ready && view.measure <= (bite.reach + view.opponent.collisionRadius));
+        sawActive ||= Boolean(bite?.active); return intent; },
+      done(view) { return sawActive && !view.self.naturalAttacks.bite?.active || view.clock - entered >= 0.8; },
+    };
+  }
+  if (requested === "recover") {
+    const legacy = combatOption(requested, preferred, start, initialShotRest); const intent = freshIntent();
+    const movement = { forward: 0, strafe: 0, turn: 0, zoom: 1 }; let handless = false; let entered = 0;
+    return { name: requested, movement,
+      enter(view) { handless = !Object.values(view.self.hands).some((hand) => !hand.lost); entered = view.clock;
+        if (!handless) legacy.enter(view); },
+      decide(view, dt) { if (handless) { Object.assign(intent, freshIntent()); return intent; }
+        const result = legacy.decide(view, dt); movement.forward = result.forward; movement.strafe = result.strafe;
+        movement.turn = result.turn; movement.zoom = result.zoom;
+        result.forward = 0; result.strafe = 0; result.turn = 0; result.zoom = 1; return result; },
+      done(view) { return handless ? view.clock - entered >= 0.26 : legacy.done(view); },
+    };
+  }
+  const legacy = combatOption(requested, preferred, start, initialShotRest);
+  const movement = { forward: 0, strafe: 0, turn: 0, zoom: 1 };
+  return { name: requested, movement,
+    enter: (view) => legacy.enter(view),
+    decide(view, dt) {
+      const intent = legacy.decide(view, dt); movement.forward = intent.forward; movement.strafe = intent.strafe;
+      movement.turn = intent.turn; movement.zoom = intent.zoom;
+      intent.forward = 0; intent.strafe = 0; intent.turn = 0; intent.zoom = 1;
+      return intent;
+    },
+    done: (view) => legacy.done(view),
   };
 }
 
@@ -183,7 +301,7 @@ export function scriptedMetaMind(kind: ScriptedKind, seed = 0): ScriptedMetaMind
     value = Math.imul(value ^ (value >>> 15), value | 1); value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
     return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
   };
-  let current: CombatOption | null = null; let selected: OptionName = "recover"; let prefer: HandName = "primary";
+  let current: FactorizedHandAction | null = null; let selected: OptionName = "recover"; let prefer: HandName = "primary";
   let previousIntent: Intent | null = null; let chosenHand: HandName = "primary";
   let attackFinished = false;
   let quiet = 0; let cooldown = 0; let sinceOpening = 0; let patience = 2.40;
@@ -215,7 +333,7 @@ export function scriptedMetaMind(kind: ScriptedKind, seed = 0): ScriptedMetaMind
     const attack = selectAttackHand(view); chosenHand = attack;
     if (view.self.hands[attack].lost || !isStriking(view.self.hands[attack].weapon)) return "cover";
     const bare = view.self.hands[attack].weapon === "empty";
-    const strike = bare ? 0.72 : 1.48 + (view.self.hands[attack].reach - ACTION_TUNING.tunedSwordReach);
+    const strike = bare ? ACTION_TUNING.bareStrikeRange : 1.48 + (view.self.hands[attack].reach - ACTION_TUNING.tunedSwordReach);
     return cooldown <= 0 && distance <= strike && (openingNow || sinceOpening > patience)
       ? bare ? "punch" : "cut" : "cover";
   };
@@ -252,52 +370,126 @@ export function scriptedMetaMind(kind: ScriptedKind, seed = 0): ScriptedMetaMind
         if (kind === "duelist" && ["cut", "punch", "thrust"].includes(selected)) {
           patience = 2.40 * (0.80 + random() * 0.40); sinceOpening = 0;
         }
-        current = combatOption(selected, chosenHand, previousIntent?.[chosenHand],
+        current = handActionOption(selected as HandActionName, chosenHand, previousIntent?.[chosenHand],
           kind === "archer" && selected === "shoot" ? quiet : 0);
         if (kind === "archer" && selected === "shoot") quiet = 0.30;
         current.enter(view);
         attackFinished = false; entries[selected] += 1;
       }
-      const intent = current.decide(view, dt);
+      const actionPart = current.decide(view, dt);
+      const movementPart = freshIntent();
+      movementPart.forward = current.movement.forward; movementPart.strafe = current.movement.strafe;
+      movementPart.turn = current.movement.turn; movementPart.zoom = current.movement.zoom;
       if (kind === "duelist") {
-        const attacker = intent.driving; const reach = view.self.hands[attacker].reach;
+        const attacker = actionPart.driving; const reach = view.self.hands[attacker].reach;
         const bare = view.self.hands[attacker].weapon === "empty";
-        const hold = bare ? 0.78 : 1.40 + (reach - ACTION_TUNING.tunedSwordReach); const distance = gap(view);
-        const feet = view.measure < 0.85 ? -0.8 : distance > hold + 0.06
+        const hold = bare ? bareHoldDistance() : 1.40 + (reach - ACTION_TUNING.tunedSwordReach); const distance = gap(view);
+        const crowd = bare ? bareCrowdDistance(reach) : 0.85;
+        const feet = view.measure < crowd ? -0.8 : distance > hold + 0.06
           ? clampAction((distance - hold) * 1.6, 0, 1) : distance < hold - 0.06
             ? clampAction((distance - hold) * 1.6, -1, 0) : 0;
-        intent.forward = intent.forward > 0 ? Math.max(feet, intent.forward) : feet;
-        intent.strafe = circle * 0.55;
+        movementPart.forward = movementPart.forward > 0 ? Math.max(feet, movementPart.forward) : feet;
+        movementPart.strafe = circle * 0.55;
       }
       if (kind === "duelist" && !attackFinished && ["cut", "punch", "thrust"].includes(current.name) && current.done(view)) {
         cooldown = 0.30; prefer = otherHand(prefer); attackFinished = true;
       }
+      const movement: MovementName = movementPart.strafe < 0 ? "circle-left" : movementPart.strafe > 0 ? "circle-right"
+        : movementPart.forward > 0 ? "close" : movementPart.forward < 0 ? "disengage" : "hold";
+      const intent = composeTactic(view, movement, selected as HandActionName, movementPart, actionPart);
       previousIntent = intent;
-      return boundIntent(intent);
+      return intent;
     },
   };
 }
 
-export interface CombatEvent { hand: HandName; weapon: Striker; damage: number; blocked: boolean }
+export interface CombatEvent {
+  hand: HandName; weapon: Striker; damage: number; blocked: boolean;
+  /** Optional only for old parity rows; factual evaluators always supply both. */
+  at?: number; opportunityKey?: string; defending?: boolean; contactId?: string;
+}
 export interface BehaviourRecord {
   rangeBins: [number, number, number, number]; options: Record<OptionName, number>; transitions: Record<string, number>;
   attackAttempts: Record<OptionName, number>; contacts: Record<HandName, number>; contactsByKind: Partial<Record<Striker, number>>;
   blocks: number; crouchTime: number; trunkTwistSignChanges: number; damage: number; vitality: number; win: boolean; seconds: number;
+  engagement: EngagementRecord; longestOptionOccupancySeconds: number;
+  /** Private recorder state; durable reporters omit underscore-prefixed fields. */
+  _engagement: EngagementTracker; _lastBlockAt: Record<string, number>; _blocksSeen: Set<string>;
 }
 export function behaviourRecord(): BehaviourRecord {
-  return { rangeBins: [0, 0, 0, 0], options: Object.fromEntries(OPTION_NAMES.map((n) => [n, 0])) as Record<OptionName, number>, transitions: {},
-    attackAttempts: Object.fromEntries(OPTION_NAMES.map((n) => [n, 0])) as Record<OptionName, number>, contacts: { primary: 0, secondary: 0 }, contactsByKind: {},
-    blocks: 0, crouchTime: 0, trunkTwistSignChanges: 0, damage: 0, vitality: 1, win: false, seconds: 0 };
+  const engagement = engagementRecord();
+  const record = { rangeBins: [0, 0, 0, 0], options: Object.fromEntries(TACTIC_NAMES.map((n) => [n, 0])) as Record<OptionName, number>, transitions: {},
+    attackAttempts: Object.fromEntries(TACTIC_NAMES.map((n) => [n, 0])) as Record<OptionName, number>, contacts: { primary: 0, secondary: 0 }, contactsByKind: {},
+    blocks: 0, crouchTime: 0, trunkTwistSignChanges: 0, damage: 0, vitality: 1, win: false, seconds: 0,
+    engagement, longestOptionOccupancySeconds: 0 } as BehaviourRecord;
+  Object.defineProperties(record, {
+    _engagement: { value: new EngagementTracker(engagement), enumerable: false },
+    _lastBlockAt: { value: {}, enumerable: false },
+    _blocksSeen: { value: new Set<string>(), enumerable: false },
+  });
+  return record;
 }
 export function recordCombatEvent(record: BehaviourRecord, event: CombatEvent): void {
-  record.contacts[event.hand] += 1; record.contactsByKind[event.weapon] = (record.contactsByKind[event.weapon] ?? 0) + 1;
-  record.damage += event.damage; if (event.blocked) record.blocks += 1;
+  if (!event.defending) {
+    record.contacts[event.hand] += 1; record.contactsByKind[event.weapon] = (record.contactsByKind[event.weapon] ?? 0) + 1;
+    record.damage += event.damage;
+  }
+  if (event.blocked) {
+    const key = `${event.hand}:${event.weapon}`; const previous = record._lastBlockAt[key] ?? -Infinity;
+    const unseen = event.contactId === undefined || !record._blocksSeen.has(event.contactId);
+    const separated = event.contactId !== undefined || event.at === undefined || event.at - previous >= 0.20;
+    if (unseen && separated) {
+      record.blocks += 1;
+      if (event.contactId !== undefined) record._blocksSeen.add(event.contactId);
+      if (event.at !== undefined) record._lastBlockAt[key] = event.at;
+    }
+  }
+  if (event.at !== undefined) {
+    const factualKey = event.weapon === "bite" ? "natural:bite"
+      : `hand:${event.hand}:${event.weapon === "arrow" ? "bow" : event.weapon}`;
+    record._engagement.contact(event.opportunityKey ?? factualKey, event.at, event.damage);
+  }
 }
-export function recordBehaviourSample(record: BehaviourRecord, view: FighterView, option: OptionName | null, dt: number, previous: { option?: OptionName | null; twistSign?: number }): void {
+export function recordIntentAttack(record: BehaviourRecord, view: FighterView, intent: Intent,
+  previous: { thrust?: Record<HandName, boolean>; guard?: Record<HandName, boolean> }): void {
+  previous.thrust ??= { primary: false, secondary: false };
+  previous.guard ??= { primary: false, secondary: false };
+  const opportunities = attackOpportunity(view).filter((row) => row.viable);
+  for (const row of opportunities) {
+    if (row.key.startsWith("natural:")) {
+      if (intent.primary.thrust && !previous.thrust.primary) record._engagement.attack(row.key, view.clock);
+      continue;
+    }
+    const [, handName] = row.key.split(":"); const hand = handName as HandName;
+    const shot = row.striker === "bow" && previous.thrust[hand] && !intent[hand].thrust;
+    const committed = row.striker !== "bow" && ((intent[hand].thrust && !previous.thrust[hand]) ||
+      (previous.guard[hand] && !intent[hand].guard));
+    if (shot || committed) record._engagement.attack(row.key, view.clock);
+  }
+  for (const hand of HANDS) { previous.thrust[hand] = intent[hand].thrust; previous.guard[hand] = intent[hand].guard; }
+}
+export function recordBehaviourSample(record: BehaviourRecord, view: FighterView, option: OptionName | null, dt: number,
+  previous: { option?: OptionName | null; twistSign?: number; optionSince?: number }): void {
   const bin = view.measure < 0.7 ? 0 : view.measure < 1.2 ? 1 : view.measure < 1.8 ? 2 : 3; record.rangeBins[bin] += dt;
   if (option) record.options[option] += dt;
-  if (option && previous.option !== option && ATTACK_OPTION_NAMES.includes(option)) record.attackAttempts[option] += 1;
+  record._engagement.sample(view, dt);
+  if (option && previous.option !== option && ATTACK_OPTION_NAMES.includes(option)) {
+    record.attackAttempts[option] += 1;
+    const matching = attackOpportunity(view).filter((row) => row.viable && (
+      option === "shoot" ? row.striker === "bow" : option === "bite" ? row.key === "natural:bite"
+        : option === "punch" ? row.striker === "empty"
+        : option === "cut" ? row.striker !== "empty" && row.striker !== "bow" : true));
+    for (const row of matching) record._engagement.attack(row.key, view.clock);
+  }
   if (option && previous.option && previous.option !== option) { const key = `${previous.option}->${option}`; record.transitions[key] = (record.transitions[key] ?? 0) + 1; }
+  if (option !== previous.option) {
+    if (previous.option !== undefined && previous.optionSince !== undefined) {
+      record.longestOptionOccupancySeconds = Math.max(record.longestOptionOccupancySeconds, view.clock - previous.optionSince);
+    }
+    previous.optionSince = view.clock;
+  } else if (option && previous.optionSince !== undefined) {
+    record.longestOptionOccupancySeconds = Math.max(record.longestOptionOccupancySeconds, view.clock + dt - previous.optionSince);
+  }
   const sign = Math.sign(view.self.trunkTwist); if (previous.twistSign && sign && previous.twistSign !== sign) record.trunkTwistSignChanges += 1;
   previous.option = option; if (sign) previous.twistSign = sign; record.crouchTime += view.self.crouch * dt; record.vitality = view.self.vitality; record.seconds += dt;
 }

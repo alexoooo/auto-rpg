@@ -135,10 +135,6 @@ export interface Matchup {
  * already exists -- and because a label is a promise that the choice does not
  * matter, which is not what is meant here.
  */
-export const UNITS: readonly { name: string; label: string }[] = [
-  { name: "warrior", label: "Warrior" },
-];
-
 /**
  * What the screen opens on.
  *
@@ -277,6 +273,8 @@ export interface PartState {
   health: number;
   maxHealth: number;
   severed: boolean;
+  readonly vitalityWeight?: number;
+  readonly fatal?: boolean;
 }
 
 /**
@@ -361,7 +359,7 @@ export function vitality(parts: readonly PartState[]): number {
   if (parts.length === 0) return 1;
   let injury = 0;
   for (const part of parts) {
-    const weight = vitalWeight(part.key);
+    const weight = part.vitalityWeight ?? vitalWeight(part.key);
     if (!Number.isFinite(part.maxHealth) || part.maxHealth <= 0) {
       throw new Error(`invalid maxHealth for vital part "${part.key}"`);
     }
@@ -379,7 +377,10 @@ export function vitality(parts: readonly PartState[]): number {
 }
 
 export function beaten(parts: readonly PartState[]): boolean {
-  return parts.length > 0 && vitality(parts) === 0;
+  return parts.length > 0 && (
+    parts.some((part) => part.fatal === true && (part.severed || part.health <= 0)) ||
+    vitality(parts) === 0
+  );
 }
 
 const KIND_NOUN: Record<HitKind, string> = {
@@ -473,8 +474,8 @@ export function begin(state: BoutState, matchup: Matchup): BoutState {
  * whole share of it.
  */
 export function restart(state: BoutState): BoutState {
-  if (state.phase !== "fight") return state;
-  return { ...state, clock: 0, outcome: null };
+  if (state.phase === "select") return state;
+  return { phase: "fight", matchup: state.matchup, clock: 0, outcome: null };
 }
 
 /**

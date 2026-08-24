@@ -224,7 +224,7 @@ function drive(mind, seconds, viewFor) {
 test("the picker offers exactly the policies that exist", () => {
   assert.deepEqual(
     POLICIES.map((policy) => policy.name),
-    ["idle", "swinger", "duelist", "archer"],
+    ["idle", "swinger", "duelist", "archer", "crawler"],
   );
   for (const policy of POLICIES) {
     assert.equal(policyMind(policy.name, 1).name, policy.name);
@@ -337,6 +337,42 @@ test("an_unarmed_policy_punches_instead_of_swinging_an_imaginary_sword", () => {
       `${name} should chamber the fist before punching`,
     );
   }
+});
+
+test("an_unarmed_duelist_closes_through_its_sword_crowding_threshold", () => {
+  const outsidePunchRange = facing({
+    gap: 0.90,
+    measure: 0.50,
+    mine: { primary: "empty", secondary: "empty" },
+    theirs: { primary: "empty", secondary: "empty" },
+  });
+  const intent = ask(policyMind("duelist", 17), outsidePunchRange);
+  assert.ok(intent.forward > 0,
+    `bare feet should close at measure ${outsidePunchRange.measure}, got ${intent.forward}`);
+
+  const touching = facing({ gap: 0.58, measure: 0.15,
+    mine: { primary: "empty", secondary: "empty" },
+    theirs: { primary: "empty", secondary: "empty" } });
+  assert.ok(ask(policyMind("duelist", 17), touching).forward < 0,
+    "genuine body-to-body crowding still disengages");
+});
+
+test("a_duelist_presents_its_shield_to_a_bow_instead_of_guarding_an_inert_tip", () => {
+  const make = (tip) => {
+    const v = facing({ gap: 3,
+      mine: { primary: "sword", secondary: "shield" },
+      theirs: { primary: "bow", secondary: "empty" } });
+    putTip(v, tip);
+    return v;
+  };
+  const nearTip = ask(policyMind("duelist", 23), make({ x: 0.8, y: 0.4, z: 0.3 }));
+  const farTip = ask(policyMind("duelist", 23), make({ x: -1.2, y: 2.3, z: 4.0 }));
+  assert.deepEqual(
+    [nearTip.secondary.pointerX, nearTip.secondary.pointerY, nearTip.secondary.roll],
+    [farTip.secondary.pointerX, farTip.secondary.pointerY, farTip.secondary.roll],
+    "bow-tip pose cannot steer the guard; the observable shooter-to-chest line does",
+  );
+  assert.ok(nearTip.secondary.pointerX > 0.35 && nearTip.secondary.pointerY > CONFIG.arm.restPointerY + 0.5);
 });
 
 test("two_duelist_fists_leave_the_hand_nearest_the_actual_dangerous_hand_on_cover", () => {

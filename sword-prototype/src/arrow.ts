@@ -153,6 +153,8 @@ export class Arrow {
    * exists or which order they were added in.
    */
   private touched = false;
+  /** The one body entitled to score the contact that made this arrow spent. */
+  private firstContact: PhysicsBody | null = null;
   /** Set by the contact callback, applied by `step`. See `onContact`. */
   private planting = false;
 
@@ -272,6 +274,7 @@ export class Arrow {
     this.live = false;
     this.struck = false;
     this.touched = false;
+    this.firstContact = null;
     this.planting = false;
     this.age = 0;
     this.shape.filterMembershipMask = 0;
@@ -299,6 +302,7 @@ export class Arrow {
     this.live = true;
     this.struck = false;
     this.touched = false;
+    this.firstContact = null;
     this.planting = false;
     this.age = 0;
     this.shape.filterMembershipMask = this.layer;
@@ -344,6 +348,7 @@ export class Arrow {
     if (event.type === PhysicsEventType.COLLISION_FINISHED) return;
     if (!this.live || this.touched) return;
     this.touched = true;
+    this.firstContact = event.collidedAgainst;
     // Standing in the ground is what a spent arrow looks like; hanging in the
     // air where a fighter used to be is not. So it plants only in the world.
     const into = event.collidedAgainst;
@@ -385,8 +390,8 @@ export class Arrow {
       this.body.setLinearVelocity(Vector3.Zero());
       this.body.setAngularVelocity(Vector3.Zero());
       this.body.setMotionType(PhysicsMotionType.STATIC);
-      this.shape.filterMembershipMask = LAYER.DEBRIS;
-      this.shape.filterCollideMask = COLLIDES.DEBRIS;
+      this.shape.filterMembershipMask = LAYER.SPENT_ARROW;
+      this.shape.filterCollideMask = COLLIDES.SPENT_ARROW;
     } else if (this.struck) {
       // Into a body rather than into the world. It cannot be pinned there --
       // the thing it hit is moving, and an arrow welded to a limb is a session
@@ -401,8 +406,8 @@ export class Arrow {
       const keep = 1 - CONFIG.arrow.stickDamping;
       this.body.setLinearVelocity(this.body.getLinearVelocity().scaleInPlace(keep));
       this.body.setAngularVelocity(this.body.getAngularVelocity().scaleInPlace(keep));
-      this.shape.filterMembershipMask = LAYER.DEBRIS;
-      this.shape.filterCollideMask = COLLIDES.DEBRIS;
+      this.shape.filterMembershipMask = LAYER.SPENT_ARROW;
+      this.shape.filterCollideMask = COLLIDES.SPENT_ARROW;
     }
 
     const spent = this.struck ? CONFIG.arrow.stickSeconds : CONFIG.arrow.lifeSeconds;
@@ -410,6 +415,10 @@ export class Arrow {
   }
 
   // ---- what `Combat` reads -----------------------------------------------
+
+  allowsContact(body: PhysicsBody): boolean {
+    return !this.struck && this.touched && body === this.firstContact;
+  }
 
   /** World direction along the shaft, nock to head. Cache-free, as everything
    *  read on the control step has to be. */
@@ -564,8 +573,18 @@ export class Quiver {
   /** How many are out, which is what a readout would want. */
   get flying(): number {
     let n = 0;
-    for (const arrow of this.arrows) if (arrow.live) n += 1;
+    for (const arrow of this.arrows) if (arrow.live && !arrow.spent) n += 1;
     return n;
+  }
+
+  get spent(): number {
+    let n = 0;
+    for (const arrow of this.arrows) if (arrow.live && arrow.spent) n += 1;
+    return n;
+  }
+
+  get parked(): number {
+    return this.arrows.length - this.flying - this.spent;
   }
 
   dispose(): void {

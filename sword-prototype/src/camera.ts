@@ -20,3 +20,39 @@ export function horizontalForward(
   }
   return { x: 0, z: 1 };
 }
+
+export interface CameraGestureState {
+  mode: "none" | "orbit" | "pan";
+  pointerId: number | null;
+  yaw: number;
+  pitch: number;
+  panX: number;
+  panZ: number;
+}
+
+export const wrapCameraYaw = (yaw: number): number => {
+  const turn = Math.PI * 2;
+  return ((yaw + Math.PI) % turn + turn) % turn - Math.PI;
+};
+
+export function dragCamera(
+  state: CameraGestureState,
+  dx: number,
+  dy: number,
+  sensitivity: number,
+  panLimit: number,
+): CameraGestureState {
+  if (state.mode === "none") return { ...state };
+  if (state.mode === "orbit") {
+    return {
+      ...state,
+      yaw: wrapCameraYaw(state.yaw - dx * sensitivity),
+      pitch: Math.max(-0.65, Math.min(0.65, state.pitch - dy * sensitivity)),
+    };
+  }
+  return {
+    ...state,
+    panX: Math.max(-panLimit, Math.min(panLimit, state.panX - dx * sensitivity * 4)),
+    panZ: Math.max(-panLimit, Math.min(panLimit, state.panZ - dy * sensitivity * 4)),
+  };
+}

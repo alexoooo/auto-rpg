@@ -15,6 +15,7 @@ import { Takeover, Targeting } from "./targeting";
 import { RigView } from "./rigview";
 import { Blood } from "./blood";
 import { advanceFight, FightEnd } from "./fight-end";
+import { pauseHost, restartHost, resumeHost, runActiveHostFrame, type RunningHost } from "./host-run";
 import { SetupScreen } from "./setup";
 import type { Side } from "./physics";
 import {
@@ -28,14 +29,13 @@ import {
   type ArmPose,
   type Mind,
 } from "./mind";
-import { kindOrEmpty } from "./hands";
+import { isArticulatedCombatant, loadoutForUnit, policyForUnit, unitDefinition, type Combatant } from "./units";
 import { metaDiagnostic } from "./learning/meta";
 import {
   begin,
   defaultMatchup,
   humanSide,
   pauseAction,
-  restart,
   selectScreen,
   takeBody,
   toSelect,
@@ -74,7 +74,7 @@ const need = <T extends HTMLElement>(id: string): T => {
  * reads -- a facing it does not own, and a point on the ground it follows -- so
  * anything else shaped like a fighter satisfies it without having to be one.
  */
-type CameraSubject = Pick<Fighter, "pelvis" | "feetPosition">;
+type CameraSubject = Combatant;
 
 const MODE_TEXT: Record<string, string> = {
   free: "",
@@ -195,13 +195,7 @@ async function boot(): Promise<void> {
       // because the thing you want after a bout is the same bout again -- and
       // because a decided fight rebuilt in place would give you no chance to
       // change your mind about it.
-      if (state.phase === "select") return;
-      if (state.phase === "over") {
-        leave();
-        return;
-      }
-      state = restart(state);
-      rebuild();
+      restartBout({ resume: true });
     },
     onToggleReadout: () => hud.toggle(),
     onToggleRig: () => rigview.toggle(),
@@ -251,6 +245,7 @@ async function boot(): Promise<void> {
           break;
       }
     },
+    onPauseOnly: () => pause(),
     onToggleHelp: () => toggleHelp(),
     onToggleLock: () => targeting.toggle(),
     onSwapHands: () => {
@@ -261,6 +256,7 @@ async function boot(): Promise<void> {
       // over without seeding snaps to wherever the mouse happens to be at the
       // full 850 N the grip can pull.
       const fighter = yours();
+      if (!isArticulatedCombatant(fighter)) return;
       if (!fighter.armed) return;
       const seed = cursorForPose(fighter.armPoses()[controls.state.driving], controls.state.driving);
       const hand = controls.state[controls.state.driving];
@@ -316,7 +312,9 @@ async function boot(): Promise<void> {
    * body would, and there is nothing new to choose on the screen.
    */
   const mindFor = (side: SideSetup): Mind =>
-    side.control === "you" ? splitMind(you, policyMind(side.policy)) : policyMind(side.policy);
+    side.control === "you"
+      ? splitMind(you, policyMind(policyForUnit(side.unit, side.policy)), controls.ownership)
+      : policyMind(policyForUnit(side.unit, side.policy));
 
   /**
    * What a corner's two pickers mean to a body.
@@ -330,10 +328,7 @@ async function boot(): Promise<void> {
    * empty hand is the honest thing to put in a hand whose contents nobody
    * recognises, and it is what the picker's own default already is.
    */
-  const loadoutFor = (side: SideSetup) => ({
-    primary: kindOrEmpty(side.handA),
-    secondary: kindOrEmpty(side.handB),
-  });
+  const loadoutFor = (side: SideSetup) => loadoutForUnit(side.unit, side.handA, side.handB);
 
   /**
    * Two fighters of the same kind, facing each other, one `Combat` per side
@@ -346,28 +341,26 @@ async function boot(): Promise<void> {
    */
   const buildBout = (matchup: Matchup) => {
     const F = CONFIG.fighter;
-    const left = new Fighter(
-      arena.scene,
-      {
+    const leftDefinition = unitDefinition(matchup.left.unit);
+    const rightDefinition = unitDefinition(matchup.right.unit);
+    const left = leftDefinition.build({
+        scene: arena.scene,
         side: "left",
         origin: Vector3.Zero(),
         facing: 0,
         mind: mindFor(matchup.left),
         loadout: loadoutFor(matchup.left),
-      },
-      arena.materials,
-    );
-    const right = new Fighter(
-      arena.scene,
-      {
+        materials: arena.materials,
+      });
+    const right = rightDefinition.build({
+        scene: arena.scene,
         side: "right",
         origin: new Vector3(0, 0, F.separation),
         facing: Math.PI,
         mind: mindFor(matchup.right),
         loadout: loadoutFor(matchup.right),
-      },
-      arena.materials,
-    );
+        materials: arena.materials,
+      });
     const leftStrikers = left.strikers;
     const rightStrikers = right.strikers;
     const sides = [
@@ -382,8 +375,8 @@ async function boot(): Promise<void> {
     // a body or pooled arrow, so the render loop follows both fighters and the
     // actual projectile trace without minting a target list every frame.
     const occlusionTargets: RoomOcclusionTarget[] = [
-      { point: left.pelvis.mesh.position }, { point: left.torso.mesh.position }, { point: left.head.mesh.position },
-      { point: right.pelvis.mesh.position }, { point: right.torso.mesh.position }, { point: right.head.mesh.position },
+      ...left.occlusionPoints().map((point) => ({ point })),
+      ...right.occlusionPoints().map((point) => ({ point })),
     ];
     for (const striker of [...leftStrikers, ...rightStrikers]) {
       if (!(striker instanceof Arrow)) continue;
@@ -409,8 +402,30 @@ async function boot(): Promise<void> {
    * takes the left one and the aim indicator draws where its policy is pointing,
    * which is the most useful thing to be watching when nobody is playing.
    */
-  const yours = (): Fighter => (humanSide(state.matchup) === "right" ? bout.right : bout.left);
-  const theirs = (): Fighter => (humanSide(state.matchup) === "right" ? bout.left : bout.right);
+  const yours = (): Combatant => (humanSide(state.matchup) === "right" ? bout.right : bout.left);
+  const theirs = (): Combatant => (humanSide(state.matchup) === "right" ? bout.left : bout.right);
+
+  const ownPosture = need<HTMLInputElement>("own-posture");
+  const ownWrist = need<HTMLInputElement>("own-wrist");
+  const seedOwnedChannels = (): void => {
+    const fighter = yours();
+    controls.state.posture.crouch = fighter.view.self.crouch;
+    controls.state.posture.trunkLean = fighter.view.self.trunkLean;
+    controls.state.posture.trunkTwist = fighter.view.self.trunkTwist;
+    if (!isArticulatedCombatant(fighter)) return;
+    const poses = fighter.armPoses();
+    for (const name of HANDS) {
+      controls.state[name].roll = poses[name].roll;
+      controls.state[name].wristBend = poses[name].wristBend;
+    }
+  };
+  const updateOwnership = (): void => {
+    seedOwnedChannels();
+    controls.ownership.posture = ownPosture.checked;
+    controls.ownership.drivenWrist = ownWrist.checked;
+  };
+  ownPosture.addEventListener("change", updateOwnership);
+  ownWrist.addEventListener("change", updateOwnership);
 
   const hud = new Hud(need("hud"));
   const aim = new AimIndicator(arena.scene);
@@ -419,7 +434,14 @@ async function boot(): Promise<void> {
   const takeover = new Takeover(arena.scene);
   takeover.attach(bout.left, bout.right);
   const rigview = new RigView(arena.scene);
-  rigview.attach(bout.sides);
+  const attachRig = (): void => {
+    if (isArticulatedCombatant(bout.left) && isArticulatedCombatant(bout.right)) {
+      rigview.attach(bout.sides as { fighter: Fighter; combat: Combat }[]);
+    } else {
+      rigview.attach([]);
+    }
+  };
+  attachRig();
   const blood = new Blood(arena.scene);
   refreshShadowCasters(arena.scene, arena.shadows);
 
@@ -505,7 +527,7 @@ async function boot(): Promise<void> {
 
     targeting.attach(yours(), theirs());
     takeover.attach(bout.left, bout.right);
-    rigview.attach(bout.sides);
+    attachRig();
     if (rigWasUp) rigview.show();
     refreshShadowCasters(arena.scene, arena.shadows);
     placeCamera(yours(), 0, true);
@@ -562,6 +584,9 @@ async function boot(): Promise<void> {
       // takeover frame itself exact, and `handover`'s rebase window is what
       // carries it across the frames after that.
       if (incoming === you) {
+        controls.state.posture.crouch = fighter.view.self.crouch;
+        controls.state.posture.trunkLean = fighter.view.self.trunkLean;
+        controls.state.posture.trunkTwist = fighter.view.self.trunkTwist;
         // Both hands, because whichever one the cursor is not on is still being commanded
         // from a pose it knows nothing about.
         for (const name of HANDS) {
@@ -607,6 +632,7 @@ async function boot(): Promise<void> {
 
     const before = humanSide(state.matchup);
     const target = side === "left" ? bout.left : bout.right;
+    if (!isArticulatedCombatant(target)) return null;
 
     // No branch for "you already drive this one", deliberately, and it is the
     // same argument the seam itself rests on. Re-taking your own body seeds from
@@ -618,6 +644,7 @@ async function boot(): Promise<void> {
     let released: HandReading | null = null;
     if (before && before !== side) {
       const leaving = before === "left" ? bout.left : bout.right;
+      if (!isArticulatedCombatant(leaving)) return null;
       // A whole policy, not a split one: nobody is driving that body any more, so
     // both of its hands go back to the mind the corner names.
     released = handOver(leaving, before, policyMind(state.matchup[before].policy));
@@ -678,7 +705,14 @@ async function boot(): Promise<void> {
     // The clock is `Combat`'s, which is simulation seconds since this bout was
     // built and is the same clock every `HitReport` is stamped with -- so a mind
     // that wants to know how long ago it was hit can subtract.
-    stepPair(bout.left, bout.right, FIXED_STEP, bout.sides[0].combat.now);
+    if (bout.ending.isActive) {
+      stepPair(bout.left, bout.right, FIXED_STEP, bout.sides[0].combat.now);
+    } else {
+      // A projectile already away belongs to the world after the verdict. The
+      // arms no longer pose or shoot, but the pool must still age and recycle.
+      bout.left.stepProjectiles(FIXED_STEP);
+      bout.right.stepProjectiles(FIXED_STEP);
+    }
     // Here rather than at the swap, because the quantity is what the *new* mind
     // commanded and this is the first step it has been asked.
     if (pending.length > 0) settlePending();
@@ -705,15 +739,26 @@ async function boot(): Promise<void> {
     if (screen) curtain.dataset.screen = screen;
   };
 
+  const runningHost: RunningHost = {
+    get active() { return controls.isActive; },
+    setPhysics: (enabled) => { arena.scene.physicsEnabled = enabled; },
+    startControls: () => controls.start(),
+    pauseControls: () => controls.pause(),
+    showPaused: (paused) => showScreen(paused ? "paused" : null),
+    rebuild,
+  };
+
   /** The pause, and the three ways out of it, in one place so they agree. */
   const resume = (): void => {
-    showScreen(null);
-    controls.start();
+    resumeHost(runningHost);
   };
 
   const pause = (): void => {
-    controls.pause();
-    showScreen("paused");
+    pauseHost(runningHost);
+  };
+
+  const restartBout = ({ resume: shouldResume }: { resume: boolean }): void => {
+    state = restartHost(state, runningHost, shouldResume);
   };
 
   /**
@@ -728,6 +773,7 @@ async function boot(): Promise<void> {
   const leave = (): void => {
     state = toSelect(state);
     controls.pause();
+    arena.scene.physicsEnabled = false;
     takeover.cancel();
     setup.show(state.matchup);
     showScreen("setup");
@@ -746,11 +792,7 @@ async function boot(): Promise<void> {
 
   resumeButton.addEventListener("click", resume);
   restartButton.addEventListener("click", () => {
-    // The same thing `R` does mid-fight, and it stays paused afterwards: you
-    // pressed it from behind a curtain, so lifting the curtain as a side effect
-    // would be the button doing two things.
-    state = restart(state);
-    rebuild();
+    restartBout({ resume: true });
   });
   leaveButton.addEventListener("click", leave);
 
@@ -799,22 +841,32 @@ async function boot(): Promise<void> {
       // its own.
       // Pelvis, not torso: leaning or twisting the chest must not roll the
       // camera or swing its bearing away from locomotion heading.
-      const world = follow.pelvis.mesh.getWorldMatrix();
-      const horizontal = horizontalForward(world.m[8], world.m[10], forward.x, forward.z);
+      const world = isArticulatedCombatant(follow) ? follow.pelvis.mesh.getWorldMatrix() : null;
+      const horizontal = world
+        ? horizontalForward(world.m[8], world.m[10], forward.x, forward.z)
+        : horizontalForward(forward.x, forward.z, 0, 1);
       forward.set(horizontal.x, 0, horizontal.z);
     }
+
+    const gesture = controls.camera;
+    const bearing = Math.atan2(forward.x, forward.z) + gesture.yaw;
+    forward.set(Math.sin(bearing), 0, Math.cos(bearing));
 
     // Both goals are built from the fighter's position on the ground, so the
     // framing does not shift when the torso's centre height is retuned. Zoom
     // scales distance and height together, so the camera slides along its own
     // sight line and the angle you read the arena at never changes.
     const feet = follow.feetPosition();
+    feet.x += gesture.panX;
+    feet.z += gesture.panZ;
     const zoom = controls.state.zoom;
+    const orbitDistance = P.distance * Math.cos(gesture.pitch);
+    const orbitHeight = P.height + Math.sin(gesture.pitch) * P.distance;
 
     cameraGoal
       .copyFrom(feet)
-      .subtractInPlace(forward.scale(P.distance * zoom))
-      .addInPlaceFromFloats(0, P.height * zoom, 0);
+      .subtractInPlace(forward.scale(orbitDistance * zoom))
+      .addInPlaceFromFloats(0, orbitHeight * zoom, 0);
 
     lookGoal
       .copyFrom(feet)
@@ -885,41 +937,35 @@ async function boot(): Promise<void> {
     const dt = Math.min(engine.getDeltaTime() / 1000, CONFIG.world.maxFrameSeconds);
     if (dt <= 0) return;
 
-    if (controls.isActive) {
+    runActiveHostFrame(runningHost, () => {
       controls.sample(dt);
       targeting.releaseIfSteering(controls.state.turn);
       // One owner of the cursor's outline at a time; see `Targeting.update`.
       targeting.update(dt, !takeover.isArmed);
       takeover.update(dt);
-    }
-
-    for (const side of bout.sides) side.combat.advance(dt);
-    // After `advance`, so a report filed this frame is already timestamped, and
-    // outside the `isActive` guard above: a blow struck on the frame the window
-    // lost focus should still finish bleeding rather than freeze in the air.
-    drawBlood();
-    blood.update(dt);
+      for (const side of bout.sides) side.combat.advance(dt);
+      // After `advance`, so a report filed this frame is already timestamped.
+      drawBlood();
+      blood.update(dt);
     // The rules get the rendered frame's delta, which is the same clock
     // `Combat` counts on, so the cap and a report's timestamp are comparable.
     // Only while the fight is actually running: a bout paused behind the curtain
     // must not quietly run out its sixty seconds.
-    if (controls.isActive) {
       state = advanceFight(state, ring(), dt, bout.ending);
       // The per-bout coordinator owns the one-shot edge and is rebuilt with the
       // bodies. Observers remain installed: blood, corpse integration,
       // rendering and camera all continue after attack authority has ended.
       // `advanceFight` delivers the old-to-new phase edge to that coordinator.
-    }
+      const driven = yours();
+      placeCamera(driven, dt, false);
+      arena.updateRoomOcclusion(bout.occlusionTargets);
 
-    const driven = yours();
-    placeCamera(driven, dt, false);
-    arena.updateRoomOcclusion(bout.occlusionTargets);
-
-    aim.update(driven.feetPosition(), driven.aimPoint());
-    // The overlay's three numbers follow whoever is being driven, and the panel
-    // names the side, because they used to be the left fighter's by definition
-    // and `C` made that a thing that can change under you.
-    rigview.update(dt, humanSide(state.matchup));
+      aim.update(driven.feetPosition(), driven.aimPoint());
+      // The overlay's three numbers follow whoever is being driven, and the panel
+      // names the side, because they used to be the left fighter's by definition
+      // and `C` made that a thing that can change under you.
+      rigview.update(dt, humanSide(state.matchup));
+    });
     arena.scene.render();
 
     if (noticeLeft > 0) {
@@ -973,12 +1019,13 @@ async function boot(): Promise<void> {
         return reading ? [[side, reading] as const] : [];
       }),
     );
+    const driven = yours();
     hud.update(
       {
         fps: engine.getFps(),
         physicsMs,
-        tipSpeed: driven.sword?.tipSpeed() ?? 0,
-        edgeAlignment: edgeAlignmentNow(driven),
+        tipSpeed: isArticulatedCombatant(driven) ? driven.sword?.tipSpeed() ?? 0 : 0,
+        edgeAlignment: isArticulatedCombatant(driven) ? edgeAlignmentNow(driven) : 0,
         meshes: arena.scene.meshes.length,
         rig: rigview.readout(),
         driving: humanSide(state.matchup),

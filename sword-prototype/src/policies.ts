@@ -27,7 +27,7 @@ import {
   type HandName,
 } from "./hands.ts";
 import type { BodyView, FighterView, HandIntent, HandView, Intent, Mind } from "./mind.ts";
-import { ACTION_SHOT_TIMING, ACTION_STROKE_TIMING, actionAimAt, actionArcherAim, actionCoverAt, actionDistance, actionShotPhase,
+import { ACTION_SHOT_TIMING, ACTION_STROKE_TIMING, actionAimAt, actionArcherAim, actionCoverAt, actionDistance, actionShotPhase, bareCrowdDistance, bareHoldDistance,
   actionStrokePose, actionStrokeReading, actionStrokeRoll, applyActionPosture, freshIntent, strokePoint } from "./action-primitives.ts";
 
 /**
@@ -204,6 +204,15 @@ function shootHand(view: FighterView, prefer: HandName): HandName {
  */
 function threatHand(body: BodyView): HandView {
   const { primary, secondary } = body.hands;
+  if (!primary || !secondary) return {
+    weapon: "empty",
+    shoulder: body.shoulder,
+    tip: body.tip,
+    tipSpeed: body.tipSpeed,
+    reach: body.reach,
+    lost: false,
+    outboard: 1,
+  };
   const lead = !primary.lost && isStriking(primary.weapon);
   const off = !secondary.lost && isStriking(secondary.weapon);
   if (lead && off) return primary.tipSpeed >= secondary.tipSpeed ? primary : secondary;
@@ -343,7 +352,13 @@ function threatPoint(
   into: Point,
 ): Point {
   const them = view.opponent;
-  if (tipGap < bodyGap) {
+  if (isShooting(threat.weapon)) {
+    // A held bow tip is not a melee striker and says nothing about the next
+    // shot. Present the guard to the observable shooter-to-vitals line instead.
+    into.x = them.ground.x;
+    into.y = them.shoulder.y;
+    into.z = them.ground.z;
+  } else if (tipGap < bodyGap) {
     into.x = threat.tip.x;
     into.y = threat.tip.y;
     into.z = threat.tip.z;
@@ -1445,10 +1460,13 @@ export function duelistMind(seed = randomSeed()): Mind {
       // in `docs/measurements.md` was taken, and 1.145 and 1.225 for an axe.
       const reach = view.self.hands[attacker].reach;
       const bare = !hasHeldWeapon(view.self.hands[attacker].weapon);
-      const hold = bare ? FIST_RANGE + 0.06 : shiftedTo(DUELIST.hold, reach);
+      // Put the far edge of the dead band on punch range. Adding the slack here
+      // stops at 0.84 m and can never satisfy the 0.72 m commit gate.
+      const hold = bare ? bareHoldDistance() : shiftedTo(DUELIST.hold, reach);
       const strike = bare ? FIST_RANGE : shiftedTo(DUELIST.strike, reach);
 
-      if (view.measure < DUELIST.crowd) {
+      const crowd = bare ? bareCrowdDistance(reach) : DUELIST.crowd;
+      if (view.measure < crowd) {
         intent.forward = -0.8;
       } else if (gap > hold + DUELIST.slack) {
         intent.forward = clamp((gap - hold) * DUELIST.closeGain, 0, 1);

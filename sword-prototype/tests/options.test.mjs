@@ -4,16 +4,21 @@ import { readFile } from "node:fs/promises";
 
 import {
   OPTION_NAMES,
+  HAND_ACTION_NAMES,
+  MOVEMENT_NAMES,
   behaviourRecord,
   combatOption,
+  composeTactic,
+  handActionOption,
+  movementIntent,
   recordCombatEvent,
   recordBehaviourSample,
   scriptedMetaMind,
 } from "../src/options.ts";
-import { FEATURE_COLUMNS, FEATURE_MIRROR_SIGN, FEATURE_VERSION, FeatureWriter, mirrorView, writeFeatures } from "../src/learning/features.ts";
+import { FEATURE_COLUMNS, FEATURE_MIRROR_SIGN, FEATURE_VERSION, FeatureWriter, mirrorFeatures, mirrorView, writeFeatures } from "../src/learning/features.ts";
 import { INTENT_FIELDS, PARITY_CALIBRATION, PARITY_LIMITS, SEED_RANGES, evaluationMirrorSeeds, evaluationSeed, intentFieldDeltas, intentSequencesEqual, validateSeedRanges } from "../src/learning/evaluation.ts";
 import { archerMind, duelistMind } from "../src/policies.ts";
-import { ACTION_SHOT_TIMING, ACTION_STROKE_TIMING, ACTION_TUNING, actionShotPhase, actionStrokeReading } from "../src/action-primitives.ts";
+import { ACTION_SHOT_TIMING, ACTION_STROKE_TIMING, ACTION_TUNING, actionShotPhase, actionStrokeReading, bareCrowdDistance } from "../src/action-primitives.ts";
 import { WEAPON_KINDS } from "../src/hands.ts";
 
 const parts = () => Object.fromEntries([
@@ -72,6 +77,44 @@ test("every_option_returns_a_complete_bounded_intent", () => {
       intent.primary.pointerY, intent.secondary.pointerX, intent.secondary.pointerY]) {
       assert.ok(axis >= -1 && axis <= 1, `${name}: ${axis}`);
     }
+  }
+});
+
+test("movement_and_hand_action_compose_every_intent_field_exactly_once", () => {
+  const v = view(); const movement = movementIntent("close", v); const actionOption = handActionOption("cover");
+  actionOption.enter(v); const action = actionOption.decide(v, 1 / 240);
+  const intent = composeTactic(v, "close", "cover", movement, action);
+  assert.equal(intent.forward, movement.forward); assert.equal(intent.turn, movement.turn);
+  assert.deepEqual(intent.primary, action.primary); assert.deepEqual(intent.secondary, action.secondary);
+  assert.deepEqual(intent.posture, action.posture); complete(intent);
+});
+
+test("every_legal_tactic_pair_is_finite_bounded_and_capability_checked", () => {
+  const bite = view(); bite.self.naturalAttacks = { bite: { reach: 0.7, ready: true, active: false } }; bite.opponent.collisionRadius = 0.3;
+  const actionViews = { cover: view(), cut: view(), thrust: view(), punch: view({ primary: "empty", secondary: "empty" }),
+    shoot: view({ primary: "bow", secondary: "empty" }), bite, recover: view() };
+  for (const movement of MOVEMENT_NAMES) for (const action of HAND_ACTION_NAMES) {
+    const v = actionViews[action]; const option = handActionOption(action); option.enter(v);
+    complete(composeTactic(v, movement, action, movementIntent(movement, v), option.decide(v, 1 / 240)));
+  }
+});
+
+test("every_illegal_tactic_pair_refuses_both_requested_names", () => {
+  const v = view({ primary: "bow", secondary: "shield" });
+  const action = handActionOption("recover"); action.enter(v); const part = action.decide(v, 1 / 240);
+  assert.throws(() => composeTactic(v, "circle-left", "punch", movementIntent("circle-left", v), part),
+    /circle-left.*punch/);
+  const contaminated = movementIntent("hold", v); contaminated.primary.guard = true;
+  assert.throws(() => composeTactic(v, "hold", "recover", contaminated, part), /hold.*recover.*movement/);
+  const duplicate = structuredClone(part); duplicate.forward = 0.5;
+  assert.throws(() => composeTactic(v, "hold", "recover", movementIntent("hold", v), duplicate), /hold.*recover.*hand action/);
+});
+
+test("the_composed_scripted_controller_matches_the_frozen_legacy_trace", () => {
+  const legacy = duelistMind(991); const composed = scriptedMetaMind("duelist", 991); const v = view();
+  for (let frame = 0; frame < 720; frame += 1) {
+    v.clock = frame / 240; v.measure = frame < 200 ? 1.8 : 1.1; v.opponent.ground.z = v.measure + 0.2;
+    assert.deepEqual(composed.decide(v, 1 / 240), legacy.decide(v, 1 / 240));
   }
 });
 
@@ -144,8 +187,43 @@ test("the_meta_guard_uses_the_same_fallback_after_both_enemy_arms_are_gone", () 
     duelistMind(991).decide(v, 1 / 240));
 });
 
+test("legacy_and_scripted_meta_use_the_same_bare_crowding_boundary", () => {
+  for (const measure of [bareCrowdDistance(0.6) - 0.01, bareCrowdDistance(0.6) + 0.01]) {
+    const v = view({ primary: "empty", secondary: "empty" });
+    v.opponent.ground.z = 0.78;
+    v.opponent.shoulder.z = 0.78;
+    v.measure = measure;
+    const legacy = duelistMind(51).decide(v, 1 / 240);
+    const meta = scriptedMetaMind("duelist", 51).decide(v, 1 / 240);
+    assert.equal(Math.sign(meta.forward), Math.sign(legacy.forward), `measure ${measure}`);
+  }
+});
+
+test("a_bare_scripted_meta_duelist_can_enter_punch_range", () => {
+  const meta = scriptedMetaMind("duelist", 7);
+  const v = view({ primary: "empty", secondary: "empty" });
+  v.opponent.shoulder.x = v.self.shoulder.x;
+  v.opponent.ground.z = 0.90;
+  v.opponent.shoulder.z = 0.90;
+  v.measure = 0.65;
+  let closed = false;
+  let punched = false;
+  for (let i = 0; i < 1200; i += 1) {
+    v.clock = i / 240;
+    const intent = meta.decide(v, 1 / 240);
+    closed ||= intent.forward > 0;
+    const progress = Math.max(0, intent.forward) / 60;
+    v.opponent.ground.z = Math.max(0.70, v.opponent.ground.z - progress);
+    v.opponent.shoulder.z = v.opponent.ground.z;
+    v.measure = v.opponent.ground.z - 0.25;
+    punched ||= meta.selected === "punch";
+  }
+  assert.equal(closed, true);
+  assert.equal(punched, true, JSON.stringify({ z: v.opponent.shoulder.z, measure: v.measure, entries: meta.entries }));
+});
+
 test("feature_columns_are_total_finite_and_versioned", () => {
-  assert.equal(FEATURE_VERSION, 2);
+  assert.equal(FEATURE_VERSION, 3);
   assert.equal(new Set(FEATURE_COLUMNS).size, FEATURE_COLUMNS.length);
   const values = writeFeatures(view());
   assert.equal(values.length, FEATURE_COLUMNS.length);
@@ -159,7 +237,7 @@ test("feature_columns_are_total_finite_and_versioned", () => {
   }
   const writer = new FeatureWriter(); const moving = view(); moving.clock = 0; writer.write(moving);
   moving.clock = 0.1; moving.measure -= 0.29;
-  assert.ok(writer.write(moving)[FEATURE_COLUMNS.indexOf("closing_rate")] > 0.9);
+  assert.ok(writer.write(moving)[FEATURE_COLUMNS.indexOf("radial_closing_rate")] > 0.9);
   const coherent = view({ primary: "sword", secondary: "empty" }, { primary: "shield", secondary: "sword" });
   coherent.opponent.hands.primary.tipSpeed = 30; coherent.opponent.hands.secondary.tipSpeed = 7;
   coherent.opponent.hands.secondary.tip.x = 0.8;
@@ -174,10 +252,28 @@ test("mirroring_a_view_mirrors_directional_features_and_preserves_scalar_ones", 
   const asymmetric = view(); asymmetric.opponent.ground.x = 0.7; asymmetric.opponent.shoulder.x = 0.7;
   const original = writeFeatures(asymmetric);
   const mirrored = writeFeatures(mirrorView(asymmetric));
-  for (let i = 0; i < FEATURE_COLUMNS.length; i += 1) {
-    assert.ok(Math.abs(mirrored[i] - FEATURE_MIRROR_SIGN[i] * original[i]) < 1e-12,
-      FEATURE_COLUMNS[i]);
+  assert.deepEqual(mirrored, mirrorFeatures(original));
+});
+
+test("feature_v3_has_total_readers_resets_variance_and_exact_mirror_signs", () => {
+  const v = view(); v.clock = 0; const writer = new FeatureWriter(); const initial = writer.write(v);
+  writer.setTactic("circle-left", "cut", 0.1);
+  v.clock = 0.4; v.measure -= 0.25; v.opponent.vitality -= 0.1; v.opponent.ground.x = 0.8;
+  const changed = writer.write(v);
+  for (const name of ["usable_reach_margin", "radial_closing_rate", "facing_error", "current_movement_circle-left",
+    "current_action_cut", "persistence_age", "time_since_damage"]) {
+    const index = FEATURE_COLUMNS.indexOf(name); assert.notEqual(index, -1, name); assert.ok(Number.isFinite(changed[index]), name);
   }
+  assert.notDeepEqual(changed, initial); assert.deepEqual(mirrorFeatures(mirrorFeatures(changed)), changed);
+  writer.reset(); const reset = writer.write(v);
+  assert.equal(reset[FEATURE_COLUMNS.indexOf("current_movement_hold")], 1);
+  assert.equal(reset[FEATURE_COLUMNS.indexOf("current_action_recover")], 1);
+  assert.equal(reset[FEATURE_COLUMNS.indexOf("persistence_age")], 0);
+  assert.equal(reset[FEATURE_COLUMNS.indexOf("time_since_damage")], 1);
+  const crawler = view(); crawler.self.hands = {}; crawler.self.naturalAttacks = { bite: { reach: 0.7, ready: true, active: false } };
+  crawler.opponent.collisionRadius = 0.3; crawler.measure = 0.8;
+  assert.ok(writeFeatures(crawler)[FEATURE_COLUMNS.indexOf("usable_reach_margin")] > 0,
+    "published natural reach plus target surface radius is usable without fabricated hands");
 });
 
 test("the_behaviour_record_counts_events_instead_of_the_truncated_combat_log", () => {

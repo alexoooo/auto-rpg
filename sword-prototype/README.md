@@ -87,7 +87,10 @@ the arm drifted, centre was unrecoverable, and you could not get your mouse back
 | Q / E | turn |
 | Left button | thrust — drive the point out. **Hold it with a bow**: draw, then let go to loose |
 | Right button | guard — pull the blade in close |
-| Middle button / L | arm a lock-on, then click an enemy; strafe to circle it, Q/E to break |
+| L | arm a lock-on, then click an enemy; strafe to circle it, Q/E to break |
+| Middle drag | orbit the camera; hold Shift to pan within the room |
+| Left Shift / arrows | crouch, lean and twist when direct posture is enabled |
+| Z / X, T / Y | roll and bend the driven wrist when direct wrist is enabled |
 | F | the mouse changes hands — the one it leaves goes back to its policy |
 | C | arm a takeover, then click either fighter — you drive that one and the one you leave picks its policy back up |
 | Wheel | zoom |
@@ -126,9 +129,10 @@ sword, shield, axe, bow and bare hands. It spent 88% of its decisions disengagin
 failed seven predeclared gates, so it is recorded as an unpromoted experiment rather than
 renamed `learned-v1`. The checkpoint loader, option diagnostic and five-loadout evaluator
 remain available for the next experiment; [the measurement record](docs/measurements.md)
-has the exact evidence. The current follow-up roadmap reopens that work with engagement and
-anti-stall gates, then compares NEAT with quality diversity, DAgger imitation, recurrent PPO
-self-play and bounded tactical look-ahead under one held-out tournament.
+has the exact evidence. The current research roadmap has already added factual engagement
+and anti-stall gates and factorized movement from hand action. Its remaining sessions compare
+recurrent NEAT with quality diversity, DAgger imitation, recurrent PPO self-play and bounded
+tactical look-ahead under one still-unopened held-out tournament.
 
 Losing your head is also the end of you as a body, and not only as a competitor. The torso
 stops being steered and falls under its own weight, every joint drops to a fraction of its
@@ -251,7 +255,13 @@ asked to jump on the frame it changed hands.
 browser — no export step, and the solver is native-speed WebAssembly with TypeScript only
 orchestrating it.
 
-A fighter is deliberately split in two, and there are two of them in the ring, of one kind.
+A humanoid fighter is deliberately split in two. **Warrior** is the baseline; **Broot** uses
+the same articulated anatomy at 1.18x scale, with 1.64x mass, 1.30x local health and 1.35x
+motor force, but 0.88x walking and turning speed. **Centipede** is a separate
+nine-body low crawler with no hands or equipment: its head carries a natural bite, its eight
+segments can be severed, and losing the head or exhausting weighted segment vitality is
+fatal. The typed unit registry refuses incompatible policy and equipment selections by name.
+
 The pelvis is **animated** as the planted locomotion frame; the torso is **genuinely
 simulated** on a motorised waist, so it can lean and twist above the hips. Everything from
 the shoulder outward is simulated too — a ball
@@ -341,12 +351,18 @@ twenty-one: both arms are simulated and both are therefore dressed, where the sw
 used to be left bare as the subject of the measurement. `G` is what takes the costume off. The Python holds **no dimensions** — every
 number comes from `asset-src/dimensions.json`, regenerated out of `src/config.ts` and
 `src/figure.ts` on each build, so a bone that moves without a rebuild fails
-`npm run asset:verify` instead of quietly stretching a warrior. Delete the `.glb` and the
+`npm run asset:verify` instead of quietly stretching a warrior. The breastplate, helmet and
+shoulder forms adapt selected meshes from Quaternius's CC0 Animated Knight Pack. The pinned
+archive digest, exact source objects, license and transformations live in
+`asset-src/armour-sources.json`; `npm run armour:verify` checks that provenance. Imported
+geometry is split at the existing rigid costume-piece boundaries and remains render-only.
+Delete the `.glb` and the
 page still boots, still plays, and shows the blockout primitives it replaced.
 
 ## Status
 
-Working: two fighters of one kind, articulated arms, wrists, trunks and crouch, blades,
+Working: Warrior, Broot and Centipede combatants; articulated arms, anatomically bounded
+wrists, moving trunks and crouch; blades,
 shields, bows and bare hands, contact scoring, dismemberment, one derived vitality state,
 clean verdict shutdown, blood, policies that fight with the controller you use, live
 takeover of either body, two cameras, the rig overlay and authored arena and equipment
@@ -367,9 +383,11 @@ requires it. Polished edges, bosses, bow strings and the nocked/flying arrow rem
 than the surface detail. Carried objects borrow arena-owned materials and never dispose a
 shared map when one weapon or pooled arrow leaves the scene.
 
-The arena now has the scale cues of a training hall without asking the art to become
-authority. The original invisible 60 m slab and fourteen post colliders are unchanged; the
-posts remain a visual ring, not a boundary. A separate visual floor, translucent wall scrims,
+The arena now has the scale cues and authoritative boundary of a training hall. The original
+60 m ground slab and fourteen post colliders remain, and four 0.24 m WORLD wall colliders are
+derived from the same placements as the visible room edges. Their inner faces align with the
+wall scrims at x/z = +/-13 m, including closed corners. The browser and headless evaluation
+harness consume the same wall table. A separate visual floor, translucent wall scrims,
 overhead beams and banners occupy the room, while flat timber-coloured rack/debris markings
 add floor detail without presenting a pass-through volume. They own no physics body. Repeated dressing is instanced. Its
 stone, timber and cloth UVs are scaled from the Poly Haven material's physical metre span, and
@@ -382,17 +400,24 @@ surface and action-option work has its durable record in
 full learned-policy experiments are also closed there as a negative result: no checkpoint
 earned promotion and no `learned-v1` option is advertised.
 
-The next implementation topic -- pause/restart correctness, projectile and shield behaviour,
-unarmed engagement, solid arena bounds, camera and whole-body human controls, additional
-body shapes, imported armour, and a four-direction AI research round -- is sequenced in
+The mechanics, controls, unit and evaluation-contract sessions of the current topic are
+implemented: pause/restart correctness, projectile and shield behaviour, unarmed engagement,
+solid arena bounds, middle-drag camera control, whole-body human control, Broot, Centipede,
+licensed armour adaptation, factual engagement gates and factorized AI actions. Four real-Havok
+research runners now implement recurrent NEAT-QD, DAgger, recurrent PPO and calibrated bounded
+look-ahead, with deterministic artifacts, resume and one shared deployment/tournament boundary.
+Only engineering smokes have run; the full three-seed budgets, blind tournament, possible
+promotion and final playtest remain sequenced in
 [docs/plans/combat-followups-00-overview.md](docs/plans/combat-followups-00-overview.md). The older
 whole-body plan set was deleted when that topic closed; completed plans are not a second
 authority for the game.
 
-The integrated headless contract covers every shipped policy with every setup equipment
-choice, finite anatomical commands over complete bouts, the exact verdict edge, identical
-fight records with costumes enabled or disabled, 25 fighter rebuilds and 100 pooled arrows.
-These are authority and lifecycle results, not substitutes for the open visual judgements.
+The integrated headless contract covers all four humanoid policies with all 27 reachable
+two-hand loadouts, finite anatomical commands over complete bouts, the exact verdict edge,
+identical fight records with costumes enabled or disabled, 25 fighter rebuilds and 100 pooled
+arrows. Registry, Broot and Centipede suites separately cover compatibility, scaled anatomy,
+bite, severing, death and disposal. These are authority and lifecycle results, not
+substitutes for the open visual judgements.
 
 ## Where the work is written down
 

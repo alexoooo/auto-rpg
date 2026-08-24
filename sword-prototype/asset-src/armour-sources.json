@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "selected": "quaternius-animated-knight-2018",
+  "sources": [
+    {
+      "id": "quaternius-animated-knight-2018",
+      "title": "Animated Knight Pack",
+      "author": "Quaternius",
+      "officialPage": "https://quaternius.com/packs/knightcharacter.html",
+      "archiveMirror": "https://opengameart.org/sites/default/files/Knight%20Character%20by%20%40Quaternius.zip",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "retrieved": "2026-08-24",
+      "archiveSha256": "36aed14d0e27282bd006982e00206a852b1d8c00fc72f95c2437d9b4b5dccdb9",
+      "selectedObjects": [
+        "OBJ/KnightCharacter.obj: Armor material faces",
+        "OBJ/Helmet3.obj",
+        "OBJ/ShoulderPads.obj"
+      ],
+      "adaptations": [
+        "animation and armature discarded",
+        "weapon props discarded",
+        "selected armour is split at the prototype's rigid costume-piece boundaries",
+        "piece origins are baked to the existing physics-bone joints",
+        "runtime materials are replaced by the arena palette and side cloth remains separate",
+        "all imported geometry remains render-only"
+      ]
+    }
+  ]
+}

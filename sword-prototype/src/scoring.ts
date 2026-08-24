@@ -242,6 +242,14 @@ const BITE: Record<Striker, Bite> = {
     // unreachable without teaching a fist a special-case exemption there.
     severQuality: () => 1,
   },
+  /** A living jaw: point-like damage, but no dismemberment in this contract. */
+  bite: {
+    how: "point",
+    floor: (t) => t.biteMinSpeed,
+    reference: (t) => t.biteReferenceSpeed,
+    scale: (t) => t.biteScale,
+    severQuality: () => 1,
+  },
 };
 
 /**

@@ -1,5 +1,5 @@
 import { FEATURE_COLUMNS, FEATURE_VERSION } from "./features.ts";
-import { OPTION_NAMES } from "../options.ts";
+import { HAND_ACTION_NAMES, MOVEMENT_NAMES } from "../options.ts";
 import { Network } from "./network.ts";
 import type { ActivationName, EdgeGene, NodeGene, NodeKind } from "./genome.ts";
 
@@ -34,7 +34,7 @@ export interface CheckpointContract {
 const RUNTIME_CONTRACT: CheckpointContract = {
   featureVersion: FEATURE_VERSION,
   featureNames: FEATURE_COLUMNS,
-  optionNames: OPTION_NAMES,
+  optionNames: [...MOVEMENT_NAMES, ...HAND_ACTION_NAMES],
 };
 
 const nodeKindByte = (kind: NodeKind): number => kind === "input" ? 0 : kind === "bias" ? 1 : kind === "hidden" ? 2 : 3;
@@ -132,6 +132,11 @@ const validateProvenance = (value: unknown, path = "provenance", seen = new Set<
   }
   seen.delete(value);
 };
+const freezeProvenance = (value: ProvenanceValue): ProvenanceValue => {
+  if (value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) return Object.freeze(value.map((entry) => freezeProvenance(entry)));
+  return Object.freeze(Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, freezeProvenance(entry)])));
+};
 
 function validateGraph(nodes: readonly NodeGene[], edges: readonly EdgeGene[]): void {
   if (nodes.length === 0 || nodes.length > MAX_NODES) throw new Error(`checkpoint node count ${nodes.length} is out of bounds`);
@@ -164,6 +169,7 @@ function validateGraph(nodes: readonly NodeGene[], edges: readonly EdgeGene[]): 
     }
     if (!Number.isFinite(edge.weight)) throw new Error(`checkpoint edge ${edge.innovation} has non-finite weight`);
     if (typeof edge.enabled !== "boolean") throw new Error(`checkpoint edge ${edge.innovation} has an invalid enabled flag`);
+    if (edge.recurrent !== undefined) throw new Error(`checkpoint edge ${edge.innovation} is recurrent, but checkpoint schema ${CHECKPOINT_SCHEMA} has no recurrence field`);
     if (edge.enabled) {
       const targets = outgoing.get(edge.from) ?? []; targets.push(edge.to); outgoing.set(edge.from, targets);
     }
@@ -214,7 +220,7 @@ export class Checkpoint {
     this.optionNames = Object.freeze([...data.optionNames]);
     this.nodes = Object.freeze(data.nodes.map((node) => Object.freeze({ ...node })));
     this.edges = Object.freeze(data.edges.map((edge) => Object.freeze({ ...edge })));
-    this.provenance = Object.freeze({ ...data.provenance });
+    this.provenance = freezeProvenance({ ...data.provenance }) as Readonly<Record<string, ProvenanceValue>>;
   }
 
   toBytes(): Uint8Array {

@@ -1,0 +1,229 @@
+{
+  "version": 1,
+  "algorithm": "dagger",
+  "config": {
+    "version": 1,
+    "algorithm": "dagger",
+    "seed": 310013,
+    "solverSteps": 19200,
+    "iterations": 2,
+    "budgetAllocation": {
+      "evaluationJobs": 4,
+      "baseQuanta": 1200,
+      "extraJobs": 0
+    },
+    "teacherVersion": 1,
+    "teacherEngagementFloor": 0.05,
+    "featureVersion": 3,
+    "featureNames": [
+      "measure",
+      "usable_reach_margin",
+      "radial_closing_rate",
+      "facing_error",
+      "self_vitality",
+      "opponent_vitality",
+      "self_primary_kind_sword",
+      "self_primary_kind_axe",
+      "self_primary_kind_bow",
+      "self_primary_kind_shield",
+      "self_primary_kind_buckler",
+      "self_primary_kind_club",
+      "self_primary_kind_empty",
+      "self_primary_lost",
+      "self_primary_reach",
+      "self_primary_tip_speed",
+      "self_secondary_kind_sword",
+      "self_secondary_kind_axe",
+      "self_secondary_kind_bow",
+      "self_secondary_kind_shield",
+      "self_secondary_kind_buckler",
+      "self_secondary_kind_club",
+      "self_secondary_kind_empty",
+      "self_secondary_lost",
+      "self_secondary_reach",
+      "self_secondary_tip_speed",
+      "opponent_primary_kind_sword",
+      "opponent_primary_kind_axe",
+      "opponent_primary_kind_bow",
+      "opponent_primary_kind_shield",
+      "opponent_primary_kind_buckler",
+      "opponent_primary_kind_club",
+      "opponent_primary_kind_empty",
+      "opponent_primary_lost",
+      "opponent_primary_reach",
+      "opponent_primary_tip_speed",
+      "opponent_secondary_kind_sword",
+      "opponent_secondary_kind_axe",
+      "opponent_secondary_kind_bow",
+      "opponent_secondary_kind_shield",
+      "opponent_secondary_kind_buckler",
+      "opponent_secondary_kind_club",
+      "opponent_secondary_kind_empty",
+      "opponent_secondary_lost",
+      "opponent_secondary_reach",
+      "opponent_secondary_tip_speed",
+      "threat_bearing",
+      "threat_speed",
+      "self_crouch",
+      "self_trunk_lean",
+      "self_trunk_twist",
+      "clock_fraction",
+      "current_movement_close",
+      "current_movement_hold",
+      "current_movement_circle-left",
+      "current_movement_circle-right",
+      "current_movement_disengage",
+      "current_action_cover",
+      "current_action_cut",
+      "current_action_thrust",
+      "current_action_punch",
+      "current_action_shoot",
+      "current_action_bite",
+      "current_action_recover",
+      "persistence_age",
+      "time_since_damage"
+    ],
+    "movementNames": [
+      "close",
+      "hold",
+      "circle-left",
+      "circle-right",
+      "disengage"
+    ],
+    "actionNames": [
+      "cover",
+      "cut",
+      "thrust",
+      "punch",
+      "shoot",
+      "bite",
+      "recover"
+    ],
+    "humanTraceStratum": "absent-optional"
+  },
+  "configDigest": "86d603e79d3bc6d9",
+  "consumedSolverSteps": 19200,
+  "selectedIteration": 1,
+  "comparisons": {
+    "teacherOnly": {
+      "opportunities": 14,
+      "attacksInWindow": 6,
+      "contactsInWindow": 6,
+      "damage": 957.7912442009559,
+      "opportunityConversion": 0.42857142857142855,
+      "contactConversion": 1
+    },
+    "behaviorClone": {
+      "iteration": 0,
+      "validationLoss": 0.8274225163465032,
+      "trainRows": 71,
+      "validationRows": 72,
+      "classification": {
+        "movementMacroF1": 0.1639344262295082,
+        "actionMacroF1": 0.10683229813664596,
+        "attackRecall": 0
+      },
+      "train": {
+        "opportunities": 14,
+        "attacksInWindow": 6,
+        "contactsInWindow": 6,
+        "damage": 957.7912442009559,
+        "opportunityConversion": 0.42857142857142855,
+        "contactConversion": 1
+      },
+      "rollout": {
+        "opportunities": 14,
+        "attacksInWindow": 0,
+        "contactsInWindow": 0,
+        "damage": 108.86949162366136,
+        "opportunityConversion": 0,
+        "contactConversion": 0
+      }
+    },
+    "dagger": {
+      "iteration": 1,
+      "validationLoss": 0.7881447310099048,
+      "trainRows": 72,
+      "validationRows": 72,
+      "classification": {
+        "movementMacroF1": 0.16198347107438016,
+        "actionMacroF1": 0.11138014527845037,
+        "attackRecall": 0
+      },
+      "train": {
+        "opportunities": 9,
+        "attacksInWindow": 0,
+        "contactsInWindow": 0,
+        "damage": 353.6635009190386,
+        "opportunityConversion": 0,
+        "contactConversion": 0
+      },
+      "rollout": {
+        "opportunities": 10,
+        "attacksInWindow": 0,
+        "contactsInWindow": 0,
+        "damage": 220.42994956858553,
+        "opportunityConversion": 0,
+        "contactConversion": 0
+      }
+    }
+  },
+  "validations": [
+    {
+      "iteration": 0,
+      "validationLoss": 0.8274225163465032,
+      "trainRows": 71,
+      "validationRows": 72,
+      "classification": {
+        "movementMacroF1": 0.1639344262295082,
+        "actionMacroF1": 0.10683229813664596,
+        "attackRecall": 0
+      },
+      "train": {
+        "opportunities": 14,
+        "attacksInWindow": 6,
+        "contactsInWindow": 6,
+        "damage": 957.7912442009559,
+        "opportunityConversion": 0.42857142857142855,
+        "contactConversion": 1
+      },
+      "rollout": {
+        "opportunities": 14,
+        "attacksInWindow": 0,
+        "contactsInWindow": 0,
+        "damage": 108.86949162366136,
+        "opportunityConversion": 0,
+        "contactConversion": 0
+      }
+    },
+    {
+      "iteration": 1,
+      "validationLoss": 0.7881447310099048,
+      "trainRows": 72,
+      "validationRows": 72,
+      "classification": {
+        "movementMacroF1": 0.16198347107438016,
+        "actionMacroF1": 0.11138014527845037,
+        "attackRecall": 0
+      },
+      "train": {
+        "opportunities": 9,
+        "attacksInWindow": 0,
+        "contactsInWindow": 0,
+        "damage": 353.6635009190386,
+        "opportunityConversion": 0,
+        "contactConversion": 0
+      },
+      "rollout": {
+        "opportunities": 10,
+        "attacksInWindow": 0,
+        "contactsInWindow": 0,
+        "damage": 220.42994956858553,
+        "opportunityConversion": 0,
+        "contactConversion": 0
+      }
+    }
+  ],
+  "daggerOutperformedClone": true,
+  "fullBudgetCompleted": false
+}

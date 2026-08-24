@@ -294,6 +294,8 @@ test("the collision table lets a shield rest on its owner and a blade pass throu
     ["a shield stops on the enemy", LAYER.RIGHT_TRUNK, COLLIDES.RIGHT_TRUNK, LAYER.LEFT_SHIELD, COLLIDES.LEFT_SHIELD, true],
     ["a blade stops on the enemy", LAYER.RIGHT_TRUNK, COLLIDES.RIGHT_TRUNK, LAYER.LEFT_SWORD, COLLIDES.LEFT_SWORD, true],
     ["a blade stops on the enemy's shield", LAYER.RIGHT_SHIELD, COLLIDES.RIGHT_SHIELD, LAYER.LEFT_SWORD, COLLIDES.LEFT_SWORD, true],
+    ["an arrow stops on the enemy's shield", LAYER.RIGHT_SHIELD, COLLIDES.RIGHT_SHIELD, LAYER.LEFT_ARROW, COLLIDES.LEFT_ARROW, true],
+    ["an arrow stops on the enemy's buckler layer", LAYER.LEFT_SHIELD, COLLIDES.LEFT_SHIELD, LAYER.RIGHT_ARROW, COLLIDES.RIGHT_ARROW, true],
   ].map(([label, fl, fm, bl, bm, lands]) => ({ ...drop(label, fl, fm, bl, bm), lands }));
 
   for (let frame = 0; frame < 120; frame += 1) scene._advancePhysicsEngineStep(1000 / 60);

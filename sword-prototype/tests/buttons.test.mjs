@@ -26,7 +26,6 @@ const RIGHT = 2;
 function hand({ picksTarget = () => false } = {}) {
   let spent = 0;
   let held = 0;
-  let lockToggles = 0;
   const state = { thrust: false, guard: false };
 
   const apply = (swallowed = 0) => {
@@ -38,10 +37,6 @@ function hand({ picksTarget = () => false } = {}) {
 
   return {
     state,
-    get lockToggles() {
-      return lockToggles;
-    },
-
     /** `pointerdown`. */
     down(button) {
       const arriving = maskOfButton(button);
@@ -51,10 +46,6 @@ function hand({ picksTarget = () => false } = {}) {
       const pressed = poseFromButtons(held & arriving, spent);
       let swallowed = 0;
       if (pressed.thrust && picksTarget()) swallowed |= PRIMARY;
-      if (pressed.lockToggle) {
-        lockToggles += 1;
-        swallowed |= AUXILIARY;
-      }
       apply(swallowed);
     },
 
@@ -118,7 +109,6 @@ test("the pose is exactly what the bitmask says, for all eight combinations", ()
     assert.deepEqual(poseFromButtons(buttons, 0), {
       thrust: (buttons & PRIMARY) !== 0,
       guard: (buttons & SECONDARY) !== 0,
-      lockToggle: (buttons & AUXILIARY) !== 0,
     });
   }
 });
@@ -179,7 +169,6 @@ test("the middle button joins any ordering without disturbing the pose", () => {
       assert.equal(h.state.guard, down.has(RIGHT));
     }
     assert.deepEqual({ ...h.state }, open);
-    assert.equal(h.lockToggles, 1, "one press of middle is one toggle, whoever else is held");
   }
 });
 
@@ -258,20 +247,19 @@ test("a click spent on selecting a target does not become a thrust when the mous
   assert.deepEqual({ ...h.state }, open);
 });
 
-test("the middle button asks for a lock toggle once per press, not for as long as it is held", () => {
+test("the middle button never asks the hand reducer to toggle target lock", () => {
   const h = hand();
   h.down(MIDDLE);
-  assert.equal(h.lockToggles, 1);
-  assert.deepEqual({ ...h.state }, open, "the lock toggle is an action, and moves no part of the arm");
+  assert.deepEqual({ ...h.state }, open, "the camera gesture moves no part of the arm");
 
   h.move();
   h.down(LEFT);
-  assert.equal(h.lockToggles, 1, "still one press, however many events it spans");
+  assert.deepEqual({ ...h.state }, { thrust: true, guard: false });
 
   h.up(LEFT);
   h.up(MIDDLE);
   h.down(MIDDLE);
-  assert.equal(h.lockToggles, 2);
+  assert.deepEqual({ ...h.state }, open);
 });
 
 test("a spent bit lasts exactly as long as the button that owes it", () => {

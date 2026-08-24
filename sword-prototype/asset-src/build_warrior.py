@@ -201,6 +201,49 @@ def plate(points, front, back, smooth=False):
     return _finish(obj, smooth)
 
 
+def imported_obj(path, name, scale, offset, keep_face=lambda _centre, _material: True):
+    """Read selected CC0 OBJ faces into the fighter frame.
+
+    Importing through Blender's OBJ operator makes the result depend on operator
+    axis defaults. This tiny reader keeps the source's X/right, Y/up convention
+    explicit and is intentionally limited to the vertex/face/material grammar
+    used by the three pinned Quaternius files.
+    """
+    vertices = []
+    faces = []
+    material = ""
+    for raw in path.read_text(encoding="utf8").splitlines():
+        fields = raw.split()
+        if not fields:
+            continue
+        if fields[0] == "v":
+            vertices.append(tuple(float(value) for value in fields[1:4]))
+        elif fields[0] == "usemtl":
+            material = fields[1]
+        elif fields[0] == "f":
+            face = tuple(int(value.split("/")[0]) - 1 for value in fields[1:])
+            centre = tuple(sum(vertices[index][axis] for index in face) / len(face) for axis in range(3))
+            if keep_face(centre, material):
+                faces.append(face)
+    used = sorted({index for face in faces for index in face})
+    remap = {old: new for new, old in enumerate(used)}
+    points = []
+    for index in used:
+        x, y, z = vertices[index]
+        # Quaternius OBJ is X-right, Y-up and Z-back for this pack.
+        points.append(_blender((
+            x * scale + offset[0],
+            y * scale + offset[1],
+            -z * scale + offset[2],
+        )))
+    mesh = bpy.data.meshes.new(name + "_source_mesh")
+    mesh.from_pydata(points, [], [tuple(remap[index] for index in face) for face in faces])
+    mesh.update(calc_edges=True)
+    obj = bpy.data.objects.new(name + "_source", mesh)
+    bpy.context.scene.collection.objects.link(obj)
+    return _finish(obj, False)
+
+
 def piece(name, joint, parts, surface, root):
     """Weld one costume piece together and cut its origin at its own joint.
 
@@ -320,6 +363,7 @@ def build(dimensions):
     fighter = dimensions["fighter"]
     body = dimensions["body"]
     bones = dimensions["bones"]
+    source_root = Path(__file__).resolve().parent / "armour" / "quaternius-knight"
 
     height = fighter["height"]
     shoulder_side = fighter["shoulderSide"]
@@ -389,6 +433,7 @@ def build(dimensions):
 
     chest_top = torso_top - 0.06
     chest_bottom = waist + 0.09
+    donor_scale = height / 5.584167
     add("chest", [
         ball((0, (chest_top + chest_bottom) / 2, 0),
              (torso_radius * 0.97, (chest_top - chest_bottom) / 2, torso_radius * 0.68)),
@@ -402,6 +447,15 @@ def build(dimensions):
         box((0, chest_bottom + 0.06, torso_radius * 0.84), (0.20, 0.014, 0.02)),
         box((0, chest_bottom + 0.15, torso_radius * 0.85), (0.23, 0.014, 0.02)),
         box((0, chest_bottom + 0.24, torso_radius * 0.84), (0.21, 0.014, 0.02)),
+        imported_obj(
+            source_root / "KnightCharacter.obj",
+            "quaternius_chest",
+            donor_scale,
+            (0, 0, -0.03),
+            lambda centre, material: material == "Armor"
+            and chest_bottom / donor_scale <= centre[1] <= chest_top / donor_scale
+            and abs(centre[0]) <= torso_radius * 1.22 / donor_scale,
+        ),
     ], "steel")
 
     add("collar", [
@@ -421,6 +475,13 @@ def build(dimensions):
                  (0.098, 0.05, 0.09)),
             ball((x + outward * 0.026, shoulder_height - 0.10, shoulder_front - 0.01),
                  (0.088, 0.045, 0.082)),
+            imported_obj(
+                source_root / "ShoulderPads.obj",
+                "quaternius_" + name,
+                shoulder_side / 1.08,
+                (0, shoulder_height, shoulder_front),
+                lambda centre, _material, outward=outward: centre[0] * outward > 0,
+            ),
         ], "steel")
 
     # The surcoat. It is the one piece this session adds and it is here to be

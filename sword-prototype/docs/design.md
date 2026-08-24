@@ -23,8 +23,9 @@ a second interface of the same shape: two structurally identical declarations ag
 day they are written and part company the first time only one of them is edited, and the
 compiler says nothing.
 
-So **a policy plays with the controller you play with.** It gets a cursor position, a
-reach, a wrist roll, a thrust, a guard and three movement axes, and nothing else. It cannot
+So **a policy plays with the controller you play with.** It gets forward, strafe and turn;
+normalized crouch, trunk lean and trunk twist; and, for each hand, cursor position, reach,
+anatomically bounded forearm roll, 0..90-degree wrist bend, thrust and guard. It cannot
 set a joint angle, place a blade, or ask for a pose the solver would refuse a person. That
 is a constraint rather than a limitation: an AI that could pose the arm directly would be a
 different game's AI, and beating it would say nothing about whether *this* arm is worth
@@ -42,12 +43,12 @@ transfer, because there was never an authority to transfer.
   thing the design forbids. Policies steer with the `turn` axis instead, proportionally to
   their heading error, and it costs them: `fighter.turnSpeed` is 2.5 rad/s against a
   locked-on player's 4.2.
-- *`FighterView` carries no part positions* -- a ground point, two shoulders, two blade
-  tips, and a health map with no coordinates attached. "The nearest soft part" is therefore
-  not a question the view can answer, and the duelist aims at shoulder height plus 0.20 m
-  instead. That 0.20 is anatomy, and it is only safe because both sides are the same unit
-  today. **The day two fighters have different bodies, a policy has to be told how tall the
-  thing in front of it is, and `FighterView` is where that belongs.**
+- *`FighterView` carries no part positions* -- a ground point, shoulders, weapon tips,
+  natural-attack reach, body scale facts and a health map with no part coordinates attached.
+  "The nearest soft part" is therefore not a question the view can answer. Unit definitions
+  publish crown, vital height, collision radius and legal reach, so policies can aim and
+  judge opportunity across Warrior, Broot and Centipede without reading meshes or branching
+  in the host.
 
 `Fighter.observe` publishes the view in place, one object per fighter -- `decide` runs 240
 times a second per side, and a freshly allocated view would be the largest single allocator
@@ -60,15 +61,17 @@ The experiment deliberately chose a hierarchical controller before choosing a le
 algorithm. Havok has no cheap exact clone/restore seam, so combat-time look-ahead would have
 to rebuild a scene for every branch. An end-to-end network would instead spend its first
 experiment rediscovering the stable cut, cover, punch and shot geometry already expressed
-through the player's controls. The implemented compromise keeps eight named action options
-as ordinary `Intent` producers and lets a compact NEAT network choose an option every 0.10 s
-plus a bounded persistence interval. Novelty descriptors cover range, guard, handedness and
-attack transitions so selection can retain behaviour that is different without granting the
-learner any new authority.
+through the player's controls. The first implemented compromise kept eight mutually
+exclusive options. The current v3 seam factorizes five movement choices from seven hand
+actions, so closing or circling can compose with cover, cut, thrust, punch, shoot or bite.
+Scripted and learned controllers share those ordinary `Intent` producers and a bounded
+persistence interval. Novelty descriptors cover range, guard, handedness and attack
+transitions without granting the learner new authority.
 
 The learned meta-controller does not produce poses. A frozen checkpoint maps the versioned
-50-column `FighterView` feature table to logits for the same eight action options the
-scripted meta-controller uses, plus a bounded persistence interval. Unsupported options are
+66-column v3 `FighterView` feature table to separate movement and hand-action logits plus a
+bounded persistence interval. The columns include usable reach margin, facing, current
+factorized tactic and time since damage in addition to the v2 observations. Unsupported options are
 masked from both choice and diagnostics, and reading the diagnostic never runs the network.
 Missing, corrupt, wrong-feature and wrong-option checkpoints refuse by name; there is no
 fallback that quietly turns an experiment into `duelist`.
@@ -96,21 +99,29 @@ without importing the population machinery that created it.
 
 ### The integrated authority check
 
-Every picker policy is built with every equipment choice, stepped through the real Havok
-pair, taken to a verdict and disposed. Complete bouts reject non-finite or out-of-envelope
+Every humanoid picker policy is built with every setup-reachable two-hand equipment choice,
+stepped through the real Havok pair, taken to a verdict and disposed. Unit-specific suites
+exercise Broot and Centipede compatibility, anatomy, damage, severing and disposal. Complete
+bouts reject non-finite or out-of-envelope
 body, cursor, roll and wrist commands. Running the same seeded bout in fresh solver instances
 with every costume enabled versus disabled produces the exact same outcome, contact stream
 and fight record. That is the executable form of “cosmetics carry no authority”: visibility
 may change; physics and scoring may not.
 
-## One kind of body
+## One combat seam, three body kinds
 
-`Fighter` is both driveable and hittable, and there are two of them. The torso is a
-keyframed (`ANIMATED`) root, so locomotion goes exactly where it is steered and -- the
-reason that matters most -- the sword arm's shoulder does not itself wobble. Everything
-outward of the shoulder is genuinely simulated, and the head, pelvis, off arm and legs hang
-off the torso as dynamic capsules on motorised joints: hittable, severable, rocked by a
-blow.
+The host builds a typed `Combatant` from `UNIT_REGISTRY`; it does not switch on body kind.
+Warrior and Broot are `Fighter` profiles with an animated pelvis locomotion frame and a
+genuinely simulated torso on a motorised waist. Head, both arms and both legs are dynamic,
+hittable and severable. Broot scales geometry, mass, health and joint force explicitly while
+trading away walking and turning speed; it is not a cosmetic scale transform.
+
+Centipede implements the same combat seam independently as a nine-body low crawler. It has
+no hand slots, accepts only the crawler policy, and publishes a natural bite striker. Its
+head and eight articulated segments own their own damage, sever and disposal lifecycle.
+The setup projection and compatibility checks are derived from the registry, so an unknown
+unit, incompatible policy or unsupported item is refused by name rather than silently
+coerced to Warrior.
 
 The legs are real bodies whose joint targets come from the gait, so a leg can come off.
 `__sword.config.body.gaitDrivesLegs = false` takes the stride off the joints live, with no
@@ -899,6 +910,15 @@ is intentionally not inferred from the headless checks. The first default-zoom F
 Overhead comparison kept the four material families, team colours, open faces and waist join
 readable; the still-open zoom and motion judgements live only in `docs/measurements.md`.
 
+The final armour silhouette is adapted rather than invented entirely from primitives.
+`asset-src/armour-sources.json` pins Quaternius's CC0 Animated Knight Pack archive, license,
+retrieval date and the three selected OBJ sources. `npm run armour:verify` checks the archive
+digest and selected files before `asset-src/build_warrior.py` splits breastplate, helmet and
+shoulder geometry at the existing rigid costume-piece boundaries. Its armature, animation,
+weapons and source materials are discarded; the adapted meshes inherit the runtime palette
+and remain render-only. This preserves severability and the cosmetics/no-authority contract
+without pretending the imported character rig is the simulated one.
+
 Imported tangent xyz is negated once when `Figure.wear()` replaces a primitive's
 vertices, normalizing the glTF right-handed frame to the same Babylon-LH basis the fallback
 primitive used. Every authored island is area-normalized to 0.300 UV units per metre before
@@ -926,10 +946,12 @@ combat function. `Weapon` and `Arrow` dispose bodies and nodes but not arena-own
 or maps; scene disposal remains the sole palette owner.
 
 The room is deliberately two worlds that occupy the same place. `arena-room.ts` owns the
-unchanged authoritative world -- one 60 m ground box and fourteen ring posts -- separately
-from a cosmetic floor, translucent wall scrims, overhead beams, banners, racks and debris.
-The cosmetic owner creates no aggregate. The posts have broad gaps and are not treated as a
-boundary. An opaque placement below a conservative 3.6 m reach ceiling is refused unless it
+authoritative world -- one 60 m ground box, fourteen ring posts and four 0.24 m boundary
+walls derived from the visible edge placements -- separately from a cosmetic floor,
+translucent wall scrims, overhead beams, banners, racks and debris. The cosmetic owner
+creates no aggregate. The posts remain scale cues rather than the boundary; the four walls
+close their broad gaps and align their inner faces at x/z = +/-13 m. An opaque placement
+below a conservative 3.6 m reach ceiling is refused unless it
 names an existing collider. Distance past the slab is not
 a safety argument because the animated fighter can keep walking. Beams clear that ceiling;
 racks/debris are zero-height floor markings rather than volumes. The visible floor names

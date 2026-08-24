@@ -148,6 +148,8 @@ function handFrame(kind: WeaponKind, rotation: Quaternion): Quaternion {
 const spread = (t: number, min: number, max: number) => (t < 0 ? -t * min : t * max);
 
 export interface ArmOptions {
+  /** Per-body arm geometry and motor envelope; defaults to the Warrior table. */
+  config?: typeof CONFIG.arm;
   hand: HandName;
   /**
    * Name prefix for every body in the chain, e.g. `left.sword`. Two fighters
@@ -225,6 +227,7 @@ export interface ArmMaterials extends WeaponMaterials {
  * something.
  */
 export class Arm {
+  private readonly config: typeof CONFIG.arm;
   readonly upperArm: Part;
   readonly forearm: Part;
   readonly hand: Part;
@@ -326,7 +329,7 @@ export class Arm {
   private elevation = -0.15;
   private roll = 0;
   private wristBend = 0;
-  private armReach = CONFIG.arm.reachNeutral;
+  private armReach: number;
 
   private lost = false;
   private hasPreviousFrame = false;
@@ -397,7 +400,9 @@ export class Arm {
   };
 
   constructor(scene: Scene, opts: ArmOptions, materials: ArmMaterials) {
-    const A = CONFIG.arm;
+    this.config = opts.config ?? CONFIG.arm;
+    this.armReach = this.config.reachNeutral;
+    const A = this.config;
     this.trunkFrame = opts.trunkFrame;
     this.locomotionFrame = opts.locomotionFrame;
     this.shoulderLocal = opts.shoulderLocal.clone();
@@ -678,7 +683,7 @@ export class Arm {
       body: weapon.body,
       shape: weapon.shape,
     }, {
-      pivotParent: new Vector3(0, -CONFIG.arm.handLength / 2, 0),
+      pivotParent: new Vector3(0, -this.config.handLength / 2, 0),
       pivotChild: new Vector3(0, weapon.secondGrip, 0),
       axisParent: new Vector3(1, 0, 0),
       axisChild: new Vector3(1, 0, 0),
@@ -737,7 +742,7 @@ export class Arm {
    * two different questions.
    */
   get strikeReach(): number {
-    const A = CONFIG.arm;
+    const A = this.config;
     const extension = Math.min(
       A.reachNeutral,
       A.reachMax,
@@ -801,6 +806,29 @@ export class Arm {
     this.driveElbow();
   }
 
+  /** Hold the solver-achieved pose and cancel a draw without releasing it. */
+  stopFighting(): void {
+    this.draw = 0;
+    this.weapon?.drawTo(0);
+    if (this.lost) return;
+
+    const handRotation = this.handAnchor.mesh.rotationQuaternion ?? Quaternion.Identity();
+    this.handAnchor.body.setLinearVelocity(Vector3.Zero());
+    this.handAnchor.body.setAngularVelocity(Vector3.Zero());
+    this.handAnchor.body.setTargetTransform(this.handAnchor.mesh.position, handRotation);
+
+    const elbowRotation = this.elbowAnchor.mesh.rotationQuaternion ?? Quaternion.Identity();
+    this.elbowAnchor.body.setLinearVelocity(Vector3.Zero());
+    this.elbowAnchor.body.setAngularVelocity(Vector3.Zero());
+    this.elbowAnchor.body.setTargetTransform(this.elbowAnchor.mesh.position, elbowRotation);
+    this.hasPreviousFrame = false;
+  }
+
+  /** Projectile ownership outlives the arm's authority to pose or shoot. */
+  stepProjectiles(dt: number): void {
+    this.quiver?.step(dt);
+  }
+
   /**
    * A point on the weapon this arm is commanding, `along` metres from the fist.
    *
@@ -834,7 +862,7 @@ export class Arm {
     // teleport before the solver ever saw it, and every shot would start from
     // wherever the last one ended -- the exact failure `arrow.ts`'s header
     // records, six shots from one origin landing 12 m apart.
-    this.quiver?.step(dt);
+    this.stepProjectiles(dt);
     if (this.lost) return;
     this.shoot(dt, hand);
     this.aim(dt, hand);
@@ -887,7 +915,7 @@ export class Arm {
    * `applyTuning` after an arm came off; death does, on every death.
    */
   applyTuning(): void {
-    const A = CONFIG.arm;
+    const A = this.config;
     const S = CONFIG.sword;
 
     if (!this.lost) {
@@ -984,7 +1012,7 @@ export class Arm {
    * the middle of the window.
    */
   private aim(dt: number, input: HandIntent): void {
-    const A = CONFIG.arm;
+    const A = this.config;
 
     const hand = this.outboard > 0 ? "primary" : "secondary";
     this.azimuth = azimuthOf(input.pointerX, hand);
@@ -1187,7 +1215,7 @@ export class Arm {
    * elbow's angle was never the free variable.
    */
   private driveElbow(): void {
-    const A = CONFIG.arm;
+    const A = this.config;
     const s = this.scratch;
 
     const upper = A.upperLength;
@@ -1256,7 +1284,7 @@ export class Arm {
    * settles a swing would send the roll axis straight to infinity.
    */
   private dampGrip(dt: number): void {
-    const rate = CONFIG.arm.gripAngularDamping;
+    const rate = this.config.gripAngularDamping;
     if (rate <= 0) return;
 
     const s = this.scratch;

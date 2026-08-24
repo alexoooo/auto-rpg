@@ -15,7 +15,7 @@ import "@babylonjs/core/Rendering/outlineRenderer.js";
 import "@babylonjs/core/Culling/ray.js";
 
 import { CONFIG } from "./config";
-import type { Fighter } from "./fighter";
+import type { Combatant } from "./units";
 
 export type TargetMode = "free" | "selecting" | "locked";
 
@@ -47,8 +47,8 @@ export class Targeting {
   private readonly lockPip: Mesh;
 
   /** The fighter doing the looking, whose facing a lock steers. */
-  private watcher: Fighter;
-  private opponent: Fighter | null = null;
+  private watcher: Combatant;
+  private opponent: Combatant | null = null;
   private hovered: AbstractMesh | null = null;
   private outlined: AbstractMesh | null = null;
   private mode: TargetMode = "free";
@@ -56,7 +56,7 @@ export class Targeting {
 
   private readonly ground = new Vector3();
 
-  constructor(scene: Scene, watcher: Fighter) {
+  constructor(scene: Scene, watcher: Combatant) {
     this.scene = scene;
     this.watcher = watcher;
 
@@ -105,7 +105,7 @@ export class Targeting {
   }
 
   /** Point one fighter at another. A reset rebuilds both, so both are given. */
-  attach(watcher: Fighter, opponent: Fighter): void {
+  attach(watcher: Combatant, opponent: Combatant): void {
     this.watcher = watcher;
     this.opponent = opponent;
     this.clearOutline();
@@ -230,7 +230,6 @@ export class Targeting {
     this.lockPip.dispose();
   }
 }
-
 /**
  * Stepping into a body.
  *
@@ -265,11 +264,11 @@ export class Takeover {
   /** One per candidate, and there are exactly two of those. */
   private readonly rings: readonly Mesh[];
 
-  private left: Fighter | null = null;
-  private right: Fighter | null = null;
+  private left: Combatant | null = null;
+  private right: Combatant | null = null;
   private hovered: AbstractMesh | null = null;
   private outlined: AbstractMesh | null = null;
-  private under: Fighter | null = null;
+  private under: Combatant | null = null;
   private armed = false;
   private pulse = 0;
 
@@ -303,7 +302,7 @@ export class Takeover {
   }
 
   /** The pair on offer. A reset rebuilds both, so both are given. */
-  attach(left: Fighter, right: Fighter): void {
+  attach(left: Combatant, right: Combatant): void {
     this.left = left;
     this.right = right;
     // A mode left armed across a rebuild would be armed over bodies that no
@@ -317,7 +316,7 @@ export class Takeover {
   }
 
   /** The body under the cursor right now, or null. */
-  get candidate(): Fighter | null {
+  get candidate(): Combatant | null {
     return this.under;
   }
 
@@ -344,7 +343,7 @@ export class Takeover {
    * fighter and started a thrust would be a swing you did not ask for, delivered
    * at the exact moment you were thinking about something else.
    */
-  pick(): Fighter | null {
+  pick(): Combatant | null {
     if (!this.armed) return null;
     const taken = this.under;
     this.cancel();

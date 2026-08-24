@@ -16,7 +16,19 @@ export const ACTION_TUNING = Object.freeze({
   // Preserve the operation order of the physical definition without importing
   // mutable CONFIG into this Node-loadable module.
   tunedSwordReach: 0.45 + (0.19 / 2 + 0.84),
+  tunedBareReach: 0.45,
+  // Nearest-part measure when two ordinary bodies have just enough clearance
+  // for a 0.72 m shoulder-to-shoulder punch. Below this they are genuinely
+  // body-to-body rather than merely inside the sword's crowding distance.
+  tunedBareCrowd: 0.24,
+  bareStrikeRange: 0.72,
+  duelistRangeSlack: 0.06,
 });
+
+export const bareCrowdDistance = (reach: number): number =>
+  Math.max(0.18, ACTION_TUNING.tunedBareCrowd + (reach - ACTION_TUNING.tunedBareReach));
+export const bareHoldDistance = (): number =>
+  ACTION_TUNING.bareStrikeRange - ACTION_TUNING.duelistRangeSlack;
 
 export const ACTION_STROKE_TIMING = Object.freeze({ chamber: 0.15, commit: 0.11, recover: 0.26 });
 export type ActionStrokePhase = "chamber" | "commit" | "recover" | "complete";

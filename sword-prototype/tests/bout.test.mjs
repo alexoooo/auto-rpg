@@ -137,7 +137,7 @@ test("the Fight button is refused anywhere but the screen", () => {
   assert.equal(begin(over, other), over);
 });
 
-test("Space during a fight puts the clock back and keeps the matchup", () => {
+test("restart_from_fight_or_verdict_returns_a_fresh_fight_with_the_same_matchup", () => {
   const fighting = advance(
     begin(selectScreen(defaultMatchup()), defaultMatchup()),
     ring(corner(whole()), corner(whole())),
@@ -149,22 +149,27 @@ test("Space during a fight puts the clock back and keeps the matchup", () => {
   assert.equal(again.phase, "fight");
   assert.equal(again.clock, 0);
   assert.deepEqual(again.matchup, fighting.matchup);
+
+  const over = advance(fighting, ring(corner(minus("head")), corner(whole())), 1 / 60);
+  const verdictAgain = restart(over);
+  assert.equal(verdictAgain.phase, "fight");
+  assert.equal(verdictAgain.clock, 0);
+  assert.equal(verdictAgain.outcome, null);
+  assert.deepEqual(verdictAgain.matchup, fighting.matchup);
 });
 
-test("Space is refused from the screen, where there is no bout to run again", () => {
+test("restart_is_refused_only_when_no_bout_exists", () => {
   const screen = selectScreen(defaultMatchup());
   assert.equal(restart(screen), screen);
 });
 
-test("Space from a decided bout is refused as a restart and taken as a way back", () => {
+test("a decided bout can still return to setup with the same matchup", () => {
   const chosen = withControl(defaultMatchup(), "right", "you");
   const over = advance(
     begin(selectScreen(defaultMatchup()), chosen),
     ring(corner(minus("head")), corner(whole(), blow("right"))),
     1 / 60,
   );
-
-  assert.equal(restart(over), over, "a decided bout is not restarted in place");
 
   const back = toSelect(over);
   assert.equal(back.phase, "select");

@@ -80,6 +80,7 @@ export const LAYER = {
   DEBRIS: 1 << 9,
   LEFT_ARROW: 1 << 10,
   RIGHT_ARROW: 1 << 11,
+  SPENT_ARROW: 1 << 12,
 } as const;
 
 /** Everything one side owns, which is what the *other* side collides with. */
@@ -95,7 +96,7 @@ const RIGHT_SIDE =
 const EVERY_FIGHTER = LEFT_SIDE | RIGHT_SIDE;
 
 export const COLLIDES = {
-  WORLD: EVERY_FIGHTER | LAYER.DEBRIS,
+  WORLD: EVERY_FIGHTER | LAYER.DEBRIS | LAYER.SPENT_ARROW,
   LEFT_TRUNK: LAYER.WORLD | RIGHT_SIDE | LAYER.LEFT_SHIELD | LAYER.DEBRIS,
   LEFT_ARM: LAYER.WORLD | RIGHT_SIDE | LAYER.DEBRIS,
   LEFT_SWORD: LAYER.WORLD | RIGHT_SIDE | LAYER.DEBRIS,
@@ -112,6 +113,9 @@ export const COLLIDES = {
   // including the fighter it was cut from, because a severed arm lying against
   // its owner's shin is a truer picture than one sunk into it.
   DEBRIS: LAYER.WORLD | EVERY_FIGHTER | LAYER.DEBRIS,
+  // A first-hit projectile becomes world litter, not a scaffold or a second
+  // striker. Reciprocity exists only with the arena.
+  SPENT_ARROW: LAYER.WORLD,
 } as const;
 
 /** Which side of the ring a fighter stands on. Everything symmetric keys off it. */

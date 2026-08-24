@@ -63,7 +63,7 @@ function counter() {
   };
 }
 
-async function ring(leftMind = null) {
+async function ring(leftMind = null, leftLoadout = undefined) {
   const engine = new NullEngine();
   const scene = new Scene(engine);
   attachPhysics(scene, await HavokPhysics({ wasmBinary: await readFile(wasm) }));
@@ -78,7 +78,7 @@ async function ring(leftMind = null) {
 
   const mind = leftMind ?? counter();
   const left = new Fighter(scene, {
-    side: "left", origin: Vector3.Zero(), facing: 0, mind,
+    side: "left", origin: Vector3.Zero(), facing: 0, mind, loadout: leftLoadout,
   }, materials);
   const right = new Fighter(scene, {
     side: "right", origin: new Vector3(0, 0, CONFIG.fighter.separation),
@@ -336,6 +336,57 @@ test("a_surviving_torso_has_no_residual_turn_after_the_verdict", async (t) => {
     `torso retained ${left.torso.body.getAngularVelocity().length().toFixed(4)} rad/s`);
   assert.ok(1 - Math.abs(Quaternion.Dot(stopped, left.torso.mesh.rotationQuaternion)) < 0.002,
     "the winner should hold its achieved waist pose after combat authority ends");
+});
+
+test("a_surviving_archers_both_hand_anchors_stop_on_the_verdict_step", async (t) => {
+  const intent = blankIntent();
+  intent.primary.pointerX = 0.8;
+  intent.primary.pointerY = 0.7;
+  intent.secondary.pointerX = -0.7;
+  intent.secondary.pointerY = 0.5;
+  const { engine, scene, left, right } = await ring(
+    { name: "moving archer", decide: () => intent },
+    { primary: "bow", secondary: "empty" },
+  );
+  t.after(() => engine.dispose());
+  const clock = { now: 0 };
+  for (let i = 0; i < 90; i += 1) frame(scene, left, right, clock);
+  left.stopFighting();
+  const stopped = Object.fromEntries(["primary", "secondary"].map((name) => [name, {
+    hand: left.arms[name].handAnchor.mesh.position.clone(),
+    elbow: left.arms[name].elbowAnchor.mesh.rotationQuaternion.clone(),
+  }]));
+  for (let i = 0; i < 180; i += 1) frame(scene, left, right, clock);
+  for (const name of ["primary", "secondary"]) {
+    assert.ok(Vector3.Distance(stopped[name].hand, left.arms[name].handAnchor.mesh.position) < 0.002,
+      `${name} hand anchor remained stationary`);
+    assert.ok(1 - Math.abs(Quaternion.Dot(stopped[name].elbow,
+      left.arms[name].elbowAnchor.mesh.rotationQuaternion)) < 0.002,
+    `${name} elbow anchor remained stationary`);
+  }
+});
+
+test("a_bow_held_at_the_verdict_cannot_loose_afterward", async (t) => {
+  const intent = blankIntent();
+  intent.primary.thrust = true;
+  const { engine, scene, left, right } = await ring(
+    { name: "draw", decide: () => intent },
+    { primary: "bow", secondary: "empty" },
+  );
+  t.after(() => engine.dispose());
+  const clock = { now: 0 };
+  for (let i = 0; i < 90; i += 1) frame(scene, left, right, clock);
+  left.stopFighting();
+  intent.primary.thrust = false;
+  for (let i = 0; i < 30; i += 1) frame(scene, left, right, clock);
+  assert.equal(left.arms.primary.quiver.flying, 0);
+});
+
+test("stopping_a_survivor_twice_is_harmless", async (t) => {
+  const { engine, left } = await ring();
+  t.after(() => engine.dispose());
+  assert.doesNotThrow(() => { left.stopFighting(); left.stopFighting(); });
+  assert.equal(left.alive, true);
 });
 
 test("the_fight_to_over_edge_revokes_both_sides_once_and_rebuild_starts_active", async (t) => {

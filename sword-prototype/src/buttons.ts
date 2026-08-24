@@ -22,7 +22,7 @@
  * next press and release exactly the right button.
  *
  * Actions cannot be levels, because they must happen once per press: picking a
- * target and toggling the lock are clicks, not states. That is what `spent` is
+ * target is a click, not a state. That is what `spent` is
  * for. When a press has already been paid out as an action its bit goes into
  * the spent mask and is subtracted from the level for as long as the button is
  * held, so a click swallowed by target selection does not turn into a thrust
@@ -71,13 +71,6 @@ export interface ButtonPose {
   thrust: boolean;
   /** Right held: pull the blade in close. */
   guard: boolean;
-  /**
-   * Middle held and not yet paid for. Unlike the other two this is meant to be
-   * read on a press edge only, because a lock toggle is an action rather than a
-   * state; carrying it in the pose anyway is what lets the spent mask keep one
-   * press from toggling twice when a second button joins the chord.
-   */
-  lockToggle: boolean;
 }
 
 /** The pose the held buttons ask for, less whatever those presses already paid for. */
@@ -86,7 +79,6 @@ export function poseFromButtons(buttons: number, spent: number): ButtonPose {
   return {
     thrust: (live & PRIMARY) !== 0,
     guard: (live & SECONDARY) !== 0,
-    lockToggle: (live & AUXILIARY) !== 0,
   };
 }
 

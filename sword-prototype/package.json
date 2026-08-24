@@ -13,14 +13,18 @@
     "check": "tsc --noEmit",
     "test": "node --test tests/*.test.mjs",
     "measure": "node scripts/measure.mjs",
-    "ai:evaluate": "node scripts/evaluate-options.mjs",
+    "ai:options": "node scripts/evaluate-options.mjs",
+    "ai:evaluate": "node scripts/evaluate-ai.mjs",
+    "ai:research": "node scripts/research-runner.mjs",
     "ai:train": "node scripts/train-meta.mjs",
     "asset:build": "node scripts/run-blender.mjs",
     "asset:verify": "node scripts/run-blender.mjs --verify",
     "asset:dimensions": "node scripts/run-blender.mjs --dimensions",
     "asset:fetch": "node scripts/fetch-polyhaven.mjs",
     "texture:fetch": "node scripts/fetch-textures.mjs",
-    "texture:verify": "node scripts/fetch-textures.mjs --verify"
+    "texture:verify": "node scripts/fetch-textures.mjs --verify",
+    "armour:fetch": "node scripts/fetch-armour.mjs",
+    "armour:verify": "node scripts/fetch-armour.mjs --verify"
   },
   "dependencies": {
     "@babylonjs/core": "9.18.1",

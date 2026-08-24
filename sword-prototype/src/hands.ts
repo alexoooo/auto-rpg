@@ -76,7 +76,7 @@ export type WeaponKind =
  * the rows of it that a hand can actually take -- so the narrow list is
  * computed from the wide table rather than written beside it.
  */
-export type Striker = WeaponKind | "arrow";
+export type Striker = WeaponKind | "arrow" | "bite";
 
 /**
  * What a kind *is*, as one row per kind, and the whole reason this file was
@@ -175,6 +175,8 @@ const GRIPS: Record<Striker, Grip> = {
   empty: { hands: 1, carry: "held", heldWeapon: false, use: "strike", point: false, bothEdges: false },
   // Not a weapon, and every field says so honestly rather than by omission.
   arrow: { hands: 0, carry: "loosed", heldWeapon: false, use: "strike", point: true, bothEdges: false },
+  // A body-owned natural striker. It is neither offered to a hand nor mounted.
+  bite: { hands: 0, carry: "loosed", heldWeapon: false, use: "strike", point: true, bothEdges: false },
 };
 
 /**
