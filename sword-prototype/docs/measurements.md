@@ -331,29 +331,28 @@ The list used to open by saying the tabs this was built in render a black canvas
 Chrome does not paint WebGL in a hidden window and pauses `requestAnimationFrame` there
 altogether. That is still true and it is no longer a wall: step the world by hand and call
 `scene.render()` yourself and the canvas paints, which is how the shields and the axe were
-finally looked at. So an item still open here is open because **nobody has played it**, not
-because nobody could see it. **Two of them are cheap and change what should be built next:
-the first and the fourth.** Items 11 and 12 are one arm defect measured from two directions;
-items 14 and 15 are the halves of two weapons that only a person can price.
+finally looked at. The first playtest has now closed the two cheap questions that decided what
+to build next: `swinger` is beatable, the knees look good, and neither timing nor gait needs a
+repair before the body-control work. Items 11 and 12 are one arm defect measured from two
+directions; item 14 still needs a person to price the axe's missing thrust.
 
-**Item 16 is not like the others.** Every other entry is a judgement waiting on somebody
-with a mouse; that one is a rule with a number attached, it decides whether a whole weapon
-can be used at all, and the bench has already said what it costs.
+Item 16 has a design verdict and awaits implementation in
+[`plans/01-vitality-and-a-clean-ending.md`](plans/01-vitality-and-a-clean-ending.md): one
+derived whole-body vitality bar, with local part health retained for injury and severing.
 
-1. **Is a human against `swinger` winnable, and not trivially so?** This is the only
-   criterion that decides whether the policy work is finished. Its cycle is chamber 0.34 s,
-   commit 0.13 s, follow 0.10 s, recover 0.42 s, and the recover is the opening. If it is
-   unbeatable, move `SWINGER.commitSeconds`; if it is trivial, `SWINGER.recoverSeconds`.
-   Write which, and what you saw, beside them.
+1. **Done: a human can beat `swinger`.** Played on 2026-08-23 with the shipped cycle --
+   chamber 0.34 s, commit 0.13 s, follow 0.10 s, recover 0.42 s -- and won. The policy is
+   therefore winnable and its timing stays where it is. This verdict closes the criterion;
+   it is not a claim that the matchup has been fully balanced.
 2. **Does the sword draw as three boxes under `G`, with the pommel protruding past it?** If
    it looks like five, the overlay is drawing render meshes and is worthless. It is the
    sharpest check on the instrument the rest of this file leans on.
 3. **Does body-relative aim still read under the Fixed camera**, once screen-right and
    body-right have parted company? Also whether a blade held high leaves the top of the
    frame at both zoom clamps. The verdict recorded in `docs/design.md` is provisional.
-4. **The leg verdict.** Hittable, gait-driven legs shipped on a reasoned rather than a
-   measured call. Walk with `G` up and watch a knee; if it chatters,
-   `__sword.config.body.gaitDrivesLegs = false` takes the stride off the joints live.
+4. **Done: the gait-driven knees look good.** Played on 2026-08-23 with `G` up. They do not
+   chatter, so `body.gaitDrivesLegs` remains true and the straight-leg fallback remains a
+   diagnostic rather than the shipped pose.
 5. **Do the two warriors read as armoured people at Fixed-camera range, and do crimson and
    blue read apart?** Plus the helm's open face, and whether the skirt and surcoat clip at a
    walk.
@@ -460,23 +459,25 @@ can be used at all, and the bench has already said what it costs.
    has no point either. The rule `hasPoint` enforces is still worth exactly
    nothing to any policy in the program, and still needs a person.
 
-15. **Nobody has held the bow's button.** Draw-and-loose is a *hold*: press, wait
-   0.9 s while the string comes back and the bow shows you how far, release. The
-   bench can say what an arrow is worth and cannot say whether that second of
-   standing still is tense or tedious -- and it is the single decision the whole
-   weapon is built around. Two things to watch for that no number can see: whether
-   the string and the nocked arrow read as a draw at all from the Fixed camera,
-   and whether being pinned at 1.8 m by a duelist while holding a bow is
-   frustrating the way a bad matchup is or the way a bug is.
+15. **Partly done: the bow is cool, and the arrows are too hard to see.** The 0.9 s
+   hold-and-release interaction survived its first playtest; do not retune it merely because
+   it had been unplayed. The visible defect is the projectile: after release it is difficult
+   to trace. [`plans/02-traceable-arrows.md`](plans/02-traceable-arrows.md) adds a pooled
+   high-contrast head/fletch and short flight trail without changing physics or scoring.
+   Whether the bow remains enjoyable while pinned at 1.8 m by a duelist is still open.
 
-16. **Should a bow-armed fighter be able to win at all?** The bench says it cannot:
+16. **Decided, not implemented: a bow-armed fighter can win through whole-body vitality.**
+   The bench says it currently cannot:
    `beaten()` wants a severed head or torso and an arrow deliberately never severs,
    so an archer shooting an `idle` fighter for thirty seconds deals 274.7 damage a
    bout and kills nobody, sixteen times out of sixteen. The two ways out both change
-   every bout in the game -- let an arrow sever, or let a torso beaten to nothing
-   end a bout on its own -- and `beaten()`'s own docstring already reserves the
-   second for the first person to play one to the end. Numbers under "What a bow is
-   worth" below. **This is the most consequential open question in the file.**
+   every bout in the game -- let an arrow sever, or let injury exhaust the body.
+   The playtest verdict is broader than a torso-only exception: preserve local health for
+   severing and disability, derive one vitality bar from weighted injury, and give head and
+   torso enough weight that either at zero is fatal. Serious combinations of pelvis and limb
+   wounds can exhaust the same bar. The exact initial formula and weights, plus the
+   before/after corpus required to move them, are in plan session 01. Numbers under "What a
+   bow is worth" below remain the before measurement.
 
 17. **The console is being filled at two lines a frame, and it is not new.**
    `aim.ts:83` and `:88` pass `dashNb`/`dashSize`/`gapSize` to `CreateDashedLines`

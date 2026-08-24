@@ -331,11 +331,11 @@ free ones are all stylized low-poly, so that is a change of art direction rather
 change of mesh. `docs/measurements.md` records it as owed rather than pretending
 otherwise.
 
-Not yet done: **nobody has played it.** Every number in `src/config.ts` is a first guess
-tuned against a measurement rather than against a person, and the questions that decide
-whether any of it is any good — is `swinger` beatable and not trivially so, does
-body-relative aim read under the fixed camera, do the two warriors read apart at range —
-are listed at the foot of [docs/measurements.md](docs/measurements.md).
+The first playtest is in: a human can beat `swinger`, its timing stays where it is, and the
+gait-driven knees look good. The larger feel pass is still open -- body-relative aim under
+the fixed camera, the bow's draw, visual readability and the new work sequenced in
+[docs/plans/](docs/plans/00-overview.md) -- while the durable measurements and remaining
+human judgements stay at the foot of [docs/measurements.md](docs/measurements.md).
 
 ## Where the work is written down
 
