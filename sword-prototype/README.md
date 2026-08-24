@@ -126,7 +126,9 @@ sword, shield, axe, bow and bare hands. It spent 88% of its decisions disengagin
 failed seven predeclared gates, so it is recorded as an unpromoted experiment rather than
 renamed `learned-v1`. The checkpoint loader, option diagnostic and five-loadout evaluator
 remain available for the next experiment; [the measurement record](docs/measurements.md)
-has the exact evidence.
+has the exact evidence. The current follow-up roadmap reopens that work with engagement and
+anti-stall gates, then compares NEAT with quality diversity, DAgger imitation, recurrent PPO
+self-play and bounded tactical look-ahead under one held-out tournament.
 
 Losing your head is also the end of you as a body, and not only as a competitor. The torso
 stops being steered and falls under its own weight, every joint drops to a fraction of its
@@ -382,7 +384,7 @@ earned promotion and no `learned-v1` option is advertised.
 
 The next implementation topic -- pause/restart correctness, projectile and shield behaviour,
 unarmed engagement, solid arena bounds, camera and whole-body human controls, additional
-body shapes, and imported armour -- is sequenced in
+body shapes, imported armour, and a four-direction AI research round -- is sequenced in
 [docs/plans/combat-followups-00-overview.md](docs/plans/combat-followups-00-overview.md). The older
 whole-body plan set was deleted when that topic closed; completed plans are not a second
 authority for the game.

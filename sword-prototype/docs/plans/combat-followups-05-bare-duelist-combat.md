@@ -9,10 +9,12 @@ measurement corpus.
 
 ## Implement
 
-1. At `src/policies.ts:732` and `:1440-1465`, remove the contradictory range ordering where
+1. At `src/policies.ts:732` and `:1440-1465`, and the duplicated scripted-meta controller at
+   `src/options.ts:212-220` and `:263-270`, remove the contradictory range ordering where
    bare hold/strike are 0.78/0.72 m but `DUELIST.crowd` retreats at 0.85 m. Derive a bare
    crowd threshold from surface measure and the actual fist/arm reach, or introduce one
-   measured bare constant beside `FIST_RANGE`; do not change sword crowding.
+   measured bare constant beside `FIST_RANGE`; do not change sword crowding. Both controllers
+   use the same helper rather than two literals that can drift again.
 2. Keep `attackHand()` at `src/policies.ts:120-170` choosing the farther fist to punch so the
    nearer hand can cover. Keep `planOffHand()` at `:522` on the real incoming line.
 3. Make punch phase legibility explicit through existing combat/action diagnostics: attack
@@ -31,10 +33,14 @@ In `tests/minds.test.mjs` and `tests/integration.test.mjs` add:
 - `the_non_punching_fist_stays_on_the_incoming_weapon_line_and_records_blocks`
 - `a_bare_duelist_still_disengages_when_body_to_body_crowded`
 - `fist_attack_and_block_events_name_the_exact_hand`
+- `legacy_and_scripted_meta_use_the_same_bare_crowding_boundary`
+- `a_bare_scripted_meta_duelist_can_enter_punch_range`
+- `two_bare_duelists_accumulate_radial_progress_before_tangential_orbit`
+- `a_punch_attempt_is_not_accepted_until_a_real_commit_phase_completes`
 
-Restore the shared sword crowding threshold and park the cover hand at rest; the approach and
-cover tests must fail independently. The full-bout test must observe a completed attack and a
-real contact, not only an intent field changing.
+Restore each legacy/scripted crowd branch independently and park the cover hand at rest; the
+matching-boundary, approach and cover tests must fail independently. The full-bout test must
+observe a completed attack and a real contact, not only an intent field changing.
 
 ## Acceptance
 
