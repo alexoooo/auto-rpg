@@ -523,9 +523,15 @@ npm run dev             # http://localhost:5180, strictPort
 Six, and each one was paid for.
 
 - **A policy plays with the controller a person plays with.** `Mind.decide` returns an
-  `Intent`, which is a type alias for the human's own `InputState`. Nothing may reach past
-  it to set a joint angle, place a blade, or ask for a pose the solver would refuse a
-  person. An AI that could pose the arm directly would be a different game's AI.
+  `Intent`, and `Controls.state` is annotated as one -- so the person and the AI hand a
+  fighter the same seven fields. Nothing may reach past it to set a joint angle, place a
+  blade, or ask for a pose the solver would refuse a person. An AI that could pose the arm
+  directly would be a different game's AI. **The command is not the controller**, which is
+  the correction session 15 made: `Intent` was a type alias for the human's own
+  `InputState`, so the wheel's `zoom` was a field on every policy's command and a dimension
+  in every sweep that measured one. Camera state -- zoom, orbit, pan -- lives on
+  `CameraGestureState` in `src/camera.ts` and reaches no mind. The seam survives; the alias
+  does not.
 - **Cosmetics never carry authority.** `src/figure.ts` and anything in the authored asset
   own no collision and decide no hit.
 - **The visible room is not the collision arena.** `src/arena-room.ts` keeps the original

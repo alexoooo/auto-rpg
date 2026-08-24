@@ -62,8 +62,9 @@ export function mirroredEvaluationJobs(base: number, split: EvaluationSplit, bou
     ({ cell, mirror: mirror as 0 | 1, seed, actorSide: mirror === 0 ? "left" as const : "right" as const }))).flat();
 }
 
+/** Every leaf of a combat command, which is every number a parity sweep compares. */
 export const INTENT_FIELDS = Object.freeze([
-  "forward", "strafe", "turn", "zoom", "driving",
+  "forward", "strafe", "turn", "driving",
   "posture.trunkLean", "posture.trunkTwist", "posture.crouch",
   ...["primary", "secondary"].flatMap((hand) => ["pointerX", "pointerY", "roll", "wristBend", "thrust", "guard"].map((field) => `${hand}.${field}`)),
 ]);

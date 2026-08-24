@@ -1485,6 +1485,15 @@ The required adversarial pass was observed red before restoration:
 - adding equal and opposite intent deviations to consecutive frames preserved the reported
   mean and failed the ordered sequence gate.
 
+The first of those bullets is **superseded and kept for what it teaches**. Deleting `zoom`
+did fail that test, and the failure meant only that the fixture and the command agreed about
+a field neither should have had: camera zoom rode on the command because `Intent` was an
+alias for the human's `InputState`. Session 15 removed it from the command, the option
+fixtures, `INTENT_FIELDS`, the promotion sweep and the two checked-in corpora, and
+`every_option_returns_a_complete_bounded_intent` now checks the seven fields a fighter
+actually consumes. A red test proves the fixture and the code agree; it does not prove they
+are right.
+
 ## NEAT trainer determinism and checkpoint probe -- 2026-08-24
 
 The real-Havok smoke used 8 genomes, 3 generations and 2 mirrored bouts. Two independent
@@ -1599,6 +1608,17 @@ reached close, disengage, cover, cut, thrust, punch, shoot and recover. All 12 r
 legacy/scripted-meta comparison rows across train, validation and test matched winner,
 ending, duration, damage and all 20 ordered intent fields exactly. Archer rows also matched
 exactly, including draw/release commands and arrow damage.
+
+**Superseded in part by session 15 (2026-08-24): the field count is 19, not 20.** The three
+sentences above say twenty because twenty is what was measured on the day, and they are left
+standing rather than rewritten. `zoom` was the twentieth, and session 15 removed it from the
+combat command as a camera value that was never a fighter's to read. The two checked-in
+corpora were edited in place to match -- deletions only, no value reformatted, verified as
+zero added lines and zero changed leaves. The removed column was worth nothing in either
+direction: every one of the 160 `intentTrace.sums.zoom` entries equalled its record's own
+sample count exactly, and all 24 parity deltas were 0. A perfectly regular, entirely
+meaningless number that had been shipped, mirrored and parity-checked. Read every "20 fields"
+claim on this page as "19 fields, and one that could not have disagreed".
 
 `tests/integration.test.mjs` is the lifecycle and authority complement to that corpus. It
 builds all four humanoid policies with all 27 setup-reachable two-hand loadouts (108

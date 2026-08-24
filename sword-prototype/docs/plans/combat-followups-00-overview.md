@@ -167,3 +167,156 @@ npm run build
 
 Session 25 deletes this remaining plan set and handoff only after all results are folded into
 durable documentation.
+
+## Progress log
+
+This section is the living record of the implementation pass. One entry per session as it
+lands, written when it lands rather than at the end. A session with a caveat records the
+caveat here, not only in its own plan file.
+
+Baseline taken before any of this work, from `sword-prototype/`, commit `a095877`:
+`npm test` 454 passed, `npm run check` clean.
+
+| session | state | landed |
+| --- | --- | --- |
+| 15 host command boundary | in progress | -- |
+| 16 policy perception v4 | not started | -- |
+| 17 tactic output v2 | not started | -- |
+| 18 human gate feasibility | not started | -- |
+| 19 run legibility | not started | -- |
+| 20 throughput and ceilings | not started | -- |
+| 21 research ladder | not started | -- |
+| 22 scaled runs | not started | -- |
+| 23 held-out tournament | not started | -- |
+| 24 promoted integration | not started | -- |
+| 25 integration and playtest | not started | -- |
+
+### Findings from the implementation pass that change the plan
+
+Recorded as they were found, with the evidence. A plan that survives contact unchanged was
+not specific enough to be wrong; these are the places this one was.
+
+1. **"At least twenty-four rows" is not reachable by choosing `N`.** Session 19 sets the
+   cadence with `--checkpoint-every-jobs N` and session 21 accepts a rung only if it produced
+   twenty-four rows. At the granularity each runner actually checkpoints at, the *whole run*
+   offers fewer units than that: look-ahead 880 (`train-lookahead.mjs#L81`), NEAT-QD 80
+   generations (`train-neat-qd.mjs#L18`), DAgger **5** iterations (`collect-dagger.mjs#L17`),
+   PPO **2** arms -- `equalBudgetPpoArms` returns exactly `["random", "dagger"]`
+   (`src/learning/ppo.ts#L96-L100`). No `N` divides five into twenty-four.
+   **Consequence:** the unit of work is re-cut before the cadence is chosen. DAgger checkpoints
+   at the eight shards inside `collect()` (`collect-dagger.mjs#L49`), PPO at the boundary loop
+   inside `collectPpoTrajectory` (`train-ppo.mjs#L84-L102`). Both are already index-addressed,
+   so the job-index cadence rule survives intact. The requirement was always legibility, not
+   the number twenty-four; the number is what legibility costs at a one-hour spacing.
+2. **PPO spends twice its stated budget.** `equalBudgetPpoArms` assigns the full `solverSteps`
+   to *both* arms (`ppo.ts#L98-L99`), and `tests/ppo.test.mjs#L45-L47` pins that deliberately.
+   Every ceiling derived for PPO in session 20 is therefore a per-arm ceiling and the run costs
+   2x. PPO is also the only direction with no exact-budget assertion, so it under-spends as
+   well; the ledger's `stepsConsumed` is the only honest figure.
+3. **Validation worst-cell exists in one direction of four.** NEAT-QD computes it for real
+   (`research-rollout-worker.mjs#L51`). PPO writes `macro: reward, worstCell: reward` -- the
+   same scalar (`train-ppo.mjs#L149`). DAgger has only `validationLoss`, and look-ahead only a
+   summed calibration error; both are **lower-is-better**, which inverts the sign of the
+   plateau rule's "improved by at least `--plateau-epsilon`".
+   **Consequence:** the plateau rule is declared over a per-direction *objective* with its
+   direction of improvement stated, not over a quantity named `worstCell` that means four
+   different things.
+4. **There is no gate table anywhere, and no runner can currently compute one.**
+   `assessTournamentCandidate` (`tournament.ts#L197-L221`) and `assessPromotion`
+   (`promotion.ts#L110-L133`) emit `string[]` failures carrying the threshold and **no achieved
+   value and no margin**. They consume `TournamentCell`, a shape no research runner produces.
+   `firstAttackSeconds` is recorded by the tracker and returned by `runResearchBout`, then
+   **discarded** by `research-rollout-worker.mjs#L38-L45`; `symmetricTimeCapRate` is computed
+   nowhere; the specialist gap needs a control run no runner performs; and `train-ppo.mjs` and
+   `train-lookahead.mjs` never read `result.engagement` at all. The signed-margin gate table is
+   net-new plumbing in three directions, not a formatting change.
+5. **Look-ahead has no resume, no state file and no coherent mid-run checkpoint.**
+   `--stop-after-jobs` exists only in `train-ppo.mjs#L155`; the handoff's claim that it and
+   `--resume` are general is wrong. Worse, a look-ahead `TacticalModel` first exists only after
+   a complete train sweep (`train-lookahead.mjs#L90`) and is uncalibrated until the validation
+   sweep (`#L95`), so a champion-so-far at row *k* is a computation the run does not otherwise
+   perform -- and one `LOOKAHEAD_CALIBRATION_LIMITS` would likely refuse at deploy time.
+6. **`configDigest` is two incompatible formats.** NEAT-QD and DAgger use 16 hex characters of
+   SHA-256 (`train-neat-qd.mjs#L33`, `collect-dagger.mjs#L28`); PPO and look-ahead use 8 hex
+   characters of FNV-1a (`train-ppo.mjs#L165`, `train-lookahead.mjs#L100`). The artifact
+   validator only requires a non-empty string (`artifact.ts#L100`). Preflight normalizes this
+   before it can compare anything.
+7. **A SHA-256 contract digest cannot live in `src/learning/`.** That tree is browser-imported
+   by the Vite app, `node:crypto` is unavailable there and `crypto.subtle` is async;
+   `artifact.ts#L70` already says so. The contract digest either uses the existing synchronous
+   FNV-1a `artifactChecksum` or lives script-side only.
+8. **There is no page-side deployment path.** Session 19 asks that a champion-so-far be
+   "loadable into the page through the existing deployment path". `src/learning/deployment.ts`
+   has exactly two importers, both Node-side; `src/main.ts` contains no occurrence of
+   `artifact`. This is a new feature, and session 19 owns it.
+9. **`src/learning/research.ts` and `src/learning/jobs.ts` are dead relative to the research
+   path.** Neither is imported by any of the four runners; `RESEARCH_SOLVER_STEP_BUDGET`,
+   `ABLATION_SOLVER_STEP_BUDGET` and `RESEARCH_SEEDS` have no consumers at all. A ledger built
+   on those types would not be the thing the runners use.
+10. **`AGENTS.md` has no research section to update** -- zero occurrences of `research`,
+    `learning` or `checkpoint` in 572 lines. Sessions 19 and 20 create one rather than editing
+    one. (`docs/design.md` does exist, at 990 lines; a reconnaissance pass claimed otherwise
+    and was wrong.)
+
+Findings that change session 18 specifically:
+
+11. **The baseline the human is to be compared against was produced by two attack detectors at
+    once.** `scripts/evaluate-options.mjs#L175` calls `recordBehaviourSample` (the *labelled*
+    path) and `#L178` calls `recordIntentAttack` (the *label-free* path) on the same
+    `behaviourRecord`, in the same `onSample`, against one shared `_engagement`.
+    `EngagementTracker.attack` (`engagement.ts#L137`) returns early when an opportunity has
+    already been attacked, so it is first-writer-wins and the two silently blend.
+    `scripts/training-evaluator.mjs#L24-L25` does the same.
+    **Consequence:** the frozen 0.2282 and 0.2031 rows are a *mixture*, and a human -- who has
+    no labels at all -- cannot reproduce a mixture. The honest comparison is label-free on both
+    sides, so session 18 re-takes the specialist controls with the labelled path switched off
+    and reports the mixture rows as superseded rather than as its control.
+12. **The two attack paths disagree in four measurable ways**, so the planned test
+    `a_label_free_mind_and_a_labelled_mind_agree_on_attack_intent_for_the_same_commands` fails
+    as written and must be scoped: `opportunitiesForAction` requires `striker === "sword"` for
+    `thrust` (`engagement.ts#L79`) where the inline matcher falls through to `true`
+    (`options.ts#L481`); `research-havok.mjs#L36` credits only `[0]`, the first matching row,
+    where `options.ts#L482` credits every match, which systematically depresses dual-wield
+    opportunity conversion; the labelled paths fire on an option-change edge while the
+    label-free path fires on a button edge at 240 Hz; and only the label-free path counts a
+    *guard release* as an attack (`options.ts#L466`), which inflates the numerator of
+    opportunity-attack and deflates attack-contact for a defensive player.
+13. **The page's clock is wall-clock derived and the bench's is synthetic.**
+    `src/main.ts#L936` takes `dt = min(engine.getDeltaTime()/1000, CONFIG.world.maxFrameSeconds)`
+    with the cap at `1/20` (`config.ts#L38`) and feeds it to `combat.advance(dt)` (`#L946`);
+    the bench advances by an exact `1/60` (`measure.mjs#L351`). The control step is `1/240` in
+    both, so every *duration* accumulator is harness-identical -- but `attack`/`contact` window
+    arithmetic reads `view.clock`, so under frame drops the page's clock runs fast against
+    simulated motion and the 0.75 s opportunity window closes early. This is a named mechanism
+    for a page-to-bench gate offset, and it means **frame rate is recorded beside every human
+    row** or the row cannot be interpreted.
+14. **`onSample` does not emit the shape session 18 says it does.** `runBout` emits
+    `{ left, right, dt, clock }` where `left`/`right` are `Combatant`s (`measure.mjs#L286`);
+    `{ view, dt, clock }` is `runResearchBout`'s hook re-projection one layer up
+    (`research-havok.mjs#L55-L56`). The recorder takes the per-fighter `{ view, dt, clock }` --
+    that is what makes it side-agnostic and page-drivable -- and the bench call sites adapt.
+15. **The page never sees an `Intent`, and a wrapper is not enough.** `Fighter.update` calls
+    `this.mind.decide` internally and keeps the result (`fighter.ts#L1381`); every bench
+    evaluator captures intent by wrapping the mind. The page's construction site is `mindFor`
+    (`main.ts#L314-L317`), but `fighter.mind` is **reassigned at runtime by takeover**
+    (`main.ts#L601`, `#L619`), so a wrapper installed once is discarded the first time anybody
+    takes a body over -- which is exactly what a human sitting does. `handOver` (`#L560`) must
+    re-wrap. This is the largest hidden cost in the page-side plumbing.
+16. **Contacts must come from `Combat`'s `onReport`, not from the page's blood drain.**
+    `main.ts#L461-L475` drains reports by timestamp and breaks on `report.at <= seen`, which
+    cannot separate two contacts stamped in one frame; `measure.mjs#L318-L342` drains by log
+    identity instead and documents why. `Combat`'s third constructor argument
+    (`combat.ts#L216`, fired at `#L303` and `#L345`) is the only lossless page-side source and
+    is the one the bench already uses.
+17. **`src/learning/engagement.ts` imports its two window constants from `tournament.ts`**
+    (`#L3`), which imports `artifact.ts` and `research-matrix.ts`. A DOM-free recorder that
+    imports `engagement.ts` therefore drags the artifact/checksum graph into the page bundle.
+    Move `OPPORTUNITY_WINDOW_SECONDS` and `STALL_WINDOW_SECONDS` down into `engagement.ts` and
+    re-export them from `tournament.ts`.
+18. **Two gate derivations already disagree on the case a bad human bout produces.**
+    `tournament.ts#L241-L245` maps a never-attacked cell to `+Infinity`; `evaluate-ai.mjs#L17-L20`
+    returns `null` for the same cell. The shared formatter session 18 introduces must fix one
+    meaning for "never attacked" and both callers must adopt it.
+    Related: `scripts/promotion-evaluator.mjs` evaluates **no** engagement threshold at all --
+    it is a win-rate, option-diversity, motif and safety gate (`promotion.ts#L3-L6`). Session
+    18's brief was wrong to name it as a gate-table site.

@@ -2,11 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { behaviourRecord, recordBehaviourSample, recordCombatEvent, recordIntentAttack } from "../src/options.ts";
+import { blankIntent } from "../src/policies.ts";
 import { EngagementTracker, attackOpportunity } from "../src/learning/engagement.ts";
+import { INTENT_FIELDS } from "../src/learning/evaluation.ts";
 import { fitnessComponents, noveltyScore } from "../src/learning/meta.ts";
 import { SplitReader } from "../src/learning/research.ts";
 import { researchMatrix } from "../src/learning/research-matrix.ts";
 import { assessTournamentCandidate } from "../src/learning/tournament.ts";
+import { intentNumbers } from "../scripts/promotion-evaluator.mjs";
 
 const hand = (weapon = "sword", reach = 1.2, outboard = 1) => ({ weapon, reach, lost: false, outboard,
   shoulder: { x: 0, y: 1.4, z: 0 }, tip: { x: 0, y: 1.4, z: reach }, tipSpeed: 0 });
@@ -16,6 +19,37 @@ const body = (z = 0, primary = hand(), radius = 0.25) => ({ unit: "warrior", rea
   hands: { primary, secondary: hand("empty", 0.55, -1) }, crouch: 0, trunkLean: 0, trunkTwist: 0,
   vitality: 1, health: {} });
 const view = (measure = 1.2) => ({ self: body(), opponent: body(measure), measure, clock: 0 });
+
+const readField = (intent, path) => path.split(".").reduce((at, key) => at[key], intent);
+const writeField = (intent, path, value) => {
+  const keys = path.split("."); const last = keys.pop();
+  keys.reduce((at, key) => at[key], intent)[last] = value;
+};
+
+test("promotion_finiteness_checks_cover_every_combat_number", () => {
+  // The promotion gate is `intentNumbers(...).some((v) => !Number.isFinite(v))`,
+  // so it is worth exactly as much as the list it reads. A number the list
+  // forgets can go NaN inside a promoted candidate and nothing says so; a field
+  // the command no longer carries -- `zoom`, until session 15 -- arrives as
+  // `undefined` and would refuse every candidate for a reason nobody could act
+  // on. Marking each numeric leaf with a value of its own pins both directions
+  // in one assertion, which a length comparison would not: two errors that
+  // cancel keep the count right.
+  const probe = blankIntent();
+  const numeric = INTENT_FIELDS.filter((field) => typeof readField(probe, field) === "number");
+  numeric.forEach((field, index) => writeField(probe, field, index + 1));
+  assert.deepEqual(
+    [...intentNumbers(probe)].sort((a, b) => a - b), numeric.map((_, index) => index + 1),
+    `the sweep reads ${intentNumbers(probe).length} numbers for ${numeric.length} numeric command fields`,
+  );
+  // The rest are left out deliberately rather than by oversight: `Number.isFinite`
+  // is false for a hand name and for a button, so sweeping them would refuse
+  // every candidate ever trained.
+  assert.deepEqual(INTENT_FIELDS.filter((field) => typeof readField(probe, field) !== "number"),
+    ["driving", "primary.thrust", "primary.guard", "secondary.thrust", "secondary.guard"]);
+  const holed = blankIntent(); holed.posture.crouch = NaN;
+  assert.ok(intentNumbers(holed).some((value) => !Number.isFinite(value)), "the gate still catches a hole");
+});
 
 test("draws_and_losses_receive_no_terminal_success_credit", () => {
   const draw = behaviourRecord(); draw.seconds = 45; draw.vitality = 1;
@@ -134,10 +168,7 @@ test("the_behaviour_recorder_counts_attack_windows_instead_of_frame_spam", () =>
 test("legacy_bow_release_and_arrow_contact_convert_one_factual_opportunity", () => {
   const sample = view(2); sample.self.hands.primary.weapon = "bow"; sample.self.hands.primary.reach = 0.8;
   const record = behaviourRecord(); recordBehaviourSample(record, sample, null, 0.1, {});
-  const intent = { forward: 0, strafe: 0, turn: 0, zoom: 1, driving: "primary",
-    posture: { trunkLean: 0, trunkTwist: 0, crouch: 0 },
-    primary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: true, guard: false },
-    secondary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false } };
+  const intent = blankIntent(); intent.primary.thrust = true;
   const previous = {}; recordIntentAttack(record, sample, intent, previous);
   sample.clock = 0.1; intent.primary.thrust = false; recordIntentAttack(record, sample, intent, previous);
   recordCombatEvent(record, { hand: "primary", weapon: "arrow", damage: 10, blocked: false, at: 0.2 });

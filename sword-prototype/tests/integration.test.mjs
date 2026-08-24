@@ -127,19 +127,27 @@ for (const kind of ["shield", "buckler"]) {
   });
 }
 
-test("all_shipped_intents_stay_finite_and_anatomically_bounded_for_a_full_bout", () => {
+/**
+ * Renamed from `all_shipped_intents_stay_finite_and_anatomically_bounded_for_a_full_bout`
+ * when session 15 took the camera out of the command. The bout it runs and every
+ * bound it checks are unchanged; what it now also states is the shape it is
+ * checking, once per control step of a real fight, which is where a stale field
+ * would actually reach a fighter.
+ */
+test("every_policy_returns_a_finite_zoom_free_combat_command", () => {
   const loadoutFor = { idle: { primary: "sword", secondary: "empty" },
     swinger: { primary: "sword", secondary: "empty" }, duelist: { primary: "sword", secondary: "shield" },
     archer: { primary: "bow", secondary: "empty" } };
+  const COMBAT_FIELDS = ["driving", "forward", "posture", "primary", "secondary", "strafe", "turn"];
   const inspect = (intent, label) => {
-    const axes = [intent.forward, intent.strafe, intent.turn, intent.zoom,
+    assert.deepEqual(Object.keys(intent).sort(), COMBAT_FIELDS, `${label} asked for a host field`);
+    const axes = [intent.forward, intent.strafe, intent.turn,
       intent.posture.trunkLean, intent.posture.trunkTwist, intent.posture.crouch];
     for (const value of axes) assert.ok(Number.isFinite(value), `${label} returned a finite body axis`);
     for (const value of [intent.forward, intent.strafe, intent.turn, intent.posture.trunkLean, intent.posture.trunkTwist]) {
       assert.ok(value >= -1 && value <= 1, `${label} kept a normalized signed axis: ${value}`);
     }
     assert.ok(intent.posture.crouch >= 0 && intent.posture.crouch <= 1, `${label} kept crouch anatomical`);
-    assert.ok(intent.zoom >= 0.1 && intent.zoom <= 4, `${label} kept zoom inside the controller envelope`);
     assert.ok(intent.driving === "primary" || intent.driving === "secondary", `${label} named a real hand`);
     for (const hand of [intent.primary, intent.secondary]) {
       for (const value of [hand.pointerX, hand.pointerY, hand.roll, hand.wristBend]) {

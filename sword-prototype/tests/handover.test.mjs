@@ -253,11 +253,23 @@ test("the rebase walks the cursor across, monotonically and once", () => {
   assert.equal(held.decide(null, FIXED).primary.pointerX, 0);
 });
 
-test("the feet, the buttons and the zoom are the new driver's from the first step", () => {
-  // None of them can teleport anything: reach is filtered at `arm.reachResponse`
-  // and locomotion at `fighter.accelResponse`, so blending them would be a lag
-  // bought for nothing. Only the two aiming axes and the wrist are absolute.
-  const asked = blank({ forward: 1, strafe: -1, turn: 0.5, thrust: true, guard: true, zoom: 1.4 });
+test("handover_rebases_both_hands_without_a_camera_field", () => {
+  // The feet and the buttons are the new driver's from the first step: neither
+  // can teleport anything -- reach is filtered at `arm.reachResponse` and
+  // locomotion at `fighter.accelResponse` -- so blending them would be a lag
+  // bought for nothing. Only the two aiming axes and the wrist are absolute, and
+  // both hands are rebased by the one clock, because the cursor is absolute and
+  // the hand it is not on is being commanded from a pose the taker knows nothing
+  // about either.
+  //
+  // What comes out is a command and only a command. The zoom used to be listed
+  // beside the feet and the buttons here, on the same "cannot teleport anything"
+  // argument, and it was passed through by name for the whole rebase window. It
+  // is not a smaller pass-through now, it is absent: the camera never entered the
+  // command, so a takeover cannot move it either.
+  const asked = blank({ forward: 1, strafe: -1, turn: 0.5, thrust: true, guard: true });
+  asked.secondary.pointerX = 0.8;
+  asked.secondary.pointerY = 0.6;
   const held = handover(fixed("driver", asked), bothPoses(poseFor(-1, 1, 1)), 0.25);
 
   const first = held.decide(null, FIXED);
@@ -266,7 +278,16 @@ test("the feet, the buttons and the zoom are the new driver's from the first ste
   assert.equal(first.turn, 0.5);
   assert.equal(first.primary.thrust, true);
   assert.equal(first.primary.guard, true);
-  assert.equal(first.zoom, 1.4);
+  assert.deepEqual(
+    Object.keys(first).sort(),
+    ["driving", "forward", "posture", "primary", "secondary", "strafe", "turn"],
+  );
+  // Both hands start at the found pose rather than at what the taker asked for,
+  // which is what makes the sentence above about the spare hand true.
+  const seeded = cursorForPose(poseFor(-1, 1, 1), "secondary");
+  assert.ok(Math.abs(first.secondary.pointerX - seeded.pointerX) < 1e-9,
+    `spare hand started at ${first.secondary.pointerX}, not at the pose it found`);
+  assert.notEqual(first.secondary.pointerX, asked.secondary.pointerX);
 });
 
 test("a zero-width rebase is the plan's seed alone, and is not a broken handover", () => {

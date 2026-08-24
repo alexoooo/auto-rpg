@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { POLICIES, mirroredWristBend, otherHand, policyMind, splitMind } from "../src/mind.ts";
+import { NEUTRAL, POLICIES, mirroredWristBend, otherHand, policyMind, splitMind } from "../src/mind.ts";
 import { blankIntent, cursorForElevation, postureFor, rollForStroke } from "../src/policies.ts";
 import { CONFIG } from "../src/config.ts";
 
@@ -229,6 +229,35 @@ test("the picker offers exactly the policies that exist", () => {
   for (const policy of POLICIES) {
     assert.equal(policyMind(policy.name, 1).name, policy.name);
     assert.ok(policy.label.length > 0, `${policy.name} needs a label for the screen`);
+  }
+});
+
+/**
+ * The exact field set a fighter consumes, named once and asserted against every
+ * producer of a command.
+ *
+ * A key list rather than a `zoom !== undefined` check on purpose. The failure
+ * this guards is a *host* field surviving in a combat command, and camera zoom
+ * was only the one that happened to be there -- an assertion naming zoom alone
+ * would pass the day somebody adds a field for the readout or the pointer lock.
+ * Naming the whole set makes any new field a decision somebody has to take here.
+ */
+const COMBAT_FIELDS = ["driving", "forward", "posture", "primary", "secondary", "strafe", "turn"];
+
+test("a_combat_intent_contains_no_camera_state", () => {
+  const fieldsOf = (intent) => Object.keys(intent).sort();
+  assert.deepEqual(fieldsOf(NEUTRAL), COMBAT_FIELDS, "the frozen neutral command");
+  assert.deepEqual(fieldsOf(blankIntent()), COMBAT_FIELDS, "the intent every policy owns");
+  assert.deepEqual(Object.keys(NEUTRAL.posture).sort(), ["crouch", "trunkLean", "trunkTwist"]);
+  // Every shipped mind, driven rather than merely constructed: a policy that
+  // writes a field its blank did not declare is exactly as wrong as a blank that
+  // carries one, and only stepping it says so.
+  for (const policy of POLICIES) {
+    const mind = policyMind(policy.name, 20260824);
+    for (const gap of [0.8, 1.4, 3.2]) {
+      const out = mind.decide(facing({ gap }), FIXED);
+      assert.deepEqual(fieldsOf(out), COMBAT_FIELDS, `${policy.name} at ${gap} m`);
+    }
   }
 });
 
@@ -767,11 +796,11 @@ const twoHanded = (name, driving, over) => {
 
 test("the person keeps the feet and the hand the mouse is on", () => {
   const person = twoHanded("you", "primary", {
-    body: { forward: 1, strafe: -1, turn: 0.5, zoom: 1.6 },
+    body: { forward: 1, strafe: -1, turn: 0.5 },
     primary: { pointerX: 0.4, pointerY: -0.3, roll: 0.9, thrust: true, guard: false },
   });
   const policy = twoHanded("swinger", "primary", {
-    body: { forward: -1, strafe: 1, turn: -1, zoom: 9 },
+    body: { forward: -1, strafe: 1, turn: -1 },
     primary: { pointerX: -0.8, pointerY: 0.7, roll: -1.1, thrust: false, guard: true },
     secondary: { pointerX: 0.15, pointerY: -0.05, roll: 1.4, thrust: false, guard: true },
   });
@@ -783,7 +812,6 @@ test("the person keeps the feet and the hand the mouse is on", () => {
   assert.equal(out.forward, 1);
   assert.equal(out.strafe, -1);
   assert.equal(out.turn, 0.5);
-  assert.equal(out.zoom, 1.6);
   assert.equal(out.driving, "primary");
 
   // Position and buttons are theirs; wrist orientation is policy-owned.
@@ -797,6 +825,36 @@ test("the person keeps the feet and the hand the mouse is on", () => {
   assert.deepEqual(out.secondary, {
     pointerX: 0.15, pointerY: -0.05, roll: 1.4, wristBend: 0, thrust: false, guard: true,
   });
+});
+
+test("split_mind_composes_only_fighter_commands", () => {
+  // The person's half of this is `Controls.state` in the page, and the host owns
+  // more state than a command -- the camera gesture, the ownership switches, and
+  // whatever the next session adds. `splitMind` starts from `NEUTRAL` and assigns
+  // named fields, so nothing a source happens to be carrying can reach a fighter
+  // by spread. Both sources here carry a host field, which is exactly what a
+  // caller left over from before the seam moved looks like.
+  const person = twoHanded("you", "primary", {
+    body: { forward: 1, strafe: -1, turn: 0.5, zoom: 1.6 },
+    primary: { pointerX: 0.4, thrust: true },
+  });
+  const policy = twoHanded("duelist", "secondary", {
+    body: { zoom: 9, panX: 3, mode: "orbit" },
+    secondary: { pointerX: -0.2, roll: 0.7, guard: true },
+  });
+
+  const out = splitMind(person, policy).decide(facing({ gap: 1.2 }), FIXED);
+
+  assert.deepEqual(Object.keys(out).sort(), COMBAT_FIELDS, "a host field reached the fighter");
+  // ...and it is still the composition it was: the feet and the driven hand from
+  // the person, the spare hand from the policy's plan for that same hand.
+  assert.equal(out.forward, 1);
+  assert.equal(out.driving, "primary");
+  assert.equal(out.primary.pointerX, 0.4);
+  assert.equal(out.primary.thrust, true);
+  assert.equal(out.secondary.pointerX, -0.2);
+  assert.equal(out.secondary.guard, true);
+  assert.deepEqual(Object.keys(NEUTRAL).sort(), COMBAT_FIELDS, "the shared neutral was written through");
 });
 
 test("human_play_gives_wrist_orientation_to_the_policy_and_position_to_the_pointer", () => {
@@ -843,12 +901,12 @@ test("a_commit_twists_into_the_strike_and_recovers_to_neutral", () => {
 
 test("human_play_keeps_locomotion_and_buttons_but_uses_policy_posture", () => {
   const person = twoHanded("you", "secondary", {
-    body: { forward: 1, strafe: -1, turn: 0.5, zoom: 1.6 },
+    body: { forward: 1, strafe: -1, turn: 0.5 },
     posture: { trunkLean: 0.9, trunkTwist: -0.8, crouch: 0.1 },
     secondary: { pointerX: 0.4, pointerY: -0.3, roll: 1.1, wristBend: 0.2, thrust: true },
   });
   const policy = twoHanded("duelist", "primary", {
-    body: { forward: -1, strafe: 1, turn: -1, zoom: 9 },
+    body: { forward: -1, strafe: 1, turn: -1 },
     posture: { trunkLean: -0.35, trunkTwist: 0.7, crouch: 0.65 },
     primary: { roll: -0.8, wristBend: 0.75, guard: true },
     secondary: { roll: -0.6, wristBend: 0.55, guard: true },
@@ -856,8 +914,8 @@ test("human_play_keeps_locomotion_and_buttons_but_uses_policy_posture", () => {
 
   const out = splitMind(person, policy).decide(facing(), FIXED);
   assert.deepEqual(
-    { forward: out.forward, strafe: out.strafe, turn: out.turn, zoom: out.zoom, driving: out.driving },
-    { forward: 1, strafe: -1, turn: 0.5, zoom: 1.6, driving: "secondary" },
+    { forward: out.forward, strafe: out.strafe, turn: out.turn, driving: out.driving },
+    { forward: 1, strafe: -1, turn: 0.5, driving: "secondary" },
   );
   assert.deepEqual(out.posture, { trunkLean: -0.35, trunkTwist: 0.7, crouch: 0.65 });
   assert.equal(out.secondary.pointerX, 0.4);

@@ -93,7 +93,7 @@ the arm drifted, centre was unrecoverable, and you could not get your mouse back
 | Z / X, T / Y | roll and bend the driven wrist when direct wrist is enabled |
 | F | the mouse changes hands — the one it leaves goes back to its policy |
 | C | arm a takeover, then click either fighter — you drive that one and the one you leave picks its policy back up |
-| Wheel | zoom |
+| Wheel | zoom — the camera only; no fighter is asked for anything |
 | V | camera — Overhead behind the fighter, or Fixed on a world bearing |
 | `[` / `]` | swing the Fixed camera round the arena, 45 degrees at a time |
 | Space / Esc | pause, and resume — the same key both ways, in a decided bout as much as a live one |
@@ -101,6 +101,12 @@ the arm drifted, centre was unrecoverable, and you could not get your mouse back
 | Tab | toggle the readout |
 | G | the rig — collision shapes, anchors, joints and contacts, with the costume off |
 | ? | the controls — this list, over whatever is on screen |
+
+**Half of that table is not a combat control.** The wheel, the middle drag and the two
+bearing keys move the camera and nothing else: you and a policy issue exactly the same
+command — locomotion, posture, and two hands — and how the arena is framed is yours alone.
+That is why taking a body mid-bout changes nothing about the view, and why no policy can
+zoom out to see further than you can.
 
 **Pausing never throws a fight away.** The curtain has two screens and says which one you
 are looking at: the setup screen before a bout, and a pause over one that is standing.

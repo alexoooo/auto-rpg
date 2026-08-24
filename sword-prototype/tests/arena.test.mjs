@@ -16,6 +16,8 @@ import HavokPhysics from "@babylonjs/havok";
 import "@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent.js";
 
 import { CONFIG } from "../src/config.ts";
+import { CAMERA_ZOOM_NOTCHES, orbitFraming, slewCameraZoom } from "../src/camera.ts";
+import { blankIntent } from "../src/policies.ts";
 import { attachPhysics, COLLIDES, LAYER } from "../src/physics.ts";
 import { FIGURE_SIDE_COLOURS } from "../src/figure.ts";
 import { ROOM_METRES, TEXTURED_SURFACES } from "../src/materials.ts";
@@ -63,6 +65,61 @@ const setup = async () => {
 
 const bodies = (scene) => scene.getPhysicsEngine().getBodies().length;
 const rounded = (values) => values.map((value) => Math.round(value * 1e6) / 1e6);
+
+/**
+ * The wheel, end to end, and the thing it is not allowed to touch.
+ *
+ * `Controls` itself cannot be loaded here -- it is the DOM side of the tree and
+ * its imports carry no `.ts` extensions, which is exactly why the wheel had no
+ * test at all before session 15. So the two halves it wires are tested where they
+ * now live: `slewCameraZoom` is the whole of what `Controls.sample` does with
+ * `zoomNotches`, and `orbitFraming` is the whole of what `main.ts` does with the
+ * result. What is left in either caller is one call with no arithmetic in it.
+ *
+ * Both clamps, because a limit reached from one side is not a limit: the notch
+ * envelope has to be wide enough to *arrive* at `zoomMin` and `zoomMax`, and a
+ * `CAMERA_ZOOM_NOTCHES` too small for the configured band would leave one end of
+ * `config.ts` unreachable with nothing to say so.
+ */
+test("wheel_zoom_reaches_both_limits_without_mutating_the_human_intent", () => {
+  const C = CONFIG.camera;
+  const gesture = { mode: "none", pointerId: null, yaw: 0, pitch: 0, panX: 0, panZ: 0, zoom: 1 };
+  const settle = (notches) => {
+    for (let frame = 0; frame < 600; frame += 1) slewCameraZoom(gesture, notches, 1 / 60, C);
+    return gesture.zoom;
+  };
+
+  // One frame of the wheel wound fully out is on the way, not there: the target
+  // is approached at `zoomResponse` rather than jumped to.
+  const oneFrame = slewCameraZoom(gesture, CAMERA_ZOOM_NOTCHES, 1 / 60, C);
+  assert.ok(oneFrame > 1 && oneFrame < C.zoomMax, `one frame of smoothing landed at ${oneFrame}`);
+
+  assert.ok(Math.abs(settle(CAMERA_ZOOM_NOTCHES) - C.zoomMax) < 1e-9, `far limit ${gesture.zoom}`);
+  const far = orbitFraming(gesture, C.fixed.distance, C.fixed.height);
+  assert.ok(Math.abs(far.distance - C.fixed.distance * C.zoomMax) < 1e-9, `far distance ${far.distance}`);
+  assert.ok(Math.abs(far.height - C.fixed.height * C.zoomMax) < 1e-9, `far height ${far.height}`);
+
+  assert.ok(Math.abs(settle(-CAMERA_ZOOM_NOTCHES) - C.zoomMin) < 1e-9, `near limit ${gesture.zoom}`);
+  const near = orbitFraming(gesture, C.overhead.distance, C.overhead.height);
+  assert.ok(Math.abs(near.distance - C.overhead.distance * C.zoomMin) < 1e-9, `near distance ${near.distance}`);
+  assert.ok(Math.abs(near.height - C.overhead.height * C.zoomMin) < 1e-9, `near height ${near.height}`);
+
+  // An orbit drag tilts the sight line, and the zoom still scales the whole of
+  // it -- this is the formula `main.ts` frames every shot with, in one place.
+  gesture.pitch = 0.4;
+  const tilted = orbitFraming(gesture, C.fixed.distance, C.fixed.height);
+  assert.ok(Math.abs(tilted.distance - C.fixed.distance * Math.cos(0.4) * C.zoomMin) < 1e-9);
+  assert.ok(Math.abs(tilted.height
+    - (C.fixed.height + Math.sin(0.4) * C.fixed.distance) * C.zoomMin) < 1e-9);
+
+  // And the thing the wheel must never reach. `Controls.state` is an `Intent`,
+  // which `tsc --noEmit` checks; this is the run-time half of the same claim,
+  // asserted against the command shape every policy and the person share.
+  const intent = blankIntent();
+  assert.equal("zoom" in intent, false);
+  assert.deepEqual(Object.keys(intent).sort(),
+    ["driving", "forward", "posture", "primary", "secondary", "strafe", "turn"]);
+});
 
 test("cosmetic_room_dressing_creates_no_physics_body", async (t) => {
   const { engine, scene, materials } = await setup();

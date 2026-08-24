@@ -15,13 +15,25 @@ harness that took it named, and the list of what is still owed.
 
 ```ts
 interface Mind { decide(view: FighterView, dt: number): Intent }
-type Intent = InputState;
+class Controls { readonly state: Intent; readonly camera: CameraGestureState }
 ```
 
-`Intent` is a **type alias** for the human controller's own state, deliberately rather than
-a second interface of the same shape: two structurally identical declarations agree on the
-day they are written and part company the first time only one of them is edited, and the
-compiler says nothing.
+`Intent` is declared in `mind.ts`, and the human's controller is annotated as producing
+one. It was the other way round until session 15 -- `type Intent = InputState`, an alias
+onto the controller's own state, on the argument that two structurally identical
+declarations part company the first time only one of them is edited and the compiler says
+nothing. That argument was right; the direction was wrong. Aliasing made *whatever the
+controller happened to hold* the definition of a combat command, and a person's controller
+has a mouse wheel on it, so `zoom` -- a camera factor no fighter has ever read -- was a
+field on every policy's command, a column in every movement partial, a key in the
+intent-parity sweep and a number in the promotion evaluator's finiteness gate. A false
+action dimension is worse than a duplicated field, because it gets measured and learned
+against. One annotation buys the same drift protection with the fighter as the authority.
+
+**The human and the AI share the combat command; camera gestures are host-only.** Wheel
+zoom, orbit yaw and pitch, and pan live on `CameraGestureState` in `src/camera.ts`, which
+`Controls` owns and `main.ts` frames every shot from. No mind can see them and no mind can
+move them.
 
 So **a policy plays with the controller you play with.** It gets forward, strafe and turn;
 normalized crouch, trunk lean and trunk twist; and, for each hand, cursor position, reach,
@@ -373,7 +385,14 @@ work got wrong:
 The inner mind is driven every step of the window at its own `dt`; a policy whose cadence
 stopped for a quarter of a second while its hand was rebased would be a different policy,
 and the difference would show up as a swing that arrived late rather than as anything
-anybody could name.
+anybody could name. Both hands are rebased on the one clock, because the cursor is absolute
+and the hand it is not on is also being commanded from a pose the taker knows nothing about.
+
+**A takeover changes who is driving a body, and nothing about how the arena is framed.**
+The zoom, the orbit bearing and the pan are the host's `CameraGestureState` throughout; they
+used to ride on the command and be passed through by name for the whole rebase window, which
+was true and pointless. What crosses the seam is the seven-field command, and that is all
+there is to hand over.
 
 `takeover.rebaseSeconds = 0` leaves exactly the seed and nothing else, and is kept working
 on purpose as the control condition for any argument about whether the rebase earns its
@@ -433,17 +452,18 @@ hundredth of a millimetre. Every name the outside used -- `fighter.sword`, `figh
 sixteen handover tests needed no edit.
 
 **`Intent` grew a hand.** `HandIntent` is the six fields that belong to a hand -- two
-cursor axes, bounded forearm roll, independent wrist bend, thrust and guard -- and
-`InputState` carries locomotion, camera zoom, whole-body posture, two hands and a `driving`
-selector. Splitting them out rather than adding a second set
-of differently named fields is what keeps the two hands alike: there is no `pointerX` and
+cursor axes, bounded forearm roll, independent wrist bend, thrust and guard -- and the
+command carries locomotion, whole-body posture, two hands and a `driving` selector: seven
+fields, none of them the camera's. Splitting the hands out rather than adding a second set
+of differently named fields is what keeps the two alike: there is no `pointerX` and
 `offPointerX`, no hand that is the real one and a hand that is the afterthought, and `Arm`
 takes one without caring which it is.
 
-The vocabulary lives in `mind.ts` and not beside `InputState` in `input.ts`, and the
-direction of that import is load-bearing. `mind.ts` takes `InputState` as a **type**, which
-erases, so the DOM never reaches a headless harness. Declaring `HANDS` on the far side and
-importing its *value* back reversed that in one line and took `fighter.ts` out of Node's
+The whole vocabulary lives in `mind.ts` -- `Intent`, `HandIntent`, `PostureIntent`, the hand
+names -- and the direction of the imports across that boundary is load-bearing. `input.ts`
+takes `Intent` as a **type**, which erases, and `mind.ts` takes only `HumanOwnership` back
+the same way, so the DOM never reaches a headless harness. Declaring `HANDS` on the far side
+and importing its *value* back reversed that in one line and took `fighter.ts` out of Node's
 reach with it -- five test files failed at once with "Cannot find module .../src/config".
 
 **One mouse, two hands.** `splitMind` runs a person and a policy every step. The person owns

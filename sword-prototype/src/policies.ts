@@ -91,8 +91,8 @@ const WRIST = {
  * happens to work because nobody reads the constant during evaluation is exactly
  * the sort of thing that stops working when somebody moves a line -- in the
  * browser, not in a test. The annotation is what keeps the two shapes married:
- * add a field to `InputState` and this is a compile error rather than a key that
- * is quietly missing.
+ * add a field to `Intent` and this is a compile error rather than a key that is
+ * quietly missing.
  *
  * One of these per mind, returned from every `decide` and never reallocated,
  * because `decide` runs 240 times a second per fighter.

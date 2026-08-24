@@ -7,15 +7,14 @@ const intent = (base, driving = "primary") => ({
   forward: base + 1,
   strafe: base + 2,
   turn: base + 3,
-  zoom: base + 4,
   driving,
-  posture: { trunkLean: base + 5, trunkTwist: base + 6, crouch: base + 7 },
+  posture: { trunkLean: base + 4, trunkTwist: base + 5, crouch: base + 6 },
   primary: {
-    pointerX: base + 8, pointerY: base + 9, roll: base + 10, wristBend: base + 11,
+    pointerX: base + 7, pointerY: base + 8, roll: base + 9, wristBend: base + 10,
     thrust: base === 0, guard: base !== 0,
   },
   secondary: {
-    pointerX: base + 12, pointerY: base + 13, roll: base + 14, wristBend: base + 15,
+    pointerX: base + 11, pointerY: base + 12, roll: base + 13, wristBend: base + 14,
     thrust: base !== 0, guard: base === 0,
   },
 });

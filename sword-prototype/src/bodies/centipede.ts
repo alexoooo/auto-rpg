@@ -281,7 +281,7 @@ export class Centipede implements Combatant {
 /** Close, turn, and commit the one natural attack the body declares. */
 export function crawlerMind(): Mind {
   const intent = (): Intent => ({
-    forward: 0, strafe: 0, turn: 0, zoom: 1, driving: "primary",
+    forward: 0, strafe: 0, turn: 0, driving: "primary",
     posture: { crouch: 0, trunkLean: 0, trunkTwist: 0 },
     primary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
     secondary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },

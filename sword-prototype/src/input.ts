@@ -1,17 +1,20 @@
 import { CONFIG } from "./config";
-// The hand vocabulary lives in `mind.ts`, not here, and the direction of that
-// import is the point. `mind.ts` is on the simulation side of the directory and
-// takes `InputState` from this file as a **type**, which erases -- so the DOM
-// never enters a headless harness's module graph. Declaring `HANDS` here and
-// importing its *value* into `mind.ts` reversed that in one line and took
-// `fighter.ts` out of Node's reach with it: five test files failed at once with
-// "Cannot find module .../src/config", because this file is on the side that
-// does not carry `.ts` extensions.
-import { HANDS, otherHand, type HandIntent, type HandName } from "./mind.ts";
+// The hand vocabulary lives in `mind.ts`, not here, and so does the combat
+// command itself. The direction of these imports is the point. `mind.ts` is the
+// simulation side of the directory and takes only `HumanOwnership` from this
+// file, as a **type**, which erases -- so the DOM never enters a headless
+// harness's module graph. Declaring `HANDS` here and importing its *value* into
+// `mind.ts` reversed that in one line and took `fighter.ts` out of Node's reach
+// with it: five test files failed at once with "Cannot find module
+// .../src/config", because this file is on the side that does not carry `.ts`
+// extensions. `Intent` comes back the same erasing way, and what that buys is in
+// `mind.ts`'s comment on it: the fighter decides what a command is, and this
+// file states that its controller produces one.
+import { HANDS, otherHand, type HandIntent, type HandName, type Intent } from "./mind.ts";
 
 export type { HandIntent, HandName };
 import { maskOfButton, nextSpent, poseFromButtons, PRIMARY } from "./buttons";
-import { dragCamera, type CameraGestureState } from "./camera";
+import { CAMERA_ZOOM_NOTCHES, dragCamera, slewCameraZoom, type CameraGestureState } from "./camera";
 
 /**
  * Input.
@@ -47,44 +50,6 @@ import { dragCamera, type CameraGestureState } from "./camera";
  * press rather than for as long as a finger rests on a button: the target pick
  * on the left button and the lock toggle on the middle one.
  */
-
-export interface InputState {
-  /** -1 back, +1 forward. */
-  forward: number;
-  /** -1 left, +1 right. */
-  strafe: number;
-  /** -1 left, +1 right. Non-zero also means "I am steering", which breaks a lock. */
-  turn: number;
-  /** Camera zoom factor, multiplied into the camera's distance and height. */
-  zoom: number;
-  /**
-   * Which hand the mouse is driving. The other one is on its policy.
-   *
-   * There is one cursor and there are two hands, and the alternative -- half the
-   * screen each, or a modifier key held down -- was rejected because the mouse
-   * being spent *entirely* on one blade is the whole reason this reads as Die by
-   * the Sword. Splitting it would make both hands worse to control in order to
-   * avoid making a choice.
-   *
-   * It lives on the intent rather than beside it because a mind has to be able
-   * to see it: `splitMind` reads exactly this to decide which hand it takes from
-   * the person and which it takes from the policy.
-   */
-  driving: HandName;
-  posture: PostureIntent;
-  primary: HandIntent;
-  secondary: HandIntent;
-}
-
-/** Whole-body pose, normalized at the same boundary as the movement axes. */
-export interface PostureIntent {
-  /** -1 back through +1 forward. */
-  trunkLean: number;
-  /** -1 left through +1 right. */
-  trunkTwist: number;
-  /** Reserved for session 05: 0 standing through 1 fully crouched. */
-  crouch: number;
-}
 
 /** Host-only switches; ownership is not part of the combat command. */
 export interface HumanOwnership {
@@ -135,13 +100,12 @@ export interface ControlHooks {
 export class Controls {
   readonly ownership: HumanOwnership = { posture: false, drivenWrist: false };
   readonly camera: CameraGestureState = {
-    mode: "none", pointerId: null, yaw: 0, pitch: 0, panX: 0, panZ: 0,
+    mode: "none", pointerId: null, yaw: 0, pitch: 0, panX: 0, panZ: 0, zoom: 1,
   };
-  readonly state: InputState = {
+  readonly state: Intent = {
     forward: 0,
     strafe: 0,
     turn: 0,
-    zoom: 1,
     driving: "primary",
     posture: { trunkLean: 0, trunkTwist: 0, crouch: 0 },
     primary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
@@ -213,8 +177,13 @@ export class Controls {
     this.endCameraGesture();
   }
 
-  /** Fold held keys into axes. Call once per rendered frame. */
-  sample(dt: number): InputState {
+  /**
+   * Fold held keys into axes. Call once per rendered frame.
+   *
+   * The wheel is folded here too, into `this.camera` rather than into what comes
+   * back: the returned command is the fighter's and carries no camera state.
+   */
+  sample(dt: number): Intent {
     const axis = (negative: string, positive: string) =>
       (this.held.has(positive) ? 1 : 0) - (this.held.has(negative) ? 1 : 0);
 
@@ -244,9 +213,7 @@ export class Controls {
       hand.wristBend = slew(hand.wristBend, axis("KeyT", "KeyY") > 0 ? 1 : 0, Ctl.wristSlewPerSecond);
     }
 
-    const C = CONFIG.camera;
-    const wanted = clamp(Math.exp(this.zoomNotches * C.zoomStep), C.zoomMin, C.zoomMax);
-    this.state.zoom += (wanted - this.state.zoom) * (1 - Math.exp(-C.zoomResponse * dt));
+    slewCameraZoom(this.camera, this.zoomNotches, dt, CONFIG.camera);
     return this.state;
   }
 
@@ -500,6 +467,8 @@ export class Controls {
   private readonly onWheel = (event: WheelEvent): void => {
     if (!this.active) return;
     event.preventDefault();
-    this.zoomNotches = clamp(this.zoomNotches + Math.sign(event.deltaY), -18, 18);
+    this.zoomNotches = clamp(
+      this.zoomNotches + Math.sign(event.deltaY), -CAMERA_ZOOM_NOTCHES, CAMERA_ZOOM_NOTCHES,
+    );
   };
 }

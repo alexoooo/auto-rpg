@@ -86,7 +86,7 @@ export function actionArcherAim(view: FighterView, hand: HandName, into: ActionA
 
 export function freshIntent(): Intent {
   return {
-    forward: 0, strafe: 0, turn: 0, zoom: 1, driving: "primary",
+    forward: 0, strafe: 0, turn: 0, driving: "primary",
     posture: { trunkLean: 0, trunkTwist: 0, crouch: 0 },
     primary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
     secondary: { pointerX: ACTION_TUNING.restPointerX, pointerY: ACTION_TUNING.restPointerY,
@@ -182,7 +182,7 @@ export function actionStrokeRoll(fromX: number, fromY: number, toX: number, toY:
 
 export function boundIntent(intent: Intent): Intent {
   intent.forward = clampAction(intent.forward); intent.strafe = clampAction(intent.strafe);
-  intent.turn = clampAction(intent.turn); intent.zoom = clampAction(intent.zoom, 0.1, 4);
+  intent.turn = clampAction(intent.turn);
   intent.posture.trunkLean = clampAction(intent.posture.trunkLean);
   intent.posture.trunkTwist = clampAction(intent.posture.trunkTwist);
   intent.posture.crouch = clampAction(intent.posture.crouch, 0, 1);

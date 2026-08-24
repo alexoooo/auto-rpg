@@ -6,7 +6,7 @@ import type { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 // to nothing, which is what keeps `input.ts` -- and through it the DOM -- out of
 // the graph a headless harness loads; the two below them are real, and
 // everything they reach is `config.ts`, which reaches nothing.
-import type { HumanOwnership, InputState } from "./input.ts";
+import type { HumanOwnership } from "./input.ts";
 // A type, so it erases; and `kinds.ts` imports nothing anyway, which is the
 // property that let the kinds move there in the first place.
 // `hands.ts` imports nothing, so this one is a real import rather than a type
@@ -41,11 +41,10 @@ import { crawlerMind } from "./bodies/centipede.ts";
 /**
  * What a fighter can ask for.
  *
- * Identical in shape to `InputState`, and identically so on purpose rather than
- * by coincidence: **a policy plays with the controller you play with**. It gets
- * a cursor position, a reach, a thrust, a guard and movement axes, and nothing
- * else. It cannot set a joint angle, place the blade, or ask for a pose the
- * solver would refuse a person.
+ * **A policy plays with the controller you play with.** It gets a cursor
+ * position, a reach, a thrust, a guard and movement axes, and nothing else. It
+ * cannot set a joint angle, place the blade, or ask for a pose the solver would
+ * refuse a person.
  *
  * That is a constraint and not a limitation, and it is worth being explicit
  * about the difference. An AI that could pose the arm directly would be a
@@ -54,20 +53,72 @@ import { crawlerMind } from "./bodies/centipede.ts";
  * is a swap of which `Mind` a fighter reads from, and the physics never notices
  * that anything happened.
  *
- * It is an alias rather than a separate interface because the two must not be
- * allowed to drift. The day `InputState` grows a field, every policy gets it and
- * every policy that ignores it still compiles -- whereas two structurally
- * identical declarations would part company the first time only one of them was
- * edited, and the compiler would say nothing.
+ * This was `type Intent = InputState` until session 15 -- an alias onto the
+ * DOM-side input state, on the argument that two structurally identical
+ * declarations would part company the first time only one of them was edited.
+ * The argument was right and the alias was still wrong, because it pointed the
+ * seam the wrong way: whatever `Controls` happened to hold became what a policy
+ * was allowed to ask for. So `zoom`, a camera factor no fighter has ever read,
+ * was a field on every command, a column in every scripted policy's movement
+ * partial, a key in the intent-parity sweep and a number in the promotion
+ * evaluator's finiteness check. A false action dimension is worse than a
+ * duplicated field: it gets measured, learned against and reported on, and each
+ * of those makes it look load-bearing.
+ *
+ * The command is therefore declared here, in the module with no DOM in its
+ * graph, and `Controls.state` is annotated **as an** `Intent` -- which is the
+ * same drift protection the alias bought, pointed so that the fighter is the
+ * authority on what a command is. Camera state lives on `CameraGestureState`,
+ * which belongs to the host and reaches no mind at all.
  */
-export type Intent = InputState;
+export interface Intent {
+  /** -1 back, +1 forward. */
+  forward: number;
+  /** -1 left, +1 right. */
+  strafe: number;
+  /** -1 left, +1 right. Non-zero also means "I am steering", which breaks a lock. */
+  turn: number;
+  /**
+   * Which hand the mouse is driving. The other one is on its policy.
+   *
+   * There is one cursor and there are two hands, and the alternative -- half the
+   * screen each, or a modifier key held down -- was rejected because the mouse
+   * being spent *entirely* on one blade is the whole reason this reads as Die by
+   * the Sword. Splitting it would make both hands worse to control in order to
+   * avoid making a choice.
+   *
+   * It lives on the intent rather than beside it because a mind has to be able
+   * to see it: `splitMind` reads exactly this to decide which hand it takes from
+   * the person and which it takes from the policy.
+   */
+  driving: HandName;
+  posture: PostureIntent;
+  primary: HandIntent;
+  secondary: HandIntent;
+}
+
+/**
+ * Whole-body pose, normalized at the same boundary as the movement axes.
+ *
+ * Beside `Intent` rather than beside `Controls`, for the reason `Intent` gives:
+ * a fighter consumes it, so the fighter's side of the tree declares it and the
+ * DOM side imports it as a type.
+ */
+export interface PostureIntent {
+  /** -1 back through +1 forward. */
+  trunkLean: number;
+  /** -1 left through +1 right. */
+  trunkTwist: number;
+  /** Reserved for session 05: 0 standing through 1 fully crouched. */
+  crouch: number;
+}
 
 
 /**
  * What one hand is being asked for.
  *
- * These five used to sit at the top of `InputState`, because there used to be
- * one arm. Splitting them out rather than adding a second set of differently
+ * These five used to sit at the top of the command itself, because there used to
+ * be one arm. Splitting them out rather than adding a second set of differently
  * named fields is what keeps the two hands genuinely alike: there is no
  * `pointerX` and `offPointerX`, no hand that is the real one and a hand that is
  * the afterthought, and `Arm` takes one of these without caring which it is.
@@ -347,7 +398,6 @@ export const NEUTRAL: Intent = Object.freeze({
   forward: 0,
   strafe: 0,
   turn: 0,
-  zoom: 1,
   driving: "primary",
   posture: Object.freeze({ trunkLean: 0, trunkTwist: 0, crouch: 0 }),
   // Frozen too, and separately. `Object.freeze` is shallow, so freezing only the
@@ -436,8 +486,10 @@ export function humanMind(source: { readonly state: Intent }, name = "you"): Min
  * than assuming a side, so a policy needs to know nothing about any of this.
  *
  * House rule 1 survives intact: what reaches the fighter is still one `Intent`,
- * still the same nine-field shape a person produces, and there is still nothing
- * anywhere that asks which of the two hands is the real one.
+ * still the same seven-field shape a person produces, and there is still nothing
+ * anywhere that asks which of the two hands is the real one. (It read
+ * "nine-field", which was already wrong before this session: the command was
+ * eight fields until session 15 took the camera out of it, and is seven now.)
  */
 export function splitMind(
   person: Mind,
@@ -460,7 +512,6 @@ export function splitMind(
       blended.forward = mine.forward;
       blended.strafe = mine.strafe;
       blended.turn = mine.turn;
-      blended.zoom = mine.zoom;
       blended.driving = mine.driving;
       // Posture and wrist orientation are policy-owned during human play. The
       // body keeps moving as part of the fight while the person's mouse remains
@@ -658,10 +709,12 @@ export interface Handover extends Mind {
  * So the seed is where this *starts* and the rebase is how it *ends*: for
  * `seconds` the commanded cursor walks linearly from the found pose to whatever
  * the new mind is asking for, and after that this object is transparent. The
- * blend is on the two aiming axes and the wrist roll only; the feet, the
- * buttons and the zoom are the new driver's from the first step, because none of
- * them can teleport anything -- reach is filtered at `arm.reachResponse` and the
- * locomotion at `fighter.accelResponse`.
+ * blend is on the two aiming axes and the wrist roll only; the feet and the
+ * buttons are the new driver's from the first step, because neither can teleport
+ * anything -- reach is filtered at `arm.reachResponse` and the locomotion at
+ * `fighter.accelResponse`. (The camera zoom used to be in that list of things
+ * passed through, which was true and is now vacuous: a command carries no camera
+ * state, and the framing a takeover inherits is the host's throughout.)
  *
  * Linear rather than exponential, and that is deliberate: an exponential
  * approach never actually arrives, so the wrapper would never become
@@ -723,7 +776,6 @@ export function handover(
       blended.forward = asked.forward;
       blended.strafe = asked.strafe;
       blended.turn = asked.turn;
-      blended.zoom = asked.zoom;
       blended.driving = asked.driving;
       blended.posture.trunkLean = asked.posture.trunkLean;
       blended.posture.trunkTwist = asked.posture.trunkTwist;

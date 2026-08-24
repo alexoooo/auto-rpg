@@ -19,7 +19,18 @@ const LOADOUTS = Object.freeze([
 ]);
 Logger.LogLevels = Logger.NoneLogLevel;
 
-const intentNumbers = (intent) => [intent.forward, intent.strafe, intent.turn, intent.zoom,
+/**
+ * Every number in a combat command, for the finiteness gate below.
+ *
+ * The list is the command's numeric leaves and nothing else. It carried a camera
+ * zoom column until session 15, which is the shape of defect this whole file
+ * exists to catch aimed at itself: a camera factor is not an action, so sweeping
+ * it proved a candidate finite in a dimension no fighter reads, and a plain-JS
+ * fixture is exactly where such a column survives a type check.
+ * `tests/ai-evaluation.test.mjs` pins this against `INTENT_FIELDS` so the two
+ * cannot drift apart again.
+ */
+export const intentNumbers = (intent) => [intent.forward, intent.strafe, intent.turn,
   intent.posture.trunkLean, intent.posture.trunkTwist, intent.posture.crouch,
   ...["primary", "secondary"].flatMap((hand) => [intent[hand].pointerX, intent[hand].pointerY,
     intent[hand].roll, intent[hand].wristBend])];

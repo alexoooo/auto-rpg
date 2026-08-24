@@ -46,10 +46,17 @@ const view = (mine = { primary: "sword", secondary: "empty" }, theirs = mine) =>
 };
 
 const complete = (intent) => {
-  for (const key of ["forward", "strafe", "turn", "zoom"]) assert.ok(Number.isFinite(intent[key]));
+  // The shape, not only the contents. This used to be implicit: the helper
+  // checked `zoom` was finite and inside its band, so an option that dropped a
+  // field or grew a host one failed here. Session 15 deleted `zoom` and took the
+  // implicit check with it, which left the assertions below unable to notice a
+  // missing field at all -- so the key set is now stated outright.
+  assert.deepStrictEqual(Object.keys(intent).sort(),
+    ["driving", "forward", "posture", "primary", "secondary", "strafe", "turn"],
+    "a combat command is exactly the seven fields a fighter consumes");
+  for (const key of ["forward", "strafe", "turn"]) assert.ok(Number.isFinite(intent[key]));
   assert.ok(["primary", "secondary"].includes(intent.driving));
   for (const key of ["trunkLean", "trunkTwist", "crouch"]) assert.ok(Number.isFinite(intent.posture[key]));
-  assert.ok(intent.zoom >= 0.1 && intent.zoom <= 4);
   assert.ok(intent.posture.trunkLean >= -1 && intent.posture.trunkLean <= 1);
   assert.ok(intent.posture.trunkTwist >= -1 && intent.posture.trunkTwist <= 1);
   assert.ok(intent.posture.crouch >= 0 && intent.posture.crouch <= 1);
@@ -108,6 +115,51 @@ test("every_illegal_tactic_pair_refuses_both_requested_names", () => {
   assert.throws(() => composeTactic(v, "hold", "recover", contaminated, part), /hold.*recover.*movement/);
   const duplicate = structuredClone(part); duplicate.forward = 0.5;
   assert.throws(() => composeTactic(v, "hold", "recover", movementIntent("hold", v), duplicate), /hold.*recover.*hand action/);
+});
+
+test("movement_partials_own_only_the_three_locomotion_axes", () => {
+  // Three axes, named: a movement head decides where the feet go and nothing
+  // else. It used to be four in every place a partial was written down, because
+  // `zoom` rode along on the command -- so a factorized hand action carried a
+  // camera column it always set to 1, and the merge's contamination check tested
+  // it as though a hand action might have had an opinion about the camera.
+  const v = view();
+  const idle = movementIntent("hold", v);
+  for (const name of MOVEMENT_NAMES) {
+    const part = movementIntent(name, v);
+    assert.deepEqual(Object.keys(part).sort(),
+      ["driving", "forward", "posture", "primary", "secondary", "strafe", "turn"], name);
+    assert.equal(part.driving, idle.driving, name);
+    assert.deepEqual(part.posture, idle.posture, name);
+    assert.deepEqual(part.primary, idle.primary, name);
+    assert.deepEqual(part.secondary, idle.secondary, name);
+  }
+  // Not vacuous: the three it does own really are written. `turn` needs an
+  // opponent that is not straight ahead, because `turnToward` of a body already
+  // faced is zero -- which is also why "hold" is a movement rather than nothing.
+  const offLine = view(); offLine.opponent.ground.x = 1.2;
+  assert.equal(movementIntent("close", v).forward, 1);
+  assert.equal(movementIntent("circle-left", v).strafe, -0.55);
+  assert.ok(movementIntent("hold", offLine).turn > 0.1, `${movementIntent("hold", offLine).turn}`);
+
+  const bite = view(); bite.self.naturalAttacks = { bite: { reach: 0.7, ready: true, active: false } };
+  bite.opponent.collisionRadius = 0.3;
+  const actionViews = { cover: view(), cut: view(), thrust: view(), punch: view({ primary: "empty", secondary: "empty" }),
+    shoot: view({ primary: "bow", secondary: "empty" }), bite, recover: view() };
+  for (const action of HAND_ACTION_NAMES) {
+    const option = handActionOption(action); option.enter(actionViews[action]);
+    const part = option.decide(actionViews[action], 1 / 240);
+    assert.deepEqual(Object.keys(option.movement).sort(), ["forward", "strafe", "turn"], action);
+    assert.deepEqual([part.forward, part.strafe, part.turn], [0, 0, 0],
+      `${action} left locomotion on the command it hands to the merge`);
+  }
+
+  // And the check that catches a contaminated partial is the hand and posture
+  // one, which needs no camera sentinel to have something to say.
+  const contaminated = movementIntent("close", v); contaminated.posture.crouch = 0.5;
+  const cover = handActionOption("cover"); cover.enter(v);
+  assert.throws(() => composeTactic(v, "close", "cover", contaminated, cover.decide(v, 1 / 240)),
+    /close.*cover.*hand or posture/);
 });
 
 test("the_composed_scripted_controller_matches_the_frozen_legacy_trace", () => {

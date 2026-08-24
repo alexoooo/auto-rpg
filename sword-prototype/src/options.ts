@@ -84,6 +84,14 @@ const neutralPosture = (intent: Intent): boolean => intent.posture.trunkLean ===
 /**
  * The only tactic merge. Movement, hands and posture each have one owner; a
  * contaminated partial is refused instead of depending on spread order.
+ *
+ * A movement partial owns exactly `forward`, `strafe` and `turn`, and the first
+ * refusal below is the one that holds it to them -- it rejects a movement partial
+ * that wrote a hand or a posture. The second refusal, on the action partial, is
+ * where a fourth test used to sit: `zoom !== 1`, which read as extra rigour and
+ * was the opposite. That sentinel could only ever catch a camera write, and a
+ * camera factor was never something a hand action could do anything with. The
+ * three axes are the whole of what a movement head decides.
  */
 export function composeTactic(view: FighterView, movement: MovementName | string, action: HandActionName | string,
   movementPart: Intent, actionPart: Intent): Intent {
@@ -94,11 +102,11 @@ export function composeTactic(view: FighterView, movement: MovementName | string
   if (!neutralHands(movementPart) || !neutralPosture(movementPart)) {
     throw new Error(`illegal tactic "${movement}" + "${action}": movement "${movement}" wrote hand or posture fields`);
   }
-  if (actionPart.forward !== 0 || actionPart.strafe !== 0 || actionPart.turn !== 0 || actionPart.zoom !== 1) {
+  if (actionPart.forward !== 0 || actionPart.strafe !== 0 || actionPart.turn !== 0) {
     throw new Error(`illegal tactic "${movement}" + "${action}": hand action "${action}" wrote movement fields`);
   }
   const result = freshIntent(); result.forward = movementPart.forward; result.strafe = movementPart.strafe;
-  result.turn = movementPart.turn; result.zoom = movementPart.zoom; result.driving = actionPart.driving;
+  result.turn = movementPart.turn; result.driving = actionPart.driving;
   Object.assign(result.posture, actionPart.posture); Object.assign(result.primary, actionPart.primary);
   Object.assign(result.secondary, actionPart.secondary); return boundIntent(result);
 }
@@ -130,7 +138,7 @@ export function combatOption(requested: OptionName | string, preferred: HandName
   };
   const reset = (): void => {
     const clean = freshIntent();
-    intent.forward = clean.forward; intent.strafe = clean.strafe; intent.turn = clean.turn; intent.zoom = clean.zoom;
+    intent.forward = clean.forward; intent.strafe = clean.strafe; intent.turn = clean.turn;
     intent.driving = hand; Object.assign(intent.posture, clean.posture);
     Object.assign(intent.primary, clean.primary); Object.assign(intent.secondary, clean.secondary);
   };
@@ -251,13 +259,13 @@ export function combatOption(requested: OptionName | string, preferred: HandName
 }
 
 /** Stateful hand skill with locomotion stripped before the one legal merge. */
-export interface FactorizedHandAction extends CombatOption { readonly movement: Readonly<{ forward: number; strafe: number; turn: number; zoom: number }> }
+export interface FactorizedHandAction extends CombatOption { readonly movement: Readonly<{ forward: number; strafe: number; turn: number }> }
 export function handActionOption(requested: HandActionName | string, preferred: HandName = "primary",
   start?: Readonly<{ pointerX: number; pointerY: number }>, initialShotRest = 0): FactorizedHandAction {
   if (!knownHandAction(requested)) throw new Error(`unknown hand action "${requested}" -- known hand actions are ${HAND_ACTION_NAMES.join(", ")}`);
   if (requested === "bite") {
     let entered = 0; let sawActive = false; const intent = freshIntent();
-    const movement = { forward: 0, strafe: 0, turn: 0, zoom: 1 };
+    const movement = { forward: 0, strafe: 0, turn: 0 };
     return { name: requested, movement,
       enter(view) { const unsupported = supportedHandAction(view, requested); if (unsupported) refuse(requested, unsupported); entered = view.clock; sawActive = false; },
       decide(view) { Object.assign(intent, freshIntent()); const bite = view.self.naturalAttacks.bite;
@@ -268,25 +276,25 @@ export function handActionOption(requested: HandActionName | string, preferred: 
   }
   if (requested === "recover") {
     const legacy = combatOption(requested, preferred, start, initialShotRest); const intent = freshIntent();
-    const movement = { forward: 0, strafe: 0, turn: 0, zoom: 1 }; let handless = false; let entered = 0;
+    const movement = { forward: 0, strafe: 0, turn: 0 }; let handless = false; let entered = 0;
     return { name: requested, movement,
       enter(view) { handless = !Object.values(view.self.hands).some((hand) => !hand.lost); entered = view.clock;
         if (!handless) legacy.enter(view); },
       decide(view, dt) { if (handless) { Object.assign(intent, freshIntent()); return intent; }
         const result = legacy.decide(view, dt); movement.forward = result.forward; movement.strafe = result.strafe;
-        movement.turn = result.turn; movement.zoom = result.zoom;
-        result.forward = 0; result.strafe = 0; result.turn = 0; result.zoom = 1; return result; },
+        movement.turn = result.turn;
+        result.forward = 0; result.strafe = 0; result.turn = 0; return result; },
       done(view) { return handless ? view.clock - entered >= 0.26 : legacy.done(view); },
     };
   }
   const legacy = combatOption(requested, preferred, start, initialShotRest);
-  const movement = { forward: 0, strafe: 0, turn: 0, zoom: 1 };
+  const movement = { forward: 0, strafe: 0, turn: 0 };
   return { name: requested, movement,
     enter: (view) => legacy.enter(view),
     decide(view, dt) {
       const intent = legacy.decide(view, dt); movement.forward = intent.forward; movement.strafe = intent.strafe;
-      movement.turn = intent.turn; movement.zoom = intent.zoom;
-      intent.forward = 0; intent.strafe = 0; intent.turn = 0; intent.zoom = 1;
+      movement.turn = intent.turn;
+      intent.forward = 0; intent.strafe = 0; intent.turn = 0;
       return intent;
     },
     done: (view) => legacy.done(view),
@@ -379,7 +387,7 @@ export function scriptedMetaMind(kind: ScriptedKind, seed = 0): ScriptedMetaMind
       const actionPart = current.decide(view, dt);
       const movementPart = freshIntent();
       movementPart.forward = current.movement.forward; movementPart.strafe = current.movement.strafe;
-      movementPart.turn = current.movement.turn; movementPart.zoom = current.movement.zoom;
+      movementPart.turn = current.movement.turn;
       if (kind === "duelist") {
         const attacker = actionPart.driving; const reach = view.self.hands[attacker].reach;
         const bare = view.self.hands[attacker].weapon === "empty";

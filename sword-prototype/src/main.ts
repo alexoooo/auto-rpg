@@ -2,7 +2,7 @@ import { Engine } from "@babylonjs/core/Engines/engine.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
 import { CONFIG } from "./config";
-import { horizontalForward } from "./camera";
+import { horizontalForward, orbitFraming } from "./camera";
 import { buildArena } from "./arena";
 import { refreshShadowCasters, type RoomOcclusionTarget } from "./arena-room";
 import { Fighter, stepPair } from "./fighter";
@@ -813,6 +813,10 @@ async function boot(): Promise<void> {
   // on purpose -- a rigid camera makes a swing look like the world is turning
   // rather than the arm.
   const cameraGoal = new Vector3();
+  // Reused for the same reason `cameraGoal` is: `placeCamera` runs once per
+  // rendered frame, and a fresh pair of numbers per frame is a fresh object per
+  // frame.
+  const orbit = { distance: 0, height: 0 };
   const lookGoal = new Vector3();
   const focus = new Vector3();
   const forward = new Vector3();
@@ -853,20 +857,19 @@ async function boot(): Promise<void> {
     forward.set(Math.sin(bearing), 0, Math.cos(bearing));
 
     // Both goals are built from the fighter's position on the ground, so the
-    // framing does not shift when the torso's centre height is retuned. Zoom
-    // scales distance and height together, so the camera slides along its own
-    // sight line and the angle you read the arena at never changes.
+    // framing does not shift when the torso's centre height is retuned. The
+    // orbit distance, the orbit height and the zoom that scales both are
+    // `camera.ts`'s, from the gesture state this host owns -- the command
+    // `controls.sample` hands the fighter has no camera field to read.
     const feet = follow.feetPosition();
     feet.x += gesture.panX;
     feet.z += gesture.panZ;
-    const zoom = controls.state.zoom;
-    const orbitDistance = P.distance * Math.cos(gesture.pitch);
-    const orbitHeight = P.height + Math.sin(gesture.pitch) * P.distance;
+    orbitFraming(gesture, P.distance, P.height, orbit);
 
     cameraGoal
       .copyFrom(feet)
-      .subtractInPlace(forward.scale(orbitDistance * zoom))
-      .addInPlaceFromFloats(0, orbitHeight * zoom, 0);
+      .subtractInPlace(forward.scale(orbit.distance))
+      .addInPlaceFromFloats(0, orbit.height, 0);
 
     lookGoal
       .copyFrom(feet)
