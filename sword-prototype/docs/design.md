@@ -56,6 +56,16 @@ in the prototype. What `observe` may read is tightly constrained; see the render
 
 ### Learning stops at the same seam
 
+The experiment deliberately chose a hierarchical controller before choosing a learning
+algorithm. Havok has no cheap exact clone/restore seam, so combat-time look-ahead would have
+to rebuild a scene for every branch. An end-to-end network would instead spend its first
+experiment rediscovering the stable cut, cover, punch and shot geometry already expressed
+through the player's controls. The implemented compromise keeps eight named action options
+as ordinary `Intent` producers and lets a compact NEAT network choose an option every 0.10 s
+plus a bounded persistence interval. Novelty descriptors cover range, guard, handedness and
+attack transitions so selection can retain behaviour that is different without granting the
+learner any new authority.
+
 The learned meta-controller does not produce poses. A frozen checkpoint maps the versioned
 50-column `FighterView` feature table to logits for the same eight action options the
 scripted meta-controller uses, plus a bounded persistence interval. Unsupported options are
@@ -76,6 +86,13 @@ Promotion provenance includes the raw generation ledger, not only requested dime
 A default report must contain exactly 80 rows whose generation fields are 0 through 79 in
 order. This changes no training or selection semantics; it prevents an interrupted or
 spliced report from presenting a complete-run configuration as proof that the run completed.
+
+Innovation allocation, mutation, crossover, speciation and evaluation are all seeded. Work
+items carry their genome index through a bounded worker pool and are sorted before selection,
+so worker completion order cannot become evolutionary state. Checkpoints are written
+atomically and resume only when feature, action and training-config versions agree. The
+trainer remains outside runtime inference; a browser can validate and run a frozen network
+without importing the population machinery that created it.
 
 ### The integrated authority check
 
@@ -147,11 +164,23 @@ against a plausible alternative:
   corpses, blood and loose physics continue; freezing the scene would turn a verdict into a
   pause and prevent the fall that makes the result legible.
 
-One consequence is live and unjudged: the torso carries `attachment: null` and cannot be
-severed, and "every part at zero" takes all twelve, so in practice nearly every bout ends
-on a cut to the head. Whether that reads worse than a lethal torso -- the biggest target on
-the body, and the one a swing finds by accident -- is a question for somebody who has
-fought one to the end.
+### Vitality is derived from local injury
+
+There is no second mutable hit-point pool. Every limb keeps local `health` and `maxHealth`
+for injury, gait and severing, while the one HUD vitality value is derived each time:
+
+```text
+injury(part) = 1 - clamp(part.health / part.maxHealth, 0, 1)
+vitality = clamp(1 - sum(injury(part) * weight(part)), 0, 1)
+```
+
+Head and torso each weigh 1.0, pelvis 0.50, every upper arm, forearm and hand 0.10, and every
+thigh and shin 0.125. Zero head or torso health is therefore fatal by itself, while a severe
+combination of non-vital wounds can also exhaust the body. `src/config.ts` is the sole tuning
+authority for those weights; `src/bout.ts` owns the pure formula and refuses an unknown part
+instead of quietly giving it no effect. This is why arrows and fists can finish a bout without
+being allowed to sever, and why local damage remains meaningful after the HUD stopped showing
+twelve competing life bars.
 
 ## The curtain, which is two screens and used to be one
 
@@ -392,9 +421,10 @@ hundredth of a millimetre. Every name the outside used -- `fighter.sword`, `figh
 `fighter.handAnchor` -- is a getter onto `arms.primary` now, which is why the overlay and
 sixteen handover tests needed no edit.
 
-**`Intent` grew a hand.** `HandIntent` is the five fields that belong to a hand -- two
-cursor axes, the wrist, thrust and guard -- and `InputState` is the four that belong to the
-body plus two of those and a `driving`. Splitting them out rather than adding a second set
+**`Intent` grew a hand.** `HandIntent` is the six fields that belong to a hand -- two
+cursor axes, bounded forearm roll, independent wrist bend, thrust and guard -- and
+`InputState` carries locomotion, camera zoom, whole-body posture, two hands and a `driving`
+selector. Splitting them out rather than adding a second set
 of differently named fields is what keeps the two hands alike: there is no `pointerX` and
 `offPointerX`, no hand that is the real one and a hand that is the afterthought, and `Arm`
 takes one without caring which it is.
@@ -405,15 +435,25 @@ erases, so the DOM never reaches a headless harness. Declaring `HANDS` on the fa
 importing its *value* back reversed that in one line and took `fighter.ts` out of Node's
 reach with it -- five test files failed at once with "Cannot find module .../src/config".
 
-**One mouse, two hands.** `splitMind` runs a person and a policy every step, takes the feet
-and the driven hand from the person and the other hand from the policy, and `F` moves the
-cursor between them. Splitting the *cursor* instead -- half the screen each, or a modifier
+**One mouse, two hands.** `splitMind` runs a person and a policy every step. The person owns
+locomotion plus the driven hand's cursor and buttons; the policy owns both wrists, lean,
+twist, crouch and the other hand. `F` moves the cursor between hands. This ownership is why
+the extra anatomical degrees of freedom can make human play move naturally without asking
+one mouse to command the whole body at once. Splitting the *cursor* instead -- half the
+screen each, or a modifier
 held down -- was the obvious alternative and is worse: the mouse being spent entirely on one
 blade is the whole reason this reads as Die by the Sword, and halving it would make both
 hands worse to control in order to avoid making a choice. The spare hand takes the side's
 *own* policy, the one it becomes the moment you step out of it, so there is nothing new to
 choose on the screen. House rule 1 survives: what reaches the fighter is still one `Intent`
 of the same shape a person produces.
+
+Roll is pronation/supination with anatomical stops, not an angle that can accumulate through
+full turns. `wristBend` maps 0..1 onto 0..90 degrees about the mirrored local lateral axis.
+The pelvis is the locomotion frame: lean and twist move the trunk and shoulder sockets over
+planted hips, while cursor positions remain expressed against world vertical and pelvis
+heading. A body can therefore crouch, lean or turn its shoulders without silently remapping
+where the centre of the screen asks a hand to be.
 
 ## What is in a hand
 
@@ -855,8 +895,9 @@ Steel, neutral cloth, brown leather and subtle skin detail now have separate
 albedo/normal/ORM families. The side colour is one per-Figure material derived from neutral cloth:
 crimson and blue own only their tint while all texture objects remain palette-shared, and
 `Figure.dispose()` releases the material on a bout rebuild. The visible art-direction verdict
-is intentionally not inferred from the headless checks; it remains in the integrated
-session-14 comparison.
+is intentionally not inferred from the headless checks. The first default-zoom Fixed and
+Overhead comparison kept the four material families, team colours, open faces and waist join
+readable; the still-open zoom and motion judgements live only in `docs/measurements.md`.
 
 Imported tangent xyz is negated once when `Figure.wear()` replaces a primitive's
 vertices, normalizing the glTF right-handed frame to the same Babylon-LH basis the fallback
@@ -907,7 +948,8 @@ checks cover both camera presets, both zoom clamps, eight bearings and translati
 the supported floor, including opponent/arrow scenarios outside the old local stencil. An
 overhead beam crossing one of those actual rays is culled per instance; non-crossing beams
 remain opaque and visible. A shadow refresh retains a temporarily culled solid beam so reveal
-does not leave it shadowless. The visible verdict remains session 14's job.
+does not leave it shadowless. The first browser sample found the room and combatants readable
+at default zoom; the broader visible matrix remains an explicitly human measurement.
 
 `__sword.arena.audit()` reads owned mesh, reachable material/texture, instance and live-body
 counts plus the named visual/collider pairs. Repeated calls update private counters behind

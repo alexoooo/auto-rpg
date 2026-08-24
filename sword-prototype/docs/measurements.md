@@ -283,7 +283,7 @@ Session 08's static asset/material audit, not a visible-browser GPU capture:
 The draw count is the mesh count -- no piece was split or merged -- and the memory column is
 the conservative decoded RGBA8 mip-chain calculation, not a driver reading. Three Terlenka
 maps are 1024x1026; the other thirty are 1024 square. The visible frame-cost bracket and
-material-readiness table remain owed to session 14.
+material-readiness table remain open human-browser checks.
 
 Session 10's NullEngine/Havok audit sees **48 environment meshes, 27 instances and 15 world
 bodies**: the invisible 60 m slab, fourteen visible posts, one cosmetic floor and 32 room
@@ -319,12 +319,12 @@ harness imports neither `arena.ts`, `materials.ts`, `surface.ts` nor the texture
 its current green seed is a health check rather than evidence about the new PBR path. The
 existing arrow test does make the narrower behavioural comparison with the projectile visual
 root enabled and disabled, pinning both position and cached arrival velocity. A direct
-before/after bout comparison remains owed to session 14's integrated cosmetic-parity pass.
+before/after bout comparison remained open until the integrated cosmetic-parity pass below.
 One hundred shots hold meshes, bodies, observers, materials and texture wrappers flat, and
 ten complete fighter rebuilds return those resources to baseline. A deliberate mutation
 from `root.dispose(false, false)` to texture-owning disposal makes the two-sword shared-map
 test fail. The visible combat-distance material and contrast verdict remains owed to the
-matched session-14 playtest.
+matched integrated playtest.
 
 ## The two arms, and what they cost
 
@@ -390,9 +390,9 @@ to build next: `swinger` is beatable, the knees look good, and neither timing no
 repair before the body-control work. Items 11 and 12 are one arm defect measured from two
 directions; item 14 still needs a person to price the axe's missing thrust.
 
-Item 16 has a design verdict and awaits implementation in
-[`plans/01-vitality-and-a-clean-ending.md`](plans/01-vitality-and-a-clean-ending.md): one
-derived whole-body vitality bar, with local part health retained for injury and severing.
+The former whole-body implementation plan is closed and deleted. Its durable outcomes are
+the dated posture, bare-hand, action-option, learning and integrated close-out sections below;
+the numbered list here now carries only playtest history and judgements that remain useful.
 
 1. **Done: a human can beat `swinger`.** Played on 2026-08-23 with the shipped cycle --
    chamber 0.34 s, commit 0.13 s, follow 0.10 s, recover 0.42 s -- and won. The policy is
@@ -451,28 +451,19 @@ derived whole-body vitality bar, with local part health retained for injury and 
    worth" above. `idle` is unchanged and stays the control: a fighter that does nothing gets
    nothing from a shield, which is correct.
 
-11. **The arm envelope is written for the right arm and applied to both.**
-   `spread(pointerX, azMin, azMax)` maps the cursor onto a torso-space azimuth that runs
-   -1.15 to +1.30, and its own comment says why -- "the arm reaches further across its own
-   side than across the far one". That is true of the *primary*. The secondary gets the same
-   range, so its wide side is across its body and its narrow side is its own, which is the
-   mirror of anatomy. The shoulder cone underneath it is asymmetric in the same one-sided
-   way (`swing z: { min: -1.7, max: 0.6 }`, one literal for both arms).
+11. **Done: the two hand envelopes and wrist commands are anatomical and mirrored.** Roll is
+   bounded to forearm pronation/supination, wrist bend is an independent 0..90-degree command,
+   and cursor/pose inversion takes a hand name. The primary-inverse-on-secondary, unbounded
+   roll and missing-bend mutations all made their named tests fail. The exact close-out and
+   its non-comparable shield readings are in "Anatomical wrist and mirrored-hand close-out"
+   below.
 
-   What it costs is not yet separated from what aiming from the wrong socket cost, which was
-   most of it and is fixed. What is left is visible in the wrist: a shield arm swung across
-   the body can be rolled one way and not the other, 504 mm of hand-to-anchor stray at the
-   sign that does not work. Mirroring the envelope is not a two-line change -- the cursor
-   inverse is used by `cursorForPose` and therefore by every handover, so it becomes a
-   per-hand mapping across a seam that currently has none, and it would move `swinger`'s
-   pinned stroke roll. It wants its own session and its own before-and-after table.
-
-12. **The shield hand is 167 mm off its anchor in a live exchange**, against the sword
-   hand's 85 mm in the same bouts, and 56 against 53 with nothing hitting either. So it is
-   not the shield's pose -- but both numbers are large, and they are the same arm defect as
-   the entry above. A guard that is 167 mm from where it was asked to be is a guard placed by
-   the solver rather than by the policy, and the fact that it works anyway is luck the next
-   change could take away.
+12. **Done as a controller defect; shield effectiveness against arrows is newly open.** The
+   secondary arm now has its own mirrored envelope and socket, so it is no longer driven
+   through primary-hand geometry. This closes the anatomical mapping defect without claiming
+   every shield pose is balanced. The 2026-08-24 follow-up playtest reports that both shield
+   kinds still appear ineffective against archers; that is sequenced as a physical
+   interception measurement in `plans/combat-followups-04-shields-against-archers.md`.
 
 13. **An idle arm cannot hang all the way down**, and the reason is the envelope
    rather than the pose. `arm.restPointerY` sends an unused hand to the bottom of the
@@ -891,11 +882,13 @@ of the contacts that landed on a body. Unfolded, 40 %, and what is left is the a
 away from the roll the stroke was planned at plus the wrist taking real time to travel 3.14
 radians further than it used to.
 
-The clamp is worth naming because it is a real limit that these four strokes happen to miss:
-`arm.rollMin/rollMax` is +-2.6 and the unfolded answer lives in (-pi, pi], so a stroke
+The historical clamp is worth naming because it was a real limit that these four strokes
+happened to miss: at the time of this axe sweep `arm.rollMin/rollMax` was +-2.6 and the
+unfolded answer lived in (-pi, pi], so a stroke
 wanting 2.8 would get 2.6 and arrive poll-first however this function answered. An axeman
 steps round rather than turning a wrist that far, and this program has no way to express
-that.
+that. The later anatomical-wrist pass superseded the +-2.6 limits; see the dated close-out
+below rather than treating this historical sweep as the current controller contract.
 
 ### `chopScale`, and the two knobs that were refused
 
@@ -1312,6 +1305,23 @@ and press `Space`.**
   thousand contacts -- but it is not what a control condition called "idle" looks like it
   should be.
 
+## Anatomical wrist and mirrored-hand close-out -- 2026-08-24
+
+The shipped wrist is no longer the old +-2.6 rad free roll. Roll is bounded to anatomical
+pronation/supination, wrist bend is a separate normalized command mapping to 0..90 degrees,
+and the secondary cursor envelope and inverse mirror the primary. Raising the roll maximum
+back to 2.6, using the primary inverse for the secondary, and deleting bend from the anchor
+frame each made its named regression test fail. The focused close-out was 51/51 mind tests,
+18/18 handover tests and 6/6 view tests; the seed-20260823 corpus remained finite and decided
+with swinger/idle 40--0 and duelist/swinger 24--16.
+
+The headless shield sweep read 421.74 mm peak hand error for a primary sword, 498.32 mm for a
+primary shield and 0.00 mm steady error for an idle secondary shield. This is not the live
+exchange that produced the historical 167 mm shield versus 85 mm sword reading, so the two
+sets are recorded as different manoeuvres rather than presented as a before/after improvement.
+The remaining useful question is physical effectiveness -- especially against projectiles --
+not whether both arms share one cursor mapping.
+
 ## Crouch and procedural posture -- 2026-08-24
 
 Measured by `npm run measure -- --only posture --seed 20260823`, in the headless real-Havok
@@ -1471,6 +1481,28 @@ The required adversarial pass was observed red before restoration:
 - adding equal and opposite intent deviations to consecutive frames preserved the reported
   mean and failed the ordered sequence gate.
 
+## NEAT trainer determinism and checkpoint probe -- 2026-08-24
+
+The real-Havok smoke used 8 genomes, 3 generations and 2 mirrored bouts. Two independent
+eight-worker runs took 27.526 and 28.139 s and produced the same champion digest,
+`3289d671c44ec434cbfb9b178b4490640a2162afefb1784917ea58f0a6b44db9`.
+Resuming the completed run with a different worker count reproduced the digest in 0.628 s;
+a population mismatch was refused before the first bout.
+
+A separate one-generation bracket at 1, 4 and 8 workers produced the same report and champion
+digest, `101d67ff...5c407ab1`, in 18.371, 12.779 and 10.639 s respectively. The 1.73x
+end-to-end speedup includes eight serial validation/control/test bouts, so it describes this
+probe rather than promising linear scaling. The earlier 18--38 hour forecast for a default
+run was superseded by the measured 5 h 48 m, 6 h 25 m and 6 h 43 m runs below.
+
+The forced-option lifecycle repair also superseded `asset-src/learning/baseline-v1.json`.
+Its SHA-256 moved from `77b09b520380041a7f56671e8b97d70e53228f74c4b4d2d7d6055c80e4d2e877`
+to `810beb2fe6533743e786e14bd1c3aa084dfe11f73451f1697941729f7d0f32f6`.
+Exactly 24 leaves changed: `behavior.attackAttempts` for cut, thrust, punch and shoot, both
+mirrors, in train, validation and test. Outcomes, duration, damage, vitality, intents,
+controls and every ordered-parity field were unchanged. The replacement counts option entry
+and re-entry rather than only a selected-name transition.
+
 ## Learned meta-policy experiment -- 2026-08-24
 
 Three independently seeded default runs completed all 80 generations at population 128,
@@ -1518,7 +1550,7 @@ commands, digests, tables, transitions and exact failure strings are in
 `npm run measure -- --checkpoint <path> --bouts 24 --seed 777001` is the explicit
 five-loadout route for an unregistered experiment. It names the subject
 `experimental-checkpoint`; it does not make it a production option. Three visible bouts
-remain open for session 14 because there is no honest picker route for an unpromoted policy.
+remain open because there is no honest picker route for an unpromoted policy.
 Their choices are fixed before viewing: melee seed 291337 on the left, bow seed 291338 on
 the right and bare-hands seed 291339 on the left. No result has been captured for them.
 

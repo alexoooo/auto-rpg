@@ -139,7 +139,7 @@ goes on bleeding as it falls.
 ## Two hands
 
 Each hand takes a **sword**, an **axe**, a **bow**, a **shield**, a **buckler** or **nothing**,
-chosen per corner before the fight. Both are real arms — three bones, a shoulder cone, an elbow hinge, a free wrist and
+chosen per corner before the fight. Both are real arms — three bones, a shoulder cone, an elbow hinge, a bounded wrist and
 a keyframed anchor dragging the whole thing about — so a shield is not a state a fighter is
 in, it is a plank of limewood with a steel rim welded into a fist, and it blocks by being
 in the way. The collision layers already said an enemy blade and this side's weapons may
@@ -164,7 +164,8 @@ Where a strapped shield faces is decided for you: the plate points away from you
 along the surface of a sphere, as squarely as an arm lying across it allows. So the useful
 thing to think about is not the shield's angle but **your elbow** — an arm pointed at the
 enemy shows him the edge of the board, and an arm held across the line shows him the face of
-it. Your wrist matters as much: `roll` slides the plate's face all the way round the arm, and
+it. Your wrist matters as much: `roll` slides the plate's face around the forearm within its
+anatomical stops, and
 a board held at the wrong roll throws away two thirds of itself.
 
 The policies know all of that now. A fighter carrying a sword and a shield takes **160.8**
@@ -354,8 +355,7 @@ steel with authored UVs and shared PBR maps. Only the surcoat/skirt material is 
 fighter, so crimson and blue remain independent while their images stay shared; rebuilding
 a bout disposes those materials. The first default-zoom Fixed/Overhead browser comparison
 kept the four families, side colours, open faces and waist join readable. Both zoom clamps
-and walking/crouching comparisons remain part of the integrated session-14 review in
-`docs/measurements.md`.
+and walking/crouching comparisons remain open human judgements in `docs/measurements.md`.
 
 Weapons, shields, arrows and ring posts use the same registry without changing their
 geometry or physics. A total 35-part table assigns forged steel, brass, worn leather,
@@ -373,11 +373,19 @@ add floor detail without presenting a pass-through volume. They own no physics b
 stone, timber and cloth UVs are scaled from the Poly Haven material's physical metre span, and
 `__sword.arena.audit()` reports only its owned resource census and visual/collider pairs.
 
-The first playtest is in: a human can beat `swinger`, its timing stays where it is, and the
-gait-driven knees look good. The larger feel pass is still open -- body-relative aim under
-the Fixed camera, bow pressure, in-flight arrow trace, the remaining visual matrix and the work sequenced in
-[docs/plans/](docs/plans/00-overview.md) -- while the durable measurements and remaining
-human judgements stay at the foot of [docs/measurements.md](docs/measurements.md).
+The first whole-body playtest is in: a human can beat `swinger`, its timing stays where it
+is, the gait-driven knees look good, and the implemented vitality, posture, bare-hand,
+surface and action-option work has its durable record in
+[docs/design.md](docs/design.md) and [docs/measurements.md](docs/measurements.md). The three
+full learned-policy experiments are also closed there as a negative result: no checkpoint
+earned promotion and no `learned-v1` option is advertised.
+
+The next implementation topic -- pause/restart correctness, projectile and shield behaviour,
+unarmed engagement, solid arena bounds, camera and whole-body human controls, additional
+body shapes, and imported armour -- is sequenced in
+[docs/plans/combat-followups-00-overview.md](docs/plans/combat-followups-00-overview.md). The older
+whole-body plan set was deleted when that topic closed; completed plans are not a second
+authority for the game.
 
 The integrated headless contract covers every shipped policy with every setup equipment
 choice, finite anatomical commands over complete bouts, the exact verdict edge, identical
