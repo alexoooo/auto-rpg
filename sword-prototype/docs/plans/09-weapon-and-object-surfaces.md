@@ -1,5 +1,19 @@
 # Session 09 -- weapons and carried objects have material history
 
+> Implemented 2026-08-24. The registry now contains 24 pinned CC0 maps: weapon steel and
+> leather reuse the session-08 images, while fine-grained wood, worn brass and distressed
+> painted board each have a pinned 1K albedo/normal/ORM family. `OBJECT_PART_SURFACES` is a
+> total 35-row material/grain table consumed by every weapon, arrow and post builder. Primary
+> scene-shared maps feed wrapper-free polished-edge and string variants; propagated attachments
+> rebroadcast maps and complete normal/ORM semantics through a two-hop variant chain. The
+> existing unlit arrow accent remains authoritative
+> for the nocked arrow, head, fletch and trace. Weapon/Arrow disposal no longer disposes arena
+> materials. Exact mass, centre of mass, collision leaves/offsets/dimensions/masks and striker
+> identities join mesh/physics counts, hundred-shot pooling, ten rebuilds, late-map semantics,
+> real-geometry UV direction and destructive map/transform mutations in the automated proof.
+> Visible Fixed/Overhead
+> contrast judgement remains explicitly owed to session 14.
+
 ## Outcome
 
 Texture swords, axes, bows, arrows, shields, bucklers, clubs and ring posts without changing
@@ -7,9 +21,10 @@ their meshes, collision, centre of mass or scoring.
 
 ## Implement
 
-1. Add CC0 texture families for forged steel, brass, worn leather, ash/yew wood and painted
-   shield board to the session-07 registry. Reuse families across objects; do not download a
-   unique 4K set per weapon.
+1. Reuse the session-08 worked-steel and worn-leather CC0 sets for forged weapon steel and
+   wraps; add distinct brass, fine-grained wood (the ash/yew visual proxy) and painted-shield
+   board families to the session-07 registry. Reuse families across objects; do not download
+   a unique 4K set per weapon.
 2. Extend `Palette`/`WeaponMaterials` in `src/arena.ts:48-145` and `src/weapon.ts:41-52` with
    descriptors rather than parallel `fooTextured` material names. Each builder at
    `src/weapon.ts:350-1020` keeps its explicit material assignment.
@@ -42,7 +57,10 @@ Inspect every loadout in setup, Fixed and Overhead. Steel, brass, leather and wo
 at combat distance; blade edges and projectile trails remain clearer than surface detail.
 Run one minute with bow pooling and ten rebuilds with no mesh/material/texture/observer growth.
 
-This is cosmetic; standard outcomes, damage and arrival speeds must not move.
+This is cosmetic, so standard outcomes, damage and arrival speeds are required not to move.
+The automated proof pins every physics-layout input and compares arrow arrival with its visual
+root on and off. There is no saved pre-session-09 bout corpus to support a direct before/after
+outcome claim; that cosmetic-parity comparison remains owed to the integrated session-14 pass.
 
 ```powershell
 npm run texture:verify

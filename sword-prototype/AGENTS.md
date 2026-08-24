@@ -143,15 +143,23 @@ npm run dev             # http://localhost:5180, strictPort
   a Babylon feature works in the playground and not here, suspect a missing side-effect
   import before suspecting the feature.
 - **A material with a texture that will not come ready is a mesh that is not drawn.** Four
-  CC0 tiling normal maps were wired into the palette and every material carrying one stopped
-  rendering -- the warriors lost their helms, pauldrons, collars and breastplates while the
-  untextured flesh and the cloth beneath kept drawing, which reads as a fighter made of
-  floating arms. Reverted; `src/arena.ts` says so. Two smaller lessons from the same
-  episode: a diffuse map **multiplies** `albedoColor` rather than replacing it, so wiring one
-  onto a palette that already carries the right colours darkens the whole scene to about a
-  third and looks like a lighting bug; and Blender computes tangent space only for tris and
-  quads, so `plate()`'s n-gons make the exporter print "Tangent space can only be computed
-  for tris/quads, aborting" per piece, **succeed**, and ship a file with no TANGENT.
+  CC0 tiling normal maps were once wired into the palette and every material carrying one
+  disappeared. The repaired pipeline builds the fallback colour first and attaches each map
+  only from its decode-success callback; failure therefore leaves a drawable mesh. A diffuse
+  map **multiplies** `albedoColor` rather than replacing it, so the neutral character albedo
+  and the side tint are separate on purpose. Blender computes tangent space only for tris and
+  quads, so `plate()` is triangulated before export and `check-warrior.mjs` requires tangents
+  on every normal-mapped primitive. Imported tangents are normalized in `Figure.wear`;
+  Babylon-built weapons use a separate material family with the Babylon-LH basis even when
+  both families deliberately reuse the same pinned image file.
+- **A carried mesh does not own its arena material.** Babylon's
+  `root.dispose(false, true)` recursively disposes child materials and textures. That was
+  harmless while every weapon died only with its scene, then failed as soon as one sword
+  shared a real map with another: disposing the first removed the second's texture and left
+  the shared-surface cache pointing at a corpse. `disposeCarriedRoot` always passes false for
+  material/texture disposal; Weapon and Arrow own bodies and nodes, while the scene alone
+  owns the palette. `shared_weapon_textures_survive_one_weapon_being_disposed` was watched
+  fail against the one-boolean mutation.
 - **Three ways to ask the wrong question about why something is not on screen**, all of
   which cost time here in one sitting:
   - `Material.isReady(mesh)` returns **false for every material** when called outside a
@@ -507,6 +515,13 @@ Six, and each one was paid for.
   person. An AI that could pose the arm directly would be a different game's AI.
 - **Cosmetics never carry authority.** `src/figure.ts` and anything in the authored asset
   own no collision and decide no hit.
+- **The visible room is not the collision arena.** `src/arena-room.ts` keeps the original
+  ground/post aggregates in one owner and body-free dressing in another. A solid cosmetic
+  below the conservative reach ceiling is refused unless it names an existing collider;
+  distance beyond the slab is not safety because an animated fighter can keep moving.
+  Translucent scrims, flat floor markings and overhead beams are the explicit body-free
+  cases. Do not bypass `validateRoomPlacements`
+  with builder-local scenery.
 - **The rig overlay creates no body, shape or constraint.** `__sword.rigview.audit()` pins
   it across toggles rather than a comment claiming it.
 - **No feel complaint is fixed by raising a motor ceiling without a measured before/after

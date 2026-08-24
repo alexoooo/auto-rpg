@@ -23,14 +23,16 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import { CONFIG } from "./config.ts";
 import { COLLIDES, LAYER, layersFor, type Side } from "./physics.ts";
 import { capsulePart, joint, type Part } from "./rig.ts";
-import { Figure } from "./figure.ts";
+import { Figure, type FigureMaterials } from "./figure.ts";
 import { Arm } from "./arm.ts";
 import { handsFor, isShield, type Weapon, type WeaponKind } from "./weapon.ts";
 import type { Striking } from "./combat.ts";
+import { vitality } from "./bout.ts";
 import {
   HANDS,
   idleMind,
   otherHand,
+  type ArmPose,
   type ArmPoses,
   type BodyView,
   type FighterView,
@@ -51,6 +53,9 @@ export interface FighterMaterials {
   hide: Material;
   /** Shield boards and club hafts. The arena has had one all along. */
   wood: Material;
+  arrowAccent: Material;
+  /** Browser arena's textured costume family; headless/fallback palettes omit it. */
+  figure?: FigureMaterials;
 }
 
 /** One severable piece of a fighter, and how close it is to coming off. */
@@ -100,6 +105,8 @@ export interface GaitPose {
   hipRight: number;
   kneeLeft: number;
   kneeRight: number;
+  /** How far the animated hip reference follows the supporting leg down. */
+  pelvisDrop: number;
 }
 
 const clamp = (value: number, min: number, max: number) =>
@@ -136,21 +143,59 @@ const ANGULAR = [
  * also what makes the resting-sag acceptance a static measurement: at zero speed
  * every target here is exactly zero.
  */
-export function gait(phase: number, speed: number): GaitPose {
+export function legPose(phase: number, speed: number, crouch: number): GaitPose {
   const F = CONFIG.fighter;
+  const B = CONFIG.body;
   const amount = clamp(speed / F.walkSpeed, 0, 1);
   const swing = F.strideSwing * amount;
   const step = Math.sin(phase);
   const opposite = Math.sin(phase + Math.PI);
 
+  // Solve the two-link leg for the requested vertical shortening rather than
+  // animating the pelvis by an unrelated offset. The knee comes from the law
+  // of cosines; the hip cancels the chain's forward displacement, leaving the
+  // shin endpoint below the socket at exactly the requested height.
+  const thigh = B.thighLength;
+  const shin = B.shinLength;
+  const standing = thigh + shin;
+  const wanted = standing - clamp(crouch, 0, 1) * B.crouchDepth;
+  const kneeCos = clamp(
+    (wanted * wanted - thigh * thigh - shin * shin) / (2 * thigh * shin),
+    -1,
+    1,
+  );
+  const crouchKnee = Math.acos(kneeCos);
+  const crouchHip = -Math.atan2(shin * Math.sin(crouchKnee), thigh + shin * kneeCos);
+
+  const hipLeft = clamp(crouchHip + step * swing, B.hipTargetMin, B.hipTargetMax);
+  const hipRight = clamp(crouchHip + opposite * swing, B.hipTargetMin, B.hipTargetMax);
+  const kneeLeft = clamp(
+    crouchKnee + Math.max(0, -Math.sin(phase + 0.7)) * swing * 1.5,
+    B.kneeTargetMin,
+    B.kneeTargetMax,
+  );
+  const kneeRight = clamp(
+    crouchKnee + Math.max(0, -Math.sin(phase + 0.7 + Math.PI)) * swing * 1.5,
+    B.kneeTargetMin,
+    B.kneeTargetMax,
+  );
+  const extension = (hip: number, knee: number) =>
+    thigh * Math.cos(hip) + shin * Math.cos(hip + knee);
+
   return {
-    hipLeft: step * swing,
-    hipRight: opposite * swing,
-    // A knee only bends one way, and only while the leg is swinging through.
-    // Positive is backward here, which is the way a knee goes.
-    kneeLeft: Math.max(0, -Math.sin(phase + 0.7)) * swing * 1.5,
-    kneeRight: Math.max(0, -Math.sin(phase + 0.7 + Math.PI)) * swing * 1.5,
+    hipLeft,
+    hipRight,
+    kneeLeft,
+    kneeRight,
+    // The longer leg is the supporting one. Following that one keeps its foot
+    // on the floor while the shorter alternating leg is allowed to swing free.
+    pelvisDrop: standing - Math.max(extension(hipLeft, kneeLeft), extension(hipRight, kneeRight)),
   };
+}
+
+/** Kept as the public spelling for existing probes. */
+export function gait(phase: number, speed: number): GaitPose {
+  return legPose(phase, speed, 0);
 }
 
 /**
@@ -160,22 +205,24 @@ export function gait(phase: number, speed: number): GaitPose {
  * them now and the version with three was already the sort of line that gets
  * one case added and one forgotten.
  */
-const ARM_KEYS: Record<string, HandName | undefined> = {
+export type ArmLimbKey =
+  | "upperArm" | "forearm" | "hand"
+  | "offUpperArm" | "offForearm" | "offHand";
+
+const ARM_KEYS = {
   upperArm: "primary",
   forearm: "primary",
   hand: "primary",
   offUpperArm: "secondary",
   offForearm: "secondary",
   offHand: "secondary",
-};
+} as const satisfies Record<ArmLimbKey, HandName>;
 
-/** Standing still. Every joint the stride drives goes to its rest angle. */
-const REST_POSE: GaitPose = {
-  hipLeft: 0,
-  hipRight: 0,
-  kneeLeft: 0,
-  kneeRight: 0,
-};
+export function armForLimbKey(key: string): HandName | undefined {
+  return Object.prototype.hasOwnProperty.call(ARM_KEYS, key)
+    ? ARM_KEYS[key as ArmLimbKey]
+    : undefined;
+}
 
 /**
  * A fighter: the one kind of body in the ring.
@@ -185,14 +232,11 @@ const REST_POSE: GaitPose = {
  * could be cut apart. A fight needs both properties in one object, twice, and
  * nothing here knows or cares which of the two is being driven by a person.
  *
- * The torso is keyframed: it goes exactly where you steer it, because a body
- * that wobbles under the weight of its own arm is not fun to walk around, and
- * because every measured number in `config.ts`'s `arm` block was taken against
- * a shoulder that does not itself move. Everything from the shoulder outward is
- * genuinely simulated -- three constrained bones and a weighted sword -- and so
- * now is everything else that hangs off the torso: a head, a pelvis carrying two
- * legs, and a free arm, each a dynamic capsule on a motorised joint, each
- * hittable and all but the torso severable.
+ * The pelvis is animated: it is the planted locomotion frame and goes exactly
+ * where steering and the solved leg geometry put it. The torso is dynamic on a
+ * motorised waist, so the shoulders can lean and twist while both hand targets
+ * remain relative to world vertical. The arms, head and legs are dynamic too;
+ * all are hittable and every registered part but the torso can be severed.
  *
  * The arm is driven by a single invisible keyframed *anchor* joined to the hand
  * by a six-degree-of-freedom constraint whose motors have a finite force budget.
@@ -350,6 +394,7 @@ export class Fighter {
    * has no reason to hide them.
    */
   readonly costume: readonly AbstractMesh[];
+  private readonly figure: Figure;
 
   /**
    * Every body joint, how many times `body.jointStiffness` it is worth, and the
@@ -364,6 +409,7 @@ export class Fighter {
     strength: number;
     limb: Limb | null;
   }[] = [];
+  private readonly waist: Physics6DoFConstraint;
   /**
    * The joints the stride drives, each beside the limb whose loss silences it.
    * Held as a list rather than looked up by key every step: this runs 240 times
@@ -399,10 +445,16 @@ export class Fighter {
    * in them.
    */
   private dead = false;
+  /** Set on the verdict edge for winner and loser alike. */
+  private fighting = true;
 
   private readonly shoulderLocal: Vector3;
   private readonly middle = new Vector3();
   private readonly velocity = new Vector3();
+  private trunkLean = 0;
+  private trunkTwist = 0;
+  private crouch = 0;
+  private readonly pelvisRestY: number;
 
   /**
    * What is left of the fighter's own scratch once the arm took its share.
@@ -418,10 +470,17 @@ export class Fighter {
   private readonly scratch = {
     feet: new Vector3(),
     spin: new Vector3(),
+    trunkWake: new Vector3(),
     move: new Vector3(),
     right: new Vector3(),
     forward: new Vector3(),
     viewBasis: Matrix.Identity(),
+    trunkBasis: Matrix.Identity(),
+    locomotionFrame: Matrix.Identity(),
+    trunkFrame: Matrix.Identity(),
+    pelvisInverse: Quaternion.Identity(),
+    relativeTrunk: Quaternion.Identity(),
+    trunkAngles: new Vector3(),
   };
 
   constructor(scene: Scene, opts: FighterOptions, materials: FighterMaterials) {
@@ -451,6 +510,10 @@ export class Fighter {
         tip: new Vector3(),
         tipSpeed: 0,
         hands: blankHands(),
+        crouch: 0,
+        trunkLean: 0,
+        trunkTwist: 0,
+        vitality: 1,
         health: {},
       },
       opponent: {
@@ -460,6 +523,10 @@ export class Fighter {
         tip: new Vector3(),
         tipSpeed: 0,
         hands: blankHands(),
+        crouch: 0,
+        trunkLean: 0,
+        trunkTwist: 0,
+        vitality: 1,
         health: {},
       },
       measure: Number.POSITIVE_INFINITY,
@@ -482,6 +549,7 @@ export class Fighter {
     };
 
     this.torsoCentre = B.torsoCentre;
+    this.pelvisRestY = opts.origin.y + B.pelvisCentre;
 
     this.torso = capsulePart(scene, {
       name: `${opts.side}.torso`,
@@ -493,7 +561,6 @@ export class Fighter {
       layer: layers.trunk,
       collidesWith: layers.trunkCollides,
       material: materials.cloth,
-      motionType: PhysicsMotionType.ANIMATED,
     });
     this.torso.mesh.isVisible = false;
     this.torso.mesh.isPickable = false;
@@ -567,8 +634,11 @@ export class Fighter {
       new Arm(
         scene,
         {
+          hand,
           name: `${opts.side}.${hand}`,
           torso: this.torso,
+          trunkFrame: () => this.frameOf(this.torso, this.scratch.trunkFrame),
+          locomotionFrame: () => this.frameOf(this.pelvis, this.scratch.locomotionFrame),
           shoulderLocal: new Vector3(side, F.shoulderHeight - B.torsoCentre, F.shoulderFront),
           shoulderWorld: place(side, F.shoulderHeight, F.shoulderFront),
           rotation: yaw,
@@ -658,6 +728,7 @@ export class Fighter {
 
     this.head = bone("head", place(0, B.headCentre, 0), B.headLength, B.headRadius, B.headMass);
     this.pelvis = bone("pelvis", place(0, B.pelvisCentre, 0), B.pelvisLength, B.pelvisRadius, B.pelvisMass);
+    this.pelvis.body.setMotionType(PhysicsMotionType.ANIMATED);
 
     // The off arm used to be two capsules on gait-driven motors, with no hand
     // body, no anchor and no grip: it counterswung while you walked and there
@@ -723,16 +794,20 @@ export class Fighter {
     // A hip has to reach the whole stride and no further. The dummy's sockets
     // were wider because a rag has no pose to protect; a fighter's leg that can
     // reach the splits looks broken the first time it is hit hard.
-    const hipRange = { x: { min: -1.3, max: 1.3 }, y: { min: -0.7, max: 0.7 }, z: { min: -0.6, max: 0.6 } };
+    const hipRange = {
+      x: { min: B.hipLimitMin, max: B.hipLimitMax },
+      y: { min: -0.7, max: 0.7 },
+      z: { min: -0.6, max: 0.6 },
+    };
     // Knees backward, with a hand's width of slack past straight so that a
     // motor target of zero is not sitting exactly on a stop. The elbow's own
     // range moved to `Arm` with the rest of the chain, and the shoulder socket
     // went with it; both arms are driven now, so nothing here needs either.
-    const knee = { x: { min: -0.15, max: 2.2 } };
+    const knee = { x: { min: B.kneeLimitMin, max: B.kneeLimitMax } };
 
     const torsoCentreVec = new Vector3(0, B.torsoCentre, 0);
 
-    // The torso is the root and is keyframed, so nothing can take it off. It
+    // The torso cannot be severed, so nothing can take it off. It
     // still carries health, because a bout has to be able to end on a body blow
     // and because a torso that cannot be scored against would teach the player
     // to aim at limbs for the wrong reason.
@@ -759,18 +834,26 @@ export class Fighter {
       strength: B.neckStrength,
       health,
     });
-    hang({
+    // The pelvis is the animated locomotion parent and the torso is the dynamic
+    // child. Havok's position motor drives B relative to A; leaving these in the
+    // old root-first order records a non-zero target but moves neither body.
+    this.waist = joint(scene, this.pelvis, this.torso, {
+      pivotParent: new Vector3(0, B.waist - B.pelvisCentre, 0),
+      pivotChild: new Vector3(0, B.waist - B.torsoCentre, 0),
+      swing: spine,
+    });
+    const pelvisLimb: Limb = {
       key: "pelvis",
       label: "Pelvis",
-      parent: this.torso,
-      parentCentre: torsoCentreVec,
-      child: this.pelvis,
-      childCentre: new Vector3(0, B.pelvisCentre, 0),
-      anchor: new Vector3(0, B.waist, 0),
-      swing: spine,
-      strength: B.waistStrength,
+      part: this.pelvis,
+      attachment: this.waist,
       health: health * B.pelvisHealth,
-    });
+      maxHealth: health * B.pelvisHealth,
+      severed: false,
+      lastHitAt: -999,
+    };
+    this.springs.push({ constraint: this.waist, strength: B.waistStrength, limb: pelvisLimb });
+    this.register(pelvisLimb);
 
     // Both arms are hittable, and they are the only limbs whose loss changes
     // what the fighter can *do* rather than only how well it stands. Their joints
@@ -854,7 +937,7 @@ export class Fighter {
     // The costume goes on last, because every piece of it hangs off a body that
     // has to exist first. It carries no authority of any kind: it is what the
     // eye and `scene.pick` see, and what the rig overlay takes off.
-    this.costume = new Figure(scene, {
+    this.figure = new Figure(scene, {
       prefix: opts.side,
       torso: this.torso,
       head: this.head,
@@ -869,7 +952,8 @@ export class Fighter {
       shinLeft: legs[0].shin,
       thighRight: legs[1].thigh,
       shinRight: legs[1].shin,
-    }, materials).pieces;
+    }, materials.figure ?? materials);
+    this.costume = this.figure.pieces;
     for (const mesh of this.costume) this.owned.add(mesh);
 
     this.applyTuning();
@@ -916,7 +1000,11 @@ export class Fighter {
       for (const axis of ANGULAR) {
         spring.constraint.setAxisMotorType(axis, PhysicsConstraintMotorType.POSITION);
         spring.constraint.setAxisMotorTarget(axis, 0);
-        spring.constraint.setAxisMotorMaxForce(axis, B.jointStiffness * spring.strength * tone);
+        const aliveWaist = spring.constraint === this.waist && !this.dead;
+        spring.constraint.setAxisMotorMaxForce(
+          axis,
+          aliveWaist ? B.trunkMotorForce : B.jointStiffness * spring.strength * tone,
+        );
       }
     }
   }
@@ -932,7 +1020,7 @@ export class Fighter {
 
   /** The fighter's position on the ground. */
   feetPosition(): Vector3 {
-    const p = this.torso.mesh.absolutePosition;
+    const p = this.pelvis.mesh.position;
     return this.scratch.feet.set(p.x, 0, p.z);
   }
 
@@ -941,7 +1029,7 @@ export class Fighter {
     return Math.hypot(this.velocity.x, this.velocity.z);
   }
 
-  armAngles(): { azimuth: number; elevation: number; roll: number; reach: number } {
+  armAngles(): ArmPose {
     return this.arm.angles();
   }
 
@@ -1008,6 +1096,12 @@ export class Fighter {
     for (const name of HANDS) {
       const arm = this.arms[name];
       if (arm.weapon) all.push(arm.weapon);
+      else if (
+        arm.fist &&
+        arm.armed &&
+        !arm.assisting &&
+        (this.twoHanded === null || name === this.twoHanded)
+      ) all.push(arm.fist);
       if (arm.quiver) all.push(...arm.quiver.arrows);
     }
     return all;
@@ -1045,6 +1139,11 @@ export class Fighter {
     return !this.dead;
   }
 
+  /** The one body-wide health reading, derived from local part state. */
+  get vitality(): number {
+    return vitality(this.limbs);
+  }
+
   /**
    * Roughly where the fighter is, for a lock-on to point at and a ring to sit
    * under. The torso, which is the one part that cannot come off -- a lock that
@@ -1080,13 +1179,24 @@ export class Fighter {
    * *record* of it: `limbFor` answers nothing for a weapon body, so `Combat`
    * dropped the contact and a block was indistinguishable from a miss.
    *
-   * Two bodies to check rather than a map, because there are two hands and this
-   * is only asked on contacts that found no limb.
+   * Walk the two hands rather than maintaining a second map. A held weapon has
+   * one guard body; an empty hand guards with its real hand and forearm bodies.
+   * This is only asked for contacts whose target was not already scored as a
+   * limb.
    */
-  parriedBy(body: PhysicsBody): Weapon | null {
+  parriedBy(body: PhysicsBody): { readonly kind: WeaponKind } | null {
     for (const name of HANDS) {
-      const weapon = this.arms[name].weapon;
+      const arm = this.arms[name];
+      const weapon = arm.weapon;
       if (weapon && weapon.body === body) return weapon;
+      if (
+        arm.holding === "empty" &&
+        arm.fist &&
+        arm.armed &&
+        !arm.assisting &&
+        (this.twoHanded === null || name === this.twoHanded) &&
+        (arm.hand.body === body || arm.forearm.body === body)
+      ) return arm.fist;
     }
     return null;
   }
@@ -1147,9 +1257,10 @@ export class Fighter {
     // early return for a lost arm sits four lines further down and deliberately
     // runs `walk` first, because a one-armed fighter still walks. This one comes
     // first because a headless one does not.
-    if (this.dead) return;
+    if (this.dead || !this.fighting) return;
     const intent = this.mind.decide(this.view, dt);
     this.steer(dt, intent);
+    this.poseTrunk(dt, intent);
     this.walk(dt);
     // Both arms, each from its own half of the intent. `Arm.update` returns on
     // its own if that arm has been dropped, which is why there is no second
@@ -1176,6 +1287,33 @@ export class Fighter {
     for (const name of HANDS) this.arms[name].update(dt, intent[name]);
   }
 
+  /**
+   * Remove combat authority without removing the body from the simulation.
+   *
+   * Called once on the fight-to-over edge, but idempotent because the edge is a
+   * wiring fact rather than a second safety boundary. A surviving fighter stays
+   * upright and simply stops; an exhausted one enters the same corpse physics
+   * as a severed head. Neither is disposed.
+   */
+  stopFighting(): void {
+    if (!this.fighting) return;
+    this.fighting = false;
+    this.velocity.set(0, 0, 0);
+    this.pelvis.body.setLinearVelocity(this.velocity);
+    this.pelvis.body.setAngularVelocity(this.scratch.spin.set(0, 0, 0));
+    this.torso.body.setLinearVelocity(this.scratch.move.set(0, 0, 0));
+    this.torso.body.setAngularVelocity(this.scratch.trunkWake.set(0, 0, 0));
+    // The chest is dynamic even while the pelvis is animated. Freezing only the
+    // locomotion root leaves the chest completing its last turn against a stale
+    // waist target after the verdict. Hold the achieved lean/twist explicitly;
+    // Z has no commanded posture and returns to its neutral target.
+    const posture = this.relativeTrunkAngles();
+    this.waist.setAxisMotorTarget(PhysicsConstraintAxis.ANGULAR_X, posture.x);
+    this.waist.setAxisMotorTarget(PhysicsConstraintAxis.ANGULAR_Y, posture.y);
+    this.waist.setAxisMotorTarget(PhysicsConstraintAxis.ANGULAR_Z, 0);
+    if (this.vitality === 0) this.die();
+  }
+
   /** Cut a limb free and give it a parting shove along the cut. */
   sever(limb: Limb, direction: Vector3): void {
     if (limb.severed || !limb.attachment) return;
@@ -1187,7 +1325,7 @@ export class Fighter {
     // `Arm.drop`. Which arm is decided by the key, because that is what the key
     // is for; matching on the part would mean holding six references here to
     // answer a question the registry already answers.
-    const dropped = ARM_KEYS[limb.key];
+    const dropped = armForLimbKey(limb.key);
     if (dropped) this.arms[dropped].drop();
 
     // The two `bout.ts`'s `beaten()` names. The torso cannot come off today --
@@ -1220,6 +1358,7 @@ export class Fighter {
    * hanging on rather than being collected separately.
    */
   dispose(): void {
+    this.figure.dispose();
     for (const limb of this.limbs) {
       if (!limb.severed) limb.attachment?.dispose();
     }
@@ -1251,11 +1390,16 @@ export class Fighter {
    * which is what makes "is it still on" and "is it finished" one question.
    */
   private describe(into: BodyView, fighter: Fighter): void {
-    const torso = fighter.torso.mesh;
-    const here = torso.position;
-    const spin = torso.rotationQuaternion;
+    const pelvis = fighter.pelvis.mesh;
+    const here = pelvis.position;
+    const spin = pelvis.rotationQuaternion;
 
     into.ground.set(here.x, 0, here.z);
+    into.crouch = clamp(
+      (fighter.pelvisRestY - here.y) / Math.max(CONFIG.body.crouchDepth, 1e-6),
+      0,
+      1,
+    );
 
     const basis = this.scratch.viewBasis;
     if (spin) {
@@ -1272,8 +1416,21 @@ export class Fighter {
       into.facing = 0;
       Matrix.IdentityToRef(basis);
     }
-    Vector3.TransformNormalToRef(fighter.shoulderLocal, basis, into.shoulder);
-    into.shoulder.addInPlace(here);
+    const trunkBasis = this.scratch.trunkBasis;
+    const trunkSpin = fighter.torso.mesh.rotationQuaternion;
+    if (trunkSpin) Matrix.FromQuaternionToRef(trunkSpin, trunkBasis);
+    else Matrix.IdentityToRef(trunkBasis);
+    const trunkHere = fighter.torso.mesh.position;
+    if (spin && trunkSpin) {
+      const posture = fighter.relativeTrunkAngles();
+      into.trunkLean = clamp(posture.x / CONFIG.body.trunkLeanMax, -1, 1);
+      into.trunkTwist = clamp(posture.y / CONFIG.body.trunkTwistMax, -1, 1);
+    } else {
+      into.trunkLean = 0;
+      into.trunkTwist = 0;
+    }
+    Vector3.TransformNormalToRef(fighter.shoulderLocal, trunkBasis, into.shoulder);
+    into.shoulder.addInPlace(trunkHere);
 
     // Both hands, whatever either is holding, and in the same pass -- because a
     // policy that plans one hand by what the other is doing needs the two to be
@@ -1288,8 +1445,8 @@ export class Fighter {
       hand.lost = !arm.armed;
       hand.outboard = arm.side;
       hand.reach = arm.strikeReach;
-      Vector3.TransformNormalToRef(arm.socket, basis, hand.shoulder);
-      hand.shoulder.addInPlace(here);
+      Vector3.TransformNormalToRef(arm.socket, trunkBasis, hand.shoulder);
+      hand.shoulder.addInPlace(trunkHere);
 
       const held = arm.weapon;
       if (held) {
@@ -1313,6 +1470,7 @@ export class Fighter {
     const lead = into.hands.primary;
     into.tip.copyFrom(lead.tip);
     into.tipSpeed = lead.tipSpeed;
+    into.vitality = fighter.vitality;
 
     for (const limb of fighter.limbs) {
       into.health[limb.key] = limb.severed ? 0 : Math.max(0, limb.health / limb.maxHealth);
@@ -1346,7 +1504,7 @@ export class Fighter {
    *
    * Three things, and the order matters. The arm goes first, through the same
    * `dropArm` a severed elbow uses, because the grip would otherwise go on
-   * hauling a corpse's hand about at 850 N. Then the torso stops being keyframed:
+   * hauling a corpse's hand about at 850 N. Then the pelvis stops being keyframed:
    * it has carried `PhysicsMotionType.ANIMATED` since construction, which is what
    * makes a fighter walk without wobbling under the weight of its own arm, and it
    * is also what would hold a dead one standing upright forever. Then
@@ -1364,13 +1522,13 @@ export class Fighter {
     if (this.dead) return;
     this.dead = true;
     for (const name of HANDS) this.arms[name].drop();
-    this.torso.body.setMotionType(PhysicsMotionType.DYNAMIC);
+    this.pelvis.body.setMotionType(PhysicsMotionType.DYNAMIC);
     this.applyTuning();
   }
 
   private steer(dt: number, input: Intent): void {
     const F = CONFIG.fighter;
-    const world = this.torso.mesh.getWorldMatrix();
+    const world = this.frameOf(this.pelvis, this.scratch.locomotionFrame);
     const right = this.scratch.right.set(world.m[0], world.m[1], world.m[2]).normalize();
     const forward = this.scratch.forward.set(world.m[8], world.m[9], world.m[10]).normalize();
 
@@ -1387,8 +1545,58 @@ export class Fighter {
     this.velocity.z += (desired.z - this.velocity.z) * blend;
     this.velocity.y = 0;
 
-    this.torso.body.setLinearVelocity(this.velocity);
-    this.torso.body.setAngularVelocity(this.scratch.spin.set(0, this.turnRate(input, forward), 0));
+    this.pelvis.body.setLinearVelocity(this.velocity);
+    this.pelvis.body.setAngularVelocity(this.scratch.spin.set(0, this.turnRate(input, forward), 0));
+  }
+
+  /** Drive the physical chest about the planted, upright locomotion frame. */
+  private poseTrunk(dt: number, input: Intent): void {
+    const B = CONFIG.body;
+    const blend = 1 - Math.exp(-B.trunkResponse * dt);
+    const posture = input.posture;
+    this.trunkLean += (clamp(posture.trunkLean, -1, 1) - this.trunkLean) * blend;
+    this.trunkTwist += (clamp(posture.trunkTwist, -1, 1) - this.trunkTwist) * blend;
+    // Havok may put a settled dynamic torso to sleep. A changed motor target
+    // does not wake it, so refresh its current velocity through the body API;
+    // this is a wake-up, not a second controller.
+    this.torso.body.setAngularVelocity(
+      this.scratch.trunkWake.copyFrom(this.torso.body.getAngularVelocity()),
+    );
+    const wantedCrouch = clamp(posture.crouch, 0, 1);
+    const crouchStep = clamp(
+      (wantedCrouch - this.crouch) * (1 - Math.exp(-B.crouchResponse * dt)),
+      -B.postureMaxRate * dt,
+      B.postureMaxRate * dt,
+    );
+    this.crouch += crouchStep;
+    this.waist.setAxisMotorTarget(
+      PhysicsConstraintAxis.ANGULAR_X,
+      this.trunkLean * B.trunkLeanMax,
+    );
+    this.waist.setAxisMotorTarget(
+      PhysicsConstraintAxis.ANGULAR_Y,
+      this.trunkTwist * B.trunkTwistMax,
+    );
+  }
+
+  /** A cache-free world frame from Havok's latest root-node transform. */
+  private frameOf(part: Part, into: Matrix): Matrix {
+    const spin = part.mesh.rotationQuaternion;
+    if (spin) Matrix.FromQuaternionToRef(spin, into);
+    else Matrix.IdentityToRef(into);
+    into.setTranslation(part.mesh.position);
+    return into;
+  }
+
+  /** Actual waist rotation, read from root-node quaternions and no matrix cache. */
+  private relativeTrunkAngles(): Vector3 {
+    const pelvis = this.pelvis.mesh.rotationQuaternion;
+    const torso = this.torso.mesh.rotationQuaternion;
+    const angles = this.scratch.trunkAngles;
+    if (!pelvis || !torso) return angles.set(0, 0, 0);
+    pelvis.conjugateToRef(this.scratch.pelvisInverse);
+    this.scratch.pelvisInverse.multiplyToRef(torso, this.scratch.relativeTrunk);
+    return this.scratch.relativeTrunk.toEulerAnglesToRef(angles);
   }
 
   /**
@@ -1410,13 +1618,27 @@ export class Fighter {
     const speed = this.groundSpeed();
     this.stride += speed * CONFIG.fighter.strideCadence * dt;
 
-    const pose = B.gaitDrivesLegs ? gait(this.stride, speed) : REST_POSE;
+    const pose = B.gaitDrivesLegs
+      ? legPose(this.stride, speed, this.crouch)
+      : legPose(0, 0, this.crouch);
     for (const drive of this.driven) {
       // A severed limb's joint has been disposed, and writing a motor target
       // into a freed constraint is the one way this loop can take the page down.
       if (drive.limb.severed) continue;
       drive.constraint.setAxisMotorTarget(PhysicsConstraintAxis.ANGULAR_X, pose[drive.angle]);
     }
+
+    // The pelvis is the locomotion frame and remains animated, but its vertical
+    // reference is not arbitrary: it is the height implied by the same solved
+    // chain whose targets were just sent to the hips and knees.
+    const wantedY = this.pelvisRestY - pose.pelvisDrop;
+    const maxVertical = B.crouchDepth * B.postureMaxRate;
+    this.velocity.y = clamp(
+      (wantedY - this.pelvis.mesh.position.y) * B.crouchResponse,
+      -maxVertical,
+      maxVertical,
+    );
+    this.pelvis.body.setLinearVelocity(this.velocity);
   }
 
   /**
@@ -1432,7 +1654,7 @@ export class Fighter {
     if (input.turn !== 0 || !this.lockTarget) return input.turn * F.turnSpeed;
 
     const T = CONFIG.targeting;
-    const here = this.torso.mesh.absolutePosition;
+    const here = this.pelvis.mesh.position;
     const wanted = Math.atan2(this.lockTarget.x - here.x, this.lockTarget.z - here.z);
     const facing = Math.atan2(forward.x, forward.z);
     return clamp(angleTo(facing, wanted) * T.lockTurnGain, -T.lockTurnMax, T.lockTurnMax);

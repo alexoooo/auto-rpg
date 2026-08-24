@@ -110,10 +110,10 @@ against a plausible alternative:
 - **Both sides down on one step is a draw**, for the same reason: there is no honest way to
   order two things that happened in one solver step, and picking the left one because it is
   checked first is the sort of accident that ends up being called a rule.
-- **`over` does not stop the world.** Freezing would need either a branch in `Fighter` for
-  "the bout is over" -- the same shape of branch as "is this one the player", which the seam
-  exists to abolish -- or a keyframed torso left holding its last velocity, sliding across
-  the arena forever.
+- **`over` revokes combat authority but does not freeze the world.** Both minds and both
+  contact scorers stop on the edge. The animated pelvis and dynamic torso are settled, while
+  corpses, blood and loose physics continue; freezing the scene would turn a verdict into a
+  pause and prevent the fall that makes the result legible.
 
 One consequence is live and unjudged: the torso carries `attachment: null` and cannot be
 severed, and "every part at zero" takes all twelve, so in practice nearly every bout ends
@@ -177,9 +177,9 @@ the head or the torso comes off, and it costs three things:
 - **the mind is never asked again** -- `update` returns before `decide`, which is earlier
   than the `armLost` return, because a one-armed fighter still walks and a headless one does
   not;
-- **the torso stops being keyframed.** It has carried `PhysicsMotionType.ANIMATED` since
-  construction, which is what lets a fighter walk without wobbling under the weight of its
-  own arm and is equally what would hold a dead one upright forever;
+- **the pelvis stops being animated.** It is the planted locomotion root while alive; death
+  changes it to `PhysicsMotionType.DYNAMIC`, which lets the already-dynamic torso and the
+  rest of the jointed body fall together;
 - **every body joint drops to `body.deadJointStrength`** of its usual ceiling. Zero was the
   obvious first guess and is wrong: a body with no torque anywhere in it lands as a bag of
   capsules rather than as a person who has just been killed.
@@ -786,10 +786,12 @@ right when there was one simulated arm and it was the subject of every measureme
 two, it leaves a fighter in half a shirt, which reads as a bug rather than as an instrument.
 `G` is the instrument, and it takes the whole costume off.
 
-### The textures that were tried, and are not there
+### The texture pipeline that replaced the failed experiment
 
-The asset briefly gained UVs and tangents and the palette briefly gained four CC0 tiling
-maps. All of it is reverted, and the way it failed is worth more than the feature was.
+The first texture attempt is still the useful warning: an albedo map multiplied an already
+dark palette colour, then directly attached normal maps held several materials unready and
+made their meshes disappear. Probing `scene.materials` and `Material.isReady` outside a
+render pass produced three wrong diagnoses before stripping maps and looking settled it.
 
 Two things were wrong and only the second mattered. A **diffuse** map multiplies
 `albedoColor` in Babylon rather than replacing it, and a photographic diffuse averages well
@@ -809,9 +811,76 @@ which returns false for everything outside a render pass and is not the question
 thinks it is. What settled it in one step was stripping the maps at the console and taking a
 screenshot.
 
-**It is still not good enough.** Twenty-four welded primitives in flat colour is not
-finished art, and both arms being dressed is the only part of this that survived.
-`docs/measurements.md` records what the two ways forward actually cost.
+The replacement makes those failure modes contracts. `asset-src/textures.json` is the only
+map registry and pins CC0 source, digest, colour space, tangent basis and consumer. The
+runtime builds the old PBR colour first and attaches a decoded map only from its success
+callback; failure therefore leaves a drawable fallback. The GLB carries UVs and tangent
+frames but no authoritative textures, and `scripts/check-warrior.mjs` refuses a node whose
+exported family disagrees with `costumePieces()` or whose embedded material competes with
+the runtime palette.
+
+Steel, neutral cloth, brown leather and subtle skin detail now have separate
+albedo/normal/ORM families. The side colour is one per-Figure material derived from neutral cloth:
+crimson and blue own only their tint while all texture objects remain palette-shared, and
+`Figure.dispose()` releases the material on a bout rebuild. The visible art-direction verdict
+is intentionally not inferred from the headless checks; it remains in the integrated
+session-14 comparison.
+
+Imported tangent xyz is negated once when `Figure.wear()` replaces a primitive's
+vertices, normalizing the glTF right-handed frame to the same Babylon-LH basis the fallback
+primitive used. Every authored island is area-normalized to 0.300 UV units per metre before
+the family-level texture repeat is applied; the asset checker measures that ratio from the
+exported triangles and UVs rather than trusting Blender source comments.
+
+Babylon-built weapons remain a separate material authority. Forged steel deliberately reuses
+the session-08 worked-steel maps, worn leather reuses its matching character maps, and
+fine-grained wood is the ash/yew visual proxy. These are scene-shared primary families;
+brass and distressed painted board have
+their own pinned CC0 albedo/normal/ORM sets rather than being colour-only aliases. The
+polished edge and bow-string variants follow the steel and leather map objects, including a
+decode that completes late, so those functional highlights cost no duplicate wrapper.
+Propagated attachments are rebroadcast, which keeps a figure -> weapon -> highlight chain
+whole. All use the Babylon-LH normal basis; nothing reaches back into imported geometry to
+change its tangents.
+
+`OBJECT_PART_SURFACES` is the total 35-row assignment for swords, axes, bows, arrows,
+shields, bucklers, clubs and ring posts. It changes only an existing mesh's material
+reference and its own UV buffer. Long wood cylinders retain texture V along local Y; the
+bow stave turns once so V follows local X; grip wraps turn around their cylinder. The shared
+Texture is never rotated per mesh. The polished sword blade/point, axe bit/edge, shield
+bosses, bow string, nocked arrow and pooled arrow accent retain the contrast needed to read
+combat function. `Weapon` and `Arrow` dispose bodies and nodes but not arena-owned materials
+or maps; scene disposal remains the sole palette owner.
+
+The room is deliberately two worlds that occupy the same place. `arena-room.ts` owns the
+unchanged authoritative world -- one 60 m ground box and fourteen ring posts -- separately
+from a cosmetic floor, translucent wall scrims, overhead beams, banners, racks and debris.
+The cosmetic owner creates no aggregate. The posts have broad gaps and are not treated as a
+boundary. An opaque placement below a conservative 3.6 m reach ceiling is refused unless it
+names an existing collider. Distance past the slab is not
+a safety argument because the animated fighter can keep walking. Beams clear that ceiling;
+racks/debris are zero-height floor markings rather than volumes. The visible floor names
+`ground`, and every post names itself. Every placement that declares a collider automatically
+emits a pair and the ordinary build resolves its live body and overlapping bounds.
+
+Five source meshes feed 27 instances. Four room materials share their scene-owned maps, and
+generated primitive UVs are projected from local metres rather than stretched from a unit
+square: slate repeats every 2.4 m, wall stone every 2.1 m, timber every 2.0 m and banner cloth
+every 0.4 m. Room fallback colours are less saturated than either team cloth, while the arrow
+accent remains unlit and brighter than every declared room fallback. Those are structural
+hierarchy checks. The live occlusion list holds pelvis, torso and head centres for both
+fighters plus each live pooled arrow root and both trace endpoints. Those `Vector3`s and the
+list are cached at bout construction rather than allocated in the render loop. Segment/AABB
+checks cover both camera presets, both zoom clamps, eight bearings and translations spanning
+the supported floor, including opponent/arrow scenarios outside the old local stencil. An
+overhead beam crossing one of those actual rays is culled per instance; non-crossing beams
+remain opaque and visible. A shadow refresh retains a temporarily culled solid beam so reveal
+does not leave it shadowless. The visible verdict remains session 14's job.
+
+`__sword.arena.audit()` reads owned mesh, reachable material/texture, instance and live-body
+counts plus the named visual/collider pairs. Repeated calls update private counters behind
+one frozen stable getter view and allocate no result or Babylon resource. Foreign scene resources do not enter its
+census, and disposal unregisters every owned shadow caster.
 
 ## The house rules this work was done under
 

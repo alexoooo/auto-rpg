@@ -85,7 +85,6 @@ the arm drifted, centre was unrecoverable, and you could not get your mouse back
 | W / S | walk forward and back |
 | A / D | strafe |
 | Q / E | turn |
-| Z / X | roll the wrist — turns the edge into the cut |
 | Left button | thrust — drive the point out. **Hold it with a bow**: draw, then let go to loose |
 | Right button | guard — pull the blade in close |
 | Middle button / L | arm a lock-on, then click an enemy; strafe to circle it, Q/E to break |
@@ -136,6 +135,12 @@ a keyframed anchor dragging the whole thing about — so a shield is not a state
 in, it is a plank of limewood with a steel rim welded into a fist, and it blocks by being
 in the way. The collision layers already said an enemy blade and this side's weapons may
 touch; blocking needed a shape, not a rule.
+
+Nothing is still a loadout: the visible simulated fist can punch, and the hand and forearm
+can stop a blow by physically getting in its way. A clean fast punch crushes for much less
+than steel and never cuts or severs; a slow one is only a shove. Policies use a bare fist
+only when no held striking weapon remains, while a free off hand covers the threat line.
+The draw hand of a two-handed bow stays on the bow rather than becoming a guard.
 
 There are **two shields**, and they differ by how they are held rather than by size. A
 **shield** is strapped across the forearm, so its face is square to the arm: it covers a lot,
@@ -188,6 +193,8 @@ there is no crosshair and no mode — and the left button becomes a *hold*: pres
 the string come back over about a second, and let go. Release early and the shot is
 abandoned rather than taken, which is what makes a draw worth holding instead of a button
 worth tapping. The bow shows you how far you have drawn, on the bow.
+The arrow itself carries a bright orange head and fletch plus a short translucent flight
+trace, so the shot remains followable without turning its path into a beam.
 
 What it costs is everything else. It takes both hands, so no shield and no second blade; it
 scores nothing swung, so at sword range you are carrying a stick; and a second of standing
@@ -195,14 +202,14 @@ still is a second a swordsman spends walking at you. An arrow that arrives is wo
 than a sword's best cut — **55 against 46** — and it arrives point-first every time, because
 it flies along its own shaft.
 
-Two things about it are honest rather than finished, and both are written up in
+Two things about it are worth knowing, and both are written up in
 `docs/measurements.md`. A **held-out sword blocks arrows**, which nobody designed: a duelist
 covers the line to its own chest and that is exactly where an archer aims, so only about one
-arrow in ten gets through. And **an archer cannot currently win a bout** — a bout ends when a
-head or torso comes *off*, an arrow deliberately never takes a limb off, and so shooting a
-motionless fighter for thirty seconds does 275 points of damage and kills nobody. That is a
-gap in the rules rather than in the bow, and it is the one open question in this repository
-with a number attached.
+arrow in ten gets through. An archer can now win through accumulated injury: each fighter
+has one derived vitality bar, while the local wounds beneath it still decide severing and
+lost limbs. A head or torso at zero exhausts the bar alone; combinations of pelvis and limb
+wounds can exhaust it too. The old thirty-second bow corpus -- 275 damage against a
+motionless fighter and no win -- remains the before measurement.
 
 You have one mouse and a fighter has two arms, so **`F`** moves the cursor from one to the
 other and the hand you leave goes back to the side's own policy. Splitting the cursor
@@ -233,8 +240,9 @@ browser — no export step, and the solver is native-speed WebAssembly with Type
 orchestrating it.
 
 A fighter is deliberately split in two, and there are two of them in the ring, of one kind.
-The torso is **keyframed**: it goes exactly where you steer it, because a body that wobbles under the weight of its own arm is not fun to
-walk around. Everything from the shoulder outward is **genuinely simulated** — a ball
+The pelvis is **animated** as the planted locomotion frame; the torso is **genuinely
+simulated** on a motorised waist, so it can lean and twist above the hips. Everything from
+the shoulder outward is simulated too — a ball
 joint at the shoulder, a hinge at the elbow, a rolling wrist, and whatever is welded into
 the fist. Both arms are like that: two full chains, either of which can hold a sword, a
 shield, a bow or nothing.
@@ -265,9 +273,14 @@ substep luck), so tuning against it is tuning against noise. Speed times alignme
 quantity a player can feel themselves controlling. The impulse is still shown in the
 readout, because when the two disagree that is worth seeing.
 
+The readout shows **one vitality bar per fighter**, not a row of competing limb-sized lives.
+Expand its critical-injuries diagnostic when you need to see which local parts are severed
+or close to failure. Once either vitality bar is exhausted, both minds and both contact
+scorers stop immediately; the loser, blood and loose physics continue naturally.
+
 A fighter is a jointed figure rather than a block, because the interesting question is not
 whether a hit registers — it is whether a hit that lands badly reads differently from one
-that lands well. A head, a pelvis, a free arm and two legs hang off the driven torso on
+that lands well. A dynamic torso and head ride above the driven pelvis, with two simulated arms and legs on
 motorised joints, so a struck body rocks, twists, and eventually comes apart. Both sides
 are the same class: there is nothing in it that knows which one you are driving.
 
@@ -301,10 +314,13 @@ CC0, fetched and digest-pinned by `scripts/fetch-polyhaven.mjs`. Image-based lig
 what makes a steel blade read as steel rather than as a grey box; without it the scene
 still runs, just flatter.
 
-There are **no other textures**, and that is a finding rather than an omission: four CC0
-tiling normal maps were fetched, pinned and wired in, and every material that carried one
-stopped rendering — the warriors lost their helms, pauldrons and breastplates while the
-untextured flesh kept drawing. `src/arena.ts` and `docs/measurements.md` record it.
+The local texture registry now carries thirty-three digest-pinned CC0 1K maps: slate for the
+floor and albedo/normal/ORM families for worked steel, neutral cloth, brown leather,
+subtle skin detail, fine-grained wood, worn brass, distressed painted board, timeworn stone
+walls, room timber and banner cloth. `npm run texture:verify` checks provenance, license, colour space and
+both directions of the registry. A failed decode leaves the old colour material drawable;
+it never attaches a texture that can make the mesh disappear. The earlier failed normal-map
+experiment and why this pipeline does not repeat it are recorded in `docs/design.md`.
 
 The warriors are authored: `public/assets/warrior.glb` is built from
 `asset-src/build_warrior.py` by `npm run asset:build`, which needs Blender, and the result
@@ -323,13 +339,28 @@ on a lost head, blood, policies that fight with the controller you use, live tak
 either body, two cameras, the rig overlay, the authored armour, and a build that runs at
 60 fps with physics under a millisecond.
 
-**The warriors still do not look good.** They are twenty-four welded primitives in four
-flat colours — both arms properly dressed now, where the sword arm used to be bare, but no
-better surfaced than before. Getting further means either a modelled and hand-textured
-character, or adopting a pre-built one and re-fitting the rig to its proportions — the good
-free ones are all stylized low-poly, so that is a change of art direction rather than a
-change of mesh. `docs/measurements.md` records it as owed rather than pretending
-otherwise.
+The twenty-four-piece warriors now separate skin, neutral woven cloth, leather and worked
+steel with authored UVs and shared PBR maps. Only the surcoat/skirt material is constructed per
+fighter, so crimson and blue remain independent while their images stay shared; rebuilding
+a bout disposes those materials. This is an implemented surface pass, not yet its visual
+verdict: matched Fixed-camera screenshots at both zoom clamps remain part of the integrated
+session-14 review in `docs/measurements.md`.
+
+Weapons, shields, arrows and ring posts use the same registry without changing their
+geometry or physics. A total 35-part table assigns forged steel, brass, worn leather,
+fine-grained wood as the ash/yew visual proxy, and painted board. It rotates each mesh's own
+UVs where grain direction
+requires it. Polished edges, bosses, bow strings and the nocked/flying arrow remain brighter
+than the surface detail. Carried objects borrow arena-owned materials and never dispose a
+shared map when one weapon or pooled arrow leaves the scene.
+
+The arena now has the scale cues of a training hall without asking the art to become
+authority. The original invisible 60 m slab and fourteen post colliders are unchanged; the
+posts remain a visual ring, not a boundary. A separate visual floor, translucent wall scrims,
+overhead beams and banners occupy the room, while flat timber-coloured rack/debris markings
+add floor detail without presenting a pass-through volume. They own no physics body. Repeated dressing is instanced. Its
+stone, timber and cloth UVs are scaled from the Poly Haven material's physical metre span, and
+`__sword.arena.audit()` reports only its owned resource census and visual/collider pairs.
 
 The first playtest is in: a human can beat `swinger`, its timing stays where it is, and the
 gait-driven knees look good. The larger feel pass is still open -- body-relative aim under

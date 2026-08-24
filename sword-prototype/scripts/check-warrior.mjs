@@ -74,19 +74,264 @@ function readGlb(buffer) {
 
   let offset = 12;
   let json = null;
-  let binLength = 0;
+  let bin = null;
   while (offset + 8 <= buffer.length) {
     const length = buffer.readUInt32LE(offset);
     const type = buffer.readUInt32LE(offset + 4);
     const start = offset + 8;
     if (start + length > buffer.length) throw new Error("glb chunk runs past the end of the file");
     if (type === CHUNK_JSON) json = JSON.parse(buffer.toString("utf8", start, start + length));
-    if (type === CHUNK_BIN) binLength = length;
+    if (type === CHUNK_BIN) bin = buffer.subarray(start, start + length);
     offset = start + length;
   }
   if (!json) throw new Error("glb has no JSON chunk");
-  if (binLength === 0) throw new Error("glb has no BIN chunk: the geometry is not in the file");
-  return { json, binLength };
+  if (!bin?.length) throw new Error("glb has no BIN chunk: the geometry is not in the file");
+  return { json, bin };
+}
+
+const COMPONENT = {
+  5121: { bytes: 1, read: "readUInt8" },
+  5123: { bytes: 2, read: "readUInt16LE" },
+  5125: { bytes: 4, read: "readUInt32LE" },
+  5126: { bytes: 4, read: "readFloatLE" },
+};
+const WIDTH = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4 };
+
+function accessorValues(json, bin, index) {
+  const accessor = json.accessors?.[index];
+  const view = json.bufferViews?.[accessor?.bufferView];
+  const component = COMPONENT[accessor?.componentType];
+  const width = WIDTH[accessor?.type];
+  if (!accessor || !view || !component || !width) return null;
+  const packed = component.bytes * width;
+  const stride = view.byteStride ?? packed;
+  const start = (view.byteOffset ?? 0) + (accessor.byteOffset ?? 0);
+  const rows = [];
+  for (let row = 0; row < accessor.count; row += 1) {
+    const values = [];
+    for (let column = 0; column < width; column += 1) {
+      values.push(bin[component.read](start + row * stride + column * component.bytes));
+    }
+    rows.push(values);
+  }
+  return rows;
+}
+
+function uvSeamCount(positions, uvs, indices) {
+  const pointKey = (point) => point.map((value) => value.toFixed(6)).join(",");
+  const uvKey = (uv) => uv.map((value) => value.toFixed(6)).join(",");
+  const edges = new Map();
+  const seams = new Set();
+  for (let i = 0; i + 2 < indices.length; i += 3) {
+    const triangle = [indices[i][0], indices[i + 1][0], indices[i + 2][0]];
+    for (const [one, two] of [[triangle[0], triangle[1]], [triangle[1], triangle[2]], [triangle[2], triangle[0]]]) {
+      const endpoints = [[pointKey(positions[one]), uvKey(uvs[one])], [pointKey(positions[two]), uvKey(uvs[two])]]
+        .sort(([a], [b]) => a.localeCompare(b));
+      const key = `${endpoints[0][0]}|${endpoints[1][0]}`;
+      const textureEdge = `${endpoints[0][1]}|${endpoints[1][1]}`;
+      const previous = edges.get(key);
+      if (previous !== undefined && previous !== textureEdge) seams.add(key);
+      else if (previous === undefined) edges.set(key, textureEdge);
+    }
+  }
+  return seams.size;
+}
+
+function checkTextureGeometry(json, bin, found, fail) {
+  const meshes = json.meshes ?? [];
+  const materials = json.materials ?? [];
+  for (const node of found) {
+    const sourceNode = (json.nodes ?? []).find((candidate) => candidate.name === node.name);
+    for (const primitive of meshes[sourceNode?.mesh]?.primitives ?? []) {
+      const material = materials[primitive.material]?.name ?? `material${primitive.material}`;
+      const positions = json.accessors?.[primitive.attributes?.POSITION];
+      const positionValues = accessorValues(json, bin, primitive.attributes?.POSITION);
+      const uvIndex = primitive.attributes?.TEXCOORD_0;
+      if (uvIndex === undefined) {
+        fail(`"${node.name}" textured primitive (${material}) has no TEXCOORD_0`);
+        continue;
+      }
+      const uvs = accessorValues(json, bin, uvIndex);
+      const uvAccessor = json.accessors?.[uvIndex];
+      if (uvAccessor?.type !== "VEC2" || uvAccessor?.componentType !== 5126 || uvAccessor?.count !== positions?.count) {
+        fail(`"${node.name}" textured primitive (${material}) TEXCOORD_0 is not float VEC2 with POSITION count`);
+      }
+      if (!uvs?.length) {
+        fail(`"${node.name}" textured primitive (${material}) has an unreadable TEXCOORD_0`);
+        continue;
+      }
+      if (uvs.some((uv) => uv.some((value) => !Number.isFinite(value) || value < -1e-6 || value > 1 + 1e-6))) {
+        fail(`"${node.name}" textured primitive (${material}) has UVs outside finite [0,1] bounds`);
+      }
+      const indices = primitive.indices === undefined
+        ? uvs.map((_, index) => [index])
+        : accessorValues(json, bin, primitive.indices);
+      const namedSeams = new Set(["head", "helm", "surcoat", "skirt"]);
+      if (namedSeams.has(node.name) && uvSeamCount(positionValues ?? [], uvs, indices ?? []) === 0) {
+        fail(`"${node.name}" lost its named UV seam boundaries`);
+      }
+      let degenerate = null;
+      for (let i = 0; indices && i + 2 < indices.length; i += 3) {
+        const a = uvs[indices[i][0]];
+        const b = uvs[indices[i + 1][0]];
+        const c = uvs[indices[i + 2][0]];
+        if (!a || !b || !c) continue;
+        const area = Math.abs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])) / 2;
+        if (area <= 1e-8 && !degenerate) degenerate = { triangle: i / 3, uv: [a, b, c] };
+      }
+      if (degenerate) fail(
+        `"${node.name}" textured primitive (${material}) has a zero-area UV triangle ` +
+        `${degenerate.triangle} (${degenerate.uv.map((uv) => uv.join(",")).join(" / ")}; positions ` +
+        `${indices.slice(degenerate.triangle * 3, degenerate.triangle * 3 + 3).map(([index]) => positionValues[index].join(",")).join(" / ")})`,
+      );
+
+      let meshArea = 0;
+      let uvArea = 0;
+      for (let i = 0; indices && i + 2 < indices.length; i += 3) {
+        const ids = [indices[i][0], indices[i + 1][0], indices[i + 2][0]];
+        const p = ids.map((index) => positionValues?.[index]);
+        const uv = ids.map((index) => uvs[index]);
+        if (p.some((value) => !value) || uv.some((value) => !value)) continue;
+        const ab = p[1].map((value, axis) => value - p[0][axis]);
+        const ac = p[2].map((value, axis) => value - p[0][axis]);
+        const cross = [
+          ab[1] * ac[2] - ab[2] * ac[1],
+          ab[2] * ac[0] - ab[0] * ac[2],
+          ab[0] * ac[1] - ab[1] * ac[0],
+        ];
+        meshArea += Math.hypot(...cross) / 2;
+        uvArea += Math.abs(
+          (uv[1][0] - uv[0][0]) * (uv[2][1] - uv[0][1]) -
+          (uv[1][1] - uv[0][1]) * (uv[2][0] - uv[0][0]),
+        ) / 2;
+      }
+      const density = Math.sqrt(uvArea / meshArea);
+      if (!Number.isFinite(density) || density < 0.285 || density > 0.315) {
+        fail(`"${node.name}" textured primitive (${material}) has UV density ${density.toFixed(3)}, expected 0.300 +/- 0.015`);
+      }
+
+      const tangentIndex = primitive.attributes?.TANGENT;
+      const normalMapped = /^(steel|leather|cloth|cloth_surcoat|flesh)$/i.test(material);
+      if (normalMapped && tangentIndex === undefined) {
+        fail(`"${node.name}" normal-mapped primitive (${material}) has no TANGENT`);
+      } else if (!normalMapped && tangentIndex !== undefined) {
+        fail(`"${node.name}" primitive (${material}) carries TANGENT without a normal map`);
+      } else if (tangentIndex !== undefined) {
+        const accessor = json.accessors?.[tangentIndex];
+        const tangents = accessorValues(json, bin, tangentIndex);
+        if (accessor?.type !== "VEC4" || accessor?.componentType !== 5126 || accessor?.count !== positions?.count) {
+          fail(`"${node.name}" normal-mapped primitive (${material}) TANGENT is not float VEC4 with POSITION count`);
+        }
+        if (!tangents?.length || tangents.some((tangent) =>
+          tangent.some((value) => !Number.isFinite(value)) ||
+          Math.hypot(tangent[0], tangent[1], tangent[2]) <= 1e-6 ||
+          Math.abs(Math.abs(tangent[3]) - 1) > 1e-4)) {
+          fail(`"${node.name}" normal-mapped primitive (${material}) has invalid TANGENT values`);
+        }
+      }
+    }
+  }
+}
+
+function checkMaterialFamilies(json, dimensions, fail) {
+  const materials = json.materials ?? [];
+  const expected = new Map((dimensions.pieces ?? []).map((piece) => [
+    piece.name,
+    piece.material === "side" ? "cloth_surcoat" : piece.material,
+  ]));
+  for (const node of json.nodes ?? []) {
+    if (node.mesh === undefined || !expected.has(node.name)) continue;
+    const family = expected.get(node.name);
+    for (const primitive of json.meshes?.[node.mesh]?.primitives ?? []) {
+      const actual = materials[primitive.material]?.name ?? `material${primitive.material}`;
+      if (actual !== family) fail(`"${node.name}" uses exported material ${actual}; expected runtime family ${family}`);
+    }
+  }
+  for (const material of materials) {
+    const pbr = material.pbrMetallicRoughness ?? {};
+    if (pbr.baseColorTexture || pbr.metallicRoughnessTexture || material.normalTexture || material.occlusionTexture) {
+      fail(`exported material "${material.name ?? "unnamed"}" carries a texture and would compete with the runtime palette`);
+    }
+  }
+  if ((json.textures?.length ?? 0) || (json.images?.length ?? 0)) {
+    fail(`the authored asset embeds ${json.textures?.length ?? 0} texture(s) and ${json.images?.length ?? 0} image(s); runtime owns both`);
+  }
+}
+
+/**
+ * The torso and pelvis are separate bodies now. This conservative AABB check
+ * rejects an obvious gap at any anatomical posture corner; it is deliberately
+ * not described as a silhouette or cloth-intersection proof. Session 14 still
+ * has to look at the moving seam from both cameras.
+ */
+function checkWaistEnvelope(found, dimensions, fail) {
+  const byName = new Map(found.map((node) => [node.name, node]));
+  const torso = [byName.get("belly"), byName.get("surcoat")].filter(Boolean);
+  const skirt = byName.get("skirt");
+  if (torso.length !== 2 || !skirt) return;
+  const waist = dimensions.body.waist;
+  const seamY = Math.min(...torso.map((node) => node.min[1]));
+  const extentX = Math.max(...torso.flatMap((node) => [Math.abs(node.min[0]), Math.abs(node.max[0])]));
+  const extentZ = Math.max(...torso.flatMap((node) => [Math.abs(node.min[2]), Math.abs(node.max[2])]));
+  const epsilon = 0.001;
+  for (const lean of [-dimensions.body.trunkLeanMax, dimensions.body.trunkLeanMax]) {
+    for (const twist of [-dimensions.body.trunkTwistMax, dimensions.body.trunkTwistMax]) {
+      const cl = Math.cos(lean), sl = Math.sin(lean);
+      const ct = Math.cos(twist), st = Math.sin(twist);
+      for (const x of [-extentX, extentX]) for (const z of [-extentZ, extentZ]) {
+        const yawX = x * ct + z * st;
+        const yawZ = -x * st + z * ct;
+        const dy = seamY - waist;
+        const point = [yawX, waist + dy * cl - yawZ * sl, dy * sl + yawZ * cl];
+        if (point.some((value, axis) => value < skirt.min[axis] - epsilon || value > skirt.max[axis] + epsilon)) {
+          fail(
+            `waist seam opens at lean ${lean.toFixed(2)}, twist ${twist.toFixed(2)}: ` +
+            `torso corner ${point.map((value) => value.toFixed(3)).join(",")} leaves skirt envelope ` +
+            `${skirt.min.map((value) => value.toFixed(3)).join(",")}..${skirt.max.map((value) => value.toFixed(3)).join(",")}`,
+          );
+          return;
+        }
+      }
+    }
+  }
+}
+
+function checkGeometryReachability(json, bin, fail) {
+  const usedAccessors = new Set();
+  const tangentAccessors = new Set();
+  for (const mesh of json.meshes ?? []) {
+    for (const primitive of mesh.primitives ?? []) {
+      for (const [semantic, index] of Object.entries(primitive.attributes ?? {})) {
+        usedAccessors.add(index);
+        if (semantic === "TANGENT") tangentAccessors.add(index);
+      }
+      if (primitive.indices !== undefined) usedAccessors.add(primitive.indices);
+    }
+  }
+  for (let index = 0; index < (json.accessors ?? []).length; index += 1) {
+    const accessor = json.accessors[index];
+    if (!usedAccessors.has(index)) fail(`accessor ${index} (${accessor.type ?? "unknown"}) is dead payload`);
+    if (accessor.type === "VEC4" && accessor.componentType === 5126 && !tangentAccessors.has(index)) {
+      fail(`float VEC4 accessor ${index} carries dead tangent payload`);
+    }
+  }
+
+  const usedViews = new Set();
+  for (const index of usedAccessors) {
+    const accessor = json.accessors?.[index];
+    if (accessor?.bufferView !== undefined) usedViews.add(accessor.bufferView);
+  }
+  for (const image of json.images ?? []) {
+    if (image.bufferView !== undefined) usedViews.add(image.bufferView);
+  }
+  for (let index = 0; index < (json.bufferViews ?? []).length; index += 1) {
+    if (!usedViews.has(index)) fail(`bufferView ${index} is dead binary payload`);
+  }
+  const logicalBytes = json.buffers?.[0]?.byteLength;
+  const end = Math.max(0, ...(json.bufferViews ?? []).map((view) => (view.byteOffset ?? 0) + view.byteLength));
+  if (logicalBytes !== end || bin.length - logicalBytes < 0 || bin.length - logicalBytes > 3) {
+    fail(`binary payload is ${logicalBytes} logical bytes with last live byte ${end} and chunk ${bin.length}`);
+  }
 }
 
 const identityRotation = (r) =>
@@ -172,8 +417,12 @@ export function checkWarrior(buffer, dimensions) {
   const notes = [];
   const fail = (sentence) => failures.push(sentence);
 
-  const { json, binLength } = readGlb(buffer);
+  const { json, bin } = readGlb(buffer);
   const { found, triangles } = collectNodes(json);
+  checkMaterialFamilies(json, dimensions, fail);
+  checkTextureGeometry(json, bin, found, fail);
+  checkGeometryReachability(json, bin, fail);
+  checkWaistEnvelope(found, dimensions, fail);
 
   // ---- nothing that decides a hit ----
   if (json.skins?.length) fail(`the asset carries ${json.skins.length} skin(s); this rig is the skeleton`);
@@ -269,7 +518,7 @@ export function checkWarrior(buffer, dimensions) {
 
   notes.push(`nodes with geometry: ${found.length}`);
   notes.push(`triangles: ${triangles}`);
-  notes.push(`binary chunk: ${(binLength / 1024).toFixed(1)} KB of ${(buffer.length / 1024).toFixed(1)} KB`);
+  notes.push(`binary chunk: ${(bin.length / 1024).toFixed(1)} KB of ${(buffer.length / 1024).toFixed(1)} KB`);
   notes.push(`floor ${(floor * 1000).toFixed(1)} mm, crown ${crown.toFixed(3)} m (height ${dimensions.fighter.height})`);
   notes.push(`sha256 ${createHash("sha256").update(buffer).digest("hex")}`);
 

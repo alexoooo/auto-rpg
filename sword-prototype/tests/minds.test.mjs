@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { POLICIES, otherHand, policyMind, splitMind } from "../src/mind.ts";
-import { blankIntent, cursorForElevation, rollForStroke } from "../src/policies.ts";
+import { POLICIES, mirroredWristBend, otherHand, policyMind, splitMind } from "../src/mind.ts";
+import { blankIntent, cursorForElevation, postureFor, rollForStroke } from "../src/policies.ts";
 import { CONFIG } from "../src/config.ts";
 
 /**
@@ -137,6 +137,10 @@ function facing({
       tip: myTip,
       tipSpeed: 0,
       hands: mineHands,
+      crouch: 0,
+      trunkLean: 0,
+      trunkTwist: 0,
+      vitality: 1,
       health: whole(),
     },
     opponent: {
@@ -146,6 +150,10 @@ function facing({
       tip,
       tipSpeed,
       hands: theirHands,
+      crouch: 0,
+      trunkLean: 0,
+      trunkTwist: 0,
+      vitality: 1,
       health: whole(),
     },
     measure: measure === null ? gap - 0.4 : measure,
@@ -316,6 +324,91 @@ test("a hand that has lost its weapon closes on the fist it has left", () => {
     1,
     "and nowhere near it with a fist",
   );
+});
+
+test("an_unarmed_policy_punches_instead_of_swinging_an_imaginary_sword", () => {
+  for (const name of ["swinger", "duelist"]) {
+    const track = drive(policyMind(name, 7), 3, () =>
+      facing({ gap: 0.70, mine: { primary: "empty", secondary: "empty" } }),
+    );
+    assert.ok(track.some((intent) => intent[intent.driving].thrust), `${name} should extend a fist`);
+    assert.ok(
+      track.some((intent) => intent[intent.driving].guard),
+      `${name} should chamber the fist before punching`,
+    );
+  }
+});
+
+test("two_duelist_fists_leave_the_hand_nearest_the_actual_dangerous_hand_on_cover", () => {
+  const view = facing({
+    gap: 0.70,
+    mine: { primary: "empty", secondary: "empty" },
+    theirs: { primary: "empty", secondary: "sword" },
+  });
+  view.self.hands.primary.tip = { x: 0.25, y: 1.4, z: 0.55 };
+  view.self.hands.secondary.tip = { x: -0.25, y: 1.4, z: 0.55 };
+  view.opponent.hands.primary.lost = true;
+  view.opponent.hands.primary.tip = { x: -0.35, y: 1.4, z: 0.55 };
+  view.opponent.tip = view.opponent.hands.primary.tip;
+  view.opponent.hands.secondary.tip = { x: 0.35, y: 1.4, z: 0.55 };
+  view.opponent.hands.secondary.tipSpeed = 12;
+
+  assert.equal(
+    ask(policyMind("duelist", 7), view).driving,
+    "secondary",
+    "the primary fist stays nearest the dangerous secondary and therefore covers",
+  );
+});
+
+test("two_swinger_fists_choose_against_the_chest_and_still_ignore_blades", () => {
+  const view = () => {
+    const next = facing({
+      gap: 0.70,
+      mine: { primary: "empty", secondary: "empty" },
+      theirs: { primary: "sword", secondary: "empty" },
+    });
+    next.self.hands.primary.tip = { x: 0.10, y: 1.4, z: 0.55 };
+    next.self.hands.secondary.tip = { x: -0.50, y: 1.4, z: 0.55 };
+    return next;
+  };
+  const quiet = view();
+  quiet.opponent.hands.primary.tip = { x: -0.55, y: 1.4, z: 0.55 };
+  quiet.opponent.tip = quiet.opponent.hands.primary.tip;
+
+  const storm = view();
+  storm.opponent.hands.primary.lost = true;
+  storm.opponent.hands.primary.tip = { x: -4, y: 3, z: 2 };
+  storm.opponent.tip = storm.opponent.hands.primary.tip;
+  storm.opponent.hands.secondary.weapon = "sword";
+  storm.opponent.hands.secondary.tip = { x: 0.55, y: 1.4, z: 0.55 };
+  storm.opponent.hands.secondary.tipSpeed = 24;
+
+  const quietIntent = ask(policyMind("swinger", 7), quiet);
+  const stormIntent = ask(policyMind("swinger", 7), storm);
+  assert.deepEqual(stormIntent, quietIntent, "blade state cannot change a swinger's answer");
+  assert.equal(quietIntent.driving, "secondary", "the fist farther from the chest attacks");
+});
+
+test("a_free_empty_hand_covers_a_threat_without_stealing_a_two_handed_grip", () => {
+  const sword = facing({
+    gap: 1.0,
+    mine: { primary: "sword", secondary: "empty" },
+    blade: "line",
+  });
+  const covered = ask(policyMind("duelist", 11), sword);
+  assert.equal(covered.driving, "primary", "steel is chosen before a bare fist");
+  assert.equal(covered.secondary.guard, true, "the free hand covers the threat line");
+  assert.ok(covered.secondary.pointerY > CONFIG.arm.restPointerY + 0.3);
+
+  const bow = ask(policyMind("archer", 11), facing({
+    gap: 2.5,
+    mine: { primary: "bow", secondary: "empty" },
+  }));
+  assert.equal(bow.driving, "primary");
+  assert.equal(bow.secondary.guard, false, "the draw hand stays committed to the bow");
+  assert.equal(bow.secondary.thrust, false);
+  assert.equal(bow.secondary.pointerX, CONFIG.arm.restPointerX);
+  assert.equal(bow.secondary.pointerY, CONFIG.arm.restPointerY);
 });
 
 test("swinger turns toward whatever is in front of it", () => {
@@ -571,10 +664,10 @@ test("duelist closes in proportion to how far out of position it is", () => {
 
 // ---- the roll -------------------------------------------------------------
 
-test("the roll for a level stroke is a quarter turn and for a vertical one is none", () => {
+test("the roll for a level stroke reaches the anatomical stop and a vertical one needs none", () => {
   // A blade swept sideways cuts with its edge only if the edge has been laid
   // over into the horizontal; swept downward it already is.
-  assert.ok(Math.abs(Math.abs(rollForStroke(0.8, 0, -0.8, 0)) - Math.PI / 2) < 1e-6);
+  assert.equal(Math.abs(rollForStroke(0.8, 0, -0.8, 0)), CONFIG.arm.rollMax);
   assert.ok(Math.abs(rollForStroke(0, 0.9, 0, -0.9)) < 1e-6);
 });
 
@@ -608,6 +701,8 @@ test("the roll for the swinger's own stroke is the one that was measured to cut"
 });
 
 test("the roll stays inside what the wrist is allowed", () => {
+  assert.equal(CONFIG.arm.rollMin, -1.4);
+  assert.equal(CONFIG.arm.rollMax, 1.4);
   for (let x = -1; x <= 1; x += 0.25) {
     for (let y = -1; y <= 1; y += 0.25) {
       const roll = rollForStroke(x, y, -x, -y);
@@ -628,6 +723,7 @@ const twoHanded = (name, driving, over) => {
   const intent = blankIntent();
   intent.driving = driving;
   Object.assign(intent, over.body ?? {});
+  Object.assign(intent.posture, over.posture ?? {});
   Object.assign(intent.primary, over.primary ?? {});
   Object.assign(intent.secondary, over.secondary ?? {});
   return { name, decide: () => intent };
@@ -654,17 +750,110 @@ test("the person keeps the feet and the hand the mouse is on", () => {
   assert.equal(out.zoom, 1.6);
   assert.equal(out.driving, "primary");
 
-  // Their hand is theirs.
+  // Position and buttons are theirs; wrist orientation is policy-owned.
   assert.deepEqual(out.primary, {
-    pointerX: 0.4, pointerY: -0.3, roll: 0.9, thrust: true, guard: false,
+    pointerX: 0.4, pointerY: -0.3, roll: -1.1, wristBend: 0, thrust: true, guard: false,
   });
   // And the spare one takes the policy's plan **for that same hand** -- not the
   // plan it made for the hand it is attacking with. That distinction is the
   // whole of this rule: a policy plans a hand by what is in it, so its secondary
   // plan is a plan for the secondary's weapon.
   assert.deepEqual(out.secondary, {
-    pointerX: 0.15, pointerY: -0.05, roll: 1.4, thrust: false, guard: true,
+    pointerX: 0.15, pointerY: -0.05, roll: 1.4, wristBend: 0, thrust: false, guard: true,
   });
+});
+
+test("human_play_gives_wrist_orientation_to_the_policy_and_position_to_the_pointer", () => {
+  const person = twoHanded("you", "primary", {
+    primary: { pointerX: 0.63, pointerY: -0.42, roll: 1.25, wristBend: 0.91, thrust: true },
+  });
+  const policy = twoHanded("duelist", "primary", {
+    primary: { pointerX: -0.8, pointerY: 0.7, roll: -0.74, wristBend: 0.36, guard: true },
+  });
+  const out = splitMind(person, policy).decide(facing({ gap: 1.2 }), FIXED);
+
+  assert.equal(out.primary.pointerX, 0.63);
+  assert.equal(out.primary.pointerY, -0.42);
+  assert.equal(out.primary.thrust, true);
+  assert.equal(out.primary.roll, -0.74);
+  assert.equal(out.primary.wristBend, 0.36);
+});
+
+test("a_high_threat_makes_the_posture_layer_crouch_and_cover", () => {
+  const view = facing({ gap: 0.9, tipSpeed: 12 });
+  putTip(view, { x: 0, y: 1.72, z: 0.22 });
+  const intent = blankIntent();
+
+  postureFor(view, "cover", intent);
+
+  assert.ok(intent.posture.crouch >= 0.45, `crouch ${intent.posture.crouch}`);
+  assert.ok(intent.posture.trunkLean < 0, `lean ${intent.posture.trunkLean}`);
+  assert.ok(intent.primary.wristBend > 0, "the covering wrist should not stay neutral");
+  assert.ok(intent.secondary.wristBend > 0, "posture owns both wrists");
+});
+
+test("a_commit_twists_into_the_strike_and_recovers_to_neutral", () => {
+  const view = facing();
+  const intent = blankIntent();
+  intent.driving = "secondary";
+
+  postureFor(view, "commit", intent);
+  assert.ok(intent.posture.trunkTwist < -0.4, `secondary commit twist ${intent.posture.trunkTwist}`);
+  assert.ok(intent.posture.trunkLean > 0, "reach should carry the chest into the stroke");
+
+  postureFor(view, "recover", intent);
+  assert.deepEqual(intent.posture, { trunkLean: 0, trunkTwist: 0, crouch: 0 });
+});
+
+test("human_play_keeps_locomotion_and_buttons_but_uses_policy_posture", () => {
+  const person = twoHanded("you", "secondary", {
+    body: { forward: 1, strafe: -1, turn: 0.5, zoom: 1.6 },
+    posture: { trunkLean: 0.9, trunkTwist: -0.8, crouch: 0.1 },
+    secondary: { pointerX: 0.4, pointerY: -0.3, roll: 1.1, wristBend: 0.2, thrust: true },
+  });
+  const policy = twoHanded("duelist", "primary", {
+    body: { forward: -1, strafe: 1, turn: -1, zoom: 9 },
+    posture: { trunkLean: -0.35, trunkTwist: 0.7, crouch: 0.65 },
+    primary: { roll: -0.8, wristBend: 0.75, guard: true },
+    secondary: { roll: -0.6, wristBend: 0.55, guard: true },
+  });
+
+  const out = splitMind(person, policy).decide(facing(), FIXED);
+  assert.deepEqual(
+    { forward: out.forward, strafe: out.strafe, turn: out.turn, zoom: out.zoom, driving: out.driving },
+    { forward: 1, strafe: -1, turn: 0.5, zoom: 1.6, driving: "secondary" },
+  );
+  assert.deepEqual(out.posture, { trunkLean: -0.35, trunkTwist: 0.7, crouch: 0.65 });
+  assert.equal(out.secondary.pointerX, 0.4);
+  assert.equal(out.secondary.pointerY, -0.3);
+  assert.equal(out.secondary.thrust, true);
+  assert.equal(out.secondary.roll, -0.6);
+  assert.equal(out.secondary.wristBend, 0.55);
+});
+
+test("every_shipped_policy_keeps_roll_and_bend_inside_anatomical_limits", () => {
+  for (const policy of POLICIES) {
+    const track = drive(policyMind(policy.name, 20260823), 8, (clock) =>
+      facing({ gap: 0.9 + 0.6 * Math.sin(clock), mine: { primary: "axe", secondary: "shield" } }),
+    );
+    for (const intent of track) {
+      for (const name of ["primary", "secondary"]) {
+        const hand = intent[name];
+        assert.ok(hand.roll >= CONFIG.arm.rollMin && hand.roll <= CONFIG.arm.rollMax,
+          `${policy.name}.${name} roll ${hand.roll}`);
+        assert.ok(hand.wristBend >= 0 && hand.wristBend <= 1,
+          `${policy.name}.${name} bend ${hand.wristBend}`);
+      }
+    }
+  }
+});
+
+test("the_same_bend_intent_mirrors_between_left_and_right_hands", () => {
+  const right = mirroredWristBend(0.65, 1);
+  const left = mirroredWristBend(0.65, -1);
+  assert.ok(right > 0);
+  assert.equal(left, -right);
+  assert.equal(Math.abs(right), 0.65 * CONFIG.arm.wristBendMax);
 });
 
 test("the policy's attack does not follow the person round to the other arm", () => {
@@ -672,8 +861,8 @@ test("the policy's attack does not follow the person round to the other arm", ()
   // shield, take the sword, and the old rule copied `theirs[theirs.driving]` --
   // the swing -- onto whichever arm was spare. That arm was the shield's. The
   // board was being swung on the commit stroke of a cut, for the whole bout.
-  const cut = { pointerX: -0.9, pointerY: 0.8, roll: -0.93, thrust: false, guard: false };
-  const cover = { pointerX: 0.55, pointerY: 0.1, roll: 1.2, thrust: false, guard: false };
+  const cut = { pointerX: -0.9, pointerY: 0.8, roll: -0.93, wristBend: 0, thrust: false, guard: false };
+  const cover = { pointerX: 0.55, pointerY: 0.1, roll: 1.2, wristBend: 0, thrust: false, guard: false };
   const policy = twoHanded("swinger", "primary", { primary: cut, secondary: cover });
 
   for (const driving of ["primary", "secondary"]) {
@@ -807,7 +996,7 @@ test("a shield's wrist turns the same way its arm was swung, and not to the stop
       `${name}: the wrist should follow it round, got ${roll.toFixed(2)}`,
     );
     assert.ok(
-      Math.abs(roll) < CONFIG.arm.rollMax - 0.5,
+      Math.abs(roll) < CONFIG.arm.rollMax - 0.2,
       `${name}: and stay well inside the wrist, got ${roll.toFixed(2)}`,
     );
   }
@@ -990,7 +1179,7 @@ test("an arm that has been cut off is not planned for", () => {
   assert.deepEqual({ ...out.secondary }, before, "a lost arm keeps whatever it had");
 });
 
-test("the roll a stroke needs is folded for a blade and not for a bit", () => {
+test("a single-bit stroke is allowed to ask for more roll but both answers obey the wrist", () => {
   // `rollForStroke` folded its answer into +-pi/2 because a sword is
   // double-edged: `roll` and `roll +- pi` are the same cut, and the short one is
   // the one the wrist can get to. That is exactly false for a single-bitted
@@ -1010,15 +1199,8 @@ test("the roll a stroke needs is folded for a blade and not for a bit", () => {
     const folded = rollForStroke(fx, fy, tx, ty);
     const full = rollForStroke(fx, fy, tx, ty, false);
     assert.ok(Math.abs(folded) <= Math.PI / 2 + 1e-9, `${what}: a blade's roll is folded`);
-    assert.ok(
-      Math.abs(Math.abs(folded - full) - Math.PI) < 1e-6,
-      `${what}: and the two differ by exactly half a turn, which is bit against poll`,
-    );
-    // And the wrist can get there, which is not automatic: `arm.rollMin/rollMax`
-    // is +-2.6 and the unfolded answer lives in (-pi, pi]. These four strokes
-    // want 2.22, so nothing is clamped -- but a stroke that wanted 2.8 would be,
-    // and would arrive poll-first however this function answered.
-    assert.ok(Math.abs(full) < CONFIG.arm.rollMax, `${what}: and the wrist reaches it`);
+    assert.ok(Math.abs(full) >= Math.abs(folded), `${what}: a bit may need the longer turn`);
+    assert.ok(Math.abs(full) <= CONFIG.arm.rollMax, `${what}: the anatomical stop still wins`);
   }
 
   // The default is the blade's, so every caller written before there was a

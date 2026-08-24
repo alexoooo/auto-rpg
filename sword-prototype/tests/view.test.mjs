@@ -4,13 +4,13 @@ import { readFile } from "node:fs/promises";
 
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
 import HavokPhysics from "@babylonjs/havok";
 
 import { CONFIG } from "../src/config.ts";
 import { attachPhysics } from "../src/physics.ts";
-import { Fighter } from "../src/fighter.ts";
+import { armForLimbKey, Fighter, legPose } from "../src/fighter.ts";
 import { idleMind } from "../src/mind.ts";
 import { blankIntent } from "../src/policies.ts";
 
@@ -41,6 +41,18 @@ import { blankIntent } from "../src/policies.ts";
 const wasm = new URL("../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm", import.meta.url);
 const FIXED = 1 / CONFIG.world.physicsHz;
 
+test("all_six_arm_limb_keys_map_to_the_arm_they_can_drop", () => {
+  assert.deepEqual(
+    ["upperArm", "forearm", "hand", "offUpperArm", "offForearm", "offHand"]
+      .map((key) => [key, armForLimbKey(key)]),
+    [
+      ["upperArm", "primary"], ["forearm", "primary"], ["hand", "primary"],
+      ["offUpperArm", "secondary"], ["offForearm", "secondary"], ["offHand", "secondary"],
+    ],
+  );
+  assert.equal(armForLimbKey("torso"), undefined);
+});
+
 async function ring(loadout = undefined) {
   const engine = new NullEngine();
   const scene = new Scene(engine);
@@ -51,7 +63,7 @@ async function ring(loadout = undefined) {
   const materials = {
     flesh: mat("flesh"), cloth: mat("cloth"), steel: mat("steel"),
     leather: mat("leather"), brass: mat("brass"), hide: mat("hide"),
-    wood: mat("wood"),
+    wood: mat("wood"), arrowAccent: mat("arrow-accent"),
   };
 
   // Built from the real `blankIntent` rather than from a literal of its own.
@@ -210,6 +222,170 @@ test("the view says the same thing the world matrix would have said", async (t) 
   assert.ok(Math.abs(snap.view.tipSpeed - snap.tipSpeed) < 1e-6, "tip speed");
 });
 
+test("trunk_motion_moves_both_shoulders_but_not_the_planted_hips", async (t) => {
+  const { engine, scene, left, right } = await ring();
+  t.after(() => engine.dispose());
+
+  const intent = blankIntent();
+  intent.posture.trunkLean = 0.8;
+  intent.posture.trunkTwist = -0.9;
+  left.mind = { name: "posture probe", decide: () => intent };
+  const hips = left.pelvis.mesh.position.clone();
+  let clock = 0;
+  left.observe(right, clock);
+  const before = {
+    primary: left.view.self.hands.primary.shoulder.clone(),
+    secondary: left.view.self.hands.secondary.shoulder.clone(),
+  };
+  const control = () => {
+    clock += FIXED;
+    left.observe(right, clock);
+    right.observe(left, clock);
+    left.update(FIXED);
+    right.update(FIXED);
+  };
+  for (let i = 0; i < 120; i += 1) frame(scene, control);
+  left.observe(right, clock);
+
+  assert.ok(Vector3.Distance(left.pelvis.mesh.position, hips) < 0.002,
+    "posture must not orbit or translate the planted hips");
+  for (const name of ["primary", "secondary"]) {
+    const travel = Vector3.Distance(left.view.self.hands[name].shoulder, before[name]);
+    assert.ok(travel > 0.04,
+      `${name} shoulder should ride the articulated trunk, moved ${travel.toFixed(4)} m`);
+  }
+});
+
+test("leaning_the_trunk_does_not_remap_a_centre_cursor_off_world_vertical", async (t) => {
+  for (const lean of [-1, 1]) {
+    await t.test(`${lean < 0 ? "negative" : "positive"} lean`, async (leanTest) => {
+      const { engine, scene, left, right } = await ring();
+      leanTest.after(() => engine.dispose());
+      const intent = blankIntent();
+      intent.posture.trunkLean = lean;
+      intent.primary.pointerX = 0;
+      intent.primary.pointerY = 0;
+      left.mind = { name: `lean ${lean}`, decide: () => intent };
+      let clock = 0;
+      const control = () => {
+        clock += FIXED;
+        left.observe(right, clock);
+        right.observe(left, clock);
+        left.update(FIXED);
+        right.update(FIXED);
+      };
+      for (let i = 0; i < 120; i += 1) frame(scene, control);
+
+      const aimed = left.aimPoint().subtract(left.targetPosition()).normalize();
+      assert.ok(Math.abs(aimed.y) < 0.02,
+        `lean ${lean}: a centre cursor should remain horizontal, got y ${aimed.y}`);
+      assert.ok(aimed.z > 0.98,
+        `lean ${lean}: a centre cursor should remain on pelvis heading, got ${aimed.toString()}`);
+    });
+  }
+});
+
+test("body_view_reports_pelvis_heading_separately_from_trunk_twist", async (t) => {
+  const { engine, scene, left, right } = await ring();
+  t.after(() => engine.dispose());
+  const intent = blankIntent();
+  intent.posture.trunkTwist = 1;
+  left.mind = { name: "twist probe", decide: () => intent };
+  let clock = 0;
+  const control = () => {
+    clock += FIXED;
+    left.observe(right, clock);
+    right.observe(left, clock);
+    left.update(FIXED);
+    right.update(FIXED);
+  };
+  for (let i = 0; i < 120; i += 1) frame(scene, control);
+  left.observe(right, clock);
+
+  left.torso.mesh.computeWorldMatrix(true);
+  const trunk = left.torso.mesh.getWorldMatrix();
+  const trunkHeading = Math.atan2(trunk.m[8], trunk.m[10]);
+  assert.ok(Math.abs(trunkHeading) > 0.25,
+    `the physical trunk should twist, got ${trunkHeading.toFixed(4)} rad`);
+  assert.ok(Math.abs(left.view.self.facing) < 0.02,
+    `BodyView.facing is pelvis heading, not trunk twist: ${left.view.self.facing}`);
+});
+
+test("crouch_lowers_the_pelvis_without_moving_either_foot_through_the_floor", async (t) => {
+  const { engine, scene, left, right } = await ring();
+  t.after(() => engine.dispose());
+  const intent = blankIntent();
+  intent.posture.crouch = 1;
+  left.mind = { name: "crouch probe", decide: () => intent };
+  const standing = left.pelvis.mesh.position.y;
+  let clock = 0;
+  const control = () => {
+    clock += FIXED;
+    left.observe(right, clock);
+    right.observe(left, clock);
+    left.update(FIXED);
+    right.update(FIXED);
+  };
+  for (let i = 0; i < 180; i += 1) frame(scene, control);
+
+  assert.ok(standing - left.pelvis.mesh.position.y > CONFIG.body.crouchDepth * 0.85,
+    `pelvis drop ${(standing - left.pelvis.mesh.position.y).toFixed(3)} m`);
+  for (const key of ["shinL", "shinR"]) {
+    const shin = left.limbs.find((limb) => limb.key === key).part.mesh;
+    const down = new Vector3(0, -CONFIG.body.shinLength / 2, 0)
+      .rotateByQuaternionToRef(shin.rotationQuaternion, new Vector3());
+    const footY = shin.position.y + down.y;
+    assert.ok(footY > -0.015, `${key} went ${(footY * 1000).toFixed(1)} mm through the floor`);
+    assert.ok(footY < 0.09, `${key} floated ${(footY * 1000).toFixed(1)} mm above the floor`);
+  }
+});
+
+test("gait_and_crouch_add_without_reversing_a_knee", () => {
+  for (const crouch of [0, 0.25, 0.5, 0.75, 1]) {
+    for (let phase = 0; phase < Math.PI * 2; phase += Math.PI / 12) {
+      const pose = legPose(phase, CONFIG.fighter.walkSpeed, crouch);
+      assert.ok(pose.kneeLeft >= 0, `left knee ${pose.kneeLeft} at ${phase}`);
+      assert.ok(pose.kneeRight >= 0, `right knee ${pose.kneeRight} at ${phase}`);
+      if (crouch > 0) {
+        assert.ok(pose.kneeLeft > 0 && pose.kneeRight > 0,
+          `both knees bend in crouch: ${pose.kneeLeft}, ${pose.kneeRight}`);
+      }
+    }
+  }
+});
+
+test("posture_readings_do_not_stamp_world_matrices", async (t) => {
+  const { engine, scene, left, right } = await ring();
+  t.after(() => engine.dispose());
+  const intent = blankIntent();
+  intent.posture.crouch = 0.7;
+  intent.posture.trunkLean = 0.6;
+  intent.posture.trunkTwist = -0.5;
+  left.mind = { name: "reading probe", decide: () => intent };
+  let clock = 0;
+  const control = () => {
+    clock += FIXED;
+    left.observe(right, clock);
+    right.observe(left, clock);
+    left.update(FIXED);
+    right.update(FIXED);
+  };
+  for (let i = 0; i < 90; i += 1) frame(scene, control);
+  scene._renderId += 1;
+  left.observe(right, clock);
+  scene._advancePhysicsEngineStep(1000 / 60);
+
+  for (const part of [left.pelvis, left.torso]) {
+    const lazy = part.mesh.absolutePosition.clone();
+    part.mesh.computeWorldMatrix(true);
+    assert.ok(Vector3.Distance(lazy, part.mesh.absolutePosition) < 1e-9,
+      `${part.name}: posture observation stamped a stale matrix`);
+  }
+  assert.ok(left.view.self.crouch > 0.5, `factual crouch ${left.view.self.crouch}`);
+  assert.ok(left.view.self.trunkLean > 0.25, `factual lean ${left.view.self.trunkLean}`);
+  assert.ok(left.view.self.trunkTwist < -0.2, `factual twist ${left.view.self.trunkTwist}`);
+});
+
 test("both hands are published, and the primary's is the one at the top level", async (t) => {
   // A shield in the off hand, so `weapon`, `face` and `outboard` all have
   // something to say and a stubbed-out second hand cannot pass by looking like
@@ -262,6 +438,52 @@ test("both hands are published, and the primary's is the one at the top level", 
       `${name}: both fighters agree where that shoulder is`,
     );
   }
+});
+
+test("wrist_bend_changes_weapon_orientation_without_moving_the_commanded_hand", async (t) => {
+  const { engine, scene, left, right } = await ring();
+  t.after(() => engine.dispose());
+
+  const intent = blankIntent();
+  intent.primary.pointerX = 0.35;
+  intent.primary.pointerY = 0.15;
+  left.mind = { name: "wrist probe", decide: () => intent };
+  let clock = 0;
+  const step = () => frame(scene, () => {
+    clock += FIXED;
+    left.observe(right, clock);
+    right.observe(left, clock);
+    left.update(FIXED);
+    right.update(FIXED);
+  });
+
+  for (let i = 0; i < 45; i += 1) step();
+  const beforePose = left.armAngles();
+  const beforeRotation = left.handAnchor.mesh.rotationQuaternion.clone();
+  intent.primary.wristBend = 1;
+  for (let i = 0; i < 45; i += 1) step();
+  const afterPose = left.armAngles();
+  const afterRotation = left.handAnchor.mesh.rotationQuaternion.clone();
+
+  const axis = (local, rotation) => {
+    const matrix = Matrix.Identity();
+    Matrix.FromQuaternionToRef(rotation, matrix);
+    return Vector3.TransformNormal(local, matrix).normalize();
+  };
+  const beforeX = axis(new Vector3(1, 0, 0), beforeRotation);
+  const afterX = axis(new Vector3(1, 0, 0), afterRotation);
+  const beforeY = axis(new Vector3(0, 1, 0), beforeRotation);
+  const afterY = axis(new Vector3(0, 1, 0), afterRotation);
+
+  assert.equal(afterPose.azimuth, beforePose.azimuth);
+  assert.equal(afterPose.elevation, beforePose.elevation);
+  assert.equal(afterPose.reach, beforePose.reach);
+  assert.ok(Vector3.Dot(beforeX, afterX) > 0.999,
+    "wrist bend must preserve the rolled lateral hinge axis");
+  assert.ok(Math.abs(Vector3.Dot(beforeY, afterY)) < 0.2,
+    "the hand's Y/Z arc should turn close to ninety degrees around that hinge");
+  assert.ok(Math.abs(Quaternion.Dot(beforeRotation, afterRotation)) < 0.9,
+    "a full bend should visibly turn the commanded weapon frame");
 });
 
 test("a strapped shield's face is welded to its hand's own +X", async (t) => {

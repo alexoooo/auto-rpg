@@ -49,6 +49,10 @@ Delete one UV accessor and flip one digest; each verifier must fail by asset/mat
 
 ## Acceptance
 
+Implementation note: automated asset, fallback and mutation checks are complete. The freshly
+navigated visible-browser readiness table below remains owed to session 14's integrated visual
+pass; a NullEngine result is not substituted for a visible WebGL render.
+
 In a freshly navigated visible page, inspect the ground and the chosen armour piece from both
 cameras: both draw, texture dimensions are non-zero, material readiness is true during a
 render pass, and stripping/reapplying the map at the console changes only surface detail.

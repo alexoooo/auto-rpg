@@ -70,8 +70,19 @@ export interface InputState {
    * the person and which it takes from the policy.
    */
   driving: HandName;
+  posture: PostureIntent;
   primary: HandIntent;
   secondary: HandIntent;
+}
+
+/** Whole-body pose, normalized at the same boundary as the movement axes. */
+export interface PostureIntent {
+  /** -1 back through +1 forward. */
+  trunkLean: number;
+  /** -1 left through +1 right. */
+  trunkTwist: number;
+  /** Reserved for session 05: 0 standing through 1 fully crouched. */
+  crouch: number;
 }
 
 const clamp = (value: number, min: number, max: number) =>
@@ -119,7 +130,8 @@ export class Controls {
     turn: 0,
     zoom: 1,
     driving: "primary",
-    primary: { pointerX: 0, pointerY: 0, roll: 0, thrust: false, guard: false },
+    posture: { trunkLean: 0, trunkTwist: 0, crouch: 0 },
+    primary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
     // The hand the mouse is not on starts at rest, not out in front. It stays
     // wherever it was left the moment `F` moves the cursor off it, which is what
     // `onSwapHands` seeds -- this is only where it begins.
@@ -127,6 +139,7 @@ export class Controls {
       pointerX: CONFIG.arm.restPointerX,
       pointerY: CONFIG.arm.restPointerY,
       roll: 0,
+      wristBend: 0,
       thrust: false,
       guard: false,
     },
@@ -191,14 +204,6 @@ export class Controls {
     this.state.forward = axis("KeyS", "KeyW");
     this.state.strafe = axis("KeyA", "KeyD");
     this.state.turn = axis("KeyQ", "KeyE");
-
-    // The roll keys turn the wrist of whichever hand the mouse has, and that
-    // hand only. The other one is being driven by a policy, which sets its own
-    // roll outright every step -- an increment written into it here would be
-    // overwritten before it reached a joint.
-    const A = CONFIG.arm;
-    const hand = this.state[this.state.driving];
-    hand.roll = clamp(hand.roll + axis("KeyZ", "KeyX") * A.rollRate * dt, A.rollMin, A.rollMax);
 
     const C = CONFIG.camera;
     const wanted = clamp(Math.exp(this.zoomNotches * C.zoomStep), C.zoomMin, C.zoomMax);

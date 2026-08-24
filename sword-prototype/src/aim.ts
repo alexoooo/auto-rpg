@@ -80,12 +80,12 @@ export class AimIndicator {
 
     this.floor = MeshBuilder.CreateDashedLines(
       "aim.floor",
-      { points: this.floorPoints, dashNb: 26, dashSize: 3, gapSize: 3, instance: this.floor },
+      { points: this.floorPoints, instance: this.floor },
       this.scene,
     );
     this.riser = MeshBuilder.CreateDashedLines(
       "aim.riser",
-      { points: this.riserPoints, dashNb: 14, dashSize: 3, gapSize: 3, instance: this.riser },
+      { points: this.riserPoints, instance: this.riser },
       this.scene,
     );
 

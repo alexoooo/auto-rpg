@@ -66,3 +66,14 @@ npm run build
 npm run measure -- --seed 20260823
 npm run asset:verify
 ```
+
+## Result
+
+Implemented 2026-08-23. Required adversarial mutations all failed: roll max 2.6,
+the primary inverse used for the secondary, and bend deleted from the anchor frame.
+Focused results: minds 51/51, handover 18/18, view 6/6, with the type check green.
+The seeded corpus completed (swinger/idle 40/0; duelist/swinger 24/16; all mirrored
+duelist bouts decided). The headless shield probe read 421.74 mm peak for the primary
+sword sweep, 498.32 mm for the primary shield sweep, and 0.00 mm steady for an idle
+secondary shield. It is not the live-exchange manoeuvre behind the historical 167 mm,
+so that visible comparison remains owed rather than being silently re-baselined.

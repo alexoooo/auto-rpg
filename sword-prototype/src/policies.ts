@@ -17,6 +17,8 @@ import { CONFIG } from "./config.ts";
 // hand it is planning for is holding, and to be able to name the other hand.
 import {
   cutsBothWays,
+  handsFor,
+  hasHeldWeapon,
   isShield,
   isShooting,
   isStrapped,
@@ -25,6 +27,8 @@ import {
   type HandName,
 } from "./hands.ts";
 import type { BodyView, FighterView, HandIntent, HandView, Intent, Mind } from "./mind.ts";
+import { ACTION_SHOT_TIMING, ACTION_STROKE_TIMING, actionAimAt, actionArcherAim, actionCoverAt, actionDistance, actionShotPhase,
+  actionStrokePose, actionStrokeReading, actionStrokeRoll, applyActionPosture, freshIntent, strokePoint } from "./action-primitives.ts";
 
 /**
  * The two policies that fight.
@@ -52,7 +56,6 @@ import type { BodyView, FighterView, HandIntent, HandView, Intent, Mind } from "
  */
 
 const A = CONFIG.arm;
-const HALF_PI = Math.PI / 2;
 
 const clamp = (value: number, min: number, max: number) =>
   value < min ? min : value > max ? max : value;
@@ -64,14 +67,20 @@ interface Point {
   z: number;
 }
 
-const distance = (a: Point, b: Point): number =>
-  Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+const distance = actionDistance;
 
 /** Where a cursor is, which is the only thing a policy ever hands the arm. */
 interface Aim {
   pointerX: number;
   pointerY: number;
 }
+
+const WRIST = {
+  neutral: 0,
+  guard: 0.08,
+  cut: 0.12,
+  shield: 0.18,
+} as const;
 
 /**
  * A fresh intent for a policy to own and overwrite in place.
@@ -94,23 +103,22 @@ interface Aim {
  * to an arm. A fixture that can silently disagree with the thing it stands for
  * is worse than no fixture.
  */
-export const blankIntent = (): Intent => ({
-  forward: 0,
-  strafe: 0,
-  turn: 0,
-  zoom: 1,
-  driving: "primary",
-  primary: { pointerX: 0, pointerY: 0, roll: 0, thrust: false, guard: false },
-  // A policy fights one-handed, so its other hand rests at its side rather than
-  // being held out in front. See `arm.restPointerY`.
-  secondary: {
-    pointerX: CONFIG.arm.restPointerX,
-    pointerY: CONFIG.arm.restPointerY,
-    roll: 0,
-    thrust: false,
-    guard: false,
-  },
-});
+export const blankIntent = (): Intent => freshIntent();
+
+export type PostureAction = "idle" | "close" | "cover" | "commit" | "recover" | "draw";
+
+/**
+ * Procedural whole-body answer to an action policy's decision.
+ *
+ * The action policy still decides whether to close, cover, strike or draw. This
+ * layer owns only the extra degrees of freedom: the waist, knees and wrist
+ * orientation. It is deliberately stateless so the body's response limit is
+ * the one place posture speed is decided.
+ */
+export function postureFor(view: FighterView, action: PostureAction, into: Intent): Intent {
+  const threat = threatHand(view.opponent);
+  return applyActionPosture(view, action, into, threat);
+}
 
 /**
  * Which hand a policy is attacking with, this step.
@@ -123,17 +131,37 @@ export const blankIntent = (): Intent => ({
  * Asked every step rather than settled once, because the answer changes: an arm
  * gets cut off, and the two hands take turns. `prefer` is what the policy would
  * like -- the hand whose turn it is -- and this is the nearest thing to it that
- * can actually hit somebody. A hand holding a shield is never it, which is the
- * other half of the fix: a fighter carrying a shield in the primary and a sword
- * in the secondary used to attack with the shield.
+ * can actually hit somebody. With two fists the caller supplies what it knows
+ * how to watch: a duelist passes the dangerous hand, while a swinger passes the
+ * opponent's chest and preserves its defining ignorance of blades. A hand
+ * holding a shield is never selected, which is the other half of the fix: a
+ * fighter carrying a shield in the primary and a sword in the secondary used
+ * to attack with the shield.
  */
-function attackHand(view: FighterView, prefer: HandName): HandName {
+function attackHand(view: FighterView, prefer: HandName, threat: Point): HandName {
   const hands = view.self.hands;
-  const able = (name: HandName): boolean =>
-    !hands[name].lost && isStriking(hands[name].weapon);
-  if (able(prefer)) return prefer;
   const spare = otherHand(prefer);
-  if (able(spare)) return spare;
+  const armed = (name: HandName): boolean =>
+    !hands[name].lost && isStriking(hands[name].weapon);
+  const steel = (name: HandName): boolean =>
+    armed(name) && hasHeldWeapon(hands[name].weapon);
+  // A fist is an attack of last resort. The preference between hands may never
+  // make a fighter put down the sword it already has in order to punch.
+  if (steel(prefer)) return prefer;
+  if (steel(spare)) return spare;
+  if (armed(prefer) && armed(spare)) {
+    // With two bare hands, leave the one already nearest the threat on cover.
+    const gap2 = (name: HandName): number => {
+      const tip = hands[name].tip;
+      const x = tip.x - threat.x;
+      const y = tip.y - threat.y;
+      const z = tip.z - threat.z;
+      return x * x + y * y + z * z;
+    };
+    return gap2(prefer) >= gap2(spare) ? prefer : spare;
+  }
+  if (armed(prefer)) return prefer;
+  if (armed(spare)) return spare;
   // Nothing left to swing. Keep an arm that is still attached, so the fighter
   // goes on turning to face and goes on covering with whatever it has.
   return hands[prefer].lost && !hands[spare].lost ? spare : prefer;
@@ -159,7 +187,7 @@ function shootHand(view: FighterView, prefer: HandName): HandName {
   if (able(prefer)) return prefer;
   const spare = otherHand(prefer);
   if (able(spare)) return spare;
-  return attackHand(view, prefer);
+  return attackHand(view, prefer, view.opponent.shoulder);
 }
 
 /**
@@ -209,12 +237,18 @@ function threatHand(body: BodyView): HandView {
  * target directly behind produces an azimuth near +-pi, and without the clamp
  * the sign of that would decide which way the arm flailed.
  */
-export const azimuthOf = (pointerX: number) =>
-  pointerX >= 0 ? pointerX * A.azMax : pointerX * -A.azMin;
+const azimuthRange = (hand: HandName): readonly [number, number] =>
+  hand === "primary" ? [A.azMin, A.azMax] : [-A.azMax, -A.azMin];
+export const azimuthOf = (pointerX: number, hand: HandName = "primary") => {
+  const [min, max] = azimuthRange(hand);
+  return pointerX >= 0 ? pointerX * max : pointerX * -min;
+};
 export const elevationOf = (pointerY: number) =>
   pointerY >= 0 ? pointerY * A.elMax : pointerY * -A.elMin;
-export const cursorForAzimuth = (azimuth: number) =>
-  clamp(azimuth >= 0 ? azimuth / A.azMax : azimuth / -A.azMin, -1, 1);
+export const cursorForAzimuth = (azimuth: number, hand: HandName = "primary") => {
+  const [min, max] = azimuthRange(hand);
+  return clamp(azimuth >= 0 ? azimuth / max : azimuth / -min, -1, 1);
+};
 export const cursorForElevation = (elevation: number) =>
   clamp(elevation >= 0 ? elevation / A.elMax : elevation / -A.elMin, -1, 1);
 
@@ -228,28 +262,8 @@ export const cursorForElevation = (elevation: number) =>
  * distance, and the whole of a shield's placement is an angle measured off that
  * bearing.
  */
-function aimAt(view: FighterView, target: Point, into: Aim, from?: Point): Aim {
-  const shoulder = from ?? view.self.shoulder;
-  const dx = target.x - shoulder.x;
-  const dy = target.y - shoulder.y;
-  const dz = target.z - shoulder.z;
-
-  // Into torso space. `facing` is a yaw in the convention used everywhere here
-  // -- zero down +Z, turning toward +X -- so the torso's right is
-  // (cos f, 0, -sin f) and its forward is (sin f, 0, cos f), and this is those
-  // two dotted into the offset.
-  const cos = Math.cos(view.self.facing);
-  const sin = Math.sin(view.self.facing);
-  const localX = dx * cos - dz * sin;
-  const localZ = dx * sin + dz * cos;
-
-  const length = Math.hypot(localX, dy, localZ);
-  const azimuth = Math.atan2(localX, localZ);
-  const elevation = length > 1e-6 ? Math.asin(clamp(dy / length, -1, 1)) : 0;
-
-  into.pointerX = cursorForAzimuth(azimuth);
-  into.pointerY = cursorForElevation(elevation);
-  return into;
+function aimAt(view: FighterView, target: Point, into: Aim, hand: HandName, from?: Point): Aim {
+  return actionAimAt(view, target, into, hand, from);
 }
 
 /**
@@ -291,7 +305,7 @@ function aimAt(view: FighterView, target: Point, into: Aim, from?: Point): Aim {
  * direction of travel, which is exactly where a bit belongs.
  *
  * What is left is the wrist. The unfolded answer lives in (-pi, pi] and
- * `arm.rollMin/rollMax` is +-2.6, so a stroke that wants the last half-radian of
+ * `arm.rollMin/rollMax` is +-1.4, so a stroke that wants the last half-radian of
  * the turn gets the clamp instead -- and that is not a shortcoming of this
  * function but of the arm, and of every real axeman, who steps round rather than
  * turning a wrist that far. `docs/measurements.md` has what it costs.
@@ -302,17 +316,9 @@ export function rollForStroke(
   toX: number,
   toY: number,
   bothEdges = true,
+  hand: HandName = "primary",
 ): number {
-  const deltaAz = azimuthOf(toX) - azimuthOf(fromX);
-  const deltaEl = elevationOf(toY) - elevationOf(fromY);
-  const midEl = (elevationOf(toY) + elevationOf(fromY)) / 2;
-
-  let roll = Math.atan2(-Math.cos(midEl) * deltaAz, deltaEl);
-  if (bothEdges) {
-    while (roll > HALF_PI) roll -= Math.PI;
-    while (roll < -HALF_PI) roll += Math.PI;
-  }
-  return clamp(roll, A.rollMin, A.rollMax);
+  return actionStrokeRoll(fromX, fromY, toX, toY, bothEdges, hand);
 }
 
 /**
@@ -356,9 +362,13 @@ function coveringLine(
   bodyGap: number,
   target: Point,
   into: Aim,
+  hand: HandName,
   from: Point,
 ): Aim {
-  return aimAt(view, threatPoint(view, threat, tipGap, bodyGap, target), into, from);
+  // Retain the old scratch point for allocation behaviour; the shared
+  // primitive owns the geometric decision used by CombatOption.cover.
+  void target;
+  return actionCoverAt(view, threat, into, hand, from, tipGap, bodyGap);
 }
 
 /**
@@ -453,7 +463,7 @@ const GUARD = {
    * `HandView.face` -- where the plate actually was -- took the signed angle to
    * where it should be, and stepped the command toward it. That is textbook and
    * it wound up: the command moved faster than the arm could follow, so the
-   * error never closed, and 237 of 420 sampled steps sat pinned at the +-2.6
+   * error never closed, and 237 of 420 sampled steps sat pinned at the former +-2.6
    * wrist limit with the hand a median 137 mm off its own anchor and the plate
    * no longer square to the forearm at all. It collected 54 % where this
    * collects 96 %. The field it read went with it.
@@ -520,21 +530,27 @@ function planOffHand(
   if (me.lost) return;
 
   if (isShield(me.weapon)) {
-    aimAt(view, threat, s.aim, me.shoulder);
+    aimAt(view, threat, s.aim, name, me.shoulder);
     if (isStrapped(me.weapon)) {
       // Across the line, up, and turned: the three halves of the placement, and
       // the third one is worth as much as the other two. `roll` slides the
       // plate's normal all the way round the circle square to the forearm, so
       // the arm sets the ceiling and the wrist decides how much of it is
       // collected -- 56 % of it without this line, 96 % with it.
-      into.pointerX = cursorForAzimuth(azimuthOf(s.aim.pointerX) - me.outboard * GUARD.across);
+      into.pointerX = cursorForAzimuth(
+        azimuthOf(s.aim.pointerX, name) - me.outboard * GUARD.across,
+        name,
+      );
       into.pointerY = cursorForElevation(elevationOf(s.aim.pointerY) + GUARD.lift);
       into.roll = -me.outboard * GUARD.roll;
+      into.wristBend = WRIST.shield;
     } else {
       // A buckler is punched at the thing. Its face is along the arm, so where
       // the arm points is where it faces, and the roll is spent on nothing.
       into.pointerX = s.aim.pointerX;
       into.pointerY = s.aim.pointerY;
+      into.roll = 0;
+      into.wristBend = WRIST.neutral;
     }
     // No guard button: `shield.reachCap` already has a strapped plate at a bent
     // elbow, and `reachGuard` would pull it another 40 mm into its owner's
@@ -545,16 +561,39 @@ function planOffHand(
   }
 
   if (isStriking(me.weapon)) {
+    if (!hasHeldWeapon(me.weapon)) {
+      const working = view.self.hands[otherHand(name)].weapon;
+      if (handsFor(working) !== 2) {
+        // The fist already nearest the line stays there as a compact cover. It
+        // is the real hand and forearm in the collision solver, so no block rule
+        // follows: the body has to be physically in the way.
+        aimAt(view, threat, s.aim, name, me.shoulder);
+        into.pointerX = s.aim.pointerX;
+        into.pointerY = s.aim.pointerY;
+        into.roll = 0;
+        into.wristBend = WRIST.guard;
+        into.thrust = false;
+        into.guard = true;
+        return;
+      }
+      // A bow's other hand is the draw hand even though no rigid second grip is
+      // modelled. Resting here preserves that two-handed commitment.
+    } else {
     // A second blade covers while the first one works, offset outboard so the
     // two are not resting against each other. It takes its turn at attacking on
     // the next cycle -- see `attackHand` -- so this is what it does between its
     // own cuts rather than instead of them.
-    aimAt(view, threat, s.aim, me.shoulder);
-    into.pointerX = cursorForAzimuth(azimuthOf(s.aim.pointerX) + me.outboard * GUARD.spread);
+    aimAt(view, threat, s.aim, name, me.shoulder);
+    into.pointerX = cursorForAzimuth(
+      azimuthOf(s.aim.pointerX, name) + me.outboard * GUARD.spread,
+      name,
+    );
     into.pointerY = s.aim.pointerY;
+    into.wristBend = WRIST.guard;
     into.thrust = false;
     into.guard = true;
     return;
+    }
   }
 
   // Nothing in it. `arm.restPointerY` is the bottom of the cursor range, which
@@ -562,6 +601,7 @@ function planOffHand(
   into.pointerX = A.restPointerX;
   into.pointerY = A.restPointerY;
   into.roll = 0;
+  into.wristBend = WRIST.neutral;
   into.thrust = false;
   into.guard = false;
 }
@@ -680,6 +720,17 @@ const TUNED_REACH =
  */
 const shiftedTo = (tuned: number, reach: number): number => tuned + (reach - TUNED_REACH);
 
+/**
+ * Shoulder gap for a bare-hand exchange.
+ *
+ * The weapon-length shift alone says 0.365 m, a distance two torsos cannot
+ * occupy: their collision capsules stop the feet before the range gate opens.
+ * At 0.72 m, a 0.60 m committed arm reaches the near surface of a 0.20 m-deep
+ * torso. The session-06 corpus records whether that geometric floor produces a
+ * dangerous but steel-inferior fighter.
+ */
+const FIST_RANGE = 0.72;
+
 const SWINGER = {
   /**
    * Shoulder-to-shoulder metres at which it stops closing and starts cutting.
@@ -758,6 +809,7 @@ export function swingerMind(seed = randomSeed()): Mind {
   const random = mulberry32(seed);
   const intent = blankIntent();
   const off = offScratch();
+  const punch = offScratch();
   const chest: Point = { x: 0, y: 0, z: 0 };
 
   /**
@@ -841,7 +893,9 @@ export function swingerMind(seed = randomSeed()): Mind {
       commitX,
       commitY,
       bothEdges,
+      attacker,
     );
+    hand.wristBend = WRIST.cut;
   };
 
   const nextLeg = (): void => {
@@ -885,18 +939,27 @@ export function swingerMind(seed = randomSeed()): Mind {
     decide(view: FighterView, dt: number): Intent {
       const gap = distance(view.self.shoulder, view.opponent.shoulder);
 
-      attacker = attackHand(view, prefer);
+      const opponentChest = chestOf(view.opponent, chest);
+      attacker = attackHand(view, prefer, opponentChest);
       intent.driving = attacker;
       mirror = view.self.hands[attacker].outboard;
       bothEdges = cutsBothWays(view.self.hands[attacker].weapon);
       const hand = intent[attacker];
 
       // Its own range, for the weapon it is actually holding.
-      const engage = shiftedTo(SWINGER.engage, view.self.hands[attacker].reach);
+      const attack = view.self.hands[attacker];
+      const engage = hasHeldWeapon(attack.weapon)
+        ? shiftedTo(SWINGER.engage, attack.reach)
+        : FIST_RANGE;
 
       intent.turn = turnToward(view, view.opponent.ground, SWINGER.turnGain);
       intent.forward = gap > engage ? 1 : 0;
       intent.strafe = 0;
+      postureFor(
+        view,
+        gap > engage ? "close" : waiting ? "idle" : leg === 3 ? "recover" : "commit",
+        intent,
+      );
       hand.thrust = false;
       hand.guard = false;
 
@@ -932,8 +995,19 @@ export function swingerMind(seed = randomSeed()): Mind {
       }
 
       const t = legSeconds > 0 ? elapsed / legSeconds : 1;
-      hand.pointerX = fromX + (toX - fromX) * t;
-      hand.pointerY = fromY + (toY - fromY) * t;
+      hand.pointerX = strokePoint(fromX, toX, t);
+      hand.pointerY = strokePoint(fromY, toY, t);
+      if (!hasHeldWeapon(view.self.hands[attacker].weapon)) {
+        aimAt(view, chest, punch.aim, attacker, view.self.hands[attacker].shoulder);
+        hand.pointerX = leg === 0
+          ? clamp(punch.aim.pointerX + mirror * 0.22, -1, 1)
+          : punch.aim.pointerX;
+        hand.pointerY = leg === 0
+          ? clamp(punch.aim.pointerY - 0.10, -1, 1)
+          : punch.aim.pointerY;
+        hand.guard = leg === 0;
+        hand.thrust = leg === 1;
+      }
       return intent;
     },
   };
@@ -1027,9 +1101,9 @@ const DUELIST = {
   /** Seconds after an exchange before it will buy another. */
   cooldown: 0.30,
 
-  chamberSeconds: 0.15,
-  cutSeconds: 0.11,
-  recoverSeconds: 0.26,
+  chamberSeconds: ACTION_STROKE_TIMING.chamber,
+  cutSeconds: ACTION_STROKE_TIMING.commit,
+  recoverSeconds: ACTION_STROKE_TIMING.recover,
 
   /**
    * How far to either side of the target the stroke is chambered and followed
@@ -1097,7 +1171,7 @@ const ARCHER = {
   /** Where on the body it aims, above the shoulder line. */
   chestLift: -0.12,
   /** Seconds between letting one go and starting the next. */
-  cooldown: 0.30,
+  cooldown: ACTION_SHOT_TIMING.cooldown,
 } as const;
 
 /**
@@ -1115,12 +1189,6 @@ const ARCHER = {
  * it shoots, and house rule 1 is about what a policy may *do* -- it may only
  * produce an `Intent` -- rather than about what it may know.
  */
-function arrowLift(range: number): number {
-  const speed = CONFIG.arrow.speedMax;
-  const flight = range / speed;
-  return Math.abs(CONFIG.world.gravity) * flight * flight * 0.5;
-}
-
 /**
  * Stands off, draws, and looses.
  *
@@ -1153,7 +1221,6 @@ export function archerMind(seed = randomSeed()): Mind {
   const random = mulberry32(seed);
   const intent = blankIntent();
   const aim: Aim = { pointerX: 0, pointerY: 0 };
-  const mark: Point = { x: 0, y: 0, z: 0 };
   const off = offScratch();
   const cover: Point = { x: 0, y: 0, z: 0 };
 
@@ -1181,17 +1248,20 @@ export function archerMind(seed = randomSeed()): Mind {
       intent.turn = turnToward(view, them.ground, ARCHER.turnGain);
       intent.strafe = 0;
       intent.forward = gap < ARCHER.giveGround ? -1 : gap > ARCHER.standOff ? 1 : 0;
+      postureFor(
+        view,
+        drawn >= 0 ? "draw" : gap < ARCHER.giveGround ? "cover" : "close",
+        intent,
+      );
 
       // ---- the mark --------------------------------------------------------
       // Their shoulder line, dropped to the chest, and then lifted by whatever
       // the arrow is going to lose on the way.
-      mark.x = them.ground.x;
-      mark.y = them.shoulder.y + ARCHER.chestLift + arrowLift(gap);
-      mark.z = them.ground.z;
-      aimAt(view, mark, aim, me.shoulder);
+      actionArcherAim(view, shooter, aim);
       hand.pointerX = aim.pointerX;
       hand.pointerY = aim.pointerY;
       hand.roll = 0;
+      hand.wristBend = WRIST.neutral;
       hand.guard = false;
 
       // The hand that is not on the bow. A bow takes both, so in practice this
@@ -1238,7 +1308,7 @@ export function archerMind(seed = randomSeed()): Mind {
       }
 
       drawn = drawn < 0 ? 0 : drawn + dt;
-      if (drawn >= CONFIG.arrow.drawSeconds) {
+      if (actionShotPhase(drawn) !== "draw") {
         releasing = true;
         hand.thrust = false;
         return intent;
@@ -1271,7 +1341,6 @@ export function duelistMind(seed = randomSeed()): Mind {
 
   let stance: Stance = "hold";
   let elapsed = 0;
-  let stanceSeconds = 0;
 
   // The start offset, and the reason two duelists built together do not both
   // lunge on the same frame.
@@ -1303,9 +1372,8 @@ export function duelistMind(seed = randomSeed()): Mind {
   let gapRate = 0;
   let lastGap = -1;
 
-  const goTo = (next: Stance, seconds: number): void => {
+  const goTo = (next: Stance): void => {
     stance = next;
-    stanceSeconds = seconds;
     elapsed = 0;
   };
 
@@ -1316,10 +1384,12 @@ export function duelistMind(seed = randomSeed()): Mind {
       const them = view.opponent;
       const gap = distance(self.shoulder, them.shoulder);
 
-      attacker = attackHand(view, prefer);
+      const threat = threatHand(them);
+      attacker = attackHand(view, prefer, threat.tip);
       intent.driving = attacker;
       mirror = self.hands[attacker].outboard;
       const hand = intent[attacker];
+      hand.thrust = false;
       // Everything this hand aims is aimed from **its own** socket. The two are
       // 420 mm apart, and aiming the left hand from the right shoulder is not a
       // rounding error: measured over 12 bouts, the secondary's cuts landed 216
@@ -1333,7 +1403,6 @@ export function duelistMind(seed = randomSeed()): Mind {
       // Whichever of their hands can actually hurt, rather than whichever is
       // first. An opponent carrying a shield in the primary and a sword in the
       // secondary used to be guarded against the shield.
-      const threat = threatHand(them);
       const tipGap = distance(threat.tip, self.shoulder);
       if (lastGap >= 0 && dt > 0) {
         const rate = (tipGap - lastGap) / dt;
@@ -1375,8 +1444,9 @@ export function duelistMind(seed = randomSeed()): Mind {
       // and `strike` are 1.40 and 1.48 for a sword, which is where every number
       // in `docs/measurements.md` was taken, and 1.145 and 1.225 for an axe.
       const reach = view.self.hands[attacker].reach;
-      const hold = shiftedTo(DUELIST.hold, reach);
-      const strike = shiftedTo(DUELIST.strike, reach);
+      const bare = !hasHeldWeapon(view.self.hands[attacker].weapon);
+      const hold = bare ? FIST_RANGE + 0.06 : shiftedTo(DUELIST.hold, reach);
+      const strike = bare ? FIST_RANGE : shiftedTo(DUELIST.strike, reach);
 
       if (view.measure < DUELIST.crowd) {
         intent.forward = -0.8;
@@ -1387,6 +1457,12 @@ export function duelistMind(seed = randomSeed()): Mind {
       } else {
         intent.forward = 0;
       }
+
+      postureFor(
+        view,
+        stance === "hold" ? "cover" : stance === "recover" ? "recover" : "commit",
+        intent,
+      );
 
       // ---- hands -----------------------------------------------------------
       // The hand that is not cutting, planned first and from the same reading,
@@ -1402,7 +1478,7 @@ export function duelistMind(seed = randomSeed()): Mind {
 
       if (stance === "hold") {
         hand.guard = true;
-        coveringLine(view, threat, tipGap, towardLength, target, aim, socket);
+        coveringLine(view, threat, tipGap, towardLength, target, aim, attacker, socket);
         hand.pointerX = aim.pointerX;
         hand.pointerY = aim.pointerY;
         // Along the covering line the blade is a bar, not an edge, so the roll
@@ -1412,7 +1488,7 @@ export function duelistMind(seed = randomSeed()): Mind {
           target.x = them.ground.x;
           target.y = them.shoulder.y + DUELIST.headLift;
           target.z = them.ground.z;
-          aimAt(view, target, aim, socket);
+          aimAt(view, target, aim, attacker, socket);
 
           fromX = clamp(aim.pointerX + DUELIST.offset.x * mirror, -1, 1);
           fromY = clamp(aim.pointerY + DUELIST.offset.y, -1, 1);
@@ -1424,11 +1500,13 @@ export function duelistMind(seed = randomSeed()): Mind {
             toX,
             toY,
             cutsBothWays(view.self.hands[attacker].weapon),
+            attacker,
           );
+          hand.wristBend = WRIST.cut;
 
           patience = DUELIST.patience * (0.8 + random() * 0.4);
           sinceOpening = 0;
-          goTo("chamber", DUELIST.chamberSeconds);
+          goTo("chamber");
           // The chamber lifts from wherever the guard left the cursor.
           aim.pointerX = hand.pointerX;
           aim.pointerY = hand.pointerY;
@@ -1437,25 +1515,32 @@ export function duelistMind(seed = randomSeed()): Mind {
       }
 
       elapsed += dt;
-      const t = stanceSeconds > 0 ? clamp(elapsed / stanceSeconds, 0, 1) : 1;
+      const strokeElapsed = elapsed + (stance === "cut" ? ACTION_STROKE_TIMING.chamber
+        : stance === "recover" ? ACTION_STROKE_TIMING.chamber + ACTION_STROKE_TIMING.commit : 0);
+      const stroke = actionStrokeReading(strokeElapsed);
+      const expectedStrokePhase = stance === "cut" ? "commit" : stance;
+      const t = stroke.phase === expectedStrokePhase ? stroke.fraction : 1;
 
       if (stance === "chamber") {
         hand.guard = false;
         // A step in with the chamber, on the diagonal the strafe is already
         // walking: closing straight down the middle is what `swinger` does.
         intent.forward = Math.max(intent.forward, 0.35);
-        hand.pointerX = aim.pointerX + (fromX - aim.pointerX) * t;
-        hand.pointerY = aim.pointerY + (fromY - aim.pointerY) * t;
-        if (t >= 1) goTo("cut", DUELIST.cutSeconds);
+        const pose = actionStrokePose({ phase: "chamber", fraction: t }, aim,
+          { pointerX: fromX, pointerY: fromY }, { pointerX: toX, pointerY: toY }, aim);
+        hand.pointerX = pose.pointerX; hand.pointerY = pose.pointerY;
+        if (t >= 1) goTo("cut");
         return intent;
       }
 
       if (stance === "cut") {
         hand.guard = false;
+        hand.thrust = !hasHeldWeapon(self.hands[attacker].weapon);
         intent.forward = Math.max(intent.forward, 0.2);
-        hand.pointerX = fromX + (toX - fromX) * t;
-        hand.pointerY = fromY + (toY - fromY) * t;
-        if (t >= 1) goTo("recover", DUELIST.recoverSeconds);
+        const pose = actionStrokePose({ phase: "commit", fraction: t }, aim,
+          { pointerX: fromX, pointerY: fromY }, { pointerX: toX, pointerY: toY }, aim);
+        hand.pointerX = pose.pointerX; hand.pointerY = pose.pointerY;
+        if (t >= 1) goTo("recover");
         return intent;
       }
 
@@ -1463,16 +1548,17 @@ export function duelistMind(seed = randomSeed()): Mind {
       // the covering line under it, because the hand is what is slow and the
       // button is not.
       hand.guard = true;
-      coveringLine(view, threat, tipGap, towardLength, target, aim, socket);
-      hand.pointerX = toX + (aim.pointerX - toX) * t;
-      hand.pointerY = toY + (aim.pointerY - toY) * t;
+      coveringLine(view, threat, tipGap, towardLength, target, aim, attacker, socket);
+      const pose = actionStrokePose({ phase: "recover", fraction: t }, aim,
+        { pointerX: fromX, pointerY: fromY }, { pointerX: toX, pointerY: toY }, aim);
+      hand.pointerX = pose.pointerX; hand.pointerY = pose.pointerY;
       if (t >= 1) {
         cooldown = DUELIST.cooldown;
         // The other hand buys the next exchange if it is holding anything it
         // can cut with. Two blades then take turns, and the one that is not
         // cutting covers -- which is both halves of using both hands.
         prefer = otherHand(attacker);
-        goTo("hold", 0);
+        goTo("hold");
       }
       return intent;
     },

@@ -1,5 +1,10 @@
 # Session 05 -- the rest of the body answers the fight
 
+**Status (2026-08-24): implemented, measured and verified.** The real-solver sweep and
+mutation evidence are recorded in `docs/measurements.md`; after the coordinated warrior
+asset rebuild, all 245 tests, the typecheck, production build and asset pin verification
+are green.
+
 ## Outcome
 
 Drive `crouch` from 0 (tall) to 1 (fully bent) through the real hip and knee joints, and add

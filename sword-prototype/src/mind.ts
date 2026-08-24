@@ -29,6 +29,8 @@ import { HANDS, otherHand, type HandName, type WeaponKind } from "./hands.ts";
 import {
   cursorForAzimuth,
   cursorForElevation,
+  blankIntent,
+  postureFor,
   archerMind,
   duelistMind,
   swingerMind,
@@ -80,6 +82,8 @@ export interface HandIntent {
    * same increment more than once.
    */
   roll: number;
+  /** Anatomical wrist bend, normalized: 0 straight through 1 at ninety degrees. */
+  wristBend: number;
   thrust: boolean;
   guard: boolean;
 }
@@ -218,6 +222,14 @@ export interface BodyView {
   tipSpeed: number;
   /** Both hands, always both, whatever either of them is holding. */
   hands: Record<HandName, HandView>;
+  /** Solver-achieved squat, normalized from standing height to full depth. */
+  crouch: number;
+  /** Solver-achieved waist lean, normalized to the configured envelope. */
+  trunkLean: number;
+  /** Solver-achieved waist twist, normalized to the configured envelope. */
+  trunkTwist: number;
+  /** Derived whole-body survival, from 1 whole to 0 exhausted. */
+  vitality: number;
   health: PartHealth;
 }
 
@@ -322,16 +334,18 @@ export const NEUTRAL: Intent = Object.freeze({
   turn: 0,
   zoom: 1,
   driving: "primary",
+  posture: Object.freeze({ trunkLean: 0, trunkTwist: 0, crouch: 0 }),
   // Frozen too, and separately. `Object.freeze` is shallow, so freezing only the
   // outer object would leave both hands writable through a reference anybody
   // holds -- and the whole point of freezing this is that a policy handed the
   // neutral intent cannot quietly turn it into its own.
-  primary: Object.freeze({ pointerX: 0, pointerY: 0, roll: 0, thrust: false, guard: false }),
+  primary: Object.freeze({ pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false }),
   // The off hand rests rather than points. See `arm.restPointerY`.
   secondary: Object.freeze({
     pointerX: CONFIG.arm.restPointerX,
     pointerY: CONFIG.arm.restPointerY,
     roll: 0,
+    wristBend: 0,
     thrust: false,
     guard: false,
   }),
@@ -363,7 +377,11 @@ export const NEUTRAL: Intent = Object.freeze({
  * worse than the allocation.
  */
 export function idleMind(): Mind {
-  return { name: "idle", decide: () => NEUTRAL };
+  const intent = blankIntent();
+  return {
+    name: "idle",
+    decide: (view) => postureFor(view, "idle", intent),
+  };
 }
 
 /**
@@ -409,6 +427,7 @@ export function humanMind(source: { readonly state: Intent }, name = "you"): Min
 export function splitMind(person: Mind, policy: Mind): Mind {
   const blended: Intent = {
     ...NEUTRAL,
+    posture: { ...NEUTRAL.posture },
     primary: { ...NEUTRAL.primary },
     secondary: { ...NEUTRAL.secondary },
   };
@@ -424,6 +443,12 @@ export function splitMind(person: Mind, policy: Mind): Mind {
       blended.turn = mine.turn;
       blended.zoom = mine.zoom;
       blended.driving = mine.driving;
+      // Posture and wrist orientation are policy-owned during human play. The
+      // body keeps moving as part of the fight while the person's mouse remains
+      // entirely available to place one hand.
+      blended.posture.trunkLean = theirs.posture.trunkLean;
+      blended.posture.trunkTwist = theirs.posture.trunkTwist;
+      blended.posture.crouch = theirs.posture.crouch;
 
       // The person's hand is the person's, and the other one is the policy's
       // plan **for that same hand** -- not for whichever hand the policy calls
@@ -439,20 +464,31 @@ export function splitMind(person: Mind, policy: Mind): Mind {
       // commit stroke on the shield arm for the whole bout. The board was being
       // swung like a bat.
       const spare = otherHand(mine.driving);
-      copyHand(blended[mine.driving], mine[mine.driving]);
-      copyHand(blended[spare], theirs[spare]);
+      composeHand(blended[mine.driving], mine[mine.driving], theirs[mine.driving]);
+      composeHand(blended[spare], theirs[spare], theirs[spare]);
       return blended;
     },
   };
 }
 
-/** Five fields, by hand, because a reference would alias two live objects. */
-function copyHand(into: HandIntent, from: HandIntent): void {
-  into.pointerX = from.pointerX;
-  into.pointerY = from.pointerY;
-  into.roll = from.roll;
-  into.thrust = from.thrust;
-  into.guard = from.guard;
+/**
+ * Compose one whole hand without aliasing either live source.
+ *
+ * Position/buttons and wrist orientation have different owners during human
+ * play. Keeping that split in one exhaustive copy makes a new hand field a
+ * compile-time decision instead of something a spread silently assigns to the
+ * wrong driver.
+ */
+function composeHand(into: HandIntent, position: HandIntent, orientation: HandIntent): void {
+  const composed: HandIntent = {
+    pointerX: position.pointerX,
+    pointerY: position.pointerY,
+    thrust: position.thrust,
+    guard: position.guard,
+    roll: orientation.roll,
+    wristBend: orientation.wristBend,
+  };
+  Object.assign(into, composed);
 }
 
 
@@ -472,6 +508,8 @@ export interface ArmPose {
   elevation: number;
   /** Wrist roll, radians, already inside `arm.rollMin`/`rollMax`. */
   roll: number;
+  /** Wrist bend intent, normalized 0..1. */
+  wristBend: number;
   /** Shoulder to hand centre, metres. */
   reach: number;
 }
@@ -504,12 +542,22 @@ export interface ArmPose {
  * that could express a reach anyway, which is the deeper reason: the controller
  * has two aiming axes and reach is not one of them.
  */
-export function cursorForPose(pose: ArmPose): { pointerX: number; pointerY: number; roll: number } {
+export function cursorForPose(
+  pose: ArmPose,
+  hand: HandName = "primary",
+): { pointerX: number; pointerY: number; roll: number; wristBend: number } {
   return {
-    pointerX: cursorForAzimuth(pose.azimuth),
+    pointerX: cursorForAzimuth(pose.azimuth, hand),
     pointerY: cursorForElevation(pose.elevation),
     roll: pose.roll,
+    wristBend: pose.wristBend,
   };
+}
+
+/** Convert normalized bend to a mirrored anatomical angle. */
+export function mirroredWristBend(wristBend: number, outboard: number): number {
+  const bend = Math.max(0, Math.min(1, wristBend));
+  return bend * CONFIG.arm.wristBendMax * (outboard < 0 ? -1 : 1);
 }
 
 /**
@@ -606,7 +654,10 @@ export function handover(
   poses: ArmPoses,
   seconds = CONFIG.takeover.rebaseSeconds,
 ): Handover {
-  const seed = { primary: cursorForPose(poses.primary), secondary: cursorForPose(poses.secondary) };
+  const seed = {
+    primary: cursorForPose(poses.primary, "primary"),
+    secondary: cursorForPose(poses.secondary, "secondary"),
+  };
   // Mutable, allocated once, and never handed out except during the window --
   // the same contract `NEUTRAL` documents and every policy already keeps.
   //
@@ -616,6 +667,7 @@ export function handover(
   // worse, silently do nothing if this ever ran unstrict.
   const blended: Intent = {
     ...NEUTRAL,
+    posture: { ...NEUTRAL.posture },
     primary: { ...NEUTRAL.primary },
     secondary: { ...NEUTRAL.secondary },
   };
@@ -649,6 +701,9 @@ export function handover(
       blended.turn = asked.turn;
       blended.zoom = asked.zoom;
       blended.driving = asked.driving;
+      blended.posture.trunkLean = asked.posture.trunkLean;
+      blended.posture.trunkTwist = asked.posture.trunkTwist;
+      blended.posture.crouch = asked.posture.crouch;
       // Both hands, and by the same clock. A takeover that rebased one hand and
       // snapped the other would be exactly half a fix: the cursor is absolute,
       // so whichever hand it is not currently driving is still being commanded
@@ -662,6 +717,7 @@ export function handover(
         to.pointerX = from.pointerX + (want.pointerX - from.pointerX) * t;
         to.pointerY = from.pointerY + (want.pointerY - from.pointerY) * t;
         to.roll = from.roll + (want.roll - from.roll) * t;
+        to.wristBend = from.wristBend + (want.wristBend - from.wristBend) * t;
       }
       return blended;
     },

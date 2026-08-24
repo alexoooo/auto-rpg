@@ -83,6 +83,7 @@ const poseFor = (pointerX, pointerY, roll = 0, reach = A.reachNeutral) => ({
   azimuth: azimuthOf(pointerX),
   elevation: elevationOf(pointerY),
   roll,
+  wristBend: 0,
   reach,
 });
 
@@ -99,6 +100,21 @@ test("the cursor a pose asks for is the cursor that produced it", () => {
       );
     }
   }
+});
+
+test("both_hands_round_trip_their_mirrored_envelopes", () => {
+  for (const hand of ["primary", "secondary"]) {
+    for (const x of [-1, -0.5, 0, 0.5, 1]) {
+      const pose = {
+        ...poseFor(x, 0.25),
+        azimuth: azimuthOf(x, hand),
+      };
+      assert.equal(cursorForPose(pose, hand).pointerX, x, `${hand} at ${x}`);
+    }
+  }
+
+  assert.equal(azimuthOf(1, "secondary"), -azimuthOf(-1, "primary"));
+  assert.equal(azimuthOf(-1, "secondary"), -azimuthOf(1, "primary"));
 });
 
 test("the inverse is asymmetric in the direction the arm is", () => {
@@ -133,10 +149,9 @@ test("a pose outside the envelope comes back at the edge of the cursor, not wrap
   assert.equal(seed.pointerY, -1);
 });
 
-test("roll is carried across whole, because the wrist has no home to find", () => {
-  // Unlike the two pointer axes, roll is an accumulator: `Controls.sample`
-  // integrates Z and X into it and nothing writes an absolute value, so the
-  // seeded number is durable and there is nothing to invert.
+test("roll is carried across whole, because the wrist has no cursor inverse", () => {
+  // Orientation does not map onto the pointer, so the seeded number is carried
+  // directly rather than geometrically inverted.
   assert.equal(cursorForPose(poseFor(0, 0, -1.7)).roll, -1.7);
 });
 
@@ -176,6 +191,23 @@ test("the first command after a handover is exactly the pose it found", () => {
   const raw = centre.decide(null, FIXED);
   const jump = poseShiftMm(pose, poseFor(raw.primary.pointerX, raw.primary.pointerY));
   assert.ok(jump > 300, `an unseeded handover only moved the hand ${jump.toFixed(1)} mm`);
+});
+
+test("a_handover_preserves_roll_and_wrist_bend_without_a_jump", () => {
+  const primary = { ...poseFor(0.4, -0.2, 1.1), wristBend: 0.72 };
+  const secondary = {
+    ...poseFor(-0.6, 0.3, -0.8),
+    azimuth: azimuthOf(-0.6, "secondary"),
+    wristBend: 0.31,
+  };
+  const held = handover(fixed("centre", blank()), { primary, secondary }, 0.25);
+  const first = held.decide(null, FIXED);
+
+  assert.equal(first.primary.roll, primary.roll);
+  assert.equal(first.primary.wristBend, primary.wristBend);
+  assert.equal(first.secondary.roll, secondary.roll);
+  assert.equal(first.secondary.wristBend, secondary.wristBend);
+  assert.equal(first.secondary.pointerX, cursorForPose(secondary, "secondary").pointerX);
 });
 
 test("the rebase arrives, and then gets out of the way", () => {
@@ -284,7 +316,7 @@ async function ring(mind) {
   const materials = {
     flesh: mat("flesh"), cloth: mat("cloth"), steel: mat("steel"),
     leather: mat("leather"), brass: mat("brass"), hide: mat("hide"),
-    wood: mat("wood"),
+    wood: mat("wood"), arrowAccent: mat("arrow-accent"),
   };
 
   const left = new Fighter(scene, {
@@ -412,6 +444,42 @@ test("taking a body mid-swing does not move the blade, either side of centre", a
       jump < 20,
       `${moment.where}: the hand was asked to jump ${jump.toFixed(2)} mm on the takeover frame`,
     );
+  }
+});
+
+test("a_takeover_during_full_trunk_lean_does_not_jump_either_hand", async (t) => {
+  const intent = blank();
+  intent.posture.trunkLean = 1;
+  intent.primary.pointerX = 0.55;
+  intent.secondary.pointerX = -0.45;
+  const { engine, scene, left, right } = await ring(fixed("leaning", intent));
+  t.after(() => engine.dispose());
+  let clock = 0;
+  const control = () => {
+    clock += FIXED;
+    left.observe(right, clock);
+    right.observe(left, clock);
+    left.update(FIXED);
+    right.update(FIXED);
+  };
+  for (let i = 0; i < 120; i += 1) {
+    scene._renderId += 1;
+    const observer = scene.onBeforePhysicsObservable.add(control);
+    scene._advancePhysicsEngineStep(1000 / 60);
+    scene.onBeforePhysicsObservable.remove(observer);
+  }
+
+  const before = {
+    primary: left.arms.primary.targetPosition().clone(),
+    secondary: left.arms.secondary.targetPosition().clone(),
+  };
+  left.mind = handover(humanMind({ state: blank() }), left.armPoses());
+  left.observe(right, clock);
+  left.update(FIXED);
+
+  for (const name of ["primary", "secondary"]) {
+    const jump = Vector3.Distance(before[name], left.arms[name].targetPosition()) * 1000;
+    assert.ok(jump < 20, `${name} hand jumped ${jump.toFixed(2)} mm during the takeover`);
   }
 });
 

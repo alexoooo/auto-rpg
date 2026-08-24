@@ -122,6 +122,8 @@ interface Grip {
    * the picker, a `<select>` value, or `Weapon`'s builder.
    */
   carry: "held" | "strapped" | "loosed";
+  /** Whether this row owns a separate weapon body in the hand. */
+  heldWeapon: boolean;
   /**
    * What it is for.
    *
@@ -161,18 +163,18 @@ interface Grip {
  * row is a null check in front of every question.
  */
 const GRIPS: Record<Striker, Grip> = {
-  sword: { hands: 1, carry: "held", use: "strike", point: true, bothEdges: true },
-  axe: { hands: 1, carry: "held", use: "strike", point: false, bothEdges: false },
+  sword: { hands: 1, carry: "held", heldWeapon: true, use: "strike", point: true, bothEdges: true },
+  axe: { hands: 1, carry: "held", heldWeapon: true, use: "strike", point: false, bothEdges: false },
   // Two hands, like the club, and for the same reason the club takes two: one
   // holds it and the other works it. `mountFor` gives it the blade's mount, so
   // its +Y runs out along the arm and **an arrow flies where the arm points**.
-  bow: { hands: 2, carry: "held", use: "shoot", point: false, bothEdges: false },
-  shield: { hands: 1, carry: "strapped", use: "cover", point: false, bothEdges: false },
-  buckler: { hands: 1, carry: "held", use: "cover", point: false, bothEdges: false },
-  club: { hands: 2, carry: "held", use: "strike", point: false, bothEdges: false },
-  empty: { hands: 1, carry: "held", use: "none", point: false, bothEdges: false },
+  bow: { hands: 2, carry: "held", heldWeapon: true, use: "shoot", point: false, bothEdges: false },
+  shield: { hands: 1, carry: "strapped", heldWeapon: true, use: "cover", point: false, bothEdges: false },
+  buckler: { hands: 1, carry: "held", heldWeapon: true, use: "cover", point: false, bothEdges: false },
+  club: { hands: 2, carry: "held", heldWeapon: true, use: "strike", point: false, bothEdges: false },
+  empty: { hands: 1, carry: "held", heldWeapon: false, use: "strike", point: false, bothEdges: false },
   // Not a weapon, and every field says so honestly rather than by omission.
-  arrow: { hands: 0, carry: "loosed", use: "strike", point: true, bothEdges: false },
+  arrow: { hands: 0, carry: "loosed", heldWeapon: false, use: "strike", point: true, bothEdges: false },
 };
 
 /**
@@ -236,6 +238,9 @@ export const kindOrEmpty = (value: string): WeaponKind =>
 /** How many hands a kind takes. The club and the bow take two; an arrow takes none. */
 export const handsFor = (kind: Striker): 0 | 1 | 2 => GRIPS[kind].hands;
 
+/** Does this kind put a separate weapon body in the hand? */
+export const hasHeldWeapon = (kind: Striker): boolean => GRIPS[kind].heldWeapon;
+
 /**
  * Is this kind a shield -- something that covers and scores nothing?
  *
@@ -271,10 +276,9 @@ export const isStrapped = (kind: Striker): boolean => GRIPS[kind].carry === "str
  * with the shield for as long as `driving` was a constant, and this is what
  * stops that.
  *
- * `empty` is false. A bare fist genuinely can hurt somebody and the damage model
- * would happily score it, but nothing welds a body to an empty hand, so there is
- * no contact to score and a policy that chose one as its attacking hand would
- * swing at the air for the rest of the bout.
+ * `empty` is true: its striker is the real simulated hand rather than a weapon
+ * welded onto it. `hasHeldWeapon` keeps that distinction available to policies
+ * which must prefer steel while still treating a bare fist as an attack.
  *
  * **A bow is false**, and that is the one answer here worth arguing with. It is
  * a weapon, it is in the picker, and it kills people -- and it is not *swung*,

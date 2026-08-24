@@ -69,3 +69,43 @@ npm run build
 npm run ai:train -- --seed 20260823 --smoke
 npm run ai:evaluate -- --seed 20260823
 ```
+
+## Implementation record -- 2026-08-24
+
+The pure learning graph, runtime meta-policy, validated binary checkpoint and atomic trainer
+are implemented. The CI smoke is 8 genomes x 3 generations x 2 mirrored bouts; the real
+headless smoke ran 68 fresh-Havok bouts including species validation, scripted/random
+controls and the final test pair. After adversarial repair, two final eight-worker runs took
+27.526 and 28.139 seconds and produced the same
+champion digest and report values:
+
+```text
+3289d671c44ec434cbfb9b178b4490640a2162afefb1784917ea58f0a6b44db9
+```
+
+Resume reproduced that digest with a different worker count in 0.628 seconds, and a population mismatch was refused before
+the first bout. At the observed 0.9465 seconds per isolated bout, the default experiment's
+245,760 training bouts plus validation, controls and final test are approximately 65 serial
+hours on this machine.
+
+The trainer therefore has a bounded `--workers` evaluation pool: eight workers at most on
+this 32-thread host. Work carries its genome index into the worker, each bout still receives
+its explicit seed and fresh Havok module, and results are sorted and checked for missing or
+duplicate indices before selection. Worker count is deliberately absent from checkpoint
+semantics. A 1-generation real-Havok bracket produced the same report and champion digest
+at 1, 4 and 8 workers (`101d67ff...5c407ab1`), in 18.371, 12.779 and 10.639 seconds. That
+small bracket includes eight serial validation/control/test bouts, so its 1.73x end-to-end
+speedup is a conservative lower bound for the training-dominated default; the observed
+training portion projects roughly 18--38 hours per default run, to be measured rather than
+promised by session 13. The default experiment remains the input to session 13's three-run
+promotion decision; this session does not promote or register its smoke checkpoint.
+
+The forced-option lifecycle repair superseded `baseline-v1.json` explicitly. The preserved
+old file has SHA-256 `77b09b520380041a7f56671e8b97d70e53228f74c4b4d2d7d6055c80e4d2e877`;
+the replacement has SHA-256 `810beb2fe6533743e786e14bd1c3aa084dfe11f73451f1697941729f7d0f32f6`.
+A recursive field comparison found exactly 24 changed leaves and no others: the matching
+`behavior.attackAttempts` counter for cut, thrust, punch and shoot, for mirror 0 and mirror
+1, in each of train, validation and test. These counters now count each attack-option entry,
+including re-entry after completion, instead of only a selected-name transition. Outcomes,
+duration, damage, vitality, intents, controls and every ordered-parity field were unchanged.
+An exact seed-20260827 evaluation against the replacement passed.

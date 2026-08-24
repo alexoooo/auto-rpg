@@ -7,9 +7,6 @@ import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
 import { HDRCubeTexture } from "@babylonjs/core/Materials/Textures/hdrCubeTexture.js";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
-import { PhysicsAggregate } from "@babylonjs/core/Physics/v2/physicsAggregate.js";
-import { PhysicsShapeType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import { ImageProcessingConfiguration } from "@babylonjs/core/Materials/imageProcessingConfiguration.js";
 import { DefaultRenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline.js";
 import type { Engine } from "@babylonjs/core/Engines/engine.js";
@@ -28,7 +25,11 @@ import HavokPhysics from "@babylonjs/havok";
 import havokWasmUrl from "@babylonjs/havok/lib/esm/HavokPhysics.wasm?url";
 
 import { CONFIG } from "./config";
-import { LAYER, COLLIDES, attachPhysics } from "./physics";
+import { OBJECT_SURFACE_VARIANTS, TEXTURED_SURFACES } from "./materials";
+import { attachPhysics } from "./physics";
+import { sharedSurface, surfaceVariant } from "./surface";
+import type { FigureMaterials } from "./figure";
+import { buildArenaWorld, type ArenaAudit, type RoomOcclusionTarget } from "./arena-room";
 
 // Side effects: the PBR pipeline and shadow support register themselves on import.
 import "@babylonjs/core/Materials/Textures/Loaders/hdrTextureLoader.js";
@@ -38,14 +39,23 @@ import "@babylonjs/core/PostProcesses/RenderPipeline/postProcessRenderPipelineMa
 
 export interface Palette {
   steel: PBRMaterial;
+  edge: PBRMaterial;
   brass: PBRMaterial;
   leather: PBRMaterial;
   cloth: PBRMaterial;
   flesh: PBRMaterial;
   hide: PBRMaterial;
   wood: PBRMaterial;
+  paintedWood: PBRMaterial;
+  bowString: PBRMaterial;
   straw: PBRMaterial;
   ground: PBRMaterial;
+  wall: PBRMaterial;
+  timber: PBRMaterial;
+  banner: PBRMaterial;
+  arrowAccent: PBRMaterial;
+  /** Authored costume surfaces, separated from weapon/fallback geometry. */
+  figure: FigureMaterials;
 }
 
 export interface Arena {
@@ -53,26 +63,13 @@ export interface Arena {
   camera: FreeCamera;
   materials: Palette;
   shadows: ShadowGenerator;
+  /** A read-only scene census; calling it creates no Babylon object. */
+  audit(): ArenaAudit;
+  /** Hide an overhead prop only while it crosses the protected combat sight lines. */
+  updateRoomOcclusion(targets: readonly RoomOcclusionTarget[]): void;
 }
 
-/**
- * One PBR surface: a colour, how metallic it is, and how rough.
- *
- * **No textures, and that is a finding rather than an omission.** Four CC0
- * tiling normal maps were fetched, digest-pinned and wired through here, and
- * every material that carried one stopped rendering: `isReady` never came true
- * for it and Babylon skipped the mesh. What that looks like is not "a material
- * with a bug" -- the warriors lost their helms, pauldrons, collars and
- * breastplates while the untextured flesh and the cloth underneath kept
- * drawing, so a fighter became a head and a surcoat with arms floating beside
- * it. Every piece was present, visible and in exactly the right place the whole
- * time, which is why it took a screenshot rather than a measurement to find.
- *
- * The asset went back to exporting no UVs and no tangents with it, because
- * unused vertex attributes doubled the committed binary for nothing.
- * `docs/measurements.md` records what doing it properly needs.
- */
-function surface(
+function plainSurface(
   scene: Scene,
   name: string,
   albedo: Color3,
@@ -134,48 +131,55 @@ export async function buildArena(engine: Engine): Promise<Arena> {
   shadows.bias = 0.0015;
   shadows.normalBias = 0.012;
 
-  const materials: Palette = {
-    steel: surface(scene, "steel", new Color3(0.62, 0.65, 0.70), 1.0, 0.22),
-    brass: surface(scene, "brass", new Color3(0.62, 0.47, 0.20), 1.0, 0.34),
-    leather: surface(scene, "leather", new Color3(0.16, 0.11, 0.08), 0.0, 0.78),
-    cloth: surface(scene, "cloth", new Color3(0.29, 0.10, 0.12), 0.0, 0.92),
-    flesh: surface(scene, "flesh", new Color3(0.68, 0.48, 0.38), 0.0, 0.68),
-    hide: surface(scene, "hide", new Color3(0.55, 0.44, 0.30), 0.0, 0.85),
-    wood: surface(scene, "wood", new Color3(0.22, 0.15, 0.09), 0.0, 0.88),
-    straw: surface(scene, "straw", new Color3(0.68, 0.57, 0.30), 0.0, 0.9),
-    ground: surface(scene, "ground", new Color3(0.15, 0.14, 0.12), 0.0, 0.96),
+  const figureSteel = sharedSurface(scene, TEXTURED_SURFACES.figureSteel);
+  const figureLeather = sharedSurface(scene, TEXTURED_SURFACES.figureLeather);
+  const figure: FigureMaterials = {
+    steel: figureSteel,
+    leather: figureLeather,
+    cloth: sharedSurface(scene, TEXTURED_SURFACES.figureCloth),
+    flesh: sharedSurface(scene, TEXTURED_SURFACES.figureFlesh),
   };
-
-  const ground = MeshBuilder.CreateBox("ground", { width: 60, height: 1, depth: 60 }, scene);
-  ground.position.y = -0.5;
-  ground.material = materials.ground;
-  ground.receiveShadows = true;
-  const groundBody = new PhysicsAggregate(
-    ground,
-    PhysicsShapeType.BOX,
-    { mass: 0, friction: 0.9, restitution: 0.02 },
-    scene,
-  );
-  groundBody.shape.filterMembershipMask = LAYER.WORLD;
-  groundBody.shape.filterCollideMask = COLLIDES.WORLD;
-
-  // A ring of posts. They exist so the eye has something to judge speed and
-  // distance against -- a swing over featureless ground looks like nothing.
-  for (let i = 0; i < 14; i += 1) {
-    const angle = (i / 14) * Math.PI * 2;
-    const post = MeshBuilder.CreateCylinder(
-      `post${i}`,
-      { height: 1.5, diameter: 0.17, tessellation: 8 },
+  // Steel and leather have the same decoded image and Babylon-LH tangent basis
+  // on both geometry families. Keep distinct scalar materials, but make the
+  // scene own only one wrapper for each image file.
+  const weaponSteel = surfaceVariant(scene, { ...TEXTURED_SURFACES.weaponSteel, textures: {} }, figureSteel);
+  const weaponLeather = surfaceVariant(scene, { ...TEXTURED_SURFACES.weaponLeather, textures: {} }, figureLeather);
+  const weaponWood = sharedSurface(scene, TEXTURED_SURFACES.weaponWood);
+  const materials: Palette = {
+    steel: weaponSteel,
+    edge: surfaceVariant(scene, OBJECT_SURFACE_VARIANTS.edge, figureSteel),
+    brass: sharedSurface(scene, TEXTURED_SURFACES.weaponBrass),
+    leather: weaponLeather,
+    cloth: plainSurface(scene, "cloth", new Color3(0.29, 0.10, 0.12), 0.0, 0.92),
+    flesh: plainSurface(scene, "flesh", new Color3(0.68, 0.48, 0.38), 0.0, 0.68),
+    hide: plainSurface(scene, "hide", new Color3(0.55, 0.44, 0.30), 0.0, 0.85),
+    wood: weaponWood,
+    paintedWood: sharedSurface(scene, TEXTURED_SURFACES.paintedShieldBoard),
+    bowString: surfaceVariant(scene, OBJECT_SURFACE_VARIANTS.bowString, figureLeather),
+    straw: plainSurface(scene, "straw", new Color3(0.68, 0.57, 0.30), 0.0, 0.9),
+    ground: sharedSurface(scene, TEXTURED_SURFACES.ground),
+    wall: sharedSurface(scene, TEXTURED_SURFACES.roomWall),
+    timber: sharedSurface(scene, TEXTURED_SURFACES.roomTimber),
+    banner: sharedSurface(scene, TEXTURED_SURFACES.roomBanner),
+    arrowAccent: plainSurface(
       scene,
-    );
-    post.position.set(Math.sin(angle) * 9.5, 0.75, Math.cos(angle) * 9.5);
-    post.material = materials.wood;
-    post.receiveShadows = true;
-    shadows.addShadowCaster(post);
-    const body = new PhysicsAggregate(post, PhysicsShapeType.CYLINDER, { mass: 0 }, scene);
-    body.shape.filterMembershipMask = LAYER.WORLD;
-    body.shape.filterCollideMask = COLLIDES.WORLD;
-  }
+      "arrow-accent",
+      new Color3(CONFIG.arrow.visual.emissive.r, CONFIG.arrow.visual.emissive.g, CONFIG.arrow.visual.emissive.b),
+      0.0,
+      1.0,
+    ),
+    figure,
+  };
+  materials.arrowAccent.unlit = true;
+  materials.arrowAccent.emissiveColor.copyFrom(materials.arrowAccent.albedoColor);
+
+  // The invisible authoritative slab and fourteen post colliders retain their
+  // session-09 dimensions. The visible floor and room dressing are a separate
+  // owner with no body, so art can be removed without changing the solver.
+  const world = buildArenaWorld(scene, materials, {
+    add: (mesh) => shadows.addShadowCaster(mesh),
+    remove: (mesh) => shadows.removeShadowCaster(mesh),
+  });
 
   const pipeline = new DefaultRenderingPipeline("post", true, scene, [camera]);
   pipeline.samples = 4;
@@ -189,5 +193,8 @@ export async function buildArena(engine: Engine): Promise<Arena> {
   pipeline.bloomThreshold = 0.82;
   pipeline.bloomWeight = 0.22;
 
-  return { scene, camera, materials, shadows };
+  return {
+    scene, camera, materials, shadows, audit: world.audit,
+    updateRoomOcclusion: (targets) => world.updateOcclusion(camera.position, targets),
+  };
 }

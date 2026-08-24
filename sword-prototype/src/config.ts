@@ -129,7 +129,7 @@ export const CONFIG = {
     linearMotorForce: 850,
     // 110 rather than 42: measured re-aim time after a cursor jump falls from
     // 0.42 s to 0.07 s, and nothing above 110 improves it further.
-    angularMotorForce: 110,
+    wristMotorForce: 110,
 
     /** Bleeds off residual ringing in the chain. */
     linearDamping: 0.7,
@@ -219,10 +219,6 @@ export const CONFIG = {
      */
     elbowPoleForce: 45,
 
-    /** Wrist roll rate from the roll keys, radians per second. */
-    rollRate: 2.4,
-
-
     /**
      * Reach, measured from the shoulder to the centre of the hand.
      *
@@ -274,8 +270,14 @@ export const CONFIG = {
     azMax: 1.30,
     elMin: -1.05,
     elMax: 1.25,
-    rollMin: -2.6,
-    rollMax: 2.6,
+    /** Anatomical forearm pronation/supination, not an endlessly turning propeller. */
+    rollMin: -1.40,
+    rollMax: 1.40,
+    /** Normalized intent 0..1 maps onto this anatomical wrist bend in radians. */
+    wristBendMin: 0,
+    wristBendMax: Math.PI / 2,
+    /** Wrist orientation follows policy changes without becoming an instantaneous snap. */
+    wristResponse: 18,
   },
 
   sword: {
@@ -490,6 +492,17 @@ export const CONFIG = {
     lifeSeconds: 4.0,
     /** And seconds lying where it landed, once it has hit something. */
     stickSeconds: 6.0,
+    /**
+     * A purely rendered history of the shot. Nothing in scoring or physics
+     * reads this block; it exists so the small, fast projectile remains legible
+     * from either camera.
+     */
+    visual: {
+      emissive: { r: 1.0, g: 0.46, b: 0.08 },
+      trailSeconds: 0.18,
+      trailDiameter: 0.018,
+      fadeSeconds: 0.12,
+    },
     /**
      * How hard it holds still once it has struck.
      *
@@ -717,7 +730,7 @@ export const CONFIG = {
     secondGrip: -0.26,
     /**
      * What the two grips are worth, as multipliers on `arm.linearMotorForce`
-     * and `arm.angularMotorForce`, when a club is held.
+     * and `arm.wristMotorForce`, when a club is held.
      *
      * The obvious design was two motorised grips pulling one haft, so that the
      * 850 N ceilings add up on their own and "the strength of both arms" needs
@@ -805,6 +818,16 @@ export const CONFIG = {
      */
     crushScale: 34,
     minCrushSpeed: 2.2,
+
+    /**
+     * The fist. These are deliberately below steel: a clean 9 m/s punch is
+     * worth 18 damage and anything below 3.5 m/s is only a shove. The session
+     * 06 unarmed corpus in `docs/measurements.md` records both floors beside
+     * the resulting punches, blocks, damage and survival.
+     */
+    fistScale: 18,
+    fistMinSpeed: 3.5,
+    fistReferenceSpeed: 9,
 
     /**
      * The axe, which cuts, but not like a blade does.
@@ -1038,6 +1061,31 @@ export const CONFIG = {
     pelvisRadius: 0.16,
     pelvisMass: 12,
 
+    /** Anatomical trunk envelope about the waist. These are initial limits,
+     *  deliberately stated as geometry rather than as balance claims. */
+    trunkLeanMax: 0.35,
+    trunkTwistMax: 0.70,
+    /** Exponential response of the normalized posture command, per second. */
+    trunkResponse: 10,
+    /** Waist position-motor ceiling while alive, N.m. */
+    trunkMotorForce: 900,
+
+    /** Maximum vertical travel of the hip reference at a full squat, metres. */
+    crouchDepth: 0.34,
+    /** Motor targets stay just inside the physical stops below. */
+    hipTargetMin: -1.25,
+    hipTargetMax: 1.25,
+    kneeTargetMin: 0,
+    kneeTargetMax: 2.15,
+    hipLimitMin: -1.3,
+    hipLimitMax: 1.3,
+    kneeLimitMin: -0.15,
+    kneeLimitMax: 2.2,
+    /** Exponential response of the normalized crouch command, per second. */
+    crouchResponse: 10,
+    /** Fastest change of normalized crouch, per second. */
+    postureMaxRate: 3,
+
     offUpperCentre: 1.28,
     offUpperLength: 0.28,
     offUpperRadius: 0.055,
@@ -1146,6 +1194,53 @@ export const CONFIG = {
     torsoHealth: 2,
     /** The pelvis carries both legs, so losing it is losing the lower half. */
     pelvisHealth: 1.8,
+
+    /**
+     * How local wounds exhaust the one whole-body vitality bar.
+     *
+     * Vitality is derived, never stored: for each part, subtract
+     * `(1 - clamp(health / maxHealth, 0, 1)) * weight` from one, then clamp the
+     * result to 0..1. Head and torso therefore remain independently fatal,
+     * while enough serious wounds elsewhere can finish a fighter without
+     * pretending every hand and shin is a separate life.
+     *
+     * `npm run measure -- --seed 20260823`, 40 mirrored bouts per matchup. The
+     * before run restored only the former severed-head/torso-or-every-part-zero
+     * predicate; the after run used this table. Damage is mean damage dealt per
+     * side (`A/B`), and regions count the damaging blow that ended each bout.
+     *
+     * matchup          wins A/B  length before -> after  damage before -> after
+     * swinger/idle     40/0       15.29 -> 6.60 s         447.15/0 -> 211.63/0
+     * duelist/swinger  29/11      5.74 -> 3.54 s          207.75/276.36 -> 149.33/183.05
+     * duelist/duelist  40 decided 7.64 -> 5.21 s          238.23 -> 161.42
+     *
+     * Final regions moved from head/torso only (apart from one same-step hand)
+     * to mixed finishes as intended: swinger/idle 19 head, 17 torso, 4 off arm;
+     * duelist/swinger 27 head, 12 torso, 1 off arm; mirror 30 head, 5 torso and
+     * 5 arm/hand. The shorter bouts and lower totals are direct consequences of
+     * injury becoming lethal before a sever; the 29/11 -> 24/16 policy shift is
+     * expected balance movement and should be rechecked by the final playtest.
+     *
+     * The pre-change bow record remains in `docs/measurements.md`: arrows dealt
+     * 274.7 against idle and 366.2 against swinger over sixteen 30 s bouts, and
+     * won none because arrows do not sever. Its matching loadout-specific after
+     * run is still owed; the standard corpus does not equip a bow.
+     */
+    vitalWeight: {
+      torso: 1,
+      head: 1,
+      pelvis: 0.5,
+      upperArm: 0.1,
+      forearm: 0.1,
+      hand: 0.1,
+      offUpperArm: 0.1,
+      offForearm: 0.1,
+      offHand: 0.1,
+      thighL: 0.125,
+      shinL: 0.125,
+      thighR: 0.125,
+      shinR: 0.125,
+    },
   },
 
   /**

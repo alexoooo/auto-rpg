@@ -7,11 +7,13 @@ import { PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlug
 import type { IPhysicsCollisionEvent } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import { PhysicsEventType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import type { Scene } from "@babylonjs/core/scene.js";
+import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 
 import { CONFIG } from "./config.ts";
 import { COLLIDES, LAYER } from "./physics.ts";
-import type { Striker } from "./hands.ts";
-import type { WeaponMaterials } from "./weapon.ts";
+import type { HandName, Striker } from "./hands.ts";
+import { objectMaterialsFor, type WeaponMaterials } from "./weapon.ts";
+import { applyObjectSurface, disposeCarriedRoot } from "./object-surfaces.ts";
 
 /**
  * Arrows, and the quiver that owns them.
@@ -50,6 +52,7 @@ import type { WeaponMaterials } from "./weapon.ts";
 
 /** Everything a quiver needs to know about whose arrows these are. */
 export interface QuiverOptions {
+  hand: HandName;
   /** Prefix for every node, so four quivers in one scene are tellable apart. */
   name: string;
   /** The side's arrow layer, from `layersFor`. */
@@ -65,6 +68,8 @@ export interface QuiverOptions {
  * invisible as an arrow inside somebody's shin.
  */
 const PARK = new Vector3(0, -60, 0);
+/** Enough line to follow at speed, without turning the shot into an opaque beam. */
+const TRACE_VISIBILITY = 0.62;
 
 /**
  * One arrow.
@@ -79,6 +84,7 @@ const PARK = new Vector3(0, -60, 0);
  */
 export class Arrow {
   readonly kind: Striker = "arrow";
+  readonly hand: HandName;
   readonly root: TransformNode;
   readonly body: PhysicsBody;
   /**
@@ -94,6 +100,16 @@ export class Arrow {
    * for its whole life -- see `Weapon.finish`.
    */
   readonly shape: PhysicsShapeBox;
+
+  /**
+   * One pooled render-only tube. It is advanced from the same fixed control
+   * step as the arrow, so it owns no render observer and cannot outlive a
+   * recycled shot. Its points are world-space because the projectile root is
+   * moving while the history deliberately is not.
+   */
+  readonly traceRoot: TransformNode;
+  readonly trail: Mesh;
+  readonly tracePoints: Vector3[];
 
   /** Whether it is in the world at all, as opposed to parked. */
   live = false;
@@ -160,6 +176,7 @@ export class Arrow {
   };
 
   constructor(scene: Scene, name: string, opts: QuiverOptions, materials: WeaponMaterials) {
+    this.hand = opts.hand;
     const A = CONFIG.arrow;
     this.layer = opts.layer;
     this.collidesWith = opts.collidesWith;
@@ -176,7 +193,7 @@ export class Arrow {
       { height: A.length, diameter: A.shaftDiameter, tessellation: 6 },
       scene,
     );
-    shaft.material = materials.wood;
+    applyObjectSurface(shaft, "arrow.shaft", objectMaterialsFor(materials));
     shaft.parent = this.root;
 
     const head = MeshBuilder.CreateCylinder(
@@ -190,7 +207,6 @@ export class Arrow {
       scene,
     );
     head.position.set(0, A.length / 2, 0);
-    head.material = materials.steel;
     head.parent = this.root;
 
     const fletch = MeshBuilder.CreateBox(
@@ -199,8 +215,29 @@ export class Arrow {
       scene,
     );
     fletch.position.set(0, -A.length / 2 + A.fletchLength * 0.7, 0);
-    fletch.material = materials.leather;
+    applyObjectSurface(fletch, "arrow.fletch", objectMaterialsFor(materials));
     fletch.parent = this.root;
+
+    applyObjectSurface(head, "arrow.head", objectMaterialsFor(materials));
+
+    this.traceRoot = new TransformNode(`${name}.trace-root`, scene);
+    const traceSamples = Math.ceil(A.visual.trailSeconds * CONFIG.world.physicsHz) + 1;
+    this.tracePoints = Array.from({ length: traceSamples }, () => PARK.clone());
+    this.trail = MeshBuilder.CreateTube(
+      `${name}.trace`,
+      {
+        path: this.tracePoints,
+        radius: A.visual.trailDiameter / 2,
+        tessellation: 5,
+        cap: 0,
+        updatable: true,
+      },
+      scene,
+    );
+    applyObjectSurface(this.trail, "arrow.trace", objectMaterialsFor(materials));
+    this.trail.isPickable = false;
+    this.trail.receiveShadows = false;
+    this.trail.parent = this.traceRoot;
 
     // One box for the whole shaft. A cylinder would be more honest about the
     // shape and less honest about what matters: what an arrow needs from the
@@ -244,6 +281,9 @@ export class Arrow {
     this.body.setMotionType(PhysicsMotionType.STATIC);
     this.root.position.copyFrom(PARK);
     this.root.rotationQuaternion?.copyFromFloats(0, 0, 0, 1);
+    this.resetTrace(PARK);
+    this.trail.visibility = 0;
+    this.traceRoot.setEnabled(false);
     this.teleport();
   }
 
@@ -269,6 +309,9 @@ export class Arrow {
       pointAlong(along, this.root.rotationQuaternion);
     }
     this.teleport();
+    this.resetTrace(from);
+    this.trail.visibility = TRACE_VISIBILITY;
+    this.traceRoot.setEnabled(true);
     this.body.setLinearVelocity(this.scratch.dir.copyFrom(along).scaleInPlace(speed));
     this.body.setAngularVelocity(Vector3.Zero());
     // Seeded here as well as in `step`, so an arrow that finds something on the
@@ -325,6 +368,17 @@ export class Arrow {
     // than asked for at the contact, because by then it is not the same number.
     if (!this.struck) this.body.getLinearVelocityToRef(this.arrival);
     this.age += dt;
+
+    if (!this.struck) {
+      for (let i = 0; i < this.tracePoints.length - 1; i += 1) {
+        this.tracePoints[i].copyFrom(this.tracePoints[i + 1]);
+      }
+      this.tracePoints[this.tracePoints.length - 1].copyFrom(this.root.position);
+      this.updateTrace();
+    } else {
+      this.trail.visibility = TRACE_VISIBILITY * Math.max(0, 1 - this.age / CONFIG.arrow.visual.fadeSeconds);
+      if (this.trail.visibility === 0) this.traceRoot.setEnabled(false);
+    }
 
     if (this.struck && this.planting) {
       this.planting = false;
@@ -427,10 +481,26 @@ export class Arrow {
     return this.scratch.vel.copyFrom(this.arrival);
   }
 
+  /** Collapse all history at a new shot's origin or at the off-world park. */
+  private resetTrace(at: Vector3): void {
+    for (const point of this.tracePoints) point.copyFrom(at);
+    this.updateTrace();
+  }
+
+  /** Refill the constructor-built tube; `instance` means no mesh is allocated. */
+  private updateTrace(): void {
+    MeshBuilder.CreateTube(
+      this.trail.name,
+      { path: this.tracePoints, instance: this.trail },
+      this.root.getScene(),
+    );
+  }
+
   /** Body before node, which is `weapon.ts`'s rule and the same one applies. */
   dispose(): void {
     this.body.dispose();
-    this.root.dispose(false, true);
+    disposeCarriedRoot(this.traceRoot);
+    disposeCarriedRoot(this.root);
   }
 }
 

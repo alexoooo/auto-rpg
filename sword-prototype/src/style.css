@@ -219,6 +219,45 @@ body {
   margin-top: 0;
 }
 
+.vitality-track {
+  height: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.vitality-fill {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--cut);
+  transition: width 120ms ease;
+}
+
+.vitality-fill.critical {
+  background: var(--hot);
+}
+
+.vitality-value {
+  color: var(--dim);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+}
+
+.injuries {
+  margin-top: 4px;
+  color: var(--dim);
+  font-size: 10px;
+  text-align: left;
+}
+
+.injuries summary {
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .limb {
   display: flex;
   align-items: center;

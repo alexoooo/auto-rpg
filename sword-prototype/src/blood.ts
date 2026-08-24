@@ -1,10 +1,10 @@
-import { Color4 } from "@babylonjs/core/Maths/math.color";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector";
-import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
-import { ParticleSystem } from "@babylonjs/core/Particles/particleSystem";
-import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
-import type { Scene } from "@babylonjs/core/scene";
-import type { Texture } from "@babylonjs/core/Materials/Textures/texture";
+import { Color4 } from "@babylonjs/core/Maths/math.color.js";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture.js";
+import { ParticleSystem } from "@babylonjs/core/Particles/particleSystem.js";
+import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
+import type { Scene } from "@babylonjs/core/scene.js";
+import type { Texture } from "@babylonjs/core/Materials/Textures/texture.js";
 
 // Side effect, and the tenth of its family in this directory. Babylon's
 // tree-shakeable build does not put the particle hooks on Scene until this
@@ -12,9 +12,9 @@ import type { Texture } from "@babylonjs/core/Materials/Textures/texture";
 // every setting, takes `start()` without complaint, and emits nothing at all.
 // The same failure shape as the physics, shadow, depth, post-process, outline,
 // ray, edges and glTF imports: it works in the playground and not here.
-import "@babylonjs/core/Particles/particleSystemComponent";
+import "@babylonjs/core/Particles/particleSystemComponent.js";
 
-import { CONFIG } from "./config";
+import { CONFIG } from "./config.ts";
 
 /** An emitter and the two moments it has left: stop feeding, then collect. */
 interface Wound {
@@ -54,9 +54,9 @@ export class Blood {
   private readonly texture: Texture;
   private readonly wounds: Wound[] = [];
 
-  constructor(scene: Scene) {
+  constructor(scene: Scene, texture: Texture = droplet(scene)) {
     this.scene = scene;
-    this.texture = droplet(scene);
+    this.texture = texture;
   }
 
   /**

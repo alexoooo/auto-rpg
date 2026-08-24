@@ -258,7 +258,7 @@ test("every kind has a floor, and it is the same one the caller must use", () =>
     const under = { speed: floor - 0.01, edgeAlignment: 1, bladeAlignment: 1, nearTip: true };
     assert.equal(
       scoreHit(under, kind).kind,
-      "weak",
+      kind === "empty" ? "slap" : "weak",
       `${kind} should report nothing below its own floor`,
     );
   }
@@ -270,15 +270,24 @@ test("every kind has a floor, and it is the same one the caller must use", () =>
   assert.ok(biteFloor("club") < biteFloor("sword"));
 });
 
-test("a bare hand is not an arming sword", () => {
-  // Nothing ever asks: `Combat` subscribes to weapon bodies and there is no body
-  // to weld to an empty hand. That is exactly how the old default survived three
-  // sessions scoring a fist as a blade without anybody noticing, and a total
-  // table has to answer rather than fall through.
-  const hard = { speed: 30, edgeAlignment: 1, bladeAlignment: 1, nearTip: true };
-  const fist = scoreHit(hard, "empty");
-  assert.equal(fist.damage, 0);
+test("a_fast_fist_crushes_but_never_cuts_or_severs", () => {
+  const fist = scoreHit(
+    { speed: 9, edgeAlignment: 1, bladeAlignment: 1, nearTip: true },
+    "empty",
+  );
+  assert.equal(fist.kind, "crush", "a fist hurts by mass, never by an imaginary edge");
+  assert.equal(fist.damage, 18);
+  assert.equal(severs(fist, -500, "empty"), false, "a punch never takes a limb off");
+});
+
+test("a_slow_fist_is_a_shove_worth_nothing", () => {
+  assert.equal(biteFloor("empty"), 3.5);
+  const fist = scoreHit(
+    { speed: biteFloor("empty") - 0.01, edgeAlignment: 1, bladeAlignment: 1, nearTip: true },
+    "empty",
+  );
   assert.equal(fist.kind, "slap");
+  assert.equal(fist.damage, 0);
   assert.equal(severs(fist, -500, "empty"), false);
 });
 

@@ -42,6 +42,7 @@ the rig overlay exists to expose.
 import argparse
 import json
 from pathlib import Path
+import struct
 import sys
 
 import bmesh
@@ -228,8 +229,14 @@ def piece(name, joint, parts, surface, root):
     # and the panel is invisible from the front and solid from behind, which
     # looks like a missing piece rather than like an inside-out one.
     bmesh.ops.recalc_face_normals(welded, faces=welded.faces)
+    bmesh.ops.dissolve_degenerate(welded, dist=1e-8, edges=list(welded.edges))
+    # Tangent generation only has a defined answer for triangles and quads.
+    # `plate()` deliberately starts with silhouette n-gons, so triangulation
+    # belongs here, after the pieces are welded and before the export sees them.
+    bmesh.ops.triangulate(welded, faces=list(welded.faces))
     mesh = bpy.data.meshes.new(name + "_mesh")
     welded.to_mesh(mesh)
+    mesh.update(calc_edges=True)
     welded.free()
     for part in parts:
         bpy.data.objects.remove(part, do_unlink=True)
@@ -242,6 +249,52 @@ def piece(name, joint, parts, surface, root):
     bpy.context.scene.collection.objects.link(obj)
     obj.location = pivot
     obj.parent = root
+    # Let Blender pack the final, already-triangulated loops. Its exporter may
+    # split loops again while creating tangents; projecting before that split
+    # left two silhouette triangles with three identical UVs even though the
+    # in-memory layer was sound. Smart Project supplies a real island boundary
+    # for those faces and survives the tangent split.
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_all(action="SELECT")
+    # Named island strategies for the places a camera can actually expose.
+    # The open face gets tighter cuts around its features; the surcoat panels
+    # and articulated skirt split at much shallower garment boundaries. Other
+    # pieces use the broad sixty-six-degree hard-surface cut.
+    island_angles = {
+        "head": 0.61,
+        "helm": 0.61,
+        "surcoat": 0.35,
+        "skirt": 0.70,
+    }
+    bpy.ops.uv.smart_project(angle_limit=island_angles.get(name, 1.15192), island_margin=0.02)
+    bpy.ops.object.mode_set(mode="OBJECT")
+    # Smart Project packs every object to the full square. Normalize by actual
+    # triangle surface area instead: sqrt(UV area / square metres) is then the
+    # same 0.30 UV units/metre for a nasal, breastplate, sleeve or surcoat.
+    # Runtime `scale` remains the intentional family detail frequency.
+    uv_layer = obj.data.uv_layers.active
+    if uv_layer:
+        mesh_area = sum(polygon.area for polygon in obj.data.polygons)
+        uv_area = 0.0
+        for polygon in obj.data.polygons:
+            if len(polygon.loop_indices) != 3:
+                raise RuntimeError(f'"{name}" reached UV density normalization before triangulation')
+            uv = [uv_layer.data[index].uv for index in polygon.loop_indices]
+            uv_area += abs((uv[1].x - uv[0].x) * (uv[2].y - uv[0].y) -
+                           (uv[1].y - uv[0].y) * (uv[2].x - uv[0].x)) / 2
+        if mesh_area <= 0 or uv_area <= 0:
+            raise RuntimeError(f'"{name}" has no area for UV density normalization')
+        factor = 0.30 * (mesh_area / uv_area) ** 0.5
+        centre_u = (min(loop.uv.x for loop in uv_layer.data) + max(loop.uv.x for loop in uv_layer.data)) / 2
+        centre_v = (min(loop.uv.y for loop in uv_layer.data) + max(loop.uv.y for loop in uv_layer.data)) / 2
+        for loop in uv_layer.data:
+            loop.uv.x = 0.5 + (loop.uv.x - centre_u) * factor
+            loop.uv.y = 0.5 + (loop.uv.y - centre_v) * factor
+            if loop.uv.x < -1e-6 or loop.uv.x > 1 + 1e-6 or loop.uv.y < -1e-6 or loop.uv.y > 1 + 1e-6:
+                raise RuntimeError(f'"{name}" cannot fit the shared UV density in [0,1]')
     return obj
 
 
@@ -314,11 +367,16 @@ def build(dimensions):
         box((0, pelvis_top - 0.04, pelvis_radius * 0.92), (0.055, 0.05, 0.03)),
     ], "leather")
 
-    # Faulds: a short flared skirt off the belt, and one of the two panels that
-    # carry the fighter's colour.
+    # Faulds: a flared skirt that overlaps the torso through every allowed
+    # lean/twist corner. A neutral ten-millimetre lip was enough only while the
+    # torso was rigid; rotating the 0.26 m seam radius can lift its far corner
+    # roughly 90 mm. `check-warrior.mjs` transforms the conservative seam box at
+    # all four posture corners and refuses a gap.
+    skirt_top = waist + 0.09
     add("skirt", [
-        tube((0, pelvis_top - 0.02, 0), (0, pelvis_bottom + 0.025, 0),
-             pelvis_radius * 1.15, pelvis_radius * 1.52),
+        tube((0, skirt_top, 0), (0, pelvis_bottom + 0.025, 0),
+             pelvis_radius * 1.72, pelvis_radius * 1.52),
+        ring((0, skirt_top - 0.015, 0), pelvis_radius * 1.68, 0.015),
         ring((0, pelvis_bottom + 0.04, 0), pelvis_radius * 1.48, 0.015),
     ], "side")
 
@@ -500,17 +558,93 @@ def export(root, output):
     result = bpy.ops.export_scene.gltf(
         filepath=str(output), export_format="GLB", check_existing=False,
         export_yup=True, export_apply=True, use_selection=True,
-        # Positions and normals, and nothing else. Both of the others were
-        # turned on for a normal-map experiment that is reverted -- `src/arena.ts`
-        # says why -- and with nothing sampling a UV they only doubled the
-        # committed binary. Turn them back on together with whatever needs them.
-        export_texcoords=False, export_normals=True, export_tangents=False,
+        # UVs are an authored-asset contract now. Every costume family carries
+        # a normal map, so every exported primitive needs its tangent frame.
+        export_texcoords=True, export_normals=True, export_tangents=True,
         export_materials="EXPORT", export_cameras=False, export_lights=False,
         export_animations=False, export_skins=False, export_morph=False,
         export_extras=False,
     )
     if result != {"FINISHED"}:
         raise RuntimeError(f"glTF export failed: {result}")
+
+    # Compact every accessor, buffer view and byte span that the export leaves
+    # unreachable. Session 07 also stripped non-steel tangents here; all four
+    # costume families are normal-mapped now, so none are optional payload.
+    raw = output.read_bytes()
+    json_length, json_type = struct.unpack_from("<II", raw, 12)
+    if json_type != 0x4E4F534A:
+        raise RuntimeError("exported GLB does not start with its JSON chunk")
+    document = json.loads(raw[20:20 + json_length].decode("utf-8"))
+    materials = document.get("materials", [])
+    for mesh in document.get("meshes", []):
+        for primitive in mesh.get("primitives", []):
+            material_index = primitive.get("material")
+            material_name = materials[material_index].get("name", "") if material_index is not None else ""
+            if material_name not in {"steel", "leather", "cloth", "cloth_surcoat", "flesh"}:
+                primitive.get("attributes", {}).pop("TANGENT", None)
+    binary_header = 20 + json_length
+    binary_length, binary_type = struct.unpack_from("<II", raw, binary_header)
+    binary = raw[binary_header + 8:binary_header + 8 + binary_length]
+
+    used_accessors = set()
+    for mesh in document.get("meshes", []):
+        for primitive in mesh.get("primitives", []):
+            used_accessors.update(primitive.get("attributes", {}).values())
+            if "indices" in primitive:
+                used_accessors.add(primitive["indices"])
+    accessor_order = sorted(used_accessors)
+    accessor_remap = {old: new for new, old in enumerate(accessor_order)}
+    accessors = document.get("accessors", [])
+    compact_accessors = [accessors[index] for index in accessor_order]
+    for mesh in document.get("meshes", []):
+        for primitive in mesh.get("primitives", []):
+            primitive["attributes"] = {
+                semantic: accessor_remap[index]
+                for semantic, index in primitive.get("attributes", {}).items()
+            }
+            if "indices" in primitive:
+                primitive["indices"] = accessor_remap[primitive["indices"]]
+
+    used_views = {
+        accessor["bufferView"] for accessor in compact_accessors if "bufferView" in accessor
+    }
+    used_views.update(
+        image["bufferView"] for image in document.get("images", []) if "bufferView" in image
+    )
+    view_order = sorted(used_views)
+    view_remap = {old: new for new, old in enumerate(view_order)}
+    source_views = document.get("bufferViews", [])
+    compact_views = []
+    compact_binary = bytearray()
+    for old_index in view_order:
+        view = dict(source_views[old_index])
+        while len(compact_binary) % 4:
+            compact_binary.append(0)
+        source_start = view.get("byteOffset", 0)
+        view["byteOffset"] = len(compact_binary)
+        compact_binary.extend(binary[source_start:source_start + view["byteLength"]])
+        compact_views.append(view)
+    for accessor in compact_accessors:
+        if "bufferView" in accessor:
+            accessor["bufferView"] = view_remap[accessor["bufferView"]]
+    for image in document.get("images", []):
+        if "bufferView" in image:
+            image["bufferView"] = view_remap[image["bufferView"]]
+
+    document["accessors"] = compact_accessors
+    document["bufferViews"] = compact_views
+    document["buffers"][0]["byteLength"] = len(compact_binary)
+    binary = bytes(compact_binary) + b"\0" * ((4 - len(compact_binary) % 4) % 4)
+    encoded = json.dumps(document, separators=(",", ":")).encode("utf-8")
+    encoded += b" " * ((4 - len(encoded) % 4) % 4)
+
+    total = 20 + len(encoded) + 8 + len(binary)
+    output.write_bytes(
+        struct.pack("<III", 0x46546C67, 2, total) +
+        struct.pack("<II", len(encoded), 0x4E4F534A) + encoded +
+        struct.pack("<II", len(binary), binary_type) + binary
+    )
 
 
 def main():

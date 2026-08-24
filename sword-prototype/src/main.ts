@@ -1,11 +1,12 @@
 import { Engine } from "@babylonjs/core/Engines/engine.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { Scene } from "@babylonjs/core/scene.js";
-import type { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator.js";
 
 import { CONFIG } from "./config";
+import { horizontalForward } from "./camera";
 import { buildArena } from "./arena";
+import { refreshShadowCasters, type RoomOcclusionTarget } from "./arena-room";
 import { Fighter, stepPair } from "./fighter";
+import { Arrow } from "./arrow";
 import { Combat } from "./combat";
 import { Hud } from "./hud";
 import { Controls } from "./input";
@@ -13,6 +14,7 @@ import { AimIndicator } from "./aim";
 import { Takeover, Targeting } from "./targeting";
 import { RigView } from "./rigview";
 import { Blood } from "./blood";
+import { advanceFight, FightEnd } from "./fight-end";
 import { SetupScreen } from "./setup";
 import type { Side } from "./physics";
 import {
@@ -27,8 +29,8 @@ import {
   type Mind,
 } from "./mind";
 import { kindOrEmpty } from "./hands";
+import { metaDiagnostic } from "./learning/meta";
 import {
-  advance,
   begin,
   defaultMatchup,
   humanSide,
@@ -62,26 +64,6 @@ const need = <T extends HTMLElement>(id: string): T => {
   return element as T;
 };
 
-/** Everything solid casts a shadow. Indicators and control frames do not. */
-function refreshShadowCasters(scene: Scene, shadows: ShadowGenerator): void {
-  const list = shadows.getShadowMap()?.renderList;
-  if (!list) return;
-  list.length = 0;
-  for (const mesh of scene.meshes) {
-    if (mesh.name === "ground") continue;
-    if (!mesh.isVisible) continue;
-    if (
-      mesh.name.startsWith("aim.") ||
-      mesh.name.startsWith("target.") ||
-      mesh.name.startsWith("takeover.") ||
-      mesh.name.startsWith("rig.")
-    ) {
-      continue;
-    }
-    list.push(mesh);
-  }
-}
-
 /**
  * Whom the camera follows.
  *
@@ -92,7 +74,7 @@ function refreshShadowCasters(scene: Scene, shadows: ShadowGenerator): void {
  * reads -- a facing it does not own, and a point on the ground it follows -- so
  * anything else shaped like a fighter satisfies it without having to be one.
  */
-type CameraSubject = Pick<Fighter, "torso" | "feetPosition">;
+type CameraSubject = Pick<Fighter, "pelvis" | "feetPosition">;
 
 const MODE_TEXT: Record<string, string> = {
   free: "",
@@ -280,11 +262,12 @@ async function boot(): Promise<void> {
       // full 850 N the grip can pull.
       const fighter = yours();
       if (!fighter.armed) return;
-      const seed = cursorForPose(fighter.armPoses()[controls.state.driving]);
+      const seed = cursorForPose(fighter.armPoses()[controls.state.driving], controls.state.driving);
       const hand = controls.state[controls.state.driving];
       hand.pointerX = seed.pointerX;
       hand.pointerY = seed.pointerY;
       hand.roll = seed.roll;
+      hand.wristBend = seed.wristBend;
       handNotice = controls.state.driving === "primary" ? HAND_A_TEXT : HAND_B_TEXT;
       handLeft = CONFIG.camera.noticeSeconds;
     },
@@ -385,15 +368,34 @@ async function boot(): Promise<void> {
       },
       arena.materials,
     );
+    const leftStrikers = left.strikers;
+    const rightStrikers = right.strikers;
     const sides = [
-      { fighter: left, combat: new Combat("left", left.strikers) },
-      { fighter: right, combat: new Combat("right", right.strikers) },
+      { fighter: left, combat: new Combat("left", leftStrikers) },
+      { fighter: right, combat: new Combat("right", rightStrikers) },
     ];
     // Each blade is pointed at the other body. The collision layers already say
     // the same thing in the solver; this says it again in the scoring.
     sides[0].combat.attach(right);
     sides[1].combat.attach(left);
-    return { left, right, sides };
+    // Built once with the bout. Every point is a live Vector3 already owned by
+    // a body or pooled arrow, so the render loop follows both fighters and the
+    // actual projectile trace without minting a target list every frame.
+    const occlusionTargets: RoomOcclusionTarget[] = [
+      { point: left.pelvis.mesh.position }, { point: left.torso.mesh.position }, { point: left.head.mesh.position },
+      { point: right.pelvis.mesh.position }, { point: right.torso.mesh.position }, { point: right.head.mesh.position },
+    ];
+    for (const striker of [...leftStrikers, ...rightStrikers]) {
+      if (!(striker instanceof Arrow)) continue;
+      const live = () => striker.live;
+      const traced = () => striker.live && striker.trail.visibility > 0;
+      occlusionTargets.push(
+        { point: striker.root.position, active: live },
+        { point: striker.tracePoints[0], active: traced },
+        { point: striker.tracePoints[striker.tracePoints.length - 1], active: traced },
+      );
+    }
+    return { left, right, sides, ending: new FightEnd(sides), occlusionTargets };
   };
 
   let bout = buildBout(state.matchup);
@@ -553,24 +555,22 @@ async function boot(): Promise<void> {
       const pose = fighter.armAngles();
       const poses = fighter.armPoses();
       // The person's own cursor is rebased as well as the mind's, and the two
-      // are not the same act. `roll` is an *accumulator* -- `Controls.sample`
-      // integrates the Z and X keys into it and nothing ever writes an absolute
-      // value -- so seeding it is durable and the wrist simply continues from
-      // where the previous driver left it. The two pointer axes are absolute by
+      // are not the same act. Wrist orientation is an absolute policy output,
+      // seeded with the cursor so the handover begins from one whole pose. The two pointer axes are absolute by
       // design, and `onPointerMove` writes the true cursor position back over
       // this on the very next mouse event; seeding them is what makes the
       // takeover frame itself exact, and `handover`'s rebase window is what
       // carries it across the frames after that.
       if (incoming === you) {
-        // Both hands, because the cursor drives one of them and the keys the
-        // other's wrist, and whichever one it is not on is still being commanded
+        // Both hands, because whichever one the cursor is not on is still being commanded
         // from a pose it knows nothing about.
         for (const name of HANDS) {
-          const seed = cursorForPose(poses[name]);
+          const seed = cursorForPose(poses[name], name);
           const hand = controls.state[name];
           hand.pointerX = seed.pointerX;
           hand.pointerY = seed.pointerY;
           hand.roll = seed.roll;
+          hand.wristBend = seed.wristBend;
         }
       }
       fighter.mind = handover(incoming, poses);
@@ -651,8 +651,8 @@ async function boot(): Promise<void> {
 
   /** The bout as the rules read it: two bodies, and the last blow each landed. */
   const ring = (): Ring => ({
-    left: { parts: bout.left.limbs, lastBlow: bout.sides[0].combat.lastHit },
-    right: { parts: bout.right.limbs, lastBlow: bout.sides[1].combat.lastHit },
+    left: { parts: bout.left.limbs, lastBlow: bout.sides[0].combat.lastWound },
+    right: { parts: bout.right.limbs, lastBlow: bout.sides[1].combat.lastWound },
   });
 
   // The control loop runs on the physics clock, not the render clock.
@@ -790,15 +790,18 @@ async function boot(): Promise<void> {
     } else {
       // `getWorldMatrix()` and deliberately not `computeWorldMatrix(true)`, which
       // is the opposite of the rule that holds everywhere else here. The matrix
-      // short-circuits on the render id, so what this reads is the torso as of the
+      // short-circuits on the render id, so what this reads is the pelvis as of the
       // last `scene.render()` rather than as of the physics steps taken since --
       // one frame of extra lag on the facing, on top of the lag the follow blend
       // puts there on purpose. Forcing the recompute would tighten that and would
       // change how Overhead frames a turn, which this session is required not to
       // do. It is a one-line change and it belongs in one that can be judged on
       // its own.
-      const world = follow.torso.mesh.getWorldMatrix();
-      forward.set(world.m[8], world.m[9], world.m[10]).normalize();
+      // Pelvis, not torso: leaning or twisting the chest must not roll the
+      // camera or swing its bearing away from locomotion heading.
+      const world = follow.pelvis.mesh.getWorldMatrix();
+      const horizontal = horizontalForward(world.m[8], world.m[10], forward.x, forward.z);
+      forward.set(horizontal.x, 0, horizontal.z);
     }
 
     // Both goals are built from the fighter's position on the ground, so the
@@ -900,10 +903,17 @@ async function boot(): Promise<void> {
     // `Combat` counts on, so the cap and a report's timestamp are comparable.
     // Only while the fight is actually running: a bout paused behind the curtain
     // must not quietly run out its sixty seconds.
-    if (controls.isActive) state = advance(state, ring(), dt);
+    if (controls.isActive) {
+      state = advanceFight(state, ring(), dt, bout.ending);
+      // The per-bout coordinator owns the one-shot edge and is rebuilt with the
+      // bodies. Observers remain installed: blood, corpse integration,
+      // rendering and camera all continue after attack authority has ended.
+      // `advanceFight` delivers the old-to-new phase edge to that coordinator.
+    }
 
     const driven = yours();
     placeCamera(driven, dt, false);
+    arena.updateRoomOcclusion(bout.occlusionTargets);
 
     aim.update(driven.feetPosition(), driven.aimPoint());
     // The overlay's three numbers follow whoever is being driven, and the panel
@@ -956,6 +966,13 @@ async function boot(): Promise<void> {
         null,
       );
 
+    const learned = Object.fromEntries(
+      (["left", "right"] as const).flatMap((side) => {
+        const mind = bout[side].mind;
+        const reading = mind.name === "learned-meta" ? metaDiagnostic(mind) : null;
+        return reading ? [[side, reading] as const] : [];
+      }),
+    );
     hud.update(
       {
         fps: engine.getFps(),
@@ -965,6 +982,7 @@ async function boot(): Promise<void> {
         meshes: arena.scene.meshes.length,
         rig: rigview.readout(),
         driving: humanSide(state.matchup),
+        learned: Object.keys(learned).length > 0 ? learned : null,
       },
       bout,
       latest,
@@ -1007,6 +1025,8 @@ async function boot(): Promise<void> {
       engine,
       scene: arena.scene,
       camera: arena.camera,
+      /** Room/body/resource census and named visual-to-collider pairs. */
+      arena: { audit: arena.audit },
       get left() {
         return bout.left;
       },

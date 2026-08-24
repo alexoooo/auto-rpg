@@ -34,6 +34,17 @@ export interface RigReadout {
   elbowDriftMm: number;
   /** Blade tip speed, metres per second. */
   tipSpeed: number;
+  /** Commanded forearm pronation/supination, radians. */
+  roll: number;
+  /** Commanded anatomical wrist bend, normalized 0..1. */
+  wristBend: number;
+  /** Solver-achieved squat, normalized 0..1. */
+  crouch: number;
+  /** Separation between the two waist anchors, millimetres. */
+  waistErrorMm: number;
+  waistAtLimit: boolean;
+  hipAtLimit: boolean;
+  kneeAtLimit: boolean;
   /**
    * Which arm the three above describe.
    *
@@ -171,6 +182,13 @@ export class RigView {
     errorMm: 0,
     elbowDriftMm: 0,
     tipSpeed: 0,
+    roll: 0,
+    wristBend: 0,
+    crouch: 0,
+    waistErrorMm: 0,
+    waistAtLimit: false,
+    hipAtLimit: false,
+    kneeAtLimit: false,
     side: "left",
   };
 
@@ -286,6 +304,13 @@ export class RigView {
     this.reading.errorMm = 0;
     this.reading.elbowDriftMm = 0;
     this.reading.tipSpeed = 0;
+    this.reading.roll = 0;
+    this.reading.wristBend = 0;
+    this.reading.crouch = 0;
+    this.reading.waistErrorMm = 0;
+    this.reading.waistAtLimit = false;
+    this.reading.hipAtLimit = false;
+    this.reading.kneeAtLimit = false;
     // Forgotten on purpose, so the first `update` after the overlay comes back
     // up takes the subject afresh rather than trusting one from before it went
     // down -- during which the player may well have changed bodies.
@@ -397,6 +422,13 @@ export class RigView {
       this.reading.errorMm = 0;
       this.reading.elbowDriftMm = 0;
       this.reading.tipSpeed = 0;
+      this.reading.roll = 0;
+      this.reading.wristBend = 0;
+      this.reading.crouch = 0;
+      this.reading.waistErrorMm = 0;
+      this.reading.waistAtLimit = false;
+      this.reading.hipAtLimit = false;
+      this.reading.kneeAtLimit = false;
       this.reading.side = subject;
     }
 
@@ -538,6 +570,39 @@ export class RigView {
     this.reading.errorMm = error * 1000;
     this.reading.elbowDriftMm = travel * 1000;
     this.reading.tipSpeed = fighter.sword?.tipSpeed() ?? 0;
+    const wrist = fighter.armAngles();
+    this.reading.roll = wrist.roll;
+    this.reading.wristBend = wrist.wristBend;
+    this.reading.crouch = fighter.view.self.crouch;
+
+    const B = CONFIG.body;
+    const waistParent = new Vector3(0, B.waist - B.pelvisCentre, 0)
+      .rotateByQuaternionToRef(fighter.pelvis.mesh.rotationQuaternion!, new Vector3())
+      .addInPlace(fighter.pelvis.mesh.position);
+    const waistChild = new Vector3(0, B.waist - B.torsoCentre, 0)
+      .rotateByQuaternionToRef(fighter.torso.mesh.rotationQuaternion!, new Vector3())
+      .addInPlace(fighter.torso.mesh.position);
+    this.reading.waistErrorMm = Vector3.Distance(waistParent, waistChild) * 1000;
+    this.reading.waistAtLimit =
+      Math.abs(fighter.view.self.trunkLean) >= 0.95 ||
+      Math.abs(fighter.view.self.trunkTwist) >= 0.95;
+
+    const relativeX = (parent: AbstractMesh, child: AbstractMesh): number =>
+      parent.rotationQuaternion!.conjugate().multiply(child.rotationQuaternion!).toEulerAngles().x;
+    const thighL = fighter.limbs.find((limb) => limb.key === "thighL")?.part.mesh;
+    const thighR = fighter.limbs.find((limb) => limb.key === "thighR")?.part.mesh;
+    const shinL = fighter.limbs.find((limb) => limb.key === "shinL")?.part.mesh;
+    const shinR = fighter.limbs.find((limb) => limb.key === "shinR")?.part.mesh;
+    const near = (angle: number, min: number, max: number) =>
+      angle <= min + (max - min) * 0.05 || angle >= max - (max - min) * 0.05;
+    this.reading.hipAtLimit = Boolean(
+      thighL && near(relativeX(fighter.pelvis.mesh, thighL), B.hipLimitMin, B.hipLimitMax) ||
+      thighR && near(relativeX(fighter.pelvis.mesh, thighR), B.hipLimitMin, B.hipLimitMax),
+    );
+    this.reading.kneeAtLimit = Boolean(
+      thighL && shinL && near(relativeX(thighL, shinL), B.kneeLimitMin, B.kneeLimitMax) ||
+      thighR && shinR && near(relativeX(thighR, shinR), B.kneeLimitMin, B.kneeLimitMax),
+    );
   }
 
   /**

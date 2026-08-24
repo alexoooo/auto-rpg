@@ -262,15 +262,69 @@ angular motor at 40 000 N.m -- over a thousand times the shipped 34 -- moved the
 - `__sword.rigview.audit()`: **45 bodies and 104 meshes, unchanged across 10 cycles**, and
   the body count holds over 50. The overlay creates no physics object, which is its central
   promise.
-- `public/assets/warrior.glb`: 21 nodes, **13 344 triangles per fighter**, up from 5 476 of
-  blockout primitives. Both fighters together draw 26 688 -- exactly twice the checker's
-  count, which is what says both costumes arrived. 42 costume meshes; `G` strips all 42 and
-  restores all 42.
+- `public/assets/warrior.glb`: 24 nodes, **15 712 triangles per fighter**, up from 15 424
+  before the articulated-waist overlap and all-family tangent frames. Both fighters carry
+  31 424 triangles in 48 costume meshes; `G` strips and restores all 48.
 - Dimensional check (`npm run asset:verify`): floor 0.0 mm, crown 1.800 m against a
   `fighter.height` of 1.800. The digest is pinned in `scripts/run-blender.mjs`; it pins the
   *file*, not the build, because Blender's glTF exporter is not byte-reproducible.
 - Fallback verified by renaming the asset away: the page boots clean, no uncaught error,
   heads still hold 1.660 after 10 s, triangles drop to 10 952 primitives.
+
+Session 08's static asset/material audit, not a visible-browser GPU capture:
+
+| character-surface build | triangles / fighter | character draw submissions | committed texture JPEGs | estimated RGBA8 mip footprint |
+|---|---:|---:|---:|---:|
+| session-07 baseline | 15 424 | 48 for two fighters | 2.87 MiB / 5 maps | 26.7 MiB |
+| cloth/skin/leather/steel | **15 712** | **48 for two fighters** | **7.83 MiB / 15 maps** | **80.0 MiB** |
+| + weapon/object families | **15 712** | **48 for two fighters** | **10.94 MiB / 24 maps** | **128.0 MiB** |
+| + room wall/timber/banner | **15 712** | **48 for two fighters** | **16.97 MiB / 33 maps** | **176.0 MiB** |
+
+The draw count is the mesh count -- no piece was split or merged -- and the memory column is
+the conservative decoded RGBA8 mip-chain calculation, not a driver reading. Three Terlenka
+maps are 1024x1026; the other thirty are 1024 square. The visible frame-cost bracket and
+material-readiness table remain owed to session 14.
+
+Session 10's NullEngine/Havok audit sees **48 environment meshes, 27 instances and 15 world
+bodies**: the invisible 60 m slab, fourteen visible posts, one cosmetic floor and 32 room
+pieces across five instance groups. It names fifteen visual-to-collider pairs -- floor to
+ground and each post to itself. Twenty consecutive audit calls across each of ten rebuilds
+return the same report identity, leave mesh, material, texture, instance and body counts flat,
+and ignore an unrelated scene mesh/material/map. Disposal returns all four scene counts and a
+real `ShadowGenerator` render list to their pre-room baseline. Replacing the 27 instances with
+clones reports zero and makes the sharing test fail; promoting one flat rack marking to a
+solid or lowering one overhead beam below 3.6 m makes the admission test fail. Wrong,
+body-free and geometrically distant collider names each fail independently, including a
+centered rack falsely paired to `post0` through the ordinary build path. Racks and debris are
+zero-height floor markings: no claim about an animated fighter becoming unreachable beyond
+the slab is needed or made.
+
+This is not a browser rendering measurement. Instanced-mesh count is not a measured draw-call
+count, and a hidden tab cannot supply one. Runtime rays end at the actual pelvis/torso/head
+centres of both fighters and live arrow root/trace endpoints through a bout-cached target
+list. Segment/AABB geometry sweeps both camera presets, both zoom clamps, eight bearings and
+translations across the support, including opponent/arrow points outside the former local
+stencil; a forced crossing also proves per-instance overhead-beam culling. Cull -> shadow
+refresh -> reveal retains the beam's caster membership. It is not a screenshot. Visible occlusion/material
+judgement and the required control -> subject -> control frame-cost bracket on both machines
+remain owed to the coordinated browser pass, so session 10 is not yet accepted.
+
+Session 09 adds no warrior triangle or draw submission. Runtime construction tests pin the
+existing visual/physics pairs at sword 5/3, axe 5/2, bow 7/2, shield 4/1, buckler 4/1 and
+club 5/2 meshes/leaves; a pooled arrow remains four visual meshes and one striker shape.
+The same test pins each kind's mass, centre of mass, compound-leaf offsets and dimensions,
+membership/collision masks and striker identity. It is an authority-layout proof, not a
+claim that an unrecorded before-build fight was byte-identical. The headless measurement
+harness imports neither `arena.ts`, `materials.ts`, `surface.ts` nor the texture registry, so
+its current green seed is a health check rather than evidence about the new PBR path. The
+existing arrow test does make the narrower behavioural comparison with the projectile visual
+root enabled and disabled, pinning both position and cached arrival velocity. A direct
+before/after bout comparison remains owed to session 14's integrated cosmetic-parity pass.
+One hundred shots hold meshes, bodies, observers, materials and texture wrappers flat, and
+ten complete fighter rebuilds return those resources to baseline. A deliberate mutation
+from `root.dispose(false, false)` to texture-owning disposal makes the two-sword shared-map
+test fail. The visible combat-distance material and contrast verdict remains owed to the
+matched session-14 playtest.
 
 ## The two arms, and what they cost
 
@@ -302,7 +356,7 @@ set those two numbers.
 
 ## The test tiers
 
-- `npm test` -- **103 tests**, about 1.9 s, no browser. `tests/view.test.mjs`,
+- `npm test` -- **278 tests**, 8.5 s on the 2026-08-24 session-09 gate, no browser. `tests/view.test.mjs`,
   `tests/handover.test.mjs` and `tests/death.test.mjs` run the real solver under
   `NullEngine` and cost about 1.4 s between them; they earn it because the defects they
   guard are invisible to a pure test.
@@ -353,9 +407,11 @@ derived whole-body vitality bar, with local part health retained for injury and 
 4. **Done: the gait-driven knees look good.** Played on 2026-08-23 with `G` up. They do not
    chatter, so `body.gaitDrivesLegs` remains true and the straight-leg fallback remains a
    diagnostic rather than the shipped pose.
-5. **Do the two warriors read as armoured people at Fixed-camera range, and do crimson and
-   blue read apart?** Plus the helm's open face, and whether the skirt and surcoat clip at a
-   walk.
+5. **Surface implementation done; visible verdict owed.** Both warriors now use the same
+   digest-pinned cloth, skin-detail, leather and worked-steel maps, with distinct disposable
+   crimson/blue cloth tints. Authored/fallback family parity and a conservative four-corner
+   waist AABB are mutation-tested. Session 14 still has to judge the open face, material read,
+   team colour and seams at both Fixed-camera zoom clamps while walking and crouching.
 6. **Frame cost**, bracketed control -> subject -> control, on both machines, and the recoil
    table `config.ts` asks for beside `body.jointStiffness`. Both need a visible browser.
 7. **Does a corpse fall like a person?** `body.deadJointStrength` is 0.08 on an argument
@@ -374,21 +430,12 @@ derived whole-body vitality bar, with local part health retained for injury and 
    checked from a background window: `__sword.engine.frameId` frozen across a wait is how to
    tell that is what you are looking at.
 
-9. **Do the warriors look like anything yet?** No. Twenty-four welded primitives in four
-   flat colours; both arms are dressed where one used to be bare, and that is the whole of
-   what improved. The two ways further are a hand-modelled and hand-textured character, or a
-   pre-built CC0 one with the rig re-fitted to its proportions -- and every good free
-   character is stylized low-poly, so the second is a change of art direction and not of
-   mesh. This is the item the person who asked for it should rule on before anybody spends a
-   day on either.
-
-   **A tiling-PBR pass was tried and reverted.** Four CC0 normal maps, fetched and
-   digest-pinned; every material that carried one stopped rendering and the armour vanished
-   while the flesh underneath kept drawing. The cause was never established -- the maps
-   themselves load and decode at 1024x1024, and the geometry was provably present and
-   correctly placed the whole time. Anybody picking this up should start at a browser they
-   can see, strip the maps at the console, and put them back one material at a time; three
-   diagnoses made by probing state rather than looking were all wrong.
+9. **Character surfaces implemented; art-direction verdict owed.** The warriors remain a
+   deliberately welded low-poly silhouette, but they are no longer four flat colours:
+   cloth, skin detail, leather and worked steel have separate CC0 PBR families, consistent
+   authored texel density and total piece-to-family mapping. The earlier disappearing-map
+   failure is closed by delayed attachment and colour fallback. Whether this is a good
+   enough artistic result is the matched visible comparison owed to session 14.
 10. **Done.** This entry recorded that no policy knew what a shield was for, and that an
    `idle` fighter given one took *more* damage than one with two empty hands -- 90 against
    28. Closing it needed the two-handed `FighterView` the entry called for, and that is what
@@ -466,7 +513,7 @@ derived whole-body vitality bar, with local part health retained for injury and 
    high-contrast head/fletch and short flight trail without changing physics or scoring.
    Whether the bow remains enjoyable while pinned at 1.8 m by a duelist is still open.
 
-16. **Decided, not implemented: a bow-armed fighter can win through whole-body vitality.**
+16. **Implemented, measurement refresh owed: a bow-armed fighter can win through whole-body vitality.**
    The bench says it currently cannot:
    `beaten()` wants a severed head or torso and an arrow deliberately never severs,
    so an archer shooting an `idle` fighter for thirty seconds deals 274.7 damage a
@@ -476,8 +523,11 @@ derived whole-body vitality bar, with local part health retained for injury and 
    severing and disability, derive one vitality bar from weighted injury, and give head and
    torso enough weight that either at zero is fatal. Serious combinations of pelvis and limb
    wounds can exhaust the same bar. The exact initial formula and weights, plus the
-   before/after corpus required to move them, are in plan session 01. Numbers under "What a
-   bow is worth" below remain the before measurement.
+   before/after corpus required to move them, are in plan session 01. Session 01 now derives
+   that bar directly from local health and stops both minds and contact scorers on the
+   verdict edge. Numbers under "What a bow is worth" below remain the before measurement;
+   the matching seeded after table is owed while the local Babylon dependency tree cannot
+   load the headless suites.
 
 17. **The console is being filled at two lines a frame, and it is not new.**
    `aim.ts:83` and `:88` pass `dashNb`/`dashSize`/`gapSize` to `CreateDashedLines`
@@ -1073,6 +1123,23 @@ not what strays arms.
 a decided bout shows the pause panel and leaves the phase alone; Space again resumes with both
 fighters still standing; `?` toggles the key list; `R` goes to the setup screen.
 
+## Arrow trace lifecycle; visible verdict still owed
+
+Headless lifecycle harness, `tests/arrow.test.mjs`: every one of the twelve pooled arrows
+now owns one constructor-built tube with 45 history samples -- 0.18 s at the 240 Hz control
+clock -- and no render observer. Park collapses that history and disables its visual root;
+loose reuses and shows it; impact fades it over 0.12 s. The highlighted head, fletch and
+trace all share the arena's one unlit orange material. A hundred launches must leave mesh,
+physics-body and before-render-observer counts unchanged, and the same shot is compared with
+its visual root enabled and disabled to pin position and cached arrival velocity.
+
+The visible-browser verdict is not claimed here yet. The local dependency tree was partial
+when this session landed (`@babylonjs/core/Engines/nullEngine.js` and
+`@babylonjs/havok` were absent), so neither Fixed nor Overhead could be rendered honestly.
+Once dependencies are restored, check both cameras at the 2.4 m start and beyond 10 m,
+record the zoom used, and confirm the 62 % opaque tube reads as a short trace rather than a
+beam. That is acceptance owed, not a skipped pass.
+
 ## The shield, and what a pose was hiding
 
 A shield welded like a blade -- face normal out along the arm -- is a lollipop, and every
@@ -1245,3 +1312,162 @@ and press `Space`.**
   a lowered one. It costs nothing in any measurement -- `idle` scored zero on seventeen
   thousand contacts -- but it is not what a control condition called "idle" looks like it
   should be.
+
+## Crouch and procedural posture -- 2026-08-24
+
+Measured by `npm run measure -- --only posture --seed 20260823`, in the headless real-Havok
+harness. Each crouch row is two simulated seconds; walking uses the shipped forward speed.
+`min foot` is the lower endpoint of either shin, knee occupancy is within 0.05 rad of a hard
+stop, and hand error excludes the documented first 0.6 s build-pose snap.
+
+| motion | crouch | pelvis m | min foot mm | knee limit occupancy | peak hand error mm | physics ms |
+|---|---:|---:|---:|---:|---:|---:|
+| stand | 0 | 0.960 | 40.0 | 0.0% | 0.0 | 35.0 |
+| stand | .25 | 0.875 | 40.0 | 0.0% | 0.1 | 33.1 |
+| stand | .50 | 0.790 | 39.9 | 0.0% | 0.1 | 32.9 |
+| stand | .75 | 0.705 | 39.9 | 0.0% | 0.2 | 31.3 |
+| stand | 1 | 0.620 | 39.9 | 0.0% | 0.5 | 31.1 |
+| walk | 0 | 0.905 | 0.3 | 0.0% | 12.3 | 33.9 |
+| walk | .25 | 0.805 | 0.1 | 0.0% | 12.3 | 32.0 |
+| walk | .50 | 0.727 | 2.2 | 0.0% | 12.3 | 31.5 |
+| walk | .75 | 0.650 | 5.9 | 0.0% | 12.3 | 33.5 |
+| walk | 1 | 0.573 | 12.0 | 0.0% | 12.2 | 32.2 |
+
+The standing rows settle to the requested 85 mm step exactly: the pelvis drop is the leg
+solve, not a second animation. Walking keeps the supporting foot at or above the floor and
+lifts the other; no knee occupied a stop, and the added posture did not move the existing
+12.3 mm walking hand transient. Physics time spans 31.1--35.0 ms with no monotonic crouch
+cost.
+
+The trunk sweep is now bracketed neutral -> requested corner -> neutral. Across all four
+lean/twist corners, waist-anchor separation stayed below the printed 0.01 mm precision,
+peak hand error was 10.69--11.00 mm, and the waist returned below 0.01 mm separation. The
+55.3% limit occupancy is expected: the middle three seconds explicitly request the four
+configured limits, while the one-second approach and recovery are neutral.
+
+## Bare hands -- 2026-08-24
+
+Measured by `npm run measure -- --only fists --bouts 40 --seed 20260823`, in the
+headless real-Havok harness. Sides swap every other bout. `punches` counts only fist
+contacts that dealt damage; `blocks` counts the cooldown-limited zero-damage reports
+created when a weapon or fist physically found an empty hand or forearm.
+
+| cell | role | punches | blocks | damage / bout | survived |
+|---|---|---:|---:|---:|---:|
+| unarmed vs idle | unarmed swinger | 423 | 80 | 103.0 | 40 / 40 |
+| | unarmed idle | 0 | 120 | 0.0 | 40 / 40 |
+| unarmed vs sword | unarmed swinger | 271 | 4,022 | 84.6 | 0 / 40 |
+| | sword swinger | 26 | 3,941 | 263.7 | 40 / 40 |
+| sword + empty vs sword | duelist, sword + fist | 0 | 275 | 171.2 | 15 / 40 |
+| | swinger, sword + fist | 0 | 56 | 211.2 | 25 / 40 |
+
+The scoring rule is therefore kept: below 3.5 m/s a fist is a zero-damage slap whose
+physical contact still shoves, 9 m/s reaches the 18-damage ceiling, and a fist never
+severs. An unarmed fighter is dangerous at contact --
+103.0 damage against a passive body and 84.6 while being attacked -- but is plainly worse
+than steel: it survived none of forty sword bouts while the sword survived all forty. The
+large block counts are not invented defence rolls; they are repeated physical contacts at
+the combat cooldown while a hand or forearm remains interposed.
+
+The first probe registered zero fist contacts despite visible overlap. That was not a
+balance finding: Havok emits no per-body collision stream until
+`setCollisionCallbackEnabled(true)` is called. `Weapon` and `Arrow` already did that in
+their constructors; a fist deliberately has neither constructor, so `FistStrike` enables
+it on the existing hand body. No body, shape, mesh or constraint was added.
+
+The adversarial lifecycle pass then pinned what those counts alone could not: `Combat`
+adds and removes exactly one observer on the real hand across each rebuild, every body,
+mesh and constraint returns to the same empty-scene baseline, and a contact delivered by
+the dropped hand cannot change health or the log. Material-point velocity is also read on
+opposite sides of a rotating hand; a centre-only probe had exercised the linear term while
+leaving `angular x radius` untested.
+
+These figures supersede the first session-06 run. That run happened before the adversarial
+pass made a slow fist enter the physical shove path and before two bare swinger hands chose
+against the opponent's chest. The latter preserves the durable rule that swinger ignores
+blade position, speed and loss; only duelist chooses which fist covers from `threatHand`.
+
+## Action options and evaluation corpus -- 2026-08-24
+
+Session 11 separates eight named actions -- close, disengage, cover, cut, thrust, punch,
+shoot and recover -- from the meta-controller that chooses among them. `scriptedMetaMind`
+owns a real `CombatOption`, enters it once and calls its `decide` until `done`; it does not
+delegate to the old policy. Old policies and options instead share pure aim, covering-line,
+stroke timing/state, shot timing, roll and posture primitives. A 1,200-sample varied trace
+at 240 Hz reached close, cover and cut and made both controllers advance and give ground;
+its report covers all 20 intent fields and records changed-sample counts and maximum numeric
+deltas per field. All 20 fields are command-identical: the option meta-controller reproduces
+the old duelist's circling, seeded cadence, attack-hand choice and phase boundaries while
+still entering and executing real options. Cut/punch share the old
+duelist's 0.15 s chamber, 0.11 s commit and 0.26 s guarded recovery. Shoot shares the old
+archer's 0.90 s draw, release edge and 0.30 s cooldown.
+
+`npm run ai:evaluate` with held-out base 20260827 ran 120 scored bouts in 36.9 seconds of
+wall clock: twelve parity cells plus eight real forced-option cells and the loadout/policy
+controls, both arena sides, and
+separate train/validation/test seed ranges. Both sides of a mirror pair use the same seed.
+All 120 ended by exhaustion. The corpus includes every selectable
+equipment kind and every existing policy, and the real option cells reached all eight
+option names. An immediate non-writing rerun matched byte-for-byte
+after JSON parsing. The full per-bout factual record is
+`asset-src/learning/baseline-v1.json`; it is evidence for later comparisons, not a golden
+to overwrite when an outcome surprises. The default command compares; only the explicit
+`--write-baseline` switch replaces it.
+
+Each bout accumulates range bins, real option occupancy and transitions, option entries as
+attack attempts, contacts by exact striking hand and kind, defender blocks, crouch time,
+trunk-twist sign changes, damage, final vitality, winner and time. Combat contacts arrive
+through a callback before `Combat.log` is truncated. They are not reconstructed from that
+24-entry screen history; the callback test observes 40 contacts while the log retains 24.
+Legacy swinger, idle, duelist and archer controls carry `null` rather than invented option
+labels, and their option occupancy and attempt maps remain exactly zero.
+
+The evaluator runs same-seed, same-loadout mirrored pairs for legacy duelist versus
+scripted-meta duelist and legacy archer versus scripted-meta archer across all three splits.
+Every paired opponent is the actual adversarial swinger. Before fixing limits, bases
+20260823 through 20260826 supplied 48 calibration brackets: an unscored warm-up followed by
+legacy, meta and legacy-repeat for each split, specialist and side. Reusing one Havok wasm
+module made equal legacy inputs flip winners after scene disposal, disproving the old
+headless-harness claim that worlds were independent. Giving every bout a fresh wasm instance
+made all 48 legacy brackets exact. Their prospective maxima -- damage 0, seconds 0 and each
+of the 20 mean intent-field deltas 0 -- were fixed before evaluating held-out base 20260827.
+All 12 held-out subject rows then matched winner, ending, damage, duration and every intent
+field at every ordered sample exactly; the repeated controls were exact too. Evaluation JSON
+v3 records equal sample counts and exact sequence-match verdicts for both comparisons. The
+mean deltas remain a readable report, but are not the gate: a +x frame followed by a -x frame
+can leave a false zero mean. A discrete winner or ending mismatch is an unconditional
+refusal, not something a numeric tolerance can hide.
+
+The JSON also persists the complete 20-field delta report from the 1,200-sample varied
+synthetic trace and the old/meta archer button output. Every field changed on 0 of 1,200
+frames with maximum delta 0. On 520 samples both archers held/released 385/135 frames with
+three button edges, proving draw and release rather than merely comparing two all-up or
+all-down traces. The JSON stores and enforces per-field changed-rate/max-delta limits plus
+shot-duty and edge-count limits.
+
+The learner boundary is feature schema v2: 50 named finite columns for measure and closing
+rate, both vitalities, one-hot kind plus loss/reach/tip speed for all four visible hands,
+threat bearing-to-tip and speed from one chosen dangerous hand, solved posture and a clamped
+clock fraction. A fast primary shield plus a slower secondary sword selects both bearing and
+speed from the sword rather than combining two unrelated hands. A nonzero asymmetric
+mirror fixture uses explicit per-column signs: bearing and trunk twist negate while scalar
+facts remain. The evaluator owns a persistent `FeatureWriter`, so closing rate reads the
+previous measure/time sample in production; the remaining columns read `FighterView`
+directly.
+
+The required adversarial pass was observed red before restoration:
+
+- deleting `zoom` from an option intent failed `every_option_returns_a_complete_bounded_intent`;
+- moving validation's lower seed onto train's upper seed stopped module load with
+  `seed ranges train and validation overlap`;
+- truncating the event accumulator at 24 failed the direct-event test at 24 versus 40.
+- replacing the real meta-controller decision with a blank intent removed close, cover, cut
+  and recover from the varied trace;
+- collapsing the one-hot weapon columns made sword and axe indistinguishable;
+- accepting an unknown option as recover failed the refusal assertion naming `teleport`.
+- restoring the wrong both-arms-lost threat fallback changed four hand-pointer fields in a
+  real duelist row and failed exact held-out parity;
+- sharing a Havok module between bracket bouts made three of four calibration bases refuse
+  because repeated legacy winner/ending results differed.
+- adding equal and opposite intent deviations to consecutive frames preserved the reported
+  mean and failed the ordered sequence gate.

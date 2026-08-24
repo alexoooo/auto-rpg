@@ -1,5 +1,9 @@
 # Session 06 -- an empty hand is still a hand
 
+**Status: implemented and measured 2026-08-24.** The 40-bout side-swapped corpus is
+recorded durably in `docs/measurements.md`; the plan remains until the multi-session topic
+closes.
+
 ## Outcome
 
 Let an empty hand punch, shove and physically block. It uses the existing simulated hand
@@ -36,15 +40,21 @@ Add to `tests/scoring.test.mjs`:
 Add to `tests/weapons.test.mjs`:
 
 - `an_empty_hand_builds_no_weapon_body_but_exposes_one_fist_striker`
+- `a_slow_fist_slaps_and_shoves_without_hurting`
 - `a_lost_empty_hand_cannot_score_or_block`
+- `a_dropped_fist_contact_cannot_change_health_or_the_log`
+- `a_fist_watcher_and_every_fighter_resource_leave_cleanly_across_rebuilds`
 
 Add to `tests/minds.test.mjs`:
 
 - `an_unarmed_policy_punches_instead_of_swinging_an_imaginary_sword`
+- `two_duelist_fists_leave_the_hand_nearest_the_actual_dangerous_hand_on_cover`
+- `two_swinger_fists_choose_against_the_chest_and_still_ignore_blades`
 - `a_free_empty_hand_covers_a_threat_without_stealing_a_two_handed_grip`
 
-Break the fist's real-body velocity reader and set `severs` true for `empty`; the speed and
-non-sever tests must fail.
+Break the fist's angular material-point velocity reader, its spent-contact guard and its
+observer removal; the opposite-offset velocity, post-drop contact and rebuild lifecycle
+tests must fail. Set `severs` true for `empty`; the non-sever test must fail.
 
 ## Measurement and acceptance
 

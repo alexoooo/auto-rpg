@@ -45,7 +45,7 @@ async function world() {
   const materials = {
     flesh: mat("flesh"), cloth: mat("cloth"), steel: mat("steel"),
     leather: mat("leather"), brass: mat("brass"), hide: mat("hide"),
-    wood: mat("wood"),
+    wood: mat("wood"), arrowAccent: mat("arrow-accent"),
   };
 
   const ground = MeshBuilder.CreateBox("ground", { width: 60, height: 0.4, depth: 60 }, scene);
@@ -124,6 +124,152 @@ async function world() {
 /** Bodies the engine is actually stepping, which is what a leak shows up in. */
 const bodyCount = (scene) => scene.getPhysicsEngine().getBodies().length;
 
+test("a parked arrow has no visible trace", async () => {
+  const { scene, materials } = await world();
+  const layers = layersFor("left");
+  const quiver = new Quiver(
+    scene,
+    { name: "q", layer: layers.arrow, collidesWith: layers.arrowCollides },
+    materials,
+  );
+  const arrow = quiver.arrows[0];
+
+  assert.equal(arrow.traceRoot.isEnabled(), false, "the parked visual root is disabled");
+  assert.equal(arrow.trail.isEnabled(), false, "so its tube contributes no draw call");
+  assert.equal(scene.getMeshByName("q.0.head").material.name, materials.arrowAccent.name);
+  assert.equal(scene.getMeshByName("q.0.fletch").material.name, materials.arrowAccent.name);
+  assert.equal(arrow.trail.material.name, materials.arrowAccent.name, "all three highlights share the accent");
+  arrow.tracePoints[0].set(1, 2, 3);
+  arrow.park();
+  assert.ok(
+    arrow.tracePoints.every((point) => Vector3.DistanceSquared(point, arrow.root.position) === 0),
+    "and stale flight history is collapsed at the park",
+  );
+});
+
+test("loosing restarts one pooled trace from the nock", async () => {
+  const { scene, materials, frames, driver } = await world();
+  const layers = layersFor("left");
+  const quiver = new Quiver(
+    scene,
+    { name: "q", layer: layers.arrow, collidesWith: layers.arrowCollides },
+    materials,
+  );
+  const bow = driver(quiver);
+  const arrow = quiver.arrows[0];
+  const trail = arrow.trail;
+  const nock = new Vector3(0, 4, -8);
+
+  arrow.loose(nock, new Vector3(0, 0, 1), 45);
+  assert.equal(arrow.trail, trail, "loose reuses the constructor-built tube");
+  assert.equal(arrow.traceRoot.isEnabled(), true);
+  assert.ok(
+    arrow.tracePoints.every((point) => Vector3.DistanceSquared(point, nock) < 1e-12),
+    "the whole history restarts at this shot's nock",
+  );
+
+  // Enter through the quiver's queued seam before measuring flight. Calling
+  // `loose` between solver steps is useful for the reset assertion above but
+  // deliberately violates the one-step teleport ordering the arena provides.
+  arrow.park();
+  frames(1);
+  bow.fire(nock, new Vector3(0, 0, 1), 45);
+  frames(8);
+  const traceSpan = Vector3.Distance(arrow.tracePoints[0], arrow.tracePoints.at(-1));
+  assert.ok(traceSpan > 1, `then the same tube records a readable span of flight: ${traceSpan}`);
+  arrow.park();
+  arrow.loose(new Vector3(3, 5, -2), new Vector3(0, 0, 1), 30);
+  assert.equal(arrow.trail, trail, "recycling still creates no replacement mesh");
+  assert.ok(
+    arrow.tracePoints.every((point) => Vector3.DistanceSquared(point, new Vector3(3, 5, -2)) < 1e-12),
+    "and no point from the previous flight survives",
+  );
+});
+
+test("a struck arrow fades its trace and is collected", async () => {
+  const { scene, materials, frames, driver } = await world();
+  const layers = layersFor("left");
+  const quiver = new Quiver(
+    scene,
+    { name: "q", layer: layers.arrow, collidesWith: layers.arrowCollides },
+    materials,
+  );
+  const bow = driver(quiver);
+  const arrow = quiver.arrows[0];
+
+  bow.fire(new Vector3(0, 2, -4), new Vector3(0, -0.5, 1).normalize(), 30);
+  for (let i = 0; i < 120 && !arrow.struck; i += 1) frames(1);
+  assert.equal(arrow.struck, true, "the shot reached the floor");
+  const atImpact = arrow.trail.visibility;
+  frames(Math.ceil(CONFIG.arrow.visual.fadeSeconds * 30));
+  assert.ok(arrow.trail.visibility < atImpact, "the trace fades after impact");
+  frames(Math.ceil(CONFIG.arrow.visual.fadeSeconds * 60) + 2);
+  assert.equal(arrow.traceRoot.isEnabled(), false, "the spent trace stops drawing after its fade");
+  assert.equal(arrow.live, true, "while the planted arrow remains readable on the floor");
+
+  frames(Math.round((CONFIG.arrow.stickSeconds + 1) * 60));
+  assert.equal(arrow.live, false, "and normal collection still parks the arrow");
+});
+
+test("a hundred traced shots create no mesh body or observer growth", async () => {
+  const { scene, materials, frames, driver } = await world();
+  const layers = layersFor("left");
+  const quiver = new Quiver(
+    scene,
+    { name: "q", layer: layers.arrow, collidesWith: layers.arrowCollides },
+    materials,
+  );
+  const bow = driver(quiver);
+  const meshes = scene.meshes.length;
+  const bodies = bodyCount(scene);
+  const observers = scene.onBeforeRenderObservable.observers.length;
+  const materialCount = scene.materials.length;
+  const textureCount = scene.textures.length;
+
+  for (let shot = 0; shot < 100; shot += 1) {
+    bow.fire(new Vector3(0, 4, -8), new Vector3(0, 0, 1), 45);
+    frames(6);
+  }
+
+  assert.equal(scene.meshes.length, meshes);
+  assert.equal(bodyCount(scene), bodies);
+  assert.equal(scene.onBeforeRenderObservable.observers.length, observers);
+  assert.equal(scene.materials.length, materialCount);
+  assert.equal(scene.textures.length, textureCount);
+});
+
+test("arrow highlighting does not change flight or arrival speed", async () => {
+  const origin = new Vector3(0, 4, -8);
+  const along = new Vector3(0, 0, 1);
+  const fly = async (visible) => {
+    const { scene, materials, frames, driver } = await world();
+    const layers = layersFor("left");
+    const quiver = new Quiver(
+      scene,
+      { name: "q", layer: layers.arrow, collidesWith: layers.arrowCollides },
+      materials,
+    );
+    const bow = driver(quiver);
+    bow.trackFor(48);
+    bow.fire(origin, along, 45);
+    frames(1);
+    const arrow = quiver.arrows.find((candidate) => candidate.live);
+    assert.ok(arrow, "the queued shot was loosed");
+    if (!visible) arrow.traceRoot.setEnabled(false);
+    frames(13);
+    return {
+      position: arrow.root.position.clone(),
+      arrival: arrow.velocityAt(arrow.root.position).clone(),
+    };
+  };
+
+  const visible = await fly(true);
+  const hidden = await fly(false);
+
+  assert.deepEqual(hidden.position.asArray(), visible.position.asArray());
+  assert.deepEqual(hidden.arrival.asArray(), visible.arrival.asArray());
+});
+
 test("a quiver builds every arrow up front and creates nothing across a hundred shots", async () => {
   const { scene, materials, frames, driver } = await world();
   const layers = layersFor("left");
@@ -136,6 +282,8 @@ test("a quiver builds every arrow up front and creates nothing across a hundred 
 
   const meshesAfterBuild = scene.meshes.length;
   const bodiesAfterBuild = bodyCount(scene);
+  const materialsAfterBuild = scene.materials.length;
+  const texturesAfterBuild = scene.textures.length;
   assert.equal(quiver.arrows.length, CONFIG.arrow.count);
   assert.equal(quiver.flying, 0, "and none of them starts in the world");
 
@@ -146,6 +294,8 @@ test("a quiver builds every arrow up front and creates nothing across a hundred 
 
   assert.equal(scene.meshes.length, meshesAfterBuild, "scene.meshes is flat across a hundred shots");
   assert.equal(bodyCount(scene), bodiesAfterBuild, "and so is the body count");
+  assert.equal(scene.materials.length, materialsAfterBuild, "shared materials are flat across pooling");
+  assert.equal(scene.textures.length, texturesAfterBuild, "shared texture wrappers are flat across pooling");
 
   // And they all come back. Four seconds of life plus six of lying about is ten,
   // so run past it and the quiver is empty again.
@@ -286,7 +436,7 @@ test("a fighter with a bow builds a quiver, and one with a sword does not", asyn
 
   // `strikers` is what `Combat` watches: the bow, plus every arrow in the quiver.
   assert.equal(archer.strikers.length, 1 + CONFIG.arrow.count);
-  assert.equal(swordsman.strikers.length, 1, "a sword and nothing else");
+  assert.equal(swordsman.strikers.length, 2, "a sword and its free fist");
   const combat = new Combat("left", archer.strikers);
   assert.ok(combat, "and Combat takes them without knowing which is which");
 });

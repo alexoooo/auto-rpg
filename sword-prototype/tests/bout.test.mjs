@@ -15,6 +15,7 @@ import {
   settle,
   takeBody,
   toSelect,
+  vitality,
   verdict,
   withControl,
   withEquipment,
@@ -40,6 +41,7 @@ const BODY = [
   "hand",
   "offUpperArm",
   "offForearm",
+  "offHand",
   "thighL",
   "shinL",
   "thighR",
@@ -47,7 +49,7 @@ const BODY = [
 ];
 
 /** A fighter with nothing wrong with it. */
-const whole = () => BODY.map((key) => ({ key, health: 100, severed: false }));
+const whole = () => BODY.map((key) => ({ key, health: 100, maxHealth: 100, severed: false }));
 
 /** The same, with one part cut off it -- which is how `Fighter.sever` leaves one. */
 const minus = (key) =>
@@ -268,6 +270,59 @@ test("two whole fighters are still fighting", () => {
   assert.equal(settle(ring(corner(whole()), corner(whole())), 0), null);
 });
 
+test("a_whole_body_has_full_vitality", () => {
+  assert.equal(vitality(whole()), 1);
+});
+
+test("zero_torso_or_head_health_exhausts_the_one_vitality_bar", () => {
+  for (const key of ["torso", "head"]) {
+    const hurt = whole().map((part) => (part.key === key ? { ...part, health: 0 } : part));
+    assert.equal(vitality(hurt), 0, key);
+    assert.equal(beaten(hurt), true, key);
+  }
+});
+
+test("several_non_vital_wounds_can_finish_what_none_finishes_alone", () => {
+  const keys = new Set(["pelvis", "thighL", "shinL", "thighR", "shinR"]);
+  for (const key of keys) {
+    assert.ok(vitality(whole().map((part) => part.key === key ? { ...part, health: 0 } : part)) > 0);
+  }
+  const hurt = whole().map((part) => keys.has(part.key) ? { ...part, health: 0 } : part);
+  assert.equal(vitality(hurt), 0);
+  assert.equal(beaten(hurt), true);
+});
+
+test("one_ruined_arm_does_not_kill_its_owner", () => {
+  const keys = new Set(["upperArm", "forearm", "hand"]);
+  const hurt = whole().map((part) => keys.has(part.key) ? { ...part, health: 0 } : part);
+  assert.ok(vitality(hurt) > 0);
+  assert.equal(beaten(hurt), false);
+});
+
+test("an_unknown_part_cannot_silently_escape_the_vitality_rule", () => {
+  assert.throws(
+    () => vitality([...whole(), { key: "mystery", health: 100, maxHealth: 100, severed: false }]),
+    /unknown vital part "mystery"/,
+  );
+});
+
+test("non_finite_health_cannot_poison_the_vitality_bar", () => {
+  for (const health of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+    const hurt = whole().map((part) => part.key === "head" ? { ...part, health } : part);
+    assert.throws(() => vitality(hurt), /invalid health for vital part "head"/);
+  }
+
+  const overflow = whole().map((part) => part.key === "torso"
+    ? { ...part, health: Number.MAX_VALUE, maxHealth: Number.MIN_VALUE }
+    : part);
+  assert.throws(() => vitality(overflow), /invalid health ratio for vital part "torso"/);
+});
+
+test("a_disposed_body_is_not_reported_dead", () => {
+  assert.equal(vitality([]), 1);
+  assert.equal(beaten([]), false);
+});
+
 test("a head off ends it", () => {
   assert.equal(beaten(minus("head")), true);
 });
@@ -292,9 +347,9 @@ test("every part at zero ends it, with nothing severed at all", () => {
   assert.equal(beaten(spent), true);
 });
 
-test("one part left with anything on it is a fighter still standing", () => {
-  const nearly = flattened().map((part) => (part.key === "pelvis" ? { ...part, health: 0.5 } : part));
-  assert.equal(beaten(nearly), false);
+test("one badly hurt non-vital part is a fighter still standing", () => {
+  const hurt = whole().map((part) => (part.key === "pelvis" ? { ...part, health: 0.5 } : part));
+  assert.equal(beaten(hurt), false);
 });
 
 test("a body with no parts at all is a disposed fighter, not a beaten one", () => {
@@ -313,16 +368,16 @@ test("the winner is named by its own last blow, not by the last blow anybody str
   );
 
   assert.equal(outcome.winner, "right");
-  assert.equal(outcome.ending, "beaten");
+  assert.equal(outcome.ending, "exhausted");
   assert.equal(outcome.blow.at, 8.0);
-  assert.equal(outcome.text, "right, by a cut to the head at 14.2 m/s");
+  assert.equal(outcome.text, "right, as the other was exhausted by a cut to the head at 14.2 m/s");
 });
 
 test("a fighter that falls apart with no blow to its name still wins", () => {
   const outcome = settle(ring(corner(flattened()), corner(whole())), 3);
   assert.equal(outcome.winner, "right");
   assert.equal(outcome.blow, null);
-  assert.equal(outcome.text, "right, left standing");
+  assert.equal(outcome.text, "right, left standing as the other was exhausted");
 });
 
 test("both of them down on one step is a draw", () => {
@@ -331,9 +386,9 @@ test("both of them down on one step is a draw", () => {
     5,
   );
   assert.equal(outcome.winner, null);
-  assert.equal(outcome.ending, "beaten");
+  assert.equal(outcome.ending, "exhausted");
   assert.equal(outcome.blow, null);
-  assert.equal(outcome.text, "a draw: both fell together");
+  assert.equal(outcome.text, "a draw: both were exhausted together");
 });
 
 test("the cap ends a bout nobody is winning, and names a draw", () => {
@@ -360,11 +415,11 @@ test("a bout that is being won on damage is still a draw at the cap", () => {
 });
 
 test("the verdict spells the four kinds of blow, and lower-cases the limb", () => {
-  const at = (kind) => verdict("left", "beaten", blow("left", { kind, limb: "Sword arm" }));
-  assert.equal(at("cut"), "left, by a cut to the sword arm at 14.2 m/s");
-  assert.equal(at("thrust"), "left, by a thrust to the sword arm at 14.2 m/s");
-  assert.equal(at("slap"), "left, by a flat to the sword arm at 14.2 m/s");
-  assert.equal(at("weak"), "left, by a shove to the sword arm at 14.2 m/s");
+  const at = (kind) => verdict("left", "exhausted", blow("left", { kind, limb: "Sword arm" }));
+  assert.equal(at("cut"), "left, as the other was exhausted by a cut to the sword arm at 14.2 m/s");
+  assert.equal(at("thrust"), "left, as the other was exhausted by a thrust to the sword arm at 14.2 m/s");
+  assert.equal(at("slap"), "left, as the other was exhausted by a flat to the sword arm at 14.2 m/s");
+  assert.equal(at("weak"), "left, as the other was exhausted by a shove to the sword arm at 14.2 m/s");
 });
 
 // ---------- and all of it end to end ----------

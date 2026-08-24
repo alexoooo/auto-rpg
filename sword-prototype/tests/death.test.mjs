@@ -4,20 +4,24 @@ import { readFile } from "node:fs/promises";
 
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
 import {
   PhysicsMotionType,
   PhysicsConstraintAxis,
+  PhysicsEventType,
 } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin.js";
 import HavokPhysics from "@babylonjs/havok";
 
 import { CONFIG } from "../src/config.ts";
 import { attachPhysics } from "../src/physics.ts";
 import { Fighter } from "../src/fighter.ts";
+import { Combat } from "../src/combat.ts";
+import { Blood } from "../src/blood.ts";
 import { idleMind } from "../src/mind.ts";
-import { beaten } from "../src/bout.ts";
+import { beaten, begin, defaultMatchup, selectScreen } from "../src/bout.ts";
 import { blankIntent } from "../src/policies.ts";
+import { advanceFight, FightEnd } from "../src/fight-end.ts";
 
 /**
  * What losing your head costs.
@@ -67,7 +71,7 @@ async function ring() {
   const materials = {
     flesh: mat("flesh"), cloth: mat("cloth"), steel: mat("steel"),
     leather: mat("leather"), brass: mat("brass"), hide: mat("hide"),
-    wood: mat("wood"),
+    wood: mat("wood"), arrowAccent: mat("arrow-accent"),
   };
 
   const mind = counter();
@@ -96,6 +100,21 @@ function frame(scene, left, right, clock) {
 }
 
 const limbOf = (fighter, key) => fighter.limbs.find((limb) => limb.key === key);
+
+const waistReading = (fighter) => {
+  const B = CONFIG.body;
+  const relative = fighter.pelvis.mesh.rotationQuaternion
+    .conjugate()
+    .multiply(fighter.torso.mesh.rotationQuaternion)
+    .toEulerAngles();
+  const parent = new Vector3(0, B.waist - B.pelvisCentre, 0)
+    .rotateByQuaternionToRef(fighter.pelvis.mesh.rotationQuaternion, new Vector3())
+    .addInPlace(fighter.pelvis.mesh.position);
+  const child = new Vector3(0, B.waist - B.torsoCentre, 0)
+    .rotateByQuaternionToRef(fighter.torso.mesh.rotationQuaternion, new Vector3())
+    .addInPlace(fighter.torso.mesh.position);
+  return { relative, error: Vector3.Distance(parent, child) };
+};
 
 test("a fighter is alive until its head comes off", async (t) => {
   const { engine, left, right } = await ring();
@@ -136,16 +155,16 @@ test("a dead fighter stops being keyframed and falls", async (t) => {
   for (let i = 0; i < 20; i += 1) frame(scene, left, right, clock);
 
   assert.equal(
-    left.torso.body.getMotionType(),
+    left.pelvis.body.getMotionType(),
     PhysicsMotionType.ANIMATED,
-    "a living torso goes exactly where it is steered",
+    "a living pelvis goes exactly where it is steered",
   );
   const standing = left.torso.mesh.position.y;
 
   left.sever(limbOf(left, "head"), new Vector3(0, 1, 0));
 
   assert.equal(
-    left.torso.body.getMotionType(),
+    left.pelvis.body.getMotionType(),
     PhysicsMotionType.DYNAMIC,
     "a dead one is let go of",
   );
@@ -159,6 +178,35 @@ test("a dead fighter stops being keyframed and falls", async (t) => {
   );
 });
 
+test("a_twisted_living_waist_remains_constrained_and_a_dead_one_still_falls", async (t) => {
+  const { engine, scene, left, right } = await ring();
+  t.after(() => engine.dispose());
+  const intent = blankIntent();
+  intent.posture.trunkTwist = 1;
+  left.mind = { name: "twisted", decide: () => intent };
+  const clock = { now: 0 };
+  for (let i = 0; i < 120; i += 1) frame(scene, left, right, clock);
+
+  const waist = limbOf(left, "pelvis").attachment;
+  assert.equal(left.pelvis.body.getMotionType(), PhysicsMotionType.ANIMATED,
+    "the living pelvis is the planted locomotion root");
+  assert.ok(waist.getAxisMotorMaxForce(PhysicsConstraintAxis.ANGULAR_Y) > 0,
+    "the living waist is motor constrained while twisted");
+  const achieved = waistReading(left);
+  assert.ok(achieved.relative.y > CONFIG.body.trunkTwistMax * 0.70,
+    `requested +${CONFIG.body.trunkTwistMax} rad, achieved ${achieved.relative.y.toFixed(3)}`);
+  assert.ok(achieved.error < 0.006,
+    `the articulated waist anchors separated ${(achieved.error * 1000).toFixed(2)} mm`);
+  const standing = left.torso.mesh.position.y;
+
+  left.sever(limbOf(left, "head"), new Vector3(0, 1, 0));
+  assert.equal(left.pelvis.body.getMotionType(), PhysicsMotionType.DYNAMIC,
+    "death releases the locomotion root");
+  for (let i = 0; i < 90; i += 1) frame(scene, left, right, clock);
+  assert.ok(left.torso.mesh.position.y < standing - 0.2,
+    `the twisted corpse should fall: ${standing.toFixed(3)} -> ${left.torso.mesh.position.y.toFixed(3)} m`);
+});
+
 test("a corpse's joints go slack, but not to nothing", async (t) => {
   const { engine, left } = await ring();
   t.after(() => engine.dispose());
@@ -168,7 +216,7 @@ test("a corpse's joints go slack, but not to nothing", async (t) => {
   const waist = limbOf(left, "pelvis").attachment;
   const axis = PhysicsConstraintAxis.ANGULAR_X;
   const living = waist.getAxisMotorMaxForce(axis);
-  assert.equal(living, CONFIG.body.jointStiffness * CONFIG.body.waistStrength);
+  assert.equal(living, CONFIG.body.trunkMotorForce);
 
   left.sever(limbOf(left, "head"), new Vector3(0, 1, 0));
 
@@ -193,7 +241,7 @@ test("the other fighter is untouched by it", async (t) => {
   assert.equal(right.alive, true);
   assert.equal(right.armed, true);
   assert.equal(
-    right.torso.body.getMotionType(),
+    right.pelvis.body.getMotionType(),
     PhysicsMotionType.ANIMATED,
     "one death is not two",
   );
@@ -230,4 +278,163 @@ test("a corpse can still be tuned", async (t) => {
   assert.doesNotThrow(() => left.applyTuning());
   for (let i = 0; i < 10; i += 1) frame(scene, left, right, clock);
   assert.equal(left.alive, false);
+});
+
+test("the_winning_mind_is_not_asked_again_after_the_verdict", async (t) => {
+  const { engine, scene, left, right, mind } = await ring();
+  t.after(() => engine.dispose());
+
+  const clock = { now: 0 };
+  for (let i = 0; i < 10; i += 1) frame(scene, left, right, clock);
+  const asked = mind.asked;
+  left.stopFighting();
+  for (let i = 0; i < 10; i += 1) frame(scene, left, right, clock);
+
+  assert.equal(left.alive, true, "the winner is not killed");
+  assert.equal(mind.asked, asked, "a verdict revokes the winning mind's authority");
+  assert.equal(left.pelvis.body.getLinearVelocity().length(), 0,
+    "and leaves no locomotion command running");
+  assert.equal(left.pelvis.body.getAngularVelocity().length(), 0,
+    "and leaves no turning command running");
+});
+
+test("a_surviving_torso_has_no_residual_turn_after_the_verdict", async (t) => {
+  const { engine, scene, left, right } = await ring();
+  t.after(() => engine.dispose());
+  const intent = blankIntent();
+  intent.posture.trunkLean = 0.7;
+  intent.posture.trunkTwist = -0.8;
+  intent.turn = 1;
+  left.mind = { name: "turning winner", decide: () => intent };
+  const clock = { now: 0 };
+  for (let i = 0; i < 90; i += 1) frame(scene, left, right, clock);
+
+  left.stopFighting();
+  const stopped = left.torso.mesh.rotationQuaternion.clone();
+  for (let i = 0; i < 20; i += 1) frame(scene, left, right, clock);
+
+  assert.ok(left.torso.body.getAngularVelocity().length() < 0.03,
+    `torso retained ${left.torso.body.getAngularVelocity().length().toFixed(4)} rad/s`);
+  assert.ok(1 - Math.abs(Quaternion.Dot(stopped, left.torso.mesh.rotationQuaternion)) < 0.002,
+    "the winner should hold its achieved waist pose after combat authority ends");
+});
+
+test("the_fight_to_over_edge_revokes_both_sides_once_and_rebuild_starts_active", async (t) => {
+  const first = await ring();
+  const second = await ring();
+  t.after(() => first.engine.dispose());
+  t.after(() => second.engine.dispose());
+
+  const firstRightMind = counter();
+  first.right.mind = firstRightMind;
+  const clock = { now: 0 };
+  for (let i = 0; i < 10; i += 1) frame(first.scene, first.left, first.right, clock);
+  const asked = [first.mind.asked, firstRightMind.asked];
+
+  const stops = [0, 0];
+  const ending = new FightEnd([
+    {
+      fighter: first.left,
+      combat: { stop: () => { stops[0] += 1; } },
+    },
+    {
+      fighter: first.right,
+      combat: { stop: () => { stops[1] += 1; } },
+    },
+  ]);
+  assert.equal(ending.isActive, true);
+  let state = begin(selectScreen(defaultMatchup()), defaultMatchup());
+  limbOf(first.right, "torso").health = 0;
+  const boutRing = {
+    left: { parts: first.left.limbs, lastBlow: null },
+    right: { parts: first.right.limbs, lastBlow: null },
+  };
+  state = advanceFight(state, boutRing, FIXED, ending);
+  assert.equal(state.phase, "over", "the real bout rule delivered the verdict edge");
+  assert.equal(ending.transition("fight", "over"), false,
+    "even a repeated edge delivery cannot revoke the bout twice");
+  assert.deepEqual(stops, [1, 1], "both scoring authorities stop exactly once");
+
+  for (let i = 0; i < 10; i += 1) frame(first.scene, first.left, first.right, clock);
+  assert.deepEqual([first.mind.asked, firstRightMind.asked], asked,
+    "neither mind retains authority after the verdict");
+
+  const rebuiltStops = [0, 0];
+  const rebuilt = new FightEnd([
+    { fighter: second.left, combat: { stop: () => { rebuiltStops[0] += 1; } } },
+    { fighter: second.right, combat: { stop: () => { rebuiltStops[1] += 1; } } },
+  ]);
+  assert.equal(rebuilt.isActive, true, "a rebuilt bout does not inherit the old verdict latch");
+  const freshState = begin(selectScreen(defaultMatchup()), defaultMatchup());
+  const freshRing = {
+    left: { parts: second.left.limbs, lastBlow: null },
+    right: { parts: second.right.limbs, lastBlow: null },
+  };
+  assert.equal(advanceFight(freshState, freshRing, FIXED, rebuilt).phase, "fight");
+  assert.deepEqual(rebuiltStops, [0, 0], "fresh combat remains active until its own verdict");
+});
+
+test("contacts_after_the_verdict_cannot_change_health_or_sever_a_limb", () => {
+  let contact;
+  const weapon = {
+    kind: "sword",
+    spent: false,
+    body: {
+      getCollisionObservable: () => ({
+        add: (callback) => { contact = callback; return {}; },
+        remove: () => {},
+      }),
+    },
+    velocityAt: () => new Vector3(20, 0, 0),
+    edgeDirection: () => new Vector3(1, 0, 0),
+    bladeDirection: () => new Vector3(0, 0, 1),
+    tipPosition: () => new Vector3(2, 0, 0),
+  };
+  const limb = {
+    key: "forearm", label: "Sword forearm", health: 5, maxHealth: 100,
+    severed: false, lastHitAt: -999,
+    part: { body: { applyImpulse: () => {} } },
+  };
+  let severs = 0;
+  const target = {
+    limbFor: () => limb,
+    parriedBy: () => null,
+    sever: () => { severs += 1; },
+  };
+  const combat = new Combat("left", [weapon]);
+  combat.attach(target);
+  combat.stop();
+  contact({
+    type: PhysicsEventType.COLLISION_STARTED,
+    point: Vector3.Zero(),
+    impulse: 10,
+    collidedAgainst: {},
+  });
+
+  assert.equal(limb.health, 5);
+  assert.equal(severs, 0);
+  assert.equal(combat.lastHit, null);
+});
+
+test("a_loser_still_falls_and_blood_still_ages_after_combat_stops", async (t) => {
+  const { engine, scene, left, right } = await ring();
+  t.after(() => engine.dispose());
+  const blood = new Blood(scene, { dispose: () => {} });
+  t.after(() => blood.dispose());
+
+  const clock = { now: 0 };
+  for (let i = 0; i < 20; i += 1) frame(scene, left, right, clock);
+  const standing = left.torso.mesh.position.y;
+  limbOf(left, "torso").health = 0;
+  blood.spray(left.torso.mesh.position, Vector3.Up(), CONFIG.blood.fullSpray);
+  assert.equal(blood.count, 1);
+
+  left.stopFighting();
+  right.stopFighting();
+  assert.equal(left.pelvis.body.getMotionType(), PhysicsMotionType.DYNAMIC);
+  for (let i = 0; i < 90; i += 1) frame(scene, left, right, clock);
+  blood.update(CONFIG.blood.sprayLife + 1);
+
+  assert.ok(left.torso.mesh.position.y < standing - 0.2);
+  assert.equal(blood.count, 0, "combat stopping does not pause cosmetic time");
 });

@@ -11,7 +11,8 @@ import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 
 import { CONFIG } from "./config.ts";
-import type { ArmPose, HandIntent } from "./mind.ts";
+import { mirroredWristBend, type ArmPose, type HandIntent, type HandName } from "./mind.ts";
+import { azimuthOf } from "./policies.ts";
 import { capsulePart, spherePart, joint, type Part } from "./rig.ts";
 import {
   Weapon,
@@ -24,6 +25,7 @@ import {
 import { isShooting } from "./hands.ts";
 import { Quiver } from "./arrow.ts";
 import { nextDraw } from "./buttons.ts";
+import type { Striking } from "./combat.ts";
 
 const LINEAR = [
   PhysicsConstraintAxis.LINEAR_X,
@@ -43,6 +45,75 @@ const clamp = (value: number, low: number, high: number) =>
 /** The torso's own forward, which is what a shield squares itself to. */
 const FORWARD = new Vector3(0, 0, 1);
 const UP = new Vector3(0, 1, 0);
+
+/**
+ * A striking seam over the hand that is already in the solver.
+ *
+ * It owns no mesh, body, shape or constraint. That absence is the design: a
+ * punch is stopped by the visible fist, carries the fist's actual material-point
+ * velocity, and becomes spent with the arm it belongs to.
+ */
+export class FistStrike implements Striking {
+  readonly kind = "empty" as const;
+  readonly hand: HandName;
+  readonly body: Part["body"];
+  private readonly part: Part;
+  private readonly isSpent: () => boolean;
+  private readonly scratch = {
+    rel: new Vector3(),
+    velocity: new Vector3(),
+    tip: new Vector3(),
+    edge: new Vector3(),
+    blade: new Vector3(),
+    basis: new Matrix(),
+  };
+
+  constructor(part: Part, hand: HandName, isSpent: () => boolean) {
+    this.part = part;
+    this.hand = hand;
+    this.body = part.body;
+    this.isSpent = isSpent;
+    // Havok emits no per-body contacts until this is enabled. A weapon does it
+    // in its constructor; the fist has no weapon constructor to do it for us.
+    this.body.setCollisionCallbackEnabled(true);
+  }
+
+  get spent(): boolean {
+    return this.isSpent();
+  }
+
+  velocityAt(world: Vector3): Vector3 {
+    const linear = this.body.getLinearVelocity();
+    const angular = this.body.getAngularVelocity();
+    this.scratch.rel.copyFrom(world).subtractInPlace(this.body.getObjectCenterWorld());
+    Vector3.CrossToRef(angular, this.scratch.rel, this.scratch.velocity);
+    return this.scratch.velocity.addInPlace(linear);
+  }
+
+  edgeDirection(): Vector3 {
+    const rotation = this.part.mesh.rotationQuaternion ?? Quaternion.Identity();
+    Matrix.FromQuaternionToRef(rotation, this.scratch.basis);
+    return this.scratch.edge.set(
+      this.scratch.basis.m[0],
+      this.scratch.basis.m[1],
+      this.scratch.basis.m[2],
+    );
+  }
+
+  bladeDirection(): Vector3 {
+    const rotation = this.part.mesh.rotationQuaternion ?? Quaternion.Identity();
+    Matrix.FromQuaternionToRef(rotation, this.scratch.basis);
+    return this.scratch.blade.set(
+      this.scratch.basis.m[4],
+      this.scratch.basis.m[5],
+      this.scratch.basis.m[6],
+    );
+  }
+
+  tipPosition(): Vector3 {
+    return this.scratch.tip.copyFrom(this.part.mesh.position);
+  }
+}
 
 /**
  * The frame a hand is *built* in, which is not always the fighter's own.
@@ -77,14 +148,19 @@ function handFrame(kind: WeaponKind, rotation: Quaternion): Quaternion {
 const spread = (t: number, min: number, max: number) => (t < 0 ? -t * min : t * max);
 
 export interface ArmOptions {
+  hand: HandName;
   /**
    * Name prefix for every body in the chain, e.g. `left.sword`. Two fighters
    * each with two arms is four chains in one scene, and they have to be told
    * apart in the inspector, in a picking predicate and in a mesh list.
    */
   name: string;
-  /** The bone the shoulder hangs from, and the frame the aim is built in. */
+  /** The physical bone the shoulder hangs from. */
   torso: Part;
+  /** Physical chest frame used for the moving shoulder sockets. */
+  trunkFrame: () => Matrix;
+  /** Upright pelvis-heading frame used for cursor direction and elbow intent. */
+  locomotionFrame: () => Matrix;
   /** Where the shoulder sits in the torso's own local frame. */
   shoulderLocal: Vector3;
   /** Where that shoulder is in world space at the moment of construction. */
@@ -164,6 +240,8 @@ export class Arm {
    * object is not.
    */
   readonly weapon: Weapon | null;
+  /** The real hand exposed through the combat seam; no proxy physics exists. */
+  readonly fist: FistStrike | null;
 
   /**
    * Arrows, for a hand that holds something that shoots, and null otherwise.
@@ -247,12 +325,14 @@ export class Arm {
   private azimuth = 0.3;
   private elevation = -0.15;
   private roll = 0;
+  private wristBend = 0;
   private armReach = CONFIG.arm.reachNeutral;
 
   private lost = false;
   private hasPreviousFrame = false;
 
-  private readonly torso: Part;
+  private readonly trunkFrame: () => Matrix;
+  private readonly locomotionFrame: () => Matrix;
   private readonly shoulderLocal: Vector3;
 
   /** Principal moments of the sword, cached: the grip damper needs them to bleed
@@ -318,7 +398,8 @@ export class Arm {
 
   constructor(scene: Scene, opts: ArmOptions, materials: ArmMaterials) {
     const A = CONFIG.arm;
-    this.torso = opts.torso;
+    this.trunkFrame = opts.trunkFrame;
+    this.locomotionFrame = opts.locomotionFrame;
     this.shoulderLocal = opts.shoulderLocal.clone();
 
     const armDrop = (drop: number): Vector3 =>
@@ -366,6 +447,7 @@ export class Arm {
     this.upperArm = limb("upperArm", A.upperLength / 2, A.upperLength, A.upperRadius, A.upperMass, materials.cloth);
     this.forearm = limb("forearm", A.upperLength + A.foreLength / 2, A.foreLength, A.foreRadius, A.foreMass, materials.leather);
     this.hand = limb("hand", A.upperLength + A.foreLength + A.handLength / 2, A.handLength, A.handRadius, A.handMass, materials.flesh, handRotation);
+    this.fist = opts.weapon === "empty" ? new FistStrike(this.hand, opts.hand, () => this.lost) : null;
     this.meshes = built;
 
     // Shoulder: a ball joint with a generous cone. The limits exist to rule out
@@ -376,7 +458,7 @@ export class Arm {
       swing: {
         x: { min: -2.7, max: 1.5 },
         y: { min: -1.9, max: 1.9 },
-        z: { min: -1.7, max: 0.6 },
+        z: this.outboard > 0 ? { min: -1.7, max: 0.6 } : { min: -0.6, max: 1.7 },
       },
     });
 
@@ -425,6 +507,7 @@ export class Arm {
             scene,
             {
               name: `${opts.name}.weapon`,
+              hand: opts.hand,
               kind: opts.weapon,
               position: fistWorld,
               // The rotation the weld is about to demand, rather than the
@@ -445,6 +528,7 @@ export class Arm {
           scene,
           {
             name: `${opts.name}.arrow`,
+            hand: opts.hand,
             layer: opts.arrowLayer,
             collidesWith: opts.arrowCollidesWith,
           },
@@ -679,6 +763,7 @@ export class Arm {
       azimuth: this.azimuth,
       elevation: this.elevation,
       roll: this.roll,
+      wristBend: this.wristBend,
       reach: this.armReach,
     };
   }
@@ -710,7 +795,7 @@ export class Arm {
     if (this.lost) return;
     const s = this.scratch;
     s.target.copyFrom(target);
-    const world = this.torso.mesh.getWorldMatrix();
+    const world = this.trunkFrame();
     Vector3.TransformCoordinatesToRef(this.shoulderLocal, world, s.shoulder);
     this.handAnchor.body.setTargetTransform(s.target, rotation);
     this.driveElbow();
@@ -808,7 +893,7 @@ export class Arm {
     if (!this.lost) {
       const scale = this.gripScale;
       for (const axis of LINEAR) this.grip.setAxisMotorMaxForce(axis, A.linearMotorForce * scale);
-      for (const axis of ANGULAR) this.grip.setAxisMotorMaxForce(axis, A.angularMotorForce * scale);
+      for (const axis of ANGULAR) this.grip.setAxisMotorMaxForce(axis, A.wristMotorForce * scale);
       for (const axis of [PhysicsConstraintAxis.ANGULAR_X, PhysicsConstraintAxis.ANGULAR_Z]) {
         this.elbowDrive.setAxisMotorMaxForce(axis, A.elbowPoleForce);
       }
@@ -901,9 +986,13 @@ export class Arm {
   private aim(dt: number, input: HandIntent): void {
     const A = CONFIG.arm;
 
-    this.azimuth = clamp(spread(input.pointerX, A.azMin, A.azMax), A.azMin, A.azMax);
+    const hand = this.outboard > 0 ? "primary" : "secondary";
+    this.azimuth = azimuthOf(input.pointerX, hand);
     this.elevation = clamp(spread(input.pointerY, A.elMin, A.elMax), A.elMin, A.elMax);
     this.roll = clamp(input.roll, A.rollMin, A.rollMax);
+    const wristStep = 1 - Math.exp(-A.wristResponse * dt);
+    const wantedBend = clamp(input.wristBend, 0, 1);
+    this.wristBend += (wantedBend - this.wristBend) * wristStep;
 
     const wanted = Math.min(
       input.thrust ? A.reachThrust : input.guard ? A.reachGuard : A.reachNeutral,
@@ -930,16 +1019,17 @@ export class Arm {
       Math.cos(this.azimuth) * cosEl,
     );
 
-    const world = this.torso.mesh.getWorldMatrix();
-    Vector3.TransformCoordinatesToRef(this.shoulderLocal, world, shoulder);
-    Vector3.TransformNormalToRef(dirLocal, world, aim);
+    const trunkFrame = this.trunkFrame();
+    const locomotionFrame = this.locomotionFrame();
+    Vector3.TransformCoordinatesToRef(this.shoulderLocal, trunkFrame, shoulder);
+    Vector3.TransformNormalToRef(dirLocal, locomotionFrame, aim);
     aim.normalize();
     // Taken here rather than in `driveAnchor` because the torso's world matrix
     // is already in hand, and a second `getWorldMatrix()` on the same node in
     // the same step is the sort of thing that is free until somebody moves it.
     // The torso capsule's own origin is its centre, so this is the translation
     // and not a transformed point.
-    world.getTranslationToRef(this.scratch.centre);
+    trunkFrame.getTranslationToRef(this.scratch.centre);
 
     target.copyFrom(shoulder).addInPlace(aim.scale(this.armReach));
 
@@ -1039,6 +1129,23 @@ export class Arm {
     Vector3.CrossToRef(axisX, axisY, axisZ);
     axisZ.normalize();
 
+    // Bend is a second orientation freedom, not a second aiming axis. Rotate
+    // the hand frame around its rolled local lateral axis after the target point
+    // has already been fixed, so a policy may lay a blade across the forearm
+    // without paying for that orientation change as a position jump. The sign
+    // mirrors anatomically: the same normalized intent bends both wrists toward
+    // the same side of their respective hands.
+    const bend = mirroredWristBend(this.wristBend, this.outboard);
+    const bendCos = Math.cos(bend);
+    const bendSin = Math.sin(bend);
+    // The rolled lateral axis is the hinge. Preserve X and turn the Y/Z arc
+    // around it; rotating X/Y instead is a bend about Z and makes the requested
+    // anatomical freedom a second roll under another name.
+    axisY.scaleInPlace(bendCos).addInPlace(axisZ.scale(bendSin));
+    axisY.normalize();
+    Vector3.CrossToRef(axisX, axisY, axisZ);
+    axisZ.normalize();
+
     Matrix.FromXYZAxesToRef(axisX, axisY, axisZ, basis);
     Quaternion.FromRotationMatrixToRef(basis, rotation);
 
@@ -1096,7 +1203,7 @@ export class Arm {
     const foot = (upper * upper - lower * lower + span * span) / (2 * span);
     const rise = Math.sqrt(Math.max(0, upper * upper - foot * foot));
 
-    const world = this.torso.mesh.getWorldMatrix();
+    const world = this.locomotionFrame();
     const pole = s.pole.set(A.elbowPole.x, A.elbowPole.y, A.elbowPole.z);
     Vector3.TransformNormalToRef(pole, world, pole);
     const sideways = s.sideways.copyFrom(pole);

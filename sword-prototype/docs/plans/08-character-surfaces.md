@@ -15,8 +15,9 @@ different materials while crimson and blue remain distinct at Fixed-camera range
    skirt need explicit islands so they do not smear at a walk.
 3. In `src/figure.ts:367-418`, make side colour a tint over a near-neutral cloth albedo.
    Because Babylon multiplies `albedoTexture` by `albedoColor`, prove the chosen base does not
-   darken crimson/blue to a third of their current value. Share base textures; clone only the
-   per-side tint material and dispose it with `Figure`.
+   darken crimson/blue to a third of their current value. Share base textures; construct only
+   the per-side tint material and dispose it with `Figure`. Do not use Babylon's material
+   clone: it duplicates Texture wrappers and leaks them when the shared maps replace them.
 4. Map costume pieces at `src/figure.ts:172-354` to skin, cloth, leather or armour descriptors.
    Do not infer material from mesh-name substrings at runtime; the total `CostumePiece` table
    remains the authority.
@@ -39,6 +40,19 @@ Remove the surcoat's `side` assignment and leak a clone across rebuild; the tint
 tests must fail.
 
 ## Acceptance
+
+Implementation note: the registry, runtime families, authored UV/tangent contract,
+piece-to-family verifier, side-map sharing, tint-material disposal and their mutation checks are
+complete. The asset is 15 712 triangles per fighter; fifteen local CC0 maps occupy 7.83 MiB
+compressed and an estimated 80.0 MiB as RGBA8 mip chains. The matched visible screenshots,
+shadow/team-colour judgement and moving seam inspection remain owed to session 14's
+integrated visual pass; a NullEngine result is not substituted for them.
+
+Adversarial review found and closed three traps before the session was handed off: maps
+finishing after a side tint was constructed now propagate through a listener; side materials
+are constructed rather than cloned, so ten rebuilds leave `scene.textures` flat; and imported
+costume tangents are normalized to Babylon LH while the weapon palette stays untextured.
+Authored UV density is measured at 0.300 +/- 0.015 UV units/metre per exported primitive.
 
 Take matched Fixed-camera screenshots at both zoom clamps, with crimson on each side in turn.
 The open face, armour plates, leather straps and cloth must read without the HUD, and team

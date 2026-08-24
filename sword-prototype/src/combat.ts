@@ -9,6 +9,7 @@ import { CONFIG } from "./config.ts";
 import type { Side } from "./physics.ts";
 import type { WeaponKind } from "./weapon.ts";
 import type { Fighter, Limb } from "./fighter.ts";
+import type { HandName } from "./hands.ts";
 import { biteFloor, scoreHit, severs, type HitKind, type Striker } from "./scoring.ts";
 
 export type { HitKind };
@@ -36,6 +37,7 @@ export type { HitKind };
  */
 export interface Striking {
   readonly kind: Striker;
+  readonly hand: HandName;
   readonly body: PhysicsBody;
   /**
    * Whether this has stopped being a weapon: dropped, or already spent.
@@ -112,6 +114,12 @@ export interface HitReport {
   edge: Vector3;
 }
 
+export interface CombatReportEvent {
+  readonly report: HitReport;
+  readonly hand: HandName;
+  readonly blocked: boolean;
+}
+
 /**
  * What a blow stopped by each kind is called in the readout.
  *
@@ -127,7 +135,7 @@ const PARRY_LABEL: Record<WeaponKind, string> = {
   shield: "Shield",
   buckler: "Buckler",
   club: "Club",
-  empty: "Guard",
+  empty: "Hand",
 };
 
 /**
@@ -185,9 +193,14 @@ export class Combat {
   /** Parries share one cooldown, since two blades resting together contact
    *  every step and a log full of one block is a log of nothing. */
   private lastParryAt = -999;
+  /** False from the verdict edge onward; observers stay installed until dispose. */
+  private active = true;
+  private readonly onReport?: (event: CombatReportEvent) => void;
 
   /** The most recent meaningful contact, for the readout. */
   lastHit: HitReport | null = null;
+  /** The most recent damaging body contact, for the bout's final blow. */
+  lastWound: HitReport | null = null;
   /** Everything that has landed this run, newest first. */
   readonly log: HitReport[] = [];
 
@@ -197,8 +210,9 @@ export class Combat {
     push: new Vector3(),
   };
 
-  constructor(side: Side, weapons: readonly (Striking | null)[]) {
+  constructor(side: Side, weapons: readonly (Striking | null)[], onReport?: (event: CombatReportEvent) => void) {
     this.side = side;
+    this.onReport = onReport;
     for (const weapon of weapons) {
       if (!weapon) continue;
       const observer = weapon.body
@@ -244,6 +258,11 @@ export class Combat {
     this.clock += dt;
   }
 
+  /** Stop accepting contacts without mutating an observable during its callback. */
+  stop(): void {
+    this.active = false;
+  }
+
   dispose(): void {
     for (const watch of this.watching) {
       watch.weapon.body.getCollisionObservable().remove(watch.observer);
@@ -252,11 +271,19 @@ export class Combat {
   }
 
   private onContact(weapon: Striking, event: IPhysicsCollisionEvent): void {
+    if (!this.active) return;
     if (event.type === PhysicsEventType.COLLISION_FINISHED) return;
     // Debris does not score, and does not parry either. See `Striking.spent`.
     if (weapon.spent) return;
     if (!this.target || !event.point) return;
 
+    // A bare hand and forearm are both limbs and a guard. Physical interposition
+    // decides which one this is: when an attached empty arm is the thing found,
+    // it blocks for zero damage before the same body can be filed as a wound.
+    if (this.target.parriedBy(event.collidedAgainst)?.kind === "empty") {
+      this.parried(weapon, event);
+      return;
+    }
     const limb = this.target.limbFor(event.collidedAgainst);
     if (!limb) {
       this.parried(weapon, event);
@@ -268,6 +295,8 @@ export class Combat {
     const report = this.resolve(weapon, limb, event);
     limb.lastHitAt = this.clock;
     this.lastHit = report;
+    if (report.damage > 0) this.lastWound = report;
+    this.onReport?.({ report, hand: weapon.hand, blocked: false });
     this.log.unshift(report);
     if (this.log.length > 24) this.log.length = 24;
   }
@@ -309,6 +338,7 @@ export class Combat {
       edge: weapon.edgeDirection().clone(),
     };
     this.lastHit = report;
+    this.onReport?.({ report, hand: weapon.hand, blocked: true });
     this.log.unshift(report);
     if (this.log.length > 24) this.log.length = 24;
   }
@@ -339,11 +369,16 @@ export class Combat {
     // be: for most of a year it was `speed < C.minCutSpeed`, which meant a club
     // below 3.0 m/s never reached `scoreHit` and `minCrushSpeed` was a setting
     // that worked only in its unit test.
-    if (speed < biteFloor(weapon.kind)) {
+    if (speed < biteFloor(weapon.kind) && weapon.kind !== "empty") {
       return { ...base, kind: "weak", edgeAlignment: 0, damage: 0, severed: false };
     }
 
-    const direction = this.scratch.direction.copyFrom(velocity).scaleInPlace(1 / speed);
+    // A stationary contact has no direction and therefore a zero shove. This
+    // branch matters for the fist: its sub-floor contacts deliberately continue
+    // into `scoreHit` and the impulse path as zero-damage slaps.
+    const direction = this.scratch.direction
+      .copyFrom(velocity)
+      .scaleInPlace(speed > 0 ? 1 / speed : 0);
     // Signed for the damage model, absolute for the readout. A sword cuts on
     // both sides of its edge axis and does not care; an axe's -X is the poll,
     // and `scoring.ts` is what knows the difference. The report keeps the

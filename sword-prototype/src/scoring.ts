@@ -114,8 +114,7 @@ interface Bite {
 }
 
 /**
- * A kind that scores nothing: a shield, a buckler, and a hand with nothing in
- * it.
+ * A kind that scores nothing: a shield or a buckler.
  *
  * A shield still files a report and still shoves, because the shove is applied
  * by `combat.ts` regardless of quality and a bash is a real thing to do with
@@ -233,18 +232,16 @@ const BITE: Record<Striker, Bite> = {
     scale: (t) => t.pierceScale,
     severQuality: () => 1,
   },
-  /**
-   * A bare hand.
-   *
-   * Nothing ever asks. `Combat` subscribes to weapon bodies and there is no body
-   * to weld to an empty hand, so no contact from one is ever scored -- which is
-   * exactly why the old code could quietly score it as a sword for three
-   * sessions without anybody noticing. A total record has to answer, and "a fist
-   * is not a weapon this model has" is the honest answer rather than "a fist is
-   * an arming sword". A punch that ought to hurt somebody wants a body, a layer
-   * and a row of its own, which is a session and not a default.
-   */
-  empty: inert,
+  /** A bare fist: mass without an edge, point, or severing path. */
+  empty: {
+    how: "mass",
+    floor: (t) => t.fistMinSpeed,
+    reference: (t) => t.fistReferenceSpeed,
+    scale: (t) => t.fistScale,
+    // `mass` scores quality 1; the strict comparison in `severs` makes this
+    // unreachable without teaching a fist a special-case exemption there.
+    severQuality: () => 1,
+  },
 };
 
 /**
@@ -284,7 +281,10 @@ export function scoreHit(
   const bite = BITE[by];
   const floor = bite.floor(tuning);
   if (contact.speed < floor) {
-    return { kind: "weak", quality: 0, damage: 0 };
+    // A slow fist still transfers momentum through a real contact. Name that a
+    // slap so `Combat` lets it reach the shove path; blades below their floor
+    // remain weak because there is no useful action to report or resolve.
+    return { kind: by === "empty" ? "slap" : "weak", quality: 0, damage: 0 };
   }
 
   // How far up its own ramp this arrived, floor to reference, both out of the

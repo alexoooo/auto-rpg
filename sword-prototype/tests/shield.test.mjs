@@ -57,7 +57,7 @@ async function ring(loadout) {
   const materials = {
     flesh: mat("flesh"), cloth: mat("cloth"), steel: mat("steel"),
     leather: mat("leather"), brass: mat("brass"), hide: mat("hide"),
-    wood: mat("wood"),
+    wood: mat("wood"), arrowAccent: mat("arrow-accent"),
   };
 
   const intent = blankIntent();

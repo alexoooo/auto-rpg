@@ -15,13 +15,10 @@ import type { Scene } from "@babylonjs/core/scene.js";
 
 import { CONFIG } from "./config.ts";
 import { COLLIDES, LAYER } from "./physics.ts";
+import { applyObjectSurface, disposeCarriedRoot, type ObjectMaterials, type ObjectPart } from "./object-surfaces.ts";
 import {
-  WEAPON_KINDS,
-  handsFor,
-  isShield,
-  isShooting,
   isStrapped,
-  isStriking,
+  type HandName,
   type WeaponKind,
 } from "./hands.ts";
 
@@ -36,13 +33,32 @@ import {
  * is a move nothing can break.
  */
 export type { WeaponKind };
-export { WEAPON_KINDS, handsFor, isShield, isShooting, isStrapped, isStriking };
+export { WEAPON_KINDS, handsFor, hasHeldWeapon, isShield, isShooting, isStrapped, isStriking } from "./hands.ts";
 
 export interface WeaponMaterials {
   steel: Material;
+  /** Optional only for the compact headless palettes; the arena always supplies it. */
+  edge?: Material;
   leather: Material;
   brass: Material;
   wood: Material;
+  paintedWood?: Material;
+  bowString?: Material;
+  /** One shared unlit accent for every pooled arrow head, fletch and trace. */
+  arrowAccent: Material;
+}
+
+export function objectMaterialsFor(materials: WeaponMaterials): ObjectMaterials {
+  return {
+    ...materials,
+    edge: materials.edge ?? materials.steel,
+    paintedWood: materials.paintedWood ?? materials.wood,
+    bowString: materials.bowString ?? materials.leather,
+  };
+}
+
+function weaponSurface(mesh: Mesh, part: ObjectPart, materials: WeaponMaterials): void {
+  applyObjectSurface(mesh, part, objectMaterialsFor(materials));
 }
 
 /** What a kind's builder settles, once its meshes and shapes are in place. */
@@ -170,6 +186,7 @@ export function mountRotation(
 }
 
 export interface WeaponOptions {
+  hand: HandName;
   /**
    * Name of the root node, and the prefix every piece is named with. Two
    * fighters with two hands each is four of these in one scene and they must be
@@ -221,6 +238,7 @@ export interface WeaponOptions {
  */
 export class Weapon {
   readonly kind: WeaponKind;
+  readonly hand: HandName;
   readonly root: TransformNode;
   readonly body: PhysicsBody;
   readonly shape: PhysicsShapeContainer;
@@ -254,6 +272,7 @@ export class Weapon {
    * and a child's mask set through the container's back takes.
    */
   private readonly parts: PhysicsShape[] = [];
+  private readonly partOffsets: Vector3[] = [];
 
   /** Distance from origin to the point of the blade, along local +Y. */
   readonly tipOffset: number;
@@ -312,6 +331,7 @@ export class Weapon {
     materials: WeaponMaterials,
   ) {
     this.kind = opts.kind;
+    this.hand = opts.hand;
 
     this.root = new TransformNode(opts.name, scene);
     this.root.position.copyFrom(opts.position);
@@ -364,7 +384,7 @@ export class Weapon {
       scene,
     );
     blade.position.set(0, bladeCentre, 0);
-    blade.material = materials.steel;
+    weaponSurface(blade, "sword.blade", materials);
     blade.parent = this.root;
 
     // A short secondary box at the point reads as a taper without needing a
@@ -375,7 +395,7 @@ export class Weapon {
       scene,
     );
     point.position.set(0, this.tipOffset - bladeLength * 0.08, 0);
-    point.material = materials.steel;
+    weaponSurface(point, "sword.point", materials);
     point.parent = this.root;
 
     const guard = MeshBuilder.CreateBox(
@@ -384,7 +404,7 @@ export class Weapon {
       scene,
     );
     guard.position.set(0, this.baseOffset, 0);
-    guard.material = materials.brass;
+    weaponSurface(guard, "sword.guard", materials);
     guard.parent = this.root;
 
     const grip = MeshBuilder.CreateCylinder(
@@ -392,7 +412,7 @@ export class Weapon {
       { height: gripLength, diameterTop: 0.028, diameterBottom: 0.034, tessellation: 10 },
       scene,
     );
-    grip.material = materials.leather;
+    weaponSurface(grip, "sword.grip", materials);
     grip.parent = this.root;
 
     const pommel = MeshBuilder.CreateSphere(
@@ -401,7 +421,7 @@ export class Weapon {
       scene,
     );
     pommel.position.set(0, -gripLength / 2, 0);
-    pommel.material = materials.brass;
+    weaponSurface(pommel, "sword.pommel", materials);
     pommel.parent = this.root;
 
     // Physics: one compound shape, so the guard can turn a blow and the pommel
@@ -476,7 +496,7 @@ export class Weapon {
       scene,
     );
     plate.position.set(0, out, along);
-    plate.material = materials.wood;
+    weaponSurface(plate, "shield.plate", materials);
     plate.parent = this.root;
 
     const rim = MeshBuilder.CreateBox(
@@ -485,7 +505,7 @@ export class Weapon {
       scene,
     );
     rim.position.set(0, out - S.thickness * 0.55, along);
-    rim.material = materials.steel;
+    weaponSurface(rim, "shield.rim", materials);
     rim.parent = this.root;
 
     // Over the fist rather than at the plate's centre, because that is what a
@@ -497,7 +517,7 @@ export class Weapon {
     );
     boss.position.set(0, out + S.thickness * 0.5, 0);
     boss.scaling.set(1, 0.6, 1);
-    boss.material = materials.steel;
+    weaponSurface(boss, "shield.boss", materials);
     boss.parent = this.root;
 
     // The bar the fist holds, bridging the gap the plate stands off by. It used
@@ -509,7 +529,7 @@ export class Weapon {
       scene,
     );
     grip.position.set(0, S.gripLength / 2, 0);
-    grip.material = materials.leather;
+    weaponSurface(grip, "shield.grip", materials);
     grip.parent = this.root;
 
     // One box for the whole face. A shield does not need a compound shape: it is
@@ -576,7 +596,7 @@ export class Weapon {
       scene,
     );
     plate.position.set(0, out, 0);
-    plate.material = materials.steel;
+    weaponSurface(plate, "buckler.plate", materials);
     plate.parent = this.root;
 
     const rim = MeshBuilder.CreateTorus(
@@ -585,7 +605,7 @@ export class Weapon {
       scene,
     );
     rim.position.set(0, out, 0);
-    rim.material = materials.brass;
+    weaponSurface(rim, "buckler.rim", materials);
     rim.parent = this.root;
 
     // The dome over the fist. On a buckler this is structural rather than
@@ -598,7 +618,7 @@ export class Weapon {
     );
     boss.position.set(0, out - B.bossDiameter * 0.22, 0);
     boss.scaling.set(1, 0.75, 1);
-    boss.material = materials.steel;
+    weaponSurface(boss, "buckler.boss", materials);
     boss.parent = this.root;
 
     const grip = MeshBuilder.CreateCylinder(
@@ -610,7 +630,7 @@ export class Weapon {
     // right angles to the way it is pointed.
     grip.rotation.z = Math.PI / 2;
     grip.position.set(0, out - B.bossDiameter * 0.5, 0);
-    grip.material = materials.leather;
+    weaponSurface(grip, "buckler.grip", materials);
     grip.parent = this.root;
 
     this.addPart(
@@ -687,7 +707,7 @@ export class Weapon {
       scene,
     );
     haft.position.set(0, shaftCentre, 0);
-    haft.material = materials.wood;
+    weaponSurface(haft, "axe.haft", materials);
     haft.parent = this.root;
 
     const wrap = MeshBuilder.CreateCylinder(
@@ -695,7 +715,7 @@ export class Weapon {
       { height: A.gripLength, diameter: A.haftDiameter * 1.16, tessellation: 10 },
       scene,
     );
-    wrap.material = materials.leather;
+    weaponSurface(wrap, "axe.wrap", materials);
     wrap.parent = this.root;
 
     // The eye and the poll: the steel wrapped round the haft, and the counter-
@@ -710,7 +730,7 @@ export class Weapon {
       scene,
     );
     eye.position.set((A.haftDiameter - A.pollReach) / 2, headCentre, 0);
-    eye.material = materials.steel;
+    weaponSurface(eye, "axe.eye", materials);
     eye.parent = this.root;
 
     // The bit, reaching out along +X to the edge, and thinner than the eye
@@ -721,7 +741,7 @@ export class Weapon {
       scene,
     );
     bit.position.set(A.headReach / 2, headCentre, 0);
-    bit.material = materials.steel;
+    weaponSurface(bit, "axe.bit", materials);
     bit.parent = this.root;
 
     // The edge itself: thin, and taller than the bit behind it, which is what a
@@ -736,7 +756,7 @@ export class Weapon {
       scene,
     );
     edge.position.set(A.headReach * 0.95, headCentre, 0);
-    edge.material = materials.steel;
+    weaponSurface(edge, "axe.edge", materials);
     edge.parent = this.root;
 
     // Two shapes, as the club has two. The head's box spans poll to edge,
@@ -808,7 +828,7 @@ export class Weapon {
       { width: B.staveLength, height: B.staveDepth, depth: B.staveThickness },
       scene,
     );
-    stave.material = materials.wood;
+    weaponSurface(stave, "bow.stave", materials);
     stave.parent = this.root;
 
     // The tips, which are what the string runs between and what makes the
@@ -820,7 +840,7 @@ export class Weapon {
         scene,
       );
       tip.position.set(side * (half - B.staveLength * 0.05), -B.staveDepth * 0.25, 0);
-      tip.material = materials.leather;
+      weaponSurface(tip, side > 0 ? "bow.tipA" : "bow.tipB", materials);
       tip.parent = this.root;
     }
 
@@ -832,7 +852,7 @@ export class Weapon {
       scene,
     );
     grip.position.set(0, -B.gripDepth / 2, 0);
-    grip.material = materials.leather;
+    weaponSurface(grip, "bow.grip", materials);
     grip.parent = this.root;
 
     // The two halves of the string, and the arrow on it. `drawTo` moves all
@@ -843,7 +863,7 @@ export class Weapon {
         { width: 0.004, height: 1, depth: 0.004 },
         scene,
       );
-      mesh.material = materials.leather;
+      weaponSurface(mesh, label === "A" ? "bow.stringA" : "bow.stringB", materials);
       mesh.parent = this.root;
       return mesh;
     };
@@ -856,7 +876,7 @@ export class Weapon {
       scene,
     );
     nocked.rotationQuaternion = Quaternion.RotationAxis(new Vector3(1, 0, 0), Math.PI / 2);
-    nocked.material = materials.wood;
+    weaponSurface(nocked, "bow.nocked", materials);
     nocked.parent = this.root;
 
     this.draw = { upper, lower, nocked, brace: B.braceHeight, pull: B.drawLength };
@@ -973,7 +993,7 @@ export class Weapon {
       scene,
     );
     haft.position.set(0, haftCentre, 0);
-    haft.material = materials.wood;
+    weaponSurface(haft, "club.haft", materials);
     haft.parent = this.root;
 
     const head = MeshBuilder.CreateCylinder(
@@ -987,7 +1007,7 @@ export class Weapon {
       scene,
     );
     head.position.set(0, headCentre, 0);
-    head.material = materials.wood;
+    weaponSurface(head, "club.head", materials);
     head.parent = this.root;
 
     // Two bands, which are most of what says this is a weapon rather than a
@@ -1000,7 +1020,7 @@ export class Weapon {
         scene,
       );
       band.position.set(0, bands[i], 0);
-      band.material = materials.steel;
+      weaponSurface(band, i === 0 ? "club.band0" : "club.band1", materials);
       band.parent = this.root;
     }
 
@@ -1016,7 +1036,7 @@ export class Weapon {
     // The wrap covers both hands and the span between them, because that is what
     // a person actually holds.
     wrap.position.set(0, C.secondGrip / 2, 0);
-    wrap.material = materials.leather;
+    weaponSurface(wrap, "club.wrap", materials);
     wrap.parent = this.root;
 
     this.addPart(
@@ -1055,6 +1075,7 @@ export class Weapon {
    */
   private addPart(part: PhysicsShape, offset: Vector3): void {
     this.parts.push(part);
+    this.partOffsets.push(offset.clone());
     this.shape.addChild(part, offset);
   }
 
@@ -1080,6 +1101,18 @@ export class Weapon {
    */
   get pieces(): readonly PhysicsShape[] {
     return this.parts;
+  }
+
+  /** Exact compound layout used by authority-parity tests; returns detached numbers. */
+  get physicsLayout(): readonly { offset: readonly number[]; minimum: readonly number[]; maximum: readonly number[] }[] {
+    return this.parts.map((part, index) => {
+      const bounds = part.getBoundingBox();
+      return {
+        offset: this.partOffsets[index].asArray(),
+        minimum: bounds.minimum.asArray(),
+        maximum: bounds.maximum.asArray(),
+      };
+    });
   }
 
   relayer(layer: number, collidesWith: number): void {
@@ -1227,6 +1260,6 @@ export class Weapon {
    */
   dispose(): void {
     this.body.dispose();
-    this.root.dispose(false, true);
+    disposeCarriedRoot(this.root);
   }
 }

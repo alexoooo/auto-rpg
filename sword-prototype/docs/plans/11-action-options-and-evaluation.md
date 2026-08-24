@@ -1,5 +1,10 @@
 # Session 11 -- actions a learner can compose
 
+**Status (2026-08-24): implemented, measured and verified.** The scripted meta-controller
+selects and executes real options over a persistent horizon; its option boundary, shared
+stroke/shot state, exact paired old/meta controls, real-solver corpus, feature schema, split rules and mutation
+evidence are recorded in `docs/measurements.md`.
+
 ## Outcome
 
 Extract short action-specific policies behind one option interface, add a scripted
@@ -62,8 +67,10 @@ split and event tests must fail.
 
 ## Acceptance
 
-Run old and option-based controllers on the same seed. Session 11 is architectural: outcomes,
-damage and option-equivalent actions should match within explicitly listed timing differences.
+Run old and option-based controllers on the same seed against the real adversarial swinger.
+Session 11 is architectural: winners, ending causes, damage, duration and all 20 intent
+fields at every ordered sample must match exactly after the harness gives each bout a fresh
+Havok instance; equal means are not sufficient because opposite frame errors can cancel.
 Every option must be reached by at least one corpus cell, and every feature must have a real
 reader in session 12's network input.
 
@@ -71,6 +78,6 @@ reader in session 12's network input.
 npm test
 npm run check
 npm run build
-npm run measure -- --seed 20260823
-npm run ai:evaluate -- --seed 20260823
+npm run measure -- --seed 20260827
+npm run ai:evaluate
 ```

@@ -107,7 +107,7 @@ export const EQUIPMENT: readonly { name: WeaponKind; label: string }[] = [
   { name: "shield", label: "Shield" },
   { name: "buckler", label: "Buckler" },
   { name: "club", label: "Club (two-handed)" },
-  { name: "empty", label: "Empty" },
+  { name: "empty", label: "Bare fist" },
 ];
 
 export interface SideSetup {
@@ -275,6 +275,7 @@ export function takeBody(state: BoutState, side: Side): BoutState {
 export interface PartState {
   key: string;
   health: number;
+  maxHealth: number;
   severed: boolean;
 }
 
@@ -308,7 +309,7 @@ export interface Ring {
 }
 
 /** How a bout finished. */
-export type Ending = "beaten" | "time";
+export type Ending = "exhausted" | "time";
 
 export interface Outcome {
   /** Null is a draw. */
@@ -332,31 +333,53 @@ export interface BoutState {
 /**
  * Whether a body is finished.
  *
- * Two conditions, straight from the plan: a head or a torso off, or every part
- * it has at zero.
- *
- * The torso is named even though `Fighter` gives it `attachment: null` and it
- * therefore cannot come off today. Severability is a property of the body, not
- * of the rule, and session 08's authored warrior is free to change it; a rule
- * that only names the parts that happen to be severable this week has to be
- * found and edited when one more becomes so, and nobody would think to look.
- *
- * The consequence worth writing down is that a torso beaten to nothing does not
- * end a bout on its own -- the second clause takes the whole body, all twelve
- * parts. So most bouts will end on a cut to the head, and "every part at zero"
- * is the long way round. That is what the plan asks for and it is not obviously
- * right: the torso is the biggest target on the body and the one a swing finds
- * by accident, so making it lethal on its own would make it the whole game. The
- * first person to play a bout to the end should say which of the two is worse.
+ * Exhaustion is one weighted reading of every local wound. A ruined head or
+ * torso spends the whole bar; no single limb does, but serious injuries across
+ * the body can. Severing and disability still read the local fields directly.
  */
-export function beaten(parts: readonly PartState[]): boolean {
-  // A body with no parts at all is a disposed fighter, not a beaten one, and
-  // `every` on an empty list would answer yes to the second clause.
-  if (parts.length === 0) return false;
-  for (const part of parts) {
-    if (part.severed && (part.key === "head" || part.key === "torso")) return true;
+export const VITAL_WEIGHT: Readonly<Record<string, number>> = CONFIG.body.vitalWeight;
+
+const clamp = (value: number, low: number, high: number): number =>
+  Math.max(low, Math.min(high, value));
+
+function vitalWeight(key: string): number {
+  if (!Object.prototype.hasOwnProperty.call(VITAL_WEIGHT, key)) {
+    throw new Error(`unknown vital part "${key}"`);
   }
-  return parts.every((part) => part.health <= 0);
+  return VITAL_WEIGHT[key];
+}
+
+/**
+ * What the one whole-body bar reads.
+ *
+ * Local health remains authoritative for severing and disabled limbs; this is
+ * only their anatomical consequence, derived afresh so there is no second hit
+ * point pool for callers to keep in sync. A disposed fighter has no body to
+ * judge and reads full rather than becoming dead through an empty sum.
+ */
+export function vitality(parts: readonly PartState[]): number {
+  if (parts.length === 0) return 1;
+  let injury = 0;
+  for (const part of parts) {
+    const weight = vitalWeight(part.key);
+    if (!Number.isFinite(part.maxHealth) || part.maxHealth <= 0) {
+      throw new Error(`invalid maxHealth for vital part "${part.key}"`);
+    }
+    if (!Number.isFinite(part.health)) {
+      throw new Error(`invalid health for vital part "${part.key}"`);
+    }
+    const ratio = part.health / part.maxHealth;
+    if (!Number.isFinite(ratio)) {
+      throw new Error(`invalid health ratio for vital part "${part.key}"`);
+    }
+    const fraction = clamp(ratio, 0, 1);
+    injury += (1 - fraction) * weight;
+  }
+  return clamp(1 - injury, 0, 1);
+}
+
+export function beaten(parts: readonly PartState[]): boolean {
+  return parts.length > 0 && vitality(parts) === 0;
 }
 
 const KIND_NOUN: Record<HitKind, string> = {
@@ -371,8 +394,8 @@ const KIND_NOUN: Record<HitKind, string> = {
  * What the end of a bout is called.
  *
  * The winner and how, from the report of the blow that landed it, because a
- * fight that ends with a number on a bar teaches nothing and "right, by a cut to
- * the head at 14.2 m/s" is a sentence about something you just watched happen.
+ * fight that ends with a number on a bar teaches nothing, so exhaustion retains
+ * the final blow and names where and how it landed.
  *
  * Plain ASCII with no markup: it is a rule's answer and the screen's business
  * what to do with it. `main.ts` puts it in the banner beside text that does
@@ -382,11 +405,11 @@ export function verdict(winner: Side | null, ending: Ending, blow: Blow | null):
   if (ending === "time") {
     return `a draw: neither could finish it inside ${CONFIG.bout.capSeconds} s`;
   }
-  if (!winner) return "a draw: both fell together";
-  if (!blow) return `${winner}, left standing`;
+  if (!winner) return "a draw: both were exhausted together";
+  if (!blow) return `${winner}, left standing as the other was exhausted`;
   const noun = KIND_NOUN[blow.kind];
   const where = blow.limb.toLowerCase();
-  return `${winner}, by a ${noun} to the ${where} at ${blow.speed.toFixed(1)} m/s`;
+  return `${winner}, as the other was exhausted by a ${noun} to the ${where} at ${blow.speed.toFixed(1)} m/s`;
 }
 
 /**
@@ -410,7 +433,7 @@ export function settle(ring: Ring, clock: number): Outcome | null {
   if (leftDown || rightDown) {
     const winner: Side | null = leftDown === rightDown ? null : leftDown ? "right" : "left";
     const blow = winner ? ring[winner].lastBlow : null;
-    return { winner, ending: "beaten", blow, text: verdict(winner, "beaten", blow) };
+    return { winner, ending: "exhausted", blow, text: verdict(winner, "exhausted", blow) };
   }
 
   if (clock >= CONFIG.bout.capSeconds) {

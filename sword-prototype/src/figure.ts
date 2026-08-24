@@ -3,6 +3,8 @@ import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
 import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader.js";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { Matrix } from "@babylonjs/core/Maths/math.vector.js";
+import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
 import type { AssetContainer } from "@babylonjs/core/assetContainer.js";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import type { Material } from "@babylonjs/core/Materials/material.js";
@@ -18,6 +20,7 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import "@babylonjs/loaders/glTF/2.0/glTFLoader.js";
 
 import { CONFIG } from "./config.ts";
+import { followSurfaceMaps } from "./surface.ts";
 import type { Part } from "./rig.ts";
 
 export interface FigureMaterials {
@@ -368,43 +371,58 @@ export function costumePieces(): CostumePiece[] {
  * rather than two shades of one hue: the arena is lit by a warm sun through an
  * ACES curve, and two warm colours converge under it.
  */
-const SIDE_COLOUR: Record<string, Triple> = {
+export const FIGURE_SIDE_COLOURS: Readonly<Record<string, Triple>> = {
   left: [0.42, 0.06, 0.08],
   right: [0.07, 0.15, 0.42],
 };
 
 /**
- * One cloth material per fighter per scene, tinted.
+ * One cloth material per fighter, tinted.
  *
- * A clone of the arena's cloth rather than a material built here, so the
- * surcoat answers to the same palette every other surface does and only its
- * colour is this file's opinion. Cached per scene because `rebuild()` throws
- * both fighters away and makes two more, and a material minted per Figure would
- * accumulate one pair per rebuild for the life of the page.
+ * Constructed beside the figure cloth rather than cloned from it. Babylon's
+ * PBR clone creates fresh Texture wrappers; overwriting those with the shared
+ * maps leaks the wrappers, while disposing them risks the image the palette
+ * still owns. `followSurfaceMaps` shares the palette objects directly, including
+ * maps that finish decoding later. `Figure.dispose` owns only this material.
  */
-const tints = new WeakMap<Scene, Map<string, Material>>();
-
-function sideCloth(scene: Scene, prefix: string, cloth: Material): Material {
-  let byPrefix = tints.get(scene);
-  if (!byPrefix) {
-    byPrefix = new Map();
-    tints.set(scene, byPrefix);
+function sideCloth(prefix: string, cloth: Material): { material: Material; unfollow: () => void } {
+  const name = `figure.side.${prefix}`;
+  let tinted: PBRMaterial | StandardMaterial;
+  if (cloth instanceof PBRMaterial) {
+    tinted = new PBRMaterial(name, cloth.getScene());
+    tinted.metallic = cloth.metallic;
+    tinted.roughness = cloth.roughness;
+    tinted.invertNormalMapX = cloth.invertNormalMapX;
+    tinted.invertNormalMapY = cloth.invertNormalMapY;
+    tinted.useMetallnessFromMetallicTextureBlue = cloth.useMetallnessFromMetallicTextureBlue;
+    tinted.useRoughnessFromMetallicTextureAlpha = cloth.useRoughnessFromMetallicTextureAlpha;
+    tinted.useRoughnessFromMetallicTextureGreen = cloth.useRoughnessFromMetallicTextureGreen;
+    tinted.useAmbientOcclusionFromMetallicTextureRed = cloth.useAmbientOcclusionFromMetallicTextureRed;
+  } else if (cloth instanceof StandardMaterial) {
+    tinted = new StandardMaterial(name, cloth.getScene());
+    tinted.specularColor.copyFrom(cloth.specularColor);
+  } else {
+    throw new Error(`cloth material ${cloth.name} has no supported tint constructor`);
   }
-  const cached = byPrefix.get(prefix);
-  if (cached) return cached;
-
-  const tinted = cloth.clone(`figure.side.${prefix}`) ?? cloth;
-  const rgb = SIDE_COLOUR[prefix] ?? SIDE_COLOUR.left;
+  const rgb = FIGURE_SIDE_COLOURS[prefix] ?? FIGURE_SIDE_COLOURS.left;
   // PBR calls it `albedoColor` and the standard material calls it
-  // `diffuseColor`. Written as a property probe rather than an `instanceof`
-  // because this file is loaded by Node in the test run, where the palette is
-  // made of standard materials, and a hard dependency on the PBR class would be
-  // a browser-only import in a module the headless harness has to load.
+  // `diffuseColor`. The property probe keeps the tint assignment itself shared
+  // between the browser's PBR palette and the headless StandardMaterial fixture.
   const target = tinted as unknown as { albedoColor?: Color3; diffuseColor?: Color3 };
   if (target.albedoColor) target.albedoColor = new Color3(rgb[0], rgb[1], rgb[2]);
   if (target.diffuseColor) target.diffuseColor = new Color3(rgb[0], rgb[1], rgb[2]);
-  byPrefix.set(prefix, tinted);
-  return tinted;
+  return { material: tinted, unfollow: followSurfaceMaps(cloth, tinted) };
+}
+
+/** Make imported glTF tangents use the same LH frame as Babylon primitives. */
+export function normalizeImportedTangents(data: VertexData): void {
+  const tangents = data.tangents;
+  if (!tangents) return;
+  for (let i = 0; i + 3 < tangents.length; i += 4) {
+    tangents[i] = -tangents[i];
+    tangents[i + 1] = -tangents[i + 1];
+    tangents[i + 2] = -tangents[i + 2];
+  }
 }
 
 /**
@@ -526,12 +544,18 @@ export class Figure {
 
   /** The piece under each authored node name, and the bone it rides on. */
   private readonly byName = new Map<string, { mesh: Mesh; bone: BoneName }>();
+  /** The only per-fighter material. Its textures remain palette-shared. */
+  private readonly sideMaterial: Material;
+  private readonly unfollowSideMaps: () => void;
 
   constructor(scene: Scene, rig: FigureRig, materials: FigureMaterials) {
     const frames = boneFrames();
+    const side = sideCloth(rig.prefix, materials.cloth);
+    this.sideMaterial = side.material;
+    this.unfollowSideMaps = side.unfollow;
 
     const paint = (which: PieceMaterial): Material =>
-      which === "side" ? sideCloth(scene, rig.prefix, materials.cloth) : materials[which];
+      which === "side" ? this.sideMaterial : materials[which];
 
     for (const piece of costumePieces()) {
       const parent = rig[piece.bone];
@@ -593,6 +617,12 @@ export class Figure {
     });
   }
 
+  /** Release the one material this figure, rather than the arena palette, owns. */
+  dispose(): void {
+    this.unfollowSideMaps();
+    this.sideMaterial.dispose(false, false);
+  }
+
   /**
    * Put the authored geometry on, one piece at a time.
    *
@@ -628,6 +658,7 @@ export class Figure {
           .computeWorldMatrix(true)
           .multiply(Matrix.Translation(-centre[0], -centre[1], -centre[2])),
       );
+      normalizeImportedTangents(data);
       reverseWinding(data);
       data.applyToMesh(worn.mesh);
       // The primitive's offset and squash were how *it* was placed; the authored
