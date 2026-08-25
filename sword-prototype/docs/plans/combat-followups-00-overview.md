@@ -546,12 +546,31 @@ teaches exactly what the expert knows -- but it also guarantees that no DAgger-t
 ever aim, and the owner's objection is the right one: a contract whose outputs are wired to
 constants is not a contract, it is three columns of zeroes. So the teacher gains real opinions.
 
-Two facts make this much cheaper than it looked. **There are no checked-in DAgger rows anywhere in
-the repository**, so bumping `TACTICAL_TEACHER_VERSION` invalidates nothing -- the objection that
+Two facts make this much cheaper than it looked. **The checked-in DAgger rows are already dead**,
+so bumping `TACTICAL_TEACHER_VERSION` invalidates nothing that is still alive -- the objection that
 killed this option on paper does not survive contact with the tree. And **the effector label is
 already computed and thrown away**: `attackOpportunity` returns rows keyed `hand:${hand}:${weapon}`
 and the teacher already picks one, so which hand it attacks with costs nothing to recover. Only the
 aim and the stance are genuinely new authorship.
+
+> **Superseded, and the correction is the interesting half.** This paragraph first said there were
+> *no* checked-in DAgger rows anywhere in the repository. That is false. There are **143**, in
+> `asset-src/learning/research/session16-final-workers8/state.json`, git-tracked, in two iteration
+> batches of 71 and 72, each a complete eight-column row with a three-field label. The conclusion
+> survives because they carry `featureVersion: 3` against a runtime 4 and are refused before the
+> teacher version is ever consulted -- but "there are none" and "the ones there are cannot load"
+> are different sentences, and only the second one is true.
+>
+> **And the thing that correction turned up is worse than the error.** `TACTICAL_TEACHER_VERSION`
+> **is never compared to anything.** It has exactly three readers -- two in `collect-dagger.mjs`,
+> one in `research-rollout-worker.mjs` -- and all three *write* it: into a config object, into
+> artifact provenance, into the row. `validateDaggerRow` checks it for being a non-negative safe
+> integer and nothing else. So bumping the version refuses precisely zero rows. The only thing in
+> the tree that catches a stale teacher is the resume config digest, and only incidentally, because
+> the version happens to sit inside the blob being digested. A row collected under teacher 1 and a
+> row collected under teacher 2 are indistinguishable to every consumer once the feature version
+> matches. **C2b closes this**, because the whole point of authoring a real aiming rule is that
+> rows labelled by the old teacher and the new one must never be mixed.
 
 **And the authorship is constrained by stage B's own measurement, which is the point of having
 measured it.** A label is only worth varying where the motor layer honours it. Stage B measured the
