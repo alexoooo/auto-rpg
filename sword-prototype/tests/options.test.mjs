@@ -26,8 +26,13 @@ import {
 import { deployableTactics } from "../src/learning/meta.ts";
 import { FEATURE_COLUMNS, FEATURE_MIRROR_INDEX, FEATURE_MIRROR_SIGN, FEATURE_VERSION, FeatureWriter, mirrorFeatures, mirrorView, writeFeatures } from "../src/learning/features.ts";
 import { INTENT_FIELDS, SEED_RANGES, evaluationMirrorSeeds, evaluationSeed, intentFieldDeltas, intentSequencesEqual, validateSeedRanges } from "../src/learning/evaluation.ts";
-import { archerMind, duelistMind } from "../src/policies.ts";
-import { ACTION_SHOT_TIMING, ACTION_STROKE_TIMING, ACTION_TUNING, actionShotPhase, actionStrokeReading, bareCrowdDistance, freshIntent } from "../src/action-primitives.ts";
+import { archerMind, azimuthOf, cursorForAzimuth, duelistMind } from "../src/policies.ts";
+// The mutable block, imported here and *only* by this file's cross-check.
+// `options.ts` may not reach it -- `options_and_features_have_no_mutable_config_backdoor`
+// reads the source text to say so -- which is the whole reason there are two
+// copies of the azimuth mapping to compare.
+import { CONFIG } from "../src/config.ts";
+import { ACTION_SHOT_TIMING, ACTION_STROKE_TIMING, ACTION_TUNING, actionAimAt, actionAzimuthOf, actionCoverAt, actionCursorForAzimuth, actionShotPhase, actionStrokeReading, bareCrowdDistance, blankThreat, freshIntent, selectThreat } from "../src/action-primitives.ts";
 import { WEAPON_KINDS } from "../src/hands.ts";
 import { COMBAT_FIELDS } from "./fixtures/intent.mjs";
 import { assertCompleteView } from "./fixtures/view.mjs";
@@ -302,6 +307,283 @@ test("a_dual_wielder_executes_the_effector_the_decision_named", () => {
   assert.equal(chooseEffector(shielded, "cut"), "secondary");
   assert.equal(chooseEffector(swords, "cut"), "primary");
   assert.equal(chooseEffector(swords, "cut", "secondary"), "secondary");
+});
+
+/**
+ * A stroke aimed at a named region sweeps between its neighbours, and the
+ * measured line keeps the arc it was tuned with.
+ *
+ * The two ends are asserted against `actionAimAt` at the **midpoints** to the
+ * neighbouring regions -- not at the neighbouring heights, which this note used
+ * to claim and which would be twice the arc. `NAMED_STROKE_SPAN` is what makes
+ * the two different, and the difference is the whole magnitude of a named
+ * stroke.
+ *
+ * **Which is why the extent is built from `targetHeight` and a halving, and no
+ * longer from the constants.** It read
+ * `NAMED_STROKE_SPAN * TARGET_SPAN_FRACTION * span` -- `enter`'s own arithmetic
+ * restated -- so both equalities followed either constant wherever it went and
+ * `NAMED_STROKE_SPAN` could be moved 0.5 -> 0.55 with all 537 tests green. Only
+ * the fixture-bound band below constrained it at all, to about +-20 %. Half the
+ * distance between two published region heights is the same rule stated in a
+ * quantity the constant cannot move.
+ *
+ * The mutation it still does not catch is `TARGET_SPAN_FRACTION`: the region
+ * spacing and the arc scale with it together, so every equality here is
+ * invariant under it. That constant is held by
+ * `a_named_target_is_a_body_region_derived_from_published_facts`, which pins
+ * all three heights to exact numbers and the fraction to 0.75.
+ *
+ * The measured-line half is not decoration. `NAMED_STROKE_SPAN` is deliberately
+ * out of reach of `"as-measured"` -- that aim is the *centre* of an arc by
+ * definition, and it is what the scripted specialists and every figure in
+ * `docs/measurements.md` were taken at -- so a change that narrowed both would
+ * move `the_scripted_meta_controller_matches_the_policy_it_replaces` and the
+ * `duelist-swinger` null control with it. This asserts the asymmetry directly
+ * rather than waiting for those to notice.
+ */
+test("a_named_region_narrows_a_stroke_and_the_measured_line_keeps_its_arc", () => {
+  const v = view();
+  // Stepped by whole phases rather than sampled at 240 Hz, so the two readings
+  // are the arc's own ends and not the nearest frame to them. The entry step
+  // poses the guard and advances no stroke clock; a step of exactly the chamber
+  // duration lands the reading on the next phase, which is what makes
+  // `actionStrokePose` return the chamber point outright, and the same again for
+  // the commit. Sampling instead would read the *guard* pose as the top of a
+  // `vital` arc, which sits entirely below it.
+  const arc = (target) => {
+    const option = handActionOption("cut", { effector: "primary", target, stance: "action-default" });
+    option.enter(v);
+    option.decide(v, 0);
+    const chamber = option.decide(v, ACTION_STROKE_TIMING.chamber).primary.pointerY;
+    const commit = option.decide(v, ACTION_STROKE_TIMING.commit).primary.pointerY;
+    return { low: commit, high: chamber, span: chamber - commit };
+  };
+  const cursorAt = (y) => actionAimAt(v, { x: v.opponent.ground.x, y, z: v.opponent.ground.z },
+    { pointerX: 0, pointerY: 0 }, "primary", v.self.hands.primary.shoulder).pointerY;
+
+  // A named region: the arc runs from the height halfway to the region above it
+  // to the height halfway to the region below, and nowhere else. The half-step
+  // is measured between two published region heights rather than recomputed
+  // from the constants that place them, so a wider or narrower named stroke
+  // moves it.
+  const spacing = targetHeight(v, "high") - targetHeight(v, "vital");
+  assert.ok(Math.abs((targetHeight(v, "vital") - targetHeight(v, "low")) - spacing) < 1e-12,
+    "the three named regions are not evenly spaced, so one half-step cannot describe every arc");
+  const step = spacing / 2;
+  for (const target of ["vital", "high", "low"]) {
+    const centre = targetHeight(v, target);
+    const named = arc(target);
+    assert.ok(Math.abs(named.high - cursorAt(centre + step)) < 1e-9,
+      `${target} chambered at ${named.high}, not ${cursorAt(centre + step)}`);
+    assert.ok(Math.abs(named.low - cursorAt(centre - step)) < 1e-9,
+      `${target} committed to ${named.low}, not ${cursorAt(centre - step)}`);
+    // And it is a sweep rather than a point: a stroke with no vertical extent
+    // at all would satisfy the two equalities above if the step were zero.
+    assert.ok(named.span > 0.2 && named.span < 0.4, `${target} swept ${named.span}`);
+  }
+
+  // The measured line: still exactly one cursor unit of sweep about the aim,
+  // which is +-0.50 and is what `policies.ts` swings.
+  const measured = arc("as-measured");
+  assert.ok(Math.abs(measured.span - 1.00) < 1e-9, `the measured line swept ${measured.span}`);
+  const aim = cursorAt(v.opponent.shoulder.y + 0.20);
+  assert.ok(Math.abs(measured.high - (aim + 0.50)) < 1e-9, `chambered at ${measured.high}`);
+  assert.ok(Math.abs(measured.low - (aim - 0.50)) < 1e-9, `committed to ${measured.low}`);
+  // Which is the claim the two halves make together: naming a region is what
+  // narrows a stroke, and it is between two and five times narrower.
+  assert.ok(measured.span > arc("high").span * 2 && measured.span < arc("high").span * 5,
+    `${measured.span} against ${arc("high").span}`);
+});
+
+/**
+ * Naming the hand that covers decides which hand is on the line.
+ *
+ * It decided nothing at all until session 18: both defensive skills wrote
+ * `actionCoverAt` and `guard = true` into the acting hand and then into the
+ * spare, so `cover` on the primary and `cover` on the secondary produced
+ * byte-identical arm poses and `intent.actingHand` was the only field in the
+ * whole command that differed -- a shield in the off hand never led a guard even
+ * when the decision named it. Measured over 24 bouts against `swinger` on a
+ * `sword+shield` body, the two decisions produced the same bout to the digit:
+ * 294.7 damage taken, 98.8 blocks, 18 deaths, both ways.
+ *
+ * The assertion is on the *set of leaves that differ*, not on a sample of them.
+ * A test that read one pointer would go green against a change that moved the
+ * lead hand as well as the spare, which is the failure this whole session is
+ * about.
+ */
+test("a_named_cover_hand_leads_and_the_supporting_hand_steps_off_the_line", () => {
+  const v = view({ primary: "sword", secondary: "shield" }, { primary: "axe", secondary: "empty" });
+  // The shield shoulder sits exactly on the bearing to this fixture's threat, so
+  // its own covering aim is 0.0 and a displacement would be the only thing in
+  // it. Off the line, so both hands carry a real bearing and a dropped write
+  // cannot hide inside a zero.
+  v.self.hands.secondary.shoulder.x = -0.6;
+  const decide = (effector) => {
+    const option = handActionOption("cover", { effector, target: "threat", stance: "action-default" });
+    option.enter(v);
+    return option.decide(v, 0.05);
+  };
+  const lead = JSON.parse(JSON.stringify(decide("primary")));
+  const off = JSON.parse(JSON.stringify(decide("secondary")));
+
+  const differing = [];
+  const walk = (a, b, path) => {
+    if (a && typeof a === "object") for (const key of Object.keys(a)) walk(a[key], b[key], path ? `${path}.${key}` : key);
+    else if (a !== b) differing.push(path);
+  };
+  walk(lead, off, "");
+  assert.deepEqual(differing.sort(), ["actingHand", "primary.pointerX", "secondary.pointerX"],
+    `naming the cover hand moved ${JSON.stringify(differing)}`);
+
+  // And what each of the three is. The hand that was named holds the covering
+  // line `actionCoverAt` answers; the other one is that same line turned
+  // outboard by `guardSpread`.
+  const onTheLine = (hand) => actionCoverAt(v, selectThreat(v, blankThreat()), { pointerX: 0, pointerY: 0 }, hand).pointerX;
+  const displaced = (hand) => actionCursorForAzimuth(
+    actionAzimuthOf(onTheLine(hand), hand) + v.self.hands[hand].outboard * ACTION_TUNING.guardSpread, hand);
+  assert.equal(lead.actingHand, "primary"); assert.equal(off.actingHand, "secondary");
+  assert.equal(lead.primary.pointerX, onTheLine("primary"), "the named primary left its own covering line");
+  assert.equal(lead.secondary.pointerX, displaced("secondary"), "the supporting shield stayed on the leader's line");
+  assert.equal(off.secondary.pointerX, onTheLine("secondary"), "the named shield did not take the covering line");
+  assert.equal(off.primary.pointerX, displaced("primary"), "the supporting sword stayed on the leader's line");
+  // The displacement is a displacement: outboard is a side, so the two hands go
+  // opposite ways and neither stays where it was.
+  assert.notEqual(displaced("primary"), onTheLine("primary"));
+  assert.notEqual(displaced("secondary"), onTheLine("secondary"));
+
+  // A bare supporting fist is *not* moved, which is the exclusion that keeps the
+  // scripted parity sweep -- run on `sword+empty` and nothing else -- out of
+  // this, and is also `planOffHand`'s own rule: a fist is small and is already
+  // the nearest thing to the line.
+  const bare = view({ primary: "sword", secondary: "empty" }, { primary: "axe", secondary: "empty" });
+  bare.self.hands.secondary.shoulder.x = -0.6;
+  const withFist = handActionOption("cover", { effector: "primary", target: "threat", stance: "action-default" });
+  withFist.enter(bare);
+  const fist = withFist.decide(bare, 0.05);
+  assert.equal(fist.secondary.pointerX,
+    actionCoverAt(bare, selectThreat(bare, blankThreat()), { pointerX: 0, pointerY: 0 }, "secondary").pointerX,
+    "a bare supporting fist was stepped off the line");
+});
+
+/**
+ * Which actions spread the supporting hand, over all four that plan one.
+ *
+ * `DEFENSIVE_ACTIONS` is the condition, and until this test nothing held either
+ * end of it. Widening it to every action moves **92 of a 408-cell** command
+ * surface and costs a `sword+shield` fighter cutting `high` at `swinger`
+ * **157.8 damage a bout against 81.9** over 24 bouts (`.review/rem2/spreadcost.mjs`)
+ * -- four to nineteen times the balance noise floor -- and it left all 537
+ * tests green. Narrowing it to `cover` alone moves 72 cells and was equally
+ * green, and `recover` aimed at `threat` collapses to a byte-identical pose
+ * exactly as `cover` did, which is half of what session 18 claims to have
+ * fixed.
+ *
+ * The four rows are the whole of what the block can be asked, so this is the
+ * condition asserted rather than a sample of it: `cut` and `punch` are the
+ * swinging pair whose acting hand is not holding a guard for the spare to rest
+ * against, `cover` and `recover` are the two that are. `punch` needs an empty
+ * acting hand, so it brings its own body -- a shield in the off hand and
+ * nothing in the fist, which is a real loadout the picker offers.
+ *
+ * What it does not catch: `guardSpread`'s magnitude. Every expectation here is
+ * built from `ACTION_TUNING.guardSpread` itself, so the constant can move and
+ * this stays green.
+ * `a_named_cover_hand_leads_and_the_supporting_hand_steps_off_the_line` has the
+ * same gap, and the 24-bout table beside the constant in `action-primitives.ts`
+ * is what argues the value.
+ */
+test("only_the_two_defensive_skills_spread_the_supporting_hand", () => {
+  // The supporting hand is put on the covering line whatever the acting hand was
+  // aimed at, so the two swinging rows can take the aim they are allowed --
+  // `threat` is refused to them at construction, by this same list.
+  const spread = (action, mine, target) => {
+    const v = view(mine, { primary: "axe", secondary: "empty" });
+    // Off the bearing to the threat, so both hands carry a real azimuth and a
+    // displacement cannot hide inside a zero.
+    v.self.hands.secondary.shoulder.x = -0.6;
+    const option = handActionOption(action, { effector: "primary", target, stance: "action-default" });
+    option.enter(v);
+    const held = option.decide(v, 0.05).secondary.pointerX;
+    const line = actionCoverAt(v, selectThreat(v, blankThreat()), { pointerX: 0, pointerY: 0 }, "secondary").pointerX;
+    const off = actionCursorForAzimuth(
+      actionAzimuthOf(line, "secondary") + v.self.hands.secondary.outboard * ACTION_TUNING.guardSpread, "secondary");
+    assert.notEqual(line, off, `${action}: the fixture cannot tell a spread from the line`);
+    return held === off ? "spread" : held === line ? "on the line" : `neither (${held}, line ${line}, spread ${off})`;
+  };
+  const shielded = { primary: "sword", secondary: "shield" };
+  assert.deepEqual({
+    cover: spread("cover", shielded, "threat"),
+    recover: spread("recover", shielded, "threat"),
+    recoverMeasured: spread("recover", shielded, "as-measured"),
+    cut: spread("cut", shielded, "as-measured"),
+    punch: spread("punch", { primary: "empty", secondary: "shield" }, "as-measured"),
+  }, { cover: "spread", recover: "spread", recoverMeasured: "spread", cut: "on the line", punch: "on the line" });
+});
+
+/**
+ * The option layer's azimuth mapping inverts, on both sides of centre.
+ *
+ * `tests/handover.test.mjs` records what this costs when it is not checked: the
+ * envelope is asymmetric -- a primary arm reaches 1.30 rad outboard and 1.15 rad
+ * across itself, the secondary the mirror -- so an inverse that divided by a
+ * single half-range agrees with the true one for exactly one sign, and it looked
+ * right. Both signs and both hands, or this test proves nothing.
+ */
+test("the_option_layer_azimuth_mapping_inverts_on_both_sides_of_centre", () => {
+  for (const hand of ["primary", "secondary"]) {
+    for (const pointer of [-1, -0.7, -0.25, 0, 0.25, 0.7, 1]) {
+      const angle = actionAzimuthOf(pointer, hand);
+      assert.ok(Math.abs(actionCursorForAzimuth(angle, hand) - pointer) < 1e-12,
+        `${hand} ${pointer} -> ${angle} -> ${actionCursorForAzimuth(angle, hand)}`);
+    }
+    // The asymmetry itself, which is what makes the round trip worth asserting.
+    const outboardSign = hand === "primary" ? 1 : -1;
+    assert.ok(Math.abs(actionAzimuthOf(outboardSign, hand)) > Math.abs(actionAzimuthOf(-outboardSign, hand)),
+      `${hand} reaches no further outboard than across itself`);
+  }
+  // Beyond the envelope the cursor saturates rather than running past 1, which
+  // is what `boundIntent` would have to repair if it did not.
+  assert.equal(actionCursorForAzimuth(9, "primary"), 1);
+  assert.equal(actionCursorForAzimuth(-9, "primary"), -1);
+});
+
+/**
+ * The frozen copy and the `CONFIG`-backed copy are the same mapping.
+ *
+ * There are two on purpose -- `policies.ts` reads mutable `CONFIG.arm` and the
+ * option layer may not, which
+ * `options_and_features_have_no_mutable_config_backdoor` pins -- and two copies
+ * of a rule is one copy somebody edits. The scripted guard and the option
+ * layer's guard are placed by the same angle through different arithmetic, so a
+ * divergence here would move a shield by a real distance and nothing else in the
+ * tree would say so. A comparison rather than a comment, because a comment
+ * claiming they agree is exactly what was here before this test.
+ */
+test("the_option_layer_and_the_scripted_layer_share_one_azimuth_mapping", () => {
+  for (const hand of ["primary", "secondary"]) {
+    for (const pointer of [-1, -0.83, -0.4, -0.05, 0, 0.05, 0.4, 0.83, 1]) {
+      assert.ok(Math.abs(actionAzimuthOf(pointer, hand) - azimuthOf(pointer, hand)) < 1e-12,
+        `${hand} ${pointer}: option ${actionAzimuthOf(pointer, hand)} against scripted ${azimuthOf(pointer, hand)}`);
+    }
+    for (const angle of [-1.30, -0.9, -0.2, 0, 0.2, 0.9, 1.30]) {
+      assert.ok(Math.abs(actionCursorForAzimuth(angle, hand) - cursorForAzimuth(angle, hand)) < 1e-12,
+        `${hand} ${angle}: option ${actionCursorForAzimuth(angle, hand)} against scripted ${cursorForAzimuth(angle, hand)}`);
+    }
+  }
+  // The four numbers both blocks state, so a session that moves one in `CONFIG`
+  // and not in `ACTION_TUNING` fails here rather than in a shield's placement.
+  // It was one number until session 18's remediation, and it was a number the
+  // option layer did not read: `azimuthRange`, `actionAimAt` and `elevation`
+  // each wrote the envelope out again, so mutating `ACTION_TUNING.azimuthMax`
+  // failed this assertion while moving no pose anywhere. All four are the
+  // single source now, and the loop above is what notices a real move.
+  assert.deepEqual({
+    azimuthMin: ACTION_TUNING.azimuthMin, azimuthMax: ACTION_TUNING.azimuthMax,
+    elevationMin: ACTION_TUNING.elevationMin, elevationMax: ACTION_TUNING.elevationMax,
+  }, { azimuthMin: CONFIG.arm.azMin, azimuthMax: CONFIG.arm.azMax,
+    elevationMin: CONFIG.arm.elMin, elevationMax: CONFIG.arm.elMax });
 });
 
 test("an_illegal_action_effector_target_tuple_is_masked_not_repaired", () => {

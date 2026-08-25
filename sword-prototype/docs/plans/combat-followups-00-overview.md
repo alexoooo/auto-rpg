@@ -275,6 +275,15 @@ review and one of them a bug it shipped:
   arc that sweeps far wider than the gap between two named heights. Four tables and the reason
   are in `docs/measurements.md`. **Owed a bout and flagged for session 23**: making a cut's
   `high` reach a head means lifting the stroke envelope, which is a balance change.
+  - **Closed in session 18, and both halves of the paragraph above needed correcting.** The
+    mechanism was right and the measurement of it was not: `high` and `as-measured` are 0.012
+    cursor units apart on that fixture, so those two rows are the same stroke run twice over one
+    bout of 22 contacts. Asked `high` against `low` over 40 seeded bouts, a cut separated
+    beforehand too, 0.128 to 0.044. And the repair is *not* lifting the envelope, which was swept
+    and moves every aim up together: narrowing is what separates regions. `NAMED_STROKE_SPAN`
+    sweeps a named stroke half a region spacing either side of its aim and no further, taking
+    `high` to 0.166 against `low`'s 0.019 -- 8.7x against 2.9x -- for about a fifth of the cut's
+    damage rate. `docs/measurements.md`, "Session 18".
 - **`punch` was being advertised on bodies that cannot punch, and closing it closed one loadout
   of seven.** A two-handed weapon welds the other arm to the haft and `Fighter.update` ignores
   its half of the command, so a bow body's punch was posed and discarded. One legality rule now
@@ -497,6 +506,11 @@ instead of one general claim. Changing the stroke envelope to fix it would be a 
 which is precisely what this stage is not allowed to do, so it goes to session 23 as an open
 question with numbers attached.
 
+**Session 18 took it early and the table above is superseded**: the column it compares against is
+the *same stroke*, 0.012 cursor units away, measured once. `high` against `low` -- the comparison
+a rule is about -- is what moved, from 2.9x to 8.7x, and it moved by narrowing the arc rather
+than by lifting it. See `docs/measurements.md`, "Session 18".
+
 **And, twice in a row, a test that asserted the reachable quantity instead of the one it was
 named for.** Stage A shipped a test called "goes inert" that checked 2 of 19 command leaves --
 a fighter turning at 0.9, crouched, holding a button satisfies it. Stage B shipped one whose
@@ -613,7 +627,11 @@ head share on the contacted limb per action: thrust moves 0.090 to 0.484 when th
 moves 0.071 to 0.045 and punch 0.200 to 0.121. So a teacher that varies its aim on cuts is teaching
 a correlation the body will not produce -- noise wearing a label. The rule therefore varies aim
 where aim works and holds it constant where it does not, **with the measured reason written beside
-each branch**, and session 23 revisits it if the stroke envelope changes. The same caution applies
+each branch**, and session 23 revisits it if the stroke envelope changes. **The envelope changed
+in session 18 and the trigger has fired**: a cut aimed `high` now takes 0.166 head share against
+`low`'s 0.019, so the evidence for the constant `vital` label is gone. The label is unchanged
+anyway, because moving it moves the histogram every trainer consumes and that is owed its own
+before-and-after; `tactical-teacher.ts` says so in place. The same caution applies
 to `extended`, which stage B found to be a near-duplicate of the commit posture (0.10/0.30/0.55
 against 0.12/0.30/0.68), so labelling it during a committing action teaches a near-no-op.
 
@@ -946,11 +964,11 @@ Findings that change session 18 specifically:
     `a_label_free_mind_and_a_labelled_mind_agree_on_attack_intent_for_the_same_commands` fails
     as written and must be scoped: `opportunityForAction` requires `striker === "sword"` for
     `thrust` (`engagement.ts#L118-L123`) where the inline matcher falls through to `true`
-    (`options.ts#L966`); `research-havok.mjs#L46` credits exactly one row -- **the hand the label
-    named** -- where `options.ts#L967` credits every viable match, which systematically depresses
+    (`options.ts#L1157`); `research-havok.mjs#L46` credits exactly one row -- **the hand the label
+    named** -- where `options.ts#L1158` credits every viable match, which systematically depresses
     dual-wield opportunity conversion; the labelled paths fire on an option-change edge while the
     label-free path fires on a button edge at 240 Hz; and only the label-free path counts a
-    *guard release* as an attack (`options.ts#L950`), which inflates the numerator of
+    *guard release* as an attack (`options.ts#L1141`), which inflates the numerator of
     opportunity-attack and deflates attack-contact for a defensive player.
     **Corrected 2026-08-25.** This read "credits only `[0]`, the first matching row", which was
     an accurate description of a **defect**: the filter did not read the hand, so `[0]` was the

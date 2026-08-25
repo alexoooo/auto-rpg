@@ -1,5 +1,5 @@
 import { cutsBothWays, HANDS, handsFor, hasHeldWeapon, hasPoint, isHeldStriker, isShooting, isStriking, otherHand, type HandName, type Striker, type WeaponKind } from "./hands.ts";
-import { ACTION_STROKE_TIMING, ACTION_TUNING, actionAimAt, actionArcherAim, actionCoverAt, actionDistance, actionShotPhase,
+import { ACTION_STROKE_TIMING, ACTION_TUNING, actionAimAt, actionArcherAim, actionAzimuthOf, actionCoverAt, actionCursorForAzimuth, actionDistance, actionShotPhase,
   actionStrokePose, actionStrokeReading, actionStrokeRoll, applyActionPosture, bareCrowdDistance, bareHoldDistance, blankThreat, boundIntent, clampAction,
   freshIntent, selectThreat, type ActionPoint, type ThreatView } from "./action-primitives.ts";
 import type { FighterView, Intent, Mind } from "./mind.ts";
@@ -330,6 +330,95 @@ export const tacticTargets = (action: HandActionName): readonly TargetName[] => 
  */
 export const TARGET_SPAN_FRACTION = 0.75;
 
+/**
+ * How far a stroke aimed at a named region sweeps above and below it, as a
+ * fraction of the spacing between two adjacent named regions.
+ *
+ * **Half, because half is what "separable" means here.** The three regions are
+ * `TARGET_SPAN_FRACTION` of the vitals-to-crown span apart -- 364 mm on a
+ * warrior -- so a stroke that sweeps half that either side reaches exactly to
+ * the midpoint between its own region and the next, and two strokes aimed at
+ * adjacent regions therefore never sweep through each other's aim point. Any
+ * larger and a cut aimed `high` rakes the region below it as readily as its own,
+ * which is what it did: `enter` swept a flat `+-0.50` in cursor Y about the aim,
+ * which at the range a cut is delivered is about +-0.85 m -- more than twice the
+ * distance between two regions and most of the height of a body.
+ *
+ * **It is a fraction of a spacing rather than a number of cursor units, for the
+ * same reason `TARGET_SPAN_FRACTION` is a fraction of a span**: the rule has to
+ * work on a broot, which is a 1.18x warrior, and at whatever range the stroke is
+ * entered at. Cursor elevation is not linear in height (`actionAimAt` divides by
+ * 1.25 above the shoulder line and 1.05 below it, after an `asin`), so the two
+ * ends are resolved by aiming at the neighbouring heights and reading the cursor
+ * back, rather than by adding a constant to the aim. The extent is therefore
+ * asymmetric about the aim, and correctly so.
+ *
+ * **"A broot, which is a 1.18x warrior" is the whole of the portability this was
+ * checked over, and `TARGET_SPAN_FRACTION`'s own argument in `DESIGN.md` reaches
+ * a 0.38 m centipede. Here is what happens down there.** A centipede publishes
+ * `crownHeight` 0.38 and `vitalHeight` 0.209, so a region spacing is 128 mm and
+ * a half-spacing is 64 mm. Measured from a warrior's shoulder
+ * (`.review/rem2/smallbody.mjs`), the resulting arc is **0.041 to 0.057 cursor
+ * units** at 1.0 to 2.2 m, against the measured line's 0.77 to 1.00 -- a stroke
+ * about a twentieth as tall as the one the game was tuned on. **At 0.6 m the
+ * span of a `vital` or a `low` cut is exactly 0.000**: both ends of the arc
+ * resolve below the elevation envelope and `clampAction` pins them together, so
+ * a named cut at a crawler underfoot is a chop with no sweep at all. `high`
+ * survives at 0.042 because its aim sits highest.
+ *
+ * **It is not a damage regression and that is the surprising half.** Four bouts
+ * a cell against `crawler` (`.review/rem2/centipede.mjs`): damage per four bouts
+ * goes 545.5 -> 769.5 for `high`, 491.2 -> 519.5 for `vital`, 400.8 -> 505.5 for
+ * `low`, with more contacts and *slower* ones -- mean contact speed 8.76 -> 6.93
+ * and 15.22 -> 7.85. A small body is close to the floor, so the part of the old
+ * arc this removes was mostly swinging at the ground. `"as-measured"` is
+ * byte-identical, as it is everywhere.
+ *
+ * So the floor is stated rather than guarded: **a named stroke degenerates
+ * toward a point as the target's vitals-to-crown span shrinks, and reaches an
+ * exact zero on a 0.17 m span inside about 0.6 m.** No constant clamps it,
+ * deliberately -- a minimum in cursor units would be the flat `+-0.50` this
+ * replaced, in a smaller costume, and the measurement says the degenerate case
+ * is not the one that hurts. If a future body makes it hurt, the repair is a
+ * floor in *metres* on the region spacing, in `targetHeight` where the spacing
+ * is computed, not here.
+ *
+ * **What it costs, measured** (`.review/arcfinal.mjs`, 40 seeded bouts a cell
+ * against an idle warrior): a `cut` separates `high` from `low` by 8.7x on head
+ * share where it separated by 2.9x, and pays about a fifth of its damage *rate*
+ * for it -- the blade travels less vertical distance in the same commit, so it
+ * arrives at 7.8 m/s rather than 10.1 and lands more, slower contacts. The full
+ * before/after tables are in `docs/measurements.md` under "Session 18".
+ *
+ * **Biasing the commit point instead was swept and refused, and it was the
+ * likelier-looking repair.** Contact is not concentrated anywhere in the stroke
+ * -- over one bout, 31 scoring contacts split chamber 10, commit 8, recover 13,
+ * spread evenly from 0.08 to 0.95 of the sweep -- so there is no moment of likely
+ * contact to point at. Measured, moving the commit point from the centre of a
+ * full-width arc to near the aim raises a `high` cut's head share from 0.128 to
+ * 0.176 and a `low` cut's from 0.044 to 0.072 together, which lifts the whole
+ * distribution rather than pointing any of it: the ratio between them *falls*,
+ * 2.9 to 2.4. Narrowing is what separates regions.
+ *
+ * **The measured line is not a named region and keeps its own extent.** A cut
+ * asked for `"as-measured"` still sweeps `+-0.50` about the aim, because that
+ * aim *is* the centre of an arc by definition -- it is the shoulder line plus the
+ * twenty-centimetre stroke lift the scripted specialists were tuned with, and
+ * `aimHeight` already treats it differently for exactly this reason. A named
+ * region is a place on a body; the two are different things being named and get
+ * different extents. That is also what keeps the scripted parity sweep and the
+ * `duelist-swinger` null control out of this change entirely.
+ */
+export const NAMED_STROKE_SPAN = 0.5;
+
+/** The cursor elevation that sends this hand at a height on the line to the target. */
+const SCRATCH_AIM = { pointerX: 0, pointerY: 0 };
+const aimPointerY = (view: FighterView, hand: HandName, y: number): number => {
+  actionAimAt(view, { x: view.opponent.ground.x, y, z: view.opponent.ground.z }, SCRATCH_AIM, hand,
+    (view.self.hands[hand] as { shoulder: ActionPoint }).shoulder);
+  return SCRATCH_AIM.pointerY;
+};
+
 /** Where a named region is on the body in front, from published facts alone. */
 export function targetHeight(view: FighterView, target: Exclude<TargetName, "threat">): number {
   const vital = view.opponent.vitalHeight;
@@ -345,18 +434,32 @@ export function targetHeight(view: FighterView, target: Exclude<TargetName, "thr
  * `measuredLift` is added to the measured shoulder line and **not** to a named
  * region, which is deliberate -- it is the twenty centimetres the scripted
  * stroke was tuned with and a named region is a real place on a body, not a
- * place plus an offset. It is also, measured, most of why a named region does
- * not decide where a `cut` lands. `enter` seeds a stroke from
- * `aimHeight(view, aimed, 0.20)`, so on a warrior the measured entry aim is
- * 1.62 m while `high` is 1.644 -- twenty-four millimetres apart -- and the arc
- * the stroke then sweeps is +-0.62 and +-0.50 in cursor units, which is far
- * wider than that gap. `vital` and `low` are 340 and 704 mm *below* the entry
- * aim, so what a named region does to a cut is drop the whole arc rather than
- * point it: every one of the three raises the low share and none raises the
- * head share. `thrust` and `shoot` send a point where the aim says and are not
- * affected. The four tables are in `docs/measurements.md` under "Session 17
- * Stage B", with the open question they leave: making a cut's `high` reach a
- * head is a stroke-envelope change and is owed a bout, which is session 23's.
+ * place plus an offset. On a warrior the measured entry aim is therefore 1.62 m
+ * while `high` is 1.644 -- twenty-four millimetres apart -- and `vital` and
+ * `low` are 340 and 704 mm *below* it.
+ *
+ * **That twenty-four millimetres is also why `high` against `as-measured` is not
+ * a test of whether a cut obeys its aim, and Stage B ran exactly that test.**
+ * The two aims are 0.012 cursor units apart on the measurement fixture: the same
+ * stroke, twice. Stage B compared them over one bout of 22 to 35 scoring
+ * contacts and reported the difference -- `cut` 0.071 -> 0.045 head share,
+ * `punch` 0.200 -> 0.121 -- as a rule the two actions did not obey. Pooled over
+ * **forty** seeded bouts the pair a rule is actually about, `high` against
+ * `low`, separated before the change too: 0.128 against 0.044 on a cut, a 2.9x
+ * ratio. What was true is that the separation was weak and the stroke raked
+ * everything under the aim on the way past -- a `high` cut still put **31 %** of
+ * its contacts in the legs -- and `NAMED_STROKE_SPAN` is the repair, which takes
+ * the ratio to 8.9x and the leg share to 24 %. Session 18's tables are in
+ * `docs/measurements.md`; Stage B's are superseded there rather than deleted.
+ *
+ * The two figures here were "0.072 against 0.009" and "45 %" until the
+ * remediation pass, quoted as sixteen-seed readings from `.review/aimdist.mjs`.
+ * That harness cannot produce them: they were taken under a pause convention it
+ * now comments out, and nothing in the pair reproduces. Four places carried
+ * them; all four carry the forty-seed table now.
+ *
+ * `thrust` and `shoot` send a point where the aim says and take no arc at all,
+ * which is why they were the two that obeyed and why neither moved.
  */
 const aimHeight = (view: FighterView, aim: Exclude<TacticAim, "threat">, measuredLift = 0): number =>
   aim === "as-measured" ? view.opponent.shoulder.y + measuredLift : targetHeight(view, aim);
@@ -527,9 +630,22 @@ export interface FactorizedHandAction extends CombatOption { readonly movement: 
  * executed on the primary or refused; it is never quietly executed on the
  * secondary. Scripted callers make the search themselves, by name, through
  * `chooseEffector`.
+ *
+ * **There was a third parameter and it was born dead.** `start` offered the
+ * pointer the hand was last commanded to, and `enter` copied it into the
+ * stroke's chamber origin -- which `decide` then overwrote on the entry step
+ * with the covering guard, unconditionally, before the first read. Removing it
+ * moved not one leaf of the 408-cell command surface, and neither did handing
+ * it `undefined` at the only caller that ever threaded a live value into it.
+ * `scripted-meta` kept a whole `previousIntent` field alive to feed it. The
+ * stroke *does* start from the guard on purpose -- that is what
+ * `actionStrokePose`'s `start` argument is for and it is a real pose -- so this
+ * was a second, silent answer to a question already answered, and the two
+ * disagreed with nobody there to see it. Reviving it is a behaviour change and
+ * needs its own measurement, not a parameter list.
  */
 export function handActionOption(requested: HandActionName | string, execution: TacticExecution,
-  start?: Readonly<{ pointerX: number; pointerY: number }>, initialShotRest = 0): FactorizedHandAction {
+  initialShotRest = 0): FactorizedHandAction {
   if (!knownHandAction(requested)) throw new Error(`unknown hand action "${requested}" -- known hand actions are ${HAND_ACTION_NAMES.join(", ")}`);
   if (!knownEffector(execution.effector)) throw new Error(`unknown effector "${execution.effector}" -- known effectors are ${EFFECTOR_NAMES.join(", ")}`);
   if (!knownAim(execution.target)) throw new Error(`unknown target "${execution.target}" -- known targets are ${TARGET_NAMES.join(", ")}`);
@@ -617,9 +733,21 @@ export function handActionOption(requested: HandActionName | string, execution: 
       refuseUnsupported(view); started = view.clock; elapsed = 0; strokePhase = "chamber"; strokeElapsed = 0; strokeEntry = true;
       shotDrawn = -1; shotReleasing = false; shotComplete = false;
       reset(); aimAt(view, intent, hand, aimHeight(view, aimed, 0.20));
-      startX = start?.pointerX ?? 0; startY = start?.pointerY ?? 0;
-      fromX = clampAction(intent[hand].pointerX + 0.62 * view.self.hands[hand].outboard); fromY = clampAction(intent[hand].pointerY + 0.50);
-      toX = clampAction(intent[hand].pointerX - 0.62 * view.self.hands[hand].outboard); toY = clampAction(intent[hand].pointerY - 0.50);
+      // How far the stroke sweeps above and below where it was pointed. The
+      // measured line names the centre of an arc and keeps the extent it was
+      // tuned with; a named region names a place on a body, and the arc reaches
+      // halfway to its neighbours and no further. `NAMED_STROKE_SPAN` carries
+      // the argument and what the change cost.
+      let above = 0.50; let below = 0.50;
+      if (aimed !== "as-measured") {
+        const step = NAMED_STROKE_SPAN * TARGET_SPAN_FRACTION *
+          Math.max(0, view.opponent.crownHeight - view.opponent.vitalHeight);
+        const centre = aimHeight(view, aimed); const pointed = intent[hand].pointerY;
+        above = Math.max(0, aimPointerY(view, hand, centre + step) - pointed);
+        below = Math.max(0, pointed - aimPointerY(view, hand, centre - step));
+      }
+      fromX = clampAction(intent[hand].pointerX + 0.62 * view.self.hands[hand].outboard); fromY = clampAction(intent[hand].pointerY + above);
+      toX = clampAction(intent[hand].pointerX - 0.62 * view.self.hands[hand].outboard); toY = clampAction(intent[hand].pointerY - below);
       strokeRoll = actionStrokeRoll(fromX, fromY, toX, toY, cutsBothWays(view.self.hands[hand].weapon), hand);
     },
     decide(view, dt) {
@@ -662,8 +790,13 @@ export function handActionOption(requested: HandActionName | string, execution: 
           h.guard = true;
         }
         actionPosture = strokeEntry ? "cover" : strokePhase === "recover" || strokePhase === "complete" ? "recover" : "commit";
+        // The entry step used to set `roll` and `wristBend` here as well, and
+        // both were overwritten before anybody read them: `applyActionPosture`
+        // rewrites the pair on every call, and the block below it puts the
+        // stroke roll back for exactly this case. Neutralising them moved no
+        // leaf of the 408-cell command surface.
         if (strokeEntry) {
-          h.roll = strokeRoll; h.wristBend = 0.12; strokeEntry = false;
+          strokeEntry = false;
         } else if (stroke.phase !== strokePhase || stroke.fraction >= 1) {
           strokePhase = strokePhase === "chamber" ? "commit" : strokePhase === "commit" ? "recover" : "complete";
           strokeElapsed = 0;
@@ -713,25 +846,85 @@ export function handActionOption(requested: HandActionName | string, execution: 
         intent[hand].roll = strokeRoll; intent[hand].wristBend = 0.12;
       }
       if (name === "shoot") {
-        intent[hand].roll = 0; intent[hand].wristBend = 0; intent[hand].guard = false;
+        // `roll` and `wristBend` and nothing else: `applyActionPosture` is the
+        // only thing above here that writes them, and a `guard` clear would be
+        // a second answer to what `reset()` already answered at the top of the
+        // step -- neutralising one moved no leaf of the 408-cell command
+        // surface, and setting it the other way moved sixteen.
+        intent[hand].roll = 0; intent[hand].wristBend = 0;
         const spare = otherHand(hand);
         if (!view.self.hands[spare].lost && view.self.hands[spare].weapon === "empty") {
+          // **The rest pose written whole, and the pointer pair is not
+          // decoration.** `freshIntent` seeds `restPointerX/Y` on the
+          // *secondary* alone -- a primary starts at (0, 0) -- so this is the
+          // only thing that puts a spare **primary** at rest, which is the case
+          // a bow in the off hand produces. A review sweep that carried no
+          // such loadout read the pair as dead; it moves eight cells the moment
+          // one is present. `thrust` and `guard` below it genuinely restate
+          // what `reset()` did, and are kept because a rest pose stated in
+          // parts is the shape that let the pointer pair look optional.
           intent[spare].pointerX = ACTION_TUNING.restPointerX;
           intent[spare].pointerY = ACTION_TUNING.restPointerY;
           intent[spare].roll = 0; intent[spare].wristBend = 0;
           intent[spare].thrust = false; intent[spare].guard = false;
         }
       }
-      // The spare hand is planned after the body response, never before it. An
-      // empty covering fist therefore spends neither roll nor bend on the
-      // acting hand's posture, and that order is observable in every hold
-      // frame -- it is the order the scripted specialists were measured
-      // against, so lifting this block above `applyActionPosture` moves them.
+      // The spare hand's *bend* is planned after the body response, never
+      // before it. An empty covering fist therefore spends neither roll nor
+      // bend on the acting hand's posture, and that order is observable in
+      // every hold frame -- it is the order the scripted specialists were
+      // measured against, so lifting this block above `applyActionPosture`
+      // moves them.
+      //
+      // Its pointer is the one the cover above already placed. This block used
+      // to call `actionCoverAt` a second time to recompute the identical
+      // answer, and that superseded note is worth keeping rather than
+      // deleting: a no-op recomputation changes nothing *except* when
+      // something upstream has moved the pointer, in which case it silently
+      // undoes it -- which is exactly how a mis-placed guard spread survived a
+      // sweep. Neutralising the call moved no leaf of the 408-cell command
+      // surface.
       const spare = hand === "primary" ? "secondary" : "primary";
       if ((name === "cover" || name === "cut" || name === "punch" || name === "recover") &&
           !view.self.hands[spare].lost && view.self.hands[spare].weapon === "empty") {
-        actionCoverAt(view, threat(view), intent[spare], spare);
         intent[spare].roll = 0; intent[spare].wristBend = 0.08; intent[spare].guard = true;
+      }
+      // **The named hand leads a guard, and this is what makes naming one mean
+      // anything.** Both defensive skills put a hand on the covering line and
+      // then put the *other* hand on the same line, so `cover` executed on the
+      // primary and `cover` executed on the secondary produced byte-identical
+      // arm poses: measured, the whole difference between the two decisions was
+      // the bookkeeping field `intent.actingHand`, and 24 bouts of each against
+      // `swinger` on a `sword+shield` body agreed to the digit -- 294.7 damage
+      // taken, 98.8 blocks, 18 deaths, both ways. A shield in the off hand could
+      // therefore never lead a guard even when the decision named it. The
+      // supporting hand steps outboard off the line the leader is holding, which
+      // is `planOffHand`'s rule in `policies.ts`; `ACTION_TUNING.guardSpread`
+      // carries the number and its table.
+      //
+      // Two exclusions, both deliberate, and both are conditions rather than
+      // orderings. An **empty** supporting hand stays on the line -- a fist is
+      // small and is already the nearest thing to it, which is what
+      // `planOffHand` does with one, and it is the only case the scripted
+      // parity sweep covers. `hasHeldWeapon` is exactly the complement of the
+      // empty-fist block's own test, so the two never both fire and neither
+      // depends on standing where it stands. **That was not true while the
+      // fist block recomputed the pointer**: from above it, dropping this
+      // exclusion would have been invisible, and the note here used to argue
+      // the placement was what made the rule real. It is the condition that
+      // makes it real, and
+      // `only_the_two_defensive_skills_spread_the_supporting_hand` is what
+      // holds it. And `cut` and `punch` are not here at all: their acting hand
+      // is swinging rather than guarding, so there is no second guard for the
+      // spare to be resting against -- widening this test to every action cost
+      // a `sword+shield` fighter cutting `high` at `swinger` 157.8 damage a
+      // bout against 81.9 over 24 bouts, and left all 537 tests green, which is
+      // why the same test names them.
+      if (DEFENSIVE_ACTIONS.includes(name) && !view.self.hands[spare].lost &&
+          hasHeldWeapon(view.self.hands[spare].weapon)) {
+        intent[spare].pointerX = actionCursorForAzimuth(
+          actionAzimuthOf(intent[spare].pointerX, spare) +
+            view.self.hands[spare].outboard * ACTION_TUNING.guardSpread, spare);
       }
       // The learned pose goes on last, over the skill's safe base. Anywhere
       // above `applyActionPosture` it is erased -- that function zeroes all
@@ -761,7 +954,7 @@ export function scriptedMetaMind(kind: ScriptedKind, seed = 0): ScriptedMetaMind
     return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
   };
   let current: FactorizedHandAction | null = null; let selected: OptionName = "recover"; let prefer: HandName = "primary";
-  let previousIntent: Intent | null = null; let chosenHand: HandName = "primary";
+  let chosenHand: HandName = "primary";
   let attackFinished = false;
   let quiet = 0; let cooldown = 0; let sinceOpening = 0; let patience = 2.40;
   let circle = 1; let circleLeft = 1.2; let gapRate = 0; let lastGap = -1; let openingNow = false;
@@ -804,8 +997,8 @@ export function scriptedMetaMind(kind: ScriptedKind, seed = 0): ScriptedMetaMind
       // hand to pose -- so remain inert just as the learned and random meta
       // controllers do at the same terminal capability boundary.
       if (!Object.values(view.self.hands).some((candidate) => !candidate.lost)) {
-        current = null; selected = "recover"; previousIntent = freshIntent();
-        return previousIntent;
+        current = null; selected = "recover";
+        return freshIntent();
       }
       if (kind === "duelist") {
         const seen = threat(view); const tipGap = Math.hypot(seen.tip.x - view.self.shoulder.x,
@@ -837,7 +1030,7 @@ export function scriptedMetaMind(kind: ScriptedKind, seed = 0): ScriptedMetaMind
         const effector = chooseEffector(view, selected as HandActionName, chosenHand);
         if (effector === null) throw new Error(`option "${selected}" requires an effector this body has`);
         current = handActionOption(selected as HandActionName, asMeasured(effector),
-          previousIntent?.[chosenHand], kind === "archer" && selected === "shoot" ? quiet : 0);
+          kind === "archer" && selected === "shoot" ? quiet : 0);
         if (kind === "archer" && selected === "shoot") quiet = 0.30;
         current.enter(view);
         attackFinished = false; entries[selected] += 1;
@@ -865,9 +1058,7 @@ export function scriptedMetaMind(kind: ScriptedKind, seed = 0): ScriptedMetaMind
       }
       const movement: MovementName = movementPart.strafe < 0 ? "circle-left" : movementPart.strafe > 0 ? "circle-right"
         : movementPart.forward > 0 ? "close" : movementPart.forward < 0 ? "disengage" : "hold";
-      const intent = composeTactic(view, movement, selected as HandActionName, movementPart, actionPart);
-      previousIntent = intent;
-      return intent;
+      return composeTactic(view, movement, selected as HandActionName, movementPart, actionPart);
     },
   };
 }

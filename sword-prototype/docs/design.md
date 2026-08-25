@@ -184,22 +184,35 @@ Session 17 Stage B closed all three in the execution layer and Stage C2a widened
 contract from thirteen values to twenty-six, so a learned controller can name what Stage B made
 namable:
 
-- **The effector is exact.** `handActionOption` is handed the effector it will use and either
-  uses it or refuses by name; the silent search survives as `chooseEffector`, which is the
-  *caller's* decision and is named at every call site. A two-handed weapon leaves one hand
-  free to act -- `Fighter.update` drives the leading arm and sends the trailing one to a point
-  on the same haft, ignoring its half of the command -- so an action named on the trailing hand
-  is refused rather than posed and discarded. `punch` therefore stopped being advertised on a
-  bow body, where it had always been posed onto an arm nothing reads; the look-ahead training
-  schedule had never offered it there, so **the `bow+empty` row of the runtime mask now agrees
-  with the training one**. That was one loadout of seven -- two of the thirteen cells, one on
-  each humanoid unit -- and the traffic went the other way as well: `sword+empty` and
-  `axe+empty` leave a genuinely free off hand, so there the *schedule* was wrong and it was
-  corrected there. All seven loadouts agree as of stage C1. **What that agreement covers is
-  intact bodies**, because a schedule row keys on the loadout a body started with while the mask
-  keys on what is still attached; capability loss is answered a layer down, by the look-ahead
-  searching only cells it has a calibration for. The loadout table, the severed-hand masks and
-  that filter are in `docs/measurements.md`.
+- **The effector is exact, and since session 18 it is also honoured.** `handActionOption` is
+  handed the effector it will use and either uses it or refuses by name; the silent search
+  survives as `chooseEffector`, which is the *caller's* decision and is named at every call
+  site. **Exactness is not the same as being obeyed, and for the two defensive skills it was
+  not**: `cover` and `recover` put the named hand on the covering line and then put the *other*
+  hand on the same line, so `cover` on the primary and `cover` on the secondary produced
+  byte-identical arm poses -- `intent.actingHand` was the only field in the whole command that
+  differed, and 24 bouts of each against `swinger` on a `sword+shield` body agreed to the digit.
+  A shield in the off hand could never lead a guard even when the decision named it. The named
+  hand now holds the line and the supporting hand steps outboard off it by
+  `ACTION_TUNING.guardSpread`, which is `planOffHand`'s rule in `policies.ts` and its measured
+  number; a bare supporting fist is excluded, because a fist is small and is already the nearest
+  thing to the line. Leading with the shield rather than the sword is worth 87.5 blocks a bout
+  against 63.6, of which the shield takes 56.9 against 32.0, and 13 deaths in 24 against 20
+  (`.review/coverblock.mjs`, 24 bouts a cell; the 60-bout re-run is in `docs/measurements.md`).
+
+  A two-handed weapon leaves one hand free to act -- `Fighter.update` drives the leading arm and
+  sends the trailing one to a point on the same haft, ignoring its half of the command -- so an
+  action named on the trailing hand is refused rather than posed and discarded. `punch` therefore
+  stopped being advertised on a bow body, where it had always been posed onto an arm nothing
+  reads; the look-ahead training schedule had never offered it there, so **the `bow+empty` row of
+  the runtime mask now agrees with the training one**. That was one loadout of seven -- two of
+  the thirteen cells, one on each humanoid unit -- and the traffic went the other way as well:
+  `sword+empty` and `axe+empty` leave a genuinely free off hand, so there the *schedule* was
+  wrong and it was corrected there. All seven loadouts agree as of stage C1. **What that
+  agreement covers is intact bodies**, because a schedule row keys on the loadout a body started
+  with while the mask keys on what is still attached; capability loss is answered a layer down,
+  by the look-ahead searching only cells it has a calibration for. The loadout table, the
+  severed-hand masks and that filter are in `docs/measurements.md`.
 - **The target is a body region derived from published facts, and it decides where a *point*
   goes.** `BodyView` publishes `vitalHeight` and `crownHeight` and nothing else about where a
   body's parts are, so `high` and `low` are three quarters of the vitals-to-crown span above and
@@ -207,14 +220,27 @@ namable:
   rule has to work on a centipede 0.38 m tall as well as on a warrior 1.765 m tall; the fraction
   is chosen anatomically, and the band that puts `high` on a head and `low` in a pelvis on both
   humanoid bodies is 0.567 to 0.928, of which 0.75 is very nearly the midpoint.
-  **The claim is checked against the contacted limb in a real bout, and it holds for `thrust`.**
-  On a `thrust` a named `high` takes a 0.48 head share against the measured aim's 0.09, and a
-  named `low` a 0.82 low share against 0.12. It does **not** hold for `cut` or `punch`, which are
-  strokes rather than points: the aim seeds only the centre of an arc that sweeps far wider than
-  the gap between two named heights, so a cut aimed `high` takes a 0.045 head share against the
-  measured aim's 0.071 -- lower. `shoot` is a point like `thrust` and behaves like one, but lands
-  two to four body contacts a bout in this harness, which is a hint and not a measurement. The
-  four tables, the structural reason and the open question are in `docs/measurements.md`.
+  **The claim is checked against the contacted limb in a real bout.** On a `thrust` a named
+  `high` takes a 0.48 head share against the measured aim's 0.09, and a named `low` a 0.82 low
+  share against 0.12. `shoot` is a point like `thrust` and behaves like one, but lands two to
+  four body contacts a bout in this harness, which is a hint and not a measurement.
+
+  `cut` and `punch` are **strokes rather than points**, and how well they obey is a separate
+  question with its own constant. The aim seeds an arc rather than a destination, and until
+  session 18 that arc was a flat +-0.50 in cursor Y about the aim -- about +-0.85 m at the range
+  a cut is delivered, more than twice the distance between two named regions -- so a stroke
+  aimed at one region raked the next as readily as its own. `NAMED_STROKE_SPAN` is what fixed
+  it: a stroke aimed at a *named* region now sweeps half a region spacing above and below it and
+  no further, so two strokes aimed at adjacent regions never sweep through each other's aim
+  point. Pooled over forty seeded bouts, a cut aimed `high` went from a 0.128 head share and a
+  0.308 leg share to **0.166 and 0.239**, against `low`'s 0.019 -- so `high` against `low`
+  separates 8.7x on head share where it separated 2.9x. It costs about a fifth of the cut's
+  damage *rate*: less vertical travel in the same commit, so the blade arrives at 7.8 m/s rather
+  than 10.1 and lands more, slower contacts. The measured line keeps its own +-0.50 and is not a
+  named region, which is what keeps the scripted specialists and the `duelist-swinger` null
+  control out of it. Stage B reported this defect the other way round -- a cut aimed `high`
+  taking 0.045 against the measured aim's 0.071 -- from a single bout of 22 contacts, comparing
+  two aims 0.012 cursor units apart. The tables both ways are in `docs/measurements.md`.
   `threat` is the existing threat-hand aim and belongs to `cover` and `recover` alone; it is
   refused by name on every other action rather than being quietly read as the measured line.
 - **The stance is bounded and applied last.** Six named whole-body poses over the same
@@ -860,7 +886,7 @@ because two copies of a rule is one copy somebody edits:
 | the hand holds | what it does |
 | --- | --- |
 | a striking weapon, and it is the attacking hand | exactly what it did before |
-| a shield or a buckler | interposes: arm across the line, wrist turned to bring the plate round |
+| a shield or a buckler | interposes: arm across the line, forearm rolled to bring the plate round |
 | a striking weapon, not attacking | covers on the guard line, and takes the next exchange |
 | nothing | rests |
 

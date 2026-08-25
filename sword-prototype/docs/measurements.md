@@ -533,6 +533,18 @@ the numbered list here now carries only playtest history and judgements that rem
    made it fail and reproduced both warnings. The arrow trail has a separate vertex-buffer
    assertion, which proved it was not the source.
 
+18. **Open: the option layer does not hold a shield like a shield.** `planOffHand` in
+   `policies.ts` places a strapped shield across the line of the blow, below the bearing to it,
+   with the forearm rolled to bring the plate round -- three placements, each with its own measured
+   table, together worth 96 % of the board against 56 % and 160.8 damage taken a bout against a
+   no-shield control's 284.5. `options.ts`'s `cover` has none of it and aims every hand like a
+   blade. Measured in one harness at 24 bouts, an option-driven `sword+shield` guard took
+   **294.7** damage a bout against `sword+buckler`'s 176.1 and `sword+sword`'s 202.8, which is
+   the wrong order. Session 18 found this while fixing the cover effector and did not take it:
+   it needs four constants mirrored into `ACTION_TUNING` and their tables re-taken through the
+   option layer, which is a balance change of its own. Everything a learned controller does with
+   a shield is priced against the wrong placement until it is done.
+
 ## The bow, and the four defects it found on the way in
 
 Every figure in this section is the **headless bench** unless it says otherwise:
@@ -2245,6 +2257,19 @@ the vitals-to-crown span above and below it. On a warrior (vitals 1.28 m, crown 
 | `high` | 76 | 66 | 15 | 157 | 0.484 | 0.096 |
 | `low` | 1 | 24 | 112 | 137 | 0.007 | 0.818 |
 
+**Superseded, and this is the whole of what was wrong with it.** The four tables below are one
+Havok bout each, and for `cut` that is 22 to 50 scoring contacts of which **zero to three** land
+on a head -- the `vital` row is 0 heads in 50 contacts -- so the `cut` and `punch` verdicts are
+counting single contacts, and one of them is counting none. Worse, the pair they
+compare, `high` against `as-measured`, is **0.012 cursor units apart on this fixture**: the
+measured entry aim is 1.62 m and `high` is 1.644, so those two rows are the same stroke run
+twice and the difference between them is chaos in a physics bout, not a rule. Session 18
+re-took all four with **40** seeded bouts a cell and a stroke pause as the nuisance knob, and
+`high` against `low` -- which is what "a named region separates" means -- separated on a cut
+even here: **0.128 against 0.044** head share, a 2.9x ratio whose bootstrapped 95 % interval
+(2.00-4.55) excludes 1. What was really wrong is below the tables and in
+"Session 18". The rows are left exactly as they were recorded.
+
 **`cut` -- the rule does not hold.** `high` takes a *lower* head share than the aim it replaces,
 and all three named regions raise the low share by roughly the same amount.
 
@@ -2294,6 +2319,14 @@ which is the one that decides whether the six stances earn their place and is th
 anything in this layer is allowed to move on a held-out result. A capability that works for two
 of four actions is worth shipping; describing it as working generally is not, which is what this
 section did.
+
+**Closed in session 18, and not by lifting the envelope.** The measurement above named the right
+mechanism -- the arc is wider than the gap between two regions -- and the wrong repair. Lifting
+it was swept and moves every aim up together rather than pointing any of them: at a full span,
+biasing the commit point from the centre of the arc to near the aim raises a `high` cut's head
+share from 0.128 to 0.176 and `low`'s from 0.044 to 0.072 at the same time, so the ratio between
+them *falls*. What separates regions is narrowing, and `NAMED_STROKE_SPAN` is what does it. See
+"Session 18".
 
 `a_thrust_at_a_named_high_or_low_target_reaches_that_body_region` asserts on these shares and
 not on `intent.pointerY`: a cursor elevation is written by the aim and read back by the test
@@ -4520,3 +4553,573 @@ model-version refusal), `npm run build` clean, and `git diff --numstat` byte-ide
 `git diff --ignore-cr-at-eol --numstat` across the whole directory, so no file's line endings
 moved. `scripts/` is not type-checked and was swept by hand: `node --check` on every script, and
 a grep for the two renamed exports across `scripts/` and `tests/`.
+
+## Session 18: the execution layer honours a named region and a named hand -- 2026-08-25
+
+Two defects, the same shape: the tactic v2 vocabulary offers a choice and the motor layer
+collapses it. Session 17 made every tuple *legal*; this session makes two of them *matter*. Both
+changes are balance-capable and both are measured before and after.
+
+**Every figure below names its harness**, which this session means one of four:
+`.review/aimdist.mjs` (per-action landing distribution, on the Stage B fixture),
+`.review/arcfinal.mjs` (the same with per-seed standard errors and the "is it still a cut"
+readings), `.review/coverblock.mjs` (a held guard against a real attacker) and
+`.review/balance.mjs` (option-driven controllers against `swinger`). All four run over `runBout`
+in `scripts/measure.mjs`, which is the headless bench and not the page.
+
+### The noise floor, first, because two of the four tables are inside it
+
+Session 17 learned that within-condition seed spread can exceed between-condition spread by 75x,
+and this session found the same thing twice. Both floors were measured rather than assumed.
+
+- **Landing distributions.** The Stage B fixture has *no* usable seed: both minds are
+  deterministic and `idle` ignores `runBout`'s seeds, so eight seed pairs return eight copies of
+  one bout. The nuisance knob added here is a seeded pause between strokes -- it changes when
+  each stroke starts relative to where the body is standing, and changes no aim. Over 40 such
+  bouts the **within-condition** head share of a `cut` aimed `high` ranges **0.036 to 0.372**
+  bout to bout, against a between-condition move of 0.038. Pooled, the seed-level standard error
+  is **+-0.013 to +-0.019** (`.review/arcfinal.mjs` reports it per cell). A single bout is worth
+  nothing here, and Stage B took one.
+- **Bout outcomes.** The same code at a second seed base moves a 40-bout win rate by a median of
+  **5.0 percentage points** over the fifteen cells and a maximum of **22.5**, and damage dealt
+  by a median of **8.8 %**, from 2.8 % to **45.5 %** (`.review/balance.mjs`, seed base 7000
+  against 41000). Anything smaller than that in the balance table below is not a result.
+
+  **This bullet read "a median of 7.5 percentage points" and "5 to 11 %" until the remediation
+  pass re-derived both from the noise table, and neither was the statistic it named.** 7.5 pp is
+  one cell's move (`scripted-meta` / `sword+empty`), not the median of anything: over all fifteen
+  the median is 5.0 and over the nine cells that move at all it is 10.0. And "5 to 11 %" holds
+  for five of the fifteen cells: **ten are outside it**, in both directions, the largest being
+  `random-meta` / `axe+empty`, which moves dealt damage 112.66 to 163.89 --
+  **45.5 %**. The maximum, 22.5 pp, was exact. The correction only widens the floor, so every
+  "not separable" verdict below survives it, but a floor quoted narrow is a floor that will one
+  day be cleared by noise.
+
+### Defect 1: a named region did not point a stroke, and the recorded reason was half wrong
+
+`enter` derived a stroke's arc as a flat `+-0.50` in cursor Y about whatever the aim resolved to,
+which at the range a cut is delivered is about `+-0.85 m` -- more than twice the 364 mm between
+two named regions on a warrior, and most of the height of a body. A stroke aimed at one region
+raked the next as readily as its own.
+
+**What Stage B got wrong about it, because it decides how this was fixed.** Stage B compared each
+named region against `as-measured`, on one bout. On this fixture the measured entry aim is 1.62 m
+and `high` is 1.644 -- **0.012 cursor units apart**, which is the same stroke run twice -- and one
+`cut` bout is 22 to 50 scoring contacts of which zero to three land on a head. The reported `cut`
+0.071 -> 0.045 and `punch` 0.200 -> 0.121 are single contacts moving in a chaotic bout, not a
+rule. Asked the question a rule is about -- `high` against `low` -- a cut separated *before* the
+change too, 0.128 against 0.044. The defect was real; the measurement of it was not.
+
+**The repair, and the option that was swept and rejected.** The brief's strongest suggestion was
+to bias the commit point -- the moment of likely contact -- toward the aim, leaving the sweep
+intact. Measured, contact is not concentrated at any point of the stroke: over one bout, 31
+scoring contacts split **chamber 10, commit 8, recover 13**, with the arc position at contact
+spread evenly from 0.08 to 0.95 of the sweep (`.review/strokewhere.mjs`). There is no "moment of
+likely contact" to bias toward, and the sweep says so -- at a full-width arc, moving the commit
+point from the centre to near the aim raises a `high` cut's head share from 0.128 to 0.176 and
+`low`'s from 0.044 to 0.072 *together*, so the ratio between them falls from 2.9 to 2.4. It lifts
+the whole distribution rather than pointing it. What separates regions is narrowing.
+
+`NAMED_STROKE_SPAN` is the constant, and it is a fraction of a region spacing rather than a
+number of cursor units: **a stroke aimed at a named region sweeps half the distance to its
+neighbours, above and below, and no further** -- so two strokes aimed at adjacent regions never
+sweep through each other's aim point, which is what "separable" means. Both ends are resolved by
+aiming at the neighbouring heights and reading the cursor back, because cursor elevation is not
+linear in height; the extent therefore comes out asymmetric about the aim and adapts to the body
+and the range. `"as-measured"` is not a named region and keeps its `+-0.50`.
+
+Swept over 40 seeded bouts a cell (`.review/arcfinal.mjs`), `cut`, head share with its seed-level
+standard error:
+
+| lift / drop | `high` | `vital` | `low` | high:low | `high` leg share | dmg/bout | speed m/s | edge |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.50 / 0.50 (before) | 0.128 +-0.014 | 0.051 +-0.010 | 0.044 +-0.008 | 2.9 | 0.308 | 279.9 | 10.1 | 0.35 |
+| half a spacing (**taken**) | 0.166 +-0.013 | 0.041 +-0.008 | 0.019 +-0.005 | 8.7 | 0.239 | 288.2 | 7.8 | 0.29 |
+| a whole spacing | 0.123 +-0.016 | 0.050 +-0.010 | 0.016 +-0.003 | 7.7 | 0.274 | 299.0 | 8.5 | 0.32 |
+| 0.25 / 0.25, flat | 0.163 +-0.018 | 0.055 +-0.011 | 0.020 +-0.005 | 8.2 | 0.270 | 299.7 | 8.8 | 0.35 |
+
+The tuned flat constant and the derived rule are indistinguishable; the derived one is taken
+because it needs no number, and works on a broot and at any range.
+
+**What it costs, plainly: a cut is worse per second.** The blade travels less vertical distance
+in the same 0.11 s commit, so it arrives at **7.8 m/s rather than 10.1** and lands more, slower
+contacts. Damage *per bout* goes up (288.2 against 279.9) because the bout takes longer; damage
+per second falls about a fifth, 47.4 to 37.9 for `high`, 47.2 to 36.2 for `vital`, 37.3 to 29.1
+for `low`. Edge alignment falls from 0.35 to 0.29. That is the trade, and it is only paid by a
+controller that names a region.
+
+### 1a. Per-action, per-target landing distribution, before and after
+
+`.review/aimdist.mjs`, 40 seeded stroke-pause bouts a cell against a bare-handed `idle` warrior,
+`HitReport.key` on the contacted limb, blocks excluded, `head` / `torso` / `pelvis + thighs +
+shins`. Head share then leg share.
+
+**Bold means two different things in the two tables below and the difference is deliberate.** In
+the `cut` table it means *separable from the seed spread*, per the Welch *t* beside it. In the
+`punch` table it means only *differs*, and the paragraph under it says outright that none of it
+is a result. Reading the second as though it were the first is exactly the mistake the `cut`
+table used to invite.
+
+**`cut`** -- the action the change is for. Six sub-figures move, **and two of the six are inside
+the seed spread this section's own noise floor establishes**, so each carries the Welch *t* of
+its per-seed shares over the 40 bouts (`.review/rem2/cutstats.mjs` over
+`.review/rem2/cutseeds-{before,after}.json`). All six were bold until the remediation pass. The
+`punch` block below said which of its numbers were not results and this one did not, which is
+the asymmetry that repaired.
+
+| target | before | after | head *t* | leg *t* |
+| --- | --- | --- | ---: | ---: |
+| `as-measured` | 0.130 / 0.348 | 0.130 / 0.348 | -- | -- |
+| `vital` | 0.051 / 0.469 | 0.041 / **0.323** | -1.40 | -4.22 |
+| `high` | 0.128 / 0.308 | **0.166** / **0.239** | +2.48 | -2.93 |
+| `low` | 0.044 / 0.504 | **0.019** / 0.513 | -2.67 | +0.23 |
+
+**The headline is the ratio, and it is the claim that survives the two failures.** `high` against
+`low` on head share goes from a point estimate of **2.93x** to **8.90x**, and the bootstrapped
+95 % intervals over the seeds do not overlap: **2.00-4.55 before against 5.21-19.34 after**
+(20 000 resamples, seed `0x5eed18`, so the interval is reproducible rather than redrawn each
+run). No single cell carries that on its own -- `high` head alone is 2.5 sigma -- which is why the
+ratio and not a cell is what this section claims. A `high` cut's leg share falls from 31 % to
+24 %. The `as-measured` row is identical to the contact -- 146 / 587 / 392 both ways -- which is
+the scoping working.
+
+**`punch`** -- moves, and **not by more than the noise**.
+
+| target | before | after |
+| --- | --- | --- |
+| `as-measured` | 0.080 / 0.153 | 0.080 / 0.153 |
+| `vital` | 0.015 / 0.248 | **0.010 / 0.191** |
+| `high` | 0.080 / 0.164 | **0.076 / 0.151** |
+
+`high` against `vital` goes from 5.3x to 7.6x on the strength of the denominator moving by five
+head contacts in two thousand. **A second run of the same A/B, at 16 seeds and with a different
+pause convention -- a blank movement partial between strokes rather than
+`movementIntent("hold")`, so the fighter drifted off the line over a long bout -- reported the
+opposite direction for `punch`** (`high` 0.059 -> 0.032, ratio 9.8 -> 4.6) while agreeing with
+this one on the sign of `cut`. Two internally valid A/B pairs disagreeing on the sign is the
+honest answer: **`cut`'s change is a result and `punch`'s is not.** Both are recorded rather than
+the flattering one.
+
+**That second run's `cut` figures used to be quoted in four places as "sixteen-seed figures from
+`.review/aimdist.mjs`", and the harness of that name cannot produce them.** The pause convention
+they were taken under is commented out in `driver`, with the reason. Run as it stands at 16 seeds
+the same A/B gives `high` 0.101 / 0.334 -> 0.177 / 0.266 and `low` 0.043 / 0.511 ->
+0.026 / 0.513; the quoted pairs were `high` 0.072 / 0.452 -> 0.133 / 0.226 and `low`
+0.009 / 0.657 -> 0.017 / 0.606, and **not one of those eight numbers reproduces**. They also
+disagreed with this section's own 40-seed headline by roughly a factor of two, which is what a
+figure carried forward past the harness that produced it looks like. Every site now quotes the
+40-seed table above, which reproduces on both trees to the digit. **A number keeps the harness it
+was taken in, or it stops being a number**, which is this directory's oldest rule applied to
+itself.
+
+**`thrust`** and **`shoot`** -- byte-identical before and after, which they must be: both send a
+point where the aim says and neither takes the stroke branch.
+
+| action / target | before and after |
+| --- | --- |
+| `thrust` `as-measured` | 0.107 / 0.192 |
+| `thrust` `vital` | 0.018 / 0.253 |
+| `thrust` `high` | 0.349 / 0.152 |
+| `thrust` `low` | 0.011 / 0.647 |
+| `shoot` `high` | 1.000 / 0.000 (80 contacts over 40 bouts) |
+| `shoot` `as-measured`, `vital`, `low` | 0.000 / 0.000 (160 contacts each) |
+
+`shoot` lands two body contacts a bout aimed `high` and four otherwise. It separates perfectly,
+on a sample too thin to be a claim; it has no test, for that reason.
+
+**The Stage B cell, re-run for comparability.** The single-bout figures under "Session 17
+Stage B" reproduce *exactly* on the working tree before the change, which is what makes this
+harness trustworthy. After it, on that same one bout: `cut` `high` takes a 0.321 head share (9
+of 28) against `low`'s 0.028, where it was 0.045 against 0.077 -- the right order at last, and
+still one bout, and still not evidence on its own.
+
+### Defect 2: naming the cover hand did nothing -- the diagnosis
+
+**Nothing overrides it. Both defensive skills cover with both hands, identically, by
+construction.** `handActionOption`'s `cover` branch writes `actionCoverAt(threat)` and
+`guard = true` into the *acting* hand, and the shared spare-hand block below it writes
+`actionCoverAt(threat)` and `guard = true` into the *other* one. Neither write knows which hand
+the decision named, so `cover` on the primary and `cover` on the secondary differ in exactly one
+field of the whole command -- the bookkeeping field `intent.actingHand`. `reset()`,
+`freshIntent`, `enter`'s own `aimAt`, `boundIntent` and `applyTacticStance` are all innocent; the
+two writes are the whole of it. `recover` aimed at `threat` collapses the same way, and for the
+same reason.
+
+**One correction to the brief's reading of its own reproduction.** It records that "the primary
+hand carries the cover pointer in both cases". Both hands carry one. The secondary reads exactly
+`0` in that fixture because the shield shoulder sits at x = -0.2 and the threat tip at x = -0.2,
+so the bearing to it is dead ahead and `atan2(0, 0.5)` is zero -- a fixture artefact, not a
+dropped write. Move that shoulder to x = -0.6 and both hands carry a real bearing, still
+identically in both decisions (`.review/coverdiag.mjs`). It matters because it changes what the
+repair has to be: nothing is failing to write the off hand, so nothing is repaired by writing it
+harder.
+
+**Proved at bout level as well.** 24 bouts of `cover` held against `swinger`,
+`.review/coverblock.mjs`:
+
+| loadout | `primary` | `secondary` |
+| --- | --- | --- |
+| `sword+shield` | 294.7 taken, 98.8 blocks, 18 died, 5 killed | *the same figures, to the digit* |
+| `sword+buckler` | 176.1 taken, 121.2 blocks, 20 died, 3 killed | *the same figures* |
+| `sword+sword` | 202.8 taken, 51.0 blocks, 10 died, 14 killed | *the same figures* |
+
+### 2a. The repair, and whether a shield-led cover blocks better
+
+The named hand keeps the covering line; the supporting hand steps outboard off it by
+`ACTION_TUNING.guardSpread`, which is `policies.ts`'s `GUARD.spread` and its measured 24-bout
+table, mirrored into the option layer's frozen block -- two blades on one line rest against each
+other, and a guard occupying the space of the guard beside it is a guard doing nothing. A **bare
+supporting fist is excluded**: a fist is small and is already the nearest thing to the line,
+which is what `planOffHand` does with one, and it is the only case the scripted parity sweep
+covers.
+
+**It blocks better, decisively.** 60 bouts a cell against `swinger`, `.review/coverblock.mjs`:
+
+| loadout | led by | damage taken | blocks/bout | block mix | died | killed | bout s |
+| --- | --- | ---: | ---: | --- | ---: | ---: | ---: |
+| `sword+shield` | sword (`primary`) | 207.9 | 63.9 | shield 32.1, sword 31.7 | 49/60 | 11/60 | 8.8 |
+| `sword+shield` | **shield (`secondary`)** | 229.3 | **88.8** | **shield 59.8**, sword 29.0 | **26/60** | **31/60** | 11.7 |
+| `sword+buckler` | sword (`primary`) | 178.3 | 41.7 | sword 24.9, buckler 16.8 | 56/60 | 4/60 | 5.9 |
+| `sword+buckler` | **buckler (`secondary`)** | 190.4 | **79.7** | sword 40.3, **buckler 39.5** | **42/60** | **18/60** | 11.4 |
+
+Leading with the shield nearly doubles what the shield itself stops (59.8 blocks a bout against
+32.1) and halves the deaths (26 in 60 against 49). **That death difference is a two-sample
+z of 4.34 pooled, 4.72 unpooled** -- `p < 1e-5` either way, so not a noise reading. This read
+"about six binomial standard deviations" until the remediation pass, and six is what you get by
+dividing the 0.383 difference by *one cell's* standard error (26/60's, 0.0640) instead of by the
+standard error of the difference between two (0.0884 pooled, 0.0812 unpooled). A single cell's SE
+is always the smaller of the two quantities, so that arithmetic overstates every two-sample
+comparison it is used on. The conclusion is unchanged and the number is not. Damage *taken per
+bout* goes up because the bouts last 40 % longer; per
+second it falls, 23.6 to 19.6.
+
+**A trap the harness caught, recorded because it nearly became a finding.** A first pass reported
+`shield+sword` behaving differently between the two effectors. It was a loadout name the harness
+had no row for, so `runBout` built the default `sword+empty` body, and the difference was the
+test driver's own severed-hand fallback firing 9 times against 4. The harness refuses a loadout
+it does not have by name now, and counts its own fallbacks in the table.
+
+### 2b. The bigger thing the diagnosis found, and did not fix
+
+**The option layer has no per-weapon guard placement at all.** `policies.ts` has one, in
+`planOffHand`, and every part of it carries its own measured table: a strapped shield is held
+0.80 rad *across* the line of the blow (`GUARD.across`), 0.20 rad *below* the bearing to it
+(`GUARD.lift`), and the **forearm rolled** `-outboard * 1.0` rad to bring the plate round
+(`GUARD.roll`), with a 0.18 rad wrist bend on top (`WRIST.shield`) -- which collects 96 % of the
+board against 56 % without the roll, and takes 160.8 damage a bout against a no-shield control's
+284.5. The roll and the bend are two axes and two constants; this sentence called the roll "the
+wrist turned 1.0 rad", which named the wrong axis and hid the fact that a shield spends both.
+A buckler is punched out
+along the arm with no roll. `options.ts`'s `cover` does none of it: every hand is aimed like a
+blade, and `applyActionPosture` gives it a flat `-outboard * 0.35` roll whatever it is holding.
+Measured in the same harness at 24 bouts, an option-driven `sword+shield` guard took **294.7**
+damage a bout -- more than `sword+buckler`'s 176.1 and `sword+sword`'s 202.8, and worse than the
+specialist's own *no-shield* control.
+
+It is not fixed here. It needs `GUARD.across`, `GUARD.lift`, `GUARD.roll` and `WRIST.shield`
+mirrored into `ACTION_TUNING` and their tables re-taken through the option layer, which is a
+larger balance change than this session's brief and is owed its own before-and-after. It is
+written down so it is not rediscovered as "the shield is worse in the option layer" a third
+time.
+
+### 3. The balance cost, on the controllers that can see it
+
+`npm run measure`'s matchups never enter an option, so they cannot see either change. These can:
+the two shipped meta controllers, plus a third that draws a whole legal tuple rather than only an
+action, because a named region is the half of the vocabulary the shipped two never reach. 40
+bouts a cell against `swinger` on `sword+empty`, `.review/balance.mjs`, the two trees swapped by
+`.review/ab.mjs`.
+
+| controller | loadout | win rate before -> after | damage dealt | damage taken | severs |
+| --- | --- | --- | --- | --- | --- |
+| `scripted-meta` | `sword+empty` | 55.0 -> 55.0 % | 185.99 -> 185.99 | 172.99 -> 172.99 | 1 -> 1 |
+| `scripted-meta` | `sword+shield` | 82.5 -> 87.5 % | 222.04 -> 197.47 | 163.56 -> 156.15 | 3 -> 4 |
+| `scripted-meta` | `sword+buckler` | 95.0 -> 87.5 % | 242.02 -> 214.61 | 119.04 -> 124.26 | 2 -> 2 |
+| `scripted-meta` | `axe+empty` | 2.5 -> 2.5 % | 43.82 -> 43.82 | 222.69 -> 222.69 | 1 -> 1 |
+| `scripted-meta` | `empty+empty` | 0.0 -> 0.0 % | 51.92 -> 51.92 | 242.12 -> 242.12 | 0 -> 0 |
+| `random-meta` | `sword+empty` | 47.5 -> 47.5 % | 230.55 -> 230.55 | 212.18 -> 212.18 | 0 -> 0 |
+| `random-meta` | `sword+shield` | 80.0 -> 87.5 % | 227.08 -> 244.32 | 166.12 -> 159.79 | 1 -> 5 |
+| `random-meta` | `sword+buckler` | 60.0 -> 77.5 % | 221.55 -> 232.55 | 195.28 -> 178.40 | 1 -> 2 |
+| `random-meta` | `axe+empty` | 7.5 -> 7.5 % | 112.66 -> 112.66 | 266.74 -> 266.74 | 0 -> 0 |
+| `random-meta` | `empty+empty` | 0.0 -> 0.0 % | 50.48 -> 50.48 | 219.03 -> 219.03 | 0 -> 0 |
+| `random-tactic` | `sword+empty` | 52.5 -> 52.5 % | 272.72 -> 258.81 | 197.24 -> 224.36 | 2 -> 3 |
+| `random-tactic` | `sword+shield` | 77.5 -> 70.0 % | 290.07 -> 282.62 | 202.88 -> 187.18 | 6 -> 5 |
+| `random-tactic` | `sword+buckler` | 55.0 -> 50.0 % | 271.39 -> 251.08 | 215.90 -> 214.66 | 6 -> 1 |
+| `random-tactic` | `axe+empty` | 2.5 -> 12.5 % | 147.53 -> 170.77 | 267.72 -> 244.95 | 0 -> 6 |
+| `random-tactic` | `empty+empty` | 0.0 -> 0.0 % | 56.86 -> 53.09 | 244.78 -> 223.58 | 0 -> 0 |
+
+Mean bout length is **3.52 to 7.33 s** across the thirty cells, and two of the fifteen move by
+more than 0.6 s: `scripted-meta` / `sword+buckler` by **0.81 s** (5.29 -> 4.48) and
+`random-tactic` / `sword+shield` by **0.65 s** (7.33 -> 6.68). The line read "4.4 to 7.3 s in
+every cell and moves by at most 0.6 s" until the remediation pass re-derived it from the two
+files it names; both halves were wrong, and the floor of the range was the null control's own
+3.52 s sitting in the first row of the table above it. The full ranges are in
+`.review/balance-before.txt` and `.review/balance-after.txt`.
+
+Two things to read off it.
+
+**Six of the fifteen cells are identical to the digit, and that is structural rather than
+lucky.** They are exactly the cells with an empty supporting hand driven by a controller that
+names no region: `asMeasured` keeps the old arc, and a bare fist is excluded from the guard
+spread. The rows that move are the ones holding a shield or a buckler, plus the tuple-naming
+control.
+
+**Not one of the nine deltas is separable from noise.** The largest win-rate move is 17.5
+percentage points (`random-meta` / `sword+buckler`); the same code at a second seed base moves
+cells by up to 22.5 and by a median of 5.0 over all fifteen. The largest damage move is 15.8 %
+(`random-tactic` / `axe+empty`, dealt) and the largest on damage taken is 13.7 %; the noise
+control's own drift on dealt damage runs 2.8 % to **45.5 %** with a median of 8.8 %. So the
+honest statement is: **the change is confined by
+construction, and where it applies it costs nothing a 40-bout cell can measure, in either
+direction.** That is not a claim that it costs nothing. A compute session with thousands of
+bouts is the thing that could say so, and sessions 21 and 22 are it.
+
+### 4. The null control did not move, for the eighth stage running
+
+`npm run measure -- --only duelist-swinger --bouts 120`, seed 20260823: duelist **66/120 =
+55.0 %**, bout length **3.52 s (1.42-8.98)**, damage **176.17**, **10** severs, **1496** and
+**1670** scoring contacts, and the same final-blow region histogram. Every printed figure
+identical to the pinned values.
+
+This holds *by construction* -- `policies.ts` never imports `options.ts` -- and was run anyway,
+because the two layers share `applyActionPosture`, `actionCoverAt`, `actionAimAt` and
+`actionArcherAim`, and this session added exports to that shared module. A leak into one of those
+four would move every scripted figure in this document, and this is the cheapest thing that would
+say so. It did not leak: `actionCursorForAzimuth` and `actionAzimuthOf` are new exports with no
+scripted caller, `guardSpread` is a new frozen field nothing else reads, and `azimuthRange`
+factors out a literal pair that was already inside `azimuth`.
+
+### The mutation table
+
+Every test added or touched, watched failing under a deliberate mutation of the line it is about,
+with the message it failed on. `.review/mutcheck.mjs` runs the battery and reports a missing
+pattern *as* a missing pattern rather than as a pass, because "not noticed" and "nothing to
+notice" otherwise read the same.
+
+| mutation | suite | result |
+| --- | --- | --- |
+| `NAMED_STROKE_SPAN` 0.5 -> 1.0 | `options` | RED -- `a_named_region_narrows_a_stroke...`: "vital swept 0.5934456207499992" |
+| `NAMED_STROKE_SPAN` 0.5 -> 1.0 | `integration` | **GREEN** -- named below |
+| the narrowing reaches `"as-measured"` too | `options` | RED -- `a_named_region_narrows...` ("the measured line swept 0.30098") **and** `the_scripted_meta_controller_matches_the_policy_it_replaces` |
+| the arc goes back to a flat `+-0.50` | `options` | RED -- "vital chambered at 0.3136113810205442, not -0.023595835159134153" |
+| the arc goes back to a flat `+-0.50` | `integration` | RED -- `a_cut_at_a_named_high_or_low_target...`: "low reached the head 0.05 of the time" |
+| the supporting hand is not stepped off the line | `options` | RED -- `a_named_cover_hand_leads...`: "naming the cover hand moved [actingHand]" |
+| every supporting hand is stepped off, bare fist included | `options` | RED -- `a_named_cover_hand_leads...` **plus all three scripted parity tests** |
+| the supporting hand steps inboard instead of outboard | `options` | RED -- "the supporting shield stayed on the leader's line" |
+| the azimuth inverse divides by one half-range | `options` | RED -- `the_option_layer_azimuth_mapping_inverts...` **and** `..._share_one_azimuth_mapping`: "primary -1 -> -1.15 -> -0.8846153846153845" |
+| `guardSpread` 0.30 -> 0 | `options` | RED -- "naming the cover hand moved [actingHand]" |
+| the option layer's azimuth range disagrees with `CONFIG.arm` | `options` | RED -- `the_option_layer_and_the_scripted_layer_share_one_azimuth_mapping`: "primary 0.05: option 0.0625 against scripted 0.065" |
+| the spread reaches every action (`DEFENSIVE_ACTIONS.includes(name)` -> `true`) | `options` | RED -- `only_the_two_defensive_skills_spread_the_supporting_hand`: `+ cut: 'spread', + punch: 'spread'` |
+| the spread reaches only `cover` (`-> name === "cover"`) | `options` | RED -- the same test: `+ recover: 'on the line', + recoverMeasured: 'on the line'` |
+| `NAMED_STROKE_SPAN` 0.5 -> 0.55 | `options` | RED -- `a_named_region_narrows_a_stroke...`: "vital chambered at -0.007080068860021077, not -0.023595835159134153" |
+| the lateral `+-0.62` -> `+-0.30` | `integration` + `options` | RED -- `a_cut_at_a_named_high_or_low_target...` ("0.09523809523809523 head high against 0.04990403071017274 low") **and** `the_scripted_meta_controller_matches_the_policy_it_replaces` (250 steps, `primary.pointerX` max 0.32) |
+| `ACTION_TUNING.azimuthMax` 1.30 -> 1.45 | all | RED -- **four** tests, and 48 of 408 command cells move. It used to move **zero** cells and turn only the `CONFIG` parity assertion red, because nothing read the constant. |
+
+**One mutation each test does not catch**, named rather than left to be found:
+
+- `a_cut_at_a_named_high_or_low_target_reaches_that_body_region` does **not** notice
+  `NAMED_STROKE_SPAN` doubling to a whole region spacing. That is not a hole in its assertions;
+  the constant is genuinely near-flat over that range in a bout -- a whole spacing lands `high` at
+  0.123 head and 0.274 legs, inside every band the test draws. The `options` suite catches it
+  exactly, on the arc's own two ends. A six-seed bout test cannot separate 0.123 from 0.166 and
+  should not pretend to.
+- `a_named_region_narrows_a_stroke_and_the_measured_line_keeps_its_arc` does not notice the
+  **lateral** `+-0.62`, which it never reads. It said "and no test here would say so", and the
+  remediation pass ran the mutation rather than reasoning about it: `0.62 -> 0.30` turns **two**
+  tests red, `a_cut_at_a_named_high_or_low_target_reaches_that_body_region`
+  ("0.09523809523809523 head high against 0.04990403071017274 low") and
+  `the_scripted_meta_controller_matches_the_policy_it_replaces` (250 of 480 steps disagree on
+  `primary.pointerX`, max 0.32). The gap in *this* test is real; the claim about the suite was an
+  under-claim in a table presented as re-derived fact. **A mutation table entry is a measurement
+  like any other and has to be run, including the "nothing catches this" rows** -- those are the
+  ones nobody re-checks.
+- `a_named_region_narrows_a_stroke_and_the_measured_line_keeps_its_arc` does not notice
+  `TARGET_SPAN_FRACTION`. Its arc ends are half the distance between two published region heights,
+  and the region spacing scales with that fraction, so both sides move together and every equality
+  stays exact. `a_named_target_is_a_body_region_derived_from_published_facts` pins the fraction to
+  0.75 and all three heights to exact numbers, which is where that constant is held. It *does*
+  notice `NAMED_STROKE_SPAN` now: 0.5 -> 0.55 fails with "vital chambered at
+  -0.007080068860021077, not -0.023595835159134153". Until the remediation pass it did not,
+  because the expected ends were recomputed from the constant itself.
+- `a_named_cover_hand_leads_and_the_supporting_hand_steps_off_the_line` does not notice
+  `guardSpread` moving from 0.30 to any other non-zero value: it asserts the pointer is
+  `guardSpread` off the line, so it follows the constant, and only zero collapses it. That number
+  is bounded by `policies.ts`'s 24-bout table and by nothing here.
+- `the_option_layer_azimuth_mapping_inverts_on_both_sides_of_centre` does not notice the two
+  ranges being swapped *consistently* between `actionAzimuthOf` and `actionCursorForAzimuth` -- a
+  round trip cannot see a mapping that is wrong in both directions. The asymmetry assertion beside
+  it, and `the_option_layer_and_the_scripted_layer_share_one_azimuth_mapping` beside that, are
+  what catch it.
+- `the_option_layer_and_the_scripted_layer_share_one_azimuth_mapping` does not notice **both**
+  copies moving together, which is the case it exists to permit: it says the two agree, not what
+  they agree on. The number itself is `CONFIG.arm.azMin` / `azMax` and is bounded by the arm's own
+  reach tables. It compares all four bounds now rather than `azMax` alone, and all four are read
+  by `azimuthRange`, `actionAimAt` and `elevation` rather than written out beside them -- so the
+  mutation it *used* to fail on was one that changed no behaviour anywhere, which is a test
+  reading the reporter rather than the thing reported.
+- `only_the_two_defensive_skills_spread_the_supporting_hand` does not notice `guardSpread`'s
+  magnitude, for the same reason the cover-lead test does not: both expectations are built from
+  the constant. It notices which *actions* reach the block, which is the thing nothing held.
+
+**A mutation that changed the code and was invisible, which is why the code moved.** The
+supporting-hand spread was written first inside the block that covers the spare hand, above
+`applyActionPosture`. From there, mutating its `hasHeldWeapon` guard away -- so a bare fist was
+stepped off the line too -- left the whole suite **green**, because the later empty-fist block
+rewrites that pointer unconditionally and a spread on a fist could never be seen. A rule nothing
+can observe is a rule no test can hold, so the spread moved below that block; the same mutation
+now turns four tests red, three of them the scripted parity sweeps.
+
+**And the remediation pass took the mechanism out rather than the placement.** That
+"rewrites that pointer unconditionally" was `actionCoverAt` called a second time to recompute
+the pointer the cover block twenty-six lines above had already written -- a no-op that moved no
+leaf of a 408-cell command surface, and the exact shape that concealed the mis-placed spread. It
+is gone. The two blocks are now mutually exclusive by weapon (`hasHeldWeapon` is the complement
+of `weapon === "empty"`), so the exclusion is a condition rather than an ordering and neither
+block depends on standing where it stands.
+`only_the_two_defensive_skills_spread_the_supporting_hand` holds all four rows of it directly:
+widening the condition to every action turns it red with
+`+ cut: 'spread', + punch: 'spread'` against `- cut: 'on the line', - punch: 'on the line'`, and
+narrowing it to `cover` alone turns it red with `+ recover: 'on the line'`. Both mutations left
+all 537 tests green before it existed, and the first of them costs a `sword+shield` fighter
+cutting `high` at `swinger` 157.8 damage a bout against 81.9.
+
+### The gate
+
+`npx tsc --noEmit` clean, `npm test` **538 passed** (532 before, plus five: the stroke arc, the
+cover lead, the azimuth inverse, the two azimuth copies agreeing, and the bout-level cut
+distribution; plus one from the remediation pass below, which holds the spread's action set),
+`npm run build` clean, and
+`git diff --numstat` md5-identical to `git diff --ignore-cr-at-eol --numstat` across the
+directory, so no file's line endings moved. `scripts/` is not type-checked and was swept by hand:
+`node --check` on every script, and a grep for the three new exports across `scripts/` and
+`tests/`.
+
+### The remediation pass -- 2026-08-25
+
+An adversarial review rebuilt `0dd615a` from `git archive` and re-ran every harness above
+independently. **Both defects, the Stage B supersession, the cover result and the balance
+non-separability all reproduced**, several to the digit. What it found was a *pattern* of dead
+writes, two rules the change argues for that nothing held, four statistical overstatements, four
+sites quoting figures their named harness cannot produce, and seven broken line anchors. This
+pass took all of it, and disagreed with the review twice.
+
+#### Five dead writes, of which four were dead
+
+Each candidate was neutralised one line at a time and the executor's whole command surface
+diffed -- `.review/rem2/cmddump.mjs`, **408 cells** over twelve loadouts x six actions x two
+effectors x five targets x two stances, stepped seven frames each. The review's own sweep was 230
+cells over six loadouts.
+
+| write | verdict |
+| --- | --- |
+| `enter`'s `startX/startY` from the `start` parameter | dead: overwritten by the guard seed on the entry step, before its only read |
+| the caller threading `previousIntent?.[chosenHand]` into that parameter | dead: `undefined` moves nothing |
+| `h.roll`/`h.wristBend` on the stroke entry step | dead: `applyActionPosture` and the block below it rewrite both |
+| the empty-fist block's second `actionCoverAt` | dead: recomputes the pointer written 26 lines above |
+| `intent[hand].guard = false` on the shoot path | dead: `reset()` cleared it and nothing sets it |
+| the spare hand's rest **pointer** on the shoot path | **live -- the review was wrong** |
+| the spare hand's `thrust`/`guard` on the shoot path | dead, and the review did not find these two |
+
+**The rest pointer is the one that matters, and the reason it read as dead is the reason this
+directory writes down harnesses.** `freshIntent` seeds `restPointerX/Y` on the **secondary** hand
+only; a primary starts at (0, 0). So the write is observable only when the *spare* hand is the
+primary, which happens only when the bow is in the secondary -- a loadout no sweep in the review
+carried. Adding the mirrored half of the loadout set turned it from `DEAD (0/230)` to
+`live (8/408)`. A neutralising sweep answers "nothing in this fixture noticed", and that is not
+the same sentence as "nothing would". The two extra dead writes beside it were found by the same
+widening.
+
+The four dead ones are gone; the `start` parameter and `scripted-meta`'s whole `previousIntent`
+field went with them. The rest-pose block is kept **whole** and says in place which of its six
+writes are live and which restate `reset()`, because a rest pose stated in parts is exactly what
+let the pointer pair look optional.
+
+#### Two rules the change argued for, and now one test holds
+
+`only_the_two_defensive_skills_spread_the_supporting_hand` asserts all four rows of the guard
+spread's action set at once. Before it, widening `DEFENSIVE_ACTIONS.includes(name)` to `true`
+left all 537 tests green while costing a `sword+shield` fighter cutting `high` at `swinger`
+**157.8 damage a bout against 81.9** over 24 bouts (`.review/rem2/spreadcost.mjs`) -- four to
+nineteen times this session's own balance noise floor -- and narrowing it to `cover` alone left
+all 537 green while dropping `recover`, which the defect-2 diagnosis explicitly claims. The two
+mutations move **92** and **72** of the 408 command cells respectively, so neither was a subtle
+one; nothing was looking. Both are in the table above with the message each fails on.
+
+#### What the record got wrong about its own numbers
+
+Every one of these was re-derived from the files the prose names, not re-argued:
+
+- **Four sites quoted `cut` figures their named harness cannot produce.** Fixed above, at
+  `tests/integration.test.mjs`, `src/options.ts`'s `aimHeight`,
+  `src/learning/tactical-teacher.ts` and the Stage B supersession note. All four carry the
+  40-seed table now.
+- **Two of six bolded `cut` sub-figures were inside the noise floor** -- `vital` head (t = -1.40)
+  and `low` leg (t = +0.23). The table carries a *t* per cell and the headline is the
+  bootstrapped ratio, which is the claim that holds.
+- **"About six binomial standard deviations" was 4.34.** Six came from one cell's SE.
+- **"Mean bout length 4.4 to 7.3 s, moves by at most 0.6 s"** was 3.52 to 7.33, and two cells
+  move by more.
+- **The noise floor was quoted narrower than it is** -- median 7.5 pp for 5.0, and 5-11 % damage
+  drift for 2.8-45.5 %. Every "not separable" verdict survives the correction.
+- **A mutation-table row claiming nothing would notice the lateral `0.62`** turns two tests red.
+  A "nothing catches this" row is a measurement like any other and nobody re-checks it.
+- **`GUARD.roll` was described as a wrist.** It is a forearm roll, and a shield spends both axes.
+- **This pass found one the review did not, and it is the same shape as the rest.**
+  `a_cut_at_a_named_high_or_low_target_reaches_that_body_region` carried a docstring saying "the
+  ratio alone survives the defect: `high` was already eight times `low` before the change", which
+  is why the head-share floor and the leg-share ceiling were added beside it. Run on the old arc
+  (`.review/rem2/cut6.mjs`, `distribution` reproduced exactly and executed on both trees), the
+  ratio was **2.10**, and it is one of only **two** of the six assertions that fail there. The
+  head floor (0.1050 against a 0.09 threshold), the leg ceiling (0.3039 against 0.34) and the leg
+  ratio (1.734 against a 1.7 band) all *pass* on the arc the test exists to refuse. Its account of
+  itself was exactly inverted, and the comment beside the leg band claimed the pre-change figure
+  was 1.45 -- a number from no harness, which is how the band came to be written 2 % below the
+  thing it was meant to exclude. Both are corrected in place, the thresholds are unchanged, and
+  the test now says which of its assertions are evidence and which are regression guards.
+- **Seven line anchors** broken by the change were re-pointed against the current file; nine in
+  plan 16 that were already dead at `0dd615a` were struck rather than re-pointed, per the plan
+  set's own rule.
+
+#### `ACTION_TUNING.azimuthMax` was read by nothing
+
+`azimuthRange` hard-coded `[-1.15, 1.30]`, `actionAimAt` hard-coded the pair a third time, and
+`elevation` did the same with the elevation bounds -- so the frozen block's aiming envelope
+appeared only in its own comment and in one parity assertion. Mutating it turned that assertion
+red while moving **zero** command cells: a test reading the reporter. `ACTION_TUNING` now carries
+all four bounds and is the single source for every one of them; the same mutation moves 48 of 408
+cells and turns four tests red.
+
+#### `NAMED_STROKE_SPAN` on a small body, documented rather than fixed
+
+A named stroke's arc is a fraction of the target's own vitals-to-crown span, so it shrinks with
+the target. On a centipede (crown 0.38, vital 0.209) the arc is **0.041 to 0.057 cursor units**
+against the measured line's 0.77 to 1.00, and at 0.6 m a `vital` or `low` cut has a span of
+**exactly 0.000** -- both ends clamp below the elevation envelope
+(`.review/rem2/smallbody.mjs`). Measured over four bouts a cell against `crawler`
+(`.review/rem2/centipede.mjs`) this is **not** a damage regression: `high` goes 545.5 -> 769.5,
+`vital` 491.2 -> 519.5, `low` 400.8 -> 505.5, with more and slower contacts (mean contact speed
+8.76 -> 6.93 for `high`, 15.22 -> 7.85 for `low`). A small body is close to the floor, so what
+the narrowing removes was mostly swinging at the ground. The floor is written into
+`NAMED_STROKE_SPAN`'s own comment, with where a repair would go if one is ever needed.
+
+#### Owed: the teacher's constant `vital` label for `cut` has lost its reason
+
+**This is the largest single piece of work this session leaves behind, and it is deliberately not
+taken here.** `tactical-teacher.ts` labels every `cut` with a constant `vital` because Stage B
+measured that naming an aim did nothing for a cut. Stage B is superseded as noise, and a named
+cut now separates `high` from `low` by 8.7x on head share (0.166 against 0.019, bootstrapped
+intervals 5.21-19.34 against a before of 2.00-4.55, non-overlapping). **So the evidence for the
+constant is gone and nothing has replaced it.** The constant stays only because moving it changes
+the label histogram every trainer in this directory consumes, which is a labelled-behaviour
+change owed its own before-and-after -- not a side effect of a motor fix. Whoever takes it
+branches `cut` three ways as `thrust` already is, re-runs the Stage C2b histogram either side,
+and reports what the label distribution does to a trained artifact. Until then the paragraph in
+`tactical-teacher.ts` is a deferral and says so; it is not a justification of the value.
+
+#### The gate, re-run
+
+`npx tsc --noEmit` clean, `npm test` **538 passed**, `npm run build` clean, `git diff --numstat`
+md5-identical to `git diff --ignore-cr-at-eol --numstat`, and the null control unmoved: duelist
+**66/120 = 55.0 %**, **3.52 s (1.42-8.98)**, **176.17** damage, **10** severs, **1496**/**1670**
+contacts. Every code edit in this pass was checked against the 408-cell command surface and moved
+**0 cells**, which is what "behaviour-neutral" has to mean before it is claimed.

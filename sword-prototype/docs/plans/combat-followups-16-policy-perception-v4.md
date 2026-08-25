@@ -115,10 +115,10 @@ threat compression with a documented, exported `selectThreat(view)` used by both
 writing and tests.
 
 **There are three divergent copies of threat selection, not one**, and two of them drive motor
-execution rather than perception: `features.ts#L47-L48` sorts all attached hands by `tipSpeed`
-preferring striking ones; `options.ts#L22-L41` picks lead-versus-off by `isStriking` then
-`tipSpeed`, synthesising a literal for a handless opponent; and `policies.ts#L205-L222` is a
-byte-identical copy of the second. The first can disagree with the other two about which hand
+execution rather than perception: the hand sort in `features.ts` takes all attached hands by
+`tipSpeed` preferring striking ones; the lead-versus-off pick in `options.ts` goes by
+`isStriking` then `tipSpeed`, synthesising a literal for a handless opponent; and `policies.ts`
+carries a byte-identical copy of the second. The first can disagree with the other two about which hand
 is the threat. `selectThreat` reconciles all three, or this session records in writing that the
 learned perception and the cover skill are deliberately looking at different hands -- which
 would make the "Make arrows actionable" section below incoherent, so reconcile them. Rank opponent arrows by positive time to closest approach to the observer's
@@ -164,12 +164,24 @@ does not contain a v3 parser, migration table or v3-specific execution branch.
 ## Make arrows actionable
 
 In `src/action-primitives.ts` and `src/options.ts`, introduce a factual threat target shared by
-cover skills. The function that actually decides what cover aims at is **`actionCoverAt` at
-`src/action-primitives.ts#L155-L165`, outside the range this plan originally cited**: it aims
+cover skills. The function that actually decides what cover aims at is **`actionCoverAt` in
+`src/action-primitives.ts`, outside the range this plan originally cited**: it aims
 at the threat hand's `tip` when that tip is nearer than the opponent's shoulder, and at the
-opponent's chest otherwise. The call sites are `options.ts#L164, L169, L217, L223, L243` and
-`policies.ts#L386`. The only existing predictive-aim arithmetic to model the crossing solve on
-is `actionArrowLift`/`actionArcherAim` (`action-primitives.ts#L73-L85`).
+opponent's chest otherwise. Its call sites are the two defensive branches and the three
+spare-hand blocks in `handActionOption`, plus `planCover` in `policies.ts`. The only existing
+predictive-aim arithmetic to model the crossing solve on is
+`actionArrowLift`/`actionArcherAim`.
+
+**Every `#Lnnn` in the two paragraphs above was struck rather than re-pointed on 2026-08-25**,
+and they were struck because they were checked: `action-primitives.ts#L155-L165` was
+`freshIntent` and `#L73-L85` was `arrowAnchorSeconds` and `bareCrowdDistance` at `0dd615a`, so
+both were already dead before the session that was reviewed touched anything, and the five
+`options.ts` call-site anchors and `policies.ts#L386` were dead with them -- `actionCoverAt`'s
+real call sites were `options.ts` 639, 647, 698, 705, 733 and `policies.ts` 383. Nine numbers,
+none of them within twenty lines of what its prose named. This plan's own note at the top of the
+file records the rule and why: a live-looking line number in a stale sentence gets re-pointed by
+the next sweep instead of read, which has already happened three times to one anchor here.
+Naming the construct costs a reader one `grep` and cannot go stale.
 
 **"Shoulder plane" does not exist anywhere in the tree** -- zero hits across `src/`, `docs/`
 and `tests/`. Build it from `BodyView.facing` for the normal and `HandView.shoulder` for the

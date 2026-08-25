@@ -192,17 +192,16 @@ test("every_policy_returns_a_finite_zoom_free_combat_command", () => {
  * the sword actually bit is the quantity the decision is about, and only the
  * report knows it.
  *
- * **This names `thrust` because the rule holds for `thrust`, and it was called
+ * **This names `thrust` because a thrust is a point, and it was called
  * `a_requested_high_or_low_target_reaches_that_body_region_without_fallback`
- * while covering one of four actions.** Measured on the same fixture, `cut` and
- * `punch` do not obey a named region at all -- a cut aimed `high` takes a 0.045
- * head share against the measured aim's 0.071, which is *lower* -- and `shoot`
- * lands two to four body contacts a bout, which is too thin to be a claim about
- * anything. The four tables and the structural reason are in
- * `docs/measurements.md` under "Session 17 Stage B"; the short version is that a
- * thrust and a shot are *points*, where the aim is where the tip is sent, and a
- * cut and a punch are *strokes*, where the aim only seeds the centre of an arc
- * that sweeps +-0.62 and +-0.50 in cursor units around it.
+ * while covering one of four actions.** A cut and a punch are *strokes* -- the
+ * aim seeds an arc rather than a destination -- and they get their own test
+ * below, with a pooled sample, because one bout of a cut is 22 to 50 contacts of
+ * which two or three are on a head. Stage B ran this fixture on a cut once and
+ * read the noise as a rule; `docs/measurements.md` carries both sets of tables
+ * and which of the two the session 18 change repaired. `shoot` still lands two
+ * to four body contacts a bout here, which is too thin to be a claim about
+ * anything and has no test.
  *
  * Measured on this fixture, thrusting with a sword against an idle warrior
  * (`head`, `torso`, and the `pelvis`/`thigh`/`shin` group, contacts per bout):
@@ -280,6 +279,130 @@ test("a_thrust_at_a_named_high_or_low_target_reaches_that_body_region", () => {
   // would make these two bouts the same bout.
   assert.ok(high.high > low.high * 4, `${high.high} head high against ${low.high} low`);
   assert.ok(low.low > high.low * 4, `${low.low} legs low against ${high.low} high`);
+});
+
+/**
+ * The same claim for the action that did not obey it, and the reason it needs a
+ * different shape of measurement.
+ *
+ * A `thrust` is a *point* and one bout of it separates cleanly. A `cut` is a
+ * *stroke*, and a single bout of one is 22 to 50 scoring contacts of which zero
+ * to three are on a head -- so the Stage B table read `high` at a 0.045 head
+ * share and `low` at 0.077, in the wrong order, off one and three contacts, and
+ * its `vital` row had no head in it at all. That was noise, and the correction
+ * matters because the pair being compared there, `high` against `as-measured`,
+ * is 0.012 cursor units apart on this fixture: the same stroke, twice, reported
+ * as a rule.
+ *
+ * So this pools six bouts a condition with a seeded pause between strokes --
+ * the only nuisance knob available, since both minds are deterministic and
+ * `idle` ignores `runBout`'s own seeds -- and asserts on `high` against `low`,
+ * which is what "a named region separates" means. **Forty**-seed figures from
+ * `.review/aimdist.mjs`, head share then leg share:
+ *
+ * | target | before | after |
+ * | ---    | ---    | ---   |
+ * | high   | 0.128 / 0.308 | 0.166 / 0.239 |
+ * | low    | 0.044 / 0.504 | 0.019 / 0.513 |
+ *
+ * **This table used to quote a sixteen-seed pair that the harness it names
+ * cannot produce** -- 0.072 / 0.452 -> 0.133 / 0.226 and 0.009 / 0.657 ->
+ * 0.017 / 0.606, taken under a pause convention `driver` now comments out, and
+ * disagreeing with the forty-seed run by about a factor of two. Not one of the
+ * eight reproduced. The figures above are re-taken on both trees and do.
+ *
+ * **Which of the six assertions below actually hold the change, measured rather
+ * than reasoned about** (`.review/rem2/cut6.mjs` reproduces `distribution`
+ * exactly and runs it on both trees). On the flat `+-0.50` arc this replaced:
+ *
+ * | assertion | before | verdict |
+ * | --- | ---: | --- |
+ * | `high.head > 0.09` | 0.1050 | passes |
+ * | `high.low < 0.34` | 0.3039 | passes |
+ * | `low.head < 0.05` | 0.0500 | **fails** |
+ * | `low.low > 0.50` | 0.5269 | passes |
+ * | `high.head > low.head * 3` | 2.099 | **fails** |
+ * | `low.low > high.low * 1.7` | 1.734 | passes, by 0.034 |
+ *
+ * So the **ratio is what discriminates** and the head-share floor and leg-share
+ * ceiling are regression guards, not evidence. This note said the exact
+ * opposite -- "the ratio alone survives the defect: `high` was already eight
+ * times `low` before the change" -- and eight was a number from no harness: on
+ * this fixture it was 2.1, and 2.9 pooled over forty seeded bouts. Both of the
+ * discriminating assertions clear their thresholds narrowly, which is stated
+ * here rather than dressed up, and the 1.7 leg band clears the pre-change
+ * figure by two per cent and holds nothing. The claim that survives everything
+ * is the pooled ratio with its interval: 2.93 [2.00, 4.55] before against
+ * 8.90 [5.21, 19.34] after, non-overlapping.
+ */
+test("a_cut_at_a_named_high_or_low_target_reaches_that_body_region", () => {
+  const LOW_KEYS = ["pelvis", "thighL", "thighR", "shinL", "shinR"];
+  const cutting = (target, seed) => {
+    let option = null; let hold = 0; let state = seed >>> 0;
+    const random = () => {
+      state = (state + 0x6d2b79f5) >>> 0; let v = state;
+      v = Math.imul(v ^ (v >>> 15), v | 1); v ^= v + Math.imul(v ^ (v >>> 7), v | 61);
+      return ((v ^ (v >>> 14)) >>> 0) / 4294967296;
+    };
+    return { name: `cut-${target}`, decide(view, dt) {
+      if (hold > 0) {
+        hold -= Math.max(0, dt); option = null;
+        const rest = handActionOption("recover", { effector: "primary", target: "vital", stance: "action-default" });
+        rest.enter(view);
+        return composeTactic(view, "hold", "recover", movementIntent("hold", view), rest.decide(view, dt));
+      }
+      if (!option || option.done(view)) {
+        if (option) hold = random() * 0.30;
+        option = handActionOption("cut", { effector: "primary", target, stance: "action-default" });
+        option.enter(view);
+      }
+      return composeTactic(view, "close", "cut", movementIntent("close", view), option.decide(view, dt));
+    } };
+  };
+  const distribution = (target) => {
+    const keys = {};
+    for (let seed = 0; seed < 6; seed += 1) {
+      runBout({
+        left: "duelist", right: "idle", seeds: [11, 22],
+        leftLoadout: { primary: "sword", secondary: "empty" },
+        rightLoadout: { primary: "empty", secondary: "empty" },
+        leftMind: cutting(target, 0x51ede000 + seed),
+        onEvent(event) {
+          if (event.side !== "left" || event.blocked) return;
+          keys[event.report.key] = (keys[event.report.key] ?? 0) + 1;
+        },
+      });
+    }
+    const count = (group) => group.reduce((sum, key) => sum + (keys[key] ?? 0), 0);
+    const body = count(["head"]) + count(["torso"]) + count(LOW_KEYS);
+    assert.ok(body > 150, `${target} landed only ${body} body contacts over six bouts`);
+    return { head: count(["head"]) / body, low: count(LOW_KEYS) / body, keys };
+  };
+  const high = distribution("high");
+  const low = distribution("low");
+  // Where it lands, both ends of the body. These four are **regression guards**
+  // rather than evidence for the change: three of them pass on the wide arc this
+  // replaced, and the table in the docstring says which and by how much. They
+  // are worth keeping because the failure they would catch -- a stroke that
+  // stops reaching a region at all -- is not the one the ratios below catch.
+  assert.ok(high.head > 0.09, `high aimed at the head and got ${JSON.stringify(high.keys)}`);
+  assert.ok(high.low < 0.34, `high still raked the legs: ${JSON.stringify(high.keys)}`);
+  assert.ok(low.head < 0.05, `low reached the head ${low.head} of the time`);
+  assert.ok(low.low > 0.50, `low aimed at the legs and got ${JSON.stringify(low.keys)}`);
+  // And against each other, which is what an ignored region cannot survive --
+  // and, measured, the assertion that does the work: 5.83 here against 2.10 on
+  // the old arc, so a threshold of 3 refuses the wide stroke outright.
+  assert.ok(high.head > low.head * 3, `${high.head} head high against ${low.head} low`);
+  // The leg ratio is the weak one and is left weak on purpose. Measured 1.91
+  // here against **1.73** on the arc this replaced -- so 1.7 clears the old
+  // figure by two per cent and this assertion holds nothing the head ratio does
+  // not. (The note here read "against 1.45", which was a number from no harness;
+  // the band was written believing it had a margin it does not have.) A
+  // threshold that separated 1.73 from 1.91 would be fitted to a six-seed
+  // reading of a fixture with no usable seed, which is worse than a weak band
+  // that says it is weak. What bounds the leg share properly is the 40-seed
+  // table in `docs/measurements.md`.
+  assert.ok(low.low > high.low * 1.7, `${low.low} legs low against ${high.low} high`);
 });
 
 test("cosmetics_disabled_and_enabled_produce_identical_fight_records", async () => {

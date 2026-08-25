@@ -510,6 +510,13 @@ const GUARD = {
    * and at 24 bouts the difference between 2 deaths and 4 is not one this
    * distinguishes. Somebody wanting a two-sword fighter to *win* rather than to
    * be hit less should re-run this with more bouts before believing the pick.
+   *
+   * **There is a second copy of this number and it is deliberate.** Session 18
+   * gave the option layer's `cover` the same rule -- the hand that is not
+   * leading a guard steps outboard off the line -- and `options.ts` may not
+   * import `config.ts`, which this file does. `ACTION_TUNING.guardSpread` in
+   * `action-primitives.ts` is that copy, carries this table, and points back
+   * here. A session that moves one moves both.
    */
   spread: 0.30,
 } as const;

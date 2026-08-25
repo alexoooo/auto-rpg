@@ -22,7 +22,27 @@ import { HANDS, STRIKER_KINDS, isStriking, type HandName, type Striker, type Wea
 export const ACTION_TUNING = Object.freeze({
   restPointerX: 0,
   restPointerY: -1,
+  /**
+   * The arm's aiming envelope, mirroring `CONFIG.arm.az/elMin/Max`.
+   *
+   * **Four entries where there were two, and the two that were here were read
+   * by nothing.** `azimuthRange`, `actionAimAt` and `elevation` each wrote the
+   * numbers out again, so `azimuthMax` appeared in its own comment and in one
+   * test and nowhere a program looked -- and moving it 1.30 -> 1.45 turned that
+   * test red while changing no behaviour at all, which is the shape this
+   * directory calls a test that reads the reporter rather than the thing
+   * reported. They are the single source now, and a mutation of any of the four
+   * moves a real placement.
+   *
+   * The envelope is asymmetric, which is why it takes four numbers and not two:
+   * a primary arm reaches 1.30 rad outboard and 1.15 rad across its own body,
+   * and a secondary is the mirror. `azimuthRange` is what applies the mirror;
+   * these are stated in the primary's frame, signed, exactly as `CONFIG.arm`
+   * states them.
+   */
+  azimuthMin: -1.15,
   azimuthMax: 1.30,
+  elevationMin: -1.05,
   elevationMax: 1.25,
   rollMin: -1.40,
   rollMax: 1.40,
@@ -65,6 +85,28 @@ export const ACTION_TUNING = Object.freeze({
    * same argument, reachable through the same object as the rest.
    */
   arrowShoulderDrop: 0.12,
+  /**
+   * How far off the covering line the hand that is *not* leading a guard is
+   * held, radians, outboard.
+   *
+   * The same number and the same argument as `GUARD.spread` in `policies.ts`,
+   * which is where it was measured -- two blades on one covering line rest
+   * against each other, and a guard occupying the space of the guard beside it
+   * is a guard doing nothing. Its table is 24 bouts of two swords against
+   * `swinger`: 342.9 damage taken at 0, 322.0 at 0.15, **294.4 at 0.30**, 308.7
+   * at 0.45.
+   *
+   * It is a **mirror rather than an import**, for the reason this whole block
+   * exists: `policies.ts` reads mutable `CONFIG` and the option layer may not.
+   * The two copies are the same claim, so a session that moves one moves both --
+   * `GUARD.spread`'s own note says so in place.
+   *
+   * Only the supporting hand is moved, and only when it is holding something.
+   * A bare fist supporting a guard stays on the line, which is what
+   * `planOffHand` does with one and is what keeps the scripted parity sweep --
+   * which is run on `sword+empty` and nothing else -- out of this.
+   */
+  guardSpread: 0.30,
   // How far back along its own flight a shaft's anchor is taken, in seconds.
   //
   // A number with a motor consequence, which is why it is here rather than
@@ -580,10 +622,10 @@ export function actionAimAt(view: FighterView, target: ActionPoint, into: Action
   const cos = Math.cos(view.self.facing); const sin = Math.sin(view.self.facing);
   const localX = dx * cos - dz * sin; const localZ = dx * sin + dz * cos;
   const length = Math.hypot(localX, dy, localZ);
-  into.pointerX = clampAction(Math.atan2(localX, localZ) / (localX >= 0
-    ? (hand === "primary" ? 1.30 : 1.15) : (hand === "primary" ? 1.15 : 1.30)));
+  const [azMin, azMax] = azimuthRange(hand);
+  into.pointerX = clampAction(Math.atan2(localX, localZ) / (localX >= 0 ? azMax : -azMin));
   const angle = length > 1e-6 ? Math.asin(clampAction(dy / length)) : 0;
-  into.pointerY = clampAction(angle / (angle >= 0 ? 1.25 : 1.05));
+  into.pointerY = clampAction(angle / (angle >= 0 ? ACTION_TUNING.elevationMax : -ACTION_TUNING.elevationMin));
   return into;
 }
 
@@ -615,12 +657,38 @@ export function actionCoverAt(view: FighterView, threat: ThreatView, into: Actio
   return actionAimAt(view, target, into, hand, from);
 }
 
+const azimuthRange = (hand: HandName): readonly [number, number] =>
+  hand === "primary" ? [ACTION_TUNING.azimuthMin, ACTION_TUNING.azimuthMax]
+    : [-ACTION_TUNING.azimuthMax, -ACTION_TUNING.azimuthMin];
 const azimuth = (pointer: number, hand: "primary" | "secondary"): number => {
-  const min = hand === "primary" ? -1.15 : -1.30;
-  const max = hand === "primary" ? 1.30 : 1.15;
+  const [min, max] = azimuthRange(hand);
   return pointer >= 0 ? pointer * max : pointer * -min;
 };
-const elevation = (pointer: number): number => pointer >= 0 ? pointer * 1.25 : pointer * 1.05;
+/**
+ * The two directions of the arm's azimuth mapping, for a caller that has to
+ * move a placement by an *angle* rather than by a cursor step.
+ *
+ * **The envelope is asymmetric and that is the whole reason these are a pair.**
+ * A primary arm reaches 1.30 rad outboard and 1.15 rad across its own body, and
+ * the secondary is the mirror of that -- so a cursor step is a different angle
+ * on each side of centre, and an inverse that divided by a single half-range
+ * would agree with the true one for exactly one sign. `tests/handover.test.mjs`
+ * records that trap costing a session; anything using these samples both sides.
+ *
+ * `policies.ts` has the same pair over mutable `CONFIG.arm`, and `ACTION_TUNING`
+ * is the frozen copy the option layer is allowed to read -- all four bounds of
+ * it, since session 18's remediation, rather than the two that used to sit
+ * there unread while this file wrote the numbers out three more times.
+ * `the_option_layer_and_the_scripted_layer_share_one_azimuth_mapping` compares
+ * the two mappings and the four constants rather than claiming they agree.
+ */
+export const actionAzimuthOf = (pointer: number, hand: HandName): number => azimuth(pointer, hand);
+export const actionCursorForAzimuth = (angle: number, hand: HandName): number => {
+  const [min, max] = azimuthRange(hand);
+  return clampAction(angle >= 0 ? angle / max : angle / -min);
+};
+const elevation = (pointer: number): number =>
+  pointer >= 0 ? pointer * ACTION_TUNING.elevationMax : pointer * -ACTION_TUNING.elevationMin;
 export function actionStrokeRoll(fromX: number, fromY: number, toX: number, toY: number,
   bothEdges: boolean, hand: "primary" | "secondary"): number {
   const da = azimuth(toX, hand) - azimuth(fromX, hand);

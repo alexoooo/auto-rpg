@@ -106,15 +106,44 @@ const threatLocalRight = (view: FighterView): number => {
  *   0.484 when `high` is named, and the low share 0.118 -> 0.818 for `low`. A
  *   thrust is a *point*: `actionAimAt` sends the tip where the aim says. So this
  *   is the one action worth branching, and it branches three ways.
- * - **`cut` and `punch` do not.** A cut aimed `high` takes a 0.045 head share
- *   against the measured aim's 0.071, and a punch 0.121 against 0.200 -- both
- *   *lower* than the aim they replace. They share a stroke branch where the aim
- *   seeds only the centre of an arc sweeping +-0.62 and +-0.50 in cursor units,
- *   which is far wider than the gap between two named heights, so a varying label
- *   would teach a correlation the body does not produce. They get the constant
- *   `vital` and this note beside it. Session 23 revisits it if the stroke
- *   envelope moves, which is the change that would make a named region point a
- *   cut rather than merely drop it.
+ * - **`cut` and `punch` get the constant `vital`, the reason recorded here was
+ *   wrong twice over, and what is left is owed work rather than an argument.**
+ *   It read: a cut aimed `high` takes a 0.045 head share against the measured
+ *   aim's 0.071, so a varying label would teach a correlation the body does not
+ *   produce. Both halves have since been measured properly. `high` against
+ *   `as-measured` is 0.012 cursor units on that fixture -- the same stroke twice
+ *   -- so it was never the comparison a rule is about; and pooled over **forty**
+ *   seeded bouts rather than one, `high` against `low` separated even then,
+ *   **0.128 against 0.044** head share, a 2.9x ratio whose bootstrapped 95 %
+ *   interval (2.00-4.55) excludes 1.
+ *
+ *   (Those two numbers read "0.072 against 0.009" until the session 18
+ *   remediation pass, quoted as sixteen-seed readings from `.review/aimdist.mjs`
+ *   -- a harness that cannot produce them, because they were taken under a pause
+ *   convention it now comments out. This is the site that mattered most of the
+ *   four that carried them, because it is the site that carries the
+ *   justification for the constant.)
+ *
+ *   The note also named its own trigger -- "session 23 revisits it if the stroke
+ *   envelope moves" -- and **the envelope moved in session 18**:
+ *   `NAMED_STROKE_SPAN` in `options.ts` narrows a named stroke to half a region
+ *   spacing either side of its aim, and a cut aimed `high` now takes **0.166**
+ *   against `low`'s **0.019** -- an **8.9x** ratio, interval 5.21-19.34, not
+ *   overlapping the before -- with the leg share down from 31 % to 24 %.
+ *
+ *   **So the reason for the constant label is gone, and nothing has replaced
+ *   it.** Stage B measured that a named aim did nothing for a cut; that
+ *   measurement is superseded as noise, and a named cut now separates high from
+ *   low by 8.7x on head share. The constant stays *only* because changing it
+ *   moves the label histogram every trainer in this directory consumes, which is
+ *   a labelled-behaviour change owed its own before-and-after rather than a side
+ *   effect of a motor fix. **This is the largest single piece of owed work this
+ *   file knows about**, and it is owed with numbers rather than as a hunch:
+ *   whoever takes it branches `cut` three ways as `thrust` already is, re-runs
+ *   `docs/measurements.md`'s Stage C2b histogram before and after, and reports
+ *   what the teacher's label distribution does to a trained artifact. Until then
+ *   the constant is a *deferral*, and a reader should not mistake the paragraph
+ *   above it for a justification of the value.
  * - **`shoot` is directionally right and far too thin to branch on** -- two to
  *   four body contacts a bout. At range the angular error dominates and the
  *   torso is the largest region, so `vital`.

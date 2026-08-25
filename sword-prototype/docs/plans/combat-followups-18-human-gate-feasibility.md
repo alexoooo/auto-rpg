@@ -185,11 +185,11 @@ behaviour exists on the other side of it, and a search has something to find.
   and it is deliberately scoped, because **the two paths are already known to disagree in four
   ways** and a test asserting general agreement would simply fail. `opportunityForAction`
   requires `striker === "sword"` for `thrust` (`engagement.ts#L118-L123`) where the inline matcher
-  falls through to `true` (`options.ts#L966`); `research-havok.mjs#L46` credits exactly one row,
-  **the hand the label named**, where `options.ts#L967` credits every viable match, which
+  falls through to `true` (`options.ts#L1157`); `research-havok.mjs#L46` credits exactly one row,
+  **the hand the label named**, where `options.ts#L1158` credits every viable match, which
   depresses dual-wield conversion; the labelled paths fire on an option-change edge and the
   label-free path on a button edge at 240 Hz; and only the label-free path counts a guard
-  *release* as an attack (`options.ts#L950`). (This said "credits only the first matching row",
+  *release* as an attack (`options.ts#L1141`). (This said "credits only the first matching row",
   which was the defect fixed on 2026-08-25 -- the first row was the primary fist whichever hand
   the label named. The disagreement survives; its cause changed.)
   Add `the_four_known_attack_path_disagreements_are_measured_not_assumed`
