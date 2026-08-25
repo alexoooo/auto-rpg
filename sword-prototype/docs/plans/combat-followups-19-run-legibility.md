@@ -44,7 +44,9 @@ Every row carries:
   margin**, never a bare pass/fail;
 - a direction-specific block -- NEAT archive coverage, species count and mutation totals;
   DAgger iteration, rows aggregated and macro-F1 per head; PPO reward components and the five
-  head entropies; look-ahead cells fitted and calibration error;
+  head entropies; look-ahead cells fitted, summed calibration severity, and the
+  `calibrationKeys` / `identicalCalibrationKeys` pair that says how much of the calibration
+  record was in-sample;
 - `championDigest` for the artifact written alongside this row, and `improvedSinceRow`;
 - one `summary` string, the same line printed to stdout, ending in either the new best
   worst-cell or the words that mean the opposite.
@@ -105,7 +107,7 @@ for a structural reason and a gate missed by a controller must never format the 
 | NEAT-QD | real validation worst-cell, `research-rollout-worker.mjs#L87` | higher is better |
 | PPO | `macro: reward, worstCell: reward` -- the same scalar, `train-ppo.mjs#L174` | higher is better |
 | DAgger | `validationLoss`, `collect-dagger.mjs#L57-L59` | **lower is better** |
-| look-ahead | summed calibration error, `train-lookahead.mjs#L215-L217` | **lower is better** |
+| look-ahead | summed calibration **severity** -- each column as a fraction of its deployed limit, `train-lookahead.mjs#L295-L302` | **lower is better** |
 
 So the plateau rule is declared over a named per-direction **objective** carrying its own
 direction of improvement, and the ledger records both. A rule that assumes higher-is-better

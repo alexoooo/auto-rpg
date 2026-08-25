@@ -3,12 +3,13 @@ import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { ResearchArtifact, artifactChecksum, canonicalJson } from "../src/learning/artifact.ts";
-import { calibrateTacticalModel, fitTacticalModel, TACTICAL_STATE_COLUMNS } from "../src/learning/tactical-model.ts";
+import { calibrateTacticalModel, calibrationSeverity, fitTacticalModel,
+  TACTICAL_STATE_COLUMNS } from "../src/learning/tactical-model.ts";
 import { researchMatrix } from "../src/learning/research-matrix.ts";
 import { researchLabelMind } from "../src/learning/research-policy.ts";
 import { UNLEARNED_PERSISTENCE, UNLEARNED_STANCE, deployableTactics } from "../src/learning/meta.ts";
 import { plannedTacticKey, tacticalStateFromView } from "../src/learning/lookahead.ts";
-import { RESEARCH_ARTIFACT_CONTRACT } from "../src/learning/deployment.ts";
+import { LOOKAHEAD_CALIBRATION_LIMITS, RESEARCH_ARTIFACT_CONTRACT } from "../src/learning/deployment.ts";
 import { HAND_ACTION_NAMES, MOVEMENT_NAMES, tacticTargets } from "../src/options.ts";
 import { runResearchBout } from "./research-havok.mjs";
 
@@ -193,6 +194,169 @@ async function collectTacticalBudget(task, seed, solverSteps, split) {
 const writeAtomic = async (path, bytes) => { const target = resolve(path); await mkdir(dirname(target), { recursive: true });
   const temporary = `${target}.tmp-${process.pid}`; await writeFile(temporary, bytes); await rename(temporary, target); };
 
+/**
+ * Below this many steps per job the validation split is not a split, and the
+ * calibration a report prints is in-sample wearing a held-out label.
+ *
+ * **The bouts start from unrelated seeds, and this said they were adjacent.**
+ * `researchMatrix(split, base)` does produce a validation `actorSeed` exactly
+ * +100000 above the train one **at a fixed base**, because `evaluationSeed`
+ * mixes only `(base, cell)` and then offsets by the split's range -- but that is
+ * not what runs. `trainLookahead` collects train rows under base `seed` and
+ * validation rows under base `seed ^ 0x7f4a7c15`, and `collectTacticalTrace`
+ * rebuilds the matrix from the base it is handed, so the two bouts start from
+ * seeds that differ by 12,613 to 180,739 across the 78 jobs (39 distinct
+ * differences at seed 310013; `.review/rem20/an3.mjs`). The rows come back
+ * bit-identical anyway, and the reason is the interesting one: **the opening of
+ * a bout is seed-insensitive.** Two fighters start from the same pose at the
+ * same separation, and 48 solver steps is 0.2 s, which is not long enough for
+ * anything the seed touches to have moved them apart. Right measurement, wrong
+ * mechanism -- and the mechanism matters, because "adjacent seeds" would be
+ * fixed by widening the offset and this is not.
+ *
+ * Measured on real Havok at seed 310013,
+ * per (cell, tactic) key out of 775 (`.review/calgate`, `p4-sweep.mjs`):
+ *
+ * | steps/job | budget | keys whose held-out rows are bit-identical |
+ * | ---: | ---: | ---: |
+ * | 48 | 148,800 -- the shipped minimum | **775 / 775** |
+ * | 96 | 297,600 | 651 / 775 |
+ * | 192 | 595,200 | 164 / 775 |
+ * | 384 | 1,190,400 | 3 / 775 |
+ *
+ * So **most** of the split becomes real somewhere between 96 and 192, and this
+ * is a warning rather than a floor because the *model* fitted at the minimum
+ * budget is fine -- it is the evidence about the model that is not evidence.
+ * `calibrateTacticalModel` genuinely rescores against the validation rows and
+ * genuinely covers all 775 keys; the rows just happen to be the same rows. The
+ * report says which it got, measured rather than inferred, in
+ * `identicalCalibrationKeys`.
+ *
+ * **192 is not where the split becomes a split, and the sentence used to say it
+ * was.** 164 of 775 keys are still bit-identical there -- 21 % of the
+ * calibration record in-sample -- against 3 of 775 at 384. A run at exactly 192
+ * gets no warning, which is why the *measured* count is emitted beside the
+ * warning by `lookaheadNotices` rather than left in the report for somebody to
+ * look up. The floor stays at 192 because that is where the proxy stops being
+ * useful, and the count is what is true.
+ */
+export const MIN_SPLIT_STEPS_PER_JOB = 192;
+
+/**
+ * The sentence, or null. Returned rather than printed, and exported rather than
+ * inlined, so that a test can assert it without spending 148,800 solver steps to
+ * reach the line that builds it.
+ */
+export const splitWarningFor = (solverSteps, stepsPerJob) => stepsPerJob >= MIN_SPLIT_STEPS_PER_JOB ? null :
+  `lookahead budget ${solverSteps} gives ${stepsPerJob} solver steps per job, under the ${MIN_SPLIT_STEPS_PER_JOB} ` +
+  "at which most of the validation split becomes real: the two bouts open identically whatever their seeds, and " +
+  "measured at seed 310013 all 775 keys came back bit-identical at 48 steps per job, 651 at 96, 164 at 192 and 3 at 384. " +
+  "Calibration below this is in-sample; read identicalCalibrationKeys in the report rather than trusting the label";
+
+/**
+ * How many (cell, tactic) keys got a validation sample bit-identical to their own
+ * training sample -- the fact the warning above is a proxy for.
+ *
+ * Keyed exactly as `calibrateTacticalModel` keys its filter, and comparing the
+ * three fields a calibration is computed from rather than the whole row, because
+ * `split` and `traceIndex` differ between the two by construction and would make
+ * every key look distinct.
+ */
+export function identicalSampleKeys(trainRows, validationRows) {
+  const byKey = (rows) => rows.reduce((map, row) => { const key = `${row.bodyLoadout} ${row.tactic}`;
+    return map.set(key, [...(map.get(key) ?? []), [row.before, row.after, row.contact]]); }, new Map());
+  const train = byKey(trainRows);
+  return [...byKey(validationRows)].filter(([key, held]) => canonicalJson(held) === canonicalJson(train.get(key) ?? [])).length;
+}
+
+/**
+ * The champion score, and the choice it makes.
+ *
+ * Each column as a fraction of the tolerance the deployed gate gives it, summed
+ * over cells. It summed the three raw numbers until session 19, which at the 2x
+ * budget came to 1.145 + 42.778 + 1.373 -- **94.4 % Brier**, on a Brier that was
+ * 99.6 % correlated with irreducible outcome variance, so the champion seed was
+ * chosen by which validation bouts happened to contact least ambiguously. A sum
+ * of three quantities in three units was never a score.
+ *
+ * **Exported, and separately, because inlined it was untestable.** Reverting
+ * this to a raw sum of the three new columns left the whole suite green: the
+ * champion is the same seed under both scores at all four budgets, so nothing
+ * downstream moved either. **The inputs did move**, which the record under-sold:
+ * at 595,200 the old score's winning margin was 0.003 % against 1.393 % under
+ * severity, and at 1,190,400 the ranking of the two also-rans swaps.
+ * `the_champion_is_chosen_by_severity_rather_than_by_a_sum_of_three_units` is
+ * built on a pair the two scores order differently.
+ *
+ * `calibrationSeverity` takes the cell key because the reach tolerance depends
+ * on the movement, and a champion chosen against scales the gate does not use
+ * would be ranked by a threshold nothing enforces.
+ */
+export const modelCalibrationScore = (model, limits) => Object.entries(model.cells)
+  .flatMap(([, tactics]) => Object.entries(tactics))
+  .reduce((sum, [tactic, fitted]) => sum + calibrationSeverity(tactic, fitted.calibration, limits), 0);
+
+/** Lowest score wins; ties go to the lower seed, so the choice is a function of the candidates and nothing else. */
+export const selectCalibratedCandidate = (candidates, limits) =>
+  [...candidates].sort((a, b) => modelCalibrationScore(a.model, limits) - modelCalibrationScore(b.model, limits) ||
+    a.seed - b.seed)[0];
+
+/**
+ * The report record, built where a test can reach it.
+ *
+ * Every field here survived deletion silently -- `identicalCalibrationKeys` and
+ * `splitWarning` both, and `splitWarningFor` could be handed a constant 384
+ * instead of the run's own `perJob` -- because the only thing that built a
+ * report spent 148,800 solver steps first.
+ * `the_lookahead_report_carries_the_whole_record_a_run_is_judged_by` asserts the
+ * whole record against a freshly stated one, which is the shape that grows with
+ * the report instead of listing the field names somebody remembered.
+ */
+export function lookaheadReport({ configDigest, requestedSolverSteps, solverSteps, traceRows, model,
+  selectedSeed, stepsPerJob, calibrationKeys, identicalCalibrationKeys }) {
+  return { algorithm: "lookahead", configDigest, requestedSolverSteps, solverSteps,
+    unspentSolverSteps: requestedSolverSteps - solverSteps, traceRows, modelDigest: model.digest,
+    selectedSeed, solverStepsPerJob: stepsPerJob, calibrationKeys,
+    identicalCalibrationKeys, splitWarning: splitWarningFor(requestedSolverSteps, stepsPerJob),
+    calibration: Object.fromEntries(Object.entries(model.cells).map(([cell, tactics]) => [cell,
+      Object.fromEntries(Object.entries(tactics).map(([tactic, fitted]) => [tactic, fitted.calibration]))])) };
+}
+
+/**
+ * What a person running this needs told, read off the report rather than off the
+ * budget.
+ *
+ * Two sentences and both are facts about the run. The first is the budget proxy;
+ * the second is the thing the proxy is a proxy *for*, and it is here because a
+ * run at exactly 192 steps per job gets no warning while 21 % of its calibration
+ * record is still in-sample. A number nothing prints is a number nobody reads.
+ */
+export const lookaheadNotices = (report) => [
+  report.splitWarning,
+  report.identicalCalibrationKeys > 0 ?
+    `lookahead calibration: ${report.identicalCalibrationKeys} of ${report.calibrationKeys} keys got a validation ` +
+    "sample bit-identical to their own training sample, so that much of the calibration record is in-sample" : null,
+].filter((sentence) => sentence !== null);
+
+/**
+ * The report to stdout, the notices to stderr, both through streams a caller
+ * hands over.
+ *
+ * Injected rather than reaching for `process` so a test can assert what a run
+ * emits without spending a budget; disabling the stderr write was one of five
+ * wiring changes that left the suite green.
+ *
+ * **stdout is not currently a clean pipe and this is not the fix.** Babylon's
+ * null engine logs its banner through `console.log` once per bout, so
+ * `node scripts/train-lookahead.mjs > report.json` writes about 158 KB of
+ * `BJS - ...` before the first `{`. The notices are on stderr because that is
+ * where a warning belongs, not because the alternative works today.
+ */
+export const writeLookaheadOutput = (report, streams) => {
+  for (const notice of lookaheadNotices(report)) streams.stderr.write(`${notice}\n`);
+  streams.stdout.write(`${canonicalJson(report)}\n`);
+};
+
 export async function trainLookahead({ seed, solverSteps }) {
   if (solverSteps % 4) throw new Error("lookahead solver-step budget must be a multiple of four");
   const seeds = [seed, seed ^ 0x9e3779b9, seed ^ 0x51f15e]; let consumed = 0;
@@ -212,21 +376,25 @@ export async function trainLookahead({ seed, solverSteps }) {
   for (const task of validationTasks) { const trace = await collectTacticalBudget(task, seed ^ 0x7f4a7c15, budgetFor(), "validation");
     consumed += trace.solverSteps; validation.solverSteps += trace.solverSteps; validation.rows.push(...trace.rows); }
   for (const candidate of candidates) candidate.model = calibrateTacticalModel(candidate.model, validation.rows);
-  const calibrationScore = (model) => Object.values(model.cells).flatMap(Object.values).reduce((sum, fitted) => sum +
-    Math.abs(fitted.calibration.signedReachError) + fitted.calibration.contactBrier + fitted.calibration.vitalityDeltaError, 0);
-  candidates.sort((a, b) => calibrationScore(a.model) - calibrationScore(b.model) || a.seed - b.seed);
-  const selected = candidates[0]; const model = selected.model; const trainRows = selected.rows;
+  const selected = selectCalibratedCandidate(candidates, LOOKAHEAD_CALIBRATION_LIMITS);
+  const model = selected.model; const trainRows = selected.rows;
+  // Measured, not inferred from the budget: how many keys got a validation sample
+  // that is bit-identical to their own training sample, and therefore a
+  // calibration record that is in-sample under a held-out name. `splitWarningFor`
+  // reads `perJob` because a budget can be judged before the bouts are spent;
+  // this is the fact itself, and `lookaheadNotices` emits both.
+  const identicalCalibrationKeys = identicalSampleKeys(trainRows, validation.rows);
+  const calibrationKeys = new Set(validation.rows.map((row) => `${row.bodyLoadout} ${row.tactic}`)).size;
   const configDigest = artifactChecksum(canonicalJson({ seed, requestedSolverSteps: solverSteps,
     fitSeeds: seeds, selectedSeed: selected.seed, columns: TACTICAL_STATE_COLUMNS }));
   const payload = [...new TextEncoder().encode(canonicalJson(model))];
   const artifact = new ResearchArtifact({ algorithm: "lookahead", ...RESEARCH_ARTIFACT_CONTRACT, payload,
     provenance: { seed, solverSteps: consumed, trainingSplit: "train", validationSplit: "validation", configDigest } },
     RESEARCH_ARTIFACT_CONTRACT);
-  const report = { algorithm: "lookahead", configDigest, requestedSolverSteps: solverSteps, solverSteps: consumed,
-    unspentSolverSteps: solverSteps - consumed, traceRows: trainRows.length, modelDigest: model.digest,
-    selectedSeed: selected.seed, calibration: Object.fromEntries(Object.entries(model.cells).map(([cell, tactics]) => [cell,
-      Object.fromEntries(Object.entries(tactics).map(([tactic, fitted]) => [tactic, fitted.calibration]))])) };
-  return { artifact: artifact.toBytes(), report: new TextEncoder().encode(canonicalJson(report)), model };
+  const report = lookaheadReport({ configDigest, requestedSolverSteps: solverSteps, solverSteps: consumed,
+    traceRows: trainRows.length, model, selectedSeed: selected.seed, stepsPerJob: perJob,
+    calibrationKeys, identicalCalibrationKeys });
+  return { artifact: artifact.toBytes(), report: new TextEncoder().encode(canonicalJson(report)), model, record: report };
 }
 
 export async function runLookaheadCli() {
@@ -234,6 +402,6 @@ export async function runLookaheadCli() {
   const output = await trainLookahead({ seed: Number(arg("seed", 310013)), solverSteps: Number(arg("solver-steps", 960)) });
   if (arg("artifact", "")) await writeAtomic(arg("artifact", ""), output.artifact);
   if (arg("report", "")) await writeAtomic(arg("report", ""), output.report);
-  process.stdout.write(new TextDecoder().decode(output.report) + "\n");
+  writeLookaheadOutput(output.record, { stdout: process.stdout, stderr: process.stderr });
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await runLookaheadCli();

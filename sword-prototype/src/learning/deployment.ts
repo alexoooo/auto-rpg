@@ -40,7 +40,118 @@ import { TACTICAL_MODEL_VERSION, TACTICAL_STATE_COLUMNS, type TacticalModel } fr
 export const RESEARCH_ARTIFACT_CONTRACT: ResearchArtifactContract = Object.freeze({ featureVersion: FEATURE_VERSION,
   featureNames: FEATURE_COLUMNS, tacticVersion: TACTIC_VERSION, movementNames: MOVEMENT_NAMES, actionNames: HAND_ACTION_NAMES,
   effectorNames: EFFECTOR_NAMES, targetNames: TARGET_NAMES, stanceNames: STANCE_NAMES });
-export const LOOKAHEAD_CALIBRATION_LIMITS = Object.freeze({ signedReachError: 0.25, contactBrier: 0.25, vitalityDeltaError: 0.25 });
+/**
+ * How wrong a cell's constant delta may be before the beam refuses to search it,
+ * one number per column and **each in that column's own unit** -- and two for
+ * the reach column, because `close` is not the same question as the other four.
+ *
+ * It was three copies of `0.25` measuring a signed distance in metres, a squared
+ * probability and a fraction of a health bar. Two of the three could not fire at
+ * all -- `TacticalCalibration` carries why -- and the third was four times above
+ * anything ever observed. Every number here is read off the held-out
+ * distribution of the **775-key schedule the gate actually judges**, at the 8x
+ * budget where 772 of 775 splits are real (`.review/calgate/p11-sweep2.mjs`,
+ * recomputed from its raw ingredients at `.review/rem20/an1.mjs`; 1,190,400
+ * solver steps, seed 310013).
+ * The record itself is checked in at `tests/fixtures/calibration-record.mjs` and
+ * every claim below is computed from it by
+ * `each_deployed_limit_is_bounded_by_what_it_does_to_the_measured_record`.
+ *
+ * **Two caveats first, because both were missing and both change what these
+ * numbers mean.**
+ *
+ * This distribution is **not converged**, and this said it was. 384 solver steps
+ * per job is a **1.6 second** bout, and 1.6 s is the *peak* of the reach-error
+ * curve rather than its limit. On identical keys
+ * (`.review/rem20/converge.mjs`), `warrior/sword+empty
+ * close+thrust+primary+vital` reads 0.2906 at 0.8 s, 0.3133 at 1.6 s and
+ * **0.1187** at 20 s; `centipede/natural:bite close+bite+natural+vital` reads
+ * 0.3433 at 1.6 s against **0.1614** at 20 s. The three non-approach keys the
+ * probe covers peak at 1.6 s too and fall by 1.2x to 1.5x rather than 2.6x. Every limit here is read
+ * off a peak, which is the conservative direction for a bound and the wrong
+ * direction for a quantile.
+ *
+ * And **no shipped budget reaches any of them.** At 148,800 solver steps every
+ * column of all 775 keys is exactly zero; at 297,600 the reach column tops out
+ * at 0.114. Any reach limit from 0.12 upwards refuses nothing at either, so the
+ * reach number below is a decision about budgets nobody currently runs. The
+ * "thirteen bodies lose their approach" catastrophe is real and belongs to the
+ * 4x and 8x budgets alone.
+ *
+ * | column | mean | p90 | p99 | max | limit | refuses at 8x |
+ * | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+ * | `reachError`, the four ordinary movements | 0.1279 | 0.1444 | 0.1588 | 0.2259 | **0.20** | 1 / 620 |
+ * | `approachReachError`, `close` | 0.2915 | 0.3268 | 0.3561 | 0.3594 | **0.35** | 2 / 155 |
+ * | `contactRateError` | 0.0368 | 0.1333 | 0.2000 | 0.4667 | **0.25** | 5 / 775 |
+ * | `vitalityDeltaError` | 0.0237 | 0.0492 | 0.0832 | 0.1012 | **0.10** | 1 / 775 |
+ *
+ * **Why the reach column is two numbers, which is the substantive change.** A
+ * single scalar here cannot be a threshold on error, and the sentence this
+ * docstring used to carry -- 0.30 "sits above the `close` mode and at twice the
+ * other four, so it refuses outliers *within* each movement class instead of
+ * removing one" -- is false. Measured composition of what a scalar refuses:
+ *
+ * | scalar | refused | composition | of `close` | of everything else |
+ * | ---: | ---: | --- | ---: | ---: |
+ * | 0.15 | 168 | close 155, circle-left 6, hold 4, circle-right 3 | 100 % | 2.1 % |
+ * | 0.20 | 156 | close 155, circle-right 1 | 100 % | 0.2 % |
+ * | 0.25 | 142 | close 142 | 92 % | 0 % |
+ * | 0.30 | 66 | close 66 | 43 % | 0 % |
+ * | 0.35 | 2 | close 2 | 1 % | 0 % |
+ *
+ * Non-`close` `reachError` maxes at **0.2259**, so every scalar from 0.23 to
+ * 0.40 refuses zero non-`close` keys and the only thing that varies across
+ * 0.25 -> 0.30 -> 0.35 is how much of `close` survives. 0.30 is the same
+ * `close`-only threshold it condemned 0.15--0.20 for being, taken at a different
+ * quantile: it sits at that mode's own median (p50 0.2934) and keeps 57 % of it,
+ * and it costs `centipede/natural:bite` its approach outright.
+ *
+ * **The cause is structural, not a population of outliers.** `close` is the one
+ * movement whose reach change *terminates* -- a fighter closing decelerates as
+ * it arrives and stops when it contacts -- so the residual about the mean
+ * closure is large by construction and shrinks with the bout window rather than
+ * with the quality of the fit. `disengage` also moves the reach margin every
+ * step and is the *best*-fitting movement of the five (0.0902), which is what
+ * rules out "the reach changes" as the explanation. A single scalar therefore
+ * has only two settings, remove approach planning or admit a mode the column
+ * cannot judge, and no value fixes that. Three ways out were weighed:
+ *
+ * - **gate `close` on a different quantity.** Declined: there is nothing in a
+ *   constant-delta record to gate it on that is not this residual, and inventing
+ *   a statistic to make a threshold work is how the Brier got here.
+ * - **leave `close` ungated on reach.** Declined: a cell whose approach model
+ *   has gone wrong in kind -- a fitted delta that moves the wrong way -- would
+ *   then be admitted, and the other two columns do not see it.
+ * - **one limit per class**, which is what ships. The four movements a constant
+ *   delta can describe get a real outlier threshold at **0.20**, which refuses
+ *   exactly one key of 620 (a `circle-right` at 0.2259) and empties no class --
+ *   0.15 would refuse 13, and 0.12 would take `circle-left`, `circle-right` and
+ *   `hold` away entirely. `close` gets **0.35**, which refuses 2 of 155 and
+ *   costs no body its approach, against 0.30 refusing 66 and costing the
+ *   centipede all three of its.
+ *
+ * **Say the honest thing about what `approachReachError` is.** It is not an
+ * outlier filter on model quality; it is a ceiling on how wrong an approach
+ * prediction may be before planning on it is worse than not planning. A constant
+ * delta cannot describe an approach, the record cannot tell a hard movement from
+ * a bad fit, and 0.35 is therefore a bound on gross failure rather than a
+ * standard. What it buys over a scalar is that it can no longer be tightened
+ * "a little" and silently take approach planning away from every body at once.
+ *
+ * `contactRateError` at 0.25 is a probability, and it reads like the old number
+ * by coincidence rather than by inheritance -- a different quantity on a
+ * different scale, chosen a little above a p99 of 0.2000. A cell whose fitted
+ * contact rate is within a quarter of the held-out rate is one the beam's
+ * `attackLikelihood` can still rank; past that the 0.8 weight it carries points
+ * the search at contact that does not happen.
+ *
+ * `vitalityDeltaError` at 0.10 is a tenth of a health bar per 0.10 s step, just
+ * over a p99 of 0.0832 and under a max of 0.1012. It was the only column that
+ * could ever fire and 0.25 was 35x the mean per-step vitality movement, which is
+ * not a bound.
+ */
+export const LOOKAHEAD_CALIBRATION_LIMITS = Object.freeze({ reachError: 0.20, approachReachError: 0.35,
+  contactRateError: 0.25, vitalityDeltaError: 0.10 });
 
 const payloadJson = (artifact: ResearchArtifact): unknown => {
   try { return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(new Uint8Array(artifact.data.payload))); }

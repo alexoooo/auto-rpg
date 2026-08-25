@@ -3897,6 +3897,19 @@ to `action-default` on a warrior's `hold+recover+primary+vital` as well, for a d
 `applyActionPosture("recover")` already leaves all three axes at zero, so zeroing them again
 changes nothing.)
 
+**Superseded on the statistic, not on the conclusion -- see "Session 19", section 8.** Every reach
+figure in this sub-section is `|signedReachError|`, which session 19 established is a signed mean
+of residuals about a fitted mean and therefore identically zero in-sample; the Brier figures are
+99.6 % irreducible outcome variance. The tables below are kept because the fixture and the fold
+structure are still the record of what was run.
+
+**And superseded a second time on how the re-asking was read.** This said the conclusion
+"strengthens: two of three columns say stance-keying is worse", which counts columns in three
+different units -- the same fallacy session 19 convicts the old champion score of. Through
+`calibrationSeverity`, stance-keying is marginally **better** on both fold sets, by 0.05 % and
+0.04 % of the 3.0-per-cell scale. The decision is unchanged because the effect is under a tenth
+of a percent either way, which is not a difference; session 19 section 8 has both tables.
+
 **Leave-one-seed-out, warrior cells only** -- the centipede excluded, because its zeros would
 dilute the very comparison they are a control for. Each row is the mean absolute calibration of
 a delta fitted on one source and scored on held-out rows, against limits of **0.25 / 0.25 /
@@ -3924,7 +3937,9 @@ scored on the same held-out rows.
 | six stance-keyed cells (all nine, n=162) | 0.0064 | 0.1095 | 0.0188 |
 | one stance-free cell (all nine, n=162) | 0.0077 | 0.1098 | **0.0180** |
 
-Two columns are a wash and the third is *worse* with the stance in the key.
+Two columns are a wash and the third is *worse* with the stance in the key -- on the old
+statistic, and read as a column count. Session 19 section 8 re-asks it through a single
+dimensionless score and gets the opposite sign at a tenth of the size of a difference.
 
 **Per action, because the answer could have differed and the brief asked.** Own stance against
 another stance, two seeds each, same three columns:
@@ -4108,6 +4123,14 @@ transients, nothing here was measured in a browser, and a person watching a bout
 deployed look-ahead is owed that reading.
 
 ### 3. How many cells survive calibration at a fixed budget
+
+**Superseded by "Session 19", sections 3 to 5**, which found that two of these three limits could
+not fire at all and the third refused cells whose *outcome* was uncertain rather than cells whose
+*model* was bad. This sub-section's diagnosis of *why* survival goes down as the budget goes up is
+correct and was confirmed by execution; its limits, its statistics and the survival percentages
+below are all superseded. The paragraph beginning "Every single refusal at every budget is
+`contactBrier`" is the finding, correctly observed and wrongly read as evidence that the other two
+were set loosely -- they were set on quantities that could not move.
 
 Harness `.review/c2c/calibration.mjs`: the real `trainLookahead` end to end, then
 `calibrationRefusal` -- the same function `calibratedPlannedTactics` filters with -- against the
@@ -4396,7 +4419,12 @@ files through one symbol cannot see the symbol move.
 ### What did not move
 
 - The five `TACTICAL_STATE_COLUMNS`, the beam's scoring function, `LOOKAHEAD_DEPTH` 8,
-  `LOOKAHEAD_WIDTH` 6, and `LOOKAHEAD_CALIBRATION_LIMITS` at 0.25 / 0.25 / 0.25.
+  `LOOKAHEAD_WIDTH` 6, and `LOOKAHEAD_CALIBRATION_LIMITS` at 0.25 / 0.25 / 0.25. (The limits
+  moved in session 19, twice: first to `reachError` 0.30 / `contactRateError` 0.25 /
+  `vitalityDeltaError` 0.10 with two of the three columns replaced by statistics that can report
+  an error, then to a **four**-number record -- `reachError` 0.20 for the four movements a
+  constant delta can describe, `approachReachError` 0.35 for `close`, which it cannot -- because
+  no single scalar on the reach column is a threshold on error. Session 19 section 3.)
 - `deployableTactics`, `tacticEffectors` and `tacticTargets`. The widening *consumes* the legality
   rule rather than restating it, which is why the schedule table grew an effector column and not
   an aim column: an aim is a property of the action alone (`AIMED_TARGETS` reads no body), while an
@@ -5123,3 +5151,620 @@ md5-identical to `git diff --ignore-cr-at-eol --numstat`, and the null control u
 **66/120 = 55.0 %**, **3.52 s (1.42-8.98)**, **176.17** damage, **10** severs, **1496**/**1670**
 contacts. Every code edit in this pass was checked against the 408-cell command surface and moved
 **0 cells**, which is what "behaviour-neutral" has to mean before it is claimed.
+
+## Session 19: the calibration gate, which refused nothing and then refused the wrong thing -- 2026-08-25
+
+`LOOKAHEAD_CALIBRATION_LIMITS` was three copies of `0.25` measuring a signed distance in metres,
+a squared probability and a fraction of a health bar. **Two of the three could not fire and the
+third refused the wrong cells.** Everything below was executed, on 18,494 real Havok rows from
+session 17's stance trace and on four fresh 775-key schedule sweeps; harnesses are named per
+figure and live in `.review/calgate/`.
+
+### 1. What was wrong, confirmed by execution
+
+**`signedReachError` was a signed mean of residuals about a fitted mean, so it is identically
+zero in-sample.** The fitted delta *is* that mean, so the residuals sum to zero by construction.
+Worst magnitude across the 54 fitted groups: **5.489e-17**, against **the worst group's** mean
+absolute residual of **0.1617 m** and RMS of **0.2119 m** on the same rows with the same delta.
+
+**Corrected 2026-08-25: those two figures are worst-group, not means, and this sentence called
+them means.** The probe that produced them prints them as `worstMae` and `worstRms`
+(`.review/rev19/worsts.mjs`); the means over the 54 groups are **0.0757 m** and **0.1123 m**.
+The comparison is worst against worst, which is the right one to make, and the conclusion is
+untouched either way -- 5e-17 is not a distance beside any of the four numbers. Worth knowing
+where 0.1617 comes from: it is the centipede's `close+bite+natural+vital`, the worst-fitting
+group on the fixture and the one section 3 is about.
+
+**The out-of-sample path did not rescue it.** `calibrateTacticalModel` genuinely rescores against
+held-out rows and genuinely covers all 775 keys -- but at the shipped minimum budget the held-out
+rows are **bit-identical to the train rows for 775 of 775 keys**. **The reason is not that the
+seeds are close** -- see section 7, where that claim is corrected -- it is that 48 solver steps
+is 0.2 s and the opening of a bout is seed-insensitive: two fighters start from the same pose at
+the same separation and nothing the seed touches has moved them apart yet. Where the split is
+real the signed mean measures **bias, not error**: 0.0010 against a per-row mean absolute
+residual of 0.1072 at 595,200 steps, and 0.0029 against 0.1606 at 1,190,400 -- factors of 107
+and 55.
+
+**`contactBrier` could not refuse an in-sample cell either, for a different and more durable
+reason.** Every trace row publishes `before.contactProbability === 0` **by construction** --
+`collectTacticalTrace` builds every `before` with `tacticalStateFromView(view, 0)` and that
+parameter is the column's only writer -- so `delta.contactProbability` *is* the group's contact
+rate `p` and the in-sample Brier is exactly `p(1-p)`. This said "0 of 18,494 otherwise", which is
+a true count stating a structural fact as an empirical one: a weaker claim than the code
+supports, and one that would go on reading true after a change that made it false in general.
+The clamp is **not** inert, which section 12 corrects. That is at most 0.25, and `calibrationRefusal`
+compared with a strict `>`, so the limit was the score's own ceiling. The deeper fact: **this
+model has no covariates, so a cell's contact prediction is a constant, a constant predictor's
+only possible error is a calibration gap, and a calibration gap is invisible in-sample by
+construction.** Out of sample the raw Brier correlated with the cell's own base-rate variance
+`q(1-q)` at **0.9959** over 126 held-out folds (mean 0.1390 against a floor of 0.1353, so the
+model contributed **2.7 %**), and all seven folds that breached 0.25 had a held-out contact rate
+in [0.3, 0.7] while **none outside that band ever did**. It refused cells whose *outcome* was
+uncertain, which is precisely the cell a look-ahead most needs to search.
+
+**`vitalityDeltaError` was the only live gate**, because it wrapped its residual in `Math.abs`
+and so could not cancel -- and 0.25 was four times above anything ever observed and 35x the mean
+per-step vitality movement. A no-op, not a bound. The reach residual was written
+`before + delta - after` and the vitality residual `delta - (after - before)`: algebraically
+identical, spelled differently, and **only one got the `Math.abs`**. Both are spelled the same
+way now, and `calibrationFor`'s docstring says why.
+
+### 2. What the columns are now
+
+| was | is | unit |
+| --- | --- | --- |
+| `signedReachError`, a signed mean | `reachError`, a mean absolute residual | metres |
+| `contactBrier`, a raw Brier score | `contactRateError`, the root of the Brier excess over `q(1-q)` | a probability |
+| -- | `contactRate`, `q` itself -- reported, never gated | a probability |
+| `vitalityDeltaError`, unchanged | `vitalityDeltaError` | fraction of a health bar |
+
+For a constant predictor the root of `Brier - q(1-q)` is exactly the absolute difference between
+`p` and `q`, so the contact column is now the calibration gap between the rate that was fitted
+and the rate that was observed -- the only thing about a constant contact prediction that *can*
+be wrong. It is identically zero in-sample, which is why section 7 exists. `contactRate` is
+carried because the raw Brier was reliably telling you one true thing and dropping the column
+without it would lose it: a `contactRateError` of 0 on a cell that never contacts and one on a
+cell that contacts half the time are the same number about different cells.
+
+The inline second copy of all three statistics inside `fitTacticalModel` is gone; it calls
+`fitGroups`, which calls `calibrationFor`, which is now the only place a calibration record is
+computed.
+
+### 3. The reach column is two numbers, because no single one is a threshold on error
+
+**Superseded 2026-08-25 on the argument and on the value. The section as first written said 0.30
+"sits above the `close` mode and at twice the other four, so it refuses outliers within each
+movement class instead of removing one." That is false, and it is the same fallacy this section
+convicts 0.15--0.20 of.** What is kept below is the measurement; what is replaced is the
+conclusion drawn from it.
+
+**The review that found the original bug recommended 0.15, "just above the converged p99 of
+0.1357". That p99 is real, and it is a warrior p99 from a nine-tuple fixture.** Reproduced
+exactly with `.review/calgate/p13-dist.mjs` -- 126 stance-free folds, warrior tuples only:
+`reachError` mean 0.0709, p90 0.1184, p99 **0.1357**, max 0.1362. Adding the two centipede tuples
+moves the p99 to **0.1619**, and the centipede's `close+bite+natural+vital` sits at mean 0.1617 /
+max 0.1619 on **all eighteen** of its folds (`.review/calgate/p14-pertuple.mjs`).
+
+**The causal story here was wrong, and it is the one that makes "spend more steps" sound like the
+fix.** This attributed the 0.1357-against-0.2915 gap to the fixture having "exactly one `close`
+on a warrior". The tuple mix moves the p99 only 0.1357 -> 0.1619, and **no tuple on that fixture
+reaches 0.17**. The remaining 0.16 -> 0.29 is **the bout window**: the fixture runs 4,800-step
+bouts and the 8x schedule sweep runs 384-step ones. Section 13 has the curve.
+
+On the real 775-key schedule `close` is a fifth of every cell. Measured on the schedule sweep at
+the 8x budget, where 772 of 775 splits are real (`.review/calgate/p16-bimodal.mjs`, recomputed from
+the sweep dump's raw ingredients at `.review/rem20/an1.mjs`):
+
+| movement | mean `reachError` | max | keys over 0.15 |
+| --- | ---: | ---: | ---: |
+| `close` | **0.2915** | 0.3594 | **155 / 155** |
+| `circle-right` | 0.1434 | 0.2259 | 3 / 155 |
+| `circle-left` | 0.1398 | 0.1862 | 6 / 155 |
+| `hold` | 0.1382 | 0.1807 | 4 / 155 |
+| `disengage` | 0.0902 | 0.1197 | 0 / 155 |
+
+**`close` is the one movement a constant delta cannot represent**, and it is not noise: a fighter
+closing decelerates as it arrives and **stops when it contacts**, so the residual about the mean
+closure is large by construction. The discriminator is that the movement *terminates*, not that
+the reach changes -- `disengage` also moves the reach margin every step and is the best-fitting
+movement of the five, because a retreat runs at a constant back-speed and does not stop.
+
+**"The histogram is empty between the two modes" is true at one budget only.** At 4x, 620 keys
+sit under 0.12 and 155 over 0.21 with a gap of 0.1014. At 8x the gap is **0.0031** and **12 keys
+sit in (0.15, 0.20)**. At 2x the modes **overlap**: 57 non-`close` keys sit above the lowest
+`close` key. The bimodality is a property of the window as much as of the movement.
+
+**What a single scalar actually refuses**, at 8x, which is the measurement that settles it:
+
+| scalar `reachError` | refused | composition | of `close` | of everything else |
+| ---: | ---: | --- | ---: | ---: |
+| 0.15 | 168 | close 155, circle-left 6, hold 4, circle-right 3 | 100 % | 2.1 % |
+| 0.20 | 156 | close 155, circle-right 1 | 100 % | 0.2 % |
+| 0.25 | 142 | close 142 | 92 % | 0 % |
+| 0.30 | 66 | close 66 | 43 % | 0 % |
+| 0.35 | 2 | close 2 | 1 % | 0 % |
+
+Non-`close` `reachError` maxes at **0.2259**, so **every scalar from 0.23 to 0.40 refuses zero
+non-`close` keys**, and the only thing that varies across 0.25 -> 0.30 -> 0.35 is how much of
+`close` survives. 0.30 is the same `close`-only threshold it condemned 0.15--0.20 for being, at a
+different quantile: it sits at that mode's own median (p50 0.2934) and keeps 57 % of it. Whole
+gate, contact and vitality held at their shipped values:
+
+| `reachError` | survival at 4x | bodies with no plannable `close` | survival at 8x | bodies with no plannable `close` |
+| ---: | ---: | ---: | ---: | ---: |
+| 0.15 | 79.6 % | **13 / 13** | 78.1 % | **13 / 13** |
+| 0.20 | 79.6 % | **13 / 13** | 79.6 % | **13 / 13** |
+| 0.25 | 84.0 % | 6 / 13 | 81.4 % | 7 / 13 |
+| 0.30 | 93.5 % | 2 / 13 | 91.1 % | 1 / 13 |
+| 0.35 | 99.4 % | 0 / 13 | 99.0 % | 0 / 13 |
+
+At 0.15 every body loses the ability to plan an approach. That is not a stricter look-ahead, it
+is a fighter that circles out of range forever -- and it would have shipped silently, because no
+body loses *all* its cells, so `lookaheadMind` never refuses by name and nothing throws.
+
+**The decision.** A single scalar on this column has exactly two settings -- remove approach
+planning, or admit a mode the column cannot judge -- and no value fixes that, because the cause
+is structural rather than a population of outliers. Three ways out were weighed:
+
+- **gate `close` on a different quantity.** Declined. There is nothing in a constant-delta
+  record to gate it on that is not this residual, and inventing a statistic to make a threshold
+  work is how the raw Brier got here in the first place.
+- **leave `close` ungated on reach.** Declined. A cell whose approach model has gone wrong *in
+  kind* -- a fitted delta that moves the wrong way -- would then be admitted, and neither of the
+  other two columns can see that.
+- **one limit per class.** Shipped. `reachError` is **0.20** for the four movements a constant
+  delta can describe, which refuses exactly one key of 620 (a `circle-right` at 0.2259) and
+  empties no class; 0.15 would refuse 13 and 0.12 would take `circle-left`, `circle-right` and
+  `hold` away entirely. `approachReachError` is **0.35** for `close`, which refuses 2 of 155 and
+  costs no body its approach, against 0.30 refusing 66 and costing `centipede/natural:bite` all
+  three of its.
+
+**And the honest thing about `approachReachError`: it is not an outlier filter on model quality,
+it is a ceiling on how wrong an approach prediction may be before planning on it is worse than
+not planning.** A constant delta cannot describe an approach; the record cannot tell a hard
+movement from a bad fit; 0.35 is a bound on gross failure rather than a standard. What the split
+buys over a scalar is that the column can no longer be tightened "a little" and silently take
+approach planning away from all thirteen bodies at once --
+`each_deployed_limit_is_bounded_by_what_it_does_to_the_measured_record` asserts exactly that,
+by running the deployed non-approach value as a scalar and counting the bodies it strands.
+
+**Say the thing that makes all of this smaller than it sounds: no shipped budget reaches any of
+it.** At 148,800 solver steps every column of all 775 keys is exactly **zero**; at 297,600 the
+reach column tops out at **0.1139**. Any reach limit from 0.12 upwards refuses nothing at either.
+0.15 would have refused nothing at a shipped budget, and the thirteen-bodies catastrophe belongs
+to 595,200 and 1,190,400 -- budgets nobody currently runs.
+
+**Whether a constant per-cell delta can represent an approach at all is still the open question
+this hands session 20.** What has changed is that the answer no longer hides inside a single
+number: `approachReachError` is the number that says "we cannot judge this movement, and here is
+how far we will let it go".
+
+### 4. The four limits, and the distribution each is read off
+
+Held-out distribution over the 775-key schedule at 1,190,400 solver steps, seed 310013
+(`.review/calgate/p15-limits.mjs`, recomputed at `.review/rem20/an1.mjs`). The middle two rows
+are the same rows and the same delta scored differently, and are here for comparison rather than
+as candidates:
+
+| column | mean | p90 | p99 | max | limit | refuses at 8x |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `reachError`, the four ordinary movements | 0.1279 | 0.1444 | 0.1588 | 0.2259 | **0.20** | 1 / 620 |
+| `approachReachError`, `close` | 0.2915 | 0.3268 | 0.3561 | 0.3594 | **0.35** | 2 / 155 |
+| all 775 pooled, as RMS | 0.1807 | 0.3376 | 0.3831 | 0.4181 | -- | -- |
+| all 775 pooled, as the old signed mean | **0.0029** | 0.0088 | 0.0337 | 0.0951 | -- | -- |
+| `contactRateError` | 0.0368 | 0.1333 | 0.2000 | 0.4667 | **0.25** | 5 / 775 |
+| the same rows, as the old raw Brier | 0.2104 | 0.2533 | 0.2889 | 0.4400 | -- | -- |
+| `vitalityDeltaError` | 0.0237 | 0.0492 | 0.0832 | 0.1012 | **0.10** | 1 / 775 |
+
+The fourth row is the point of the whole session in one line: **0.0029 where the pooled mean
+absolute residual over the same 775 keys is 0.1606**, on the same rows, with the same delta.
+
+**This table said "converged" and the distribution is not converged.** 384 solver steps per job
+is a 1.6-second bout, which is the *peak* of the reach-error curve rather than its limit -- see
+section 13. Reading a limit off a peak is the conservative direction for a bound and the wrong
+direction for a quantile, and both sentences belong beside the numbers.
+
+All four limits are live and all four refuse only a tail.
+
+**How they are bounded, which is the part that was wrong.** The first version of
+`each_deployed_limit_is_bounded_on_both_sides_by_the_sweep_that_chose_it` asserted an interval
+around each *value* -- `0.20 < reachError < 0.35`, `0.20 < contactRateError < 0.45`,
+`0.08 < vitalityDeltaError < 0.11` -- and **every one of the three bands admitted the exact
+failure its own comment named**, all three leaving 542 green:
+
+| value inside its passing band | what it does to the real 8x record |
+| --- | --- |
+| `reachError` 0.21 | refuses 156 / 775 and costs **all thirteen** bodies their approach |
+| `vitalityDeltaError` 0.105 | refuses **0 / 775** -- the no-op the comment condemns |
+| `contactRateError` 0.44 | refuses 1 / 775 |
+
+That is `AGENTS.md`'s `FOV / 2 > 46` shape in a test written to avoid it. The record is now
+checked in at `tests/fixtures/calibration-record.mjs` -- 775 keys, three columns each, at full
+double precision because twenty of them sit within 3e-16 of 0.2 -- and
+`each_deployed_limit_is_bounded_by_what_it_does_to_the_measured_record` computes every assertion
+from it through `calibrationRefusal` itself rather than through a second copy of the three
+comparisons. Each column at its deployed value against one notch either side:
+
+| column | limit | refuses | one notch looser | one notch tighter |
+| --- | ---: | ---: | --- | --- |
+| `reachError` | 0.20 | 1, a `circle-right` | 0.23 refuses nothing | 0.15 refuses 13 across three classes; 0.12 empties three classes |
+| `approachReachError` | 0.35 | 2 `close` | 0.36 refuses nothing | 0.30 refuses 66; 0.25 refuses 142 |
+| `contactRateError` | 0.25 | 5 | 0.47 refuses nothing | 0.15 refuses 27 |
+| `vitalityDeltaError` | 0.10 | 1 | 0.105 refuses nothing | 0.05 refuses 74 |
+
+Whole gate at the deployed limits: **766 / 775**, no body without an approach, no cell with
+nothing plannable at all.
+
+### 5. Survival at all four budgets, under what is shipped
+
+`.review/calgate/p11-sweep2.mjs` replicates `trainLookahead` exactly -- same three fit seeds, same
+`budgetFor` consumption order, same validation seed, same best-of-three selection -- and dumps the
+raw ingredients per candidate, so limits, champion and survival are resolved together offline
+rather than each chosen from a sweep that already assumed the others.
+
+| budget | steps/job | rows/key | held-out samples bit-identical | gate as it shipped | scalar `reachError` 0.30 | **gate as shipped now** | refused: reach / contact / vitality |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| 148,800 (the minimum) | 48 | 1.00 | **775 / 775** | 100.0 % | 100.0 % | **100.0 %** | 0 / 0 / 0 |
+| 297,600 | 96 | 3.00 | 651 / 775 | 99.6 % | 99.6 % | **99.6 %** | 0 / 3 / 0 |
+| 595,200 | 192 | 6.00 | 164 / 775 | 98.7 % | 93.5 % | **99.4 %** | 0 / 2 / 3 |
+| 1,190,400 | 384 | 14.99 | 3 / 775 | 84.8 % | 91.1 % | **98.8 %** | 3 / 5 / 1 |
+
+**Fixing the metric costs nothing at either shipped budget and *buys* fourteen points at 8x**, on
+quantities that mean something: the old gate threw away 118 cells at the largest budget and every
+one of those refusals was the Brier refusing an uncertain outcome. The two-number reach column
+adds the rest -- the scalar 0.30 column above is what section 3 replaces, and the difference
+between it and the last column is `close` keys the reach residual was never able to judge.
+**Bodies with no plannable approach: 2/13 and 1/13 under the scalar at 4x and 8x, 0/13 under the
+split at every budget.**
+
+**The recorded sweep is not exactly reproducible, and the disagreement is provenance rather than
+this change.** The shipped-gate column above comes out 100.0 / 99.6 / **98.7** / **84.8** against
+the recorded 100.0 / 99.6 / 98.6 / 85.0 -- one key of 775 and two of 775. My own runs *are*
+bit-reproducible: two runs of `p11-sweep2.mjs` at 595,200, one alone and one four-way parallel,
+agree to **0.000e+0** on every one of 775 keys in all three candidates. My 148,800 and 297,600
+dumps reproduce the recorded ones to **0.00e+0** as well; 595,200 and 1,190,400 do not (worst
+disagreement 3.01e-2 and 8.51e-2 on the reach column, `.review/calgate/p18-repro.mjs`), and at 8x
+the recorded run's champion appears to have been a different seed. `.review/calgate/sweep.txt`
+records the live `src/options.ts` throwing `SWEEP is not defined` during the window those numbers
+were taken in, and the snapshot of `src/options.ts` kept beside them in `.review/wt/` differs
+from `HEAD` in **20 non-comment lines**, all inside `handActionOption` and the cover/guard writes
+the trace collector drives. That is a sufficient account and it is not a confirmed one. Nothing
+in sections 3 or 4 turns on it.
+
+### 6. The champion score was 94 % Brier, and fixing it changed no champion
+
+`calibrationScore` in `scripts/train-lookahead.mjs` summed `|signedReachError| + contactBrier +
+vitalityDeltaError` over every cell -- three quantities in three units, which was never a score.
+Measured decomposition of the winning candidate at each budget:
+
+| budget | absolute signed reach | `contactBrier` | vitality | Brier share |
+| ---: | ---: | ---: | ---: | ---: |
+| 297,600 | 1.145 | 42.778 | 1.373 | **94.4 %** |
+| 595,200 | 0.744 | 158.556 | 8.561 | **94.5 %** |
+| 1,190,400 | 2.262 | 163.052 | 18.387 | **88.8 %** |
+
+Since the Brier was 99.6 % base-rate variance, the champion seed was being chosen by which
+validation bouts happened to contact least ambiguously. It is `calibrationSeverity` now -- each
+column as a fraction of the tolerance the deployed gate gives it, so zero is a perfect fit and
+1.0 per column is the refusal threshold.
+
+**And the champion does not move.** Same seed under both scores at all four budgets:
+`-1640774844` at the minimum, where all three candidates score exactly zero and the seed
+tie-break decides, and `310013` at the other three. Recorded because a fix that changes no
+outcome is worth knowing about -- the old score was choosing correctly by accident on this seed
+set, and nothing here shows it would keep doing so.
+
+**The inputs did move, and this under-sold it.** Three scores over the same three candidates
+(`.review/rem20/an6.mjs`); the champion is the same seed in every row, and nothing else is:
+
+| budget | pre-19, absolute signed reach + Brier + vitality | a raw sum of the three new columns | `calibrationSeverity` |
+| ---: | --- | --- | --- |
+| 297,600 | margin **1.844 %** | margin 8.402 % | margin 7.938 % |
+| 595,200 | margin **0.003 %** | margin 1.668 % | margin 1.225 % |
+| 1,190,400 | also-rans `-1640774844 < 5589923` | also-rans **`5589923 < -1640774844`** | also-rans `5589923 < -1640774844` |
+
+At 595,200 the old score picked its winner by three thousandths of a percent; under severity the
+margin is 1.225 %. At 1,190,400 the ranking of the two also-rans **swaps** between the pre-19
+score and either of the new ones. A raw sum of the three *new* columns -- the revert section 11
+found nothing was stopping -- changes no ranking at any budget on this seed set, only margins;
+that is a narrower claim than "the champion never moves" and it is the one the numbers support.
+
+### 7. The minimum budget is shipped with a warning, because its split is not a split
+
+**Right measurement, wrong mechanism, corrected 2026-08-25.** This said the two splits "differ
+only by +100000" on the seed. That is true of `researchMatrix` **at a fixed base seed** --
+`evaluationSeed` mixes only `(base, cell)` and then offsets by the split's range -- and it is not
+what runs. `trainLookahead` collects train rows under base `seed` and validation rows under base
+`seed ^ 0x7f4a7c15`, and `collectTacticalTrace` rebuilds the matrix from the base it is handed,
+so the two bouts start from actor seeds that differ by **12,613 to 180,739** across the 78 jobs
+(39 distinct differences at seed 310013; `.review/rem20/an3.mjs`). The rows come back identical
+anyway because **the opening of a bout is seed-insensitive**: two fighters start from the same
+pose at the same separation and 48 solver steps is 0.2 s. The distinction matters because
+"adjacent seeds" would be fixed by widening the offset and this would not. Measured per
+(cell, tactic) key out of 775, seed 310013:
+
+| steps/job | budget | keys whose held-out rows are bit-identical to their train rows |
+| ---: | ---: | ---: |
+| 48 | 148,800 -- the shipped minimum | **775 / 775** |
+| 96 | 297,600 | 651 / 775 |
+| 192 | 595,200 | 164 / 775 |
+| 384 | 1,190,400 | 3 / 775 |
+
+A **warning** and not a floor, because the model fitted at the minimum budget is fine -- it is
+the evidence about the model that is not evidence. `MIN_SPLIT_STEPS_PER_JOB` is 192,
+`splitWarningFor` returns the sentence rather than printing it so a test can assert it, and the
+report carries `solverStepsPerJob`, `calibrationKeys`, `identicalCalibrationKeys` and
+`splitWarning`. The count is **measured rather than inferred from the budget**, so it cannot go
+stale when the schedule changes.
+
+**192 is not where the split becomes a split, and the warning said it was.** 164 of 775 keys are
+still bit-identical there -- **21 % of the calibration record in-sample under a held-out name** --
+against 3 of 775 at 384, and a run at exactly 192 got no warning at all. Two repairs rather than
+a moved floor, because the floor is where the *proxy* stops being useful and the count is what is
+true:
+
+- the sentence now reads "under the 192 at which **most** of the validation split becomes real",
+  which is what the bracket in it actually shows;
+- `lookaheadNotices` emits the measured count beside it whenever it is non-zero, so the run at
+  192 says "164 of 775 keys got a validation sample bit-identical to their own training sample".
+  A number nothing prints is a number nobody reads, and this one was in the report and in nothing
+  else.
+
+End to end at the shipped minimum, `node scripts/train-lookahead.mjs --seed 310013 --solver-steps
+148800`: both sentences on stderr, and a report reading `solverStepsPerJob: 48`,
+`calibrationKeys: 775`, `identicalCalibrationKeys: 775`, `selectedSeed: -1640774844`,
+`modelDigest: 8b2a97a8` -- with all four calibration columns exactly zero on all 775 keys, which
+is the degeneracy stated instead of hidden.
+
+**A caveat on "on stderr" that is pre-existing and worth writing down.** Babylon's null engine
+logs its banner through `console.log` once per bout, so `node scripts/train-lookahead.mjs >
+report.json` writes about **158 KB** of `BJS - ...` before the first `{`. The notices are on
+stderr because that is where a warning belongs, not because piping stdout into a file currently
+produces a readable one. `writeLookaheadOutput`'s docstring carries it.
+
+### 8. The session-17 stance decision, re-taken on the repaired metric
+
+The decision not to key the planner's cells on the stance was taken partly on a reach column of
+0.0081 against 0.0099 -- `|signedReachError|`, the statistic this session established is
+identically zero in-sample. It deserved re-stating, and it **strengthens**.
+
+`.review/calgate/p12-stance.mjs`, session 17's own 18,494 Havok rows, three-fold, every number
+produced by calling `fitTacticalModel` and `calibrateTacticalModel` rather than re-implementing
+them -- which is the correction over `p10-stance-recheck.mjs`, a probe holding its own copy of
+the rule it was asking about:
+
+| column | stance-keyed | stance-free | keyed minus free |
+| --- | ---: | ---: | ---: |
+| `reachError` (warrior, 126 folds) | 0.0721 | **0.0709** | +0.0012 |
+| `contactRateError` | **0.0431** | 0.0477 | -0.0046 |
+| `vitalityDeltaError` | 0.0241 | **0.0230** | +0.0011 |
+| `reachError` (all nine, 162 folds) | 0.0769 | **0.0759** | +0.0009 |
+| `contactRateError` | **0.0335** | 0.0371 | -0.0036 |
+| `vitalityDeltaError` | 0.0188 | **0.0180** | +0.0008 |
+
+**Corrected 2026-08-25: "two of three columns say worse" is a vote across three quantities in
+three units, which is the exact fallacy this session convicts the old champion score of.** Read
+through `calibrationSeverity` -- the score this change introduced precisely because a sum of
+three units was never a score -- on the same folds, with the deployed limits, and with each fold
+keyed on its own tactic so the reach scale is the movement's own
+(`.review/rem20/stance.mjs`):
+
+| fold set | stance-keyed | stance-free | keyed minus free | as a share of the 3.0-per-cell scale |
+| --- | ---: | ---: | ---: | ---: |
+| warrior, 126 folds | **0.73597** | 0.73751 | -0.00155 | -0.052 % |
+| all nine, 162 folds | **0.63847** | 0.63967 | -0.00120 | -0.040 % |
+
+So stance-keying is marginally **better**, not worse, on both fold sets. **The decision is
+unchanged and the reason is the size rather than the sign: the effect is under a tenth of a
+percent either way, which is not a difference.** A 6x enumeration cost buys a fit that is not
+measurably better on the columns being fitted, and that was always the whole argument.
+`UNLEARNED_STANCE`'s docstring carries both tables.
+
+### 9. What the coverage space is
+
+Three spaces, and they disagree, which is the finding in sections 3 and 13.
+
+- **The schedule sweep** is the surface the gate judges: 13 body/loadout cells times every legal
+  `(action, effector, target)` times 5 movements = **775 keys**, four budgets, three fit seeds
+  each. It covers every movement, every action a body can perform, and both units. It does
+  **not** cover a severed body -- every bout starts intact, see section 14 -- and it does not
+  vary the stance, which is held at `UNLEARNED_STANCE` throughout. **It is one bout length per
+  budget**, and the longest of the four is 1.6 s.
+- **The stance fixture** is nine forced tuples times six stances times three seeds on 4,800-step
+  bouts, 18,494 rows. It has more rows per fold and therefore finer resolution on
+  `contactRateError`; only one of its nine tuples is a `close` on a warrior, and **its bouts are
+  12.5x longer than the longest schedule sweep**. Section 3's first version blamed the tuple mix
+  for the whole 0.1357-against-0.2915 gap and the tuple mix accounts for 0.1357 -> 0.1619 of it.
+- **The convergence probe** (section 13) is five keys across six bout lengths from 0.8 s to 20 s,
+  which is the axis neither of the other two varies. It is narrow on keys and is the only one of
+  the three that can see the axis the limits are most sensitive to.
+
+Reading a global limit off the second was one mistake section 3 corrects; reading a *quantile*
+off the first without knowing where 1.6 s sits on the curve was the other. Neither covers what
+happens to a *deployed* look-ahead in a bout: no fighter in this session was driven by a
+calibrated beam, and every number here is about the calibration record rather than about winning.
+
+### 10. The mutation table
+
+Every test added or touched, watched failing under a deliberate mutation of the line it is about.
+Two batteries: `.review/calgate/mutcheck19.mjs` for the first pass, and
+`.review/rem20/mut.mjs` for the remediation. Both report a missing pattern *as* a missing
+pattern, and the second one **throws when it cannot parse a pass/fail count**, because the first
+version of it printed `pass NaN fail NaN` for every case and called all eleven of them "not
+noticed" -- a harness that reports "not noticed" and "nothing to notice" identically is the
+defect this table exists to avoid, in the tool used to avoid it.
+
+**Three guards did not guard, and all three survived the first pass.** Each is stated with what
+it cost, because a mutation that leaves the suite green is only interesting if its blast radius
+is known:
+
+| mutation that left 542 green | what it did to the real 8x record |
+| --- | --- |
+| the reach and vitality limit keys swapped in `calibrationRefusal` | survival 706/775 -> **140/775**; `centipede/natural:bite` loses **every** cell, which makes `lookaheadMind` throw "no calibrated model for any tactic" mid-bout |
+| `fitGroups(cellRows)` -> `fitGroups(rows)` in `fitTacticalModel` | every cell fitted from the pooled rows; invisible because every fixture had exactly one loadout |
+| the `Math.max(0, ...)` clamp removed | 497 of 2,325 records become `NaN` and are **admitted** -- see section 12 |
+| `reachError` 0.21, inside its own passing band | refuses 156/775 and costs **all thirteen** bodies their approach |
+| `vitalityDeltaError` 0.105, inside its own passing band | refuses **0/775** -- the no-op the band's own comment condemns |
+| `contactRateError` 0.44, inside its own passing band | refuses 1/775 |
+
+The 23-case remediation battery and what each turned red (`.review/rem20/mut-after.txt`):
+
+| mutation | tests that went red |
+| --- | --- |
+| the reach and vitality limit keys swapped | `each_calibration_limit_refuses_...` **and 2 more** |
+| the reach column stops being keyed on the movement | `each_deployed_limit_is_bounded_...` **and 4 more** |
+| the approach and ordinary reach limits swapped | 7 tests |
+| every cell fitted from the pooled rows | `each_calibration_limit_refuses_...` |
+| the gate stops reading the contact column | `the_contact_column_refuses_a_breach_...` **and 2 more** |
+| the `max(0, ...)` clamp removed, and separately replaced by `Math.abs` | `the_contact_column_clamps_the_negative_excess_...` |
+| `reachError` 0.23 / 0.15 | `each_deployed_limit_is_bounded_...` |
+| `approachReachError` 0.30 / 0.36 | `each_deployed_limit_is_bounded_...` |
+| `vitalityDeltaError` 0.105, `contactRateError` 0.44 | `each_deployed_limit_is_bounded_...` |
+| the two reach limits collapse to one number | `each_deployed_limit_is_bounded_...` **and 1 more** |
+| `calibrationSeverity` stops scaling reach by the movement | `the_champion_score_scales_every_column_...` **and 1 more** |
+| `calibrationScore` reverts to a raw sum of the three columns | `the_champion_is_chosen_by_severity_...` |
+| the champion tie-break stops being the seed | `the_champion_is_chosen_by_severity_...` |
+| `identicalCalibrationKeys` deleted from the report | `the_lookahead_report_carries_the_whole_record_...` **and 1 more** |
+| `splitWarning` deleted from the report | `the_lookahead_report_carries_the_whole_record_...` **and 1 more** |
+| the stderr write disabled / moved to stdout / the measured notice dropped | `a_lookahead_run_puts_its_notices_on_stderr_...` |
+| `splitWarningFor` fed a constant 384, or the consumed budget | `the_lookahead_report_carries_the_whole_record_...` |
+| the warning claims 192 is where the split becomes a split | `the_minimum_budget_is_shipped_with_a_warning_...` |
+
+The first pass's eighteen mutations still hold against the repaired tests, except that the three
+band assertions they targeted no longer exist; what replaced them is in section 4.
+
+**What these tests still do not catch**, stated because a mutation table that lists only its
+successes is a coverage claim nobody checked:
+
+- **`runLookaheadCli`'s own three lines.** Argument parsing, the two `writeAtomic` calls and the
+  `writeLookaheadOutput` call are unasserted, because reaching them costs 148,800 solver steps.
+  Everything they call is asserted; the call itself is not. Deleting the
+  `writeLookaheadOutput(...)` line would leave the suite green.
+- **`trainLookahead` calling `selectCalibratedCandidate`.** Replacing it with `candidates[0]`
+  would leave the suite green for the same reason.
+- **`calibrationRefusal`'s `>` becoming `>=`.** No fixture sits exactly on a limit. Section 14
+  says how easily one could be moved onto it and why the boundary matters less than it did.
+- **the record going stale.** `tests/fixtures/calibration-record.mjs` is a copy of a sweep, so a
+  change to `calibrationFor` moves what a run would produce and does not move the fixture. The
+  fixture bounds the *limits*; it cannot notice the statistic underneath them changing.
+- **the `localeCompare` ordering inside `fitGroups`.** Key order in the fitted record is asserted
+  nowhere, and it feeds `model.digest`.
+- **`each_calibration_limit_refuses_...` does not catch a moved deployed limit**, because it
+  builds its own; and `each_deployed_limit_is_bounded_...` does not catch a broken statistic,
+  because it reads the checked-in record. Each covers what the other cannot.
+
+### 11. Five pieces of wiring nothing tested
+
+All five left the whole suite green, and together they are a full revert of section 6's champion
+score with no failing test and no changed artifact:
+
+| revert | why nothing noticed |
+| --- | --- |
+| `calibrationScore` back to a raw sum of the three new columns | the score was a closure inside `trainLookahead`, reachable only by spending a budget |
+| `identicalCalibrationKeys` deleted from the report | nothing read the report |
+| `splitWarning` deleted from the report | `the_minimum_budget_is_shipped_with_a_warning_...` asserts the pure function and never that anything ships it, while its **name** claims the shipping |
+| the stderr write disabled | nothing read the stream |
+| `splitWarningFor` handed a constant steps-per-job | nothing built a report at two budgets |
+
+The repair is four exports rather than four closures: `modelCalibrationScore` and
+`selectCalibratedCandidate` for the champion, `lookaheadReport` for the record, and
+`lookaheadNotices` / `writeLookaheadOutput` for what a run says. Each is asserted whole against a
+freshly stated one, which is the shape that grows with the thing instead of listing the field
+names somebody remembered.
+
+### 12. The `max(0, ...)` clamp fires, on the cells the model gets exactly right
+
+`calibrationFor` said "the excess is non-negative for any constant prediction", and the mutation
+table certified the clamp untestable: "it cannot be reached while predictions are constant, which
+they are for every model this trainer produces". **Both are wrong.** The excess is non-negative in
+exact arithmetic; in IEEE doubles it is a row-summed Brier minus a separately computed `q(1-q)`,
+and where `p === q` those land a few ulps either side of each other.
+
+Measured on the 1,190,400-step sweep (`.review/rev19/clampreal.mjs`): **497 of 2,325 records have
+`brier - q(1-q) < 0`**, most negative **-8.327e-17**, and **all 497 have `p === q` exactly** --
+they are the cells the model gets exactly right. Remove the clamp and `Math.sqrt(-8.3e-17)` is
+`NaN`, `NaN > 0.25` is `false`, and the gate **admits** every one of them without reading the
+column: a fail-open guard under a comment asserting it cannot fire.
+
+**The three smaller budgets produce no negative excess at all** -- 0 of 2,325 at each -- because
+their row counts make `p` and `q` fractions whose arithmetic is exact. That is why five sessions
+of a suite that never spends 1,190,400 solver steps could not have met this by accident, and it
+is what makes the fixture worth stating exactly: `p = 1/3, q = 7/21` is the smallest case, and
+`the_contact_column_clamps_the_negative_excess_a_perfect_fit_produces` is built on it.
+
+### 13. The reach column does not converge, and every limit is read off its peak
+
+Section 4 called its distribution "converged". It is not. Same keys, same fit-and-calibrate path,
+bout length as the only thing that moves (`.review/rem20/converge.mjs`, held-out `reachError`):
+
+| key | 0.8 s | 1.6 s | 3.2 s | 6.4 s | 10 s | 20 s |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `warrior/sword+empty close+thrust+primary+vital` | 0.2906 | **0.3133** | 0.2576 | 0.1849 | 0.1549 | **0.1187** |
+| `centipede/natural:bite close+bite+natural+vital` | 0.2367 | **0.3433** | 0.3059 | 0.2737 | 0.2302 | **0.1614** |
+| `warrior/sword+empty circle-left+cut+primary+vital` | 0.1013 | **0.1329** | 0.1190 | 0.0999 | 0.1011 | 0.0942 |
+| `warrior/sword+empty hold+cut+primary+vital` | 0.0707 | **0.1351** | 0.1006 | 0.1093 | 0.0994 | 0.0897 |
+| `warrior/sword+empty disengage+cover+primary+threat` | 0.0447 | **0.0807** | 0.0686 | 0.0692 | 0.0682 | 0.0683 |
+
+**Every one of the five peaks at 1.6 s**, which is exactly the 8x budget the limits were read off.
+The two `close` keys then fall by **2.6x** and **2.1x** by 20 s and the three non-approach keys by
+**1.2x to 1.5x**. (Three of the four ordinary movements, not four: `circle-right` was not probed,
+which is what this probe's coverage space is.) Two consequences:
+
+- **the two "modes" are partly an artifact of the window.** At 20 s the gap between `close` and
+  the rest is 1.3--1.8x, not the near-disjoint pair the 1.6 s snapshot shows.
+- **a limit that refuses only gross outliers at 1.6 s refuses nothing normal at any other
+  window**, which is the direction a bound wants to be conservative in and the wrong direction
+  for a quantile. Section 4 now says so beside the table.
+
+This also relocates section 3's causal story. The stance fixture's bouts are 4,800 steps and the
+8x schedule sweep's are 384, so 0.1619 -> 0.2915 is the window, not the tuple mix -- and "spend
+more steps" would *lower* the reach column rather than raise it.
+
+### 14. Two smaller corrections
+
+**The 0.25 boundary is an ordinary interior point now.** The old mutation table said "every
+fixture sits well away from its limit". Understated: over an enumerated fixture set of train
+1..24 rows by held-out 1..24 rows -- 104,976 cases -- `contactRateError` lands **exactly** on
+0.25 in **976** of them through the shipped row-summed Brier (1,032 through the closed form; the
+two disagree in the last bits, which is the same fact section 12 is about). `p = 0/1, q = 1/4` is
+one line away. It lands on 0.25 in **0 of 9,300** real records across the four budgets. So `>`
+against `>=` is untested and is no longer *load-bearing*: under the Brier the limit sat on the
+statistic's algebraic ceiling, and under `contactRateError` it is an interior point like any
+other. Stated rather than fixed.
+
+**"One body of thirteen loses `close` at 8x" was an intact-body figure.** `lookaheadMind` fixes
+`bodyLoadout` at construction, so severance changes the legal tuple set and never the calibration
+record consulted -- a bare-fisted warrior that loses its off hand is planning over the
+`warrior/empty+empty` record with half its tuples gone. Broken out by effector at the old scalar
+0.30 (`.review/rem20/an3.mjs`):
+
+| cell | primary `close` kept | secondary `close` kept |
+| --- | ---: | ---: |
+| `warrior/empty+empty` | **0 / 6** | 2 / 6 |
+| `warrior/sword+shield` | 3 / 10 | 2 / 4 |
+| `warrior/bow+empty` | 1 / 7 | none to keep |
+| `warrior/axe+empty` | 1 / 7 | 3 / 6 |
+
+A `warrior/empty+empty` that loses its off hand keeps **no** approach at all under the scalar and
+joins the centipede. At the shipped `approachReachError` of 0.35 those four cells read 6/6 and
+6/6, 9/10 and 4/4, 7/7, and 7/7 and 6/6 -- so a severed body stops being a cliff, which is a
+second reason the split is worth its code. The schedule sweep still starts every bout intact, so
+none of this is *covered*; it is inferred from which keys the gate admits, which is exactly what
+`lookaheadMind` will consult when a hand comes off.
+
+### 15. The gate
+
+`npx tsc --noEmit` clean. `npm test` **550 passed**, 0 failed -- 538 before the session, 542 after
+the first pass, eight more added by the remediation.
+`npm run build` clean. `git diff --numstat` md5-identical to
+`git diff --ignore-cr-at-eol --numstat`. The null control unmoved for the ninth stage running:
+`npm run measure -- --only duelist-swinger --bouts 120`, seed 20260823 -- duelist **66/120 =
+55.0 %**, bout length **3.52 s (1.42-8.98)**, damage **176.17**, **10** severs, **1496** and
+**1670** scoring contacts, and the same final-blow region histogram.
+
+`model.digest` moves, which was predicted and then checked rather than assumed: the calibration
+record is inside the digested body and three of its four fields are new or redefined. Nothing
+pins a digest value -- `tests/lookahead.test.mjs` asserts only `/^[0-9a-f]{8}$/` -- and the one
+committed look-ahead artifact, `asset-src/learning/research/session18-minimum`, is refused a
+layer up at `featureVersion` 3 against runtime 4 and carries no `tacticVersion` at all. Both
+verified by reading the artifact's bytes.

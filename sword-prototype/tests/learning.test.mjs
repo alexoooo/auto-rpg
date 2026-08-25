@@ -767,10 +767,16 @@ const sealed = (algorithm, model) => decodeResearchArtifact(new ResearchArtifact
  * The look-ahead payload is a model whose every cell carries one row with an
  * identical before and after: the delta is zero, so every cell ties and the beam's
  * frozen tie-break picks the first -- and a one-row cell calibrates to 0/0/0 in all
- * three columns, which is what gets it past `LOOKAHEAD_CALIBRATION_LIMITS`. That
- * degeneracy is a real property of the trainer at low budgets and
- * `docs/measurements.md` records it; here it is what makes a synthetic artifact
- * deployable without a Havok trace.
+ * three gated columns, which is what gets it past `LOOKAHEAD_CALIBRATION_LIMITS`.
+ * It still does under session 19's repaired statistics, and for a stronger reason
+ * than before rather than by luck: `reachError` and `vitalityDeltaError` are mean
+ * absolute residuals about a mean taken over that same single row, and
+ * `contactRateError` is a fitted rate against the rate of the rows it was fitted
+ * on, so all three are exactly zero for a group of one. That degeneracy is a real
+ * property of the trainer at low budgets -- `MIN_SPLIT_STEPS_PER_JOB` in
+ * `scripts/train-lookahead.mjs` is the warning it earned and
+ * `docs/measurements.md` records the bracket; here it is what makes a synthetic
+ * artifact deployable without a Havok trace.
  */
 test("every_producer_of_a_research_label_writes_the_same_six_fields", () => {
   const view = learningView("sword", "empty");

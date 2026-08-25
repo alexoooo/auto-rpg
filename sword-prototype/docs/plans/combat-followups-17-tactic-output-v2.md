@@ -794,6 +794,16 @@ of the key rather than enumerated into it:
    effect on the vitality column is smaller than the cost of fitting from one seed instead of
    two. The harness has a control that must read zero and does: a centipede's six stances come
    back **byte-identical**, because `Centipede.update` never reads `input.posture`.
+   **Session 19 re-took this decision on repaired statistics and it strengthens.** Two of the
+   three columns quoted here could not report an error at all -- `signedReachError` is
+   identically zero in-sample and `contactBrier` is 99.6 % irreducible outcome variance -- so the
+   comparison was re-run on the same folds through `fitTacticalModel` and `calibrateTacticalModel`
+   themselves: `reachError` 0.0721 keyed against **0.0709** free, `vitalityDeltaError` 0.0241
+   against **0.0230**, `contactRateError` 0.0431 against 0.0477. Counting columns across three
+   units is the fallacy session 19 convicts the old champion score of, so re-read through
+   `calibrationSeverity`: keying is marginally *better*, by 0.05 % of the 3.0-per-cell scale.
+   **The decision is unchanged because the effect is under a tenth of a percent either way**;
+   `docs/measurements.md` "Session 19", section 8, and `UNLEARNED_STANCE`'s docstring.
 2. **The stance moves the fight and not these five columns**, which is a statement about
    `TACTICAL_STATE_COLUMNS`. Same runs: `hold+cover+primary+threat` dealt **182 damage over three
    bouts** under `slip-right` and 751 over three under `upright`, and `extended` survived the full
@@ -831,6 +841,16 @@ of the key rather than enumerated into it:
    99.6 % at 3 rows a key, 98.6 % at 6, **85.0 % at 15**. The quality curve says the cliff is
    between 8 and 15 held-out rows, so the budget worth asking for is 60 rows a cell --
    **4,464,000 solver steps**, about 17 minutes in one process.
+   **Session 19 closed the half of this that was about the limits and left the budget half open.**
+   The reason nothing had ever been refused was not that the limits were loose: two of the three
+   columns could not fire. The percentages above are superseded -- under the repaired gate,
+   100.0 / 99.6 / **99.4** / **98.8 %** at the same four budgets, with no body losing the ability
+   to plan an approach at any of them. (The remediation pass moved the last two again, from
+   93.5 and 91.1: a single scalar reach limit could only trade `close` survival, so the column
+   is two numbers now.) The bit-identical split is now
+   reported by the trainer rather than rediscovered, as `identicalCalibrationKeys` plus a warning
+   below `MIN_SPLIT_STEPS_PER_JOB` = 192, with the measured bracket 775 / 651 / 164 / 3 keys
+   identical at 48 / 96 / 192 / 384 steps a job.
 6. **The exact node budget is kept, enforced and now pinned on both sides of the beam
    saturation.** `[1, 2, 3, 5, 6, 7, 16, 80] -> [8, 74, 120, 210, 258, 301, 688, 3440]`; only
    from six up is it `43P`, and a test that checked only counts at or above six would have passed

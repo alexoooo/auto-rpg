@@ -831,6 +831,21 @@ which is why those two are in the key and the stance is not.
   process.
 - **Only `contactBrier` ever refuses a cell.** Worst `signedReachError` observed 0.0618 and worst
   `vitalityDeltaError` 0.1037, against limits of 0.25.
+
+  **Both bullets above are done and their percentages are superseded** -- session 19 repaired the
+  columns and re-set the limits, `docs/measurements.md` "Session 19". The second one was the
+  finding: `contactBrier` was the only column ever refusing because the other two *could not*, not
+  because they were set loosely. `signedReachError` is a signed mean of residuals about a fitted
+  mean and is identically zero in-sample (worst magnitude ever observed **5.489e-17**), and the
+  raw Brier is 99.6 % irreducible outcome variance. Survival under the repaired gate is 100.0 /
+  99.6 / **99.4** / **98.8 %** at the same four budgets -- unchanged at both shipped budgets and
+  fourteen points *better* at 8x, on quantities that mean something, with **no body losing the
+  ability to plan an approach at any budget**. (The remediation pass moved the last two figures
+  again, from 93.5 and 91.1: a single scalar on the reach column could only trade `close`
+  survival, so it is two numbers now -- 0.20 for the four movements a constant delta can
+  describe and 0.35 for the one it cannot.) The degeneracy in the first bullet is
+  now stated by the trainer rather than left to be rediscovered: `identicalCalibrationKeys` in the
+  report, and a warning below `MIN_SPLIT_STEPS_PER_JOB`.
 - **A long budget must be spent as many short jobs.** At 480 steps a job the trainer dies because
   a fighter loses a hand mid-window and the forced tuple leaves the runtime mask: **1 of 775 tasks
   on seed 310013, 0 of 775 on the other two fit seeds.** This said "pre-existing: the action-level
@@ -875,7 +890,7 @@ not specific enough to be wrong; these are the places this one was.
 1. **"At least twenty-four rows" is not reachable by choosing `N`.** Session 19 sets the
    cadence with `--checkpoint-every-jobs N` and session 21 accepts a rung only if it produced
    twenty-four rows. At the granularity each runner actually checkpoints at, the *whole run*
-   offers fewer units than that: look-ahead **3,100** (`train-lookahead.mjs#L200`), NEAT-QD 80
+   offers fewer units than that: look-ahead **3,100** (`train-lookahead.mjs#L364`), NEAT-QD 80
    generations (`train-neat-qd.mjs#L20`), DAgger **5** iterations (`collect-dagger.mjs#L18`),
    PPO **2** arms -- `equalBudgetPpoArms` returns exactly `["random", "dagger"]`
    (`src/learning/ppo.ts#L96-L100`). No `N` divides five into twenty-four.
@@ -892,8 +907,10 @@ not specific enough to be wrong; these are the places this one was.
 3. **Validation worst-cell exists in one direction of four.** NEAT-QD computes it for real
    (`research-rollout-worker.mjs#L87`). PPO writes `macro: reward, worstCell: reward` -- the
    same scalar (`train-ppo.mjs#L174`). DAgger has only `validationLoss`, and look-ahead only a
-   summed calibration error; both are **lower-is-better**, which inverts the sign of the
-   plateau rule's "improved by at least `--plateau-epsilon`".
+   summed calibration **severity** -- each column as a fraction of its deployed limit
+   (`train-lookahead.mjs#L295-L297`), which since session 19 is what `calibrationScore` sums
+   rather than three raw quantities in three units; both are **lower-is-better**, which inverts the
+   sign of the plateau rule's "improved by at least `--plateau-epsilon`".
    **Consequence:** the plateau rule is declared over a per-direction *objective* with its
    direction of improvement stated, not over a quantity named `worstCell` that means four
    different things.
@@ -912,8 +929,8 @@ not specific enough to be wrong; these are the places this one was.
 5. **Look-ahead has no resume, no state file and no coherent mid-run checkpoint.**
    `--stop-after-jobs` exists only in `train-ppo.mjs#L180`; the handoff's claim that it and
    `--resume` are general is wrong. Worse, a look-ahead `TacticalModel` first exists only after
-   a complete train sweep (`train-lookahead.mjs#L209`) and is uncalibrated until the validation
-   sweep (`#L214`), so a champion-so-far at row *k* is a computation the run does not otherwise
+   a complete train sweep (`train-lookahead.mjs#L373`) and is uncalibrated until the validation
+   sweep (`train-lookahead.mjs#L378`), so a champion-so-far at row *k* is a computation the run does not otherwise
    perform -- and one `LOOKAHEAD_CALIBRATION_LIMITS` would likely refuse at deploy time.
    **Updated 2026-08-25:** it would no longer refuse outright. `lookaheadMind` now searches the
    cells it holds a calibration for and refuses only when a body has none, so a partial model is
@@ -922,7 +939,7 @@ not specific enough to be wrong; these are the places this one was.
    whatever session 19 builds should report the pair count it actually searched.
 6. **`configDigest` is two incompatible formats.** NEAT-QD and DAgger use 16 hex characters of
    SHA-256 (`train-neat-qd.mjs#L50`, `collect-dagger.mjs#L36`); PPO and look-ahead use 8 hex
-   characters of FNV-1a (`train-ppo.mjs#L190`, `train-lookahead.mjs#L219`). The artifact
+   characters of FNV-1a (`train-ppo.mjs#L190`, `train-lookahead.mjs#L388-L389`). The artifact
    validator only requires a non-empty string (`artifact.ts#L165`). Preflight normalizes this
    before it can compare anything.
 7. **A SHA-256 contract digest cannot live in `src/learning/`.** That tree is browser-imported

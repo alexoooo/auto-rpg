@@ -41,12 +41,37 @@ export const UNLEARNED_PERSISTENCE = 0.4;
  * 17 Stage C2c"): nine (cell, movement, action, effector, target) tuples, six
  * stances each, three seeds each, 4,800 solver steps a bout. At a **fixed** total
  * budget, six stance-keyed cells against one stance-free cell scored on the same
- * held-out rows come to `|signedReachError|` 0.0081 against 0.0099, `contactBrier`
- * 0.1387 against 0.1390, and `vitalityDeltaError` 0.0241 against 0.0230 -- the
- * last of which is stance-keying being *worse*. Every one of those gaps is under
- * 0.8 % of the 0.25 `LOOKAHEAD_CALIBRATION_LIMITS` each column is refused at, and
- * the whole stance effect on `vitalityDeltaError` is smaller than the cost of
- * fitting from one seed instead of two.
+ * held-out rows.
+ *
+ * **The decision was taken on a broken statistic and it survives the fix.** The
+ * columns it was read off were `|signedReachError|` 0.0081 against 0.0099 and
+ * `contactBrier` 0.1387 against 0.1390, and session 19 established that the first
+ * of those is identically zero in-sample and the second is 99.6 % irreducible
+ * outcome variance. Re-asked on the same 126 held-out folds through the repaired
+ * `calibrationFor` (`.review/calgate/p12-stance.mjs`, which calls
+ * `fitTacticalModel` and `calibrateTacticalModel` rather than re-implementing
+ * them):
+ *
+ * | column | stance-keyed | stance-free | keyed - free |
+ * | --- | ---: | ---: | ---: |
+ * | `reachError` | 0.0721 | 0.0709 | **+0.0012** |
+ * | `contactRateError` | 0.0431 | 0.0477 | -0.0046 |
+ * | `vitalityDeltaError` | 0.0241 | 0.0230 | **+0.0011** |
+ *
+ * **Read through the score this change introduced, stance-keying is marginally
+ * *better*, and counting columns was the same fallacy the change condemns.**
+ * "Two of three columns say worse" is a vote across three quantities in three
+ * units -- which is exactly why `calibrationSeverity` exists. Through it, on the
+ * same folds with the deployed limits and each fold keyed on its own tactic
+ * (`.review/rem20/stance.mjs`): warrior 126 folds **0.73597 keyed against
+ * 0.73751 free**, and all nine tuples, 162 folds, **0.63847 against 0.63967**.
+ * Keyed wins both, by 0.05 % and 0.04 % of the 3.0-per-cell scale.
+ *
+ * **The decision is unchanged and the reason is the size, not the sign.** The
+ * effect is under a tenth of a percent either way, which is not a difference; a
+ * 6x enumeration cost buys a fit that is not measurably better on the columns
+ * being fitted, and that is the whole argument. Adding the two centipede tuples
+ * moves nothing on the raw columns either (162 folds: +0.0009, -0.0036, +0.0008).
  *
  * **Stance moves the fight and does not move these five columns**, which is a
  * statement about `TACTICAL_STATE_COLUMNS` rather than about stance: over the
