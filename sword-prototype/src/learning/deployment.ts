@@ -1,12 +1,15 @@
 import type { FighterView, Mind } from "../mind.ts";
-import { EFFECTOR_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, STANCE_NAMES, TACTIC_VERSION, TARGET_NAMES } from "../options.ts";
+import { EFFECTOR_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, STANCE_NAMES, TACTIC_VERSION, TARGET_NAMES,
+  tacticEffectors, tacticTargets, type EffectorName, type HandActionName, type MovementName, type StanceName,
+  type TargetName } from "../options.ts";
 import { ResearchArtifact, type ResearchArtifactContract } from "./artifact.ts";
-import { predictDagger, type DaggerModel } from "./dagger.ts";
+import { DAGGER_HEAD_NAMES, predictDagger, type DaggerModel } from "./dagger.ts";
 import { FEATURE_COLUMNS, FEATURE_VERSION } from "./features.ts";
 import { lookaheadMind, LOOKAHEAD_DEPTH, LOOKAHEAD_WIDTH } from "./lookahead.ts";
-import { META_OUTPUT_LAYOUT, deployableActions, readMetaOutput } from "./meta.ts";
+import { META_OUTPUT_LAYOUT, deployableActions, readMetaOutput, selectDeployableTactic } from "./meta.ts";
 import { RecurrentNeatNetwork } from "./recurrent-neat.ts";
-import { RecurrentPolicy, maskedArgmax, type RecurrentPolicyWeights } from "./recurrent-network.ts";
+import { PPO_POLICY_HEADS } from "./ppo.ts";
+import { RecurrentPolicy, maskedArgmax, type RecurrentPolicyWeights, type RecurrentStep } from "./recurrent-network.ts";
 import { researchLabelMind, type ResearchLabeler } from "./research-policy.ts";
 import { TACTICAL_MODEL_VERSION, TACTICAL_STATE_COLUMNS, type TacticalModel } from "./tactical-model.ts";
 
@@ -56,34 +59,164 @@ export const supportedActionIndices = (view: FighterView): Set<number> => {
   const allowed = deployableActions(view);
   return new Set(HAND_ACTION_NAMES.map((name, index) => allowed.has(name) ? index : -1).filter((index) => index >= 0));
 };
+const indicesOf = <T extends string>(table: readonly T[], allowed: readonly T[]): Set<number> =>
+  new Set(allowed.map((name) => table.indexOf(name)).filter((index) => index >= 0));
+
+/** How one masked head answers: an index and the probability the sampler gave it. */
+export type TacticHeadPick = (logits: readonly number[], supported: ReadonlySet<number>, label: string) =>
+Readonly<{ index: number; probability: number }>;
+export interface RecurrentTactic {
+  readonly movement: MovementName; readonly action: HandActionName; readonly effector: EffectorName;
+  readonly target: TargetName; readonly stance: StanceName;
+  readonly indices: Readonly<Record<typeof PPO_POLICY_HEADS[number], number>>;
+  readonly supported: Readonly<Record<typeof PPO_POLICY_HEADS[number], readonly number[]>>;
+  readonly probabilities: Readonly<Record<typeof PPO_POLICY_HEADS[number], number>>;
+}
+
+/**
+ * A recurrent policy's five heads read as one legal tactic, with the masks
+ * **conditioned in contract order**.
+ *
+ * This is the shape PPO needs and `selectDeployableTactic`'s joint sum is not,
+ * and the difference is about the algorithm rather than about taste. PPO's
+ * policy is a product of five categorical conditionals: the importance ratio,
+ * the entropy term and the clipped surrogate are all per head, so each head has
+ * to be sampled from a distribution the update can *rebuild*. A joint argmax over
+ * the legal tuples is a single categorical over a different support and would need
+ * a different log-probability -- an algorithm change, not a decoding one. NEAT
+ * writes a raw 26-vector with no log-probabilities at all, which is why it uses
+ * the joint sum and this does not.
+ *
+ * **That sentence said "over 72 tuples" and 72 is not a count of anything here.**
+ * It is `3 x 4 x 6`, the nominal per-action multiplier, which `dagger.ts` uses
+ * correctly for "grew about seventy-twofold" and which is wrong as a width.
+ * Measured over the whole body space -- every ordered weapon pair, both loss
+ * flags on each hand, with and without a bite, plus the centipede --
+ * `|deployableTactics|` peaks at **21**, on `sword+sword+bite`; the union over
+ * every body is 33 and the union over the thirteen research cells is 24. So the
+ * argmax this paragraph declines is at most 21 wide. The argument does not rest
+ * on the number: a categorical over 21 joint outcomes still has a different
+ * log-probability from a product of five conditionals, and it is that, not the
+ * width, that makes it an algorithm change.
+ *
+ * **Legality is by construction rather than by refusal.** The action mask is
+ * `deployableActions`, the effector mask is `tacticEffectors(view, action)` for
+ * the action that was just chosen, and the aim mask is `tacticTargets(action)` --
+ * which are precisely the three loops `deployableTactics` builds its set from, so
+ * every triple this can answer is in that set. Conditioning on the *sampled*
+ * action rather than on a marginal is also what makes the stored `supported`
+ * lists correct for the update: PPO's ratio is evaluated at the old actions, so
+ * the conditional the effector head is renormalized over must be the one it was
+ * sampled under.
+ *
+ * The stance is unmasked. Every stance is legal on every body.
+ */
+export function recurrentTactic(view: FighterView, step: RecurrentStep, pick: TacticHeadPick): RecurrentTactic {
+  const movement = pick(step.movementLogits, new Set(MOVEMENT_NAMES.map((_, index) => index)), "movement");
+  const actionSupported = supportedActionIndices(view);
+  const action = pick(step.actionLogits, actionSupported, "action");
+  const actionName = HAND_ACTION_NAMES[action.index] as HandActionName;
+  const effectorSupported = indicesOf(EFFECTOR_NAMES, tacticEffectors(view, actionName));
+  const effector = pick(step.effectorLogits, effectorSupported, "effector");
+  const targetSupported = indicesOf(TARGET_NAMES, tacticTargets(actionName));
+  const target = pick(step.targetLogits, targetSupported, "target");
+  const stanceSupported = new Set(STANCE_NAMES.map((_, index) => index));
+  const stance = pick(step.stanceLogits, stanceSupported, "stance");
+  const picks = { movement, action, effector, target, stance };
+  const supported = { movement: [...MOVEMENT_NAMES.keys()], action: [...actionSupported],
+    effector: [...effectorSupported], target: [...targetSupported], stance: [...stanceSupported] };
+  return Object.freeze({
+    movement: MOVEMENT_NAMES[movement.index] as MovementName, action: actionName,
+    effector: EFFECTOR_NAMES[effector.index] as EffectorName, target: TARGET_NAMES[target.index] as TargetName,
+    stance: STANCE_NAMES[stance.index] as StanceName,
+    indices: Object.freeze(Object.fromEntries(PPO_POLICY_HEADS.map((name) => [name, picks[name].index]))) as RecurrentTactic["indices"],
+    supported: Object.freeze(Object.fromEntries(PPO_POLICY_HEADS.map((name) => [name, Object.freeze(supported[name])]))) as RecurrentTactic["supported"],
+    probabilities: Object.freeze(Object.fromEntries(PPO_POLICY_HEADS.map((name) => [name, picks[name].probability]))) as RecurrentTactic["probabilities"],
+  });
+}
+
+/** The deterministic reader of the above: every head takes its largest legal logit. */
+export const argmaxHeadPick: TacticHeadPick = (logits, supported, label) =>
+  Object.freeze({ index: maskedArgmax(logits, supported, label), probability: 1 });
+
+/**
+ * The persistence PPO and look-ahead both hardcode, in one place.
+ *
+ * PPO produces **25 of the 26 outputs** and this is the missing one. Making it
+ * learned means a continuous action -- a Gaussian or Beta parameterisation with
+ * its own log-probability in the ratio -- which `PPO_POLICY_HEADS`' own note
+ * records as an algorithm change rather than a contract one. The constant was
+ * spelled out at five call sites; it is spelled here and at `lookahead.ts:171`,
+ * which keeps its own because `src/learning/lookahead.ts` is stage C2c's and is
+ * deliberately untouched.
+ */
+export const UNLEARNED_PERSISTENCE = 0.4;
 
 /** Decode the shared envelope before any algorithm-specific payload is trusted. */
 export function decodeResearchArtifact(bytes: Uint8Array): ResearchArtifact {
   return ResearchArtifact.fromBytes(bytes, RESEARCH_ARTIFACT_CONTRACT);
 }
 
+/**
+ * The narrowest label any of the four algorithms promises a decision hook.
+ *
+ * **Three fields, and that is a statement about look-ahead rather than about the
+ * contract.** `researchLabelMind`'s hook takes a whole `DaggerLabel` since stage
+ * C2b, and DAgger, NEAT-QD and PPO all hand it one -- but `lookaheadMind`
+ * (`src/learning/lookahead.ts:142`) declares its own hook over `{ movement,
+ * action, persistence }` and calls it with exactly that, and look-ahead is stage
+ * C2c's with a measured ~19x compute cost attached. This parameter was
+ * `Parameters<typeof researchLabelMind>[2]`, which is contravariant the wrong way
+ * for that: a hook demanding six fields cannot be handed to a producer that
+ * supplies three, so widening the shared alias makes `tsc` reach into C2c's file.
+ *
+ * Naming the intersection here keeps the widening out of that file and keeps the
+ * promise true: a caller of `deployedResearchMind` does not know which algorithm
+ * it decoded, so three fields is genuinely all it may rely on until C2c lands.
+ * The three algorithms that do more still pass the whole record at run time --
+ * `scripts/research-rollout-worker.mjs` and the label histogram harness both read
+ * `label.effector` off it -- and those are `.mjs`, which `tsconfig.json`'s
+ * `include` does not cover anyway.
+ */
+export type DeployedDecisionLabel = Readonly<{ movement: string; action: string; persistence: number }>;
+
 /** The sole deployment dispatcher used by the blind tournament and learned league entries. */
 export function deployedResearchMind(artifact: ResearchArtifact, bodyLoadout: string,
-  onDecision?: Parameters<typeof researchLabelMind>[2]): Mind {
+  onDecision?: (view: FighterView, features: readonly number[], label: DeployedDecisionLabel) => void): Mind {
   const decoded = recordObject(payloadJson(artifact), artifact.data.algorithm);
   if (artifact.data.algorithm === "dagger") {
     const model = decoded as unknown as DaggerModel;
     if (model.featureCount !== FEATURE_COLUMNS.length) throw new Error("dagger artifact has the wrong feature count");
-    exactNames(model.movement?.labels, MOVEMENT_NAMES, "dagger movement"); exactNames(model.action?.labels, HAND_ACTION_NAMES, "dagger action");
+    // All five heads, because all five decide something now. `exactNames` reads
+    // `labels`, which is what a stale artifact gets wrong; `predictDagger`'s own
+    // per-head size check is what catches an artifact whose labels are right and
+    // whose matrix is short, and it is checked on the probe below rather than
+    // only in a bout.
+    const tables = { movement: MOVEMENT_NAMES, action: HAND_ACTION_NAMES, effector: EFFECTOR_NAMES,
+      target: TARGET_NAMES, stance: STANCE_NAMES } as const;
+    for (const name of DAGGER_HEAD_NAMES) exactNames(model[name]?.labels, tables[name], `dagger ${name}`);
     const probe = predictDagger(model, FEATURE_COLUMNS.map(() => 0));
-    if (!MOVEMENT_NAMES.includes(probe.movement as never) || !HAND_ACTION_NAMES.includes(probe.action as never) || !Number.isFinite(probe.persistence)) {
+    if (!MOVEMENT_NAMES.includes(probe.movement as never) || !HAND_ACTION_NAMES.includes(probe.action as never) ||
+        !EFFECTOR_NAMES.includes(probe.effector as never) || !TARGET_NAMES.includes(probe.target as never) ||
+        !STANCE_NAMES.includes(probe.stance as never) || !Number.isFinite(probe.persistence)) {
       throw new Error("dagger artifact produced an invalid deployment probe");
     }
     return researchLabelMind("dagger", (_view, features) => predictDagger(model, features), onDecision);
   }
   if (artifact.data.algorithm === "ppo") {
     const weights = decoded.weights as unknown as RecurrentPolicyWeights;
-    if (!weights || weights.inputSize !== FEATURE_COLUMNS.length || weights.movement?.rows !== MOVEMENT_NAMES.length ||
-        weights.action?.rows !== HAND_ACTION_NAMES.length) throw new Error("ppo artifact has the wrong recurrent feature/action shape");
+    const rows = { movement: MOVEMENT_NAMES.length, action: HAND_ACTION_NAMES.length, effector: EFFECTOR_NAMES.length,
+      target: TARGET_NAMES.length, stance: STANCE_NAMES.length } as const;
+    if (!weights || weights.inputSize !== FEATURE_COLUMNS.length ||
+        PPO_POLICY_HEADS.some((name) => weights[name]?.rows !== rows[name])) {
+      throw new Error("ppo artifact has the wrong recurrent feature/action shape");
+    }
     const policy = new RecurrentPolicy(weights); policy.step(FEATURE_COLUMNS.map(() => 0)); policy.reset();
-    const labeler: ResearchLabeler = (view, features) => { const step = policy.step(features);
-      return { movement: MOVEMENT_NAMES[maskedArgmax(step.movementLogits, new Set(MOVEMENT_NAMES.map((_, index) => index)), "movement")]!,
-        action: HAND_ACTION_NAMES[maskedArgmax(step.actionLogits, supportedActionIndices(view), "action")]!, persistence: 0.4 }; };
+    const labeler: ResearchLabeler = (view, features) => {
+      const tactic = recurrentTactic(view, policy.step(features), argmaxHeadPick);
+      return { movement: tactic.movement, action: tactic.action, effector: tactic.effector,
+        target: tactic.target, stance: tactic.stance, persistence: UNLEARNED_PERSISTENCE };
+    };
     return researchLabelMind("ppo", labeler, onDecision);
   }
   if (artifact.data.algorithm === "neat-qd") {
@@ -104,10 +237,16 @@ export function deployedResearchMind(artifact: ResearchArtifact, bodyLoadout: st
       throw new Error("neat-qd artifact has the wrong finite feature/action shape");
     }
     const network = new RecurrentNeatNetwork(decoded as never);
+    // The joint legal tuple, and this half of the seam moved in the same commit
+    // as `neatLabeler` in `scripts/research-rollout-worker.mjs`. Moving one alone
+    // is the training/deployment divergence stage C1 closed --
+    // `the_training_decoder_and_the_deployment_decoder_answer_the_same_label`
+    // was watched going red under exactly that before either side was touched.
     const labeler: ResearchLabeler = (view, features) => { const values = readMetaOutput(network.run(features));
       const movement = MOVEMENT_NAMES[maskedArgmax(values.movementLogits, new Set(MOVEMENT_NAMES.map((_, index) => index)), "movement")]!;
-      const action = HAND_ACTION_NAMES[maskedArgmax(values.actionLogits, supportedActionIndices(view), "action")]!;
-      return { movement, action, persistence: values.persistence }; };
+      const tactic = selectDeployableTactic(view, values);
+      return { movement, action: tactic.action, effector: tactic.effector, target: tactic.target,
+        stance: tactic.stance, persistence: values.persistence }; };
     return researchLabelMind("neat-qd", labeler, onDecision);
   }
   if (artifact.data.algorithm === "lookahead") {

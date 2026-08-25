@@ -19,14 +19,27 @@ const provenance = { seed: 7, solverSteps: 4, trainingSplit: "train", validation
 const artifact = (algorithm, model) => new ResearchArtifact({ algorithm, ...RESEARCH_ARTIFACT_CONTRACT,
   payload: payload(model), provenance }, RESEARCH_ARTIFACT_CONTRACT).toBytes();
 const layer = (rows, columns) => ({ rows, columns, weights: Array(rows * columns).fill(0), bias: Array(rows).fill(0) });
+/**
+ * The five categorical heads, built from the frozen tables rather than named
+ * one by one.
+ *
+ * Both fixtures below spelled `movement` and `action` out and stopped there,
+ * which is what a fixture does when the contract is what it is testing. Stage
+ * C2b's `finiteLayer` and `predictDagger` both check a head's matrix against
+ * the *runtime* table now, so a fixture that names four of five heads is an
+ * artifact that fails to deploy -- which is the point, and is why this is a
+ * loop over one table instead.
+ */
+const HEAD_TABLES = { movement: MOVEMENT_NAMES, action: HAND_ACTION_NAMES, effector: EFFECTOR_NAMES,
+  target: TARGET_NAMES, stance: STANCE_NAMES };
+const headEntries = (build) => Object.fromEntries(Object.entries(HEAD_TABLES).map(([name, table]) => [name, build(table)]));
 const ppo = () => ({ weights: { inputSize: FEATURE_COLUMNS.length, units: GRU_UNITS,
   update: layer(GRU_UNITS, FEATURE_COLUMNS.length + GRU_UNITS), reset: layer(GRU_UNITS, FEATURE_COLUMNS.length + GRU_UNITS),
-  candidate: layer(GRU_UNITS, FEATURE_COLUMNS.length + GRU_UNITS), movement: layer(MOVEMENT_NAMES.length, GRU_UNITS),
-  action: layer(HAND_ACTION_NAMES.length, GRU_UNITS), value: layer(1, GRU_UNITS) } });
+  candidate: layer(GRU_UNITS, FEATURE_COLUMNS.length + GRU_UNITS),
+  ...headEntries((table) => layer(table.length, GRU_UNITS)), value: layer(1, GRU_UNITS) } });
 const dagger = () => ({ featureCount: FEATURE_COLUMNS.length, hiddenCount: 1,
   hiddenWeights: Array(FEATURE_COLUMNS.length).fill(0), hiddenBias: [0],
-  movement: { labels: MOVEMENT_NAMES, weights: Array(MOVEMENT_NAMES.length).fill(0), bias: Array(MOVEMENT_NAMES.length).fill(0) },
-  action: { labels: HAND_ACTION_NAMES, weights: Array(HAND_ACTION_NAMES.length).fill(0), bias: Array(HAND_ACTION_NAMES.length).fill(0) },
+  ...headEntries((table) => ({ labels: table, weights: Array(table.length).fill(0), bias: Array(table.length).fill(0) })),
   persistenceWeights: [0], persistenceBias: 0 });
 const lookahead = () => ({ version: 1, featureNames: TACTICAL_STATE_COLUMNS, tactics: {}, cells: {}, digest: "synthetic" });
 const bytes = new Map([

@@ -12,6 +12,7 @@ import { researchMatrix } from "../src/learning/research-matrix.ts";
 import { researchLabelMind } from "../src/learning/research-policy.ts";
 import { HAND_ACTION_NAMES, MOVEMENT_NAMES } from "../src/options.ts";
 import { freshIntent } from "../src/action-primitives.ts";
+import { probeLabel } from "./fixtures/label.mjs";
 import { assertCompleteView, publishedFixture } from "./fixtures/view.mjs";
 
 const state = (overrides = {}) => ({ reachMargin: -0.5, facingError: 0.2, threatAlignment: 0.1,
@@ -77,7 +78,7 @@ test("the_training_schedule_offers_exactly_what_the_runtime_mask_offers", async 
     // that a per-loadout schedule row cannot describe it.
     const masks = new Set();
     await runResearchBout({ ...job, index: jobIndex }, () => researchLabelMind("schedule-mask-probe",
-      () => ({ movement: "hold", action: "recover", persistence: 0.4 })), 48, null, {
+      (view) => probeLabel(view, "hold", "recover")), 48, null, {
         onSample({ view }) { masks.add(HAND_ACTION_NAMES.filter((name) => deployableActions(view).has(name)).join("+")); },
       });
     runtime[cell] = [...masks];
@@ -92,7 +93,7 @@ const publishedBody = async (loadout) => {
   const at = jobs.findIndex((job) => job.unit === "warrior" && job.loadout === loadout);
   let captured = null;
   await runResearchBout({ ...jobs[at], index: at }, () => researchLabelMind("severance-fixture",
-    () => ({ movement: "hold", action: "recover", persistence: 0.4 })), 48, null, {
+    (view) => probeLabel(view, "hold", "recover")), 48, null, {
       onSample({ view }) { captured ??= publishedFixture(view, `${loadout} view`); },
     });
   return captured;

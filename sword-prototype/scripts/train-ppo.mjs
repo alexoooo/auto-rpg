@@ -5,26 +5,33 @@ import { pathToFileURL } from "node:url";
 import { FEATURE_COLUMNS } from "../src/learning/features.ts";
 import { ResearchArtifact, artifactChecksum, canonicalJson } from "../src/learning/artifact.ts";
 import { GRU_UNITS, RecurrentPolicy, maskedCategorical, seededRandom } from "../src/learning/recurrent-network.ts";
-import { maskedArgmax } from "../src/learning/recurrent-network.ts";
+import { META_OUTPUT_LAYOUT } from "../src/learning/meta.ts";
 import { decodePpoResume, encodePpoResume, equalBudgetPpoArms, freezeOpponentLeague, generalizedAdvantages,
-  indexedLeagueOpponent, ppoHeadUpdate, selectPpoArm, tacticalBoundaryReward } from "../src/learning/ppo.ts";
+  indexedLeagueOpponent, ppoHeadUpdate, PPO_POLICY_HEADS, selectPpoArm, tacticalBoundaryReward } from "../src/learning/ppo.ts";
 import { researchMatrix } from "../src/learning/research-matrix.ts";
 import { researchLabelMind } from "../src/learning/research-policy.ts";
 import { predictDagger } from "../src/learning/dagger.ts";
-import { RESEARCH_ARTIFACT_CONTRACT, supportedActionIndices } from "../src/learning/deployment.ts";
-import { HAND_ACTION_NAMES, MOVEMENT_NAMES } from "../src/options.ts";
+import { argmaxHeadPick, recurrentTactic, RESEARCH_ARTIFACT_CONTRACT, UNLEARNED_PERSISTENCE } from "../src/learning/deployment.ts";
+import { EFFECTOR_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, STANCE_NAMES, TARGET_NAMES } from "../src/options.ts";
 import { runResearchBout } from "./research-havok.mjs";
 
 const layer = (rows, columns, random, scale = 0.08) => ({ rows, columns,
   weights: Array.from({ length: rows * columns }, () => (random() * 2 - 1) * scale), bias: Array(rows).fill(0) });
+/** The row count each policy head owes the runtime, asked of the frozen tables. */
+const HEAD_ROWS = { movement: MOVEMENT_NAMES.length, action: HAND_ACTION_NAMES.length,
+  effector: EFFECTOR_NAMES.length, target: TARGET_NAMES.length, stance: STANCE_NAMES.length };
 export function initialPpoWeights(seed, initialization) {
   const random = seededRandom(seed ^ (initialization === "dagger" ? 0xda66e2 : 0x51f15e));
   const inputSize = FEATURE_COLUMNS.length; const combined = inputSize + GRU_UNITS;
   const result = { inputSize, units: GRU_UNITS, update: layer(GRU_UNITS, combined, random),
     reset: layer(GRU_UNITS, combined, random), candidate: layer(GRU_UNITS, combined, random),
-    movement: layer(MOVEMENT_NAMES.length, GRU_UNITS, random), action: layer(HAND_ACTION_NAMES.length, GRU_UNITS, random),
+    ...Object.fromEntries(PPO_POLICY_HEADS.map((name) => [name, layer(HEAD_ROWS[name], GRU_UNITS, random)])),
     value: layer(1, GRU_UNITS, random) };
-  // The DAgger arm is a frozen, deterministic distillation prior, not a live teacher.
+  // The DAgger arm is a frozen, deterministic distillation prior, not a live
+  // teacher. It biases `hold`, `cut` and `thrust`, and deliberately biases none
+  // of the three new heads: the teacher's own aim is `vital` for every action it
+  // can emit, so a prior on the target head would be a prior toward the one
+  // constant this stage is trying to find out whether the network moves off.
   if (initialization === "dagger") { result.movement.bias[0] = 0.35; result.action.bias[1] = 0.25; result.action.bias[2] = 0.2; }
   return result;
 }
@@ -58,14 +65,15 @@ export async function loadLeagueArtifacts(paths) {
     const controller = artifact.data.algorithm === "dagger" ? () => researchLabelMind(id,
       (_view, features) => predictDagger(payload, features)) : () => {
         const policy = new RecurrentPolicy(payload.weights); return researchLabelMind(id, (view, features) => {
-          // `supportedActionIndices`, which is `deployableActions` projected onto
-          // the argmax's index space. This was a sixth copy of the legality rule
-          // -- `supportedOptions` plus the cover delete, character for character
-          // -- sitting in the file that decides what a league opponent does.
-          const step = policy.step(features);
-          const movement = MOVEMENT_NAMES[maskedArgmax(step.movementLogits, new Set(MOVEMENT_NAMES.map((_, i) => i)), "movement")];
-          const action = HAND_ACTION_NAMES[maskedArgmax(step.actionLogits, supportedActionIndices(view), "action")];
-          return { movement, action, persistence: 0.4 };
+          // `recurrentTactic`, which is the same conditional-mask decode
+          // `deployment.ts`'s PPO branch runs. This was a sixth copy of the
+          // legality rule -- `supportedOptions` plus the cover delete, character
+          // for character -- sitting in the file that decides what a league
+          // opponent does; C1 unified the action half and C2b unifies the rest,
+          // so a frozen champion fights as the thing that was deployed.
+          const tactic = recurrentTactic(view, policy.step(features), argmaxHeadPick);
+          return { movement: tactic.movement, action: tactic.action, effector: tactic.effector,
+            target: tactic.target, stance: tactic.stance, persistence: UNLEARNED_PERSISTENCE };
         }); };
     loaded.push({ entry: { id, kind: artifact.data.algorithm, digest }, controller });
   }
@@ -74,8 +82,13 @@ export async function loadLeagueArtifacts(paths) {
     controllers: new Map(retained.map(({ entry, controller }) => [entry.id, controller])) };
 }
 
-const flattenHeads = (weights) => [...weights.movement.weights, ...weights.movement.bias,
-  ...weights.action.weights, ...weights.action.bias, ...weights.value.weights, ...weights.value.bias];
+// The resume encoding's flat vector, in exactly `ppoHeadUpdate`'s buffer order:
+// every policy head's weights then bias, then the value head's. Derived from
+// `PPO_POLICY_HEADS` for the reason that array's own note gives -- it was three
+// hand-written pairs, which is three chances to disagree with the descent loop
+// about a layout neither of them names.
+const flattenHeads = (weights) => [...PPO_POLICY_HEADS, "value"]
+  .flatMap((name) => [...weights[name].weights, ...weights[name].bias]);
 
 /** One deterministic actual-Havok trajectory; returns are emitted only at tactic boundaries. */
 export async function collectPpoTrajectory({ seed, initialization, solverSteps, jobIndex = 0, weights = null,
@@ -91,23 +104,26 @@ export async function collectPpoTrajectory({ seed, initialization, solverSteps, 
     // under, and this line was the seventh copy where it was not.** It read bare
     // `supportedOptions` -- without even the cover delete the league branch
     // above kept -- while `deployment.ts`'s PPO branch argmaxes through
-    // `deployableActions`. That is the train/deploy split this stage exists to
-    // close, one file further in than the four it started with. Measured, the
-    // two answered identically in all 394 probed capability cells and the cover
-    // delete had something to delete in none of them, so the sampler is
-    // unchanged; a redundant guard held in one of two copies is how the first
-    // five drifted apart without anything going red.
-    const previousHidden = policy.snapshot(); const step = policy.step(features); const actions = supportedActionIndices(view);
-    const movementPick = maskedCategorical(step.movementLogits, new Set(MOVEMENT_NAMES.map((_, index) => index)), random(), "movement");
-    const actionPick = maskedCategorical(step.actionLogits, actions, random(), "action");
+    // `deployableActions`. That is the train/deploy split C1 closed for the
+    // action half; C2b closes the rest by sampling through the same
+    // `recurrentTactic` the deployment branch argmaxes through, so the only
+    // difference between the two is the picker handed in.
+    //
+    // The masks are **conditioned in contract order** -- the effector's on the
+    // action that was just sampled, the aim's on the same -- so the tuple is a
+    // member of `deployableTactics` by construction and the `supported` lists
+    // stored below are the exact conditionals `ppoHeadUpdate` renormalizes over.
+    const previousHidden = policy.snapshot(); const step = policy.step(features);
+    const tactic = recurrentTactic(view, step, (logits, supported, label) =>
+      maskedCategorical(logits, supported, random(), label));
     previous = { startVitalityPotential: view.self.vitality - view.opponent.vitality, endVitalityPotential: 0,
       nearRangeProgress: 0, terminal: 0, measure: view.measure, value: step.value,
-      movement: movementPick.index, action: actionPick.index, oldMovementProbability: movementPick.probability,
-      oldActionProbability: actionPick.probability, oldValue: step.value, hidden: step.hidden,
-      input: [...features], previousHidden,
-      movementSupported: MOVEMENT_NAMES.map((_, index) => index),
-      actionSupported: [...actions] };
-    return { movement: MOVEMENT_NAMES[movementPick.index], action: HAND_ACTION_NAMES[actionPick.index], persistence: 0.4 };
+      oldValue: step.value, hidden: step.hidden, input: [...features], previousHidden,
+      ...Object.fromEntries(PPO_POLICY_HEADS.flatMap((name) => [[name, tactic.indices[name]],
+        [`${name}Supported`, [...tactic.supported[name]]],
+        [`old${name[0].toUpperCase()}${name.slice(1)}Probability`, tactic.probabilities[name]]])) };
+    return { movement: tactic.movement, action: tactic.action, effector: tactic.effector,
+      target: tactic.target, stance: tactic.stance, persistence: UNLEARNED_PERSISTENCE };
   });
   const matrixJob = researchMatrix(split, seed)[jobIndex % researchMatrix(split, seed).length];
   const opponent = indexedLeagueOpponent(league, seed, jobIndex); const route = opponentRoute(opponent, controllers);
@@ -146,7 +162,7 @@ export async function trainPpo(config) {
     const trajectory = await collectPpoTrajectory({ ...arm, solverSteps: trainSteps, split: "train",
       league: config.league ?? PPO_LEAGUE, controllers: config.controllers ?? new Map() });
     const update = ppoHeadUpdate(trajectory.weights, trajectory.boundaries.map((row, index) => ({ ...row,
-      target: row.oldValue + (trajectory.advantages[index] ?? 0), advantage: trajectory.advantages[index] ?? 0 })), config.seed ^ arm.index);
+      valueTarget: row.oldValue + (trajectory.advantages[index] ?? 0), advantage: trajectory.advantages[index] ?? 0 })), config.seed ^ arm.index);
     const validation = await collectPpoTrajectory({ ...arm, solverSteps: validationSteps, jobIndex: arm.index,
       weights: trajectory.weights, split: "validation", league: config.league ?? PPO_LEAGUE,
       controllers: config.controllers ?? new Map() });
@@ -174,8 +190,15 @@ export async function trainPpo(config) {
   const configDigest = artifactChecksum(canonicalJson({ seed: config.seed, solverSteps: config.solverSteps,
     league: config.league ?? PPO_LEAGUE }));
   const payload = [...new TextEncoder().encode(canonicalJson({ initialization: selected.initialization, weights: selected.fullWeights }))];
+  // `producedOutputs` is 25 of the contract's 26 and is recorded rather than
+  // inferred: PPO has five categorical heads and no persistence head, because a
+  // learned persistence is a *continuous* action with a different log-probability
+  // in the importance ratio. `PPO_POLICY_HEADS`' own note carries the argument;
+  // this is so that a reader of the artifact does not have to find it.
   const artifact = new ResearchArtifact({ algorithm: "ppo", ...RESEARCH_ARTIFACT_CONTRACT, payload,
-    provenance: { seed: config.seed, solverSteps: selected.solverSteps, trainingSplit: "train", validationSplit: "validation", configDigest } },
+    provenance: { seed: config.seed, solverSteps: selected.solverSteps, trainingSplit: "train", validationSplit: "validation",
+      configDigest, producedOutputs: PPO_POLICY_HEADS.reduce((sum, name) => sum + HEAD_ROWS[name], 0),
+      contractOutputs: META_OUTPUT_LAYOUT.width, unlearnedPersistence: UNLEARNED_PERSISTENCE } },
     RESEARCH_ARTIFACT_CONTRACT);
   const optimizer = { update: 1, firstMoment: selected.weights.map(() => 0), secondMoment: selected.weights.map(() => 0),
     consumedSolverSteps: rows.reduce((sum, row) => sum + row.solverSteps, 0) };

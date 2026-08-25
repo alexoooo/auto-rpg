@@ -23,6 +23,7 @@ import { beaten, begin, defaultMatchup, selectScreen } from "../src/bout.ts";
 import { blankIntent } from "../src/policies.ts";
 import { advanceFight, FightEnd } from "../src/fight-end.ts";
 import { researchLabelMind } from "../src/learning/research-policy.ts";
+import { probeLabel } from "./fixtures/label.mjs";
 
 /**
  * What losing your head costs.
@@ -313,7 +314,7 @@ test("the_winning_mind_is_not_asked_again_after_the_verdict", async (t) => {
  */
 test("the_learned_policy_stops_on_the_bout_verdict", async (t) => {
   let asked = 0;
-  const policy = researchLabelMind("neat-qd", () => ({ movement: "close", action: "cover", persistence: 0.10 }));
+  const policy = researchLabelMind("neat-qd", (view) => probeLabel(view, "close", "cover", 0.10));
   const learned = { name: policy.name, decide(view, dt) { asked += 1; return policy.decide(view, dt); } };
   const { engine, scene, left, right } = await ring(learned);
   t.after(() => engine.dispose());

@@ -24,14 +24,14 @@ research direction by twenty.
 `cover`/`recover` are specified here as needing "either selected attached hand". Today
 `supportedOptions` adds `recover` **unconditionally** (`src/learning/meta.ts:20`) and adds
 `cover` only when a hand is attached (`:21`), and `handActionOption` carries a dedicated
-handless `recover` branch (`src/options.ts:270-282`). That separation is not an accident:
+handless `recover` branch (`src/options.ts:585-599`). That separation is not an accident:
 `docs/measurements.md:1801-1803` records it as the fix that came out of the last exhaustive
 look-ahead run -- *"its first full attempt exposed a hand-only recovery path in Centipede;
 after capability-neutral recovery and hand-required cover were separated..."*.
 
 Under this plan's rule a centipede, and any fighter that has lost both arms, has an **empty**
 legal set, and `maskedArgmax` throws `"action has no supported tactic"`
-(`src/learning/recurrent-network.ts:51`). `tests/learning.test.mjs:169-172` pins the current
+(`src/learning/recurrent-network.ts:74`). `tests/learning.test.mjs:173-176` pins the current
 behaviour for all three meta minds.
 
 **`recover` stays legal with no hand at all.** It is the one action whose effector may be
@@ -45,12 +45,12 @@ The plan replaces `supportedOptions`. There are two more:
 - `actionsFor`, then a `startsWith` chain in `scripts/train-lookahead.mjs`, omits `punch` for
   sword/axe/bow cells, so the look-ahead schedule trains 220 keys while the runtime asks for up
   to 250. **Closed by stage C1**: the bow row was the runtime's to fix and stage B fixed it; the
-  sword and axe rows were the schedule's, and `LOADOUT_ACTIONS` (`scripts/train-lookahead.mjs:94-107`)
+  sword and axe rows were the schedule's, and `LOADOUT_ACTIONS` (`scripts/train-lookahead.mjs:105-113`)
   now trains 240 keys per split;
 - `neatLabeler` in `research-rollout-worker.mjs` is a third, hand-inlined copy that tests
   `hand.weapon === "sword"` for thrust instead of `hasPoint`, and an **exclusion list**
   `!["empty","bow","shield","buckler"].includes(hand.weapon)` for cut instead of `isStriking`.
-  It reads `deployableActions` now (`scripts/research-rollout-worker.mjs:42-50`).
+  It reads `deployableActions` now (`scripts/research-rollout-worker.mjs:54-62`).
 
 That third copy is the one that decodes NEAT and DAgger rollouts **during training**, so a
 network is currently trained under one legality mask and deployed under another. Unify all
@@ -121,7 +121,7 @@ increase is linear in the tuple count. The calibration check runs once per tuple
 as `calibratedTacticPairs` rather than a throw.
 
 There is a statistical cost riding on the compute one: `fitTacticalModel` fits **per cell**, so
-20x the cells on a fixed budget is 20x fewer rows each, and `train-lookahead.mjs:125` throws if
+20x the cells on a fixed budget is 20x fewer rows each, and `train-lookahead.mjs:136` throws if
 any single cell collects none. Session 20 derives ceilings from these numbers and session 21
 spends them. **Implement the full enumeration, measure the real cost, and record it in
 `docs/measurements.md`** -- do not quietly narrow the enumeration to keep the number small. If
@@ -159,11 +159,16 @@ centipede task, 10 today at 292 ms; that becomes 90 tasks and roughly 2.6 s.
   and `splitMind` already ignores `theirs.driving` deliberately (`src/mind.ts:637-643`). Only
   two sites read it for combat execution -- `action-primitives.ts:140` and `options.ts:385` --
   and one genuinely carries both meanings, `mind.ts:879` in `handover`.
+
+  **Superseded 2026-08-25: `driving` no longer exists in `options.ts` and the anchor is struck
+  rather than re-pointed.** `grep driving src/options.ts` returns nothing; the type split landed
+  and the field went with it. `action-primitives.ts:140` was not moved by stage C2b and is left
+  as it is.
 - **`natural_bite_never_aliases_a_human_hand` cannot be satisfied in `options.ts` alone.** The
   centipede publishes `NO_HANDS = Object.freeze({})` (`src/bodies/centipede.ts:23,238`) yet is
   driven entirely through `input.primary.thrust` (`:254`) and `input.primary.guard` (`:263`).
   The alias is the creature's whole control surface. It also exists at `centipede.ts:36`
-  (`BiteStrike.hand = "primary"`), `:334-335` (`crawlerMind`), and `options.ts:461`
+  (`BiteStrike.hand = "primary"`), `:334-335` (`crawlerMind`), and `options.ts:933`
   (`recordIntentAttack`). `Intent` needs a natural channel and `actingHand: HandName | null`.
 - **Body regions do not exist, but can be built from published facts.** `BodyView` publishes
   `vitalHeight` (torso centre, 1.28 m) and `crownHeight` (1.765 m) (`src/mind.ts:339-340`,
@@ -175,16 +180,16 @@ centipede task, 10 today at 292 ms; that becomes 90 tasks and roughly 2.6 s.
   drops every scripted aim by 14 cm and moves every matchup. See "What must be measured".
 - **Ballistic lift has no seam to compose with a target.** `actionArcherAim`
   (`action-primitives.ts:98-103`) computes its own `y` internally and takes no target argument.
-  Both call sites (`options.ts:190`, `policies.ts:1272`) pass none. Worse, `arrowCrossing`
+  Both call sites (`options.ts:679`, `policies.ts:1272`) pass none. Worse, `arrowCrossing`
   (`:504-514`) and `approachToScratch` (`:254-262`) both assume the archer aimed over by
   exactly `actionArrowLift`, so changing the aimed target changes the **defender's** crossing
   prediction too.
 - **`combatOption` has a live non-test consumer the plan does not list.**
   `forcedOptionEvaluationMind` (`src/learning/evaluation.ts:99-118`) calls it with *movement*
-  names, which `handActionOption` refuses (`options.ts:258`), and string-matches the exact
-  refusal prefix `option "<name>" requires ` at `:105`. Any new refusal wording breaks it.
+  names, which `handActionOption` refuses (`options.ts:533`), and string-matches the exact
+  refusal prefix `option "<name>" requires ` at `:135`. Any new refusal wording breaks it.
   Two tests pin that message (`tests/learning.test.mjs:147,151`).
-- **`handActionOption` is not purely a wrapper.** The bite skill (`options.ts:259-269`) and the
+- **`handActionOption` is not purely a wrapper.** The bite skill (`options.ts:567-584`) and the
   handless-recover branch (`:270-282`) exist only there. Deleting `combatOption` is not a pure
   move for those two.
 - **`combatOption` has a latent bug worth killing on the way past.** Its guard is `knownOption`
@@ -192,18 +197,37 @@ centipede task, 10 today at 292 ms; that becomes 90 tasks and roughly 2.6 s.
   construction: `combatOption("bite")` and `combatOption("hold")` both construct, and `bite`
   then silently no-ops because `decide` has no bite branch and `done` falls through to
   `age >= 0.18`.
-- **PPO needs four new heads, not three.** It has no persistence output at all --
-  `deployment.ts:61` hardcodes `persistence: 0.4`, and `RecurrentPolicyWeights` carries exactly
-  `movement`, `action` and `value` (`recurrent-network.ts:10-19`, checked `:89-91`). Three
-  different persistence semantics exist today: NEAT decodes and rescales to `[0.10,0.80]`,
-  DAgger predicts it, PPO invents `0.4`. Also `ppo.ts:256` divides reported entropy by a
-  **hardcoded head count of 2**; adding heads without changing it inflates entropy silently and
-  no test pins the divisor.
+- **PPO needs four new heads, not three.** It had no persistence output at all --
+  `deployment.ts` hardcoded `persistence: 0.4`, and `RecurrentPolicyWeights` carried exactly
+  `movement`, `action` and `value`. Three different persistence semantics exist today: NEAT
+  decodes and rescales to `[0.10,0.80]`, DAgger predicts it, PPO invents `0.4`. Also `ppo.ts`
+  divided reported entropy by a **hardcoded head count of 2**; adding heads without changing it
+  inflates entropy silently and no test pins the divisor.
+
+  **Superseded 2026-08-25, and the anchors are struck rather than re-pointed** -- the lines they
+  named do not exist any more, so a number would be a fresh-looking pointer at nothing. Stage
+  C2b gave PPO its five categorical heads (`RecurrentPolicyWeights` now extends
+  `Record<RecurrentHeadName, DenseLayer>`, `recurrent-network.ts:31-38`) and fixed the divisor
+  to `rows.length * PPO_POLICY_HEADS.length` (`ppo.ts:319`). **"No test pins the divisor" is now
+  false in two ways**: `ppo_updates_policy_weights_value_head_and_reports_clipping_and_entropy`
+  pins its value on a fixture whose five heads have deliberately unequal supports, and
+  `the_reported_entropy_is_a_mean_over_rows_as_well_as_over_heads` pins the `rows.length` half
+  separately. The fourth head -- persistence -- was deliberately **not** added: it is a
+  continuous action with its own log-probability in the ratio, and `UNLEARNED_PERSISTENCE`
+  (`deployment.ts:153`) is the shared constant that stands in until somebody means it.
 - **Nobody can write the DAgger labels.** The expert is `tacticalTeacher`
-  (`src/learning/tactical-teacher.ts:11-39`), it returns only `{movement, action, persistence}`,
-  and it never names a hand or an aim height. Teaching it to label effector/target/stance is
-  unstated work, and bumping `TACTICAL_TEACHER_VERSION` (`:5`) invalidates every checked-in row
-  -- correct, but say so.
+  (`src/learning/tactical-teacher.ts:295-340`), it returned only `{movement, action,
+  persistence}`, and it never named a hand or an aim height. Teaching it to label
+  effector/target/stance is unstated work, and bumping `TACTICAL_TEACHER_VERSION` (`:24`)
+  invalidates every checked-in row -- correct, but say so.
+
+  **Superseded 2026-08-25.** Stage C2b did that work: the teacher answers all six fields,
+  `TACTICAL_TEACHER_VERSION` is 2, and `validateDaggerRow` refuses a stale row by a sentence
+  naming both numbers. The remediation pass after it found the effector rule was still wrong for
+  `cover` -- `tacticEffectors(view, action)[0]` is a hand-order preference, not a preference
+  about hands -- and gave `cover` and `recover` a real one in `coveringEffector`. That rides on
+  the same version bump, because the last teacher any run outside the working tree ever used is
+  version 1.
 - **There is no output mirror to extend, and the plan contradicts a documented invariant.**
   `FEATURE_MIRROR_*` are input-side only and swap exactly one pair, `circle-left/right`.
   `features.ts:88-96` states outright that primary/secondary *"are not sides, and a mirrored
@@ -214,13 +238,13 @@ centipede task, 10 today at 292 ms; that becomes 90 tasks and roughly 2.6 s.
   (`src/learning/artifact.ts:109-112,124`), so the refusal must be an explicit check beside
   `:87`. The contract literal is also duplicated inline in **five** producers plus a test
   fixture, none of which import `RESEARCH_ARTIFACT_CONTRACT`.
-  The model to copy is `tests/tournament-executor.test.mjs:83-112`, which already does exactly
+  The model to copy is `tests/tournament-executor.test.mjs:96-125`, which already does exactly
   the requested thing for the *feature* header. Note `tests/artifact.test.mjs` does not exist.
 - **`behaviourRecord` does not feed the tournament gates.** `MIN_ACTION_SHARE` and
   `MIN_DIVERSE_ACTIONS` read `actionCounts`, produced at `scripts/research-havok.mjs:29,33`
   keyed by `label.action` only. Effector/target/stance counting is two disjoint pieces of work,
   and the behaviour-record half runs through consumers this session deletes. Also
-  `_engagement` and friends are defined **non-writable** (`options.ts:426-430`), so new
+  `_engagement` and friends are defined **non-writable** (`options.ts:906`), so new
   counters cannot be assigned onto an existing record.
 
 ## Sequence: three commits, not one -- and stage C then split again
@@ -271,15 +295,18 @@ Each verified; each needs a decision, not a sweep.
   non-test consumer is `promotion-evaluator.mjs`, and it is the last `OPTION_NAMES` consumer in
   `src/` (`:2,119,141-144`), so step 1 cannot complete without a verdict on it. Its concepts are
   already superseded -- `MAX_SPECIALIST_GAP` is redeclared at `tournament.ts:11` and a different
-  `selectValidationChampion` lives at `quality-diversity.ts:52`. It also carries two more stale
+  `selectValidationChampion` lives at `quality-diversity.ts:93`. It also carries two more stale
   literals of exactly the kind session 16 found: `:74` and `:118` hardcode `trainerProtocol 3`
   and the `128x80x24 / 8 workers` protocol shape. **Delete it with its tests.**
 - **A grep-and-delete trap.** `selectValidationChampion` exists twice with different signatures:
-  `promotion.ts:90` (dying) and `quality-diversity.ts:52` (live, called by
+  `promotion.ts:90` (dying) and `quality-diversity.ts:93` (live, called by
   `train-neat-qd.mjs:87`). Likewise `ATTACK_OPTION_NAMES` (`options.ts:16`) is live and matches
   a naive `OPTION_NAMES` grep.
 - **Deleting `networkMetaMind` kills the browser's learned HUD readout.** `src/main.ts:1021`
-  gates on `mind.name === "learned-meta"`, set only at `meta.ts:107`, and `src/hud.ts:230-232`
+  gates on `mind.name === "learned-meta"`, set only at `meta.ts` (**superseded 2026-08-25: the
+  anchor is struck, not re-pointed -- `networkMetaMind` is deleted and `grep learned-meta
+  src/learning/meta.ts` returns nothing; the only surviving mention is the note at
+  `src/main.ts:1018` recording why the gate went**), and `src/hud.ts:230-232`
   renders `MetaDiagnostic.topLogits` and `persistenceRemaining`. No research mind sets that name
   or exposes `diagnostic()`. Re-point the HUD at `researchLabelMind`, or the page loses its only
   window into what a learned controller is thinking -- in the session immediately before the one
@@ -296,7 +323,7 @@ Each verified; each needs a decision, not a sweep.
   readout exists when something can reach it, which is session 19's page-side deployment path
   (overview finding 8).
 - **`networkMetaMind` is also the vehicle for six tests of behaviour that still ships**,
-  including `tests/death.test.mjs:303` `the_learned_policy_stops_on_the_bout_verdict`, the only
+  including `tests/death.test.mjs:315` `the_learned_policy_stops_on_the_bout_verdict`, the only
   test that the host revokes a learned mind's authority at the verdict edge. Move them onto a
   research mind; do not let them go.
 - **`supportedOptions` and `randomMetaMind` must survive `meta.ts`'s demolition** -- both are on
@@ -354,8 +381,10 @@ are the ones with no other home, and the first four are the ones worth the hour:
   `npm run ai:train` and `npm run ai:evaluate --checkpoint` as the reproduction method -- both
   of which this session deletes, so transcribe them with a note that they no longer exist or
   the negative result loses its method.
-  `tests/learning.test.mjs:394` reads this file and will **hard-fail with ENOENT**, not merely
-  lose coverage; `promotion.ts:115` names that test in a comment. Its second half -- that the
+  `tests/learning.test.mjs` read this file and would have **hard-failed with ENOENT**, not merely
+  lost coverage (**superseded 2026-08-25: the anchor is struck, not re-pointed -- that suite reads
+  no file at all now, `grep readFile tests/learning.test.mjs` returns nothing, and the fixture is
+  synthetic as the last sentence of this bullet asked for**); `promotion.ts:115` names that test in a comment. Its second half -- that the
   ordering rule still reproduces the recorded champion at a version this build runs -- is real
   coverage and must survive as a synthetic fixture.
 - **`train-meta.mjs` was already dead on arrival**, and that belongs in the durable record
@@ -396,7 +425,7 @@ bigger lever. So:
   `boundIntent` clamps `trunkTwist` to +/-1 (`action-primitives.ts:574-587`), so pushing
   `extended` past one is caught by the clamp. The test must assert the **exact** posture value,
   and a stance applied *before* `applyActionPosture` is silently erased at `:128` -- the only
-  legal slot is between `options.ts:217` and the `boundIntent` return at `:240`.
+  legal slot is between `options.ts:711` and the `boundIntent` return at `:741`.
 
 ## Stage B, as landed -- 2026-08-25
 
@@ -636,6 +665,95 @@ Still Stage C2b's, unchanged: the four trainers' *learning* halves, behaviour re
 `Striking.hand`. Their `config` digests moved above, which is a correctness fix rather than the
 start of that work.
 
+## Stage C2b, as landed -- 2026-08-25
+
+**The four trainers produce and consume the 26-output contract.** 502 tests before, **521**
+after the stage and **524** after the remediation pass of 2026-08-25; `npx tsc --noEmit` and
+`npm run build` clean; the `duelist-swinger` null control identical
+to the digit for the fifth stage running -- 66/120 = 55.0 %, 3.52 (1.42-8.98), damage 176.17, 10
+severs, 1496/1670 scoring contacts. Everything below is in `docs/measurements.md` under
+"Session 17 Stage C2b", with the label histogram, the bite table, the entropy pair and a
+**25-row** mutation table -- M1 to M23 plus M3b and M4b, which is 25 rows and was called 24 in
+both places it was counted. The remediation pass of 2026-08-25 adds seven more; that section
+carries the running total.
+
+1. **The teacher decides the whole tactic.** `tacticalTeacher` answers six fields. The effector
+   is parsed out of the `hand:${hand}:${weapon}` opportunity row it already chose, or -- for
+   `cover` and `recover`, which have no row -- taken from `tacticEffectors` by which hand holds
+   the better guard. **That second half read "the first legal effector" and was a defect rather
+   than a preference**, corrected on 2026-08-25: `tacticEffectors` returns hands in `HANDS`
+   order whatever they hold, so every cover went to the primary on every body, and no schedule
+   change could have moved one. `coveringEffector` ranks a shield or buckler before a sword,
+   axe or club, before a bare hand, with `HANDS` order as the tie-break. The aim varies
+   only where stage B measured it works: `cover` -> `threat`, `thrust` -> three branches,
+   `cut`/`punch`/`shoot`/`bite`/`recover` -> `vital` with the measurement written beside each.
+   The stance is `slip-left`/`slip-right` under threat by which side the threat is on, `compact`
+   when crowded, `action-default` otherwise; `extended` is never emitted and the reason is on
+   the function.
+2. **`TACTICAL_TEACHER_VERSION` is compared and is 2.** It had three writers and no reader:
+   `validateDaggerRow` checked it for being a non-negative integer beside the seed and the step
+   counters, so a row from the three-field teacher was indistinguishable from one from the
+   six-field teacher. It is refused by a sentence naming both numbers now. The 143 checked-in
+   rows were read: `featureVersion` 3 against 4, `teacherVersion` 1 against 2, three-key labels.
+3. **DAgger carries five heads.** `DaggerLabel` is six fields, `DaggerModel` is five
+   `LinearHead`s, `trainDaggerModel` takes one label table per head and the teacher version, and
+   `daggerClassificationMetrics` reports a macro-F1 for each. `classify` refuses a head whose
+   matrix does not match its label list **by name** -- it used to score `NaN`, lose every `>` and
+   fall through the reduce to `labels[0]`, which is `cover`. The stratum key stayed
+   `unitCell\0movement\0action`, measured rather than argued: **47** strata across the 13-cell
+   2400-step run, 1-3 distinct `(effector, target, stance)` triples inside one, mean 1.38. (The
+   48 this said is the 9600-step, 418-decision run; the 2400-step run the sentence names has 47.
+   The triple figures hold for both, and both were re-measured after the cover fix and did not
+   move.)
+4. **PPO has three new categorical heads and no persistence head.** Persistence is a continuous
+   action and would be a different algorithm; the artifact records `producedOutputs` 25 against
+   `contractOutputs` 26. The entropy divisor is derived from `PPO_POLICY_HEADS.length` -- it was
+   the literal `2`, and on a real run it reported 3.05 where the largest mean per-head entropy a
+   row can carry is **1.3969** -- `(ln5 + ln6 + ln2 + ln3 + ln6) / 5` over the reachable *masks*,
+   which is what entropy accumulates over. (1.566 was the same sum over the five full tables and
+   is the looser bound; the conclusion holds either way.) `PpoPolicyBoundary`'s value target is `valueTarget`, because
+   `target` now names a head. `finiteLayer` checks each head against the runtime name table
+   instead of against itself, which is what `tests/ppo.test.mjs`'s own six-row action head had
+   been hiding behind since the file was written.
+5. **The decoder seam moved as one piece.** `deployment.ts`'s NEAT branch and `neatLabeler` both
+   take `selectDeployableTactic`, which grew its fourth field. Moving one alone was tried first
+   and turns the parity test red. PPO uses `recurrentTactic` instead -- conditional masks in
+   contract order, legal by construction -- on both the deployment side and the trajectory
+   collector, with the picker as the only difference. NEAT-QD's genome width already tracked
+   `META_OUTPUT_LAYOUT.width` and now has a test that decodes one. The QD descriptor did not move
+   and the arithmetic is on `QualityDescriptor`.
+
+Four things this stage found that the brief did not say:
+
+- **The teacher cannot emit `thrust`, so the three-branch aim rule it asks for is unreachable
+  from `tacticalTeacher`.** The action rule is
+  `weapon === "bow" ? "shoot" : weapon === "empty" ? "punch" : "cut"`; a sword hand always
+  answers `cut`. Making it reachable means turning every sword cut into a thrust, which is a
+  change to what the teacher does rather than to where it aims, and was not taken. The rule is
+  kept and exported so a test drives it directly, with the unreachability recorded on the
+  function.
+- **The teacher could label a tuple no body can execute, and the exhaustive sweep found it.** On
+  `sword` in the primary and `bow` in the secondary, `attackOpportunity` publishes a viable sword
+  row and `tacticEffectors("cut")` answers `[]` -- the bow welds the trailing hand -- so the old
+  rule labelled `cut+primary` and `composeTactic` refused it one call later. No `RESEARCH_STRATA`
+  row carries that loadout. 3,152 cells swept; one defect.
+- **There is no second copy of the tuple legality rule at the seam, and that is deliberate.**
+  `researchLabelMind` refuses an action outside `deployableActions` because that mask is stricter
+  than the executor; it does not re-check the tuple, because `handActionOption` already refuses
+  it through `unsupportedTactic` -- the same tables `deployableTactics` is built from -- and more
+  usefully. That also keeps `"as-measured"` reachable, which is what leaves look-ahead's traces
+  on the aim they were calibrated at.
+- **The gate reached two lines in stage C2c's files.** `collectTacticalTrace` names
+  `asMeasured(chooseEffector(view, action))` explicitly -- exactly the default that was removed,
+  so no trace moved -- and `deployedResearchMind`'s decision hook narrowed to the three fields
+  look-ahead supplies rather than widening `lookaheadMind`'s, because function parameters are
+  contravariant. Neither changes a number.
+
+Still Stage C2c's: `src/learning/lookahead.ts`, `src/learning/tactical-model.ts` and
+`scripts/train-lookahead.mjs`'s schedule, which carry a measured ~19x compute cost. Still owed
+and not this stage's: **behaviour records counting effectors, targets and stances**, which the
+C2a note listed beside the trainers and this stage's brief did not ask for.
+
 ## Frozen vocabulary
 
 In `src/options.ts#L8-L16`, add:
@@ -679,7 +797,7 @@ never infer offsets from object-key iteration.
 2. Select the best legal action/effector/target tuple by the sum of its three logits, with
    frozen action-then-effector-then-target tie-breaking. Do not take independent argmaxes and
    repair an illegal tuple afterward.
-3. Change `combatOption`/`handActionOption` at `src/options.ts#L116-L295` to take an exact
+3. Change `combatOption`/`handActionOption` at `src/options.ts#L116-L307` to take an exact
    effector and target. A learned request for primary/high must either execute on
    primary/high or be refused by name; it may not silently fall back to secondary or centre.
    Scripted policies may use separately named `chooseEffector` and `chooseTarget` helpers
@@ -708,14 +826,21 @@ decides whether they are useful.
 ## Update every research path
 
 - Replace the `ResearchArtifact` contract with tactic version, effector, target and stance
-  names. Do not extend the obsolete standalone checkpoint format.
-- NEAT-QD and the old learned-meta network use all 26 ordered outputs.
+  names. Do not extend the obsolete standalone checkpoint format. **Landed in C2a.**
+- NEAT-QD and the old learned-meta network use all 26 ordered outputs. **Landed in C2b**; the
+  learned-meta network was deleted in session 17 and does not exist to widen.
 - DAgger rows add exact `effector`, `target` and `stance` labels; its model gains categorical
-  heads and reports macro-F1/recall for all three.
+  heads and reports macro-F1/recall for all three. **Landed in C2b**, with the teacher version
+  compared for the first time so the two label shapes can never mix.
 - PPO gains effector, target and stance policy heads, sampling/log-probability/entropy terms
-  and full recurrent gradients for all three.
+  and full recurrent gradients for all three. **Landed in C2b, five heads and not six**:
+  persistence stays the shared 0.4 constant, because a learned persistence is a continuous
+  action with a different log-probability in the ratio. The artifact records 25 of 26.
 - Look-ahead enumerates only legal `(movement, action, effector, target, stance)` tuples and records
-  the expanded exact cell count instead of retaining the old 220-cell assertion.
+  the expanded exact cell count instead of retaining the old 220-cell assertion. **Still owed;
+  it is stage C2c's and carries a measured ~19x compute cost.** C2b touched one line of
+  `collectTacticalTrace` -- naming the tuple `researchLabelMind` used to default to -- and moved
+  no trace.
 - ~~Mirrors swap primary/secondary effectors only when the mirrored body definition actually
   swaps anatomical sides; they always swap `slip-left/right`.~~ **Settled in stage C2a; the
   conclusion holds and the reason recorded for it was wrong. Superseded 2026-08-25.**
@@ -756,7 +881,12 @@ decides whether they are useful.
   ever carries stance; nothing mirrors an output label today, so the pair is recorded beside
   `circle-left`/`circle-right` on `FEATURE_MIRROR_INDEX` and no machinery was added.
 - Behaviour records count effectors, targets and stances so a controller that emits varied
-  action names while using one arm, one aim and one pose is visible to the tournament.
+  action names while using one arm, one aim and one pose is visible to the tournament. **Still
+  owed after C2b.** It is worth more now than when it was written: the C2b histogram showed the
+  *teacher* using one arm for every humanoid decision -- 84 % of them after the cover fix, all of
+  them before it -- so a tournament reading only action names
+  would not see the difference between a controller that has learned an effector head and one
+  that has learned the loadout.
 
 ## Tests and adversarial proof
 

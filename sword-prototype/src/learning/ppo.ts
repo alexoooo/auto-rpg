@@ -123,17 +123,71 @@ export function selectPpoArm(rows: readonly { readonly split: string; readonly a
 }
 
 export interface PpoHeadLayer { readonly rows: number; readonly columns: number; weights: number[]; bias: number[] }
-export interface PpoTrainableHeads { movement: PpoHeadLayer; action: PpoHeadLayer; value: PpoHeadLayer }
+
+/**
+ * The categorical heads PPO trains, in output-contract order.
+ *
+ * **Five, and every size, offset and divisor below is derived from this array
+ * rather than written beside it.** The entropy report was `entropy /
+ * (rows.length * 2)` -- the head count spelled as a literal, correct for exactly
+ * as long as `headGradient` was called twice per row -- and the only assertion
+ * on it anywhere in the tree was `report.entropy > 0`, which any positive
+ * divisor satisfies. Adding three heads without moving the 2 would have reported
+ * two and a half times the mean per-head entropy under a name that says
+ * otherwise, and nothing would have gone red.
+ *
+ * **Persistence is deliberately not here, and PPO therefore produces 25 of the
+ * 26 outputs.** It is a *continuous* action: a Gaussian or Beta head with a
+ * different log-probability in the importance ratio, a different entropy term
+ * and a different clipping story. That is an algorithm change wearing a contract
+ * change's clothes, and PPO emits a *label* rather than a raw 26-vector, so the
+ * width contract does not bind it. The constant is `UNLEARNED_PERSISTENCE` in
+ * `deployment.ts`, which `train-ppo.mjs` reads at both its decode sites;
+ * `lookahead.ts` and `train-lookahead.mjs` still spell `0.4` out, because those
+ * are stage C2c's files and this stage touched them only where a type check
+ * forced it. The artifact records `producedOutputs: 25` beside its provenance so
+ * a reader of the artifact does not have to know any of that.
+ */
+export const PPO_POLICY_HEADS = Object.freeze(["movement", "action", "effector", "target", "stance"] as const);
+export type PpoPolicyHeadName = typeof PPO_POLICY_HEADS[number];
+
+export interface PpoTrainableHeads extends Record<PpoPolicyHeadName, PpoHeadLayer> { value: PpoHeadLayer }
 export interface PpoTrainableNetwork extends PpoTrainableHeads {
   update?: PpoHeadLayer; reset?: PpoHeadLayer; candidate?: PpoHeadLayer;
 }
+/**
+ * One option boundary: what was sampled from each head, what it was legal to
+ * sample, and what it cost.
+ *
+ * **The value regression target is `valueTarget` and used to be `target`.** That
+ * name is standard RL and it collided head-on with the aim head the moment there
+ * was one: `row.target` would have meant "the value to regress toward" beside
+ * `row.targetSupported` meaning "the aim indices that were legal". Renamed here
+ * rather than spelling the aim head something it is not called anywhere else in
+ * the contract.
+ */
 export interface PpoPolicyBoundary {
   readonly input?: readonly number[]; readonly previousHidden?: readonly number[];
-  readonly hidden: readonly number[]; readonly movement: number; readonly action: number;
+  readonly hidden: readonly number[];
+  readonly movement: number; readonly action: number; readonly effector: number;
+  readonly target: number; readonly stance: number;
   readonly movementSupported: readonly number[]; readonly actionSupported: readonly number[];
+  readonly effectorSupported: readonly number[]; readonly targetSupported: readonly number[];
+  readonly stanceSupported: readonly number[];
   readonly oldMovementProbability: number; readonly oldActionProbability: number;
-  readonly oldValue: number; readonly target: number; readonly advantage: number;
+  readonly oldEffectorProbability: number; readonly oldTargetProbability: number;
+  readonly oldStanceProbability: number;
+  readonly oldValue: number; readonly valueTarget: number; readonly advantage: number;
 }
+/** What one head contributed to one boundary, read by name so a typo is a compile error. */
+const HEAD_SAMPLE: Readonly<Record<PpoPolicyHeadName, (row: PpoPolicyBoundary) =>
+Readonly<{ index: number; supported: readonly number[]; oldProbability: number }>>> = Object.freeze({
+  movement: (row) => ({ index: row.movement, supported: row.movementSupported, oldProbability: row.oldMovementProbability }),
+  action: (row) => ({ index: row.action, supported: row.actionSupported, oldProbability: row.oldActionProbability }),
+  effector: (row) => ({ index: row.effector, supported: row.effectorSupported, oldProbability: row.oldEffectorProbability }),
+  target: (row) => ({ index: row.target, supported: row.targetSupported, oldProbability: row.oldTargetProbability }),
+  stance: (row) => ({ index: row.stance, supported: row.stanceSupported, oldProbability: row.oldStanceProbability }),
+});
 export interface PpoUpdateReport { readonly policyLoss: number; readonly valueLoss: number;
   readonly entropy: number; readonly recurrentGradientNorm: number;
   readonly unclippedGradientNorm: number; readonly clippedGradientNorm: number }
@@ -153,10 +207,16 @@ export function ppoHeadUpdate(heads: PpoTrainableNetwork, rows: readonly PpoPoli
   learningRate = 0.002, epsilon = 0.2, valueEpsilon = 0.2, entropyCoefficient = 0.01,
   gradientMaximum = 0.5): PpoUpdateReport {
   if (!rows.length) throw new Error("PPO update needs at least one option-boundary row");
-  const movementSize = heads.movement.weights.length + heads.movement.bias.length;
-  const actionSize = heads.action.weights.length + heads.action.bias.length;
+  // Sizes and offsets accumulated over `PPO_POLICY_HEADS` rather than named one
+  // by one: the two `offset` arguments, the value offset and the final descent
+  // loop were four separate places that had to agree about the buffer's layout,
+  // and three of them spelled it as arithmetic on two head sizes.
+  const policyLayers = PPO_POLICY_HEADS.map((name) => heads[name]);
+  const offsets: number[] = []; let cursor = 0;
+  for (const layer of policyLayers) { offsets.push(cursor); cursor += layer.weights.length + layer.bias.length; }
+  const valueOffset = cursor;
   const valueSize = heads.value.weights.length + heads.value.bias.length;
-  const gradient = Array(movementSize + actionSize + valueSize).fill(0);
+  const gradient = Array(valueOffset + valueSize).fill(0);
   const hiddenGradient = rows.map((row) => Array(row.hidden.length).fill(0));
   let policyLoss = 0; let valueLoss = 0; let entropy = 0;
   const headGradient = (layer: PpoHeadLayer, probabilities: readonly number[], supported: readonly number[], selected: number,
@@ -182,17 +242,17 @@ export function ppoHeadUpdate(heads: PpoTrainableNetwork, rows: readonly PpoPoli
   let currentRow = 0;
   for (const index of deterministicMinibatchOrder(rows.length, seed)) {
     currentRow = index; const row = rows[index] as PpoPolicyBoundary;
-    const movement = distribution(heads.movement, row.hidden, row.movementSupported);
-    const action = distribution(heads.action, row.hidden, row.actionSupported);
-    headGradient(heads.movement, movement, row.movementSupported, row.movement, row.oldMovementProbability, row.advantage, 0);
-    headGradient(heads.action, action, row.actionSupported, row.action, row.oldActionProbability, row.advantage, movementSize);
+    PPO_POLICY_HEADS.forEach((name, head) => {
+      const layer = heads[name]; const sample = HEAD_SAMPLE[name](row);
+      const probabilities = distribution(layer, row.hidden, sample.supported);
+      headGradient(layer, probabilities, sample.supported, sample.index, sample.oldProbability, row.advantage, offsets[head] as number);
+    });
     let prediction = heads.value.bias[0] as number;
     for (let column = 0; column < heads.value.columns; column += 1) prediction += (heads.value.weights[column] as number) * (row.hidden[column] as number);
     const clippedPrediction = row.oldValue + Math.max(-valueEpsilon, Math.min(valueEpsilon, prediction - row.oldValue));
-    const rawLoss = 0.5 * (prediction - row.target) ** 2; const clippedLoss = 0.5 * (clippedPrediction - row.target) ** 2;
-    valueLoss += Math.max(rawLoss, clippedLoss); const derivative = rawLoss >= clippedLoss ? prediction - row.target :
-      Math.abs(prediction - row.oldValue) <= valueEpsilon ? clippedPrediction - row.target : 0;
-    const valueOffset = movementSize + actionSize;
+    const rawLoss = 0.5 * (prediction - row.valueTarget) ** 2; const clippedLoss = 0.5 * (clippedPrediction - row.valueTarget) ** 2;
+    valueLoss += Math.max(rawLoss, clippedLoss); const derivative = rawLoss >= clippedLoss ? prediction - row.valueTarget :
+      Math.abs(prediction - row.oldValue) <= valueEpsilon ? clippedPrediction - row.valueTarget : 0;
     for (let column = 0; column < heads.value.columns; column += 1) gradient[valueOffset + column] += derivative * (row.hidden[column] as number);
     for (let column = 0; column < heads.value.columns; column += 1) hiddenGradient[index]![column] +=
       derivative * (heads.value.weights[column] as number);
@@ -248,12 +308,15 @@ export function ppoHeadUpdate(heads: PpoTrainableNetwork, rows: readonly PpoPoli
     layer.weights = layer.weights.map((value) => value - learningRate * (clippedGradient[at++] as number));
     layer.bias = layer.bias.map((value) => value - learningRate * (clippedGradient[at++] as number));
   }
-  for (const layer of [heads.movement, heads.action, heads.value]) {
+  for (const layer of [...policyLayers, heads.value]) {
     layer.weights = layer.weights.map((value) => value - learningRate * (clippedGradient[at++] as number));
     layer.bias = layer.bias.map((value) => value - learningRate * (clippedGradient[at++] as number));
   }
+  // `PPO_POLICY_HEADS.length` is exactly the number of `headGradient` calls per
+  // row, which is what makes this the *mean per-head* entropy the field name
+  // claims. It was a literal `2`.
   return Object.freeze({ policyLoss: policyLoss / rows.length, valueLoss: valueLoss / rows.length,
-    entropy: entropy / (rows.length * 2), recurrentGradientNorm,
+    entropy: entropy / (rows.length * PPO_POLICY_HEADS.length), recurrentGradientNorm,
     unclippedGradientNorm, clippedGradientNorm: Math.hypot(...clippedGradient) });
 }
 

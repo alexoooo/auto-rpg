@@ -1,4 +1,4 @@
-import { cutsBothWays, HANDS, handsFor, hasHeldWeapon, hasPoint, isShooting, isStriking, otherHand, type HandName, type Striker, type WeaponKind } from "./hands.ts";
+import { cutsBothWays, HANDS, handsFor, hasHeldWeapon, hasPoint, isHeldStriker, isShooting, isStriking, otherHand, type HandName, type Striker, type WeaponKind } from "./hands.ts";
 import { ACTION_STROKE_TIMING, ACTION_TUNING, actionAimAt, actionArcherAim, actionCoverAt, actionDistance, actionShotPhase,
   actionStrokePose, actionStrokeReading, actionStrokeRoll, applyActionPosture, bareCrowdDistance, bareHoldDistance, blankThreat, boundIntent, clampAction,
   freshIntent, selectThreat, type ActionPoint, type ThreatView } from "./action-primitives.ts";
@@ -140,10 +140,22 @@ const turnToward = (view: FighterView): number => {
   return clampAction(delta * 2.4);
 };
 
-/** What a hand must be holding for each action, which is the one copy of that table. */
+/**
+ * What a hand must be holding for each action, which is the one copy of that
+ * table.
+ *
+ * The `cut` row read `isStriking(kind) && kind !== "empty"` and is now
+ * `isHeldStriker`, which is the same predicate spelled as a property of the
+ * `GRIPS` row rather than as a name to exclude -- and the same one the refusal
+ * below has always called "a held striking weapon". Over `WeaponKind` the two
+ * agree on every member, so this moves nothing; it exists because
+ * `learning/tactical-teacher.ts` needed the same question for its cover
+ * preference and a second spelling of a rule is the defect `hands.ts`' own note
+ * on this predicate records.
+ */
 const accepts = (action: HandActionName): (kind: WeaponKind) => boolean =>
   action === "shoot" ? isShooting : action === "punch" ? (kind: WeaponKind) => kind === "empty"
-    : action === "thrust" ? hasPoint : action === "cut" ? (kind: WeaponKind) => isStriking(kind) && kind !== "empty"
+    : action === "thrust" ? hasPoint : action === "cut" ? isHeldStriker
       : () => true;
 const attachedHand = (view: FighterView, name: HandName) => {
   // A centipede publishes `hands` as a frozen empty object, so the slot is

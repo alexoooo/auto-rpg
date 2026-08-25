@@ -50,11 +50,18 @@ them would have shipped a per-frame allocation into the physics loop.
 `FEATURE_VERSION` is not compared generically everywhere. Bumping it to 4 without these two
 edits produces a failure whose message reads backwards:
 
-- `src/learning/meta.ts#L154` hardcodes
+- ~~`src/learning/meta.ts#L150` hardcodes
   `if (checkpoint.featureVersion !== 3) throw ... "cannot run as feature v3"`. Every freshly
-  written v4 checkpoint is refused, by a message claiming v4 is the stale one.
+  written v4 checkpoint is refused, by a message claiming v4 is the stale one.~~
+  **Superseded 2026-08-25.** That check no longer exists: `grep featureVersion
+  src/learning/meta.ts` returns nothing, so the sentence is false in the present tense and the
+  line number pointed at nothing. The anchor is deleted rather than re-pointed -- stage C2b's
+  repair pass moved it from `#L154` to `#L150` while its own record said it was being left
+  alone as knowingly dead, which makes a dead anchor read as a freshly verified one. The
+  underlying job was done: `meta.ts` no longer compares a feature version at all.
 - `src/learning/promotion.ts#L97` hardcodes `row.featureVersion !== 2` -- already stale by one
-  version before this session starts.
+  version before this session starts. (`promotion.ts` has since been deleted; this line is
+  history, and the plan set's own supersession note for that file carries it.)
 
 The codecs themselves (`artifact.ts#L140-L142`, `checkpoint.ts#L191-L192`) do compare against the
 runtime contract generically and need no edit.

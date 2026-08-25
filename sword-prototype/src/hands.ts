@@ -312,6 +312,31 @@ export const isStrapped = (kind: Striker): boolean => GRIPS[kind].carry === "str
 export const isStriking = (kind: Striker): boolean => GRIPS[kind].use === "strike";
 
 /**
+ * Is this a striking weapon **in the hand**, rather than the bare hand itself?
+ *
+ * `isStriking` above answers true for `empty`, deliberately and for a stated
+ * reason -- a fist is an attack. This is the narrower question, and it was
+ * spelled out twice before it was a function: `options.ts`'s `accepts("cut")`
+ * held it as `isStriking(kind) && kind !== "empty"`, and the refusal one screen
+ * below already called the thing it names "a held striking weapon". A third
+ * copy was about to be written in `learning/tactical-teacher.ts`, which is what
+ * settled it -- `AGENTS.md`'s rule is that a caller holding its own copy of a
+ * rule is the same defect as a missing table row and is harder to see.
+ *
+ * Written as two field reads rather than as `!== "empty"` so that it is a
+ * property of the row: the next kind that strikes without being held -- and
+ * `arrow` and `bite` are already two of them -- answers false here without an
+ * edit. Over `WeaponKind` the two spellings agree exactly, which is why
+ * replacing the old one in `accepts` moves nothing.
+ *
+ * The **second** reader is the teacher's cover preference, which needs three
+ * tiers and not two: a shield covers better than a sword, and a sword covers
+ * better than a bare forearm. `isShield` answers the first tier and this
+ * answers the second.
+ */
+export const isHeldStriker = (kind: Striker): boolean => isStriking(kind) && GRIPS[kind].heldWeapon;
+
+/**
  * Can this kind be loosed at somebody from across the arena?
  *
  * Its own question rather than a flavour of `isStriking`, for the reason that

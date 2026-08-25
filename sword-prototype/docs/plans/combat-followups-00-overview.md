@@ -182,7 +182,7 @@ Baseline taken before any of this work, from `sword-prototype/`, commit `a095877
 | --- | --- | --- |
 | 15 host command boundary | **landed** | `f789ea4`, 459 tests |
 | 16 policy perception v4 | **landed** | `d44fc3e`, 484 tests |
-| 17 tactic output v2 | A, B, C1, C2a landed; C2b in flight | `da025f2`, `e4ac199`, `c149e8c`, `7597eb4`, `3674e06`, 502 tests |
+| 17 tactic output v2 | A, B, C1, C2a landed; C2b in flight (remediated) | `da025f2`, `e4ac199`, `c149e8c`, `7597eb4`, `3674e06`, 524 tests |
 | 18 human gate feasibility | not started | -- |
 | 19 run legibility | not started | -- |
 | 20 throughput and ceilings | not started | -- |
@@ -369,7 +369,7 @@ readers want "which hand is acting", which is also what a person's mouse hand me
 renamed to `actingHand` and widened to `HandName | null` for a body whose striker is not a
 hand; the host/policy difference is a *narrowing* in `Controls.state`'s type rather than a
 second field. The six key-set assertions did move, which is what they are for. PPO needs **four** new heads, not three -- it
-has no persistence output at all and `deployment.ts:62` hardcodes `0.4` -- and its reported
+has no persistence output at all and `deployment.ts:153` hardcodes `0.4` -- and its reported
 entropy is divided by a hardcoded head count of 2 that no test pins. The DAgger expert returns
 only `{movement, action, persistence}` and cannot label an effector or an aim height, so
 teaching it is unstated work. There is no output mirror to extend, and the plan's effector-mirror
@@ -688,23 +688,23 @@ not specific enough to be wrong; these are the places this one was.
 1. **"At least twenty-four rows" is not reachable by choosing `N`.** Session 19 sets the
    cadence with `--checkpoint-every-jobs N` and session 21 accepts a rung only if it produced
    twenty-four rows. At the granularity each runner actually checkpoints at, the *whole run*
-   offers fewer units than that: look-ahead 960 (`train-lookahead.mjs#L136`), NEAT-QD 80
+   offers fewer units than that: look-ahead 960 (`train-lookahead.mjs#L147`), NEAT-QD 80
    generations (`train-neat-qd.mjs#L20`), DAgger **5** iterations (`collect-dagger.mjs#L18`),
    PPO **2** arms -- `equalBudgetPpoArms` returns exactly `["random", "dagger"]`
    (`src/learning/ppo.ts#L96-L100`). No `N` divides five into twenty-four.
    **Consequence:** the unit of work is re-cut before the cadence is chosen. DAgger checkpoints
-   at the eight shards inside `collect()` (`collect-dagger.mjs#L57`), PPO at the boundary loop
-   inside `collectPpoTrajectory` (`train-ppo.mjs#L85-L111`). Both are already index-addressed,
+   at the eight shards inside `collect()` (`collect-dagger.mjs#L64`), PPO at the boundary loop
+   inside `collectPpoTrajectory` (`train-ppo.mjs#L98-L127`). Both are already index-addressed,
    so the job-index cadence rule survives intact. The requirement was always legibility, not
    the number twenty-four; the number is what legibility costs at a one-hour spacing.
 2. **PPO spends twice its stated budget.** `equalBudgetPpoArms` assigns the full `solverSteps`
-   to *both* arms (`ppo.ts#L98-L99`), and `tests/ppo.test.mjs#L45-L47` pins that deliberately.
+   to *both* arms (`ppo.ts#L98-L99`), and `tests/ppo.test.mjs#L64-L66` pins that deliberately.
    Every ceiling derived for PPO in session 20 is therefore a per-arm ceiling and the run costs
    2x. PPO is also the only direction with no exact-budget assertion, so it under-spends as
    well; the ledger's `stepsConsumed` is the only honest figure.
 3. **Validation worst-cell exists in one direction of four.** NEAT-QD computes it for real
-   (`research-rollout-worker.mjs#L75`). PPO writes `macro: reward, worstCell: reward` -- the
-   same scalar (`train-ppo.mjs#L158`). DAgger has only `validationLoss`, and look-ahead only a
+   (`research-rollout-worker.mjs#L87`). PPO writes `macro: reward, worstCell: reward` -- the
+   same scalar (`train-ppo.mjs#L174`). DAgger has only `validationLoss`, and look-ahead only a
    summed calibration error; both are **lower-is-better**, which inverts the sign of the
    plateau rule's "improved by at least `--plateau-epsilon`".
    **Consequence:** the plateau rule is declared over a per-direction *objective* with its
@@ -718,15 +718,15 @@ not specific enough to be wrong; these are the places this one was.
    with the controller it judged, so there is now one assessor rather than two -- which removes
    the second gate but not the finding: the surviving one still reports no margin.)
    `firstAttackSeconds` is recorded by the tracker and returned by `runResearchBout`, then
-   **discarded** by `research-rollout-worker.mjs#L62-L69`; `symmetricTimeCapRate` is computed
+   **discarded** by `research-rollout-worker.mjs#L74-L81`; `symmetricTimeCapRate` is computed
    nowhere; the specialist gap needs a control run no runner performs; and `train-ppo.mjs` and
    `train-lookahead.mjs` never read `result.engagement` at all. The signed-margin gate table is
    net-new plumbing in three directions, not a formatting change.
 5. **Look-ahead has no resume, no state file and no coherent mid-run checkpoint.**
-   `--stop-after-jobs` exists only in `train-ppo.mjs#L164`; the handoff's claim that it and
+   `--stop-after-jobs` exists only in `train-ppo.mjs#L180`; the handoff's claim that it and
    `--resume` are general is wrong. Worse, a look-ahead `TacticalModel` first exists only after
-   a complete train sweep (`train-lookahead.mjs#L145`) and is uncalibrated until the validation
-   sweep (`#L150`), so a champion-so-far at row *k* is a computation the run does not otherwise
+   a complete train sweep (`train-lookahead.mjs#L156`) and is uncalibrated until the validation
+   sweep (`#L161`), so a champion-so-far at row *k* is a computation the run does not otherwise
    perform -- and one `LOOKAHEAD_CALIBRATION_LIMITS` would likely refuse at deploy time.
    **Updated 2026-08-25:** it would no longer refuse outright. `lookaheadMind` now searches the
    cells it holds a calibration for and refuses only when a body has none, so a partial model is
@@ -735,7 +735,7 @@ not specific enough to be wrong; these are the places this one was.
    whatever session 19 builds should report the pair count it actually searched.
 6. **`configDigest` is two incompatible formats.** NEAT-QD and DAgger use 16 hex characters of
    SHA-256 (`train-neat-qd.mjs#L50`, `collect-dagger.mjs#L36`); PPO and look-ahead use 8 hex
-   characters of FNV-1a (`train-ppo.mjs#L174`, `train-lookahead.mjs#L155`). The artifact
+   characters of FNV-1a (`train-ppo.mjs#L190`, `train-lookahead.mjs#L166`). The artifact
    validator only requires a non-empty string (`artifact.ts#L165`). Preflight normalizes this
    before it can compare anything.
 7. **A SHA-256 contract digest cannot live in `src/learning/`.** That tree is browser-imported
@@ -777,11 +777,11 @@ Findings that change session 18 specifically:
     `a_label_free_mind_and_a_labelled_mind_agree_on_attack_intent_for_the_same_commands` fails
     as written and must be scoped: `opportunitiesForAction` requires `striker === "sword"` for
     `thrust` (`engagement.ts#L79`) where the inline matcher falls through to `true`
-    (`options.ts#L954`); `research-havok.mjs#L36` credits only `[0]`, the first matching row,
-    where `options.ts#L955` credits every match, which systematically depresses dual-wield
+    (`options.ts#L966`); `research-havok.mjs#L36` credits only `[0]`, the first matching row,
+    where `options.ts#L967` credits every match, which systematically depresses dual-wield
     opportunity conversion; the labelled paths fire on an option-change edge while the
     label-free path fires on a button edge at 240 Hz; and only the label-free path counts a
-    *guard release* as an attack (`options.ts#L938`), which inflates the numerator of
+    *guard release* as an attack (`options.ts#L950`), which inflates the numerator of
     opportunity-attack and deflates attack-contact for a defensive player.
 13. **The page's clock is wall-clock derived and the bench's is synthetic.**
     `src/main.ts#L936` takes `dt = min(engine.getDeltaTime()/1000, CONFIG.world.maxFrameSeconds)`

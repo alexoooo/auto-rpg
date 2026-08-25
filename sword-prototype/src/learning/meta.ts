@@ -91,16 +91,12 @@ export interface MetaOutput {
   readonly effectorLogits: readonly number[];
   readonly targetLogits: readonly number[];
   /**
-   * Decoded and dropped today, and this directory's rule about an unread field
-   * is that you may keep one only if you can **name** the reader that is coming.
-   *
-   * It is `selectDeployableTactic` in stage C2b, which grows a fourth field on
-   * `DeployableTactic` -- an argmax over `STANCE_NAMES` -- and hands it to
-   * `handActionOption`'s `OptionExecution.stance`, where `applyTacticStance` is
-   * what finally consumes it. The two sites that will call it are
-   * `deployment.ts`'s NEAT branch and `neatLabeler` in
-   * `scripts/research-rollout-worker.mjs`, and they move together for the reason
-   * `selectDeployableTactic`'s own note gives.
+   * Read by `selectDeployableTactic`, which stage C2b gave its fourth field --
+   * an argmax over `STANCE_NAMES`, handed to `handActionOption`'s
+   * `TacticExecution.stance`, where `applyTacticStance` is what finally consumes
+   * it. The two sites that call it are `deployment.ts`'s NEAT branch and
+   * `neatLabeler` in `scripts/research-rollout-worker.mjs`, and they moved
+   * together for the reason `selectDeployableTactic`'s own note gives.
    *
    * The stance head is *not* part of the joint sum the action/effector/target
    * tuple is chosen by: legality is a property of the tuple and every stance is
@@ -277,11 +273,24 @@ export function deployableActions(view: FighterView): ReadonlySet<OptionName> {
   return allowed;
 }
 
-/** One legal (action, effector, target) tuple: what tactic v2 actually decides. */
-export interface DeployableTactic {
+/**
+ * One legal (action, effector, target) tuple plus the stance to hold while doing
+ * it: what tactic v2 actually decides.
+ *
+ * The stance is on this record and *not* in `deployableTactics`' enumeration,
+ * and that asymmetry is the contract rather than an oversight: legality is a
+ * property of the first three, every stance is legal on every body, and folding
+ * six side-neutral names into a set whose whole job is masking would multiply it
+ * by six for nothing. `deployableTactics` therefore answers three-field rows and
+ * `selectDeployableTactic` answers four.
+ */
+export interface LegalTactic {
   readonly action: HandActionName;
   readonly effector: EffectorName;
   readonly target: TargetName;
+}
+export interface DeployableTactic extends LegalTactic {
+  readonly stance: StanceName;
 }
 
 /**
@@ -317,9 +326,9 @@ export interface DeployableTactic {
  * spaces itself and asks this function only for membership, so the two facts
  * stay separable: what is legal, and which legal tuple wins a tie.
  */
-export function deployableTactics(view: FighterView): readonly DeployableTactic[] {
+export function deployableTactics(view: FighterView): readonly LegalTactic[] {
   const allowed = deployableActions(view);
-  const tuples: DeployableTactic[] = [];
+  const tuples: LegalTactic[] = [];
   for (const action of HAND_ACTION_NAMES) {
     if (!allowed.has(action)) continue;
     for (const effector of tacticEffectors(view, action)) {
@@ -329,7 +338,7 @@ export function deployableTactics(view: FighterView): readonly DeployableTactic[
   return Object.freeze(tuples);
 }
 
-const tacticKey = (tactic: DeployableTactic): string => `${tactic.action}|${tactic.effector}|${tactic.target}`;
+const tacticKey = (tactic: LegalTactic): string => `${tactic.action}|${tactic.effector}|${tactic.target}`;
 
 /**
  * The one legal tuple a 26-output vector names: masked before the argmax, never
@@ -357,16 +366,22 @@ const tacticKey = (tactic: DeployableTactic): string => `${tactic.action}|${tact
  * an untrained genome answers its biases, and a bias table seeded with zeros
  * makes every legal tuple a tie.
  *
- * **Nothing production reads this yet, and that is deliberate rather than an
- * oversight.** The obvious reader is `deployment.ts`'s NEAT branch, and wiring
- * that alone would put a joint tuple argmax on the deployment side of a seam
- * whose training side -- `neatLabeler` in `scripts/research-rollout-worker.mjs`
- * -- still takes a bare action argmax. That is precisely the training/deployment
- * mask divergence stage C1 spent its whole budget closing, and
+ * **The stance is a plain argmax and joins none of that.** Every stance is legal
+ * on every body, so there is no mask to put in front of the comparison and
+ * nothing to trade the term against; folding it into the sum would let a
+ * confident stance logit change which *action* is chosen, which is a trade
+ * nobody asked for. `maskedArgmax` over the whole table is what it comes to, and
+ * it is spelled that way so the refusal for a non-finite stance logit reads the
+ * same as every other head's.
+ *
+ * **Both halves of the decoder seam read this, and they moved together.**
+ * `deployment.ts`'s NEAT branch and `neatLabeler` in
+ * `scripts/research-rollout-worker.mjs` were a joint-tuple argmax and a bare
+ * action argmax for the whole of stage C2a, deliberately: moving one alone is
+ * the training/deployment divergence stage C1 spent its budget closing, and
  * `the_training_decoder_and_the_deployment_decoder_answer_the_same_label` is the
- * test that would catch it. Both halves move together in stage C2b, with the
- * four trainers; C2a lands the contract and the rule that makes the wider tuple
- * legal by construction.
+ * test that catches it. It was watched going red under exactly that one-sided
+ * move before either side was touched.
  */
 export function selectDeployableTactic(view: FighterView, output: MetaOutput): DeployableTactic {
   const legal = new Set(deployableTactics(view).map(tacticKey));
@@ -389,11 +404,20 @@ export function selectDeployableTactic(view: FighterView, output: MetaOutput): D
       }
     }
   }
+  // Unmasked, and every index visited, so a non-finite stance logit is refused
+  // in the same sentence shape as the three above rather than losing a
+  // comparison silently. `STANCE_NAMES` has six entries, so the scan runs.
+  let bestStance = -1; let stanceScore = -Infinity;
+  for (let stance = 0; stance < STANCE_NAMES.length; stance += 1) {
+    const value = logit(output.stanceLogits, stance, "stance");
+    if (value > stanceScore) { stanceScore = value; bestStance = stance; }
+  }
   // `legal` is non-empty and every key in it is one of the tuples enumerated
   // above -- `deployableTactics` draws its three fields from these same three
   // frozen tables -- so a finite sum was compared at least once.
   return Object.freeze({ action: HAND_ACTION_NAMES[bestAction] as HandActionName,
-    effector: EFFECTOR_NAMES[bestEffector] as EffectorName, target: TARGET_NAMES[bestTarget] as TargetName });
+    effector: EFFECTOR_NAMES[bestEffector] as EffectorName, target: TARGET_NAMES[bestTarget] as TargetName,
+    stance: STANCE_NAMES[bestStance] as StanceName });
 }
 
 export interface MetaLogit {

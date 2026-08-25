@@ -4,11 +4,11 @@ import { Logger } from "@babylonjs/core/Misc/logger.js";
 
 import { predictDagger } from "../src/learning/dagger.ts";
 import { FEATURE_VERSION } from "../src/learning/features.ts";
-import { deployableActions, readMetaOutput } from "../src/learning/meta.ts";
+import { readMetaOutput, selectDeployableTactic } from "../src/learning/meta.ts";
 import { RecurrentNeatNetwork } from "../src/learning/recurrent-neat.ts";
 import { researchLabelMind } from "../src/learning/research-policy.ts";
 import { tacticalTeacher, TACTICAL_TEACHER_VERSION } from "../src/learning/tactical-teacher.ts";
-import { HAND_ACTION_NAMES, MOVEMENT_NAMES } from "../src/options.ts";
+import { MOVEMENT_NAMES } from "../src/options.ts";
 import { runResearchBout } from "./research-havok.mjs";
 
 Logger.LogLevels = Logger.NoneLogLevel;
@@ -20,7 +20,8 @@ Logger.LogLevels = Logger.NoneLogLevel;
  * **The legality test here was a fourth copy of the deployment rule, and it was
  * not the deployed one.** It asked `weapon === "sword"` for `thrust` where the
  * runtime asks `hasPoint`, and an exclusion list of four names for `cut` where
- * the runtime asks `isStriking && !== "empty"`. Both rewrites happen to answer
+ * the runtime asks `isHeldStriker` -- which was spelled `isStriking && !== "empty"` inline
+ * until the C2b remediation pass gave it a name in `hands.ts`. Both rewrites happen to answer
  * identically for every kind in `GRIPS` today -- swept over all 49 ordered weapon
  * pairs, not argued -- which is exactly how they survived two sessions looking
  * for them, and neither survives the next kind: a pointed spear is a `thrust` the
@@ -35,18 +36,29 @@ Logger.LogLevels = Logger.NoneLogLevel;
  * punch logit won on a bow cell was trained under this mask and then killed by
  * that one, `research policy produced unsupported action "punch"`, mid-run.
  *
- * `recover` is the seed rather than a fallback: it is in every non-empty
- * `deployableActions` set, and `researchLabelMind` returns an inert command
- * without ever asking here when the set is empty.
+ * **The hand-rolled action argmax is gone and this is now `selectDeployableTactic`**,
+ * which is the C2b half of a seam whose other half is `deployment.ts`'s NEAT
+ * branch. They move together or not at all: a joint tuple argmax on one side and
+ * a bare action argmax on the other is the same class of divergence the legality
+ * table above was, one layer up. The old loop seeded `action` with `recover` --
+ * safe, because `recover` is in every non-empty `deployableActions` set -- and
+ * the joint rule needs no seed, because it refuses an empty legal set by name and
+ * `researchLabelMind` returns an inert command without ever asking here when the
+ * mask is empty.
+ *
+ * The movement argmax stays hand-rolled and stays here: movement is unmasked,
+ * has no legality to get wrong, and `deployment.ts` spells it with
+ * `maskedArgmax` over the full index set, which is the same answer including the
+ * `>` tie-break toward the earlier name.
  */
 export const neatLabeler = (genome) => { const network = new RecurrentNeatNetwork(genome); return (view, features) => {
-  const { movementLogits, actionLogits, persistence } = readMetaOutput(network.run(features));
+  const output = readMetaOutput(network.run(features));
   let movement = MOVEMENT_NAMES[0]; let movementScore = -Infinity;
-  MOVEMENT_NAMES.forEach((name, index) => { if (movementLogits[index] > movementScore) { movement = name; movementScore = movementLogits[index]; } });
-  const allowed = deployableActions(view); let action = "recover"; let actionScore = -Infinity;
-  HAND_ACTION_NAMES.forEach((name, index) => { if (allowed.has(name) && actionLogits[index] > actionScore) {
-    action = name; actionScore = actionLogits[index]; } });
-  return { movement, action, persistence };
+  MOVEMENT_NAMES.forEach((name, index) => { if (output.movementLogits[index] > movementScore) {
+    movement = name; movementScore = output.movementLogits[index]; } });
+  const tactic = selectDeployableTactic(view, output);
+  return { movement, action: tactic.action, effector: tactic.effector, target: tactic.target,
+    stance: tactic.stance, persistence: output.persistence };
 }; };
 
 async function neat() {

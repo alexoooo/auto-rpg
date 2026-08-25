@@ -3028,7 +3028,8 @@ directory's rule is that an unread field may be kept only if the reader that is 
 (`HandView.reach` was deleted one session and restored the next for exactly that reason). It is
 named on the field now: `selectDeployableTactic` in stage C2b, which grows a fourth field on
 `DeployableTactic` -- an argmax over `STANCE_NAMES` -- and hands it to `handActionOption`'s
-`OptionExecution.stance`, where `applyTacticStance` consumes it; the two callers are
+`TacticExecution.stance` (named `OptionExecution` here until stage C2b wired it and found no
+such type), where `applyTacticStance` consumes it; the two callers are
 `deployment.ts`'s NEAT branch and `neatLabeler`, and they move together for the reason
 `selectDeployableTactic`'s own note gives. The stance head is deliberately **not** part of the
 joint sum: legality is a property of the tuple, every stance is legal on every body, so nothing
@@ -3054,9 +3055,18 @@ masks it and there is nothing to trade it against.
   thirty-four were re-pointed, each by locating the `1696c26` line's *text* in the current file
   rather than by trusting an arithmetic offset, and each verified afterwards by the same
   comparison. Two more anchors in that tree are stale for reasons that have nothing to do with
-  this stage -- `meta.ts#L154` names a `checkpoint.featureVersion !== 3` check that no longer
-  exists, and three anchors point into deleted files -- and they are left as they are, with the
-  dated supersession notes the plan set already carries.
+  this stage -- an anchor into `meta.ts` named a `checkpoint.featureVersion !== 3` check that no longer
+  exists, and three anchors point into deleted files.
+
+  **That anchor was re-pointed from line 154 to line 150 in the same hunk that said it was being left
+  alone, which is the worst of both and is now decided.** Re-pointing a knowingly dead anchor
+  makes it read as freshly verified by whoever moved it. `grep featureVersion src/learning/meta.ts`
+  returns nothing, so the line the anchor names does not exist at any number, and the number was
+  therefore noise. The anchor is **gone**, and the sentence it sat in is superseded in place at
+  `docs/plans/combat-followups-16-policy-perception-v4.md`, which stated in the present tense
+  that `meta.ts` "hardcodes `if (checkpoint.featureVersion !== 3)`". That was true when the plan
+  was written and is false now; the plan carries a dated supersession rather than a new line
+  number, because there is no line to point at.
 
   **Why nothing catches this, measured rather than assumed.** The obvious answer -- that
   `../tools/check_docs.js` skips `docs/plans/` -- is wrong twice over: its walker starts at the
@@ -3069,7 +3079,7 @@ masks it and there is nothing to trade it against.
   stale-anchor complaint as well. The checker reaches these files and validates exactly this.
 
   It cannot see the plan set's anchors because they are written as **inline code spans** with
-  bare file names -- `` `train-ppo.mjs#L166` `` -- and `checkGlobalInternalLinks` only inspects
+  bare file names -- `` `train-ppo.mjs#L182` `` -- and `checkGlobalInternalLinks` only inspects
   the `href` of a Markdown link or image. So the cheap fix is not a change to the checker: it is
   to write each anchor as a Markdown link whose href is a real relative path ending in the same
   `#Lnnn`, at which point the existing gate
@@ -3085,3 +3095,692 @@ masks it and there is nothing to trade it against.
   `sword-prototype/`. That is unrelated to this change and untouched by it, but it means the
   gate's exit code alone would not tell anybody a sword-prototype anchor had broken -- the path
   in the message is what separates them.
+
+## Session 17 Stage C2b: the trainers produce and consume the wider contract -- 2026-08-25
+
+The four research trainers write and read the whole 26-output vocabulary that stage C2a froze.
+The teacher gained a real aiming rule, DAgger's rows and model gained three heads, PPO gained
+three categorical heads, and both halves of the NEAT decoder seam moved together. 502 tests
+before, **521** after the stage and **524** after the remediation pass below; `npx tsc --noEmit`
+and `npm run build` clean; the `duelist-swinger` null control identical to the digit for the
+fifth stage running.
+
+**Look-ahead is stage C2c's and stayed there.** Two lines moved in it and neither changes a
+number: `collectTacticalTrace` names `asMeasured(chooseEffector(view, action))` explicitly,
+which is exactly the tuple `researchLabelMind` used to default to, and
+`deployedResearchMind`'s decision-hook parameter narrowed to the three fields look-ahead
+actually supplies rather than widening `lookaheadMind`'s. Both are recorded below.
+
+### The null control did not move, for the fifth stage running
+
+`npm run measure -- --only duelist-swinger --bouts 120`, seed 20260823: duelist 66/120 =
+**55.0 %**, bout length **3.52 s (1.42-8.98)**, damage **176.17**, **10** severs, **1496** and
+**1670** scoring contacts. Identical to C1 and C2a to the digit. The scripted policies never
+enter the option layer, so any movement here would mean something leaked into a shared
+primitive; the teacher, the five heads and the conditional masks are all above that line.
+
+### The label histogram from a real teacher run, and the number that was a rule defect
+
+One Havok bout per research stratum, the teacher driving through `researchLabelMind`, every
+decision counted. 13 cells, **2400 solver steps each**, **268 decisions**.
+
+**Every share below is one bout per cell at one budget with no seed replication, and the
+budget is part of the reading.** The 9600-step run further down moves `natural` from 15.7 % to
+39.2 % and flips `target` from 52/48 to 38/62; quoting a share without its budget is quoting a
+different number. Nothing here is a mean over seeds, because there is one bout per cell.
+
+| head | distribution (2400 solver steps, one bout per cell, unreplicated) |
+| --- | --- |
+| movement | `hold` 180 (67.2 %), `close` 70 (26.1 %), `disengage` 18 (6.7 %) |
+| action | `cover` 139 (51.9 %), `cut` 63 (23.5 %), `bite` 42 (15.7 %), `shoot` 12 (4.5 %), `punch` 12 (4.5 %) |
+| effector | `primary` 189 (70.5 %), `natural` 42 (15.7 %), `secondary` 37 (13.8 %) |
+| target | `threat` 139 (51.9 %), `vital` 129 (48.1 %) |
+| stance | `slip-right` 112 (41.8 %), `action-default` 99 (36.9 %), `slip-left` 48 (17.9 %), `compact` 9 (3.4 %) |
+
+**The effector row read `primary` 226 (84.3 %) and `secondary` 0, and the paragraph beside it
+blamed the schedule. That was wrong for half the sample, and the cause was a rule defect in
+this repository's own code.** The superseded claim is kept because it is instructive: it said
+the effector is "genuinely read back off the opportunity row the teacher chose", so a `secondary`
+label needs a stratum that puts the striking weapon in the off hand, and there is none -- a
+schedule fact, not this stage's to fix.
+
+Two thirds of that is true and the conclusion is not. The effector *is* read off the
+opportunity row for `cut`, `punch` and `shoot`. It is not read off anything for `cover`, which
+is **139 of the 268 decisions**: `cover` has no opportunity behind it, and the teacher took
+`tacticEffectors(view, action)[0]`. `tacticEffectors` returns hands in `HANDS` order regardless
+of what they hold, and `accepts("cover")` answers true for every attached hand -- so the primary
+won every cover on every humanoid body that has ever existed, and **a reversed-loadout stratum
+could not have changed one of them**, because the hand order does not depend on what the strata
+contain. Measured over the same 268 decisions: `secondary` was a legal effector for the action
+the teacher itself named on **133 of them (49.6 %)** -- 121 `cover` and 12 `punch` -- and was
+taken on none.
+
+`coveringEffector` gives `cover` and `recover` a real preference: a hand holding a shield or
+buckler covers before a hand holding a sword, axe or club, which covers before a bare hand, with
+`HANDS` order as the tie-break so equal hands keep the old answer. The tiers are asked of
+`hands.ts` (`isShield`, and a new `isHeldStriker` that replaces the copy `options.ts` was
+keeping) rather than written out as weapon names.
+
+**What moved, and what did not.** `secondary` goes 0 -> 37 (13.8 %) at 2400 steps and 0 -> 37
+(8.9 %) at 9600. The other four heads are **identical to the digit** at both budgets, and that
+is not a coincidence to be waved past: `handActionOption`'s `cover` branch interposes the named
+hand *and* covers with the spare one, so on `sword+shield` a cover names a different
+`actingHand` and produces an otherwise **byte-identical intent** -- diffed field by field,
+`intent.actingHand` is the only difference in the whole record. So the label moved and the body
+did not. That is the honest reading: the defect was in what the teacher *taught*, which is what
+an effector head is trained on, and whether a cover on the shield hand should also *pose*
+differently is a bout question and is session 23's.
+
+The 12 `punch` decisions where `secondary` was legal are **not** a defect and did not move.
+They are `empty+empty` bodies where both hands are identical and `attackOpportunity` publishes
+the primary's row first, which is a decision taken from the row rather than a preference at all.
+
+The remaining two heads vary as before. `target` is a near-even 52/48 split at this budget,
+because `cover` is half the decisions and is the one action aimed at a moving point. `stance`
+reaches four of six names, and its 42/18 slip-right/slip-left skew is the threat geometry rather
+than a broken sign: `RESEARCH_STRATA`'s opponents lead with the primary hand, which sits on their
+own right, so a defender facing them sees more blades on one side than the other.
+
+**Fifteen distinct `(action, effector, target, stance)` tuples**, up from twelve before the
+cover fix, and the top three account for 58 %:
+
+| tuple | count | share |
+| --- | ---: | ---: |
+| `cover+primary+threat+slip-right` | 71 | 26.5 % |
+| `cut+primary+vital+action-default` | 58 | 21.6 % |
+| `cover+secondary+threat+slip-right` | 27 | 10.1 % |
+| `cover+primary+threat+slip-left` | 24 | 9.0 % |
+| `bite+natural+vital+slip-left` | 18 | 6.7 % |
+| `bite+natural+vital+slip-right` | 14 | 5.2 % |
+| `shoot+primary+vital+action-default` | 12 | 4.5 % |
+| `bite+natural+vital+action-default` | 10 | 3.7 % |
+| `punch+primary+vital+action-default` | 9 | 3.4 % |
+| `cover+primary+threat+action-default` | 6 | 2.2 % |
+| `cover+secondary+threat+slip-left` | 6 | 2.2 % |
+| `cut+primary+vital+compact` | 5 | 1.9 % |
+| `cover+secondary+threat+action-default` | 4 | 1.5 % |
+| `punch+primary+vital+compact` | 3 | 1.1 % |
+| `cover+primary+threat+compact` | 1 | 0.4 % |
+
+**"Out of 72 legal" was wrong and is corrected here.** 72 is `3 effectors x 4 targets x 6
+stances`, the nominal per-action multiplier -- right for "grew about seventy-twofold" and wrong
+as a count of anything a body can do. Measured: `|deployableTactics|` is at most **16** on any of
+the thirteen research loadouts (`sword+empty`), at most **21** on any body in the space
+(`sword+sword+bite`), and the union over the thirteen research cells is **24**, over the whole
+body space **33**. Multiplying by the six stances, which the tuple set does not enumerate, the
+thirteen cells reach 24 x 6 = 144 stance-bearing tuples and this run visits 15 of them.
+
+A second run at 9600 solver steps a cell (418 decisions) moves the shares -- the humanoid bouts
+end on their own and only the centipede and `broot/empty+empty` keep going -- and produces the
+**same fifteen tuples**, so the shape is the rule rather than the sample. Its own shares, again
+unreplicated: `bite` 164 (39.2 %), `cover` 160 (38.3 %), `cut` 63 (15.1 %), `punch` 19 (4.5 %),
+`shoot` 12 (2.9 %); `primary` 217 (51.9 %), `natural` 164 (39.2 %), `secondary` 37 (8.9 %);
+`vital` 258 (61.7 %), `threat` 160 (38.3 %).
+
+`upright` and `extended` are never emitted. `extended` is a decision recorded on
+`tacticalStance`: stage B measured it as 0.10/+0.30/0.55 x outboard against `commit`'s
+0.12/0.30/0.68 x outboard, so labelling it during a committing action teaches a near-no-op.
+`upright` is simply not in the rule; the teacher has no situation that calls for zeroing the
+posture.
+
+### `thrust` is the one action the aim rule branches on, and the teacher cannot emit it
+
+The brief for this stage asked for three `thrust` branches -- `low` at the edge of reach,
+`vital` against a crouched opponent, `high` otherwise -- and they are written. **Nothing in
+`tacticalTeacher` reaches them.** Its action rule is
+`weapon === "bow" ? "shoot" : weapon === "empty" ? "punch" : "cut"`, in `actionableRow`, and
+there is no arm for a point: a sword hand always answers `cut`. Making them reachable means
+turning every sword `cut` into a `thrust`, which is a change to what the teacher *does* rather
+than to where it aims, and would move the action histogram, the engagement floor and every
+DAgger macro-F1 with it -- so it was not taken here.
+
+The rule is kept, because a learned controller *can* emit `thrust` and `deployableTactics`
+offers it three heights, and it is exported so
+`the_thrust_aim_rule_is_low_at_full_extension_and_high_against_a_standing_body` drives it
+directly: a branch nothing can watch fail is the worst defect this directory produces. Both
+constants are bounded from **both** sides -- `THRUST_EDGE_FRACTION` 0.10 passes at a 0.144 margin
+of a 1.45 reach and fails at 0.146; `CROUCHED_OPPONENT` 0.50 separates 0.49 from 0.51 -- and the
+mutation table below carries all four.
+
+### Where a centipede's bite actually lands: the shins, every time
+
+Measured rather than assumed, on the same fixture as stage B's four aim tables: the `bite`
+option driven directly against a bare-handed idle warrior, `HitReport.key` counted, blocks
+excluded, four seed pairs.
+
+| seeds | keys |
+| --- | --- |
+| 11,22 | `shinL` 43, `shinR` 15 |
+| 33,44 | `shinL` 43, `shinR` 15 |
+| 55,66 | `shinL` 43, `shinR` 15 |
+| 77,88 | `shinL` 43, `shinR` 15 |
+
+**232 body contacts, 172 left shin and 60 right, zero head and zero torso** -- a low share of
+**1.000**. The seeds do not vary it, for the same reason stage B's tables did not: the driving
+mind is deterministic and `idle` ignores its seed.
+
+Three separate facts follow and it is worth keeping them apart. The **body** puts a bite on a
+shin, always. The **table** offers one legal region -- `tacticTargets("bite")` is `["vital"]` --
+so `vital` is the label whatever a bout says. And the **executor reads neither**:
+`handActionOption`'s bite branch sets `intent.natural.thrust` and consumes `stance`, and never
+looks at `target` at all. So the aim label on a bite is inert in all three directions, and the
+honest reading of the measurement is not "the label should be `low`" but "a centipede's bite is
+a leg attack, and if that is wrong it is the creature's geometry that is wrong". Session 23 is
+where that becomes a balance question.
+
+### The PPO entropy divisor, before and after
+
+`ppoHeadUpdate` reported `entropy / (rows.length * 2)`, where the `2` was the policy-head count
+spelled as a literal -- `headGradient` was called exactly twice per row. The only assertion on
+that field anywhere in the tree was `report.entropy > 0`, which any positive divisor satisfies.
+
+Measured on a real trainer run (`trainPpo`, seed 310013, 240 solver steps, both arms, two
+option boundaries each):
+
+| arm | before (`rows x 2`) | after (`rows x PPO_POLICY_HEADS.length`) |
+| --- | ---: | ---: |
+| random | 3.0543 | **1.2217** |
+| dagger | 3.0462 | **1.2185** |
+
+The `policyLoss` and `valueLoss` figures are byte-identical between the two runs, which is what
+makes this a reporting fix rather than a training one. **The before column is above the
+theoretical maximum**, which is the sharpest way to see that it was wrong.
+
+**The bound quoted here was computed over the wrong sets and is corrected.** It read "the five
+heads have at most 5, 7, 3, 4 and 6 legal outputs, so the largest mean per-head entropy any row
+can carry is `(ln5 + ln7 + ln3 + ln4 + ln6) / 5` = 1.566" -- which is the width of the five
+**tables**. Entropy accumulates over `sample.supported` (`ppo.ts`), which is the *mask*, and no
+mask reaches the table width on three of the five heads. Measured over the whole body space, the
+reachable maxima are movement **5** (unmasked), action **6** on `sword+empty+bite` -- a body
+cannot have both `cut` and `shoot`, because a bow takes two hands -- effector **2**, because
+`tacticEffectors` answers hands or the natural effector and never both, target **3**, and stance
+**6** (unmasked). So the achievable bound is `(ln5 + ln6 + ln2 + ln3 + ln6) / 5` = **1.3969**.
+
+The conclusion survives and the bound does not: 3.05 is more than twice 1.3969, so the before
+column was still above anything a row could carry. The corrected number is the tighter statement
+and the one to quote.
+
+Pinned by `ppo_updates_policy_weights_value_head_and_reports_clipping_and_entropy` at
+`(2 ln2 + ln3 + ln4 + ln6) / 5` = 1.13259 on a fixture whose five heads have 2, 2, 3, 4 and 6
+legal outputs -- deliberately unequal, so a wrong divisor is a wrong number rather than a wrong
+sign -- and by `the_reported_entropy_is_a_mean_over_rows_as_well_as_over_heads`, which doubles
+the rows and requires the mean not to move.
+
+### Two masks that are conditioned rather than joint, and why PPO cannot use the other one
+
+NEAT-QD decodes a raw 26-vector and takes `selectDeployableTactic`: the largest
+`action + effector + target` logit sum over `deployableTactics(view)`, masked in front of the
+comparison. PPO does **not**, and the difference is about the algorithm rather than about
+taste. PPO's policy is a product of five categorical conditionals -- the importance ratio, the
+entropy term and the clipped surrogate are all per head -- so each head has to be sampled from a
+distribution `ppoHeadUpdate` can *rebuild* from the stored support. A joint argmax over 72
+tuples is a single categorical over a different support with a different log-probability, which
+is an algorithm change wearing a decoding change's clothes.
+
+`recurrentTactic` in `deployment.ts` is what PPO uses instead: the action mask is
+`deployableActions`, the effector mask is `tacticEffectors(view, action)` **for the action just
+sampled**, and the aim mask is `tacticTargets(action)`. Those are precisely the three loops
+`deployableTactics` builds its set from, so the triple is a member by construction rather than
+by a refusal after the fact, and the stored `supported` lists are the exact conditionals the
+update renormalizes over -- which is correct because PPO's ratio is evaluated at the *old*
+actions. One function, two pickers: `argmaxHeadPick` for deployment and league opponents,
+`maskedCategorical` for the trajectory collector.
+
+`every_conditionally_masked_pick_is_a_tuple_the_executor_accepts` sweeps 32 combinations of
+per-head preference over four loadouts;
+`three_independent_argmaxes_would_have_produced_an_illegal_tuple` is the counterfactual on the
+body where it matters -- `punch+primary+low` is three separately legal names and an impossible
+triple on `sword+empty`.
+
+### PPO produces 25 of the 26 outputs, and persistence is a decision
+
+There is no persistence head and there is not going to be one until somebody means it.
+`RecurrentPolicyWeights` and `RecurrentStep` carry five categorical heads and a value head, and
+the persistence a PPO controller answers is the shared constant `UNLEARNED_PERSISTENCE` = 0.4 --
+the same number `deployment.ts`, `lookahead.ts`, `train-lookahead.mjs` and `train-ppo.mjs` each
+spelled out. Making it learned means a **continuous** action: a Gaussian or Beta
+parameterisation with its own log-probability in the ratio, its own entropy term and its own
+clipping story. PPO emits a *label* rather than a raw 26-vector, so the width contract does not
+bind it.
+
+The artifact records it rather than leaving a reader to work it out: PPO provenance carries
+`producedOutputs` 25, `contractOutputs` 26 and `unlearnedPersistence` 0.4.
+`every_producer_of_a_research_label_writes_the_same_six_fields` asserts the 0.4 as a literal, so
+a session that adds the sixth head has to come and delete that line.
+
+### `TACTICAL_TEACHER_VERSION` had three writers and no reader
+
+The number was written into `collect-dagger.mjs`'s config digest, into artifact provenance, and
+onto every row by `research-rollout-worker.mjs`. `validateDaggerRow` checked it for being a
+non-negative safe integer, in a loop about provenance arithmetic beside the seed and the two
+step counters, and nothing compared it to anything. So a row labelled by the three-field teacher
+and one labelled by the six-field teacher were the same row to every consumer the moment the
+feature version matched -- which is exactly the state authoring a real aiming rule would have
+made dangerous.
+
+It is compared the way `featureVersion` is now, refused by a sentence naming both numbers, and
+`TACTICAL_TEACHER_VERSION` is 2. The **143 rows** checked in under
+`asset-src/learning/research/session16-final-workers8/state.json` were read rather than assumed:
+all 143 are `featureVersion` 3 against a runtime 4 and `teacherVersion` 1 against a runtime 2,
+and all 143 carry the three-key label `action,movement,persistence`. They were already refused
+at the feature version and are now refused three ways. Nothing in `src/`, `scripts/` or `tests/`
+reads any of the three checked-in run directories; only `docs/` mentions them.
+
+### The silent classifier, and the artifact that deployed and answered `cover`
+
+`classify` in `dagger.ts` scored each label from `weights[index * hidden.length + feature]` and
+reduced with `score > best.score`. On a head whose matrix is shorter than its label list every
+read is `undefined`, every score is `NaN`, `NaN > best.score` is false for all of them, and the
+reduce falls through to its **seed** -- returning `labels[0]` with no error anywhere.
+
+Demonstrated with a zero-row action head: the model serialises, passes `ResearchArtifact`'s
+envelope, passes `deployment.ts`'s `exactNames` -- which reads `labels`, and the labels are
+intact -- and passes the all-zero deployment probe, because `HAND_ACTION_NAMES[0]` is `cover`
+and `cover` is a perfectly legal answer. It then answers `cover` for the whole of a tournament.
+`LinearHead` carries no row count, so nothing above `classify` could cross-check it either, and
+C2b adds three more matrices to the same blind spot.
+
+`classify` now refuses by name, per head, naming the three counts:
+`DAgger action head is 0 weights and 7 biases; 7 labels over 12 hidden units needs 84 and 7`.
+Checked on every call rather than once at decode, because two length comparisons in front of a
+`labels.length x hidden.length` forward pass is free and a check at the door is a check a second
+door can be built beside.
+
+### `finiteLayer` validated four of five heads against themselves
+
+`recurrent-network.ts` called `finiteLayer(weights.movement, weights.movement.rows, ...)` -- a
+check that cannot fail, for a head of any row count -- while the value head one line below
+passed a literal `1` and was the only one that meant anything. The row counts come from the
+runtime name tables now, through one `HEAD_ROWS` table that also drives the five-head loop.
+
+**`tests/ppo.test.mjs`'s own `weights()` fixture was that artifact**, and had been since the file
+was written: `action: layer(6, GRU_UNITS)` against a seven-name table, so the fixture was a
+policy whose seventh action -- `recover`, the one name in every legal mask -- had no row at all,
+and `dense` answered six logits where the decoder reads seven. Both the fixture and the check
+moved; `a_head_whose_row_count_is_not_its_runtime_table_is_refused_by_name` sweeps all five
+heads, short and absent, and also runs `initialPpoWeights` through the constructor so the
+trainer's initializer and the runtime tables are paired by something other than a bout.
+
+### The stratum key stayed coarse, and the reason is measured
+
+`balancedDaggerRows` keys strata as `unitCell\0movement\0action`. The label space grew about
+seventy-twofold in this stage and the key did not follow it, on the histogram rather than on
+taste: across the 13-cell run above -- 268 decisions at **2400 solver steps**, unreplicated --
+there are **47 strata** and the number of distinct `(effector, target, stance)` triples inside
+one is **min 1, max 3, mean 1.38**. Keying on them would split each stratum into a handful of
+near-duplicates and raise the *effective* cap per action from 64 to 64 times that, which weakens
+the only thing the function does -- stop a common action drowning a rare one.
+
+**"48 strata" was from a different run than the sentence names, and is corrected to 47.** 48 is
+the 9600-step, 418-decision run; the 13-cell 2400-step run this paragraph is about has 47. The
+`min 1, max 3, mean 1.38` figures hold for both, and both were re-measured after the cover fix
+and did not move.
+
+The argument for the wide key is real and is why this needed deciding: an effector head trained
+on a set where every humanoid row names the primary hand learns the loadout rather than the
+decision. **That premise had two causes and the record named only one.** The schedule half is
+still true for `cut` -- no `RESEARCH_STRATA` loadout puts a striking weapon in the off hand, so
+every `cut` names the primary and always will until the schedule changes. The other half was a
+rule defect in `firstLegalEffector` covering 139 of the 268 decisions, and fixing it moved
+`secondary` from 0 to 13.8 % without touching the schedule at all.
+
+**The stratum-key argument survives the fix, and is stronger for it.** The claim was that a
+wider key "would keep more copies of the same `primary`", which was resting on a histogram where
+`primary` was 100 % of the humanoid rows; it is 189 of 226, or **84 %**, and the reason the wide key
+is still wrong is the one that never depended on the share: at mean 1.38 distinct triples per
+stratum a tuple key splits nothing into near-duplicates and multiplies the effective cap.
+What the remaining `cut` skew argues for is a **schedule** with a reversed loadout in it, and
+failing that a second balancing pass keyed on the tuple -- not a wider key on this one.
+`the_stratum_cap_is_keyed_on_the_action_rather_than_on_the_whole_tuple` pins the coarse
+behaviour in both directions.
+
+### The quality-diversity descriptor did not move, and one of its two reasons did
+
+`QualityDescriptor` is three outcome measures binned at `QD_BINS` = 5, which is 125 cells. This
+section argued the widening away twice, and **the arithmetic half was wrong**.
+
+It read: adding the chosen tuple multiplies 125 by the tuple space -- "7 actions x 3 effectors
+x 4 targets is 84 nominal and **72 legal on a humanoid**" -- for 9,000 to 10,500 cells against a
+full-budget run of `populationSize` 128 x `generations` 80 = **10,240 genome evaluations**, so
+"fewer than one elite per cell before a single cell is ever revisited". 72 is not a count of
+legal tuples; it is `3 x 4 x 6`, the nominal per-action multiplier that `dagger.ts` uses
+correctly for "grew about seventy-twofold". Measured, `|deployableTactics|` peaks at **21** on
+any body at all (`sword+sword+bite`), the union over the whole body space is **33**, and the
+union over the thirteen research cells -- which is the space an archive built from
+`researchMatrix` would index -- is **24**.
+
+So the true arithmetic is `125 x 24` = **3,000 cells** against 10,240 evaluations: **3.4
+evaluations per cell, not 0.9**. That is thin for MAP-Elites, whose whole mechanism is
+competition inside a cell, but thin is a tuning objection rather than a refusal, and the
+sentence the number was carrying is false. **The arithmetic no longer decides this.**
+
+The second reason does, and it is now the only one. These are **outcome** measures and the
+chosen tuple is an input to them. `opportunityConversion` asks what fraction of the openings a
+controller took, not which hand it took them with. The thing somebody actually wants from a
+tuple dimension -- an archive that keeps a controller which fights one-handed beside one that
+uses both -- is a redefinition of the *descriptor*, not a fourth key on this one. A tuple
+dimension also has to answer *which* of a bout's hundreds of tuples it means, and no answer to
+that is an outcome either. The descriptor still does not move, and it now rests on one argument
+instead of two.
+
+`the_quality_archive_stays_a_125_cell_outcome_map_keyed_on_nothing_a_controller_chose` was
+renamed with the correction and its arithmetic assertion deleted: it read
+`128 * 80 < 125 * HAND_ACTION_NAMES.length * EFFECTOR_NAMES.length * TARGET_NAMES.length`, which
+is 10,240 < 10,500 over the *nominal* 84 and was the misleading comparison spelled as a test.
+What it asserts instead is the argument that survived -- that the cell key is a function of the
+three outcome measures and of nothing else, checked by handing `qualityCell` a descriptor with
+`action`, `effector` and `target` bolted onto it and requiring the same cell back.
+
+### The decoder seam moved as one piece, and was watched failing when it did not
+
+`selectDeployableTactic` had no production reader through the whole of C2a, deliberately: wiring
+`deployment.ts`'s NEAT branch alone puts a joint tuple argmax on the deployment side of a seam
+whose training side, `neatLabeler` in `scripts/research-rollout-worker.mjs`, still takes a bare
+action argmax. Both moved in this stage, and the guard was checked first: reverting
+`neatLabeler` to its hand-rolled action argmax while leaving the deployment branch on the joint
+rule turns `the_training_decoder_and_the_deployment_decoder_answer_the_same_label` red with
+`sword+empty` answering `punch` on one side and `thrust` on the other. That is mutation M17 in
+the table below.
+
+The fixture also gained a decisive **stance** block. C2a's remediation pass gave it
+non-degenerate effector and target logits for exactly this reason; the stance block was still
+zeros, which makes `action-default` the answer whatever the decoder does with it. It is
+`[0.1, 0.2, 0.9, 0.3, 0.4, 0.5]` now, so every loadout's expected label carries `compact` and a
+decoder that dropped the stance head fails (mutation M18).
+
+### NEAT-QD's genome width tracked the widening with no edit, verified
+
+`scripts/train-neat-qd.mjs` reads `META_OUTPUT_LAYOUT.width` for its output count and seeds its
+`InnovationTracker` at `FEATURE_COLUMNS.length + 1 + outputs`, so the population moved from 13
+outputs to 26 when the layout did. That is only worth anything if a genome of that width
+*decodes*, so `a_genome_built_at_the_layout_width_decodes_to_a_legal_tuple` builds one the way
+the trainer does and takes it through `readMetaOutput` to a legal tuple on a real loadout --
+which is the chain a width mismatch breaks one bout into a run, inside a worker.
+
+### Two things the gate forced into stage C2c's files, and what they cost
+
+**`deployedResearchMind`'s decision hook narrowed rather than widened.** Its parameter was
+`Parameters<typeof researchLabelMind>[2]`, which is now a whole `DaggerLabel` -- and
+`lookaheadMind` declares its own hook over `{ movement, action, persistence }` and calls it with
+exactly that. Function parameters are contravariant, so a hook demanding six fields cannot be
+handed to a producer that supplies three: widening the shared alias makes `tsc` reach into C2c's
+file. The parameter names the intersection instead, as `DeployedDecisionLabel`, and the promise
+stays true -- a caller of `deployedResearchMind` does not know which algorithm it decoded, so
+three fields is genuinely all it may rely on until C2c lands. The three widened algorithms still
+pass the whole record at run time, and every consumer of it is `.mjs`.
+
+**`collectTacticalTrace` names its tuple.** It was `{ movement, action, persistence: 0.4 }` and
+relied on `researchLabelMind` defaulting the other three to
+`asMeasured(chooseEffector(view, action))`. That default is gone, so the line names exactly what
+the default was -- same effector search, same `"as-measured"` aim, same `action-default` stance
+-- and every look-ahead trace stays on the line its calibration was measured at. `lookaheadMind`
+already spelled the same tuple at its own call site and did not move.
+
+The alternative was to give look-ahead a named region, which would have moved every trace: on a
+`cut` the measured aim carries a +0.20 stroke-entry lift that a named region does not, so
+`vital` raises the low share from 0.357 to 0.700. That is C2c's decision to take with a bout,
+not a side effect of a type check.
+
+### There is no second copy of the tuple legality rule at the seam
+
+`researchLabelMind` refuses an **action** outside `deployableActions`, because that mask is
+stricter than the executor: it removes `cover` from a handless body and refuses everything on a
+body with no capability at all, so there is something it says that nothing below repeats. It
+deliberately does **not** re-check the tuple. `handActionOption` refuses an unknown effector,
+target or stance at construction and an illegal `(action, effector, target)` at `enter`, through
+`unsupportedTactic` -- the same `tacticEffectors` and `AIMED_TARGETS` that `deployableTactics` is
+built from. A pre-check at the seam would be that rule spelled twice with the two copies free to
+drift, which is what `deployableActions`' own note records happening seven times, and the
+executor refuses more usefully: `option "punch" requires a punch target of vital, high, not
+"low"` names the part that was wrong.
+
+That matters most for **DAgger**, which is the one algorithm whose deployment is unmasked:
+`predictDagger` argmaxes each head over its whole table, so a model that learned `punch` and
+`low` from different rows can name a triple no body has, and the bout aborts by name.
+`an_illegal_learned_tuple_is_refused_by_name_and_never_repaired` pins all three thirds of that.
+It is the same shape as the existing unmasked *action* behaviour, which has been able to abort a
+bout since DAgger landed; whoever decides a masked DAgger decode is worth having has to expose
+per-head scores from `predictDagger` first, and that is a contract change rather than a fix.
+
+### A teacher label that no body could execute, found by the exhaustive sweep
+
+`the_teacher_only_ever_labels_a_tuple_the_body_can_execute` walks every ordered weapon pair (49)
+x both loss flags on each hand (4) x with and without a published bite (2) x four measures x a
+threatening and a quiet opponent, plus the centipede and an armless warrior: **3,152 cells**,
+2,752 labelled and 400 inert. It found one, and a sampled fixture never would have.
+
+On a body carrying a **sword in the primary and a bow in the secondary**, `attackOpportunity`
+publishes a viable sword row -- it knows nothing about the weld -- while `tacticEffectors("cut")`
+answers `[]`, because `Fighter.update` welds the trailing hand to the bow's stave and the
+two-handed holder rule refuses every other hand. The teacher labelled `cut+primary`, and
+`composeTactic` refused it by name one call later, killing the bout. No `RESEARCH_STRATA` row
+carries that loadout, which is why it had never fired. `actionableRow` asks the legality rule
+which opportunity is actually actionable now, and takes the first that is.
+
+### The mutation table
+
+Every test this stage added or touched, watched failing under a deliberate break. The harness is
+`.review/c2b/mutate.mjs`, which patches one line, runs one suite, and restores;
+`.review/c2b/mutate2.mjs` is the remediation pass's, in the same shape.
+
+**The table has 25 rows, not 24, and both places that counted it said 24.** M1 to M23 plus M3b
+and M4b is 25. The remediation pass of 2026-08-25 adds **nine** -- N1, N1b, N2, N2b, N3, N3b,
+N4, N5 and N8 -- for a total of **34**, and every one of the 34 went red. (N6 and N7 in
+`.review/c2b/mutate2.mjs` are M15 and M16 re-run against the widened tuple test rather than new
+rows; both still go red, which is what says the widened sweep did not cost the old coverage.)
+
+| # | mutation | test that went red | what it said |
+| --- | --- | --- | --- |
+| M1 | teacher legality filter dropped | `the_teacher_only_ever_labels_a_tuple_the_body_can_execute` | `sword+bow@0.2/0: cut+primary+vital is not in deployableTactics` |
+| M2 | slip sign flipped | `the_teacher_slips_away_from_the_side_the_threat_is_on` | `a blade on the right is slipped away from, not into` |
+| M3 | `THRUST_EDGE_FRACTION` 0.10 -> 0.20 | `the_thrust_aim_rule_is_low_at_full_extension_and_high_against_a_standing_body` | `just outside it` |
+| M3b | `THRUST_EDGE_FRACTION` 0.10 -> 0.05 | same | `inside the last tenth of the reach` |
+| M4 | `CROUCHED_OPPONENT` 0.50 -> 0.40 | same | strict-equality diff on the crouched branch |
+| M4b | `CROUCHED_OPPONENT` 0.50 -> 0.60 | same | strict-equality diff on the settled branch |
+| M5 | `cover` aimed at the vitals | three teacher tests | deep-equal diff on the whole label |
+| M6 | effector constant `primary` | `the_teacher_names_the_hand_whose_opportunity_it_took` | deep-equal diff |
+| M7 | crowded stance dropped | `the_teacher_goes_compact_when_crowded_and_neutral_otherwise` | strict-equality diff |
+| M8 | teacher version unchecked | `a_row_from_the_previous_teacher_is_refused_by_a_sentence_naming_both_versions` | `Missing expected exception` |
+| M9 | `classify` size check dropped | `a_head_whose_matrix_is_shorter_than_its_labels_is_refused_by_name` | `Missing expected exception: movement` |
+| M10 | label-key string narrowed | `dagger_rows_contain_only_versioned_observation_features_and_labels` | regex mismatch on the privileged-column refusal |
+| M11 | stratum key widened to the aim | `the_stratum_cap_is_keyed_on_the_action_rather_than_on_the_whole_tuple` | `four aims of one action are one stratum` |
+| M12 | entropy divisor back to the literal 2 | `ppo_updates_policy_weights_value_head_and_reports_clipping_and_entropy` | `entropy 2.8314802400679726 against 1.1325920960271891` |
+| M13 | entropy divisor loses `rows.length` | `the_reported_entropy_is_a_mean_over_rows_as_well_as_over_heads` | `1.1325920960271891 against 2.2651841920543783` |
+| M14 | `finiteLayer` checks a head against itself | `a_head_whose_row_count_is_not_its_runtime_table_is_refused_by_name` | `Missing expected exception: movement` |
+| M15 | effector mask unconditioned | three PPO tests including the Havok resume | `option "cut" requires the primary or secondary hand, not the natural effector` |
+| M16 | aim mask unconditioned | the same three | `hand action "cut" cannot be aimed at "threat"` |
+| M17 | only the deployment half of the seam moves | `the_training_decoder_and_the_deployment_decoder_answer_the_same_label` | deep-equal diff, `punch` against `thrust` |
+| M18 | stance argmax pinned to index 0 | that test and the tuple test | deep-equal diff on `stance` |
+| M19 | label field list loses the stance | `every_producer_of_a_research_label_writes_the_same_six_fields` | `teacher` |
+| M20 | output width pinned at thirteen | `a_genome_built_at_the_layout_width_decodes_to_a_legal_tuple` | strict-equality diff |
+| M21 | `QD_BINS` widened to six | the two archive tests | strict-equality diff on the cell count |
+| M22 | the seam quietly redirects the named hand | five tests | `option "cut" requires a held striking weapon in the secondary hand` |
+| M23 | `probeLabel` names a constant hand | `the_training_schedule_offers_exactly_what_the_runtime_mask_offers` | `option "recover" requires an attached primary hand` |
+
+The remediation pass's eight, 2026-08-25. N1 and N1b are the ones that matter most: the
+threat-side rule's facing rotation had **no fixture at all**. Every view fixture in the tree
+publishes `self.facing: 0`, at which `dx cos f - dz sin f` is exactly `dx`, so replacing the
+whole expression with `return dx;` was invisible. Measured both ways rather than argued: under
+that mutation **exactly one of the 524 tests fails**, and it is the quarter-turn block this pass
+added -- so before the pass the suite was green under it, because the facing-0 pair is
+arithmetically identical to the mutation. And the mutation is not cosmetic: re-running the real
+histogram under it moves `slip-right` 41.8 % -> **50.0 %** and `slip-left` 17.9 % -> **9.3 %**,
+which reproduces the review's figures to the digit.
+
+| # | mutation | test that went red | what it said |
+| --- | --- | --- | --- |
+| N1 | threat-side rule loses its facing rotation (`return dx;`) | `the_teacher_slips_away_from_the_side_the_threat_is_on` | `actual 'slip-left', expected 'slip-right'` |
+| N1b | facing rotation with the wrong sign on `dz` | same | `facing +X, a blade at -z is on the right` |
+| N2 | cover preference back to first-legal | `the_teacher_covers_with_the_hand_that_holds_the_better_guard` | `['primary','primary']` against `['secondary','primary']` |
+| N2b | cover preference ranked backwards | same | `['primary','secondary']` against `['secondary','primary']` |
+| N3 | `shoot` persistence 0.70 -> 0.42 | `every_teacher_persistence_is_the_number_beside_the_branch_that_chose_it` | `['shoot', 0.42]` against `['shoot', 0.7]` |
+| N3b | natural bite persistence 0.40 -> 0.42 | same | `['bite', 0.42]` against `['bite', 0.4]` |
+| N4 | trajectory collector argmaxes instead of sampling | `the_ppo_trajectory_stores_the_conditionals_it_sampled_under_rather_than_the_whole_table` | `0/movement: stored probability 1 against 0.20643046374478322 over the stored support` |
+| N5 | trajectory stores each head's full index range | same | `0/action: stored probability 0.1983269143770432 against 0.14173541996469635 over the stored support` |
+| N8 | `DEFENSIVE_ACTIONS` loses `recover` | `every_conditionally_masked_pick_is_a_tuple_the_executor_accepts` | `hand action "recover" cannot be aimed at "threat" -- only cover answer a point that moves` |
+
+N8 is the one that shows why that last test had to change. It asserted membership in
+`deployableTactics(view)`, which is built from the same `tacticEffectors` and `tacticTargets`
+`recurrentTactic` masks with -- a mask compared against itself. `AIMED_TARGETS.recover` still
+offers `threat` under N8, so the tuple is still "legal" and the old assertion passes; what
+refuses is `handActionOption`, at construction, which the test never called. It calls it now, on
+every legal tuple of eight bodies at all six stances -- **444 entries**, and the fixture set
+gained a severed hand, a warrior that has lost both arms and a centipede, because the
+`["natural"]` branch of `tacticEffectors` fires only where no hand is attached and four intact
+humanoids never reached it.
+
+
+**What each of these does not catch**, one per test, because a mutation table that only lists
+what went red reads as a coverage claim:
+
+- `the_teacher_only_ever_labels_a_tuple_the_body_can_execute` checks membership, not *which*
+  member: a teacher that labelled `recover+primary+vital` for every body on earth would pass it.
+  The per-branch tests are what say the label is the right one.
+- `the_teacher_slips_away_from_the_side_the_threat_is_on` reads the label, not the body: it
+  cannot see whether a `slip-left` posture actually removes anything from the incoming line,
+  which is a bout measurement and is session 23's.
+- `the_thrust_aim_rule_...` drives the rule directly, so it cannot see that `tacticalTeacher`
+  never calls it with `thrust` -- which is the finding recorded above rather than a test.
+- `the_teacher_names_the_hand_whose_opportunity_it_took` runs on a hand-rolled view; it cannot
+  see that no `RESEARCH_STRATA` loadout ever puts the striking weapon in the secondary, which is
+  what the histogram found.
+- `a_row_from_the_previous_teacher_...` compares the numbers; it cannot tell whether
+  `TACTICAL_TEACHER_VERSION` was bumped for a real change or for none.
+- `a_head_whose_matrix_is_shorter_...` catches a short or absent matrix; a matrix of the right
+  length full of the wrong numbers is still a silent wrong answer.
+- `the_stratum_cap_is_keyed_on_the_action_...` pins the key, not whether the cap of 64 is right.
+- `ppo_updates_..._entropy` pins the divisor on a synthetic head set; it does not check that the
+  five heads are the *right* five, which `PPO_POLICY_HEADS` and the artifact provenance say.
+- `a_head_whose_row_count_is_not_its_runtime_table_...` catches a wrong row count; it cannot see
+  a head whose rows are right and whose *labels* are in the wrong order, which is `exactNames`'.
+- `every_conditionally_masked_pick_...` proves legality by construction; it says nothing about
+  whether the conditional factorization is the right *policy*, only that it is a legal one.
+- `the_training_decoder_and_the_deployment_decoder_answer_the_same_label` catches a one-sided
+  move; two decoders moved the same wrong way still agree, which is why the whole expected table
+  is written out by hand rather than compared decoder-to-decoder alone.
+- `every_producer_of_a_research_label_writes_the_same_six_fields` checks names and membership,
+  not values: four producers all answering `recover+natural+vital+upright` would pass.
+- `a_genome_built_at_the_layout_width_decodes_to_a_legal_tuple` builds a genome the way the
+  trainer does rather than *being* the trainer, so a trainer that stopped reading
+  `META_OUTPUT_LAYOUT.width` would need a run to catch.
+- `the_quality_archive_stays_a_125_cell_outcome_map_...` pins the cell count; it cannot say
+  whether three outcome measures are the right three.
+- `an_illegal_learned_tuple_is_refused_by_name_...` pins the refusal; it cannot see a *legal*
+  tuple that is tactically absurd, which is what a tournament is for.
+
+The remediation pass's four, same rule:
+
+- `the_teacher_covers_with_the_hand_that_holds_the_better_guard` reads the **label**, not the
+  body. It cannot see that `handActionOption`'s cover branch produces a byte-identical intent
+  either way on a `sword+shield` body -- only `intent.actingHand` differs -- so it would pass
+  just as happily if the executor never used the hand the label names. That is a bout question
+  and is session 23's; it is recorded above rather than tested here.
+- `every_teacher_persistence_is_the_number_beside_the_branch_that_chose_it` pins four constants
+  against four branches. It says nothing about whether any of the four is the **right** number:
+  a persistence window is a feel judgement and no bout here prices one.
+- `the_ppo_trajectory_stores_the_conditionals_it_sampled_under_rather_than_the_whole_table`
+  rebuilds what the update will renormalize over and compares it. It cannot see a mask that is
+  wrong in the *same* way on both sides -- if `recurrentTactic` conditioned on the wrong action,
+  the stored support and the recomputed one would agree and both be wrong. The aim head is the
+  one exception, because `tacticTargets` is checked against the frozen table rather than against
+  the decoder.
+- `every_conditionally_masked_pick_is_a_tuple_the_executor_accepts` now enters every option for
+  real, so it catches a table and a branch coming apart. It still cannot see a tuple the
+  executor *accepts* and then executes badly: `enter` is called and `decide` is not, so nothing
+  here says the pose is any good.
+
+### Two dead imports, still there, and still not this stage's
+
+The sweep of every named import in all `scripts/*.mjs` and `tests/*.mjs`
+(`.review/c2b/imports.mjs`) finds **two**, both present at `3674e06` and neither introduced here:
+`tests/materials.test.mjs` imports `Color3` unused, and `tests/tournament-executor.test.mjs`
+imports `SeededRng` unused. All fifteen scripts are clean, including the five this stage edited.
+They are left alone because deleting an import in a file this stage otherwise did not touch is
+the kind of unrelated diff that makes a review harder, and they are written down so the next
+sweep does not report them as new.
+
+### Twenty-five line anchors re-pointed, and the two spellings that pass missed
+
+Editing five trainers and six `src/learning` modules invalidated 34 `path#Lnnn` endpoints across
+25 anchors in four documents -- `docs/measurements.md`, the plan overview, `-16` and `-19`. Each
+was re-pointed by locating the `3674e06` line's *text* in the current file and refusing any
+target that was not unique (`.review/c2b/repair-anchors.mjs`, 0 refusals). The six unresolved
+anchors are the ones the C2a pass already recorded: they name files that no longer exist.
+
+**That pass keyed only on `path#Lnnn`, and the plan set uses three spellings.** The other two are
+the colon form `` `options.ts:258` `` and a bare continuation `` `:105` `` that carries the
+preceding file name. Swept with `.review/c2b/colon-drift.mjs`, which compares each anchor's
+target line at `HEAD` against the same line now: **24 colon anchors were moved by this stage's
+edits**, across the overview and `-17`. They are repaired here.
+
+Sixteen were re-pointed at the construct their prose names, verified one at a time against the
+current file rather than by trusting an arithmetic offset -- `LOADOUT_ACTIONS`,
+`neatLabeler`, `selectValidationChampion` (twice), the bite skill, the handless `recover`
+branch, `maskedArgmax`'s refusal, `recordIntentAttack`, the `actionArcherAim` call site,
+`handActionOption`'s unknown-action refusal, the `option "<name>" requires` helper,
+`a_synthetic_stale_feature_header_is_refused_before_network_execution`,
+`the_learned_policy_stops_on_the_bout_verdict`, `_engagement`'s non-writable definition,
+`UNLEARNED_PERSISTENCE`, `train-lookahead.mjs`'s empty-cell throw, and the
+`applyActionPosture`/`boundIntent` slot.
+
+**Six were struck instead**, because the construct the prose names does not exist at any line:
+`options.ts`'s `.driving` reads, `meta.ts`'s `learned-meta` name, `learning.test.mjs`'s
+checkpoint read, `deployment.ts`'s inline `persistence: 0.4`, `recurrent-network.ts`'s
+three-head `RecurrentPolicyWeights`, and `ppo.ts`'s literal-2 entropy divisor. Each carries a
+dated supersession in place. **A number pointing at nothing is worse than no number**, because
+re-pointing a knowingly dead anchor makes it read as freshly verified -- which is what the C2a
+note about `meta.ts`'s `featureVersion` check did, in the same hunk that said it was leaving it
+alone. That one is decided above: struck, and the plan sentence that stated it in the present
+tense superseded.
+
+**Two more spellings exist and are not repaired here, written down so the next sweep does not
+rediscover them.** A comma list -- `` `tests/learning.test.mjs:147,151` `` -- which no regex in
+`.review/c2b/` matches, and the bare `` `:NNN` `` continuation, which needs the preceding file
+name resolved to check. And **35 colon anchors this stage did not move are stale anyway**, for
+reasons predating it: `options.ts:190` pointed at a comment at `HEAD` while its prose names
+`actionArcherAim`, and `options.ts:461` pointed at `neutralPosture` while its prose says
+`recordIntentAttack`. Those were repaired where this pass touched the line and left where it did
+not. The durable fix is still the one this file already argues for: write each anchor as a
+Markdown link with a real relative href, at which point `tools/check_docs.js` catches all three
+spellings for free.
+
+### The remediation pass -- 2026-08-25
+
+An adversarial review of stage C2b found no defect in behaviour: `recurrentTactic`'s
+legality-by-construction held over 2,533 tuples on 396 bodies, the PPO gradients passed a
+finite-difference check at worst relative error 2.0e-7, all 30 malformed `DaggerModel`s were
+refused by name, and the look-ahead trace was byte-identical. What it found was **one rule
+defect, four defects in evidence and six in the record**, and every one of the eleven is
+addressed above or below.
+
+The rule defect is the `cover` effector, recorded with the histogram. The evidence defects were
+an untested facing rotation, a PPO training/deployment seam with no guard at all, a
+legality test that compared a mask against itself, and an unpinned `shoot` persistence -- the
+nine N-rows in the mutation table. The record defects were "72 legal tuples" in four places, an
+entropy bound computed over the wrong sets, "48 strata" from a different run than the sentence
+names, 24 drifted colon anchors, a knowingly-dead anchor re-pointed as though verified, and a
+mutation table called 24 rows while carrying 25.
+
+**Two of the review's own claims did not survive measurement**, which is worth recording for the
+same reason every other correction here is:
+
+- It said the widest `deployableTactics` was measured over **396 bodies**. Enumerated here as
+  7 weapon kinds squared x 2 loss flags x 2 loss flags x 2 bite flags = 392, plus the centipede,
+  the count is **393** (`.review/c2b/tuplespace.mjs`). The three derived figures -- widest 21 on
+  `sword+sword+bite`, union 33, union over the thirteen research cells 24 -- reproduce exactly,
+  so either the enumeration differed by three bodies that add no tuple, or the count was
+  approximate; the conclusion is unaffected either way. Recorded because a body count quoted
+  without its enumeration is the kind of number this file has watched go stale.
+- It said `TACTICAL_TEACHER_VERSION` "must move again" for the cover fix. It has not, and the
+  reason is on the constant: `HEAD`'s teacher is version **1**, stage C2b is one uncommitted
+  change, and every label any run outside this working tree has ever produced carries 1.
+  Bumping to 3 would refuse rows no run ever wrote. The review's own second clause -- "keep it a
+  single bump for the whole stage rather than two" -- is the one that decides it.
+
+**What the cover fix cost the null control: nothing.** `npm run measure -- --only
+duelist-swinger --bouts 120`, seed 20260823, re-run after every edit here: duelist 66/120 =
+**55.0 %**, bout length **3.52 s (1.42-8.98)**, damage **176.17**, **10** severs, **1496** and
+**1670** scoring contacts. Identical to C1, C2a and C2b to the digit, which is what it must be:
+the scripted policies never enter the option layer, and `isHeldStriker` replaced
+`isStriking(kind) && kind !== "empty"` in `accepts("cut")` with a predicate that agrees on every
+member of `WeaponKind`.

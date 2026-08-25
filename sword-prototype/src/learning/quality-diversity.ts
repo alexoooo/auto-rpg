@@ -1,5 +1,46 @@
 export const QD_BINS = 5;
 
+/**
+ * What a controller *achieved*, in three numbers, and deliberately not what it
+ * chose.
+ *
+ * **Stage C2b widened the output contract and did not widen this. The decision
+ * stands; one of its two reasons does not, and the correction is worth more than
+ * the conclusion.** The arithmetic reason was written as `125 x 72 = 9,000`
+ * cells against a full-budget run of `populationSize` 128 x `generations` 80 =
+ * **10,240 genome evaluations**, and therefore "fewer than one elite per cell
+ * before a single cell is ever revisited". **The 72 was wrong.** It is
+ * `3 effectors x 4 targets x 6 stances`, the nominal per-action multiplier that
+ * `dagger.ts` uses correctly for "grew about seventy-twofold", and it is not a
+ * count of legal tuples. Measured: `|deployableTactics|` peaks at **21** on any
+ * body at all (`sword+sword+bite`), the union over the whole body space is 33,
+ * and the union over the thirteen research cells -- which is the space an
+ * archive built from `researchMatrix` would actually index -- is **24**. So the
+ * true figure is `125 x 24` = 3,000 cells against 10,240 evaluations, which is
+ * **3.4 evaluations per cell, not 0.9**, and the sentence it was carrying is
+ * simply false.
+ *
+ * Re-taken on the true numbers: 3.4 is thin for MAP-Elites, whose whole
+ * mechanism is competition inside a cell, but "thin" is a tuning objection and
+ * not a refusal. **The arithmetic no longer decides this, and the outcome
+ * argument below is now the only reason.**
+ *
+ * It survives any budget, which is why it is enough on its own: these are
+ * **outcome** measures and the chosen tuple is an input to them.
+ * `opportunityConversion` asks what fraction of the openings a controller took,
+ * not which hand it took them with. Bolting one onto the other changes what the
+ * archive is a map *of*, which is a different experiment rather than a
+ * finer-grained one -- and the thing somebody actually wants from a tuple
+ * dimension, an archive that keeps a controller which fights one-handed beside
+ * one that uses both, is what the **descriptor** would have to be redefined to
+ * measure rather than what a fourth key would give them. A "chosen tuple"
+ * dimension also has to answer which of a bout's hundreds of tuples it means,
+ * and no answer to that is an outcome either.
+ *
+ * `the_quality_archive_stays_a_125_cell_outcome_map_keyed_on_nothing_a_controller_chose`
+ * pins the cell count, so widening it silently is a failure rather than a
+ * decision nobody re-took.
+ */
 export interface QualityDescriptor {
   readonly opportunityConversion: number;
   readonly contactConversion: number;

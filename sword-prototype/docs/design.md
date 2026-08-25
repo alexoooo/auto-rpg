@@ -230,6 +230,46 @@ namable:
   `commit` posture** (0.12 / 0.30 / 0.68 x outboard), so during any committing action the
   six-name stance head offers five distinguishable choices rather than six.
 
+**Stage C2b is where the four trainers started writing and reading all of it**, and three
+decisions in it are worth having here rather than only in a commit message.
+
+The teacher's aim rule **varies only where a bout said varying it works**. `thrust` branches
+three ways because a named region moves its head share 0.09 -> 0.48; `cut` and `punch` take the
+constant `vital` with the measurement written beside them, because a named region on a stroke
+does not point the arc, it drops it; `cover` answers `threat`, the one aim in the table that is
+a moving point; `bite` has one legal region. The effector is **recovered** from the opportunity
+row the teacher already chose for an attack, and for `cover` and `recover` -- which have no row,
+because they are what a fighter does when there is nothing to attack -- it is the hand that
+holds the better guard: a shield or buckler before a sword, axe or club, before a bare hand,
+with hand order as the tie-break. The stance names a side -- `slip-left` away from a threat on
+the local right, the same quantity as the `threat_local_right` feature column, pinned by a test
+that builds the mirrored world at two facings rather than by reading the sign back.
+
+The label histogram from a real run is in `docs/measurements.md`. Two things about it are worth
+carrying here. **Its shares are one bout per cell at one budget with no seed replication**, and
+they move with the budget -- `natural` is 15.7 % at 2400 solver steps and 39.2 % at 9600 -- so a
+share quoted without its budget is a different number. And the effector head **was** a constant
+`primary` for every humanoid decision: the record blamed `RESEARCH_STRATA` for putting no
+striking weapon in the off hand, which is true for `cut` and was not the cause for `cover`. The
+cover rule took the first legal hand, and hands come in a fixed order, so no schedule could have
+changed it. `secondary` is 13.8 % now.
+
+**PPO produces 25 of the 26 outputs, and that is a decision.** It gained effector, target and
+stance heads and did not gain a persistence one: a learned persistence is a *continuous* action
+with a different log-probability in the importance ratio, which is an algorithm change rather
+than a contract change. PPO emits a label rather than a raw 26-vector, so the width contract
+does not bind it; the artifact records `producedOutputs` 25 beside `contractOutputs` 26. Its
+masks are **conditioned in contract order** rather than joint -- effector on the action just
+sampled, aim on the same -- because a factorized policy's update has to be able to rebuild the
+distribution each head was sampled from. NEAT-QD, which writes a raw vector and no
+log-probabilities, takes the joint `selectDeployableTactic` sum instead, on both halves of its
+decoder seam at once.
+
+**The quality-diversity descriptor deliberately did not follow the widening.** Three outcome
+measures at five bins is 125 cells; adding the chosen tuple would make it 9,000-10,500 against
+10,240 genome evaluations at full budget, which is fewer than one elite per cell and stops it
+being an archive. It is also an *outcome* descriptor and the tuple is an input to it.
+
 The natural channel arrived with them, and it is the same argument one level down. A centipede
 publishes `hands` as a frozen empty object and was driven entirely through
 `Intent.primary.thrust` and `Intent.primary.guard` -- a hand slot it does not have was its

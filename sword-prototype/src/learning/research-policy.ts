@@ -1,9 +1,11 @@
 import { freshIntent } from "../action-primitives.ts";
 import type { FighterView, Intent, Mind } from "../mind.ts";
-import { HAND_ACTION_NAMES, MOVEMENT_NAMES, asMeasured, chooseEffector, composeTactic, handActionOption, movementIntent,
-  type CombatOption, type HandActionName, type MovementName } from "../options.ts";
+import { HAND_ACTION_NAMES, MOVEMENT_NAMES, composeTactic, handActionOption, movementIntent,
+  type CombatOption, type EffectorName, type HandActionName, type MovementName, type StanceName,
+  type TacticAim } from "../options.ts";
 import { FeatureWriter } from "./features.ts";
-import { MAX_PERSISTENCE, MIN_PERSISTENCE, deployableActions, metaDiagnosticSnapshot, type MetaDiagnostic } from "./meta.ts";
+import { MAX_PERSISTENCE, MIN_PERSISTENCE, deployableActions, metaDiagnosticSnapshot,
+  type MetaDiagnostic } from "./meta.ts";
 import type { DaggerLabel } from "./dagger.ts";
 
 export type ResearchLabeler = (view: FighterView, features: readonly number[]) => DaggerLabel;
@@ -53,14 +55,38 @@ export function researchLabelMind(name: string, labeler: ResearchLabeler,
           throw new Error(`research policy produced unsupported action "${label.action}" for unit "${view.self.unit}"`);
         }
         movement = label.movement as MovementName; action = label.action as HandActionName;
-        // Effector, target and stance are named here rather than defaulted
-        // inside the option, and in Stage B they are named as "whatever the
-        // hand search would have found, at the aim the record was taken at":
-        // a research labeler still produces three fields, not six. The seam is
-        // ready for the other three the moment `DaggerLabel` carries them.
-        const effector = chooseEffector(view, action);
-        if (effector === null) throw new Error(`research policy produced unsupported action "${action}" for unit "${view.self.unit}"`);
-        option = handActionOption(action, asMeasured(effector)); option.enter(view); writer.setTactic(movement, action, view.clock);
+        // **The whole tuple, executed or refused -- and there is deliberately no
+        // second copy of the legality rule here.** Stage B named the other three
+        // fields at this line as "whatever the hand search would have found, at
+        // the aim the record was taken at" -- `asMeasured(chooseEffector(...))`.
+        // A labeler produces six fields now, and `chooseEffector` searching
+        // `[preferred, other]` under a label that already named a hand would be
+        // exactly the silent redirection tactic v2 exists to remove.
+        //
+        // The action check above stays because `deployableActions` is *stricter*
+        // than the executor -- it refuses `cover` on a handless body and refuses
+        // everything on a body with no capability at all -- so there is something
+        // it says that nothing below repeats. The tuple check is not like that:
+        // `handActionOption` refuses an unknown effector, target or stance at
+        // construction and an illegal `(action, effector, target)` at `enter`,
+        // through `unsupportedTactic`, which is the same `tacticEffectors` and
+        // `AIMED_TARGETS` that `deployableTactics` is built from. A pre-check
+        // here would be that rule spelled twice, with the two copies free to
+        // drift -- which is what `deployableActions`' own note records happening
+        // seven times. It also refuses more usefully: `a punch target of vital,
+        // high, not "low"` names the part that was wrong.
+        //
+        // `TacticAim` rather than `TargetName`, and that is what keeps stage
+        // C2c's look-ahead unwidened: `"as-measured"` is deliberately outside
+        // `TARGET_NAMES`, so no learned output can name it and
+        // `deployableTactics` has no row for it -- but `collectTacticalTrace` in
+        // `scripts/train-lookahead.mjs` names it explicitly, because a
+        // look-ahead model is keyed on `(movement, action)` and has no aim head
+        // to read. Refusing it here would have moved every look-ahead trace off
+        // the line all of its figures were taken at.
+        option = handActionOption(action, { effector: label.effector as EffectorName,
+          target: label.target as TacticAim, stance: label.stance as StanceName });
+        option.enter(view); writer.setTactic(movement, action, view.clock);
         persistenceSeconds = Math.max(MIN_PERSISTENCE, Math.min(MAX_PERSISTENCE, label.persistence));
         nextDecision = view.clock + persistenceSeconds;
         onDecision?.(view, features, label);

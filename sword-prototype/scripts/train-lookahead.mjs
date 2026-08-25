@@ -8,7 +8,7 @@ import { researchMatrix } from "../src/learning/research-matrix.ts";
 import { researchLabelMind } from "../src/learning/research-policy.ts";
 import { deployableActions } from "../src/learning/meta.ts";
 import { RESEARCH_ARTIFACT_CONTRACT } from "../src/learning/deployment.ts";
-import { HAND_ACTION_NAMES, MOVEMENT_NAMES } from "../src/options.ts";
+import { asMeasured, chooseEffector, HAND_ACTION_NAMES, MOVEMENT_NAMES } from "../src/options.ts";
 import { runResearchBout } from "./research-havok.mjs";
 
 const wrapAngle = (value) => { while (value > Math.PI) value -= Math.PI * 2; while (value < -Math.PI) value += Math.PI * 2; return value; };
@@ -36,7 +36,18 @@ export async function collectTacticalTrace({ seed, solverSteps, split = "train",
     if (forcedPair && !supported.includes(forcedPair.action)) throw new Error(`lookahead schedule chose unsupported ${job.unit}/${job.loadout} tactic ${forcedPair.movement}+${forcedPair.action}`);
     const action = forcedPair?.action ?? supported[decision % supported.length];
     const movement = forcedPair?.movement ?? MOVEMENT_NAMES[decision % MOVEMENT_NAMES.length]; decision += 1; selected = { movement, action };
-    return { movement, action, persistence: 0.4 };
+    // **The one line stage C2c owes the widened label, and it is deliberately
+    // the stage-B execution written out rather than a new decision.**
+    // `researchLabelMind` used to default these three -- `asMeasured(chooseEffector(view, action))`,
+    // inside the seam -- and a labeler that produces six fields is what took the
+    // default away. Naming exactly what the default was keeps every look-ahead
+    // trace on the aim its calibration was measured at: `"as-measured"` is the
+    // opponent's shoulder line, is deliberately outside `TARGET_NAMES`, and is
+    // the only aim a model keyed on `(movement, action)` alone can honestly
+    // claim. `lookaheadMind` already spells the same tuple at its own call site.
+    const effector = chooseEffector(view, action);
+    if (effector === null) throw new Error(`lookahead trace cannot perform "${action}" on ${job.unit}/${job.loadout}`);
+    return { movement, action, ...asMeasured(effector), persistence: 0.4 };
   });
   const raw = []; let samples = 0; let contacted = false;
   const result = await runResearchBout({ ...job, index: jobIndex }, () => mind, solverSteps, null, {

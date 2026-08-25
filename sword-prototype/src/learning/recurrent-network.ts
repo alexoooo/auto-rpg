@@ -1,3 +1,5 @@
+import { EFFECTOR_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, STANCE_NAMES, TARGET_NAMES } from "../options.ts";
+
 export const GRU_UNITS = 32;
 
 export interface DenseLayer {
@@ -7,25 +9,46 @@ export interface DenseLayer {
   readonly bias: readonly number[];
 }
 
-export interface RecurrentPolicyWeights {
+/**
+ * The five categorical heads and the row count each one owes the runtime.
+ *
+ * Written as a table rather than as five arguments because `finiteLayer` used to
+ * be handed `weights.movement.rows` as the row count it was checking
+ * `weights.movement` against, which is a check that cannot fail: a head of any
+ * size validated against its own size. The value head one line below passed a
+ * literal `1` and was the only one that meant anything. So a PPO artifact with a
+ * six-row action head over a seven-name table decoded, deployed, and answered
+ * whatever `dense` produced for the six rows it had -- with `HAND_ACTION_NAMES[6]`
+ * unreachable. `tests/ppo.test.mjs`'s own fixture was that artifact, and had been
+ * since the file was written.
+ */
+const HEAD_ROWS = Object.freeze([
+  ["movement", MOVEMENT_NAMES.length], ["action", HAND_ACTION_NAMES.length], ["effector", EFFECTOR_NAMES.length],
+  ["target", TARGET_NAMES.length], ["stance", STANCE_NAMES.length],
+] as const);
+export type RecurrentHeadName = typeof HEAD_ROWS[number][0];
+
+export interface RecurrentPolicyWeights extends Readonly<Record<RecurrentHeadName, DenseLayer>> {
   readonly inputSize: number;
   readonly units: number;
   readonly update: DenseLayer;
   readonly reset: DenseLayer;
   readonly candidate: DenseLayer;
-  readonly movement: DenseLayer;
-  readonly action: DenseLayer;
   readonly value: DenseLayer;
 }
 
 export interface RecurrentStep {
   readonly movementLogits: readonly number[];
   readonly actionLogits: readonly number[];
+  readonly effectorLogits: readonly number[];
+  readonly targetLogits: readonly number[];
+  readonly stanceLogits: readonly number[];
   readonly value: number;
   readonly hidden: readonly number[];
 }
 
-const finiteLayer = (layer: DenseLayer, rows: number, columns: number, label: string): void => {
+const finiteLayer = (layer: DenseLayer | undefined, rows: number, columns: number, label: string): void => {
+  if (!layer) throw new Error(`${label} layer must be a finite ${rows}x${columns} matrix with ${rows} biases`);
   if (layer.rows !== rows || layer.columns !== columns || layer.weights.length !== rows * columns || layer.bias.length !== rows ||
       layer.weights.some((value) => !Number.isFinite(value)) || layer.bias.some((value) => !Number.isFinite(value))) {
     throw new Error(`${label} layer must be a finite ${rows}x${columns} matrix with ${rows} biases`);
@@ -86,8 +109,7 @@ export class RecurrentPolicy {
     finiteLayer(weights.update, weights.units, combined, "GRU update");
     finiteLayer(weights.reset, weights.units, combined, "GRU reset");
     finiteLayer(weights.candidate, weights.units, combined, "GRU candidate");
-    finiteLayer(weights.movement, weights.movement.rows, weights.units, "movement head");
-    finiteLayer(weights.action, weights.action.rows, weights.units, "action head");
+    for (const [name, rows] of HEAD_ROWS) finiteLayer(weights[name], rows, weights.units, `${name} head`);
     finiteLayer(weights.value, 1, weights.units, "value head");
     this.weights = weights; this.state = Array(weights.units).fill(0);
   }
@@ -104,6 +126,9 @@ export class RecurrentPolicy {
       (update[index] as number) * (candidate[index] as number));
     return Object.freeze({ movementLogits: Object.freeze(dense(this.weights.movement, this.state)),
       actionLogits: Object.freeze(dense(this.weights.action, this.state)),
+      effectorLogits: Object.freeze(dense(this.weights.effector, this.state)),
+      targetLogits: Object.freeze(dense(this.weights.target, this.state)),
+      stanceLogits: Object.freeze(dense(this.weights.stance, this.state)),
       value: dense(this.weights.value, this.state)[0] as number, hidden: Object.freeze([...this.state]) });
   }
   snapshot(): readonly number[] { return Object.freeze([...this.state]); }

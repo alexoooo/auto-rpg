@@ -17,9 +17,13 @@ import { researchLabelMind } from "../src/learning/research-policy.ts";
 import { EFFECTOR_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, STANCE_NAMES, TARGET_NAMES, behaviourRecord,
   scriptedMetaMind, tacticEffectors } from "../src/options.ts";
 import { STRIKER_KINDS, WEAPON_KINDS } from "../src/hands.ts";
+import { trainDaggerModel } from "../src/learning/dagger.ts";
+import { GRU_UNITS } from "../src/learning/recurrent-network.ts";
+import { TACTICAL_TEACHER_VERSION, tacticalTeacher } from "../src/learning/tactical-teacher.ts";
 import { partitionIndexed, restoreIndexed } from "../src/learning/jobs.ts";
 import { Network } from "../src/learning/network.ts";
 import { SeededRng } from "../src/learning/rng.ts";
+import { probeLabel, RESEARCH_LABEL_FIELDS } from "./fixtures/label.mjs";
 import { assertCompleteView } from "./fixtures/view.mjs";
 
 const digest = (value) => JSON.stringify(value);
@@ -175,7 +179,7 @@ test("a_learned_policy_can_repeat_one_completed_option_and_goes_inert_after_last
   const view = assertCompleteView({ self: body(), opponent: body(), projectiles: [], measure: 1.2, clock: 0 });
   view.opponent.ground.z = 1.4;
   let labelled = 0;
-  const mind = researchLabelMind("neat-qd", () => { labelled += 1; return { movement: "hold", action: "cut", persistence: 0.10 }; });
+  const mind = researchLabelMind("neat-qd", (view) => { labelled += 1; return probeLabel(view, "hold", "cut", 0.10); });
   let fallingEdges = 0; let guarded = true;
   // The tactic pair is sampled every frame, not read once at the end. The line
   // this replaced asserted `selectedAction === "cut"` against a stub that
@@ -376,9 +380,14 @@ test("the_training_decoder_and_the_deployment_decoder_answer_the_same_label", ()
   const actionLogits = [0.1, 0.2, 0.3, 0.9, 0.4, 0.5, 0.05];
   const effectorLogits = [1.00, 0.10, 0];
   const targetLogits = [0.20, 0.30, 1.00, 0];
+  // Non-zero, and `compact` on top, so a decoder that dropped the stance head or
+  // took its argmax over the wrong slice answers `action-default` and fails --
+  // the same trap the effector and target blocks were written as zeros into.
+  const stanceLogits = [0.1, 0.2, 0.9, 0.3, 0.4, 0.5];
   assert.deepEqual(HAND_ACTION_NAMES, ["cover", "cut", "thrust", "punch", "shoot", "bite", "recover"]);
+  assert.deepEqual(STANCE_NAMES[2], "compact");
   const outputs = outputVector({ movement: movementLogits, action: actionLogits,
-    effector: effectorLogits, target: targetLogits, persistence: 0.5 });
+    effector: effectorLogits, target: targetLogits, stance: stanceLogits, persistence: 0.5 });
   const genome = constantGenome(outputs);
   const bytes = new ResearchArtifact({ algorithm: "neat-qd", ...RESEARCH_ARTIFACT_CONTRACT,
     payload: [...new TextEncoder().encode(canonicalJson(genome))],
@@ -398,31 +407,44 @@ test("the_training_decoder_and_the_deployment_decoder_answer_the_same_label", ()
     mind.decide(view, 1 / 240);
   }
   // Both tables whole, against a third written out by hand -- so the two
-  // agreeing on a wrong answer is still a failure. `persistence` is the trailing
+  // agreeing on a wrong answer is still a failure. All six fields of every
+  // label, because a parity check on three of them is a parity check that a
+  // one-sided move in the other three survives. `persistence` is the trailing
   // scalar decoded, which is the read that used to be spelled `.at(-1)`; the
   // last digit of it is the 0.35 literal `decodeMetaPersistence` argues for,
   // written out rather than rounded away.
-  const expected = Object.fromEntries(Object.entries({ "sword+empty": "punch", "sword+shield": "thrust",
-    "sword+buckler": "thrust", "axe+empty": "punch", "bow+empty": "shoot", "empty+empty": "punch",
-    "natural:bite": "bite" }).map(([loadout, action]) => [loadout, { movement: "hold", action, persistence: 0.6249999999999999 }]));
+  const expected = Object.fromEntries(Object.entries({
+    "sword+empty": ["thrust", "primary", "low"], "sword+shield": ["thrust", "primary", "low"],
+    "sword+buckler": ["thrust", "primary", "low"], "axe+empty": ["cut", "primary", "low"],
+    "bow+empty": ["shoot", "primary", "low"], "empty+empty": ["punch", "primary", "high"],
+    "natural:bite": ["bite", "natural", "vital"],
+  }).map(([loadout, [action, effector, target]]) => [loadout, { movement: "hold", action, effector, target,
+    stance: "compact", persistence: 0.6249999999999999 }]));
   assert.deepEqual(deployed, expected);
   assert.deepEqual(rollout, expected);
   // And the answers are legal on the body that produced them, asked of the mask
-  // itself rather than of either decoder.
-  for (const [loadout, view] of Object.entries(views)) assert.ok(deployableActions(view).has(expected[loadout].action), loadout);
+  // itself rather than of either decoder -- the whole tuple, not just the action.
+  for (const [loadout, view] of Object.entries(views)) {
+    const row = expected[loadout];
+    assert.ok(deployableActions(view).has(row.action), loadout);
+    assert.ok(deployableTactics(view).some((tuple) => tuple.action === row.action &&
+      tuple.effector === row.effector && tuple.target === row.target), `${loadout}: ${row.action}+${row.effector}+${row.target}`);
+  }
 
-  // The fixture can exhibit the defect it exists for, stated as numbers rather
-  // than assumed. On `sword+empty` these same twenty-six values give the joint
-  // tuple rule `thrust+primary+low` -- 0.30 + 1.00 + 1.00 = 2.30 against
-  // `punch+secondary+high`'s 0.90 + 0.10 + 0.30 -- while the bare action argmax
-  // answers `punch`. Two of the seven loadouts diverge; one is enough, and the
-  // whole table is written out so that a change which quietly reduces it to zero
-  // is a failure rather than a silently weaker test.
-  const joint = Object.fromEntries(Object.entries(views).map(([loadout, view]) =>
-    [loadout, selectDeployableTactic(view, readMetaOutput(outputs)).action]));
-  assert.deepEqual(joint, { "sword+empty": "thrust", "sword+shield": "thrust", "sword+buckler": "thrust",
-    "axe+empty": "cut", "bow+empty": "shoot", "empty+empty": "punch", "natural:bite": "bite" });
-  assert.deepEqual(Object.keys(joint).filter((loadout) => joint[loadout] !== expected[loadout].action),
+  // **The fixture can exhibit the defect it exists for, stated as numbers.** Both
+  // decoders take the joint tuple now, so what the fixture has to be able to see
+  // is a decoder that reverted to the bare action argmax `neatLabeler` used to
+  // hold. On `sword+empty` these same twenty-six values give the joint rule
+  // `thrust+primary+low` -- 0.30 + 1.00 + 1.00 = 2.30 against
+  // `punch+secondary+high`'s 0.90 + 0.10 + 0.30 -- while a bare argmax over the
+  // action block answers `punch`. Two of the seven loadouts diverge; one is
+  // enough, and the whole table is written out so that a change which quietly
+  // reduces it to zero is a failure rather than a silently weaker test.
+  const bare = Object.fromEntries(Object.entries(views).map(([loadout, view]) =>
+    [loadout, HAND_ACTION_NAMES[maskedArgmax(actionLogits, supportedActionIndices(view), "action")]]));
+  assert.deepEqual(bare, { "sword+empty": "punch", "sword+shield": "thrust", "sword+buckler": "thrust",
+    "axe+empty": "punch", "bow+empty": "shoot", "empty+empty": "punch", "natural:bite": "bite" });
+  assert.deepEqual(Object.keys(bare).filter((loadout) => bare[loadout] !== expected[loadout].action),
     ["sword+empty", "axe+empty"]);
 });
 
@@ -447,7 +469,8 @@ test("a_logit_tie_is_broken_by_table_order_in_both_decoders", () => {
   const mind = deployedResearchMind(decodeResearchArtifact(bytes), "warrior/sword+empty",
     (_view, features, label) => { deployed = { ...label }; rollout = { ...neatLabeler(genome)(view, features) }; });
   mind.decide(view, 1 / 240);
-  const expected = { movement: "hold", action: "cover", persistence: 0.6249999999999999 };
+  const expected = { movement: "hold", action: "cover", effector: "primary", target: "vital",
+    stance: "action-default", persistence: 0.6249999999999999 };
   assert.deepEqual(deployed, expected); assert.deepEqual(rollout, expected);
 });
 
@@ -494,8 +517,8 @@ test("a_non_finite_learned_output_is_refused_by_name_before_it_deletes_the_persi
   // window stops existing -- the controller still re-decides when a skill
   // finishes, so it is a silent change of algorithm rather than a freeze.
   const drive = (persistenceSeconds) => { const view = learningView("sword", "empty"); let decisions = 0;
-    const stalled = researchLabelMind("stall", () => { decisions += 1;
-      return { movement: "hold", action: "cover", persistence: persistenceSeconds }; });
+    const stalled = researchLabelMind("stall", (probed) => { decisions += 1;
+      return probeLabel(probed, "hold", "cover", persistenceSeconds); });
     for (let frame = 0; frame < 240; frame += 1) { view.clock = frame / 60; stalled.decide(view, 1 / 60); }
     return { decisions, persistenceSeconds: stalled.diagnostic().persistenceSeconds,
       windowIsFinite: Number.isFinite(stalled.diagnostic().persistenceRemaining) }; };
@@ -505,7 +528,7 @@ test("a_non_finite_learned_output_is_refused_by_name_before_it_deletes_the_persi
 
 test("diagnostics_report_the_decision_without_changing_it", () => {
   let labelled = 0;
-  const mind = researchLabelMind("neat-qd", () => { labelled += 1; return { movement: "close", action: "cut", persistence: 0.4 }; });
+  const mind = researchLabelMind("neat-qd", (probed) => { labelled += 1; return probeLabel(probed, "close", "cut"); });
   const view = learningView();
   mind.decide(view, 1 / 240); const before = labelled;
   const first = mind.diagnostic(); const second = mind.diagnostic();
@@ -523,8 +546,8 @@ test("diagnostics_report_the_decision_without_changing_it", () => {
 test("a_diagnostic_reports_the_active_persistence_window_rather_than_a_fresh_one", () => {
   const view = learningView(); view.opponent.ground.z = 0.8; view.opponent.shoulder.z = 0.8; view.measure = 0.6;
   let labelled = 0;
-  const mind = researchLabelMind("dagger", () => { labelled += 1;
-    return { movement: "hold", action: "cover", persistence: labelled === 1 ? 0.80 : 0.10 }; });
+  const mind = researchLabelMind("dagger", (probed) => { labelled += 1;
+    return probeLabel(probed, "hold", "cover", labelled === 1 ? 0.80 : 0.10); });
   mind.decide(view, 1 / 240);
   assert.equal(labelled, 1); assert.equal(mind.diagnostic().persistenceSeconds, 0.80);
   view.clock = 0.05; mind.decide(view, 1 / 240);
@@ -549,7 +572,7 @@ test("a_learned_action_the_loadout_cannot_perform_is_masked_and_then_refused_by_
   // Below the mask the seam refuses rather than substituting. That direction is
   // the one worth pinning: a masked choice is still a decision, while an
   // unmasked one arriving at execution would be an option the body cannot do.
-  const mind = researchLabelMind("neat-qd", () => ({ movement: "hold", action: "shoot", persistence: 0.10 }));
+  const mind = researchLabelMind("neat-qd", (probed) => ({ ...probeLabel(probed, "hold", "cut", 0.10), action: "shoot" }));
   assert.throws(() => mind.decide(view, 1 / 240), /research policy produced unsupported action "shoot"/);
 });
 
@@ -583,7 +606,7 @@ test("the_learned_tuple_is_the_best_legal_sum_of_action_effector_and_target_logi
   // rule keeps the effector and the target the network was most sure of and
   // drops the action, which is a trade no per-head repair can make.
   assert.deepEqual({ ...selectDeployableTactic(view, readMetaOutput(outputVector({ action, effector, target }))) },
-    { action: "cut", effector: "primary", target: "low" });
+    { action: "cut", effector: "primary", target: "low", stance: "action-default" });
 
   // And the trade goes the other way when the action head is sure enough:
   // `punch+secondary+high` at 3.40 beats `cut+primary+low` at 2.30. A rule that
@@ -591,7 +614,7 @@ test("the_learned_tuple_is_the_best_legal_sum_of_action_effector_and_target_logi
   // effector, would answer one of these two and be wrong about the other.
   const insistent = [0, 0.30, 0.20, 3.00, 0, 0, 0];
   assert.deepEqual({ ...selectDeployableTactic(view, readMetaOutput(outputVector({ action: insistent, effector, target }))) },
-    { action: "punch", effector: "secondary", target: "high" });
+    { action: "punch", effector: "secondary", target: "high", stance: "action-default" });
 
   // **The effector term, on a body where it decides something.** Everything
   // above runs on `sword+empty`, where every action that can win has exactly one
@@ -614,7 +637,7 @@ test("the_learned_tuple_is_the_best_legal_sum_of_action_effector_and_target_logi
   const handed = readMetaOutput(outputVector({ action: [0, 1.00, 0, 0, 0, 0, 0], effector: [0, 1.00, 0],
     target: [0, 0.50, 0, 0] }));
   assert.deepEqual({ ...selectDeployableTactic(mixed, handed) },
-    { action: "cut", effector: "secondary", target: "high" });
+    { action: "cut", effector: "secondary", target: "high", stance: "action-default" });
   // Both counterfactuals as literals, because "the effector head decided this"
   // is only checkable against what the answer would be without it. Zeroing the
   // effector term ties the two hands and the tie-break takes `primary`; zeroing
@@ -622,10 +645,20 @@ test("the_learned_tuple_is_the_best_legal_sum_of_action_effector_and_target_logi
   // two mutations this case was watched failing under.
   assert.deepEqual({ ...selectDeployableTactic(mixed,
     readMetaOutput(outputVector({ action: [0, 1.00, 0, 0, 0, 0, 0], target: [0, 0.50, 0, 0] }))) },
-  { action: "cut", effector: "primary", target: "high" });
+  { action: "cut", effector: "primary", target: "high", stance: "action-default" });
   assert.deepEqual({ ...selectDeployableTactic(mixed,
     readMetaOutput(outputVector({ action: [0, 1.00, 0, 0, 0, 0, 0], effector: [0, 1.00, 0] }))) },
-  { action: "cut", effector: "secondary", target: "vital" });
+  { action: "cut", effector: "secondary", target: "vital", stance: "action-default" });
+  // **The stance term joins none of that, and this is the case that says so.**
+  // A stance logit large enough to dominate every other head changes the stance
+  // and *only* the stance: if it were summed into the tuple comparison it would
+  // change nothing on its own (it is constant across tuples), but a rule that
+  // masked the stance by action -- the obvious next mistake -- would answer
+  // `action-default` here.
+  assert.deepEqual({ ...selectDeployableTactic(mixed, readMetaOutput(outputVector({
+    action: [0, 1.00, 0, 0, 0, 0, 0], effector: [0, 1.00, 0], target: [0, 0.50, 0, 0],
+    stance: [0, 0, 0, 0, 9, 0] }))) },
+  { action: "cut", effector: "secondary", target: "high", stance: "slip-left" });
 });
 
 test("a_tied_legal_tuple_is_broken_by_action_then_effector_then_target_index", () => {
@@ -634,7 +667,8 @@ test("a_tied_legal_tuple_is_broken_by_action_then_effector_then_target_index", (
   // biases and `initialSparseGenome` seeds those at zero, so on the first
   // generation of every NEAT run *every* legal tuple ties.
   const tied = readMetaOutput(outputVector());
-  assert.deepEqual({ ...selectDeployableTactic(view, tied) }, { action: "cover", effector: "primary", target: "vital" });
+  assert.deepEqual({ ...selectDeployableTactic(view, tied) },
+    { action: "cover", effector: "primary", target: "vital", stance: "action-default" });
   // The discriminating half, and the reason the rule walks the index spaces
   // rather than scanning `deployableTactics`. `tacticTargets("cover")` is
   // `["threat", "vital"]` -- table indices 3 then 0 -- so the enumeration order
@@ -646,13 +680,13 @@ test("a_tied_legal_tuple_is_broken_by_action_then_effector_then_target_index", (
   // `cover` would still fail. `recover` shares the defensive target row.
   const recovering = readMetaOutput(outputVector({ action: [0, 0, 0, 0, 0, 0, 1] }));
   assert.deepEqual({ ...selectDeployableTactic(view, recovering) },
-    { action: "recover", effector: "primary", target: "vital" });
+    { action: "recover", effector: "primary", target: "vital", stance: "action-default" });
 
   // Effector is the middle key and needs its own case: tie the two hands on an
   // action both can perform and the lower index wins, without the target moving.
   const covering = readMetaOutput(outputVector({ action: [1, 0, 0, 0, 0, 0, 0], effector: [0.5, 0.5, 0] }));
   assert.deepEqual({ ...selectDeployableTactic(view, covering) },
-    { action: "cover", effector: "primary", target: "vital" });
+    { action: "cover", effector: "primary", target: "vital", stance: "action-default" });
 });
 
 test("a_body_that_can_still_fight_always_has_a_legal_tuple_and_one_that_cannot_is_refused_by_name", () => {
@@ -666,7 +700,7 @@ test("a_body_that_can_still_fight_always_has_a_legal_tuple_and_one_that_cannot_i
     { action: "recover", effector: "natural", target: "vital" },
   ]);
   assert.deepEqual({ ...selectDeployableTactic(jaws, readMetaOutput(outputVector())) },
-    { action: "bite", effector: "natural", target: "vital" });
+    { action: "bite", effector: "natural", target: "vital", stance: "action-default" });
 
   // A warrior that has lost both hands, and this is the half the plan for this
   // stage had backwards. The *executor's* rule is capability-neutral -- `recover`
@@ -693,7 +727,7 @@ test("a_body_that_can_still_fight_always_has_a_legal_tuple_and_one_that_cannot_i
 test("the_factorized_policy_uses_a_published_natural_bite_without_fabricated_hands", () => {
   const v = learningView(); v.self.hands = {}; v.self.naturalAttacks = { bite: { reach: 0.7, ready: true, active: false } };
   v.self.collisionRadius = 0.2; v.opponent.collisionRadius = 0.3; v.measure = 0.8;
-  const mind = researchLabelMind("neat-qd", () => ({ movement: "hold", action: "bite", persistence: 0.10 }));
+  const mind = researchLabelMind("neat-qd", (probed) => probeLabel(probed, "hold", "bite", 0.10));
   const intent = mind.decide(v, 1 / 240);
   // The natural channel, and the primary hand left alone. This asserted
   // `intent.primary.thrust` -- the alias itself, on a body whose `hands` is an
@@ -703,4 +737,98 @@ test("the_factorized_policy_uses_a_published_natural_bite_without_fabricated_han
   assert.equal(intent.natural.thrust, true); assert.equal(intent.primary.thrust, false);
   assert.equal(intent.actingHand, null, "jaws are not a hand");
   assert.equal(intent.forward, 0);
+});
+
+const HEAD_TABLES = { movement: MOVEMENT_NAMES, action: HAND_ACTION_NAMES, effector: EFFECTOR_NAMES,
+  target: TARGET_NAMES, stance: STANCE_NAMES };
+const sealed = (algorithm, model) => decodeResearchArtifact(new ResearchArtifact({ algorithm, ...RESEARCH_ARTIFACT_CONTRACT,
+  payload: [...new TextEncoder().encode(canonicalJson(model))],
+  provenance: { seed: 7, solverSteps: 4, trainingSplit: "train", validationSplit: "validation", configDigest: "synthetic" },
+}, RESEARCH_ARTIFACT_CONTRACT).toBytes());
+
+/**
+ * Every producer of a research label writes the same six field names, checked
+ * against the one list rather than against each other.
+ *
+ * The same construct as `COMBAT_FIELDS`, and it exists because the same defect
+ * happened one level up: `DaggerLabel` widened, and the four things that build
+ * one -- the teacher, a trained DAgger model, the NEAT decoder and the PPO
+ * decoder -- are in four files with no shared declaration between them. Three of
+ * the four go through `deployedResearchMind` here rather than being called
+ * directly, because that is the seam a tournament actually runs, and a label
+ * that is right in the decoder and wrong at the seam is the failure this cannot
+ * be allowed to miss.
+ */
+test("every_producer_of_a_research_label_writes_the_same_six_fields", () => {
+  const view = learningView("sword", "empty");
+  const seen = {};
+  seen.teacher = tacticalTeacher(view);
+
+  const daggerRow = (action, step) => ({ featureVersion: FEATURE_VERSION, features: FEATURE_COLUMNS.map((_, index) => index / 200),
+    label: { movement: "hold", action, effector: "primary", target: "vital", stance: "action-default", persistence: 0.4 },
+    unitCell: "warrior/sword+empty", sourceSeed: 1, sourceStep: step, iteration: 0, teacherVersion: TACTICAL_TEACHER_VERSION });
+  const model = trainDaggerModel([daggerRow("cover", 0), daggerRow("cut", 1)], FEATURE_COLUMNS.length,
+    HEAD_TABLES, TACTICAL_TEACHER_VERSION, 2, 0.01, 5, 4);
+
+  const layer = (rows, columns) => ({ rows, columns, weights: Array(rows * columns).fill(0), bias: Array(rows).fill(0) });
+  const ppo = { weights: { inputSize: FEATURE_COLUMNS.length, units: GRU_UNITS,
+    update: layer(GRU_UNITS, FEATURE_COLUMNS.length + GRU_UNITS), reset: layer(GRU_UNITS, FEATURE_COLUMNS.length + GRU_UNITS),
+    candidate: layer(GRU_UNITS, FEATURE_COLUMNS.length + GRU_UNITS),
+    ...Object.fromEntries(Object.entries(HEAD_TABLES).map(([name, table]) => [name, layer(table.length, GRU_UNITS)])),
+    value: layer(1, GRU_UNITS) } };
+
+  for (const [algorithm, payload] of [["dagger", model], ["ppo", ppo],
+    ["neat-qd", constantGenome(outputVector({ action: [0, 1, 0, 0, 0, 0, 0], persistence: 0.2 }))]]) {
+    const mind = deployedResearchMind(sealed(algorithm, payload), "warrior/sword+empty",
+      (_view, _features, label) => { seen[algorithm] = { ...label }; });
+    mind.decide(learningView("sword", "empty"), 1 / 240);
+  }
+  assert.deepEqual(Object.keys(seen).sort(), ["dagger", "neat-qd", "ppo", "teacher"],
+    "every producer was actually reached");
+  for (const [name, label] of Object.entries(seen)) {
+    assert.deepEqual(Object.keys(label).sort(), [...RESEARCH_LABEL_FIELDS], name);
+    assert.ok(MOVEMENT_NAMES.includes(label.movement), `${name} movement ${label.movement}`);
+    assert.ok(HAND_ACTION_NAMES.includes(label.action), `${name} action ${label.action}`);
+    assert.ok(EFFECTOR_NAMES.includes(label.effector), `${name} effector ${label.effector}`);
+    assert.ok(TARGET_NAMES.includes(label.target), `${name} target ${label.target}`);
+    assert.ok(STANCE_NAMES.includes(label.stance), `${name} stance ${label.stance}`);
+    assert.ok(Number.isFinite(label.persistence), `${name} persistence ${label.persistence}`);
+  }
+  // PPO produces 25 of the 26 outputs: its persistence is the shared constant
+  // rather than a head, which is recorded here as a number so a session that
+  // adds the sixth head has to come and delete this line.
+  assert.equal(seen.ppo.persistence, 0.4);
+});
+
+/**
+ * A tuple no body can perform is refused by name, and by exactly one rule.
+ *
+ * `researchLabelMind` refuses an *action* outside `deployableActions`, because
+ * that mask is stricter than the executor. It deliberately does **not** re-check
+ * the tuple: `handActionOption` refuses an unknown effector, target or stance at
+ * construction and an illegal triple at `enter`, through the same
+ * `tacticEffectors` and `AIMED_TARGETS` that `deployableTactics` is built from.
+ * A second copy at the seam is how `deployableActions`' own note records seven
+ * copies of one legality rule drifting apart.
+ *
+ * This is the shape a DAgger model can produce and the two masked decoders
+ * cannot: `predictDagger` argmaxes each head over its whole table with no mask
+ * at all, so a model that has learned `punch` and `low` from different rows can
+ * name a triple no body has.
+ */
+test("an_illegal_learned_tuple_is_refused_by_name_and_never_repaired", () => {
+  const view = learningView("sword", "empty");
+  assert.equal(deployableTactics(view).some((row) => row.action === "punch" && row.target === "low"), false);
+  const illegalAim = researchLabelMind("dagger", (probed) => ({ ...probeLabel(probed, "hold", "punch"), target: "low" }));
+  assert.throws(() => illegalAim.decide(view, 1 / 240), /option "punch" requires a punch target of vital, high, not "low"/);
+  // The other third of the triple, on the same body: the sword hand cannot punch.
+  const illegalHand = researchLabelMind("dagger", (probed) => ({ ...probeLabel(probed, "hold", "punch"), effector: "primary" }));
+  assert.throws(() => illegalHand.decide(view, 1 / 240), /option "punch" requires an empty primary hand/);
+  // And a stance outside the table, which the option refuses at construction.
+  const unknownStance = researchLabelMind("dagger", (probed) => ({ ...probeLabel(probed, "hold", "cover"), stance: "crouch" }));
+  assert.throws(() => unknownStance.decide(view, 1 / 240), /unknown stance "crouch"/);
+  // The legal one still runs, so the three refusals above are about the tuple
+  // rather than about this seam refusing everything.
+  const legal = researchLabelMind("dagger", (probed) => probeLabel(probed, "hold", "punch"));
+  assert.doesNotThrow(() => legal.decide(view, 1 / 240));
 });

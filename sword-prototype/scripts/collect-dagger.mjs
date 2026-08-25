@@ -3,8 +3,8 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { Worker } from "node:worker_threads";
 
 import { ResearchArtifact } from "../src/learning/artifact.ts";
-import { aggregateDaggerRows, balancedDaggerRows, daggerClassificationMetrics, predictDagger, requireTeacherEngagement,
-  selectDaggerIteration, trainDaggerModel } from "../src/learning/dagger.ts";
+import { aggregateDaggerRows, balancedDaggerRows, daggerClassificationMetrics, DAGGER_HEAD_NAMES, predictDagger,
+  requireTeacherEngagement, selectDaggerIteration, trainDaggerModel } from "../src/learning/dagger.ts";
 import { FEATURE_COLUMNS, FEATURE_VERSION } from "../src/learning/features.ts";
 import { researchMatrix } from "../src/learning/research-matrix.ts";
 import { RESEARCH_ARTIFACT_CONTRACT } from "../src/learning/deployment.ts";
@@ -47,8 +47,15 @@ if (flag("resume")) { const saved = JSON.parse(await readFile(stateUrl, "utf8"))
   ({ nextIteration, consumedSolverSteps, iterationRows, validations, models } = saved); }
 const budgetFor = (iteration, split) => { const ordinal = iteration * 2 + (split === "validation" ? 1 : 0);
   return (baseQuanta + (ordinal < extraJobs ? 1 : 0)) * 4; };
+// One misclassification per head plus the persistence error, so the number an
+// iteration is *selected* on scores the whole label. It was movement + action +
+// persistence, which is the loss a three-field teacher owed; leaving it there
+// would have selected the DAgger iteration that got two of five heads right.
+// The scale moves with it -- 0..5 + persistence a row rather than 0..2 -- so
+// losses are comparable within a run and not across the widening, which is the
+// same thing `teacherVersion` now says out loud.
 const loss = (rows, model) => rows.reduce((sum, row) => { const predicted = predictDagger(model, row.features);
-  return sum + (predicted.movement === row.label.movement ? 0 : 1) + (predicted.action === row.label.action ? 0 : 1) +
+  return sum + DAGGER_HEAD_NAMES.reduce((wrong, name) => wrong + (predicted[name] === row.label[name] ? 0 : 1), 0) +
     Math.abs(predicted.persistence - row.label.persistence); }, 0) / Math.max(1, rows.length);
 
 async function collect(iteration, split, deployed, budget) {
@@ -84,8 +91,9 @@ for (let iteration = nextIteration; iteration < iterations; iteration += 1) {
   const training = await collect(iteration, "train", deployed, budgetFor(iteration, "train"));
   if (iteration === 0) requireTeacherEngagement(training.metrics.opportunityConversion, config.teacherEngagementFloor);
   iterationRows.push(training.rows); const aggregate = balancedDaggerRows(aggregateDaggerRows(iterationRows), 64);
-  const model = trainDaggerModel(aggregate, FEATURE_COLUMNS.length, MOVEMENT_NAMES, HAND_ACTION_NAMES,
-    smoke ? 2 : 8, 0.01, seed, 12);
+  const model = trainDaggerModel(aggregate, FEATURE_COLUMNS.length,
+    { movement: MOVEMENT_NAMES, action: HAND_ACTION_NAMES, effector: EFFECTOR_NAMES, target: TARGET_NAMES, stance: STANCE_NAMES },
+    TACTICAL_TEACHER_VERSION, smoke ? 2 : 8, 0.01, seed, 12);
   models.push(model); const validation = await collect(iteration, "validation", model, budgetFor(iteration, "validation"));
   validations.push({ iteration, validationLoss: loss(validation.rows, model), trainRows: training.rows.length,
     validationRows: validation.rows.length, classification: daggerClassificationMetrics(validation.rows, model),
