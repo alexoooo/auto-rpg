@@ -180,8 +180,8 @@ Baseline taken before any of this work, from `sword-prototype/`, commit `a095877
 | session | state | landed |
 | --- | --- | --- |
 | 15 host command boundary | **landed** | `f789ea4`, 459 tests |
-| 16 policy perception v4 | in progress | -- |
-| 17 tactic output v2 | not started | -- |
+| 16 policy perception v4 | **landed** | `d44fc3e`, 484 tests |
+| 17 tactic output v2 | in progress | -- |
 | 18 human gate feasibility | not started | -- |
 | 19 run legibility | not started | -- |
 | 20 throughput and ceilings | not started | -- |
@@ -362,3 +362,46 @@ Two findings worth carrying forward, neither a session-15 defect:
   66 columns. Session 14 left it stale. Session 16 moves the runtime to v4 and session 17
   deletes the command outright, so it is not repaired here -- but the handoff's "last verified
   state" line claiming `ai:options` passed is wrong and should not be trusted.
+
+### Session 16, as landed
+
+`d44fc3e`. 459 tests before, **484** after. Feature v4, 66 columns to 99.
+
+The session was **green at 474 tests with two severe defects in it**, and adversarial review
+found both. That is the entry worth reading here.
+
+- **`ToRef` is not allocation-free at the Havok boundary.** `getLinearVelocityToRef` reads
+  `HP_Body_GetLinearVelocity(id)[1]` and the emscripten glue mints a fresh array whatever
+  destination you hand it: 216 B per linear read, 184 per angular,
+  `getObjectCenterWorldToRef` genuinely free at 0.1 -- which is exactly why the pattern looked
+  proven. Publishing a velocity per hand took a bare-handed fighter from **0 boundary reads per
+  `observe` to 8**. Now 4, and 6 for sword-and-fist.
+  **The plan demanded a steady-state allocation assertion and the session shipped without one.**
+  The test that existed asserted object *identity* across steps -- which passes, because the
+  pooling is correct, and which cannot see a leak anywhere else. A green test measuring the
+  wrong quantity is the failure this plan set was rewritten to stop repeating, and it happened
+  here on the first session that could produce one.
+- **The threat reconciliation moved scripted motor targeting on 30 % of steps in a sword mirror
+  and 49 % bare-handed, unmeasured.** `closing` was the wrong quantity for a rotating blade --
+  instantaneous radial component at the vitals, where a stroke is mostly tangential when
+  sampled, so a hand over 1.5 m/s read as *not closing* on 46--51 % of samples and ranking fell
+  through to a tiebreak neither replaced copy had.
+
+Measured, `--only duelist-swinger --bouts 120`, one rule per run, **both endpoints independently
+re-run by the coordinator**:
+
+| rule | duelist | bout s | duelist damage |
+| --- | ---: | ---: | ---: |
+| `f789ea4`, before session 16 | 49/120 = 40.8 % | 4.11 | 164.8 |
+| session 16 as first written | 34/120 = 28.3 % | 3.73 | 166.2 |
+| session 16 as landed | 66/120 = **55.0 %** | 3.52 | 176.2 |
+
+**Session 16 as first written cost the duelist 12.5 points and nobody measured it.** The landed
+rule is +14.2 on where this started, against roughly 4.6 points of standard deviation at
+n=120. Nothing was tuned; the only edits were to what the rule measures. Shields against the
+archer are the control and did not move, so the arrow tier is where it was.
+
+**This is a real balance movement arriving as a side effect of a perception change, and it is
+owed a person at the keyboard.** It is recorded here rather than buried because the duelist is
+the matchup a human plays against, and a 14-point swing in it is a judgement about how the game
+feels that no bench can settle. Session 18 is where that gets played.
