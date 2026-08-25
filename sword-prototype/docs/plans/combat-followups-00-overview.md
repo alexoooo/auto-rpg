@@ -182,7 +182,7 @@ Baseline taken before any of this work, from `sword-prototype/`, commit `a095877
 | --- | --- | --- |
 | 15 host command boundary | **landed** | `f789ea4`, 459 tests |
 | 16 policy perception v4 | **landed** | `d44fc3e`, 484 tests |
-| 17 tactic output v2 | A, B, C1, C2a landed; C2b in flight (remediated) | `da025f2`, `e4ac199`, `c149e8c`, `7597eb4`, `3674e06`, 524 tests |
+| 17 tactic output v2 | A, B, C1, C2a, C2b landed; C2c is the last | `3674e06`, `caec629`, 524 tests |
 | 18 human gate feasibility | not started | -- |
 | 19 run legibility | not started | -- |
 | 20 throughput and ceilings | not started | -- |
@@ -679,6 +679,81 @@ The hazard C2a exists to close is a silent one. `deployment.ts` decodes action l
 correct. At 26 wide it swallows the effector, target and stance logits into the action argmax
 without erroring, which is precisely the failure mode that a width refusal exists to prevent and
 that a width refusal alone does not catch.
+
+### Session 17, stage C2b as landed
+
+The four research trainers moved onto the widened contract, and the DAgger teacher gained real
+opinions about aim rather than three columns of constants. Look-ahead is deliberately not here --
+it carries a measured ~19x compute cost and is stage C2c.
+
+**The number this stage is judged by is the label histogram, and the first version of it was a
+flat zero.** Over 268 decisions at 2400 solver steps: effector `primary` 84.3 %, `natural` 15.7 %,
+`secondary` **0.0 %**. The record's first explanation was that no research stratum puts a striking
+weapon in the off hand. That was wrong for half the sample, and the way it was wrong is worth
+keeping.
+
+`secondary` was legal *for the action the teacher itself named* on **133 of 268 decisions**, 121 of
+them covers. `tacticEffectors` returns hands in slot order regardless of what they hold, and
+`accepts("cover")` answers true for every attached hand -- so a first-legal preference handed the
+primary every cover on every humanoid body. **The remedy the record prescribed could not have
+worked**: adding a reversed-loadout stratum moves the `cut` rows and leaves every `cover` on
+`primary` forever, because the ordering never consults the weapon. `isHeldStriker` in `hands.ts`,
+derived from the `GRIPS` table rather than a list of weapon names, now gives cover three tiers --
+shield, then held weapon, then bare forearm. `secondary` is **13.8 %**, and the distinct-tuple count
+goes 12 to 15.
+
+**And then the label moved while the body did not.** Diffing the produced intent field by field, a
+cover on `sword+shield` differs *only* in `intent.actingHand`: `handActionOption`'s cover branch
+interposes the named hand **and** covers with the spare either way. So the effector label on a cover
+is very nearly inert at the motor layer. That is recorded rather than smoothed over, and whether a
+shield-hand cover should pose differently is a bout question for session 23.
+
+**Three more places where a name promised more than the code delivered.** A centipede's bite was
+measured over four seed pairs: 232 contacts, **172 left shin and 60 right shin, zero head, zero
+torso**. Meanwhile `tacticTargets("bite")` offers only `vital`, and `handActionOption`'s bite branch
+never reads `target` at all. Three separate facts, each defensible alone; together they mean the
+target head is untrainable for a bite. And `thrust` is unreachable from the teacher entirely --
+its action rule answers `cut` for any held weapon that is not a bow -- so the three-branch thrust
+aim rule is written, exported and driven by its own test, but no rollout can reach it. Making it
+reachable would turn every sword cut into a thrust, which is a change to what the teacher *does*.
+
+### What the C2b review caught, and the arithmetic that failed with it
+
+**The reported PPO entropy was above any achievable maximum.** A real training run read 3.0543
+against a reachable bound of 1.3969. The divisor was the policy-head count spelled as a literal
+`2`, and it went unnoticed for as long as it did because the only assertion on the reported value
+anywhere in the tree was that it exceeded zero. It is now derived from the head table and pinned in
+both directions; the same run reads 1.2217.
+
+**The PPO trajectory collector had no guard at all.** Swapping its sampler for an argmax deletes
+exploration from an on-policy algorithm and makes every stored probability 1, so the importance
+ratio goes degenerate -- and the full 521-test suite stayed green. So did storing the full index
+range in place of the conditional masks, which is precisely the property the docstring beside it
+claims correctness for. NEAT had a seam guard; PPO's only end-to-end test compared a run against
+itself.
+
+**`72` was the nominal `3 x 4 x 6` reused as a count of legal tuples**, in four places. Measured:
+the maximum `|deployableTactics|` on any body is **21**, the union over the whole body space is 33,
+and over the thirteen research cells 24. One of those four places was the argument for leaving the
+quality-diversity descriptor alone -- `125 x 72 = 9,000` cells against 10,240 genome-evaluations,
+"sparser than one elite per cell". On the true figures it is 3,000 cells and **3.4 elites per cell**,
+which is thin but is a tuning objection rather than a refusal. The decision stands and the
+descriptor is unchanged, but the record now says plainly that the outcome-descriptor argument is
+the **only** reason left standing, and the test that asserted the misleading arithmetic is deleted
+rather than re-pointed.
+
+**A fixture that published `facing: 0` hid two thirds of a rule.** The teacher's threat-side rule
+rotates into the fighter's own frame, and at facing zero that expression is exactly `dx` -- so
+replacing the whole body with `return dx;` left 268 tests green while moving `slip-right` from
+41.8 % to 50.0 %. This is the trap `AGENTS.md` already records for `handover.test.mjs`: the correct
+inverse and the plausible one agree on one side of centre.
+
+**What held up.** The structural claims were checked hard and did not move: `recurrentTactic`'s
+legality-by-construction over 2,533 tuples on the whole body space with none outside the legal set
+and no empty mask; the PPO gradients under a finite-difference check at worst relative error
+2.0e-7, with five distinct row counts *and* five distinct supported sets so an offset landing in a
+neighbour could not hide; thirty malformed `DaggerModel`s each refused by a sentence naming the
+head; and a byte-identical look-ahead trace digest proving C2c's files did not move.
 
 ### Findings from the implementation pass that change the plan
 
