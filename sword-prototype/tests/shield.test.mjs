@@ -16,6 +16,7 @@ import { attachPhysics, LAYER, COLLIDES } from "../src/physics.ts";
 import { Fighter } from "../src/fighter.ts";
 import { mountFor, mountRotation } from "../src/weapon.ts";
 import { blankIntent } from "../src/policies.ts";
+import { ACTION_TUNING, actionAimAt, actionCoverAt, blankThreat, selectThreat } from "../src/action-primitives.ts";
 
 /**
  * A shield is held, not aimed.
@@ -47,7 +48,7 @@ const wasm = new URL("../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.wasm
 const FIXED = 1 / CONFIG.world.physicsHz;
 const B = CONFIG.body;
 
-async function ring(loadout) {
+async function ring(loadout, rightLoadout = { primary: "empty", secondary: "empty" }) {
   const engine = new NullEngine();
   const scene = new Scene(engine);
   attachPhysics(scene, await HavokPhysics({ wasmBinary: await readFile(wasm) }));
@@ -68,16 +69,22 @@ async function ring(loadout) {
   const right = new Fighter(scene, {
     side: "right", origin: new Vector3(0, 0, CONFIG.fighter.separation),
     facing: Math.PI, mind: { name: "still", decide: () => blankIntent() },
-    loadout: { primary: "empty", secondary: "empty" },
+    loadout: rightLoadout,
   }, materials);
 
   const clock = { now: 0 };
+  let pending = [];
   const run = (seconds) => {
     const observer = scene.onBeforePhysicsObservable.add(() => {
       left.observe(right, clock.now);
       right.observe(left, clock.now);
       left.update(FIXED);
       right.update(FIXED);
+      // After the updates, because `Arm.update` runs `Quiver.step` first thing
+      // and that is what takes down the one-step teleport a `loose` puts up.
+      // See `arrow.ts`'s header for the failure that ordering causes.
+      for (const shot of pending) shot();
+      pending = [];
       clock.now += FIXED;
     });
     for (let frame = 0; frame < Math.round(seconds * 60); frame += 1) {
@@ -87,7 +94,7 @@ async function ring(loadout) {
     scene.onBeforePhysicsObservable.remove(observer);
   };
 
-  return { engine, scene, left, intent, run };
+  return { engine, scene, left, right, intent, run, queue: (fn) => pending.push(fn) };
 }
 
 /** How far a hand is from the anchor dragging it, in millimetres. */
@@ -441,5 +448,88 @@ test("a weapon does not collide with the arm that is holding it", async () => {
     assert.ok(hits.shield > 0, "the shield still stops on its owner's trunk, which is its whole job");
   } finally {
     engine.dispose();
+  }
+});
+
+/**
+ * A shaft is answered where it will arrive, not where it is.
+ *
+ * `actionCoverAt` is the one function every cover in the tree comes through --
+ * every `cover` option, every spare hand, both of `duelist`'s covering lines --
+ * so the arrow branch is here and nowhere else, and what is *in* the covering
+ * hand does not enter into it. That is the claim this test makes twice: the four
+ * things a fighter can put in front of an arrow all end up on the same point,
+ * and that point is where the arrow crosses the plane of its shoulders rather
+ * than where the arrow currently is.
+ *
+ * The crossing is re-derived here by **marching**, not by the closed-form solve
+ * `arrowCrossing` uses, because a test that wrote out the same three lines would
+ * be a restatement rather than a check. The drop is the same ballistic law --
+ * there is only one -- but the crossing *time* is found by walking the shaft
+ * along its published velocity until it changes side of the plane, which is a
+ * different piece of arithmetic arriving at the same answer.
+ */
+test("cover_places_each_shield_kind_on_a_predicted_arrow_crossing", async (t) => {
+  for (const carried of ["shield", "buckler", "sword", "empty"]) {
+    await t.test(carried, async (kindTest) => {
+      const { engine, left, right, run, queue } = await ring(
+        { primary: "sword", secondary: carried }, { primary: "bow", secondary: "empty" });
+      kindTest.after(() => engine.dispose());
+
+      run(1);
+      const melee = actionCoverAt(left.view, selectThreat(left.view, blankThreat()), { pointerX: 0, pointerY: 0 }, "secondary");
+      const meleeAim = { ...melee };
+
+      // Aimed a little high and to one side of the defender's vitals, so the
+      // crossing is somewhere an arm has to be moved to rather than where it
+      // already was, and so the vertical drop over the flight is not zero.
+      const target = new Vector3(left.view.self.ground.x + 0.18, left.view.self.vitalHeight + 0.22,
+        left.view.self.ground.z);
+      const from = right.view.self.hands.primary.shoulder.clone();
+      queue(() => right.arms.primary.quiver.loose(from, target.subtract(from).normalize(), CONFIG.arrow.speedMax));
+      run(2 / 60);
+
+      const threat = selectThreat(left.view, blankThreat());
+      assert.equal(threat.striker, "arrow", `${carried}: the shaft is the threat`);
+
+      const socket = left.view.self.hands.secondary.shoulder;
+      const covered = actionCoverAt(left.view, threat, { pointerX: 0, pointerY: 0 }, "secondary");
+
+      // Where it crosses, found by walking it. The plane is the one the cover
+      // solve declares: through the covering hand's own socket, normal along the
+      // defender's published facing.
+      const nx = Math.sin(left.view.self.facing);
+      const nz = Math.cos(left.view.self.facing);
+      const ahead = (t) => (threat.tip.x + threat.velocity.x * t - socket.x) * nx +
+        (threat.tip.z + threat.velocity.z * t - socket.z) * nz;
+      assert.ok(ahead(0) > 0, `${carried}: the shaft starts in front of the plane`);
+      let flight = 0;
+      const step = 1e-5;
+      while (flight < 1 && ahead(flight) > 0) flight += step;
+      assert.ok(flight > 0 && flight < 1, `${carried}: it crosses within the second, at ${flight}`);
+      const marched = new Vector3(
+        threat.tip.x + threat.velocity.x * flight,
+        threat.tip.y + threat.velocity.y * flight - ACTION_TUNING.gravity * flight * flight * 0.5,
+        threat.tip.z + threat.velocity.z * flight,
+      );
+      const expected = actionAimAt(left.view, marched, { pointerX: 0, pointerY: 0 }, "secondary", socket);
+
+      assert.ok(Math.abs(covered.pointerX - expected.pointerX) < 2e-3,
+        `${carried}: pointerX ${covered.pointerX} against a marched ${expected.pointerX}`);
+      assert.ok(Math.abs(covered.pointerY - expected.pointerY) < 2e-3,
+        `${carried}: pointerY ${covered.pointerY} against a marched ${expected.pointerY}`);
+
+      // And it is not where the melee cover would have gone, or the branch could
+      // be missing and this would still pass.
+      assert.ok(Math.hypot(covered.pointerX - meleeAim.pointerX, covered.pointerY - meleeAim.pointerY) > 0.05,
+        `${carried}: the arrow moved the guard off the chest target, ${JSON.stringify({ covered, meleeAim })}`);
+
+      // The drop is carried, and it is not nothing: an archer aims *over* the
+      // mark, and a defender predicting a straight line would answer a shot
+      // nobody took. Stated in millimetres because that is the size of it.
+      const straight = threat.tip.y + threat.velocity.y * flight;
+      const drop = (straight - marched.y) * 1000;
+      assert.ok(drop > 1, `${carried}: gravity over the flight is ${drop.toFixed(1)} mm and has to be carried`);
+    });
   }
 });

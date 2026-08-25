@@ -20,6 +20,7 @@ import { INTENT_FIELDS, PARITY_CALIBRATION, PARITY_LIMITS, SEED_RANGES, evaluati
 import { archerMind, duelistMind } from "../src/policies.ts";
 import { ACTION_SHOT_TIMING, ACTION_STROKE_TIMING, ACTION_TUNING, actionShotPhase, actionStrokeReading, bareCrowdDistance } from "../src/action-primitives.ts";
 import { WEAPON_KINDS } from "../src/hands.ts";
+import { assertCompleteView } from "./fixtures/view.mjs";
 
 const parts = () => Object.fromEntries([
   "torso", "head", "pelvis", "upperArm", "forearm", "hand", "offUpperArm", "offForearm",
@@ -27,22 +28,48 @@ const parts = () => Object.fromEntries([
 ].map((key) => [key, 1]));
 const hand = (weapon, outboard, x = 0) => ({
   weapon, shoulder: { x, y: 1.4, z: 0 }, tip: { x, y: 1.4, z: 1 }, tipSpeed: 0,
+  // Zero, and the same zero `tipSpeed` carries. `describeFighter` derives the
+  // speed from the velocity, so the two can only disagree in a fixture -- and
+  // `selectThreat` reads both: the magnitude for how fast, the direction for
+  // where the path goes, and it ranks on the two together. `closing` below is
+  // the way to set them at once.
+  tipVelocity: { x: 0, y: 0, z: 0 },
   reach: weapon === "bow" ? 0.6 : weapon === "empty" ? 0.6 : 1.45, lost: false, outboard,
 });
+/** A point moving at me at `speed`, in both fields. The opponent is down +Z. */
+const closing = (record, speed) => {
+  record.tipSpeed = speed; record.tipVelocity = { x: 0, y: 0, z: -speed }; return record;
+};
+/**
+ * The five body facts that are not about a hand.
+ *
+ * Warrior-sized and stated once. `vitalHeight` and `collisionRadius` are read by
+ * `selectThreat` -- the first is the point every threat's closest approach is
+ * measured to, the second is half of the gate that decides whether a shaft is
+ * worth covering -- and all five are feature v4 columns. Left out, they arrive
+ * as `undefined`, and `NaN` loses every comparison in that ordering without
+ * throwing.
+ */
+const SHAPE = { unit: "warrior", reach: 0.7, crownHeight: 1.8, vitalHeight: 1.1, collisionRadius: 0.3 };
 const view = (mine = { primary: "sword", secondary: "empty" }, theirs = mine) => {
   const selfHands = { primary: hand(mine.primary, 1, 0.2), secondary: hand(mine.secondary, -1, -0.2) };
   const opponentHands = { primary: hand(theirs.primary, 1, -0.2), secondary: hand(theirs.secondary, -1, 0.2) };
   for (const h of Object.values(opponentHands)) { h.shoulder.z = 1.5; h.tip.z = 0.5; }
-  return {
-    self: { ground: { x: 0, y: 0, z: 0 }, facing: 0, shoulder: selfHands.primary.shoulder,
+  return assertCompleteView({
+    self: { ...SHAPE, naturalAttacks: {}, ground: { x: 0, y: 0, z: 0 }, facing: 0, shoulder: selfHands.primary.shoulder,
       tip: selfHands.primary.tip, tipSpeed: 0, hands: selfHands, crouch: 0.2, trunkLean: -0.1,
       trunkTwist: 0.3, vitality: 0.8, health: parts() },
-    opponent: { ground: { x: 0, y: 0, z: 1.5 }, facing: Math.PI,
+    opponent: { ...SHAPE, naturalAttacks: {}, ground: { x: 0, y: 0, z: 1.5 }, facing: Math.PI,
       shoulder: opponentHands.primary.shoulder, tip: opponentHands.primary.tip, tipSpeed: 3,
       hands: opponentHands, crouch: 0, trunkLean: 0.1, trunkTwist: -0.2,
       vitality: 0.6, health: parts() },
+    // Neither side has a bow up in this file; `tests/policy-perception.test.mjs`
+    // owns the fixtures that do. The array is published rather than omitted
+    // because `FighterView` always carries it -- see the note in that file on
+    // why `selectThreat` has no tolerant fallback.
+    projectiles: [],
     measure: 1.1, clock: 12.5,
-  };
+  });
 };
 
 const complete = (intent) => {
@@ -198,7 +225,7 @@ test("the_scripted_meta_controller_matches_the_policy_it_replaces", () => {
     const distance = i < 180 ? 2.2 - i / 300 : i < 360 ? 1.6 : i < 540 ? 1.1 : 1.42;
     v.opponent.ground.z = distance; v.opponent.shoulder.z = distance;
     v.measure = Math.max(0.9, distance - 0.2);
-    v.opponent.hands.primary.tipSpeed = i > 700 && i < 760 ? 9 : 0;
+    closing(v.opponent.hands.primary, i > 700 && i < 760 ? 9 : 0);
     const before = old.decide(v, 1 / 240); const after = meta.decide(v, 1 / 240);
     for (const delta of intentFieldDeltas(before, after)) {
       if (!delta.equal) deltaReport[delta.field].changed += 1;
@@ -275,7 +302,7 @@ test("a_bare_scripted_meta_duelist_can_enter_punch_range", () => {
 });
 
 test("feature_columns_are_total_finite_and_versioned", () => {
-  assert.equal(FEATURE_VERSION, 3);
+  assert.equal(FEATURE_VERSION, 4);
   assert.equal(new Set(FEATURE_COLUMNS).size, FEATURE_COLUMNS.length);
   const values = writeFeatures(view());
   assert.equal(values.length, FEATURE_COLUMNS.length);
@@ -291,13 +318,28 @@ test("feature_columns_are_total_finite_and_versioned", () => {
   moving.clock = 0.1; moving.measure -= 0.29;
   assert.ok(writer.write(moving)[FEATURE_COLUMNS.indexOf("radial_closing_rate")] > 0.9);
   const coherent = view({ primary: "sword", secondary: "empty" }, { primary: "shield", secondary: "sword" });
-  coherent.opponent.hands.primary.tipSpeed = 30; coherent.opponent.hands.secondary.tipSpeed = 7;
+  closing(coherent.opponent.hands.primary, 30); closing(coherent.opponent.hands.secondary, 7);
   coherent.opponent.hands.secondary.tip.x = 0.8;
   const threatFeatures = writeFeatures(coherent);
+  // Still `7 / 40`, and it now means something stronger than it did. In v3 a
+  // shield could not be a threat because the filter kept only striking kinds and
+  // then sorted what was left by speed. In v4 the shield is offered to
+  // `selectThreat` like everything else and loses on its *tier* -- so the number
+  // survives a shield that is not merely faster but genuinely closing at 30 m/s,
+  // which the v3 fixture could not express and this one now does.
   assert.equal(threatFeatures[FEATURE_COLUMNS.indexOf("threat_speed")], 7 / 40,
     "the fast shield is not the dangerous hand");
   assert.ok(threatFeatures[FEATURE_COLUMNS.indexOf("threat_bearing")] > 0,
     "bearing and speed both describe the secondary sword tip");
+  // And the kind one-hot agrees with the speed, which is the column that would
+  // have caught the two disagreeing before there was one function to ask.
+  assert.equal(threatFeatures[FEATURE_COLUMNS.indexOf("threat_kind_sword")], 1);
+  assert.equal(threatFeatures[FEATURE_COLUMNS.indexOf("threat_kind_shield")], 0);
+  // The sword is closing, so it has a positive time to closest approach and the
+  // local-frame velocity points back down the observer's forward axis. Both
+  // directions of that sign are pinned by the mirror tests below.
+  assert.ok(threatFeatures[FEATURE_COLUMNS.indexOf("threat_time_to_closest")] > 0);
+  assert.equal(threatFeatures[FEATURE_COLUMNS.indexOf("threat_velocity_forward")], -7 / 40);
 });
 
 test("mirroring_a_view_mirrors_directional_features_and_preserves_scalar_ones", () => {
@@ -307,13 +349,18 @@ test("mirroring_a_view_mirrors_directional_features_and_preserves_scalar_ones", 
   assert.deepEqual(mirrored, mirrorFeatures(original));
 });
 
-test("feature_v3_has_total_readers_resets_variance_and_exact_mirror_signs", () => {
+test("feature_v4_has_total_readers_resets_variance_and_exact_mirror_signs", () => {
   const v = view(); v.clock = 0; const writer = new FeatureWriter(); const initial = writer.write(v);
   writer.setTactic("circle-left", "cut", 0.1);
-  v.clock = 0.4; v.measure -= 0.25; v.opponent.vitality -= 0.1; v.opponent.ground.x = 0.8;
+  // The self vitality moves too, and it has to. `time_since_damage` was one
+  // clock fed from the opponent's vitality alone -- so it was time since damage
+  // *dealt* wearing a name that reads as time since damage taken, and a fixture
+  // that only ever wounded the opponent could not tell the two apart. Both are
+  // driven here and both are read below.
+  v.clock = 0.4; v.measure -= 0.25; v.opponent.vitality -= 0.1; v.self.vitality -= 0.2; v.opponent.ground.x = 0.8;
   const changed = writer.write(v);
   for (const name of ["usable_reach_margin", "radial_closing_rate", "facing_error", "current_movement_circle-left",
-    "current_action_cut", "persistence_age", "time_since_damage"]) {
+    "current_action_cut", "persistence_age", "time_since_damage_dealt", "time_since_damage_received"]) {
     const index = FEATURE_COLUMNS.indexOf(name); assert.notEqual(index, -1, name); assert.ok(Number.isFinite(changed[index]), name);
   }
   assert.notDeepEqual(changed, initial); assert.deepEqual(mirrorFeatures(mirrorFeatures(changed)), changed);
@@ -321,11 +368,64 @@ test("feature_v3_has_total_readers_resets_variance_and_exact_mirror_signs", () =
   assert.equal(reset[FEATURE_COLUMNS.indexOf("current_movement_hold")], 1);
   assert.equal(reset[FEATURE_COLUMNS.indexOf("current_action_recover")], 1);
   assert.equal(reset[FEATURE_COLUMNS.indexOf("persistence_age")], 0);
-  assert.equal(reset[FEATURE_COLUMNS.indexOf("time_since_damage")], 1);
+  // Both histories reset to "nothing has happened yet", which for an age column
+  // is a saturated 1 rather than a 0. Naming both is what stops the pair being
+  // fed from one source again.
+  assert.equal(reset[FEATURE_COLUMNS.indexOf("time_since_damage_dealt")], 1);
+  assert.equal(reset[FEATURE_COLUMNS.indexOf("time_since_damage_received")], 1);
   const crawler = view(); crawler.self.hands = {}; crawler.self.naturalAttacks = { bite: { reach: 0.7, ready: true, active: false } };
   crawler.opponent.collisionRadius = 0.3; crawler.measure = 0.8;
-  assert.ok(writeFeatures(crawler)[FEATURE_COLUMNS.indexOf("usable_reach_margin")] > 0,
+  const crawlerFeatures = writeFeatures(crawler);
+  assert.ok(crawlerFeatures[FEATURE_COLUMNS.indexOf("usable_reach_margin")] > 0,
     "published natural reach plus target surface radius is usable without fabricated hands");
+  // And the jaws are published as jaws rather than as a nameless zero. Three
+  // columns per side, all zero when a body has no natural attack at all, which
+  // is not the same reading as a bite of reach zero.
+  assert.equal(crawlerFeatures[FEATURE_COLUMNS.indexOf("self_bite_reach")], 0.35);
+  assert.equal(crawlerFeatures[FEATURE_COLUMNS.indexOf("self_bite_ready")], 1);
+  assert.equal(crawlerFeatures[FEATURE_COLUMNS.indexOf("self_bite_active")], 0);
+  assert.equal(crawlerFeatures[FEATURE_COLUMNS.indexOf("opponent_bite_reach")], 0);
+  assert.equal(crawlerFeatures[FEATURE_COLUMNS.indexOf("opponent_bite_ready")], 0);
+});
+
+/**
+ * The sign table, against a world built the other way round rather than against
+ * itself.
+ *
+ * `mirroring_a_view_mirrors_directional_features_and_preserves_scalar_ones`
+ * above is the involution check, and an involution proves nothing on its own:
+ * mirroring twice returns the input whatever sign a column carries, so two
+ * matching wrong signs pass it. This is the version that cannot be satisfied
+ * that way -- the second world is constructed asymmetric and mirrored, and the
+ * two feature vectors have to agree column for column.
+ *
+ * Its full form, with an arrow in the air and a threat that is genuinely moving
+ * sideways, is `feature_v4_mirror_matches_a_separately_constructed_asymmetric_world`
+ * in `tests/policy-perception.test.mjs`; this is the melee half, kept beside the
+ * table it is about.
+ */
+test("feature_v4_mirror_signs_hold_against_a_sideways_moving_threat", () => {
+  const asymmetric = view({ primary: "sword", secondary: "empty" }, { primary: "sword", secondary: "shield" });
+  asymmetric.opponent.ground.x = 0.7; asymmetric.opponent.shoulder.x = 0.7;
+  asymmetric.opponent.hands.primary.tip = { x: 0.55, y: 1.55, z: 0.62 };
+  // Across as well as in, so `threat_local_right` and `threat_velocity_right`
+  // are both non-zero and a dropped negation in either shows up.
+  asymmetric.opponent.hands.primary.tipSpeed = 11;
+  asymmetric.opponent.hands.primary.tipVelocity = { x: -6, y: -1.5, z: -9 };
+  asymmetric.self.trunkTwist = 0.4; asymmetric.opponent.trunkTwist = -0.25;
+
+  const original = writeFeatures(asymmetric);
+  const mirrored = writeFeatures(mirrorView(asymmetric));
+  assert.deepEqual(mirrored, mirrorFeatures(original));
+  // The columns this test exists for are actually exercised, or it is a story:
+  // a table where every one of them happened to be zero would pass whatever the
+  // signs said.
+  for (const name of ["threat_local_right", "threat_velocity_right", "threat_bearing",
+    "facing_error", "self_trunk_twist", "opponent_trunk_twist"]) {
+    const index = FEATURE_COLUMNS.indexOf(name);
+    assert.equal(FEATURE_MIRROR_SIGN[index], -1, `${name} names a side and has to change sign`);
+    assert.ok(Math.abs(original[index]) > 0.01, `${name} is ${original[index]}, so this proves nothing about it`);
+  }
 });
 
 test("the_behaviour_record_counts_events_instead_of_the_truncated_combat_log", () => {

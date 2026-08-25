@@ -1468,6 +1468,56 @@ facing error and trunk twist negate while scalar facts remain. The evaluator own
 persistent `FeatureWriter`, so temporal columns read actual prior samples and tactic edges.
 Every v2 checkpoint refuses under v3 rather than being reinterpreted.
 
+Session 16 superseded that boundary in turn with schema v4: **99 named finite columns**. It
+keeps every v3 column except the misnamed `time_since_damage`, which becomes the pair
+`time_since_damage_dealt` and `time_since_damage_received`, both derived from vitality deltas
+rather than from combat events -- the single column was fed from the opponent's vitality
+alone, so it was time since damage *dealt* wearing a name that reads as time since damage
+taken. The 33 additions are a nine-way `threat_kind_*` one-hot over every `Striker`
+(`arrow` and `bite` included, derived from `STRIKER_KINDS` rather than written out), the
+selected threat's position and velocity in the observer's right/up/forward frame, its time to
+closest approach and closest miss distance, the opponent's crouch/lean/twist, both bodies'
+collision radius, crown and vital height, and both bodies' bite reach/ready/active. Scales
+are stated in one table beside `FEATURE_COLUMNS`; the tip-speed scale stays at v3's 40 m/s,
+which is deliberately below a loosed arrow's 48, so a shaft in flight saturates its velocity
+columns rather than compressing a swung blade's range to make room for one.
+
+Threat selection was **three divergent copies**, two of which drove motor execution: the
+feature writer sorted attached hands by `tipSpeed`, and `options.ts` and `policies.ts`
+carried a byte-identical lead-versus-off pick. The first could disagree with the other two,
+so the learned perception could be watching one blade while the cover skill covered another,
+and nothing said so. One exported `selectThreat` now answers for all three. Its order: an
+opponent arrow that is actually closing on the observer's vitals and predicted to pass within
+`collisionRadius + 0.45 m`, soonest first; then whatever can strike -- a held striking kind,
+a bare fist, a set of jaws -- ranked by `arriving`, which is the point's speed weighted by
+how near its extrapolated path takes it to those vitals; then an attached hand that cannot
+strike, then a lost one, and finally the body itself. Ties break by publication order and
+then by kind, which for two hands is the primary, exactly as both motor copies did. **This
+is not the v3 ordering under a new name**, and what it costs in agreement with v3 is
+measured under "Threat selection, reconciled" below rather than asserted here.
+
+Mirroring gains two sign flips, `threat_local_right` and `threat_velocity_right`, and one
+correction the v3 table hid: `mirrorFeatures` multiplied by `-1` and so answered `-0` for a
+signed column that was exactly zero, which no v3 fixture ever produced because every signed
+column happened to be non-zero in the one that exercised them. Every v3 checkpoint refuses
+under v4, and a synthetic stale research header is refused by the envelope before any network
+is built from its payload.
+
+**`npm run ai:options` moves, and it was already red.** Measured 2026-08-24 by running it at
+`f789ea4` in a throwaway worktree and again on the session's tree, both at the default 24
+bouts and base seed 20260827. Both runs exit 1 on `evaluation differs from baseline-v1.json`,
+and the pre-existing half of that needs no bouts to see: the checked-in baseline records
+`featureVersion: 2` and `featureCount: 50` while the runtime had already been v3 since session
+14, and the comparison is a whole-document `JSON.stringify` equality. So the artifact has been
+stale for two feature versions and re-recording it is owed to whoever owns it, not to this
+session. **Beyond the version stamp, the fights themselves moved**, which is what a threat
+rule that now gates on closing motion is *for* and is not a regression: train/legacy-archer-bow
+left went 4.65 s and 219.6 damage to 4.13 s and 164.9, and the duelist-sword meta cells changed
+option 7 times against 9. What did *not* move is the invariant this session had to keep: all 12
+paired rows still match winner, ending, damage, duration and every one of the 20 intent fields
+at every ordered sample, in both runs -- legacy and the scripted meta-controller remain the
+same fighter.
+
 The required adversarial pass was observed red before restoration:
 
 - deleting `zoom` from an option intent failed `every_option_returns_a_complete_bounded_intent`;
@@ -1738,3 +1788,157 @@ those estimates do not include contention or validation overhead and are not a s
 the ledger. Session 19 now has a strict four-algorithm deployment executor and atomic indexed
 resume, but it correctly has nothing to execute until four full-budget validation-selected
 artifacts and the frozen manifest exist.
+
+## Threat selection, reconciled -- 2026-08-24
+
+Session 16 replaced three copies of "which hand is the threat" with one exported
+`selectThreat`, and two of the three drove motor execution rather than perception. That is a
+change to what a scripted guard covers, on every control step of every bout, and it shipped
+with no measurement of any kind. This is that measurement. It found the change larger than the
+session claimed, and it found two defects in the new rule.
+
+**Harnesses, because a reading without one is not a reading.** Step-level agreement is
+`.review/threat-rules.mjs`: real bouts through `scripts/measure.mjs`'s `runBout`, six per
+cell, with every rule evaluated on the *same* published view every control step -- the only
+way to compare orderings without comparing two different fights. Win rates and damage are
+`npm run measure` at its defaults (40 bouts, seed 20260823) and, for the one matchup that
+moved, `npm run measure -- --only duelist-swinger --bouts 120`. Boundary reads are
+`.review/boundary-count.mjs` and the assertion in `tests/policy-perception.test.mjs`.
+
+**Four rules**, all read off the same steps:
+
+| name | what it does |
+|---|---|
+| `f789ea4` | `threatHand`: striking hands first, then `tipSpeed`, ties to the primary -- with a bare hand's speed the literal `0` that version published |
+| `f789ea4` on v4 facts | the same rule reading the real fist speed session 16 began publishing |
+| v4.0 | as session 16 shipped it: `tipSpeed` gated on a straight-line radial approach, then a reach-margin tiebreak |
+| v4.1 | as remediated: `arriving` -- speed weighted by the miss distance of the extrapolated path -- no reach margin, ties to the primary |
+
+### How often the guard changes hands
+
+Control steps on which the rule names a different hand, six bouts per cell:
+
+| matchup | samples | `f789ea4` vs v4.0 | `f789ea4` vs v4.1 | v4.0 vs v4.1 |
+|---|---|---|---|---|
+| duelist `sword+empty` mirror | 17,156 | **25.7 %** | 11.0 % | 25.7 % |
+| duelist `empty+empty` mirror | 166,396 | **54.3 %** | 27.8 % | 44.5 % |
+| duelist `sword+buckler` vs archer | 102,268 | 0.3 % | 0.3 % | 0.0 % |
+
+Two mechanisms are in those numbers and only one of them was intended.
+
+**Intended: an empty hand publishes a real `tipSpeed`.** It was identically zero before, so a
+fist could not be the threat however hard it was travelling; that is the defect session 16
+exists to fix and the behaviour is kept. Its size is what the old rule does on the new facts:
+`threatHand` reading a real fist speed already disagrees with `f789ea4` on **12.6 %** of the
+sword-and-fist steps and **24.3 %** of the bare-handed ones, and every one of those is a fist
+that is genuinely moving.
+
+**Not intended: `closing` was the wrong quantity for a rotating blade.** v4.0 ranked a melee
+tip by `reading.seconds > 0 ? tipSpeed : 0` -- speed gated on the *radial* component toward
+the vitals -- and a swung blade is mostly *tangential* at the instant it is sampled, and
+tangential-and-slightly-outward through the whole of a chamber and the whole of a recovery.
+Measured: a hand travelling faster than 1.5 m/s reported as **not closing on 46.4 %, 48.6 %
+and 50.5 %** of the samples it appeared in, across the three cells. On every one of those the
+key was exactly zero, tied with a hand hanging at rest, and the answer fell through to a
+reach-margin tiebreak that had no counterpart in either copy it replaced. The visible
+consequence, in the sword-and-fist mirror: the guard was put on the opponent's **bare fist
+while it held a sword** on 25.7 % of steps, 3,100 of them with the sword arm more than 90 %
+extended and its tip at a mean 8.2 m/s. Under v4.1 that is 11.0 % and 1,172, at a mean 4.2
+m/s -- which is a sword that really is doing nothing.
+
+`arriving` is the replacement: `speed * gate / (gate + miss)`, where `miss` is the closest
+approach of the extrapolated tip to the observer's vitals and `gate` is the same
+`collisionRadius + arrowMissMargin` the arrow tier measures against. It is continuous through
+the sign change the old key stepped on, it orders two tips that are both genuinely arriving by
+speed exactly as `threatHand` did, and it demotes rather than excludes -- a blade that will
+pass wide is still on the end of an arm that can bring it back, which a shaft is not.
+
+### What that is worth in bouts
+
+`npm run measure -- --only duelist-swinger --bouts 120`, one rule per run, everything else
+identical:
+
+| melee rule | duelist | swinger | draw | bout length s | duelist damage | swinger damage |
+|---|---|---|---|---|---|---|
+| `f789ea4` | 49/120 = **40.8 %** | 71/120 = 59.2 % | 0 | 4.10 | 164.66 | 206.59 |
+| v4.0 (shipped) | 34/120 = **28.3 %** | 84/120 = 70.0 % | 2 | 3.73 | 166.16 | 209.71 |
+| v4.1 (remediated) | 66/120 = **55.0 %** | 54/120 = 45.0 % | 0 | 3.52 | 176.17 | 179.97 |
+
+**Session 16 cost the duelist 12.5 points against the swinger and nobody knew**, and the
+remediation is worth 26.7 points against that and 14.2 against `f789ea4`. At 120 bouts one
+standard deviation is about 4.6 points, so the first move is about 2.5 sd and the second about
+5.8; neither is noise, and the duelist is the policy whose whole plan is to cover the thing
+that is coming. Damage moved with it: the swinger's per-bout damage falls from 209.7 to 180.0
+while the duelist's rises from 166.2 to 176.2, which is the same fact counted the other way.
+
+The full default bench either side of the remediation, for the rows that moved:
+
+| row | v4.0 (shipped) | v4.1 (remediated) |
+|---|---|---|
+| duelist vs swinger, 40 bouts | 32.5 % / 67.5 % | 52.5 % / 47.5 % |
+| duelist mirror, bout length | 4.79 s | 5.80 s |
+| duelist mirror, contacts / damage | 32.5 / 163.3 | 41.1 / 164.2 |
+| bare-hand duelist mirror, attempts | 1870 + 1942 | 2465 + 2416 |
+| bare-hand duelist mirror, blocks | 2702 | 2289 |
+| `sword+empty` duelist vs `sword` swinger | 13W/27L | 21W/19L |
+| shields against archer (shield / buckler / empty) | 7 / 8 / 0 of 40 | 6 / 8 / 0 of 40 |
+
+The archer row is the control: the arrow tier's ordering did not change, and it did not move.
+The bare-hand mirror is the intended half of the change wearing its own numbers -- a fighter
+that can see a fist coming throws a third more punches and blocks 15 % less.
+
+### `ToRef` at the Havok boundary is not free, and the session made it worse
+
+The plan for session 16 assumed `PhysicsBody.getLinearVelocityToRef` allocated nothing and
+published a fist's velocity every control step on that assumption. It is false:
+`HavokPlugin.getLinearVelocityToRef` reads `HP_Body_GetLinearVelocity(id)[1]` and the
+emscripten glue builds a fresh array per call, so the `ToRef` saves only the destination
+`Vector3`. Measured with `.review/boundary-count.mjs`, median of twenty-five 2,000-call
+batches with a collection before each: **216 B/call** for the linear reader, **184 B/call**
+for the angular, and **0.1 B/call** for `getObjectCenterWorldToRef`, which never crosses at
+all because it copies `transformNode.position`.
+
+So the budget is boundary reads. Per `observe`, which is two `describe` calls:
+
+| loadout pair | `f789ea4` | v4.0 (shipped) | v4.1 (remediated) |
+|---|---|---|---|
+| `sword+empty` vs `sword+empty` | 4 | 8 | **6** |
+| `empty+empty` vs `empty+empty` | **0** | 8 | 4 |
+| `sword+buckler` vs `sword+empty` | 6 | 8 | 7 |
+| `club` (two-handed) vs `empty+empty` | 2 | 8 | 5 |
+| `bow+empty` vs `sword+empty`, three shafts up | 4 | 11 | 9 |
+
+v4.0 read every hand's linear *and* angular velocity whatever was in it -- including an empty
+fist, which `f789ea4` never read at all, so a bare-handed fighter went from allocating nothing
+per view to about 1.6 KB per control step at 240 Hz. v4.1 reads each body once and derives
+every consumer from that: two reads for a held weapon, whose tip is out on the end of a
+rotating body, and **one** for a bare fist, whose published point is the fist's own centre and
+whose `w x r` term is therefore identically zero. A hand holding something never pays for its
+fist as well. What remains over `f789ea4` is the fist velocity itself and one linear read per
+shaft in the air, which is exactly what the session set out to publish.
+
+True zero is not reachable through this API, so the assertion is a **count of plugin calls**
+rather than a heap sample: `observe_reads_the_physics_boundary_a_counted_number_of_times` and
+`a_full_quiver_in_the_air_costs_one_read_a_shaft_and_stays_there` pin the budget exactly,
+including at the twelve-shaft high-water mark, and fail when a reader is added.
+
+### Two smaller findings from the same pass
+
+**The arrow tier was solving the wrong trajectory.** `approachToScratch` was gravity-free
+while `arrowCrossing`, ten lines away, carried `ACTION_TUNING.gravity` and argued at length
+that it had to. An archer aims *over* its target by `actionArrowLift`, so a straight line taken
+off the shaft's current velocity sails above the vitals by very nearly that lift: measured
+against a 1 microsecond sweep of the true parabola in `.review/approach-check.mjs`, the
+predicted miss is out by 136 mm at 8 m, 306 at 12 and **689 at 18**, against a gate of about
+610 mm. The gravity-free version therefore declined shafts that were going to hit, at exactly
+the ranges a bow is used at. It takes the constant vertical acceleration as an argument now --
+`-gravity` for a shaft, `0` for a blade, which is a claim about the thing rather than an
+omission -- and corrects the time once using the mean velocity over the flight: that lands
+within 0.02 mm and 1 microsecond of the swept minimum, and a second correction step moves it
+by less than a micrometre.
+
+**`Arrow.tipPosition()` and `Arrow.tipPositionToRef` were two copies of one formula and had
+already parted company.** With no `rotationQuaternion` -- which is how a `TransformNode`
+starts -- the first put the head half a shaft ahead of the centre and the second put it at the
+centre: 360 mm apart on a 720 mm arrow. One `bladeDirectionToRef` now, with a test that asks
+both.

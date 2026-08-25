@@ -1,7 +1,7 @@
 import { cutsBothWays, HANDS, hasHeldWeapon, hasPoint, isShooting, isStriking, otherHand, type HandName, type Striker, type WeaponKind } from "./hands.ts";
 import { ACTION_STROKE_TIMING, ACTION_TUNING, actionAimAt, actionArcherAim, actionCoverAt, actionDistance, actionShotPhase,
-  actionStrokePose, actionStrokeReading, actionStrokeRoll, applyActionPosture, bareCrowdDistance, bareHoldDistance, boundIntent, clampAction,
-  freshIntent } from "./action-primitives.ts";
+  actionStrokePose, actionStrokeReading, actionStrokeRoll, applyActionPosture, bareCrowdDistance, bareHoldDistance, blankThreat, boundIntent, clampAction,
+  freshIntent, selectThreat, type ThreatView } from "./action-primitives.ts";
 import type { FighterView, Intent, Mind } from "./mind.ts";
 import { attackOpportunity, engagementRecord, EngagementTracker, type EngagementRecord } from "./learning/engagement.ts";
 
@@ -19,26 +19,19 @@ const knownOption = (value: string): value is OptionName => (TACTIC_NAMES as rea
 const knownMovement = (value: string): value is MovementName => (MOVEMENT_NAMES as readonly string[]).includes(value);
 const knownHandAction = (value: string): value is HandActionName => (HAND_ACTION_NAMES as readonly string[]).includes(value);
 const gap = (view: FighterView): number => actionDistance(view.self.shoulder, view.opponent.shoulder);
-const threat = (view: FighterView) => {
-  const { primary, secondary } = view.opponent.hands;
-  if (!primary || !secondary) {
-    return {
-      weapon: "empty" as const,
-      shoulder: view.opponent.shoulder,
-      tip: view.opponent.tip,
-      tipSpeed: view.opponent.tipSpeed,
-      reach: view.opponent.reach,
-      lost: false,
-      outboard: 1,
-    };
-  }
-  const lead = !primary.lost && isStriking(primary.weapon);
-  const off = !secondary.lost && isStriking(secondary.weapon);
-  if (lead && off) return primary.tipSpeed >= secondary.tipSpeed ? primary : secondary;
-  if (lead) return primary;
-  if (off) return secondary;
-  return primary.lost ? secondary : primary;
-};
+/**
+ * The one threat, from `action-primitives.ts` and no longer from here.
+ *
+ * This was a hand-rolled lead-versus-off pick, byte-identical to the copy in
+ * `policies.ts` and disagreeing with the one in `learning/features.ts` -- so the
+ * cover skill and the learned perception could be watching different hands.
+ * `selectThreat` is the reconciliation; what is left here is the scratch record
+ * it writes into, which is read before the next call exactly as `FighterView`
+ * is. It is module-level rather than per option, because two fighters decide
+ * synchronously and neither keeps what it is handed.
+ */
+const threatScratch = blankThreat();
+const threat = (view: FighterView): ThreatView => selectThreat(view, threatScratch);
 const handFor = (view: FighterView, accepts: (kind: WeaponKind) => boolean): HandName | null => {
   for (const name of ["primary", "secondary"] as const) if (!view.self.hands[name].lost && accepts(view.self.hands[name].weapon)) return name;
   return null;

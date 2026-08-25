@@ -64,15 +64,31 @@ const optionMind = (name) => {
 };
 
 const fixtureHand = (weapon, outboard, x, z) => ({ weapon, shoulder: { x, y: 1.4, z },
-  tip: { x, y: 1.4, z: z + (z ? -1 : 1) }, tipSpeed: 0, reach: weapon === "sword" ? 1.45 : 0.6,
+  tip: { x, y: 1.4, z: z + (z ? -1 : 1) }, tipSpeed: 0,
+  // The direction, beside the magnitude. `describeFighter` derives one from the
+  // other, and `selectThreat` ranks a hand by its speed only while the point is
+  // approaching -- so a phantom with a speed and no direction describes every
+  // blade in this corpus as standing still.
+  tipVelocity: { x: 0, y: 0, z: 0 }, reach: weapon === "sword" ? 1.45 : 0.6,
   lost: false, outboard });
+/**
+ * The body facts that are not about a hand.
+ *
+ * Warrior-sized. `vitalHeight` and `collisionRadius` are read by `selectThreat`
+ * and the rest are feature v4 columns; omitted, they arrive as `undefined` and
+ * become `NaN`, which loses a comparison without failing one.
+ */
+const FIXTURE_SHAPE = { unit: "warrior", reach: 0.45, crownHeight: 1.77, vitalHeight: 1.28, collisionRadius: 0.16 };
 const fixtureView = (weapon = "sword") => {
   const selfHands = { primary: fixtureHand(weapon, 1, 0.2, 0), secondary: fixtureHand("empty", -1, -0.2, 0) };
   const opponentHands = { primary: fixtureHand("sword", 1, -0.2, 1.5), secondary: fixtureHand("empty", -1, 0.2, 1.5) };
-  return { self: { ground: { x: 0, y: 0, z: 0 }, facing: 0, shoulder: selfHands.primary.shoulder,
+  return { self: { ...FIXTURE_SHAPE, naturalAttacks: {}, ground: { x: 0, y: 0, z: 0 }, facing: 0, shoulder: selfHands.primary.shoulder,
     tip: selfHands.primary.tip, tipSpeed: 0, hands: selfHands, crouch: 0, trunkLean: 0, trunkTwist: 0, vitality: 1, health: {} },
-  opponent: { ground: { x: 0, y: 0, z: 1.5 }, facing: Math.PI, shoulder: opponentHands.primary.shoulder,
+  opponent: { ...FIXTURE_SHAPE, naturalAttacks: {}, ground: { x: 0, y: 0, z: 1.5 }, facing: Math.PI, shoulder: opponentHands.primary.shoulder,
     tip: opponentHands.primary.tip, tipSpeed: 0, hands: opponentHands, crouch: 0, trunkLean: 0, trunkTwist: 0, vitality: 1, health: {} },
+  // Nobody in this corpus carries a bow. The array is published anyway, because
+  // a `FighterView` always carries it.
+  projectiles: [],
   measure: 1.1, clock: 0 };
 };
 const syntheticDelta = Object.fromEntries(INTENT_FIELDS.map((field) => [field, { changed: 0, max: 0 }]));

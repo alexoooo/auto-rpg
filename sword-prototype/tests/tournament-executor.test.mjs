@@ -3,8 +3,8 @@ import { createHash } from "node:crypto";
 import test from "node:test";
 
 import { ResearchArtifact, canonicalJson } from "../src/learning/artifact.ts";
-import { RESEARCH_ARTIFACT_CONTRACT, deployedResearchMind } from "../src/learning/deployment.ts";
-import { FEATURE_COLUMNS } from "../src/learning/features.ts";
+import { RESEARCH_ARTIFACT_CONTRACT, decodeResearchArtifact, deployedResearchMind } from "../src/learning/deployment.ts";
+import { FEATURE_COLUMNS, FEATURE_VERSION } from "../src/learning/features.ts";
 import { initialPopulation } from "../src/learning/genome.ts";
 import { GRU_UNITS } from "../src/learning/recurrent-network.ts";
 import { SeededRng } from "../src/learning/rng.ts";
@@ -64,4 +64,49 @@ test("a_payload_shape_mismatch_refuses_before_the_mocked_bout_opens", () => {
     payload: [...new TextEncoder().encode('{"weights":{"inputSize":1}}')], provenance }, RESEARCH_ARTIFACT_CONTRACT);
   assert.ok(bad.byteLength > 0);
   assert.throws(() => deployedResearchMind(decoded, "warrior/sword+empty"), /wrong recurrent feature\/action shape/);
+});
+
+/**
+ * A header from the version before, refused before anything is built from it.
+ *
+ * The payload here is **executable**: the same bytes, resealed under the current
+ * contract, decode and deploy and run a probe. Only the header is stale. That is
+ * what makes this an ordering claim rather than a restatement of the envelope's
+ * validator -- the artifact is not corrupt, it is not the wrong shape, and there
+ * is nothing else for the refusal to be about.
+ *
+ * The stale table is synthetic and is meant to be. The real v3 columns were
+ * deleted with v3, and reintroducing them here so that a test could name them
+ * would put a copy of a retired contract back in the tree -- which is exactly
+ * what `FEATURE_VERSION` exists to make unnecessary.
+ */
+test("a_synthetic_stale_feature_header_is_refused_before_network_execution", () => {
+  const staleContract = Object.freeze({
+    featureVersion: FEATURE_VERSION - 1,
+    featureNames: Object.freeze(FEATURE_COLUMNS.slice(0, 66)),
+    movementNames: MOVEMENT_NAMES,
+    actionNames: HAND_ACTION_NAMES,
+  });
+  const model = dagger();
+  const stale = new ResearchArtifact({ algorithm: "dagger", ...staleContract,
+    payload: payload(model), provenance }, staleContract).toBytes();
+
+  assert.throws(() => decodeResearchArtifact(stale),
+    new RegExp(`research artifact feature version ${FEATURE_VERSION - 1} does not match runtime ${FEATURE_VERSION}`));
+  // And not for any of the other reasons an artifact can be refused. A version
+  // gate that reported "feature names do not match" would be telling whoever
+  // reads the log to go and edit a column list, which is the wrong repair.
+  assert.throws(() => decodeResearchArtifact(stale), (error) => {
+    assert.doesNotMatch(error.message, /feature names|movement names|action names|checksum|feature count/);
+    return true;
+  });
+
+  // The same model, under the current header, is a mind that runs -- so nothing
+  // above was about the payload, and the refusal happened before a network was
+  // ever constructed from it.
+  const current = new ResearchArtifact({ algorithm: "dagger", ...RESEARCH_ARTIFACT_CONTRACT,
+    payload: payload(model), provenance }, RESEARCH_ARTIFACT_CONTRACT).toBytes();
+  const decoded = decodeResearchArtifact(current);
+  assert.equal(decoded.data.featureVersion, FEATURE_VERSION);
+  assert.doesNotThrow(() => deployedResearchMind(decoded, "warrior/sword+empty"));
 });

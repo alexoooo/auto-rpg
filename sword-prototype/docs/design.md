@@ -62,6 +62,29 @@ transfer, because there was never an authority to transfer.
   judge opportunity across Warrior, Broot and Centipede without reading meshes or branching
   in the host.
 
+Session 16 added the two facts a policy needed to tell an arriving strike from a departing
+one, and neither of them is an interpretation. Every hand publishes `tipVelocity` beside
+`tipSpeed`, because a blade withdrawing at 8 m/s and one arriving at 8 m/s are the same
+number and every guard in the tree was built on that number. And `FighterView.projectiles`
+carries every `live && !spent` shaft from both sides -- position, velocity, age and whether
+it is yours -- in world space, with no `willHit`, no `timeToImpact` and no `aimedAt`. Turning
+a position and a velocity into "will it reach me, and when" is the reader's job; doing it in
+the view would be publishing a future collision, which is the one thing this seam has never
+been allowed to do. The array is reused and trimmed rather than replaced, and each body owns
+a pool of records per role it publishes in -- two pools, not one, because the same shaft is
+`self` in its owner's view and `opponent` in the other's, and a shared pool would have the
+second observation of a step rewrite the label the first had just published.
+
+**`tipSpeed` changed meaning in the same session, and that is a behaviour change rather than
+a widening.** A hand holding nothing used to publish a literal zero, so a bare fist was a
+thing that could not be moving; it is the fist's own material-point speed now. Every v3-era
+reader sees it -- `duelist`'s commit threshold, `swinger`'s, and the `*_tip_speed` feature
+columns -- and what it does to the hand a scripted guard actually covers is measured under
+"Threat selection, reconciled" rather than left to be found. Publishing it is also not free:
+Havok's `getLinearVelocityToRef` allocates behind the name, so the view is written to a
+budget of *boundary reads* -- two for a held weapon, one for a bare fist, one per shaft in
+the air -- and a test counts them.
+
 `Fighter.observe` publishes the view in place, one object per fighter -- `decide` runs 240
 times a second per side, and a freshly allocated view would be the largest single allocator
 in the prototype. What `observe` may read is tightly constrained; see the render-id trap in
@@ -81,10 +104,22 @@ persistence interval. Novelty descriptors cover range, guard, handedness and att
 transitions without granting the learner new authority.
 
 The learned meta-controller does not produce poses. A frozen checkpoint maps the versioned
-66-column v3 `FighterView` feature table to separate movement and hand-action logits plus a
-bounded persistence interval. The columns include usable reach margin, facing, current
-factorized tactic and time since damage in addition to the v2 observations. Unsupported options are
-masked from both choice and diagnostics, and reading the diagnostic never runs the network.
+99-column v4 `FighterView` feature table to separate movement and hand-action logits plus a
+bounded persistence interval. The columns include usable reach margin, facing and the current
+factorized tactic, as v3 did, and session 16 added what a policy needs to tell an incoming
+strike from a receding one: a nine-way one-hot over the selected threat's kind — arrows and
+bites included — that threat's position and velocity in the observer's own right/up/forward
+frame, its time to closest approach and closest miss distance, the opponent's posture, both
+bodies' collision radius, crown and vital heights, and both bodies' bite reach, ready and
+active. The misnamed single `time_since_damage` column became a pair, dealt and received,
+derived from vitality deltas rather than from combat events. One function, `selectThreat`,
+answers *what is worth answering* for the feature writer and the cover skills alike; there
+were three divergent copies of that question and two of them drove motor execution, so a
+policy could be guarding one blade while its perception watched another. It ranks a tip by
+how fast it is going *and* how near its path takes it to the vitals, not by raw speed, and
+the hand a scripted guard covers therefore moved -- measured, with the win rates either side
+of it, in [measurements](measurements.md). Unsupported options
+are masked from both choice and diagnostics, and reading the diagnostic never runs the network.
 Missing, corrupt, wrong-feature and wrong-option checkpoints refuse by name; there is no
 fallback that quietly turns an experiment into `duelist`.
 
@@ -606,11 +641,14 @@ ran `swinger`'s commit stroke *on the shield arm*: the board was being swung lik
 the whole bout, in every game anybody played. It copies `theirs[spare]` now, and the fix is
 that one word.
 
-**`FighterView` had no hands.** `HandView` is five fields -- what the hand holds, where its
-shoulder is, the point of what it holds and how fast that point is moving, whether the arm
-is still attached, and **which side of the body it is on**. That last one is the whole of
-what makes "a shield guard is an arm held *across*" expressible: across is a direction, and
-a direction has to know which side it started on.
+**`FighterView` had no hands.** `HandView` is eight fields -- what the hand holds, where its
+shoulder is, the point of what it holds, how fast that point is moving *and which way*, how
+far the hand can put it out, whether the arm is still attached, and **which side of the body
+it is on**. That last one is the whole of what makes "a shield guard is an arm held
+*across*" expressible: across is a direction, and a direction has to know which side it
+started on. The count in this paragraph read "five" while there were seven, because `reach`
+came back a session after being deleted and nobody re-counted; `tipVelocity` is session 16's
+and makes eight.
 
 It was eight fields. A hand position, a reach and a `face` -- the world direction of the
 hand's own +X, which for a strapped shield is the plate's normal -- were carried for a servo

@@ -474,6 +474,25 @@ npm run dev             # http://localhost:5180, strictPort
   The last is what the damage model was being handed, and it did it *consistently* -- a
   tight band around 27 m/s, which is the shape of a systematic error rather than of noise.
   An arrow caches its free-flight velocity each control step and is scored from that.
+- **`getLinearVelocityToRef` is not allocation-free, and the name is why this has now cost
+  two sessions.** The obvious reading of `ToRef` in Babylon is "the version that does not
+  allocate", and for `getObjectCenterWorldToRef` it is true -- that one copies
+  `transformNode.position` and never crosses into the plugin at all, 0.1 B a call. The two
+  velocity readers do cross: `HavokPlugin.getLinearVelocityToRef` reads
+  `this._hknp.HP_Body_GetLinearVelocity(pluginRef.hpBodyId)[1]`
+  (`node_modules/@babylonjs/core/Physics/v2/Plugins/havokPlugin.js:1210`), and the
+  emscripten glue builds a fresh JS array per call. **The `ToRef` saves the destination
+  `Vector3` and nothing else.** Measured on 9.18.1 with `.review/boundary-count.mjs`:
+  **216 B/call** linear, **184 B/call** angular, against 0.1 for the object centre.
+  Session 16 planned a per-frame publication on the premise that the `ToRef` pair was free,
+  and shipped an `observe` that read velocities eight times where four had been read
+  before -- a bare-handed fighter went from allocating nothing per view to about 1.6 KB a
+  step at 240 Hz. So: **the budget is the number of boundary reads, not the number of
+  `Vector3`s**, the cheap direction is to ask once and derive every consumer from that
+  reading, and a point that coincides with the body's own centre needs no angular read at
+  all because `w x 0` is zero. `describeFighter` costs two reads for a held weapon and one
+  for a bare fist; `tests/policy-perception.test.mjs` counts the plugin calls per `observe`
+  and fails when a reader is added, which is exact where a heap sample is not.
 - **Do not infer an event from a side effect that has a second cause.** Three probes in one
   session disagreed about the archer's rate of fire, because each watched something that
   goes up when an arrow is loosed: the count of live arrows (also moves when one is

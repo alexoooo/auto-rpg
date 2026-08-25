@@ -66,6 +66,13 @@ export class FistStrike implements Striking {
     edge: new Vector3(),
     blade: new Vector3(),
     basis: new Matrix(),
+    // For the cache-free, allocation-free reader below, kept apart from the six
+    // above for the reason `Weapon`'s `free*` block gives: a reading taken for a
+    // mind must never be able to overwrite one taken for a hit.
+    freeLin: new Vector3(),
+    freeAng: new Vector3(),
+    freeCentre: new Vector3(),
+    freeRel: new Vector3(),
   };
 
   constructor(part: Part, hand: HandName, isSpent: () => boolean) {
@@ -88,6 +95,57 @@ export class FistStrike implements Striking {
     this.scratch.rel.copyFrom(world).subtractInPlace(this.body.getObjectCenterWorld());
     Vector3.CrossToRef(angular, this.scratch.rel, this.scratch.velocity);
     return this.scratch.velocity.addInPlace(linear);
+  }
+
+  /**
+   * The same velocity, into a ref the caller owns and without allocating a
+   * `Vector3`.
+   *
+   * **It is not free, and the name says otherwise.** `getLinearVelocityToRef`
+   * and `getAngularVelocityToRef` each cross the Havok boundary, where the
+   * emscripten glue builds a fresh JS array per call and the `ToRef` only saves
+   * the destination vector -- see `AGENTS.md`. So the cost of this is two reads
+   * across the wire whatever ref is handed in, and the way to spend less is to
+   * ask fewer times, not to ask more cheaply.
+   *
+   * `velocityAt` above is left exactly as it is, because `Combat` is built on it
+   * -- and it allocates three `Vector3`s a call on top of the same two reads.
+   * That is fine once per contact and is not fine on the control step.
+   *
+   * `describeFighter` does **not** call this: the point it publishes for a bare
+   * hand is the fist's own centre, and `centreVelocityToRef` below is that case
+   * with the term that vanishes taken out.
+   */
+  velocityAtToRef(world: Vector3, ref: Vector3): Vector3 {
+    const s = this.scratch;
+    this.body.getLinearVelocityToRef(s.freeLin);
+    this.body.getAngularVelocityToRef(s.freeAng);
+    this.body.getObjectCenterWorldToRef(s.freeCentre);
+    s.freeRel.copyFrom(world).subtractInPlace(s.freeCentre);
+    Vector3.CrossToRef(s.freeAng, s.freeRel, ref);
+    return ref.addInPlace(s.freeLin);
+  }
+
+  /**
+   * The velocity of the fist itself, at one read across the wire instead of two.
+   *
+   * This is `velocityAtToRef(part.mesh.position, ref)` with the algebra done by
+   * hand rather than by the solver. `getObjectCenterWorldToRef` copies
+   * `transformNode.position` -- it never crosses the boundary -- and the
+   * transform node of this body *is* `part.mesh`, so asking for the velocity of
+   * the material point at `mesh.position` makes `world - centre` identically
+   * zero, `w x 0` identically zero, and the whole angular half of the sum a read
+   * whose result is multiplied away. Not an approximation: the two expressions
+   * return the same bits, and `tests/view.test.mjs` checks that against
+   * `velocityAtToRef` rather than trusting this paragraph.
+   *
+   * It is worth a method because the empty hand is published every control step,
+   * per hand, per fighter, on both sides -- and because the identity only holds
+   * for *this* point. Anywhere else on the fist, use `velocityAtToRef`.
+   */
+  centreVelocityToRef(ref: Vector3): Vector3 {
+    this.body.getLinearVelocityToRef(ref);
+    return ref;
   }
 
   edgeDirection(): Vector3 {

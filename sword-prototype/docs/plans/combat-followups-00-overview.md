@@ -179,8 +179,8 @@ Baseline taken before any of this work, from `sword-prototype/`, commit `a095877
 
 | session | state | landed |
 | --- | --- | --- |
-| 15 host command boundary | in progress | -- |
-| 16 policy perception v4 | not started | -- |
+| 15 host command boundary | **landed** | `f789ea4`, 459 tests |
+| 16 policy perception v4 | in progress | -- |
 | 17 tactic output v2 | not started | -- |
 | 18 human gate feasibility | not started | -- |
 | 19 run legibility | not started | -- |
@@ -320,3 +320,45 @@ Findings that change session 18 specifically:
     Related: `scripts/promotion-evaluator.mjs` evaluates **no** engagement threshold at all --
     it is a win-rate, option-diversity, motif and safety gate (`promotion.ts#L3-L6`). Session
     18's brief was wrong to name it as a gate-table site.
+
+### Session 15, as landed
+
+`f789ea4`. 454 tests before, **459** after; `check` and `build` clean.
+
+Adversarial review ran the change rather than reading it, and the two highest-risk claims came
+back clean under machine verification rather than inspection: the camera arithmetic was replayed
+across **88,800 slew samples** against the verbatim pre-change expression with **zero
+mismatches** (NaN and infinite notch counts included), and both framing products were shown to
+left-associate to exactly what they replaced. The two frozen corpora were leaf-diffed on both
+sides: **zero added lines, zero changed leaf values**, 189 removed leaves and every one a `zoom`
+key.
+
+Four defects the review found, all fixed before the commit:
+
+- `docs/measurements.md` said "all 20 intent fields" in three places while the artifact it cites
+  had been edited to 19. The sentences are left standing -- twenty is what was measured on the
+  day -- with a superseding note beside them. Editing evidence and silently editing the sentence
+  that describes it is the failure this plan set is about.
+- `complete()` in `tests/options.test.mjs` had been silently weakened. Its `zoom` bounds check
+  was what made it notice a command growing or losing a field; deleting `zoom` left it blind to
+  shape. It states the key set outright now, and the check was proven to bite by putting
+  `zoom: 1` back into `freshIntent` -- four runtime failures **and** a `tsc` error.
+- `src/camera.ts` claimed a unification across "the two places that frame a shot". There is one;
+  the other is a test building synthetic viewpoints for a visibility question, which does not
+  frame anything. The comment says so now.
+- `orbitFraming` allocated a fresh `{distance, height}` per rendered frame. It writes into a
+  caller-owned record, like `cameraGoal` beside it.
+
+Two findings worth carrying forward, neither a session-15 defect:
+
+- **`src/main.ts` has no test coverage and cannot get any** while it touches the DOM at module
+  scope and imports without extensions. Any claim about the host loop is currently
+  unfalsifiable -- which is why the plan's own forced-failure step did nothing until the
+  arithmetic moved to `camera.ts`. **Session 18's recorder must live outside `main.ts`** or it
+  inherits the same property, and session 18 exists precisely to make the page produce a number
+  somebody will believe.
+- `npm run ai:options` already throws against its checked-in baseline, and did so before this
+  work: the corpus carries `featureVersion: 2` / `featureCount: 50` against a runtime at v3 and
+  66 columns. Session 14 left it stale. Session 16 moves the runtime to v4 and session 17
+  deletes the command outright, so it is not repaired here -- but the handoff's "last verified
+  state" line claiming `ai:options` passed is wrong and should not be trusted.

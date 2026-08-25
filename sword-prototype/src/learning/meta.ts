@@ -4,7 +4,7 @@ import { ATTACK_OPTION_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, TACTIC_NAMES, c
   type BehaviourRecord, type CombatOption, type HandActionName, type MovementName, type OptionName } from "../options.ts";
 import type { FighterView, Intent, Mind } from "../mind.ts";
 import { Checkpoint } from "./checkpoint.ts";
-import { FEATURE_COLUMNS, FeatureWriter } from "./features.ts";
+import { FEATURE_COLUMNS, FEATURE_VERSION, FeatureWriter } from "./features.ts";
 import { Network } from "./network.ts";
 import { SeededRng } from "./rng.ts";
 
@@ -151,7 +151,13 @@ export function learnedMetaMind(source: Checkpoint | Uint8Array | null | undefin
   if (source === null || source === undefined) throw new Error("learned-v1 checkpoint is missing");
   try {
     const checkpoint = source instanceof Checkpoint ? source : Checkpoint.fromBytes(source);
-    if (checkpoint.featureVersion !== 3) throw new Error(`feature v${checkpoint.featureVersion} checkpoint cannot run as feature v3`);
+    // Against the runtime contract rather than a literal. It was `!== 3`, with
+    // the message naming v3 as well, so bumping the table to v4 would have
+    // refused every freshly written v4 checkpoint -- and said "cannot run as
+    // feature v3" while doing it, which reads exactly backwards.
+    if (checkpoint.featureVersion !== FEATURE_VERSION) {
+      throw new Error(`feature v${checkpoint.featureVersion} checkpoint cannot run as feature v${FEATURE_VERSION}`);
+    }
     return networkMetaMind(checkpoint.network());
   } catch (error) {
     const detail = error instanceof Error ? `: ${error.message}` : "";

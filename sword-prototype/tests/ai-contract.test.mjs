@@ -7,6 +7,7 @@ import { QualityArchive, qualityCell } from "../src/learning/quality-diversity.t
 import { indexedResearchJobs, resumeResearch, SplitReader, stableResearchReport } from "../src/learning/research.ts";
 import { RESEARCH_CURRICULUM, RESEARCH_STRATA, curriculumStage, researchMatrix } from "../src/learning/research-matrix.ts";
 import { tournamentVerdict } from "../src/learning/tournament.ts";
+import { assertCompleteView } from "./fixtures/view.mjs";
 
 const contract = Object.freeze({
   featureVersion: 3,
@@ -106,18 +107,22 @@ test("a_statistical_tie_selects_the_frozen_smaller_then_named_candidate", () => 
 });
 
 const engagementView = () => {
-  const hand = (weapon, reach, x) => ({ weapon, reach, lost: false, tipSpeed: 0, outboard: Math.sign(x) || 1,
+  const hand = (weapon, reach, x) => ({ weapon, reach, lost: false, tipSpeed: 0,
+    // A speed and the direction it is a speed of, which is what a real hand
+    // publishes; see `tests/fixtures/view.mjs`.
+    tipVelocity: { x: 0, y: 0, z: 0 }, outboard: Math.sign(x) || 1,
     shoulder: { x, y: 1.4, z: 0 }, tip: { x, y: 1.4, z: reach } });
   const selfHands = { primary: hand("empty", 0.72, 0.2), secondary: hand("shield", 0.4, -0.2) };
   const opponentHands = { primary: hand("sword", 1.45, -0.2), secondary: hand("empty", 0.72, 0.2) };
-  return { self: { unit: "warrior", ground: { x: 0, y: 0, z: 0 }, facing: 0,
+  return assertCompleteView({ self: { unit: "warrior", ground: { x: 0, y: 0, z: 0 }, facing: 0,
     shoulder: selfHands.primary.shoulder, tip: selfHands.primary.tip, tipSpeed: 0, hands: selfHands,
     crouch: 0, trunkLean: 0, trunkTwist: 0, vitality: 1, health: {}, reach: 0.72,
     crownHeight: 1.8, vitalHeight: 1.1, collisionRadius: 0.3, naturalAttacks: {} },
   opponent: { unit: "warrior", ground: { x: 0, y: 0, z: 0.65 }, facing: Math.PI,
     shoulder: opponentHands.primary.shoulder, tip: opponentHands.primary.tip, tipSpeed: 0, hands: opponentHands,
     crouch: 0, trunkLean: 0, trunkTwist: 0, vitality: 1, health: {}, reach: 1.45,
-    crownHeight: 1.8, vitalHeight: 1.1, collisionRadius: 0.3, naturalAttacks: {} }, measure: 0.65, clock: 0 };
+    crownHeight: 1.8, vitalHeight: 1.1, collisionRadius: 0.3, naturalAttacks: {} },
+  projectiles: [], measure: 0.65, clock: 0 });
 };
 
 test("viable_range_comes_from_the_capable_striker_and_body_profile", () => {

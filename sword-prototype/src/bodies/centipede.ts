@@ -7,7 +7,7 @@ import type { Physics6DoFConstraint } from "@babylonjs/core/Physics/v2/physicsCo
 
 import type { Striking } from "../combat.ts";
 import type { Limb } from "../fighter.ts";
-import type { HandName, HandView, BodyView, FighterView, Intent, Mind } from "../mind.ts";
+import type { HandName, HandView, BodyView, FighterView, Intent, Mind, NaturalAttackView, ProjectileView } from "../mind.ts";
 import { LAYER, COLLIDES, layersFor, type Side } from "../physics.ts";
 import { capsulePart, joint, type Part } from "../rig.ts";
 import type { WeaponKind } from "../hands.ts";
@@ -23,7 +23,7 @@ type BitePhase = "ready" | "chamber" | "lunge" | "recover";
 const NO_HANDS = Object.freeze({}) as Record<HandName, HandView>;
 const blankHand = (outboard: number): HandView => ({
   weapon: "empty", shoulder: new Vector3(), tip: new Vector3(), tipSpeed: 0,
-  reach: 0, lost: false, outboard,
+  tipVelocity: new Vector3(), reach: 0, lost: false, outboard,
 });
 const HUMANOID_HANDS = (): Record<HandName, HandView> => ({
   primary: blankHand(1), secondary: blankHand(-1),
@@ -79,7 +79,8 @@ export class Centipede implements Combatant {
   readonly limbs: Limb[] = [];
   readonly costume: AbstractMesh[] = [];
   readonly view: FighterView = {
-    self: blankBody(), opponent: blankBody(HUMANOID_HANDS()), measure: Number.POSITIVE_INFINITY, clock: 0,
+    self: blankBody(), opponent: blankBody(HUMANOID_HANDS()), projectiles: [],
+    measure: Number.POSITIVE_INFINITY, clock: 0,
   };
   readonly strikers: Striking[];
   lockTarget: Vector3 | null = null;
@@ -91,6 +92,27 @@ export class Centipede implements Combatant {
   private readonly owned = new Set<AbstractMesh>();
   private readonly facingVector = new Vector3();
   private readonly middle = new Vector3();
+  /**
+   * The published bite, rewritten in place rather than rebuilt.
+   *
+   * `describe` used to hand back a fresh `{ bite: { ... } }` -- two objects --
+   * on every call, and it is called twice per control step per bout, once into
+   * this creature's own view and once into whatever is fighting it. That is
+   * garbage at 240 Hz from a body that publishes no projectiles at all, and it
+   * is exactly the sort of thing that makes a steady-state allocation assertion
+   * land red for a reason the session that wrote the assertion did not cause.
+   */
+  private readonly bite = { reach: CENTIPEDE_BITE_REACH, ready: true, active: false };
+  private readonly natural: Record<string, NaturalAttackView> = { bite: this.bite };
+  /** Held so `update` can command an angular velocity without allocating one. */
+  private readonly spin = new Vector3();
+  /**
+   * And a second one for `describe`, kept apart from every scratch `update`
+   * touches for the reason `Fighter`'s `viewBasis` is kept apart from the rest
+   * of its block: a reading taken for a view must never be able to overwrite a
+   * frame something else is mid-way through commanding.
+   */
+  private readonly reading = new Vector3();
   private phase: BitePhase = "ready";
   private phaseClock = 0;
   private dead = false;
@@ -180,7 +202,20 @@ export class Centipede implements Combatant {
     opponent.describe(this.view.opponent);
     this.view.measure = opponent.nearestPartTo(this.parts[0].mesh.position);
     this.view.clock = clock;
+    // Nothing of this creature's is ever in the air, so the whole list is
+    // whatever the other side has loosed. Same clear/overwrite/trim as
+    // `Fighter.observe`; the cursor starts at zero because this body writes
+    // nothing of its own.
+    this.view.projectiles.length = opponent.publishProjectiles(this.view.projectiles, 0, "opponent");
   }
+
+  /**
+   * A centipede looses nothing, so it writes no record and hands the cursor
+   * straight back. Returning zero instead would truncate whatever the *other*
+   * body had already written, which is the one way this signature can be got
+   * wrong quietly.
+   */
+  publishProjectiles(_into: ProjectileView[], at: number): number { return at; }
 
   describe(into: BodyView): void {
     const head = this.parts[0];
@@ -189,16 +224,17 @@ export class Centipede implements Combatant {
     into.crownHeight = CENTIPEDE_CROWN;
     into.vitalHeight = CENTIPEDE_CROWN * 0.55;
     into.collisionRadius = CENTIPEDE_RADIUS;
-    into.naturalAttacks = { bite: {
-      reach: CENTIPEDE_BITE_REACH,
-      ready: this.phase === "ready",
-      active: this.phase === "lunge",
-    } };
+    this.bite.ready = this.phase === "ready";
+    this.bite.active = this.phase === "lunge";
+    into.naturalAttacks = this.natural;
     into.ground.set(head.mesh.position.x, 0, head.mesh.position.z);
     into.facing = this.heading;
     into.shoulder.copyFrom(head.mesh.position);
     into.tip.copyFrom(this.strikers[0].tipPosition());
-    into.tipSpeed = this.parts[0].body.getLinearVelocity().length();
+    // `...ToRef`, because `getLinearVelocity` hands back a fresh `Vector3` and
+    // this is on the control step. Same reason `Weapon.speedAt` exists.
+    head.body.getLinearVelocityToRef(this.reading);
+    into.tipSpeed = this.reading.length();
     into.hands = NO_HANDS;
     into.crouch = 0; into.trunkLean = 0; into.trunkTwist = 0;
     into.vitality = this.vitality;
@@ -228,7 +264,7 @@ export class Centipede implements Combatant {
     if (this.phase === "lunge") this.facingVector.scaleInPlace(4.8);
     else this.facingVector.scaleInPlace(input.forward * speed);
     head.body.setLinearVelocity(this.facingVector);
-    head.body.setAngularVelocity(new Vector3(0, turnRate, 0));
+    head.body.setAngularVelocity(this.spin.set(0, turnRate, 0));
     if (this.vitality <= 0) this.die();
   }
 

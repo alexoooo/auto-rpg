@@ -9,13 +9,28 @@ import { SEED_RANGES, evaluationMirrorSeeds, forcedOptionEvaluationMind, mirrore
 import { InnovationTracker, addEdgeMutation, addNodeMutation, breedGeneration, crossover, hasCycle, initialPopulation, innovationTrackerFor, speciate, speciesSelectionWeights } from "../src/learning/genome.ts";
 import { fitnessComponents, learnedMetaMind, META_OUTPUT_NAMES, networkMetaMind, noveltyDescriptor, randomMetaMind } from "../src/learning/meta.ts";
 import { HAND_ACTION_NAMES, MOVEMENT_NAMES, OPTION_NAMES, behaviourRecord, scriptedMetaMind } from "../src/options.ts";
+import { STRIKER_KINDS, WEAPON_KINDS } from "../src/hands.ts";
 import { partitionIndexed, restoreIndexed } from "../src/learning/jobs.ts";
 import { Network } from "../src/learning/network.ts";
 import { SeededRng } from "../src/learning/rng.ts";
 import { assessPromotion, selectValidationChampion, validateDefaultTrainingReport } from "../src/learning/promotion.ts";
 import { runPromotionEvaluation } from "../scripts/promotion-evaluator.mjs";
+import { assertCompleteView, assertCompleteBody } from "./fixtures/view.mjs";
 
 const digest = (value) => JSON.stringify(value);
+
+/**
+ * The parts of a hand-rolled view that are not a hand, and the zero velocity a
+ * still hand carries.
+ *
+ * Five body facts and one hand field, all of them read by `selectThreat`, all of
+ * them absent from every fixture in this file until feature v4 went looking for
+ * them. `projectiles` threw; the rest arrived as `undefined` and became `NaN`,
+ * which loses a comparison rather than failing one. `tests/fixtures/view.mjs`
+ * carries the argument and the check.
+ */
+const SHAPE = { unit: "warrior", reach: 0.7, crownHeight: 1.8, vitalHeight: 1.1, collisionRadius: 0.3 };
+const STILL = () => ({ x: 0, y: 0, z: 0 });
 
 test("the_same_seed_builds_the_same_initial_population_and_first_generation", () => {
   const a = initialPopulation(8, 4, 3, 77); const b = initialPopulation(8, 4, 3, 77);
@@ -123,11 +138,12 @@ test("mirrored_evaluation_charges_both_spawn_sides_to_one_genome", () => {
 });
 
 test("a_forced_option_retires_after_capability_loss_but_initially_unsupported_still_refuses", () => {
-  const hand = (weapon, lost = false) => ({ weapon, lost, reach: 1.4, tipSpeed: 0, outboard: 1,
+  const hand = (weapon, lost = false) => ({ weapon, lost, reach: 1.4, tipSpeed: 0, tipVelocity: STILL(), outboard: 1,
     shoulder: { x: 0, y: 1.4, z: 0 }, tip: { x: 0, y: 1.4, z: 1 } });
-  const body = (primary) => ({ ground: { x: 0, y: 0, z: 0 }, facing: 0, shoulder: primary.shoulder,
+  const body = (primary) => ({ ...SHAPE, naturalAttacks: {}, ground: { x: 0, y: 0, z: 0 }, facing: 0, shoulder: primary.shoulder,
     tip: primary.tip, tipSpeed: 0, hands: { primary, secondary: hand("empty") }, crouch: 0, trunkLean: 0, trunkTwist: 0, vitality: 1, health: {} });
-  const view = { self: body(hand("sword")), opponent: body(hand("sword")), measure: 1.2, clock: 0 };
+  const view = assertCompleteView({ self: body(hand("sword")), opponent: body(hand("sword")),
+    projectiles: [], measure: 1.2, clock: 0 });
   const cut = forcedOptionEvaluationMind("cut"); assert.doesNotThrow(() => cut.decide(view, 1 / 60));
   view.self.hands.primary.lost = true; view.self.hands.secondary.lost = true; view.clock = 2;
   for (let frame = 0; frame < 4; frame += 1) assert.doesNotThrow(() => cut.decide(view, 1 / 60));
@@ -136,12 +152,13 @@ test("a_forced_option_retires_after_capability_loss_but_initially_unsupported_st
 });
 
 test("a_learned_meta_policy_can_repeat_one_completed_option_and_goes_inert_after_last_hand_loss", () => {
-  const hand = (weapon, outboard) => ({ weapon, lost: false, reach: 1.4, tipSpeed: 0, outboard,
+  const hand = (weapon, outboard) => ({ weapon, lost: false, reach: 1.4, tipSpeed: 0, tipVelocity: STILL(), outboard,
     shoulder: { x: outboard * 0.2, y: 1.4, z: 0 }, tip: { x: outboard * 0.2, y: 1.4, z: 1 } });
-  const body = () => { const primary = hand("sword", 1); return { ground: { x: 0, y: 0, z: 0 }, facing: 0,
+  const body = () => { const primary = hand("sword", 1); return { ...SHAPE, naturalAttacks: {}, ground: { x: 0, y: 0, z: 0 }, facing: 0,
     shoulder: primary.shoulder, tip: primary.tip, tipSpeed: 0, hands: { primary, secondary: hand("empty", -1) },
     crouch: 0, trunkLean: 0, trunkTwist: 0, vitality: 1, health: {} }; };
-  const view = { self: body(), opponent: body(), measure: 1.2, clock: 0 }; view.opponent.ground.z = 1.4;
+  const view = assertCompleteView({ self: body(), opponent: body(), projectiles: [], measure: 1.2, clock: 0 });
+  view.opponent.ground.z = 1.4;
   const nodes = [...Array.from({ length: FEATURE_COLUMNS.length }, (_, id) => ({ id, kind: "input" })),
     ...Array.from({ length: META_OUTPUT_NAMES.length }, (_, index) => ({ id: FEATURE_COLUMNS.length + index, kind: "output" }))];
   const network = { nodes, run() { const output = Array(META_OUTPUT_NAMES.length).fill(-1); output[META_OUTPUT_NAMES.indexOf("cut")] = 1; return output; } };
@@ -164,7 +181,22 @@ test("worker_count_and_completion_order_do_not_change_the_indexed_generation", (
 });
 
 test("the_runtime_learning_shape_is_the_versioned_feature_table_plus_exact_option_outputs", () => {
-  assert.equal(FEATURE_VERSION, 3); assert.equal(FEATURE_COLUMNS.length, 66);
+  // 99 columns, and both halves of that number are checked below rather than
+  // asserted here as a total somebody can quietly re-record: 66 v3 columns plus
+  // the 33 v4 adds, minus the one v4 removed. The list itself is derived --
+  // `STRIKER_KINDS`, `WEAPON_KINDS`, `MOVEMENT_NAMES` and `HAND_ACTION_NAMES` all
+  // feed it -- so a kind added to `GRIPS` moves this number and is meant to.
+  assert.equal(FEATURE_VERSION, 4); assert.equal(FEATURE_COLUMNS.length, 99);
+  assert.equal(new Set(FEATURE_COLUMNS).size, 99, "no column name is written twice");
+  // The one v3 column this session deleted, by name, because a deletion nobody
+  // pins is a deletion that comes back.
+  assert.equal(FEATURE_COLUMNS.includes("time_since_damage"), false,
+    "the misnamed single damage clock is gone, replaced by dealt/received");
+  // The nine-name striker one-hot is the whole of `GRIPS` rather than
+  // `WEAPON_KINDS`, which is that list with the loosed kinds filtered out.
+  assert.deepEqual(STRIKER_KINDS.filter((kind) => !WEAPON_KINDS.includes(kind)), ["arrow", "bite"]);
+  assert.equal(STRIKER_KINDS.length, 9);
+  for (const kind of STRIKER_KINDS) assert.ok(FEATURE_COLUMNS.includes(`threat_kind_${kind}`), kind);
   assert.deepEqual(META_OUTPUT_NAMES, [...MOVEMENT_NAMES, ...HAND_ACTION_NAMES, "persistence"]);
 });
 
@@ -177,13 +209,13 @@ const checkpointFixture = () => {
 
 const learningView = (primary = "sword", secondary = "empty") => {
   const hand = (weapon, outboard, z) => ({ weapon, lost: false, reach: weapon === "bow" ? 0.8 : 1.4,
-    tipSpeed: 0, outboard, shoulder: { x: outboard * 0.2, y: 1.4, z }, tip: { x: outboard * 0.2, y: 1.4, z: z + 1 } });
-  const body = (a, b, z, facing) => ({ ground: { x: 0, y: 0, z }, facing, shoulder: a.shoulder,
+    tipSpeed: 0, tipVelocity: STILL(), outboard, shoulder: { x: outboard * 0.2, y: 1.4, z }, tip: { x: outboard * 0.2, y: 1.4, z: z + 1 } });
+  const body = (a, b, z, facing) => ({ ...SHAPE, naturalAttacks: {}, ground: { x: 0, y: 0, z }, facing, shoulder: a.shoulder,
     tip: a.tip, tipSpeed: 0, hands: { primary: a, secondary: b }, crouch: 0, trunkLean: 0, trunkTwist: 0,
     vitality: 1, health: {} });
   const mine = body(hand(primary, 1, 0), hand(secondary, -1, 0), 0, 0);
   const theirs = body(hand("sword", 1, 1.4), hand("empty", -1, 1.4), 1.4, Math.PI);
-  return { self: mine, opponent: theirs, measure: 1.2, clock: 0 };
+  return assertCompleteView({ self: mine, opponent: theirs, projectiles: [], measure: 1.2, clock: 0 });
 };
 
 test("a_checkpoint_round_trips_and_replays_the_same_option_sequence", () => {
@@ -276,18 +308,31 @@ test("the_factorized_policy_uses_a_published_natural_bite_without_fabricated_han
   assert.equal(mind.selectedAction, "bite"); assert.equal(intent.primary.thrust, true); assert.equal(intent.forward, 0);
 });
 
-test("feature_v3_rejects_the_unpromoted_v2_checkpoint", () => {
+test("feature_v4_rejects_the_unpromoted_v2_checkpoint", () => {
   const { data } = checkpointFixture();
-  assert.throws(() => new Checkpoint({ ...data, featureVersion: 2 }), /feature version 2 does not match runtime 3/);
+  assert.throws(() => new Checkpoint({ ...data, featureVersion: 2 }), /feature version 2 does not match runtime 4/);
   const legacy = new Checkpoint({ ...data, featureVersion: 2 },
     { featureVersion: 2, featureNames: data.featureNames, optionNames: data.optionNames });
-  assert.throws(() => learnedMetaMind(legacy), /feature v2 checkpoint cannot run as feature v3/);
+  assert.throws(() => learnedMetaMind(legacy), /feature v2 checkpoint cannot run as feature v4/);
+  // And the version one behind, which is the case the old literal got exactly
+  // backwards: `learnedMetaMind` compared against a hardcoded `3` and refused
+  // every freshly written v4 checkpoint with a message claiming v4 was stale.
+  const previous = new Checkpoint({ ...data, featureVersion: FEATURE_VERSION - 1 },
+    { featureVersion: FEATURE_VERSION - 1, featureNames: data.featureNames, optionNames: data.optionNames });
+  assert.throws(() => learnedMetaMind(previous), /feature v3 checkpoint cannot run as feature v4/);
+  // The current one runs, which is the direction a version literal fails in
+  // silently: a gate that refuses everything looks exactly like a strict gate.
+  assert.doesNotThrow(() => learnedMetaMind(new Checkpoint(data)));
 });
 
 test("promotion_selects_across_runs_without_looking_at_test_evidence", () => {
+  // `FEATURE_VERSION`, not a literal. The gate reads the runtime's table now, so
+  // a row pinned at 2 -- which is what this fixture said, and what the gate
+  // itself said, for two whole versions -- is an experiment run against a
+  // feature vector this build cannot execute.
   const run = (runId, seed, championDigest, validationScore, testScore) => ({ runId, seed, championDigest,
     validationScore, testScore, population: 128, generations: 80, mirroredBouts: 24, workers: 8,
-    trainerProtocol: 3, configDigest: "0123456789abcdef", featureVersion: 2,
+    trainerProtocol: 3, configDigest: "0123456789abcdef", featureVersion: FEATURE_VERSION,
     optionNames: OPTION_NAMES });
   const selected = selectValidationChampion([
     run("a", 1, "a1", 1.5, 100),
@@ -295,6 +340,12 @@ test("promotion_selects_across_runs_without_looking_at_test_evidence", () => {
     run("c", 3, "c1", 1.7, 500),
   ]);
   assert.equal(selected.runId, "b");
+  // Both directions of the version gate, because one that refuses everything and
+  // one that refuses nothing pass the same single-sided assertion.
+  assert.throws(() => selectValidationChampion([
+    run("a", 1, "a1", 1.5, 100), { ...run("b", 2, "b1", 2, -100), featureVersion: FEATURE_VERSION - 1 },
+    run("c", 3, "c1", 1.7, 500),
+  ]), /experiment b does not match/);
   assert.throws(() => selectValidationChampion([
     run("a", 1, "a1", 1.5, 100), run("b", 1, "b1", 2, -100), run("c", 3, "c1", 1.7, 500),
   ]), /not independent/);
@@ -342,12 +393,33 @@ test("every_promotion_threshold_is_a_hard_gate", () => {
 
 test("the_compact_unpromoted_evidence_recomputes_the_recorded_failure", () => {
   const report = JSON.parse(readFileSync(new URL("../asset-src/learning/unpromoted-v1.json", import.meta.url), "utf8"));
-  const selected = selectValidationChampion(report.experiments.map((row) => ({ ...row,
+  const rows = (featureVersion) => report.experiments.map((row) => ({ ...row,
     validationScore: row.bestValidation, championDigest: row.championSha256,
     population: report.configuration.population, generations: report.configuration.generations,
     mirroredBouts: report.configuration.mirroredBouts, workers: report.configuration.workers,
-    trainerProtocol: report.configuration.trainerProtocol, featureVersion: report.configuration.featureVersion,
-    optionNames: report.configuration.optionNames })));
+    trainerProtocol: report.configuration.trainerProtocol, featureVersion,
+    optionNames: report.configuration.optionNames }));
+  /**
+   * This evidence was recorded against feature v2 and says so, and the gate now
+   * reads the runtime's table -- so replaying it as it stands is refused, and
+   * that refusal is correct rather than an obstacle. A v2 champion is a network
+   * whose 66 inputs mean different things to a 99-column v4 build; promoting one
+   * would install a checkpoint `learnedMetaMind` then refuses anyway, one seam
+   * further down and after the selection has already been believed.
+   *
+   * The literal that was here before was `2`, which is to say it was pinned at
+   * exactly this file's version -- so the gate would have gone on passing this
+   * and refusing every experiment anybody actually ran, in either direction,
+   * without ever looking wrong.
+   */
+  assert.throws(() => selectValidationChampion(rows(report.configuration.featureVersion)),
+    /does not match the protocol-v3 feature and option contract/);
+  assert.equal(report.configuration.featureVersion, 2, "the recorded evidence is v2 and stays v2");
+  // The ordering itself is still the property under test, so it is asked at the
+  // version this build can execute. What is being checked here is that the
+  // selection rule reproduces the recorded champion, not that a two-version-old
+  // artifact is installable.
+  const selected = selectValidationChampion(rows(FEATURE_VERSION));
   assert.equal(selected.runId, report.selection.selectedRunId);
   const stored = report.promotionEvaluation;
   const decision = assessPromotion({
@@ -370,12 +442,16 @@ test("promotion_evaluation_covers_every_loadout_on_both_mirrored_sides", async (
   const { data } = checkpointFixture(); const bytes = new Checkpoint(data).toBytes(); const seen = []; const seenSeeds = [];
   await assert.rejects(runPromotionEvaluation({ checkpointBytes: bytes, baseSeed: 55, bouts: 2,
     freshHavok: async () => ({}), runBout: () => ({}) }), /training-report is required/);
-  const hand = (weapon, outboard, z) => ({ weapon, lost: false, reach: 1.4, tipSpeed: 0, outboard,
+  const hand = (weapon, outboard, z) => ({ weapon, lost: false, reach: 1.4, tipSpeed: 0, tipVelocity: STILL(), outboard,
     shoulder: { x: outboard * 0.2, y: 1.4, z }, tip: { x: outboard * 0.2, y: 1.4, z: z + (z ? -1 : 1) } });
+  // The opponent is filled in by `runBout` below once both halves exist, so the
+  // whole view cannot be checked here; the half that is finished is. `body` is
+  // what a real `describe` writes and `assertCompleteBody` is the same list.
   const view = (loadout, z, facing) => { const primary = hand(loadout.primary, 1, z); const secondary = hand(loadout.secondary, -1, z);
-    return { self: { ground: { x: 0, y: 0, z }, facing, shoulder: primary.shoulder, tip: primary.tip, tipSpeed: 0,
-      hands: { primary, secondary }, crouch: 0, trunkLean: 0, trunkTwist: 0, vitality: 1, health: {} }, opponent: null,
-      measure: 1.2, clock: 0 }; };
+    const body = { ...SHAPE, naturalAttacks: {}, ground: { x: 0, y: 0, z }, facing, shoulder: primary.shoulder, tip: primary.tip, tipSpeed: 0,
+      hands: { primary, secondary }, crouch: 0, trunkLean: 0, trunkTwist: 0, vitality: 1, health: {} };
+    assertCompleteBody(body, `${loadout.primary}+${loadout.secondary}`);
+    return { self: body, opponent: null, projectiles: [], measure: 1.2, clock: 0 }; };
   const runBout = (opts) => { const actorSide = opts.left === "swinger" ? "right" : "left";
     const loadout = actorSide === "left" ? opts.leftLoadout : opts.rightLoadout; seen.push(`${loadout.primary}+${loadout.secondary}/${actorSide}`);
     seenSeeds.push(opts.seeds[0]);

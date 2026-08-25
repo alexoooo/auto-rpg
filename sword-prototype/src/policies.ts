@@ -26,9 +26,10 @@ import {
   otherHand,
   type HandName,
 } from "./hands.ts";
-import type { BodyView, FighterView, HandIntent, HandView, Intent, Mind } from "./mind.ts";
+import type { BodyView, FighterView, HandIntent, Intent, Mind } from "./mind.ts";
 import { ACTION_SHOT_TIMING, ACTION_STROKE_TIMING, actionAimAt, actionArcherAim, actionCoverAt, actionDistance, actionShotPhase, bareCrowdDistance, bareHoldDistance,
-  actionStrokePose, actionStrokeReading, actionStrokeRoll, applyActionPosture, freshIntent, strokePoint } from "./action-primitives.ts";
+  actionStrokePose, actionStrokeReading, actionStrokeRoll, applyActionPosture, blankThreat, freshIntent, selectThreat, strokePoint,
+  type ThreatView } from "./action-primitives.ts";
 
 /**
  * The two policies that fight.
@@ -116,8 +117,7 @@ export type PostureAction = "idle" | "close" | "cover" | "commit" | "recover" | 
  * the one place posture speed is decided.
  */
 export function postureFor(view: FighterView, action: PostureAction, into: Intent): Intent {
-  const threat = threatHand(view.opponent);
-  return applyActionPosture(view, action, into, threat);
+  return applyActionPosture(view, action, into, threatHand(view));
 }
 
 /**
@@ -191,35 +191,32 @@ function shootHand(view: FighterView, prefer: HandName): HandName {
 }
 
 /**
- * The hand of theirs worth watching.
+ * The thing of theirs worth watching.
  *
  * `BodyView.tip` is the primary's and stays the primary's -- see its own note --
  * so a guard built on it is a guard against whichever hand happens to be first,
- * which is the shield if they are carrying one there. This picks the hand that
- * can actually hurt, and the faster of the two when both can.
+ * which is the shield if they are carrying one there. This picked the hand that
+ * could actually hurt, and the faster of the two when both could.
  *
- * Speed rather than distance, because a blade that is moving is a blade that has
- * been committed, and `duelist` is already reading exactly that quantity to find
- * an opening.
+ * It was a lead-versus-off pick written out here, **byte-identical to a copy in
+ * `options.ts`** and disagreeing with a third in `learning/features.ts` -- so
+ * the guard and the learned perception could be looking at different hands, and
+ * nothing said so. `selectThreat` is the one answer now, and it can also say
+ * "the shaft in the air", which no version of this shape could.
+ *
+ * **It is a different answer, not the same one refactored.** An empty hand
+ * publishes a real speed now and the ranking is not `tipSpeed`, so the hand this
+ * policy guards against differs from the one it guarded against at `f789ea4` on
+ * about a tenth of the control steps of a sword-and-fist duel and a quarter of a
+ * bare-handed one. That is measured, with the win rates either side of it, in
+ * `docs/measurements.md` under "Threat selection, reconciled".
+ *
+ * The scratch is module-level rather than per policy, for the reason this
+ * function was module-level: `decide` runs 240 times a second per fighter, both
+ * fighters decide synchronously, and neither keeps what it is handed.
  */
-function threatHand(body: BodyView): HandView {
-  const { primary, secondary } = body.hands;
-  if (!primary || !secondary) return {
-    weapon: "empty",
-    shoulder: body.shoulder,
-    tip: body.tip,
-    tipSpeed: body.tipSpeed,
-    reach: body.reach,
-    lost: false,
-    outboard: 1,
-  };
-  const lead = !primary.lost && isStriking(primary.weapon);
-  const off = !secondary.lost && isStriking(secondary.weapon);
-  if (lead && off) return primary.tipSpeed >= secondary.tipSpeed ? primary : secondary;
-  if (lead) return primary;
-  if (off) return secondary;
-  return primary.lost ? secondary : primary;
-}
+const threatScratch = blankThreat();
+const threatHand = (view: FighterView): ThreatView => selectThreat(view, threatScratch);
 
 /**
  * The cursor and the arm's aim, in both directions.
@@ -346,7 +343,7 @@ export function rollForStroke(
  */
 function threatPoint(
   view: FighterView,
-  threat: HandView,
+  threat: ThreatView,
   tipGap: number,
   bodyGap: number,
   into: Point,
@@ -372,7 +369,7 @@ function threatPoint(
 
 function coveringLine(
   view: FighterView,
-  threat: HandView,
+  threat: ThreatView,
   tipGap: number,
   bodyGap: number,
   target: Point,
@@ -1387,6 +1384,18 @@ export function duelistMind(seed = randomSeed()): Mind {
   let gapRate = 0;
   let lastGap = -1;
 
+  /**
+   * This policy's own reading of the threat, and **not** the module scratch
+   * `threatHand` writes into.
+   *
+   * `postureFor` runs partway down `decide` and asks the same question, so a
+   * duelist holding the module record would have it rewritten under it halfway
+   * through the step. The two answers agree today, because nothing moves between
+   * the two calls -- which is exactly what makes the aliasing the kind of defect
+   * that survives until somebody adds a line and cannot see why the guard moved.
+   */
+  const watching = blankThreat();
+
   const goTo = (next: Stance): void => {
     stance = next;
     elapsed = 0;
@@ -1399,7 +1408,7 @@ export function duelistMind(seed = randomSeed()): Mind {
       const them = view.opponent;
       const gap = distance(self.shoulder, them.shoulder);
 
-      const threat = threatHand(them);
+      const threat = selectThreat(view, watching);
       attacker = attackHand(view, prefer, threat.tip);
       intent.driving = attacker;
       mirror = self.hands[attacker].outboard;

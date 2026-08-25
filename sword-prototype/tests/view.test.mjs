@@ -13,6 +13,7 @@ import { attachPhysics } from "../src/physics.ts";
 import { armForLimbKey, Fighter, legPose } from "../src/fighter.ts";
 import { idleMind } from "../src/mind.ts";
 import { blankIntent } from "../src/policies.ts";
+import { BODY_FIELDS, HAND_FIELDS, PROJECTILE_FIELDS, VIEW_FIELDS } from "./fixtures/view.mjs";
 
 /**
  * The one test in this directory that runs the real solver.
@@ -53,7 +54,7 @@ test("all_six_arm_limb_keys_map_to_the_arm_they_can_drop", () => {
   assert.equal(armForLimbKey("torso"), undefined);
 });
 
-async function ring(loadout = undefined) {
+async function ring(loadout = undefined, rightLoadout = undefined) {
   const engine = new NullEngine();
   const scene = new Scene(engine);
   attachPhysics(scene, await HavokPhysics({ wasmBinary: await readFile(wasm) }));
@@ -88,7 +89,7 @@ async function ring(loadout = undefined) {
   }, materials);
   const right = new Fighter(scene, {
     side: "right", origin: new Vector3(0, 0, CONFIG.fighter.separation),
-    facing: Math.PI, mind: idleMind(),
+    facing: Math.PI, mind: idleMind(), loadout: rightLoadout,
   }, materials);
 
   return { engine, scene, left, right };
@@ -568,4 +569,239 @@ test("a hand publishes how far it reaches, and it is the weapon's not the arm's"
   } finally {
     engine.dispose();
   }
+});
+
+/**
+ * A point that is moving, and which way.
+ *
+ * `tipSpeed` was the whole of what a view said about a blade in motion, and a
+ * magnitude cannot answer the question every guard in the tree is actually
+ * asking: a blade withdrawing at 8 m/s and one arriving at 8 m/s are the same
+ * number. The direction is what session 16 added, so the direction is what has
+ * to be checked -- an assertion that the magnitudes agree would pass on a
+ * `tipVelocity` that pointed anywhere at all.
+ *
+ * So it is checked against the tip's own travel, differenced across one solver
+ * substep. That is a reading taken from the world rather than from the same
+ * arithmetic the publication used, which is the difference between a test and a
+ * restatement.
+ */
+test("hand_tip_velocity_has_direction_and_an_empty_fist_is_not_always_stationary", async (t) => {
+  // A sword in one hand and nothing in the other, because the two are published
+  // through different readers -- `Weapon.velocityAtToRef` and
+  // `FistStrike.centreVelocityToRef` -- and a test that only carried steel would
+  // leave the fist's half unrun.
+  const { engine, scene, left, right } = await ring({ primary: "sword", secondary: "empty" });
+  t.after(() => engine.dispose());
+
+  let clock = 0;
+  const samples = { primary: [], secondary: [] };
+  const control = () => {
+    clock += FIXED;
+    left.observe(right, clock);
+    right.observe(left, clock);
+    for (const name of ["primary", "secondary"]) {
+      const hand = left.view.self.hands[name];
+      samples[name].push({
+        tip: hand.tip.clone(),
+        velocity: hand.tipVelocity.clone(),
+        speed: hand.tipSpeed,
+      });
+    }
+    left.update(FIXED);
+    right.update(FIXED);
+  };
+  // `ring`'s left mind is `busy`, which drives both hands, so both are swinging.
+  for (let i = 0; i < 120; i += 1) frame(scene, control);
+
+  for (const name of ["primary", "secondary"]) {
+    const track = samples[name];
+    // The speed is the magnitude of the vector, exactly, because `describeFighter`
+    // takes one from the other. A pair that merely agreed to a tolerance would be
+    // two independent readings and the next session would have to work out which
+    // of them a policy was reading.
+    for (const sample of track) {
+      assert.equal(sample.speed, sample.velocity.length(), `${name}: speed is the magnitude of the velocity`);
+    }
+    // The fist moves. This is the assertion the whole test hangs on for the
+    // empty hand: before session 16 a bare hand published `tipSpeed = 0`
+    // forever, so "is that fist coming at me" had no answer at all.
+    const fastest = Math.max(...track.map((sample) => sample.speed));
+    assert.ok(fastest > 0.5, `${name}: nothing ever moved, fastest ${fastest.toFixed(3)} m/s`);
+
+    // And it points where the point is going. Taken at the fastest substep, so
+    // the finite difference is dominated by travel rather than by the curvature
+    // of a slow arc.
+    const at = track.findIndex((sample) => sample.speed === fastest);
+    assert.ok(at > 0 && at < track.length - 1, `${name}: the peak is inside the track`);
+    const travelled = track[at + 1].tip.subtract(track[at].tip).scale(1 / FIXED);
+    const along = Vector3.Dot(travelled.normalizeToNew(), track[at].velocity.normalizeToNew());
+    assert.ok(along > 0.9,
+      `${name}: the published velocity should point where the tip actually went, dot ${along.toFixed(4)}`);
+    assert.ok(Math.abs(travelled.length() - fastest) < fastest * 0.35,
+      `${name}: and be about as fast, ${travelled.length().toFixed(3)} against ${fastest.toFixed(3)} m/s`);
+  }
+
+  // The fist's cheap reader is the general one with a term that vanishes taken
+  // out, and this is the check that says so rather than the comment on it.
+  // `describeFighter` calls `centreVelocityToRef`, which makes one boundary read
+  // instead of two; it is only equal to `velocityAtToRef` at the fist's own
+  // centre, which is exactly the point the view publishes for a bare hand.
+  const fist = left.arms.secondary.fist;
+  const centre = left.arms.secondary.hand.mesh.position;
+  const cheap = new Vector3();
+  const general = new Vector3();
+  fist.centreVelocityToRef(cheap);
+  fist.velocityAtToRef(centre, general);
+  assert.equal(general.subtract(cheap).length(), 0,
+    `the fist's two readers disagree at its own centre: ${general} against ${cheap}`);
+  // Anywhere else they differ by exactly the term the cheap one drops, which is
+  // the whole reason it may not be used anywhere else.
+  const offset = new Vector3(0.25, 0, 0);
+  fist.velocityAtToRef(centre.add(offset), general);
+  const spin = new Vector3();
+  fist.body.getAngularVelocityToRef(spin);
+  assert.ok(general.subtract(cheap).subtract(Vector3.Cross(spin, offset)).length() < 1e-12,
+    "a quarter of a metre out, the difference between the two readers is w x r");
+});
+
+/**
+ * One shaft per side in the air, and nothing else in the list.
+ *
+ * The filter is `live && !spent`, which is three exclusions wearing two words: a
+ * parked arrow is sixty metres under the floor, a spent one is lying against
+ * whatever it hit, and a shaft that was never loosed is neither. A quiver holds
+ * twelve, so a publication that forgot the filter would hand a policy
+ * twenty-four things to reason about, twenty-two of them scenery.
+ *
+ * Both owners, because the labelling is the part that can go wrong silently:
+ * the same shaft is `self` in its owner's view and `opponent` in the other's,
+ * and one shared pool of records would have the second `observe` of a step
+ * rewrite the label the first had just published. That is not an intermittent
+ * fault -- both observations run before either mind decides -- so every archer
+ * in the game would read its own arrows as incoming.
+ */
+test("projectile_view_contains_only_live_unspent_arrows_from_both_owners", async (t) => {
+  const bow = { primary: "bow", secondary: "empty" };
+  const { engine, scene, left, right } = await ring(bow, bow);
+  t.after(() => engine.dispose());
+  // Both standing still. `ring`'s left mind walks and turns, and this test aims
+  // a shaft at a point on the other fighter -- so a fighter that had wandered
+  // would miss, and the assertion about a spent shaft would fail for a reason
+  // that is not about the publication at all.
+  left.mind = { name: "still", decide: () => blankIntent() };
+
+  let clock = 0;
+  let pending = [];
+  const control = () => {
+    clock += FIXED;
+    left.observe(right, clock);
+    right.observe(left, clock);
+    left.update(FIXED);
+    right.update(FIXED);
+    // **After** `update`, and this is not a detail. `Arm.update` runs
+    // `Quiver.step` first thing, and that is what takes down the one-step
+    // teleport `loose` puts up -- so a shot queued before it is cancelled before
+    // the solver ever sees it, and the shaft starts from where the last one
+    // ended, sixty metres under the floor. It then parks itself on the `y < -2`
+    // rule and this test reads an empty list for a reason that has nothing to do
+    // with the publication. `Arm.shoot` sits in exactly this slot for exactly
+    // this reason; the failure it avoids is the one in `arrow.ts`'s header.
+    for (const shot of pending) shot();
+    pending = [];
+  };
+
+  for (let i = 0; i < 20; i += 1) frame(scene, control);
+  assert.deepEqual(left.view.projectiles, [], "nothing is in the air before anybody shoots");
+  assert.equal(left.arms.primary.quiver.arrows.length, CONFIG.arrow.count,
+    "and the quiver is full of parked shafts that are not projectiles");
+
+  // One each, well over the other fighter's head, so both stay in flight while
+  // the list is read. A shot that struck immediately would test the other half
+  // of the filter and not this one.
+  // Up and over, each toward the other. Both climbing: a shaft aimed downward
+  // parks itself on the `y < -2` rule within a few substeps and would leave this
+  // reading an empty list for a reason that is not the filter.
+  const outward = new Vector3(0, 0.55, 1).normalize();
+  const back = new Vector3(0, 0.55, -1).normalize();
+  pending.push(() => left.arms.primary.quiver.loose(
+    left.view.self.hands.primary.shoulder.clone(), outward, CONFIG.arrow.speedMax));
+  pending.push(() => right.arms.primary.quiver.loose(
+    right.view.self.hands.primary.shoulder.clone(), back, CONFIG.arrow.speedMax));
+  for (let i = 0; i < 6; i += 1) frame(scene, control);
+
+  for (const [name, fighter, other] of [["left", left, right], ["right", right, left]]) {
+    const published = fighter.view.projectiles;
+    assert.equal(published.length, 2, `${name}: one shaft each, not a quiver each`);
+    assert.deepEqual(published.map((shot) => shot.owner), ["self", "opponent"],
+      `${name}: its own first, then the other side's`);
+    assert.ok(published.every((shot) => shot.kind === "arrow"));
+    assert.equal(fighter.arms.primary.quiver.flying, 1);
+    assert.equal(other.arms.primary.quiver.flying, 1);
+    for (const shot of published) {
+      assert.ok(shot.velocity.length() > CONFIG.arrow.speedMax * 0.5,
+        `${name}: a shaft in flight is travelling, got ${shot.velocity.length()}`);
+      assert.ok(shot.age >= 0 && shot.age < 0.2, `${name}: freshly loosed, age ${shot.age}`);
+    }
+  }
+
+  // Now put one into the other fighter point blank, and watch it leave the list
+  // the moment it is spent rather than when it is finally collected.
+  pending.push(() => left.arms.primary.quiver.loose(
+    left.view.self.hands.primary.shoulder.clone(), new Vector3(0, 0, 1), CONFIG.arrow.speedMax));
+  for (let i = 0; i < 30; i += 1) frame(scene, control);
+
+  const struck = left.arms.primary.quiver.arrows.filter((arrow) => arrow.live && arrow.spent);
+  assert.equal(struck.length, 1, "the point-blank shot hit something and stopped being a projectile");
+  assert.equal(left.view.projectiles.length, left.arms.primary.quiver.flying + right.arms.primary.quiver.flying,
+    "the published count is exactly `Quiver.flying`, both sides");
+  assert.equal(left.view.projectiles.length < 3, true, "and the spent shaft is not one of them");
+});
+
+/**
+ * The hand-rolled fixtures, checked against the real thing rather than against a
+ * reading of `mind.ts`.
+ *
+ * `tests/fixtures/view.mjs` is a hand-maintained copy of a contract, which is
+ * the failure mode `AGENTS.md` has a rule about: a list kept in step by somebody
+ * remembering. This is the test that makes remembering unnecessary. A field
+ * added to `HandView`, `BodyView`, `ProjectileView` or `FighterView` appears in
+ * a real published view, does not appear in the list, and fails here -- which is
+ * one file to fix rather than sixty tests to rediscover, and it is why the pure
+ * fixtures can be trusted to be complete rather than merely un-thrown.
+ */
+test("a_hand_rolled_fixture_carries_every_field_a_real_view_does", async (t) => {
+  const bow = { primary: "bow", secondary: "empty" };
+  const { engine, scene, left, right } = await ring(bow, { primary: "sword", secondary: "shield" });
+  t.after(() => engine.dispose());
+
+  let clock = 0;
+  let pending = null;
+  const control = () => {
+    clock += FIXED;
+    left.observe(right, clock);
+    right.observe(left, clock);
+    left.update(FIXED);
+    right.update(FIXED);
+    // After `update`, for the reason the test above gives at length.
+    if (pending) { pending(); pending = null; }
+  };
+  for (let i = 0; i < 20; i += 1) frame(scene, control);
+  // A shaft in the air, or `projectiles` would be empty and its record shape
+  // would go unchecked -- which is exactly how the array came to be the one
+  // thing every fixture in the directory was missing.
+  pending = () => left.arms.primary.quiver.loose(
+    left.view.self.hands.primary.shoulder.clone(), new Vector3(0, 0.55, 1).normalize(), CONFIG.arrow.speedMax);
+  for (let i = 0; i < 4; i += 1) frame(scene, control);
+
+  const view = left.view;
+  assert.ok(view.projectiles.length > 0, "a shaft is up, so the record shape is actually sampled");
+  assert.deepEqual(Object.keys(view).sort(), [...VIEW_FIELDS], "FighterView");
+  for (const side of ["self", "opponent"]) {
+    assert.deepEqual(Object.keys(view[side]).sort(), [...BODY_FIELDS], `BodyView (${side})`);
+    for (const name of Object.keys(view[side].hands)) {
+      assert.deepEqual(Object.keys(view[side].hands[name]).sort(), [...HAND_FIELDS], `HandView (${side}.${name})`);
+    }
+  }
+  assert.deepEqual(Object.keys(view.projectiles[0]).sort(), [...PROJECTILE_FIELDS], "ProjectileView");
 });

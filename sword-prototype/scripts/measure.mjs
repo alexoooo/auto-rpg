@@ -428,9 +428,12 @@ function runSwingBench({ seed = 1, seconds = 20 } = {}) {
    *
    * A hand-written view has to carry every field the real one does or the policy
    * reads `undefined` off it, and this one threw on the first substep the day
-   * `FighterView` grew hands -- exactly as `tests/minds.test.mjs`'s fixture did.
-   * The two are the only hand-written views in the tree and they fail the same
-   * way, which is worth knowing before writing a third.
+   * `FighterView` grew hands -- exactly as `tests/minds.test.mjs`'s fixture did,
+   * and exactly as both of them did again the day it grew `projectiles`. They
+   * are no longer the only two: `tests/fixtures/view.mjs` now carries the field
+   * list and the check, and `tests/view.test.mjs` holds that list against a real
+   * published view. A hand-written view in `scripts/` is outside that net, which
+   * is the argument for keeping this one honest by hand.
    *
    * The loadout is the fighter's below: a sword in the primary and nothing in
    * the other hand. `shoulder` is the body's for both, which is the same
@@ -442,6 +445,11 @@ function runSwingBench({ seed = 1, seconds = 20 } = {}) {
       shoulder,
       tip,
       tipSpeed: 0,
+      // The direction beside the magnitude. `describeFighter` derives the second
+      // from the first, and `selectThreat` ranks a hand by its speed only while
+      // the point is closing -- so a phantom carrying a speed and no direction
+      // describes a blade that is not going anywhere.
+      tipVelocity: new Vector3(0, 0, 0),
       // The same arithmetic `Arm.strikeReach` does, because a policy shifts its
       // ranges by it and a phantom that omitted it would hand `NaN` to every
       // distance comparison in the file.
@@ -454,10 +462,28 @@ function runSwingBench({ seed = 1, seconds = 20 } = {}) {
       shoulder,
       tip: new Vector3(shoulder.x, shoulder.y, shoulder.z + sign * CONFIG.arm.reachNeutral),
       tipSpeed: 0,
+      tipVelocity: new Vector3(0, 0, 0),
       reach: CONFIG.arm.reachNeutral,
       lost: false,
       outboard: -1,
     },
+  });
+  /**
+   * The five body facts a hand carries none of.
+   *
+   * Taken from `config.ts` rather than invented, the same way `reach` above is:
+   * `Fighter.describeFighter` fills them from the body profile, `selectThreat`
+   * measures every threat's closest approach to `(ground.x, vitalHeight,
+   * ground.z)` and gates a shaft on `collisionRadius`, and feature v4 publishes
+   * all five.
+   */
+  const shape = () => ({
+    unit: "warrior",
+    reach: CONFIG.arm.reachNeutral,
+    crownHeight: CONFIG.body.headCentre + CONFIG.body.headRadius,
+    vitalHeight: CONFIG.body.torsoCentre,
+    collisionRadius: CONFIG.body.pelvisRadius,
+    naturalAttacks: {},
   });
   const mySocket = new Vector3(0, 1.42, 0);
   const theirSocket = new Vector3(0, 1.42, at);
@@ -465,6 +491,7 @@ function runSwingBench({ seed = 1, seconds = 20 } = {}) {
   const theirTip = new Vector3(0, 1.42, at - 1.3);
   const phantom = {
     self: {
+      ...shape(),
       ground: new Vector3(0, 0, 0),
       facing: 0,
       shoulder: mySocket,
@@ -478,6 +505,7 @@ function runSwingBench({ seed = 1, seconds = 20 } = {}) {
       health: whole(),
     },
     opponent: {
+      ...shape(),
       ground: new Vector3(0, 0, at),
       facing: Math.PI,
       shoulder: theirSocket,
@@ -490,6 +518,9 @@ function runSwingBench({ seed = 1, seconds = 20 } = {}) {
       vitality: 1,
       health: whole(),
     },
+    // Nothing is ever in the air in this sweep, and the array is published
+    // rather than omitted because a `FighterView` always carries it.
+    projectiles: [],
     measure: at - 0.4,
     clock: 0,
   };

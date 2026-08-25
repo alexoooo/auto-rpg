@@ -1231,24 +1231,41 @@ export class Weapon {
   }
 
   /**
-   * Speed of the material point of the sword currently at `world`, without
-   * touching a world matrix and without allocating.
+   * Velocity of the material point of the sword currently at `world`, written
+   * into a ref the caller owns, without touching a world matrix and without
+   * allocating.
    *
    * The same arithmetic as `velocityAt`, which is left exactly as it is because
-   * the damage model is built on it and this session is not allowed to go near
-   * that. `getObjectCenterWorld` reads `transformNode.position` for a
-   * non-instanced body, so the centre is cache-free already; only the three
-   * `Vector3`s it and the two velocity getters allocate are worth avoiding, and
-   * they are worth avoiding here because this runs four times per solver step.
+   * the damage model is built on it and no session is allowed to go near that.
+   * `getObjectCenterWorld` reads `transformNode.position` for a non-instanced
+   * body, so the centre is cache-free already; only the three `Vector3`s it and
+   * the two velocity getters allocate are worth avoiding, and they are worth
+   * avoiding here because this runs four times per solver step -- once per hand
+   * per fighter, from `describeFighter`.
+   *
+   * `ref` is written rather than returned from scratch so that two hands
+   * published in the same pass cannot end up holding one vector, which is
+   * exactly the fault `Arrow`'s two original readers have.
    */
-  speedAt(world: Vector3): number {
+  velocityAtToRef(world: Vector3, ref: Vector3): Vector3 {
     const s = this.scratch;
     this.body.getLinearVelocityToRef(s.freeLin);
     this.body.getAngularVelocityToRef(s.freeAng);
     this.body.getObjectCenterWorldToRef(s.freeCentre);
     s.freeRel.copyFrom(world).subtractInPlace(s.freeCentre);
-    Vector3.CrossToRef(s.freeAng, s.freeRel, s.freeTip);
-    return s.freeTip.addInPlace(s.freeLin).length();
+    Vector3.CrossToRef(s.freeAng, s.freeRel, ref);
+    return ref.addInPlace(s.freeLin);
+  }
+
+  /**
+   * Speed of that same point, which is the magnitude of the line above.
+   *
+   * Delegated rather than repeated: this was the whole of `velocityAt`'s
+   * arithmetic written out a second time, and a copy of a formula is a copy
+   * somebody edits.
+   */
+  speedAt(world: Vector3): number {
+    return this.velocityAtToRef(world, this.scratch.freeTip).length();
   }
 
   /**

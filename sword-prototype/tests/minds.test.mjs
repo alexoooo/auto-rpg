@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { NEUTRAL, POLICIES, mirroredWristBend, otherHand, policyMind, splitMind } from "../src/mind.ts";
 import { blankIntent, cursorForElevation, postureFor, rollForStroke } from "../src/policies.ts";
 import { CONFIG } from "../src/config.ts";
+import { assertCompleteView } from "./fixtures/view.mjs";
 
 /**
  * The policies, argued with rather than watched.
@@ -75,18 +76,49 @@ const reachOf = (weapon) => {
   return extension;
 };
 
-function hand({ weapon = "empty", name = "primary", shoulder, sign = 1, tip, tipSpeed = 0, lost = false }) {
+function hand({ weapon = "empty", name = "primary", shoulder, sign = 1, tip, tipSpeed = 0,
+  closing = true, lost = false }) {
   const fist = { x: shoulder.x, y: shoulder.y, z: shoulder.z + sign * CONFIG.arm.reachNeutral };
   return {
     weapon,
     shoulder,
     tip: tip ?? fist,
     tipSpeed,
+    // A speed and the direction it is a speed *of*, because `describeFighter`
+    // derives the first from the second and a fixture where the two disagree is
+    // a body that cannot exist. It matters more than it looks: `selectThreat`
+    // ranks a hand by its speed **only while the point is approaching**, so a
+    // fixture that named a speed and left the direction at zero would describe
+    // every committed blade in this file as standing still, and would go on
+    // passing while asserting nothing.
+    //
+    // `sign` is the way this body's arms point, so `sign * +Z` is its point
+    // travelling at the fighter opposite. `closing: false` is a blade that has
+    // been spent somewhere else and is on its way back out.
+    tipVelocity: { x: 0, y: 0, z: (closing ? sign : -sign) * tipSpeed },
     reach: reachOf(weapon),
     lost,
     outboard: name === "primary" ? 1 : -1,
   };
 }
+
+/**
+ * The body facts that are not about a hand, from `config.ts` rather than made up.
+ *
+ * `Fighter.describeFighter` fills these five from the body profile, and a policy
+ * reads them: `selectThreat` measures every threat's closest approach to
+ * `(ground.x, vitalHeight, ground.z)` and gates an arrow on `collisionRadius`,
+ * and feature v4 publishes all five. A fixture that omitted them handed
+ * `undefined` into that arithmetic, which is `NaN`, which loses every comparison
+ * silently rather than throwing.
+ */
+const SHAPE = {
+  unit: "warrior",
+  reach: CONFIG.arm.reachNeutral,
+  crownHeight: CONFIG.body.headCentre + CONFIG.body.headRadius,
+  vitalHeight: CONFIG.body.torsoCentre,
+  collisionRadius: CONFIG.body.pelvisRadius,
+};
 
 /**
  * A fighter's view of an opponent standing `gap` metres away, shoulder to
@@ -123,11 +155,17 @@ function facing({
   const theirHands = {
     primary: hand({
       weapon: theirs.primary, name: "primary", shoulder: theirSocket, sign: -1, tip, tipSpeed,
+      // "away" is a point that has been spent somewhere else, so a speed on it
+      // is a speed *outward*. Naming it here rather than in `hand` keeps the one
+      // place that decides what "away" means the same place that positions it.
+      closing: blade !== "away",
     }),
     secondary: hand({ weapon: theirs.secondary, name: "secondary", shoulder: theirSocket, sign: -1 }),
   };
-  return {
+  return assertCompleteView({
     self: {
+      ...SHAPE,
+      naturalAttacks: {},
       ground: { x: 0, y: 0, z: 0 },
       facing: 0,
       // The primary's, and *the same object* the primary hand carries, because
@@ -144,6 +182,8 @@ function facing({
       health: whole(),
     },
     opponent: {
+      ...SHAPE,
+      naturalAttacks: {},
       ground: { x: 0, y: 0, z: gap },
       facing: Math.PI,
       shoulder: theirHands.primary.shoulder,
@@ -156,9 +196,15 @@ function facing({
       vitality: 1,
       health: whole(),
     },
+    // Nothing is in the air in this file. It is still published, because a
+    // `FighterView` always carries the array and a fixture that left it off
+    // would be answered with a `TypeError` from `selectThreat` rather than with
+    // "no arrows" -- which is the right way round, and is why there is no
+    // tolerant `?? []` on the reader.
+    projectiles: [],
     measure: measure === null ? gap - 0.4 : measure,
     clock,
-  };
+  });
 }
 
 /**
@@ -173,6 +219,27 @@ function putTip(view, point) {
   view.opponent.tip = point;
   view.opponent.hands.primary.tip = point;
   return view;
+}
+
+/**
+ * Set a hand's point moving, in both of the fields that say so.
+ *
+ * `tipSpeed = 14` on its own used to be the whole of "this blade is committed",
+ * and it is not any more: `selectThreat` ranks a tip by its speed *weighted by
+ * how near its path takes it to the reader's vitals*, so a fixture that named a
+ * speed and left `tipVelocity` at zero would describe a blade going nowhere and
+ * would be ranked as one -- a fixture whose setup already satisfies whatever it
+ * was about to assert. The weight is a demotion rather than a gate, which is the
+ * one thing that changed after the first version of this note: a blade that is
+ * plainly moving no longer scores exactly zero for half of every stroke.
+ *
+ * Straight at me by default, because the fixtures here put the opponent down
+ * +Z; `closing: false` is a spent point on its way back out.
+ */
+function commit(hand, speed, { closing = true } = {}) {
+  hand.tipSpeed = speed;
+  hand.tipVelocity = { x: 0, y: 0, z: (closing ? -1 : 1) * speed };
+  return hand;
 }
 
 /**
@@ -416,7 +483,7 @@ test("two_duelist_fists_leave_the_hand_nearest_the_actual_dangerous_hand_on_cove
   view.opponent.hands.primary.tip = { x: -0.35, y: 1.4, z: 0.55 };
   view.opponent.tip = view.opponent.hands.primary.tip;
   view.opponent.hands.secondary.tip = { x: 0.35, y: 1.4, z: 0.55 };
-  view.opponent.hands.secondary.tipSpeed = 12;
+  commit(view.opponent.hands.secondary, 12);
 
   assert.equal(
     ask(policyMind("duelist", 7), view).driving,
@@ -446,7 +513,7 @@ test("two_swinger_fists_choose_against_the_chest_and_still_ignore_blades", () =>
   storm.opponent.tip = storm.opponent.hands.primary.tip;
   storm.opponent.hands.secondary.weapon = "sword";
   storm.opponent.hands.secondary.tip = { x: 0.55, y: 1.4, z: 0.55 };
-  storm.opponent.hands.secondary.tipSpeed = 24;
+  commit(storm.opponent.hands.secondary, 24);
 
   const quietIntent = ask(policyMind("swinger", 7), quiet);
   const stormIntent = ask(policyMind("swinger", 7), storm);
@@ -1216,7 +1283,8 @@ test("a swinger with a shield still never reads the opponent's blade", () => {
   const spent = () => {
     const view = seen();
     putTip(view, { x: 0.9, y: 2.1, z: 2.0 });
-    view.opponent.hands.primary.tipSpeed = 14;
+    // Spent: the point is out at (0.9, 2.1, 2.0) behind them and moving away.
+    commit(view.opponent.hands.primary, 14, { closing: false });
     return view;
   };
   const a = drive(policyMind("swinger", 11), 2, seen);

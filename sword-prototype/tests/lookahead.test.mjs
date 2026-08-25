@@ -7,6 +7,7 @@ import { LOOKAHEAD_DEPTH, LOOKAHEAD_WIDTH, LookaheadController, boundedLookahead
 import { TACTICAL_STATE_COLUMNS, fitTacticalModel, requireCalibration } from "../src/learning/tactical-model.ts";
 import { collectTacticalTrace, lookaheadTacticCellSchedule } from "../scripts/train-lookahead.mjs";
 import { MOVEMENT_NAMES } from "../src/options.ts";
+import { assertCompleteView } from "./fixtures/view.mjs";
 
 const state = (overrides = {}) => ({ reachMargin: -0.5, facingError: 0.2, threatAlignment: 0.1,
   contactProbability: 0.05, vitalityPotential: 0, ...overrides });
@@ -101,10 +102,20 @@ test("calibration_failure_refuses_the_exact_body_and_loadout", () => {
 test("the_runtime_mind_refuses_an_uncalibrated_exact_body_before_planning", () => {
   const model = fitTacticalModel([{ ...row("hold+cut", {}), bodyLoadout: "warrior/sword+empty" }]);
   const mind = lookaheadMind(model, "centipede/bite", { signedReachError: 1, contactBrier: 1, vitalityDeltaError: 1 }, 1, 1);
-  const hand = { lost: true, weapon: "empty", tipSpeed: 0, reach: 0, shoulder: { x: 0, y: 1, z: 0 } };
-  const body = { unit: "centipede", ground: { x: 0, y: 0, z: 0 }, shoulder: { x: 0, y: 1, z: 0 }, facing: 0,
-    reach: 1, collisionRadius: 0.2, vitality: 1, naturalAttacks: { bite: {} }, hands: { primary: hand, secondary: hand } };
-  assert.throws(() => mind.decide({ self: body, opponent: { ...body, ground: { x: 0, y: 0, z: 1 } }, measure: 1, clock: 0 }, 1 / 240),
+  // A whole view rather than the seven fields the refusal happens to read. The
+  // point of this test is that nothing is planned, and a fixture trimmed to the
+  // reading path cannot tell "it refused first" from "it read past the end of a
+  // half-built object and got `undefined`". `assertCompleteView` is what says
+  // this is a body a `describe` could have written.
+  const hand = (outboard) => ({ lost: true, weapon: "empty", tipSpeed: 0, tipVelocity: { x: 0, y: 0, z: 0 },
+    reach: 0, shoulder: { x: 0, y: 1, z: 0 }, tip: { x: 0, y: 1, z: 0 }, outboard });
+  const body = (z) => ({ unit: "centipede", ground: { x: 0, y: 0, z }, shoulder: { x: 0, y: 1, z }, facing: 0,
+    tip: { x: 0, y: 1, z }, tipSpeed: 0, reach: 1, crownHeight: 0.5, vitalHeight: 0.28, collisionRadius: 0.2,
+    crouch: 0, trunkLean: 0, trunkTwist: 0, vitality: 1, health: {},
+    naturalAttacks: { bite: { reach: 0.62, ready: true, active: false } },
+    hands: { primary: hand(1), secondary: hand(-1) } });
+  const view = assertCompleteView({ self: body(0), opponent: body(1), projectiles: [], measure: 1, clock: 0 });
+  assert.throws(() => mind.decide(view, 1 / 240),
     /lookahead refuses centipede\/bite: tactic "close\+bite" has no calibrated model/);
 });
 

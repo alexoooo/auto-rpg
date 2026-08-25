@@ -1,3 +1,4 @@
+import { FEATURE_VERSION } from "./features.ts";
 import { OPTION_NAMES, type OptionName } from "../options.ts";
 
 export const MAX_SPECIALIST_GAP = 0.15;
@@ -94,7 +95,27 @@ export function selectValidationChampion(rows: readonly ExperimentEvidence[]): E
     if (row.population !== 128 || row.generations !== 80 || row.mirroredBouts !== 24 || row.workers !== 8) {
       throw new Error(`experiment ${row.runId} is not a default 128x80x24 run with 8 workers`);
     }
-    if (row.trainerProtocol !== 3 || row.featureVersion !== 2 || row.configDigest.length !== 16 ||
+    // The feature version is the runtime's, not a literal. It was pinned at 2
+    // and had already been stale for a whole version before anybody noticed,
+    // which is what a hand-maintained copy of a contract does: every experiment
+    // run against the current table was refused for "not matching" it.
+    //
+    // A correction to that note, because "stale" was only half of it: the 2 was
+    // exactly the version of `asset-src/learning/unpromoted-v1.json`, the one
+    // piece of evidence in the tree. So the gate passed the file it was written
+    // beside and refused everything anybody would ever run next, in both
+    // directions, without ever looking wrong.
+    //
+    // Reading the runtime's version has a consequence worth stating outright:
+    // that checked-in v2 evidence is **no longer selectable**, and that is the
+    // right answer rather than a cost. A v2 champion is a network whose 66
+    // inputs mean different things to a 99-column v4 build, and selecting one
+    // here would only move the refusal down to `learnedMetaMind`, after the
+    // selection had already been believed. The evidence stays at the version it
+    // was recorded at; `the_compact_unpromoted_evidence_recomputes_the_recorded_failure`
+    // pins both halves -- the refusal, and that the ordering rule still
+    // reproduces the recorded champion when asked at a version this build runs.
+    if (row.trainerProtocol !== 3 || row.featureVersion !== FEATURE_VERSION || row.configDigest.length !== 16 ||
         row.optionNames.join("\0") !== OPTION_NAMES.join("\0")) {
       throw new Error(`experiment ${row.runId} does not match the protocol-v3 feature and option contract`);
     }

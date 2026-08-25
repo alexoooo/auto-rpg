@@ -207,6 +207,23 @@ const held = (kind: Striker): kind is WeaponKind => GRIPS[kind].carry !== "loose
 export const WEAPON_KINDS: readonly WeaponKind[] = (Object.keys(GRIPS) as Striker[]).filter(held);
 
 /**
+ * Every kind that can hurt somebody, in the same declaration order.
+ *
+ * `WEAPON_KINDS` above is this list with the loosed rows filtered *out*, which
+ * is exactly why this one has to exist rather than being reconstructed by
+ * whoever wants the wide version: the learned perception publishes a one-hot
+ * over the selected threat's kind, and an arrow and a bite are both threats. The
+ * alternative was nine names written out in `learning/features.ts`, which is the
+ * hand-maintained copy `WEAPON_KINDS`'s own note exists to warn about -- and it
+ * would have drifted in the one direction that matters, because a kind added to
+ * `GRIPS` is a column the feature table silently stops having.
+ *
+ * `Object.keys` of a total record over the union *is* the union, so this cannot
+ * disagree with `GRIPS`, and `FEATURE_COLUMNS` is derived from it.
+ */
+export const STRIKER_KINDS: readonly Striker[] = Object.keys(GRIPS) as Striker[];
+
+/**
  * Is this string one of them?
  *
  * The guard at the boundary where a `<select>`'s value becomes a weapon.

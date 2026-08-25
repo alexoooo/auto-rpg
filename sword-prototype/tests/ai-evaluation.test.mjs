@@ -10,15 +10,19 @@ import { SplitReader } from "../src/learning/research.ts";
 import { researchMatrix } from "../src/learning/research-matrix.ts";
 import { assessTournamentCandidate } from "../src/learning/tournament.ts";
 import { intentNumbers } from "../scripts/promotion-evaluator.mjs";
+import { assertCompleteView } from "./fixtures/view.mjs";
 
 const hand = (weapon = "sword", reach = 1.2, outboard = 1) => ({ weapon, reach, lost: false, outboard,
-  shoulder: { x: 0, y: 1.4, z: 0 }, tip: { x: 0, y: 1.4, z: reach }, tipSpeed: 0 });
+  shoulder: { x: 0, y: 1.4, z: 0 }, tip: { x: 0, y: 1.4, z: reach }, tipSpeed: 0,
+  // Still, and saying so in both fields. See `tests/fixtures/view.mjs`.
+  tipVelocity: { x: 0, y: 0, z: 0 } });
 const body = (z = 0, primary = hand(), radius = 0.25) => ({ unit: "warrior", reach: 0.7,
   crownHeight: 1.8, vitalHeight: 1.1, collisionRadius: radius, naturalAttacks: {}, ground: { x: 0, y: 0, z },
   facing: z ? Math.PI : 0, shoulder: primary.shoulder, tip: primary.tip, tipSpeed: 0,
   hands: { primary, secondary: hand("empty", 0.55, -1) }, crouch: 0, trunkLean: 0, trunkTwist: 0,
   vitality: 1, health: {} });
-const view = (measure = 1.2) => ({ self: body(), opponent: body(measure), measure, clock: 0 });
+const view = (measure = 1.2) => assertCompleteView(
+  { self: body(), opponent: body(measure), projectiles: [], measure, clock: 0 });
 
 const readField = (intent, path) => path.split(".").reduce((at, key) => at[key], intent);
 const writeField = (intent, path, value) => {

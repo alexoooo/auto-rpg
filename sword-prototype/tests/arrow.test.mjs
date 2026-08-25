@@ -148,6 +148,41 @@ test("a parked arrow has no visible trace", async () => {
   );
 });
 
+/**
+ * The two ways of asking where the head is, asked of the same shaft.
+ *
+ * `tipPosition()` is what `Combat` reads at a contact and `tipPositionToRef` is
+ * what a view publishes 240 times a second; they were two copies of one formula,
+ * and they disagreed. A shaft with no `rotationQuaternion` -- which is how a
+ * `TransformNode` starts out, before anything has posed it -- got the half-shaft
+ * offset from the first and no offset at all from the second, 360 mm apart on a
+ * 720 mm arrow. One formula now, in `bladeDirectionToRef`, and this is the check
+ * that keeps it one.
+ */
+test("both_arrow_tip_readers_answer_the_same_point", async () => {
+  const { scene, materials, frames, driver } = await world();
+  const layers = layersFor("left");
+  const quiver = new Quiver(scene, { name: "q", layer: layers.arrow, collidesWith: layers.arrowCollides }, materials);
+  const arrow = quiver.arrows[0];
+  const ref = new Vector3();
+
+  // Unposed first, which is the case the two disagreed on.
+  arrow.root.rotationQuaternion = null;
+  arrow.root.position.set(1, 2, 3);
+  assert.equal(Vector3.Distance(arrow.tipPositionToRef(ref), arrow.tipPosition()), 0,
+    "a shaft with no rotation still has a head half a length ahead of its centre");
+
+  // And in flight, where the quaternion is whatever the solver last wrote.
+  driver(quiver).fire(new Vector3(0, 1.4, 0), new Vector3(0, 0.3, 1).normalize(), CONFIG.arrow.speedMax);
+  frames(6);
+  const flying = quiver.arrows.find((shaft) => shaft.live && !shaft.spent);
+  assert.ok(flying, "a shaft is up");
+  assert.ok(Vector3.Distance(flying.tipPositionToRef(ref), flying.tipPosition()) < 1e-12,
+    "and the two readers agree about a shaft that is actually pointing somewhere");
+  assert.ok(Vector3.Distance(flying.tipPositionToRef(ref), flying.root.position) > CONFIG.arrow.length / 2 - 1e-9,
+    "the head is a half-length out, so this is not two readers agreeing on the centre");
+});
+
 test("loosing restarts one pooled trace from the nock", async () => {
   const { scene, materials, frames, driver } = await world();
   const layers = layersFor("left");

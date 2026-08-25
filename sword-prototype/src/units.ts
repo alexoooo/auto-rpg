@@ -47,6 +47,25 @@ export interface Combatant {
   lockTarget: Vector3 | null;
   observe(opponent: Combatant, clock: number): void;
   describe(into: import("./mind.ts").BodyView): void;
+  /**
+   * Write every shaft of this body's that is still in the air into `into`,
+   * starting at `at`, and answer where the next writer should start.
+   *
+   * A cursor rather than a returned array, because the two bodies in a bout
+   * publish into **one** list and neither may allocate: the caller clears the
+   * logical length, hands the list to each side in turn, and trims it to the
+   * total. Each body keeps its own pool of records per `owner` role -- the same
+   * shaft is `self` in its owner's view and `opponent` in the other's, and one
+   * pool serving both roles would have the second `observe` of a step rewrite
+   * the label the first one published.
+   *
+   * A body with nothing to loose answers `at` and writes nothing.
+   */
+  publishProjectiles(
+    into: import("./mind.ts").ProjectileView[],
+    at: number,
+    owner: "self" | "opponent",
+  ): number;
   nearestPartTo(point: Vector3): number;
   update(dt: number): void;
   stepProjectiles(dt: number): void;

@@ -41,6 +41,7 @@ import {
   type HandView,
   type Intent,
   type Mind,
+  type ProjectileView,
 } from "./mind.ts";
 
 export type { Side };
@@ -381,11 +382,29 @@ const blankHand = (): HandView => ({
   shoulder: new Vector3(),
   tip: new Vector3(),
   tipSpeed: 0,
+  tipVelocity: new Vector3(),
   reach: 0,
   lost: false,
   outboard: 1,
 });
 const NO_NATURAL_ATTACKS = Object.freeze({});
+
+/**
+ * One projectile's half of a view, allocated on the step it is first needed and
+ * never replaced.
+ *
+ * Grown lazily rather than built at `CONFIG.arrow.count` in the constructor,
+ * because most fighters carry no bow at all and a pool of twelve dead records
+ * per side per role would be four times the arrows anybody looses. The high
+ * water mark settles within the first volley and nothing allocates after it.
+ */
+const blankProjectile = (owner: "self" | "opponent"): ProjectileView => ({
+  kind: "arrow",
+  owner,
+  position: new Vector3(),
+  velocity: new Vector3(),
+  age: 0,
+});
 
 export class Fighter {
   readonly kind: "warrior" | "broot";
@@ -577,6 +596,22 @@ export class Fighter {
     trunkAngles: new Vector3(),
   };
 
+  /**
+   * This fighter's own projectile records, one pool per role it publishes in.
+   *
+   * Two pools rather than one, and it is a correctness requirement rather than
+   * an economy. A bout observes both sides in turn, and the *same* shaft is
+   * `self` in its owner's view and `opponent` in the other's -- so a single pool
+   * would have the second `observe` of the step rewrite the `owner` label the
+   * first one had just published, and every archer would read its own arrows as
+   * incoming. `stepPair` runs both observations before either mind decides, so
+   * the corruption would have been total rather than intermittent.
+   */
+  private readonly projectileRecords: Record<"self" | "opponent", ProjectileView[]> = {
+    self: [],
+    opponent: [],
+  };
+
   constructor(scene: Scene, opts: FighterOptions, materials: FighterMaterials) {
     this.profile = opts.profile ?? WARRIOR_PROFILE;
     this.kind = this.profile.kind;
@@ -641,6 +676,10 @@ export class Fighter {
         vitality: 1,
         health: {},
       },
+      // Empty, and it stays the same array for the life of the fighter. Both
+      // sides write their pooled records into it every step and its length is
+      // trimmed to what was written; see `publishProjectiles`.
+      projectiles: [],
       measure: Number.POSITIVE_INFINITY,
       clock: 0,
     };
@@ -1366,6 +1405,44 @@ export class Fighter {
     this.describe(view.self);
     opponent.describe(view.opponent);
     view.measure = opponent.nearestPartTo(view.self.shoulder);
+    // Clear the logical length, let each side overwrite its own pooled records
+    // from the cursor it is handed, then trim. The records outlive the trim
+    // because each body still holds its own pool, which is the whole of why
+    // this allocates nothing once a volley has settled.
+    const written = opponent.publishProjectiles(
+      view.projectiles,
+      this.publishProjectiles(view.projectiles, 0, "self"),
+      "opponent",
+    );
+    view.projectiles.length = written;
+  }
+
+  /** See `Combatant.publishProjectiles`. Only a hand with a quiver has any. */
+  publishProjectiles(into: ProjectileView[], at: number, owner: "self" | "opponent"): number {
+    const pool = this.projectileRecords[owner];
+    let index = at;
+    for (const name of HANDS) {
+      const quiver = this.arms[name].quiver;
+      if (!quiver) continue;
+      for (const arrow of quiver.arrows) {
+        // Exactly `Quiver.flying`'s filter, so a policy and the readout can
+        // never disagree about how many shafts are up. A planted or spent one
+        // is scenery; a parked one is 60 m under the floor.
+        if (!arrow.live || arrow.spent) continue;
+        const slot = index - at;
+        let record = pool[slot];
+        if (!record) {
+          record = blankProjectile(owner);
+          pool[slot] = record;
+        }
+        arrow.tipPositionToRef(record.position);
+        arrow.flightVelocityToRef(record.velocity);
+        record.age = arrow.age;
+        into[index] = record;
+        index += 1;
+      }
+    }
+    return index;
   }
 
   occlusionPoints(): readonly Vector3[] {
@@ -1587,10 +1664,41 @@ export class Fighter {
       const held = arm.weapon;
       if (held) {
         held.tipPositionToRef(hand.tip);
-        hand.tipSpeed = held.speedAt(hand.tip);
       } else {
         // `mesh.position`, never `absolutePosition`. See the note on `observe`.
         hand.tip.copyFrom(arm.hand.mesh.position);
+      }
+      // Velocity first and speed from it, so the two can never disagree about
+      // the same blade. Which reader answers is a fact about what is in the
+      // hand: a held weapon is its own body, an empty hand is the fist that is
+      // already in the solver, and a hand that has been cut off is neither --
+      // `tip` goes on tracking a dropped sword because that is where the object
+      // is, and a thing lying on the floor is not arriving anywhere.
+      //
+      // **Each body is read once here and every consumer is derived from that
+      // one reading**, and it is a budget rather than a tidiness rule.
+      // `getLinearVelocityToRef` and `getAngularVelocityToRef` are *not*
+      // allocation-free: each one crosses into Havok, where the emscripten glue
+      // returns a fresh array per call, and the `ToRef` saves only the
+      // destination `Vector3`. So the cost of this loop is counted in boundary
+      // reads -- two for a held weapon, whose tip is out on the end of a
+      // rotating body, and **one** for a bare fist, whose published point is its
+      // own centre and whose `w x r` term is therefore identically zero. The
+      // fist of a hand that is holding something is never asked at all: the two
+      // strikers on one arm would otherwise both cross the wire to describe one
+      // hand. `tests/policy-perception.test.mjs` pins the count per `observe`,
+      // and `AGENTS.md` carries why the obvious reading of `ToRef` is wrong.
+      if (hand.lost) {
+        hand.tipVelocity.setAll(0);
+        hand.tipSpeed = 0;
+      } else if (held) {
+        held.velocityAtToRef(hand.tip, hand.tipVelocity);
+        hand.tipSpeed = hand.tipVelocity.length();
+      } else if (arm.fist) {
+        arm.fist.centreVelocityToRef(hand.tipVelocity);
+        hand.tipSpeed = hand.tipVelocity.length();
+      } else {
+        hand.tipVelocity.setAll(0);
         hand.tipSpeed = 0;
       }
     }
@@ -1695,9 +1803,13 @@ export class Fighter {
     // Havok may put a settled dynamic torso to sleep. A changed motor target
     // does not wake it, so refresh its current velocity through the body API;
     // this is a wake-up, not a second controller.
-    this.torso.body.setAngularVelocity(
-      this.scratch.trunkWake.copyFrom(this.torso.body.getAngularVelocity()),
-    );
+    //
+    // `...ToRef` into the scratch, for the reason `describeFighter` gives: the
+    // reader crosses the boundary either way and nothing here can avoid that,
+    // but `getAngularVelocity` hands back a fresh `Vector3` on top of it, and
+    // this runs once per control step per fighter.
+    this.torso.body.getAngularVelocityToRef(this.scratch.trunkWake);
+    this.torso.body.setAngularVelocity(this.scratch.trunkWake);
     const wantedCrouch = clamp(posture.crouch, 0, 1);
     const crouchStep = clamp(
       (wantedCrouch - this.crouch) * (1 - Math.exp(-B.crouchResponse * dt)),

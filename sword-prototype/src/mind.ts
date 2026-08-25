@@ -193,14 +193,17 @@ export interface NaturalAttackView {
  * no `isGuarding`, no `threat` and no `shouldBlock`, because a view that answers
  * questions starts being believed instead of read.
  *
- * **Five fields, and every one of them has a reader.** It was eight. A `hand`
- * position, a `reach` and a `face` -- the world direction of the hand's own +X,
- * which for a strapped shield is the plate's normal -- were carried for a servo
- * that turned the wrist toward whatever it was covering. The servo was measured
- * against a constant and lost badly (see `GUARD.roll`), and the three fields
- * went out with it rather than staying as things a view offers and nothing
- * takes. `WEAPON_KINDS` sat unread for two sessions and is the reason that rule
- * is written down.
+ * **Eight fields, and every one of them has a reader.** The count in this
+ * sentence has been wrong twice, which is its own small lesson: it said "five"
+ * while there were seven, because `reach` came back one session after being
+ * deleted and nobody re-counted. There were briefly eight of a different sort --
+ * a `hand` position, a `reach` and a `face`, the world direction of the hand's
+ * own +X, which for a strapped shield is the plate's normal -- carried for a
+ * servo that turned the wrist toward whatever it was covering. The servo was
+ * measured against a constant and lost badly (see `GUARD.roll`), and those
+ * fields went out with it rather than staying as things a view offers and
+ * nothing takes. `WEAPON_KINDS` sat unread for two sessions and is the reason
+ * that rule is written down.
  */
 export interface HandView {
   /** What this hand holds. `empty` for a bare fist, which is a kind not a null. */
@@ -217,8 +220,53 @@ export interface HandView {
    * and `policies.ts`'s `threatHand` is where the difference is made.
    */
   tip: Vector3;
-  /** Speed of that point, m/s. */
+  /**
+   * Speed of that point, m/s. The magnitude of `tipVelocity`, kept because every
+   * scripted reader in the tree asks "how fast" and not "which way".
+   *
+   * **It changed meaning in session 16 and every v3-era reader is affected.**
+   * Before it, a hand holding nothing published a literal `0` -- forever, however
+   * hard the fist was travelling -- and only a held weapon reported a speed. It
+   * is now the fist's own material-point speed, so a bare hand is a thing that
+   * moves. Three consequences, none of which are bugs and all of which are
+   * behaviour changes:
+   *
+   * - `duelistMind`'s `seen.tipSpeed > DUELIST.theirCommit` can now be true of a
+   *   punch, where before only steel could commit;
+   * - `swinger` reads it for the same question and gets the same new answer;
+   * - the `*_tip_speed` feature columns are non-zero for an empty hand, so a v3
+   *   checkpoint would be reading a column that has started moving. That is one
+   *   of the reasons `FEATURE_VERSION` is 4.
+   *
+   * What that did to the hand a scripted guard covers is measured in
+   * `docs/measurements.md` under "Threat selection, reconciled" rather than left
+   * to be discovered.
+   */
   tipSpeed: number;
+  /**
+   * World velocity of that same point, m/s.
+   *
+   * The field that makes "is this coming at me" a question a policy can ask.
+   * `tipSpeed` alone cannot answer it: a blade withdrawing at 8 m/s and a blade
+   * arriving at 8 m/s are the same number, and every guard in the tree was built
+   * on that number. It is the material-point velocity -- `linear + w x r` at the
+   * tip -- because the rotation is the arm's and is there before the contact,
+   * which is the same quantity the damage model scores a blade from.
+   *
+   * Published through `Weapon.velocityAtToRef` for a held weapon and
+   * `FistStrike.centreVelocityToRef` for a bare hand, rather than through the
+   * two `velocityAt` readers beside them, and that is a requirement rather than
+   * a preference. It is **not** because `ToRef` is free -- it is not; each of
+   * those readers crosses into Havok, where the glue allocates whatever ref is
+   * handed in. It is because the count of those crossings is the budget: a
+   * weapon costs two, a fist costs one, a hand holding something never pays for
+   * both, and `tests/policy-perception.test.mjs` fails if that changes.
+   *
+   * Zero for a lost or absent hand, which is the same rule `tipSpeed` follows:
+   * `tip` goes on tracking a dropped weapon because that is where the object is,
+   * and neither speed nor direction is a threat any more.
+   */
+  tipVelocity: Vector3;
   /**
    * How far this hand can put that point from its own shoulder, in metres.
    *
@@ -253,6 +301,34 @@ export interface HandView {
    * guessing, and it will guess wrong for exactly one of the two hands.
    */
   outboard: number;
+}
+
+/**
+ * One thing in the air, as a mind sees it.
+ *
+ * Facts only, on the same terms as `HandView`: where it is, how fast it is
+ * going, whose it is and how long it has been flying. There is no `willHit`, no
+ * `timeToImpact` and no `aimedAt`, because every one of those is an
+ * interpretation and interpretation belongs to whoever is reading -- see
+ * `selectThreat` in `action-primitives.ts`, which is where the crossing solve
+ * lives and where it can be argued with.
+ *
+ * `owner` is a role rather than an identity: `self` is the reader's own shaft
+ * and `opponent` is one coming the other way. It is deliberately not a fighter
+ * handle -- a view never hands out a reference to a body -- and it is the field
+ * that lets a policy decline to dodge its own arrow.
+ *
+ * **These records are pooled and rewritten in place**, exactly as the hand
+ * records are, so a mind may read one during `decide` and must keep none of it.
+ * A quiver holds `CONFIG.arrow.count` shafts and `bow` takes two hands, so one
+ * fighter can have at most that many in the air and the pool settles at twelve.
+ */
+export interface ProjectileView {
+  kind: "arrow";
+  owner: "self" | "opponent";
+  position: Vector3;
+  velocity: Vector3;
+  age: number;
 }
 
 /** One body as a mind sees it: where it is, where its blade is, what is left of it. */
@@ -342,6 +418,30 @@ export type SelfView = BodyView;
 export interface FighterView {
   self: SelfView;
   opponent: BodyView;
+  /**
+   * Every shaft in the air, both sides', in publication order.
+   *
+   * `live && !spent`, and nothing else: a parked arrow is under the floor, a
+   * planted one is scenery, and a spent one lying against a shin is neither a
+   * threat nor a thing to be intercepted. The filter is the same one
+   * `Quiver.flying` counts by, so a policy and a readout can never disagree
+   * about how many are up.
+   *
+   * World space, like everything else here. Turning a position and a velocity
+   * into "will it hit me, and when" is the reader's job, and doing it in the
+   * view would be publishing a future collision -- which is the one thing this
+   * seam has never been allowed to do.
+   *
+   * **The array is reused across steps and trimmed rather than replaced.** Its
+   * logical length is cleared, both bodies overwrite their own pooled records
+   * into it, and the length is set to what was written. The records survive the
+   * trim because each body still holds its own pool, so a bout that has settled
+   * at its maximum count allocates nothing at all -- which is the property
+   * `projectile_publication_reuses_records_after_warmup` pins. This is the first
+   * place in `src/` that idiom appears; every other `.length = 0` here is
+   * teardown.
+   */
+  projectiles: ProjectileView[];
   /**
    * Distance from this fighter's own shoulder to the nearest part of the
    * opponent, metres.

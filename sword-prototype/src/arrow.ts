@@ -423,9 +423,27 @@ export class Arrow {
   /** World direction along the shaft, nock to head. Cache-free, as everything
    *  read on the control step has to be. */
   bladeDirection(): Vector3 {
+    return this.bladeDirectionToRef(this.scratch.tip);
+  }
+
+  /**
+   * The same direction, into a ref the caller owns.
+   *
+   * The formula lives here and only here. It was written out twice -- once above
+   * and once inside `tipPositionToRef` -- and the two had already parted company
+   * over the shaft with no rotation at all: this one answered `(0, 1, 0)` and
+   * the copy skipped the offset entirely, so `tipPosition()` and
+   * `tipPositionToRef` reported points 360 mm apart for the same arrow.
+   * `weapon.ts` carries the rule in one line: a copy of a formula is a copy
+   * somebody edits.
+   *
+   * `root.rotationQuaternion` rather than the world matrix, for the reason
+   * `tipPositionToRef` gives below.
+   */
+  bladeDirectionToRef(ref: Vector3): Vector3 {
     const q = this.root.rotationQuaternion;
-    if (!q) return this.scratch.tip.set(0, 1, 0);
-    return this.scratch.tip.set(
+    if (!q) return ref.set(0, 1, 0);
+    return ref.set(
       2 * (q.x * q.y - q.w * q.z),
       1 - 2 * (q.x * q.x + q.z * q.z),
       2 * (q.y * q.z + q.w * q.x),
@@ -455,6 +473,54 @@ export class Arrow {
     return this.bladeDirection()
       .scaleInPlace(CONFIG.arrow.length / 2)
       .addInPlace(this.root.position);
+  }
+
+  // ---- what a mind reads, through a ref it owns ---------------------------
+  //
+  // Two readers rather than reusing the four above, and the reason is not
+  // tidiness: `tipPosition()` calls `bladeDirection()` and then mutates the
+  // vector it hands back, so the two **alias one scratch** and calling either
+  // invalidates the other. That is survivable for `Combat`, which asks once per
+  // contact and copies what it gets; it is not survivable for a publication
+  // that fills a position and a direction in the same breath, 240 times a
+  // second, into records somebody else keeps. So the view's readers take the
+  // ref, own no scratch at all, and cannot be made to fight each other.
+
+  /**
+   * Where the head is now, written into a ref the caller owns.
+   *
+   * `root.position` and `root.rotationQuaternion` rather than the world matrix,
+   * for the reason `Weapon.tipPositionToRef` gives at length: an arrow's root is
+   * a scene-root `TransformNode`, so those two fields *are* its world transform,
+   * Havok's `syncTransform` writes them at the end of every solver step, and
+   * reading them stamps no render id on anything.
+   */
+  tipPositionToRef(ref: Vector3): Vector3 {
+    return this.bladeDirectionToRef(ref)
+      .scaleInPlace(CONFIG.arrow.length / 2)
+      .addInPlace(this.root.position);
+  }
+
+  /**
+   * How fast it is travelling **now**, while it is still only flying.
+   *
+   * This is not `velocityAt`, and the difference is worth stating rather than
+   * leaving to whoever reads both. `velocityAt` answers "how fast was it going
+   * when it arrived", from `arrival`, which is the last reading taken before the
+   * contact -- that is the right question for the damage model and the wrong one
+   * for a policy, in two ways. It is one control step stale, because `stepPair`
+   * observes before it steps the quivers; and it is a *cache* rather than a
+   * reading, so a shaft that has already struck reports the speed it struck at
+   * forever.
+   *
+   * For the set a view publishes -- `live && !spent` -- the body's own linear
+   * velocity is the honest answer and the freshest one, and an arrow does not
+   * rotate in flight, so there is no `w x r` term to argue about. It also takes
+   * no world point, which `velocityAt` does and then ignores.
+   */
+  flightVelocityToRef(ref: Vector3): Vector3 {
+    this.body.getLinearVelocityToRef(ref);
+    return ref;
   }
 
   /**
