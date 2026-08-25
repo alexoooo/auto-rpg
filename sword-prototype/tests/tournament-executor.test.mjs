@@ -6,6 +6,7 @@ import { ResearchArtifact, canonicalJson } from "../src/learning/artifact.ts";
 import { RESEARCH_ARTIFACT_CONTRACT, decodeResearchArtifact, deployedResearchMind } from "../src/learning/deployment.ts";
 import { FEATURE_COLUMNS, FEATURE_VERSION } from "../src/learning/features.ts";
 import { initialPopulation } from "../src/learning/genome.ts";
+import { META_OUTPUT_LAYOUT } from "../src/learning/meta.ts";
 import { GRU_UNITS } from "../src/learning/recurrent-network.ts";
 import { SeededRng } from "../src/learning/rng.ts";
 import { TACTICAL_STATE_COLUMNS } from "../src/learning/tactical-model.ts";
@@ -29,8 +30,7 @@ const dagger = () => ({ featureCount: FEATURE_COLUMNS.length, hiddenCount: 1,
   persistenceWeights: [0], persistenceBias: 0 });
 const lookahead = () => ({ version: 1, featureNames: TACTICAL_STATE_COLUMNS, tactics: {}, cells: {}, digest: "synthetic" });
 const bytes = new Map([
-  ["neat", artifact("neat-qd", initialPopulation(1, FEATURE_COLUMNS.length, MOVEMENT_NAMES.length + HAND_ACTION_NAMES.length + 1,
-    9)[0])], ["dagger", artifact("dagger", dagger())], ["ppo", artifact("ppo", ppo())], ["lookahead", artifact("lookahead", lookahead())],
+  ["neat", artifact("neat-qd", initialPopulation(1, FEATURE_COLUMNS.length, META_OUTPUT_LAYOUT.width, 9)[0])], ["dagger", artifact("dagger", dagger())], ["ppo", artifact("ppo", ppo())], ["lookahead", artifact("lookahead", lookahead())],
 ]);
 const digest = (value) => createHash("sha256").update(value).digest("hex");
 const candidates = [...bytes].map(([name, value]) => ({ name, algorithm: name === "neat" ? "neat-qd" : name,

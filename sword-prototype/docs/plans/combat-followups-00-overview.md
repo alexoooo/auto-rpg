@@ -373,10 +373,11 @@ browser's only window into what a learned controller is thinking, in the session
 before the one that puts a person at that keyboard; and `selectValidationChampion` exists twice
 with different signatures, one live.
 
-### Session 17, stages A and B as landed
+### Session 17, stages A, B and C1 as landed
 
-Split into three commits rather than one, so that the half which can move the balance lands
-alone and can be measured against a control without contract churn mixed in.
+Split into four commits rather than one, so that the half which can move the balance lands
+alone and can be measured against a control without contract churn mixed in -- and so that the
+corrections the output widening needs first land before the widening rather than inside it.
 
 **Stage A, `da025f2`** -- the superseded learning stack deleted: the standalone NEAT checkpoint
 codec, a trainer that turned out to be dead on arrival, two evaluators, the corpus runner, the
@@ -389,6 +390,14 @@ by sampling -- every behaviour-carrying diff is a comment, an identifier rename 
 hand executes on that hand or is refused by name; targets are body regions derived from
 published heights; stance is bounded and applied after the action's safe base pose; natural
 attacks get their own channel. 474 to 488 tests.
+
+**Stage C1** -- the preparation the 26-output contract needs, with the contract left at 13:
+`META_OUTPUT_LAYOUT` replaces five independent re-derivations of the output layout, the
+rollout worker's legality table and a fifth inlined copy both ask `deployableActions`, and the
+look-ahead schedule trains the `punch` the runtime always offered on `sword+empty` and
+`axe+empty`. 488 to 491 tests. Two of the three jobs are behaviour-preserving; the third fixes
+a live rollout abort on `bow+empty` and a look-ahead throw on the other two, both measured in
+`docs/measurements.md`.
 
 **The null control did not move, which was the point.** The scripted policies never enter the
 option layer -- `policies.ts` does not import `options.ts` -- so `duelist-swinger` is the proof
@@ -458,16 +467,20 @@ deployment path.
 
 ### Findings from stages A and B that change later sessions
 
-- **The training legality table is still not the deployed one.** Three divergent copies existed;
-  the three in `src/` are now one, but `research-rollout-worker.mjs` keeps a fourth that is not
-  equivalent -- it tests `weapon === "sword"` for thrust and an exclusion list for cut. A
-  network is still trained under one mask and deployed under another. Stage C's.
-- **Only one of the three loadout rows closed.** `bow+empty` now agrees with the look-ahead
-  schedule; `sword+empty` and `axe+empty` still offer a runtime `punch` that schedule never
-  trains. Consequently `lookaheadMind` on those two throws `tactic "close+punch" has no
-  calibrated model` -- **pre-existing, verified at `da025f2`**, and not live only because the
-  one checked-in look-ahead champion is v3 against a v4 runtime and is refused at decode. It
-  goes live the moment a v4 look-ahead artifact runs a tournament.
+- **The training legality table was not the deployed one, and stage C1 closed it.** There were
+  five copies, not three: the fourth in `research-rollout-worker.mjs` and a fifth inlined in
+  `collectTacticalTrace`. The two rewrites this finding named -- `weapon === "sword"` for thrust,
+  an exclusion list for cut -- turn out to answer identically for every kind in `GRIPS`, swept
+  over all 49 ordered weapon pairs. **Every real disagreement is the two-handed holder rule**,
+  and inside `RESEARCH_STRATA` it is one row of thirteen: `punch` on `bow+empty`, where the
+  rollout labelled an action `researchLabelMind` then refused by name, aborting the bout.
+- **All three loadout rows are closed, and the last two closed from the schedule's side.**
+  Stage B fixed `bow+empty` in the runtime; `sword+empty` and `axe+empty` were the *schedule*
+  being wrong, because that off hand is genuinely free. `lookaheadMind` threw
+  `tactic "close+punch" has no calibrated model` on those two -- **pre-existing, verified at
+  `da025f2`**, reproduced and then fixed in stage C1. The schedule is 240 tasks per split
+  against 220, and its minimum budget 46,080 steps against 42,240; session 20's tuple expansion
+  supersedes both by roughly twentyfold.
 - **`punch` was being advertised on a body that could never throw one.** A two-hander welds the
   trailing hand to the haft and the fighter excludes that hand's fist from the strikers list, so
   the punch was posed and could not connect. Closing it moves `randomMetaMind`'s action draw on

@@ -5,8 +5,11 @@ import { freshIntent } from "../src/action-primitives.ts";
 import { FEATURE_COLUMNS, FEATURE_VERSION } from "../src/learning/features.ts";
 import { SEED_RANGES, forcedOptionEvaluationMind, mirroredEvaluationJobs, validateSeedRanges } from "../src/learning/evaluation.ts";
 import { InnovationTracker, addEdgeMutation, addNodeMutation, breedGeneration, crossover, hasCycle, initialPopulation, innovationTrackerFor, speciate, speciesSelectionWeights } from "../src/learning/genome.ts";
-import { fitnessComponents, META_OUTPUT_NAMES, noveltyDescriptor, randomMetaMind, supportedOptions } from "../src/learning/meta.ts";
-import { supportedActionIndices } from "../src/learning/deployment.ts";
+import { MAX_PERSISTENCE, META_OUTPUT_LAYOUT, META_OUTPUT_NAMES, MIN_PERSISTENCE, decodeMetaPersistence,
+  deployableActions, fitnessComponents, noveltyDescriptor, randomMetaMind, readMetaOutput, supportedOptions } from "../src/learning/meta.ts";
+import { RESEARCH_ARTIFACT_CONTRACT, decodeResearchArtifact, deployedResearchMind, supportedActionIndices } from "../src/learning/deployment.ts";
+import { ResearchArtifact, canonicalJson } from "../src/learning/artifact.ts";
+import { neatLabeler } from "../scripts/research-rollout-worker.mjs";
 import { maskedArgmax } from "../src/learning/recurrent-network.ts";
 import { researchLabelMind } from "../src/learning/research-policy.ts";
 import { HAND_ACTION_NAMES, MOVEMENT_NAMES, behaviourRecord, scriptedMetaMind } from "../src/options.ts";
@@ -226,6 +229,37 @@ test("the_runtime_learning_shape_is_the_versioned_feature_table_plus_exact_optio
   assert.deepEqual(META_OUTPUT_NAMES, [...MOVEMENT_NAMES, ...HAND_ACTION_NAMES, "persistence"]);
 });
 
+test("one_output_table_names_every_offset_a_decoder_reads", () => {
+  // The offsets as literals, on purpose. Deriving them here from
+  // `MOVEMENT_NAMES.length` would make this test agree with any table the code
+  // happens to build, which is the sixth re-derivation rather than a pin on the
+  // other five.
+  assert.deepEqual({ ...META_OUTPUT_LAYOUT }, { movementAt: 0, actionAt: 5, persistenceAt: 12, width: 13 });
+  assert.equal(META_OUTPUT_NAMES.length, META_OUTPUT_LAYOUT.width);
+  // Thirteen distinguishable values, and the whole decoded record compared
+  // against a fresh one. Both halves matter: a slice that ran one short would
+  // still pass a movement-only check, and the persistence read is the one that
+  // used to be spelled `.at(-1)`.
+  const values = [0.01, 0.02, 0.03, 0.04, 0.05, 0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17, 0];
+  assert.deepEqual({ ...readMetaOutput(values) }, {
+    movementLogits: [0.01, 0.02, 0.03, 0.04, 0.05],
+    actionLogits: [0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17],
+    persistence: decodeMetaPersistence(0),
+  });
+  assert.throws(() => readMetaOutput(values.slice(0, 12)), /vector is 12 wide; the contract is 13/);
+  assert.throws(() => readMetaOutput([...values, 0]), /vector is 14 wide; the contract is 13/);
+  // The rescale, as the literals it actually produces. It reaches
+  // `MIN_PERSISTENCE` exactly and stops one ulp short of `MAX_PERSISTENCE`; that
+  // is the window every rollout in the tree was taken under, and writing the
+  // decode as `(MAX - MIN) / 2` would move all three of these numbers.
+  assert.equal(decodeMetaPersistence(-1), MIN_PERSISTENCE);
+  assert.equal(decodeMetaPersistence(0), 0.44999999999999996);
+  assert.equal(decodeMetaPersistence(1), 0.7999999999999999);
+  assert.ok(decodeMetaPersistence(1) < MAX_PERSISTENCE);
+  assert.equal(decodeMetaPersistence(-40), decodeMetaPersistence(-1));
+  assert.equal(decodeMetaPersistence(40), decodeMetaPersistence(1));
+});
+
 const learningView = (primary = "sword", secondary = "empty") => {
   const hand = (weapon, outboard, z) => ({ weapon, lost: false, reach: weapon === "bow" ? 0.8 : 1.4,
     tipSpeed: 0, tipVelocity: STILL(), outboard, shoulder: { x: outboard * 0.2, y: 1.4, z }, tip: { x: outboard * 0.2, y: 1.4, z: z + 1 } });
@@ -236,6 +270,72 @@ const learningView = (primary = "sword", secondary = "empty") => {
   const theirs = body(hand("sword", 1, 1.4), hand("empty", -1, 1.4), 1.4, Math.PI);
   return assertCompleteView({ self: mine, opponent: theirs, projectiles: [], measure: 1.2, clock: 0 });
 };
+
+/** A jawed body with no hand slots at all, which is what a centipede publishes. */
+const jawedView = () => {
+  const view = learningView();
+  return assertCompleteView({ ...view, self: { ...view.self, unit: "centipede", hands: {},
+    naturalAttacks: { bite: { reach: 1.1, ready: true, active: false } } } });
+};
+
+/**
+ * A genome whose thirteen outputs are exactly the numbers asked for.
+ *
+ * Every node is `identity` with no incoming edge, so `RecurrentNeatNetwork.run`
+ * answers each output node's bias. A bred genome would work too and would prove
+ * less: the point below is which *index* each decoder reads, and that is only
+ * visible when the thirteen values are told apart.
+ */
+const constantGenome = (values) => ({ id: 0, fitness: 0, adjustedFitness: 0, novelty: 0, edges: [],
+  nodes: [
+    ...Array.from({ length: FEATURE_COLUMNS.length }, (_, id) => ({ id, kind: "input", bias: 0, activation: "identity" })),
+    { id: FEATURE_COLUMNS.length, kind: "bias", bias: 0, activation: "identity" },
+    ...values.map((bias, index) => ({ id: FEATURE_COLUMNS.length + 1 + index, kind: "output", bias, activation: "identity" })),
+  ] });
+
+test("the_training_decoder_and_the_deployment_decoder_answer_the_same_label", () => {
+  // `punch` is the highest action logit of the seven, deliberately: it is the
+  // one name the two decoders disagreed about. The rollout worker kept its own
+  // legality table, and that table did not know a bow welds the off hand to the
+  // stave -- so on `bow+empty` it offered `punch`, won with it, and handed
+  // `researchLabelMind` an action the deployment mask refuses, which kills the
+  // run with `research policy produced unsupported action "punch"`. Both sides
+  // now ask `deployableActions`.
+  const movementLogits = [0.1, 0.5, 0.2, 0.3, 0.4];
+  const actionLogits = [0.1, 0.2, 0.3, 0.9, 0.4, 0.5, 0.05];
+  assert.deepEqual(HAND_ACTION_NAMES, ["cover", "cut", "thrust", "punch", "shoot", "bite", "recover"]);
+  const genome = constantGenome([...movementLogits, ...actionLogits, 0.5]);
+  const bytes = new ResearchArtifact({ algorithm: "neat-qd", ...RESEARCH_ARTIFACT_CONTRACT,
+    payload: [...new TextEncoder().encode(canonicalJson(genome))],
+    provenance: { seed: 7, solverSteps: 4, trainingSplit: "train", validationSplit: "validation", configDigest: "synthetic" },
+  }, RESEARCH_ARTIFACT_CONTRACT).toBytes();
+
+  const views = { "sword+empty": learningView("sword", "empty"), "sword+shield": learningView("sword", "shield"),
+    "sword+buckler": learningView("sword", "buckler"), "axe+empty": learningView("axe", "empty"),
+    "bow+empty": learningView("bow", "empty"), "empty+empty": learningView("empty", "empty"),
+    "natural:bite": jawedView() };
+  const deployed = {}; const rollout = {};
+  for (const [loadout, view] of Object.entries(views)) {
+    const mind = deployedResearchMind(decodeResearchArtifact(bytes), `warrior/${loadout}`,
+      // The rollout labeler is run on the *same* features the deployment seam
+      // just wrote, so the two answers differ only where the decoders differ.
+      (_view, features, label) => { deployed[loadout] = { ...label }; rollout[loadout] = { ...neatLabeler(genome)(view, features) }; });
+    mind.decide(view, 1 / 240);
+  }
+  // Both tables whole, against a third written out by hand -- so the two
+  // agreeing on a wrong answer is still a failure. `persistence` is the trailing
+  // scalar decoded, which is the read that used to be spelled `.at(-1)`; the
+  // last digit of it is the 0.35 literal `decodeMetaPersistence` argues for,
+  // written out rather than rounded away.
+  const expected = Object.fromEntries(Object.entries({ "sword+empty": "punch", "sword+shield": "thrust",
+    "sword+buckler": "thrust", "axe+empty": "punch", "bow+empty": "shoot", "empty+empty": "punch",
+    "natural:bite": "bite" }).map(([loadout, action]) => [loadout, { movement: "hold", action, persistence: 0.6249999999999999 }]));
+  assert.deepEqual(deployed, expected);
+  assert.deepEqual(rollout, expected);
+  // And the answers are legal on the body that produced them, asked of the mask
+  // itself rather than of either decoder.
+  for (const [loadout, view] of Object.entries(views)) assert.ok(deployableActions(view).has(expected[loadout].action), loadout);
+});
 
 test("diagnostics_report_the_decision_without_changing_it", () => {
   let labelled = 0;

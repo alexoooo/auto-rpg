@@ -11,17 +11,83 @@ export const MAX_PERSISTENCE = 0.80;
 /**
  * The ordered output contract every learned controller writes into.
  *
- * Nothing in production reads it yet, which is the problem it names rather than a
- * reason to delete it. The `[5 movement][7 action][1 persistence]` layout is
- * re-derived from `MOVEMENT_NAMES.length` at four independent sites --
- * `deployment.ts` twice, once for the width and once for the two slice offsets,
- * `train-neat-qd.mjs` and `research-rollout-worker.mjs` -- plus the artifact
- * fixture in `tests/tournament-executor.test.mjs`. Each is a separate chance to
- * get an offset wrong the next time the width moves, and the width is about to.
- * This is the table they are meant to collapse onto; `tests/learning.test.mjs`
- * pins it against the two vocabularies it is built from in the meantime.
+ * `tests/learning.test.mjs` pins it against the two vocabularies it is built
+ * from, so the names cannot drift from the tables the executor refuses by.
  */
-export const META_OUTPUT_NAMES = Object.freeze([...MOVEMENT_NAMES, ...HAND_ACTION_NAMES, "persistence"]);
+export const META_OUTPUT_NAMES: readonly string[] = Object.freeze([...MOVEMENT_NAMES, ...HAND_ACTION_NAMES, "persistence"]);
+
+/**
+ * The same contract as offsets, because five places were deriving them.
+ *
+ * The `[5 movement][7 action][1 persistence]` layout was re-derived from
+ * `MOVEMENT_NAMES.length` independently at `deployment.ts` twice -- once for the
+ * width and once for the two slice bounds -- at `train-neat-qd.mjs`, at
+ * `research-rollout-worker.mjs`, and in the artifact fixture in
+ * `tests/tournament-executor.test.mjs`. Five chances to get an offset wrong the
+ * next time the width moves, and the width is about to move to 26.
+ *
+ * **The `-1` was the one that could not survive it.** `deployment.ts` sliced the
+ * action half as `values.slice(MOVEMENT_NAMES.length, -1)` and read persistence
+ * as `values.at(-1)`, which is not "the action logits and the persistence" but
+ * "everything after the movements except the last number, and the last number".
+ * Those coincide only while exactly one scalar trails the table. Adding the
+ * effector, target and stance heads puts three more logit blocks in front of
+ * that scalar, and the `-1` form would have silently swallowed all three into
+ * the action slice -- a wrong argmax over a correct vector, which no width check
+ * can see. Named offsets cannot express that mistake.
+ */
+export const META_OUTPUT_LAYOUT = Object.freeze({
+  movementAt: 0,
+  actionAt: MOVEMENT_NAMES.length,
+  persistenceAt: MOVEMENT_NAMES.length + HAND_ACTION_NAMES.length,
+  width: MOVEMENT_NAMES.length + HAND_ACTION_NAMES.length + 1,
+});
+
+/** One learned output vector, split at the named offsets. `persistence` is already in seconds. */
+export interface MetaOutput {
+  readonly movementLogits: readonly number[];
+  readonly actionLogits: readonly number[];
+  readonly persistence: number;
+}
+
+/**
+ * The trailing scalar as seconds.
+ *
+ * A network writes an unbounded number and both decode sites mapped it onto the
+ * persistence window the same way; this is that map, once.
+ *
+ * `0.35` is deliberately **not** spelled `(MAX_PERSISTENCE - MIN_PERSISTENCE) / 2`,
+ * which is the derivation it looks like. In doubles that expression is
+ * 0.35000000000000003, so the tidier spelling moves every decoded persistence in
+ * its last bit and turns collapsing two copies into one into a behaviour change.
+ * The measured consequence of keeping the literal is that the map lands on
+ * `MIN_PERSISTENCE` exactly at -1 and on 0.7999999999999999 at +1, one ulp under
+ * `MAX_PERSISTENCE` -- which is what every rollout so far was taken under, so it
+ * is the window rather than a rounding error to fix. `tests/learning.test.mjs`
+ * pins both endpoints as the literals they are.
+ */
+export const decodeMetaPersistence = (raw: number): number =>
+  MIN_PERSISTENCE + (Math.max(-1, Math.min(1, raw)) + 1) * 0.35;
+
+/**
+ * Split one output vector at the named offsets, or refuse it by width.
+ *
+ * The refusal is the point of taking the vector apart in one place: a genome
+ * bred against a stale output count used to arrive here as a short array, decode
+ * to `undefined` logits, and lose every `>` comparison in an argmax -- which is a
+ * controller that always answers the first name in the table, and looks exactly
+ * like a controller with an opinion.
+ */
+export function readMetaOutput(values: readonly number[]): MetaOutput {
+  if (values.length !== META_OUTPUT_LAYOUT.width) {
+    throw new Error(`learned output vector is ${values.length} wide; the contract is ${META_OUTPUT_LAYOUT.width}`);
+  }
+  return Object.freeze({
+    movementLogits: values.slice(META_OUTPUT_LAYOUT.movementAt, META_OUTPUT_LAYOUT.actionAt),
+    actionLogits: values.slice(META_OUTPUT_LAYOUT.actionAt, META_OUTPUT_LAYOUT.persistenceAt),
+    persistence: decodeMetaPersistence(values[META_OUTPUT_LAYOUT.persistenceAt] as number),
+  });
+}
 
 /**
  * What a body can do at all, asked of the one legality rule rather than of a
@@ -38,8 +104,14 @@ export const META_OUTPUT_NAMES = Object.freeze([...MOVEMENT_NAMES, ...HAND_ACTIO
  * longer advertised on an archer whose only empty hand is the trailing one.
  * That closes a lie rather than removing a capability: the punch was posed and
  * thrown away, and `scripts/train-lookahead.mjs`'s `actionsFor` has never
- * offered it for a bow cell -- the runtime mask and the training schedule now
- * agree where they used to differ silently.
+ * offered it for a bow cell.
+ *
+ * **That closed one row of thirteen, and the note here read as though it closed
+ * the table.** `sword+empty` and `axe+empty` went on offering a runtime `punch`
+ * the schedule never trained, which is the same disagreement with the schedule
+ * on the wrong side of it. Both were corrected in the schedule;
+ * `the_training_schedule_offers_exactly_what_the_runtime_mask_offers` reads this
+ * mask off real bodies and compares the whole thirteen-row table.
  */
 export function supportedOptions(view: FighterView): ReadonlySet<OptionName> {
   if (!Object.values(view.self.hands).some((hand) => !hand.lost) && !Object.keys(view.self.naturalAttacks ?? {}).length) return new Set<OptionName>();

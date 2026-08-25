@@ -3,6 +3,7 @@ import { Logger } from "@babylonjs/core/Misc/logger.js";
 
 import { predictDagger } from "../src/learning/dagger.ts";
 import { FEATURE_COLUMNS, FEATURE_VERSION } from "../src/learning/features.ts";
+import { deployableActions, readMetaOutput } from "../src/learning/meta.ts";
 import { RecurrentNeatNetwork } from "../src/learning/recurrent-neat.ts";
 import { researchLabelMind } from "../src/learning/research-policy.ts";
 import { tacticalTeacher, TACTICAL_TEACHER_VERSION } from "../src/learning/tactical-teacher.ts";
@@ -11,18 +12,40 @@ import { runResearchBout } from "./research-havok.mjs";
 
 Logger.LogLevels = Logger.NoneLogLevel;
 
-const neatLabeler = (genome) => { const network = new RecurrentNeatNetwork(genome); return (view, features) => {
-  const output = network.run(features); let movement = MOVEMENT_NAMES[0]; let movementScore = -Infinity;
-  MOVEMENT_NAMES.forEach((name, index) => { if (output[index] > movementScore) { movement = name; movementScore = output[index]; } });
-  const hands = Object.values(view.self.hands).some((hand) => !hand.lost);
-  const legal = HAND_ACTION_NAMES.filter((name) => name === "recover" || name === "bite" && view.self.naturalAttacks?.bite ||
-    hands && name === "cover" || Object.values(view.self.hands).some((hand) => !hand.lost &&
-      (name === "punch" ? hand.weapon === "empty" : name === "shoot" ? hand.weapon === "bow" :
-        name === "thrust" ? hand.weapon === "sword" : name === "cut" ? !["empty", "bow", "shield", "buckler"].includes(hand.weapon) : false)));
-  let action = "recover"; let actionScore = -Infinity;
-  for (const name of legal) { const score = output[MOVEMENT_NAMES.length + HAND_ACTION_NAMES.indexOf(name)];
-    if (score > actionScore) { action = name; actionScore = score; } }
-  const raw = output[output.length - 1]; return { movement, action, persistence: 0.10 + (Math.max(-1, Math.min(1, raw)) + 1) * 0.35 };
+/**
+ * A NEAT genome read as a research label -- the training half of the seam
+ * `deployment.ts` is the deployed half of.
+ *
+ * **The legality test here was a fourth copy of the deployment rule, and it was
+ * not the deployed one.** It asked `weapon === "sword"` for `thrust` where the
+ * runtime asks `hasPoint`, and an exclusion list of four names for `cut` where
+ * the runtime asks `isStriking && !== "empty"`. Both rewrites happen to answer
+ * identically for every kind in `GRIPS` today -- swept over all 49 ordered weapon
+ * pairs, not argued -- which is exactly how they survived two sessions looking
+ * for them, and neither survives the next kind: a pointed spear is a `thrust` the
+ * name test refuses, and `hands.ts`'s own note about two unions that are equal
+ * today is about this.
+ *
+ * What it got wrong today is structural, and the sweep is where it shows: every
+ * one of the twelve disagreeing pairs is a **two-handed** one. Neither rewrite
+ * knows that `Fighter.update` welds the trailing hand to the haft, so on
+ * `bow+empty` this offered `punch` on that hand while `deployableActions` -- the
+ * mask `researchLabelMind` refuses by, one call later -- did not. A genome whose
+ * punch logit won on a bow cell was trained under this mask and then killed by
+ * that one, `research policy produced unsupported action "punch"`, mid-run.
+ *
+ * `recover` is the seed rather than a fallback: it is in every non-empty
+ * `deployableActions` set, and `researchLabelMind` returns an inert command
+ * without ever asking here when the set is empty.
+ */
+export const neatLabeler = (genome) => { const network = new RecurrentNeatNetwork(genome); return (view, features) => {
+  const { movementLogits, actionLogits, persistence } = readMetaOutput(network.run(features));
+  let movement = MOVEMENT_NAMES[0]; let movementScore = -Infinity;
+  MOVEMENT_NAMES.forEach((name, index) => { if (movementLogits[index] > movementScore) { movement = name; movementScore = movementLogits[index]; } });
+  const allowed = deployableActions(view); let action = "recover"; let actionScore = -Infinity;
+  HAND_ACTION_NAMES.forEach((name, index) => { if (allowed.has(name) && actionLogits[index] > actionScore) {
+    action = name; actionScore = actionLogits[index]; } });
+  return { movement, action, persistence };
 }; };
 
 async function neat() {
@@ -74,5 +97,9 @@ async function dagger() {
     contactConversion: attacksInWindow ? contactsInWindow / attacksInWindow : 0 } };
 }
 
-try { parentPort.postMessage(workerData.mode === "neat" ? await neat() : await dagger()); }
-catch (error) { throw error; }
+// Gated on the port, so the module can also be imported. `neatLabeler` above
+// carried a legality table nothing could reach: this last line ran at import
+// time and threw on `parentPort.postMessage` of null, so the only way to read
+// that table was to read it, which two sessions did and got wrong. The
+// try/catch that used to wrap this rethrew what it caught and did nothing else.
+if (parentPort) parentPort.postMessage(workerData.mode === "neat" ? await neat() : await dagger());

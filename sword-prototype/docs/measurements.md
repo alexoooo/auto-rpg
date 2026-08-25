@@ -2421,3 +2421,140 @@ recorded `bow+empty` random-control trace, is not comparable across this change.
   `(movement, action)`; `deployableTactics` exists and is tested, but nothing production takes
   an argmax over it until Stage C, so the 21-22x enumeration cost the plan prices belongs to
   sessions 20 and 21 and is not measured here.
+
+## Session 17 Stage C1: one output table, one legality table, one schedule -- 2026-08-25
+
+Three preparatory jobs, deliberately landed before the output contract widens from 13 to 26, so
+that when the width does move a reviewer can tell which change caused what. **The contract is
+still 13 wide.** Two of the three are behaviour-preserving; the third is a bug fix with a
+measured training-behaviour consequence, recorded below.
+
+### The null control did not move, again
+
+`npm run measure -- --only duelist-swinger --bouts 120`, seed 20260823, before the first edit
+and with the stage complete: 66/120 = 55.0 %, bout 3.52 (1.42-8.98), damage 176.17, 10 severs,
+1496 / 1670 scoring contacts, and the same final-blow region histogram -- every printed figure
+identical. Nothing in this stage reaches `policies.ts` or `action-primitives.ts`, and this is
+the cheapest thing that would say otherwise. 488 tests before, **491** after; `npm run check`
+and `npm run build` clean.
+
+### The five output-layout derivations, and the one that could not survive the widening
+
+The `[5 movement][7 action][1 persistence]` layout was re-derived from `MOVEMENT_NAMES.length`
+at `deployment.ts` twice -- once for the width, once for the two slice bounds -- and at
+`train-neat-qd.mjs`, `research-rollout-worker.mjs` and the artifact fixture in
+`tests/tournament-executor.test.mjs`. All five now read `META_OUTPUT_LAYOUT` in
+`src/learning/meta.ts`, which names `movementAt`, `actionAt`, `persistenceAt` and `width`.
+
+**The hazard was not the width, it was the `-1`.** `deployment.ts` sliced the action logits as
+`values.slice(MOVEMENT_NAMES.length, -1)` and read persistence as `values.at(-1)` -- which is
+"everything after the movements except the last number", not "the action logits". Those
+coincide only while exactly one scalar trails the table. With effector, target and stance heads
+in front of that scalar, the same line silently folds thirteen extra logits into the action
+argmax: a wrong decision from a correct vector, which no width check can see.
+
+Behaviour identity is proved rather than argued.
+`the_training_decoder_and_the_deployment_decoder_answer_the_same_label`
+(`tests/learning.test.mjs`) drives a genome whose thirteen outputs are exactly thirteen chosen
+numbers through **both** surviving decode sites -- `deployedResearchMind`'s NEAT branch and
+`research-rollout-worker.mjs`'s `neatLabeler` -- on the same published features, across all
+seven research loadouts, and compares both whole tables against a third written out by hand.
+Mutating `META_OUTPUT_LAYOUT.actionAt` to `MOVEMENT_NAMES.length - 1` fails it and the offset
+pin beside it.
+
+The persistence rescale was a third duplicate of the same contract and is now
+`decodeMetaPersistence`. Its `0.35` is **not** spelled `(MAX_PERSISTENCE - MIN_PERSISTENCE) / 2`:
+in doubles that expression is 0.35000000000000003, so the tidier spelling moves every decoded
+persistence in its last bit and turns a collapse into a behaviour change. The literal is what
+every rollout in the tree was taken under, and what it actually produces is `MIN_PERSISTENCE`
+exactly at -1 and 0.7999999999999999 at +1 -- one ulp under `MAX_PERSISTENCE`. Both endpoints
+are now pinned as the literals they are.
+
+### The fourth legality table was not the deployed one, and this is where it disagreed
+
+`research-rollout-worker.mjs`'s `neatLabeler` carried a hand-inlined mask that decoded every
+NEAT and DAgger rollout **during training**, while `deployableActions` decided what could be
+deployed -- and, one call later inside `researchLabelMind`, what was allowed to run at all.
+
+The plan flagged two rewrites: `weapon === "sword"` for `thrust` against `hasPoint`, and the
+exclusion list `!["empty","bow","shield","buckler"]` for `cut` against
+`isStriking && !== "empty"`. Swept over all 49 ordered weapon pairs, **both rewrites answer
+identically for every kind in `GRIPS` today**, which is how they survived two sessions looking
+for them. They were still worth deleting -- a pointed spear is a `thrust` the name test refuses
+-- but they are not the defect.
+
+**Every actual disagreement is the two-handed holder rule**, which neither rewrite knows about,
+and the rollout mask is the wider one in all twelve pairs:
+
+| self loadout | rollout mask offered, `deployableActions` did not |
+| --- | --- |
+| `sword+bow`, `bow+sword` | `cut`, `thrust` |
+| `sword+club`, `club+sword` | `thrust` |
+| `axe+bow`, `bow+axe`, `bow+club` | `cut` |
+| `club+bow` | `shoot` |
+| `bow+empty`, `club+empty`, `empty+bow`, `empty+club` | `punch` |
+
+Restricted to `RESEARCH_STRATA` -- the only loadouts this code ever sees, measured on real
+published bodies through `runResearchBout` rather than on a fixture -- exactly **one row of
+thirteen** disagreed, on both humanoid units:
+
+| cell | rollout mask | `deployableActions` |
+| --- | --- | --- |
+| `warrior/bow+empty`, `broot/bow+empty` | cover, **punch**, shoot, recover | cover, shoot, recover |
+| the other eleven cells | *identical* | *identical* |
+
+**`club` never reaches this code.** It is a `WeaponKind`, it is two-handed, it strikes and it
+has no point -- but no `RESEARCH_STRATA` loadout carries one, so its three rows in the sweep
+above are synthetic. A club loadout added later fails exactly as the bow does, for exactly the
+same reason.
+
+**What moved, therefore.** On `bow+empty` a genome whose `punch` logit beat its `cover`,
+`shoot` and `recover` logits used to be labelled `punch` and then killed by the deployment mask
+one call later -- `research policy produced unsupported action "punch" for unit "warrior"` --
+aborting the rollout mid-run. Stage B introduced that: before `da025f2` the deployment mask
+offered `punch` there too, so the two agreed on a lie. It now answers the best *legal* action
+instead. Nothing pinned moves and no learned artifact is deployed, but any `bow+empty` NEAT or
+DAgger rollout taken before this change is not comparable across it. Restoring the old inline
+mask reproduces the divergence exactly: `punch` against `shoot` on `bow+empty`, every other
+cell unchanged.
+
+A **fifth** copy of the same rule turned up on the way, inlined in `collectTacticalTrace`
+(`scripts/train-lookahead.mjs`) as
+`supportedOptions(view).has(action) && (action !== "cover" || hasHand)`. That is
+`deployableActions` spelled out, term for term, and it now asks for it.
+
+### The look-ahead schedule was wrong where the runtime was right
+
+`actionsFor` did not train `punch` on `sword+empty` or `axe+empty`. The runtime mask offers it
+there, and the runtime is right: unlike a two-hander's trailing hand, which `Fighter.update`
+welds to the haft and the fighter excludes from the strikers list, that off hand is genuinely
+free. `lookaheadMind` plans over the runtime mask and calls `requireCalibration` on every pair
+it plans, so those two cells threw
+`lookahead refuses warrior/sword+empty: tactic "close+punch" has no calibrated model` on the
+first replan -- **pre-existing, verified at `da025f2`** -- and were not live only because the
+one checked-in look-ahead champion is feature v3 against a v4 runtime and is refused at decode.
+
+Reproduced on this tree by reverting the two rows and fitting a model from the schedule:
+`sword+empty` and `axe+empty` throw, `bow+empty`, `empty+empty` and `sword+shield` plan. With
+the rows restored, all five plan.
+
+The nested `startsWith` chain became `LOADOUT_ACTIONS`, one row per `ResearchLoadout`, and an
+unknown loadout is refused by name instead of falling through to the sword row.
+
+**The new figures, and they are not final.** Measured by expanding the real schedule:
+
+| | before | now |
+| --- | ---: | ---: |
+| schedule tasks per split | 220 | **240** |
+| groups (`3 x train + validation`) | 880 | **960** |
+| minimum solver-step budget (`groups * 48`) | 42,240 | **46,080** |
+
+The 42,240-step exhaustive run recorded earlier in this document was taken under the old
+schedule and stays as the record of that run. **This is a small increase that session 20's
+tuple expansion supersedes by roughly twentyfold**; it is the current figure, not a ceiling.
+
+`the_training_schedule_offers_exactly_what_the_runtime_mask_offers` (`tests/lookahead.test.mjs`,
+739 ms) is the durable pin: one short Havok bout per cell, the mask read off the **real
+published body** on every sample, and the whole thirteen-row table compared at once. It asserts
+one distinct mask per cell as well as its contents, so a capability that moved mid-probe would
+fail it too. Dropping `punch` from the `sword+empty` row fails it on both humanoid units.

@@ -5,8 +5,12 @@ import { readFileSync } from "node:fs";
 import { LOOKAHEAD_DEPTH, LOOKAHEAD_WIDTH, LookaheadController, boundedLookahead, lookaheadMind,
   shouldReplan, supportedTacticPairs } from "../src/learning/lookahead.ts";
 import { TACTICAL_STATE_COLUMNS, fitTacticalModel, requireCalibration } from "../src/learning/tactical-model.ts";
-import { collectTacticalTrace, lookaheadTacticCellSchedule } from "../scripts/train-lookahead.mjs";
-import { MOVEMENT_NAMES } from "../src/options.ts";
+import { actionsFor, collectTacticalTrace, lookaheadTacticCellSchedule } from "../scripts/train-lookahead.mjs";
+import { runResearchBout } from "../scripts/research-havok.mjs";
+import { deployableActions } from "../src/learning/meta.ts";
+import { researchMatrix } from "../src/learning/research-matrix.ts";
+import { researchLabelMind } from "../src/learning/research-policy.ts";
+import { HAND_ACTION_NAMES, MOVEMENT_NAMES } from "../src/options.ts";
 import { assertCompleteView } from "./fixtures/view.mjs";
 
 const state = (overrides = {}) => ({ reachMargin: -0.5, facingError: 0.2, threatAlignment: 0.1,
@@ -39,6 +43,37 @@ test("the_training_schedule_covers_every_body_loadout_and_only_compatible_natura
   const centipede = train.filter((task) => task.unit === "centipede");
   assert.deepEqual([...new Set(centipede.map((task) => task.action))], ["bite", "recover"]);
   assert.equal(centipede.length, MOVEMENT_NAMES.length * 2);
+});
+
+test("the_training_schedule_offers_exactly_what_the_runtime_mask_offers", async () => {
+  // The mask is read off a **real published body**, one short Havok bout per
+  // cell, rather than off a hand-rolled view. A synthetic fixture would be a
+  // second claim about what a body publishes, and the divergence this test
+  // exists for is exactly a claim about a body that was wrong: the schedule
+  // said an axe hand and a free empty hand could not punch, and the fighter it
+  // was describing could.
+  //
+  // `lookaheadMind` plans over this mask and calls `requireCalibration` on every
+  // pair it plans, so a name here the schedule never spends budget on is a throw
+  // on the first replan, not a missing row.
+  const seen = new Set(); const cells = [];
+  researchMatrix("train", 310013).forEach((job, jobIndex) => { const cell = `${job.unit}/${job.loadout}`;
+    if (!seen.has(cell)) { seen.add(cell); cells.push({ cell, job, jobIndex }); } });
+  assert.equal(cells.length, 13);
+  const runtime = {}; const scheduled = {};
+  for (const { cell, job, jobIndex } of cells) {
+    // Every distinct mask the body publishes across the window, not the first
+    // one: a set with two members would mean the capability moved mid-probe and
+    // that a per-loadout schedule row cannot describe it.
+    const masks = new Set();
+    await runResearchBout({ ...job, index: jobIndex }, () => researchLabelMind("schedule-mask-probe",
+      () => ({ movement: "hold", action: "recover", persistence: 0.4 })), 48, null, {
+        onSample({ view }) { masks.add(HAND_ACTION_NAMES.filter((name) => deployableActions(view).has(name)).join("+")); },
+      });
+    runtime[cell] = [...masks];
+    scheduled[cell] = [actionsFor(job.loadout).join("+")];
+  }
+  assert.deepEqual(runtime, scheduled);
 });
 
 test("every_scheduled_centipede_tactic_runs_a_complete_havok_trace_window", async () => {

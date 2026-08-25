@@ -60,7 +60,7 @@ checkpoints at today, the whole run offers fewer units than one day of rows requ
 
 | direction | checkpointable units per full run | source |
 | --- | ---: | --- |
-| look-ahead | 880 | `train-lookahead.mjs#L81` (3 x 220 train + 220 validation) |
+| look-ahead | 960 | `train-lookahead.mjs`'s `groups` (3 x 240 train + 240 validation) |
 | NEAT-QD | 80 generations | `train-neat-qd.mjs#L18` |
 | DAgger | **5** iterations | `collect-dagger.mjs#L17` |
 | PPO | **2** arms | `equalBudgetPpoArms` returns exactly `["random","dagger"]`, `ppo.ts#L96-L100` |

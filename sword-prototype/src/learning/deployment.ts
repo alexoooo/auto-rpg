@@ -4,7 +4,7 @@ import { ResearchArtifact, type ResearchArtifactContract } from "./artifact.ts";
 import { predictDagger, type DaggerModel } from "./dagger.ts";
 import { FEATURE_COLUMNS, FEATURE_VERSION } from "./features.ts";
 import { lookaheadMind, LOOKAHEAD_DEPTH, LOOKAHEAD_WIDTH } from "./lookahead.ts";
-import { deployableActions } from "./meta.ts";
+import { META_OUTPUT_LAYOUT, deployableActions, readMetaOutput } from "./meta.ts";
 import { RecurrentNeatNetwork } from "./recurrent-neat.ts";
 import { RecurrentPolicy, maskedArgmax, type RecurrentPolicyWeights } from "./recurrent-network.ts";
 import { researchLabelMind, type ResearchLabeler } from "./research-policy.ts";
@@ -64,14 +64,14 @@ export function deployedResearchMind(artifact: ResearchArtifact, bodyLoadout: st
   }
   if (artifact.data.algorithm === "neat-qd") {
     const probe = new RecurrentNeatNetwork(decoded as never); const output = probe.run(FEATURE_COLUMNS.map(() => 0));
-    if (output.length !== MOVEMENT_NAMES.length + HAND_ACTION_NAMES.length + 1 || output.some((value) => !Number.isFinite(value))) {
+    if (output.length !== META_OUTPUT_LAYOUT.width || output.some((value) => !Number.isFinite(value))) {
       throw new Error("neat-qd artifact has the wrong finite feature/action shape");
     }
     const network = new RecurrentNeatNetwork(decoded as never);
-    const labeler: ResearchLabeler = (view, features) => { const values = network.run(features);
-      const movement = MOVEMENT_NAMES[maskedArgmax(values.slice(0, MOVEMENT_NAMES.length), new Set(MOVEMENT_NAMES.map((_, index) => index)), "movement")]!;
-      const action = HAND_ACTION_NAMES[maskedArgmax(values.slice(MOVEMENT_NAMES.length, -1), supportedActionIndices(view), "action")]!;
-      const raw = values.at(-1)!; return { movement, action, persistence: 0.10 + (Math.max(-1, Math.min(1, raw)) + 1) * 0.35 }; };
+    const labeler: ResearchLabeler = (view, features) => { const values = readMetaOutput(network.run(features));
+      const movement = MOVEMENT_NAMES[maskedArgmax(values.movementLogits, new Set(MOVEMENT_NAMES.map((_, index) => index)), "movement")]!;
+      const action = HAND_ACTION_NAMES[maskedArgmax(values.actionLogits, supportedActionIndices(view), "action")]!;
+      return { movement, action, persistence: values.persistence }; };
     return researchLabelMind("neat-qd", labeler, onDecision);
   }
   if (artifact.data.algorithm === "lookahead") {

@@ -43,7 +43,9 @@ hand-required. Capability-neutral recovery is the invariant, not a special case.
 The plan replaces `supportedOptions`. There are two more:
 
 - `actionsFor` (`scripts/train-lookahead.mjs:50-52`) omits `punch` for sword/axe/bow cells, so
-  the look-ahead schedule trains 220 keys while the runtime asks for up to 250;
+  the look-ahead schedule trains 220 keys while the runtime asks for up to 250. **Closed by
+  stage C1**: the bow row was the runtime's to fix and stage B fixed it; the sword and axe rows
+  were the schedule's, and it now trains 240 keys per split;
 - `research-rollout-worker.mjs:18-21` is a third, hand-inlined copy that tests
   `hand.weapon === "sword"` for thrust instead of `hasPoint`, and an **exclusion list**
   `!["empty","bow","shield","buckler"].includes(hand.weapon)` for cut instead of `isStriking`.
@@ -51,6 +53,12 @@ The plan replaces `supportedOptions`. There are two more:
 That third copy is the one that decodes NEAT and DAgger rollouts **during training**, so a
 network is currently trained under one legality mask and deployed under another. Unify all
 three or this session leaves the disagreement one layer deeper than it found it.
+
+**Stage C1 unified it, and the two rewrites named above were not the defect.** Swept over all
+49 ordered weapon pairs, `weapon === "sword"` and `hasPoint` agree for every kind in `GRIPS`,
+and so do the exclusion list and `isStriking && !== "empty"`. Every one of the twelve
+disagreeing pairs is a **two-handed** one, which neither rewrite knows about. There was a
+fifth copy as well, inlined in `collectTacticalTrace`. `docs/measurements.md` has both tables.
 
 ### `supportedOptions` is not in `options.ts`, and the output layout has no owner
 
@@ -64,6 +72,13 @@ vector to index from a hardcoded list of movement-name string literals.
 
 Widening 13 to 26 without first collapsing these is six independent chances to get an offset
 wrong. Collapse them to one exported table with named offsets before touching any width.
+
+**Stage C1 collapsed them onto `META_OUTPUT_LAYOUT`.** The count of *live* sites was five, not
+six -- `meta.ts`'s own uses went with `networkMetaMind` in stage A and `checkpoint.ts` was
+deleted there too. The one that mattered was neither a count nor a name: `deployment.ts` read
+the action half as `values.slice(MOVEMENT_NAMES.length, -1)`, which means "everything except
+the last number" and folds three new logit blocks into the action argmax the moment the
+contract widens.
 
 ### Look-ahead costs twenty times more, and the plan prices it as bookkeeping
 
@@ -175,7 +190,7 @@ that becomes 90 tasks and roughly 4.4 s.
   `_engagement` and friends are defined **non-writable** (`options.ts:426-430`), so new
   counters cannot be assigned onto an existing record.
 
-## Sequence: three commits, not one
+## Sequence: three commits, not one -- and stage C then split again
 
 The plan puts the deletions last. Do them **first**, and split the rest in two. The reason is
 not tidiness:
@@ -196,6 +211,14 @@ not tidiness:
 Stage B and Stage C cannot be merged into one commit and cannot be split further: a contract
 bump with trainers still emitting 13 outputs is red, and an execution layer that takes an exact
 effector while deployment still names none is dishonest.
+
+**Corrected 2026-08-25: stage C did split, along a seam this text missed.** Everything the
+widening *needs first* -- one output-layout table, one legality table, one look-ahead schedule
+-- is behaviour-preserving or bug-fixing and can land while the contract is still 13 wide. That
+is **stage C1**, below. The claim above is true only of the widening itself, which stays whole
+as stage C2. The reason to split is the reason stage B was split from stage A: a contract bump
+landing beside three unrelated corrections is a diff where nobody can say which change caused
+what.
 
 ## Deletions that are not safe as specified
 
@@ -400,7 +423,8 @@ Five things this plan asked for that the code answered differently, each with it
   `sword+empty` and `axe+empty` still offer a runtime `punch` the schedule never trains, on both
   humanoid units, exactly as this plan's own text says (`actionsFor` omits `punch` for sword, axe
   and bow). Four cells diverge now against six at `da025f2`. Closing the remaining two is Stage
-  C's; `research-rollout-worker.mjs` still carries the third table.
+  C's; `research-rollout-worker.mjs` still carries the third table. **Both closed in stage C1,
+  below.**
 
 Left for Stage C, deliberately: the 26-output contract, the four trainers, mirrors, behaviour
 records, and `Striking.hand` -- the last surviving `"primary"` alias, which feeds
@@ -424,6 +448,46 @@ target, stance) is what `handActionOption` takes, and Stage C's decision is that
 name and a persistence. Declare it when something fills one in. `unsupportedTactic` and
 `applyTacticStance` are module-private for the same reason: nothing outside `options.ts` called
 either.
+
+## Stage C1, as landed -- 2026-08-25
+
+**The output contract is still 13 wide.** This is the preparation that makes widening it
+legible: three jobs, all behaviour-preserving or bug-fixing, so that when the width does move a
+reviewer can tell which change caused what. 488 tests before, **491** after; `npm run check`
+and `npm run build` clean; the `duelist-swinger` null control identical to the digit.
+
+1. **One output table.** `META_OUTPUT_LAYOUT` in `src/learning/meta.ts` names `movementAt`,
+   `actionAt`, `persistenceAt` and `width`, and the five sites that re-derived them read it.
+   The hazard was the `-1`, not the width -- `values.slice(MOVEMENT_NAMES.length, -1)` means
+   "everything except the last number", which silently swallows the effector, target and stance
+   heads into the action argmax the moment they exist. The persistence rescale was a third copy
+   of the same contract and is now `decodeMetaPersistence`, whose `0.35` is deliberately not
+   spelled `(MAX - MIN) / 2` because in doubles those are different numbers.
+2. **One legality table.** `research-rollout-worker.mjs` asks `deployableActions`, and so does
+   the fifth copy this pass found inlined in `collectTacticalTrace`. The two rewrites this plan
+   named are per-kind equivalent today over all 49 ordered weapon pairs; every real
+   disagreement is the two-handed holder rule, and inside `RESEARCH_STRATA` it is exactly one
+   row of thirteen -- `punch` on `bow+empty`. That row was a **live abort**: the rollout mask
+   labelled `punch`, `researchLabelMind` refused it by name one call later, and the bout died.
+3. **One schedule.** `LOADOUT_ACTIONS` trains `punch` on `sword+empty` and `axe+empty`, which
+   the runtime always offered and this schedule never did -- so `lookaheadMind` threw
+   `tactic "close+punch" has no calibrated model` on the first replan for those two cells.
+   240 tasks per split against 220, 960 groups against 880, 46,080 minimum solver steps against
+   42,240. **Session 20's tuple expansion supersedes those by roughly twentyfold**; they are the
+   current figures, not a ceiling.
+
+Two things this stage found that the plan did not say:
+
+- **`club` is the loadout this plan's own reasoning points at and no harness builds.** It is
+  two-handed, it strikes, it has no point -- and no `RESEARCH_STRATA` row carries one, so its
+  disagreements are synthetic. `docs/measurements.md` records them anyway, because a club
+  loadout added later fails exactly as the bow does.
+- **Stage B created the `bow+empty` abort rather than inheriting it.** Before `da025f2` the
+  deployment mask offered `punch` on a bow too, so the two masks agreed on a lie and nothing
+  threw. Narrowing one of two copies is how a redundant guard becomes a refusal.
+
+Still Stage C's, unchanged: the 26-output contract, the four trainers, mirrors, behaviour
+records, and `Striking.hand`.
 
 ## Frozen vocabulary
 

@@ -9,6 +9,7 @@ import { adaptiveCompatibilityThreshold, breedGeneration, cloneGenome, initialSp
 import { QualityArchive, selectValidationChampion } from "../src/learning/quality-diversity.ts";
 import { curriculumDigest, curriculumStage, opponentForArchive, researchMatrix, sampleOpponentArchive,
   SHIPPED_OPPONENT_ARCHIVE } from "../src/learning/research-matrix.ts";
+import { META_OUTPUT_LAYOUT } from "../src/learning/meta.ts";
 import { SeededRng } from "../src/learning/rng.ts";
 import { HAND_ACTION_NAMES, MOVEMENT_NAMES } from "../src/options.ts";
 
@@ -36,7 +37,10 @@ if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(runId)) throw new Error("invalid --run-
 const runDir = new URL(`../asset-src/learning/research/${runId}/`, import.meta.url); await mkdir(runDir, { recursive: true });
 const stateUrl = new URL("state.json", runDir); const atomic = async (url, data) => { const temp = new URL(`${url.pathname.split("/").pop()}.tmp-${process.pid}`, runDir);
   await writeFile(temp, data); await rename(temp, url); };
-const outputs = MOVEMENT_NAMES.length + HAND_ACTION_NAMES.length + 1;
+// Asked of the one output table rather than re-derived: a population bred at a
+// width the deployment decoder does not read is a run that finishes and cannot
+// be deployed, and nothing between here and `readMetaOutput` would say so.
+const outputs = META_OUTPUT_LAYOUT.width;
 const initial = () => { const rng = new SeededRng(seed); const innovations = new InnovationTracker(FEATURE_COLUMNS.length + 1 + outputs);
   return Array.from({ length: populationSize }, (_, id) => initialSparseGenome(id, FEATURE_COLUMNS.length, outputs, rng, innovations)); };
 

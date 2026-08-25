@@ -163,6 +163,13 @@ const attachedHand = (view: FighterView, name: HandName) => {
  * `scripts/train-lookahead.mjs` has never offered `punch` for a bow cell -- so
  * this is the runtime mask catching up with the training one rather than a new
  * rule.
+ *
+ * **The traffic went the other way too, and only one direction was noticed at
+ * the time.** That same schedule also withheld `punch` from `sword+empty` and
+ * `axe+empty`, where the off hand is genuinely free and this function answers
+ * null -- so on those two the *schedule* was the wrong one and the runtime was
+ * right. It was corrected there rather than here; `LOADOUT_ACTIONS` carries the
+ * argument.
  */
 const twoHandedHolder = (view: FighterView): HandName | null => {
   for (const name of HANDS) {

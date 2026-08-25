@@ -95,7 +95,8 @@ Seeds 310019 and 310031.
 
 - The schedule covers all 13 body/loadout cells and the exact compatible
   `(movement, action, effector, target, stance)` count measured by preflight. The obsolete
-  220-cell action-v1 assumption is gone.
+  action-v1 cell count is gone -- 220 before session 17 stage C1, 240 after it trained the
+  `punch` the runtime already offered on `sword+empty` and `axe+empty`.
 - Every cell has train and validation calibration rows; no failed cell silently borrows another
   body's model.
 - The artifact reloads and its runtime mind refuses each absent or over-threshold cell **by

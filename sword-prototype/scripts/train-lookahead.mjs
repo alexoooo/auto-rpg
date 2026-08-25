@@ -7,7 +7,7 @@ import { ResearchArtifact, artifactChecksum, canonicalJson } from "../src/learni
 import { calibrateTacticalModel, fitTacticalModel, TACTICAL_STATE_COLUMNS } from "../src/learning/tactical-model.ts";
 import { researchMatrix } from "../src/learning/research-matrix.ts";
 import { researchLabelMind } from "../src/learning/research-policy.ts";
-import { supportedOptions } from "../src/learning/meta.ts";
+import { deployableActions } from "../src/learning/meta.ts";
 import { HAND_ACTION_NAMES, MOVEMENT_NAMES } from "../src/options.ts";
 import { runResearchBout } from "./research-havok.mjs";
 
@@ -27,8 +27,12 @@ export function tacticalStateFromPublishedView(view, contactProbability = 0) {
 export async function collectTacticalTrace({ seed, solverSteps, split = "train", jobIndex = 0, forcedPair = null }) {
   const job = researchMatrix(split, seed)[jobIndex % researchMatrix(split, seed).length]; let selected = { movement: "hold", action: "cover" };
   let decision = 0; const mind = researchLabelMind("lookahead-trace", (view) => {
-    const hasHand = Object.values(view.self.hands).some((hand) => !hand.lost);
-    const supported = HAND_ACTION_NAMES.filter((action) => supportedOptions(view).has(action) && (action !== "cover" || hasHand));
+    // The deployment mask, asked for rather than rebuilt. This line was
+    // `supportedOptions(view).has(action) && (action !== "cover" || hasHand)`,
+    // which is `deployableActions` spelled out -- a fifth copy of the rule, and
+    // one that would have had to be found and edited by hand every time the
+    // fourth one moved.
+    const supported = HAND_ACTION_NAMES.filter((action) => deployableActions(view).has(action));
     if (forcedPair && !supported.includes(forcedPair.action)) throw new Error(`lookahead schedule chose unsupported ${job.unit}/${job.loadout} tactic ${forcedPair.movement}+${forcedPair.action}`);
     const action = forcedPair?.action ?? supported[decision % supported.length];
     const movement = forcedPair?.movement ?? MOVEMENT_NAMES[decision % MOVEMENT_NAMES.length]; decision += 1; selected = { movement, action };
@@ -47,16 +51,54 @@ export async function collectTacticalTrace({ seed, solverSteps, split = "train",
   return { rows, solverSteps: result.solverSteps, bout: result.result, bodyLoadout };
 }
 
-const actionsFor = (unit, loadout) => unit === "centipede" ? ["bite", "recover"] : loadout.startsWith("bow") ?
-  ["cover", "shoot", "recover"] : loadout.startsWith("empty") ? ["cover", "punch", "recover"] :
-  loadout.startsWith("axe") ? ["cover", "cut", "recover"] : ["cover", "cut", "thrust", "recover"];
+/**
+ * What each loadout's budget is spent on, in `HAND_ACTION_NAMES` order.
+ *
+ * One row per `ResearchLoadout`, and the schedule refuses a loadout with no row
+ * rather than falling through to a sword's: this was a chain of `startsWith`
+ * ternaries whose last arm was the default, so a loadout added to
+ * `RESEARCH_STRATA` silently trained the sword schedule against whatever it was
+ * actually holding.
+ *
+ * **These rows are a claim about the runtime, and the claim was false on two of
+ * them.** `sword+empty` and `axe+empty` leave a genuinely free empty hand, the
+ * runtime mask offers `punch` on it, and this table did not -- so
+ * `lookaheadMind`, which plans over the runtime mask and calls
+ * `requireCalibration` on every pair it plans, asked for a `close+punch` cell
+ * that no budget had ever been spent on and threw
+ * `tactic "close+punch" has no calibrated model` on the first replan. The
+ * runtime is right and this was wrong: unlike a two-hander's trailing hand,
+ * which is welded to the haft and excluded from the strikers list, that hand can
+ * actually throw the punch. `the_training_schedule_offers_exactly_what_the_runtime_mask_offers`
+ * reads the mask off real published bodies and is what stops the two coming
+ * apart again.
+ *
+ * The cost is 240 tasks per split against 220, and a minimum budget of 46,080
+ * solver steps against 42,240. That is the figure **today**; session 20's tuple
+ * expansion supersedes it by roughly twentyfold and is where the real ceiling
+ * gets decided.
+ */
+const LOADOUT_ACTIONS = Object.freeze({
+  "sword+empty": Object.freeze(["cover", "cut", "thrust", "punch", "recover"]),
+  "sword+shield": Object.freeze(["cover", "cut", "thrust", "recover"]),
+  "sword+buckler": Object.freeze(["cover", "cut", "thrust", "recover"]),
+  "axe+empty": Object.freeze(["cover", "cut", "punch", "recover"]),
+  "bow+empty": Object.freeze(["cover", "shoot", "recover"]),
+  "empty+empty": Object.freeze(["cover", "punch", "recover"]),
+  "natural:bite": Object.freeze(["bite", "recover"]),
+});
+export const actionsFor = (loadout) => {
+  const actions = Object.hasOwn(LOADOUT_ACTIONS, loadout) ? LOADOUT_ACTIONS[loadout] : null;
+  if (!actions) throw new Error(`lookahead schedule has no tactic row for loadout "${loadout}"`);
+  return actions;
+};
 /** Every compatible body/loadout/tactic cell, in fixed matrix and option-table order. */
 export function lookaheadTacticCellSchedule(split, seed) {
   const matrix = researchMatrix(split, seed); const seen = new Set(); const cells = [];
   matrix.forEach((job, jobIndex) => { const cell = `${job.unit}/${job.loadout}`; if (!seen.has(cell)) {
     seen.add(cell); cells.push({ cell, unit: job.unit, loadout: job.loadout, jobIndex }); } });
   return Object.freeze(cells.flatMap((cell) => MOVEMENT_NAMES.flatMap((movement) =>
-    actionsFor(cell.unit, cell.loadout).map((action) => Object.freeze({ ...cell, movement, action })))));
+    actionsFor(cell.loadout).map((action) => Object.freeze({ ...cell, movement, action })))));
 }
 
 async function collectTacticalBudget(task, seed, solverSteps, split) {
