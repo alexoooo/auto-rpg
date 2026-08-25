@@ -2332,7 +2332,7 @@ is a uniform 1.18x scale of the same skeleton, so its band is the same two numbe
 rather than assumed. 0.75 is very nearly the midpoint of that band (0.747), and that is the
 whole of why it is 0.75 rather than 0.70 or 0.80.
 
-### Two masks that used to disagree now agree, and one row of thirteen closed
+### Two masks that used to disagree now agree, and one loadout of seven closed
 
 `supportedOptions` asked its own weapon predicates while the option's `requireHand` asked a
 near-identical set of its own; both now ask `tacticEffectors`, which is the single legality
@@ -2419,7 +2419,7 @@ recorded `bow+empty` random-control trace, is not comparable across this change.
   note on `actionArcherAim` says so in place.
 - **Look-ahead cell counts are unchanged.** Stage B leaves the tactical model keyed on
   `(movement, action)`; `deployableTactics` exists and is tested, but nothing production takes
-  an argmax over it until Stage C, so the 21-22x enumeration cost the plan prices belongs to
+  an argmax over it until Stage C, so the ~19-21x enumeration cost the plan prices belongs to
   sessions 20 and 21 and is not measured here.
 
 ## Session 17 Stage C1: one output table, one legality table, one schedule -- 2026-08-25
@@ -2495,18 +2495,30 @@ and the rollout mask is the wider one in all twelve pairs:
 | `bow+empty`, `club+empty`, `empty+bow`, `empty+club` | `punch` |
 
 Restricted to `RESEARCH_STRATA` -- the only loadouts this code ever sees, measured on real
-published bodies through `runResearchBout` rather than on a fixture -- exactly **one row of
-thirteen** disagreed, on both humanoid units:
+published bodies through `runResearchBout` rather than on a fixture -- the disagreement is
+**one loadout of the seven**, which is **two of the thirteen cells**, one on each humanoid unit:
 
 | cell | rollout mask | `deployableActions` |
 | --- | --- | --- |
 | `warrior/bow+empty`, `broot/bow+empty` | cover, **punch**, shoot, recover | cover, shoot, recover |
 | the other eleven cells | *identical* | *identical* |
 
-**`club` never reaches this code.** It is a `WeaponKind`, it is two-handed, it strikes and it
-has no point -- but no `RESEARCH_STRATA` loadout carries one, so its three rows in the sweep
-above are synthetic. A club loadout added later fails exactly as the bow does, for exactly the
-same reason.
+This paragraph said "exactly one row of thirteen" while the table under it counted eleven cells
+the other way, which is two units of measure in four lines: a *loadout* has one row in
+`LOADOUT_ACTIONS` and two cells in `RESEARCH_STRATA`, because both humanoid units carry it.
+Thirteen is the cell count (six loadouts x two humanoids, plus the centipede's bite), so
+"one row of thirteen" was never a quantity. The same conflation is corrected at
+`src/learning/meta.ts` and in the session overview.
+
+**`club` never reaches this code, and it is half the sweep above rather than a corner of it.**
+It is a `WeaponKind`, it is two-handed, it strikes and it has no point -- and no
+`RESEARCH_STRATA` loadout carries one, so **six of the twelve ordered pairs are unreachable**:
+`sword+club`, `club+sword`, `bow+club`, `club+bow`, `club+empty` and `empty+club`, which is four
+of the five markdown rows. This document said "its three rows in the sweep above are synthetic",
+undercounting both the pairs and the rows. The remaining six all involve a bow, and of those
+only `bow+empty` is a `RESEARCH_STRATA` loadout -- which is the same fact the table above states
+as one loadout of seven. A club loadout added later fails exactly as the bow does, for exactly
+the same reason.
 
 **What moved, therefore.** On `bow+empty` a genome whose `punch` logit beat its `cover`,
 `shoot` and `recover` logits used to be labelled `punch` and then killed by the deployment mask
@@ -2522,6 +2534,26 @@ A **fifth** copy of the same rule turned up on the way, inlined in `collectTacti
 (`scripts/train-lookahead.mjs`) as
 `supportedOptions(view).has(action) && (action !== "cover" || hasHand)`. That is
 `deployableActions` spelled out, term for term, and it now asks for it.
+
+**It was not one rule after stage C1, and the commit that said so had counted five of seven.**
+`train-ppo.mjs` held the sixth and seventh:
+
+- the league-opponent branch spelled out `supportedOptions` plus the `cover` delete, character
+  for character `deployableActions`'s body;
+- `collectPpoTrajectory` used **bare `supportedOptions`, without the cover delete** -- and that
+  is the mask the trajectory collector PPO learns from, while `deployment.ts`'s PPO branch
+  deploys under `deployableActions`. The same train/deploy split stage C1 exists to close,
+  surviving inside the file that spends the budget.
+
+Both now read `supportedActionIndices`. **Behaviourally identical today, and measured rather
+than argued**: over 394 probed capability cells -- every ordered weapon pair from `WEAPON_KINDS`,
+both loss flags on each hand, with and without a natural bite, plus the handless body -- the
+copy with the delete and the copy without it each differed from `deployableActions` in **0**
+cells, and the number of cells where the delete had anything to delete was **0** as well, since
+`supportedOptions` adds `cover` only when a hand is attached. That is the same probe and the same
+394 the `deployableActions` docstring records. A redundant guard held in one of two copies and
+absent from the other is exactly how the first five drifted apart with nothing going red, which
+is why "prove it is redundant" is not the same argument as "leave it alone".
 
 ### The look-ahead schedule was wrong where the runtime was right
 
@@ -2554,7 +2586,138 @@ schedule and stays as the record of that run. **This is a small increase that se
 tuple expansion supersedes by roughly twentyfold**; it is the current figure, not a ceiling.
 
 `the_training_schedule_offers_exactly_what_the_runtime_mask_offers` (`tests/lookahead.test.mjs`,
-739 ms) is the durable pin: one short Havok bout per cell, the mask read off the **real
+734 ms) is the pin on the rows: one short Havok bout per cell, the mask read off the **real
 published body** on every sample, and the whole thirteen-row table compared at once. It asserts
 one distinct mask per cell as well as its contents, so a capability that moved mid-probe would
 fail it too. Dropping `punch` from the `sword+empty` row fails it on both humanoid units.
+
+**It covers intact bodies, and this document called it "the durable pin" on a disagreement it
+structurally cannot see.** Every one of its thirteen bouts runs 48 solver steps on a body that
+starts and finishes with both arms, and a per-loadout row cannot describe anything else: the
+row keys on the loadout a body *started* with, the runtime mask keys on what is still attached,
+and the two come apart the moment a hand comes off. See the section below.
+
+### A schedule row cannot describe a mask that depends on live body state
+
+Severing the bow hand of a `bow+empty` removes the two-handed weld along with it, so the
+surviving empty hand is free and the runtime mask becomes `cover, punch, recover` against that
+loadout's row of `cover, shoot, recover`. `lookaheadMind` planned over the runtime mask and
+called `requireCalibration` on every pair it could name, so it asked for a `close+punch` cell no
+budget had ever been spent on and threw
+`lookahead refuses warrior/bow+empty: tactic "close+punch" has no calibrated model` in the
+middle of a bout. **Severance is routine, not an edge case**: the `duelist-swinger` null control
+reports 10 severs in 120 bouts. Both masks below were read off real published bodies through
+`runResearchBout`, not off a fixture:
+
+| body | intact mask | after losing the primary hand | that loadout's schedule row |
+| --- | --- | --- | --- |
+| `warrior/bow+empty` | cover, shoot, recover | cover, **punch**, recover | cover, shoot, recover |
+| `warrior/sword+empty` | cover, cut, thrust, punch, recover | cover, punch, recover | cover, cut, thrust, punch, recover |
+
+The sword body survives only because its row already trains `punch`; the bow body does not, and
+adding a row for it chases *states* rather than loadouts -- there are two hands, each of which
+can be lost, times every loadout, and the mask also folds the two-handed holder rule. So the fix
+is not another row. `calibratedTacticPairs` (`src/learning/lookahead.ts`) filters the pair set to
+the cells the model has a calibration for and `lookaheadMind` refuses by name only when nothing
+survives. That is not the silent repair the plan forbids: repairing an *illegal* action would
+substitute a name the body cannot perform, whereas this narrows the search by the search's own
+competence and every surviving pair is still one `deployableActions` offered.
+
+Two more things the same filter closes:
+
+- **Both arms gone was a throw.** `deployableActions` answers the empty set for a warrior with
+  no attached hand and no jaws, `boundedLookahead` was handed an empty pair list, and it threw
+  `lookahead has no supported tactic pairs` mid-bout. The mind returns `freshIntent()` there
+  now, which is the answer `researchLabelMind` and `randomMetaMind` already gave on the same
+  mask -- an incapable body is a fact about the body, not a request the model failed.
+- **A model that can predict nothing this body does is still a refusal**, by name and naming the
+  actions it could not predict:
+  `lookahead refuses centipede/bite: no calibrated model for any tactic on [bite, recover]`.
+
+`a_severed_hand_moves_the_mask_and_the_lookahead_plans_over_what_it_can_predict`
+(`tests/lookahead.test.mjs`, 88 ms) is the pin, on fixtures taken from real published bodies with
+one hand then both taken off. It compares the whole `{mask, scheduled, planned}` record for the
+three cases against a hand-written one, and it asserts that the bow cell's `close+punch` really
+has no calibrated model -- so a plan that avoided it did so by declining rather than by the
+schedule quietly growing a row. Watched fail twice: with the filter removed it throws
+`tactic "close+punch" has no calibrated model`, and with the inert branch removed it throws
+`no calibrated model for any tactic on []`.
+
+### What a stale-width output vector actually did, and what a non-finite one still does
+
+`readMetaOutput`'s docstring said a genome bred against a stale output count "used to decode to
+`undefined` logits and lose every `>` comparison in an argmax -- a controller that always answers
+the first name in the table". Measured against both pre-`c149e8c` decode sites, on the
+twelve-wide vector `[0,0,0,0,0,1,1,1,1,1,1,9]` -- whose maximum sits where `recover` belongs --
+across `sword+empty`, `bow+empty` and a centipede:
+
+| width | `deployment.ts` answered | `research-rollout-worker.mjs` answered | persistence |
+| ---: | --- | --- | ---: |
+| 13 (control) | `close` + `recover` | `close` + `recover` | 0.6249999999999999 |
+| 12 | `close` + `cover` (`bite` on the centipede) | `close` + `recover` | 0.7999999999999999 |
+| 9 | `close` + `cover` | `close` + `cover`, `recover` on the centipede | 0.7999999999999999 |
+
+So the shape it prevented was **two decoders answering different actions from one genome**, not
+a controller stuck on the first name. `deployment.ts` sliced the action half as
+`slice(MOVEMENT_NAMES.length, -1)`, which at twelve wide is six numbers, so `recover`'s index was
+off the end and unreachable there while the rollout worker still read it. Both spelled persistence
+"the last number", which at twelve wide *is* `recover`'s logit -- the 9 clamped to +1, so every
+decision came back at the top of the window for as long as the genome lived. `undefined` needs a
+vector shorter than twelve, and even then the rollout worker falls to its seed `recover`, the
+**last** name in the table; only the movement loop can answer "the first name", and only below
+five outputs.
+
+**The width refusal is shadowed at `deployment.ts` and earns its place at the rollout worker.** A
+NEAT genome's output count is a property of the genome, so the all-zero probe in
+`deployedResearchMind` catches any width before the labeler is built; `neatLabeler` has no probe
+in front of it.
+
+**Nothing was watching the trailing scalar at all.** The `learned meta-policy produced a
+non-finite output` guard went with `networkMetaMind` in stage A. `maskedArgmax` refuses a
+non-finite *logit*, so what survived was persistence: a network finite on the all-zero probe and
+overflowing on real features decodes to `persistence: NaN`, `researchLabelMind`'s `nextDecision`
+becomes `NaN`, and `view.clock >= nextDecision` is permanently false. Measured over four seconds
+at 60 Hz on a `sword+empty` fixture holding `hold+cover`: **38 decisions with a 0.10 s window
+against 14 with `NaN`**. That is not the freeze it looks like -- a completed skill still forces a
+decision -- which is worse: the persistence window silently stops existing and the controller runs
+a different algorithm from the one being trained. `readMetaOutput` refuses by name now,
+`learned output "persistence" is NaN`.
+`a_non_finite_learned_output_is_refused_by_name_before_it_deletes_the_persistence_window`
+(`tests/learning.test.mjs`) pins the three refusals, drives a genome built to pass the zero probe
+and fail on a body, and asserts both decision counts. Removing the finiteness check fails it.
+
+### The tie-break neither decoder pinned
+
+`>` and not `>=`, in the rollout worker's hand-rolled argmax and in `maskedArgmax` alike, so two
+names at the same logit resolve to the earlier one in the frozen table. Flipping either
+comparison left all 491 tests green.
+`a_logit_tie_is_broken_by_table_order_in_both_decoders` ties `hold` against `circle-right` and
+`cover` against `punch` and requires both decoders to answer `hold`+`cover`; each flip fails it.
+
+### The schedule's own refusal was untested
+
+`actionsFor` throws `lookahead schedule has no tactic row for loadout "..."` rather than falling
+through to the sword row, which is the whole argument for replacing the `startsWith` chain with
+`LOADOUT_ACTIONS`. Replacing that throw with `return LOADOUT_ACTIONS["sword+empty"]` -- the exact
+silent default it was built to kill -- left the suite green. It is asserted now, on `club+empty`
+and on `toString`, the second because the lookup is `Object.hasOwn` and an `in` would answer the
+prototype.
+
+### A worker that exits 0 having done nothing hangs its trainer
+
+`research-rollout-worker.mjs` posts its result only `if (parentPort)`, and both trainers resolve
+on the worker's `message` while rejecting only on `error` or a non-zero `exit` -- so finishing
+without posting is the one outcome neither can see, and the run waits forever. A worker thread
+always has a port, so the reachable path is a person running the file, which now refuses by name
+and exits 1 instead of exiting 0 in silence.
+`the_rollout_worker_refuses_a_command_line_rather_than_exiting_zero_having_done_nothing`
+(`tests/neat-qd.test.mjs`, 480 ms) spawns the real process for the exit code and the sentence,
+and checks that importing the module is still silent -- which is why the gate exists.
+
+### The review pass, as landed -- 2026-08-25
+
+491 tests before, **495** after; `npx tsc --noEmit` and `npm run build` clean. The null control
+`npm run measure -- --only duelist-swinger --bouts 120` at seed 20260823 is identical to the
+digit for the third stage running: 66/120 = 55.0 %, bout 3.52 (1.42-8.98), damage 176.17, 10
+severs, 1496 / 1670 scoring contacts. The schedule still expands to 240 tasks per split, 960
+groups and 46,080 minimum solver steps.

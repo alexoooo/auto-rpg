@@ -11,7 +11,8 @@ import { deployableActions } from "../src/learning/meta.ts";
 import { researchMatrix } from "../src/learning/research-matrix.ts";
 import { researchLabelMind } from "../src/learning/research-policy.ts";
 import { HAND_ACTION_NAMES, MOVEMENT_NAMES } from "../src/options.ts";
-import { assertCompleteView } from "./fixtures/view.mjs";
+import { freshIntent } from "../src/action-primitives.ts";
+import { assertCompleteView, publishedFixture } from "./fixtures/view.mjs";
 
 const state = (overrides = {}) => ({ reachMargin: -0.5, facingError: 0.2, threatAlignment: 0.1,
   contactProbability: 0.05, vitalityPotential: 0, ...overrides });
@@ -43,6 +44,15 @@ test("the_training_schedule_covers_every_body_loadout_and_only_compatible_natura
   const centipede = train.filter((task) => task.unit === "centipede");
   assert.deepEqual([...new Set(centipede.map((task) => task.action))], ["bite", "recover"]);
   assert.equal(centipede.length, MOVEMENT_NAMES.length * 2);
+  // The refusal, which nothing asserted: replacing the throw with
+  // `return LOADOUT_ACTIONS["sword+empty"]` -- the exact silent default the
+  // table replaced a `startsWith` chain to kill -- left the whole suite green,
+  // so the argument for the table was untested and the defect could come back
+  // as a one-line "fix" for a missing row. `club+empty` is the loadout the
+  // reasoning points at and no harness builds; `toString` is here because the
+  // row lookup is `Object.hasOwn` and an `in` would answer the prototype.
+  assert.throws(() => actionsFor("club+empty"), /lookahead schedule has no tactic row for loadout "club\+empty"/);
+  assert.throws(() => actionsFor("toString"), /lookahead schedule has no tactic row for loadout "toString"/);
 });
 
 test("the_training_schedule_offers_exactly_what_the_runtime_mask_offers", async () => {
@@ -74,6 +84,76 @@ test("the_training_schedule_offers_exactly_what_the_runtime_mask_offers", async 
     scheduled[cell] = [actionsFor(job.loadout).join("+")];
   }
   assert.deepEqual(runtime, scheduled);
+});
+
+/** One short Havok bout per loadout, kept as a fixture a test can sever a hand on. */
+const publishedBody = async (loadout) => {
+  const jobs = researchMatrix("train", 310013);
+  const at = jobs.findIndex((job) => job.unit === "warrior" && job.loadout === loadout);
+  let captured = null;
+  await runResearchBout({ ...jobs[at], index: at }, () => researchLabelMind("severance-fixture",
+    () => ({ movement: "hold", action: "recover", persistence: 0.4 })), 48, null, {
+      onSample({ view }) { captured ??= publishedFixture(view, `${loadout} view`); },
+    });
+  return captured;
+};
+
+test("a_severed_hand_moves_the_mask_and_the_lookahead_plans_over_what_it_can_predict", async () => {
+  // The schedule keys on the **starting** loadout; the mask keys on what is
+  // still attached. They agree on an intact body and come apart the moment a
+  // hand comes off, which is why the schedule/mask test above -- 48 solver steps
+  // on intact bodies -- cannot see this and why adding a row would not fix it:
+  // rows chase loadouts and this chases states, of which there are more.
+  //
+  // A severed bow hand is the sharp case. `bow` is two-handed, so the empty hand
+  // is welded to the stave and cannot punch; cut the bow hand off and the weld
+  // goes with it, the empty hand is free, and `punch` appears in a mask whose
+  // schedule row is `cover, shoot, recover`. `lookaheadMind` used to ask
+  // `requireCalibration` for every pair it could name and throw
+  // `tactic "close+punch" has no calibrated model` mid-bout. Severance is
+  // routine: the null control reports 10 severs in 120 bouts.
+  //
+  // Distinguishable per action, so the plan is a choice rather than a tie-break:
+  // wherever `punch` is both offered and trained it must win, and where it is
+  // offered and untrained the search must land on `recover` rather than throw.
+  const DELTAS = { punch: { vitalityPotential: 0.30 }, recover: { vitalityPotential: 0.10 } };
+  const LIMITS = { signedReachError: 1, contactBrier: 1, vitalityDeltaError: 1 };
+  const model = (loadout) => fitTacticalModel(MOVEMENT_NAMES.flatMap((movement) =>
+    actionsFor(loadout).map((action) => ({ ...row(`${movement}+${action}`, DELTAS[action] ?? {}),
+      bodyLoadout: `warrior/${loadout}` }))));
+  const sever = (view, ...hands) => { const next = structuredClone(view);
+    for (const name of hands) next.self.hands[name].lost = true; return assertCompleteView(next); };
+
+  const bow = await publishedBody("bow+empty"); const sword = await publishedBody("sword+empty");
+  const cases = {
+    "bow+empty, bow hand gone": ["bow+empty", sever(bow, "primary")],
+    "sword+empty, sword hand gone": ["sword+empty", sever(sword, "primary")],
+    "sword+empty, both hands gone": ["sword+empty", sever(sword, "primary", "secondary")],
+  };
+  const record = {}; let inert = null;
+  for (const [label, [loadout, view]] of Object.entries(cases)) {
+    let planned = null;
+    const mind = lookaheadMind(model(loadout), `warrior/${loadout}`, LIMITS, LOOKAHEAD_DEPTH, LOOKAHEAD_WIDTH,
+      (_view, _features, decision) => { planned = `${decision.movement}+${decision.action}`; });
+    const command = mind.decide(view, 1 / 240);
+    if (label.includes("both")) inert = command;
+    record[label] = { mask: HAND_ACTION_NAMES.filter((name) => deployableActions(view).has(name)).join("+"),
+      scheduled: actionsFor(loadout).join("+"), planned };
+  }
+  assert.deepEqual(record, {
+    "bow+empty, bow hand gone": { mask: "cover+punch+recover", scheduled: "cover+shoot+recover", planned: "close+recover" },
+    "sword+empty, sword hand gone": { mask: "cover+punch+recover", scheduled: "cover+cut+thrust+punch+recover", planned: "close+punch" },
+    "sword+empty, both hands gone": { mask: "", scheduled: "cover+cut+thrust+punch+recover", planned: null },
+  });
+  // The bow cell really has no `punch` model -- the plan declined to search it
+  // rather than the schedule having quietly grown one.
+  assert.throws(() => requireCalibration(model("bow+empty"), "close+punch", "warrior/bow+empty", LIMITS),
+    /tactic "close\+punch" has no calibrated model/);
+  // A body that can do nothing at all is inert rather than a refusal, which is
+  // what `researchLabelMind` answers on the same mask; the whole command against
+  // a fresh one, because two leaves of nineteen is how "goes inert" passed for a
+  // command that thrust.
+  assert.deepEqual(inert, freshIntent());
 });
 
 test("every_scheduled_centipede_tactic_runs_a_complete_havok_trace_window", async () => {
@@ -135,6 +215,11 @@ test("calibration_failure_refuses_the_exact_body_and_loadout", () => {
 });
 
 test("the_runtime_mind_refuses_an_uncalibrated_exact_body_before_planning", () => {
+  // The other side of the filter above. Declining one untrained cell is the
+  // search stating its own competence; declining *every* cell the body can
+  // perform is a model that cannot fly this body at all, and that is a request
+  // the control cannot honour -- so it is refused by name, naming the actions it
+  // could not predict rather than whichever one it happened to ask about first.
   const model = fitTacticalModel([{ ...row("hold+cut", {}), bodyLoadout: "warrior/sword+empty" }]);
   const mind = lookaheadMind(model, "centipede/bite", { signedReachError: 1, contactBrier: 1, vitalityDeltaError: 1 }, 1, 1);
   // A whole view rather than the seven fields the refusal happens to read. The
@@ -151,7 +236,7 @@ test("the_runtime_mind_refuses_an_uncalibrated_exact_body_before_planning", () =
     hands: { primary: hand(1), secondary: hand(-1) } });
   const view = assertCompleteView({ self: body(0), opponent: body(1), projectiles: [], measure: 1, clock: 0 });
   assert.throws(() => mind.decide(view, 1 / 240),
-    /lookahead refuses centipede\/bite: tactic "close\+bite" has no calibrated model/);
+    /lookahead refuses centipede\/bite: no calibrated model for any tactic on \[bite, recover\]/);
 });
 
 test("the_same_trace_replays_the_same_tactics_and_diagnostic_scores", () => {

@@ -1,4 +1,5 @@
 import { parentPort, workerData } from "node:worker_threads";
+import { pathToFileURL } from "node:url";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 
 import { predictDagger } from "../src/learning/dagger.ts";
@@ -102,4 +103,17 @@ async function dagger() {
 // time and threw on `parentPort.postMessage` of null, so the only way to read
 // that table was to read it, which two sessions did and got wrong. The
 // try/catch that used to wrap this rethrew what it caught and did nothing else.
+//
+// **The bare gate turned a throw into a silent success**, which is worse here
+// than anywhere else in the tree: a worker that reaches the end without posting
+// hangs its trainer forever, because `train-neat-qd.mjs` and
+// `collect-dagger.mjs` both resolve on `message` and reject only on `error` or a
+// non-zero `exit`. Exiting 0 with nothing posted is the one outcome neither can
+// see. Nothing reaches this today -- a worker thread always has a port -- so the
+// case that can be reached instead is a person running the file, and that is
+// refused by name rather than exiting 0 having done nothing at all.
 if (parentPort) parentPort.postMessage(workerData.mode === "neat" ? await neat() : await dagger());
+else if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  throw new Error("research-rollout-worker.mjs is a worker-thread entry point with no command line; " +
+    "run it through scripts/train-neat-qd.mjs or scripts/collect-dagger.mjs");
+}

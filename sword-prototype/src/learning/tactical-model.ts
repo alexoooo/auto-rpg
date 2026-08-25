@@ -125,11 +125,30 @@ export function predictTacticalCell(model: TacticalModel, bodyLoadout: string, t
 }
 
 export interface CalibrationLimits { readonly signedReachError: number; readonly contactBrier: number; readonly vitalityDeltaError: number }
-export function requireCalibration(model: TacticalModel, tactic: string, bodyLoadout: string, limits: CalibrationLimits): void {
+
+/**
+ * Why this cell cannot be planned over, or null if it can.
+ *
+ * Asked rather than thrown because a search has two different questions for it.
+ * "May I trust this one prediction" is a throw, and `requireCalibration` below
+ * is exactly this sentence thrown. "Which of the tactics this body can perform
+ * can I predict at all" is a filter, and a filter that has to catch an exception
+ * per candidate is a filter written as control flow. Both read one copy of the
+ * rule, which is the point: the refusal a caller reports and the set it searches
+ * cannot disagree about which cells are fit to use.
+ */
+export function calibrationRefusal(model: TacticalModel, tactic: string, bodyLoadout: string,
+  limits: CalibrationLimits): string | null {
   const calibration = model.cells[bodyLoadout]?.[tactic]?.calibration ?? (bodyLoadout === "default" ? model.tactics[tactic]?.calibration : undefined);
-  if (!calibration) throw new Error(`lookahead refuses ${bodyLoadout}: tactic "${tactic}" has no calibrated model`);
+  if (!calibration) return `lookahead refuses ${bodyLoadout}: tactic "${tactic}" has no calibrated model`;
   if (Math.abs(calibration.signedReachError) > limits.signedReachError || calibration.contactBrier > limits.contactBrier ||
       calibration.vitalityDeltaError > limits.vitalityDeltaError) {
-    throw new Error(`lookahead refuses ${bodyLoadout}: calibration failed for tactic "${tactic}"`);
+    return `lookahead refuses ${bodyLoadout}: calibration failed for tactic "${tactic}"`;
   }
+  return null;
+}
+
+export function requireCalibration(model: TacticalModel, tactic: string, bodyLoadout: string, limits: CalibrationLimits): void {
+  const refusal = calibrationRefusal(model, tactic, bodyLoadout, limits);
+  if (refusal) throw new Error(refusal);
 }

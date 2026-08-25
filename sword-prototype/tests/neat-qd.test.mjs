@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { InnovationTracker, adaptiveCompatibilityThreshold, addRecurrentEdgeMutation, crossover,
   hasCycle, initialSparseGenome } from "../src/learning/genome.ts";
@@ -106,4 +108,22 @@ test("opponent_archive_sampling_is_indexed_and_worker_count_independent", () => 
 test("neat_qd_resume_reproduces_the_same_population_archive_and_report_bytes", () => {
   const state = { population: [{ id: 2 }, { id: 1 }], archive: [["0:0:0", 2]], reports: [{ generation: 0 }] };
   assert.deepEqual(researchStateBytes(state), researchStateBytes(JSON.parse(JSON.stringify(state))));
+});
+
+test("the_rollout_worker_refuses_a_command_line_rather_than_exiting_zero_having_done_nothing", () => {
+  // Both trainers resolve on the worker's `message` and reject only on `error`
+  // or a non-zero `exit`, so a worker that finishes without posting is the one
+  // outcome neither can see: the promise never settles and the run hangs. The
+  // port gate can produce exactly that, and the reachable way to reach it is a
+  // person running the file. Asserted through a real process, because what is
+  // being tested is the exit code and the sentence on stderr.
+  const worker = fileURLToPath(new URL("../scripts/research-rollout-worker.mjs", import.meta.url));
+  const run = spawnSync(process.execPath, [worker], { encoding: "utf8" });
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /research-rollout-worker\.mjs is a worker-thread entry point with no command line/);
+  // And importing it is still silent, which is why the gate exists at all:
+  // `neatLabeler` is read by `tests/learning.test.mjs`.
+  const imported = spawnSync(process.execPath, ["--input-type=module", "-e",
+    `await import(${JSON.stringify(pathToFileURL(worker).href)});`], { encoding: "utf8" });
+  assert.equal(imported.status, 0, imported.stderr);
 });

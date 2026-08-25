@@ -8,13 +8,27 @@ import { SeededRng } from "./rng.ts";
 
 export const MIN_PERSISTENCE = 0.10;
 export const MAX_PERSISTENCE = 0.80;
+export type MetaOutputName = MovementName | HandActionName | "persistence";
 /**
  * The ordered output contract every learned controller writes into.
  *
  * `tests/learning.test.mjs` pins it against the two vocabularies it is built
  * from, so the names cannot drift from the tables the executor refuses by.
+ *
+ * **It said that while typed `readonly string[]`, and the annotation was not
+ * what widened it.** An explicit `: readonly string[]` was added when the layout
+ * table landed and is worth removing, but removing it alone changes nothing:
+ * `"persistence"` inside an array literal widens to `string` on its own, so the
+ * *inferred* type here has been `readonly string[]` since the constant was
+ * written -- checked with `tsc`, which refuses to assign the un-annotated
+ * expression to the thirteen-name union. `as const` on the one literal is what
+ * actually makes the type say what the sentence above says, and it is a
+ * contract worth having in the type rather than only in a test: session 20
+ * doubles this table, and a name misspelled into it should be a compile error
+ * rather than a row that decodes to nothing.
  */
-export const META_OUTPUT_NAMES: readonly string[] = Object.freeze([...MOVEMENT_NAMES, ...HAND_ACTION_NAMES, "persistence"]);
+export const META_OUTPUT_NAMES: readonly MetaOutputName[] =
+  Object.freeze([...MOVEMENT_NAMES, ...HAND_ACTION_NAMES, "persistence" as const]);
 
 /**
  * The same contract as offsets, because five places were deriving them.
@@ -70,18 +84,57 @@ export const decodeMetaPersistence = (raw: number): number =>
   MIN_PERSISTENCE + (Math.max(-1, Math.min(1, raw)) + 1) * 0.35;
 
 /**
- * Split one output vector at the named offsets, or refuse it by width.
+ * Split one output vector at the named offsets, or refuse it by width and by
+ * finiteness.
  *
- * The refusal is the point of taking the vector apart in one place: a genome
- * bred against a stale output count used to arrive here as a short array, decode
- * to `undefined` logits, and lose every `>` comparison in an argmax -- which is a
- * controller that always answers the first name in the table, and looks exactly
- * like a controller with an opinion.
+ * Taking the vector apart in one place is only worth it for the refusals, and
+ * the argument for the width one was written down wrong. It said a stale-width
+ * genome "used to decode to `undefined` logits and lose every `>` comparison in
+ * an argmax -- a controller that always answers the first name in the table".
+ * Measured against both pre-`c149e8c` decode sites on a twelve-wide vector whose
+ * largest number sits where `recover` belongs (`[0,0,0,0,0,1,1,1,1,1,1,9]`), on
+ * `sword+empty`, `bow+empty` and a centipede:
+ *
+ * - **The two sites answered different actions from the same numbers.**
+ *   `deployment.ts` sliced the action half as `slice(MOVEMENT_NAMES.length, -1)`,
+ *   which at twelve wide is six numbers, so `recover`'s index is off the end and
+ *   `recover` cannot be chosen at all: it answered `cover`, and `bite` on the
+ *   centipede. `research-rollout-worker.mjs` indexed each action by name, read
+ *   the twelfth number, and answered `recover`.
+ * - **Persistence was read off an action logit.** Both spelled it "the last
+ *   number", which at twelve wide *is* `recover`'s logit, so the 9 clamped to +1
+ *   and every decision came back at 0.7999999999999999 -- the top of the window,
+ *   for as long as the genome lived.
+ * - **`undefined` needs a vector shorter than that**, and even then the answer is
+ *   not the first name. At nine wide the rollout worker's three highest action
+ *   indices are `undefined`, lose every comparison, and the answer falls to its
+ *   seed `recover` -- the *last* name in the table -- while `deployment.ts`
+ *   throws `action has no supported tactic` on the centipede. Only the *movement*
+ *   loop can answer "the first name", and only below five outputs.
+ *
+ * So the shape it prevents is two decoders disagreeing about one genome, not a
+ * controller stuck on `close`.
+ *
+ * **The finiteness refusal is a second failure and had no guard at all.** It went
+ * with `networkMetaMind` in stage A -- `learned meta-policy produced a non-finite
+ * output` -- and nothing replaced it, while this function's docstring claimed to
+ * be the one place a vector is taken apart and refused. `maskedArgmax` refuses a
+ * non-finite *logit*, so what survived was the trailing scalar: a network that is
+ * finite on the all-zero probe `deployedResearchMind` runs and overflows to `NaN`
+ * on real features decodes to `persistence: NaN`, which makes
+ * `researchLabelMind`'s `nextDecision` `NaN` and `view.clock >= nextDecision`
+ * permanently false. Measured over four seconds at 60 Hz on a `sword+empty`
+ * fixture, that is **38 decisions with a 0.10 s window against 14 with `NaN`**:
+ * not a freeze -- a completed skill still forces a decision -- but the
+ * persistence window silently ceases to exist, which is a controller quietly
+ * running a different algorithm from the one being trained.
  */
 export function readMetaOutput(values: readonly number[]): MetaOutput {
   if (values.length !== META_OUTPUT_LAYOUT.width) {
     throw new Error(`learned output vector is ${values.length} wide; the contract is ${META_OUTPUT_LAYOUT.width}`);
   }
+  const at = values.findIndex((value) => !Number.isFinite(value));
+  if (at >= 0) throw new Error(`learned output "${META_OUTPUT_NAMES[at]}" is ${values[at]}; the contract is a finite number`);
   return Object.freeze({
     movementLogits: values.slice(META_OUTPUT_LAYOUT.movementAt, META_OUTPUT_LAYOUT.actionAt),
     actionLogits: values.slice(META_OUTPUT_LAYOUT.actionAt, META_OUTPUT_LAYOUT.persistenceAt),
@@ -99,19 +152,28 @@ export function readMetaOutput(values: readonly number[]): MetaOutput {
  * disagree. `tacticEffectors` is now the single answer to "who could perform
  * this", and this is that question asked as "could anybody".
  *
- * **One row of the table moved when it did.** A body holding a two-hander has
- * one hand welded to the haft and ignored by `Fighter.update`, so `punch` is no
- * longer advertised on an archer whose only empty hand is the trailing one.
+ * **One loadout of the table moved when it did.** A body holding a two-hander
+ * has one hand welded to the haft and ignored by `Fighter.update`, so `punch` is
+ * no longer advertised on an archer whose only empty hand is the trailing one.
  * That closes a lie rather than removing a capability: the punch was posed and
  * thrown away, and `scripts/train-lookahead.mjs`'s `actionsFor` has never
  * offered it for a bow cell.
  *
- * **That closed one row of thirteen, and the note here read as though it closed
- * the table.** `sword+empty` and `axe+empty` went on offering a runtime `punch`
- * the schedule never trained, which is the same disagreement with the schedule
- * on the wrong side of it. Both were corrected in the schedule;
+ * **That closed `bow+empty` and the note here read as though it closed the
+ * table.** `sword+empty` and `axe+empty` went on offering a runtime `punch` the
+ * schedule never trained, which is the same disagreement with the schedule on
+ * the wrong side of it. Both were corrected in the schedule.
+ *
+ * **"One row of thirteen" is two units of measure**, and this note used to say
+ * it. There are seven loadouts and thirteen cells -- six loadouts on each of two
+ * humanoid units, plus the centipede's bite -- so `bow+empty` is one *loadout*
+ * of seven and two *cells* of thirteen. `LOADOUT_ACTIONS` has a row per loadout;
  * `the_training_schedule_offers_exactly_what_the_runtime_mask_offers` reads this
- * mask off real bodies and compares the whole thirteen-row table.
+ * mask off real bodies and compares all thirteen cells against those seven rows.
+ * It compares **intact** bodies: a row keys on the loadout a body started with
+ * and this mask keys on what is still attached, so severing a hand takes them
+ * apart and no row can say otherwise. `calibratedTacticPairs` in `lookahead.ts`
+ * is what answers that.
  */
 export function supportedOptions(view: FighterView): ReadonlySet<OptionName> {
   if (!Object.values(view.self.hands).some((hand) => !hand.lost) && !Object.keys(view.self.naturalAttacks ?? {}).length) return new Set<OptionName>();
@@ -132,6 +194,14 @@ export function supportedOptions(view: FighterView): ReadonlySet<OptionName> {
  * argmax's mask alone would have masked one policy and executed another. Three
  * copies of a legality rule with the argmax on one and the refusal on another is
  * the shape this directory's rule about a caller holding its own copy is about.
+ *
+ * **Seven, in the end, and each round of looking found the ones before it had
+ * missed some.** Three in `src/`, a fourth in `research-rollout-worker.mjs`, a
+ * fifth inlined in `collectTacticalTrace`, and a sixth and seventh in
+ * `train-ppo.mjs` -- the seventh on bare `supportedOptions`, which is the mask
+ * PPO's trajectory collector learns under while `deployment.ts` deploys under
+ * this one. Four of the seven were on the *training* side, which is the half
+ * that decides what a network is scored for.
  *
  * **The `cover` deletion is redundant against `supportedOptions` today**, which
  * is measured rather than assumed: `supportedOptions` adds `cover` only when a

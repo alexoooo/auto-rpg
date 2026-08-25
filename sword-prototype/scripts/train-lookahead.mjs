@@ -69,9 +69,22 @@ export async function collectTacticalTrace({ seed, solverSteps, split = "train",
  * `tactic "close+punch" has no calibrated model` on the first replan. The
  * runtime is right and this was wrong: unlike a two-hander's trailing hand,
  * which is welded to the haft and excluded from the strikers list, that hand can
- * actually throw the punch. `the_training_schedule_offers_exactly_what_the_runtime_mask_offers`
- * reads the mask off real published bodies and is what stops the two coming
- * apart again.
+ * actually throw the punch.
+ *
+ * **What the test beside this covers is intact bodies, and nothing here can
+ * cover more than that.**
+ * `the_training_schedule_offers_exactly_what_the_runtime_mask_offers` reads the
+ * mask off real published bodies over 48 solver steps and compares the whole
+ * thirteen-row table, which is what keeps a *starting* loadout's row honest. It
+ * is not what stops the two coming apart, because a row keys on the loadout a
+ * body started with and the mask keys on what is still attached: sever the bow
+ * hand of a `bow+empty` and the two-handed weld goes with it, the empty hand
+ * starts offering `punch`, and this row cannot describe that without describing
+ * every combination of losses as well. Capability loss is answered one layer
+ * down instead, by `calibratedTacticPairs` in `src/learning/lookahead.ts`, which
+ * searches only the cells a budget was actually spent on --
+ * `a_severed_hand_moves_the_mask_and_the_lookahead_plans_over_what_it_can_predict`
+ * is the test that exercises it, on bodies with a hand taken off.
  *
  * The cost is 240 tasks per split against 220, and a minimum budget of 46,080
  * solver steps against 42,240. That is the figure **today**; session 20's tuple

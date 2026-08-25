@@ -251,6 +251,23 @@ npm run dev             # http://localhost:5180, strictPort
   divides by a single half-range **agree exactly for a positive azimuth**. Sample both sides
   of centre. Every jump assertion in `tests/handover.test.mjs` now comes in a pair with its
   unseeded control beside it.
+
+  **Two further shapes, both found by review and never by the suite**, in one session:
+
+  - **A test asserting a few leaves of a record it claims to be about.** "Goes inert" read 2 of
+    19 command leaves, and a handless branch that turned, crouched and thrust with the off hand
+    would have passed it; "no hand slot is written" read three booleans. **Assert the whole
+    record against a fresh one** -- `assert.deepEqual(command, freshIntent())` covers every leaf
+    at once and grows with the command, which a list of field names does not.
+  - **A fixture that cannot exhibit the defect.** A schedule/mask agreement test ran 48 solver
+    steps per cell on real published bodies -- careful, expensive, and structurally blind to its
+    own subject, because the two sides diverge only when a hand comes off. An intact body cannot
+    show a capability-loss bug however real it is. **Choose the fixture by what the defect needs,
+    not by how faithful the fixture is**; `publishedFixture` in `tests/fixtures/view.mjs` exists
+    so a test can take a real publication and then sever a hand on it, which is one stated edit
+    to a real record rather than a whole invented one. (It also carries why `structuredClone` of
+    a live view is not that: Babylon's `Vector3` keeps `_x/_y/_z` behind prototype accessors, so
+    a cloned point reads `undefined` from every `.x`.)
 - **`PhysicsViewer` leaks constraints across a toggle, and `hideConstraint` corrupts its own
   list.** `dispose()` hides impostors, bodies and inertia meshes and never touches
   `_constraints`, so a shown constraint left in place at toggle-off leaks its meshes *and*

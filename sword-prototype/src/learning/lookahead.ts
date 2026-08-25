@@ -1,8 +1,9 @@
+import { freshIntent } from "../action-primitives.ts";
 import type { FighterView, Intent, Mind } from "../mind.ts";
 import { HAND_ACTION_NAMES, MOVEMENT_NAMES, asMeasured, chooseEffector, composeTactic, handActionOption, movementIntent,
   type CombatOption, type HandActionName, type MovementName } from "../options.ts";
 import { deployableActions } from "./meta.ts";
-import { predictTactical, predictTacticalCell, requireCalibration, type CalibrationLimits,
+import { calibrationRefusal, predictTactical, predictTacticalCell, type CalibrationLimits,
   type TacticalModel, type TacticalState } from "./tactical-model.ts";
 
 export const LOOKAHEAD_DEPTH = 8;
@@ -21,6 +22,36 @@ export function supportedTacticPairs(movements: readonly string[], actions: read
     const pair = Object.freeze({ movement, action }); if (supported(pair)) result.push(pair);
   }
   return result;
+}
+
+/**
+ * The pairs this model can actually predict, out of the ones the body can do.
+ *
+ * **A per-loadout schedule row cannot describe a mask that depends on live body
+ * state, and that is why this is a filter rather than another row.** The
+ * look-ahead schedule keys on the loadout a body *started* with; the runtime
+ * mask keys on what is still attached. They agree on an intact body and come
+ * apart the moment a hand comes off -- a `bow+empty` whose bow hand is severed
+ * loses the two-handed weld and its empty hand starts offering `punch`, which
+ * the `cover, shoot, recover` row for that loadout was never asked to train. The
+ * search then named a cell the model had never seen and threw
+ * `tactic "close+punch" has no calibrated model` in the middle of a bout.
+ * Severance is routine -- the `duelist-swinger` null control reports 10 severs
+ * in 120 bouts -- and adding rows chases states, of which there are more than
+ * there are loadouts.
+ *
+ * Declining to search a cell is **not** the silent repair the plan forbids.
+ * Repairing an illegal action would be: substituting a legal name for one the
+ * body cannot perform, so that the decision reported is not the decision made.
+ * This narrows only the *search*, and it narrows it by the search's own
+ * competence -- the tactics whose predictions the model has calibrated. Every
+ * pair that survives is still one `deployableActions` offered, so the executor
+ * below can always enter what is chosen. When nothing survives, `lookaheadMind`
+ * refuses by name rather than choosing anyway.
+ */
+export function calibratedTacticPairs(model: TacticalModel, pairs: readonly TacticPair[],
+  bodyLoadout: string, limits: CalibrationLimits): TacticPair[] {
+  return pairs.filter((pair) => calibrationRefusal(model, `${pair.movement}+${pair.action}`, bodyLoadout, limits) === null);
 }
 
 const diagnostics = (state: TacticalState, previous: TacticalState = state): LookaheadDiagnostics => Object.freeze({
@@ -43,6 +74,10 @@ export function exactLookaheadNodeBudget(pairCount: number, depth = LOOKAHEAD_DE
 
 export function boundedLookahead(model: TacticalModel, initial: TacticalState, pairs: readonly TacticPair[],
   depth = LOOKAHEAD_DEPTH, width = LOOKAHEAD_WIDTH, bodyLoadout?: string): LookaheadResult {
+  // A guard for a direct caller, and no longer the thing a bout hits. It used to
+  // be reached from `lookaheadMind` by a fighter that had lost both arms -- a
+  // generic throw for a body fact -- which is answered above the call now, by
+  // name where the model is at fault and by an inert command where the body is.
   if (!pairs.length) throw new Error("lookahead has no supported tactic pairs");
   if (!Number.isInteger(depth) || depth <= 0 || !Number.isInteger(width) || width <= 0) throw new Error("lookahead depth and width must be positive integers");
   let expandedNodes = 0;
@@ -93,7 +128,15 @@ export function tacticalStateFromView(view: FighterView, contactProbability = 0)
     contactProbability, vitalityPotential: view.self.vitality - view.opponent.vitality });
 }
 
-/** Runtime policy seam. It plans only at skill boundaries or when the published capability set changes. */
+/**
+ * Runtime policy seam. It plans only at skill boundaries or when the published
+ * capability set changes -- and only over cells this model can predict.
+ *
+ * It used to call `requireCalibration` on every pair the mask offered and let
+ * the first uncalibrated one throw, which made a routine severance fatal:
+ * `calibratedTacticPairs` above carries why a schedule row cannot answer that
+ * and a filter can.
+ */
 export function lookaheadMind(model: TacticalModel, bodyLoadout: string, limits: CalibrationLimits,
   depth = LOOKAHEAD_DEPTH, width = LOOKAHEAD_WIDTH,
   onDecision?: (view: FighterView, features: readonly number[], label: { movement: string; action: string; persistence: number }) => void): Mind {
@@ -101,11 +144,21 @@ export function lookaheadMind(model: TacticalModel, bodyLoadout: string, limits:
   let capability = "";
   return { name: `lookahead-${bodyLoadout}`, decide(view: FighterView, dt: number): Intent {
     const allowed = deployableActions(view);
+    // A body with no attached hand and no jaws can perform nothing, which is a
+    // fact about the body rather than about the model, so it is inert and not a
+    // refusal -- the same answer `researchLabelMind` gives on the same empty
+    // mask. `boundedLookahead` used to be handed the empty pair list and throw
+    // `lookahead has no supported tactic pairs` mid-bout for a fighter that had
+    // simply lost both arms.
+    if (!allowed.size) { option = null; return freshIntent(); }
     const nextCapability = [...allowed].sort().join("|"); const changed = capability !== "" && capability !== nextCapability;
     if (!option || option.done(view) || changed || !allowed.has(action)) {
-      const pairs = supportedTacticPairs(MOVEMENT_NAMES, HAND_ACTION_NAMES,
-        (pair) => allowed.has(pair.action as HandActionName));
-      for (const pair of pairs) requireCalibration(model, `${pair.movement}+${pair.action}`, bodyLoadout, limits);
+      const pairs = calibratedTacticPairs(model, supportedTacticPairs(MOVEMENT_NAMES, HAND_ACTION_NAMES,
+        (pair) => allowed.has(pair.action as HandActionName)), bodyLoadout, limits);
+      if (!pairs.length) {
+        throw new Error(`lookahead refuses ${bodyLoadout}: no calibrated model for any tactic on ` +
+          `[${HAND_ACTION_NAMES.filter((name) => allowed.has(name)).join(", ")}]`);
+      }
       const selected = boundedLookahead(model, tacticalStateFromView(view), pairs, depth, width, bodyLoadout).pair;
       movement = selected.movement as MovementName; action = selected.action as HandActionName;
       // Named, not defaulted: the look-ahead model is keyed on (movement,

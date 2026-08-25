@@ -132,12 +132,24 @@ into `duelist`.
 **"Single copy" was a claim about the runtime and was not true when it was written.** The mask
 was spelled out three times -- in `deployment.ts`, `research-policy.ts` and `lookahead.ts` --
 with the argmax reading the first and the *refusal* reading the second, which is precisely the
-arrangement that masks one policy and executes another. It is one copy now. It is **not** one
-copy on the training side, and that is a named open finding rather than something settled:
-`train-ppo.mjs` and `train-lookahead.mjs` rebuild the same set inline, and
-`research-rollout-worker.mjs` carries a fourth that is not even equivalent -- it tests
-`weapon === "sword"` for thrust and an exclusion list for cut, so a network is trained under
-one legality table and deployed under another.
+arrangement that masks one policy and executes another.
+
+**Seven copies were found in the end, and the training side was the half that mattered**, since
+a network trained under one legality table and deployed under another is being scored on a
+controller nobody will run. The fourth was `research-rollout-worker.mjs`, which decodes every
+NEAT and DAgger rollout; the fifth was inlined in `collectTacticalTrace`; the sixth and seventh
+were in `train-ppo.mjs`, one of them for the league opponents and one -- **without even the
+`cover` deletion the other kept** -- for the trajectory collector that PPO actually learns from.
+All seven ask `deployableActions` now, or `supportedActionIndices`, which is that set projected
+onto the argmax's index space.
+
+**The "not even equivalent" charge against the fourth copy was investigated and is false.** It
+tested `weapon === "sword"` for thrust where the runtime asks `hasPoint`, and an exclusion list
+`!["empty","bow","shield","buckler"]` for cut where the runtime asks `isStriking && !== "empty"`
+-- and over every kind a hand can hold those select the same sets, swept across all 49 ordered
+weapon pairs rather than argued. They were still worth deleting, because a pointed spear is a
+thrust the name test would refuse. Every *real* disagreement was the two-handed holder rule,
+which neither rewrite knew about. The tables are in `docs/measurements.md`.
 
 **Tactic v2: an action is not a decision until it says what performs it, at what, and how the
 body stands.** Action v1 named an action and stopped, and three ambiguities rode on that
@@ -156,9 +168,14 @@ thirteen values until Stage C widens it:
   is refused rather than posed and discarded. `punch` therefore stopped being advertised on a
   bow body, where it had always been posed onto an arm nothing reads; the look-ahead training
   schedule had never offered it there, so **the `bow+empty` row of the runtime mask now agrees
-  with the training one**. That is one row of thirteen and not the whole table: measured against
-  `actionsFor`, `sword+empty` and `axe+empty` still offer a runtime `punch` the schedule never
-  trains, on both humanoid units. The loadout table is in `docs/measurements.md`.
+  with the training one**. That was one loadout of seven -- two of the thirteen cells, one on
+  each humanoid unit -- and the traffic went the other way as well: `sword+empty` and
+  `axe+empty` leave a genuinely free off hand, so there the *schedule* was wrong and it was
+  corrected there. All seven loadouts agree as of stage C1. **What that agreement covers is
+  intact bodies**, because a schedule row keys on the loadout a body started with while the mask
+  keys on what is still attached; capability loss is answered a layer down, by the look-ahead
+  searching only cells it has a calibration for. The loadout table, the severed-hand masks and
+  that filter are in `docs/measurements.md`.
 - **The target is a body region derived from published facts, and it decides where a *point*
   goes.** `BodyView` publishes `vitalHeight` and `crownHeight` and nothing else about where a
   body's parts are, so `high` and `low` are three quarters of the vitals-to-crown span above and

@@ -11,6 +11,7 @@ import { RESEARCH_ARTIFACT_CONTRACT, decodeResearchArtifact, deployedResearchMin
 import { ResearchArtifact, canonicalJson } from "../src/learning/artifact.ts";
 import { neatLabeler } from "../scripts/research-rollout-worker.mjs";
 import { maskedArgmax } from "../src/learning/recurrent-network.ts";
+import { RecurrentNeatNetwork } from "../src/learning/recurrent-neat.ts";
 import { researchLabelMind } from "../src/learning/research-policy.ts";
 import { HAND_ACTION_NAMES, MOVEMENT_NAMES, behaviourRecord, scriptedMetaMind } from "../src/options.ts";
 import { STRIKER_KINDS, WEAPON_KINDS } from "../src/hands.ts";
@@ -335,6 +336,80 @@ test("the_training_decoder_and_the_deployment_decoder_answer_the_same_label", ()
   // And the answers are legal on the body that produced them, asked of the mask
   // itself rather than of either decoder.
   for (const [loadout, view] of Object.entries(views)) assert.ok(deployableActions(view).has(expected[loadout].action), loadout);
+});
+
+test("a_logit_tie_is_broken_by_table_order_in_both_decoders", () => {
+  // `>` and not `>=`, in the rollout worker's hand-rolled argmax and in
+  // `maskedArgmax` alike: two names at the same logit resolve to the earlier one
+  // in the frozen table. Nothing pinned it -- flipping either comparison left
+  // the whole suite green -- and a tie-break that flips on one side of the seam
+  // is one genome decoding to two controllers, which is the defect the parity
+  // test above exists for with the ties left out of it.
+  const movementLogits = [0.1, 0.9, 0.2, 0.9, 0.3];
+  const actionLogits = [0.8, 0.2, 0.3, 0.8, 0.1, 0.05, 0.4];
+  assert.deepEqual(MOVEMENT_NAMES, ["close", "hold", "circle-left", "circle-right", "disengage"]);
+  assert.deepEqual(HAND_ACTION_NAMES, ["cover", "cut", "thrust", "punch", "shoot", "bite", "recover"]);
+  const genome = constantGenome([...movementLogits, ...actionLogits, 0.5]);
+  const bytes = new ResearchArtifact({ algorithm: "neat-qd", ...RESEARCH_ARTIFACT_CONTRACT,
+    payload: [...new TextEncoder().encode(canonicalJson(genome))],
+    provenance: { seed: 7, solverSteps: 4, trainingSplit: "train", validationSplit: "validation", configDigest: "synthetic" },
+  }, RESEARCH_ARTIFACT_CONTRACT).toBytes();
+  const view = learningView("sword", "empty");
+  let deployed = null; let rollout = null;
+  const mind = deployedResearchMind(decodeResearchArtifact(bytes), "warrior/sword+empty",
+    (_view, features, label) => { deployed = { ...label }; rollout = { ...neatLabeler(genome)(view, features) }; });
+  mind.decide(view, 1 / 240);
+  const expected = { movement: "hold", action: "cover", persistence: 0.6249999999999999 };
+  assert.deepEqual(deployed, expected); assert.deepEqual(rollout, expected);
+});
+
+test("a_non_finite_learned_output_is_refused_by_name_before_it_deletes_the_persistence_window", () => {
+  // Three refusals, each naming the offending output. `maskedArgmax` already
+  // refuses a non-finite *logit*; the trailing scalar had nothing watching it
+  // once `networkMetaMind` went, and this function's own docstring claimed to be
+  // the one place a vector is taken apart and refused.
+  const finite = [0.01, 0.02, 0.03, 0.04, 0.05, 0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17, 0];
+  const poisoned = (index, value) => finite.map((entry, at) => at === index ? value : entry);
+  assert.throws(() => readMetaOutput(poisoned(12, NaN)), /learned output "persistence" is NaN/);
+  assert.throws(() => readMetaOutput(poisoned(0, Infinity)), /learned output "close" is Infinity/);
+  assert.throws(() => readMetaOutput(poisoned(7, -Infinity)), /learned output "thrust" is -Infinity/);
+
+  // The genome the existing guards let through. `deployedResearchMind` probes
+  // the network on an all-zero feature vector, which is finite here; the
+  // overflow needs a real body, and every research body publishes
+  // `self_vitality` at 1.
+  const vitality = FEATURE_COLUMNS.indexOf("self_vitality");
+  assert.ok(vitality >= 0);
+  const base = constantGenome([0.1, 0.5, 0.2, 0.3, 0.4, 0.1, 0.2, 0.3, 0.9, 0.4, 0.5, 0.05, 0.5]);
+  const hidden = FEATURE_COLUMNS.length + 1 + META_OUTPUT_LAYOUT.width;
+  const persistence = FEATURE_COLUMNS.length + 1 + META_OUTPUT_LAYOUT.persistenceAt;
+  const overflowing = { ...base,
+    nodes: [...base.nodes, { id: hidden, kind: "hidden", bias: 0, activation: "identity" }],
+    // `MAX_VALUE x 1` is finite, `x 10` is not, and `Infinity - Infinity` is
+    // `NaN` -- so the persistence node is 0.5 at zeros and `NaN` on a body.
+    edges: [{ innovation: 1, from: vitality, to: hidden, weight: Number.MAX_VALUE, enabled: true },
+      { innovation: 2, from: hidden, to: persistence, weight: 10, enabled: true },
+      { innovation: 3, from: hidden, to: persistence, weight: -10, enabled: true }] };
+  assert.equal(new RecurrentNeatNetwork(overflowing).run(FEATURE_COLUMNS.map(() => 0))[META_OUTPUT_LAYOUT.persistenceAt], 0.5);
+  const bytes = new ResearchArtifact({ algorithm: "neat-qd", ...RESEARCH_ARTIFACT_CONTRACT,
+    payload: [...new TextEncoder().encode(canonicalJson(overflowing))],
+    provenance: { seed: 7, solverSteps: 4, trainingSplit: "train", validationSplit: "validation", configDigest: "synthetic" },
+  }, RESEARCH_ARTIFACT_CONTRACT).toBytes();
+  const mind = deployedResearchMind(decodeResearchArtifact(bytes), "warrior/sword+empty");
+  assert.throws(() => mind.decide(learningView("sword", "empty"), 1 / 240), /learned output "persistence" is NaN/);
+
+  // And what the refusal prevents, measured rather than argued. `nextDecision`
+  // becomes `NaN`, `view.clock >= NaN` is permanently false, and the persistence
+  // window stops existing -- the controller still re-decides when a skill
+  // finishes, so it is a silent change of algorithm rather than a freeze.
+  const drive = (persistenceSeconds) => { const view = learningView("sword", "empty"); let decisions = 0;
+    const stalled = researchLabelMind("stall", () => { decisions += 1;
+      return { movement: "hold", action: "cover", persistence: persistenceSeconds }; });
+    for (let frame = 0; frame < 240; frame += 1) { view.clock = frame / 60; stalled.decide(view, 1 / 60); }
+    return { decisions, persistenceSeconds: stalled.diagnostic().persistenceSeconds,
+      windowIsFinite: Number.isFinite(stalled.diagnostic().persistenceRemaining) }; };
+  assert.deepEqual(drive(0.10), { decisions: 38, persistenceSeconds: 0.10, windowIsFinite: true });
+  assert.deepEqual(drive(NaN), { decisions: 14, persistenceSeconds: NaN, windowIsFinite: false });
 });
 
 test("diagnostics_report_the_decision_without_changing_it", () => {

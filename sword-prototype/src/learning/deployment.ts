@@ -63,6 +63,18 @@ export function deployedResearchMind(artifact: ResearchArtifact, bodyLoadout: st
     return researchLabelMind("ppo", labeler, onDecision);
   }
   if (artifact.data.algorithm === "neat-qd") {
+    // This probe **shadows `readMetaOutput`'s width refusal** rather than being
+    // covered by it: a NEAT genome's output count is a property of the genome,
+    // not of the input, so a width caught here is a width that could never have
+    // reached the labeler below. `readMetaOutput` earns its width check at
+    // `research-rollout-worker.mjs`, which decodes a live genome mid-search with
+    // no probe in front of it.
+    //
+    // The finiteness half is the other way round. This runs on an all-zero
+    // feature vector and is silent about a network that overflows on real ones,
+    // which is exactly how a `persistence: NaN` used to reach
+    // `researchLabelMind` and delete its persistence window; `readMetaOutput`
+    // refuses that one by name, every step.
     const probe = new RecurrentNeatNetwork(decoded as never); const output = probe.run(FEATURE_COLUMNS.map(() => 0));
     if (output.length !== META_OUTPUT_LAYOUT.width || output.some((value) => !Number.isFinite(value))) {
       throw new Error("neat-qd artifact has the wrong finite feature/action shape");

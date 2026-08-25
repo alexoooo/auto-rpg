@@ -42,13 +42,15 @@ hand-required. Capability-neutral recovery is the invariant, not a special case.
 
 The plan replaces `supportedOptions`. There are two more:
 
-- `actionsFor` (`scripts/train-lookahead.mjs:50-52`) omits `punch` for sword/axe/bow cells, so
-  the look-ahead schedule trains 220 keys while the runtime asks for up to 250. **Closed by
-  stage C1**: the bow row was the runtime's to fix and stage B fixed it; the sword and axe rows
-  were the schedule's, and it now trains 240 keys per split;
-- `research-rollout-worker.mjs:18-21` is a third, hand-inlined copy that tests
+- `actionsFor`, then a `startsWith` chain in `scripts/train-lookahead.mjs`, omits `punch` for
+  sword/axe/bow cells, so the look-ahead schedule trains 220 keys while the runtime asks for up
+  to 250. **Closed by stage C1**: the bow row was the runtime's to fix and stage B fixed it; the
+  sword and axe rows were the schedule's, and `LOADOUT_ACTIONS` (`scripts/train-lookahead.mjs:94-107`)
+  now trains 240 keys per split;
+- `neatLabeler` in `research-rollout-worker.mjs` is a third, hand-inlined copy that tests
   `hand.weapon === "sword"` for thrust instead of `hasPoint`, and an **exclusion list**
   `!["empty","bow","shield","buckler"].includes(hand.weapon)` for cut instead of `isStriking`.
+  It reads `deployableActions` now (`scripts/research-rollout-worker.mjs:42-50`).
 
 That third copy is the one that decodes NEAT and DAgger rollouts **during training**, so a
 network is currently trained under one legality mask and deployed under another. Unify all
@@ -60,15 +62,23 @@ and so do the exclusion list and `isStriking && !== "empty"`. Every one of the t
 disagreeing pairs is a **two-handed** one, which neither rewrite knows about. There was a
 fifth copy as well, inlined in `collectTacticalTrace`. `docs/measurements.md` has both tables.
 
+**There were seven, and stage C1's review found the last two.** `train-ppo.mjs` held a sixth in
+`loadLeagueArtifacts` and a seventh in `collectPpoTrajectory` -- the latter on bare
+`supportedOptions`, which is the mask PPO's own trajectory collector learns under while
+`deployment.ts` deploys under `deployableActions`. Both read `supportedActionIndices` now;
+measured identical over 394 capability cells.
+
 ### `supportedOptions` is not in `options.ts`, and the output layout has no owner
 
-`supportedOptions` is `src/learning/meta.ts:18-28` with fourteen call sites across seven files.
+`supportedOptions` is in `src/learning/meta.ts` with fourteen call sites across seven files.
 Separately, the `[5 movement][7 action][1 persistence]` layout is re-derived independently in
-**six** places -- `meta.ts:70,84,86-87,90-91,94`, `deployment.ts:66,71-73`,
-`research-rollout-worker.mjs:23,25`, `train-neat-qd.mjs:39`, `checkpoint.ts:37,201`,
-`tests/tournament-executor.test.mjs:32`. The one named table, `META_OUTPUT_NAMES`
-(`meta.ts:14`), has **zero production readers**. `meta.ts:90-91` decides which half of the
-vector to index from a hardcoded list of movement-name string literals.
+**six** places -- `meta.ts` inside `networkMetaMind`, `deployment.ts`'s NEAT branch,
+`neatLabeler` in `research-rollout-worker.mjs`, the genome seeding in `train-neat-qd.mjs`,
+`checkpoint.ts`, and the artifact fixture in `tests/tournament-executor.test.mjs`. The one named
+table, `META_OUTPUT_NAMES`, has **zero production readers**, and `networkMetaMind` decides which
+half of the vector to index from a hardcoded list of movement-name string literals. (Line
+anchors dropped 2026-08-25: stage A deleted two of these files outright and stage C1 rewrote the
+rest, so every number here pointed somewhere else. `META_OUTPUT_LAYOUT` is the one table now.)
 
 Widening 13 to 26 without first collapsing these is six independent chances to get an offset
 wrong. Collapse them to one exported table with named offsets before touching any width.
@@ -85,23 +95,33 @@ contract widens.
 "Records the expanded exact cell count instead of retaining the old 220-cell assertion" is the
 plan's whole treatment. Measured two ways independently -- the coordinator expanding the real
 schedule, and a recon pass deriving legality per cell from `supportedOptions` and `hands.ts` --
-the answers agree at 21x and 22.5x:
+the answers agree at 21x and 22.5x against the 220-task baseline they were taken on.
+
+**Repriced 2026-08-25, because the baseline moved under it.** Stage C1 added the two `punch`
+rows the runtime always offered, so today is 240 tasks a split, 960 groups and 46,080 minimum
+steps. The tactic-v2 column does not move -- it was derived from legality per cell, which always
+included those punches -- so the factors drop by about a tenth and the multiplier is nearer
+twenty than twenty-two:
 
 | quantity | today | tactic v2 | factor |
 | --- | ---: | ---: | ---: |
-| schedule tasks per split | 220 | ~4,650--4,950 | ~21--22x |
-| groups (`3 x train + validation`) | 880 | ~18,600--19,800 | ~21--22x |
-| minimum solver steps (`groups * 48`) | 42,240 | ~893,000--950,000 | ~21--22x |
+| schedule tasks per split | **240** | ~4,650--4,950 | **~19--21x** |
+| groups (`3 x train + validation`) | **960** | ~18,600--19,800 | **~19--21x** |
+| minimum solver steps (`groups * 48`) | **46,080** | ~893,000--950,000 | **~19--21x** |
 | beam nodes per replan, worst cell | 1,075 | ~20,600 | ~19x |
-| `TacticalModel.cells` calibrated keys | 220 | ~4,950 | ~22x |
+| `TacticalModel.cells` calibrated keys | **240** | ~4,950 | **~21x** |
 
-`exactLookaheadNodeBudget` is exactly `43P` for `P >= 6` (`src/learning/lookahead.ts:36-42`),
+The beam row is the one that did *not* move, and the reason is worth keeping: `lookaheadMind`
+plans over the runtime mask rather than the schedule, and the runtime always offered five
+actions on `sword+empty`, so its 25 pairs and 1,075 nodes were never a schedule figure.
+
+`exactLookaheadNodeBudget` is exactly `43P` for `P >= 6` (`src/learning/lookahead.ts:67-73`),
 the beam saturates immediately at `width=6`, and so there is no pruning relief -- the whole
-increase is linear in the tuple count. `requireCalibration` runs once per tuple per replan
-(`:109`).
+increase is linear in the tuple count. The calibration check runs once per tuple per replan, now
+as `calibratedTacticPairs` rather than a throw.
 
 There is a statistical cost riding on the compute one: `fitTacticalModel` fits **per cell**, so
-22x the cells on a fixed budget is 22x fewer rows each, and `train-lookahead.mjs:70` throws if
+20x the cells on a fixed budget is 20x fewer rows each, and `train-lookahead.mjs:125` throws if
 any single cell collects none. Session 20 derives ceilings from these numbers and session 21
 spends them. **Implement the full enumeration, measure the real cost, and record it in
 `docs/measurements.md`** -- do not quietly narrow the enumeration to keep the number small. If
@@ -109,10 +129,23 @@ the measured ceiling is unaffordable, that is session 20's decision to make with
 hand, and the fallback worth naming for it is keying the tactical model on
 `(movement, action, target)` while effector and stance ride along unmodelled.
 
-No literal `220` exists anywhere in the tree. The assertions that actually break are
-`tests/lookahead.test.mjs:37,41,46,61` and the exact-budget throw at `lookahead.ts:62-63`.
-`tests/lookahead.test.mjs:46` runs a real Havok trace per centipede task, 10 today at 493 ms;
-that becomes 90 tasks and roughly 4.4 s.
+**A sparse cell table is no longer a dead run**, which changes what "unaffordable" means here.
+`lookaheadMind` used to demand a calibrated cell for every pair it could name and throw
+otherwise; it now searches the cells it has and refuses only when it has none for this body. So
+session 20 can choose a budget that leaves cells unfitted and get a narrower search rather than
+an aborted tournament -- and must say so deliberately, because the same filter makes an
+under-spent budget silent.
+
+No literal `220` exists anywhere in the tree. The assertions that actually break are in
+`tests/lookahead.test.mjs` -- `the_training_schedule_covers_every_body_loadout_and_only_compatible_natural_attacks`
+(thirteen cells, and the centipede's `MOVEMENT_NAMES.length * 2` tasks),
+`every_scheduled_centipede_tactic_runs_a_complete_havok_trace_window` (ten tasks) and
+`lookahead_respects_the_exact_depth_width_and_node_budget` (74 nodes) -- plus the exact-budget
+throw at `lookahead.ts:93-94`. Named rather than anchored by line, because every one of these
+anchors was already stale: this file's own +67 lines and stage C1's insertions moved them, and a
+line number in a plan is a fact with no test.
+`every_scheduled_centipede_tactic_runs_a_complete_havok_trace_window` runs a real Havok trace per
+centipede task, 10 today at 292 ms; that becomes 90 tasks and roughly 2.6 s.
 
 ### Smaller corrections, each verified
 
@@ -419,12 +452,13 @@ Five things this plan asked for that the code answered differently, each with it
   `tacticEffectors` is now the single legality rule, `supportedOptions` asks it, and `punch`
   is no longer offered on a bow or club body. `actionsFor` in `scripts/train-lookahead.mjs`
   never offered it there either, so **the `bow+empty` row** of that table closed from the runtime
-  side. This entry said the *table* closed; measured cell by cell it is one row of thirteen --
+  side. This entry said the *table* closed; measured cell by cell it is one loadout of seven --
   `sword+empty` and `axe+empty` still offer a runtime `punch` the schedule never trains, on both
   humanoid units, exactly as this plan's own text says (`actionsFor` omits `punch` for sword, axe
   and bow). Four cells diverge now against six at `da025f2`. Closing the remaining two is Stage
   C's; `research-rollout-worker.mjs` still carries the third table. **Both closed in stage C1,
-  below.**
+  below.** ("One row of thirteen" was two units of measure and is corrected throughout: there are
+  seven loadouts and thirteen cells, so `bow+empty` is one loadout and two cells.)
 
 Left for Stage C, deliberately: the 26-output contract, the four trainers, mirrors, behaviour
 records, and `Striking.hand` -- the last surviving `"primary"` alias, which feeds
@@ -438,7 +472,7 @@ artifact reaches it -- the only checked-in lookahead champion is feature v3 agai
 and is refused at decode -- but a freshly trained v4 lookahead artifact run through
 `scripts/tournament-executor.mjs` hits it on the first replan for those cells.
 `deployableTactics` exists and is tested but has no production reader
-until an argmax is taken over it, so look-ahead cell counts and the 21-22x enumeration cost are
+until an argmax is taken over it, so look-ahead cell counts and the ~19-21x enumeration cost are
 untouched and remain sessions 20 and 21's to measure.
 
 **`TacticDecision` below is Stage C's shape and was not landed.** Stage B declared it and
@@ -467,8 +501,9 @@ and `npm run build` clean; the `duelist-swinger` null control identical to the d
    the fifth copy this pass found inlined in `collectTacticalTrace`. The two rewrites this plan
    named are per-kind equivalent today over all 49 ordered weapon pairs; every real
    disagreement is the two-handed holder rule, and inside `RESEARCH_STRATA` it is exactly one
-   row of thirteen -- `punch` on `bow+empty`. That row was a **live abort**: the rollout mask
-   labelled `punch`, `researchLabelMind` refused it by name one call later, and the bout died.
+   loadout of seven -- `punch` on `bow+empty`, which is two of the thirteen cells. That row was
+   a **live abort**: the rollout mask labelled `punch`, `researchLabelMind` refused it by name
+   one call later, and the bout died.
 3. **One schedule.** `LOADOUT_ACTIONS` trains `punch` on `sword+empty` and `axe+empty`, which
    the runtime always offered and this schedule never did -- so `lookaheadMind` threw
    `tactic "close+punch" has no calibrated model` on the first replan for those two cells.
@@ -485,6 +520,36 @@ Two things this stage found that the plan did not say:
 - **Stage B created the `bow+empty` abort rather than inheriting it.** Before `da025f2` the
   deployment mask offered `punch` on a bow too, so the two masks agreed on a lie and nothing
   threw. Narrowing one of two copies is how a redundant guard becomes a refusal.
+
+### Stage C1, corrected on review -- 2026-08-25
+
+Four things the numbered list above got wrong, each fixed in the same pass that found it. 491
+tests before, **495** after.
+
+- **It was not one legality rule; it was five of seven.** `train-ppo.mjs` held a sixth --
+  `supportedOptions` plus the `cover` delete, character for character -- and a seventh in
+  `collectPpoTrajectory` using **bare `supportedOptions` without the delete**, which is the mask
+  PPO's trajectory collector trains under while `deployment.ts` deploys under
+  `deployableActions`. Both read `supportedActionIndices` now. Identical in all 394 probed
+  capability cells and the delete fires in none of them, measured; the reason to unify anyway is
+  that a redundant guard present in one copy and absent from the other is how the first five
+  drifted apart unseen. The commit message's "one legality rule" is in the log and cannot be
+  changed, so it is corrected here and in `docs/measurements.md`.
+- **The `close+punch` crash class was not closed, because it is not a schedule problem.** Adding
+  the two rows fixed intact bodies. A schedule row keys on the loadout a body *started* with and
+  the runtime mask keys on what is still attached, so severing the bow hand of a `bow+empty`
+  drops the two-handed weld, frees the empty hand, and puts `punch` in a mask whose row says
+  `cover, shoot, recover` -- and `lookaheadMind` threw again. Severance is routine: 10 in 120
+  bouts on the null control. `calibratedTacticPairs` in `src/learning/lookahead.ts` now filters
+  the pair set to cells the model holds a calibration for and refuses by name only when nothing
+  survives, which also stops an armless body throwing `lookahead has no supported tactic pairs`
+  mid-bout -- it goes inert there, as `researchLabelMind` already did. Tested on bodies with a
+  hand taken off, and both halves watched fail first.
+- **The schedule/mask test was described as what stops the two coming apart.** It cannot be: 48
+  solver steps on intact bodies is what it runs, and that is all a per-loadout row can be checked
+  against. Corrected on `LOADOUT_ACTIONS` and in `docs/measurements.md`.
+- **"One row of thirteen" counted two things at once**, here and in four other places. Seven
+  loadouts, thirteen cells.
 
 Still Stage C's, unchanged: the 26-output contract, the four trainers, mirrors, behaviour
 records, and `Striking.hand`.

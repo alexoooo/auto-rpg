@@ -135,6 +135,37 @@ export function assertCompleteBody(body, label) {
   for (const [name, hand] of Object.entries(body.hands)) assertCompleteHand(hand, `${label}.hands.${name}`);
 }
 
+/**
+ * A real published view, flattened into something a test can keep and mutate.
+ *
+ * A view a `Fighter` wrote is a scratch record it overwrites every step, and its
+ * points are Babylon `Vector3`s -- which in 9.18.1 store `_x/_y/_z` behind
+ * accessors on the prototype. `structuredClone` copies own data properties and
+ * nothing else, so a cloned view comes back with every point spelled `_x` and
+ * every reader of `.x` gets `undefined`: measured on a real bout, the clone
+ * fails `assertCompleteView` at `self.ground.x`, and a fixture that skipped that
+ * check would have gone on to compute `NaN` distances in silence. So the points
+ * are read through their accessors here and written as plain `{x, y, z}`.
+ *
+ * The reason to take a fixture from a bout at all rather than writing one out is
+ * the reason the schedule/mask test runs Havok: a hand-rolled body is a second
+ * claim about what a body publishes, and the defects worth testing for are
+ * claims about a body that were wrong. What a test then does to it -- severing a
+ * hand, say -- is one stated edit to a real record instead of a whole invented
+ * one.
+ */
+export function publishedFixture(view, label = "published view") {
+  const point = (value) => ({ x: value.x, y: value.y, z: value.z });
+  const hand = (value) => ({ ...value, shoulder: point(value.shoulder), tip: point(value.tip),
+    tipVelocity: point(value.tipVelocity) });
+  const body = (value) => ({ ...value, ground: point(value.ground), shoulder: point(value.shoulder),
+    tip: point(value.tip), health: { ...value.health },
+    naturalAttacks: Object.fromEntries(Object.entries(value.naturalAttacks ?? {}).map(([name, attack]) => [name, { ...attack }])),
+    hands: Object.fromEntries(Object.entries(value.hands).map(([name, slot]) => [name, hand(slot)])) });
+  return assertCompleteView({ ...view, self: body(view.self), opponent: body(view.opponent),
+    projectiles: view.projectiles.map((shot) => ({ ...shot, position: point(shot.position), velocity: point(shot.velocity) })) }, label);
+}
+
 /** The whole thing. Returns the view, so a fixture can `return complete(view)`. */
 export function assertCompleteView(view, label = "view") {
   exactly(view, VIEW_FIELDS, label);

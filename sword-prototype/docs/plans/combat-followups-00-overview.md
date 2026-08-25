@@ -275,14 +275,21 @@ review and one of them a bug it shipped:
   arc that sweeps far wider than the gap between two named heights. Four tables and the reason
   are in `docs/measurements.md`. **Owed a bout and flagged for session 23**: making a cut's
   `high` reach a head means lifting the stroke envelope, which is a balance change.
-- **`punch` was being advertised on bodies that cannot punch, and closing it closed one row of
-  thirteen.** A two-handed weapon welds the other arm to the haft and `Fighter.update` ignores
+- **`punch` was being advertised on bodies that cannot punch, and closing it closed one loadout
+  of seven.** A two-handed weapon welds the other arm to the haft and `Fighter.update` ignores
   its half of the command, so a bow body's punch was posed and discarded. One legality rule now
   serves the mask and the executor. This section said that closed "one of the three divergent
-  legality tables"; measured against `actionsFor` over every `RESEARCH_STRATA` cell, it closed
-  the **`bow+empty` row on both units** and left `sword+empty` and `axe+empty` diverging, which
-  is four of thirteen cells against six before. Stage C owns the rest, and
-  `research-rollout-worker.mjs` is still a third, non-equivalent copy.
+  legality tables"; measured against `actionsFor` over every `RESEARCH_STRATA` cell, stage B
+  closed the **`bow+empty` row on both units** and left `sword+empty` and `axe+empty` diverging.
+  **Corrected 2026-08-25 on both counts.** The unit was wrong: there are seven loadouts and
+  thirteen cells -- six loadouts on each of two humanoid units plus the centipede's bite -- so
+  `bow+empty` is one loadout of seven and two cells of thirteen, and "one row of thirteen"
+  counted two things at once. And the remainder is closed: stage C1 fixed `sword+empty` and
+  `axe+empty` from the schedule's side, where the off hand is genuinely free, and put
+  `research-rollout-worker.mjs` and three further copies onto `deployableActions`. **What that
+  agreement covers is intact bodies**, which is a limit of a per-loadout row rather than a gap
+  in the table: severing a hand moves the mask off its own row, and the look-ahead answers that
+  by searching only the cells it holds a calibration for.
 - **`TARGET_SPAN_FRACTION = 0.75` rests on anatomy, not on the bout beside it.** This section
   said half the span "does not move the contacted-limb distribution at all". It moves it a great
   deal -- at 0.50 a `thrust` aimed `low` takes a 0.71 low share against 0.118 -- and what fails
@@ -310,20 +317,31 @@ in Centipede"*. Under the plan as written a centipede, and any fighter that has 
 has an empty legal set and `maskedArgmax` throws. Capability-neutral recovery is now written
 down as an invariant rather than left to be rediscovered a third time.
 
-**A 21x compute multiplier was priced as bookkeeping.** The plan's entire treatment of look-ahead
+**A twentyfold compute multiplier was priced as bookkeeping.** The plan's entire treatment of look-ahead
 is that it "records the expanded exact cell count instead of retaining the old 220-cell
 assertion". Measured two ways independently -- the coordinator expanding the real schedule, a
-recon pass deriving legality per cell from the code -- the two answers agree at 21x and 22.5x:
+recon pass deriving legality per cell from the code -- the two answers agree at 21x and 22.5x
+against the 220-task baseline they were taken on.
+
+**The baseline moved on 2026-08-25 and this table is repriced against it.** Stage C1 added the
+`punch` rows the runtime always offered, so the action-v1 schedule is 240 tasks a split and
+46,080 minimum steps, not 220 and 42,240. The tactic-v2 projections are unchanged -- they were
+derived from legality per cell, which always included those punches -- so only the "today"
+column and the factor move, and the multiplier is nearer twenty than twenty-two:
 
 | quantity | today | tactic v2 | factor |
 | --- | ---: | ---: | ---: |
-| schedule tasks per split | 220 | ~4,650--4,950 | ~21--22x |
-| minimum solver steps | 42,240 | ~893,000--950,000 | ~21--22x |
+| schedule tasks per split | **240** | ~4,650--4,950 | **~19--21x** |
+| minimum solver steps | **46,080** | ~893,000--950,000 | **~19--21x** |
 | beam nodes per replan, worst cell | 1,075 | ~20,600 | ~19x |
+
+The worst-cell beam figure is unaffected: `lookaheadMind` plans over the runtime mask, which
+already offered `punch` on `sword+empty`, so its 25 pairs and `43P = 1,075` nodes were never the
+schedule's number.
 
 The beam saturates immediately at width 6, so there is no pruning relief and the whole increase
 is linear in the tuple count. There is a statistical cost riding on the compute one: the
-tactical model fits *per cell*, so 22x the cells on a fixed budget is 22x fewer rows each.
+tactical model fits *per cell*, so 20x the cells on a fixed budget is 20x fewer rows each.
 **Session 20 derives ceilings from these numbers and session 21 spends them**, so this is
 exactly the "frozen number nobody measured" this plan set was rewritten to prevent -- arriving
 three sessions before the one that would have inherited it silently.
@@ -364,6 +382,15 @@ Three legality tables exist, not one, and **the table used during training is no
 at deployment** -- `research-rollout-worker.mjs` carries a third, hand-inlined copy that tests
 `weapon === "sword"` for thrust and an exclusion list for cut. A network is currently trained
 under one mask and deployed under another.
+
+**Superseded 2026-08-25: seven copies, and the two named rewrites were not the defect.** Two more
+turned up beyond the reconnaissance's three -- one inlined in `collectTacticalTrace` and two in
+`train-ppo.mjs`, of which the one the trajectory collector reads had not even the `cover` delete
+the others carried. All seven ask `deployableActions` now, so the train/deploy split is closed
+rather than open. And the rewrites this paragraph indicts select the same sets as `hasPoint` and
+`isStriking && !== "empty"` over every kind a hand can hold, swept across all 49 ordered weapon
+pairs: they were worth deleting for the next kind, not for a disagreement they caused. Every real
+disagreement was the two-handed holder rule, which none of the copies knew about.
 
 Deletions that were not safe as specified: `ai:evaluate` is built on the module being deleted;
 `promotion-evaluator.mjs` exports `intentNumbers` to a surviving test whose import failure would
@@ -467,13 +494,18 @@ deployment path.
 
 ### Findings from stages A and B that change later sessions
 
-- **The training legality table was not the deployed one, and stage C1 closed it.** There were
-  five copies, not three: the fourth in `research-rollout-worker.mjs` and a fifth inlined in
-  `collectTacticalTrace`. The two rewrites this finding named -- `weapon === "sword"` for thrust,
-  an exclusion list for cut -- turn out to answer identically for every kind in `GRIPS`, swept
-  over all 49 ordered weapon pairs. **Every real disagreement is the two-handed holder rule**,
-  and inside `RESEARCH_STRATA` it is one row of thirteen: `punch` on `bow+empty`, where the
-  rollout labelled an action `researchLabelMind` then refused by name, aborting the bout.
+- **The training legality table was not the deployed one, and it took seven copies to close it.**
+  There were five, not three, when stage C1 started -- the fourth in
+  `research-rollout-worker.mjs` and a fifth inlined in `collectTacticalTrace` -- and the review
+  of that stage found the sixth and seventh in `train-ppo.mjs`, the second of them using **bare
+  `supportedOptions`** for the trajectory collector PPO actually learns from. All seven read
+  `deployableActions`, or `supportedActionIndices` where an index set is wanted; the two extra
+  are measured identical over 394 capability cells. The two rewrites this finding named --
+  `weapon === "sword"` for thrust, an exclusion list for cut -- turn out to answer identically
+  for every kind in `GRIPS`, swept over all 49 ordered weapon pairs. **Every real disagreement
+  is the two-handed holder rule**, and inside `RESEARCH_STRATA` it is one loadout of seven --
+  two of the thirteen cells -- `punch` on `bow+empty`, where the rollout labelled an action
+  `researchLabelMind` then refused by name, aborting the bout.
 - **All three loadout rows are closed, and the last two closed from the schedule's side.**
   Stage B fixed `bow+empty` in the runtime; `sword+empty` and `axe+empty` were the *schedule*
   being wrong, because that off hand is genuinely free. `lookaheadMind` threw
@@ -481,6 +513,16 @@ deployment path.
   `da025f2`**, reproduced and then fixed in stage C1. The schedule is 240 tasks per split
   against 220, and its minimum budget 46,080 steps against 42,240; session 20's tuple expansion
   supersedes both by roughly twentyfold.
+- **Closing the rows did not close the crash, and sessions 20 and 21 need to know why.** A
+  per-loadout schedule row cannot describe a mask that depends on live body state: the row keys
+  on the loadout a body started with, the mask keys on what is still attached, and severing the
+  bow hand of a `bow+empty` frees the welded empty hand so the mask offers `punch` against a row
+  that says `cover, shoot, recover`. `lookaheadMind` threw again, on a body state that occurs 10
+  times in 120 null-control bouts. The fix is not more rows -- there are more states than
+  loadouts, and the tuple expansion multiplies both. `calibratedTacticPairs` filters the search
+  to cells the model holds a calibration for and refuses by name when none survives, which is
+  the shape session 20's much larger and necessarily sparser cell table will need: a fitted model
+  that misses cells is now a narrower search rather than a dead run.
 - **`punch` was being advertised on a body that could never throw one.** A two-hander welds the
   trailing hand to the haft and the fighter excludes that hand's fist from the strikers list, so
   the punch was posed and could not connect. Closing it moves `randomMetaMind`'s action draw on
@@ -499,13 +541,13 @@ not specific enough to be wrong; these are the places this one was.
 1. **"At least twenty-four rows" is not reachable by choosing `N`.** Session 19 sets the
    cadence with `--checkpoint-every-jobs N` and session 21 accepts a rung only if it produced
    twenty-four rows. At the granularity each runner actually checkpoints at, the *whole run*
-   offers fewer units than that: look-ahead 880 (`train-lookahead.mjs#L81`), NEAT-QD 80
-   generations (`train-neat-qd.mjs#L18`), DAgger **5** iterations (`collect-dagger.mjs#L17`),
+   offers fewer units than that: look-ahead 960 (`train-lookahead.mjs#L136`), NEAT-QD 80
+   generations (`train-neat-qd.mjs#L19`), DAgger **5** iterations (`collect-dagger.mjs#L17`),
    PPO **2** arms -- `equalBudgetPpoArms` returns exactly `["random", "dagger"]`
    (`src/learning/ppo.ts#L96-L100`). No `N` divides five into twenty-four.
    **Consequence:** the unit of work is re-cut before the cadence is chosen. DAgger checkpoints
    at the eight shards inside `collect()` (`collect-dagger.mjs#L49`), PPO at the boundary loop
-   inside `collectPpoTrajectory` (`train-ppo.mjs#L84-L102`). Both are already index-addressed,
+   inside `collectPpoTrajectory` (`train-ppo.mjs#L87-L113`). Both are already index-addressed,
    so the job-index cadence rule survives intact. The requirement was always legibility, not
    the number twenty-four; the number is what legibility costs at a one-hour spacing.
 2. **PPO spends twice its stated budget.** `equalBudgetPpoArms` assigns the full `solverSteps`
@@ -514,8 +556,8 @@ not specific enough to be wrong; these are the places this one was.
    2x. PPO is also the only direction with no exact-budget assertion, so it under-spends as
    well; the ledger's `stepsConsumed` is the only honest figure.
 3. **Validation worst-cell exists in one direction of four.** NEAT-QD computes it for real
-   (`research-rollout-worker.mjs#L51`). PPO writes `macro: reward, worstCell: reward` -- the
-   same scalar (`train-ppo.mjs#L149`). DAgger has only `validationLoss`, and look-ahead only a
+   (`research-rollout-worker.mjs#L75`). PPO writes `macro: reward, worstCell: reward` -- the
+   same scalar (`train-ppo.mjs#L160`). DAgger has only `validationLoss`, and look-ahead only a
    summed calibration error; both are **lower-is-better**, which inverts the sign of the
    plateau rule's "improved by at least `--plateau-epsilon`".
    **Consequence:** the plateau rule is declared over a per-direction *objective* with its
@@ -529,19 +571,24 @@ not specific enough to be wrong; these are the places this one was.
    with the controller it judged, so there is now one assessor rather than two -- which removes
    the second gate but not the finding: the surviving one still reports no margin.)
    `firstAttackSeconds` is recorded by the tracker and returned by `runResearchBout`, then
-   **discarded** by `research-rollout-worker.mjs#L38-L45`; `symmetricTimeCapRate` is computed
+   **discarded** by `research-rollout-worker.mjs#L62-L69`; `symmetricTimeCapRate` is computed
    nowhere; the specialist gap needs a control run no runner performs; and `train-ppo.mjs` and
    `train-lookahead.mjs` never read `result.engagement` at all. The signed-margin gate table is
    net-new plumbing in three directions, not a formatting change.
 5. **Look-ahead has no resume, no state file and no coherent mid-run checkpoint.**
-   `--stop-after-jobs` exists only in `train-ppo.mjs#L155`; the handoff's claim that it and
+   `--stop-after-jobs` exists only in `train-ppo.mjs#L166`; the handoff's claim that it and
    `--resume` are general is wrong. Worse, a look-ahead `TacticalModel` first exists only after
-   a complete train sweep (`train-lookahead.mjs#L90`) and is uncalibrated until the validation
-   sweep (`#L95`), so a champion-so-far at row *k* is a computation the run does not otherwise
+   a complete train sweep (`train-lookahead.mjs#L145`) and is uncalibrated until the validation
+   sweep (`#L150`), so a champion-so-far at row *k* is a computation the run does not otherwise
    perform -- and one `LOOKAHEAD_CALIBRATION_LIMITS` would likely refuse at deploy time.
+   **Updated 2026-08-25:** it would no longer refuse outright. `lookaheadMind` now searches the
+   cells it holds a calibration for and refuses only when a body has none, so a partial model is
+   a narrower search rather than a dead deployment. That makes a champion-so-far *runnable*, and
+   makes it correspondingly easier to ship one that is quietly planning over three tactics --
+   whatever session 19 builds should report the pair count it actually searched.
 6. **`configDigest` is two incompatible formats.** NEAT-QD and DAgger use 16 hex characters of
-   SHA-256 (`train-neat-qd.mjs#L33`, `collect-dagger.mjs#L28`); PPO and look-ahead use 8 hex
-   characters of FNV-1a (`train-ppo.mjs#L165`, `train-lookahead.mjs#L100`). The artifact
+   SHA-256 (`train-neat-qd.mjs#L34`, `collect-dagger.mjs#L28`); PPO and look-ahead use 8 hex
+   characters of FNV-1a (`train-ppo.mjs#L176`, `train-lookahead.mjs#L155`). The artifact
    validator only requires a non-empty string (`artifact.ts#L100`). Preflight normalizes this
    before it can compare anything.
 7. **A SHA-256 contract digest cannot live in `src/learning/`.** That tree is browser-imported
@@ -583,11 +630,11 @@ Findings that change session 18 specifically:
     `a_label_free_mind_and_a_labelled_mind_agree_on_attack_intent_for_the_same_commands` fails
     as written and must be scoped: `opportunitiesForAction` requires `striker === "sword"` for
     `thrust` (`engagement.ts#L79`) where the inline matcher falls through to `true`
-    (`options.ts#L509`); `research-havok.mjs#L36` credits only `[0]`, the first matching row,
-    where `options.ts#L510` credits every match, which systematically depresses dual-wield
+    (`options.ts#L953`); `research-havok.mjs#L36` credits only `[0]`, the first matching row,
+    where `options.ts#L954` credits every match, which systematically depresses dual-wield
     opportunity conversion; the labelled paths fire on an option-change edge while the
     label-free path fires on a button edge at 240 Hz; and only the label-free path counts a
-    *guard release* as an attack (`options.ts#L493`), which inflates the numerator of
+    *guard release* as an attack (`options.ts#L937`), which inflates the numerator of
     opportunity-attack and deflates attack-contact for a defensive player.
 13. **The page's clock is wall-clock derived and the bench's is synthetic.**
     `src/main.ts#L936` takes `dt = min(engine.getDeltaTime()/1000, CONFIG.world.maxFrameSeconds)`

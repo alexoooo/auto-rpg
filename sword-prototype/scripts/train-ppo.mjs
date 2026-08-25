@@ -11,7 +11,7 @@ import { decodePpoResume, encodePpoResume, equalBudgetPpoArms, freezeOpponentLea
 import { researchMatrix } from "../src/learning/research-matrix.ts";
 import { researchLabelMind } from "../src/learning/research-policy.ts";
 import { predictDagger } from "../src/learning/dagger.ts";
-import { supportedOptions } from "../src/learning/meta.ts";
+import { supportedActionIndices } from "../src/learning/deployment.ts";
 import { HAND_ACTION_NAMES, MOVEMENT_NAMES } from "../src/options.ts";
 import { runResearchBout } from "./research-havok.mjs";
 
@@ -60,11 +60,13 @@ export async function loadLeagueArtifacts(paths) {
     const controller = artifact.data.algorithm === "dagger" ? () => researchLabelMind(id,
       (_view, features) => predictDagger(payload, features)) : () => {
         const policy = new RecurrentPolicy(payload.weights); return researchLabelMind(id, (view, features) => {
-          const step = policy.step(features); const allowed = new Set(supportedOptions(view));
-          if (!Object.values(view.self.hands).some((hand) => !hand.lost)) allowed.delete("cover");
+          // `supportedActionIndices`, which is `deployableActions` projected onto
+          // the argmax's index space. This was a sixth copy of the legality rule
+          // -- `supportedOptions` plus the cover delete, character for character
+          // -- sitting in the file that decides what a league opponent does.
+          const step = policy.step(features);
           const movement = MOVEMENT_NAMES[maskedArgmax(step.movementLogits, new Set(MOVEMENT_NAMES.map((_, i) => i)), "movement")];
-          const action = HAND_ACTION_NAMES[maskedArgmax(step.actionLogits,
-            new Set(HAND_ACTION_NAMES.map((name, i) => allowed.has(name) ? i : -1).filter((i) => i >= 0)), "action")];
+          const action = HAND_ACTION_NAMES[maskedArgmax(step.actionLogits, supportedActionIndices(view), "action")];
           return { movement, action, persistence: 0.4 };
         }); };
     loaded.push({ entry: { id, kind: artifact.data.algorithm, digest }, controller });
@@ -87,17 +89,26 @@ export async function collectPpoTrajectory({ seed, initialization, solverSteps, 
       previous.endVitalityPotential = view.self.vitality - view.opponent.vitality;
       previous.nearRangeProgress = Math.max(-0.2, Math.min(0.2, previous.measure - view.measure)); boundaries.push(previous);
     }
-    const previousHidden = policy.snapshot(); const step = policy.step(features); const actions = new Set(supportedOptions(view));
+    // **The mask a trajectory is collected under is the mask it will be deployed
+    // under, and this line was the seventh copy where it was not.** It read bare
+    // `supportedOptions` -- without even the cover delete the league branch
+    // above kept -- while `deployment.ts`'s PPO branch argmaxes through
+    // `deployableActions`. That is the train/deploy split this stage exists to
+    // close, one file further in than the four it started with. Measured, the
+    // two answered identically in all 394 probed capability cells and the cover
+    // delete had something to delete in none of them, so the sampler is
+    // unchanged; a redundant guard held in one of two copies is how the first
+    // five drifted apart without anything going red.
+    const previousHidden = policy.snapshot(); const step = policy.step(features); const actions = supportedActionIndices(view);
     const movementPick = maskedCategorical(step.movementLogits, new Set(MOVEMENT_NAMES.map((_, index) => index)), random(), "movement");
-    const actionPick = maskedCategorical(step.actionLogits,
-      new Set(HAND_ACTION_NAMES.map((name, index) => actions.has(name) ? index : -1).filter((index) => index >= 0)), random(), "action");
+    const actionPick = maskedCategorical(step.actionLogits, actions, random(), "action");
     previous = { startVitalityPotential: view.self.vitality - view.opponent.vitality, endVitalityPotential: 0,
       nearRangeProgress: 0, terminal: 0, measure: view.measure, value: step.value,
       movement: movementPick.index, action: actionPick.index, oldMovementProbability: movementPick.probability,
       oldActionProbability: actionPick.probability, oldValue: step.value, hidden: step.hidden,
       input: [...features], previousHidden,
       movementSupported: MOVEMENT_NAMES.map((_, index) => index),
-      actionSupported: HAND_ACTION_NAMES.map((name, index) => actions.has(name) ? index : -1).filter((index) => index >= 0) };
+      actionSupported: [...actions] };
     return { movement: MOVEMENT_NAMES[movementPick.index], action: HAND_ACTION_NAMES[actionPick.index], persistence: 0.4 };
   });
   const matrixJob = researchMatrix(split, seed)[jobIndex % researchMatrix(split, seed).length];
