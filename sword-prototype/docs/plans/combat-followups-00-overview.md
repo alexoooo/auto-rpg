@@ -182,7 +182,7 @@ Baseline taken before any of this work, from `sword-prototype/`, commit `a095877
 | --- | --- | --- |
 | 15 host command boundary | **landed** | `f789ea4`, 459 tests |
 | 16 policy perception v4 | **landed** | `d44fc3e`, 484 tests |
-| 17 tactic output v2 | stages A and B landed, C in progress | `da025f2`, `e4ac199`, 488 tests |
+| 17 tactic output v2 | A, B, C1 landed; C2 in flight | `da025f2`, `e4ac199`, `c149e8c`, `7597eb4`, 495 tests |
 | 18 human gate feasibility | not started | -- |
 | 19 run legibility | not started | -- |
 | 20 throughput and ceilings | not started | -- |
@@ -532,6 +532,84 @@ deployment path.
   0.12/0.30/0.68), so during a committing action the six-name stance head offers five
   distinguishable choices. Session 23 decides whether these constants earn their place; it
   should decide knowing that.
+
+### Two decisions the owner made, and why they are decisions rather than defaults
+
+Stage C2 is where the plan and the code disagree most, and two of its instructions could not be
+followed as written. Both were put to the owner rather than guessed at, because both are the kind
+of choice that is invisible once the code is green.
+
+**The DAgger teacher will get a hand-authored aiming rule, not defaults.** The expert returns
+`{movement, action, persistence}` and has no opinion about aim at all, so the three new heads had
+to be filled with something. Filling them with constants was the cheap and honest option -- it
+teaches exactly what the expert knows -- but it also guarantees that no DAgger-trained fighter can
+ever aim, and the owner's objection is the right one: a contract whose outputs are wired to
+constants is not a contract, it is three columns of zeroes. So the teacher gains real opinions.
+
+Two facts make this much cheaper than it looked. **There are no checked-in DAgger rows anywhere in
+the repository**, so bumping `TACTICAL_TEACHER_VERSION` invalidates nothing -- the objection that
+killed this option on paper does not survive contact with the tree. And **the effector label is
+already computed and thrown away**: `attackOpportunity` returns rows keyed `hand:${hand}:${weapon}`
+and the teacher already picks one, so which hand it attacks with costs nothing to recover. Only the
+aim and the stance are genuinely new authorship.
+
+**And the authorship is constrained by stage B's own measurement, which is the point of having
+measured it.** A label is only worth varying where the motor layer honours it. Stage B measured the
+head share on the contacted limb per action: thrust moves 0.090 to 0.484 when the aim is named, cut
+moves 0.071 to 0.045 and punch 0.200 to 0.121. So a teacher that varies its aim on cuts is teaching
+a correlation the body will not produce -- noise wearing a label. The rule therefore varies aim
+where aim works and holds it constant where it does not, **with the measured reason written beside
+each branch**, and session 23 revisits it if the stroke envelope changes. The same caution applies
+to `extended`, which stage B found to be a near-duplicate of the commit posture (0.10/0.30/0.55
+against 0.12/0.30/0.68), so labelling it during a committing action teaches a near-no-op.
+
+**A mirror does not swap the effector.** The plan says mirroring should swap primary and secondary;
+`features.ts:88-96` says in as many words that the two "are not sides, and a mirrored fighter still
+leads with the same hand". The comment wins, and it wins for a reason that is checkable rather than
+assertable, which is what makes this worth recording:
+
+> `outboard` is the only field that names which physical side a hand is on. `mirrorBody` negates it
+> inside the mirrored world while leaving the `primary`/`secondary` keys in place, and **no feature
+> column carries it** -- the hand columns are weapon one-hot, lost, reach and tip speed, none of
+> them positional. So the mirrored sample describes a genuine left-handed copy of the same fighter,
+> not an invented one.
+
+That is the whole argument, and it is the argument the comment should have carried in the first
+place. The reason someone would swap -- that a mirror is only valid if the mirrored sample
+describes a body that could exist -- is a real concern that simply does not bite here, and it would
+bite immediately if any hand-side field ever reached the vector. The comment is being rewritten to
+say the checkable thing instead of the assertion.
+
+`slip-left` and `slip-right`, by contrast, **are** sides and would have to swap under any mirror
+that ever carries stance. Nothing mirrors labels today, so no machinery is being added; the pair is
+recorded beside `circle-left`/`circle-right` in `FEATURE_MIRROR_INDEX` so the next person does not
+rediscover it.
+
+**One question deliberately not asked, and parked instead.** The new tuple is an output but never an
+input -- the feature vector carries `current_movement_*` and `current_action_*` and would, by the
+same logic, want `current_effector_*`, `current_target_*` and `current_stance_*`. That is a
+`featureVersion` bump, which invalidates every checked-in artifact and golden hash in the set. It is
+a real gap and it is recorded as one, but it belongs with a deliberate feature-contract revision
+rather than riding in on an output change.
+
+### Session 17 stage C2, split in two
+
+C2 was one commit in the plan. It is two, on the same argument that split the session in the first
+place: the half that can be verified by construction should not be entangled with the half that
+needs measurement.
+
+- **C2a -- the contract width.** The layout table grows to 26, the artifact contract learns to
+  refuse a stale-width model explicitly, every end-relative slice is routed through the table, and
+  the (action, effector, target) tuple is selected jointly by summed logits, masked before the
+  argmax and never repaired after. No trainer is touched. The null control must not move.
+- **C2b -- the four trainers.** NEAT-QD, DAgger and its new teacher, PPO's four new heads, and the
+  look-ahead tuple enumeration that carries the measured ~21x cost into sessions 20 and 21.
+
+The hazard C2a exists to close is a silent one. `deployment.ts` decodes action logits with
+`values.slice(MOVEMENT_NAMES.length, -1)` -- "everything but the last number". At 13 wide that is
+correct. At 26 wide it swallows the effector, target and stance logits into the action argmax
+without erroring, which is precisely the failure mode that a width refusal exists to prevent and
+that a width refusal alone does not catch.
 
 ### Findings from the implementation pass that change the plan
 
