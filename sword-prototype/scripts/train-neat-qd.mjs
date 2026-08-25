@@ -10,8 +10,9 @@ import { QualityArchive, selectValidationChampion } from "../src/learning/qualit
 import { curriculumDigest, curriculumStage, opponentForArchive, researchMatrix, sampleOpponentArchive,
   SHIPPED_OPPONENT_ARCHIVE } from "../src/learning/research-matrix.ts";
 import { META_OUTPUT_LAYOUT } from "../src/learning/meta.ts";
+import { RESEARCH_ARTIFACT_CONTRACT } from "../src/learning/deployment.ts";
 import { SeededRng } from "../src/learning/rng.ts";
-import { HAND_ACTION_NAMES, MOVEMENT_NAMES } from "../src/options.ts";
+import { EFFECTOR_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, STANCE_NAMES, TACTIC_VERSION, TARGET_NAMES } from "../src/options.ts";
 
 const argv = process.argv.slice(2); const value = (name, fallback) => { const at = argv.indexOf(`--${name}`); return at < 0 ? fallback : argv[at + 1]; };
 const flag = (name) => argv.includes(`--${name}`); const smoke = flag("smoke");
@@ -27,9 +28,24 @@ if (solverSteps % 4 !== 0) throw new Error("--solver-steps must be divisible by 
 const evaluationJobs = generations * populationSize * 2; const budgetQuanta = solverSteps / 4;
 const baseQuanta = Math.floor(budgetQuanta / evaluationJobs); const extraJobs = budgetQuanta % evaluationJobs;
 if (baseQuanta < 1) throw new Error(`--solver-steps needs at least ${evaluationJobs * 4} steps for the configured jobs`);
+// The **output** vocabulary belongs in here as much as the input one, and
+// leaving it out was a resume landmine rather than an untidiness. None of
+// `featureVersion`, `featureNames`, `movementNames` or `actionNames` moved when
+// the output contract went from thirteen to twenty-six, so `configText` was
+// byte-identical across the widening: `--resume` accepted a saved state, reloaded
+// a 13-output population, and died inside a worker with `learned output vector is
+// 13 wide; the contract is 26` -- loud, but named wrongly and one bout late.
+// Worse, `configDigest` is the default `runId`, so a pre- and post-widening run
+// with identical settings wrote to the *same* directory and overwrote each
+// other's `state.json`, `champion.artifact` and `report.json`; and the digest goes
+// into artifact provenance, so two artifacts trained against different output
+// vocabularies carried the same one. Default `runId`s moved when this landed, and
+// nothing was lost, because every checked-in run is already refused at feature
+// version 3 against runtime 4.
 const config = { version: 1, algorithm: "neat-qd", seed, solverSteps,
   populationSize, generations, ablation, budgetAllocation: { evaluationJobs, baseQuanta, extraJobs }, featureVersion: FEATURE_VERSION, featureNames: FEATURE_COLUMNS,
-  movementNames: MOVEMENT_NAMES, actionNames: HAND_ACTION_NAMES, curriculumDigest: curriculumDigest(),
+  tacticVersion: TACTIC_VERSION, movementNames: MOVEMENT_NAMES, actionNames: HAND_ACTION_NAMES,
+  effectorNames: EFFECTOR_NAMES, targetNames: TARGET_NAMES, stanceNames: STANCE_NAMES, curriculumDigest: curriculumDigest(),
   ablations: ["without-curriculum", "without-qd", "fixed-species-threshold"] };
 const configText = JSON.stringify(config); const configDigest = createHash("sha256").update(configText).digest("hex").slice(0, 16);
 const runId = String(value("run-id", `neat-qd-${seed}-${configDigest}`));
@@ -114,10 +130,9 @@ for (let generation = nextGeneration; generation < generations; generation += 1)
 }
 if (consumedSolverSteps !== solverSteps) throw new Error(`NEAT-QD spent ${consumedSolverSteps} solver steps, expected exactly ${solverSteps}`);
 const payload = new TextEncoder().encode(JSON.stringify(selected.genome)); const artifact = new ResearchArtifact({ algorithm: "neat-qd",
-  featureVersion: FEATURE_VERSION, featureNames: FEATURE_COLUMNS, movementNames: MOVEMENT_NAMES, actionNames: HAND_ACTION_NAMES,
+  ...RESEARCH_ARTIFACT_CONTRACT,
   payload: [...payload], provenance: { seed, configDigest, solverSteps: consumedSolverSteps, selectedGeneration: selected.generation,
-    curriculumDigest: config.curriculumDigest, trainingSplit: "train", validationSplit: "validation" } }, { featureVersion: FEATURE_VERSION, featureNames: FEATURE_COLUMNS,
-    movementNames: MOVEMENT_NAMES, actionNames: HAND_ACTION_NAMES });
+    curriculumDigest: config.curriculumDigest, trainingSplit: "train", validationSplit: "validation" } }, RESEARCH_ARTIFACT_CONTRACT);
 const report = { version: 1, algorithm: "neat-qd", config, configDigest, consumedSolverSteps, selectedGeneration: selected.generation,
   ledgers, archiveEntries: opponentArchive.length, fullBudgetCompleted: solverSteps === 1_800_000_000 };
 await atomic(new URL("champion.artifact", runDir), artifact.toBytes()); await atomic(new URL("report.json", runDir), `${JSON.stringify(report, null, 2)}\n`);

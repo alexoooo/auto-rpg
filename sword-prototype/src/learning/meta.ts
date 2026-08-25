@@ -1,18 +1,19 @@
 import { freshIntent } from "../action-primitives.ts";
-import { ATTACK_OPTION_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, TACTIC_NAMES, asMeasured, chooseEffector, composeTactic,
+import { ATTACK_OPTION_NAMES, EFFECTOR_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, STANCE_NAMES, TACTIC_NAMES, TARGET_NAMES,
+  asMeasured, chooseEffector, composeTactic,
   handActionOption, movementIntent, tacticEffectors, tacticTargets,
   type BehaviourRecord, type CombatOption, type EffectorName, type HandActionName, type MovementName, type OptionName,
-  type TargetName } from "../options.ts";
+  type StanceName, type TargetName } from "../options.ts";
 import type { FighterView, Mind } from "../mind.ts";
 import { SeededRng } from "./rng.ts";
 
 export const MIN_PERSISTENCE = 0.10;
 export const MAX_PERSISTENCE = 0.80;
-export type MetaOutputName = MovementName | HandActionName | "persistence";
+export type MetaOutputName = MovementName | HandActionName | EffectorName | TargetName | StanceName | "persistence";
 /**
  * The ordered output contract every learned controller writes into.
  *
- * `tests/learning.test.mjs` pins it against the two vocabularies it is built
+ * `tests/learning.test.mjs` pins it against the five vocabularies it is built
  * from, so the names cannot drift from the tables the executor refuses by.
  *
  * **It said that while typed `readonly string[]`, and the annotation was not
@@ -23,13 +24,27 @@ export type MetaOutputName = MovementName | HandActionName | "persistence";
  * written -- checked with `tsc`, which refuses to assign the un-annotated
  * expression to the thirteen-name union. `as const` on the one literal is what
  * actually makes the type say what the sentence above says, and it is a
- * contract worth having in the type rather than only in a test: session 20
- * doubles this table, and a name misspelled into it should be a compile error
+ * contract worth having in the type rather than only in a test: stage C2a
+ * doubled this table, and a name misspelled into it should be a compile error
  * rather than a row that decodes to nothing.
+ *
+ * **The twenty-six names are distinct as plain strings, and that is checked
+ * rather than assumed** (`the_twenty_six_output_names_are_distinct_columns`).
+ * It matters because `readMetaOutput`'s finiteness refusal indexes straight into
+ * this table by column, so a duplicated name would name two columns and a short
+ * table would name none -- an error message pointing at the wrong head is worse
+ * than one pointing at a number.
  */
 export const META_OUTPUT_NAMES: readonly MetaOutputName[] =
-  Object.freeze([...MOVEMENT_NAMES, ...HAND_ACTION_NAMES, "persistence" as const]);
+  Object.freeze([...MOVEMENT_NAMES, ...HAND_ACTION_NAMES, ...EFFECTOR_NAMES, ...TARGET_NAMES, ...STANCE_NAMES,
+    "persistence" as const]);
 
+const MOVEMENT_AT = 0;
+const ACTION_AT = MOVEMENT_AT + MOVEMENT_NAMES.length;
+const EFFECTOR_AT = ACTION_AT + HAND_ACTION_NAMES.length;
+const TARGET_AT = EFFECTOR_AT + EFFECTOR_NAMES.length;
+const STANCE_AT = TARGET_AT + TARGET_NAMES.length;
+const PERSISTENCE_AT = STANCE_AT + STANCE_NAMES.length;
 /**
  * The same contract as offsets, because five places were deriving them.
  *
@@ -38,29 +53,62 @@ export const META_OUTPUT_NAMES: readonly MetaOutputName[] =
  * width and once for the two slice bounds -- at `train-neat-qd.mjs`, at
  * `research-rollout-worker.mjs`, and in the artifact fixture in
  * `tests/tournament-executor.test.mjs`. Five chances to get an offset wrong the
- * next time the width moves, and the width is about to move to 26.
+ * next time the width moves, and stage C2a is the width moving to 26:
+ * `[5 movement][7 action][3 effector][4 target][6 stance][1 persistence]`.
  *
  * **The `-1` was the one that could not survive it.** `deployment.ts` sliced the
  * action half as `values.slice(MOVEMENT_NAMES.length, -1)` and read persistence
  * as `values.at(-1)`, which is not "the action logits and the persistence" but
  * "everything after the movements except the last number, and the last number".
- * Those coincide only while exactly one scalar trails the table. Adding the
- * effector, target and stance heads puts three more logit blocks in front of
- * that scalar, and the `-1` form would have silently swallowed all three into
- * the action slice -- a wrong argmax over a correct vector, which no width check
- * can see. Named offsets cannot express that mistake.
+ * Those coincide only while exactly one scalar trails the table, which is a
+ * property the thirteen-wide contract had and the twenty-six-wide one does not:
+ * that same line now folds the effector, target and stance heads into the action
+ * argmax -- a wrong argmax over a correct vector, which no width check can see.
+ * Named offsets cannot express that mistake, and stage C1 landed them a commit
+ * early precisely so that this widening could not reintroduce it.
+ *
+ * The offsets are written as a running sum of the five frozen tables rather than
+ * as literals for the same reason nothing infers them from key order: a name
+ * added to `TARGET_NAMES` has to move `stanceAt` and `persistenceAt` with it,
+ * and a table of literals is a table that can be updated by halves.
+ * `one_output_table_names_every_offset_a_decoder_reads` holds the sum to the
+ * six numbers it currently comes to.
  */
 export const META_OUTPUT_LAYOUT = Object.freeze({
-  movementAt: 0,
-  actionAt: MOVEMENT_NAMES.length,
-  persistenceAt: MOVEMENT_NAMES.length + HAND_ACTION_NAMES.length,
-  width: MOVEMENT_NAMES.length + HAND_ACTION_NAMES.length + 1,
+  movementAt: MOVEMENT_AT,
+  actionAt: ACTION_AT,
+  effectorAt: EFFECTOR_AT,
+  targetAt: TARGET_AT,
+  stanceAt: STANCE_AT,
+  persistenceAt: PERSISTENCE_AT,
+  width: PERSISTENCE_AT + 1,
 });
 
 /** One learned output vector, split at the named offsets. `persistence` is already in seconds. */
 export interface MetaOutput {
   readonly movementLogits: readonly number[];
   readonly actionLogits: readonly number[];
+  readonly effectorLogits: readonly number[];
+  readonly targetLogits: readonly number[];
+  /**
+   * Decoded and dropped today, and this directory's rule about an unread field
+   * is that you may keep one only if you can **name** the reader that is coming.
+   *
+   * It is `selectDeployableTactic` in stage C2b, which grows a fourth field on
+   * `DeployableTactic` -- an argmax over `STANCE_NAMES` -- and hands it to
+   * `handActionOption`'s `OptionExecution.stance`, where `applyTacticStance` is
+   * what finally consumes it. The two sites that will call it are
+   * `deployment.ts`'s NEAT branch and `neatLabeler` in
+   * `scripts/research-rollout-worker.mjs`, and they move together for the reason
+   * `selectDeployableTactic`'s own note gives.
+   *
+   * The stance head is *not* part of the joint sum the action/effector/target
+   * tuple is chosen by: legality is a property of the tuple and every stance is
+   * legal on every body, so nothing masks it and there is nothing to trade it
+   * against. Six names, and `applyTacticStance`'s own note records that during a
+   * committing action only five of them are distinguishable.
+   */
+  readonly stanceLogits: readonly number[];
   readonly persistence: number;
 }
 
@@ -137,7 +185,10 @@ export function readMetaOutput(values: readonly number[]): MetaOutput {
   if (at >= 0) throw new Error(`learned output "${META_OUTPUT_NAMES[at]}" is ${values[at]}; the contract is a finite number`);
   return Object.freeze({
     movementLogits: values.slice(META_OUTPUT_LAYOUT.movementAt, META_OUTPUT_LAYOUT.actionAt),
-    actionLogits: values.slice(META_OUTPUT_LAYOUT.actionAt, META_OUTPUT_LAYOUT.persistenceAt),
+    actionLogits: values.slice(META_OUTPUT_LAYOUT.actionAt, META_OUTPUT_LAYOUT.effectorAt),
+    effectorLogits: values.slice(META_OUTPUT_LAYOUT.effectorAt, META_OUTPUT_LAYOUT.targetAt),
+    targetLogits: values.slice(META_OUTPUT_LAYOUT.targetAt, META_OUTPUT_LAYOUT.stanceAt),
+    stanceLogits: values.slice(META_OUTPUT_LAYOUT.stanceAt, META_OUTPUT_LAYOUT.persistenceAt),
     persistence: decodeMetaPersistence(values[META_OUTPUT_LAYOUT.persistenceAt] as number),
   });
 }
@@ -252,10 +303,19 @@ export interface DeployableTactic {
  * -- but it is a difference and it is measured: probed on an armless warrior,
  * this answers `[]` and the executor answers yes.
  *
- * Stage C is what takes an argmax over it. Stage B builds it so the mask exists
- * and can be tested against the executor; nothing production reads it yet, and
+ * `selectDeployableTactic` below is what takes an argmax over it. Stage B built
+ * it so the mask existed and could be tested against the executor;
  * `an_illegal_action_effector_target_tuple_is_masked_not_repaired` is the reader
  * that would notice the two coming apart.
+ *
+ * **Its enumeration order is not the tie-break order**, and depending on it
+ * would have been a silent bug. This walks `HAND_ACTION_NAMES` outermost, then
+ * `tacticEffectors`, then `tacticTargets` -- and `tacticTargets("cover")` is
+ * `["threat", "vital"]`, which is `TARGET_NAMES` indices 3 then 0. A scan of
+ * this list with `>` therefore breaks a `cover` tie toward `threat`, the *later*
+ * name in the frozen table. `selectDeployableTactic` walks the three index
+ * spaces itself and asks this function only for membership, so the two facts
+ * stay separable: what is legal, and which legal tuple wins a tie.
  */
 export function deployableTactics(view: FighterView): readonly DeployableTactic[] {
   const allowed = deployableActions(view);
@@ -267,6 +327,73 @@ export function deployableTactics(view: FighterView): readonly DeployableTactic[
     }
   }
   return Object.freeze(tuples);
+}
+
+const tacticKey = (tactic: DeployableTactic): string => `${tactic.action}|${tactic.effector}|${tactic.target}`;
+
+/**
+ * The one legal tuple a 26-output vector names: masked before the argmax, never
+ * repaired after it.
+ *
+ * **The sum of three logits over the legal tuples, not three argmaxes.** Three
+ * independent argmaxes answer `punch` on a hand holding a sword, or `low` on a
+ * `punch` that cannot reach a knee from a shoulder socket, and there are only
+ * two things to do about it afterwards: refuse a decision the network took in
+ * good faith, or repair it into some neighbouring tuple nobody asked for. The
+ * second is the silent redirection the whole of tactic v2 exists to remove --
+ * `requireHand`'s `[preferred, other]` search was exactly that -- so the mask
+ * goes in *front* of the comparison and the illegal tuples never enter it. Every
+ * tuple this can answer is one `handActionOption` accepts, because the legality
+ * comes from `deployableTactics`, which comes from `tacticEffectors` and
+ * `tacticTargets`, which are what the option itself refuses by.
+ *
+ * **The tie-break is frozen and total**: lower action index, then lower effector
+ * index, then lower target index, which is what the three ascending loops plus a
+ * strict `>` come to. It is spelled as loops over the three index spaces rather
+ * than as a scan of `deployableTactics` because that function's enumeration
+ * order is *not* this order -- see its own note about `cover` -- and a tie-break
+ * that follows whichever order an unrelated function happens to build is a
+ * tie-break that moves when that function is tidied. Ties are not exotic here:
+ * an untrained genome answers its biases, and a bias table seeded with zeros
+ * makes every legal tuple a tie.
+ *
+ * **Nothing production reads this yet, and that is deliberate rather than an
+ * oversight.** The obvious reader is `deployment.ts`'s NEAT branch, and wiring
+ * that alone would put a joint tuple argmax on the deployment side of a seam
+ * whose training side -- `neatLabeler` in `scripts/research-rollout-worker.mjs`
+ * -- still takes a bare action argmax. That is precisely the training/deployment
+ * mask divergence stage C1 spent its whole budget closing, and
+ * `the_training_decoder_and_the_deployment_decoder_answer_the_same_label` is the
+ * test that would catch it. Both halves move together in stage C2b, with the
+ * four trainers; C2a lands the contract and the rule that makes the wider tuple
+ * legal by construction.
+ */
+export function selectDeployableTactic(view: FighterView, output: MetaOutput): DeployableTactic {
+  const legal = new Set(deployableTactics(view).map(tacticKey));
+  if (!legal.size) {
+    throw new Error(`tactic has no legal action/effector/target tuple for unit "${view.self.unit}"`);
+  }
+  const logit = (values: readonly number[], index: number, column: string): number => {
+    const value = values[index];
+    if (!Number.isFinite(value)) throw new Error(`tactic ${column} logits contain a non-finite value`);
+    return value as number;
+  };
+  let bestAction = -1; let bestEffector = -1; let bestTarget = -1; let score = -Infinity;
+  for (let action = 0; action < HAND_ACTION_NAMES.length; action += 1) {
+    for (let effector = 0; effector < EFFECTOR_NAMES.length; effector += 1) {
+      for (let target = 0; target < TARGET_NAMES.length; target += 1) {
+        if (!legal.has(`${HAND_ACTION_NAMES[action]}|${EFFECTOR_NAMES[effector]}|${TARGET_NAMES[target]}`)) continue;
+        const sum = logit(output.actionLogits, action, "action") + logit(output.effectorLogits, effector, "effector") +
+          logit(output.targetLogits, target, "target");
+        if (sum > score) { score = sum; bestAction = action; bestEffector = effector; bestTarget = target; }
+      }
+    }
+  }
+  // `legal` is non-empty and every key in it is one of the tuples enumerated
+  // above -- `deployableTactics` draws its three fields from these same three
+  // frozen tables -- so a finite sum was compared at least once.
+  return Object.freeze({ action: HAND_ACTION_NAMES[bestAction] as HandActionName,
+    effector: EFFECTOR_NAMES[bestEffector] as EffectorName, target: TARGET_NAMES[bestTarget] as TargetName });
 }
 
 export interface MetaLogit {

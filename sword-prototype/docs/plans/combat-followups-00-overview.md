@@ -400,7 +400,7 @@ browser's only window into what a learned controller is thinking, in the session
 before the one that puts a person at that keyboard; and `selectValidationChampion` exists twice
 with different signatures, one live.
 
-### Session 17, stages A, B and C1 as landed
+### Session 17, stages A, B, C1 and C2a as landed
 
 Split into four commits rather than one, so that the half which can move the balance lands
 alone and can be measured against a control without contract churn mixed in -- and so that the
@@ -426,11 +426,38 @@ look-ahead schedule trains the `punch` the runtime always offered on `sword+empt
 a live rollout abort on `bow+empty` and a look-ahead throw on the other two, both measured in
 `docs/measurements.md`.
 
+**Stage C2a** -- the width moves. `META_OUTPUT_LAYOUT` is 26 wide and names `effectorAt`,
+`targetAt` and `stanceAt` beside the three it had; `readMetaOutput` answers five logit blocks and
+a persistence; `META_OUTPUT_NAMES` names all 26 columns, which the finiteness refusal indexes
+into. `selectDeployableTactic` chooses the `(action, effector, target)` tuple by the **sum of its
+three logits over the legal tuples only**, masked in front of the comparison with no repair
+behind it, and breaks a tie on action index then effector then target -- walked over the index
+spaces rather than scanned off `deployableTactics`, whose enumeration order differs for the two
+defensive actions. The artifact header gained `tacticVersion` and three name tables with an
+explicit refusal beside the `featureVersion` one, because `fromBytes` rejects no unknown key and
+a stale artifact arrives with the field simply absent. 495 to 501 tests, and 502 after the
+remediation pass. The four research
+trainers keep their learning halves for stage C2b; the trainer edits are that five inline copies
+of the artifact header now spread `RESEARCH_ARTIFACT_CONTRACT`, which `trainPpo` writing an
+artifact inside the suite made unavoidable, and that `train-neat-qd.mjs` and `collect-dagger.mjs`
+put the output vocabulary into their `config` digest -- without it the digest is byte-identical
+across the widening, so `--resume` reloads a stale-width population *and* two runs with identical
+settings share a `runId` and overwrite each other's state and champion.
+
+**Two things the stage brief got wrong, both recorded in `docs/measurements.md`.** It asked for a
+proof that the legal tuple set is non-empty for a fighter that has lost both hands: it is not,
+and deliberately so -- `supportedOptions` refuses a body with no attached hand and no natural
+attack outright, so the deployment mask is empty while the executor's own rule still answers
+`natural` for `recover`. `src/options.ts` and `tests/options.test.mjs` have recorded that since
+stage B. It also named `deployment.ts`'s `values.slice(MOVEMENT_NAMES.length, -1)` as a site to
+hunt; stage C1 had already removed it, and a sweep of every `slice(` in `src/`, `scripts/` and
+`tests/` found no surviving end-relative read of an output vector.
+
 **The null control did not move, which was the point.** The scripted policies never enter the
 option layer -- `policies.ts` does not import `options.ts` -- so `duelist-swinger` is the proof
 that nothing leaked into a shared primitive: 66/120 = 55.0 %, 3.52 s, 176.17 damage,
-1496/1670 scoring contacts, identical to the digit before and after, re-run independently by
-the coordinator.
+1496/1670 scoring contacts, identical to the digit before and after through all four stages,
+re-run independently by the coordinator.
 
 ### What the two adversarial passes caught
 
@@ -583,7 +610,8 @@ to `extended`, which stage B found to be a near-duplicate of the commit posture 
 against 0.12/0.30/0.68), so labelling it during a committing action teaches a near-no-op.
 
 **A mirror does not swap the effector.** The plan says mirroring should swap primary and secondary;
-`features.ts:88-96` says in as many words that the two "are not sides, and a mirrored fighter still
+`FEATURE_MIRROR_INDEX`'s note in `features.ts` says in as many words that the two "are not sides,
+and a mirrored fighter still
 leads with the same hand". The comment wins, and it wins for a reason that is checkable rather than
 assertable, which is what makes this worth recording:
 
@@ -593,11 +621,33 @@ assertable, which is what makes this worth recording:
 > them positional. So the mirrored sample describes a genuine left-handed copy of the same fighter,
 > not an invented one.
 
-That is the whole argument, and it is the argument the comment should have carried in the first
-place. The reason someone would swap -- that a mirror is only valid if the mirrored sample
+**Superseded 2026-08-25: the conclusion holds, the quoted argument is wrong in both of its
+premises.** `outboard` is not the only field naming a hand's physical side -- it is *derived* from
+the arm's geometry (`src/arm.ts`), so `shoulder.x` and `tip.x` name it too, which is why
+`mirrorBody` negates all four together. And it is not true that no feature column carries a side:
+`threat_bearing` and `threat_local_right` read +0.25 / -0.25 across two worlds differing only in
+the x of the opponent's threatening hand, and `FEATURE_MIRROR_SIGN` has listed both as -1 since
+feature v4. The test C2a wrote for the quoted claim
+(`no_feature_column_carries_which_side_a_hand_is_on`) flipped `outboard` alone -- an impossible
+body -- and stayed green when a hand column spelled `Math.sign(hand.shoulder.x)` was added.
+
+The narrow statement is the one to keep, and it is the one the last clause above was reaching for:
+**no column distinguishes which physical side a given hand *slot* is on**, because the hand columns
+are all unsigned. So a mirror swapping `primary`/`secondary` would invent a distinction the network
+cannot see, and `mirrorBody` keeping the slot keys while negating the geometry is what makes the
+mirrored sample a genuine left-handed copy.
+`no_hand_column_carries_which_physical_side_a_slot_is_on` is the replacement: it builds the same
+fighter left-handed with `outboard`, `shoulder.x`, `tip.x` and `tipVelocity.x` negated together,
+requires all 99 columns to match, and asserts the threat readings that do carry a side beside them.
+The reason someone would swap -- that a mirror is only valid if the mirrored sample
 describes a body that could exist -- is a real concern that simply does not bite here, and it would
-bite immediately if any hand-side field ever reached the vector. The comment is being rewritten to
-say the checkable thing instead of the assertion.
+bite immediately if any hand-**slot**-side field ever reached the vector.
+
+The plan's original "**Pin this with asymmetric weapons rather than assuming names**" was retired
+along with the premise and is **restored as still owed**: it is a mirror question, and nothing
+mirrors an output label today, so it cannot be closed until an output mirror exists. What C2b can
+do now is what the remediation pass began -- run the effector head's tests on a body whose two
+hands hold different weapons (`sword+axe`) rather than two identical swords.
 
 `slip-left` and `slip-right`, by contrast, **are** sides and would have to swap under any mirror
 that ever carries stance. Nothing mirrors labels today, so no machinery is being added; the pair is
@@ -639,12 +689,12 @@ not specific enough to be wrong; these are the places this one was.
    cadence with `--checkpoint-every-jobs N` and session 21 accepts a rung only if it produced
    twenty-four rows. At the granularity each runner actually checkpoints at, the *whole run*
    offers fewer units than that: look-ahead 960 (`train-lookahead.mjs#L136`), NEAT-QD 80
-   generations (`train-neat-qd.mjs#L19`), DAgger **5** iterations (`collect-dagger.mjs#L17`),
+   generations (`train-neat-qd.mjs#L20`), DAgger **5** iterations (`collect-dagger.mjs#L18`),
    PPO **2** arms -- `equalBudgetPpoArms` returns exactly `["random", "dagger"]`
    (`src/learning/ppo.ts#L96-L100`). No `N` divides five into twenty-four.
    **Consequence:** the unit of work is re-cut before the cadence is chosen. DAgger checkpoints
-   at the eight shards inside `collect()` (`collect-dagger.mjs#L49`), PPO at the boundary loop
-   inside `collectPpoTrajectory` (`train-ppo.mjs#L87-L113`). Both are already index-addressed,
+   at the eight shards inside `collect()` (`collect-dagger.mjs#L57`), PPO at the boundary loop
+   inside `collectPpoTrajectory` (`train-ppo.mjs#L85-L111`). Both are already index-addressed,
    so the job-index cadence rule survives intact. The requirement was always legibility, not
    the number twenty-four; the number is what legibility costs at a one-hour spacing.
 2. **PPO spends twice its stated budget.** `equalBudgetPpoArms` assigns the full `solverSteps`
@@ -654,7 +704,7 @@ not specific enough to be wrong; these are the places this one was.
    well; the ledger's `stepsConsumed` is the only honest figure.
 3. **Validation worst-cell exists in one direction of four.** NEAT-QD computes it for real
    (`research-rollout-worker.mjs#L75`). PPO writes `macro: reward, worstCell: reward` -- the
-   same scalar (`train-ppo.mjs#L160`). DAgger has only `validationLoss`, and look-ahead only a
+   same scalar (`train-ppo.mjs#L158`). DAgger has only `validationLoss`, and look-ahead only a
    summed calibration error; both are **lower-is-better**, which inverts the sign of the
    plateau rule's "improved by at least `--plateau-epsilon`".
    **Consequence:** the plateau rule is declared over a per-direction *objective* with its
@@ -673,7 +723,7 @@ not specific enough to be wrong; these are the places this one was.
    `train-lookahead.mjs` never read `result.engagement` at all. The signed-margin gate table is
    net-new plumbing in three directions, not a formatting change.
 5. **Look-ahead has no resume, no state file and no coherent mid-run checkpoint.**
-   `--stop-after-jobs` exists only in `train-ppo.mjs#L166`; the handoff's claim that it and
+   `--stop-after-jobs` exists only in `train-ppo.mjs#L164`; the handoff's claim that it and
    `--resume` are general is wrong. Worse, a look-ahead `TacticalModel` first exists only after
    a complete train sweep (`train-lookahead.mjs#L145`) and is uncalibrated until the validation
    sweep (`#L150`), so a champion-so-far at row *k* is a computation the run does not otherwise
@@ -684,13 +734,13 @@ not specific enough to be wrong; these are the places this one was.
    makes it correspondingly easier to ship one that is quietly planning over three tactics --
    whatever session 19 builds should report the pair count it actually searched.
 6. **`configDigest` is two incompatible formats.** NEAT-QD and DAgger use 16 hex characters of
-   SHA-256 (`train-neat-qd.mjs#L34`, `collect-dagger.mjs#L28`); PPO and look-ahead use 8 hex
-   characters of FNV-1a (`train-ppo.mjs#L176`, `train-lookahead.mjs#L155`). The artifact
-   validator only requires a non-empty string (`artifact.ts#L100`). Preflight normalizes this
+   SHA-256 (`train-neat-qd.mjs#L50`, `collect-dagger.mjs#L36`); PPO and look-ahead use 8 hex
+   characters of FNV-1a (`train-ppo.mjs#L174`, `train-lookahead.mjs#L155`). The artifact
+   validator only requires a non-empty string (`artifact.ts#L165`). Preflight normalizes this
    before it can compare anything.
 7. **A SHA-256 contract digest cannot live in `src/learning/`.** That tree is browser-imported
    by the Vite app, `node:crypto` is unavailable there and `crypto.subtle` is async;
-   `artifact.ts#L70` already says so. The contract digest either uses the existing synchronous
+   `artifact.ts#L110` already says so. The contract digest either uses the existing synchronous
    FNV-1a `artifactChecksum` or lives script-side only.
 8. **There is no page-side deployment path.** Session 19 asks that a champion-so-far be
    "loadable into the page through the existing deployment path". `src/learning/deployment.ts`
@@ -727,11 +777,11 @@ Findings that change session 18 specifically:
     `a_label_free_mind_and_a_labelled_mind_agree_on_attack_intent_for_the_same_commands` fails
     as written and must be scoped: `opportunitiesForAction` requires `striker === "sword"` for
     `thrust` (`engagement.ts#L79`) where the inline matcher falls through to `true`
-    (`options.ts#L953`); `research-havok.mjs#L36` credits only `[0]`, the first matching row,
-    where `options.ts#L954` credits every match, which systematically depresses dual-wield
+    (`options.ts#L954`); `research-havok.mjs#L36` credits only `[0]`, the first matching row,
+    where `options.ts#L955` credits every match, which systematically depresses dual-wield
     opportunity conversion; the labelled paths fire on an option-change edge while the
     label-free path fires on a button edge at 240 Hz; and only the label-free path counts a
-    *guard release* as an attack (`options.ts#L937`), which inflates the numerator of
+    *guard release* as an attack (`options.ts#L938`), which inflates the numerator of
     opportunity-attack and deflates attack-contact for a defensive player.
 13. **The page's clock is wall-clock derived and the bench's is synthetic.**
     `src/main.ts#L936` takes `dt = min(engine.getDeltaTime()/1000, CONFIG.world.maxFrameSeconds)`

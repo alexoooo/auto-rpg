@@ -9,11 +9,19 @@ import { RESEARCH_CURRICULUM, RESEARCH_STRATA, curriculumStage, researchMatrix }
 import { tournamentVerdict } from "../src/learning/tournament.ts";
 import { assertCompleteView } from "./fixtures/view.mjs";
 
+// Synthetic on both halves of the header, and deliberately not the runtime
+// tables: this file is about the envelope -- checksum, algorithm, provenance,
+// plain-data ownership -- and an envelope test that imported the real
+// vocabularies would go red every time a name was added to one of them.
 const contract = Object.freeze({
   featureVersion: 3,
   featureNames: Object.freeze(["reach-margin", "facing-error"]),
+  tacticVersion: 2,
   movementNames: Object.freeze(["close", "hold"]),
   actionNames: Object.freeze(["cover", "cut"]),
+  effectorNames: Object.freeze(["primary", "natural"]),
+  targetNames: Object.freeze(["vital", "threat"]),
+  stanceNames: Object.freeze(["action-default", "compact"]),
 });
 
 test("a_research_artifact_round_trips_each_named_algorithm_and_checks_its_digest", () => {
@@ -39,6 +47,20 @@ test("an_unknown_algorithm_or_mismatched_feature_action_table_refuses_by_name", 
     /algorithm "telepathy" is unknown/);
   assert.throws(() => new ResearchArtifact({ algorithm: "ppo", ...contract, movementNames: ["orbit"], payload: [], provenance: {} }, contract),
     /movement names do not match/);
+  // All four output tables, not just the two the thirteen-wide header had. Each
+  // one is a separate name in the refusal because each one is a separate repair,
+  // and a header that grew three tables without growing three refusals would
+  // accept an artifact whose stance head is indexed against another vocabulary.
+  for (const [field, label] of [["actionNames", "action"], ["effectorNames", "effector"],
+    ["targetNames", "target"], ["stanceNames", "stance"]]) {
+    assert.throws(() => new ResearchArtifact({ algorithm: "ppo", ...contract, [field]: ["fabricated"], payload: [], provenance: {} }, contract),
+      new RegExp(`${label} names do not match`), field);
+    // And an absent table is refused with the same sentence rather than a
+    // `TypeError` from reading `.length` of `undefined`: `fromBytes` spreads what
+    // it decoded and rejects no key, so a table can genuinely be missing.
+    assert.throws(() => new ResearchArtifact({ algorithm: "ppo", ...contract, [field]: undefined, payload: [], provenance: {} }, contract),
+      new RegExp(`${label} names do not match`), field);
+  }
 });
 
 test("worker_count_and_resume_boundaries_do_not_change_indexed_jobs_or_reports", () => {

@@ -2721,3 +2721,367 @@ and checks that importing the module is still silent -- which is why the gate ex
 digit for the third stage running: 66/120 = 55.0 %, bout 3.52 (1.42-8.98), damage 176.17, 10
 severs, 1496 / 1670 scoring contacts. The schedule still expands to 240 tasks per split, 960
 groups and 46,080 minimum solver steps.
+
+## Session 17 Stage C2a: the output contract is twenty-six wide -- 2026-08-25
+
+The width moved. Nothing in the four research trainers moved with it -- that is stage C2b -- so
+this stage is the contract, the rule that makes the wider tuple legal by construction, and the
+artifact header that refuses an artifact trained against the old one.
+
+### The null control did not move, for the fourth stage running
+
+`npm run measure -- --only duelist-swinger --bouts 120`, seed 20260823, taken before the first
+edit and again with the stage complete: **66/120 = 55.0 %**, bout **3.52 (1.42-8.98)**, damage
+**176.17**, **10** severs, **1496 / 1670** scoring contacts, and the same final-blow region
+histogram. Every printed figure identical, both endpoints, on a run that takes 16 s of wall
+clock. `src/policies.ts` does not import `src/options.ts`, so this matchup never enters the
+option layer at all; it is the cheapest thing in the tree that would say a shared primitive had
+been disturbed. 495 tests before, **501** after the stage and **502** after the remediation pass
+recorded further down; `npx tsc --noEmit` and `npm run build` clean at both points, and the null
+control was taken a third time with the remediation complete and is identical again. Counted as
+top-level `test(` declarations rather than as runtime cases, the stage added **six** and extended
+two: 485 to 491, and 492 with the remediation's one.
+
+### The layout, as a running sum rather than as six literals
+
+`META_OUTPUT_LAYOUT` names `movementAt` 0, `actionAt` 5, `effectorAt` 12, `targetAt` 15,
+`stanceAt` 19, `persistenceAt` 25, `width` 26 -- `[5 movement][7 action][3 effector][4 target][6
+stance][1 persistence]`. The offsets are accumulated from the five frozen tables in
+`src/options.ts` rather than written out, so a name added to `TARGET_NAMES` moves `stanceAt` and
+`persistenceAt` with it; `one_output_table_names_every_offset_a_decoder_reads` holds the sum to
+the six numbers it currently comes to, as literals, which is the pin rather than a seventh
+re-derivation.
+
+**Stage C1's `-1` fix is what made this a one-line widening.** The old
+`values.slice(MOVEMENT_NAMES.length, -1)` would have folded thirteen extra logits into the action
+argmax here, silently, with no width check able to see it. The whole surviving hazard was
+`readMetaOutput`'s own action slice, whose upper bound moved from `persistenceAt` to `effectorAt`;
+restoring it to `persistenceAt` is the mutation that fails the offsets test, with **thirteen**
+extra logits appearing on the end of `actionLogits` -- the effector, target and stance blocks
+together, because `slice(5, 25)` is twenty entries and seven of them are the action. (This
+sentence said "three effector logits" and contradicted the paragraph above it, which had the
+number right.)
+
+`decodeMetaPersistence` did not move and its `0.35` is still not spelled
+`(MAX_PERSISTENCE - MIN_PERSISTENCE) / 2`, which in doubles is 0.35000000000000003. Both
+endpoints stay pinned as the literals they are.
+
+### Twenty-six distinct names, because the refusal indexes into them
+
+`META_OUTPUT_NAMES` is the concatenation of the same five tables plus `"persistence"`, and all 26
+are distinct as plain strings -- checked, not assumed, because `readMetaOutput`'s finiteness
+refusal names a column by indexing straight into this table. A duplicate would point a refusal at
+the wrong head and a short table would point it at nothing.
+`the_twenty_six_output_names_are_distinct_columns` asserts the length, the distinctness, the
+whole table against twenty-six literals, and **one refusal per column, all twenty-six of them**.
+Swapping the effector and target blocks inside `META_OUTPUT_NAMES` -- same length, still distinct
+-- fails it.
+
+**It probed six of the twenty-six until the remediation pass, and the name said twenty-six.** The
+sampled indices were 0 `close`, 7 `thrust`, 13 `secondary`, 17 `low`, 20 `upright`, 25
+`persistence` -- one per block, which catches a block that has moved wholesale and misses any
+reordering *inside* one whose sampled end happens to stay put. Swapping `slip-left` and
+`slip-right` at indices 23 and 24 left it green. The literals are written out rather than
+concatenated from the five vocabularies for the reason the offsets are: a table derived from the
+same source as the code agrees with whatever that source says, including that swap.
+
+### The tuple is a sum of three logits over the legal tuples, and the tie-break is not the enumeration order
+
+`selectDeployableTactic` scores every tuple in `deployableTactics(view)` by
+`actionLogits[a] + effectorLogits[e] + targetLogits[t]` and takes the largest. The mask is in
+front of the comparison; there is no repair behind it.
+
+Measured on `sword+empty` with action `[0, 0.30, 0.20, 1.00, 0, 0, 0]`, effector
+`[1.00, 0.10, 0]` and target `[0.20, 0.30, 1.00, 0]`, the three **independent** argmaxes name
+`punch` + `primary` + `low`. Every one of those three names is legal on that body on its own and
+no pair of them looks wrong; the triple is impossible, because only the empty secondary can punch
+and a punch cannot be aimed low. The joint rule answers `cut` + `primary` + `low` at 2.30, the
+runner-up being `thrust+primary+low` at 2.20 -- it keeps the two heads the network was most sure
+of and drops the action. Raise the punch logit to 3.00 and it answers `punch` + `secondary` +
+`high` at 3.40 instead, dropping the other two. No per-head repair makes both of those trades.
+Dropping the effector and target terms from the sum answers `punch+secondary+vital` and fails the
+test.
+
+**The tie-break is walked, not inherited.** Lower action index, then effector, then target, which
+is three ascending loops over the index spaces and a strict `>`. It is *not* a scan of
+`deployableTactics`, whose enumeration order is a different order: `tacticTargets("cover")` is
+`["threat", "vital"]`, table indices 3 then 0, so `deployableTactics(sword+empty)[0]` is
+`cover/primary/threat` and a scan of that list would break an all-zero tie toward `threat`. An
+all-zero vector is the ordinary case rather than a contrived one -- `initialSparseGenome` seeds
+every bias at zero, so on the first generation of every NEAT run every legal tuple ties. The
+answer is `cover/primary/vital`; relaxing `>` to `>=` answers `recover/secondary/threat`.
+
+### The two capability invariants, and the one the stage brief had backwards
+
+`recover` is legal with no hand at all and `cover` is not, which is the separation the last
+exhaustive look-ahead run bought. Both halves are asserted whole rather than sampled:
+
+- **A centipede**, which publishes no hand slots and a bite, has exactly three legal tuples --
+  `bite/natural/vital`, `recover/natural/threat`, `recover/natural/vital` -- and an all-zero
+  vector selects `bite/natural/vital`. Deleting the `recover` exception from `tacticEffectors`
+  (`if (!attached.length) return [];`) removes the two recover rows and fails it.
+- **An armless warrior is a different answer, and the stage brief asserted otherwise.**
+  `tacticEffectors(armless, "recover")` is `["natural"]` and the executor still enters it, but
+  `supportedOptions`' first line refuses a body with no attached hand *and* no natural attack
+  outright, so `deployableActions` and `deployableTactics` are both empty and no legality below
+  that gate puts a tuple back. That is not new and not a defect: `src/options.ts` records it on
+  `tacticEffectors` and `tests/options.test.mjs` has pinned it since stage B. The mask being the
+  stricter of the two is the safe direction. `selectDeployableTactic` therefore refuses it by
+  name -- `tactic has no legal action/effector/target tuple for unit "warrior"` -- rather than
+  falling through to `maskedArgmax`'s `has no supported tactic`, which names a head and not a
+  body. Nothing production reaches that throw: every controller goes inert at the same boundary
+  before it decides.
+
+### The artifact header refuses the output vocabulary as well as the input one
+
+`ResearchArtifactContract` gained `tacticVersion`, `effectorNames`, `targetNames` and
+`stanceNames`. The version comparison is written out beside the `featureVersion` one rather than
+left to the name tables, and that is load-bearing: `ResearchArtifact.fromBytes` spreads whatever
+it decoded and **rejects no unknown key**, so an artifact written against the thirteen-output
+header is not caught by having too few fields -- it arrives with `tacticVersion` `undefined`.
+
+`a_synthetic_stale_action_header_is_refused_before_solver_work` builds exactly that: a valid
+DAgger artifact with those four keys deleted from the wire object and a fresh checksum over what
+is left, so the payload is executable and only the header is stale. It is refused with
+`research artifact tactic version undefined does not match runtime 2`, and the test asserts it is
+refused for *no other reason*. Deleting the explicit check refuses it as `research artifact
+effector names do not match runtime effector names` -- true, and the wrong repair to send anybody
+to. Deleting the `Array.isArray` guard in `sameNames` as well turns it into `TypeError: Cannot
+read properties of undefined (reading 'length')`, which names neither the artifact nor the field;
+that guard exists for the case where a table is genuinely absent rather than mismatched.
+
+**Five inline copies of the header now spread one constant.**
+`collect-dagger.mjs`, `train-lookahead.mjs`, `train-neat-qd.mjs` and `train-ppo.mjs` each wrote
+the same four fields out by hand at *both* ends of the same `new ResearchArtifact(...)` call, and
+`train-ppo.mjs` held a fifth for its league loader. All of them import
+`RESEARCH_ARTIFACT_CONTRACT` from `learning/deployment.ts` now. This is the one place stage C2a
+touched a trainer, and it was unavoidable: `trainPpo` writes an artifact inside the test suite,
+so a producer keeping its own four-field literal is a red gate rather than a tidiness question.
+
+**This said "plus a test fixture" and no test fixture was converted.** Corrected 2026-08-25.
+`tests/ai-contract.test.mjs` keeps a deliberately synthetic header -- that file is about the
+envelope, and importing the real vocabularies would turn it red every time a name entered one --
+and `tests/tournament-executor.test.mjs`'s `staleContract` still spells all seven fields out on
+purpose, so that only the input half of the header is stale. The one thing in that file that
+spreads the constant did so before this stage.
+
+The `config` objects in `collect-dagger.mjs` and `train-neat-qd.mjs` restated the same four
+fields for their run digest and were left alone on the grounds that widening them moves every
+default `runId`. **That was the wrong call and the remediation pass reversed it** -- see "The
+resume landmine" below.
+
+### The mirror: a mirrored fighter is left-handed, not left-handed *and* different
+
+Two decisions, recorded rather than implemented, because nothing mirrors an output label today:
+`mirrorFeatures` and `mirrorView` are both input-side, and no network is ever run on a mirrored
+fixture.
+
+- **A mirror does not swap effector or target.** The comment on `FEATURE_MIRROR_INDEX` has said
+  for two sessions that primary and secondary "are not sides"; the *checkable* form of that is
+  narrower and can fail.
+
+  **The form stage C2a wrote down was still too wide, and it was false. Superseded 2026-08-25.**
+  It said `HandView.outboard` is the only field in the entire publication naming which physical
+  side a hand is on, and that no feature column carries a side at all. Measured: two columns do.
+  Build two views differing only in the x of the opponent's threatening hand and
+  `threat_bearing` reads +0.25 / -0.25 and `threat_local_right` +0.25 / -0.25 -- and
+  `FEATURE_MIRROR_SIGN`, two declarations above the note asserting otherwise, already marks both
+  -1 along with `facing_error` and the two trunk twists. `outboard` is not the only side-carrying
+  *field* either: it is **derived** from the arm's geometry (`src/arm.ts`, published by
+  `src/fighter.ts`), so `shoulder.x` and `tip.x` say it too, which is exactly why `mirrorBody`
+  negates all four together. The fixture that flipped `outboard` alone therefore described a body
+  that cannot exist, and a hand column spelled `Math.sign(hand.shoulder.x)` -- a column that
+  literally reports which side each hand is on -- left the old test green.
+
+  The narrow fact that is true, can fail, and is what the decision actually rests on: **no
+  column distinguishes which physical side a given hand *slot* is on.** The eight columns per
+  slot are a weapon one-hot, `lost`, `reach` and `tip_speed`, all unsigned. So the same fighter
+  built left-handed -- `outboard`, `shoulder.x`, `tip.x` and `tipVelocity.x` negated together on
+  both of its hands, with the torso left where it was -- writes a byte-identical 99-column
+  vector; swapping `primary`/`secondary` under a mirror would invent a distinction the network
+  cannot see; and `mirrorBody` keeping the slot keys while negating the geometry is what makes a
+  mirrored sample a genuine left-handed copy of the same fighter rather than an invented second
+  one. The side-carrying columns describe the **threat's** bearing rather than slot handedness,
+  and the sign table already handles them.
+
+  `no_hand_column_carries_which_physical_side_a_slot_is_on` is the replacement. It builds that
+  left-handed pair and requires all 99 columns to match, asserts the hand-column *names* against
+  the four side-free groups, asserts the +0.25 / -0.25 threat readings with every hand column
+  held equal across the same pair, and asserts the swap table whole -- exactly two entries,
+  `circle-left` and `circle-right`, so a hand swap added later shows up as a third row rather
+  than as a comment going quietly false. Adding the `Math.sign(shoulder.x)` column fails it at
+  the first of those, `-1` against `1`. `EFFECTOR_NAMES` inherit the narrow fact: they name a
+  *slot*, and no column answers which side a slot is on. `TARGET_NAMES` are heights and a threat,
+  and take no side either. **The conclusion held while the evidence for it did not.**
+- **`slip-left` and `slip-right` are sides and would swap.** They are two halves of one posture
+  (`trunkTwist` -0.65 and +0.65) and nothing else in the stance table takes a side --
+  `action-default`, `upright` and `compact` are side-neutral, and `extended` already reads the
+  acting hand's `outboard`, which a mirror has already negated. The pair is recorded on
+  `FEATURE_MIRROR_INDEX` beside `circle-left`/`circle-right` so whoever adds an output mirror
+  does not have to rediscover it. No machinery was added, because a mirror with no caller is the
+  shape stage B's `TacticDecision` had.
+
+### What has no production reader yet, and why that is the right answer here
+
+`selectDeployableTactic` is read by tests alone. The obvious production reader is
+`deployment.ts`'s NEAT branch -- and wiring *that* alone would put a joint tuple argmax on the
+deployment side of a seam whose training side, `neatLabeler` in `research-rollout-worker.mjs`,
+still takes a bare action argmax. That is the training/deployment mask divergence stage C1 spent
+its whole budget closing, and
+`the_training_decoder_and_the_deployment_decoder_answer_the_same_label` is the test that catches
+it. Both halves move together in stage C2b, with the four trainers.
+
+**That guard was not real, and this paragraph said the opposite.** Superseded 2026-08-25. The
+three new logit blocks were written as **zeros** in that test, which makes the joint sum
+degenerate to the action logit and the two decoders agree by construction. Measured: wiring
+`selectDeployableTactic` into `deployment.ts`'s NEAT labeler *only* -- exactly the split the code
+comment says is refused -- left all 501 tests passing. The blocks now carry the tuple test's own
+numbers, effector `[1.00, 0.10, 0]` and target `[0.20, 0.30, 1.00, 0]`, on which the joint rule
+answers `thrust` for `sword+empty` and `cut` for `axe+empty` where the bare action argmax answers
+`punch` for both. That divergence is asserted outright in the test, so the fixture's ability to
+see a one-sided move is checked rather than hoped for, and the same mutation now fails with
+`+ action: 'thrust' / - action: 'punch'`. `selectDeployableTactic` still has no production
+reader; the guard in front of giving it one is now one.
+
+### The remediation pass -- 2026-08-25
+
+Seven defects, each demonstrated by running the mutation rather than by reading the code, and
+two of them meant a passing test was not testing what its name said.
+
+**The effector term was not exercised by anything.** Multiplying it by zero in
+`selectDeployableTactic` left all 501 tests green. The tuple test ran only on `sword+empty`,
+where every action that can win has exactly one legal effector -- only the sword hand cuts or
+thrusts, only the empty hand punches -- so the effector head decided nothing the fixture could
+observe. The case added runs on `sword+axe`: two different one-handed weapons, `cut` legal in
+either hand and `thrust` in only one, which is the loadout where "the effector head decided"
+is separable from "the loadout decided". With action `[0, 1.00, 0, 0, 0, 0, 0]`, effector
+`[0, 1.00, 0]` and target `[0, 0.50, 0, 0]` the answer is `cut+secondary+high` at 2.50; zeroing
+the effector term ties the hands and answers `cut+primary+high`, zeroing the target term answers
+`cut+secondary+vital`. Both counterfactuals are written out, because "the effector head decided
+this" is only checkable against what the answer would be without it.
+
+**The tactic-version check was not pinned to strict equality, and its message contradicted
+itself.** Changing `!==` to `!=` in `artifact.ts` left all four contract suites green, and an
+artifact carrying `"tacticVersion": "2"` -- the number as a JSON *string* -- was then accepted:
+`"2" == 2`. The same string produced `research artifact tactic version 2 does not match runtime
+2`, which is the exact failure the comment two lines above exists to prevent. `featureVersion`'s
+neighbouring check had both weaknesses and is fixed the same way: `!==` kept, and the value
+interpolated through `JSON.stringify`, which quotes a string, leaves a number alone and renders
+an absent field as `undefined` -- so the two existing refusals are unchanged.
+`a_version_header_of_the_right_value_and_the_wrong_type_is_refused_by_type` pins both fields, and
+fails under both mutations: `Missing expected exception` for `!=`, and an assertion on the
+contradictory sentence for the bare interpolation.
+
+### The resume landmine, and the two runs that wrote to one directory
+
+`scripts/train-neat-qd.mjs` and `scripts/collect-dagger.mjs` build a `config` object carrying
+`featureVersion`, `featureNames`, `movementNames` and `actionNames` and **no output vocabulary**.
+None of those four moved when the output contract went from thirteen to twenty-six, so the config
+text is byte-identical across the widening and three things follow, all of them bad:
+
+- `--resume` accepts a saved state, reloads a 13-output population, and dies inside a worker with
+  `learned output vector is 13 wide; the contract is 26` -- loud, but named wrongly and a bout
+  late;
+- `configDigest` is the default `runId` (`neat-qd-${seed}-${configDigest}`), so a pre- and
+  post-widening run with identical settings write to the **same** directory and overwrite each
+  other's `state.json`, `champion.artifact` and `report.json`. That is data loss, not a stale
+  message;
+- the digest goes into artifact provenance, so two artifacts trained against different output
+  vocabularies carry the same one.
+
+Both config objects now carry `tacticVersion` and the three new name tables. Default `runId`s
+move, which is the point. Nothing checked in is lost: all three runs under
+`asset-src/learning/research/` were named explicitly rather than by digest
+(`session15-workers8-smoke`, `session16-final-workers8`, `session18-minimum`) and all three are
+already refused at feature version 3 against runtime 4, and no test or document pins a
+`runId` or a digest -- every `configDigest` in the suites is a hand-written literal
+(`"synthetic"`, `"contract-v3"`, `"immutable"`) in a synthetic provenance block, and the four
+mentions in `docs/plans/` are about the digest's *format*, not its value.
+
+`train-ppo.mjs` and `train-lookahead.mjs` were left alone and that is a different judgement, not
+an oversight: their digests fold `{seed, solverSteps, league}` and
+`{seed, requestedSolverSteps, fitSeeds, selectedSeed, columns}`, carry no vocabulary of either
+kind, key no run directory, and gate no `--resume`. Widening them would be a change to what
+provenance means rather than the repair of a landmine, and it belongs with C2b's trainer work.
+
+### Two dead imports, neither of which any gate could see
+
+`tsconfig.json` sets `noUnusedLocals`, and its `include` is `["src", "vite.config.ts"]` -- so
+`scripts/` is never type-checked and an unused import there is invisible to `npm run check`,
+`npm test` and `npm run build` alike. `scripts/train-lookahead.mjs` imported `FEATURE_COLUMNS`
+after this stage removed its only two uses. A sweep of every named import in all fifteen
+`scripts/*.mjs` found one more, and it was **not** this stage's:
+`scripts/research-rollout-worker.mjs` has imported `FEATURE_COLUMNS` unused since before
+`1696c26`. Both are gone. The other three trainers are clean, as are the ten remaining scripts.
+
+The cheap way to bring `scripts/` under a gate is a second `tsconfig` with
+`allowJs`/`checkJs` and `include: ["scripts"]`, run as another `tsc --noEmit`; the cost is that
+`checkJs` on fifteen untyped Node scripts reports far more than unused imports on its first run,
+so it is a session's work rather than a line of config, and it is recorded here rather than
+built.
+
+### The one output that is decoded and dropped now names its reader
+
+`readMetaOutput` answers `stanceLogits` and nothing reads it -- six of twenty-six outputs. This
+directory's rule is that an unread field may be kept only if the reader that is coming can be
+**named**, because a field with no reader and a field with no reader *yet* look identical
+(`HandView.reach` was deleted one session and restored the next for exactly that reason). It is
+named on the field now: `selectDeployableTactic` in stage C2b, which grows a fourth field on
+`DeployableTactic` -- an argmax over `STANCE_NAMES` -- and hands it to `handActionOption`'s
+`OptionExecution.stance`, where `applyTacticStance` consumes it; the two callers are
+`deployment.ts`'s NEAT branch and `neatLabeler`, and they move together for the reason
+`selectDeployableTactic`'s own note gives. The stance head is deliberately **not** part of the
+joint sum: legality is a property of the tuple, every stance is legal on every body, so nothing
+masks it and there is nothing to trade it against.
+
+### Four counts and two anchors that had gone stale
+
+- `src/learning/artifact.ts` and `docs/design.md` said the header carries "four name tables". It
+  carries five -- `movementNames`, `actionNames`, `effectorNames`, `targetNames`, `stanceNames`,
+  one per block of the output contract. `deployment.ts` and `tournament-executor.test.mjs` both
+  said five and were right. `sameNames`' own note said the *old* header carried "all four name
+  tables"; it carried three (`featureNames`, `movementNames`, `actionNames`), so that number was
+  the count of neither header.
+- The offsets note said restoring `readMetaOutput`'s action slice to `persistenceAt` appends
+  "three effector logits". `slice(5, 25)` is twenty entries, seven of them the action, so it is
+  **thirteen** -- and the paragraph immediately above it already said thirteen.
+- `docs/plans/combat-followups-00-overview.md` carried eighteen `path#Lnnn` anchors this stage
+  invalidated by inserting imports into the trainers and lines into `artifact.ts` and
+  `options.ts`. Every one was right at `1696c26`. A sweep of the whole `docs/plans/` tree against
+  `1696c26` found **thirty-nine**, across six files -- the overview plus `-16`, `-17`, `-18`,
+  `-19` and the handoff. Five of them repaired themselves when the dead `FEATURE_COLUMNS` import
+  came out of `train-lookahead.mjs`, which put that file back at its `1696c26` length; the other
+  thirty-four were re-pointed, each by locating the `1696c26` line's *text* in the current file
+  rather than by trusting an arithmetic offset, and each verified afterwards by the same
+  comparison. Two more anchors in that tree are stale for reasons that have nothing to do with
+  this stage -- `meta.ts#L154` names a `checkpoint.featureVersion !== 3` check that no longer
+  exists, and three anchors point into deleted files -- and they are left as they are, with the
+  dated supersession notes the plan set already carries.
+
+  **Why nothing catches this, measured rather than assumed.** The obvious answer -- that
+  `../tools/check_docs.js` skips `docs/plans/` -- is wrong twice over: its walker starts at the
+  repository root and skips only `.claude`, `.git`, `.tools`, `node_modules` and `target`, and
+  its `docs/plans/` exclusion is relative to *that* root, so `sword-prototype/docs/plans/` is not
+  excluded at all. Appending one Markdown link to a plan file, with href
+  `../../scripts/train-ppo.mjs#L99999`, and running the checker reports
+  `sword-prototype/docs/plans/combat-followups-19-run-legibility.md:217: line link ... is
+  outside its target`; a second probe with href `#L1` and link text naming a symbol draws the
+  stale-anchor complaint as well. The checker reaches these files and validates exactly this.
+
+  It cannot see the plan set's anchors because they are written as **inline code spans** with
+  bare file names -- `` `train-ppo.mjs#L166` `` -- and `checkGlobalInternalLinks` only inspects
+  the `href` of a Markdown link or image. So the cheap fix is not a change to the checker: it is
+  to write each anchor as a Markdown link whose href is a real relative path ending in the same
+  `#Lnnn`, at which point the existing gate
+  catches them for free and enforces its stale-symbol rule on top. The cost is the conversion
+  itself -- about forty anchors across six files -- plus a decision about the anchors that point
+  into files this plan set deliberately keeps naming after deleting them (`promotion.ts`,
+  `evaluate-options.mjs`, `training-evaluator.mjs`, `checkpoint.ts`, each already superseded in
+  place with a dated note): a link to a missing file is an error, so those have to stay code
+  spans or be rewritten as prose. Recorded rather than built.
+
+  Note also that `node tools/check_docs.js` is **already red on 29 problems**, every one of them
+  a source anchor in the repository's own `docs/` tree pointing into `crates/`, and none in
+  `sword-prototype/`. That is unrelated to this change and untouched by it, but it means the
+  gate's exit code alone would not tell anybody a sword-prototype anchor had broken -- the path
+  in the message is what separates them.

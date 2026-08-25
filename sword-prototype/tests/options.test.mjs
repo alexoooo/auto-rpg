@@ -24,7 +24,7 @@ import {
   targetHeight,
 } from "../src/options.ts";
 import { deployableTactics } from "../src/learning/meta.ts";
-import { FEATURE_COLUMNS, FEATURE_MIRROR_SIGN, FEATURE_VERSION, FeatureWriter, mirrorFeatures, mirrorView, writeFeatures } from "../src/learning/features.ts";
+import { FEATURE_COLUMNS, FEATURE_MIRROR_INDEX, FEATURE_MIRROR_SIGN, FEATURE_VERSION, FeatureWriter, mirrorFeatures, mirrorView, writeFeatures } from "../src/learning/features.ts";
 import { INTENT_FIELDS, SEED_RANGES, evaluationMirrorSeeds, evaluationSeed, intentFieldDeltas, intentSequencesEqual, validateSeedRanges } from "../src/learning/evaluation.ts";
 import { archerMind, duelistMind } from "../src/policies.ts";
 import { ACTION_SHOT_TIMING, ACTION_STROKE_TIMING, ACTION_TUNING, actionShotPhase, actionStrokeReading, bareCrowdDistance, freshIntent } from "../src/action-primitives.ts";
@@ -790,6 +790,128 @@ test("feature_v4_mirror_signs_hold_against_a_sideways_moving_threat", () => {
     assert.equal(FEATURE_MIRROR_SIGN[index], -1, `${name} names a side and has to change sign`);
     assert.ok(Math.abs(original[index]) > 0.01, `${name} is ${original[index]}, so this proves nothing about it`);
   }
+});
+
+/**
+ * The checkable half of "primary and secondary are not sides", corrected.
+ *
+ * **This test used to be called `no_feature_column_carries_which_side_a_hand_is_on`
+ * and the claim in its name is false.** Two columns carry a side and always did:
+ * build two worlds differing only in the x of the opponent's threatening hand
+ * and `threat_bearing` and `threat_local_right` come back equal and opposite.
+ * `FEATURE_MIRROR_SIGN` lists both, along with `facing_error` and the two trunk
+ * twists, which is the table admitting it. The old fixture could not see any of
+ * that, because it flipped `outboard` alone: `outboard` is *derived* from the
+ * arm's geometry (`src/arm.ts`, published by `src/fighter.ts`), so a body whose
+ * `outboard` disagrees with its own `shoulder.x` and `tip.x` is a body that
+ * cannot exist -- and `mirrorBody` negates all four together, which is itself the
+ * admission that `outboard` is not the only side-carrying field. A hand column
+ * spelled `Math.sign(hand.shoulder.x)` left that test green.
+ *
+ * The narrow fact that *is* true, can fail, and carries the decision: **no hand
+ * column distinguishes which physical side a given hand slot is on.** The eight
+ * columns per slot are a weapon one-hot, `lost`, `reach` and `tip_speed`, and
+ * none of them is signed. So the side a slot sits on is invisible, swapping
+ * `primary`/`secondary` under a mirror would invent a distinction the network
+ * cannot see, and `mirrorBody` keeping the slot keys while negating the geometry
+ * is what makes a mirrored sample a genuine left-handed copy of the same fighter
+ * rather than a second, different fighter.
+ *
+ * Tactic v2's effector head inherits exactly that: `EFFECTOR_NAMES` name a slot,
+ * no column answers which side a slot is on, so an output mirror leaves them
+ * alone. `TARGET_NAMES` are heights and a threat and take no side either. The
+ * conclusion the old test was written for still holds; the evidence for it did
+ * not.
+ */
+test("no_hand_column_carries_which_physical_side_a_slot_is_on", () => {
+  // The same fighter built left-handed: `outboard`, the shoulder, the tip and
+  // the tip velocity all negated together, which is the only coherent way to
+  // move a hand across the body. The torso's own `shoulder` and `tip` are
+  // aliases of the primary hand's in this file's fixture, so they are given
+  // their own copies first -- moving the hands must not move the body, or this
+  // would go red through `threat_bearing` and prove nothing about a hand column.
+  const sided = (side) => {
+    const built = view({ primary: "sword", secondary: "shield" }, { primary: "axe", secondary: "empty" });
+    built.opponent.hands.primary.tipSpeed = 9;
+    built.opponent.hands.primary.tipVelocity = { x: -4, y: -1, z: -7 };
+    built.self.shoulder = { ...built.self.shoulder }; built.self.tip = { ...built.self.tip };
+    for (const slot of Object.values(built.self.hands)) {
+      slot.outboard *= side;
+      slot.shoulder = { ...slot.shoulder, x: slot.shoulder.x * side };
+      slot.tip = { ...slot.tip, x: slot.tip.x * side };
+      slot.tipVelocity = { ...slot.tipVelocity, x: slot.tipVelocity.x * side };
+    }
+    return built;
+  };
+  const rightHanded = sided(1); const leftHanded = sided(-1);
+  // The fixture has to change the thing it is about and nothing else.
+  for (const name of ["primary", "secondary"]) {
+    assert.equal(leftHanded.self.hands[name].outboard, -rightHanded.self.hands[name].outboard, name);
+    assert.equal(leftHanded.self.hands[name].shoulder.x, -rightHanded.self.hands[name].shoulder.x, name);
+    assert.equal(leftHanded.self.hands[name].tip.x, -rightHanded.self.hands[name].tip.x, name);
+    assert.ok(Math.abs(rightHanded.self.hands[name].shoulder.x) > 0.01, `${name} has to be off the centre line`);
+  }
+  assert.deepEqual(leftHanded.self.shoulder, rightHanded.self.shoulder, "the torso must not have moved");
+  assert.deepEqual(writeFeatures(leftHanded), writeFeatures(rightHanded));
+  // And by name as well as by value, so a signed hand column added under a name
+  // this fixture happens not to drive is still a failure.
+  const handColumns = FEATURE_COLUMNS.filter((name) => /_(primary|secondary)_/.test(name));
+  assert.deepEqual(handColumns, ["self", "opponent"].flatMap((owner) => ["primary", "secondary"].flatMap((slot) =>
+    [...WEAPON_KINDS.map((kind) => `${owner}_${slot}_kind_${kind}`),
+      `${owner}_${slot}_lost`, `${owner}_${slot}_reach`, `${owner}_${slot}_tip_speed`])));
+
+  // **The correction, asserted rather than only written down.** Side *is* in the
+  // table -- it is the threat's side, not a slot's. Two worlds differing only in
+  // where the opponent's threatening hand is give equal and opposite readings on
+  // the two columns that name a direction in the observer's own frame, and
+  // `FEATURE_MIRROR_SIGN` marks both. Every hand column is identical across the
+  // pair, which is what separates the two facts.
+  const threatening = (x) => {
+    const built = view({ primary: "sword", secondary: "empty" }, { primary: "axe", secondary: "empty" });
+    // Off the centre line so the two readings are exactly opposite rather than
+    // merely different, and the torso gets its own shoulder for the same reason
+    // as above.
+    built.self.shoulder = { ...built.self.shoulder, x: 0 }; built.self.tip = { ...built.self.tip, x: 0 };
+    built.opponent.hands.primary.shoulder = { ...built.opponent.hands.primary.shoulder, x };
+    built.opponent.hands.primary.tip = { ...built.opponent.hands.primary.tip, x };
+    return built;
+  };
+  const fromRight = writeFeatures(threatening(0.5)); const fromLeft = writeFeatures(threatening(-0.5));
+  for (const name of ["threat_bearing", "threat_local_right"]) {
+    const index = FEATURE_COLUMNS.indexOf(name);
+    assert.equal(FEATURE_MIRROR_SIGN[index], -1, `${name} names a side and has to change sign`);
+    // The literals, not just "different": the hand is 0.5 m either side of a
+    // shoulder 0.5 m away, so the bearing is a quarter turn of pi and the local
+    // right is 0.5 over a 2 m frame scale. Both come to 0.25, and a column that
+    // read zero on both sides would satisfy "equal and opposite".
+    assert.equal(fromRight[index], 0.25, name);
+    assert.equal(fromLeft[index], -0.25, name);
+  }
+  for (const name of handColumns) {
+    const index = FEATURE_COLUMNS.indexOf(name);
+    assert.equal(fromRight[index], fromLeft[index], `${name} is a hand column and must not have moved`);
+  }
+
+  // And the mirror negates the geometry rather than renaming the slots, which is
+  // the other half of the sentence: `mirrorView` flips `outboard`, the shoulder
+  // and the tip on every hand and leaves `primary` and `secondary` where they
+  // were.
+  const reflected = mirrorView(rightHanded);
+  assert.deepEqual(Object.keys(reflected.self.hands), Object.keys(rightHanded.self.hands));
+  assert.equal(reflected.self.hands.primary.weapon, rightHanded.self.hands.primary.weapon);
+  assert.equal(reflected.self.hands.primary.outboard, -rightHanded.self.hands.primary.outboard);
+  assert.equal(reflected.self.hands.primary.shoulder.x, -rightHanded.self.hands.primary.shoulder.x);
+  assert.equal(reflected.self.hands.primary.tip.x, -rightHanded.self.hands.primary.tip.x);
+
+  // The swap table itself, whole. Exactly one pair moves, and it is a direction
+  // of travel rather than a hand -- so a hand swap added to the table would show
+  // up here as a third entry rather than as a comment going quietly false.
+  const swapped = FEATURE_MIRROR_INDEX.map((source, index) => [FEATURE_COLUMNS[index], FEATURE_COLUMNS[source]])
+    .filter(([name, from]) => name !== from);
+  assert.deepEqual(swapped, [
+    ["current_movement_circle-left", "current_movement_circle-right"],
+    ["current_movement_circle-right", "current_movement_circle-left"],
+  ]);
 });
 
 test("the_behaviour_record_counts_events_instead_of_the_truncated_combat_log", () => {

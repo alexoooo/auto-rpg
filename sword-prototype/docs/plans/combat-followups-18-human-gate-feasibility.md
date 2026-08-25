@@ -185,11 +185,11 @@ behaviour exists on the other side of it, and a search has something to find.
   and it is deliberately scoped, because **the two paths are already known to disagree in four
   ways** and a test asserting general agreement would simply fail. `opportunitiesForAction`
   requires `striker === "sword"` for `thrust` (`engagement.ts#L79`) where the inline matcher
-  falls through to `true` (`options.ts#L953`); `research-havok.mjs#L36` credits only the first
-  matching row where `options.ts#L954` credits every match, which depresses dual-wield
+  falls through to `true` (`options.ts#L954`); `research-havok.mjs#L36` credits only the first
+  matching row where `options.ts#L955` credits every match, which depresses dual-wield
   conversion; the labelled paths fire on an option-change edge and the label-free path on a
   button edge at 240 Hz; and only the label-free path counts a guard *release* as an attack
-  (`options.ts#L937`). Add `the_four_known_attack_path_disagreements_are_measured_not_assumed`
+  (`options.ts#L938`). Add `the_four_known_attack_path_disagreements_are_measured_not_assumed`
   beside it, pinning each one with a fixture, so the limit is a number in the report rather
   than a caveat in prose.
 - `tests/engagement.test.mjs`: `the_gate_table_formatter_is_shared_by_page_and_report` --

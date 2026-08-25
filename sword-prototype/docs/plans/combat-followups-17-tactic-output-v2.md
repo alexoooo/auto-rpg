@@ -554,6 +554,88 @@ tests before, **495** after.
 Still Stage C's, unchanged: the 26-output contract, the four trainers, mirrors, behaviour
 records, and `Striking.hand`.
 
+## Stage C2a, as landed -- 2026-08-25
+
+**The output contract is 26 wide.** The four research trainers are untouched and are C2b's; this
+stage is the contract, the rule that makes the wider tuple legal by construction, and the
+artifact header that refuses an artifact trained against the narrower one. 495 tests before,
+**501** after the stage and **502** after the remediation pass below; `npx tsc --noEmit` and
+`npm run build` clean; the `duelist-swinger` null control
+identical to the digit for the fourth stage running -- 66/120 = 55.0 %, 3.52 (1.42-8.98), damage
+176.17, 10 severs, 1496/1670 scoring contacts. Everything below is in `docs/measurements.md`
+under "Session 17 Stage C2a".
+
+1. **One table, six offsets.** `META_OUTPUT_LAYOUT` is `movementAt` 0, `actionAt` 5,
+   `effectorAt` 12, `targetAt` 15, `stanceAt` 19, `persistenceAt` 25, `width` 26, accumulated
+   from the five frozen tables rather than written out. `readMetaOutput` answers five logit
+   blocks and a persistence; `META_OUTPUT_NAMES` names all 26 columns and they are distinct,
+   which is checked because the finiteness refusal indexes into that table by column.
+   `decodeMetaPersistence` did not move.
+2. **Joint legal tuple selection.** `selectDeployableTactic` takes the largest
+   `action + effector + target` logit sum over `deployableTactics(view)`, masked in front of the
+   comparison and never repaired after it. Tie-break: lower action index, then effector, then
+   target -- walked over the index spaces, because `deployableTactics`' own enumeration order is
+   *not* that order (`tacticTargets("cover")` is `["threat", "vital"]`, indices 3 then 0).
+3. **The artifact header refuses the output vocabulary.** `tacticVersion` plus the three new
+   name tables, making five in the header, with the version comparison written out beside the
+   `featureVersion` one -- `fromBytes` rejects no unknown key, so a thirteen-output artifact
+   arrives with the field absent rather than wrong. Five inline producer copies now spread
+   `RESEARCH_ARTIFACT_CONTRACT`; this line said "plus the test fixture" and **no test fixture was
+   converted** -- `ai-contract.test.mjs` keeps a deliberately synthetic header and
+   `tournament-executor.test.mjs`'s `staleContract` spells all seven fields out on purpose.
+   Both version comparisons are `!==` and both interpolate the refused value through
+   `JSON.stringify`, which the remediation pass added: `!=` accepted `"tacticVersion": "2"` as a
+   string, and the bare interpolation reported it as `tactic version 2 does not match runtime 2`.
+
+Four things this plan and the stage brief got wrong, each with the evidence:
+
+- **"Prove the legal tuple set is non-empty for a fighter that has lost both hands" cannot be
+  done, and this plan already says why.** `supportedOptions` (`src/learning/meta.ts`) refuses a
+  body with no attached hand *and* no natural attack outright, so `deployableTactics` is empty
+  for an armless *warrior* -- while `tacticEffectors(view, "recover")` still answers `natural`
+  and `handActionOption` still enters it. The mask is the stricter of the two, which is the safe
+  direction, and `src/options.ts`'s note on `tacticEffectors` plus
+  `an_illegal_action_effector_target_tuple_is_masked_not_repaired` have recorded it since stage
+  B. What *is* provable, and is proved whole, is the **centipede**: three legal tuples, and
+  deleting the `recover` exception removes two of them.
+- **The `values.slice(MOVEMENT_NAMES.length, -1)` hunt found nothing, because stage C1 had
+  already closed it.** A sweep of every `slice(` in `src/`, `scripts/` and `tests/` -- plus
+  `at(-1)`, `length - 1` and `slice(-` -- turns up no surviving end-relative read of an output
+  vector. The only live hazard the widening had to fix was `readMetaOutput`'s own action slice,
+  whose upper bound moved from `persistenceAt` to `effectorAt`.
+- **"Do not touch `scripts/train-*.mjs`" and "unify every contract copy" are in conflict, and
+  the second wins.** `trainPpo` writes a `ResearchArtifact` inside `tests/ppo.test.mjs`, so a
+  producer keeping its own four-field header literal is a red gate rather than an untidy one.
+  The edit in each of the four trainers is the literal replaced by the shared constant and
+  nothing else; ~~the `config` digest objects in `collect-dagger.mjs` and `train-neat-qd.mjs`
+  restate the same four fields and were left alone, because adding the output vocabulary there
+  moves every default `runId`.~~ **Reversed 2026-08-25: that was a resume landmine and it is data
+  loss.** With no output vocabulary in the digest the config text is byte-identical across the
+  widening, so `--resume` reloads a 13-output population and dies inside a worker one bout later,
+  and -- worse -- `configDigest` *is* the default `runId`, so a pre- and post-widening run with
+  identical settings write to the same directory and overwrite each other's `state.json`,
+  `champion.artifact` and `report.json`. Both objects now carry `TACTIC_VERSION` and the three
+  new name tables. Default `runId`s move, which is the point; nothing checked in is affected,
+  because all three runs in `asset-src/learning/research/` were named explicitly and are already
+  refused at feature version 3 against runtime 4. `train-ppo.mjs` and `train-lookahead.mjs` are
+  deliberately untouched: their digests carry no vocabulary of either kind, key no directory and
+  gate no resume.
+- **`selectDeployableTactic` has no production reader, and wiring one would be worse.** The
+  obvious reader is `deployment.ts`'s NEAT branch -- and wiring it alone puts a joint tuple
+  argmax on the deployment side of a seam whose training side, `neatLabeler`, still takes a bare
+  action argmax. That is the divergence stage C1 spent its budget closing. Both halves move
+  together in C2b. **The guard named there could not see it, and now can.** Corrected
+  2026-08-25: `the_training_decoder_and_the_deployment_decoder_answer_the_same_label` wrote the
+  three new logit blocks as zeros, which makes the joint sum degenerate to the action logit and
+  the two decoders agree by construction -- wiring `selectDeployableTactic` into `deployment.ts`
+  alone left all 501 tests green. The blocks now carry numbers the joint rule and the bare argmax
+  disagree on, and the divergence is asserted in the test so the fixture's discriminating power
+  is checked rather than assumed.
+
+Still Stage C2b's, unchanged: the four trainers' *learning* halves, behaviour records, and
+`Striking.hand`. Their `config` digests moved above, which is a correctness fix rather than the
+start of that work.
+
 ## Frozen vocabulary
 
 In `src/options.ts#L8-L16`, add:
@@ -597,7 +679,7 @@ never infer offsets from object-key iteration.
 2. Select the best legal action/effector/target tuple by the sum of its three logits, with
    frozen action-then-effector-then-target tie-breaking. Do not take independent argmaxes and
    repair an illegal tuple afterward.
-3. Change `combatOption`/`handActionOption` at `src/options.ts#L115-L294` to take an exact
+3. Change `combatOption`/`handActionOption` at `src/options.ts#L116-L295` to take an exact
    effector and target. A learned request for primary/high must either execute on
    primary/high or be refused by name; it may not silently fall back to secondary or centre.
    Scripted policies may use separately named `chooseEffector` and `chooseTarget` helpers
@@ -634,9 +716,45 @@ decides whether they are useful.
   and full recurrent gradients for all three.
 - Look-ahead enumerates only legal `(movement, action, effector, target, stance)` tuples and records
   the expanded exact cell count instead of retaining the old 220-cell assertion.
-- Mirrors swap primary/secondary effectors only when the mirrored body definition actually
-  swaps anatomical sides; they always swap `slip-left/right`. Pin this with asymmetric
-  weapons rather than assuming names.
+- ~~Mirrors swap primary/secondary effectors only when the mirrored body definition actually
+  swaps anatomical sides; they always swap `slip-left/right`.~~ **Settled in stage C2a; the
+  conclusion holds and the reason recorded for it was wrong. Superseded 2026-08-25.**
+
+  A mirror does **not** swap effector or target -- that has not moved. What C2a wrote underneath
+  it has: it said `HandView.outboard` is the only field naming which physical side a hand is on,
+  and that **no feature column carries a side**. Both are false, and the second is contradicted
+  by a table two declarations away from the note asserting it. `outboard` is *derived* from the
+  arm's geometry (`src/arm.ts`), so `shoulder.x` and `tip.x` say it too -- which is why
+  `mirrorBody` negates all four together, and why C2a's fixture, which flipped `outboard` alone,
+  described a body that cannot exist. And two columns do carry a side: two worlds differing only
+  in the x of the opponent's threatening hand give `threat_bearing` +0.25 / -0.25 and
+  `threat_local_right` +0.25 / -0.25, both already marked -1 in `FEATURE_MIRROR_SIGN`. A hand
+  column spelled `Math.sign(hand.shoulder.x)` left `no_feature_column_carries_which_side_a_hand_is_on`
+  green, which is what a test named for a claim it cannot check looks like.
+
+  The narrow statement that is true, can fail, and carries the decision: **no column
+  distinguishes which physical side a given hand *slot* is on.** The hand columns are a weapon
+  one-hot, `lost`, `reach` and `tip_speed`, all unsigned. So swapping `primary`/`secondary`
+  under a mirror would invent a distinction the network cannot see, and `mirrorBody` keeping the
+  slot keys while negating the geometry is what makes a mirrored sample a genuine left-handed
+  copy of the same fighter. The side-carrying columns describe the *threat's* bearing rather
+  than slot handedness, and `FEATURE_MIRROR_SIGN` already handles them.
+  `no_hand_column_carries_which_physical_side_a_slot_is_on` is the replacement, and it goes red
+  under exactly the mutation the old one survived.
+
+  **"Pin this with asymmetric weapons rather than assuming names" is restored as still owed.**
+  It was struck through resting on the false premise above, and the work it asks for is a mirror
+  question: nothing mirrors an output *label* today, so effector behaviour under a mirror cannot
+  be pinned until an output mirror exists. What C2b can pin now, and what the remediation pass
+  started, is the effector head on a body whose two hands hold **different** weapons:
+  `the_learned_tuple_is_the_best_legal_sum_of_action_effector_and_target_logits` runs its
+  two-effector case on `sword+axe` -- `cut` legal in both hands, `thrust` in only one -- rather
+  than on two identical swords, which is the fixture that cannot tell "the effector head decided"
+  apart from "the loadout decided".
+
+  `slip-left`/`slip-right` **are** sides and would swap under any mirror that
+  ever carries stance; nothing mirrors an output label today, so the pair is recorded beside
+  `circle-left`/`circle-right` on `FEATURE_MIRROR_INDEX` and no machinery was added.
 - Behaviour records count effectors, targets and stances so a controller that emits varied
   action names while using one arm, one aim and one pose is visible to the tournament.
 

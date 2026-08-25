@@ -26,20 +26,21 @@ export const ATTACK_OPTION_NAMES: readonly OptionName[] = Object.freeze(["cut", 
  * welded to the action name rather than anything a controller could choose.
  *
  * The three tables below, and the two above them, are **ordered and frozen**,
- * and that is the contract rather than decoration: session 17 Stage C lays 26
+ * and that is the contract rather than decoration: `META_OUTPUT_LAYOUT` lays 26
  * network outputs over the five of them by index -- 5 movement, 7 action, 3
  * effector, 4 target, 6 stance and 1 persistence -- and an offset inferred from
  * object-key iteration order is an offset that moves the day somebody adds a
  * name in the middle. Nothing infers one.
  *
- * The version number itself has one reader and it is a test --
- * `the_tactic_v2_vocabulary_is_ordered_frozen_and_never_inferred`, which is the
- * hand-written copy of all five tables that fails if a name moves. Stage C is
- * the production reader: the artifact contract records which vocabulary an
- * artifact was trained against, and a v1 artifact deployed against a v2 table is
- * exactly the mismatch `decodeResearchArtifact` refuses `featureVersion` for
- * today. It is named here rather than left to be guessed at, which is this
- * directory's rule about a symbol whose reader has not arrived yet.
+ * **The production reader arrived in stage C2a and this note says which it is**,
+ * because it was named as "coming" for a whole session:
+ * `RESEARCH_ARTIFACT_CONTRACT` carries `tacticVersion` beside `featureVersion`,
+ * so an artifact trained against the thirteen-output vocabulary is refused by
+ * name at decode rather than deployed against a table it cannot index. The test
+ * copy is still there and still earns its place --
+ * `the_tactic_v2_vocabulary_is_ordered_frozen_and_never_inferred` is the
+ * hand-written duplicate of all five tables that fails if a name moves -- but it
+ * is no longer the only thing that would notice.
  */
 export const TACTIC_VERSION = 2;
 export type EffectorName = "primary" | "secondary" | "natural";

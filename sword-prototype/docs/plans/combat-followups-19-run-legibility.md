@@ -16,14 +16,14 @@ real time.
 
 Two claims this plan made about the current code are wrong, and both change the work.
 
-**`--stop-after-jobs` is not general.** It exists only in `train-ppo.mjs#L166`. `--resume` is a
-bare flag reading a fixed `state.json` in `train-neat-qd.mjs#L50` and `collect-dagger.mjs#L37`,
-and in `train-ppo.mjs#L197` it is `--resume-from <path>` while `--resume <path>` is the *output*
+**`--stop-after-jobs` is not general.** It exists only in `train-ppo.mjs#L164`. `--resume` is a
+bare flag reading a fixed `state.json` in `train-neat-qd.mjs#L66` and `collect-dagger.mjs#L45`,
+and in `train-ppo.mjs#L194` it is `--resume-from <path>` while `--resume <path>` is the *output*
 path. **`train-lookahead.mjs` has neither, and no state file at all.** Stop-and-resume for
 look-ahead is built here, before it can be checkpointed.
 
-**The cadence design already exists in two of four runners.** `train-neat-qd.mjs#L111` writes
-state on `nextGeneration % 5 === 0`, and `collect-dagger.mjs#L85` writes every iteration. This
+**The cadence design already exists in two of four runners.** `train-neat-qd.mjs#L127` writes
+state on `nextGeneration % 5 === 0`, and `collect-dagger.mjs#L93` writes every iteration. This
 session generalises a working job-index cadence rather than inventing one. Note the existing
 `atomic()` helpers are whole-file replace-by-rename; an append-only `ledger.jsonl` needs a
 different primitive, and the truncated-final-row rule below has no machinery behind it yet.
@@ -61,19 +61,19 @@ checkpoints at today, the whole run offers fewer units than one day of rows requ
 | direction | checkpointable units per full run | source |
 | --- | ---: | --- |
 | look-ahead | 960 | `train-lookahead.mjs`'s `groups` (3 x 240 train + 240 validation) |
-| NEAT-QD | 80 generations | `train-neat-qd.mjs#L19` |
-| DAgger | **5** iterations | `collect-dagger.mjs#L17` |
+| NEAT-QD | 80 generations | `train-neat-qd.mjs#L20` |
+| DAgger | **5** iterations | `collect-dagger.mjs#L18` |
 | PPO | **2** arms | `equalBudgetPpoArms` returns exactly `["random","dagger"]`, `ppo.ts#L96-L100` |
 
 No `N` divides five into twenty-four. So the unit is re-cut first, and only then is the cadence
 chosen:
 
-- **DAgger** checkpoints at the eight shards inside `collect()` (`collect-dagger.mjs#L49`),
+- **DAgger** checkpoints at the eight shards inside `collect()` (`collect-dagger.mjs#L57`),
   giving 5 x 2 x 8 = 80 units.
 - **PPO** checkpoints at the boundary loop inside `collectPpoTrajectory`
-  (`train-ppo.mjs#L87-L113`), which is today one uninterruptible Havok bout per arm.
+  (`train-ppo.mjs#L85-L111`), which is today one uninterruptible Havok bout per arm.
 - **NEAT-QD** may drop from every fifth generation to every generation; the population sweep at
-  `train-neat-qd.mjs#L76-L81` is already the finer unit if 80 proves too few.
+  `train-neat-qd.mjs#L92-L97` is already the finer unit if 80 proves too few.
 - **Look-ahead** is already fine-grained; what it lacks is resume, above.
 
 Both re-cut boundaries are already index-addressed, so the job-index rule below survives intact
@@ -103,8 +103,8 @@ for a structural reason and a gate missed by a controller must never format the 
 | direction | quantity | direction of improvement |
 | --- | --- | --- |
 | NEAT-QD | real validation worst-cell, `research-rollout-worker.mjs#L75` | higher is better |
-| PPO | `macro: reward, worstCell: reward` -- the same scalar, `train-ppo.mjs#L160` | higher is better |
-| DAgger | `validationLoss`, `collect-dagger.mjs#L42-L44` | **lower is better** |
+| PPO | `macro: reward, worstCell: reward` -- the same scalar, `train-ppo.mjs#L158` | higher is better |
+| DAgger | `validationLoss`, `collect-dagger.mjs#L50-L52` | **lower is better** |
 | look-ahead | summed calibration error, `train-lookahead.mjs#L151-L153` | **lower is better** |
 
 So the plateau rule is declared over a named per-direction **objective** carrying its own

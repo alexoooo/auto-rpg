@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 
-import { ResearchArtifact, canonicalJson } from "../src/learning/artifact.ts";
+import { ResearchArtifact, artifactChecksum, canonicalJson } from "../src/learning/artifact.ts";
 import { RESEARCH_ARTIFACT_CONTRACT, decodeResearchArtifact, deployedResearchMind } from "../src/learning/deployment.ts";
 import { FEATURE_COLUMNS, FEATURE_VERSION } from "../src/learning/features.ts";
 import { initialPopulation } from "../src/learning/genome.ts";
@@ -11,7 +11,7 @@ import { GRU_UNITS } from "../src/learning/recurrent-network.ts";
 import { SeededRng } from "../src/learning/rng.ts";
 import { TACTICAL_STATE_COLUMNS } from "../src/learning/tactical-model.ts";
 import { freezeTournamentManifest } from "../src/learning/tournament.ts";
-import { HAND_ACTION_NAMES, MOVEMENT_NAMES } from "../src/options.ts";
+import { EFFECTOR_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, STANCE_NAMES, TACTIC_VERSION, TARGET_NAMES } from "../src/options.ts";
 import { executeNextTournamentRows, loadFrozenArtifacts } from "../scripts/tournament-executor.mjs";
 
 const payload = (value) => [...new TextEncoder().encode(canonicalJson(value))];
@@ -81,11 +81,18 @@ test("a_payload_shape_mismatch_refuses_before_the_mocked_bout_opens", () => {
  * what `FEATURE_VERSION` exists to make unnecessary.
  */
 test("a_synthetic_stale_feature_header_is_refused_before_network_execution", () => {
+  // Stale on the *input* half only: the whole output half of the header matches
+  // the runtime, so the refusal below cannot be about the vocabulary a network
+  // writes into.
   const staleContract = Object.freeze({
     featureVersion: FEATURE_VERSION - 1,
     featureNames: Object.freeze(FEATURE_COLUMNS.slice(0, 66)),
+    tacticVersion: TACTIC_VERSION,
     movementNames: MOVEMENT_NAMES,
     actionNames: HAND_ACTION_NAMES,
+    effectorNames: EFFECTOR_NAMES,
+    targetNames: TARGET_NAMES,
+    stanceNames: STANCE_NAMES,
   });
   const model = dagger();
   const stale = new ResearchArtifact({ algorithm: "dagger", ...staleContract,
@@ -97,7 +104,8 @@ test("a_synthetic_stale_feature_header_is_refused_before_network_execution", () 
   // gate that reported "feature names do not match" would be telling whoever
   // reads the log to go and edit a column list, which is the wrong repair.
   assert.throws(() => decodeResearchArtifact(stale), (error) => {
-    assert.doesNotMatch(error.message, /feature names|movement names|action names|checksum|feature count/);
+    assert.doesNotMatch(error.message,
+      /feature names|tactic version|movement names|action names|effector names|target names|stance names|checksum|feature count/);
     return true;
   });
 
@@ -109,4 +117,115 @@ test("a_synthetic_stale_feature_header_is_refused_before_network_execution", () 
   const decoded = decodeResearchArtifact(current);
   assert.equal(decoded.data.featureVersion, FEATURE_VERSION);
   assert.doesNotThrow(() => deployedResearchMind(decoded, "warrior/sword+empty"));
+});
+
+/**
+ * The header from before the output contract widened, refused for that alone.
+ *
+ * The stale artifact here is not merely *wrong* in a field, it is **missing
+ * four**: an artifact written against the thirteen-output contract carries no
+ * `tacticVersion` and none of the three name tables. That is the case
+ * `artifact.ts` could not catch by construction, because `fromBytes` spreads
+ * whatever it decoded and rejects no key -- so an absent field is silently
+ * absent, and the only thing that can see it is a comparison written out by
+ * hand beside the `featureVersion` one.
+ *
+ * It has to be assembled from a valid artifact's data with those keys deleted
+ * and a fresh checksum, because `ResearchArtifact`'s constructor is one of the
+ * two things under test and will not build one. The payload is the same DAgger
+ * model that deploys at the bottom of this test, so the artifact is neither
+ * corrupt nor the wrong shape and there is nothing else for the refusal to be
+ * about.
+ */
+test("a_synthetic_stale_action_header_is_refused_before_solver_work", () => {
+  const model = dagger();
+  const current = new ResearchArtifact({ algorithm: "dagger", ...RESEARCH_ARTIFACT_CONTRACT,
+    payload: payload(model), provenance }, RESEARCH_ARTIFACT_CONTRACT);
+  const { tacticVersion, effectorNames, targetNames, stanceNames, ...body } = current.data;
+  assert.equal(tacticVersion, TACTIC_VERSION);
+  assert.deepEqual([effectorNames, targetNames, stanceNames], [EFFECTOR_NAMES, TARGET_NAMES, STANCE_NAMES]);
+  const stale = new TextEncoder().encode(canonicalJson({ ...body, checksum: artifactChecksum(canonicalJson(body)) }));
+  // The fixture can exhibit the defect, checked rather than assumed: these are
+  // absent keys and not mismatched ones, which is the whole point of the test.
+  const wire = JSON.parse(new TextDecoder().decode(stale));
+  for (const key of ["tacticVersion", "effectorNames", "targetNames", "stanceNames"]) {
+    assert.equal(Object.hasOwn(wire, key), false, key);
+  }
+  assert.equal(wire.featureVersion, FEATURE_VERSION, "the input half of the header is current");
+
+  assert.throws(() => decodeResearchArtifact(stale),
+    new RegExp(`research artifact tactic version undefined does not match runtime ${TACTIC_VERSION}`));
+  // And not for one of the six other reasons. "effector names do not match"
+  // would send whoever reads the log to edit a table that is not the problem,
+  // and a bare `TypeError` from reading `.length` of `undefined` would not name
+  // the artifact at all -- which is what this refusal replaced.
+  assert.throws(() => decodeResearchArtifact(stale), (error) => {
+    assert.equal(error instanceof TypeError, false, error.message);
+    assert.doesNotMatch(error.message,
+      /feature version|feature names|movement names|action names|effector names|target names|stance names|checksum/);
+    return true;
+  });
+
+  // The same payload under the current header decodes and deploys, so the
+  // refusal was the header and happened before a network was built from it.
+  const decoded = decodeResearchArtifact(current.toBytes());
+  assert.equal(decoded.data.tacticVersion, TACTIC_VERSION);
+  assert.doesNotThrow(() => deployedResearchMind(decoded, "warrior/sword+empty"));
+});
+
+/**
+ * A version of the right value and the wrong type, on both halves of the header.
+ *
+ * **Neither comparison was pinned to strict equality.** Relaxing `!==` to `!=`
+ * in either of `artifact.ts`'s two version gates left all four contract suites
+ * green, and an artifact carrying `"featureVersion": "4"` or `"tacticVersion":
+ * "2"` -- the numbers as JSON *strings* -- was then accepted outright: `"2" == 2`
+ * is true. A hand-edited header, a foreign writer or a template that quoted its
+ * substitutions is the only thing that produces one, which is exactly the
+ * artifact these gates exist for.
+ *
+ * **And the refusal read as a contradiction.** The message interpolated the
+ * value bare, so a string `"2"` produced `research artifact tactic version 2 does
+ * not match runtime 2` -- a sentence that sends whoever reads the log looking for
+ * a bug in the comparison. `JSON.stringify` quotes a string, leaves a number
+ * alone and renders `undefined` as `undefined`, so the sentence names the real
+ * problem without disturbing the two refusals above.
+ *
+ * The artifact has to be assembled on the wire, because `ResearchArtifact`'s
+ * constructor is the thing under test and will not build one.
+ */
+test("a_version_header_of_the_right_value_and_the_wrong_type_is_refused_by_type", () => {
+  const current = new ResearchArtifact({ algorithm: "dagger", ...RESEARCH_ARTIFACT_CONTRACT,
+    payload: payload(dagger()), provenance }, RESEARCH_ARTIFACT_CONTRACT);
+  const rewritten = (field, value) => { const body = { ...current.data, [field]: value };
+    return new TextEncoder().encode(canonicalJson({ ...body, checksum: artifactChecksum(canonicalJson(body)) })); };
+
+  for (const [field, runtime, label] of [["featureVersion", FEATURE_VERSION, "feature version"],
+    ["tacticVersion", TACTIC_VERSION, "tactic version"]]) {
+    const stringly = rewritten(field, String(runtime));
+    // The fixture can exhibit the defect: the value is right, the type is not,
+    // and `==` cannot tell them apart.
+    const wire = JSON.parse(new TextDecoder().decode(stringly));
+    assert.equal(typeof wire[field], "string", field);
+    // Loosely equal and strictly unequal, which is the whole fixture: `==` is
+    // written out rather than described, because it is the operator under test.
+    assert.ok(wire[field] == runtime, "the fixture must be loosely equal to the runtime version"); // eslint-disable-line eqeqeq
+    assert.ok(wire[field] !== runtime, "and strictly unequal, or there is nothing for `!==` to catch");
+
+    assert.throws(() => decodeResearchArtifact(stringly),
+      new RegExp(`research artifact ${label} "${runtime}" does not match runtime ${runtime}`), field);
+    // The quotes are the whole point, so the contradictory sentence is refused
+    // by name: without them this reads "tactic version 2 does not match runtime 2".
+    assert.throws(() => decodeResearchArtifact(stringly), (error) => {
+      assert.doesNotMatch(error.message, new RegExp(`${label} ${runtime} does not match`), error.message);
+      return true;
+    }, field);
+  }
+
+  // A genuine numeric mismatch is unchanged by the quoting: no quotes, and still
+  // refused for that field alone rather than by one of the name tables.
+  const older = rewritten("tacticVersion", TACTIC_VERSION - 1);
+  assert.throws(() => decodeResearchArtifact(older),
+    new RegExp(`research artifact tactic version ${TACTIC_VERSION - 1} does not match runtime ${TACTIC_VERSION}`));
+  assert.doesNotThrow(() => decodeResearchArtifact(current.toBytes()));
 });

@@ -65,7 +65,7 @@ None is under `sword-prototype`; do not misattribute them to this topic.
 ## Compute findings that changed the plan
 
 - **The gates have never been pointed at a person, and there is no shared recorder to point.**
-  `behaviourRecord()` at `src/options.ts#L886` is built by **nothing outside the tests**: its
+  `behaviourRecord()` at `src/options.ts#L887` is built by **nothing outside the tests**: its
   only two callers were `scripts/evaluate-options.mjs` and `scripts/training-evaluator.mjs`,
   which session 17 stage A deleted. `scripts/research-havok.mjs#L28` hand-rolls its own
   `EngagementTracker` on top of `runBout`'s `onSample`/`onEvent` callbacks; and the render loop

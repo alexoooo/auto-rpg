@@ -2,7 +2,7 @@ import { readFile, rename, writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { FEATURE_COLUMNS, FEATURE_VERSION } from "../src/learning/features.ts";
+import { FEATURE_COLUMNS } from "../src/learning/features.ts";
 import { ResearchArtifact, artifactChecksum, canonicalJson } from "../src/learning/artifact.ts";
 import { GRU_UNITS, RecurrentPolicy, maskedCategorical, seededRandom } from "../src/learning/recurrent-network.ts";
 import { maskedArgmax } from "../src/learning/recurrent-network.ts";
@@ -11,7 +11,7 @@ import { decodePpoResume, encodePpoResume, equalBudgetPpoArms, freezeOpponentLea
 import { researchMatrix } from "../src/learning/research-matrix.ts";
 import { researchLabelMind } from "../src/learning/research-policy.ts";
 import { predictDagger } from "../src/learning/dagger.ts";
-import { supportedActionIndices } from "../src/learning/deployment.ts";
+import { RESEARCH_ARTIFACT_CONTRACT, supportedActionIndices } from "../src/learning/deployment.ts";
 import { HAND_ACTION_NAMES, MOVEMENT_NAMES } from "../src/options.ts";
 import { runResearchBout } from "./research-havok.mjs";
 
@@ -45,12 +45,10 @@ export function opponentRoute(opponent, controllers = new Map()) {
   return { opponent: opponent.kind, controller: null };
 }
 
-const artifactContract = { featureVersion: FEATURE_VERSION, featureNames: FEATURE_COLUMNS,
-  movementNames: MOVEMENT_NAMES, actionNames: HAND_ACTION_NAMES };
 export async function loadLeagueArtifacts(paths) {
   const loaded = [];
   for (const path of paths) {
-    const bytes = new Uint8Array(await readFile(resolve(path))); const artifact = ResearchArtifact.fromBytes(bytes, artifactContract);
+    const bytes = new Uint8Array(await readFile(resolve(path))); const artifact = ResearchArtifact.fromBytes(bytes, RESEARCH_ARTIFACT_CONTRACT);
     if (artifact.data.algorithm !== "dagger" && artifact.data.algorithm !== "ppo") {
       throw new Error(`league artifact "${path}" uses ${artifact.data.algorithm}, expected dagger or ppo`);
     }
@@ -176,10 +174,9 @@ export async function trainPpo(config) {
   const configDigest = artifactChecksum(canonicalJson({ seed: config.seed, solverSteps: config.solverSteps,
     league: config.league ?? PPO_LEAGUE }));
   const payload = [...new TextEncoder().encode(canonicalJson({ initialization: selected.initialization, weights: selected.fullWeights }))];
-  const artifact = new ResearchArtifact({ algorithm: "ppo", featureVersion: FEATURE_VERSION, featureNames: FEATURE_COLUMNS,
-    movementNames: MOVEMENT_NAMES, actionNames: HAND_ACTION_NAMES, payload,
+  const artifact = new ResearchArtifact({ algorithm: "ppo", ...RESEARCH_ARTIFACT_CONTRACT, payload,
     provenance: { seed: config.seed, solverSteps: selected.solverSteps, trainingSplit: "train", validationSplit: "validation", configDigest } },
-    { featureVersion: FEATURE_VERSION, featureNames: FEATURE_COLUMNS, movementNames: MOVEMENT_NAMES, actionNames: HAND_ACTION_NAMES });
+    RESEARCH_ARTIFACT_CONTRACT);
   const optimizer = { update: 1, firstMoment: selected.weights.map(() => 0), secondMoment: selected.weights.map(() => 0),
     consumedSolverSteps: rows.reduce((sum, row) => sum + row.solverSteps, 0) };
   return { complete: true, artifact: artifact.toBytes(), resume: encodePpoResume(selected.weights, optimizer, rows),

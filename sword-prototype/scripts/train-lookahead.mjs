@@ -2,12 +2,12 @@ import { mkdir, rename, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { FEATURE_COLUMNS, FEATURE_VERSION } from "../src/learning/features.ts";
 import { ResearchArtifact, artifactChecksum, canonicalJson } from "../src/learning/artifact.ts";
 import { calibrateTacticalModel, fitTacticalModel, TACTICAL_STATE_COLUMNS } from "../src/learning/tactical-model.ts";
 import { researchMatrix } from "../src/learning/research-matrix.ts";
 import { researchLabelMind } from "../src/learning/research-policy.ts";
 import { deployableActions } from "../src/learning/meta.ts";
+import { RESEARCH_ARTIFACT_CONTRACT } from "../src/learning/deployment.ts";
 import { HAND_ACTION_NAMES, MOVEMENT_NAMES } from "../src/options.ts";
 import { runResearchBout } from "./research-havok.mjs";
 
@@ -155,10 +155,9 @@ export async function trainLookahead({ seed, solverSteps }) {
   const configDigest = artifactChecksum(canonicalJson({ seed, requestedSolverSteps: solverSteps,
     fitSeeds: seeds, selectedSeed: selected.seed, columns: TACTICAL_STATE_COLUMNS }));
   const payload = [...new TextEncoder().encode(canonicalJson(model))];
-  const artifact = new ResearchArtifact({ algorithm: "lookahead", featureVersion: FEATURE_VERSION, featureNames: FEATURE_COLUMNS,
-    movementNames: MOVEMENT_NAMES, actionNames: HAND_ACTION_NAMES, payload,
+  const artifact = new ResearchArtifact({ algorithm: "lookahead", ...RESEARCH_ARTIFACT_CONTRACT, payload,
     provenance: { seed, solverSteps: consumed, trainingSplit: "train", validationSplit: "validation", configDigest } },
-    { featureVersion: FEATURE_VERSION, featureNames: FEATURE_COLUMNS, movementNames: MOVEMENT_NAMES, actionNames: HAND_ACTION_NAMES });
+    RESEARCH_ARTIFACT_CONTRACT);
   const report = { algorithm: "lookahead", configDigest, requestedSolverSteps: solverSteps, solverSteps: consumed,
     unspentSolverSteps: solverSteps - consumed, traceRows: trainRows.length, modelDigest: model.digest,
     selectedSeed: selected.seed, calibration: Object.fromEntries(Object.entries(model.cells).map(([cell, tactics]) => [cell,

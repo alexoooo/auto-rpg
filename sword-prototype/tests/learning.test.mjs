@@ -6,14 +6,16 @@ import { FEATURE_COLUMNS, FEATURE_VERSION } from "../src/learning/features.ts";
 import { SEED_RANGES, forcedOptionEvaluationMind, mirroredEvaluationJobs, validateSeedRanges } from "../src/learning/evaluation.ts";
 import { InnovationTracker, addEdgeMutation, addNodeMutation, breedGeneration, crossover, hasCycle, initialPopulation, innovationTrackerFor, speciate, speciesSelectionWeights } from "../src/learning/genome.ts";
 import { MAX_PERSISTENCE, META_OUTPUT_LAYOUT, META_OUTPUT_NAMES, MIN_PERSISTENCE, decodeMetaPersistence,
-  deployableActions, fitnessComponents, noveltyDescriptor, randomMetaMind, readMetaOutput, supportedOptions } from "../src/learning/meta.ts";
+  deployableActions, deployableTactics, fitnessComponents, noveltyDescriptor, randomMetaMind, readMetaOutput,
+  selectDeployableTactic, supportedOptions } from "../src/learning/meta.ts";
 import { RESEARCH_ARTIFACT_CONTRACT, decodeResearchArtifact, deployedResearchMind, supportedActionIndices } from "../src/learning/deployment.ts";
 import { ResearchArtifact, canonicalJson } from "../src/learning/artifact.ts";
 import { neatLabeler } from "../scripts/research-rollout-worker.mjs";
 import { maskedArgmax } from "../src/learning/recurrent-network.ts";
 import { RecurrentNeatNetwork } from "../src/learning/recurrent-neat.ts";
 import { researchLabelMind } from "../src/learning/research-policy.ts";
-import { HAND_ACTION_NAMES, MOVEMENT_NAMES, behaviourRecord, scriptedMetaMind } from "../src/options.ts";
+import { EFFECTOR_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, STANCE_NAMES, TARGET_NAMES, behaviourRecord,
+  scriptedMetaMind, tacticEffectors } from "../src/options.ts";
 import { STRIKER_KINDS, WEAPON_KINDS } from "../src/hands.ts";
 import { partitionIndexed, restoreIndexed } from "../src/learning/jobs.ts";
 import { Network } from "../src/learning/network.ts";
@@ -227,28 +229,39 @@ test("the_runtime_learning_shape_is_the_versioned_feature_table_plus_exact_optio
   assert.deepEqual(STRIKER_KINDS.filter((kind) => !WEAPON_KINDS.includes(kind)), ["arrow", "bite"]);
   assert.equal(STRIKER_KINDS.length, 9);
   for (const kind of STRIKER_KINDS) assert.ok(FEATURE_COLUMNS.includes(`threat_kind_${kind}`), kind);
-  assert.deepEqual(META_OUTPUT_NAMES, [...MOVEMENT_NAMES, ...HAND_ACTION_NAMES, "persistence"]);
+  assert.deepEqual(META_OUTPUT_NAMES,
+    [...MOVEMENT_NAMES, ...HAND_ACTION_NAMES, ...EFFECTOR_NAMES, ...TARGET_NAMES, ...STANCE_NAMES, "persistence"]);
 });
 
 test("one_output_table_names_every_offset_a_decoder_reads", () => {
   // The offsets as literals, on purpose. Deriving them here from
   // `MOVEMENT_NAMES.length` would make this test agree with any table the code
   // happens to build, which is the sixth re-derivation rather than a pin on the
-  // other five.
-  assert.deepEqual({ ...META_OUTPUT_LAYOUT }, { movementAt: 0, actionAt: 5, persistenceAt: 12, width: 13 });
+  // other five. Six numbers now rather than four: stage C2a widened the contract
+  // from 13 to 26 by putting three logit blocks in front of the trailing scalar.
+  assert.deepEqual({ ...META_OUTPUT_LAYOUT },
+    { movementAt: 0, actionAt: 5, effectorAt: 12, targetAt: 15, stanceAt: 19, persistenceAt: 25, width: 26 });
   assert.equal(META_OUTPUT_NAMES.length, META_OUTPUT_LAYOUT.width);
-  // Thirteen distinguishable values, and the whole decoded record compared
+  // Twenty-six distinguishable values, and the whole decoded record compared
   // against a fresh one. Both halves matter: a slice that ran one short would
   // still pass a movement-only check, and the persistence read is the one that
-  // used to be spelled `.at(-1)`.
-  const values = [0.01, 0.02, 0.03, 0.04, 0.05, 0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17, 0];
+  // used to be spelled `.at(-1)` -- the read the three new blocks would have
+  // been swallowed by.
+  const values = [0.01, 0.02, 0.03, 0.04, 0.05, 0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17,
+    0.21, 0.22, 0.23, 0.31, 0.32, 0.33, 0.34, 0.41, 0.42, 0.43, 0.44, 0.45, 0.46, 0];
   assert.deepEqual({ ...readMetaOutput(values) }, {
     movementLogits: [0.01, 0.02, 0.03, 0.04, 0.05],
     actionLogits: [0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17],
+    effectorLogits: [0.21, 0.22, 0.23],
+    targetLogits: [0.31, 0.32, 0.33, 0.34],
+    stanceLogits: [0.41, 0.42, 0.43, 0.44, 0.45, 0.46],
     persistence: decodeMetaPersistence(0),
   });
-  assert.throws(() => readMetaOutput(values.slice(0, 12)), /vector is 12 wide; the contract is 13/);
-  assert.throws(() => readMetaOutput([...values, 0]), /vector is 14 wide; the contract is 13/);
+  // Thirteen wide is the *old* contract rather than an arbitrary short vector,
+  // which is what a genome bred before this stage actually is.
+  assert.throws(() => readMetaOutput(values.slice(0, 13)), /vector is 13 wide; the contract is 26/);
+  assert.throws(() => readMetaOutput(values.slice(0, 25)), /vector is 25 wide; the contract is 26/);
+  assert.throws(() => readMetaOutput([...values, 0]), /vector is 27 wide; the contract is 26/);
   // The rescale, as the literals it actually produces. It reaches
   // `MIN_PERSISTENCE` exactly and stops one ulp short of `MAX_PERSISTENCE`; that
   // is the window every rollout in the tree was taken under, and writing the
@@ -259,6 +272,38 @@ test("one_output_table_names_every_offset_a_decoder_reads", () => {
   assert.ok(decodeMetaPersistence(1) < MAX_PERSISTENCE);
   assert.equal(decodeMetaPersistence(-40), decodeMetaPersistence(-1));
   assert.equal(decodeMetaPersistence(40), decodeMetaPersistence(1));
+});
+
+test("the_twenty_six_output_names_are_distinct_columns", () => {
+  // `readMetaOutput`'s finiteness refusal indexes straight into `META_OUTPUT_NAMES`
+  // by column, so the table has to be exactly as long as the contract and has to
+  // name each column once. Two columns sharing a name would produce a refusal
+  // pointing at the wrong head, which is worse than one pointing at a number --
+  // and at 26 names drawn from five separately-frozen vocabularies, a collision
+  // is a thing somebody can introduce without noticing.
+  assert.equal(META_OUTPUT_NAMES.length, 26);
+  assert.equal(new Set(META_OUTPUT_NAMES).size, 26, "no output column is named twice");
+  // **All twenty-six, as literals, and every one of them poisoned.** This
+  // probed six indices -- 0, 7, 13, 17, 20, 25 -- and the name says twenty-six:
+  // swapping `slip-left` and `slip-right` at 23/24 left it green, and so would
+  // any reordering inside a block whose two ends happened to be sampled.
+  // Literals rather than a concatenation of the five vocabularies, for the same
+  // reason `one_output_table_names_every_offset_a_decoder_reads` writes its
+  // offsets out: a table derived from the same source as the code agrees with
+  // whatever that source says, including a swap inside `STANCE_NAMES`.
+  const names = ["close", "hold", "circle-left", "circle-right", "disengage",
+    "cover", "cut", "thrust", "punch", "shoot", "bite", "recover",
+    "primary", "secondary", "natural",
+    "vital", "high", "low", "threat",
+    "action-default", "upright", "compact", "extended", "slip-left", "slip-right",
+    "persistence"];
+  assert.deepEqual([...META_OUTPUT_NAMES], names);
+  const finite = Array.from({ length: 26 }, (_, index) => index / 100);
+  const poisoned = (index, value) => finite.map((entry, at) => at === index ? value : entry);
+  names.forEach((name, index) => {
+    assert.throws(() => readMetaOutput(poisoned(index, NaN)),
+      new RegExp(`learned output "${name}" is NaN`), `column ${index}`);
+  });
 });
 
 const learningView = (primary = "sword", secondary = "empty") => {
@@ -280,12 +325,27 @@ const jawedView = () => {
 };
 
 /**
- * A genome whose thirteen outputs are exactly the numbers asked for.
+ * One 26-wide output vector, written as its five named blocks.
+ *
+ * A bare array of twenty-six numbers is a thing nobody can check by eye, and
+ * three of the tests below care about exactly one block. Every block defaults to
+ * zeros, so a test states only the block it is about and the rest is visibly
+ * neutral rather than accidentally decisive.
+ */
+const outputVector = ({ movement = [0, 0, 0, 0, 0], action = [0, 0, 0, 0, 0, 0, 0], effector = [0, 0, 0],
+  target = [0, 0, 0, 0], stance = [0, 0, 0, 0, 0, 0], persistence = 0 } = {}) => {
+  const values = [...movement, ...action, ...effector, ...target, ...stance, persistence];
+  assert.equal(values.length, META_OUTPUT_LAYOUT.width, "the fixture writes the whole contract");
+  return values;
+};
+
+/**
+ * A genome whose twenty-six outputs are exactly the numbers asked for.
  *
  * Every node is `identity` with no incoming edge, so `RecurrentNeatNetwork.run`
  * answers each output node's bias. A bred genome would work too and would prove
  * less: the point below is which *index* each decoder reads, and that is only
- * visible when the thirteen values are told apart.
+ * visible when the twenty-six values are told apart.
  */
 const constantGenome = (values) => ({ id: 0, fitness: 0, adjustedFitness: 0, novelty: 0, edges: [],
   nodes: [
@@ -302,10 +362,24 @@ test("the_training_decoder_and_the_deployment_decoder_answer_the_same_label", ()
   // `researchLabelMind` an action the deployment mask refuses, which kills the
   // run with `research policy produced unsupported action "punch"`. Both sides
   // now ask `deployableActions`.
+  //
+  // **The three blocks stage C2a added carry real numbers, and that is the whole
+  // of this test's ability to see a one-sided move.** They were written as zeros,
+  // which makes the joint sum degenerate to the action logit and the two decoders
+  // agree *by construction*: wiring `selectDeployableTactic` into `deployment.ts`
+  // alone -- exactly the split `selectDeployableTactic`'s own note says is
+  // refused -- left the whole suite green. The effector and target blocks below
+  // are the tuple test's, chosen so the joint rule and the bare action argmax
+  // disagree; the divergence is asserted outright a few lines down so the
+  // fixture's discriminating power is checked rather than hoped for.
   const movementLogits = [0.1, 0.5, 0.2, 0.3, 0.4];
   const actionLogits = [0.1, 0.2, 0.3, 0.9, 0.4, 0.5, 0.05];
+  const effectorLogits = [1.00, 0.10, 0];
+  const targetLogits = [0.20, 0.30, 1.00, 0];
   assert.deepEqual(HAND_ACTION_NAMES, ["cover", "cut", "thrust", "punch", "shoot", "bite", "recover"]);
-  const genome = constantGenome([...movementLogits, ...actionLogits, 0.5]);
+  const outputs = outputVector({ movement: movementLogits, action: actionLogits,
+    effector: effectorLogits, target: targetLogits, persistence: 0.5 });
+  const genome = constantGenome(outputs);
   const bytes = new ResearchArtifact({ algorithm: "neat-qd", ...RESEARCH_ARTIFACT_CONTRACT,
     payload: [...new TextEncoder().encode(canonicalJson(genome))],
     provenance: { seed: 7, solverSteps: 4, trainingSplit: "train", validationSplit: "validation", configDigest: "synthetic" },
@@ -336,6 +410,20 @@ test("the_training_decoder_and_the_deployment_decoder_answer_the_same_label", ()
   // And the answers are legal on the body that produced them, asked of the mask
   // itself rather than of either decoder.
   for (const [loadout, view] of Object.entries(views)) assert.ok(deployableActions(view).has(expected[loadout].action), loadout);
+
+  // The fixture can exhibit the defect it exists for, stated as numbers rather
+  // than assumed. On `sword+empty` these same twenty-six values give the joint
+  // tuple rule `thrust+primary+low` -- 0.30 + 1.00 + 1.00 = 2.30 against
+  // `punch+secondary+high`'s 0.90 + 0.10 + 0.30 -- while the bare action argmax
+  // answers `punch`. Two of the seven loadouts diverge; one is enough, and the
+  // whole table is written out so that a change which quietly reduces it to zero
+  // is a failure rather than a silently weaker test.
+  const joint = Object.fromEntries(Object.entries(views).map(([loadout, view]) =>
+    [loadout, selectDeployableTactic(view, readMetaOutput(outputs)).action]));
+  assert.deepEqual(joint, { "sword+empty": "thrust", "sword+shield": "thrust", "sword+buckler": "thrust",
+    "axe+empty": "cut", "bow+empty": "shoot", "empty+empty": "punch", "natural:bite": "bite" });
+  assert.deepEqual(Object.keys(joint).filter((loadout) => joint[loadout] !== expected[loadout].action),
+    ["sword+empty", "axe+empty"]);
 });
 
 test("a_logit_tie_is_broken_by_table_order_in_both_decoders", () => {
@@ -349,7 +437,7 @@ test("a_logit_tie_is_broken_by_table_order_in_both_decoders", () => {
   const actionLogits = [0.8, 0.2, 0.3, 0.8, 0.1, 0.05, 0.4];
   assert.deepEqual(MOVEMENT_NAMES, ["close", "hold", "circle-left", "circle-right", "disengage"]);
   assert.deepEqual(HAND_ACTION_NAMES, ["cover", "cut", "thrust", "punch", "shoot", "bite", "recover"]);
-  const genome = constantGenome([...movementLogits, ...actionLogits, 0.5]);
+  const genome = constantGenome(outputVector({ movement: movementLogits, action: actionLogits, persistence: 0.5 }));
   const bytes = new ResearchArtifact({ algorithm: "neat-qd", ...RESEARCH_ARTIFACT_CONTRACT,
     payload: [...new TextEncoder().encode(canonicalJson(genome))],
     provenance: { seed: 7, solverSteps: 4, trainingSplit: "train", validationSplit: "validation", configDigest: "synthetic" },
@@ -368,9 +456,11 @@ test("a_non_finite_learned_output_is_refused_by_name_before_it_deletes_the_persi
   // refuses a non-finite *logit*; the trailing scalar had nothing watching it
   // once `networkMetaMind` went, and this function's own docstring claimed to be
   // the one place a vector is taken apart and refused.
-  const finite = [0.01, 0.02, 0.03, 0.04, 0.05, 0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17, 0];
+  const finite = outputVector({ movement: [0.01, 0.02, 0.03, 0.04, 0.05],
+    action: [0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17], effector: [0.21, 0.22, 0.23],
+    target: [0.31, 0.32, 0.33, 0.34], stance: [0.41, 0.42, 0.43, 0.44, 0.45, 0.46] });
   const poisoned = (index, value) => finite.map((entry, at) => at === index ? value : entry);
-  assert.throws(() => readMetaOutput(poisoned(12, NaN)), /learned output "persistence" is NaN/);
+  assert.throws(() => readMetaOutput(poisoned(META_OUTPUT_LAYOUT.persistenceAt, NaN)), /learned output "persistence" is NaN/);
   assert.throws(() => readMetaOutput(poisoned(0, Infinity)), /learned output "close" is Infinity/);
   assert.throws(() => readMetaOutput(poisoned(7, -Infinity)), /learned output "thrust" is -Infinity/);
 
@@ -380,7 +470,8 @@ test("a_non_finite_learned_output_is_refused_by_name_before_it_deletes_the_persi
   // `self_vitality` at 1.
   const vitality = FEATURE_COLUMNS.indexOf("self_vitality");
   assert.ok(vitality >= 0);
-  const base = constantGenome([0.1, 0.5, 0.2, 0.3, 0.4, 0.1, 0.2, 0.3, 0.9, 0.4, 0.5, 0.05, 0.5]);
+  const base = constantGenome(outputVector({ movement: [0.1, 0.5, 0.2, 0.3, 0.4],
+    action: [0.1, 0.2, 0.3, 0.9, 0.4, 0.5, 0.05], persistence: 0.5 }));
   const hidden = FEATURE_COLUMNS.length + 1 + META_OUTPUT_LAYOUT.width;
   const persistence = FEATURE_COLUMNS.length + 1 + META_OUTPUT_LAYOUT.persistenceAt;
   const overflowing = { ...base,
@@ -460,6 +551,143 @@ test("a_learned_action_the_loadout_cannot_perform_is_masked_and_then_refused_by_
   // unmasked one arriving at execution would be an option the body cannot do.
   const mind = researchLabelMind("neat-qd", () => ({ movement: "hold", action: "shoot", persistence: 0.10 }));
   assert.throws(() => mind.decide(view, 1 / 240), /research policy produced unsupported action "shoot"/);
+});
+
+/** The independent per-head argmax the joint rule replaces, written out so the two can be compared. */
+const independentArgmax = (logits, names) => names[logits.reduce((best, value, index) => value > logits[best] ? index : best, 0)];
+
+test("the_learned_tuple_is_the_best_legal_sum_of_action_effector_and_target_logits", () => {
+  const view = learningView("sword", "empty");
+  // A sword in the primary and nothing in the secondary, which is the loadout
+  // where every third of the tuple has a different answer: only the sword hand
+  // can cut or thrust, only the empty hand can punch, and only a cut or a thrust
+  // may be aimed low.
+  //
+  // The three logit blocks below are chosen so that the *independent* argmaxes
+  // name `punch` + `primary` + `low`. Each of those three names is legal on this
+  // body on its own, and no pair of them is obviously wrong -- the triple is what
+  // is impossible. That is the case a repair pass cannot handle honestly: it has
+  // to throw away a head the network meant, and whichever one it picks is a
+  // decision nobody made.
+  const action = [0, 0.30, 0.20, 1.00, 0, 0, 0];
+  const effector = [1.00, 0.10, 0];
+  const target = [0.20, 0.30, 1.00, 0];
+  assert.equal(independentArgmax(action, HAND_ACTION_NAMES), "punch");
+  assert.equal(independentArgmax(effector, EFFECTOR_NAMES), "primary");
+  assert.equal(independentArgmax(target, TARGET_NAMES), "low");
+  assert.equal(deployableTactics(view).some((row) => row.action === "punch" && row.effector === "primary" && row.target === "low"),
+    false, "the independently-argmaxed triple is not a legal tuple");
+
+  // The answer, whole, against a literal. `cut+primary+low` sums to 2.30 and the
+  // best any other legal tuple reaches is `thrust+primary+low` at 2.20 -- so the
+  // rule keeps the effector and the target the network was most sure of and
+  // drops the action, which is a trade no per-head repair can make.
+  assert.deepEqual({ ...selectDeployableTactic(view, readMetaOutput(outputVector({ action, effector, target }))) },
+    { action: "cut", effector: "primary", target: "low" });
+
+  // And the trade goes the other way when the action head is sure enough:
+  // `punch+secondary+high` at 3.40 beats `cut+primary+low` at 2.30. A rule that
+  // simply preferred the highest legal action logit, or the highest legal
+  // effector, would answer one of these two and be wrong about the other.
+  const insistent = [0, 0.30, 0.20, 3.00, 0, 0, 0];
+  assert.deepEqual({ ...selectDeployableTactic(view, readMetaOutput(outputVector({ action: insistent, effector, target }))) },
+    { action: "punch", effector: "secondary", target: "high" });
+
+  // **The effector term, on a body where it decides something.** Everything
+  // above runs on `sword+empty`, where every action that can win has exactly one
+  // legal effector -- only the sword hand cuts or thrusts, only the empty hand
+  // punches -- so the effector logits cannot change the answer and multiplying
+  // that term by zero left all 501 tests passing. This is the loadout where they
+  // can: a sword and an **axe**, two different one-handed weapons, so `cut` is
+  // legal in either hand and only the effector head can tell them apart.
+  // Asymmetric on purpose rather than two swords: an asymmetric pair also has an
+  // action the two hands do not share, which is what makes "the effector head
+  // decided" separable from "the loadout decided".
+  const mixed = learningView("sword", "axe");
+  assert.deepEqual([...tacticEffectors(mixed, "cut")], ["primary", "secondary"],
+    "the fixture has to offer one action in two hands, or it proves nothing about the effector term");
+  assert.deepEqual([...tacticEffectors(mixed, "thrust")], ["primary"], "and an axe has no point");
+  // `cut` alone in the action head, the *second* hand in the effector head, and
+  // `high` in the target head, so all three terms are separately decisive:
+  // `cut+secondary+high` is 1.00 + 1.00 + 0.50 = 2.50, against `cut+primary+high`
+  // at 1.50 and `cut+secondary+vital` at 2.00.
+  const handed = readMetaOutput(outputVector({ action: [0, 1.00, 0, 0, 0, 0, 0], effector: [0, 1.00, 0],
+    target: [0, 0.50, 0, 0] }));
+  assert.deepEqual({ ...selectDeployableTactic(mixed, handed) },
+    { action: "cut", effector: "secondary", target: "high" });
+  // Both counterfactuals as literals, because "the effector head decided this"
+  // is only checkable against what the answer would be without it. Zeroing the
+  // effector term ties the two hands and the tie-break takes `primary`; zeroing
+  // the target term ties the three heights and takes `vital`. Each is one of the
+  // two mutations this case was watched failing under.
+  assert.deepEqual({ ...selectDeployableTactic(mixed,
+    readMetaOutput(outputVector({ action: [0, 1.00, 0, 0, 0, 0, 0], target: [0, 0.50, 0, 0] }))) },
+  { action: "cut", effector: "primary", target: "high" });
+  assert.deepEqual({ ...selectDeployableTactic(mixed,
+    readMetaOutput(outputVector({ action: [0, 1.00, 0, 0, 0, 0, 0], effector: [0, 1.00, 0] }))) },
+  { action: "cut", effector: "secondary", target: "vital" });
+});
+
+test("a_tied_legal_tuple_is_broken_by_action_then_effector_then_target_index", () => {
+  const view = learningView("sword", "empty");
+  // An all-zero vector is not an exotic input: an untrained genome answers its
+  // biases and `initialSparseGenome` seeds those at zero, so on the first
+  // generation of every NEAT run *every* legal tuple ties.
+  const tied = readMetaOutput(outputVector());
+  assert.deepEqual({ ...selectDeployableTactic(view, tied) }, { action: "cover", effector: "primary", target: "vital" });
+  // The discriminating half, and the reason the rule walks the index spaces
+  // rather than scanning `deployableTactics`. `tacticTargets("cover")` is
+  // `["threat", "vital"]` -- table indices 3 then 0 -- so the enumeration order
+  // of the legal set puts `threat` first, and a scan of it with `>` would answer
+  // `threat` here. "Lower target index" is `vital`.
+  assert.deepEqual(deployableTactics(view)[0], { action: "cover", effector: "primary", target: "threat" });
+
+  // The same discrimination on a second action, so a fix that special-cased
+  // `cover` would still fail. `recover` shares the defensive target row.
+  const recovering = readMetaOutput(outputVector({ action: [0, 0, 0, 0, 0, 0, 1] }));
+  assert.deepEqual({ ...selectDeployableTactic(view, recovering) },
+    { action: "recover", effector: "primary", target: "vital" });
+
+  // Effector is the middle key and needs its own case: tie the two hands on an
+  // action both can perform and the lower index wins, without the target moving.
+  const covering = readMetaOutput(outputVector({ action: [1, 0, 0, 0, 0, 0, 0], effector: [0.5, 0.5, 0] }));
+  assert.deepEqual({ ...selectDeployableTactic(view, covering) },
+    { action: "cover", effector: "primary", target: "vital" });
+});
+
+test("a_body_that_can_still_fight_always_has_a_legal_tuple_and_one_that_cannot_is_refused_by_name", () => {
+  // The centipede: no hand slots at all, a published bite. The whole set rather
+  // than a membership check, because "non-empty" is satisfied by a set with the
+  // wrong contents and this is what `recover` staying capability-neutral buys.
+  const jaws = jawedView();
+  assert.deepEqual(deployableTactics(jaws).map((row) => ({ ...row })), [
+    { action: "bite", effector: "natural", target: "vital" },
+    { action: "recover", effector: "natural", target: "threat" },
+    { action: "recover", effector: "natural", target: "vital" },
+  ]);
+  assert.deepEqual({ ...selectDeployableTactic(jaws, readMetaOutput(outputVector())) },
+    { action: "bite", effector: "natural", target: "vital" });
+
+  // A warrior that has lost both hands, and this is the half the plan for this
+  // stage had backwards. The *executor's* rule is capability-neutral -- `recover`
+  // answers the natural effector with no hand at all, and `cover` answers nothing
+  // -- which is the separation the last exhaustive look-ahead run bought. But
+  // `supportedOptions`' first line refuses a body with no attached hand and no
+  // natural attack outright, so the deployment *mask* is empty for it, and no
+  // amount of legality below that gate puts a tuple back.
+  const armless = learningView("sword", "empty");
+  armless.self.hands.primary.lost = true; armless.self.hands.secondary.lost = true;
+  assert.deepEqual([...tacticEffectors(armless, "recover")], ["natural"], "recovery needs no hand");
+  assert.deepEqual([...tacticEffectors(armless, "cover")], [], "a cover needs a hand to place");
+  assert.deepEqual(deployableTactics(armless), [], "and the mask is the stricter of the two");
+  // So the selection refuses by name rather than falling through `maskedArgmax`'s
+  // `has no supported tactic`, which names a head and not the body.
+  assert.throws(() => selectDeployableTactic(armless, readMetaOutput(outputVector())),
+    /tactic has no legal action\/effector\/target tuple for unit "warrior"/);
+  // Nothing in production reaches that throw today: every controller goes inert
+  // at the same boundary before it decides. This is the sentence whoever gives a
+  // learned controller an armless cell will read.
+  assert.equal(supportedOptions(armless).size, 0);
 });
 
 test("the_factorized_policy_uses_a_published_natural_bite_without_fabricated_hands", () => {

@@ -56,7 +56,7 @@ edits produces a failure whose message reads backwards:
 - `src/learning/promotion.ts#L97` hardcodes `row.featureVersion !== 2` -- already stale by one
   version before this session starts.
 
-The codecs themselves (`artifact.ts#L87-L89`, `checkpoint.ts#L191-L192`) do compare against the
+The codecs themselves (`artifact.ts#L140-L142`, `checkpoint.ts#L191-L192`) do compare against the
 runtime contract generically and need no edit.
 
 ## Publish facts, allocation-free
@@ -157,7 +157,7 @@ In `src/action-primitives.ts` and `src/options.ts`, introduce a factual threat t
 cover skills. The function that actually decides what cover aims at is **`actionCoverAt` at
 `src/action-primitives.ts#L155-L165`, outside the range this plan originally cited**: it aims
 at the threat hand's `tip` when that tip is nearer than the opponent's shoulder, and at the
-opponent's chest otherwise. The call sites are `options.ts#L163, L169, L217, L223, L243` and
+opponent's chest otherwise. The call sites are `options.ts#L164, L169, L217, L223, L243` and
 `policies.ts#L386`. The only existing predictive-aim arithmetic to model the crossing solve on
 is `actionArrowLift`/`actionArcherAim` (`action-primitives.ts#L73-L85`).
 

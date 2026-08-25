@@ -106,8 +106,13 @@ persistence interval. Novelty descriptors cover range, guard, handedness and att
 transitions without granting the learner new authority.
 
 The learned meta-controller does not produce poses. A frozen research artifact maps the
-versioned 99-column v4 `FighterView` feature table to separate movement and hand-action logits
-plus a bounded persistence interval. The columns include usable reach margin, facing and the current
+versioned 99-column v4 `FighterView` feature table to the tactic-v2 output contract: 26 numbers,
+laid over the five frozen vocabularies by index -- 5 movement, 7 hand-action, 3 effector, 4 target,
+6 stance and a bounded persistence interval. `META_OUTPUT_LAYOUT` in `learning/meta.ts` is the one
+table that names those offsets and nothing infers one; before session 17 stage C1 the layout was
+re-derived in five places, and one of them read the action block as "everything after the movements
+except the last number", which is a wrong argmax over a correct vector the moment a second block
+trails it. The columns include usable reach margin, facing and the current
 factorized tactic, as v3 did, and session 16 added what a policy needs to tell an incoming
 strike from a receding one: a nine-way one-hot over the selected threat's kind — arrows and
 bites included — that threat's position and velocity in the observer's own right/up/forward
@@ -124,10 +129,28 @@ of it, in [measurements](measurements.md). Unsupported options
 are masked before the argmax that chooses one -- `deployableActions` in `learning/meta.ts` is
 the single copy of that mask, and `supportedActionIndices` in `learning/deployment.ts` is only
 its projection onto the argmax's index space -- and the seam below it refuses an
-unsupported action by name rather than substituting a legal one. Reading a controller's
-diagnostic never runs it. A stale or wrong-feature artifact is refused by the envelope before
-any network is built from its payload; there is no fallback that quietly turns an experiment
-into `duelist`.
+unsupported action by name rather than substituting a legal one. The same rule extended to the
+whole tuple in stage C2a: `deployableTactics` is `deployableActions` crossed with the effector and
+target tables the executor itself refuses by, and `selectDeployableTactic` scores a tuple by the
+**sum of its three logits over the legal tuples only**. Three independent argmaxes would name
+`punch` on a sword hand or `low` on a punch, and there is nothing honest to do about that
+afterwards -- refusing a decision the network meant, or repairing it into a tuple nobody chose,
+which is the silent redirection tactic v2 exists to remove. Ties break on action index, then
+effector, then target, and that order is walked rather than inherited from the legal set's
+enumeration order: `tacticTargets("cover")` is `["threat", "vital"]`, so a scan of the legal set
+would break a tie toward `threat`, which is the later name in the frozen table.
+Reading a controller's diagnostic never runs it. A stale or wrong-feature artifact is refused by
+the envelope before any network is built from its payload; there is no fallback that quietly turns
+an experiment into `duelist`. The envelope refuses on the **output** vocabulary too: the header
+carries `tacticVersion` and all five output name tables -- movement, action, effector, target,
+stance, one per block of the contract -- beside `featureVersion` and the column
+list, and the version comparison is written out by hand because `ResearchArtifact` rejects no
+unknown key, so an artifact from before the header grew arrives with the field simply absent.
+That comparison is `!==` rather than `!=` for a reason worth stating: `==` accepts a header whose
+version is the right number written as a JSON *string*, which is precisely the hand-edited or
+foreign artifact the gate exists for. The refused value is interpolated through `JSON.stringify`
+so the sentence reads `tactic version "2" does not match runtime 2` rather than naming the same
+number twice.
 
 **"Single copy" was a claim about the runtime and was not true when it was written.** The mask
 was spelled out three times -- in `deployment.ts`, `research-policy.ts` and `lookahead.ts` --
@@ -157,8 +180,9 @@ silence. A dual wielder could not ask for its off sword -- the option searched
 `[preferred, other]` and answered with whichever hand could, so a request for the primary was
 executed on the secondary and nothing said so. Every attack replayed one fixed aim at the
 opponent's shoulder line. Crouch, lean and twist were animation welded to the action name.
-Session 17 Stage B closed all three in the execution layer, leaving the output contract at
-thirteen values until Stage C widens it:
+Session 17 Stage B closed all three in the execution layer and Stage C2a widened the output
+contract from thirteen values to twenty-six, so a learned controller can name what Stage B made
+namable:
 
 - **The effector is exact.** `handActionOption` is handed the effector it will use and either
   uses it or refuses by name; the silent search survives as `chooseEffector`, which is the

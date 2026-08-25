@@ -7,8 +7,9 @@ import { aggregateDaggerRows, balancedDaggerRows, daggerClassificationMetrics, p
   selectDaggerIteration, trainDaggerModel } from "../src/learning/dagger.ts";
 import { FEATURE_COLUMNS, FEATURE_VERSION } from "../src/learning/features.ts";
 import { researchMatrix } from "../src/learning/research-matrix.ts";
+import { RESEARCH_ARTIFACT_CONTRACT } from "../src/learning/deployment.ts";
 import { TACTICAL_TEACHER_VERSION } from "../src/learning/tactical-teacher.ts";
-import { HAND_ACTION_NAMES, MOVEMENT_NAMES } from "../src/options.ts";
+import { EFFECTOR_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, STANCE_NAMES, TACTIC_VERSION, TARGET_NAMES } from "../src/options.ts";
 
 const argv = process.argv.slice(2);
 const value = (name, fallback) => { const at = argv.indexOf(`--${name}`); return at < 0 ? fallback : argv[at + 1]; };
@@ -21,10 +22,17 @@ for (const [name, number] of Object.entries({ seed, solverSteps, iterations, wor
 if (solverSteps % 4 !== 0) throw new Error("--solver-steps must be divisible by four");
 const evaluationJobs = iterations * 2; const quanta = solverSteps / 4; const baseQuanta = Math.floor(quanta / evaluationJobs);
 const extraJobs = quanta % evaluationJobs; if (baseQuanta < 1) throw new Error("DAgger budget cannot cover every train/validation job");
+// The output vocabulary, for the reason written out in full on `train-neat-qd.mjs`'s
+// own `config`: without it this text is byte-identical either side of a change to
+// what a network *writes*, so `--resume` reloads a population or a model bred
+// against a retired output contract, and `configDigest` -- which is the default
+// `runId` and goes into artifact provenance -- cannot tell the two runs apart.
 const config = { version: 1, algorithm: "dagger", seed, solverSteps, iterations,
   budgetAllocation: { evaluationJobs, baseQuanta, extraJobs }, teacherVersion: TACTICAL_TEACHER_VERSION,
   teacherEngagementFloor: 0.05, featureVersion: FEATURE_VERSION, featureNames: FEATURE_COLUMNS,
-  movementNames: MOVEMENT_NAMES, actionNames: HAND_ACTION_NAMES, humanTraceStratum: "absent-optional" };
+  tacticVersion: TACTIC_VERSION, movementNames: MOVEMENT_NAMES, actionNames: HAND_ACTION_NAMES,
+  effectorNames: EFFECTOR_NAMES, targetNames: TARGET_NAMES, stanceNames: STANCE_NAMES,
+  humanTraceStratum: "absent-optional" };
 const configText = JSON.stringify(config); const configDigest = createHash("sha256").update(configText).digest("hex").slice(0, 16);
 const runId = String(value("run-id", `dagger-${seed}-${configDigest}`));
 if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(runId)) throw new Error("invalid --run-id");
@@ -88,11 +96,10 @@ for (let iteration = nextIteration; iteration < iterations; iteration += 1) {
 if (consumedSolverSteps !== solverSteps) throw new Error(`DAgger spent ${consumedSolverSteps} solver steps, expected exactly ${solverSteps}`);
 const selected = selectDaggerIteration(validations); const model = models[selected.iteration];
 const payload = new TextEncoder().encode(JSON.stringify(model)); const artifact = new ResearchArtifact({ algorithm: "dagger",
-  featureVersion: FEATURE_VERSION, featureNames: FEATURE_COLUMNS, movementNames: MOVEMENT_NAMES, actionNames: HAND_ACTION_NAMES,
+  ...RESEARCH_ARTIFACT_CONTRACT,
   payload: [...payload], provenance: { seed, configDigest, solverSteps: consumedSolverSteps, selectedIteration: selected.iteration,
     teacherVersion: TACTICAL_TEACHER_VERSION, humanTraceStratum: "absent-optional", trainingSplit: "train",
-    validationSplit: "validation" } }, { featureVersion: FEATURE_VERSION,
-    featureNames: FEATURE_COLUMNS, movementNames: MOVEMENT_NAMES, actionNames: HAND_ACTION_NAMES });
+    validationSplit: "validation" } }, RESEARCH_ARTIFACT_CONTRACT);
 const report = { version: 1, algorithm: "dagger", config, configDigest, consumedSolverSteps, selectedIteration: selected.iteration,
   comparisons: { teacherOnly: validations[0]?.train ?? null, behaviorClone: validations[0] ?? null, dagger: selected }, validations,
   daggerOutperformedClone: selected.iteration > 0 && selected.validationLoss < validations[0].validationLoss,

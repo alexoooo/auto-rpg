@@ -93,6 +93,46 @@ export const FEATURE_MIRROR_SIGN = Object.freeze(FEATURE_COLUMNS.map((name) =>
  * labelled primary and secondary, which are not sides, and a mirrored fighter
  * still leads with the same hand. `current_movement_circle-left/right` is the
  * only pair in the table that names a direction of travel.
+ *
+ * **The checkable form of "not sides" is narrower than "no column carries one",
+ * and the wider version was false.** Two columns carry a side and always did:
+ * `threat_bearing` and `threat_local_right` read +0.25 and -0.25 across two worlds
+ * that differ only in the x of the opponent's threatening hand, and
+ * `FEATURE_MIRROR_SIGN` above lists them along with `facing_error` and the two
+ * trunk twists. A note that said no column carries a side was contradicted by the
+ * table two declarations up. It also rested on `HandView.outboard` being "the only
+ * field that says which physical side a hand is on", which is not true either --
+ * `outboard` is *derived* from the arm's geometry (`src/arm.ts`), so `shoulder.x`
+ * and `tip.x` say it too, and `mirrorBody` negating all four together is that fact
+ * written down.
+ *
+ * The true statement is about the hand *columns*: no column distinguishes which
+ * physical side a given hand **slot** is on. `handColumns` writes a weapon
+ * one-hot, `lost`, `reach` and `tip_speed`, all of them unsigned, and never
+ * `outboard` or an x. So the same fighter built left-handed produces an identical
+ * feature vector, swapping `primary`/`secondary` under a mirror would invent a
+ * distinction the network cannot see, and `mirrorBody` keeping the slot keys while
+ * negating the geometry is what makes a mirrored sample a genuine left-handed copy
+ * of the same fighter rather than an invented second one --
+ * `no_hand_column_carries_which_physical_side_a_slot_is_on` builds that pair of
+ * bodies, asserts both facts, and goes red if a hand column carrying
+ * `Math.sign(shoulder.x)` is added. Tactic v2's `EFFECTOR_NAMES` inherit it: an
+ * effector head writes `primary`/`secondary`/`natural`, which name a *slot*, so a
+ * mirror does not swap effectors. The same goes for `TARGET_NAMES`, which are
+ * heights and a threat. **The decision did not move when the evidence for it
+ * did.**
+ *
+ * **`slip-left` and `slip-right` are the pair that will need this treatment**,
+ * and they are recorded here rather than implemented because nothing mirrors a
+ * *label* today: `mirrorFeatures` and `mirrorView` both act on the input side,
+ * `FEATURE_MIRROR_INDEX` is a table of input columns, and no network is ever run
+ * on a mirrored fixture. They are two halves of one posture -- `applyTacticStance`
+ * gives them `trunkTwist` -0.65 and +0.65 -- so whoever adds an output mirror
+ * swaps them exactly as this table swaps `circle-left/right`, and swaps nothing
+ * else in the stance table: `upright`, `compact` and `action-default` are
+ * side-neutral, and `extended` already reads the acting hand's `outboard`, which
+ * the mirror has already negated. Adding the machinery now would be a mirror
+ * with no caller, which is the shape stage B's deleted `TacticDecision` was.
  */
 export const FEATURE_MIRROR_INDEX = Object.freeze(FEATURE_COLUMNS.map((name) => {
   if (name === "current_movement_circle-left") return FEATURE_COLUMNS.indexOf("current_movement_circle-right");

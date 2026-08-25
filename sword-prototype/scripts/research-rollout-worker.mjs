@@ -3,7 +3,7 @@ import { pathToFileURL } from "node:url";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 
 import { predictDagger } from "../src/learning/dagger.ts";
-import { FEATURE_COLUMNS, FEATURE_VERSION } from "../src/learning/features.ts";
+import { FEATURE_VERSION } from "../src/learning/features.ts";
 import { deployableActions, readMetaOutput } from "../src/learning/meta.ts";
 import { RecurrentNeatNetwork } from "../src/learning/recurrent-neat.ts";
 import { researchLabelMind } from "../src/learning/research-policy.ts";

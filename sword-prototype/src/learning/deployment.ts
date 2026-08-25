@@ -1,5 +1,5 @@
 import type { FighterView, Mind } from "../mind.ts";
-import { HAND_ACTION_NAMES, MOVEMENT_NAMES } from "../options.ts";
+import { EFFECTOR_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, STANCE_NAMES, TACTIC_VERSION, TARGET_NAMES } from "../options.ts";
 import { ResearchArtifact, type ResearchArtifactContract } from "./artifact.ts";
 import { predictDagger, type DaggerModel } from "./dagger.ts";
 import { FEATURE_COLUMNS, FEATURE_VERSION } from "./features.ts";
@@ -10,8 +10,32 @@ import { RecurrentPolicy, maskedArgmax, type RecurrentPolicyWeights } from "./re
 import { researchLabelMind, type ResearchLabeler } from "./research-policy.ts";
 import { TACTICAL_MODEL_VERSION, TACTICAL_STATE_COLUMNS, type TacticalModel } from "./tactical-model.ts";
 
+/**
+ * The one artifact header, and every producer in the tree spreads *this*.
+ *
+ * It was five inline copies -- `collect-dagger.mjs`,
+ * `train-lookahead.mjs`, `train-neat-qd.mjs` and `train-ppo.mjs` twice, each of
+ * them writing the same four fields out by hand at both the data end and the
+ * contract end of the same `new ResearchArtifact(...)` call. **This said "plus a
+ * test fixture" and no test fixture was converted**: `ai-contract.test.mjs`
+ * keeps a deliberately synthetic header, because that file is about the envelope
+ * and would go red every time a name entered a real vocabulary, and
+ * `tournament-executor.test.mjs`'s `staleContract` spells all seven fields out
+ * on purpose so that only the input half is stale. A copied header is
+ * a header that grows in one place: the widening from thirteen outputs to
+ * twenty-six adds `tacticVersion` and three name tables, and a producer that
+ * kept its own literal would have written an artifact this runtime refuses
+ * while validating perfectly against itself.
+ *
+ * `tacticVersion` is the field the refusal actually rests on. `ResearchArtifact`
+ * does no unknown-key rejection, so an artifact written against the
+ * thirteen-output header is not caught by having too few keys -- it arrives with
+ * `tacticVersion: undefined` and is refused by name in `artifact.ts` beside the
+ * `featureVersion` check, before a network is built from it.
+ */
 export const RESEARCH_ARTIFACT_CONTRACT: ResearchArtifactContract = Object.freeze({ featureVersion: FEATURE_VERSION,
-  featureNames: FEATURE_COLUMNS, movementNames: MOVEMENT_NAMES, actionNames: HAND_ACTION_NAMES });
+  featureNames: FEATURE_COLUMNS, tacticVersion: TACTIC_VERSION, movementNames: MOVEMENT_NAMES, actionNames: HAND_ACTION_NAMES,
+  effectorNames: EFFECTOR_NAMES, targetNames: TARGET_NAMES, stanceNames: STANCE_NAMES });
 export const LOOKAHEAD_CALIBRATION_LIMITS = Object.freeze({ signedReachError: 0.25, contactBrier: 0.25, vitalityDeltaError: 0.25 });
 
 const payloadJson = (artifact: ResearchArtifact): unknown => {
