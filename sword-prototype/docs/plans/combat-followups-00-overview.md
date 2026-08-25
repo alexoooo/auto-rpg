@@ -182,7 +182,7 @@ Baseline taken before any of this work, from `sword-prototype/`, commit `a095877
 | --- | --- | --- |
 | 15 host command boundary | **landed** | `f789ea4`, 459 tests |
 | 16 policy perception v4 | **landed** | `d44fc3e`, 484 tests |
-| 17 tactic output v2 | A, B, C1 landed; C2 in flight | `da025f2`, `e4ac199`, `c149e8c`, `7597eb4`, 495 tests |
+| 17 tactic output v2 | A, B, C1, C2a landed; C2b in flight | `da025f2`, `e4ac199`, `c149e8c`, `7597eb4`, `3674e06`, 502 tests |
 | 18 human gate feasibility | not started | -- |
 | 19 run legibility | not started | -- |
 | 20 throughput and ceilings | not started | -- |
