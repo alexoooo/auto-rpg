@@ -250,7 +250,7 @@ async function boot(): Promise<void> {
     onToggleLock: () => targeting.toggle(),
     onSwapHands: () => {
       // The mouse has already changed hands by the time this runs -- `Controls`
-      // moves `driving` itself, because the state is its own. What is left is
+      // moves `actingHand` itself, because the state is its own. What is left is
       // to seed the hand it has arrived at from the pose that hand is actually
       // in, exactly as a takeover does: the cursor is absolute, so a hand taken
       // over without seeding snaps to wherever the mouse happens to be at the
@@ -258,13 +258,13 @@ async function boot(): Promise<void> {
       const fighter = yours();
       if (!isArticulatedCombatant(fighter)) return;
       if (!fighter.armed) return;
-      const seed = cursorForPose(fighter.armPoses()[controls.state.driving], controls.state.driving);
-      const hand = controls.state[controls.state.driving];
+      const seed = cursorForPose(fighter.armPoses()[controls.state.actingHand], controls.state.actingHand);
+      const hand = controls.state[controls.state.actingHand];
       hand.pointerX = seed.pointerX;
       hand.pointerY = seed.pointerY;
       hand.roll = seed.roll;
       hand.wristBend = seed.wristBend;
-      handNotice = controls.state.driving === "primary" ? HAND_A_TEXT : HAND_B_TEXT;
+      handNotice = controls.state.actingHand === "primary" ? HAND_A_TEXT : HAND_B_TEXT;
       handLeft = CONFIG.camera.noticeSeconds;
     },
     onToggleTakeover: () => {

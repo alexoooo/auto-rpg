@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { NEUTRAL, POLICIES, mirroredWristBend, otherHand, policyMind, splitMind } from "../src/mind.ts";
 import { blankIntent, cursorForElevation, postureFor, rollForStroke } from "../src/policies.ts";
 import { CONFIG } from "../src/config.ts";
+import { COMBAT_FIELDS } from "./fixtures/intent.mjs";
 import { assertCompleteView } from "./fixtures/view.mjs";
 
 /**
@@ -261,7 +262,7 @@ const snapshot = (intent) => ({
   ...intent,
   primary: { ...intent.primary },
   secondary: { ...intent.secondary },
-  ...intent[intent.driving],
+  ...intent[intent.actingHand],
 });
 
 /**
@@ -300,17 +301,21 @@ test("the picker offers exactly the policies that exist", () => {
 });
 
 /**
- * The exact field set a fighter consumes, named once and asserted against every
- * producer of a command.
+ * The exact field set a fighter consumes, asserted against every producer of a
+ * command.
  *
  * A key list rather than a `zoom !== undefined` check on purpose. The failure
  * this guards is a *host* field surviving in a combat command, and camera zoom
  * was only the one that happened to be there -- an assertion naming zoom alone
  * would pass the day somebody adds a field for the readout or the pointer lock.
- * Naming the whole set makes any new field a decision somebody has to take here.
+ * Naming the whole set makes any new field a decision somebody has to take.
+ *
+ * The list itself lived here, and three durable documents pointed at "the copy
+ * that cannot drift" while there were **six** hand-written copies of it across
+ * five test files. It is `tests/fixtures/intent.mjs` now, on the model
+ * `tests/fixtures/view.mjs` set; this is still the test that ties it to reality,
+ * because it drives every shipped mind through it.
  */
-const COMBAT_FIELDS = ["driving", "forward", "posture", "primary", "secondary", "strafe", "turn"];
-
 test("a_combat_intent_contains_no_camera_state", () => {
   const fieldsOf = (intent) => Object.keys(intent).sort();
   assert.deepEqual(fieldsOf(NEUTRAL), COMBAT_FIELDS, "the frozen neutral command");
@@ -427,9 +432,9 @@ test("an_unarmed_policy_punches_instead_of_swinging_an_imaginary_sword", () => {
     const track = drive(policyMind(name, 7), 3, () =>
       facing({ gap: 0.70, mine: { primary: "empty", secondary: "empty" } }),
     );
-    assert.ok(track.some((intent) => intent[intent.driving].thrust), `${name} should extend a fist`);
+    assert.ok(track.some((intent) => intent[intent.actingHand].thrust), `${name} should extend a fist`);
     assert.ok(
-      track.some((intent) => intent[intent.driving].guard),
+      track.some((intent) => intent[intent.actingHand].guard),
       `${name} should chamber the fist before punching`,
     );
   }
@@ -486,7 +491,7 @@ test("two_duelist_fists_leave_the_hand_nearest_the_actual_dangerous_hand_on_cove
   commit(view.opponent.hands.secondary, 12);
 
   assert.equal(
-    ask(policyMind("duelist", 7), view).driving,
+    ask(policyMind("duelist", 7), view).actingHand,
     "secondary",
     "the primary fist stays nearest the dangerous secondary and therefore covers",
   );
@@ -518,7 +523,7 @@ test("two_swinger_fists_choose_against_the_chest_and_still_ignore_blades", () =>
   const quietIntent = ask(policyMind("swinger", 7), quiet);
   const stormIntent = ask(policyMind("swinger", 7), storm);
   assert.deepEqual(stormIntent, quietIntent, "blade state cannot change a swinger's answer");
-  assert.equal(quietIntent.driving, "secondary", "the fist farther from the chest attacks");
+  assert.equal(quietIntent.actingHand, "secondary", "the fist farther from the chest attacks");
 });
 
 test("a_free_empty_hand_covers_a_threat_without_stealing_a_two_handed_grip", () => {
@@ -528,7 +533,7 @@ test("a_free_empty_hand_covers_a_threat_without_stealing_a_two_handed_grip", () 
     blade: "line",
   });
   const covered = ask(policyMind("duelist", 11), sword);
-  assert.equal(covered.driving, "primary", "steel is chosen before a bare fist");
+  assert.equal(covered.actingHand, "primary", "steel is chosen before a bare fist");
   assert.equal(covered.secondary.guard, true, "the free hand covers the threat line");
   assert.ok(covered.secondary.pointerY > CONFIG.arm.restPointerY + 0.3);
 
@@ -536,7 +541,7 @@ test("a_free_empty_hand_covers_a_threat_without_stealing_a_two_handed_grip", () 
     gap: 2.5,
     mine: { primary: "bow", secondary: "empty" },
   }));
-  assert.equal(bow.driving, "primary");
+  assert.equal(bow.actingHand, "primary");
   assert.equal(bow.secondary.guard, false, "the draw hand stays committed to the bow");
   assert.equal(bow.secondary.thrust, false);
   assert.equal(bow.secondary.pointerX, CONFIG.arm.restPointerX);
@@ -848,12 +853,12 @@ test("the roll stays inside what the wrist is allowed", () => {
 /**
  * A mind that asks for one fixed thing, per hand.
  *
- * `driving` is which hand it is *attacking* with, which is now a different
+ * `actingHand` is which hand it is *attacking* with, which is now a different
  * question from which hands it has an opinion about: every policy plans both.
  */
-const twoHanded = (name, driving, over) => {
+const twoHanded = (name, actingHand, over) => {
   const intent = blankIntent();
-  intent.driving = driving;
+  intent.actingHand = actingHand;
   Object.assign(intent, over.body ?? {});
   Object.assign(intent.posture, over.posture ?? {});
   Object.assign(intent.primary, over.primary ?? {});
@@ -879,7 +884,7 @@ test("the person keeps the feet and the hand the mouse is on", () => {
   assert.equal(out.forward, 1);
   assert.equal(out.strafe, -1);
   assert.equal(out.turn, 0.5);
-  assert.equal(out.driving, "primary");
+  assert.equal(out.actingHand, "primary");
 
   // Position and buttons are theirs; wrist orientation is policy-owned.
   assert.deepEqual(out.primary, {
@@ -916,7 +921,7 @@ test("split_mind_composes_only_fighter_commands", () => {
   // ...and it is still the composition it was: the feet and the driven hand from
   // the person, the spare hand from the policy's plan for that same hand.
   assert.equal(out.forward, 1);
-  assert.equal(out.driving, "primary");
+  assert.equal(out.actingHand, "primary");
   assert.equal(out.primary.pointerX, 0.4);
   assert.equal(out.primary.thrust, true);
   assert.equal(out.secondary.pointerX, -0.2);
@@ -956,7 +961,7 @@ test("a_high_threat_makes_the_posture_layer_crouch_and_cover", () => {
 test("a_commit_twists_into_the_strike_and_recovers_to_neutral", () => {
   const view = facing();
   const intent = blankIntent();
-  intent.driving = "secondary";
+  intent.actingHand = "secondary";
 
   postureFor(view, "commit", intent);
   assert.ok(intent.posture.trunkTwist < -0.4, `secondary commit twist ${intent.posture.trunkTwist}`);
@@ -981,8 +986,8 @@ test("human_play_keeps_locomotion_and_buttons_but_uses_policy_posture", () => {
 
   const out = splitMind(person, policy).decide(facing(), FIXED);
   assert.deepEqual(
-    { forward: out.forward, strafe: out.strafe, turn: out.turn, driving: out.driving },
-    { forward: 1, strafe: -1, turn: 0.5, driving: "secondary" },
+    { forward: out.forward, strafe: out.strafe, turn: out.turn, actingHand: out.actingHand },
+    { forward: 1, strafe: -1, turn: 0.5, actingHand: "secondary" },
   );
   assert.deepEqual(out.posture, { trunkLean: -0.35, trunkTwist: 0.7, crouch: 0.65 });
   assert.equal(out.secondary.pointerX, 0.4);
@@ -1019,21 +1024,21 @@ test("the_same_bend_intent_mirrors_between_left_and_right_hands", () => {
 
 test("the policy's attack does not follow the person round to the other arm", () => {
   // The defect this pins, in the terms it was found in: pick a sword and a
-  // shield, take the sword, and the old rule copied `theirs[theirs.driving]` --
+  // shield, take the sword, and the old rule copied `theirs[theirs.actingHand]` --
   // the swing -- onto whichever arm was spare. That arm was the shield's. The
   // board was being swung on the commit stroke of a cut, for the whole bout.
   const cut = { pointerX: -0.9, pointerY: 0.8, roll: -0.93, wristBend: 0, thrust: false, guard: false };
   const cover = { pointerX: 0.55, pointerY: 0.1, roll: 1.2, wristBend: 0, thrust: false, guard: false };
   const policy = twoHanded("swinger", "primary", { primary: cut, secondary: cover });
 
-  for (const driving of ["primary", "secondary"]) {
-    const person = twoHanded("you", driving, { [driving]: { pointerX: 0.4 } });
+  for (const acting of ["primary", "secondary"]) {
+    const person = twoHanded("you", acting, { [acting]: { pointerX: 0.4 } });
     const out = splitMind(person, policy).decide(facing({ gap: 1.2 }), FIXED);
-    const spare = otherHand(driving);
+    const spare = otherHand(acting);
     assert.deepEqual(
       out[spare],
       spare === "primary" ? cut : cover,
-      `driving the ${driving}, the ${spare} should get the policy's plan for the ${spare}`,
+      `acting with the ${acting}, the ${spare} should get the policy's plan for the ${spare}`,
     );
   }
 });
@@ -1046,11 +1051,11 @@ test("swapping hands swaps which one the policy has", () => {
 
   const out = splitMind(person, policy).decide(facing({ gap: 1.2 }), FIXED);
 
-  assert.equal(out.driving, "secondary");
+  assert.equal(out.actingHand, "secondary");
   assert.equal(out.secondary.pointerX, 0.25, "the mouse is on the secondary now");
   assert.equal(out.primary.pointerX, -0.6, "so the policy has the primary");
   assert.equal(out.primary.guard, true);
-  assert.equal(otherHand(out.driving), "primary");
+  assert.equal(otherHand(out.actingHand), "primary");
 });
 
 test("a policy reading a hand does not read the person's", () => {
@@ -1198,7 +1203,7 @@ test("a hand aims from its own shoulder, not from the body's", () => {
   view.self.hands.secondary.shoulder = { x: -2 * CONFIG.fighter.shoulderSide, y: 1.4, z: 0 };
 
   const out = policyMind("duelist", 4).decide(view, FIXED);
-  assert.equal(out.driving, "secondary", "the sword hand is the one aiming");
+  assert.equal(out.actingHand, "secondary", "the sword hand is the one aiming");
   // Their chest is straight ahead of the *body*, so a guard aimed from the body
   // would sit at centre. Aimed from a socket 420 mm to the left of it, the same
   // chest is off to the right.
@@ -1219,13 +1224,13 @@ test("a shield in the leading hand is held across the other way", () => {
 });
 
 test("a policy attacks with the hand that can, not with the first one", () => {
-  // A shield in the primary used to be swung, because `driving` was a constant
-  // and every policy read `intent[intent.driving]` once at construction.
+  // A shield in the primary used to be swung, because `actingHand` was a constant
+  // and every policy read `intent[intent.actingHand]` once at construction.
   const track = drive(policyMind("swinger", 7), 3, () =>
     facing({ gap: 1.1, mine: { primary: "shield", secondary: "sword" } }),
   );
   assert.ok(
-    track.every((intent) => intent.driving === "secondary"),
+    track.every((intent) => intent.actingHand === "secondary"),
     "the sword hand is the one that swings",
   );
   // And the sword hand actually swings: the commit sweeps the cursor across.
@@ -1237,7 +1242,7 @@ test("two swords take turns, and the one not cutting covers", () => {
   const track = drive(policyMind("swinger", 3), 8, () =>
     facing({ gap: 1.1, mine: { primary: "sword", secondary: "sword" } }),
   );
-  const hands = new Set(track.map((intent) => intent.driving));
+  const hands = new Set(track.map((intent) => intent.actingHand));
   assert.deepEqual([...hands].sort(), ["primary", "secondary"], "both hands get a turn");
 
   // Both of them actually swing -- a turn that produced no stroke would satisfy
@@ -1250,7 +1255,7 @@ test("two swords take turns, and the one not cutting covers", () => {
   // person took the primary, so this was every bout with a human in it.
   for (const name of ["primary", "secondary"]) {
     const outboard = name === "primary" ? 1 : -1;
-    const mine = track.filter((i) => i.driving === name).map((i) => i[name]);
+    const mine = track.filter((i) => i.actingHand === name).map((i) => i[name]);
     const xs = mine.map((h) => h.pointerX);
     assert.ok(
       Math.max(...xs) - Math.min(...xs) > 1.0,
@@ -1272,7 +1277,7 @@ test("two swords take turns, and the one not cutting covers", () => {
   }
 
   // And whichever is not cutting is guarding rather than resting.
-  const off = track.filter((i) => i[otherHand(i.driving)].guard);
+  const off = track.filter((i) => i[otherHand(i.actingHand)].guard);
   assert.ok(off.length > track.length * 0.8, `the spare blade should cover, ${off.length}/${track.length}`);
 });
 
@@ -1387,7 +1392,7 @@ test("a policy swings whatever it is holding, not only the kinds it was written 
       facing({ gap: 1.0, mine: { primary: "axe", secondary: "shield" } }),
     );
     assert.ok(
-      lead.every((intent) => intent.driving === "primary"),
+      lead.every((intent) => intent.actingHand === "primary"),
       `${name} should attack with an axe`,
     );
     const swept = lead.map((intent) => intent.primary.pointerX);
@@ -1401,7 +1406,7 @@ test("a policy swings whatever it is holding, not only the kinds it was written 
       facing({ gap: 1.0, mine: { primary: "shield", secondary: "axe" } }),
     );
     assert.ok(
-      off.every((intent) => intent.driving === "secondary"),
+      off.every((intent) => intent.actingHand === "secondary"),
       `${name} should not attack with a shield when it has an axe`,
     );
   }
@@ -1448,7 +1453,7 @@ test("an archer shoots with the hand that holds the bow, not the one that swings
   const view = facing({ gap: 6, mine: { primary: "sword", secondary: "bow" } });
   const asked = drive(mind, 2, () => view);
   assert.ok(
-    asked.every((intent) => intent.driving === "secondary"),
+    asked.every((intent) => intent.actingHand === "secondary"),
     "the bow hand drives, even with a sword in the other",
   );
 });

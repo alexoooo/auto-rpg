@@ -342,6 +342,89 @@ bigger lever. So:
   and a stance applied *before* `applyActionPosture` is silently erased at `:128` -- the only
   legal slot is between `options.ts:217` and the `boundIntent` return at `:240`.
 
+## Stage B, as landed -- 2026-08-25
+
+474 tests before, **488** after; `npm run check` and `npm run build` clean. The null control
+(`--only duelist-swinger --bouts 120`) is identical to the digit before and after, and the
+`scriptedMetaMind` parity sweep stayed at zero changed fields. Both are in
+`docs/measurements.md` under "Session 17 Stage B", with the contacted-limb table the target
+rule was chosen on.
+
+Five things this plan asked for that the code answered differently, each with its evidence:
+
+- **The target question has no bout, so the scripted callers keep the line they were measured
+  at.** "Try `vital` and `high`, report both, say which was chosen" assumes a matchup that goes
+  through the option layer. There is none: `npm run measure`'s three matchups are built from
+  `policyMind`, which never imports `options.ts`, and the only scripted option-layer consumer
+  is `scriptedMetaMind`, whose sole gate is a zero-delta parity sweep against the specialists
+  it replaces. Any named region moves it off parity by construction, so the "measurement" would
+  have been a test failure rather than a win rate. The execution layer therefore carries a
+  fifth aim, `"as-measured"`, deliberately outside `TARGET_NAMES` and unreachable from any
+  learned output; moving the scripted policies onto a real region is a balance change owed a
+  bout, which is session 18 or 23.
+- **`Controls.driving` is a rename and not a type split, as the coordinator's correction said
+  -- and the narrowing goes in the type, not in a second field.** `Controls.state` is declared
+  `Intent & { actingHand: HandName }`, which is the whole of the host/policy difference: a
+  cursor is always on a hand, a policy's jaws are not. `splitMind` refuses a command that names
+  no acting hand by name rather than picking one.
+- **The span fraction is an anatomical band, and the bout beside it does not choose a value.**
+  The plan asked only that `high` and `low` be derived from `vitalHeight` and `crownHeight`.
+  This entry said half the span "does not move the contact distribution at all", which the same
+  harness contradicts: at 0.50 a `thrust` aimed `low` takes a 0.71 low share against the
+  measured aim's 0.118. What fails at 0.50 is a contact-count floor, and the region test's
+  verdict is non-monotonic across the constant. What chooses 0.75 is that `high` must land on a
+  head capsule and `low` inside a pelvis, which is satisfied for 0.567-0.928 on both a warrior
+  and a broot; 0.75 is the midpoint. Corrected table and sweep in `docs/measurements.md`; the
+  constant is `TARGET_SPAN_FRACTION` and carries the argument in place.
+- **The target rule holds for a point and not for a stroke, which this plan did not ask about
+  and the landing note overstated.** Measured per action on the contacted limb: `thrust` obeys a
+  named region, `shoot` does directionally on too small a sample, and `cut` and `punch` do not
+  -- a cut aimed `high` takes a lower head share than the aim it replaces. A stroke's aim seeds
+  the centre of an arc that sweeps wider than the gap between two named heights, and
+  `aimHeight` adds the `+0.20` entry lift only to `"as-measured"`. Lifting the stroke envelope
+  for a high-aimed cut is a balance change and is **owed a bout in session 23**.
+- **The ballistic lift did have a seam, and the two defender-side functions never needed one.**
+  `actionArcherAim` gained an `aimedY` whose default reproduces today's aim exactly, and the
+  lift is added on top of it -- "the existing lift applied after target selection", literally.
+  `arrowCrossing` and `approachToScratch` extrapolate the shaft's published facts under
+  gravity and never read `actionArrowLift`, so a defender follows a re-aimed shot without being
+  told; what is aim-dependent is the worked *example* in `approachToScratch`'s note, and that
+  is recorded on `actionArcherAim` in place.
+- **One advertised action was a lie and closing it moved a mask.** `punch` was offered on any
+  body with an empty hand, including the trailing hand of a two-hander -- which `Fighter.update`
+  sends to a grip point and otherwise ignores, so the punch was posed and discarded.
+  `tacticEffectors` is now the single legality rule, `supportedOptions` asks it, and `punch`
+  is no longer offered on a bow or club body. `actionsFor` in `scripts/train-lookahead.mjs`
+  never offered it there either, so **the `bow+empty` row** of that table closed from the runtime
+  side. This entry said the *table* closed; measured cell by cell it is one row of thirteen --
+  `sword+empty` and `axe+empty` still offer a runtime `punch` the schedule never trains, on both
+  humanoid units, exactly as this plan's own text says (`actionsFor` omits `punch` for sword, axe
+  and bow). Four cells diverge now against six at `da025f2`. Closing the remaining two is Stage
+  C's; `research-rollout-worker.mjs` still carries the third table.
+
+Left for Stage C, deliberately: the 26-output contract, the four trainers, mirrors, behaviour
+records, and `Striking.hand` -- the last surviving `"primary"` alias, which feeds
+`CombatReportEvent.hand` and from there `BehaviourRecord.contacts`, a `Record<HandName, number>`
+that Stage C widens. **And with them, one thing that is not new but is now
+written down: `lookaheadMind` plans over the runtime mask and calls `requireCalibration` on
+every pair, so on `warrior/sword+empty` and `warrior/axe+empty` it asks for a `close+punch` cell
+the schedule never trained and throws.** Verified pre-existing on a worktree at `da025f2`, where
+`bow+empty` throws as well; Stage B removed that third cell and left the other two. No shipped
+artifact reaches it -- the only checked-in lookahead champion is feature v3 against a v4 runtime
+and is refused at decode -- but a freshly trained v4 lookahead artifact run through
+`scripts/tournament-executor.mjs` hits it on the first replan for those cells.
+`deployableTactics` exists and is tested but has no production reader
+until an argmax is taken over it, so look-ahead cell counts and the 21-22x enumeration cost are
+untouched and remain sessions 20 and 21's to measure.
+
+**`TacticDecision` below is Stage C's shape and was not landed.** Stage B declared it and
+nothing read it -- no production caller, no test -- for a whole session, which is four other
+exports' worth of "a coming reader" all at once. It is deleted; `TacticExecution` (effector,
+target, stance) is what `handActionOption` takes, and Stage C's decision is that plus a movement
+name and a persistence. Declare it when something fills one in. `unsupportedTactic` and
+`applyTacticStance` are module-private for the same reason: nothing outside `options.ts` called
+either.
+
 ## Frozen vocabulary
 
 In `src/options.ts#L8-L16`, add:
@@ -353,7 +436,7 @@ export const TARGET_NAMES = Object.freeze(["vital", "high", "low", "threat"] as 
 export const STANCE_NAMES = Object.freeze([
   "action-default", "upright", "compact", "extended", "slip-left", "slip-right",
 ] as const);
-export interface TacticDecision {
+export interface TacticDecision {  // NOT landed by Stage B -- see above
   movement: MovementName;
   action: HandActionName;
   effector: EffectorName;
@@ -436,7 +519,7 @@ Add exact tests across `tests/options.test.mjs`, `tests/minds.test.mjs`,
 
 - `a_dual_wielder_executes_the_effector_the_decision_named`;
 - `an_illegal_action_effector_target_tuple_is_masked_not_repaired`;
-- `a_requested_high_or_low_target_reaches_that_body_region_without_fallback`;
+- `a_thrust_at_a_named_high_or_low_target_reaches_that_body_region`;
 - `a_lost_selected_hand_forces_a_new_decision_before_execution`;
 - `natural_bite_never_aliases_a_human_hand`;
 - `each_stance_reaches_its_exact_bounded_posture`;

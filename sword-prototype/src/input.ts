@@ -10,10 +10,10 @@ import { CONFIG } from "./config";
 // extensions. `Intent` comes back the same erasing way, and what that buys is in
 // `mind.ts`'s comment on it: the fighter decides what a command is, and this
 // file states that its controller produces one.
-import { HANDS, otherHand, type HandIntent, type HandName, type Intent } from "./mind.ts";
+import { otherHand, type HandIntent, type HandName, type Intent } from "./mind.ts";
 
 export type { HandIntent, HandName };
-import { maskOfButton, nextSpent, poseFromButtons, PRIMARY } from "./buttons";
+import { applyButtonPose, maskOfButton, nextSpent, poseFromButtons, releaseButtons, PRIMARY } from "./buttons";
 import { CAMERA_ZOOM_NOTCHES, dragCamera, slewCameraZoom, type CameraGestureState } from "./camera";
 
 /**
@@ -102,11 +102,29 @@ export class Controls {
   readonly camera: CameraGestureState = {
     mode: "none", pointerId: null, yaw: 0, pitch: 0, panX: 0, panZ: 0, zoom: 1,
   };
-  readonly state: Intent = {
+  /**
+   * A person's command, annotated as the `Intent` a fighter consumes -- and
+   * narrowed in exactly one place: a cursor is always on a hand.
+   *
+   * `Intent.actingHand` is `HandName | null`, because a body whose striker is
+   * its head has no hand acting. A person does: there is one mouse and it is on
+   * one arm, so the host's copy of the field can never be null, and saying so
+   * here is what lets `onSwapHands` call `otherHand` on it without a repair.
+   * The narrowing is the whole of the host/policy difference the plan wanted a
+   * second field for.
+   */
+  readonly state: Intent & { actingHand: HandName } = {
     forward: 0,
     strafe: 0,
     turn: 0,
-    driving: "primary",
+    actingHand: "primary",
+    // Written by `applyButtonPose` from the same press as the acting hand, and
+    // cleared by `releaseButtons` beside both hands. It was initialised here and
+    // never written again for the whole of the session that introduced it, which
+    // is a command channel a person cannot press: the setup screen offers the
+    // "you" radio for either side whatever the unit, so a person could take a
+    // centipede, steer it, and never close its jaws.
+    natural: { thrust: false, guard: false },
     posture: { trunkLean: 0, trunkTwist: 0, crouch: 0 },
     primary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
     // The hand the mouse is not on starts at rest, not out in front. It stays
@@ -208,7 +226,7 @@ export class Controls {
       );
     }
     if (this.ownership.drivenWrist) {
-      const hand = this.state[this.state.driving];
+      const hand = this.state[this.state.actingHand];
       hand.roll = slew(hand.roll, axis("KeyZ", "KeyX"), Ctl.wristSlewPerSecond);
       hand.wristBend = slew(hand.wristBend, axis("KeyT", "KeyY") > 0 ? 1 : 0, Ctl.wristSlewPerSecond);
     }
@@ -323,7 +341,7 @@ export class Controls {
         // hand you are leaving would otherwise stay pressed with nothing holding
         // it -- the same lost-release failure `openHand` exists for.
         this.openHand();
-        this.state.driving = otherHand(this.state.driving);
+        this.state.actingHand = otherHand(this.state.actingHand);
         this.hooks.onSwapHands();
         return;
       default:
@@ -347,16 +365,15 @@ export class Controls {
     if (document.visibilityState === "hidden") this.onBlur();
   };
 
-  /** Drop everything the hand was holding, and forget what it had paid for. */
+  /** Drop everything held, on every effector, and forget what it had paid for. */
   private openHand(): void {
     this.spent = 0;
-    // Both, not just the driven one. Which hand the mouse has can change while
-    // the window is out of focus -- `F` is a key like any other -- and a guard
-    // left standing on the hand you were not holding is a pose nobody pressed.
-    for (const name of HANDS) {
-      this.state[name].thrust = false;
-      this.state[name].guard = false;
-    }
+    // Both hands and the jaws, not just the driven hand. Which hand the mouse
+    // has can change while the window is out of focus -- `F` is a key like any
+    // other -- and a guard left standing on an effector nobody is holding is a
+    // pose nobody pressed. `releaseButtons` owns that list so this cannot fall
+    // one effector behind the one that writes it again.
+    releaseButtons(this.state);
   }
 
   private readonly onPointerMove = (event: PointerEvent): void => {
@@ -379,7 +396,7 @@ export class Controls {
 
     const rect = this.canvas.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return;
-    const hand = this.state[this.state.driving];
+    const hand = this.state[this.state.actingHand];
     hand.pointerX = clamp(((event.clientX - rect.left) / rect.width) * 2 - 1, -1, 1);
     // Screen Y grows downward; the arm does not.
     hand.pointerY = clamp(1 - ((event.clientY - rect.top) / rect.height) * 2, -1, 1);
@@ -458,10 +475,10 @@ export class Controls {
       return;
     }
     this.spent = nextSpent(this.spent, event.buttons, swallowed);
-    const pose = poseFromButtons(event.buttons, this.spent);
-    const hand = this.state[this.state.driving];
-    hand.thrust = pose.thrust;
-    hand.guard = pose.guard;
+    // The acting hand and the natural striker, from one press. Which of the two
+    // the body in front of you actually reads is the body's business, and
+    // nothing here switches on the unit -- see `applyButtonPose`.
+    applyButtonPose(this.state, this.state.actingHand, poseFromButtons(event.buttons, this.spent));
   }
 
   private readonly onWheel = (event: WheelEvent): void => {

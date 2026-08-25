@@ -3,23 +3,33 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 import {
+  EFFECTOR_NAMES,
   HAND_ACTION_NAMES,
   MOVEMENT_NAMES,
+  STANCE_NAMES,
   TACTIC_NAMES,
+  TACTIC_VERSION,
+  TARGET_NAMES,
+  TARGET_SPAN_FRACTION,
+  asMeasured,
   behaviourRecord,
-  combatOption,
+  chooseEffector,
   composeTactic,
   handActionOption,
   movementIntent,
   recordCombatEvent,
   recordBehaviourSample,
   scriptedMetaMind,
+  tacticTargets,
+  targetHeight,
 } from "../src/options.ts";
+import { deployableTactics } from "../src/learning/meta.ts";
 import { FEATURE_COLUMNS, FEATURE_MIRROR_SIGN, FEATURE_VERSION, FeatureWriter, mirrorFeatures, mirrorView, writeFeatures } from "../src/learning/features.ts";
 import { INTENT_FIELDS, SEED_RANGES, evaluationMirrorSeeds, evaluationSeed, intentFieldDeltas, intentSequencesEqual, validateSeedRanges } from "../src/learning/evaluation.ts";
 import { archerMind, duelistMind } from "../src/policies.ts";
-import { ACTION_SHOT_TIMING, ACTION_STROKE_TIMING, ACTION_TUNING, actionShotPhase, actionStrokeReading, bareCrowdDistance } from "../src/action-primitives.ts";
+import { ACTION_SHOT_TIMING, ACTION_STROKE_TIMING, ACTION_TUNING, actionShotPhase, actionStrokeReading, bareCrowdDistance, freshIntent } from "../src/action-primitives.ts";
 import { WEAPON_KINDS } from "../src/hands.ts";
+import { COMBAT_FIELDS } from "./fixtures/intent.mjs";
 import { assertCompleteView } from "./fixtures/view.mjs";
 
 const parts = () => Object.fromEntries([
@@ -77,12 +87,14 @@ const complete = (intent) => {
   // checked `zoom` was finite and inside its band, so an option that dropped a
   // field or grew a host one failed here. Session 15 deleted `zoom` and took the
   // implicit check with it, which left the assertions below unable to notice a
-  // missing field at all -- so the key set is now stated outright.
-  assert.deepStrictEqual(Object.keys(intent).sort(),
-    ["driving", "forward", "posture", "primary", "secondary", "strafe", "turn"],
-    "a combat command is exactly the seven fields a fighter consumes");
+  // missing field at all -- so the key set is checked outright, against the one
+  // list in `tests/fixtures/intent.mjs` rather than a copy written out here.
+  assert.deepStrictEqual(Object.keys(intent).sort(), COMBAT_FIELDS,
+    "a combat command is exactly the fields a fighter consumes, and no more");
   for (const key of ["forward", "strafe", "turn"]) assert.ok(Number.isFinite(intent[key]));
-  assert.ok(["primary", "secondary"].includes(intent.driving));
+  assert.ok(["primary", "secondary", null].includes(intent.actingHand));
+  assert.equal(typeof intent.natural.thrust, "boolean");
+  assert.equal(typeof intent.natural.guard, "boolean");
   for (const key of ["trunkLean", "trunkTwist", "crouch"]) assert.ok(Number.isFinite(intent.posture[key]));
   assert.ok(intent.posture.trunkLean >= -1 && intent.posture.trunkLean <= 1);
   assert.ok(intent.posture.trunkTwist >= -1 && intent.posture.trunkTwist <= 1);
@@ -97,30 +109,33 @@ const complete = (intent) => {
 };
 
 test("every_option_returns_a_complete_bounded_intent", () => {
+  const bite = view(); bite.self.naturalAttacks = { bite: { reach: 0.7, ready: true, active: false } };
   const loadouts = {
-    close: view(), hold: view(), "circle-left": view(), "circle-right": view(),
-    disengage: view(), cover: view(), cut: view(), thrust: view(),
+    cover: view(), cut: view(), thrust: view(),
     punch: view({ primary: "empty", secondary: "empty" }),
-    shoot: view({ primary: "bow", secondary: "empty" }), recover: view(),
+    shoot: view({ primary: "bow", secondary: "empty" }), bite, recover: view(),
   };
-  // All twelve tactic names less `bite`, which `combatOption` accepts and has no
-  // branch for -- it constructs, no-ops, and finishes on the fallthrough clock.
-  // Covering it here would assert the bug rather than the contract; the bite
-  // skill lives in `handActionOption` and is exercised through that.
-  for (const name of TACTIC_NAMES.filter((tactic) => tactic !== "bite")) {
-    const option = combatOption(name);
-    option.enter(loadouts[name]);
-    const intent = option.decide(loadouts[name], 1 / 240);
+  // All twelve tactic names, and `bite` among them for the first time. It used
+  // to be excluded here because `combatOption` accepted the name, had no branch
+  // for it, and finished on a fallthrough clock -- covering it would have
+  // asserted the bug. There is one door now and it carries the real skill.
+  for (const name of MOVEMENT_NAMES) complete(movementIntent(name, view()));
+  for (const name of HAND_ACTION_NAMES) {
+    const v = loadouts[name];
+    const option = handActionOption(name, asMeasured(chooseEffector(v, name)));
+    option.enter(v);
+    const intent = option.decide(v, 1 / 240);
     complete(intent);
     for (const axis of [intent.forward, intent.strafe, intent.turn, intent.primary.pointerX,
       intent.primary.pointerY, intent.secondary.pointerX, intent.secondary.pointerY]) {
       assert.ok(axis >= -1 && axis <= 1, `${name}: ${axis}`);
     }
   }
+  assert.equal(TACTIC_NAMES.length, MOVEMENT_NAMES.length + HAND_ACTION_NAMES.length);
 });
 
 test("movement_and_hand_action_compose_every_intent_field_exactly_once", () => {
-  const v = view(); const movement = movementIntent("close", v); const actionOption = handActionOption("cover");
+  const v = view(); const movement = movementIntent("close", v); const actionOption = handActionOption("cover", asMeasured("primary"));
   actionOption.enter(v); const action = actionOption.decide(v, 1 / 240);
   const intent = composeTactic(v, "close", "cover", movement, action);
   assert.equal(intent.forward, movement.forward); assert.equal(intent.turn, movement.turn);
@@ -133,14 +148,14 @@ test("every_legal_tactic_pair_is_finite_bounded_and_capability_checked", () => {
   const actionViews = { cover: view(), cut: view(), thrust: view(), punch: view({ primary: "empty", secondary: "empty" }),
     shoot: view({ primary: "bow", secondary: "empty" }), bite, recover: view() };
   for (const movement of MOVEMENT_NAMES) for (const action of HAND_ACTION_NAMES) {
-    const v = actionViews[action]; const option = handActionOption(action); option.enter(v);
+    const v = actionViews[action]; const option = handActionOption(action, asMeasured(chooseEffector(v, action))); option.enter(v);
     complete(composeTactic(v, movement, action, movementIntent(movement, v), option.decide(v, 1 / 240)));
   }
 });
 
 test("every_illegal_tactic_pair_refuses_both_requested_names", () => {
   const v = view({ primary: "bow", secondary: "shield" });
-  const action = handActionOption("recover"); action.enter(v); const part = action.decide(v, 1 / 240);
+  const action = handActionOption("recover", asMeasured("primary")); action.enter(v); const part = action.decide(v, 1 / 240);
   assert.throws(() => composeTactic(v, "circle-left", "punch", movementIntent("circle-left", v), part),
     /circle-left.*punch/);
   const contaminated = movementIntent("hold", v); contaminated.primary.guard = true;
@@ -159,9 +174,8 @@ test("movement_partials_own_only_the_three_locomotion_axes", () => {
   const idle = movementIntent("hold", v);
   for (const name of MOVEMENT_NAMES) {
     const part = movementIntent(name, v);
-    assert.deepEqual(Object.keys(part).sort(),
-      ["driving", "forward", "posture", "primary", "secondary", "strafe", "turn"], name);
-    assert.equal(part.driving, idle.driving, name);
+    assert.deepEqual(Object.keys(part).sort(), COMBAT_FIELDS, name);
+    assert.equal(part.actingHand, idle.actingHand, name);
     assert.deepEqual(part.posture, idle.posture, name);
     assert.deepEqual(part.primary, idle.primary, name);
     assert.deepEqual(part.secondary, idle.secondary, name);
@@ -179,7 +193,7 @@ test("movement_partials_own_only_the_three_locomotion_axes", () => {
   const actionViews = { cover: view(), cut: view(), thrust: view(), punch: view({ primary: "empty", secondary: "empty" }),
     shoot: view({ primary: "bow", secondary: "empty" }), bite, recover: view() };
   for (const action of HAND_ACTION_NAMES) {
-    const option = handActionOption(action); option.enter(actionViews[action]);
+    const option = handActionOption(action, asMeasured(chooseEffector(actionViews[action], action))); option.enter(actionViews[action]);
     const part = option.decide(actionViews[action], 1 / 240);
     assert.deepEqual(Object.keys(option.movement).sort(), ["forward", "strafe", "turn"], action);
     assert.deepEqual([part.forward, part.strafe, part.turn], [0, 0, 0],
@@ -189,7 +203,7 @@ test("movement_partials_own_only_the_three_locomotion_axes", () => {
   // And the check that catches a contaminated partial is the hand and posture
   // one, which needs no camera sentinel to have something to say.
   const contaminated = movementIntent("close", v); contaminated.posture.crouch = 0.5;
-  const cover = handActionOption("cover"); cover.enter(v);
+  const cover = handActionOption("cover", asMeasured("primary")); cover.enter(v);
   assert.throws(() => composeTactic(v, "close", "cover", contaminated, cover.decide(v, 1 / 240)),
     /close.*cover.*hand or posture/);
 });
@@ -206,7 +220,7 @@ test("specialists_and_options_share_the_full_stroke_and_shot_timeline", () => {
   assert.equal(actionStrokeReading(ACTION_STROKE_TIMING.chamber / 2).phase, "chamber");
   assert.equal(actionStrokeReading(ACTION_STROKE_TIMING.chamber + ACTION_STROKE_TIMING.commit / 2).phase, "commit");
   assert.equal(actionStrokeReading(ACTION_STROKE_TIMING.chamber + ACTION_STROKE_TIMING.commit + 0.01).phase, "recover");
-  const cut = combatOption("cut"); const v = view(); cut.enter(v);
+  const cut = handActionOption("cut", asMeasured("primary")); const v = view(); cut.enter(v);
   const recovering = cut.decide(v, ACTION_STROKE_TIMING.chamber + ACTION_STROKE_TIMING.commit + 0.01);
   assert.equal(recovering.primary.guard, true);
   assert.equal(cut.done(v), false);
@@ -214,10 +228,343 @@ test("specialists_and_options_share_the_full_stroke_and_shot_timeline", () => {
 });
 
 test("an_option_refuses_a_loadout_that_cannot_perform_it_by_name", () => {
-  assert.throws(() => combatOption("shoot").enter(view()), /option "shoot".*bow/);
-  assert.throws(() => combatOption("punch").enter(view({ primary: "sword", secondary: "sword" })),
-    /option "punch".*empty hand/);
-  assert.throws(() => combatOption("teleport"), /unknown option "teleport"/);
+  assert.throws(() => handActionOption("shoot", asMeasured("primary")).enter(view()), /option "shoot".*bow/);
+  assert.throws(() => handActionOption("punch", asMeasured("primary")).enter(view({ primary: "sword", secondary: "sword" })),
+    /option "punch".*empty .*hand/);
+  assert.throws(() => handActionOption("teleport", asMeasured("primary")), /unknown hand action "teleport"/);
+  // The other three quarters of a decision are guarded at the same door. A
+  // movement name reaching an arm skill is the exact hole the merge closed:
+  // `combatOption("hold")` used to construct and then run a hand skill on a
+  // locomotion name.
+  assert.throws(() => handActionOption("hold", asMeasured("primary")), /unknown hand action "hold"/);
+  assert.throws(() => handActionOption("cut", { effector: "third", target: "vital", stance: "action-default" }),
+    /unknown effector "third"/);
+  assert.throws(() => handActionOption("cut", { effector: "primary", target: "knee", stance: "action-default" }),
+    /unknown target "knee"/);
+  assert.throws(() => handActionOption("cut", { effector: "primary", target: "vital", stance: "kneeling" }),
+    /unknown stance "kneeling"/);
+});
+
+// ---- tactic v2: exact effector, exact target, bounded stance ---------------
+
+/** Step an option to a chosen frame, returning the command it produced there. */
+const run = (v, action, execution, frames = 1, dt = 1 / 240) => {
+  const option = handActionOption(action, execution);
+  option.enter(v);
+  let intent = null;
+  for (let frame = 0; frame < frames; frame += 1) { v.clock = 12.5 + frame * dt; intent = option.decide(v, dt); }
+  return { option, intent };
+};
+
+test("the_tactic_v2_vocabulary_is_ordered_frozen_and_never_inferred", () => {
+  // Stage C lays 26 outputs over these five tables by index, so their order is
+  // the contract. Written out here rather than derived, because a table that
+  // checks itself checks nothing: this is the copy that fails if somebody
+  // inserts a name in the middle of one of them.
+  assert.equal(TACTIC_VERSION, 2);
+  assert.deepEqual([...MOVEMENT_NAMES], ["close", "hold", "circle-left", "circle-right", "disengage"]);
+  assert.deepEqual([...HAND_ACTION_NAMES], ["cover", "cut", "thrust", "punch", "shoot", "bite", "recover"]);
+  assert.deepEqual([...EFFECTOR_NAMES], ["primary", "secondary", "natural"]);
+  assert.deepEqual([...TARGET_NAMES], ["vital", "high", "low", "threat"]);
+  assert.deepEqual([...STANCE_NAMES], ["action-default", "upright", "compact", "extended", "slip-left", "slip-right"]);
+  for (const table of [MOVEMENT_NAMES, HAND_ACTION_NAMES, EFFECTOR_NAMES, TARGET_NAMES, STANCE_NAMES]) {
+    assert.equal(Object.isFrozen(table), true);
+  }
+  assert.equal(MOVEMENT_NAMES.length + HAND_ACTION_NAMES.length + EFFECTOR_NAMES.length +
+    TARGET_NAMES.length + STANCE_NAMES.length + 1, 26, "the contract Stage C widens to");
+});
+
+test("a_dual_wielder_executes_the_effector_the_decision_named", () => {
+  // Two pointed weapons, so both hands could -- which is the case action v1
+  // could not express an opinion about. `thrust` rather than `cut`, because it
+  // puts a button on exactly the acting hand: "it named one and posed the
+  // other" is then visible rather than inferred from `actingHand` alone.
+  const swords = view({ primary: "sword", secondary: "sword" });
+  for (const effector of ["primary", "secondary"]) {
+    const spare = effector === "primary" ? "secondary" : "primary";
+    const { intent } = run(swords, "thrust", { effector, target: "vital", stance: "action-default" });
+    assert.equal(intent.actingHand, effector);
+    assert.equal(intent[effector].thrust, true, `${effector} was named and did not thrust`);
+    assert.equal(intent[spare].thrust, false, `${effector} was named and the ${spare} thrust instead`);
+  }
+  // And the direction that used to fail silently. A shield in the primary and a
+  // sword in the secondary: `combatOption("cut", "primary")` searched
+  // `[primary, secondary]`, found the shield could not cut, and ran the whole
+  // stroke on the sword hand without saying so. The request is now refused by
+  // the name of the hand it asked for.
+  const shielded = view({ primary: "shield", secondary: "sword" });
+  assert.throws(() => handActionOption("cut", { effector: "primary", target: "vital", stance: "action-default" }).enter(shielded),
+    /option "cut" requires a held striking weapon in the primary hand/);
+  assert.equal(run(shielded, "cut", { effector: "secondary", target: "vital", stance: "action-default" }).intent.actingHand,
+    "secondary");
+  // The scripted search survives as a named helper rather than as a default
+  // inside the option, and it is the order it always had.
+  assert.equal(chooseEffector(shielded, "cut"), "secondary");
+  assert.equal(chooseEffector(swords, "cut"), "primary");
+  assert.equal(chooseEffector(swords, "cut", "secondary"), "secondary");
+});
+
+test("an_illegal_action_effector_target_tuple_is_masked_not_repaired", () => {
+  const archer = view({ primary: "bow", secondary: "empty" });
+  const legal = deployableTactics(archer);
+  const has = (rows, action, effector, target) =>
+    rows.some((row) => row.action === action && row.effector === effector && row.target === target);
+
+  // The tuple three independent argmaxes produce: largest action logit `shoot`,
+  // largest effector logit `secondary`, largest target logit `low`. Each name is
+  // legal and every pair of them is plausible; the triple is not, because a
+  // two-handed bow welds the secondary to the haft and `Fighter.update` throws
+  // that half of the command away. A repair would fire the bow anyway and call
+  // it the decision that was made.
+  assert.equal(has(legal, "shoot", "primary", "low"), true, "the bow hand may aim low");
+  assert.equal(has(legal, "shoot", "secondary", "low"), false, "the welded hand is not an effector");
+  assert.throws(() => handActionOption("shoot", { effector: "secondary", target: "low", stance: "action-default" }).enter(archer),
+    /option "shoot" requires the primary hand, which is the only one a two-handed bow leaves free to act/);
+
+  // Masked at the source as well, and this row moved: `punch` used to be
+  // offered on a bow body and then posed onto the arm nothing reads.
+  assert.equal(legal.some((row) => row.action === "punch"), false);
+  const fists = view({ primary: "empty", secondary: "empty" });
+  const barehanded = deployableTactics(fists);
+  assert.equal(has(barehanded, "punch", "primary", "vital"), true);
+  // The target third of the tuple, on a body that can punch: a fist swung from
+  // a shoulder socket has no business at a knee.
+  assert.equal(has(barehanded, "punch", "primary", "low"), false);
+  assert.throws(() => handActionOption("punch", { effector: "primary", target: "low", stance: "action-default" }).enter(fists),
+    /option "punch" requires a punch target of vital, high, not "low"/);
+
+  // Capability-neutral recovery, stated as a mask rather than as a comment.
+  // `recover` needs no hand and `cover` needs one, and keeping those apart is
+  // the fix the last exhaustive look-ahead run bought -- re-fusing them empties
+  // the legal set for a body with no arms and `maskedArgmax` throws on it.
+  const jaws = view();
+  jaws.self.hands = {};
+  jaws.self.naturalAttacks = { bite: { reach: 0.7, ready: true, active: false } };
+  const natural = deployableTactics(jaws);
+  assert.equal(has(natural, "recover", "natural", "vital"), true, "recovery survives having no hand");
+  assert.equal(natural.some((row) => row.action === "cover"), false, "a cover needs a hand to place");
+  assert.equal(has(natural, "bite", "natural", "vital"), true);
+
+  // Everything offered can be entered, checked against the real bodies rather
+  // than against one convenient fixture. That is the direction the arrangement
+  // guarantees; the other direction is below, and it does not hold.
+  const bodies = [archer, fists, jaws, view(), view({ primary: "sword", secondary: "shield" }),
+    view({ primary: "axe", secondary: "empty" })];
+  for (const body of bodies) {
+    const tuples = deployableTactics(body);
+    assert.ok(tuples.length > 0, `${body.self.unit} ${JSON.stringify(Object.keys(body.self.hands))} has no legal tactic`);
+    for (const row of tuples) {
+      assert.doesNotThrow(
+        () => handActionOption(row.action, { ...row, stance: "action-default" }).enter(body),
+        `${row.action}/${row.effector}/${row.target}`,
+      );
+    }
+  }
+
+  // The body the "a mask and an executor cannot disagree" claim was false for,
+  // and it is the only kind that has arms to lose. An armless *warrior* -- both
+  // slots present, both lost, no natural attack -- is refused outright by
+  // `supportedOptions`' capability gate, so the mask is empty; the executor's
+  // own rule still answers `natural` for `recover` and still enters it. The mask
+  // being the stricter of the two is the safe direction and is what is asserted
+  // here, rather than an equality that does not exist.
+  const armless = view();
+  armless.self.hands.primary.lost = true; armless.self.hands.secondary.lost = true;
+  assert.deepEqual(deployableTactics(armless), [], "no capability at all is an empty mask");
+  assert.doesNotThrow(() => handActionOption("recover", asMeasured("natural")).enter(armless),
+    "and the executor is the more permissive of the two, which is a difference worth knowing");
+});
+
+test("a_lost_selected_hand_forces_a_new_decision_before_execution", () => {
+  const v = view();
+  const option = handActionOption("cut", { effector: "primary", target: "vital", stance: "action-default" });
+  option.enter(v);
+  assert.equal(option.decide(v, 1 / 240).actingHand, "primary");
+  assert.equal(option.done(v), false);
+
+  v.self.hands.primary.lost = true;
+  // Two halves, and only the first of them existed. `done` has always answered
+  // true for a severed hand, which lets a controller that reads it re-decide --
+  // but `decide` never re-checked, so a controller inside its persistence
+  // window went on posing the arm that had been cut off and went on naming it
+  // in `actingHand`. There is no repair available here: switching hands is the
+  // silent redirection this stage removes.
+  assert.equal(option.done(v), true, "a severed effector ends the option");
+  assert.throws(() => option.decide(v, 1 / 240),
+    /option "cut" requires an attached primary hand: the one this option named has been severed/);
+});
+
+test("natural_bite_never_aliases_a_human_hand", () => {
+  const jaws = view();
+  jaws.self.hands = {};
+  jaws.self.naturalAttacks = { bite: { reach: 0.7, ready: true, active: false } };
+  jaws.opponent.collisionRadius = 0.3; jaws.measure = 0.8;
+  const { intent } = run(jaws, "bite", { effector: "natural", target: "vital", stance: "action-default" });
+  assert.equal(intent.natural.thrust, true, "the jaws close");
+  assert.equal(intent.actingHand, null, "jaws are not a hand");
+  // Whole slots, every leaf, against a fresh command -- not three booleans.
+  // This asserted `primary.thrust` and `secondary.thrust` were false, which is
+  // what its own message calls "no hand slot is written on the way" and is not
+  // the same claim: writing a guard, a cursor and a roll into both hands on the
+  // way past left the entire suite green. A pose on an arm this body does not
+  // have is exactly the alias the natural channel exists to end, and it is a
+  // pose whatever field carries it.
+  const blank = freshIntent();
+  assert.deepStrictEqual(intent.primary, blank.primary, "no hand slot is written on the way");
+  assert.deepStrictEqual(intent.secondary, blank.secondary, "no hand slot is written on the way");
+  // Both directions of the alias, refused by name. A hand cannot bite, and
+  // `natural` is not a spare effector for an action a hand owns.
+  assert.throws(() => handActionOption("bite", { effector: "primary", target: "vital", stance: "action-default" }).enter(jaws),
+    /option "bite" requires the natural effector, not the primary hand/);
+  assert.throws(() => handActionOption("cut", { effector: "natural", target: "vital", stance: "action-default" }).enter(view()),
+    /option "cut" requires the primary or secondary hand, not the natural effector/);
+  // Capability-neutral recovery is the one place a hand action reaches the
+  // natural effector, and it stays exactly one: a body with no arm left recovers
+  // there, a body with an arm is refused it.
+  const armless = view(); armless.self.hands.primary.lost = true; armless.self.hands.secondary.lost = true;
+  assert.doesNotThrow(() => handActionOption("recover", asMeasured("natural")).enter(armless));
+  assert.throws(() => handActionOption("recover", asMeasured("natural")).enter(view()),
+    /option "recover" requires an attached hand rather than the natural effector/);
+});
+
+test("each_stance_reaches_its_exact_bounded_posture", () => {
+  // Exact values, not finiteness and not a range. `boundIntent` clamps every
+  // posture axis, so a stance pushed past one is caught by the clamp rather
+  // than by the constant -- an assertion that checked bounds alone would pass a
+  // table of 1.5s.
+  //
+  // Read against a `thrust`, whose action posture is `commit`: 0.12 crouch,
+  // 0.30 lean, 0.68 x outboard twist. Worth writing down for session 23, which
+  // decides whether these six constants earn their place: **`extended` is very
+  // nearly `commit`**, so during any committing action the stance head offers
+  // five distinguishable choices rather than six.
+  const v = view();
+  const expected = {
+    "action-default": { crouch: 0.12, trunkLean: 0.30, trunkTwist: 0.68 },
+    upright: { crouch: 0, trunkLean: 0, trunkTwist: 0 },
+    compact: { crouch: 0.55, trunkLean: -0.20, trunkTwist: 0 },
+    extended: { crouch: 0.10, trunkLean: 0.30, trunkTwist: 0.55 },
+    "slip-left": { crouch: 0.25, trunkLean: -0.10, trunkTwist: -0.65 },
+    "slip-right": { crouch: 0.25, trunkLean: -0.10, trunkTwist: 0.65 },
+  };
+  for (const stance of STANCE_NAMES) {
+    const { intent } = run(v, "thrust", { effector: "primary", target: "vital", stance });
+    assert.deepEqual({ crouch: intent.posture.crouch, trunkLean: intent.posture.trunkLean,
+      trunkTwist: intent.posture.trunkTwist }, expected[stance], stance);
+  }
+  // `extended` twists toward the arm that is working, which is the whole of what
+  // "toward the selected hand" means -- so the off hand's answer is the negated
+  // one and not the same one. A slip is body-relative and does not follow it.
+  const swords = view({ primary: "sword", secondary: "sword" });
+  assert.equal(run(swords, "thrust", { effector: "secondary", target: "vital", stance: "extended" }).intent.posture.trunkTwist,
+    -0.55);
+  assert.equal(run(swords, "thrust", { effector: "secondary", target: "vital", stance: "slip-right" }).intent.posture.trunkTwist,
+    0.65);
+  // The slot is the only legal one, and this is what its being wrong looks
+  // like: `applyActionPosture` zeroes all three axes on every call, so a stance
+  // applied above it reads back as the action posture instead.
+  assert.notEqual(expected.compact.crouch, expected["action-default"].crouch);
+  assert.notEqual(expected.compact.trunkLean, expected["action-default"].trunkLean);
+});
+
+/**
+ * A moving point is answered or refused, never quietly turned into a height.
+ *
+ * `threat` is the one `TargetName` that is not a height, and `cover` and
+ * `recover` are the only branches that consume one -- both through
+ * `actionCoverAt`. They used to test different things to decide it: `cover`
+ * read the collapsed aim and `recover` read the target, which meant an action
+ * whose `AIMED_TARGETS` row grew `threat` without a branch to answer it would
+ * have been handed `"as-measured"` -- the opponent's shoulder line, a real aim
+ * that nothing had asked for, with no refusal anywhere. This is the coupling
+ * between the table and the branches, stated so that widening one without the
+ * other is red.
+ */
+test("only_the_two_defensive_skills_can_be_aimed_at_a_moving_point", () => {
+  const answering = HAND_ACTION_NAMES.filter((action) => tacticTargets(action).includes("threat"));
+  assert.deepEqual(answering, ["cover", "recover"]);
+  for (const action of HAND_ACTION_NAMES) {
+    const request = () => handActionOption(action, { effector: "primary", target: "threat", stance: "action-default" });
+    if (answering.includes(action)) assert.doesNotThrow(request, action);
+    else {
+      assert.throws(request, new RegExp(`hand action "${action}" cannot be aimed at "threat"`), action);
+    }
+  }
+  // And the one discriminant really is one: `cover` asked for the measured aim
+  // and `cover` asked for the threat are the same placement, because
+  // `actionCoverAt` *is* what the specialists were measured through. `recover`
+  // asked for the measured aim is the shoulder line and is not the same thing,
+  // which is the difference that used to be hidden in two conditions.
+  const v = view();
+  const cursor = (action, target) => {
+    const { intent } = run(v, action, { effector: "primary", target, stance: "action-default" });
+    return { pointerX: intent.primary.pointerX, pointerY: intent.primary.pointerY };
+  };
+  assert.deepEqual(cursor("cover", "as-measured"), cursor("cover", "threat"));
+  assert.notDeepEqual(cursor("recover", "as-measured"), cursor("recover", "threat"));
+});
+
+/**
+ * The stance head reaches an effector that is not a hand.
+ *
+ * `each_stance_reaches_its_exact_bounded_posture` runs a `thrust`, which is one
+ * of the branches that ends in the long shared tail. The two branches that
+ * return early -- a `bite`, and `recover` on a body with no arms left -- carry
+ * their own `applyTacticStance` call, and deleting it from *both* left the whole
+ * suite green. Same table, because a stance is a whole-body pose and does not
+ * know what is striking; the difference is that these two never run
+ * `applyActionPosture`, so `action-default` is the blank command's zeros rather
+ * than a skill's own pose.
+ */
+test("the_stance_head_reaches_the_natural_effector_as_well_as_a_hand", () => {
+  const expected = {
+    "action-default": { crouch: 0, trunkLean: 0, trunkTwist: 0 },
+    upright: { crouch: 0, trunkLean: 0, trunkTwist: 0 },
+    compact: { crouch: 0.55, trunkLean: -0.20, trunkTwist: 0 },
+    // `+1` because the command names no hand at all, which is the whole of what
+    // the natural fallback in `applyTacticStance` is for.
+    extended: { crouch: 0.10, trunkLean: 0.30, trunkTwist: 0.55 },
+    "slip-left": { crouch: 0.25, trunkLean: -0.10, trunkTwist: -0.65 },
+    "slip-right": { crouch: 0.25, trunkLean: -0.10, trunkTwist: 0.65 },
+  };
+  const jaws = view();
+  jaws.self.hands = {};
+  jaws.self.naturalAttacks = { bite: { reach: 0.7, ready: true, active: false } };
+  jaws.opponent.collisionRadius = 0.3; jaws.measure = 0.8;
+  const armless = view();
+  armless.self.hands.primary.lost = true; armless.self.hands.secondary.lost = true;
+  const cases = [
+    ["bite", jaws, { effector: "natural", target: "vital" }],
+    ["recover", armless, { effector: "natural", target: "vital" }],
+  ];
+  for (const [action, body, execution] of cases) {
+    for (const stance of STANCE_NAMES) {
+      const { intent } = run(body, action, { ...execution, stance });
+      assert.deepEqual({ crouch: intent.posture.crouch, trunkLean: intent.posture.trunkLean,
+        trunkTwist: intent.posture.trunkTwist }, expected[stance], `${action}/${stance}`);
+      assert.equal(intent.actingHand, null, `${action}/${stance} named a hand`);
+    }
+  }
+});
+
+test("a_named_target_is_a_body_region_derived_from_published_facts", () => {
+  const v = view();
+  // Warrior geometry as `describeFighter` publishes it: vitals at the torso
+  // centre, crown at the top of the head. The head capsule runs 1.555-1.765 and
+  // the pelvis 0.83-1.09, so the two outer regions land on different parts.
+  v.opponent.vitalHeight = 1.28; v.opponent.crownHeight = 1.765;
+  assert.equal(targetHeight(v, "vital"), 1.28);
+  assert.ok(Math.abs(targetHeight(v, "high") - 1.64375) < 1e-9, `${targetHeight(v, "high")}`);
+  assert.ok(Math.abs(targetHeight(v, "low") - 0.91625) < 1e-9, `${targetHeight(v, "low")}`);
+  assert.equal(TARGET_SPAN_FRACTION, 0.75);
+  // The same rule on a body a table written in metres would have broken: a
+  // centipede is 0.38 m tall, so every region has to come out of its own span.
+  const crawler = view();
+  crawler.opponent.vitalHeight = 0.209; crawler.opponent.crownHeight = 0.38;
+  assert.ok(targetHeight(crawler, "high") < crawler.opponent.crownHeight);
+  assert.ok(targetHeight(crawler, "low") > 0);
+  assert.ok(targetHeight(crawler, "high") > targetHeight(crawler, "vital"));
+  assert.ok(targetHeight(crawler, "vital") > targetHeight(crawler, "low"));
 });
 
 test("the_scripted_meta_controller_matches_the_policy_it_replaces", () => {

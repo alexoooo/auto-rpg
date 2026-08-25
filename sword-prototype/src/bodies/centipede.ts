@@ -31,8 +31,15 @@ const HUMANOID_HANDS = (): Record<HandName, HandView> => ({
 
 class BiteStrike implements Striking {
   readonly kind = "bite" as const;
-  // Combat reports historically identify a hand. This source label is not
-  // published as a HandView and does not fabricate an arm on the creature.
+  // Combat reports identify a hand. This source label is not published as a
+  // HandView and does not fabricate an arm on the creature.
+  //
+  // It is the **last** place the alias survives, and it survives on purpose:
+  // session 17 Stage B moved the command side onto `Intent.natural`, so nothing
+  // *drives* jaws through a hand slot any more, but `Striking.hand` feeds
+  // `CombatReportEvent.hand` and from there `BehaviourRecord.contacts`, which is
+  // keyed by `HandName` and is Stage C's to widen. Widening it here would leave
+  // a record with a key nothing counts.
   readonly hand = "primary" as const;
   readonly body: PhysicsBody;
   private readonly head: Part;
@@ -251,7 +258,11 @@ export class Centipede implements Combatant {
     if (this.dead) return;
     const input = this.mind.decide(this.view, dt);
     this.phaseClock += dt;
-    if (this.phase === "ready" && input.primary.thrust) { this.phase = "chamber"; this.phaseClock = 0; }
+    // The natural channel. This read `input.primary.thrust` on a body whose
+    // published `hands` is an empty object, so the creature's whole control
+    // surface was a hand slot it does not have -- and every reader downstream
+    // had to carry the exception.
+    if (this.phase === "ready" && input.natural.thrust) { this.phase = "chamber"; this.phaseClock = 0; }
     else if (this.phase === "chamber" && this.phaseClock >= 0.12) { this.phase = "lunge"; this.phaseClock = 0; }
     else if (this.phase === "lunge" && this.phaseClock >= 0.16) { this.phase = "recover"; this.phaseClock = 0; }
     else if (this.phase === "recover" && this.phaseClock >= 0.34) { this.phase = "ready"; this.phaseClock = 0; }
@@ -260,7 +271,7 @@ export class Centipede implements Combatant {
     const turnRate = input.turn * 2.2 + input.strafe * 1.1;
     this.heading += turnRate * dt;
     this.facingVector.set(Math.sin(this.heading), 0, Math.cos(this.heading));
-    const speed = input.primary.guard ? 0.7 : 2.2;
+    const speed = input.natural.guard ? 0.7 : 2.2;
     if (this.phase === "lunge") this.facingVector.scaleInPlace(4.8);
     else this.facingVector.scaleInPlace(input.forward * speed);
     head.body.setLinearVelocity(this.facingVector);
@@ -317,7 +328,11 @@ export class Centipede implements Combatant {
 /** Close, turn, and commit the one natural attack the body declares. */
 export function crawlerMind(): Mind {
   const intent = (): Intent => ({
-    forward: 0, strafe: 0, turn: 0, driving: "primary",
+    // No hand acts, because there is no hand. Both hand slots stay at their
+    // blanks -- a command carries them whatever the body is -- and the two
+    // buttons this creature is actually driven by are on `natural`.
+    forward: 0, strafe: 0, turn: 0, actingHand: null,
+    natural: { thrust: false, guard: false },
     posture: { crouch: 0, trunkLean: 0, trunkTwist: 0 },
     primary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
     secondary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
@@ -331,8 +346,8 @@ export function crawlerMind(): Mind {
     while (delta < -Math.PI) delta += Math.PI * 2;
     out.turn = Math.max(-1, Math.min(1, delta * 2.2));
     out.forward = view.measure > CENTIPEDE_BITE_REACH * 0.82 ? 1 : 0;
-    out.primary.thrust = view.measure <= CENTIPEDE_BITE_REACH && view.self.naturalAttacks?.bite?.ready === true;
-    out.primary.guard = view.measure < 0.25 && !out.primary.thrust;
+    out.natural.thrust = view.measure <= CENTIPEDE_BITE_REACH && view.self.naturalAttacks?.bite?.ready === true;
+    out.natural.guard = view.measure < 0.25 && !out.natural.thrust;
     return out;
   } };
 }

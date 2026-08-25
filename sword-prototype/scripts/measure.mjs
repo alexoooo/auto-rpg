@@ -555,7 +555,7 @@ function runSwingBench({ seed = 1, seconds = 20 } = {}) {
     // The driven hand's roll, not the intent's: `roll` moved onto the hand when
     // the intent grew two of them, so this read `undefined` every step and the
     // stroke counter therefore counted no strokes at all.
-    const roll = asked[asked.driving].roll;
+    const roll = asked[asked.actingHand].roll;
     if (lastRoll !== null && roll !== lastRoll) {
       peaks.push(peak);
       peak = 0;
@@ -962,7 +962,7 @@ function reportShieldArcherCells(count, seed) {
       const archer = policyMind("archer", seeds[archerSide === "left" ? 0 : 1]);
       const trackedArcher = { name: archer.name, decide(view, dt) {
         const intent = archer.decide(view, dt);
-        const drawing = intent[intent.driving].thrust;
+        const drawing = intent[intent.actingHand].thrust;
         if (held && !drawing) totals.shots += 1;
         held = drawing;
         return intent;

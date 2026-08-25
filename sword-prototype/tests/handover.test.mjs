@@ -12,6 +12,7 @@ import { CONFIG } from "../src/config.ts";
 import { attachPhysics } from "../src/physics.ts";
 import { Fighter } from "../src/fighter.ts";
 import { azimuthOf, elevationOf, blankIntent } from "../src/policies.ts";
+import { COMBAT_FIELDS } from "./fixtures/intent.mjs";
 import {
   cursorForPose,
   handOffset,
@@ -62,7 +63,7 @@ const A = CONFIG.arm;
 const blank = (over = {}) => {
   const intent = blankIntent();
   Object.assign(intent, over);
-  Object.assign(intent[intent.driving], over);
+  Object.assign(intent[intent.actingHand], over);
   return intent;
 };
 
@@ -278,10 +279,7 @@ test("handover_rebases_both_hands_without_a_camera_field", () => {
   assert.equal(first.turn, 0.5);
   assert.equal(first.primary.thrust, true);
   assert.equal(first.primary.guard, true);
-  assert.deepEqual(
-    Object.keys(first).sort(),
-    ["driving", "forward", "posture", "primary", "secondary", "strafe", "turn"],
-  );
+  assert.deepEqual(Object.keys(first).sort(), COMBAT_FIELDS);
   // Both hands start at the found pose rather than at what the taker asked for,
   // which is what makes the sentence above about the spare hand true.
   const seeded = cursorForPose(poseFor(-1, 1, 1), "secondary");
@@ -365,7 +363,7 @@ function sweeper() {
   // The driven hand only. The other one holds centre, which is what a hand not
   // being swept looks like, and leaving it out of the sweep is what keeps this
   // a measurement of one arm being handed over rather than of two.
-  const hand = intent[intent.driving];
+  const hand = intent[intent.actingHand];
   let elapsed = 0;
   return {
     name: "sweeper",

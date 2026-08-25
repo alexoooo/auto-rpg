@@ -97,8 +97,10 @@ algorithm. Havok has no cheap exact clone/restore seam, so combat-time look-ahea
 to rebuild a scene for every branch. An end-to-end network would instead spend its first
 experiment rediscovering the stable cut, cover, punch and shot geometry already expressed
 through the player's controls. The first implemented compromise kept eight mutually
-exclusive options. The current v3 seam factorizes five movement choices from seven hand
-actions, so closing or circling can compose with cover, cut, thrust, punch, shoot or bite.
+exclusive options. The current seam factorizes five movement choices from seven hand
+actions, so closing or circling can compose with cover, cut, thrust, punch, shoot or bite --
+and since session 17 the hand half also names the exact effector, the target region and the
+body stance, which is tactic v2 below.
 Scripted and learned controllers share those ordinary `Intent` producers and a bounded
 persistence interval. Novelty descriptors cover range, guard, handedness and attack
 transitions without granting the learner new authority.
@@ -136,6 +138,76 @@ copy on the training side, and that is a named open finding rather than somethin
 `research-rollout-worker.mjs` carries a fourth that is not even equivalent -- it tests
 `weapon === "sword"` for thrust and an exclusion list for cut, so a network is trained under
 one legality table and deployed under another.
+
+**Tactic v2: an action is not a decision until it says what performs it, at what, and how the
+body stands.** Action v1 named an action and stopped, and three ambiguities rode on that
+silence. A dual wielder could not ask for its off sword -- the option searched
+`[preferred, other]` and answered with whichever hand could, so a request for the primary was
+executed on the secondary and nothing said so. Every attack replayed one fixed aim at the
+opponent's shoulder line. Crouch, lean and twist were animation welded to the action name.
+Session 17 Stage B closed all three in the execution layer, leaving the output contract at
+thirteen values until Stage C widens it:
+
+- **The effector is exact.** `handActionOption` is handed the effector it will use and either
+  uses it or refuses by name; the silent search survives as `chooseEffector`, which is the
+  *caller's* decision and is named at every call site. A two-handed weapon leaves one hand
+  free to act -- `Fighter.update` drives the leading arm and sends the trailing one to a point
+  on the same haft, ignoring its half of the command -- so an action named on the trailing hand
+  is refused rather than posed and discarded. `punch` therefore stopped being advertised on a
+  bow body, where it had always been posed onto an arm nothing reads; the look-ahead training
+  schedule had never offered it there, so **the `bow+empty` row of the runtime mask now agrees
+  with the training one**. That is one row of thirteen and not the whole table: measured against
+  `actionsFor`, `sword+empty` and `axe+empty` still offer a runtime `punch` the schedule never
+  trains, on both humanoid units. The loadout table is in `docs/measurements.md`.
+- **The target is a body region derived from published facts, and it decides where a *point*
+  goes.** `BodyView` publishes `vitalHeight` and `crownHeight` and nothing else about where a
+  body's parts are, so `high` and `low` are three quarters of the vitals-to-crown span above and
+  below the vitals and `vital` is the vitals. A fraction rather than a distance, because the
+  rule has to work on a centipede 0.38 m tall as well as on a warrior 1.765 m tall; the fraction
+  is chosen anatomically, and the band that puts `high` on a head and `low` in a pelvis on both
+  humanoid bodies is 0.567 to 0.928, of which 0.75 is very nearly the midpoint.
+  **The claim is checked against the contacted limb in a real bout, and it holds for `thrust`.**
+  On a `thrust` a named `high` takes a 0.48 head share against the measured aim's 0.09, and a
+  named `low` a 0.82 low share against 0.12. It does **not** hold for `cut` or `punch`, which are
+  strokes rather than points: the aim seeds only the centre of an arc that sweeps far wider than
+  the gap between two named heights, so a cut aimed `high` takes a 0.045 head share against the
+  measured aim's 0.071 -- lower. `shoot` is a point like `thrust` and behaves like one, but lands
+  two to four body contacts a bout in this harness, which is a hint and not a measurement. The
+  four tables, the structural reason and the open question are in `docs/measurements.md`.
+  `threat` is the existing threat-hand aim and belongs to `cover` and `recover` alone; it is
+  refused by name on every other action rather than being quietly read as the measured line.
+- **The stance is bounded and applied last.** Six named whole-body poses over the same
+  normalized `PostureIntent` axes a person drives, applied *after* the skill's action posture
+  and *before* `boundIntent`, which is the only legal slot: `applyActionPosture` zeroes all
+  three axes on every call, so a stance applied above it is erased without trace, and
+  `boundIntent` is what keeps the result inside the same envelope a person has.
+  `action-default` is the skill's own pose; `upright` is 0/0/0; `compact` is crouch 0.55, lean
+  -0.20, no twist; `extended` is crouch 0.10, lean +0.30, twist 0.55 toward the acting arm;
+  `slip-left` and `slip-right` are crouch 0.25, lean -0.10, twist -0.65 and +0.65. These are
+  initial numbers and are not claims -- session 23's held-out result decides whether they earn
+  their place, and it should decide knowing that **`extended` is very nearly the existing
+  `commit` posture** (0.12 / 0.30 / 0.68 x outboard), so during any committing action the
+  six-name stance head offers five distinguishable choices rather than six.
+
+The natural channel arrived with them, and it is the same argument one level down. A centipede
+publishes `hands` as a frozen empty object and was driven entirely through
+`Intent.primary.thrust` and `Intent.primary.guard` -- a hand slot it does not have was its
+whole control surface, and every reader downstream carried the exception in a comment. A
+command now carries `natural`, the old `Intent.driving` is renamed to
+`actingHand: HandName | null`, and jaws answer `null`. That field means the same thing for a
+person and for a policy -- "which hand is acting" is also what a mouse hand means -- so it is
+one field with one meaning rather than the type split the plan asked for; `Controls.state`
+narrows it to a `HandName`, because a cursor is always on a hand.
+
+**A person drives the natural channel from the buttons that drive a hand**, and for one session
+they did not. `Controls.state.natural` was initialised and never written again, and `splitMind`
+took `natural` from the policy side -- so somebody who took a centipede from the setup screen,
+which offers "you" for either side whatever the unit, could steer it and never close its jaws.
+There is no second button to invent: a natural striker is aimed by turning the body, so the
+same left and right mean the same two things to jaws as to a hand, and `applyButtonPose` in
+`src/buttons.ts` writes one press onto both. Nothing switches on the unit -- a hand slot is
+inert on a body with no hands and the natural channel is inert on a body with no natural
+attack -- which is house rule 1 kept rather than a branch added.
 
 Loading a learned policy is deliberately separate from shipping one. Registration requires,
 in `learning/tournament.ts`'s `assessTournamentCandidate`: held-out macro score above both the
@@ -458,8 +530,8 @@ and the hand it is not on is also being commanded from a pose the taker knows no
 **A takeover changes who is driving a body, and nothing about how the arena is framed.**
 The zoom, the orbit bearing and the pan are the host's `CameraGestureState` throughout; they
 used to ride on the command and be passed through by name for the whole rebase window, which
-was true and pointless. What crosses the seam is the seven-field command, and that is all
-there is to hand over.
+was true and pointless. What crosses the seam is the combat command, and that is all there is
+to hand over.
 
 `takeover.rebaseSeconds = 0` leaves exactly the seed and nothing else, and is kept working
 on purpose as the control condition for any argument about whether the rebase earns its
@@ -520,11 +592,16 @@ sixteen handover tests needed no edit.
 
 **`Intent` grew a hand.** `HandIntent` is the six fields that belong to a hand -- two
 cursor axes, bounded forearm roll, independent wrist bend, thrust and guard -- and the
-command carries locomotion, whole-body posture, two hands and a `driving` selector: seven
-fields, none of them the camera's. Splitting the hands out rather than adding a second set
-of differently named fields is what keeps the two alike: there is no `pointerX` and
-`offPointerX`, no hand that is the real one and a hand that is the afterthought, and `Arm`
-takes one without caring which it is.
+command carries locomotion, whole-body posture, two hands, a natural channel and an
+`actingHand` selector, none of them the camera's. Splitting the hands out rather than adding
+a second set of differently named fields is what keeps the two alike: there is no `pointerX`
+and `offPointerX`, no hand that is the real one and a hand that is the afterthought, and
+`Arm` takes one without caring which it is. (The count was written out here as "seven fields"
+and went stale twice; `COMBAT_FIELDS` in `tests/fixtures/intent.mjs` names the set and is
+asserted against every producer of a command, which is the copy that cannot. It said
+`tests/minds.test.mjs` while there were **six** hand-written copies of that literal across five
+test files, which is a single-sourcing claim that was not true; there is one now and the five
+files import it.)
 
 The whole vocabulary lives in `mind.ts` -- `Intent`, `HandIntent`, `PostureIntent`, the hand
 names -- and the direction of the imports across that boundary is load-bearing. `input.ts`
@@ -660,13 +737,13 @@ which. What was not symmetric was everything above it, and three faults made "tw
 only one hand" and "the AI holds its shield strangely" the same bug.
 
 **A policy planned one hand and the other was furniture.** `handOf(intent)` was read *once*
-at construction, `blankIntent` sets `driving: "primary"`, and nothing ever wrote it -- so the
-off hand kept the rest pose it was built with for the whole bout. `attackHand(view, prefer)`
+at construction, `blankIntent` sets `actingHand: "primary"`, and nothing ever wrote it -- so
+the off hand kept the rest pose it was built with for the whole bout. `attackHand(view, prefer)`
 replaces it and is asked every step, because the answer changes: an arm gets cut off, a hand
 holding a shield is never the one that swings, and two blades take turns.
 
 **`splitMind` handed the policy's *attack* to whichever arm the person was not using.** It
-copied `theirs[theirs.driving]`, which was right for exactly as long as a policy planned one
+copied `theirs[theirs.actingHand]`, which was right for exactly as long as a policy planned one
 hand -- whatever it had, it wanted its arm to do. It is wrong the moment a hand's plan
 depends on what the hand holds. Pick a sword and a shield, take the sword, and the old rule
 ran `swinger`'s commit stroke *on the shield arm*: the board was being swung like a bat, for

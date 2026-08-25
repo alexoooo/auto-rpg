@@ -315,13 +315,19 @@ are the same class: there is nothing in it that knows which one you are driving.
 
 ## Tuning
 
-`src/config.ts` is the entire tuning surface and is deliberately mutable. The page exposes
-`window.__sword`, so the loop is:
+`src/config.ts` is the tuning surface a person reaches, and is deliberately mutable. The page
+exposes `window.__sword`, so the loop is:
 
 ```js
 __sword.config.arm.stiffness = 1600   // takes effect on the next frame
 __sword.config.sword.mass = 1.9
 ```
+
+The option layer is the one exception and it is on purpose: `ACTION_TUNING` in
+`src/action-primitives.ts` and `TARGET_SPAN_FRACTION` in `src/options.ts` are frozen and
+unreachable from `__sword.config`, because `options.ts` may not import `config.ts` -- a legality
+or aim rule a console command can move is a rule a learned artifact can be trained against and
+deployed without. `AGENTS.md` carries the full argument.
 
 Motor ceilings and damping are set on native solver objects at construction, so editing
 those particular numbers needs `__sword.left.applyTuning()` to push them across:

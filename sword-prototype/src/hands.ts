@@ -292,7 +292,7 @@ export const isStrapped = (kind: Striker): boolean => GRIPS[kind].carry === "str
  * as its own question rather than as a negation because it is asked for its own
  * reason: it is how a policy decides **which hand it is attacking with**. A
  * fighter carrying a shield in the primary and a sword in the secondary attacked
- * with the shield for as long as `driving` was a constant, and this is what
+ * with the shield for as long as `actingHand` was a constant, and this is what
  * stops that.
  *
  * `empty` is true: its striker is the real simulated hand rather than a weapon

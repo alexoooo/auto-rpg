@@ -73,6 +73,68 @@ export interface ButtonPose {
   guard: boolean;
 }
 
+/**
+ * The two effectors one press writes into.
+ *
+ * Structural, and deliberately not `Intent`: this file imports nothing at all,
+ * which is the only reason a Node test can load it, and `AGENTS.md` records
+ * that giving it an import is a decision rather than a tidy-up. `ButtonPose` is
+ * already the shape both slots need.
+ */
+export interface ButtonChannels {
+  natural: ButtonPose;
+  primary: ButtonPose;
+  secondary: ButtonPose;
+}
+
+/**
+ * Put one press on the acting hand **and** on the natural striker.
+ *
+ * One vocabulary, two effectors -- which is what `Intent.natural`'s own note
+ * claims and what nothing implemented. Session 17 gave a natural striker its
+ * own channel, `Centipede.update` moved onto it, and the *host* side was left
+ * behind: `Controls.state.natural` was initialised once and never written
+ * again, so a person handed a centipede -- which the setup screen offers for
+ * either side, whatever the unit -- pressed attack and the jaws did nothing.
+ * There is no second button to invent, because a natural striker is aimed by
+ * turning the body: the same left and right buttons mean the same two things to
+ * jaws that they mean to a hand.
+ *
+ * Writing both unconditionally rather than choosing by body is the point. A
+ * hand slot on a body with no hands is inert -- a centipede publishes `hands`
+ * as a frozen empty object and reads only `natural` -- and `natural` is inert
+ * on a body that publishes no natural attack, so neither write needs to know
+ * what it is driving. The alternative is a host that switches on the unit,
+ * which is the branch house rule 1 exists to keep out.
+ *
+ * Here rather than in `input.ts` because a rule with one caller still belongs to
+ * the module that owns it: `input.ts` cannot be loaded by Node -- it is on the
+ * side of the tree that carries no `.ts` extensions, and the DOM is in its
+ * graph -- so a mapping written there is a mapping no test can reach.
+ */
+export function applyButtonPose(into: ButtonChannels, hand: "primary" | "secondary", pose: ButtonPose): void {
+  into[hand].thrust = pose.thrust;
+  into[hand].guard = pose.guard;
+  into.natural.thrust = pose.thrust;
+  into.natural.guard = pose.guard;
+}
+
+/**
+ * Let go of everything, on every effector.
+ *
+ * Both hands and the jaws, not just the driven one, for the reason the whole
+ * file is about: a lost release leaves a level standing that nobody is holding,
+ * and which hand the cursor is on can change while the window is out of focus.
+ * The natural channel joined that list the moment it became a thing a person
+ * presses.
+ */
+export function releaseButtons(into: ButtonChannels): void {
+  for (const slot of [into.primary, into.secondary, into.natural]) {
+    slot.thrust = false;
+    slot.guard = false;
+  }
+}
+
 /** The pose the held buttons ask for, less whatever those presses already paid for. */
 export function poseFromButtons(buttons: number, spent: number): ButtonPose {
   const live = buttons & ~spent;

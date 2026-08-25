@@ -79,22 +79,57 @@ export interface Intent {
   /** -1 left, +1 right. Non-zero also means "I am steering", which breaks a lock. */
   turn: number;
   /**
-   * Which hand the mouse is driving. The other one is on its policy.
+   * Which hand is acting, or `null` when what is acting is not a hand.
    *
-   * There is one cursor and there are two hands, and the alternative -- half the
+   * **It means the same thing for a person and for a policy**, which is why it
+   * is one field and not two. A person's answer is "the hand the mouse is on":
+   * there is one cursor and there are two hands, and the alternative -- half the
    * screen each, or a modifier key held down -- was rejected because the mouse
    * being spent *entirely* on one blade is the whole reason this reads as Die by
-   * the Sword. Splitting it would make both hands worse to control in order to
-   * avoid making a choice.
+   * the Sword. A policy's answer is "the hand this option is executing on". Both
+   * are the same sentence, and every combat reader wants that sentence: the
+   * commit posture twists toward it, the tactic merge carries it, and
+   * `splitMind` reads exactly this to decide which hand it takes from the person
+   * and which it takes from the policy.
    *
-   * It lives on the intent rather than beside it because a mind has to be able
-   * to see it: `splitMind` reads exactly this to decide which hand it takes from
-   * the person and which it takes from the policy.
+   * Session 17's plan asked for a type split -- a host-owned `Controls.driving`
+   * beside a policy-owned `Intent.actingHand` -- and the code says the two
+   * meanings are already apart. `Fighter` never reads the field at all,
+   * `splitMind` deliberately ignores the policy's copy, and the two surviving
+   * combat readers want the acting hand. So this is the rename and not the
+   * split; `Controls.state` narrows it to a real hand, because a cursor is
+   * always on one.
+   *
+   * `null` is the natural channel below: jaws are not a hand, and using
+   * `primary` as a bite placeholder is exactly what a centipede that publishes
+   * no hands at all used to do.
    */
-  driving: HandName;
+  actingHand: HandName | null;
+  /**
+   * What a natural striker is being asked for.
+   *
+   * A creature whose weapon is its head has no hand slot to write into, and for
+   * three sessions it wrote into `primary` anyway: `crawlerMind` set
+   * `primary.thrust` and `Centipede.update` read it, on a body whose published
+   * `hands` is `Object.freeze({})`. Every reader downstream then had to know
+   * that one body's `primary` meant something else -- `recordIntentAttack` still
+   * carried the exception in a comment.
+   *
+   * The two buttons are spelled as the hands spell them rather than as `strike`
+   * and `brace`, so there is one command vocabulary and not two. What differs is
+   * that there is no pose: a natural striker is aimed by turning the body, which
+   * is the movement head's job.
+   */
+  natural: NaturalIntent;
   posture: PostureIntent;
   primary: HandIntent;
   secondary: HandIntent;
+}
+
+/** The natural striker's two buttons. No pose: a body aims jaws by turning. */
+export interface NaturalIntent {
+  thrust: boolean;
+  guard: boolean;
 }
 
 /**
@@ -498,7 +533,8 @@ export const NEUTRAL: Intent = Object.freeze({
   forward: 0,
   strafe: 0,
   turn: 0,
-  driving: "primary",
+  actingHand: "primary",
+  natural: Object.freeze({ thrust: false, guard: false }),
   posture: Object.freeze({ trunkLean: 0, trunkTwist: 0, crouch: 0 }),
   // Frozen too, and separately. `Object.freeze` is shallow, so freezing only the
   // outer object would leave both hands writable through a reference anybody
@@ -582,14 +618,19 @@ export function humanMind(source: { readonly state: Intent }, name = "you"): Min
  * for the same reason `handover` drives its inner mind through the rebase
  * window: a policy whose cadence stopped while somebody else was using its arm
  * would be a different policy. It writes into its own hand slot -- policies say
- * which hand they mean through `driving` -- and this reads that slot rather
+ * which hand they mean through `actingHand` -- and this reads that slot rather
  * than assuming a side, so a policy needs to know nothing about any of this.
  *
  * House rule 1 survives intact: what reaches the fighter is still one `Intent`,
- * still the same seven-field shape a person produces, and there is still nothing
- * anywhere that asks which of the two hands is the real one. (It read
- * "nine-field", which was already wrong before this session: the command was
- * eight fields until session 15 took the camera out of it, and is seven now.)
+ * still the same shape a person produces, and there is still nothing anywhere
+ * that asks which of the two hands is the real one. (The count used to be quoted
+ * here and kept going stale: "nine-field" was already wrong when it was written,
+ * the command was eight fields until session 15 took the camera out of it, seven
+ * after that, and eight again since session 17 gave a natural striker its own
+ * channel. `COMBAT_FIELDS` in `tests/fixtures/intent.mjs` names the set and every
+ * producer of a command is asserted against it, which is the copy that cannot
+ * drift -- it lived in `tests/minds.test.mjs` and was quoted as single-sourced
+ * while five test files each held their own literal.)
  */
 export function splitMind(
   person: Mind,
@@ -598,6 +639,7 @@ export function splitMind(
 ): Mind {
   const blended: Intent = {
     ...NEUTRAL,
+    natural: { ...NEUTRAL.natural },
     posture: { ...NEUTRAL.posture },
     primary: { ...NEUTRAL.primary },
     secondary: { ...NEUTRAL.secondary },
@@ -608,11 +650,41 @@ export function splitMind(
     decide(view: FighterView, dt: number): Intent {
       const mine = person.decide(view, dt);
       const theirs = policy.decide(view, dt);
+      // A cursor is always on a hand, so this cannot fire from `Controls` --
+      // which narrows the field to a `HandName` in its own declaration. It is
+      // refused by name rather than repaired because the alternative is to pick
+      // a hand for somebody: a body whose striker is its head has nothing for
+      // one mouse to divide, and answering "primary" would put the person on an
+      // arm that does not exist.
+      const driven = mine.actingHand;
+      if (driven === null) {
+        throw new Error(`splitMind cannot divide "${person.name}": a command that names no acting hand has no hand to hand over`);
+      }
 
       blended.forward = mine.forward;
       blended.strafe = mine.strafe;
       blended.turn = mine.turn;
-      blended.driving = mine.driving;
+      blended.actingHand = driven;
+      // The jaws are the person's, on the same two buttons as the hand.
+      //
+      // This read `theirs.natural` when the channel landed, on the argument
+      // that "jaws are not on the cursor: there is no button for them and no
+      // pose to place, so the natural channel stays the policy's for the same
+      // reason posture does". Half of that is right and the conclusion was
+      // wrong. There is no *pose* for jaws -- a natural striker is aimed by
+      // turning the body -- but there is very much a button, and it is the same
+      // button: `applyButtonPose` writes one press onto the acting hand and the
+      // natural striker together, which is what `Intent.natural`'s own note
+      // means by one command vocabulary. Leaving this on the policy meant a
+      // person handed a centipede -- which the setup screen offers for either
+      // side, whatever the unit -- could steer it and never bite with it.
+      //
+      // The buttons follow the buttons, in other words, and not `ownership`:
+      // thrust and guard on the driven hand are the person's unconditionally,
+      // so the jaws are too. Posture and wrist orientation are the ones that
+      // change hands with `ownership`, and they still do.
+      blended.natural.thrust = mine.natural.thrust;
+      blended.natural.guard = mine.natural.guard;
       // Posture and wrist orientation are policy-owned during human play. The
       // body keeps moving as part of the fight while the person's mouse remains
       // entirely available to place one hand.
@@ -625,7 +697,7 @@ export function splitMind(
       // plan **for that same hand** -- not for whichever hand the policy calls
       // its own.
       //
-      // It used to be `theirs[theirs.driving]`, and that was right for exactly
+      // It used to be `theirs[theirs.actingHand]`, and that was right for exactly
       // as long as a policy planned one hand: whatever it had, it wanted its arm
       // to do, and which arm that was did not matter. It matters now. A policy
       // plans a hand by *what is in it*, so its plan for the secondary is a plan
@@ -634,11 +706,11 @@ export function splitMind(
       // sword and a shield, take the sword, and the old rule ran `swinger`'s
       // commit stroke on the shield arm for the whole bout. The board was being
       // swung like a bat.
-      const spare = otherHand(mine.driving);
+      const spare = otherHand(driven);
       composeHand(
-        blended[mine.driving],
-        mine[mine.driving],
-        ownership.drivenWrist ? mine[mine.driving] : theirs[mine.driving],
+        blended[driven],
+        mine[driven],
+        ownership.drivenWrist ? mine[driven] : theirs[driven],
       );
       composeHand(blended[spare], theirs[spare], theirs[spare]);
       return blended;
@@ -844,6 +916,7 @@ export function handover(
   // worse, silently do nothing if this ever ran unstrict.
   const blended: Intent = {
     ...NEUTRAL,
+    natural: { ...NEUTRAL.natural },
     posture: { ...NEUTRAL.posture },
     primary: { ...NEUTRAL.primary },
     secondary: { ...NEUTRAL.secondary },
@@ -876,7 +949,13 @@ export function handover(
       blended.forward = asked.forward;
       blended.strafe = asked.strafe;
       blended.turn = asked.turn;
-      blended.driving = asked.driving;
+      blended.actingHand = asked.actingHand;
+      // A rebase has nothing to interpolate here: jaws have no pose, so the
+      // button passes through from the first step exactly as `thrust` does on a
+      // hand. Leaving it out would have made a taken-over centipede stop biting
+      // for the whole rebase window.
+      blended.natural.thrust = asked.natural.thrust;
+      blended.natural.guard = asked.natural.guard;
       blended.posture.trunkLean = asked.posture.trunkLean;
       blended.posture.trunkTwist = asked.posture.trunkTwist;
       blended.posture.crouch = asked.posture.crouch;

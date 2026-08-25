@@ -182,7 +182,7 @@ Baseline taken before any of this work, from `sword-prototype/`, commit `a095877
 | --- | --- | --- |
 | 15 host command boundary | **landed** | `f789ea4`, 459 tests |
 | 16 policy perception v4 | **landed** | `d44fc3e`, 484 tests |
-| 17 tactic output v2 | stage A landed, B and C to come | stage A: 484 tests before, **474** after |
+| 17 tactic output v2 | stages A and B landed, C to come | stage A: 484 -> **474**; stage B: 474 -> **488** |
 | 18 human gate feasibility | not started | -- |
 | 19 run legibility | not started | -- |
 | 20 throughput and ceilings | not started | -- |
@@ -232,6 +232,64 @@ Three things the plan's own corrections section did not have, all found while do
 paired parity, the fresh-Havok bracket discipline, the `--calibrate` procedure and the
 `duelist-club` / `idle-control` corpus cells are **lost coverage**, listed with what they used
 to prove in `docs/measurements.md` under "Session 17 Stage A".
+
+### Session 17 Stage B, as landed
+
+474 tests before, **488** after; `npm run check` and `npm run build` clean. The execution layer
+now names an exact effector, an exact target and a bounded stance; the output contract is still
+thirteen wide, which is Stage C's to widen. (It read **483** until the adversarial review; the
+five added tests are the person-driven centipede, two on the button mapping, and two in
+`options` -- the threat coupling and the stance on a natural effector.)
+
+**Both controls held.** `--only duelist-swinger --bouts 120` is identical to the digit before
+and after -- 66/120, 3.52 s, 176.17 damage, the same final-blow histogram -- which is the
+signal that nothing leaked into the four primitives `policies.ts` shares with the option layer.
+The real control is the 1,200-sample `scriptedMetaMind` parity sweep, which stayed at zero
+changed fields with the archer's hold/release/edge counts exact. Both are written up in
+`docs/measurements.md` under "Session 17 Stage B".
+
+Five things worth carrying forward, three of them corrections this section made before the
+review and one of them a bug it shipped:
+
+- **A person driving a centipede could not bite, and that was reachable from the page.** The
+  natural channel landed with a writer on the policy side and none on the host side:
+  `Controls.state.natural` was initialised and never assigned again, and `splitMind` took
+  `natural` from the policy. The setup screen offers "you" for either side whatever the unit.
+  Fixed by `applyButtonPose` in `src/buttons.ts`, which writes one press onto the acting hand
+  and the natural striker together -- one vocabulary, no branch on the unit -- and by
+  `splitMind` taking the person's natural, because the buttons follow the buttons rather than
+  `ownership`. `a_person_driving_a_centipede_bites_and_slows_from_the_same_two_buttons`.
+- **The plan's target measurement could not be taken, and the reason is structural.** It asked
+  for `vital` and `high` to be tried on the scripted policies and reported. No bout in the tree
+  goes through the option layer with a scripted controller except `scriptedMetaMind`, whose
+  only gate is the parity sweep -- so a named region is a test failure, not a win rate. The
+  execution layer carries a fifth aim, `"as-measured"`, outside `TARGET_NAMES` and unnameable
+  by any learned output. Moving the scripted policies onto a real region is a balance change
+  owed a bout: session 18 at a keyboard, or session 23 at the tournament.
+- **A named target decides where a *point* goes, and not where a stroke lands.** This section
+  said the three regions "land on the head, the torso and the pelvis" without naming an action.
+  Measured per action: it holds for `thrust` (head share 0.09 -> 0.48 for `high`, low share
+  0.12 -> 0.82 for `low`) and is directionally right for `shoot` on a two-to-four-contact
+  sample. It does **not** hold for `cut` or `punch`: a cut aimed `high` takes a 0.045 head share
+  against the measured aim's 0.071, *lower*, because a stroke's aim seeds only the centre of an
+  arc that sweeps far wider than the gap between two named heights. Four tables and the reason
+  are in `docs/measurements.md`. **Owed a bout and flagged for session 23**: making a cut's
+  `high` reach a head means lifting the stroke envelope, which is a balance change.
+- **`punch` was being advertised on bodies that cannot punch, and closing it closed one row of
+  thirteen.** A two-handed weapon welds the other arm to the haft and `Fighter.update` ignores
+  its half of the command, so a bow body's punch was posed and discarded. One legality rule now
+  serves the mask and the executor. This section said that closed "one of the three divergent
+  legality tables"; measured against `actionsFor` over every `RESEARCH_STRATA` cell, it closed
+  the **`bow+empty` row on both units** and left `sword+empty` and `axe+empty` diverging, which
+  is four of thirteen cells against six before. Stage C owns the rest, and
+  `research-rollout-worker.mjs` is still a third, non-equivalent copy.
+- **`TARGET_SPAN_FRACTION = 0.75` rests on anatomy, not on the bout beside it.** This section
+  said half the span "does not move the contacted-limb distribution at all". It moves it a great
+  deal -- at 0.50 a `thrust` aimed `low` takes a 0.71 low share against 0.118 -- and what fails
+  at 0.50 is a contact-count floor. The test's verdict is also non-monotonic across the constant
+  (fails at 0.50, 0.55, 0.65, 0.85; passes elsewhere between 0.60 and 1.00), so it chooses
+  nothing. The anatomical band that puts `high` on a head and `low` in a pelvis is 0.567-0.928 on
+  both humanoid bodies, and 0.75 is its midpoint. Corrected in `docs/measurements.md`.
 
 ### Session 17, before it lands: what the plan got wrong
 
@@ -286,7 +344,13 @@ deployed.
 
 Smaller, all verified: `Controls.driving` does not exist, so "keep the human mouse choice as
 host-owned `Controls.driving`" is a type split rather than a rename, and it breaks the exact
-seven-key command assertions in six test files. PPO needs **four** new heads, not three -- it
+seven-key command assertions in six test files. **Corrected by Stage B as landed, above: it is
+a rename after all.** The two meanings are already separate in practice -- `Fighter` never
+reads the field, `splitMind` deliberately ignores the policy's copy, and both surviving combat
+readers want "which hand is acting", which is also what a person's mouse hand means. One field,
+renamed to `actingHand` and widened to `HandName | null` for a body whose striker is not a
+hand; the host/policy difference is a *narrowing* in `Controls.state`'s type rather than a
+second field. The six key-set assertions did move, which is what they are for. PPO needs **four** new heads, not three -- it
 has no persistence output at all and `deployment.ts:62` hardcodes `0.4` -- and its reported
 entropy is divided by a hardcoded head count of 2 that no test pins. The DAgger expert returns
 only `{movement, action, persistence}` and cannot label an effector or an aim height, so

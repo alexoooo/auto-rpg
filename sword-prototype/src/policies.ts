@@ -123,9 +123,9 @@ export function postureFor(view: FighterView, action: PostureAction, into: Inten
 /**
  * Which hand a policy is attacking with, this step.
  *
- * It used to be `intent[intent.driving]`, **read once at construction**, and
+ * It used to be `intent[intent.actingHand]`, **read once at construction**, and
  * that one line is most of "when selecting two swords, only one hand is used".
- * `blankIntent` sets `driving: "primary"` and nothing ever wrote it, so the
+ * `blankIntent` sets `actingHand: "primary"` and nothing ever wrote it, so the
  * second hand kept the rest pose it was built with for the whole bout.
  *
  * Asked every step rather than settled once, because the answer changes: an arm
@@ -953,7 +953,7 @@ export function swingerMind(seed = randomSeed()): Mind {
 
       const opponentChest = chestOf(view.opponent, chest);
       attacker = attackHand(view, prefer, opponentChest);
-      intent.driving = attacker;
+      intent.actingHand = attacker;
       mirror = view.self.hands[attacker].outboard;
       bothEdges = cutsBothWays(view.self.hands[attacker].weapon);
       const hand = intent[attacker];
@@ -1252,7 +1252,7 @@ export function archerMind(seed = randomSeed()): Mind {
       const gap = distance(self.shoulder, them.shoulder);
 
       shooter = shootHand(view, shooter);
-      intent.driving = shooter;
+      intent.actingHand = shooter;
       const hand = intent[shooter];
       const me = self.hands[shooter];
 
@@ -1410,7 +1410,7 @@ export function duelistMind(seed = randomSeed()): Mind {
 
       const threat = selectThreat(view, watching);
       attacker = attackHand(view, prefer, threat.tip);
-      intent.driving = attacker;
+      intent.actingHand = attacker;
       mirror = self.hands[attacker].outboard;
       const hand = intent[attacker];
       hand.thrust = false;

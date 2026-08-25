@@ -18,6 +18,7 @@ import "@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent.js";
 import { CONFIG } from "../src/config.ts";
 import { CAMERA_ZOOM_NOTCHES, orbitFraming, slewCameraZoom } from "../src/camera.ts";
 import { blankIntent } from "../src/policies.ts";
+import { COMBAT_FIELDS } from "./fixtures/intent.mjs";
 import { attachPhysics, COLLIDES, LAYER } from "../src/physics.ts";
 import { FIGURE_SIDE_COLOURS } from "../src/figure.ts";
 import { ROOM_METRES, TEXTURED_SURFACES } from "../src/materials.ts";
@@ -117,8 +118,7 @@ test("wheel_zoom_reaches_both_limits_without_mutating_the_human_intent", () => {
   // asserted against the command shape every policy and the person share.
   const intent = blankIntent();
   assert.equal("zoom" in intent, false);
-  assert.deepEqual(Object.keys(intent).sort(),
-    ["driving", "forward", "posture", "primary", "secondary", "strafe", "turn"]);
+  assert.deepEqual(Object.keys(intent).sort(), COMBAT_FIELDS);
 });
 
 test("cosmetic_room_dressing_creates_no_physics_body", async (t) => {

@@ -1553,9 +1553,12 @@ did fail that test, and the failure meant only that the fixture and the command 
 a field neither should have had: camera zoom rode on the command because `Intent` was an
 alias for the human's `InputState`. Session 15 removed it from the command, the option
 fixtures, `INTENT_FIELDS`, the promotion sweep and the two checked-in corpora, and
-`every_option_returns_a_complete_bounded_intent` now checks the seven fields a fighter
+`every_option_returns_a_complete_bounded_intent` now checks the exact field set a fighter
 actually consumes. A red test proves the fixture and the code agree; it does not prove they
-are right.
+are right. (That set was seven fields when this was written and is eight since session 17 gave
+a natural striker its own channel. The count is not quoted here any more for the reason the
+paragraph above is about: a number in prose goes stale silently, and the assertion is the
+copy that cannot.)
 
 ## NEAT trainer determinism and checkpoint probe -- 2026-08-24
 
@@ -2159,3 +2162,262 @@ splits with it. The command refuses them by name rather than reporting nothing:
 `--write-engagement-baseline` refuses with a pointer to this document. The held-out tournament
 path -- manifest, frozen artifacts, indexed resume and the recomputed verdict -- is unchanged
 and remains the only thing this command does.
+## Session 17 Stage B: the exact effector, target and stance -- 2026-08-25
+
+Stage B is the **motor** half of tactic v2 and is the stage that can move the balance, which
+is why it was isolated and measured on its own before any contract churn. Two controls, one
+of which is not the obvious one.
+
+### The null control did not move, to the digit
+
+`npm run measure -- --only duelist-swinger --bouts 120`, seed 20260823, taken before the first
+edit and again with the stage complete:
+
+| | duelist | swinger | bout s | duelist damage | duelist severs | scoring contacts |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| before | 66/120 = 55.0 % | 54/120 = 45.0 % | 3.52 (1.42-8.98) | 176.17 | 10 | 1496 / 1670 |
+| after | 66/120 = 55.0 % | 54/120 = 45.0 % | 3.52 (1.42-8.98) | 176.17 | 10 | 1496 / 1670 |
+
+Every printed figure is identical, including the final-blow region histogram. **This is a null
+control rather than a result**: `policies.ts` never imports `options.ts`, so the scripted
+specialists do not go through the option layer at all and this bout cannot see a tactic-v2
+change. It is run because they *share* `applyActionPosture`, `actionCoverAt`, `actionAimAt` and
+`actionArcherAim` -- a change that leaked into one of those four would move every scripted
+policy and every figure in this document, and this is the cheapest thing that would say so.
+
+### The real control is the parity sweep, and it stayed at zero
+
+`the_scripted_meta_controller_matches_the_policy_it_replaces` in `tests/options.test.mjs`:
+1,200 samples of `scriptedMetaMind("duelist", 991)` against `duelistMind(991)` over a scripted
+approach, compared field by field across every leaf of the command, plus 520 archer samples
+compared against `archerMind(44)` on hold, release and edge counts. **Zero changed fields, max
+delta 0, and the archer counts exact.** `scriptedMetaMind` is the one scripted consumer of the
+option layer, so this is the only thing in the tree that can catch the execution layer moving
+under a scripted controller.
+
+### Which target the scripted callers name, and why the question has no bout
+
+The plan asked for the scripted target to be *chosen by measurement*: naming `vital` drops
+every scripted aim 14 cm from the shoulder line it was tuned at, naming `high` lands near the
+old entry aim of 1.62 m, and both were to be tried and reported.
+
+**There is no bout that can answer it, and that is the finding.** `npm run measure`'s matchups
+are `swinger/idle`, `duelist/swinger` and `duelist/duelist`, all built from `policyMind`, which
+never enters an option. The only scripted controller that does is `scriptedMetaMind`, whose
+sole gate is the zero-delta parity sweep above -- so any named region moves it off parity by
+construction, and the "measurement" would be a test failure rather than a win rate. The
+execution layer therefore carries a fifth aim that is deliberately **not** in `TARGET_NAMES`:
+`"as-measured"`, the line every scripted figure in this document was taken at -- the
+opponent's shoulder for a point, twenty centimetres above it for the centre of a stroke's arc,
+twelve below it for a shaft. **No learned output can *name* it** -- `TARGET_NAMES` is the table
+an argmax indexes and this is not in it -- which is not the same as unreachable, and the code
+said the stronger thing until the routes were traced. `threat` is a `TargetName` a controller
+can emit and is not a height, so wherever a height is wanted the measured line stands in; the
+two skills that may name `threat` consume it as a moving point first, and every other action is
+refused `threat` at construction rather than being handed the shoulder line under a name it did
+not choose. Moving the scripted policies onto a real region is a balance change that needs a
+bout to justify it, and the session that builds one -- 18, at a keyboard, or 23, at the
+tournament -- is where it belongs.
+
+### What a named target is worth, per action, measured on the contacted limb
+
+**This section said "the three land on the head, the torso and the pelvis -- and *that* is the
+claim" and published one table, for `thrust`. The claim is not general and the four tables are
+below.** All four are one Havok bout each, seeds `[11, 22]`, the option driven directly against
+a bare-handed idle warrior, `HitReport.key` counted, blocks excluded, `head` / `torso` /
+`pelvis+thighs+shins`. The three melee actions compose with `close`, exactly as the test does;
+`shoot` composes with the option's own movement, because an archer walked into contact is not
+a shot. Seeds do not vary the result -- the driving mind is deterministic and `idle` ignores
+its seed -- so pooling over eight seed pairs returns exactly eight times each count, and the
+per-bout figures are what is quoted.
+
+The aim rule is `vital` at the published `vitalHeight`, and `high` and `low` three quarters of
+the vitals-to-crown span above and below it. On a warrior (vitals 1.28 m, crown 1.765 m, span
+0.485) that is 1.644 m, 1.28 m and 0.916 m, against a head capsule of 1.555-1.765, a torso of
+1.02-1.54 and a pelvis of 0.83-1.09.
+
+**`thrust` -- the rule holds, and this is the table that was already published.**
+
+| target | head | torso | low group | body | head share | low share |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `as-measured` | 13 | 114 | 17 | 144 | 0.090 | 0.118 |
+| `vital` | 6 | 295 | 32 | 333 | 0.018 | 0.096 |
+| `high` | 76 | 66 | 15 | 157 | 0.484 | 0.096 |
+| `low` | 1 | 24 | 112 | 137 | 0.007 | 0.818 |
+
+**`cut` -- the rule does not hold.** `high` takes a *lower* head share than the aim it replaces,
+and all three named regions raise the low share by roughly the same amount.
+
+| target | head | torso | low group | body | head share | low share |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `as-measured` | 2 | 16 | 10 | 28 | 0.071 | 0.357 |
+| `vital` | 0 | 15 | 35 | 50 | 0.000 | 0.700 |
+| `high` | 1 | 7 | 14 | 22 | 0.045 | 0.636 |
+| `low` | 3 | 12 | 24 | 39 | 0.077 | 0.615 |
+
+**`punch` -- the rule does not hold either**, and it fails the same way: `high` takes 0.121
+against the measured aim's 0.200. `punch` may not name `low`.
+
+| target | head | torso | low group | body | head share | low share |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `as-measured` | 7 | 25 | 3 | 35 | 0.200 | 0.086 |
+| `vital` | 1 | 18 | 12 | 31 | 0.032 | 0.387 |
+| `high` | 4 | 26 | 3 | 33 | 0.121 | 0.091 |
+
+**`shoot` -- directionally right and far too thin to be a claim.** Two to four body contacts a
+bout: `high` is the only aim that put anything in a head, and the other three put everything in
+the torso, but nothing here separates `vital` from `low`.
+
+| target | head | torso | low group | body | head share | low share |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `as-measured` | 0 | 4 | 0 | 4 | 0.000 | 0.000 |
+| `vital` | 0 | 4 | 0 | 4 | 0.000 | 0.000 |
+| `high` | 2 | 0 | 0 | 2 | 1.000 | 0.000 |
+| `low` | 0 | 4 | 0 | 4 | 0.000 | 0.000 |
+
+**The reason is structural and is worth stating exactly.** `thrust` and `shoot` are *points*:
+the aim is where the tip is sent, and `actionAimAt` sends it there. `cut` and `punch` are
+*strokes* down one shared branch: the aim seeds only the **centre** of an arc, and `enter`
+derives the arc from it as `+-0.62` in cursor X and `+-0.50` in cursor Y. Two things follow.
+First, that arc is far wider than the gap between any two named heights, so where the blade
+meets the body is decided by the sweep and not by its centre. Second, `aimHeight` adds the
+`+0.20` stroke-entry lift **only** to `"as-measured"`, so on a warrior the measured entry aim
+is 1.62 m while `high` is 1.644 -- 24 mm apart -- and `vital` and `low` are 340 and 704 mm
+*below* it. So a named region on a cut does not point the stroke, it drops it, which is exactly
+the shape of the table: every named region raises the low share to 0.61-0.70 against 0.357, and
+none of them raises the head share above the 0.071 the measured aim already had.
+
+**Open, and owed a bout: making a cut's `high` reach a head.** The available fix is to lift the
+stroke envelope for a high-aimed cut, which is a balance change -- Stage B's whole discipline is
+that the scripted line does not move -- so it is not taken here. **Flagged for session 23**,
+which is the one that decides whether the six stances earn their place and is the next time
+anything in this layer is allowed to move on a held-out result. A capability that works for two
+of four actions is worth shipping; describing it as working generally is not, which is what this
+section did.
+
+`a_thrust_at_a_named_high_or_low_target_reaches_that_body_region` asserts on these shares and
+not on `intent.pointerY`: a cursor elevation is written by the aim and read back by the test
+that wrote it, so it goes green whether or not the blade ends up anywhere new. It is named for
+`thrust` because `thrust` is what it covers; it was called
+`a_requested_high_or_low_target_reaches_that_body_region_without_fallback` while covering one
+action of four.
+
+### Why `TARGET_SPAN_FRACTION` is 0.75, corrected
+
+**The reason recorded here was contradicted by its own harness.** It said half the span "does
+not move the contact distribution at all". Measured at 0.50 on the `thrust` harness above, a
+named `low` takes a **0.71** low share against the measured aim's 0.118 -- a six-fold move --
+and `high` takes 0.117 against 0.090. What actually fails at 0.50 is the contact-count floor:
+`low` lands 31 body contacts where the test wants more than 40, and `high` reaches 0.117 where
+the test wants 0.25.
+
+And the test's verdict is **not monotonic in the constant**. Swept through
+`a_thrust_at_a_named_high_or_low_target_reaches_that_body_region`, editing only
+`TARGET_SPAN_FRACTION`:
+
+| span | 0.50 | 0.55 | 0.60 | 0.65 | 0.70 | 0.75 | 0.80 | 0.85 | 0.90 | 0.95 | 1.00 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| verdict | fail | fail | pass | fail | pass | pass | pass | fail | pass | pass | pass |
+
+The 0.65 failure is the head share (0.13) and the 0.85 one is `high` and `low` no longer
+separating by the required factor. That is a cliff in a physics bout rather than a curve, so
+this test bounds the constant from neither side usefully and cannot be what chose it.
+
+**What does choose it is the anatomy, and that argument is sound and checked on both humanoid
+bodies.** `high` must land on the head capsule and `low` inside the pelvis, which pins the
+fraction from both ends. On a warrior (vitals 1.280, crown 1.765, span 0.485, head 1.555-1.765,
+pelvis 0.830-1.090) the band is **0.567 to 0.928**: below 0.567 `high` slides into the torso,
+which runs 1.020-1.540, and above 0.928 `low` drops out of the pelvis into the thighs. A broot
+is a uniform 1.18x scale of the same skeleton, so its band is the same two numbers -- verified
+rather than assumed. 0.75 is very nearly the midpoint of that band (0.747), and that is the
+whole of why it is 0.75 rather than 0.70 or 0.80.
+
+### Two masks that used to disagree now agree, and one row of thirteen closed
+
+`supportedOptions` asked its own weapon predicates while the option's `requireHand` asked a
+near-identical set of its own; both now ask `tacticEffectors`, which is the single legality
+rule and is also what the executor refuses by. One row moved when they were joined: **`punch`
+is no longer offered on a body holding a two-handed weapon.** A bow or a club welds the other
+arm to the haft, `Fighter.update` sends it to a grip point and ignores its half of the command
+entirely, so the punch was posed and thrown away.
+
+**This section claimed that closed "one of the three divergent legality tables ... from the
+runtime side", and it did not.** Measured cell by cell -- runtime `supportedOptions` against
+`actionsFor` in `scripts/train-lookahead.mjs`, over every `RESEARCH_STRATA` body/loadout, on the
+working tree and again on `da025f2`:
+
+| cell | trained by `actionsFor` | offered at runtime | at `da025f2` | now |
+| --- | --- | --- | --- | --- |
+| `warrior/sword+empty` | cover, cut, thrust, recover | + `punch` | diverges | **still diverges** |
+| `warrior/axe+empty` | cover, cut, recover | + `punch` | diverges | **still diverges** |
+| `warrior/bow+empty` | cover, shoot, recover | -- | diverges | **closed** |
+| `warrior/sword+shield` | cover, cut, thrust, recover | -- | agrees | agrees |
+| `warrior/sword+buckler` | cover, cut, thrust, recover | -- | agrees | agrees |
+| `warrior/empty+empty` | cover, punch, recover | -- | agrees | agrees |
+| `centipede/natural:bite` | bite, recover | -- | agrees | agrees |
+
+The six `broot` rows are identical to the six `warrior` rows. So the honest count is: the table
+diverged on six of thirteen cells at `da025f2` and diverges on four now -- **the `bow+empty` row
+closed on both units and the `sword+empty` and `axe+empty` rows did not**, because a sword or an
+axe leaves a genuinely free empty hand that the runtime will offer a punch with and the schedule
+still never trains. The plan itself says `actionsFor` omits `punch` for sword, axe *and* bow.
+Closing the remaining two is Stage C's, per the plan; it is not done here.
+
+**What that divergence does today, recorded rather than fixed.** `lookaheadMind` builds its
+tactic pairs from `deployableActions` -- the runtime mask -- and calls `requireCalibration` for
+every pair before planning. On `warrior/sword+empty` and `warrior/axe+empty` that includes
+`close+punch`, which the training schedule never produced a cell for, so the first replan throws
+`lookahead refuses warrior/sword+empty: tactic "close+punch" has no calibrated model`
+(`tactical-model.ts`'s `requireCalibration`). **It is pre-existing**: probed on a throwaway
+worktree at `da025f2` with a model built exactly as `trainLookahead` builds one, the same two
+cells throw there, and `bow+empty` throws there as well and no longer does -- so Stage B strictly
+reduced this, from three throwing cells per unit to two.
+
+**Is it live?** Not through anything shipped. `lookaheadMind` is only reachable through
+`deployedResearchMind`, and the only checked-in lookahead artifact --
+`asset-src/learning/research/session18-minimum/champion.artifact` -- is feature version 3 against
+a runtime at 4, so `decodeResearchArtifact` refuses it before a mind is ever built. It becomes
+live the moment a v4 lookahead artifact is trained and evaluated through
+`scripts/tournament-executor.mjs`, which builds its `bodyLoadout` from `${job.unit}/${job.loadout}`
+straight out of the research matrix and therefore reaches both of those cells.
+
+`research-rollout-worker.mjs` still carries the third table, and it is still not equivalent;
+Stage C owns it.
+
+### A control's draw sequence moved, and only on `bow+empty`
+
+`randomMetaMind` filters the action table by `supportedOptions` *before* `rng.choose`, so
+removing `punch` from a cell's supported set shortens the array the draw indexes and the same
+seed produces a different action sequence. `random-meta` is one of the three
+`RESEARCH_OPPONENTS` in every stratum, so this is a control changing behaviour and is worth
+recording even though nothing pinned moved.
+
+Measured over the first ten decisions, seeds 1, 7 and 991, on the working tree and on
+`da025f2`: **only `bow+empty` moves.** `sword+empty`, `axe+empty`, `empty+empty` and
+`sword+shield` are byte-identical, and so is the *movement* half of every draw on every loadout
+-- the movement `rng.choose` runs first and over an unfiltered table. Seed 1 on `bow+empty`,
+actions only:
+
+| | first ten |
+| --- | --- |
+| `da025f2` | cover recover **shoot punch punch** recover cover recover shoot cover |
+| now | cover recover **recover shoot shoot** recover cover recover shoot cover |
+
+**No research bout in the tree draws from the changed sequence today**, which is why nothing
+moved: `runResearchBout` hands the opponent `LOADOUTS["sword+empty"]` whatever the actor's cell,
+so a `random-meta` control never holds a bow. Any future harness that gives one a bow, and any
+recorded `bow+empty` random-control trace, is not comparable across this change.
+
+### What did not move, and what was left for later
+
+- **`arrowCrossing` and the arrow tier of `selectThreat` needed no change.** Both extrapolate
+  the shaft's *published* position and velocity under gravity and neither reads
+  `actionArrowLift`, so a defender answers the shot that was actually taken whatever it was
+  aimed at. What is aim-dependent is the worked example in `approachToScratch`'s note -- 136 mm
+  of predicted miss at 8 m, 306 at 12, 689 at 18 -- which was taken on a shot aimed over the
+  shoulder-minus-12-cm line by exactly that lift. Nothing names a different region yet; the
+  note on `actionArcherAim` says so in place.
+- **Look-ahead cell counts are unchanged.** Stage B leaves the tactical model keyed on
+  `(movement, action)`; `deployableTactics` exists and is tested, but nothing production takes
+  an argmax over it until Stage C, so the 21-22x enumeration cost the plan prices belongs to
+  sessions 20 and 21 and is not measured here.

@@ -1,6 +1,6 @@
 import { freshIntent } from "../action-primitives.ts";
 import type { FighterView, Intent, Mind } from "../mind.ts";
-import { HAND_ACTION_NAMES, MOVEMENT_NAMES, composeTactic, handActionOption, movementIntent,
+import { HAND_ACTION_NAMES, MOVEMENT_NAMES, asMeasured, chooseEffector, composeTactic, handActionOption, movementIntent,
   type CombatOption, type HandActionName, type MovementName } from "../options.ts";
 import { FeatureWriter } from "./features.ts";
 import { MAX_PERSISTENCE, MIN_PERSISTENCE, deployableActions, metaDiagnosticSnapshot, type MetaDiagnostic } from "./meta.ts";
@@ -53,7 +53,14 @@ export function researchLabelMind(name: string, labeler: ResearchLabeler,
           throw new Error(`research policy produced unsupported action "${label.action}" for unit "${view.self.unit}"`);
         }
         movement = label.movement as MovementName; action = label.action as HandActionName;
-        option = handActionOption(action); option.enter(view); writer.setTactic(movement, action, view.clock);
+        // Effector, target and stance are named here rather than defaulted
+        // inside the option, and in Stage B they are named as "whatever the
+        // hand search would have found, at the aim the record was taken at":
+        // a research labeler still produces three fields, not six. The seam is
+        // ready for the other three the moment `DaggerLabel` carries them.
+        const effector = chooseEffector(view, action);
+        if (effector === null) throw new Error(`research policy produced unsupported action "${action}" for unit "${view.self.unit}"`);
+        option = handActionOption(action, asMeasured(effector)); option.enter(view); writer.setTactic(movement, action, view.clock);
         persistenceSeconds = Math.max(MIN_PERSISTENCE, Math.min(MAX_PERSISTENCE, label.persistence));
         nextDecision = view.clock + persistenceSeconds;
         onDecision?.(view, features, label);

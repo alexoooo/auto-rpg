@@ -1,7 +1,8 @@
-import { hasPoint, isShooting, isStriking, type WeaponKind } from "../hands.ts";
 import { freshIntent } from "../action-primitives.ts";
-import { ATTACK_OPTION_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, TACTIC_NAMES, composeTactic, handActionOption, movementIntent,
-  type BehaviourRecord, type CombatOption, type HandActionName, type MovementName, type OptionName } from "../options.ts";
+import { ATTACK_OPTION_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, TACTIC_NAMES, asMeasured, chooseEffector, composeTactic,
+  handActionOption, movementIntent, tacticEffectors, tacticTargets,
+  type BehaviourRecord, type CombatOption, type EffectorName, type HandActionName, type MovementName, type OptionName,
+  type TargetName } from "../options.ts";
 import type { FighterView, Mind } from "../mind.ts";
 import { SeededRng } from "./rng.ts";
 
@@ -22,17 +23,28 @@ export const MAX_PERSISTENCE = 0.80;
  */
 export const META_OUTPUT_NAMES = Object.freeze([...MOVEMENT_NAMES, ...HAND_ACTION_NAMES, "persistence"]);
 
-const has = (view: FighterView, predicate: (kind: WeaponKind) => boolean): boolean =>
-  Object.values(view.self.hands).some((hand) => !hand.lost && predicate(hand.weapon));
+/**
+ * What a body can do at all, asked of the one legality rule rather than of a
+ * second copy of it.
+ *
+ * The predicates used to live here -- `isStriking && !empty` for `cut`,
+ * `hasPoint` for `thrust`, and so on -- beside a near-identical set inside the
+ * option's own `requireHand`, which is how a mask and an executor come to
+ * disagree. `tacticEffectors` is now the single answer to "who could perform
+ * this", and this is that question asked as "could anybody".
+ *
+ * **One row of the table moved when it did.** A body holding a two-hander has
+ * one hand welded to the haft and ignored by `Fighter.update`, so `punch` is no
+ * longer advertised on an archer whose only empty hand is the trailing one.
+ * That closes a lie rather than removing a capability: the punch was posed and
+ * thrown away, and `scripts/train-lookahead.mjs`'s `actionsFor` has never
+ * offered it for a bow cell -- the runtime mask and the training schedule now
+ * agree where they used to differ silently.
+ */
 export function supportedOptions(view: FighterView): ReadonlySet<OptionName> {
   if (!Object.values(view.self.hands).some((hand) => !hand.lost) && !Object.keys(view.self.naturalAttacks ?? {}).length) return new Set<OptionName>();
-  const values = new Set<OptionName>([...MOVEMENT_NAMES, "recover"]);
-  if (Object.values(view.self.hands).some((hand) => !hand.lost)) values.add("cover");
-  if (has(view, (kind) => isStriking(kind) && kind !== "empty")) values.add("cut");
-  if (has(view, hasPoint)) values.add("thrust");
-  if (has(view, (kind) => kind === "empty")) values.add("punch");
-  if (has(view, isShooting)) values.add("shoot");
-  if (view.self.naturalAttacks?.bite) values.add("bite");
+  const values = new Set<OptionName>(MOVEMENT_NAMES);
+  for (const action of HAND_ACTION_NAMES) if (tacticEffectors(view, action).length) values.add(action);
   return values;
 }
 
@@ -70,6 +82,49 @@ export function deployableActions(view: FighterView): ReadonlySet<OptionName> {
   const allowed = new Set(supportedOptions(view));
   if (!Object.values(view.self.hands).some((hand) => !hand.lost)) allowed.delete("cover");
   return allowed;
+}
+
+/** One legal (action, effector, target) tuple: what tactic v2 actually decides. */
+export interface DeployableTactic {
+  readonly action: HandActionName;
+  readonly effector: EffectorName;
+  readonly target: TargetName;
+}
+
+/**
+ * Every tuple a deployed controller may choose, in frozen table order.
+ *
+ * `deployableActions` extended rather than forked, which is the rule that
+ * function's own note is about: the action half is the same set, and the two
+ * inner loops read the same `tacticEffectors` and `tacticTargets` the executor
+ * refuses by. So **a tuple in this set can always be executed**, and an illegal
+ * tuple is refused by name rather than *repaired* into a legal one.
+ *
+ * The converse does not hold, and the note here claimed it did by saying there
+ * was "nowhere for a mask and an executor to disagree". This set is the smaller
+ * of the two: `supportedOptions` refuses outright for a body with no attached
+ * hand and no natural attack, so an armless warrior gets an empty set here while
+ * `handActionOption("recover", asMeasured("natural"))` still enters on it. That
+ * is the mask being stricter than the executor, which is the safe direction and
+ * is deliberate -- a controller must not be offered a body it cannot fight with
+ * -- but it is a difference and it is measured: probed on an armless warrior,
+ * this answers `[]` and the executor answers yes.
+ *
+ * Stage C is what takes an argmax over it. Stage B builds it so the mask exists
+ * and can be tested against the executor; nothing production reads it yet, and
+ * `an_illegal_action_effector_target_tuple_is_masked_not_repaired` is the reader
+ * that would notice the two coming apart.
+ */
+export function deployableTactics(view: FighterView): readonly DeployableTactic[] {
+  const allowed = deployableActions(view);
+  const tuples: DeployableTactic[] = [];
+  for (const action of HAND_ACTION_NAMES) {
+    if (!allowed.has(action)) continue;
+    for (const effector of tacticEffectors(view, action)) {
+      for (const target of tacticTargets(action)) tuples.push(Object.freeze({ action, effector, target }));
+    }
+  }
+  return Object.freeze(tuples);
 }
 
 export interface MetaLogit {
@@ -127,7 +182,15 @@ export function randomMetaMind(seed: number): MetaMind {
     if (!current || current.done(view) || view.clock >= until || !supportedOptions(view).has(selectedAction)) {
       const nextMovement = rng.choose(MOVEMENT_NAMES); const actions = HAND_ACTION_NAMES.filter((name) => supportedOptions(view).has(name));
       const nextAction = rng.choose(actions); if (current && (nextMovement !== selectedMovement || nextAction !== selectedAction)) switches += 1;
-      selectedMovement = nextMovement; selectedAction = nextAction; current = handActionOption(selectedAction); current.enter(view);
+      selectedMovement = nextMovement; selectedAction = nextAction;
+      // Named at the call site rather than defaulted inside the option. The
+      // control decides nothing about effector, target or stance yet -- the
+      // output contract is still thirteen wide -- so it asks for the hand the
+      // old search would have found and the aim the record was taken at, and
+      // says so. Stage C is where a network fills these three in.
+      const effector = chooseEffector(view, selectedAction);
+      if (effector === null) throw new Error(`random meta control chose "${selectedAction}", which this body has no effector for`);
+      current = handActionOption(selectedAction, asMeasured(effector)); current.enter(view);
       entries[selectedMovement] += 1; entries[selectedAction] += 1;
       persistenceSeconds = MIN_PERSISTENCE + rng.next() * (MAX_PERSISTENCE - MIN_PERSISTENCE); until = view.clock + persistenceSeconds;
     }

@@ -78,7 +78,7 @@ export function mirroredEvaluationJobs(base: number, split: EvaluationSplit, bou
 
 /** Every leaf of a combat command, which is every number a parity sweep compares. */
 export const INTENT_FIELDS = Object.freeze([
-  "forward", "strafe", "turn", "driving",
+  "forward", "strafe", "turn", "actingHand", "natural.thrust", "natural.guard",
   "posture.trunkLean", "posture.trunkTwist", "posture.crouch",
   ...["primary", "secondary"].flatMap((hand) => ["pointerX", "pointerY", "roll", "wristBend", "thrust", "guard"].map((field) => `${hand}.${field}`)),
 ]);
@@ -123,12 +123,32 @@ export function intentSequencesEqual(before: readonly unknown[], after: readonly
   return true;
 }
 
-/** A corpus probe may retire a once-capable forced option after capability loss. */
+/**
+ * A corpus probe may retire a once-capable forced option after capability loss.
+ *
+ * It is handed an `OptionName`, which is a movement *or* a hand action, and
+ * those stopped being one thing when session 17 merged `combatOption` away: a
+ * movement is `movementIntent` and has no capability to lose, a hand action is
+ * `handActionOption` and has one. Splitting the two here is what keeps the probe
+ * able to force either -- the alternative was a door that took movement names
+ * into an arm skill, which is exactly what the merge closed.
+ *
+ * The refusal wording is load-bearing in both directions. `enter` retires on any
+ * message beginning `option "<name>" requires `, so a hand action that becomes
+ * impossible mid-bout degrades to `recover`, while one that was never possible
+ * throws on the first step -- and `tests/learning.test.mjs` pins both.
+ */
 export function forcedOptionEvaluationMind(name: OptionName): Mind & { readonly selected: OptionName } {
+  const movement = (MOVEMENT_NAMES as readonly string[]).includes(name);
   let option: CombatOption | null = null; let entered = false; let retired = false;
   const enter = (view: FighterView): void => {
-    const requested = retired ? "recover" : name;
-    try { option = combatOption(requested); option.enter(view); if (!retired) entered = true; }
+    const requested = (retired ? "recover" : name) as HandActionName;
+    // No effector can mean two different things -- no arm at all, or no arm
+    // holding the right thing -- and the refusal has to say which. Naming the
+    // preferred hand when the search comes back empty is what makes it say
+    // `a bow in the primary hand` rather than something about a search.
+    const effector = chooseEffector(view, requested) ?? "primary";
+    try { option = handActionOption(requested, asMeasured(effector)); option.enter(view); if (!retired) entered = true; }
     catch (error) {
       const namedCapabilityLoss = error instanceof Error && error.message.startsWith(`option "${requested}" requires `);
       if (!entered || retired || !namedCapabilityLoss) throw error;
@@ -136,7 +156,8 @@ export function forcedOptionEvaluationMind(name: OptionName): Mind & { readonly 
     }
   };
   return { name: `option-${name}`, get selected() { return retired ? "recover" : name; }, decide(view, dt) {
-    if (retired && view.self.hands.primary.lost && view.self.hands.secondary.lost) return freshIntent();
+    if (movement) return movementIntent(name, view);
+    if (retired && !HANDS.some((hand) => view.self.hands[hand] && !view.self.hands[hand].lost)) return freshIntent();
     if (!option || option.done(view)) enter(view);
     // Losing every hand can make even recover unavailable. At that point the
     // probe has completed; an inert Intent records that fact without inventing
@@ -145,5 +166,7 @@ export function forcedOptionEvaluationMind(name: OptionName): Mind & { readonly 
   } };
 }
 import { freshIntent } from "../action-primitives.ts";
-import { combatOption, type CombatOption, type OptionName } from "../options.ts";
+import { HANDS } from "../hands.ts";
+import { MOVEMENT_NAMES, asMeasured, chooseEffector, handActionOption, movementIntent,
+  type CombatOption, type HandActionName, type OptionName } from "../options.ts";
 import type { FighterView, Intent, Mind } from "../mind.ts";

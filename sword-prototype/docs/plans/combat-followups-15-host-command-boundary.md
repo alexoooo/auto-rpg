@@ -27,6 +27,12 @@ names, policy decisions, bout results or any existing learning artifact contract
    }
    ~~~
 
+   **This is the shape session 15 landed, kept as the record of what it did.** Session 17
+   Stage B renamed `driving` to `actingHand: HandName | null` and added a `natural` channel
+   beside the two hands, because a creature whose striker is its head was being driven through
+   a hand slot it does not have. Copy the current declaration from `src/mind.ts`, not this
+   block.
+
    Move `PostureIntent` beside it. Keep the type-only `HumanOwnership` dependency or replace
    it with a local structural type; do not introduce a runtime import of `input.ts` into the
    headless graph.

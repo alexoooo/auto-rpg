@@ -51,7 +51,8 @@ test("the_finiteness_sweep_covers_every_combat_number_and_nothing_else", () => {
   // is false for a hand name and for a button, so sweeping them would refuse
   // every candidate ever trained.
   assert.deepEqual(INTENT_FIELDS.filter((field) => typeof readField(probe, field) !== "number"),
-    ["driving", "primary.thrust", "primary.guard", "secondary.thrust", "secondary.guard"]);
+    ["actingHand", "natural.thrust", "natural.guard", "primary.thrust", "primary.guard",
+      "secondary.thrust", "secondary.guard"]);
   const holed = blankIntent(); holed.posture.crouch = NaN;
   assert.ok(intentNumbers(holed).some((value) => !Number.isFinite(value)), "the gate still catches a hole");
 });

@@ -5,10 +5,12 @@ import {
   AUXILIARY,
   PRIMARY,
   SECONDARY,
+  applyButtonPose,
   maskOfButton,
   nextDraw,
   nextSpent,
   poseFromButtons,
+  releaseButtons,
 } from "../src/buttons.ts";
 
 const LEFT = 0;
@@ -23,20 +25,28 @@ const RIGHT = 2;
  * test can take that away again -- `loseUp` is a release the browser decided not
  * to deliver, which is the failure this whole module exists to survive.
  */
-function hand({ picksTarget = () => false } = {}) {
+function hand({ picksTarget = () => false, acting = "primary" } = {}) {
   let spent = 0;
   let held = 0;
-  const state = { thrust: false, guard: false };
+  // The three slots a press can land on, because that is what `Controls.state`
+  // carries and what `applyButtonPose` writes. The stand-in used to keep one
+  // `{ thrust, guard }` of its own and set the two fields inline, which was a
+  // second copy of the mapping -- and it went on passing when the real one grew
+  // a third slot and the host never wrote it.
+  const channels = {
+    natural: { thrust: false, guard: false },
+    primary: { thrust: false, guard: false },
+    secondary: { thrust: false, guard: false },
+  };
 
   const apply = (swallowed = 0) => {
     spent = nextSpent(spent, held, swallowed);
-    const pose = poseFromButtons(held, spent);
-    state.thrust = pose.thrust;
-    state.guard = pose.guard;
+    applyButtonPose(channels, acting, poseFromButtons(held, spent));
   };
 
   return {
-    state,
+    state: channels[acting],
+    channels,
     /** `pointerdown`. */
     down(button) {
       const arriving = maskOfButton(button);
@@ -69,8 +79,7 @@ function hand({ picksTarget = () => false } = {}) {
     cancel() {
       held = 0;
       spent = 0;
-      state.thrust = false;
-      state.guard = false;
+      releaseButtons(channels);
     },
   };
 }
@@ -111,6 +120,55 @@ test("the pose is exactly what the bitmask says, for all eight combinations", ()
       guard: (buttons & SECONDARY) !== 0,
     });
   }
+});
+
+/**
+ * One press, two effectors.
+ *
+ * A creature whose weapon is its head has no hand slot to be driven through, so
+ * session 17 gave it `Intent.natural` -- and then wrote it from the policy side
+ * only. `Controls.state.natural` was initialised once and never assigned again,
+ * which is a command channel a person cannot press: the setup screen offers
+ * "you" for either side whatever the unit, so somebody could take a centipede,
+ * walk it around, and find the attack button dead.
+ *
+ * There is no second button to invent. A natural striker is aimed by turning
+ * the body, so the left and right buttons mean the same two things to jaws that
+ * they mean to a hand, and one mapping writes both. The body decides which of
+ * them it reads; nothing here switches on the unit.
+ */
+test("one press reaches the acting hand and the natural striker together", () => {
+  for (const acting of ["primary", "secondary"]) {
+    const spare = acting === "primary" ? "secondary" : "primary";
+    const h = hand({ acting });
+    h.down(RIGHT);
+    assert.deepEqual({ ...h.channels[acting] }, { thrust: false, guard: true });
+    assert.deepEqual({ ...h.channels.natural }, { thrust: false, guard: true },
+      "the guard is the same guard for jaws as for a hand");
+    assert.deepEqual({ ...h.channels[spare] }, open, "the hand the cursor is not on is untouched");
+
+    h.down(LEFT);
+    assert.deepEqual({ ...h.channels.natural }, { thrust: true, guard: true });
+    assert.deepEqual({ ...h.channels[spare] }, open);
+
+    h.up(LEFT);
+    h.up(RIGHT);
+    assert.deepEqual({ ...h.channels.natural }, open, "letting go opens the jaws too");
+  }
+});
+
+test("a cancelled gesture releases the jaws as well as both hands", () => {
+  // `pointercancel` reports its button as -1, so nothing about it says which
+  // effector was holding what. It has to drop the lot, and the natural channel
+  // joined that list the moment it became a thing a person presses.
+  const h = hand();
+  h.down(LEFT);
+  h.down(RIGHT);
+  h.channels.secondary.guard = true;
+  h.cancel();
+  assert.deepEqual({ ...h.channels.natural }, open);
+  assert.deepEqual({ ...h.channels.primary }, open);
+  assert.deepEqual({ ...h.channels.secondary }, open);
 });
 
 test("the reported gesture ends with the hand open", () => {

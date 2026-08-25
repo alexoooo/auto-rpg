@@ -9,7 +9,9 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import HavokPhysics from "@babylonjs/havok";
 
 import { attachPhysics, COLLIDES, LAYER } from "../src/physics.ts";
+import { applyButtonPose, poseFromButtons, releaseButtons, PRIMARY, SECONDARY } from "../src/buttons.ts";
 import { crawlerMind } from "../src/bodies/centipede.ts";
+import { humanMind, splitMind } from "../src/mind.ts";
 import { blankIntent } from "../src/policies.ts";
 import { loadoutForUnit, policyForUnit, unitDefinition } from "../src/units.ts";
 import { scoreHit } from "../src/scoring.ts";
@@ -167,6 +169,156 @@ test("a_centipede_publishes_the_same_record_shape_a_fighter_does", async () => {
 
   creature.dispose();
   warrior.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+/**
+ * The body half of `natural_bite_never_aliases_a_human_hand`.
+ *
+ * `tests/options.test.mjs` holds the command half -- an option that names the
+ * natural effector writes `natural.thrust` and leaves both hand slots alone.
+ * This is the other end of the same wire: for three sessions the creature was
+ * driven entirely through `input.primary.thrust` and `input.primary.guard` on a
+ * body whose published `hands` is `Object.freeze({})`, so a hand slot it does
+ * not have was its whole control surface and every reader downstream carried
+ * the exception.
+ *
+ * Both directions of both wires, because only one direction of each can fail on
+ * its own: a hand button must no longer bite and the natural button must, and
+ * the same for the guard, which on this body is a brake rather than a pose. The
+ * guard half was claimed by this docstring and not asserted -- putting
+ * `input.primary.guard` back in `Centipede.update` left the whole suite green.
+ */
+test("a_centipede_bites_from_the_natural_channel_and_not_from_a_hand_slot", async () => {
+  const engine = new NullEngine({ renderWidth: 64, renderHeight: 64 });
+  const scene = new Scene(engine);
+  attachPhysics(scene, await HavokPhysics({ wasmBinary: await readFile(wasm) }));
+  const materials = materialsFor(scene);
+  const held = blankIntent();
+  const creature = unitDefinition("centipede").build({
+    scene, side: "left", origin: Vector3.Zero(), facing: 0,
+    mind: { name: "held", decide: () => held }, loadout: { primary: "empty", secondary: "empty" }, materials,
+  });
+  const lunged = () => {
+    let sawLunge = false;
+    for (let frame = 0; frame < 40; frame += 1) {
+      creature.update(1 / 60);
+      creature.describe(creature.view.self);
+      sawLunge ||= creature.view.self.naturalAttacks.bite.active;
+    }
+    return sawLunge;
+  };
+
+  held.primary.thrust = true; held.secondary.thrust = true;
+  assert.equal(lunged(), false, "a hand button on a body with no hands commands nothing");
+  held.primary.thrust = false; held.secondary.thrust = false;
+  held.natural.thrust = true;
+  assert.equal(lunged(), true, "the natural channel is what closes the jaws");
+
+  // The guard, on the same terms. `Centipede.update` spends it on speed, so the
+  // reading is the velocity it commands its own head at -- taken outside a
+  // lunge, which overrides the walk with its own 4.8.
+  held.natural.thrust = false;
+  const cruise = () => {
+    let speed = 0;
+    for (let frame = 0; frame < 8; frame += 1) {
+      creature.update(1 / 60);
+      speed = creature.limbs[0].part.body.getLinearVelocity().length();
+    }
+    return speed;
+  };
+  held.forward = 1;
+  held.primary.guard = true; held.secondary.guard = true;
+  assert.ok(Math.abs(cruise() - 2.2) < 1e-6, `a hand guard is not this body's brake: ${cruise()}`);
+  held.primary.guard = false; held.secondary.guard = false;
+  held.natural.guard = true;
+  assert.ok(Math.abs(cruise() - 0.7) < 1e-6, `the natural guard is: ${cruise()}`);
+
+  creature.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+/**
+ * A person driving a centipede, from the buttons a person actually has.
+ *
+ * The test above drives `natural` by hand, which proves the *body* reads the
+ * right channel and nothing about whether anything ever writes it. For a
+ * session that puts somebody at the keyboard that is the half that matters:
+ * `setup.ts` offers the "you" radio for either side whatever the unit, and
+ * `main.ts` answers it with `splitMind(you, policyMind("crawler"))` -- so a
+ * command channel a person cannot press is a body a person cannot fight with.
+ *
+ * Two wires, and both were broken. `Controls.state.natural` was initialised and
+ * never written again, so the attack button reached no jaws; and `splitMind`
+ * took `natural` from the *policy*, so even a written one would have been
+ * discarded on the only path a person reaches a centipede by.
+ *
+ * The policy is deliberately out of its own range here -- `view.measure` is
+ * infinite until `observe` runs -- so `crawlerMind` asks for nothing, and every
+ * bite below is the person's.
+ */
+test("a_person_driving_a_centipede_bites_and_slows_from_the_same_two_buttons", async () => {
+  const engine = new NullEngine({ renderWidth: 64, renderHeight: 64 });
+  const scene = new Scene(engine);
+  attachPhysics(scene, await HavokPhysics({ wasmBinary: await readFile(wasm) }));
+  const materials = materialsFor(scene);
+
+  // Stands in for `Controls.state`: the same `Intent`, written through the same
+  // `buttons.ts` mapping the pointer listeners use, so what is exercised is the
+  // rule and not a second copy of it.
+  const held = blankIntent();
+  held.forward = 1;
+  const press = (buttons) => applyButtonPose(held, held.actingHand, poseFromButtons(buttons, 0));
+  const creature = unitDefinition("centipede").build({
+    scene, side: "left", origin: Vector3.Zero(), facing: 0,
+    mind: splitMind(humanMind({ state: held }), crawlerMind()),
+    loadout: { primary: "empty", secondary: "empty" }, materials,
+  });
+  const step = () => {
+    creature.update(1 / 60);
+    creature.describe(creature.view.self);
+    return { active: creature.view.self.naturalAttacks.bite.active,
+      speed: creature.limbs[0].part.body.getLinearVelocity().length() };
+  };
+  const over = (frames) => {
+    let lunged = false; let cruise = 0;
+    for (let frame = 0; frame < frames; frame += 1) {
+      const reading = step();
+      lunged ||= reading.active;
+      if (!reading.active) cruise = reading.speed;
+    }
+    return { lunged, cruise };
+  };
+
+  releaseButtons(held);
+  assert.equal(over(40).lunged, false,
+    "nothing pressed and a policy out of its own reach is a creature that does not bite");
+
+  press(PRIMARY);
+  assert.equal(over(40).lunged, true, "the attack button reaches the jaws");
+
+  // And the guard, which is this body's brake rather than a pose. Both
+  // directions: the natural button slows it, and a *hand* button -- which this
+  // body does not have -- must not, which is what `Centipede.update` reading
+  // `input.primary.guard` would look like.
+  releaseButtons(held);
+  const open = over(40);
+  assert.equal(open.lunged, false);
+  assert.ok(Math.abs(open.cruise - 2.2) < 1e-6, `walking at ${open.cruise}`);
+
+  press(SECONDARY);
+  const braced = over(40);
+  assert.equal(braced.lunged, false, "the guard is not an attack");
+  assert.ok(Math.abs(braced.cruise - 0.7) < 1e-6, `braced at ${braced.cruise}`);
+
+  releaseButtons(held);
+  held.primary.guard = true; held.secondary.guard = true;
+  assert.ok(Math.abs(over(40).cruise - 2.2) < 1e-6,
+    "a hand button on a body with no hands changes nothing");
+
+  creature.dispose();
   scene.dispose();
   engine.dispose();
 });

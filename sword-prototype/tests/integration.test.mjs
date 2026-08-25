@@ -17,6 +17,8 @@ import { Fighter, stepPair } from "../src/fighter.ts";
 import { policyMind, POLICIES } from "../src/mind.ts";
 import { attachPhysics, COLLIDES, LAYER, layersFor } from "../src/physics.ts";
 import { Quiver } from "../src/arrow.ts";
+import { composeTactic, handActionOption, movementIntent } from "../src/options.ts";
+import { COMBAT_FIELDS } from "./fixtures/intent.mjs";
 
 process.env.SWORD_MEASURE_LIBRARY = "1";
 const { freshHavok, runBout } = await import("../scripts/measure.mjs");
@@ -138,7 +140,6 @@ test("every_policy_returns_a_finite_zoom_free_combat_command", () => {
   const loadoutFor = { idle: { primary: "sword", secondary: "empty" },
     swinger: { primary: "sword", secondary: "empty" }, duelist: { primary: "sword", secondary: "shield" },
     archer: { primary: "bow", secondary: "empty" } };
-  const COMBAT_FIELDS = ["driving", "forward", "posture", "primary", "secondary", "strafe", "turn"];
   const inspect = (intent, label) => {
     assert.deepEqual(Object.keys(intent).sort(), COMBAT_FIELDS, `${label} asked for a host field`);
     const axes = [intent.forward, intent.strafe, intent.turn,
@@ -148,7 +149,16 @@ test("every_policy_returns_a_finite_zoom_free_combat_command", () => {
       assert.ok(value >= -1 && value <= 1, `${label} kept a normalized signed axis: ${value}`);
     }
     assert.ok(intent.posture.crouch >= 0 && intent.posture.crouch <= 1, `${label} kept crouch anatomical`);
-    assert.ok(intent.driving === "primary" || intent.driving === "secondary", `${label} named a real hand`);
+    // A hand, or `null` -- and null means one thing only: what is acting is not
+    // a hand. `crawler` drives a set of jaws and is the one shipped policy that
+    // answers it, so pinning *which* policies answer null is what keeps this two
+    // claims instead of a check every value passes.
+    assert.ok(intent.actingHand === "primary" || intent.actingHand === "secondary" || intent.actingHand === null,
+      `${label} named a real hand or none at all`);
+    assert.equal(intent.actingHand === null, label === "crawler",
+      `${label} names a hand exactly when a hand is what acts`);
+    assert.equal(typeof intent.natural.thrust, "boolean", `${label} published a natural button`);
+    assert.equal(typeof intent.natural.guard, "boolean", `${label} published a natural button`);
     for (const hand of [intent.primary, intent.secondary]) {
       for (const value of [hand.pointerX, hand.pointerY, hand.roll, hand.wristBend]) {
         assert.ok(Number.isFinite(value), `${label} returned a finite hand command`);
@@ -169,6 +179,107 @@ test("every_policy_returns_a_finite_zoom_free_combat_command", () => {
     });
     assert.ok(result.ending === "exhausted" || result.ending === "time", `${policy.name} completed a full bout`);
   }
+});
+
+/**
+ * A target that does not move the contacted limb is a target in name only.
+ *
+ * This is asserted on `HitReport.key` out of a real Havok bout rather than on
+ * `intent.pointerY`, and the difference is the whole point. A cursor elevation
+ * is the *reachable* quantity -- it is written by the aim and read back by the
+ * test that wrote it, so it goes green whether or not the blade ends up
+ * anywhere new. Session 16 shipped exactly that shape of test twice. The limb
+ * the sword actually bit is the quantity the decision is about, and only the
+ * report knows it.
+ *
+ * **This names `thrust` because the rule holds for `thrust`, and it was called
+ * `a_requested_high_or_low_target_reaches_that_body_region_without_fallback`
+ * while covering one of four actions.** Measured on the same fixture, `cut` and
+ * `punch` do not obey a named region at all -- a cut aimed `high` takes a 0.045
+ * head share against the measured aim's 0.071, which is *lower* -- and `shoot`
+ * lands two to four body contacts a bout, which is too thin to be a claim about
+ * anything. The four tables and the structural reason are in
+ * `docs/measurements.md` under "Session 17 Stage B"; the short version is that a
+ * thrust and a shot are *points*, where the aim is where the tip is sent, and a
+ * cut and a punch are *strokes*, where the aim only seeds the centre of an arc
+ * that sweeps +-0.62 and +-0.50 in cursor units around it.
+ *
+ * Measured on this fixture, thrusting with a sword against an idle warrior
+ * (`head`, `torso`, and the `pelvis`/`thigh`/`shin` group, contacts per bout):
+ *
+ * | target        | head | torso | low group |
+ * | ---           | ---: | ---:  | ---:      |
+ * | as-measured   |   13 |   114 |        17 |
+ * | high          |   76 |    66 |        15 |
+ * | vital         |    6 |   295 |        32 |
+ * | low           |    1 |    24 |       112 |
+ *
+ * The bands below are wide against those figures on purpose -- this is a
+ * physics bout and the claim is about the distribution, not about a count --
+ * but they are far inside what an ignored target produces, which is three
+ * copies of the `as-measured` row.
+ */
+test("a_thrust_at_a_named_high_or_low_target_reaches_that_body_region", () => {
+  const HIGH_KEYS = ["head"];
+  const LOW_KEYS = ["pelvis", "thighL", "thighR", "shinL", "shinR"];
+  const thrusting = (target, seen) => {
+    let option = null;
+    return { name: `thrust-${target}`, decide(view, dt) {
+      if (!option || option.done(view)) {
+        option = handActionOption("thrust", { effector: "primary", target, stance: "action-default" });
+        option.enter(view);
+      }
+      const action = option.decide(view, dt);
+      seen.add(action.actingHand);
+      return composeTactic(view, "close", "thrust", movementIntent("close", view), action);
+    } };
+  };
+  const distribution = (target) => {
+    const keys = {}; const hands = new Set(); const filed = { primary: 0, secondary: 0 };
+    runBout({
+      left: "duelist", right: "idle", seeds: [11, 22],
+      leftLoadout: { primary: "sword", secondary: "empty" },
+      rightLoadout: { primary: "empty", secondary: "empty" },
+      leftMind: thrusting(target, hands),
+      onEvent(event) {
+        if (event.side !== "left" || event.blocked) return;
+        filed[event.hand] += 1;
+        keys[event.report.key] = (keys[event.report.key] ?? 0) + 1;
+      },
+    });
+    const count = (group) => group.reduce((sum, key) => sum + (keys[key] ?? 0), 0);
+    const body = count(HIGH_KEYS) + count(["torso"]) + count(LOW_KEYS);
+    // The arm that did the work, from the thing reported rather than from the
+    // reporter. Reading `actingHand` back is bookkeeping: `reset()` writes it
+    // from the literal effector, so it can only ever answer "primary" or throw,
+    // and it is kept only because the throw is real -- `decide` refuses a named
+    // hand that has been severed. `Combat` stamps every report with the hand
+    // whose striker filed it, which is the quantity a fallback would move: on a
+    // sword+empty body a silent switch to the off hand arrives here as `empty`
+    // contacts doing the scoring. Measured, the off hand files 4 of 165 and 2 of
+    // 158, which is a covering fist brushing a body it is held in front of.
+    //
+    // The real proof that a request for one hand is never executed on the other
+    // is `a_dual_wielder_executes_the_effector_the_decision_named` in
+    // `tests/options.test.mjs`: a shield in the primary and a sword in the
+    // secondary is the loadout the old `[preferred, other]` search redirected
+    // silently, and this fixture cannot express it because both its hands can
+    // thrust.
+    assert.deepEqual([...hands], ["primary"], `${target} was executed by a hand nobody asked for`);
+    assert.ok(filed.secondary / (filed.primary + filed.secondary) < 0.05,
+      `${target}: the off hand filed ${filed.secondary} of ${filed.primary + filed.secondary} contacts`);
+    assert.ok(body > 40, `${target} landed only ${body} body contacts, which is too few to read`);
+    return { high: count(HIGH_KEYS) / body, low: count(LOW_KEYS) / body, keys };
+  };
+
+  const high = distribution("high");
+  const low = distribution("low");
+  assert.ok(high.high > 0.25, `high aimed at the head and got ${JSON.stringify(high.keys)}`);
+  assert.ok(low.low > 0.55, `low aimed at the legs and got ${JSON.stringify(low.keys)}`);
+  // And against each other, which is what an ignored target cannot survive: it
+  // would make these two bouts the same bout.
+  assert.ok(high.high > low.high * 4, `${high.high} head high against ${low.high} low`);
+  assert.ok(low.low > high.low * 4, `${low.low} legs low against ${high.low} high`);
 });
 
 test("cosmetics_disabled_and_enabled_produce_identical_fight_records", async () => {

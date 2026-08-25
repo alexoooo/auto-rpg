@@ -1,6 +1,24 @@
 import type { FighterView, Intent } from "./mind.ts";
 import { HANDS, STRIKER_KINDS, isStriking, type HandName, type Striker, type WeaponKind } from "./hands.ts";
 
+/**
+ * The option layer's whole tuning surface, and why it is not `CONFIG`.
+ *
+ * `AGENTS.md` calls `src/config.ts` "the whole tuning surface", and this block is
+ * the standing exception: `options.ts` and `learning/features.ts` may not import
+ * `config.ts` at all, which `options_and_features_have_no_mutable_config_backdoor`
+ * pins by reading the source text. The reason is not tidiness. `CONFIG` is
+ * deliberately mutable so a person can type `__sword.config.arm.stiffness = 1600`
+ * at the console and see the next frame change; a learned controller's legality
+ * and aim rules must not be reachable that way, because an artifact trained
+ * against one table and deployed against another is the exact failure the
+ * research contract's version fields exist to refuse. Frozen here, and every
+ * number in it carries its own argument.
+ *
+ * So these are **not** reachable from `__sword.config`, on purpose, and moving
+ * one there is a contract change rather than a convenience. `TARGET_SPAN_FRACTION`
+ * in `options.ts` is outside for the same reason and says so in place.
+ */
 export const ACTION_TUNING = Object.freeze({
   restPointerX: 0,
   restPointerY: -1,
@@ -32,6 +50,21 @@ export const ACTION_TUNING = Object.freeze({
   // It is also the scale of the weight `arriving` puts on a melee tip, which is
   // the same tolerance asked as a question of degree rather than as a gate.
   arrowMissMargin: 0.45,
+  /**
+   * How far below the target's shoulder an unaimed shaft is meant to arrive.
+   *
+   * The chest rather than the collar: a shoulder is where the arm hangs from,
+   * and a shot placed exactly on it passes over a body that has crouched at all.
+   * This was a literal inside `actionArrowTargetY`, which `actionArcherAim` was
+   * its only caller of; the function went when the aim became an argument, and
+   * the number is named because it is the default the archer's whole measured
+   * record was taken at.
+   *
+   * It sat *beside* this block rather than in it for one session, which is a
+   * balance number outside the one place its own file keeps them. Same value,
+   * same argument, reachable through the same object as the rest.
+   */
+  arrowShoulderDrop: 0.12,
   // How far back along its own flight a shaft's anchor is taken, in seconds.
   //
   // A number with a motor consequence, which is why it is here rather than
@@ -92,19 +125,40 @@ export function actionArrowLift(range: number): number {
   const flight = range / ACTION_TUNING.arrowSpeed;
   return ACTION_TUNING.gravity * flight * flight * 0.5;
 }
-export const actionArrowTargetY = (shoulderY: number, range: number): number =>
-  shoulderY - 0.12 + actionArrowLift(range);
-
-export function actionArcherAim(view: FighterView, hand: HandName, into: ActionAim): ActionAim {
+/**
+ * Aim a bow, over whatever it is being aimed at.
+ *
+ * `aimedY` is the height the shaft is meant to *arrive* at, and it defaults to
+ * the one every figure in `docs/measurements.md` was taken against -- twelve
+ * centimetres below the target's shoulder -- so no existing caller moves. The
+ * lift is added on top of it and is not a target: it is how much the archer
+ * points *over* to pay for the flight, and separating the two is the whole
+ * reason this takes an argument at all. `options.ts` composes a named body
+ * region with the same lift; `policies.ts` passes none.
+ *
+ * **What this does not break, and it is worth saying which.** `arrowCrossing`
+ * and `selectThreat`'s arrow tier both extrapolate the shaft's *published*
+ * position and velocity under gravity, and neither reads `actionArrowLift` -- so
+ * a defender still answers the shot that was actually taken whatever it was
+ * aimed at. What is aim-dependent is the *worked example* in
+ * `approachToScratch`'s note (136 mm of predicted miss at 8 m, 306 at 12, 689 at
+ * 18): those were measured on a shot aimed over by exactly this lift from the
+ * -0.12 line, and a deployed archer that names `low` would need them re-taken.
+ * Nothing names one yet -- session 17 Stage B builds the seam and Stage C is
+ * where a learned controller can reach it.
+ */
+export function actionArcherAim(view: FighterView, hand: HandName, into: ActionAim,
+  aimedY: number = view.opponent.shoulder.y - ACTION_TUNING.arrowShoulderDrop): ActionAim {
   const range = actionDistance(view.self.shoulder, view.opponent.shoulder);
   return actionAimAt(view, { x: view.opponent.ground.x,
-    y: actionArrowTargetY(view.opponent.shoulder.y, range), z: view.opponent.ground.z },
+    y: aimedY + actionArrowLift(range), z: view.opponent.ground.z },
   into, hand, view.self.hands[hand].shoulder);
 }
 
 export function freshIntent(): Intent {
   return {
-    forward: 0, strafe: 0, turn: 0, driving: "primary",
+    forward: 0, strafe: 0, turn: 0, actingHand: "primary",
+    natural: { thrust: false, guard: false },
     posture: { trunkLean: 0, trunkTwist: 0, crouch: 0 },
     primary: { pointerX: 0, pointerY: 0, roll: 0, wristBend: 0, thrust: false, guard: false },
     secondary: { pointerX: ACTION_TUNING.restPointerX, pointerY: ACTION_TUNING.restPointerY,
@@ -137,7 +191,13 @@ export function applyActionPosture(
     }
   } else if (action === "commit") {
     into.posture.crouch = 0.12; into.posture.trunkLean = 0.30;
-    into.posture.trunkTwist = view.self.hands[into.driving].outboard * 0.68;
+    // `outboard` is the acting arm's side, and a natural striker has no arm --
+    // so a body-relative +1 rather than a hand lookup that would read
+    // `undefined.outboard` on a centipede. Nothing reaches this with a null
+    // acting hand today (the bite skill sets no posture at all), so the guard
+    // moves no existing caller: every scripted policy names a real hand.
+    const acting = into.actingHand === null ? null : view.self.hands[into.actingHand];
+    into.posture.trunkTwist = (acting?.outboard ?? 1) * 0.68;
     into.primary.wristBend = 0.12; into.secondary.wristBend = 0.12;
   } else if (action === "draw") {
     into.primary.roll = 0; into.secondary.roll = 0;

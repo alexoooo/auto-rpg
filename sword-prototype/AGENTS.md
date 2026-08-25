@@ -374,6 +374,19 @@ npm run dev             # http://localhost:5180, strictPort
 - **A view field with no reader is a field that will drift.** `HandView` shipped three of
   them for one session's servo and they went out with the servo. `WEAPON_KINDS` sat unread
   for two sessions and is the reason the rule is written down at all.
+- **A command channel with no writer is a button a person cannot press, and it looks exactly
+  like a body that does not work.** Session 17 gave a natural striker its own `Intent.natural`
+  because a centipede was being driven through a hand slot it does not have. `Centipede.update`
+  moved onto it, `crawlerMind` wrote it, every test drove it -- and the *host* side was left
+  behind: `Controls.state.natural` was initialised in the field list and never assigned again,
+  and `splitMind` took `natural` from the policy, so even a written one would have been
+  discarded. The setup screen offers the "you" radio for either side whatever the unit, so
+  somebody could take a centipede, walk it around, and find the attack button dead. This is the
+  same shape as the unread-field rule above, pointed the other way: a field nothing *writes* is
+  as broken as one nothing reads, and it is harder to see because the type checks and the tests
+  that drive it by hand all pass. `applyButtonPose` in `src/buttons.ts` owns the mapping now --
+  one press onto the acting hand and the natural striker together -- because `input.ts` cannot
+  be loaded by Node and a rule written there is a rule no test can reach.
 - **The stroke geometry in `policies.ts` is written for a right arm** -- "high and outside,
   on the sword shoulder's side" -- and has to be mirrored by `HandView.outboard` for the
   other one. So does a shield's placement, and so does the wrist roll that goes with it. Get
@@ -543,7 +556,7 @@ Six, and each one was paid for.
 
 - **A policy plays with the controller a person plays with.** `Mind.decide` returns an
   `Intent`, and `Controls.state` is annotated as one -- so the person and the AI hand a
-  fighter the same seven fields. Nothing may reach past it to set a joint angle, place a
+  fighter the same fields. Nothing may reach past it to set a joint angle, place a
   blade, or ask for a pose the solver would refuse a person. An AI that could pose the arm
   directly would be a different game's AI. **The command is not the controller**, which is
   the correction session 15 made: `Intent` was a type alias for the human's own
@@ -551,6 +564,19 @@ Six, and each one was paid for.
   in every sweep that measured one. Camera state -- zoom, orbit, pan -- lives on
   `CameraGestureState` in `src/camera.ts` and reaches no mind. The seam survives; the alias
   does not.
+
+  **The field count used to be written here and kept going stale** -- nine, then eight, then
+  seven, and eight again since session 17 gave a natural striker its own channel, because a
+  creature whose weapon is its head was being driven through a hand slot it does not have.
+  `COMBAT_FIELDS` in `tests/fixtures/intent.mjs` names the set and is asserted against every
+  producer of a command, which is the copy that cannot drift. **That claim named
+  `tests/minds.test.mjs` while there were six hand-written copies of the literal** -- `minds`,
+  `integration`, `arena`, `handover` and two in `options`, four of them anonymous inline arrays
+  -- so it was a single-sourcing claim about a set stated six times. One list now, on the model
+  `tests/fixtures/view.mjs` set, and mutating it turns all five files red. The one place the two sides are
+  not identical is a *narrowing* rather than a second field: `Intent.actingHand` is
+  `HandName | null`, and `Controls.state` is `Intent & { actingHand: HandName }`, because a
+  cursor is always on a hand and a set of jaws is not one.
 - **Cosmetics never carry authority.** `src/figure.ts` and anything in the authored asset
   own no collision and decide no hit.
 - **The visible room is not the collision arena.** `src/arena-room.ts` keeps the original
@@ -578,9 +604,18 @@ single file. `docs/measurements.md` is every number that has been taken, the har
 took it, and the list of what is still owed -- all of which is a judgement about how the
 game feels and needs somebody to play it.
 
-Everything else is written beside the code it decides. `src/config.ts` is the whole tuning
-surface, and it is deliberately mutable: the page exposes `window.__sword`, so
-`__sword.config.arm.stiffness = 1600` takes effect on the next frame. Tune from the console
+Everything else is written beside the code it decides. `src/config.ts` is the tuning
+surface a person reaches, and it is deliberately mutable: the page exposes `window.__sword`, so
+`__sword.config.arm.stiffness = 1600` takes effect on the next frame.
+
+**It is not quite everything, and the exception is deliberate rather than an oversight.** The
+option layer keeps its own frozen block -- `ACTION_TUNING` in `src/action-primitives.ts`, and
+`TARGET_SPAN_FRACTION` in `src/options.ts` -- and neither is reachable from `__sword.config`.
+`options.ts` and `learning/features.ts` may not import `config.ts` at all, which
+`options_and_features_have_no_mutable_config_backdoor` pins by reading the source text: a
+legality or aim rule a console command can move is a rule an artifact can be trained against
+and deployed without. Both places say so in their own docstrings. Adding a number there is a
+contract change, and adding one to `config.ts` that the option layer needs is not available. Tune from the console
 first, then write the number back into the file. Motor ceilings and damping are set on
 native solver objects at construction, so those need `__sword.left.applyTuning()` to push
 them across.

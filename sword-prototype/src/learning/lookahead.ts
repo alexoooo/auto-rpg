@@ -1,5 +1,5 @@
 import type { FighterView, Intent, Mind } from "../mind.ts";
-import { HAND_ACTION_NAMES, MOVEMENT_NAMES, composeTactic, handActionOption, movementIntent,
+import { HAND_ACTION_NAMES, MOVEMENT_NAMES, asMeasured, chooseEffector, composeTactic, handActionOption, movementIntent,
   type CombatOption, type HandActionName, type MovementName } from "../options.ts";
 import { deployableActions } from "./meta.ts";
 import { predictTactical, predictTacticalCell, requireCalibration, type CalibrationLimits,
@@ -108,7 +108,13 @@ export function lookaheadMind(model: TacticalModel, bodyLoadout: string, limits:
       for (const pair of pairs) requireCalibration(model, `${pair.movement}+${pair.action}`, bodyLoadout, limits);
       const selected = boundedLookahead(model, tacticalStateFromView(view), pairs, depth, width, bodyLoadout).pair;
       movement = selected.movement as MovementName; action = selected.action as HandActionName;
-      option = handActionOption(action); option.enter(view); capability = nextCapability;
+      // Named, not defaulted: the look-ahead model is keyed on (movement,
+      // action) alone, so the other two thirds of a tactic-v2 decision are the
+      // measured line and the skill's own pose until session 20 widens the
+      // cells. Saying so at the call site is what keeps that a decision.
+      const effector = chooseEffector(view, action);
+      if (effector === null) throw new Error(`lookahead refuses ${bodyLoadout}: no effector can perform "${action}"`);
+      option = handActionOption(action, asMeasured(effector)); option.enter(view); capability = nextCapability;
       onDecision?.(view, [], { movement, action, persistence: 0.4 });
     }
     return composeTactic(view, movement, action, movementIntent(movement, view), option.decide(view, dt));

@@ -144,10 +144,20 @@ test("a_forced_option_retires_after_capability_loss_but_initially_unsupported_st
   const view = assertCompleteView({ self: body(hand("sword")), opponent: body(hand("sword")),
     projectiles: [], measure: 1.2, clock: 0 });
   const cut = forcedOptionEvaluationMind("cut"); assert.doesNotThrow(() => cut.decide(view, 1 / 60));
+  // Two arms, neither of them a bow: the refusal names the missing weapon *and*
+  // the hand it was looked for in, which action v1's `requires a bow` could not
+  // -- there was no exact effector for it to name.
+  assert.throws(() => forcedOptionEvaluationMind("shoot").decide(view, 1 / 60),
+    /option "shoot" requires a bow in the primary hand/);
   view.self.hands.primary.lost = true; view.self.hands.secondary.lost = true; view.clock = 2;
   for (let frame = 0; frame < 4; frame += 1) assert.doesNotThrow(() => cut.decide(view, 1 / 60));
   assert.equal(cut.selected, "recover");
-  const unsupported = forcedOptionEvaluationMind("shoot"); assert.throws(() => unsupported.decide(view, 1 / 60), /option "shoot" requires a bow/);
+  // And with no arm left the refusal changes to the nearer cause. It used to say
+  // `requires a bow` here too, which is true and useless: handing a bow to a
+  // severed arm fixes nothing, and the probe's caller needs to know which of the
+  // two things is missing.
+  const unsupported = forcedOptionEvaluationMind("shoot");
+  assert.throws(() => unsupported.decide(view, 1 / 60), /option "shoot" requires an attached primary hand/);
 });
 
 test("a_learned_policy_can_repeat_one_completed_option_and_goes_inert_after_last_hand_loss", () => {
@@ -282,5 +292,12 @@ test("the_factorized_policy_uses_a_published_natural_bite_without_fabricated_han
   v.self.collisionRadius = 0.2; v.opponent.collisionRadius = 0.3; v.measure = 0.8;
   const mind = researchLabelMind("neat-qd", () => ({ movement: "hold", action: "bite", persistence: 0.10 }));
   const intent = mind.decide(v, 1 / 240);
-  assert.equal(mind.selectedAction, "bite"); assert.equal(intent.primary.thrust, true); assert.equal(intent.forward, 0);
+  // The natural channel, and the primary hand left alone. This asserted
+  // `intent.primary.thrust` -- the alias itself, on a body whose `hands` is an
+  // empty object, so the test named "without fabricated hands" was reading a
+  // fabricated hand.
+  assert.equal(mind.selectedAction, "bite");
+  assert.equal(intent.natural.thrust, true); assert.equal(intent.primary.thrust, false);
+  assert.equal(intent.actingHand, null, "jaws are not a hand");
+  assert.equal(intent.forward, 0);
 });
