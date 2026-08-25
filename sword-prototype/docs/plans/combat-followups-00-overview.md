@@ -181,7 +181,7 @@ Baseline taken before any of this work, from `sword-prototype/`, commit `a095877
 | --- | --- | --- |
 | 15 host command boundary | **landed** | `f789ea4`, 459 tests |
 | 16 policy perception v4 | **landed** | `d44fc3e`, 484 tests |
-| 17 tactic output v2 | in progress | -- |
+| 17 tactic output v2 | in progress, stage A of 3 | plan corrected `c41d01a` |
 | 18 human gate feasibility | not started | -- |
 | 19 run legibility | not started | -- |
 | 20 throughput and ceilings | not started | -- |
@@ -190,6 +190,82 @@ Baseline taken before any of this work, from `sword-prototype/`, commit `a095877
 | 23 held-out tournament | not started | -- |
 | 24 promoted integration | not started | -- |
 | 25 integration and playtest | not started | -- |
+
+### Session 17, before it lands: what the plan got wrong
+
+Recorded before the implementation rather than after it, because two of these would have been
+invisible once the code was green.
+
+Session 17 is the largest in the set -- a new output contract *and* the demolition of an entire
+parallel learning stack -- so it was reconnoitred by three read-only passes and every
+load-bearing claim was then re-verified by the coordinator directly. The plan is amended at
+`c41d01a`; the sequence is now **three commits, not one**.
+
+**The plan would have re-introduced a defect a previous session already fixed.** Its legal-tuple
+table requires `cover` and `recover` to name "either selected attached hand". But
+`supportedOptions` adds `recover` *unconditionally* and `cover` only when a hand is attached,
+and that separation is not incidental -- `docs/measurements.md:1780-1782` records it as the fix
+that came out of the last exhaustive look-ahead run, which *"exposed a hand-only recovery path
+in Centipede"*. Under the plan as written a centipede, and any fighter that has lost both arms,
+has an empty legal set and `maskedArgmax` throws. Capability-neutral recovery is now written
+down as an invariant rather than left to be rediscovered a third time.
+
+**A 21x compute multiplier was priced as bookkeeping.** The plan's entire treatment of look-ahead
+is that it "records the expanded exact cell count instead of retaining the old 220-cell
+assertion". Measured two ways independently -- the coordinator expanding the real schedule, a
+recon pass deriving legality per cell from the code -- the two answers agree at 21x and 22.5x:
+
+| quantity | today | tactic v2 | factor |
+| --- | ---: | ---: | ---: |
+| schedule tasks per split | 220 | ~4,650--4,950 | ~21--22x |
+| minimum solver steps | 42,240 | ~893,000--950,000 | ~21--22x |
+| beam nodes per replan, worst cell | 1,075 | ~20,600 | ~19x |
+
+The beam saturates immediately at width 6, so there is no pruning relief and the whole increase
+is linear in the tuple count. There is a statistical cost riding on the compute one: the
+tactical model fits *per cell*, so 22x the cells on a fixed budget is 22x fewer rows each.
+**Session 20 derives ceilings from these numbers and session 21 spends them**, so this is
+exactly the "frozen number nobody measured" this plan set was rewritten to prevent -- arriving
+three sessions before the one that would have inherited it silently.
+
+**And a balance decision wearing a naming decision's clothes.** Body regions can be built
+honestly from published facts: `vitalHeight` is 1.28 m and `crownHeight` 1.765 m. But every
+scripted attack today aims at the opponent's *shoulder*, 1.42 m, and at 1.62 m on entry --
+both **above** the published vital. So mapping `vital` to `vitalHeight` drops every scripted aim
+by 14 cm and moves every matchup. Session 16 moved the duelist 14 points with a *perception*
+change; this is a motor change, which is the bigger lever. The scripted target is therefore
+chosen by measurement on the control matchups and the number reported, not picked for tidiness.
+
+That is also why the sequence changed. The deletions go **first**, so tactic v2 is never
+propagated into code that is about to die; then the execution-layer change that can move the
+balance lands **alone**, so it can be measured against a control without contract churn mixed
+in; then the 26-output contract, which carries no balance risk because no learned policy is
+deployed.
+
+Smaller, all verified: `Controls.driving` does not exist, so "keep the human mouse choice as
+host-owned `Controls.driving`" is a type split rather than a rename, and it breaks the exact
+seven-key command assertions in six test files. PPO needs **four** new heads, not three -- it
+has no persistence output at all and `deployment.ts:61` hardcodes `0.4` -- and its reported
+entropy is divided by a hardcoded head count of 2 that no test pins. The DAgger expert returns
+only `{movement, action, persistence}` and cannot label an effector or an aim height, so
+teaching it is unstated work. There is no output mirror to extend, and the plan's effector-mirror
+rule contradicts a documented invariant that says in as many words that primary and secondary
+*"are not sides"*. The centipede publishes no hands at all yet is driven entirely through the
+primary hand's `thrust` and `guard`, so the bite alias is the creature's whole control surface
+rather than a cosmetic placeholder.
+
+Three legality tables exist, not one, and **the table used during training is not the table used
+at deployment** -- `research-rollout-worker.mjs` carries a third, hand-inlined copy that tests
+`weapon === "sword"` for thrust and an exclusion list for cut. A network is currently trained
+under one mask and deployed under another.
+
+Deletions that were not safe as specified: `ai:evaluate` is built on the module being deleted;
+`promotion-evaluator.mjs` exports `intentNumbers` to a surviving test whose import failure would
+take all thirteen tests in its file down with it; `src/learning/promotion.ts` is orphaned by the
+session and the plan never mentions it; deleting `networkMetaMind` silently removes the
+browser's only window into what a learned controller is thinking, in the session immediately
+before the one that puts a person at that keyboard; and `selectValidationChampion` exists twice
+with different signatures, one live.
 
 ### Findings from the implementation pass that change the plan
 
