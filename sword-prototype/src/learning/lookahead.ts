@@ -1,7 +1,7 @@
 import type { FighterView, Intent, Mind } from "../mind.ts";
 import { HAND_ACTION_NAMES, MOVEMENT_NAMES, composeTactic, handActionOption, movementIntent,
   type CombatOption, type HandActionName, type MovementName } from "../options.ts";
-import { supportedOptions } from "./meta.ts";
+import { deployableActions } from "./meta.ts";
 import { predictTactical, predictTacticalCell, requireCalibration, type CalibrationLimits,
   type TacticalModel, type TacticalState } from "./tactical-model.ts";
 
@@ -100,8 +100,7 @@ export function lookaheadMind(model: TacticalModel, bodyLoadout: string, limits:
   let movement: MovementName = "hold"; let action: HandActionName = "recover"; let option: CombatOption | null = null;
   let capability = "";
   return { name: `lookahead-${bodyLoadout}`, decide(view: FighterView, dt: number): Intent {
-    const allowed = new Set(supportedOptions(view));
-    if (!Object.values(view.self.hands).some((hand) => !hand.lost)) allowed.delete("cover");
+    const allowed = deployableActions(view);
     const nextCapability = [...allowed].sort().join("|"); const changed = capability !== "" && capability !== nextCapability;
     if (!option || option.done(view) || changed || !allowed.has(action)) {
       const pairs = supportedTacticPairs(MOVEMENT_NAMES, HAND_ACTION_NAMES,

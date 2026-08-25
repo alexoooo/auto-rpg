@@ -1,6 +1,8 @@
 import { SeededRng } from "./rng.ts";
 
-export type NodeKind = "input" | "bias" | "hidden" | "output";
+// Unexported since session 17 took its last outside reader: `NodeGene` below is
+// the only one left, and `evaluation.ts` records why that is not a deletion.
+type NodeKind = "input" | "bias" | "hidden" | "output";
 export type ActivationName = "identity" | "tanh" | "sigmoid";
 export interface NodeGene { id: number; kind: NodeKind; bias: number; activation: ActivationName }
 export interface EdgeGene { innovation: number; from: number; to: number; weight: number; enabled: boolean; recurrent?: boolean }

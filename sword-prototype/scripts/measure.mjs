@@ -5,7 +5,6 @@
 //     npm run measure -- --only swing    -- the swinger's stroke on its own
 //     npm run measure -- --only duelist-swinger --verbose
 //     npm run measure -- --seed 777001   -- a second, independent corpus
-//     npm run measure -- --checkpoint path/to/champion.bin --bouts 24
 //     npm run measure -- --selftest      -- one bout twice in isolated solvers
 //
 // It is **not** in `npm test` and that is deliberate. The pure half of session
@@ -39,8 +38,6 @@ import { Fighter, stepPair } from "../src/fighter.ts";
 import { isArticulatedCombatant, policyForUnit, unitDefinition } from "../src/units.ts";
 import { Combat } from "../src/combat.ts";
 import { policyMind } from "../src/mind.ts";
-import { Checkpoint } from "../src/learning/checkpoint.ts";
-import { learnedMetaMind } from "../src/learning/meta.ts";
 import { blankIntent } from "../src/policies.ts";
 import { ACTION_TUNING } from "../src/action-primitives.ts";
 import { advance, begin, selectScreen } from "../src/bout.ts";
@@ -69,7 +66,7 @@ const wasmPath = new URL("../node_modules/@babylonjs/havok/lib/esm/HavokPhysics.
 
 // The ordinary benchmark shares one Havok module because it measures throughput.
 // We previously claimed disposed worlds made repeated bouts independent. The
-// session-11 legacy/meta brackets disproved that claim: allocator/solver history
+// session-11 specialist/meta brackets disproved that claim: allocator/solver history
 // could flip a winner even though every command was equal. Comparisons which
 // promise same-input parity therefore request `freshHavok()` per bout below.
 const havok = await HavokPhysics({ wasmBinary: await readFile(wasmPath) });
@@ -999,49 +996,6 @@ function reportShieldArcherCells(count, seed) {
   }
 }
 
-const LEARNED_LOADOUTS = Object.freeze([
-  { name: "sword", loadout: { primary: "sword", secondary: "empty" } },
-  { name: "shield", loadout: { primary: "sword", secondary: "shield" } },
-  { name: "axe", loadout: { primary: "axe", secondary: "empty" } },
-  { name: "bow", loadout: { primary: "bow", secondary: "empty" } },
-  { name: "bare-hands", loadout: { primary: "empty", secondary: "empty" } },
-]);
-
-/** Measure an unregistered experiment without presenting it as a shipped policy. */
-async function reportLearnedCheckpoint(path, count, seed) {
-  if (!Number.isInteger(count) || count <= 0 || count % 2 !== 0) {
-    throw new Error("experimental checkpoint bouts must be a positive even mirrored count");
-  }
-  const checkpoint = Checkpoint.fromBytes(new Uint8Array(await readFile(path)));
-  console.log(`\n=== experimental checkpoint vs swinger -- ${count} mirrored bouts per loadout ===`);
-  console.log("  loadout       wins  draws  losses  win score");
-  for (let loadoutIndex = 0; loadoutIndex < LEARNED_LOADOUTS.length; loadoutIndex += 1) {
-    const cell = LEARNED_LOADOUTS[loadoutIndex]; let wins = 0; let draws = 0; let losses = 0;
-    for (let pair = 0; pair < count / 2; pair += 1) {
-      const pairSeed = seed ^ Math.imul(loadoutIndex + 1, 0x9e3779b9);
-      const actorSeed = seedFor(pairSeed, pair, 0); const enemySeed = seedFor(pairSeed, pair, 1);
-      for (const actorSide of ["left", "right"]) {
-        const learned = learnedMetaMind(checkpoint); const enemy = policyMind("swinger", enemySeed);
-        const result = runBout({
-          left: actorSide === "left" ? "experimental-checkpoint" : "swinger",
-          right: actorSide === "right" ? "experimental-checkpoint" : "swinger",
-          seeds: [actorSeed, enemySeed],
-          leftLoadout: actorSide === "left" ? cell.loadout : undefined,
-          rightLoadout: actorSide === "right" ? cell.loadout : undefined,
-          leftMind: actorSide === "left" ? learned : enemy,
-          rightMind: actorSide === "right" ? learned : enemy,
-          physics: await freshHavok(),
-        });
-        if (result.winner === null) draws += 1;
-        else if (result.winner === actorSide) wins += 1;
-        else losses += 1;
-      }
-    }
-    const score = (wins + draws * 0.5) / count;
-    console.log(`  ${cell.name.padEnd(12)} ${String(wins).padStart(4)}  ${String(draws).padStart(5)}  ${String(losses).padStart(6)}  ${score.toFixed(3).padStart(9)}`);
-  }
-}
-
 // ---- entry ----------------------------------------------------------------
 
 // Importers use the exact same real-solver harness. They opt out of this CLI
@@ -1059,7 +1013,19 @@ const bouts = Number(flag("bouts", 40));
 const runSeed = Number(flag("seed", 20260823)) >>> 0;
 const only = flag("only", null);
 const verbose = has("verbose");
-const checkpointPath = flag("checkpoint", null);
+
+// Refused by name rather than ignored. `--checkpoint <path> --bouts 24` was the
+// five-loadout route for an unregistered experiment, and session 17 deleted it
+// with the standalone codec it loaded. A flag this bench silently drops is worse
+// than one it never had: the command still runs, still prints a full policy
+// table, and the table is of the scripted policies rather than of the
+// checkpoint somebody meant to measure. Same rule as `ai:evaluate`'s refusal of
+// `--split train`.
+if (has("checkpoint")) {
+  throw new Error("--checkpoint is no longer available: the standalone checkpoint codec and the five-loadout " +
+    "experimental route went with session 17. A learned controller reaches a fight as a research artifact " +
+    "through the blind tournament; see docs/measurements.md, \"Session 17 Stage A\".");
+}
 
 if (has("selftest")) {
   // Distribution runs deliberately share one fast module; reproducibility
@@ -1085,12 +1051,6 @@ const MATCHUPS = [
 ];
 
 const started = Date.now();
-
-if (checkpointPath) {
-  await reportLearnedCheckpoint(checkpointPath, bouts, runSeed);
-  console.log(`\nseed ${runSeed}, ${((Date.now() - started) / 1000).toFixed(1)} s of wall clock`);
-  process.exit(0);
-}
 
 if (!only || only === "posture") {
   console.log("\n=== articulated trunk -- four corners, 5 simulated seconds each ===");

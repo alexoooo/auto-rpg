@@ -1015,10 +1015,24 @@ async function boot(): Promise<void> {
         null,
       );
 
+    // Whether the mind publishes a reading, not what it is called. This gated on
+    // `mind.name === "learned-meta"`, and `metaDiagnostic` already returns null
+    // for a mind with nothing to say, so the name test was strictly narrower
+    // than the capability test it sat in front of. That is why it went.
+    //
+    // **It did not go to keep the panel lit, and an earlier note here said it
+    // did.** The panel has never lit in this page and does not light now:
+    // `mindFor` builds minds only through `policyMind` and `splitMind`, the
+    // five `POLICIES` entries are `idle`, `swinger`, `duelist`, `archer` and
+    // `crawler`, and `typeof mind.diagnostic === "undefined"` for every one of
+    // them -- measured, not assumed. `learnedMetaMind` had no constructor
+    // anywhere in `src/` at all; its two were headless CLIs, both deleted.
+    // The readout becomes reachable the day a page-constructible mind publishes
+    // a diagnostic, which is session 19's page-side deployment path, and not
+    // before.
     const learned = Object.fromEntries(
       (["left", "right"] as const).flatMap((side) => {
-        const mind = bout[side].mind;
-        const reading = mind.name === "learned-meta" ? metaDiagnostic(mind) : null;
+        const reading = metaDiagnostic(bout[side].mind);
         return reading ? [[side, reading] as const] : [];
       }),
     );

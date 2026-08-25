@@ -6,11 +6,13 @@ No research command may run longer than one hour without saying, in gate terms, 
 and has not found. Add a checkpoint ledger, a deterministic plateau stopping rule, and a
 champion-so-far artifact that can be loaded into the arena and fought by hand mid-run.
 
-Today a run is a black box until it terminates. `src/learning/checkpoint.ts` serializes a
-single NEAT network and is not a periodic checkpointer -- and it is not even on the
-four-direction path, its only consumer being the superseded `scripts/train-meta.mjs`. This
-session fixes legibility for all four directions at once, before any of them is authorized to
-spend real time.
+Today a run is a black box until it terminates. **Session 17 Stage A deleted
+`src/learning/checkpoint.ts` and `scripts/train-meta.mjs`**, which this paragraph named as the
+nearest thing to a checkpointer; they were never on the four-direction path and the trainer had
+never written a checkpoint its own codec would accept. What is left is `ResearchArtifact` plus
+each runner's own state file, and none of them is a periodic checkpointer either. This session
+fixes legibility for all four directions at once, before any of them is authorized to spend
+real time.
 
 Two claims this plan made about the current code are wrong, and both change the work.
 

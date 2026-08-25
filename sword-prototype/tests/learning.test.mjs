@@ -1,21 +1,20 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { readFileSync } from "node:fs";
-import { createHash } from "node:crypto";
 
+import { freshIntent } from "../src/action-primitives.ts";
 import { FEATURE_COLUMNS, FEATURE_VERSION } from "../src/learning/features.ts";
-import { Checkpoint } from "../src/learning/checkpoint.ts";
-import { SEED_RANGES, evaluationMirrorSeeds, forcedOptionEvaluationMind, mirroredEvaluationJobs, seedRangesOverlap, validateSeedRanges } from "../src/learning/evaluation.ts";
+import { SEED_RANGES, forcedOptionEvaluationMind, mirroredEvaluationJobs, validateSeedRanges } from "../src/learning/evaluation.ts";
 import { InnovationTracker, addEdgeMutation, addNodeMutation, breedGeneration, crossover, hasCycle, initialPopulation, innovationTrackerFor, speciate, speciesSelectionWeights } from "../src/learning/genome.ts";
-import { fitnessComponents, learnedMetaMind, META_OUTPUT_NAMES, networkMetaMind, noveltyDescriptor, randomMetaMind } from "../src/learning/meta.ts";
-import { HAND_ACTION_NAMES, MOVEMENT_NAMES, OPTION_NAMES, behaviourRecord, scriptedMetaMind } from "../src/options.ts";
+import { fitnessComponents, META_OUTPUT_NAMES, noveltyDescriptor, randomMetaMind, supportedOptions } from "../src/learning/meta.ts";
+import { supportedActionIndices } from "../src/learning/deployment.ts";
+import { maskedArgmax } from "../src/learning/recurrent-network.ts";
+import { researchLabelMind } from "../src/learning/research-policy.ts";
+import { HAND_ACTION_NAMES, MOVEMENT_NAMES, behaviourRecord, scriptedMetaMind } from "../src/options.ts";
 import { STRIKER_KINDS, WEAPON_KINDS } from "../src/hands.ts";
 import { partitionIndexed, restoreIndexed } from "../src/learning/jobs.ts";
 import { Network } from "../src/learning/network.ts";
 import { SeededRng } from "../src/learning/rng.ts";
-import { assessPromotion, selectValidationChampion, validateDefaultTrainingReport } from "../src/learning/promotion.ts";
-import { runPromotionEvaluation } from "../scripts/promotion-evaluator.mjs";
-import { assertCompleteView, assertCompleteBody } from "./fixtures/view.mjs";
+import { assertCompleteView } from "./fixtures/view.mjs";
 
 const digest = (value) => JSON.stringify(value);
 
@@ -151,7 +150,7 @@ test("a_forced_option_retires_after_capability_loss_but_initially_unsupported_st
   const unsupported = forcedOptionEvaluationMind("shoot"); assert.throws(() => unsupported.decide(view, 1 / 60), /option "shoot" requires a bow/);
 });
 
-test("a_learned_meta_policy_can_repeat_one_completed_option_and_goes_inert_after_last_hand_loss", () => {
+test("a_learned_policy_can_repeat_one_completed_option_and_goes_inert_after_last_hand_loss", () => {
   const hand = (weapon, outboard) => ({ weapon, lost: false, reach: 1.4, tipSpeed: 0, tipVelocity: STILL(), outboard,
     shoulder: { x: outboard * 0.2, y: 1.4, z: 0 }, tip: { x: outboard * 0.2, y: 1.4, z: 1 } });
   const body = () => { const primary = hand("sword", 1); return { ...SHAPE, naturalAttacks: {}, ground: { x: 0, y: 0, z: 0 }, facing: 0,
@@ -159,15 +158,32 @@ test("a_learned_meta_policy_can_repeat_one_completed_option_and_goes_inert_after
     crouch: 0, trunkLean: 0, trunkTwist: 0, vitality: 1, health: {} }; };
   const view = assertCompleteView({ self: body(), opponent: body(), projectiles: [], measure: 1.2, clock: 0 });
   view.opponent.ground.z = 1.4;
-  const nodes = [...Array.from({ length: FEATURE_COLUMNS.length }, (_, id) => ({ id, kind: "input" })),
-    ...Array.from({ length: META_OUTPUT_NAMES.length }, (_, index) => ({ id: FEATURE_COLUMNS.length + index, kind: "output" }))];
-  const network = { nodes, run() { const output = Array(META_OUTPUT_NAMES.length).fill(-1); output[META_OUTPUT_NAMES.indexOf("cut")] = 1; return output; } };
-  const mind = networkMetaMind(network); let fallingEdges = 0; let guarded = true;
+  let labelled = 0;
+  const mind = researchLabelMind("neat-qd", () => { labelled += 1; return { movement: "hold", action: "cut", persistence: 0.10 }; });
+  let fallingEdges = 0; let guarded = true;
+  // The tactic pair is sampled every frame, not read once at the end. The line
+  // this replaced asserted `selectedAction === "cut"` against a stub that
+  // returns nothing else, so `labelled >= 2` above already entailed it -- and
+  // its message named switching, which a final value cannot see: a policy that
+  // left `cut` and came back would end on the same string. Counting changes
+  // across the whole run is what `switches === 0` meant on the deleted
+  // meta-controller, and `researchLabelMind` has no `switches` to read.
+  let pairChanges = 0; let pair = null;
   for (let frame = 0; frame < 200; frame += 1) { view.clock = frame / 60; const intent = mind.decide(view, 1 / 60);
-    if (guarded && !intent.primary.guard) fallingEdges += 1; guarded = intent.primary.guard; }
-  assert.ok(fallingEdges >= 2, `expected repeated cut commits, got ${fallingEdges}`); assert.ok(mind.entries.cut >= 2); assert.equal(mind.switches, 0);
+    if (guarded && !intent.primary.guard) fallingEdges += 1; guarded = intent.primary.guard;
+    const next = `${mind.selectedMovement}+${mind.selectedAction}`;
+    if (pair !== null && next !== pair) pairChanges += 1; pair = next; }
+  assert.ok(fallingEdges >= 2, `expected repeated cut commits, got ${fallingEdges}`);
+  assert.ok(labelled >= 2, `expected the finished stroke to be re-entered, got ${labelled} decisions`);
+  assert.equal(pairChanges, 0, `re-entering one completed option is not a switch, saw ${pairChanges} tactic changes`);
   view.self.hands.primary.lost = true; view.self.hands.secondary.lost = true;
-  assert.doesNotThrow(() => mind.decide(view, 1 / 60)); assert.equal(mind.selected, "recover");
+  const inert = mind.decide(view, 1 / 60);
+  // Inert is the whole command or it is not inert. Two leaves of nineteen were
+  // asserted here, so a handless branch that turned, crouched and thrust with
+  // the off hand passed the test named for going inert. `freshIntent()` is what
+  // that branch returns, so comparing against it covers every leaf at once and
+  // grows with the command.
+  assert.deepEqual(inert, freshIntent());
   const random = randomMetaMind(4); assert.doesNotThrow(() => random.decide(view, 1 / 60)); assert.equal(random.selected, "recover");
   const scripted = scriptedMetaMind("duelist", 4); assert.doesNotThrow(() => scripted.decide(view, 1 / 60)); assert.equal(scripted.selected, "recover");
 });
@@ -200,13 +216,6 @@ test("the_runtime_learning_shape_is_the_versioned_feature_table_plus_exact_optio
   assert.deepEqual(META_OUTPUT_NAMES, [...MOVEMENT_NAMES, ...HAND_ACTION_NAMES, "persistence"]);
 });
 
-const checkpointFixture = () => {
-  const genome = initialPopulation(1, FEATURE_COLUMNS.length, META_OUTPUT_NAMES.length, 44)[0];
-  return { genome, data: { featureVersion: FEATURE_VERSION, featureNames: FEATURE_COLUMNS,
-    optionNames: META_OUTPUT_NAMES.slice(0, -1), nodes: genome.nodes, edges: genome.edges,
-    provenance: { seed: 44, configDigest: "0123456789abcdef" } } };
-};
-
 const learningView = (primary = "sword", secondary = "empty") => {
   const hand = (weapon, outboard, z) => ({ weapon, lost: false, reach: weapon === "bow" ? 0.8 : 1.4,
     tipSpeed: 0, tipVelocity: STILL(), outboard, shoulder: { x: outboard * 0.2, y: 1.4, z }, tip: { x: outboard * 0.2, y: 1.4, z: z + 1 } });
@@ -218,260 +227,60 @@ const learningView = (primary = "sword", secondary = "empty") => {
   return assertCompleteView({ self: mine, opponent: theirs, projectiles: [], measure: 1.2, clock: 0 });
 };
 
-test("a_checkpoint_round_trips_and_replays_the_same_option_sequence", () => {
-  const { data } = checkpointFixture(); const first = new Checkpoint(data); const replay = Checkpoint.fromBytes(first.toBytes());
-  const samples = Array.from({ length: 12 }, (_, row) => FEATURE_COLUMNS.map((_, column) => Math.sin(row * 3 + column)));
-  const sequence = (network) => samples.map((features) => {
-    const output = network.run(features); return output.indexOf(Math.max(...output.slice(0, -1)));
-  });
-  assert.deepEqual(sequence(first.network()), sequence(replay.network()));
-  assert.deepEqual(replay.provenance, data.provenance);
-});
-
-test("a_checkpoint_refuses_wrong_features_options_cycles_nans_and_trailing_bytes", () => {
-  const { data, genome } = checkpointFixture();
-  assert.throws(() => new Checkpoint({ ...data, featureNames: [...FEATURE_COLUMNS].reverse() }), /feature names/);
-  assert.throws(() => new Checkpoint({ ...data, optionNames: [...data.optionNames].reverse() }), /option names/);
-  assert.throws(() => new Checkpoint({ ...data, nodes: genome.nodes.map((node, i) => i ? node : { ...node, bias: Number.NaN }) }), /non-finite/);
-  const hiddenA = { id: 1000, kind: "hidden", bias: 0, activation: "tanh" };
-  const hiddenB = { id: 1001, kind: "hidden", bias: 0, activation: "tanh" };
-  assert.throws(() => new Checkpoint({ ...data, nodes: [...genome.nodes, hiddenA, hiddenB], edges: [...genome.edges,
-    { innovation: 99999, from: hiddenA.id, to: hiddenB.id, weight: 1, enabled: true },
-    { innovation: 100000, from: hiddenB.id, to: hiddenA.id, weight: 1, enabled: true }] }), /cycle/);
-  assert.throws(() => new Checkpoint({ ...data, edges: [...genome.edges, { ...genome.edges[0] }] }), /duplicate innovation/);
-  assert.throws(() => new Checkpoint({ ...data, edges: [...genome.edges,
-    { ...genome.edges[0], innovation: 99998 }] }), /duplicate connection/);
-  const outputNode = genome.nodes.find((node) => node.kind === "output");
-  assert.throws(() => new Checkpoint({ ...data, edges: [...genome.edges,
-    { innovation: 99997, from: outputNode.id, to: 0, weight: 1, enabled: false }] }), /node roles/);
-  const hiddenC = { id: 1002, kind: "hidden", bias: 0, activation: "tanh" };
-  assert.throws(() => new Checkpoint({ ...data, nodes: [...genome.nodes, hiddenC], edges: [...genome.edges,
-    { innovation: 99996, from: 0, to: hiddenC.id, weight: 1, enabled: true, recurrent: true }] }), /has no recurrence field/);
-  const nested = { seed: 44, configDigest: "0123456789abcdef", selection: { split: "validation" } };
-  const immutable = new Checkpoint({ ...data, provenance: nested }); const immutableBytes = immutable.toBytes();
-  nested.selection.split = "test"; assert.deepEqual(immutable.toBytes(), immutableBytes);
-  assert.equal(immutable.provenance.selection.split, "validation");
-  const bytes = new Checkpoint(data).toBytes(); const trailing = new Uint8Array(bytes.length + 1); trailing.set(bytes);
-  assert.throws(() => Checkpoint.fromBytes(trailing), /trailing/);
-});
-
-test("a_missing_or_corrupt_checkpoint_is_refused_by_name", () => {
-  assert.throws(() => learnedMetaMind(null), /learned-v1 checkpoint is missing/);
-  assert.throws(() => learnedMetaMind(new Uint8Array([1, 2, 3])), /learned-v1 checkpoint is corrupt or incompatible/);
-});
-
 test("diagnostics_report_the_decision_without_changing_it", () => {
-  const { data } = checkpointFixture(); const checkpoint = new Checkpoint(data); let runs = 0;
-  const network = checkpoint.network(); const original = network.run.bind(network);
-  network.run = (features) => { runs += 1; return original(features); };
-  const mind = networkMetaMind(network); const view = learningView();
-  mind.decide(view, 1 / 240); const before = runs;
+  let labelled = 0;
+  const mind = researchLabelMind("neat-qd", () => { labelled += 1; return { movement: "close", action: "cut", persistence: 0.4 }; });
+  const view = learningView();
+  mind.decide(view, 1 / 240); const before = labelled;
   const first = mind.diagnostic(); const second = mind.diagnostic();
-  assert.equal(runs, before, "a diagnostic read must not decide again");
-  assert.deepEqual(first, second); assert.equal(first.option, mind.selected); assert.equal(Object.isFrozen(first), true);
-  assert.equal(Object.isFrozen(first.topLogits), true); assert.ok(first.topLogits.length <= 3);
+  assert.equal(labelled, before, "a diagnostic read must not decide again");
+  assert.deepEqual(first, second);
+  assert.equal(first.movement, mind.selectedMovement); assert.equal(first.action, mind.selectedAction);
+  assert.equal(Object.isFrozen(first), true); assert.equal(Object.isFrozen(first.topLogits), true);
+  // A labeler answers a decision, not a scored table, so the readout carries no
+  // logits at all rather than an invented ranking. The deleted network
+  // controller published its top three; whatever replaces it in the 26-output
+  // contract will have to say what it is publishing here.
+  assert.deepEqual(first.topLogits, []);
 });
 
-test("diagnostics_keep_the_active_persistence_duration_while_logits_are_re_evaluated", () => {
-  const nodes = [...Array.from({ length: FEATURE_COLUMNS.length }, (_, id) => ({ id, kind: "input" })),
-    ...Array.from({ length: META_OUTPUT_NAMES.length }, (_, index) => ({ id: FEATURE_COLUMNS.length + index, kind: "output" }))];
-  let runs = 0; const network = { nodes, run() {
-    const output = Array(META_OUTPUT_NAMES.length).fill(-1); output[1] = 1; output.at(-1); output[output.length - 1] = runs++ ? -1 : 1; return output;
-  } };
-  const mind = networkMetaMind(network); const view = learningView(); view.opponent.ground.z = 0.8; view.opponent.shoulder.z = 0.8; view.measure = 0.6;
+test("a_diagnostic_reports_the_active_persistence_window_rather_than_a_fresh_one", () => {
+  const view = learningView(); view.opponent.ground.z = 0.8; view.opponent.shoulder.z = 0.8; view.measure = 0.6;
+  let labelled = 0;
+  const mind = researchLabelMind("dagger", () => { labelled += 1;
+    return { movement: "hold", action: "cover", persistence: labelled === 1 ? 0.80 : 0.10 }; });
   mind.decide(view, 1 / 240);
-  const persistence = mind.diagnostic().persistenceSeconds;
-  view.clock = 0.11; mind.decide(view, 1 / 240);
-  assert.equal(mind.diagnostic().persistenceSeconds, persistence);
+  assert.equal(labelled, 1); assert.equal(mind.diagnostic().persistenceSeconds, 0.80);
+  view.clock = 0.05; mind.decide(view, 1 / 240);
+  assert.equal(labelled, 1, "a decision inside its own window is not re-taken");
+  assert.equal(mind.diagnostic().persistenceSeconds, 0.80, "the readout is the live window, not the next one");
+  assert.ok(Math.abs(mind.diagnostic().persistenceRemaining - 0.75) < 1e-9, mind.diagnostic().persistenceRemaining);
+  // And the other direction, because a readout frozen at its first value passes
+  // the assertion above exactly as well as one that tracks the live window.
+  view.clock = 0.85; mind.decide(view, 1 / 240);
+  assert.equal(labelled, 2); assert.equal(mind.diagnostic().persistenceSeconds, 0.10);
 });
 
-test("the_learned_policy_never_selects_an_option_the_loadout_cannot_perform", () => {
-  const nodes = [...Array.from({ length: FEATURE_COLUMNS.length }, (_, id) => ({ id, kind: "input" })),
-    ...Array.from({ length: META_OUTPUT_NAMES.length }, (_, index) => ({ id: FEATURE_COLUMNS.length + index, kind: "output" }))];
-  const network = { nodes, run() { const output = Array(META_OUTPUT_NAMES.length).fill(-1);
-    output[META_OUTPUT_NAMES.indexOf("shoot")] = 100; output[META_OUTPUT_NAMES.indexOf("cut")] = 2; return output; } };
-  const mind = networkMetaMind(network); const view = learningView("sword", "empty");
-  mind.decide(view, 1 / 240);
-  assert.equal(mind.selected, "cut", "shoot is masked when neither hand carries a bow");
-  assert.equal(mind.diagnostic().topLogits.some((row) => row.option === "shoot"), false,
-    "the readout does not advertise an unavailable option");
+test("a_learned_action_the_loadout_cannot_perform_is_masked_and_then_refused_by_name", () => {
+  const view = learningView("sword", "empty");
+  const allowed = supportedOptions(view);
+  assert.equal(allowed.has("shoot"), false, "neither hand carries a bow"); assert.equal(allowed.has("cut"), true);
+  // The mask is the one `deployment.ts` hands `maskedArgmax`, read from the
+  // module rather than rebuilt here: a controller whose largest action logit is
+  // `shoot` deploys `cut` instead of shooting a bow it does not hold.
+  const logits = HAND_ACTION_NAMES.map((name) => name === "shoot" ? 100 : name === "cut" ? 2 : -1);
+  assert.equal(HAND_ACTION_NAMES[maskedArgmax(logits, supportedActionIndices(view), "action")], "cut");
+  // Below the mask the seam refuses rather than substituting. That direction is
+  // the one worth pinning: a masked choice is still a decision, while an
+  // unmasked one arriving at execution would be an option the body cannot do.
+  const mind = researchLabelMind("neat-qd", () => ({ movement: "hold", action: "shoot", persistence: 0.10 }));
+  assert.throws(() => mind.decide(view, 1 / 240), /research policy produced unsupported action "shoot"/);
 });
 
 test("the_factorized_policy_uses_a_published_natural_bite_without_fabricated_hands", () => {
-  const nodes = [...Array.from({ length: FEATURE_COLUMNS.length }, (_, id) => ({ id, kind: "input" })),
-    ...Array.from({ length: META_OUTPUT_NAMES.length }, (_, index) => ({ id: FEATURE_COLUMNS.length + index, kind: "output" }))];
-  const network = { nodes, run() { const output = Array(META_OUTPUT_NAMES.length).fill(-1);
-    output[META_OUTPUT_NAMES.indexOf("hold")] = 1; output[META_OUTPUT_NAMES.indexOf("bite")] = 2; return output; } };
   const v = learningView(); v.self.hands = {}; v.self.naturalAttacks = { bite: { reach: 0.7, ready: true, active: false } };
   v.self.collisionRadius = 0.2; v.opponent.collisionRadius = 0.3; v.measure = 0.8;
-  const mind = networkMetaMind(network); const intent = mind.decide(v, 1 / 240);
+  const mind = researchLabelMind("neat-qd", () => ({ movement: "hold", action: "bite", persistence: 0.10 }));
+  const intent = mind.decide(v, 1 / 240);
   assert.equal(mind.selectedAction, "bite"); assert.equal(intent.primary.thrust, true); assert.equal(intent.forward, 0);
-});
-
-test("feature_v4_rejects_the_unpromoted_v2_checkpoint", () => {
-  const { data } = checkpointFixture();
-  assert.throws(() => new Checkpoint({ ...data, featureVersion: 2 }), /feature version 2 does not match runtime 4/);
-  const legacy = new Checkpoint({ ...data, featureVersion: 2 },
-    { featureVersion: 2, featureNames: data.featureNames, optionNames: data.optionNames });
-  assert.throws(() => learnedMetaMind(legacy), /feature v2 checkpoint cannot run as feature v4/);
-  // And the version one behind, which is the case the old literal got exactly
-  // backwards: `learnedMetaMind` compared against a hardcoded `3` and refused
-  // every freshly written v4 checkpoint with a message claiming v4 was stale.
-  const previous = new Checkpoint({ ...data, featureVersion: FEATURE_VERSION - 1 },
-    { featureVersion: FEATURE_VERSION - 1, featureNames: data.featureNames, optionNames: data.optionNames });
-  assert.throws(() => learnedMetaMind(previous), /feature v3 checkpoint cannot run as feature v4/);
-  // The current one runs, which is the direction a version literal fails in
-  // silently: a gate that refuses everything looks exactly like a strict gate.
-  assert.doesNotThrow(() => learnedMetaMind(new Checkpoint(data)));
-});
-
-test("promotion_selects_across_runs_without_looking_at_test_evidence", () => {
-  // `FEATURE_VERSION`, not a literal. The gate reads the runtime's table now, so
-  // a row pinned at 2 -- which is what this fixture said, and what the gate
-  // itself said, for two whole versions -- is an experiment run against a
-  // feature vector this build cannot execute.
-  const run = (runId, seed, championDigest, validationScore, testScore) => ({ runId, seed, championDigest,
-    validationScore, testScore, population: 128, generations: 80, mirroredBouts: 24, workers: 8,
-    trainerProtocol: 3, configDigest: "0123456789abcdef", featureVersion: FEATURE_VERSION,
-    optionNames: OPTION_NAMES });
-  const selected = selectValidationChampion([
-    run("a", 1, "a1", 1.5, 100),
-    run("b", 2, "b1", 2.0, -100),
-    run("c", 3, "c1", 1.7, 500),
-  ]);
-  assert.equal(selected.runId, "b");
-  // Both directions of the version gate, because one that refuses everything and
-  // one that refuses nothing pass the same single-sided assertion.
-  assert.throws(() => selectValidationChampion([
-    run("a", 1, "a1", 1.5, 100), { ...run("b", 2, "b1", 2, -100), featureVersion: FEATURE_VERSION - 1 },
-    run("c", 3, "c1", 1.7, 500),
-  ]), /experiment b does not match/);
-  assert.throws(() => selectValidationChampion([
-    run("a", 1, "a1", 1.5, 100), run("b", 1, "b1", 2, -100), run("c", 3, "c1", 1.7, 500),
-  ]), /not independent/);
-  assert.throws(() => selectValidationChampion([
-    run("a", 1, "a1", 1.5, 100), { ...run("b", 2, "b1", 2, -100), generations: 79 }, run("c", 3, "c1", 1.7, 500),
-  ]), /not a default/);
-});
-
-test("promotion_provenance_requires_every_generation_row_in_order", () => {
-  const provenance = { seed: 77, configDigest: "0123456789abcdef" };
-  const complete = {
-    config: { version: 3, seed: 77, population: 128, generations: 80, mirroredBouts: 24 },
-    configDigest: provenance.configDigest,
-    championDigest: "champion",
-    reports: Array.from({ length: 80 }, (_, generation) => ({ generation })),
-  };
-  assert.doesNotThrow(() => validateDefaultTrainingReport(complete, "champion", provenance));
-  assert.throws(() => validateDefaultTrainingReport(
-    { ...complete, reports: complete.reports.slice(0, -1) }, "champion", provenance,
-  ), /exactly 80 rows/);
-  const misindexed = structuredClone(complete); misindexed.reports[43].generation = 44;
-  assert.throws(() => validateDefaultTrainingReport(misindexed, "champion", provenance), /row 43 must have index 43/);
-});
-
-test("every_promotion_threshold_is_a_hard_gate", () => {
-  const counts = { close: 10, disengage: 10, cover: 10, cut: 10, thrust: 0, punch: 0, shoot: 0, recover: 0 };
-  const good = { splitOverlap: false, heldOutWinScore: 0.7, scriptedWinScore: 0.6, randomWinScore: 0.4,
-    loadouts: [{ name: "sword", learnedWinRate: 0.55, specialistWinRate: 0.70 }], decisionCounts: counts,
-    motifs: [{ name: "cover -> cut", learned: 3, scripted: 2 }, { name: "disengage -> cover", learned: 2, scripted: 1 }],
-    safety: { finiteIntents: true, supportedOptions: true, noStuckOption: true, noPostVerdictAction: true } };
-  assert.equal(assessPromotion(good).promoted, true);
-  assert.equal(assessPromotion({ ...good, heldOutWinScore: 0.6 }).promoted, false, "scripted must be beaten, not tied");
-  assert.equal(assessPromotion({ ...good, loadouts: [{ name: "sword", learnedWinRate: 0.549, specialistWinRate: 0.70 }] }).promoted, false);
-  assert.equal(assessPromotion({ ...good, decisionCounts: { ...counts, disengage: 0 } }).promoted, true,
-    "close, cover and cut still clear the diversity gate");
-  assert.equal(assessPromotion({ ...good, decisionCounts: { ...counts, disengage: 0, cut: 0 } }).promoted, false);
-  assert.equal(assessPromotion({ ...good, motifs: good.motifs.slice(0, 1) }).promoted, false);
-  assert.equal(assessPromotion({ ...good, splitOverlap: true }).promoted, false);
-  assert.equal(assessPromotion({ ...good, randomWinScore: 0.7 }).promoted, false);
-  assert.equal(assessPromotion({ ...good, safety: { ...good.safety, finiteIntents: false } }).promoted, false);
-  assert.equal(assessPromotion({ ...good, safety: { ...good.safety, supportedOptions: false } }).promoted, false);
-  assert.equal(assessPromotion({ ...good, safety: { ...good.safety, noStuckOption: false } }).promoted, false);
-  assert.equal(assessPromotion({ ...good, safety: { ...good.safety, noPostVerdictAction: false } }).promoted, false);
-});
-
-test("the_compact_unpromoted_evidence_recomputes_the_recorded_failure", () => {
-  const report = JSON.parse(readFileSync(new URL("../asset-src/learning/unpromoted-v1.json", import.meta.url), "utf8"));
-  const rows = (featureVersion) => report.experiments.map((row) => ({ ...row,
-    validationScore: row.bestValidation, championDigest: row.championSha256,
-    population: report.configuration.population, generations: report.configuration.generations,
-    mirroredBouts: report.configuration.mirroredBouts, workers: report.configuration.workers,
-    trainerProtocol: report.configuration.trainerProtocol, featureVersion,
-    optionNames: report.configuration.optionNames }));
-  /**
-   * This evidence was recorded against feature v2 and says so, and the gate now
-   * reads the runtime's table -- so replaying it as it stands is refused, and
-   * that refusal is correct rather than an obstacle. A v2 champion is a network
-   * whose 66 inputs mean different things to a 99-column v4 build; promoting one
-   * would install a checkpoint `learnedMetaMind` then refuses anyway, one seam
-   * further down and after the selection has already been believed.
-   *
-   * The literal that was here before was `2`, which is to say it was pinned at
-   * exactly this file's version -- so the gate would have gone on passing this
-   * and refusing every experiment anybody actually ran, in either direction,
-   * without ever looking wrong.
-   */
-  assert.throws(() => selectValidationChampion(rows(report.configuration.featureVersion)),
-    /does not match the protocol-v3 feature and option contract/);
-  assert.equal(report.configuration.featureVersion, 2, "the recorded evidence is v2 and stays v2");
-  // The ordering itself is still the property under test, so it is asked at the
-  // version this build can execute. What is being checked here is that the
-  // selection rule reproduces the recorded champion, not that a two-version-old
-  // artifact is installable.
-  const selected = selectValidationChampion(rows(FEATURE_VERSION));
-  assert.equal(selected.runId, report.selection.selectedRunId);
-  const stored = report.promotionEvaluation;
-  const decision = assessPromotion({
-    splitOverlap: seedRangesOverlap(report.configuration.seedRanges),
-    heldOutWinScore: stored.winScores.learned,
-    scriptedWinScore: stored.winScores.scripted,
-    randomWinScore: stored.winScores.random,
-    loadouts: stored.loadouts.map((row) => ({ name: row.name, learnedWinRate: row.learned,
-      specialistWinRate: row.scriptedSpecialist })),
-    decisionCounts: stored.decisionCounts,
-    motifs: stored.motifsPer100Decisions,
-    safety: stored.safety,
-  });
-  assert.equal(report.status, "unpromoted");
-  assert.equal(decision.promoted, false);
-  assert.deepEqual(decision.failures, stored.failures);
-});
-
-test("promotion_evaluation_covers_every_loadout_on_both_mirrored_sides", async () => {
-  const { data } = checkpointFixture(); const bytes = new Checkpoint(data).toBytes(); const seen = []; const seenSeeds = [];
-  await assert.rejects(runPromotionEvaluation({ checkpointBytes: bytes, baseSeed: 55, bouts: 2,
-    freshHavok: async () => ({}), runBout: () => ({}) }), /training-report is required/);
-  const hand = (weapon, outboard, z) => ({ weapon, lost: false, reach: 1.4, tipSpeed: 0, tipVelocity: STILL(), outboard,
-    shoulder: { x: outboard * 0.2, y: 1.4, z }, tip: { x: outboard * 0.2, y: 1.4, z: z + (z ? -1 : 1) } });
-  // The opponent is filled in by `runBout` below once both halves exist, so the
-  // whole view cannot be checked here; the half that is finished is. `body` is
-  // what a real `describe` writes and `assertCompleteBody` is the same list.
-  const view = (loadout, z, facing) => { const primary = hand(loadout.primary, 1, z); const secondary = hand(loadout.secondary, -1, z);
-    const body = { ...SHAPE, naturalAttacks: {}, ground: { x: 0, y: 0, z }, facing, shoulder: primary.shoulder, tip: primary.tip, tipSpeed: 0,
-      hands: { primary, secondary }, crouch: 0, trunkLean: 0, trunkTwist: 0, vitality: 1, health: {} };
-    assertCompleteBody(body, `${loadout.primary}+${loadout.secondary}`);
-    return { self: body, opponent: null, projectiles: [], measure: 1.2, clock: 0 }; };
-  const runBout = (opts) => { const actorSide = opts.left === "swinger" ? "right" : "left";
-    const loadout = actorSide === "left" ? opts.leftLoadout : opts.rightLoadout; seen.push(`${loadout.primary}+${loadout.secondary}/${actorSide}`);
-    seenSeeds.push(opts.seeds[0]);
-    const actor = view(loadout, 0, 0); const enemy = view({ primary: "sword", secondary: "empty" }, 1.4, Math.PI);
-    actor.opponent = enemy.self; enemy.opponent = actor.self;
-    for (let frame = 0; frame < 30; frame += 1) { actor.clock = frame / 60; enemy.clock = frame / 60;
-      (actorSide === "left" ? opts.leftMind : opts.rightMind).decide(actor, 1 / 60);
-      opts.onSample?.({ left: { view: actorSide === "left" ? actor : enemy }, right: { view: actorSide === "right" ? actor : enemy } }); }
-    return { ending: "exhaustion", winner: actorSide, seconds: 0.5 }; };
-  const original = console.log; console.log = () => {};
-  let report; try { report = await runPromotionEvaluation({ checkpointBytes: bytes, baseSeed: 55, bouts: 2,
-    trainingReport: { config: { version: 3, seed: 44, population: 128, generations: 80, mirroredBouts: 24 },
-      configDigest: "0123456789abcdef", championDigest: createHash("sha256").update(bytes).digest("hex"),
-      reports: Array.from({ length: 80 }, (_, generation) => ({ generation })) },
-    freshHavok: async () => ({}), runBout }); } finally { console.log = original; }
-  assert.deepEqual(report.loadouts.map((row) => row.name), ["sword", "shield", "axe", "bow", "bare-hands"]);
-  for (const loadout of ["sword+empty", "sword+shield", "axe+empty", "bow+empty", "empty+empty"]) {
-    assert.ok(seen.includes(`${loadout}/left`)); assert.ok(seen.includes(`${loadout}/right`));
-  }
-  assert.equal(seenSeeds.includes(evaluationMirrorSeeds(55, "test", 0)[0]), false,
-    "the trainer's already reported test cell is excluded");
-  assert.equal(new Set(seenSeeds).size, 5, "each loadout owns one seed shared by controllers and mirrors");
 });

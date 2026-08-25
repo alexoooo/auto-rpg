@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 import {
-  OPTION_NAMES,
   HAND_ACTION_NAMES,
   MOVEMENT_NAMES,
+  TACTIC_NAMES,
   behaviourRecord,
   combatOption,
   composeTactic,
@@ -16,7 +16,7 @@ import {
   scriptedMetaMind,
 } from "../src/options.ts";
 import { FEATURE_COLUMNS, FEATURE_MIRROR_SIGN, FEATURE_VERSION, FeatureWriter, mirrorFeatures, mirrorView, writeFeatures } from "../src/learning/features.ts";
-import { INTENT_FIELDS, PARITY_CALIBRATION, PARITY_LIMITS, SEED_RANGES, evaluationMirrorSeeds, evaluationSeed, intentFieldDeltas, intentSequencesEqual, validateSeedRanges } from "../src/learning/evaluation.ts";
+import { INTENT_FIELDS, SEED_RANGES, evaluationMirrorSeeds, evaluationSeed, intentFieldDeltas, intentSequencesEqual, validateSeedRanges } from "../src/learning/evaluation.ts";
 import { archerMind, duelistMind } from "../src/policies.ts";
 import { ACTION_SHOT_TIMING, ACTION_STROKE_TIMING, ACTION_TUNING, actionShotPhase, actionStrokeReading, bareCrowdDistance } from "../src/action-primitives.ts";
 import { WEAPON_KINDS } from "../src/hands.ts";
@@ -98,11 +98,16 @@ const complete = (intent) => {
 
 test("every_option_returns_a_complete_bounded_intent", () => {
   const loadouts = {
-    close: view(), disengage: view(), cover: view(), cut: view(), thrust: view(),
+    close: view(), hold: view(), "circle-left": view(), "circle-right": view(),
+    disengage: view(), cover: view(), cut: view(), thrust: view(),
     punch: view({ primary: "empty", secondary: "empty" }),
     shoot: view({ primary: "bow", secondary: "empty" }), recover: view(),
   };
-  for (const name of OPTION_NAMES) {
+  // All twelve tactic names less `bite`, which `combatOption` accepts and has no
+  // branch for -- it constructs, no-ops, and finishes on the fallthrough clock.
+  // Covering it here would assert the bug rather than the contract; the bite
+  // skill lives in `handActionOption` and is exercised through that.
+  for (const name of TACTIC_NAMES.filter((tactic) => tactic !== "bite")) {
     const option = combatOption(name);
     option.enter(loadouts[name]);
     const intent = option.decide(loadouts[name], 1 / 240);
@@ -189,15 +194,15 @@ test("movement_partials_own_only_the_three_locomotion_axes", () => {
     /close.*cover.*hand or posture/);
 });
 
-test("the_composed_scripted_controller_matches_the_frozen_legacy_trace", () => {
-  const legacy = duelistMind(991); const composed = scriptedMetaMind("duelist", 991); const v = view();
+test("the_composed_scripted_controller_matches_the_frozen_specialist_trace", () => {
+  const specialist = duelistMind(991); const composed = scriptedMetaMind("duelist", 991); const v = view();
   for (let frame = 0; frame < 720; frame += 1) {
     v.clock = frame / 240; v.measure = frame < 200 ? 1.8 : 1.1; v.opponent.ground.z = v.measure + 0.2;
-    assert.deepEqual(composed.decide(v, 1 / 240), legacy.decide(v, 1 / 240));
+    assert.deepEqual(composed.decide(v, 1 / 240), specialist.decide(v, 1 / 240));
   }
 });
 
-test("legacy_and_options_share_the_full_stroke_and_shot_timeline", () => {
+test("specialists_and_options_share_the_full_stroke_and_shot_timeline", () => {
   assert.equal(actionStrokeReading(ACTION_STROKE_TIMING.chamber / 2).phase, "chamber");
   assert.equal(actionStrokeReading(ACTION_STROKE_TIMING.chamber + ACTION_STROKE_TIMING.commit / 2).phase, "commit");
   assert.equal(actionStrokeReading(ACTION_STROKE_TIMING.chamber + ACTION_STROKE_TIMING.commit + 0.01).phase, "recover");
@@ -243,10 +248,22 @@ test("the_scripted_meta_controller_matches_the_policy_it_replaces", () => {
   assert.deepEqual(Object.keys(deltaReport), INTENT_FIELDS, JSON.stringify(deltaReport));
   assert.ok(Object.values(deltaReport).every((row) => row.changed === 0 && row.max <= 1e-12),
     `all movement, posture and both-hand fields match: ${JSON.stringify(deltaReport)}`);
-  const archer = scriptedMetaMind("archer", 44); const bow = view({ primary: "bow", secondary: "empty" });
-  let held = 0; let released = 0;
-  for (let i = 0; i < 520; i += 1) { bow.clock = i / 240; const intent = archer.decide(bow, 1 / 240); intent.primary.thrust ? held++ : released++; }
-  assert.ok(held > 200 && released > 0, "the option trace preserves draw then release timing");
+  // The archer's draw beside the specialist's, not on its own. This ran only the
+  // meta archer and asserted that it both held and released, which the
+  // specialist could have disagreed with in every frame while still passing.
+  // The paired 520-sample comparison was in `evaluate-options.mjs`, which
+  // session 17 deleted; its limits were shot duty within 0.01 and edge count
+  // within 1, and the recorded answer was exact on both.
+  const count = (mind) => { const bow = view({ primary: "bow", secondary: "empty" });
+    const totals = { held: 0, released: 0, edges: 0 }; let previous = null;
+    for (let i = 0; i < 520; i += 1) { bow.clock = i / 240; const held = mind.decide(bow, 1 / 240).primary.thrust;
+      held ? totals.held += 1 : totals.released += 1;
+      if (previous !== null && held !== previous) totals.edges += 1; previous = held; }
+    return totals; };
+  const specialistShots = count(archerMind(44)); const metaShots = count(scriptedMetaMind("archer", 44));
+  assert.ok(metaShots.held > 200 && metaShots.released > 0, "the option trace preserves draw then release timing");
+  assert.ok(metaShots.edges >= 2, `a trace that never changes button proves no draw: ${JSON.stringify(metaShots)}`);
+  assert.deepEqual(metaShots, specialistShots, "the composed archer holds and looses on the specialist's exact frames");
   const seededA = scriptedMetaMind("duelist", 1); const seededB = scriptedMetaMind("duelist", 2);
   const seededView = view(); seededView.opponent.shoulder.x = seededView.self.shoulder.x;
   let firstA = -1; let firstB = -1;
@@ -266,15 +283,15 @@ test("the_meta_guard_uses_the_same_fallback_after_both_enemy_arms_are_gone", () 
     duelistMind(991).decide(v, 1 / 240));
 });
 
-test("legacy_and_scripted_meta_use_the_same_bare_crowding_boundary", () => {
+test("a_specialist_and_scripted_meta_use_the_same_bare_crowding_boundary", () => {
   for (const measure of [bareCrowdDistance(0.6) - 0.01, bareCrowdDistance(0.6) + 0.01]) {
     const v = view({ primary: "empty", secondary: "empty" });
     v.opponent.ground.z = 0.78;
     v.opponent.shoulder.z = 0.78;
     v.measure = measure;
-    const legacy = duelistMind(51).decide(v, 1 / 240);
+    const specialist = duelistMind(51).decide(v, 1 / 240);
     const meta = scriptedMetaMind("duelist", 51).decide(v, 1 / 240);
-    assert.equal(Math.sign(meta.forward), Math.sign(legacy.forward), `measure ${measure}`);
+    assert.equal(Math.sign(meta.forward), Math.sign(specialist.forward), `measure ${measure}`);
   }
 });
 
@@ -458,16 +475,16 @@ test("training_validation_and_test_seed_ranges_cannot_leak", () => {
 
 test("ordered_intent_parity_cannot_hide_equal_and_opposite_frame_errors", () => {
   const unchanged = duelistMind(4).decide(view(), 1 / 240);
-  const legacy = [structuredClone(unchanged), structuredClone(unchanged)];
+  const baseline = [structuredClone(unchanged), structuredClone(unchanged)];
   const mutated = [structuredClone(unchanged), structuredClone(unchanged)];
-  legacy[0].forward = 0; legacy[1].forward = 0;
+  baseline[0].forward = 0; baseline[1].forward = 0;
   mutated[0].forward = 0; mutated[1].forward = 0;
   mutated[0].forward += 0.25;
   mutated[1].forward -= 0.25;
   assert.equal(mutated.reduce((sum, intent) => sum + intent.forward, 0),
-    legacy.reduce((sum, intent) => sum + intent.forward, 0), "the means cancel exactly");
-  assert.equal(intentSequencesEqual(legacy, mutated), false);
-  assert.equal(intentSequencesEqual(legacy, legacy.slice(0, 1)), false, "sample count is part of parity");
+    baseline.reduce((sum, intent) => sum + intent.forward, 0), "the means cancel exactly");
+  assert.equal(intentSequencesEqual(baseline, mutated), false);
+  assert.equal(intentSequencesEqual(baseline, baseline.slice(0, 1)), false, "sample count is part of parity");
 });
 
 test("options_and_features_have_no_mutable_config_backdoor", async () => {
@@ -476,39 +493,4 @@ test("options_and_features_have_no_mutable_config_backdoor", async () => {
     assert.doesNotMatch(source, /from ["'](?:\.\.\/)?config\.ts["']/);
   }
   assert.equal(Object.isFrozen(ACTION_TUNING), true);
-});
-
-test("the_checked_in_corpus_pairs_legacy_and_meta_without_fabricating_legacy_options", async () => {
-  const baseline = JSON.parse(await readFile(new URL("../asset-src/learning/baseline-v1.json", import.meta.url), "utf8"));
-  assert.equal(baseline.version, 3);
-  assert.equal(baseline.parity.length, 12);
-  assert.deepEqual(baseline.parityLimits, PARITY_LIMITS);
-  assert.deepEqual(PARITY_LIMITS, { damage: 0, seconds: 0, actionRate: 0 });
-  assert.deepEqual(baseline.parityCalibration, PARITY_CALIBRATION);
-  assert.equal(baseline.parityCalibration.brackets, 48);
-  assert.deepEqual(baseline.parityCalibration.observedLegacyRepeatMax,
-    { damage: 0, seconds: 0, actionRate: 0 });
-  assert.ok(baseline.parity.every((row) => row.sameSeed && row.endingMatch && row.winnerMatch &&
-    row.sampleCountMatch && row.intentSequenceMatch && row.controlSampleCountMatch && row.controlIntentSequenceMatch &&
-    row.controlWithinLimits && row.withinLimits &&
-    row.damageDelta === 0 && row.durationDelta === 0 && row.controlDamageDelta === 0 && row.controlDurationDelta === 0 &&
-    INTENT_FIELDS.every((key) => row.actionDelta[key] === 0 && row.controlActionDelta[key] === 0)));
-  assert.equal(baseline.syntheticParity.samples, 1200);
-  assert.deepEqual(Object.keys(baseline.syntheticParity.fields), INTENT_FIELDS);
-  assert.ok(Object.values(baseline.syntheticParity.fields).every((row) =>
-    Number.isInteger(row.changed) && Number.isFinite(row.max)));
-  assert.equal(baseline.syntheticParity.withinLimits, true);
-  assert.ok(INTENT_FIELDS.every((field) => baseline.syntheticParity.fieldsWithinLimits[field] === true));
-  for (const controller of ["legacy", "meta"]) {
-    assert.ok(baseline.syntheticParity.shotOutput[controller].held > 0);
-    assert.ok(baseline.syntheticParity.shotOutput[controller].released > 0);
-    assert.ok(Number.isInteger(baseline.syntheticParity.shotOutput[controller].edges));
-  }
-  assert.deepEqual(baseline.syntheticParity.shotOutput.meta, baseline.syntheticParity.shotOutput.legacy);
-  assert.equal(baseline.syntheticParity.shotDutyDelta, 0);
-  assert.equal(baseline.syntheticParity.shotEdgeDelta, 0);
-  const legacy = baseline.records.filter((row) => row.controller === "legacy");
-  assert.ok(legacy.length > 0);
-  assert.ok(legacy.every((row) => Object.values(row.behavior.options).every((seconds) => seconds === 0) &&
-    Object.values(row.behavior.attackAttempts).every((attempts) => attempts === 0)));
 });

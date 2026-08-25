@@ -133,9 +133,10 @@ There is no hidden learned policy in that picker. Three full population experime
 run, and the validation-selected candidate then lost every held-out promotion bout across
 sword, shield, axe, bow and bare hands. It spent 88% of its decisions disengaging and
 failed seven predeclared gates, so it is recorded as an unpromoted experiment rather than
-renamed `learned-v1`. The checkpoint loader, option diagnostic and five-loadout evaluator
-remain available for the next experiment; [the measurement record](docs/measurements.md)
-has the exact evidence. The current research roadmap has already added factual engagement
+renamed `learned-v1`. Its loader, its trainer and its five-loadout evaluator have since been
+deleted along with the option vocabulary they spoke — the four research directions run through
+one artifact format and one blind tournament instead — and
+[the measurement record](docs/measurements.md) carries the evidence they held. The current research roadmap has already added factual engagement
 and anti-stall gates and factorized movement from hand action. Its remaining sessions compare
 recurrent NEAT with quality diversity, DAgger imitation, recurrent PPO self-play and bounded
 tactical look-ahead under one still-unopened held-out tournament.

@@ -14,16 +14,18 @@ its purpose. No research budget is authorized until it lands.
 
 The thresholds were frozen before any of the four directions ran, which is the right order for
 honesty and the wrong order for feasibility. Nothing has ever been shown to reach them:
-`docs/measurements.md` records legacy specialists at **0.2282** opportunity-attack and the
+`docs/measurements.md` records the scripted specialists at **0.2282** opportunity-attack and the
 scripted meta at **0.2031**, against a **0.65** gate -- the binding gate is roughly 3x away and
 has never been cleared by anything.
 
 And the instrument has never been pointed at a person. There is no shared recorder to point.
-`behaviourRecord()` at `src/options.ts#L418` is constructed only by
-`scripts/evaluate-options.mjs` and `scripts/training-evaluator.mjs`; the research path builds
-its own `EngagementTracker` by hand in `scripts/research-havok.mjs#L28` on top of `runBout`'s
-`onSample`/`onEvent` callbacks; and `src/main.ts`'s render loop builds nothing at all. A human
-bout currently produces no engagement row. A gate that no player can clear is a mis-specified
+`behaviourRecord()` is constructed by **nothing outside the tests** -- session 17 Stage A
+deleted `scripts/evaluate-options.mjs` and `scripts/training-evaluator.mjs`, which were its
+only two callers, and the note now beside it in `src/options.ts` names this session as the
+reader it is being kept for. The research path builds its own `EngagementTracker` by hand in
+`scripts/research-havok.mjs#L28` on top of `runBout`'s `onSample`/`onEvent` callbacks, and
+`src/main.ts`'s render loop builds nothing at all. A human bout currently produces no
+engagement row. A gate that no player can clear is a mis-specified
 gate, and months of compute chasing it would be the most expensive possible way to find out.
 
 ## One recorder, two loops
@@ -35,13 +37,15 @@ tracker and one absence.
 1. Add a DOM-free `BoutRecorder` in TypeScript that owns a `BehaviourRecord` per fighter and
    consumes exactly `onSample({ view, dt, clock })` and `onEvent(event)`. **That is not the
    shape `runBout` emits.** `runBout` emits `{ left, right, dt, clock }` carrying `Combatant`s
-   (`scripts/measure.mjs#L286`); `{ view, dt, clock }` is `runResearchBout`'s per-fighter hook
+   (`scripts/measure.mjs#L283`); `{ view, dt, clock }` is `runResearchBout`'s per-fighter hook
    re-projection one layer up (`scripts/research-havok.mjs#L55-L56`). Take the per-fighter
    shape and adapt at the bench call sites: a side-agnostic recorder is the whole point, and
    the page has no pair-shaped event to give it. It calls the existing
    `recordBehaviourSample`, `recordCombatEvent` and `recordIntentAttack`; it reimplements none
-   of them, and it also owns the striker-side-to-defender-side flip that
-   `evaluate-options.mjs` and `training-evaluator.mjs` each hand-roll today.
+   of them, and it also owns the striker-side-to-defender-side flip. **Both files that used to
+   hand-roll that flip are deleted**; the surviving statement of it is
+   `scripts/research-havok.mjs`'s `onEvent`, plus the block-credit paragraph under "Session 17
+   Stage A" in `docs/measurements.md`.
 2. Move `OPPORTUNITY_WINDOW_SECONDS` and `STALL_WINDOW_SECONDS` out of `tournament.ts` and
    into `engagement.ts`, re-exporting from `tournament.ts`. `engagement.ts#L3` imports them
    upward today, so a recorder that imports `engagement.ts` drags `artifact.ts` and
@@ -69,9 +73,11 @@ tracker and one absence.
    and including natural attacks. Do not add a human-only attack detector.
 7. **Take the specialist controls label-free too, and supersede the mixed rows.** The frozen
    0.2282 and 0.2031 baseline rows were produced with *both* detectors running into one shared
-   `_engagement`: `evaluate-options.mjs#L175` records the labelled path and `#L178` the
-   label-free one, and `EngagementTracker.attack` (`engagement.ts#L137`) is first-writer-wins,
-   so the two blend silently. A human has no labels and cannot reproduce a mixture, so the
+   `_engagement`: the deleted `evaluate-options.mjs` recorded the labelled path through
+   `recordBehaviourSample` and the label-free one through `recordIntentAttack` in the same
+   `onSample`, and `EngagementTracker.attack` (`engagement.ts#L137`) is first-writer-wins, so
+   the two blended silently. **The file is gone and the rows cannot be re-derived from it**, so
+   the comparison has to be built fresh here rather than diffed against a rerun. A human has no labels and cannot reproduce a mixture, so the
    only honest comparison is label-free on both sides. Re-take the controls that way, report
    the mixed rows as superseded, and state the difference between the two derivations as a
    measured quantity rather than a footnote.
@@ -86,8 +92,11 @@ tracker and one absence.
    (`tournament.ts#L197-L221`) emits threshold strings with no achieved value. Build one over
    `TOURNAMENT_THRESHOLDS`, and rewrite `assessTournamentCandidate` to consume its rows, or
    the count of independent derivations goes from four to five. Fix one meaning for a
-   never-attacked cell while you are there: `tournament.ts#L241-L245` says `+Infinity` and
-   `evaluate-ai.mjs#L17-L20` says `null`, and that is exactly the cell a bad human bout makes.
+   never-attacked cell while you are there: `tournament.ts#L241-L245` says `+Infinity`, and it
+   is now the **only** derivation -- session 17 stage A deleted the `evaluate-ai.mjs` helper
+   that answered `null` for the same cell, so this is a choice to make rather than a
+   disagreement to settle. It is exactly the cell a bad human bout makes, and `+Infinity` in a
+   report a person reads is not the choice.
 10. Optional and worth the hour: a HUD panel behind an existing toggle showing the two or three
    gates that move fastest, so a mistake is visible during the bout rather than after it. The
    rig and learned-options panels in `src/hud.ts` are the pattern; it rides the existing Tab
@@ -109,7 +118,7 @@ The control step is `1/240` in both harnesses, so every duration accumulator -- 
 retreat -- is harness-identical. But `attack` and `contact` window arithmetic reads
 `view.clock`, and the page advances that clock by a wall-clock delta capped at `1/20`
 (`src/main.ts#L936`, `src/config.ts#L38`) where the bench advances it by an exact `1/60`
-(`scripts/measure.mjs#L351`). Under frame drops the page's clock therefore runs fast against
+(`scripts/measure.mjs#L348`). Under frame drops the page's clock therefore runs fast against
 simulated motion and the 0.75 s opportunity window closes early, which depresses
 opportunity-attack for reasons that have nothing to do with how anybody played. **Record frame
 rate beside every human row**, and if a sitting drops frames, that row is evidence about the
@@ -176,11 +185,11 @@ behaviour exists on the other side of it, and a search has something to find.
   and it is deliberately scoped, because **the two paths are already known to disagree in four
   ways** and a test asserting general agreement would simply fail. `opportunitiesForAction`
   requires `striker === "sword"` for `thrust` (`engagement.ts#L79`) where the inline matcher
-  falls through to `true` (`options.ts#L481`); `research-havok.mjs#L36` credits only the first
-  matching row where `options.ts#L482` credits every match, which depresses dual-wield
+  falls through to `true` (`options.ts#L509`); `research-havok.mjs#L36` credits only the first
+  matching row where `options.ts#L510` credits every match, which depresses dual-wield
   conversion; the labelled paths fire on an option-change edge and the label-free path on a
   button edge at 240 Hz; and only the label-free path counts a guard *release* as an attack
-  (`options.ts#L466`). Add `the_four_known_attack_path_disagreements_are_measured_not_assumed`
+  (`options.ts#L493`). Add `the_four_known_attack_path_disagreements_are_measured_not_assumed`
   beside it, pinning each one with a fixture, so the limit is a number in the report rather
   than a caveat in prose.
 - `tests/engagement.test.mjs`: `the_gate_table_formatter_is_shared_by_page_and_report` --

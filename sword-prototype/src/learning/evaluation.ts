@@ -1,3 +1,35 @@
+/**
+ * Nineteen exports across this tree went from live to test-only in session 17,
+ * and this is the one note about it rather than nineteen.
+ *
+ * Every non-test caller of the split/seed/parity machinery was one of the files
+ * that stage deleted -- `evaluate-options.mjs`, `promotion-evaluator.mjs`,
+ * `training-evaluator.mjs`, `train-meta.mjs` and `checkpoint.ts`. Eight of the
+ * nineteen are here: `SEED_RANGES`, `validateSeedRanges`,
+ * `evaluationMirrorSeeds`, `mirroredEvaluationJobs`, `INTENT_FIELDS`,
+ * `intentFieldDeltas`, `intentSequencesEqual` and `forcedOptionEvaluationMind`
+ * -- with `intentNumbers`, rescued into this file from the evaluator, arriving
+ * in the same state. `evaluationSeed` is the one still on a live path, through
+ * `research-matrix.ts`. The rest are `initialPopulation` in `genome.ts`, both of
+ * `jobs.ts`, and `Network` in `network.ts`; `meta.ts`'s three fitness/novelty
+ * functions and `options.ts`'s four recorders carry their own notes because
+ * each of those can name the reader that is coming.
+ *
+ * **This is a situation, not a verdict.** The rule in `AGENTS.md` is that a
+ * field or export with no reader will drift, and the exception is one whose
+ * coming reader can be *named*. Nothing here can name one yet: the four research
+ * directions score through `research-havok.mjs` and `tournament.ts`, and none of
+ * them re-derives a split seed or compares two intent streams. Whoever writes
+ * session 20's contract-freezing command either uses these or deletes them --
+ * a test that exercises a function nothing else calls proves the function still
+ * behaves, not that anything wanted it.
+ *
+ * Two that went to *zero* readers were deleted rather than noted:
+ * `seedRangesOverlap` here, whose job `validateSeedRanges` already does with a
+ * refusal that names the offending pair, and `genome.ts`'s `NodeKind` **export**
+ * -- the alias itself survives because `NodeGene`, declared just below it, still
+ * reads it, which is a reader an import-graph sweep does not see.
+ */
 export type EvaluationSplit = "train" | "validation" | "test";
 
 /** Separate numeric regions make accidental leakage visible in the JSON. */
@@ -6,24 +38,6 @@ export const SEED_RANGES: Readonly<Record<EvaluationSplit, readonly [number, num
   validation: [100_000, 199_999],
   test: [200_000, 299_999],
 });
-/** Exact maxima from 48 fresh-Havok legacy brackets on bases 20260823..20260826, fixed before held-out base 20260827. */
-export const PARITY_LIMITS = Object.freeze({ damage: 0, seconds: 0, actionRate: 0 });
-export const PARITY_CALIBRATION = Object.freeze({
-  bases: Object.freeze([20260823, 20260824, 20260825, 20260826]), heldOutBase: 20260827,
-  brackets: 48,
-  observedLegacyRepeatMax: Object.freeze({ damage: 0, seconds: 0, actionRate: 0 }),
-  method: "fresh Havok per bout; unscored warm-up, then legacy -> meta -> legacy-repeat for each seed, side and loadout",
-});
-
-export function seedRangesOverlap(ranges: Record<string, readonly [number, number]>): boolean {
-  const entries = Object.values(ranges);
-  for (let i = 0; i < entries.length; i += 1) {
-    for (let j = i + 1; j < entries.length; j += 1) {
-      if (Math.max(entries[i][0], entries[j][0]) <= Math.min(entries[i][1], entries[j][1])) return true;
-    }
-  }
-  return false;
-}
 
 export function validateSeedRanges(ranges: Record<string, readonly [number, number]>): void {
   const entries = Object.entries(ranges);
@@ -68,9 +82,23 @@ export const INTENT_FIELDS = Object.freeze([
   "posture.trunkLean", "posture.trunkTwist", "posture.crouch",
   ...["primary", "secondary"].flatMap((hand) => ["pointerX", "pointerY", "roll", "wristBend", "thrust", "guard"].map((field) => `${hand}.${field}`)),
 ]);
-export const SYNTHETIC_FIELD_LIMITS = Object.freeze(Object.fromEntries(INTENT_FIELDS.map((field) =>
-  [field, Object.freeze({ changedRate: 0.005, maxDelta: 0.01 })])));
-export const SHOT_PARITY_LIMITS = Object.freeze({ duty: 0.01, edges: 1 });
+/**
+ * Every number in a combat command, which is the list a finiteness sweep reads.
+ *
+ * It lives beside `INTENT_FIELDS` because the two are the same claim written
+ * twice -- one as paths, one as values -- and they have already drifted: this
+ * list carried a camera `zoom` column until session 15, so it swept a candidate
+ * for finiteness in a dimension no fighter reads. It was in a plain-JS script
+ * until session 17, which is exactly where a stale column survives a type check.
+ * `tests/ai-evaluation.test.mjs` marks each numeric leaf with a value of its own
+ * and compares the two, so neither a forgotten field nor an invented one passes.
+ */
+export function intentNumbers(intent: Intent): number[] {
+  return [intent.forward, intent.strafe, intent.turn,
+    intent.posture.trunkLean, intent.posture.trunkTwist, intent.posture.crouch,
+    ...(["primary", "secondary"] as const).flatMap((hand) => [intent[hand].pointerX, intent[hand].pointerY,
+      intent[hand].roll, intent[hand].wristBend])];
+}
 const readPath = (value: unknown, path: string): unknown => path.split(".").reduce<unknown>((at, key) =>
   at && typeof at === "object" ? (at as Record<string, unknown>)[key] : undefined, value);
 export function intentFieldDeltas(before: unknown, after: unknown) {
@@ -118,4 +146,4 @@ export function forcedOptionEvaluationMind(name: OptionName): Mind & { readonly 
 }
 import { freshIntent } from "../action-primitives.ts";
 import { combatOption, type CombatOption, type OptionName } from "../options.ts";
-import type { FighterView, Mind } from "../mind.ts";
+import type { FighterView, Intent, Mind } from "../mind.ts";

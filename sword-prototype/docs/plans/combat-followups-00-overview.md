@@ -14,10 +14,11 @@ are still wrong, and only the first was known when this plan set was written.
    flight. Sessions 15--17 correct it, and every one of those corrections improves the
    hand-written specialists and the human game on the day it lands.
 2. The promotion gates were frozen against an instrument that has never been pointed at a
-   person, and there is no shared recorder to point: `behaviourRecord` is built only by two
-   headless evaluators, the research path hand-rolls its own `EngagementTracker`, and the
-   render loop in `src/main.ts` builds nothing. Opportunity-attack 0.65 has never been shown
-   reachable by a controller *or* a player. Session 18 finds out first.
+   person, and there is no shared recorder to point: `behaviourRecord`'s only two callers were
+   headless evaluators and session 17 deleted both, the research path hand-rolls its own
+   `EngagementTracker`, and the render loop in `src/main.ts` builds nothing. Opportunity-attack
+   0.65 has never been shown reachable by a controller *or* a player. Session 18 finds out
+   first.
 3. The compute phase as first drafted repeated the failure this directory exists to escape.
    Sessions 19--22 replace it.
 
@@ -181,7 +182,7 @@ Baseline taken before any of this work, from `sword-prototype/`, commit `a095877
 | --- | --- | --- |
 | 15 host command boundary | **landed** | `f789ea4`, 459 tests |
 | 16 policy perception v4 | **landed** | `d44fc3e`, 484 tests |
-| 17 tactic output v2 | in progress, stage A of 3 | plan corrected `c41d01a` |
+| 17 tactic output v2 | stage A landed, B and C to come | stage A: 484 tests before, **474** after |
 | 18 human gate feasibility | not started | -- |
 | 19 run legibility | not started | -- |
 | 20 throughput and ceilings | not started | -- |
@@ -190,6 +191,47 @@ Baseline taken before any of this work, from `sword-prototype/`, commit `a095877
 | 23 held-out tournament | not started | -- |
 | 24 promoted integration | not started | -- |
 | 25 integration and playtest | not started | -- |
+
+### Session 17 Stage A, as landed
+
+484 tests before, **474** after: nine of the ten deleted tests were the standalone checkpoint
+codec and the `promotion.ts` gate, both of which went with the code they tested, and the tenth
+read a deleted fixture. Six tests that ride behaviour still shipping moved from
+`networkMetaMind` onto `researchLabelMind`, including the only test that the host revokes a
+*learned* mind's authority at the verdict edge. `npm run check` and `npm run build` clean.
+
+Three things the plan's own corrections section did not have, all found while doing it:
+
+- **`behaviourRecord` and its three recorders now have zero non-test callers.** Both
+  construction sites were files this stage deletes. They are kept because session 18's
+  `BoutRecorder` is built on exactly them and is the named reader; the note beside them in
+  `src/options.ts` says so, and session 18's plan has been corrected in place.
+- **`fitnessComponents`, `noveltyDescriptor` and `noveltyScore` went dark too**, and unlike the
+  four `evaluation.ts` constants the plan listed, these carry decisions the tests state as
+  sentences. `tournament.ts` re-expresses each in its own terms rather than importing them, so
+  they are kept with the situation written down rather than deleted on an unverified equivalence.
+- **The HUD panel was already dark, and deleting the name gate was still right.**
+  `metaDiagnostic` already returns null for a mind with nothing to publish, so the
+  `mind.name === "learned-meta"` test was strictly narrower than the capability test standing
+  right behind it. Deleting it, and giving `researchLabelMind` a `diagnostic()`, is the fix.
+
+  **Corrected 2026-08-24.** This bullet, and the amendment in
+  [session 17's plan](combat-followups-17-tactic-output-v2.md), justified that change with a
+  panel that "would otherwise have gone dark". It was dark before the change and it is dark
+  after: `main.ts`'s `mindFor` builds minds only through `policyMind` and `splitMind`, the five
+  `POLICIES` entries are `idle`, `swinger`, `duelist`, `archer` and `crawler`, and
+  `typeof mind.diagnostic === "undefined"` for every one of them -- measured, not read off the
+  code. `learnedMetaMind` had no constructor in `src/` at all; both of its callers were headless
+  CLIs this stage deleted, so no page has ever lit this panel. The recon pass that reported
+  otherwise was taken on its word, which is the part worth writing down. The readout becomes
+  reachable when session 19 builds the page-side deployment path and a page-constructible mind
+  publishes a diagnostic -- see finding 8 below, which says that path does not exist yet.
+
+`ai:evaluate` became test-split-only rather than absorbing the corpus runner, and refuses
+`--split train`, `--split validation` and `--write-engagement-baseline` by name. Real-solver
+paired parity, the fresh-Havok bracket discipline, the `--calibrate` procedure and the
+`duelist-club` / `idle-control` corpus cells are **lost coverage**, listed with what they used
+to prove in `docs/measurements.md` under "Session 17 Stage A".
 
 ### Session 17, before it lands: what the plan got wrong
 
@@ -204,7 +246,7 @@ load-bearing claim was then re-verified by the coordinator directly. The plan is
 **The plan would have re-introduced a defect a previous session already fixed.** Its legal-tuple
 table requires `cover` and `recover` to name "either selected attached hand". But
 `supportedOptions` adds `recover` *unconditionally* and `cover` only when a hand is attached,
-and that separation is not incidental -- `docs/measurements.md:1780-1782` records it as the fix
+and that separation is not incidental -- `docs/measurements.md:1801-1803` records it as the fix
 that came out of the last exhaustive look-ahead run, which *"exposed a hand-only recovery path
 in Centipede"*. Under the plan as written a centipede, and any fighter that has lost both arms,
 has an empty legal set and `maskedArgmax` throws. Capability-neutral recovery is now written
@@ -245,7 +287,7 @@ deployed.
 Smaller, all verified: `Controls.driving` does not exist, so "keep the human mouse choice as
 host-owned `Controls.driving`" is a type split rather than a rename, and it breaks the exact
 seven-key command assertions in six test files. PPO needs **four** new heads, not three -- it
-has no persistence output at all and `deployment.ts:61` hardcodes `0.4` -- and its reported
+has no persistence output at all and `deployment.ts:62` hardcodes `0.4` -- and its reported
 entropy is divided by a hardcoded head count of 2 that no test pins. The DAgger expert returns
 only `{movement, action, persistence}` and cannot label an effector or an aim height, so
 teaching it is unstated work. There is no output mirror to extend, and the plan's effector-mirror
@@ -298,9 +340,12 @@ not specific enough to be wrong; these are the places this one was.
    direction of improvement stated, not over a quantity named `worstCell` that means four
    different things.
 4. **There is no gate table anywhere, and no runner can currently compute one.**
-   `assessTournamentCandidate` (`tournament.ts#L197-L221`) and `assessPromotion`
-   (`promotion.ts#L110-L133`) emit `string[]` failures carrying the threshold and **no achieved
-   value and no margin**. They consume `TournamentCell`, a shape no research runner produces.
+   `assessTournamentCandidate` (`tournament.ts#L197-L221`) emits `string[]` failures carrying
+   the threshold and **no achieved value and no margin**. It consumes `TournamentCell`, a shape
+   no research runner produces. (This finding named a second assessor, `assessPromotion` at
+   `promotion.ts#L110-L133`, with the same defect. Session 17 stage A deleted `promotion.ts`
+   with the controller it judged, so there is now one assessor rather than two -- which removes
+   the second gate but not the finding: the surviving one still reports no margin.)
    `firstAttackSeconds` is recorded by the tracker and returned by `runResearchBout`, then
    **discarded** by `research-rollout-worker.mjs#L38-L45`; `symmetricTimeCapRate` is computed
    nowhere; the specialist gap needs a control run no runner performs; and `train-ppo.mjs` and
@@ -337,37 +382,42 @@ not specific enough to be wrong; these are the places this one was.
 Findings that change session 18 specifically:
 
 11. **The baseline the human is to be compared against was produced by two attack detectors at
-    once.** `scripts/evaluate-options.mjs#L175` calls `recordBehaviourSample` (the *labelled*
-    path) and `#L178` calls `recordIntentAttack` (the *label-free* path) on the same
+    once.** `scripts/evaluate-options.mjs` called `recordBehaviourSample` (the *labelled* path)
+    and, three lines later, `recordIntentAttack` (the *label-free* path) on the same
     `behaviourRecord`, in the same `onSample`, against one shared `_engagement`.
     `EngagementTracker.attack` (`engagement.ts#L137`) returns early when an opportunity has
     already been attacked, so it is first-writer-wins and the two silently blend.
-    `scripts/training-evaluator.mjs#L24-L25` does the same.
+    `scripts/training-evaluator.mjs` did the same.
     **Consequence:** the frozen 0.2282 and 0.2031 rows are a *mixture*, and a human -- who has
     no labels at all -- cannot reproduce a mixture. The honest comparison is label-free on both
     sides, so session 18 re-takes the specialist controls with the labelled path switched off
     and reports the mixture rows as superseded rather than as its control.
+    **Anchors dropped 2026-08-24:** this finding cited `evaluate-options.mjs#L175`/`#L178` and
+    `training-evaluator.mjs#L24-L25`, and session 17 stage A deleted both files. The finding
+    survives them, because what it is about is the *mixture already frozen into the baseline
+    rows session 18 must beat*, and those rows outlived their producer. The two call sites are
+    described rather than linked because there is nothing left to link to.
 12. **The two attack paths disagree in four measurable ways**, so the planned test
     `a_label_free_mind_and_a_labelled_mind_agree_on_attack_intent_for_the_same_commands` fails
     as written and must be scoped: `opportunitiesForAction` requires `striker === "sword"` for
     `thrust` (`engagement.ts#L79`) where the inline matcher falls through to `true`
-    (`options.ts#L481`); `research-havok.mjs#L36` credits only `[0]`, the first matching row,
-    where `options.ts#L482` credits every match, which systematically depresses dual-wield
+    (`options.ts#L509`); `research-havok.mjs#L36` credits only `[0]`, the first matching row,
+    where `options.ts#L510` credits every match, which systematically depresses dual-wield
     opportunity conversion; the labelled paths fire on an option-change edge while the
     label-free path fires on a button edge at 240 Hz; and only the label-free path counts a
-    *guard release* as an attack (`options.ts#L466`), which inflates the numerator of
+    *guard release* as an attack (`options.ts#L493`), which inflates the numerator of
     opportunity-attack and deflates attack-contact for a defensive player.
 13. **The page's clock is wall-clock derived and the bench's is synthetic.**
     `src/main.ts#L936` takes `dt = min(engine.getDeltaTime()/1000, CONFIG.world.maxFrameSeconds)`
     with the cap at `1/20` (`config.ts#L38`) and feeds it to `combat.advance(dt)` (`#L946`);
-    the bench advances by an exact `1/60` (`measure.mjs#L351`). The control step is `1/240` in
+    the bench advances by an exact `1/60` (`measure.mjs#L348`). The control step is `1/240` in
     both, so every *duration* accumulator is harness-identical -- but `attack`/`contact` window
     arithmetic reads `view.clock`, so under frame drops the page's clock runs fast against
     simulated motion and the 0.75 s opportunity window closes early. This is a named mechanism
     for a page-to-bench gate offset, and it means **frame rate is recorded beside every human
     row** or the row cannot be interpreted.
 14. **`onSample` does not emit the shape session 18 says it does.** `runBout` emits
-    `{ left, right, dt, clock }` where `left`/`right` are `Combatant`s (`measure.mjs#L286`);
+    `{ left, right, dt, clock }` where `left`/`right` are `Combatant`s (`measure.mjs#L283`);
     `{ view, dt, clock }` is `runResearchBout`'s hook re-projection one layer up
     (`research-havok.mjs#L55-L56`). The recorder takes the per-fighter `{ view, dt, clock }` --
     that is what makes it side-agnostic and page-drivable -- and the bench call sites adapt.
@@ -380,7 +430,7 @@ Findings that change session 18 specifically:
     re-wrap. This is the largest hidden cost in the page-side plumbing.
 16. **Contacts must come from `Combat`'s `onReport`, not from the page's blood drain.**
     `main.ts#L461-L475` drains reports by timestamp and breaks on `report.at <= seen`, which
-    cannot separate two contacts stamped in one frame; `measure.mjs#L318-L342` drains by log
+    cannot separate two contacts stamped in one frame; `measure.mjs#L315-L339` drains by log
     identity instead and documents why. `Combat`'s third constructor argument
     (`combat.ts#L216`, fired at `#L303` and `#L345`) is the only lossless page-side source and
     is the one the bench already uses.
@@ -390,12 +440,19 @@ Findings that change session 18 specifically:
     Move `OPPORTUNITY_WINDOW_SECONDS` and `STALL_WINDOW_SECONDS` down into `engagement.ts` and
     re-export them from `tournament.ts`.
 18. **Two gate derivations already disagree on the case a bad human bout produces.**
-    `tournament.ts#L241-L245` maps a never-attacked cell to `+Infinity`; `evaluate-ai.mjs#L17-L20`
-    returns `null` for the same cell. The shared formatter session 18 introduces must fix one
-    meaning for "never attacked" and both callers must adopt it.
-    Related: `scripts/promotion-evaluator.mjs` evaluates **no** engagement threshold at all --
-    it is a win-rate, option-diversity, motif and safety gate (`promotion.ts#L3-L6`). Session
-    18's brief was wrong to name it as a gate-table site.
+    `tournament.ts#L241-L245` maps a never-attacked cell to `+Infinity`; `evaluate-ai.mjs`'s
+    `quantile` helper returned `null` for the same cell. The shared formatter session 18
+    introduces must fix one meaning for "never attacked" and both callers must adopt it.
+    **Half of this disagreement was deleted 2026-08-24 rather than resolved**: session 17 stage
+    A cut the train/validation engagement summary out of `evaluate-ai.mjs`, and the helper that
+    returned `null` went with it. `tournament.ts`'s `+Infinity` is the only surviving
+    derivation, so session 18 now *chooses* a meaning rather than reconciling two -- and it
+    should still choose deliberately, because `+Infinity` for "this fighter never attacked" is a
+    convenient sort key and a terrible thing to put in a report a person reads.
+    Related: `scripts/promotion-evaluator.mjs` evaluated **no** engagement threshold at all --
+    it was a win-rate, option-diversity, motif and safety gate, over `promotion.ts`'s
+    thresholds. Session 18's brief was wrong to name it as a gate-table site; both files are
+    now deleted, which settles it in the same direction for a different reason.
 
 ### Session 15, as landed
 
@@ -433,11 +490,22 @@ Two findings worth carrying forward, neither a session-15 defect:
   arithmetic moved to `camera.ts`. **Session 18's recorder must live outside `main.ts`** or it
   inherits the same property, and session 18 exists precisely to make the page produce a number
   somebody will believe.
-- `npm run ai:options` already throws against its checked-in baseline, and did so before this
-  work: the corpus carries `featureVersion: 2` / `featureCount: 50` against a runtime at v3 and
-  66 columns. Session 14 left it stale. Session 16 moves the runtime to v4 and session 17
-  deletes the command outright, so it is not repaired here -- but the handoff's "last verified
-  state" line claiming `ai:options` passed is wrong and should not be trusted.
+- `npm run ai:options` already throws against its checked-in baseline **at its default seed**,
+  and did so before this work: the corpus carries `featureVersion: 2` / `featureCount: 50`
+  against a runtime at v3 and 66 columns. Session 14 left it stale. Session 16 moves the
+  runtime to v4 and session 17 deletes the command outright, so it is not repaired here.
+
+  **Corrected 2026-08-24, and the error was this finding's own.** The last sentence of this
+  bullet used to say the handoff's "last verified state" line claiming `ai:options` passed was
+  wrong. It was not wrong, and this finding conflated two invocations to reach that. The
+  evaluator compared its whole document against the baseline only when the two base seeds
+  matched; the baseline's is 20260827 and so is the default, but the handoff ran
+  `--seed 20260824`, which skipped the comparison, never reached the stale version stamp and
+  exited 0. Session 17 then propagated the conflation into the handoff, `docs/measurements.md`
+  and session 17's own plan, replacing a true line in the durable record with a false one. All
+  four are corrected; "Session 17 Stage A" in `docs/measurements.md` states both invocations.
+  A stale artifact makes a command *capable* of being red -- it does not make every invocation
+  of it red, and the seed was on the command line the whole time.
 
 ### Session 16, as landed
 

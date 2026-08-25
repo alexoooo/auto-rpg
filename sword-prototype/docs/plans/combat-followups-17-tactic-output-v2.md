@@ -25,7 +25,7 @@ research direction by twenty.
 `supportedOptions` adds `recover` **unconditionally** (`src/learning/meta.ts:20`) and adds
 `cover` only when a hand is attached (`:21`), and `handActionOption` carries a dedicated
 handless `recover` branch (`src/options.ts:270-282`). That separation is not an accident:
-`docs/measurements.md:1780-1782` records it as the fix that came out of the last exhaustive
+`docs/measurements.md:1801-1803` records it as the fix that came out of the last exhaustive
 look-ahead run -- *"its first full attempt exposed a hand-only recovery path in Centipede;
 after capability-neutral recovery and hand-required cover were separated..."*.
 
@@ -228,6 +228,17 @@ Each verified; each needs a decision, not a sweep.
   or exposes `diagnostic()`. Re-point the HUD at `researchLabelMind`, or the page loses its only
   window into what a learned controller is thinking -- in the session immediately before the one
   that puts a person at the keyboard.
+
+  **Superseded 2026-08-24: there was nothing to kill.** This amendment was written on a recon
+  pass's word and asserted a live readout that did not exist. The page builds minds only through
+  `policyMind` and `splitMind`; the five `POLICIES` entries are `idle`, `swinger`, `duelist`,
+  `archer` and `crawler`, and every one answers `typeof mind.diagnostic === "undefined"`.
+  `learnedMetaMind` had no constructor in `src/`, only in two headless CLIs that this session
+  deletes. The panel has never lit in the page. The name gate was wrong independently -- it was
+  narrower than the `metaDiagnostic` null test behind it -- and deleting it is still the right
+  change, for that reason and not this one. `researchLabelMind` gets a `diagnostic()` so the
+  readout exists when something can reach it, which is session 19's page-side deployment path
+  (overview finding 8).
 - **`networkMetaMind` is also the vehicle for six tests of behaviour that still ships**,
   including `tests/death.test.mjs:303` `the_learned_policy_stops_on_the_bout_verdict`, the only
   test that the host revokes a learned mind's authority at the verdict edge. Move them onto a
@@ -269,13 +280,18 @@ are the ones with no other home, and the first four are the ones worth the hour:
 - **`baseline-v1.json`** (308 KB): the scripted specialists and `scriptedMetaMind` are
   byte-identical fighters -- twelve paired rows matching winner, ending, damage, duration and
   every ordered intent field, on both mirror sides, with an exact legacy-repeat control. Its
-  `featureVersion` is 2 against a v4 runtime, which is why `npm run ai:options` is **red today
-  and was red before this plan set started**; the handoff's "all 12 frozen parity rows matched"
-  line is wrong.
+  `featureVersion` is 2 against a v4 runtime, which is why `npm run ai:options` is **red at its
+  default seed today and was red before this plan set started**.
+  **Corrected 2026-08-24:** this bullet used to end "the handoff's 'all 12 frozen parity rows
+  matched' line is wrong". It is not wrong, and that sentence made the same conflation as the
+  overview's session-15 finding it was taken from. The evaluator compared against the baseline
+  only when the base seeds matched, so the handoff's `--seed 20260824` skipped the comparison
+  and exited 0 while the default 20260827 threw. Two invocations, two answers. Also, the
+  handoff's words were "all 12 frozen **legacy/meta** parity rows matched".
 - **`engagement-baseline-v1.json`** (124 KB): the existing controllers already fail the
   predeclared gates -- specialists at opportunity-attack **0.2282** and meta at **0.2031**
   against a 0.65 gate. Session 18 cites 0.2282 as a live premise, so it must reach
-  `docs/measurements.md` before the file goes. It is already at `measurements.md:1746`.
+  `docs/measurements.md` before the file goes. It is already at `measurements.md:1768`.
 - **`unpromoted-v1.json`** (5 KB): three default NEAT runs, champion by validation ordering,
   then **0.000** held-out win score against 0.4167 scripted; 88 % of decisions were
   `disengage`; seven named gate failures. Its `commands` block records

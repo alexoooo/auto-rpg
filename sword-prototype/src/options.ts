@@ -10,8 +10,6 @@ export type HandActionName = "cover" | "cut" | "thrust" | "punch" | "shoot" | "b
 export type OptionName = MovementName | HandActionName;
 export const MOVEMENT_NAMES: readonly MovementName[] = Object.freeze(["close", "hold", "circle-left", "circle-right", "disengage"]);
 export const HAND_ACTION_NAMES: readonly HandActionName[] = Object.freeze(["cover", "cut", "thrust", "punch", "shoot", "bite", "recover"]);
-/** Compatibility vocabulary for reports written before tactics had two heads. */
-export const OPTION_NAMES: readonly OptionName[] = Object.freeze(["close", "disengage", "cover", "cut", "thrust", "punch", "shoot", "recover"]);
 export const TACTIC_NAMES: readonly OptionName[] = Object.freeze([...MOVEMENT_NAMES, ...HAND_ACTION_NAMES]);
 export const ATTACK_OPTION_NAMES: readonly OptionName[] = Object.freeze(["cut", "thrust", "punch", "shoot", "bite"]);
 export interface CombatOption { readonly name: OptionName; enter(view: FighterView): void; decide(view: FighterView, dt: number): Intent; done(view: FighterView): boolean }
@@ -111,7 +109,23 @@ const aimAt = (view: FighterView, intent: Intent, name: HandName, y = view.oppon
 /** Each option owns a short skill and has no authority below Intent. */
 export function combatOption(requested: OptionName | string, preferred: HandName = "primary",
   start?: Readonly<{ pointerX: number; pointerY: number }>, initialShotRest = 0): CombatOption {
-  if (!knownOption(requested)) throw new Error(`unknown option "${requested}" -- known options are ${OPTION_NAMES.join(", ")}`);
+  // The list printed is now the list guarded on, and that is the whole of what
+  // changed here. It was the eight-name compatibility vocabulary while
+  // `knownOption` tested all twelve tactic names, so `bite` and `hold` were
+  // accepted by a refusal that had just called them unknown -- a message that
+  // lied about its own guard.
+  //
+  // **The message is honest and the behaviour is still wrong.** `bite` is now
+  // advertised as known and `decide` below has no branch for it, so
+  // `combatOption("bite")` constructs and then silently commands nothing;
+  // `hold` is a movement name that reaches a hand skill the same way. The
+  // guard was the half that could be fixed without touching execution.
+  // `handActionOption` already carries the real bite skill, so the repair is the
+  // one legal merge -- Stage B, which is where the movement and hand halves are
+  // joined and where these two names stop being reachable through this door at
+  // all. Do not "fix" this by narrowing the printed list again: that restores
+  // the lying message and hides the missing branch a second time.
+  if (!knownOption(requested)) throw new Error(`unknown option "${requested}" -- known options are ${TACTIC_NAMES.join(", ")}`);
   const name = requested; const intent = freshIntent(); let started = 0; let elapsed = 0; let hand: HandName = "primary";
   let startX = 0; let startY = 0; let fromX = 0; let fromY = 0; let toX = 0; let toY = 0; let strokeRoll = 0;
   let strokePhase: "chamber" | "commit" | "recover" | "complete" = "chamber";
@@ -228,9 +242,11 @@ export function combatOption(requested: OptionName | string, preferred: HandName
           intent[spare].thrust = false; intent[spare].guard = false;
         }
       }
-      // Legacy plans the spare hand after the body response. In particular, an
-      // empty covering fist spends neither roll nor bend on the driving hand's
-      // posture; preserving that order is observable in every hold frame.
+      // The spare hand is planned after the body response, never before it. An
+      // empty covering fist therefore spends neither roll nor bend on the
+      // driving hand's posture, and that order is observable in every hold
+      // frame -- it is the order the scripted specialists were measured
+      // against, so lifting this block above `applyActionPosture` moves them.
       const spare = hand === "primary" ? "secondary" : "primary";
       if ((name === "cover" || name === "cut" || name === "punch" || name === "recover") &&
           !view.self.hands[spare].lost && view.self.hands[spare].weapon === "empty") {
@@ -268,29 +284,29 @@ export function handActionOption(requested: HandActionName | string, preferred: 
     };
   }
   if (requested === "recover") {
-    const legacy = combatOption(requested, preferred, start, initialShotRest); const intent = freshIntent();
+    const skill = combatOption(requested, preferred, start, initialShotRest); const intent = freshIntent();
     const movement = { forward: 0, strafe: 0, turn: 0 }; let handless = false; let entered = 0;
     return { name: requested, movement,
       enter(view) { handless = !Object.values(view.self.hands).some((hand) => !hand.lost); entered = view.clock;
-        if (!handless) legacy.enter(view); },
+        if (!handless) skill.enter(view); },
       decide(view, dt) { if (handless) { Object.assign(intent, freshIntent()); return intent; }
-        const result = legacy.decide(view, dt); movement.forward = result.forward; movement.strafe = result.strafe;
+        const result = skill.decide(view, dt); movement.forward = result.forward; movement.strafe = result.strafe;
         movement.turn = result.turn;
         result.forward = 0; result.strafe = 0; result.turn = 0; return result; },
-      done(view) { return handless ? view.clock - entered >= 0.26 : legacy.done(view); },
+      done(view) { return handless ? view.clock - entered >= 0.26 : skill.done(view); },
     };
   }
-  const legacy = combatOption(requested, preferred, start, initialShotRest);
+  const skill = combatOption(requested, preferred, start, initialShotRest);
   const movement = { forward: 0, strafe: 0, turn: 0 };
   return { name: requested, movement,
-    enter: (view) => legacy.enter(view),
+    enter: (view) => skill.enter(view),
     decide(view, dt) {
-      const intent = legacy.decide(view, dt); movement.forward = intent.forward; movement.strafe = intent.strafe;
+      const intent = skill.decide(view, dt); movement.forward = intent.forward; movement.strafe = intent.strafe;
       movement.turn = intent.turn;
       intent.forward = 0; intent.strafe = 0; intent.turn = 0;
       return intent;
     },
-    done: (view) => legacy.done(view),
+    done: (view) => skill.done(view),
   };
 }
 
@@ -313,7 +329,7 @@ export function scriptedMetaMind(kind: ScriptedKind, seed = 0): ScriptedMetaMind
     patience = 2.40 * (0.80 + random() * 0.40);
     circle = random() < 0.5 ? -1 : 1; circleLeft = 1.2 + random();
   }
-  const entries = Object.fromEntries(OPTION_NAMES.map((n) => [n, 0])) as Record<OptionName, number>;
+  const entries = Object.fromEntries(TACTIC_NAMES.map((n) => [n, 0])) as Record<OptionName, number>;
   const selectAttackHand = (view: FighterView): HandName => {
     const spare = otherHand(prefer); const able = (hand: HandName) =>
       !view.self.hands[hand].lost && isStriking(view.self.hands[hand].weapon);
@@ -417,6 +433,17 @@ export interface BehaviourRecord {
   /** Private recorder state; durable reporters omit underscore-prefixed fields. */
   _engagement: EngagementTracker; _lastBlockAt: Record<string, number>; _blocksSeen: Set<string>;
 }
+/**
+ * No non-test caller, and the reader is named rather than assumed.
+ *
+ * `evaluate-options.mjs` and `training-evaluator.mjs` were the two construction
+ * sites and session 17 deleted both; the research path hand-rolls its own
+ * `EngagementTracker` in `scripts/research-havok.mjs` instead. This survives
+ * because session 18's `BoutRecorder` is built on exactly these three
+ * recorders and drives them from both bout loops, which is the whole of that
+ * session -- see `docs/plans/combat-followups-18-human-gate-feasibility.md`. If
+ * that session lands without them, they go.
+ */
 export function behaviourRecord(): BehaviourRecord {
   const engagement = engagementRecord();
   const record = { rangeBins: [0, 0, 0, 0], options: Object.fromEntries(TACTIC_NAMES.map((n) => [n, 0])) as Record<OptionName, number>, transitions: {},

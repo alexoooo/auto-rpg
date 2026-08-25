@@ -27,7 +27,7 @@ const biteColumns = (owner: string) => [`${owner}_bite_reach`, `${owner}_bite_re
  *
  * All of them are constants of the *world* rather than of the tuning surface:
  * `AGENTS.md`'s rule is that a feature must not be normalized from a mutable
- * runtime balance constant, because the same checkpoint would then mean two
+ * runtime balance constant, because the same frozen network would then mean two
  * different things either side of a console edit. `ACTION_TUNING` is frozen and
  * is the one exception the existing contract already makes -- `walkSpeed` and
  * `boutSeconds` were normalized from it in v3 and stay that way.

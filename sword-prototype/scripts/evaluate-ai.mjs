@@ -1,5 +1,19 @@
-// Engagement and blind-tournament reporter. Physics rows come from the same
-// evaluate-options/measure harness; this file owns aggregation and test quarantine.
+// The blind held-out tournament reporter. Physics rows come from the frozen
+// manifest through `tournament-executor.mjs`; this file owns aggregation, the
+// recomputed verdict and the test quarantine.
+//
+//     npm run ai:evaluate -- --split test --manifest <path> --rows <path>
+//         [--run-next --batch-size 64 --artifact <candidate>=<path> ...]
+//         [--output <path>]
+//
+// `--split test` is the only split this command answers, and that is a
+// narrowing rather than an oversight: the train and validation engagement
+// summaries were produced by re-running `evaluate-options.mjs`, whose whole
+// subject was parity with the superseded option executor. Session 17 deleted
+// that module and the `--write-engagement-baseline` switch that froze its
+// output, and `docs/measurements.md` keeps the one conclusion the train
+// baseline reached. Ask for a train or validation split and you get a refusal
+// naming the split rather than a report of nothing.
 import { createHash } from "node:crypto";
 import { readFile, rename, writeFile } from "node:fs/promises";
 
@@ -10,49 +24,18 @@ const argv = process.argv.slice(2);
 const value = (name, fallback = null) => {
   const at = argv.indexOf(`--${name}`); return at >= 0 && argv[at + 1] !== undefined ? argv[at + 1] : fallback;
 };
-const split = value("split", "train");
+const split = value("split", "test");
 if (!["train", "validation", "test"].includes(split)) throw new Error(`unknown evaluation split "${split}"`);
+if (split !== "test") {
+  throw new Error(`--split ${split} is no longer available: ai:evaluate answers only the held-out test split, ` +
+    "because the train/validation engagement corpus ran through the deleted evaluate-options.mjs");
+}
+if (argv.includes("--write-engagement-baseline")) {
+  throw new Error("--write-engagement-baseline is gone with asset-src/learning/engagement-baseline-v1.json; " +
+    "its conclusion is in docs/measurements.md");
+}
 const started = performance.now();
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
-const quantile = (values, fraction) => {
-  if (!values.length) return null; const ordered = [...values].sort((a, b) => a - b);
-  return ordered[Math.min(ordered.length - 1, Math.ceil(ordered.length * fraction) - 1)];
-};
-
-if (split !== "test") {
-  // evaluate-options exports the raw factual records after running its
-  // fresh-Havok corpus. Keeping that module as ai:options preserves the old
-  // command/parity entry point while this command owns promotion summaries.
-  const { output } = await import("./evaluate-options.mjs");
-  const rawRows = output.records.filter((row) => row.split === split).map((row) => ({ ...row,
-    behavior: Object.fromEntries(Object.entries(row.behavior).filter(([name]) => !name.startsWith("_"))) }));
-  const groups = [...new Set(rawRows.map((row) => row.controller))].sort().map((controller) => {
-    const rows = rawRows.filter((row) => row.controller === controller);
-    const opportunities = rows.reduce((sum, row) => sum + (row.behavior.engagement?.viableOpportunities ?? 0), 0);
-    const attacks = rows.reduce((sum, row) => sum + (row.behavior.engagement?.attacksInWindow ?? 0), 0);
-    const contacts = rows.reduce((sum, row) => sum + (row.behavior.engagement?.damagingContactsInWindow ?? 0), 0);
-    return { controller, rows: rows.length, winRate: rows.filter((row) => row.behavior.win).length / Math.max(1, rows.length),
-      opportunityAttackRate: attacks / Math.max(1, opportunities), attackContactRate: contacts / Math.max(1, attacks),
-      firstAttackP90Seconds: quantile(rows.map((row) => row.behavior.engagement?.firstAttackSeconds).filter(Number.isFinite), 0.9),
-      nearRangeStallShare: rows.reduce((sum, row) => sum + (row.behavior.engagement?.nearRangeStallSeconds ?? 0), 0) /
-        Math.max(1e-9, rows.reduce((sum, row) => sum + row.duration, 0)) };
-  });
-  const cellRows = rawRows.map((row) => ({ cell: row.cell, controller: row.controller, mirror: row.mirror,
-    win: row.behavior.win, opportunityAttackRate: (row.behavior.engagement?.attacksInWindow ?? 0) /
-      Math.max(1, row.behavior.engagement?.viableOpportunities ?? 0), attackContactRate:
-      (row.behavior.engagement?.damagingContactsInWindow ?? 0) / Math.max(1, row.behavior.engagement?.attacksInWindow ?? 0) }));
-  const report = { version: 1, split, seed: output.baseSeed, rawRows, macro: groups,
-    worstCell: [...cellRows].sort((a, b) => a.opportunityAttackRate - b.opportunityAttackRate ||
-      a.attackContactRate - b.attackContactRate || a.cell.localeCompare(b.cell))[0] ?? null,
-    wallSeconds: (performance.now() - started) / 1000 };
-  const text = `${JSON.stringify(report, null, 2)}\n`;
-  if (argv.includes("--write-engagement-baseline")) {
-    const path = new URL("../asset-src/learning/engagement-baseline-v1.json", import.meta.url);
-    await writeFile(path, text); console.log(`wrote ${path.pathname}`);
-  }
-  console.log(JSON.stringify(report, null, 2));
-  process.exit(0);
-}
 
 const manifestPath = value("manifest");
 if (!manifestPath) throw new Error("--manifest is required before the held-out test can be opened");

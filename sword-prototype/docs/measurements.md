@@ -1410,7 +1410,10 @@ at 240 Hz reached close, cover and cut and made both controllers advance and giv
 its report covers all 20 intent fields and records changed-sample counts and maximum numeric
 deltas per field. All 20 fields are command-identical: the option meta-controller reproduces
 the old duelist's circling, seeded cadence, attack-hand choice and phase boundaries while
-still entering and executing real options. Cut/punch share the old
+still entering and executing real options. (Twenty is what was measured on the day and is left
+standing; `INTENT_FIELDS` holds **19**. The session-15 supersession under "Integrated headless
+close-out" below owns that correction and governs both counts in this paragraph and the one
+under "Their prospective maxima" further down.) Cut/punch share the old
 duelist's 0.15 s chamber, 0.11 s commit and 0.26 s guarded recovery. Shoot shares the old
 archer's 0.90 s draw, release edge and 0.30 s cooldown.
 
@@ -1421,27 +1424,27 @@ separate train/validation/test seed ranges. Both sides of a mirror pair use the 
 All 120 ended by exhaustion. The corpus includes every selectable
 equipment kind and every existing policy, and the real option cells reached all eight
 option names. An immediate non-writing rerun matched byte-for-byte
-after JSON parsing. The full per-bout factual record is
-`asset-src/learning/baseline-v1.json`; it is evidence for later comparisons, not a golden
-to overwrite when an outcome surprises. The default command compares; only the explicit
-`--write-baseline` switch replaces it.
+after JSON parsing. The full per-bout factual record was
+`asset-src/learning/baseline-v1.json`, **deleted by session 17 along with the evaluator that
+wrote it**; its conclusion, and the fact that the command comparing against it had been red
+for two feature versions, are under "Session 17 Stage A" below.
 
 Each bout accumulates range bins, real option occupancy and transitions, option entries as
 attack attempts, contacts by exact striking hand and kind, defender blocks, crouch time,
 trunk-twist sign changes, damage, final vitality, winner and time. Combat contacts arrive
 through a callback before `Combat.log` is truncated. They are not reconstructed from that
 24-entry screen history; the callback test observes 40 contacts while the log retains 24.
-Legacy swinger, idle, duelist and archer controls carry `null` rather than invented option
+Specialist swinger, idle, duelist and archer controls carry `null` rather than invented option
 labels, and their option occupancy and attempt maps remain exactly zero.
 
-The evaluator runs same-seed, same-loadout mirrored pairs for legacy duelist versus
-scripted-meta duelist and legacy archer versus scripted-meta archer across all three splits.
+The evaluator runs same-seed, same-loadout mirrored pairs for specialist duelist versus
+scripted-meta duelist and specialist archer versus scripted-meta archer across all three splits.
 Every paired opponent is the actual adversarial swinger. Before fixing limits, bases
 20260823 through 20260826 supplied 48 calibration brackets: an unscored warm-up followed by
-legacy, meta and legacy-repeat for each split, specialist and side. Reusing one Havok wasm
-module made equal legacy inputs flip winners after scene disposal, disproving the old
+specialist, meta and specialist-repeat for each split, loadout and side. Reusing one Havok wasm
+module made equal specialist inputs flip winners after scene disposal, disproving the old
 headless-harness claim that worlds were independent. Giving every bout a fresh wasm instance
-made all 48 legacy brackets exact. Their prospective maxima -- damage 0, seconds 0 and each
+made all 48 specialist brackets exact. Their prospective maxima -- damage 0, seconds 0 and each
 of the 20 mean intent-field deltas 0 -- were fixed before evaluating held-out base 20260827.
 All 12 held-out subject rows then matched winner, ending, damage, duration and every intent
 field at every ordered sample exactly; the repeated controls were exact too. Evaluation JSON
@@ -1511,12 +1514,22 @@ and the pre-existing half of that needs no bouts to see: the checked-in baseline
 14, and the comparison is a whole-document `JSON.stringify` equality. So the artifact has been
 stale for two feature versions and re-recording it is owed to whoever owns it, not to this
 session. **Beyond the version stamp, the fights themselves moved**, which is what a threat
-rule that now gates on closing motion is *for* and is not a regression: train/legacy-archer-bow
+rule that now gates on closing motion is *for* and is not a regression: train/specialist-archer-bow
 left went 4.65 s and 219.6 damage to 4.13 s and 164.9, and the duelist-sword meta cells changed
-option 7 times against 9. What did *not* move is the invariant this session had to keep: all 12
+option 7 times against 9. **Those four figures are run-to-run, not fixture values**, and this
+sentence is where somebody would assume otherwise: they are the same cell in the `f789ea4` run
+and in the session's run, both live. Neither pair appears in `baseline-v1.json`, whose own
+train archer-bow left row was 3.8667 s / 164.9115 -- the baseline predates both runs by two
+feature versions, which is the whole subject of the paragraph above. The damages look like
+fixture values only because arrow damage is quantized: 164.9 is three arrows and 219.6 is four,
+and those two numbers recur across every run and both mirror sides. Stated explicitly because
+the artifact that could have settled it is now deleted; the reader after this one cannot check.
+What did *not* move is the invariant this session had to keep: all 12
 paired rows still match winner, ending, damage, duration and every one of the 20 intent fields
-at every ordered sample, in both runs -- legacy and the scripted meta-controller remain the
-same fighter.
+at every ordered sample, in both runs -- the specialist and the scripted meta-controller
+remain the same fighter. (Nineteen: the session-15 supersession under "Integrated headless
+close-out" below governs every "20 fields" claim on this page, and the count is left standing
+here because twenty is what the run reported on the day.)
 
 The required adversarial pass was observed red before restoration:
 
@@ -1531,7 +1544,7 @@ The required adversarial pass was observed red before restoration:
 - restoring the wrong both-arms-lost threat fallback changed four hand-pointer fields in a
   real duelist row and failed exact held-out parity;
 - sharing a Havok module between bracket bouts made three of four calibration bases refuse
-  because repeated legacy winner/ending results differed.
+  because repeated specialist winner/ending results differed.
 - adding equal and opposite intent deviations to consecutive frames preserved the reported
   mean and failed the ordered sequence gate.
 
@@ -1607,12 +1620,19 @@ option gate failed: long sword and axe bouts spent at least 95% of their duratio
 disengage. In total the candidate failed seven gates -- both control comparisons, the sword,
 shield and bow specialist bounds, option diversity and stuck-option safety. Thresholds were
 not lowered, `learned-v1` was not registered, and no checkpoint was bundled. The compact
-commands, digests, tables, transitions and exact failure strings are in
-`asset-src/learning/unpromoted-v1.json`; raw generation reports remain in ignored run dirs.
+commands, digests, tables, transitions and exact failure strings were in
+`asset-src/learning/unpromoted-v1.json`, **deleted by session 17**; every number later
+sessions cite, and the commands that produced them, are transcribed under "Session 17
+Stage A" below. Raw generation reports remain in ignored run dirs.
 
-`npm run measure -- --checkpoint <path> --bouts 24 --seed 777001` is the explicit
-five-loadout route for an unregistered experiment. It names the subject
-`experimental-checkpoint`; it does not make it a production option. Three visible bouts
+`--checkpoint <path> --bouts 24 --seed 777001` on `npm run measure` was the explicit
+five-loadout route for an unregistered experiment. It named the subject
+`experimental-checkpoint` and did not make it a production option; **session 17 deleted it
+with the standalone checkpoint codec it loaded**, and the research artifact through the blind
+tournament is the only route a learned controller now takes to a fight. The flag is refused by
+name rather than ignored -- a bench that dropped it silently would still print a full policy
+table, of the scripted policies instead of the checkpoint somebody meant to measure. That is
+also why it is no longer written here as a runnable command line. Three visible bouts
 remain open because there is no honest picker route for an unpromoted policy.
 Their choices are fixed before viewing: melee seed 291337 on the left, bow seed 291338 on
 the right and bare-hands seed 291339 on the left. No result has been captured for them.
@@ -1655,7 +1675,7 @@ fixed commands: waist-anchor peak remained 0.00 mm, hand peak 10.69–11.00 mm a
 limit occupancy 55.3%; full crouch lowered the standing pelvis 0.960→0.620 m and walking
 pelvis 0.905→0.573 m with zero knee-limit occupancy. The seed-20260823 option evaluator
 reached close, disengage, cover, cut, thrust, punch, shoot and recover. All 12 real
-legacy/scripted-meta comparison rows across train, validation and test matched winner,
+specialist/scripted-meta comparison rows across train, validation and test matched winner,
 ending, duration, damage and all 20 ordered intent fields exactly. Archer rows also matched
 exactly, including draw/release commands and arrow damage.
 
@@ -1689,8 +1709,8 @@ from Babylon's stale debug map. One prebuilt quiver then fired
 that disposal made the proof fail at 49 meshes and 13 bodies.
 
 The learning result remains explicitly unpromoted. There is no `learned-v1` picker matrix
-to run and no bundled checkpoint to select; the generic checkpoint route remains an
-experimental command-line facility. Promotion evaluation now additionally rejects a raw
+to run and no bundled checkpoint to select; the generic checkpoint route was an
+experimental command-line facility and session 17 deleted it. Promotion evaluation now additionally rejects a raw
 default report unless its generation ledger contains exactly rows 0 through 79 in order.
 Disabling the row-count check made its named test fail before restoration. The verdict probe
 also failed 75 decisions versus 63 at the verdict when `stopFighting()` was removed, proving
@@ -1729,9 +1749,11 @@ corpus nor the narrow visible sample answers those questions.
 
 Harness: `npm run ai:evaluate -- --split train --seed 20260824
 --write-engagement-baseline`, fresh NullEngine/Havok bouts through `scripts/measure.mjs`.
-The raw 40 rows, mirrors and aggregate inputs are frozen in
-`asset-src/learning/engagement-baseline-v1.json`. This is train evidence only; no held-out
-test row was opened.
+The raw 40 rows, mirrors and aggregate inputs were frozen in
+`asset-src/learning/engagement-baseline-v1.json`. **Session 17 deleted that file, the
+`--write-engagement-baseline` flag that wrote it and the train split of `ai:evaluate`**; the
+aggregate table below is what survives of it, and session 18 cites its 0.2282 as a live
+premise. This is train evidence only; no held-out test row was opened.
 
 The promotion thresholds were fixed before any of the four new research directions ran:
 an opportunity window of 0.75 s, a progress drought of 2.0 s, opportunity-to-attack rate at
@@ -1743,12 +1765,12 @@ promotion verdict.
 
 | controller | rows | win rate | opportunity attack | attack contact | first attack p90 | near-range stall |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| legacy | 16 | 0.125 | 0.2282 | 0.5000 | 5.267 s | 0.1514 |
+| specialist | 16 | 0.125 | 0.2282 | 0.5000 | 5.267 s | 0.1514 |
 | scripted/forced meta | 20 | 0.200 | 0.2031 | 0.6346 | 0.683 s | 0.2435 |
 | parity repeat | 4 | 0.000 | 0.5556 | 0.6667 | 1.183 s | 0.0000 |
 
 The baseline is deliberately not a claim that these controls pass. The worst raw cell was
-legacy duelist with axe on the left: zero opportunity conversion and zero contact
+the specialist duelist with axe on the left: zero opportunity conversion and zero contact
 conversion. The instrument catches precisely the existing failure that motivated this
 round. Intent edges, including bow release, are measured for controllers without option
 labels; arrow contacts are attributed back to the bow opportunity. Natural-attack reach is
@@ -1942,3 +1964,198 @@ already parted company.** With no `rotationQuaternion` -- which is how a `Transf
 starts -- the first put the head half a shaft ahead of the centre and the second put it at the
 centre: 360 mm apart on a 720 mm arrow. One `bladeDirectionToRef` now, with a test that asks
 both.
+
+## Session 17 Stage A: what the deleted learning stack measured -- 2026-08-24
+
+Three checked-in fixtures, two trainers, a promotion gate and a parity evaluator were deleted
+in one pass. Nothing here was re-measured for this section; it is the evidence those artifacts
+carried, written down because a conclusion that lives only inside a file dies with the file --
+and three later sessions cite these numbers as premises.
+
+What went: `asset-src/learning/{baseline,engagement-baseline,unpromoted}-v1.json`,
+`src/learning/checkpoint.ts`, `src/learning/promotion.ts`, `scripts/train-meta.mjs`,
+`scripts/train-meta-worker.mjs`, `scripts/training-evaluator.mjs`,
+`scripts/promotion-evaluator.mjs`, `scripts/evaluate-options.mjs`, the `ai:train` and
+`ai:options` commands, `npm run measure -- --checkpoint`, and the train and validation splits
+of `ai:evaluate`.
+
+### `baseline-v1.json`: the specialists and the meta controller were byte-identical fighters
+
+308 KB, evaluation JSON v3, base seed 20260827. Twelve paired rows -- duelist-sword and
+archer-bow, three splits, both mirror sides -- in which the scripted specialist and
+`scriptedMetaMind` matched **winner, ending, damage, duration and every ordered intent field
+at every sample**, with an exact specialist-repeat control in every bracket proving the zero
+limits were achievable rather than vacuous. The limits themselves were fixed in advance from
+48 fresh-Havok calibration brackets on bases 20260823 through 20260826: damage 0, seconds 0,
+and every mean intent-field delta 0. The synthetic half was 1,200 varied samples with every
+field changed on 0 of them, against a `SYNTHETIC_FIELD_LIMITS` of `changedRate 0.005` and
+`maxDelta 0.01` **per field** -- a tolerance the observed zero did not need, declared in
+advance so a small drift would have been a pass rather than a re-negotiation. And 520 archer
+samples with identical hold, release and edge counts on both controllers, against
+`SHOT_PARITY_LIMITS` of `duty 0.01` and `edges 1`.
+
+**`npm run ai:options` was red at its default seed and green at the handoff's, and the
+difference is one `if`.** Its baseline recorded `featureVersion: 2` and `featureCount: 50`
+against a runtime that had been v4 since session 16, and the comparison was whole-document
+`JSON.stringify` equality -- so the artifact had been stale for two feature versions. But that
+comparison ran **only when the evaluation's base seed equalled the baseline's**. Otherwise the
+command printed `evaluation seed ... is not checked-in baseline seed ...; report completed
+without replacing it` and exited 0. `baseline-v1.json`'s `baseSeed` is 20260827, and so is the
+command's default.
+
+So, precisely, two statements about two invocations:
+
+- `npm run ai:options -- --seed 20260824` -- the handoff's line -- **passed**. 20260824 is not
+  20260827, the whole-document comparison was skipped, and the stale version stamp was never
+  reached. The twelve paired parity rows ran regardless of seed and matched.
+- `npm run ai:options` at its default seed 20260827 **threw**, on
+  `evaluation differs from baseline-v1.json`, and had done so since session 14.
+
+An earlier revision of this section, and of the finding in the overview it came from, said the
+handoff's line was wrong. **It was not**; the correction conflated the two invocations and
+deleted a true line from the durable record to put a false one in its place. It is superseded
+here rather than removed, because what it teaches is that a red command and a red *invocation*
+are different claims, and the seed is part of the invocation. It also misquoted the line it was
+correcting: the handoff said "all 12 frozen **legacy/meta** parity rows matched", and quotation
+marks assert verbatim.
+
+### `engagement-baseline-v1.json`: the shipped controllers already fail the engagement gates
+
+124 KB of raw train rows at seed 20260824, taken before any of the four research directions
+ran, against thresholds fixed before any of them ran either. Opportunity-to-attack rate was
+**0.2282** for the scripted specialists over 16 rows and **0.2031** for the scripted and
+forced-meta controllers over 20, against a predeclared gate of **0.65**. Session 18 cites the
+0.2282 as a live premise. The full aggregate table is under "Engagement promotion baseline"
+above and stays there; this note exists so that the number outlives the file it was frozen in.
+
+**What the 16 rows are matters, because two of the eight cells are not fighters.** They were
+`archer-bow`, `duelist-sword`, `duelist-axe`, `swinger-shield`, `duelist-buckler`,
+`duelist-club`, `duelist-empty` and `idle-control`, both mirror sides each -- so the corpus
+includes a club duelist and an **idle control**, a fighter that stands still and does nothing.
+Recomputed from the raw rows before the file went: `idle-control` contributed **33 of the 149
+viable opportunities and 0 of the 34 attacks**, and dropping it alone lifts the aggregate from
+0.2282 to **0.2931**. Dropping `duelist-club` as well gives 0.2626. All three are far under the
+0.65 gate, so the conclusion is unchanged -- but 0.2282 is an average over a corpus that
+deliberately contains a non-participant, and a human control run against a different cell mix
+is not comparable to it. Session 18 re-takes these rows anyway, for the separate reason in
+overview finding 11.
+
+### `unpromoted-v1.json`: the negative result, and the method that produced it
+
+5 KB. Three independently seeded default NEAT runs -- `session13-20260823` / 20260823,
+`session13-777001` / 777001, `session13-991337` / 991337 -- at population 128, 80 generations,
+24 mirrored bouts and 8 workers, protocol 3, feature version **2**. Best validation totals
+4.70734, 6.86409 and 6.24394; the selector, which cannot read test fields, chose 777001.
+
+The fixture qualified its own selection rule and that qualification is transcribed verbatim,
+because it is exactly the sentence that dies with a deleted file --
+`selection.methodLimitation`: *"trainer reports exposed a two-bout test probe for every run
+before selection; the observed choice follows validation ordering, but this was not a pristine
+test quarantine"*. The negative result below is honest **because** of that line, not in spite
+of it: a run that says where its own quarantine leaked is worth more than one that claims a
+clean one.
+
+The selected champion then scored **0.000** mean win over 24 mirrored held-out bouts in each
+of five loadouts, against **0.4167** for scripted meta and **0.1917** for the random-option
+control. It won no bout in any loadout. Scripted specialist scores were sword 0.625, shield
+0.9583, axe 0, bow 0.500 and bare hands 0. Its decision stream was **88.04% disengage** --
+6,550 disengage, 409 cover, 267 cut, 214 punch, and nothing else -- and it failed exactly
+seven predeclared gates:
+
+1. held-out win score did not beat scripted meta;
+2. held-out win score did not beat random-option control;
+3. sword trails its scripted specialist by more than 15 percentage points;
+4. shield trails its scripted specialist by more than 15 percentage points;
+5. bow trails its scripted specialist by more than 15 percentage points;
+6. fewer than three non-recover options occupy at least 8% of decisions;
+7. a stuck option was observed.
+
+The gate it **passed** is worth as much as the seven it failed, because that gate has since
+been deleted and nobody would otherwise know it never bit. `promotion.ts`'s
+`MIN_STRONGER_MOTIFS` required two transition motifs more common than the scripted baseline;
+the fixture recorded six -- `cover->disengage` 0.457, `cut->disengage` 0.376,
+`disengage->cover` 0.202, `disengage->cut` 0.390, `disengage->punch` 0.417 and
+`punch->disengage` 0.376 per 100 decisions, against **0 for scripted on every one of them**.
+A controller that spent 88% of its decisions disengaging cleared a diversity gate by
+oscillating in and out of that one option, and scripted scored zero only because it does not
+produce this shape of transition at all. The gate agreed with the verdict the others had
+already reached, which is not the same as working. `tournament.ts` has no motif gate and this
+is the evidence against putting one back unexamined.
+
+Its `commands` block recorded the reproduction method. **None of these four command lines
+runs any more**, which is precisely why they are transcribed rather than summarised: a negative
+result whose method has been deleted stops being a result and becomes an anecdote. Precisely:
+`npm run ai:train` is gone from `package.json` with `train-meta.mjs`, so the first three do not
+resolve at all; `npm run ai:evaluate` **still exists**, and so does `--output`, but
+`--checkpoint`, `--training-report`, `--seed` and `--bouts` all belonged to
+`promotion-evaluator.mjs` and went with it -- that command now answers only the held-out test
+split from a frozen manifest, and its default split moved from `train` to `test`. This
+paragraph said "none of these four commands
+exists any more", which was wrong about the fourth; the list at the head of this section --
+"the `ai:train` and `ai:options` commands ... and the train and validation splits of
+`ai:evaluate`" -- was right, and the two now agree.
+
+```
+npm run ai:train -- --seed 20260823 --run-id session13-20260823 --workers 8
+npm run ai:train -- --seed 777001  --run-id session13-777001  --workers 8
+npm run ai:train -- --seed 991337  --run-id session13-991337  --workers 8
+npm run ai:evaluate -- --checkpoint asset-src/learning/runs/session13-777001/champion.bin \
+  --training-report asset-src/learning/runs/session13-777001/report.json \
+  --seed 777001 --bouts 24 --output asset-src/learning/runs/session13-777001/promotion.json
+```
+
+The half of `the_compact_unpromoted_evidence_recomputes_the_recorded_failure` that was real
+coverage -- that the validation ordering rule reproduces the recorded champion -- went with
+`selectValidationChampion` in `promotion.ts`, whose surviving namesake in
+`quality-diversity.ts` is a different function with a different signature and its own test in
+`tests/neat-qd.test.mjs`.
+
+### `train-meta.mjs` was dead on arrival, and that is the durable part
+
+It wrote `optionNames: OPTION_NAMES` -- the eight-name compatibility vocabulary -- into every
+checkpoint, while `checkpoint.ts`'s runtime contract required the twelve names
+`[...MOVEMENT_NAMES, ...HAND_ACTION_NAMES]`. Its own codec therefore refused every checkpoint
+it produced, by name, at `checkpoint option names do not exactly match the runtime option
+names`. It also seeded genomes with `OPTION_NAMES.length + 1` = 9 outputs where
+`networkMetaMind` required 13 and would have refused those too.
+
+Two vocabularies for one concept is how that happened: an eight-name list kept "for reports
+written before tactics had two heads" outlived every report that read it and stayed reachable
+from the trainer. `OPTION_NAMES` is deleted; `MOVEMENT_NAMES`, `HAND_ACTION_NAMES` and
+`TACTIC_NAMES` are the whole vocabulary, chosen by the question being asked.
+
+### What went with `evaluate-options.mjs`, and what did not
+
+Two of the six things only that module knew are now tested elsewhere. Four are **lost
+coverage**, recorded here so the gap is known rather than invisible:
+
+| what it knew | where it is now |
+| --- | --- |
+| Synthetic 520-sample archer shot parity, specialist against scripted meta, at limits of 0.01 duty and 1 edge | `specialists_and_options_share_the_full_stroke_and_shot_timeline` compares both controllers' held, released and edge counts exactly. It previously ran only the meta archer and never compared. |
+| Every numeric leaf of an `Intent`, cross-checked against `INTENT_FIELDS` | `intentNumbers` moved from `promotion-evaluator.mjs` into `evaluation.ts`; `the_finiteness_sweep_covers_every_combat_number_and_nothing_else` is the cross-check that caught the `zoom` regression. |
+| **Lost:** real-solver twelve-row paired parity at zero damage/seconds/action-rate limits, with a specialist-repeat control proving the limits are achievable | Nothing. Every surviving parity test is fixture-only. This needs minutes of real Havok and cannot live in `npm test`; whoever wants it back needs a slow command outside the suite. |
+| **Lost:** the unscored warm-up and fresh-Havok-per-bout discipline, which is the encoding of the session-11 finding that a shared Havok module flips winners after disposal | Partly. `freshHavok()` is still called -- by `measure.mjs --selftest`, by `scripts/research-havok.mjs:8` for every research bout, and four times in `tests/integration.test.mjs`. What is lost is the *bracket*: an unscored warm-up followed by subject, control and control-repeat in one round, which is the part that made two controllers comparable. Nothing runs that. |
+| **Lost:** the `--calibrate` discrete gate, the procedure that produced the parity limits | Nothing. The limits themselves are recorded above; the way to regenerate them is not. |
+| **Lost:** the corpus cells `duelist-club` and `idle-control` | `RESEARCH_STRATA` does not cover either, so no command now fights a club duelist or an idle control. |
+
+`PARITY_LIMITS`, `PARITY_CALIBRATION`, `SYNTHETIC_FIELD_LIMITS` and `SHOT_PARITY_LIMITS` went
+with the evaluator, rather than being left in `evaluation.ts` as exported constants nothing
+reads. All four of their values are in this section, which is where a result belongs.
+
+That paragraph said "the evaluator that was their only consumer" and **the evaluator was not
+their only consumer**: `tests/options.test.mjs` imported `PARITY_LIMITS` and
+`PARITY_CALIBRATION` and asserted the checked-in baseline's `parityLimits` and
+`parityCalibration` blocks against them. That test read the fixture this stage also deleted, so
+it went too and the constants are genuinely unread now -- but "nothing else consumed them" and
+"everything that consumed them died in the same pass" are different sentences, and only the
+second one is true.
+
+### `ai:evaluate` answers only the held-out test split
+
+`scripts/evaluate-ai.mjs` produced its train and validation engagement summaries by importing
+`evaluate-options.mjs` and re-reading its records, so deleting that module took those two
+splits with it. The command refuses them by name rather than reporting nothing:
+`--split train is no longer available: ai:evaluate answers only the held-out test split`, and
+`--write-engagement-baseline` refuses with a pointer to this document. The held-out tournament
+path -- manifest, frozen artifacts, indexed resume and the recomputed verdict -- is unchanged
+and remains the only thing this command does.

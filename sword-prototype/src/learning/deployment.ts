@@ -4,7 +4,7 @@ import { ResearchArtifact, type ResearchArtifactContract } from "./artifact.ts";
 import { predictDagger, type DaggerModel } from "./dagger.ts";
 import { FEATURE_COLUMNS, FEATURE_VERSION } from "./features.ts";
 import { lookaheadMind, LOOKAHEAD_DEPTH, LOOKAHEAD_WIDTH } from "./lookahead.ts";
-import { supportedOptions } from "./meta.ts";
+import { deployableActions } from "./meta.ts";
 import { RecurrentNeatNetwork } from "./recurrent-neat.ts";
 import { RecurrentPolicy, maskedArgmax, type RecurrentPolicyWeights } from "./recurrent-network.ts";
 import { researchLabelMind, type ResearchLabeler } from "./research-policy.ts";
@@ -27,8 +27,9 @@ const exactNames = (actual: unknown, expected: readonly string[], label: string)
     throw new Error(`${label} output table does not match the frozen runtime table`);
   }
 };
-const supportedActionIndices = (view: FighterView): Set<number> => {
-  const allowed = new Set(supportedOptions(view)); if (!Object.values(view.self.hands).some((hand) => !hand.lost)) allowed.delete("cover");
+/** `deployableActions` projected onto the action table's indices, which is what `maskedArgmax` takes; the rule itself has one copy, in `meta.ts`. */
+export const supportedActionIndices = (view: FighterView): Set<number> => {
+  const allowed = deployableActions(view);
   return new Set(HAND_ACTION_NAMES.map((name, index) => allowed.has(name) ? index : -1).filter((index) => index >= 0));
 };
 

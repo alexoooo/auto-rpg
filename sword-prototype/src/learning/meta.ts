@@ -2,15 +2,24 @@ import { hasPoint, isShooting, isStriking, type WeaponKind } from "../hands.ts";
 import { freshIntent } from "../action-primitives.ts";
 import { ATTACK_OPTION_NAMES, HAND_ACTION_NAMES, MOVEMENT_NAMES, TACTIC_NAMES, composeTactic, handActionOption, movementIntent,
   type BehaviourRecord, type CombatOption, type HandActionName, type MovementName, type OptionName } from "../options.ts";
-import type { FighterView, Intent, Mind } from "../mind.ts";
-import { Checkpoint } from "./checkpoint.ts";
-import { FEATURE_COLUMNS, FEATURE_VERSION, FeatureWriter } from "./features.ts";
-import { Network } from "./network.ts";
+import type { FighterView, Mind } from "../mind.ts";
 import { SeededRng } from "./rng.ts";
 
-export const DECISION_SECONDS = 0.10;
 export const MIN_PERSISTENCE = 0.10;
 export const MAX_PERSISTENCE = 0.80;
+/**
+ * The ordered output contract every learned controller writes into.
+ *
+ * Nothing in production reads it yet, which is the problem it names rather than a
+ * reason to delete it. The `[5 movement][7 action][1 persistence]` layout is
+ * re-derived from `MOVEMENT_NAMES.length` at four independent sites --
+ * `deployment.ts` twice, once for the width and once for the two slice offsets,
+ * `train-neat-qd.mjs` and `research-rollout-worker.mjs` -- plus the artifact
+ * fixture in `tests/tournament-executor.test.mjs`. Each is a separate chance to
+ * get an offset wrong the next time the width moves, and the width is about to.
+ * This is the table they are meant to collapse onto; `tests/learning.test.mjs`
+ * pins it against the two vocabularies it is built from in the meantime.
+ */
 export const META_OUTPUT_NAMES = Object.freeze([...MOVEMENT_NAMES, ...HAND_ACTION_NAMES, "persistence"]);
 
 const has = (view: FighterView, predicate: (kind: WeaponKind) => boolean): boolean =>
@@ -25,6 +34,42 @@ export function supportedOptions(view: FighterView): ReadonlySet<OptionName> {
   if (has(view, isShooting)) values.add("shoot");
   if (view.self.naturalAttacks?.bite) values.add("bite");
   return values;
+}
+
+/**
+ * What a deployed controller may choose: `supportedOptions` with `cover`
+ * removed when no hand survives.
+ *
+ * One function because it was three verbatim copies, and the one that mattered
+ * was not the one anybody was reading. `deployment.ts` projected it onto indices
+ * for the argmax, `lookahead.ts` built its capability signature from it, and
+ * `research-policy.ts` held its own -- and it is *that* copy the
+ * `research policy produced unsupported action` refusal reads, so an edit to the
+ * argmax's mask alone would have masked one policy and executed another. Three
+ * copies of a legality rule with the argmax on one and the refusal on another is
+ * the shape this directory's rule about a caller holding its own copy is about.
+ *
+ * **The `cover` deletion is redundant against `supportedOptions` today**, which
+ * is measured rather than assumed: `supportedOptions` adds `cover` only when a
+ * hand is attached, so the delete fires exactly when there is nothing to delete.
+ * Removing it entirely changed **zero** of 394 probed capability cells (every
+ * ordered weapon pair, both loss flags, with and without a natural bite, plus
+ * the handless body), while removing `thrust` from the same line moved 324 lines
+ * of that record -- so the probe can see a mask change and this one is not one.
+ * It stays because it is the statement the deployment seam makes on its own
+ * behalf: `cover` needs a hand, and nothing below here re-checks that. It also
+ * explains how three copies drifted apart unnoticed -- a redundant guard is a
+ * guard nothing can catch you getting wrong.
+ *
+ * `recover` is unconditional and `cover` is not, and that asymmetry is
+ * load-bearing: it is the fix the last exhaustive look-ahead run bought, having
+ * exposed a hand-only recovery path in Centipede. A fighter with no attached
+ * hand must still have a legal set or `maskedArgmax` throws on it.
+ */
+export function deployableActions(view: FighterView): ReadonlySet<OptionName> {
+  const allowed = new Set(supportedOptions(view));
+  if (!Object.values(view.self.hands).some((hand) => !hand.lost)) allowed.delete("cover");
+  return allowed;
 }
 
 export interface MetaLogit {
@@ -52,11 +97,12 @@ export interface MetaMind extends Mind {
 }
 
 const EMPTY_LOGITS: readonly MetaLogit[] = Object.freeze([]);
-const diagnosticSnapshot = (
+/** The one constructor for a `MetaDiagnostic`, shared with the research minds. */
+export const metaDiagnosticSnapshot = (
   option: OptionName, movement: MovementName, action: HandActionName,
   persistenceSeconds: number,
   persistenceRemaining: number,
-  logits: readonly MetaLogit[],
+  logits: readonly MetaLogit[] = EMPTY_LOGITS,
 ): MetaDiagnostic => Object.freeze({
   option,
   movement,
@@ -66,63 +112,6 @@ const diagnosticSnapshot = (
   topLogits: Object.freeze(logits.map((row) => Object.freeze({ ...row }))),
 });
 
-export function networkMetaMind(network: Network): MetaMind {
-  const expectedOutputs = MOVEMENT_NAMES.length + HAND_ACTION_NAMES.length + 1;
-  if (network.nodes.filter((node) => node.kind === "input").length !== FEATURE_COLUMNS.length ||
-      network.nodes.filter((node) => node.kind === "output").length !== expectedOutputs) {
-    throw new Error(`meta network shape must be ${FEATURE_COLUMNS.length} inputs and ${expectedOutputs} outputs`);
-  }
-  const writer = new FeatureWriter(); let current: CombatOption | null = null;
-  let selectedMovement: MovementName = "hold"; let selectedAction: HandActionName = "recover";
-  let decisionClock = -Infinity; let persistUntil = -Infinity; let switches = 0;
-  let persistenceSeconds = 0; let observedClock = 0; let topLogits: readonly MetaLogit[] = EMPTY_LOGITS;
-  const entries = Object.fromEntries(TACTIC_NAMES.map((name) => [name, 0])) as Record<OptionName, number>;
-  const choose = (view: FighterView, maySwitch = true): void => {
-    writer.setTactic(selectedMovement, selectedAction, view.clock);
-    const output = network.run(writer.write(view)); const allowed = supportedOptions(view);
-    let bestMovement: MovementName = "hold"; let movementScore = -Infinity;
-    MOVEMENT_NAMES.forEach((name, index) => { if ((output[index] as number) > movementScore) { bestMovement = name; movementScore = output[index] as number; } });
-    let bestAction: HandActionName = "recover"; let actionScore = -Infinity;
-    HAND_ACTION_NAMES.forEach((name, offset) => { const index = MOVEMENT_NAMES.length + offset;
-      if (allowed.has(name) && (output[index] as number) > actionScore) { bestAction = name; actionScore = output[index] as number; } });
-    if (output.some((value) => !Number.isFinite(value))) throw new Error("learned meta-policy produced a non-finite output");
-    topLogits = [...MOVEMENT_NAMES, ...HAND_ACTION_NAMES.filter((name) => allowed.has(name))]
-      .map((name) => ({ option: name, value: output[name === "close" || name === "hold" || name === "circle-left" || name === "circle-right" || name === "disengage"
-        ? MOVEMENT_NAMES.indexOf(name) : MOVEMENT_NAMES.length + HAND_ACTION_NAMES.indexOf(name as HandActionName)] as number }))
-      .sort((a, b) => b.value - a.value || TACTIC_NAMES.indexOf(a.option) - TACTIC_NAMES.indexOf(b.option))
-      .slice(0, 3);
-    const persistenceRaw = Math.max(-1, Math.min(1, output[MOVEMENT_NAMES.length + HAND_ACTION_NAMES.length] as number));
-    const persistence = MIN_PERSISTENCE + (MAX_PERSISTENCE - MIN_PERSISTENCE) * ((persistenceRaw + 1) / 2);
-    if (maySwitch) {
-      persistenceSeconds = persistence;
-      if (!current || bestMovement !== selectedMovement || bestAction !== selectedAction || current.done(view)) {
-        if (current && (bestMovement !== selectedMovement || bestAction !== selectedAction)) switches += 1;
-        selectedMovement = bestMovement; selectedAction = bestAction; current = handActionOption(bestAction); current.enter(view);
-        entries[bestMovement] += 1; entries[bestAction] += 1; writer.setTactic(bestMovement, bestAction, view.clock);
-      }
-      persistUntil = view.clock + persistence;
-    }
-    decisionClock = view.clock;
-  };
-  return { name: "learned-meta", get selected() { return selectedAction; }, get selectedMovement() { return selectedMovement; },
-    get selectedAction() { return selectedAction; }, get switches() { return switches; }, entries,
-    diagnostic() { return diagnosticSnapshot(selectedAction, selectedMovement, selectedAction, persistenceSeconds, Math.max(0, persistUntil - observedClock), topLogits); },
-    decide(view, dt): Intent {
-    observedClock = view.clock;
-    if (supportedOptions(view).size === 0) {
-      current = null; if (selectedAction !== "recover" || selectedMovement !== "hold") switches += 1;
-      selectedMovement = "hold"; selectedAction = "recover"; writer.reset();
-      persistenceSeconds = 0; persistUntil = view.clock; topLogits = EMPTY_LOGITS; return freshIntent();
-    }
-    const unavailable = current ? !supportedOptions(view).has(selectedAction) : true;
-    if (!current || unavailable || view.clock - decisionClock >= DECISION_SECONDS) {
-      choose(view, !current || unavailable || current.done(view) || view.clock >= persistUntil);
-    }
-    const action = (current as CombatOption).decide(view, dt);
-    return composeTactic(view, selectedMovement, selectedAction, movementIntent(selectedMovement, view), action);
-  } };
-}
-
 export function randomMetaMind(seed: number): MetaMind {
   const rng = new SeededRng(seed); let selectedMovement: MovementName = "hold"; let selectedAction: HandActionName = "recover";
   let current: CombatOption | null = null; let until = -1; let switches = 0;
@@ -130,7 +119,7 @@ export function randomMetaMind(seed: number): MetaMind {
   let persistenceSeconds = 0; let observedClock = 0;
   return { name: "random-meta-control", get selected() { return selectedAction; }, get selectedMovement() { return selectedMovement; },
     get selectedAction() { return selectedAction; }, get switches() { return switches; }, entries,
-    diagnostic() { return diagnosticSnapshot(selectedAction, selectedMovement, selectedAction, persistenceSeconds, Math.max(0, until - observedClock), EMPTY_LOGITS); },
+    diagnostic() { return metaDiagnosticSnapshot(selectedAction, selectedMovement, selectedAction, persistenceSeconds, Math.max(0, until - observedClock)); },
     decide(view, dt) {
     observedClock = view.clock;
     if (supportedOptions(view).size === 0) { current = null; if (selectedAction !== "recover" || selectedMovement !== "hold") switches += 1;
@@ -146,30 +135,24 @@ export function randomMetaMind(seed: number): MetaMind {
   } };
 }
 
-/** Build the runtime policy only from a checkpoint that passes the complete codec contract. */
-export function learnedMetaMind(source: Checkpoint | Uint8Array | null | undefined): MetaMind {
-  if (source === null || source === undefined) throw new Error("learned-v1 checkpoint is missing");
-  try {
-    const checkpoint = source instanceof Checkpoint ? source : Checkpoint.fromBytes(source);
-    // Against the runtime contract rather than a literal. It was `!== 3`, with
-    // the message naming v3 as well, so bumping the table to v4 would have
-    // refused every freshly written v4 checkpoint -- and said "cannot run as
-    // feature v3" while doing it, which reads exactly backwards.
-    if (checkpoint.featureVersion !== FEATURE_VERSION) {
-      throw new Error(`feature v${checkpoint.featureVersion} checkpoint cannot run as feature v${FEATURE_VERSION}`);
-    }
-    return networkMetaMind(checkpoint.network());
-  } catch (error) {
-    const detail = error instanceof Error ? `: ${error.message}` : "";
-    throw new Error(`learned-v1 checkpoint is corrupt or incompatible${detail}`, { cause: error });
-  }
-}
-
 export function metaDiagnostic(mind: Mind): MetaDiagnostic | null {
   const candidate = mind as Partial<MetaMind>;
   return typeof candidate.diagnostic === "function" ? candidate.diagnostic() : null;
 }
 
+/**
+ * The three below lost their last non-test caller in session 17.
+ *
+ * `train-meta.mjs` and `training-evaluator.mjs` were the only things that scored
+ * a genome with them; the four research directions score through
+ * `scripts/research-havok.mjs` and `learning/tournament.ts` instead. They are
+ * kept for now because each carries a decision the tests state as a sentence --
+ * a draw and a loss are both terminal failures, elapsed survival is worth
+ * exactly zero, engagement is a hard feasibility gate rather than positive
+ * reward, and novelty may guide search but may not change a verdict -- and
+ * `tournament.ts` re-expresses those in its own terms rather than importing
+ * them. Whoever confirms the two agree deletes these; nobody has.
+ */
 export interface FitnessComponents { feasible: boolean; win: number; vitality: number; efficiency: number; survival: number; switchCost: number; total: number }
 export function fitnessComponents(record: BehaviourRecord, opponentVitality: number, switches: number): FitnessComponents {
   // A time-cap draw and a loss are both terminal failures. Elapsed survival

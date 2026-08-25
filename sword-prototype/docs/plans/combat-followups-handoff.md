@@ -26,7 +26,22 @@ From `sword-prototype/` before the new interface work:
 - `npm run build`: passed.
 - `npm run texture:verify`, `npm run armour:verify`, `npm run asset:verify`: passed.
 - `npm run measure -- --seed 20260824`: completed in 310.4 s.
-- `npm run ai:options -- --seed 20260824`: all 12 frozen legacy/meta parity rows matched.
+- `npm run ai:options -- --seed 20260824`: all 12 frozen legacy/meta parity rows matched, and
+  the command exited 0.
+
+  **Scoped, 2026-08-24.** A session-17 correction replaced this line with "this line is wrong";
+  that correction was itself wrong and the original claim stands. `evaluate-options.mjs`
+  compared its whole document against `baseline-v1.json` **only when the two base seeds
+  agreed** -- otherwise it logged `evaluation seed ... is not checked-in baseline seed ...;
+  report completed without replacing it` and fell through to a clean exit. The baseline's
+  `baseSeed` is 20260827, so `--seed 20260824` skipped the only check the stale
+  `featureVersion: 2` could trip. The paired parity rows run regardless of seed and did match.
+
+  What *was* red is the other invocation: `npm run ai:options` at its **default** seed, also
+  20260827, compared and threw `evaluation differs from baseline-v1.json`, and had since
+  session 14. Two invocations, two answers; conflating them is what produced the bad
+  correction. Session 17 deleted the command, the baseline and the evaluator, so neither runs
+  now; `docs/measurements.md`, "Session 17 Stage A", has the account.
 - Port 5180 has no listener.
 
 The root `node tools/check_docs.js` currently reports 29 stale root-document source anchors.
@@ -50,12 +65,14 @@ None is under `sword-prototype`; do not misattribute them to this topic.
 ## Compute findings that changed the plan
 
 - **The gates have never been pointed at a person, and there is no shared recorder to point.**
-  `behaviourRecord()` at `src/options.ts#L418` is built only by `scripts/evaluate-options.mjs`
-  and `scripts/training-evaluator.mjs`; `scripts/research-havok.mjs#L28` hand-rolls its own
+  `behaviourRecord()` at `src/options.ts#L447` is built by **nothing outside the tests**: its
+  only two callers were `scripts/evaluate-options.mjs` and `scripts/training-evaluator.mjs`,
+  which session 17 stage A deleted. `scripts/research-havok.mjs#L28` hand-rolls its own
   `EngagementTracker` on top of `runBout`'s `onSample`/`onEvent` callbacks; and the render loop
   in `src/main.ts` builds nothing. A human bout produces no engagement row. Opportunity-attack
   0.65 has never been shown reachable by a controller *or* a player, against specialist
-  controls at 0.2282 and 0.2031.
+  controls at 0.2282 and 0.2031 -- and see `docs/measurements.md` on what the 16 rows behind
+  0.2282 contain, because two of its eight cells are a club duelist and an idle control.
 - **The old budget was an accept criterion, not a measurement.** 1,800,000,000 steps rested on
   a 30,720-step NEAT smoke and a 19,200-step DAgger smoke -- 0.0017 % and 0.0011 % of it,
   extrapolated about 58,600x and 93,800x.
@@ -65,9 +82,9 @@ None is under `sword-prototype`; do not misattribute them to this topic.
 - **The old protected-surface rule froze every runtime balance constant for that duration**,
   which would have frozen the entire named-open feel agenda in `docs/measurements.md` for over
   a month.
-- **A run is currently a black box until it terminates.** `src/learning/checkpoint.ts` is an
-  artifact serializer; there is no elapsed-time, interval or cadence hook anywhere in
-  `src/learning/`. `--resume` and `--stop-after-jobs` allow stopping and continuing; neither
+- **A run is currently a black box until it terminates.** `src/learning/checkpoint.ts` was an
+  artifact serializer and session 17 deleted it; there is still no elapsed-time, interval or
+  cadence hook anywhere in `src/learning/`. `--resume` and `--stop-after-jobs` allow stopping and continuing; neither
   reports anything.
 - **The page and the bench disagree.** 264.97 mm against 242.88 mm on the arm's peak transient,
   about 9 %, cause not established. A human plays in the page; the baseline was taken in the

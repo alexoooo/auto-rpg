@@ -4,12 +4,11 @@ import test from "node:test";
 import { behaviourRecord, recordBehaviourSample, recordCombatEvent, recordIntentAttack } from "../src/options.ts";
 import { blankIntent } from "../src/policies.ts";
 import { EngagementTracker, attackOpportunity } from "../src/learning/engagement.ts";
-import { INTENT_FIELDS } from "../src/learning/evaluation.ts";
+import { INTENT_FIELDS, intentNumbers } from "../src/learning/evaluation.ts";
 import { fitnessComponents, noveltyScore } from "../src/learning/meta.ts";
 import { SplitReader } from "../src/learning/research.ts";
 import { researchMatrix } from "../src/learning/research-matrix.ts";
 import { assessTournamentCandidate } from "../src/learning/tournament.ts";
-import { intentNumbers } from "../scripts/promotion-evaluator.mjs";
 import { assertCompleteView } from "./fixtures/view.mjs";
 
 const hand = (weapon = "sword", reach = 1.2, outboard = 1) => ({ weapon, reach, lost: false, outboard,
@@ -30,15 +29,17 @@ const writeField = (intent, path, value) => {
   keys.reduce((at, key) => at[key], intent)[last] = value;
 };
 
-test("promotion_finiteness_checks_cover_every_combat_number", () => {
-  // The promotion gate is `intentNumbers(...).some((v) => !Number.isFinite(v))`,
+test("the_finiteness_sweep_covers_every_combat_number_and_nothing_else", () => {
+  // A finiteness gate is `intentNumbers(...).some((v) => !Number.isFinite(v))`,
   // so it is worth exactly as much as the list it reads. A number the list
-  // forgets can go NaN inside a promoted candidate and nothing says so; a field
-  // the command no longer carries -- `zoom`, until session 15 -- arrives as
+  // forgets can go NaN inside a candidate and nothing says so; a field the
+  // command no longer carries -- `zoom`, until session 15 -- arrives as
   // `undefined` and would refuse every candidate for a reason nobody could act
   // on. Marking each numeric leaf with a value of its own pins both directions
   // in one assertion, which a length comparison would not: two errors that
-  // cancel keep the count right.
+  // cancel keep the count right. The list moved out of the deleted promotion
+  // evaluator and into `evaluation.ts` beside `INTENT_FIELDS` in session 17;
+  // this is the only thing that holds the two together.
   const probe = blankIntent();
   const numeric = INTENT_FIELDS.filter((field) => typeof readField(probe, field) === "number");
   numeric.forEach((field, index) => writeField(probe, field, index + 1));
@@ -169,7 +170,7 @@ test("the_behaviour_recorder_counts_attack_windows_instead_of_frame_spam", () =>
   assert.equal(record.engagement.attacksInWindow, 1);
 });
 
-test("legacy_bow_release_and_arrow_contact_convert_one_factual_opportunity", () => {
+test("specialist_bow_release_and_arrow_contact_convert_one_factual_opportunity", () => {
   const sample = view(2); sample.self.hands.primary.weapon = "bow"; sample.self.hands.primary.reach = 0.8;
   const record = behaviourRecord(); recordBehaviourSample(record, sample, null, 0.1, {});
   const intent = blankIntent(); intent.primary.thrust = true;

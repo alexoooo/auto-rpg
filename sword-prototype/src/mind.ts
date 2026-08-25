@@ -60,8 +60,8 @@ import { crawlerMind } from "./bodies/centipede.ts";
  * seam the wrong way: whatever `Controls` happened to hold became what a policy
  * was allowed to ask for. So `zoom`, a camera factor no fighter has ever read,
  * was a field on every command, a column in every scripted policy's movement
- * partial, a key in the intent-parity sweep and a number in the promotion
- * evaluator's finiteness check. A false action dimension is worse than a
+ * partial, a key in the intent-parity sweep and a number in the command's own
+ * finiteness sweep. A false action dimension is worse than a
  * duplicated field: it gets measured, learned against and reported on, and each
  * of those makes it look load-bearing.
  *
@@ -235,7 +235,7 @@ export interface HandView {
    *   punch, where before only steel could commit;
    * - `swinger` reads it for the same question and gets the same new answer;
    * - the `*_tip_speed` feature columns are non-zero for an empty hand, so a v3
-   *   checkpoint would be reading a column that has started moving. That is one
+   *   artifact would be reading a column that has started moving. That is one
    *   of the reasons `FEATURE_VERSION` is 4.
    *
    * What that did to the hand a scripted guard covers is measured in

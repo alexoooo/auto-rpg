@@ -103,9 +103,9 @@ Scripted and learned controllers share those ordinary `Intent` producers and a b
 persistence interval. Novelty descriptors cover range, guard, handedness and attack
 transitions without granting the learner new authority.
 
-The learned meta-controller does not produce poses. A frozen checkpoint maps the versioned
-99-column v4 `FighterView` feature table to separate movement and hand-action logits plus a
-bounded persistence interval. The columns include usable reach margin, facing and the current
+The learned meta-controller does not produce poses. A frozen research artifact maps the
+versioned 99-column v4 `FighterView` feature table to separate movement and hand-action logits
+plus a bounded persistence interval. The columns include usable reach margin, facing and the current
 factorized tactic, as v3 did, and session 16 added what a policy needs to tell an incoming
 strike from a receding one: a nine-way one-hot over the selected threat's kind — arrows and
 bites included — that threat's position and velocity in the observer's own right/up/forward
@@ -119,30 +119,62 @@ policy could be guarding one blade while its perception watched another. It rank
 how fast it is going *and* how near its path takes it to the vitals, not by raw speed, and
 the hand a scripted guard covers therefore moved -- measured, with the win rates either side
 of it, in [measurements](measurements.md). Unsupported options
-are masked from both choice and diagnostics, and reading the diagnostic never runs the network.
-Missing, corrupt, wrong-feature and wrong-option checkpoints refuse by name; there is no
-fallback that quietly turns an experiment into `duelist`.
+are masked before the argmax that chooses one -- `deployableActions` in `learning/meta.ts` is
+the single copy of that mask, and `supportedActionIndices` in `learning/deployment.ts` is only
+its projection onto the argmax's index space -- and the seam below it refuses an
+unsupported action by name rather than substituting a legal one. Reading a controller's
+diagnostic never runs it. A stale or wrong-feature artifact is refused by the envelope before
+any network is built from its payload; there is no fallback that quietly turns an experiment
+into `duelist`.
 
-Loading a checkpoint is deliberately separate from shipping a policy. Registration requires
-held-out wins over scripted and random controls, a 15-point per-loadout specialist bound,
-option diversity, transition diversity and four safety gates. The first three full runs
-failed that rule: the validation-selected network disengaged for 88% of decisions and won
-none of its 120 held-out bouts. Consequently the generic loader and evaluator exist, but
-`POLICIES` has no `learned-v1` entry and the selected checkpoint is not bundled. This is the
-important direction of the boundary: evidence authorizes a picker entry; the existence of
-bytes does not.
+**"Single copy" was a claim about the runtime and was not true when it was written.** The mask
+was spelled out three times -- in `deployment.ts`, `research-policy.ts` and `lookahead.ts` --
+with the argmax reading the first and the *refusal* reading the second, which is precisely the
+arrangement that masks one policy and executes another. It is one copy now. It is **not** one
+copy on the training side, and that is a named open finding rather than something settled:
+`train-ppo.mjs` and `train-lookahead.mjs` rebuild the same set inline, and
+`research-rollout-worker.mjs` carries a fourth that is not even equivalent -- it tests
+`weapon === "sword"` for thrust and an exclusion list for cut, so a network is trained under
+one legality table and deployed under another.
 
-Promotion provenance includes the raw generation ledger, not only requested dimensions.
-A default report must contain exactly 80 rows whose generation fields are 0 through 79 in
-order. This changes no training or selection semantics; it prevents an interrupted or
-spliced report from presenting a complete-run configuration as proof that the run completed.
+Loading a learned policy is deliberately separate from shipping one. Registration requires,
+in `learning/tournament.ts`'s `assessTournamentCandidate`: held-out macro score above both the
+scripted-meta and random-option controls; per cell, non-zero meaningful engagement, the five
+engagement thresholds (opportunity-attack, attack-contact, near-range stall, first-attack p90,
+symmetric time-cap) and a 15-point specialist bound; at least three non-recover actions each
+holding 8% of decisions; and five safety flags -- finite/anatomical commands, capability
+masking, no post-verdict action, no stuck action, and lifecycle. The first three full runs
+failed that rule: the validation-selected network disengaged for 88% of decisions and won none
+of its 120 held-out bouts. Consequently `POLICIES` has no `learned-v1` entry and no candidate
+is bundled. This is the important direction of the boundary: evidence authorizes a picker
+entry; the existence of bytes does not.
+
+**Transition diversity was in that list and is not a gate.** `MIN_STRONGER_MOTIFS` -- "fewer
+than two transition motifs are more common than scripted baseline" -- lived in `promotion.ts`,
+which session 17 deleted with the controller it judged, and `tournament.ts` has no `motif` or
+`transition` concept at all. Worth knowing before anyone rebuilds it: the one candidate ever
+measured against that gate **passed** it, with six motifs ahead of scripted where two were
+required, while failing seven other gates including option diversity and stuck-option safety.
+A gate that only ever agreed with the verdict the other gates had already reached is not
+evidence it worked.
+
+**Session 17 deleted the machinery that ran that first experiment**, and the deletion is the
+point rather than a loss. There were two action vocabularies, two checkpoint formats and two
+promotion gates in the tree at once: the standalone `checkpoint.ts` codec, its trainer and its
+`promotion.ts` thresholds served one superseded controller, while the four research directions
+run entirely through `ResearchArtifact` and the blind tournament in `learning/tournament.ts`.
+The old trainer had in fact never produced a loadable checkpoint at all -- it wrote an
+eight-name option table into a codec that required twelve -- which is what a second vocabulary
+kept "for compatibility" buys. Everything that experiment measured is in
+[measurements](measurements.md) under "Session 17 Stage A"; the thresholds it failed now live
+beside the tournament that will ask them next.
 
 Innovation allocation, mutation, crossover, speciation and evaluation are all seeded. Work
 items carry their genome index through a bounded worker pool and are sorted before selection,
-so worker completion order cannot become evolutionary state. Checkpoints are written
-atomically and resume only when feature, action and training-config versions agree. The
-trainer remains outside runtime inference; a browser can validate and run a frozen network
-without importing the population machinery that created it.
+so worker completion order cannot become evolutionary state. Run state is written atomically
+and resumes only when feature, action and training-config versions agree. The trainer remains
+outside runtime inference; a browser can validate and run a frozen network without importing
+the population machinery that created it.
 
 ### The integrated authority check
 
